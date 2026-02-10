@@ -2,8 +2,8 @@ name: CDB Sentinel Blogger – Threat Intel Auto-Publisher
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # Every 6 hours
-  workflow_dispatch:        # Manual trigger
+    - cron: '0 */6 * * *'     # Every 6 hours (UTC → ~11:30 AM / 5:30 PM IST)
+  workflow_dispatch:          # Allows manual trigger from Actions tab
 
 permissions:
   contents: read
@@ -11,6 +11,7 @@ permissions:
 jobs:
   publish-threat-report:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,7 +25,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "requirements.txt not found – skipping install"
+          fi
 
       - name: Run Sentinel Blogger
         env:
@@ -34,18 +39,20 @@ jobs:
           BLOGGER_BLOG_ID:       ${{ secrets.BLOGGER_BLOG_ID }}
         run: python -m agent.sentinel_blogger
 
-      - name: Upload state file artifact (for debugging)
-        if: always()
-              - name: Upload logs/state (debug)
-        if: always()
+      # ────────────────────────────────────────────────────────────────
+      # DEBUG ARTIFACT UPLOAD – Runs even if previous steps fail
+      # Placed at the END of the job
+      # ────────────────────────────────────────────────────────────────
+      - name: Upload logs/state (debug)
+        if: always()  # Critical: runs on success OR failure
         uses: actions/upload-artifact@v4
         with:
-          name: run-logs-state
+          name: run-logs-state-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
             blogger_processed.json
-            *.log  # If you have log files
-        uses: actions/upload-artifact@v4
-        with:
-          name: blogger-state
-          path: blogger_processed.json
+            *.log
+            agent/*.log
+            data/*.json
+            agent/*.json
           if-no-files-found: warn
+          retention-days: 7
