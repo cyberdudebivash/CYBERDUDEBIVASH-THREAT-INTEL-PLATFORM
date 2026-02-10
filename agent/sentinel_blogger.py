@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """
-CDB-SENTINEL-BLOGGER v2.1 – CyberDudeBivash Automated Threat Intel Publisher
+CDB-SENTINEL-BLOGGER v2.3 – CyberDudeBivash Automated Premium Threat Intel Publisher
 Author: Bivash Kumar Nayak (CyberDudeBivash)
-Purpose: Fetch latest cyber intel → Generate premium 2500–3000+ word reports → Post to Blogger
-Runs via GitHub Actions every 6 hours
+Last Updated: February 11, 2026
 """
 
 import os
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 import feedparser
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -18,19 +17,21 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 
 # ──────────────────────────────────────────────────────────────────────────────
-# CONFIGURATION
+# CONFIGURATION & SECRETS
 # ──────────────────────────────────────────────────────────────────────────────
 
-BLOG_ID = os.getenv('BLOGGER_BLOG_ID', '1735779547938854877')
+BLOG_ID = os.getenv('BLOGGER_BLOG_ID') or '1735779547938854877'
 REFRESH_TOKEN = os.getenv('BLOGGER_REFRESH_TOKEN')
 CLIENT_ID = os.getenv('BLOGGER_CLIENT_ID')
 CLIENT_SECRET = os.getenv('BLOGGER_CLIENT_SECRET')
+
+if not all([REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET]):
+    raise ValueError("Missing Blogger OAuth secrets in environment variables")
 
 SCOPES = ['https://www.googleapis.com/auth/blogger']
 
 STATE_FILE = 'blogger_processed.json'
 
-# Top-tier cybersecurity RSS feeds (2026 curated)
 RSS_FEEDS = [
     'https://thehackernews.com/feeds/posts/default',
     'https://feeds.feedburner.com/Securityweek',
@@ -38,13 +39,12 @@ RSS_FEEDS = [
     'https://www.bleepingcomputer.com/feed/',
     'https://www.darkreading.com/rss_simple.asp',
     'https://threatpost.com/feed/',
-    'https://www.us-cert.gov/ncas/alerts.xml',
     'https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml',
     'https://cve.mitre.org/data/refs/refmap/source-EXPLOIT-DB.rss',
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
-# LOGGING SETUP
+# LOGGING
 # ──────────────────────────────────────────────────────────────────────────────
 
 logging.basicConfig(
@@ -59,11 +59,6 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def get_blogger_service():
-    """Authenticate using refresh token from GitHub Secrets"""
-    if not all([REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET]):
-        logger.error("Missing Blogger credentials in environment variables")
-        raise ValueError("Missing Blogger OAuth credentials")
-
     creds = Credentials(
         None,
         refresh_token=REFRESH_TOKEN,
@@ -72,63 +67,58 @@ def get_blogger_service():
         client_secret=CLIENT_SECRET,
         scopes=SCOPES
     )
-
-    # Refresh token if expired
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        logger.info("Token refreshed successfully")
-
+    creds.refresh(Request())
+    logger.info("Blogger service authenticated successfully")
     return build('blogger', 'v3', credentials=creds)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# STATE MANAGEMENT (Prevent duplicate posts)
+# STATE MANAGEMENT
 # ──────────────────────────────────────────────────────────────────────────────
 
-def load_processed_items():
+def load_processed():
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, 'r') as f:
             return set(json.load(f))
     return set()
 
-def save_processed_items(processed):
+def save_processed(processed):
     with open(STATE_FILE, 'w') as f:
         json.dump(list(processed), f)
-    logger.info(f"Saved {len(processed)} processed items")
+    logger.info(f"Saved {len(processed)} processed items to state file")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# INTEL INGESTION
+# FETCH LATEST INTEL
 # ──────────────────────────────────────────────────────────────────────────────
 
 def fetch_latest_intel(max_per_feed=5):
     intel_items = []
-    processed = load_processed_items()
+    processed = load_processed()
 
     for url in RSS_FEEDS:
         try:
-            feed = feedparser.parse(url, agent='CyberDudeBivash-Sentinel/2.1')
+            feed = feedparser.parse(url)
             if feed.bozo:
-                logger.warning(f"Feed parse warning: {feed.bozo_exception}")
+                logger.warning(f"Feed parse warning for {url}: {feed.bozo_exception}")
                 continue
 
             for entry in feed.entries[:max_per_feed]:
-                guid = entry.get('guid', entry.get('id', entry.link))
+                guid = entry.get('guid') or entry.get('id') or entry.link
                 if guid in processed:
                     continue
 
-                item = {
+                intel_items.append({
                     'guid': guid,
-                    'title': entry.get('title', 'Untitled'),
+                    'title': entry.title,
                     'link': entry.link,
-                    'published': entry.get('published', datetime.utcnow().isoformat()),
+                    'published': entry.get('published', datetime.now(timezone.utc).isoformat()),
                     'summary': entry.get('summary', entry.get('description', '')),
                     'source': feed.feed.get('title', url.split('//')[1].split('/')[0])
-                }
-                intel_items.append(item)
+                })
                 processed.add(guid)
         except Exception as e:
-            logger.error(f"Failed to fetch {url}: {e}")
+            logger.error(f"Failed to fetch feed {url}: {e}")
 
-    save_processed_items(processed)
+    save_processed(processed)
     logger.info(f"Fetched {len(intel_items)} new intel items")
     return intel_items
 
@@ -137,32 +127,25 @@ def fetch_latest_intel(max_per_feed=5):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def generate_premium_report(intel_items):
-    from blog_post_generator import generate_full_post_content  # Assuming you have this module
+    # FIXED: Correct relative import from agent/content/
+    from content.blog_post_generator import generate_full_post_content
 
-    # Sort by published date descending
     intel_items.sort(key=lambda x: x['published'], reverse=True)
-
-    # Generate world-class content
-    content = generate_full_post_content(intel_items)
-
-    # Title with current date
-    today = datetime.now().strftime("%B %d, %Y")
+    today = datetime.now(timezone.utc).strftime("%B %d, %Y")
     title = f"CyberDudeBivash Premium Threat Intel Report – {today} | Zero-Days • Breaches • Malware"
-
+    content = generate_full_post_content(intel_items)
     return title, content
 
 # ──────────────────────────────────────────────────────────────────────────────
-# PUBLISH TO BLOGGER
+# PUBLISH TO BLOGGER WITH RETRY
 # ──────────────────────────────────────────────────────────────────────────────
 
-def publish_to_blogger(title, content):
-    service = get_blogger_service()
-
+def publish_to_blogger(title, content, service):
     post_body = {
         'kind': 'blogger#post',
         'title': title,
         'content': content,
-        'labels': ['Cybersecurity', 'Threat Intel', 'Zero-Day', 'CyberDudeBivash', '2026']
+        'labels': ['ThreatIntel', 'Cybersecurity', 'ZeroDay', 'CyberDudeBivash', '2026']
     }
 
     max_retries = 3
@@ -176,11 +159,11 @@ def publish_to_blogger(title, content):
         except HttpError as e:
             logger.error(f"Blogger API error (attempt {attempt+1}/{max_retries}): {e}")
             if attempt < max_retries - 1:
-                time.sleep(5 * (attempt + 1))  # Exponential backoff
+                time.sleep(10 * (attempt + 1))
             else:
                 raise
         except Exception as e:
-            logger.critical(f"Unexpected error during publish: {e}")
+            logger.critical(f"Unexpected publish error: {e}")
             raise
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -188,16 +171,17 @@ def publish_to_blogger(title, content):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main():
-    logger.info("Starting CyberDudeBivash Threat Intel Automation – Sentinel Blogger v2.1")
+    logger.info("Starting CyberDudeBivash Threat Intel Automation – Sentinel Blogger v2.3")
     try:
-        intel = fetch_latest_intel(max_per_feed=4)  # Balanced volume
+        intel = fetch_latest_intel(max_per_feed=5)
         if not intel:
-            logger.warning("No new intel items found. Skipping post.")
+            logger.warning("No new intel items found. Skipping publication.")
             return
 
+        service = get_blogger_service()
         title, content = generate_premium_report(intel)
-        publish_url = publish_to_blogger(title, content)
-        logger.info(f"Automation complete. Published to: {publish_url}")
+        publish_to_blogger(title, content, service)
+        logger.info("Automation run completed successfully")
     except Exception as e:
         logger.critical(f"Critical failure in main execution: {e}", exc_info=True)
 
