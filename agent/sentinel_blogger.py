@@ -1,133 +1,205 @@
+#!/usr/bin/env python3
 """
-CDB-SENTINEL Blogger Orchestrator
-FINAL • PRODUCTION • FULL PIPELINE
+CDB-SENTINEL-BLOGGER v2.1 – CyberDudeBivash Automated Threat Intel Publisher
+Author: Bivash Kumar Nayak (CyberDudeBivash)
+Purpose: Fetch latest cyber intel → Generate premium 2500–3000+ word reports → Post to Blogger
+Runs via GitHub Actions every 6 hours
 """
 
 import os
-from dotenv import load_dotenv
+import json
+import logging
+import time
+from datetime import datetime
+import feedparser
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 
-from agent.blogger_auth import get_blogger_service
-from agent.blogger_client import publish_post
-from agent.formatter.cdb_template import format_daily_threat_report
+# ──────────────────────────────────────────────────────────────────────────────
+# CONFIGURATION
+# ──────────────────────────────────────────────────────────────────────────────
 
-from agent.intel.cve_feed import fetch_recent_cves
-from agent.intel.kev_feed import fetch_kev_catalog
-from agent.intel.malware_feed import fetch_malware_activity
+BLOG_ID = os.getenv('BLOGGER_BLOG_ID', '1735779547938854877')
+REFRESH_TOKEN = os.getenv('BLOGGER_REFRESH_TOKEN')
+CLIENT_ID = os.getenv('BLOGGER_CLIENT_ID')
+CLIENT_SECRET = os.getenv('BLOGGER_CLIENT_SECRET')
 
-from agent.analysis.attack_coverage import analyze_attack_coverage
-from agent.analysis.cve_deep_dive_selector import select_cves_for_deep_dive
-from agent.publishers.cve_deep_dive_publisher import publish_cve_deep_dive
+SCOPES = ['https://www.googleapis.com/auth/blogger']
 
-from agent.intel.ioc_export import export_stix_bundle, export_misp_event
+STATE_FILE = 'blogger_processed.json'
 
+# Top-tier cybersecurity RSS feeds (2026 curated)
+RSS_FEEDS = [
+    'https://thehackernews.com/feeds/posts/default',
+    'https://feeds.feedburner.com/Securityweek',
+    'https://krebsonsecurity.com/feed/',
+    'https://www.bleepingcomputer.com/feed/',
+    'https://www.darkreading.com/rss_simple.asp',
+    'https://threatpost.com/feed/',
+    'https://www.us-cert.gov/ncas/alerts.xml',
+    'https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml',
+    'https://cve.mitre.org/data/refs/refmap/source-EXPLOIT-DB.rss',
+]
 
-# =================================================
-# ENVIRONMENT
-# =================================================
+# ──────────────────────────────────────────────────────────────────────────────
+# LOGGING SETUP
+# ──────────────────────────────────────────────────────────────────────────────
 
-load_dotenv()
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
 
-BLOG_ID = os.getenv("BLOGGER_BLOG_ID")
-AUTHOR_NAME = os.getenv("AUTHOR_NAME", "CyberDudeBivash Threat Intelligence Team")
-SITE_URL = os.getenv("SITE_URL", "")
+# ──────────────────────────────────────────────────────────────────────────────
+# AUTHENTICATION
+# ──────────────────────────────────────────────────────────────────────────────
 
-if not BLOG_ID:
-    raise RuntimeError("❌ BLOGGER_BLOG_ID not set")
+def get_blogger_service():
+    """Authenticate using refresh token from GitHub Secrets"""
+    if not all([REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET]):
+        logger.error("Missing Blogger credentials in environment variables")
+        raise ValueError("Missing Blogger OAuth credentials")
 
+    creds = Credentials(
+        None,
+        refresh_token=REFRESH_TOKEN,
+        token_uri='https://oauth2.googleapis.com/token',
+        client_id=CLIENT_ID,
+        client_secret=CLIENT_SECRET,
+        scopes=SCOPES
+    )
 
-# =================================================
-# MAIN ORCHESTRATOR
-# =================================================
+    # Refresh token if expired
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        logger.info("Token refreshed successfully")
 
-def run():
+    return build('blogger', 'v3', credentials=creds)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# STATE MANAGEMENT (Prevent duplicate posts)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def load_processed_items():
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, 'r') as f:
+            return set(json.load(f))
+    return set()
+
+def save_processed_items(processed):
+    with open(STATE_FILE, 'w') as f:
+        json.dump(list(processed), f)
+    logger.info(f"Saved {len(processed)} processed items")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# INTEL INGESTION
+# ──────────────────────────────────────────────────────────────────────────────
+
+def fetch_latest_intel(max_per_feed=5):
+    intel_items = []
+    processed = load_processed_items()
+
+    for url in RSS_FEEDS:
+        try:
+            feed = feedparser.parse(url, agent='CyberDudeBivash-Sentinel/2.1')
+            if feed.bozo:
+                logger.warning(f"Feed parse warning: {feed.bozo_exception}")
+                continue
+
+            for entry in feed.entries[:max_per_feed]:
+                guid = entry.get('guid', entry.get('id', entry.link))
+                if guid in processed:
+                    continue
+
+                item = {
+                    'guid': guid,
+                    'title': entry.get('title', 'Untitled'),
+                    'link': entry.link,
+                    'published': entry.get('published', datetime.utcnow().isoformat()),
+                    'summary': entry.get('summary', entry.get('description', '')),
+                    'source': feed.feed.get('title', url.split('//')[1].split('/')[0])
+                }
+                intel_items.append(item)
+                processed.add(guid)
+        except Exception as e:
+            logger.error(f"Failed to fetch {url}: {e}")
+
+    save_processed_items(processed)
+    logger.info(f"Fetched {len(intel_items)} new intel items")
+    return intel_items
+
+# ──────────────────────────────────────────────────────────────────────────────
+# REPORT GENERATION
+# ──────────────────────────────────────────────────────────────────────────────
+
+def generate_premium_report(intel_items):
+    from blog_post_generator import generate_full_post_content  # Assuming you have this module
+
+    # Sort by published date descending
+    intel_items.sort(key=lambda x: x['published'], reverse=True)
+
+    # Generate world-class content
+    content = generate_full_post_content(intel_items)
+
+    # Title with current date
+    today = datetime.now().strftime("%B %d, %Y")
+    title = f"CyberDudeBivash Premium Threat Intel Report – {today} | Zero-Days • Breaches • Malware"
+
+    return title, content
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PUBLISH TO BLOGGER
+# ──────────────────────────────────────────────────────────────────────────────
+
+def publish_to_blogger(title, content):
     service = get_blogger_service()
 
-    # ------------------------------
-    # FETCH INTELLIGENCE
-    # ------------------------------
+    post_body = {
+        'kind': 'blogger#post',
+        'title': title,
+        'content': content,
+        'labels': ['Cybersecurity', 'Threat Intel', 'Zero-Day', 'CyberDudeBivash', '2026']
+    }
 
-    cves = fetch_recent_cves(hours=24, max_results=10)
-    kev_items = fetch_kev_catalog()
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            request = service.posts().insert(blogId=BLOG_ID, body=post_body, isDraft=False)
+            response = request.execute()
+            url = response.get('url', 'No URL returned')
+            logger.info(f"Successfully published: {url}")
+            return url
+        except HttpError as e:
+            logger.error(f"Blogger API error (attempt {attempt+1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(5 * (attempt + 1))  # Exponential backoff
+            else:
+                raise
+        except Exception as e:
+            logger.critical(f"Unexpected error during publish: {e}")
+            raise
 
+# ──────────────────────────────────────────────────────────────────────────────
+# MAIN EXECUTION
+# ──────────────────────────────────────────────────────────────────────────────
+
+def main():
+    logger.info("Starting CyberDudeBivash Threat Intel Automation – Sentinel Blogger v2.1")
     try:
-        malware_items = fetch_malware_activity()
-    except Exception:
-        print("⚠️ MalwareBazaar API unavailable")
-        malware_items = []
+        intel = fetch_latest_intel(max_per_feed=4)  # Balanced volume
+        if not intel:
+            logger.warning("No new intel items found. Skipping post.")
+            return
 
-    # ------------------------------
-    # ATT&CK COVERAGE
-    # ------------------------------
-
-    # FIX: Add missing attack_techniques parameter (was causing TypeError)
-    coverage_gaps = analyze_attack_coverage(
-        cves=cves,
-        malware_items=malware_items,
-        attack_techniques=[]  # Empty list - function requires 3 parameters
-    )
-
-    # ------------------------------
-    # DAILY REPORT
-    # ------------------------------
-
-    content = format_daily_threat_report(
-        cves=cves,
-        kev_items=kev_items,
-        malware_items=malware_items,
-        coverage_gaps=coverage_gaps,
-        author=AUTHOR_NAME,
-        site_url=SITE_URL,
-    )
-
-    result = publish_post(
-        service=service,
-        blog_id=BLOG_ID,
-        title="Daily Cyber Threat Intelligence Report",
-        content=content,
-        labels=[
-            "Threat Intelligence",
-            "CyberDudeBivash",
-            "Daily Report",
-        ],
-        is_draft=False,
-    )
-
-    print("✅ Daily threat report published")
-    print("🔗 Blog URL:", result.get("url"))
-
-    # ------------------------------
-    # IOC EXPORTS
-    # ------------------------------
-
-    export_stix_bundle(cves, malware_items)
-    export_misp_event(cves, malware_items)
-
-    print("📦 STIX & MISP exports completed")
-
-    # ------------------------------
-    # AUTO CVE DEEP DIVES
-    # ------------------------------
-
-    deep_dive_cves = select_cves_for_deep_dive(
-        cves=cves,
-        kev_items=kev_items,
-    )
-
-    for cve in deep_dive_cves:
-        publish_cve_deep_dive(
-            cve=cve,
-            blog_id=BLOG_ID,
-            author=AUTHOR_NAME,
-            site_url=SITE_URL,
-        )
-        print(f"📝 CVE deep dive published: {cve.get('id')}")
-
-    print("✅ Threat report + CVE deep dives completed")
-
-
-# =================================================
-# ENTRYPOINT
-# =================================================
+        title, content = generate_premium_report(intel)
+        publish_url = publish_to_blogger(title, content)
+        logger.info(f"Automation complete. Published to: {publish_url}")
+    except Exception as e:
+        logger.critical(f"Critical failure in main execution: {e}", exc_info=True)
 
 if __name__ == "__main__":
-    run()
+    main()
