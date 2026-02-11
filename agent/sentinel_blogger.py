@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-CDB-SENTINEL-BLOGGER v2.7 – CyberDudeBivash Automated Premium Threat Intel Publisher
+CDB-SENTINEL-BLOGGER v2.8 – CyberDudeBivash Automated Premium Threat Intel Publisher
 Author: Bivash Kumar Nayak (CyberDudeBivash)
-Last Updated: February 11, 2026 – Enhanced template integration
+Last Updated: February 11, 2026 – Enhanced logging & template integration
 """
 
 import os
@@ -97,7 +97,7 @@ def fetch_latest_intel(max_per_feed=5):
 
     for url in RSS_FEEDS:
         try:
-            feed = feedparser.parse(url, agent='CyberDudeBivash-Sentinel/2.7')
+            feed = feedparser.parse(url)
             if feed.bozo:
                 logger.warning(f"Feed parse warning {url}: {feed.bozo_exception}")
                 continue
@@ -134,6 +134,7 @@ def generate_premium_report(intel_items):
     intel_items.sort(key=lambda x: x['published'], reverse=True)
     title = f"CyberDudeBivash Premium Threat Intel Report – {datetime.now(timezone.utc).strftime('%B %d, %Y')} | Zero-Days • Breaches • Malware"
     content = generate_full_post_content(intel_items)
+    logger.info("Premium report generated successfully")
     return title, content
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -147,7 +148,7 @@ def publish_to_blogger(title, content):
         'kind': 'blogger#post',
         'title': title,
         'content': content,
-        'labels': ['ThreatIntel', 'Cybersecurity', 'ZeroDay', 'CyberDudeBivash']
+        'labels': ['ThreatIntel', 'Cybersecurity', 'ZeroDay', 'CyberDudeBivash', '2026']
     }
 
     max_retries = 3
@@ -173,7 +174,7 @@ def publish_to_blogger(title, content):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main():
-    logger.info("Starting CyberDudeBivash Threat Intel Automation – Sentinel Blogger v2.7")
+    logger.info("Starting CyberDudeBivash Threat Intel Automation – Sentinel Blogger v2.8")
     try:
         intel = fetch_latest_intel(max_per_feed=5)
         if not intel:
