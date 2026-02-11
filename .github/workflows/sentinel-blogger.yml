@@ -2,8 +2,8 @@ name: CDB Sentinel Blogger – Threat Intel Auto-Publisher
 
 on:
   schedule:
-    - cron: '0 */6 * * *'     # Every 6 hours (UTC → ~11:30 AM / 5:30 PM IST)
-  workflow_dispatch:          # Allows manual trigger from Actions tab
+    - cron: '0 */6 * * *'     # Every 6 hours (UTC – adjust if you want IST alignment)
+  workflow_dispatch:          # Manual trigger from Actions tab
 
 permissions:
   contents: read
@@ -33,10 +33,10 @@ jobs:
 
       - name: Run Sentinel Blogger
         env:
-          BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
-          BLOGGER_CLIENT_ID:     ${{ secrets.BLOGGER_CLIENT_ID }}
-          BLOGGER_CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
-          BLOGGER_BLOG_ID:       ${{ secrets.BLOGGER_BLOG_ID }}
+          REFRESH_TOKEN:     ${{ secrets.REFRESH_TOKEN }}
+          CLIENT_ID:         ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET:     ${{ secrets.CLIENT_SECRET }}
+          BLOG_ID:           ${{ secrets.BLOG_ID }}
         run: python -m agent.sentinel_blogger
 
       # ────────────────────────────────────────────────────────────────
@@ -47,11 +47,12 @@ jobs:
         if: always()  # Critical: runs on success OR failure
         uses: actions/upload-artifact@v4
         with:
-          name: run-logs-state-${{ github.run_number }}-${{ github.run_attempt }}
+          name: run-logs-state-run${{ github.run_number }}-attempt${{ github.run_attempt }}
           path: |
             blogger_processed.json
             *.log
             agent/*.log
+            agent/content/*.log
             data/*.json
             agent/*.json
           if-no-files-found: warn
