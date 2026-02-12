@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-CDB-SENTINEL-BLOGGER v2.7 – CyberDudeBivash Automated Premium Threat Intel Publisher
+CDB-SENTINEL-BLOGGER v2.8 – CyberDudeBivash Automated Premium Threat Intel Publisher
 Author: Bivash Kumar Nayak (CyberDudeBivash)
-Last Updated: February 13, 2026 – Fixed relative import + safe state handling
+Last Updated: February 13, 2026 – Safe state handling + relative import fix
 """
 
 import os
@@ -55,7 +55,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# SAFE STATE MANAGEMENT (creates data/ folder if missing)
+# SAFE STATE MANAGEMENT (creates data/ folder if missing, handles empty/corrupt JSON)
 # ──────────────────────────────────────────────────────────────────────────────
 
 STATE_DIR = os.path.dirname(STATE_FILE)  # 'data'
@@ -64,15 +64,30 @@ if not os.path.exists(STATE_DIR):
     logger.info(f"Created missing state directory: {STATE_DIR}")
 
 def load_processed():
-    if os.path.exists(STATE_FILE):
+    if not os.path.exists(STATE_FILE):
+        logger.info("No state file found – starting fresh")
+        return set()
+
+    try:
         with open(STATE_FILE, 'r') as f:
-            processed = json.load(f)
+            content = f.read().strip()
+            if not content:
+                logger.info("State file is empty – starting fresh")
+                return set()
+            processed = json.loads(content)
+            if not isinstance(processed, list):
+                logger.warning("Invalid state file format – resetting to empty")
+                return set()
             if len(processed) > MAX_STATE_SIZE:
                 processed = processed[-MAX_STATE_SIZE:]  # Keep last 1000
                 logger.info("State file pruned to latest 1000 entries")
             return set(processed)
-    logger.info("No state file found – starting fresh")
-    return set()
+    except json.JSONDecodeError as e:
+        logger.error(f"State file corrupt/invalid JSON: {e} – resetting to empty")
+        return set()
+    except Exception as e:
+        logger.error(f"State load failed: {e} – starting fresh")
+        return set()
 
 def save_processed(processed):
     with open(STATE_FILE, 'w') as f:
