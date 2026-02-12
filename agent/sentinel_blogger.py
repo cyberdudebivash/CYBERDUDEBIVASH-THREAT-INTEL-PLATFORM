@@ -2,7 +2,7 @@
 """
 CDB-SENTINEL-BLOGGER v2.7 – CyberDudeBivash Automated Premium Threat Intel Publisher
 Author: Bivash Kumar Nayak (CyberDudeBivash)
-Last Updated: February 13, 2026 – Fixed relative import for blogger_auth.py
+Last Updated: February 13, 2026 – Fixed relative import + safe state handling
 """
 
 import os
@@ -13,8 +13,7 @@ from datetime import datetime, timezone
 import feedparser
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
+from .blogger_auth import get_blogger_credentials  # FIXED: relative import with dot
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION – MATCH YOUR GITHUB SECRET NAMES EXACTLY
@@ -56,25 +55,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# BLOGGER SERVICE AUTHENTICATION (CENTRALIZED)
+# SAFE STATE MANAGEMENT (creates data/ folder if missing)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def get_blogger_service():
-    creds = Credentials(
-        None,
-        refresh_token=REFRESH_TOKEN,
-        token_uri='https://oauth2.googleapis.com/token',
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
-        scopes=SCOPES
-    )
-    creds.refresh(Request())
-    logger.info("Blogger service authenticated successfully using refresh token")
-    return build('blogger', 'v3', credentials=creds)
-
-# ──────────────────────────────────────────────────────────────────────────────
-# STATE MANAGEMENT WITH CLEANUP
-# ──────────────────────────────────────────────────────────────────────────────
+STATE_DIR = os.path.dirname(STATE_FILE)  # 'data'
+if not os.path.exists(STATE_DIR):
+    os.makedirs(STATE_DIR)
+    logger.info(f"Created missing state directory: {STATE_DIR}")
 
 def load_processed():
     if os.path.exists(STATE_FILE):
@@ -84,6 +71,7 @@ def load_processed():
                 processed = processed[-MAX_STATE_SIZE:]  # Keep last 1000
                 logger.info("State file pruned to latest 1000 entries")
             return set(processed)
+    logger.info("No state file found – starting fresh")
     return set()
 
 def save_processed(processed):
@@ -92,7 +80,7 @@ def save_processed(processed):
     logger.info(f"Saved {len(processed)} processed items")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# FETCH LATEST INTEL (ENHANCED WITH NVD API)
+# FETCH LATEST INTEL
 # ──────────────────────────────────────────────────────────────────────────────
 
 def fetch_latest_intel(max_per_feed=5):
@@ -133,7 +121,7 @@ def fetch_latest_intel(max_per_feed=5):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def generate_premium_report(intel_items):
-    # FIXED: Relative import with dot (from agent/ package)
+    # Relative import from agent/content/
     from .content.blog_post_generator import generate_full_post_content
 
     intel_items.sort(key=lambda x: x['published'], reverse=True)
