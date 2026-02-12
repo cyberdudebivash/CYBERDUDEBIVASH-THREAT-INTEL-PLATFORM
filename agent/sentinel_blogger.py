@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 import feedparser
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from .blogger_auth import get_blogger_credentials  # FIXED: relative import with dot
+from .blogger_auth import get_blogger_service  # FIXED: relative import with dot
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION – MATCH YOUR GITHUB SECRET NAMES EXACTLY
@@ -183,7 +183,7 @@ def publish_to_blogger(title, content, service):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main():
-    logger.info("Starting CyberDudeBivash Threat Intel Automation – Sentinel Blogger v2.7")
+    logger.info("Starting CyberDudeBivash Threat Intel Automation – Sentinel Blogger v2.8")
     try:
         intel = fetch_latest_intel(max_per_feed=5)
         if not intel:
