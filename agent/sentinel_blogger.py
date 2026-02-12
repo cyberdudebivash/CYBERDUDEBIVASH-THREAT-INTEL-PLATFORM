@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-CDB-SENTINEL-BLOGGER v2.9 – CyberDudeBivash Automated Premium Threat Intel Publisher
+CDB-SENTINEL-BLOGGER v2.6 – CyberDudeBivash Automated Premium Threat Intel Publisher
 Author: Bivash Kumar Nayak (CyberDudeBivash)
-Last Updated: February 11, 2026 – Aligned to exact secret names + fixed relative import
+Last Updated: February 12, 2026 – Full enhancements & new features
 """
 
 import os
@@ -13,30 +13,19 @@ from datetime import datetime, timezone
 import feedparser
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
+from blogger_auth import get_blogger_credentials  # Centralized auth
 
 # ──────────────────────────────────────────────────────────────────────────────
-# CONFIGURATION – MATCH YOUR GITHUB SECRET NAMES EXACTLY
+# CONFIGURATION
 # ──────────────────────────────────────────────────────────────────────────────
 
-REFRESH_TOKEN = os.getenv('REFRESH_TOKEN')
-CLIENT_ID     = os.getenv('CLIENT_ID')
-CLIENT_SECRET = os.getenv('CLIENT_SECRET')
-BLOG_ID       = os.getenv('BLOG_ID') or '1735779547938854877'
-
-if not all([REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET, BLOG_ID]):
-    missing = [k for k, v in {
-        'REFRESH_TOKEN': REFRESH_TOKEN,
-        'CLIENT_ID': CLIENT_ID,
-        'CLIENT_SECRET': CLIENT_SECRET,
-        'BLOG_ID': BLOG_ID
-    }.items() if not v]
-    raise ValueError(f"Missing Blogger OAuth secrets: {', '.join(missing)}")
+BLOG_ID = os.getenv('BLOG_ID') or '1735779547938854877'
+NVD_API_KEY = os.getenv('NVD_API_KEY')
 
 SCOPES = ['https://www.googleapis.com/auth/blogger']
 
-STATE_FILE = 'blogger_processed.json'
+STATE_FILE = 'data/blogger_processed.json'
+MAX_STATE_SIZE = 1000  # New: Limit state file growth
 
 RSS_FEEDS = [
     'https://thehackernews.com/feeds/posts/default',
@@ -44,48 +33,34 @@ RSS_FEEDS = [
     'https://krebsonsecurity.com/feed/',
     'https://www.bleepingcomputer.com/feed/',
     'https://www.darkreading.com/rss_simple.asp',
-    'https://threatpost.com/feed/',
     'https://www.us-cert.gov/ncas/alerts.xml',
     'https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml',
-    'https://cve.mitre.org/data/refs/refmap/source-EXPLOIT-DB.rss',
+    'https://cert-in.org.in/RSSFeed.jsp'  # New: India CERT-In RSS
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
-# LOGGING SETUP
+# LOGGING
 # ──────────────────────────────────────────────────────────────────────────────
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[logging.FileHandler('cyberdudebivash.log'), logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# BLOGGER SERVICE AUTHENTICATION
-# ──────────────────────────────────────────────────────────────────────────────
-
-def get_blogger_service():
-    creds = Credentials(
-        None,
-        refresh_token=REFRESH_TOKEN,
-        token_uri='https://oauth2.googleapis.com/token',
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
-        scopes=SCOPES
-    )
-    creds.refresh(Request())
-    logger.info("Blogger service authenticated successfully")
-    return build('blogger', 'v3', credentials=creds)
-
-# ──────────────────────────────────────────────────────────────────────────────
-# STATE MANAGEMENT (deduplication)
+# STATE MANAGEMENT WITH CLEANUP
 # ──────────────────────────────────────────────────────────────────────────────
 
 def load_processed():
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, 'r') as f:
-            return set(json.load(f))
+            processed = json.load(f)
+            if len(processed) > MAX_STATE_SIZE:
+                processed = processed[-MAX_STATE_SIZE:]  # Keep last 1000
+                logger.info("State file pruned to latest 1000 entries")
+            return set(processed)
     return set()
 
 def save_processed(processed):
@@ -94,7 +69,7 @@ def save_processed(processed):
     logger.info(f"Saved {len(processed)} processed items")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# FETCH LATEST THREAT INTEL FROM RSS
+# FETCH INTEL (ENHANCED WITH NVD API + RATE LIMIT)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def fetch_latest_intel(max_per_feed=5):
@@ -113,20 +88,49 @@ def fetch_latest_intel(max_per_feed=5):
                 if guid in processed:
                     continue
 
-                intel_items.append({
+                item = {
                     'guid': guid,
                     'title': entry.title,
                     'link': entry.link,
                     'published': entry.get('published', datetime.now(timezone.utc).isoformat()),
                     'summary': entry.get('summary', entry.get('description', '')),
                     'source': feed.feed.get('title', url.split('//')[1].split('/')[0])
-                })
+                }
+                intel_items.append(item)
                 processed.add(guid)
+                time.sleep(1)  # Rate limit for feeds
         except Exception as e:
             logger.error(f"Failed to fetch {url}: {e}")
 
+    # New: Add NVD API for CVSS ≥7 CVEs
+    if NVD_API_KEY:
+        try:
+            nvd_url = "https://services.nvd.nist.gov/rest/json/cves/2.0?cvssV3Severity=CRITICAL&resultsPerPage=5&startIndex=0"
+            headers = {"apiKey": NVD_API_KEY}
+            r = requests.get(nvd_url, headers=headers, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                for vuln in data['vulnerabilities']:
+                    cve = vuln['cve']
+                    guid = cve['id']
+                    if guid in processed:
+                        continue
+
+                    item = {
+                        'guid': guid,
+                        'title': cve['descriptions'][0]['value'],
+                        'link': cve.get('sourceLink', 'https://nvd.nist.gov/vuln/detail/' + guid),
+                        'published': cve['published'],
+                        'summary': cve['descriptions'][0]['value'],
+                        'source': 'NVD'
+                    }
+                    intel_items.append(item)
+                    processed.add(guid)
+                logger.info("Fetched additional critical CVEs from NVD API")
+        except Exception as e:
+            logger.error(f"NVD API fetch failed: {e}")
+
     save_processed(processed)
-    logger.info(f"Fetched {len(intel_items)} new intel items")
     return intel_items
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -134,7 +138,6 @@ def fetch_latest_intel(max_per_feed=5):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def generate_premium_report(intel_items):
-    # FIXED: Correct relative import from agent/content/
     from .content.blog_post_generator import generate_full_post_content
 
     intel_items.sort(key=lambda x: x['published'], reverse=True)
@@ -174,14 +177,12 @@ def publish_to_blogger(title, content, service):
             logger.critical(f"Unexpected publish error: {e}")
             raise
 
-    raise RuntimeError("Publish failed after retries")
-
 # ──────────────────────────────────────────────────────────────────────────────
 # MAIN EXECUTION
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main():
-    logger.info("Starting CyberDudeBivash Threat Intel Automation – Sentinel Blogger v2.9")
+    logger.info("Starting CyberDudeBivash Threat Intel Automation – Sentinel Blogger v2.6")
     try:
         intel = fetch_latest_intel(max_per_feed=5)
         if not intel:
