@@ -1,196 +1,136 @@
-# CDB-SENTINEL-BLOGGER - WORLD-CLASS EDITION
-## Professional Cyber Threat Intelligence Blog Publisher
+# 🛡️ CDB-SENTINEL — Threat Intelligence Platform
 
-**© 2026 CyberDudeBivash Pvt Ltd**
+**Automated Cyber Threat Intelligence Publisher by CyberDudeBivash Pvt Ltd**
 
----
-
-## ✅ COMPLETE PRODUCTION-READY SYSTEM
-
-This is the **FINAL, COMPLETE, PRODUCTION-READY** version of CDB-SENTINEL-BLOGGER with:
-
-### WORLD-CLASS CONTENT GENERATION
-✅ **2500-3000+ words per post** - Comprehensive, long-form analysis
-✅ **100% unique content** - No duplicates, every post different
-✅ **Trending SEO headlines** - Optimized for search engines
-✅ **Professional quality** - Beats The Hacker News, CrowdStrike, Bleeping Computer
-✅ **Complete CyberDudeBivash authority** - Branding throughout
-✅ **Visual elements** - Mermaid.js diagrams, CVSS charts
-✅ **MITRE ATT&CK mapping** - Professional framework integration
-✅ **All sections included** - 20+ content sections per post
-
-### SYSTEM FEATURES
-- Fixed TypeError (analyze_attack_coverage)
-- NVD CVE monitoring (CVSS ≥ 7.0)
-- CISA KEV integration
-- Automated blog posting to Blogger
-- GitHub Actions automation (every 6 hours)
-- State management (no duplicates)
-- STIX/MISP export
+[![Daily Pipeline](https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions/workflows/sentinel-daily.yml/badge.svg)](https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions)
+[![Weekly Report](https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions/workflows/sentinel-weekly.yml/badge.svg)](https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions)
 
 ---
 
-## 🚀 WHAT'S BEEN FIXED
+## What This Does
 
-### Critical Issues Resolved:
-1. ✅ **Pipeline Error Fixed** - Added missing `attack_techniques=[]` parameter
-2. ✅ **Content Quality Enhanced** - World-class blog post generator implemented
-3. ✅ **Uniqueness Guaranteed** - Every post has unique headline, structure, content
-4. ✅ **Professional Quality** - 2500-3000+ words, ultra-professional
+CDB-SENTINEL automatically monitors global cyber threats and publishes professional, revenue-optimized intelligence reports to [CyberDudeBivash News](https://cyberdudebivash-news.blogspot.com).
+
+**Pipeline:** RSS Feeds → NVD/CISA/MalwareBazaar → Enrichment → Professional HTML → Blogger API → Published
 
 ---
 
-## 📦 PACKAGE CONTENTS
+## Features
+
+| Capability | Description |
+|:--|:--|
+| **Multi-Source Intel** | 8 RSS feeds + NVD CVE API + CISA KEV + MalwareBazaar |
+| **EPSS Enrichment** | Current probability + 7-day trend + 24h acceleration |
+| **Risk Ranking** | CVSS + EPSS + KEV bonus scoring engine |
+| **MITRE ATT&CK** | Coverage gap analysis + Navigator heatmap export |
+| **Professional HTML** | Inline-styled reports that render beautifully everywhere |
+| **Revenue CTAs** | Newsletter, services, tools, consulting — in every post |
+| **Deduplication** | State file prevents duplicate publications |
+| **Weekly Reports** | Monday mega-reports with top 10 exploited CVEs |
+| **Deep Dives** | Individual authority-grade CVE analysis posts |
+| **IOC Export** | STIX 2.1 + MISP compatible output |
+| **Retry Logic** | Exponential backoff on API failures |
+| **Metrics** | Per-run pipeline performance tracking |
+
+---
+
+## Architecture
 
 ```
-CDB-SENTINEL-BLOGGER-WORLDCLASS-FINAL/
-├── agent/
-│   ├── sentinel_blogger.py              # ✅ FIXED main blogger (line 62-66)
-│   ├── content/
-│   │   └── blog_post_generator.py       # ✅ COMPLETE world-class generator
-│   ├── ingestion/                       # CVE/CISA data fetching
-│   ├── analysis/                        # ATT&CK analysis
-│   ├── publishers/                      # Blogger API integration
-│   └── ...
-├── .github/workflows/
-│   └── sentinel-blogger.yml             # GitHub Actions automation
-├── data/
-│   └── blogger_processed.json           # State tracking
-├── credentials/                         # OAuth credentials (gitignored)
-├── requirements.txt
-├── README.md                            # This file
-└── DEPLOYMENT.md                        # Deployment instructions
+agent/
+├── config.py                  # Centralized configuration
+├── sentinel_blogger.py        # Daily pipeline orchestrator
+├── sentinel_weekly.py         # Weekly mega-report orchestrator
+├── blogger_auth.py            # OAuth2 authentication
+├── blogger_client.py          # Blogger API client
+├── dashboard.py               # Streamlit dashboard
+├── content/
+│   └── blog_post_generator.py # Premium HTML report generator
+├── formatter/
+│   ├── cdb_template.py        # Daily report formatter
+│   ├── cdb_cve_deep_dive.py   # CVE deep-dive formatter
+│   └── cdb_weekly_cve_report.py # Weekly report formatter
+├── intel/
+│   ├── cve_feed.py            # NVD + EPSS integration
+│   ├── kev_feed.py            # CISA KEV feed
+│   ├── malware_feed.py        # MalwareBazaar feed
+│   └── ioc_export.py          # STIX/MISP export
+├── analysis/
+│   ├── attack_coverage.py     # ATT&CK gap analysis
+│   ├── attack_navigator.py    # Navigator layer export
+│   ├── detection_recommendations.py  # Sigma/KQL rules
+│   ├── weekly_cve_ranker.py   # Risk-based CVE ranking
+│   └── cve_deep_dive_selector.py     # Deep-dive selection
+└── publishers/
+    └── cve_deep_dive_publisher.py    # Deep-dive publisher
 ```
 
 ---
 
-## 🎯 KEY FEATURES
+## Quick Start
 
-### Content Generation:
-- **Unique Headlines**: 100+ templates, randomized, SEO-optimized
-- **Professional Sections**: 20+ sections per post
-  - Branded header
-  - Alert banner with severity
-  - Executive summary (300+ words)
-  - Quick facts visualization
-  - Threat landscape context (400+ words)
-  - Technical deep dive (500+ words)
-  - Attack flow diagrams (Mermaid.js)
-  - CVSS visualization
-  - Real-world attack scenarios (400+ words)
-  - MITRE ATT&CK mapping (300+ words)
-  - Business impact assessment (400+ words)
-  - Expert commentary (300+ words)
-  - Detection strategies (400+ words)
-  - Remediation roadmap (500+ words)
-  - Services promotion
-  - Resources & ecosystem
-  - Author bio
-  - Contact/CTA
-  - Professional footer
+### 1. Configure GitHub Secrets
 
-### Automation:
-- Runs every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)
-- Maximum 5 posts per run
-- State persistence prevents duplicates
-- Automatic STIX/MISP export
+Go to **Settings → Secrets → Actions** and add:
 
----
+| Secret | Value |
+|:--|:--|
+| `REFRESH_TOKEN` | Google OAuth refresh token |
+| `CLIENT_ID` | Google OAuth client ID |
+| `CLIENT_SECRET` | Google OAuth client secret |
+| `BLOG_ID` | `1735779547938854877` |
 
-## 🔧 DEPLOYMENT
+### 2. Run the Pipeline
 
-### Prerequisites:
-1. Google Cloud Console project
-2. Blogger API enabled
-3. OAuth2 credentials (Desktop app)
-4. Blog ID: `1735779547938854877`
+**GitHub Actions (automated):**
+- Daily: Runs every 6 hours automatically
+- Weekly: Runs every Monday at 08:00 UTC
+- Manual: Actions → Run workflow
 
-### Setup Steps:
-
-1. **Create GitHub Repository**
-   ```bash
-   # Upload this entire folder to GitHub
-   ```
-
-2. **Configure GitHub Secrets**
-   ```
-   BLOGGER_BLOG_ID: 1735779547938854877
-   BLOGGER_CREDENTIALS: <full credentials.json content>
-   BLOGGER_TOKEN: <full token.json content>
-   NVD_API_KEY: <optional>
-   ```
-
-3. **Run Workflow**
-   - Go to Actions → Run workflow
-   - Should complete successfully ✅
-
----
-
-## 📊 BEFORE vs AFTER
-
-| Metric | Before | After (World-Class) |
-|--------|--------|---------------------|
-| Word Count | 500-800 | 2500-3000+ |
-| Unique Headlines | ❌ No | ✅ Yes (100+ templates) |
-| Content Quality | ⭐⭐ Basic | ⭐⭐⭐⭐⭐ Professional |
-| Visual Elements | ❌ None | ✅ Diagrams, Charts |
-| MITRE ATT&CK | ❌ None | ✅ Complete Integration |
-| Uniqueness | ❌ Duplicate | ✅ 100% Unique |
-| Professional | ❌ Templated | ✅ Ultra-Professional |
-
----
-
-## 💡 USAGE
-
-The system runs automatically via GitHub Actions, but you can also run locally:
-
+**Local:**
 ```bash
-# Install dependencies
 pip install -r requirements.txt
 
-# Run blogger
-python -m agent.sentinel_blogger
-```
+export REFRESH_TOKEN="your-token"
+export CLIENT_ID="your-client-id"
+export CLIENT_SECRET="your-secret"
+export BLOG_ID="1735779547938854877"
 
-**Expected Output:**
-```
-✅ Daily threat report published
-🔗 Blog URL: .../2026/02/...
-📦 STIX exported
-📦 MISP exported
-✅ Threat report + CVE deep dives completed
+python -m agent.sentinel_blogger     # Daily
+python -m agent.sentinel_weekly      # Weekly
 ```
 
 ---
 
-## 🎯 CONTENT QUALITY GUARANTEE
+## Revenue Optimization
 
-Every post generated by this system:
+Every published report includes:
 
-✅ **2500-3000+ words** - Comprehensive, detailed analysis
-✅ **Unique headline** - Different every time, SEO-optimized
-✅ **Professional structure** - 20+ sections with authority
-✅ **CyberDudeBivash branding** - Complete authority throughout
-✅ **Visual elements** - Diagrams, charts, professional graphics
-✅ **Actionable intelligence** - Real-world scenarios, remediation
-✅ **No duplicates** - State management ensures uniqueness
-
----
-
-## 📞 SUPPORT
-
-**CyberDudeBivash Pvt Ltd**
-- Website: https://www.cyberdudebivash.com
-- Email: iambivash@cyberdudebivash.com
-- Phone: +918179881447
-- Location: Bhubaneswar, Odisha, India
+- **Newsletter CTA** — Email capture for subscriber growth
+- **Services Promotion** — Pentest, MDR, AI audit, training
+- **Tools Showcase** — Open-source tools with GitHub links
+- **Consulting CTA** — Direct email consultation requests
+- **Ecosystem Links** — Cross-promotion across all CDB properties
+- **Professional Branding** — Authority positioning throughout
 
 ---
 
-## 📄 LICENSE
+## Security
 
-© 2026 CyberDudeBivash Pvt Ltd. All Rights Reserved.
+⚠️ **Never commit credentials to Git.** Use GitHub Secrets or environment variables.
+
+The `.gitignore` file blocks `credentials/`, `token.json`, `.env`, and all sensitive files.
 
 ---
 
-**STATUS:** ✅ PRODUCTION-READY | ✅ PIPELINE FIXED | ✅ WORLD-CLASS QUALITY
+## Contact
+
+**CyberDudeBivash Pvt. Ltd.**
+- 🌐 [cyberdudebivash.com](https://www.cyberdudebivash.com)
+- 📧 iambivash@cyberdudebivash.com
+- 📞 +91 81798 81447
+- 📍 Bhubaneswar, Odisha, India
+
+---
+
+© 2024–2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
