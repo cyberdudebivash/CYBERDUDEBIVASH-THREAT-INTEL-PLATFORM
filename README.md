@@ -127,7 +127,7 @@ The `.gitignore` file blocks `credentials/`, `token.json`, `.env`, and all sensi
 
 **CyberDudeBivash Pvt. Ltd.**
 - 🌐 [cyberdudebivash.com](https://www.cyberdudebivash.com)
-- 📧 iambivash@cyberdudebivash.com
+- 📧 bivash@cyberdudebivash.com
 - 📞 +91 81798 81447
 - 📍 Bhubaneswar, Odisha, India
 
