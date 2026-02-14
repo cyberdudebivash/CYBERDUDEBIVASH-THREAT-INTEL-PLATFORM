@@ -1,116 +1,76 @@
 """
-blog_post_generator.py — CyberDudeBivash v4.5 APEX
-Final Production Version: AI Triage & Forensic Indicator Tables.
+blog_post_generator.py — CyberDudeBivash v4.6 APEX
+Technical Content Engine with Geo-IP and Infrastructure Tables.
 """
 from typing import List, Dict, Optional
 from datetime import datetime, timezone
 
 def generate_headline(intel_items: List[Dict]) -> str:
-    """
-    Generates a high-impact, consolidated headline for the report.
-    Picks the primary threat and notes the volume of secondary updates.
-    """
-    if not intel_items:
-        return "CDB Sentinel: Global Intelligence Sweep"
-    
+    """Generates a high-impact, consolidated headline."""
+    if not intel_items: return "CDB Sentinel Intel Sweep"
     primary = intel_items[0].get('title', 'Unknown Threat')
-    if len(intel_items) > 1:
-        return f"CRITICAL: {primary} (+{len(intel_items)-1} Intelligence Nodes)"
-    return f"THREAT ADVISORY: {primary}"
+    return f"CRITICAL: {primary} (+{len(intel_items)-1} Updates)" if len(intel_items) > 1 else f"ADVISORY: {primary}"
 
-def generate_full_post_content(intel_items: List[Dict], iocs: Optional[Dict] = None) -> str:
-    """
-    Assembles the professional HTML body for the Blogger publication.
-    Includes forensic IoC tables and dynamic timestamping.
-    """
-    # Initialize HTML sequence with a professional cyber-intel header
+def generate_full_post_content(intel_items: List[Dict], iocs: Optional[Dict] = None, pro_data: Optional[Dict] = None) -> str:
+    """Renders final HTML with forensic enrichment and Geo-IP context."""
     html = [f"""
-    <div style="font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1a1f36; line-height: 1.8; max-width: 800px; margin: auto; border: 1px solid #e3e8ee; border-radius: 8px; overflow: hidden;">
-        <div style="background: #1a1f36; color: #ffffff; padding: 30px; text-align: left;">
-            <h1 style="margin: 0; font-size: 26px; letter-spacing: 1px;">CYBERDUDEBIVASH THREAT REPORT</h1>
-            <p style="margin: 8px 0 0; opacity: 0.8; font-family: monospace;">
-                STATUS: ACTIVE TRIAGE | GENERATED: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC
-            </p>
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #1a1f36; line-height: 1.8; max-width: 850px; margin: auto; border: 1px solid #e3e8ee; border-radius: 8px;">
+        <div style="background: #1a1f36; color: #ffffff; padding: 25px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">CYBERDUDEBIVASH THREAT REPORT</h1>
+            <p style="margin: 5px 0 0; opacity: 0.8; font-family: monospace;">{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC | APEX v4.6</p>
         </div>
         <div style="padding: 25px;">
     """]
 
-    # 1. Intelligence Node Summaries
-    html.append('<h2 style="color: #5469d4; border-bottom: 2px solid #f7fafc; padding-bottom: 10px;">Executive Summary</h2>')
+    # 1. Executive Summaries
     for item in intel_items:
         html.append(f"""
-        <div style="margin-bottom: 25px; padding: 15px; background: #f7fafc; border-left: 4px solid #5469d4; border-radius: 4px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 18px;">
-                <a href="{item.get('link', '#')}" style="color: #1a73e8; text-decoration: none;">{item.get('title', 'Untitled')}</a>
-            </h3>
-            <p style="margin: 0; font-size: 15px; color: #4f566b;">{item.get('summary', 'No summary available.')}</p>
+        <div style="border-bottom: 1px solid #e3e8ee; padding: 15px 0; margin-bottom: 15px;">
+            <h3 style="color: #5469d4; margin: 0;"><a href="{item.get('link','#')}" style="color: inherit; text-decoration: none;">{item.get('title')}</a></h3>
+            <p style="font-size: 15px; color: #4f566b;">{item.get('summary')}</p>
         </div>
         """)
 
-    # 2. Forensic Indicators (IoCs) Section
-    # Renders extracted technical data into a scannable table
+    # 2. Enhanced Forensic Indicators (With Geo-IP)
     if iocs and any(iocs.values()):
         html.append("""
-        <h2 style="color: #cf1124; margin-top: 40px; border-bottom: 2px solid #f7fafc; padding-bottom: 10px;">Technical Indicators (IoCs)</h2>
-        <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; background: #ffffff;">
-                <thead>
-                    <tr style="background: #f7fafc; border-bottom: 2px solid #e3e8ee; text-align: left;">
-                        <th style="padding: 12px; color: #4f566b;">Type</th>
-                        <th style="padding: 12px; color: #4f566b;">Forensic Value</th>
-                    </tr>
-                </thead>
-                <tbody>""")
+        <h2 style="color: #cf1124; margin-top: 30px; border-left: 5px solid #cf1124; padding-left: 15px;">Actionable Indicators (IoCs)</h2>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px;">
+            <thead>
+                <tr style="background: #f7fafc; border-bottom: 2px solid #e3e8ee; text-align: left;">
+                    <th style="padding: 12px;">Indicator / Type</th>
+                    <th style="padding: 12px;">Origin (Geo-IP)</th>
+                    <th style="padding: 12px;">Infrastructure Provider</th>
+                </tr>
+            </thead>
+            <tbody>""")
         
         for ioc_type, values in iocs.items():
             for val in values:
+                # Retrieve contextual data if this is an IP
+                meta = pro_data.get(val, {"location": "-", "isp": "-"}) if pro_data else {"location": "-", "isp": "-"}
+                
                 html.append(f"""
                 <tr style="border-bottom: 1px solid #e3e8ee;">
-                    <td style="padding: 12px; font-weight: bold; color: #1a1f36; white-space: nowrap;">{ioc_type.upper()}</td>
-                    <td style="padding: 12px; font-family: 'Courier New', monospace; color: #cf1124; word-break: break-all;">{val}</td>
+                    <td style="padding: 12px;">
+                        <span style="font-weight: bold; color: #4f566b;">{val}</span><br>
+                        <small style="color: #a3acb9;">{ioc_type.upper()}</small>
+                    </td>
+                    <td style="padding: 12px; color: #1a73e8;">{meta.get('location')}</td>
+                    <td style="padding: 12px; color: #697386; font-family: monospace;">{meta.get('isp')}</td>
                 </tr>""")
-        html.append("</tbody></table></div>")
-    else:
-        html.append("""
-        <div style="padding: 20px; background: #fff4f4; border-radius: 4px; color: #cf1124; margin-top: 30px;">
-            <strong>Notice:</strong> No specific technical indicators were extracted in this sweep.
-        </div>
-        """)
+        html.append("</tbody></table>")
 
-    # 3. Footer and Legal
-    html.append(f"""
+    html.append("""
+        <div style="margin-top: 40px; padding: 20px; background: #f7fafc; text-align: center; font-size: 12px; color: #a3acb9;">
+            © 2026 CyberDudeBivash Pvt Ltd — Advanced Threat Intelligence Dashboard
         </div>
-        <div style="background: #f7fafc; padding: 20px; text-align: center; border-top: 1px solid #e3e8ee;">
-            <p style="margin: 0; font-size: 13px; color: #a3acb9;">
-                © {datetime.now().year} CyberDudeBivash Pvt Ltd — Automated Threat Intelligence Platform
-            </p>
-            <p style="margin: 5px 0 0; font-size: 11px; color: #c1c9d2;">
-                This report was autonomously generated by the Sentinel APEX Engine.
-            </p>
-        </div>
-    </div>
-    """)
-
+    </div>""")
     return "".join(html)
 
 def _calculate_cdb_score(title: str, corpus: str) -> float:
-    """
-    Internal risk matrix to determine report priority.
-    """
     score = 5.0
-    # Weighted keywords for severity assessment
-    matrix = {
-        "ransomware": 2.5,
-        "zero-day": 3.0,
-        "critical": 1.5,
-        "exploit": 1.0,
-        "cve-2026": 2.0,
-        "vulnerability": 0.5
-    }
-    
-    text = f"{title} {corpus}".lower()
-    for keyword, weight in matrix.items():
-        if keyword in text:
-            score += weight
-            
+    keywords = {"ransomware": 2.0, "zero-day": 2.5, "critical": 1.5, "exploit": 1.0}
+    for word, weight in keywords.items():
+        if word in corpus.lower(): score += weight
     return min(10.0, score)
