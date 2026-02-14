@@ -2,11 +2,12 @@ name: CDB Sentinel Blogger – Threat Intel Auto-Publisher
 
 on:
   schedule:
-    - cron: '0 */6 * * *'     # Automation: Every 6 hours
-  workflow_dispatch:          # Manual trigger enabled
+    - cron: '0 */6 * * *'      # Automated sweep every 6 hours
+  workflow_dispatch:           # Manual trigger for ad-hoc triage
 
+# CRITICAL: Grant 'write' permissions for committing STIX data
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish-threat-report:
@@ -14,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0       # Required for git history tracking
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -34,12 +37,33 @@ jobs:
           CLIENT_SECRET:     ${{ secrets.CLIENT_SECRET }}
           BLOG_ID:           ${{ secrets.BLOG_ID }}
           
-          # --- Social Amplification (LinkedIn) ---
+          # --- Threat Intelligence & Reputation ---
+          VT_API_KEY:        ${{ secrets.VT_API_KEY }}  # REQUIRED for reputation triage
+          
+          # --- Social Amplification (Standby) ---
           LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
           LINKEDIN_MEMBER_URN:   ${{ secrets.LINKEDIN_MEMBER_URN }}
           
-          # --- Executive Briefing ---
+          # --- Notification Layer ---
           SENDGRID_API_KEY:  ${{ secrets.SENDGRID_API_KEY }}
           SENDER_EMAIL:      ${{ secrets.SENDER_EMAIL }}
           SUBSCRIBER_EMAILS: ${{ secrets.SUBSCRIBER_EMAILS }}
         run: python -m agent.sentinel_blogger
+
+      - name: Commit & Publish STIX Intelligence
+        run: |
+          git config --local user.email "sentinel@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+          # Only add files if directory exists to prevent workflow errors
+          if [ -d "data/stix" ]; then
+            git add data/stix/*.json
+            git add data/processed_guids.json
+            git commit -m "Auto-Update: New Forensic Intelligence Node [skip ci]" || echo "No changes to commit"
+            git push origin main
+          fi
+
+      - name: Deploy Live Feed to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: .
+          branch: gh-pages     # Live STIX Feed Target
