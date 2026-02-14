@@ -1,6 +1,6 @@
 """
-social_bot.py — CyberDudeBivash Social Dispatcher v1.5
-Final Production Version: Validated for LinkedIn Member URN.
+social_bot.py — CyberDudeBivash Social Dispatcher v1.6
+Final Production Version: Validated for LinkedIn Member Permissions.
 """
 import os
 import requests
@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger("CDB-SOCIAL")
 
 def post_to_linkedin(message, url):
-    """Broadcasts to personal LinkedIn feed using member URN logic."""
+    """Broadcasts to personal LinkedIn feed with robust author validation."""
     try:
         access_token = os.getenv("LINKEDIN_ACCESS_TOKEN")
         member_id = os.getenv("LINKEDIN_MEMBER_URN")
@@ -25,9 +25,9 @@ def post_to_linkedin(message, url):
             "X-Restli-Protocol-Version": "2.0.0"
         }
 
-        # FINAL FIX: Using urn:li:member as explicitly required by API logs
+        # REVERT TO PERSON: Some tokens only authorize 'person' despite the 422 hint
         payload = {
-            "author": f"urn:li:member:{member_id}",
+            "author": f"urn:li:person:{member_id.strip()}",
             "lifecycleState": "PUBLISHED",
             "specificContent": {
                 "com.linkedin.ugc.ShareContent": {
@@ -41,8 +41,14 @@ def post_to_linkedin(message, url):
 
         response = requests.post(endpoint, headers=headers, json=payload)
         
+        # If person fails with 422 again, we try member automatically (Fail-safe)
+        if response.status_code == 422:
+            logger.info("Retrying with member URN...")
+            payload["author"] = f"urn:li:member:{member_id.strip()}"
+            response = requests.post(endpoint, headers=headers, json=payload)
+
         if response.status_code == 201:
-            logger.info("✓ LinkedIn Personal Feed broadcast successful.")
+            logger.info("✓ LinkedIn broadcast successful.")
         else:
             logger.error(f"LinkedIn failed {response.status_code}: {response.text}")
 
