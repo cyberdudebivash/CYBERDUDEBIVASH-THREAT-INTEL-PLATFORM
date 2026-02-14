@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v3.3 APEX
-Complete Multi-Channel Intel Orchestrator.
+sentinel_blogger.py — CyberDudeBivash v3.5 APEX
+Master Orchestrator: Multi-Channel Intel Dispatch.
 Integrated with LinkedIn Member Feed & X Broadcaster.
 
 Author: Bivash Kumar Nayak (CyberDudeBivash)
@@ -9,6 +9,7 @@ Author: Bivash Kumar Nayak (CyberDudeBivash)
 """
 
 import os
+import sys
 import json
 import logging
 import time
@@ -18,20 +19,23 @@ from typing import List, Dict, Optional, Set
 import feedparser
 from googleapiclient.errors import HttpError
 
-# Existing Infrastructure
-from .blogger_auth import get_blogger_service
-from .config import (
+# CRITICAL FIX: Ensure absolute path resolution for GitHub Actions runner
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Core Infrastructure Imports
+from agent.blogger_auth import get_blogger_service
+from agent.config import (
     BLOG_ID, RSS_FEEDS, STATE_FILE, MAX_STATE_SIZE,
     MAX_PER_FEED, MAX_POSTS_PER_RUN, PUBLISH_RETRY_MAX,
     PUBLISH_RETRY_DELAY, BRAND,
 )
 
-# AI & Notification Modules
-from .content.blog_post_generator import generate_full_post_content, generate_headline, _calculate_cdb_score
-from .notifier import send_sentinel_alert
-from .email_dispatcher import send_executive_briefing
+# AI & Notification Imports
+from agent.content.blog_post_generator import generate_full_post_content, generate_headline, _calculate_cdb_score
+from agent.notifier import send_sentinel_alert
+from agent.email_dispatcher import send_executive_briefing
 
-# NEW: Social Amplification Layer
+# Social Dispatcher Layer
 from agent.social_bot import broadcast_to_social
 
 # ═══════════════════════════════════════════════════
@@ -84,7 +88,7 @@ def save_processed(processed: Set[str]):
 
 def main():
     metrics = RunMetrics()
-    logger.info("="*60 + "\nCDB-SENTINEL v3.3 APEX — Global Intel Dispatch\n" + "="*60)
+    logger.info("="*60 + "\nCDB-SENTINEL v3.5 APEX — Global Intel Dispatch\n" + "="*60)
 
     try:
         # Step 1: Intel Ingestion
@@ -139,16 +143,16 @@ def main():
                 if attempt == PUBLISH_RETRY_MAX: raise
                 time.sleep(PUBLISH_RETRY_DELAY * attempt)
 
-        # Step 4: Multi-Channel Alerting & Social Amplification
+        # Step 4: Multi-Channel Amplification (LinkedIn, X, Briefings)
         if post_url:
             logger.info(f"✓ LIVE AT: {post_url}")
             
             # --- Social Broadcast (LinkedIn / X) ---
             try:
-                # Dispatches only after Blogger success to ensure URL validity
+                # Triggers dispatch to Member Feed using w_member_social
                 broadcast_to_social(headline, post_url, risk_score)
             except Exception as e:
-                logger.error(f"Social broadcast component failed: {e}")
+                logger.error(f"Social component failure: {e}")
 
             # --- Sentinel Alerting (Telegram/Discord) ---
             try:
@@ -158,7 +162,7 @@ def main():
             
             # --- Executive Briefing (Email Dispatcher) ---
             if risk_score >= 6.5:
-                logger.info(f"High risk score ({risk_score}) detected. Triggering Briefing...")
+                logger.info(f"High risk ({risk_score}) detected. Sending Briefing...")
                 try:
                     send_executive_briefing(headline, risk_score, full_html, post_url)
                 except Exception as e:
