@@ -36,16 +36,14 @@ BLOGS = {
 }
 
 # ═══════════════════════════════════════════════
-# BLOGGER API
+# API CREDENTIALS & REPUTATION ENGINE
 # ═══════════════════════════════════════════════
 
+# Primary Blogger ID for automated publishing
 BLOG_ID = os.getenv("BLOG_ID", "1735779547938854877")
 
-# ═══════════════════════════════════════════════
-# THREAT INTELLIGENCE & REPUTATION (NEW Section)
-# ═══════════════════════════════════════════════
-
 # Securely pulls the VirusTotal Key from GitHub Secrets
+# REQUIRED: Ensure 'VT_API_KEY' is added to GitHub Settings > Secrets
 VT_API_KEY = os.getenv("VT_API_KEY", "").strip() 
 
 # ═══════════════════════════════════════════════
@@ -75,7 +73,10 @@ MALWAREBAZAAR_URL = "https://mb-api.abuse.ch/api/v1/"
 # PIPELINE SETTINGS
 # ═══════════════════════════════════════════════
 
+# State file tracks processed GUIDs to prevent duplicates
+# Path must align with GitHub Workflow 'Commit' step
 STATE_FILE = os.getenv("STATE_FILE", "data/blogger_processed.json")
+
 MAX_STATE_SIZE = 1500
 MAX_PER_FEED = 5
 MAX_POSTS_PER_RUN = 5
@@ -91,7 +92,7 @@ PUBLISH_RETRY_MAX = 3
 PUBLISH_RETRY_DELAY = 10
 
 # ═══════════════════════════════════════════════
-# HTML DESIGN TOKENS (for inline-styled output)
+# HTML DESIGN TOKENS (UI APEX v5.4)
 # ═══════════════════════════════════════════════
 
 COLORS = {
