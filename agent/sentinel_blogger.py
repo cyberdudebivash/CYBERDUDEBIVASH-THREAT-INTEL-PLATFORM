@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 sentinel_blogger.py — CyberDudeBivash v5.5 APEX (Enterprise Edition)
-Master Orchestrator: Multi-Stage Forensic & Executive Reporting Pipeline.
+Orchestrator: Integrated Blogger API & Manifest-Driven STIX Feed.
 """
 import os
 import sys
@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 import feedparser
 
-# Path resolution for GitHub Actions environments
+# Path resolution for GitHub Actions
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Platform Module Imports
@@ -26,23 +26,21 @@ from agent.enricher import enricher
 from agent.enricher_pro import enricher_pro
 from agent.integrations.vt_lookup import vt_lookup
 from agent.visualizer import visualizer
-from agent.export_stix import stix_exporter
+from agent.export_stix import stix_exporter # v2.0 Enterprise Exporter
 from agent.notifier import send_sentinel_alert
 
-# Global Logging Configuration
+# Global Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
 logger = logging.getLogger("CDB-SENTINEL")
 
 def _calculate_cdb_risk_score(headline: str, corpus: str, iocs: dict) -> float:
-    """Enterprise Risk Scoring Logic based on Threat Context."""
+    """Enterprise Risk Scoring Logic."""
     score = 5.0
-    # Increase score based on keywords
-    critical_terms = ["ransomware", "zero-day", "critical", "active exploitation", "cve-202"]
+    critical_terms = ["ransomware", "zero-day", "critical", "exploit", "cve-202"]
     for term in critical_terms:
         if term in (headline + corpus).lower():
             score += 1.0
     
-    # Increase score based on IoC volume
     ioc_count = sum(len(v) for v in iocs.values())
     if ioc_count > 5: score += 1.0
     if ioc_count > 15: score += 1.5
@@ -77,6 +75,8 @@ def main():
         
         if not intel_items:
             logger.info("No new intelligence detected. System in standby.")
+            # Even in standby, ensure manifest is updated if files exist manually
+            stix_exporter.update_manifest()
             return
 
         # 2. Forensic & Reputation Enrichment
@@ -84,21 +84,20 @@ def main():
         extracted_iocs = enricher.extract_iocs(corpus)
         threat_category = enricher.categorize_threat(extracted_iocs)
         
-        # Build the Intelligence Matrix (Geo + VT Reputation)
         enriched_metadata = {}
         for ioc_type, values in extracted_iocs.items():
-            for val in values[:4]:  # Top 4 per type for API efficiency
+            for val in values[:5]: # Triage top 5 indicators
                 context = enricher_pro.get_ip_context(val) if ioc_type == "ipv4" else {"location": "N/A", "isp": "N/A"}
-                reputation = vt_lookup.get_reputation(val, ioc_type)
+                reputation = vt_lookup.get_reputation(val, ioc_type) # Verified VT Key usage
                 enriched_metadata[val] = {**context, "reputation": reputation}
         
-        # 3. Execution Data Generation
+        # 3. Intelligence Orchestration
         headline = generate_headline(intel_items)
         risk_score = _calculate_cdb_risk_score(headline, corpus, extracted_iocs)
         threat_map_html = visualizer.generate_heat_map(enriched_metadata)
         stix_id = f"CDB-APEX-{int(time.time())}"
         
-        # 4. Publication Assembly (Enterprise v5.5 UI)
+        # 4. Content Generation (Enterprise v5.5 UI)
         full_html = generate_full_post_content(
             intel_items, 
             iocs=extracted_iocs, 
@@ -127,10 +126,12 @@ def main():
             logger.info(f"✓ ENTERPRISE REPORT LIVE: {post_url}")
             # Update state to prevent duplicates
             with open(STATE_FILE, "w") as f: json.dump(list(processed), f)
-            # Dispatch notifications
-            send_sentinel_alert(headline, risk_score, post_url)
-            # Export Machine-Readable Intel
+            
+            # Export Machine-Readable STIX & Update Manifest Discovery
             stix_exporter.create_bundle(headline, extracted_iocs, risk_score)
+            
+            # Final Dispatch Notifications
+            send_sentinel_alert(headline, risk_score, post_url)
 
     except Exception as e:
         logger.critical(f"Terminal Pipeline Failure: {e}")
