@@ -2,8 +2,8 @@ name: CDB Sentinel Blogger – Threat Intel Auto-Publisher
 
 on:
   schedule:
-    - cron: '0 */6 * * *'     # Every 6 hours (UTC – adjust if you want IST alignment)
-  workflow_dispatch:          # Manual trigger from Actions tab
+    - cron: '0 */6 * * *'     # Every 6 hours (UTC)
+  workflow_dispatch:          # Manual trigger for immediate intelligence dispatch
 
 permissions:
   contents: read
@@ -11,6 +11,7 @@ permissions:
 jobs:
   publish-threat-report:
     runs-on: ubuntu-latest
+    timeout-minutes: 10       # Safety timeout for network/API calls
 
     steps:
       - name: Checkout repository
@@ -28,32 +29,41 @@ jobs:
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
-            echo "requirements.txt not found – skipping install"
+            echo "requirements.txt not found – critical failure"
+            exit 1
           fi
 
-      - name: Run Sentinel Blogger
+      - name: Run Sentinel Blogger APEX Engine
         env:
+          # --- Google Blogger Ecosystem ---
           REFRESH_TOKEN:     ${{ secrets.REFRESH_TOKEN }}
           CLIENT_ID:         ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET:     ${{ secrets.CLIENT_SECRET }}
           BLOG_ID:           ${{ secrets.BLOG_ID }}
+          
+          # --- Social Sentinel Dispatch (Telegram/Discord) ---
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          
+          # --- Executive Briefing (SendGrid Enterprise) ---
+          SENDGRID_API_KEY:   ${{ secrets.SENDGRID_API_KEY }}
+          SENDER_EMAIL:       ${{ secrets.SENDER_EMAIL }}
+          SUBSCRIBER_EMAILS:  ${{ secrets.SUBSCRIBER_EMAILS }}
         run: python -m agent.sentinel_blogger
 
       # ────────────────────────────────────────────────────────────────
-      # DEBUG ARTIFACT UPLOAD – Runs even if previous steps fail
-      # Placed at the END of the job
+      # STATE & LOG ARCHIVING (Preserved for Deduplication Logic)
       # ────────────────────────────────────────────────────────────────
       - name: Upload logs/state (debug)
-        if: always()  # Critical: runs on success OR failure
+        if: always()  
         uses: actions/upload-artifact@v4
         with:
-          name: run-logs-state-run${{ github.run_number }}-attempt${{ github.run_attempt }}
+          name: run-logs-state-run${{ github.run_number }}
           path: |
             blogger_processed.json
             *.log
             agent/*.log
-            agent/content/*.log
             data/*.json
-            agent/*.json
           if-no-files-found: warn
           retention-days: 7
