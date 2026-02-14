@@ -1,136 +1,154 @@
-# 🛡️ CDB-SENTINEL — Threat Intelligence Platform
+🛡️ CyberDudeBivash Threat Intel Platform (Sentinel APEX v5.4)
+Sentinel APEX is an autonomous Cyber Threat Intelligence (CTI) engine that triages global security feeds, performs multi-stage forensic enrichment, and publishes verified intelligence to the CyberBivash Newsroom.
 
-**Automated Cyber Threat Intelligence Publisher by CyberDudeBivash Pvt Ltd**
+🚀 Core Capabilities
+Autonomous Triage: Monitors 30+ global intelligence nodes every 6 hours.
 
-[![Daily Pipeline](https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions/workflows/sentinel-daily.yml/badge.svg)](https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions)
-[![Weekly Report](https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions/workflows/sentinel-weekly.yml/badge.svg)](https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions)
+Multi-Vendor Reputation: Queries VirusTotal for real-time maliciousness verdicts on extracted IoCs.
 
----
+Spatial Intelligence: Generates SVG-based global heat maps of threat origins.
 
-## What This Does
+SIEM Interoperability: Exports intelligence in STIX 2.1 JSON format for Microsoft Sentinel, Splunk, and CrowdStrike.
 
-CDB-SENTINEL automatically monitors global cyber threats and publishes professional, revenue-optimized intelligence reports to [CyberDudeBivash News](https://cyberdudebivash-news.blogspot.com).
+📊 Live STIX Feed Integration
+Security analysts can ingest machine-readable intelligence from this platform directly into their SIEM/SOAR platforms.
 
-**Pipeline:** RSS Feeds → NVD/CISA/MalwareBazaar → Enrichment → Professional HTML → Blogger API → Published
+Feed URL: https://cyberdudebivash.github.io/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/data/stix/
 
----
+Format: STIX 2.1 (TAXII compatible)
 
-## Features
+Update Frequency: 6 Hours
 
-| Capability | Description |
-|:--|:--|
-| **Multi-Source Intel** | 8 RSS feeds + NVD CVE API + CISA KEV + MalwareBazaar |
-| **EPSS Enrichment** | Current probability + 7-day trend + 24h acceleration |
-| **Risk Ranking** | CVSS + EPSS + KEV bonus scoring engine |
-| **MITRE ATT&CK** | Coverage gap analysis + Navigator heatmap export |
-| **Professional HTML** | Inline-styled reports that render beautifully everywhere |
-| **Revenue CTAs** | Newsletter, services, tools, consulting — in every post |
-| **Deduplication** | State file prevents duplicate publications |
-| **Weekly Reports** | Monday mega-reports with top 10 exploited CVEs |
-| **Deep Dives** | Individual authority-grade CVE analysis posts |
-| **IOC Export** | STIX 2.1 + MISP compatible output |
-| **Retry Logic** | Exponential backoff on API failures |
-| **Metrics** | Per-run pipeline performance tracking |
+🛠️ Technical Architecture
+The platform is built on a modular Python stack designed for speed and reliability:
 
----
+agent/sentinel_blogger.py: The APEX Orchestrator.
 
-## Architecture
+agent/integrations/vt_lookup.py: Reputation scoring via VirusTotal v3 API.
 
-```
-agent/
-├── config.py                  # Centralized configuration
-├── sentinel_blogger.py        # Daily pipeline orchestrator
-├── sentinel_weekly.py         # Weekly mega-report orchestrator
-├── blogger_auth.py            # OAuth2 authentication
-├── blogger_client.py          # Blogger API client
-├── dashboard.py               # Streamlit dashboard
-├── content/
-│   └── blog_post_generator.py # Premium HTML report generator
-├── formatter/
-│   ├── cdb_template.py        # Daily report formatter
-│   ├── cdb_cve_deep_dive.py   # CVE deep-dive formatter
-│   └── cdb_weekly_cve_report.py # Weekly report formatter
-├── intel/
-│   ├── cve_feed.py            # NVD + EPSS integration
-│   ├── kev_feed.py            # CISA KEV feed
-│   ├── malware_feed.py        # MalwareBazaar feed
-│   └── ioc_export.py          # STIX/MISP export
-├── analysis/
-│   ├── attack_coverage.py     # ATT&CK gap analysis
-│   ├── attack_navigator.py    # Navigator layer export
-│   ├── detection_recommendations.py  # Sigma/KQL rules
-│   ├── weekly_cve_ranker.py   # Risk-based CVE ranking
-│   └── cve_deep_dive_selector.py     # Deep-dive selection
-└── publishers/
-    └── cve_deep_dive_publisher.py    # Deep-dive publisher
-```
+agent/visualizer.py: Geographic threat mapping engine.
 
----
+agent/export_stix.py: CTI standardization layer.
 
-## Quick Start
+⚙️ Deployment & Setup
+1. Prerequisites
+Python 3.12+
 
-### 1. Configure GitHub Secrets
+VirusTotal API Key (Free Community Tier supported)
 
-Go to **Settings → Secrets → Actions** and add:
+Google Blogger API Credentials
 
-| Secret | Value |
-|:--|:--|
-| `REFRESH_TOKEN` | Google OAuth refresh token |
-| `CLIENT_ID` | Google OAuth client ID |
-| `CLIENT_SECRET` | Google OAuth client secret |
-| `BLOG_ID` | `1735779547938854877` |
+2. GitHub Secrets Configuration
+Add the following secrets to your repository to enable the Global Operating Capability (GOC):
+| Secret | Description |
+| :--- | :--- |
+| BLOG_ID | Your target Blogger ID |
+| VT_API_KEY | VirusTotal API Key for reputation checks |
+| REFRESH_TOKEN | Google OAuth2 Refresh Token |
+| CLIENT_ID | Google API Client ID |
+| CLIENT_SECRET | Google API Client Secret |
 
-### 2. Run the Pipeline
+3. Initialization
+Ensure your state file is initialized as an empty list to avoid triage collisions:
 
-**GitHub Actions (automated):**
-- Daily: Runs every 6 hours automatically
-- Weekly: Runs every Monday at 08:00 UTC
-- Manual: Actions → Run workflow
+Bash
+echo "[]" > data/blogger_processed.json
+Note: Using {} instead of [] will cause a type error in the state engine.
 
-**Local:**
-```bash
-pip install -r requirements.txt
 
-export REFRESH_TOKEN="your-token"
-export CLIENT_ID="your-client-id"
-export CLIENT_SECRET="your-secret"
-export BLOG_ID="1735779547938854877"
+📜 License
+© 2026 CyberDudeBivash Pvt Ltd. All rights reserved.
+Developed by Bivash Kumar Nayak (CEO & CTO).
 
-python -m agent.sentinel_blogger     # Daily
-python -m agent.sentinel_weekly      # Weekly
-```
 
----
 
-## Revenue Optimization
+Explore the CYBERDUDEBIVASH® Ecosystem — a global cybersecurity authority delivering
+Advanced Security Apps, AI-Driven Tools, Enterprise Services, Professional Training, Threat Intelligence, and High-Impact Cybersecurity Blogs.
 
-Every published report includes:
+Flagship Platforms & Resources
+Top 10 Cybersecurity Tools & Research Hub
+https://cyberdudebivash.github.io/cyberdudebivash-top-10-tools/
 
-- **Newsletter CTA** — Email capture for subscriber growth
-- **Services Promotion** — Pentest, MDR, AI audit, training
-- **Tools Showcase** — Open-source tools with GitHub links
-- **Consulting CTA** — Direct email consultation requests
-- **Ecosystem Links** — Cross-promotion across all CDB properties
-- **Professional Branding** — Authority positioning throughout
+CYBERDUDEBIVASH Production Apps Suite (Live Tools & Utilities)
+https://cyberdudebivash.github.io/CYBERDUDEBIVASH-PRODUCTION-APPS-SUITE/
 
----
+Complete CYBERDUDEBIVASH Ecosystem Overview
+https://cyberdudebivash.github.io/CYBERDUDEBIVASH-ECOSYSTEM
 
-## Security
+Official CYBERDUDEBIVASH Portal
+https://cyberdudebivash.github.io/CYBERDUDEBIVASH
 
-⚠️ **Never commit credentials to Git.** Use GitHub Secrets or environment variables.
+Official Website: https://www.cyberdudebivash.com
 
-The `.gitignore` file blocks `credentials/`, `token.json`, `.env`, and all sensitive files.
+Official CYBERDUDEBIVASH MCP SERVER 
+https://cyberdudebivash.github.io/mcp-server/
 
----
+CYBERDUDEBIVASH® — Official GitHub | Production-Grade Cybersecurity Tools,Platforms,Services,Research & Development Platform
+https://github.com/cyberdudebivash
+https://github.com/apps/cyberdudebivash-security-platform
+https://www.patreon.com/c/CYBERDUDEBIVASH
+Official CYBERDUDEBIVASH Portal https://www.cyberdudebivash.com
+https://cyberdudebivash.github.io/CYBERDUDEBIVASH
+https://cyberdudebivash.gumroad.com/affiliates
 
-## Contact
+Blogs & Research:
+https://cyberbivash.blogspot.com
+https://cyberdudebivash-news.blogspot.com
+https://cryptobivash.code.blog
+Discover in-depth insights on Cybersecurity, Artificial Intelligence, Malware Research, Threat Intelligence & Emerging Technologies.
+Zero-trust, enterprise-ready, high-detection focus , Production Grade , AI-Integrated Apps , Services & Business Automation Solutions.
 
-**CyberDudeBivash Pvt. Ltd.**
-- 🌐 [cyberdudebivash.com](https://www.cyberdudebivash.com)
-- 📧 bivash@cyberdudebivash.com
-- 📞 +91 81798 81447
-- 📍 Bhubaneswar, Odisha, India
+Follow CYBERDUDEBIVASH on  SOCIAL MEDIA PLATFORMS - 
 
----
+Facebook - https://www.facebook.com/people/Cyberdudebivash-Pvt-Ltd/61583373732736/
+Instagram - https://www.instagram.com/cyberdudebivash_official/
+Linkedin - https://www.linkedin.com/company/cyberdudebivash/
+Twitter - https://x.com/cyberbivash
+CYBERDUDEBIVASH® — Official GitHub -  https://github.com/cyberdudebivash
+Threads - https://www.threads.com/@cyberdudebivash_official
+Medium - https://medium.com/@cyberdudebivash
+Tumblr - https://www.tumblr.com/blog/cyberdudebivash-news
+Mastodon - https://mastodon.social/@cyberdudebivash
+Bluesky - https://bsky.app/profile/cyberdudebivash.bsky.social
+FlipBoard - https://flipboard.com/@CYBERDUDEBIVASH?
+pinterest - https://in.pinterest.com/CYBERDUDEBIVASH_Official/
 
-© 2024–2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
+Email - iambivash@cyberdudebivash
+Contact - +918179881447 
+Freelancer - https://www.freelancer.com/u/iambivash
+Upwork - https://www.upwork.com/freelancers/~010d4dde1657fa5619?
+Fiverr - https://www.fiverr.com/users/bivashkumar007/seller_dashboard
+Reddit - https://www.reddit.com/user/Immediate_Gold9789/
+Company URL - https://www.cyberdudebivash.com 
+gmail - iambivash.bn@gmail.com
+
+CYBERDUDEBIVASH LIVE THREAT INTEL DASHBOARD 
+https://cyberdudebivash.github.io/CYBERDUDEBIVASH-THREAT-INTEL/frontend/dashboard/index.html
+
+Star the repos → https://github.com/cyberdudebivash (CYBERDUDEBIVASH Official GitHub)
+
+Premium licensing,Services  & collaboration: DM or bivash@cyberdudebivash.com
+
+CYBERDUDEBIVASH
+Global Cybersecurity Tools,Apps,Services,Automation,R&D Platform  
+Bhubaneswar, Odisha, India | © 2026
+https://github.com/cyberdudebivash
+https://www.cyberdudebivash.com
+© 2026 CyberDudeBivash Pvt. Ltd.
+ 
+
+ 
+ GUMROAD PRODUCTS LIST 
+
+https://gum.new/gum/cmkti44bu001q04kzbb3d7cn8
+
+https://gum.new/gum/cmkti44bu001q04kzbb3d7cn8  ( trustgov gumroad product landing page url )
+
+https://gum.new/gum/cml6zequ1001r04ikb9e683f3
+
+https://gum.new/gum/cml855zjq000204ky4b3vhv65
+
+https://gum.new/gum/cml8cu8je000604jv8rkj1l8z
+
+
+ 
