@@ -43,7 +43,7 @@ jobs:
           BLOG_ID:           ${{ secrets.BLOG_ID }}
           
           # --- Threat Intelligence & Reputation ---
-          VT_API_KEY:        ${{ secrets.VT_API_KEY }}  # Armed for GOC
+          VT_API_KEY:        ${{ secrets.VT_API_KEY }}  # Verified active in image_4aaee6
           
           # --- Social Amplification (Standby) ---
           LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
@@ -57,19 +57,22 @@ jobs:
 
       - name: Commit & Push Intelligence Data
         run: |
-          git config --local user.email "sentinel@cyberdudebivash.com"
+          # Identity updated to active verified email
+          git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
           
-          # Add state file to prevent duplicate posts in next run
+          # 1. Add state file to prevent duplicate posts
           if [ -f "data/blogger_processed.json" ]; then
             git add data/blogger_processed.json
           fi
           
-          # Add forensic STIX nodes
-          if [ -d "data/stix" ]; then
+          # 2. Resilient STIX adding: Fixes the 'pathspec' error from image_4ab58a
+          # Only attempts to add if the directory exists AND contains .json files
+          if [ -d "data/stix" ] && ls data/stix/*.json 1> /dev/null 2>&1; then
             git add data/stix/*.json
           fi
           
+          # 3. Final Commit logic
           git commit -m "Auto-Update: Forensic Intelligence Node [skip ci]" || echo "No changes to commit"
           git push origin main
 
