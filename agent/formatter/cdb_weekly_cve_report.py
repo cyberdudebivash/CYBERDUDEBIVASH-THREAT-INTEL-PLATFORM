@@ -1,0 +1,118 @@
+"""
+CyberDudeBivash Weekly Top Exploited CVEs Mega-Report v4.0
+Professional inline-styled weekly intelligence report.
+© 2026 CyberDudeBivash Pvt Ltd — All rights reserved.
+"""
+
+from datetime import datetime, timezone
+from typing import List, Dict
+
+from agent.config import BRAND, COLORS, FONTS
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def _sev_color(sev: str) -> str:
+    return {"CRITICAL": COLORS["critical"], "HIGH": COLORS["high"],
+            "MEDIUM": COLORS["medium"]}.get((sev or "").upper(), COLORS["text_muted"])
+
+
+_s = {
+    "h2": f"font-family:{FONTS['heading']};color:{COLORS['white']};font-size:22px;font-weight:700;margin:28px 0 10px;padding-bottom:8px;border-bottom:2px solid {COLORS['border']};",
+    "h3": f"font-family:{FONTS['heading']};color:{COLORS['accent']};font-size:17px;font-weight:600;margin:20px 0 6px;padding-left:10px;border-left:3px solid {COLORS['accent']};",
+    "p": f"margin:0 0 14px;color:{COLORS['text']};line-height:1.8;font-size:16px;",
+    "card": f"background:{COLORS['bg_card']};border:1px solid {COLORS['border']};border-radius:10px;padding:20px;margin:16px 0;",
+    "badge": f"display:inline-block;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;text-transform:uppercase;",
+    "muted": f"color:{COLORS['text_muted']};font-size:13px;",
+    "cta": f"display:inline-block;padding:10px 24px;background:{COLORS['accent']};color:{COLORS['bg_dark']};font-weight:700;font-size:14px;border-radius:100px;text-decoration:none;",
+}
+
+
+def format_weekly_cve_report(
+    ranked_cves: List[Dict],
+    author: str = "CyberDudeBivash Threat Intelligence Team",
+    site_url: str = "",
+) -> str:
+    site_url = site_url or BRAND["website"]
+    sections: List[str] = []
+
+    # Header
+    sections.append(f"""
+<div style="{_s['card']}border-left:4px solid {COLORS['accent']};">
+  <h2 style="font-family:{FONTS['heading']};color:{COLORS['white']};font-size:24px;font-weight:800;margin:0 0 8px;">
+    Weekly Top Exploited CVEs — Cyber Threat Intelligence Mega-Report
+  </h2>
+  <p style="{_s['muted']}">
+    <strong>Window:</strong> Last 7 Days &nbsp;|&nbsp;
+    <strong>Published:</strong> {_utc_now()} &nbsp;|&nbsp;
+    <strong>Prepared By:</strong> {author}
+  </p>
+</div>
+""")
+
+    # Executive overview
+    sections.append(f"""
+<h2 style="{_s['h2']}">Executive Threat Overview</h2>
+<p style="{_s['p']}">
+This weekly mega-report identifies the <strong>{len(ranked_cves)} most operationally
+dangerous vulnerabilities</strong> observed over the past seven days. Rankings use
+exploitation probability, confirmed in-the-wild activity, and adversary preference
+indicators — not severity scores alone.
+</p>
+""")
+
+    # Ranked CVEs
+    if not ranked_cves:
+        sections.append(f'<p style="{_s["p"]}">No high-confidence exploited CVEs met the ranking threshold this week.</p>')
+    else:
+        for idx, cve in enumerate(ranked_cves, start=1):
+            sev = (cve.get("severity") or "Unknown").upper()
+            sc = _sev_color(sev)
+            epss = round(float(cve.get("epss", 0)), 3)
+            is_kev = "Yes ⚡" if cve.get("is_kev") else "No"
+
+            sections.append(f"""
+<div style="{_s['card']}border-left:4px solid {sc};">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+    <span style="font-family:{FONTS['heading']};color:{COLORS['white']};font-size:18px;font-weight:800;">#{idx}</span>
+    <strong style="color:{COLORS['white']};font-size:16px;">{cve.get('id', 'N/A')}</strong>
+    <span style="{_s['badge']}background:rgba({','.join(str(int(sc[i:i+2],16)) for i in (1,3,5))},0.15);color:{sc};">{sev}</span>
+    <span style="{_s['badge']}background:rgba(0,212,170,0.1);color:{COLORS['accent']};">Risk: {cve.get('risk_score', 'N/A')}</span>
+  </div>
+  <p style="{_s['muted']}margin-bottom:8px;">
+    <strong>CVSS:</strong> {cve.get('cvss', 'N/A')} &nbsp;|&nbsp;
+    <strong>EPSS:</strong> {epss} &nbsp;|&nbsp;
+    <strong>CISA KEV:</strong> {is_kev}
+  </p>
+  <p style="{_s['p']}">
+    This vulnerability demonstrated elevated exploitation risk during the reporting
+    period. Indicators suggest active scanning, exploit testing, or integration into
+    broader attack campaigns. Prioritize for immediate remediation.
+  </p>
+</div>
+""")
+
+    # Footer
+    sections.append(f"""
+<h2 style="{_s['h2']}">Strategic Defender Takeaways</h2>
+<p style="{_s['p']}">
+This week's data reinforces a recurring pattern: attackers consistently prioritize
+reliable exploitation paths over novel techniques. Defensive success requires
+disciplined patch management, behavior-based detections, and continuous risk-informed
+prioritization.
+</p>
+
+<div style="{_s['card']}text-align:center;border-color:rgba(0,212,170,0.2);margin-top:24px;">
+  <p style="font-size:17px;font-weight:700;color:{COLORS['accent']};margin:0 0 6px;">CyberDudeBivash Intelligence Note</p>
+  <p style="{_s['muted']}margin:0 0 12px;">
+    Generated by the CDB-SENTINEL Platform using automated risk scoring,
+    exploitation trend analysis, and adversary behavior correlation.
+  </p>
+  <a href="{site_url}" style="{_s['cta']}" target="_blank" rel="noopener">Explore Platform →</a>
+  <p style="{_s['muted']}margin:12px 0 0;">© 2026 {BRAND['legal']}</p>
+</div>
+""")
+
+    return "\n".join(sections)
