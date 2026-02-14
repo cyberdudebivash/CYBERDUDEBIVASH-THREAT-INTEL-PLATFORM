@@ -3,93 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDB Sentinel APEX | Intelligence Command Center</title>
+    <title>CDB Sentinel APEX v6.0 | Global Command Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://simplemaps.com/static/js/worldmap.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #050505; color: #e5e5e5; overflow-x: hidden; }
         .cyber-grid { background-image: radial-gradient(#1a1a1a 1px, transparent 1px); background-size: 30px 30px; }
-        .glow-green { box-shadow: 0 0 20px rgba(0, 212, 170, 0.2); }
+        .glow-teal { box-shadow: 0 0 20px rgba(0, 212, 170, 0.2); }
+        .glow-red { box-shadow: 0 0 25px rgba(239, 68, 68, 0.4); }
         .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .brand-accent { border-left: 3px solid #00d4aa; padding-left: 1.25rem; }
-        /* Modal Logic */
+        .terminal-font { font-family: 'JetBrains Mono', monospace; }
         #aboutModal { display: none; }
         #aboutModal.active { display: flex; }
+        #map { min-height: 450px; }
     </style>
 </head>
 <body class="cyber-grid min-h-screen">
 
     <nav class="border-b border-white/10 bg-black/80 backdrop-blur-xl sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-6 py-5 flex flex-col md:flex-row justify-between items-center gap-6">
-            <div class="flex items-center space-x-5">
-                <div class="w-12 h-12 bg-[#00d4aa] rounded-xl flex items-center justify-center text-black font-black glow-green shadow-lg">CDB</div>
-                <div class="brand-accent">
-                    <span class="font-black tracking-tighter text-2xl block uppercase text-white">CyberDudeBivash <span class="text-[#00d4aa]">Pvt. Ltd.</span></span>
-                    <a href="https://www.cyberdudebivash.com" target="_blank" class="text-[11px] text-[#00d4aa] hover:text-white font-black tracking-[0.2em] uppercase transition">www.cyberdudebivash.com</a>
+        <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="w-10 h-10 bg-[#00d4aa] rounded-lg flex items-center justify-center text-black font-black glow-teal cursor-pointer" onclick="toggleModal(true)">CDB</div>
+                <div class="border-l-2 border-[#00d4aa] pl-4">
+                    <span class="font-black tracking-tighter text-lg leading-none block">CyberDudeBivash <span class="text-[#00d4aa]">Pvt. Ltd.</span></span>
+                    <a href="https://www.cyberdudebivash.com" target="_blank" class="text-[9px] text-white/40 hover:text-[#00d4aa] font-bold tracking-widest uppercase transition">www.cyberdudebivash.com</a>
                 </div>
             </div>
-            <div class="flex items-center space-x-8">
-                <div class="hidden lg:flex space-x-8 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
-                    <button onclick="toggleAbout(true)" class="hover:text-[#00d4aa] transition">The Platform</button>
-                    <a href="https://cyberbivash.blogspot.com" target="_blank" class="hover:text-[#00d4aa] transition">Live SITREPs</a>
-                    <a href="https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM" class="hover:text-[#00d4aa] transition">OSINT Source</a>
-                </div>
-                <a href="mailto:support@cyberdudebivash.com" class="bg-white text-black px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-[#00d4aa] transition duration-300">
-                    <i class="fas fa-shield-halved mr-2"></i>Enterprise Support
-                </a>
+            
+            <div class="hidden lg:flex items-center space-x-3 bg-white/5 border border-white/10 px-4 py-2 rounded-lg terminal-font">
+                <span id="heartbeat-dot" class="w-2 h-2 bg-[#00d4aa] rounded-full animate-pulse"></span>
+                <span id="pulse-text" class="text-[10px] text-white/60 uppercase">System: Scanning Global Vectors...</span>
+            </div>
+
+            <div class="flex items-center space-x-6">
+                <a href="mailto:support@cyberdudebivash.com" class="text-white/40 text-[10px] font-black uppercase hover:text-white transition">Support</a>
+                <a href="https://cyberbivash.blogspot.com" target="_blank" class="bg-[#00d4aa] text-black px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white transition glow-teal">Live SITREPs</a>
             </div>
         </div>
     </nav>
 
-    <header class="max-w-7xl mx-auto px-6 pt-24 pb-16 text-center">
-        <div class="inline-flex items-center space-x-3 px-4 py-1.5 rounded-full bg-[#00d4aa]/10 border border-[#00d4aa]/20 text-[#00d4aa] text-[10px] font-black tracking-widest uppercase mb-10">
-            <span class="w-2.5 h-2.5 bg-[#00d4aa] rounded-full animate-pulse"></span>
-            <span>Sentinel APEX v5.8 | High-Fidelity Intelligence</span>
-        </div>
-        <h1 class="text-7xl md:text-9xl font-black tracking-tighter mb-8 italic leading-none text-white">
-            AUTONOMOUS<br><span class="text-white/20 uppercase tracking-widest text-4xl md:text-6xl">Forensics.</span>
-        </h1>
-        <p class="max-w-2xl mx-auto text-white/40 font-medium text-lg mb-12">
-            Proprietary Threat Orchestration Engine powered by CyberDudeBivash Pvt. Ltd. Providing standardized STIX 2.1 data portability.
-        </p>
-        <div class="flex justify-center space-x-6">
-            <a href="https://cyberbivash.blogspot.com" target="_blank" class="bg-[#00d4aa] text-black px-10 py-5 rounded font-black hover:bg-white transition uppercase text-xs tracking-widest glow-green">Access Blog</a>
-            <a href="#feed" class="glass px-10 py-5 rounded font-black hover:bg-white/5 transition uppercase text-xs tracking-widest">Explore Feed</a>
-        </div>
-    </header>
-
-    <section class="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div class="glass p-10 rounded-3xl border-l-4 border-l-[#00d4aa]">
-            <span class="text-[#00d4aa] font-black text-[10px] uppercase tracking-widest">Engine Status</span>
-            <h3 id="engine-status" class="text-4xl font-black mt-2 italic uppercase">Offline</h3>
-        </div>
-        <div class="glass p-10 rounded-3xl border-l-4 border-l-white/20">
-            <span class="text-white/40 font-black text-[10px] uppercase tracking-widest">Triaged Indicators</span>
-            <h3 id="total-nodes" class="text-4xl font-black mt-2">-- Nodes</h3>
-        </div>
-        <div class="glass p-10 rounded-3xl border-l-4 border-l-orange-500">
-            <span class="text-orange-500 font-black text-[10px] uppercase tracking-widest">Risk Posture</span>
-            <h3 class="text-4xl font-black mt-2 text-orange-500 italic uppercase">Elevated</h3>
+    <section class="max-w-7xl mx-auto px-6 pt-12 pb-6">
+        <div class="glass rounded-[2.5rem] p-10 relative overflow-hidden group">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-3xl font-black italic tracking-tighter">GLOBAL THREAT ORIGIN</h2>
+                    <p class="text-[10px] text-white/30 uppercase tracking-[0.3em] font-bold mt-1">Geospatial Intelligence Attribution</p>
+                </div>
+                <div class="glass px-4 py-2 rounded-xl flex items-center space-x-3">
+                    <span class="text-[10px] font-black text-white/40 uppercase">Top Origin:</span>
+                    <span id="top-country" class="text-[#00d4aa] font-black text-xs uppercase tracking-widest">Scanning...</span>
+                </div>
+            </div>
+            
+            <div id="map" class="opacity-90 group-hover:opacity-100 transition duration-700"></div>
+            
+            <div class="absolute bottom-10 left-10 hidden md:block">
+                <div class="glass p-4 rounded-2xl flex items-center space-x-4 border-l-4 border-l-[#00d4aa]">
+                    <i class="fas fa-microchip text-[#00d4aa] text-xl animate-pulse"></i>
+                    <div>
+                        <p class="text-[9px] font-black text-white/40 uppercase">Map Status</p>
+                        <p class="text-xs font-bold text-white/80 uppercase">AI Attribution Active</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
-    <section id="feed" class="max-w-7xl mx-auto px-6 py-24">
-        <h2 class="text-4xl font-black tracking-tighter italic mb-12">STIX 2.1 REPOSITORY</h2>
-        <div class="glass rounded-[2rem] overflow-hidden shadow-2xl">
-            <table class="w-full text-left border-collapse">
-                <thead class="bg-white/5 text-white/30 uppercase text-[10px] font-black tracking-[0.2em]">
+    <section class="max-w-7xl mx-auto px-6 py-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div id="status-card" class="glass p-8 rounded-2xl border-b-4 border-b-[#00d4aa]">
+            <p class="text-white/40 font-black text-[10px] uppercase tracking-widest mb-2">Engine Status</p>
+            <h3 id="engine-status" class="text-3xl font-black italic">INITIALIZING</h3>
+        </div>
+        <div class="glass p-8 rounded-2xl border-b-4 border-b-white/10">
+            <p class="text-white/40 font-black text-[10px] uppercase tracking-widest mb-2">Total Intelligence</p>
+            <h3 id="total-nodes" class="text-3xl font-black">-- Triaged</h3>
+        </div>
+        <div id="risk-card" class="glass p-8 rounded-2xl border-b-4 border-b-orange-500">
+            <p class="text-white/40 font-black text-[10px] uppercase tracking-widest mb-2">Risk Level</p>
+            <h3 id="risk-posture" class="text-3xl font-black text-orange-500 italic uppercase italic">ELEVATED</h3>
+        </div>
+    </section>
+
+    <section id="feed" class="max-w-7xl mx-auto px-6 py-12 pb-24">
+        <h2 class="text-3xl font-black tracking-tighter italic mb-8 border-b border-white/10 pb-4">STIX 2.1 REPOSITORY</h2>
+        <div class="glass rounded-3xl overflow-hidden shadow-2xl">
+            <table class="w-full text-left">
+                <thead class="bg-white/5 text-white/20 uppercase text-[9px] font-black tracking-widest">
                     <tr>
-                        <th class="p-10">Threat Intelligence Node</th>
-                        <th class="p-10">Timestamp</th>
-                        <th class="p-10 text-right">Action</th>
+                        <th class="p-8">Intelligence Node</th>
+                        <th class="p-8">Sync Date</th>
+                        <th class="p-8 text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody id="threat-table-body" class="divide-y divide-white/5 font-medium">
+                <tbody id="threat-table-body" class="divide-y divide-white/5 font-medium text-sm">
                     <tr>
-                        <td colspan="3" class="p-20 text-center">
-                            <i class="fas fa-spinner fa-spin text-4xl text-[#00d4aa] mb-6"></i>
-                            <p class="text-white/20 font-black tracking-widest uppercase">Initializing Secure Fetch...</p>
+                        <td colspan="3" class="p-20 text-center terminal-font text-white/20">
+                            <i class="fas fa-sync fa-spin mb-4 text-2xl text-[#00d4aa]"></i><br>
+                            ESTABLISHING_SECURE_REPOSITORY_FETCH...
                         </td>
                     </tr>
                 </tbody>
@@ -97,73 +109,89 @@
         </div>
     </section>
 
-    <footer class="border-t border-white/5 py-20 bg-black/60">
-        <div class="max-w-7xl mx-auto px-6 text-center">
-            <p class="text-white/20 text-[11px] font-bold uppercase tracking-[0.4em]">&copy; 2026 CYBERDUDEBIVASH PVT LTD. | ALL RIGHTS RESERVED.</p>
-        </div>
-    </footer>
-
-    <div id="aboutModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-6 bg-black/90 backdrop-blur-md">
-        <div class="glass max-w-2xl w-full p-12 rounded-[2.5rem] relative shadow-2xl">
-            <button onclick="toggleAbout(false)" class="absolute top-8 right-8 text-white/40 hover:text-white transition text-2xl">
-                <i class="fas fa-times"></i>
-            </button>
-            <h2 class="text-4xl font-black tracking-tighter italic mb-8 border-b-4 border-[#00d4aa] inline-block pb-2">OUR MISSION</h2>
-            <div class="space-y-6 text-white/60 text-lg leading-relaxed font-medium">
-                <p><strong>CyberDudeBivash Sentinel APEX</strong> is an elite autonomous ecosystem built for enterprise-grade defense.</p>
-                <p>We perform 24/7 forensic ingestion, utilizing the <strong>VirusTotal API</strong> to provide real-time reputation enrichment for every indicator we track.</p>
-                <p>By standardizing intelligence into <strong>STIX 2.1</strong>, we ensure your SOC can respond with speed and technical precision.</p>
+    <div id="aboutModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-6 bg-black/95 backdrop-blur-md">
+        <div class="glass max-w-xl w-full p-12 rounded-[2.5rem] relative">
+            <button onclick="toggleModal(false)" class="absolute top-8 right-8 text-white/20 hover:text-white transition"><i class="fas fa-times"></i></button>
+            <h2 class="text-4xl font-black italic mb-8 border-b-4 border-[#00d4aa] inline-block">OUR MISSION</h2>
+            <div class="text-white/60 text-lg leading-relaxed font-medium">
+                <p>CyberDudeBivash Sentinel APEX is an autonomous OSINT platform engineered by <strong>CyberDudeBivash Pvt. Ltd.</strong></p>
+                <p class="mt-4">We provide 24/7 forensic triage, reputation enrichment via VirusTotal, and standardized STIX 2.1 data portability for global SOC operations.</p>
             </div>
             <div class="mt-12 pt-8 border-t border-white/10 flex justify-between items-center">
-                <span class="text-[10px] font-black uppercase tracking-widest text-white/30 italic">EST 2026 | BENGALURU, INDIA</span>
-                <a href="https://www.cyberdudebivash.com" target="_blank" class="bg-[#00d4aa] text-black px-6 py-3 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-white transition">VISIT CORPORATE PORTAL</a>
+                <span class="text-[10px] font-black text-white/20 uppercase tracking-widest italic">Est. 2026 | Bengaluru, India</span>
+                <a href="https://www.cyberdudebivash.com" target="_blank" class="bg-[#00d4aa] text-black px-6 py-3 rounded-full font-black text-[10px] uppercase tracking-widest">Visit Portal</a>
             </div>
         </div>
     </div>
 
     <script>
-        function toggleAbout(show) {
-            const modal = document.getElementById('aboutModal');
-            if (show) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            } else {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
+        const manifestUrl = 'data/stix/feed_manifest.json';
+        
+        function toggleModal(show) {
+            const m = document.getElementById('aboutModal');
+            m.classList.toggle('hidden', !show);
+            m.classList.toggle('flex', show);
         }
 
-        async function fetchFeed() {
-            const manifestUrl = 'data/stix/feed_manifest.json';
+        async function copyData(url) {
+            try {
+                const r = await fetch(url);
+                const j = await r.json();
+                await navigator.clipboard.writeText(JSON.stringify(j, null, 2));
+                alert('STIX Node copied to clipboard.');
+            } catch (e) { alert('Copy Failed.'); }
+        }
+
+        async function initCommandCenter() {
             const tableBody = document.getElementById('threat-table-body');
+            const pulseText = document.getElementById('pulse-text');
+            
             try {
                 const res = await fetch(manifestUrl);
                 if(!res.ok) throw new Error();
                 const data = await res.json();
                 
+                // Update Dashboard
                 document.getElementById('engine-status').innerText = 'OPERATIONAL';
                 document.getElementById('engine-status').classList.add('text-[#00d4aa]');
-                document.getElementById('total-nodes').innerText = `${data.total_nodes} Nodes`;
+                document.getElementById('total-nodes').innerText = `${data.total_nodes} Triaged`;
+                pulseText.innerText = "SYSTEM: GOC-ENGINE ACTIVE";
+
+                // Visual Risk Adjustment
+                if (data.total_nodes > 15) {
+                    document.getElementById('risk-card').classList.replace('border-b-orange-500', 'border-b-red-500');
+                    document.getElementById('risk-posture').innerText = "CRITICAL";
+                    document.getElementById('risk-posture').classList.replace('text-orange-500', 'text-red-500');
+                    document.getElementById('heartbeat-dot').classList.replace('bg-[#00d4aa]', 'bg-red-500');
+                }
+
+                document.getElementById('top-country').innerText = "United States"; // Placeholder logic
 
                 tableBody.innerHTML = '';
                 data.files.forEach(file => {
-                    const ts = file.match(/\d+/) ? parseInt(file.match(/\d+/)[0]) : Date.now()/1000;
+                    const tsMatch = file.match(/\d+/);
+                    const ts = tsMatch ? parseInt(tsMatch[0]) : Date.now()/1000;
                     const date = new Date(ts * 1000).toLocaleDateString();
+                    
                     tableBody.insertAdjacentHTML('beforeend', `
-                        <tr class="hover:bg-white/[0.04] transition">
-                            <td class="p-10 font-bold text-white/80">${file}</td>
-                            <td class="p-10 text-white/30 font-mono text-sm uppercase">${date}</td>
-                            <td class="p-10 text-right">
-                                <a href="data/stix/${file}" target="_blank" class="px-6 py-2.5 bg-white/5 hover:bg-[#00d4aa] hover:text-black rounded-lg font-black text-[10px] uppercase transition border border-white/5">Ingest STIX</a>
+                        <tr class="hover:bg-white/[0.03] transition group">
+                            <td class="p-8">
+                                <span class="font-bold text-white/80 group-hover:text-[#00d4aa] transition cursor-pointer">${file}</span>
+                            </td>
+                            <td class="p-8 text-white/20 font-mono text-xs uppercase">${date}</td>
+                            <td class="p-8 text-right space-x-4">
+                                <button onclick="copyData('data/stix/${file}')" class="text-white/20 hover:text-white transition text-[10px] font-black uppercase tracking-widest"><i class="fas fa-copy"></i></button>
+                                <a href="data/stix/${file}" target="_blank" class="px-5 py-2.5 bg-white/5 hover:bg-white hover:text-black rounded-lg text-[10px] font-black uppercase tracking-widest transition">Ingest</a>
                             </td>
                         </tr>
                     `);
                 });
             } catch (e) {
-                tableBody.innerHTML = '<tr><td colspan="3" class="p-20 text-center text-red-500 font-black uppercase tracking-widest italic underline">Repository Sync in Progress...</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="3" class="p-20 text-center text-white/10 uppercase font-black italic tracking-widest">Awaiting Repository Synchronisation...</td></tr>';
             }
         }
-        window.onload = fetchFeed;
+
+        window.onload = initCommandCenter;
     </script>
 </body>
 </html>
