@@ -2,8 +2,8 @@ name: CDB Sentinel Blogger – Threat Intel Auto-Publisher
 
 on:
   schedule:
-    - cron: '0 */6 * * *'     # Every 6 hours
-  workflow_dispatch:          # Manual trigger
+    - cron: '0 */6 * * *'     # Automation: Every 6 hours
+  workflow_dispatch:          # Manual trigger enabled
 
 permissions:
   contents: read
@@ -28,17 +28,17 @@ jobs:
 
       - name: Run Sentinel Blogger APEX Engine
         env:
-          # --- Core Auth ---
+          # --- Core Blogger Auth ---
           REFRESH_TOKEN:     ${{ secrets.REFRESH_TOKEN }}
           CLIENT_ID:         ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET:     ${{ secrets.CLIENT_SECRET }}
           BLOG_ID:           ${{ secrets.BLOG_ID }}
           
-          # --- Social Amplification ---
+          # --- Social Amplification (LinkedIn) ---
           LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
           LINKEDIN_MEMBER_URN:   ${{ secrets.LINKEDIN_MEMBER_URN }}
           
-          # --- Briefing ---
+          # --- Executive Briefing ---
           SENDGRID_API_KEY:  ${{ secrets.SENDGRID_API_KEY }}
           SENDER_EMAIL:      ${{ secrets.SENDER_EMAIL }}
           SUBSCRIBER_EMAILS: ${{ secrets.SUBSCRIBER_EMAILS }}
