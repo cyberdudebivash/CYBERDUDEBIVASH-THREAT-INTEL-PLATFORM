@@ -1,6 +1,6 @@
 """
-social_bot.py — CyberDudeBivash Social Dispatcher v2.3
-APEX Edition: Bearer-Audit & Diagnostic Header Layer.
+social_bot.py — CyberDudeBivash Social Dispatcher v2.4
+APEX Production Final: 3-Scope Handshake & Multi-URN Fallback.
 """
 import os
 import requests
@@ -9,14 +9,14 @@ import logging
 logger = logging.getLogger("CDB-SOCIAL")
 
 def post_to_linkedin(message, url):
-    """Broadcasts to feed with hardened validation for 2026 protocols."""
+    """Broadcasts to feed with hardened token and dual-URN validation."""
     try:
-        # Sanitization: Ensure no hidden newline/space corrupts the header
+        # Token Sanitization: Removes accidental spaces from GitHub Secrets
         token = os.getenv("LINKEDIN_ACCESS_TOKEN", "").strip()
         member_id = os.getenv("LINKEDIN_MEMBER_URN", "").strip()
 
         if not token or not member_id:
-            logger.warning("LinkedIn broadcast aborted: Missing credentials.")
+            logger.warning("LinkedIn broadcast aborted: Credentials missing.")
             return
 
         endpoint = "https://api.linkedin.com/v2/ugcPosts"
@@ -28,6 +28,7 @@ def post_to_linkedin(message, url):
             "X-Restli-Protocol-Version": "2.0.0"
         }
 
+        # Primary Payload using the verified person URN structure
         payload = {
             "author": f"urn:li:person:{member_id}",
             "lifecycleState": "PUBLISHED",
@@ -44,16 +45,15 @@ def post_to_linkedin(message, url):
         # Attempt primary dispatch
         response = requests.post(endpoint, headers=headers, json=payload)
         
-        # Fallback for transitionary Member URN types
-        if response.status_code in [403, 422]:
-            logger.info("Transitioning author URN to member fallback...")
+        # Smart Retry: Transition to 'member' if 'person' is rejected by this API version
+        if response.status_code in [401, 403, 422]:
+            logger.info(f"Primary URN ({response.status_code}) failed. Retrying with member URN...")
             payload["author"] = f"urn:li:member:{member_id}"
             response = requests.post(endpoint, headers=headers, json=payload)
 
         if response.status_code == 201:
-            logger.info("✓ LinkedIn broadcast successful! Advisory is live.")
+            logger.info("✓ LinkedIn broadcast successful! Advisory is live on your profile.")
         else:
-            # Detailed Refusal Audit
             logger.error(f"LinkedIn API Refusal {response.status_code}: {response.text}")
 
     except Exception as e:
