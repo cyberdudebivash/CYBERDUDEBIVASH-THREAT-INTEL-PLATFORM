@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v3.6 APEX
+sentinel_blogger.py — CyberDudeBivash v3.7 APEX
 Master Orchestrator: Multi-Channel Intel Dispatch.
+Includes State-Resilient Logic & Global Broadcast.
 """
 import os
 import sys
@@ -32,34 +33,50 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 logger = logging.getLogger("CDB-SENTINEL")
 
 def main():
-    logger.info("=== CDB-SENTINEL v3.6 — Global Broadcast Initialized ===")
+    logger.info("=== CDB-SENTINEL v3.7 — Global Broadcast Initialized ===")
     try:
-        # 1. State Management (Prevent Duplicates)
+        # 1. State Management (Prevent Duplicates & Handle Corruption)
         if not os.path.exists(STATE_FILE):
             os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
             with open(STATE_FILE, "w") as f: json.dump([], f)
-        with open(STATE_FILE, "r") as f:
-            processed = set(json.load(f)[-MAX_STATE_SIZE:])
+        
+        try:
+            with open(STATE_FILE, "r") as f:
+                state_data = json.load(f)
+                # FIX: Ensure state_data is a list before slicing
+                if not isinstance(state_data, list):
+                    logger.warning("State file corrupted (not a list). Resetting...")
+                    state_data = []
+                processed = set(state_data[-MAX_STATE_SIZE:])
+        except (json.JSONDecodeError, KeyError):
+            logger.warning("State file unreadable. Resetting to empty state.")
+            processed = set()
 
         # 2. Intel Ingestion & Triage
         intel_items = []
         for url in RSS_FEEDS:
-            feed = feedparser.parse(url)
-            for entry in feed.entries[:MAX_PER_FEED]:
-                guid = entry.get("guid") or entry.get("link", "")
-                if guid in processed: continue
-                intel_items.append({
-                    "title": entry.get("title", "Untitled"),
-                    "link": entry.get("link", ""),
-                    "summary": entry.get("summary", "")
-                })
-                processed.add(guid)
+            try:
+                feed = feedparser.parse(url)
+                for entry in feed.entries[:MAX_PER_FEED]:
+                    guid = entry.get("guid") or entry.get("link", "")
+                    if guid in processed: continue
+                    intel_items.append({
+                        "guid": guid,
+                        "title": entry.get("title", "Untitled"),
+                        "link": entry.get("link", ""),
+                        "summary": entry.get("summary", "")
+                    })
+                    processed.add(guid)
+            except Exception as e:
+                logger.error(f"Failed to parse feed {url}: {e}")
         
         if not intel_items:
-            logger.info("No new intelligence detected. Standing by.")
+            logger.info("No new intelligence detected. Pipeline standby.")
             return
 
-        with open(STATE_FILE, "w") as f: json.dump(list(processed), f)
+        # Atomic Save of State
+        with open(STATE_FILE, "w") as f: 
+            json.dump(list(processed), f)
 
         # 3. Content Generation & Risk Scoring
         headline = generate_headline(intel_items)
@@ -81,23 +98,23 @@ def main():
             except Exception:
                 time.sleep(PUBLISH_RETRY_DELAY * attempt)
 
-        # 5. Multi-Channel Dispatch (Bypasses Greyed-Out Buttons)
+        # 5. Multi-Channel Dispatch
         if post_url:
             logger.info(f"✓ LIVE AT: {post_url}")
             
-            # --- LinkedIn Broadcaster (Using w_member_social) ---
+            # --- LinkedIn Broadcaster ---
             try:
                 broadcast_to_social(headline, post_url, risk_score)
             except Exception as e: 
                 logger.error(f"Social Broadcast failure: {e}")
 
-            # --- Instant Alert (Telegram/Discord) ---
+            # --- Instant Alerts (Telegram/Discord) ---
             try:
                 send_sentinel_alert(headline, risk_score, post_url)
             except Exception as e: 
                 logger.error(f"Telegram alert failure: {e}")
             
-            # --- Email Dispatch (High Severity Only) ---
+            # --- Executive Briefing ---
             if risk_score >= 6.5:
                 try:
                     send_executive_briefing(headline, risk_score, full_html, post_url)
