@@ -32,7 +32,7 @@ from .notifier import send_sentinel_alert
 from .email_dispatcher import send_executive_briefing
 
 # NEW: Social Amplification Layer
-from .social_bot import broadcast_to_social
+from agent.social_bot import broadcast_to_social
 
 # ═══════════════════════════════════════════════════
 # LOGGING & METRICS
