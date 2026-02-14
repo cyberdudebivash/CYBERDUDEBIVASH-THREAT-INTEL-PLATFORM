@@ -1,23 +1,23 @@
 """
-blog_post_generator.py — CyberDudeBivash v5.0 APEX
-Final UI: Spatial Visualization & Reputation Dashboard.
+blog_post_generator.py — CyberDudeBivash v5.1 APEX
+Enterprise UI: Heat Maps, Reputation Tables, and STIX Integration.
 """
 from typing import List, Dict, Optional
 from datetime import datetime, timezone
 
 def generate_headline(intel_items: List[Dict]) -> str:
     """Generates a high-impact, consolidated headline."""
-    if not intel_items: return "CDB Sentinel Intel Sweep"
+    if not intel_items: return "CDB Sentinel sweep"
     primary = intel_items[0].get('title', 'Unknown Threat')
     return f"CRITICAL: {primary} (+{len(intel_items)-1} Updates)" if len(intel_items) > 1 else f"ADVISORY: {primary}"
 
-def generate_full_post_content(intel_items: List[Dict], iocs: Optional[Dict] = None, pro_data: Optional[Dict] = None, map_html: str = "") -> str:
-    """Renders final HTML with spatial heat map and reputation triage."""
+def generate_full_post_content(intel_items: List[Dict], iocs: Optional[Dict] = None, pro_data: Optional[Dict] = None, map_html: str = "", stix_id: str = "") -> str:
+    """Renders final HTML with spatial maps, reputation triage, and STIX metadata."""
     html = [f"""
     <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #1a1f36; line-height: 1.8; max-width: 900px; margin: auto; border: 1px solid #e3e8ee; border-radius: 8px;">
         <div style="background: #1a1f36; color: #ffffff; padding: 25px; border-radius: 8px 8px 0 0;">
             <h1 style="margin: 0; font-size: 24px;">CYBERDUDEBIVASH SENTINEL APEX</h1>
-            <p style="margin: 5px 0 0; opacity: 0.8; font-family: monospace;">{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC | VERSION 5.0</p>
+            <p style="margin: 5px 0 0; opacity: 0.8; font-family: monospace;">{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC | STIX 2.1 ENABLED</p>
         </div>
         
         <div style="padding: 20px; background: #f8f9fa;">
@@ -27,26 +27,25 @@ def generate_full_post_content(intel_items: List[Dict], iocs: Optional[Dict] = N
         <div style="padding: 25px;">
     """]
 
-    # Intelligence Nodes
-    html.append('<h2 style="color: #5469d4; border-bottom: 2px solid #f7fafc; padding-bottom: 10px;">Executive Summary</h2>')
+    # 1. Intelligence Nodes
     for item in intel_items:
         html.append(f"""
         <div style="border-bottom: 1px solid #e3e8ee; padding: 15px 0; margin-bottom: 15px;">
-            <h3 style="margin: 0;"><a href="{item.get('link','#')}" style="color: #1a73e8; text-decoration: none;">{item.get('title')}</a></h3>
+            <h3 style="color: #5469d4; margin: 0;"><a href="{item.get('link','#')}" style="color: inherit; text-decoration: none;">{item.get('title')}</a></h3>
             <p style="font-size: 15px; color: #4f566b;">{item.get('summary')}</p>
         </div>
         """)
 
-    # Technical Reputation Dashboard
+    # 2. Forensic Evidence & Reputation
     if iocs and any(iocs.values()):
         html.append("""
-        <h2 style="color: #cf1124; margin-top: 30px; border-left: 5px solid #cf1124; padding-left: 15px;">Forensic Evidence & Reputation</h2>
+        <h2 style="color: #cf1124; margin-top: 30px; border-left: 5px solid #cf1124; padding-left: 15px;">Forensic Intelligence Dashboard</h2>
         <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; background: #ffffff;">
             <thead>
                 <tr style="background: #f7fafc; border-bottom: 2px solid #e3e8ee; text-align: left;">
                     <th style="padding: 12px;">Indicator</th>
-                    <th style="padding: 12px;">VT Verdict</th>
-                    <th style="padding: 12px;">Geo-Origin</th>
+                    <th style="padding: 12px;">Reputation</th>
+                    <th style="padding: 12px;">Origin</th>
                     <th style="padding: 12px;">Infrastructure</th>
                 </tr>
             </thead>
@@ -55,8 +54,6 @@ def generate_full_post_content(intel_items: List[Dict], iocs: Optional[Dict] = N
         for ioc_type, values in iocs.items():
             for val in values:
                 meta = pro_data.get(val, {"location": "-", "isp": "-", "reputation": "-"})
-                
-                # Dynamic coloring for malicious verdicts
                 is_malicious = "Flags" in meta['reputation'] and int(meta['reputation'].split('/')[0]) > 0
                 vt_style = "color: #cf1124; font-weight: bold;" if is_malicious else "color: #188038;"
 
@@ -72,9 +69,22 @@ def generate_full_post_content(intel_items: List[Dict], iocs: Optional[Dict] = N
                 </tr>""")
         html.append("</tbody></table>")
 
+    # 3. SIEM Integration Section
+    if stix_id:
+        html.append(f"""
+        <div style="margin-top: 30px; border: 1px dashed #5469d4; padding: 20px; background: #f1f3f4; border-radius: 8px;">
+            <h3 style="color: #5469d4; margin-top: 0; font-size: 16px;">MACHINE-READABLE INTEL (STIX 2.1)</h3>
+            <p style="font-size: 13px; margin-bottom: 10px;">Ingest this intelligence node directly into Microsoft Sentinel, Splunk, or CrowdStrike via the STIX 2.1 data bundle.</p>
+            <div style="background: #ffffff; padding: 10px; font-family: monospace; font-size: 11px; border: 1px solid #ddd; color: #1a1f36;">
+                REF_ID: {stix_id}<br>
+                FORMAT: application/taxii+json;version=2.1
+            </div>
+        </div>
+        """)
+
     html.append("""
         <div style="margin-top: 40px; padding: 20px; background: #f7fafc; text-align: center; font-size: 11px; color: #a3acb9;">
-            © 2026 CyberDudeBivash Pvt Ltd — Advanced Threat Intelligence Dashboard
+            © 2026 CyberDudeBivash Pvt Ltd — Final v5.1 APEX Integration
         </div>
     </div>""")
     return "".join(html)
