@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v3.2 APEX
+sentinel_blogger.py — CyberDudeBivash v3.3 APEX
 Complete Multi-Channel Intel Orchestrator.
+Integrated with LinkedIn Member Feed & X Broadcaster.
 
 Author: Bivash Kumar Nayak (CyberDudeBivash)
 © 2026 CyberDudeBivash Pvt Ltd — All rights reserved.
@@ -29,6 +30,9 @@ from .config import (
 from .content.blog_post_generator import generate_full_post_content, generate_headline, _calculate_cdb_score
 from .notifier import send_sentinel_alert
 from .email_dispatcher import send_executive_briefing
+
+# NEW: Social Amplification Layer
+from .social_bot import broadcast_to_social
 
 # ═══════════════════════════════════════════════════
 # LOGGING & METRICS
@@ -80,7 +84,7 @@ def save_processed(processed: Set[str]):
 
 def main():
     metrics = RunMetrics()
-    logger.info("="*60 + "\nCDB-SENTINEL v3.2 APEX — Multi-Channel Dispatch\n" + "="*60)
+    logger.info("="*60 + "\nCDB-SENTINEL v3.3 APEX — Global Intel Dispatch\n" + "="*60)
 
     try:
         # Step 1: Intel Ingestion
@@ -135,17 +139,30 @@ def main():
                 if attempt == PUBLISH_RETRY_MAX: raise
                 time.sleep(PUBLISH_RETRY_DELAY * attempt)
 
-        # Step 4: Multi-Channel Alerting
+        # Step 4: Multi-Channel Alerting & Social Amplification
         if post_url:
             logger.info(f"✓ LIVE AT: {post_url}")
             
-            # Dispatch Social Alerts
-            send_sentinel_alert(headline, risk_score, post_url)
+            # --- Social Broadcast (LinkedIn / X) ---
+            try:
+                # Dispatches only after Blogger success to ensure URL validity
+                broadcast_to_social(headline, post_url, risk_score)
+            except Exception as e:
+                logger.error(f"Social broadcast component failed: {e}")
+
+            # --- Sentinel Alerting (Telegram/Discord) ---
+            try:
+                send_sentinel_alert(headline, risk_score, post_url)
+            except Exception as e:
+                logger.error(f"Instant alert dispatch failed: {e}")
             
-            # Dispatch Executive Briefing (High-Value Only)
+            # --- Executive Briefing (Email Dispatcher) ---
             if risk_score >= 6.5:
-                logger.info("Critical score detected. Triggering Executive Briefing...")
-                send_executive_briefing(headline, risk_score, full_html, post_url)
+                logger.info(f"High risk score ({risk_score}) detected. Triggering Briefing...")
+                try:
+                    send_executive_briefing(headline, risk_score, full_html, post_url)
+                except Exception as e:
+                    logger.error(f"Executive briefing dispatch failed: {e}")
 
         logger.info(metrics.summary() + "\nPipeline completed successfully ✅")
 
