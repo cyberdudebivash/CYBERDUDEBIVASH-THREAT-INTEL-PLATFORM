@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v5.5 APEX (Enterprise Edition)
-Orchestrator: Integrated Blogger API & Manifest-Driven STIX Feed.
+sentinel_blogger.py — CyberDudeBivash v6.0 APEX (Geospatial Edition)
+Orchestrator: Ingestion -> Enrichment -> STIX 2.1 Mapping -> Global Dispatch.
 """
 import os
 import sys
@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 import feedparser
 
-# Path resolution for GitHub Actions
+# Path resolution for Enterprise Environment
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Platform Module Imports
@@ -26,32 +26,32 @@ from agent.enricher import enricher
 from agent.enricher_pro import enricher_pro
 from agent.integrations.vt_lookup import vt_lookup
 from agent.visualizer import visualizer
-from agent.export_stix import stix_exporter # v2.0 Enterprise Exporter
+from agent.export_stix import stix_exporter # v6.0 Geospatial Exporter
 from agent.notifier import send_sentinel_alert
 
-# Global Logging
+# Global Operational Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
-logger = logging.getLogger("CDB-SENTINEL")
+logger = logging.getLogger("CDB-SENTINEL-APEX")
 
 def _calculate_cdb_risk_score(headline: str, corpus: str, iocs: dict) -> float:
-    """Enterprise Risk Scoring Logic."""
+    """Enterprise Risk Scoring Algorithm v6.0."""
     score = 5.0
-    critical_terms = ["ransomware", "zero-day", "critical", "exploit", "cve-202"]
+    critical_terms = ["ransomware", "zero-day", "critical", "exploit", "cve-2026"]
     for term in critical_terms:
         if term in (headline + corpus).lower():
-            score += 1.0
+            score += 1.5
     
     ioc_count = sum(len(v) for v in iocs.values())
-    if ioc_count > 5: score += 1.0
-    if ioc_count > 15: score += 1.5
+    if ioc_count > 10: score += 1.0
+    if ioc_count > 25: score += 2.0
     
     return min(10.0, score)
 
 def main():
-    logger.info("="*60 + "\nCDB-SENTINEL v5.5 APEX — ENTERPRISE OPS ACTIVE\n" + "="*60)
+    logger.info("="*60 + "\nCYBERDUDEBIVASH SENTINEL APEX v6.0 — GOC ACTIVE\n" + "="*60)
 
     try:
-        # 1. State/Ingestion Logic
+        # 1. State/Ingestion Cycle
         if not os.path.exists(STATE_FILE):
             os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
             with open(STATE_FILE, "w") as f: json.dump([], f)
@@ -67,37 +67,40 @@ def main():
                 guid = entry.get("guid") or entry.get("link", "")
                 if guid in processed: continue
                 intel_items.append({
-                    "title": entry.get("title", "Untitled Advisory"),
+                    "title": entry.get("title", "Advisory Node"),
                     "link": entry.get("link", ""),
                     "summary": entry.get("summary", entry.get("description", ""))
                 })
                 processed.add(guid)
         
         if not intel_items:
-            logger.info("No new intelligence detected. System in standby.")
-            # Even in standby, ensure manifest is updated if files exist manually
+            logger.info("System Standby: No new geospatial vectors detected.")
+            # Critical Fix: Still update manifest to ensure map remains synced
             stix_exporter.update_manifest()
             return
 
-        # 2. Forensic & Reputation Enrichment
+        # 2. Intelligence Triage & Enrichment
         corpus = " ".join([i['summary'] for i in intel_items])
         extracted_iocs = enricher.extract_iocs(corpus)
         threat_category = enricher.categorize_threat(extracted_iocs)
         
+        # Build the Enriched Metadata for STIX 2.1 Location Mapping
         enriched_metadata = {}
         for ioc_type, values in extracted_iocs.items():
-            for val in values[:5]: # Triage top 5 indicators
-                context = enricher_pro.get_ip_context(val) if ioc_type == "ipv4" else {"location": "N/A", "isp": "N/A"}
-                reputation = vt_lookup.get_reputation(val, ioc_type) # Verified VT Key usage
+            for val in values:
+                # Geo-IP Context
+                context = enricher_pro.get_ip_context(val) if ioc_type == "ipv4" else {"location": "N/A", "isp": "N/A", "country_code": None}
+                # Reputation Sweeps
+                reputation = vt_lookup.get_reputation(val, ioc_type)
                 enriched_metadata[val] = {**context, "reputation": reputation}
         
-        # 3. Intelligence Orchestration
+        # 3. Branding & Scoring
         headline = generate_headline(intel_items)
         risk_score = _calculate_cdb_risk_score(headline, corpus, extracted_iocs)
         threat_map_html = visualizer.generate_heat_map(enriched_metadata)
-        stix_id = f"CDB-APEX-{int(time.time())}"
         
-        # 4. Content Generation (Enterprise v5.5 UI)
+        # 4. Content Assembly (Enterprise UI)
+        stix_id = f"CDB-APEX-{int(time.time())}"
         full_html = generate_full_post_content(
             intel_items, 
             iocs=extracted_iocs, 
@@ -106,35 +109,35 @@ def main():
             stix_id=stix_id
         )
         
-        # 5. Global Dispatch via Blogger API
+        # 5. Global Dispatch (Blogger API)
         service = get_blogger_service()
         post_url = None
         for attempt in range(1, PUBLISH_RETRY_MAX + 1):
             try:
                 post = service.posts().insert(blogId=BLOG_ID, body={
-                    "title": f"[{threat_category}] {headline}",
+                    "title": f"[{threat_category}] {headline} (Score: {risk_score}/10)",
                     "content": full_html,
-                    "labels": ["ThreatIntel", "CISO-Summary", "VT-Verified", "STIX-2.1"]
+                    "labels": ["CDB-Sentinel", "STIX-2.1", "Geospatial-Intel", "VT-Verified"]
                 }).execute()
                 post_url = post.get("url")
                 break
             except Exception as e:
-                logger.error(f"Publish attempt {attempt} failed: {e}")
+                logger.error(f"Dispatch attempt {attempt} failed: {e}")
                 time.sleep(PUBLISH_RETRY_DELAY * attempt)
 
         if post_url:
-            logger.info(f"✓ ENTERPRISE REPORT LIVE: {post_url}")
-            # Update state to prevent duplicates
+            logger.info(f"✓ APEX REPORT DISPATCHED: {post_url}")
+            # Update State
             with open(STATE_FILE, "w") as f: json.dump(list(processed), f)
             
-            # Export Machine-Readable STIX & Update Manifest Discovery
-            stix_exporter.create_bundle(headline, extracted_iocs, risk_score)
+            # THE CORE UPGRADE: Create STIX Bundle with Geospatial Metadata
+            stix_exporter.create_bundle(headline, extracted_iocs, risk_score, enriched_metadata)
             
-            # Final Dispatch Notifications
+            # Send Final Alert
             send_sentinel_alert(headline, risk_score, post_url)
 
     except Exception as e:
-        logger.critical(f"Terminal Pipeline Failure: {e}")
+        logger.critical(f"APEX CORE FAILURE: {e}")
         raise
 
 if __name__ == "__main__":
