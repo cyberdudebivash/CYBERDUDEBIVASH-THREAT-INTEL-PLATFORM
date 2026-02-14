@@ -5,7 +5,7 @@ on:
     - cron: '0 */6 * * *'      # Automated sweep every 6 hours
   workflow_dispatch:           # Manual trigger for ad-hoc triage
 
-# CRITICAL: Grant 'write' permissions for committing STIX data
+# CRITICAL: Grant 'write' permissions for committing STIX data and state files
 permissions:
   contents: write
 
@@ -29,6 +29,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Ensure Forensic Directories Exist
+        run: |
+          mkdir -p data/stix
+          touch data/stix/.gitkeep
+
       - name: Run Sentinel Blogger APEX Engine
         env:
           # --- Core Blogger Auth ---
@@ -38,7 +43,7 @@ jobs:
           BLOG_ID:           ${{ secrets.BLOG_ID }}
           
           # --- Threat Intelligence & Reputation ---
-          VT_API_KEY:        ${{ secrets.VT_API_KEY }}  # REQUIRED for reputation triage
+          VT_API_KEY:        ${{ secrets.VT_API_KEY }}  # Armed for GOC
           
           # --- Social Amplification (Standby) ---
           LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
@@ -50,20 +55,26 @@ jobs:
           SUBSCRIBER_EMAILS: ${{ secrets.SUBSCRIBER_EMAILS }}
         run: python -m agent.sentinel_blogger
 
-      - name: Commit & Publish STIX Intelligence
+      - name: Commit & Push Intelligence Data
         run: |
           git config --local user.email "sentinel@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
-          # Only add files if directory exists to prevent workflow errors
+          
+          # Add state file to prevent duplicate posts in next run
+          if [ -f "data/blogger_processed.json" ]; then
+            git add data/blogger_processed.json
+          fi
+          
+          # Add forensic STIX nodes
           if [ -d "data/stix" ]; then
             git add data/stix/*.json
-            git add data/processed_guids.json
-            git commit -m "Auto-Update: New Forensic Intelligence Node [skip ci]" || echo "No changes to commit"
-            git push origin main
           fi
+          
+          git commit -m "Auto-Update: Forensic Intelligence Node [skip ci]" || echo "No changes to commit"
+          git push origin main
 
       - name: Deploy Live Feed to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: .
-          branch: gh-pages     # Live STIX Feed Target
+          branch: gh-pages     # Target for Live STIX Feed URL
