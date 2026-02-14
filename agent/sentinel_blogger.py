@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v3.7 APEX
-Master Orchestrator: Multi-Channel Intel Dispatch.
-Includes State-Resilient Logic & Global Broadcast.
+sentinel_blogger.py — CyberDudeBivash v3.8 APEX
+Master Orchestrator: Feed -> Blogger -> Social -> Email.
+Robust State-Resiliency & Absolute Path Safety.
 """
 import os
 import sys
@@ -15,7 +15,7 @@ from typing import Set
 import feedparser
 from googleapiclient.errors import HttpError
 
-# CRITICAL: Resolve package path for GitHub Actions runner
+# CRITICAL: Resolve package path for GitHub Actions runner environment
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent.blogger_auth import get_blogger_service
@@ -28,14 +28,18 @@ from agent.notifier import send_sentinel_alert
 from agent.email_dispatcher import send_executive_briefing
 from agent.social_bot import broadcast_to_social
 
-# Global logging setup
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
+# Production logging setup
+logging.basicConfig(
+    level=logging.INFO, 
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+    handlers=[logging.FileHandler("sentinel.log"), logging.StreamHandler()]
+)
 logger = logging.getLogger("CDB-SENTINEL")
 
 def main():
-    logger.info("=== CDB-SENTINEL v3.7 — Global Broadcast Initialized ===")
+    logger.info("=== CDB-SENTINEL v3.8 — Global Broadcast Initialized ===")
     try:
-        # 1. State Management (Prevent Duplicates & Handle Corruption)
+        # 1. Resilient State Management
         if not os.path.exists(STATE_FILE):
             os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
             with open(STATE_FILE, "w") as f: json.dump([], f)
@@ -43,16 +47,15 @@ def main():
         try:
             with open(STATE_FILE, "r") as f:
                 state_data = json.load(f)
-                # FIX: Ensure state_data is a list before slicing
                 if not isinstance(state_data, list):
-                    logger.warning("State file corrupted (not a list). Resetting...")
+                    logger.warning("State corrupted. Resetting to empty list.")
                     state_data = []
                 processed = set(state_data[-MAX_STATE_SIZE:])
-        except (json.JSONDecodeError, KeyError):
-            logger.warning("State file unreadable. Resetting to empty state.")
+        except Exception as e:
+            logger.warning(f"State load failed: {e}. Resetting state.")
             processed = set()
 
-        # 2. Intel Ingestion & Triage
+        # 2. Intel Ingestion
         intel_items = []
         for url in RSS_FEEDS:
             try:
@@ -61,70 +64,61 @@ def main():
                     guid = entry.get("guid") or entry.get("link", "")
                     if guid in processed: continue
                     intel_items.append({
-                        "guid": guid,
-                        "title": entry.get("title", "Untitled"),
-                        "link": entry.get("link", ""),
-                        "summary": entry.get("summary", "")
+                        "guid": guid, "title": entry.get("title", "Untitled"),
+                        "link": entry.get("link", ""), "summary": entry.get("summary", "")
                     })
                     processed.add(guid)
-            except Exception as e:
-                logger.error(f"Failed to parse feed {url}: {e}")
+            except Exception as e: logger.error(f"Feed error {url}: {e}")
         
         if not intel_items:
-            logger.info("No new intelligence detected. Pipeline standby.")
+            logger.info("No new intelligence. Standing by.")
             return
 
-        # Atomic Save of State
-        with open(STATE_FILE, "w") as f: 
-            json.dump(list(processed), f)
+        # Atomic state save
+        with open(STATE_FILE, "w") as f: json.dump(list(processed), f)
 
-        # 3. Content Generation & Risk Scoring
+        # 3. Content Generation
         headline = generate_headline(intel_items)
         full_html = generate_full_post_content(intel_items)
         risk_score = _calculate_cdb_score("", " ".join(i.get("title", "") for i in intel_items))
         
-        # 4. Global Publication (Blogger)
+        # 4. Blogger Dispatch
         service = get_blogger_service()
         post_url = None
         for attempt in range(1, PUBLISH_RETRY_MAX + 1):
             try:
                 post = service.posts().insert(blogId=BLOG_ID, body={
                     "title": f"{headline} | {datetime.now().strftime('%B %d, %Y')}",
-                    "content": full_html, 
-                    "labels": ["ThreatIntel", "AI-Sentinel", "CyberDudeBivash"]
+                    "content": full_html, "labels": ["ThreatIntel", "CyberDudeBivash"]
                 }).execute()
                 post_url = post.get("url")
                 break
-            except Exception:
-                time.sleep(PUBLISH_RETRY_DELAY * attempt)
+            except Exception: time.sleep(PUBLISH_RETRY_DELAY * attempt)
 
         # 5. Multi-Channel Dispatch
         if post_url:
             logger.info(f"✓ LIVE AT: {post_url}")
             
-            # --- LinkedIn Broadcaster ---
+            # Social Broadcast (LinkedIn using w_member_social)
             try:
                 broadcast_to_social(headline, post_url, risk_score)
-            except Exception as e: 
-                logger.error(f"Social Broadcast failure: {e}")
+            except Exception as e: logger.error(f"Social Dispatch Failure: {e}")
 
-            # --- Instant Alerts (Telegram/Discord) ---
+            # Instant Alerts (Telegram/Discord)
             try:
                 send_sentinel_alert(headline, risk_score, post_url)
-            except Exception as e: 
-                logger.error(f"Telegram alert failure: {e}")
+            except Exception as e: logger.error(f"Telegram Failure: {e}")
             
-            # --- Executive Briefing ---
+            # Executive Briefing (Email)
             if risk_score >= 6.5:
                 try:
                     send_executive_briefing(headline, risk_score, full_html, post_url)
-                except Exception as e: 
-                    logger.error(f"Executive briefing failure: {e}")
+                except Exception as e: logger.error(f"Email Failure: {e}")
 
-        logger.info("Pipeline completed successfully ✅")
+        logger.info("Pipeline executed successfully ✅")
 
     except Exception as e:
-        logger.critical(f"System failure: {e}", exc_info=True)
+        logger.critical(f"System failure: {e}")
         raise
 
 if __name__ == "__main__":
