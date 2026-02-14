@@ -42,6 +42,13 @@ BLOGS = {
 BLOG_ID = os.getenv("BLOG_ID", "1735779547938854877")
 
 # ═══════════════════════════════════════════════
+# THREAT INTELLIGENCE & REPUTATION (NEW Section)
+# ═══════════════════════════════════════════════
+
+# Securely pulls the VirusTotal Key from GitHub Secrets
+VT_API_KEY = os.getenv("VT_API_KEY", "").strip() 
+
+# ═══════════════════════════════════════════════
 # INTEL SOURCES
 # ═══════════════════════════════════════════════
 
