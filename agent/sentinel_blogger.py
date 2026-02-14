@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v4.8 APEX
-Final Production: Multi-Vendor Forensic & Reputation Orchestrator.
+sentinel_blogger.py — CyberDudeBivash v5.0 APEX
+Final Production: Forensic + Geo + VT + Visual Heat Map Orchestrator.
 """
 import os
 import sys
@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 import feedparser
 from googleapiclient.errors import HttpError
 
-# CRITICAL: Resolve package path for GitHub Actions
+# CRITICAL: Path resolution for GitHub Actions
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent.blogger_auth import get_blogger_service
@@ -25,14 +25,14 @@ from agent.content.blog_post_generator import generate_full_post_content, genera
 from agent.enricher import enricher
 from agent.enricher_pro import enricher_pro
 from agent.integrations.vt_lookup import vt_lookup
+from agent.visualizer import visualizer  # Visual Intelligence Engine
 from agent.notifier import send_sentinel_alert
 
-# Logger Configuration
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
 logger = logging.getLogger("CDB-SENTINEL")
 
 def main():
-    logger.info("=== CDB-SENTINEL v4.8 — Reputation-Aware Pipeline Active ===")
+    logger.info("=== CDB-SENTINEL v5.0 — Spatial Intelligence Active ===")
     try:
         # 1. State Management
         if not os.path.exists(STATE_FILE):
@@ -58,30 +58,39 @@ def main():
                 processed.add(guid)
         
         if not intel_items:
-            logger.info("No new intelligence nodes detected. Pipeline on standby.")
+            logger.info("No new intelligence detected. Standing by.")
             return
 
         with open(STATE_FILE, "w") as f: json.dump(list(processed), f)
 
-        # 3. Deep Triage & Multi-Stage Enrichment
+        # 3. Forensic & Reputation Triage
         corpus = " ".join([i['summary'] for i in intel_items])
         extracted_iocs = enricher.extract_iocs(corpus)
         threat_category = enricher.categorize_threat(extracted_iocs)
         
-        # Enriched Metadata Matrix (Geo-IP + VT Reputation)
+        # Deep Enrichment (Geo-IP + VT Score)
         enriched_metadata = {}
         for ioc_type, values in extracted_iocs.items():
-            for val in values[:3]: # Triage top 3 per type to optimize API performance
+            for val in values[:3]:
                 context = enricher_pro.get_ip_context(val) if ioc_type == "ipv4" else {"location": "-", "isp": "-"}
                 reputation = vt_lookup.get_reputation(val, ioc_type)
                 enriched_metadata[val] = {**context, "reputation": reputation}
         
-        # 4. Content Assembly
+        # 4. Spatial Visualization
+        # Generates the pulse-animated SVG World Map
+        threat_map_html = visualizer.generate_heat_map(enriched_metadata)
+        
+        # 5. Content assembly
         headline = generate_headline(intel_items)
-        full_html = generate_full_post_content(intel_items, iocs=extracted_iocs, pro_data=enriched_metadata)
+        full_html = generate_full_post_content(
+            intel_items, 
+            iocs=extracted_iocs, 
+            pro_data=enriched_metadata, 
+            map_html=threat_map_html
+        )
         risk_score = _calculate_cdb_score(headline, corpus)
         
-        # 5. Global Dispatch (Blogger)
+        # 6. Dispatch
         service = get_blogger_service()
         post_url = None
         for attempt in range(1, PUBLISH_RETRY_MAX + 1):
@@ -89,19 +98,18 @@ def main():
                 post = service.posts().insert(blogId=BLOG_ID, body={
                     "title": f"[{threat_category}] {headline} | {datetime.now(timezone.utc).strftime('%b %d')}",
                     "content": full_html,
-                    "labels": ["ThreatIntel", "CDB-Sentinel", "VT-Verified"]
+                    "labels": ["ThreatIntel", "Forensics", "GlobalHeatMap"]
                 }).execute()
                 post_url = post.get("url")
                 break
             except Exception: time.sleep(PUBLISH_RETRY_DELAY * attempt)
 
-        # 6. Multi-Channel Alerting
         if post_url:
-            logger.info(f"✓ THREAT REPORT LIVE: {post_url}")
+            logger.info(f"✓ LIVE AT: {post_url}")
             send_sentinel_alert(headline, risk_score, post_url)
 
     except Exception as e:
-        logger.critical(f"Pipeline encountered a terminal failure: {e}")
+        logger.critical(f"Pipeline failure: {e}")
         raise
 
 if __name__ == "__main__":
