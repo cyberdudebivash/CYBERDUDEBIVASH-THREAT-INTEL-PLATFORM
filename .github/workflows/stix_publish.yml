@@ -1,0 +1,30 @@
+name: Publish Live STIX Feed
+
+on:
+  workflow_run:
+    workflows: ["CDB Sentinel Blogger"]
+    types:
+      - completed
+
+jobs:
+  deploy-feed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Commit New Intelligence
+        run: |
+          git config --local user.email "sentinel@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+          git add data/stix/*.json
+          git commit -m "Auto-Update: New STIX Intelligence Node [skip ci]" || echo "No new intel to commit"
+          git push
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: . # Or your /docs folder
+          branch: gh-pages
