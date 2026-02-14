@@ -1,6 +1,6 @@
 """
-social_bot.py — CyberDudeBivash Social Dispatcher v1.9
-Final Production Edition: Validated with Three-Scope Handshake.
+social_bot.py — CyberDudeBivash Social Dispatcher v2.0
+APEX Edition: Token Sanitization & Multi-URN Fallback.
 """
 import os
 import requests
@@ -9,25 +9,26 @@ import logging
 logger = logging.getLogger("CDB-SOCIAL")
 
 def post_to_linkedin(message, url):
-    """Broadcasts threat intel to personal feed with multi-URN fallback."""
+    """Broadcasts to personal feed with sanitized token handling."""
     try:
-        token = os.getenv("LINKEDIN_ACCESS_TOKEN")
-        member_id = os.getenv("LINKEDIN_MEMBER_URN")
+        # Use .strip() to remove hidden spaces/newlines from GitHub Secrets
+        token = os.getenv("LINKEDIN_ACCESS_TOKEN", "").strip()
+        member_id = os.getenv("LINKEDIN_MEMBER_URN", "").strip()
 
         if not token or not member_id:
-            logger.warning("LinkedIn credentials missing. Check GitHub Secrets.")
+            logger.warning("LinkedIn credentials missing or empty.")
             return
 
         endpoint = "https://api.linkedin.com/v2/ugcPosts"
         headers = {
-            "Authorization": f"Bearer {token.strip()}",
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
             "X-Restli-Protocol-Version": "2.0.0"
         }
 
-        # Optimized payload using the member ID confirmed in previous logs
+        # Industry-standard personal profile payload
         payload = {
-            "author": f"urn:li:person:{member_id.strip()}",
+            "author": f"urn:li:person:{member_id}",
             "lifecycleState": "PUBLISHED",
             "specificContent": {
                 "com.linkedin.ugc.ShareContent": {
@@ -39,31 +40,31 @@ def post_to_linkedin(message, url):
             "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
         }
 
-        # First attempt: standard 'person' URN
+        # Primary attempt with 'person' URN
         response = requests.post(endpoint, headers=headers, json=payload)
         
-        # If person fails with 403 or 422, automatically retry with 'member'
+        # Fallback logic for transitioning member URNs
         if response.status_code in [403, 422]:
-            logger.info(f"Retrying with member URN fallback...")
-            payload["author"] = f"urn:li:member:{member_id.strip()}"
+            logger.info("Access denied for person URN. Retrying with member URN...")
+            payload["author"] = f"urn:li:member:{member_id}"
             response = requests.post(endpoint, headers=headers, json=payload)
 
         if response.status_code == 201:
-            logger.info("✓ LinkedIn broadcast successful! Post is live.")
+            logger.info("✓ LinkedIn broadcast successful! Post live.")
         else:
-            logger.error(f"LinkedIn final failure {response.status_code}: {response.text}")
+            logger.error(f"LinkedIn API Refusal {response.status_code}: {response.text}")
 
     except Exception as e:
-        logger.error(f"Social broadcast system encountered an error: {e}")
+        logger.error(f"Social broadcast system failure: {e}")
 
 def broadcast_to_social(title, url, score):
-    """Main orchestrator for professional network amplification."""
+    """Main entry point for professional network dispatch."""
     severity = "🔴 CRITICAL" if score >= 8.5 else "🟠 HIGH"
     message = (
         f"{severity} THREAT ADVISORY\n"
         f"━━━━━━━━━━━━━━━\n"
         f"THREAT: {title}\n"
-        f"CDB-RISK SCORE: {score}/10.0\n\n"
+        f"RISK: {score}/10.0\n\n"
         f"🔗 Technical Analysis: {url}\n\n"
         f"#CyberSecurity #ThreatIntel #CyberDudeBivash"
     )
