@@ -1,92 +1,78 @@
 #!/usr/bin/env python3
 """
-blog_post_generator.py — CyberDudeBivash v7.2
-Enterprise Content Engine: Standardized HTML with MITRE & STIX Context.
+blog_post_generator.py — CyberDudeBivash v7.4
+Enterprise-Grade Intelligence Template: TLP, Diamond Model, and Multi-Tier Analysis.
 """
 
 def generate_headline(intel_items):
-    """Generates a high-impact headline based on the primary threat node."""
     if not intel_items:
         return "Autonomous Threat Intelligence Brief"
-    primary_title = intel_items[0]['title']
-    return f"Threat Advisory: {primary_title}"
+    return f"Threat Advisory: {intel_items[0]['title']}"
 
-def generate_full_post_content(intel_items, iocs, pro_data, map_html, stix_id, mitre_data=None):
+def generate_full_post_content(intel_items, iocs, pro_data, map_html, stix_id, mitre_data=None, risk_score=5.0):
     """
-    Generates the full production HTML report for Blogger.
-    Corrected to accept mitre_data to resolve Task 1 TypeError.
+    Generates a standardized NIST-style intelligence report.
+    Includes TLP marking and Diamond Model attribution.
     """
+    # P0 Task 3: TLP Classification
+    tlp_color = "#ffbf00" if risk_score >= 7.0 else "#00d4aa" # Amber vs Green
+    tlp_label = "TLP:AMBER" if risk_score >= 7.0 else "TLP:CLEAR"
     
-    # 1. MITRE ATT&CK Tactical Matrix
-    mitre_section = ""
-    if mitre_data:
-        mitre_rows = "".join([
-            f"<tr style='border-bottom:1px solid #333;'>"
-            f"<td style='padding:12px; color:#00d4aa; font-weight:bold;'>{m['id']}</td>"
-            f"<td style='padding:12px; color:#ccc;'>{m['tactic']}</td>"
-            f"</tr>"
-            for m in mitre_data
-        ])
+    # P0 Task 4: Diamond Model Attribution
+    # Extracting infrastructure and capabilities for the matrix
+    infra_list = ", ".join(iocs.get('ipv4', [])[:5]) or "Internal/Cloud"
+    capabilities = ", ".join([m['tactic'] for m in mitre_data]) if mitre_data else "General Exploitation"
+    
+    # P0 Task 5: Executive Summary vs Technical Deep-Dive
+    summary_text = intel_items[0].get('summary', 'No summary available.')[:400]
+
+    html_template = f"""
+    <div style="background:#050505; color:#e5e5e5; font-family:'Inter', sans-serif; border:1px solid #1a1a1a; border-radius:12px; overflow:hidden;">
         
-        mitre_section = f"""
-        <div style="background:#0a0a0a; border:1px solid #00d4aa; padding:25px; border-radius:15px; margin-bottom:30px;">
-            <h3 style="color:#00d4aa; margin-top:0; font-style:italic;">[#] MITRE ATT&CK® Tactical Attribution</h3>
-            <table style="width:100%; color:#eee; font-size:13px; border-collapse:collapse;">
-                <thead style="text-align:left; color:#00d4aa; border-bottom:2px solid #00d4aa;">
-                    <tr><th style="padding:10px;">Technique ID</th><th style="padding:10px;">Tactical Category</th></tr>
-                </thead>
-                <tbody>{mitre_rows}</tbody>
-            </table>
-        </div>
-        """
-
-    # 2. Forensic Indicators (IOCs)
-    ioc_list = ""
-    for category, values in iocs.items():
-        if values:
-            ioc_list += f"<p><b>{category.upper()}:</b> <code style='color:#ff4444;'>{', '.join(values)}</code></p>"
-
-    # 3. Intelligence Summary
-    summary_html = "".join([
-        f"<div style='margin-bottom:15px; padding-left:10px; border-left:3px solid #00d4aa;'>"
-        f"<a href='{item['link']}' style='color:#00d4aa; font-weight:bold; text-decoration:none;'>{item['title']}</a>"
-        f"<p style='color:#999; font-size:13px;'>{item['summary'][:300]}...</p></div>"
-        for item in intel_items
-    ])
-
-    # 4. Final Assembler
-    html_report = f"""
-    <div style="background:#050505; color:#e5e5e5; font-family:'Segoe UI', Tahoma, sans-serif; padding:30px; border-radius:10px; border:1px solid #1a1a1a;">
-        <h1 style="color:#fff; letter-spacing:-1px; border-bottom:4px solid #00d4aa; padding-bottom:10px; display:inline-block;">SENTINEL APEX ADVISORY</h1>
-        <p style="color:#555; font-size:11px; text-transform:uppercase; letter-spacing:3px; margin-top:5px;">Reference ID: {stix_id} | GOC-Verified Intelligence</p>
-        
-        <p style="margin-top:25px; line-height:1.6; color:#bbb;">
-            The CyberDudeBivash Sentinel APEX engine has autonomously triaged the following threat vectors. 
-            Adversary infrastructure has been enriched with geospatial and reputation data.
-        </p>
-
-        {mitre_section}
-
-        <h3 style="color:#00d4aa; border-left:4px solid #00d4aa; padding-left:15px;">Forensic Evidence (IOCs)</h3>
-        <div style="background:#111; padding:20px; border-radius:8px; font-family:monospace; font-size:13px;">
-            {ioc_html if 'ioc_html' in locals() else ioc_list}
+        <div style="background:{tlp_color}; color:#000; padding:10px; text-align:center; font-weight:900; letter-spacing:3px; font-size:12px;">
+            {tlp_label} // GOC-APEX-VERIFIED-INTELLIGENCE
         </div>
 
-        <h3 style="color:#00d4aa; margin-top:40px; border-left:4px solid #00d4aa; padding-left:15px;">Geospatial Risk Tracking</h3>
-        <div style="background:#111; padding:15px; border-radius:10px; text-align:center;">
-            {map_html}
-        </div>
+        <div style="padding:30px;">
+            <h1 style="margin-top:0; color:#fff; font-size:28px; letter-spacing:-1px;">{intel_items[0]['title']}</h1>
+            <p style="color:#666; font-size:11px; text-transform:uppercase;">ID: {stix_id} | Risk: {risk_score}/10 | Generated: {stix_id.split('-')[-1]}</p>
 
-        <h3 style="color:#00d4aa; margin-top:40px; border-left:4px solid #00d4aa; padding-left:15px;">Correlated Intelligence Nodes</h3>
-        {summary_html}
+            <div style="background:rgba(255,255,255,0.03); border-left:4px solid {tlp_color}; padding:20px; margin:25px 0;">
+                <h3 style="color:{tlp_color}; margin-top:0; font-size:14px; text-transform:uppercase;">Executive Summary (BLUF)</h3>
+                <p style="line-height:1.6; color:#ccc;">{summary_text}...</p>
+            </div>
 
-        <div style="margin-top:50px; padding:20px; border-top:1px solid #333; text-align:center;">
-            <p style="font-size:11px; color:#444;">
-                This technical advisory was generated by the <b>CyberDudeBivash Pvt. Ltd.</b> Autonomous Engine. 
-                Machine-readable STIX 2.1 data and PDF whitepapers are available for authorized ingestion at our 
-                <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/" style="color:#00d4aa; text-decoration:none;">Command Center Dashboard</a>.
-            </p>
+            <h3 style="color:#fff; font-size:16px; border-bottom:1px solid #222; padding-bottom:10px;">Tactical Correlation (Diamond Model)</h3>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin:20px 0;">
+                <div style="background:#111; padding:15px; border-radius:8px;">
+                    <b style="color:{tlp_color}; font-size:10px; text-transform:uppercase;">Adversary / Capability</b>
+                    <p style="margin:5px 0; font-size:13px;">{capabilities}</p>
+                </div>
+                <div style="background:#111; padding:15px; border-radius:8px;">
+                    <b style="color:{tlp_color}; font-size:10px; text-transform:uppercase;">Infrastructure / Assets</b>
+                    <p style="margin:5px 0; font-size:13px; font-family:monospace;">{infra_list}</p>
+                </div>
+            </div>
+
+            <div style="margin:30px 0;">
+                <h3 style="color:#fff; font-size:16px;">Visual Geographic Intelligence</h3>
+                <div style="background:#111; padding:10px; border-radius:10px;">
+                    {map_html}
+                </div>
+            </div>
+
+            <details style="background:#0a0a0a; border:1px solid #1a1a1a; border-radius:8px; padding:15px; cursor:pointer;">
+                <summary style="color:{tlp_color}; font-weight:bold; font-size:13px;">[+] Open Technical Annex (IOCs & Raw Data)</summary>
+                <div style="margin-top:15px; font-family:monospace; font-size:12px; color:#888;">
+                    { "".join([f"<p><b>{k.upper()}:</b> {', '.join(v)}</p>" for k,v in iocs.items() if v]) }
+                </div>
+            </details>
+
+            <div style="margin-top:40px; border-top:1px solid #222; padding-top:20px; font-size:10px; color:#444; text-align:center;">
+                This document is a machine-generated intelligence advisory from <b>CyberDudeBivash Pvt. Ltd.</b> 
+                Unauthorized distribution of {tlp_label} data is prohibited.
+            </div>
         </div>
     </div>
     """
-    return html_report
+    return html_template
