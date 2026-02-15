@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-blogger_auth.py — CyberDudeBivash v7.2
-Stateless OAuth2 Authentication for Google Blogger API.
+blogger_auth.py — CyberDudeBivash v7.2.1
+Final Production Version: Corrected OAuth2 Refresh Flow.
 """
 import os
 import logging
@@ -12,40 +12,34 @@ from google.auth.transport.requests import Request
 logger = logging.getLogger("CDB-AUTH")
 
 def get_blogger_credentials():
-    """Retrieves credentials from Environment Secrets (Production) or local storage (Dev)."""
-    # 1. Align with your GitHub Repository Secrets
-    refresh_token = os.environ.get('REFRESH_TOKEN')
-    client_id = os.environ.get('CLIENT_ID')
-    client_secret = os.environ.get('CLIENT_SECRET')
+    """Maps GitHub Secrets to Google Credentials with explicit refresh."""
+    # Terms aligned with repository secrets
+    rt = os.environ.get('REFRESH_TOKEN')
+    cid = os.environ.get('CLIENT_ID')
+    cs = os.environ.get('CLIENT_SECRET')
 
-    if refresh_token and client_id and client_secret:
-        logger.info("✓ Utilizing GitHub Environment Secrets for Authentication.")
+    if rt and cid and cs:
+        logger.info("✓ Mapped Environment Secrets detected.")
         creds = Credentials(
-            None,
-            refresh_token=refresh_token,
+            token=None,  # Access token will be generated on refresh
+            refresh_token=rt,
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=client_id,
-            client_secret=client_secret,
+            client_id=cid,
+            client_secret=cs,
         )
-        # Refresh the token to ensure validity
-        if creds.expired:
+        
+        # Mandatory refresh for stateless environments
+        try:
             creds.refresh(Request())
-        return creds
-    
-    # 2. Fallback to local credential files for development
-    token_path = 'token.json'
-    if os.path.exists(token_path):
-        logger.info("✓ Utilizing local token.json for Authentication.")
-        return Credentials.from_authorized_user_file(token_path)
-    
-    # 3. Critical Failure if no secrets are found
-    raise ValueError("CRITICAL: Missing Blogger OAuth secrets: REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET.")
+            return creds
+        except Exception as e:
+            logger.error(f"OAuth Refresh Failure: {e}")
+            raise
+
+    logger.critical("✖ CRITICAL: Missing REFRESH_TOKEN, CLIENT_ID, or CLIENT_SECRET.")
+    raise ValueError("Missing Blogger OAuth secrets: REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET.")
 
 def get_blogger_service():
-    """Initializes the Blogger V3 Service."""
-    try:
-        creds = get_blogger_credentials()
-        return build('blogger', 'v3', credentials=creds)
-    except Exception as e:
-        logger.error(f"Failed to initialize Blogger Service: {e}")
-        raise
+    """Initializes the Blogger V3 API Service."""
+    creds = get_blogger_credentials()
+    return build('blogger', 'v3', credentials=creds)
