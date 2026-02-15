@@ -23,62 +23,51 @@
             <h1 style="letter-spacing: -3px; margin: 0; font-size: 36px;">SENTINEL<span style="color: var(--apex-green);">APEX</span></h1>
             <p style="font-size: 10px; color: #444; text-transform: uppercase;">CyberDudeBivash GOC // v10.1 Global Infrastructure</p>
         </div>
-
         <div class="status-bar">
             <div>NODE: <span style="color: var(--apex-green);">CDB-GOC-01</span></div>
             <div id="sync-indicator">SYNC: <span id="sync-val" style="color: #666;">INITIALIZING...</span></div>
             <div>STATUS: <span style="color: var(--apex-green);">ACTIVE PROTECTION</span></div>
         </div>
-
         <div id="threat-grid">
             <div id="loader" style="grid-column: 1 / -1; text-align: center; padding: 100px; color: #444;">SYNCING GOC NEURAL CORE...</div>
         </div>
     </div>
-
     <script>
-        // APEX v10.1 Double-Path Resolver
-        const repoPath = '/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/';
-        const paths = [
-            `./data/stix/feed_manifest.json`,
-            `${repoPath}data/stix/feed_manifest.json`,
-            `data/stix/feed_manifest.json`
-        ];
+        // APEX v10.1 Force-Fetch Resolver
+        // This targets the RAW main branch to bypass gh-pages deployment delays
+        const RAW_MANIFEST = 'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json';
 
         async function loadTacticalIntel() {
             const grid = document.getElementById('threat-grid');
             const syncVal = document.getElementById('sync-val');
-            let data = null;
+            
+            try {
+                const response = await fetch(RAW_MANIFEST);
+                if (!response.ok) throw new Error('FETCH_FAILED');
+                
+                const data = await response.json();
+                
+                if (!data || data.length === 0) {
+                    grid.innerHTML = `<div class="error-msg">NODE ACTIVE: AWAITING CAMPAIGN DATA</div>`;
+                    return;
+                }
 
-            for (const path of paths) {
-                try {
-                    console.log(`CDB-GOC: Attempting fetch from ${path}`);
-                    const response = await fetch(path);
-                    if (response.ok) {
-                        data = await response.json();
-                        console.log(`CDB-GOC: Manifest localized at ${path}`);
-                        break;
-                    }
-                } catch (e) { console.warn(`Path failed: ${path}`); }
-            }
-
-            if (!data) {
+                grid.innerHTML = data.reverse().map(item => `
+                    <div class="intel-card">
+                        <div style="font-size: 9px; color: #444; margin-bottom: 12px;">ID: ${item.stix_id}</div>
+                        <h3 style="margin: 0; font-size: 18px; color: #fff;">${item.title}</h3>
+                        <p style="font-size: 12px; color: #888; margin: 15px 0;">Risk Severity: ${item.risk_score}/10</p>
+                        <a href="${item.blog_url}" target="_blank" class="view-link">View Tactical Dossier &rarr;</a>
+                    </div>
+                `).join('');
+                
+                syncVal.innerText = 'LATEST';
+                syncVal.style.color = 'var(--apex-green)';
+            } catch (err) {
                 grid.innerHTML = `<div class="error-msg">🚨 GOC MANIFEST SYNC FAILURE<br><span style="font-size:10px;">ERR: REPO_PATH_RESOLVER_EXHAUSTED</span></div>`;
                 syncVal.innerText = 'OFFLINE';
                 syncVal.style.color = 'var(--tlp-red)';
-                return;
             }
-
-            grid.innerHTML = data.reverse().map(item => `
-                <div class="intel-card">
-                    <div style="font-size: 9px; color: #444; margin-bottom: 12px;">ID: ${item.stix_id}</div>
-                    <h3 style="margin: 0; font-size: 18px; color: #fff;">${item.title}</h3>
-                    <p style="font-size: 12px; color: #888; margin: 15px 0;">Risk Severity: ${item.risk_score}/10</p>
-                    <a href="${item.blog_url}" target="_blank" class="view-link">View Tactical Dossier &rarr;</a>
-                </div>
-            `).join('');
-            
-            syncVal.innerText = 'LATEST';
-            syncVal.style.color = 'var(--apex-green)';
         }
         window.onload = loadTacticalIntel;
     </script>
