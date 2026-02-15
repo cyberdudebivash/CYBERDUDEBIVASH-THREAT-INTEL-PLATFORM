@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v10.0 (APEX PREDATOR)
+sentinel_blogger.py — CyberDudeBivash v10.1 (APEX PREDATOR)
 Final Orchestrator: Multi-Pillar Triage, Dependency Fixed, and ImportError Resolved.
 """
 import os, sys, json, logging, time, re  # FIXED: 're' import preserved
@@ -20,11 +20,11 @@ from agent.integrations.vulnerability_engine import vuln_engine
 from agent.export_stix import stix_exporter
 from agent.notifier import send_sentinel_alert
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [CDB-APEX] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [CDB-GOC] %(message)s")
 logger = logging.getLogger("CDB-MAIN")
 
 def main():
-    logger.info("="*60 + "\nAPEX v10.0 — GLOBAL AUTHORITY ACTIVATED\n" + "="*60)
+    logger.info("="*60 + "\nAPEX v10.1 — GOC AUTHORITY ACTIVATED\n" + "="*60)
     try:
         # 1. World-Class Ingestion & Focus Purity
         if not os.path.exists("data"): os.makedirs("data")
@@ -43,7 +43,7 @@ def main():
             logger.info("Syncing manifest."); stix_exporter.update_manifest(); return
 
         # 2. Apex Triage: Isolating the Primary Campaign
-        # v10.0 strictly produces ONE long-form dossier per tactical threat.
+        # v10.1 strictly produces ONE long-form dossier per tactical threat.
         primary_threat = [intel_items[0]] 
         
         # 3. Multi-Pillar Analysis
@@ -59,7 +59,7 @@ def main():
         cve_id = cve_match.group(0) if cve_match else None
         cve_data = vuln_engine.get_cve_deep_dive(cve_id) if cve_id else None
         
-        risk_score = 9.8 if any(extracted_iocs.values()) else 7.5
+        risk_score = 9.3 if any(extracted_iocs.values()) else 7.5
         stix_id = f"CDB-APEX-{int(time.time())}"
         
         # 4. Final Intelligence Dispatch
@@ -79,7 +79,7 @@ def main():
             json.dump(list(processed), open(STATE_FILE, "w"))
             stix_exporter.create_bundle(headline, extracted_iocs, risk_score, {})
             send_sentinel_alert(headline, risk_score, post['url'])
-            logger.info(f"✓ APEX PREDATOR ADVISORY DISPATCHED: {post['url']}")
+            logger.info(f"✓ GOC ELITE ADVISORY LIVE: {post['url']}")
 
     except Exception as e:
         logger.critical(f"APEX CORE FAILURE: {e}"); raise
