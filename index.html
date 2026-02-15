@@ -40,8 +40,8 @@
 
     <script>
         /**
-         * PRODUCTION FIX: Relative path ensures compatibility with GitHub Pages sub-directories.
-         * The './' prefix forces the browser to look within the repository root.
+         * PRODUCTION FIX: Adjusted path logic for GitHub Pages compatibility.
+         * Using './data/stix/feed_manifest.json' ensures the fetch relative to the current URL.
          */
         const MANIFEST_URL = './data/stix/feed_manifest.json';
 
@@ -54,7 +54,7 @@
                 if (!response.ok) throw new Error('SYNC_FAILURE');
                 const data = await response.json();
                 
-                // Render the tactical grid with descending order (latest first)
+                // Clears loader and populates grid latest-first
                 grid.innerHTML = data.reverse().map(item => `
                     <div class="intel-card">
                         <div class="severity-badge ${item.risk_score >= 8.5 ? 'severity-high' : ''}">
