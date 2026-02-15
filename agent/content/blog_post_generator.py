@@ -8,7 +8,7 @@ def generate_headline(intel_items):
     """Clean, high-authority tactical headline for public consumption."""
     if not intel_items:
         return "Autonomous Threat Intelligence Brief"
-    # Removes version prefixes for professional branding
+    # Sanitized for professional branding
     return f"TACTICAL ADVISORY: {intel_items[0]['title']}"
 
 def _get_severity_matrix(risk_score):
@@ -46,10 +46,9 @@ def generate_full_post_content(intel_items, iocs, pro_data, map_html, stix_id, m
     tlp_color = "#ff3e3e" if risk_score >= 9.0 else "#00d4aa"
     sigma, kql = _generate_real_detection(iocs)
     
-    # Section 2 Logic: Deep Technical Analysis Expansion
-    tech_details = "".join([f"<div style='margin-bottom:25px;'><b style='color:#fff; font-size:15px;'>Forensic Observation: {i['title']}</b><p style='color:#aaa; font-size:14px; line-height:1.8; margin-top:10px;'>{i.get('summary', 'Detailed analysis pending.')}</p></div>" for i in intel_items])
+    # Forensic Analysis Section
+    tech_details = "".join([f"<div style='margin-bottom:25px;'><b style='color:#fff; font-size:15px;'>Technical Analysis: {i['title']}</b><p style='color:#aaa; font-size:14px; line-height:1.8; margin-top:10px;'>{i.get('summary', 'Forensic details pending.')}</p></div>" for i in intel_items])
 
-    # Section 4 Logic: Structured IOC Table
     ioc_ips = iocs.get('ipv4', [])
     ioc_doms = iocs.get('domain', [])
 
@@ -62,7 +61,7 @@ def generate_full_post_content(intel_items, iocs, pro_data, map_html, stix_id, m
 
         <div style="padding:50px;">
             <p style="color:{tlp_color}; font-weight:bold; margin:0; font-size:12px; letter-spacing:2px;">CDB SENTINEL // AUTHORITATIVE HUB</p>
-            <h1 style="color:#fff; font-size:40px; margin-top:10px; letter-spacing:-2px; line-height:1.1;">{primary['title']}</h1>
+            <h1 style="color:#fff; font-size:38px; margin-top:10px; letter-spacing:-2px; line-height:1.1;">{primary['title']}</h1>
             <p style="color:#444; font-size:12px; margin-top:15px;">REF: {stix_id} | AUTH: GOC-APEX-10</p>
             
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin:40px 0;">
