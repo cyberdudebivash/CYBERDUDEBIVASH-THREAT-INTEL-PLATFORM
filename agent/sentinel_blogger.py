@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v7.4.1 (FINAL BEAST MODE)
+sentinel_blogger.py — CyberDudeBivash v7.4.1 (STABILIZED BEAST MODE)
 Orchestrator: Ingestion -> MITRE -> Enrichment -> PDF -> TLP -> Alerts.
 """
 import os, sys, json, logging, time
@@ -11,8 +11,9 @@ from fpdf import FPDF
 # System Path Alignment
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Platform Imports
 from agent.blogger_auth import get_blogger_service
-from agent.config import BLOG_ID, RSS_FEEDS, MAX_STATE_SIZE, MAX_PER_FEED
+from agent.config import BLOG_ID, RSS_FEEDS, STATE_FILE, MAX_STATE_SIZE, MAX_PER_FEED
 from agent.content.blog_post_generator import generate_full_post_content, generate_headline
 from agent.enricher import enricher
 from agent.enricher_pro import enricher_pro
@@ -21,7 +22,7 @@ from agent.visualizer import visualizer
 from agent.export_stix import stix_exporter
 from agent.notifier import send_sentinel_alert
 
-STATE_FILE = "data/blogger_processed.json"
+# Global Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [CDB-APEX] %(message)s")
 logger = logging.getLogger("CDB-MAIN")
 
@@ -39,51 +40,71 @@ class CDBWhitepaper(FPDF):
 
 mitre_engine = MITREMapper(); pdf_engine = CDBWhitepaper()
 
+def _calculate_cdb_risk_score(headline, corpus, iocs, mitre_context):
+    """Dynamic risk calculation for TLP marking."""
+    score = 6.5
+    if len(mitre_context) > 0: score += 1.5
+    if len(iocs.get('ipv4', [])) > 5: score += 1.0
+    return min(10.0, score)
+
 def main():
-    logger.info("="*60 + "\nAPEX v7.4.1 — PRODUCTION ACTIVE\n" + "="*60)
+    logger.info("="*60 + "\nAPEX v7.4.1 — PRODUCTION ACTIVE (STABILIZED)\n" + "="*60)
     try:
-        # 1. Ingestion
+        # 1. State/Ingestion Logic
         if not os.path.exists("data"): os.makedirs("data")
         processed = set(json.load(open(STATE_FILE))[-MAX_STATE_SIZE:]) if os.path.exists(STATE_FILE) else set()
+        
         intel_items = []
         for url in RSS_FEEDS:
-            for entry in feedparser.parse(url).entries[:MAX_PER_FEED]:
+            feed = feedparser.parse(url)
+            for entry in feed.entries[:MAX_PER_FEED]:
                 guid = entry.get("guid", entry.link)
                 if guid not in processed:
                     intel_items.append({"title":entry.title, "link":entry.link, "summary":entry.get("summary","")})
                     processed.add(guid)
         
         if not intel_items:
+            logger.info("No new items found. Syncing manifest only.")
             stix_exporter.update_manifest(); return
 
-        # 2. Triage & Risk Calculation
+        # 2. Intelligence Triage (Scope: Global to main())
+        # FIX: Define 'headline' here to prevent NameError in post call
+        headline = generate_headline(intel_items)
         corpus = " ".join([i['summary'] for i in intel_items])
         mitre_context = mitre_engine.map_threat(corpus)
         extracted_iocs = enricher.extract_iocs(corpus)
         enriched_metadata = {v: {**enricher_pro.get_ip_context(v), "reputation": vt_lookup.get_reputation(v, "ipv4")} for v in extracted_iocs.get('ipv4', [])}
         
-        risk_score = 7.5 # Example dynamic value
+        risk_score = _calculate_cdb_risk_score(headline, corpus, extracted_iocs, mitre_context)
         stix_id = f"CDB-APEX-{int(time.time())}"
         
-        # 3. Content Synthesis (TLP v7.4)
+        # 3. Content Synthesis (TLP Awareness)
         full_html = generate_full_post_content(
             intel_items, extracted_iocs, enriched_metadata, 
             visualizer.generate_heat_map(enriched_metadata), 
             stix_id, mitre_data=mitre_context, risk_score=risk_score
         )
         
-        # 4. Dispatch
+        # 4. Authenticated Dispatch
         service = get_blogger_service()
-        post = service.posts().insert(blogId=os.environ.get('BLOG_ID'), body={"title": f"[v7.4.1] {headline}", "content": full_html}).execute()
+        # Ensure BLOG_ID is pulled from env if possible
+        post = service.posts().insert(
+            blogId=os.environ.get('BLOG_ID', BLOG_ID), 
+            body={"title": f"[v7.4.1] {headline}", "content": full_html}
+        ).execute()
 
         if post.get("url"):
+            # Persistence Logic
             json.dump(list(processed), open(STATE_FILE, "w"))
+            
+            # 5. Asset Generation & Alerts
             if risk_score >= 7.0:
                 pdf_engine.create_report(headline, risk_score, extracted_iocs, mitre_context, f"{stix_id}.pdf")
             
-            # 5. Manifest & Alerts Sync
+            # Synchronized STIX/Alert calls
             stix_exporter.create_bundle(headline, extracted_iocs, risk_score, enriched_metadata, mitre_data=mitre_context)
             send_sentinel_alert(headline, risk_score, post['url'], mitre_data=mitre_context)
+            logger.info(f"✓ ENTERPRISE ADVISORY DISPATCHED: {post['url']}")
 
     except Exception as e:
         logger.critical(f"APEX CORE FAILURE: {e}"); raise
