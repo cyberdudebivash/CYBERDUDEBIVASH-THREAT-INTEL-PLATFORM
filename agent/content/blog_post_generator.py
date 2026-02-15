@@ -5,57 +5,88 @@ Enterprise Content Engine: Standardized HTML with MITRE & STIX Context.
 """
 
 def generate_headline(intel_items):
+    """Generates a high-impact headline based on the primary threat node."""
     if not intel_items:
-        return "Daily Threat Intelligence Brief"
-    return f"Threat Advisory: {intel_items[0]['title']}"
+        return "Autonomous Threat Intelligence Brief"
+    primary_title = intel_items[0]['title']
+    return f"Threat Advisory: {primary_title}"
 
 def generate_full_post_content(intel_items, iocs, pro_data, map_html, stix_id, mitre_data=None):
-    """Generates the full HTML report for Blogger dispatch."""
+    """
+    Generates the full production HTML report for Blogger.
+    Corrected to accept mitre_data to resolve Task 1 TypeError.
+    """
     
-    # NEW: Tactical Attribution Table
+    # 1. MITRE ATT&CK Tactical Matrix
     mitre_section = ""
     if mitre_data:
-        rows = "".join([
-            f"<tr style='border-bottom:1px solid #333;'><td style='padding:10px;'>{m['id']}</td>"
-            f"<td style='padding:10px;'>{m['tactic']}</td></tr>"
+        mitre_rows = "".join([
+            f"<tr style='border-bottom:1px solid #333;'>"
+            f"<td style='padding:12px; color:#00d4aa; font-weight:bold;'>{m['id']}</td>"
+            f"<td style='padding:12px; color:#ccc;'>{m['tactic']}</td>"
+            f"</tr>"
             for m in mitre_data
         ])
+        
         mitre_section = f"""
-        <div style="background:#0a0a0a; border:1px solid #00d4aa; padding:20px; border-radius:10px; margin-bottom:20px;">
-            <h3 style="color:#00d4aa; margin-top:0;">[#] MITRE ATT&CK Mapping</h3>
-            <table style="width:100%; color:#ccc; font-size:12px; border-collapse:collapse;">
-                <tr style="text-align:left; color:#00d4aa; border-bottom:2px solid #00d4aa;">
-                    <th style="padding:10px;">ID</th><th style="padding:10px;">Tactic</th>
-                </tr>
-                {rows}
+        <div style="background:#0a0a0a; border:1px solid #00d4aa; padding:25px; border-radius:15px; margin-bottom:30px;">
+            <h3 style="color:#00d4aa; margin-top:0; font-style:italic;">[#] MITRE ATT&CK® Tactical Attribution</h3>
+            <table style="width:100%; color:#eee; font-size:13px; border-collapse:collapse;">
+                <thead style="text-align:left; color:#00d4aa; border-bottom:2px solid #00d4aa;">
+                    <tr><th style="padding:10px;">Technique ID</th><th style="padding:10px;">Tactical Category</th></tr>
+                </thead>
+                <tbody>{mitre_rows}</tbody>
             </table>
         </div>
         """
 
-    # Forensic Metadata
-    ioc_html = "<ul>" + "".join([f"<li><b>{k.upper()}:</b> {', '.join(v)}</li>" for k, v in iocs.items() if v]) + "</ul>"
+    # 2. Forensic Indicators (IOCs)
+    ioc_list = ""
+    for category, values in iocs.items():
+        if values:
+            ioc_list += f"<p><b>{category.upper()}:</b> <code style='color:#ff4444;'>{', '.join(values)}</code></p>"
 
-    # Assemble Final Body
-    html = f"""
-    <div style="font-family:Arial, sans-serif; background:#050505; color:#e5e5e5; padding:20px;">
-        <h2 style="color:#00d4aa;">Intelligence Advisory: {stix_id}</h2>
-        <p style="color:#888;">Automated Forensic Triage by CyberDudeBivash Sentinel APEX</p>
-        <hr style="border:0; border-top:1px solid #333;">
+    # 3. Intelligence Summary
+    summary_html = "".join([
+        f"<div style='margin-bottom:15px; padding-left:10px; border-left:3px solid #00d4aa;'>"
+        f"<a href='{item['link']}' style='color:#00d4aa; font-weight:bold; text-decoration:none;'>{item['title']}</a>"
+        f"<p style='color:#999; font-size:13px;'>{item['summary'][:300]}...</p></div>"
+        for item in intel_items
+    ])
+
+    # 4. Final Assembler
+    html_report = f"""
+    <div style="background:#050505; color:#e5e5e5; font-family:'Segoe UI', Tahoma, sans-serif; padding:30px; border-radius:10px; border:1px solid #1a1a1a;">
+        <h1 style="color:#fff; letter-spacing:-1px; border-bottom:4px solid #00d4aa; padding-bottom:10px; display:inline-block;">SENTINEL APEX ADVISORY</h1>
+        <p style="color:#555; font-size:11px; text-transform:uppercase; letter-spacing:3px; margin-top:5px;">Reference ID: {stix_id} | GOC-Verified Intelligence</p>
         
+        <p style="margin-top:25px; line-height:1.6; color:#bbb;">
+            The CyberDudeBivash Sentinel APEX engine has autonomously triaged the following threat vectors. 
+            Adversary infrastructure has been enriched with geospatial and reputation data.
+        </p>
+
         {mitre_section}
-        
-        <h3>Forensic Indicators (IOCs)</h3>
-        {ioc_html}
-        
-        <h3>Geospatial Context</h3>
-        {map_html}
-        
-        <div style="margin-top:30px; padding:15px; background:#111; border-radius:5px;">
-            <p style="font-size:12px; color:#555;">
-                This report is machine-generated. Raw STIX 2.1 data is available via the 
-                <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/" style="color:#00d4aa;">Command Center</a>.
+
+        <h3 style="color:#00d4aa; border-left:4px solid #00d4aa; padding-left:15px;">Forensic Evidence (IOCs)</h3>
+        <div style="background:#111; padding:20px; border-radius:8px; font-family:monospace; font-size:13px;">
+            {ioc_html if 'ioc_html' in locals() else ioc_list}
+        </div>
+
+        <h3 style="color:#00d4aa; margin-top:40px; border-left:4px solid #00d4aa; padding-left:15px;">Geospatial Risk Tracking</h3>
+        <div style="background:#111; padding:15px; border-radius:10px; text-align:center;">
+            {map_html}
+        </div>
+
+        <h3 style="color:#00d4aa; margin-top:40px; border-left:4px solid #00d4aa; padding-left:15px;">Correlated Intelligence Nodes</h3>
+        {summary_html}
+
+        <div style="margin-top:50px; padding:20px; border-top:1px solid #333; text-align:center;">
+            <p style="font-size:11px; color:#444;">
+                This technical advisory was generated by the <b>CyberDudeBivash Pvt. Ltd.</b> Autonomous Engine. 
+                Machine-readable STIX 2.1 data and PDF whitepapers are available for authorized ingestion at our 
+                <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/" style="color:#00d4aa; text-decoration:none;">Command Center Dashboard</a>.
             </p>
         </div>
     </div>
     """
-    return html
+    return html_report
