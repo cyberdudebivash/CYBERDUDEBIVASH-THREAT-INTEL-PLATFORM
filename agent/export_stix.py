@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-export_stix.py — CyberDudeBivash v7.4
-Enhanced Manifest Engine: TLP & Risk Aggregation for Dashboard UI.
+export_stix.py — CyberDudeBivash v7.4.1
+Enhanced Manifest Engine: Robust Risk & TLP Aggregation.
 """
 import os
 import json
+import re
 from datetime import datetime, timezone
 
 class STIXExporter:
@@ -17,7 +18,7 @@ class STIXExporter:
             os.makedirs(self.output_dir, exist_ok=True)
 
     def update_manifest(self):
-        """Aggregates TLP, Risk, and Tactics for the Command Center UI."""
+        """Aggregates TLP, Risk, and Tactics with robust float parsing."""
         self._ensure_dir()
         stix_files = [f for f in os.listdir(self.output_dir) 
                       if f.endswith(".json") and f != "feed_manifest.json"]
@@ -34,11 +35,14 @@ class STIXExporter:
 
                     for obj in data.get('objects', []):
                         if obj.get('type') == 'indicator':
-                            # Parse Risk from description generated in sentinel_blogger.py
                             desc = obj.get('description', '')
-                            if "Risk:" in desc:
-                                try: risk = float(desc.split("Risk:")[1].split("/")[0])
-                                except: pass
+                            # Safe Extraction using Regex
+                            risk_match = re.search(r"Risk:\s*([\d.]+)", desc)
+                            if risk_match:
+                                try:
+                                    risk = float(risk_match.group(1))
+                                except ValueError:
+                                    risk = 5.0
                             
                             if 'external_references' in obj:
                                 for ref in obj['external_references']:
@@ -55,7 +59,9 @@ class STIXExporter:
                         "tactics": sorted(list(set(file_tactics))),
                         "pdf": file.replace(".json", ".pdf") if risk >= 7.0 else None
                     })
-            except: continue
+            except Exception as e:
+                print(f"Skipping malformed node {file}: {e}")
+                continue
 
         manifest = {
             "last_updated": datetime.now(timezone.utc).isoformat(),
@@ -66,10 +72,10 @@ class STIXExporter:
         
         with open(self.manifest_path, "w") as f:
             json.dump(manifest, f, indent=4)
-        print(f"✓ v7.4 Manifest Updated: {len(file_metadata)} Enhanced Nodes.")
+        print(f"✓ v7.4.1 Manifest Updated: {len(file_metadata)} Nodes Synced.")
 
     def create_bundle(self, title, iocs, risk_score, enriched_data, mitre_data=None):
-        """Generates STIX 2.1 bundles with Risk metadata."""
+        """Generates STIX 2.1 bundles with standardized Risk format."""
         self._ensure_dir()
         bundle_id = f"bundle--{datetime.now().timestamp()}"
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -89,9 +95,10 @@ class STIXExporter:
                 objects.append({
                     "type": "indicator",
                     "spec_version": "2.1",
-                    "id": f"indicator--{val}",
+                    "id": f"indicator--{os.urandom(8).hex()}",
                     "created": timestamp,
-                    "description": f"Triage by Sentinel APEX. Risk: {risk_score}/10",
+                    # Standardized format for the regex parser
+                    "description": f"Triage Node. Risk: {float(risk_score)}/10",
                     "pattern": f"[{ioc_type}:value = '{val}']",
                     "pattern_type": "stix",
                     "external_references": external_refs
