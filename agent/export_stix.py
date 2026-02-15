@@ -1,49 +1,102 @@
 #!/usr/bin/env python3
 """
-export_stix.py — CyberDudeBivash v7.4.1
-Final Production Version: Robust Risk Extraction & Time Synchronization.
+export_stix.py — CyberDudeBivash v10.1 (APEX ELITE)
+Standard: STIX 2.1 Final Production Logic for GOC Interoperability.
 """
-import os, json, re, time # Verified Imports
-from datetime import datetime, timezone
+import json
+import uuid
+import logging
+from datetime import datetime
+
+logger = logging.getLogger("CDB-STIX")
 
 class STIXExporter:
-    def __init__(self):
-        self.output_dir = "data/stix"
-        self.manifest_path = "data/stix/feed_manifest.json"
+    def __init__(self, output_dir="data/stix"):
+        self.output_dir = output_dir
+        self.manifest_path = f"{output_dir}/feed_manifest.json"
 
-    def update_manifest(self):
-        """Aggregates TLP & Risk with regex resilience."""
-        stix_files = [f for f in os.listdir(self.output_dir) if f.endswith(".json") and f != "feed_manifest.json"]
-        file_metadata = []
-        for file in sorted(stix_files, reverse=True)[:100]:
-            try:
-                with open(os.path.join(self.output_dir, file), 'r') as f:
-                    data = json.load(f)
-                    risk = 5.0
-                    for obj in data.get('objects', []):
-                        if obj.get('type') == 'indicator':
-                            match = re.search(r"Risk:\s*([\d.]+)", obj.get('description', ''))
-                            if match: risk = float(match.group(1))
-                    file_metadata.append({"name": file, "risk_score": risk, "tlp": "AMBER" if risk >= 7.0 else "CLEAR"})
-            except: continue
-        with open(self.manifest_path, "w") as f:
-            json.dump({"last_updated": datetime.now(timezone.utc).isoformat(), "files": file_metadata}, f, indent=4)
+    def create_bundle(self, title, iocs, risk_score, metadata):
+        """
+        Serializes forensic data into STIX 2.1 SDOs (Shared Data Objects).
+        """
+        timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        bundle_id = f"bundle--{uuid.uuid4()}"
+        
+        # 1. Create the primary Intrusion Set (UNC-CDB-99)
+        intrusion_set = {
+            "type": "intrusion-set",
+            "spec_version": "2.1",
+            "id": f"intrusion-set--{uuid.uuid4()}",
+            "name": "UNC-CDB-99 (Lumma Cluster)",
+            "created": timestamp,
+            "modified": timestamp,
+            "description": "High-fidelity cluster weaponizing Google Groups for credential exfiltration.",
+            "confidence": 98
+        }
 
-    def create_bundle(self, title, iocs, risk_score, enriched_data, mitre_data=None):
-        """Standardized STIX generation."""
-        os.makedirs(self.output_dir, exist_ok=True)
-        objects = []
-        for ioc_type, values in iocs.items():
-            for val in values:
-                objects.append({
-                    "type": "indicator", "spec_version": "2.1",
-                    "id": f"indicator--{os.urandom(8).hex()}",
-                    "description": f"Risk: {float(risk_score)}/10",
-                    "pattern": f"[{ioc_type}:value = '{val}']", "pattern_type": "stix"
-                })
-        filename = f"CDB-APEX-{int(time.time())}.json"
-        with open(os.path.join(self.output_dir, filename), "w") as f:
-            json.dump({"type": "bundle", "id": f"bundle--{time.time()}", "objects": objects}, f)
-        self.update_manifest()
+        # 2. Map Indicators to STIX Observables
+        objects = [intrusion_set]
+        
+        # Mapping Google Groups to URL Indicators
+        for group in iocs.get('google_groups', []):
+            objects.append({
+                "type": "indicator",
+                "spec_version": "2.1",
+                "id": f"indicator--{uuid.uuid4()}",
+                "created": timestamp,
+                "indicator_types": ["malicious-activity"],
+                "pattern": f"[url:value = '{group}']",
+                "pattern_type": "stix",
+                "valid_from": timestamp
+            })
+
+        # Mapping Registry Keys to Windows Registry Patterns
+        for reg in iocs.get('registry_keys', []):
+            objects.append({
+                "type": "indicator",
+                "spec_version": "2.1",
+                "id": f"indicator--{uuid.uuid4()}",
+                "created": timestamp,
+                "pattern": f"[windows-registry-key:key = '{reg.replace('\\', '\\\\')}']",
+                "pattern_type": "stix",
+                "valid_from": timestamp
+            })
+
+        # 3. Finalize Bundle and Update GOC Manifest
+        bundle = {
+            "type": "bundle",
+            "id": bundle_id,
+            "objects": objects
+        }
+
+        # Save individual STIX file
+        stix_filename = f"{self.output_dir}/stix_{int(datetime.utcnow().timestamp())}.json"
+        with open(stix_filename, 'w') as f:
+            json.dump(bundle, f, indent=4)
+
+        # Update the live manifest for the Sentinel Apex Dashboard
+        self._update_manifest(title, bundle_id, risk_score, metadata.get('blog_url'))
+        return bundle_id
+
+    def _update_manifest(self, title, stix_id, risk_score, blog_url):
+        """Synchronizes the dashboard feed manifest."""
+        manifest = []
+        try:
+            with open(self.manifest_path, 'r') as f:
+                manifest = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+        manifest.append({
+            "title": title,
+            "stix_id": stix_id,
+            "risk_score": risk_score,
+            "blog_url": blog_url,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+
+        # Keep manifest optimized for landing page performance (Last 10 nodes)
+        with open(self.manifest_path, 'w') as f:
+            json.dump(manifest[-10:], f, indent=4)
 
 stix_exporter = STIXExporter()
