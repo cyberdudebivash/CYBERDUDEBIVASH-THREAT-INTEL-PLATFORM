@@ -1,63 +1,57 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDB Sentinel APEX | Tactical Command Center</title>
-    <style>
-        :root { --tlp-red: #ff3e3e; --apex-green: #00d4aa; --bg-black: #020202; --border-gray: #1a1a1a; }
-        body { background: var(--bg-black); color: #dcdcdc; font-family: 'Segoe UI', sans-serif; margin: 0; overflow-x: hidden; }
-        .goc-container { max-width: 1200px; margin: auto; padding: 20px; }
-        .goc-header { border-bottom: 1px solid var(--border-gray); padding: 20px 0; text-align: center; }
-        .status-bar { display: flex; justify-content: space-between; padding: 12px 25px; background: #080808; font-size: 10px; letter-spacing: 2px; border: 1px solid var(--border-gray); margin-top: 15px; border-radius: 2px; }
-        #threat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 25px; margin-top: 45px; }
-        .intel-card { background: #050505; border: 1px solid var(--border-gray); padding: 30px; border-radius: 4px; transition: 0.4s; border-left: 3px solid var(--apex-green); position: relative; }
-        .intel-card:hover { border-color: var(--apex-green); transform: translateY(-5px); box-shadow: 0 15px 35px rgba(0,212,170,0.15); }
-        .error-msg { color: var(--tlp-red); text-align: center; padding: 120px; font-weight: 900; border: 1px dashed var(--tlp-red); }
-        .view-link { color: var(--apex-green); text-decoration: none; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-top: 25px; display: inline-block; }
-    </style>
-</head>
-<body>
-    <div class="goc-container">
-        <div class="goc-header">
-            <h1 style="letter-spacing: -3px; margin: 0; font-size: 36px;">SENTINEL<span style="color: var(--apex-green);">APEX</span></h1>
-            <p style="font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 4px;">CyberDudeBivash GOC // v10.1 Apex Elite Infrastructure</p>
-        </div>
-        <div class="status-bar">
-            <div>NODE: <span style="color: var(--apex-green);">CDB-GOC-01</span></div>
-            <div id="sync-indicator">SYNC: <span id="sync-val" style="color: #ff9d00;">INITIALIZING...</span></div>
-            <div>STATUS: <span style="color: var(--apex-green);">ACTIVE PROTECTION</span></div>
-        </div>
-        <div id="threat-grid"><div id="loader" style="grid-column: 1/-1; text-align:center; padding:100px;">LOADING GOC DATA...</div></div>
-    </div>
-    <script>
-        // FIXED: Absolute URL ensures compatibility with GitHub Pages URL mapping
-        const MANIFEST_URL = 'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json';
+<script>
+    /**
+     * APEX v10.1 DYNAMIC PATH RESOLVER
+     * Automatically detects environment to prevent 'MANIFEST_NOT_FOUND'
+     */
+    const getManifestUrl = () => {
+        const isGithubPages = window.location.hostname.includes('github.io');
+        const repoName = '/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/';
+        
+        // If on GitHub Pages, use the absolute path including the repo name
+        // If local, use the relative path
+        return isGithubPages 
+            ? `${window.location.origin}${repoName}data/stix/feed_manifest.json`
+            : './data/stix/feed_manifest.json';
+    };
 
-        async function loadTacticalIntel() {
-            const grid = document.getElementById('threat-grid');
-            const syncVal = document.getElementById('sync-val');
-            try {
-                // Fetch from Main branch directly to avoid gh-pages delay
-                const response = await fetch(MANIFEST_URL);
-                if (!response.ok) throw new Error();
-                const data = await response.json();
-                grid.innerHTML = data.reverse().map(item => `
-                    <div class="intel-card">
-                        <div style="font-size: 9px; color: #444; margin-bottom: 15px;">ID: ${item.stix_id}</div>
-                        <h3 style="margin: 0; font-size: 18px; color: #fff;">${item.title}</h3>
-                        <p style="font-size: 13px; color: #777; margin: 15px 0;">Risk Severity: ${item.risk_score}/10</p>
-                        <a href="${item.blog_url}" target="_blank" class="view-link">View Tactical Dossier &rarr;</a>
-                    </div>`).join('');
-                syncVal.innerText = 'LATEST';
-                syncVal.style.color = 'var(--apex-green)';
-            } catch (err) {
-                grid.innerHTML = `<div class="error-msg">🚨 GOC MANIFEST SYNC FAILURE<br><span style="font-size:10px;">ERR: REPO_PATH_MISMATCH</span></div>`;
-                syncVal.innerText = 'OFFLINE';
-                syncVal.style.color = 'var(--tlp-red)';
+    async function loadTacticalIntel() {
+        const grid = document.getElementById('threat-grid');
+        const syncVal = document.getElementById('sync-val');
+        const MANIFEST_URL = getManifestUrl();
+        
+        try {
+            const response = await fetch(MANIFEST_URL);
+            if (!response.ok) throw new Error(`HTTP_ERR_${response.status}`);
+            
+            const data = await response.json();
+            
+            if (data.length === 0) {
+                grid.innerHTML = '<div class="error-msg">NODE EMPTY: NO ACTIVE CAMPAIGNS</div>';
+                return;
             }
+
+            grid.innerHTML = data.reverse().map(item => `
+                <div class="intel-card">
+                    <div style="font-size: 9px; color: #444; margin-bottom: 15px;">ID: ${item.stix_id}</div>
+                    <h3 style="margin: 0; font-size: 18px; color: #fff;">${item.title}</h3>
+                    <p style="font-size: 13px; color: #777; margin: 15px 0;">Risk Severity: ${item.risk_score}/10</p>
+                    <a href="${item.blog_url}" target="_blank" class="view-link">View Tactical Dossier &rarr;</a>
+                </div>`).join('');
+
+            syncVal.innerText = 'LATEST';
+            syncVal.style.color = 'var(--apex-green)';
+        } catch (err) {
+            console.error("APEX Sync Failure:", err);
+            grid.innerHTML = `
+                <div class="error-msg">
+                    🚨 GOC MANIFEST SYNC FAILURE<br>
+                    <span style="font-size:10px; font-weight:normal; color:#666;">
+                        CHECK: ${MANIFEST_URL}
+                    </span>
+                </div>`;
+            syncVal.innerText = 'OFFLINE';
+            syncVal.style.color = 'var(--tlp-red)';
         }
-        window.onload = loadTacticalIntel;
-    </script>
-</body>
-</html>
+    }
+    window.onload = loadTacticalIntel;
+</script>
