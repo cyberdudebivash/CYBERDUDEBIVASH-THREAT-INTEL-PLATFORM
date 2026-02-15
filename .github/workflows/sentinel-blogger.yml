@@ -1,84 +1,46 @@
-name: CDB Sentinel Blogger – Threat Intel Auto-Publisher
+name: publish-threat-report
 
 on:
   schedule:
-    - cron: '0 */6 * * *'      # Automated sweep every 6 hours
-  workflow_dispatch:           # Manual trigger for ad-hoc triage
+    - cron: '0 */6 * * *' # Every 6 hours
+  workflow_dispatch:      # Manual trigger enabled
 
-# CRITICAL: Grant 'write' permissions for committing STIX data and whitepapers
 permissions:
-  contents: write
+  contents: write         # REQUIRED: Allows the bot to push manifest updates
+  pages: write
+  id-token: write
 
 jobs:
-  publish-threat-report:
+  triage-and-publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0       # Required for git history tracking
+          fetch-depth: 0   # Essential for pushing back to same repo
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-          cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install Forensic Dependencies
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install fpdf2    # v7.2 Requirement for Whitepapers
+          pip install feedparser google-api-python-client google-auth-oauthlib google-auth-httplib2
 
-      - name: Ensure Forensic Directories Exist
-        run: |
-          mkdir -p data/stix
-          mkdir -p data/whitepapers
-          touch data/stix/.gitkeep
-          touch data/whitepapers/.gitkeep
+      - name: Ensure GOC Directories Exist
+        run: mkdir -p data/stix
 
-      - name: Run Sentinel Blogger APEX Engine
+      - name: Run Sentinel APEX v10.1 Engine
         env:
-          # --- Core Blogger Auth (Aligned with your GitHub Secrets) ---
-          REFRESH_TOKEN:     ${{ secrets.REFRESH_TOKEN }}
-          CLIENT_ID:         ${{ secrets.CLIENT_ID }}
-          CLIENT_SECRET:     ${{ secrets.CLIENT_SECRET }}
-          BLOG_ID:           ${{ secrets.BLOG_ID }}
-          
-          # --- Threat Intelligence & Reputation ---
-          VT_API_KEY:        ${{ secrets.VT_API_KEY }} 
-          
-          # --- Social Amplification & Notifications ---
-          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
-          LINKEDIN_MEMBER_URN:   ${{ secrets.LINKEDIN_MEMBER_URN }}
-          SENDGRID_API_KEY:  ${{ secrets.SENDGRID_API_KEY }}
-          SENDER_EMAIL:      ${{ secrets.SENDER_EMAIL }}
-          SUBSCRIBER_EMAILS: ${{ secrets.SUBSCRIBER_EMAILS }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
         run: python -m agent.sentinel_blogger
 
-      - name: Commit & Push Intelligence Data
+      - name: Commit & Push GOC Manifest
         run: |
-          # Brand Identity Alignment
-          git config --local user.email "bivash@cyberdudebivash.com"
-          git config --local user.name "CDB-Sentinel-Bot"
-          
-          # 1. Add state files and whitepapers
-          git add data/*.json || echo "No state changes"
-          
-          # 2. Resilient adding: Fixes 'pathspec' errors
-          if [ -d "data/stix" ] && ls data/stix/*.json 1> /dev/null 2>&1; then
-            git add data/stix/*.json
-          fi
-
-          if [ -d "data/whitepapers" ] && ls data/whitepapers/*.pdf 1> /dev/null 2>&1; then
-            git add data/whitepapers/*.pdf
-          fi
-          
-          git commit -m "Auto-Update: Forensic Intelligence Node [skip ci]" || echo "No changes to commit"
-          git push origin main
-
-      - name: Deploy Live Feed to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          folder: .
-          branch: gh-pages     # Target for Live STIX Feed & Map URL
+          git config --global user.name "CDB-Apex-Bot"
+          git config --global user.email "bot@cyberdudebivash.com"
+          git add data/stix/*.json
+          git commit -m "v10.1 Apex: Intelligence manifest synchronization [skip ci]" || echo "No changes to sync"
+          git push origin main # Pushes back to main to refresh the Dashboard
