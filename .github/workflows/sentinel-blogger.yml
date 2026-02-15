@@ -1,22 +1,19 @@
-name: CDB Sentinel Blogger – Threat Intel Auto-Publisher
+name: Sentinel Blogger APEX Engine
 
 on:
   schedule:
-    - cron: '0 */6 * * *'      # Automated sweep every 6 hours
-  workflow_dispatch:           # Manual trigger for ad-hoc triage
-
-# CRITICAL: Grant 'write' permissions for committing STIX data and state files
-permissions:
-  contents: write
+    - cron: '0 * * * *' # Runs every hour
+  workflow_dispatch: # Allows manual trigger
 
 jobs:
   publish-threat-report:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0       # Required for git history tracking
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -27,57 +24,33 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Ensure Forensic Directories Exist
         run: |
           mkdir -p data/stix
-          touch data/stix/.gitkeep
+          mkdir -p data/whitepapers
 
       - name: Run Sentinel Blogger APEX Engine
         env:
-          # --- Core Blogger Auth ---
-          REFRESH_TOKEN:     ${{ secrets.REFRESH_TOKEN }}
-          CLIENT_ID:         ${{ secrets.CLIENT_ID }}
-          CLIENT_SECRET:     ${{ secrets.CLIENT_SECRET }}
-          BLOG_ID:           ${{ secrets.BLOG_ID }}
-          
-          # --- Threat Intelligence & Reputation ---
-          VT_API_KEY:        ${{ secrets.VT_API_KEY }}  # Verified active in image_4aaee6
-          
-          # --- Social Amplification (Standby) ---
-          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
-          LINKEDIN_MEMBER_URN:   ${{ secrets.LINKEDIN_MEMBER_URN }}
-          
-          # --- Notification Layer ---
-          SENDGRID_API_KEY:  ${{ secrets.SENDGRID_API_KEY }}
-          SENDER_EMAIL:      ${{ secrets.SENDER_EMAIL }}
-          SUBSCRIBER_EMAILS: ${{ secrets.SUBSCRIBER_EMAILS }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+          CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+          # Add other secrets as needed
         run: python -m agent.sentinel_blogger
 
       - name: Commit & Push Intelligence Data
         run: |
-          # Identity updated to active verified email
-          git config --local user.email "bivash@cyberdudebivash.com"
-          git config --local user.name "CDB-Sentinel-Bot"
-          
-          # 1. Add state file to prevent duplicate posts
-          if [ -f "data/blogger_processed.json" ]; then
-            git add data/blogger_processed.json
-          fi
-          
-          # 2. Resilient STIX adding: Fixes the 'pathspec' error from image_4ab58a
-          # Only attempts to add if the directory exists AND contains .json files
-          if [ -d "data/stix" ] && ls data/stix/*.json 1> /dev/null 2>&1; then
-            git add data/stix/*.json
-          fi
-          
-          # 3. Final Commit logic
-          git commit -m "Auto-Update: Forensic Intelligence Node [skip ci]" || echo "No changes to commit"
-          git push origin main
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/stix/*.json
+          git add data/stix/feed_manifest.json
+          git add data/whitepapers/*.pdf
+          git commit -m "APEX-SYNC: Update STIX nodes and Whitepapers [skip ci]" || echo "No changes to commit"
+          git push
 
       - name: Deploy Live Feed to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          folder: .
-          branch: gh-pages     # Target for Live STIX Feed URL
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./ # Ensures data/stix and data/whitepapers are hosted
