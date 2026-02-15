@@ -2,8 +2,8 @@ name: Sentinel Blogger APEX Engine
 
 on:
   schedule:
-    - cron: '0 * * * *' # Runs every hour
-  workflow_dispatch: # Allows manual trigger
+    - cron: '0 * * * *' # Automated hourly intelligence sweep
+  workflow_dispatch: # Manual trigger for on-demand triage
 
 jobs:
   publish-threat-report:
@@ -21,36 +21,40 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install Production Dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Explicit check for PDF engine requirements
+          pip install fpdf2 
 
-      - name: Ensure Forensic Directories Exist
+      - name: Ensure Forensic Persistence Directories
         run: |
           mkdir -p data/stix
           mkdir -p data/whitepapers
 
-      - name: Run Sentinel Blogger APEX Engine
+      - name: Run Sentinel Blogger APEX Engine (v7.2 Beast Mode)
         env:
+          # Mapping GitHub Secrets to Environment Variables
           BLOG_ID: ${{ secrets.BLOG_ID }}
-          CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
+          REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
+          CLIENT_ID: ${{ secrets.BLOGGER_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.BLOGGER_CLIENT_SECRET }}
           VT_API_KEY: ${{ secrets.VT_API_KEY }}
-          # Add other secrets as needed
         run: python -m agent.sentinel_blogger
 
-      - name: Commit & Push Intelligence Data
+      - name: Commit & Push Intelligence Assets
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add data/stix/*.json
           git add data/stix/feed_manifest.json
           git add data/whitepapers/*.pdf
-          git commit -m "APEX-SYNC: Update STIX nodes and Whitepapers [skip ci]" || echo "No changes to commit"
+          git commit -m "APEX-SYNC: MITRE Mapping & Whitepaper Update [skip ci]" || echo "No changes to commit"
           git push
 
-      - name: Deploy Live Feed to GitHub Pages
+      - name: Deploy Command Center to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./ # Ensures data/stix and data/whitepapers are hosted
+          publish_dir: ./ # Serves the root index.html and forensic data
