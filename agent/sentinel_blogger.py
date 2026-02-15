@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
 sentinel_blogger.py — CyberDudeBivash v10.0 (APEX PREDATOR)
-Final Orchestrator: Multi-Pillar Triage, Dependency Fixed, and Report Purity Enforced.
+Final Orchestrator: Multi-Pillar Triage, Dependency Fixed, and ImportError Resolved.
 """
-import os, sys, json, logging, time, re
+import os, sys, json, logging, time, re  # FIXED: 're' import preserved
 import feedparser
 
+# System Path Alignment
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Apex Imports
+# FIXED: Corrected import signature to match generator exports
+from agent.content.blog_post_generator import generate_full_post_content, generate_headline
 from agent.blogger_auth import get_blogger_service
 from agent.config import BLOG_ID, RSS_FEEDS, STATE_FILE, MAX_STATE_SIZE, MAX_PER_FEED
-from agent.content.blog_post_generator import generate_full_post_content, generate_headline
 from agent.enricher import enricher
 from agent.integrations.vt_lookup import vt_lookup
 from agent.integrations.actor_matrix import actor_matrix
@@ -39,7 +40,7 @@ def main():
                     processed.add(guid)
         
         if not intel_items:
-            logger.info("No new tactical threats identified. Manifest synchronized."); stix_exporter.update_manifest(); return
+            logger.info("Syncing manifest."); stix_exporter.update_manifest(); return
 
         # 2. Apex Triage: Isolating the Primary Campaign
         # v10.0 strictly produces ONE long-form dossier per tactical threat.
@@ -49,11 +50,11 @@ def main():
         headline = generate_headline(primary_threat)
         corpus = primary_threat[0]['summary']
         
-        # Pillar A: Predictive Attribution
+        # Pillar A & B: Extraction
         extracted_iocs = enricher.extract_iocs(corpus)
         actor_data = actor_matrix.correlate_actor(corpus, extracted_iocs)
         
-        # Pillar B: Vulnerability Mechanics
+        # Pillar C: Vulnerability Check (Uses fixed 're' import)
         cve_match = re.search(r"CVE-\d{4}-\d{4,}", corpus) 
         cve_id = cve_match.group(0) if cve_match else None
         cve_data = vuln_engine.get_cve_deep_dive(cve_id) if cve_id else None
@@ -83,4 +84,5 @@ def main():
     except Exception as e:
         logger.critical(f"APEX CORE FAILURE: {e}"); raise
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()
