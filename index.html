@@ -1,112 +1,89 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDB Sentinel APEX v7.1 | Beast Mode Command Center</title>
+    <title>CDB Sentinel APEX v7.4 | Tactical Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://simplemaps.com/static/js/worldmap.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Inter:wght@400;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #050505; color: #e5e5e5; }
-        .cyber-grid { background-image: radial-gradient(#1a1a1a 1px, transparent 1px); background-size: 30px 30px; }
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .glow-teal { box-shadow: 0 0 20px rgba(0, 212, 170, 0.2); }
-        .glow-red { box-shadow: 0 0 25px rgba(239, 68, 68, 0.4); }
+        body { background: #050505; color: #e5e5e5; font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); }
+        .amber-glow { border-left: 4px solid #ffbf00; background: linear-gradient(90deg, rgba(255,191,0,0.05) 0%, transparent 100%); }
+        .clear-glow { border-left: 4px solid #00d4aa; background: linear-gradient(90deg, rgba(0,212,170,0.05) 0%, transparent 100%); }
     </style>
 </head>
-<body class="cyber-grid min-h-screen pb-20">
-
-    <nav class="border-b border-white/10 bg-black/80 backdrop-blur-xl sticky top-0 z-50 px-6 py-4">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div class="flex items-center space-x-4">
-                <div class="w-10 h-10 bg-[#00d4aa] rounded-lg flex items-center justify-center text-black font-black glow-teal">CDB</div>
-                <div>
-                    <span class="font-black text-lg block uppercase">CyberDudeBivash <span class="text-[#00d4aa]">Pvt. Ltd.</span></span>
-                    <p class="text-[9px] text-white/40 tracking-[0.3em] uppercase">Authorized Threat Intel Platform</p>
-                </div>
-            </div>
-            <div id="engine-heartbeat" class="hidden md:flex items-center space-x-3 bg-white/5 px-4 py-2 rounded-full border border-white/10">
-                <span class="w-2 h-2 bg-[#00d4aa] rounded-full animate-pulse"></span>
-                <span class="text-[9px] font-black uppercase tracking-widest text-white/60">GOC-Engine: Operational</span>
-            </div>
+<body class="p-6 md:p-12">
+    <header class="max-w-7xl mx-auto flex justify-between items-center mb-12">
+        <div>
+            <h1 class="text-4xl font-black italic tracking-tighter text-white">SENTINEL<span class="text-[#00d4aa]">APEX</span></h1>
+            <p class="text-[10px] uppercase tracking-[0.4em] text-white/30">Autonomous CyberDudeBivash Intelligence</p>
         </div>
-    </nav>
+        <div id="status" class="glass px-6 py-3 rounded-full text-[10px] font-bold uppercase tracking-widest text-[#00d4aa]">
+            <i class="fas fa-circle animate-pulse mr-2"></i> GOC Engine: Online
+        </div>
+    </header>
 
-    <section class="max-w-7xl mx-auto px-6 pt-12">
-        <div class="glass rounded-[2.5rem] p-10 relative overflow-hidden group">
-            <h2 class="text-2xl font-black italic mb-8">GLOBAL THREAT ORIGIN</h2>
-            <div id="map" style="min-height: 400px;" class="opacity-80 group-hover:opacity-100 transition"></div>
+    <section class="max-w-7xl mx-auto mb-12">
+        <div class="glass rounded-3xl p-8">
+            <h2 class="text-xs font-black uppercase tracking-widest mb-6 text-white/40">Tactical Heatmap</h2>
+            <div id="mitre-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3"></div>
         </div>
     </section>
 
-    <section class="max-w-7xl mx-auto px-6 py-10">
-        <div class="glass rounded-[2.5rem] p-10 border-t-4 border-[#00d4aa]">
-            <div class="flex justify-between items-center mb-10">
-                <h2 class="text-3xl font-black italic tracking-tighter">TACTICAL HEATMAP</h2>
-                <span class="text-[9px] font-black text-white/20 uppercase tracking-[0.4em]">MITRE ATT&CK Framework v14</span>
-            </div>
-            <div id="mitre-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                </div>
-        </div>
-    </section>
-
-    <section class="max-w-7xl mx-auto px-6">
-        <div class="glass rounded-3xl overflow-hidden shadow-2xl">
+    <section class="max-w-7xl mx-auto">
+        <div class="glass rounded-3xl overflow-hidden">
             <table class="w-full text-left">
-                <thead class="bg-white/5 text-[9px] font-black uppercase text-white/20">
-                    <tr><th class="p-8">Intelligence Node</th><th class="p-8">Triage Date</th><th class="p-8 text-right">Action</th></tr>
+                <thead class="bg-white/5 text-[10px] font-black uppercase tracking-widest text-white/30">
+                    <tr><th class="p-6">Intelligence Node</th><th class="p-6">TLP / Risk</th><th class="p-6">Assets</th><th class="p-6 text-right">Actions</th></tr>
                 </thead>
-                <tbody id="threat-table-body" class="divide-y divide-white/5 text-sm font-medium">
-                    </tbody>
+                <tbody id="feed-body" class="text-sm"></tbody>
             </table>
         </div>
     </section>
 
     <script>
-        const manifestUrl = 'data/stix/feed_manifest.json';
-
-        function renderMitreHeatmap(activeTactics) {
+        async function init() {
+            const res = await fetch('data/stix/feed_manifest.json');
+            const data = await res.json();
+            
+            // 1. Render MITRE Heatmap
             const grid = document.getElementById('mitre-grid');
-            const tactics = ["Initial Access", "Execution", "Persistence", "Privilege Escalation", "Defense Evasion", "Credential Access", "Discovery", "Lateral Movement", "Command and Control", "Exfiltration", "Impact"];
-            grid.innerHTML = '';
-            tactics.forEach(t => {
-                const isActive = activeTactics && activeTactics.includes(t);
-                const statusClass = isActive ? 'border-[#00d4aa] text-[#00d4aa] glow-teal' : 'border-white/5 text-white/10 grayscale opacity-30';
+            const allTactics = ["Initial Access", "Execution", "Persistence", "Privilege Escalation", "Defense Evasion", "Credential Access", "Discovery", "Lateral Movement", "Command and Control", "Exfiltration", "Impact"];
+            allTactics.forEach(t => {
+                const active = data.active_tactics.includes(t);
                 grid.insertAdjacentHTML('beforeend', `
-                    <div class="glass p-6 rounded-2xl border-t-4 transition-all duration-1000 ${statusClass}">
-                        <i class="fas ${isActive ? 'fa-fire' : 'fa-shield-alt'} mb-3"></i>
-                        <p class="text-[8px] font-black uppercase tracking-widest">${t}</p>
+                    <div class="p-4 rounded-xl border ${active ? 'border-[#00d4aa] text-[#00d4aa]' : 'border-white/5 text-white/10'} text-center transition-all duration-700">
+                        <i class="fas ${active ? 'fa-fire' : 'fa-shield'} mb-2"></i>
+                        <p class="text-[8px] font-bold uppercase">${t}</p>
                     </div>
                 `);
             });
-        }
 
-        async function init() {
-            try {
-                const res = await fetch(manifestUrl);
-                const data = await res.json();
+            // 2. Render Table
+            const body = document.getElementById('feed-body');
+            data.files.forEach(f => {
+                const glowClass = f.tlp === 'AMBER' ? 'amber-glow' : 'clear-glow';
+                const riskColor = f.risk_score >= 7.0 ? 'text-yellow-500' : 'text-[#00d4aa]';
                 
-                renderMitreHeatmap(data.active_tactics);
-                
-                const tableBody = document.getElementById('threat-table-body');
-                tableBody.innerHTML = '';
-                data.files.forEach(file => {
-                    const ts = file.match(/\d+/) ? parseInt(file.match(/\d+/)[0]) : Date.now()/1000;
-                    tableBody.insertAdjacentHTML('beforeend', `
-                        <tr class="hover:bg-white/[0.03] transition">
-                            <td class="p-8 font-bold text-white/80">${file}</td>
-                            <td class="p-8 text-white/20 font-mono text-xs">${new Date(ts * 1000).toLocaleDateString()}</td>
-                            <td class="p-8 text-right">
-                                <a href="data/stix/${file}" target="_blank" class="px-5 py-2 bg-white/5 hover:bg-white hover:text-black rounded text-[10px] font-black uppercase transition">Ingest Node</a>
-                            </td>
-                        </tr>
-                    `);
-                });
-            } catch (e) { console.error("Sync Error:", e); }
+                body.insertAdjacentHTML('beforeend', `
+                    <tr class="hover:bg-white/5 transition border-b border-white/5 ${glowClass}">
+                        <td class="p-6">
+                            <span class="font-bold text-white/80">${f.name}</span>
+                            <div class="text-[9px] text-white/20 mt-1 uppercase">${f.tactics.join(' • ') || 'General Triage'}</div>
+                        </td>
+                        <td class="p-6 font-black ${riskColor}">${f.tlp} <span class="text-white/20 ml-2">(${f.risk_score})</span></td>
+                        <td class="p-6">
+                            ${f.pdf ? `<a href="data/whitepapers/${f.pdf}" class="text-[#00d4aa] hover:underline"><i class="fas fa-file-pdf mr-2"></i>Advisory</a>` : '<span class="text-white/10 italic">N/A</span>'}
+                        </td>
+                        <td class="p-6 text-right">
+                            <a href="data/stix/${f.name}" class="px-4 py-2 bg-white/5 hover:bg-white hover:text-black rounded-lg text-[10px] font-black transition">STIX 2.1</a>
+                        </td>
+                    </tr>
+                `);
+            });
         }
-        window.onload = init;
+        init();
     </script>
 </body>
 </html>
