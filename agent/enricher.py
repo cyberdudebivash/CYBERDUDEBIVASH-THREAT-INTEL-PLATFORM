@@ -16,26 +16,20 @@ class IntelligenceEnricher:
         self.cve_pattern = r'CVE-\d{4}-\d{4,}'
         
         # 2. v10.1 Apex Specialized Patterns: Google Groups & Malware Persistence
-        # Extracts specific sub-paths: googlegroups.com/g/u/[Campaign_ID]
+        # Specifically targets the /g/u/ sub-paths used in the CTM360 Lumma campaign
         self.google_group_pattern = r'googlegroups\.com/g/u/[\w-]+'
         
-        # Extracts malware artifacts (e.g., NinjaBrowser.exe, Lumma_Payload.zip)
+        # Extracts specific malware artifacts (e.g., NinjaBrowser.exe)
         self.malware_file_pattern = r'[a-zA-Z0-9_-]+\.(?:exe|dll|zip|iso|bin)'
         
-        # Extracts Registry Persistence Keys mentioned in technical reports
+        # Extracts Registry Persistence Keys (e.g., HKCU\Software\...\Run)
         self.registry_pattern = r'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\[\w-]+'
-        
-        # Extracts User-Agent strings or specific C2 URI paths
-        self.c2_path_pattern = r'/[a-zA-Z0-9]{1,8}/exfil'
 
     def extract_iocs(self, text):
-        """
-        Performs multi-layered forensic extraction to populate CTIF v1.0 sections.
-        """
+        """Performs forensic extraction to populate CTIF v1.0 sections."""
         if not text:
             return {'ipv4': [], 'domain': [], 'cve': [], 'google_groups': [], 'artifacts': []}
 
-        # Deduplicate results using sets
         results = {
             'ipv4': list(set(re.findall(self.ip_pattern, text))),
             'domain': list(set(re.findall(self.domain_pattern, text))),
@@ -45,18 +39,10 @@ class IntelligenceEnricher:
             'registry_keys': list(set(re.findall(self.registry_pattern, text, re.IGNORECASE)))
         }
         
-        # Logic: If specialized Google Group URIs are found, ensure they are promoted 
-        # to the primary Domain IOC table for SOC visibility.
+        # Promotes campaign-specific Google Groups to the primary Domain table
         if results['google_groups']:
-            logger.info(f"Detected {len(results['google_groups'])} campaign-specific URI patterns.")
             results['domain'].extend(results['google_groups'])
             
         return results
 
-    def get_primary_cve(self, text):
-        """Identifies the primary exploit vector for Pillar B triage."""
-        match = re.search(self.cve_pattern, text)
-        return match.group(0) if match else None
-
-# Global Instance for Orchestrator
 enricher = IntelligenceEnricher()
