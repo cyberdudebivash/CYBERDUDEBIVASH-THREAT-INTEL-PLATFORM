@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
 """
 blog_post_generator.py — CyberDudeBivash v10.0 (APEX PREDATOR)
-Final World-Class Production: Engineered to Outclass the Top 3 Global Platforms.
+Final World-Class Production: Engineered to Outclass Global Platforms.
 """
 
-def _generate_diamond_model_ascii():
-    """Visualizes the relationship between Actor, Capability, Infrastructure, and Victim."""
-    return (
-        "          [ ADVERSARY ]\n"
-        "             /     \\\n"
-        "  [CAPABILITY] ---- [INFRASTRUCTURE]\n"
-        "             \\     /\n"
-        "            [ VICTIM ]"
-    )
+def generate_headline(intel_items):
+    """Clean, high-authority tactical headline for public consumption."""
+    if not intel_items:
+        return "Autonomous Threat Intelligence Brief"
+    # Removes version prefixes for professional branding
+    return f"TACTICAL ADVISORY: {intel_items[0]['title']}"
 
 def _generate_apex_detection(iocs):
-    """Production-verified logic for Enterprise SIEM/EDR platforms."""
+    """Event ID-specific logic for Enterprise SOC ingestion."""
     domains = iocs.get('domain', [])
+    ips = iocs.get('ipv4', [])
     
-    # Sigma: Process Creation & Network Correlation
+    # Sigma (Log Source Defense)
     sigma = f"""
 title: APEX-DET-01: {domains[0] if domains else 'Suspicious C2 Activity'}
 logsource:
@@ -29,7 +27,7 @@ detection:
     condition: selection
 level: critical"""
 
-    # KQL: Advanced Hunting for Microsoft Sentinel
+    # KQL (Cloud Native Defense)
     kql = f"""
 DeviceNetworkEvents
 | where RemoteUrl has_any ("{", ".join(domains[:3])}")
@@ -39,55 +37,55 @@ DeviceNetworkEvents
     return sigma, kql
 
 def generate_full_post_content(intel_items, iocs, pro_data, map_html, stix_id, mitre_data=None, risk_score=7.0, actor_data=None):
-    """v10.0 Apex Predator Template: Long-form, Multi-Pillar Technical Dossier."""
+    """v10.0 Template: 6 Mandatory Long-Form Sections for Elite Authority."""
     primary = intel_items[0]
     tracking_id = actor_data.get('tracking_id', 'UNC-CDB-99')
     tlp_color = "#ff3e3e" if risk_score >= 9.0 else "#00d4aa"
     sigma, kql = _generate_apex_detection(iocs)
     
-    # Technical Narrative Expansion
-    analysis_blocks = "".join([f"<div style='margin-bottom:25px;'><b style='color:#fff;'>Forensic Node: {i['title']}</b><p style='color:#aaa; font-size:14px; line-height:1.8;'>{i.get('summary', '')}</p></div>" for i in intel_items])
+    # Section 3 Logic: Deep Technical Detail Expansion
+    tech_details = "".join([f"<div style='margin-bottom:25px;'><b style='color:#fff; font-size:15px;'>Forensic Observation: {i['title']}</b><p style='color:#aaa; font-size:14px; line-height:1.8; margin-top:10px;'>{i.get('summary', 'Detailed analysis pending.')}</p></div>" for i in intel_items])
+
+    # Section 4 Logic: Structured IOC Table
+    ioc_ips = iocs.get('ipv4', [])
+    ioc_doms = iocs.get('domain', [])
 
     html = f"""
-    <div style="background:#020202; color:#dcdcdc; font-family:'Segoe UI', Roboto, sans-serif; border:1px solid #1a1a1a; max-width:950px; margin:auto; box-shadow: 0 40px 100px rgba(0,0,0,0.8);">
+    <div style="background:#020202; color:#dcdcdc; font-family:'Inter', sans-serif; border:1px solid #1a1a1a; max-width:950px; margin:auto; box-shadow: 0 40px 100px rgba(0,0,0,0.8);">
         
-        <div style="background:{tlp_color}; color:#000; padding:12px; text-align:center; font-weight:900; letter-spacing:5px; font-size:11px;">
+        <div style="background:{tlp_color}; color:#000; padding:15px; text-align:center; font-weight:900; letter-spacing:5px; font-size:11px;">
             TLP:{'RED' if risk_score >= 9.0 else 'CLEAR'} // CDB-SENTINEL-GOC // v10.0 APEX PREDATOR
         </div>
 
-        <div style="padding:60px;">
+        <div style="padding:50px;">
             <p style="color:{tlp_color}; font-weight:bold; margin:0; font-size:12px; letter-spacing:2px;">CDB STRATEGIC THREAT UNIT</p>
-            <h1 style="color:#fff; font-size:42px; margin-top:10px; letter-spacing:-2.5px; line-height:1;">{primary['title']}</h1>
+            <h1 style="color:#fff; font-size:40px; margin-top:10px; letter-spacing:-2px; line-height:1.1;">{primary['title']}</h1>
             <p style="color:#444; font-size:12px; margin-top:15px;">REF: {stix_id} | SEVERITY: {risk_score}/10 | AUTH: GOC-APEX-10</p>
             
-            <div style="background:#080808; border-left:5px solid {tlp_color}; padding:35px; margin:45px 0; border-radius:0 8px 8px 0;">
-                <h3 style="color:#fff; margin-top:0; font-size:14px; text-transform:uppercase; letter-spacing:1px;">Executive Summary (BLUF)</h3>
-                <p style="line-height:1.9; font-size:15px; color:#bbb;">
-                    CDB Sentinel has confirmed a high-impact campaign attributed to <b>{tracking_id}</b>. 
-                    The adversary utilizes a sophisticated infrastructure cluster to deliver infostealer payloads 
-                    via trusted enterprise channels. Telemetry suggests this campaign targets the 
-                    <b>Financial</b> and <b>Critical Infrastructure</b> sectors globally. Immediate 
-                    implementation of Section 4 detection playbooks is mandated.
+            <h2 style="color:#fff; font-size:18px; border-bottom:1px solid #333; padding-bottom:10px; margin-top:45px;">1. Executive Summary</h2>
+            <div style="background:#080808; border-left:5px solid {tlp_color}; padding:30px; margin:20px 0;">
+                <p style="line-height:1.8; font-size:15px; color:#bbb;">
+                    CDB Sentinel has analyzed an advanced campaign attributed to <b>{tracking_id}</b>. 
+                    This tactical advisory details the infrastructure and infection mechanics used to target 
+                    enterprise environments. Immediate implementation of detection playbooks in Section 4 is mandated.
                 </p>
             </div>
 
-            <h3 style="color:#fff; border-bottom:1px solid #222; padding-bottom:15px; text-transform:uppercase; font-size:14px; letter-spacing:1px;">1. Analytical Diamond Model</h3>
-            <div style="background:#000; padding:40px; border:1px solid #111; margin:25px 0; text-align:center;">
-                <pre style="color:{tlp_color}; font-family:'Courier New', monospace; font-size:14px; display:inline-block; text-align:left;">{_generate_diamond_model_ascii()}</pre>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:30px; text-align:left;">
-                    <div style="background:#050505; padding:15px; border:1px solid #1a1a1a;">
-                        <b style="color:#fff; font-size:12px;">ADVERSARY:</b><br><span style="font-size:13px; color:#888;">{tracking_id} / Lumma Cluster</span>
-                    </div>
-                    <div style="background:#050505; padding:15px; border:1px solid #1a1a1a;">
-                        <b style="color:#fff; font-size:12px;">INFRASTRUCTURE:</b><br><span style="font-size:13px; color:#888;">Google Groups / CDN Redirectors</span>
-                    </div>
-                </div>
-            </div>
+            <h2 style="color:#fff; font-size:18px; border-bottom:1px solid #333; padding-bottom:10px; margin-top:45px;">2. Technical Intelligence Analysis</h2>
+            <div style="margin:25px 0;">{tech_details}</div>
 
-            <h3 style="color:#fff; border-bottom:1px solid #222; padding-bottom:15px; margin-top:60px; text-transform:uppercase; font-size:14px; letter-spacing:1px;">2. Technical Forensic Deep-Dive</h3>
-            <div style="margin:25px 0;">{analysis_blocks}</div>
+            <h2 style="color:#fff; font-size:18px; border-bottom:1px solid #333; padding-bottom:10px; margin-top:45px;">3. Indicators of Compromise (IOCs)</h2>
+            <table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:13px; font-family:monospace; color:#ccc;">
+                <tr style="background:#111; color:{tlp_color}; text-align:left;">
+                    <th style="padding:12px; border:1px solid #222;">Type</th>
+                    <th style="padding:12px; border:1px solid #222;">Indicator</th>
+                    <th style="padding:12px; border:1px solid #222;">Confidence</th>
+                </tr>
+                {"".join([f"<tr><td style='padding:12px; border:1px solid #222;'>IPv4</td><td style='padding:12px; border:1px solid #222;'>{ip}</td><td style='padding:12px; border:1px solid #222;'>High</td></tr>" for ip in ioc_ips]) if ioc_ips else "<tr><td colspan='3' style='padding:12px; text-align:center;'>No IP Indicators Extracted</td></tr>"}
+                {"".join([f"<tr><td style='padding:12px; border:1px solid #222;'>Domain</td><td style='padding:12px; border:1px solid #222;'>{dom}</td><td style='padding:12px; border:1px solid #222;'>High</td></tr>" for dom in ioc_doms]) if ioc_doms else "<tr><td colspan='3' style='padding:12px; text-align:center;'>No Domain Indicators Extracted</td></tr>"}
+            </table>
 
-            <h3 style="color:#fff; border-bottom:1px solid #222; padding-bottom:15px; margin-top:60px; text-transform:uppercase; font-size:14px; letter-spacing:1px;">3. Operational Detection Engineering</h3>
+            <h2 style="color:#fff; font-size:18px; border-bottom:1px solid #333; padding-bottom:10px; margin-top:45px;">4. Advanced Detection Engineering</h2>
             <div style="margin-top:25px;">
                 <b style="color:{tlp_color}; font-size:11px; text-transform:uppercase;">Sigma Rule (Verified Process Creation)</b>
                 <pre style="background:#000; color:#00ff00; padding:25px; border:1px solid #1a1a1a; font-size:11px; margin:10px 0; overflow-x:auto;">{sigma}</pre>
@@ -96,12 +94,11 @@ def generate_full_post_content(intel_items, iocs, pro_data, map_html, stix_id, m
                 <pre style="background:#000; color:#00ff00; padding:25px; border:1px solid #1a1a1a; font-size:11px; margin:10px 0; overflow-x:auto;">{kql}</pre>
             </div>
 
-            <h3 style="color:#fff; border-bottom:1px solid #222; padding-bottom:15px; margin-top:60px; text-transform:uppercase; font-size:14px; letter-spacing:1px;">4. Recommendations & Strategic Conclusion</h3>
+            <h2 style="color:#fff; font-size:18px; border-bottom:1px solid #333; padding-bottom:10px; margin-top:45px;">5. Strategic Conclusion</h2>
             <p style="color:#888; line-height:1.9; font-size:15px; margin-top:20px;">
-                The tactical shift observed in <b>{tracking_id}</b>'s latest campaign indicates a pivot towards 
-                higher-evasion infrastructure. Organizations must prioritize behavioral-based detection over 
-                static IOC matching. CDB Sentinel remains in active monitoring mode, providing 
-                near-real-time updates to this intelligence node.
+                The observed tactical evolution of <b>{tracking_id}</b> necessitates a move from reactive blocking to 
+                proactive hunting. organizations should leverage the provided KQL logic to audit internal 
+                application logs for anomalous Google Group redirections. CDB GOC continues active tracking.
             </p>
 
             <div style="margin-top:100px; border-top:1px solid #1a1a1a; padding-top:30px; text-align:center; font-size:10px; color:#222; letter-spacing:5px;">
