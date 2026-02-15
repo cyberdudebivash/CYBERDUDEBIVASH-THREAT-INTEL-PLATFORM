@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 """
-export_stix.py — CyberDudeBivash v7.1
-Beast Mode: Geospatial + MITRE ATT&CK Tactic Aggregation.
+export_stix.py — CyberDudeBivash v7.4
+Enhanced Manifest Engine: TLP & Risk Aggregation for Dashboard UI.
 """
 import os
 import json
-import uuid
-from collections import Counter
 from datetime import datetime, timezone
-from typing import Dict, List
 
 class STIXExporter:
     def __init__(self):
@@ -20,72 +17,66 @@ class STIXExporter:
             os.makedirs(self.output_dir, exist_ok=True)
 
     def update_manifest(self):
-        """Aggregates Geo-IP and MITRE Tactics for the Command Center UI."""
+        """Aggregates TLP, Risk, and Tactics for the Command Center UI."""
         self._ensure_dir()
         stix_files = [f for f in os.listdir(self.output_dir) 
                       if f.endswith(".json") and f != "feed_manifest.json"]
         
-        country_stats = Counter()
         active_tactics = set()
-        
-        for file in stix_files[:50]: # Scan recent 50 nodes for real-time heatmap
+        file_metadata = []
+
+        for file in sorted(stix_files, reverse=True)[:100]:
             try:
                 with open(os.path.join(self.output_dir, file), 'r') as f:
                     data = json.load(f)
+                    risk = 5.0
+                    file_tactics = []
+
                     for obj in data.get('objects', []):
-                        # Extract Country Codes
-                        if obj.get('type') == 'location':
-                            country_stats[obj.get('country')] += 1
-                        
-                        # Extract MITRE Tactics from Indicator references
-                        if obj.get('type') == 'indicator' and 'external_references' in obj:
-                            for ref in obj['external_references']:
-                                if ref.get('source_name') == 'mitre-attack':
-                                    tactic = ref.get('description', '').split(':')[-1].strip()
-                                    if tactic: active_tactics.add(tactic)
-            except Exception:
-                continue
+                        if obj.get('type') == 'indicator':
+                            # Parse Risk from description generated in sentinel_blogger.py
+                            desc = obj.get('description', '')
+                            if "Risk:" in desc:
+                                try: risk = float(desc.split("Risk:")[1].split("/")[0])
+                                except: pass
+                            
+                            if 'external_references' in obj:
+                                for ref in obj['external_references']:
+                                    if ref.get('source_name') == 'mitre-attack':
+                                        t = ref.get('description', '').split(':')[-1].strip()
+                                        if t: 
+                                            file_tactics.append(t)
+                                            active_tactics.add(t)
+
+                    file_metadata.append({
+                        "name": file,
+                        "risk_score": risk,
+                        "tlp": "AMBER" if risk >= 7.0 else "CLEAR",
+                        "tactics": sorted(list(set(file_tactics))),
+                        "pdf": file.replace(".json", ".pdf") if risk >= 7.0 else None
+                    })
+            except: continue
 
         manifest = {
             "last_updated": datetime.now(timezone.utc).isoformat(),
             "total_nodes": len(stix_files),
-            "top_countries": dict(country_stats.most_common(10)),
-            "active_tactics": list(active_tactics),
-            "files": sorted(stix_files, reverse=True)
+            "active_tactics": sorted(list(active_tactics)),
+            "files": file_metadata 
         }
         
         with open(self.manifest_path, "w") as f:
             json.dump(manifest, f, indent=4)
-        print(f"✓ v7.1 Manifest Updated: {len(stix_files)} nodes | {len(active_tactics)} Tactics Mapped.")
+        print(f"✓ v7.4 Manifest Updated: {len(file_metadata)} Enhanced Nodes.")
 
-    def create_bundle(self, title: str, iocs: Dict[str, List[str]], risk_score: float, enriched_data: dict, mitre_data: list = None) -> str:
-        """Generates STIX 2.1 bundles with full Metadata Enrichment."""
+    def create_bundle(self, title, iocs, risk_score, enriched_data, mitre_data=None):
+        """Generates STIX 2.1 bundles with Risk metadata."""
         self._ensure_dir()
-        bundle_id = f"bundle--{uuid.uuid4()}"
+        bundle_id = f"bundle--{datetime.now().timestamp()}"
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         objects = []
         
-        # Identity Object
-        identity_id = f"identity--{uuid.uuid4()}"
-        objects.append({
-            "type": "identity", "spec_version": "2.1", "id": identity_id,
-            "name": "CyberDudeBivash Sentinel APEX", "identity_class": "organization"
-        })
-
-        # Process IOCs
         for ioc_type, values in iocs.items():
             for val in values:
-                loc_id = None
-                if enriched_data and val in enriched_data:
-                    geo = enriched_data[val]
-                    if geo.get('country_code'):
-                        loc_id = f"location--{uuid.uuid4()}"
-                        objects.append({
-                            "type": "location", "spec_version": "2.1", "id": loc_id,
-                            "country": geo['country_code']
-                        })
-
-                # Indicator with MITRE mapping
                 external_refs = []
                 if mitre_data:
                     for tech in mitre_data:
@@ -96,11 +87,13 @@ class STIXExporter:
                         })
 
                 objects.append({
-                    "type": "indicator", "spec_version": "2.1", "id": f"indicator--{uuid.uuid4()}",
-                    "created": timestamp, "modified": timestamp, "name": f"Node: {val}",
-                    "pattern": f"[{ioc_type}:value = '{val}']", "pattern_type": "stix",
-                    "valid_from": timestamp, "created_by_ref": identity_id,
-                    "where_sighted_refs": [loc_id] if loc_id else [],
+                    "type": "indicator",
+                    "spec_version": "2.1",
+                    "id": f"indicator--{val}",
+                    "created": timestamp,
+                    "description": f"Triage by Sentinel APEX. Risk: {risk_score}/10",
+                    "pattern": f"[{ioc_type}:value = '{val}']",
+                    "pattern_type": "stix",
                     "external_references": external_refs
                 })
 
@@ -108,8 +101,6 @@ class STIXExporter:
         filename = f"CDB-APEX-{int(datetime.now().timestamp())}.json"
         with open(os.path.join(self.output_dir, filename), "w") as f:
             json.dump(bundle, f, indent=4)
-        
         self.update_manifest()
-        return json.dumps(bundle)
 
 stix_exporter = STIXExporter()
