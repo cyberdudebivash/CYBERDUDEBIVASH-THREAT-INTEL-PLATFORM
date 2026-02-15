@@ -43,7 +43,6 @@ def main():
             logger.info("Syncing manifest."); stix_exporter.update_manifest(); return
 
         # 2. Apex Triage: Isolating the Primary Campaign
-        # v10.1 strictly produces ONE long-form dossier per tactical threat.
         primary_threat = [intel_items[0]] 
         
         # 3. Multi-Pillar Analysis
