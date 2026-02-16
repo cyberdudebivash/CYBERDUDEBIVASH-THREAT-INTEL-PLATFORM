@@ -78,36 +78,95 @@ class DetectionEngine:
 
         # Rule 3: Behavioral detection (always generated as fallback)
         title_lower = title.lower()
-        process_patterns = []
-        if any(w in title_lower for w in ['powershell', 'script', 'clickfix']):
-            process_patterns = ['powershell.exe', 'pwsh.exe', 'wscript.exe', 'cscript.exe']
-        elif any(w in title_lower for w in ['malware', 'trojan', 'backdoor', 'stealer']):
-            process_patterns = ['cmd.exe', 'powershell.exe', 'rundll32.exe', 'regsvr32.exe']
-        elif any(w in title_lower for w in ['exploit', 'cve', 'vulnerability', 'rce']):
-            process_patterns = ['cmd.exe', 'powershell.exe', 'certutil.exe', 'bitsadmin.exe']
-        else:
-            process_patterns = ['powershell.exe', 'cmd.exe', 'mshta.exe', 'wmic.exe']
 
-        behavioral_rule = {
-            'title': f'CDB-Sentinel: {safe_title} - Behavioral Detection',
-            'id': f'cdb-{abs(hash(title + "behav")) % 999999:06d}',
-            'status': 'experimental',
-            'description': f'Behavioral detection for TTPs associated with: {safe_title}. Detects suspicious process execution patterns.',
-            'author': 'CyberDudeBivash GOC (Automated)',
-            'date': date_str,
-            'tags': ['attack.execution', 'attack.persistence'],
-            'logsource': {'category': 'process_creation', 'product': 'windows'},
-            'detection': {
-                'selection': {
-                    'Image|endswith': process_patterns,
-                    'CommandLine|contains': ['-enc', '-nop', '-w hidden', 'bypass',
-                                             'downloadstring', 'invoke-', 'iex('],
+        # Detect threat type for contextual rule generation
+        is_browser_attack = any(w in title_lower for w in ['extension', 'browser', 'chrome', 'addon', 'plugin', 'webstore'])
+        is_script_attack = any(w in title_lower for w in ['powershell', 'script', 'clickfix', 'nslookup'])
+        is_malware = any(w in title_lower for w in ['malware', 'trojan', 'backdoor', 'stealer', 'rat'])
+        is_exploit = any(w in title_lower for w in ['exploit', 'cve', 'vulnerability', 'rce', 'zero-day'])
+        is_ransomware = any(w in title_lower for w in ['ransomware', 'ransom', 'encrypt', 'lockbit', 'blackcat'])
+
+        if is_browser_attack:
+            # BROWSER EXTENSION-SPECIFIC Sigma rule
+            behavioral_rule = {
+                'title': f'CDB-Sentinel: {safe_title} - Browser Extension Abuse Detection',
+                'id': f'cdb-{abs(hash(title + "behav")) % 999999:06d}',
+                'status': 'experimental',
+                'description': f'Detects suspicious browser extension activity associated with: {safe_title}. Monitors for unauthorized extension installation, excessive permissions, and credential exfiltration.',
+                'author': 'CyberDudeBivash GOC (Automated)',
+                'date': date_str,
+                'tags': ['attack.persistence.t1176', 'attack.credential_access.t1555.003'],
+                'logsource': {'category': 'process_creation', 'product': 'windows'},
+                'detection': {
+                    'selection_install': {
+                        'Image|endswith': ['chrome.exe', 'msedge.exe', 'brave.exe'],
+                        'CommandLine|contains': ['--load-extension', '--install-extension',
+                                                  '--disable-extensions-except', 'extension_id'],
+                    },
+                    'selection_suspicious': {
+                        'Image|endswith': ['chrome.exe', 'msedge.exe'],
+                        'CommandLine|contains': ['--no-sandbox', '--disable-web-security',
+                                                  '--allow-running-insecure-content'],
+                    },
+                    'condition': 'selection_install or selection_suspicious',
                 },
-                'condition': 'selection',
-            },
-            'falsepositives': ['Legitimate administrative scripts', 'Software deployment tools'],
-            'level': 'medium',
-        }
+                'falsepositives': ['Enterprise browser extension deployment via GPO',
+                                   'Developer testing with extension flags'],
+                'level': 'high',
+            }
+        elif is_ransomware:
+            behavioral_rule = {
+                'title': f'CDB-Sentinel: {safe_title} - Ransomware Behavioral Detection',
+                'id': f'cdb-{abs(hash(title + "behav")) % 999999:06d}',
+                'status': 'experimental',
+                'description': f'Detects ransomware TTPs associated with: {safe_title}.',
+                'author': 'CyberDudeBivash GOC (Automated)',
+                'date': date_str,
+                'tags': ['attack.impact.t1486', 'attack.defense_evasion'],
+                'logsource': {'category': 'process_creation', 'product': 'windows'},
+                'detection': {
+                    'selection': {
+                        'Image|endswith': ['vssadmin.exe', 'wbadmin.exe', 'bcdedit.exe',
+                                            'wmic.exe', 'cmd.exe'],
+                        'CommandLine|contains': ['delete shadows', 'delete catalog',
+                                                  'recoveryenabled no', 'shadowcopy delete'],
+                    },
+                    'condition': 'selection',
+                },
+                'falsepositives': ['Legitimate backup management'],
+                'level': 'critical',
+            }
+        else:
+            process_patterns = []
+            if is_script_attack:
+                process_patterns = ['powershell.exe', 'pwsh.exe', 'wscript.exe', 'cscript.exe']
+            elif is_malware:
+                process_patterns = ['cmd.exe', 'powershell.exe', 'rundll32.exe', 'regsvr32.exe']
+            elif is_exploit:
+                process_patterns = ['cmd.exe', 'powershell.exe', 'certutil.exe', 'bitsadmin.exe']
+            else:
+                process_patterns = ['powershell.exe', 'cmd.exe', 'mshta.exe', 'wmic.exe']
+
+            behavioral_rule = {
+                'title': f'CDB-Sentinel: {safe_title} - Behavioral Detection',
+                'id': f'cdb-{abs(hash(title + "behav")) % 999999:06d}',
+                'status': 'experimental',
+                'description': f'Behavioral detection for TTPs associated with: {safe_title}. Detects suspicious process execution patterns.',
+                'author': 'CyberDudeBivash GOC (Automated)',
+                'date': date_str,
+                'tags': ['attack.execution', 'attack.persistence'],
+                'logsource': {'category': 'process_creation', 'product': 'windows'},
+                'detection': {
+                    'selection': {
+                        'Image|endswith': process_patterns,
+                        'CommandLine|contains': ['-enc', '-nop', '-w hidden', 'bypass',
+                                                 'downloadstring', 'invoke-', 'iex('],
+                    },
+                    'condition': 'selection',
+                },
+                'falsepositives': ['Legitimate administrative scripts', 'Software deployment tools'],
+                'level': 'medium',
+            }
         rules.append(yaml.dump(behavioral_rule, default_flow_style=False, sort_keys=False))
 
         return '\n---\n'.join(rules)
@@ -153,7 +212,19 @@ class DetectionEngine:
 
         # Always add behavioral strings based on threat type
         title_lower = title.lower()
-        if any(w in title_lower for w in ['powershell', 'script', 'clickfix']):
+        is_browser_attack = any(w in title_lower for w in ['extension', 'browser', 'chrome', 'addon', 'plugin', 'webstore'])
+        is_script_attack = any(w in title_lower for w in ['powershell', 'script', 'clickfix'])
+
+        if is_browser_attack:
+            strings_section.extend([
+                f'        $beh{string_idx} = "chrome-extension://" ascii wide nocase',
+                f'        $beh{string_idx+1} = "chrome.runtime.sendMessage" ascii wide',
+                f'        $beh{string_idx+2} = "document.cookie" ascii wide',
+                f'        $beh{string_idx+3} = "XMLHttpRequest" ascii wide',
+                f'        $beh{string_idx+4} = "permissions" ascii wide',
+            ])
+            string_idx += 5
+        elif is_script_attack:
             strings_section.extend([
                 f'        $beh{string_idx} = "powershell" ascii wide nocase',
                 f'        $beh{string_idx+1} = "-EncodedCommand" ascii wide nocase',

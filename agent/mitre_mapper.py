@@ -45,6 +45,13 @@ class MITREMapper:
             "malicious link": {"id": "T1204.001", "tactic": "Execution", "name": "Malicious Link"},
             "clickfix": {"id": "T1204.001", "tactic": "Execution", "name": "Malicious Link"},
             "nslookup": {"id": "T1059", "tactic": "Execution", "name": "Command and Scripting Interpreter"},
+            # User execution / social engineering (NEW)
+            "duped": {"id": "T1204", "tactic": "Execution", "name": "User Execution"},
+            "tricked": {"id": "T1204", "tactic": "Execution", "name": "User Execution"},
+            "lured": {"id": "T1204", "tactic": "Execution", "name": "User Execution"},
+            "users installed": {"id": "T1204", "tactic": "Execution", "name": "User Execution"},
+            "fake ai": {"id": "T1204.001", "tactic": "Execution", "name": "Malicious Link"},
+            "fake app": {"id": "T1204", "tactic": "Execution", "name": "User Execution"},
 
             # ── PERSISTENCE ──
             "persistence": {"id": "T1547", "tactic": "Persistence", "name": "Boot or Logon Autostart Execution"},
@@ -54,6 +61,14 @@ class MITREMapper:
             "backdoor": {"id": "T1547", "tactic": "Persistence", "name": "Boot or Logon Autostart Execution"},
             "implant": {"id": "T1547", "tactic": "Persistence", "name": "Boot or Logon Autostart Execution"},
             "boot": {"id": "T1542", "tactic": "Persistence", "name": "Pre-OS Boot"},
+            # Browser Extension persistence (NEW - critical for extension attacks)
+            "browser extension": {"id": "T1176", "tactic": "Persistence", "name": "Browser Extensions"},
+            "chrome extension": {"id": "T1176", "tactic": "Persistence", "name": "Browser Extensions"},
+            "fake extension": {"id": "T1176", "tactic": "Persistence", "name": "Browser Extensions"},
+            "malicious extension": {"id": "T1176", "tactic": "Persistence", "name": "Browser Extensions"},
+            "browser plugin": {"id": "T1176", "tactic": "Persistence", "name": "Browser Extensions"},
+            "addon": {"id": "T1176", "tactic": "Persistence", "name": "Browser Extensions"},
+            "add-on": {"id": "T1176", "tactic": "Persistence", "name": "Browser Extensions"},
 
             # ── PRIVILEGE ESCALATION ──
             "privilege escalation": {"id": "T1068", "tactic": "Privilege Escalation", "name": "Exploitation for Privilege Escalation"},
@@ -69,6 +84,11 @@ class MITREMapper:
             "fileless": {"id": "T1620", "tactic": "Defense Evasion", "name": "Reflective Code Loading"},
             "living off the land": {"id": "T1218", "tactic": "Defense Evasion", "name": "System Binary Proxy Execution"},
             "disable security": {"id": "T1562", "tactic": "Defense Evasion", "name": "Impair Defenses"},
+            # Masquerading / Impersonation (NEW - for fake extension attacks)
+            "impersonat": {"id": "T1036", "tactic": "Defense Evasion", "name": "Masquerading"},
+            "masquerad": {"id": "T1036", "tactic": "Defense Evasion", "name": "Masquerading"},
+            "deceptive": {"id": "T1036", "tactic": "Defense Evasion", "name": "Masquerading"},
+            "fake brand": {"id": "T1036.005", "tactic": "Defense Evasion", "name": "Match Legitimate Name or Location"},
 
             # ── CREDENTIAL ACCESS ──
             "credential": {"id": "T1555", "tactic": "Credential Access", "name": "Credentials from Password Stores"},
@@ -79,8 +99,14 @@ class MITREMapper:
             "mimikatz": {"id": "T1003.001", "tactic": "Credential Access", "name": "LSASS Memory"},
             "cookie theft": {"id": "T1539", "tactic": "Credential Access", "name": "Steal Web Session Cookie"},
             "session hijack": {"id": "T1539", "tactic": "Credential Access", "name": "Steal Web Session Cookie"},
+            "session token": {"id": "T1539", "tactic": "Credential Access", "name": "Steal Web Session Cookie"},
             "infostealer": {"id": "T1555", "tactic": "Credential Access", "name": "Credentials from Password Stores"},
             "stealer": {"id": "T1555", "tactic": "Credential Access", "name": "Credentials from Password Stores"},
+            "harvested credentials": {"id": "T1555.003", "tactic": "Credential Access", "name": "Credentials from Web Browsers"},
+            "browser data": {"id": "T1555.003", "tactic": "Credential Access", "name": "Credentials from Web Browsers"},
+            "oauth token": {"id": "T1528", "tactic": "Credential Access", "name": "Steal Application Access Token"},
+            "token theft": {"id": "T1528", "tactic": "Credential Access", "name": "Steal Application Access Token"},
+            "access token": {"id": "T1528", "tactic": "Credential Access", "name": "Steal Application Access Token"},
 
             # ── DISCOVERY ──
             "reconnaissance internal": {"id": "T1083", "tactic": "Discovery", "name": "File and Directory Discovery"},

@@ -48,14 +48,29 @@ class RiskScoringEngine:
         "backdoor": 1.8, "rootkit": 2.0,
         "privilege escalation": 1.5, "authentication bypass": 2.0,
         "credential theft": 1.8, "credential stuffing": 1.5,
+        "credential harvest": 1.8, "harvested credentials": 1.8,
+        "session token": 1.8, "token theft": 1.8,
         "data exfiltration": 2.0, "data stolen": 2.0,
         "hackers leak": 2.0, "hackers claim": 1.5,
         "critical infrastructure": 2.0,
         "financial fraud": 1.8, "banking trojan": 1.8,
         "espionage": 2.0, "cyber espionage": 2.0,
+        # Browser / Extension attacks (NEW)
+        "malicious extension": 2.0, "fake extension": 2.0,
+        "browser extension": 1.5, "chrome extension": 1.5,
+        "malicious browser": 1.8, "fake browser": 1.8,
+        "malicious plugin": 1.8, "fake plugin": 1.8,
+        "webstore": 1.2, "web store": 1.2,
+        "browser hijack": 2.0, "session hijack": 1.8,
+        "oauth token": 1.5, "cookie theft": 1.8,
+        "users duped": 1.8, "users tricked": 1.8,
+        "users compromised": 1.8, "users affected": 1.5,
+        "users impacted": 1.5, "users targeted": 1.5,
+        "impersonat": 1.5,
         # Medium severity (weight 0.8-1.5)
         "vulnerability": 1.0, "exploit": 1.2,
         "phishing campaign": 1.2, "phishing attack": 1.2,
+        "phishing": 1.0,
         "social engineering": 1.0, "clickfix": 1.2,
         "malware": 1.2, "trojan": 1.2, "stealer": 1.2,
         "botnet": 1.2, "infostealer": 1.2,
@@ -65,32 +80,43 @@ class RiskScoringEngine:
         "unauthorized access": 1.5,
         "leaked": 1.5, "exposed": 1.5,
         "compromised": 1.5, "breached": 1.5,
+        "duped": 1.5, "tricked": 1.5,
+        "fake ai": 1.5, "malicious ai": 1.5,
     }
 
     # ── Impact magnitude patterns ──
+    # KEY FIXES in v12.1:
+    # - \+? after K/M to handle "260K+" shorthand
+    # - (?:\w+\s+){0,3} to handle multi-word gaps like "Chrome Users"
+    # - More action verbs: installed, duped, tricked, targeted, infected, hit
+    # - Patterns that work WITHOUT requiring action verb after entity
+    ENTITY_WORDS = r'(?:records|users|customers|accounts|people|individuals|patients|loanees|members|victims|devices|systems|endpoints)'
     IMPACT_PATTERNS = [
-        # Millions - with optional adjective between number and entity
-        (r'(\d+(?:\.\d+)?)\s*(?:million|M)\s+\w*\s*(?:records|users|customers|accounts|people|individuals|patients|loanees|members)',
+        # ── K/M SHORTHAND (260K+, 2.5M, 600K) ──
+        # Handles: "260K+ Chrome Users", "2.5M records exposed", "600K customer records"
+        (r'(\d+(?:\.\d+)?)[Kk]\+?\s+(?:\w+\s+){0,3}' + ENTITY_WORDS, "records", 1_000),
+        (r'(\d+(?:\.\d+)?)[Mm]\+?\s+(?:\w+\s+){0,3}' + ENTITY_WORDS, "records", 1_000_000),
+
+        # ── MILLIONS: "2.5 million loanees", "over 1.2 million patient records" ──
+        (r'(?:over\s+)?(\d+(?:\.\d+)?)\s*(?:million)\s+(?:\w+\s+){0,3}' + ENTITY_WORDS,
          "records", 1_000_000),
-        (r'(\d+(?:\.\d+)?)\s*(?:million|M)\s+(?:affected|impacted|exposed|breached|compromised)',
+        (r'(\d+(?:\.\d+)?)\s*(?:million)\s+(?:affected|impacted|exposed|breached|compromised)',
          "affected", 1_000_000),
-        # Thousands - with optional adjective
-        (r'(\d+(?:\.\d+)?)\s*(?:thousand|K)\s+\w*\s*(?:records|users|customers|accounts|people)',
+
+        # ── THOUSANDS: "50 thousand users" ──
+        (r'(?:over\s+)?(\d+(?:\.\d+)?)\s*(?:thousand)\s+(?:\w+\s+){0,3}' + ENTITY_WORDS,
          "records", 1_000),
-        # Direct number + optional adjective + entity + action verb
-        (r'(\d[\d,]*)\s+\w*\s*(?:records|users|customers|accounts|people|individuals|patients|loanees|members)\s+\w*\s*(?:exposed|leaked|breached|stolen|compromised|affected|impacted)',
+
+        # ── DIRECT NUMBERS: "260,000 Chrome users", "600000 customer records" ──
+        # Up to 3 words between number and entity
+        (r'(?:over\s+|more\s+than\s+)?(\d[\d,]+)\s+(?:\w+\s+){0,3}' + ENTITY_WORDS,
          "records", 1),
-        (r'(?:exposed|leaked|breached|stolen|compromised|affected|impacted)\s+(?:\w+\s+)?(\d[\d,]*)\s+\w*\s*(?:records|users|customers|accounts)',
+
+        # ── VERB-FIRST: "affected 500,000 users", "exposed 2.5M records" ──
+        (r'(?:exposed|leaked|breached|stolen|compromised|affected|impacted|infected|hit|targeted|duped|tricked)\s+(?:\w+\s+){0,2}(\d[\d,]+)\s+(?:\w+\s+){0,2}' + ENTITY_WORDS,
          "records", 1),
-        # Number directly followed by entity
-        (r'(\d[\d,]*)\s+(?:records|users|customers|accounts|people|individuals|patients)\s+(?:exposed|leaked|breached|stolen|compromised|affected)',
-         "records", 1),
-        # Shorthand: 2.5M, 600K - with optional adjective
-        (r'(\d+(?:\.\d+)?)[Mm]\s+\w*\s*(?:records|users|customers|accounts|people)', "records", 1_000_000),
-        (r'(\d+(?:\.\d+)?)[Kk]\s+\w*\s*(?:records|users|customers|accounts|people)', "records", 1_000),
-        # "over X million" pattern
-        (r'over\s+(\d+(?:\.\d+)?)\s*(?:million|M)\s+\w*', "records", 1_000_000),
-        # Dollar amounts
+
+        # ── DOLLAR AMOUNTS ──
         (r'\$\s*(\d+(?:\.\d+)?)\s*(?:million|M|billion|B)', "financial", 1_000_000),
         (r'(\d+(?:\.\d+)?)\s*(?:million|M)\s*(?:dollars|\$|USD)', "financial", 1_000_000),
     ]
