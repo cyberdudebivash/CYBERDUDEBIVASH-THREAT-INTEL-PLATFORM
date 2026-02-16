@@ -81,7 +81,7 @@ BRAND = {
     "phone": "+91 8179881447",
     "tagline": "Global Cybersecurity Intelligence Infrastructure",
     "node_id": "CDB-GOC-01",
-    "version": "v12.1",
+    "version": "v12.2",
 }
 
 BLOGS = {
