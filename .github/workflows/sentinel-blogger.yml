@@ -34,6 +34,10 @@ jobs:
       - name: Run Sentinel Blogger APEX Engine
         env:
           BLOG_ID: ${{ secrets.BLOG_ID }}
+          # CRITICAL AUTH FIX: Mapping the missing Blogger OAuth secrets
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
         run: python -m agent.sentinel_blogger
 
@@ -42,7 +46,6 @@ jobs:
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
           git add data/stix/*.json
-          # v10.1 Fix: Ensures manifest is pushed to main for Raw Fetch
           git commit -m "v10.1 Apex: Intelligence manifest sync [skip ci]" || echo "No changes"
           git push origin main
 
@@ -52,7 +55,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
           publish_branch: gh-pages
-          # ACTIONABLE HARDENING:
-          # This flag prevents the action from deleting your branded index.html 
-          # and ecosystem assets during the manifest update.
           keep_files: true
