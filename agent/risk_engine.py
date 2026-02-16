@@ -67,6 +67,16 @@ class RiskScoringEngine:
         "users compromised": 1.8, "users affected": 1.5,
         "users impacted": 1.5, "users targeted": 1.5,
         "impersonat": 1.5,
+        # Identity / MFA / Account Compromise (NEW for 0ktapus-style campaigns)
+        "mfa bypass": 2.2, "mfa fatigue": 2.0, "mfa interception": 2.2,
+        "multi-factor authentication": 1.8, "mfa codes": 1.8,
+        "sim swap": 2.0, "sim swapping": 2.0,
+        "account takeover": 2.0, "identity theft": 2.0,
+        "identity credential": 1.8, "okta": 1.5,
+        "credential phishing": 1.8, "spear phishing": 1.5,
+        "smishing": 1.5, "sms phishing": 1.5,
+        "authentication page": 1.5, "spoofed": 1.5, "mimicked": 1.5,
+        "organizations being compromised": 2.0, "accounts compromised": 2.0,
         # Medium severity (weight 0.8-1.5)
         "vulnerability": 1.0, "exploit": 1.2,
         "phishing campaign": 1.2, "phishing attack": 1.2,

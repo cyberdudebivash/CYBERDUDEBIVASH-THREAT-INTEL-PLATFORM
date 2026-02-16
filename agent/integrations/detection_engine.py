@@ -85,6 +85,9 @@ class DetectionEngine:
         is_malware = any(w in title_lower for w in ['malware', 'trojan', 'backdoor', 'stealer', 'rat'])
         is_exploit = any(w in title_lower for w in ['exploit', 'cve', 'vulnerability', 'rce', 'zero-day'])
         is_ransomware = any(w in title_lower for w in ['ransomware', 'ransom', 'encrypt', 'lockbit', 'blackcat'])
+        is_phishing_identity = any(w in title_lower for w in ['phishing', 'credential', 'mfa', 'okta', 'identity',
+                                                                'authentication', 'oauth', 'sim swap', 'smishing',
+                                                                'victimize', '0ktapus', 'oktapus', 'spoofed'])
 
         if is_browser_attack:
             # BROWSER EXTENSION-SPECIFIC Sigma rule
@@ -135,6 +138,40 @@ class DetectionEngine:
                 },
                 'falsepositives': ['Legitimate backup management'],
                 'level': 'critical',
+            }
+        elif is_phishing_identity:
+            # PHISHING / IDENTITY / MFA COMPROMISE detection (NEW for 0ktapus-style)
+            behavioral_rule = {
+                'title': f'CDB-Sentinel: {safe_title} - Credential Phishing & MFA Bypass Detection',
+                'id': f'cdb-{abs(hash(title + "behav")) % 999999:06d}',
+                'status': 'experimental',
+                'description': f'Detects credential phishing and MFA interception patterns associated with: {safe_title}. Monitors for suspicious OAuth token activity, anomalous authentication flows, and credential harvesting infrastructure.',
+                'author': 'CyberDudeBivash GOC (Automated)',
+                'date': date_str,
+                'tags': ['attack.initial_access.t1566', 'attack.credential_access.t1111',
+                         'attack.credential_access.t1539'],
+                'logsource': {'category': 'authentication', 'product': 'azure_ad'},
+                'detection': {
+                    'selection_mfa_anomaly': {
+                        'EventType': ['MfaRequestFailed', 'MfaRequestDenied',
+                                      'InteractiveMfaRequest'],
+                        'Status|contains': ['Failed', 'Denied', 'Timeout'],
+                    },
+                    'selection_token_theft': {
+                        'EventType': ['TokenIssuance', 'RefreshTokenGranted'],
+                        'UserAgent|contains': ['python-requests', 'curl', 'wget',
+                                                'AitM', 'Evilginx'],
+                    },
+                    'selection_suspicious_login': {
+                        'EventType': 'SignInActivity',
+                        'RiskLevel|contains': ['high', 'atRisk'],
+                    },
+                    'condition': 'selection_mfa_anomaly or selection_token_theft or selection_suspicious_login',
+                },
+                'falsepositives': ['Users with genuine MFA issues',
+                                   'Automated security testing tools',
+                                   'Legacy applications with unusual user agents'],
+                'level': 'high',
             }
         else:
             process_patterns = []
@@ -248,6 +285,17 @@ class DetectionEngine:
                 f'        $beh{string_idx+3} = "YOUR FILES HAVE BEEN" ascii wide nocase',
             ])
             string_idx += 4
+        elif any(w in title_lower for w in ['phishing', 'credential', 'mfa', 'okta', 'identity',
+                                             'authentication', 'oauth', 'victimize', '0ktapus']):
+            strings_section.extend([
+                f'        $beh{string_idx} = "password" ascii wide nocase',
+                f'        $beh{string_idx+1} = "document.forms" ascii wide',
+                f'        $beh{string_idx+2} = "XMLHttpRequest" ascii wide',
+                f'        $beh{string_idx+3} = "login" ascii wide nocase',
+                f'        $beh{string_idx+4} = "oauth" ascii wide nocase',
+                f'        $beh{string_idx+5} = "token" ascii wide nocase',
+            ])
+            string_idx += 6
         else:
             strings_section.extend([
                 f'        $beh{string_idx} = "cmd.exe /c" ascii wide nocase',

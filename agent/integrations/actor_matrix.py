@@ -82,12 +82,14 @@ class ActorMatrix:
                 "keywords": ["cozy bear", "apt29", "nobelium", "midnight blizzard", "solarwinds"],
             },
             "CDB-FIN-12": {
-                "alias": ["Scattered Spider", "UNC3944", "Octo Tempest"],
+                "alias": ["Scattered Spider", "UNC3944", "Octo Tempest", "0ktapus", "Oktapus"],
                 "origin": "US / UK / Multi-National",
-                "motivation": "Financial Gain / SIM Swapping",
-                "tooling": ["Social Engineering", "SIM Swap", "MFA Fatigue"],
-                "confidence_score": "Medium",
-                "keywords": ["scattered spider", "octo tempest", "sim swap", "mfa fatigue"],
+                "motivation": "Financial Gain / Identity Compromise / SIM Swapping",
+                "tooling": ["Social Engineering", "SIM Swap", "MFA Fatigue", "Okta Phishing Kits"],
+                "confidence_score": "Medium-High",
+                "keywords": ["scattered spider", "octo tempest", "sim swap", "mfa fatigue",
+                             "0ktapus", "oktapus", "unc3944", "okta phishing", "okta identity",
+                             "mfa bypass", "mfa codes"],
             },
         }
 

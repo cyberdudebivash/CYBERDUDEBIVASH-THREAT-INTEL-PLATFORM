@@ -65,6 +65,15 @@ class PremiumReportGenerator:
                 "icon": "🧩",
                 "sectors": ["Enterprise", "Financial Services", "Technology", "Education"],
             },
+            "identity_compromise": {
+                "keywords": ["mfa", "multi-factor", "okta", "identity credential",
+                             "authentication page", "mfa bypass", "mfa fatigue",
+                             "sim swap", "0ktapus", "oktapus", "account takeover",
+                             "smishing", "sms phishing"],
+                "category": "Identity Compromise / MFA Bypass Campaign",
+                "icon": "🔑",
+                "sectors": ["Enterprise", "Financial Services", "Technology", "SaaS Providers"],
+            },
             "phishing_social": {
                 "keywords": ["phishing", "clickfix", "social engineering", "fake",
                              "lure", "credential", "impersonation", "scam"],
@@ -740,17 +749,36 @@ class PremiumReportGenerator:
             surviving browser restarts and operating independently of traditional endpoint security controls.
             Enterprise environments face amplified risk where browser sync propagates the malicious extension
             across multiple devices linked to the same user profile."""
-        elif 'phishing' in cat or 'social' in cat:
-            chain = f"""The infection chain for this campaign follows a social engineering-driven methodology.
-            Initial access is established through carefully crafted phishing lures designed to exploit user
-            trust and urgency. Upon interaction with the malicious content, victims are redirected through
-            a multi-stage delivery infrastructure that leverages legitimate services to evade traditional
-            security controls.</p><p style="{s['p']}">
-            The execution phase involves client-side scripting or binary execution, often employing
-            obfuscation techniques to bypass endpoint detection. Persistence is established through
-            registry modifications, scheduled tasks, or legitimate system utilities abused for
-            living-off-the-land operations. Command and control communication utilizes encrypted channels
-            through cloud services or compromised infrastructure to blend with normal traffic."""
+        elif 'phishing' in cat or 'social' in cat or 'identity' in cat or 'mfa' in cat:
+            is_identity = 'identity' in cat or 'mfa' in cat
+            if is_identity:
+                chain = f"""This campaign employs a credential phishing methodology specifically designed to
+                intercept multi-factor authentication (MFA) flows and compromise identity provider sessions.
+                Threat actors deploy convincing phishing pages that replicate legitimate identity provider
+                login portals (e.g., Okta, Azure AD, Google Workspace), often delivered via SMS-based lures
+                or targeted email campaigns.</p><p style="{s['p']}">
+                When victims enter their credentials on the spoofed authentication page, the phishing
+                infrastructure operates as a real-time adversary-in-the-middle (AitM) proxy, forwarding
+                credentials to the legitimate identity provider and relaying the MFA challenge back to the
+                victim. Upon successful MFA completion, the attacker captures the authenticated session token,
+                enabling full account access without further MFA challenges. This technique bypasses
+                traditional MFA protections including TOTP codes and push notifications.</p><p style="{s['p']}">
+                Post-compromise activity typically includes OAuth application consent grants for persistence,
+                email forwarding rule creation, lateral movement to connected SaaS applications, and data
+                exfiltration from cloud storage and email repositories. The attack chain is particularly
+                dangerous in enterprise environments where SSO propagates access across multiple
+                business-critical applications from a single compromised identity."""
+            else:
+                chain = f"""The infection chain for this campaign follows a social engineering-driven methodology.
+                Initial access is established through carefully crafted phishing lures designed to exploit user
+                trust and urgency. Upon interaction with the malicious content, victims are redirected through
+                a multi-stage delivery infrastructure that leverages legitimate services to evade traditional
+                security controls.</p><p style="{s['p']}">
+                The execution phase involves client-side scripting or binary execution, often employing
+                obfuscation techniques to bypass endpoint detection. Persistence is established through
+                registry modifications, scheduled tasks, or legitimate system utilities abused for
+                living-off-the-land operations. Command and control communication utilizes encrypted channels
+                through cloud services or compromised infrastructure to blend with normal traffic."""
         elif 'malware' in cat:
             chain = f"""This malware campaign employs a sophisticated multi-stage infection chain designed
             to maximize persistence and evade detection. The initial delivery vector involves dropper
@@ -789,6 +817,8 @@ class PremiumReportGenerator:
         is_browser = any(w in headline_lower for w in ['extension', 'browser', 'chrome', 'addon', 'plugin'])
         if is_browser or 'browser extension' in cat:
             return "[Marketplace Listing] → [User Installation] → [Permission Grant] → [Background Execution] → [Session/Cookie Capture] → [Credential Harvest] → [Data Exfiltration to C2]"
+        elif 'identity' in cat or 'mfa' in cat:
+            return "[SMS/Email Lure] → [Spoofed Auth Page] → [Credential Capture] → [Real-Time MFA Relay] → [Session Token Theft] → [Account Takeover] → [OAuth Persistence] → [Data Exfiltration]"
         elif 'phishing' in cat:
             return "[Phishing Lure] → [User Interaction] → [Payload Delivery] → [Execution] → [Persistence] → [C2 Communication] → [Credential Theft / Data Exfiltration]"
         elif 'malware' in cat:
@@ -963,6 +993,10 @@ class PremiumReportGenerator:
             "T1530": "Access to data in cloud storage",
             "T1567": "Exfiltration through cloud/web services",
             "T1542": "Boot or logon initialization scripts",
+            "T1111": "Interception of multi-factor authentication credentials",
+            "T1621": "MFA request generation for fatigue/bombing attacks",
+            "T1528": "Theft of application access tokens (OAuth/API)",
+            "T1556": "Modification of authentication processes or mechanisms",
         }
         return descs.get(tech_id, "Adversary behavior detected through intelligence correlation")
 
@@ -999,6 +1033,31 @@ DeviceFileEvents
 | where ActionType == "FileCreated"
 | project Timestamp, DeviceName, FolderPath, FileName, SHA256
 | sort by Timestamp desc"""
+        is_phishing = any(w in headline_lower for w in ['phishing', 'credential', 'mfa', 'okta', 'identity',
+                                                          'authentication', 'oauth', 'victimize', '0ktapus', 'oktapus'])
+        if is_phishing:
+            return f"""// CDB-Sentinel: Credential phishing & MFA bypass hunt for {headline[:50]}
+// Hunt 1: Anomalous MFA activity and failed authentication patterns
+SigninLogs
+| where TimeGenerated > ago(7d)
+| where ResultType !in ("0", "50125")
+| where MfaDetail has_any ("denied", "fraud", "timeout")
+| project TimeGenerated, UserPrincipalName, IPAddress, Location, MfaDetail, ResultDescription
+| sort by TimeGenerated desc
+
+// Hunt 2: Suspicious token replay and session anomalies
+AADNonInteractiveUserSignInLogs
+| where TimeGenerated > ago(7d)
+| where UserAgent has_any ("python", "curl", "Evilginx", "Modlishka", "Muraena")
+| project TimeGenerated, UserPrincipalName, IPAddress, UserAgent, AppDisplayName
+| sort by TimeGenerated desc
+
+// Hunt 3: OAuth application consent grants (potential AitM)
+AuditLogs
+| where TimeGenerated > ago(7d)
+| where OperationName has "Consent to application"
+| project TimeGenerated, InitiatedBy, TargetResources, AdditionalDetails
+| sort by TimeGenerated desc"""
         return f"""// CDB-Sentinel: Behavioral hunt for {headline[:50]}
 DeviceProcessEvents
 | where Timestamp > ago(7d)
@@ -1023,6 +1082,20 @@ DeviceProcessEvents
 | search (process_name="chrome.exe" OR process_name="msedge.exe")
 | search cmdline="*--load-extension*" OR cmdline="*--install-extension*" OR cmdline="*--disable-web-security*"
 | table _time host process_name cmdline parent_process
+| sort -_time"""
+        is_phishing = any(w in headline_lower for w in ['phishing', 'credential', 'mfa', 'okta', 'identity',
+                                                          'authentication', 'victimize', '0ktapus', 'oktapus'])
+        if is_phishing:
+            return f"""| index=* sourcetype=azure:aad:signin OR sourcetype=okta:log
+| search ("mfa_denied" OR "mfa_timeout" OR "login_failed") AND risk_level="high"
+| stats count by user src_ip app user_agent
+| where count > 3
+| sort -count
+
+| index=* sourcetype=azure:aad:audit OR sourcetype=okta:log
+| search action="application.lifecycle.create" OR action="user.session.start"
+| search (user_agent="*python*" OR user_agent="*curl*" OR user_agent="*Evilginx*")
+| table _time user src_ip user_agent action
 | sort -_time"""
         return f"""| index=* sourcetype=syslog OR sourcetype=wineventlog
 | search process_name IN ("powershell.exe","cmd.exe","wscript.exe")
@@ -1050,6 +1123,25 @@ alert http any any -> any any (msg:"CDB-Sentinel Extension Cookie Exfil"; \\
     content:"cookie"; http.header; \\
     content:"/collect"; http.uri; \\
     sid:9002; rev:1;)"""
+        is_phishing = any(w in headline_lower for w in ['phishing', 'credential', 'mfa', 'okta', 'identity',
+                                                          'authentication', 'victimize', '0ktapus', 'oktapus'])
+        if is_phishing:
+            return f"""# CDB-Sentinel: Credential phishing infrastructure detection for {headline[:40]}
+alert http any any -> any any (msg:"CDB-Sentinel Credential Phishing POST"; \\
+    content:"password"; http.client_body; nocase; \\
+    content:"POST"; http.method; \\
+    sid:9010; rev:1;)
+
+alert http any any -> any any (msg:"CDB-Sentinel OAuth Token Exfiltration"; \\
+    content:"token"; http.client_body; nocase; \\
+    content:"POST"; http.method; \\
+    content:"/auth"; http.uri; nocase; \\
+    sid:9011; rev:1;)
+
+alert http any any -> any any (msg:"CDB-Sentinel Suspicious Login Page Mimicry"; \\
+    content:"login"; http.uri; nocase; \\
+    content:"okta"; http.host; nocase; \\
+    sid:9012; rev:1;)"""
         return f"""# CDB-Sentinel: Behavioral detection for {headline[:40]}
 alert http any any -> any any (msg:"CDB-Sentinel Suspicious User-Agent"; \\
     content:"Mozilla/5.0"; http.user_agent; \\
