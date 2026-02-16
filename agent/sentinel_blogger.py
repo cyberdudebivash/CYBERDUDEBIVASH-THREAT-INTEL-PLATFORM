@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v12.0 (SENTINEL APEX ULTRA)
+sentinel_blogger.py — CyberDudeBivash v12.1 (SENTINEL APEX ULTRA)
 PRODUCTION ORCHESTRATOR: Multi-feed fusion, source article fetching,
 PREMIUM 16-section report generation (2500+ words), dynamic risk scoring,
 deduplication, enhanced STIX, MITRE mapping, actor attribution,

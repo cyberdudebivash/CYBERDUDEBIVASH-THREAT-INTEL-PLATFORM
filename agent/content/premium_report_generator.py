@@ -57,6 +57,14 @@ class PremiumReportGenerator:
                 "icon": "⚠️",
                 "sectors": ["All Industries", "Critical Infrastructure", "Government"],
             },
+            "browser_extension": {
+                "keywords": ["browser extension", "chrome extension", "fake extension",
+                             "malicious extension", "browser plugin", "addon",
+                             "webstore", "web store", "browser add-on"],
+                "category": "Browser Extension Compromise / Marketplace Abuse",
+                "icon": "🧩",
+                "sectors": ["Enterprise", "Financial Services", "Technology", "Education"],
+            },
             "phishing_social": {
                 "keywords": ["phishing", "clickfix", "social engineering", "fake",
                              "lure", "credential", "impersonation", "scam"],
@@ -712,8 +720,27 @@ class PremiumReportGenerator:
     def _generate_infection_chain(self, headline, text, threat_type, iocs):
         s = self._build_styles()
         cat = threat_type.get('category', '').lower()
+        headline_lower = headline.lower()
+        is_browser = any(w in headline_lower for w in ['extension', 'browser', 'chrome', 'addon', 'plugin'])
 
-        if 'phishing' in cat or 'social' in cat:
+        if is_browser or 'browser extension' in cat:
+            chain = f"""This campaign leverages malicious browser extensions distributed through
+            official or third-party extension marketplaces to establish persistent access within
+            the victim's browser environment. The attack exploits the elevated trust users place
+            in marketplace-distributed extensions and the broad permissions granted during installation.</p>
+            <p style="{s['p']}">
+            Upon installation, the malicious extension executes background JavaScript that harvests
+            sensitive data including browser cookies, session tokens, saved credentials, and browsing
+            history. The extension communicates with attacker-controlled infrastructure through standard
+            HTTPS requests that blend with normal browser traffic, making network-level detection challenging.
+            OAuth tokens and active sessions are captured through API hooking of browser authentication
+            flows, enabling account takeover without triggering MFA challenges on already-authenticated sessions.</p>
+            <p style="{s['p']}">
+            The extension maintains persistence through the browser's native extension management system,
+            surviving browser restarts and operating independently of traditional endpoint security controls.
+            Enterprise environments face amplified risk where browser sync propagates the malicious extension
+            across multiple devices linked to the same user profile."""
+        elif 'phishing' in cat or 'social' in cat:
             chain = f"""The infection chain for this campaign follows a social engineering-driven methodology.
             Initial access is established through carefully crafted phishing lures designed to exploit user
             trust and urgency. Upon interaction with the malicious content, victims are redirected through
@@ -758,7 +785,11 @@ class PremiumReportGenerator:
 
     def _generate_kill_chain_visual(self, headline, text, threat_type):
         cat = threat_type.get('category', '').lower()
-        if 'phishing' in cat:
+        headline_lower = headline.lower()
+        is_browser = any(w in headline_lower for w in ['extension', 'browser', 'chrome', 'addon', 'plugin'])
+        if is_browser or 'browser extension' in cat:
+            return "[Marketplace Listing] → [User Installation] → [Permission Grant] → [Background Execution] → [Session/Cookie Capture] → [Credential Harvest] → [Data Exfiltration to C2]"
+        elif 'phishing' in cat:
             return "[Phishing Lure] → [User Interaction] → [Payload Delivery] → [Execution] → [Persistence] → [C2 Communication] → [Credential Theft / Data Exfiltration]"
         elif 'malware' in cat:
             return "[Dropper Delivery] → [Payload Download] → [Memory Execution] → [Anti-Analysis Evasion] → [Registry Persistence] → [C2 Callback] → [Data Staging] → [Exfiltration]"
@@ -948,6 +979,26 @@ union DeviceNetworkEvents, DnsEvents, CommonSecurityLog
    or Name has_any (CDB_IOCs)
 | project TimeGenerated, DeviceName, RemoteUrl, DestinationIP, ActionType
 | sort by TimeGenerated desc"""
+        # Detect threat context for appropriate behavioral query
+        headline_lower = headline.lower()
+        is_browser = any(w in headline_lower for w in ['extension', 'browser', 'chrome', 'addon', 'plugin'])
+        if is_browser:
+            return f"""// CDB-Sentinel: Browser extension threat hunt for {headline[:50]}
+DeviceProcessEvents
+| where Timestamp > ago(7d)
+| where FileName in~ ("chrome.exe", "msedge.exe", "brave.exe", "firefox.exe")
+| where ProcessCommandLine has_any ("--load-extension", "--install-extension",
+    "--disable-extensions-except", "--no-sandbox", "--disable-web-security")
+| project Timestamp, DeviceName, ProcessCommandLine, InitiatingProcessFileName
+| sort by Timestamp desc
+
+// Browser extension permission audit
+DeviceFileEvents
+| where Timestamp > ago(7d)
+| where FolderPath has_any ("Extensions", "chrome-extension")
+| where ActionType == "FileCreated"
+| project Timestamp, DeviceName, FolderPath, FileName, SHA256
+| sort by Timestamp desc"""
         return f"""// CDB-Sentinel: Behavioral hunt for {headline[:50]}
 DeviceProcessEvents
 | where Timestamp > ago(7d)
@@ -965,6 +1016,14 @@ DeviceProcessEvents
 | search {indicators}
 | table _time src dest action bytes_out
 | sort -_time"""
+        headline_lower = headline.lower()
+        is_browser = any(w in headline_lower for w in ['extension', 'browser', 'chrome', 'addon', 'plugin'])
+        if is_browser:
+            return f"""| index=* sourcetype=sysmon OR sourcetype=wineventlog
+| search (process_name="chrome.exe" OR process_name="msedge.exe")
+| search cmdline="*--load-extension*" OR cmdline="*--install-extension*" OR cmdline="*--disable-web-security*"
+| table _time host process_name cmdline parent_process
+| sort -_time"""
         return f"""| index=* sourcetype=syslog OR sourcetype=wineventlog
 | search process_name IN ("powershell.exe","cmd.exe","wscript.exe")
 | where match(cmdline,"(?i)(download|invoke|base64|hidden)")
@@ -978,6 +1037,19 @@ DeviceProcessEvents
             for i, d in enumerate(domains):
                 rules.append(f'alert dns any any -> any any (msg:"CDB-Sentinel: {d}"; dns.query; content:"{d}"; nocase; sid:900{i+1}; rev:1;)')
             return '\n'.join(rules)
+        headline_lower = headline.lower()
+        is_browser = any(w in headline_lower for w in ['extension', 'browser', 'chrome', 'addon', 'plugin'])
+        if is_browser:
+            return f"""# CDB-Sentinel: Browser extension exfiltration detection for {headline[:40]}
+alert http any any -> any any (msg:"CDB-Sentinel Suspicious Extension Data Exfil"; \\
+    content:"chrome-extension"; http.header; \\
+    content:"POST"; http.method; \\
+    sid:9001; rev:1;)
+
+alert http any any -> any any (msg:"CDB-Sentinel Extension Cookie Exfil"; \\
+    content:"cookie"; http.header; \\
+    content:"/collect"; http.uri; \\
+    sid:9002; rev:1;)"""
         return f"""# CDB-Sentinel: Behavioral detection for {headline[:40]}
 alert http any any -> any any (msg:"CDB-Sentinel Suspicious User-Agent"; \\
     content:"Mozilla/5.0"; http.user_agent; \\
