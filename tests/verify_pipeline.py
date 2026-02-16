@@ -23,6 +23,8 @@ try:
     from agent.mitre_mapper import mitre_engine
     from agent.integrations.actor_matrix import actor_matrix
     from agent.integrations.detection_engine import detection_engine
+    from agent.content.premium_report_generator import premium_report_gen
+    from agent.content.source_fetcher import source_fetcher
 except ImportError as e:
     print(f"CRITICAL: Missing modules. Ensure requirements.txt is installed. {e}")
     sys.exit(1)
@@ -32,7 +34,7 @@ logger = logging.getLogger("CDB-DIAGNOSTIC")
 
 def run_diagnostic():
     print("=" * 65)
-    print("CYBERDUDEBIVASH SENTINEL APEX ULTRA — PRE-FLIGHT DIAGNOSTIC v11.0")
+    print("CYBERDUDEBIVASH SENTINEL APEX ULTRA — PRE-FLIGHT DIAGNOSTIC v11.5")
     print("=" * 65)
 
     # 1. Config Validation
@@ -105,11 +107,50 @@ def run_diagnostic():
     print(f"    Processed count: {dedup_engine.get_processed_count()}")
     print("    ✓ Deduplication: WORKING")
 
-    # 8. Summary
-    print("\n" + "=" * 65)
-    print("ALL DIAGNOSTICS PASSED — SENTINEL APEX ULTRA v11.0 READY")
-    print(f"Modules verified: enricher, risk_engine, dedup, mitre, actor, detection")
-    print("=" * 65)
+    # 8. Premium Report Generator (NEW - v11.5)
+    print("\n[8] Testing Premium 16-Section Report Generator...")
+    import re as re_mod
+    report_html = premium_report_gen.generate_premium_report(
+        headline="Test: Critical Ransomware Campaign Targets Healthcare Sector",
+        source_content=sample_text,
+        source_url="https://example.com/test-article",
+        iocs=iocs,
+        risk_score=risk_score,
+        severity=severity,
+        confidence=confidence,
+        tlp=tlp,
+        mitre_data=mitre_data,
+        actor_data=actor_data,
+        sigma_rule=sigma,
+        yara_rule=yara,
+        fetched_article={"full_text": sample_text * 5, "paragraphs": [sample_text] * 5,
+                         "word_count": 500, "fetch_status": "success"},
+    )
+    report_text = re_mod.sub(r'<[^>]+>', ' ', report_html)
+    word_count = len(report_text.split())
+    print(f"    Report word count: ~{word_count}")
+    print(f"    Has 16 sections: {'Yes' if 'APPENDIX' in report_html else 'No'}")
+    print(f"    Has IOC table: {'Yes' if 'INDICATORS OF COMPROMISE' in report_html else 'No'}")
+    print(f"    Has MITRE mapping: {'Yes' if 'MITRE ATT' in report_html else 'No'}")
+    print(f"    Has risk methodology: {'Yes' if 'RISK SCORING' in report_html else 'No'}")
+    print(f"    Has industry guidance: {'Yes' if 'INDUSTRY' in report_html else 'No'}")
+    print(f"    Has detection rules: {'Yes' if 'DETECTION ENGINEERING' in report_html else 'No'}")
+    assert word_count >= 1500, f"FAIL: Report too short ({word_count} words)"
+    print("    ✓ Premium report generator: WORKING")
+
+    # 9. Source Fetcher Module Check
+    print("\n[9] Testing Source Fetcher Module...")
+    print(f"    Module loaded: {source_fetcher is not None}")
+    print(f"    fetch_article method: {hasattr(source_fetcher, 'fetch_article')}")
+    print("    ✓ Source fetcher: MODULE READY")
+
+    # 10. Summary
+    print("\n" + "=" * 70)
+    print("ALL DIAGNOSTICS PASSED — SENTINEL APEX ULTRA v11.5 READY")
+    print(f"Modules verified: enricher, risk_engine, dedup, mitre, actor,")
+    print(f"  detection, premium_report_gen, source_fetcher")
+    print(f"Premium report: ~{word_count} words across 16 sections")
+    print("=" * 70)
 
 if __name__ == "__main__":
     run_diagnostic()

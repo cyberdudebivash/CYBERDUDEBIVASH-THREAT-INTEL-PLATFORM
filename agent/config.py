@@ -24,18 +24,28 @@ MAX_PER_FEED = 5
 # Primary CDB Feed (own blog)
 CDB_RSS_FEED = "https://cyberdudebivash-news.blogspot.com/feeds/posts/default?alt=rss"
 
-# High-Authority External Feeds
+# High-Authority External Feeds (Expanded for comprehensive coverage)
 RSS_FEEDS = [
+    # Tier 1: Premium Threat Intel Sources
     "https://www.bleepingcomputer.com/feed/",
     "https://feeds.feedburner.com/TheHackersNews",
+    "https://krebsonsecurity.com/feed/",
+    # Tier 2: Industry Authority Sources
+    "https://www.securityweek.com/feed/",
     "https://darkreading.com/rss.xml",
     "https://www.cisa.gov/cybersecurity-advisories/all.xml",
-    "https://krebsonsecurity.com/feed/",
-    "https://www.securityweek.com/feed/",
+    # Tier 3: Technical/Research Sources
+    "https://cyberscoop.com/feed/",
+    "https://www.scworld.com/feed",
+    "https://threatpost.com/feed/",
 ]
 
 # Maximum entries to process per feed per run
 MAX_ENTRIES_PER_FEED = 3
+
+# Source article fetch settings
+SOURCE_FETCH_TIMEOUT = 15  # Seconds
+SOURCE_FETCH_ENABLED = True  # Enable/disable source article fetching
 
 # ═══════════════════════════════════════════════════════════
 # ORCHESTRATION SETTINGS
@@ -71,7 +81,7 @@ BRAND = {
     "phone": "+91 8179881447",
     "tagline": "Global Cybersecurity Intelligence Infrastructure",
     "node_id": "CDB-GOC-01",
-    "version": "v11.0",
+    "version": "v11.5",
 }
 
 BLOGS = {
