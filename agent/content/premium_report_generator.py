@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-premium_report_generator.py — CyberDudeBivash v11.0 (SENTINEL APEX ULTRA)
+premium_report_generator.py — CyberDudeBivash v12.0 (SENTINEL APEX ULTRA)
 NEW MODULE: Premium 16-Section Threat Intelligence Report Generator.
 Produces 2500+ word, enterprise-grade reports following the
 CYBERDUDEBIVASH PREMIUM THREAT INTEL REPORT TEMPLATE exactly.
@@ -152,6 +152,7 @@ class PremiumReportGenerator:
         sigma_rule: str = "",
         yara_rule: str = "",
         fetched_article: Optional[Dict] = None,
+        impact_metrics: Optional[Dict] = None,
     ) -> str:
         """
         Generate a premium 2500+ word threat intelligence report
@@ -166,6 +167,7 @@ class PremiumReportGenerator:
         tlp_color = tlp.get('color', COLORS['accent'])
         tlp_label = tlp.get('label', 'TLP:CLEAR')
         mentioned_cves = self._extract_mentioned_cves(f"{headline} {source_content}")
+        impact = impact_metrics or {}
 
         # Source article details
         article_text = (fetched_article or {}).get('full_text', '') or source_content
@@ -208,6 +210,7 @@ class PremiumReportGenerator:
             <span style="{s['badge']}background:{COLORS['accent']}15;color:{COLORS['accent']};">RISK {risk_score}/10</span>
             <span style="{s['badge']}background:{COLORS['cyber_purple']}15;color:{COLORS['cyber_purple']};">CONFIDENCE {confidence}%</span>
             <span style="{s['badge']}background:{COLORS['cyber_blue']}15;color:{COLORS['cyber_blue']};">ACTOR {tracking_id}</span>
+            {'<span style="' + s['badge'] + 'background:' + COLORS['cyber_pink'] + '15;color:' + COLORS['cyber_pink'] + ';">IMPACT: ' + f"{impact.get('records_affected', 0):,}" + ' RECORDS</span>' if impact.get('records_affected', 0) > 0 else ''}
             <span style="{s['badge']}background:#11111180;color:{COLORS['text_muted']};border:1px solid {COLORS['border']};">
                 {threat_type['icon']} {threat_type['category']}</span>
         </div>
@@ -229,7 +232,7 @@ class PremiumReportGenerator:
         # ═══════════════════════════════════════════════════════════════
         exec_summary = self._generate_executive_summary(
             headline, article_summary, article_text, threat_type, risk_score,
-            severity, confidence, tracking_id, iocs, mentioned_cves)
+            severity, confidence, tracking_id, iocs, mentioned_cves, impact)
 
         sections.append(f"""
         <h2 style="{s['h2']}">1. EXECUTIVE SUMMARY (CISO / BOARD READY)</h2>
@@ -600,20 +603,37 @@ class PremiumReportGenerator:
     # ═══════════════════════════════════════════════════════════════════
 
     def _generate_executive_summary(self, headline, paragraphs, full_text,
-                                     threat_type, risk, sev, conf, actor, iocs, cves):
+                                     threat_type, risk, sev, conf, actor, iocs, cves,
+                                     impact=None):
         s = self._build_styles()
+        impact = impact or {}
+
         # Use first few paragraphs from source article if available
         source_context = ""
         if paragraphs and len(paragraphs) > 0:
             source_context = ' '.join(paragraphs[:3])
-            # Truncate to reasonable length
             if len(source_context) > 800:
                 source_context = source_context[:800].rsplit(' ', 1)[0] + '...'
 
         total_iocs = sum(len(v) for v in iocs.values())
         ioc_summary = f"{total_iocs} indicators of compromise across {sum(1 for v in iocs.values() if v)} categories" if total_iocs else "no actionable technical indicators extracted from the available intelligence"
 
-        # Build contextual paragraphs based on headline
+        # Impact quantification
+        impact_html = ""
+        records = impact.get('records_affected', 0)
+        if records > 0:
+            impact_html = f"""
+        <div style="{s['card']}border-left:4px solid {COLORS['cyber_pink']};">
+            <h3 style="color:{COLORS['white']};font-size:14px;margin:0 0 8px;">Impact Quantification</h3>
+            <table style="{s['table']}">
+                <tr><td style="{s['td']}"><b>Records/Individuals Affected</b></td>
+                    <td style="{s['td']}color:{COLORS['cyber_pink']};font-weight:700;font-size:18px;">{records:,}</td></tr>
+                {'<tr><td style="' + s['td'] + '"><b>Estimated Financial Impact</b></td><td style="' + s['td'] + '">${:,.0f}</td></tr>'.format(impact.get('financial_impact', 0)) if impact.get('financial_impact', 0) > 0 else ''}
+                <tr><td style="{s['td']}"><b>Sectors Impacted</b></td>
+                    <td style="{s['td']}">{', '.join(threat_type.get('sectors', ['Enterprise'])[:4])}</td></tr>
+            </table>
+        </div>"""
+
         text = f"""
         <p style="{s['p']}">
             The CyberDudeBivash Global Operations Center (GOC) has identified and analyzed a significant
@@ -625,6 +645,7 @@ class PremiumReportGenerator:
             {source_context if source_context else
              f'Based on initial intelligence triage, this event represents a notable development in the current threat landscape. The incident involves activity consistent with {threat_type["category"].lower()} operations, warranting attention from security operations teams across affected industries.'}
         </p>
+        {impact_html}
         <p style="{s['p']}">
             The Sentinel APEX AI Engine has processed all available intelligence, extracting {ioc_summary}.
             IOC confidence is assessed at <b>{conf}%</b> based on indicator diversity, source reliability,
@@ -640,7 +661,6 @@ class PremiumReportGenerator:
             and prioritize patching accordingly.
         </p>"""
 
-        # Business risk implications paragraph (always generated)
         text += f"""
         <p style="{s['p']}">
             <b>Business Risk Implications:</b> Organizations exposed to this threat face potential

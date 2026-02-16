@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v11.5 (SENTINEL APEX ULTRA)
+sentinel_blogger.py — CyberDudeBivash v12.0 (SENTINEL APEX ULTRA)
 PRODUCTION ORCHESTRATOR: Multi-feed fusion, source article fetching,
 PREMIUM 16-section report generation (2500+ words), dynamic risk scoring,
 deduplication, enhanced STIX, MITRE mapping, actor attribution,
 TLP classification, confidence scoring, rate-limit protection.
 
-v11.5 UPGRADE: Integrates premium_report_generator.py + source_fetcher.py
-to produce enterprise-grade, long-form threat intelligence reports following
-the CYBERDUDEBIVASH 16-SECTION PREMIUM TEMPLATE exactly.
+v12.0 UPGRADE: Content-aware risk scoring, expanded MITRE mapping (50+),
+impact intelligence extraction, boosted confidence scoring.
 
 CRITICAL: All existing functionality preserved. Only evolved.
 """
@@ -222,18 +221,30 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
     actor_data = actor_matrix.correlate_actor(full_corpus, extracted_iocs)
     actor_mapped = actor_data.get('tracking_id', '').startswith('CDB-')
 
-    # ─── STEP 5: Dynamic Risk Scoring ───
+    # ─── STEP 5: Dynamic Risk Scoring (NOW CONTENT-AWARE) ───
     risk_score = risk_engine.calculate_risk_score(
         iocs=extracted_iocs,
         mitre_matches=mitre_data,
         actor_data=actor_data,
+        headline=headline,
+        content=enriched_content,
     )
     severity = risk_engine.get_severity_label(risk_score)
     tlp = risk_engine.get_tlp_label(risk_score)
-    logger.info(f"  → Risk: {risk_score}/10 | Severity: {severity} | TLP: {tlp.get('label')}")
 
-    # ─── STEP 6: Confidence Scoring ───
+    # Extract impact metrics for report enrichment
+    impact_metrics = risk_engine.extract_impact_metrics(headline, enriched_content)
+    logger.info(f"  → Risk: {risk_score}/10 | Severity: {severity} | TLP: {tlp.get('label')}"
+               f" | Records: {impact_metrics['records_affected']:,}"
+               f" | Keywords: {len(impact_metrics['severity_keywords'])}")
+
+    # ─── STEP 6: Confidence Scoring (ENHANCED) ───
+    # Boost confidence when content analysis finds strong signals
     confidence = enricher.calculate_confidence(extracted_iocs, actor_mapped)
+    if impact_metrics["records_affected"] > 0:
+        confidence = min(confidence + 15.0, 100.0)  # Records confirmed = confidence boost
+    if len(impact_metrics["severity_keywords"]) >= 3:
+        confidence = min(confidence + 10.0, 100.0)  # Multiple signals = confidence boost
 
     # ─── STEP 7: Detection Engineering ───
     sigma_rule = detection_engine.generate_sigma_rule(headline, extracted_iocs)
@@ -256,6 +267,7 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         sigma_rule=sigma_rule,
         yara_rule=yara_rule,
         fetched_article=fetched_article,
+        impact_metrics=impact_metrics,
     )
 
     report_word_count = len(re.sub(r'<[^>]+>', ' ', report_html).split())
