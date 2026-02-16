@@ -1,103 +1,363 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDB Sentinel APEX | Intelligence Command Center</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>CDB Sentinel APEX v12.1 | Intelligence Command Center</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #050505; color: #e5e5e5; }
-        .cyber-grid { background-image: radial-gradient(#1a1a1a 1px, transparent 1px); background-size: 30px 30px; }
-        .glow-green { box-shadow: 0 0 15px rgba(0, 212, 170, 0.3); }
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+        :root {
+            --accent: #00d4aa;
+            --accent-dim: rgba(0, 212, 170, 0.12);
+            --bg: #050508;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.10);
+            --text-bright: #ffffff;
+            --text-primary: #e8e8f0;
+            --text-secondary: #b8b8cc;
+            --text-muted: #9090a8;
+            --red: #ff4d5a;
+            --orange: #ff9f43;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: -1;
+            background:
+                radial-gradient(ellipse at 25% 0%, rgba(0, 212, 170, 0.04) 0%, transparent 55%),
+                radial-gradient(ellipse at 75% 100%, rgba(0, 100, 200, 0.03) 0%, transparent 55%),
+                radial-gradient(rgba(25, 25, 50, 0.8) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 28px 28px;
+        }
+
+        /* ─── NAV ─── */
+        nav {
+            position: sticky; top: 0; z-index: 50;
+            background: rgba(5, 5, 8, 0.88);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-inner {
+            max-width: 1200px; margin: 0 auto;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 24px;
+        }
+        .logo-group { display: flex; align-items: center; gap: 12px; }
+        .logo-box {
+            width: 40px; height: 40px;
+            background: var(--accent); border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 13px; color: #000;
+        }
+        .logo-text { font-weight: 900; font-size: 18px; letter-spacing: -0.5px; color: var(--text-bright); }
+        .logo-text span { color: var(--accent); }
+        .nav-links { display: flex; gap: 28px; }
+        .nav-links a {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1.5px; color: var(--text-secondary);
+            text-decoration: none; transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--accent); }
+
+        /* ─── HERO ─── */
+        .hero {
+            max-width: 1200px; margin: 0 auto;
+            padding: 72px 24px 48px; text-align: center;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--accent-dim);
+            border: 1px solid rgba(0, 212, 170, 0.25);
+            border-radius: 100px; padding: 6px 18px;
+            font-size: 12px; font-weight: 700; color: var(--accent);
+            margin-bottom: 28px; letter-spacing: 0.5px;
+        }
+        .pulse-dot {
+            width: 7px; height: 7px; background: var(--accent);
+            border-radius: 50%; animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,212,170,0.4); }
+            50% { opacity: 0.6; box-shadow: 0 0 0 8px rgba(0,212,170,0); }
+        }
+        .hero h1 {
+            font-size: clamp(38px, 7vw, 76px);
+            font-weight: 900; letter-spacing: -2.5px; line-height: 1.05;
+            margin-bottom: 20px; color: var(--text-bright);
+        }
+        .hero h1 em {
+            font-style: italic;
+            background: linear-gradient(135deg, #fff 30%, #a0a0b8 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            max-width: 620px; margin: 0 auto 32px;
+            font-size: 16px; color: var(--text-secondary); font-weight: 500;
+        }
+        .hero-btns { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+        .btn-primary {
+            background: var(--accent); color: #000;
+            font-weight: 800; font-size: 14px;
+            padding: 14px 32px; border-radius: 8px;
+            text-decoration: none; border: none;
+            transition: all 0.2s;
+            box-shadow: 0 0 24px rgba(0,212,170,0.2);
+        }
+        .btn-primary:hover { background: #00eabb; box-shadow: 0 0 36px rgba(0,212,170,0.35); }
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.15);
+            color: var(--text-bright); font-weight: 800; font-size: 14px;
+            padding: 14px 32px; border-radius: 8px;
+            text-decoration: none; transition: all 0.2s;
+        }
+        .btn-ghost:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.25); }
+
+        /* ─── STATS ─── */
+        .stats {
+            max-width: 1200px; margin: 0 auto;
+            padding: 0 24px 40px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 16px;
+        }
+        .stat-card {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 12px; padding: 28px;
+            transition: border-color 0.2s;
+        }
+        .stat-card:hover { border-color: rgba(0,212,170,0.25); }
+        .stat-label {
+            font-size: 11px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 2px;
+            color: var(--accent); margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 26px; font-weight: 900; color: var(--text-bright);
+            letter-spacing: -0.5px; margin-bottom: 6px;
+        }
+        .stat-value.orange { color: var(--orange); }
+        .stat-desc { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+
+        /* ─── CAPABILITIES ─── */
+        .capabilities {
+            max-width: 1200px; margin: 0 auto;
+            padding: 16px 24px 56px;
+        }
+        .section-title {
+            font-size: 20px; font-weight: 900; color: var(--text-bright);
+            letter-spacing: -0.5px; margin-bottom: 20px;
+        }
+        .cap-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 16px;
+        }
+        .cap-card {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 12px; padding: 24px;
+        }
+        .cap-icon { font-size: 18px; color: var(--accent); margin-bottom: 12px; }
+        .cap-card h3 { font-size: 14px; font-weight: 800; color: var(--text-bright); margin-bottom: 8px; }
+        .cap-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+
+        /* ─── FEED ─── */
+        .feed-section {
+            max-width: 1200px; margin: 0 auto;
+            padding: 0 24px 72px;
+        }
+        .feed-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .live-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(255,77,90,0.1); border: 1px solid rgba(255,77,90,0.2);
+            border-radius: 6px; padding: 4px 12px;
+            font-size: 11px; font-weight: 800; color: var(--red); letter-spacing: 1px;
+        }
+        .live-badge::before {
+            content: ''; width: 6px; height: 6px;
+            background: var(--red); border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        .feed-wrap {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 12px; overflow: hidden;
+        }
+        .feed-wrap table { width: 100%; border-collapse: collapse; }
+        .feed-wrap th {
+            padding: 14px 24px; text-align: left;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.02);
+        }
+        .feed-wrap td {
+            padding: 14px 24px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            border-top: 1px solid rgba(255,255,255,0.04);
+            color: var(--text-secondary);
+        }
+        .feed-wrap .name { font-weight: 700; color: var(--text-bright); }
+        .feed-wrap .active { color: var(--accent); font-weight: 700; }
+        .feed-wrap a { color: var(--accent); text-decoration: none; font-weight: 700; }
+        .feed-wrap a:hover { text-decoration: underline; }
+
+        /* ─── FOOTER ─── */
+        footer {
+            border-top: 1px solid var(--border);
+            background: rgba(0,0,0,0.4);
+            padding: 32px 24px;
+        }
+        .footer-inner {
+            max-width: 1200px; margin: 0 auto;
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 16px;
+        }
+        .footer-copy { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+        .footer-links { display: flex; gap: 24px; }
+        .footer-links a {
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            color: var(--text-muted); text-decoration: none; transition: color 0.2s;
+        }
+        .footer-links a:hover { color: var(--text-bright); }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hero h1 { font-size: 34px; letter-spacing: -1px; }
+            .stats, .cap-grid { grid-template-columns: 1fr; }
+            .footer-inner { flex-direction: column; text-align: center; }
+        }
     </style>
 </head>
-<body class="cyber-grid min-h-screen">
+<body>
 
-    <nav class="border-b border-white/10 bg-black/50 backdrop-blur-md sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-[#00d4aa] rounded flex items-center justify-center text-black font-black">CDB</div>
-                <span class="font-black tracking-tighter text-xl">SENTINEL <span class="text-[#00d4aa]">APEX</span></span>
+    <nav>
+        <div class="nav-inner">
+            <div class="logo-group">
+                <div class="logo-box">CDB</div>
+                <div class="logo-text">SENTINEL <span>APEX</span></div>
             </div>
-            <div class="hidden md:flex space-x-8 text-sm font-bold uppercase tracking-widest text-white/60">
-                <a href="https://cyberbivash.blogspot.com" class="hover:text-[#00d4aa] transition">Live Blog</a>
-                <a href="#feed" class="hover:text-[#00d4aa] transition">STIX Feed</a>
-                <a href="https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM" class="hover:text-[#00d4aa] transition">Repository</a>
+            <div class="nav-links">
+                <a href="https://cyberbivash.blogspot.com">Live Blog</a>
+                <a href="#feed">STIX Feed</a>
+                <a href="https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM">Repository</a>
+                <a href="https://cyberdudebivash.com">Main Site</a>
             </div>
         </div>
     </nav>
 
-    <header class="max-w-7xl mx-auto px-6 pt-20 pb-12 text-center">
-        <h1 class="text-6xl md:text-8xl font-black tracking-tighter mb-6 bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent italic">
-            GLOBAL THREAT<br>ORCHESTRATION.
-        </h1>
-        <p class="max-w-2xl mx-auto text-lg text-white/50 mb-10 font-medium">
-            Autonomous forensic triage, multi-vendor reputation enrichment, and real-time STIX orchestration for the modern enterprise.
-        </p>
-        <div class="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-4">
-            <a href="https://cyberbivash.blogspot.com" class="bg-white text-black px-8 py-4 rounded font-black hover:bg-[#00d4aa] transition glow-green">VIEW ADVISORIES</a>
-            <a href="#feed" class="border border-white/20 px-8 py-4 rounded font-black hover:bg-white/5 transition">EXPLORE FEED</a>
+    <header class="hero">
+        <div class="hero-badge"><span class="pulse-dot"></span> SENTINEL APEX v12.1 — OPERATIONAL</div>
+        <h1>GLOBAL THREAT<br><em>ORCHESTRATION.</em></h1>
+        <p>Autonomous forensic triage, content-aware risk scoring, MITRE ATT&CK mapping, and real-time STIX orchestration for the modern enterprise SOC.</p>
+        <div class="hero-btns">
+            <a href="https://cyberbivash.blogspot.com" class="btn-primary">VIEW ADVISORIES</a>
+            <a href="#feed" class="btn-ghost">EXPLORE FEED</a>
         </div>
     </header>
 
-    <section class="max-w-7xl mx-auto px-6 py-12">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white/5 border border-white/10 p-8 rounded-xl backdrop-blur-sm">
-                <p class="text-[#00d4aa] font-black text-xs uppercase tracking-widest mb-2">Engine Status</p>
-                <h3 class="text-3xl font-black">OPERATIONAL</h3>
-                <p class="text-white/40 text-sm mt-2">v5.5 GOC Enterprise Active</p>
+    <section class="stats">
+        <div class="stat-card">
+            <div class="stat-label">Engine Status</div>
+            <div class="stat-value">OPERATIONAL</div>
+            <div class="stat-desc">v12.1 GOC Enterprise — Content-Aware Scoring Active</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Intelligence Pipeline</div>
+            <div class="stat-value">16-Section Premium</div>
+            <div class="stat-desc">MITRE Mapped · Sigma/YARA/KQL · SOC Ready</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Global Risk Level</div>
+            <div class="stat-value orange">ELEVATED</div>
+            <div class="stat-desc">Identity & MFA campaigns trending — Active monitoring</div>
+        </div>
+    </section>
+
+    <section class="capabilities">
+        <h2 class="section-title">PLATFORM CAPABILITIES</h2>
+        <div class="cap-grid">
+            <div class="cap-card">
+                <div class="cap-icon"><i class="fas fa-brain"></i></div>
+                <h3>Content-Aware Risk Scoring</h3>
+                <p>Dynamic risk engine analyzes headlines, impact metrics, and 70+ severity signals. Detects record counts, financial impact, and threat severity from natural language.</p>
             </div>
-            <div class="bg-white/5 border border-white/10 p-8 rounded-xl backdrop-blur-sm">
-                <p class="text-[#00d4aa] font-black text-xs uppercase tracking-widest mb-2">Total Indicators</p>
-                <h3 class="text-3xl font-black">450+ Triaged</h3>
-                <p class="text-white/40 text-sm mt-2">Past 30 Days</p>
+            <div class="cap-card">
+                <div class="cap-icon"><i class="fas fa-shield-halved"></i></div>
+                <h3>MITRE ATT&CK Mapping</h3>
+                <p>120+ keyword triggers across all 14 tactics. Covers browser extensions, MFA interception, credential phishing, ransomware, and APT operations.</p>
             </div>
-            <div class="bg-white/5 border border-white/10 p-8 rounded-xl backdrop-blur-sm">
-                <p class="text-[#00d4aa] font-black text-xs uppercase tracking-widest mb-2">Risk Level</p>
-                <h3 class="text-3xl font-black text-orange-500 italic">ELEVATED</h3>
-                <p class="text-white/40 text-sm mt-2">Global Perimeter Pulse</p>
+            <div class="cap-card">
+                <div class="cap-icon"><i class="fas fa-code"></i></div>
+                <h3>Detection Engineering</h3>
+                <p>Context-aware Sigma, YARA, KQL, SPL, and Suricata rules. Browser, phishing/identity, ransomware, and malware-specific detection packs.</p>
+            </div>
+            <div class="cap-card">
+                <div class="cap-icon"><i class="fas fa-user-secret"></i></div>
+                <h3>Threat Actor Attribution</h3>
+                <p>12+ tracked actor profiles including APT29, Scattered Spider/0ktapus, LockBit, BlackCat, Lazarus, and Cl0p with keyword-based correlation.</p>
+            </div>
+            <div class="cap-card">
+                <div class="cap-icon"><i class="fas fa-file-lines"></i></div>
+                <h3>Premium 16-Section Reports</h3>
+                <p>2,500+ word advisories with Executive Summary, Technical Analysis, IOC Tables, Risk Scoring, Detection Rules, and Remediation Playbooks.</p>
+            </div>
+            <div class="cap-card">
+                <div class="cap-icon"><i class="fas fa-rss"></i></div>
+                <h3>Autonomous Pipeline</h3>
+                <p>RSS-to-Blog-to-STIX automation via GitHub Actions. 6-hour sweep cycles with pre-flight validation and source article enrichment.</p>
             </div>
         </div>
     </section>
 
-    <section id="feed" class="max-w-7xl mx-auto px-6 py-20">
-        <div class="flex items-center justify-between mb-8">
-            <h2 class="text-3xl font-black tracking-tighter">LIVE STIX REPOSITORY</h2>
-            <span class="px-3 py-1 bg-red-500/10 text-red-500 text-xs font-bold border border-red-500/20 rounded">LIVE UPDATES</span>
+    <section id="feed" class="feed-section">
+        <div class="feed-header">
+            <h2 class="section-title" style="margin-bottom:0;">LIVE STIX REPOSITORY</h2>
+            <span class="live-badge">LIVE</span>
         </div>
-        <div class="bg-white/5 border border-white/10 rounded-xl overflow-hidden backdrop-blur-sm">
-            <table class="w-full text-left text-sm font-mono">
-                <thead class="bg-white/5 text-white/40 uppercase text-xs tracking-widest">
-                    <tr>
-                        <th class="p-6">Threat Intelligence Node</th>
-                        <th class="p-6">Timestamp</th>
-                        <th class="p-6">Action</th>
-                    </tr>
+        <div class="feed-wrap">
+            <table>
+                <thead>
+                    <tr><th>Intelligence Node</th><th>Version</th><th>Status</th><th>Action</th></tr>
                 </thead>
-                <tbody class="divide-y divide-white/5">
+                <tbody>
                     <tr>
-                        <td class="p-6 font-bold">CDB-SENTINEL-APEX-FEED-V5.5</td>
-                        <td class="p-6 text-white/40">2026-02-14 16:14</td>
-                        <td class="p-6">
-                            <a href="data/stix/" class="text-[#00d4aa] hover:underline font-bold">BROWSE NODES</a>
-                        </td>
+                        <td class="name">CDB-SENTINEL-APEX-STIX-FEED</td>
+                        <td>v12.1</td>
+                        <td class="active">Active</td>
+                        <td><a href="data/stix/">BROWSE NODES →</a></td>
+                    </tr>
+                    <tr>
+                        <td class="name">CDB-THREAT-MANIFEST</td>
+                        <td>v12.1</td>
+                        <td class="active">Active</td>
+                        <td><a href="data/stix/manifest.json">VIEW MANIFEST →</a></td>
                     </tr>
                 </tbody>
             </table>
         </div>
     </section>
 
-    <footer class="border-t border-white/10 py-12 mt-20 bg-black">
-        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center text-white/40 text-xs">
-            <p>&copy; 2026 CYBERDUDEBIVASH PVT LTD. ALL RIGHTS RESERVED.</p>
-            <div class="flex space-x-6 mt-4 md:mt-0 uppercase tracking-widest">
-                <a href="#" class="hover:text-white transition">Privacy</a>
-                <a href="#" class="hover:text-white transition">Terms</a>
-                <a href="#" class="hover:text-white transition">STIX Spec</a>
+    <footer>
+        <div class="footer-inner">
+            <div class="footer-copy">&copy; 2026 CYBERDUDEBIVASH PVT LTD. All rights reserved. Sentinel APEX v12.1</div>
+            <div class="footer-links">
+                <a href="https://cyberdudebivash.com">Main Site</a>
+                <a href="https://cyberbivash.blogspot.com">Blog</a>
+                <a href="https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM">GitHub</a>
             </div>
         </div>
     </footer>
+
 </body>
 </html>
