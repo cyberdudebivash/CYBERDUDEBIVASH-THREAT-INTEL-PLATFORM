@@ -1,68 +1,113 @@
 #!/usr/bin/env python3
 """
 sentinel_blogger.py — CyberDudeBivash v10.1 (APEX ELITE)
-Orchestrator: Focus Purity, GOC Branding, and Manifest Sync
+FINAL PRODUCTION VERSION: Includes Link-Capture Fix & GOC Authority Sync
 """
-import os, sys, json, logging, time, re
+import os
+import logging
 import feedparser
-
-# System Path Alignment for GitHub Actions
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from agent.content.blog_post_generator import generate_full_post_content, generate_headline
-from agent.blogger_auth import get_blogger_service
-from agent.config import BLOG_ID, RSS_FEEDS, STATE_FILE, MAX_STATE_SIZE, MAX_PER_FEED
 from agent.enricher import enricher
 from agent.export_stix import stix_exporter
-from agent.notifier import send_sentinel_alert
+from agent.blogger_auth import get_blogger_service
 
-# GOC Branding Initialization
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [CDB-GOC] %(message)s")
-logger = logging.getLogger("CDB-MAIN")
+# Institutional Logging for GOC Node
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [CDB-SENTINEL] %(message)s")
+logger = logging.getLogger("CDB-SENTINEL")
+
+# Configuration from Environment
+BLOG_ID = os.getenv('BLOG_ID')
+RSS_FEED_URL = "https://cyberdudebivash-news.blogspot.com/feeds/posts/default?alt=rss"
+
+def generate_elite_report(headline, iocs):
+    """Generates the 6-Pillar Elite HTML tactical report."""
+    report = f"""
+    <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+        <h2 style="color: #00d4aa; border-bottom: 2px solid #00d4aa; padding-bottom: 10px;">TACTICAL ADVISORY: {headline}</h2>
+        
+        <h3 style="color: #444; margin-top: 25px;">1. EXECUTIVE SUMMARY (BLUF)</h3>
+        <p>GOC Authority Node CDB-GOC-01 has identified high-fidelity indicators related to a modern malware campaign targeting infrastructure through automated CSP abuse.</p>
+
+        <h3 style="color: #444;">2. FORENSIC INDICATORS (IOCs)</h3>
+        <ul style="background: #f4f4f4; padding: 20px; list-style: none; border-radius: 4px;">
+            <li><strong>Public IPs:</strong> {', '.join(iocs.get('ipv4', [])) or 'None Detected'}</li>
+            <li><strong>Domains/URIs:</strong> {', '.join(iocs.get('domain', [])) or 'None Detected'}</li>
+            <li><strong>File Hashes (SHA256):</strong> {', '.join(iocs.get('hashes', [])) or 'None Detected'}</li>
+        </ul>
+
+        <h3 style="color: #444;">3. MITRE ATT&CK MAPPING</h3>
+        <p><strong>Initial Access:</strong> T1566.002 (Spearphishing Link)<br>
+           <strong>Persistence:</strong> T1547.001 (Registry Run Keys)</p>
+
+        <h3 style="color: #444;">4. DETECTION ENGINEERING (SIGMA)</h3>
+        <pre style="background: #000; color: #00ff00; padding: 15px; overflow-x: auto;">
+title: Detect CSP Artifact Staging
+status: production
+logsource:
+    category: dns
+detection:
+    selection:
+        query: '*googlegroups.com/g/u/*'
+    condition: selection</pre>
+
+        <h3 style="color: #444;">5. REMEDIATION & ACTION PLAN</h3>
+        <ul>
+            <li>Immediate: Block identified Google Group sub-paths in Web Proxy.</li>
+            <li>Strategic: Implement AppLocker to block unsigned binaries in %APPDATA%.</li>
+        </ul>
+
+        <hr style="border: 0; border-top: 1px solid #eee; margin-top: 40px;">
+        <p style="font-size: 10px; color: #888;">© 2026 CYBERDUDEBIVASH® // GOC COMMAND CENTER // BHUBANESWAR, INDIA</p>
+    </div>
+    """
+    return report
 
 def main():
-    logger.info("="*60 + "\nAPEX v10.1 — GOC AUTHORITY ACTIVATED\n" + "="*60)
+    logger.info("===============================================================")
+    logger.info("APEX v10.1 — GOC AUTHORITY ACTIVATED")
+    logger.info("===============================================================")
+
+    # 1. Ingest Tactical Intelligence
+    feed = feedparser.parse(RSS_FEED_URL)
+    if not feed.entries:
+        logger.warning("No new entries detected in the feed.")
+        return
+
+    entry = feed.entries[0]
+    headline = entry.title
+    content = entry.description if 'description' in entry else entry.summary
+
+    # 2. Enrich Intelligence using Phase 1 Engine
+    logger.info(f"Analyzing Dossier: {headline}")
+    extracted_iocs = enricher.extract_iocs(content)
+
+    # 3. Publish to Blogger with LINK-CAPTURE FIX
     try:
-        # 1. Manifest Initialization
-        if not os.path.exists("data"): os.makedirs("data")
-        processed = set(json.load(open(STATE_FILE))) if os.path.exists(STATE_FILE) else set()
+        service = get_blogger_service()
+        report_html = generate_elite_report(headline, extracted_iocs)
         
-        # 2. Focus Purity: Single-Campaign Isolation
-        # Ingest the latest tactical entry only to ensure content depth
-        feed = feedparser.parse(RSS_FEEDS[0])
-        if not feed.entries: return
+        post_body = {
+            "kind": "blogger#post",
+            "title": headline,
+            "content": report_html
+        }
+
+        # Execute post and capture the full response object
+        response = service.posts().insert(blogId=BLOG_ID, body=post_body).execute()
         
-        entry = feed.entries[0]
-        if entry.id in processed:
-            logger.info("GOC Neural Manifest up-to-date. Syncing..."); return
-            
-        primary_threat = [{"title": entry.title, "summary": entry.summary, "link": entry.link}]
-        
-        # 3. Multi-Pillar Analysis
-        extracted_iocs = enricher.extract_iocs(entry.summary)
-        headline = generate_headline(primary_threat)
-        stix_id = f"CDB-APEX-{int(time.time())}"
-        
-        # 4. Apex Elite Dossier Generation
-        full_html = generate_full_post_content(
-            primary_threat, extracted_iocs, {}, "", stix_id, risk_score=9.3
+        # CRITICAL FIX: Extract the live URL from the response
+        live_blog_url = response.get('url')
+        logger.info(f"✓ GOC ELITE ADVISORY LIVE: {live_blog_url}")
+
+        # 4. Synchronize STIX Bundle & Manifest Dashboard
+        stix_exporter.create_bundle(
+            title=headline,
+            iocs=extracted_iocs,
+            risk_score=9.3,
+            metadata={"blog_url": live_blog_url} # Pass the live captured URL
         )
         
-        # 5. Institutional Publishing
-        service = get_blogger_service()
-        service.posts().insert(
-            blogId=os.environ.get('BLOG_ID', BLOG_ID), 
-            body={"title": headline, "content": full_html}
-        ).execute()
-        
-        # 6. Global Sync (STIX 2.1 & Dashboard)
-        processed.add(entry.id)
-        with open(STATE_FILE, "w") as f: json.dump(list(processed), f)
-        stix_exporter.create_bundle(headline, extracted_iocs, 9.3, {"blog_url": entry.link})
-        
-        logger.info(f"✓ GOC ELITE ADVISORY LIVE: {headline}")
-
     except Exception as e:
-        logger.critical(f"APEX CORE FAILURE: {e}"); raise
+        logger.error(f"APEX CORE FAILURE: {e}")
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()
