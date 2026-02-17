@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v14.0 (SENTINEL APEX ULTRA)
+sentinel_blogger.py — CyberDudeBivash v15.0 (SENTINEL APEX ULTRA)
 PRODUCTION ORCHESTRATOR: Multi-feed fusion, source article fetching,
 PREMIUM 16-section report generation (2500+ words), dynamic risk scoring,
 TRIPLE-LAYER deduplication, enhanced STIX, MITRE mapping, actor attribution,
 TLP classification, confidence scoring, rate-limit protection.
 
-v14.0 UPGRADE: Triple-layer dedup (exact + title + fuzzy), 15 feeds,
-category-aware analysis, manifest dedup guard, dead feed removal.
+v15.0 UPGRADE: Mobile malware intelligence, IOC false positive filtering,
+Triada/BADBOX/Vo1d actor profiles, MITRE Mobile ATT&CK, Java package exclusion.
 
 CRITICAL: All existing functionality preserved. Only evolved.
 """
@@ -136,8 +136,8 @@ def build_enriched_content(entry: Dict, fetched_article: Optional[Dict]) -> str:
 # ═══════════════════════════════════════════════════════════
 def main():
     logger.info("=" * 70)
-    logger.info("SENTINEL APEX v14.0 — PREMIUM REPORT ENGINE ACTIVATED")
-    logger.info("Triple-Layer Dedup • 15 Feeds • Category-Aware Analysis")
+    logger.info("SENTINEL APEX v15.0 — PREMIUM REPORT ENGINE ACTIVATED")
+    logger.info("Triple-Layer Dedup • 15 Feeds • Mobile-Aware • IOC FP Filter")
     logger.info("=" * 70)
 
     try:
@@ -205,7 +205,7 @@ def main():
                 published_count += 1
 
     logger.info("=" * 70)
-    logger.info(f"APEX v14.0 COMPLETE — Published {published_count} PREMIUM advisories")
+    logger.info(f"APEX v15.0 COMPLETE — Published {published_count} PREMIUM advisories")
     logger.info("=" * 70)
 
 

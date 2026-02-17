@@ -175,6 +175,25 @@ class MITREMapper:
             "denial of service": {"id": "T1499", "tactic": "Impact", "name": "Endpoint Denial of Service"},
             "ddos": {"id": "T1498", "tactic": "Impact", "name": "Network Denial of Service"},
             "defacement": {"id": "T1491", "tactic": "Impact", "name": "Defacement"},
+
+            # ── MOBILE ATT&CK (v15.0) ──
+            "zygote": {"id": "T1398", "tactic": "Persistence", "name": "Boot or Logon Initialization Scripts (Mobile)"},
+            "system partition": {"id": "T1398", "tactic": "Persistence", "name": "Boot or Logon Initialization Scripts (Mobile)"},
+            "firmware": {"id": "T1542", "tactic": "Persistence", "name": "Pre-OS Boot: Firmware Corruption"},
+            "bootloader": {"id": "T1542", "tactic": "Persistence", "name": "Pre-OS Boot: Bootkit"},
+            "sideload": {"id": "T1476", "tactic": "Initial Access", "name": "Deliver Malicious App via Other Means"},
+            "apk": {"id": "T1476", "tactic": "Initial Access", "name": "Deliver Malicious App via Other Means"},
+            "google play": {"id": "T1475", "tactic": "Initial Access", "name": "Deliver Malicious App via Authorized App Store"},
+            "play store": {"id": "T1475", "tactic": "Initial Access", "name": "Deliver Malicious App via Authorized App Store"},
+            "app store": {"id": "T1475", "tactic": "Initial Access", "name": "Deliver Malicious App via Authorized App Store"},
+            "sms intercept": {"id": "T1412", "tactic": "Collection", "name": "Capture SMS Messages"},
+            "otp": {"id": "T1412", "tactic": "Collection", "name": "Capture SMS Messages"},
+            "overlay attack": {"id": "T1411", "tactic": "Credential Access", "name": "Input Prompt (Mobile)"},
+            "accessibility service": {"id": "T1453", "tactic": "Credential Access", "name": "Abuse Accessibility Features"},
+            "device admin": {"id": "T1401", "tactic": "Persistence", "name": "Device Administrator Permissions"},
+            "android botnet": {"id": "T1437", "tactic": "Command and Control", "name": "Standard Application Layer Protocol (Mobile)"},
+            "mobile c2": {"id": "T1437", "tactic": "Command and Control", "name": "Standard Application Layer Protocol (Mobile)"},
+            "counterfeit": {"id": "T1195.003", "tactic": "Initial Access", "name": "Supply Chain Compromise: Hardware"},
         }
 
     def map_threat(self, corpus: str) -> list:

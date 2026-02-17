@@ -89,7 +89,7 @@ BRAND = {
     "phone": "+91 8179881447",
     "tagline": "Global Cybersecurity Intelligence Infrastructure",
     "node_id": "CDB-GOC-01",
-    "version": "v14.0",
+    "version": "v15.0",
 }
 
 BLOGS = {
@@ -189,7 +189,38 @@ FALSE_POSITIVE_DOMAINS = {
     "googleapis.com", "google.com", "gstatic.com",
     "fonts.googleapis.com", "cdnjs.cloudflare.com",
     "unpkg.com", "jsdelivr.net",
+    # v15.0: Vendor / research domains (not malicious indicators)
+    "kaspersky.com", "securelist.com", "microsoft.com",
+    "bleepingcomputer.com", "virustotal.com", "github.com",
+    "blogspot.com", "wordpress.com", "medium.com",
+    "twitter.com", "linkedin.com", "youtube.com",
+    "arstechnica.com", "reuters.com", "cnn.com",
+    "nist.gov", "mitre.org", "cisa.gov",
 }
+
+# v15.0: Java / Android package name prefixes to EXCLUDE from domain extraction
+# These match patterns like com.android.chrome, org.apache.logging, etc.
+JAVA_PACKAGE_PREFIXES = [
+    "com.android", "com.google", "com.apple", "com.microsoft",
+    "com.amazon", "com.samsung", "com.huawei", "com.xiaomi",
+    "com.facebook", "com.meta", "com.tencent", "com.alibaba",
+    "com.aiworks", "com.ak.", "com.action",
+    "org.apache", "org.eclipse", "org.json", "org.xml",
+    "android.app", "android.os", "android.content", "android.util",
+    "android.widget", "android.view", "android.net", "android.hardware",
+    "android.media", "android.provider", "android.shopping",
+    "java.lang", "java.util", "java.io", "java.net",
+    "javax.crypto", "javax.net", "javax.xml",
+    "dalvik.system", "kotlin.", "kotlinx.",
+    "io.reactivex", "io.netty", "io.grpc",
+    "net.bytebuddy", "net.sf.",
+]
+
+# v15.0: File extension patterns to EXCLUDE from domain extraction
+FALSE_POSITIVE_EXTENSIONS = [
+    ".jar", ".dex", ".apk", ".class", ".so", ".aar",
+    ".gradle", ".properties", ".xml", ".json",
+]
 
 # ═══════════════════════════════════════════════════════════
 # API KEYS (from environment)
