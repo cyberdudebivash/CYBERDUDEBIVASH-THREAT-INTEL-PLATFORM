@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v13.0 (SENTINEL APEX ULTRA)
+sentinel_blogger.py — CyberDudeBivash v14.0 (SENTINEL APEX ULTRA)
 PRODUCTION ORCHESTRATOR: Multi-feed fusion, source article fetching,
 PREMIUM 16-section report generation (2500+ words), dynamic risk scoring,
-deduplication, enhanced STIX, MITRE mapping, actor attribution,
+TRIPLE-LAYER deduplication, enhanced STIX, MITRE mapping, actor attribution,
 TLP classification, confidence scoring, rate-limit protection.
 
-v12.0 UPGRADE: Content-aware risk scoring, expanded MITRE mapping (50+),
-impact intelligence extraction, boosted confidence scoring.
+v14.0 UPGRADE: Triple-layer dedup (exact + title + fuzzy), 15 feeds,
+category-aware analysis, manifest dedup guard, dead feed removal.
 
 CRITICAL: All existing functionality preserved. Only evolved.
 """
@@ -136,8 +136,8 @@ def build_enriched_content(entry: Dict, fetched_article: Optional[Dict]) -> str:
 # ═══════════════════════════════════════════════════════════
 def main():
     logger.info("=" * 70)
-    logger.info("SENTINEL APEX v11.5 — PREMIUM REPORT ENGINE ACTIVATED")
-    logger.info("16-Section Template • 2500+ Words • Source Article Enrichment")
+    logger.info("SENTINEL APEX v14.0 — PREMIUM REPORT ENGINE ACTIVATED")
+    logger.info("Triple-Layer Dedup • 15 Feeds • Category-Aware Analysis")
     logger.info("=" * 70)
 
     try:
@@ -149,21 +149,38 @@ def main():
     published_count = 0
 
     # ═══════════════════════════════════════════════════════
-    # PHASE 1: Process Primary CDB Feed (backward compatible)
+    # PHASE 1: Process Primary CDB Feed
+    # v14.0 FIX: Added dedup check (was MISSING → caused 6x duplicates)
     # ═══════════════════════════════════════════════════════
     logger.info("─── PHASE 1: Primary CDB Intelligence Feed ───")
     primary_entries = fetch_feed_entries(CDB_RSS_FEED, max_entries=1)
 
     for entry in primary_entries:
+        if dedup_engine.is_duplicate(entry['title'], entry.get('link', '')):
+            logger.info(f"  ⏭ SKIP (duplicate): {entry['title'][:60]}")
+            continue
         result = process_entry(entry, service, feed_source="CDB-NEWS")
         if result:
             published_count += 1
         time.sleep(RATE_LIMIT_DELAY)
 
     # ═══════════════════════════════════════════════════════
-    # PHASE 2: Multi-Feed Fusion (ENHANCED)
+    # PHASE 2: Multi-Feed Fusion (ENHANCED v14.0)
+    # v14.0 FIX: Added manifest similarity check (was never called)
     # ═══════════════════════════════════════════════════════
     logger.info("─── PHASE 2: Multi-Feed Intelligence Fusion ───")
+
+    # Load manifest ONCE for similarity checking
+    _manifest = []
+    try:
+        import json as _json
+        _mpath = os.path.join("data", "stix", "feed_manifest.json")
+        if os.path.exists(_mpath):
+            with open(_mpath) as _f:
+                _manifest = _json.load(_f)
+    except Exception:
+        pass
+
     for feed_url in RSS_FEEDS:
         entries = fetch_feed_entries(feed_url, max_entries=MAX_ENTRIES_PER_FEED)
         logger.info(f"Feed [{feed_url[:50]}...]: {len(entries)} entries")
@@ -171,8 +188,16 @@ def main():
         for entry in entries:
             time.sleep(RATE_LIMIT_DELAY)
 
+            # Triple-layer dedup check
             if dedup_engine.is_duplicate(entry['title'], entry.get('link', '')):
                 logger.info(f"  ⏭ SKIP (duplicate): {entry['title'][:60]}")
+                continue
+
+            # v14.0: Manifest similarity check (catches near-identical titles)
+            if _manifest and dedup_engine.is_similar_in_manifest(
+                    entry['title'], _manifest, threshold=0.80):
+                logger.info(f"  ⏭ SKIP (manifest similar): {entry['title'][:60]}")
+                dedup_engine.mark_processed(entry['title'], entry.get('link', ''))
                 continue
 
             result = process_entry(entry, service, feed_source=feed_url[:30])
@@ -180,7 +205,7 @@ def main():
                 published_count += 1
 
     logger.info("=" * 70)
-    logger.info(f"APEX v11.5 COMPLETE — Published {published_count} PREMIUM advisories")
+    logger.info(f"APEX v14.0 COMPLETE — Published {published_count} PREMIUM advisories")
     logger.info("=" * 70)
 
 

@@ -7,10 +7,13 @@ attack-pattern references, expanded manifest schema.
 import json
 import uuid
 import os
+import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from agent.config import MANIFEST_MAX_ENTRIES, MANIFEST_DIR
+
+logger = logging.getLogger("CDB-STIX")
 
 
 class STIXExporter:
@@ -210,6 +213,12 @@ class STIXExporter:
                 manifest = []
 
         # ── Expanded Manifest Entry ──
+        # v14.0: Dedup guard at manifest level
+        existing_titles = {e.get("title", "").strip().lower() for e in manifest}
+        if title.strip().lower() in existing_titles:
+            logger.info(f"  [MANIFEST] Dedup guard: skipping duplicate title: {title[:60]}")
+            return
+
         manifest.append({
             # Original fields (backward compatible)
             "title": title,

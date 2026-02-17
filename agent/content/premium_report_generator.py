@@ -365,8 +365,7 @@ class PremiumReportGenerator:
         <ul style="{s['ul']}">
             <li><b>Network Layer:</b> Block identified IP addresses and domains at firewall and DNS proxy level.
                 Implement DNS sinkholing for known malicious domains to prevent C2 callbacks.</li>
-            <li><b>Endpoint Layer:</b> Deploy YARA rules for file-based detection. Configure EDR behavioral rules
-                to detect process injection, suspicious PowerShell execution, and living-off-the-land techniques.</li>
+            <li><b>Endpoint Layer:</b> {self._get_endpoint_detection_text(threat_type)}</li>
             <li><b>Email Security:</b> Update email gateway rules to detect associated phishing patterns.
                 Implement DMARC/SPF/DKIM enforcement for impersonated domains.</li>
             <li><b>SIEM Correlation:</b> Integrate the provided Sigma rules into SIEM platforms for real-time
@@ -874,6 +873,7 @@ class PremiumReportGenerator:
         s = self._build_styles()
         hashes = iocs.get('sha256', []) + iocs.get('md5', [])
         artifacts = iocs.get('artifacts', [])
+        cat = threat_type.get('category', '').lower()
 
         analysis = f"""Analysis of associated indicators reveals technical characteristics consistent
         with {threat_type.get('category', 'advanced threat').lower()} operations. """
@@ -884,9 +884,67 @@ class PremiumReportGenerator:
         if artifacts:
             analysis += f"""Malicious artifacts detected include: <code style="font-family:{FONTS['mono']};color:{COLORS['accent']};font-size:12px;">{', '.join(artifacts[:5])}</code>. These file indicators should be blocked at endpoint and email gateway levels. """
 
-        analysis += f"""</p><p style="{s['p']}">Behavioral analysis indicates the use of process injection techniques, API hooking for credential interception, and encrypted communication channels for data exfiltration. The malware demonstrates anti-analysis capabilities including environment fingerprinting and delayed execution to evade sandbox detection. Registry modifications are used for persistence, with backup mechanisms employing scheduled task creation to ensure survivability across system reboots."""
+        # v14.0: Category-specific payload analysis
+        if 'identity' in cat or 'mfa' in cat:
+            analysis += f"""</p><p style="{s['p']}">This campaign does not rely on traditional malware delivery. Instead, the threat
+            infrastructure consists of adversary-in-the-middle (AitM) phishing proxies that intercept authentication
+            flows in real time. The phishing kit captures credentials as they are entered and simultaneously relays
+            MFA challenges to the legitimate identity provider, harvesting authenticated session tokens upon
+            successful completion. Post-compromise tooling involves OAuth application consent abuse for persistence,
+            email forwarding rule creation via Graph API or Exchange Web Services, and automated data exfiltration
+            scripts targeting cloud storage repositories. No disk-resident malware is required — identity provider
+            log analysis and Conditional Access telemetry are the primary detection vectors."""
+        elif 'ransomware' in cat:
+            analysis += f"""</p><p style="{s['p']}">The ransomware payload employs hybrid encryption combining asymmetric RSA key exchange
+            with symmetric AES-256 for file encryption, ensuring decryption is computationally infeasible without
+            the attacker's private key. Pre-encryption activity includes shadow copy deletion via vssadmin and wmic,
+            backup service termination, and security tool disabling. The binary demonstrates anti-analysis techniques
+            including mutex creation, environment fingerprinting, and domain-joined checks. Data exfiltration occurs
+            prior to encryption to enable double-extortion pressure. Ransom notes deploy to affected directories
+            with Tor-based payment and negotiation portals."""
+        elif 'vulnerability' in cat or 'exploit' in cat:
+            analysis += f"""</p><p style="{s['p']}">Exploitation of this vulnerability allows remote code execution or privilege escalation
+            depending on the attack vector. Analysis of available proof-of-concept code indicates that exploitation
+            requires minimal user interaction and can be triggered through network-accessible services. Post-exploitation
+            payloads observed in the wild include web shells, reverse shells, and lateral movement tooling including
+            Cobalt Strike, Sliver, and custom C2 frameworks. Organizations should prioritize patching and implement
+            virtual patching via WAF rules and IPS signatures as interim mitigation."""
+        elif 'browser' in cat or 'extension' in cat:
+            analysis += f"""</p><p style="{s['p']}">The malicious browser extension operates through background service worker scripts
+            that execute upon installation. These scripts intercept web requests using the webRequest API, capture
+            form data including credentials, harvest session cookies and OAuth tokens, and exfiltrate data via
+            encrypted HTTPS POST requests to attacker-controlled endpoints. The extension requests broad permissions
+            including access to all URLs, cookie stores, and tab management. Persistence is maintained through the
+            browser's native extension management, surviving restarts and operating outside traditional endpoint
+            security visibility."""
+        else:
+            analysis += f"""</p><p style="{s['p']}">Behavioral analysis indicates the use of process injection techniques, API hooking for credential interception, and encrypted communication channels for data exfiltration. The malware demonstrates anti-analysis capabilities including environment fingerprinting and delayed execution to evade sandbox detection. Registry modifications are used for persistence, with backup mechanisms employing scheduled task creation to ensure survivability across system reboots."""
 
         return analysis
+
+    def _get_endpoint_detection_text(self, threat_type):
+        """v14.0: Generate category-aware endpoint detection recommendations."""
+        cat = threat_type.get('category', '').lower()
+        if 'identity' in cat or 'mfa' in cat:
+            return ("Monitor identity provider logs (Azure AD SigninLogs, Okta System Log) for anomalous "
+                    "MFA patterns, impossible travel, suspicious OAuth consent grants, and token replay. "
+                    "Deploy Conditional Access policies enforcing FIDO2/WebAuthn for high-risk sign-ins.")
+        elif 'ransomware' in cat:
+            return ("Configure EDR rules to detect shadow copy deletion (vssadmin, wmic), mass file encryption "
+                    "patterns, service termination commands, and backup destruction. Monitor for lateral movement "
+                    "tools (PsExec, WMI, RDP brute-force) across the network.")
+        elif 'browser' in cat or 'extension' in cat:
+            return ("Deploy browser extension management policies to restrict unapproved extensions. Monitor "
+                    "Chrome/Edge extension install events via endpoint telemetry. Configure EDR behavioral rules "
+                    "to detect extensions accessing sensitive browser storage APIs and cookie stores.")
+        elif 'vulnerability' in cat or 'exploit' in cat:
+            return ("Deploy virtual patching (WAF rules, IPS signatures) for the affected vulnerability. Monitor "
+                    "for exploitation indicators including web shell deployment, reverse shell activity, and "
+                    "post-exploitation tooling (Cobalt Strike, Sliver, Metasploit).")
+        else:
+            return ("Deploy YARA rules for file-based detection. Configure EDR behavioral rules to detect "
+                    "suspicious process execution, living-off-the-land binaries (LOLBins), and anomalous "
+                    "PowerShell or script interpreter activity.")
 
     def _generate_infra_mapping(self, iocs, text):
         ips = iocs.get('ipv4', [])
