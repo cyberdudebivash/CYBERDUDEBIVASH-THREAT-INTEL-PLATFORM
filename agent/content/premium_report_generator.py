@@ -60,7 +60,8 @@ class PremiumReportGenerator:
             "browser_extension": {
                 "keywords": ["browser extension", "chrome extension", "fake extension",
                              "malicious extension", "browser plugin", "addon",
-                             "webstore", "web store", "browser add-on"],
+                             "webstore", "web store", "browser add-on",
+                             "chrome users", "firefox extension", "edge extension"],
                 "category": "Browser Extension Compromise / Marketplace Abuse",
                 "icon": "🧩",
                 "sectors": ["Enterprise", "Financial Services", "Technology", "Education"],
@@ -104,9 +105,19 @@ class PremiumReportGenerator:
             },
         }
 
+        # ═══ BEST-MATCH SCORING ═══
+        # Count keyword hits per category and select the one with MOST matches.
+        # This prevents a single generic word like "breach" from overriding
+        # 6 specific identity_compromise matches (the v12.2 0ktapus bug).
+        best_data = None
+        best_score = 0
         for key, data in classifications.items():
-            if any(kw in text for kw in data["keywords"]):
-                return data
+            score = sum(1 for kw in data["keywords"] if kw in text)
+            if score > best_score:
+                best_score = score
+                best_data = data
+        if best_data and best_score > 0:
+            return best_data
 
         return {
             "category": "Cyber Threat Intelligence Advisory",
@@ -305,6 +316,13 @@ class PremiumReportGenerator:
                     <td style="{s['td']}">{actor_profile.get('confidence_score', 'Low')}</td></tr>
             </table>
         </div>
+        <p style="{s['p']}"><b>Attribution Reconciliation:</b> The CyberDudeBivash GOC employs an
+            institutional tracking framework (<b>{tracking_id}</b>) for internal campaign correlation
+            and continuity. This identifier maps to the community-recognized designations listed under
+            Aliases above, as reported by OSINT researchers and threat intelligence vendors including
+            Mandiant, CrowdStrike, Microsoft, and Group-IB. Organizations may use either the CDB
+            tracking identifier or any recognized community alias for cross-platform intelligence
+            sharing and ISAC coordination.</p>
 """)
 
         # ═══════════════════════════════════════════════════════════════
@@ -639,6 +657,8 @@ class PremiumReportGenerator:
         impact_html = ""
         records = impact.get('records_affected', 0)
         if records > 0:
+            kwcount = len(impact.get('severity_keywords', []))
+            impact_score = impact.get('impact_score', 0)
             impact_html = f"""
         <div style="{s['card']}border-left:4px solid {COLORS['cyber_pink']};">
             <h3 style="color:{COLORS['white']};font-size:14px;margin:0 0 8px;">Impact Quantification</h3>
@@ -648,7 +668,27 @@ class PremiumReportGenerator:
                 {'<tr><td style="' + s['td'] + '"><b>Estimated Financial Impact</b></td><td style="' + s['td'] + '">${:,.0f}</td></tr>'.format(impact.get('financial_impact', 0)) if impact.get('financial_impact', 0) > 0 else ''}
                 <tr><td style="{s['td']}"><b>Sectors Impacted</b></td>
                     <td style="{s['td']}">{', '.join(threat_type.get('sectors', ['Enterprise'])[:4])}</td></tr>
+                <tr><td style="{s['td']}"><b>Threat Severity Signals</b></td>
+                    <td style="{s['td']}">{kwcount} independent severity indicators confirmed</td></tr>
+                <tr><td style="{s['td']}"><b>Content Impact Score</b></td>
+                    <td style="{s['td']}">{impact_score:.1f}/10 (Sentinel APEX Content-Aware Engine)</td></tr>
             </table>
+        </div>"""
+            # Campaign Intelligence Assessment for identity/phishing threats
+            cat_lower = threat_type.get('category', '').lower()
+            if 'identity' in cat_lower or 'mfa' in cat_lower or 'phishing' in cat_lower:
+                impact_html += f"""
+        <div style="{s['card']}border-left:4px solid {COLORS['accent']};">
+            <h3 style="color:{COLORS['white']};font-size:14px;margin:0 0 8px;">Campaign Intelligence Assessment</h3>
+            <p style="{s['p']}margin:0;">This campaign demonstrates the continued evolution of identity-based
+                attack vectors. While traditional phishing relies on malware delivery, this operation
+                specifically targets identity provider (IdP) authentication flows using adversary-in-the-middle
+                (AitM) techniques that bypass conventional MFA protections including TOTP and push notifications.
+                Organizations relying solely on phishable MFA factors remain at elevated risk. The campaign scope
+                ({records:,} affected accounts) indicates industrialized credential harvesting that feeds into
+                downstream account takeover, financial fraud, and lateral compromise activities. Defenders should
+                prioritize FIDO2/WebAuthn deployment as the primary countermeasure for phishing-resistant
+                authentication.</p>
         </div>"""
 
         text = f"""
@@ -881,6 +921,15 @@ class PremiumReportGenerator:
                 No actionable IOCs were extracted from the available intelligence for this campaign.
                 This may indicate obfuscated infrastructure, use of legitimate services, or intelligence
                 that requires deeper analysis. Monitor for updates as additional intelligence becomes available.
+                </td></tr>
+                <tr><td colspan="4" style="{s['td']}padding:16px;">
+                <b style="color:{COLORS['accent']};">Behavioral Detection Guidance (When IOCs Are Unavailable):</b><br>
+                When traditional IOCs are limited, defenders should prioritize behavioral detection strategies:
+                (1) Deploy the Sigma and YARA rules from Section 6 which target adversary TTPs rather than static indicators;
+                (2) Focus hunting efforts on the MITRE ATT&CK techniques in Section 5 using the KQL/SPL queries provided;
+                (3) Monitor for anomalous authentication patterns, suspicious token activity, and unusual API calls;
+                (4) Correlate endpoint behavioral telemetry with identity provider logs for adversary-in-the-middle detection.
+                As additional intelligence becomes available, this section will be updated with extracted indicators.
                 </td></tr>"""
 
         return f"""

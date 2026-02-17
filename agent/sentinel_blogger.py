@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v12.2 (SENTINEL APEX ULTRA)
+sentinel_blogger.py — CyberDudeBivash v13.0 (SENTINEL APEX ULTRA)
 PRODUCTION ORCHESTRATOR: Multi-feed fusion, source article fetching,
 PREMIUM 16-section report generation (2500+ words), dynamic risk scoring,
 deduplication, enhanced STIX, MITRE mapping, actor attribution,
@@ -238,13 +238,24 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
                f" | Records: {impact_metrics['records_affected']:,}"
                f" | Keywords: {len(impact_metrics['severity_keywords'])}")
 
-    # ─── STEP 6: Confidence Scoring (ENHANCED) ───
-    # Boost confidence when content analysis finds strong signals
+    # ─── STEP 6: Confidence Scoring (v13.0 MULTI-DIMENSIONAL) ───
+    # Factors: IOCs + content signals + MITRE depth + actor attribution quality
     confidence = enricher.calculate_confidence(extracted_iocs, actor_mapped)
     if impact_metrics["records_affected"] > 0:
-        confidence = min(confidence + 15.0, 100.0)  # Records confirmed = confidence boost
+        confidence = min(confidence + 15.0, 100.0)  # Records confirmed
     if len(impact_metrics["severity_keywords"]) >= 3:
-        confidence = min(confidence + 10.0, 100.0)  # Multiple signals = confidence boost
+        confidence = min(confidence + 10.0, 100.0)  # Multiple severity signals
+    # NEW: MITRE technique depth bonus
+    if len(mitre_data) >= 5:
+        confidence = min(confidence + 8.0, 100.0)   # Deep MITRE coverage
+    elif len(mitre_data) >= 3:
+        confidence = min(confidence + 4.0, 100.0)   # Moderate MITRE coverage
+    # NEW: Actor attribution quality bonus
+    actor_conf_str = str(actor_data.get("profile", {}).get("confidence_score", "Low")).lower()
+    if "high" in actor_conf_str:
+        confidence = min(confidence + 5.0, 100.0)   # High-confidence actor
+    elif "medium" in actor_conf_str:
+        confidence = min(confidence + 3.0, 100.0)   # Medium-confidence actor
 
     # ─── STEP 7: Detection Engineering ───
     sigma_rule = detection_engine.generate_sigma_rule(headline, extracted_iocs)
