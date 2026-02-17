@@ -24,24 +24,32 @@ MAX_PER_FEED = 5
 # Primary CDB Feed (own blog)
 CDB_RSS_FEED = "https://cyberdudebivash-news.blogspot.com/feeds/posts/default?alt=rss"
 
-# High-Authority External Feeds (Expanded for comprehensive coverage)
+# High-Authority External Feeds (v14.0 — 15 feeds, dead feeds removed)
 RSS_FEEDS = [
-    # Tier 1: Premium Threat Intel Sources
+    # Tier 1: Premium Breaking News (highest volume + reliability)
     "https://www.bleepingcomputer.com/feed/",
     "https://feeds.feedburner.com/TheHackersNews",
     "https://krebsonsecurity.com/feed/",
     # Tier 2: Industry Authority Sources
     "https://www.securityweek.com/feed/",
-    "https://darkreading.com/rss.xml",
+    "https://www.darkreading.com/rss.xml",
     "https://www.cisa.gov/cybersecurity-advisories/all.xml",
-    # Tier 3: Technical/Research Sources
+    # Tier 3: Investigative / Research Sources
     "https://cyberscoop.com/feed/",
-    "https://www.scworld.com/feed",
-    "https://threatpost.com/feed/",
+    "https://therecord.media/feed/",
+    "https://securityaffairs.com/feed",
+    # Tier 4: CVE / Vulnerability Intelligence
+    "https://cvefeed.io/rssfeed/latest.xml",
+    "https://www.rapid7.com/blog/rss/",
+    "https://blog.qualys.com/feed",
+    # Tier 5: Vendor Threat Research
+    "https://www.sentinelone.com/blog/feed/",
+    "https://unit42.paloaltonetworks.com/feed/",
+    "https://securelist.com/feed/",
 ]
 
-# Maximum entries to process per feed per run
-MAX_ENTRIES_PER_FEED = 3
+# Maximum entries to process per feed per run (was 3, now 5)
+MAX_ENTRIES_PER_FEED = 5
 
 # Source article fetch settings
 SOURCE_FETCH_TIMEOUT = 15  # Seconds
@@ -73,7 +81,7 @@ BRAND = {
     "name": "CyberDudeBivash",
     "legal": "CyberDudeBivash Pvt. Ltd.",
     "website": "https://www.cyberdudebivash.com",
-    "platform": "https://cyberdudebivash.github.io/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/",
+    "platform": "https://intel.cyberdudebivash.com",
     "city": "Bhubaneswar",
     "state": "Odisha",
     "country": "India",
@@ -81,7 +89,7 @@ BRAND = {
     "phone": "+91 8179881447",
     "tagline": "Global Cybersecurity Intelligence Infrastructure",
     "node_id": "CDB-GOC-01",
-    "version": "v13.0",
+    "version": "v14.0",
 }
 
 BLOGS = {
