@@ -91,6 +91,29 @@ class ActorMatrix:
                              "0ktapus", "oktapus", "unc3944", "okta phishing", "okta identity",
                              "mfa bypass", "mfa codes"],
             },
+            # v15.0: Mobile malware actor clusters
+            "CDB-MOB-01": {
+                "alias": ["Triada", "KeenAdu", "BADBOX", "Lemon Group"],
+                "origin": "China / Southeast Asia",
+                "motivation": "Supply Chain Compromise / Ad Fraud / Data Theft",
+                "tooling": ["Firmware Backdoor", "Zygote Hooking", "System Partition Implant",
+                            "Pre-installed Trojans", "OTA Update Hijacking"],
+                "confidence_score": "High (Kaspersky / TrendMicro Correlated)",
+                "keywords": ["triada", "keenadu", "badbox", "lemon group",
+                             "firmware backdoor", "zygote", "system partition",
+                             "counterfeit android", "preinstalled malware",
+                             "pre-installed", "counterfeit device"],
+            },
+            "CDB-MOB-02": {
+                "alias": ["Vo1d", "Android.Vo1d", "Void Backdoor"],
+                "origin": "Unknown / Under Investigation",
+                "motivation": "Botnet Recruitment / Ad Fraud / Proxy Network",
+                "tooling": ["TV Box Firmware Implant", "Android Debug Bridge Exploit",
+                            "Vo1d Backdoor Module"],
+                "confidence_score": "Medium-High (Dr.Web / ESET Correlated)",
+                "keywords": ["vo1d", "void backdoor", "android tv box", "tv box malware",
+                             "set-top box", "android tv", "ott box"],
+            },
         }
 
     def correlate_actor(self, corpus, iocs):

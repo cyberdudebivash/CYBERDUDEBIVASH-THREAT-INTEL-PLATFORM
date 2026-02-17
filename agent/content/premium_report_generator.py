@@ -41,6 +41,20 @@ class PremiumReportGenerator:
                 "icon": "🔓",
                 "sectors": ["Retail", "Financial Services", "Healthcare", "Technology"],
             },
+            "mobile_malware": {
+                "keywords": ["android", "mobile malware", "apk", "sideload", "bootloader",
+                             "firmware backdoor", "zygote", "system partition", "triada",
+                             "badbox", "vo1d", "keenadu", "preinstalled malware",
+                             "counterfeit device", "android botnet", "mobile trojan",
+                             "google play", "play store", "mobile device", "smartphone",
+                             "tablet malware", "ios malware", "sms trojan", "banking trojan",
+                             "mobile banking", "cerberus", "anubis", "flubot", "medusa",
+                             "sharkbot", "xenomorph", "hook", "teabot", "ermac",
+                             "joker malware", "harly", "fleckpe", "golddigger"],
+                "category": "Mobile Malware / Android Threat Campaign",
+                "icon": "📱",
+                "sectors": ["Enterprise", "Financial Services", "Government", "Consumer Technology"],
+            },
             "malware_campaign": {
                 "keywords": ["malware", "stealer", "trojan", "rat", "backdoor", "botnet",
                              "infostealer", "lumma", "redline", "vidar", "raccoon",
@@ -819,15 +833,40 @@ class PremiumReportGenerator:
                 living-off-the-land operations. Command and control communication utilizes encrypted channels
                 through cloud services or compromised infrastructure to blend with normal traffic."""
         elif 'malware' in cat:
-            chain = f"""This malware campaign employs a sophisticated multi-stage infection chain designed
-            to maximize persistence and evade detection. The initial delivery vector involves dropper
-            components that download and execute the primary payload in memory, avoiding disk-based
-            detection signatures.</p><p style="{s['p']}">
-            The payload implements anti-analysis techniques including virtual machine detection, debugger
-            detection, and time-based evasion to resist automated sandbox analysis. Persistence mechanisms
-            include registry run key modifications, DLL search order hijacking, and COM object hijacking.
-            Data staging and exfiltration occur through encrypted HTTPS channels to distributed C2
-            infrastructure operating across multiple autonomous systems."""
+            # v15.0: Mobile malware detection
+            is_mobile = ('mobile' in cat or 'android' in cat or
+                         any(w in headline_lower for w in ['android', 'mobile', 'apk', 'firmware',
+                                                           'zygote', 'bootloader', 'triada',
+                                                           'keenadu', 'badbox', 'vo1d']))
+            if is_mobile:
+                chain = f"""This campaign targets the Android mobile ecosystem through firmware-level
+                compromise of devices during the manufacturing or distribution supply chain. The malware
+                is deployed directly to system partitions, establishing persistence that survives factory
+                resets and is invisible to standard mobile security applications.</p>
+                <p style="{s['p']}">
+                The primary infection vector involves hooking into the Zygote process — the parent process
+                for all Android applications. By compromising Zygote, the malware gains the ability to
+                inject code into every application launched on the device, enabling credential interception
+                from banking apps, messaging platforms, and social media applications. The malware operates
+                with system-level privileges, allowing it to intercept SMS messages (including OTP codes),
+                modify application behavior, install additional payloads silently, and exfiltrate device
+                data including contacts, call logs, and location information.</p>
+                <p style="{s['p']}">
+                Post-compromise activity includes enrollment in botnet infrastructure for ad fraud,
+                proxy network recruitment, and premium SMS subscription fraud. The firmware-level
+                persistence ensures that traditional mobile security tools, including Google Play Protect,
+                cannot detect or remediate the compromise. Device replacement is typically the only
+                reliable remediation path for affected hardware."""
+            else:
+                chain = f"""This malware campaign employs a sophisticated multi-stage infection chain designed
+                to maximize persistence and evade detection. The initial delivery vector involves dropper
+                components that download and execute the primary payload in memory, avoiding disk-based
+                detection signatures.</p><p style="{s['p']}">
+                The payload implements anti-analysis techniques including virtual machine detection, debugger
+                detection, and time-based evasion to resist automated sandbox analysis. Persistence mechanisms
+                include registry run key modifications, DLL search order hijacking, and COM object hijacking.
+                Data staging and exfiltration occur through encrypted HTTPS channels to distributed C2
+                infrastructure operating across multiple autonomous systems."""
         elif 'breach' in cat or 'data' in cat:
             chain = f"""The data breach incident follows a pattern consistent with unauthorized access to
             systems containing sensitive information. The attack methodology involved exploitation of
@@ -861,7 +900,13 @@ class PremiumReportGenerator:
         elif 'phishing' in cat:
             return "[Phishing Lure] → [User Interaction] → [Payload Delivery] → [Execution] → [Persistence] → [C2 Communication] → [Credential Theft / Data Exfiltration]"
         elif 'malware' in cat:
-            return "[Dropper Delivery] → [Payload Download] → [Memory Execution] → [Anti-Analysis Evasion] → [Registry Persistence] → [C2 Callback] → [Data Staging] → [Exfiltration]"
+            is_mobile = ('mobile' in cat or 'android' in cat or
+                         any(w in headline_lower for w in ['android', 'mobile', 'apk', 'firmware',
+                                                           'zygote', 'triada', 'keenadu', 'badbox', 'vo1d']))
+            if is_mobile:
+                return "[Supply Chain / Firmware Injection] → [System Partition Compromise] → [Zygote Process Hooking] → [App-Level Code Injection] → [Credential Interception] → [SMS/OTP Hijacking] → [Botnet Enrollment] → [Data Exfiltration via C2]"
+            else:
+                return "[Dropper Delivery] → [Payload Download] → [Memory Execution] → [Anti-Analysis Evasion] → [Registry Persistence] → [C2 Callback] → [Data Staging] → [Exfiltration]"
         elif 'ransomware' in cat:
             return "[Initial Access] → [Reconnaissance] → [Lateral Movement] → [Privilege Escalation] → [Data Exfiltration] → [Encryption Deployment] → [Ransom Demand]"
         elif 'breach' in cat:
@@ -884,8 +929,25 @@ class PremiumReportGenerator:
         if artifacts:
             analysis += f"""Malicious artifacts detected include: <code style="font-family:{FONTS['mono']};color:{COLORS['accent']};font-size:12px;">{', '.join(artifacts[:5])}</code>. These file indicators should be blocked at endpoint and email gateway levels. """
 
-        # v14.0: Category-specific payload analysis
-        if 'identity' in cat or 'mfa' in cat:
+        # v14.0+v15.0: Category-specific payload analysis
+        # v15.0: Check mobile FIRST before generic malware
+        is_mobile = ('mobile' in cat or 'android' in cat or
+                     any(w in headline.lower() for w in ['android', 'mobile', 'apk', 'firmware',
+                                                         'zygote', 'triada', 'keenadu', 'badbox', 'vo1d']))
+        if is_mobile:
+            analysis += f"""</p><p style="{s['p']}">This mobile malware operates at the firmware level, embedding itself
+            into Android system partitions that persist across factory resets. The primary persistence mechanism
+            involves hooking into the Zygote process — the parent of all Android application processes — enabling
+            the malware to inject code into every application launched on the device without requiring root access
+            from the user's perspective.</p><p style="{s['p']}">
+            The malware's modular architecture includes credential interception modules that overlay fake login
+            screens on banking and social media applications, SMS interception for OTP theft, and proxy modules
+            that enroll the device into botnet infrastructure. Communication with C2 servers occurs through
+            encrypted HTTPS channels with domain generation algorithm (DGA) backup for infrastructure resilience.
+            The firmware-level implant modifies the <code style="font-family:{FONTS['mono']};color:{COLORS['accent']};font-size:12px;">
+            libandroid_runtime.so</code> library to achieve execution before any security application loads,
+            rendering traditional mobile antivirus solutions ineffective for detection or remediation."""
+        elif 'identity' in cat or 'mfa' in cat:
             analysis += f"""</p><p style="{s['p']}">This campaign does not rely on traditional malware delivery. Instead, the threat
             infrastructure consists of adversary-in-the-middle (AitM) phishing proxies that intercept authentication
             flows in real time. The phishing kit captures credentials as they are entered and simultaneously relays
@@ -923,9 +985,15 @@ class PremiumReportGenerator:
         return analysis
 
     def _get_endpoint_detection_text(self, threat_type):
-        """v14.0: Generate category-aware endpoint detection recommendations."""
+        """v14.0+v15.0: Generate category-aware endpoint detection recommendations."""
         cat = threat_type.get('category', '').lower()
-        if 'identity' in cat or 'mfa' in cat:
+        if 'mobile' in cat or 'android' in cat:
+            return ("Deploy Mobile Device Management (MDM) solutions to enforce firmware integrity checks. "
+                    "Verify device build fingerprints against known-good baselines using Android Verified Boot. "
+                    "Monitor for unauthorized system partition modifications using SafetyNet/Play Integrity API. "
+                    "Block sideloaded APKs via enterprise policy. Audit device procurement chains to exclude "
+                    "counterfeit or grey-market devices from corporate BYOD programs.")
+        elif 'identity' in cat or 'mfa' in cat:
             return ("Monitor identity provider logs (Azure AD SigninLogs, Okta System Log) for anomalous "
                     "MFA patterns, impossible travel, suspicious OAuth consent grants, and token replay. "
                     "Deploy Conditional Access policies enforcing FIDO2/WebAuthn for high-risk sign-ins.")

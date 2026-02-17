@@ -9,7 +9,10 @@ import math
 import logging
 from typing import Dict, List
 
-from agent.config import PRIVATE_IP_RANGES, FALSE_POSITIVE_DOMAINS
+from agent.config import (
+    PRIVATE_IP_RANGES, FALSE_POSITIVE_DOMAINS,
+    JAVA_PACKAGE_PREFIXES, FALSE_POSITIVE_EXTENSIONS,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [CDB-ENRICHER] %(message)s")
 logger = logging.getLogger("CDB-ENRICHER")
@@ -54,11 +57,41 @@ class IntelligenceEnricher:
         return False
 
     def _is_false_positive_domain(self, domain: str) -> bool:
-        """Check if domain is a known false positive."""
+        """Check if domain is a known false positive, Java package, or file reference."""
         domain_lower = domain.lower()
+        # Standard FP domain check
         for fp in FALSE_POSITIVE_DOMAINS:
             if domain_lower == fp or domain_lower.endswith('.' + fp):
                 return True
+        # v15.0: Java/Android package name detection (com.android.chrome, etc.)
+        for prefix in JAVA_PACKAGE_PREFIXES:
+            if domain_lower.startswith(prefix):
+                return True
+        # v15.0: File extension false positives (classes.jar, app.dex, etc.)
+        for ext in FALSE_POSITIVE_EXTENSIONS:
+            if domain_lower.endswith(ext):
+                return True
+        # v15.0: Reject domains that look like reversed package names
+        # (no real TLD would be "chrome", "systemui", "test", etc.)
+        parts = domain_lower.split('.')
+        if len(parts) >= 2:
+            tld = parts[-1]
+            NON_TLDS = {'jar', 'class', 'dex', 'apk', 'so', 'exe', 'dll',
+                        'chrome', 'systemui', 'wallpaper', 'launcher',
+                        'settings', 'test', 'debug', 'internal'}
+            if tld in NON_TLDS:
+                return True
+        return False
+
+    def _is_false_positive_email(self, email: str) -> bool:
+        """v15.0: Filter false positive emails (JAR paths, test addresses)."""
+        email_lower = email.lower()
+        # JAR path references (vndx_10x.jar@classes.jar)
+        if '.jar@' in email_lower or '@classes.' in email_lower:
+            return True
+        # File reference patterns
+        if any(email_lower.endswith(ext) for ext in ['.jar', '.dex', '.apk', '.class']):
+            return True
         return False
 
     def _calculate_domain_entropy(self, domain: str) -> float:
@@ -113,7 +146,10 @@ class IntelligenceEnricher:
             'sha256': sorted(list(set(re.findall(self.sha256_pattern, clean_text)))),
             'sha1': sorted(list(set(re.findall(self.sha1_pattern, clean_text)))),
             'md5': sorted(list(set(re.findall(self.md5_pattern, clean_text)))),
-            'email': sorted(list(set(re.findall(self.email_pattern, clean_text)))),
+            'email': sorted([
+                e for e in set(re.findall(self.email_pattern, clean_text))
+                if not self._is_false_positive_email(e)
+            ]),
             'cve': sorted(list(set(re.findall(self.cve_pattern, clean_text)))),
             'registry': sorted(list(set(re.findall(self.registry_pattern, clean_text)))),
             'artifacts': sorted(list(set(re.findall(self.artifacts, clean_text, re.IGNORECASE)))),
