@@ -41,12 +41,17 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
         run: python -m agent.sentinel_blogger
 
-      - name: Commit & Push Intelligence Data
+      -  name: Commit & Push Intelligence Data
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
-          git add data/stix/*.json
-          git commit -m "v15 Apex: Intelligence manifest sync [skip ci]" || echo "No changes"
+          
+          # Fix: Sync remote changes (manual edits) with bot data
+          git pull origin main --rebase
+          
+          git add data/*.json data/stix/*.json
+          # Commit only if there is new intelligence
+          git commit --allow-empty -m "v15.8 Apex: Sync Intelligence Manifest [skip ci]"
           git push origin main
 
       - name: Deploy Live Feed & Protect Branding
