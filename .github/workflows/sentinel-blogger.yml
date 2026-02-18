@@ -6,7 +6,7 @@ on:
   workflow_dispatch:      # Manual GOC trigger for immediate Intel
 
 permissions:
-  contents: write         # REQUIRED: Grants the bot permission to push data
+  contents: write         # Required for CDB-Sentinel-Bot to push data
 
 jobs:
   publish-threat-report:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # REQUIRED: Pulls full history for stable rebasing
+          fetch-depth: 0  # Required for stable git rebase operations
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v4
@@ -45,17 +45,17 @@ jobs:
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
           
-          # 1. Stage the new intelligence data first
+          # 1. Stage the new intelligence manifest and STIX data
           git add data/*.json data/stix/*.json
           
-          # 2. Commit locally to 'clean' the working tree
-          # This specifically fixes the "cannot pull with rebase: You have unstaged changes" error
-          git commit -m "v15.8 Apex: Sync Intelligence Manifest [skip ci]" || echo "No changes to commit"
+          # 2. Commit local changes to 'clean' the workspace
+          # This handles the "You have unstaged changes" error
+          git commit -m "v15.8 Apex: Sync Intelligence Manifest [skip ci]" || echo "No changes"
           
           # 3. Pull remote changes (manual edits) and replay bot work on top
           git pull origin main --rebase
           
-          # 4. Final push to update the manifest and reset the UI 'Last Sync' timer
+          # 4. Final push to update the UI dashboard time
           git push origin main
 
       - name: Deploy Live Feed & Protect Branding
@@ -64,4 +64,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
           publish_branch: gh-pages
-          keep_files: true # PRESERVES manifest and forensic data during deployment
+          keep_files: true # PRESERVES existing manifest and forensic data during deploy
