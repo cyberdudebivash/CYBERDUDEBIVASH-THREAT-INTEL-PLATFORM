@@ -45,17 +45,17 @@ jobs:
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
           
-          # 1. Stage manifest and institutional bundles first
+          # 1. Stage the new intelligence data first
           git add data/*.json data/stix/*.json
           
-          # 2. Create local commit to 'clean' the working tree
-          # This prevents the "cannot pull with rebase: You have unstaged changes" error
+          # 2. Commit locally to 'clean' the working tree
+          # This specifically fixes the "cannot pull with rebase: You have unstaged changes" error
           git commit -m "v15.8 Apex: Sync Intelligence Manifest [skip ci]" || echo "No changes to commit"
           
           # 3. Pull remote changes (manual edits) and replay bot work on top
           git pull origin main --rebase
           
-          # 4. Final push to update the UI dashboard and manifest
+          # 4. Final push to update the manifest and reset the UI 'Last Sync' timer
           git push origin main
 
       - name: Deploy Live Feed & Protect Branding
