@@ -1,142 +1,692 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- HEAD SECTION UNCHANGED (100% YOUR ORIGINAL) -->
-    <!-- I DID NOT MODIFY ANY CSS OR META -->
-    <!-- Your entire original <head> stays exactly the same -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYBERDUDEBIVASH® Sentinel APEX v11.0 | AI-Powered Global Threat Intelligence</title>
+    <meta name="description" content="CyberDudeBivash Sentinel APEX — AI-Powered Threat Intelligence Platform. Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping.">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;600;700&family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* ═══════════════════════════════════════════════════════ */
+        /* DESIGN SYSTEM — SENTINEL APEX ULTRA v11.0             */
+        /* ═══════════════════════════════════════════════════════ */
+        :root {
+            --critical: #dc2626; --high: #ea580c; --medium: #d97706;
+            --low: #16a34a; --info: #3b82f6;
+            --accent: #00d4aa; --accent-glow: rgba(0,212,170,0.15);
+            --bg: #020205; --bg-card: #080a10; --bg-surface: #0d1017;
+            --border: #151a24; --border-accent: rgba(0,212,170,0.25);
+            --text: #c8d1dc; --text-muted: #5a6578; --white: #f0f4f8;
+            --purple: #8b5cf6; --blue: #3b82f6; --pink: #ec4899;
+            --font-display: 'Outfit', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --tlp-red: #ff3e3e; --tlp-amber: #ff9f43;
+            --tlp-green: #00e5c3; --tlp-clear: #94a3b8;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg); color: var(--text);
+            font-family: var(--font-display); line-height: 1.6;
+            min-height: 100vh;
+            background-image:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0,212,170,0.04), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 100%, rgba(139,92,246,0.03), transparent);
+        }
+        a { color: inherit; text-decoration: none; }
+
+        /* ═══ CONTAINER ═══ */
+        .apex-shell { max-width: 1440px; margin: 0 auto; padding: 0 28px; }
+
+        /* ═══ HEADER ═══ */
+        .apex-header {
+            padding: 36px 0 28px;
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: flex-start;
+            flex-wrap: wrap; gap: 24px;
+        }
+        .brand-mark h1 {
+            font-size: clamp(28px, 4vw, 44px); font-weight: 900;
+            letter-spacing: -2.5px; color: var(--white);
+            line-height: 1;
+        }
+        .brand-mark h1 .reg { color: var(--accent); font-size: 0.55em; vertical-align: super; }
+        .brand-sub {
+            font-family: var(--font-mono); font-size: 10px;
+            color: var(--text-muted); letter-spacing: 3px;
+            margin-top: 8px; text-transform: uppercase;
+        }
+        .brand-sub .ver { color: var(--accent); font-weight: 700; }
+
+        /* Stars badge */
+        .stars-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--bg-surface); border: 1px solid var(--border);
+            padding: 6px 14px; border-radius: 100px;
+            font-family: var(--font-mono); font-size: 11px;
+            color: var(--text-muted); transition: 0.3s;
+        }
+        .stars-badge:hover { border-color: var(--accent); color: var(--accent); }
+        .stars-badge i { color: #f59e0b; }
+
+        .header-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+        .contact-btn {
+            font-family: var(--font-mono); font-size: 10px;
+            color: var(--accent); border: 1px solid var(--accent);
+            padding: 7px 18px; border-radius: 100px; font-weight: 700;
+            letter-spacing: 1px; transition: 0.3s;
+        }
+        .contact-btn:hover { background: var(--accent); color: var(--bg); }
+
+        /* ═══ NAV HUB ═══ */
+        .nav-hub { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+        .nav-chip {
+            font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+            color: var(--text-muted); background: var(--bg-surface);
+            padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border);
+            text-transform: uppercase; letter-spacing: 0.5px; transition: 0.3s;
+        }
+        .nav-chip:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 20px rgba(0,212,170,0.1); }
+
+        /* ═══ STATUS STRIP ═══ */
+        .status-strip {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 22px; background: var(--bg-surface);
+            border: 1px solid var(--border); margin: 28px 0;
+            font-family: var(--font-mono); font-size: 10px;
+            letter-spacing: 2px; color: var(--text-muted);
+            flex-wrap: wrap; gap: 12px;
+        }
+        .status-strip .pulse {
+            display: inline-block; width: 7px; height: 7px;
+            background: var(--accent); border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* ═══ METRICS STRIP (NEW) ═══ */
+        .metrics-strip {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px; margin-bottom: 28px;
+        }
+        .metric-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            padding: 18px 20px; text-align: center; position: relative;
+            overflow: hidden;
+        }
+        .metric-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0;
+            height: 2px; background: var(--accent); opacity: 0.5;
+        }
+        .metric-card.critical::before { background: var(--critical); }
+        .metric-card.high::before { background: var(--high); }
+        .metric-val {
+            font-size: 28px; font-weight: 900; letter-spacing: -1px;
+            line-height: 1;
+        }
+        .metric-label {
+            font-family: var(--font-mono); font-size: 9px;
+            color: var(--text-muted); letter-spacing: 2px;
+            text-transform: uppercase; margin-top: 6px;
+        }
+
+        /* ═══ FILTER BAR (NEW) ═══ */
+        .filter-bar {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            margin-bottom: 24px; align-items: center;
+        }
+        .filter-bar label {
+            font-family: var(--font-mono); font-size: 9px;
+            color: var(--text-muted); letter-spacing: 2px;
+            text-transform: uppercase; margin-right: 8px;
+        }
+        .filter-btn {
+            font-family: var(--font-mono); font-size: 10px;
+            color: var(--text-muted); background: var(--bg-surface);
+            border: 1px solid var(--border); padding: 6px 14px;
+            border-radius: 100px; cursor: pointer; transition: 0.2s;
+        }
+        .filter-btn:hover, .filter-btn.active {
+            border-color: var(--accent); color: var(--accent);
+            background: rgba(0,212,170,0.06);
+        }
+        .filter-btn.f-critical.active { border-color: var(--critical); color: var(--critical); }
+        .filter-btn.f-high.active { border-color: var(--high); color: var(--high); }
+        .filter-btn.f-medium.active { border-color: var(--medium); color: var(--medium); }
+
+        .sort-select {
+            font-family: var(--font-mono); font-size: 10px;
+            background: var(--bg-surface); color: var(--text-muted);
+            border: 1px solid var(--border); padding: 6px 12px;
+            border-radius: 4px; cursor: pointer; margin-left: auto;
+        }
+
+        /* ═══ THREAT GRID ═══ */
+        #threat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 20px;
+        }
+
+        .intel-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            padding: 28px 30px; border-left: 4px solid var(--accent);
+            transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        .intel-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255,255,255,0.1);
+            box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+        }
+        .intel-card.sev-critical { border-left-color: var(--critical); }
+        .intel-card.sev-high { border-left-color: var(--high); }
+        .intel-card.sev-medium { border-left-color: var(--medium); }
+        .intel-card.sev-low { border-left-color: var(--low); }
+
+        .card-meta {
+            display: flex; align-items: center; gap: 8px;
+            flex-wrap: wrap; margin-bottom: 14px;
+        }
+        .badge {
+            font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+            padding: 3px 10px; border-radius: 100px;
+            letter-spacing: 0.5px; text-transform: uppercase;
+        }
+        .badge-critical { background: rgba(220,38,38,0.12); color: var(--critical); }
+        .badge-high { background: rgba(234,88,12,0.12); color: var(--high); }
+        .badge-medium { background: rgba(217,119,6,0.12); color: var(--medium); }
+        .badge-low { background: rgba(22,163,74,0.12); color: var(--low); }
+        .badge-info { background: rgba(59,130,246,0.12); color: var(--info); }
+        .badge-accent { background: var(--accent-glow); color: var(--accent); }
+        .badge-purple { background: rgba(139,92,246,0.12); color: var(--purple); }
+        .badge-tlp { font-weight: 800; letter-spacing: 1px; }
+
+        .card-stix {
+            font-family: var(--font-mono); font-size: 9px;
+            color: var(--text-muted); letter-spacing: 1px; margin-bottom: 6px;
+        }
+        .card-title {
+            font-size: 17px; font-weight: 700; color: var(--white);
+            line-height: 1.4; letter-spacing: -0.3px;
+            display: -webkit-box; -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .card-footer {
+            margin-top: 20px; padding-top: 16px;
+            border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between;
+            align-items: center; flex-wrap: wrap; gap: 10px;
+        }
+        .card-score {
+            font-family: var(--font-mono); font-size: 11px;
+            font-weight: 700; letter-spacing: 0.5px;
+        }
+        .card-link {
+            font-family: var(--font-mono); font-size: 10px;
+            font-weight: 700; color: var(--white);
+            text-transform: uppercase; letter-spacing: 1px;
+            border-bottom: 1px solid var(--accent);
+            padding-bottom: 2px; transition: 0.2s;
+        }
+        .card-link:hover { color: var(--accent); }
+
+        .card-ioc-strip {
+            display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px;
+        }
+        .ioc-chip {
+            font-family: var(--font-mono); font-size: 8px;
+            color: var(--text-muted); background: var(--bg);
+            border: 1px solid var(--border); padding: 2px 8px;
+            border-radius: 3px;
+        }
+
+        /* ═══ EXPORT BAR (NEW) ═══ */
+        .export-bar {
+            display: flex; gap: 10px; flex-wrap: wrap;
+            margin: 28px 0; padding: 18px 22px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+        }
+        .export-btn {
+            font-family: var(--font-mono); font-size: 10px;
+            color: var(--accent); background: transparent;
+            border: 1px solid var(--accent); padding: 8px 18px;
+            border-radius: 4px; cursor: pointer; font-weight: 700;
+            letter-spacing: 0.5px; transition: 0.3s;
+        }
+        .export-btn:hover { background: var(--accent); color: var(--bg); }
+        .export-label {
+            font-family: var(--font-mono); font-size: 9px;
+            color: var(--text-muted); letter-spacing: 2px;
+            text-transform: uppercase; align-self: center;
+        }
+
+        /* ═══ INTEGRITY INDICATOR (NEW) ═══ */
+        .integrity-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-family: var(--font-mono); font-size: 10px;
+            padding: 6px 14px; border-radius: 4px; letter-spacing: 1px;
+        }
+        .integrity-ok { background: rgba(0,212,170,0.08); color: var(--accent); border: 1px solid rgba(0,212,170,0.2); }
+        .integrity-fail { background: rgba(220,38,38,0.08); color: var(--critical); border: 1px solid rgba(220,38,38,0.2); }
+
+        /* ═══ LOADING STATE ═══ */
+        .loading-state {
+            grid-column: 1 / -1; text-align: center;
+            padding: 120px 20px; color: var(--text-muted);
+        }
+        .loading-spinner {
+            width: 28px; height: 28px; border: 2px solid var(--border);
+            border-top-color: var(--accent); border-radius: 50%;
+            animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ═══ ECOSYSTEM GRID ═══ */
+        .eco-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 40px; margin-top: 80px;
+            border-top: 1px solid var(--border); padding-top: 60px;
+        }
+        .eco-col h2 {
+            font-family: var(--font-mono); font-size: 10px;
+            color: var(--accent); letter-spacing: 3px;
+            text-transform: uppercase; padding-bottom: 14px;
+            margin-bottom: 20px; border-bottom: 1px solid var(--border);
+        }
+        .eco-col ul { list-style: none; }
+        .eco-col li { margin-bottom: 12px; }
+        .eco-col a {
+            color: var(--text-muted); font-size: 13px;
+            transition: 0.2s; display: flex; align-items: center; gap: 10px;
+        }
+        .eco-col a:hover { color: var(--white); transform: translateX(4px); }
+        .eco-col a i { width: 16px; color: var(--accent); font-size: 12px; }
+
+        /* ═══ SOCIAL FOOTER ═══ */
+        .social-strip {
+            display: flex; justify-content: center; gap: 20px;
+            flex-wrap: wrap; margin-top: 80px; padding: 40px;
+            border-top: 1px solid var(--border);
+        }
+        .social-link { color: var(--text-muted); font-size: 20px; transition: 0.3s; }
+        .social-link:hover { color: var(--accent); transform: scale(1.15); }
+
+        footer {
+            text-align: center; padding: 60px 20px;
+            font-family: var(--font-mono); font-size: 8px;
+            color: var(--text-muted); letter-spacing: 4px;
+            text-transform: uppercase; border-top: 1px solid var(--border);
+            opacity: 0.6;
+        }
+
+        /* ═══ RESPONSIVE ═══ */
+        @media (max-width: 768px) {
+            .apex-header { flex-direction: column; text-align: center; }
+            .header-right { align-items: center; }
+            .nav-hub { justify-content: center; }
+            .status-strip { justify-content: center; text-align: center; }
+            #threat-grid { grid-template-columns: 1fr; }
+            .metrics-strip { grid-template-columns: repeat(2, 1fr); }
+            .filter-bar { justify-content: center; }
+        }
+    </style>
 </head>
 <body>
-<div class="apex-shell">
+    <div class="apex-shell">
 
-<!-- EVERYTHING ABOVE EXPORT BAR IS 100% UNCHANGED -->
-
-<!-- ═══ EXPORT BAR (Enhanced but NOT Modified Visually) ═══ -->
-<div class="export-bar">
-    <span class="export-label">SOC EXPORTS:</span>
-
-    <button class="export-btn" onclick="exportJSON()">
-        <i class="fas fa-download"></i> JSON Feed
-    </button>
-
-    <button class="export-btn" onclick="exportCSV()">
-        <i class="fas fa-file-csv"></i> CSV
-    </button>
-
-    <button class="export-btn" onclick="exportSTIX()">
-        <i class="fas fa-shield-halved"></i> STIX Bundle
-    </button>
-
-    <!-- NEW: UPGRADE ACCESS (WORKING LINK) -->
-    <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-Enterprise-Threat-Intelligence-Service/"
-       target="_blank"
-       class="export-btn"
-       style="margin-left:auto;text-decoration:none;">
-        <i class="fas fa-arrow-up-right-from-square"></i> Upgrade Access
-    </a>
-</div>
-
-<!-- ═══ NEW SUBSCRIBE SECTION (NON-BREAKING ADDITION) ═══ -->
-<div style="
-    margin:20px 0 30px;
-    padding:16px 20px;
-    background:var(--bg-surface);
-    border:1px solid var(--border);
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    align-items:center;
-">
-    <span style="
-        font-family:var(--font-mono);
-        font-size:10px;
-        letter-spacing:2px;
-        text-transform:uppercase;
-        color:var(--accent);
-    ">
-        Weekly Threat Intelligence Digest
-    </span>
-
-    <input type="email"
-           id="subscribe-email"
-           placeholder="Work Email"
-           style="
-                background:var(--bg);
-                border:1px solid var(--border);
-                padding:8px 12px;
-                color:var(--white);
-                font-family:var(--font-mono);
-                font-size:10px;
-                outline:none;
-           ">
-
-    <button onclick="subscribeUser()" class="export-btn">
-        Subscribe
-    </button>
-</div>
-
-<!-- THREAT GRID SECTION UNCHANGED ABOVE -->
-
-<script>
-/* YOUR ENTIRE ORIGINAL SCRIPT REMAINS UNCHANGED */
-
-/* ONLY CHANGE: card footer inside renderCards() */
-
-function renderCards(data) {
-    const grid = document.getElementById('threat-grid');
-    if (!data.length) {
-        grid.innerHTML = '<div class="loading-state">No advisories match the current filter.</div>';
-        return;
-    }
-
-    grid.innerHTML = data.map(item => {
-        const sev = getSeverity(item.risk_score, item);
-        const sevColor = getSevColor(sev);
-
-        return `
-        <div class="intel-card sev-${sev.toLowerCase()}">
-            <h3 class="card-title">${item.title}</h3>
-
-            <div class="card-footer">
-                <span class="card-score" style="color:${sevColor};">
-                    ◆ ${item.risk_score}/10
-                </span>
-
-                <div style="display:flex;gap:12px;flex-wrap:wrap;">
-
-                    <a href="${item.blog_url}"
-                       target="_blank"
-                       rel="noopener"
-                       class="card-link">
-                        View Tactical Dossier →
+        <!-- ═══ HEADER ═══ -->
+        <header class="apex-header">
+            <div class="brand-mark">
+                <h1>CYBERDUDEBIVASH<span class="reg">®</span></h1>
+                <p class="brand-sub">Sentinel APEX <span class="ver">v11.0</span> // AI-Powered Global Threat Intelligence</p>
+                <nav class="nav-hub">
+                    <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH" class="nav-chip">Official Portal</a>
+                    <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-ECOSYSTEM" class="nav-chip">Ecosystem</a>
+                    <a href="https://www.cyberdudebivash.com" class="nav-chip">Global Site</a>
+                    <a href="https://github.com/cyberdudebivash" class="nav-chip"><i class="fab fa-github"></i> Dev Hub</a>
+                    <a href="https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM" class="stars-badge" id="stars-badge">
+                        <i class="fas fa-star"></i> <span id="star-count">—</span> Stars
                     </a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <a href="mailto:bivash@cyberdudebivash.com" class="contact-btn">CONNECT ENTERPRISE</a>
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;">
+                    Bhubaneswar, Odisha, India</span>
+            </div>
+        </header>
 
-                    <a href="${item.premium_url || 'https://cyberdudebivash.gumroad.com/'}"
-                       target="_blank"
-                       rel="noopener"
-                       class="card-link"
-                       style="color:var(--purple);border-bottom:1px solid var(--purple);">
-                        🔒 Premium Detection Pack
-                    </a>
+        <!-- ═══ STATUS STRIP ═══ -->
+        <div class="status-strip">
+            <div>NODE: <span style="color:var(--accent);">CDB-GOC-01</span></div>
+            <div id="sync-val">SYNC: <span style="color:#ff9d00;">INITIALIZING...</span></div>
+            <div id="integrity-status"></div>
+            <div>ENGINE: <span style="color:var(--accent);"><span class="pulse"></span> APEX ULTRA v11.0</span></div>
+        </div>
 
+        <!-- ═══ METRICS STRIP (NEW) ═══ -->
+        <div class="metrics-strip" id="metrics-strip">
+            <div class="metric-card"><div class="metric-val" style="color:var(--white);" id="m-total">—</div><div class="metric-label">Total Advisories</div></div>
+            <div class="metric-card critical"><div class="metric-val" style="color:var(--critical);" id="m-critical">—</div><div class="metric-label">Critical</div></div>
+            <div class="metric-card high"><div class="metric-val" style="color:var(--high);" id="m-high">—</div><div class="metric-label">High Severity</div></div>
+            <div class="metric-card"><div class="metric-val" style="color:var(--accent);" id="m-avg-risk">—</div><div class="metric-label">Avg Risk Score</div></div>
+            <div class="metric-card"><div class="metric-val" style="color:var(--purple);" id="m-iocs">—</div><div class="metric-label">Total IOCs</div></div>
+            <div class="metric-card"><div class="metric-val" style="color:var(--blue);" id="m-last-sync">—</div><div class="metric-label">Last Sync</div></div>
+        </div>
+
+        <!-- ═══ FILTER BAR (NEW) ═══ -->
+        <div class="filter-bar">
+            <label>FILTER:</label>
+            <button class="filter-btn active" data-filter="all" onclick="filterCards('all', this)">All</button>
+            <button class="filter-btn f-critical" data-filter="CRITICAL" onclick="filterCards('CRITICAL', this)">Critical</button>
+            <button class="filter-btn f-high" data-filter="HIGH" onclick="filterCards('HIGH', this)">High</button>
+            <button class="filter-btn f-medium" data-filter="MEDIUM" onclick="filterCards('MEDIUM', this)">Medium</button>
+            <select class="sort-select" onchange="sortCards(this.value)">
+                <option value="newest">Sort: Newest First</option>
+                <option value="oldest">Sort: Oldest First</option>
+                <option value="risk-high">Sort: Risk ↓</option>
+                <option value="risk-low">Sort: Risk ↑</option>
+            </select>
+        </div>
+
+        <!-- ═══ EXPORT BAR (NEW) ═══ -->
+        <div class="export-bar">
+            <span class="export-label">SOC EXPORTS:</span>
+            <button class="export-btn" onclick="exportJSON()"><i class="fas fa-download"></i> JSON Feed</button>
+            <button class="export-btn" onclick="exportCSV()"><i class="fas fa-file-csv"></i> CSV</button>
+            <button class="export-btn" onclick="exportSTIX()"><i class="fas fa-shield-halved"></i> STIX Bundle</button>
+        </div>
+
+        <!-- ═══ THREAT GRID ═══ -->
+        <div id="threat-grid">
+            <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;">
+                    SYNCING GOC NEURAL CORE...
                 </div>
             </div>
-        </div>`;
-    }).join('');
-}
+        </div>
 
-/* NEW SAFE FUNCTION */
-function subscribeUser() {
-    const email = document.getElementById('subscribe-email').value.trim();
-    if (!email || !email.includes('@')) {
-        alert('Please enter a valid work email.');
-        return;
-    }
-    window.open('https://cyberbivash.blogspot.com', '_blank');
-}
-</script>
+        <!-- ═══ ECOSYSTEM ═══ -->
+        <div class="eco-grid">
+            <div class="eco-col">
+                <h2>Production Apps & AI</h2>
+                <ul>
+                    <li><a href="https://cyberdudebivash.github.io/cyberdudebivash-top-10-tools/"><i class="fas fa-tools"></i> Top 10 Research Hub</a></li>
+                    <li><a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-PRODUCTION-APPS-SUITE/"><i class="fas fa-layer-group"></i> Production Apps Suite</a></li>
+                    <li><a href="https://cyberdudebivash.github.io/mcp-server/"><i class="fas fa-server"></i> Official MCP Server</a></li>
+                    <li><a href="https://github.com/apps/cyberdudebivash-security-platform"><i class="fas fa-shield-virus"></i> Security Platform App</a></li>
+                </ul>
+            </div>
+            <div class="eco-col">
+                <h2>Blogs & Research</h2>
+                <ul>
+                    <li><a href="https://cyberbivash.blogspot.com"><i class="fas fa-blog"></i> CyberBivash Official</a></li>
+                    <li><a href="https://cyberdudebivash-news.blogspot.com"><i class="fas fa-newspaper"></i> Intelligence News</a></li>
+                    <li><a href="https://cryptobivash.code.blog"><i class="fas fa-file-invoice-dollar"></i> Crypto Research Hub</a></li>
+                    <li><a href="https://medium.com/@cyberdudebivash"><i class="fab fa-medium"></i> Medium Insights</a></li>
+                </ul>
+            </div>
+            <div class="eco-col">
+                <h2>Enterprise & Contact</h2>
+                <ul>
+                    <li><a href="https://www.linkedin.com/company/cyberdudebivash/"><i class="fab fa-linkedin"></i> LinkedIn Official</a></li>
+                    <li><a href="https://www.upwork.com/freelancers/~010d4dde1657fa5619?"><i class="fas fa-briefcase"></i> Upwork Enterprise</a></li>
+                    <li><a href="https://www.patreon.com/c/CYBERDUDEBIVASH"><i class="fab fa-patreon"></i> Support R&D</a></li>
+                </ul>
+                <p style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:20px;">
+                    bivash@cyberdudebivash.com<br>+91 8179881447</p>
+            </div>
+        </div>
 
-<!-- EVERYTHING BELOW (ECO SYSTEM / SOCIAL / FOOTER) REMAINS 100% UNCHANGED -->
+        <!-- ═══ SOCIAL ═══ -->
+        <div class="social-strip">
+            <a href="https://x.com/cyberbivash" class="social-link"><i class="fab fa-x-twitter"></i></a>
+            <a href="https://www.facebook.com/people/Cyberdudebivash-Pvt-Ltd/61583373732736/" class="social-link"><i class="fab fa-facebook"></i></a>
+            <a href="https://www.instagram.com/cyberdudebivash_official/" class="social-link"><i class="fab fa-instagram"></i></a>
+            <a href="https://bsky.app/profile/cyberdudebivash.bsky.social" class="social-link"><i class="fas fa-cloud"></i></a>
+            <a href="https://mastodon.social/@cyberdudebivash" class="social-link"><i class="fab fa-mastodon"></i></a>
+            <a href="https://www.reddit.com/user/Immediate_Gold9789/" class="social-link"><i class="fab fa-reddit"></i></a>
+            <a href="https://github.com/cyberdudebivash" class="social-link"><i class="fab fa-github"></i></a>
+        </div>
 
-</div>
+        <footer>
+            CYBERDUDEBIVASH PVT LTD // AI-POWERED GLOBAL CYBERSECURITY INTELLIGENCE PLATFORM // © 2026 BHUBANESWAR, INDIA
+        </footer>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════
+        // SENTINEL APEX v11.0 — INTELLIGENCE DASHBOARD ENGINE
+        // ═══════════════════════════════════════════════════════
+        const RAW_MANIFEST = 'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json';
+        const GITHUB_API = 'https://api.github.com/repos/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM';
+
+        let manifestData = [];
+        let currentFilter = 'all';
+        let currentSort = 'newest';
+
+        // ── Severity Helpers ──
+        function getSeverity(score, item) {
+            if (item && item.severity) return item.severity;
+            if (score >= 8.5) return 'CRITICAL';
+            if (score >= 6.5) return 'HIGH';
+            if (score >= 4.0) return 'MEDIUM';
+            if (score >= 2.0) return 'LOW';
+            return 'INFO';
+        }
+
+        function getSevColor(sev) {
+            return { CRITICAL: 'var(--critical)', HIGH: 'var(--high)',
+                     MEDIUM: 'var(--medium)', LOW: 'var(--low)',
+                     INFO: 'var(--info)' }[sev] || 'var(--accent)';
+        }
+
+        function getTlpLabel(item) {
+            if (item.tlp_label) return item.tlp_label;
+            if (item.risk_score >= 9) return 'TLP:RED';
+            if (item.risk_score >= 7) return 'TLP:AMBER';
+            if (item.risk_score >= 4) return 'TLP:GREEN';
+            return 'TLP:CLEAR';
+        }
+
+        function getTlpColor(tlp) {
+            if (tlp.includes('RED')) return 'var(--tlp-red)';
+            if (tlp.includes('AMBER')) return 'var(--tlp-amber)';
+            if (tlp.includes('GREEN')) return 'var(--tlp-green)';
+            return 'var(--tlp-clear)';
+        }
+
+        function timeSince(ts) {
+            const d = new Date(ts);
+            const now = new Date();
+            const diff = Math.floor((now - d) / 1000);
+            if (diff < 60) return diff + 's ago';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            return Math.floor(diff / 86400) + 'd ago';
+        }
+
+        // ── Render Cards ──
+        function renderCards(data) {
+            const grid = document.getElementById('threat-grid');
+            if (!data.length) {
+                grid.innerHTML = '<div class="loading-state">No advisories match the current filter.</div>';
+                return;
+            }
+
+            grid.innerHTML = data.map(item => {
+                const sev = getSeverity(item.risk_score, item);
+                const sevColor = getSevColor(sev);
+                const tlp = getTlpLabel(item);
+                const tlpColor = getTlpColor(tlp);
+                const conf = item.confidence_score != null ? item.confidence_score + '%' : '—';
+                const actor = item.actor_tag || 'UNC-CDB-99';
+                const ts = item.timestamp ? timeSince(item.timestamp) : '';
+
+                // IOC chips
+                let iocChips = '';
+                if (item.ioc_counts) {
+                    const counts = item.ioc_counts;
+                    const chips = [];
+                    if (counts.ipv4) chips.push(`${counts.ipv4} IPs`);
+                    if (counts.domain) chips.push(`${counts.domain} Domains`);
+                    if (counts.sha256) chips.push(`${counts.sha256} Hashes`);
+                    if (counts.url) chips.push(`${counts.url} URLs`);
+                    if (counts.cve) chips.push(`${counts.cve} CVEs`);
+                    iocChips = chips.map(c => `<span class="ioc-chip">${c}</span>`).join('');
+                }
+
+                return `
+                <div class="intel-card sev-${sev.toLowerCase()}" data-severity="${sev}" data-score="${item.risk_score}" data-time="${item.timestamp || ''}">
+                    <div class="card-meta">
+                        <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
+                        <span class="badge badge-tlp" style="background:${tlpColor}22;color:${tlpColor};">${tlp}</span>
+                        <span class="badge badge-accent">RISK ${item.risk_score}/10</span>
+                        ${conf !== '—' ? `<span class="badge badge-purple">CONF ${conf}</span>` : ''}
+                        ${ts ? `<span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">${ts}</span>` : ''}
+                    </div>
+                    <div class="card-stix">STIX: ${item.stix_id ? item.stix_id.slice(0, 36) : '—'} • ${actor}</div>
+                    <h3 class="card-title">${item.title}</h3>
+                    ${iocChips ? `<div class="card-ioc-strip">${iocChips}</div>` : ''}
+                    <div class="card-footer">
+                        <span class="card-score" style="color:${sevColor};">◆ ${item.risk_score}/10</span>
+                        <a href="${item.blog_url}" target="_blank" rel="noopener" class="card-link">View Tactical Dossier →</a>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // ── Compute Metrics ──
+        function computeMetrics(data) {
+            const total = data.length;
+            const critical = data.filter(d => getSeverity(d.risk_score, d) === 'CRITICAL').length;
+            const high = data.filter(d => getSeverity(d.risk_score, d) === 'HIGH').length;
+            const avgRisk = total ? (data.reduce((s, d) => s + d.risk_score, 0) / total).toFixed(1) : '—';
+            let totalIOCs = 0;
+            data.forEach(d => {
+                if (d.ioc_counts) totalIOCs += Object.values(d.ioc_counts).reduce((a, b) => a + b, 0);
+                if (d.indicator_count) totalIOCs += d.indicator_count;
+            });
+            const lastTs = data.length ? timeSince(data[data.length - 1].timestamp || data[0].timestamp) : '—';
+
+            document.getElementById('m-total').textContent = total;
+            document.getElementById('m-critical').textContent = critical;
+            document.getElementById('m-high').textContent = high;
+            document.getElementById('m-avg-risk').textContent = avgRisk;
+            document.getElementById('m-iocs').textContent = totalIOCs || '—';
+            document.getElementById('m-last-sync').textContent = lastTs;
+        }
+
+        // ── Filter & Sort ──
+        function filterCards(sev, btn) {
+            currentFilter = sev;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyView();
+        }
+
+        function sortCards(mode) {
+            currentSort = mode;
+            applyView();
+        }
+
+        function applyView() {
+            let filtered = [...manifestData];
+            if (currentFilter !== 'all') {
+                filtered = filtered.filter(d => getSeverity(d.risk_score, d) === currentFilter);
+            }
+            filtered.sort((a, b) => {
+                switch (currentSort) {
+                    case 'newest': return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+                    case 'oldest': return new Date(a.timestamp || 0) - new Date(b.timestamp || 0);
+                    case 'risk-high': return b.risk_score - a.risk_score;
+                    case 'risk-low': return a.risk_score - b.risk_score;
+                    default: return 0;
+                }
+            });
+            renderCards(filtered);
+        }
+
+        // ── Export Functions ──
+        function exportJSON() {
+            const blob = new Blob([JSON.stringify(manifestData, null, 2)], { type: 'application/json' });
+            downloadBlob(blob, 'cdb-threat-intel-feed.json');
+        }
+
+        function exportCSV() {
+            const headers = ['Title', 'Risk Score', 'Severity', 'TLP', 'Confidence', 'Actor', 'Blog URL', 'Timestamp'];
+            const rows = manifestData.map(d => [
+                `"${(d.title || '').replace(/"/g, '""')}"`,
+                d.risk_score, getSeverity(d.risk_score, d), getTlpLabel(d),
+                d.confidence_score || '', d.actor_tag || '', d.blog_url || '', d.timestamp || ''
+            ]);
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            downloadBlob(new Blob([csv], { type: 'text/csv' }), 'cdb-threat-intel-feed.csv');
+        }
+
+        function exportSTIX() {
+            // Redirect to latest STIX bundle in repo
+            window.open('https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/tree/main/data/stix', '_blank');
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename; a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ── Load Data ──
+        async function loadGOCIntel() {
+            const syncVal = document.getElementById('sync-val');
+            const integrityEl = document.getElementById('integrity-status');
+
+            try {
+                const response = await fetch(RAW_MANIFEST);
+                if (!response.ok) throw new Error('Manifest fetch failed');
+                const data = await response.json();
+
+                if (!Array.isArray(data) || !data.length) throw new Error('Empty manifest');
+
+                manifestData = data.reverse(); // Newest first
+                computeMetrics(manifestData);
+                applyView();
+
+                syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);">LATEST</span>';
+                integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
+
+            } catch (err) {
+                document.getElementById('threat-grid').innerHTML = `
+                    <div class="loading-state" style="border:1px dashed var(--critical);color:var(--critical);">
+                        <i class="fas fa-exclamation-triangle" style="font-size:28px;margin-bottom:16px;"></i>
+                        <div style="font-size:14px;font-weight:700;margin-bottom:8px;">GOC MANIFEST SYNC FAILURE</div>
+                        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
+                            ERR: DATA_PATH_RESOLVER_EXHAUSTED — ${err.message}</div>
+                    </div>`;
+                syncVal.innerHTML = 'SYNC: <span style="color:var(--critical);">OFFLINE</span>';
+                integrityEl.innerHTML = '<span class="integrity-badge integrity-fail"><i class="fas fa-shield-xmark"></i> SYNC FAILED</span>';
+            }
+        }
+
+        // ── GitHub Stars ──
+        async function loadStars() {
+            try {
+                const r = await fetch(GITHUB_API);
+                if (r.ok) {
+                    const d = await r.json();
+                    document.getElementById('star-count').textContent = d.stargazers_count || 0;
+                }
+            } catch (e) {}
+        }
+
+        // ── Init ──
+        window.onload = () => { loadGOCIntel(); loadStars(); };
+    </script>
 </body>
 </html>
