@@ -1,13 +1,17 @@
-import os
+#!/usr/bin/env python3
+"""
+gumroad_api.py — CyberDudeBivash v16.4
+LIMITATION HANDLER: Gumroad API does not support automated product creation.
+This patch prevents 404 failures and allows the pipeline to finish.
+"""
 import logging
 
 logger = logging.getLogger("CDB-GUMROAD")
 
 def create_intel_product(title, description="Defense Kit", price_usd=99.0):
     """
-    Gumroad API Limitation: Product creation is not supported via API.
-    This function now acts as a placeholder to prevent pipeline crashes.
+    Acts as a placeholder. Automated product creation is not yet supported by Gumroad.
+    Manually create critical assets in the dashboard and link them in metadata.
     """
-    logger.warning(f"⚠️ GUMROAD: API does not support automated product creation. Skipping for: {title}")
-    # Return None so the blogger script knows there is no product URL to inject.
-    return None
+    logger.warning(f"⚠️ GUMROAD: API creation not supported. Skipping product for: {title}")
+    return None # Returns None to gracefully inform the orchestrator
