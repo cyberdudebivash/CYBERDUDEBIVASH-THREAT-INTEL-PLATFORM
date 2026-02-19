@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 sentinel_blogger.py — CyberDudeBivash v16.4 (SENTINEL APEX ULTRA PRO)
-PRODUCTION ORCHESTRATOR: Multi-feed fusion, premium 18-section reports.
-HARDENING: Automated Quota Recovery (429) & Payload Sanitization (400).
+PRODUCTION ORCHESTRATOR: Multi-feed fusion with Quota Hardening.
+NEW v16.4: The "Governor" Logic — Client-side throttling & auto-retry.
 
 MANDATE: ZERO REGRESSION. Core intelligence logic preserved 100%.
 """
@@ -30,14 +30,19 @@ from agent.upsell_injector import upsell_engine
 from agent.asset_factory import asset_engine
 from agent.gumroad_api import create_intel_product
 
+# --- GOVERNOR CONFIGURATION ---
+POST_SPACING = 15      # Seconds to wait between every successful post (Prevents 429)
+MAX_POSTS_PER_RUN = 8  # Caps the sweep to the top 8 most critical threats
+SEVERITY_THRESHOLD = 7.0 # Minimum Risk Score required for publication
+
 # Institutional Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [CDB-SENTINEL-APEX] %(message)s")
 logger = logging.getLogger("CDB-SENTINEL")
 
 def main():
     logger.info("=" * 80)
-    logger.info("SENTINEL APEX v16.4 — SOVEREIGN INTELLIGENCE DISPATCH ACTIVATED")
-    logger.info("Quota-Hardened • RSA Signed • Automated Monetization")
+    logger.info("SENTINEL APEX v16.4 — THE GOVERNOR DISPATCH ACTIVATED")
+    logger.info("Hardened Throttling • RSA Signed • Automated Monetization")
     logger.info("=" * 80)
 
     try:
@@ -46,26 +51,33 @@ def main():
         logger.error(f"FATAL: Blogger Auth Failed: {e}")
         return
 
-    # Phase 1 & 2 Ingestion Flow
     all_feeds = [CDB_RSS_FEED] + RSS_FEEDS
     published_count = 0
 
     for feed_url in all_feeds:
+        if published_count >= MAX_POSTS_PER_RUN:
+            logger.info("🛑 RUN LIMIT REACHED: Capping run to preserve API quota.")
+            break
+
         entries = fetch_feed_entries(feed_url)
         for entry in entries:
+            if published_count >= MAX_POSTS_PER_RUN:
+                break
+
             if dedup_engine.is_duplicate(entry['title'], entry['link']):
                 continue
 
-            # Trigger High-Performance Dispatch Pipeline
+            # Dispatch Pipeline
             if process_and_monetize(entry, service):
                 published_count += 1
-                time.sleep(RATE_LIMIT_DELAY)
+                logger.info(f"⏳ GOVERNOR: Sleeping {POST_SPACING}s to maintain rate limit safety.")
+                time.sleep(POST_SPACING)
 
     logger.info(f"V16.4 RUN COMPLETE: {published_count} Signed & Monetized advisories live.")
 
 def publish_with_retry(service, blog_id, post_body, retries=3, base_delay=60):
     """
-    Surgical API wrapper to handle Google Quota Exhaustion (429) and Payload Errors (400).
+    Hardened API wrapper with Exponential Backoff for 429 errors.
    
     """
     for attempt in range(retries):
@@ -74,15 +86,16 @@ def publish_with_retry(service, blog_id, post_body, retries=3, base_delay=60):
         except HttpError as e:
             status = e.resp.status
             if status == 429:
-                wait = base_delay * (2 ** attempt)
-                logger.warning(f"⚠️ QUOTA EXHAUSTED (429). Retrying in {wait}s... ({attempt+1}/{retries})")
-                time.sleep(wait)
+                wait_time = base_delay * (2 ** attempt)
+                logger.warning(f"⚠️ QUOTA EXHAUSTED (429). Backing off for {wait_time}s...")
+                time.sleep(wait_time)
                 continue
             elif status == 400:
-                logger.error(f"❌ INVALID PAYLOAD (400). Cleaning content and moving to next...")
-                break # Prevents infinite loop on bad arguments
+                logger.error("❌ INVALID ARGUMENT (400): Sanitizing payload for next run.")
+                break
             else:
-                raise e
+                logger.error(f"✗ CRITICAL API ERROR: {e}")
+                break
     return None
 
 def process_and_monetize(entry: Dict, service) -> bool:
@@ -94,48 +107,40 @@ def process_and_monetize(entry: Dict, service) -> bool:
     logger.info(f"▶ PROCESSING: {headline[:70]}...")
 
     try:
-        # 1. CORE INTELLIGENCE PIPELINE (PRESERVED)
+        # 1. Core Intel Pipeline
         report_data = premium_report_gen.prepare_intel_data(entry) 
         
-        # 2. RSA-2048 SOVEREIGN SIGNING
-        content_hash = f"{report_data['headline']}{report_data['technical_dive']}"
-        digital_signature = sovereign_engine.sign_asset(content_hash)
-        report_data['signature'] = digital_signature
-        
-        # Generate the final 18-section HTML
-        report_html = premium_report_gen.generate_html(report_data)
-
-        # 3. GUMROAD ASSET & UPSELL INJECTION
-        # Priority Gate: Only process Gumroad/Blogger for Risk >= 7.0
-        if report_data['risk_score'] >= 7.0:
-            logger.info(f"💰 HIGH-VALUE INTEL ({report_data['risk_score']}): Generating Asset Kit...")
-            
-            zip_path = asset_engine.generate_defense_kit(report_data)
-            product_url = create_intel_product(
-                title=headline, 
-                description=f"Defense Kit for {headline}", 
-                price_usd=99.0
-            )
-            
-            if product_url:
-                report_html = upsell_engine.inject_premium_cta(
-                    report_html, product_url, report_data['risk_score']
-                )
-
-            # 4. HARDENED PUBLICATION
-            post_body = {
-                "title": headline,
-                "content": report_html,
-                "labels": ["Threat Intelligence", "CDB Signed", "Apex v16.4"]
-            }
-
-            if publish_with_retry(service, BLOG_ID, post_body):
-                dedup_engine.mark_processed(headline, entry['link'])
-                logger.info(f"✓ SIGNED & MONETIZED: {headline[:50]}")
-                return True
-        else:
-            logger.info(f"⏭️ SEVERITY GATE: Risk {report_data['risk_score']} below threshold. Skipping publish.")
+        # 2. Risk Gating (The Bouncer)
+        risk = report_data.get('risk_score', 0)
+        if risk < SEVERITY_THRESHOLD:
+            logger.info(f"⏭️ SEVERITY GATE: Risk {risk} below threshold. No publish.")
             return False
+
+        # 3. RSA Sovereign Signing
+        content_hash = f"{report_data['headline']}{report_data['technical_dive']}"
+        report_data['signature'] = sovereign_engine.sign_asset(content_hash)
+        
+        # 4. Generate & Monetize
+        report_html = premium_report_gen.generate_html(report_data)
+        
+        logger.info(f"💰 HIGH-VALUE INTEL ({risk}): Triggering Asset Factory...")
+        asset_engine.generate_defense_kit(report_data)
+        product_url = create_intel_product(title=headline, price_usd=99.0)
+        
+        if product_url:
+            report_html = upsell_engine.inject_premium_cta(report_html, product_url, risk)
+
+        # 5. Final Dispatch
+        post_body = {
+            "title": headline,
+            "content": report_html,
+            "labels": ["Threat Intelligence", "CDB Signed", "Apex v16.4"]
+        }
+
+        if publish_with_retry(service, BLOG_ID, post_body):
+            dedup_engine.mark_processed(headline, entry['link'])
+            logger.info(f"✓ SIGNED & MONETIZED: {headline[:50]}")
+            return True
 
     except Exception as e:
         logger.error(f"✗ PIPELINE FAILURE for {headline[:30]}: {e}")
