@@ -1,42 +1,36 @@
-#!/usr/bin/env python3
-"""
-gumroad_api.py — CyberDudeBivash v16.4
-Automated Monetization Engine for Sentinel APEX
-"""
-
 import os
 import requests
 import logging
 
 logger = logging.getLogger("CDB-GUMROAD")
 
-def create_intel_product(title, description="Defense Kit", price_usd=99.0):
-    """
-    Creates a new digital product on Gumroad for the detected threat.
-   
-    """
+def create_intel_product(title, description="CyberDudeBivash Defense Kit", price_usd=99.0):
     access_token = os.getenv("GUMROAD_ACCESS_TOKEN")
     if not access_token:
-        logger.warning("⚠️ GUMROAD_ACCESS_TOKEN not set. Skipping monetization.")
         return None
 
-    url = "https://api.gumroad.com/v2/products"
+    # v16.4 Update: Ensuring correct API structure
+    url = "https://api.gumroad.com/v2/products/" # Trailing slash can be critical
+    
     payload = {
-        "name": title,
-        "description": description,
-        "price": int(price_usd * 100), # Gumroad expects price in cents
+        "name": f"🚨 {title}",
+        "description": f"Verified Sovereign Intelligence. {description}",
+        "price": int(price_usd * 100),
         "currency": "usd"
     }
     
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+    
     try:
-        response = requests.post(url, data=payload, params={"access_token": access_token})
-        if response.status_code == 201:
-            product_url = response.json().get('product', {}).get('short_url')
-            logger.info(f"✅ GUMROAD PRODUCT CREATED: {product_url}")
-            return product_url
+        # Use json=payload for modern API consistency
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code == 201 or response.status_code == 200:
+            return response.json().get('product', {}).get('short_url')
         else:
-            logger.error(f"❌ GUMROAD FAILURE: {response.text}")
+            logger.error(f"❌ GUMROAD FAIL ({response.status_code}): {response.text}")
             return None
     except Exception as e:
-        logger.error(f"✗ GUMROAD API SYSTEM ERROR: {e}")
+        logger.error(f"✗ GUMROAD API ERROR: {e}")
         return None
