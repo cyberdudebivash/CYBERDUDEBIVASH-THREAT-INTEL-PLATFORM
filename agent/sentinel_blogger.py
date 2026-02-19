@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v16.4.1 (SENTINEL APEX ULTRA PRO)
-PRODUCTION ORCHESTRATOR: The "Hyper-Governor" with Jittered Exponential Backoff.
+sentinel_blogger.py — CyberDudeBivash v16.4.2 (SENTINEL APEX ULTRA PRO)
+PRODUCTION ORCHESTRATOR: Hyper-Governor v2 with Jittered Exponential Backoff.
+MANDATE: PERSISTENT RETRY • RSA SIGNED • ZERO-FAIL PIPELINE
 """
 
 import os
@@ -32,7 +33,7 @@ logger = logging.getLogger("CDB-SENTINEL")
 
 def main():
     logger.info("=" * 80)
-    logger.info("SENTINEL APEX v16.4.1 — HYPER-GOVERNOR DISPATCH ACTIVE")
+    logger.info("SENTINEL APEX v16.4.2 — HYPER-GOVERNOR v2 DISPATCH ACTIVE")
     logger.info("MANDATE: PERSISTENT RETRY • JITTERED BACKOFF • RSA SIGNED")
     logger.info("=" * 80)
 
@@ -51,64 +52,81 @@ def main():
         entries = fetch_feed_entries(feed_url)
         for entry in entries:
             if published_count >= MAX_POSTS_PER_RUN: break
-            if dedup_engine.is_duplicate(entry['title'], entry['link']): continue
+            
+            # 1. Deduplication Gate
+            if dedup_engine.is_duplicate(entry['title'], entry['link']):
+                continue
 
+            # 2. Sovereign Pipeline
             if process_and_monetize(entry, service):
                 published_count += 1
-                # Jittered spacing to avoid pattern detection
+                # Add jitter to spacing to avoid fingerprinting
                 actual_sleep = BASE_POST_SPACING + random.randint(5, 15)
-                logger.info(f"⏳ GOVERNOR: Post successful. Cooling down for {actual_sleep}s...")
+                logger.info(f"⏳ GOVERNOR: Post success. Cooling down for {actual_sleep}s...")
                 time.sleep(actual_sleep)
+
+    logger.info(f"🏁 RUN COMPLETE: {published_count} Signed advisories live.")
 
 def publish_with_retry(service, blog_id, post_body, max_retries=5):
     """
-    Hyper-Governor: Implements Jittered Exponential Backoff.
-    Standard: wait = (2^attempt) + random_jitter
+    Hyper-Governor v2: Implements Jittered Exponential Backoff.
+    Standard: wait = (2^attempt * 60) + random_jitter
     """
     for attempt in range(max_retries):
         try:
             return service.posts().insert(blogId=blog_id, body=post_body).execute()
         except HttpError as e:
-            if e.resp.status in [403, 429]: # Rate Limit or Quota Exceeded
-                # Exponential Backoff: 120s, 240s, 480s... + Jitter
-                wait_time = (2 ** attempt) * 60 + random.uniform(5, 15)
+            # 429 = Rate Limit | 403 = User Rate Limit Exceeded
+            if e.resp.status in [403, 429]:
+                # Exponential growth: 60s, 120s, 240s, 480s... 
+                wait_time = (2 ** attempt) * 60 + random.uniform(10, 30)
                 logger.warning(f"⚠️ QUOTA TRIGGERED (Attempt {attempt+1}/{max_retries}). "
                                f"Hyper-Governor backoff: {int(wait_time)}s...")
                 time.sleep(wait_time)
                 continue
-            logger.error(f"✗ NON-RETRYABLE API ERROR: {e}")
+            
+            # Non-retryable error
+            logger.error(f"✗ CRITICAL API ERROR: {e}")
             break
     return None
 
 def process_and_monetize(entry: Dict, service) -> bool:
+    """High-Value Intelligence Pipeline."""
     headline = entry['title']
     logger.info(f"▶ STARTING PIPELINE: {headline[:60]}...")
 
     try:
+        # A. Intelligence Synthesis & Enrichment
         report_data = premium_report_gen.prepare_report(entry)
         risk = report_data.get('risk_score', 0)
 
+        # B. Severity Gate
         if risk < SEVERITY_THRESHOLD:
             logger.info(f"⏭️ SEVERITY GATE: Risk {risk} below threshold.")
             return False
 
-        # RSA Signing
+        # C. RSA Sovereign Signing
         content_hash = f"{report_data['headline']}{report_data.get('technical_dive', '')}"
         report_data['signature'] = sovereign_engine.sign_asset(content_hash)
         
-        # Asset Forge & Monetization
+        # D. Asset Forge (v16.4 Handshake)
         asset_engine.generate_defense_kit(report_data)
+        
+        # E. Monetization Check (Handles Gumroad 404/API limitations)
         product_url = create_intel_product(title=headline)
         
+        # F. HTML Generation & CTA Injection
         report_html = premium_report_gen.generate_html(report_data)
         if product_url:
             report_html = upsell_engine.inject_premium_cta(report_html, product_url, risk)
+        else:
+            logger.info("ℹ️ Proceeding with Technical-only report (no monetized link).")
 
-        # Final Dispatch through Hyper-Governor
+        # G. Dispatch through Hyper-Governor Retry Logic
         post_body = {
             "title": f"🚨 CDB-SOVEREIGN: {headline}",
             "content": report_html,
-            "labels": ["Signed Intel", "Apex v16.4"]
+            "labels": ["Sovereign Intelligence", "RSA-Signed", "Apex v16.4"]
         }
 
         if publish_with_retry(service, BLOG_ID, post_body):
@@ -121,6 +139,7 @@ def process_and_monetize(entry: Dict, service) -> bool:
         return False
 
 def fetch_feed_entries(url: str) -> List[Dict]:
+    """Retrieves and parses RSS feed entries."""
     try:
         feed = feedparser.parse(url)
         return [{'title': e.title, 'link': e.link} for e in feed.entries[:MAX_ENTRIES_PER_FEED]]
