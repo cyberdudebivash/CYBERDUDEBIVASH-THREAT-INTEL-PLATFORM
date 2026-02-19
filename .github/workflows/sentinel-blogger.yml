@@ -3,6 +3,7 @@ name: CDB Sentinel Blogger – Threat Intel Auto-Publisher
 on:
   schedule:
     - cron: '0 */6 * * *' # Automated 6-hour Global Intelligence Sweep
+    - cron: '0 0 1 * *'   # Monthly Sovereign Workspace Reset (1st of the month)
   workflow_dispatch:      # Manual trigger for immediate Zero-Day response
 
 permissions:
@@ -12,13 +13,13 @@ permissions:
 jobs:
   publish-threat-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 20   # Added safety margin for asset generation
+    timeout-minutes: 25   # Optimized for large asset generation and bundling
 
     steps:
-      - name: Checkout repository (v16.2 Full Sync)
+      - name: Checkout repository (v16.3 Full Sync)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Crucial for stable git rebase from v15.8 logic
+          fetch-depth: 0  # Crucial for stable git rebase operations
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -37,13 +38,22 @@ jobs:
           mkdir -p data/rule_packs
           mkdir -p data/playbooks
           mkdir -p data/enterprise_kits
+          mkdir -p secrets
 
-      # 🛡️ SOVEREIGN KEY INJECTION (NEW v16.x LAYER)
+      # 🧹 MONTHLY WORKSPACE PURIFICATION
+      # Runs only on the 1st of the month to optimize storage usage
+      - name: Monthly Maintenance Purge
+        if: github.event.schedule == '0 0 1 * *'
+        run: python -m agent.janitor
+        env:
+          CI: true
+
+      # 🛡️ SOVEREIGN KEY INJECTION (v16.x Layer)
       - name: Inject Sovereign Key
         run: |
-          mkdir -p secrets
           echo "${{ secrets.CDB_SOVEREIGN_KEY }}" > secrets/cdb_sovereign.pem
           chmod 600 secrets/cdb_sovereign.pem
+          # Mask key in logs to prevent institutional leakage
           echo "::add-mask::$(cat secrets/cdb_sovereign.pem)"
 
       - name: Run Sentinel Blogger APEX Engine
@@ -63,17 +73,17 @@ jobs:
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
           
-          # Stage manifests and metadata (ZIPs/PDFs are ignored via .gitignore)
+          # Stage manifests and metadata (Large assets are ignored via .gitignore)
           git add data/*.json data/stix/*.json
           
-          # Atomic Commit & Rebase Loop (Hardened v15.8 Logic)
+          # Atomic Commit & Rebase Loop (Hardened Stability Logic)
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "v16.2 Apex: Sovereign Intel Manifest Sync [skip ci]"
+            git commit -m "v16.3 Apex: Sovereign Intel Manifest Sync [skip ci]"
             for i in {1..5}; do
               git pull origin main --rebase && git push origin main && break || \
-              (echo "Push collision. Retrying in 15s..." && sleep 15)
+              (echo "Push collision detected. Retrying in 15s (Attempt $i)..." && sleep 15)
             done
           fi
 
@@ -83,4 +93,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
           publish_branch: gh-pages
-          keep_files: true # Critical for data persistence
+          keep_files: true # Preserves existing forensic and manifest data
