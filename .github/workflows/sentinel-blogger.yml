@@ -2,42 +2,49 @@ name: CDB Sentinel Blogger – Threat Intel Auto-Publisher
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Automated 6-hour GOC sweep
-  workflow_dispatch:      # Manual GOC trigger for immediate Intel
+    - cron: '0 */6 * * *' # Automated 6-hour Global Intelligence Sweep
+  workflow_dispatch:      # Manual trigger for immediate Zero-Day response
 
 permissions:
-  contents: write         # Required for CDB-Sentinel-Bot to push data
+  contents: write         # Required for bot to sync forensic manifests
+  pages: write            # Required for gh-pages deployment
 
 jobs:
   publish-threat-report:
     runs-on: ubuntu-latest
+    timeout-minutes: 20   # Added safety margin for asset generation
+
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (v16.2 Full Sync)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required for stable git rebase operations
+          fetch-depth: 0  # Crucial for stable git rebase from v15.8 logic
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install Institutional Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Ensure Forensic Directories Exist
-        run: mkdir -p data/stix
+      - name: Ensure Production Directories Exist
+        run: |
+          mkdir -p data/stix
+          mkdir -p data/rule_packs
+          mkdir -p data/playbooks
+          mkdir -p data/enterprise_kits
 
-      # 🛡️ v16.0 SOVEREIGN KEY INJECTION (NEW)
-      # Injects the encrypted master key into a temporary production folder
+      # 🛡️ SOVEREIGN KEY INJECTION (NEW v16.x LAYER)
       - name: Inject Sovereign Key
         run: |
           mkdir -p secrets
           echo "${{ secrets.CDB_SOVEREIGN_KEY }}" > secrets/cdb_sovereign.pem
           chmod 600 secrets/cdb_sovereign.pem
+          echo "::add-mask::$(cat secrets/cdb_sovereign.pem)"
 
       - name: Run Sentinel Blogger APEX Engine
         env:
@@ -46,23 +53,29 @@ jobs:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
-          # 💰 GUMROAD REVENUE ENGINE ACTIVATION
           GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+          CI: true
+          GITHUB_ACTIONS: true
         run: python -m agent.sentinel_blogger
 
-      - name: Commit & Push Intelligence Data
+      - name: Commit & Atomic Push Intelligence Data
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
-          git config --local user.name "CDB-Sentinel-Bot"          
+          git config --local user.name "CDB-Sentinel-Bot"
           
-          # Stage manifest and institutional bundles
-          git add data/blogger_sentinel_manifest.json data/stix/*.json
+          # Stage manifests and metadata (ZIPs/PDFs are ignored via .gitignore)
+          git add data/*.json data/stix/*.json
           
-          # Clean workspace for rebase
-          git commit -m "v16.0 Apex: Sovereign Intel Manifest Sync [skip ci]" || echo "No changes"
-          
-          git pull origin main --rebase
-          git push origin main
+          # Atomic Commit & Rebase Loop (Hardened v15.8 Logic)
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "v16.2 Apex: Sovereign Intel Manifest Sync [skip ci]"
+            for i in {1..5}; do
+              git pull origin main --rebase && git push origin main && break || \
+              (echo "Push collision. Retrying in 15s..." && sleep 15)
+            done
+          fi
 
       - name: Deploy Live Feed & Protect Branding
         uses: peaceiris/actions-gh-pages@v3
@@ -70,4 +83,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
           publish_branch: gh-pages
-          keep_files: true
+          keep_files: true # Critical for data persistence
