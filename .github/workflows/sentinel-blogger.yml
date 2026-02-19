@@ -31,6 +31,14 @@ jobs:
       - name: Ensure Forensic Directories Exist
         run: mkdir -p data/stix
 
+      # 🛡️ v16.0 SOVEREIGN KEY INJECTION (NEW)
+      # Injects the encrypted master key into a temporary production folder
+      - name: Inject Sovereign Key
+        run: |
+          mkdir -p secrets
+          echo "${{ secrets.CDB_SOVEREIGN_KEY }}" > secrets/cdb_sovereign.pem
+          chmod 600 secrets/cdb_sovereign.pem
+
       - name: Run Sentinel Blogger APEX Engine
         env:
           BLOG_ID: ${{ secrets.BLOG_ID }}
@@ -38,24 +46,22 @@ jobs:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+          # 💰 GUMROAD REVENUE ENGINE ACTIVATION
+          GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
         run: python -m agent.sentinel_blogger
 
       - name: Commit & Push Intelligence Data
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
-          git config --local user.name "CDB-Sentinel-Bot"
+          git config --local user.name "CDB-Sentinel-Bot"          
           
-          # 1. Stage the new intelligence manifest and STIX data
-          git add data/*.json data/stix/*.json
+          # Stage manifest and institutional bundles
+          git add data/blogger_sentinel_manifest.json data/stix/*.json
           
-          # 2. Commit local changes to 'clean' the workspace
-          # This handles the "You have unstaged changes" error
-          git commit -m "v15.8 Apex: Sync Intelligence Manifest [skip ci]" || echo "No changes"
+          # Clean workspace for rebase
+          git commit -m "v16.0 Apex: Sovereign Intel Manifest Sync [skip ci]" || echo "No changes"
           
-          # 3. Pull remote changes (manual edits) and replay bot work on top
           git pull origin main --rebase
-          
-          # 4. Final push to update the UI dashboard time
           git push origin main
 
       - name: Deploy Live Feed & Protect Branding
@@ -64,4 +70,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
           publish_branch: gh-pages
-          keep_files: true # PRESERVES existing manifest and forensic data during deploy
+          keep_files: true
