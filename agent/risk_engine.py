@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
 """
-risk_engine.py — CyberDudeBivash v12.0 (SENTINEL APEX ULTRA)
-COMPLETE REWRITE: Content-Aware Dynamic Risk Scoring Engine.
+risk_engine.py — CyberDudeBivash v17.0 (SENTINEL APEX ULTRA)
+ENHANCED: Content-Aware Dynamic Risk Scoring Engine + Predictive Intelligence Fields.
+
+v17.0 ADDITIONS (fully non-breaking — all new fields are supplementary):
+  - predictive_risk_delta: estimated risk change based on exploit signals
+  - exploit_velocity: frequency-based momentum score (0.0-10.0)
+  - intel_confidence_score: weighted multi-source confidence metric
+  - threat_momentum_score: composite momentum (Sentinel Momentum Index™)
+  - compute_extended_metrics(): returns all new fields as supplementary dict
+
+All existing calculate_risk_score() output is UNCHANGED.
+Extended fields are returned via compute_extended_metrics() only.
 
 KEY FIX: The old engine ONLY scored IOCs, so a "2.5M record breach"
 with zero IOCs scored 2.6/10 (LOW). Now the engine analyzes headline
@@ -299,5 +309,194 @@ class RiskScoringEngine:
                 return {"label": tlp["label"], "color": tlp["color"]}
         return {"label": "TLP:CLEAR", "color": "#94a3b8"}
 
+    # ══════════════════════════════════════════════════════════════
+    # v17.0 EXTENDED METRICS — SUPPLEMENTARY INTELLIGENCE FIELDS
+    # All methods below are ADDITIVE. They do not modify any
+    # existing method output. Call compute_extended_metrics() after
+    # calculate_risk_score() to get additional intelligence signals.
+    # ══════════════════════════════════════════════════════════════
+
+    def compute_extended_metrics(
+        self,
+        risk_score: float,
+        headline: str = "",
+        content: str = "",
+        cvss_score: Optional[float] = None,
+        epss_score: Optional[float] = None,
+        kev_present: bool = False,
+        source_count: int = 1,
+        iocs: Optional[Dict] = None,
+        mitre_matches: Optional[List[Dict]] = None,
+    ) -> Dict:
+        """
+        Compute supplementary intelligence metrics for a threat item.
+        Returns a dict of new fields — NEVER modifies base risk_score.
+
+        New fields:
+          - predictive_risk_delta: estimated risk change signal (-3.0 to +3.0)
+          - exploit_velocity: exploit momentum signal (0.0-10.0)
+          - intel_confidence_score: multi-source confidence (0.0-100.0)
+          - threat_momentum_score: Sentinel Momentum Index™ (0.0-10.0)
+        """
+        predictive_delta = self._compute_predictive_risk_delta(
+            headline, content, cvss_score, epss_score, kev_present
+        )
+        exploit_velocity = self._compute_exploit_velocity(headline, content, cvss_score)
+        intel_confidence = self._compute_intel_confidence(
+            source_count, iocs or {}, mitre_matches or [], risk_score
+        )
+        momentum = self._compute_threat_momentum(exploit_velocity, predictive_delta)
+
+        extended = {
+            "predictive_risk_delta": round(predictive_delta, 2),
+            "exploit_velocity": round(exploit_velocity, 2),
+            "intel_confidence_score": round(intel_confidence, 1),
+            "threat_momentum_score": round(momentum, 2),
+            "threat_momentum_label": self._momentum_label(momentum),
+        }
+
+        logger.info(
+            f"📊 Extended Metrics | "
+            f"Δ Risk: {extended['predictive_risk_delta']:+.2f} | "
+            f"Velocity: {extended['exploit_velocity']}/10 | "
+            f"Confidence: {extended['intel_confidence_score']}% | "
+            f"Momentum: {extended['threat_momentum_score']}/10 ({extended['threat_momentum_label']})"
+        )
+
+        return extended
+
+    def _compute_predictive_risk_delta(
+        self,
+        headline: str,
+        content: str,
+        cvss_score: Optional[float],
+        epss_score: Optional[float],
+        kev_present: bool,
+    ) -> float:
+        """
+        Estimate how risk is likely to change over the next 14 days.
+        Positive delta = risk likely increasing. Negative = stabilizing.
+        Range: -3.0 to +3.0
+        """
+        delta = 0.0
+        text = f"{headline} {content}".lower()
+
+        # Positive signals (risk escalating)
+        if kev_present:
+            delta += 1.5
+        if epss_score and epss_score >= 0.9:
+            delta += 1.0
+        elif epss_score and epss_score >= 0.5:
+            delta += 0.5
+        if any(t in text for t in ["zero-day", "0-day", "actively exploited", "in the wild"]):
+            delta += 1.0
+        if any(t in text for t in ["ransomware", "nation-state", "supply chain attack"]):
+            delta += 0.8
+        if cvss_score and cvss_score >= 9.0:
+            delta += 0.5
+
+        # Negative signals (risk stabilizing)
+        if any(t in text for t in ["patched", "fixed", "mitigated", "remediated", "update available"]):
+            delta -= 1.0
+        if any(t in text for t in ["no active exploitation", "not exploited", "theoretical"]):
+            delta -= 0.8
+
+        return max(-3.0, min(3.0, delta))
+
+    def _compute_exploit_velocity(
+        self,
+        headline: str,
+        content: str,
+        cvss_score: Optional[float],
+    ) -> float:
+        """
+        Compute exploit momentum: how quickly this threat is accelerating.
+        Based on urgency signals + CVSS + content keywords.
+        Range: 0.0 - 10.0
+        """
+        text = f"{headline} {content}".lower()
+        velocity = 2.0  # Baseline
+
+        # High velocity signals
+        if "actively exploited" in text or "in the wild" in text:
+            velocity += 3.0
+        if "zero-day" in text or "0-day" in text:
+            velocity += 2.5
+        if "ransomware" in text:
+            velocity += 2.0
+        if "nation-state" in text or "state-sponsored" in text:
+            velocity += 1.5
+        if "poc available" in text or "proof of concept" in text:
+            velocity += 1.5
+        if "critical" in text:
+            velocity += 1.0
+        if cvss_score and cvss_score >= 9.0:
+            velocity += 1.5
+        elif cvss_score and cvss_score >= 7.0:
+            velocity += 0.8
+
+        # Velocity dampeners
+        if "low severity" in text or "informational" in text:
+            velocity -= 1.5
+        if "patched" in text or "fixed" in text:
+            velocity -= 1.0
+
+        return max(0.0, min(10.0, velocity))
+
+    def _compute_intel_confidence(
+        self,
+        source_count: int,
+        iocs: Dict,
+        mitre_matches: List[Dict],
+        risk_score: float,
+    ) -> float:
+        """
+        Weighted multi-source confidence score (0.0 - 100.0).
+        Based on: source diversity, IOC richness, MITRE coverage, risk signal strength.
+        """
+        confidence = 20.0  # Base
+
+        # Source diversity contribution (up to 25 pts)
+        confidence += min(source_count * 5.0, 25.0)
+
+        # IOC richness contribution (up to 30 pts)
+        ioc_types_found = sum(1 for v in iocs.values() if v)
+        confidence += min(ioc_types_found * 5.0, 30.0)
+
+        # MITRE coverage contribution (up to 20 pts)
+        confidence += min(len(mitre_matches) * 3.0, 20.0)
+
+        # Risk score strength (up to 5 pts bonus for high-confidence threats)
+        if risk_score >= 8.0:
+            confidence += 5.0
+        elif risk_score >= 6.0:
+            confidence += 3.0
+
+        return min(confidence, 100.0)
+
+    def _compute_threat_momentum(
+        self, exploit_velocity: float, predictive_delta: float
+    ) -> float:
+        """
+        Sentinel Momentum Index™ (SMI) — composite threat acceleration score.
+        Formula: SMI = (exploit_velocity × 0.6) + (predictive_delta_normalized × 0.4)
+        Range: 0.0 - 10.0
+        """
+        # Normalize predictive_delta from [-3, 3] to [0, 10]
+        delta_normalized = ((predictive_delta + 3.0) / 6.0) * 10.0
+        momentum = (exploit_velocity * 0.6) + (delta_normalized * 0.4)
+        return max(0.0, min(10.0, momentum))
+
+    def _momentum_label(self, momentum: float) -> str:
+        if momentum >= 8.0:
+            return "SURGE"
+        elif momentum >= 6.0:
+            return "ACCELERATING"
+        elif momentum >= 4.0:
+            return "ACTIVE"
+        elif momentum >= 2.0:
+            return "STABLE"
+        return "LOW"
+-e 
 
 risk_engine = RiskScoringEngine()

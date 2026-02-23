@@ -220,5 +220,107 @@ class MITREMapper:
 
         return matches
 
+    # ══════════════════════════════════════════════════════════════
+    # v17.0 ADDITIONS — MITRE COVERAGE ANALYTICS
+    # Non-breaking. Call compute_coverage_score() with match list.
+    # ══════════════════════════════════════════════════════════════
+
+    def compute_coverage_score(self, matches: list) -> dict:
+        """
+        Compute MITRE ATT&CK coverage depth score for a threat item.
+
+        Returns:
+          - coverage_score: 0.0-10.0 (higher = more attack surface mapped)
+          - tactic_count: number of unique tactics covered
+          - technique_count: total techniques matched
+          - tactic_breadth: coverage across kill-chain stages
+          - coverage_label: LOW / MODERATE / HIGH / COMPREHENSIVE
+          - tactics_covered: list of unique tactics
+
+        SOC teams use this to understand how well a threat is mapped
+        to the ATT&CK framework for detection engineering.
+        """
+        if not matches:
+            return {
+                "coverage_score": 0.0,
+                "technique_count": 0,
+                "tactic_count": 0,
+                "tactic_breadth": 0.0,
+                "coverage_label": "NONE",
+                "tactics_covered": [],
+            }
+
+        TACTIC_ORDER = [
+            "Reconnaissance", "Resource Development", "Initial Access",
+            "Execution", "Persistence", "Privilege Escalation",
+            "Defense Evasion", "Credential Access", "Discovery",
+            "Lateral Movement", "Collection", "Command and Control",
+            "Exfiltration", "Impact",
+        ]
+        TOTAL_TACTICS = len(TACTIC_ORDER)
+
+        # Unique tactics and techniques
+        tactics_covered = list({m["tactic"] for m in matches})
+        technique_count = len(matches)
+        tactic_count = len(tactics_covered)
+
+        # Tactic breadth: what fraction of kill-chain stages are covered
+        tactic_breadth = round((tactic_count / TOTAL_TACTICS) * 100.0, 1)
+
+        # Coverage score computation
+        score = (
+            min(technique_count * 0.8, 4.0) +  # Up to 4 pts for technique count
+            min(tactic_count * 0.4, 3.0) +      # Up to 3 pts for tactic diversity
+            min(tactic_breadth * 0.03, 3.0)     # Up to 3 pts for breadth %
+        )
+        coverage_score = round(min(score, 10.0), 2)
+
+        # Label
+        if coverage_score >= 7.0:
+            label = "COMPREHENSIVE"
+        elif coverage_score >= 4.5:
+            label = "HIGH"
+        elif coverage_score >= 2.5:
+            label = "MODERATE"
+        else:
+            label = "LOW"
+
+        return {
+            "coverage_score": coverage_score,
+            "technique_count": technique_count,
+            "tactic_count": tactic_count,
+            "tactic_breadth": tactic_breadth,
+            "coverage_label": label,
+            "tactics_covered": tactics_covered,
+        }
+
+    def get_detection_recommendations(self, matches: list) -> list:
+        """
+        Returns detection engineering recommendations based on MITRE matches.
+        One actionable recommendation per unique tactic covered.
+        """
+        DETECTION_HINTS = {
+            "Initial Access": "Monitor authentication logs for credential stuffing / phishing indicators.",
+            "Execution": "Enable PowerShell ScriptBlock logging; monitor for suspicious child process spawning.",
+            "Persistence": "Audit startup registry keys, scheduled tasks, and browser extension installs.",
+            "Privilege Escalation": "Alert on unexpected token manipulation and UAC bypass attempts.",
+            "Defense Evasion": "Monitor process injection, LOLBin usage, and AMSI bypass patterns.",
+            "Credential Access": "Enable LSASS protection; alert on credential dump tool signatures.",
+            "Discovery": "Baseline normal network enumeration; alert on rapid port scanning from internal hosts.",
+            "Lateral Movement": "Monitor for unusual SMB authentication and lateral tool transfers.",
+            "Collection": "Alert on bulk file access patterns and cloud storage exfiltration.",
+            "Command and Control": "Inspect unusual DNS patterns, beaconing traffic, and encrypted C2 channels.",
+            "Exfiltration": "Monitor outbound data volume anomalies and archive file creation.",
+            "Impact": "Alert on volume shadow copy deletion, mass file encryption, and service disruption.",
+            "Reconnaissance": "Monitor exposed infrastructure; track shodan/censys scanning of your IP space.",
+            "Resource Development": "Monitor for lookalike domain registrations targeting your brand.",
+        }
+        tactics_covered = {m["tactic"] for m in matches}
+        return [
+            {"tactic": tactic, "recommendation": DETECTION_HINTS[tactic]}
+            for tactic in tactics_covered
+            if tactic in DETECTION_HINTS
+        ]
+
 
 mitre_engine = MITREMapper()
