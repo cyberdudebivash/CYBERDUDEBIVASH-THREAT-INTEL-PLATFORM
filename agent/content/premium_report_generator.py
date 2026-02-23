@@ -223,6 +223,18 @@ class PremiumReportGenerator:
         sections = []
 
         # ═══════════════════════════════════════════════════════════════
+        # v19.0: Load enhancement engine (non-breaking)
+        # ═══════════════════════════════════════════════════════════════
+        _enhancer = None
+        try:
+            from agent.content import report_enhancer as _enhancer
+        except Exception:
+            pass
+
+        total_iocs = sum(len(v) for v in iocs.values())
+        mitre_count = len(mitre_data)
+
+        # ═══════════════════════════════════════════════════════════════
         # COVER / HEADER
         # ═══════════════════════════════════════════════════════════════
         sections.append(f"""
@@ -272,11 +284,29 @@ class PremiumReportGenerator:
         # ═══════════════════════════════════════════════════════════════
         # SECTION 1: EXECUTIVE SUMMARY
         # ═══════════════════════════════════════════════════════════════
+
+        # v19.0: Executive One-Pager (CISO-ready summary card)
+        _onepager_html = ""
+        if _enhancer:
+            try:
+                _smart_ctx = _enhancer.extract_smart_context(headline, article_summary, article_text)
+                _sectors = _smart_ctx.get("targeted_sectors", threat_type.get("sectors", ["Enterprise"]))
+                _onepager_html = _enhancer.build_executive_onepager(
+                    headline=headline, risk_score=risk_score, severity=severity,
+                    confidence=confidence, tlp_label=tlp_label, total_iocs=total_iocs,
+                    mitre_count=mitre_count, actor_tag=tracking_id,
+                    sectors=_sectors, report_id=report_id, now_str=now_str,
+                    cves=mentioned_cves, impact_metrics=impact,
+                )
+            except Exception:
+                _onepager_html = ""
+
         exec_summary = self._generate_executive_summary(
             headline, article_summary, article_text, threat_type, risk_score,
             severity, confidence, tracking_id, iocs, mentioned_cves, impact)
 
         sections.append(f"""
+        {_onepager_html}
         <h2 style="{s['h2']}">1. EXECUTIVE SUMMARY (CISO / BOARD READY)</h2>
         <h3 style="{s['h3']}">Overview</h3>
         {exec_summary}
@@ -338,6 +368,32 @@ class PremiumReportGenerator:
             tracking identifier or any recognized community alias for cross-platform intelligence
             sharing and ISAC coordination.</p>
 """)
+
+        # ═══════════════════════════════════════════════════════════════
+        # v19.0: ATTACK TIMELINE + GEO INTELLIGENCE
+        # ═══════════════════════════════════════════════════════════════
+        if _enhancer:
+            try:
+                _timeline_html = _enhancer.build_attack_timeline(
+                    headline=headline, content=article_text,
+                    threat_category=threat_type.get("category", ""),
+                    mitre_data=mitre_data, iocs=iocs,
+                )
+                if _timeline_html:
+                    sections.append(f"    <div style='padding:0 50px;'>{_timeline_html}</div>")
+            except Exception:
+                pass
+
+            try:
+                _geo_html = _enhancer.build_geo_heatmap(
+                    content=article_text,
+                    threat_category=threat_type.get("category", ""),
+                    headline=headline,
+                )
+                if _geo_html:
+                    sections.append(f"    <div style='padding:0 50px;'>{_geo_html}</div>")
+            except Exception:
+                pass
 
         # ═══════════════════════════════════════════════════════════════
         # SECTION 3: TECHNICAL ANALYSIS (DEEP-DIVE)
@@ -433,6 +489,16 @@ class PremiumReportGenerator:
             {self._generate_vuln_analysis(mentioned_cves, article_text, threat_type)}
         </p>
 """)
+
+        # v19.0: Patch Priority Matrix (renders only when CVEs exist)
+        if _enhancer and mentioned_cves:
+            try:
+                _patch_html = _enhancer.build_patch_priority_matrix(
+                    cves=mentioned_cves, content=article_text, risk_score=risk_score)
+                if _patch_html:
+                    sections.append(f"    <div style='padding:0 50px;'>{_patch_html}</div>")
+            except Exception:
+                pass
 
         # ═══════════════════════════════════════════════════════════════
         # SECTION 8: RISK SCORING METHODOLOGY
