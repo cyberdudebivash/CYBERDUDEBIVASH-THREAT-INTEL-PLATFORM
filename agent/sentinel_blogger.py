@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v15.0 (SENTINEL APEX ULTRA)
+sentinel_blogger.py — CyberDudeBivash v17.0 (SENTINEL APEX ULTRA)
 PRODUCTION ORCHESTRATOR: Multi-feed fusion, source article fetching,
 PREMIUM 16-section report generation (2500+ words), dynamic risk scoring,
 TRIPLE-LAYER deduplication, enhanced STIX, MITRE mapping, actor attribution,
 TLP classification, confidence scoring, rate-limit protection.
 
-v15.0 UPGRADE: Mobile malware intelligence, IOC false positive filtering,
-Triada/BADBOX/Vo1d actor profiles, MITRE Mobile ATT&CK, Java package exclusion.
-
-CRITICAL: All existing functionality preserved. Only evolved.
+v17.0 UPGRADE: Telemetry integration, predictive risk fields, extended MITRE
+coverage scores, campaign tracker recording, threat momentum scoring.
+All existing functionality PRESERVED. Zero breaking changes.
 """
 import os
 import re
@@ -35,7 +34,36 @@ from agent.config import (
     MAX_ENTRIES_PER_FEED,
     RATE_LIMIT_DELAY,
     BRAND,
+    TELEMETRY_ENABLED,
+    PREDICTIVE_ENABLED,
+    CAMPAIGN_TRACKER_ENABLED,
 )
+
+# v17.0: New module imports (safe — all wrapped in try/except for graceful degradation)
+try:
+    from agent.core.telemetry import telemetry as _telemetry
+    _TELEMETRY_OK = TELEMETRY_ENABLED
+except ImportError:
+    _telemetry = None
+    _TELEMETRY_OK = False
+
+try:
+    from agent.predictive.exploit_forecaster import exploit_forecaster as _forecaster
+    from agent.predictive.risk_trend_model import risk_trend_model as _trend_model
+    _PREDICTIVE_OK = PREDICTIVE_ENABLED
+except ImportError:
+    _forecaster = None
+    _trend_model = None
+    _PREDICTIVE_OK = False
+
+try:
+    from agent.threat_actor.campaign_tracker import campaign_tracker as _campaign_tracker
+    from agent.threat_actor.actor_registry import actor_registry as _actor_registry
+    _CAMPAIGN_OK = CAMPAIGN_TRACKER_ENABLED
+except ImportError:
+    _campaign_tracker = None
+    _actor_registry = None
+    _CAMPAIGN_OK = False
 
 # ═══════════════════════════════════════════════════════════
 # INSTITUTIONAL LOGGING
@@ -136,9 +164,23 @@ def build_enriched_content(entry: Dict, fetched_article: Optional[Dict]) -> str:
 # ═══════════════════════════════════════════════════════════
 def main():
     logger.info("=" * 70)
-    logger.info("SENTINEL APEX v15.0 — PREMIUM REPORT ENGINE ACTIVATED")
+    logger.info("SENTINEL APEX v17.0 — PREMIUM REPORT ENGINE ACTIVATED")
     logger.info("Triple-Layer Dedup • 15 Feeds • Mobile-Aware • IOC FP Filter")
+    logger.info("v17.0: Telemetry • Predictive • Campaign Tracker • Archive Engine")
     logger.info("=" * 70)
+
+    # ── v17.0: Start run telemetry ──
+    _run_start = time.monotonic()
+    if _TELEMETRY_OK and _telemetry:
+        _telemetry.start_timer("total_run")
+        logger.info("📊 Telemetry: ENABLED")
+    else:
+        logger.info("📊 Telemetry: DISABLED or module not loaded")
+
+    if _PREDICTIVE_OK:
+        logger.info("🔮 Predictive Engine: ENABLED")
+    if _CAMPAIGN_OK:
+        logger.info("🎯 Campaign Tracker: ENABLED")
 
     try:
         service = get_blogger_service()
@@ -171,13 +213,18 @@ def main():
     logger.info("─── PHASE 2: Multi-Feed Intelligence Fusion ───")
 
     # Load manifest ONCE for similarity checking
+    # v17.0: Handle both old list format and new dict format
     _manifest = []
     try:
         import json as _json
         _mpath = os.path.join("data", "stix", "feed_manifest.json")
         if os.path.exists(_mpath):
             with open(_mpath) as _f:
-                _manifest = _json.load(_f)
+                _data = _json.load(_f)
+            if isinstance(_data, list):
+                _manifest = _data
+            elif isinstance(_data, dict):
+                _manifest = _data.get("entries", [])
     except Exception:
         pass
 
@@ -205,7 +252,30 @@ def main():
                 published_count += 1
 
     logger.info("=" * 70)
-    logger.info(f"APEX v15.0 COMPLETE — Published {published_count} PREMIUM advisories")
+    logger.info(f"APEX v17.0 COMPLETE — Published {published_count} PREMIUM advisories")
+
+    # ── v17.0: Run predictive trend analysis ──
+    if _PREDICTIVE_OK and _trend_model:
+        try:
+            trend = _trend_model.analyze()
+            logger.info(
+                f"📈 Threat Trend: {trend.get('trend_direction', 'N/A')} | "
+                f"Velocity: {trend.get('attack_velocity_per_day', 0)}/day | "
+                f"High Risk Rate: {trend.get('high_risk_rate_pct', 0)}%"
+            )
+        except Exception as e:
+            logger.warning(f"Trend analysis failed (non-critical): {e}")
+
+    # ── v17.0: Finalize telemetry ──
+    if _TELEMETRY_OK and _telemetry:
+        try:
+            total_elapsed = time.monotonic() - _run_start
+            _telemetry.finalize_run(
+                total_elapsed=total_elapsed,
+                status="success" if published_count >= 0 else "partial"
+            )
+        except Exception as e:
+            logger.warning(f"Telemetry finalization failed (non-critical): {e}")
     logger.info("=" * 70)
 
 

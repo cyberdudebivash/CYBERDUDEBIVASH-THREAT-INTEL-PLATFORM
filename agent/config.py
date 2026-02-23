@@ -226,3 +226,46 @@ FALSE_POSITIVE_EXTENSIONS = [
 # API KEYS (from environment)
 # ═══════════════════════════════════════════════════════════
 VT_API_KEY = os.environ.get('VT_API_KEY', '')
+
+# ═══════════════════════════════════════════════════════════
+# v17.0 CONFIGURATION ADDITIONS
+# ═══════════════════════════════════════════════════════════
+
+# ── Archive Settings ──
+ARCHIVE_RETENTION_DAYS = int(os.environ.get('ARCHIVE_RETENTION_DAYS', '15'))
+ARCHIVE_DIR = "data/archive"
+
+# ── Notification Webhooks ──
+DISCORD_WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')
+SLACK_WEBHOOK = os.environ.get('SLACK_WEBHOOK', '')
+TEAMS_WEBHOOK = os.environ.get('TEAMS_WEBHOOK', '')          # NEW: Microsoft Teams
+GENERIC_WEBHOOK_URL = os.environ.get('GENERIC_WEBHOOK_URL', '')  # NEW: Generic SOAR webhook
+
+# ── Credentials path via environment (security best practice) ──
+# Use CDB_CREDENTIALS_PATH env var to specify credentials location
+# instead of hardcoded path. Defaults to legacy path for backward compat.
+CDB_CREDENTIALS_PATH = os.environ.get(
+    'CDB_CREDENTIALS_PATH',
+    'credentials/credentials.json'
+)
+CDB_TOKEN_PATH = os.environ.get(
+    'CDB_TOKEN_PATH',
+    'credentials/token.json'
+)
+
+# ── Telemetry Settings ──
+TELEMETRY_ENABLED = os.environ.get('TELEMETRY_ENABLED', 'true').lower() == 'true'
+TELEMETRY_LOG_PATH = "data/telemetry_log.json"
+
+# ── API Settings ──
+API_PUBLIC_MAX_ENTRIES = 10
+API_ENTERPRISE_MAX_ENTRIES = 500
+
+# ── Predictive Settings ──
+PREDICTIVE_ENABLED = os.environ.get('PREDICTIVE_ENABLED', 'true').lower() == 'true'
+
+# ── Campaign Tracker ──
+CAMPAIGN_TRACKER_ENABLED = os.environ.get('CAMPAIGN_TRACKER_ENABLED', 'true').lower() == 'true'
+
+# Update brand version
+BRAND["version"] = "v17.0"

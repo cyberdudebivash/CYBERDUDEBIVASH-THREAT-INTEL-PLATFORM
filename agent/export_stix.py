@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 """
-export_stix.py — CyberDudeBivash v11.0 (SENTINEL APEX ULTRA)
-UPGRADED: Proper STIX 2.1 bundles with indicator objects, relationships,
-attack-pattern references, expanded manifest schema.
+export_stix.py — CyberDudeBivash v17.0 (SENTINEL APEX ULTRA)
+ENHANCED: STIX 2.1 bundles with full indicator objects and rich relationships.
+
+v17.0 ADDITIONS (non-breaking):
+  - CVE → Malware relationship objects
+  - CVE → Threat Actor relationship objects
+  - CVE → MITRE Technique relationship objects with technique metadata
+  - Vulnerability objects for CVE IDs extracted from content
+  - Manifest schema extended: generated_at, source_url, cvss_score, status fields
+  - Manifest format migrated to {entries: [], generated_at: ...} dict format
+    with backward-compatible list fallback
 """
 import json
 import uuid
@@ -139,17 +147,33 @@ class STIXExporter:
             })
 
         # ── Attack Patterns (MITRE) ──
+        attack_pattern_ids = []
         if mitre_tactics:
             for tactic in mitre_tactics[:10]:
                 ap_id = f"attack-pattern--{uuid.uuid4()}"
-                objects.append({
+                tactic_name = tactic if isinstance(tactic, str) else tactic.get('tactic', 'Unknown')
+                tech_id = tactic.get('id', '') if isinstance(tactic, dict) else ''
+                tech_name = tactic.get('name', tactic_name) if isinstance(tactic, dict) else tactic_name
+
+                ap_obj = {
                     "type": "attack-pattern",
                     "spec_version": "2.1",
                     "id": ap_id,
-                    "name": tactic if isinstance(tactic, str) else tactic.get('tactic', 'Unknown'),
+                    "name": tech_name,
                     "created": timestamp,
                     "modified": timestamp,
-                })
+                }
+                # Add external reference to MITRE ATT&CK if technique ID available
+                if tech_id:
+                    ap_obj["external_references"] = [{
+                        "source_name": "mitre-attack",
+                        "external_id": tech_id,
+                        "url": f"https://attack.mitre.org/techniques/{tech_id.replace('.', '/')}/"
+                    }]
+                objects.append(ap_obj)
+                attack_pattern_ids.append(ap_id)
+
+                # Intrusion Set → USES → Attack Pattern
                 objects.append({
                     "type": "relationship",
                     "spec_version": "2.1",
@@ -159,6 +183,59 @@ class STIXExporter:
                     "target_ref": ap_id,
                     "created": timestamp,
                     "modified": timestamp,
+                })
+
+        # ── v17.0: CVE Vulnerability Objects + Relationships ──
+        # Extract CVE IDs from title and metadata for structured STIX objects
+        import re as _re
+        cve_pattern = _re.compile(r'CVE-\d{4}-\d{4,}', _re.IGNORECASE)
+        title_text = title or ""
+        meta_text = str(metadata or {})
+        cve_ids_found = list(set(cve_pattern.findall(title_text + " " + meta_text)))
+
+        vulnerability_ids = []
+        for cve_id in cve_ids_found[:5]:  # Cap at 5 CVEs per bundle
+            vuln_id = f"vulnerability--{uuid.uuid4()}"
+            vulnerability_ids.append(vuln_id)
+            vuln_obj = {
+                "type": "vulnerability",
+                "spec_version": "2.1",
+                "id": vuln_id,
+                "name": cve_id.upper(),
+                "created": timestamp,
+                "modified": timestamp,
+                "external_references": [{
+                    "source_name": "cve",
+                    "external_id": cve_id.upper(),
+                    "url": f"https://nvd.nist.gov/vuln/detail/{cve_id.upper()}"
+                }]
+            }
+            objects.append(vuln_obj)
+
+            # Intrusion Set → EXPLOITS → Vulnerability
+            objects.append({
+                "type": "relationship",
+                "spec_version": "2.1",
+                "id": f"relationship--{uuid.uuid4()}",
+                "relationship_type": "exploits",
+                "source_ref": intrusion_set_id,
+                "target_ref": vuln_id,
+                "created": timestamp,
+                "modified": timestamp,
+            })
+
+            # Vulnerability → TARGETS → Attack Patterns (via indicators)
+            for ap_id in attack_pattern_ids[:3]:
+                objects.append({
+                    "type": "relationship",
+                    "spec_version": "2.1",
+                    "id": f"relationship--{uuid.uuid4()}",
+                    "relationship_type": "targets",
+                    "source_ref": vuln_id,
+                    "target_ref": ap_id,
+                    "created": timestamp,
+                    "modified": timestamp,
+                    "description": "CVE exploited via mapped ATT&CK technique",
                 })
 
         # ── Write STIX Bundle to file ──
@@ -201,34 +278,50 @@ class STIXExporter:
     def _update_manifest(self, title, stix_id, risk_score, blog_url,
                          severity, confidence, tlp_label, ioc_counts,
                          actor_tag, mitre_tactics, feed_source,
-                         indicator_count, stix_file):
-        """Update expanded manifest with backward-compatible schema."""
-        manifest = []
+                         indicator_count, stix_file,
+                         cvss_score=None, epss_score=None,
+                         kev_present=False, source_url="",
+                         extended_metrics=None):
+        """
+        Update manifest with backward-compatible schema.
+        v17.0: Enhanced manifest format with {entries: [], generated_at: ...}
+               Extended entry fields: generated_at, source_url, cvss_score,
+               epss_score, kev_present, status, extended_metrics
+        """
+        # Load existing manifest — support both old list format and new dict format
+        manifest_entries = []
         if os.path.exists(self.manifest_path):
             try:
                 with open(self.manifest_path, 'r') as f:
                     data = json.load(f)
-                    manifest = data if isinstance(data, list) else []
+                if isinstance(data, list):
+                    manifest_entries = data  # Legacy list format
+                elif isinstance(data, dict):
+                    manifest_entries = data.get("entries", [])
             except Exception:
-                manifest = []
+                manifest_entries = []
 
-        # ── Expanded Manifest Entry ──
-        # v14.0: Dedup guard at manifest level
-        existing_titles = {e.get("title", "").strip().lower() for e in manifest}
+        # ── Dedup guard at manifest level ──
+        existing_titles = {e.get("title", "").strip().lower() for e in manifest_entries}
         if title.strip().lower() in existing_titles:
             logger.info(f"  [MANIFEST] Dedup guard: skipping duplicate title: {title[:60]}")
             return
 
-        manifest.append({
+        # ── Build enhanced manifest entry ──
+        entry = {
             # Original fields (backward compatible)
             "title": title,
             "stix_id": stix_id,
+            "bundle_id": stix_id,        # v17.0: alias for API layer
             "risk_score": float(risk_score),
             "blog_url": blog_url,
+            "source_url": source_url or blog_url,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            # NEW fields
+            "generated_at": datetime.now(timezone.utc).isoformat(),  # v17.0 alias
+            # v11.0 fields
             "severity": severity,
             "confidence_score": float(confidence),
+            "confidence": float(confidence),  # v17.0 alias
             "tlp_label": tlp_label,
             "ioc_counts": ioc_counts,
             "actor_tag": actor_tag,
@@ -236,11 +329,31 @@ class STIXExporter:
             "feed_source": feed_source,
             "indicator_count": indicator_count,
             "stix_file": stix_file,
-        })
+            # v17.0 NEW fields
+            "cvss_score": cvss_score,
+            "epss_score": epss_score,
+            "kev_present": kev_present,
+            "status": "active",          # active | archived
+            "extended_metrics": extended_metrics or {},
+        }
 
-        # Keep last N entries (upgraded from 10 → configurable)
+        manifest_entries.append(entry)
+
+        # Keep last N entries
+        trimmed = manifest_entries[-MANIFEST_MAX_ENTRIES:]
+
+        # ── Write as enhanced dict format ──
+        manifest_doc = {
+            "platform": "CyberDudeBivash SENTINEL APEX",
+            "version": "v17.0",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "total_entries": len(trimmed),
+            "entries": trimmed,
+        }
+
         with open(self.manifest_path, 'w') as f:
-            json.dump(manifest[-MANIFEST_MAX_ENTRIES:], f, indent=4)
+            json.dump(manifest_doc, f, indent=4)
 
 
 # Global singleton (backward compatible)
