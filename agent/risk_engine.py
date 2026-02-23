@@ -497,6 +497,6 @@ class RiskScoringEngine:
         elif momentum >= 2.0:
             return "STABLE"
         return "LOW"
--e 
+
 
 risk_engine = RiskScoringEngine()
