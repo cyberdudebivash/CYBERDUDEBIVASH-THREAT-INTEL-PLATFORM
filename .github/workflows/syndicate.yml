@@ -1,0 +1,118 @@
+name: CyberDudeBivash Sentinel Syndication Engine
+
+on:
+  schedule:
+    # Run every 2 hours — checks for new blog posts and syndicates them
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      force_run:
+        description: 'Force run even if no new items detected'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write   # Required to commit syndication state back to repo
+
+jobs:
+  syndicate:
+    name: RSS → Social Media Syndication
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # ── 1. Checkout repo with full history ─────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      # ── 2. Set up Python ───────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: syndicate/requirements_syndicate.txt
+
+      # ── 3. Install dependencies ────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r syndicate/requirements_syndicate.txt
+
+      # ── 4. Create data directory ──────────────────────────────────────
+      - name: Create data directory
+        run: mkdir -p syndicate/data
+
+      # ── 5. Run Syndication Engine ──────────────────────────────────────
+      - name: Run Syndication Engine
+        working-directory: syndicate
+        env:
+          # RSS Source
+          RSS_URL: ${{ vars.RSS_URL || 'https://cyberbivash.blogspot.com/feeds/posts/default?alt=rss' }}
+          MAX_ITEMS_PER_RUN: ${{ vars.MAX_ITEMS_PER_RUN || '5' }}
+
+          # LinkedIn
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
+          LINKEDIN_PERSONAL_URN: ${{ secrets.LINKEDIN_PERSONAL_URN }}
+
+          # Twitter / X
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+
+          # Mastodon
+          MASTODON_INSTANCE_URL: ${{ secrets.MASTODON_INSTANCE_URL }}
+          MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+
+          # Bluesky
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+
+          # Facebook
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+
+          # Tumblr
+          TUMBLR_CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_KEY }}
+          TUMBLR_CONSUMER_SECRET: ${{ secrets.TUMBLR_CONSUMER_SECRET }}
+          TUMBLR_OAUTH_TOKEN: ${{ secrets.TUMBLR_OAUTH_TOKEN }}
+          TUMBLR_OAUTH_SECRET: ${{ secrets.TUMBLR_OAUTH_SECRET }}
+          TUMBLR_BLOG_NAME: ${{ secrets.TUMBLR_BLOG_NAME }}
+
+          # Reddit
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
+          REDDIT_PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
+          REDDIT_SUBREDDIT: ${{ secrets.REDDIT_SUBREDDIT }}
+
+          # Threads
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+
+        run: python -m syndicate.main
+
+      # ── 6. Commit updated state back to repo ──────────────────────────
+      - name: Commit syndication state
+        working-directory: syndicate
+        run: |
+          git config user.name "CyberDudeBivash Syndication Bot"
+          git config user.email "iambivash.bn@gmail.com"
+          git add data/syndication_state.json data/last_run_summary.json data/syndication_run.log || true
+          git diff --staged --quiet || git commit -m "🤖 Syndication state update — $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push || echo "Nothing to push"
+
+      # ── 7. Upload run log as artifact ─────────────────────────────────
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: syndication-log-${{ github.run_number }}
+          path: syndicate/data/syndication_run.log
+          retention-days: 30
+          if-no-files-found: ignore
