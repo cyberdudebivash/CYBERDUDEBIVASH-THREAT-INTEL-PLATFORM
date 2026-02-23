@@ -68,19 +68,39 @@ jobs:
           GITHUB_ACTIONS: true
         run: python -m agent.sentinel_blogger
 
+      - name: Build Detection Pack (v20.0 — Real IOC Rules)
+        # Builds Sigma/YARA/KQL/SPL pack for the latest published threat
+        run: |
+          python -c "
+          from tools.detection_pack_builder import build_latest_pack
+          result = build_latest_pack()
+          print(f'Detection pack: {result}')
+          " || echo "Detection pack build skipped (non-critical)"
+
+      - name: Publish Detection Pack to Gumroad (PWYW)
+        # Auto-publishes pack to Gumroad store with Pay What You Want pricing
+        env:
+          GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+        run: |
+          python -c "
+          from tools.gumroad_publisher import publish_latest
+          result = publish_latest()
+          print(f'Gumroad URL: {result}')
+          " || echo "Gumroad publish skipped (non-critical)"
+
       - name: Commit & Atomic Push Intelligence Data
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
           
-          # Stage manifests and metadata (Large assets are ignored via .gitignore)
-          git add data/*.json data/stix/*.json
+          # Stage manifests, metadata, playbooks and detection packs
+          git add data/*.json data/stix/*.json data/playbooks/*.json || true
           
           # Atomic Commit & Rebase Loop (Hardened Stability Logic)
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "v15 Apex: Sovereign Intel Manifest Sync [skip ci]"
+            git commit -m "v20.0 Apex: Playbooks + Detection Packs + Intel Sync [skip ci]"
             for i in {1..5}; do
               git pull origin main --rebase && git push origin main && break || \
               (echo "Push collision detected. Retrying in 15s (Attempt $i)..." && sleep 15)
