@@ -413,6 +413,20 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         # ─── STEP 12: Dedup Registration ───
         dedup_engine.mark_processed(headline, entry.get('link', ''))
 
+        # STEP 13: Revenue Bridge (v18.0) - activates CTAs + email after publish
+        try:
+            from agent.revenue_bridge import activate_revenue_pipeline
+            activate_revenue_pipeline(
+                report_html=report_html,
+                headline=headline,
+                risk_score=risk_score,
+                live_blog_url=live_blog_url,
+                content=enriched_content,
+                product_url="",
+            )
+        except Exception as _rev_e:
+            logger.debug(f"Revenue bridge skipped (non-critical): {_rev_e}")
+
         return True
 
     except Exception as e:
