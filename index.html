@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBERDUDEBIVASH® Sentinel APEX v17.0 | AI-Powered Global Threat Intelligence</title>
+    <title>CYBERDUDEBIVASH® Sentinel APEX v19.0 | AI-Powered Global Threat Intelligence</title>
     <meta name="description" content="CyberDudeBivash Sentinel APEX — AI-Powered Threat Intelligence Platform. Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping.">
     <!-- Open Graph Meta -->
     <meta property="og:type" content="article">
-    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v17.0 | AI-Powered Global Threat Intelligence">
+    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v19.0 | AI-Powered Global Threat Intelligence">
     <meta property="og:description" content="Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping — Enterprise-Grade Threat Intelligence Platform.">
     <meta property="og:url" content="https://intel.cyberdudebivash.com/">
     <meta property="og:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-thumbnail.jpg">
@@ -28,7 +28,7 @@
     <!-- 🔥 Open Graph / LinkedIn Preview Metadata -->
    <!-- Open Graph / LinkedIn Preview -->
     <meta property="og:type" content="website">
-    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v17.0 | AI-Powered Global Threat Intelligence">
+    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v19.0 | AI-Powered Global Threat Intelligence">
     <meta property="og:description" content="Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping — Enterprise-Grade Threat Intelligence Platform.">
     <meta property="og:url" content="https://intel.cyberdudebivash.com/">
     <meta property="og:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-thumbnail.jpg">
@@ -48,7 +48,7 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;600;700&family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
     <style>
         /* ═══════════════════════════════════════════════════════ */
-        /* DESIGN SYSTEM — SENTINEL APEX ULTRA v17.0             */
+        /* DESIGN SYSTEM — SENTINEL APEX ULTRA v19.0             */
         /* ═══════════════════════════════════════════════════════ */
         :root {
             --critical: #dc2626; --high: #ea580c; --medium: #d97706;
@@ -381,7 +381,7 @@
         <header class="apex-header">
             <div class="brand-mark">
                 <h1>CYBERDUDEBIVASH<span class="reg">®</span></h1>
-                <p class="brand-sub">Sentinel APEX <span class="ver">v17.0</span> // AI-Powered Global Threat Intelligence</p>
+                <p class="brand-sub">Sentinel APEX <span class="ver">v19.0</span> // AI-Powered Global Threat Intelligence</p>
                 <nav class="nav-hub">
                     <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH" class="nav-chip">Official Portal</a>
                     <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-ECOSYSTEM" class="nav-chip">Ecosystem</a>
@@ -408,7 +408,7 @@
             <div>NODE: <span style="color:var(--accent);">CDB-GOC-01</span></div>
             <div id="sync-val">SYNC: <span style="color:#ff9d00;">INITIALIZING...</span></div>
             <div id="integrity-status"></div>
-            <div>ENGINE: <span style="color:var(--accent);"><span class="pulse"></span> APEX ULTRA v17.0</span></div>
+            <div>ENGINE: <span style="color:var(--accent);"><span class="pulse"></span> APEX ULTRA v19.0</span></div>
         </div>
 
         <!-- ═══ METRICS STRIP (NEW) ═══ -->
@@ -734,7 +734,7 @@
 
     <script>
         // ═══════════════════════════════════════════════════════
-        // SENTINEL APEX v17.0 — INTELLIGENCE DASHBOARD ENGINE
+        // SENTINEL APEX v19.0 — INTELLIGENCE DASHBOARD ENGINE
         // ═══════════════════════════════════════════════════════
         const RAW_MANIFEST = 'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json';
         const GITHUB_API = 'https://api.github.com/repos/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM';
@@ -938,34 +938,49 @@
             const syncVal = document.getElementById('sync-val');
             const integrityEl = document.getElementById('integrity-status');
 
-            try {
-                const response = await fetch(RAW_MANIFEST);
-                if (!response.ok) throw new Error('Manifest fetch failed');
-                const data = await response.json();
+            // v19.0: Try primary URL first, then fallback CDN URL
+            const MANIFEST_URLS = [
+                RAW_MANIFEST,
+                'https://cdn.jsdelivr.net/gh/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM@main/data/stix/feed_manifest.json'
+            ];
 
-                // v17.0: Support both old list format [...] and new dict format {entries:[...]}
-                const entries = Array.isArray(data) ? data : (data.entries || []);
-                if (!entries.length) throw new Error('Empty manifest');
+            let lastError = null;
+            for (const manifestUrl of MANIFEST_URLS) {
+                try {
+                    const response = await fetch(manifestUrl, { cache: 'no-cache' });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
 
+                    // v19.0: Support both old list format [...] and new dict format {entries:[...]}
+                    const entries = Array.isArray(data) ? data : (data.entries || []);
+                    if (!entries.length) throw new Error('Empty manifest');
 
-                manifestData = entries.reverse(); // Newest first
-                computeMetrics(manifestData);
-                applyView();
+                    manifestData = [...entries].reverse(); // Newest first (non-mutating)
+                    computeMetrics(manifestData);
+                    applyView();
 
-                syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);">LATEST</span>';
-                integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
+                    syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);">LATEST</span>';
+                    integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
+                    return; // Success — exit loop
 
-            } catch (err) {
-                document.getElementById('threat-grid').innerHTML = `
-                    <div class="loading-state" style="border:1px dashed var(--critical);color:var(--critical);">
-                        <i class="fas fa-exclamation-triangle" style="font-size:28px;margin-bottom:16px;"></i>
-                        <div style="font-size:14px;font-weight:700;margin-bottom:8px;">GOC MANIFEST SYNC FAILURE</div>
-                        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
-                            ERR: DATA_PATH_RESOLVER_EXHAUSTED — ${err.message}</div>
-                    </div>`;
-                syncVal.innerHTML = 'SYNC: <span style="color:var(--critical);">OFFLINE</span>';
-                integrityEl.innerHTML = '<span class="integrity-badge integrity-fail"><i class="fas fa-shield-xmark"></i> SYNC FAILED</span>';
+                } catch (err) {
+                    lastError = err;
+                    // Try next URL
+                }
             }
+
+            // All URLs failed
+            document.getElementById('threat-grid').innerHTML = `
+                <div class="loading-state" style="border:1px dashed var(--critical);color:var(--critical);">
+                    <i class="fas fa-exclamation-triangle" style="font-size:28px;margin-bottom:16px;"></i>
+                    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">GOC MANIFEST SYNC FAILURE</div>
+                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
+                        ERR: DATA_PATH_RESOLVER_EXHAUSTED — ${lastError ? lastError.message : 'Unknown'}</div>
+                    <div style="margin-top:12px;font-size:11px;color:var(--text-muted);">
+                        Platform pipeline running · New advisories published every 6 hours</div>
+                </div>`;
+            syncVal.innerHTML = 'SYNC: <span style="color:var(--critical);">OFFLINE</span>';
+            integrityEl.innerHTML = '<span class="integrity-badge integrity-fail"><i class="fas fa-shield-xmark"></i> SYNC FAILED</span>';
         }
 
         // ── GitHub Stars ──

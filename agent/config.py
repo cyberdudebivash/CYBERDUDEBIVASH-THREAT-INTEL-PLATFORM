@@ -268,4 +268,4 @@ PREDICTIVE_ENABLED = os.environ.get('PREDICTIVE_ENABLED', 'true').lower() == 'tr
 CAMPAIGN_TRACKER_ENABLED = os.environ.get('CAMPAIGN_TRACKER_ENABLED', 'true').lower() == 'true'
 
 # Update brand version
-BRAND["version"] = "v17.0"
+BRAND["version"] = "v19.0"

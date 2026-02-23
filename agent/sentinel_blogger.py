@@ -65,6 +65,14 @@ except ImportError:
     _actor_registry = None
     _CAMPAIGN_OK = False
 
+# v19.0: Content Quality Gate (non-breaking — if import fails, all articles pass through)
+try:
+    from agent.content.quality_gate import is_relevant_threat as _quality_gate
+    _QUALITY_GATE_OK = True
+except ImportError:
+    _quality_gate = None
+    _QUALITY_GATE_OK = False
+
 # ═══════════════════════════════════════════════════════════
 # INSTITUTIONAL LOGGING
 # ═══════════════════════════════════════════════════════════
@@ -164,9 +172,9 @@ def build_enriched_content(entry: Dict, fetched_article: Optional[Dict]) -> str:
 # ═══════════════════════════════════════════════════════════
 def main():
     logger.info("=" * 70)
-    logger.info("SENTINEL APEX v17.0 — PREMIUM REPORT ENGINE ACTIVATED")
-    logger.info("Triple-Layer Dedup • 15 Feeds • Mobile-Aware • IOC FP Filter")
-    logger.info("v17.0: Telemetry • Predictive • Campaign Tracker • Archive Engine")
+    logger.info("SENTINEL APEX v19.0 — ULTRA-PREMIUM REPORT ENGINE ACTIVATED")
+    logger.info("Triple-Layer Dedup • 15 Feeds • Quality Gate • IOC FP Filter")
+    logger.info("v19.0: Attack Timeline • Geo-Intel • Patch Matrix • Exec One-Pager")
     logger.info("=" * 70)
 
     # ── v17.0: Start run telemetry ──
@@ -201,6 +209,18 @@ def main():
         if dedup_engine.is_duplicate(entry['title'], entry.get('link', '')):
             logger.info(f"  ⏭ SKIP (duplicate): {entry['title'][:60]}")
             continue
+        # v19.0: Quality gate — skip non-threat editorial/marketing content
+        if _QUALITY_GATE_OK and _quality_gate:
+            try:
+                _qok, _qscore, _qreason = _quality_gate(
+                    entry['title'], entry.get('content', '') + entry.get('summary', ''))
+                if not _qok:
+                    logger.info(f"  ⏭ SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}")
+                    dedup_engine.mark_processed(entry['title'], entry.get('link', ''))
+                    continue
+                logger.info(f"  ✅ Quality gate PASS (score={_qscore:.1f}): {entry['title'][:50]}")
+            except Exception as _qe:
+                logger.debug(f"  Quality gate error (non-critical): {_qe}")
         result = process_entry(entry, service, feed_source="CDB-NEWS")
         if result:
             published_count += 1
@@ -247,12 +267,24 @@ def main():
                 dedup_engine.mark_processed(entry['title'], entry.get('link', ''))
                 continue
 
+            # v19.0: Quality gate — filter non-threat content before processing
+            if _QUALITY_GATE_OK and _quality_gate:
+                try:
+                    _qok, _qscore, _qreason = _quality_gate(
+                        entry['title'], entry.get('content', '') + entry.get('summary', ''))
+                    if not _qok:
+                        logger.info(f"  ⏭ SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}")
+                        dedup_engine.mark_processed(entry['title'], entry.get('link', ''))
+                        continue
+                except Exception as _qe:
+                    logger.debug(f"  Quality gate error (non-critical): {_qe}")
+
             result = process_entry(entry, service, feed_source=feed_url[:30])
             if result:
                 published_count += 1
 
     logger.info("=" * 70)
-    logger.info(f"APEX v17.0 COMPLETE — Published {published_count} PREMIUM advisories")
+    logger.info(f"APEX v19.0 COMPLETE — Published {published_count} PREMIUM advisories")
 
     # ── v17.0: Run predictive trend analysis ──
     if _PREDICTIVE_OK and _trend_model:
