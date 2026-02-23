@@ -342,18 +342,10 @@ class STIXExporter:
         # Keep last N entries
         trimmed = manifest_entries[-MANIFEST_MAX_ENTRIES:]
 
-        # ── Write as enhanced dict format ──
-        manifest_doc = {
-            "platform": "CyberDudeBivash SENTINEL APEX",
-            "version": "v17.0",
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "total_entries": len(trimmed),
-            "entries": trimmed,
-        }
-
+        # Write manifest — plain list format (backward-compatible with dashboard)
+        # Dashboard reads both list [...] and dict {entries:[...]} formats
         with open(self.manifest_path, 'w') as f:
-            json.dump(manifest_doc, f, indent=4)
+            json.dump(trimmed, f, indent=4)
 
 
 # Global singleton (backward compatible)
