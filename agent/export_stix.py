@@ -45,6 +45,11 @@ class STIXExporter:
         actor_tag: str = "UNC-CDB-99",
         mitre_tactics: Optional[List[str]] = None,
         feed_source: str = "CDB-SENTINEL",
+        # v21.0 additions (all optional, non-breaking)
+        epss_score: Optional[float] = None,
+        cvss_score: Optional[float] = None,
+        kev_present: bool = False,
+        nvd_url: Optional[str] = None,
     ) -> str:
         """
         Create a comprehensive STIX 2.1 bundle with indicators and relationships.
@@ -254,11 +259,13 @@ class STIXExporter:
 
         # ── Update Manifest ──
         blog_url = (metadata or {}).get('blog_url', '')
+        source_url = (metadata or {}).get('source_url', '') or blog_url  # v21.0 fix
         self._update_manifest(
             title=title,
             stix_id=bundle_id,
             risk_score=risk_score,
             blog_url=blog_url,
+            source_url=source_url,
             severity=severity,
             confidence=confidence,
             tlp_label=tlp_label,
@@ -271,6 +278,10 @@ class STIXExporter:
             feed_source=feed_source,
             indicator_count=len(indicator_ids),
             stix_file=stix_filename,
+            epss_score=epss_score,
+            cvss_score=cvss_score,
+            kev_present=kev_present,
+            nvd_url=nvd_url,
         )
 
         return bundle_id
@@ -281,6 +292,7 @@ class STIXExporter:
                          indicator_count, stix_file,
                          cvss_score=None, epss_score=None,
                          kev_present=False, source_url="",
+                         nvd_url=None,
                          extended_metrics=None):
         """
         Update manifest with backward-compatible schema.
@@ -335,6 +347,8 @@ class STIXExporter:
             "kev_present": kev_present,
             "status": "active",          # active | archived
             "extended_metrics": extended_metrics or {},
+            # v21.0 NEW fields
+            "nvd_url": nvd_url,          # Direct NVD link for CVE entries
         }
 
         manifest_entries.append(entry)
