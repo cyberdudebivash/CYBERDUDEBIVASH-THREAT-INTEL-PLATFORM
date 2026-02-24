@@ -13,10 +13,10 @@ permissions:
 jobs:
   publish-threat-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 25   # Optimized for large asset generation and bundling
+    timeout-minutes: 30   # v21.0: increased for EPSS/CVSS enrichment calls
 
     steps:
-      - name: Checkout repository (v16.3 Full Sync)
+      - name: Checkout repository (v21.0 Full Sync)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Crucial for stable git rebase operations
@@ -37,6 +37,8 @@ jobs:
           mkdir -p data/stix
           mkdir -p data/rule_packs
           mkdir -p data/playbooks
+          mkdir -p data/playbooks/scripts
+          mkdir -p data/premium_packs
           mkdir -p data/enterprise_kits
           mkdir -p secrets
 
@@ -56,7 +58,8 @@ jobs:
           # Mask key in logs to prevent institutional leakage
           echo "::add-mask::$(cat secrets/cdb_sovereign.pem)"
 
-      - name: Run Sentinel Blogger APEX Engine
+      # ─── PRIMARY PIPELINE ────────────────────────────────────────────────────
+      - name: Run Sentinel Blogger APEX Engine (v21.0)
         env:
           BLOG_ID: ${{ secrets.BLOG_ID }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
@@ -64,23 +67,60 @@ jobs:
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
           GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           CI: true
           GITHUB_ACTIONS: true
         run: python -m agent.sentinel_blogger
+      # ─────────────────────────────────────────────────────────────────────────
 
+      # ─── v21.0: BUILD DETECTION PACK (non-critical, continue-on-error) ───────
+      - name: Build Detection Pack (v21.0 — Real IOC Rules)
+        continue-on-error: true
+        run: |
+          python - << 'PYEOF'
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          try:
+              from tools.detection_pack_builder import build_latest_pack
+              result = build_latest_pack()
+              print(f"Detection pack built: {result}")
+          except Exception as e:
+              print(f"Detection pack skipped (non-critical): {e}")
+          PYEOF
+
+      # ─── v21.0: MAP GUMROAD PRODUCT URL (non-critical, continue-on-error) ────
+      - name: Map Detection Pack to Gumroad Product (v21.0 — Static Catalog)
+        continue-on-error: true
+        env:
+          GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+        run: |
+          python - << 'PYEOF'
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          try:
+              from tools.gumroad_publisher import publish_latest
+              result = publish_latest()
+              print(f"Gumroad product URL: {result}")
+          except Exception as e:
+              print(f"Gumroad mapping skipped (non-critical): {e}")
+          PYEOF
+
+      # ─── COMMIT & PUSH ─────────────────────────────────────────────────────
       - name: Commit & Atomic Push Intelligence Data
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
-          
-          # Stage manifests and metadata (Large assets are ignored via .gitignore)
-          git add data/*.json data/stix/*.json
-          
+
+          # Stage all intelligence artifacts
+          git add data/*.json data/stix/*.json 2>/dev/null || true
+          git add data/playbooks/*.json 2>/dev/null || true
+          git add data/playbooks/scripts/ 2>/dev/null || true
+
           # Atomic Commit & Rebase Loop (Hardened Stability Logic)
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "v15 Apex: Sovereign Intel Manifest Sync [skip ci]"
+            git commit -m "v21.0 Apex: Intel Sync + EPSS Enrichment + Detection Pack [skip ci]"
             for i in {1..5}; do
               git pull origin main --rebase && git push origin main && break || \
               (echo "Push collision detected. Retrying in 15s (Attempt $i)..." && sleep 15)
