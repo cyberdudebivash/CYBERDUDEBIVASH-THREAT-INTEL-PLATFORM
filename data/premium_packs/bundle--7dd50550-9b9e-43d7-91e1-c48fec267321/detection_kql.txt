@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : CVE-2024-1524 - A local user can be impersonated when using federated authentica
+// Scenario: MALWARE | CVEs: N/A
+// Generated: 2026-02-24 13:23:19 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Suspicious PowerShell
+SecurityEvent | where TimeGenerated > ago(24h)
+| where EventID == 4688
+| where CommandLine has_any ('-EncodedCommand', '-enc', 'IEX(', 'Invoke-Expression', 'DownloadFile')
+| extend ThreatName="CVE-2024-1524 - A local user can be impersonated when using federated authentica", Severity="MEDIUM"
