@@ -3,7 +3,7 @@
 // Threat   : CVE-2026-3070 - SourceCodester Modern Image Gallery App uploadphp cross site scr
 // STIX ID  : bundle--173338d8-d1bf-4d99-8aa9-73b100a5c963
 // Scenario : RCE
-// Generated: 2026-02-24T07:11:27.801660 UTC
+// Generated: 2026-02-24T07:18:29.832244 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
