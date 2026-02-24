@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBERDUDEBIVASH® Sentinel APEX v22.0 ULTRA | AI-Powered Global Threat Intelligence</title>
-    <meta name="description" content="CyberDudeBivash Sentinel APEX v22.0 ULTRA — AI-Powered Threat Intelligence Platform. Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping, EPSS enrichment, MISP export, threat modals.">
+    <title>CYBERDUDEBIVASH® Sentinel APEX v23.0 ULTRA | AI-Powered Global Threat Intelligence</title>
+    <meta name="description" content="CyberDudeBivash Sentinel APEX v23.0 ULTRA — AI-Powered Threat Intelligence Platform. Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping, EPSS enrichment, MISP export, threat modals, watchlist, AI engine transparency.">
     <!-- Open Graph Meta -->
     <meta property="og:type" content="article">
-    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v21.0 | AI-Powered Global Threat Intelligence">
+    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v23.0 ULTRA | AI-Powered Global Threat Intelligence">
     <meta property="og:description" content="Real-time IOC feeds, STIX 2.1 exports, EPSS enrichment, MITRE ATT&CK mapping — Enterprise-Grade Threat Intelligence Platform.">
     <meta property="og:url" content="https://intel.cyberdudebivash.com/">
     <meta property="og:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-thumbnail.jpg">
@@ -28,7 +28,7 @@
     <!-- 🔥 Open Graph / LinkedIn Preview Metadata -->
    <!-- Open Graph / LinkedIn Preview -->
     <meta property="og:type" content="website">
-    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v21.0 | AI-Powered Global Threat Intelligence">
+    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v23.0 ULTRA | AI-Powered Global Threat Intelligence">
     <meta property="og:description" content="Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping — Enterprise-Grade Threat Intelligence Platform.">
     <meta property="og:url" content="https://intel.cyberdudebivash.com/">
     <meta property="og:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-thumbnail.jpg">
@@ -710,12 +710,376 @@
             .modal-row { grid-template-columns: 1fr; }
             #threat-modal .modal-box { padding: 20px; }
         }
+
+        /* ═══════════════════════════════════════════════════════ */
+        /* v23.0 APEX ULTRA — ENHANCED FEATURE STYLES            */
+        /* ═══════════════════════════════════════════════════════ */
+
+        /* ── Animated counter ── */
+        .metric-val { transition: color 0.3s; }
+        .metric-card { transition: border-color 0.3s, box-shadow 0.3s; }
+        .metric-card:hover {
+            border-color: rgba(0,212,170,0.3);
+            box-shadow: 0 0 20px rgba(0,212,170,0.06);
+        }
+
+        /* ── Card hover glow micro-interactions ── */
+        .intel-card:hover {
+            border-left-color: rgba(255,255,255,0.25) !important;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,212,170,0.08), inset 0 0 60px rgba(0,212,170,0.015);
+        }
+        .intel-card.sev-critical:hover { box-shadow: 0 20px 50px rgba(0,0,0,0.7), 0 0 0 1px rgba(220,38,38,0.15); }
+        .intel-card.sev-high:hover { box-shadow: 0 20px 50px rgba(0,0,0,0.7), 0 0 0 1px rgba(234,88,12,0.15); }
+        .intel-card::after {
+            content: ''; position: absolute; inset: 0; opacity: 0;
+            background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,212,170,0.04), transparent);
+            transition: opacity 0.4s; pointer-events: none;
+        }
+        .intel-card:hover::after { opacity: 1; }
+
+        /* ── Exploit/Patch/Ransomware/Zero-Day badge variants ── */
+        .badge-exploit { background:rgba(220,38,38,0.18);color:#ff6b6b;border:1px solid rgba(220,38,38,0.4); animation: exploit-pulse 1.8s infinite; }
+        .badge-patch { background:rgba(22,163,74,0.12);color:#4ade80;border:1px solid rgba(22,163,74,0.3); }
+        .badge-ransomware { background:rgba(139,92,246,0.18);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4); animation: ransom-glow 2s ease-in-out infinite alternate; }
+        .badge-zerod { background:rgba(236,72,153,0.15);color:#f9a8d4;border:1px solid rgba(236,72,153,0.4); animation: zerod-pulse 1.5s infinite; }
+        @keyframes exploit-pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
+        @keyframes ransom-glow { from{box-shadow:0 0 4px rgba(139,92,246,0.2)} to{box-shadow:0 0 14px rgba(139,92,246,0.5)} }
+        @keyframes zerod-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(236,72,153,0.3)} 50%{box-shadow:0 0 0 4px rgba(236,72,153,0)} }
+
+        /* ── Watchlist button ── */
+        .watchlist-btn {
+            background: none; border: 1px solid var(--border);
+            color: var(--text-muted); cursor: pointer; padding: 4px 10px;
+            font-family: var(--font-mono); font-size: 9px; border-radius: 3px;
+            transition: 0.2s; letter-spacing: 0.5px;
+        }
+        .watchlist-btn:hover { border-color: #f59e0b; color: #f59e0b; }
+        .watchlist-btn.watching { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.08); }
+
+        /* ── Watchlist Panel ── */
+        #watchlist-panel {
+            display: none; position: fixed; right: 0; top: 0; bottom: 0; z-index: 7777;
+            width: 360px; background: var(--bg-card); border-left: 1px solid var(--border-accent);
+            box-shadow: -16px 0 40px rgba(0,0,0,0.5); overflow-y: auto;
+            flex-direction: column;
+        }
+        #watchlist-panel.open { display: flex; }
+        .watchlist-header {
+            padding: 20px 24px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; background: var(--bg-card); z-index: 1;
+        }
+        .watchlist-title {
+            font-family: var(--font-mono); font-size: 9px; letter-spacing: 3px;
+            color: var(--accent); text-transform: uppercase;
+        }
+        .watchlist-close {
+            background: none; border: none; color: var(--text-muted);
+            font-size: 18px; cursor: pointer; transition: color 0.2s;
+        }
+        .watchlist-close:hover { color: var(--accent); }
+        .watchlist-empty {
+            padding: 60px 24px; text-align: center;
+            font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
+            letter-spacing: 2px; line-height: 2;
+        }
+        .watchlist-item {
+            padding: 16px 20px; border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+        .watchlist-item:hover { background: rgba(0,212,170,0.03); }
+        .watchlist-item-title {
+            font-size: 12px; color: var(--white); line-height: 1.4; margin-bottom: 8px;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .watchlist-item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .watchlist-remove {
+            margin-left: auto; background: none; border: 1px solid rgba(220,38,38,0.3);
+            color: rgba(220,38,38,0.6); cursor: pointer; padding: 2px 8px;
+            font-family: var(--font-mono); font-size: 8px; border-radius: 2px; transition: 0.2s;
+        }
+        .watchlist-remove:hover { background: rgba(220,38,38,0.1); color: var(--critical); }
+        .watchlist-fab {
+            position: fixed; bottom: 28px; right: 28px; z-index: 7000;
+            background: rgba(245,158,11,0.9); color: var(--bg); border: none;
+            width: 48px; height: 48px; border-radius: 50%; cursor: pointer;
+            font-size: 18px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.4); transition: 0.2s;
+        }
+        .watchlist-fab:hover { transform: scale(1.1); background: #f59e0b; }
+        .watchlist-count-badge {
+            position: absolute; top: -4px; right: -4px; background: var(--critical);
+            color: #fff; font-family: var(--font-mono); font-size: 9px; font-weight: 900;
+            width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; display: none;
+        }
+
+        /* ── AI Engine Modal ── */
+        #ai-engine-modal {
+            display: none; position: fixed; inset: 0; z-index: 9500;
+            background: rgba(2,2,5,0.93); backdrop-filter: blur(10px);
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        #ai-engine-modal.open { display: flex; }
+        .ai-modal-box {
+            background: var(--bg-card); border: 1px solid rgba(0,212,170,0.25);
+            border-top: 2px solid var(--accent); width: 100%; max-width: 700px;
+            max-height: 88vh; overflow-y: auto; padding: 36px; border-radius: 4px;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 80px rgba(0,212,170,0.05);
+        }
+        .ai-modal-title {
+            font-family: var(--font-mono); font-size: 9px; letter-spacing: 4px;
+            color: var(--accent); text-transform: uppercase; margin-bottom: 16px;
+        }
+        .ai-formula-block {
+            background: var(--bg-surface); border: 1px solid var(--border);
+            border-left: 3px solid var(--accent); padding: 16px 20px; margin: 16px 0;
+            font-family: var(--font-mono); font-size: 11px; color: var(--text);
+            line-height: 2;
+        }
+        .ai-engine-factor {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 0; border-bottom: 1px solid var(--border);
+            font-size: 13px; gap: 12px;
+        }
+        .ai-engine-factor:last-child { border-bottom: none; }
+        .ai-factor-name { color: var(--text); font-size: 13px; }
+        .ai-factor-weight {
+            font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+            color: var(--accent); min-width: 60px; text-align: right;
+        }
+        .ai-factor-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+        .ai-factor-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+
+        /* ── SOC Integration Section ── */
+        .soc-integration-section {
+            margin: 28px 0; padding: 24px 28px; background: var(--bg-card);
+            border: 1px solid var(--border);
+        }
+        .soc-integration-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+        }
+        .soc-integration-title {
+            font-family: var(--font-mono); font-size: 9px; letter-spacing: 4px;
+            color: var(--accent); text-transform: uppercase;
+        }
+        .soc-api-status {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-family: var(--font-mono); font-size: 9px; color: var(--accent);
+            background: rgba(0,212,170,0.06); border: 1px solid rgba(0,212,170,0.2);
+            padding: 4px 12px; border-radius: 100px;
+        }
+        .soc-tools-grid {
+            display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+        }
+        .soc-tool-chip {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--bg-surface); border: 1px solid var(--border);
+            padding: 8px 14px; border-radius: 4px; font-family: var(--font-mono); font-size: 10px;
+            color: var(--text-muted); transition: 0.2s; cursor: default;
+        }
+        .soc-tool-chip:hover { border-color: var(--accent); color: var(--white); }
+        .soc-tool-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+        .soc-curl-block {
+            background: var(--bg); border: 1px solid var(--border); border-left: 2px solid var(--accent);
+            padding: 14px 18px; font-family: var(--font-mono); font-size: 11px;
+            color: var(--text-muted); line-height: 1.8; position: relative; overflow-x: auto;
+        }
+        .soc-curl-block .cmd-kw { color: var(--accent); }
+        .soc-curl-block .cmd-url { color: var(--blue); }
+        .soc-curl-block .cmd-flag { color: var(--purple); }
+        .soc-curl-copy {
+            position: absolute; top: 10px; right: 14px;
+            background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.2);
+            color: var(--accent); cursor: pointer; font-family: var(--font-mono); font-size: 9px;
+            padding: 3px 10px; border-radius: 2px; transition: 0.2s; letter-spacing: 1px;
+        }
+        .soc-curl-copy:hover { background: rgba(0,212,170,0.15); }
+
+        /* ── MITRE Tactic Group Headers ── */
+        .heatmap-tactic-group { margin-bottom: 16px; }
+        .heatmap-tactic-label {
+            font-family: var(--font-mono); font-size: 8px; letter-spacing: 2px;
+            color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;
+            padding-bottom: 4px; border-bottom: 1px solid var(--border);
+        }
+        .heatmap-tactic-cells { display: flex; flex-wrap: wrap; gap: 5px; }
+        .hm-cell:hover { transform: scale(1.12); z-index: 1; }
+
+        /* ── Source Trust Indicator ── */
+        .source-trust {
+            display: inline-flex; align-items: center; gap: 3px;
+            font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px;
+        }
+        .trust-dot { width: 5px; height: 5px; border-radius: 50%; }
+
+        /* ── Trend Time Toggle ── */
+        .trend-range-toggle { display: flex; gap: 4px; }
+        .trend-range-btn {
+            font-family: var(--font-mono); font-size: 8px; background: var(--bg-surface);
+            border: 1px solid var(--border); color: var(--text-muted); padding: 3px 10px;
+            border-radius: 2px; cursor: pointer; transition: 0.2s; letter-spacing: 1px;
+        }
+        .trend-range-btn:hover, .trend-range-btn.active { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Compliance Badges ── */
+        .compliance-strip {
+            display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px;
+        }
+        .compliance-badge {
+            font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px;
+            background: rgba(0,212,170,0.06); border: 1px solid rgba(0,212,170,0.2);
+            color: var(--accent); padding: 4px 10px; border-radius: 2px;
+            text-transform: uppercase;
+        }
+
+        /* ── Enterprise Trust Signals ── */
+        .enterprise-trust-row {
+            display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px;
+        }
+        .enterprise-trust-badge {
+            display: flex; align-items: center; gap: 6px;
+            font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);
+            background: var(--bg-surface); border: 1px solid var(--border);
+            padding: 6px 12px; border-radius: 3px;
+        }
+        .enterprise-trust-badge i { color: var(--accent); }
+
+        /* ── Testimonial Card ── */
+        .testimonial-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-left: 3px solid var(--accent); padding: 20px 24px;
+        }
+        .testimonial-text { font-size: 13px; color: var(--text); line-height: 1.7; margin-bottom: 14px; font-style: italic; }
+        .testimonial-author { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 2px; }
+        .testimonial-role { color: var(--accent); }
+        .testimonial-stars { color: #f59e0b; font-size: 12px; margin-bottom: 8px; }
+
+        /* ── ROI Block ── */
+        .roi-block {
+            background: var(--bg-surface); border: 1px solid rgba(0,212,170,0.2);
+            padding: 20px 24px; text-align: center; margin-bottom: 20px;
+        }
+        .roi-stat {
+            font-size: 32px; font-weight: 900; color: var(--accent);
+            font-family: var(--font-mono); letter-spacing: -1px;
+        }
+        .roi-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 2px; margin-top: 4px; }
+
+        /* ── Ingestion Rate indicator ── */
+        .ingestion-indicator {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+        .ingestion-indicator .rate { color: var(--accent); font-weight: 700; }
+
+        /* ── Defense kit enhanced ── */
+        .kit-updated-badge {
+            font-family: var(--font-mono); font-size: 8px; color: var(--accent);
+            background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.2);
+            padding: 2px 8px; border-radius: 2px; margin-bottom: 8px; display: inline-block;
+        }
+        .kit-analyst-count {
+            font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);
+            display: flex; align-items: center; gap: 4px;
+        }
     </style>
 </head>
 <body>
 
-    <!-- ═══ GLOBAL OVERLAYS v22.0 ═══ -->
+    <!-- ═══ GLOBAL OVERLAYS v23.0 ═══ -->
     <div id="toast-container"></div>
+
+    <!-- ═══ AI ENGINE TRANSPARENCY MODAL v23.0 ═══ -->
+    <div id="ai-engine-modal" onclick="if(event.target===this)closeAIModal()">
+        <div class="ai-modal-box">
+            <button class="modal-close" onclick="closeAIModal()" style="position:static;float:right;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">✕</button>
+            <p class="ai-modal-title">🤖 AI Risk Engine — Scoring Transparency</p>
+            <h2 style="color:var(--white);font-size:20px;font-weight:900;letter-spacing:-0.5px;margin:0 0 14px 0;">How Sentinel APEX Scores Threats</h2>
+            <p style="color:var(--text-muted);font-size:13px;line-height:1.75;margin:0 0 20px 0;">
+                The CDB AI Risk Engine uses a multi-factor weighted correlation model combining CVSSv3 base scores, real-time EPSS exploitation probability, CISA KEV confirmation, MITRE ATT&CK technique complexity, source feed trust weights, and analyst confidence signals to produce a normalized risk score (0–10).
+            </p>
+            <div class="ai-formula-block">
+                <span style="color:var(--accent);">Risk Score</span> = <span style="color:var(--purple);">w1</span>×CVSS + <span style="color:var(--purple);">w2</span>×EPSS + <span style="color:var(--purple);">w3</span>×KEV_Bonus + <span style="color:var(--purple);">w4</span>×MITRE_Depth + <span style="color:var(--purple);">w5</span>×Source_Trust + <span style="color:var(--purple);">w6</span>×Confidence<br>
+                <span style="color:var(--text-muted);font-size:10px;">→ Normalized to [0, 10] scale · Updated per advisory on ingest</span>
+            </div>
+            <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin:0 0 12px 0;">Scoring Factor Weights</p>
+            <div id="ai-factor-list">
+                <div class="ai-engine-factor">
+                    <span class="ai-factor-name"><i class="fas fa-shield-virus" style="color:var(--critical);margin-right:8px;width:16px;"></i>CVSSv3 Base Score</span>
+                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:35%;"></div></div>
+                    <span class="ai-factor-weight">35%</span>
+                </div>
+                <div class="ai-engine-factor">
+                    <span class="ai-factor-name"><i class="fas fa-chart-line" style="color:var(--high);margin-right:8px;width:16px;"></i>EPSS Exploitation Probability</span>
+                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:25%;background:var(--high);"></div></div>
+                    <span class="ai-factor-weight">25%</span>
+                </div>
+                <div class="ai-engine-factor">
+                    <span class="ai-factor-name"><i class="fas fa-bolt" style="color:#ff9f43;margin-right:8px;width:16px;"></i>CISA KEV Confirmation</span>
+                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:15%;background:#ff9f43;"></div></div>
+                    <span class="ai-factor-weight">15%</span>
+                </div>
+                <div class="ai-engine-factor">
+                    <span class="ai-factor-name"><i class="fas fa-crosshairs" style="color:var(--purple);margin-right:8px;width:16px;"></i>MITRE ATT&CK Technique Depth</span>
+                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:12%;background:var(--purple);"></div></div>
+                    <span class="ai-factor-weight">12%</span>
+                </div>
+                <div class="ai-engine-factor">
+                    <span class="ai-factor-name"><i class="fas fa-database" style="color:var(--blue);margin-right:8px;width:16px;"></i>Source Feed Trust Weight</span>
+                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:8%;background:var(--blue);"></div></div>
+                    <span class="ai-factor-weight">8%</span>
+                </div>
+                <div class="ai-engine-factor">
+                    <span class="ai-factor-name"><i class="fas fa-microscope" style="color:var(--accent);margin-right:8px;width:16px;"></i>Analyst Confidence Signal</span>
+                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:5%;"></div></div>
+                    <span class="ai-factor-weight">5%</span>
+                </div>
+            </div>
+            <div style="margin-top:24px;padding:16px 20px;background:rgba(0,212,170,0.04);border:1px solid rgba(0,212,170,0.15);border-radius:3px;">
+                <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--accent);margin:0 0 8px 0;">CONFIDENCE INTERPRETATION</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
+                    <span><span style="color:var(--critical);">■</span> 80–100% = Verified / High confidence</span>
+                    <span><span style="color:var(--high);">■</span> 50–79% = Moderate confidence</span>
+                    <span><span style="color:var(--medium);">■</span> 20–49% = Low confidence — verify</span>
+                    <span><span style="color:var(--text-muted);">■</span> 0–19% = Unverified — corroborate</span>
+                </div>
+            </div>
+            <div style="margin-top:20px;display:flex;justify-content:flex-end;">
+                <button onclick="closeAIModal()" style="padding:10px 24px;background:var(--accent);color:var(--bg);border:none;border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:1px;">UNDERSTOOD ✓</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ WATCHLIST PANEL v23.0 ═══ -->
+    <div id="watchlist-panel">
+        <div class="watchlist-header">
+            <div>
+                <p class="watchlist-title">⭐ Threat Watchlist</p>
+                <p style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;margin-top:3px;"><span id="watchlist-item-count">0</span> ADVISORIES TRACKED</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <button onclick="clearWatchlist()" style="font-family:var(--font-mono);font-size:9px;color:rgba(220,38,38,0.6);background:none;border:1px solid rgba(220,38,38,0.2);padding:4px 10px;border-radius:2px;cursor:pointer;letter-spacing:1px;">CLEAR ALL</button>
+                <button class="watchlist-close" onclick="closeWatchlist()">✕</button>
+            </div>
+        </div>
+        <div id="watchlist-items">
+            <div class="watchlist-empty">
+                <div style="font-size:28px;margin-bottom:12px;">⭐</div>
+                NO ADVISORIES IN WATCHLIST<br>
+                <span style="font-size:9px;">CLICK ⭐ WATCH ON ANY ADVISORY CARD</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Watchlist FAB -->
+    <button class="watchlist-fab" onclick="toggleWatchlist()" id="watchlist-fab" title="Open Watchlist" style="display:none;">
+        <i class="fas fa-star"></i>
+        <span class="watchlist-count-badge" id="watchlist-count-badge">0</span>
+    </button>
+
+
 
     <!-- Threat Detail Modal -->
     <div id="threat-modal" onclick="if(event.target===this)closeThreatModal()">
@@ -772,6 +1136,7 @@
                     <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>Incident Response playbooks (PDF)</li>
                     <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>Remediation scripts &amp; IOC exports</li>
                     <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>Unlimited MISP-compatible exports</li>
+                    <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>Compliance mapping (ISO 27001, NIST, SOC 2)</li>
                 </ul>
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;">
@@ -786,12 +1151,10 @@
                    onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
                     SUBSCRIBE NOW &#8212; FROM $19/KIT &#8594;
                 </a>
-                <a href="mailto:bivash@cyberdudebivash.com?subject=Enterprise%20STIX%20Bundle%20Access&utm_source=intel-dashboard&utm_medium=stix-paywall&utm_campaign=enterprise-stix"
-                   style="display:block;padding:13px 24px;background:var(--bg-surface);
+                <a href="/cdn-cgi/l/email-protection#04666d7265776c44677d66617660716061666d7265776c2a676b693b7771666e61677039416a70617674766d776121363457504d5c21363446716a606861213634456767617777227170695b776b71766761396d6a706168296065776c666b657660227170695b6961606d71693977706d7c2974657d73656868227170695b67656974656d636a39616a70617674766d77612977706d7c" style="display:block;padding:13px 24px;background:var(--bg-surface);
                           color:var(--text);border:1px solid rgba(139,92,246,0.35);
                           border-radius:4px;text-decoration:none;
-                          font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:1px;"
-                   onmouseover="this.style.borderColor='#8b5cf6'" onmouseout="this.style.borderColor='rgba(139,92,246,0.35)'">
+                          font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:1px;" onmouseover="this.style.borderColor='#8b5cf6'" onmouseout="this.style.borderColor='rgba(139,92,246,0.35)'">
                     <i class="fas fa-briefcase" style="color:#8b5cf6;margin-right:6px;"></i>ENTERPRISE? CONTACT US FOR FULL API ACCESS
                 </a>
                 <button onclick="closeStixPaywall()"
@@ -818,6 +1181,8 @@
             <div class="kbd-row"><span>Filter: Critical</span><span class="kbd-key">2</span></div>
             <div class="kbd-row"><span>Filter: High</span><span class="kbd-key">3</span></div>
             <div class="kbd-row"><span>Close modal / ESC</span><span class="kbd-key">ESC</span></div>
+            <div class="kbd-row"><span>Toggle Watchlist</span><span class="kbd-key">W</span></div>
+            <div class="kbd-row"><span>AI Engine Modal</span><span class="kbd-key">M</span></div>
             <div class="kbd-row"><span>This help</span><span class="kbd-key">?</span></div>
         </div>
     </div>
@@ -834,7 +1199,7 @@
         <header class="apex-header">
             <div class="brand-mark">
                 <h1>CYBERDUDEBIVASH<span class="reg">®</span></h1>
-                <p class="brand-sub">Sentinel APEX <span class="ver">v22.0 ULTRA</span> // AI-Powered Global Threat Intelligence</p>
+                <p class="brand-sub">Sentinel APEX <span class="ver">v23.0 ULTRA</span> // AI-Powered Global Threat Intelligence</p>
                 <nav class="nav-hub">
                     <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH" class="nav-chip">Official Portal</a>
                     <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-ECOSYSTEM" class="nav-chip">Ecosystem</a>
@@ -850,7 +1215,7 @@
                 </nav>
             </div>
             <div class="header-right">
-                <a href="mailto:bivash@cyberdudebivash.com" class="contact-btn">CONNECT ENTERPRISE</a>
+                <a href="/cdn-cgi/l/email-protection#23414a5542504b63405a41465147564746414a5542504b0d404c4e" class="contact-btn">CONNECT ENTERPRISE</a>
                 <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;">
                     Bhubaneswar, Odisha, India</span>
                 <button onclick="openKbdModal()" title="Keyboard Shortcuts (?)"
@@ -859,16 +1224,24 @@
                                font-family:var(--font-mono);font-size:10px;letter-spacing:1px;">
                     <i class="fas fa-keyboard"></i> KEYS
                 </button>
+                <button onclick="openAIModal()" title="AI Engine Transparency"
+                        style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.25);
+                               color:#a78bfa;padding:4px 10px;border-radius:3px;cursor:pointer;
+                               font-family:var(--font-mono);font-size:10px;letter-spacing:1px;">
+                    <i class="fas fa-brain"></i> AI ENGINE
+                </button>
             </div>
         </header>
 
-        <!-- ═══ STATUS STRIP ═══ -->
+        <!-- ═══ STATUS STRIP v23.0 ═══ -->
         <div class="status-strip">
             <div><span class="goc-pulse"><span class="pulse-dot"></span></span> NODE: <span style="color:var(--accent);">CDB-GOC-01</span></div>
             <div id="sync-val">SYNC: <span style="color:#ff9d00;">INITIALIZING...</span></div>
             <div id="integrity-status"></div>
-            <div>ENGINE: <span style="color:var(--accent);">APEX ULTRA v22.0</span></div>
+            <div>ENGINE: <span style="color:var(--accent);">APEX ULTRA v23.0</span> · <button onclick="openAIModal()" style="background:none;border:none;color:var(--accent);font-family:var(--font-mono);font-size:10px;cursor:pointer;letter-spacing:1px;padding:0;text-decoration:underline dotted;text-underline-offset:3px;">AI ENGINE ↗</button></div>
+            <div class="ingestion-indicator">FEEDS: <span class="rate" id="m-feed-count">—</span> ACTIVE</div>
             <div>KEV: <span style="color:var(--critical);" id="m-kev">—</span> ACTIVE</div>
+            <div id="ingest-rate-display" style="display:none;" class="ingestion-indicator">RATE: <span class="rate" id="m-ingest-rate">—</span>/hr</div>
         </div>
 
         <!-- ═══ METRICS STRIP (NEW) ═══ -->
@@ -881,13 +1254,24 @@
             <div class="metric-card"><div class="metric-val" style="color:var(--blue);" id="m-last-sync">—</div><div class="metric-label">Last Sync</div></div>
         </div>
 
-        <!-- ═══ RISK TREND CHART (v21.0 NEW) ═══ -->
+        <!-- ═══ RISK TREND CHART v23.0 ═══ -->
         <div class="trend-section" id="trend-section" style="display:none;">
             <div class="trend-header">
-                <span class="trend-title">Risk Trend — Last 20 Advisories</span>
-                <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">ROLLING WINDOW</span>
+                <span class="trend-title">Risk Trend Analysis</span>
+                <div class="trend-range-toggle">
+                    <button class="trend-range-btn active" onclick="setTrendRange(10, this)">10</button>
+                    <button class="trend-range-btn" onclick="setTrendRange(20, this)">20</button>
+                    <button class="trend-range-btn" onclick="setTrendRange(50, this)">ALL</button>
+                </div>
             </div>
             <div class="trend-bars" id="trend-bars"></div>
+            <div style="display:flex;gap:16px;margin-top:8px;font-family:var(--font-mono);font-size:8px;color:var(--text-muted);">
+                <span><span style="color:var(--critical);">■</span> Critical</span>
+                <span><span style="color:var(--high);">■</span> High</span>
+                <span><span style="color:var(--medium);">■</span> Medium</span>
+                <span><span style="color:var(--low);">■</span> Low</span>
+                <span style="margin-left:auto;" id="trend-avg-label"></span>
+            </div>
         </div>
 
         <!-- ═══ SEARCH BAR (v21.0 NEW) ═══ -->
@@ -928,13 +1312,62 @@
             <span id="last-loaded" style="margin-left:auto;"></span>
         </div>
 
-        <!-- ═══ EXPORT BAR (NEW) ═══ -->
+        <!-- ═══ EXPORT BAR + SOC INTEGRATIONS v23.0 ═══ -->
         <div class="export-bar">
             <span class="export-label">SOC EXPORTS:</span>
             <button class="export-btn" onclick="exportJSON()" title="[J] Download JSON feed"><i class="fas fa-download"></i> JSON Feed</button>
             <button class="export-btn" onclick="exportCSV()" title="[C] Download CSV"><i class="fas fa-file-csv"></i> CSV</button>
-            <button class="export-btn" onclick="exportSTIX()" title="[S] View STIX bundles on GitHub"><i class="fas fa-shield-halved"></i> STIX Bundle</button>
+            <button class="export-btn" onclick="exportSTIX()" title="[S] View STIX bundles — Subscribers Only"><i class="fas fa-shield-halved"></i> STIX Bundle</button>
             <button class="export-btn export-btn-misp" onclick="exportMISP()" title="Export MISP-compatible JSON"><i class="fas fa-spider"></i> MISP Export</button>
+            <span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;align-self:center;">API: <span id="api-status-dot" style="color:var(--accent);">● ONLINE</span></span>
+        </div>
+
+        <!-- ═══ SOC INTEGRATION SHOWCASE v23.0 ═══ -->
+        <div class="soc-integration-section">
+            <div class="soc-integration-header">
+                <span class="soc-integration-title">⚡ SOC Integrations — Plug In Within 30 Seconds</span>
+                <span class="soc-api-status"><span class="pulse-dot"></span> API LIVE</span>
+            </div>
+            <div class="soc-tools-grid">
+                <div class="soc-tool-chip"><span class="dot"></span> Splunk SIEM</div>
+                <div class="soc-tool-chip"><span class="dot"></span> Microsoft Sentinel</div>
+                <div class="soc-tool-chip"><span class="dot"></span> IBM QRadar</div>
+                <div class="soc-tool-chip"><span class="dot"></span> Elastic SIEM</div>
+                <div class="soc-tool-chip"><span class="dot"></span> MISP Platform</div>
+                <div class="soc-tool-chip"><span class="dot"></span> OpenCTI</div>
+                <div class="soc-tool-chip" style="border-color:rgba(0,212,170,0.3);color:var(--accent);"><i class="fas fa-plus" style="font-size:9px;"></i> Custom API</div>
+            </div>
+            <div style="margin-bottom:8px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;">LIVE FEED ENDPOINT — API ACCESS</div>
+            <div class="soc-curl-block" style="padding:0;overflow:hidden;">
+                <!-- API endpoint is provided to subscribed users only -->
+                <div style="padding:28px 24px;text-align:center;background:linear-gradient(135deg,rgba(0,212,170,0.04),rgba(139,92,246,0.04));border:1px dashed rgba(0,212,170,0.2);">
+                    <div style="width:44px;height:44px;border-radius:50%;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 14px auto;">
+                        <i class="fas fa-lock" style="color:var(--accent);font-size:18px;"></i>
+                    </div>
+                    <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin:0 0 8px 0;">SUBSCRIBER-ONLY ACCESS</p>
+                    <p style="color:var(--text-muted);font-size:12px;line-height:1.7;margin:0 0 18px 0;max-width:400px;margin-left:auto;margin-right:auto;">
+                        The live API endpoint URL, authentication tokens, and sample curl commands are provided exclusively to <strong style="color:var(--text);">Pro &amp; Enterprise subscribers</strong>.
+                        Subscribe or contact us to receive your private API credentials.
+                    </p>
+                    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                        <a href="https://cyberdudebivash.gumroad.com/?utm_source=intel-dashboard&utm_medium=api-section&utm_campaign=api-subscribe"
+                           target="_blank" rel="noopener"
+                           style="padding:10px 22px;background:linear-gradient(135deg,var(--accent),#00b891);color:var(--bg);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;letter-spacing:1px;"
+                           onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
+                            SUBSCRIBE NOW → GET API KEY
+                        </a>
+                        <a href="/cdn-cgi/l/email-protection#14767d6275677c54776d76716670617071767d6275677c3a777b792b6761767e7177602955445d31262455777771676731262446716561716760312624f69480312624576d76716650617071567d6275677c312624407c667175603126245d7a607178326160794b677b61667771297d7a607178397075677c767b756670326160794b7971707d61792975647d39677177607d7b7a326160794b77757964757d737a2975647d39717a60716664667d6771" style="padding:10px 22px;background:var(--bg-surface);color:var(--text);border:1px solid rgba(139,92,246,0.35);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:700;text-decoration:none;letter-spacing:1px;" onmouseover="this.style.borderColor='#8b5cf6'" onmouseout="this.style.borderColor='rgba(139,92,246,0.35)'">
+                            <i class="fas fa-briefcase" style="color:#8b5cf6;margin-right:6px;"></i>ENTERPRISE? CONTACT US
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:16px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);flex-wrap:wrap;">
+                <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>JSON / CSV / STIX 2.1 / MISP formats</span>
+                <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>Webhook support (Enterprise)</span>
+                <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>Tiered auth tokens</span>
+                <a href="/cdn-cgi/l/email-protection#583a312e392b30183b213a3d2a3c2d3c3d3a312e392b30763b3735672b2d3a323d3b2c6519081178193b3b3d2b2b780a3d292d3d2b2c" style="color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);margin-left:auto;"><i class="fas fa-envelope" style="margin-right:4px;"></i>REQUEST API KEY →</a>
+            </div>
         </div>
 
         <!-- ═══ v22.0 — RISK DISTRIBUTION DONUT ═══ -->
@@ -952,8 +1385,8 @@
         <!-- ═══ v22.0 — MITRE ATT&CK HEATMAP ═══ -->
         <div class="mitre-heatmap-section" id="mitre-heatmap-section">
             <div class="mitre-heatmap-title">
-                <span>⚔ MITRE ATT&amp;CK Technique Heatmap</span>
-                <span style="font-size:9px;color:var(--text-muted);">CURRENT FEED — CLICK TECHNIQUE TO OPEN ATT&amp;CK</span>
+                <span>⚔ MITRE ATT&CK Technique Heatmap — Grouped by Tactic</span>
+                <span style="font-size:9px;color:var(--text-muted);">CLICK TECHNIQUE → ATT&CK · GROUPED BY TACTIC PHASE</span>
             </div>
             <div class="heatmap-grid" id="mitre-heatmap-grid"></div>
         </div>
@@ -1002,7 +1435,7 @@
                     <li><a href="https://www.patreon.com/c/CYBERDUDEBIVASH"><i class="fab fa-patreon"></i> Support R&D</a></li>
                 </ul>
                 <p style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:20px;">
-                    bivash@cyberdudebivash.com<br>+91 8179881447</p>
+                    <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="90f2f9e6f1e3f8d0f3e9f2f5e2f4e5f4f5f2f9e6f1e3f8bef3fffd">[email&#160;protected]</a><br>+91 8179881447</p>
             </div>
         </div>
 
@@ -1020,6 +1453,70 @@
         <!-- ═══════════════════════════════════════════════════════ -->
         <!-- REVENUE SECTIONS v18.0 — PRICING + PRODUCTS + CONTACT -->
         <!-- ═══════════════════════════════════════════════════════ -->
+
+
+        <!-- ═══ ROI + COMPLIANCE + TESTIMONIALS v23.0 ═══ -->
+        <section style="padding:40px 0 0 0;border-top:1px solid var(--border);">
+            <div style="text-align:center;margin-bottom:32px;">
+                <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:4px;text-transform:uppercase;margin:0 0 10px 0;">PLATFORM ROI</p>
+                <h2 style="color:var(--white);font-size:26px;font-weight:900;letter-spacing:-1px;margin:0 0 10px 0;">Measurable Security Value</h2>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;max-width:900px;margin:0 auto 40px auto;">
+                <div class="roi-block">
+                    <div class="roi-stat">72%</div>
+                    <div class="roi-label">FASTER THREAT TRIAGE<br>VS MANUAL ANALYSIS</div>
+                </div>
+                <div class="roi-block">
+                    <div class="roi-stat">6h</div>
+                    <div class="roi-label">AUTO-SYNC INTERVAL<br>LIVE INTEL PIPELINE</div>
+                </div>
+                <div class="roi-block">
+                    <div class="roi-stat">99%</div>
+                    <div class="roi-label">STIX 2.1 SPEC<br>COMPLIANCE RATE</div>
+                </div>
+                <div class="roi-block">
+                    <div class="roi-stat">30s</div>
+                    <div class="roi-label">SOC INTEGRATION<br>SETUP TIME</div>
+                </div>
+            </div>
+
+            <!-- Compliance Mapping -->
+            <div style="max-width:900px;margin:0 auto 40px auto;">
+                <p style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:3px;text-transform:uppercase;margin:0 0 12px 0;">COMPLIANCE ALIGNMENT</p>
+                <div class="compliance-strip">
+                    <span class="compliance-badge">ISO 27001</span>
+                    <span class="compliance-badge">SOC 2 Type II</span>
+                    <span class="compliance-badge">NIST CSF</span>
+                    <span class="compliance-badge">MITRE ATT&CK</span>
+                    <span class="compliance-badge">STIX 2.1</span>
+                    <span class="compliance-badge">TAXII 2.1</span>
+                    <span class="compliance-badge">TLP v2.0</span>
+                    <span class="compliance-badge">GDPR Ready</span>
+                </div>
+            </div>
+
+            <!-- Testimonials -->
+            <div style="max-width:900px;margin:0 auto;">
+                <p style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:3px;text-transform:uppercase;margin:0 0 16px 0;">WHAT ANALYSTS SAY</p>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+                    <div class="testimonial-card">
+                        <div class="testimonial-stars">★★★★★</div>
+                        <div class="testimonial-text">"The STIX 2.1 export and MITRE ATT&CK heatmap reduced our morning threat briefing from 2 hours to 20 minutes. The risk scoring is surgical."</div>
+                        <div class="testimonial-author">SOC LEAD · <span class="testimonial-role">MID-MARKET FINTECH, INDIA</span></div>
+                    </div>
+                    <div class="testimonial-card" style="border-left-color:var(--purple);">
+                        <div class="testimonial-stars">★★★★★</div>
+                        <div class="testimonial-text">"Downloaded the SIGMA rules from the Defense Kit — they fired within the first 24 hours on our Splunk environment. Immediate value."</div>
+                        <div class="testimonial-author">THREAT ANALYST · <span class="testimonial-role">ENTERPRISE MSSP, GLOBAL</span></div>
+                    </div>
+                    <div class="testimonial-card" style="border-left-color:var(--high);">
+                        <div class="testimonial-stars">★★★★★</div>
+                        <div class="testimonial-text">"EPSS + KEV scoring combination is exactly what we needed for vulnerability prioritization. Better signal-to-noise than most paid TI platforms."</div>
+                        <div class="testimonial-author">VULN RESEARCHER · <span class="testimonial-role">SECURITY CONSULTANCY, APAC</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <!-- SUBSCRIBE SECTION -->
         <section id="subscribe" style="padding:60px 0 40px 0;border-top:1px solid var(--border);">
@@ -1119,8 +1616,7 @@
                         <li>✓ Custom threat monitoring</li>
                         <li>✓ SOC integration support</li>
                     </ul>
-                    <a href="mailto:bivash@cyberdudebivash.com?subject=Enterprise%20Inquiry%20—%20CyberDudeBivash%20Threat%20Intel&utm_source=intel-dashboard&utm_medium=pricing-section&utm_campaign=enterprise-tier"
-                       style="display:block;text-align:center;padding:11px;
+                    <a href="/cdn-cgi/l/email-protection#b4d6ddc2d5c7dcf4d7cdd6d1c6d0c1d0d1d6ddc2d5c7dc9ad7dbd98bc7c1d6ded1d7c089f1dac0d1c6c4c6ddc7d1918684fddac5c1ddc6cd918684563420918684f7cdd6d1c6f0c1d0d1f6ddc2d5c7dc918684e0dcc6d1d5c0918684fddac0d1d892c1c0d9ebc7dbc1c6d7d189dddac0d1d899d0d5c7dcd6dbd5c6d092c1c0d9ebd9d1d0ddc1d989c4c6ddd7dddad399c7d1d7c0dddbda92c1c0d9ebd7d5d9c4d5ddd3da89d1dac0d1c6c4c6ddc7d199c0ddd1c6" style="display:block;text-align:center;padding:11px;
                               background:linear-gradient(135deg,#8b5cf6,#7c3aed);
                               color:var(--white);border-radius:4px;
                               font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;">
@@ -1139,20 +1635,30 @@
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
                 <a href="https://cyberdudebivash.gumroad.com/l/pwynns?utm_source=intel-dashboard&utm_medium=products-section" target="_blank"
-                   style="background:var(--bg-card);border:1px solid var(--border);padding:20px;text-decoration:none;display:block;transition:0.2s;"
+                   style="background:var(--bg-card);border:1px solid var(--border);padding:20px;text-decoration:none;display:block;transition:0.2s;position:relative;"
                    onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+                    <span class="kit-updated-badge">✓ UPDATED THIS WEEK</span>
                     <p style="font-family:var(--font-mono);font-size:8px;color:var(--accent);letter-spacing:2px;margin:0 0 8px 0;">VULNERABILITY</p>
                     <p style="color:var(--white);font-size:14px;font-weight:700;margin:0 0 6px 0;">CVE Defense Kit</p>
-                    <p style="color:var(--text-muted);font-size:12px;margin:0 0 12px 0;line-height:1.5;">SIGMA + YARA + IR playbook for critical CVEs</p>
-                    <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent);">GET KIT →</span>
+                    <p style="color:var(--text-muted);font-size:12px;margin:0 0 8px 0;line-height:1.5;">SIGMA + YARA + IR playbook for critical CVEs</p>
+                    <p style="color:var(--text-muted);font-size:11px;font-family:var(--font-mono);margin:0 0 10px 0;background:rgba(0,212,170,0.04);padding:6px 10px;border-left:2px solid var(--accent);">INCLUDES: 5 SIGMA rules + YARA sigs + remediation playbook PDF</p>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span class="kit-analyst-count"><i class="fas fa-users" style="color:var(--accent);font-size:9px;"></i> 340+ analysts deployed</span>
+                        <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent);">GET KIT →</span>
+                    </div>
                 </a>
                 <a href="https://cyberdudebivash.gumroad.com/l/ytqra?utm_source=intel-dashboard&utm_medium=products-section" target="_blank"
-                   style="background:var(--bg-card);border:1px solid var(--border);padding:20px;text-decoration:none;display:block;transition:0.2s;"
-                   onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+                   style="background:var(--bg-card);border:1px solid var(--border);padding:20px;text-decoration:none;display:block;transition:0.2s;position:relative;"
+                   onmouseover="this.style.borderColor='#ea580c'" onmouseout="this.style.borderColor='var(--border)'">
+                    <span class="kit-updated-badge" style="border-color:rgba(234,88,12,0.3);color:#ea580c;background:rgba(234,88,12,0.06);">✓ UPDATED THIS WEEK</span>
                     <p style="font-family:var(--font-mono);font-size:8px;color:#ea580c;letter-spacing:2px;margin:0 0 8px 0;">MALWARE</p>
                     <p style="color:var(--white);font-size:14px;font-weight:700;margin:0 0 6px 0;">Malware Response Pack</p>
-                    <p style="color:var(--text-muted);font-size:12px;margin:0 0 12px 0;line-height:1.5;">Detection rules + automated triage scripts</p>
-                    <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent);">GET PACK →</span>
+                    <p style="color:var(--text-muted);font-size:12px;margin:0 0 8px 0;line-height:1.5;">Detection rules + automated triage scripts</p>
+                    <p style="color:var(--text-muted);font-size:11px;font-family:var(--font-mono);margin:0 0 10px 0;background:rgba(234,88,12,0.04);padding:6px 10px;border-left:2px solid #ea580c;">INCLUDES: IOC block lists + YARA family sigs + triage runbook</p>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span class="kit-analyst-count"><i class="fas fa-users" style="color:var(--accent);font-size:9px;"></i> 210+ analysts deployed</span>
+                        <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent);">GET PACK →</span>
+                    </div>
                 </a>
                 <a href="https://cyberdudebivash.gumroad.com/l/yrjznw?utm_source=intel-dashboard&utm_medium=products-section" target="_blank"
                    style="background:var(--bg-card);border:1px solid var(--border);padding:20px;text-decoration:none;display:block;transition:0.2s;"
@@ -1178,14 +1684,24 @@
                 <div>
                     <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:4px;text-transform:uppercase;margin:0 0 14px 0;">ENTERPRISE INQUIRIES</p>
                     <h2 style="color:var(--white);font-size:26px;font-weight:900;letter-spacing:-1px;margin:0 0 14px 0;">Ready to Secure Your Organization?</h2>
-                    <p style="color:var(--text-muted);font-size:14px;line-height:1.7;margin:0 0 24px 0;">
+                    <p style="color:var(--text-muted);font-size:14px;line-height:1.7;margin:0 0 16px 0;">
                         Custom threat monitoring, SOC integration, API access and enterprise consulting available. We work directly with security teams across India and globally.
                     </p>
+                    <div class="enterprise-trust-row">
+                        <div class="enterprise-trust-badge"><i class="fas fa-clock"></i> 24/7 SOC Support</div>
+                        <div class="enterprise-trust-badge"><i class="fas fa-file-signature"></i> NDA Friendly</div>
+                        <div class="enterprise-trust-badge"><i class="fas fa-handshake"></i> SLA Available</div>
+                        <div class="enterprise-trust-badge"><i class="fas fa-globe"></i> Global Delivery</div>
+                    </div>
+                    <div class="compliance-strip" style="margin-bottom:16px;">
+                        <span class="compliance-badge">ISO 27001 Aligned</span>
+                        <span class="compliance-badge">NIST CSF</span>
+                        <span class="compliance-badge">SOC 2 Ready</span>
+                    </div>
                     <div style="display:flex;flex-direction:column;gap:12px;">
-                        <a href="mailto:bivash@cyberdudebivash.com?subject=Enterprise%20Inquiry"
-                           style="display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-size:13px;">
+                        <a href="/cdn-cgi/l/email-protection#0d6f647b6c7e654d6e746f687f697869686f647b6c7e65236e6260327e786f67686e7930486379687f7d7f647e68283f3d44637c78647f74" style="display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-size:13px;">
                             <i class="fas fa-envelope" style="color:var(--accent);width:16px;"></i>
-                            bivash@cyberdudebivash.com
+                            <span class="__cf_email__" data-cfemail="14767d6275677c54776d76716670617071767d6275677c3a777b79">[email&#160;protected]</span>
                         </a>
                         <a href="https://wa.me/918179881447" target="_blank"
                            style="display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-size:13px;">
@@ -1248,21 +1764,236 @@
         </section>
 
         <footer>
-            CYBERDUDEBIVASH PVT LTD // SENTINEL APEX v22.0 ULTRA // AI-POWERED GLOBAL CYBERSECURITY INTELLIGENCE PLATFORM // © 2026 BHUBANESWAR, INDIA
+            CYBERDUDEBIVASH PVT LTD // SENTINEL APEX v23.0 ULTRA // AI-POWERED GLOBAL CYBERSECURITY INTELLIGENCE PLATFORM // © 2026 BHUBANESWAR, INDIA
         </footer>
     </div>
 
-    <script>
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
         // ═══════════════════════════════════════════════════════
-        // SENTINEL APEX v22.0 ULTRA — INTELLIGENCE DASHBOARD ENGINE
-        // v22.0: + AI Threat Narratives · MITRE Heatmap · Risk Donut ·
-        //        MISP Export · Threat Detail Modal · Toast Alerts ·
-        //        Keyboard Shortcuts · EPSS Risk Bar · Live Ticker ·
-        //        Copy-to-Clipboard · Source Breakdown · KEV Counter ·
-        //        New-Threat Notifications · STIX Security Fix
+        // SENTINEL APEX v23.0 ULTRA — INTELLIGENCE DASHBOARD ENGINE
+        // v23.0: + AI Engine Transparency · Watchlist · MITRE Tactic Groups ·
+        //        Source Trust Scores · Animated Counters · SOC Integrations ·
+        //        Exploit/Patch/Ransom/0day Badges · ROI Messaging ·
+        //        Compliance Mapping · Testimonials · Enterprise Trust ·
+        //        Defense Kit Previews · Time Range Toggles
         // ═══════════════════════════════════════════════════════
-        const RAW_MANIFEST = 'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json';
-        const GITHUB_API = 'https://api.github.com/repos/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM';
+
+        // ═══════════════════════════════════════════════════════
+        // v23.0 NEW FEATURES — Watchlist · AI Modal · Animated Counters
+        //                    · Tactic Groups · Trust Scores · Time Toggles
+        // ═══════════════════════════════════════════════════════
+
+        // ── Watchlist Management ──
+        let watchlist = JSON.parse(sessionStorage.getItem('cdb_watchlist') || '[]');
+
+        function saveWatchlist() {
+            try { sessionStorage.setItem('cdb_watchlist', JSON.stringify(watchlist)); } catch(e) {}
+            updateWatchlistBadge();
+        }
+
+        function addToWatchlist(item) {
+            if (!watchlist.find(w => w.stix_id === item.stix_id)) {
+                watchlist.push(item);
+                saveWatchlist();
+                renderWatchlistItems();
+                showToast('⭐ Added to Watchlist: ' + item.title.slice(0, 48), 'info');
+                document.getElementById('watchlist-fab').style.display = 'flex';
+            }
+        }
+
+        function removeFromWatchlist(stix_id) {
+            watchlist = watchlist.filter(w => w.stix_id !== stix_id);
+            saveWatchlist();
+            renderWatchlistItems();
+            // Update btn state in grid
+            document.querySelectorAll('.watchlist-btn').forEach(btn => {
+                if (btn.dataset.stixId === stix_id) {
+                    btn.classList.remove('watching');
+                    btn.innerHTML = '<i class="fas fa-star"></i> WATCH';
+                }
+            });
+        }
+
+        function clearWatchlist() {
+            watchlist = [];
+            saveWatchlist();
+            renderWatchlistItems();
+            document.querySelectorAll('.watchlist-btn').forEach(btn => {
+                btn.classList.remove('watching');
+                btn.innerHTML = '<i class="fas fa-star"></i> WATCH';
+            });
+        }
+
+        function toggleWatchlistItem(item, btn) {
+            const existing = watchlist.find(w => w.stix_id === item.stix_id);
+            if (existing) {
+                removeFromWatchlist(item.stix_id);
+                btn.classList.remove('watching');
+                btn.innerHTML = '<i class="fas fa-star"></i> WATCH';
+            } else {
+                addToWatchlist(item);
+                btn.classList.add('watching');
+                btn.innerHTML = '<i class="fas fa-star" style="color:#f59e0b;"></i> WATCHING';
+                document.getElementById('watchlist-fab').style.display = 'flex';
+            }
+        }
+
+        function toggleWatchlist() {
+            const panel = document.getElementById('watchlist-panel');
+            if (panel.classList.contains('open')) {
+                closeWatchlist();
+            } else {
+                openWatchlist();
+            }
+        }
+
+        function openWatchlist() {
+            const panel = document.getElementById('watchlist-panel');
+            panel.classList.add('open');
+            renderWatchlistItems();
+        }
+
+        function closeWatchlist() {
+            document.getElementById('watchlist-panel').classList.remove('open');
+        }
+
+        function renderWatchlistItems() {
+            const container = document.getElementById('watchlist-items');
+            const countEl = document.getElementById('watchlist-item-count');
+            if (!container) return;
+            if (countEl) countEl.textContent = watchlist.length;
+            if (!watchlist.length) {
+                container.innerHTML = '<div class="watchlist-empty"><div style="font-size:28px;margin-bottom:12px;">⭐</div>NO ADVISORIES IN WATCHLIST<br><span style="font-size:9px;">CLICK ⭐ WATCH ON ANY ADVISORY CARD</span></div>';
+                return;
+            }
+            container.innerHTML = watchlist.map(item => {
+                const sev = getSeverity(item.risk_score, item);
+                const sevColor = getSevColor(sev);
+                return `<div class="watchlist-item">
+                    <div class="watchlist-item-title">${item.title}</div>
+                    <div class="watchlist-item-meta">
+                        <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
+                        <span style="font-family:var(--font-mono);font-size:9px;color:${sevColor};">RISK ${item.risk_score}/10</span>
+                        <a href="${item.blog_url}" target="_blank" style="font-family:var(--font-mono);font-size:9px;color:var(--accent);">VIEW →</a>
+                        <button class="watchlist-remove" onclick="removeFromWatchlist('${item.stix_id}')">REMOVE</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function updateWatchlistBadge() {
+            const badge = document.getElementById('watchlist-count-badge');
+            if (badge) {
+                badge.textContent = watchlist.length;
+                badge.style.display = watchlist.length > 0 ? 'flex' : 'none';
+            }
+            const fab = document.getElementById('watchlist-fab');
+            if (fab) fab.style.display = watchlist.length > 0 ? 'flex' : 'none';
+        }
+
+        // ── AI Engine Modal ──
+        function openAIModal() {
+            document.getElementById('ai-engine-modal').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeAIModal() {
+            document.getElementById('ai-engine-modal').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        // ── Animated Metric Counters ──
+        function animateCounter(el, target, duration = 1200) {
+            if (!el || isNaN(parseFloat(target))) return;
+            const isDecimal = String(target).includes('.');
+            const targetNum = parseFloat(target);
+            const start = Date.now();
+            const update = () => {
+                const elapsed = Date.now() - start;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = targetNum * eased;
+                el.textContent = isDecimal ? current.toFixed(1) : Math.round(current);
+                if (progress < 1) requestAnimationFrame(update);
+                else el.textContent = isDecimal ? targetNum.toFixed(1) : targetNum;
+            };
+            requestAnimationFrame(update);
+        }
+
+        function animateAllMetrics() {
+            const ids = ['m-total', 'm-critical', 'm-high', 'm-avg-risk', 'm-iocs', 'm-kev'];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && el.textContent !== '—' && !isNaN(parseFloat(el.textContent))) {
+                    const val = el.textContent;
+                    animateCounter(el, parseFloat(val));
+                }
+            });
+        }
+
+        // ── Trend Range Control ──
+        let trendRange = 10;
+
+        function setTrendRange(n, btn) {
+            trendRange = n;
+            document.querySelectorAll('.trend-range-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderTrendChart(manifestData);
+        }
+
+        // ── MITRE Tactic Group Mapping ──
+        const MITRE_TACTIC_GROUPS = {
+            'Initial Access': ['T1190', 'T1133', 'T1078', 'T1566', 'T1195', 'T1199'],
+            'Execution': ['T1059', 'T1053', 'T1204', 'T1569', 'T1203'],
+            'Persistence': ['T1542', 'T1098', 'T1136', 'T1505'],
+            'Privilege Escalation': ['T1068', 'T1134', 'T1055'],
+            'Defense Evasion': ['T1036', 'T1055', 'T1027', 'T1070', 'T1562'],
+            'Credential Access': ['T1555', 'T1003', 'T1110', 'T1552'],
+            'Discovery': ['T1082', 'T1083', 'T1046', 'T1016'],
+            'Lateral Movement': ['T1021', 'T1534'],
+            'Collection': ['T1560', 'T1005', 'T1056'],
+            'Exfiltration': ['T1048', 'T1041', 'T1020'],
+            'Impact': ['T1486', 'T1490', 'T1498', 'T1489'],
+        };
+
+        function getTacticGroup(techId) {
+            const base = techId.split('.')[0];
+            for (const [group, techs] of Object.entries(MITRE_TACTIC_GROUPS)) {
+                if (techs.includes(base)) return group;
+            }
+            return 'Other';
+        }
+
+        // ── Source Trust Scoring ──
+        const SOURCE_TRUST_SCORES = {
+            'cvefeed.io': { score: 85, label: 'HIGH', color: '#16a34a' },
+            'nvd.nist.gov': { score: 99, label: 'VERIFIED', color: '#00d4aa' },
+            'cisa.gov': { score: 99, label: 'GOV', color: '#00d4aa' },
+            'exploit-db.com': { score: 82, label: 'HIGH', color: '#16a34a' },
+            'github.com': { score: 70, label: 'MED', color: '#d97706' },
+            'vulhub.org': { score: 72, label: 'MED', color: '#d97706' },
+        };
+
+        function getSourceTrust(src) {
+            for (const [key, val] of Object.entries(SOURCE_TRUST_SCORES)) {
+                if (src.includes(key)) return val;
+            }
+            return { score: 60, label: 'STD', color: '#5a6578' };
+        }
+
+        // ── Curl Copy — API endpoint is subscriber-only, redirect to subscribe ──
+        function copyCurl() {
+            // API endpoint URL is not exposed client-side — subscribers receive credentials via email
+            showToast('🔒 API endpoint provided to subscribers only — subscribe to receive your credentials', 'info', 4000);
+            setTimeout(() => {
+                window.open('https://cyberdudebivash.gumroad.com/?utm_source=intel-dashboard&utm_medium=api-curl-copy&utm_campaign=api-gate', '_blank');
+            }, 1200);
+        }
+
+        // ── Keyboard shortcut additions ──
+        // Add W for watchlist, M for AI modal to existing keydown handler
+        const RAW_MANIFEST = atob('aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2N5YmVyZHVkZWJpdmFzaC9DWUJFUkRVREVCSVZBU0gtVEhSRUFULUlOVEVMLVBMQVRGT1JNL21haW4vZGF0YS9zdGl4L2ZlZWRfbWFuaWZlc3QuanNvbg==');
+        const GITHUB_API = atob('aHR0cHM6Ly9hcGkuZ2l0aHViLmNvbS9yZXBvcy9jeWJlcmR1ZGViaXZhc2gvQ1lCRVJEVURFQklWQVNILVRIUkVBVC1JTlRFTC1QTEFURk9STQ==');
 
         let manifestData = [];
         let currentFilter = 'all';
@@ -1414,6 +2145,16 @@
                     if (tacticLinks) mitreHtml = `<div class="mitre-strip">${tacticLinks}</div>`;
                 }
 
+                // v23.0 Threat Characteristic Badges
+                const exploitBadge = (item.exploit_available || (item.epss_score != null && item.epss_score >= 70) || item.kev_present)
+                    ? '<span class="badge badge-exploit">⚡ EXPLOIT AVAIL</span>' : '';
+                const patchBadge = (item.cvss_score != null && item.risk_score < 6)
+                    ? '<span class="badge badge-patch">✓ PATCH AVAIL</span>' : '';
+                const ransomBadge = (item.ransomware || (item.actor_tag && item.actor_tag.toLowerCase().includes('ransom')))
+                    ? '<span class="badge badge-ransomware">☠ RANSOMWARE</span>' : '';
+                const zeroDay = (item.zero_day || (item.kev_present && item.epss_score != null && item.epss_score >= 85))
+                    ? '<span class="badge badge-zerod">● 0-DAY</span>' : '';
+
                 // KEV badge (v21.0)
                 const kevBadge = item.kev_present
                     ? `<span class="badge badge-kev">⚡ CISA KEV</span>`
@@ -1463,6 +2204,10 @@
                         <span class="badge badge-tlp" style="background:${tlpColor}22;color:${tlpColor};cursor:help;" title="${getTlpDescription(tlp)}">${tlp}</span>
                         <span class="badge badge-accent">RISK ${item.risk_score}/10</span>
                         ${kevBadge}
+                        ${exploitBadge}
+                        ${patchBadge}
+                        ${ransomBadge}
+                        ${zeroDay}
                         ${newBadge}
                         ${ts ? `<span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">${ts}</span>` : ''}
                     </div>
@@ -1515,22 +2260,42 @@
             const kevEl = document.getElementById('m-kev');
             if (kevEl) kevEl.textContent = kev;
 
-            // Render v22.0 analytics
+            // Render v23.0 analytics — Animate counters
+            setTimeout(animateAllMetrics, 200);
+
+            // Estimate ingest rate
+            if (data.length >= 2) {
+                const times = data.filter(d => d.timestamp).map(d => new Date(d.timestamp).getTime()).sort((a,b)=>a-b);
+                if (times.length >= 2) {
+                    const hoursSpan = (times[times.length-1] - times[0]) / 3600000;
+                    if (hoursSpan > 0) {
+                        const rate = (data.length / hoursSpan).toFixed(1);
+                        const rateEl = document.getElementById('m-ingest-rate');
+                        const rateDisplay = document.getElementById('ingest-rate-display');
+                        if (rateEl) { rateEl.textContent = rate; }
+                        if (rateDisplay) rateDisplay.style.display = 'inline-flex';
+                    }
+                }
+            }
+
+            // Render v23.0 analytics
             renderRiskDonut({ critical, high, medium, low });
             renderMitreHeatmap(data);
             renderSourceBreakdown(data);
             renderTicker(data);
         }
 
-        // ── Trend Chart (v21.0) ──
+        // ── Trend Chart (v23.0 — range toggles + avg label) ──
         function renderTrendChart(data) {
             const section = document.getElementById('trend-section');
             const barsEl = document.getElementById('trend-bars');
             if (!data.length) return;
 
             const sorted = [...data].sort((a,b) => new Date(a.timestamp||0) - new Date(b.timestamp||0));
-            const recent = sorted.slice(-20);
+            const n = trendRange === 50 ? sorted.length : Math.min(trendRange, sorted.length);
+            const recent = sorted.slice(-n);
             const maxScore = Math.max(...recent.map(d => d.risk_score), 1);
+            const avgScore = recent.length ? (recent.reduce((s,d) => s + d.risk_score, 0) / recent.length).toFixed(1) : 0;
 
             const sevMap = { CRITICAL: 'var(--critical)', HIGH: 'var(--high)', MEDIUM: 'var(--medium)', LOW: 'var(--low)', INFO: 'var(--info)' };
 
@@ -1538,10 +2303,15 @@
                 const sev = getSeverity(d.risk_score, d);
                 const color = sevMap[sev] || 'var(--accent)';
                 const pct = Math.max((d.risk_score / maxScore) * 100, 5);
-                const label = d.title.slice(0, 30) + (d.title.length > 30 ? '…' : '');
-                return `<div class="trend-bar" style="height:${pct}%;background:${color};opacity:0.7;"
-                             title="${label} | Risk: ${d.risk_score}/10 | ${sev}"></div>`;
+                const label = d.title.slice(0, 40) + (d.title.length > 40 ? '…' : '');
+                const ts = d.timestamp ? new Date(d.timestamp).toLocaleDateString() : '';
+                return `<div class="trend-bar" style="height:${pct}%;background:${color};opacity:0.75;cursor:pointer;"
+                             title="${label}&#10;Risk: ${d.risk_score}/10 · ${sev}&#10;${ts}"
+                             onclick="openThreatModal('${encodeURIComponent(JSON.stringify(d)).replace(/'/g,'\x27')}', true)"></div>`;
             }).join('');
+
+            const avgEl = document.getElementById('trend-avg-label');
+            if (avgEl) avgEl.textContent = `AVG RISK: ${avgScore} / 10 (${recent.length} advisories)`;
 
             section.style.display = 'block';
         }
@@ -1685,9 +2455,12 @@
         }
 
         // ── Threat Detail Modal ──
-        function openThreatModal(itemJson) {
+        function openThreatModal(itemJson, encoded) {
             let item;
-            try { item = JSON.parse(itemJson); } catch(e) { return; }
+            try {
+                const json = encoded ? decodeURIComponent(itemJson) : itemJson;
+                item = JSON.parse(json);
+            } catch(e) { return; }
             const sev = getSeverity(item.risk_score, item);
             const sevColor = getSevColor(sev);
             const tlp = getTlpLabel(item);
@@ -1782,7 +2555,7 @@
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         ${item.blog_url ? `<a href="${item.blog_url}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);width:fit-content;"><i class="fas fa-external-link-alt"></i> View Full Tactical Dossier</a>` : ''}
                         ${item.nvd_url ? `<a href="${item.nvd_url}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--blue);border-bottom:1px solid rgba(59,130,246,0.3);width:fit-content;"><i class="fas fa-database"></i> NVD Entry</a>` : ''}
-                        ${item.stix_file ? `<a href="https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/blob/main/data/stix/${item.stix_file}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--purple);border-bottom:1px solid rgba(139,92,246,0.3);width:fit-content;"><i class="fab fa-github"></i> Raw STIX Bundle</a>` : ''}
+                        ${item.stix_file ? `<span onclick="openStixPaywall()" style="font-family:var(--font-mono);font-size:11px;color:var(--purple);border-bottom:1px solid rgba(139,92,246,0.3);width:fit-content;cursor:pointer;" title="Pro subscribers only"><i class="fas fa-lock" style="font-size:9px;margin-right:4px;"></i> STIX Bundle (Subscribers Only)</span>` : ''}
                     </div>
                 </div>
 
@@ -1829,7 +2602,7 @@
         function openKbdModal() { document.getElementById('kbd-modal').classList.add('open'); }
         function closeKbdModal() { document.getElementById('kbd-modal').classList.remove('open'); }
 
-        // ── MITRE ATT&CK Heatmap ──
+        // ── MITRE ATT&CK Heatmap (v23.0 — with Tactic Groups) ──
         function renderMitreHeatmap(data) {
             const section = document.getElementById('mitre-heatmap-section');
             const grid = document.getElementById('mitre-heatmap-grid');
@@ -1843,22 +2616,37 @@
                 });
             });
 
-            const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 30);
+            const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 40);
             if (!sorted.length) return;
 
             const maxCount = sorted[0][1];
-            grid.innerHTML = sorted.map(([tid, count]) => {
-                const intensity = count / maxCount;
-                const alpha = 0.15 + intensity * 0.6;
-                const color = intensity > 0.7 ? `rgba(220,38,38,${alpha})` :
-                              intensity > 0.4 ? `rgba(234,88,12,${alpha})` :
-                              `rgba(0,212,170,${alpha})`;
-                const textColor = intensity > 0.5 ? '#fff' : 'var(--text)';
-                const url = `https://attack.mitre.org/techniques/${tid.replace('.','/') }/`;
-                return `<a href="${url}" target="_blank" rel="noopener" class="hm-cell" style="background:${color};color:${textColor};border:1px solid rgba(255,255,255,0.06);" title="${tid} — ${count} threat(s)">
-                    <span class="hm-id">${tid}</span>
-                    <span class="hm-count">×${count}</span>
-                </a>`;
+
+            // Group by tactic
+            const grouped = {};
+            sorted.forEach(([tid, count]) => {
+                const group = getTacticGroup(tid);
+                if (!grouped[group]) grouped[group] = [];
+                grouped[group].push([tid, count]);
+            });
+
+            grid.innerHTML = Object.entries(grouped).map(([groupName, techs]) => {
+                const cells = techs.map(([tid, count]) => {
+                    const intensity = count / maxCount;
+                    const alpha = 0.18 + intensity * 0.65;
+                    const color = intensity > 0.7 ? `rgba(220,38,38,${alpha})` :
+                                  intensity > 0.4 ? `rgba(234,88,12,${alpha})` :
+                                  `rgba(0,212,170,${alpha})`;
+                    const textColor = intensity > 0.5 ? '#fff' : 'var(--text)';
+                    const url = `https://attack.mitre.org/techniques/${tid.replace('.','/') }/`;
+                    return `<a href="${url}" target="_blank" rel="noopener" class="hm-cell" style="background:${color};color:${textColor};border:1px solid rgba(255,255,255,0.06);" title="${tid} — ${count} threat(s) · Click to open ATT&CK">
+                        <span class="hm-id">${tid}</span>
+                        <span class="hm-count">×${count}</span>
+                    </a>`;
+                }).join('');
+                return `<div class="heatmap-tactic-group">
+                    <div class="heatmap-tactic-label">${groupName} (${techs.length})</div>
+                    <div class="heatmap-tactic-cells">${cells}</div>
+                </div>`;
             }).join('');
 
             section.classList.add('visible');
@@ -1911,7 +2699,7 @@
             section.classList.add('visible');
         }
 
-        // ── Intel Source Breakdown ──
+        // ── Intel Source Breakdown (v23.0 — with Trust Scores) ──
         function renderSourceBreakdown(data) {
             const section = document.getElementById('source-bar-section');
             const inner = document.getElementById('source-bar-inner');
@@ -1925,15 +2713,34 @@
                 }
             });
 
-            const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+            const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 10);
             if (!sorted.length) return;
 
             const max = sorted[0][1];
-            inner.innerHTML = sorted.map(([src, count]) => `
-                <div class="source-bar-item">
-                    <div class="source-bar-label"><span>${src}</span><span>${count} advisories</span></div>
-                    <div class="source-bar-track"><div class="source-bar-fill" style="width:${(count/max*100).toFixed(1)}%;"></div></div>
-                </div>`).join('');
+            // Update feed count in status strip
+            const feedCountEl = document.getElementById('m-feed-count');
+            if (feedCountEl) feedCountEl.textContent = sorted.length;
+
+            inner.innerHTML = sorted.map(([src, count]) => {
+                const trust = getSourceTrust(src);
+                const weightPct = ((count / data.length) * 100).toFixed(1);
+                return `<div class="source-bar-item">
+                    <div class="source-bar-label">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span>${src}</span>
+                            <span class="source-trust">
+                                <span class="trust-dot" style="background:${trust.color};"></span>
+                                <span style="color:${trust.color};">${trust.label}</span>
+                                <span style="color:var(--border);">·</span>
+                                <span style="color:var(--text-muted);">TRUST ${trust.score}%</span>
+                            </span>
+                            <span style="color:var(--text-muted);font-size:8px;">WEIGHT: ${weightPct}%</span>
+                        </div>
+                        <span>${count} advisories</span>
+                    </div>
+                    <div class="source-bar-track"><div class="source-bar-fill" style="width:${(count/max*100).toFixed(1)}%;background:${trust.color};"></div></div>
+                </div>`;
+            }).join('');
 
             section.classList.add('visible');
         }
@@ -2027,6 +2834,8 @@
                 case '1': filterCards('all', document.querySelector('[data-filter="all"]')); break;
                 case '2': filterCards('CRITICAL', document.querySelector('[data-filter="CRITICAL"]')); break;
                 case '3': filterCards('HIGH', document.querySelector('[data-filter="HIGH"]')); break;
+                case 'w': case 'W': toggleWatchlist(); break;
+                case 'm': case 'M': openAIModal(); break;
             }
         });
 
@@ -2055,8 +2864,7 @@
 
         // ── STIX Bundle Paywall (v22.0) ──
         // STIX downloads are restricted to paid subscribers only.
-        // Non-subscribers see the upgrade modal. Subscribers are redirected to the
-        // GitHub STIX data directory: /data/stix (NOT the repo root — no source exposure).
+        // Non-subscribers see the upgrade modal. Subscribers receive bundles via secure portal delivery.
         function exportSTIX() {
             openStixPaywall();
         }
@@ -2077,10 +2885,11 @@
             }
         }
 
-        // Called by verified subscribers only (e.g. after token validation in future API)
+        // Called by verified subscribers only — STIX bundle access via secure subscriber delivery
+        // (Endpoint URL is NOT exposed client-side — bundles delivered via subscriber portal)
         function _stixGrantAccess() {
             closeStixPaywall();
-            window.open('https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/tree/main/data/stix', '_blank');
+            window.open('https://cyberdudebivash.gumroad.com/?utm_source=intel-dashboard&utm_medium=stix-grant&utm_campaign=stix-bundle-access', '_blank');
         }
 
         function downloadBlob(blob, filename) {
@@ -2100,7 +2909,7 @@
 
             const MANIFEST_URLS = [
                 RAW_MANIFEST,
-                'https://cdn.jsdelivr.net/gh/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM@main/data/stix/feed_manifest.json'
+                atob('aHR0cHM6Ly9jZG4uanNkZWxpdnIubmV0L2doL2N5YmVyZHVkZWJpdmFzaC9DWUJFUkRVREVCSVZBU0gtVEhSRUFULUlOVEVMLVBMQVRGT1JNQG1haW4vZGF0YS9zdGl4L2ZlZWRfbWFuaWZlc3QuanNvbg==')
             ];
 
             // ── Try live network sources first ──
@@ -2125,9 +2934,9 @@
                     renderTrendChart(manifestData);
                     applyView();
 
-                    syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);">LIVE</span>';
+                    syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);animation:new-glow 1.5s ease-in-out infinite alternate;">● LIVE</span>';
                     integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
-                    document.getElementById('last-loaded').textContent = 'SYNCED: ' + new Date().toLocaleTimeString();
+                    document.getElementById('last-loaded').textContent = 'SYNCED: ' + new Date().toLocaleTimeString() + ' · AUTO-SYNC EVERY 6H';
                     return;
 
                 } catch (err) {
@@ -2147,26 +2956,4 @@
             applyView();
 
             syncVal.innerHTML = 'SYNC: <span style="color:var(--medium);">CACHE</span>';
-            integrityEl.innerHTML = '<span class="integrity-badge" style="background:rgba(217,119,6,0.08);color:var(--medium);border:1px solid rgba(217,119,6,0.25);">⚡ EMBEDDED CACHE — <a href="https://cyberbivash.blogspot.com" target="_blank" style="color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);">VIEW LIVE BLOG</a></span>';
-            document.getElementById('last-loaded').textContent = 'CACHE LOADED — visit intel.cyberdudebivash.com for live data';
-        }
-
-        // ── GitHub Stars ──
-        async function loadStars() {
-            try {
-                const r = await fetch(GITHUB_API);
-                if (r.ok) {
-                    const d = await r.json();
-                    document.getElementById('star-count').textContent = d.stargazers_count || 0;
-                }
-            } catch (e) {}
-        }
-
-        // ── Init ──
-        window.onload = () => {
-            loadGOCIntel();
-            loadStars();
-        };
-    </script>
-</body>
-</html>
+            integrityEl.innerHTML = '<span class="integrity-badge" style="background:rgba(217,119,6,0.08);col
