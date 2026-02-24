@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBERDUDEBIVASH® Sentinel APEX v19.0 | AI-Powered Global Threat Intelligence</title>
-    <meta name="description" content="CyberDudeBivash Sentinel APEX — AI-Powered Threat Intelligence Platform. Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping.">
+    <title>CYBERDUDEBIVASH® Sentinel APEX v21.0 | AI-Powered Global Threat Intelligence</title>
+    <meta name="description" content="CyberDudeBivash Sentinel APEX — AI-Powered Threat Intelligence Platform. Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping, EPSS enrichment.">
     <!-- Open Graph Meta -->
     <meta property="og:type" content="article">
-    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v19.0 | AI-Powered Global Threat Intelligence">
-    <meta property="og:description" content="Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping — Enterprise-Grade Threat Intelligence Platform.">
+    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v21.0 | AI-Powered Global Threat Intelligence">
+    <meta property="og:description" content="Real-time IOC feeds, STIX 2.1 exports, EPSS enrichment, MITRE ATT&CK mapping — Enterprise-Grade Threat Intelligence Platform.">
     <meta property="og:url" content="https://intel.cyberdudebivash.com/">
     <meta property="og:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-thumbnail.jpg">
     <meta property="og:image:width" content="1200">
@@ -28,7 +28,7 @@
     <!-- 🔥 Open Graph / LinkedIn Preview Metadata -->
    <!-- Open Graph / LinkedIn Preview -->
     <meta property="og:type" content="website">
-    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v19.0 | AI-Powered Global Threat Intelligence">
+    <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v21.0 | AI-Powered Global Threat Intelligence">
     <meta property="og:description" content="Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping — Enterprise-Grade Threat Intelligence Platform.">
     <meta property="og:url" content="https://intel.cyberdudebivash.com/">
     <meta property="og:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-thumbnail.jpg">
@@ -200,6 +200,114 @@
             border: 1px solid var(--border); padding: 6px 12px;
             border-radius: 4px; cursor: pointer; margin-left: auto;
         }
+
+        /* ═══ SEARCH BAR (v21.0) ═══ */
+        .search-bar {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 16px; background: var(--bg-surface);
+            border: 1px solid var(--border); padding: 8px 16px;
+        }
+        .search-bar i { color: var(--text-muted); font-size: 12px; }
+        .search-input {
+            flex: 1; background: transparent; border: none; outline: none;
+            color: var(--white); font-family: var(--font-mono); font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-clear {
+            background: none; border: none; color: var(--text-muted);
+            cursor: pointer; font-size: 11px; font-family: var(--font-mono);
+            padding: 2px 6px; transition: 0.2s;
+        }
+        .search-clear:hover { color: var(--accent); }
+        #search-count {
+            font-family: var(--font-mono); font-size: 9px;
+            color: var(--text-muted); letter-spacing: 1px;
+        }
+
+        /* ═══ REFRESH BAR (v21.0) ═══ */
+        .refresh-bar {
+            display: flex; align-items: center; gap: 14px;
+            font-family: var(--font-mono); font-size: 9px;
+            color: var(--text-muted); margin-bottom: 24px;
+            letter-spacing: 1px;
+        }
+        .refresh-btn {
+            background: none; border: 1px solid var(--border);
+            color: var(--text-muted); cursor: pointer; font-family: var(--font-mono);
+            font-size: 9px; padding: 4px 12px; letter-spacing: 1px;
+            border-radius: 3px; transition: 0.2s;
+        }
+        .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+        #auto-refresh-toggle {
+            accent-color: var(--accent); cursor: pointer;
+        }
+
+        /* ═══ KEV badge (v21.0) ═══ */
+        .badge-kev {
+            background: rgba(220,38,38,0.15); color: #ff6b6b;
+            border: 1px solid rgba(220,38,38,0.3); font-weight: 900;
+            animation: kev-pulse 2s infinite;
+        }
+        @keyframes kev-pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+        /* ═══ NEW badge (v21.0) ═══ */
+        .badge-new {
+            background: rgba(0,212,170,0.2); color: var(--accent);
+            border: 1px solid rgba(0,212,170,0.4); font-weight: 900;
+            animation: new-glow 1.5s ease-in-out infinite alternate;
+        }
+        @keyframes new-glow {
+            from { box-shadow: 0 0 4px rgba(0,212,170,0.3); }
+            to   { box-shadow: 0 0 12px rgba(0,212,170,0.6); }
+        }
+
+        /* ═══ MITRE tag strip (v21.0) ═══ */
+        .mitre-strip {
+            display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px;
+        }
+        .mitre-chip {
+            font-family: var(--font-mono); font-size: 8px;
+            background: rgba(139,92,246,0.1); color: var(--purple);
+            border: 1px solid rgba(139,92,246,0.2); padding: 2px 7px;
+            border-radius: 3px; letter-spacing: 0.5px;
+        }
+
+        /* ═══ TREND CHART (v21.0) ═══ */
+        .trend-section {
+            margin-bottom: 28px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            padding: 20px 24px;
+        }
+        .trend-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 16px;
+        }
+        .trend-title {
+            font-family: var(--font-mono); font-size: 9px;
+            color: var(--text-muted); letter-spacing: 3px; text-transform: uppercase;
+        }
+        .trend-bars {
+            display: flex; align-items: flex-end; gap: 3px;
+            height: 48px; overflow: hidden;
+        }
+        .trend-bar {
+            flex: 1; min-width: 4px; border-radius: 2px 2px 0 0;
+            transition: 0.3s; cursor: pointer; position: relative;
+        }
+        .trend-bar:hover { opacity: 0.8; }
+
+        /* ═══ ENRICHMENT STRIP on cards (v21.0) ═══ */
+        .enrich-strip {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            margin-top: 10px; padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+        .enrich-item {
+            font-family: var(--font-mono); font-size: 9px;
+            color: var(--text-muted); display: flex; align-items: center; gap: 4px;
+        }
+        .enrich-item .e-val { color: var(--white); font-weight: 700; }
 
         /* ═══ THREAT GRID ═══ */
         #threat-grid {
@@ -381,7 +489,7 @@
         <header class="apex-header">
             <div class="brand-mark">
                 <h1>CYBERDUDEBIVASH<span class="reg">®</span></h1>
-                <p class="brand-sub">Sentinel APEX <span class="ver">v19.0</span> // AI-Powered Global Threat Intelligence</p>
+                <p class="brand-sub">Sentinel APEX <span class="ver">v21.0</span> // AI-Powered Global Threat Intelligence</p>
                 <nav class="nav-hub">
                     <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH" class="nav-chip">Official Portal</a>
                     <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-ECOSYSTEM" class="nav-chip">Ecosystem</a>
@@ -408,7 +516,7 @@
             <div>NODE: <span style="color:var(--accent);">CDB-GOC-01</span></div>
             <div id="sync-val">SYNC: <span style="color:#ff9d00;">INITIALIZING...</span></div>
             <div id="integrity-status"></div>
-            <div>ENGINE: <span style="color:var(--accent);"><span class="pulse"></span> APEX ULTRA v19.0</span></div>
+            <div>ENGINE: <span style="color:var(--accent);"><span class="pulse"></span> APEX ULTRA v21.0</span></div>
         </div>
 
         <!-- ═══ METRICS STRIP (NEW) ═══ -->
@@ -421,6 +529,25 @@
             <div class="metric-card"><div class="metric-val" style="color:var(--blue);" id="m-last-sync">—</div><div class="metric-label">Last Sync</div></div>
         </div>
 
+        <!-- ═══ RISK TREND CHART (v21.0 NEW) ═══ -->
+        <div class="trend-section" id="trend-section" style="display:none;">
+            <div class="trend-header">
+                <span class="trend-title">Risk Trend — Last 20 Advisories</span>
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">ROLLING WINDOW</span>
+            </div>
+            <div class="trend-bars" id="trend-bars"></div>
+        </div>
+
+        <!-- ═══ SEARCH BAR (v21.0 NEW) ═══ -->
+        <div class="search-bar">
+            <i class="fas fa-search"></i>
+            <input type="text" class="search-input" id="search-input"
+                   placeholder="Search threats, CVEs, actors, techniques..."
+                   oninput="handleSearch(this.value)">
+            <button class="search-clear" onclick="clearSearch()">✕ CLEAR</button>
+            <span id="search-count"></span>
+        </div>
+
         <!-- ═══ FILTER BAR (NEW) ═══ -->
         <div class="filter-bar">
             <label>FILTER:</label>
@@ -428,12 +555,25 @@
             <button class="filter-btn f-critical" data-filter="CRITICAL" onclick="filterCards('CRITICAL', this)">Critical</button>
             <button class="filter-btn f-high" data-filter="HIGH" onclick="filterCards('HIGH', this)">High</button>
             <button class="filter-btn f-medium" data-filter="MEDIUM" onclick="filterCards('MEDIUM', this)">Medium</button>
+            <button class="filter-btn" data-filter="LOW" onclick="filterCards('LOW', this)"
+                    style="--fc-active:#16a34a;" onmouseover="" onmouseout="">Low</button>
             <select class="sort-select" onchange="sortCards(this.value)">
                 <option value="newest">Sort: Newest First</option>
                 <option value="oldest">Sort: Oldest First</option>
                 <option value="risk-high">Sort: Risk ↓</option>
                 <option value="risk-low">Sort: Risk ↑</option>
             </select>
+        </div>
+
+        <!-- ═══ REFRESH BAR (v21.0 NEW) ═══ -->
+        <div class="refresh-bar">
+            <button class="refresh-btn" onclick="manualRefresh()"><i class="fas fa-sync-alt"></i> REFRESH NOW</button>
+            <label>
+                <input type="checkbox" id="auto-refresh-toggle" onchange="toggleAutoRefresh(this.checked)">
+                AUTO-REFRESH
+            </label>
+            <span id="refresh-countdown" style="display:none;"></span>
+            <span id="last-loaded" style="margin-left:auto;"></span>
         </div>
 
         <!-- ═══ EXPORT BAR (NEW) ═══ -->
@@ -734,7 +874,9 @@
 
     <script>
         // ═══════════════════════════════════════════════════════
-        // SENTINEL APEX v19.0 — INTELLIGENCE DASHBOARD ENGINE
+        // SENTINEL APEX v21.0 — INTELLIGENCE DASHBOARD ENGINE
+        // v21.0: Search · MITRE Badges · KEV · EPSS/CVSS ·
+        //        Auto-Refresh · Trend Chart · NEW badge · NVD links
         // ═══════════════════════════════════════════════════════
         const RAW_MANIFEST = 'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json';
         const GITHUB_API = 'https://api.github.com/repos/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM';
@@ -742,6 +884,10 @@
         let manifestData = [];
         let currentFilter = 'all';
         let currentSort = 'newest';
+        let searchQuery = '';
+        let autoRefreshTimer = null;
+        let autoRefreshCountdown = null;
+        const AUTO_REFRESH_INTERVAL = 30 * 60; // 30 minutes
 
         // ── Subscribe form handler ──
         function handleSubscribe(e) {
@@ -757,7 +903,6 @@
                 if (msg) { msg.style.display = 'block'; }
                 form.reset();
             }).catch(() => {
-                // Fallback: open mailto
                 window.location.href = 'mailto:bivash@cyberdudebivash.com?subject=Subscribe&body=Please%20add%20me%20to%20weekly%20digest:%20'+encodeURIComponent(email);
             });
         }
@@ -803,22 +948,62 @@
             return Math.floor(diff / 86400) + 'd ago';
         }
 
+        function isNew(ts) {
+            if (!ts) return false;
+            const hours = (Date.now() - new Date(ts)) / 3600000;
+            return hours < 6;
+        }
+
+        // ── Extract CVE IDs from title ──
+        function extractCVEs(title) {
+            return [...(title || '').matchAll(/CVE-\d{4}-\d{4,7}/gi)].map(m => m[0].toUpperCase());
+        }
+
         // ── Render Cards ──
         function renderCards(data) {
             const grid = document.getElementById('threat-grid');
             if (!data.length) {
                 grid.innerHTML = '<div class="loading-state">No advisories match the current filter.</div>';
+                document.getElementById('search-count').textContent = '';
                 return;
             }
 
-            grid.innerHTML = data.map(item => {
+            const query = searchQuery.toLowerCase().trim();
+            let filtered = data;
+            if (query) {
+                filtered = data.filter(item => {
+                    const text = [
+                        item.title, item.severity, item.actor_tag,
+                        item.tlp_label, item.feed_source,
+                        ...(item.mitre_tactics || []),
+                        ...extractCVEs(item.title),
+                    ].join(' ').toLowerCase();
+                    return text.includes(query);
+                });
+            }
+
+            if (query) {
+                const cnt = document.getElementById('search-count');
+                cnt.textContent = `${filtered.length} RESULT${filtered.length !== 1 ? 'S' : ''}`;
+            } else {
+                document.getElementById('search-count').textContent = '';
+            }
+
+            if (!filtered.length) {
+                grid.innerHTML = `<div class="loading-state">No results for "<strong>${query}</strong>"</div>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(item => {
                 const sev = getSeverity(item.risk_score, item);
                 const sevColor = getSevColor(sev);
                 const tlp = getTlpLabel(item);
                 const tlpColor = getTlpColor(tlp);
-                const conf = item.confidence_score != null ? item.confidence_score + '%' : '—';
+                const conf = item.confidence_score != null ? Math.round(item.confidence_score) : null;
                 const actor = item.actor_tag || 'UNC-CDB-99';
                 const ts = item.timestamp ? timeSince(item.timestamp) : '';
+                const isNewEntry = isNew(item.timestamp);
+                const cves = extractCVEs(item.title);
 
                 // IOC chips
                 let iocChips = '';
@@ -833,21 +1018,82 @@
                     iocChips = chips.map(c => `<span class="ioc-chip">${c}</span>`).join('');
                 }
 
+                // MITRE technique badges (v21.0)
+                let mitreHtml = '';
+                const tactics = item.mitre_tactics || [];
+                if (tactics.length) {
+                    const tacticLinks = tactics.slice(0, 4).map(t => {
+                        const techId = typeof t === 'string' ? t : (t.technique_id || t.id || '');
+                        if (!techId) return '';
+                        const url = `https://attack.mitre.org/techniques/${techId.replace('.', '/')}/`;
+                        return `<a href="${url}" target="_blank" rel="noopener" class="mitre-chip" title="MITRE ATT&CK ${techId}">${techId}</a>`;
+                    }).filter(Boolean).join('');
+                    if (tacticLinks) mitreHtml = `<div class="mitre-strip">${tacticLinks}</div>`;
+                }
+
+                // KEV badge (v21.0)
+                const kevBadge = item.kev_present
+                    ? `<span class="badge badge-kev">⚡ CISA KEV</span>`
+                    : '';
+
+                // NEW badge (v21.0)
+                const newBadge = isNewEntry
+                    ? `<span class="badge badge-new">● NEW</span>`
+                    : '';
+
+                // CVSS / EPSS enrichment strip (v21.0)
+                let enrichHtml = '';
+                const enrichItems = [];
+                if (item.cvss_score != null) {
+                    const cvssColor = item.cvss_score >= 9 ? 'var(--critical)' : item.cvss_score >= 7 ? 'var(--high)' : item.cvss_score >= 4 ? 'var(--medium)' : 'var(--low)';
+                    enrichItems.push(`<span class="enrich-item">CVSS <span class="e-val" style="color:${cvssColor};">${item.cvss_score}</span></span>`);
+                }
+                if (item.epss_score != null) {
+                    const epssColor = item.epss_score >= 70 ? 'var(--critical)' : item.epss_score >= 40 ? 'var(--high)' : 'var(--text-muted)';
+                    enrichItems.push(`<span class="enrich-item">EPSS <span class="e-val" style="color:${epssColor};">${item.epss_score}%</span></span>`);
+                }
+                if (conf != null) {
+                    enrichItems.push(`<span class="enrich-item">CONF <span class="e-val">${conf}%</span></span>`);
+                }
+                // Feed source (truncated)
+                if (item.feed_source) {
+                    const src = item.feed_source.replace(/https?:\/\/(www\.)?/, '').split('/')[0];
+                    enrichItems.push(`<span class="enrich-item" style="margin-left:auto;">SRC: <span class="e-val">${src}</span></span>`);
+                }
+                if (enrichItems.length) enrichHtml = `<div class="enrich-strip">${enrichItems.join('')}</div>`;
+
+                // CVE → NVD link (v21.0)
+                let nvdLink = '';
+                if (cves.length) {
+                    const nvdUrl = item.nvd_url || `https://nvd.nist.gov/vuln/detail/${cves[0]}`;
+                    nvdLink = `<a href="${nvdUrl}" target="_blank" rel="noopener"
+                                  style="font-family:var(--font-mono);font-size:9px;
+                                         color:var(--blue);letter-spacing:0.5px;
+                                         border-bottom:1px solid rgba(59,130,246,0.3);"
+                                  title="View on NVD">NVD ↗</a>`;
+                }
+
                 return `
                 <div class="intel-card sev-${sev.toLowerCase()}" data-severity="${sev}" data-score="${item.risk_score}" data-time="${item.timestamp || ''}">
                     <div class="card-meta">
                         <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
                         <span class="badge badge-tlp" style="background:${tlpColor}22;color:${tlpColor};">${tlp}</span>
                         <span class="badge badge-accent">RISK ${item.risk_score}/10</span>
-                        ${conf !== '—' ? `<span class="badge badge-purple">CONF ${conf}</span>` : ''}
+                        ${kevBadge}
+                        ${newBadge}
                         ${ts ? `<span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">${ts}</span>` : ''}
                     </div>
                     <div class="card-stix">STIX: ${item.stix_id ? item.stix_id.slice(0, 36) : '—'} • ${actor}</div>
                     <h3 class="card-title">${item.title}</h3>
                     ${iocChips ? `<div class="card-ioc-strip">${iocChips}</div>` : ''}
+                    ${mitreHtml}
+                    ${enrichHtml}
                     <div class="card-footer">
                         <span class="card-score" style="color:${sevColor};">◆ ${item.risk_score}/10</span>
-                        <a href="${item.blog_url}" target="_blank" rel="noopener" class="card-link">View Tactical Dossier →</a>
+                        <div style="display:flex;gap:12px;align-items:center;">
+                            ${nvdLink}
+                            <a href="${item.blog_url}" target="_blank" rel="noopener" class="card-link">View Tactical Dossier →</a>
+                        </div>
                     </div>
                 </div>`;
             }).join('');
@@ -872,6 +1118,30 @@
             document.getElementById('m-avg-risk').textContent = avgRisk;
             document.getElementById('m-iocs').textContent = totalIOCs || '—';
             document.getElementById('m-last-sync').textContent = lastTs;
+        }
+
+        // ── Trend Chart (v21.0) ──
+        function renderTrendChart(data) {
+            const section = document.getElementById('trend-section');
+            const barsEl = document.getElementById('trend-bars');
+            if (!data.length) return;
+
+            const sorted = [...data].sort((a,b) => new Date(a.timestamp||0) - new Date(b.timestamp||0));
+            const recent = sorted.slice(-20);
+            const maxScore = Math.max(...recent.map(d => d.risk_score), 1);
+
+            const sevMap = { CRITICAL: 'var(--critical)', HIGH: 'var(--high)', MEDIUM: 'var(--medium)', LOW: 'var(--low)', INFO: 'var(--info)' };
+
+            barsEl.innerHTML = recent.map(d => {
+                const sev = getSeverity(d.risk_score, d);
+                const color = sevMap[sev] || 'var(--accent)';
+                const pct = Math.max((d.risk_score / maxScore) * 100, 5);
+                const label = d.title.slice(0, 30) + (d.title.length > 30 ? '…' : '');
+                return `<div class="trend-bar" style="height:${pct}%;background:${color};opacity:0.7;"
+                             title="${label} | Risk: ${d.risk_score}/10 | ${sev}"></div>`;
+            }).join('');
+
+            section.style.display = 'block';
         }
 
         // ── Filter & Sort ──
@@ -904,6 +1174,59 @@
             renderCards(filtered);
         }
 
+        // ── Search (v21.0) ──
+        function handleSearch(val) {
+            searchQuery = val;
+            applyView();
+        }
+
+        function clearSearch() {
+            searchQuery = '';
+            document.getElementById('search-input').value = '';
+            applyView();
+        }
+
+        // ── Auto-Refresh (v21.0) ──
+        let refreshSecondsLeft = AUTO_REFRESH_INTERVAL;
+
+        function toggleAutoRefresh(enabled) {
+            const cdEl = document.getElementById('refresh-countdown');
+            if (enabled) {
+                cdEl.style.display = 'inline';
+                refreshSecondsLeft = AUTO_REFRESH_INTERVAL;
+                startCountdown();
+            } else {
+                cdEl.style.display = 'none';
+                clearInterval(autoRefreshCountdown);
+                clearTimeout(autoRefreshTimer);
+            }
+        }
+
+        function startCountdown() {
+            clearInterval(autoRefreshCountdown);
+            clearTimeout(autoRefreshTimer);
+            const cdEl = document.getElementById('refresh-countdown');
+            autoRefreshCountdown = setInterval(() => {
+                refreshSecondsLeft--;
+                const m = Math.floor(refreshSecondsLeft / 60);
+                const s = refreshSecondsLeft % 60;
+                cdEl.textContent = `AUTO-REFRESH IN ${m}:${String(s).padStart(2,'0')}`;
+                if (refreshSecondsLeft <= 0) {
+                    clearInterval(autoRefreshCountdown);
+                    manualRefresh().then(() => {
+                        refreshSecondsLeft = AUTO_REFRESH_INTERVAL;
+                        startCountdown();
+                    });
+                }
+            }, 1000);
+        }
+
+        async function manualRefresh() {
+            document.getElementById('sync-val').innerHTML = 'SYNC: <span style="color:#ff9d00;">REFRESHING...</span>';
+            await loadGOCIntel();
+            document.getElementById('last-loaded').textContent = 'LAST SYNC: ' + new Date().toLocaleTimeString();
+        }
+
         // ── Export Functions ──
         function exportJSON() {
             const blob = new Blob([JSON.stringify(manifestData, null, 2)], { type: 'application/json' });
@@ -911,18 +1234,20 @@
         }
 
         function exportCSV() {
-            const headers = ['Title', 'Risk Score', 'Severity', 'TLP', 'Confidence', 'Actor', 'Blog URL', 'Timestamp'];
+            const headers = ['Title', 'Risk Score', 'Severity', 'TLP', 'Confidence', 'Actor', 'CVSS', 'EPSS', 'KEV', 'Blog URL', 'Source URL', 'Timestamp'];
             const rows = manifestData.map(d => [
                 `"${(d.title || '').replace(/"/g, '""')}"`,
                 d.risk_score, getSeverity(d.risk_score, d), getTlpLabel(d),
-                d.confidence_score || '', d.actor_tag || '', d.blog_url || '', d.timestamp || ''
+                d.confidence_score || '', d.actor_tag || '',
+                d.cvss_score || '', d.epss_score != null ? d.epss_score + '%' : '',
+                d.kev_present ? 'YES' : 'NO',
+                d.blog_url || '', d.source_url || '', d.timestamp || ''
             ]);
             const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
             downloadBlob(new Blob([csv], { type: 'text/csv' }), 'cdb-threat-intel-feed.csv');
         }
 
         function exportSTIX() {
-            // Redirect to latest STIX bundle in repo
             window.open('https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/tree/main/data/stix', '_blank');
         }
 
@@ -933,54 +1258,65 @@
             URL.revokeObjectURL(url);
         }
 
+        // ── Embedded Fallback Data (real advisories — renders when network unavailable) ──
+        const EMBEDDED_INTEL = [{"title":"CVE-2026-21420 - Dell Repository Manager Uncontrolled Search Path Element Remote Code Execution Vulnerability","stix_id":"bundle--a6865e60-100b-42ff-9ab4-6050bcc46eae","bundle_id":"bundle--a6865e60-100b-42ff-9ab4-6050bcc46eae","risk_score":5.1,"blog_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-21420-dell-repository-manager_0165479452.html","source_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-21420-dell-repository-manager_0165479452.html","timestamp":"2026-02-23T16:36:28.281472+00:00","generated_at":"2026-02-23T16:36:28.281482+00:00","severity":"MEDIUM","confidence_score":18.0,"confidence":18.0,"tlp_label":"TLP:GREEN","ioc_counts":{"ipv4":0,"domain":0,"url":0,"sha256":0,"sha1":0,"md5":0,"email":0,"cve":1,"registry":0,"artifacts":0},"actor_tag":"UNC-CDB-99","mitre_tactics":["T1203","T1059"],"feed_source":"https://cvefeed.io/rssfeed/lat","indicator_count":0,"stix_file":"CDB-APEX-1771864588.json","cvss_score":null,"epss_score":null,"kev_present":false,"status":"active","extended_metrics":{},"nvd_url":"https://nvd.nist.gov/vuln/detail/CVE-2026-21420"},{"title":"CVE-2026-2698 - Improper Access Control","stix_id":"bundle--a90d203b-1cca-4437-9ae5-a9af2faeaf73","bundle_id":"bundle--a90d203b-1cca-4437-9ae5-a9af2faeaf73","risk_score":4.1,"blog_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-2698-improper-access-control.html","source_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-2698-improper-access-control.html","timestamp":"2026-02-23T19:14:01.167332+00:00","generated_at":"2026-02-23T19:14:01.167338+00:00","severity":"MEDIUM","confidence_score":8.0,"confidence":8.0,"tlp_label":"TLP:GREEN","ioc_counts":{"ipv4":0,"domain":0,"url":0,"sha256":0,"sha1":0,"md5":0,"email":0,"cve":1,"registry":0,"artifacts":0},"actor_tag":"UNC-CDB-99","mitre_tactics":["T1059"],"feed_source":"https://cvefeed.io/rssfeed/lat","indicator_count":0,"stix_file":"CDB-APEX-1771874041.json","cvss_score":null,"epss_score":null,"kev_present":false,"status":"active","extended_metrics":{},"nvd_url":"https://nvd.nist.gov/vuln/detail/CVE-2026-2698"},{"title":"CVE-2026-27514 - Tenda F3 Plaintext Credential Exposure in Configuration Download","stix_id":"bundle--39d32eed-c6e0-4345-967b-210e19d55bea","bundle_id":"bundle--39d32eed-c6e0-4345-967b-210e19d55bea","risk_score":5.0,"blog_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-27514-tenda-f3-plaintext.html","source_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-27514-tenda-f3-plaintext.html","timestamp":"2026-02-23T19:14:04.128940+00:00","generated_at":"2026-02-23T19:14:04.128946+00:00","severity":"MEDIUM","confidence_score":12.0,"confidence":12.0,"tlp_label":"TLP:GREEN","ioc_counts":{"ipv4":0,"domain":0,"url":0,"sha256":0,"sha1":0,"md5":0,"email":0,"cve":1,"registry":0,"artifacts":0},"actor_tag":"UNC-CDB-99","mitre_tactics":["T1059","T1542","T1555","T1555.003"],"feed_source":"https://cvefeed.io/rssfeed/lat","indicator_count":0,"stix_file":"CDB-APEX-1771874044.json","cvss_score":null,"epss_score":null,"kev_present":false,"status":"active","extended_metrics":{},"nvd_url":"https://nvd.nist.gov/vuln/detail/CVE-2026-27514"},{"title":"CVE-2026-27513 - Tenda F3 CSRF in Web Management Interface","stix_id":"bundle--4f0a74b4-b58f-484b-912a-ee4b43bfe4cc","bundle_id":"bundle--4f0a74b4-b58f-484b-912a-ee4b43bfe4cc","risk_score":4.4,"blog_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-27513-tenda-f3-csrf-in-web.html","source_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-27513-tenda-f3-csrf-in-web.html","timestamp":"2026-02-23T19:14:07.023053+00:00","generated_at":"2026-02-23T19:14:07.023059+00:00","severity":"MEDIUM","confidence_score":8.0,"confidence":8.0,"tlp_label":"TLP:GREEN","ioc_counts":{"ipv4":0,"domain":0,"url":0,"sha256":0,"sha1":0,"md5":0,"email":0,"cve":1,"registry":0,"artifacts":0},"actor_tag":"UNC-CDB-99","mitre_tactics":["T1059","T1542"],"feed_source":"https://cvefeed.io/rssfeed/lat","indicator_count":0,"stix_file":"CDB-APEX-1771874047.json","cvss_score":null,"epss_score":null,"kev_present":false,"status":"active","extended_metrics":{},"nvd_url":"https://nvd.nist.gov/vuln/detail/CVE-2026-27513"},{"title":"CVE-2026-27512 - Tenda F3 Reflected Script Execution via Missing nosniff Header","stix_id":"bundle--06fe752b-839d-4701-bfac-6d8c184bd137","bundle_id":"bundle--06fe752b-839d-4701-bfac-6d8c184bd137","risk_score":4.4,"blog_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-27512-tenda-f3-reflected.html","source_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-27512-tenda-f3-reflected.html","timestamp":"2026-02-23T19:14:10.030772+00:00","generated_at":"2026-02-23T19:14:10.030778+00:00","severity":"MEDIUM","confidence_score":8.0,"confidence":8.0,"tlp_label":"TLP:GREEN","ioc_counts":{"ipv4":0,"domain":0,"url":0,"sha256":0,"sha1":0,"md5":0,"email":0,"cve":1,"registry":0,"artifacts":0},"actor_tag":"UNC-CDB-99","mitre_tactics":["T1059","T1542"],"feed_source":"https://cvefeed.io/rssfeed/lat","indicator_count":0,"stix_file":"CDB-APEX-1771874050.json","cvss_score":null,"epss_score":null,"kev_present":false,"status":"active","extended_metrics":{},"nvd_url":"https://nvd.nist.gov/vuln/detail/CVE-2026-27512"},{"title":"CVE-2026-27511 - Tenda F3 Clickjacking in Web Management Interface","stix_id":"bundle--8f47072c-6662-4bfd-bda6-d9298f232ed4","bundle_id":"bundle--8f47072c-6662-4bfd-bda6-d9298f232ed4","risk_score":4.4,"blog_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-27511-tenda-f3-clickjacking-in.html","source_url":"https://cyberbivash.blogspot.com/2026/02/cve-2026-27511-tenda-f3-clickjacking-in.html","timestamp":"2026-02-23T19:14:12.960783+00:00","generated_at":"2026-02-23T19:14:12.960789+00:00","severity":"MEDIUM","confidence_score":8.0,"confidence":8.0,"tlp_label":"TLP:GREEN","ioc_counts":{"ipv4":0,"domain":0,"url":0,"sha256":0,"sha1":0,"md5":0,"email":0,"cve":1,"registry":0,"artifacts":0},"actor_tag":"UNC-CDB-99","mitre_tactics":["T1059","T1542"],"feed_source":"https://cvefeed.io/rssfeed/lat","indicator_count":0,"stix_file":"CDB-APEX-1771874052.json","cvss_score":null,"epss_score":null,"kev_present":false,"status":"active","extended_metrics":{},"nvd_url":"https://nvd.nist.gov/vuln/detail/CVE-2026-27511"}];
+
         // ── Load Data ──
         async function loadGOCIntel() {
             const syncVal = document.getElementById('sync-val');
             const integrityEl = document.getElementById('integrity-status');
 
-            // v19.0: Try primary URL first, then fallback CDN URL
             const MANIFEST_URLS = [
                 RAW_MANIFEST,
                 'https://cdn.jsdelivr.net/gh/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM@main/data/stix/feed_manifest.json'
             ];
 
+            // ── Try live network sources first ──
             let lastError = null;
             for (const manifestUrl of MANIFEST_URLS) {
                 try {
-                    const response = await fetch(manifestUrl, { cache: 'no-cache' });
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 7000);
+                    const response = await fetch(manifestUrl, {
+                        cache: 'no-cache',
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeout);
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const data = await response.json();
 
-                    // v19.0: Support both old list format [...] and new dict format {entries:[...]}
                     const entries = Array.isArray(data) ? data : (data.entries || []);
                     if (!entries.length) throw new Error('Empty manifest');
 
-                    manifestData = [...entries].reverse(); // Newest first (non-mutating)
+                    manifestData = [...entries].reverse();
                     computeMetrics(manifestData);
+                    renderTrendChart(manifestData);
                     applyView();
 
-                    syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);">LATEST</span>';
+                    syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);">LIVE</span>';
                     integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
-                    return; // Success — exit loop
+                    document.getElementById('last-loaded').textContent = 'SYNCED: ' + new Date().toLocaleTimeString();
+                    return;
 
                 } catch (err) {
                     lastError = err;
-                    // Try next URL
                 }
             }
 
-            // All URLs failed
-            document.getElementById('threat-grid').innerHTML = `
-                <div class="loading-state" style="border:1px dashed var(--critical);color:var(--critical);">
-                    <i class="fas fa-exclamation-triangle" style="font-size:28px;margin-bottom:16px;"></i>
-                    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">GOC MANIFEST SYNC FAILURE</div>
-                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
-                        ERR: DATA_PATH_RESOLVER_EXHAUSTED — ${lastError ? lastError.message : 'Unknown'}</div>
-                    <div style="margin-top:12px;font-size:11px;color:var(--text-muted);">
-                        Platform pipeline running · New advisories published every 6 hours</div>
-                </div>`;
-            syncVal.innerHTML = 'SYNC: <span style="color:var(--critical);">OFFLINE</span>';
-            integrityEl.innerHTML = '<span class="integrity-badge integrity-fail"><i class="fas fa-shield-xmark"></i> SYNC FAILED</span>';
+            // ── Fallback: use embedded real intel data ──
+            // This activates when: network unavailable, sandbox environment, or GitHub temporarily down.
+            // Data is real — sourced from the live feed_manifest.json.
+            // On intel.cyberdudebivash.com the live fetch above always succeeds.
+            console.info('[CDB-GOC] Network fetch failed — loading embedded intel cache:', lastError?.message);
+
+            manifestData = [...EMBEDDED_INTEL].reverse();
+            computeMetrics(manifestData);
+            renderTrendChart(manifestData);
+            applyView();
+
+            syncVal.innerHTML = 'SYNC: <span style="color:var(--medium);">CACHE</span>';
+            integrityEl.innerHTML = '<span class="integrity-badge" style="background:rgba(217,119,6,0.08);color:var(--medium);border:1px solid rgba(217,119,6,0.25);">⚡ EMBEDDED CACHE — <a href="https://cyberbivash.blogspot.com" target="_blank" style="color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);">VIEW LIVE BLOG</a></span>';
+            document.getElementById('last-loaded').textContent = 'CACHE LOADED — visit intel.cyberdudebivash.com for live data';
         }
 
         // ── GitHub Stars ──
@@ -995,7 +1331,10 @@
         }
 
         // ── Init ──
-        window.onload = () => { loadGOCIntel(); loadStars(); };
+        window.onload = () => {
+            loadGOCIntel();
+            loadStars();
+        };
     </script>
 </body>
 </html>
