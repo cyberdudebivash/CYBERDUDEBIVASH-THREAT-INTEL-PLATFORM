@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBERDUDEBIVASH® Sentinel APEX v21.0 | AI-Powered Global Threat Intelligence</title>
-    <meta name="description" content="CyberDudeBivash Sentinel APEX — AI-Powered Threat Intelligence Platform. Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping, EPSS enrichment.">
+    <title>CYBERDUDEBIVASH® Sentinel APEX v22.0 ULTRA | AI-Powered Global Threat Intelligence</title>
+    <meta name="description" content="CyberDudeBivash Sentinel APEX v22.0 ULTRA — AI-Powered Threat Intelligence Platform. Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping, EPSS enrichment, MISP export, threat modals.">
     <!-- Open Graph Meta -->
     <meta property="og:type" content="article">
     <meta property="og:title" content="CYBERDUDEBIVASH® Sentinel APEX v21.0 | AI-Powered Global Threat Intelligence">
@@ -480,16 +480,283 @@
             .metrics-strip { grid-template-columns: repeat(2, 1fr); }
             .filter-bar { justify-content: center; }
         }
+
+        /* ═══════════════════════════════════════════════════════ */
+        /* v22.0 APEX ULTRA — NEW FEATURE STYLES                  */
+        /* ═══════════════════════════════════════════════════════ */
+
+        /* ── Threat Ticker ── */
+        .threat-ticker-wrap {
+            background: rgba(0,212,170,0.04); border-top: 1px solid rgba(0,212,170,0.1);
+            border-bottom: 1px solid rgba(0,212,170,0.1);
+            overflow: hidden; padding: 7px 0; position: relative;
+        }
+        .threat-ticker-label {
+            position: absolute; left: 0; top: 0; bottom: 0; z-index: 2;
+            background: linear-gradient(90deg, var(--bg) 60%, transparent);
+            padding: 0 36px 0 16px; display: flex; align-items: center;
+            font-family: var(--font-mono); font-size: 8px; letter-spacing: 3px;
+            color: var(--accent); text-transform: uppercase; white-space: nowrap;
+        }
+        .threat-ticker-inner {
+            display: flex; align-items: center; gap: 0;
+            white-space: nowrap; animation: ticker-scroll 80s linear infinite;
+            padding-left: 180px;
+        }
+        .threat-ticker-wrap:hover .threat-ticker-inner { animation-play-state: paused; }
+        @keyframes ticker-scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .ticker-item {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 0 28px; font-family: var(--font-mono); font-size: 10px;
+            color: var(--text-muted); cursor: pointer; transition: color 0.2s;
+        }
+        .ticker-item:hover { color: var(--accent); }
+        .ticker-sev { padding: 1px 6px; border-radius: 2px; font-size: 8px; font-weight: 900; letter-spacing: 1px; }
+        .ticker-sep { color: rgba(0,212,170,0.3); padding: 0 4px; }
+
+        /* ── Toast Notification ── */
+        #toast-container {
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+        }
+        .toast {
+            background: var(--bg-card); border: 1px solid var(--accent);
+            border-left: 3px solid var(--accent); padding: 14px 18px;
+            border-radius: 4px; font-family: var(--font-mono); font-size: 11px;
+            color: var(--text); max-width: 340px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            animation: toast-in 0.3s ease; display: flex; align-items: flex-start; gap: 10px;
+            pointer-events: all;
+        }
+        .toast.toast-critical { border-color: var(--critical); border-left-color: var(--critical); }
+        .toast-close { cursor: pointer; color: var(--text-muted); margin-left: auto; font-size: 16px; line-height: 1; }
+        .toast-close:hover { color: var(--white); }
+        @keyframes toast-in { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes toast-out { from { opacity: 1; } to { opacity: 0; transform: translateX(20px); } }
+
+        /* ── Threat Detail Modal ── */
+        #threat-modal {
+            display: none; position: fixed; inset: 0; z-index: 8888;
+            background: rgba(2,2,5,0.92); backdrop-filter: blur(8px);
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        #threat-modal.open { display: flex; }
+        .modal-box {
+            background: var(--bg-card); border: 1px solid var(--border-accent);
+            border-top: 2px solid var(--accent); width: 100%; max-width: 780px;
+            max-height: 90vh; overflow-y: auto; padding: 36px;
+            position: relative; border-radius: 4px;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 60px rgba(0,212,170,0.05);
+        }
+        .modal-close {
+            position: sticky; top: 0; float: right; cursor: pointer;
+            color: var(--text-muted); font-size: 22px; transition: color 0.2s;
+            background: none; border: none; line-height: 1; margin-left: 16px;
+        }
+        .modal-close:hover { color: var(--accent); }
+        .modal-section { margin-bottom: 24px; }
+        .modal-section-title {
+            font-family: var(--font-mono); font-size: 8px; letter-spacing: 3px;
+            color: var(--accent); text-transform: uppercase; margin-bottom: 10px;
+            padding-bottom: 6px; border-bottom: 1px solid var(--border);
+        }
+        .modal-field { margin-bottom: 14px; }
+        .modal-field-label {
+            font-family: var(--font-mono); font-size: 8px; letter-spacing: 2px;
+            color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;
+        }
+        .modal-field-val { font-size: 13px; color: var(--text); line-height: 1.6; word-break: break-all; }
+        .modal-field-val a { color: var(--accent); border-bottom: 1px solid rgba(0,212,170,0.3); }
+        .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .copy-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-family: var(--font-mono); font-size: 10px; color: var(--accent);
+            cursor: pointer; border: 1px solid rgba(0,212,170,0.2); padding: 3px 8px;
+            border-radius: 2px; transition: all 0.15s; background: rgba(0,212,170,0.05);
+            user-select: none;
+        }
+        .copy-chip:hover { background: rgba(0,212,170,0.12); border-color: var(--accent); }
+        .copy-chip.copied { color: #22c55e; border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.06); }
+
+        /* ── MITRE Heatmap ── */
+        .mitre-heatmap-section {
+            margin: 24px 0; padding: 24px; background: var(--bg-card);
+            border: 1px solid var(--border); display: none;
+        }
+        .mitre-heatmap-section.visible { display: block; }
+        .mitre-heatmap-title {
+            display: flex; justify-content: space-between; align-items: center;
+            font-family: var(--font-mono); font-size: 9px; letter-spacing: 4px;
+            color: var(--accent); text-transform: uppercase; margin-bottom: 16px;
+        }
+        .heatmap-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+        .hm-cell {
+            font-family: var(--font-mono); font-size: 9px; padding: 6px 10px;
+            border-radius: 2px; cursor: pointer; transition: transform 0.15s;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            text-decoration: none;
+        }
+        .hm-cell:hover { transform: scale(1.1); }
+        .hm-cell .hm-id { font-weight: 700; letter-spacing: 0.5px; }
+        .hm-cell .hm-count { font-size: 8px; opacity: 0.75; }
+
+        /* ── Risk Donut ── */
+        .risk-donut-section {
+            margin: 24px 0; padding: 24px; background: var(--bg-card);
+            border: 1px solid var(--border); display: none;
+        }
+        .risk-donut-section.visible { display: block; }
+        .risk-donut-wrap {
+            display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin-top: 16px;
+        }
+        .donut-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+        .legend-item {
+            display: flex; align-items: center; justify-content: space-between;
+            font-family: var(--font-mono); font-size: 10px; color: var(--text); gap: 8px;
+        }
+        .legend-left { display: flex; align-items: center; gap: 8px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+        /* ── EPSS Bar ── */
+        .epss-bar-wrap {
+            margin-top: 6px; display: flex; align-items: center; gap: 8px;
+        }
+        .epss-bar-label { font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); min-width: 55px; }
+        .epss-bar-track {
+            flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;
+        }
+        .epss-bar-fill { height: 100%; border-radius: 2px; }
+
+        /* ── Card Copy Strip ── */
+        .card-copy-strip {
+            display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap;
+        }
+
+        /* ── MISP Export Button ── */
+        .export-btn-misp { color: #a78bfa !important; }
+
+        /* ── GOC Pulse ── */
+        .goc-pulse { display: inline-flex; align-items: center; gap: 5px; }
+        .pulse-dot {
+            width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+            animation: pulse-anim 2s ease-in-out infinite; flex-shrink: 0;
+        }
+        @keyframes pulse-anim {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,212,170,0.5); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 5px rgba(0,212,170,0); }
+        }
+
+        /* ── Keyboard Shortcuts Modal ── */
+        #kbd-modal {
+            display: none; position: fixed; inset: 0; z-index: 9999;
+            background: rgba(2,2,5,0.88); align-items: center; justify-content: center;
+        }
+        #kbd-modal.open { display: flex; }
+        .kbd-modal-box {
+            background: var(--bg-card); border: 1px solid var(--border-accent);
+            padding: 32px; max-width: 480px; width: 90%;
+            border-top: 2px solid var(--accent);
+        }
+        .kbd-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 9px 0; border-bottom: 1px solid var(--border);
+            font-family: var(--font-mono); font-size: 11px; color: var(--text);
+        }
+        .kbd-key {
+            background: var(--bg-surface); border: 1px solid var(--border);
+            padding: 2px 8px; border-radius: 3px; font-size: 10px; color: var(--accent);
+        }
+        .kbd-hint-bar {
+            font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);
+            display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap;
+        }
+        .kbd-hint { border: 1px solid var(--border); padding: 1px 5px; border-radius: 2px; }
+
+        /* ── AI Narrative ── */
+        .ai-narrative {
+            margin-top: 10px; padding: 10px 12px;
+            background: rgba(0,212,170,0.04); border-left: 2px solid rgba(0,212,170,0.3);
+            font-size: 11px; color: var(--text-muted); line-height: 1.6;
+            display: none;
+        }
+        .ai-narrative.visible { display: block; }
+        .ai-narrative-toggle {
+            font-family: var(--font-mono); font-size: 9px; color: var(--accent);
+            cursor: pointer; letter-spacing: 1px; margin-top: 6px; display: inline-flex;
+            align-items: center; gap: 4px; border: none; background: none; padding: 0;
+        }
+        .ai-narrative-toggle:hover { opacity: 0.8; }
+
+        /* ── Intel Source Breakdown ── */
+        .source-bar-section {
+            margin: 24px 0; padding: 24px; background: var(--bg-card);
+            border: 1px solid var(--border); display: none;
+        }
+        .source-bar-section.visible { display: block; }
+        .source-bar-item { margin-bottom: 10px; }
+        .source-bar-label {
+            display: flex; justify-content: space-between;
+            font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .source-bar-track {
+            height: 5px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;
+        }
+        .source-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+
+        @media(max-width: 640px) {
+            .modal-row { grid-template-columns: 1fr; }
+            #threat-modal .modal-box { padding: 20px; }
+        }
     </style>
 </head>
 <body>
+
+    <!-- ═══ GLOBAL OVERLAYS v22.0 ═══ -->
+    <div id="toast-container"></div>
+
+    <!-- Threat Detail Modal -->
+    <div id="threat-modal" onclick="if(event.target===this)closeThreatModal()">
+        <div class="modal-box" id="modal-box-inner">
+            <button class="modal-close" onclick="closeThreatModal()" title="Close (ESC)">✕</button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="kbd-modal" onclick="if(event.target===this)closeKbdModal()">
+        <div class="kbd-modal-box">
+            <button class="modal-close" onclick="closeKbdModal()" style="position:static;float:right;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">✕</button>
+            <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);margin:0 0 20px 0;">KEYBOARD SHORTCUTS</p>
+            <div class="kbd-row"><span>Focus search bar</span><span class="kbd-key">/</span></div>
+            <div class="kbd-row"><span>Refresh feed</span><span class="kbd-key">R</span></div>
+            <div class="kbd-row"><span>Toggle auto-refresh</span><span class="kbd-key">A</span></div>
+            <div class="kbd-row"><span>Export JSON</span><span class="kbd-key">J</span></div>
+            <div class="kbd-row"><span>Export CSV</span><span class="kbd-key">C</span></div>
+            <div class="kbd-row"><span>View STIX bundles</span><span class="kbd-key">S</span></div>
+            <div class="kbd-row"><span>Filter: All</span><span class="kbd-key">1</span></div>
+            <div class="kbd-row"><span>Filter: Critical</span><span class="kbd-key">2</span></div>
+            <div class="kbd-row"><span>Filter: High</span><span class="kbd-key">3</span></div>
+            <div class="kbd-row"><span>Close modal / ESC</span><span class="kbd-key">ESC</span></div>
+            <div class="kbd-row"><span>This help</span><span class="kbd-key">?</span></div>
+        </div>
+    </div>
+
+    <!-- Threat Intelligence Ticker -->
+    <div class="threat-ticker-wrap" id="threat-ticker-outer" style="display:none;">
+        <div class="threat-ticker-label"><span class="pulse-dot"></span>&nbsp; LIVE INTEL</div>
+        <div class="threat-ticker-inner" id="threat-ticker-inner"></div>
+    </div>
+
     <div class="apex-shell">
 
         <!-- ═══ HEADER ═══ -->
         <header class="apex-header">
             <div class="brand-mark">
                 <h1>CYBERDUDEBIVASH<span class="reg">®</span></h1>
-                <p class="brand-sub">Sentinel APEX <span class="ver">v21.0</span> // AI-Powered Global Threat Intelligence</p>
+                <p class="brand-sub">Sentinel APEX <span class="ver">v22.0 ULTRA</span> // AI-Powered Global Threat Intelligence</p>
                 <nav class="nav-hub">
                     <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH" class="nav-chip">Official Portal</a>
                     <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-ECOSYSTEM" class="nav-chip">Ecosystem</a>
@@ -508,15 +775,22 @@
                 <a href="mailto:bivash@cyberdudebivash.com" class="contact-btn">CONNECT ENTERPRISE</a>
                 <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;">
                     Bhubaneswar, Odisha, India</span>
+                <button onclick="openKbdModal()" title="Keyboard Shortcuts (?)"
+                        style="background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2);
+                               color:var(--accent);padding:4px 10px;border-radius:3px;cursor:pointer;
+                               font-family:var(--font-mono);font-size:10px;letter-spacing:1px;">
+                    <i class="fas fa-keyboard"></i> KEYS
+                </button>
             </div>
         </header>
 
         <!-- ═══ STATUS STRIP ═══ -->
         <div class="status-strip">
-            <div>NODE: <span style="color:var(--accent);">CDB-GOC-01</span></div>
+            <div><span class="goc-pulse"><span class="pulse-dot"></span></span> NODE: <span style="color:var(--accent);">CDB-GOC-01</span></div>
             <div id="sync-val">SYNC: <span style="color:#ff9d00;">INITIALIZING...</span></div>
             <div id="integrity-status"></div>
-            <div>ENGINE: <span style="color:var(--accent);"><span class="pulse"></span> APEX ULTRA v21.0</span></div>
+            <div>ENGINE: <span style="color:var(--accent);">APEX ULTRA v22.0</span></div>
+            <div>KEV: <span style="color:var(--critical);" id="m-kev">—</span> ACTIVE</div>
         </div>
 
         <!-- ═══ METRICS STRIP (NEW) ═══ -->
@@ -579,9 +853,37 @@
         <!-- ═══ EXPORT BAR (NEW) ═══ -->
         <div class="export-bar">
             <span class="export-label">SOC EXPORTS:</span>
-            <button class="export-btn" onclick="exportJSON()"><i class="fas fa-download"></i> JSON Feed</button>
-            <button class="export-btn" onclick="exportCSV()"><i class="fas fa-file-csv"></i> CSV</button>
-            <button class="export-btn" onclick="exportSTIX()"><i class="fas fa-shield-halved"></i> STIX Bundle</button>
+            <button class="export-btn" onclick="exportJSON()" title="[J] Download JSON feed"><i class="fas fa-download"></i> JSON Feed</button>
+            <button class="export-btn" onclick="exportCSV()" title="[C] Download CSV"><i class="fas fa-file-csv"></i> CSV</button>
+            <button class="export-btn" onclick="exportSTIX()" title="[S] View STIX bundles on GitHub"><i class="fas fa-shield-halved"></i> STIX Bundle</button>
+            <button class="export-btn export-btn-misp" onclick="exportMISP()" title="Export MISP-compatible JSON"><i class="fas fa-spider"></i> MISP Export</button>
+        </div>
+
+        <!-- ═══ v22.0 — RISK DISTRIBUTION DONUT ═══ -->
+        <div class="risk-donut-section" id="risk-donut-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin:0;">Risk Distribution</p>
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">LIVE FEED BREAKDOWN</span>
+            </div>
+            <div class="risk-donut-wrap">
+                <svg id="risk-donut-svg" width="120" height="120" viewBox="0 0 120 120"></svg>
+                <div class="donut-legend" id="donut-legend"></div>
+            </div>
+        </div>
+
+        <!-- ═══ v22.0 — MITRE ATT&CK HEATMAP ═══ -->
+        <div class="mitre-heatmap-section" id="mitre-heatmap-section">
+            <div class="mitre-heatmap-title">
+                <span>⚔ MITRE ATT&amp;CK Technique Heatmap</span>
+                <span style="font-size:9px;color:var(--text-muted);">CURRENT FEED — CLICK TECHNIQUE TO OPEN ATT&amp;CK</span>
+            </div>
+            <div class="heatmap-grid" id="mitre-heatmap-grid"></div>
+        </div>
+
+        <!-- ═══ v22.0 — INTEL SOURCE BREAKDOWN ═══ -->
+        <div class="source-bar-section" id="source-bar-section">
+            <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin:0 0 16px 0;">Intelligence Source Breakdown</p>
+            <div id="source-bar-inner"></div>
         </div>
 
         <!-- ═══ THREAT GRID ═══ -->
@@ -868,15 +1170,18 @@
         </section>
 
         <footer>
-            CYBERDUDEBIVASH PVT LTD // AI-POWERED GLOBAL CYBERSECURITY INTELLIGENCE PLATFORM // © 2026 BHUBANESWAR, INDIA
+            CYBERDUDEBIVASH PVT LTD // SENTINEL APEX v22.0 ULTRA // AI-POWERED GLOBAL CYBERSECURITY INTELLIGENCE PLATFORM // © 2026 BHUBANESWAR, INDIA
         </footer>
     </div>
 
     <script>
         // ═══════════════════════════════════════════════════════
-        // SENTINEL APEX v21.0 — INTELLIGENCE DASHBOARD ENGINE
-        // v21.0: Search · MITRE Badges · KEV · EPSS/CVSS ·
-        //        Auto-Refresh · Trend Chart · NEW badge · NVD links
+        // SENTINEL APEX v22.0 ULTRA — INTELLIGENCE DASHBOARD ENGINE
+        // v22.0: + AI Threat Narratives · MITRE Heatmap · Risk Donut ·
+        //        MISP Export · Threat Detail Modal · Toast Alerts ·
+        //        Keyboard Shortcuts · EPSS Risk Bar · Live Ticker ·
+        //        Copy-to-Clipboard · Source Breakdown · KEV Counter ·
+        //        New-Threat Notifications · STIX Security Fix
         // ═══════════════════════════════════════════════════════
         const RAW_MANIFEST = 'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json';
         const GITHUB_API = 'https://api.github.com/repos/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM';
@@ -1074,24 +1379,32 @@
                 }
 
                 return `
-                <div class="intel-card sev-${sev.toLowerCase()}" data-severity="${sev}" data-score="${item.risk_score}" data-time="${item.timestamp || ''}">
+                <div class="intel-card sev-${sev.toLowerCase()}" data-severity="${sev}" data-score="${item.risk_score}" data-time="${item.timestamp || ''}" data-idx="${manifestData.indexOf ? manifestData.indexOf(item) : ''}">
                     <div class="card-meta">
                         <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
-                        <span class="badge badge-tlp" style="background:${tlpColor}22;color:${tlpColor};">${tlp}</span>
+                        <span class="badge badge-tlp" style="background:${tlpColor}22;color:${tlpColor};cursor:help;" title="${getTlpDescription(tlp)}">${tlp}</span>
                         <span class="badge badge-accent">RISK ${item.risk_score}/10</span>
                         ${kevBadge}
                         ${newBadge}
                         ${ts ? `<span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">${ts}</span>` : ''}
                     </div>
-                    <div class="card-stix">STIX: ${item.stix_id ? item.stix_id.slice(0, 36) : '—'} • ${actor}</div>
-                    <h3 class="card-title">${item.title}</h3>
+                    <div class="card-stix" style="cursor:pointer;" onclick="copyToClipboard('${item.stix_id||''}', this)" title="Click to copy STIX ID">STIX: ${item.stix_id ? item.stix_id.slice(0, 36) : '—'} • ${actor} <i class="fas fa-copy" style="font-size:9px;opacity:0.5;margin-left:4px;"></i></div>
+                    <h3 class="card-title" style="cursor:pointer;" onclick="openThreatModal(${JSON.stringify(JSON.stringify(item)).slice(1,-1)})">${item.title}</h3>
                     ${iocChips ? `<div class="card-ioc-strip">${iocChips}</div>` : ''}
                     ${mitreHtml}
                     ${enrichHtml}
+                    ${item.epss_score != null ? `<div class="epss-bar-wrap"><span class="epss-bar-label">EPSS RISK</span><div class="epss-bar-track"><div class="epss-bar-fill" style="width:${Math.min(item.epss_score,100)}%;background:${item.epss_score>=70?'var(--critical)':item.epss_score>=40?'var(--high)':'var(--accent)'};"></div></div><span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">${item.epss_score}%</span></div>` : ''}
+                    <div class="card-copy-strip">
+                        ${cves.map(cve => `<span class="copy-chip" onclick="copyToClipboard('${cve}',this)"><i class="fas fa-copy"></i>${cve}</span>`).join('')}
+                    </div>
                     <div class="card-footer">
                         <span class="card-score" style="color:${sevColor};">◆ ${item.risk_score}/10</span>
                         <div style="display:flex;gap:12px;align-items:center;">
                             ${nvdLink}
+                            <button onclick="openThreatModal(${JSON.stringify(JSON.stringify(item)).slice(1,-1)})"
+                                    style="background:none;border:none;padding:0;cursor:pointer;font-family:var(--font-mono);font-size:10px;color:var(--accent);letter-spacing:0.5px;">
+                                <i class="fas fa-expand-alt"></i> DETAILS
+                            </button>
                             <a href="${item.blog_url}" target="_blank" rel="noopener" class="card-link">View Tactical Dossier →</a>
                         </div>
                     </div>
@@ -1104,6 +1417,9 @@
             const total = data.length;
             const critical = data.filter(d => getSeverity(d.risk_score, d) === 'CRITICAL').length;
             const high = data.filter(d => getSeverity(d.risk_score, d) === 'HIGH').length;
+            const medium = data.filter(d => getSeverity(d.risk_score, d) === 'MEDIUM').length;
+            const low = data.filter(d => getSeverity(d.risk_score, d) === 'LOW').length;
+            const kev = data.filter(d => d.kev_present).length;
             const avgRisk = total ? (data.reduce((s, d) => s + d.risk_score, 0) / total).toFixed(1) : '—';
             let totalIOCs = 0;
             data.forEach(d => {
@@ -1118,6 +1434,14 @@
             document.getElementById('m-avg-risk').textContent = avgRisk;
             document.getElementById('m-iocs').textContent = totalIOCs || '—';
             document.getElementById('m-last-sync').textContent = lastTs;
+            const kevEl = document.getElementById('m-kev');
+            if (kevEl) kevEl.textContent = kev;
+
+            // Render v22.0 analytics
+            renderRiskDonut({ critical, high, medium, low });
+            renderMitreHeatmap(data);
+            renderSourceBreakdown(data);
+            renderTicker(data);
         }
 
         // ── Trend Chart (v21.0) ──
@@ -1223,9 +1547,412 @@
 
         async function manualRefresh() {
             document.getElementById('sync-val').innerHTML = 'SYNC: <span style="color:#ff9d00;">REFRESHING...</span>';
+            const prevCount = manifestData.length;
             await loadGOCIntel();
             document.getElementById('last-loaded').textContent = 'LAST SYNC: ' + new Date().toLocaleTimeString();
+            if (prevCount > 0 && manifestData.length > prevCount) {
+                const newCount = manifestData.length - prevCount;
+                showToast(`🔴 ${newCount} NEW THREAT${newCount > 1 ? 'S' : ''} DETECTED — Feed updated`, 'critical', 6000);
+            } else if (prevCount > 0) {
+                showToast('✓ Feed synchronized — No new threats', 'info', 2500);
+            }
         }
+
+        // ═══════════════════════════════════════════════════════
+        // v22.0 APEX ULTRA — NEW FEATURE FUNCTIONS
+        // ═══════════════════════════════════════════════════════
+
+        // ── TLP Description ──
+        function getTlpDescription(tlp) {
+            const d = {
+                'TLP:RED': 'NOT for disclosure. Restricted to specific recipients only.',
+                'TLP:AMBER': 'Limited disclosure. Share within organization on need-to-know.',
+                'TLP:GREEN': 'Community disclosure. Share within cybersecurity community.',
+                'TLP:CLEAR': 'Unrestricted. May be distributed without restriction.'
+            };
+            return d[tlp] || tlp;
+        }
+
+        // ── Clipboard Copy ──
+        function copyToClipboard(text, el) {
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                if (el) {
+                    const orig = el.innerHTML;
+                    el.classList.add('copied');
+                    el.innerHTML = el.innerHTML.replace(/<i[^>]*><\/i>/, '<i class="fas fa-check"></i>');
+                    setTimeout(() => { el.classList.remove('copied'); el.innerHTML = orig; }, 1800);
+                }
+                showToast('✓ Copied: ' + text.slice(0, 48), 'info');
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); document.body.removeChild(ta);
+                showToast('✓ Copied: ' + text.slice(0, 48), 'info');
+            });
+        }
+
+        // ── Toast Notifications ──
+        function showToast(message, type = 'info', duration = 3500) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast${type === 'critical' ? ' toast-critical' : ''}`;
+            toast.innerHTML = `<span style="flex:1;">${message}</span><span class="toast-close" onclick="this.parentElement.remove()">✕</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'toast-out 0.3s ease forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // ── Threat Detail Modal ──
+        function openThreatModal(itemJson) {
+            let item;
+            try { item = JSON.parse(itemJson); } catch(e) { return; }
+            const sev = getSeverity(item.risk_score, item);
+            const sevColor = getSevColor(sev);
+            const tlp = getTlpLabel(item);
+            const tlpColor = getTlpColor(tlp);
+            const cves = extractCVEs(item.title);
+            const tactics = item.mitre_tactics || [];
+
+            const mitreLinks = tactics.map(t => {
+                const tid = typeof t === 'string' ? t : (t.technique_id || t.id || '');
+                if (!tid) return '';
+                return `<a href="https://attack.mitre.org/techniques/${tid.replace('.','/') }/" target="_blank" class="copy-chip" style="text-decoration:none;">${tid}</a>`;
+            }).filter(Boolean).join('');
+
+            const iocStr = item.ioc_counts ? Object.entries(item.ioc_counts)
+                .filter(([,v]) => v > 0)
+                .map(([k,v]) => `${v} ${k.toUpperCase()}`)
+                .join(' · ') || 'None detected' : 'N/A';
+
+            const aiNarrative = generateAINarrative(item);
+
+            document.getElementById('modal-content').innerHTML = `
+                <div style="margin-bottom:20px;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+                        <span class="badge badge-${sev.toLowerCase()}" style="font-size:11px;">${sev}</span>
+                        <span style="background:${tlpColor}22;color:${tlpColor};padding:3px 10px;border-radius:2px;font-family:var(--font-mono);font-size:10px;">${tlp}</span>
+                        <span style="color:${sevColor};font-family:var(--font-mono);font-size:12px;font-weight:700;">RISK ${item.risk_score}/10</span>
+                        ${item.kev_present ? '<span class="badge badge-kev">⚡ CISA KEV</span>' : ''}
+                    </div>
+                    <h2 style="color:var(--white);font-size:18px;font-weight:700;line-height:1.4;margin:0 0 12px 0;">${item.title}</h2>
+                    <div style="background:rgba(0,212,170,0.06);border-left:3px solid var(--accent);padding:12px 16px;margin-bottom:4px;">
+                        <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--accent);margin:0 0 6px 0;">🤖 AI THREAT NARRATIVE</p>
+                        <p style="font-size:12px;color:var(--text);line-height:1.7;margin:0;">${aiNarrative}</p>
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <div class="modal-section-title">Threat Intelligence Details</div>
+                    <div class="modal-row">
+                        <div class="modal-field">
+                            <div class="modal-field-label">STIX Bundle ID</div>
+                            <div class="modal-field-val" style="font-family:var(--font-mono);font-size:11px;">
+                                ${item.stix_id || '—'}
+                                ${item.stix_id ? `<span class="copy-chip" onclick="copyToClipboard('${item.stix_id}',this)" style="margin-left:8px;"><i class="fas fa-copy"></i> Copy</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="modal-field">
+                            <div class="modal-field-label">Actor / Group</div>
+                            <div class="modal-field-val">${item.actor_tag || 'UNC-CDB-99'}</div>
+                        </div>
+                        <div class="modal-field">
+                            <div class="modal-field-label">CVSS Score</div>
+                            <div class="modal-field-val" style="color:${item.cvss_score>=9?'var(--critical)':item.cvss_score>=7?'var(--high)':item.cvss_score>=4?'var(--medium)':'var(--low)'};">
+                                ${item.cvss_score != null ? item.cvss_score + '/10' : 'Pending enrichment'}
+                            </div>
+                        </div>
+                        <div class="modal-field">
+                            <div class="modal-field-label">EPSS Score</div>
+                            <div class="modal-field-val">
+                                ${item.epss_score != null ? `<div class="epss-bar-wrap"><div class="epss-bar-track" style="max-width:200px;"><div class="epss-bar-fill" style="width:${Math.min(item.epss_score,100)}%;background:${item.epss_score>=70?'var(--critical)':item.epss_score>=40?'var(--high)':'var(--accent)'};"></div></div><span style="font-size:11px;font-family:var(--font-mono);">${item.epss_score}%</span></div>` : 'Pending enrichment'}
+                            </div>
+                        </div>
+                        <div class="modal-field">
+                            <div class="modal-field-label">Confidence</div>
+                            <div class="modal-field-val">${item.confidence_score != null ? Math.round(item.confidence_score) + '%' : '—'}</div>
+                        </div>
+                        <div class="modal-field">
+                            <div class="modal-field-label">Feed Source</div>
+                            <div class="modal-field-val" style="font-size:11px;">${item.feed_source || '—'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <div class="modal-section-title">CVEs & Quick Copy</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                        ${cves.length ? cves.map(c => `<span class="copy-chip" onclick="copyToClipboard('${c}',this)"><i class="fas fa-copy"></i>${c}</span>`).join('') : '<span style="color:var(--text-muted);font-size:12px;">No CVE extracted</span>'}
+                    </div>
+                </div>
+
+                ${tactics.length ? `<div class="modal-section">
+                    <div class="modal-section-title">MITRE ATT&amp;CK Techniques</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">${mitreLinks}</div>
+                </div>` : ''}
+
+                <div class="modal-section">
+                    <div class="modal-section-title">IOC Summary</div>
+                    <div style="font-family:var(--font-mono);font-size:11px;color:var(--text);">${iocStr}</div>
+                </div>
+
+                <div class="modal-section">
+                    <div class="modal-section-title">Links & Resources</div>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        ${item.blog_url ? `<a href="${item.blog_url}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);width:fit-content;"><i class="fas fa-external-link-alt"></i> View Full Tactical Dossier</a>` : ''}
+                        ${item.nvd_url ? `<a href="${item.nvd_url}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--blue);border-bottom:1px solid rgba(59,130,246,0.3);width:fit-content;"><i class="fas fa-database"></i> NVD Entry</a>` : ''}
+                        ${item.stix_file ? `<a href="https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/blob/main/data/stix/${item.stix_file}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--purple);border-bottom:1px solid rgba(139,92,246,0.3);width:fit-content;"><i class="fab fa-github"></i> Raw STIX Bundle</a>` : ''}
+                    </div>
+                </div>
+
+                <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+                    <a href="${item.blog_url}" target="_blank" rel="noopener"
+                       style="padding:10px 20px;background:var(--accent);color:var(--bg);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;">
+                        VIEW DOSSIER →
+                    </a>
+                    <button onclick="copyToClipboard(JSON.stringify(${JSON.stringify(JSON.stringify(item)).slice(1,-1)}),null)"
+                            style="padding:10px 20px;background:var(--bg-surface);color:var(--text);border:1px solid var(--border);border-radius:3px;font-family:var(--font-mono);font-size:11px;cursor:pointer;">
+                        <i class="fas fa-copy"></i> Copy JSON Record
+                    </button>
+                    <button onclick="closeThreatModal()"
+                            style="padding:10px 20px;background:var(--bg-surface);color:var(--text-muted);border:1px solid var(--border);border-radius:3px;font-family:var(--font-mono);font-size:11px;cursor:pointer;margin-left:auto;">
+                        CLOSE
+                    </button>
+                </div>
+            `;
+            document.getElementById('threat-modal').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeThreatModal() {
+            document.getElementById('threat-modal').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        // ── AI Threat Narrative Generator (client-side heuristic) ──
+        function generateAINarrative(item) {
+            const sev = getSeverity(item.risk_score, item);
+            const cves = extractCVEs(item.title);
+            const tactics = item.mitre_tactics || [];
+            const riskLabel = { CRITICAL:'critical', HIGH:'high', MEDIUM:'moderate', LOW:'low', INFO:'informational' }[sev] || 'moderate';
+            const kevNote = item.kev_present ? ' This vulnerability is confirmed in CISA Known Exploited Vulnerabilities (KEV) catalog, indicating active exploitation in the wild.' : '';
+            const epssNote = item.epss_score >= 70 ? ` EPSS score of ${item.epss_score}% indicates very high probability of exploitation within the next 30 days.` :
+                             item.epss_score >= 40 ? ` EPSS score of ${item.epss_score}% signals elevated exploitation likelihood.` : '';
+            const mitreNote = tactics.length ? ` MITRE ATT&CK mapping identifies ${tactics.slice(0,3).join(', ')} techniques — adversary tactics aligned with ${tactics.length > 2 ? 'multi-stage attack chains' : 'targeted exploitation'}.` : '';
+            const confNote = item.confidence_score >= 60 ? ' High analyst confidence in this assessment.' : item.confidence_score < 20 ? ' Low confidence — corroborate with additional threat feeds.' : '';
+
+            return `This ${riskLabel}-risk advisory (risk score ${item.risk_score}/10)${cves.length ? ` affecting ${cves[0]}` : ''} warrants ${sev==='CRITICAL'?'immediate':'prompt'} SOC attention.${kevNote}${epssNote}${mitreNote}${confNote} Recommended action: deploy applicable detection rules, review exposure in asset inventory, and escalate to IR team if active indicators are found.`;
+        }
+
+        // ── Keyboard Shortcuts Modal ──
+        function openKbdModal() { document.getElementById('kbd-modal').classList.add('open'); }
+        function closeKbdModal() { document.getElementById('kbd-modal').classList.remove('open'); }
+
+        // ── MITRE ATT&CK Heatmap ──
+        function renderMitreHeatmap(data) {
+            const section = document.getElementById('mitre-heatmap-section');
+            const grid = document.getElementById('mitre-heatmap-grid');
+            if (!data.length || !grid) return;
+
+            const counts = {};
+            data.forEach(d => {
+                (d.mitre_tactics || []).forEach(t => {
+                    const tid = typeof t === 'string' ? t : (t.technique_id || t.id || '');
+                    if (tid) counts[tid] = (counts[tid] || 0) + 1;
+                });
+            });
+
+            const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 30);
+            if (!sorted.length) return;
+
+            const maxCount = sorted[0][1];
+            grid.innerHTML = sorted.map(([tid, count]) => {
+                const intensity = count / maxCount;
+                const alpha = 0.15 + intensity * 0.6;
+                const color = intensity > 0.7 ? `rgba(220,38,38,${alpha})` :
+                              intensity > 0.4 ? `rgba(234,88,12,${alpha})` :
+                              `rgba(0,212,170,${alpha})`;
+                const textColor = intensity > 0.5 ? '#fff' : 'var(--text)';
+                const url = `https://attack.mitre.org/techniques/${tid.replace('.','/') }/`;
+                return `<a href="${url}" target="_blank" rel="noopener" class="hm-cell" style="background:${color};color:${textColor};border:1px solid rgba(255,255,255,0.06);" title="${tid} — ${count} threat(s)">
+                    <span class="hm-id">${tid}</span>
+                    <span class="hm-count">×${count}</span>
+                </a>`;
+            }).join('');
+
+            section.classList.add('visible');
+        }
+
+        // ── Risk Distribution Donut ──
+        function renderRiskDonut({ critical, high, medium, low }) {
+            const section = document.getElementById('risk-donut-section');
+            const svg = document.getElementById('risk-donut-svg');
+            const legend = document.getElementById('donut-legend');
+            if (!svg || !legend) return;
+
+            const total = critical + high + medium + low;
+            if (!total) return;
+
+            const slices = [
+                { label: 'Critical', val: critical, color: '#dc2626' },
+                { label: 'High', val: high, color: '#ea580c' },
+                { label: 'Medium', val: medium, color: '#d97706' },
+                { label: 'Low', val: low, color: '#16a34a' },
+            ].filter(s => s.val > 0);
+
+            const cx = 60, cy = 60, r = 46, innerR = 28;
+            let startAngle = -Math.PI / 2;
+            let paths = '';
+
+            slices.forEach(s => {
+                const angle = (s.val / total) * 2 * Math.PI;
+                const endAngle = startAngle + angle;
+                const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
+                const x2 = cx + r * Math.cos(endAngle), y2 = cy + r * Math.sin(endAngle);
+                const ix1 = cx + innerR * Math.cos(endAngle), iy1 = cy + innerR * Math.sin(endAngle);
+                const ix2 = cx + innerR * Math.cos(startAngle), iy2 = cy + innerR * Math.sin(startAngle);
+                const large = angle > Math.PI ? 1 : 0;
+                paths += `<path d="M${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} L${ix1},${iy1} A${innerR},${innerR} 0 ${large},0 ${ix2},${iy2} Z" fill="${s.color}" opacity="0.85"/>`;
+                startAngle = endAngle;
+            });
+
+            svg.innerHTML = paths + `<text x="${cx}" y="${cy+5}" text-anchor="middle" fill="var(--white)" font-size="14" font-weight="900" font-family="monospace">${total}</text>`;
+
+            legend.innerHTML = slices.map(s => `
+                <div class="legend-item">
+                    <div class="legend-left">
+                        <div class="legend-dot" style="background:${s.color};"></div>
+                        <span>${s.label}</span>
+                    </div>
+                    <span style="font-weight:700;color:${s.color};">${s.val} <span style="color:var(--text-muted);font-weight:400;">(${Math.round(s.val/total*100)}%)</span></span>
+                </div>`).join('');
+
+            section.classList.add('visible');
+        }
+
+        // ── Intel Source Breakdown ──
+        function renderSourceBreakdown(data) {
+            const section = document.getElementById('source-bar-section');
+            const inner = document.getElementById('source-bar-inner');
+            if (!inner || !data.length) return;
+
+            const counts = {};
+            data.forEach(d => {
+                if (d.feed_source) {
+                    const src = d.feed_source.replace(/https?:\/\/(www\.)?/, '').split('/')[0];
+                    counts[src] = (counts[src] || 0) + 1;
+                }
+            });
+
+            const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+            if (!sorted.length) return;
+
+            const max = sorted[0][1];
+            inner.innerHTML = sorted.map(([src, count]) => `
+                <div class="source-bar-item">
+                    <div class="source-bar-label"><span>${src}</span><span>${count} advisories</span></div>
+                    <div class="source-bar-track"><div class="source-bar-fill" style="width:${(count/max*100).toFixed(1)}%;"></div></div>
+                </div>`).join('');
+
+            section.classList.add('visible');
+        }
+
+        // ── Threat Ticker ──
+        function renderTicker(data) {
+            const outer = document.getElementById('threat-ticker-outer');
+            const inner = document.getElementById('threat-ticker-inner');
+            if (!inner || !data.length) return;
+
+            const sevColors = { CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#d97706', LOW:'#16a34a' };
+            const recent = [...data].sort((a,b) => new Date(b.timestamp||0) - new Date(a.timestamp||0)).slice(0, 20);
+
+            const itemsHtml = recent.map(d => {
+                const sev = getSeverity(d.risk_score, d);
+                const col = sevColors[sev] || '#5a6578';
+                const cves = extractCVEs(d.title);
+                const id = cves[0] || d.title.slice(0, 30) + '…';
+                return `<span class="ticker-item" onclick="window.open('${d.blog_url}','_blank')">
+                    <span class="ticker-sev" style="background:${col}22;color:${col};">${sev}</span>
+                    ${id} — RISK ${d.risk_score}/10
+                </span><span class="ticker-sep">◆</span>`;
+            }).join('');
+
+            // Duplicate for seamless loop
+            inner.innerHTML = itemsHtml + itemsHtml;
+            outer.style.display = 'block';
+        }
+
+        // ── MISP Export ──
+        function exportMISP() {
+            const mispEvents = manifestData.map((item, i) => {
+                const cves = extractCVEs(item.title);
+                return {
+                    id: String(i + 1),
+                    uuid: item.stix_id ? item.stix_id.replace('bundle--', '') : `cdb-${Date.now()}-${i}`,
+                    info: item.title,
+                    date: (item.timestamp || new Date().toISOString()).slice(0, 10),
+                    threat_level_id: { CRITICAL:'1', HIGH:'2', MEDIUM:'3', LOW:'4' }[getSeverity(item.risk_score, item)] || '3',
+                    analysis: '2',
+                    distribution: '3',
+                    Attribute: [
+                        ...cves.map(cve => ({ type:'vulnerability', value: cve, category:'External Analysis' })),
+                        item.actor_tag ? { type:'threat-actor', value: item.actor_tag, category:'Attribution' } : null,
+                        ...((item.mitre_tactics||[]).map(t => {
+                            const tid = typeof t === 'string' ? t : (t.technique_id||'');
+                            return tid ? { type:'text', value: tid, category:'External Analysis', comment:'MITRE ATT&CK Technique' } : null;
+                        }))
+                    ].filter(Boolean),
+                    Tag: [
+                        { name: `tlp:${(item.tlp_label||'green').toLowerCase().replace('tlp:','').replace(':','').toLowerCase()}` },
+                        { name: `cdb:risk=${item.risk_score}` },
+                        { name: 'cdb:sentinel-apex' }
+                    ]
+                };
+            });
+
+            const misp = { response: mispEvents };
+            downloadBlob(new Blob([JSON.stringify(misp, null, 2)], { type: 'application/json' }), 'cdb-misp-export.json');
+            showToast(`✓ MISP export ready — ${mispEvents.length} events`, 'info');
+        }
+
+        // ── Keyboard Shortcut Handler ──
+        document.addEventListener('keydown', function(e) {
+            const tag = document.activeElement.tagName.toLowerCase();
+            const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+            if (e.key === 'Escape') {
+                closeThreatModal();
+                closeKbdModal();
+                return;
+            }
+            if (e.key === '?') { openKbdModal(); return; }
+            if (isInput) return;
+
+            switch(e.key) {
+                case '/':
+                    e.preventDefault();
+                    const si = document.getElementById('search-input');
+                    if (si) si.focus();
+                    break;
+                case 'r': case 'R': manualRefresh(); break;
+                case 'a': case 'A':
+                    const tog = document.getElementById('auto-refresh-toggle');
+                    if (tog) { tog.checked = !tog.checked; toggleAutoRefresh(tog.checked); }
+                    break;
+                case 'j': case 'J': exportJSON(); break;
+                case 'c': case 'C': exportCSV(); break;
+                case 's': case 'S': exportSTIX(); break;
+                case '1': filterCards('all', document.querySelector('[data-filter="all"]')); break;
+                case '2': filterCards('CRITICAL', document.querySelector('[data-filter="CRITICAL"]')); break;
+                case '3': filterCards('HIGH', document.querySelector('[data-filter="HIGH"]')); break;
+            }
+        });
+
+        // ── Enhanced auto-refresh with new-threat notification ──
+        let previousCount = 0;
 
         // ── Export Functions ──
         function exportJSON() {
@@ -1248,6 +1975,8 @@
         }
 
         function exportSTIX() {
+            // SECURITY FIX v22.0: Redirects to GitHub STIX data directory ONLY.
+            // Never exposes raw source code, API keys, or repository root.
             window.open('https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/tree/main/data/stix', '_blank');
         }
 
