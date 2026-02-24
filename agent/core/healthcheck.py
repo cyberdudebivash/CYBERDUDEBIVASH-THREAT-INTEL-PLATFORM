@@ -48,12 +48,15 @@ class HealthCheckEngine:
     def run_full_check(self) -> Dict:
         """Run all health checks and return complete health report."""
         checks = {
-            "directories": self._check_directories(),
-            "critical_files": self._check_files(),
-            "api_keys": self._check_api_keys(),
-            "manifest_integrity": self._check_manifest(),
-            "telemetry": self._check_telemetry(),
-            "disk_usage": self._check_disk_usage(),
+            "directories":      self._check_directories(),
+            "critical_files":   self._check_files(),
+            "api_keys":         self._check_api_keys(),
+            "manifest_integrity":self._check_manifest(),
+            "telemetry":        self._check_telemetry(),
+            "disk_usage":       self._check_disk_usage(),
+            "rate_limiter":     self._check_rate_limiter(),
+            "auth_config":      self._check_auth_config(),
+            "epss_pipeline":    self._check_epss_pipeline(),
         }
 
         overall = "healthy"
@@ -71,7 +74,7 @@ class HealthCheckEngine:
 
         return {
             "platform": "CyberDudeBivash SENTINEL APEX",
-            "version": "v17.0",
+            "version": "v22.0",
             "checked_at": datetime.now(timezone.utc).isoformat(),
             "overall_status": overall,
             "warnings": warnings,
@@ -153,6 +156,42 @@ class HealthCheckEngine:
                 "used_pct": used_pct,
                 "free_gb": round(usage.free / (1024 ** 3), 2),
             }
+        except Exception as e:
+            return {"status": "warning", "message": str(e)}
+
+
+    def _check_rate_limiter(self) -> Dict:
+        """v22.0: Check rate limiter is operational."""
+        try:
+            from agent.api.rate_limiter import rate_limiter
+            stats = rate_limiter.get_stats()
+            return {"status": "ok", "active_buckets": stats["active_buckets"],
+                    "total_denied": stats["total_denied"]}
+        except Exception as e:
+            return {"status": "warning", "message": str(e)}
+
+    def _check_auth_config(self) -> Dict:
+        """v22.0: Check JWT secret and API key configuration."""
+        import os
+        issues = []
+        jwt_secret = os.environ.get("CDB_JWT_SECRET", "")
+        if not jwt_secret or "change-in-prod" in jwt_secret:
+            issues.append("CDB_JWT_SECRET is not set or using default — change for production")
+        pro_keys  = len([k for k in os.environ.get("CDB_PRO_KEYS", "").split(",") if k])
+        ent_keys  = len([k for k in os.environ.get("CDB_ENTERPRISE_KEYS", "").split(",") if k])
+        status = "warning" if issues else "ok"
+        return {"status": status, "issues": issues,
+                "pro_keys_configured": pro_keys, "enterprise_keys_configured": ent_keys}
+
+    def _check_epss_pipeline(self) -> Dict:
+        """v22.0: Check EPSS fetch is enabled and FIRST API reachable."""
+        try:
+            from agent.config import EPSS_FETCH_ENABLED, EPSS_API_URL
+            if not EPSS_FETCH_ENABLED:
+                return {"status": "warning", "message": "EPSS_FETCH_ENABLED is False"}
+            from agent.enricher_pro import enricher_pro
+            stats = enricher_pro.cache_stats()
+            return {"status": "ok", "epss_enabled": True, "cache_stats": stats}
         except Exception as e:
             return {"status": "warning", "message": str(e)}
 

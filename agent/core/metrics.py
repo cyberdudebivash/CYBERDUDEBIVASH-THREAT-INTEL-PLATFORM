@@ -80,9 +80,16 @@ class PlatformMetrics:
             if total_feed_attempts > 0 else 100.0
         )
 
+        # v22.0: manifest-level enrichment stats
+        kev_count = sum(r.get("kev_count", 0) for r in runs)
+        epss_vals = [r["avg_epss"] for r in runs if r.get("avg_epss") is not None]
+        avg_epss  = round(sum(epss_vals)/len(epss_vals), 4) if epss_vals else None
+        sc_count  = sum(r.get("supply_chain_count", 0) for r in runs)
+
         return {
             "window_hours": window_hours,
             "computed_at": datetime.now(timezone.utc).isoformat(),
+            "platform_version": "v22.0",
             "total_runs": total_runs,
             "successful_runs": successful,
             "failed_runs": total_runs - successful,
@@ -99,6 +106,9 @@ class PlatformMetrics:
             "feed_reliability_pct": feed_reliability_pct,
             "feeds_fetched": feeds_fetched,
             "feeds_failed": feeds_failed,
+            "kev_detections_total": kev_count,
+            "avg_epss_score": avg_epss,
+            "supply_chain_detections": sc_count,
         }
 
     def _load_runs(self) -> List[Dict]:

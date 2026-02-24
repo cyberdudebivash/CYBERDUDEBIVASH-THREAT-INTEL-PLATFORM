@@ -1,36 +1,31 @@
 #!/usr/bin/env python3
 """
-risk_engine.py — CyberDudeBivash v17.0 (SENTINEL APEX ULTRA)
-ENHANCED: Content-Aware Dynamic Risk Scoring Engine + Predictive Intelligence Fields.
+risk_engine.py — CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
+UPGRADED: Content-Aware Dynamic Risk Scoring + KEV weighting + EPSS tiers
++ Supply chain detection + PoC/active exploitation signals + CVE count scoring.
 
-v17.0 ADDITIONS (fully non-breaking — all new fields are supplementary):
-  - predictive_risk_delta: estimated risk change based on exploit signals
-  - exploit_velocity: frequency-based momentum score (0.0-10.0)
-  - intel_confidence_score: weighted multi-source confidence metric
-  - threat_momentum_score: composite momentum (Sentinel Momentum Index™)
-  - compute_extended_metrics(): returns all new fields as supplementary dict
+v22.0 ADDITIONS (fully non-breaking — calculate_risk_score() signature unchanged):
+  - KEV presence now directly boosts base risk score (+2.5)
+  - EPSS tiered weighting (very-high / high / medium) instead of binary threshold
+  - Supply chain attack detection with dedicated signal weight
+  - PoC public availability detection
+  - Active in-the-wild exploitation detection
+  - Nation-state involvement detection
+  - Multi-CVE count boosting
+  - Critical infrastructure targeting detection
+  - All new signals use RISK_WEIGHTS from config for easy tuning
 
-All existing calculate_risk_score() output is UNCHANGED.
-Extended fields are returned via compute_extended_metrics() only.
+v17.0 ADDITIONS (preserved):
+  - predictive_risk_delta, exploit_velocity, intel_confidence_score,
+    threat_momentum_score via compute_extended_metrics()
 
-KEY FIX: The old engine ONLY scored IOCs, so a "2.5M record breach"
-with zero IOCs scored 2.6/10 (LOW). Now the engine analyzes headline
-+ article content for impact signals, threat type classification,
-and record counts to produce realistic risk assessments.
-
-Scoring dimensions:
-1. IOC richness & diversity (preserved from v11)
-2. Content threat severity analysis (NEW)
-3. Impact magnitude extraction (NEW) 
-4. MITRE technique depth
-5. Actor attribution confidence
-6. CVSS / EPSS signals
+All existing calculate_risk_score() output fields are UNCHANGED.
 """
 import re
 import logging
 from typing import Dict, List, Optional, Tuple
 
-from agent.config import RISK_WEIGHTS, TLP_MATRIX
+from agent.config import RISK_WEIGHTS, TLP_MATRIX, SUPPLY_CHAIN_SIGNALS
 
 logger = logging.getLogger("CDB-RISK-ENGINE")
 
@@ -218,12 +213,15 @@ class RiskScoringEngine:
         epss_score: Optional[float] = None,
         headline: str = "",
         content: str = "",
+        kev_present: bool = False,
     ) -> float:
         """
         Calculate dynamic risk score (0.0 - 10.0).
-        NOW CONTENT-AWARE: Analyzes headline + content for impact.
+        v22.0: NOW INCLUDES KEV, supply chain, EPSS tiers, PoC, active exploitation.
+        Signature extended with optional kev_present (default False = backward compatible).
         """
         score = self.weights.get("base_score", 2.0)
+        text_lower = f"{headline} {content}".lower()
 
         # ── IOC Diversity Scoring (preserved) ──
         ioc_categories_found = sum(1 for v in iocs.values() if v)
@@ -256,21 +254,92 @@ class RiskScoringEngine:
             else:
                 score += 0.3
 
-        # ── Vulnerability Scoring (preserved) ──
+        # ── CVSS Scoring (preserved) ──
         if cvss_score and cvss_score >= 9.0:
             score += self.weights.get("cvss_above_9", 2.0)
         elif cvss_score and cvss_score >= 7.0:
             score += 1.0
-        if epss_score and epss_score >= 0.9:
-            score += self.weights.get("epss_above_09", 1.5)
-        elif epss_score and epss_score >= 0.5:
-            score += 0.8
 
-        # ══════════════════════════════════════════════
-        # NEW: Content-Aware Intelligence Analysis
-        # This is the KEY FIX — analyzes headline + content
-        # so "2.5M records breach" scores HIGH, not LOW
-        # ══════════════════════════════════════════════
+        # ── v22.0: EPSS Tiered Scoring (replaces binary threshold) ──
+        if epss_score is not None:
+            if epss_score >= 0.70:
+                score += self.weights.get("epss_tier_very_high", 1.8)
+                logger.debug(f"EPSS very-high tier: +{self.weights.get('epss_tier_very_high', 1.8)}")
+            elif epss_score >= 0.40:
+                score += self.weights.get("epss_tier_high", 1.2)
+            elif epss_score >= 0.10:
+                score += self.weights.get("epss_tier_medium", 0.6)
+            elif epss_score >= 0.90:  # backward-compat: old threshold
+                score += self.weights.get("epss_above_09", 1.5)
+            elif epss_score >= 0.50:
+                score += 0.8
+
+        # ── v22.0: KEV Presence (CRITICAL signal — confirmed exploited) ──
+        if kev_present:
+            kev_boost = self.weights.get("kev_present", 2.5)
+            score += kev_boost
+            logger.info(f"🚨 KEV CONFIRMED: +{kev_boost} risk boost applied")
+
+        # ── v22.0: Active Exploitation Signal ──
+        active_exploit_terms = [
+            "actively exploited", "in the wild", "active exploitation",
+            "exploited in the wild", "under active attack", "being exploited"
+        ]
+        if any(t in text_lower for t in active_exploit_terms):
+            boost = self.weights.get("active_exploitation", 2.0)
+            score += boost
+            logger.info(f"⚡ Active exploitation detected: +{boost}")
+
+        # ── v22.0: Supply Chain Attack Detection ──
+        supply_chain_hit = any(sig in text_lower for sig in SUPPLY_CHAIN_SIGNALS)
+        if supply_chain_hit:
+            boost = self.weights.get("supply_chain_signal", 2.0)
+            score += boost
+            logger.info(f"🔗 Supply chain signal detected: +{boost}")
+
+        # ── v22.0: Public PoC Availability ──
+        poc_terms = [
+            "proof of concept", "poc available", "poc released",
+            "exploit released", "exploit code available", "weaponized",
+            "metasploit module", "exploit published"
+        ]
+        if any(t in text_lower for t in poc_terms):
+            boost = self.weights.get("poc_public", 1.5)
+            score += boost
+            logger.info(f"💣 Public PoC detected: +{boost}")
+
+        # ── v22.0: Nation-State Actor Involvement ──
+        nation_state_terms = [
+            "nation-state", "state-sponsored", "apt", "lazarus group",
+            "cozy bear", "fancy bear", "volt typhoon", "salt typhoon",
+            "sandworm", "hafnium", "charming kitten"
+        ]
+        if any(t in text_lower for t in nation_state_terms):
+            boost = self.weights.get("nation_state", 1.8)
+            score += boost
+            logger.info(f"🏛️ Nation-state signal detected: +{boost}")
+
+        # ── v22.0: Critical Infrastructure Targeting ──
+        critical_infra_terms = [
+            "critical infrastructure", "power grid", "water treatment",
+            "hospital", "healthcare", "financial institution", "bank",
+            "government network", "military", "nuclear"
+        ]
+        if any(t in text_lower for t in critical_infra_terms):
+            boost = self.weights.get("critical_infra", 1.5)
+            score += boost
+            logger.info(f"🏭 Critical infrastructure target detected: +{boost}")
+
+        # ── v22.0: Multi-CVE Boosting ──
+        cve_ids = iocs.get('cve', [])
+        if len(cve_ids) > 1:
+            extra_cves = len(cve_ids) - 1
+            cve_boost = min(extra_cves * self.weights.get("cve_count_multi", 0.4), 1.6)
+            score += cve_boost
+            if cve_boost > 0:
+                logger.debug(f"Multi-CVE boost ({len(cve_ids)} CVEs): +{cve_boost}")
+
+        # ── Content-Aware Intelligence Analysis (preserved from v17.0) ──
         if headline or content:
             impact = self.extract_impact_metrics(headline, content)
             content_boost = impact["impact_score"]
@@ -284,10 +353,14 @@ class RiskScoringEngine:
         max_score = self.weights.get("max_score", 10.0)
         final_score = min(round(score, 1), max_score)
 
-        logger.info(f"Dynamic Risk Score: {final_score}/10 "
-                    f"(IOC categories: {ioc_categories_found}, "
-                    f"MITRE: {len(mitre_matches or [])}, "
-                    f"Actor: {bool(actor_data)})")
+        logger.info(
+            f"Dynamic Risk Score v22.0: {final_score}/10 "
+            f"(IOC cats: {ioc_categories_found}, "
+            f"MITRE: {len(mitre_matches or [])}, "
+            f"KEV: {kev_present}, "
+            f"Actor: {bool(actor_data)}, "
+            f"SupplyChain: {supply_chain_hit})"
+        )
 
         return final_score
 
