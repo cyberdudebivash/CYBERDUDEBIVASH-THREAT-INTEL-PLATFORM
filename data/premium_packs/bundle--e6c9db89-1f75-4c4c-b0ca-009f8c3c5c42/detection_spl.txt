@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : New Report The Digital Footprints of Many Executives Can Leave Their Companies S
+# Scenario: GENERIC
+# Generated: 2026-02-24 14:34:53 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Suspicious PowerShell
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="-EncodedCommand" OR CommandLine="IEX(" OR CommandLine="DownloadFile")
+| stats count by host, user, CommandLine | eval ThreatName="New Report The Digital Footprints of Many Executives Can Leave Their Companies S"
