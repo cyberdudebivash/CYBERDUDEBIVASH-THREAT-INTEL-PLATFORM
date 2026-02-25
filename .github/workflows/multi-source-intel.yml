@@ -1,0 +1,120 @@
+name: CDB Multi-Source Intelligence Enrichment
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # Every 4 hours — enriches manifest with additional sources
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  multi-source-enrichment:
+    name: Multi-Source Intelligence Collection & Enrichment
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install requests feedparser
+
+      - name: Ensure data directories
+        run: |
+          mkdir -p data/enrichment
+          mkdir -p data/stix
+
+      - name: Collect Fresh Intelligence (CISA KEV + Exploit-DB + GitHub Advisory)
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN_INTEL: ${{ secrets.GH_INTEL_TOKEN }}
+        run: |
+          python - << 'PYEOF'
+          import sys, os, json
+          from datetime import datetime, timezone
+          sys.path.insert(0, os.getcwd())
+
+          try:
+              from agent.integrations.sources.multi_source_intel import SourceIntelligenceOrchestrator
+
+              github_token = os.environ.get("GITHUB_TOKEN_INTEL")
+              orchestrator = SourceIntelligenceOrchestrator(github_token=github_token)
+
+              batch = orchestrator.get_fresh_intelligence_batch()
+
+              output_path = "data/enrichment/latest_intel_batch.json"
+              with open(output_path, "w") as f:
+                  json.dump(batch, f, indent=2)
+
+              print(f"Intelligence batch collected:")
+              print(f"  Sources polled:         {batch['sources_polled']}")
+              print(f"  CISA KEV recent (7d):   {len(batch['kev_recent'])}")
+              print(f"  Ransomware victims:     {len(batch['ransomware_victims'])}")
+              print(f"  Exploit-DB exploits:    {len(batch['exploitdb_recent'])}")
+              print(f"  GitHub advisories:      {len(batch['github_advisories'])}")
+              print(f"  URLhaus IOCs:           {len(batch['urlhaus_iocs'])}")
+              print(f"  KEV total catalog:      {batch['kev_stats'].get('total_kev_entries', 0)}")
+
+          except Exception as e:
+              print(f"Multi-source enrichment skipped (non-critical): {e}")
+          PYEOF
+
+      - name: Enrich Manifest with AI Predictions
+        continue-on-error: true
+        run: |
+          python - << 'PYEOF'
+          import sys, os, json
+          sys.path.insert(0, os.getcwd())
+
+          manifest_path = "data/stix/feed_manifest.json"
+          if not os.path.exists(manifest_path):
+              print("No manifest to enrich. Skipping.")
+              sys.exit(0)
+
+          try:
+              with open(manifest_path) as f:
+                  entries = json.load(f)
+
+              from agent.ai.predictive_models import PredictiveIntelligenceEngine
+              engine = PredictiveIntelligenceEngine()
+              enriched = engine.enrich_manifest(entries[:10])  # Enrich top 10 entries
+
+              enriched_path = "data/enrichment/ai_enriched_manifest.json"
+              with open(enriched_path, "w") as f:
+                  json.dump(enriched, f, indent=2)
+
+              print(f"AI enrichment complete:")
+              print(f"  Entries processed: {len(enriched)}")
+              for e in enriched[:3]:
+                  preds = e.get("ai_predictions", {})
+                  prob = preds.get("exploit_probability", {}).get("exploit_probability_pct", 0)
+                  triage = preds.get("triage", {}).get("triage_score", 0)
+                  print(f"  - {e.get('title','?')[:60]}...")
+                  print(f"    Exploit prob: {prob}% | Triage: {triage}/100")
+
+          except Exception as e:
+              print(f"AI enrichment skipped (non-critical): {e}")
+          PYEOF
+
+      - name: Commit enrichment data
+        run: |
+          git config user.email "bivash@cyberdudebivash.com"
+          git config user.name "CDB-Enrichment-Bot"
+          git add data/enrichment/ 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No enrichment changes."
+          else
+            git commit -m "🔬 Multi-source enrichment: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+            git pull origin main --rebase && git push origin main || echo "Push collision, will retry next cycle"
+          fi
