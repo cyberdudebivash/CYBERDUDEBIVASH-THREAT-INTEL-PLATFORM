@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : CVE-2026-3118 - Rhdh graphql injection leading to platform-wide denial of servic
+// Scenario: MALWARE | CVEs: N/A
+// Generated: 2026-02-25 13:22:48 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Suspicious PowerShell
+SecurityEvent | where TimeGenerated > ago(24h)
+| where EventID == 4688
+| where CommandLine has_any ('-EncodedCommand', '-enc', 'IEX(', 'Invoke-Expression', 'DownloadFile')
+| extend ThreatName="CVE-2026-3118 - Rhdh graphql injection leading to platform-wide denial of servic", Severity="MEDIUM"
