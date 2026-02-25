@@ -12,6 +12,7 @@ from typing import Dict, List
 from agent.config import (
     PRIVATE_IP_RANGES, FALSE_POSITIVE_DOMAINS,
     JAVA_PACKAGE_PREFIXES, FALSE_POSITIVE_EXTENSIONS,
+    WELL_KNOWN_IPS,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [CDB-ENRICHER] %(message)s")
@@ -40,7 +41,10 @@ class IntelligenceEnricher:
         self.cve_pattern = r'CVE-\d{4}-\d{4,7}'
 
     def _is_private_ip(self, ip: str) -> bool:
-        """Check if IP is in private/reserved ranges."""
+        """Check if IP is in private/reserved ranges or is a well-known benign public IP."""
+        # Well-known benign public IPs (DNS resolvers, etc.) — not threat IOCs
+        if ip in WELL_KNOWN_IPS:
+            return True
         for prefix in PRIVATE_IP_RANGES:
             if ip.startswith(prefix):
                 return True

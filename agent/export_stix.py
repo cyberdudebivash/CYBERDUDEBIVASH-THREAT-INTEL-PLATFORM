@@ -25,6 +25,16 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
+# ── Optional: stix2 library for deep schema validation ──────────────────────
+# Install with: pip install stix2==3.0.1
+# Falls back gracefully when not installed — all existing functionality intact.
+try:
+    import stix2 as _stix2_lib
+    _STIX2_AVAILABLE = True
+except ImportError:
+    _stix2_lib = None
+    _STIX2_AVAILABLE = False
+
 from agent.config import (
     MANIFEST_MAX_ENTRIES,
     MANIFEST_DIR,
@@ -580,13 +590,29 @@ class STIXExporter:
             if not obj.get("created") or not obj.get("modified"):
                 warnings.append(f"Object {i} ({obj.get('type')}) missing created/modified")
 
+        # ── v23.0 ADDITION: Deep stix2 library validation (optional) ────────
+        # Uses the official Oasis stix2 Python library when available.
+        # Adds findings to warnings (non-breaking) rather than hard errors
+        # so existing pipelines are never disrupted by library availability.
+        stix2_validated = False
+        stix2_errors = []
+        if _STIX2_AVAILABLE and len(errors) == 0:
+            try:
+                _stix2_lib.parse(json.dumps(bundle), allow_custom=True)
+                stix2_validated = True
+            except Exception as stix2_exc:
+                stix2_errors.append(str(stix2_exc))
+                warnings.append(f"stix2 library validation: {stix2_exc}")
+
         return {
-            "valid":        len(errors) == 0,
-            "errors":       errors,
-            "warnings":     warnings,
-            "object_count": len(objects),
-            "has_identity": has_identity,
-            "has_tlp":      has_marking,
+            "valid":          len(errors) == 0,
+            "errors":         errors,
+            "warnings":       warnings,
+            "object_count":   len(objects),
+            "has_identity":   has_identity,
+            "has_tlp":        has_marking,
+            "stix2_validated": stix2_validated,
+            "stix2_errors":   stix2_errors,
         }
 
     # ── Manifest Update (preserved + v22.0 fields) ──────────────
