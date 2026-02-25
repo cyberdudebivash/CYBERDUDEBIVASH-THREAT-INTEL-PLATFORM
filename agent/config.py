@@ -169,7 +169,21 @@ PRIVATE_IP_RANGES = [
     "172.24.", "172.25.", "172.26.", "172.27.",
     "172.28.", "172.29.", "172.30.", "172.31.",
     "127.", "0.0.0.0", "255.255.255.255",
+    "169.254.",  # link-local / APIPA
+    "100.64.",   # shared address space (RFC 6598)
 ]
+
+# Well-known public infrastructure IPs — not threat IOCs
+WELL_KNOWN_IPS = {
+    "8.8.8.8",    # Google Public DNS
+    "8.8.4.4",    # Google Public DNS secondary
+    "1.1.1.1",    # Cloudflare DNS
+    "1.0.0.1",    # Cloudflare DNS secondary
+    "9.9.9.9",    # Quad9 DNS
+    "149.112.112.112",  # Quad9 secondary
+    "208.67.222.222",   # OpenDNS
+    "208.67.220.220",   # OpenDNS secondary
+}
 
 FALSE_POSITIVE_DOMAINS = {
     "example.com", "example.org", "example.net",
