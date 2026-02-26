@@ -413,6 +413,265 @@ except Exception as e:
     check("verify_pipeline.py regression", False, str(e))
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 9. API Gateway — Auth, Rate Limiter, STANDARD/PREMIUM Tiers
+# ─────────────────────────────────────────────────────────────────────────────
+section("9. API Gateway: Auth + Rate Limiter (STANDARD/PREMIUM tiers)")
+
+try:
+    from agent.api.auth import (
+        auth_handler as _auth,
+        TIER_FREE, TIER_STANDARD, TIER_PREMIUM, TIER_PRO, TIER_ENTERPRISE,
+    )
+    from agent.api.rate_limiter import rate_limiter as _rl
+
+    # ── Tier resolution ──────────────────────────────────────
+    tier, identity, err = _auth.resolve_tier()
+    check("FREE tier resolve (no credentials)",
+          tier == TIER_FREE and err is None, f"tier={tier} err={err}")
+
+    tier, identity, err = _auth.resolve_tier(api_key="unknown_key_xyz")
+    check("Unknown API key → FREE tier",
+          tier == TIER_FREE, f"tier={tier}")
+
+    # ── Tier ordering ─────────────────────────────────────────
+    check("FREE < STANDARD",
+          _auth.tier_allows(TIER_STANDARD, TIER_FREE) and
+          not _auth.tier_allows(TIER_FREE, TIER_STANDARD))
+
+    check("STANDARD < PREMIUM",
+          _auth.tier_allows(TIER_PREMIUM, TIER_STANDARD) and
+          not _auth.tier_allows(TIER_STANDARD, TIER_PREMIUM))
+
+    check("PREMIUM < ENTERPRISE",
+          _auth.tier_allows(TIER_ENTERPRISE, TIER_PREMIUM) and
+          not _auth.tier_allows(TIER_PREMIUM, TIER_ENTERPRISE))
+
+    check("PRO == PREMIUM (legacy alias)",
+          _auth.tier_allows(TIER_PRO, TIER_PREMIUM) and
+          _auth.tier_allows(TIER_PREMIUM, TIER_PRO))
+
+    # ── JWT round-trip ─────────────────────────────────────────
+    jwt_token = _auth.generate_jwt("test_user", TIER_ENTERPRISE)
+    check("JWT generate returns non-empty string",
+          isinstance(jwt_token, str) and len(jwt_token.split(".")) == 3)
+
+    tier_from_jwt, identity_jwt, err_jwt = _auth._validate_jwt(jwt_token)
+    check("JWT validate: correct tier", tier_from_jwt == TIER_ENTERPRISE, f"tier={tier_from_jwt} err={err_jwt}")
+    check("JWT validate: correct identity", identity_jwt == "test_user", f"identity={identity_jwt}")
+    check("JWT validate: no error", err_jwt is None, str(err_jwt))
+
+    # Tampered JWT should fail
+    tampered = jwt_token[:-4] + "XXXX"
+    t2, _, e2 = _auth._validate_jwt(tampered)
+    check("Tampered JWT rejected", t2 == TIER_FREE and e2 is not None, f"tier={t2} err={e2}")
+
+    # ── Rate limiter — STANDARD tier ──────────────────────────
+    _rl.reset("test_standard_001", TIER_STANDARD)
+    allowed, info = _rl.check("test_standard_001", TIER_STANDARD)
+    check("STANDARD rate limit: first request allowed", allowed, str(info))
+    check("STANDARD rate limit: limit field present", "limit" in info)
+    check("STANDARD rate limit: 150 req/min capacity", info["limit"] == 150, f"limit={info['limit']}")
+
+    # ── Rate limiter — PREMIUM tier ───────────────────────────
+    _rl.reset("test_premium_001", TIER_PREMIUM)
+    allowed, info = _rl.check("test_premium_001", TIER_PREMIUM)
+    check("PREMIUM rate limit: first request allowed", allowed, str(info))
+    check("PREMIUM rate limit: 500 req/min capacity", info["limit"] == 500, f"limit={info['limit']}")
+
+    # ── Rate limiter — ENTERPRISE tier ───────────────────────
+    _rl.reset("test_enterprise_001", TIER_ENTERPRISE)
+    allowed_ent, info_ent = _rl.check("test_enterprise_001", TIER_ENTERPRISE)
+    check("ENTERPRISE rate limit: first request allowed", allowed_ent, str(info_ent))
+    check("ENTERPRISE rate limit: 1000 req/min capacity", info_ent["limit"] == 1000, f"limit={info_ent['limit']}")
+
+    # ── Rate limit headers ────────────────────────────────────
+    headers = _rl.get_headers(info)
+    check("Rate limit headers contain X-RateLimit-Limit",     "X-RateLimit-Limit"     in headers)
+    check("Rate limit headers contain X-RateLimit-Remaining", "X-RateLimit-Remaining" in headers)
+    check("Rate limit headers contain X-RateLimit-Tier",      "X-RateLimit-Tier"      in headers)
+
+    # ── Rate limiter stats ────────────────────────────────────
+    stats = _rl.get_stats()
+    check("Rate limiter stats returns dict", isinstance(stats, dict))
+    check("Stats contain active_buckets", "active_buckets" in stats)
+    check("Stats contain tier_limits",    "tier_limits"    in stats)
+
+except Exception as e:
+    check("API Gateway tests (Section 9)", False, str(e))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 10. Remediation Engine — PowerShell + Python kit generation
+# ─────────────────────────────────────────────────────────────────────────────
+section("10. Remediation Engine: PowerShell + Python hardening kits")
+
+try:
+    from agent.integrations.remediation_engine import RemediationEngine, RemediationKit
+
+    _reng = RemediationEngine()
+
+    _test_iocs = {
+        "ipv4":        ["10.13.37.1", "192.168.99.2"],
+        "domain":      ["evil-c2.example.com", "malware.test.net"],
+        "sha256":      ["aabbccddeeff00112233445566778899aabbccddeeff001122334455667788ab"],
+        "url":         ["http://evil-c2.example.com/beacon"],
+        "cve":         ["CVE-2024-21762", "CVE-2021-44228"],
+    }
+
+    kit = _reng.generate_kit(
+        headline   = "STANDALONE TEST: Critical RCE via Log4Shell + FortiOS",
+        iocs       = _test_iocs,
+        severity   = "CRITICAL",
+        risk_score = 9.5,
+        actor_tag  = "CDB-APT-28",
+        cves       = ["CVE-2024-21762", "CVE-2021-44228"],
+        save_to_disk = True,
+    )
+
+    # ── Type and dataclass checks ─────────────────────────────
+    check("generate_kit returns RemediationKit", isinstance(kit, RemediationKit))
+    check("Kit headline matches input",          kit.headline.startswith("STANDALONE TEST"))
+    check("Kit severity == CRITICAL",            kit.severity == "CRITICAL")
+    check("Kit risk_score == 9.5",               kit.risk_score == 9.5)
+    check("Kit cve_count == 2",                  kit.cve_count == 2, f"cve_count={kit.cve_count}")
+    check("Kit ioc_count > 0",                   kit.ioc_count > 0,  f"ioc_count={kit.ioc_count}")
+
+    # ── PowerShell content checks ─────────────────────────────
+    ps1 = kit.powershell
+    check("PS1 is non-empty string",             isinstance(ps1, str) and len(ps1) > 500)
+    check("PS1 contains DryRun param",           "-DryRun" in ps1 or "DryRun" in ps1)
+    check("PS1 blocks IOC IP address",           "10.13.37.1" in ps1)
+    check("PS1 blocks IOC domain",               "evil-c2.example.com" in ps1)
+    check("PS1 references CVE-2024-21762",       "CVE-2024-21762" in ps1)
+    check("PS1 references CVE-2021-44228",       "CVE-2021-44228" in ps1)
+    check("PS1 has log file directive",          "log" in ps1.lower())
+    check("PS1 has firewall rule section",       "Firewall" in ps1 or "firewall" in ps1 or "New-NetFirewallRule" in ps1)
+
+    # ── Python script content checks ──────────────────────────
+    py = kit.python_script
+    check("Python script is non-empty string",   isinstance(py, str) and len(py) > 300)
+    check("Python script blocks IOC IP",         "10.13.37.1" in py)
+    check("Python script blocks IOC domain",     "evil-c2.example.com" in py)
+    check("Python script has platform check",    "platform" in py or "sys.platform" in py)
+    check("Python script has main guard",        'if __name__' in py)
+
+    # ── Disk save verification ────────────────────────────────
+    check("Kit ps1_path populated",              kit.ps1_path and len(kit.ps1_path) > 0, f"path={kit.ps1_path}")
+    check("Kit py_path populated",              kit.py_path  and len(kit.py_path) > 0,  f"path={kit.py_path}")
+    check("Kit .ps1 file exists on disk",        os.path.isfile(kit.ps1_path), f"path={kit.ps1_path}")
+    check("Kit .py  file exists on disk",        os.path.isfile(kit.py_path),  f"path={kit.py_path}")
+    check("Kit .ps1 file has content",           os.path.getsize(kit.ps1_path) > 200)
+    check("Kit .py  file has content",           os.path.getsize(kit.py_path)  > 200)
+    check("Kit generated_at is ISO string",      "T" in kit.generated_at and "Z" in kit.generated_at)
+
+    # ── No-disk mode ──────────────────────────────────────────
+    kit_nodisk = _reng.generate_kit(
+        headline   = "STANDALONE TEST: No-Disk Kit",
+        iocs       = {"ip": [], "domain": [], "hash_sha256": [], "url": [], "cve": []},
+        severity   = "HIGH",
+        risk_score = 7.0,
+        save_to_disk = False,
+    )
+    check("No-disk kit: powershell non-empty",   len(kit_nodisk.powershell) > 100)
+    check("No-disk kit: ps1_path is empty str",  kit_nodisk.ps1_path == "")
+
+except Exception as e:
+    check("Remediation Engine tests (Section 10)", False, str(e))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 11. Adversary Swarm — safe breach simulation script generation
+# ─────────────────────────────────────────────────────────────────────────────
+section("11. Adversary Swarm: safe breach simulation generation")
+
+try:
+    from agent.integrations.adversary_swarm import AdversarySwarm, SimulationKit
+
+    _swarm = AdversarySwarm()
+
+    _sim_iocs = {
+        "ipv4":        ["10.99.1.200", "203.0.113.5"],
+        "domain":      ["c2-test.malware.dev", "ransomware-c2.example.net"],
+        "sha256":      ["deadbeefdeadbeef00112233445566778899aabbccddeeff001122334455ab"],
+        "url":         ["http://c2-test.malware.dev/gate"],
+        "cve":         ["CVE-2023-3519"],
+    }
+
+    kit_apt = _swarm.generate_simulation(
+        headline  = "STANDALONE TEST: APT28 Credential Dump via LSASS",
+        iocs      = _sim_iocs,
+        severity  = "CRITICAL",
+        actor_tag = "CDB-APT-28",
+        cves      = ["CVE-2023-3519"],
+        save_to_disk = True,
+    )
+
+    # ── Type checks ───────────────────────────────────────────
+    check("generate_simulation returns SimulationKit", isinstance(kit_apt, SimulationKit))
+    check("Kit headline matches input",                kit_apt.headline.startswith("STANDALONE TEST"))
+    check("Kit severity == CRITICAL",                  kit_apt.severity == "CRITICAL")
+    check("Kit actor_tag == CDB-APT-28",               kit_apt.actor_tag == "CDB-APT-28")
+    check("Kit ioc_count > 0",                         kit_apt.ioc_count > 0, f"ioc_count={kit_apt.ioc_count}")
+    check("Kit test_count > 0",                        kit_apt.test_count > 0, f"test_count={kit_apt.test_count}")
+
+    # ── Script content checks ─────────────────────────────────
+    sc = kit_apt.script
+    check("Script is non-empty string",                isinstance(sc, str) and len(sc) > 500)
+    check("Script has SAFE SIMULATION disclaimer",     "SAFE SIMULATION" in sc or "safe simulation" in sc.lower())
+    check("Script has atexit cleanup registered",      "atexit" in sc)
+    check("Script has _cleanup function",              "def _cleanup" in sc or "_cleanup" in sc)
+    check("Script has argparse --dry-run support",     "--dry-run" in sc or "dry_run" in sc or "dry-run" in sc)
+    check("Script has sim_file_drop function",         "def sim_file_drop" in sc or "file_drop" in sc)
+    check("Script has DNS/C2 simulation",              "dns" in sc.lower() or "c2" in sc.lower())
+
+    # ── IOC embedding checks ──────────────────────────────────
+    check("Script references IOC IP",                  "10.99.1.200" in sc or "203.0.113.5" in sc)
+    check("Script references IOC domain",              "c2-test.malware.dev" in sc or "ransomware-c2.example.net" in sc)
+
+    # ── Actor-specific techniques ─────────────────────────────
+    check("APT28 script has credential-related sim",
+          "credential" in sc.lower() or "lsass" in sc.lower() or "lateral" in sc.lower())
+
+    # ── Disk save verification ────────────────────────────────
+    check("Kit path populated",                        kit_apt.path and len(kit_apt.path) > 0, f"path={kit_apt.path}")
+    check("Simulation .py file exists on disk",        os.path.isfile(kit_apt.path), f"path={kit_apt.path}")
+    check("Simulation .py file has content",           os.path.getsize(kit_apt.path) > 200)
+    check("Kit generated_at is ISO string",            "T" in kit_apt.generated_at and "Z" in kit_apt.generated_at)
+
+    # ── Ransomware actor generates canary simulation ──────────
+    kit_ran = _swarm.generate_simulation(
+        headline  = "STANDALONE TEST: RansomHub File Encrypt Canary",
+        iocs      = _sim_iocs,
+        severity  = "CRITICAL",
+        actor_tag = "CDB-RAN-01",
+        save_to_disk = False,
+    )
+    check("Ransomware sim has shadow/encrypt/canary reference",
+          "shadow" in kit_ran.script.lower() or "encrypt" in kit_ran.script.lower() or "ransom" in kit_ran.script.lower())
+
+    # ── No-disk mode ──────────────────────────────────────────
+    kit_nodisk = _swarm.generate_simulation(
+        headline  = "STANDALONE TEST: No-Disk Swarm",
+        iocs      = {"ip": [], "domain": [], "hash_sha256": [], "url": [], "cve": []},
+        severity  = "LOW",
+        actor_tag = "",
+        save_to_disk = False,
+    )
+    check("No-disk sim: script non-empty", len(kit_nodisk.script) > 100)
+    check("No-disk sim: path is empty str", kit_nodisk.path == "")
+
+    # ── Generic actor fallback ────────────────────────────────
+    kit_generic = _swarm.generate_simulation(
+        headline  = "STANDALONE TEST: Unknown Actor Generic",
+        iocs      = _sim_iocs,
+        severity  = "MEDIUM",
+        actor_tag = "CDB-UNKNOWN-99",
+        save_to_disk = False,
+    )
+    check("Unknown actor falls back to generic techniques", isinstance(kit_generic.script, str) and len(kit_generic.script) > 200)
+
+except Exception as e:
+    check("Adversary Swarm tests (Section 11)", False, str(e))
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Final Summary
 # ─────────────────────────────────────────────────────────────────────────────
 print(f"\n{'='*65}")
@@ -431,7 +690,7 @@ if _failures:
 print(f"{'='*65}")
 
 if failed == 0:
-    print(f"{GREEN}{BOLD}✅  ALL {passed} TESTS PASSED — SENTINEL APEX ULTRA v1.0.0 READY{RESET}")
+    print(f"{GREEN}{BOLD}✅  ALL {passed} TESTS PASSED — SENTINEL APEX ULTRA v1.1.0 READY{RESET}")
 else:
     print(f"{RED}{BOLD}❌  {failed} TEST(S) FAILED — Review above failures{RESET}")
     sys.exit(1)

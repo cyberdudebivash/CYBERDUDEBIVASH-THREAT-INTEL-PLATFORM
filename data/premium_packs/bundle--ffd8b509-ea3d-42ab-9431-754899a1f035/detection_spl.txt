@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : The Post-RAMP Era Allegations Fragmentation and the Rebuilding of the Ransomware
+# Scenario: RANSOMWARE
+# Generated: 2026-02-26 04:27:43 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Ransomware VSS Deletion
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="*vssadmin*delete*shadows*" OR CommandLine="*wbadmin*delete*catalog*")
+| stats count by host, user, CommandLine | eval ThreatName="The Post-RAMP Era Allegations Fragmentation and the Rebuilding of the Ransomware", Severity="CRITICAL"

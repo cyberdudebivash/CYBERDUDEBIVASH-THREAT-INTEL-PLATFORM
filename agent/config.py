@@ -259,17 +259,22 @@ NVD_CVE_API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 EPSS_FETCH_ENABLED = os.environ.get('EPSS_FETCH_ENABLED', 'true').lower() == 'true'
 EPSS_FETCH_TIMEOUT = 8  # Seconds
 
-# ── API Rate Limiting ──
-API_RATE_LIMIT_PUBLIC = int(os.environ.get('API_RATE_LIMIT_PUBLIC', '60'))      # req/min
-API_RATE_LIMIT_PRO = int(os.environ.get('API_RATE_LIMIT_PRO', '300'))           # req/min
+# ── API Rate Limiting ─────────────────────────────────────────────────────────
+# 4-Tier model: FREE → STANDARD → PREMIUM → ENTERPRISE
+API_RATE_LIMIT_PUBLIC     = int(os.environ.get('API_RATE_LIMIT_PUBLIC',     '60'))    # req/min
+API_RATE_LIMIT_STANDARD   = int(os.environ.get('API_RATE_LIMIT_STANDARD',   '150'))   # req/min
+API_RATE_LIMIT_PREMIUM    = int(os.environ.get('API_RATE_LIMIT_PREMIUM',    '500'))   # req/min
+API_RATE_LIMIT_PRO        = int(os.environ.get('API_RATE_LIMIT_PRO',        '300'))   # req/min (legacy alias)
 API_RATE_LIMIT_ENTERPRISE = int(os.environ.get('API_RATE_LIMIT_ENTERPRISE', '1000'))  # req/min
-API_RATE_WINDOW_SECONDS = 60
+API_RATE_WINDOW_SECONDS   = 60
 
-# ── API Authentication ──
-# Store API keys as comma-separated env vars: CDB_PRO_KEYS, CDB_ENTERPRISE_KEYS
-CDB_JWT_SECRET = os.environ.get('CDB_JWT_SECRET', 'cdb-sentinel-apex-v22-secret-change-in-prod')
-CDB_PRO_API_KEYS = set(filter(None, os.environ.get('CDB_PRO_KEYS', '').split(',')))
-CDB_ENTERPRISE_API_KEYS = set(filter(None, os.environ.get('CDB_ENTERPRISE_KEYS', '').split(',')))
+# ── API Authentication ────────────────────────────────────────────────────────
+# Store API keys as comma-separated env vars
+CDB_JWT_SECRET          = os.environ.get('CDB_JWT_SECRET', 'cdb-sentinel-apex-v22-secret-change-in-prod')
+CDB_STANDARD_API_KEYS   = set(filter(None, os.environ.get('CDB_STANDARD_KEYS', '').split(',')))
+CDB_PREMIUM_API_KEYS    = set(filter(None, os.environ.get('CDB_PREMIUM_KEYS',   '').split(',')))
+CDB_PRO_API_KEYS        = set(filter(None, os.environ.get('CDB_PRO_KEYS',       '').split(',')))   # legacy alias → PREMIUM
+CDB_ENTERPRISE_API_KEYS = set(filter(None, os.environ.get('CDB_ENTERPRISE_KEYS','').split(',')))
 
 # ── Audit Logging ──
 AUDIT_LOG_ENABLED = os.environ.get('AUDIT_LOG_ENABLED', 'true').lower() == 'true'

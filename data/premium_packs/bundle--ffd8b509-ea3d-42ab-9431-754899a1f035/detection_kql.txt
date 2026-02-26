@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : The Post-RAMP Era Allegations Fragmentation and the Rebuilding of the Ransomware
+// Scenario: RANSOMWARE | CVEs: N/A
+// Generated: 2026-02-26 04:27:43 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Ransomware VSS Deletion
+SecurityEvent | where TimeGenerated > ago(4h)
+| where EventID == 4688
+| where CommandLine has_any ('vssadmin delete shadows', 'wbadmin delete catalog', 'bcdedit /set recoveryenabled')
+| extend ThreatName="The Post-RAMP Era Allegations Fragmentation and the Rebuilding of the Ransomware", Severity="CRITICAL"

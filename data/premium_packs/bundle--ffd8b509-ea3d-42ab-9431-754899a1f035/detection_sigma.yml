@@ -1,0 +1,26 @@
+# ================================================================
+# CyberDudeBivash SENTINEL APEX v20.0 — Sigma Detection Rules
+# Threat  : The Post-RAMP Era Allegations Fragmentation and the Rebuilding of the Ransomware
+# Scenario: RANSOMWARE
+# Generated: 2026-02-26T04:27:43.337654 UTC
+# Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
+# ================================================================
+
+title: 'CDB: The Post-RAMP Era Allegations Fragmentation and the Rebuilding of the Ransomware - Ransomware VSS Deletion'
+id: cdb-241515
+status: experimental
+description: 'Detects shadow copy deletion — ransomware pre-encryption'
+author: 'CyberDudeBivash GOC (Automated)'
+date: 2026/02/26
+tags: ['attack.impact.t1486', 'attack.defense_evasion.t1490']
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_vss:
+    Image|endswith: ['\\vssadmin.exe', '\\wmic.exe', '\\wbadmin.exe']
+    CommandLine|contains: ['delete shadows', 'shadow copy delete', 'resize shadowstorage']
+  condition: selection_vss
+falsepositives: ['Legitimate backup software']
+level: critical
+---
