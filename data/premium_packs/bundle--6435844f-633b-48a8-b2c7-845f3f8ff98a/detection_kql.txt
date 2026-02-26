@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : CVE-2026-27963 - Audiobookshelf has Stored XSS in Tooltipvue via Audiobook Metad
+// Scenario: XSS | CVEs: N/A
+// Generated: 2026-02-26 07:10:55 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Web Exploit / CVE Detection (N/A)
+W3CIISLog | where TimeGenerated > ago(24h)
+| where csUriStem has_any ('<script>', 'javascript:', 'onerror=', 'UNION+SELECT', '../../')
+| extend ThreatName="CVE-2026-27963 - Audiobookshelf has Stored XSS in Tooltipvue via Audiobook Metad", CVEs="N/A"
+| summarize Attempts=count() by csUriStem, cIP
