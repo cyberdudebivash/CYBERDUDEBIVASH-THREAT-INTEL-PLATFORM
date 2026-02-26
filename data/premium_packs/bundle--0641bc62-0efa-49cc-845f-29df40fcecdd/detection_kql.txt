@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : CVE-2026-27946 - ZITADEL Users Can Self-Verify EmailPhone via UpdateHumanUser AP
+// Scenario: VULNERABILITY | CVEs: N/A
+// Generated: 2026-02-26 02:40:05 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Web Exploit / CVE Detection (N/A)
+W3CIISLog | where TimeGenerated > ago(24h)
+| where csUriStem has_any ('<script>', 'javascript:', 'onerror=', 'UNION+SELECT', '../../')
+| extend ThreatName="CVE-2026-27946 - ZITADEL Users Can Self-Verify EmailPhone via UpdateHumanUser AP", CVEs="N/A"
+| summarize Attempts=count() by csUriStem, cIP
