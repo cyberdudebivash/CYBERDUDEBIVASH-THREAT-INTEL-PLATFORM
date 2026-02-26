@@ -1,0 +1,27 @@
+# ================================================================
+# CyberDudeBivash SENTINEL APEX v20.0 — Sigma Detection Rules
+# Threat  : CVE-2026-1198 - SQL Injection in SIMPLEERP
+# Scenario: VULNERABILITY
+# Generated: 2026-02-26T13:23:31.326071 UTC
+# Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
+# ================================================================
+
+title: 'CDB: CVE-2026-1198 - SQL Injection in SIMPLEERP - Web Exploit Detection'
+id: cdb-113058
+status: experimental
+description: 'Detects web application exploitation / injection patterns'
+author: 'CyberDudeBivash GOC (Automated)'
+date: 2026/02/26
+tags: ['attack.initial_access.t1190', 'attack.execution.t1059']
+logsource:
+  category: webserver
+  product: any
+detection:
+  selection_xss:
+    c-uri|contains: ['<script>', 'javascript:', 'onerror=', '%3Cscript%3E']
+  selection_sqli:
+    c-uri|contains: ["' OR '1'='1", 'UNION SELECT', '../../../']
+  condition: selection_xss or selection_sqli
+falsepositives: ['Security testing / pen testing']
+level: high
+---

@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : CVE-2026-1198 - SQL Injection in SIMPLEERP
+# Scenario: VULNERABILITY
+# Generated: 2026-02-26 13:23:31 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Web Exploit Detection
+index=web sourcetype=iis OR sourcetype=apache:access
+(uri_query="*<script>*" OR uri_query="*UNION+SELECT*" OR uri_query="*../../*")
+| stats count by src_ip, uri_path, status | eval ThreatName="CVE-2026-1198 - SQL Injection in SIMPLEERP"
