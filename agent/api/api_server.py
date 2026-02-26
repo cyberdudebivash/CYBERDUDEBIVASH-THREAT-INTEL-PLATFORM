@@ -12,9 +12,11 @@ Architecture:
                 →  feed_manifest.json + STIX bundles
 
 Tier Routing:
-  /api/v1/*              → Free tier (public, rate-limited)
-  /api/v1/pro/*          → PRO tier (API key required)
-  /api/v1/enterprise/*   → ENTERPRISE tier (API key required)
+  /api/v1/*              → Free tier (public, rate-limited, 60 req/min)
+  /api/v1/standard/*     → STANDARD tier (API key, 150 req/min)  [NEW v23.1]
+  /api/v1/premium/*      → PREMIUM tier (API key, 500 req/min)   [NEW v23.1]
+  /api/v1/pro/*          → PRO tier legacy alias (API key, 300 req/min)
+  /api/v1/enterprise/*   → ENTERPRISE tier (API key/JWT, 1000 req/min)
 
 Non-Breaking Contract:
   - Does NOT import or modify sentinel_blogger.py
@@ -29,29 +31,42 @@ Deploy:
   # OR via Docker: see Dockerfile.api
 
 Endpoint Summary:
-  GET  /                               → Health + version banner
-  GET  /api/v1/health                  → Platform health check
-  GET  /api/v1/stats                   → Public statistics
-  GET  /api/v1/threats                 → Latest 10 threats (free tier)
-  GET  /api/v1/feed                    → Public manifest feed
-  GET  /api/v1/threat/{id}             → Single threat summary
-  GET  /api/v1/pro/threats             → Full threat list (PRO)
-  GET  /api/v1/pro/iocs                → IOC export (PRO)
-  GET  /api/v1/pro/detections          → Detection rules feed (PRO)
-  GET  /api/v1/enterprise/threats      → Full threat intelligence (ENTERPRISE)
-  GET  /api/v1/enterprise/stix/{id}    → STIX 2.1 bundle (ENTERPRISE)
-  GET  /api/v1/enterprise/actors       → Actor intelligence (ENTERPRISE)
-  GET  /api/v1/enterprise/campaigns    → Active campaigns (ENTERPRISE)
-  GET  /api/v1/enterprise/forecast/{id}→ Exploit forecast (ENTERPRISE)
-  GET  /api/v1/enterprise/metrics      → Platform metrics (ENTERPRISE)
-  POST /api/v1/enterprise/search       → Full-text search (ENTERPRISE)
-  GET  /api/v1/enterprise/supply-chain → Supply chain intel (ENTERPRISE)
-  GET  /api/v1/enterprise/epss         → EPSS enrichment (ENTERPRISE)
-  GET  /api/v1/enterprise/risk-trend   → Risk trend analytics (ENTERPRISE)
-  POST /api/v1/enterprise/forecast/batch → Batch exploit forecasting (ENTERPRISE)
-  POST /api/v1/auth/token              → Generate JWT (authenticated keys)
-  GET  /api/v1/taxii/collections       → TAXII 2.1 collection listing
-  GET  /api/v1/taxii/collections/{id}/objects → TAXII object fetch (ENTERPRISE)
+  GET  /                                          → Health + version banner
+  GET  /api/v1/health                             → Platform health check
+  GET  /api/v1/stats                              → Public statistics
+  GET  /api/v1/threats                            → Latest 10 threats (free tier)
+  GET  /api/v1/feed                               → Public manifest feed
+  GET  /api/v1/threat/{id}                        → Single threat summary
+  --- STANDARD TIER (NEW v23.1) ---
+  GET  /api/v1/standard/threats                   → Extended threat list (STANDARD)
+  GET  /api/v1/standard/iocs                      → IOC feed limited (STANDARD)
+  --- PREMIUM TIER (NEW v23.1) ---
+  GET  /api/v1/premium/threats                    → Full threat list (PREMIUM)
+  GET  /api/v1/premium/iocs                       → Full IOC export (PREMIUM)
+  GET  /api/v1/premium/detections                 → Detection rules feed (PREMIUM)
+  POST /api/v1/premium/remediation/generate       → Generate Remediation Kit (PREMIUM)
+  GET  /api/v1/premium/remediation                → List Remediation Kits (PREMIUM)
+  --- PRO TIER (legacy) ---
+  GET  /api/v1/pro/threats                        → Full threat list (PRO)
+  GET  /api/v1/pro/iocs                           → IOC export (PRO)
+  GET  /api/v1/pro/detections                     → Detection rules feed (PRO)
+  --- ENTERPRISE TIER ---
+  GET  /api/v1/enterprise/threats                 → Full threat intelligence (ENTERPRISE)
+  GET  /api/v1/enterprise/stix/{id}               → STIX 2.1 bundle (ENTERPRISE)
+  GET  /api/v1/enterprise/actors                  → Actor intelligence (ENTERPRISE)
+  GET  /api/v1/enterprise/campaigns               → Active campaigns (ENTERPRISE)
+  GET  /api/v1/enterprise/forecast/{id}           → Exploit forecast (ENTERPRISE)
+  GET  /api/v1/enterprise/metrics                 → Platform metrics (ENTERPRISE)
+  POST /api/v1/enterprise/search                  → Full-text search (ENTERPRISE)
+  GET  /api/v1/enterprise/supply-chain            → Supply chain intel (ENTERPRISE)
+  GET  /api/v1/enterprise/epss                    → EPSS enrichment (ENTERPRISE)
+  GET  /api/v1/enterprise/risk-trend              → Risk trend analytics (ENTERPRISE)
+  POST /api/v1/enterprise/forecast/batch          → Batch exploit forecasting (ENTERPRISE)
+  POST /api/v1/enterprise/simulation/generate     → Generate Adversary Swarm sim (ENTERPRISE)
+  GET  /api/v1/enterprise/simulation              → List simulations (ENTERPRISE)
+  POST /api/v1/auth/token                         → Generate JWT (authenticated keys)
+  GET  /api/v1/taxii/collections                  → TAXII 2.1 collection listing
+  GET  /api/v1/taxii/collections/{id}/objects     → TAXII object fetch (ENTERPRISE)
 """
 
 import os
@@ -77,11 +92,29 @@ except ImportError:
         "API server will not start. Existing pipeline is unaffected."
     )
 
-from agent.api.auth import auth_handler, TIER_FREE, TIER_PRO, TIER_ENTERPRISE
+from agent.api.auth import (
+    auth_handler,
+    TIER_FREE, TIER_STANDARD, TIER_PREMIUM, TIER_PRO, TIER_ENTERPRISE,
+)
 from agent.api.rate_limiter import rate_limiter
 from agent.api.public_api import PublicAPIHandler
 from agent.api.enterprise_api import EnterpriseAPIHandler
 from agent.core.metrics import platform_metrics
+
+# ── New integration modules (lazy-safe — imported once at startup) ──
+try:
+    from agent.integrations.remediation_engine import remediation_engine as _remediation_engine
+    _REMEDIATION_AVAILABLE = True
+except Exception as _re_err:
+    _REMEDIATION_AVAILABLE = False
+    logger.warning(f"remediation_engine not available: {_re_err}")
+
+try:
+    from agent.integrations.adversary_swarm import adversary_swarm as _adversary_swarm
+    _SWARM_AVAILABLE = True
+except Exception as _sw_err:
+    _SWARM_AVAILABLE = False
+    logger.warning(f"adversary_swarm not available: {_sw_err}")
 
 # ─────────────────────────────────────────────────────────────
 # Application Bootstrap
@@ -214,17 +247,33 @@ if _FASTAPI_AVAILABLE:
                     "rate_limit": "60 req/min",
                     "auth": "None required",
                 },
+                "STANDARD": {
+                    "base_url": "/api/v1/standard",
+                    "rate_limit": "150 req/min",
+                    "auth": "X-CDB-API-Key header",
+                    "purchase": "https://cyberdudebivash.gumroad.com",
+                    "features": "Extended threats + IOC feed",
+                },
+                "PREMIUM": {
+                    "base_url": "/api/v1/premium",
+                    "rate_limit": "500 req/min",
+                    "auth": "X-CDB-API-Key header",
+                    "purchase": "https://cyberdudebivash.gumroad.com",
+                    "features": "Full IOC export + Detection rules + Remediation Kits",
+                },
                 "PRO": {
                     "base_url": "/api/v1/pro",
                     "rate_limit": "300 req/min",
                     "auth": "X-CDB-API-Key header",
                     "purchase": "https://cyberdudebivash.gumroad.com",
+                    "note": "Legacy alias for PREMIUM tier",
                 },
                 "ENTERPRISE": {
                     "base_url": "/api/v1/enterprise",
                     "rate_limit": "1000 req/min",
                     "auth": "X-CDB-API-Key header or JWT Bearer",
                     "contact": "bivash@cyberdudebivash.com",
+                    "features": "Full intelligence + STIX + Adversary Swarm simulations",
                 },
             },
             "links": {
@@ -323,6 +372,210 @@ if _FASTAPI_AVAILABLE:
             identity=creds["identity"],
             tier=TIER_PRO,
         )
+
+    # ─────────────────────────────────────────────────────────
+    # STANDARD TIER ENDPOINTS  (NEW — v23.1)
+    # ─────────────────────────────────────────────────────────
+
+    @app.get("/api/v1/standard/threats", tags=["Standard Tier"])
+    async def standard_get_threats(
+        limit: int = 25,
+        creds: Dict = Depends(require_tier(TIER_STANDARD)),
+    ):
+        """
+        Extended threat list with IOC summary (STANDARD tier).
+        Includes: severity, TLP, MITRE tactics, actor tags, CVSS scores.
+        Requires STANDARD API key (X-CDB-API-Key header).
+        Get your key: https://cyberdudebivash.gumroad.com
+        """
+        return _enterprise_api.get_all_threats(
+            limit=min(limit, 50),
+            include_archived=False,
+            identity=creds["identity"],
+            tier=TIER_STANDARD,
+        )
+
+    @app.get("/api/v1/standard/iocs", tags=["Standard Tier"])
+    async def standard_get_iocs(
+        limit: int = 100,
+        creds: Dict = Depends(require_tier(TIER_STANDARD)),
+    ):
+        """
+        IOC export feed — extracted indicators limited to 100 per page (STANDARD tier).
+        Suitable for basic SIEM ingestion and threat hunting.
+        """
+        return _enterprise_api.get_ioc_feed(
+            limit=min(limit, 100),
+            identity=creds["identity"],
+            tier=TIER_STANDARD,
+        )
+
+    # ─────────────────────────────────────────────────────────
+    # PREMIUM TIER ENDPOINTS  (NEW — v23.1)
+    # ─────────────────────────────────────────────────────────
+
+    @app.get("/api/v1/premium/threats", tags=["Premium Tier"])
+    async def premium_get_threats(
+        limit: int = 100,
+        include_archived: bool = False,
+        creds: Dict = Depends(require_tier(TIER_PREMIUM)),
+    ):
+        """
+        Full threat list with extended metrics (PREMIUM tier).
+        Includes: full IOCs, STIX IDs, EPSS, KEV status, actor attribution,
+        extended metrics, exploit velocity.
+        Requires PREMIUM API key (X-CDB-API-Key header).
+        Get your key: https://cyberdudebivash.gumroad.com
+        """
+        return _enterprise_api.get_all_threats(
+            limit=min(limit, 200),
+            include_archived=include_archived,
+            identity=creds["identity"],
+            tier=TIER_PREMIUM,
+        )
+
+    @app.get("/api/v1/premium/iocs", tags=["Premium Tier"])
+    async def premium_get_iocs(
+        limit: int = 500,
+        creds: Dict = Depends(require_tier(TIER_PREMIUM)),
+    ):
+        """
+        Full IOC export feed — all extracted indicators (IPs, domains, hashes, URLs, CVEs).
+        PREMIUM tier. Up to 500 IOCs per page. Suitable for SIEM/SOAR ingestion.
+        """
+        return _enterprise_api.get_ioc_feed(
+            limit=min(limit, 500),
+            identity=creds["identity"],
+            tier=TIER_PREMIUM,
+        )
+
+    @app.get("/api/v1/premium/detections", tags=["Premium Tier"])
+    async def premium_get_detections(creds: Dict = Depends(require_tier(TIER_PREMIUM))):
+        """
+        Detection rules feed: Sigma, YARA, KQL, Suricata, SPL rules (PREMIUM tier).
+        Ready for direct import into your SIEM/EDR/XDR.
+        """
+        return _enterprise_api.get_detection_rules(
+            identity=creds["identity"],
+            tier=TIER_PREMIUM,
+        )
+
+    @app.post("/api/v1/premium/remediation/generate", tags=["Premium Tier — Remediation Kits"])
+    async def premium_generate_remediation(
+        body: Dict = Body(
+            ...,
+            example={
+                "threat_id":   "bundle--abc123",
+                "headline":    "Critical RCE via CVE-2024-21762",
+                "iocs":        {"ip": ["192.168.1.1"], "domain": [], "hash_sha256": [], "url": [], "cve": ["CVE-2024-21762"]},
+                "severity":    "CRITICAL",
+                "risk_score":  9.2,
+                "actor_tag":   "CDB-APT-28",
+            },
+        ),
+        creds: Dict = Depends(require_tier(TIER_PREMIUM)),
+    ):
+        """
+        Generate a Remediation Kit — PowerShell (.ps1) + Python (.py) hardening scripts
+        tailored to a specific threat's IOCs, CVEs, and actor TTPs (PREMIUM tier).
+
+        Supply either `threat_id` to auto-load from the feed, OR provide `headline` +
+        `iocs` + `severity` + `risk_score` directly.
+        """
+        if not _REMEDIATION_AVAILABLE:
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "REMEDIATION_ENGINE_UNAVAILABLE",
+                        "message": "Remediation engine could not be loaded."},
+            )
+
+        headline   = body.get("headline", "Unnamed Threat")
+        iocs       = body.get("iocs", {"ip": [], "domain": [], "hash_sha256": [], "url": [], "cve": []})
+        severity   = body.get("severity", "HIGH")
+        risk_score = float(body.get("risk_score", 7.0))
+        actor_tag  = body.get("actor_tag", "")
+        cves       = body.get("cves") or iocs.get("cve", [])
+
+        # If threat_id provided, attempt to enrich from manifest
+        threat_id = body.get("threat_id", "")
+        if threat_id and os.path.exists(MANIFEST_PATH):
+            try:
+                with open(MANIFEST_PATH, "r") as f:
+                    entries = json.load(f)
+                match = next((e for e in entries if e.get("bundle_id") == threat_id), None)
+                if match:
+                    headline   = match.get("headline",   headline)
+                    severity   = match.get("severity",   severity)
+                    risk_score = float(match.get("risk_score", risk_score))
+                    actor_tag  = match.get("actor_tag",  actor_tag)
+                    iocs       = match.get("iocs", iocs) or iocs
+                    cves       = match.get("cves", cves) or cves
+            except Exception as _e:
+                logger.warning(f"Manifest lookup failed for {threat_id}: {_e}")
+
+        try:
+            kit = _remediation_engine.generate_kit(
+                headline=headline,
+                iocs=iocs,
+                severity=severity,
+                risk_score=risk_score,
+                actor_tag=actor_tag,
+                cves=cves,
+                save_to_disk=True,
+            )
+            return {
+                "status":        "GENERATED",
+                "headline":      kit.headline,
+                "severity":      kit.severity,
+                "risk_score":    kit.risk_score,
+                "cve_count":     kit.cve_count,
+                "ioc_count":     kit.ioc_count,
+                "generated_at":  kit.generated_at,
+                "ps1_path":      kit.ps1_path,
+                "py_path":       kit.py_path,
+                "powershell_preview":  kit.powershell[:2000] + "\n# ... [truncated] ..." if len(kit.powershell) > 2000 else kit.powershell,
+                "python_preview":     kit.python_script[:2000] + "\n# ... [truncated] ..." if len(kit.python_script) > 2000 else kit.python_script,
+                "tier":          creds["tier"],
+                "identity":      creds["identity"],
+                "note":          "Full scripts saved to data/remediation/ on the server.",
+            }
+        except Exception as e:
+            logger.error(f"Remediation kit generation failed: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail={"error": "REMEDIATION_GENERATION_FAILED", "message": str(e)},
+            )
+
+    @app.get("/api/v1/premium/remediation", tags=["Premium Tier — Remediation Kits"])
+    async def premium_list_remediation(
+        limit: int = 20,
+        creds: Dict = Depends(require_tier(TIER_PREMIUM)),
+    ):
+        """
+        List all generated Remediation Kits stored on disk (PREMIUM tier).
+        Returns kit filenames and metadata parsed from file names.
+        """
+        import glob as _glob
+        kit_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "remediation")
+        ps1_files = sorted(_glob.glob(os.path.join(kit_dir, "CDB-REMEDIATE-*.ps1")), reverse=True)[:min(limit, 50)]
+        kits = []
+        for ps1 in ps1_files:
+            base = os.path.basename(ps1)
+            py   = ps1.replace(".ps1", ".py")
+            kits.append({
+                "kit_id":   base.replace(".ps1", ""),
+                "ps1_file": base,
+                "py_file":  os.path.basename(py) if os.path.exists(py) else None,
+                "size_ps1": os.path.getsize(ps1),
+                "size_py":  os.path.getsize(py) if os.path.exists(py) else 0,
+            })
+        return {
+            "status":         "OK",
+            "total_kits":     len(kits),
+            "kits":           kits,
+            "kit_directory":  "data/remediation/",
+            "tier":           creds["tier"],
+        }
 
     # ─────────────────────────────────────────────────────────
     # ENTERPRISE TIER ENDPOINTS
@@ -471,6 +724,125 @@ if _FASTAPI_AVAILABLE:
             identity=creds["identity"],
             tier=TIER_ENTERPRISE,
         )
+
+    # ─────────────────────────────────────────────────────────
+    # ENTERPRISE — ADVERSARY SWARM (NEW — v23.1)
+    # ─────────────────────────────────────────────────────────
+
+    @app.post("/api/v1/enterprise/simulation/generate", tags=["Enterprise Tier — Adversary Swarm"])
+    async def enterprise_generate_simulation(
+        body: Dict = Body(
+            ...,
+            example={
+                "threat_id":  "bundle--abc123",
+                "headline":   "APT28 Credential Dump via LSASS",
+                "iocs":       {"ip": ["10.0.0.1"], "domain": ["evil.com"], "hash_sha256": [], "url": [], "cve": []},
+                "severity":   "CRITICAL",
+                "actor_tag":  "CDB-APT-28",
+            },
+        ),
+        creds: Dict = Depends(require_tier(TIER_ENTERPRISE)),
+    ):
+        """
+        Generate a safe Adversary Swarm simulation script (ENTERPRISE tier).
+
+        Produces a pure-Python detection-validation script that simulates:
+        - Canary file drops at IOC-derived paths
+        - DNS resolution probes to IOC domains
+        - TCP connect-only probes to IOC IPs
+        - Registry canary writes (Windows; auto-cleaned via atexit)
+        - Actor-specific TTP simulations (credential dump, ransomware canary, etc.)
+
+        All artefacts are cleaned up automatically. No real payloads executed.
+        Supply `threat_id` to auto-load from the feed, OR provide parameters directly.
+        """
+        if not _SWARM_AVAILABLE:
+            raise HTTPException(
+                status_code=503,
+                detail={"error": "ADVERSARY_SWARM_UNAVAILABLE",
+                        "message": "Adversary swarm engine could not be loaded."},
+            )
+
+        headline  = body.get("headline", "Unnamed Threat")
+        iocs      = body.get("iocs", {"ip": [], "domain": [], "hash_sha256": [], "url": [], "cve": []})
+        severity  = body.get("severity", "HIGH")
+        actor_tag = body.get("actor_tag", "")
+        cves      = body.get("cves") or iocs.get("cve", [])
+
+        # Enrich from manifest if threat_id provided
+        threat_id = body.get("threat_id", "")
+        if threat_id and os.path.exists(MANIFEST_PATH):
+            try:
+                with open(MANIFEST_PATH, "r") as f:
+                    entries = json.load(f)
+                match = next((e for e in entries if e.get("bundle_id") == threat_id), None)
+                if match:
+                    headline  = match.get("headline",  headline)
+                    severity  = match.get("severity",  severity)
+                    actor_tag = match.get("actor_tag", actor_tag)
+                    iocs      = match.get("iocs", iocs) or iocs
+                    cves      = match.get("cves", cves) or cves
+            except Exception as _e:
+                logger.warning(f"Manifest lookup failed for {threat_id}: {_e}")
+
+        try:
+            kit = _adversary_swarm.generate_simulation(
+                headline=headline,
+                iocs=iocs,
+                severity=severity,
+                actor_tag=actor_tag,
+                cves=cves,
+                save_to_disk=True,
+            )
+            return {
+                "status":         "GENERATED",
+                "headline":       kit.headline,
+                "severity":       kit.severity,
+                "actor_tag":      kit.actor_tag,
+                "ioc_count":      kit.ioc_count,
+                "test_count":     kit.test_count,
+                "generated_at":   kit.generated_at,
+                "script_path":    kit.path,
+                "script_preview": kit.script[:2000] + "\n# ... [truncated] ..." if len(kit.script) > 2000 else kit.script,
+                "tier":           creds["tier"],
+                "identity":       creds["identity"],
+                "warning":        "SAFE SIMULATION ONLY. All artefacts auto-cleaned. Run only in authorized test environments.",
+                "note":           "Full script saved to data/simulations/ on the server.",
+            }
+        except Exception as e:
+            logger.error(f"Simulation generation failed: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail={"error": "SIMULATION_GENERATION_FAILED", "message": str(e)},
+            )
+
+    @app.get("/api/v1/enterprise/simulation", tags=["Enterprise Tier — Adversary Swarm"])
+    async def enterprise_list_simulations(
+        limit: int = 20,
+        creds: Dict = Depends(require_tier(TIER_ENTERPRISE)),
+    ):
+        """
+        List all generated Adversary Swarm simulation scripts (ENTERPRISE tier).
+        Returns metadata parsed from filenames and file sizes.
+        """
+        import glob as _glob
+        sim_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "simulations")
+        sim_files = sorted(_glob.glob(os.path.join(sim_dir, "CDB-SWARM-*.py")), reverse=True)[:min(limit, 50)]
+        sims = []
+        for sf in sim_files:
+            base = os.path.basename(sf)
+            sims.append({
+                "sim_id":   base.replace(".py", ""),
+                "filename": base,
+                "size":     os.path.getsize(sf),
+            })
+        return {
+            "status":           "OK",
+            "total_simulations": len(sims),
+            "simulations":      sims,
+            "sim_directory":    "data/simulations/",
+            "tier":             creds["tier"],
+        }
 
     # ─────────────────────────────────────────────────────────
     # AUTH ENDPOINT — JWT generation for authenticated keys

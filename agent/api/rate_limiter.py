@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 
 from agent.config import (
     API_RATE_LIMIT_PUBLIC,
+    API_RATE_LIMIT_STANDARD,
+    API_RATE_LIMIT_PREMIUM,
     API_RATE_LIMIT_PRO,
     API_RATE_LIMIT_ENTERPRISE,
     API_RATE_WINDOW_SECONDS,
@@ -32,7 +34,9 @@ logger = logging.getLogger("CDB-RATE-LIMITER")
 
 TIER_LIMITS = {
     "FREE":       API_RATE_LIMIT_PUBLIC,
-    "PRO":        API_RATE_LIMIT_PRO,
+    "STANDARD":   API_RATE_LIMIT_STANDARD,
+    "PREMIUM":    API_RATE_LIMIT_PREMIUM,
+    "PRO":        API_RATE_LIMIT_PRO,        # legacy alias
     "ENTERPRISE": API_RATE_LIMIT_ENTERPRISE,
 }
 

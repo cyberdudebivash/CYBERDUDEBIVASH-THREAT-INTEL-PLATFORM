@@ -25,6 +25,8 @@ from datetime import datetime, timezone, timedelta
 
 from agent.config import (
     CDB_JWT_SECRET,
+    CDB_STANDARD_API_KEYS,
+    CDB_PREMIUM_API_KEYS,
     CDB_PRO_API_KEYS,
     CDB_ENTERPRISE_API_KEYS,
     AUDIT_LOG_ENABLED,
@@ -34,9 +36,11 @@ from agent.config import (
 
 logger = logging.getLogger("CDB-AUTH")
 
-# ── Tier constants ──
+# ── Tier constants (4-tier model v1.0.0) ──
 TIER_FREE       = "FREE"
-TIER_PRO        = "PRO"
+TIER_STANDARD   = "STANDARD"
+TIER_PREMIUM    = "PREMIUM"
+TIER_PRO        = "PRO"        # legacy alias — treated as PREMIUM internally
 TIER_ENTERPRISE = "ENTERPRISE"
 
 JWT_ALGORITHM   = "HS256"
@@ -83,12 +87,15 @@ class AuthHandler:
         return TIER_FREE, f"anon:{remote_ip}", None
 
     def _validate_api_key(self, key: str) -> Tuple[str, str]:
-        """Check key against enterprise and pro sets."""
+        """Check key against all tier sets. Hierarchy: ENTERPRISE > PREMIUM > STANDARD > FREE."""
         key = key.strip()
         if key in CDB_ENTERPRISE_API_KEYS:
             return TIER_ENTERPRISE, f"ent:{key[:8]}"
-        if key in CDB_PRO_API_KEYS:
-            return TIER_PRO, f"pro:{key[:8]}"
+        if key in CDB_PREMIUM_API_KEYS or key in CDB_PRO_API_KEYS:
+            # CDB_PRO_API_KEYS is a legacy alias — treated as PREMIUM
+            return TIER_PREMIUM, f"prm:{key[:8]}"
+        if key in CDB_STANDARD_API_KEYS:
+            return TIER_STANDARD, f"std:{key[:8]}"
         return TIER_FREE, f"unk:{key[:8]}"
 
     def generate_jwt(self, identity: str, tier: str, expiry_secs: int = JWT_EXPIRY_SECS) -> str:
@@ -157,8 +164,14 @@ class AuthHandler:
         return base64.urlsafe_b64decode(data).decode("utf-8")
 
     def tier_allows(self, tier: str, required: str) -> bool:
-        """Check if a tier meets a minimum requirement."""
-        order = {TIER_FREE: 0, TIER_PRO: 1, TIER_ENTERPRISE: 2}
+        """Check if a tier meets a minimum requirement (4-tier model)."""
+        order = {
+            TIER_FREE:       0,
+            TIER_STANDARD:   1,
+            TIER_PRO:        2,   # legacy — same level as PREMIUM
+            TIER_PREMIUM:    2,
+            TIER_ENTERPRISE: 3,
+        }
         return order.get(tier, 0) >= order.get(required, 0)
 
     def _audit(self, event: str, identity: str, tier: str, remote_ip: str):
