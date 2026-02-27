@@ -1,0 +1,25 @@
+# ================================================================
+# CyberDudeBivash SENTINEL APEX v20.0 — Sigma Detection Rules
+# Threat  : The game is over when free comes at too high a price What we know about RenEngin
+# Scenario: GENERIC
+# Generated: 2026-02-27T07:05:46.731915 UTC
+# Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
+# ================================================================
+
+title: 'CDB: The game is over when free comes at too high a price What we know about RenEngin - Suspicious Script Execution'
+id: cdb-793025
+status: experimental
+description: 'Detects obfuscated PowerShell and script-based execution'
+author: 'CyberDudeBivash GOC (Automated)'
+date: 2026/02/27
+tags: ['attack.execution', 'attack.defense_evasion']
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_ps:
+    CommandLine|contains: ['-EncodedCommand', '-enc ', 'IEX(', 'Invoke-Expression', 'DownloadFile']
+  condition: selection_ps
+falsepositives: ['Legitimate admin scripts']
+level: medium
+---
