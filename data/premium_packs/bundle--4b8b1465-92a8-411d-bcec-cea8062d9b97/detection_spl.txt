@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : Stan Ghouls targeting Russia and Uzbekistan with NetSupport RAT
+# Scenario: MALWARE
+# Generated: 2026-02-27 13:15:09 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Suspicious PowerShell
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="-EncodedCommand" OR CommandLine="IEX(" OR CommandLine="DownloadFile")
+| stats count by host, user, CommandLine | eval ThreatName="Stan Ghouls targeting Russia and Uzbekistan with NetSupport RAT"
