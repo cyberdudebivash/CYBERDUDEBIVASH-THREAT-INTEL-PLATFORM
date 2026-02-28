@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : Metasploit Wrap-Up 02272026
+// Scenario: GENERIC | CVEs: N/A
+// Generated: 2026-02-28 02:28:17 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Suspicious PowerShell
+SecurityEvent | where TimeGenerated > ago(24h)
+| where EventID == 4688
+| where CommandLine has_any ('-EncodedCommand', '-enc', 'IEX(', 'Invoke-Expression', 'DownloadFile')
+| extend ThreatName="Metasploit Wrap-Up 02272026", Severity="CRITICAL"
