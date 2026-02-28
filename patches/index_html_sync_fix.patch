@@ -1,0 +1,19 @@
+--- a/index.html
++++ b/index.html
+@@ -2282,10 +2282,15 @@ function renderIntelGrid(data) {
+             grid.innerHTML = html;
+         }
+
+-        const lastTs = data.length ? timeSince(data[data.length - 1].timestamp || data[0].timestamp) : '—';
++        // v25.0 FIX: Read newest entry (first in array) for accurate Last Sync
++        // Sort by timestamp descending to ensure newest is first
++        let sortedData = [...data].sort((a, b) => 
++            new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
++        );
++        const lastTs = sortedData.length ? timeSince(sortedData[0].timestamp) : '—';
+         const critCount = data.filter(d => (d.severity || '').toUpperCase() === 'CRITICAL').length;
+         const highCount = data.filter(d => (d.severity || '').toUpperCase() === 'HIGH').length;
+         const avgScore = data.length ? (data.reduce((s, d) => s + (d.risk_score || 0), 0) / data.length).toFixed(1) : '—';
+         const totalIOCs = data.reduce((s, d) => {
+             const c = d.ioc_counts || {};
+             return s + (c.ipv4 || 0) + (c.domain || 0) + (c.url || 0) + (c.sha256 || 0) + (c.cve || 0);
