@@ -3,7 +3,7 @@
 // Threat   : Metasploit Wrap-Up 02272026
 // STIX ID  : bundle--9619f30c-06a1-4096-95a0-472e3fe98dea
 // Scenario : GENERIC
-// Generated: 2026-02-28T02:28:17.962867 UTC
+// Generated: 2026-02-28T06:51:46.561561 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
