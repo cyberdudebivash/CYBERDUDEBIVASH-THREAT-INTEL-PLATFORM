@@ -2282,7 +2282,10 @@
                 if (d.ioc_counts) totalIOCs += Object.values(d.ioc_counts).reduce((a, b) => a + b, 0);
                 if (d.indicator_count) totalIOCs += d.indicator_count;
             });
-            const lastTs = data.length ? timeSince(data[data.length - 1].timestamp || data[0].timestamp) : '—';
+            let sortedData = [...data].sort((a, b) =>
+                new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
+             );
+            const lastTs = sortedData.length ? timeSince(sortedData[0].timestamp) : '—';
 
             document.getElementById('m-total').textContent = total;
             document.getElementById('m-critical').textContent = critical;
