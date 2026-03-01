@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : Security Affairs newsletter Round 565 by Pierluigi Paganini  INTERNATIONAL EDITI
+# Scenario: GENERIC
+# Generated: 2026-03-01 01:31:56 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Suspicious PowerShell
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="-EncodedCommand" OR CommandLine="IEX(" OR CommandLine="DownloadFile")
+| stats count by host, user, CommandLine | eval ThreatName="Security Affairs newsletter Round 565 by Pierluigi Paganini  INTERNATIONAL EDITI"
