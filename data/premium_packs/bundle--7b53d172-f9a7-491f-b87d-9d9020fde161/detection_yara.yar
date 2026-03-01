@@ -3,7 +3,7 @@
 // Threat   : Security Affairs newsletter Round 565 by Pierluigi Paganini  INTERNATIONAL EDITI
 // STIX ID  : bundle--7b53d172-f9a7-491f-b87d-9d9020fde161
 // Scenario : GENERIC
-// Generated: 2026-03-01T01:31:56.728566 UTC
+// Generated: 2026-03-01T02:02:56.327430 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
