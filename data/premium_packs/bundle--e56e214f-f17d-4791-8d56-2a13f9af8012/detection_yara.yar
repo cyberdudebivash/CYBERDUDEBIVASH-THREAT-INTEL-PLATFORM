@@ -3,7 +3,7 @@
 // Threat   : CVE-2026-3382 - ChaiScript boxed_numberhpp get_as memory corruption
 // STIX ID  : bundle--e56e214f-f17d-4791-8d56-2a13f9af8012
 // Scenario : VULNERABILITY
-// Generated: 2026-03-01T06:24:40.412178 UTC
+// Generated: 2026-03-01T06:43:44.557630 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
