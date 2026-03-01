@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : CVE-2026-3391 - FascinatedBox lily lily_emitterc clear_storages out-of-bounds
+# Scenario: VULNERABILITY
+# Generated: 2026-03-01 20:20:11 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Web Exploit Detection
+index=web sourcetype=iis OR sourcetype=apache:access
+(uri_query="*<script>*" OR uri_query="*UNION+SELECT*" OR uri_query="*../../*")
+| stats count by src_ip, uri_path, status | eval ThreatName="CVE-2026-3391 - FascinatedBox lily lily_emitterc clear_storages out-of-bounds"
