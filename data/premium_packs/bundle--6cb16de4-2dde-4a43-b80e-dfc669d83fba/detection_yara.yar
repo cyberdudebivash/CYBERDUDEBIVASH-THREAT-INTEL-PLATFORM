@@ -3,7 +3,7 @@
 // Threat   : CVE-2026-28560 - wpForo Forum 2414 Stored XSS via Unsafe JSON Encoding in Inline
 // STIX ID  : bundle--6cb16de4-2dde-4a43-b80e-dfc669d83fba
 // Scenario : XSS
-// Generated: 2026-03-01T00:45:24.364738 UTC
+// Generated: 2026-03-01T00:56:24.128739 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
