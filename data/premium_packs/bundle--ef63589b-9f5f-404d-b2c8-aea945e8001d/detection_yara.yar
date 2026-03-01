@@ -3,7 +3,7 @@
 // Threat   : How Security Tool Misuse Is Reshaping Cloud Compromise
 // STIX ID  : bundle--ef63589b-9f5f-404d-b2c8-aea945e8001d
 // Scenario : GENERIC
-// Generated: 2026-03-01T05:17:51.279142 UTC
+// Generated: 2026-03-01T05:39:38.169866 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
