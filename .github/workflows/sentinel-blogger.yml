@@ -1,4 +1,4 @@
-name: CDB Sentinel Blogger – Threat Intel Auto-Publisher v25.0
+name: CDB Sentinel Blogger – Threat Intel Auto-Publisher v26.0
 
 on:
   schedule:
@@ -24,14 +24,14 @@ concurrency:
 jobs:
   publish-threat-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 30    # v21.0: increased for EPSS/CVSS enrichment calls
+    timeout-minutes: 30    # v26.0: increased for EPSS/CVSS enrichment calls
 
     steps:
-      - name: Checkout repository (v25.0 Full Sync)
+      - name: Checkout repository (v26.0 Full Sync)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0   # Crucial for stable git rebase operations
-          ref: main        # v25.0: Explicit branch reference
+          ref: main        # v26.0: Explicit branch reference
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -67,7 +67,7 @@ jobs:
         env:
           CI: true
 
-      # 🛡️ SOVEREIGN KEY INJECTION (v16.x Layer)
+      # 🛡️ SOVEREIGN KEY INJECTION (v26.x Layer)
       - name: Inject Sovereign Key
         run: |
           echo "${{ secrets.CDB_SOVEREIGN_KEY }}" > secrets/cdb_sovereign.pem
@@ -88,7 +88,7 @@ jobs:
           fi
 
       # ─── PRIMARY PIPELINE ────────────────────────────────────────────────────
-      - name: Run Sentinel Blogger APEX Engine (v25.0)
+      - name: Run Sentinel Blogger APEX Engine (v26.0)
         env:
           BLOG_ID: ${{ secrets.BLOG_ID }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
@@ -102,7 +102,7 @@ jobs:
         run: python -m agent.sentinel_blogger
       # ─────────────────────────────────────────────────────────────────────────
 
-      # ─── v25.0: FORCE UPDATE SYNC TIMESTAMP ──────────────────────────────────
+      # ─── v26.0: FORCE UPDATE SYNC TIMESTAMP ──────────────────────────────────
       - name: Force Update Sync Timestamp
         run: |
           python3 << 'PYEOF'
