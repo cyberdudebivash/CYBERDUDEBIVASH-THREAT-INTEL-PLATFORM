@@ -3,7 +3,7 @@
 // Threat   : CVE-2026-28559 - wpForo Forum 2414 Information Disclosure via Global RSS Feed
 // STIX ID  : bundle--92582c0e-eded-4895-a98b-cb5b8b6be0e8
 // Scenario : VULNERABILITY
-// Generated: 2026-03-01T01:15:58.581432 UTC
+// Generated: 2026-03-01T01:28:41.804868 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
