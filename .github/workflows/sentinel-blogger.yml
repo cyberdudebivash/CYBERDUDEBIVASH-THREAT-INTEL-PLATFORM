@@ -218,16 +218,16 @@ jobs:
           fi
 
       # ─── DEPLOY TO GH-PAGES ─────────────────────────────────────────────────
-      - name: Deploy Live Feed & Protect Branding
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Deploy Live Feed to gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
-          publish_branch: gh-pages
-          keep_files: true  # Preserves existing forensic and manifest data
-          force_orphan: false
-          enable_jekyll: false
-          exclude_assets: '.github,secrets,*.pyc,__pycache__,.git'
+          branch: gh-pages
+          folder: .
+          clean: false
+          single-commit: false
+          git-config-name: CDB-Sentinel-Bot
+          git-config-email: bivash@cyberdudebivash.com
+          commit-message: "v26.0 Deploy: Live feed update"
 
       # ─── v25.0: DEPLOYMENT VERIFICATION ────────────────────────────────────
       - name: Verify Deployment
