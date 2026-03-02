@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : CVE-2025-15597 - Dataease SQLBot API Endpoint assistantpy access control
+// Scenario: VULNERABILITY | CVEs: N/A
+// Generated: 2026-03-02 08:37:38 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Web Exploit / CVE Detection (N/A)
+W3CIISLog | where TimeGenerated > ago(24h)
+| where csUriStem has_any ('<script>', 'javascript:', 'onerror=', 'UNION+SELECT', '../../')
+| extend ThreatName="CVE-2025-15597 - Dataease SQLBot API Endpoint assistantpy access control", CVEs="N/A"
+| summarize Attempts=count() by csUriStem, cIP
