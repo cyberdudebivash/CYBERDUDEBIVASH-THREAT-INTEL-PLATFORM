@@ -1,0 +1,27 @@
+# ================================================================
+# CyberDudeBivash SENTINEL APEX v20.0 — Sigma Detection Rules
+# Threat  : CVE-2025-58406 - Lack of HTTP Response Headers
+# Scenario: VULNERABILITY
+# Generated: 2026-03-02T12:41:21.322562 UTC
+# Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
+# ================================================================
+
+title: 'CDB: CVE-2025-58406 - Lack of HTTP Response Headers - Web Exploit Detection'
+id: cdb-524970
+status: experimental
+description: 'Detects web application exploitation / injection patterns'
+author: 'CyberDudeBivash GOC (Automated)'
+date: 2026/03/02
+tags: ['attack.initial_access.t1190', 'attack.execution.t1059']
+logsource:
+  category: webserver
+  product: any
+detection:
+  selection_xss:
+    c-uri|contains: ['<script>', 'javascript:', 'onerror=', '%3Cscript%3E']
+  selection_sqli:
+    c-uri|contains: ["' OR '1'='1", 'UNION SELECT', '../../../']
+  condition: selection_xss or selection_sqli
+falsepositives: ['Security testing / pen testing']
+level: high
+---
