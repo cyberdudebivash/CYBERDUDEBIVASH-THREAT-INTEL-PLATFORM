@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : Cyber Essentials Plus in 2026 Strengthened Controls UK Cyber Reality  How Qualys
+# Scenario: GENERIC
+# Generated: 2026-03-02 20:29:52 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Suspicious PowerShell
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="-EncodedCommand" OR CommandLine="IEX(" OR CommandLine="DownloadFile")
+| stats count by host, user, CommandLine | eval ThreatName="Cyber Essentials Plus in 2026 Strengthened Controls UK Cyber Reality  How Qualys"
