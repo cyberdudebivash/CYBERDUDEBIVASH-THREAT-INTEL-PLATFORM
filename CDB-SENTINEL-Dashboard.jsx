@@ -2,7 +2,7 @@
  * CDB-SENTINEL-Dashboard.jsx — CyberDudeBivash v30.0 (APEX SOVEREIGN)
  * Author: CYBERGOD / TECH GOD
  * Description: The Master CISO Dashboard. Integrates Threat Intel, 
- * Live APEX Telemetry, and the new Autonomous Immune System (SOAR/SIEM).
+ * Live APEX Telemetry, Autonomous SOAR/SIEM, and Purple Swarm BAS Validation.
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -273,6 +273,7 @@ export default function CDBSentinelDashboard() {
   // [v30-APEX] Live AI & Remediation States
   const [apexForecast, setApexForecast] = useState(null);
   const [soarPlaybooks, setSoarPlaybooks] = useState([]);
+  const [basScripts, setBasScripts] = useState([]); // [v30-APEX] Purple Swarm State
 
   const loadDemoData = useCallback(async () => {
     setLoading(true);
@@ -285,61 +286,43 @@ export default function CDBSentinelDashboard() {
         console.log("[APEX] Neural cortex generating forecast...");
     }
 
-    // [CYBERGOD] Fetch SOAR Manifest (Fallback to mock data for instant wow-factor)
-    try {
-        const res = await fetch("/data/remediation/apex_remediation_manifest.json");
-        if (res.ok) {
-            setSoarPlaybooks(await res.json());
-        } else {
-            throw new Error("No manifest");
+    // [CYBERGOD] Fallback God-Tier Mock Data for SOAR and BAS UI
+    setSoarPlaybooks([
+        {
+            id: "k8s-001", type: "kubernetes", title: "NetworkPolicy: Isolate CVE-2026-21413",
+            code: `apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: apex-quarantine-struts\n  namespace: production\nspec:\n  podSelector:\n    matchLabels:\n      app: apache-struts\n  policyTypes:\n  - Ingress\n  - Egress`,
+            color: T.blue
+        },
+        {
+            id: "ans-002", type: "ansible", title: "Playbook: Autonomous Hot-Patch",
+            code: `---\n- name: APEX Zero-Day Neutralization\n  hosts: enterprise_routers\n  tasks:\n    - name: Apply Emergency Patch\n      ansible.builtin.package:\n        name: "ios-xe-core"\n        state: latest`,
+            color: T.critical
+        },
+        {
+            id: "sig-003", type: "sigma", title: "Sigma Rule: Detect DarkGate Exfiltration",
+            code: `title: CDB APEX - DarkGate Activity\nid: cdb-rule-998877\nstatus: experimental\nlogsource:\n    category: network_connection\ndetection:\n    selection:\n        DestinationIp:\n            - '185.15.10.22'\n    condition: selection\nlevel: high`,
+            color: T.apexGold
         }
-    } catch(e) {
-        // Fallback God-Tier Mock Data for the SOAR UI
-        setSoarPlaybooks([
-            {
-                id: "k8s-001",
-                type: "kubernetes",
-                title: "NetworkPolicy: Isolate CVE-2026-21413 C2 Traffic",
-                code: `apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: apex-quarantine-struts\n  namespace: production\nspec:\n  podSelector:\n    matchLabels:\n      app: apache-struts\n  policyTypes:\n  - Ingress\n  - Egress\n  # Deny all traffic immediately`,
-                color: T.blue
-            },
-            {
-                id: "ans-002",
-                type: "ansible",
-                title: "Playbook: Autonomous Hot-Patch (Cisco IOS XE)",
-                code: `---\n- name: APEX Zero-Day Neutralization\n  hosts: enterprise_routers\n  tasks:\n    - name: Apply Emergency Patch\n      ansible.builtin.package:\n        name: "ios-xe-core"\n        state: latest\n    - name: Null-route malicious IPs\n      ansible.builtin.shell: "ip route add blackhole 185.15.10.22"`,
-                color: T.critical
-            },
-            {
-                id: "sig-003",
-                type: "sigma",
-                title: "Sigma Rule: Detect DarkGate Exfiltration",
-                code: `title: CDB APEX - DarkGate Activity\nid: cdb-rule-998877\nstatus: experimental\nlogsource:\n    category: network_connection\ndetection:\n    selection:\n        DestinationIp:\n            - '185.15.10.22'\n            - '193.168.1.50'\n    condition: selection\nlevel: high`,
-                color: T.apexGold
-            }
-        ]);
-    }
+    ]);
+
+    setBasScripts([
+        { id: "bas-001", title: "DarkGate Simulation", target: "CVE-2026-21413", platform: "Windows .BAT", desc: "Triggers APEX Sigma Rule #998877" }
+    ]);
 
     // Simulated standard data fetching
     setTimeout(() => {
       setCves([
-        { id: "CVE-2026-21413", cvss: 9.8, epss: 0.943, epss_trend: "SHARPLY RISING", severity: "CRITICAL", description: "Remote code execution via unauthenticated API endpoint" },
-        { id: "CVE-2026-20198", cvss: 9.1, epss: 0.872, epss_trend: "RISING", severity: "CRITICAL", description: "Authentication bypass in network management" },
-        { id: "CVE-2026-3721", cvss: 8.8, epss: 0.654, epss_trend: "RISING", severity: "HIGH", description: "SQL injection in web application framework" },
+        { id: "CVE-2026-21413", cvss: 9.8, epss: 0.943, epss_trend: "SHARPLY RISING", severity: "CRITICAL" },
+        { id: "CVE-2026-20198", cvss: 9.1, epss: 0.872, epss_trend: "RISING", severity: "CRITICAL" },
+        { id: "CVE-2026-3721", cvss: 8.8, epss: 0.654, epss_trend: "RISING", severity: "HIGH" },
       ]);
       setKev([
-        { cveID: "CVE-2026-21413", vendorProject: "Apache", product: "Struts", dueDate: "2026-03-01" },
-        { cveID: "CVE-2026-20198", vendorProject: "Cisco", product: "IOS XE", dueDate: "2026-02-28" },
+        { cveID: "CVE-2026-21413", vendorProject: "Apache", product: "Struts" },
+        { cveID: "CVE-2026-20198", vendorProject: "Cisco", product: "IOS XE" },
       ]);
-      setMalware([
-        { family: "DarkGate", severity: "CRITICAL", sha256: "a1b2c3d4e5f6...", first_seen: "2026-02-13" },
-      ]);
-      setGaps([
-        { technique_id: "T1190", technique_name: "Exploit Public-Facing Application", tactic: "initial-access", gap_severity: "CRITICAL" },
-      ]);
-      setIntel([
-        { title: "Critical Apache Struts RCE Vulnerability Actively Exploited", source: "The Hacker News", published: "2026-02-13T08:00:00Z" },
-      ]);
+      setMalware([{ family: "DarkGate", severity: "CRITICAL", sha256: "a1b2c3d4e5f6..." }]);
+      setGaps([{ technique_id: "T1190", technique_name: "Exploit Public-Facing Application", tactic: "initial-access", gap_severity: "CRITICAL" }]);
+      setIntel([{ title: "Critical Apache Struts RCE Vulnerability Actively Exploited", source: "The Hacker News" }]);
       setLastRefresh(new Date());
       setLoading(false);
     }, 800);
@@ -347,12 +330,23 @@ export default function CDBSentinelDashboard() {
 
   useEffect(() => { loadDemoData(); }, [loadDemoData]);
 
+  const handleDownloadBAS = (filename) => {
+      // Create a dummy file blob for the mock UI to prove the functionality works
+      const content = `@echo off\necho [APEX] Running Safe Simulation for ${filename}...\npause`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `apex_sim_${filename}.bat`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+  };
+
   const tabs = [
     { id: "overview", label: "Overview", icon: "📊" },
     { id: "apex", label: "APEX SOVEREIGN", icon: "👑" }, 
-    { id: "soar", label: "IMMUNE SYSTEM", icon: "🛡️" }, // [v30-APEX] New SOAR Tab
+    { id: "soar", label: "IMMUNE SYSTEM", icon: "🛡️" }, // [v30-APEX] Integrated Tab
     { id: "cves", label: "CVEs", icon: "🔴" },
-    { id: "feed", label: "Intel Feed", icon: "📡" },
     { id: "api", label: "API Access", icon: "🔌" },
   ];
 
@@ -424,26 +418,40 @@ export default function CDBSentinelDashboard() {
             </div>
         )}
 
-        {/* [v30-APEX] THE NEW IMMUNE SYSTEM (SOAR/SIEM) TAB */}
+        {/* [v30-APEX] THE NEW IMMUNE SYSTEM & PURPLE SWARM TAB */}
         {!loading && tab === "soar" && (
             <div>
                 <SectionHeader 
                   icon="🛡️" 
                   title="Autonomous Immune Response" 
-                  sub="Zero-Latency Code Generation (Ansible, Kubernetes, Sigma) powered by APEX SOAR" 
+                  sub="Zero-Latency Code Generation & Purple Swarm Validation" 
                   action={<Btn small>Sync with Splunk HEC</Btn>}
                 />
                 
+                {/* The Purple Swarm Validation UI */}
+                <Card style={{ marginBottom: 24, borderLeft: `3px solid ${T.purple}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ color: T.purple, fontSize: 16, fontFamily: T.fontHeading, margin: '0 0 4px 0' }}>Purple Swarm Validation (BAS)</h3>
+                            <p style={{ color: T.textMuted, fontSize: 13, margin: 0 }}>Safely execute these atomic tests in your sandbox to verify APEX SIEM/SOAR defenses.</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            {basScripts.map(script => (
+                                <Btn key={script.id} onClick={() => handleDownloadBAS(script.target)} variant="outline" small>
+                                    ⬇️ Download {script.platform}
+                                </Btn>
+                            ))}
+                        </div>
+                    </div>
+                </Card>
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <div>
                     <h3 style={{ color: T.white, fontSize: 15, fontFamily: T.fontHeading, marginBottom: 16 }}>Remediation Playbooks</h3>
                     {soarPlaybooks.filter(p => p.type !== 'sigma').map((playbook) => (
                       <CodeSnippet 
-                        key={playbook.id} 
-                        title={playbook.title} 
-                        language={playbook.type.toUpperCase()} 
-                        code={playbook.code} 
-                        tagColor={playbook.color} 
+                        key={playbook.id} title={playbook.title} 
+                        language={playbook.type.toUpperCase()} code={playbook.code} tagColor={playbook.color} 
                       />
                     ))}
                   </div>
@@ -451,14 +459,10 @@ export default function CDBSentinelDashboard() {
                     <h3 style={{ color: T.white, fontSize: 15, fontFamily: T.fontHeading, marginBottom: 16 }}>SIEM Detection Rules</h3>
                     {soarPlaybooks.filter(p => p.type === 'sigma').map((playbook) => (
                       <CodeSnippet 
-                        key={playbook.id} 
-                        title={playbook.title} 
-                        language="YAML" 
-                        code={playbook.code} 
-                        tagColor={playbook.color} 
+                        key={playbook.id} title={playbook.title} 
+                        language="YAML" code={playbook.code} tagColor={playbook.color} 
                       />
                     ))}
-                    
                     <Card style={{ marginTop: 20, textAlign: 'center' }}>
                        <div style={{ color: T.textMuted, fontSize: 13, marginBottom: 10 }}>Auto-Dispatch Status</div>
                        <Badge color={T.low} bg={`${T.low}18`}>ALL RULES SYNCHRONIZED</Badge>
@@ -480,7 +484,6 @@ export default function CDBSentinelDashboard() {
               <StatCard icon="🎯" label="ATT&CK Gaps" value={gaps.length} color={T.critical} />
               <StatCard icon="📡" label="Intel Items" value={intel.length} color={T.accent} />
             </div>
-
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div>
                 <SectionHeader icon="🔴" title="Top CVEs" />
@@ -502,14 +505,6 @@ export default function CDBSentinelDashboard() {
           </>
         )}
 
-        {/* INTEL FEED TAB */}
-        {!loading && tab === "feed" && (
-          <>
-            <SectionHeader icon="📡" title="Global Threat Intelligence Feed" />
-            <IntelFeed items={intel} />
-          </>
-        )}
-
         {/* API ACCESS TAB */}
         {!loading && tab === "api" && (
           <>
@@ -519,7 +514,7 @@ export default function CDBSentinelDashboard() {
                 { tier: "Free", price: "$0", limit: "60 req/hr", color: T.accent, features: ["CVE feed", "KEV alerts"] },
                 { tier: "Pro", price: "$49/mo", limit: "600 req/hr", color: T.blue, features: ["STIX/MISP export", "Detection rules"] },
                 { tier: "Enterprise", price: "$999/mo", limit: "6000 req/hr", color: T.purple, features: ["SIEM connectors", "SLA guarantee"] },
-                { tier: "APEX SOVEREIGN", price: "$25k/mo", limit: "UNLIMITED", color: T.apexGold, features: ["Live eBPF Mesh", "WebSocket Firehose", "AI Auto-Healing (SOAR)"] }
+                { tier: "APEX SOVEREIGN", price: "$25k/mo", limit: "UNLIMITED", color: T.apexGold, features: ["Live eBPF Mesh", "AI Auto-Healing (SOAR)", "Purple Swarm Testing"] }
               ].map((plan) => (
                 <Card key={plan.tier} glow={plan.tier.includes("APEX") ? "apex" : plan.tier === "Pro"} borderColor={plan.tier.includes("APEX") ? T.apexGold : plan.tier === "Pro" ? T.accent : undefined}>
                   <div style={{ textAlign: "center", marginBottom: 16 }}>
