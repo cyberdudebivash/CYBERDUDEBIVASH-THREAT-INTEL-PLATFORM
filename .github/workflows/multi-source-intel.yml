@@ -37,6 +37,7 @@ jobs:
           mkdir -p data/ai_predictions  # [v30-APEX] Directory for AI cortex
           mkdir -p data/remediation     # [v30-APEX] Directory for APEX SOAR
           mkdir -p data/sigma_rules     # [v30-APEX] Directory for SIEM Dispatcher
+          mkdir -p data/simulations     # [v30-APEX] Directory for Purple Swarm BAS
 
       - name: Collect Fresh Intelligence (CISA KEV + Exploit-DB + GitHub Advisory)
         continue-on-error: true
@@ -97,54 +98,44 @@ jobs:
               with open(enriched_path, "w") as f:
                   json.dump(enriched, f, indent=2)
 
-              print(f"AI enrichment complete:")
-              print(f"  Entries processed: {len(enriched)}")
-              for e in enriched[:3]:
-                  preds = e.get("ai_predictions", {})
-                  prob = preds.get("exploit_probability", {}).get("exploit_probability_pct", 0)
-                  triage = preds.get("triage", {}).get("triage_score", 0)
-                  print(f"  - {e.get('title','?')[:60]}...")
-                  print(f"    Exploit prob: {prob}% | Triage: {triage}/100")
-
           except Exception as e:
               print(f"AI enrichment skipped (non-critical): {e}")
           PYEOF
 
       # ═══════════════════════════════════════════════════════════
-      # [v30-APEX] CYBERGOD ADDITIONS START HERE (100% Non-Breaking)
+      # [v30-APEX] SOVEREIGN ASCENSION CORE (100% Non-Breaking)
       # ═══════════════════════════════════════════════════════════
       
       - name: Execute v30 Apex Dark Swarm Infiltrator
         continue-on-error: true
         run: |
           echo "Deploying Autonomous Neural Swarm to Deep Web vectors..."
-          # Creates STIX bundles silently via your existing exporter
           python -m agent.v30_apex.dark_swarm_infiltrator || echo "Swarm execution passed with soft fallback."
           
       - name: Execute v30 Apex Predictive Cortex Forecaster
         continue-on-error: true
         run: |
           echo "Analyzing macro-trends via Predictive Cortex..."
-          # Reads manifest and writes to data/ai_predictions/apex_forecast_latest.json
           python -m agent.v30_apex.predictive_cortex || echo "Cortex execution passed with soft fallback."
 
       - name: Execute APEX Immune Response (Auto-Healing Generation)
         continue-on-error: true
         run: |
-          echo "Igniting Autonomous Cyber-Immune System..."
-          # Generates Ansible and K8s playbooks based on legacy STIX feeds
+          echo "Igniting Autonomous Cyber-Immune System (SOAR)..."
           python -m agent.v30_apex.apex_immune_response || echo "Immune Response execution passed with soft fallback."
 
       - name: Execute SIEM Sigma Dispatcher
         continue-on-error: true
         run: |
           echo "Generating native SIEM rules for Enterprise integration..."
-          # Translates raw intelligence into deployable Sigma/Splunk queries
           python -m agent.integrations.siem_dispatcher || echo "SIEM dispatcher passed with soft fallback."
 
-      # ═══════════════════════════════════════════════════════════
-      # [v30-APEX] OMNISCIENT PAGER (Zero-Regression Decoupled Alerting)
-      # ═══════════════════════════════════════════════════════════
+      - name: Execute APEX Purple Swarm (Autonomous BAS)
+        continue-on-error: true
+        run: |
+          echo "Forging Benign Attack Simulations for Validation..."
+          python -m agent.v30_apex.apex_purple_swarm || echo "Purple Swarm execution passed with soft fallback."
+
       - name: Broadcast APEX SOC Alerts (Discord/Slack)
         continue-on-error: true
         env:
@@ -152,7 +143,6 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         run: |
           echo "Pinging Global SOC Teams..."
-          # Completely independent. If it fails, the workflow ignores the error and commits the data anyway.
           python -m agent.v30_apex.apex_webhook_alert || echo "Webhook dispatcher bypassed cleanly."
 
       # ═══════════════════════════════════════════════════════════
@@ -164,10 +154,10 @@ jobs:
           git config user.email "bivash@cyberdudebivash.com"
           git config user.name "CDB-Enrichment-Bot"
           # [v30-APEX] Modified to track all God-Tier generation directories
-          git add data/enrichment/ data/stix/ data/ai_predictions/ data/remediation/ data/sigma_rules/ 2>/dev/null || true
+          git add data/enrichment/ data/stix/ data/ai_predictions/ data/remediation/ data/sigma_rules/ data/simulations/ 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No enrichment changes."
           else
-            git commit -m "👑 APEX Cyber-Immune Enrichment: AI, SOAR & SIEM [skip ci]"
+            git commit -m "👑 APEX Unified Matrix: AI, SOAR, SIEM, & BAS [skip ci]"
             git pull origin main --rebase && git push origin main || echo "Push collision, will retry next cycle"
           fi
