@@ -3,7 +3,7 @@
 // Threat   : CVE-2026-3449 - Once Package Incorrect Control Flow Scoping Vulnerability
 // STIX ID  : bundle--c4294c0d-4e76-4c29-8af5-bd9675bdcd00
 // Scenario : VULNERABILITY
-// Generated: 2026-03-03T06:28:43.456029 UTC
+// Generated: 2026-03-03T07:05:58.476131 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
