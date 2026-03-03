@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
+// [v30-APEX] Seamlessly importing the 3D Threat Globe
+import ApexThreatGlobe from "./components/ApexThreatGlobe";
 
 const API_BASE = "";
+// [v30-APEX] For Enterprise users
+const ENTERPRISE_JWT = "YOUR_ENTERPRISE_JWT_HERE"; 
 
 // ═══════════════════════════════════════════════════
 // DESIGN TOKENS
@@ -26,6 +30,8 @@ const T = {
   fontHeading: "'DM Sans', 'Segoe UI', sans-serif",
   fontBody: "'DM Sans', 'Segoe UI', sans-serif",
   fontMono: "'JetBrains Mono', 'Fira Code', monospace",
+  // [v30-APEX] Added apex token
+  apexGold: "#ffd700", 
 };
 
 const sevColor = (s) =>
@@ -68,7 +74,7 @@ function Card({ children, style, glow, borderColor }) {
         borderRadius: 14,
         padding: "20px 22px",
         boxShadow: glow
-          ? `0 0 20px ${T.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.03)`
+          ? `0 0 20px ${glow === "apex" ? "rgba(255,215,0,0.3)" : T.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.03)`
           : "0 2px 12px rgba(0,0,0,0.3)",
         transition: "all 0.2s",
         ...style,
@@ -282,10 +288,25 @@ export default function CDBSentinelDashboard() {
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  
+  // [v30-APEX] Live AI Prediction State
+  const [apexForecast, setApexForecast] = useState(null);
 
-  // Demo data loader (since we can't hit real APIs in artifact)
-  const loadDemoData = useCallback(() => {
+  // Demo data loader
+  const loadDemoData = useCallback(async () => {
     setLoading(true);
+    
+    // [v30-APEX] Fetching the newly generated AI forecast without breaking the flow
+    try {
+        const res = await fetch("/data/ai_predictions/apex_forecast_latest.json");
+        if(res.ok) {
+            const forecastData = await res.json();
+            setApexForecast(forecastData);
+        }
+    } catch(e) {
+        console.log("APEX Forecast currently generating...");
+    }
+
     setTimeout(() => {
       setCves([
         { id: "CVE-2026-21413", cvss: 9.8, epss: 0.943, epss_trend: "SHARPLY RISING", epss_acceleration: "RAPID", severity: "CRITICAL", description: "Remote code execution via unauthenticated API endpoint" },
@@ -330,6 +351,7 @@ export default function CDBSentinelDashboard() {
 
   const tabs = [
     { id: "overview", label: "Overview", icon: "📊" },
+    { id: "apex", label: "APEX SOVEREIGN", icon: "👑" }, // [v30-APEX] Added the Enterprise Master Tab
     { id: "cves", label: "CVEs", icon: "🔴" },
     { id: "feed", label: "Intel Feed", icon: "📡" },
     { id: "gaps", label: "ATT&CK Gaps", icon: "🎯" },
@@ -351,7 +373,7 @@ export default function CDBSentinelDashboard() {
             <span style={{ fontWeight: 800, fontSize: 16, color: T.white, fontFamily: T.fontHeading }}>
               CDB-SENTINEL
             </span>
-            <Badge color={T.accent} bg={T.accentDim}>v1.0</Badge>
+            <Badge color={T.apexGold} bg={"rgba(255,215,0,0.15)"}>v30.0 APEX</Badge>
           </div>
 
           {/* Desktop tabs */}
@@ -364,8 +386,9 @@ export default function CDBSentinelDashboard() {
                   padding: "8px 14px",
                   fontSize: 13,
                   fontWeight: tab === t.id ? 700 : 500,
-                  color: tab === t.id ? T.accent : T.textMuted,
-                  background: tab === t.id ? T.accentDim : "transparent",
+                  // [v30-APEX] Custom styling for the Sovereign tab
+                  color: tab === t.id ? (t.id === 'apex' ? T.apexGold : T.accent) : T.textMuted,
+                  background: tab === t.id ? (t.id === 'apex' ? "rgba(255,215,0,0.1)" : T.accentDim) : "transparent",
                   border: "none",
                   borderRadius: 8,
                   cursor: "pointer",
@@ -394,6 +417,38 @@ export default function CDBSentinelDashboard() {
       {/* ──── CONTENT ──── */}
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 20px 60px" }}>
         {loading && <Loader />}
+        
+        {/* ═══════════════════════════════════════════════════ */}
+        {/* [v30-APEX] THE SOVEREIGN CORTEX TAB (Zero Regression) */}
+        {/* ═══════════════════════════════════════════════════ */}
+        {!loading && tab === "apex" && (
+            <div>
+                <SectionHeader icon="👑" title="APEX Sovereign Cortex" sub="Global Zero-Day Telemetry & AI Predictions (Enterprise Only)" />
+                
+                {/* AI Predictive Insight Widget */}
+                {apexForecast && (
+                  <Card glow="apex" borderColor={T.apexGold} style={{ marginBottom: 20 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                            <h3 style={{ color: T.apexGold, margin: '0 0 8px 0', fontFamily: T.fontHeading }}>AI Strategic Forecast</h3>
+                            <p style={{ color: T.white, fontSize: 14, maxWidth: '800px', lineHeight: 1.6 }}>{apexForecast.ai_executive_summary}</p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ color: T.textMuted, fontSize: 12, textTransform: 'uppercase' }}>Target Sector</div>
+                            <div style={{ color: T.critical, fontSize: 18, fontWeight: 'bold' }}>{apexForecast.predicted_target_sector}</div>
+                            <div style={{ color: T.textMuted, fontSize: 12, textTransform: 'uppercase', marginTop: 8 }}>Forecast Confidence</div>
+                            <div style={{ color: T.accent, fontSize: 18, fontWeight: 'bold' }}>{apexForecast.confidence_level}%</div>
+                        </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* The 3D eBPF Live Globe */}
+                <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.apexGold}`, boxShadow: `0 0 30px ${T.accentGlow}` }}>
+                    <ApexThreatGlobe jwtToken={ENTERPRISE_JWT} />
+                </div>
+            </div>
+        )}
 
         {/* OVERVIEW TAB */}
         {!loading && tab === "overview" && (
@@ -488,68 +543,50 @@ export default function CDBSentinelDashboard() {
           <>
             <SectionHeader icon="🔌" title="API Access" sub="Integrate CDB-SENTINEL into your SOC workflow" />
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
               {[
-                { tier: "Free", price: "$0", limit: "60 req/hr", color: T.accent, features: ["CVE feed", "KEV alerts", "Basic reports", "Community support"] },
-                { tier: "Pro", price: "$49/mo", limit: "600 req/hr", color: T.blue, features: ["Everything in Free", "STIX/MISP export", "ATT&CK analysis", "Detection rules", "Priority support"] },
-                { tier: "Enterprise", price: "Custom", limit: "6000 req/hr", color: T.purple, features: ["Everything in Pro", "Custom feeds", "SIEM connectors", "SLA guarantee", "Dedicated support", "On-prem option"] },
+                { tier: "Free", price: "$0", limit: "60 req/hr", color: T.accent, features: ["CVE feed", "KEV alerts", "Basic reports"] },
+                { tier: "Pro", price: "$49/mo", limit: "600 req/hr", color: T.blue, features: ["STIX/MISP export", "ATT&CK analysis", "Detection rules"] },
+                { tier: "Enterprise", price: "$999/mo", limit: "6000 req/hr", color: T.purple, features: ["Custom feeds", "SIEM connectors", "SLA guarantee"] },
+                { tier: "APEX SOVEREIGN", price: "$5k/mo", limit: "UNLIMITED", color: T.apexGold, features: ["Live eBPF Mesh", "WebSocket Firehose", "AI Dark Swarm Engine"] }
               ].map((plan) => (
-                <Card key={plan.tier} glow={plan.tier === "Pro"} borderColor={plan.tier === "Pro" ? T.accent : undefined}>
+                <Card key={plan.tier} glow={plan.tier === "Pro" || plan.tier === "APEX SOVEREIGN" ? (plan.tier === "APEX SOVEREIGN" ? "apex" : true) : false} borderColor={plan.tier === "Pro" ? T.accent : (plan.tier === "APEX SOVEREIGN" ? T.apexGold : undefined)}>
                   <div style={{ textAlign: "center", marginBottom: 16 }}>
                     <Badge color={plan.color} bg={`${plan.color}18`}>{plan.tier}</Badge>
-                    <div style={{ color: T.white, fontSize: 28, fontWeight: 800, marginTop: 8, fontFamily: T.fontHeading }}>{plan.price}</div>
+                    <div style={{ color: T.white, fontSize: 24, fontWeight: 800, marginTop: 8, fontFamily: T.fontHeading }}>{plan.price}</div>
                     <div style={{ color: T.textMuted, fontSize: 12 }}>{plan.limit}</div>
                   </div>
                   <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                     {plan.features.map((f, i) => (
-                      <li key={i} style={{ padding: "6px 0", fontSize: 13, color: T.text, borderBottom: `1px solid ${T.border}` }}>
-                        <span style={{ color: T.accent, marginRight: 8 }}>✓</span> {f}
+                      <li key={i} style={{ padding: "6px 0", fontSize: 12, color: T.text, borderBottom: `1px solid ${T.border}` }}>
+                        <span style={{ color: plan.color, marginRight: 8 }}>✓</span> {f}
                       </li>
                     ))}
                   </ul>
                   <div style={{ textAlign: "center", marginTop: 16 }}>
-                    <Btn variant={plan.tier === "Pro" ? "primary" : "outline"} small>
-                      {plan.tier === "Enterprise" ? "Contact Sales" : "Get Started"}
+                    <Btn variant={plan.tier === "Pro" || plan.tier === "APEX SOVEREIGN" ? "primary" : "outline"} small>
+                      {plan.tier.includes("APEX") || plan.tier === "Enterprise" ? "Contact Sales" : "Get Started"}
                     </Btn>
                   </div>
                 </Card>
               ))}
             </div>
 
-            <SectionHeader icon="📖" title="API Endpoints" sub="RESTful JSON API with OpenAPI documentation" />
+            <SectionHeader icon="📖" title="API Endpoints" sub="RESTful JSON API & APEX WebSockets" />
             <Card>
               <div style={{ fontFamily: T.fontMono, fontSize: 13 }}>
                 {[
                   { method: "GET", path: "/api/v1/intel/cves", desc: "Latest CVEs with EPSS" },
                   { method: "GET", path: "/api/v1/intel/kev", desc: "CISA KEV catalog" },
-                  { method: "GET", path: "/api/v1/intel/malware", desc: "Malware activity" },
-                  { method: "GET", path: "/api/v1/intel/feed", desc: "RSS threat feed" },
-                  { method: "GET", path: "/api/v1/analysis/rank", desc: "Risk-ranked CVEs" },
-                  { method: "GET", path: "/api/v1/analysis/gaps", desc: "ATT&CK gaps" },
-                  { method: "GET", path: "/api/v1/analysis/detections", desc: "Sigma/KQL rules" },
-                  { method: "GET", path: "/api/v1/reports/daily", desc: "Daily report HTML" },
-                  { method: "GET", path: "/api/v1/reports/weekly", desc: "Weekly mega-report" },
                   { method: "GET", path: "/api/v1/exports/stix", desc: "STIX 2.1 bundle" },
-                  { method: "GET", path: "/api/v1/exports/misp", desc: "MISP event" },
-                  { method: "GET", path: "/api/v1/exports/navigator", desc: "ATT&CK Navigator" },
+                  { method: "WS", path: "/api/v30/firehose", desc: "[APEX] Live Zero-Day Stream" }, // [v30-APEX]
                 ].map((ep, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
-                    <span style={{ color: T.accent, fontWeight: 700, width: 40 }}>{ep.method}</span>
+                    <span style={{ color: ep.method === "WS" ? T.apexGold : T.accent, fontWeight: 700, width: 40 }}>{ep.method}</span>
                     <span style={{ color: T.white, flex: 1 }}>{ep.path}</span>
                     <span style={{ color: T.textMuted, fontSize: 12 }}>{ep.desc}</span>
                   </div>
                 ))}
-              </div>
-            </Card>
-
-            <SectionHeader icon="🔑" title="Authentication" sub="Include API key in every request" />
-            <Card>
-              <div style={{ background: T.bg, padding: 16, borderRadius: 8, fontFamily: T.fontMono, fontSize: 13, color: T.text, lineHeight: 1.8, overflowX: "auto" }}>
-                <span style={{ color: T.textMuted }}>{"# Using header (recommended)"}</span><br />
-                <span style={{ color: T.accent }}>curl</span> -H <span style={{ color: "#f97583" }}>"X-API-Key: your_api_key"</span> \<br />
-                &nbsp;&nbsp;https://api.cyberdudebivash.com/api/v1/intel/cves<br /><br />
-                <span style={{ color: T.textMuted }}>{"# Using query parameter"}</span><br />
-                <span style={{ color: T.accent }}>curl</span> https://api.cyberdudebivash.com/api/v1/intel/cves?api_key=<span style={{ color: "#f97583" }}>your_key</span>
               </div>
             </Card>
           </>
@@ -563,8 +600,6 @@ export default function CDBSentinelDashboard() {
           Evolve or Extinct — Your Cybersecurity Authority<br />
           © 2024–2026 CyberDudeBivash Pvt. Ltd. — Bhubaneswar, India<br />
           <a href="https://www.cyberdudebivash.com" style={{ color: T.accent, textDecoration: "none" }}>cyberdudebivash.com</a>
-          {" · "}
-          <a href="mailto:iambivash@cyberdudebivash.com" style={{ color: T.accent, textDecoration: "none" }}>iambivash@cyberdudebivash.com</a>
         </div>
       </footer>
     </div>
