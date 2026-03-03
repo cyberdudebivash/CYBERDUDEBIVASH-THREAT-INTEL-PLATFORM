@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-02T20:41:06.585167+00:00",
+  "timestamp": "2026-03-03T02:30:02.246662+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -37,21 +37,6 @@
       "notes": "CISA Mitigation Instructions: https://www.cisa.gov/news-events/directives/ed-26-03-mitigate-vulnerabilities-cisco-sd-wan-systems ; https://www.cisa.gov/news-events/directives/supplemental-direction-ed-26-03-hunt-and-hardening-guidance-cisco-sd-wan-systems ; https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-sdwan-rpa-EHchtZk ; https://nvd.nist.gov/vuln/detail/CVE-2026-20127",
       "cwes": [
         "CWE-287"
-      ]
-    },
-    {
-      "cveID": "CVE-2026-25108",
-      "vendorProject": "Soliton Systems K.K",
-      "product": "FileZen",
-      "vulnerabilityName": "Soliton Systems K.K FileZen OS Command Injection Vulnerability",
-      "dateAdded": "2026-02-24",
-      "shortDescription": "Soliton Systems K.K FileZen contains an OS command injection vulnerability when an user logs-in to the affected product and sends a specially crafted HTTP request.",
-      "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
-      "dueDate": "2026-03-17",
-      "knownRansomwareCampaignUse": "Unknown",
-      "notes": "https://jvn.jp/en/jp/JVN84622767/ ; https://nvd.nist.gov/vuln/detail/CVE-2026-25108",
-      "cwes": [
-        "CWE-78"
       ]
     }
   ],
@@ -278,7 +263,444 @@
       "poc_public": true
     }
   ],
-  "github_advisories": [],
+  "github_advisories": [
+    {
+      "ghsa_id": "GHSA-r65x-2hqr-j5hf",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Node reconnect metadata spoofing could bypass platform-based node command policy",
+      "description": "## Summary\n\nA paired node device could reconnect with spoofed `platform`/`deviceFamily` metadata and broaden node command policy eligibility because reconnect metadata was accepted from the client while these fields were not bound into the device-auth signature.\n\n## Affected Packages / Versions\n\n- Package: `openclaw` (npm)\n- Affected versions: `<= 2026.2.25`\n- Latest published version at update time: `2026.2.25`\n- Patched version (pre-set for next release): `2026.2.26`\n\n## Impact\n\nIn configurations where node command policy differs by platform, an attacker with an already paired node identity on the trusted network could spoof reconnect metadata and gain access to commands that should remain blocked for the originally paired platform.\n\n## Fix\n\n- Add device-auth payload `v3` that signs normalized `platform` and `deviceFamily`.\n- Verify `v3` first (fallback to `v2` for compatibility), while pinning paired metadata server-side.\n- Reject reconnect metadata mismatches and require explicit r",
+      "cvss_score": 8.0,
+      "cvss_vector": "CVSS:3.1/AV:A/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-290",
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-03T00:40:12Z",
+      "updated": "2026-03-03T00:40:13Z",
+      "url": "https://github.com/advisories/GHSA-r65x-2hqr-j5hf",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-r65x-2hqr-j5hf",
+        "https://github.com/openclaw/openclaw/commit/7d8aeaaf06e2e616545d2c2cec7fa27f36b59b6a",
+        "https://github.com/advisories/GHSA-r65x-2hqr-j5hf"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-f7ww-2725-qvw2",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Node system.run approval bypass via parent-symlink cwd rebind",
+      "description": "## Summary\nFor `host=node` executions, approval context could be bypassed after approval-time by rebinding a writable parent symlink in `cwd` while preserving the visible `cwd` string.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: `<= 2026.2.25`\n- Fixed: `>= 2026.2.26` (planned next npm release)\n\n## Impact\nA command approved for one filesystem location could execute from a different location if a mutable parent symlink changed between approval and execution.\n\n## Fix\n- Added immutable approval-time plan preparation (`system.run.prepare`) and `systemRunPlanV2` canonical fields (`argv`, `cwd`, `agentId`, `sessionKey`).\n- Enforced canonical plan values through approval request storage and forwarding-time sanitization.\n- Rejected mutable parent-symlink path components during approval-plan building to block symlink rebind bypass.\n- Follow-up refactors centralized command catalogs and approval context/error handling to reduce future drift.\n\n## Fix Commit(s)\n- `78a7f",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-59",
+        "CWE-367"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T23:35:56Z",
+      "updated": "2026-03-02T23:35:56Z",
+      "url": "https://github.com/advisories/GHSA-f7ww-2725-qvw2",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-f7ww-2725-qvw2",
+        "https://github.com/openclaw/openclaw/commit/4b4718c8dfce2e2c48404aa5088af7c013bed60b",
+        "https://github.com/openclaw/openclaw/commit/4e690e09c746408b5e27617a20cb3fdc5190dbda",
+        "https://github.com/openclaw/openclaw/commit/78a7ff2d50fb3bcef351571cb5a0f21430a340c1",
+        "https://github.com/openclaw/openclaw/commit/d06632ba45a8482192792c55d5ff0b2e21abb0a7",
+        "https://github.com/openclaw/openclaw/commit/d82c042b09727a6148f3ca651b254c4a677aff26",
+        "https://github.com/advisories/GHSA-f7ww-2725-qvw2"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-fqcm-97m6-w7rm",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Message action attachment hydration bypasses local media root checks when sandboxRoot is unset",
+      "description": "## Impact\n`sendAttachment` and `setGroupIcon` message actions could hydrate media from local absolute paths when `sandboxRoot` was unset, bypassing intended local media root checks. This could allow reads of arbitrary host files reachable by the runtime user when an authorized message-action path was triggered.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Latest published npm version at triage: `2026.2.23`\n- Vulnerable: `<= 2026.2.23`\n- Patched in code: `>= 2026.2.24` (planned next release)\n\n## Remediation\nUpgrade to `openclaw` `2026.2.24` or later once published.\n\n## Fix Commit(s)\n- 270ab03e379f9653e15f7033c9830399b66b7e51\n\n## Release Process Note\n`patched_versions` is pre-set to the planned next release (`>= 2026.2.24`). Once that npm release is published, this advisory can be published without further field edits.\n\nOpenClaw thanks @GCXWLP for reporting.\n\n\n### Publication Update (2026-02-25)\n`openclaw@2026.2.24` is published on npm and contains the fix commit(s) lis",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22",
+        "CWE-200"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T23:34:02Z",
+      "updated": "2026-03-02T23:34:02Z",
+      "url": "https://github.com/advisories/GHSA-fqcm-97m6-w7rm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-fqcm-97m6-w7rm",
+        "https://github.com/openclaw/openclaw/commit/270ab03e379f9653e15f7033c9830399b66b7e51",
+        "https://github.com/advisories/GHSA-fqcm-97m6-w7rm"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-hwpq-rrpf-pgcq",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: system.run approval identity mismatch could execute a different binary than displayed",
+      "description": "### Summary\n`system.run` approvals in OpenClaw used rendered command text as the approval identity while trimming argv token whitespace. Runtime execution still used raw argv. A crafted trailing-space executable token could therefore execute a different binary than what the approver saw.\n\n### Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected versions: `<= 2026.2.24`\n- Patched versions: `>= 2026.2.25`\n\n### Impact\nThis is an approval-integrity bypass that can lead to unexpected command execution under the OpenClaw runtime user when an attacker can influence `command` argv and reuse/obtain a matching approval context.\n\n### Trust Model Note\nOpenClaw does not treat adversarial multi-user sharing of one gateway host/config as a supported security boundary. This finding is still valid in supported deployments because it breaks the operator approval boundary itself (approved display command vs executed argv).\n\n### Fix Commit(s)\n- `03e689fc89bbecbcd02876a95957ef1ad9caa176`\n\n##",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-436",
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T23:33:08Z",
+      "updated": "2026-03-02T23:33:11Z",
+      "url": "https://github.com/advisories/GHSA-hwpq-rrpf-pgcq",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-hwpq-rrpf-pgcq",
+        "https://github.com/openclaw/openclaw/commit/03e689fc89bbecbcd02876a95957ef1ad9caa176",
+        "https://github.com/advisories/GHSA-hwpq-rrpf-pgcq"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-943q-mwmv-hhvh",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Gateway /tools/invoke tool escalation + ACP permission auto-approval",
+      "description": "## Summary\n\nOpenClaw Gateway exposes an authenticated HTTP endpoint (`POST /tools/invoke`) intended for invoking a constrained set of tools. Two issues could combine to significantly increase blast radius in misconfigured or exposed deployments:\n\n- The HTTP gateway layer did not deny high-risk session orchestration tools by default, allowing a caller with Gateway auth to invoke tools like `sessions_spawn` / `sessions_send` and pivot into creating or controlling agent sessions.\n- ACP clients could auto-approve permission requests for risky tools with insufficient user interaction/guardrails, reducing the friction that should normally prevent silent execution or mutation.\n\n## Impact\n\nIf the Gateway is reachable by an attacker and they obtain a valid Gateway token, they may be able to:\n\n- Escalate from single-tool invocation to spawning/controlling sessions and reach command execution capabilities depending on tool policy and runtime environment.\n- Perform cross-session message injection ",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-78"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T23:32:22Z",
+      "updated": "2026-03-02T23:32:26Z",
+      "url": "https://github.com/advisories/GHSA-943q-mwmv-hhvh",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-943q-mwmv-hhvh",
+        "https://github.com/openclaw/openclaw/pull/15390",
+        "https://github.com/openclaw/openclaw/commit/153a7644e",
+        "https://github.com/openclaw/openclaw/commit/539689a2f",
+        "https://github.com/openclaw/openclaw/commit/bb1c3dfe1",
+        "https://github.com/openclaw/openclaw/commit/ee31cd47b49f4b2f128a69a2a3745ca9db68b3be",
+        "https://github.com/advisories/GHSA-943q-mwmv-hhvh"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-xw4p-pw82-hqr7",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw's sandbox skill mirroring path traversal vulnerability could write outside the sandbox workspace",
+      "description": "## Overview\n\nIn affected versions, OpenClaw\u2019s sandbox skill mirroring used the skill\u2019s frontmatter `name` as part of the destination path when copying skills into the sandbox workspace. A crafted skill name containing traversal segments (for example `../`) or an absolute path could cause the copy to write outside `<sandbox_workspace>/skills/`.\n\n## Impact\n\n- Files may be written outside the sandbox workspace root (within the permissions of the user running OpenClaw).\n\n## Attack Requirements\n\n- Attacker can provide a skill package (controls `SKILL.md` frontmatter).\n- Victim runs with sandbox enabled and skill mirroring into the sandbox workspace.\n\n## Affected Packages / Versions\n\n- `openclaw` (npm): `< 2026.2.14`\n\n## Fixed In\n\n- `openclaw` (npm): `>= 2026.2.14`\n\n## Fix Commit(s)\n\n- 3eb6a31b6fcf8268456988bfa8e3637d373438c2\n\nOpenClaw thanks @1seal for reporting.",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:C/C:N/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T22:51:51Z",
+      "updated": "2026-03-02T22:51:52Z",
+      "url": "https://github.com/advisories/GHSA-xw4p-pw82-hqr7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-xw4p-pw82-hqr7",
+        "https://github.com/openclaw/openclaw/commit/3eb6a31b6fcf8268456988bfa8e3637d373438c2",
+        "https://github.com/advisories/GHSA-xw4p-pw82-hqr7"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-p25h-9q54-ffvw",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw has Zip Slip path traversal in tar archive extraction",
+      "description": "## Summary\nOpenClaw versions before 2026.2.14 did not sufficiently validate TAR archive entry paths during extraction. A crafted archive could use path traversal sequences (for example `../../...`) to write files outside the intended destination directory (Zip Slip).\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: `< 2026.2.14`\n- Fixed: `>= 2026.2.14`\n\n## Details\nThe affected code path is `extractArchive()` in `src/infra/archive.ts`. Prior to 2026.2.14, TAR extraction used `tar.x({ cwd: destDir })` without rejecting traversal and absolute entry paths.\n\nThis extraction is used by installation flows such as:\n- `openclaw plugins install \u2026`\n- `openclaw hooks install \u2026`\n\n## Impact\nIf a user installs an untrusted `.tar` / `.tgz` archive, an attacker can write files outside the extraction directory (within the permissions of the OpenClaw process). This can lead to configuration tampering and potentially code execution.\n\n## Mitigation\nUpgrade to `openclaw >= 2026.2.14`",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T22:40:57Z",
+      "updated": "2026-03-02T22:40:57Z",
+      "url": "https://github.com/advisories/GHSA-p25h-9q54-ffvw",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-p25h-9q54-ffvw",
+        "https://github.com/openclaw/openclaw/commit/3aa94afcfd12104c683c9cad81faf434d0dadf87",
+        "https://github.com/advisories/GHSA-p25h-9q54-ffvw"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mfg5-7q5g-f37j",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw voice-call media stream validated streams after upgrade, which could allow pre-start unauthenticated sockets to increase resource pressure",
+      "description": "### Summary\n`@openclaw/voice-call` (and the bundled copy shipped in `openclaw`) accepted media-stream WebSocket upgrades before stream validation. In reachable deployments, unauthenticated pre-start sockets could be held open and increase resource pressure.\n\n### Affected Packages / Versions\n- `openclaw` (npm): vulnerable `<= 2026.2.21-2`, patched in `2026.2.22`.\n- `@openclaw/voice-call` (npm): vulnerable `<= 2026.2.21`, patched in `2026.2.22`.\n\n### Technical Details\nBefore this fix, the voice-call media-stream path upgraded sockets first and ran `shouldAcceptStream()` after a later `start` frame. This created a pre-auth window where remote clients could hold idle sockets without call/token validation.\n\n### Impact\nAvailability risk in deployments where the media-stream endpoint is reachable and streaming is enabled. Under sustained abuse, this could consume connection-related resources and degrade service for legitimate streams.\n\n### Remediation\nThe fix adds layered controls in the medi",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-400",
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "openclaw",
+        "@openclaw/voice-call"
+      ],
+      "published": "2026-03-02T22:39:43Z",
+      "updated": "2026-03-02T22:39:45Z",
+      "url": "https://github.com/advisories/GHSA-mfg5-7q5g-f37j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-mfg5-7q5g-f37j",
+        "https://github.com/openclaw/openclaw/commit/1d8968c8a821ff1a05c294a1846b3bcb6f343794",
+        "https://github.com/advisories/GHSA-mfg5-7q5g-f37j"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-jq4x-98m3-ggq6",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw Canvas Path Traversal Information Disclosure Vulnerability",
+      "description": "ZDI-CAN-29312: OpenClaw Canvas Path Traversal Information Disclosure Vulnerability\n\n-- ABSTRACT -------------------------------------\n\nTrend Micro's Zero Day Initiative has identified a vulnerability affecting the following products:\nOpenClaw - OpenClaw\n\n-- VULNERABILITY DETAILS ------------------------\n* Version tested: openclaw 2026.2.17\n* Platform tested: macOS 26.3\n\n---\n\n# Analysis\n\n## Description\n\nThe OpenClaw gateway's `canvas` tool accepts an `a2ui_push` action with a `jsonlPath` parameter that specifies a filesystem path to read. The gateway reads this file using `fs.readFile()` with no path validation, canonicalization, or directory restriction. An authenticated attacker can supply an arbitrary absolute or relative path to read any file accessible to the gateway process.\n\nThe file contents are forwarded to the connected node client via the `canvas.a2ui.pushJSONL` WebSocket command. The gateway itself returns `{ ok: true }` to the HTTP caller, confirming the file was read and t",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T22:32:23Z",
+      "updated": "2026-03-02T22:32:24Z",
+      "url": "https://github.com/advisories/GHSA-jq4x-98m3-ggq6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-jq4x-98m3-ggq6",
+        "https://github.com/openclaw/openclaw/commit/39816e61b0c4347a83c9b76bc8883190cfe5a3c9",
+        "https://github.com/advisories/GHSA-jq4x-98m3-ggq6"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-5v6x-rfc3-7qfr",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw has Windows system.run approval mismatch on cmd.exe /c trailing arguments",
+      "description": "### Summary\nA Windows `system.run` approval-integrity mismatch in the `cmd.exe /c` path could allow trailing arguments to execute while approval/audit text reflected only a benign command string.\n\nThis requires an authenticated operator context using the approvals flow and a trusted Windows node.\n\n### Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Latest published vulnerable version (as of 2026-02-21): `2026.2.19-2`\n- Vulnerable range: `<=2026.2.19-2`\n- Patched version (planned next release): `2026.2.21`\n\n### Attack Scenario\n1. An authenticated operator approval is created for a benign command text (for example, `echo`).\n2. A `system.run` request uses `cmd.exe /c` with extra trailing arguments.\n3. Prior behavior could bind approval/audit text to the benign command while still executing the full argument tail on the node.\n\n### Impact\n- Local command execution on the trusted Windows node process account.\n- Approval/audit command text integrity mismatch.\n\n### Fix\n- Canonicaliz",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-88",
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T22:15:53Z",
+      "updated": "2026-03-02T22:15:54Z",
+      "url": "https://github.com/advisories/GHSA-5v6x-rfc3-7qfr",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-5v6x-rfc3-7qfr",
+        "https://github.com/openclaw/openclaw/commit/6007941f04df1edcca679dd6c95949744fdbd4df",
+        "https://github.com/advisories/GHSA-5v6x-rfc3-7qfr"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-8986-v76q-8vr2",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "@keep-network/tbtc-v2 revealing P2PKH deposit with a wrapped P2SH script",
+      "description": "# Overview\n\nP2PKH has 20 bytes just like P2SH. We protect against revealing P2PKH deposits by manually assembling the expected P2SH script in the smart contract and comparing hashes. However, we missed the case when the attacker embeds a valid P2SH inside of P2PKH as an output script. bitcoin-spv library [extracts the P2SH from P2PKH](https://github.com/keep-network/bitcoin-spv/blob/856849612ef49114af18c0f407eaa74afc2ee4be/solidity/contracts/BTCUtils.sol#L610-L612) and we treat it as a valid P2SH output.\n\nThis does not lead to stealing funds but can lead to protocol insolvency.\n\nThe off-chain client handles this case correctly, but the problem is in the optimistic minting bot. The bot assumes that if the funding TX exists on Bitcoin with the right amount and it was successfully revealed, the transaction is valid.\n\nhttps://bugs.immunefi.com/magnus/672/projects/502/bug-bounty/reports/55982\n\n# Steps\n\nSince there is a 24-hour governance delay on upgrading the Bridge smart contract, we are ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-328"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@keep-network/tbtc-v2"
+      ],
+      "published": "2026-03-02T22:09:19Z",
+      "updated": "2026-03-02T22:09:20Z",
+      "url": "https://github.com/advisories/GHSA-8986-v76q-8vr2",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/threshold-network/tbtc-v2/security/advisories/GHSA-8986-v76q-8vr2",
+        "https://bugs.immunefi.com/magnus/672/projects/502/bug-bounty/reports/55982",
+        "https://github.com/keep-network/bitcoin-spv/blob/856849612ef49114af18c0f407eaa74afc2ee4be/solidity/contracts/BTCUtils.sol#L610-L612",
+        "https://github.com/advisories/GHSA-8986-v76q-8vr2"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-q399-23r3-hfx4",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: system.run approvals did not bind PATH-token executable identity, enabling post-approval executable rebind",
+      "description": "### Summary\nFor `host=node` runs, approvals validated command context but did not pin executable identity for non-path-like `argv[0]` tokens (for example `tr`). If PATH resolution changed after approval, execution could run a different binary.\n\n### Impact\nA previously approved action could execute a different executable than the operator approved.\n\n### Fix\nNode `system.run` approvals now require immutable `systemRunPlan` data, and path-token commands are pinned to canonical executable identity (`realpath`) across approval and execution.\n\n### Affected and Patched Versions\n- Affected: `<= 2026.2.26`\n- Patched: `2026.3.1`",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-367",
+        "CWE-426"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T22:03:29Z",
+      "updated": "2026-03-02T22:03:30Z",
+      "url": "https://github.com/advisories/GHSA-q399-23r3-hfx4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-q399-23r3-hfx4",
+        "https://github.com/advisories/GHSA-q399-23r3-hfx4"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-g99v-8hwm-g76g",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw has web_search citation redirect SSRF via private-network-allowing policy",
+      "description": "### Summary\nGemini `web_search` citation redirect resolution used a private-network-allowing SSRF policy. A citation URL redirect could target loopback/private/internal destinations and be fetched by the gateway.\n\n### Impact\nAn attacker who can influence citation redirect targets could trigger internal-network requests from the OpenClaw host.\n\n### Fix\nCitation redirect resolution now uses strict/default SSRF policy (no private-network override), blocking localhost/private/internal redirect targets.\n\n### Affected and Patched Versions\n- Affected: `<= 2026.2.26`\n- Patched: `2026.3.1`",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T22:03:09Z",
+      "updated": "2026-03-02T22:03:10Z",
+      "url": "https://github.com/advisories/GHSA-g99v-8hwm-g76g",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-g99v-8hwm-g76g",
+        "https://github.com/advisories/GHSA-g99v-8hwm-g76g"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-jr6x-2q95-fh2g",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw's authorization mismatch allowed write-scope agent runs to reach owner-only tools",
+      "description": "### Summary\nAn authorization mismatch allowed authenticated callers with `operator.write` access to invoke owner-only tool surfaces (`gateway`, `cron`) through `agent` runs in scoped-token deployments.\n\n### Impact\nOn affected deployments, write-scoped callers could perform control-plane actions beyond intended write scope.\n\n### Fix\nOwner-only gating is now enforced consistently for owner-only tool surfaces during agent execution, and tool scope classification was tightened to remove the privilege mismatch.\n\n### Affected and Patched Versions\n- Affected: `<= 2026.2.26`\n- Patched: `2026.3.1`",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-269",
+        "CWE-862"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T21:59:51Z",
+      "updated": "2026-03-02T21:59:52Z",
+      "url": "https://github.com/advisories/GHSA-jr6x-2q95-fh2g",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-jr6x-2q95-fh2g",
+        "https://github.com/advisories/GHSA-jr6x-2q95-fh2g"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-7xmq-g46g-f8pv",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Sandbox media TOCTOU could read files outside sandbox root",
+      "description": "### Summary\nSandbox media handling had a time-of-check/time-of-use gap: media paths could be validated first and read later through a separate path. A symlink retarget between those steps could cause reads outside `sandboxRoot`.\n\n### Impact\nAffected versions could permit host file reads outside the intended sandbox root in media attachment/image flows.\n\n### Fix\nMedia reads now use consolidated root-scoped, boundary-safe read paths at use time, removing check/use drift across call sites.\n\n### Affected and Patched Versions\n- Affected: `<= 2026.2.26`\n- Patched: `2026.3.1`",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-59",
+        "CWE-367"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-02T21:55:47Z",
+      "updated": "2026-03-02T21:55:51Z",
+      "url": "https://github.com/advisories/GHSA-7xmq-g46g-f8pv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-7xmq-g46g-f8pv",
+        "https://github.com/advisories/GHSA-7xmq-g46g-f8pv"
+      ]
+    }
+  ],
   "urlhaus_iocs": [],
   "kev_stats": {
     "total_kev_entries": 1529,
@@ -324,7 +746,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-02T20:41:06.851545+00:00",
+    "catalog_version": "2026-03-03T02:30:02.449070+00:00",
     "source": "CISA KEV"
   }
 }
