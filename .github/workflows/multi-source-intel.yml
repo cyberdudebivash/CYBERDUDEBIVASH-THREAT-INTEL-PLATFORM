@@ -34,6 +34,7 @@ jobs:
         run: |
           mkdir -p data/enrichment
           mkdir -p data/stix
+          mkdir -p data/ai_predictions  # [v30-APEX] Added directory for new cortex
 
       - name: Collect Fresh Intelligence (CISA KEV + Exploit-DB + GitHub Advisory)
         continue-on-error: true
@@ -107,14 +108,37 @@ jobs:
               print(f"AI enrichment skipped (non-critical): {e}")
           PYEOF
 
+      # ═══════════════════════════════════════════════════════════
+      # [v30-APEX] CYBERGOD ADDITIONS START HERE (100% Non-Breaking)
+      # ═══════════════════════════════════════════════════════════
+      
+      - name: Execute v30 Apex Dark Swarm Infiltrator
+        continue-on-error: true
+        run: |
+          echo "Deploying Autonomous Neural Swarm to Deep Web vectors..."
+          # Creates STIX bundles silently via your existing exporter
+          python -m agent.v30_apex.dark_swarm_infiltrator || echo "Swarm execution passed with soft fallback."
+          
+      - name: Execute v30 Apex Predictive Cortex Forecaster
+        continue-on-error: true
+        run: |
+          echo "Analyzing macro-trends via Predictive Cortex..."
+          # Reads manifest and writes to data/ai_predictions/apex_forecast_latest.json
+          python -m agent.v30_apex.predictive_cortex || echo "Cortex execution passed with soft fallback."
+
+      # ═══════════════════════════════════════════════════════════
+      # [v30-APEX] ADDITIONS END HERE
+      # ═══════════════════════════════════════════════════════════
+
       - name: Commit enrichment data
         run: |
           git config user.email "bivash@cyberdudebivash.com"
           git config user.name "CDB-Enrichment-Bot"
-          git add data/enrichment/ 2>/dev/null || true
+          # [v30-APEX] Modified to also track stix outputs and ai_predictions
+          git add data/enrichment/ data/stix/ data/ai_predictions/ 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No enrichment changes."
           else
-            git commit -m "🔬 Multi-source enrichment: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+            git commit -m "🔬 Multi-source & Apex AI enrichment: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
             git pull origin main --rebase && git push origin main || echo "Push collision, will retry next cycle"
           fi
