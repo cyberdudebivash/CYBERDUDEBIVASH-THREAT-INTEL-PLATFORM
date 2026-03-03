@@ -20,31 +20,56 @@ MAX_STATE_SIZE = 500
 MAX_PER_FEED = 5
 
 # ═══════════════════════════════════════════════════════════
-# INTELLIGENCE SOURCES (Multi-Feed Fusion)
+# INTELLIGENCE SOURCES (Multi-Feed Fusion APEX MATRIX)
 # ═══════════════════════════════════════════════════════════
 CDB_RSS_FEED = "https://cyberdudebivash-news.blogspot.com/feeds/posts/default?alt=rss"
 
 RSS_FEEDS = [
-    # Tier 1: Premium Breaking News
+    # ── TIER 1: Premium Breaking News & Global Incidents ──
     "https://www.bleepingcomputer.com/feed/",
     "https://feeds.feedburner.com/TheHackersNews",
     "https://krebsonsecurity.com/feed/",
-    # Tier 2: Industry Authority Sources
-    "https://www.securityweek.com/feed/",
     "https://www.darkreading.com/rss.xml",
-    "https://www.cisa.gov/cybersecurity-advisories/all.xml",
-    # Tier 3: Investigative / Research Sources
-    "https://cyberscoop.com/feed/",
+    "https://www.securityweek.com/feed/",
     "https://therecord.media/feed/",
+    "https://cyberscoop.com/feed/",
     "https://securityaffairs.com/feed",
-    # Tier 4: CVE / Vulnerability Intelligence
+    "https://www.infosecurity-magazine.com/rss/news/",
+    
+    # ── TIER 2: Government & Institutional Cyber Commands ──
+    "https://www.cisa.gov/cybersecurity-advisories/all.xml",
+    "https://www.ncsc.gov.uk/api/1/services/v1/report-rss.xml", # UK NCSC
+    "https://cyber.gc.ca/api/v1/cyber-centre/rss-feed?lang=en", # Canadian Centre for Cyber Security
+    "https://cert.europa.eu/publications/rss", # CERT-EU
+    
+    # ── TIER 3: Zero-Day & Vulnerability Intelligence ──
     "https://cvefeed.io/rssfeed/latest.xml",
-    "https://www.rapid7.com/blog/rss/",
-    "https://blog.qualys.com/feed",
-    # Tier 5: Vendor Threat Research
+    "https://vulners.com/rss.xml",
+    "https://www.zerodayinitiative.com/rss/published/",
+    "https://www.tenable.com/cve/rss",
+    "https://packetstormsecurity.com/feeds/exploits/", # Underground Exploit Database
+    
+    # ── TIER 4: Vendor Threat Research (APT Tracking) ──
     "https://www.sentinelone.com/blog/feed/",
     "https://unit42.paloaltonetworks.com/feed/",
-    "https://securelist.com/feed/",
+    "https://securelist.com/feed/", # Kaspersky Lab
+    "https://www.crowdstrike.com/blog/feed/",
+    "https://www.mandiant.com/resources/blog/rss.xml",
+    "https://blogs.microsoft.com/on-the-issues/category/cybersecurity/feed/",
+    "https://blog.talosintelligence.com/rss.xml", # Cisco Talos
+    "https://research.checkpoint.com/feed/",
+    
+    # ── TIER 5: Deep Web Observers & Malware Analysis ──
+    "https://vx-underground.org/rss.xml", # Premium Malware Repository
+    "https://bazaar.abuse.ch/rss/", # MalwareBazaar Active Hashes
+    "https://urlhaus.abuse.ch/downloads/rss/", # Malicious URLs
+    "https://feodotracker.abuse.ch/downloads/rss/", # Botnet C2 tracking
+    "https://ransomwatch.telemetry.ltd/feed.xml", # Ransomware Extortion Tracker
+    
+    # ── TIER 6: Offensive Security & Cloud Threats ──
+    "https://portswigger.net/daily-swig/rss", # Web App Sec
+    "https://cloud.google.com/blog/products/identity-security/rss", # GCP Sec
+    "https://aws.amazon.com/blogs/security/feed/", # AWS Sec
 ]
 
 MAX_ENTRIES_PER_FEED = 5
@@ -85,7 +110,7 @@ BRAND = {
     "phone": "+91 8179881447",
     "tagline": "Global Cybersecurity Intelligence Infrastructure",
     "node_id": "CDB-GOC-01",
-    "version": "v30.0", # <--- CYBERGOD FIX: Unified to v30.0
+    "version": "v30.0",
 }
 
 BLOGS = {
