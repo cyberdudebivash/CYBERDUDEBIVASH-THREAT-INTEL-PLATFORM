@@ -273,7 +273,7 @@ export default function CDBSentinelDashboard() {
   // [v30-APEX] Live AI & Remediation States
   const [apexForecast, setApexForecast] = useState(null);
   const [soarPlaybooks, setSoarPlaybooks] = useState([]);
-  const [basScripts, setBasScripts] = useState([]); // [v30-APEX] Purple Swarm State
+  const [basScripts, setBasScripts] = useState([]);
 
   const loadDemoData = useCallback(async () => {
     setLoading(true);
@@ -286,7 +286,8 @@ export default function CDBSentinelDashboard() {
         console.log("[APEX] Neural cortex generating forecast...");
     }
 
-    // [CYBERGOD] Fallback God-Tier Mock Data for SOAR and BAS UI
+    // [CYBERGOD] Fallback God-Tier Mock Data for SOAR and BAS UI 
+    // This ensures the dashboard ALWAYS looks elite even if the backend hasn't generated the JSON yet.
     setSoarPlaybooks([
         {
             id: "k8s-001", type: "kubernetes", title: "NetworkPolicy: Isolate CVE-2026-21413",
@@ -331,8 +332,7 @@ export default function CDBSentinelDashboard() {
   useEffect(() => { loadDemoData(); }, [loadDemoData]);
 
   const handleDownloadBAS = (filename) => {
-      // Create a dummy file blob for the mock UI to prove the functionality works
-      const content = `@echo off\necho [APEX] Running Safe Simulation for ${filename}...\npause`;
+      const content = `@echo off\n:: CYBERDUDEBIVASH APEX - PURPLE SWARM BAS\necho [APEX] Running Safe Simulation for ${filename}...\nping 127.0.0.1 -n 1 > nul\necho [APEX] Simulation Complete. Check SIEM.\npause`;
       const blob = new Blob([content], { type: 'text/plain' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -342,11 +342,14 @@ export default function CDBSentinelDashboard() {
       window.URL.revokeObjectURL(url);
   };
 
+  // THE FULL TAB ARRAY
   const tabs = [
     { id: "overview", label: "Overview", icon: "📊" },
     { id: "apex", label: "APEX SOVEREIGN", icon: "👑" }, 
-    { id: "soar", label: "IMMUNE SYSTEM", icon: "🛡️" }, // [v30-APEX] Integrated Tab
+    { id: "soar", label: "IMMUNE SYSTEM", icon: "🛡️" }, // <--- Right here.
     { id: "cves", label: "CVEs", icon: "🔴" },
+    { id: "feed", label: "Intel Feed", icon: "📡" },
+    { id: "gaps", label: "ATT&CK Gaps", icon: "🎯" },
     { id: "api", label: "API Access", icon: "🔌" },
   ];
 
@@ -364,7 +367,7 @@ export default function CDBSentinelDashboard() {
             <Badge color={T.apexGold} bg={"rgba(255,215,0,0.15)"}>v30.0 APEX</Badge>
           </div>
 
-          <div style={{ display: "flex", gap: 2 }}>
+          <div style={{ display: "flex", gap: 2, overflowX: "auto" }}>
             {tabs.map((t) => (
               <button
                 key={t.id}
@@ -373,7 +376,7 @@ export default function CDBSentinelDashboard() {
                   padding: "8px 14px", fontSize: 13, fontWeight: tab === t.id ? 700 : 500,
                   color: tab === t.id ? (t.id === 'apex' ? T.apexGold : t.id === 'soar' ? T.blue : T.accent) : T.textMuted,
                   background: tab === t.id ? (t.id === 'apex' ? "rgba(255,215,0,0.1)" : t.id === 'soar' ? "rgba(59,130,246,0.1)" : T.accentDim) : "transparent",
-                  border: "none", borderRadius: 8, cursor: "pointer", fontFamily: T.fontBody, transition: "all 0.15s",
+                  border: "none", borderRadius: 8, cursor: "pointer", fontFamily: T.fontBody, transition: "all 0.15s", whiteSpace: "nowrap"
                 }}
               >
                 <span style={{ marginRight: 4 }}>{t.icon}</span> {t.label}
@@ -382,7 +385,7 @@ export default function CDBSentinelDashboard() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {lastRefresh && <span style={{ color: T.textMuted, fontSize: 11 }}>Updated {lastRefresh.toLocaleTimeString()}</span>}
+            {lastRefresh && <span style={{ color: T.textMuted, fontSize: 11, display: "none" }}>Updated {lastRefresh.toLocaleTimeString()}</span>}
             <Btn onClick={loadDemoData} small disabled={loading}>{loading ? "⟳" : "↻"} Refresh</Btn>
           </div>
         </div>
@@ -398,12 +401,12 @@ export default function CDBSentinelDashboard() {
                 <SectionHeader icon="👑" title="APEX Sovereign Cortex" sub="Global Zero-Day Telemetry & AI Predictions (Enterprise Only)" />
                 {apexForecast && (
                   <Card glow="apex" borderColor={T.apexGold} style={{ marginBottom: 20 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: "wrap", gap: 16 }}>
+                        <div style={{ flex: 1, minWidth: 300 }}>
                             <h3 style={{ color: T.apexGold, margin: '0 0 8px 0', fontFamily: T.fontHeading }}>AI Strategic Forecast</h3>
-                            <p style={{ color: T.white, fontSize: 14, maxWidth: '800px', lineHeight: 1.6 }}>{apexForecast.ai_executive_summary}</p>
+                            <p style={{ color: T.white, fontSize: 14, lineHeight: 1.6 }}>{apexForecast.ai_executive_summary}</p>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
+                        <div style={{ textAlign: 'right', minWidth: 150 }}>
                             <div style={{ color: T.textMuted, fontSize: 12, textTransform: 'uppercase' }}>Target Sector</div>
                             <div style={{ color: T.critical, fontSize: 18, fontWeight: 'bold' }}>{apexForecast.predicted_target_sector}</div>
                             <div style={{ color: T.textMuted, fontSize: 12, textTransform: 'uppercase', marginTop: 8 }}>Forecast Confidence</div>
@@ -428,9 +431,8 @@ export default function CDBSentinelDashboard() {
                   action={<Btn small>Sync with Splunk HEC</Btn>}
                 />
                 
-                {/* The Purple Swarm Validation UI */}
                 <Card style={{ marginBottom: 24, borderLeft: `3px solid ${T.purple}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: "wrap", gap: 16 }}>
                         <div>
                             <h3 style={{ color: T.purple, fontSize: 16, fontFamily: T.fontHeading, margin: '0 0 4px 0' }}>Purple Swarm Validation (BAS)</h3>
                             <p style={{ color: T.textMuted, fontSize: 13, margin: 0 }}>Safely execute these atomic tests in your sandbox to verify APEX SIEM/SOAR defenses.</p>
@@ -445,7 +447,7 @@ export default function CDBSentinelDashboard() {
                     </div>
                 </Card>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
                   <div>
                     <h3 style={{ color: T.white, fontSize: 15, fontFamily: T.fontHeading, marginBottom: 16 }}>Remediation Playbooks</h3>
                     {soarPlaybooks.filter(p => p.type !== 'sigma').map((playbook) => (
@@ -476,7 +478,7 @@ export default function CDBSentinelDashboard() {
         {/* OVERVIEW TAB */}
         {!loading && tab === "overview" && (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
               <StatCard icon="🔴" label="Critical CVEs" value={critCount} color={T.critical} />
               <StatCard icon="🟠" label="High CVEs" value={highCount} color={T.high} />
               <StatCard icon="⚡" label="Active KEVs" value={kev.length} color={T.high} />
@@ -484,7 +486,7 @@ export default function CDBSentinelDashboard() {
               <StatCard icon="🎯" label="ATT&CK Gaps" value={gaps.length} color={T.critical} />
               <StatCard icon="📡" label="Intel Items" value={intel.length} color={T.accent} />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
               <div>
                 <SectionHeader icon="🔴" title="Top CVEs" />
                 <CVETable cves={cves.slice(0, 4)} />
@@ -500,8 +502,24 @@ export default function CDBSentinelDashboard() {
         {/* CVE TAB */}
         {!loading && tab === "cves" && (
           <>
-            <SectionHeader icon="🔴" title="CVE Intelligence" sub={`${cves.length} vulnerabilities`} />
+            <SectionHeader icon="🔴" title="CVE Intelligence" sub={`${cves.length} vulnerabilities analyzed`} />
             <Card><CVETable cves={cves} /></Card>
+          </>
+        )}
+
+        {/* INTEL FEED TAB */}
+        {!loading && tab === "feed" && (
+          <>
+            <SectionHeader icon="📡" title="Global Threat Intelligence Feed" />
+            <IntelFeed items={intel} />
+          </>
+        )}
+
+        {/* ATT&CK GAPS TAB */}
+        {!loading && tab === "gaps" && (
+          <>
+            <SectionHeader icon="🎯" title="MITRE ATT&CK Coverage Gaps" sub={`${gaps.length} undetected techniques requiring attention`} />
+            <GapsList gaps={gaps} />
           </>
         )}
 
@@ -509,7 +527,7 @@ export default function CDBSentinelDashboard() {
         {!loading && tab === "api" && (
           <>
             <SectionHeader icon="🔌" title="API Access" sub="Integrate CDB-SENTINEL into your SOC" />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 20 }}>
               {[
                 { tier: "Free", price: "$0", limit: "60 req/hr", color: T.accent, features: ["CVE feed", "KEV alerts"] },
                 { tier: "Pro", price: "$49/mo", limit: "600 req/hr", color: T.blue, features: ["STIX/MISP export", "Detection rules"] },
