@@ -3,7 +3,7 @@
 // Threat   : Exploit for CVE-2023-3452
 // STIX ID  : bundle--1a58aa49-6ecd-4406-828a-4e90af96a8d4
 // Scenario : VULNERABILITY
-// Generated: 2026-03-03T11:20:16.787229 UTC
+// Generated: 2026-03-03T11:33:13.574031 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
