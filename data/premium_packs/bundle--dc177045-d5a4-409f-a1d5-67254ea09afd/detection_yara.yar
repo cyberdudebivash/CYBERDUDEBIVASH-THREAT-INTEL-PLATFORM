@@ -3,7 +3,7 @@
 // Threat   : CVE-2025-47147 - Command Centre Mobile Client Cleartext Storage of Sensitive Inf
 // STIX ID  : bundle--dc177045-d5a4-409f-a1d5-67254ea09afd
 // Scenario : VULNERABILITY
-// Generated: 2026-03-03T05:03:26.750013 UTC
+// Generated: 2026-03-03T05:14:08.322256 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
