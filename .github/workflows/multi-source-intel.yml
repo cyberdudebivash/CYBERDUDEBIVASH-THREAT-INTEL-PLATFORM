@@ -35,6 +35,7 @@ jobs:
           mkdir -p data/enrichment
           mkdir -p data/stix
           mkdir -p data/ai_predictions  # [v30-APEX] Added directory for new cortex
+          mkdir -p data/remediation     # [v30-APEX] Added directory for APEX SOAR
 
       - name: Collect Fresh Intelligence (CISA KEV + Exploit-DB + GitHub Advisory)
         continue-on-error: true
@@ -127,6 +128,16 @@ jobs:
           python -m agent.v30_apex.predictive_cortex || echo "Cortex execution passed with soft fallback."
 
       # ═══════════════════════════════════════════════════════════
+      # [v30-APEX] SOAR IMMUNE SYSTEM INJECTION
+      # ═══════════════════════════════════════════════════════════
+      - name: Execute APEX Immune Response (Auto-Healing Generation)
+        continue-on-error: true
+        run: |
+          echo "Igniting Autonomous Cyber-Immune System..."
+          # Generates Ansible and K8s playbooks based on legacy STIX feeds
+          python -m agent.v30_apex.apex_immune_response || echo "Immune Response execution passed with soft fallback."
+
+      # ═══════════════════════════════════════════════════════════
       # [v30-APEX] ADDITIONS END HERE
       # ═══════════════════════════════════════════════════════════
 
@@ -134,11 +145,11 @@ jobs:
         run: |
           git config user.email "bivash@cyberdudebivash.com"
           git config user.name "CDB-Enrichment-Bot"
-          # [v30-APEX] Modified to also track stix outputs and ai_predictions
-          git add data/enrichment/ data/stix/ data/ai_predictions/ 2>/dev/null || true
+          # [v30-APEX] Modified to track stix outputs, ai_predictions, and remediation logic
+          git add data/enrichment/ data/stix/ data/ai_predictions/ data/remediation/ 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No enrichment changes."
           else
-            git commit -m "🔬 Multi-source & Apex AI enrichment: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+            git commit -m "👑 APEX Multi-source & Auto-Healing enrichment: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
             git pull origin main --rebase && git push origin main || echo "Push collision, will retry next cycle"
           fi
