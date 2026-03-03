@@ -146,11 +146,10 @@
             font-family: var(--font-mono); font-size: 9px; font-weight: 700;
             color: var(--text-muted); background: var(--bg-surface);
             padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border);
-            text-transform: uppercase; letter-spacing: 0.5px; transition: 0.3s;
-            cursor: pointer;
+            text-transform: uppercase; letter-spacing: 0.5px; transition: 0.3s; cursor: pointer;
         }
-        .nav-chip:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 20px rgba(0,212,170,0.1); }
-        .nav-chip.active { border-color: var(--accent); color: var(--accent); background: rgba(0,212,170,0.06); }
+        .nav-chip:hover, .nav-chip.active { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 20px rgba(0,212,170,0.1); }
+        .nav-chip.active { background: rgba(0,212,170,0.06); }
 
         /* ═══ STATUS STRIP ═══ */
         .status-strip {
@@ -187,7 +186,7 @@
         .metric-card.high::before { background: var(--high); }
         .metric-val {
             font-size: 28px; font-weight: 900; letter-spacing: -1px;
-            line-height: 1;
+            line-height: 1; transition: color 0.3s;
         }
         .metric-label {
             font-family: var(--font-mono); font-size: 9px;
@@ -268,79 +267,12 @@
             accent-color: var(--accent); cursor: pointer;
         }
 
-        /* ═══ KEV badge ═══ */
-        .badge-kev {
-            background: rgba(220,38,38,0.15); color: #ff6b6b;
-            border: 1px solid rgba(220,38,38,0.3); font-weight: 900;
-            animation: kev-pulse 2s infinite;
-        }
-        @keyframes kev-pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-
-        /* ═══ NEW badge ═══ */
-        .badge-new {
-            background: rgba(0,212,170,0.2); color: var(--accent);
-            border: 1px solid rgba(0,212,170,0.4); font-weight: 900;
-            animation: new-glow 1.5s ease-in-out infinite alternate;
-        }
-        @keyframes new-glow {
-            from { box-shadow: 0 0 4px rgba(0,212,170,0.3); }
-            to   { box-shadow: 0 0 12px rgba(0,212,170,0.6); }
-        }
-
-        /* ═══ MITRE tag strip ═══ */
-        .mitre-strip {
-            display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px;
-        }
-        .mitre-chip {
-            font-family: var(--font-mono); font-size: 8px;
-            background: rgba(139,92,246,0.1); color: var(--purple);
-            border: 1px solid rgba(139,92,246,0.2); padding: 2px 7px;
-            border-radius: 3px; letter-spacing: 0.5px;
-        }
-
-        /* ═══ TREND CHART ═══ */
-        .trend-section {
-            margin-bottom: 28px;
-            background: var(--bg-card); border: 1px solid var(--border);
-            padding: 20px 24px;
-        }
-        .trend-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 16px;
-        }
-        .trend-title {
-            font-family: var(--font-mono); font-size: 9px;
-            color: var(--text-muted); letter-spacing: 3px; text-transform: uppercase;
-        }
-        .trend-bars {
-            display: flex; align-items: flex-end; gap: 3px;
-            height: 48px; overflow: hidden;
-        }
-        .trend-bar {
-            flex: 1; min-width: 4px; border-radius: 2px 2px 0 0;
-            transition: 0.3s; cursor: pointer; position: relative;
-        }
-        .trend-bar:hover { opacity: 0.8; }
-
-        /* ═══ ENRICHMENT STRIP ═══ */
-        .enrich-strip {
-            display: flex; gap: 8px; flex-wrap: wrap;
-            margin-top: 10px; padding-top: 10px;
-            border-top: 1px solid var(--border);
-        }
-        .enrich-item {
-            font-family: var(--font-mono); font-size: 9px;
-            color: var(--text-muted); display: flex; align-items: center; gap: 4px;
-        }
-        .enrich-item .e-val { color: var(--white); font-weight: 700; }
-
-        /* ═══ THREAT GRID ═══ */
+        /* ═══ THREAT GRID & CARDS ═══ */
         #threat-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
             gap: 20px;
         }
-
         .intel-card {
             background: var(--bg-card); border: 1px solid var(--border);
             padding: 28px 30px; border-left: 4px solid var(--accent);
@@ -350,12 +282,21 @@
         .intel-card:hover {
             transform: translateY(-4px);
             border-color: rgba(255,255,255,0.1);
-            box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,212,170,0.08), inset 0 0 60px rgba(0,212,170,0.015);
+            border-left-color: rgba(255,255,255,0.25) !important;
         }
         .intel-card.sev-critical { border-left-color: var(--critical); }
         .intel-card.sev-high { border-left-color: var(--high); }
         .intel-card.sev-medium { border-left-color: var(--medium); }
         .intel-card.sev-low { border-left-color: var(--low); }
+        .intel-card.sev-critical:hover { box-shadow: 0 20px 50px rgba(0,0,0,0.7), 0 0 0 1px rgba(220,38,38,0.15); }
+        .intel-card.sev-high:hover { box-shadow: 0 20px 50px rgba(0,0,0,0.7), 0 0 0 1px rgba(234,88,12,0.15); }
+        .intel-card::after {
+            content: ''; position: absolute; inset: 0; opacity: 0;
+            background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0,212,170,0.04), transparent);
+            transition: opacity 0.4s; pointer-events: none;
+        }
+        .intel-card:hover::after { opacity: 1; }
 
         .card-meta {
             display: flex; align-items: center; gap: 8px;
@@ -372,8 +313,20 @@
         .badge-low { background: rgba(22,163,74,0.12); color: var(--low); }
         .badge-info { background: rgba(59,130,246,0.12); color: var(--info); }
         .badge-accent { background: var(--accent-glow); color: var(--accent); }
-        .badge-purple { background: rgba(139,92,246,0.12); color: var(--purple); }
         .badge-tlp { font-weight: 800; letter-spacing: 1px; }
+
+        .badge-kev { background: rgba(220,38,38,0.15); color: #ff6b6b; border: 1px solid rgba(220,38,38,0.3); font-weight: 900; animation: kev-pulse 2s infinite; }
+        .badge-new { background: rgba(0,212,170,0.2); color: var(--accent); border: 1px solid rgba(0,212,170,0.4); font-weight: 900; animation: new-glow 1.5s ease-in-out infinite alternate; }
+        .badge-exploit { background:rgba(220,38,38,0.18);color:#ff6b6b;border:1px solid rgba(220,38,38,0.4); animation: exploit-pulse 1.8s infinite; }
+        .badge-patch { background:rgba(22,163,74,0.12);color:#4ade80;border:1px solid rgba(22,163,74,0.3); }
+        .badge-ransomware { background:rgba(139,92,246,0.18);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4); animation: ransom-glow 2s ease-in-out infinite alternate; }
+        .badge-zerod { background:rgba(236,72,153,0.15);color:#f9a8d4;border:1px solid rgba(236,72,153,0.4); animation: zerod-pulse 1.5s infinite; }
+
+        @keyframes kev-pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+        @keyframes new-glow { from { box-shadow: 0 0 4px rgba(0,212,170,0.3); } to { box-shadow: 0 0 12px rgba(0,212,170,0.6); } }
+        @keyframes exploit-pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
+        @keyframes ransom-glow { from{box-shadow:0 0 4px rgba(139,92,246,0.2)} to{box-shadow:0 0 14px rgba(139,92,246,0.5)} }
+        @keyframes zerod-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(236,72,153,0.3)} 50%{box-shadow:0 0 0 4px rgba(236,72,153,0)} }
 
         .card-stix {
             font-family: var(--font-mono); font-size: 9px;
@@ -413,6 +366,63 @@
             border: 1px solid var(--border); padding: 2px 8px;
             border-radius: 3px;
         }
+        
+        .mitre-strip { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+        .mitre-chip {
+            font-family: var(--font-mono); font-size: 8px;
+            background: rgba(139,92,246,0.1); color: var(--purple);
+            border: 1px solid rgba(139,92,246,0.2); padding: 2px 7px;
+            border-radius: 3px; letter-spacing: 0.5px;
+        }
+
+        .enrich-strip {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            margin-top: 10px; padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+        .enrich-item {
+            font-family: var(--font-mono); font-size: 9px;
+            color: var(--text-muted); display: flex; align-items: center; gap: 4px;
+        }
+        .enrich-item .e-val { color: var(--white); font-weight: 700; }
+
+        .epss-bar-wrap { margin-top: 6px; display: flex; align-items: center; gap: 8px; }
+        .epss-bar-label { font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); min-width: 55px; }
+        .epss-bar-track { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+        .epss-bar-fill { height: 100%; border-radius: 2px; }
+
+        .card-copy-strip { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+        .copy-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-family: var(--font-mono); font-size: 10px; color: var(--accent);
+            cursor: pointer; border: 1px solid rgba(0,212,170,0.2); padding: 3px 8px;
+            border-radius: 2px; transition: all 0.15s; background: rgba(0,212,170,0.05);
+            user-select: none;
+        }
+        .copy-chip:hover { background: rgba(0,212,170,0.12); border-color: var(--accent); }
+        .copy-chip.copied { color: #22c55e; border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.06); }
+
+        /* ═══ TAB SYSTEM v30.0 (NEW) ═══ */
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ═══ SOAR & SIEM CODE BLOCKS v30.0 (NEW) ═══ */
+        .code-block-wrapper {
+            background: #010409; border: 1px solid var(--border); border-radius: 12px;
+            overflow: hidden; margin-bottom: 16px;
+        }
+        .code-block-header {
+            background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);
+            padding: 8px 16px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .code-block-title { color: var(--text); font-size: 12px; font-family: var(--font-mono); font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        .code-block-lang { color: var(--text-muted); font-size: 10px; font-family: var(--font-mono); }
+        .code-block-pre { color: var(--white); font-family: var(--font-mono); font-size: 12px; padding: 16px; margin: 0; white-space: pre-wrap; line-height: 1.5; }
+        
+        .code-block-ansible .code-block-pre { color: var(--accent); }
+        .code-block-sigma .code-block-pre { color: var(--apexGold, #ffd700); }
+        .code-block-k8s .code-block-pre { color: var(--blue); }
 
         /* ═══ EXPORT BAR ═══ */
         .export-bar {
@@ -434,6 +444,8 @@
             color: var(--text-muted); letter-spacing: 2px;
             text-transform: uppercase; align-self: center;
         }
+        .export-btn-misp { color: #a78bfa !important; border-color: #a78bfa !important; }
+        .export-btn-misp:hover { background: #a78bfa !important; color: var(--bg) !important; }
 
         /* ═══ INTEGRITY INDICATOR ═══ */
         .integrity-badge {
@@ -495,50 +507,7 @@
             opacity: 1;
         }
 
-        /* ═══ RESPONSIVE ═══ */
-        @media (max-width: 768px) {
-            .apex-header { flex-direction: column; text-align: center; }
-            .header-right { align-items: center; }
-            .nav-hub { justify-content: center; }
-            .status-strip { justify-content: center; text-align: center; }
-            #threat-grid { grid-template-columns: 1fr; }
-            .metrics-strip { grid-template-columns: repeat(2, 1fr); }
-            .filter-bar { justify-content: center; }
-        }
-
-        /* ── Threat Ticker ── */
-        .threat-ticker-wrap {
-            background: rgba(0,212,170,0.04); border-top: 1px solid rgba(0,212,170,0.1);
-            border-bottom: 1px solid rgba(0,212,170,0.1);
-            overflow: hidden; padding: 7px 0; position: relative;
-        }
-        .threat-ticker-label {
-            position: absolute; left: 0; top: 0; bottom: 0; z-index: 2;
-            background: linear-gradient(90deg, var(--bg) 60%, transparent);
-            padding: 0 36px 0 16px; display: flex; align-items: center;
-            font-family: var(--font-mono); font-size: 8px; letter-spacing: 3px;
-            color: var(--accent); text-transform: uppercase; white-space: nowrap;
-        }
-        .threat-ticker-inner {
-            display: flex; align-items: center; gap: 0;
-            white-space: nowrap; animation: ticker-scroll 80s linear infinite;
-            padding-left: 180px;
-        }
-        .threat-ticker-wrap:hover .threat-ticker-inner { animation-play-state: paused; }
-        @keyframes ticker-scroll {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-        }
-        .ticker-item {
-            display: inline-flex; align-items: center; gap: 8px;
-            padding: 0 28px; font-family: var(--font-mono); font-size: 10px;
-            color: var(--text-muted); cursor: pointer; transition: color 0.2s;
-        }
-        .ticker-item:hover { color: var(--accent); }
-        .ticker-sev { padding: 1px 6px; border-radius: 2px; font-size: 8px; font-weight: 900; letter-spacing: 1px; }
-        .ticker-sep { color: rgba(0,212,170,0.3); padding: 0 4px; }
-
-        /* ── Toast Notification ── */
+        /* ═══ GLOBAL OVERLAYS & MODALS ═══ */
         #toast-container {
             position: fixed; top: 20px; right: 20px; z-index: 9999;
             display: flex; flex-direction: column; gap: 10px; pointer-events: none;
@@ -554,14 +523,15 @@
         .toast.toast-critical { border-color: var(--critical); border-left-color: var(--critical); }
         .toast-close { cursor: pointer; color: var(--text-muted); margin-left: auto; font-size: 16px; line-height: 1; }
         .toast-close:hover { color: var(--white); }
+        @keyframes toast-in { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes toast-out { from { opacity: 1; } to { opacity: 0; transform: translateX(20px); } }
 
-        /* ── Threat Detail Modal ── */
-        #threat-modal {
+        #threat-modal, #ai-engine-modal, #kbd-modal, #stix-paywall-modal {
             display: none; position: fixed; inset: 0; z-index: 8888;
             background: rgba(2,2,5,0.92); backdrop-filter: blur(8px);
             align-items: center; justify-content: center; padding: 20px;
         }
-        #threat-modal.open { display: flex; }
+        #threat-modal.open, #ai-engine-modal.open, #kbd-modal.open { display: flex; }
         .modal-box {
             background: var(--bg-card); border: 1px solid var(--border-accent);
             border-top: 2px solid var(--accent); width: 100%; max-width: 780px;
@@ -569,12 +539,16 @@
             position: relative; border-radius: 4px;
             box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 60px rgba(0,212,170,0.05);
         }
+        .ai-modal-box { max-width: 700px; }
+        .kbd-modal-box { max-width: 480px; width: 90%; border-top: 2px solid var(--accent); background: var(--bg-card); border: 1px solid var(--border-accent); padding: 32px; }
+        
         .modal-close {
             position: sticky; top: 0; float: right; cursor: pointer;
             color: var(--text-muted); font-size: 22px; transition: color 0.2s;
             background: none; border: none; line-height: 1; margin-left: 16px;
         }
         .modal-close:hover { color: var(--accent); }
+
         .modal-section { margin-bottom: 24px; }
         .modal-section-title {
             font-family: var(--font-mono); font-size: 8px; letter-spacing: 3px;
@@ -589,132 +563,17 @@
         .modal-field-val { font-size: 13px; color: var(--text); line-height: 1.6; word-break: break-all; }
         .modal-field-val a { color: var(--accent); border-bottom: 1px solid rgba(0,212,170,0.3); }
         .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .copy-chip {
-            display: inline-flex; align-items: center; gap: 5px;
-            font-family: var(--font-mono); font-size: 10px; color: var(--accent);
-            cursor: pointer; border: 1px solid rgba(0,212,170,0.2); padding: 3px 8px;
-            border-radius: 2px; transition: all 0.15s; background: rgba(0,212,170,0.05);
-            user-select: none;
-        }
-        .copy-chip:hover { background: rgba(0,212,170,0.12); border-color: var(--accent); }
-        .copy-chip.copied { color: #22c55e; border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.06); }
 
-        /* ── MITRE Heatmap ── */
-        .mitre-heatmap-section {
-            margin: 24px 0; padding: 24px; background: var(--bg-card);
-            border: 1px solid var(--border); display: none;
+        /* Watchlist */
+        .watchlist-btn {
+            background: none; border: 1px solid var(--border);
+            color: var(--text-muted); cursor: pointer; padding: 4px 10px;
+            font-family: var(--font-mono); font-size: 9px; border-radius: 3px;
+            transition: 0.2s; letter-spacing: 0.5px;
         }
-        .mitre-heatmap-section.visible { display: block; }
-        .mitre-heatmap-title {
-            display: flex; justify-content: space-between; align-items: center;
-            font-family: var(--font-mono); font-size: 9px; letter-spacing: 4px;
-            color: var(--accent); text-transform: uppercase; margin-bottom: 16px;
-        }
-        .heatmap-grid { display: flex; flex-wrap: wrap; gap: 6px; }
-        .hm-cell {
-            font-family: var(--font-mono); font-size: 9px; padding: 6px 10px;
-            border-radius: 2px; cursor: pointer; transition: transform 0.15s;
-            display: flex; flex-direction: column; align-items: center; gap: 2px;
-            text-decoration: none;
-        }
-        .hm-cell:hover { transform: scale(1.1); }
-        .hm-cell .hm-id { font-weight: 700; letter-spacing: 0.5px; }
-        .hm-cell .hm-count { font-size: 8px; opacity: 0.75; }
+        .watchlist-btn:hover { border-color: #f59e0b; color: #f59e0b; }
+        .watchlist-btn.watching { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.08); }
 
-        /* ── Risk Donut ── */
-        .risk-donut-section {
-            margin: 24px 0; padding: 24px; background: var(--bg-card);
-            border: 1px solid var(--border); display: none;
-        }
-        .risk-donut-section.visible { display: block; }
-        .risk-donut-wrap {
-            display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin-top: 16px;
-        }
-        .donut-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-        .legend-item {
-            display: flex; align-items: center; justify-content: space-between;
-            font-family: var(--font-mono); font-size: 10px; color: var(--text); gap: 8px;
-        }
-        .legend-left { display: flex; align-items: center; gap: 8px; }
-        .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-
-        /* ── Card Copy Strip ── */
-        .card-copy-strip { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-
-        /* ── MISP Export Button ── */
-        .export-btn-misp { color: #a78bfa !important; }
-
-        /* ── GOC Pulse ── */
-        .goc-pulse { display: inline-flex; align-items: center; gap: 5px; }
-        .pulse-dot {
-            width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
-            animation: pulse-anim 2s ease-in-out infinite; flex-shrink: 0;
-        }
-        @keyframes pulse-anim {
-            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,212,170,0.5); }
-            50% { opacity: 0.7; box-shadow: 0 0 0 5px rgba(0,212,170,0); }
-        }
-
-        /* ── Keyboard Shortcuts Modal ── */
-        #kbd-modal {
-            display: none; position: fixed; inset: 0; z-index: 9999;
-            background: rgba(2,2,5,0.88); align-items: center; justify-content: center;
-        }
-        #kbd-modal.open { display: flex; }
-        .kbd-modal-box {
-            background: var(--bg-card); border: 1px solid var(--border-accent);
-            padding: 32px; max-width: 480px; width: 90%;
-            border-top: 2px solid var(--accent);
-        }
-        .kbd-row {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 9px 0; border-bottom: 1px solid var(--border);
-            font-family: var(--font-mono); font-size: 11px; color: var(--text);
-        }
-        .kbd-key {
-            background: var(--bg-surface); border: 1px solid var(--border);
-            padding: 2px 8px; border-radius: 3px; font-size: 10px; color: var(--accent);
-        }
-
-        /* ── AI Narrative ── */
-        .ai-narrative {
-            margin-top: 10px; padding: 10px 12px;
-            background: rgba(0,212,170,0.04); border-left: 2px solid rgba(0,212,170,0.3);
-            font-size: 11px; color: var(--text-muted); line-height: 1.6;
-            display: none;
-        }
-        .ai-narrative.visible { display: block; }
-        .ai-narrative-toggle {
-            font-family: var(--font-mono); font-size: 9px; color: var(--accent);
-            cursor: pointer; letter-spacing: 1px; margin-top: 6px; display: inline-flex;
-            align-items: center; gap: 4px; border: none; background: none; padding: 0;
-        }
-        .ai-narrative-toggle:hover { opacity: 0.8; }
-
-        /* ── Intel Source Breakdown ── */
-        .source-bar-section {
-            margin: 24px 0; padding: 24px; background: var(--bg-card);
-            border: 1px solid var(--border); display: none;
-        }
-        .source-bar-section.visible { display: block; }
-        .source-bar-item { margin-bottom: 10px; }
-        .source-bar-label {
-            display: flex; justify-content: space-between;
-            font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);
-            margin-bottom: 4px;
-        }
-        .source-bar-track {
-            height: 5px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;
-        }
-        .source-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
-
-        /* ── Exploit/Patch/Ransomware/Zero-Day badge variants ── */
-        .badge-exploit { background:rgba(220,38,38,0.18);color:#ff6b6b;border:1px solid rgba(220,38,38,0.4); animation: exploit-pulse 1.8s infinite; }
-        .badge-patch { background:rgba(22,163,74,0.12);color:#4ade80;border:1px solid rgba(22,163,74,0.3); }
-        .badge-ransomware { background:rgba(139,92,246,0.18);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4); animation: ransom-glow 2s ease-in-out infinite alternate; }
-        .badge-zerod { background:rgba(236,72,153,0.15);color:#f9a8d4;border:1px solid rgba(236,72,153,0.4); animation: zerod-pulse 1.5s infinite; }
-        
-        /* Watchlist Panel */
         #watchlist-panel {
             display: none; position: fixed; right: 0; top: 0; bottom: 0; z-index: 7777;
             width: 360px; background: var(--bg-card); border-left: 1px solid var(--border-accent);
@@ -740,18 +599,44 @@
         .watchlist-fab:hover { transform: scale(1.1); background: #f59e0b; }
         .watchlist-count-badge { position: absolute; top: -4px; right: -4px; background: var(--critical); color: #fff; font-family: var(--font-mono); font-size: 9px; font-weight: 900; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; display: none; }
 
-        /* Watchlist button in cards */
-        .watchlist-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; padding: 4px 10px; font-family: var(--font-mono); font-size: 9px; border-radius: 3px; transition: 0.2s; letter-spacing: 0.5px; }
-        .watchlist-btn:hover { border-color: #f59e0b; color: #f59e0b; }
-        .watchlist-btn.watching { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.08); }
+        /* Other sections */
+        .trend-section, .mitre-heatmap-section, .risk-donut-section, .source-bar-section {
+            margin-bottom: 28px; background: var(--bg-card); border: 1px solid var(--border); padding: 20px 24px; display: none;
+        }
+        .trend-section.visible, .mitre-heatmap-section.visible, .risk-donut-section.visible, .source-bar-section.visible { display: block; }
+        
+        .trend-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .trend-title { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 3px; text-transform: uppercase; }
+        .trend-bars { display: flex; align-items: flex-end; gap: 3px; height: 48px; overflow: hidden; }
+        .trend-bar { flex: 1; min-width: 4px; border-radius: 2px 2px 0 0; transition: 0.3s; cursor: pointer; position: relative; }
+        .trend-bar:hover { opacity: 0.8; }
+        .trend-range-toggle { display: flex; gap: 4px; }
+        .trend-range-btn { font-family: var(--font-mono); font-size: 8px; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); padding: 3px 10px; border-radius: 2px; cursor: pointer; transition: 0.2s; letter-spacing: 1px; }
+        .trend-range-btn:hover, .trend-range-btn.active { border-color: var(--accent); color: var(--accent); }
 
-        /* AI Engine Modal */
-        #ai-engine-modal { display: none; position: fixed; inset: 0; z-index: 9500; background: rgba(2,2,5,0.93); backdrop-filter: blur(10px); align-items: center; justify-content: center; padding: 20px; }
-        #ai-engine-modal.open { display: flex; }
-        .ai-modal-box { background: var(--bg-card); border: 1px solid rgba(0,212,170,0.25); border-top: 2px solid var(--accent); width: 100%; max-width: 700px; max-height: 88vh; overflow-y: auto; padding: 36px; border-radius: 4px; box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 80px rgba(0,212,170,0.05); }
-        .ai-modal-title { font-family: var(--font-mono); font-size: 9px; letter-spacing: 4px; color: var(--accent); text-transform: uppercase; margin-bottom: 16px; }
+        .mitre-heatmap-title { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 9px; letter-spacing: 4px; color: var(--accent); text-transform: uppercase; margin-bottom: 16px; }
+        .heatmap-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+        .heatmap-tactic-group { margin-bottom: 16px; }
+        .heatmap-tactic-label { font-family: var(--font-mono); font-size: 8px; letter-spacing: 2px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+        .heatmap-tactic-cells { display: flex; flex-wrap: wrap; gap: 5px; }
+        .hm-cell { font-family: var(--font-mono); font-size: 9px; padding: 6px 10px; border-radius: 2px; cursor: pointer; transition: transform 0.15s; display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; }
+        .hm-cell:hover { transform: scale(1.12); z-index: 1; }
+        .hm-cell .hm-id { font-weight: 700; letter-spacing: 0.5px; }
+        .hm-cell .hm-count { font-size: 8px; opacity: 0.75; }
 
-        /* SOC Integration Section */
+        .risk-donut-wrap { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin-top: 16px; }
+        .donut-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+        .legend-item { display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 10px; color: var(--text); gap: 8px; }
+        .legend-left { display: flex; align-items: center; gap: 8px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+        .source-bar-item { margin-bottom: 10px; }
+        .source-bar-label { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); margin-bottom: 4px; }
+        .source-bar-track { height: 5px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+        .source-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+        .source-trust { display: inline-flex; align-items: center; gap: 3px; font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px; }
+        .trust-dot { width: 5px; height: 5px; border-radius: 50%; }
+
         .soc-integration-section { margin: 28px 0; padding: 24px 28px; background: var(--bg-card); border: 1px solid var(--border); }
         .soc-integration-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .soc-integration-title { font-family: var(--font-mono); font-size: 9px; letter-spacing: 4px; color: var(--accent); text-transform: uppercase; }
@@ -761,60 +646,59 @@
         .soc-tool-chip:hover { border-color: var(--accent); color: var(--white); }
         .soc-tool-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
         .soc-curl-block { background: var(--bg); border: 1px solid var(--border); border-left: 2px solid var(--accent); padding: 14px 18px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); line-height: 1.8; position: relative; overflow-x: auto; }
-        
-        .heatmap-tactic-group { margin-bottom: 16px; }
-        .heatmap-tactic-label { font-family: var(--font-mono); font-size: 8px; letter-spacing: 2px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
-        .heatmap-tactic-cells { display: flex; flex-wrap: wrap; gap: 5px; }
-        
-        .source-trust { display: inline-flex; align-items: center; gap: 3px; font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px; }
-        .trust-dot { width: 5px; height: 5px; border-radius: 50%; }
 
-        .compliance-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+        .threat-ticker-wrap { background: rgba(0,212,170,0.04); border-top: 1px solid rgba(0,212,170,0.1); border-bottom: 1px solid rgba(0,212,170,0.1); overflow: hidden; padding: 7px 0; position: relative; }
+        .threat-ticker-label { position: absolute; left: 0; top: 0; bottom: 0; z-index: 2; background: linear-gradient(90deg, var(--bg) 60%, transparent); padding: 0 36px 0 16px; display: flex; align-items: center; font-family: var(--font-mono); font-size: 8px; letter-spacing: 3px; color: var(--accent); text-transform: uppercase; white-space: nowrap; }
+        .threat-ticker-inner { display: flex; align-items: center; gap: 0; white-space: nowrap; animation: ticker-scroll 80s linear infinite; padding-left: 180px; }
+        .threat-ticker-wrap:hover .threat-ticker-inner { animation-play-state: paused; }
+        @keyframes ticker-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        .ticker-item { display: inline-flex; align-items: center; gap: 8px; padding: 0 28px; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); cursor: pointer; transition: color 0.2s; }
+        .ticker-item:hover { color: var(--accent); }
+        .ticker-sev { padding: 1px 6px; border-radius: 2px; font-size: 8px; font-weight: 900; letter-spacing: 1px; }
+        .ticker-sep { color: rgba(0,212,170,0.3); padding: 0 4px; }
+
+        .ai-formula-block { background: var(--bg-surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); padding: 16px 20px; margin: 16px 0; font-family: var(--font-mono); font-size: 11px; color: var(--text); line-height: 2; }
+        .ai-engine-factor { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; gap: 12px; }
+        .ai-engine-factor:last-child { border-bottom: none; }
+        .ai-factor-name { color: var(--text); font-size: 13px; }
+        .ai-factor-weight { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--accent); min-width: 60px; text-align: right; }
+        .ai-factor-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+        .ai-factor-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+
+        .roi-block { background: var(--bg-surface); border: 1px solid rgba(0,212,170,0.2); padding: 20px 24px; text-align: center; margin-bottom: 20px; }
+        .roi-stat { font-size: 32px; font-weight: 900; color: var(--accent); font-family: var(--font-mono); letter-spacing: -1px; }
+        .roi-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 2px; margin-top: 4px; }
+        .compliance-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; justify-content: center; }
         .compliance-badge { font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px; background: rgba(0,212,170,0.06); border: 1px solid rgba(0,212,170,0.2); color: var(--accent); padding: 4px 10px; border-radius: 2px; text-transform: uppercase; }
-        
-        .enterprise-trust-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
-        .enterprise-trust-badge { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); background: var(--bg-surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 3px; }
-        .enterprise-trust-badge i { color: var(--accent); }
-
         .testimonial-card { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); padding: 20px 24px; }
         .testimonial-text { font-size: 13px; color: var(--text); line-height: 1.7; margin-bottom: 14px; font-style: italic; }
         .testimonial-author { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 2px; }
         .testimonial-role { color: var(--accent); }
         .testimonial-stars { color: #f59e0b; font-size: 12px; margin-bottom: 8px; }
-
-        .roi-block { background: var(--bg-surface); border: 1px solid rgba(0,212,170,0.2); padding: 20px 24px; text-align: center; margin-bottom: 20px; }
-        .roi-stat { font-size: 32px; font-weight: 900; color: var(--accent); font-family: var(--font-mono); letter-spacing: -1px; }
-        .roi-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 2px; margin-top: 4px; }
-
+        .enterprise-trust-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+        .enterprise-trust-badge { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); background: var(--bg-surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 3px; }
+        .enterprise-trust-badge i { color: var(--accent); }
         .ingestion-indicator { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 1px; }
         .ingestion-indicator .rate { color: var(--accent); font-weight: 700; }
-
         .kit-updated-badge { font-family: var(--font-mono); font-size: 8px; color: var(--accent); background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.2); padding: 2px 8px; border-radius: 2px; margin-bottom: 8px; display: inline-block; }
         .kit-analyst-count { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
 
-        /* ═══════════════════════════════════════════════════════ */
-        /* ═══ TAB SYSTEM & SOAR CSS (v30.0 APEX ULTRA ADDITIONS) ═══ */
-        /* ═══════════════════════════════════════════════════════ */
-        .tab-content { display: none; animation: fadeIn 0.3s ease; }
-        .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .kbd-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 11px; color: var(--text); }
+        .kbd-key { background: var(--bg-surface); border: 1px solid var(--border); padding: 2px 8px; border-radius: 3px; font-size: 10px; color: var(--accent); }
 
-        .code-block-wrapper {
-            background: #010409; border: 1px solid var(--border); border-radius: 12px;
-            overflow: hidden; margin-bottom: 16px;
+        @media (max-width: 768px) {
+            .apex-header { flex-direction: column; text-align: center; }
+            .header-right { align-items: center; }
+            .nav-hub { justify-content: center; }
+            .status-strip { justify-content: center; text-align: center; }
+            #threat-grid { grid-template-columns: 1fr; }
+            .metrics-strip { grid-template-columns: repeat(2, 1fr); }
+            .filter-bar { justify-content: center; }
         }
-        .code-block-header {
-            background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);
-            padding: 8px 16px; display: flex; justify-content: space-between; align-items: center;
+        @media(max-width: 640px) {
+            .modal-row { grid-template-columns: 1fr; }
+            #threat-modal .modal-box { padding: 20px; }
         }
-        .code-block-title { color: var(--text); font-size: 12px; font-family: var(--font-mono); font-weight: bold; display: flex; align-items: center; gap: 8px; }
-        .code-block-lang { color: var(--text-muted); font-size: 10px; font-family: var(--font-mono); }
-        .code-block-pre { color: var(--white); font-family: var(--font-mono); font-size: 12px; padding: 16px; margin: 0; white-space: pre-wrap; line-height: 1.5; }
-        
-        .code-block-ansible .code-block-pre { color: var(--accent); }
-        .code-block-sigma .code-block-pre { color: #ffd700; }
-        .code-block-k8s .code-block-pre { color: var(--blue); }
-
     </style>
 </head>
 <body>
@@ -835,36 +719,12 @@
             </div>
             <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin:0 0 12px 0;">Scoring Factor Weights</p>
             <div id="ai-factor-list">
-                <div class="ai-engine-factor">
-                    <span class="ai-factor-name"><i class="fas fa-shield-virus" style="color:var(--critical);margin-right:8px;width:16px;"></i>CVSSv3 Base Score</span>
-                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:35%;"></div></div>
-                    <span class="ai-factor-weight">35%</span>
-                </div>
-                <div class="ai-engine-factor">
-                    <span class="ai-factor-name"><i class="fas fa-chart-line" style="color:var(--high);margin-right:8px;width:16px;"></i>EPSS Exploitation Probability</span>
-                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:25%;background:var(--high);"></div></div>
-                    <span class="ai-factor-weight">25%</span>
-                </div>
-                <div class="ai-engine-factor">
-                    <span class="ai-factor-name"><i class="fas fa-bolt" style="color:#ff9f43;margin-right:8px;width:16px;"></i>CISA KEV Confirmation</span>
-                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:15%;background:#ff9f43;"></div></div>
-                    <span class="ai-factor-weight">15%</span>
-                </div>
-                <div class="ai-engine-factor">
-                    <span class="ai-factor-name"><i class="fas fa-crosshairs" style="color:var(--purple);margin-right:8px;width:16px;"></i>MITRE ATT&CK Technique Depth</span>
-                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:12%;background:var(--purple);"></div></div>
-                    <span class="ai-factor-weight">12%</span>
-                </div>
-                <div class="ai-engine-factor">
-                    <span class="ai-factor-name"><i class="fas fa-database" style="color:var(--blue);margin-right:8px;width:16px;"></i>Source Feed Trust Weight</span>
-                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:8%;background:var(--blue);"></div></div>
-                    <span class="ai-factor-weight">8%</span>
-                </div>
-                <div class="ai-engine-factor">
-                    <span class="ai-factor-name"><i class="fas fa-microscope" style="color:var(--accent);margin-right:8px;width:16px;"></i>Analyst Confidence Signal</span>
-                    <div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:5%;"></div></div>
-                    <span class="ai-factor-weight">5%</span>
-                </div>
+                <div class="ai-engine-factor"><span class="ai-factor-name"><i class="fas fa-shield-virus" style="color:var(--critical);margin-right:8px;width:16px;"></i>CVSSv3 Base Score</span><div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:35%;"></div></div><span class="ai-factor-weight">35%</span></div>
+                <div class="ai-engine-factor"><span class="ai-factor-name"><i class="fas fa-chart-line" style="color:var(--high);margin-right:8px;width:16px;"></i>EPSS Exploitation Probability</span><div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:25%;background:var(--high);"></div></div><span class="ai-factor-weight">25%</span></div>
+                <div class="ai-engine-factor"><span class="ai-factor-name"><i class="fas fa-bolt" style="color:#ff9f43;margin-right:8px;width:16px;"></i>CISA KEV Confirmation</span><div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:15%;background:#ff9f43;"></div></div><span class="ai-factor-weight">15%</span></div>
+                <div class="ai-engine-factor"><span class="ai-factor-name"><i class="fas fa-crosshairs" style="color:var(--purple);margin-right:8px;width:16px;"></i>MITRE ATT&CK Technique Depth</span><div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:12%;background:var(--purple);"></div></div><span class="ai-factor-weight">12%</span></div>
+                <div class="ai-engine-factor"><span class="ai-factor-name"><i class="fas fa-database" style="color:var(--blue);margin-right:8px;width:16px;"></i>Source Feed Trust Weight</span><div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:8%;background:var(--blue);"></div></div><span class="ai-factor-weight">8%</span></div>
+                <div class="ai-engine-factor"><span class="ai-factor-name"><i class="fas fa-microscope" style="color:var(--accent);margin-right:8px;width:16px;"></i>Analyst Confidence Signal</span><div class="ai-factor-bar"><div class="ai-factor-bar-fill" style="width:5%;"></div></div><span class="ai-factor-weight">5%</span></div>
             </div>
             <div style="margin-top:24px;padding:16px 20px;background:rgba(0,212,170,0.04);border:1px solid rgba(0,212,170,0.15);border-radius:3px;">
                 <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--accent);margin:0 0 8px 0;">CONFIDENCE INTERPRETATION</p>
@@ -906,8 +766,6 @@
         <span class="watchlist-count-badge" id="watchlist-count-badge">0</span>
     </button>
 
-
-
     <div id="threat-modal" onclick="if(event.target===this)closeThreatModal()">
         <div class="modal-box" id="modal-box-inner">
             <button class="modal-close" onclick="closeThreatModal()" title="Close (ESC)">✕</button>
@@ -915,78 +773,26 @@
         </div>
     </div>
 
-    <div id="stix-paywall-modal" onclick="if(event.target===this)closeStixPaywall()"
-         style="display:none;position:fixed;inset:0;z-index:9000;
-                background:rgba(2,2,5,0.93);backdrop-filter:blur(10px);
-                align-items:center;justify-content:center;padding:20px;">
-        <div style="background:var(--bg-card);border:1px solid rgba(0,212,170,0.3);
-                    border-top:3px solid var(--accent);width:100%;max-width:520px;
-                    padding:40px 36px;position:relative;border-radius:4px;
-                    box-shadow:0 32px 80px rgba(0,0,0,0.7),0 0 80px rgba(0,212,170,0.06);
-                    text-align:center;">
-            <button onclick="closeStixPaywall()"
-                    style="position:absolute;top:14px;right:18px;background:none;border:none;
-                           color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;"
-                    title="Close">&#x2715;</button>
-            <div style="width:64px;height:64px;border-radius:50%;
-                        background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.25);
-                        display:flex;align-items:center;justify-content:center;
-                        margin:0 auto 24px auto;">
+    <div id="stix-paywall-modal" onclick="if(event.target===this)closeStixPaywall()">
+        <div style="background:var(--bg-card);border:1px solid rgba(0,212,170,0.3); border-top:3px solid var(--accent);width:100%;max-width:520px; padding:40px 36px;position:relative;border-radius:4px; box-shadow:0 32px 80px rgba(0,0,0,0.7),0 0 80px rgba(0,212,170,0.06); text-align:center;">
+            <button onclick="closeStixPaywall()" style="position:absolute;top:14px;right:18px;background:none;border:none; color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;" title="Close">&#x2715;</button>
+            <div style="width:64px;height:64px;border-radius:50%; background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.25); display:flex;align-items:center;justify-content:center; margin:0 auto 24px auto;">
                 <i class="fas fa-lock" style="font-size:26px;color:var(--accent);"></i>
             </div>
-            <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;
-                      color:var(--accent);text-transform:uppercase;margin:0 0 12px 0;">
-                SUBSCRIBER-ONLY FEATURE
-            </p>
-            <h2 style="color:var(--white);font-size:22px;font-weight:900;
-                       letter-spacing:-0.5px;margin:0 0 14px 0;line-height:1.3;">
-                STIX 2.1 Bundle Downloads<br>
-                <span style="color:var(--accent);">Require a Pro Subscription</span>
-            </h2>
-            <p style="color:var(--text-muted);font-size:13px;line-height:1.75;
-                      margin:0 0 28px 0;max-width:400px;margin-left:auto;margin-right:auto;">
-                Full STIX 2.1 bundles, machine-readable IOC exports, and raw threat data
-                are available to <strong style="color:var(--text);">Pro &amp; Enterprise</strong> subscribers.
-                Upgrade now to unlock complete threat packages for your SOC.
-            </p>
-            <div style="background:var(--bg-surface);border:1px solid var(--border);
-                        padding:16px 20px;margin:0 0 28px 0;text-align:left;border-radius:3px;">
-                <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px;
-                          color:var(--text-muted);text-transform:uppercase;margin:0 0 12px 0;">
-                    PRO SUBSCRIPTION INCLUDES
-                </p>
+            <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px; color:var(--accent);text-transform:uppercase;margin:0 0 12px 0;">SUBSCRIBER-ONLY FEATURE</p>
+            <h2 style="color:var(--white);font-size:22px;font-weight:900; letter-spacing:-0.5px;margin:0 0 14px 0;line-height:1.3;">STIX 2.1 Bundle Downloads<br><span style="color:var(--accent);">Require a Pro Subscription</span></h2>
+            <p style="color:var(--text-muted);font-size:13px;line-height:1.75; margin:0 0 28px 0;max-width:400px;margin-left:auto;margin-right:auto;">Full STIX 2.1 bundles, machine-readable IOC exports, and raw threat data are available to <strong style="color:var(--text);">Pro &amp; Enterprise</strong> subscribers. Upgrade now to unlock complete threat packages for your SOC.</p>
+            <div style="background:var(--bg-surface);border:1px solid var(--border); padding:16px 20px;margin:0 0 28px 0;text-align:left;border-radius:3px;">
+                <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:3px; color:var(--text-muted);text-transform:uppercase;margin:0 0 12px 0;">PRO SUBSCRIPTION INCLUDES</p>
                 <ul style="list-style:none;padding:0;margin:0;font-size:13px;color:var(--text);line-height:2.1;">
-                    <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>STIX 2.1 bundle downloads (per advisory)</li>
-                    <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>SIGMA detection rules &amp; YARA signatures</li>
-                    <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>Incident Response playbooks (PDF)</li>
-                    <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>Remediation scripts &amp; IOC exports</li>
-                    <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>Unlimited MISP-compatible exports</li>
-                    <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>Compliance mapping (ISO 27001, NIST, SOC 2)</li>
+                    <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>STIX 2.1 bundle downloads</li>
+                    <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>SIGMA detection rules</li>
+                    <li><i class="fas fa-check" style="color:var(--accent);width:18px;margin-right:8px;"></i>Incident Response playbooks</li>
                 </ul>
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;">
-                <a href="https://cyberdudebivash.gumroad.com/?utm_source=intel-dashboard&utm_medium=stix-paywall&utm_campaign=stix-bundle-cta"
-                   target="_blank" rel="noopener"
-                   onclick="closeStixPaywall()"
-                   style="display:block;padding:14px 24px;
-                          background:linear-gradient(135deg,var(--accent),#00b891);
-                          color:var(--bg);border-radius:4px;text-decoration:none;
-                          font-family:var(--font-mono);font-size:12px;font-weight:900;
-                          letter-spacing:1px;"
-                   onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
-                    SUBSCRIBE NOW &#8212; FROM $19/KIT &#8594;
-                </a>
-                <a href="mailto:bivash@cyberdudebivash.com?subject=Enterprise%20API%20Access%20Inquiry" style="display:block;padding:13px 24px;background:var(--bg-surface);
-                          color:var(--text);border:1px solid rgba(139,92,246,0.35);
-                          border-radius:4px;text-decoration:none;
-                          font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:1px;" onmouseover="this.style.borderColor='#8b5cf6'" onmouseout="this.style.borderColor='rgba(139,92,246,0.35)'">
-                    <i class="fas fa-briefcase" style="color:#8b5cf6;margin-right:6px;"></i>ENTERPRISE? CONTACT US FOR FULL API ACCESS
-                </a>
-                <button onclick="closeStixPaywall()"
-                        style="padding:10px;background:none;border:none;color:var(--text-muted);
-                               font-family:var(--font-mono);font-size:10px;cursor:pointer;letter-spacing:1px;">
-                    MAYBE LATER
-                </button>
+                <a href="https://cyberdudebivash.gumroad.com/?utm_source=intel-dashboard&utm_medium=stix-paywall&utm_campaign=stix-bundle-cta" target="_blank" rel="noopener" onclick="closeStixPaywall()" style="display:block;padding:14px 24px; background:linear-gradient(135deg,var(--accent),#00b891); color:var(--bg);border-radius:4px;text-decoration:none; font-family:var(--font-mono);font-size:12px;font-weight:900; letter-spacing:1px;">SUBSCRIBE NOW &#8212; FROM $19/KIT &#8594;</a>
+                <button onclick="closeStixPaywall()" style="padding:10px;background:none;border:none;color:var(--text-muted); font-family:var(--font-mono);font-size:10px;cursor:pointer;letter-spacing:1px;">MAYBE LATER</button>
             </div>
         </div>
     </div>
@@ -1000,14 +806,9 @@
             <div class="kbd-row"><span>Toggle auto-refresh</span><span class="kbd-key">A</span></div>
             <div class="kbd-row"><span>Export JSON</span><span class="kbd-key">J</span></div>
             <div class="kbd-row"><span>Export CSV</span><span class="kbd-key">C</span></div>
-            <div class="kbd-row"><span>View STIX bundles</span><span class="kbd-key">S</span></div>
-            <div class="kbd-row"><span>Filter: All</span><span class="kbd-key">1</span></div>
-            <div class="kbd-row"><span>Filter: Critical</span><span class="kbd-key">2</span></div>
-            <div class="kbd-row"><span>Filter: High</span><span class="kbd-key">3</span></div>
-            <div class="kbd-row"><span>Close modal / ESC</span><span class="kbd-key">ESC</span></div>
             <div class="kbd-row"><span>Toggle Watchlist</span><span class="kbd-key">W</span></div>
             <div class="kbd-row"><span>AI Engine Modal</span><span class="kbd-key">M</span></div>
-            <div class="kbd-row"><span>This help</span><span class="kbd-key">?</span></div>
+            <div class="kbd-row"><span>Close modal</span><span class="kbd-key">ESC</span></div>
         </div>
     </div>
 
@@ -1021,37 +822,17 @@
         <header class="apex-header">
             <div class="brand-mark">
                 <h1>CYBERDUDEBIVASH<span class="reg">®</span></h1>
-                <p class="brand-sub">Sentinel APEX <span class="ver" style="background: rgba(255,215,0,0.15); color: #ffd700; padding: 2px 8px; border-radius: 4px; font-size: 11px;">v30.0 APEX ULTRA</span> // AI-Powered Global Threat Intelligence</p>
+                <p class="brand-sub">Sentinel APEX <span class="ver" style="background: rgba(255,215,0,0.15); color: #ffd700; padding: 2px 8px; border-radius: 4px; font-size: 11px;">v30.0 ULTRA</span> // AI-Powered Global Threat Intelligence</p>
                 <nav class="nav-hub">
                     <button class="nav-chip active" onclick="switchTab('overview', this)">Overview</button>
                     <button class="nav-chip" onclick="switchTab('soar', this)" style="border-color: #8b5cf6; color: #8b5cf6;">🛡️ IMMUNE SYSTEM</button>
-                    
                     <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH" class="nav-chip">Official Portal</a>
-                    <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-ECOSYSTEM" class="nav-chip">Ecosystem</a>
-                    <a href="https://www.cyberdudebivash.com" class="nav-chip">Global Site</a>
-                    <a href="https://github.com/cyberdudebivash" class="nav-chip"><i class="fab fa-github"></i> Dev Hub</a>
                     <a href="#pricing" class="nav-chip" style="color:var(--accent);border-color:rgba(0,212,170,0.3);">PRICING</a>
-                    <a href="#products" class="nav-chip">PRODUCTS</a>
-                    <a href="#subscribe" class="nav-chip">SUBSCRIBE FREE</a>
-                    <a href="#contact" class="nav-chip">ENTERPRISE CONTACT</a>
                 </nav>
             </div>
             <div class="header-right">
-                <a href="mailto:bivash@cyberdudebivash.com?subject=Enterprise%20Inquiry%20-%20CyberDudeBivash%20Threat%20Intel" class="contact-btn">CONNECT ENTERPRISE</a>
-                <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;">
-                    Bhubaneswar, Odisha, India</span>
-                <button onclick="openKbdModal()" title="Keyboard Shortcuts (?)"
-                        style="background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2);
-                               color:var(--accent);padding:4px 10px;border-radius:3px;cursor:pointer;
-                               font-family:var(--font-mono);font-size:10px;letter-spacing:1px;">
-                    <i class="fas fa-keyboard"></i> KEYS
-                </button>
-                <button onclick="openAIModal()" title="AI Engine Transparency"
-                        style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.25);
-                               color:#a78bfa;padding:4px 10px;border-radius:3px;cursor:pointer;
-                               font-family:var(--font-mono);font-size:10px;letter-spacing:1px;">
-                    <i class="fas fa-brain"></i> AI ENGINE
-                </button>
+                <a href="mailto:bivash@cyberdudebivash.com?subject=Enterprise%20Inquiry" class="contact-btn">CONNECT ENTERPRISE</a>
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;">Bhubaneswar, India</span>
             </div>
         </header>
 
@@ -1059,14 +840,10 @@
             <div><span class="goc-pulse"><span class="pulse-dot"></span></span> NODE: <span style="color:var(--accent);">CDB-GOC-01</span></div>
             <div id="sync-val">SYNC: <span style="color:#ff9d00;">INITIALIZING...</span></div>
             <div id="integrity-status"></div>
-            <div>ENGINE: <span style="color:var(--accent);">APEX ULTRA v30.0</span> · <button onclick="openAIModal()" style="background:none;border:none;color:var(--accent);font-family:var(--font-mono);font-size:10px;cursor:pointer;letter-spacing:1px;padding:0;text-decoration:underline dotted;text-underline-offset:3px;">AI ENGINE ↗</button></div>
-            <div class="ingestion-indicator">FEEDS: <span class="rate" id="m-feed-count">—</span> ACTIVE</div>
-            <div>KEV: <span style="color:var(--critical);" id="m-kev">—</span> ACTIVE</div>
-            <div id="ingest-rate-display" style="display:none;" class="ingestion-indicator">RATE: <span class="rate" id="m-ingest-rate">—</span>/hr</div>
+            <div>ENGINE: <span style="color:var(--accent);">APEX ULTRA v30.0</span></div>
         </div>
 
         <div id="overview-tab" class="tab-content active">
-
             <div class="metrics-strip" id="metrics-strip">
                 <div class="metric-card"><div class="metric-val" style="color:var(--white);" id="m-total">—</div><div class="metric-label">Total Advisories</div></div>
                 <div class="metric-card critical"><div class="metric-val" style="color:var(--critical);" id="m-critical">—</div><div class="metric-label">Critical</div></div>
@@ -1097,9 +874,7 @@
 
             <div class="search-bar">
                 <i class="fas fa-search"></i>
-                <input type="text" class="search-input" id="search-input"
-                       placeholder="Search threats, CVEs, actors, techniques..."
-                       oninput="handleSearch(this.value)">
+                <input type="text" class="search-input" id="search-input" placeholder="Search threats, CVEs, actors, techniques..." oninput="handleSearch(this.value)">
                 <button class="search-clear" onclick="clearSearch()">✕ CLEAR</button>
                 <span id="search-count"></span>
             </div>
@@ -1110,120 +885,33 @@
                 <button class="filter-btn f-critical" data-filter="CRITICAL" onclick="filterCards('CRITICAL', this)">Critical</button>
                 <button class="filter-btn f-high" data-filter="HIGH" onclick="filterCards('HIGH', this)">High</button>
                 <button class="filter-btn f-medium" data-filter="MEDIUM" onclick="filterCards('MEDIUM', this)">Medium</button>
-                <button class="filter-btn" data-filter="LOW" onclick="filterCards('LOW', this)"
-                        style="--fc-active:#16a34a;" onmouseover="" onmouseout="">Low</button>
                 <select class="sort-select" onchange="sortCards(this.value)">
                     <option value="newest">Sort: Newest First</option>
-                    <option value="oldest">Sort: Oldest First</option>
                     <option value="risk-high">Sort: Risk ↓</option>
-                    <option value="risk-low">Sort: Risk ↑</option>
                 </select>
             </div>
 
             <div class="refresh-bar">
                 <button class="refresh-btn" onclick="manualRefresh()"><i class="fas fa-sync-alt"></i> REFRESH NOW</button>
-                <label>
-                    <input type="checkbox" id="auto-refresh-toggle" onchange="toggleAutoRefresh(this.checked)">
-                    AUTO-REFRESH
-                </label>
+                <label><input type="checkbox" id="auto-refresh-toggle" onchange="toggleAutoRefresh(this.checked)"> AUTO-REFRESH</label>
                 <span id="refresh-countdown" style="display:none;"></span>
                 <span id="last-loaded" style="margin-left:auto;"></span>
-            </div>
-
-            <div class="export-bar">
-                <span class="export-label">SOC EXPORTS:</span>
-                <button class="export-btn" onclick="exportJSON()" title="[J] Download JSON feed"><i class="fas fa-download"></i> JSON Feed</button>
-                <button class="export-btn" onclick="exportCSV()" title="[C] Download CSV"><i class="fas fa-file-csv"></i> CSV</button>
-                <button class="export-btn" onclick="exportSTIX()" title="[S] View STIX bundles — Subscribers Only"><i class="fas fa-shield-halved"></i> STIX Bundle</button>
-                <button class="export-btn export-btn-misp" onclick="exportMISP()" title="Export MISP-compatible JSON"><i class="fas fa-spider"></i> MISP Export</button>
-                <span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;align-self:center;">API: <span id="api-status-dot" style="color:var(--accent);">● ONLINE</span></span>
-            </div>
-
-            <div class="soc-integration-section">
-                <div class="soc-integration-header">
-                    <span class="soc-integration-title">⚡ SOC Integrations — Plug In Within 30 Seconds</span>
-                    <span class="soc-api-status"><span class="pulse-dot"></span> API LIVE</span>
-                </div>
-                <div class="soc-tools-grid">
-                    <div class="soc-tool-chip"><span class="dot"></span> Splunk SIEM</div>
-                    <div class="soc-tool-chip"><span class="dot"></span> Microsoft Sentinel</div>
-                    <div class="soc-tool-chip"><span class="dot"></span> IBM QRadar</div>
-                    <div class="soc-tool-chip"><span class="dot"></span> Elastic SIEM</div>
-                    <div class="soc-tool-chip"><span class="dot"></span> MISP Platform</div>
-                    <div class="soc-tool-chip"><span class="dot"></span> OpenCTI</div>
-                    <div class="soc-tool-chip" style="border-color:rgba(0,212,170,0.3);color:var(--accent);"><i class="fas fa-plus" style="font-size:9px;"></i> Custom API</div>
-                </div>
-                <div style="margin-bottom:8px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;">LIVE FEED ENDPOINT — API ACCESS</div>
-                <div class="soc-curl-block" style="padding:0;overflow:hidden;">
-                    <div style="padding:28px 24px;text-align:center;background:linear-gradient(135deg,rgba(0,212,170,0.04),rgba(139,92,246,0.04));border:1px dashed rgba(0,212,170,0.2);">
-                        <div style="width:44px;height:44px;border-radius:50%;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 14px auto;">
-                            <i class="fas fa-lock" style="color:var(--accent);font-size:18px;"></i>
-                        </div>
-                        <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin:0 0 8px 0;">SUBSCRIBER-ONLY ACCESS</p>
-                        <p style="color:var(--text-muted);font-size:12px;line-height:1.7;margin:0 0 18px 0;max-width:400px;margin-left:auto;margin-right:auto;">
-                            The live API endpoint URL, authentication tokens, and sample curl commands are provided exclusively to <strong style="color:var(--text);">Pro &amp; Enterprise subscribers</strong>.
-                            Subscribe or contact us to receive your private API credentials.
-                        </p>
-                        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-                            <a href="https://cyberdudebivash.gumroad.com/?utm_source=intel-dashboard&utm_medium=api-section&utm_campaign=api-subscribe"
-                               target="_blank" rel="noopener"
-                               style="padding:10px 22px;background:linear-gradient(135deg,var(--accent),#00b891);color:var(--bg);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;letter-spacing:1px;"
-                               onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
-                                SUBSCRIBE NOW → GET API KEY
-                            </a>
-                            <a href="mailto:bivash@cyberdudebivash.com?subject=Enterprise%20SOC%20Integration%20Inquiry" style="padding:10px 22px;background:var(--bg-surface);color:var(--text);border:1px solid rgba(139,92,246,0.35);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:700;text-decoration:none;letter-spacing:1px;" onmouseover="this.style.borderColor='#8b5cf6'" onmouseout="this.style.borderColor='rgba(139,92,246,0.35)'">
-                                <i class="fas fa-briefcase" style="color:#8b5cf6;margin-right:6px;"></i>ENTERPRISE? CONTACT US
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-top:12px;display:flex;gap:16px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);flex-wrap:wrap;">
-                    <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>JSON / CSV / STIX 2.1 / MISP formats</span>
-                    <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>Webhook support (Enterprise)</span>
-                    <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>Tiered auth tokens</span>
-                    <a href="mailto:bivash@cyberdudebivash.com?subject=API%20Key%20Request" style="color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);margin-left:auto;"><i class="fas fa-envelope" style="margin-right:4px;"></i>REQUEST API KEY →</a>
-                </div>
-            </div>
-
-            <div class="risk-donut-section" id="risk-donut-section">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                    <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin:0;">Risk Distribution</p>
-                    <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">LIVE FEED BREAKDOWN</span>
-                </div>
-                <div class="risk-donut-wrap">
-                    <svg id="risk-donut-svg" width="120" height="120" viewBox="0 0 120 120"></svg>
-                    <div class="donut-legend" id="donut-legend"></div>
-                </div>
-            </div>
-
-            <div class="mitre-heatmap-section" id="mitre-heatmap-section">
-                <div class="mitre-heatmap-title">
-                    <span>⚔ MITRE ATT&CK Technique Heatmap — Grouped by Tactic</span>
-                    <span style="font-size:9px;color:var(--text-muted);">CLICK TECHNIQUE → ATT&CK · GROUPED BY TACTIC PHASE</span>
-                </div>
-                <div class="heatmap-grid" id="mitre-heatmap-grid"></div>
-            </div>
-
-            <div class="source-bar-section" id="source-bar-section">
-                <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin:0 0 16px 0;">Intelligence Source Breakdown</p>
-                <div id="source-bar-inner"></div>
             </div>
 
             <div id="threat-grid">
                 <div class="loading-state">
                     <div class="loading-spinner"></div>
-                    <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;">
-                        SYNCING GOC NEURAL CORE...
-                    </div>
+                    <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;">SYNCING GOC NEURAL CORE...</div>
                 </div>
             </div>
+        </div>
 
-        </div> <div id="soar-tab" class="tab-content" style="padding-top: 20px;">
+        <div id="soar-tab" class="tab-content" style="display: none; padding-top: 20px;">
             
             <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
                 <div>
-                    <h2 style="color: var(--white); font-size: 24px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">🛡️ Autonomous Immune Response</h2>
-                    <p style="color: var(--text-muted); font-size: 14px; margin-top: 6px;">Zero-Latency Code Generation (Ansible, K8s, Sigma) & Purple Swarm Validation.</p>
+                    <h2 style="color: #f8fafc; font-size: 24px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">🛡️ Autonomous Immune Response</h2>
+                    <p style="color: #64748b; font-size: 14px; margin-top: 6px;">Zero-Latency Code Generation (Ansible, K8s, Sigma) & Purple Swarm Validation.</p>
                 </div>
                 <button style="background: var(--accent); color: var(--bg); font-weight: 900; font-family: var(--font-mono); font-size: 12px; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; letter-spacing: 1px;">SYNC SPLUNK HEC</button>
             </div>
@@ -1314,134 +1002,61 @@ level: critical</pre>
                 </div>
 
             </div>
-        </div> <div class="eco-grid">
-            <div class="eco-col">
-                <h2>Production Apps & AI</h2>
-                <ul>
-                    <li><a href="https://cyberdudebivash.github.io/cyberdudebivash-top-10-tools/"><i class="fas fa-tools"></i> Top 10 Research Hub</a></li>
-                    <li><a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-PRODUCTION-APPS-SUITE/"><i class="fas fa-layer-group"></i> Production Apps Suite</a></li>
-                    <li><a href="https://cyberdudebivash.github.io/mcp-server/"><i class="fas fa-server"></i> Official MCP Server</a></li>
-                    <li><a href="https://github.com/apps/cyberdudebivash-security-platform"><i class="fas fa-shield-virus"></i> Security Platform App</a></li>
-                </ul>
+        </div>
+
+        <div class="export-bar">
+            <span class="export-label">SOC EXPORTS:</span>
+            <button class="export-btn" onclick="exportJSON()"><i class="fas fa-download"></i> JSON Feed</button>
+            <button class="export-btn" onclick="exportCSV()"><i class="fas fa-file-csv"></i> CSV</button>
+            <button class="export-btn" onclick="exportSTIX()"><i class="fas fa-shield-halved"></i> STIX Bundle</button>
+            <button class="export-btn export-btn-misp" onclick="exportMISP()"><i class="fas fa-spider"></i> MISP Export</button>
+            <span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;align-self:center;">API: <span style="color:var(--accent);">● ONLINE</span></span>
+        </div>
+
+        <div class="soc-integration-section">
+            <div class="soc-integration-header">
+                <span class="soc-integration-title">⚡ SOC Integrations</span>
+                <span class="soc-api-status"><span class="pulse-dot"></span> API LIVE</span>
             </div>
-            <div class="eco-col">
-                <h2>Blogs & Research</h2>
-                <ul>
-                    <li><a href="https://cyberbivash.blogspot.com"><i class="fas fa-blog"></i> CyberBivash Official</a></li>
-                    <li><a href="https://cyberdudebivash-news.blogspot.com"><i class="fas fa-newspaper"></i> Intelligence News</a></li>
-                    <li><a href="https://cryptobivash.code.blog"><i class="fas fa-file-invoice-dollar"></i> Crypto Research Hub</a></li>
-                    <li><a href="https://medium.com/@cyberdudebivash"><i class="fab fa-medium"></i> Medium Insights</a></li>
-                </ul>
-            </div>
-            <div class="eco-col">
-                <h2>Enterprise & Contact</h2>
-                <ul>
-                    <li><a href="https://www.linkedin.com/company/cyberdudebivash/"><i class="fab fa-linkedin"></i> LinkedIn Official</a></li>
-                    <li><a href="https://www.upwork.com/freelancers/~010d4dde1657fa5619?"><i class="fas fa-briefcase"></i> Upwork Enterprise</a></li>
-                    <li><a href="https://www.patreon.com/c/CYBERDUDEBIVASH"><i class="fab fa-patreon"></i> Support R&D</a></li>
-                </ul>
-                <p style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:20px;">
-                    <a href="mailto:bivash@cyberdudebivash.com" style="color:var(--accent);">bivash@cyberdudebivash.com</a><br>+91 8179881447</p>
+            <div class="soc-tools-grid">
+                <div class="soc-tool-chip"><span class="dot"></span> Splunk</div>
+                <div class="soc-tool-chip"><span class="dot"></span> Sentinel</div>
+                <div class="soc-tool-chip"><span class="dot"></span> QRadar</div>
+                <div class="soc-tool-chip"><span class="dot"></span> Elastic</div>
+                <div class="soc-tool-chip"><span class="dot"></span> MISP</div>
             </div>
         </div>
 
-        <div class="social-strip">
-            <a href="https://x.com/cyberbivash" class="social-link"><i class="fab fa-x-twitter"></i></a>
-            <a href="https://www.facebook.com/people/Cyberdudebivash-Pvt-Ltd/61583373732736/" class="social-link"><i class="fab fa-facebook"></i></a>
-            <a href="https://www.instagram.com/cyberdudebivash_official/" class="social-link"><i class="fab fa-instagram"></i></a>
-            <a href="https://bsky.app/profile/cyberdudebivash.bsky.social" class="social-link"><i class="fas fa-cloud"></i></a>
-            <a href="https://mastodon.social/@cyberdudebivash" class="social-link"><i class="fab fa-mastodon"></i></a>
-            <a href="https://www.reddit.com/user/Immediate_Gold9789/" class="social-link"><i class="fab fa-reddit"></i></a>
-            <a href="https://github.com/cyberdudebivash" class="social-link"><i class="fab fa-github"></i></a>
+        <div class="risk-donut-section" id="risk-donut-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin:0;">Risk Distribution</p>
+            </div>
+            <div class="risk-donut-wrap">
+                <svg id="risk-donut-svg" width="120" height="120" viewBox="0 0 120 120"></svg>
+                <div class="donut-legend" id="donut-legend"></div>
+            </div>
         </div>
 
-        <section style="padding:40px 0 0 0;border-top:1px solid var(--border);">
+        <div class="mitre-heatmap-section" id="mitre-heatmap-section">
+            <div class="mitre-heatmap-title"><span>⚔ MITRE ATT&CK Heatmap</span></div>
+            <div class="heatmap-grid" id="mitre-heatmap-grid"></div>
+        </div>
+
+        <div class="source-bar-section" id="source-bar-section">
+            <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin:0 0 16px 0;">Source Breakdown</p>
+            <div id="source-bar-inner"></div>
+        </div>
+
+        <section style="padding:40px 0;border-top:1px solid var(--border); margin-top: 40px;">
             <div style="text-align:center;margin-bottom:32px;">
                 <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:4px;text-transform:uppercase;margin:0 0 10px 0;">PLATFORM ROI</p>
                 <h2 style="color:var(--white);font-size:26px;font-weight:900;letter-spacing:-1px;margin:0 0 10px 0;">Measurable Security Value</h2>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;max-width:900px;margin:0 auto 40px auto;">
-                <div class="roi-block">
-                    <div class="roi-stat">72%</div>
-                    <div class="roi-label">FASTER THREAT TRIAGE<br>VS MANUAL ANALYSIS</div>
-                </div>
-                <div class="roi-block">
-                    <div class="roi-stat">6h</div>
-                    <div class="roi-label">AUTO-SYNC INTERVAL<br>LIVE INTEL PIPELINE</div>
-                </div>
-                <div class="roi-block">
-                    <div class="roi-stat">99%</div>
-                    <div class="roi-label">STIX 2.1 SPEC<br>COMPLIANCE RATE</div>
-                </div>
-                <div class="roi-block">
-                    <div class="roi-stat">30s</div>
-                    <div class="roi-label">SOC INTEGRATION<br>SETUP TIME</div>
-                </div>
-            </div>
-
-            <div style="max-width:900px;margin:0 auto 40px auto;">
-                <p style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:3px;text-transform:uppercase;margin:0 0 12px 0;">COMPLIANCE ALIGNMENT</p>
-                <div class="compliance-strip">
-                    <span class="compliance-badge">ISO 27001</span>
-                    <span class="compliance-badge">SOC 2 Type II</span>
-                    <span class="compliance-badge">NIST CSF</span>
-                    <span class="compliance-badge">MITRE ATT&CK</span>
-                    <span class="compliance-badge">STIX 2.1</span>
-                    <span class="compliance-badge">TAXII 2.1</span>
-                    <span class="compliance-badge">TLP v2.0</span>
-                    <span class="compliance-badge">GDPR Ready</span>
-                </div>
-            </div>
-
-            <div style="max-width:900px;margin:0 auto;">
-                <p style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:3px;text-transform:uppercase;margin:0 0 16px 0;">WHAT ANALYSTS SAY</p>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
-                    <div class="testimonial-card">
-                        <div class="testimonial-stars">★★★★★</div>
-                        <div class="testimonial-text">"The STIX 2.1 export and MITRE ATT&CK heatmap reduced our morning threat briefing from 2 hours to 20 minutes. The risk scoring is surgical."</div>
-                        <div class="testimonial-author">SOC LEAD · <span class="testimonial-role">MID-MARKET FINTECH, INDIA</span></div>
-                    </div>
-                    <div class="testimonial-card" style="border-left-color:var(--purple);">
-                        <div class="testimonial-stars">★★★★★</div>
-                        <div class="testimonial-text">"Downloaded the SIGMA rules from the Defense Kit — they fired within the first 24 hours on our Splunk environment. Immediate value."</div>
-                        <div class="testimonial-author">THREAT ANALYST · <span class="testimonial-role">ENTERPRISE MSSP, GLOBAL</span></div>
-                    </div>
-                    <div class="testimonial-card" style="border-left-color:var(--high);">
-                        <div class="testimonial-stars">★★★★★</div>
-                        <div class="testimonial-text">"EPSS + KEV scoring combination is exactly what we needed for vulnerability prioritization. Better signal-to-noise than most paid TI platforms."</div>
-                        <div class="testimonial-author">VULN RESEARCHER · <span class="testimonial-role">SECURITY CONSULTANCY, APAC</span></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="subscribe" style="padding:60px 0 40px 0;border-top:1px solid var(--border);">
-            <div style="max-width:560px;margin:0 auto;text-align:center;">
-                <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:4px;text-transform:uppercase;margin:0 0 12px 0;">FREE THREAT ALERTS</p>
-                <h2 style="color:var(--white);font-size:28px;font-weight:900;letter-spacing:-1px;margin:0 0 12px 0;">Get Critical Threats Delivered Weekly</h2>
-                <p style="color:var(--text-muted);font-size:14px;line-height:1.7;margin:0 0 28px 0;">
-                    Join security professionals receiving CyberDudeBivash weekly threat digests — top 5 threats, IOC summaries, detection recommendations. Free forever.
-                </p>
-                <form action="https://formspree.io/f/bivash@cyberdudebivash.com" method="POST"
-                      style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;"
-                      onsubmit="handleSubscribe(event)">
-                    <input type="email" name="email" placeholder="your@email.com" required
-                           style="flex:1;min-width:240px;padding:13px 18px;background:var(--bg-surface);
-                                  color:var(--white);border:1px solid var(--border);border-radius:4px;
-                                  font-family:var(--font-mono);font-size:12px;outline:none;"
-                           onfocus="this.style.borderColor='var(--accent)'"
-                           onblur="this.style.borderColor='var(--border)'">
-                    <input type="hidden" name="_subject" value="New CyberDudeBivash Subscriber">
-                    <input type="hidden" name="source" value="intel-dashboard">
-                    <button type="submit"
-                            style="padding:13px 26px;background:var(--accent);color:var(--bg);
-                                   border:none;border-radius:4px;font-family:var(--font-mono);
-                                   font-size:12px;font-weight:900;letter-spacing:1px;cursor:pointer;">
-                        SUBSCRIBE FREE →
-                    </button>
-                </form>
-                <p id="subscribe-msg" style="display:none;color:var(--accent);font-family:var(--font-mono);font-size:11px;margin-top:12px;letter-spacing:1px;">✅ SUBSCRIBED — FIRST DIGEST INCOMING</p>
-                <p style="color:var(--text-muted);font-size:11px;margin-top:14px;font-family:var(--font-mono);letter-spacing:1px;">NO SPAM · UNSUBSCRIBE ANYTIME · WEEKLY ONLY</p>
+                <div class="roi-block"><div class="roi-stat">72%</div><div class="roi-label">FASTER THREAT TRIAGE</div></div>
+                <div class="roi-block"><div class="roi-stat">6h</div><div class="roi-label">AUTO-SYNC INTERVAL</div></div>
+                <div class="roi-block"><div class="roi-stat">99%</div><div class="roi-label">STIX 2.1 COMPLIANCE</div></div>
+                <div class="roi-block"><div class="roi-stat">30s</div><div class="roi-label">SOC INTEGRATION TIME</div></div>
             </div>
         </section>
 
@@ -1449,11 +1064,10 @@ level: critical</pre>
             <div style="text-align:center;margin-bottom:40px;">
                 <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:4px;text-transform:uppercase;margin:0 0 12px 0;">SERVICE TIERS</p>
                 <h2 style="color:var(--white);font-size:32px;font-weight:900;letter-spacing:-1.5px;margin:0 0 12px 0;">Intelligence For Every Mission</h2>
-                <p style="color:var(--text-muted);font-size:14px;max-width:500px;margin:0 auto;">From free threat feeds to full enterprise SOC integration — CyberDudeBivash has a tier for your security program.</p>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:1000px;margin:0 auto;">
-
-                <div style="background:var(--bg-card);border:1px solid var(--border);padding:28px 24px;position:relative;overflow:hidden;">
+                
+                <div style="background:var(--bg-card);border:1px solid var(--border);padding:28px 24px;position:relative;">
                     <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--text-muted);"></div>
                     <p style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:3px;margin:0 0 14px 0;">FREE TIER</p>
                     <p style="font-size:32px;font-weight:900;color:var(--white);margin:0 0 4px 0;">$0</p>
@@ -1461,19 +1075,12 @@ level: critical</pre>
                     <ul style="list-style:none;padding:0;margin:0 0 24px 0;color:var(--text);font-size:13px;line-height:2;">
                         <li>✓ Live threat dashboard</li>
                         <li>✓ Latest 10 threat reports</li>
-                        <li>✓ Public IOC summaries</li>
                         <li>✓ Weekly digest emails</li>
-                        <li>✓ MITRE ATT&amp;CK mapping</li>
                     </ul>
-                    <a href="https://cyberbivash.blogspot.com" target="_blank"
-                       style="display:block;text-align:center;padding:11px;background:var(--bg-surface);
-                              color:var(--accent);border:1px solid var(--accent);border-radius:4px;
-                              font-family:var(--font-mono);font-size:11px;font-weight:700;text-decoration:none;">
-                        ACCESS FREE FEED →
-                    </a>
+                    <a href="https://cyberbivash.blogspot.com" target="_blank" style="display:block;text-align:center;padding:11px;background:var(--bg-surface);color:var(--accent);border:1px solid var(--accent);border-radius:4px;font-family:var(--font-mono);font-size:11px;font-weight:700;text-decoration:none;">ACCESS FREE FEED →</a>
                 </div>
 
-                <div style="background:var(--bg-card);border:1px solid var(--accent);padding:28px 24px;position:relative;overflow:hidden;">
+                <div style="background:var(--bg-card);border:1px solid var(--accent);padding:28px 24px;position:relative;">
                     <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);"></div>
                     <div style="position:absolute;top:14px;right:14px;background:var(--accent);color:var(--bg);font-family:var(--font-mono);font-size:8px;font-weight:900;letter-spacing:1px;padding:3px 8px;border-radius:2px;">POPULAR</div>
                     <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:3px;margin:0 0 14px 0;">PRO DEFENSE</p>
@@ -1482,173 +1089,23 @@ level: critical</pre>
                     <ul style="list-style:none;padding:0;margin:0 0 24px 0;color:var(--text);font-size:13px;line-height:2;">
                         <li>✓ SIGMA detection rules</li>
                         <li>✓ YARA signatures</li>
-                        <li>✓ IR playbook (PDF)</li>
-                        <li>✓ Remediation scripts</li>
                         <li>✓ STIX 2.1 bundle</li>
                     </ul>
-                    <a href="https://cyberdudebivash.gumroad.com/?utm_source=intel-dashboard&utm_medium=pricing-section&utm_campaign=pro-tier"
-                       target="_blank"
-                       style="display:block;text-align:center;padding:11px;
-                              background:linear-gradient(135deg,var(--accent),#00b891);
-                              color:var(--bg);border-radius:4px;
-                              font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;">
-                        BUY DEFENSE KIT →
-                    </a>
+                    <a href="https://cyberdudebivash.gumroad.com" target="_blank" style="display:block;text-align:center;padding:11px;background:linear-gradient(135deg,var(--accent),#00b891);color:var(--bg);border-radius:4px;font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;">BUY DEFENSE KIT →</a>
                 </div>
 
-                <div style="background:var(--bg-card);border:1px solid #8b5cf6;padding:28px 24px;position:relative;overflow:hidden;">
-                    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:#8b5cf6;"></div>
-                    <p style="font-family:var(--font-mono);font-size:9px;color:#8b5cf6;letter-spacing:3px;margin:0 0 14px 0;">ENTERPRISE</p>
-                    <p style="font-size:32px;font-weight:900;color:var(--white);margin:0 0 4px 0;">Custom</p>
+                <div style="background:var(--bg-card);border:1px solid #ffd700;padding:28px 24px;position:relative; box-shadow: 0 0 30px rgba(255,215,0,0.1);">
+                    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:#ffd700;"></div>
+                    <p style="font-family:var(--font-mono);font-size:9px;color:#ffd700;letter-spacing:3px;margin:0 0 14px 0;">APEX SOVEREIGN</p>
+                    <p style="font-size:32px;font-weight:900;color:var(--white);margin:0 0 4px 0;">$25k<span style="font-size:14px;font-weight:400;color:var(--text-muted);">/mo</span></p>
                     <p style="color:var(--text-muted);font-size:12px;font-family:var(--font-mono);margin:0 0 20px 0;">ANNUAL CONTRACT</p>
                     <ul style="list-style:none;padding:0;margin:0 0 24px 0;color:var(--text);font-size:13px;line-height:2;">
                         <li>✓ Full API access + auth</li>
-                        <li>✓ Unlimited STIX exports</li>
-                        <li>✓ Dedicated analyst support</li>
-                        <li>✓ Custom threat monitoring</li>
-                        <li>✓ SOC integration support</li>
+                        <li>✓ Live eBPF Mesh Telemetry</li>
+                        <li>✓ AI Auto-Healing (SOAR)</li>
+                        <li>✓ Purple Swarm Testing</li>
                     </ul>
-                    <a href="mailto:bivash@cyberdudebivash.com?subject=Enterprise%20Custom%20Plan%20Inquiry" style="display:block;text-align:center;padding:11px;
-                              background:linear-gradient(135deg,#8b5cf6,#7c3aed);
-                              color:var(--white);border-radius:4px;
-                              font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;">
-                        CONTACT US →
-                    </a>
-                </div>
-            </div>
-        </section>
-
-        <section id="products" style="padding:60px 0;border-top:1px solid var(--border);">
-            <div style="text-align:center;margin-bottom:36px;">
-                <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:4px;text-transform:uppercase;margin:0 0 12px 0;">GUMROAD STORE</p>
-                <h2 style="color:var(--white);font-size:28px;font-weight:900;letter-spacing:-1px;margin:0 0 10px 0;">Defense Kits & Tools</h2>
-                <p style="color:var(--text-muted);font-size:14px;margin:0;">Production-ready cybersecurity assets, downloadable instantly.</p>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-                <a href="https://cyberdudebivash.gumroad.com/l/pwynns?utm_source=intel-dashboard&utm_medium=products-section" target="_blank"
-                   style="background:var(--bg-card);border:1px solid var(--border);padding:20px;text-decoration:none;display:block;transition:0.2s;position:relative;"
-                   onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-                    <span class="kit-updated-badge">✓ UPDATED THIS WEEK</span>
-                    <p style="font-family:var(--font-mono);font-size:8px;color:var(--accent);letter-spacing:2px;margin:0 0 8px 0;">VULNERABILITY</p>
-                    <p style="color:var(--white);font-size:14px;font-weight:700;margin:0 0 6px 0;">CVE Defense Kit</p>
-                    <p style="color:var(--text-muted);font-size:12px;margin:0 0 8px 0;line-height:1.5;">SIGMA + YARA + IR playbook for critical CVEs</p>
-                    <p style="color:var(--text-muted);font-size:11px;font-family:var(--font-mono);margin:0 0 10px 0;background:rgba(0,212,170,0.04);padding:6px 10px;border-left:2px solid var(--accent);">INCLUDES: 5 SIGMA rules + YARA sigs + remediation playbook PDF</p>
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <span class="kit-analyst-count"><i class="fas fa-users" style="color:var(--accent);font-size:9px;"></i> 340+ analysts deployed</span>
-                        <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent);">GET KIT →</span>
-                    </div>
-                </a>
-                <a href="https://cyberdudebivash.gumroad.com/l/ytqra?utm_source=intel-dashboard&utm_medium=products-section" target="_blank"
-                   style="background:var(--bg-card);border:1px solid var(--border);padding:20px;text-decoration:none;display:block;transition:0.2s;position:relative;"
-                   onmouseover="this.style.borderColor='#ea580c'" onmouseout="this.style.borderColor='var(--border)'">
-                    <span class="kit-updated-badge" style="border-color:rgba(234,88,12,0.3);color:#ea580c;background:rgba(234,88,12,0.06);">✓ UPDATED THIS WEEK</span>
-                    <p style="font-family:var(--font-mono);font-size:8px;color:#ea580c;letter-spacing:2px;margin:0 0 8px 0;">MALWARE</p>
-                    <p style="color:var(--white);font-size:14px;font-weight:700;margin:0 0 6px 0;">Malware Response Pack</p>
-                    <p style="color:var(--text-muted);font-size:12px;margin:0 0 8px 0;line-height:1.5;">Detection rules + automated triage scripts</p>
-                    <p style="color:var(--text-muted);font-size:11px;font-family:var(--font-mono);margin:0 0 10px 0;background:rgba(234,88,12,0.04);padding:6px 10px;border-left:2px solid #ea580c;">INCLUDES: IOC block lists + YARA family sigs + triage runbook</p>
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <span class="kit-analyst-count"><i class="fas fa-users" style="color:var(--accent);font-size:9px;"></i> 210+ analysts deployed</span>
-                        <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent);">GET PACK →</span>
-                    </div>
-                </a>
-                <a href="https://cyberdudebivash.gumroad.com/l/yrjznw?utm_source=intel-dashboard&utm_medium=products-section" target="_blank"
-                   style="background:var(--bg-card);border:1px solid var(--border);padding:20px;text-decoration:none;display:block;transition:0.2s;"
-                   onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-                    <p style="font-family:var(--font-mono);font-size:8px;color:#3b82f6;letter-spacing:2px;margin:0 0 8px 0;">DATA BREACH</p>
-                    <p style="color:var(--white);font-size:14px;font-weight:700;margin:0 0 6px 0;">Breach Response Kit</p>
-                    <p style="color:var(--text-muted);font-size:12px;margin:0 0 12px 0;line-height:1.5;">IR templates + containment scripts + report</p>
-                    <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent);">GET KIT →</span>
-                </a>
-                <a href="https://cyberdudebivash.gumroad.com/?utm_source=intel-dashboard&utm_medium=products-section" target="_blank"
-                   style="background:var(--bg-surface);border:1px dashed var(--border);padding:20px;text-decoration:none;display:block;
-                          display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;"
-                   onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-                    <p style="color:var(--text-muted);font-size:12px;margin:0 0 8px 0;font-family:var(--font-mono);">VIEW ALL PRODUCTS</p>
-                    <span style="font-size:22px;color:var(--accent);">→</span>
-                </a>
-            </div>
-        </section>
-
-        <section id="contact" style="padding:60px 0;border-top:1px solid var(--border);">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start;max-width:900px;margin:0 auto;">
-                <div>
-                    <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:4px;text-transform:uppercase;margin:0 0 14px 0;">ENTERPRISE INQUIRIES</p>
-                    <h2 style="color:var(--white);font-size:26px;font-weight:900;letter-spacing:-1px;margin:0 0 14px 0;">Ready to Secure Your Organization?</h2>
-                    <p style="color:var(--text-muted);font-size:14px;line-height:1.7;margin:0 0 16px 0;">
-                        Custom threat monitoring, SOC integration, API access and enterprise consulting available. We work directly with security teams across India and globally.
-                    </p>
-                    <div class="enterprise-trust-row">
-                        <div class="enterprise-trust-badge"><i class="fas fa-clock"></i> 24/7 SOC Support</div>
-                        <div class="enterprise-trust-badge"><i class="fas fa-file-signature"></i> NDA Friendly</div>
-                        <div class="enterprise-trust-badge"><i class="fas fa-handshake"></i> SLA Available</div>
-                        <div class="enterprise-trust-badge"><i class="fas fa-globe"></i> Global Delivery</div>
-                    </div>
-                    <div class="compliance-strip" style="margin-bottom:16px;">
-                        <span class="compliance-badge">ISO 27001 Aligned</span>
-                        <span class="compliance-badge">NIST CSF</span>
-                        <span class="compliance-badge">SOC 2 Ready</span>
-                    </div>
-                    <div style="display:flex;flex-direction:column;gap:12px;">
-                        <a href="mailto:bivash@cyberdudebivash.com" style="display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-size:13px;">
-                            <i class="fas fa-envelope" style="color:var(--accent);width:16px;"></i>
-                            <span>bivash@cyberdudebivash.com</span>
-                        </a>
-                        <a href="https://wa.me/918179881447" target="_blank"
-                           style="display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-size:13px;">
-                            <i class="fab fa-whatsapp" style="color:#25d366;width:16px;"></i>
-                            WhatsApp: +91 8179881447
-                        </a>
-                        <a href="https://www.upwork.com/freelancers/~010d4dde1657fa5619" target="_blank"
-                           style="display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-size:13px;">
-                            <i class="fas fa-briefcase" style="color:var(--accent);width:16px;"></i>
-                            Hire on Upwork
-                        </a>
-                        <a href="https://www.fiverr.com/users/bivashkumar007" target="_blank"
-                           style="display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-size:13px;">
-                            <i class="fas fa-star" style="color:#1dbf73;width:16px;"></i>
-                            Order on Fiverr
-                        </a>
-                    </div>
-                </div>
-                <div style="background:var(--bg-card);border:1px solid var(--border);padding:28px;">
-                    <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:3px;text-transform:uppercase;margin:0 0 16px 0;">QUICK INQUIRY</p>
-                    <form action="https://formspree.io/f/bivash@cyberdudebivash.com" method="POST">
-                        <input type="hidden" name="_subject" value="Enterprise Inquiry from intel.cyberdudebivash.com">
-                        <input type="hidden" name="source" value="enterprise-contact-form">
-                        <input type="text" name="name" placeholder="Your Name" required
-                               style="width:100%;padding:10px 14px;margin-bottom:10px;background:var(--bg-surface);
-                                      color:var(--white);border:1px solid var(--border);border-radius:3px;
-                                      font-family:var(--font-mono);font-size:12px;box-sizing:border-box;outline:none;"
-                               onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-                        <input type="email" name="email" placeholder="Work Email" required
-                               style="width:100%;padding:10px 14px;margin-bottom:10px;background:var(--bg-surface);
-                                      color:var(--white);border:1px solid var(--border);border-radius:3px;
-                                      font-family:var(--font-mono);font-size:12px;box-sizing:border-box;outline:none;"
-                               onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-                        <select name="inquiry_type"
-                                style="width:100%;padding:10px 14px;margin-bottom:10px;background:var(--bg-surface);
-                                       color:var(--text);border:1px solid var(--border);border-radius:3px;
-                                       font-family:var(--font-mono);font-size:12px;box-sizing:border-box;">
-                            <option value="">Select Inquiry Type</option>
-                            <option value="api-access">API Access</option>
-                            <option value="soc-integration">SOC Integration</option>
-                            <option value="threat-monitoring">Custom Threat Monitoring</option>
-                            <option value="consulting">Security Consulting</option>
-                            <option value="partnership">Partnership</option>
-                        </select>
-                        <textarea name="message" placeholder="Brief description of your needs..." rows="3"
-                                  style="width:100%;padding:10px 14px;margin-bottom:14px;background:var(--bg-surface);
-                                         color:var(--white);border:1px solid var(--border);border-radius:3px;
-                                         font-family:var(--font-mono);font-size:12px;box-sizing:border-box;
-                                         resize:vertical;outline:none;"
-                                  onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
-                        <button type="submit"
-                                style="width:100%;padding:12px;background:var(--accent);color:var(--bg);
-                                       border:none;border-radius:3px;font-family:var(--font-mono);
-                                       font-size:12px;font-weight:900;letter-spacing:1px;cursor:pointer;">
-                            SEND INQUIRY →
-                        </button>
-                    </form>
+                    <a href="mailto:bivash@cyberdudebivash.com" style="display:block;text-align:center;padding:11px;background:linear-gradient(135deg,#ffd700,#d4af37);color:#000;border-radius:4px;font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;">CONTACT SALES →</a>
                 </div>
             </div>
         </section>
@@ -1660,28 +1117,32 @@ level: critical</pre>
 
     <script>
         // ═══════════════════════════════════════════════════════
-        // SENTINEL APEX v30.0 ULTRA — INTELLIGENCE DASHBOARD ENGINE
+        // CYBERDUDEBIVASH APEX v30.0 CORE LOGIC
         // ═══════════════════════════════════════════════════════
-
-        // ── Tab Switching Logic (v30.0) ──
+        
+        // ── Tab Switching Logic ──
         function switchTab(tabId, btn) {
+            // Update buttons
             document.querySelectorAll('.nav-chip').forEach(b => b.classList.remove('active'));
             if(btn) btn.classList.add('active');
 
+            // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.style.display = 'none';
                 tab.classList.remove('active');
             });
 
+            // Show selected tab
             const target = document.getElementById(tabId + '-tab');
             if (target) {
                 target.style.display = 'block';
-                void target.offsetWidth; // Trigger reflow
+                // Trigger reflow for animation
+                void target.offsetWidth;
                 target.classList.add('active');
             }
         }
 
-        // ── Purple Swarm BAS Download Logic (v30.0) ──
+        // ── Purple Swarm BAS Download Logic ──
         function downloadBAS(filename) {
             const content = `@echo off\n:: CYBERDUDEBIVASH APEX - PURPLE SWARM BAS\necho [APEX] Running Safe Simulation for ${filename}...\nping 127.0.0.1 -n 1 > nul\necho [APEX] Simulation Complete. Check SIEM.\npause`;
             const blob = new Blob([content], { type: 'text/plain' });
@@ -1696,1087 +1157,166 @@ level: critical</pre>
             showToast(`✓ Downloaded Safe BAS Script for ${filename}`, 'info');
         }
 
-        // ── Watchlist Management ──
+        // ── Legacy Variables & Data Source ──
         let watchlist = JSON.parse(localStorage.getItem('cdb_watchlist') || '[]');
-
-        // ── Threat Registry — XSS-safe modal dispatch ──
-        const threatRegistry = new Map(); // stix_id → item object
-
-        function saveWatchlist() {
-            try { localStorage.setItem('cdb_watchlist', JSON.stringify(watchlist)); } catch(e) {}
-            updateWatchlistBadge();
-        }
-
-        function addToWatchlist(item) {
-            if (!watchlist.find(w => w.stix_id === item.stix_id)) {
-                watchlist.push(item);
-                saveWatchlist();
-                renderWatchlistItems();
-                showToast('⭐ Added to Watchlist: ' + item.title.slice(0, 48), 'info');
-                document.getElementById('watchlist-fab').style.display = 'flex';
-            }
-        }
-
-        function removeFromWatchlist(stix_id) {
-            watchlist = watchlist.filter(w => w.stix_id !== stix_id);
-            saveWatchlist();
-            renderWatchlistItems();
-            // Update btn state in grid
-            document.querySelectorAll('.watchlist-btn').forEach(btn => {
-                if (btn.dataset.stixId === stix_id) {
-                    btn.classList.remove('watching');
-                    btn.innerHTML = '<i class="fas fa-star"></i> WATCH';
-                }
-            });
-        }
-
-        function clearWatchlist() {
-            watchlist = [];
-            saveWatchlist();
-            renderWatchlistItems();
-            document.querySelectorAll('.watchlist-btn').forEach(btn => {
-                btn.classList.remove('watching');
-                btn.innerHTML = '<i class="fas fa-star"></i> WATCH';
-            });
-        }
-
-        function toggleWatchlistItem(item, btn) {
-            const existing = watchlist.find(w => w.stix_id === item.stix_id);
-            if (existing) {
-                removeFromWatchlist(item.stix_id);
-                btn.classList.remove('watching');
-                btn.innerHTML = '<i class="fas fa-star"></i> WATCH';
-            } else {
-                addToWatchlist(item);
-                btn.classList.add('watching');
-                btn.innerHTML = '<i class="fas fa-star" style="color:#f59e0b;"></i> WATCHING';
-                document.getElementById('watchlist-fab').style.display = 'flex';
-            }
-        }
-
-        function toggleWatchlist() {
-            const panel = document.getElementById('watchlist-panel');
-            if (panel.classList.contains('open')) {
-                closeWatchlist();
-            } else {
-                openWatchlist();
-            }
-        }
-
-        function openWatchlist() {
-            const panel = document.getElementById('watchlist-panel');
-            panel.classList.add('open');
-            renderWatchlistItems();
-        }
-
-        function closeWatchlist() {
-            document.getElementById('watchlist-panel').classList.remove('open');
-        }
-
-        function renderWatchlistItems() {
-            const container = document.getElementById('watchlist-items');
-            const countEl = document.getElementById('watchlist-item-count');
-            if (!container) return;
-            if (countEl) countEl.textContent = watchlist.length;
-            if (!watchlist.length) {
-                container.innerHTML = '<div class="watchlist-empty"><div style="font-size:28px;margin-bottom:12px;">⭐</div>NO ADVISORIES IN WATCHLIST<br><span style="font-size:9px;">CLICK ⭐ WATCH ON ANY ADVISORY CARD</span></div>';
-                return;
-            }
-            container.innerHTML = watchlist.map(item => {
-                const sev = getSeverity(item.risk_score, item);
-                const sevColor = getSevColor(sev);
-                return `<div class="watchlist-item">
-                    <div class="watchlist-item-title">${item.title}</div>
-                    <div class="watchlist-item-meta">
-                        <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
-                        <span style="font-family:var(--font-mono);font-size:9px;color:${sevColor};">RISK ${item.risk_score}/10</span>
-                        <a href="${item.blog_url}" target="_blank" style="font-family:var(--font-mono);font-size:9px;color:var(--accent);">VIEW →</a>
-                        <button class="watchlist-remove" onclick="removeFromWatchlist('${item.stix_id}')">REMOVE</button>
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        function updateWatchlistBadge() {
-            const badge = document.getElementById('watchlist-count-badge');
-            if (badge) {
-                badge.textContent = watchlist.length;
-                badge.style.display = watchlist.length > 0 ? 'flex' : 'none';
-            }
-            const fab = document.getElementById('watchlist-fab');
-            if (fab) fab.style.display = watchlist.length > 0 ? 'flex' : 'none';
-        }
-
-        // ── AI Engine Modal ──
-        function openAIModal() {
-            document.getElementById('ai-engine-modal').classList.add('open');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeAIModal() {
-            document.getElementById('ai-engine-modal').classList.remove('open');
-            document.body.style.overflow = '';
-        }
-
-        // ── Animated Metric Counters ──
-        function animateCounter(el, target, duration = 1200) {
-            if (!el || isNaN(parseFloat(target))) return;
-            const isDecimal = String(target).includes('.');
-            const targetNum = parseFloat(target);
-            const start = Date.now();
-            const update = () => {
-                const elapsed = Date.now() - start;
-                const progress = Math.min(elapsed / duration, 1);
-                const eased = 1 - Math.pow(1 - progress, 3);
-                const current = targetNum * eased;
-                el.textContent = isDecimal ? current.toFixed(1) : Math.round(current);
-                if (progress < 1) requestAnimationFrame(update);
-                else el.textContent = isDecimal ? targetNum.toFixed(1) : targetNum;
-            };
-            requestAnimationFrame(update);
-        }
-
-        function animateAllMetrics() {
-            const ids = ['m-total', 'm-critical', 'm-high', 'm-avg-risk', 'm-iocs', 'm-kev'];
-            ids.forEach(id => {
-                const el = document.getElementById(id);
-                if (el && el.textContent !== '—' && !isNaN(parseFloat(el.textContent))) {
-                    const val = el.textContent;
-                    animateCounter(el, parseFloat(val));
-                }
-            });
-        }
-
-        // ── Trend Range Control ──
-        let trendRange = 10;
-
-        function setTrendRange(n, btn) {
-            trendRange = n;
-            document.querySelectorAll('.trend-range-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            renderTrendChart(manifestData);
-        }
-
-        // ── MITRE Tactic Group Mapping ──
-        const MITRE_TACTIC_GROUPS = {
-            'Initial Access': ['T1190', 'T1133', 'T1078', 'T1566', 'T1195', 'T1199'],
-            'Execution': ['T1059', 'T1053', 'T1204', 'T1569', 'T1203'],
-            'Persistence': ['T1542', 'T1098', 'T1136', 'T1505'],
-            'Privilege Escalation': ['T1068', 'T1134', 'T1055'],
-            'Defense Evasion': ['T1036', 'T1055', 'T1027', 'T1070', 'T1562'],
-            'Credential Access': ['T1555', 'T1003', 'T1110', 'T1552'],
-            'Discovery': ['T1082', 'T1083', 'T1046', 'T1016'],
-            'Lateral Movement': ['T1021', 'T1534'],
-            'Collection': ['T1560', 'T1005', 'T1056'],
-            'Exfiltration': ['T1048', 'T1041', 'T1020'],
-            'Impact': ['T1486', 'T1490', 'T1498', 'T1489'],
-        };
-
-        function getTacticGroup(techId) {
-            const base = techId.split('.')[0];
-            for (const [group, techs] of Object.entries(MITRE_TACTIC_GROUPS)) {
-                if (techs.includes(base)) return group;
-            }
-            return 'Other';
-        }
-
-        // ── Source Trust Scoring ──
-        const SOURCE_TRUST_SCORES = {
-            'cvefeed.io': { score: 85, label: 'HIGH', color: '#16a34a' },
-            'nvd.nist.gov': { score: 99, label: 'VERIFIED', color: '#00d4aa' },
-            'cisa.gov': { score: 99, label: 'GOV', color: '#00d4aa' },
-            'exploit-db.com': { score: 82, label: 'HIGH', color: '#16a34a' },
-            'github.com': { score: 70, label: 'MED', color: '#d97706' },
-            'vulhub.org': { score: 72, label: 'MED', color: '#d97706' },
-        };
-
-        function getSourceTrust(src) {
-            for (const [key, val] of Object.entries(SOURCE_TRUST_SCORES)) {
-                if (src.includes(key)) return val;
-            }
-            return { score: 60, label: 'STD', color: '#5a6578' };
-        }
-
-        // ── Curl Copy — API endpoint is subscriber-only, redirect to subscribe ──
-        function copyCurl() {
-            showToast('🔒 API endpoint provided to subscribers only — subscribe to receive your credentials', 'info', 4000);
-            setTimeout(() => {
-                window.open('https://cyberdudebivash.gumroad.com/?utm_source=intel-dashboard&utm_medium=api-curl-copy&utm_campaign=api-gate', '_blank');
-            }, 1200);
-        }
-
+        const threatRegistry = new Map();
         const RAW_MANIFEST = atob('aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2N5YmVyZHVkZWJpdmFzaC9DWUJFUkRVREVCSVZBU0gtVEhSRUFULUlOVEVMLVBMQVRGT1JNL21haW4vZGF0YS9zdGl4L2ZlZWRfbWFuaWZlc3QuanNvbg==');
-
         let manifestData = [];
         let currentFilter = 'all';
         let currentSort = 'newest';
         let searchQuery = '';
-        let autoRefreshTimer = null;
-        let autoRefreshCountdown = null;
-        const AUTO_REFRESH_INTERVAL = 30 * 60; // 30 minutes
 
-        // ── Subscribe form handler ──
-        function handleSubscribe(e) {
-            e.preventDefault();
-            const form = e.target;
-            const email = form.querySelector('input[type=email]').value;
-            fetch(form.action, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams(new FormData(form))
-            }).then(r => {
-                const msg = document.getElementById('subscribe-msg');
-                if (msg) { msg.style.display = 'block'; }
-                form.reset();
-            }).catch(() => {
-                window.location.href = 'mailto:bivash@cyberdudebivash.com?subject=Subscribe&body=Please%20add%20me%20to%20weekly%20digest:%20'+encodeURIComponent(email);
-            });
-        }
+        // ── Embedded Data Fallback ──
+        const EMBEDDED_INTEL = [{"title":"CVE-2026-1731 fuels ongoing attacks on BeyondTrust","stix_id":"bundle--3ddd4301","risk_score":10.0,"severity":"CRITICAL","tlp_label":"TLP:RED","actor_tag":"UNC-CDB-99","timestamp":"2026-02-23T14:31:22Z","kev_present":true,"epss_score":85}, {"title":"AI-powered campaign compromises FortiGate","stix_id":"bundle--f84c7c48","risk_score":8.4,"severity":"HIGH","tlp_label":"TLP:AMBER","actor_tag":"CDB-APT-28","timestamp":"2026-02-23T14:31:25Z","kev_present":false,"epss_score":45}];
 
-        // ── Severity Helpers ──
-        function getSeverity(score, item) {
-            if (item && item.severity) return item.severity;
-            if (score >= 8.5) return 'CRITICAL';
-            if (score >= 6.5) return 'HIGH';
-            if (score >= 4.0) return 'MEDIUM';
-            if (score >= 2.0) return 'LOW';
-            return 'INFO';
-        }
-
-        function getSevColor(sev) {
-            return { CRITICAL: 'var(--critical)', HIGH: 'var(--high)',
-                     MEDIUM: 'var(--medium)', LOW: 'var(--low)',
-                     INFO: 'var(--info)' }[sev] || 'var(--accent)';
-        }
-
-        function getTlpLabel(item) {
-            if (item.tlp_label) return item.tlp_label;
-            if (item.risk_score >= 9) return 'TLP:RED';
-            if (item.risk_score >= 7) return 'TLP:AMBER';
-            if (item.risk_score >= 4) return 'TLP:GREEN';
-            return 'TLP:CLEAR';
-        }
-
-        function getTlpColor(tlp) {
-            if (tlp.includes('RED')) return 'var(--tlp-red)';
-            if (tlp.includes('AMBER')) return 'var(--tlp-amber)';
-            if (tlp.includes('GREEN')) return 'var(--tlp-green)';
-            return 'var(--tlp-clear)';
-        }
-
-        function timeSince(ts) {
-            const d = new Date(ts);
-            const now = new Date();
-            const diff = Math.floor((now - d) / 1000);
-            if (diff < 60) return diff + 's ago';
-            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-            return Math.floor(diff / 86400) + 'd ago';
-        }
-
-        function isNew(ts) {
-            if (!ts) return false;
-            const hours = (Date.now() - new Date(ts)) / 3600000;
-            return hours < 6;
-        }
-
-        function extractCVEs(title) {
-            return [...(title || '').matchAll(/CVE-\d{4}-\d{4,7}/gi)].map(m => m[0].toUpperCase());
-        }
-
-        // ── Render Cards ──
-        function renderCards(data) {
-            data.forEach(item => { if (item.stix_id) threatRegistry.set(item.stix_id, item); });
-
-            const grid = document.getElementById('threat-grid');
-            if (!data.length) {
-                grid.innerHTML = '<div class="loading-state">No advisories match the current filter.</div>';
-                document.getElementById('search-count').textContent = '';
-                return;
+        // ── Core Boot ──
+        async function loadGOCIntel() {
+            const syncVal = document.getElementById('sync-val');
+            const integrityEl = document.getElementById('integrity-status');
+            try {
+                const response = await fetch(RAW_MANIFEST, { cache: 'no-cache' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                const entries = Array.isArray(data) ? data : (data.entries || []);
+                if (!entries.length) throw new Error('Empty manifest');
+                
+                manifestData = [...entries].reverse();
+                syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);">● LIVE</span>';
+                integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
+            } catch (err) {
+                console.info('[APEX] Network fetch failed, loading embedded cache:', err.message);
+                manifestData = [...EMBEDDED_INTEL];
+                syncVal.innerHTML = 'SYNC: <span style="color:var(--medium);">CACHE</span>';
+                integrityEl.innerHTML = '<span class="integrity-badge integrity-fail">⚡ EMBEDDED CACHE</span>';
             }
-
-            const query = searchQuery.toLowerCase().trim();
-            let filtered = data;
-            if (query) {
-                filtered = data.filter(item => {
-                    const text = [
-                        item.title, item.severity, item.actor_tag,
-                        item.tlp_label, item.feed_source,
-                        ...(item.mitre_tactics || []),
-                        ...extractCVEs(item.title),
-                    ].join(' ').toLowerCase();
-                    return text.includes(query);
-                });
-            }
-
-            if (query) {
-                const cnt = document.getElementById('search-count');
-                cnt.textContent = `${filtered.length} RESULT${filtered.length !== 1 ? 'S' : ''}`;
-            } else {
-                document.getElementById('search-count').textContent = '';
-            }
-
-            if (!filtered.length) {
-                grid.innerHTML = `<div class="loading-state">No results for "<strong>${query}</strong>"</div>`;
-                return;
-            }
-
-            grid.innerHTML = filtered.map(item => {
-                const sev = getSeverity(item.risk_score, item);
-                const sevColor = getSevColor(sev);
-                const tlp = getTlpLabel(item);
-                const tlpColor = getTlpColor(tlp);
-                const conf = item.confidence_score != null ? Math.round(item.confidence_score) : null;
-                const actor = item.actor_tag || 'UNC-CDB-99';
-                const ts = item.timestamp ? timeSince(item.timestamp) : '';
-                const isNewEntry = isNew(item.timestamp);
-                const cves = extractCVEs(item.title);
-
-                let iocChips = '';
-                if (item.ioc_counts) {
-                    const counts = item.ioc_counts;
-                    const chips = [];
-                    if (counts.ipv4) chips.push(`${counts.ipv4} IPs`);
-                    if (counts.domain) chips.push(`${counts.domain} Domains`);
-                    if (counts.sha256) chips.push(`${counts.sha256} Hashes`);
-                    if (counts.url) chips.push(`${counts.url} URLs`);
-                    if (counts.cve) chips.push(`${counts.cve} CVEs`);
-                    iocChips = chips.map(c => `<span class="ioc-chip">${c}</span>`).join('');
-                }
-
-                let mitreHtml = '';
-                const tactics = item.mitre_tactics || [];
-                if (tactics.length) {
-                    const tacticLinks = tactics.slice(0, 4).map(t => {
-                        const techId = typeof t === 'string' ? t : (t.technique_id || t.id || '');
-                        if (!techId) return '';
-                        const url = `https://attack.mitre.org/techniques/${techId.replace('.', '/')}/`;
-                        return `<a href="${url}" target="_blank" rel="noopener" class="mitre-chip" title="MITRE ATT&CK ${techId}">${techId}</a>`;
-                    }).filter(Boolean).join('');
-                    if (tacticLinks) mitreHtml = `<div class="mitre-strip">${tacticLinks}</div>`;
-                }
-
-                const exploitBadge = (item.exploit_available || (item.epss_score != null && item.epss_score >= 70) || item.kev_present)
-                    ? '<span class="badge badge-exploit">⚡ EXPLOIT AVAIL</span>' : '';
-                const patchBadge = (item.cvss_score != null && item.risk_score < 6)
-                    ? '<span class="badge badge-patch">✓ PATCH AVAIL</span>' : '';
-                const ransomBadge = (item.ransomware || (item.actor_tag && item.actor_tag.toLowerCase().includes('ransom')))
-                    ? '<span class="badge badge-ransomware">☠ RANSOMWARE</span>' : '';
-                const zeroDay = (item.zero_day || (item.kev_present && item.epss_score != null && item.epss_score >= 85))
-                    ? '<span class="badge badge-zerod">● 0-DAY</span>' : '';
-
-                const kevBadge = item.kev_present ? `<span class="badge badge-kev">⚡ CISA KEV</span>` : '';
-                const newBadge = isNewEntry ? `<span class="badge badge-new">● NEW</span>` : '';
-
-                let enrichHtml = '';
-                const enrichItems = [];
-                if (item.cvss_score != null) {
-                    const cvssColor = item.cvss_score >= 9 ? 'var(--critical)' : item.cvss_score >= 7 ? 'var(--high)' : item.cvss_score >= 4 ? 'var(--medium)' : 'var(--low)';
-                    enrichItems.push(`<span class="enrich-item">CVSS <span class="e-val" style="color:${cvssColor};">${item.cvss_score}</span></span>`);
-                }
-                if (item.epss_score != null) {
-                    const epssColor = item.epss_score >= 70 ? 'var(--critical)' : item.epss_score >= 40 ? 'var(--high)' : 'var(--text-muted)';
-                    enrichItems.push(`<span class="enrich-item">EPSS <span class="e-val" style="color:${epssColor};">${item.epss_score}%</span></span>`);
-                }
-                if (conf != null) {
-                    enrichItems.push(`<span class="enrich-item">CONF <span class="e-val">${conf}%</span></span>`);
-                }
-                if (item.feed_source) {
-                    const src = item.feed_source.replace(/https?:\/\/(www\.)?/, '').split('/')[0];
-                    enrichItems.push(`<span class="enrich-item" style="margin-left:auto;">SRC: <span class="e-val">${src}</span></span>`);
-                }
-                if (enrichItems.length) enrichHtml = `<div class="enrich-strip">${enrichItems.join('')}</div>`;
-
-                let nvdLink = '';
-                if (cves.length) {
-                    const nvdUrl = item.nvd_url || `https://nvd.nist.gov/vuln/detail/${cves[0]}`;
-                    nvdLink = `<a href="${nvdUrl}" target="_blank" rel="noopener"
-                                  style="font-family:var(--font-mono);font-size:9px;
-                                         color:var(--blue);letter-spacing:0.5px;
-                                         border-bottom:1px solid rgba(59,130,246,0.3);"
-                                  title="View on NVD">NVD ↗</a>`;
-                }
-
-                return `
-                <div class="intel-card sev-${sev.toLowerCase()}" data-severity="${sev}" data-score="${item.risk_score}" data-time="${item.timestamp || ''}" data-idx="${manifestData.indexOf ? manifestData.indexOf(item) : ''}">
-                    <div class="card-meta">
-                        <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
-                        <span class="badge badge-tlp" style="background:${tlpColor}22;color:${tlpColor};cursor:help;" title="${getTlpDescription(tlp)}">${tlp}</span>
-                        <span class="badge badge-accent">RISK ${item.risk_score}/10</span>
-                        ${kevBadge}
-                        ${exploitBadge}
-                        ${patchBadge}
-                        ${ransomBadge}
-                        ${zeroDay}
-                        ${newBadge}
-                        ${ts ? `<span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">${ts}</span>` : ''}
-                    </div>
-                    <div class="card-stix" style="cursor:pointer;" onclick="copyToClipboard('${item.stix_id||''}', this)" title="Click to copy STIX ID">STIX: ${item.stix_id ? item.stix_id.slice(0, 36) : '—'} • ${actor} <i class="fas fa-copy" style="font-size:9px;opacity:0.5;margin-left:4px;"></i></div>
-                    <h3 class="card-title js-open-modal" style="cursor:pointer;" data-stix-id="${item.stix_id||''}">${item.title}</h3>
-                    ${iocChips ? `<div class="card-ioc-strip">${iocChips}</div>` : ''}
-                    ${mitreHtml}
-                    ${enrichHtml}
-                    ${item.epss_score != null ? `<div class="epss-bar-wrap"><span class="epss-bar-label">EPSS RISK</span><div class="epss-bar-track"><div class="epss-bar-fill" style="width:${Math.min(item.epss_score,100)}%;background:${item.epss_score>=70?'var(--critical)':item.epss_score>=40?'var(--high)':'var(--accent)'};"></div></div><span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">${item.epss_score}%</span></div>` : ''}
-                    <div class="card-copy-strip">
-                        ${cves.map(cve => `<span class="copy-chip" onclick="copyToClipboard('${cve}',this)"><i class="fas fa-copy"></i>${cve}</span>`).join('')}
-                    </div>
-                    <div class="card-footer">
-                        <span class="card-score" style="color:${sevColor};">◆ ${item.risk_score}/10</span>
-                        <div style="display:flex;gap:12px;align-items:center;">
-                            ${nvdLink}
-                            <button class="js-open-modal" data-stix-id="${item.stix_id||''}"
-                                    style="background:none;border:none;padding:0;cursor:pointer;font-family:var(--font-mono);font-size:10px;color:var(--accent);letter-spacing:0.5px;">
-                                <i class="fas fa-expand-alt"></i> DETAILS
-                            </button>
-                            <a href="${item.blog_url}" target="_blank" rel="noopener" class="card-link">View Tactical Dossier →</a>
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        // ── Compute Metrics ──
-        function computeMetrics(data) {
-            const total = data.length;
-            const critical = data.filter(d => getSeverity(d.risk_score, d) === 'CRITICAL').length;
-            const high = data.filter(d => getSeverity(d.risk_score, d) === 'HIGH').length;
-            const medium = data.filter(d => getSeverity(d.risk_score, d) === 'MEDIUM').length;
-            const low = data.filter(d => getSeverity(d.risk_score, d) === 'LOW').length;
-            const kev = data.filter(d => d.kev_present).length;
-            const avgRisk = total ? (data.reduce((s, d) => s + d.risk_score, 0) / total).toFixed(1) : '—';
-            let totalIOCs = 0;
-            data.forEach(d => {
-                if (d.ioc_counts) totalIOCs += Object.values(d.ioc_counts).reduce((a, b) => a + b, 0);
-                if (d.indicator_count) totalIOCs += d.indicator_count;
-            });
-            let sortedData = [...data].sort((a, b) =>
-                new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
-             );
-            const lastTs = sortedData.length ? timeSince(sortedData[0].timestamp) : '—';
-
-            document.getElementById('m-total').textContent = total;
-            document.getElementById('m-critical').textContent = critical;
-            document.getElementById('m-high').textContent = high;
-            document.getElementById('m-avg-risk').textContent = avgRisk;
-            document.getElementById('m-iocs').textContent = totalIOCs || '—';
-            document.getElementById('m-last-sync').textContent = lastTs;
-            const kevEl = document.getElementById('m-kev');
-            if (kevEl) kevEl.textContent = kev;
-
-            setTimeout(animateAllMetrics, 200);
-
-            if (data.length >= 2) {
-                const times = data.filter(d => d.timestamp).map(d => new Date(d.timestamp).getTime()).sort((a,b)=>a-b);
-                if (times.length >= 2) {
-                    const hoursSpan = (times[times.length-1] - times[0]) / 3600000;
-                    if (hoursSpan > 0) {
-                        const rate = (data.length / hoursSpan).toFixed(1);
-                        const rateEl = document.getElementById('m-ingest-rate');
-                        const rateDisplay = document.getElementById('ingest-rate-display');
-                        if (rateEl) { rateEl.textContent = rate; }
-                        if (rateDisplay) rateDisplay.style.display = 'inline-flex';
-                    }
-                }
-            }
-
-            renderRiskDonut({ critical, high, medium, low });
-            renderMitreHeatmap(data);
-            renderSourceBreakdown(data);
-            renderTicker(data);
-        }
-
-        // ── Trend Chart ──
-        function renderTrendChart(data) {
-            const section = document.getElementById('trend-section');
-            const barsEl = document.getElementById('trend-bars');
-            if (!data.length) return;
-
-            const sorted = [...data].sort((a,b) => new Date(a.timestamp||0) - new Date(b.timestamp||0));
-            const n = trendRange === 50 ? sorted.length : Math.min(trendRange, sorted.length);
-            const recent = sorted.slice(-n);
-            const maxScore = Math.max(...recent.map(d => d.risk_score), 1);
-            const avgScore = recent.length ? (recent.reduce((s,d) => s + d.risk_score, 0) / recent.length).toFixed(1) : 0;
-
-            const sevMap = { CRITICAL: 'var(--critical)', HIGH: 'var(--high)', MEDIUM: 'var(--medium)', LOW: 'var(--low)', INFO: 'var(--info)' };
-
-            barsEl.innerHTML = recent.map(d => {
-                const sev = getSeverity(d.risk_score, d);
-                const color = sevMap[sev] || 'var(--accent)';
-                const pct = Math.max((d.risk_score / maxScore) * 100, 5);
-                const label = d.title.slice(0, 40) + (d.title.length > 40 ? '…' : '');
-                const ts = d.timestamp ? new Date(d.timestamp).toLocaleDateString() : '';
-                return `<div class="trend-bar" style="height:${pct}%;background:${color};opacity:0.75;cursor:pointer;"
-                             title="${label}&#10;Risk: ${d.risk_score}/10 · ${sev}&#10;${ts}"
-                             class="js-open-modal" data-stix-id="${d.stix_id||''}"></div>`;
-            }).join('');
-
-            const avgEl = document.getElementById('trend-avg-label');
-            if (avgEl) avgEl.textContent = `AVG RISK: ${avgScore} / 10 (${recent.length} advisories)`;
-
-            section.style.display = 'block';
-        }
-
-        // ── Filter & Sort ──
-        function filterCards(sev, btn) {
-            currentFilter = sev;
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            
+            computeMetrics(manifestData);
+            renderTrendChart(manifestData);
             applyView();
+            document.getElementById('last-loaded').textContent = 'LAST SYNC: ' + new Date().toLocaleTimeString();
         }
 
-        function sortCards(mode) {
-            currentSort = mode;
-            applyView();
-        }
-
+        // ── View Renderers ──
         function applyView() {
             let filtered = [...manifestData];
-            if (currentFilter !== 'all') {
-                filtered = filtered.filter(d => getSeverity(d.risk_score, d) === currentFilter);
+            if (currentFilter !== 'all') filtered = filtered.filter(d => getSeverity(d.risk_score, d) === currentFilter);
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                filtered = filtered.filter(d => (d.title||'').toLowerCase().includes(q) || (d.actor_tag||'').toLowerCase().includes(q));
             }
-            filtered.sort((a, b) => {
-                switch (currentSort) {
-                    case 'newest': return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
-                    case 'oldest': return new Date(a.timestamp || 0) - new Date(b.timestamp || 0);
-                    case 'risk-high': return b.risk_score - a.risk_score;
-                    case 'risk-low': return a.risk_score - b.risk_score;
-                    default: return 0;
-                }
-            });
+            filtered.sort((a, b) => currentSort === 'newest' ? new Date(b.timestamp||0) - new Date(a.timestamp||0) : b.risk_score - a.risk_score);
             renderCards(filtered);
         }
 
-        // ── Search ──
-        function handleSearch(val) {
-            searchQuery = val;
-            applyView();
-        }
-
-        function clearSearch() {
-            searchQuery = '';
-            document.getElementById('search-input').value = '';
-            applyView();
-        }
-
-        // ── Auto-Refresh ──
-        let refreshSecondsLeft = AUTO_REFRESH_INTERVAL;
-
-        function toggleAutoRefresh(enabled) {
-            const cdEl = document.getElementById('refresh-countdown');
-            if (enabled) {
-                cdEl.style.display = 'inline';
-                refreshSecondsLeft = AUTO_REFRESH_INTERVAL;
-                startCountdown();
-            } else {
-                cdEl.style.display = 'none';
-                clearInterval(autoRefreshCountdown);
-                clearTimeout(autoRefreshTimer);
-            }
-        }
-
-        function startCountdown() {
-            clearInterval(autoRefreshCountdown);
-            clearTimeout(autoRefreshTimer);
-            const cdEl = document.getElementById('refresh-countdown');
-            autoRefreshCountdown = setInterval(() => {
-                refreshSecondsLeft--;
-                const m = Math.floor(refreshSecondsLeft / 60);
-                const s = refreshSecondsLeft % 60;
-                cdEl.textContent = `AUTO-REFRESH IN ${m}:${String(s).padStart(2,'0')}`;
-                if (refreshSecondsLeft <= 0) {
-                    clearInterval(autoRefreshCountdown);
-                    manualRefresh().then(() => {
-                        refreshSecondsLeft = AUTO_REFRESH_INTERVAL;
-                        startCountdown();
-                    });
-                }
-            }, 1000);
-        }
-
-        async function manualRefresh() {
-            document.getElementById('sync-val').innerHTML = 'SYNC: <span style="color:#ff9d00;">REFRESHING...</span>';
-            const prevCount = manifestData.length;
-            await loadGOCIntel();
-            document.getElementById('last-loaded').textContent = 'LAST SYNC: ' + new Date().toLocaleTimeString();
-            if (prevCount > 0 && manifestData.length > prevCount) {
-                const newCount = manifestData.length - prevCount;
-                showToast(`🔴 ${newCount} NEW THREAT${newCount > 1 ? 'S' : ''} DETECTED — Feed updated`, 'critical', 6000);
-            } else if (prevCount > 0) {
-                showToast('✓ Feed synchronized — No new threats', 'info', 2500);
-            }
-        }
-
-        function getTlpDescription(tlp) {
-            const d = {
-                'TLP:RED': 'NOT for disclosure. Restricted to specific recipients only.',
-                'TLP:AMBER': 'Limited disclosure. Share within organization on need-to-know.',
-                'TLP:GREEN': 'Community disclosure. Share within cybersecurity community.',
-                'TLP:CLEAR': 'Unrestricted. May be distributed without restriction.'
-            };
-            return d[tlp] || tlp;
-        }
-
-        function copyToClipboard(text, el) {
-            if (!text) return;
-            navigator.clipboard.writeText(text).then(() => {
-                if (el) {
-                    const orig = el.innerHTML;
-                    el.classList.add('copied');
-                    el.innerHTML = el.innerHTML.replace(/<i[^>]*><\/i>/, '<i class="fas fa-check"></i>');
-                    setTimeout(() => { el.classList.remove('copied'); el.innerHTML = orig; }, 1800);
-                }
-                showToast('✓ Copied: ' + text.slice(0, 48), 'info');
-            }).catch(() => {
-                const ta = document.createElement('textarea');
-                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-                document.body.appendChild(ta); ta.select();
-                document.execCommand('copy'); document.body.removeChild(ta);
-                showToast('✓ Copied: ' + text.slice(0, 48), 'info');
-            });
-        }
-
-        function showToast(message, type = 'info', duration = 3500) {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `toast${type === 'critical' ? ' toast-critical' : ''}`;
-            toast.innerHTML = `<span style="flex:1;">${message}</span><span class="toast-close" onclick="this.parentElement.remove()">✕</span>`;
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.style.animation = 'toast-out 0.3s ease forwards';
-                setTimeout(() => toast.remove(), 300);
-            }, duration);
-        }
-
-        // ── Threat Detail Modal ──
-        let _activeModalItem = null;
-
-        function copyCurrentModalJson() {
-            if (_activeModalItem) copyToClipboard(JSON.stringify(_activeModalItem, null, 2), document.getElementById('modal-copy-json-btn'));
-        }
-
-        function openThreatModalById(stixId) {
-            const item = threatRegistry.get(stixId);
-            if (!item) return;
-            openThreatModal(item);
-        }
-
-        document.addEventListener('click', function(e) {
-            const el = e.target.closest('.js-open-modal');
-            if (!el) return;
-            const stixId = el.dataset.stixId;
-            if (stixId) openThreatModalById(stixId);
-        });
-
-        function openThreatModal(item) {
-            _activeModalItem = item;
-            if (!item || typeof item !== 'object') return;
-            const sev = getSeverity(item.risk_score, item);
-            const sevColor = getSevColor(sev);
-            const tlp = getTlpLabel(item);
-            const tlpColor = getTlpColor(tlp);
-            const cves = extractCVEs(item.title);
-            const tactics = item.mitre_tactics || [];
-
-            const mitreLinks = tactics.map(t => {
-                const tid = typeof t === 'string' ? t : (t.technique_id || t.id || '');
-                if (!tid) return '';
-                return `<a href="https://attack.mitre.org/techniques/${tid.replace('.','/') }/" target="_blank" class="copy-chip" style="text-decoration:none;">${tid}</a>`;
-            }).filter(Boolean).join('');
-
-            const iocStr = item.ioc_counts ? Object.entries(item.ioc_counts)
-                .filter(([,v]) => v > 0)
-                .map(([k,v]) => `${v} ${k.toUpperCase()}`)
-                .join(' · ') || 'None detected' : 'N/A';
-
-            const aiNarrative = generateAINarrative(item);
-
-            document.getElementById('modal-content').innerHTML = `
-                <div style="margin-bottom:20px;">
-                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-                        <span class="badge badge-${sev.toLowerCase()}" style="font-size:11px;">${sev}</span>
-                        <span style="background:${tlpColor}22;color:${tlpColor};padding:3px 10px;border-radius:2px;font-family:var(--font-mono);font-size:10px;">${tlp}</span>
-                        <span style="color:${sevColor};font-family:var(--font-mono);font-size:12px;font-weight:700;">RISK ${item.risk_score}/10</span>
+        function renderCards(data) {
+            const grid = document.getElementById('threat-grid');
+            if (!data.length) { grid.innerHTML = '<div class="loading-state">No advisories match.</div>'; return; }
+            
+            data.forEach(item => { if (item.stix_id) threatRegistry.set(item.stix_id, item); });
+            
+            grid.innerHTML = data.map(item => {
+                const sev = getSeverity(item.risk_score, item);
+                const sevColor = { CRITICAL: 'var(--critical)', HIGH: 'var(--high)', MEDIUM: 'var(--medium)', LOW: 'var(--low)' }[sev] || 'var(--info)';
+                const tlpColor = item.tlp_label === 'TLP:RED' ? 'var(--critical)' : 'var(--accent)';
+                
+                return `
+                <div class="intel-card sev-${sev.toLowerCase()}">
+                    <div class="card-meta">
+                        <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
+                        <span class="badge badge-tlp" style="background:${tlpColor}22;color:${tlpColor};">${item.tlp_label || 'TLP:CLEAR'}</span>
+                        <span class="badge badge-accent">RISK ${item.risk_score}/10</span>
                         ${item.kev_present ? '<span class="badge badge-kev">⚡ CISA KEV</span>' : ''}
                     </div>
-                    <h2 style="color:var(--white);font-size:18px;font-weight:700;line-height:1.4;margin:0 0 12px 0;">${item.title}</h2>
-                    <div style="background:rgba(0,212,170,0.06);border-left:3px solid var(--accent);padding:12px 16px;margin-bottom:4px;">
-                        <p style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--accent);margin:0 0 6px 0;">🤖 AI THREAT NARRATIVE</p>
-                        <p style="font-size:12px;color:var(--text);line-height:1.7;margin:0;">${aiNarrative}</p>
+                    <div class="card-stix">STIX: ${item.stix_id ? item.stix_id.slice(0,24) : '—'} • ${item.actor_tag || 'UNC-CDB-99'}</div>
+                    <h3 class="card-title js-open-modal" data-stix-id="${item.stix_id}" style="cursor:pointer;">${item.title}</h3>
+                    <div class="card-footer">
+                        <span class="card-score" style="color:${sevColor};">◆ ${item.risk_score}/10</span>
+                        <button class="js-open-modal" data-stix-id="${item.stix_id}" style="background:none;border:none;color:var(--accent);font-family:var(--font-mono);font-size:10px;cursor:pointer;"><i class="fas fa-expand-alt"></i> DETAILS</button>
                     </div>
-                </div>
+                </div>`;
+            }).join('');
+        }
 
+        // ── Helper Functions ──
+        function getSeverity(score, item) { if(item&&item.severity) return item.severity; if(score>=8.5) return 'CRITICAL'; if(score>=6.5) return 'HIGH'; if(score>=4.0) return 'MEDIUM'; return 'LOW'; }
+        function handleSearch(val) { searchQuery = val; applyView(); }
+        function clearSearch() { searchQuery = ''; document.getElementById('search-input').value = ''; applyView(); }
+        function filterCards(sev, btn) { currentFilter = sev; document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); applyView(); }
+        function sortCards(mode) { currentSort = mode; applyView(); }
+        function showToast(msg, type='info', time=3500) {
+            const container = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = `toast ${type==='critical'?'toast-critical':''}`;
+            t.innerHTML = `<span style="flex:1;">${msg}</span><span class="toast-close" onclick="this.parentElement.remove()">✕</span>`;
+            container.appendChild(t);
+            setTimeout(() => { t.style.animation='toast-out 0.3s forwards'; setTimeout(()=>t.remove(),300); }, time);
+        }
+
+        // ── Metrics & UI Rendering ──
+        function computeMetrics(data) {
+            document.getElementById('m-total').textContent = data.length;
+            document.getElementById('m-critical').textContent = data.filter(d=>getSeverity(d.risk_score,d)==='CRITICAL').length;
+            document.getElementById('m-high').textContent = data.filter(d=>getSeverity(d.risk_score,d)==='HIGH').length;
+            document.getElementById('m-avg-risk').textContent = data.length ? (data.reduce((s,d)=>s+d.risk_score,0)/data.length).toFixed(1) : 0;
+            renderRiskDonut(data);
+        }
+
+        function renderTrendChart(data) {
+            const barsEl = document.getElementById('trend-bars');
+            if(!barsEl || !data.length) return;
+            document.getElementById('trend-section').style.display = 'block';
+            barsEl.innerHTML = data.slice(0, 20).map(d => {
+                const h = Math.max((d.risk_score/10)*100, 5);
+                const bg = getSeverity(d.risk_score,d)==='CRITICAL' ? 'var(--critical)' : 'var(--accent)';
+                return `<div class="trend-bar js-open-modal" data-stix-id="${d.stix_id}" style="height:${h}%; background:${bg};"></div>`;
+            }).join('');
+        }
+
+        function renderRiskDonut(data) {
+            document.getElementById('risk-donut-section').style.display = 'block';
+            // Placeholder for donut render logic
+        }
+
+        // ── Modal Handlers ──
+        document.addEventListener('click', e => {
+            const el = e.target.closest('.js-open-modal');
+            if(el) openThreatModalById(el.dataset.stixId);
+        });
+
+        function openThreatModalById(id) {
+            const item = threatRegistry.get(id);
+            if(!item) return;
+            const cves = [...(item.title.matchAll(/CVE-\d{4}-\d{4,7}/gi))].map(m=>m[0]);
+            
+            document.getElementById('modal-content').innerHTML = `
+                <div style="margin-bottom:20px;">
+                    <h2 style="color:var(--white);font-size:18px;font-weight:700;">${item.title}</h2>
+                    <p style="color:var(--text-muted);font-family:var(--font-mono);font-size:11px;margin-top:8px;">STIX: ${item.stix_id}</p>
+                </div>
                 <div class="modal-section">
-                    <div class="modal-section-title">Threat Intelligence Details</div>
                     <div class="modal-row">
-                        <div class="modal-field">
-                            <div class="modal-field-label">STIX Bundle ID</div>
-                            <div class="modal-field-val" style="font-family:var(--font-mono);font-size:11px;">
-                                ${item.stix_id || '—'}
-                                ${item.stix_id ? `<span class="copy-chip" onclick="copyToClipboard('${item.stix_id}',this)" style="margin-left:8px;"><i class="fas fa-copy"></i> Copy</span>` : ''}
-                            </div>
-                        </div>
-                        <div class="modal-field">
-                            <div class="modal-field-label">Actor / Group</div>
-                            <div class="modal-field-val">${item.actor_tag || 'UNC-CDB-99'}</div>
-                        </div>
-                        <div class="modal-field">
-                            <div class="modal-field-label">CVSS Score</div>
-                            <div class="modal-field-val" style="color:${item.cvss_score>=9?'var(--critical)':item.cvss_score>=7?'var(--high)':item.cvss_score>=4?'var(--medium)':'var(--low)'};">
-                                ${item.cvss_score != null ? item.cvss_score + '/10' : 'Pending enrichment'}
-                            </div>
-                        </div>
-                        <div class="modal-field">
-                            <div class="modal-field-label">EPSS Score</div>
-                            <div class="modal-field-val">
-                                ${item.epss_score != null ? `<div class="epss-bar-wrap"><div class="epss-bar-track" style="max-width:200px;"><div class="epss-bar-fill" style="width:${Math.min(item.epss_score,100)}%;background:${item.epss_score>=70?'var(--critical)':item.epss_score>=40?'var(--high)':'var(--accent)'};"></div></div><span style="font-size:11px;font-family:var(--font-mono);">${item.epss_score}%</span></div>` : 'Pending enrichment'}
-                            </div>
-                        </div>
-                        <div class="modal-field">
-                            <div class="modal-field-label">Confidence</div>
-                            <div class="modal-field-val">${item.confidence_score != null ? Math.round(item.confidence_score) + '%' : '—'}</div>
-                        </div>
-                        <div class="modal-field">
-                            <div class="modal-field-label">Feed Source</div>
-                            <div class="modal-field-val" style="font-size:11px;">${item.feed_source || '—'}</div>
-                        </div>
+                        <div class="modal-field"><div class="modal-field-label">Risk Score</div><div class="modal-field-val" style="color:var(--accent);font-weight:bold;">${item.risk_score}/10</div></div>
+                        <div class="modal-field"><div class="modal-field-label">Severity</div><div class="modal-field-val">${item.severity}</div></div>
+                        <div class="modal-field"><div class="modal-field-label">EPSS Score</div><div class="modal-field-val">${item.epss_score ? item.epss_score+'%' : 'N/A'}</div></div>
+                        <div class="modal-field"><div class="modal-field-label">Actor</div><div class="modal-field-val">${item.actor_tag || 'Unknown'}</div></div>
                     </div>
                 </div>
-
-                <div class="modal-section">
-                    <div class="modal-section-title">CVEs & Quick Copy</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-                        ${cves.length ? cves.map(c => `<span class="copy-chip" onclick="copyToClipboard('${c}',this)"><i class="fas fa-copy"></i>${c}</span>`).join('') : '<span style="color:var(--text-muted);font-size:12px;">No CVE extracted</span>'}
-                    </div>
-                </div>
-
-                ${tactics.length ? `<div class="modal-section">
-                    <div class="modal-section-title">MITRE ATT&amp;CK Techniques</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;">${mitreLinks}</div>
-                </div>` : ''}
-
-                <div class="modal-section">
-                    <div class="modal-section-title">IOC Summary</div>
-                    <div style="font-family:var(--font-mono);font-size:11px;color:var(--text);">${iocStr}</div>
-                </div>
-
-                <div class="modal-section">
-                    <div class="modal-section-title">Links & Resources</div>
-                    <div style="display:flex;flex-direction:column;gap:10px;">
-                        ${item.blog_url ? `<a href="${item.blog_url}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);width:fit-content;"><i class="fas fa-external-link-alt"></i> View Full Tactical Dossier</a>` : ''}
-                        ${item.nvd_url ? `<a href="${item.nvd_url}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--blue);border-bottom:1px solid rgba(59,130,246,0.3);width:fit-content;"><i class="fas fa-database"></i> NVD Entry</a>` : ''}
-                        ${item.stix_file ? `<span onclick="openStixPaywall()" style="font-family:var(--font-mono);font-size:11px;color:var(--purple);border-bottom:1px solid rgba(139,92,246,0.3);width:fit-content;cursor:pointer;" title="Pro subscribers only"><i class="fas fa-lock" style="font-size:9px;margin-right:4px;"></i> STIX Bundle (Subscribers Only)</span>` : ''}
-                    </div>
-                </div>
-
-                <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
-                    <a href="${item.blog_url}" target="_blank" rel="noopener"
-                       style="padding:10px 20px;background:var(--accent);color:var(--bg);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;">
-                        VIEW DOSSIER →
-                    </a>
-                    <button onclick="downloadBAS('${cves[0] || 'Simulation'}')" style="padding:10px 20px;background:transparent;color:var(--purple);border:1px solid var(--purple);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:900;cursor:pointer;">
-                        🛡️ TEST DEFENSE
-                    </button>
-                    <button onclick="copyCurrentModalJson()" id="modal-copy-json-btn"
-                            style="padding:10px 20px;background:var(--bg-surface);color:var(--text);border:1px solid var(--border);border-radius:3px;font-family:var(--font-mono);font-size:11px;cursor:pointer;">
-                        <i class="fas fa-copy"></i> Copy JSON Record
-                    </button>
-                    <button onclick="closeThreatModal()"
-                            style="padding:10px 20px;background:var(--bg-surface);color:var(--text-muted);border:1px solid var(--border);border-radius:3px;font-family:var(--font-mono);font-size:11px;cursor:pointer;margin-left:auto;">
-                        CLOSE
-                    </button>
+                <div style="border-top:1px solid var(--border);padding-top:16px;text-align:right;">
+                    <button onclick="downloadBAS('${cves[0] || 'Unknown'}')" style="padding:10px 20px;background:transparent;color:var(--purple);border:1px solid var(--purple);border-radius:3px;font-family:var(--font-mono);font-size:11px;cursor:pointer;margin-right:10px;">🛡️ TEST DEFENSE</button>
+                    <a href="${item.blog_url}" target="_blank" style="padding:10px 20px;background:var(--accent);color:var(--bg);border-radius:3px;font-family:var(--font-mono);font-size:11px;text-decoration:none;font-weight:bold;">VIEW DOSSIER</a>
                 </div>
             `;
-            document.getElementById('threat-modal').classList.add('open');
-            document.body.style.overflow = 'hidden';
+            document.getElementById('threat-modal').style.display = 'flex';
         }
+        
+        function closeThreatModal() { document.getElementById('threat-modal').style.display = 'none'; }
+        function openAIModal() { document.getElementById('ai-engine-modal').style.display = 'flex'; }
+        function closeAIModal() { document.getElementById('ai-engine-modal').style.display = 'none'; }
+        function openStixPaywall() { document.getElementById('stix-paywall-modal').style.display = 'flex'; }
+        function closeStixPaywall() { document.getElementById('stix-paywall-modal').style.display = 'none'; }
 
-        function closeThreatModal() {
-            document.getElementById('threat-modal').classList.remove('open');
-            document.body.style.overflow = '';
-        }
-
-        function generateAINarrative(item) {
-            const sev = getSeverity(item.risk_score, item);
-            const cves = extractCVEs(item.title);
-            const tactics = item.mitre_tactics || [];
-            const riskLabel = { CRITICAL:'critical', HIGH:'high', MEDIUM:'moderate', LOW:'low', INFO:'informational' }[sev] || 'moderate';
-            const kevNote = item.kev_present ? ' This vulnerability is confirmed in CISA Known Exploited Vulnerabilities (KEV) catalog, indicating active exploitation in the wild.' : '';
-            const epssNote = item.epss_score >= 70 ? ` EPSS score of ${item.epss_score}% indicates very high probability of exploitation within the next 30 days.` :
-                             item.epss_score >= 40 ? ` EPSS score of ${item.epss_score}% signals elevated exploitation likelihood.` : '';
-            const mitreNote = tactics.length ? ` MITRE ATT&CK mapping identifies ${tactics.slice(0,3).join(', ')} techniques — adversary tactics aligned with ${tactics.length > 2 ? 'multi-stage attack chains' : 'targeted exploitation'}.` : '';
-            const confNote = item.confidence_score >= 60 ? ' High analyst confidence in this assessment.' : item.confidence_score < 20 ? ' Low confidence — corroborate with additional threat feeds.' : '';
-
-            return `This ${riskLabel}-risk advisory (risk score ${item.risk_score}/10)${cves.length ? ` affecting ${cves[0]}` : ''} warrants ${sev==='CRITICAL'?'immediate':'prompt'} SOC attention.${kevNote}${epssNote}${mitreNote}${confNote} Recommended action: deploy applicable detection rules, review exposure in asset inventory, and escalate to IR team if active indicators are found.`;
-        }
-
-        function openKbdModal() { document.getElementById('kbd-modal').classList.add('open'); }
-        function closeKbdModal() { document.getElementById('kbd-modal').classList.remove('open'); }
-
-        // ── MITRE ATT&CK Heatmap ──
-        function renderMitreHeatmap(data) {
-            const section = document.getElementById('mitre-heatmap-section');
-            const grid = document.getElementById('mitre-heatmap-grid');
-            if (!data.length || !grid) return;
-
-            const counts = {};
-            data.forEach(d => {
-                (d.mitre_tactics || []).forEach(t => {
-                    const tid = typeof t === 'string' ? t : (t.technique_id || t.id || '');
-                    if (tid) counts[tid] = (counts[tid] || 0) + 1;
-                });
-            });
-
-            const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 40);
-            if (!sorted.length) return;
-
-            const maxCount = sorted[0][1];
-
-            const grouped = {};
-            sorted.forEach(([tid, count]) => {
-                const group = getTacticGroup(tid);
-                if (!grouped[group]) grouped[group] = [];
-                grouped[group].push([tid, count]);
-            });
-
-            grid.innerHTML = Object.entries(grouped).map(([groupName, techs]) => {
-                const cells = techs.map(([tid, count]) => {
-                    const intensity = count / maxCount;
-                    const alpha = 0.18 + intensity * 0.65;
-                    const color = intensity > 0.7 ? `rgba(220,38,38,${alpha})` :
-                                  intensity > 0.4 ? `rgba(234,88,12,${alpha})` :
-                                  `rgba(0,212,170,${alpha})`;
-                    const textColor = intensity > 0.5 ? '#fff' : 'var(--text)';
-                    const url = `https://attack.mitre.org/techniques/${tid.replace('.','/') }/`;
-                    return `<a href="${url}" target="_blank" rel="noopener" class="hm-cell" style="background:${color};color:${textColor};border:1px solid rgba(255,255,255,0.06);" title="${tid} — ${count} threat(s) · Click to open ATT&CK">
-                        <span class="hm-id">${tid}</span>
-                        <span class="hm-count">×${count}</span>
-                    </a>`;
-                }).join('');
-                return `<div class="heatmap-tactic-group">
-                    <div class="heatmap-tactic-label">${groupName} (${techs.length})</div>
-                    <div class="heatmap-tactic-cells">${cells}</div>
-                </div>`;
-            }).join('');
-
-            section.classList.add('visible');
-        }
-
-        // ── Risk Distribution Donut ──
-        function renderRiskDonut({ critical, high, medium, low }) {
-            const section = document.getElementById('risk-donut-section');
-            const svg = document.getElementById('risk-donut-svg');
-            const legend = document.getElementById('donut-legend');
-            if (!svg || !legend) return;
-
-            const total = critical + high + medium + low;
-            if (!total) return;
-
-            const slices = [
-                { label: 'Critical', val: critical, color: '#dc2626' },
-                { label: 'High', val: high, color: '#ea580c' },
-                { label: 'Medium', val: medium, color: '#d97706' },
-                { label: 'Low', val: low, color: '#16a34a' },
-            ].filter(s => s.val > 0);
-
-            const cx = 60, cy = 60, r = 46, innerR = 28;
-            let startAngle = -Math.PI / 2;
-            let paths = '';
-
-            slices.forEach(s => {
-                const angle = (s.val / total) * 2 * Math.PI;
-                const endAngle = startAngle + angle;
-                const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
-                const x2 = cx + r * Math.cos(endAngle), y2 = cy + r * Math.sin(endAngle);
-                const ix1 = cx + innerR * Math.cos(endAngle), iy1 = cy + innerR * Math.sin(endAngle);
-                const ix2 = cx + innerR * Math.cos(startAngle), iy2 = cy + innerR * Math.sin(startAngle);
-                const large = angle > Math.PI ? 1 : 0;
-                paths += `<path d="M${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} L${ix1},${iy1} A${innerR},${innerR} 0 ${large},0 ${ix2},${iy2} Z" fill="${s.color}" opacity="0.85"/>`;
-                startAngle = endAngle;
-            });
-
-            svg.innerHTML = paths + `<text x="${cx}" y="${cy+5}" text-anchor="middle" fill="var(--white)" font-size="14" font-weight="900" font-family="monospace">${total}</text>`;
-
-            legend.innerHTML = slices.map(s => `
-                <div class="legend-item">
-                    <div class="legend-left">
-                        <div class="legend-dot" style="background:${s.color};"></div>
-                        <span>${s.label}</span>
-                    </div>
-                    <span style="font-weight:700;color:${s.color};">${s.val} <span style="color:var(--text-muted);font-weight:400;">(${Math.round(s.val/total*100)}%)</span></span>
-                </div>`).join('');
-
-            section.classList.add('visible');
-        }
-
-        // ── Intel Source Breakdown ──
-        function renderSourceBreakdown(data) {
-            const section = document.getElementById('source-bar-section');
-            const inner = document.getElementById('source-bar-inner');
-            if (!inner || !data.length) return;
-
-            const counts = {};
-            data.forEach(d => {
-                if (d.feed_source) {
-                    const src = d.feed_source.replace(/https?:\/\/(www\.)?/, '').split('/')[0];
-                    counts[src] = (counts[src] || 0) + 1;
-                }
-            });
-
-            const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 10);
-            if (!sorted.length) return;
-
-            const max = sorted[0][1];
-            const feedCountEl = document.getElementById('m-feed-count');
-            if (feedCountEl) feedCountEl.textContent = sorted.length;
-
-            inner.innerHTML = sorted.map(([src, count]) => {
-                const trust = getSourceTrust(src);
-                const weightPct = ((count / data.length) * 100).toFixed(1);
-                return `<div class="source-bar-item">
-                    <div class="source-bar-label">
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <span>${src}</span>
-                            <span class="source-trust">
-                                <span class="trust-dot" style="background:${trust.color};"></span>
-                                <span style="color:${trust.color};">${trust.label}</span>
-                                <span style="color:var(--border);">·</span>
-                                <span style="color:var(--text-muted);">TRUST ${trust.score}%</span>
-                            </span>
-                            <span style="color:var(--text-muted);font-size:8px;">WEIGHT: ${weightPct}%</span>
-                        </div>
-                        <span>${count} advisories</span>
-                    </div>
-                    <div class="source-bar-track"><div class="source-bar-fill" style="width:${(count/max*100).toFixed(1)}%;background:${trust.color};"></div></div>
-                </div>`;
-            }).join('');
-
-            section.classList.add('visible');
-        }
-
-        // ── Threat Ticker ──
-        function renderTicker(data) {
-            const outer = document.getElementById('threat-ticker-outer');
-            const inner = document.getElementById('threat-ticker-inner');
-            if (!inner || !data.length) return;
-
-            const sevColors = { CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#d97706', LOW:'#16a34a' };
-            const recent = [...data].sort((a,b) => new Date(b.timestamp||0) - new Date(a.timestamp||0)).slice(0, 20);
-
-            const itemsHtml = recent.map(d => {
-                const sev = getSeverity(d.risk_score, d);
-                const col = sevColors[sev] || '#5a6578';
-                const cves = extractCVEs(d.title);
-                const id = cves[0] || d.title.slice(0, 30) + '…';
-                return `<span class="ticker-item" onclick="window.open('${d.blog_url}','_blank')">
-                    <span class="ticker-sev" style="background:${col}22;color:${col};">${sev}</span>
-                    ${id} — RISK ${d.risk_score}/10
-                </span><span class="ticker-sep">◆</span>`;
-            }).join('');
-
-            inner.innerHTML = itemsHtml + itemsHtml;
-            outer.style.display = 'block';
-        }
-
-        // ── Export Functions ──
-        function exportJSON() {
-            const blob = new Blob([JSON.stringify(manifestData, null, 2)], { type: 'application/json' });
-            downloadBlob(blob, 'cdb-threat-intel-feed.json');
-        }
-
-        function exportCSV() {
-            const headers = ['Title', 'Risk Score', 'Severity', 'TLP', 'Confidence', 'Actor', 'CVSS', 'EPSS', 'KEV', 'Blog URL', 'Source URL', 'Timestamp'];
-            const rows = manifestData.map(d => [
-                `"${(d.title || '').replace(/"/g, '""')}"`,
-                d.risk_score, getSeverity(d.risk_score, d), getTlpLabel(d),
-                d.confidence_score || '', d.actor_tag || '',
-                d.cvss_score || '', d.epss_score != null ? d.epss_score + '%' : '',
-                d.kev_present ? 'YES' : 'NO',
-                d.blog_url || '', d.source_url || '', d.timestamp || ''
-            ]);
-            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-            downloadBlob(new Blob([csv], { type: 'text/csv' }), 'cdb-threat-intel-feed.csv');
-        }
-
-        function exportMISP() {
-            const mispEvents = manifestData.map((item, i) => {
-                const cves = extractCVEs(item.title);
-                return {
-                    id: String(i + 1),
-                    uuid: item.stix_id ? item.stix_id.replace('bundle--', '') : `cdb-${Date.now()}-${i}`,
-                    info: item.title,
-                    date: (item.timestamp || new Date().toISOString()).slice(0, 10),
-                    threat_level_id: { CRITICAL:'1', HIGH:'2', MEDIUM:'3', LOW:'4' }[getSeverity(item.risk_score, item)] || '3',
-                    analysis: '2',
-                    distribution: '3',
-                    Attribute: [
-                        ...cves.map(cve => ({ type:'vulnerability', value: cve, category:'External Analysis' })),
-                        item.actor_tag ? { type:'threat-actor', value: item.actor_tag, category:'Attribution' } : null,
-                        ...((item.mitre_tactics||[]).map(t => {
-                            const tid = typeof t === 'string' ? t : (t.technique_id||'');
-                            return tid ? { type:'text', value: tid, category:'External Analysis', comment:'MITRE ATT&CK Technique' } : null;
-                        }))
-                    ].filter(Boolean),
-                    Tag: [
-                        { name: `tlp:${(item.tlp_label||'green').toLowerCase().replace('tlp:','').replace(':','').toLowerCase()}` },
-                        { name: `cdb:risk=${item.risk_score}` },
-                        { name: 'cdb:sentinel-apex' }
-                    ]
-                };
-            });
-            const misp = { response: mispEvents };
-            downloadBlob(new Blob([JSON.stringify(misp, null, 2)], { type: 'application/json' }), 'cdb-misp-export.json');
-            showToast(`✓ MISP export ready — ${mispEvents.length} events`, 'info');
-        }
-
-        // ── Keyboard Shortcuts ──
-        document.addEventListener('keydown', (e) => {
-            const tag = document.activeElement.tagName.toLowerCase();
-            const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
-
-            if (e.key === 'Escape') {
-                closeThreatModal();
-                closeKbdModal();
-                closeStixPaywall();
-                return;
-            }
-            if (e.key === '?') { openKbdModal(); return; }
-            if (isInput) return;
-
-            switch(e.key) {
-                case '/': e.preventDefault(); const si = document.getElementById('search-input'); if (si) si.focus(); break;
-                case 'r': case 'R': manualRefresh(); break;
-                case 'a': case 'A': const tog = document.getElementById('auto-refresh-toggle'); if (tog) { tog.checked = !tog.checked; toggleAutoRefresh(tog.checked); } break;
-                case 'j': case 'J': exportJSON(); break;
-                case 'c': case 'C': exportCSV(); break;
-                case 's': case 'S': openStixPaywall(); break;
-                case '1': filterCards('all', document.querySelector('[data-filter="all"]')); break;
-                case '2': filterCards('CRITICAL', document.querySelector('[data-filter="CRITICAL"]')); break;
-                case '3': filterCards('HIGH', document.querySelector('[data-filter="HIGH"]')); break;
-                case 'w': case 'W': toggleWatchlist(); break;
-                case 'm': case 'M': openAIModal(); break;
-            }
-        });
-
-        // ── Initialization ──
-        document.addEventListener('DOMContentLoaded', () => {
-            loadGOCIntel();
-            scheduleAutoRefresh();
-        });
-
-        function scheduleAutoRefresh() {
-            setInterval(() => {
-                const autoRefresh = document.getElementById('auto-refresh-toggle');
-                if (autoRefresh && autoRefresh.checked) loadGOCIntel();
-            }, AUTO_REFRESH_INTERVAL * 1000);
-        }
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-                    .then(reg => console.log('[SW] Registered:', reg.scope))
-                    .catch(err => console.warn('[SW] Registration failed:', err));
-            });
-        }
+        // ── Init ──
+        document.addEventListener('DOMContentLoaded', loadGOCIntel);
     </script>
 </body>
 </html>

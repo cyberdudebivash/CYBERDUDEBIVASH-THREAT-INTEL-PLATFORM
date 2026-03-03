@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : Exploit for CVE-2023-3452
+// Scenario: VULNERABILITY | CVEs: N/A
+// Generated: 2026-03-03 10:59:11 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Web Exploit / CVE Detection (N/A)
+W3CIISLog | where TimeGenerated > ago(24h)
+| where csUriStem has_any ('<script>', 'javascript:', 'onerror=', 'UNION+SELECT', '../../')
+| extend ThreatName="Exploit for CVE-2023-3452", CVEs="N/A"
+| summarize Attempts=count() by csUriStem, cIP
