@@ -143,6 +143,19 @@ jobs:
           python -m agent.integrations.siem_dispatcher || echo "SIEM dispatcher passed with soft fallback."
 
       # ═══════════════════════════════════════════════════════════
+      # [v30-APEX] OMNISCIENT PAGER (Zero-Regression Decoupled Alerting)
+      # ═══════════════════════════════════════════════════════════
+      - name: Broadcast APEX SOC Alerts (Discord/Slack)
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          echo "Pinging Global SOC Teams..."
+          # Completely independent. If it fails, the workflow ignores the error and commits the data anyway.
+          python -m agent.v30_apex.apex_webhook_alert || echo "Webhook dispatcher bypassed cleanly."
+
+      # ═══════════════════════════════════════════════════════════
       # [v30-APEX] ADDITIONS END HERE
       # ═══════════════════════════════════════════════════════════
 
