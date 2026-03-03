@@ -1,11 +1,18 @@
+/**
+ * CDB-SENTINEL-Dashboard.jsx — CyberDudeBivash v30.0 (APEX SOVEREIGN)
+ * Author: CYBERGOD / TECH GOD
+ * Description: The Master CISO Dashboard. Integrates the legacy Threat Intel Grid
+ * with the God-Tier APEX Sovereign Live eBPF Telemetry.
+ */
+
 import { useState, useEffect, useCallback } from "react";
 // [v30-APEX] Seamlessly importing the resilient 3D Threat Globe
 import ApexThreatGlobe from "./components/ApexThreatGlobe";
 
 const API_BASE = "";
 
-// [CYBERGOD FIX 3]: The Valid Enterprise Token structure. 
-// Generate this securely on your backend and inject it. Do not use an empty string.
+// [CYBERGOD FIX]: The Valid Enterprise Token structure. 
+// Generate this securely on your backend and inject it dynamically in production.
 const ENTERPRISE_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0aWVyIjoiRU5URVJQUklTRSIsImNsaWVudCI6Ikdsb2JhbF9CYW5rX0NvcnAifQ.YOUR_SECURE_SIGNATURE_HERE"; 
 
 // ═══════════════════════════════════════════════════
@@ -32,7 +39,7 @@ const T = {
   fontHeading: "'DM Sans', 'Segoe UI', sans-serif",
   fontBody: "'DM Sans', 'Segoe UI', sans-serif",
   fontMono: "'JetBrains Mono', 'Fira Code', monospace",
-  apexGold: "#ffd700", 
+  apexGold: "#ffd700", // The color of Sovereign Dominance
 };
 
 const sevColor = (s) =>
@@ -181,7 +188,7 @@ function EmptyState({ message }) {
 }
 
 // ═══════════════════════════════════════════════════
-// CVE TABLE & COMPONENTS
+// CVE TABLE & GAPS COMPONENTS
 // ═══════════════════════════════════════════════════
 
 function CVETable({ cves }) {
@@ -288,17 +295,19 @@ export default function CDBSentinelDashboard() {
   const loadDemoData = useCallback(async () => {
     setLoading(true);
     
-    // Attempt to fetch AI predictions gracefully
+    // [CYBERGOD] Zero-regression AI Forecast Fetching. 
+    // Fails silently if the AI hasn't run its first epoch yet.
     try {
         const res = await fetch("/data/ai_predictions/apex_forecast_latest.json");
-        if(res.ok) {
+        if (res.ok) {
             const forecastData = await res.json();
             setApexForecast(forecastData);
         }
     } catch(e) {
-        console.log("[APEX] Neural cortex generating initial forecast...");
+        console.log("[APEX] Neural cortex currently generating initial forecast...");
     }
 
+    // Simulated data fetching for demonstration
     setTimeout(() => {
       setCves([
         { id: "CVE-2026-21413", cvss: 9.8, epss: 0.943, epss_trend: "SHARPLY RISING", epss_acceleration: "RAPID", severity: "CRITICAL", description: "Remote code execution via unauthenticated API endpoint" },
@@ -344,6 +353,7 @@ export default function CDBSentinelDashboard() {
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: T.fontBody }}>
+      {/* ──── NAVBAR ──── */}
       <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(6,10,16,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${T.border}`, padding: "0 20px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", height: 56 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -353,6 +363,7 @@ export default function CDBSentinelDashboard() {
             <span style={{ fontWeight: 800, fontSize: 16, color: T.white, fontFamily: T.fontHeading }}>
               CDB-SENTINEL
             </span>
+            {/* [CYBERGOD FIX]: Global version aligned to v30.0 APEX */}
             <Badge color={T.apexGold} bg={"rgba(255,215,0,0.15)"}>v30.0 APEX</Badge>
           </div>
 
@@ -392,9 +403,13 @@ export default function CDBSentinelDashboard() {
         </div>
       </nav>
 
+      {/* ──── CONTENT ──── */}
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 20px 60px" }}>
         {loading && <Loader />}
         
+        {/* ═══════════════════════════════════════════════════ */}
+        {/* [v30-APEX] THE SOVEREIGN CORTEX TAB */}
+        {/* ═══════════════════════════════════════════════════ */}
         {!loading && tab === "apex" && (
             <div>
                 <SectionHeader icon="👑" title="APEX Sovereign Cortex" sub="Global Zero-Day Telemetry & AI Predictions (Enterprise Only)" />
@@ -422,6 +437,7 @@ export default function CDBSentinelDashboard() {
             </div>
         )}
 
+        {/* OVERVIEW TAB */}
         {!loading && tab === "overview" && (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 20 }}>
@@ -481,16 +497,41 @@ export default function CDBSentinelDashboard() {
           </>
         )}
 
+        {/* CVE TAB */}
+        {!loading && tab === "cves" && (
+          <>
+            <SectionHeader icon="🔴" title="CVE Intelligence" sub={`${cves.length} vulnerabilities with EPSS enrichment`} />
+            <Card><CVETable cves={cves} /></Card>
+          </>
+        )}
+
+        {/* INTEL FEED TAB */}
+        {!loading && tab === "feed" && (
+          <>
+            <SectionHeader icon="📡" title="Global Threat Intelligence Feed" sub="8+ sources aggregated in real-time" />
+            <IntelFeed items={intel} />
+          </>
+        )}
+
+        {/* ATT&CK GAPS TAB */}
+        {!loading && tab === "gaps" && (
+          <>
+            <SectionHeader icon="🎯" title="MITRE ATT&CK Coverage Gaps" sub={`${gaps.length} undetected techniques requiring attention`} />
+            <GapsList gaps={gaps} />
+          </>
+        )}
+
+        {/* API ACCESS TAB */}
         {!loading && tab === "api" && (
           <>
             <SectionHeader icon="🔌" title="API Access" sub="Integrate CDB-SENTINEL into your SOC workflow" />
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
               {[
-                { tier: "Free", price: "$0", limit: "60 req/hr", color: T.accent, features: ["CVE feed", "KEV alerts"] },
-                { tier: "Pro", price: "$49/mo", limit: "600 req/hr", color: T.blue, features: ["STIX/MISP export", "Detection rules"] },
-                { tier: "Enterprise", price: "$999/mo", limit: "6000 req/hr", color: T.purple, features: ["SIEM connectors", "SLA guarantee"] },
-                { tier: "APEX SOVEREIGN", price: "$5k/mo", limit: "UNLIMITED", color: T.apexGold, features: ["Live eBPF Mesh", "WebSocket Firehose"] }
+                { tier: "Free", price: "$0", limit: "60 req/hr", color: T.accent, features: ["CVE feed", "KEV alerts", "Basic reports"] },
+                { tier: "Pro", price: "$49/mo", limit: "600 req/hr", color: T.blue, features: ["STIX/MISP export", "ATT&CK analysis", "Detection rules"] },
+                { tier: "Enterprise", price: "$999/mo", limit: "6000 req/hr", color: T.purple, features: ["Custom feeds", "SIEM connectors", "SLA guarantee"] },
+                { tier: "APEX SOVEREIGN", price: "$5k/mo", limit: "UNLIMITED", color: T.apexGold, features: ["Live eBPF Mesh", "WebSocket Firehose", "AI Auto-Healing (SOAR)"] }
               ].map((plan) => (
                 <Card key={plan.tier} glow={plan.tier === "Pro" || plan.tier === "APEX SOVEREIGN" ? (plan.tier === "APEX SOVEREIGN" ? "apex" : true) : false} borderColor={plan.tier === "Pro" ? T.accent : (plan.tier === "APEX SOVEREIGN" ? T.apexGold : undefined)}>
                   <div style={{ textAlign: "center", marginBottom: 16 }}>
@@ -520,7 +561,8 @@ export default function CDBSentinelDashboard() {
                 {[
                   { method: "GET", path: "/api/v1/intel/cves", desc: "Latest CVEs with EPSS" },
                   { method: "GET", path: "/api/v1/intel/kev", desc: "CISA KEV catalog" },
-                  { method: "WS", path: "/api/v30/firehose", desc: "[APEX] Live Zero-Day Stream" },
+                  { method: "GET", path: "/api/v1/exports/stix", desc: "STIX 2.1 bundle" },
+                  { method: "WS", path: "/api/v30/firehose", desc: "[APEX] Live Zero-Day Stream" }, 
                 ].map((ep, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
                     <span style={{ color: ep.method === "WS" ? T.apexGold : T.accent, fontWeight: 700, width: 40 }}>{ep.method}</span>
