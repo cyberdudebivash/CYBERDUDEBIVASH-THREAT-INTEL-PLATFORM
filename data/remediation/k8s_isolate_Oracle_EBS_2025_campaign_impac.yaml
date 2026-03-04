@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-15800f86ad23
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Oracle EBS 2025 campaign impacts Madison Square Garden, sensitive data leaked"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
