@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-d2a8511262cf
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "AI in the Middle: Turning Web-Based AI Services into C2 Proxies & The Future Of AI Driven Attacks"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
