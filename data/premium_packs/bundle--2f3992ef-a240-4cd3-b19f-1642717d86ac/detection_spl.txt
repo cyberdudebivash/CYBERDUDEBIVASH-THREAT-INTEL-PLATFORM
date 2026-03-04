@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : Interplay between Iranian Targeting of IP Cameras and Physical Warfare in the Mi
+# Scenario: GENERIC
+# Generated: 2026-03-04 05:08:56 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Suspicious PowerShell
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="-EncodedCommand" OR CommandLine="IEX(" OR CommandLine="DownloadFile")
+| stats count by host, user, CommandLine | eval ThreatName="Interplay between Iranian Targeting of IP Cameras and Physical Warfare in the Mi"
