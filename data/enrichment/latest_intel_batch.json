@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-04T20:35:39.728632+00:00",
+  "timestamp": "2026-03-05T02:26:04.946794+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -264,389 +264,73 @@
   ],
   "github_advisories": [
     {
-      "ghsa_id": "GHSA-22m3-c7vp-49fj",
-      "cve_id": "CVE-2026-28681",
+      "ghsa_id": "GHSA-xxpw-32hf-q8v9",
+      "cve_id": "CVE-2026-29093",
       "severity": "HIGH",
-      "summary": "IRRd: web UI host header injection allows password reset poisoning via attacker-controlled email links",
-      "description": "## Impact\n\nAn attacker can manipulate the HTTP `Host` header on a password reset or account creation request. The confirmation link in the resulting email can then point to an attacker-controlled domain. Opening the link in the email is sufficient to pass the token to the attacker, who can then use it on the real IRRD instance to take over the account. A compromised account can then be used to modify RPSL objects maintained by the account's mntners and perform other account actions.\n\nIf the user had two-factor authentication configured, which is required for users with override access, an attacker is not able to log in, even after successfully resetting the password.\n\nThis issue affects IRRD 4.5.0 and all 4.4.x versions prior to 4.4.5. IRRD 4.3 and earlier are not affected, as they did not include the web UI.\n\n## Cause\n\nEmail links in account creation, password reset, and mntner migration emails were generated from the HTTP request context, allowing an attacker to manipulate the HTTP `",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-601",
-        "CWE-640"
-      ],
-      "ecosystems": [
-        "pip",
-        "pip"
-      ],
-      "packages": [
-        "irrd",
-        "irrd"
-      ],
-      "published": "2026-03-04T20:33:21Z",
-      "updated": "2026-03-04T20:33:23Z",
-      "url": "https://github.com/advisories/GHSA-22m3-c7vp-49fj",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/irrdnet/irrd/security/advisories/GHSA-22m3-c7vp-49fj",
-        "https://github.com/irrdnet/irrd/commit/8408e0f1b9f47eb2f2e712d6153e32194df05fbb",
-        "https://github.com/irrdnet/irrd/commit/cf62df4a49d3891e80b2879d9b324d1af050000c",
-        "https://irrd.readthedocs.io/en/stable/releases/4.4.5",
-        "https://irrd.readthedocs.io/en/stable/releases/4.5.1",
-        "https://github.com/advisories/GHSA-22m3-c7vp-49fj"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-fp25-p6mj-qqg6",
-      "cve_id": "CVE-2026-29091",
-      "severity": "HIGH",
-      "summary": "locutus call_user_func_array vulnerable to Remote Code Execution (RCE) due to Code Injection",
-      "description": "### Details\n\nA Remote Code Execution (RCE) flaw was discovered in the `locutus` project (v2.0.39), specifically within the `call_user_func_array` function implementation. The vulnerability allows an attacker to inject arbitrary JavaScript code into the application's runtime environment. This issue stems from an insecure implementation of the `call_user_func_array` function (and its wrapper `call_user_func`), which fails to properly validate all components of a callback array before passing them to `eval()`.\n\n------\n\n### Technical Details\n\nThe vulnerability is in the `call_user_func_array` function in `src/php/funchand/call_user_func_array.js`, between lines 31 and 35 of version 2.0.39. This function mimics PHP's dynamic function call feature and accepts a callback argument, which can be a string (function name) or an array (class and method name).\n\nThe developers applied a regular expression check (`validJSFunctionNamePattern`) to the first array element (the class identifier), but not",
+      "summary": "AVideo: Unauthenticated PHP session store exposed to host network via published memcached port",
+      "description": "## Summary\nThe official `docker-compose.yml` publishes the memcached service on host port 11211 (`0.0.0.0:11211`) with no authentication, while the Dockerfile configures PHP to store all user sessions in that memcached instance. An attacker who can reach port 11211 can read, modify, or flush session data \u2014 enabling session hijacking, admin impersonation, and mass session destruction without any application-level authentication.\n\n## Severity\n**High** (CVSS 3.1: 8.1)\n\n`CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H`\n\n- **Attack Vector:** Network \u2014 `docker-compose.yml` binds memcached to `0.0.0.0:11211` on the host\n- **Attack Complexity:** High \u2014 exploitation requires port 11211 to be network-reachable, which depends on external firewall/security group configuration beyond the attacker's control\n- **Privileges Required:** None \u2014 memcached has no authentication mechanism enabled\n- **User Interaction:** None\n- **Scope:** Unchanged \u2014 impact is to the AVideo application's session management\n- *",
       "cvss_score": 8.1,
       "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
       "epss_score": null,
       "cwe_ids": [
-        "CWE-95"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "locutus"
-      ],
-      "published": "2026-03-04T20:19:55Z",
-      "updated": "2026-03-04T20:19:58Z",
-      "url": "https://github.com/advisories/GHSA-fp25-p6mj-qqg6",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/locutusjs/locutus/security/advisories/GHSA-fp25-p6mj-qqg6",
-        "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval#never_use_eval",
-        "https://github.com/locutusjs/locutus/blob/main/src/php/funchand/call_user_func_array.js#L31",
-        "https://github.com/advisories/GHSA-fp25-p6mj-qqg6"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-h4hq-rgvh-wh27",
-      "cve_id": "CVE-2026-27803",
-      "severity": "HIGH",
-      "summary": "Vaultwarden's Collection Management Operations Allowed Without `manage` Verification for Manager Role",
-      "description": "## Summary\n\nTesting confirmed that even when a Manager has `manage=false` for a given collection, they can still perform the following management operations as long as they have access to the collection:\n\n* `PUT /api/organizations/<org_id>/collections/<col_id>` succeeds (HTTP 200)\n* `PUT /api/organizations/<org_id>/collections/<col_id>/users` succeeds (HTTP 200)\n* `DELETE /api/organizations/<org_id>/collections/<col_id>` succeeds (HTTP 200)\n\n\n\n## Description\n\n* The Manager guard checks only whether the user **can access the collection**, not whether they have `manage` privileges. This check is directly applied to management endpoints.\nsrc/auth.rs:816\n  ```rust\n\n  if !Collection::can_access_collection(&headers.membership, &col_id, &conn).await {\n      err_handler!(\"The current user isn't a manager for this collection\")\n  }\n  ```\n\n* The `can_access_collection` function does **not** evaluate the `manage` flag.\n  src/db/models/collection.rs:140\n\n  ```rust\n\n  pub async fn can_access_collect",
-      "cvss_score": 8.3,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-269",
-        "CWE-285",
-        "CWE-863"
-      ],
-      "ecosystems": [
-        "rust"
-      ],
-      "packages": [
-        "vaultwarden"
-      ],
-      "published": "2026-03-04T20:13:44Z",
-      "updated": "2026-03-04T20:13:47Z",
-      "url": "https://github.com/advisories/GHSA-h4hq-rgvh-wh27",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/dani-garcia/vaultwarden/security/advisories/GHSA-h4hq-rgvh-wh27",
-        "https://github.com/advisories/GHSA-h4hq-rgvh-wh27"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-r32r-j5jq-3w4m",
-      "cve_id": "CVE-2026-27802",
-      "severity": "HIGH",
-      "summary": "Vaultwarden has Privilege Escalation via Bulk Permission Update to Unauthorized Collections by Manager",
-      "description": "## Summary\n\nA Manager account (`access_all=false`) was able to escalate privileges by directly invoking the **bulk-access API** against collections that were not originally assigned to them.\nThe API allowed changing `assigned=false` to `assigned=true`, resulting in unauthorized access.\n\nAdditionally, prior to the bulk-access call, the regular single-update API correctly returned **401 Unauthorized** for the same collection. After executing the bulk-access API, the same update API returned **200 OK**, confirming an authorization gap at the HTTP level.\n\n---\n\n## Description\n\n* The endpoint accepts `ManagerHeadersLoose` and does not validate access rights for the specified `collectionIds`.\n  src/api/core/organizations.rs:551\n\n  ```rust\n  headers: ManagerHeadersLoose,\n  ```\n\n* The received `collection_ids` are processed directly without per-collection authorization checks.\n  src/api/core/organizations.rs:564\n\n  ```rust\n  for col_id in data.collection_ids {\n  ```\n\n* Existing group assignment",
-      "cvss_score": 8.3,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-269",
-        "CWE-863"
-      ],
-      "ecosystems": [
-        "rust"
-      ],
-      "packages": [
-        "vaultwarden"
-      ],
-      "published": "2026-03-04T20:07:21Z",
-      "updated": "2026-03-04T20:07:21Z",
-      "url": "https://github.com/advisories/GHSA-r32r-j5jq-3w4m",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/dani-garcia/vaultwarden/security/advisories/GHSA-r32r-j5jq-3w4m",
-        "https://github.com/advisories/GHSA-r32r-j5jq-3w4m"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-wc8c-qw6v-h7f6",
-      "cve_id": "CVE-2026-29087",
-      "severity": "HIGH",
-      "summary": "@hono/node-server has authorization bypass for protected static paths via encoded slashes in Serve Static Middleware",
-      "description": "## Summary\n\nWhen using @hono/node-server's static file serving together with route-based middleware protections (e.g. protecting `/admin/*`), inconsistent URL decoding can allow protected static resources to be accessed without authorization.\n\nIn particular, paths containing encoded slashes (`%2F`) may be evaluated differently by routing/middleware matching versus static file path resolution, enabling a bypass where middleware does not run but the static file is still served.\n\n## Details\n\nThe routing layer and the node-server static handler normalize request paths differently. The router preserves `%2F` as a literal string when matching routes, while the static handler decodes `%2F` into `/` before resolving the filesystem path.\n\nExample request:\n\n- `/admin%2Fsecret.html`\n\nThis may:\n- fail to match middleware intended for `/admin/*`, but\n- still be resolved by the static handler as `/admin/secret.html` under the configured static root.\n\nThis does not allow access outside the configured",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-863"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "@hono/node-server"
-      ],
-      "published": "2026-03-04T20:05:49Z",
-      "updated": "2026-03-04T20:05:51Z",
-      "url": "https://github.com/advisories/GHSA-wc8c-qw6v-h7f6",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/honojs/node-server/security/advisories/GHSA-wc8c-qw6v-h7f6",
-        "https://github.com/honojs/node-server/commit/455015be1697dd89974a68b70350ea7b2d126d2e",
-        "https://github.com/advisories/GHSA-wc8c-qw6v-h7f6"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-q5qw-h33p-qvwr",
-      "cve_id": "CVE-2026-29045",
-      "severity": "HIGH",
-      "summary": "Hono vulnerable to arbitrary file access via serveStatic vulnerability ",
-      "description": "## Summary\n\nWhen using `serveStatic` together with route-based middleware protections (e.g. `app.use('/admin/*', ...)`), inconsistent URL decoding allowed protected static resources to be accessed without authorization.\n\nThe router used `decodeURI`, while `serveStatic` used `decodeURIComponent`. This mismatch allowed paths containing encoded slashes (`%2F`) to bypass middleware protections while still resolving to the intended filesystem path.\n\n\n## Details\n\nThe routing layer preserved `%2F` as a literal string, while `serveStatic` decoded it into `/` before resolving the file path.\n\nExample:\n\nRequest: `/admin%2Fsecret.html`\n\n- Router sees: `/admin%2Fsecret.html` \u2192 does not match `/admin/*`\n- Static handler resolves: `/admin/secret.html`\n\nAs a result, static files under the configured static root could be served without triggering route-based protections.\n\nThis only affects applications that both:\n\n- Protect subpaths using route-based middleware, and\n- Serve files from the same static r",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-177"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "hono"
-      ],
-      "published": "2026-03-04T19:48:00Z",
-      "updated": "2026-03-04T19:48:00Z",
-      "url": "https://github.com/advisories/GHSA-q5qw-h33p-qvwr",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/honojs/hono/security/advisories/GHSA-q5qw-h33p-qvwr",
-        "https://github.com/honojs/hono/commit/6a0607a929d888893f0c91d92dce2fcfdb3662a3",
-        "https://github.com/advisories/GHSA-q5qw-h33p-qvwr"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-3jx4-q2m7-r496",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Hardlink alias checks could bypass workspace-only file boundaries in specific configurations",
-      "description": "### Summary\nIn certain workspace-restricted configurations, OpenClaw could follow hardlink aliases inside the workspace that reference files outside the workspace boundary.\n\nBy default, `tools.fs.workspaceOnly` is off. This primarily affects deployments that intentionally enable workspace-only filesystem restrictions (and workspace-only `apply_patch` checks).\n\n### Impact\n- Confidentiality: out-of-workspace files could be read through in-workspace hardlink aliases.\n- Integrity: out-of-workspace files could be modified through in-workspace hardlink aliases.\n\n### Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Latest published version at triage time: `2026.2.24`\n- Affected range: `<= 2026.2.24`\n- Planned patched version: `2026.2.25`\n\n### Fix Commit(s)\n- `04d91d0319b82fd4de91ed05e9fc5219ff2ab64e` (main)\n\n### Remediation\nOpenClaw now rejects hardlinked final-file aliases during workspace boundary validation for:\n- workspace-only path checks (`read` / `write` / `edit`)\n- workspace",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-59",
+        "CWE-287",
         "CWE-668"
       ],
       "ecosystems": [
-        "npm"
+        "composer"
       ],
       "packages": [
-        "openclaw"
+        "wwbn/avideo"
       ],
-      "published": "2026-03-04T19:21:04Z",
-      "updated": "2026-03-04T19:21:06Z",
-      "url": "https://github.com/advisories/GHSA-3jx4-q2m7-r496",
+      "published": "2026-03-05T01:22:21Z",
+      "updated": "2026-03-05T01:22:21Z",
+      "url": "https://github.com/advisories/GHSA-xxpw-32hf-q8v9",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-3jx4-q2m7-r496",
-        "https://github.com/openclaw/openclaw/commit/04d91d0319b82fd4de91ed05e9fc5219ff2ab64e",
-        "https://github.com/advisories/GHSA-3jx4-q2m7-r496"
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-xxpw-32hf-q8v9",
+        "https://github.com/advisories/GHSA-xxpw-32hf-q8v9"
       ]
     },
     {
-      "ghsa_id": "GHSA-vvjh-f6p9-5vcf",
-      "cve_id": null,
+      "ghsa_id": "GHSA-c7mq-gh6q-6q7c",
+      "cve_id": "CVE-2026-3125",
       "severity": "HIGH",
-      "summary": "OpenClaw Canvas Authentication Bypass Vulnerability",
-      "description": "ZDI-CAN-29311: OpenClaw Canvas Authentication Bypass Vulnerability\n\n-- ABSTRACT -------------------------------------\n\nTrend Micro's Zero Day Initiative has identified a vulnerability affecting the following products:\nOpenClaw - OpenClaw\n\n-- VULNERABILITY DETAILS ------------------------\n* Version tested: openclaw 2026.2.17\n* Platform tested: macOS 26.3\n\n---\n\n### Analysis\n\n## Description\n\nThe OpenClaw gateway's `authorizeCanvasRequest()` function implements an IP-based authentication fallback for canvas endpoints (`/__openclaw__/a2ui/`, `/__openclaw__/canvas/`, `/__openclaw__/ws`). When a WebSocket client authenticates from a private IP address, ALL subsequent HTTP requests from that same IP are granted canvas access without requiring their own authentication token.\n\nIn environments where multiple clients share a single IP address \ufffd\ufffd\ufffd corporate NAT, VPN concentrators, Kubernetes clusters, Docker host-mode networking \ufffd\ufffd\ufffd an unauthenticated attacker on the same network is granted full ca",
-      "cvss_score": 7.4,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-291"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-03-04T19:17:36Z",
-      "updated": "2026-03-04T19:17:36Z",
-      "url": "https://github.com/advisories/GHSA-vvjh-f6p9-5vcf",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-vvjh-f6p9-5vcf",
-        "https://github.com/openclaw/openclaw/commit/c45f3c5b004c8d63dc0e282e2176f8c9355d24f1",
-        "https://github.com/advisories/GHSA-vvjh-f6p9-5vcf"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-x2ff-j5c2-ggpr",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Slack interactive callbacks could skip configured sender checks in some shared-workspace flows",
-      "description": "## Impact\n\nIn shared Slack workspace deployments that rely on sender restrictions (`allowFrom`, DM policy, or channel user allowlists), some interactive callbacks (`block_action`, `view_submission`, `view_closed`) could be accepted before full sender authorization checks.\n\nIn that scenario, an unauthorized workspace member could enqueue system-event text into an active session. This issue did not provide unauthenticated access, cross-gateway isolation bypass, or host-level privilege escalation by itself.\n\n## Affected Packages / Versions\n\n- Package: `openclaw` (npm)\n- Vulnerable versions: `<= 2026.2.24`\n- Patched version: `2026.2.25` (planned next npm release)\n\n## Fix Commit(s)\n\n- `ce8c67c314b93f570f53c2a9abc124e1e3a54715`\n\n## Release Process Note\n\n`patched_versions` is pre-set to the release (`2026.2.25`). Advisory published with npm release `2026.2.25`.\n\n## Trust Model Scope Note\n\nOpenClaw does not support adversarial multi-user isolation on a single shared gateway instance. The suppo",
+      "summary": "opennextjs-cloudflare has SSRF vulnerability via /cdn-cgi/ path normalization bypass",
+      "description": "A Server-Side Request Forgery (SSRF) vulnerability was identified in the @opennextjs/cloudflare package, resulting from a path normalization bypass in the /cdn-cgi/image/ handler.\n\nThe @opennextjs/cloudflare worker template includes a /cdn-cgi/image/ handler intended for development use only. In production, Cloudflare's edge intercepts /cdn-cgi/image/ requests before they reach the Worker. However, by substituting a backslash for a forward slash (/cdn-cgi\\image/ instead of /cdn-cgi/image/), an attacker can bypass edge interception and have the request reach the Worker directly. The JavaScript URL class then normalizes the backslash to a forward slash, causing the request to match the handler and trigger an unvalidated fetch of arbitrary remote URLs.\n\nFor example: https://victim-site.com/cdn-cgi\\image/aaaa/https://attacker.com\n\nIn this example, attacker-controlled content from attacker.com is served through the victim site's domain (victim-site.com), violating the same-origin policy and",
       "cvss_score": null,
       "cvss_vector": null,
       "epss_score": null,
       "cwe_ids": [
-        "CWE-863"
+        "CWE-706",
+        "CWE-918"
       ],
       "ecosystems": [
         "npm"
       ],
       "packages": [
-        "openclaw"
+        "@opennextjs/cloudflare"
       ],
-      "published": "2026-03-04T18:55:19Z",
-      "updated": "2026-03-04T18:55:19Z",
-      "url": "https://github.com/advisories/GHSA-x2ff-j5c2-ggpr",
+      "published": "2026-03-05T00:57:07Z",
+      "updated": "2026-03-05T00:57:09Z",
+      "url": "https://github.com/advisories/GHSA-c7mq-gh6q-6q7c",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-x2ff-j5c2-ggpr",
-        "https://github.com/openclaw/openclaw/commit/ce8c67c314b93f570f53c2a9abc124e1e3a54715",
-        "https://github.com/advisories/GHSA-x2ff-j5c2-ggpr"
+        "https://github.com/opennextjs/opennextjs-cloudflare/security/advisories/GHSA-c7mq-gh6q-6q7c",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-3125",
+        "https://github.com/opennextjs/opennextjs-cloudflare/pull/1147",
+        "https://github.com/opennextjs/opennextjs-cloudflare/commit/f5bd138fd3c77e02f2aa4b9c76d55681e59e98b4",
+        "https://github.com/advisories/GHSA-rvpw-p7vw-wj3m",
+        "https://www.cve.org/cverecord?id=CVE-2025-6087",
+        "https://www.npmjs.com/package/@opennextjs/cloudflare/v/1.17.1",
+        "https://github.com/advisories/GHSA-c7mq-gh6q-6q7c"
       ]
     },
     {
-      "ghsa_id": "GHSA-xw98-5q62-jx94",
-      "cve_id": "CVE-2026-26999",
-      "severity": "HIGH",
-      "summary": "Traefik: tcp router clears read deadlines before tls forwarding, enabling stalled handshakes (Slowloris DOS)",
-      "description": "## Impact\n\nThere is a potential vulnerability in Traefik managing TLS handshake on TCP routers.\n\nWhen Traefik processes a TLS connection on a TCP router, the read deadline used to bound protocol sniffing is cleared before the TLS handshake is completed. When a TLS handshake read error occurs, the code attempts a second handshake with different connection parameters, silently ignoring the initial error. A remote unauthenticated client can exploit this by sending an incomplete TLS record and stopping further data transmission, causing the TLS handshake to stall indefinitely and holding connections open.\n\nBy opening many such stalled connections in parallel, an attacker can exhaust file descriptors and goroutines, degrading availability of all services on the affected entrypoint.\n\n## Patches\n\n- https://github.com/traefik/traefik/releases/tag/v2.11.38\n- https://github.com/traefik/traefik/releases/tag/v3.6.9\n\n## Workarounds\n\nNo workaround available.\n\n## For more information\n\nIf there are an",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-400"
-      ],
-      "ecosystems": [
-        "go",
-        "go"
-      ],
-      "packages": [
-        "github.com/traefik/traefik/v2",
-        "github.com/traefik/traefik/v3"
-      ],
-      "published": "2026-03-04T18:29:09Z",
-      "updated": "2026-03-04T18:29:10Z",
-      "url": "https://github.com/advisories/GHSA-xw98-5q62-jx94",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/traefik/traefik/security/advisories/GHSA-xw98-5q62-jx94",
-        "https://github.com/traefik/traefik/releases/tag/v2.11.38",
-        "https://github.com/traefik/traefik/releases/tag/v3.6.9",
-        "https://github.com/advisories/GHSA-xw98-5q62-jx94"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-h2xq-h7f9-vh6c",
-      "cve_id": "CVE-2025-66024",
-      "severity": "HIGH",
-      "summary": "XWiki Blog Application home page vulnerable to Stored XSS via Post Title",
-      "description": "### Impact\n\nThe Blog Application is vulnerable to Stored Cross-Site Scripting (XSS) via the Blog Post Title. The vulnerability arises because the post title is injected directly into the HTML <title> tag without proper escaping.\n\nAn attacker with permissions to create or edit blog posts can inject malicious JavaScript into the title field. This script will execute in the browser of any user (including administrators) who views the blog post. This leads to potential session hijacking or privilege escalation.\n\nTo reproduce:\n\n* Log in as a user with rights to create blog posts.\n* Create a new blog post.\n* In the Title field, insert the following payload designed to break out of the title tag: ```</title><script>alert('XSS in title blog')</script>```\n* Save (Publish) the post.\n* View the post in the blog home page\n\n### Patches\nThe vulnerability has been patched in the blog application version 9.15.7 by adding missing escaping.\n\n### Workarounds\nXWiki Blog Application maintainers are not awa",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-79"
-      ],
-      "ecosystems": [
-        "maven"
-      ],
-      "packages": [
-        "org.xwiki.contrib.blog:application-blog-ui"
-      ],
-      "published": "2026-03-04T18:16:14Z",
-      "updated": "2026-03-04T18:16:14Z",
-      "url": "https://github.com/advisories/GHSA-h2xq-h7f9-vh6c",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/xwiki-contrib/application-blog/security/advisories/GHSA-h2xq-h7f9-vh6c",
-        "https://github.com/xwiki-contrib/application-blog/commit/cca87f0a0edc2e7e049d46d51f4a4d8f78b714ba",
-        "https://jira.xwiki.org/browse/BLOG-245",
-        "https://github.com/advisories/GHSA-h2xq-h7f9-vh6c"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-2ch6-x3g4-7759",
+      "ghsa_id": "GHSA-qffp-2rhf-9h96",
       "cve_id": null,
       "severity": "HIGH",
-      "summary": "OpenClaw's commands.allowFrom sender authorization accepted conversation identifiers via ctx.From",
-      "description": "### Summary\n`commands.allowFrom` is documented as a sender authorization allowlist for commands/directives, but command authorization could include `ctx.From` (conversation identity) as a sender candidate.\n\nWhen `commands.allowFrom` contained conversation-like identifiers (for example Discord `channel:<id>` or WhatsApp group JIDs), command/directive authorization could be granted to participants in that conversation instead of only the intended sender identity.\n\n### Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected versions: `<= 2026.2.22-2`\n- Patched version: `2026.2.23` (released)\n\n### Details\nRoot cause: `resolveSenderCandidates()` in `src/auto-reply/command-auth.ts` always included `ctx.From` in candidate evaluation used by `commands.allowFrom` authorization checks.\n\n`ctx.From` is sender-like in some direct-message contexts, but conversation-like in channel/group/thread contexts. This mixed principal handling allowed conversation identifiers to satisfy sender-only",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-639"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-03-03T23:19:46Z",
-      "updated": "2026-03-03T23:19:46Z",
-      "url": "https://github.com/advisories/GHSA-2ch6-x3g4-7759",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-2ch6-x3g4-7759",
-        "https://github.com/openclaw/openclaw/commit/08e2aa44e78a9c946d97bea62304e6f533b8fa8e",
-        "https://github.com/advisories/GHSA-2ch6-x3g4-7759"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-jj82-76v6-933r",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw's exec allowlist wrapper analysis did not unwrap env/shell dispatch chains",
-      "description": "### Summary\n`system.run` exec allowlist analysis treated wrapper binaries as the effective executable and did not fully unwrap `env`/shell-dispatch wrappers.\n\nThis allowed wrapper-smuggled payloads (for example `env bash -lc ...`) to satisfy an allowlist entry for the wrapper while executing non-allowlisted commands.\n\n### Impact\nOn affected versions, an actor who can trigger `system.run` requests under an allowlist policy could bypass intended allowlist restrictions by routing execution through wrapper binaries.\n\n### Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: `<= 2026.2.21-2`\n- Patched in next release: `2026.2.22` (pre-set below so publish can happen immediately after npm release)\n\n### Fix Commit(s)\n- `2b63592be57782c8946e521bc81286933f0f99c7`\n\n### Release Process Note\n`patched_versions` is pre-set to the planned next release (`>= 2026.2.22`).\n\nAfter npm `2026.2.22` is published, this advisory can be published directly without further metadata edits.\n\nOpenClaw",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-78",
-        "CWE-863"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-03-03T23:13:51Z",
-      "updated": "2026-03-03T23:13:54Z",
-      "url": "https://github.com/advisories/GHSA-jj82-76v6-933r",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-jj82-76v6-933r",
-        "https://github.com/openclaw/openclaw/commit/2b63592be57782c8946e521bc81286933f0f99c7",
-        "https://github.com/advisories/GHSA-jj82-76v6-933r"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-m8v2-6wwh-r4gc",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw's sandbox bind validation could bypass allowed-root and blocked-path checks via symlink-parent missing-leaf paths",
-      "description": "### Summary\nIn `openclaw` up to and including **2026.2.23** (latest npm release as of **February 24, 2026**), sandbox bind-source validation could be bypassed when a bind source used a symlinked parent plus a non-existent leaf path.\n\n### Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: `<= 2026.2.23`\n- Patched: `>= 2026.2.24` (planned next release)\n\n### Root Cause\n`validateBindMounts` previously relied on full-path realpath only when the full source path already existed. For missing-leaf paths, parent symlink traversal was not fully canonicalized before allowed-root and blocked-path checks.\n\n### Security Impact\nA source path that looked inside an allowed root could resolve outside that root (including blocked runtime paths) once the missing leaf was created, weakening sandbox bind-source boundary enforcement.\n\n### Fix\nThe validation path now canonicalizes through the nearest existing ancestor, then always re-checks the canonical path against both:\n- allowed source r",
+      "summary": "tar has Hardlink Path Traversal via Drive-Relative Linkpath",
+      "description": "### Summary\n`tar` (npm) can be tricked into creating a hardlink that points outside the extraction directory by using a drive-relative link target such as `C:../target.txt`, which enables file overwrite outside `cwd` during normal `tar.x()` extraction.\n\n### Details\nThe extraction logic in `Unpack[STRIPABSOLUTEPATH]` checks for `..` segments *before* stripping absolute roots.\n\nWhat happens with `linkpath: \"C:../target.txt\"`:\n1. Split on `/` gives `['C:..', 'target.txt']`, so `parts.includes('..')` is false.\n2. `stripAbsolutePath()` removes `C:` and rewrites the value to `../target.txt`.\n3. Hardlink creation resolves this against extraction `cwd` and escapes one directory up.\n4. Writing through the extracted hardlink overwrites the outside file.\n\nThis is reachable in standard usage (`tar.x({ cwd, file })`) when extracting attacker-controlled tar archives.\n\n### PoC\nTested on Arch Linux with `tar@7.5.9`.\n\nPoC script (`poc.cjs`):\n\n```js\nconst fs = require('fs')\nconst path = require('path')\n",
       "cvss_score": null,
       "cvss_vector": null,
       "epss_score": null,
@@ -658,44 +342,376 @@
         "npm"
       ],
       "packages": [
-        "openclaw"
+        "tar"
       ],
-      "published": "2026-03-03T23:10:01Z",
-      "updated": "2026-03-03T23:10:03Z",
-      "url": "https://github.com/advisories/GHSA-m8v2-6wwh-r4gc",
+      "published": "2026-03-05T00:52:32Z",
+      "updated": "2026-03-05T00:52:34Z",
+      "url": "https://github.com/advisories/GHSA-qffp-2rhf-9h96",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-m8v2-6wwh-r4gc",
-        "https://github.com/openclaw/openclaw/commit/b5787e4abba0dcc6baf09051099f6773c1679ec1",
-        "https://github.com/advisories/GHSA-m8v2-6wwh-r4gc"
+        "https://github.com/isaacs/node-tar/security/advisories/GHSA-qffp-2rhf-9h96",
+        "https://github.com/isaacs/node-tar/commit/7bc755dd85e623c0279e08eb3784909e6d7e4b9f",
+        "https://github.com/advisories/GHSA-qffp-2rhf-9h96"
       ]
     },
     {
-      "ghsa_id": "GHSA-jxrq-8fm4-9p58",
+      "ghsa_id": "GHSA-9m84-wc28-w895",
       "cve_id": null,
       "severity": "HIGH",
-      "summary": "OpenClaw: Zip extraction symlink traversal could write outside destination",
-      "description": "### Summary\nA path confinement bypass in OpenClaw ZIP extraction allowed writes outside the intended destination when a pre-existing symlink was present under the extraction root.\n\n### Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Latest published npm version at triage time: `2026.2.21-2`\n- Affected versions: `<= 2026.2.21-2`\n- Planned patched version for next release: `2026.2.22`\n\n### Technical Details\nThe vulnerable path was in `src/infra/archive.ts` ZIP extraction logic. Output-path checks were lexical, but writes could still traverse an existing symlink in destination path segments.\n\nThe fix blocks this by:\n- rejecting symlink traversal in destination path segments,\n- validating resolved destination paths remain inside the extraction root,\n- using no-follow file opens for ZIP output writes where supported,\n- adding a regression test for pre-seeded destination symlink traversal.\n\n### Impact\n- Type: Arbitrary file write outside extraction root via symlink traversal durin",
-      "cvss_score": null,
-      "cvss_vector": null,
+      "summary": "Ghost has incomplete CSRF protections around OTC use",
+      "description": "### Impact\n\nIncomplete CSRF protections around `/session/verify` made it possible to use OTCs in login sessions different from the requesting session. In some scenarios this might have made it easier for phishers to take over a Ghost site. \n\n### Vulnerable versions\n\nThis vulnerability is present in Ghost from v5.101.6 up to v6.19.2.\n\n### Patches\n\nv6.19.3 contains a fix for this issue.\n\n### How to update\n\nFor self-hosters using Docker, find [Docker's official Ghost image here](https://hub.docker.com/_/ghost). Updating a Docker-based Ghost instance [is documented here](https://docs.ghost.org/install/docker#updating-ghost). \n\nIf a project's Ghost is a Ghost-CLI install see the documentation on [updating it to the latest version here](https://docs.ghost.org/update). \n\n### For more information\n\nIf there are any questions or comments about this advisory, send an email to [security@ghost.org](mailto:security@ghost.org).",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
       "epss_score": null,
       "cwe_ids": [
-        "CWE-59"
+        "CWE-352"
       ],
       "ecosystems": [
         "npm"
       ],
       "packages": [
-        "openclaw"
+        "ghost"
       ],
-      "published": "2026-03-03T23:09:31Z",
-      "updated": "2026-03-03T23:09:33Z",
-      "url": "https://github.com/advisories/GHSA-jxrq-8fm4-9p58",
+      "published": "2026-03-05T00:42:55Z",
+      "updated": "2026-03-05T00:42:56Z",
+      "url": "https://github.com/advisories/GHSA-9m84-wc28-w895",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-jxrq-8fm4-9p58",
-        "https://github.com/openclaw/openclaw/commit/4b226b74f5fd3b106a83a6347fd404172e2fd246",
-        "https://github.com/advisories/GHSA-jxrq-8fm4-9p58"
+        "https://github.com/TryGhost/Ghost/security/advisories/GHSA-9m84-wc28-w895",
+        "https://github.com/TryGhost/Ghost/commit/ec065a774fa125953d2aa644a59cd8990329e0a0",
+        "https://github.com/advisories/GHSA-9m84-wc28-w895"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-hhjv-jq77-cmvx",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "zeptoclaw has Android device shell blocklist bypass via argument permutation",
+      "description": "### Summary\n[zeptoclaw](https://github.com/qhkm/zeptoclaw) implements a [blocklist](https://github.com/qhkm/zeptoclaw/blob/fe2ef07cfec5bb46b42cdd65f52b9230c03e9270/src/tools/android/actions.rs#L413-L424) to prevent dangerous commands running in android device shell, but this blocklist has several blocked commands with argements in the pattern literal, such as `rm -f` and `rm -rf`, this can be simply bypassed by using different orders for these arguments, such as `rm -r -f` or `rm -fr` etc.\n\n### Details\nAs in code [src/tools/android/actions.rs#L413-L424](https://github.com/qhkm/zeptoclaw/blob/fe2ef07cfec5bb46b42cdd65f52b9230c03e9270/src/tools/android/actions.rs#L413-L424), we can see the `rm -f` and `rm -rf` are hard coded and thus can be simply bypassed via `rm -r -f` or `rm -fr` etc.\n```rust\npub async fn device_shell(adb: &AdbExecutor, cmd: &str) -> Result<String> {\n    // Normalize whitespace for blocklist check\n    let normalized: String = cmd.split_whitespace().collect::<Vec<_>>().",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-78"
+      ],
+      "ecosystems": [
+        "rust"
+      ],
+      "packages": [
+        "zeptoclaw"
+      ],
+      "published": "2026-03-05T00:35:29Z",
+      "updated": "2026-03-05T00:35:31Z",
+      "url": "https://github.com/advisories/GHSA-hhjv-jq77-cmvx",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/qhkm/zeptoclaw/security/advisories/GHSA-hhjv-jq77-cmvx",
+        "https://github.com/qhkm/zeptoclaw/commit/68916c3e4f3af107f11940b27854fc7ef517058b",
+        "https://github.com/qhkm/zeptoclaw/blob/fe2ef07cfec5bb46b42cdd65f52b9230c03e9270/src/tools/android/actions.rs#L413-L424",
+        "https://github.com/advisories/GHSA-hhjv-jq77-cmvx"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-vc89-5g3r-cmhh",
+      "cve_id": "CVE-2026-29182",
+      "severity": "HIGH",
+      "summary": "Parse Server's Cloud Hooks and Cloud Jobs bypass `readOnlyMasterKey` write restriction",
+      "description": "### Impact\n\nParse Server's `readOnlyMasterKey` option allows access with master-level read privileges but is documented to deny all write operations. However, some endpoints incorrectly accept the `readOnlyMasterKey` for mutating operations. This allows a caller who only holds the `readOnlyMasterKey` to create, modify, and delete Cloud Hooks and to start Cloud Jobs, which can be used for data exfiltration.\n\nAny Parse Server deployment that uses the `readOnlyMasterKey` option is affected. Note than an attacker needs to know the `readOnlyMasterKey` to exploit this vulnerability.\n\n### Patches\n\nThe fix adds authorization checks, rejecting mutating requests made with the `readOnlyMasterKey`.\n\n### Workarounds\n\nThere is no known workaround other than upgrading. If upgrading is not immediately possible, ensure the `readOnlyMasterKey` value is not shared with untrusted parties.\n\n### Resources\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-v",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-05T00:33:18Z",
+      "updated": "2026-03-05T00:33:20Z",
+      "url": "https://github.com/advisories/GHSA-vc89-5g3r-cmhh",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-vc89-5g3r-cmhh",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.4",
+        "https://github.com/parse-community/parse-server/releases/tag/9.4.1-alpha.3",
+        "https://github.com/advisories/GHSA-vc89-5g3r-cmhh"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-6px9-j4qr-xfjw",
+      "cve_id": "CVE-2026-29778",
+      "severity": "HIGH",
+      "summary": "pyLoad has an Arbitrary File Write via Path Traversal in edit_package()",
+      "description": "The edit_package() function implements insufficient sanitization for the pack_folder parameter. The current protection relies on a single-pass string replacement of \"../\", which can be bypassed using crafted recursive traversal sequences.\n\nExploitation\n\nAn authenticated user with MODIFY permission can bypass the sanitization by submitting a payload such as:\n`pack_folder=..././..././..././tmp`\n\nAfter the single-pass replacement, this becomes:\n`../../../tmp`\n\nBecause the traversal sequences are not properly validated, the resulting normalized path escapes the intended storage directory and writes files to /tmp or other locations.",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-23"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "pyload-ng"
+      ],
+      "published": "2026-03-05T00:32:19Z",
+      "updated": "2026-03-05T00:32:21Z",
+      "url": "https://github.com/advisories/GHSA-6px9-j4qr-xfjw",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/pyload/pyload/security/advisories/GHSA-6px9-j4qr-xfjw",
+        "https://github.com/advisories/GHSA-6px9-j4qr-xfjw"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-5528-5vmv-3xc2",
+      "cve_id": "CVE-2026-3520",
+      "severity": "HIGH",
+      "summary": "Multer Vulnerable to Denial of Service via Uncontrolled Recursion",
+      "description": "### Impact\n\nA vulnerability in Multer versions < 2.1.1 allows an attacker to trigger a Denial of Service (DoS) by sending malformed requests, potentially causing stack overflow.\n\n### Patches\n\nUsers should upgrade to `2.1.1`\n\n### Workarounds\n\nNone\n\n### Resources\n\n- https://github.com/expressjs/multer/security/advisories/GHSA-5528-5vmv-3xc2\n- https://www.cve.org/CVERecord?id=CVE-2026-3520\n- https://github.com/expressjs/multer/commit/7e66481f8b2e6c54b982b34c152479e096ce2752\n- https://cna.openjsf.org/security-advisories.html",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-674"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "multer"
+      ],
+      "published": "2026-03-05T00:27:50Z",
+      "updated": "2026-03-05T00:27:52Z",
+      "url": "https://github.com/advisories/GHSA-5528-5vmv-3xc2",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/expressjs/multer/security/advisories/GHSA-5528-5vmv-3xc2",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-3520",
+        "https://github.com/expressjs/multer/commit/7e66481f8b2e6c54b982b34c152479e096ce2752",
+        "https://cna.openjsf.org/security-advisories.html",
+        "https://www.cve.org/CVERecord?id=CVE-2026-3520",
+        "https://github.com/advisories/GHSA-5528-5vmv-3xc2"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-928r-fm4v-mvrw",
+      "cve_id": "CVE-2026-29186",
+      "severity": "HIGH",
+      "summary": "TechDocs Mkdocs Configuration Key Enables Arbitrary Code Execution",
+      "description": "### Impact\nThis is a configuration bypass vulnerability that enables arbitrary code execution. The `@backstage/plugin-techdocs-node` package uses an allowlist to filter dangerous MkDocs configuration keys during the documentation build process. \n\nA gap in this allowlist allows attackers to craft an `mkdocs.yml` that causes arbitrary Python code execution, completely bypassing TechDocs' security controls.     \n\n### Patches\n\nPatched in `@backstage/plugin-techdocs-node` version 1.14.3\n\n### Workarounds\nIf users cannot upgrade immediately:\n\n1. Use Docker mode with restricted access: Configure TechDocs with `runIn: docker` instead of `runIn: local`. This provides container isolation, though it does not fully mitigate the risk.\n2. Restrict repository access: Limit who can modify `mkdocs.yml` files in repositories that TechDocs processes. Only allow trusted contributors.\n3. Manual review: Implement PR review requirements for changes to `mkdocs.yml` files to detect malicious hooks configuration",
+      "cvss_score": 7.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:C/C:H/I:L/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-74",
+        "CWE-434"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@backstage/plugin-techdocs-node"
+      ],
+      "published": "2026-03-05T00:12:07Z",
+      "updated": "2026-03-05T00:12:09Z",
+      "url": "https://github.com/advisories/GHSA-928r-fm4v-mvrw",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/backstage/backstage/security/advisories/GHSA-928r-fm4v-mvrw",
+        "https://backstage.io/docs/features/techdocs/architecture",
+        "https://www.mkdocs.org/about/release-notes/#version-14-2022-09-27",
+        "https://www.mkdocs.org/user-guide/configuration/#hooks",
+        "https://github.com/advisories/GHSA-928r-fm4v-mvrw"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-p436-gjf2-799p",
+      "cve_id": "CVE-2025-15558",
+      "severity": "HIGH",
+      "summary": "Docker CLI Plugins: Uncontrolled Search Path Element Leads to Local Privilege Escalation on Windows",
+      "description": "This issue affects Docker CLI through 29.1.5\n\n### Impact\n\nDocker CLI for Windows searches for plugin binaries in `C:\\ProgramData\\Docker\\cli-plugins`, a directory that does not exist by default. A low-privileged attacker can create this directory and place malicious CLI plugin binaries (docker-compose.exe, docker-buildx.exe, etc.) that are executed when a victim user opens Docker Desktop or invokes Docker CLI plugin features, and allow privilege-escalation if the `docker` CLI is executed as a privileged user.\n\nThis issue affects Docker CLI through v29.1.5 (fixed in v29.2.0). It impacts Windows binaries acting as a CLI plugin manager via the [`github.com/docker/cli/cli-plugins/manager`](https://pkg.go.dev/github.com/docker/cli@v29.1.5+incompatible/cli-plugins/manager) package, which is consumed by downstream projects such as Docker Compose.\n\nDocker Compose became affected starting in v2.31.0, when it incorporated the relevant CLI plugin manager code (see https://github.com/docker/compose",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-427"
+      ],
+      "ecosystems": [
+        "go",
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/docker/cli",
+        "github.com/docker/compose/v2",
+        "github.com/docker/compose/v5"
+      ],
+      "published": "2026-03-05T00:10:40Z",
+      "updated": "2026-03-05T00:10:42Z",
+      "url": "https://github.com/advisories/GHSA-p436-gjf2-799p",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/docker/cli/security/advisories/GHSA-p436-gjf2-799p",
+        "https://nvd.nist.gov/vuln/detail/CVE-2025-15558",
+        "https://github.com/docker/cli/pull/6713",
+        "https://github.com/docker/compose/pull/12300",
+        "https://github.com/docker/cli/commit/13759330b1f7e7cb0d67047ea42c5482548ba7fa",
+        "https://docs.docker.com/desktop/release-notes",
+        "https://www.zerodayinitiative.com/advisories/ZDI-CAN-28304",
+        "https://github.com/advisories/GHSA-p436-gjf2-799p"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-xpqw-6gx7-v673",
+      "cve_id": "CVE-2026-29074",
+      "severity": "HIGH",
+      "summary": "SVGO DoS through entity expansion in DOCTYPE (Billion Laughs)",
+      "description": "### Summary\n\nSVGO accepts XML with custom entities, without guards against entity expansion or recursion. This can result in a small XML file (811 bytes) stalling the application and even crashing the Node.js process with `JavaScript heap out of memory`.\n\n### Details\n\nThe upstream XML parser ([sax](https://www.npmjs.com/package/sax)) doesn't interpret custom XML entities by default. We pattern matched custom XML entities from the `DOCTYPE`, inserting them into `parser.ENTITIES`, and enabled `unparsedEntities`. This gives us the desired behavior of supporting SVGs with entities declared in the `DOCTYPE`.\n\nHowever, entities can reference other entities, which can enable small SVGs to explode exponentially when we try to parse them.\n\n#### Proof of Concept\n\n```js\nimport { optimize } from 'svgo';\n\n/** Presume that this string was obtained in some other way, such as network. */\nconst original = `\n  <?xml version=\"1.0\"?>\n  <!DOCTYPE lolz [\n  <!ENTITY lol \"lol\">\n  <!ELEMENT lolz (#PCDATA)>\n  <",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-776"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "svgo",
+        "svgo",
+        "svgo"
+      ],
+      "published": "2026-03-04T22:59:28Z",
+      "updated": "2026-03-04T22:59:29Z",
+      "url": "https://github.com/advisories/GHSA-xpqw-6gx7-v673",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/svg/svgo/security/advisories/GHSA-xpqw-6gx7-v673",
+        "https://github.com/advisories/GHSA-xpqw-6gx7-v673"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-6rx5-m2rc-hmf7",
+      "cve_id": "CVE-2026-29192",
+      "severity": "HIGH",
+      "summary": "ZITADEL: Stored XSS via Default URI Redirect Leads to Account Takeover",
+      "description": "### Summary\n\nA vulnerability in Zitadel's login V2 interface was discovered, allowing for possible account takeover.\n\n### Impact\n\nZitadel allows organization administrators to change the default redirect URI for their organization. This setting enables them to redirect users to an arbitrary location after they log in.\n\nDue to missing restrictions and improper handling, malicious javascrtipt code could be executed in Zitadel login UI (v2) using the users\u2019 browser. \n\nAn unauthenticated remote attacker can exploit this Stored XSS vulnerability, reset the password of their victims, and take over their accounts.\n\nIt's important to note that this specific attack vector is mitigated for accounts that have Multi-Factor Authentication (MFA) or Passwordless authentication enabled.Stored XSS vulnerability. \n\n### Affected Versions\n\nSystems running one of the following versions are affected:\n- **4.x**: `4.0.0` through `4.11.1` (including RC versions)\n\n### Patches\n\nThe vulnerability has been address",
+      "cvss_score": 7.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/zitadel/zitadel/v2",
+        "github.com/zitadel/zitadel"
+      ],
+      "published": "2026-03-04T22:53:42Z",
+      "updated": "2026-03-04T22:53:44Z",
+      "url": "https://github.com/advisories/GHSA-6rx5-m2rc-hmf7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/zitadel/zitadel/security/advisories/GHSA-6rx5-m2rc-hmf7",
+        "https://github.com/zitadel/zitadel/releases/tag/v4.12.0",
+        "https://github.com/advisories/GHSA-6rx5-m2rc-hmf7"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-25rw-g6ff-fmg8",
+      "cve_id": "CVE-2026-29193",
+      "severity": "HIGH",
+      "summary": "ZITADEL: Login V2 UI Policy Bypass Allows Unauthorized Self-Registration and Authentication",
+      "description": "### Summary\n\nA vulnerability in Zitadel's login V2 UI allowed users to bypass login behavior and security policies and self-register new accounts or sign in using password even if corresponding options were disabled in their organizaton.\n\n### Impact\n\nZitadel enables administrators to configure their organization\u2019s login behavior and security policies. As part of this functionality, they can disable user self-registration, enforce passwordless logins only, and more.\n\nDue to improper enforcement an attacker could send direct HTTP requests to the login UI and create accounts in organizations that have disabled user self-registration, and gain unauthorized access to the system.\nThe same attack vector could be used to authenticate for example using username and password even when this login method was disabled.\n\n### Affected Versions\n\nSystems running one of the following versions are affected:\n- **4.x**: `4.0.0` through `4.12.0` (including RC versions)\n\n### Patches\n\nThe vulnerability has be",
+      "cvss_score": 8.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-287"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/zitadel/zitadel/v2",
+        "github.com/zitadel/zitadel"
+      ],
+      "published": "2026-03-04T22:51:16Z",
+      "updated": "2026-03-04T22:51:18Z",
+      "url": "https://github.com/advisories/GHSA-25rw-g6ff-fmg8",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/zitadel/zitadel/security/advisories/GHSA-25rw-g6ff-fmg8",
+        "https://github.com/zitadel/zitadel/releases/tag/v4.12.1",
+        "https://github.com/advisories/GHSA-25rw-g6ff-fmg8"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-rhr9-hgcm-x289",
+      "cve_id": "CVE-2026-29771",
+      "severity": "HIGH",
+      "summary": "Netmaker Vulnerable to Denial of Service via Server Shutdown Endpoint",
+      "description": "The /api/server/shutdown endpoint allows termination of the Netmaker server process via syscall.SIGINT. This allows any user to repeatedly shut down the server, causing cyclic denial of service with approximately 3-second restart intervals.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-404"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/gravitl/netmaker"
+      ],
+      "published": "2026-03-04T22:09:10Z",
+      "updated": "2026-03-04T22:09:11Z",
+      "url": "https://github.com/advisories/GHSA-rhr9-hgcm-x289",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/gravitl/netmaker/security/advisories/GHSA-rhr9-hgcm-x289",
+        "https://github.com/advisories/GHSA-rhr9-hgcm-x289"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-5hwf-rc88-82xm",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Fickling missing RCE-capable modules in UNSAFE_IMPORTS",
+      "description": "# Assessment\n\nThe modules `uuid`, `_osx_support` and `_aix_support` were added to the blocklist of unsafe imports (https://github.com/trailofbits/fickling/commit/ffac3479dbb97a7a1592d85991888562d34dd05b).\n\n# Original report\n\n## Summary\n\nfickling's `UNSAFE_IMPORTS` blocklist is missing at least 3 stdlib modules that provide direct arbitrary command execution: `uuid`, `_osx_support`, and `_aix_support`. These modules contain functions that internally call `subprocess.Popen()` or `os.system()` with attacker-controlled arguments. A malicious pickle file importing these modules passes both `UnsafeImports` and `NonStandardImports` checks.\n\n\n## Affected Versions\n\n- fickling <= 0.1.8 (all versions)\n\n## Details\n\n### Missing Modules\n\nfickling's `UNSAFE_IMPORTS` (86 modules) does not include:\n\n| Module | RCE Function | Internal Mechanism | Importable On |\n|--------|-------------|-------------------|---------------|\n| `uuid` | `_get_command_stdout(cmd, *args)` | `subprocess.Popen((cmd,) + args, st",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-184"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "fickling"
+      ],
+      "published": "2026-03-04T21:31:03Z",
+      "updated": "2026-03-04T21:31:04Z",
+      "url": "https://github.com/advisories/GHSA-5hwf-rc88-82xm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/trailofbits/fickling/security/advisories/GHSA-5hwf-rc88-82xm",
+        "https://github.com/trailofbits/fickling/commit/ffac3479dbb97a7a1592d85991888562d34dd05b",
+        "https://github.com/advisories/GHSA-5hwf-rc88-82xm"
       ]
     }
   ],
@@ -744,7 +760,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-04T20:35:39.903926+00:00",
+    "catalog_version": "2026-03-05T02:26:05.225916+00:00",
     "source": "CISA KEV"
   }
 }
