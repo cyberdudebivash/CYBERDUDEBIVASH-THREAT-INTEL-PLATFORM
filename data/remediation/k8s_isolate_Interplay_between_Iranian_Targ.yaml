@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-1642717d86ac
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Interplay between Iranian Targeting of IP Cameras and Physical Warfare in the Middle East"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
