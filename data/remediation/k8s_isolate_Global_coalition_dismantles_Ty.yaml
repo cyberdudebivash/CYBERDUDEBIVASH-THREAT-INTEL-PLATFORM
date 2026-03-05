@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-e4978b45e06c
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Global coalition dismantles Tycoon 2FA phishing kit"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection

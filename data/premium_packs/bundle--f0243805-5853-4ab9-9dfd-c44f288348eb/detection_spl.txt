@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : Shadow Agents How SentinelOne Secures the AI Tools That Act Like Users
+# Scenario: GENERIC
+# Generated: 2026-03-05 20:34:45 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Suspicious PowerShell
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="-EncodedCommand" OR CommandLine="IEX(" OR CommandLine="DownloadFile")
+| stats count by host, user, CommandLine | eval ThreatName="Shadow Agents How SentinelOne Secures the AI Tools That Act Like Users"
