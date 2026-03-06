@@ -3,7 +3,7 @@
 // Threat   : CVE-2026-30847 - Wekan Credential Leak via notificationUsers Publication Exposes
 // STIX ID  : bundle--c25cddfa-b9bf-4e53-9b6c-35a04145f1c6
 // Scenario : VULNERABILITY
-// Generated: 2026-03-06T21:50:47.442660 UTC
+// Generated: 2026-03-06T22:18:27.111387 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
