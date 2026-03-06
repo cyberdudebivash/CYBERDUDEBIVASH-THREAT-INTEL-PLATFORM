@@ -1,0 +1,25 @@
+title: CDB APEX — Network IOC Detection — CVE-2018-25199 OOP CMS BLOG 1.0 SQL Injection via search parameter
+id: 4eee521f-a20a-2116-d8db-a20a2116d8db
+status: experimental
+description: Detects network connections to IOCs from CVE-2018-25199 OOP CMS BLOG 1.0 SQL Injection via search parameter
+references:
+    - https://intel.cyberdudebivash.com/
+author: CyberDudeBivash SENTINEL APEX v33.0
+date: 2026/03/06
+tags:
+    - attack.command_and_control
+    - attack.unc-cdb-99
+logsource:
+    category: firewall
+detection:
+    selection_ip:
+        dst_ip:
+    selection_dns:
+        query:
+            - '*page.php*'
+            - '*posts.php*'
+            - '*search.php*'
+    condition: selection_dns
+falsepositives:
+    - Legitimate traffic to shared infrastructure
+level: high

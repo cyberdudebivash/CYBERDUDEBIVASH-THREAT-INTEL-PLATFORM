@@ -1,0 +1,23 @@
+title: CDB APEX — Network IOC Detection — CVE-2026-23925 - Unauthorized host creation via configuration.import API by low-
+id: 1a6dbbfa-9a94-aac4-90cb-9a94aac490cb
+status: experimental
+description: Detects network connections to IOCs from CVE-2026-23925 - Unauthorized host creation via configuration.import API by low-
+references:
+    - https://intel.cyberdudebivash.com/
+author: CyberDudeBivash SENTINEL APEX v33.0
+date: 2026/03/06
+tags:
+    - attack.command_and_control
+    - attack.unc-cdb-99
+logsource:
+    category: firewall
+detection:
+    selection_ip:
+        dst_ip:
+    selection_dns:
+        query:
+            - '*configuration.import*'
+    condition: selection_dns
+falsepositives:
+    - Legitimate traffic to shared infrastructure
+level: high

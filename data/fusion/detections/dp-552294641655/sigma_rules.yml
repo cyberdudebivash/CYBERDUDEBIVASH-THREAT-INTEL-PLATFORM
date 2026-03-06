@@ -1,0 +1,25 @@
+title: CDB APEX — Network IOC Detection — Exploit for Path Traversal in Tp-Link Tapo_C260_Firmware
+id: 03d237f0-5522-9464-1655-552294641655
+status: experimental
+description: Detects network connections to IOCs from Exploit for Path Traversal in Tp-Link Tapo_C260_Firmware
+references:
+    - https://intel.cyberdudebivash.com/
+author: CyberDudeBivash SENTINEL APEX v33.0
+date: 2026/03/06
+tags:
+    - attack.command_and_control
+    - attack.unc-cdb-99
+logsource:
+    category: firewall
+detection:
+    selection_ip:
+        dst_ip:
+    selection_dns:
+        query:
+            - '*lfd.py*'
+            - '*requirements.txt*'
+            - '*tapo-c260-rce.git*'
+    condition: selection_dns
+falsepositives:
+    - Legitimate traffic to shared infrastructure
+level: high
