@@ -1,0 +1,25 @@
+# ================================================================
+# CyberDudeBivash SENTINEL APEX v20.0 — Sigma Detection Rules
+# Threat  : OneClaw Discovery and Observability for the Agentic Era
+# Scenario: GENERIC
+# Generated: 2026-03-06T08:32:40.448866 UTC
+# Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
+# ================================================================
+
+title: 'CDB: OneClaw Discovery and Observability for the Agentic Era - Suspicious Script Execution'
+id: cdb-509137
+status: experimental
+description: 'Detects obfuscated PowerShell and script-based execution'
+author: 'CyberDudeBivash GOC (Automated)'
+date: 2026/03/06
+tags: ['attack.execution', 'attack.defense_evasion']
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_ps:
+    CommandLine|contains: ['-EncodedCommand', '-enc ', 'IEX(', 'Invoke-Expression', 'DownloadFile']
+  condition: selection_ps
+falsepositives: ['Legitimate admin scripts']
+level: medium
+---
