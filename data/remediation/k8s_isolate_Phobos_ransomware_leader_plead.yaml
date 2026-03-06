@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-d4ec6ac512ed
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Phobos ransomware leader pleads guilty, faces up to 20 years in prison"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection

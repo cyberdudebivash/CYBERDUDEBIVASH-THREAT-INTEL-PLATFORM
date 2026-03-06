@@ -1,0 +1,25 @@
+# ================================================================
+# CyberDudeBivash SENTINEL APEX v20.0 — Sigma Detection Rules
+# Threat  : Arkanix Stealer a C  Python infostealer
+# Scenario: MALWARE
+# Generated: 2026-03-06T12:40:05.122034 UTC
+# Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
+# ================================================================
+
+title: 'CDB: Arkanix Stealer a C  Python infostealer - Suspicious Script Execution'
+id: cdb-553674
+status: experimental
+description: 'Detects obfuscated PowerShell and script-based execution'
+author: 'CyberDudeBivash GOC (Automated)'
+date: 2026/03/06
+tags: ['attack.execution', 'attack.defense_evasion']
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_ps:
+    CommandLine|contains: ['-EncodedCommand', '-enc ', 'IEX(', 'Invoke-Expression', 'DownloadFile']
+  condition: selection_ps
+falsepositives: ['Legitimate admin scripts']
+level: medium
+---

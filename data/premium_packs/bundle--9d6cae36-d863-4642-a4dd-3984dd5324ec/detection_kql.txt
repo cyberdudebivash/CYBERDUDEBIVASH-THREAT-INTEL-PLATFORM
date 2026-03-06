@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : Arkanix Stealer a C  Python infostealer
+// Scenario: MALWARE | CVEs: N/A
+// Generated: 2026-03-06 12:40:05 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Suspicious PowerShell
+SecurityEvent | where TimeGenerated > ago(24h)
+| where EventID == 4688
+| where CommandLine has_any ('-EncodedCommand', '-enc', 'IEX(', 'Invoke-Expression', 'DownloadFile')
+| extend ThreatName="Arkanix Stealer a C  Python infostealer", Severity="CRITICAL"
