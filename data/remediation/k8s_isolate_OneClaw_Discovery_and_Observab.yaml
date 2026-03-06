@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-edb727acb87e
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "OneClaw: Discovery and Observability for the Agentic Era"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
