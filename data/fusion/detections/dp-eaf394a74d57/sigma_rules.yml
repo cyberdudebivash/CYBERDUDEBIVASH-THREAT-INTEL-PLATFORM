@@ -1,0 +1,36 @@
+title: CDB APEX — Network IOC Detection — Proactive Preparation and Hardening Against Destructive Attacks: 2026 Edition
+id: 80ff8f78-eaf3-94a7-4d57-eaf394a74d57
+status: experimental
+description: Detects network connections to IOCs from Proactive Preparation and Hardening Against Destructive Attacks: 2026 Edition
+references:
+    - https://intel.cyberdudebivash.com/
+author: CyberDudeBivash SENTINEL APEX v33.0
+date: 2026/03/06
+tags:
+    - attack.command_and_control
+    - attack.cdb-fin-12
+logsource:
+    category: firewall
+detection:
+    selection_ip:
+        dst_ip:
+            - '1.3.6.1'
+            - '2.5.29.37'
+            - '5.2.3.4'
+            - '5.5.7.3'
+    selection_dns:
+        query:
+            - '*details.aspx*'
+            - '*gpo-listing-all.csv*'
+            - '*hostd.log*'
+            - '*pfirewall.log*'
+            - '*shell.log*'
+            - '*snapshot.removeall*'
+            - '*vim.event*'
+            - '*vpxa.log*'
+            - '*vpxd.log*'
+            - '*vshphere.local*'
+    condition: selection_ip or selection_dns
+falsepositives:
+    - Legitimate traffic to shared infrastructure
+level: high

@@ -1,0 +1,26 @@
+title: CDB APEX — Network IOC Detection — Who is the Kimwolf Botmaster “Dort”?
+id: eeb089f3-cacd-edb0-5008-cacdedb05008
+status: experimental
+description: Detects network connections to IOCs from Who is the Kimwolf Botmaster “Dort”?
+references:
+    - https://intel.cyberdudebivash.com/
+author: CyberDudeBivash SENTINEL APEX v33.0
+date: 2026/03/06
+tags:
+    - attack.command_and_control
+    - attack.unc-cdb-99
+logsource:
+    category: firewall
+detection:
+    selection_ip:
+        dst_ip:
+            - '99.241.112.24'
+    selection_dns:
+        query:
+            - '*gmail.com*'
+            - '*ocdsb.ca*'
+            - '*osint.industries*'
+    condition: selection_ip or selection_dns
+falsepositives:
+    - Legitimate traffic to shared infrastructure
+level: high

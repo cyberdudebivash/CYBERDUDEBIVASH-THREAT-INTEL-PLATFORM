@@ -1,0 +1,25 @@
+title: CDB APEX — Network IOC Detection — Cisco flags ongoing exploitation of two recently patched Catalyst SD-WAN flaws
+id: 69d34acf-4165-56cb-2828-416556cb2828
+status: experimental
+description: Detects network connections to IOCs from Cisco flags ongoing exploitation of two recently patched Catalyst SD-WAN flaws
+references:
+    - https://intel.cyberdudebivash.com/
+author: CyberDudeBivash SENTINEL APEX v33.0
+date: 2026/03/06
+tags:
+    - attack.command_and_control
+    - attack.cdb-apt-22
+logsource:
+    category: firewall
+detection:
+    selection_ip:
+        dst_ip:
+            - '20.12.5.3'
+            - '20.12.6.1'
+            - '20.15.4.2'
+            - '20.18.2.1'
+            - '20.9.8.2'
+    condition: selection_ip
+falsepositives:
+    - Legitimate traffic to shared infrastructure
+level: high

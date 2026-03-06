@@ -1,0 +1,24 @@
+title: CDB APEX — Network IOC Detection — Exploits and vulnerabilities in Q4 2025
+id: beddf7a7-65fb-ed16-c891-65fbed16c891
+status: experimental
+description: Detects network connections to IOCs from Exploits and vulnerabilities in Q4 2025
+references:
+    - https://intel.cyberdudebivash.com/
+author: CyberDudeBivash SENTINEL APEX v33.0
+date: 2026/03/06
+tags:
+    - attack.command_and_control
+    - attack.cdb-fin-11
+logsource:
+    category: firewall
+detection:
+    selection_ip:
+        dst_ip:
+    selection_dns:
+        query:
+            - '*cve.org*'
+            - '*ltmdm64.sys*'
+    condition: selection_dns
+falsepositives:
+    - Legitimate traffic to shared infrastructure
+level: high
