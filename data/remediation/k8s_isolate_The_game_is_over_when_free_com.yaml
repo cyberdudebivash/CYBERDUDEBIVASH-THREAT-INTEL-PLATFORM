@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-72df1ec22215
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "The game is over: when “free” comes at too high a price. What we know about RenEngine"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
