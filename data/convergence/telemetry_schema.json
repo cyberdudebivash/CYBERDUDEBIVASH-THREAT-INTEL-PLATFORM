@@ -1,0 +1,48 @@
+{
+  "subsystem": "C6_AgentTelemetryIngestion",
+  "received": 0,
+  "valid": 0,
+  "invalid": 0,
+  "schema": {
+    "required_fields": [
+      "agent_id",
+      "timestamp",
+      "event_type",
+      "payload"
+    ],
+    "event_types": [
+      "syscall_anomaly",
+      "memory_scan_hit",
+      "process_injection",
+      "file_integrity",
+      "network_anomaly",
+      "credential_access",
+      "persistence_detected"
+    ],
+    "payload_format": {
+      "syscall_anomaly": {
+        "pid": "int",
+        "syscall_id": "int",
+        "anomaly_score": "float"
+      },
+      "memory_scan_hit": {
+        "pid": "int",
+        "pattern": "str",
+        "offset": "int"
+      },
+      "network_anomaly": {
+        "src_ip": "str",
+        "dst_ip": "str",
+        "port": "int",
+        "proto": "str"
+      },
+      "file_integrity": {
+        "path": "str",
+        "expected_hash": "str",
+        "actual_hash": "str"
+      }
+    }
+  },
+  "api_endpoint": "POST /api/v1/telemetry/ingest",
+  "timestamp": "2026-03-07T09:00:09.632888+00:00"
+}
