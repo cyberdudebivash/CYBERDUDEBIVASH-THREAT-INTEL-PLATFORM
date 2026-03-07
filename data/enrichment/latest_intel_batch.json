@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-06T20:35:51.303153+00:00",
+  "timestamp": "2026-03-07T02:10:45.312141+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -115,229 +115,433 @@
     }
   ],
   "ransomware_victims": [],
-  "exploitdb_recent": [
+  "exploitdb_recent": [],
+  "github_advisories": [
     {
-      "title": "[webapps] WordPress Backup Migration 1.3.7 - Remote Command Execution",
-      "link": "https://www.exploit-db.com/exploits/52486",
-      "published": "Tue, 03 Mar 2026 00:00:00 +0000",
-      "summary": "WordPress Backup Migration 1.3.7 - Remote Command Execution",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52486",
-      "poc_public": true
+      "ghsa_id": "GHSA-g9rg-8vq5-mpwm",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "mcp-memory-service's Wildcard CORS with Credentials Enables Cross-Origin Memory Theft",
+      "description": "### Summary\nWhen the HTTP server is enabled (`MCP_HTTP_ENABLED=true`), the application configures FastAPI's CORSMiddleware with `allow_origins=['*']`, `allow_credentials=True`, `allow_methods=[\"*\"]`, and `allow_headers=[\"*\"]`. The wildcard `Access-Control-Allow-Origin: *` header permits any website to read API responses cross-origin. When combined with anonymous access (`MCP_ALLOW_ANONYMOUS_ACCESS=true`) - the simplest way to get the HTTP dashboard working without OAuth - no credentials are needed, so any malicious website can silently read, modify, and delete all stored memories.\n\n\n### Details\n### Vulnerable Code\n\n**`config.py:546` - Wildcard CORS origin default**\n\n```python\nCORS_ORIGINS = os.getenv('MCP_CORS_ORIGINS', '*').split(',')\n```\n\nThis produces `['*']` by default, allowing any origin.\n\n**`app.py:274-280` - CORSMiddleware configuration**\n\n```python\n# CORS middleware\napp.add_middleware(\n    CORSMiddleware,\n    allow_origins=CORS_ORIGINS,        # ['*'] by default\n    allow_cred",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-942"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "mcp-memory-service"
+      ],
+      "published": "2026-03-07T02:12:26Z",
+      "updated": "2026-03-07T02:12:28Z",
+      "url": "https://github.com/advisories/GHSA-g9rg-8vq5-mpwm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/doobidoo/mcp-memory-service/security/advisories/GHSA-g9rg-8vq5-mpwm",
+        "https://github.com/advisories/GHSA-g9rg-8vq5-mpwm"
+      ]
     },
     {
-      "title": "[webapps] mailcow 2025-01a - Host Header Password Reset Poisoning",
-      "link": "https://www.exploit-db.com/exploits/52485",
-      "published": "Tue, 03 Mar 2026 00:00:00 +0000",
-      "summary": "mailcow 2025-01a - Host Header Password Reset Poisoning",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52485",
-      "poc_public": true
+      "ghsa_id": "GHSA-2f4c-vrjq-rcgv",
+      "cve_id": "CVE-2026-30859",
+      "severity": "HIGH",
+      "summary": "WeKnora has Broken Access Control - Cross-Tenant Data Exposure",
+      "description": "## Summary\nA broken access control vulnerability in the database query tool allows any authenticated tenant to read sensitive data belonging to other tenants, including API keys, model configurations, and private messages. The application fails to enforce tenant isolation on critical tables (`models`, `messages`, `embeddings`), enabling unauthorized cross-tenant data access with user-level authentication privileges.\n\n---\n\n## Details\n\n### Root Cause\nThe vulnerability exists due to a mismatch between the queryable tables and the tables protected by tenant isolation in `internal/utils/inject.go`.\n\n**Tenant-isolated tables** (protected by automatic `WHERE tenant_id = X` clause):\n```\ntenants, knowledge_bases, knowledges, sessions, chunks\n```\n\n**Queryable tables** (allowed by `WithAllowedTables()` in `WithSecurityDefaults()`):\n```\ntenants, knowledge_bases, knowledges, sessions, messages, chunks, embeddings, models\n```\n\n**Gap**: The tables `messages`, `embeddings`, and `models` are queryable ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/Tencent/WeKnora"
+      ],
+      "published": "2026-03-06T23:57:20Z",
+      "updated": "2026-03-06T23:57:22Z",
+      "url": "https://github.com/advisories/GHSA-2f4c-vrjq-rcgv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/Tencent/WeKnora/security/advisories/GHSA-2f4c-vrjq-rcgv",
+        "https://github.com/advisories/GHSA-2f4c-vrjq-rcgv"
+      ]
     },
     {
-      "title": "[webapps] Easy File Sharing Web Server v7.2 - Buffer Overflow",
-      "link": "https://www.exploit-db.com/exploits/52484",
-      "published": "Tue, 03 Mar 2026 00:00:00 +0000",
-      "summary": "Easy File Sharing Web Server v7.2 - Buffer Overflow",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52484",
-      "poc_public": true
+      "ghsa_id": "GHSA-h6gw-8f77-mmmp",
+      "cve_id": "CVE-2026-30858",
+      "severity": "HIGH",
+      "summary": "WeKnora has DNS Rebinding Vulnerability in web_fetch Tool that Allows SSRF to Internal Resources",
+      "description": "### Summary\n\nA DNS rebinding vulnerability in the `web_fetch` tool allows an unauthenticated attacker to bypass URL validation and access internal resources on the server, including private IP addresses (e.g., 127.0.0.1, 192.168.x.x). By crafting a malicious domain that resolves to a public IP during validation and subsequently resolves to a private IP during execution, an attacker can access sensitive local services and potentially exfiltrate data.\n\n### Details\n\nThe vulnerability exists because the `web_fetch` tool lacks complete DNS pinning. The application performs URL validation only once via `validateParams()`, but the URL is then passed unchanged to the `fetchHTMLContent()` function, which eventually reaches `fetchWithChromedp()`. The headless browser (Chromedp) resolves the hostname independently without DNS pinning, allowing a time-of-check-time-of-use (TOCTOU) attack.\n\n**Validation phase (first DNS resolution):**\n```go\nif err := t.validateParams(p); err != nil {\n    // Returns",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/Tencent/WeKnora"
+      ],
+      "published": "2026-03-06T23:56:22Z",
+      "updated": "2026-03-06T23:56:22Z",
+      "url": "https://github.com/advisories/GHSA-h6gw-8f77-mmmp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/Tencent/WeKnora/security/advisories/GHSA-h6gw-8f77-mmmp",
+        "https://github.com/advisories/GHSA-h6gw-8f77-mmmp"
+      ]
     },
     {
-      "title": "[webapps] WeGIA 3.5.0 - SQL Injection",
-      "link": "https://www.exploit-db.com/exploits/52483",
-      "published": "Tue, 03 Mar 2026 00:00:00 +0000",
-      "summary": "WeGIA 3.5.0 - SQL Injection",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52483",
-      "poc_public": true
+      "ghsa_id": "GHSA-7r4p-vjf4-gxv4",
+      "cve_id": "CVE-2026-30851",
+      "severity": "HIGH",
+      "summary": "Caddy forward_auth copy_headers Does Not Strip Client-Supplied Headers, Allowing Identity Injection and Privilege Escalation",
+      "description": "## Summary\n\nCaddy's `forward_auth` directive with `copy_headers` generates conditional header-set operations that only fire when the upstream auth service includes the named header in its response. No delete or remove operation is generated for the original client-supplied request header with the same name.\n\nWhen an auth service returns `200 OK` without one of the configured `copy_headers` headers, the client-supplied header passes through unchanged to the backend. Any requester holding a valid authentication token can inject arbitrary values for trusted identity headers, resulting in privilege escalation.\n\nThis is a regression introduced by PR #6608 in November 2024. All stable releases from v2.10.0 onward are affected.\n\n---\n\n## Scope Argument\n\nThis is a bug in the source code of this repository, not a misconfiguration.\n\nThe operator uses `forward_auth` with `copy_headers` exactly as documented. The documentation contains no warning that client-supplied headers with the same names as ",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-287",
+        "CWE-345"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/caddyserver/caddy/v2/modules/caddyhttp/reverseproxy"
+      ],
+      "published": "2026-03-06T23:38:44Z",
+      "updated": "2026-03-06T23:38:45Z",
+      "url": "https://github.com/advisories/GHSA-7r4p-vjf4-gxv4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/caddyserver/caddy/security/advisories/GHSA-7r4p-vjf4-gxv4",
+        "https://github.com/caddyserver/caddy/issues/6610",
+        "https://github.com/caddyserver/caddy/pull/6608",
+        "https://github.com/caddyserver/caddy/pull/7545",
+        "https://github.com/advisories/GHSA-7r4p-vjf4-gxv4"
+      ]
     },
     {
-      "title": "[webapps] Boss Mini v1.4.0 - Local File Inclusion (LFI)",
-      "link": "https://www.exploit-db.com/exploits/52482",
-      "published": "Tue, 03 Mar 2026 00:00:00 +0000",
-      "summary": "Boss Mini v1.4.0 - Local File Inclusion (LFI)",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52482",
-      "poc_public": true
+      "ghsa_id": "GHSA-5f53-522j-j454",
+      "cve_id": "CVE-2026-30824",
+      "severity": "HIGH",
+      "summary": "Flowise Missing Authentication on NVIDIA NIM Endpoints",
+      "description": "# Missing Authentication on NVIDIA NIM Endpoints\n\n## Summary\n\nThe NVIDIA NIM router (`/api/v1/nvidia-nim/*`) is whitelisted in the global authentication middleware, allowing unauthenticated access to privileged container management and token generation endpoints.\n\n## Vulnerability Details\n\n| Field | Value |\n|-------|-------|\n| CWE | CWE-306: Missing Authentication for Critical Function |\n| Affected File | `packages/server/src/utils/constants.ts` |\n| Affected Line | Line 20 (`'/api/v1/nvidia-nim'` in `WHITELIST_URLS`) |\n| CVSS 3.1 | 8.6 (High) |\n\n## Root Cause\n\nIn `packages/server/src/utils/constants.ts`, the NVIDIA NIM route is added to the authentication whitelist:\n\n```typescript\nexport const WHITELIST_URLS = [\n    // ... other URLs\n    '/api/v1/nvidia-nim',  // Line 20 - bypasses JWT/API-key validation\n    // ...\n]\n```\n\nThis causes the global auth middleware to skip authentication checks for all endpoints under `/api/v1/nvidia-nim/*`. None of the controller actions in `packages/serve",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-306"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "flowise"
+      ],
+      "published": "2026-03-06T22:21:38Z",
+      "updated": "2026-03-06T22:21:38Z",
+      "url": "https://github.com/advisories/GHSA-5f53-522j-j454",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-5f53-522j-j454",
+        "https://github.com/advisories/GHSA-5f53-522j-j454"
+      ]
     },
     {
-      "title": "[webapps] motionEye 0.43.1b4 - RCE",
-      "link": "https://www.exploit-db.com/exploits/52481",
-      "published": "Wed, 11 Feb 2026 00:00:00 +0000",
-      "summary": "motionEye 0.43.1b4 - RCE",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52481",
-      "poc_public": true
+      "ghsa_id": "GHSA-cwc3-p92j-g7qm",
+      "cve_id": "CVE-2026-30823",
+      "severity": "HIGH",
+      "summary": "Flowise has IDOR leading to Account Takeover and Enterprise Feature Bypass via SSO Configuration",
+      "description": "### Summary\nThe Flowise platform has a critical Insecure Direct Object Reference (IDOR) vulnerability combined with a Business Logic Flaw in the PUT /api/v1/loginmethod endpoint.\n\nWhile the endpoint requires authentication, it fails to validate if the authenticated user has ownership or administrative rights over the target organizationId. This allows any low-privileged user (including \"Free\" plan users) to:\n\n1. Overwrite the SSO configuration of any other organization.\n2. Enable \"Enterprise-only\" features (SSO/SAML) without a license.\n3. Perform Account Takeover  by redirecting the authentication flow.\n\n### Details\nThe backend accepts the organizationId parameter from the JSON body and updates the database record corresponding to that ID. There is no middleware or logic check to ensure request.user.organizationId === body.organizationId.\n\n### PoC\nPrerequisites:\n1. The attacker creates a standard \"Free\" account and obtains a valid JWT token (Cookie/Header).\n2. The attacker identifies t",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-639",
+        "CWE-862"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "flowise"
+      ],
+      "published": "2026-03-06T22:20:50Z",
+      "updated": "2026-03-06T22:20:51Z",
+      "url": "https://github.com/advisories/GHSA-cwc3-p92j-g7qm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-cwc3-p92j-g7qm",
+        "https://github.com/advisories/GHSA-cwc3-p92j-g7qm"
+      ]
     },
     {
-      "title": "[remote] Windows 10.0.17763.7009 - spoofing vulnerability",
-      "link": "https://www.exploit-db.com/exploits/52480",
-      "published": "Wed, 11 Feb 2026 00:00:00 +0000",
-      "summary": "Windows 10.0.17763.7009 - spoofing vulnerability",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52480",
-      "poc_public": true
+      "ghsa_id": "GHSA-mq4r-h2gh-qv7x",
+      "cve_id": "CVE-2026-30822",
+      "severity": "HIGH",
+      "summary": "Flowise Allows Mass Assignment in `/api/v1/leads` Endpoint",
+      "description": "## Summary\n\n**A Mass Assignment vulnerability in the `/api/v1/leads` endpoint allows any unauthenticated user to control internal entity fields (`id`, `createdDate`, `chatId`) by including them in the request body.**\n\nThe endpoint uses `Object.assign()` to copy all properties from the request body to the Lead entity without any input validation or field filtering. This allows attackers to bypass auto-generated fields and inject arbitrary values.\n\n| Field | Value |\n|-------|-------|\n| **Vulnerability Type** | Mass Assignment |\n| **CWE ID** | [CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes](https://cwe.mitre.org/data/definitions/915.html) |\n| **Authentication Required** | None |\n| **Affected Endpoint** | `POST /api/v1/leads` |\n\n\n---\n\n## Details\n\n### Root Cause\n\nThe vulnerability exists in `/packages/server/src/services/leads/index.ts` at lines 27-28:\n\n```typescript\n// File: /packages/server/src/services/leads/index.ts\n// Lines 23-38\n\nconst createL",
+      "cvss_score": 7.7,
+      "cvss_vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-915"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "flowise"
+      ],
+      "published": "2026-03-06T22:19:14Z",
+      "updated": "2026-03-06T22:19:14Z",
+      "url": "https://github.com/advisories/GHSA-mq4r-h2gh-qv7x",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-mq4r-h2gh-qv7x",
+        "https://github.com/advisories/GHSA-mq4r-h2gh-qv7x"
+      ]
     },
     {
-      "title": "[local] glibc 2.38 - Buffer Overflow",
-      "link": "https://www.exploit-db.com/exploits/52479",
-      "published": "Wed, 11 Feb 2026 00:00:00 +0000",
-      "summary": "glibc 2.38 - Buffer Overflow",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52479",
-      "poc_public": true
+      "ghsa_id": "GHSA-hcm4-6hpj-vghm",
+      "cve_id": "CVE-2026-29064",
+      "severity": "HIGH",
+      "summary": "Zarf's symlink targets in archives are not validated against destination directory",
+      "description": "### Summary\n\nA path traversal vulnerability in archive extraction allows a specifically crafted Zarf package to create symlinks pointing outside the destination directory, enabling arbitrary file read or write on the system processing the package.\n\n### What users should do\nUpgrade immediately to version v0.73.1\n\nIf developers cannot upgrade immediately, only process Zarf packages from fully trusted sources until the fix is applied.\n\nIf using trusted packages and archives - the only impact to this is updating zarf binary or SDK package versions. Previously created packages do not need to be rebuilt.\n\n### Who is affected\n\n- Any user of affected Zarf versions who processes packages from untrusted or semi-trusted sources. This includes packages received via file transfer, downloaded from registries, or shared across organizational boundaries. This includes use of the `zarf tools archiver decompress` functionality on generic archives.\n\n- Any SDK consumers of Zarf for the affected versions w",
+      "cvss_score": 8.2,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/zarf-dev/zarf/src/pkg/archive"
+      ],
+      "published": "2026-03-06T22:10:48Z",
+      "updated": "2026-03-06T22:10:52Z",
+      "url": "https://github.com/advisories/GHSA-hcm4-6hpj-vghm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/zarf-dev/zarf/security/advisories/GHSA-hcm4-6hpj-vghm",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-29064",
+        "https://github.com/zarf-dev/zarf/releases/tag/v0.73.1",
+        "https://github.com/advisories/GHSA-hcm4-6hpj-vghm"
+      ]
     },
     {
-      "title": "[remote] windows 10/11 - NTLM Hash Disclosure Spoofing",
-      "link": "https://www.exploit-db.com/exploits/52478",
-      "published": "Wed, 04 Feb 2026 00:00:00 +0000",
-      "summary": "windows 10/11 - NTLM Hash Disclosure Spoofing",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52478",
-      "poc_public": true
+      "ghsa_id": "GHSA-h75p-j8xm-m278",
+      "cve_id": "CVE-2026-26018",
+      "severity": "HIGH",
+      "summary": "CoreDNS Loop Detection Denial of Service Vulnerability",
+      "description": "## Executive Summary\n\nA Denial of Service vulnerability exists in CoreDNS's loop detection plugin that allows an attacker to crash the DNS server by sending specially crafted DNS queries. The vulnerability stems from the use of a predictable pseudo-random number generator (PRNG) for generating a secret query name, combined with a fatal error handler that terminates the entire process.\n\n---\n## Technical Details\n\n### Vulnerability Description\n\nThe CoreDNS `loop` plugin is designed to detect forwarding loops by performing a self-test during server startup. The plugin generates a random query name (`qname`) using Go's `math/rand` package and sends an HINFO query to itself. If the server receives multiple matching queries, it assumes a forwarding loop exists and terminates.\n\n**The vulnerability arises from two design flaws:**\n\n1. **Predictable PRNG Seed**: The random number generator is seeded with `time.Now().UnixNano()`, making the generated qname predictable if an attacker knows the appr",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-337"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/coredns/coredns"
+      ],
+      "published": "2026-03-06T22:08:22Z",
+      "updated": "2026-03-06T22:08:22Z",
+      "url": "https://github.com/advisories/GHSA-h75p-j8xm-m278",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/coredns/coredns/security/advisories/GHSA-h75p-j8xm-m278",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-26018",
+        "https://github.com/coredns/coredns/releases/tag/v1.14.2",
+        "https://github.com/advisories/GHSA-h75p-j8xm-m278"
+      ]
     },
     {
-      "title": "[remote] Redis 8.0.2 - RCE",
-      "link": "https://www.exploit-db.com/exploits/52477",
-      "published": "Wed, 04 Feb 2026 00:00:00 +0000",
-      "summary": "Redis 8.0.2 - RCE",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52477",
-      "poc_public": true
+      "ghsa_id": "GHSA-j8g8-j7fc-43v6",
+      "cve_id": "CVE-2026-30821",
+      "severity": "HIGH",
+      "summary": "Flowise has Arbitrary File Upload via MIME Spoofing",
+      "description": "### Vulnerability **Description**\n\n---\n\n**Vulnerability Overview**\n \n- The `/api/v1/attachments/:chatflowId/:chatId` endpoint is listed in `WHITELIST_URLS`, allowing unauthenticated access to the file upload API.\n- While the server validates uploads based on the MIME types defined in `chatbotConfig.fullFileUpload.allowedUploadFileTypes`, it implicitly trusts the client-provided `Content-Type` header (`file.mimetype`) without verifying the file's actual content (magic bytes) or extension (`file.originalname`).\n- Consequently, an attacker can bypass this restriction by spoofing the `Content-Type` as a permitted type (e.g., `application/pdf`) while uploading malicious scripts or arbitrary files. Once uploaded via `addArrayFilesToStorage`, these files persist in backend storage (S3, GCS, or local disk). This vulnerability serves as a critical entry point that, when chained with other features like static hosting or file retrieval, can lead to Stored XSS, malicious file hosting, or Remote C",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-434"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "flowise"
+      ],
+      "published": "2026-03-06T18:49:20Z",
+      "updated": "2026-03-06T18:49:21Z",
+      "url": "https://github.com/advisories/GHSA-j8g8-j7fc-43v6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-j8g8-j7fc-43v6",
+        "https://github.com/advisories/GHSA-j8g8-j7fc-43v6"
+      ]
     },
     {
-      "title": "[webapps] OctoPrint 1.11.2 - File Upload",
-      "link": "https://www.exploit-db.com/exploits/52476",
-      "published": "Wed, 04 Feb 2026 00:00:00 +0000",
-      "summary": "OctoPrint 1.11.2 - File Upload",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52476",
-      "poc_public": true
+      "ghsa_id": "GHSA-wvhq-wp8g-c7vq",
+      "cve_id": "CVE-2026-30820",
+      "severity": "HIGH",
+      "summary": "Flowise has Authorization Bypass via Spoofed x-request-from Header",
+      "description": "### Summary\n\nFlowise trusts any HTTP client that sets the header `x-request-from: internal`, allowing an authenticated tenant session to bypass all `/api/v1/**` authorization checks. With only a browser cookie, a low-privilege tenant can invoke internal administration endpoints (API key management, credential stores, custom function execution, etc.), effectively escalating privileges.\n\n### Details\n\nThe global middleware that guards `/api/v1` routes lives in `external/Flowise/packages/server/src/index.ts:214`. After filtering out the whitelist, the logic short-circuits on the spoofable header:\n\n```javascript\nif (isWhitelisted) {\n    next();\n} else if (req.headers['x-request-from'] === 'internal') {\n    verifyToken(req, res, next);\n} else {\n    const { isValid } = await validateAPIKey(req);\n    if (!isValid) return res.status(401).json({ error: 'Unauthorized Access' });\n    \u2026 // owner context stitched from API key\n}\n```\n\nBecause the middle branch blindly calls verifyToken, any tenant tha",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "flowise"
+      ],
+      "published": "2026-03-06T18:48:22Z",
+      "updated": "2026-03-06T18:48:24Z",
+      "url": "https://github.com/advisories/GHSA-wvhq-wp8g-c7vq",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-wvhq-wp8g-c7vq",
+        "https://github.com/advisories/GHSA-wvhq-wp8g-c7vq"
+      ]
     },
     {
-      "title": "[remote] Ingress-NGINX Admission Controller v1.11.1 - FD Injection to RCE",
-      "link": "https://www.exploit-db.com/exploits/52475",
-      "published": "Wed, 04 Feb 2026 00:00:00 +0000",
-      "summary": "Ingress-NGINX Admission Controller v1.11.1 - FD Injection to RCE",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52475",
-      "poc_public": true
+      "ghsa_id": "GHSA-79wj-8rqv-jvp5",
+      "cve_id": "CVE-2026-30229",
+      "severity": "HIGH",
+      "summary": "parse-server's endpoint `/loginAs` allows `readOnlyMasterKey` to gain full read and write access as any user",
+      "description": "### Impact\n\nThe `readOnlyMasterKey` can call `POST /loginAs` to obtain a valid session token for any user. This allows a read-only credential to impersonate arbitrary users with full read and write access to their data. Any Parse Server deployment that uses `readOnlyMasterKey` is affected.\n\n### Patches\n\nThe fix adds a check to the `/logInAs` handler.\n\n### Workarounds\n\nThere is no workaround other than not using `readOnlyMasterKey`.\n\n### References\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-79wj-8rqv-jvp5\n- Fix for Parse Server 9: https://github.com/parse-community/parse-server/releases/tag/9.5.0-alpha.4\n- Fix for Parse Server 8: https://github.com/parse-community/parse-server/releases/tag/8.6.6",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-06T18:46:27Z",
+      "updated": "2026-03-06T22:53:02Z",
+      "url": "https://github.com/advisories/GHSA-79wj-8rqv-jvp5",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-79wj-8rqv-jvp5",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30229",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.6",
+        "https://github.com/parse-community/parse-server/releases/tag/9.5.0-alpha.4",
+        "https://github.com/advisories/GHSA-79wj-8rqv-jvp5"
+      ]
     },
     {
-      "title": "[webapps] aiohttp 3.9.1 - directory traversal PoC",
-      "link": "https://www.exploit-db.com/exploits/52474",
-      "published": "Wed, 04 Feb 2026 00:00:00 +0000",
-      "summary": "aiohttp 3.9.1 - directory traversal PoC",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52474",
-      "poc_public": true
+      "ghsa_id": "GHSA-rw8p-c6hf-q3pg",
+      "cve_id": "CVE-2026-30834",
+      "severity": "HIGH",
+      "summary": "PinchTab has SSRF with Full Response Exfiltration via Download Handler",
+      "description": "# SSRF with Full Response Exfiltration via Download Handler\n\n### Summary\nA Server-Side Request Forgery (SSRF) vulnerability in the `/download` endpoint allows any user with API access to induce the PinchTab server to make requests to arbitrary URLs, including internal network services and local system files, and exfiltrate the full response content.\n\n### Details\nThe `GET /download?url=<url>` handler in [download.go](file:///Users/quan.m.le/Workspaces/pinchtab/internal/handlers/download.go#L78) accepts a user-controlled `url` parameter and passes it directly to `chromedp.Navigate(dlURL)` without any validation or sanitization.\n\n```go\n// internal/handlers/download.go:78\nif err := chromedp.Run(ctx, chromedp.Navigate(dlURL)); err != nil {\n    return fmt.Errorf(\"navigate to %s: %w\", dlURL, err)\n}\n```\n\nSince the request is performed by the headless Chrome browser instance managed by PinchTab, it can access:\n1.  **Local Files**: Using the `file://` scheme (e.g., `file:///etc/passwd`).\n2.  **I",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/pinchtab/pinchtab/cmd/pinchtab"
+      ],
+      "published": "2026-03-06T18:40:58Z",
+      "updated": "2026-03-06T18:41:00Z",
+      "url": "https://github.com/advisories/GHSA-rw8p-c6hf-q3pg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/pinchtab/pinchtab/security/advisories/GHSA-rw8p-c6hf-q3pg",
+        "https://github.com/advisories/GHSA-rw8p-c6hf-q3pg"
+      ]
     },
     {
-      "title": "[webapps] FortiWeb Fabric Connector 7.6.x - SQL Injection to Remote Code Execution",
-      "link": "https://www.exploit-db.com/exploits/52473",
-      "published": "Wed, 04 Feb 2026 00:00:00 +0000",
-      "summary": "FortiWeb Fabric Connector 7.6.x - SQL Injection to Remote Code Execution",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52473",
-      "poc_public": true
+      "ghsa_id": "GHSA-46wh-pxpv-q5gq",
+      "cve_id": "CVE-2026-30827",
+      "severity": "HIGH",
+      "summary": "express-rate-limit: IPv4-mapped IPv6 addresses bypass per-client rate limiting on servers with dual-stack network",
+      "description": "## Summary\n\nThe default `keyGenerator` in express-rate-limit applies IPv6 subnet masking (`/56` by default) to all addresses that `net.isIPv6()` returns true for. This includes IPv4-mapped IPv6 addresses (`::ffff:x.x.x.x`), which Node.js returns as `request.ip` on dual-stack servers.\n\nBecause the first 80 bits of all IPv4-mapped addresses are zero, a `/56` (or any `/32` to `/80`) subnet mask produces the same network key (`::/56`) for **every** IPv4 client. This collapses all IPv4 traffic into a single rate-limit bucket: one client exhausting the limit causes HTTP 429 for all other IPv4 clients.\n\n## Details\n\n### Root Cause\n\nIn `source/ip-key-generator.ts`:\n\n```typescript\nexport function ipKeyGenerator(ip: string, ipv6Subnet: number | false = 56) {\n  if (ipv6Subnet && isIPv6(ip)) {\n    return `${new Address6(`${ip}/${ipv6Subnet}`).startAddress().correctForm()}/${ipv6Subnet}`\n  }\n  return ip\n}\n```\n\n`net.isIPv6('::ffff:192.168.1.1')` returns `true`, so IPv4-mapped addresses enter the subn",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "express-rate-limit",
+        "express-rate-limit",
+        "express-rate-limit"
+      ],
+      "published": "2026-03-06T18:36:56Z",
+      "updated": "2026-03-06T18:36:57Z",
+      "url": "https://github.com/advisories/GHSA-46wh-pxpv-q5gq",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/express-rate-limit/express-rate-limit/security/advisories/GHSA-46wh-pxpv-q5gq",
+        "https://github.com/express-rate-limit/express-rate-limit/commit/14e53888cdfd1b9798faf5b634c4206409e27fc4",
+        "https://github.com/advisories/GHSA-46wh-pxpv-q5gq"
+      ]
     },
     {
-      "title": "[local] Docker Desktop 4.44.3 - Unauthenticated  API Exposure",
-      "link": "https://www.exploit-db.com/exploits/52472",
-      "published": "Wed, 04 Feb 2026 00:00:00 +0000",
-      "summary": "Docker Desktop 4.44.3 - Unauthenticated  API Exposure",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52472",
-      "poc_public": true
-    },
-    {
-      "title": "[webapps] Piranha CMS 12.0 - Stored XSS in Text Block",
-      "link": "https://www.exploit-db.com/exploits/52471",
-      "published": "Mon, 02 Feb 2026 00:00:00 +0000",
-      "summary": "Piranha CMS 12.0 - Stored XSS in Text Block",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52471",
-      "poc_public": true
-    },
-    {
-      "title": "[webapps] RPi-Jukebox-RFID 2.8.0 - Stored Cross-Site Scripting (XSS)",
-      "link": "https://www.exploit-db.com/exploits/52470",
-      "published": "Mon, 02 Feb 2026 00:00:00 +0000",
-      "summary": "RPi-Jukebox-RFID 2.8.0 - Stored Cross-Site Scripting (XSS)",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52470",
-      "poc_public": true
-    },
-    {
-      "title": "[hardware] D-Link DIR-825 Rev.B 2.10 - Stack Buffer Overflow (DoS)",
-      "link": "https://www.exploit-db.com/exploits/52469",
-      "published": "Mon, 02 Feb 2026 00:00:00 +0000",
-      "summary": "D-Link DIR-825 Rev.B 2.10 - Stack Buffer Overflow (DoS)",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52469",
-      "poc_public": true
-    },
-    {
-      "title": "[webapps] RPi-Jukebox-RFID 2.8.0 - Remote Command Execution",
-      "link": "https://www.exploit-db.com/exploits/52468",
-      "published": "Sat, 17 Jan 2026 00:00:00 +0000",
-      "summary": "RPi-Jukebox-RFID 2.8.0 - Remote Command Execution",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52468",
-      "poc_public": true
-    },
-    {
-      "title": "[webapps] Siklu EtherHaul Series EH-8010 - Arbitrary File Upload",
-      "link": "https://www.exploit-db.com/exploits/52467",
-      "published": "Sat, 17 Jan 2026 00:00:00 +0000",
-      "summary": "Siklu EtherHaul Series EH-8010 - Arbitrary File Upload",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52467",
-      "poc_public": true
+      "ghsa_id": "GHSA-c9v3-4pv7-87pr",
+      "cve_id": "CVE-2026-26017",
+      "severity": "HIGH",
+      "summary": "CoreDNS ACL Bypass",
+      "description": "A logical vulnerability in CoreDNS allows DNS access controls to be bypassed due to the default execution order of plugins. Security plugins such as acl are evaluated before the rewrite plugin, resulting in a Time-of-Check Time-of-Use (TOCTOU) flaw.\n\n\n### Impact\n\nIn multi-tenant Kubernetes clusters, this flaw undermines DNS-based segmentation strategies.\n\nExample scenario:\n1. ACL blocks access to *.admin.svc.cluster.local\n2. A rewrite rule maps public-name \u2192 admin.svc.cluster.local\n3. An unprivileged pod queries public-name\n4. ACL allows the request\n5. Rewrite exposes the internal admin service IP\n\nThis allows unauthorized service discovery and reconnaissance of restricted internal infrastructure.\n\n### Patches\n_Has the problem been patched? What versions should users upgrade to?_\n\n### Workarounds\n\n- Reorder the default plugin.cfg so that:\n   - rewrite and other normalization plugins run before acl, opa, and firewall\n- Ensure all access control checks are applied after name normalizatio",
+      "cvss_score": 7.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-367"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/coredns/coredns"
+      ],
+      "published": "2026-03-06T18:04:00Z",
+      "updated": "2026-03-06T22:43:40Z",
+      "url": "https://github.com/advisories/GHSA-c9v3-4pv7-87pr",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/coredns/coredns/security/advisories/GHSA-c9v3-4pv7-87pr",
+        "https://github.com/coredns/coredns/releases/tag/v1.14.2",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-26017",
+        "https://github.com/advisories/GHSA-c9v3-4pv7-87pr"
+      ]
     }
   ],
-  "github_advisories": [],
   "urlhaus_iocs": [],
   "kev_stats": {
     "total_kev_entries": 1536,
@@ -383,7 +587,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-06T20:35:51.631640+00:00",
+    "catalog_version": "2026-03-07T02:10:45.463986+00:00",
     "source": "CISA KEV"
   }
 }
