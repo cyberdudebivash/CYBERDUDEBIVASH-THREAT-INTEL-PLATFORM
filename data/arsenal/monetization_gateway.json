@@ -1,0 +1,115 @@
+{
+  "subsystem": "P2_APIMonetizationGateway",
+  "tier_config": {
+    "FREE": {
+      "rate_limit": 60,
+      "daily_limit": 500,
+      "price_monthly": 0,
+      "endpoints": [
+        "/api/v1/intel/latest",
+        "/api/v1/zdh/gti",
+        "/api/v1/health",
+        "/api/v1/radar"
+      ],
+      "formats": [
+        "json"
+      ]
+    },
+    "STANDARD": {
+      "rate_limit": 150,
+      "daily_limit": 5000,
+      "price_monthly": 29,
+      "endpoints": [
+        "FREE+",
+        "/api/v1/intel/cve/*",
+        "/api/v1/intel/iocs",
+        "/api/v1/intel/stix/*"
+      ],
+      "formats": [
+        "json",
+        "csv"
+      ]
+    },
+    "PRO": {
+      "rate_limit": 500,
+      "daily_limit": 25000,
+      "price_monthly": 99,
+      "endpoints": [
+        "STANDARD+",
+        "/api/v1/zdh/*",
+        "/api/v1/fusion/*",
+        "/api/v1/rules/*",
+        "/api/v1/scripts/*"
+      ],
+      "formats": [
+        "json",
+        "csv",
+        "stix"
+      ]
+    },
+    "ENTERPRISE": {
+      "rate_limit": 1000,
+      "daily_limit": 100000,
+      "price_monthly": 499,
+      "endpoints": [
+        "PRO+",
+        "/api/v1/enterprise/*",
+        "/api/v1/telemetry/*",
+        "/api/v1/playbooks",
+        "/api/v1/omnishield"
+      ],
+      "formats": [
+        "json",
+        "csv",
+        "stix",
+        "taxii"
+      ]
+    }
+  },
+  "revenue_model": {
+    "mrr_projection": {
+      "free_users_est": 500,
+      "free_revenue": 0,
+      "standard_users_est": 50,
+      "standard_revenue": 1450,
+      "pro_users_est": 20,
+      "pro_revenue": 1980,
+      "enterprise_users_est": 5,
+      "enterprise_revenue": 2495,
+      "total_mrr_projection": 5925
+    },
+    "arr_projection": 71100
+  },
+  "content_metrics": {
+    "total_intelligence_items": 50,
+    "high_value_items": 21,
+    "stix_bundles_available": 1022,
+    "detection_rules_available": 160,
+    "playbooks_available": 17,
+    "zero_day_alerts": 25
+  },
+  "api_key_template": {
+    "format": "cdb-{tier}-{hash}",
+    "example": "cdb-pro-50d858e0985ecc7f60418aaf",
+    "validation": "SHA-256 HMAC with platform secret",
+    "rotation": "90-day automatic rotation recommended"
+  },
+  "stripe_integration": {
+    "product_ids": {
+      "standard": "prod_sentinel_standard",
+      "pro": "prod_sentinel_pro",
+      "enterprise": "prod_sentinel_enterprise"
+    },
+    "webhook_endpoint": "/api/v1/billing/webhook",
+    "customer_portal": "/api/v1/billing/portal"
+  },
+  "gumroad_integration": {
+    "store_url": "https://cyberdudebivash.gumroad.com",
+    "product_slugs": {
+      "sentinel_pro": "sentinel-apex-pro-api",
+      "detection_pack": "sentinel-apex-detection-pack",
+      "enterprise_feed": "sentinel-apex-enterprise-feed"
+    }
+  },
+  "timestamp": "2026-03-07T09:26:28.229421+00:00"
+}
