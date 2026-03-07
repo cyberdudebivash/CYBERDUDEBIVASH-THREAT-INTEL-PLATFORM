@@ -13,8 +13,8 @@ Usage:
 # VERSION DEFINITION — EDIT ONLY HERE
 # ══════════════════════════════════════════════════════════════════════════════
 
-VERSION = "39.0.0"
-CODENAME = "NEXUS INTELLIGENCE"
+VERSION = "42.0.0"
+CODENAME = "SOVEREIGN"
 RELEASE_DATE = "2026-03"
 RELEASE_TYPE = "enterprise"
 
