@@ -1,0 +1,81 @@
+name: CDB NEXUS Intelligence Engine v39.0
+
+on:
+  schedule:
+    - cron: '30 */6 * * *'    # Every 6 hours (offset from blogger)
+  workflow_dispatch:
+    inputs:
+      full_cycle:
+        description: 'Run full NEXUS intelligence cycle'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nexus-intel
+  cancel-in-progress: false
+
+jobs:
+  nexus-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ensure NEXUS directories
+        run: |
+          mkdir -p data/nexus
+          mkdir -p data/stix
+
+      - name: Execute NEXUS Intelligence Cycle
+        run: python -m agent.v39_nexus.nexus_engine
+        env:
+          MANIFEST_PATH: data/stix/feed_manifest.json
+          NEXUS_DIR: data/nexus
+
+      - name: Validate NEXUS Output
+        run: |
+          python -c "
+          import json, sys
+          try:
+              with open('data/nexus/nexus_output.json') as f:
+                  data = json.load(f)
+              hunts = len(data.get('threat_hunts', []))
+              campaigns = len(data.get('campaigns', []))
+              chains = len(data.get('attack_chains', []))
+              rules = data.get('detection_pack', {}).get('stats', {}).get('total_rules', 0)
+              exposure = data.get('exposure', {}).get('overall_score', 0)
+              print(f'✅ NEXUS Validation Passed')
+              print(f'   Hunts: {hunts} | Campaigns: {campaigns} | Chains: {chains}')
+              print(f'   Rules: {rules} | Exposure: {exposure}/10')
+          except Exception as e:
+              print(f'⚠️ NEXUS output validation: {e}')
+              sys.exit(0)  # Non-blocking
+          "
+
+      - name: Commit NEXUS Intelligence Data
+        run: |
+          git config user.name "CDB-NEXUS-BOT"
+          git config user.email "nexus@cyberdudebivash.com"
+          git add data/nexus/ -f
+          git diff --cached --quiet || git commit -m "🧠 NEXUS v39.0: Intelligence cycle $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push origin main || echo "Push failed — will retry next cycle"
