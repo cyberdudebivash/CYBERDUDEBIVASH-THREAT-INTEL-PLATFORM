@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : Reading White House President Trumps Cyber Strategy for America March 2026
+// Scenario: MALWARE | CVEs: N/A
+// Generated: 2026-03-07 18:04:54 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Suspicious PowerShell
+SecurityEvent | where TimeGenerated > ago(24h)
+| where EventID == 4688
+| where CommandLine has_any ('-EncodedCommand', '-enc', 'IEX(', 'Invoke-Expression', 'DownloadFile')
+| extend ThreatName="Reading White House President Trumps Cyber Strategy for America March 2026", Severity="CRITICAL"
