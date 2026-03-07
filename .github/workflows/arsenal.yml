@@ -1,0 +1,43 @@
+name: CDB Sentinel APEX — Arsenal v38.0
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: arsenal
+  cancel-in-progress: false
+
+jobs:
+  arsenal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, ref: main}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12', cache: 'pip'}
+      - run: pip install --upgrade pip && [ -f requirements.txt ] && pip install -r requirements.txt || true
+      - name: Run Arsenal Engine
+        env:
+          MANIFEST_PATH: data/stix/feed_manifest.json
+          STIX_DIR: data/stix
+          FUSION_DIR: data/fusion
+          ZDH_DIR: data/zerodayhunter
+          ANALYST_DIR: data/analyst
+          ARSENAL_DIR: data/arsenal
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m agent.v38_arsenal.arsenal_engine
+      - name: Commit
+        run: |
+          git config user.name "CDB-GOC-Arsenal"
+          git config user.email "goc@cyberdudebivash.com"
+          git add data/arsenal/ || true
+          git diff --cached --quiet && echo "No changes" || {
+            FEEDS=$(python3 -c "import json; d=json.load(open('data/arsenal/arsenal_report.json')); print(d['productization_stats']['intelligence_feed_items'])" 2>/dev/null || echo "0")
+            git commit -m "📦 ARSENAL v38.0 — ${FEEDS} feed items | Intelligence Productization"
+            git push; }
