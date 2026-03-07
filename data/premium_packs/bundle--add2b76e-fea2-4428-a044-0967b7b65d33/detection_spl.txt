@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : CVE-2026-3661 - Wavlink WL-NU516U1 admcgi ota_new_upgrade command injection
+# Scenario: VULNERABILITY
+# Generated: 2026-03-07 16:21:51 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Web Exploit Detection
+index=web sourcetype=iis OR sourcetype=apache:access
+(uri_query="*<script>*" OR uri_query="*UNION+SELECT*" OR uri_query="*../../*")
+| stats count by src_ip, uri_path, status | eval ThreatName="CVE-2026-3661 - Wavlink WL-NU516U1 admcgi ota_new_upgrade command injection"

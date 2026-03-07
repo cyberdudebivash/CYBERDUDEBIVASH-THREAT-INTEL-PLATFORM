@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-b826ed5457c5
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Congress looks to revive critical cyber program for rural electric utilities"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
