@@ -1,0 +1,43 @@
+name: CDB Sentinel APEX — Convergence v37.0
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: convergence
+  cancel-in-progress: false
+
+jobs:
+  convergence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, ref: main}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12', cache: 'pip'}
+      - run: pip install --upgrade pip requests feedparser networkx && [ -f requirements.txt ] && pip install -r requirements.txt || true
+      - name: Run Convergence Engine
+        env:
+          MANIFEST_PATH: data/stix/feed_manifest.json
+          STIX_DIR: data/stix
+          FUSION_DIR: data/fusion
+          ZDH_DIR: data/zerodayhunter
+          OMNISHIELD_DIR: data/omnishield
+          CONVERGENCE_DIR: data/convergence
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m agent.v37_convergence.convergence_engine
+      - name: Commit
+        run: |
+          git config user.name "CDB-GOC-Convergence"
+          git config user.email "goc@cyberdudebivash.com"
+          git add data/convergence/ || true
+          git diff --cached --quiet && echo "No changes" || {
+            RULES=$(python3 -c "import json; d=json.load(open('data/convergence/convergence_report.json')); print(d['integration_stats']['detection_rules'])" 2>/dev/null || echo "0")
+            git commit -m "🔗 CONVERGENCE v37.0 — ZDH Integration | ${RULES} detection rules"
+            git push; }
