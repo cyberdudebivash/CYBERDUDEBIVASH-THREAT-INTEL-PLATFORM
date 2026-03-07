@@ -3,7 +3,7 @@
 // Threat   : Official Launch CYBERDUDEBIVASH CyberTwin v10 Building a Native Windows Exposure
 // STIX ID  : bundle--5e268fdc-4d4c-40d2-82bb-80698bf1a140
 // Scenario : GENERIC
-// Generated: 2026-03-07T04:03:09.215881 UTC
+// Generated: 2026-03-07T04:56:26.498916 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 

@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-accc1e2915c3",
+  "title": "Exploit for Path Traversal in Tp-Link Tapo_C260_Firmware",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 Exploit for Path Traversal in Tp-Link Tapo_C260_Firmware\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/07\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*lfd.py*'\n            - '*requirements.txt*'\n            - '*tapo-c260-rce.git*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"lfd.py\",\n              \"requirements.txt\",\n              \"tapo-c260-rce.git\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"lfd.py\", \"requirements.txt\", \"tapo-c260-rce.git\")"
+  },
+  "rule_count": 3
+}

@@ -1,0 +1,22 @@
+{
+  "threat_id": "thr-b80ce17f45b8",
+  "title": "Proactive Preparation and Hardening Against Destructive Attacks: 2026 Edition",
+  "scripts": [
+    {
+      "type": "firewall_iptables",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 \u2014 Block threat IPs for: Proactive Preparation and Hardening Against Destructive Atta\niptables -A INPUT -s 1.3.6.1 -j DROP\niptables -A INPUT -s 2.5.29.37 -j DROP\niptables -A INPUT -s 5.2.3.4 -j DROP\niptables -A INPUT -s 5.5.7.3 -j DROP\niptables -A OUTPUT -d 1.3.6.1 -j DROP\niptables -A OUTPUT -d 2.5.29.37 -j DROP\niptables -A OUTPUT -d 5.2.3.4 -j DROP\niptables -A OUTPUT -d 5.5.7.3 -j DROP\necho 'Firewall rules applied'"
+    },
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx details\\.aspx|gpo\\-listing\\-all\\.csv|hostd\\.log|pfirewall\\.log|shell\\.log|snapshot\\.removeall|vim\\.event|vpxa\\.log|vpxd\\.log|vshphere\\.local\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-b80ce17f45b8'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((dest_ip IN (\"1.3.6.1\",\"2.5.29.37\",\"5.2.3.4\",\"5.5.7.3\")) OR (query IN (\"details.aspx\",\"gpo-listing-all.csv\",\"hostd.log\",\"pfirewall.log\",\"shell.log\",\"snapshot.removeall\",\"vim.event\",\"vpxa.log\",\"vpxd.log\",\"vshphere.local\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    },
+    {
+      "type": "hardening_bash",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 \u2014 Emergency Hardening Script\n# Threat: Proactive Preparation and Hardening Against Destructive Atta\n# Generated: 2026-03-07T04:43:00.414165+00:00\n\necho \"[*] Updating system packages...\"\napt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null\n\necho \"[*] Enabling firewall...\"\nufw enable 2>/dev/null || firewall-cmd --set-default-zone=drop 2>/dev/null\n\necho \"[*] Disabling unnecessary services...\"\nsystemctl disable --now telnet.socket 2>/dev/null\nsystemctl disable --now rsh.socket 2>/dev/null\n\necho \"[*] Setting secure SSH configuration...\"\nsed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config\nsystemctl restart sshd\n\necho \"[+] Hardening complete for threat: thr-b80ce17f45b8\"\n"
+    }
+  ]
+}
