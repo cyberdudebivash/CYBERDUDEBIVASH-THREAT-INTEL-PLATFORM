@@ -1,0 +1,77 @@
+{
+  "server": {
+    "protocol": "wss",
+    "host": "stream.cyberdudebivash.com",
+    "port": 443,
+    "path": "/v1/stream",
+    "heartbeat_interval_ms": 30000,
+    "reconnect_strategy": "exponential_backoff",
+    "max_reconnect_attempts": 10
+  },
+  "channels": [
+    "threat-intel",
+    "critical-alerts",
+    "kev-updates",
+    "actor-tracking",
+    "campaign-intel",
+    "detection-rules",
+    "exposure-updates",
+    "hunt-signals"
+  ],
+  "auth": {
+    "method": "bearer_token",
+    "header": "Authorization",
+    "format": "Bearer {api_key}",
+    "tiers": {
+      "free": [
+        "threat-intel"
+      ],
+      "pro": [
+        "threat-intel",
+        "critical-alerts",
+        "kev-updates",
+        "detection-rules"
+      ],
+      "enterprise": [
+        "threat-intel",
+        "critical-alerts",
+        "kev-updates",
+        "actor-tracking",
+        "campaign-intel",
+        "detection-rules",
+        "exposure-updates",
+        "hunt-signals"
+      ]
+    }
+  },
+  "rate_limits": {
+    "free": {
+      "events_per_minute": 10,
+      "channels": 1
+    },
+    "pro": {
+      "events_per_minute": 100,
+      "channels": 4
+    },
+    "enterprise": {
+      "events_per_minute": 1000,
+      "channels": 8
+    }
+  },
+  "message_format": {
+    "type": "json",
+    "schema_version": "1.0",
+    "compression": "gzip",
+    "example": {
+      "event_id": "evt-00000001",
+      "event_type": "THREAT_ADVISORY",
+      "timestamp": "2026-03-07T00:00:00Z",
+      "severity": "CRITICAL",
+      "channel": "threat-intel",
+      "payload": {
+        "title": "...",
+        "risk_score": 9.5
+      }
+    }
+  }
+}
