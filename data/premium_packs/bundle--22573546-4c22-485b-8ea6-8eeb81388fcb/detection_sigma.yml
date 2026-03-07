@@ -1,0 +1,26 @@
+# ================================================================
+# CyberDudeBivash SENTINEL APEX v20.0 — Sigma Detection Rules
+# Threat  : CVE-2026-30863 - Parse Server JWT audience validation bypass in Google Apple and
+# Scenario: APT
+# Generated: 2026-03-07T20:20:06.436630 UTC
+# Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
+# ================================================================
+
+title: 'CDB: CVE-2026-30863 - Parse Server JWT audience validation bypass in Google Apple and - APT Credential Dump'
+id: cdb-965637
+status: experimental
+description: 'Detects APT credential dumping and lateral movement'
+author: 'CyberDudeBivash GOC (Automated)'
+date: 2026/03/07
+tags: ['attack.lateral_movement.t1021', 'attack.credential_access.t1003']
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_creds:
+    Image|endswith: ['\\mimikatz.exe', '\\procdump.exe']
+    CommandLine|contains: ['sekurlsa', 'lsadump', 'dcsync']
+  condition: selection_creds
+falsepositives: ['Legitimate admin credential management']
+level: critical
+---

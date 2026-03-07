@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : CVE-2026-30863 - Parse Server JWT audience validation bypass in Google Apple and
+// Scenario: APT | CVEs: N/A
+// Generated: 2026-03-07 20:20:06 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: APT Credential Theft
+SecurityEvent | where TimeGenerated > ago(48h)
+| where EventID == 4688
+| where CommandLine has_any ('mimikatz', 'sekurlsa', 'lsadump', 'dcsync')
+| extend ThreatName="CVE-2026-30863 - Parse Server JWT audience validation bypass in Google Apple and", Severity="CRITICAL"

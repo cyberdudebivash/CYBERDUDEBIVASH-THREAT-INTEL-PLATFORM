@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : CVE-2026-30863 - Parse Server JWT audience validation bypass in Google Apple and
+# Scenario: APT
+# Generated: 2026-03-07 20:20:06 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Suspicious PowerShell
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="-EncodedCommand" OR CommandLine="IEX(" OR CommandLine="DownloadFile")
+| stats count by host, user, CommandLine | eval ThreatName="CVE-2026-30863 - Parse Server JWT audience validation bypass in Google Apple and"
