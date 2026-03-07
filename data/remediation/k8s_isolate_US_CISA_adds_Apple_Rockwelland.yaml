@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-c184effefe64
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "U.S. CISA adds Apple, Rockwell, and Hikvision  flaws to its Known Exploited Vulnerabilities catalog"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection

@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : Dark Web Intercept Exploit_Forum_X - Potential Threat Activity
+// Scenario: RCE | CVEs: N/A
+// Generated: 2026-03-07 09:10:07 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Web Exploit / CVE Detection (N/A)
+W3CIISLog | where TimeGenerated > ago(24h)
+| where csUriStem has_any ('<script>', 'javascript:', 'onerror=', 'UNION+SELECT', '../../')
+| extend ThreatName="Dark Web Intercept Exploit_Forum_X - Potential Threat Activity", CVEs="N/A"
+| summarize Attempts=count() by csUriStem, cIP

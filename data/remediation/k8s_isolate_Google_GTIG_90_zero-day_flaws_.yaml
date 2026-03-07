@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-ad2f7c31ac6f
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Google GTIG: 90 zero-day flaws exploited in 2025 as enterprise targets grow"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
