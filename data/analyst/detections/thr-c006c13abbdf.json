@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-c006c13abbdf",
+  "title": "CVE-2026-3695 - SourceCodester Modern Image Gallery App delete.php path traversa",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3695 - SourceCodester Modern Image Gallery App dele\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/08\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*delete.php*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"delete.php\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"delete.php\")"
+  },
+  "rule_count": 3
+}
