@@ -13,8 +13,8 @@ Usage:
 # VERSION DEFINITION — EDIT ONLY HERE
 # ══════════════════════════════════════════════════════════════════════════════
 
-VERSION = "42.0.0"
-CODENAME = "SOVEREIGN"
+VERSION = "43.0.0"
+CODENAME = "GENESIS"
 RELEASE_DATE = "2026-03"
 RELEASE_TYPE = "enterprise"
 
