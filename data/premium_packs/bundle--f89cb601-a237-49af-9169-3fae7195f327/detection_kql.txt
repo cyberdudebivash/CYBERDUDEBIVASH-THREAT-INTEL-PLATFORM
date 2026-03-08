@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : CVE-2026-3693 - Shy2593666979 AgentChat User Endpoint userpy update_user_info re
+// Scenario: RCE | CVEs: N/A
+// Generated: 2026-03-08 01:23:29 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Web Exploit / CVE Detection (N/A)
+W3CIISLog | where TimeGenerated > ago(24h)
+| where csUriStem has_any ('<script>', 'javascript:', 'onerror=', 'UNION+SELECT', '../../')
+| extend ThreatName="CVE-2026-3693 - Shy2593666979 AgentChat User Endpoint userpy update_user_info re", CVEs="N/A"
+| summarize Attempts=count() by csUriStem, cIP
