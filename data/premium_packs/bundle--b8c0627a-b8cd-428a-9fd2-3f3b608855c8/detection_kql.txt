@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : CVE-2026-3730 - itsourcecode Free Hotel Reservation System indexphp sql injectio
+// Scenario: RCE | CVEs: N/A
+// Generated: 2026-03-08 12:34:33 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Web Exploit / CVE Detection (N/A)
+W3CIISLog | where TimeGenerated > ago(24h)
+| where csUriStem has_any ('<script>', 'javascript:', 'onerror=', 'UNION+SELECT', '../../')
+| extend ThreatName="CVE-2026-3730 - itsourcecode Free Hotel Reservation System indexphp sql injectio", CVEs="N/A"
+| summarize Attempts=count() by csUriStem, cIP
