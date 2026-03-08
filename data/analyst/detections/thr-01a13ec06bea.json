@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-01a13ec06bea",
+  "title": "CVE-2026-3693 - Shy2593666979 AgentChat User Endpoint user.py update_user_info r",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3693 - Shy2593666979 AgentChat User Endpoint user.p\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/08\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*user.py*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"user.py\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"user.py\")"
+  },
+  "rule_count": 3
+}
