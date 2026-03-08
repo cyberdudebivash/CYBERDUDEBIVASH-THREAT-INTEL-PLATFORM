@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : From BRICKSTORM to GRIMBOLT UNC6201 Exploiting a Dell RecoverPoint for Virtual M
+# Scenario: RCE
+# Generated: 2026-03-08 16:22:39 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Web Exploit Detection
+index=web sourcetype=iis OR sourcetype=apache:access
+(uri_query="*<script>*" OR uri_query="*UNION+SELECT*" OR uri_query="*../../*")
+| stats count by src_ip, uri_path, status | eval ThreatName="From BRICKSTORM to GRIMBOLT UNC6201 Exploiting a Dell RecoverPoint for Virtual M"
