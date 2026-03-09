@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: ‘Starkiller’ Phishing Service Proxies Real Login Pages, MFA
-:: Generated: 2026-03-09 02:30:21 UTC
+:: Generated: 2026-03-09 05:20:37 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================
