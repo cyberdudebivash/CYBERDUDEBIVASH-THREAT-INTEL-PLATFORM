@@ -1,4 +1,4 @@
-name: CDB Sentinel Blogger – Threat Intel Auto-Publisher v43.0
+name: CDB Sentinel Blogger – Threat Intel Auto-Publisher v44.0
 
 on:
   schedule:
@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 30    
 
     steps:
-      - name: Checkout repository (v43.0 Full Sync)
+      - name: Checkout repository (v44.0 Full Sync)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0   
@@ -79,7 +79,7 @@ jobs:
             echo "  No existing manifest found - first run"
           fi
 
-      - name: Run Sentinel Blogger APEX Engine (v43.0)
+      - name: Run Sentinel Blogger APEX Engine (v44.0)
         env:
           BLOG_ID: ${{ secrets.BLOG_ID }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
@@ -104,7 +104,7 @@ jobs:
           
           status = {
               "platform": "CYBERDUDEBIVASH® SENTINEL APEX",
-              "version": "v43.0",
+              "version": "v44.0",
               "status": "OPERATIONAL",
               "status_message": "Pipeline sync complete",
               "components": {
@@ -133,7 +133,7 @@ jobs:
           print(f"✓ Sync marker created")
           PYEOF
 
-      - name: Build Detection Pack (v43.0)
+      - name: Build Detection Pack (v44.0)
         continue-on-error: true
         run: |
           python - << 'PYEOF'
@@ -177,7 +177,7 @@ jobs:
             echo "No changes to commit."
           else
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "v43.0 Apex: Intel Sync @ $TIMESTAMP [skip ci]"
+            git commit -m "v44.0 Apex: Intel Sync @ $TIMESTAMP [skip ci]"
             for i in {1..5}; do
               git pull origin main --rebase && git push origin main && break || \
               (echo "Push collision detected. Retrying in 15s (Attempt $i)..." && sleep 15)
@@ -207,7 +207,7 @@ jobs:
           single-commit: false
           git-config-name: CDB-Sentinel-Bot
           git-config-email: bivash@cyberdudebivash.com
-          commit-message: "v43.0 Deploy: Live feed update"
+          commit-message: "v44.0 Deploy: Live feed update"
 
       - name: Verify Deployment
         run: |
