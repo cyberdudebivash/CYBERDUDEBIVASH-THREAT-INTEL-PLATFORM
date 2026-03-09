@@ -2,7 +2,7 @@
   "threat_id": "thr-7ccbb50d573e",
   "title": "CVE-2026-3715 - Wavlink WL-WN579X3-C firewall.cgi sub_40139C stack-based overflo",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3715 - Wavlink WL-WN579X3-C firewall.cgi sub_40139C\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/08\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*firewall.cgi*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3715 - Wavlink WL-WN579X3-C firewall.cgi sub_40139C\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/09\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*firewall.cgi*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"firewall.cgi\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"firewall.cgi\")"
   },

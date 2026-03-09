@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-72b04d75a8d4",
+  "title": "CVE-2026-3791 - SourceCodester Sales and Inventory System Search dashboard.php s",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3791 - SourceCodester Sales and Inventory System Se\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/09\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*dashboard.php*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"dashboard.php\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"dashboard.php\")"
+  },
+  "rule_count": 3
+}
