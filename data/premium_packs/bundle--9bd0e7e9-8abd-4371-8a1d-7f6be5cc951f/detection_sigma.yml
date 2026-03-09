@@ -1,0 +1,27 @@
+# ================================================================
+# CyberDudeBivash SENTINEL APEX v20.0 — Sigma Detection Rules
+# Threat  : CVE-2026-3817 - SourceCodester Patients Waiting Area Queue Management System pat
+# Scenario: RCE
+# Generated: 2026-03-09T15:00:04.302182 UTC
+# Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
+# ================================================================
+
+title: 'CDB: CVE-2026-3817 - SourceCodester Patients Waiting Area Queue Management System pat - Web Exploit Detection'
+id: cdb-515004
+status: experimental
+description: 'Detects web application exploitation / injection patterns'
+author: 'CyberDudeBivash GOC (Automated)'
+date: 2026/03/09
+tags: ['attack.initial_access.t1190', 'attack.execution.t1059']
+logsource:
+  category: webserver
+  product: any
+detection:
+  selection_xss:
+    c-uri|contains: ['<script>', 'javascript:', 'onerror=', '%3Cscript%3E']
+  selection_sqli:
+    c-uri|contains: ["' OR '1'='1", 'UNION SELECT', '../../../']
+  condition: selection_xss or selection_sqli
+falsepositives: ['Security testing / pen testing']
+level: high
+---
