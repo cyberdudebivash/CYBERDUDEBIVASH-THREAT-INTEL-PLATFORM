@@ -2,12 +2,12 @@
   "threat_id": "thr-692ff92ba8c7",
   "title": "CVE-2026-3714 - OpenCart Incomplete Fix CVE-2024-36694 template.php save special",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3714 - OpenCart Incomplete Fix CVE-2024-36694 templ\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/08\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '4.0.2.3'\n    selection_dns:\n        query:\n            - '*template.php*'\n    condition: selection_ip or selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3714 - OpenCart Incomplete Fix CVE-2024-36694 templ\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/09\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '4.0.2.3'\n    selection_dns:\n        query:\n            - '*template.php*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "suricata": [
-      "alert ip any any -> 4.0.2.3 any (msg:\"CDB APEX \u2014 CVE_2026_3714___OpenCart_Incom\"; sid:3112450; rev:1;)"
+      "alert ip any any -> 4.0.2.3 any (msg:\"CDB APEX \u2014 CVE_2026_3714___OpenCart_Incom\"; sid:6030295; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 4.0.2.3 any (msg:\"CDB APEX CVE_2026_3714___OpenCart_Incom\"; sid:6116192; rev:1;)"
+      "alert ip any any -> 4.0.2.3 any (msg:\"CDB APEX CVE_2026_3714___OpenCart_Incom\"; sid:1590786; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"4.0.2.3\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"template.php\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"4.0.2.3\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"template.php\")"
