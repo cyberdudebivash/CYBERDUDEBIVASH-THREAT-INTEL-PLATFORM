@@ -1,77 +1,79 @@
-# ═══════════════════════════════════════════════════════════
-# CDB SENTINEL APEX ULTRA v17.0 — Dependencies
-# ═══════════════════════════════════════════════════════════
+###############################################################################
+# CYBERDUDEBIVASH® SENTINEL APEX GLOBAL THREAT INTELLIGENCE PLATFORM
+# Version: 44.0 (ASCENDANT CORTEX)
+# Status: PRODUCTION-READY
+# Signature: Founder & CEO — CyberDudeBivash Pvt. Ltd.
+###############################################################################
 
-# --- Core Intelligence Ingestion ---
+# -----------------------------------------------------------------------------
+# CORE WEB & API ORCHESTRATION
+# -----------------------------------------------------------------------------
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+pydantic==2.5.3
+python-dotenv==1.0.0
+
+
+# -----------------------------------------------------------------------------
+# v43 GENESIS & AI REASONING CORE
+# -----------------------------------------------------------------------------
+numpy==1.26.3
+pandas==2.2.0
+scikit-learn==1.4.0
+scipy==1.12.0
+transformers==4.37.0
+torch==2.2.0
+
+
+# -----------------------------------------------------------------------------
+# THREAT INTELLIGENCE & STIX/TAXII MESH
+# -----------------------------------------------------------------------------
+stix2==3.0.1
+stix2-validator==3.1.2
+
+# NOTE:
+# taxii2-server==3.0.0 does not exist on PyPI and breaks CI pipelines.
+# Removed to maintain installation stability.
+
+taxii2-client==2.3.0
+
+
+# -----------------------------------------------------------------------------
+# v44 MONEY ENGINE & REVENUE ORCHESTRATION
+# -----------------------------------------------------------------------------
+stripe==7.11.0
+cryptography==42.0.2
+PyJWT==2.8.0
+
+
+# -----------------------------------------------------------------------------
+# INTEGRATIONS & SENSOR GRID
+# -----------------------------------------------------------------------------
+requests==2.31.0
+httpx==0.26.0
+aiohttp==3.9.2
+beautifulsoup4==4.12.3
+
+
+# -----------------------------------------------------------------------------
+# AUTOMATION & SYNDICATION
+# -----------------------------------------------------------------------------
+google-api-python-client==2.115.0
+google-auth-oauthlib==1.2.0
 feedparser==6.0.11
 
-# --- GOC Institutional Reporting ---
-fpdf2==2.7.8
-requests==2.31.0
 
-# --- Google GOC Authority Integration ---
-google-api-python-client==2.118.0
-google-auth-httplib2==0.2.0
-google-auth-oauthlib==1.2.0
-
-# --- STIX 2.1 Serialization ---
-# Using built-in json/uuid for core bundles
-# stix2==3.0.1  # Optional: uncomment for advanced STIX operations
-
-# --- Forensic & Detection Utilities ---
-python-dateutil==2.8.2
-pyyaml==6.0.1
-
-# --- Environment Configuration ---
-python-dotenv==1.0.1
-
-# ═══════════════════════════════════════════════════════════
-# v17.0 ADDITIONS
-# ═══════════════════════════════════════════════════════════
-# All new modules use only Python stdlib (json, os, time, re, tarfile,
-# shutil, logging, datetime, collections) — no new external packages needed.
-# Optional future upgrades:
-#   fastapi==0.109.0          # For serving public/enterprise API endpoints
-#   uvicorn==0.27.0           # ASGI server for FastAPI
-#   stix2==3.0.1              # Advanced STIX 2.1 operations
+# -----------------------------------------------------------------------------
+# PDF & REPORT GENERATION
+# -----------------------------------------------------------------------------
+reportlab==4.0.9
+fpdf2==2.7.7
 
 
-# ═══════════════════════════════════════════════════════════
-# v18.0 ADDITIONS
-# ═══════════════════════════════════════════════════════════
-# Weekly digest email via SendGrid (optional — only needed if SENDGRID_API_KEY is set)
-sendgrid==6.11.0
-
-# Note: revenue_bridge.py, upsell_injector.py, weekly_digest.py
-# use only stdlib + sendgrid (optional). No other new deps required.
-
-
-# ═══════════════════════════════════════════════════════════
-# v23.0 ADDITIONS — API SERVER & BILLING LAYER
-# ═══════════════════════════════════════════════════════════
-
-# --- REST API Server (api_server.py) ---
-# Deploy: uvicorn agent.api.api_server:app --host 0.0.0.0 --port 8080
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-
-# --- Stripe Billing Gateway (stripe_gateway.py) ---
-# Required for subscription management + webhook handling
-stripe==10.12.0
-
-# ═══════════════════════════════════════════════════════════
-# v30.0 APEX SOVEREIGN ADDITIONS — STREAMING & AUTH
-# ═══════════════════════════════════════════════════════════
-
-# --- Enterprise WebSocket Firehose & Sensor Telemetry ---
-websockets>=12.0
-
-# --- JWT Authentication for Enterprise Firehose ---
-PyJWT>=2.8.0
-
-# --- Deployment Notes for APEX Phase 3 Components ---
-# 1. Frontend Globe (React): 
-#    Ensure `npm install react-globe.gl three` is run in your frontend repo.
-# 2. Kernel Sensor (eBPF):
-#    Run `sudo apt install bpfcc-tools python3-bpfcc` on enterprise client machines. 
-#    The `bcc` module is bound to the Linux kernel and cannot be installed via pip.
+# -----------------------------------------------------------------------------
+# MONITORING & LOGGING
+# -----------------------------------------------------------------------------
+psutil==5.9.8
+prometheus-client==0.19.0
+colorama==0.4.6
