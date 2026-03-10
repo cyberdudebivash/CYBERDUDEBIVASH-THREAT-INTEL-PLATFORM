@@ -1,0 +1,26 @@
+# ================================================================
+# CyberDudeBivash SENTINEL APEX v20.0 — Sigma Detection Rules
+# Threat  : CVE-2026-27689 - Denial of service DOS in SAP Supply Chain Management
+# Scenario: SUPPLY_CHAIN
+# Generated: 2026-03-10T05:11:24.234359 UTC
+# Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
+# ================================================================
+
+title: 'CDB: CVE-2026-27689 - Denial of service DOS in SAP Supply Chain Management - Supply Chain Package Abuse'
+id: cdb-932988
+status: experimental
+description: 'Detects suspicious package manager activity and post-install hooks'
+author: 'CyberDudeBivash GOC (Automated)'
+date: 2026/03/10
+tags: ['attack.initial_access.t1195', 'attack.execution.t1059.001']
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_pkg:
+    Image|endswith: ['\\npm.exe', '\\pip.exe', '\\pip3.exe']
+    CommandLine|contains: ['install', '--pre', '--index-url']
+  condition: selection_pkg
+falsepositives: ['Legitimate use of private package registries']
+level: high
+---

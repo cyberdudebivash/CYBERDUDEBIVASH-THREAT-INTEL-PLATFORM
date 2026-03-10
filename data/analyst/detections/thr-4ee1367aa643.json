@@ -2,12 +2,12 @@
   "threat_id": "thr-4ee1367aa643",
   "title": "CVE-2026-3802 - Tenda i3 exeCommand formexeCommand stack-based overflow",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3802 - Tenda i3 exeCommand formexeCommand stack-bas\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/09\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '1.0.0.6'\n    condition: selection_ip\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3802 - Tenda i3 exeCommand formexeCommand stack-bas\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/10\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '1.0.0.6'\n    condition: selection_ip\nlevel: high",
     "suricata": [
-      "alert ip any any -> 1.0.0.6 any (msg:\"CDB APEX \u2014 CVE_2026_3802___Tenda_i3_exeCo\"; sid:4284657; rev:1;)"
+      "alert ip any any -> 1.0.0.6 any (msg:\"CDB APEX \u2014 CVE_2026_3802___Tenda_i3_exeCo\"; sid:5334172; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 1.0.0.6 any (msg:\"CDB APEX CVE_2026_3802___Tenda_i3_exeCo\"; sid:3688656; rev:1;)"
+      "alert ip any any -> 1.0.0.6 any (msg:\"CDB APEX CVE_2026_3802___Tenda_i3_exeCo\"; sid:6290821; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"1.0.0.6\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"1.0.0.6\")"
