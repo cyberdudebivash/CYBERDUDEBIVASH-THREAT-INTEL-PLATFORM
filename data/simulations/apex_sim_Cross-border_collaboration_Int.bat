@@ -1,7 +1,7 @@
 @echo off
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
-:: Target Threat: Microsoft launches new European Security Program
+:: Target Threat: Cross-border collaboration: International law enforcement and Microsoft dismantle transnational scam network targeting older adults
 :: Generated: 2026-03-10 02:22:47 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
