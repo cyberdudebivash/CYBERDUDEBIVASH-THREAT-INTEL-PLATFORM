@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-10T16:58:39.983083+00:00",
+  "timestamp": "2026-03-10T20:38:36.659503+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -352,7 +352,464 @@
       "poc_public": true
     }
   ],
-  "github_advisories": [],
+  "github_advisories": [
+    {
+      "ghsa_id": "GHSA-7r34-79r5-rcc9",
+      "cve_id": "CVE-2026-27826",
+      "severity": "HIGH",
+      "summary": "MCP Atlassian has SSRF via unvalidated X-Atlassian-Jira-Url / X-Atlassian-Confluence-Url headers",
+      "description": "### Summary\nAn unauthenticated attacker who can reach the mcp-atlassian HTTP endpoint can force the server process to make outbound HTTP requests to an arbitrary attacker-controlled URL by supplying two custom HTTP headers without an `Authorization` header. No authentication is required. The vulnerability exists in the HTTP middleware and dependency injection layer \u2014 not in any MCP tool handler - making it invisible to tool-level code analysis. In cloud deployments, this could enable theft of IAM role credentials via the instance metadata endpoint (`169.254.169.254`). In any HTTP deployment it enables internal network reconnaissance and injection of attacker-controlled content into LLM tool results.\n\n### Details\nThe server supports a multi-tenant HTTP authentication mode where clients supply per-request Jira/Confluence URLs via custom headers. The middleware (`src/mcp_atlassian/servers/main.py:436\u2013448`) extracts `X-Atlassian-Jira-Url` from the request and stores it in request state wit",
+      "cvss_score": 8.2,
+      "cvss_vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:C/C:H/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "mcp-atlassian"
+      ],
+      "published": "2026-03-10T18:48:46Z",
+      "updated": "2026-03-10T18:48:50Z",
+      "url": "https://github.com/advisories/GHSA-7r34-79r5-rcc9",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/sooperset/mcp-atlassian/security/advisories/GHSA-7r34-79r5-rcc9",
+        "https://github.com/sooperset/mcp-atlassian/commit/5cd697dfce9116ef330b8dc7a91291640e0528d9",
+        "https://github.com/advisories/GHSA-7r34-79r5-rcc9"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-ghc4-35x6-crw5",
+      "cve_id": "CVE-2026-26308",
+      "severity": "HIGH",
+      "summary": "Envoy has RBAC Header Validation Bypass via Multi-Value Header Concatenation",
+      "description": "## 1. Summary\nThe Envoy RBAC (Role-Based Access Control) filter contains a logic vulnerability in how it validates HTTP headers when multiple values are present for the same header name. Instead of validating each header value individually, Envoy concatenates all values into a single comma-separated string. This behavior allows attackers to bypass RBAC policies\u2014specifically \"Deny\" rules\u2014by sending duplicate headers, effectively obscuring the malicious value from exact-match mechanisms.\n\n## 2. Attack Scenario\nConsider an environment where an administrator wants to block external access to internal resources using a specific header flag.\n\n### Configuration\nThe Envoy proxy is configured with a **Deny** rule to reject requests containing the header `internal: true`.\n* **Rule Type:** Exact Match\n* **Target:** `internal` header must not equal `true`.\n\n### The Bypass Logic\n1.  **Standard Request (Blocked):**\n    * **Input:** `internal: true`\n    * **Envoy Processing:** Sees string `\"true\"`.\n ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-20"
+      ],
+      "ecosystems": [
+        "go",
+        "go",
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/envoyproxy/envoy",
+        "github.com/envoyproxy/envoy",
+        "github.com/envoyproxy/envoy",
+        "github.com/envoyproxy/envoy"
+      ],
+      "published": "2026-03-10T18:30:42Z",
+      "updated": "2026-03-10T18:30:42Z",
+      "url": "https://github.com/advisories/GHSA-ghc4-35x6-crw5",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/envoyproxy/envoy/security/advisories/GHSA-ghc4-35x6-crw5",
+        "https://github.com/advisories/GHSA-ghc4-35x6-crw5"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-cfpv-rmpf-f624",
+      "cve_id": "CVE-2026-29175",
+      "severity": "HIGH",
+      "summary": "Craft Commerce has multiple Stored XSS in Commerce Inventory Page, Leading to Session Hijacking",
+      "description": "## Summary\n\nStored XSS vulnerabilities exist in the Commerce Inventory page. The **Product Title**, **Variant Title**, and **Variant SKU** fields are rendered without proper HTML escaping, allowing an attacker to execute arbitrary JavaScript when any user (including administrators) views the inventory management page.\n\nThis vulnerability enables **session hijacking** by fetching the PHP Info utility page, which displays unmasked session cookies. Unlike other XSS chains that require elevated sessions, this attack provides instant access to the victim\u2019s session - no additional user interaction or elevated session approval required.\n\n## Proof of Concept\n\n### Permissions Required\n\n- Access the control panel\n- Access Craft Commerce\n- Create/Edit products\n\n### Steps to Reproduce\n1. Log in to the control panel\n2. Navigate to **Commerce \u2192 Products**\n3. Add a new product and set the **Title** field to: (replace `https://attacker.com`)\n    ```html\n    <img src=x onerror=\"fetch('/admin/utilities/",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "craftcms/commerce"
+      ],
+      "published": "2026-03-10T18:23:42Z",
+      "updated": "2026-03-10T18:23:43Z",
+      "url": "https://github.com/advisories/GHSA-cfpv-rmpf-f624",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/craftcms/commerce/security/advisories/GHSA-cfpv-rmpf-f624",
+        "https://github.com/craftcms/commerce/commit/9f0638a4fb29ed8295a463385a7cc49ec986e33a",
+        "https://github.com/advisories/GHSA-cfpv-rmpf-f624"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-pmgj-gmm4-jh6j",
+      "cve_id": "CVE-2026-29174",
+      "severity": "HIGH",
+      "summary": "Craft Commerce is vulnerable to SQL Injection in Commerce Inventory Table Sorting",
+      "description": "## Summary\n\nCraft Commerce is vulnerable to **SQL Injection** in the inventory levels table data endpoint. The `sort[0][direction]` and `sort[0][sortField]` parameters are concatenated directly into an `addOrderBy()` clause without any validation or sanitization. An authenticated attacker with access to the Commerce Inventory section can inject arbitrary SQL queries, potentially leading to a full database compromise.\n\n---\n## PoC\n### Required Permissions\n- General\n\t- Access the control panel\n\t- Access Craft Commerce\n- Craft Commerce\n\t- Manage inventory stock levels \n\n### Steps to reproduce\n1. Log in to the control panel\n2. Navigate to **Commerce** > **Inventory**\n3. Click on any sortable column header (e.g., \"SKU\") to trigger a sort request\n4. Intercept the request and modify `sort[0][direction]` or `sort[0][sortField]` parameters and append `,sleep(2)` payload to it's current value as follows:\n\n```bash\n# sort[0][sortField]=sku,sleep(2)\nGET /index.php?p=admin/actions/commerce/inventory/",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "craftcms/commerce"
+      ],
+      "published": "2026-03-10T18:23:25Z",
+      "updated": "2026-03-10T18:23:27Z",
+      "url": "https://github.com/advisories/GHSA-pmgj-gmm4-jh6j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/craftcms/commerce/security/advisories/GHSA-pmgj-gmm4-jh6j",
+        "https://github.com/craftcms/commerce/commit/094d69df24b925544f337c38e2ec1effcd5395c7",
+        "https://github.com/craftcms/commerce/commit/a2ea853935ef03297ea1298bdb0d8c55ec5daf7b",
+        "https://github.com/advisories/GHSA-pmgj-gmm4-jh6j"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-j3x5-mghf-xvfw",
+      "cve_id": "CVE-2026-29172",
+      "severity": "HIGH",
+      "summary": "Craft Commerce is Vulnerable to SQL Injection in Commerce Purchasables Table Sorting",
+      "description": "## Summary\nCraft Commerce is vulnerable to **SQL Injection** in the purchasables table endpoint. The `sort` parameter is split by `|` and the first part (column name) is passed directly as an array key to `orderBy()` without whitelist validation. Yii2's query builder does **NOT** escape array keys, allowing an authenticated attacker to inject arbitrary SQL into the `ORDER BY` clause.\n\n---\n## PoC\n### Required Permissions\n- General\n\t- Access the control panel\n\t- Access Craft Commerce\n- Craft Commerce\n\t- Manage orders\n\t- Edit orders\n\n### Steps to reproduce\n1. Log in to the control panel\n2. Navigate to **Commerce** > **Orders** > Create a new order\n3. Click on \"Add a line item\" to show the purchasables table\n4. Intercept the AJAX request and modify the `sort` parameter as follows:\n```http\nGET /index.php?p=admin/actions/commerce/orders/purchasables-table&siteId=1&sort=id,(SELECT%20SLEEP(2))|asc\n```\n5. Observe the delay in the response, confirming the injection\n\nAlternatively, you can use th",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "craftcms/commerce",
+        "craftcms/commerce"
+      ],
+      "published": "2026-03-10T18:23:07Z",
+      "updated": "2026-03-10T18:23:08Z",
+      "url": "https://github.com/advisories/GHSA-j3x5-mghf-xvfw",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/craftcms/commerce/security/advisories/GHSA-j3x5-mghf-xvfw",
+        "https://github.com/craftcms/commerce/commit/b231b920b73db023e81e5b261b894d73e865c276",
+        "https://github.com/craftcms/commerce/commit/e4e0f4107cd895d29290523637f077fe280407b1",
+        "https://github.com/advisories/GHSA-j3x5-mghf-xvfw"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-667w-mmh7-mrr4",
+      "cve_id": "CVE-2026-30944",
+      "severity": "HIGH",
+      "summary": "StudioCMS has Privilege Escalation via Insecure API Token Generation",
+      "description": "## Summary\nThe /studiocms_api/dashboard/api-tokens endpoint allows any authenticated user (at least Editor) to generate API tokens for any other user, including owner and admin accounts. The endpoint fails to validate whether the requesting user is authorized to create tokens on behalf of the target user ID, resulting in a full privilege escalation.\n\n## Details\nThe API token generation endpoint accepts a user parameter in the request body that specifies which user the token should be created for. The server-side logic authenticates the session (via auth_session cookie) but does not verify that the authenticated user matches the target user ID nor checks if the caller has sufficient privileges to perform this action on behalf of another user.\nThis is a classic BOLA vulnerability: the authorization check is limited to \"is the user logged in?\" instead of \"is this user authorized to perform this action on this specific resource?\"\n\n#### Vulnerable Code\nThe following is the server-side handl",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-639",
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "studiocms"
+      ],
+      "published": "2026-03-10T18:16:41Z",
+      "updated": "2026-03-10T18:45:50Z",
+      "url": "https://github.com/advisories/GHSA-667w-mmh7-mrr4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/withstudiocms/studiocms/security/advisories/GHSA-667w-mmh7-mrr4",
+        "https://github.com/withstudiocms/studiocms/commit/9eec9c3b45523b635cfe16d55aa55afabacbebe3",
+        "https://github.com/withstudiocms/studiocms/releases/tag/studiocms%400.4.0",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30944",
+        "https://github.com/withstudiocms/studiocms/commit/f4a209fc090c90195e2419fff47b48a46eab7441",
+        "https://github.com/withstudiocms/studiocms/releases/tag/studiocms@0.4.0",
+        "https://github.com/advisories/GHSA-667w-mmh7-mrr4"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-wmfp-5q7x-987x",
+      "cve_id": "CVE-2026-30952",
+      "severity": "HIGH",
+      "summary": "liquidjs has a path traversal fallback vulnerability",
+      "description": "### Impact\nThe `layout`, `render`, and `include` tags allow arbitrary file access via absolute paths (either as string literals or through Liquid variables when `dynamicPartials: true` is enabled). This poses a security risk when malicious users are allowed to control the template content or specify the filepath to be included as a Liquid variable.\n\n### Patches\nThe issue is fixed via [#855](https://github.com/harttle/liquidjs/pull/855) and published version 10.25.0 on npm.\n\n### Workarounds\n#### Change the files in build time\nIn build time, through Shell script or Webpack `string-replace-loader`, change the file content of correxponding file (depending on your package `type`, for CommonJS it's `dist/liquid.node.js`) under `dist/`, \n\n```diff\n  if (fs.fallback !== undefined) {\n    const filepath = fs.fallback(file)\n-   if (filepath !== undefined) yield filepath\n+   if (filepath !== undefined) {\n+     for (const dir of dirs) {\n+       if (!enforceRoot || this.contains(dir, filepath)) {\n+  ",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "liquidjs"
+      ],
+      "published": "2026-03-10T01:04:34Z",
+      "updated": "2026-03-10T01:04:35Z",
+      "url": "https://github.com/advisories/GHSA-wmfp-5q7x-987x",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/harttle/liquidjs/security/advisories/GHSA-wmfp-5q7x-987x",
+        "https://github.com/harttle/liquidjs/pull/851",
+        "https://github.com/harttle/liquidjs/pull/855",
+        "https://github.com/harttle/liquidjs/commit/3cd024d652dc883c46307581e979fe32302adbac",
+        "https://github.com/advisories/GHSA-wmfp-5q7x-987x"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-5j86-7r7m-p8h6",
+      "cve_id": "CVE-2026-30939",
+      "severity": "HIGH",
+      "summary": "Parse Server has Denial of Service (DoS) and Cloud Function Dispatch Bypass via Prototype Chain Resolution",
+      "description": "### Impact\n\nAn unauthenticated attacker can crash the Parse Server process by calling a Cloud Function endpoint with a prototype property name as the function name. The server recurses infinitely, causing a call stack size error that terminates the process.\n\nOther prototype property names bypass Cloud Function dispatch validation and return HTTP 200 responses, even though no such Cloud Functions are defined. The same applies to dot-notation traversal.\n\nAll Parse Server deployments that expose the Cloud Function endpoint are affected.\n\n### Patches\n\nThe internal handler registries for Cloud Functions, Jobs, Triggers, and Validators have been changed to prevent prototype chain properties from being resolved.\n\n### Workarounds\n\nPlace a reverse proxy or WAF in front of Parse Server and block requests to `Object.prototype` property names.\n\n### References\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-5j86-7r7m-p8h6\n- Fix Parse Server 9: h",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-1321"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-10T00:57:57Z",
+      "updated": "2026-03-10T18:44:54Z",
+      "url": "https://github.com/advisories/GHSA-5j86-7r7m-p8h6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-5j86-7r7m-p8h6",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.13",
+        "https://github.com/parse-community/parse-server/releases/tag/9.5.1-alpha.2",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30939",
+        "https://github.com/advisories/GHSA-5j86-7r7m-p8h6"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mf3j-86qx-cq5j",
+      "cve_id": "CVE-2026-30925",
+      "severity": "HIGH",
+      "summary": "Parse Server has Regular Expression Denial of Service (ReDoS) via `$regex` query in LiveQuery",
+      "description": "### Impact\n\nA malicious client can subscribe to a LiveQuery with a crafted `$regex` pattern that causes catastrophic backtracking, blocking the Node.js event loop. This makes the entire Parse Server unresponsive, affecting all clients. Any Parse Server deployment with LiveQuery enabled is affected. The attacker only needs the application ID and JavaScript key, both of which are public in client-side apps.\n\nThis only affects LiveQuery subscription matching, which evaluates regex in JavaScript on the Node.js event loop. Normal REST and GraphQL queries are not affected because their regex is evaluated by the database engine.\n\n### Patches\n\nRegex evaluation in LiveQuery subscription matching now runs in an isolated VM context with a configurable timeout via a new Parse Server option `liveQuery.regexTimeout, with defaults 100 ms. A regex that exceeds the timeout is treated as non-matching.\n\nThe protection adds approximately 50 microseconds of overhead per regex evaluation. For most applicati",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-1333"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-10T00:57:18Z",
+      "updated": "2026-03-10T18:44:30Z",
+      "url": "https://github.com/advisories/GHSA-mf3j-86qx-cq5j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-mf3j-86qx-cq5j",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.11",
+        "https://github.com/parse-community/parse-server/releases/tag/9.5.0-alpha.14",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30925",
+        "https://github.com/advisories/GHSA-mf3j-86qx-cq5j"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-93fx-5qgc-wr38",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "AzuraCast: RCE via Liquidsoap string interpolation injection in station metadata and playlist URLs",
+      "description": "## Summary\n\nAzuraCast's `ConfigWriter::cleanUpString()` method fails to sanitize Liquidsoap string interpolation sequences (`#{...}`), allowing authenticated users with `StationPermissions::Media` or `StationPermissions::Profile` permissions to inject arbitrary Liquidsoap code into the generated configuration file. When the station is restarted and Liquidsoap parses the config, `#{...}` expressions are evaluated, enabling arbitrary command execution via Liquidsoap's `process.run()` function.\n\n## Root Cause\n\n**File:** `backend/src/Radio/Backend/Liquidsoap/ConfigWriter.php`, line ~1345\n\n```php\npublic static function cleanUpString(?string $string): string\n{\n    return str_replace(['\"', \"\\n\", \"\\r\"], ['\\'', '', ''], $string ?? '');\n}\n```\n\nThis function only replaces `\"` with `'` and strips newlines. It does **NOT** filter:\n- `#{...}` \u2014 Liquidsoap string interpolation (evaluated as code inside double-quoted strings)\n- `\\` \u2014 Backslash escape character\n\nLiquidsoap, like Ruby, evaluates `#{expr",
+      "cvss_score": 8.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-94"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "azuracast/azuracast"
+      ],
+      "published": "2026-03-09T19:55:00Z",
+      "updated": "2026-03-09T19:55:03Z",
+      "url": "https://github.com/advisories/GHSA-93fx-5qgc-wr38",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/AzuraCast/AzuraCast/security/advisories/GHSA-93fx-5qgc-wr38",
+        "https://github.com/AzuraCast/AzuraCast/commit/d04b5c55ce0d867bcb87f49f7082bf8edbcd360c",
+        "https://github.com/AzuraCast/AzuraCast/commit/ff49ef4d0fa571a3661abff6d0a9546ba3ed5df5",
+        "https://github.com/AzuraCast/AzuraCast/releases/tag/0.23.4",
+        "https://github.com/advisories/GHSA-93fx-5qgc-wr38"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-6mgf-v5j7-45cr",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: fetch-guard forwards custom authorization headers across cross-origin redirects",
+      "description": "OpenClaw's `fetchWithSsrFGuard(...)` followed cross-origin redirects while preserving arbitrary caller-supplied headers except for a narrow denylist (`Authorization`, `Proxy-Authorization`, `Cookie`, `Cookie2`). This allowed custom authorization headers such as `X-Api-Key`, `Private-Token`, and similar sensitive headers to be forwarded to a different origin after a redirect.\n\nThe fix switches cross-origin redirect handling from a narrow sensitive-header denylist to a safe-header allowlist, so only benign headers such as content negotiation and cache validators survive an origin change.\n\n## Affected Packages / Versions\n\n- Package: `openclaw` (npm)\n- Affected versions: `<= 2026.3.2`\n- Patched version: `2026.3.7`\n- Latest published npm version at patch time: `2026.3.2`\n\n## Impact\n\nA remote service that could trigger a redirect across origins could receive custom authorization credentials attached by OpenClaw callers. This can expose API keys, bearer-style custom headers, or private token ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-116",
+        "CWE-184",
+        "CWE-522"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-09T19:54:20Z",
+      "updated": "2026-03-09T19:54:23Z",
+      "url": "https://github.com/advisories/GHSA-6mgf-v5j7-45cr",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-6mgf-v5j7-45cr",
+        "https://github.com/openclaw/openclaw/commit/46715371b0612a6f9114dffd1466941ac476cef5",
+        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.7",
+        "https://github.com/advisories/GHSA-6mgf-v5j7-45cr"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-rchv-x836-w7xp",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw's dashboard leaked gateway auth material via browser URL/query and localStorage",
+      "description": "OpenClaw's macOS Dashboard flow exposed Gateway authentication material to browser-controlled surfaces.\n\nBefore the fix, the macOS app appended the shared Gateway `token` and `password` to the Dashboard URL query string when opening the Control UI in the browser. The Control UI then imported the token and persisted it into browser `localStorage` under `openclaw.control.settings.v1`.\n\nThis expanded exposure of reusable Gateway admin credentials into browser address-bar/query surfaces and persistent script-readable storage.\n\n## Affected Packages / Versions\n\n- Package: `openclaw` (npm)\n- Latest published version verified vulnerable: `2026.3.2`\n- Affected range: `<= 2026.3.2`\n- Patched version: `>= 2026.3.7`\n\n## Impact\n\nAn attacker with access to browser-controlled surfaces or persistent browser storage could recover a valid Gateway admin token and reuse it against the OpenClaw management interface.\n\nThe exposure chain was:\n\n1. macOS `Open Dashboard` constructed a URL with auth material.\n2",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-200"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-09T19:52:29Z",
+      "updated": "2026-03-09T19:52:33Z",
+      "url": "https://github.com/advisories/GHSA-rchv-x836-w7xp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-rchv-x836-w7xp",
+        "https://github.com/openclaw/openclaw/commit/10d0e3f3ca92326df0ca071fabffe463742f263c",
+        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.7",
+        "https://github.com/advisories/GHSA-rchv-x836-w7xp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-x46r-mf5g-xpr6",
+      "cve_id": "CVE-2026-30930",
+      "severity": "HIGH",
+      "summary": "Glances has SQL Injection via Process Names in TimescaleDB Export",
+      "description": "### Summary\n\nThe TimescaleDB export module constructs SQL queries using string concatenation with unsanitized system monitoring data. The normalize() method wraps string values in single quotes but does not escape embedded single quotes, making SQL injection trivial via attacker-controlled data such as process names, filesystem mount points, network interface names, or container names.\n\nRoot Cause: The normalize() function uses f\"'{value}'\" for string values without escaping single quotes within the value. The resulting strings are concatenated into INSERT queries via string formatting and executed directly with cur.execute() \u2014 no parameterized queries are used.\n\n#### Affected Code\n- _File: glances/exports/glances_timescaledb/__init__.py, lines 79-93 (normalize function)_\n```\ndef normalize(self, value):\n    \"\"\"Normalize the value to be exportable to TimescaleDB.\"\"\"\n    if value is None:\n        return 'NULL'\n    if isinstance(value, bool):\n        return str(value).upper()\n    if isins",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "Glances"
+      ],
+      "published": "2026-03-09T19:51:35Z",
+      "updated": "2026-03-10T18:44:44Z",
+      "url": "https://github.com/advisories/GHSA-x46r-mf5g-xpr6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nicolargo/glances/security/advisories/GHSA-x46r-mf5g-xpr6",
+        "https://github.com/nicolargo/glances/commit/39161f0d6fd723d83f534b48f24cdca722573336",
+        "https://github.com/nicolargo/glances/releases/tag/v4.5.1",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30930",
+        "https://github.com/advisories/GHSA-x46r-mf5g-xpr6"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-gh4x-f7cq-wwx6",
+      "cve_id": "CVE-2026-30928",
+      "severity": "HIGH",
+      "summary": "Glances Exposes Unauthenticated Configuration Secrets",
+      "description": "### Summary\nThe /api/4/config REST API endpoint returns the entire parsed Glances configuration file (glances.conf) via self.config.as_dict() with no filtering of sensitive values. The configuration file contains credentials for all configured backend services including database passwords, API tokens, JWT signing keys, and SSL key passwords.\n\n### Details\nRoot Cause: The as_dict() method in config.py iterates over every section and every key in the ConfigParser and returns them all as a flat dictionary. No sensitive key filtering or redaction is applied.\n\nAffected Code:\n- _File: glances/outputs/glances_restful_api.py, lines 1154-1167_\n```\ndef _api_config(self):\n    \"\"\"Glances API RESTful implementation.\n\n    Return the JSON representation of the Glances configuration file\n    HTTP/200 if OK\n    HTTP/404 if others error\n    \"\"\"\n    try:\n        # Get the RAW value of the config' dict\n        args_json = self.config.as_dict()  # <-- Returns ALL config including secrets\n    except Exceptio",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-200"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "glances"
+      ],
+      "published": "2026-03-09T19:50:00Z",
+      "updated": "2026-03-10T18:44:40Z",
+      "url": "https://github.com/advisories/GHSA-gh4x-f7cq-wwx6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nicolargo/glances/security/advisories/GHSA-gh4x-f7cq-wwx6",
+        "https://github.com/nicolargo/glances/commit/306a7136154ba5c1531489c99f8306d84eae37da",
+        "https://github.com/nicolargo/glances/releases/tag/v4.5.1",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30928",
+        "https://github.com/advisories/GHSA-gh4x-f7cq-wwx6"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-r633-fcgp-m532",
+      "cve_id": "CVE-2026-30934",
+      "severity": "HIGH",
+      "summary": "FileBrowser Quantum: Stored XSS in public share page via unsanitized share metadata (text/template misuse)",
+      "description": "## Summary\nStored XSS is possible via share metadata fields (e.g., `title`, `description`) that are rendered into HTML for `/public/share/<hash>` without context-aware escaping. The server uses `text/template` instead of `html/template`, allowing injected scripts to execute when victims visit the share URL.\n\n## Details\nThe server renders `public/index.html` using `text/template` and injects user-controlled share fields (title/description/etc.) into HTML contexts. `text/template` does not perform HTML contextual escaping like `html/template`. Because share metadata is persistent, the payload becomes stored and executes whenever a victim opens the affected share page.\n\nRelevant code paths:\n- `backend/http/static.go` (template rendering and share metadata assignment)\n- `backend/http/httpRouter.go` (template initialization)\n- `frontend/public/index.html` (insertion points for title/description and related fields)\n\n## PoC\n1. Login as a user with share creation permission.\n2. Create a share ",
+      "cvss_score": 8.9,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/gtsteffaniak/filebrowser"
+      ],
+      "published": "2026-03-09T19:48:15Z",
+      "updated": "2026-03-10T18:44:35Z",
+      "url": "https://github.com/advisories/GHSA-r633-fcgp-m532",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/gtsteffaniak/filebrowser/security/advisories/GHSA-r633-fcgp-m532",
+        "https://github.com/gtsteffaniak/filebrowser/releases/tag/v1.2.2-stable",
+        "https://github.com/gtsteffaniak/filebrowser/releases/tag/v1.3.1-beta",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30934",
+        "https://github.com/advisories/GHSA-r633-fcgp-m532"
+      ]
+    }
+  ],
   "urlhaus_iocs": [],
   "kev_stats": {
     "total_kev_entries": 1539,
@@ -398,7 +855,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-10T16:58:40.204492+00:00",
+    "catalog_version": "2026-03-10T20:38:36.917116+00:00",
     "source": "CISA KEV"
   }
 }
