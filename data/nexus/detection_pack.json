@@ -1,114 +1,6 @@
 {
   "sigma_rules": [
     {
-      "title": "CDB Sentinel APEX \u2014 Threat_actors_use_custom_AuraInspector_to_harvest_data_from",
-      "id": "sigma--b9834dd1390f",
-      "status": "experimental",
-      "description": "Detects activity related to Threat actors use custom AuraInspector to harvest data from Salesforce systems",
-      "references": [
-        "https://blog.cyberdudebivash.com/2026/03/threat-actors-use-custom-aurainspector.html"
-      ],
-      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/11",
-      "tags": [
-        "attack.t1595",
-        "attack.t1566",
-        "attack.t1190",
-        "attack.t1199",
-        "attack.t1203"
-      ],
-      "logsource": {
-        "category": "process_creation",
-        "product": "windows"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine|contains": [
-            "T1595",
-            "T1566",
-            "T1190"
-          ]
-        },
-        "condition": "selection"
-      },
-      "level": "high",
-      "falsepositives": [
-        "Legitimate administrative activity"
-      ]
-    },
-    {
-      "title": "CDB Sentinel APEX \u2014 US_CISA_adds_Ivanti_EPM_SolarWinds_and_Omnissa_Workspace_One",
-      "id": "sigma--cbb9d2fd41b1",
-      "status": "experimental",
-      "description": "Detects activity related to U.S. CISA adds Ivanti EPM, SolarWinds, and Omnissa Workspace One flaws to its Known Exploited Vulner",
-      "references": [
-        "https://blog.cyberdudebivash.com/2026/03/us-cisa-adds-ivanti-epm-solarwinds-and.html"
-      ],
-      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/11",
-      "tags": [
-        "attack.t1566",
-        "attack.t1199",
-        "attack.t1190",
-        "attack.t1203",
-        "attack.t1555"
-      ],
-      "logsource": {
-        "category": "process_creation",
-        "product": "windows"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine|contains": [
-            "T1566",
-            "T1199",
-            "T1190"
-          ]
-        },
-        "condition": "selection"
-      },
-      "level": "high",
-      "falsepositives": [
-        "Legitimate administrative activity"
-      ]
-    },
-    {
-      "title": "CDB Sentinel APEX \u2014 Ericsson_US_confirms_breach_after_thirdparty_provider_attack",
-      "id": "sigma--a6c323d665b5",
-      "status": "experimental",
-      "description": "Detects activity related to Ericsson US confirms breach after third-party provider attack",
-      "references": [
-        "https://blog.cyberdudebivash.com/2026/03/ericsson-us-confirms-breach-after-third.html"
-      ],
-      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/11",
-      "tags": [
-        "attack.t1566",
-        "attack.t1199",
-        "attack.t1078",
-        "attack.t1190",
-        "attack.t1203"
-      ],
-      "logsource": {
-        "category": "process_creation",
-        "product": "windows"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine|contains": [
-            "T1566",
-            "T1199",
-            "T1078"
-          ]
-        },
-        "condition": "selection"
-      },
-      "level": "high",
-      "falsepositives": [
-        "Legitimate administrative activity"
-      ]
-    },
-    {
       "title": "CDB Sentinel APEX \u2014 BeatBanker_A_dualmode_Android_Trojan",
       "id": "sigma--07ddd98cf92a",
       "status": "experimental",
@@ -919,21 +811,39 @@
       "falsepositives": [
         "Legitimate administrative activity"
       ]
+    },
+    {
+      "title": "CDB Sentinel APEX \u2014 IranBacked_Hackers_Claim_Wiper_Attack_on_Medtech_Firm_Stryke",
+      "id": "sigma--2d93ace63790",
+      "status": "experimental",
+      "description": "Detects activity related to Iran-Backed Hackers Claim Wiper Attack on Medtech Firm Stryker",
+      "references": [
+        "https://blog.cyberdudebivash.com/2026/03/iran-backed-hackers-claim-wiper-attack.html"
+      ],
+      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
+      "date": "2026/03/11",
+      "tags": [
+        "attack.t1485"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "T1485"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "high",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
     }
   ],
   "yara_rules": [
-    {
-      "rule_name": "CDB_Threat_actors_use_custom_AuraInspector_t",
-      "rule_text": "rule CDB_Threat_actors_use_custom_AuraInspector_t {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Threat actors use custom AuraInspector to harvest data from Salesforce systems\"\n        severity = \"critical\"\n        date = \"2026-03-11\"\n    strings:\n                $actor = \"CDB-FIN-07\" ascii wide nocase\n        $kw0 = \"AuraInspector\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_US_CISA_adds_Ivanti_EPM_SolarWinds_and_O",
-      "rule_text": "rule CDB_US_CISA_adds_Ivanti_EPM_SolarWinds_and_O {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for U.S. CISA adds Ivanti EPM, SolarWinds, and Omnissa Workspace One flaws to its Kn\"\n        severity = \"critical\"\n        date = \"2026-03-11\"\n    strings:\n                $actor = \"CDB-APT-29\" ascii wide nocase\n        $kw0 = \"SolarWinds\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_Ericsson_US_confirms_breach_after_thirdp",
-      "rule_text": "rule CDB_Ericsson_US_confirms_breach_after_thirdp {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Ericsson US confirms breach after third-party provider attack\"\n        severity = \"critical\"\n        date = \"2026-03-11\"\n    strings:\n                $actor = \"CDB-APT-29\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
     {
       "rule_name": "CDB_BeatBanker_A_dualmode_Android_Trojan",
       "rule_text": "rule CDB_BeatBanker_A_dualmode_Android_Trojan {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for BeatBanker: A dual\u2011mode Android Trojan\"\n        severity = \"critical\"\n        date = \"2026-03-11\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n        $kw0 = \"BeatBanker\" ascii wide nocase\n    condition:\n        any of them\n}"
@@ -1033,15 +943,19 @@
     {
       "rule_name": "CDB_KadNap_bot_compromises_14000_devices_to_",
       "rule_text": "rule CDB_KadNap_bot_compromises_14000_devices_to_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for KadNap bot compromises 14,000+ devices to route malicious traffic\"\n        severity = \"critical\"\n        date = \"2026-03-11\"\n    strings:\n                $actor = \"CDB-APT-28\" ascii wide nocase\n        $kw0 = \"KadNap\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_IranBacked_Hackers_Claim_Wiper_Attack_on",
+      "rule_text": "rule CDB_IranBacked_Hackers_Claim_Wiper_Attack_on {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Iran-Backed Hackers Claim Wiper Attack on Medtech Firm Stryker\"\n        severity = \"critical\"\n        date = \"2026-03-11\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     }
   ],
   "snort_rules": [],
   "stats": {
-    "total_rules": 54,
-    "sigma_count": 26,
-    "yara_count": 28,
+    "total_rules": 50,
+    "sigma_count": 24,
+    "yara_count": 26,
     "snort_count": 0,
-    "coverage_techniques": 30,
-    "generated_at": "2026-03-11T13:44:22.485733+00:00"
+    "coverage_techniques": 31,
+    "generated_at": "2026-03-11T19:12:44.207888+00:00"
   }
 }
