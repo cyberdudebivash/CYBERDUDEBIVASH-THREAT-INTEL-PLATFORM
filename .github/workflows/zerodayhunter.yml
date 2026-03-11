@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       window_hours:
-        description: 'Signal collection lookback window (hours)'
+        description: "Signal collection lookback window (hours)"
         required: false
         type: number
         default: 168
@@ -24,13 +24,14 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Checkout
+
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: main
 
-      - name: Setup Python 3.12
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -38,7 +39,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install requests feedparser networkx
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
@@ -57,45 +58,31 @@ jobs:
 
       - name: Commit outputs
         run: |
-          set -e
-
           git config user.name "CDB-GOC-ZeroDayHunter"
           git config user.email "bivash@cyberdudebivash.com"
 
-          # Stage generated outputs only
+          # Stage generated JSON outputs only
           git add data/zerodayhunter/*.json || true
 
-          # Skip if nothing changed
+          # Skip commit if nothing changed
           if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
 
           # Extract metrics safely
-          GTI=$(python3 - <<'PY'
-import json
-try:
-    d=json.load(open("data/zerodayhunter/global_threat_index.json"))
-    print(f"{d['index']}/10 ({d['level']})")
-except:
-    print("N/A")
-PY
-)
+          GTI=$(python3 -c "import json; d=json.load(open('data/zerodayhunter/global_threat_index.json')); print(f\"{d['index']}/10 ({d['level']})\")" 2>/dev/null || echo "N/A")
 
-          ZD=$(python3 - <<'PY'
-import json
-try:
-    d=json.load(open("data/zerodayhunter/zdh_report.json"))
-    print(d["pipeline_stats"]["zeroday_alerts"])
-except:
-    print("0")
-PY
-)
+          ZD=$(python3 -c "import json; d=json.load(open('data/zerodayhunter/zdh_report.json')); print(d['pipeline_stats']['zeroday_alerts'])" 2>/dev/null || echo "0")
 
           git commit -m "🎯 ZERO-DAY HUNTER v45.0 — GTI: ${GTI} | ${ZD} zero-day alerts"
 
-          # Sync with latest upstream safely
-          git pull --rebase origin main
+          # Sync with latest repo state
+          git pull --rebase origin main || true
 
-          # Push results
-          git push origin main
+          # Push changes
+          git push origin main || (
+            echo "Push failed due to race condition, retrying..."
+            git pull --rebase origin main
+            git push origin main
+          )
