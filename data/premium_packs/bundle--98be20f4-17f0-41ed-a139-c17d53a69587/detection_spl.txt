@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : CVE-2026-21286 - Adobe Commerce  Incorrect Authorization CWE-863
+# Scenario: RCE
+# Generated: 2026-03-11 05:13:10 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Web Exploit Detection
+index=web sourcetype=iis OR sourcetype=apache:access
+(uri_query="*<script>*" OR uri_query="*UNION+SELECT*" OR uri_query="*../../*")
+| stats count by src_ip, uri_path, status | eval ThreatName="CVE-2026-21286 - Adobe Commerce  Incorrect Authorization CWE-863"

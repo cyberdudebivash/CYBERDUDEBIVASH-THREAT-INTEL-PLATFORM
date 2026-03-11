@@ -1,0 +1,16 @@
+{
+  "threat_id": "thr-8cab9f6fd3ad",
+  "title": "Apeman Cameras",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 Apeman Cameras\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/11\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '218.53.203.117'\n    selection_dns:\n        query:\n            - '*apemans.com*'\n            - '*system.ini*'\n    condition: selection_ip or selection_dns\nlevel: high",
+    "suricata": [
+      "alert ip any any -> 218.53.203.117 any (msg:\"CDB APEX \u2014 Apeman_Cameras\"; sid:4565685; rev:1;)"
+    ],
+    "snort": [
+      "alert ip any any -> 218.53.203.117 any (msg:\"CDB APEX Apeman_Cameras\"; sid:4111712; rev:1;)"
+    ],
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"218.53.203.117\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"apemans.com\",\n              \"system.ini\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteIP in (\"218.53.203.117\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"apemans.com\", \"system.ini\")"
+  },
+  "rule_count": 5
+}
