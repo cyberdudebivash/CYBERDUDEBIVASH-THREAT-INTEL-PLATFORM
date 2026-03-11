@@ -3,7 +3,7 @@
 // Threat   : CVE-2026-3824 - WellChooseIFTOP - Open redirect
 // STIX ID  : bundle--41354a71-2da2-478f-aa27-e5f1ab2ae3c9
 // Scenario : VULNERABILITY
-// Generated: 2026-03-11T07:31:48.417122 UTC
+// Generated: 2026-03-11T08:37:22.030278 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
