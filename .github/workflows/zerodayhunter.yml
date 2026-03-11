@@ -2,7 +2,7 @@ name: CDB Sentinel APEX — Zero-Day Hunter v45.0
 
 on:
   schedule:
-    - cron: '45 */6 * * *'  # Every 6 hours, offset from other pipelines
+    - cron: '45 */6 * * *'
   workflow_dispatch:
     inputs:
       window_hours:
@@ -33,8 +33,8 @@ jobs:
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: "3.12"
+          cache: pip
 
       - name: Install dependencies
         run: |
@@ -57,23 +57,45 @@ jobs:
 
       - name: Commit outputs
         run: |
+          set -e
+
           git config user.name "CDB-GOC-ZeroDayHunter"
           git config user.email "bivash@cyberdudebivash.com"
 
-          # Sync with latest repository state to avoid push rejection
-          git pull --rebase origin main || true
-
-          # Stage only JSON outputs
+          # Stage generated outputs only
           git add data/zerodayhunter/*.json || true
 
+          # Skip if nothing changed
           if git diff --cached --quiet; then
             echo "No changes to commit"
-          else
-            GTI=$(python3 -c "import json; d=json.load(open('data/zerodayhunter/global_threat_index.json')); print(f\"{d['index']}/10 ({d['level']})\")" 2>/dev/null || echo "N/A")
-
-            ZD=$(python3 -c "import json; d=json.load(open('data/zerodayhunter/zdh_report.json')); print(d['pipeline_stats']['zeroday_alerts'])" 2>/dev/null || echo "0")
-
-            git commit -m "🎯 ZERO-DAY HUNTER v45.0 — GTI: ${GTI} | ${ZD} zero-day alerts"
-
-            git push origin main
+            exit 0
           fi
+
+          # Extract metrics safely
+          GTI=$(python3 - <<'PY'
+import json
+try:
+    d=json.load(open("data/zerodayhunter/global_threat_index.json"))
+    print(f"{d['index']}/10 ({d['level']})")
+except:
+    print("N/A")
+PY
+)
+
+          ZD=$(python3 - <<'PY'
+import json
+try:
+    d=json.load(open("data/zerodayhunter/zdh_report.json"))
+    print(d["pipeline_stats"]["zeroday_alerts"])
+except:
+    print("0")
+PY
+)
+
+          git commit -m "🎯 ZERO-DAY HUNTER v45.0 — GTI: ${GTI} | ${ZD} zero-day alerts"
+
+          # Sync with latest upstream safely
+          git pull --rebase origin main
+
+          # Push results
+          git push origin main
