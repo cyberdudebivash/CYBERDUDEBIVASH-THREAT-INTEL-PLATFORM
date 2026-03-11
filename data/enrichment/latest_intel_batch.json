@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-10T20:38:36.659503+00:00",
+  "timestamp": "2026-03-11T02:21:53.645323+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -354,72 +354,340 @@
   ],
   "github_advisories": [
     {
-      "ghsa_id": "GHSA-7r34-79r5-rcc9",
-      "cve_id": "CVE-2026-27826",
+      "ghsa_id": "GHSA-4hf6-3x24-c9m8",
+      "cve_id": "CVE-2026-31875",
       "severity": "HIGH",
-      "summary": "MCP Atlassian has SSRF via unvalidated X-Atlassian-Jira-Url / X-Atlassian-Confluence-Url headers",
-      "description": "### Summary\nAn unauthenticated attacker who can reach the mcp-atlassian HTTP endpoint can force the server process to make outbound HTTP requests to an arbitrary attacker-controlled URL by supplying two custom HTTP headers without an `Authorization` header. No authentication is required. The vulnerability exists in the HTTP middleware and dependency injection layer \u2014 not in any MCP tool handler - making it invisible to tool-level code analysis. In cloud deployments, this could enable theft of IAM role credentials via the instance metadata endpoint (`169.254.169.254`). In any HTTP deployment it enables internal network reconnaissance and injection of attacker-controlled content into LLM tool results.\n\n### Details\nThe server supports a multi-tenant HTTP authentication mode where clients supply per-request Jira/Confluence URLs via custom headers. The middleware (`src/mcp_atlassian/servers/main.py:436\u2013448`) extracts `X-Atlassian-Jira-Url` from the request and stores it in request state wit",
-      "cvss_score": 8.2,
-      "cvss_vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:C/C:H/I:L/A:N",
+      "summary": "Parse Server's MFA recovery codes not consumed after use",
+      "description": "### Impact\n\nWhen multi-factor authentication (MFA) via TOTP is enabled for a user account, Parse Server generates two single-use recovery codes. These codes are intended as a fallback when the user cannot provide a TOTP token. However, recovery codes are not consumed after use, allowing the same recovery code to be used an unlimited number of times. This defeats the single-use design of recovery codes and weakens the security of MFA-protected accounts.\n\nAn attacker who obtains a single recovery code can repeatedly authenticate as the affected user without the code ever being invalidated.\n\n### Patches\n\nThe fix ensures that each recovery code is removed from the stored recovery code list after a successful login.\n\n### Workarounds\n\nThere is no known workaround.\n\n### References\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-4hf6-3x24-c9m8\n- Fix Parse Server 9: https://github.com/parse-community/parse-server/releases/tag/9.6.0-alpha.7\n-",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-672"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-11T00:35:41Z",
+      "updated": "2026-03-11T00:35:41Z",
+      "url": "https://github.com/advisories/GHSA-4hf6-3x24-c9m8",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-4hf6-3x24-c9m8",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.33",
+        "https://github.com/parse-community/parse-server/releases/tag/9.6.0-alpha.7",
+        "https://github.com/advisories/GHSA-4hf6-3x24-c9m8"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-r2m8-pxm9-9c4g",
+      "cve_id": "CVE-2026-31872",
+      "severity": "HIGH",
+      "summary": "Parse Server has a protected fields bypass via dot-notation in query and sort",
+      "description": "### Impact\n\nThe `protectedFields` class-level permission (CLP) can be bypassed using dot-notation in query WHERE clauses and sort parameters. An attacker can use dot-notation to query or sort by sub-fields of a protected field, enabling a binary oracle attack to enumerate protected field values.\n\nThis affects both MongoDB and PostgreSQL deployments.\n\n### Patches\n\nThe fix ensures that query WHERE clause keys and sort keys are checked against protected fields by extracting the root field from dot-notation paths. For example, a query on `secretObj.apiKey` is now correctly blocked when `secretObj` is a protected field.\n\n### Workarounds\n\nNone.\n\n### References\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-r2m8-pxm9-9c4g\n- Fix Parse Server 9: https://github.com/parse-community/parse-server/releases/tag/9.6.0-alpha.6\n- Fix Parse Server 8: https://github.com/parse-community/parse-server/releases/tag/8.6.32",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-11T00:34:59Z",
+      "updated": "2026-03-11T00:35:01Z",
+      "url": "https://github.com/advisories/GHSA-r2m8-pxm9-9c4g",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-r2m8-pxm9-9c4g",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.32",
+        "https://github.com/parse-community/parse-server/releases/tag/9.6.0-alpha.6",
+        "https://github.com/advisories/GHSA-r2m8-pxm9-9c4g"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-rmrf-g9r3-73pm",
+      "cve_id": "CVE-2026-31866",
+      "severity": "HIGH",
+      "summary": "flagd Vulnerable to Allocation of Resources Without Limits or Throttling",
+      "description": "## Details\n\nflagd exposes OFREP (`/ofrep/v1/evaluate/...`) and gRPC (`evaluation.v1`, `evaluation.v2`) endpoints for feature flag evaluation. These endpoints are designed to be publicly accessible by client applications.\n\nThe evaluation context included in request payloads is read into memory without any size restriction. An attacker can send a single HTTP request with an arbitrarily large body, causing flagd to allocate a corresponding amount of memory. This leads to immediate memory exhaustion and process termination (e.g., OOMKill in Kubernetes environments).\n\nflagd does not natively enforce authentication on its evaluation endpoints. While operators may deploy flagd behind an authenticating reverse proxy or similar infrastructure, the endpoints themselves impose no access control by default.\n\n## Impact\n\n- **Denial of Service:** A single crafted request can crash the flagd process.\n- **Service Disruption:** All applications relying on the affected flagd instance for feature flag eva",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/open-feature/flagd/flagd"
+      ],
+      "published": "2026-03-11T00:33:30Z",
+      "updated": "2026-03-11T00:33:31Z",
+      "url": "https://github.com/advisories/GHSA-rmrf-g9r3-73pm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/open-feature/flagd/security/advisories/GHSA-rmrf-g9r3-73pm",
+        "https://github.com/open-feature/flagd/commit/25c5fd7e80c26eb2c00b20317b2456fe6f927ea3",
+        "https://github.com/advisories/GHSA-rmrf-g9r3-73pm"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-g7j6-fmwx-7vp8",
+      "cve_id": "CVE-2026-31858",
+      "severity": "HIGH",
+      "summary": "CraftCMS's `ElementSearchController` Affected by Blind SQL Injection",
+      "description": "The `ElementSearchController::actionSearch()` endpoint is missing the `unset()` protection that\nwas added to ElementIndexesController in [GHSA-2453-mppf-46cj](https://github.com/craftcms/cms/security/advisories/GHSA-2453-mppf-46cj).\n\nThe exact same SQL injection vulnerability (including `criteria[orderBy]`, the original advisory vector) works on this controller because the fix was never applied to it.\n\nAny authenticated control panel user (no admin required) can inject arbitrary SQL via `criteria[where]`,\n`criteria[orderBy]`, or other query properties, and extract the full database contents via boolean-based blind injection.\n\nUsers should update to the patched 5.9.9 release to mitigate the issue.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "craftcms/cms"
+      ],
+      "published": "2026-03-11T00:27:23Z",
+      "updated": "2026-03-11T00:27:24Z",
+      "url": "https://github.com/advisories/GHSA-g7j6-fmwx-7vp8",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/craftcms/cms/security/advisories/GHSA-2453-mppf-46cj",
+        "https://github.com/craftcms/cms/security/advisories/GHSA-g7j6-fmwx-7vp8",
+        "https://github.com/craftcms/cms/commit/e1a3dd669ae31491b86ad996e88a1d30d33d9a42",
+        "https://github.com/advisories/GHSA-g7j6-fmwx-7vp8"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mhg6-2q2v-9h2c",
+      "cve_id": "CVE-2026-31830",
+      "severity": "HIGH",
+      "summary": "sigstore-ruby verifier returns success for DSSE bundles with mismatched in-toto subject digest",
+      "description": "### Summary\n\n`Sigstore::Verifier#verify` does not propagate the `VerificationFailure` returned by `verify_in_toto` when the artifact digest does not match the digest in the in-toto attestation subject. As a result, verification of DSSE bundles containing in-toto statements returns `VerificationSuccess` regardless of whether the artifact matches the attested subject.\n\n### Details\n\nIn `lib/sigstore/verifier.rb`, the verify method calls `verify_in_toto` (line 176) without capturing or checking its return value:\n\n`verify_in_toto(input, in_toto)`\n\nWhen `verify_in_toto` detects a digest mismatch, it returns a `VerificationFailure` object. Because the caller discards this return value, execution unconditionally falls through to return `VerificationSuccess`. This is the only verification sub-check in the method (out of 12) whose failure is not propagated.\n\nThe message_signature code path is not affected.\n\n### Impact\n\nAn attacker who possesses a valid signed DSSE bundle containing an in-toto at",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-252"
+      ],
+      "ecosystems": [
+        "rubygems"
+      ],
+      "packages": [
+        "sigstore"
+      ],
+      "published": "2026-03-11T00:24:42Z",
+      "updated": "2026-03-11T00:24:44Z",
+      "url": "https://github.com/advisories/GHSA-mhg6-2q2v-9h2c",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/sigstore/sigstore-ruby/security/advisories/GHSA-mhg6-2q2v-9h2c",
+        "https://github.com/advisories/GHSA-mhg6-2q2v-9h2c"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-fvcw-9w9r-pxc7",
+      "cve_id": "CVE-2026-31829",
+      "severity": "HIGH",
+      "summary": "Flowise affected by Server-Side Request Forgery (SSRF) in HTTP Node Leading to Internal Network Access",
+      "description": "**Description:**\nFlowise exposes an HTTP Node in AgentFlow and Chatflow that performs server-side HTTP requests using user-controlled URLs. By default, there are no restrictions on target hosts, including private/internal IP ranges (RFC 1918), localhost, or cloud metadata endpoints.\nThis enables Server-Side Request Forgery (SSRF), allowing any user interacting with a publicly exposed chatflow to force the Flowise server to make requests to internal network resources that are inaccessible from the public internet.\n\n**Impact includes:**\n- Access to internal admin panels (e.g., internal company dashboards, Jenkins, Kubernetes API, etc.).\n- Retrieval of cloud provider metadata (e.g., AWS IMDSv1 at [http://169.254.169.254], GCP, Azure).\n- Port scanning and enumeration of internal services.\n- Potential lateral movement or privilege escalation in compromised environments.\n\nThis vulnerability is particularly severe because:\n- Flowise instances are often deployed publicly without authentication",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:L",
       "epss_score": null,
       "cwe_ids": [
         "CWE-918"
       ],
       "ecosystems": [
-        "pip"
+        "npm"
       ],
       "packages": [
-        "mcp-atlassian"
+        "flowise"
       ],
-      "published": "2026-03-10T18:48:46Z",
-      "updated": "2026-03-10T18:48:50Z",
-      "url": "https://github.com/advisories/GHSA-7r34-79r5-rcc9",
+      "published": "2026-03-11T00:24:05Z",
+      "updated": "2026-03-11T00:24:06Z",
+      "url": "https://github.com/advisories/GHSA-fvcw-9w9r-pxc7",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/sooperset/mcp-atlassian/security/advisories/GHSA-7r34-79r5-rcc9",
-        "https://github.com/sooperset/mcp-atlassian/commit/5cd697dfce9116ef330b8dc7a91291640e0528d9",
-        "https://github.com/advisories/GHSA-7r34-79r5-rcc9"
+        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-fvcw-9w9r-pxc7",
+        "https://github.com/advisories/GHSA-fvcw-9w9r-pxc7"
       ]
     },
     {
-      "ghsa_id": "GHSA-ghc4-35x6-crw5",
-      "cve_id": "CVE-2026-26308",
+      "ghsa_id": "GHSA-7xg7-rqf6-pw6c",
+      "cve_id": "CVE-2026-31800",
       "severity": "HIGH",
-      "summary": "Envoy has RBAC Header Validation Bypass via Multi-Value Header Concatenation",
-      "description": "## 1. Summary\nThe Envoy RBAC (Role-Based Access Control) filter contains a logic vulnerability in how it validates HTTP headers when multiple values are present for the same header name. Instead of validating each header value individually, Envoy concatenates all values into a single comma-separated string. This behavior allows attackers to bypass RBAC policies\u2014specifically \"Deny\" rules\u2014by sending duplicate headers, effectively obscuring the malicious value from exact-match mechanisms.\n\n## 2. Attack Scenario\nConsider an environment where an administrator wants to block external access to internal resources using a specific header flag.\n\n### Configuration\nThe Envoy proxy is configured with a **Deny** rule to reject requests containing the header `internal: true`.\n* **Rule Type:** Exact Match\n* **Target:** `internal` header must not equal `true`.\n\n### The Bypass Logic\n1.  **Standard Request (Blocked):**\n    * **Input:** `internal: true`\n    * **Envoy Processing:** Sees string `\"true\"`.\n ",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:L/A:N",
+      "summary": "Parse Server: Classes `_GraphQLConfig` and `_Audience` master key bypass via generic class routes",
+      "description": "### Impact\n\nThe `_GraphQLConfig` and `_Audience` internal classes can be read, modified, and deleted via the generic `/classes/_GraphQLConfig` and `/classes/_Audience` REST API routes without master key authentication. This bypasses the master key enforcement that exists on the dedicated `/graphql-config` and `/push_audiences` endpoints. An attacker can read, modify and delete GraphQL configuration and push audience data.\n\n### Patches\n\nThe fix adds the affected internal classes to the `classesWithMasterOnlyAccess` list, ensuring that the generic `/classes/` routes enforce master key access consistently with the dedicated endpoints.\n\n### Workarounds\n\nThere is no known workaround.\n\n### References\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-7xg7-rqf6-pw6c\n- Fix Parse Server 9: https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.12\n- Fix Parse Server 8: https://github.com/parse-community/parse-server/releases/ta",
+      "cvss_score": null,
+      "cvss_vector": null,
       "epss_score": null,
       "cwe_ids": [
-        "CWE-20"
+        "CWE-862"
       ],
       "ecosystems": [
-        "go",
-        "go",
-        "go",
-        "go"
+        "npm",
+        "npm"
       ],
       "packages": [
-        "github.com/envoyproxy/envoy",
-        "github.com/envoyproxy/envoy",
-        "github.com/envoyproxy/envoy",
-        "github.com/envoyproxy/envoy"
+        "parse-server",
+        "parse-server"
       ],
-      "published": "2026-03-10T18:30:42Z",
-      "updated": "2026-03-10T18:30:42Z",
-      "url": "https://github.com/advisories/GHSA-ghc4-35x6-crw5",
+      "published": "2026-03-11T00:23:01Z",
+      "updated": "2026-03-11T00:23:04Z",
+      "url": "https://github.com/advisories/GHSA-7xg7-rqf6-pw6c",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/envoyproxy/envoy/security/advisories/GHSA-ghc4-35x6-crw5",
-        "https://github.com/advisories/GHSA-ghc4-35x6-crw5"
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-7xg7-rqf6-pw6c",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-31800",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.25",
+        "https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.12",
+        "https://github.com/advisories/GHSA-7xg7-rqf6-pw6c"
       ]
     },
     {
-      "ghsa_id": "GHSA-cfpv-rmpf-f624",
-      "cve_id": "CVE-2026-29175",
+      "ghsa_id": "GHSA-fr88-w35c-r596",
+      "cve_id": "CVE-2026-30967",
       "severity": "HIGH",
-      "summary": "Craft Commerce has multiple Stored XSS in Commerce Inventory Page, Leading to Session Hijacking",
-      "description": "## Summary\n\nStored XSS vulnerabilities exist in the Commerce Inventory page. The **Product Title**, **Variant Title**, and **Variant SKU** fields are rendered without proper HTML escaping, allowing an attacker to execute arbitrary JavaScript when any user (including administrators) views the inventory management page.\n\nThis vulnerability enables **session hijacking** by fetching the PHP Info utility page, which displays unmasked session cookies. Unlike other XSS chains that require elevated sessions, this attack provides instant access to the victim\u2019s session - no additional user interaction or elevated session approval required.\n\n## Proof of Concept\n\n### Permissions Required\n\n- Access the control panel\n- Access Craft Commerce\n- Create/Edit products\n\n### Steps to Reproduce\n1. Log in to the control panel\n2. Navigate to **Commerce \u2192 Products**\n3. Add a new product and set the **Title** field to: (replace `https://attacker.com`)\n    ```html\n    <img src=x onerror=\"fetch('/admin/utilities/",
+      "summary": "Parse Server OAuth2 authentication adapter account takeover via identity spoofing",
+      "description": "### Impact\n\nThe OAuth2 authentication adapter, when configured without the `useridField` option, only verifies that a token is active via the provider's token introspection endpoint, but does not verify that the token belongs to the user identified by `authData.id`. An attacker with any valid OAuth2 token from the same provider can authenticate as any other user.\n\nThis affects any Parse Server deployment that uses the generic OAuth2 authentication adapter (configured with `oauth2: true`) without setting the `useridField` option.\n\n### Patches\n\nThe vulnerability is fixed by defaulting `useridField` to `sub`, which is the standard subject identifier field defined by [RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662). The adapter now always validates the token's identity against the claimed user ID, even when `useridField` is not explicitly configured.\n\n### Workarounds\n\nSet the `useridField` option to the appropriate field name for your OAuth2 provider (e.g. `sub`) in the Parse Serv",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-287"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-11T00:21:37Z",
+      "updated": "2026-03-11T00:21:39Z",
+      "url": "https://github.com/advisories/GHSA-fr88-w35c-r596",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-fr88-w35c-r596",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30967",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.22",
+        "https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.9",
+        "https://github.com/advisories/GHSA-fr88-w35c-r596"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-72hp-qff8-4pvv",
+      "cve_id": "CVE-2026-30962",
+      "severity": "HIGH",
+      "summary": "Parse Server has a protected fields bypass via logical query operators",
+      "description": "### Impact\n\nThe validation for protected fields only checks top-level query keys. By wrapping a query constraint on a protected field inside a logical operator, the check is bypassed entirely. This allows any authenticated user to query on protected fields to extract field values.\n\nAll Parse Server deployments have default protected fields and are vulnerable.\n\n### Patches\n\nThe fix adds recursive validation of sub-queries with logical operators, consistent with the existing recursive validation patterns.\n\n### Workarounds\n\nUse a `beforeFind` trigger on affected classes to manually inspect the query for protected field references in logical operator sub-queries and reject the request.\n\n### References\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-72hp-qff8-4pvv\n- Fix Parse Server 9: https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.6\n- Fix Parse Server 8: https://github.com/parse-community/parse-server/releases/",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-11T00:19:57Z",
+      "updated": "2026-03-11T00:19:58Z",
+      "url": "https://github.com/advisories/GHSA-72hp-qff8-4pvv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-72hp-qff8-4pvv",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30962",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.19",
+        "https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.6",
+        "https://github.com/advisories/GHSA-72hp-qff8-4pvv"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-6457-6jrx-69cr",
+      "cve_id": "CVE-2026-30951",
+      "severity": "HIGH",
+      "summary": "Sequelize v6 Vulnerable to SQL Injection via JSON Column Cast Type",
+      "description": "### Summary\n\nSQL injection via unescaped cast type in JSON/JSONB `where` clause processing. The `_traverseJSON()` function splits JSON path keys on `::` to extract a cast type, which is interpolated raw into `CAST(... AS <type>)` SQL. An attacker who controls JSON object keys can inject arbitrary SQL and exfiltrate data from any table.\n\nAffected: v6.x through 6.37.7. v7 (`@sequelize/core`) is not affected.\n\n### Details\n\nIn `src/dialects/abstract/query-generator.js`, `_traverseJSON()` extracts a cast type from `::` in JSON keys without validation:\n\n```javascript\n// line 1892\n_traverseJSON(items, baseKey, prop, item, path) {\n    let cast;\n    if (path[path.length - 1].includes(\"::\")) {\n      const tmp = path[path.length - 1].split(\"::\");\n      cast = tmp[1];       // attacker-controlled, no escaping\n      path[path.length - 1] = tmp[0];\n    }\n    // ...\n    items.push(this.whereItemQuery(this._castKey(pathKey, item, cast), { [Op.eq]: item }));\n}\n```\n\n`_castKey()` (line 1925) passes it to",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "sequelize"
+      ],
+      "published": "2026-03-11T00:18:48Z",
+      "updated": "2026-03-11T00:18:49Z",
+      "url": "https://github.com/advisories/GHSA-6457-6jrx-69cr",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/sequelize/sequelize/security/advisories/GHSA-6457-6jrx-69cr",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30951",
+        "https://github.com/advisories/GHSA-6457-6jrx-69cr"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-48mh-j4p5-7j9v",
+      "cve_id": "CVE-2026-30949",
+      "severity": "HIGH",
+      "summary": "Parse Server missing audience validation in Keycloak authentication adapter",
+      "description": "### Impact\n\nThe Keycloak authentication adapter does not validate the `azp` (authorized party) claim of Keycloak access tokens against the configured `client-id`. A valid access token issued by the same Keycloak realm for a *different* client application can be used to authenticate as any user on the Parse Server that uses the Keycloak adapter. This enables cross-application account takeover in multi-client Keycloak realms.\n\nAll Parse Server deployments that use the Keycloak authentication adapter with a Keycloak realm that has multiple client applications are affected.\n\n### Patches\n\nThe fix replaces the userinfo HTTP call with local JWT verification and enforces `azp` claim validation against the configured `client-id`.\n\n### Workarounds\n\nNone.\n\n### References\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-48mh-j4p5-7j9v\n- Fix Parse Server 9: https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.5\n- Fix Parse Ser",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-287"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-11T00:17:53Z",
+      "updated": "2026-03-11T00:17:53Z",
+      "url": "https://github.com/advisories/GHSA-48mh-j4p5-7j9v",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-48mh-j4p5-7j9v",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30949",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.18",
+        "https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.5",
+        "https://github.com/advisories/GHSA-48mh-j4p5-7j9v"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-hcj7-6gxh-24ww",
+      "cve_id": "CVE-2026-30948",
+      "severity": "HIGH",
+      "summary": "Parse Server vulnerable to stored cross-site scripting (XSS) via SVG file upload",
+      "description": "### Impact\n\nA stored cross-site scripting (XSS) vulnerability allows any authenticated user to upload an SVG file containing JavaScript. The file is served inline with `Content-Type: image/svg+xml` and without protective headers, causing the browser to execute embedded scripts in the Parse Server origin. This can be exploited to steal session tokens from `localStorage` and achieve account takeover.\n\nThe default `fileExtensions` option blocks HTML file extensions but does not block SVG, which is a well-known XSS vector. All Parse Server deployments where file upload is enabled for authenticated users (the default) are affected.\n\n### Patches\n\nThe fix adds `svg` (case-insensitive) to the default file extension denylist. The default regex changes from `^(?![xXsS]?[hH][tT][mM][lL]?$)` to `^(?!([xXsS]?[hH][tT][mM][lL]?|[sS][vV][gG])$)`.\n\n### Workarounds\n\nConfigure the `fileExtensions` option to explicitly block SVG uploads:\n\n```js\n{\n  fileUpload: {\n    fileExtensions: ['^(?!([xXsS]?[hH][tT][",
       "cvss_score": null,
       "cvss_vector": null,
       "epss_score": null,
@@ -427,93 +695,100 @@
         "CWE-79"
       ],
       "ecosystems": [
-        "composer"
+        "npm",
+        "npm"
       ],
       "packages": [
-        "craftcms/commerce"
+        "parse-server",
+        "parse-server"
       ],
-      "published": "2026-03-10T18:23:42Z",
-      "updated": "2026-03-10T18:23:43Z",
-      "url": "https://github.com/advisories/GHSA-cfpv-rmpf-f624",
+      "published": "2026-03-11T00:17:35Z",
+      "updated": "2026-03-11T00:17:38Z",
+      "url": "https://github.com/advisories/GHSA-hcj7-6gxh-24ww",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/craftcms/commerce/security/advisories/GHSA-cfpv-rmpf-f624",
-        "https://github.com/craftcms/commerce/commit/9f0638a4fb29ed8295a463385a7cc49ec986e33a",
-        "https://github.com/advisories/GHSA-cfpv-rmpf-f624"
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-hcj7-6gxh-24ww",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30948",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.17",
+        "https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.4",
+        "https://github.com/advisories/GHSA-hcj7-6gxh-24ww"
       ]
     },
     {
-      "ghsa_id": "GHSA-pmgj-gmm4-jh6j",
-      "cve_id": "CVE-2026-29174",
+      "ghsa_id": "GHSA-7ch5-98q2-7289",
+      "cve_id": "CVE-2026-30947",
       "severity": "HIGH",
-      "summary": "Craft Commerce is vulnerable to SQL Injection in Commerce Inventory Table Sorting",
-      "description": "## Summary\n\nCraft Commerce is vulnerable to **SQL Injection** in the inventory levels table data endpoint. The `sort[0][direction]` and `sort[0][sortField]` parameters are concatenated directly into an `addOrderBy()` clause without any validation or sanitization. An authenticated attacker with access to the Commerce Inventory section can inject arbitrary SQL queries, potentially leading to a full database compromise.\n\n---\n## PoC\n### Required Permissions\n- General\n\t- Access the control panel\n\t- Access Craft Commerce\n- Craft Commerce\n\t- Manage inventory stock levels \n\n### Steps to reproduce\n1. Log in to the control panel\n2. Navigate to **Commerce** > **Inventory**\n3. Click on any sortable column header (e.g., \"SKU\") to trigger a sort request\n4. Intercept the request and modify `sort[0][direction]` or `sort[0][sortField]` parameters and append `,sleep(2)` payload to it's current value as follows:\n\n```bash\n# sort[0][sortField]=sku,sleep(2)\nGET /index.php?p=admin/actions/commerce/inventory/",
+      "summary": "Parse Server has a bypass of class-level permissions in LiveQuery",
+      "description": "### Impact\n\nClass-level permissions (CLP) are not enforced for LiveQuery subscriptions. An unauthenticated or unauthorized client can subscribe to any LiveQuery-enabled class and receive real-time events for all objects, regardless of CLP restrictions.\n\nAll Parse Server deployments that use LiveQuery with class-level permissions are affected. Data intended to be restricted by CLP is leaked to unauthorized subscribers in real time.\n\n### Patches\n\nThe fix enforces CLP before creating the subscription and during event delivery.\n\n### Workarounds\n\nDisable LiveQuery for classes that use CLP restrictions by removing them from the `liveQuery.classNames` server configuration.\n\n### References\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-7ch5-98q2-7289\n- Fix Parse Server 9: https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.3\n- Fix Parse Server 8: https://github.com/parse-community/parse-server/releases/tag/8.6.16",
       "cvss_score": null,
       "cvss_vector": null,
       "epss_score": null,
       "cwe_ids": [
-        "CWE-89"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "craftcms/commerce"
-      ],
-      "published": "2026-03-10T18:23:25Z",
-      "updated": "2026-03-10T18:23:27Z",
-      "url": "https://github.com/advisories/GHSA-pmgj-gmm4-jh6j",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/craftcms/commerce/security/advisories/GHSA-pmgj-gmm4-jh6j",
-        "https://github.com/craftcms/commerce/commit/094d69df24b925544f337c38e2ec1effcd5395c7",
-        "https://github.com/craftcms/commerce/commit/a2ea853935ef03297ea1298bdb0d8c55ec5daf7b",
-        "https://github.com/advisories/GHSA-pmgj-gmm4-jh6j"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-j3x5-mghf-xvfw",
-      "cve_id": "CVE-2026-29172",
-      "severity": "HIGH",
-      "summary": "Craft Commerce is Vulnerable to SQL Injection in Commerce Purchasables Table Sorting",
-      "description": "## Summary\nCraft Commerce is vulnerable to **SQL Injection** in the purchasables table endpoint. The `sort` parameter is split by `|` and the first part (column name) is passed directly as an array key to `orderBy()` without whitelist validation. Yii2's query builder does **NOT** escape array keys, allowing an authenticated attacker to inject arbitrary SQL into the `ORDER BY` clause.\n\n---\n## PoC\n### Required Permissions\n- General\n\t- Access the control panel\n\t- Access Craft Commerce\n- Craft Commerce\n\t- Manage orders\n\t- Edit orders\n\n### Steps to reproduce\n1. Log in to the control panel\n2. Navigate to **Commerce** > **Orders** > Create a new order\n3. Click on \"Add a line item\" to show the purchasables table\n4. Intercept the AJAX request and modify the `sort` parameter as follows:\n```http\nGET /index.php?p=admin/actions/commerce/orders/purchasables-table&siteId=1&sort=id,(SELECT%20SLEEP(2))|asc\n```\n5. Observe the delay in the response, confirming the injection\n\nAlternatively, you can use th",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-89"
-      ],
-      "ecosystems": [
-        "composer",
-        "composer"
-      ],
-      "packages": [
-        "craftcms/commerce",
-        "craftcms/commerce"
-      ],
-      "published": "2026-03-10T18:23:07Z",
-      "updated": "2026-03-10T18:23:08Z",
-      "url": "https://github.com/advisories/GHSA-j3x5-mghf-xvfw",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/craftcms/commerce/security/advisories/GHSA-j3x5-mghf-xvfw",
-        "https://github.com/craftcms/commerce/commit/b231b920b73db023e81e5b261b894d73e865c276",
-        "https://github.com/craftcms/commerce/commit/e4e0f4107cd895d29290523637f077fe280407b1",
-        "https://github.com/advisories/GHSA-j3x5-mghf-xvfw"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-667w-mmh7-mrr4",
-      "cve_id": "CVE-2026-30944",
-      "severity": "HIGH",
-      "summary": "StudioCMS has Privilege Escalation via Insecure API Token Generation",
-      "description": "## Summary\nThe /studiocms_api/dashboard/api-tokens endpoint allows any authenticated user (at least Editor) to generate API tokens for any other user, including owner and admin accounts. The endpoint fails to validate whether the requesting user is authorized to create tokens on behalf of the target user ID, resulting in a full privilege escalation.\n\n## Details\nThe API token generation endpoint accepts a user parameter in the request body that specifies which user the token should be created for. The server-side logic authenticates the session (via auth_session cookie) but does not verify that the authenticated user matches the target user ID nor checks if the caller has sufficient privileges to perform this action on behalf of another user.\nThis is a classic BOLA vulnerability: the authorization check is limited to \"is the user logged in?\" instead of \"is this user authorized to perform this action on this specific resource?\"\n\n#### Vulnerable Code\nThe following is the server-side handl",
-      "cvss_score": 8.8,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-639",
         "CWE-863"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-11T00:17:16Z",
+      "updated": "2026-03-11T00:17:18Z",
+      "url": "https://github.com/advisories/GHSA-7ch5-98q2-7289",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-7ch5-98q2-7289",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30947",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.16",
+        "https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.3",
+        "https://github.com/advisories/GHSA-7ch5-98q2-7289"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-cmj3-wx7h-ffvg",
+      "cve_id": "CVE-2026-30946",
+      "severity": "HIGH",
+      "summary": "Parse Server affected by denial-of-service via unbounded query complexity in REST and GraphQL API",
+      "description": "### Impact\n\nAn unauthenticated attacker can exhaust Parse Server resources (CPU, memory, database connections) through crafted queries that exploit the lack of complexity limits in the REST and GraphQL APIs.\n\nAll Parse Server deployments using the REST or GraphQL API are affected.\n\n### Patches\n\nThe vulnerability is fixed by introducing configurable request complexity limits via the `requestComplexity` server option with the following keys:\n\n- `subqueryDepth`: Maximum nesting depth for `$inQuery`, `$notInQuery`, `$select`, `$dontSelect`\n- `includeDepth`: Maximum depth of dot-separated `include` paths\n- `includeCount`: Maximum number of `include` fields per query\n- `graphQLDepth`: Maximum depth of GraphQL field selections\n- `graphQLFields`: Maximum number of field selections in a GraphQL query\n\nIf the server options are not set their default values apply to fix the vulnerability. Requests using master key or maintenance key bypass these limits. Set any property to `-1` to disable that sp",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-11T00:16:48Z",
+      "updated": "2026-03-11T00:16:49Z",
+      "url": "https://github.com/advisories/GHSA-cmj3-wx7h-ffvg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-cmj3-wx7h-ffvg",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30946",
+        "https://github.com/parse-community/parse-server/releases/tag/8.6.15",
+        "https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.2",
+        "https://github.com/advisories/GHSA-cmj3-wx7h-ffvg"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-8rgj-vrfr-6hqr",
+      "cve_id": "CVE-2026-30945",
+      "severity": "HIGH",
+      "summary": "StudioCMS: IDOR \u2014 Arbitrary API Token Revocation Leading to Denial of Service",
+      "description": "## Summary\nThe DELETE /studiocms_api/dashboard/api-tokens endpoint allows any authenticated user with editor privileges or above to revoke API tokens belonging to any other user, including admin and owner accounts. The handler accepts tokenID and userID directly from the request payload without verifying token ownership, caller identity, or role hierarchy. This enables targeted denial of service against critical integrations and automations.\n\n## Details\n#### Vulnerable Code\nThe following is the server-side handler for the `DELETE /studiocms_api/dashboard/api-tokens` endpoint (`revokeApiToken`):\n\n**File:** packages/studiocms/frontend/pages/studiocms_api/dashboard/api-tokens.ts (lines 58\u201399)\n**Version:** studiocms@0.3.0\n```\nDELETE: (ctx) =>\n    genLogger('studiocms/routes/api/dashboard/api-tokens.DELETE')(function* () {\n        const sdk = yield* SDKCore;\n\n        // Check if demo mode is enabled\n        if (developerConfig.demoMode !== false) {\n            return apiResponseLogger(403, ",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-639"
       ],
       "ecosystems": [
         "npm"
@@ -521,292 +796,16 @@
       "packages": [
         "studiocms"
       ],
-      "published": "2026-03-10T18:16:41Z",
-      "updated": "2026-03-10T18:45:50Z",
-      "url": "https://github.com/advisories/GHSA-667w-mmh7-mrr4",
+      "published": "2026-03-11T00:16:41Z",
+      "updated": "2026-03-11T00:16:43Z",
+      "url": "https://github.com/advisories/GHSA-8rgj-vrfr-6hqr",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/withstudiocms/studiocms/security/advisories/GHSA-667w-mmh7-mrr4",
+        "https://github.com/withstudiocms/studiocms/security/advisories/GHSA-8rgj-vrfr-6hqr",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-30945",
         "https://github.com/withstudiocms/studiocms/commit/9eec9c3b45523b635cfe16d55aa55afabacbebe3",
-        "https://github.com/withstudiocms/studiocms/releases/tag/studiocms%400.4.0",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-30944",
-        "https://github.com/withstudiocms/studiocms/commit/f4a209fc090c90195e2419fff47b48a46eab7441",
         "https://github.com/withstudiocms/studiocms/releases/tag/studiocms@0.4.0",
-        "https://github.com/advisories/GHSA-667w-mmh7-mrr4"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-wmfp-5q7x-987x",
-      "cve_id": "CVE-2026-30952",
-      "severity": "HIGH",
-      "summary": "liquidjs has a path traversal fallback vulnerability",
-      "description": "### Impact\nThe `layout`, `render`, and `include` tags allow arbitrary file access via absolute paths (either as string literals or through Liquid variables when `dynamicPartials: true` is enabled). This poses a security risk when malicious users are allowed to control the template content or specify the filepath to be included as a Liquid variable.\n\n### Patches\nThe issue is fixed via [#855](https://github.com/harttle/liquidjs/pull/855) and published version 10.25.0 on npm.\n\n### Workarounds\n#### Change the files in build time\nIn build time, through Shell script or Webpack `string-replace-loader`, change the file content of correxponding file (depending on your package `type`, for CommonJS it's `dist/liquid.node.js`) under `dist/`, \n\n```diff\n  if (fs.fallback !== undefined) {\n    const filepath = fs.fallback(file)\n-   if (filepath !== undefined) yield filepath\n+   if (filepath !== undefined) {\n+     for (const dir of dirs) {\n+       if (!enforceRoot || this.contains(dir, filepath)) {\n+  ",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "liquidjs"
-      ],
-      "published": "2026-03-10T01:04:34Z",
-      "updated": "2026-03-10T01:04:35Z",
-      "url": "https://github.com/advisories/GHSA-wmfp-5q7x-987x",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/harttle/liquidjs/security/advisories/GHSA-wmfp-5q7x-987x",
-        "https://github.com/harttle/liquidjs/pull/851",
-        "https://github.com/harttle/liquidjs/pull/855",
-        "https://github.com/harttle/liquidjs/commit/3cd024d652dc883c46307581e979fe32302adbac",
-        "https://github.com/advisories/GHSA-wmfp-5q7x-987x"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-5j86-7r7m-p8h6",
-      "cve_id": "CVE-2026-30939",
-      "severity": "HIGH",
-      "summary": "Parse Server has Denial of Service (DoS) and Cloud Function Dispatch Bypass via Prototype Chain Resolution",
-      "description": "### Impact\n\nAn unauthenticated attacker can crash the Parse Server process by calling a Cloud Function endpoint with a prototype property name as the function name. The server recurses infinitely, causing a call stack size error that terminates the process.\n\nOther prototype property names bypass Cloud Function dispatch validation and return HTTP 200 responses, even though no such Cloud Functions are defined. The same applies to dot-notation traversal.\n\nAll Parse Server deployments that expose the Cloud Function endpoint are affected.\n\n### Patches\n\nThe internal handler registries for Cloud Functions, Jobs, Triggers, and Validators have been changed to prevent prototype chain properties from being resolved.\n\n### Workarounds\n\nPlace a reverse proxy or WAF in front of Parse Server and block requests to `Object.prototype` property names.\n\n### References\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-5j86-7r7m-p8h6\n- Fix Parse Server 9: h",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-1321"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "parse-server",
-        "parse-server"
-      ],
-      "published": "2026-03-10T00:57:57Z",
-      "updated": "2026-03-10T18:44:54Z",
-      "url": "https://github.com/advisories/GHSA-5j86-7r7m-p8h6",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/parse-community/parse-server/security/advisories/GHSA-5j86-7r7m-p8h6",
-        "https://github.com/parse-community/parse-server/releases/tag/8.6.13",
-        "https://github.com/parse-community/parse-server/releases/tag/9.5.1-alpha.2",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-30939",
-        "https://github.com/advisories/GHSA-5j86-7r7m-p8h6"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-mf3j-86qx-cq5j",
-      "cve_id": "CVE-2026-30925",
-      "severity": "HIGH",
-      "summary": "Parse Server has Regular Expression Denial of Service (ReDoS) via `$regex` query in LiveQuery",
-      "description": "### Impact\n\nA malicious client can subscribe to a LiveQuery with a crafted `$regex` pattern that causes catastrophic backtracking, blocking the Node.js event loop. This makes the entire Parse Server unresponsive, affecting all clients. Any Parse Server deployment with LiveQuery enabled is affected. The attacker only needs the application ID and JavaScript key, both of which are public in client-side apps.\n\nThis only affects LiveQuery subscription matching, which evaluates regex in JavaScript on the Node.js event loop. Normal REST and GraphQL queries are not affected because their regex is evaluated by the database engine.\n\n### Patches\n\nRegex evaluation in LiveQuery subscription matching now runs in an isolated VM context with a configurable timeout via a new Parse Server option `liveQuery.regexTimeout, with defaults 100 ms. A regex that exceeds the timeout is treated as non-matching.\n\nThe protection adds approximately 50 microseconds of overhead per regex evaluation. For most applicati",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-1333"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "parse-server",
-        "parse-server"
-      ],
-      "published": "2026-03-10T00:57:18Z",
-      "updated": "2026-03-10T18:44:30Z",
-      "url": "https://github.com/advisories/GHSA-mf3j-86qx-cq5j",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/parse-community/parse-server/security/advisories/GHSA-mf3j-86qx-cq5j",
-        "https://github.com/parse-community/parse-server/releases/tag/8.6.11",
-        "https://github.com/parse-community/parse-server/releases/tag/9.5.0-alpha.14",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-30925",
-        "https://github.com/advisories/GHSA-mf3j-86qx-cq5j"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-93fx-5qgc-wr38",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "AzuraCast: RCE via Liquidsoap string interpolation injection in station metadata and playlist URLs",
-      "description": "## Summary\n\nAzuraCast's `ConfigWriter::cleanUpString()` method fails to sanitize Liquidsoap string interpolation sequences (`#{...}`), allowing authenticated users with `StationPermissions::Media` or `StationPermissions::Profile` permissions to inject arbitrary Liquidsoap code into the generated configuration file. When the station is restarted and Liquidsoap parses the config, `#{...}` expressions are evaluated, enabling arbitrary command execution via Liquidsoap's `process.run()` function.\n\n## Root Cause\n\n**File:** `backend/src/Radio/Backend/Liquidsoap/ConfigWriter.php`, line ~1345\n\n```php\npublic static function cleanUpString(?string $string): string\n{\n    return str_replace(['\"', \"\\n\", \"\\r\"], ['\\'', '', ''], $string ?? '');\n}\n```\n\nThis function only replaces `\"` with `'` and strips newlines. It does **NOT** filter:\n- `#{...}` \u2014 Liquidsoap string interpolation (evaluated as code inside double-quoted strings)\n- `\\` \u2014 Backslash escape character\n\nLiquidsoap, like Ruby, evaluates `#{expr",
-      "cvss_score": 8.7,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-94"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "azuracast/azuracast"
-      ],
-      "published": "2026-03-09T19:55:00Z",
-      "updated": "2026-03-09T19:55:03Z",
-      "url": "https://github.com/advisories/GHSA-93fx-5qgc-wr38",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/AzuraCast/AzuraCast/security/advisories/GHSA-93fx-5qgc-wr38",
-        "https://github.com/AzuraCast/AzuraCast/commit/d04b5c55ce0d867bcb87f49f7082bf8edbcd360c",
-        "https://github.com/AzuraCast/AzuraCast/commit/ff49ef4d0fa571a3661abff6d0a9546ba3ed5df5",
-        "https://github.com/AzuraCast/AzuraCast/releases/tag/0.23.4",
-        "https://github.com/advisories/GHSA-93fx-5qgc-wr38"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-6mgf-v5j7-45cr",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: fetch-guard forwards custom authorization headers across cross-origin redirects",
-      "description": "OpenClaw's `fetchWithSsrFGuard(...)` followed cross-origin redirects while preserving arbitrary caller-supplied headers except for a narrow denylist (`Authorization`, `Proxy-Authorization`, `Cookie`, `Cookie2`). This allowed custom authorization headers such as `X-Api-Key`, `Private-Token`, and similar sensitive headers to be forwarded to a different origin after a redirect.\n\nThe fix switches cross-origin redirect handling from a narrow sensitive-header denylist to a safe-header allowlist, so only benign headers such as content negotiation and cache validators survive an origin change.\n\n## Affected Packages / Versions\n\n- Package: `openclaw` (npm)\n- Affected versions: `<= 2026.3.2`\n- Patched version: `2026.3.7`\n- Latest published npm version at patch time: `2026.3.2`\n\n## Impact\n\nA remote service that could trigger a redirect across origins could receive custom authorization credentials attached by OpenClaw callers. This can expose API keys, bearer-style custom headers, or private token ",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:L/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-116",
-        "CWE-184",
-        "CWE-522"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-03-09T19:54:20Z",
-      "updated": "2026-03-09T19:54:23Z",
-      "url": "https://github.com/advisories/GHSA-6mgf-v5j7-45cr",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-6mgf-v5j7-45cr",
-        "https://github.com/openclaw/openclaw/commit/46715371b0612a6f9114dffd1466941ac476cef5",
-        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.7",
-        "https://github.com/advisories/GHSA-6mgf-v5j7-45cr"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-rchv-x836-w7xp",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw's dashboard leaked gateway auth material via browser URL/query and localStorage",
-      "description": "OpenClaw's macOS Dashboard flow exposed Gateway authentication material to browser-controlled surfaces.\n\nBefore the fix, the macOS app appended the shared Gateway `token` and `password` to the Dashboard URL query string when opening the Control UI in the browser. The Control UI then imported the token and persisted it into browser `localStorage` under `openclaw.control.settings.v1`.\n\nThis expanded exposure of reusable Gateway admin credentials into browser address-bar/query surfaces and persistent script-readable storage.\n\n## Affected Packages / Versions\n\n- Package: `openclaw` (npm)\n- Latest published version verified vulnerable: `2026.3.2`\n- Affected range: `<= 2026.3.2`\n- Patched version: `>= 2026.3.7`\n\n## Impact\n\nAn attacker with access to browser-controlled surfaces or persistent browser storage could recover a valid Gateway admin token and reuse it against the OpenClaw management interface.\n\nThe exposure chain was:\n\n1. macOS `Open Dashboard` constructed a URL with auth material.\n2",
-      "cvss_score": 7.1,
-      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-200"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-03-09T19:52:29Z",
-      "updated": "2026-03-09T19:52:33Z",
-      "url": "https://github.com/advisories/GHSA-rchv-x836-w7xp",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-rchv-x836-w7xp",
-        "https://github.com/openclaw/openclaw/commit/10d0e3f3ca92326df0ca071fabffe463742f263c",
-        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.7",
-        "https://github.com/advisories/GHSA-rchv-x836-w7xp"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-x46r-mf5g-xpr6",
-      "cve_id": "CVE-2026-30930",
-      "severity": "HIGH",
-      "summary": "Glances has SQL Injection via Process Names in TimescaleDB Export",
-      "description": "### Summary\n\nThe TimescaleDB export module constructs SQL queries using string concatenation with unsanitized system monitoring data. The normalize() method wraps string values in single quotes but does not escape embedded single quotes, making SQL injection trivial via attacker-controlled data such as process names, filesystem mount points, network interface names, or container names.\n\nRoot Cause: The normalize() function uses f\"'{value}'\" for string values without escaping single quotes within the value. The resulting strings are concatenated into INSERT queries via string formatting and executed directly with cur.execute() \u2014 no parameterized queries are used.\n\n#### Affected Code\n- _File: glances/exports/glances_timescaledb/__init__.py, lines 79-93 (normalize function)_\n```\ndef normalize(self, value):\n    \"\"\"Normalize the value to be exportable to TimescaleDB.\"\"\"\n    if value is None:\n        return 'NULL'\n    if isinstance(value, bool):\n        return str(value).upper()\n    if isins",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-89"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "Glances"
-      ],
-      "published": "2026-03-09T19:51:35Z",
-      "updated": "2026-03-10T18:44:44Z",
-      "url": "https://github.com/advisories/GHSA-x46r-mf5g-xpr6",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/nicolargo/glances/security/advisories/GHSA-x46r-mf5g-xpr6",
-        "https://github.com/nicolargo/glances/commit/39161f0d6fd723d83f534b48f24cdca722573336",
-        "https://github.com/nicolargo/glances/releases/tag/v4.5.1",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-30930",
-        "https://github.com/advisories/GHSA-x46r-mf5g-xpr6"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-gh4x-f7cq-wwx6",
-      "cve_id": "CVE-2026-30928",
-      "severity": "HIGH",
-      "summary": "Glances Exposes Unauthenticated Configuration Secrets",
-      "description": "### Summary\nThe /api/4/config REST API endpoint returns the entire parsed Glances configuration file (glances.conf) via self.config.as_dict() with no filtering of sensitive values. The configuration file contains credentials for all configured backend services including database passwords, API tokens, JWT signing keys, and SSL key passwords.\n\n### Details\nRoot Cause: The as_dict() method in config.py iterates over every section and every key in the ConfigParser and returns them all as a flat dictionary. No sensitive key filtering or redaction is applied.\n\nAffected Code:\n- _File: glances/outputs/glances_restful_api.py, lines 1154-1167_\n```\ndef _api_config(self):\n    \"\"\"Glances API RESTful implementation.\n\n    Return the JSON representation of the Glances configuration file\n    HTTP/200 if OK\n    HTTP/404 if others error\n    \"\"\"\n    try:\n        # Get the RAW value of the config' dict\n        args_json = self.config.as_dict()  # <-- Returns ALL config including secrets\n    except Exceptio",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-200"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "glances"
-      ],
-      "published": "2026-03-09T19:50:00Z",
-      "updated": "2026-03-10T18:44:40Z",
-      "url": "https://github.com/advisories/GHSA-gh4x-f7cq-wwx6",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/nicolargo/glances/security/advisories/GHSA-gh4x-f7cq-wwx6",
-        "https://github.com/nicolargo/glances/commit/306a7136154ba5c1531489c99f8306d84eae37da",
-        "https://github.com/nicolargo/glances/releases/tag/v4.5.1",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-30928",
-        "https://github.com/advisories/GHSA-gh4x-f7cq-wwx6"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-r633-fcgp-m532",
-      "cve_id": "CVE-2026-30934",
-      "severity": "HIGH",
-      "summary": "FileBrowser Quantum: Stored XSS in public share page via unsanitized share metadata (text/template misuse)",
-      "description": "## Summary\nStored XSS is possible via share metadata fields (e.g., `title`, `description`) that are rendered into HTML for `/public/share/<hash>` without context-aware escaping. The server uses `text/template` instead of `html/template`, allowing injected scripts to execute when victims visit the share URL.\n\n## Details\nThe server renders `public/index.html` using `text/template` and injects user-controlled share fields (title/description/etc.) into HTML contexts. `text/template` does not perform HTML contextual escaping like `html/template`. Because share metadata is persistent, the payload becomes stored and executes whenever a victim opens the affected share page.\n\nRelevant code paths:\n- `backend/http/static.go` (template rendering and share metadata assignment)\n- `backend/http/httpRouter.go` (template initialization)\n- `frontend/public/index.html` (insertion points for title/description and related fields)\n\n## PoC\n1. Login as a user with share creation permission.\n2. Create a share ",
-      "cvss_score": 8.9,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-79"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/gtsteffaniak/filebrowser"
-      ],
-      "published": "2026-03-09T19:48:15Z",
-      "updated": "2026-03-10T18:44:35Z",
-      "url": "https://github.com/advisories/GHSA-r633-fcgp-m532",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/gtsteffaniak/filebrowser/security/advisories/GHSA-r633-fcgp-m532",
-        "https://github.com/gtsteffaniak/filebrowser/releases/tag/v1.2.2-stable",
-        "https://github.com/gtsteffaniak/filebrowser/releases/tag/v1.3.1-beta",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-30934",
-        "https://github.com/advisories/GHSA-r633-fcgp-m532"
+        "https://github.com/advisories/GHSA-8rgj-vrfr-6hqr"
       ]
     }
   ],
@@ -855,7 +854,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-10T20:38:36.917116+00:00",
+    "catalog_version": "2026-03-11T02:21:54.295337+00:00",
     "source": "CISA KEV"
   }
 }
