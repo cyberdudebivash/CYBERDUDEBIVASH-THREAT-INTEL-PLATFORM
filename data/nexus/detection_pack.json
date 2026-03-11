@@ -1,77 +1,6 @@
 {
   "sigma_rules": [
     {
-      "title": "CDB Sentinel APEX \u2014 Silver_Dragon_Targets_Organizations_in_Southeast_Asia_and_Eu",
-      "id": "sigma--cd0fd11d7fa0",
-      "status": "experimental",
-      "description": "Detects activity related to Silver Dragon Targets Organizations in Southeast Asia and Europe",
-      "references": [
-        "https://blog.cyberdudebivash.com/2026/03/silver-dragon-targets-organizations-in_01651928471.html"
-      ],
-      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/11",
-      "tags": [
-        "attack.t1566",
-        "attack.t1078",
-        "attack.t1476",
-        "attack.t1203",
-        "attack.t1059.001"
-      ],
-      "logsource": {
-        "category": "process_creation",
-        "product": "windows"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine|contains": [
-            "T1566",
-            "T1078",
-            "T1476"
-          ]
-        },
-        "condition": "selection"
-      },
-      "level": "high",
-      "falsepositives": [
-        "Legitimate administrative activity"
-      ]
-    },
-    {
-      "title": "CDB Sentinel APEX \u2014 FBI_alert_scammers_target_zoning_permit_applicants",
-      "id": "sigma--7065b714c988",
-      "status": "experimental",
-      "description": "Detects activity related to FBI alert: scammers target zoning permit applicants",
-      "references": [
-        "https://blog.cyberdudebivash.com/2026/03/fbi-alert-scammers-target-zoning-permit.html"
-      ],
-      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/11",
-      "tags": [
-        "attack.t1566",
-        "attack.t1190",
-        "attack.t1036",
-        "attack.t1530"
-      ],
-      "logsource": {
-        "category": "process_creation",
-        "product": "windows"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine|contains": [
-            "T1566",
-            "T1190",
-            "T1036"
-          ]
-        },
-        "condition": "selection"
-      },
-      "level": "high",
-      "falsepositives": [
-        "Legitimate administrative activity"
-      ]
-    },
-    {
       "title": "CDB Sentinel APEX \u2014 CVE202627689__Denial_of_service_DOS_in_SAP_Supply_Chain_Mana",
       "id": "sigma--044acd759936",
       "status": "experimental",
@@ -952,18 +881,6 @@
   ],
   "yara_rules": [
     {
-      "rule_name": "CDB_Silver_Dragon_Targets_Organizations_in_S",
-      "rule_text": "rule CDB_Silver_Dragon_Targets_Organizations_in_S {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Silver Dragon Targets Organizations in Southeast Asia and Europe\"\n        severity = \"critical\"\n        date = \"2026-03-11\"\n    strings:\n                $actor = \"CDB-APT-41\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_Dark_Web_Intercept_Telegram_RaaS_Syndica",
-      "rule_text": "rule CDB_Dark_Web_Intercept_Telegram_RaaS_Syndica {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Dark Web Intercept: Telegram_RaaS_Syndicate - Potential Threat Activity\"\n        severity = \"high\"\n        date = \"2026-03-11\"\n    strings:\n                $actor = \"UNC-CDB-SWARM-AI\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_FBI_alert_scammers_target_zoning_permit_",
-      "rule_text": "rule CDB_FBI_alert_scammers_target_zoning_permit_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for FBI alert: scammers target zoning permit applicants\"\n        severity = \"critical\"\n        date = \"2026-03-11\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
       "rule_name": "CDB_CVE202627689__Denial_of_service_DOS_in_S",
       "rule_text": "rule CDB_CVE202627689__Denial_of_service_DOS_in_S {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-27689 - Denial of service (DOS) in SAP Supply Chain Management\"\n        severity = \"high\"\n        date = \"2026-03-11\"\n    strings:\n                $cve0 = \"CVE-2026-27689\" ascii wide nocase\n        $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
@@ -1071,16 +988,16 @@
   "snort_rules": [
     {
       "rule_name": "CVE202627689__Denial_of_service_DOS_in_SAP_Supply_Chain_Mana",
-      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-27689 - Denial of service (DOS) in SAP Supply Chain\"; content:\"CVE-2026-27689\"; nocase; sid:5060418; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
-      "sid": 5060418
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-27689 - Denial of service (DOS) in SAP Supply Chain\"; content:\"CVE-2026-27689\"; nocase; sid:4072213; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 4072213
     }
   ],
   "stats": {
-    "total_rules": 57,
-    "sigma_count": 27,
-    "yara_count": 29,
+    "total_rules": 52,
+    "sigma_count": 25,
+    "yara_count": 26,
     "snort_count": 1,
-    "coverage_techniques": 29,
-    "generated_at": "2026-03-11T03:11:08.537264+00:00"
+    "coverage_techniques": 28,
+    "generated_at": "2026-03-11T07:27:35.967992+00:00"
   }
 }
