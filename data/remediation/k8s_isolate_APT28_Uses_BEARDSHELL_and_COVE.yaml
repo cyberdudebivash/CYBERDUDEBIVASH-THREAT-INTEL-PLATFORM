@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-aa42681b1905
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "APT28 Uses BEARDSHELL and COVENANT Malware to Spy on Ukrainian Military"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection

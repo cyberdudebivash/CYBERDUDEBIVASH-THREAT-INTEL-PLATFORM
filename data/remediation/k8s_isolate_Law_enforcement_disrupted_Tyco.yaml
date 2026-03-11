@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-b94f79984c39
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Law enforcement disrupted Tycoon 2FA phishing-as-a-service platform"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
