@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-11T16:57:31.275037+00:00",
+  "timestamp": "2026-03-11T20:37:56.066309+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -8,6 +8,21 @@
     "urlhaus"
   ],
   "kev_recent": [
+    {
+      "cveID": "CVE-2025-68613",
+      "vendorProject": "n8n",
+      "product": "n8n",
+      "vulnerabilityName": "n8n Improper Control of Dynamically-Managed Code Resources Vulnerability",
+      "dateAdded": "2026-03-11",
+      "shortDescription": "n8n contains an improper control of dynamically managed code resources vulnerability in its workflow expression evaluation system that allows for remote code execution.",
+      "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
+      "dueDate": "2026-03-25",
+      "knownRansomwareCampaignUse": "Unknown",
+      "notes": "https://github.com/n8n-io/n8n/security/advisories/GHSA-v98v-ff95-f3cp ; https://nvd.nist.gov/vuln/detail/CVE-2025-68613",
+      "cwes": [
+        "CWE-913"
+      ]
+    },
     {
       "cveID": "CVE-2021-22054",
       "vendorProject": "Omnissa",
@@ -354,6 +369,143 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-crjq-wm6x-6qx7",
+      "cve_id": "CVE-2026-26131",
+      "severity": "HIGH",
+      "summary": ".NET Elevation of Privilege Vulnerability",
+      "description": "# Microsoft Security Advisory CVE-2026-26131 \u2013 .NET Elevation of Privilege Vulnerability\n\n## Executive summary\n\nMicrosoft is releasing this security advisory to provide information about a vulnerability in .NET 10.0. This advisory also provides guidance on what developers can do to update their applications to remove this vulnerability. \n\nAn elevation of privilege vulnerability exists in .NET due to improper authorization. Incorrect packaging permissions could allow an attacker to gain elevated privileges.\n\n## Announcement\n\nAnnouncement for this issue can be found at https://github.com/dotnet/announcements/issues/386\n\n## CVSS Details\n\n- **Severity:** High\n- **Version:** 3.1\n- **Score:** 7.8\n- **Vector:** `CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H/E:U/RL:O/RC:C`\n- **Weakness:** CWE-276 (Incorrect Default Permissions)\n\n## Affected Platforms\n\n- **Platforms:** Linux\n- **Architectures:** All\n\n## Affected Products\n\n### <a name=\".NET 10\"></a>.NET 10\nPackage name | Affected version | Patche",
+      "cvss_score": 7.8,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-276"
+      ],
+      "ecosystems": [
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget"
+      ],
+      "packages": [
+        "Microsoft.NetCore.App.Runtime.linux-arm",
+        "Microsoft.NetCore.App.Runtime.linux-arm64",
+        "Microsoft.NetCore.App.Runtime.linux-musl-arm",
+        "Microsoft.NetCore.App.Runtime.linux-musl-arm64",
+        "Microsoft.NetCore.App.Runtime.linux-musl-x64",
+        "Microsoft.NetCore.App.Runtime.linux-x64"
+      ],
+      "published": "2026-03-11T19:53:24Z",
+      "updated": "2026-03-11T19:53:25Z",
+      "url": "https://github.com/advisories/GHSA-crjq-wm6x-6qx7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/dotnet/runtime/security/advisories/GHSA-crjq-wm6x-6qx7",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-26131",
+        "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-26131",
+        "https://github.com/advisories/GHSA-crjq-wm6x-6qx7"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-3wf5-g532-rcrr",
+      "cve_id": "CVE-2026-31892",
+      "severity": "HIGH",
+      "summary": "Argo Workflows: WorkflowTemplate Security Bypass via podSpecPatch in Strict/Secure Reference Mode",
+      "description": "## Summary\n\nA user who can submit Workflows can completely bypass all security settings defined in a `WorkflowTemplate` by including a `podSpecPatch` field in their Workflow submission. This works even when the controller is configured with `templateReferencing: Strict`, which is specifically documented as a mechanism to restrict users to admin-approved templates. The `podSpecPatch` field on a submitted Workflow takes precedence over the referenced `WorkflowTemplate` during spec merging and is applied directly to the pod spec at creation time with no security validation.\n\n## Details\n\nThree issues combine to create this vulnerability:\n\n1. Merge priority order:`JoinWorkflowSpec` merges specs with the priority order Workflow Spec > WorkflowTemplate Spec > WorkflowDefault Spec. Because `podSpecPatch` is a plain string field, the Workflow's value replaces the WorkflowTemplate's value.\n\n2. No security validation on `podSpecPatch`: `ApplyPodSpecPatch()` only validates that the patch is syntac",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "go",
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/argoproj/argo-workflows/v4",
+        "github.com/argoproj/argo-workflows/v3",
+        "github.com/argoproj/argo-workflows"
+      ],
+      "published": "2026-03-11T19:29:33Z",
+      "updated": "2026-03-11T19:29:35Z",
+      "url": "https://github.com/advisories/GHSA-3wf5-g532-rcrr",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/argoproj/argo-workflows/security/advisories/GHSA-3wf5-g532-rcrr",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-31892",
+        "https://github.com/advisories/GHSA-3wf5-g532-rcrr"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-c4p7-rwrg-pf6p",
+      "cve_id": "CVE-2026-31889",
+      "severity": "HIGH",
+      "summary": "Shopware vulnerable to a potential take over of app credentials",
+      "description": "### Summary\n\nWe identified and fixed a vulnerability in the Shopware app registration flow that could, under specific conditions, allow attackers to take over the communication channel between a shop and an app. By abusing app re\u2011registration, an attacker could redirect app traffic to an attacker\u2011controlled domain and potentially obtain API credentials intended for the legitimate shop.\nWe have no evidence that this vulnerability has been exploited.\n\n---\n\n### Affected Scope\n\n- All apps (public and private) that use a `registrationUrl` in their app manifest and rely on the legacy HMAC\u2011based registration flow.\n- Both on\u2011premise and cloud installations are affected until updated to a fixed Shopware version or protected by the latest Shopware Security Plugin.\n- Shopware services and first\u2011party apps using the affected SDKs were reviewed and patched.\nThe vulnerability does not affect core storefront or administration authentication; it is limited to the app system\u2019s registration and re\u2011regis",
+      "cvss_score": 8.9,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-290"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer",
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "shopware/platform",
+        "shopware/platform",
+        "shopware/core",
+        "shopware/core"
+      ],
+      "published": "2026-03-11T19:24:06Z",
+      "updated": "2026-03-11T19:24:07Z",
+      "url": "https://github.com/advisories/GHSA-c4p7-rwrg-pf6p",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/shopware/shopware/security/advisories/GHSA-c4p7-rwrg-pf6p",
+        "https://github.com/advisories/GHSA-c4p7-rwrg-pf6p"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-7vvp-j573-5584",
+      "cve_id": "CVE-2026-31887",
+      "severity": "HIGH",
+      "summary": "Shopware: Unauthenticated data extraction possible through store-api.order endpoint",
+      "description": "### Summary\n\nAn insufficient check on the filter types for unauthenticated customers allows access to orders of other customers. This is part of the `deepLinkCode` support on the `store-api.order` endpoint.\n\n### Details\n\n#### Data Exposure\n\nDepending on the order payload configuration, attackers may retrieve:\n- Customer names\n- Billing address\n- Shipping address\n- Email addresses\n- Ordered products\n- Order values\n- Order numbers\n- Order dates\n- Payment method information\n- Shipping method information\n- More customs, depending on the given associations in the request\n\n#### Security Impact\n\nThis vulnerability allows:\n- Unauthorized access to foreign customer order data\n- Mass enumeration of recent orders\n- Potential scraping of customer personal information\n\n#### Limitation\n\nNo limitation, but only orders from the past 30 days are checked for changeable means of payment (unrelated).\n\n### Impact\n\nThe code is present since ~2021. Likely every version since then is impacted for every store.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer",
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "shopware/core",
+        "shopware/core",
+        "shopware/platform",
+        "shopware/platform"
+      ],
+      "published": "2026-03-11T19:23:43Z",
+      "updated": "2026-03-11T19:23:44Z",
+      "url": "https://github.com/advisories/GHSA-7vvp-j573-5584",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/shopware/shopware/security/advisories/GHSA-7vvp-j573-5584",
+        "https://github.com/advisories/GHSA-7vvp-j573-5584"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-fp5j-j7j4-mcxc",
       "cve_id": "CVE-2026-31857",
       "severity": "HIGH",
@@ -680,135 +832,11 @@
         "https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.12",
         "https://github.com/advisories/GHSA-7xg7-rqf6-pw6c"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-fr88-w35c-r596",
-      "cve_id": "CVE-2026-30967",
-      "severity": "HIGH",
-      "summary": "Parse Server OAuth2 authentication adapter account takeover via identity spoofing",
-      "description": "### Impact\n\nThe OAuth2 authentication adapter, when configured without the `useridField` option, only verifies that a token is active via the provider's token introspection endpoint, but does not verify that the token belongs to the user identified by `authData.id`. An attacker with any valid OAuth2 token from the same provider can authenticate as any other user.\n\nThis affects any Parse Server deployment that uses the generic OAuth2 authentication adapter (configured with `oauth2: true`) without setting the `useridField` option.\n\n### Patches\n\nThe vulnerability is fixed by defaulting `useridField` to `sub`, which is the standard subject identifier field defined by [RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662). The adapter now always validates the token's identity against the claimed user ID, even when `useridField` is not explicitly configured.\n\n### Workarounds\n\nSet the `useridField` option to the appropriate field name for your OAuth2 provider (e.g. `sub`) in the Parse Serv",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-287"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "parse-server",
-        "parse-server"
-      ],
-      "published": "2026-03-11T00:21:37Z",
-      "updated": "2026-03-11T00:21:39Z",
-      "url": "https://github.com/advisories/GHSA-fr88-w35c-r596",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/parse-community/parse-server/security/advisories/GHSA-fr88-w35c-r596",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-30967",
-        "https://github.com/parse-community/parse-server/releases/tag/8.6.22",
-        "https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.9",
-        "https://github.com/advisories/GHSA-fr88-w35c-r596"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-72hp-qff8-4pvv",
-      "cve_id": "CVE-2026-30962",
-      "severity": "HIGH",
-      "summary": "Parse Server has a protected fields bypass via logical query operators",
-      "description": "### Impact\n\nThe validation for protected fields only checks top-level query keys. By wrapping a query constraint on a protected field inside a logical operator, the check is bypassed entirely. This allows any authenticated user to query on protected fields to extract field values.\n\nAll Parse Server deployments have default protected fields and are vulnerable.\n\n### Patches\n\nThe fix adds recursive validation of sub-queries with logical operators, consistent with the existing recursive validation patterns.\n\n### Workarounds\n\nUse a `beforeFind` trigger on affected classes to manually inspect the query for protected field references in logical operator sub-queries and reject the request.\n\n### References\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-72hp-qff8-4pvv\n- Fix Parse Server 9: https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.6\n- Fix Parse Server 8: https://github.com/parse-community/parse-server/releases/",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-284"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "parse-server",
-        "parse-server"
-      ],
-      "published": "2026-03-11T00:19:57Z",
-      "updated": "2026-03-11T00:19:58Z",
-      "url": "https://github.com/advisories/GHSA-72hp-qff8-4pvv",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/parse-community/parse-server/security/advisories/GHSA-72hp-qff8-4pvv",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-30962",
-        "https://github.com/parse-community/parse-server/releases/tag/8.6.19",
-        "https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.6",
-        "https://github.com/advisories/GHSA-72hp-qff8-4pvv"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-6457-6jrx-69cr",
-      "cve_id": "CVE-2026-30951",
-      "severity": "HIGH",
-      "summary": "Sequelize v6 Vulnerable to SQL Injection via JSON Column Cast Type",
-      "description": "### Summary\n\nSQL injection via unescaped cast type in JSON/JSONB `where` clause processing. The `_traverseJSON()` function splits JSON path keys on `::` to extract a cast type, which is interpolated raw into `CAST(... AS <type>)` SQL. An attacker who controls JSON object keys can inject arbitrary SQL and exfiltrate data from any table.\n\nAffected: v6.x through 6.37.7. v7 (`@sequelize/core`) is not affected.\n\n### Details\n\nIn `src/dialects/abstract/query-generator.js`, `_traverseJSON()` extracts a cast type from `::` in JSON keys without validation:\n\n```javascript\n// line 1892\n_traverseJSON(items, baseKey, prop, item, path) {\n    let cast;\n    if (path[path.length - 1].includes(\"::\")) {\n      const tmp = path[path.length - 1].split(\"::\");\n      cast = tmp[1];       // attacker-controlled, no escaping\n      path[path.length - 1] = tmp[0];\n    }\n    // ...\n    items.push(this.whereItemQuery(this._castKey(pathKey, item, cast), { [Op.eq]: item }));\n}\n```\n\n`_castKey()` (line 1925) passes it to",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-89"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "sequelize"
-      ],
-      "published": "2026-03-11T00:18:48Z",
-      "updated": "2026-03-11T00:18:49Z",
-      "url": "https://github.com/advisories/GHSA-6457-6jrx-69cr",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/sequelize/sequelize/security/advisories/GHSA-6457-6jrx-69cr",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-30951",
-        "https://github.com/advisories/GHSA-6457-6jrx-69cr"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-48mh-j4p5-7j9v",
-      "cve_id": "CVE-2026-30949",
-      "severity": "HIGH",
-      "summary": "Parse Server missing audience validation in Keycloak authentication adapter",
-      "description": "### Impact\n\nThe Keycloak authentication adapter does not validate the `azp` (authorized party) claim of Keycloak access tokens against the configured `client-id`. A valid access token issued by the same Keycloak realm for a *different* client application can be used to authenticate as any user on the Parse Server that uses the Keycloak adapter. This enables cross-application account takeover in multi-client Keycloak realms.\n\nAll Parse Server deployments that use the Keycloak authentication adapter with a Keycloak realm that has multiple client applications are affected.\n\n### Patches\n\nThe fix replaces the userinfo HTTP call with local JWT verification and enforces `azp` claim validation against the configured `client-id`.\n\n### Workarounds\n\nNone.\n\n### References\n\n- GitHub security advisory: https://github.com/parse-community/parse-server/security/advisories/GHSA-48mh-j4p5-7j9v\n- Fix Parse Server 9: https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.5\n- Fix Parse Ser",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-287"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "parse-server",
-        "parse-server"
-      ],
-      "published": "2026-03-11T00:17:53Z",
-      "updated": "2026-03-11T00:17:53Z",
-      "url": "https://github.com/advisories/GHSA-48mh-j4p5-7j9v",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/parse-community/parse-server/security/advisories/GHSA-48mh-j4p5-7j9v",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-30949",
-        "https://github.com/parse-community/parse-server/releases/tag/8.6.18",
-        "https://github.com/parse-community/parse-server/releases/tag/9.5.2-alpha.5",
-        "https://github.com/advisories/GHSA-48mh-j4p5-7j9v"
-      ]
     }
   ],
   "urlhaus_iocs": [],
   "kev_stats": {
-    "total_kev_entries": 1539,
+    "total_kev_entries": 1540,
     "top_vendors": [
       {
         "vendor": "Microsoft",
@@ -851,7 +879,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-11T16:57:31.598406+00:00",
+    "catalog_version": "2026-03-11T20:37:56.395619+00:00",
     "source": "CISA KEV"
   }
 }
