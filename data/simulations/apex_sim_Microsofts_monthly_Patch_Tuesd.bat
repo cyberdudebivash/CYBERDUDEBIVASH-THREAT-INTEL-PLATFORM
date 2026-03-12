@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: Microsoft’s monthly Patch Tuesday is first in 6 months with no actively exploited zero-days
-:: Generated: 2026-03-12 02:27:56 UTC
+:: Generated: 2026-03-12 05:17:12 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================
