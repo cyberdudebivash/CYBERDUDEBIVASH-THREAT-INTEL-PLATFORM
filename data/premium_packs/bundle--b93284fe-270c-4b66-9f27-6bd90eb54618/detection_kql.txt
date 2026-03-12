@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : Divide and conquer how the new Keenadu backdoor exposed links between major Andr
+// Scenario: MALWARE | CVEs: N/A
+// Generated: 2026-03-12 16:57:49 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Suspicious PowerShell
+SecurityEvent | where TimeGenerated > ago(24h)
+| where EventID == 4688
+| where CommandLine has_any ('-EncodedCommand', '-enc', 'IEX(', 'Invoke-Expression', 'DownloadFile')
+| extend ThreatName="Divide and conquer how the new Keenadu backdoor exposed links between major Andr", Severity="CRITICAL"

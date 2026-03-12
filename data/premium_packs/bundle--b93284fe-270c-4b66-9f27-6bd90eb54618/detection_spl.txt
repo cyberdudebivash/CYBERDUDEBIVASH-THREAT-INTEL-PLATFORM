@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : Divide and conquer how the new Keenadu backdoor exposed links between major Andr
+# Scenario: MALWARE
+# Generated: 2026-03-12 16:57:49 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Suspicious PowerShell
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="-EncodedCommand" OR CommandLine="IEX(" OR CommandLine="DownloadFile")
+| stats count by host, user, CommandLine | eval ThreatName="Divide and conquer how the new Keenadu backdoor exposed links between major Andr"
