@@ -4,10 +4,10 @@
   "rules": {
     "sigma": "title: CDB APEX v37.0 \u2014 Hewlett Packard Enterprise fixes critical authentication byp\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/12\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '3.2.0.1'\n    condition: selection_ip\nlevel: high",
     "suricata": [
-      "alert ip any any -> 3.2.0.1 any (msg:\"CDB APEX \u2014 Hewlett_Packard_Enterprise_fix\"; sid:7826139; rev:1;)"
+      "alert ip any any -> 3.2.0.1 any (msg:\"CDB APEX \u2014 Hewlett_Packard_Enterprise_fix\"; sid:5880840; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 3.2.0.1 any (msg:\"CDB APEX Hewlett_Packard_Enterprise_fix\"; sid:9665268; rev:1;)"
+      "alert ip any any -> 3.2.0.1 any (msg:\"CDB APEX Hewlett_Packard_Enterprise_fix\"; sid:6901791; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"3.2.0.1\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"3.2.0.1\")"
