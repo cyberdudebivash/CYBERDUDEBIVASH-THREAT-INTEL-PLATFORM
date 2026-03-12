@@ -4,12 +4,12 @@
   "rules": {
     "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-31887 - Shopware unauthenticated data extraction po\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/12\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '6.6.10.15'\n            - '6.7.8.1'\n    selection_dns:\n        query:\n            - '*store-api.order*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "suricata": [
-      "alert ip any any -> 6.6.10.15 any (msg:\"CDB APEX \u2014 CVE_2026_31887___Shopware_unau\"; sid:3570773; rev:1;)",
-      "alert ip any any -> 6.7.8.1 any (msg:\"CDB APEX \u2014 CVE_2026_31887___Shopware_unau\"; sid:9445428; rev:1;)"
+      "alert ip any any -> 6.6.10.15 any (msg:\"CDB APEX \u2014 CVE_2026_31887___Shopware_unau\"; sid:9420404; rev:1;)",
+      "alert ip any any -> 6.7.8.1 any (msg:\"CDB APEX \u2014 CVE_2026_31887___Shopware_unau\"; sid:9840322; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 6.6.10.15 any (msg:\"CDB APEX CVE_2026_31887___Shopware_unau\"; sid:6300216; rev:1;)",
-      "alert ip any any -> 6.7.8.1 any (msg:\"CDB APEX CVE_2026_31887___Shopware_unau\"; sid:2793124; rev:1;)"
+      "alert ip any any -> 6.6.10.15 any (msg:\"CDB APEX CVE_2026_31887___Shopware_unau\"; sid:7290269; rev:1;)",
+      "alert ip any any -> 6.7.8.1 any (msg:\"CDB APEX CVE_2026_31887___Shopware_unau\"; sid:5059312; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"6.6.10.15\",\n              \"6.7.8.1\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"store-api.order\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"6.6.10.15\", \"6.7.8.1\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"store-api.order\")"
