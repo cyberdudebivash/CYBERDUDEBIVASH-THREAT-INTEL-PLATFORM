@@ -3521,46 +3521,61 @@
         async function loadGOCIntel() {
             const syncVal = document.getElementById('sync-val');
             const integrityEl = document.getElementById('integrity-status');
-
-            // v46.0 — AI Processing visual state
-            document.querySelectorAll('.metric-card').forEach(c => c.classList.add('syncing'));
             const aiPulse = document.getElementById('ai-pulse-indicator');
+
+            // ══════════════════════════════════════════════════════════════
+            // PHASE 1 — INSTANT RENDER (synchronous, ~0ms)
+            // Render EMBEDDED_INTEL immediately so users NEVER see INITIALIZING
+            // ══════════════════════════════════════════════════════════════
+            if (!manifestData || !manifestData.length) {
+                try {
+                    manifestData = [...EMBEDDED_INTEL].reverse();
+                    computeMetrics(manifestData);
+                    renderTrendChart(manifestData);
+                    applyView();
+                    syncVal.innerHTML = 'SYNC: <span style="color:var(--medium);">● CACHE</span>';
+                    integrityEl.innerHTML = '<span class="integrity-badge" style="background:rgba(217,119,6,0.08);color:var(--medium);border:1px solid rgba(217,119,6,0.25);">⚡ EMBEDDED · FETCHING LIVE...</span>';
+                    document.getElementById('last-loaded').textContent = 'CACHE: ' + new Date().toLocaleTimeString() + ' · FETCHING LIVE...';
+                } catch(e) {
+                    console.warn('[CDB-GOC] Instant render error:', e);
+                }
+            }
+
+            // ══════════════════════════════════════════════════════════════
+            // PHASE 2 — BACKGROUND LIVE FETCH (async, non-blocking)
+            // Silently refresh with live data, update UI when ready
+            // ══════════════════════════════════════════════════════════════
+            document.querySelectorAll('.metric-card').forEach(c => c.classList.add('syncing'));
             if (aiPulse) aiPulse.style.display = 'inline-flex';
 
+            const RAW_BASE_LIVE = 'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/';
             const MANIFEST_URLS = [
-                // PRIMARY: gh-pages enriched manifest (v46 ULTRA INTEL: actor_profile, exploit_status, intel_quality)
-                atob('aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2N5YmVyZHVkZWJpdmFzaC9DWUJFUkRVREVCSVZBU0gtVEhSRUFULUlOVEVMLVBMQVRGT1JNL2doLXBhZ2VzL2RhdGEvdjQ2X3VsdHJhaW50ZWwvZW5yaWNoZWRfbWFuaWZlc3QuanNvbg=='),
-                // FALLBACK: main branch feed_manifest (base fields)
-                atob('aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2N5YmVyZHVkZWJpdmFzaC9DWUJFUkRVREVCSVZBU0gtVEhSRUFULUlOVEVMLVBMQVRGT1JNL21haW4vZGF0YS9zdGl4L2ZlZWRfbWFuaWZlc3QuanNvbg=='),
+                // PRIMARY: gh-pages enriched manifest (v46 ULTRA INTEL fields)
+                RAW_BASE_LIVE + 'gh-pages/data/v46_ultraintel/enriched_manifest.json',
+                // FALLBACK: main branch feed_manifest
+                RAW_BASE_LIVE + 'main/data/stix/feed_manifest.json',
                 // CDN FALLBACK
-                atob('aHR0cHM6Ly9jZG4uanNkZWxpdnIubmV0L2doL2N5YmVyZHVkZWJpdmFzaC9DWUJFUkRVREVCSVZBU0gtVEhSRUFULUlOVEVMLVBMQVRGT1JNQGdoLXBhZ2VzL2RhdGEvc3RpeC9mZWVkX21hbmlmZXN0Lmpzb24='),
+                'https://cdn.jsdelivr.net/gh/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM@gh-pages/data/stix/feed_manifest.json',
             ];
 
-            // ── Try live network sources first ──
             let lastError = null;
             for (const manifestUrl of MANIFEST_URLS) {
                 try {
                     const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 7000);
+                    const timeout = setTimeout(() => controller.abort(), 5000); // 5s per URL
                     const response = await fetch(manifestUrl, {
-                        cache: 'no-cache',
+                        cache: 'no-store',
                         signal: controller.signal
                     });
                     clearTimeout(timeout);
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
                     const data = await response.json();
 
                     const entries = Array.isArray(data) ? data : (data.items || data.entries || []);
                     if (!entries.length) throw new Error('Empty manifest');
 
+                    // Live data received — update dashboard
                     manifestData = [...entries].reverse();
-                    // Update status FIRST — guaranteed before any render call
-                    syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);animation:new-glow 1.5s ease-in-out infinite alternate;">● LIVE</span>';
-                    integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED · v46 ULTRA INTEL ACTIVE</span>';
-                    document.getElementById('last-loaded').textContent = 'SYNCED: ' + new Date().toLocaleTimeString() + ' · AUTO-SYNC EVERY 6H';
-                    document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('syncing'));
-                    const aiPulse2 = document.getElementById('ai-pulse-indicator');
-                    if (aiPulse2) aiPulse2.style.display = 'none';
                     try {
                         computeMetrics(manifestData);
                         renderTrendChart(manifestData);
@@ -3568,36 +3583,27 @@
                     } catch(renderErr) {
                         console.error('[CDB-GOC] Render error (live):', renderErr);
                     }
+
+                    syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);animation:new-glow 1.5s ease-in-out infinite alternate;">● LIVE</span>';
+                    integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED · v46 ULTRA INTEL ACTIVE</span>';
+                    document.getElementById('last-loaded').textContent = 'SYNCED: ' + new Date().toLocaleTimeString() + ' · AUTO-SYNC EVERY 6H';
+                    document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('syncing'));
+                    if (aiPulse) aiPulse.style.display = 'none';
                     return;
 
                 } catch (err) {
                     lastError = err;
+                    console.warn('[CDB-GOC] Manifest fetch failed:', manifestUrl.split('/').slice(-2).join('/'), err.message);
                 }
             }
 
-            // ── Fallback: use embedded real intel data ──
-            // This activates when: network unavailable, sandbox environment, or GitHub temporarily down.
-            // Data is real — sourced from the live feed_manifest.json.
-            // On intel.cyberdudebivash.com the live fetch above always succeeds.
-            console.info('[CDB-GOC] Network fetch failed — loading embedded intel cache:', lastError?.message);
-
-            // ── GUARANTEED FALLBACK: wrap in try/catch so sync status ALWAYS updates ──
+            // All network URLs failed — already showing EMBEDDED_INTEL from Phase 1
+            console.info('[CDB-GOC] All network sources failed:', lastError?.message);
             syncVal.innerHTML = 'SYNC: <span style="color:var(--medium);">● CACHE</span>';
             integrityEl.innerHTML = '<span class="integrity-badge" style="background:rgba(217,119,6,0.08);color:var(--medium);border:1px solid rgba(217,119,6,0.25);">⚡ EMBEDDED CACHE — <a href="https://cyberbivash.blogspot.com" target="_blank" style="color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);">VIEW LIVE BLOG</a></span>';
-            try {
-                manifestData = [...EMBEDDED_INTEL].reverse();
-                computeMetrics(manifestData);
-                renderTrendChart(manifestData);
-                applyView();
-                document.getElementById('last-loaded').textContent = 'CACHE: ' + new Date().toLocaleTimeString() + ' · EMBEDDED INTEL ACTIVE';
-            } catch(renderErr) {
-                console.error('[CDB-GOC] Render pipeline error:', renderErr);
-                document.getElementById('last-loaded').textContent = 'ERROR: ' + new Date().toLocaleTimeString() + ' · CHECK CONSOLE';
-            } finally {
-                document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('syncing'));
-                const aiPulse = document.getElementById('ai-pulse-indicator');
-                if (aiPulse) aiPulse.style.display = 'none';
-            }
+            document.getElementById('last-loaded').textContent = 'CACHE: ' + new Date().toLocaleTimeString() + ' · EMBEDDED INTEL ACTIVE';
+            document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('syncing'));
+            if (aiPulse) aiPulse.style.display = 'none';
         }
 
         // ── Auto-refresh every 6 hours ──
@@ -3628,6 +3634,7 @@
 
         // ── DOM Ready: Boot the platform ──
         document.addEventListener('DOMContentLoaded', () => {
+            // Phase 1 renders instantly; Phase 2 fetches in background
             loadGOCIntel();
             scheduleAutoRefresh();
         });
