@@ -2,7 +2,7 @@
   "threat_id": "thr-613411a00c6b",
   "title": "CVE-2026-31988 - yauzl 3.2.0 - Denial of Service via Off-by-One Error in NTFS Ti",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-31988 - yauzl 3.2.0 - Denial of Service via Off-by-\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/12\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*data.length*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-31988 - yauzl 3.2.0 - Denial of Service via Off-by-\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/13\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*data.length*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"data.length\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"data.length\")"
   },

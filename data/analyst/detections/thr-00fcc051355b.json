@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-00fcc051355b",
+  "title": "Siemens RUGGEDCOM APE1808 Devices",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 Siemens RUGGEDCOM APE1808 Devices\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/13\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*cert-portal.siemens.com*'\n            - '*ssa-975644.html*'\n            - '*www.siemens.com*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"cert-portal.siemens.com\",\n              \"ssa-975644.html\",\n              \"www.siemens.com\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"cert-portal.siemens.com\", \"ssa-975644.html\", \"www.siemens.com\")"
+  },
+  "rule_count": 3
+}
