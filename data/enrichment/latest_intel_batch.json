@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-12T17:01:10.665142+00:00",
+  "timestamp": "2026-03-12T20:40:00.177243+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -292,7 +292,448 @@
       "poc_public": true
     }
   ],
-  "github_advisories": [],
+  "github_advisories": [
+    {
+      "ghsa_id": "GHSA-m9pm-w3gv-c68f",
+      "cve_id": "CVE-2026-32319",
+      "severity": "HIGH",
+      "summary": "Ella Core vulnerable to Unauthenticated AMF DoS via malformed InitialUEMessage with undersized integrity-protected NAS payload",
+      "description": "## Summary\n\nElla Core panics when processing a malformed integrity protected NGAP/NAS message with a length under 7 bytes.\n\n## Impact\n\nAn attacker able to send crafted NAS messages to Ella Core can crash the process, causing service disruption for all connected subscribers. No authentication is required.\n\n## Fix\n\nAdded length verification to NAS message handling.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-125"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/ellanetworks/core"
+      ],
+      "published": "2026-03-12T20:33:22Z",
+      "updated": "2026-03-12T20:33:22Z",
+      "url": "https://github.com/advisories/GHSA-m9pm-w3gv-c68f",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ellanetworks/core/security/advisories/GHSA-m9pm-w3gv-c68f",
+        "https://github.com/ellanetworks/core/releases/tag/v1.5.1",
+        "https://github.com/advisories/GHSA-m9pm-w3gv-c68f"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-5wcw-8jjv-m286",
+      "cve_id": "CVE-2026-32302",
+      "severity": "HIGH",
+      "summary": "OpenClaw: Untrusted web origins can obtain authenticated operator.admin access in trusted-proxy mode",
+      "description": "## Summary\nIn affected versions of `openclaw`, browser-originated WebSocket connections could bypass origin validation when `gateway.auth.mode` was set to `trusted-proxy` and the request arrived with proxy headers. A page served from an untrusted origin could connect through a trusted reverse proxy, inherit proxy-authenticated identity, and establish a privileged operator session.\n\n## Impact\nThis issue affects deployments that expose the Gateway behind a trusted reverse proxy and rely on browser origin checks such as `controlUi.allowedOrigins` to restrict browser access. An attacker who can cause a victim browser to load a malicious page that can reach the proxy endpoint could establish a cross-site WebSocket connection and call privileged Gateway methods.\n\nIn verified impact, the attacker-origin page was able to request `operator.admin` and successfully call `config.get`, exposing sensitive configuration. Depending on the deployment, the same authenticated operator path could also per",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-346"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-12T20:32:59Z",
+      "updated": "2026-03-12T20:32:59Z",
+      "url": "https://github.com/advisories/GHSA-5wcw-8jjv-m286",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-5wcw-8jjv-m286",
+        "https://github.com/openclaw/openclaw/commit/ebed3bbde1a72a1aaa9b87b63b91e7c04a50036b",
+        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.11",
+        "https://github.com/advisories/GHSA-5wcw-8jjv-m286"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-2f24-mg4x-534q",
+      "cve_id": "CVE-2026-28793",
+      "severity": "HIGH",
+      "summary": "TinaCMS Vulnerable to Path Traversal Leading to Arbitrary File Read, Write and Delete",
+      "description": "## Summary\nThe TinaCMS CLI development server exposes media endpoints that are vulnerable to path traversal, allowing attackers to read and write arbitrary files on the filesystem outside the intended media directory.\n\n## Details\nWhen running tinacms dev, the CLI starts a local HTTP server (default port 4001) exposing endpoints such as:\n\n- /media/list/*\n\n- /media/upload/*\n\n- /media/*\n\nThese endpoints process user-controlled path segments using decodeURI() and path.join() without validating that the resolved path remains within the configured media directory.\n\n### Vulnerable code\n```\nbb.on('file', async (_name, file, _info) => {\n      const fullPath = decodeURI(req.url?.slice('/media/upload/'.length));\n      const saveTo = path.join(mediaFolder, ...fullPath.split('/'));\n// No validation that saveTo remains within mediaFolder\n      await fs.ensureDir(path.dirname(saveTo));\n      file.pipe(fs.createWriteStream(saveTo));\n    });\n```\n## PoC\n**Arbitrary File Read**\n```\ncurl \"http://localhost",
+      "cvss_score": 8.4,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@tinacms/cli"
+      ],
+      "published": "2026-03-12T20:32:26Z",
+      "updated": "2026-03-12T20:32:29Z",
+      "url": "https://github.com/advisories/GHSA-2f24-mg4x-534q",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/tinacms/tinacms/security/advisories/GHSA-2f24-mg4x-534q",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-28793",
+        "https://github.com/advisories/GHSA-2f24-mg4x-534q"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-3936-cmfr-pm3m",
+      "cve_id": "CVE-2026-32274",
+      "severity": "HIGH",
+      "summary": "Black: Arbitrary file writes from unsanitized user input in cache file name",
+      "description": "### Impact\n\nBlack writes a cache file, the name of which is computed from various formatting options. The value of the `--python-cell-magics` option was placed in the filename without sanitization, which allowed an attacker who controls the value of this argument to write cache files to arbitrary file system locations. \n\n### Patches\n\nFixed in Black 26.3.1.\n\n### Workarounds\n\nDo not allow untrusted user input into the value of the `--python-cell-magics` option.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "black"
+      ],
+      "published": "2026-03-12T18:33:10Z",
+      "updated": "2026-03-12T18:33:13Z",
+      "url": "https://github.com/advisories/GHSA-3936-cmfr-pm3m",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/psf/black/security/advisories/GHSA-3936-cmfr-pm3m",
+        "https://github.com/psf/black/pull/5038",
+        "https://github.com/psf/black/commit/4937fe6cf241139ddbfc16b0bdbb5b422798909d",
+        "https://github.com/psf/black/releases/tag/26.3.1",
+        "https://github.com/advisories/GHSA-3936-cmfr-pm3m"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-5hxf-c7j4-279c",
+      "cve_id": "CVE-2026-28791",
+      "severity": "HIGH",
+      "summary": "Tina: Path Traversal in Media Upload Handle",
+      "description": "## Affected Package\n\n| Field | Value |\n|-------|-------|\n| **Package** | `@tinacms/cli` |\n| **Version** | `2.0.5` (latest at time of discovery) |\n| **Vulnerable File** | `packages/@tinacms/cli/src/next/commands/dev-command/server/media.ts` |\n| **Vulnerable Lines** | 42-43 |\n\n---\n\n## Summary\n\nA **path traversal vulnerability (CWE-22)** exists in the TinaCMS development server's media upload handler. The code at `media.ts:42-43` joins user-controlled path segments using `path.join()` without validating that the resulting path stays within the intended media directory. This allows writing files to arbitrary locations on the filesystem.\n\n**Attack Vector**: Network (HTTP POST request)  \n**Impact**: Arbitrary file write, potential Remote Code Execution\n\n---\n\n## Details\n\n### Vulnerable Code Location\n\n**File**: `packages/@tinacms/cli/src/next/commands/dev-command/server/media.ts`  \n**Lines**: 42-43\n\n```typescript\nbb.on('file', async (_name, file, _info) => {\n  const fullPath = decodeURI(req.ur",
+      "cvss_score": 7.4,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "tinacms"
+      ],
+      "published": "2026-03-12T18:32:38Z",
+      "updated": "2026-03-12T18:32:38Z",
+      "url": "https://github.com/advisories/GHSA-5hxf-c7j4-279c",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/tinacms/tinacms/security/advisories/GHSA-5hxf-c7j4-279c",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-28791",
+        "https://github.com/advisories/GHSA-5hxf-c7j4-279c"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-p2m9-wcp5-6qw3",
+      "cve_id": "CVE-2026-28356",
+      "severity": "HIGH",
+      "summary": "multipart vulnerable to ReDoS in `parse_options_header()`",
+      "description": "## Summary\n\nThe `parse_options_header()` function in `multipart.py` uses a regular expression with an *ambiguous alternation*, which can cause *exponential backtracking (ReDoS)* when parsing maliciously crafted HTTP or multipart segment headers. This can be abused for **denial of service (DoS)** attacks against web applications using this library to parse request headers or `multipart/form-data` streams.\n\n## Impact\n\nAny WSGI or ASGI application using `multipart.parse_form_data()` directly or indirectly (e.g. while parsing `multipart/form-data` streams) is vulnerable. The slow-down is significant enough to block request handling threads for multiple seconds per request.\n\n## Affected versions\n\nAll versions up to and including `1.3.0` are affected. The issue is fixed in `1.2.2`, `1.3.1` and `1.4.0-dev`.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-1333"
+      ],
+      "ecosystems": [
+        "pip",
+        "pip"
+      ],
+      "packages": [
+        "multipart",
+        "multipart"
+      ],
+      "published": "2026-03-12T18:32:18Z",
+      "updated": "2026-03-12T18:32:23Z",
+      "url": "https://github.com/advisories/GHSA-p2m9-wcp5-6qw3",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/defnull/multipart/security/advisories/GHSA-p2m9-wcp5-6qw3",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-28356",
+        "https://github.com/advisories/GHSA-p2m9-wcp5-6qw3"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-gg5m-55jj-8m5g",
+      "cve_id": "CVE-2026-32247",
+      "severity": "HIGH",
+      "summary": "Graphiti vulnerable to Cypher Injection via unsanitized node_labels in search filters",
+      "description": "### Summary\n\nGraphiti versions before `0.28.2` contained a Cypher injection vulnerability in shared search-filter construction for non-Kuzu backends. Attacker-controlled label values supplied through `SearchFilters.node_labels` were concatenated directly into Cypher label expressions without validation.\n\nIn MCP deployments, this was exploitable not only through direct untrusted access to the Graphiti MCP server, but also through prompt injection against an LLM client that could be induced to call `search_nodes` with attacker-controlled `entity_types` values. The MCP server mapped `entity_types` to `SearchFilters.node_labels`, which then reached the vulnerable Cypher construction path.\n\nAffected backends included Neo4j, FalkorDB, and Neptune. Kuzu was not affected by the label-injection issue because it used parameterized label handling rather than string-interpolated Cypher labels.\n\nThis issue was mitigated in `0.28.2`.\n\n### Affected Versions\n\n- `0.28.1` and earlier\n\n### Fixed Version\n",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-943"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "graphiti-core"
+      ],
+      "published": "2026-03-12T17:26:16Z",
+      "updated": "2026-03-12T17:26:18Z",
+      "url": "https://github.com/advisories/GHSA-gg5m-55jj-8m5g",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/getzep/graphiti/security/advisories/GHSA-gg5m-55jj-8m5g",
+        "https://github.com/getzep/graphiti/pull/1312",
+        "https://github.com/getzep/graphiti/commit/7d65d5e77e89a199a62d737634eaa26dbb04d037",
+        "https://github.com/getzep/graphiti/releases/tag/v0.28.2",
+        "https://github.com/advisories/GHSA-gg5m-55jj-8m5g"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-3q28-qjrv-qr39",
+      "cve_id": "CVE-2026-32246",
+      "severity": "HIGH",
+      "summary": "Tinyauth vulnerable to TOTP/2FA bypass via OIDC authorize endpoint",
+      "description": "### Summary\n\nThe OIDC authorization endpoint allows users with a TOTP-pending session (password verified, TOTP not yet completed) to obtain authorization codes. An attacker who knows a user's password but not their TOTP secret can obtain valid OIDC tokens, completely bypassing the second factor.\n\n### Details\n\nWhen a user with TOTP enabled logs in at `POST /api/user/login`, the server creates a session with `TotpPending: true` and returns a session cookie. The context middleware (`internal/middleware/context_middleware.go:56-66`) correctly sets `TotpPending: true` and does not set `IsLoggedIn` for these sessions.\n\nHowever, the OIDC authorize handler (`internal/controller/oidc_controller.go:105-116`) only checks whether a user context exists via `utils.GetContext(c)`. It does not check `IsLoggedIn` or `TotpPending`. Since the context middleware populates a context for TOTP-pending sessions (with the username filled in), `GetContext` succeeds, and the handler proceeds to issue an authoriz",
+      "cvss_score": 8.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:L/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-287"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/steveiliop56/tinyauth"
+      ],
+      "published": "2026-03-12T16:38:46Z",
+      "updated": "2026-03-12T16:38:49Z",
+      "url": "https://github.com/advisories/GHSA-3q28-qjrv-qr39",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/steveiliop56/tinyauth/security/advisories/GHSA-3q28-qjrv-qr39",
+        "https://github.com/steveiliop56/tinyauth/releases/tag/v5.0.3",
+        "https://github.com/advisories/GHSA-3q28-qjrv-qr39"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-2m67-cxxq-c3h8",
+      "cve_id": "CVE-2026-32232",
+      "severity": "HIGH",
+      "summary": "ZeptoClaw: Path boundary checks bypass via symlink, TOCTOU, and hardlink",
+      "description": "### Summary\nWorkspace boundary enforcement currently has three related bypass risks. This issue tracks fixing all three in one pull request.\n\n### Details\n\n#### R1 - Dangling Symlink Component Bypass\n- What happens: Path validation can miss dangling symlink components during traversal checks.\n- Why it matters: A symlink that is unresolved at validation time can later resolve to an external location.\n- Impact: Read and write operations may escape workspace boundaries.\n- Affected area: src/security/path.rs (check_symlink_escape).\n\n#### R2 - TOCTOU Between Validation and Use\n- What happens: The path is validated first, then used later for filesystem operations.\n- Why it matters: A concurrent filesystem change can swap path components after validation but before open/write.\n- Impact: Race-based workspace escape is possible.\n- Affected area: Filesystem and file-consuming tools that call validate_path_in_workspace before I/O.\n\n#### R3 - Hardlink Alias Bypass\n- What happens: A file inside work",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22",
+        "CWE-62"
+      ],
+      "ecosystems": [
+        "rust"
+      ],
+      "packages": [
+        "zeptoclaw"
+      ],
+      "published": "2026-03-12T16:37:49Z",
+      "updated": "2026-03-12T16:37:50Z",
+      "url": "https://github.com/advisories/GHSA-2m67-cxxq-c3h8",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/qhkm/zeptoclaw/security/advisories/GHSA-2m67-cxxq-c3h8",
+        "https://github.com/qhkm/zeptoclaw/pull/324",
+        "https://github.com/qhkm/zeptoclaw/commit/bf004a20d3687a0c1a9e052ec79536e30d6de134",
+        "https://github.com/qhkm/zeptoclaw/commit/f50c17e11ae3e2d40c96730abac41974ef2ee2a8",
+        "https://github.com/qhkm/zeptoclaw/releases/tag/v0.7.6",
+        "https://github.com/advisories/GHSA-2m67-cxxq-c3h8"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-46q5-g3j9-wx5c",
+      "cve_id": "CVE-2026-32231",
+      "severity": "HIGH",
+      "summary": "ZeptoClaw: Generic webhook channel trusts caller-supplied identity fields; allowlist is checked against untrusted payload data",
+      "description": "### Summary\nThe generic webhook channel trusts caller-supplied identity fields (`sender`, `chat_id`) from the request body and applies authorization checks to those untrusted values. Because authentication is optional and defaults to disabled (`auth_token: None`), an attacker who can reach `POST /webhook` can spoof an allowlisted sender and choose arbitrary `chat_id` values, enabling high-risk message spoofing and potential IDOR-style session/chat routing abuse.\n\n### Details\nRelevant code paths:\n\n- `src/channels/webhook.rs:121` sets runtime default `auth_token: None`.\n- `src/config/types.rs:910` also defaults webhook config `auth_token` to `None`.\n- `src/channels/webhook.rs:224` (`validate_auth`) explicitly allows requests when no token is configured.\n- `src/channels/webhook.rs:128` defines `WebhookPayload` with identity fields fully controlled by caller input:\n  - `sender: String`\n  - `chat_id: String`\n- `src/channels/webhook.rs:421` performs allowlist authorization using `payload.sen",
+      "cvss_score": 8.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-306",
+        "CWE-345"
+      ],
+      "ecosystems": [
+        "rust"
+      ],
+      "packages": [
+        "zeptoclaw"
+      ],
+      "published": "2026-03-12T16:36:48Z",
+      "updated": "2026-03-12T16:36:48Z",
+      "url": "https://github.com/advisories/GHSA-46q5-g3j9-wx5c",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/qhkm/zeptoclaw/security/advisories/GHSA-46q5-g3j9-wx5c",
+        "https://github.com/qhkm/zeptoclaw/pull/324",
+        "https://github.com/qhkm/zeptoclaw/commit/bf004a20d3687a0c1a9e052ec79536e30d6de134",
+        "https://github.com/qhkm/zeptoclaw/releases/tag/v0.7.6",
+        "https://github.com/advisories/GHSA-46q5-g3j9-wx5c"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mm78-fgq8-6pgr",
+      "cve_id": "CVE-2026-32101",
+      "severity": "HIGH",
+      "summary": "StudioCMS S3 Storage Manager Authorization Bypass via Missing `await` on Async Auth Check",
+      "description": "## Summary\n\nThe S3 storage manager's `isAuthorized()` function is declared `async` (returns `Promise<boolean>`) but is called without `await` in both the POST and PUT handlers. Since a Promise object is always truthy in JavaScript, `!isAuthorized(type)` always evaluates to `false`, completely bypassing the authorization check. Any authenticated user with the lowest `visitor` role can upload, delete, rename, and list all files in the S3 bucket.\n\n## Details\n\nThe `isAuthorized` function is typed as returning `Promise<boolean>` in `packages/studiocms/src/handlers/storage-manager/definitions.ts:88`:\n\n```typescript\nexport type ParsedContext = {\n    getJson: () => Promise<ContextJsonBody>;\n    getArrayBuffer: () => Promise<ArrayBuffer>;\n    getHeader: (name: string) => string | null;\n    isAuthorized: (type?: AuthorizationType) => Promise<boolean>;  // async\n};\n```\n\nBoth context drivers implement it as `async` \u2014 `packages/studiocms/src/handlers/storage-manager/core/effectify-astro-context.ts:",
+      "cvss_score": 7.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@studiocms/s3-storage"
+      ],
+      "published": "2026-03-12T14:49:30Z",
+      "updated": "2026-03-12T14:49:31Z",
+      "url": "https://github.com/advisories/GHSA-mm78-fgq8-6pgr",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/withstudiocms/studiocms/security/advisories/GHSA-mm78-fgq8-6pgr",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-32101",
+        "https://github.com/advisories/GHSA-mm78-fgq8-6pgr"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4hjq-9h5c-252j",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Traefik: HTTP/2 frames can cause a running server to panic",
+      "description": "## Summary\n\nMore Details:\n- https://nvd.nist.gov/vuln/detail/CVE-2026-27141\n- https://pkg.go.dev/golang.org/x/net/http2?tab=versions\n\n## Patches\n\n- https://github.com/traefik/traefik/releases/tag/v3.6.10\n- https://github.com/traefik/traefik/releases/tag/v2.11.40\n\n## For more information\n\nIf you have any questions or comments about this advisory, please [open an issue](https://github.com/traefik/traefik/issues).",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-476"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/traefik/traefik/v2",
+        "github.com/traefik/traefik/v3"
+      ],
+      "published": "2026-03-12T14:48:02Z",
+      "updated": "2026-03-12T14:48:03Z",
+      "url": "https://github.com/advisories/GHSA-4hjq-9h5c-252j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/traefik/traefik/security/advisories/GHSA-4hjq-9h5c-252j",
+        "https://github.com/traefik/traefik/releases/tag/v2.11.40",
+        "https://github.com/traefik/traefik/releases/tag/v3.6.10",
+        "https://github.com/advisories/GHSA-4hjq-9h5c-252j"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-56cv-c5p2-j2wg",
+      "cve_id": "CVE-2026-32110",
+      "severity": "HIGH",
+      "summary": "SiYuan has a Full-Read SSRF via /api/network/forwardProxy",
+      "description": "### Summary\nThe `/api/network/forwardProxy` endpoint allows authenticated users to make arbitrary HTTP requests from the server. The endpoint accepts a user-controlled URL and makes HTTP requests to it, returning the full response body and headers. There is no URL validation to prevent requests to internal networks, localhost, or cloud metadata services.\n\n### Affected Code\nFile: `/kernel/api/network.go` (Lines `153-317`)\n```\nfunc forwardProxy(c *gin.Context) {\n    ret := gulu.Ret.NewResult()\n    defer c.JSON(http.StatusOK, ret)\n\n    arg, ok := util.JsonArg(c, ret)\n    if !ok {\n        return\n    }\n\n    destURL := arg[\"url\"].(string)\n    // VULNERABILITY: Only validates URL format, not destination\n    if _, e := url.ParseRequestURI(destURL); nil != e {\n        ret.Code = -1\n        ret.Msg = \"invalid [url]\"\n        return\n    }\n\n    // ... HTTP request is made to user-controlled URL ...\n    resp, err := request.Send(method, destURL)\n    \n    // Full response body is returned to the user",
+      "cvss_score": 8.3,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/siyuan-note/siyuan/kernel"
+      ],
+      "published": "2026-03-12T14:23:14Z",
+      "updated": "2026-03-12T14:23:15Z",
+      "url": "https://github.com/advisories/GHSA-56cv-c5p2-j2wg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/siyuan-note/siyuan/security/advisories/GHSA-56cv-c5p2-j2wg",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-32110",
+        "https://github.com/advisories/GHSA-56cv-c5p2-j2wg"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-qcc4-p59m-p54m",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Sandbox dangling-symlink alias handling could bypass workspace-only write boundary",
+      "description": "### Summary\nA sandbox boundary-validation gap in symlink alias handling allowed certain workspace-only write paths to be treated as in-boundary even when they could resolve outside the workspace/sandbox root.\n\n### Affected Packages / Versions\n- Package: npm `openclaw`\n- Affected versions: `<= 2026.2.25`\n- Latest published npm version included in affected range: `2026.2.25` (checked on February 26, 2026)\n- Patched version (pre-set for release): `2026.2.26`\n\n### Technical Details\nIn affected versions, dangling symlink hops could be accepted during boundary checks under missing-target conditions. For workspace-only write flows (including `apply_patch`), this could allow writes to resolve outside the configured workspace/sandbox boundary.\n\nThe fix resolves symlink targets through existing ancestors and fails closed when canonical resolution escapes the configured boundary.\n\n### Impact\n- Boundary-confined write operations could be redirected outside the configured workspace/sandbox root.\n- ",
+      "cvss_score": 7.0,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-59",
+        "CWE-367"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-12T14:21:54Z",
+      "updated": "2026-03-12T14:21:54Z",
+      "url": "https://github.com/advisories/GHSA-qcc4-p59m-p54m",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-qcc4-p59m-p54m",
+        "https://github.com/openclaw/openclaw/commit/4fd29a35bb85a1898ebff518364c467058b50e14",
+        "https://github.com/advisories/GHSA-qcc4-p59m-p54m"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mgrq-9f93-wpp5",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: workspace path guard bypass on non-existent out-of-root symlink leaf",
+      "description": "### Summary\n`openclaw` had a workspace boundary bypass in workspace-only path validation: when an in-workspace symlink pointed outside the workspace to a non-existent leaf, the first write could pass validation and create the file outside the workspace.\n\n### Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Vulnerable versions: `<= 2026.2.25`\n- Patched versions: `>= 2026.2.26` (pre-set for next planned release)\n- Latest published npm version at update time: `2026.2.25`\n\n### Details\nThe boundary check path resolved aliases in a way that allowed a non-existent out-of-root symlink target to pass the initial validation window. A first write through the guarded workspace path could therefore escape the workspace boundary.\n\nThe fix hardens canonical boundary resolution so missing-leaf alias paths are evaluated against canonical containment, while preserving valid in-root aliases. This closes the first-write escape condition without regressing valid in-root alias usage.\n\n### Fix Comm",
+      "cvss_score": 7.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22",
+        "CWE-59"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-12T14:21:49Z",
+      "updated": "2026-03-12T14:21:50Z",
+      "url": "https://github.com/advisories/GHSA-mgrq-9f93-wpp5",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-mgrq-9f93-wpp5",
+        "https://github.com/openclaw/openclaw/commit/1aef45bc060b28a0af45a67dc66acd36aef763c9",
+        "https://github.com/openclaw/openclaw/commit/46eba86b45e9db05b7b792e914c4fe0de1b40a23",
+        "https://github.com/advisories/GHSA-mgrq-9f93-wpp5"
+      ]
+    }
+  ],
   "urlhaus_iocs": [],
   "kev_stats": {
     "total_kev_entries": 1540,
@@ -338,7 +779,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-12T17:01:10.921141+00:00",
+    "catalog_version": "2026-03-12T20:40:00.361680+00:00",
     "source": "CISA KEV"
   }
 }
