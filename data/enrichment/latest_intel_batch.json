@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-13T08:46:16.174551+00:00",
+  "timestamp": "2026-03-13T16:45:16.179681+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -292,7 +292,442 @@
       "poc_public": true
     }
   ],
-  "github_advisories": [],
+  "github_advisories": [
+    {
+      "ghsa_id": "GHSA-mj4p-rc52-m843",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Sandbox staged writes could escape the verified parent directory before commit",
+      "description": "## Summary\nIn affected versions of `openclaw`, sandbox fs-bridge writes validated the destination before commit, but temporary file creation and population were not pinned to a verified parent directory. A raced parent-path alias change could cause the staged temp file to be created outside the intended writable mount before the final guarded replace step.\n\n## Impact\nThis is a sandbox boundary bypass affecting integrity and availability within the writable mount scope. Attacker-controlled bytes could be written outside the intended validated path before the final guarded step ran.\n\n## Affected Packages and Versions\n- Package: `openclaw` (npm)\n- Affected versions: `<= 2026.3.8`\n- Fixed in: `2026.3.11`\n\n## Technical Details\nThe older staging flow created and wrote the temporary file using target-directory shell path operations before the final replace step revalidated the destination. That meant the last guard protected only the final rename, not the earlier temp-file materialization pat",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:C/C:N/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-59",
+        "CWE-367"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-13T15:48:16Z",
+      "updated": "2026-03-13T15:48:17Z",
+      "url": "https://github.com/advisories/GHSA-mj4p-rc52-m843",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-mj4p-rc52-m843",
+        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.11",
+        "https://github.com/advisories/GHSA-mj4p-rc52-m843"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-qc36-x95h-7j53",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Unrecognized script runners could bypass `system.run` approval integrity",
+      "description": "## Summary\nIn affected versions of `openclaw`, node-host `system.run` approvals did not bind a mutable file operand for some script runners, including forms such as `tsx` and `jiti`. An attacker could obtain approval for a benign script-runner command, rewrite the referenced script on disk, and have the modified code execute under the already approved run context.\n\n## Impact\nDeployments that rely on node-host `system.run` approvals for script integrity could execute rewritten local code after operator approval. This can lead to unintended local code execution as the OpenClaw runtime user.\n\n## Affected Packages and Versions\n- Package: `openclaw` (npm)\n- Affected versions: `< 2026.3.11`\n- Fixed in: `2026.3.11`\n\n## Technical Details\nThe approval planner only tracked mutable script operands for a hardcoded set of interpreters and runtime forms. Commands such as `tsx ./run.ts` and `jiti ./run.ts` fell through without a bound file snapshot, so the final pre-execution revalidation step was sk",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:R/S:C/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-13T15:48:05Z",
+      "updated": "2026-03-13T15:48:05Z",
+      "url": "https://github.com/advisories/GHSA-qc36-x95h-7j53",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-qc36-x95h-7j53",
+        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.11",
+        "https://github.com/advisories/GHSA-qc36-x95h-7j53"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-rw39-5899-8mxp",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Node-host approvals could show misleading shell payloads instead of the executed argv",
+      "description": "## Summary\nIn affected versions of `openclaw`, node-host `system.run` approvals could display only an extracted shell payload such as `jq --version` while execution still ran a different outer wrapper argv such as `./env sh -c 'jq --version'`.\n\n## Impact\nThis is an approval-integrity bug. An attacker who could place or select a local wrapper binary and induce a wrapper-shaped command could get local code executed after the operator approved misleading command text.\n\n## Affected Packages and Versions\n- Package: `openclaw` (npm)\n- Affected versions: `<= 2026.3.8`\n- Fixed in: `2026.3.11`\n\n## Technical Details\nWrapper resolution normalized executables by basename and extracted inner shell payload text for approval display, while execution still preserved the full wrapper argv. Approval storage and UI therefore showed text that did not match the exact command OpenClaw would execute.\n\n## Fix\nOpenClaw now binds approvals to the exact executed argv and keeps extracted shell payload text only a",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:R/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-436",
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-13T15:47:46Z",
+      "updated": "2026-03-13T15:47:47Z",
+      "url": "https://github.com/advisories/GHSA-rw39-5899-8mxp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-rw39-5899-8mxp",
+        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.11",
+        "https://github.com/advisories/GHSA-rw39-5899-8mxp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-xf99-j42q-5w5p",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Unbound interpreter and runtime commands could bypass node-host approval integrity",
+      "description": "## Summary\nIn affected versions of `openclaw`, node-host `system.run` approvals could still execute rewritten local code for interpreter and runtime commands when OpenClaw could not bind exactly one concrete local file operand during approval planning.\n\n## Impact\nDeployments using node-host `system.run` approval mode could approve a benign local script and then execute different local code if that script changed before execution. This can lead to unintended local code execution as the OpenClaw runtime user.\n\n## Affected Packages and Versions\n- Package: `openclaw` (npm)\n- Affected versions: `<= 2026.3.8`\n- Fixed in: `2026.3.11`\n\n## Technical Details\nThe approval flow treated some interpreter and runtime forms as approval-backed even when it could not honestly bind a single direct local script file. That left residual approval-integrity gaps for runtime forms outside the directly bound file set.\n\n## Fix\nOpenClaw now fails closed for approval-backed interpreter and runtime commands unless",
+      "cvss_score": 7.3,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-367"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-13T15:47:41Z",
+      "updated": "2026-03-13T15:47:42Z",
+      "url": "https://github.com/advisories/GHSA-xf99-j42q-5w5p",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-xf99-j42q-5w5p",
+        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.11",
+        "https://github.com/advisories/GHSA-xf99-j42q-5w5p"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4w7m-58cg-cmff",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Leaf subagents could steer sibling sessions across sandbox boundaries",
+      "description": "## Summary\nIn affected versions of `openclaw`, sandboxed leaf subagents could still access the `subagents` control surface and resolve against the parent requester scope instead of remaining confined to their own session tree.\n\n## Impact\nA low-privilege sandboxed leaf worker could steer or kill a sibling run owned by the same requester and cause that sibling to execute with its own broader tool policy. This is a sandbox and session-scope boundary bypass.\n\n## Affected Packages and Versions\n- Package: `openclaw` (npm)\n- Affected versions: `<= 2026.3.8`\n- Fixed in: `2026.3.11`\n\n## Technical Details\nLeaf subagents retained the `subagents` tool, and subagent control requests were authorized against the parent requester scope rather than the caller's own spawned descendants. The control path prevented only self-targeting, not cross-sibling steering.\n\n## Fix\nOpenClaw now removes `subagents` control access from leaf subagents by default, scopes subagent control to the caller's own descendants,",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-269"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-13T15:47:34Z",
+      "updated": "2026-03-13T15:47:35Z",
+      "url": "https://github.com/advisories/GHSA-4w7m-58cg-cmff",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-4w7m-58cg-cmff",
+        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.11",
+        "https://github.com/advisories/GHSA-4w7m-58cg-cmff"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-25h7-pfq9-p65f",
+      "cve_id": "CVE-2026-32141",
+      "severity": "HIGH",
+      "summary": "flatted vulnerable to unbounded recursion DoS in parse() revive phase",
+      "description": "## Summary\n\nflatted's `parse()` function uses a recursive `revive()` phase to resolve circular references in deserialized JSON. When given a crafted payload with deeply nested or self-referential `$` indices, the recursion depth is unbounded, causing a stack overflow that crashes the Node.js process.\n\n## Impact\n\nDenial of Service (DoS). Any application that passes untrusted input to `flatted.parse()` can be crashed by an unauthenticated attacker with a single request.\n\nflatted has ~87M weekly npm downloads and is used as the circular-JSON serialization layer in many caching and logging libraries.\n\n## Proof of Concept\n\n```javascript\nconst flatted = require('flatted');\n\n// Build deeply nested circular reference chain\nconst depth = 20000;\nconst arr = new Array(depth + 1);\narr[0] = '{\"a\":\"1\"}';\nfor (let i = 1; i <= depth; i++) {\n  arr[i] = `{\"a\":\"${i + 1}\"}`;\n}\narr[depth] = '{\"a\":\"leaf\"}';\n\nconst payload = JSON.stringify(arr);\nflatted.parse(payload); // RangeError: Maximum call stack size ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-674"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "flatted"
+      ],
+      "published": "2026-03-13T15:40:42Z",
+      "updated": "2026-03-13T15:40:44Z",
+      "url": "https://github.com/advisories/GHSA-25h7-pfq9-p65f",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WebReflection/flatted/security/advisories/GHSA-25h7-pfq9-p65f",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-32141",
+        "https://github.com/WebReflection/flatted/pull/88",
+        "https://github.com/WebReflection/flatted/commit/7eb65d857e1a40de11c47461cdbc8541449f0606",
+        "https://github.com/advisories/GHSA-25h7-pfq9-p65f"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-g2p6-hh5v-7hfm",
+      "cve_id": "CVE-2026-32129",
+      "severity": "HIGH",
+      "summary": "Poseidon V1 variable-length input collision via implicit zero-padding",
+      "description": "## Impact\n\nPoseidon V1 (`PoseidonSponge`) accepts variable-length inputs without injective padding. When a caller provides fewer inputs than the sponge rate (`inputs.len() < T - 1`), unused rate positions are implicitly zero-filled. This allows trivial hash collisions: for any input vector `[m1, ..., mk]` hashed with a sponge of rate > k, `hash([m1, ..., mk])` equals `hash([m1, ..., mk, 0])` because both produce identical pre-permutation states.\n\nThis affects any use of `PoseidonSponge` or `poseidon_hash` where the number of inputs is less than `T - 1` (e.g., hashing 1 input with `T=3`).\n\nPoseidon2 (`Poseidon2Sponge`) is **not affected** \u2014 it encodes the input length in the capacity element (`IV = input_len << 64`), making different-length inputs produce distinct states.\n\n## Patches\n\nFixed by enforcing `inputs.len() == RATE` in `PoseidonSponge::compute_hash`, matching circom's invariant that `nInputs` always equals `T - 1`. Users should upgrade to the next release containing this fix.\n",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-328"
+      ],
+      "ecosystems": [
+        "rust"
+      ],
+      "packages": [
+        "soroban-poseidon"
+      ],
+      "published": "2026-03-13T15:40:31Z",
+      "updated": "2026-03-13T15:40:34Z",
+      "url": "https://github.com/advisories/GHSA-g2p6-hh5v-7hfm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/stellar/rs-soroban-poseidon/security/advisories/GHSA-g2p6-hh5v-7hfm",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-32129",
+        "https://github.com/stellar/rs-soroban-poseidon/pull/10",
+        "https://github.com/stellar/rs-soroban-poseidon/commit/ceb20d3593fc4a8a951a7e99d8fa2344f8250a8c",
+        "https://github.com/stellar/rs-soroban-poseidon/releases/tag/v25.0.1",
+        "https://github.com/advisories/GHSA-g2p6-hh5v-7hfm"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4g4c-mfqg-pj8r",
+      "cve_id": "CVE-2026-32116",
+      "severity": "HIGH",
+      "summary": "Magic Wormhole: \"wormhole receive\" allows arbitrary local file overwrite",
+      "description": "### Impact\n_What kind of vulnerability is it? Who is impacted?_\n\nReceiving a file (`wormhole receive`) from a malicious party could result in overwriting critical local files, including `~/.ssh/authorized_keys` and `.bashrc`. This could be used to compromise the receiver's computer.\n\nOnly the sender of the file (the party who runs `wormhole send`) can mount the attack. Other parties (including the transit/relay servers) are excluded by the wormhole protocol.\n\n### Patches\n_Has the problem been patched? What versions should users upgrade to?_\n\nThe bug has been fixed in magic-wormhole 0.23.0. All users should upgrade to this version.\n\nThe vulnerability first surfaced in the 0.21.0 release on 23-Oct-2025.\n\n### Workarounds\n_Is there a way for users to fix or remediate the vulnerability without upgrading?_\n\nAs a workaround, the receiver can override the sender's filename with the `--output` or `-o` option. For example: `wormhole receive -o shopping-list.txt` will write the file to `shopping-",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "magic-wormhole"
+      ],
+      "published": "2026-03-13T15:40:20Z",
+      "updated": "2026-03-13T15:40:24Z",
+      "url": "https://github.com/advisories/GHSA-4g4c-mfqg-pj8r",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/magic-wormhole/magic-wormhole/security/advisories/GHSA-4g4c-mfqg-pj8r",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-32116",
+        "https://github.com/advisories/GHSA-4g4c-mfqg-pj8r"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-9wmw-9wph-2vwp",
+      "cve_id": "CVE-2026-31882",
+      "severity": "HIGH",
+      "summary": "Dagu: SSE Authentication Bypass in Basic Auth Mode",
+      "description": "# SSE Authentication Bypass in Basic Auth Mode\n\n## Summary\n\nWhen Dagu is configured with HTTP Basic authentication (`DAGU_AUTH_MODE=basic`), all Server-Sent Events (SSE) endpoints are accessible without any credentials. This allows unauthenticated attackers to access real-time DAG execution data, workflow configurations, execution logs, and queue status \u2014 bypassing the authentication that protects the REST API.\n\n## Severity\n\n**HIGH** (CVSS 3.1: 7.5 \u2014 AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N)\n\n## Affected Versions\n\n- dagu v2.2.3 (latest) and likely all versions with basic auth support\n\n## Affected Component\n\n`internal/service/frontend/server.go` \u2014 `buildStreamAuthOptions()` function (lines 1177\u20131201)\n\n## Root Cause\n\nThe `buildStreamAuthOptions()` function builds authentication options for SSE/streaming endpoints. When the auth mode is `basic`, it returns an `auth.Options` struct with `BasicAuthEnabled: true` but `AuthRequired` defaults to `false` (Go zero value):\n\n```go\n// server.go:1195-120",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-306"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "dagu"
+      ],
+      "published": "2026-03-13T15:05:32Z",
+      "updated": "2026-03-13T15:05:35Z",
+      "url": "https://github.com/advisories/GHSA-9wmw-9wph-2vwp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/dagu-org/dagu/security/advisories/GHSA-9wmw-9wph-2vwp",
+        "https://github.com/dagu-org/dagu/commit/064616c9b80c04824c1c7c357308f77f3f24d775",
+        "https://github.com/dagu-org/dagu/releases/tag/v2.2.4",
+        "https://github.com/advisories/GHSA-9wmw-9wph-2vwp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-m9pm-w3gv-c68f",
+      "cve_id": "CVE-2026-32319",
+      "severity": "HIGH",
+      "summary": "Ella Core vulnerable to Unauthenticated AMF DoS via malformed InitialUEMessage with undersized integrity-protected NAS payload",
+      "description": "## Summary\n\nElla Core panics when processing a malformed integrity protected NGAP/NAS message with a length under 7 bytes.\n\n## Impact\n\nAn attacker able to send crafted NAS messages to Ella Core can crash the process, causing service disruption for all connected subscribers. No authentication is required.\n\n## Fix\n\nAdded length verification to NAS message handling.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-125"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/ellanetworks/core"
+      ],
+      "published": "2026-03-12T20:33:22Z",
+      "updated": "2026-03-13T09:54:46Z",
+      "url": "https://github.com/advisories/GHSA-m9pm-w3gv-c68f",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ellanetworks/core/security/advisories/GHSA-m9pm-w3gv-c68f",
+        "https://github.com/ellanetworks/core/releases/tag/v1.5.1",
+        "https://github.com/advisories/GHSA-m9pm-w3gv-c68f"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-5wcw-8jjv-m286",
+      "cve_id": "CVE-2026-32302",
+      "severity": "HIGH",
+      "summary": "OpenClaw: Untrusted web origins can obtain authenticated operator.admin access in trusted-proxy mode",
+      "description": "## Summary\nIn affected versions of `openclaw`, browser-originated WebSocket connections could bypass origin validation when `gateway.auth.mode` was set to `trusted-proxy` and the request arrived with proxy headers. A page served from an untrusted origin could connect through a trusted reverse proxy, inherit proxy-authenticated identity, and establish a privileged operator session.\n\n## Impact\nThis issue affects deployments that expose the Gateway behind a trusted reverse proxy and rely on browser origin checks such as `controlUi.allowedOrigins` to restrict browser access. An attacker who can cause a victim browser to load a malicious page that can reach the proxy endpoint could establish a cross-site WebSocket connection and call privileged Gateway methods.\n\nIn verified impact, the attacker-origin page was able to request `operator.admin` and successfully call `config.get`, exposing sensitive configuration. Depending on the deployment, the same authenticated operator path could also per",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-346"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-12T20:32:59Z",
+      "updated": "2026-03-12T20:32:59Z",
+      "url": "https://github.com/advisories/GHSA-5wcw-8jjv-m286",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-5wcw-8jjv-m286",
+        "https://github.com/openclaw/openclaw/commit/ebed3bbde1a72a1aaa9b87b63b91e7c04a50036b",
+        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.11",
+        "https://github.com/advisories/GHSA-5wcw-8jjv-m286"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-2f24-mg4x-534q",
+      "cve_id": "CVE-2026-28793",
+      "severity": "HIGH",
+      "summary": "TinaCMS Vulnerable to Path Traversal Leading to Arbitrary File Read, Write and Delete",
+      "description": "## Summary\nThe TinaCMS CLI development server exposes media endpoints that are vulnerable to path traversal, allowing attackers to read and write arbitrary files on the filesystem outside the intended media directory.\n\n## Details\nWhen running tinacms dev, the CLI starts a local HTTP server (default port 4001) exposing endpoints such as:\n\n- /media/list/*\n\n- /media/upload/*\n\n- /media/*\n\nThese endpoints process user-controlled path segments using decodeURI() and path.join() without validating that the resolved path remains within the configured media directory.\n\n### Vulnerable code\n```\nbb.on('file', async (_name, file, _info) => {\n      const fullPath = decodeURI(req.url?.slice('/media/upload/'.length));\n      const saveTo = path.join(mediaFolder, ...fullPath.split('/'));\n// No validation that saveTo remains within mediaFolder\n      await fs.ensureDir(path.dirname(saveTo));\n      file.pipe(fs.createWriteStream(saveTo));\n    });\n```\n## PoC\n**Arbitrary File Read**\n```\ncurl \"http://localhost",
+      "cvss_score": 8.4,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@tinacms/cli"
+      ],
+      "published": "2026-03-12T20:32:26Z",
+      "updated": "2026-03-12T20:32:29Z",
+      "url": "https://github.com/advisories/GHSA-2f24-mg4x-534q",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/tinacms/tinacms/security/advisories/GHSA-2f24-mg4x-534q",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-28793",
+        "https://github.com/advisories/GHSA-2f24-mg4x-534q"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-3936-cmfr-pm3m",
+      "cve_id": "CVE-2026-32274",
+      "severity": "HIGH",
+      "summary": "Black: Arbitrary file writes from unsanitized user input in cache file name",
+      "description": "### Impact\n\nBlack writes a cache file, the name of which is computed from various formatting options. The value of the `--python-cell-magics` option was placed in the filename without sanitization, which allowed an attacker who controls the value of this argument to write cache files to arbitrary file system locations. \n\n### Patches\n\nFixed in Black 26.3.1.\n\n### Workarounds\n\nDo not allow untrusted user input into the value of the `--python-cell-magics` option.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "black"
+      ],
+      "published": "2026-03-12T18:33:10Z",
+      "updated": "2026-03-13T13:36:21Z",
+      "url": "https://github.com/advisories/GHSA-3936-cmfr-pm3m",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/psf/black/security/advisories/GHSA-3936-cmfr-pm3m",
+        "https://github.com/psf/black/pull/5038",
+        "https://github.com/psf/black/commit/4937fe6cf241139ddbfc16b0bdbb5b422798909d",
+        "https://github.com/psf/black/releases/tag/26.3.1",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-32274",
+        "https://github.com/advisories/GHSA-3936-cmfr-pm3m"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-5hxf-c7j4-279c",
+      "cve_id": "CVE-2026-28791",
+      "severity": "HIGH",
+      "summary": "Tina: Path Traversal in Media Upload Handle",
+      "description": "## Affected Package\n\n| Field | Value |\n|-------|-------|\n| **Package** | `@tinacms/cli` |\n| **Version** | `2.0.5` (latest at time of discovery) |\n| **Vulnerable File** | `packages/@tinacms/cli/src/next/commands/dev-command/server/media.ts` |\n| **Vulnerable Lines** | 42-43 |\n\n---\n\n## Summary\n\nA **path traversal vulnerability (CWE-22)** exists in the TinaCMS development server's media upload handler. The code at `media.ts:42-43` joins user-controlled path segments using `path.join()` without validating that the resulting path stays within the intended media directory. This allows writing files to arbitrary locations on the filesystem.\n\n**Attack Vector**: Network (HTTP POST request)  \n**Impact**: Arbitrary file write, potential Remote Code Execution\n\n---\n\n## Details\n\n### Vulnerable Code Location\n\n**File**: `packages/@tinacms/cli/src/next/commands/dev-command/server/media.ts`  \n**Lines**: 42-43\n\n```typescript\nbb.on('file', async (_name, file, _info) => {\n  const fullPath = decodeURI(req.ur",
+      "cvss_score": 7.4,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "tinacms"
+      ],
+      "published": "2026-03-12T18:32:38Z",
+      "updated": "2026-03-12T18:32:38Z",
+      "url": "https://github.com/advisories/GHSA-5hxf-c7j4-279c",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/tinacms/tinacms/security/advisories/GHSA-5hxf-c7j4-279c",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-28791",
+        "https://github.com/advisories/GHSA-5hxf-c7j4-279c"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-p2m9-wcp5-6qw3",
+      "cve_id": "CVE-2026-28356",
+      "severity": "HIGH",
+      "summary": "multipart vulnerable to ReDoS in `parse_options_header()`",
+      "description": "## Summary\n\nThe `parse_options_header()` function in `multipart.py` uses a regular expression with an *ambiguous alternation*, which can cause *exponential backtracking (ReDoS)* when parsing maliciously crafted HTTP or multipart segment headers. This can be abused for **denial of service (DoS)** attacks against web applications using this library to parse request headers or `multipart/form-data` streams.\n\n## Impact\n\nAny WSGI or ASGI application using `multipart.parse_form_data()` directly or indirectly (e.g. while parsing `multipart/form-data` streams) is vulnerable. The slow-down is significant enough to block request handling threads for multiple seconds per request.\n\n## Affected versions\n\nAll versions up to and including `1.3.0` are affected. The issue is fixed in `1.2.2`, `1.3.1` and `1.4.0-dev`.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-1333"
+      ],
+      "ecosystems": [
+        "pip",
+        "pip"
+      ],
+      "packages": [
+        "multipart",
+        "multipart"
+      ],
+      "published": "2026-03-12T18:32:18Z",
+      "updated": "2026-03-12T18:32:23Z",
+      "url": "https://github.com/advisories/GHSA-p2m9-wcp5-6qw3",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/defnull/multipart/security/advisories/GHSA-p2m9-wcp5-6qw3",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-28356",
+        "https://github.com/advisories/GHSA-p2m9-wcp5-6qw3"
+      ]
+    }
+  ],
   "urlhaus_iocs": [],
   "kev_stats": {
     "total_kev_entries": 1540,
@@ -338,7 +773,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-13T08:46:16.674796+00:00",
+    "catalog_version": "2026-03-13T16:45:16.293314+00:00",
     "source": "CISA KEV"
   }
 }
