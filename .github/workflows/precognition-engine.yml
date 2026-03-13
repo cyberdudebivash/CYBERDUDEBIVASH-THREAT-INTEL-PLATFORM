@@ -1,0 +1,74 @@
+name: CDB Sentinel APEX — Precognition Engine v34.0
+
+on:
+  schedule:
+    - cron: '0 */8 * * *'  # Every 8 hours
+  workflow_dispatch:
+    inputs:
+      window_hours:
+        description: 'Signal collection lookback window (hours)'
+        required: false
+        type: number
+        default: 72
+      enable_external:
+        description: 'Enable external API collectors (NVD, CISA KEV, GitHub)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: precognition-engine
+  cancel-in-progress: false
+
+jobs:
+  predictive-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests feedparser
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run Precognition Engine
+        env:
+          MANIFEST_PATH: data/stix/feed_manifest.json
+          PREDICTIVE_DIR: data/predictive
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "═══════════════════════════════════════════════════"
+          echo "SENTINEL APEX v34.0 — PRECOGNITION ENGINE"
+          echo "Predictive Threat Intelligence Pipeline"
+          echo "═══════════════════════════════════════════════════"
+          python -m agent.v34_predictive.predictive_orchestrator
+
+      - name: Commit predictive outputs
+        run: |
+          git config user.name "CDB-GOC-Precognition"
+          git config user.email "goc@cyberdudebivash.com"
+          git add data/predictive/ || true
+          if git diff --cached --quiet; then
+            echo "No predictive changes to commit"
+          else
+            WARNING_COUNT=$(python3 -c "import json; d=json.load(open('data/predictive/precognition_report.json')); print(d.get('pipeline_stats',{}).get('early_warnings_issued',0))" 2>/dev/null || echo "0")
+            WAVE_COUNT=$(python3 -c "import json; d=json.load(open('data/predictive/precognition_report.json')); print(d.get('pipeline_stats',{}).get('attack_waves_detected',0))" 2>/dev/null || echo "0")
+            git commit -m "🔮 PRECOGNITION v34.0 — ${WARNING_COUNT} warnings | ${WAVE_COUNT} attack waves detected"
+            git push
+          fi

@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-24d9ae8a6818
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Divide and conquer: how the new Keenadu backdoor exposed links between major Android botnets"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection

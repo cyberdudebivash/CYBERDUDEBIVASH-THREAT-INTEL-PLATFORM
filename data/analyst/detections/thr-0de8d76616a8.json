@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-0de8d76616a8",
+  "title": "CVE-2026-3816 - OWASP DefectDojo SonarQubeParser/MSDefenderParser parser.py inpu",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3816 - OWASP DefectDojo SonarQubeParser/MSDefenderP\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/10\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*parser.py*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"parser.py\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"parser.py\")"
+  },
+  "rule_count": 3
+}

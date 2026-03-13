@@ -1,0 +1,18 @@
+{
+  "threat_id": "thr-8a3dde0ce838",
+  "title": "CVE-2026-31888 - Shopware has user enumeration via distinct error codes on Store",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-31888 - Shopware has user enumeration via distinct \nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/13\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '6.6.10.15'\n            - '6.7.8.1'\n    condition: selection_ip\nlevel: high",
+    "suricata": [
+      "alert ip any any -> 6.6.10.15 any (msg:\"CDB APEX \u2014 CVE_2026_31888___Shopware_has_\"; sid:2238866; rev:1;)",
+      "alert ip any any -> 6.7.8.1 any (msg:\"CDB APEX \u2014 CVE_2026_31888___Shopware_has_\"; sid:1469618; rev:1;)"
+    ],
+    "snort": [
+      "alert ip any any -> 6.6.10.15 any (msg:\"CDB APEX CVE_2026_31888___Shopware_has_\"; sid:8245894; rev:1;)",
+      "alert ip any any -> 6.7.8.1 any (msg:\"CDB APEX CVE_2026_31888___Shopware_has_\"; sid:2127346; rev:1;)"
+    ],
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"6.6.10.15\",\n              \"6.7.8.1\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteIP in (\"6.6.10.15\", \"6.7.8.1\")"
+  },
+  "rule_count": 7
+}

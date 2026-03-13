@@ -1,0 +1,48 @@
+{
+  "subsystem": "S9_Quantum_Crypto_Auditor",
+  "quantum_readiness_score": 10,
+  "quantum_risk_level": "LOW",
+  "vulnerable_algorithms_detected": 0,
+  "findings": [],
+  "platform_crypto_audit": {
+    "stix_transport": {
+      "protocol": "HTTPS/TLS",
+      "quantum_risk": "MEDIUM",
+      "note": "TLS 1.3 uses ECDHE \u2014 quantum vulnerable for key exchange"
+    },
+    "jwt_tokens": {
+      "algorithm": "HS256",
+      "quantum_risk": "LOW",
+      "note": "Symmetric crypto \u2014 quantum resistant (Grover halves keyspace)"
+    },
+    "api_keys": {
+      "method": "SHA-256 hash",
+      "quantum_risk": "LOW",
+      "note": "SHA-256 has adequate quantum margin"
+    }
+  },
+  "pqc_migration_roadmap": [
+    {
+      "algorithm": "ML-KEM (CRYSTALS-Kyber)",
+      "use": "Key Encapsulation",
+      "nist_status": "FIPS 203 (Approved)"
+    },
+    {
+      "algorithm": "ML-DSA (CRYSTALS-Dilithium)",
+      "use": "Digital Signatures",
+      "nist_status": "FIPS 204 (Approved)"
+    },
+    {
+      "algorithm": "SLH-DSA (SPHINCS+)",
+      "use": "Hash-based Signatures",
+      "nist_status": "FIPS 205 (Approved)"
+    },
+    {
+      "algorithm": "FN-DSA (FALCON)",
+      "use": "Compact Signatures",
+      "nist_status": "Draft Standard"
+    }
+  ],
+  "recommendation": "Begin hybrid key exchange deployment. Inventory all RSA/ECDSA usage for PQC migration.",
+  "timestamp": "2026-03-13T02:52:40.263883+00:00"
+}

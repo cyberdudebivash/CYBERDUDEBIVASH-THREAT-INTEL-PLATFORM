@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-f01bad1052aa
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Exposing the Undercurrent: Disrupting the GRIDTIDE Global Cyber Espionage Campaign"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection

@@ -1,0 +1,89 @@
+name: CDB Platform Status Monitor
+
+on:
+  schedule:
+    - cron: '0 */1 * * *'   # Every hour — generates fresh status page
+  workflow_dispatch:         # Manual trigger
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  status-check:
+    name: Platform Health Check & Status Page Generation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Create status directory
+        run: mkdir -p data/status
+
+      - name: Run Platform Status Monitor
+        env:
+          CDB_API_URL: ${{ vars.CDB_API_URL || 'https://api.cyberdudebivash.com' }}
+        run: |
+          python - << 'PYEOF'
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          try:
+              from agent.monitoring.status_page import PlatformStatusMonitor
+              monitor = PlatformStatusMonitor()
+              status  = monitor.run()
+              print(f"✅ Platform Status: {status['status']}")
+              print(f"   Feed entries: {status['components']['threat_feed'].get('entry_count', 0)}")
+              print(f"   Uptime: {status['sla'].get('uptime_pct', 'N/A')}%")
+              print(f"   Status JSON: data/status/status.json")
+              print(f"   Status HTML: data/status/status.html")
+          except Exception as e:
+              print(f"Status monitor error: {e}")
+              # Fallback: generate minimal status
+              import json, time
+              from datetime import datetime, timezone
+              fallback = {
+                  "platform": "CYBERDUDEBIVASH SENTINEL APEX",
+                  "status": "MONITORING",
+                  "generated_at": datetime.now(timezone.utc).isoformat(),
+                  "note": "Status monitor initializing"
+              }
+              os.makedirs("data/status", exist_ok=True)
+              with open("data/status/status.json", "w") as f:
+                  json.dump(fallback, f, indent=2)
+          PYEOF
+
+      - name: Commit status data
+        run: |
+          git config user.email "bivash@cyberdudebivash.com"
+          git config user.name "CDB-Status-Bot"
+          git add data/status/ 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No status changes to commit."
+          else
+            git commit -m "🔍 Status update: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+            git pull origin main --rebase && git push origin main || echo "Push skipped"
+          fi
+
+      - name: Deploy status page to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./data/status
+          destination_dir: status
+          publish_branch: gh-pages
+          keep_files: true

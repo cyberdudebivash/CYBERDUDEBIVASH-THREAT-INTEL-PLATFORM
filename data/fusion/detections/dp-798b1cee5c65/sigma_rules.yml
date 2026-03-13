@@ -1,0 +1,25 @@
+title: CDB APEX — Network IOC Detection — Arkanix Stealer: a C++ & Python infostealer
+id: e76532e3-798b-1cee-5c65-798b1cee5c65
+status: experimental
+description: Detects network connections to IOCs from Arkanix Stealer: a C++ & Python infostealer
+references:
+    - https://intel.cyberdudebivash.com/
+author: CyberDudeBivash SENTINEL APEX v33.0
+date: 2026/03/06
+tags:
+    - attack.command_and_control
+    - attack.unc-cdb-99
+logsource:
+    category: firewall
+detection:
+    selection_ip:
+        dst_ip:
+    selection_dns:
+        query:
+            - '*hvnc.py*'
+            - '*stealer.py*'
+            - '*utils.cpp*'
+    condition: selection_dns
+falsepositives:
+    - Legitimate traffic to shared infrastructure
+level: high

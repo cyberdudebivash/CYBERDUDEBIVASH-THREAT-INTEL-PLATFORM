@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-0d6ff2a692ce
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Cisco fixes maximum-severity Secure FMC bugs threatening firewall security"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection

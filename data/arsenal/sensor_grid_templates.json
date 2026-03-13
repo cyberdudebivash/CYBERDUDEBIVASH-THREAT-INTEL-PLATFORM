@@ -1,0 +1,171 @@
+{
+  "subsystem": "P4_SensorGridTemplates",
+  "honeypot_configs": [
+    {
+      "id": "ssh-honeypot",
+      "name": "SSH Honeypot Sensor",
+      "protocol": "SSH",
+      "port": 22,
+      "detection_capabilities": [
+        "brute_force",
+        "credential_stuffing",
+        "lateral_movement",
+        "command_injection"
+      ],
+      "deployment": {
+        "docker": "docker run -d -p 2222:22 --name cdb-ssh-hp cyberdudebivash/ssh-honeypot:latest",
+        "telemetry_endpoint": "POST /api/v1/telemetry/ingest",
+        "event_types": [
+          "login_attempt",
+          "command_executed",
+          "session_established"
+        ]
+      },
+      "output_format": {
+        "type": "json",
+        "fields": [
+          "timestamp",
+          "src_ip",
+          "username",
+          "password",
+          "success",
+          "commands"
+        ]
+      }
+    },
+    {
+      "id": "http-honeypot",
+      "name": "HTTP Exploit Trap",
+      "protocol": "HTTP/HTTPS",
+      "port": 80,
+      "detection_capabilities": [
+        "web_scanning",
+        "exploit_attempts",
+        "path_traversal",
+        "sql_injection",
+        "xss"
+      ],
+      "deployment": {
+        "docker": "docker run -d -p 8080:80 --name cdb-http-hp cyberdudebivash/http-honeypot:latest",
+        "telemetry_endpoint": "POST /api/v1/telemetry/ingest",
+        "event_types": [
+          "request_received",
+          "exploit_attempt",
+          "scanner_detected",
+          "payload_captured"
+        ]
+      },
+      "output_format": {
+        "type": "json",
+        "fields": [
+          "timestamp",
+          "src_ip",
+          "method",
+          "path",
+          "user_agent",
+          "payload",
+          "classification"
+        ]
+      }
+    },
+    {
+      "id": "rdp-honeypot",
+      "name": "RDP Honeypot Sensor",
+      "protocol": "RDP",
+      "port": 3389,
+      "detection_capabilities": [
+        "brute_force",
+        "bluekeep_exploit",
+        "credential_spray"
+      ],
+      "deployment": {
+        "docker": "docker run -d -p 3389:3389 --name cdb-rdp-hp cyberdudebivash/rdp-honeypot:latest",
+        "telemetry_endpoint": "POST /api/v1/telemetry/ingest",
+        "event_types": [
+          "connection_attempt",
+          "auth_attempt",
+          "exploit_detected"
+        ]
+      },
+      "output_format": {
+        "type": "json",
+        "fields": [
+          "timestamp",
+          "src_ip",
+          "username",
+          "domain",
+          "exploit_type"
+        ]
+      }
+    },
+    {
+      "id": "malware-trap",
+      "name": "Malware Capture Node",
+      "protocol": "Multi",
+      "port": "Various",
+      "detection_capabilities": [
+        "malware_upload",
+        "dropper_detection",
+        "c2_callback",
+        "payload_staging"
+      ],
+      "deployment": {
+        "docker": "docker run -d --name cdb-malware-trap cyberdudebivash/malware-trap:latest",
+        "telemetry_endpoint": "POST /api/v1/telemetry/ingest",
+        "event_types": [
+          "file_uploaded",
+          "binary_captured",
+          "c2_connection",
+          "payload_decoded"
+        ]
+      },
+      "output_format": {
+        "type": "json",
+        "fields": [
+          "timestamp",
+          "src_ip",
+          "filename",
+          "sha256",
+          "file_type",
+          "c2_domain"
+        ]
+      }
+    }
+  ],
+  "honeypot_count": 4,
+  "scan_detection_schema": {
+    "scan_types": [
+      "port_scan",
+      "vulnerability_scan",
+      "service_enumeration",
+      "os_fingerprint",
+      "web_crawl"
+    ],
+    "severity_levels": {
+      "mass_scan": "HIGH",
+      "targeted_scan": "CRITICAL",
+      "passive_recon": "MEDIUM"
+    },
+    "detection_signals": {
+      "port_scan": {
+        "threshold": "50+ ports from single IP in 60s",
+        "response": "Block + alert"
+      },
+      "vulnerability_scan": {
+        "threshold": "Known scanner UA or payload pattern",
+        "response": "Log + enrich + alert"
+      },
+      "service_enumeration": {
+        "threshold": "Banner grab attempts on 10+ services",
+        "response": "Monitor + track"
+      }
+    }
+  },
+  "deployment_guide": {
+    "minimum_sensors": 4,
+    "recommended_topology": "1x SSH + 1x HTTP + 1x RDP + 1x Malware per region",
+    "telemetry_flow": "Sensor \u2192 HTTPS POST \u2192 /api/v1/telemetry/ingest \u2192 Signal Pipeline \u2192 ZDH \u2192 Fusion",
+    "estimated_setup_time": "30 minutes per sensor (Docker)"
+  },
+  "timestamp": "2026-03-12T06:52:48.143615+00:00"
+}

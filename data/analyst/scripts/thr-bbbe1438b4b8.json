@@ -1,0 +1,18 @@
+{
+  "threat_id": "thr-bbbe1438b4b8",
+  "title": "\u201cHandala Hack\u201d \u2013 Unveiling Group\u2019s Modus Operandi",
+  "scripts": [
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx handala\\.bat|handala\\.gif|handala\\.rar|i\\.gif\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-bbbe1438b4b8'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((query IN (\"handala.bat\",\"handala.gif\",\"handala.rar\",\"i.gif\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    },
+    {
+      "type": "hardening_bash",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 \u2014 Emergency Hardening Script\n# Threat: \u201cHandala Hack\u201d \u2013 Unveiling Group\u2019s Modus Operandi\n# Generated: 2026-03-13T09:09:43.356976+00:00\n\necho \"[*] Updating system packages...\"\napt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null\n\necho \"[*] Enabling firewall...\"\nufw enable 2>/dev/null || firewall-cmd --set-default-zone=drop 2>/dev/null\n\necho \"[*] Disabling unnecessary services...\"\nsystemctl disable --now telnet.socket 2>/dev/null\nsystemctl disable --now rsh.socket 2>/dev/null\n\necho \"[*] Setting secure SSH configuration...\"\nsed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config\nsystemctl restart sshd\n\necho \"[+] Hardening complete for threat: thr-bbbe1438b4b8\"\n"
+    }
+  ]
+}

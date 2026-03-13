@@ -1,0 +1,106 @@
+# =====================================================================
+# SENTINEL APEX — Dashboard Sync Workflow
+# P0 FIX: Auto-patches EMBEDDED_INTEL after every intel pipeline run
+# Ensures dashboard always serves fresh data — zero manual intervention
+# =====================================================================
+name: 🔄 Dashboard Sync — EMBEDDED_INTEL Auto-Patcher
+
+on:
+  workflow_run:
+    workflows:
+      - "🧠 Sentinel Blogger — Intel Pipeline"
+      - "⚡ GENESIS Powerhouse"
+      - "🔭 Nexus Intelligence"
+      - "🌐 Multi-Source Intel"
+    types: [completed]
+  schedule:
+    # Run every 6 hours as independent safety net
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_patch:
+        description: 'Force patch even if unchanged'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync-dashboard:
+    name: Sync Dashboard Intelligence Cache
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify Data Files Exist
+        run: |
+          echo "=== P0 Dashboard Sync Pre-Check ==="
+          if [ ! -f "data/stix/feed_manifest.json" ]; then
+            echo "❌ feed_manifest.json not found — aborting sync"
+            exit 1
+          fi
+          echo "✅ feed_manifest.json: $(python3 -c "import json; d=json.load(open('data/stix/feed_manifest.json')); items=d if isinstance(d,list) else d.get('items',[]); print(f'{len(items)} items, latest: {max(i[\"timestamp\"] for i in items)}')")"
+          if [ -f "data/v46_ultraintel/enriched_manifest.json" ]; then
+            echo "✅ enriched_manifest.json: $(python3 -c "import json; d=json.load(open('data/v46_ultraintel/enriched_manifest.json')); print(f'{len(d.get(\"items\",[]))} items')")"
+          else
+            echo "⚠️  enriched_manifest.json not found — will use feed_manifest only"
+          fi
+
+      - name: Patch EMBEDDED_INTEL in index.html
+        run: |
+          python3 scripts/update_embedded_intel.py
+
+      - name: Verify Patch Quality
+        run: |
+          python3 -c "
+          import json, re
+          with open('index.html') as f:
+              html = f.read()
+          # Extract and validate EMBEDDED_INTEL
+          m = re.search(r'const EMBEDDED_INTEL = (\[[\s\S]*?\]);', html)
+          if not m:
+              print('❌ EMBEDDED_INTEL not found in index.html')
+              exit(1)
+          data = json.loads(m.group(1))
+          critical = sum(1 for i in data if (i.get('risk_score') or 0) >= 9)
+          latest = max(i.get('timestamp','') for i in data)
+          enriched = sum(1 for i in data if any(k in i for k in ['actor_profile','exploit_status','intel_quality']))
+          print(f'✅ EMBEDDED_INTEL verified: {len(data)} items | CRITICAL:{critical} | Enriched:{enriched} | Latest:{latest}')
+          assert len(data) > 0, 'Empty EMBEDDED_INTEL'
+          "
+
+      - name: Commit & Push Patched Dashboard
+        run: |
+          git config user.name "APEX-AutoSync[bot]"
+          git config user.email "apex-sync@cyberdudebivash.com"
+          
+          # Only commit if changed
+          if git diff --quiet index.html; then
+            echo "ℹ️  index.html unchanged — no commit needed"
+          else
+            ITEM_COUNT=$(python3 -c "import json,re; html=open('index.html').read(); m=re.search(r'const EMBEDDED_INTEL = (\[[\s\S]*?\]);', html); print(len(json.loads(m.group(1)))) if m else print(0)")
+            LATEST=$(python3 -c "import json,re; html=open('index.html').read(); m=re.search(r'const EMBEDDED_INTEL = (\[[\s\S]*?\]);', html); data=json.loads(m.group(1)) if m else []; print(max(i.get('timestamp','') for i in data) if data else 'unknown')")
+            git add index.html
+            git commit -m "🔄 Auto-sync: EMBEDDED_INTEL updated — ${ITEM_COUNT} items through ${LATEST:0:10} [skip ci]"
+            git push
+            echo "✅ Dashboard synced and pushed to GitHub Pages"
+          fi
+
+      - name: Notify Sync Status
+        if: always()
+        run: |
+          echo "=== SYNC COMPLETE ==="
+          echo "Dashboard: https://intel.cyberdudebivash.com"
+          echo "Repo: https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM"

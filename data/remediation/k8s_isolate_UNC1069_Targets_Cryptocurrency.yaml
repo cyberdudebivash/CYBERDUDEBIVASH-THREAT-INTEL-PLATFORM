@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-3e5c785220de
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "UNC1069 Targets Cryptocurrency Sector with New Tooling and AI-Enabled Social Engineering"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection

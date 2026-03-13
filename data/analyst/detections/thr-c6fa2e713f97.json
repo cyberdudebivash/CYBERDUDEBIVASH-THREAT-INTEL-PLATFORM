@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-c6fa2e713f97",
+  "title": "FBI alert: scammers target zoning permit applicants",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 FBI alert: scammers target zoning permit applicants\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/11\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*ic3.gov*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"ic3.gov\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"ic3.gov\")"
+  },
+  "rule_count": 3
+}

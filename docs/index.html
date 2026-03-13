@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>CYBERDUDEBIVASH® Sentinel APEX v15.0 | Intelligence Command Center</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Fira+Code:wght@400;500;700&family=Playfair+Display:ital,wght@1,700&display=swap');
+        :root{
+            --accent:#00e5b0;--accent2:rgba(0,229,176,.1);
+            --bg:#020408;--surface:rgba(255,255,255,.028);--border:rgba(255,255,255,.07);
+            --t1:#f0f0f8;--t2:#b8b8d0;--t3:#7878a0;
+            --red:#ff475a;--orange:#ffa33c;--yellow:#ffd644;--blue:#5cb8ff;--purple:#b088ff;
+        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--t1);min-height:100vh}
+        body::after{content:'';position:fixed;inset:0;z-index:-1;
+            background:radial-gradient(ellipse at 20% 0%,rgba(0,229,176,.025) 0%,transparent 50%),
+                        radial-gradient(ellipse at 80% 100%,rgba(92,184,255,.02) 0%,transparent 50%);pointer-events:none}
+
+        nav{position:sticky;top:0;z-index:99;background:rgba(2,4,8,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+        .nav-w{max-width:1260px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;padding:14px 32px}
+        .logo{display:flex;align-items:center;gap:12px}
+        .logo-mark{width:34px;height:34px;background:var(--accent);border-radius:6px;display:grid;place-items:center;font:900 11px/1 'Fira Code',monospace;color:#000;letter-spacing:-1px}
+        .logo-text{font-weight:900;font-size:16px;letter-spacing:-.4px}.logo-text b{color:var(--accent)}
+        .ver{font:700 10px/1 'Fira Code',monospace;color:var(--accent);background:var(--accent2);border:1px solid rgba(0,229,176,.18);border-radius:99px;padding:4px 12px}
+        .nav-links{display:flex;gap:28px}
+        .nav-links a{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.8px;color:var(--t3);text-decoration:none;transition:.2s}
+        .nav-links a:hover{color:var(--accent)}
+
+        .hero{max-width:1260px;margin:0 auto;padding:72px 32px 48px;text-align:center}
+        .hero-pill{display:inline-flex;align-items:center;gap:8px;padding:5px 18px;border-radius:99px;background:var(--accent2);border:1px solid rgba(0,229,176,.2);font:700 11px/1 'Fira Code',monospace;color:var(--accent);margin-bottom:28px}
+        .hero-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
+        @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,229,176,.4)}50%{box-shadow:0 0 0 8px transparent;opacity:.5}}
+        .hero h1{font-size:clamp(38px,7vw,80px);font-weight:900;letter-spacing:-3px;line-height:1;margin-bottom:18px}
+        .hero h1 em{font-family:'Playfair Display',serif;font-style:italic;font-weight:700;color:var(--t2)}
+        .hero p{max-width:580px;margin:0 auto 32px;font-size:15.5px;line-height:1.7;color:var(--t2)}
+        .hero-btns{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+        .btn-a{display:inline-flex;align-items:center;gap:6px;padding:13px 30px;border-radius:8px;font-weight:800;font-size:13px;text-decoration:none;transition:.25s}
+        .btn-a.primary{background:var(--accent);color:#000;box-shadow:0 0 24px rgba(0,229,176,.15)}.btn-a.primary:hover{box-shadow:0 0 40px rgba(0,229,176,.3);background:#00ffca}
+        .btn-a.ghost{border:1px solid rgba(255,255,255,.1);color:var(--t1);background:transparent}.btn-a.ghost:hover{border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.03)}
+
+        .stats{max-width:1260px;margin:0 auto;padding:0 32px 36px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+        .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:22px 20px;transition:border-color .2s}
+        .stat:hover{border-color:rgba(0,229,176,.2)}
+        .stat-label{font:700 10px/1 'Fira Code',monospace;text-transform:uppercase;letter-spacing:2px;color:var(--accent);margin-bottom:8px}
+        .stat-val{font-size:26px;font-weight:900;letter-spacing:-.5px;color:var(--t1);margin-bottom:4px}
+        .stat-val.warn{color:var(--orange)}
+        .stat-desc{font-size:12px;color:var(--t2);font-weight:500}
+
+        .section{max-width:1260px;margin:0 auto;padding:8px 32px 40px}
+        .sec-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+        .sec-title{font-size:18px;font-weight:800;letter-spacing:-.3px}
+        .mitre-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:6px}
+        .mc{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:12px 10px;text-align:center;transition:.2s;cursor:default}
+        .mc:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.35)}
+        .mc .tac{font:700 9px/1 'Fira Code',monospace;text-transform:uppercase;letter-spacing:1.2px;color:var(--t3);margin-bottom:6px}
+        .mc .cnt{font-size:22px;font-weight:900;margin-bottom:2px}
+        .mc .sub{font-size:10px;color:var(--t2)}
+        .mc.h0 .cnt{color:var(--t3)}.mc.h1{border-color:rgba(0,229,176,.25);background:rgba(0,229,176,.04)}.mc.h1 .cnt{color:var(--accent)}
+        .mc.h2{border-color:rgba(255,163,60,.25);background:rgba(255,163,60,.04)}.mc.h2 .cnt{color:var(--orange)}
+        .mc.h3{border-color:rgba(255,71,90,.25);background:rgba(255,71,90,.04)}.mc.h3 .cnt{color:var(--red)}
+
+        .pipe{display:flex;gap:0;overflow-x:auto;padding-bottom:8px}
+        .pipe-s{flex:0 0 auto;padding:16px 18px;border:1px solid var(--border);background:var(--surface);min-width:130px;text-align:center;position:relative}
+        .pipe-s:first-child{border-radius:8px 0 0 8px}.pipe-s:last-child{border-radius:0 8px 8px 0}
+        .pipe-s .sn{font:700 9px/1 'Fira Code',monospace;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);margin-bottom:4px}
+        .pipe-s .st{font-size:12px;font-weight:700;color:var(--t1)}
+        .pipe-s .sd{font-size:10px;color:var(--t3);margin-top:2px}
+        .pipe-s::after{content:'\2192';position:absolute;right:-9px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--accent);z-index:1;font-weight:700}
+        .pipe-s:last-child::after{content:''}
+
+        .cap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+        .cap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;transition:.2s}
+        .cap:hover{border-color:rgba(0,229,176,.2)}
+        .cap-icon{font-size:15px;color:var(--accent);margin-bottom:12px}
+        .cap h3{font-size:13.5px;font-weight:800;margin-bottom:7px;color:var(--t1)}
+        .cap p{font-size:12px;line-height:1.6;color:var(--t2)}
+
+        .live-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(255,71,90,.06);border:1px solid rgba(255,71,90,.15);border-radius:5px;padding:3px 12px;font:800 10px/1 'Fira Code',monospace;color:var(--red);letter-spacing:1px}
+        .live-tag::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--red);animation:pulse 1.5s infinite}
+        .feed-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+        .feed-box table{width:100%;border-collapse:collapse}
+        .feed-box th{padding:14px 22px;text-align:left;font:700 10px/1 'Fira Code',monospace;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);background:rgba(255,255,255,.015)}
+        .feed-box td{padding:14px 22px;font:500 12.5px/1 'Fira Code',monospace;border-top:1px solid rgba(255,255,255,.03);color:var(--t2)}
+        .feed-box .nm{font-weight:700;color:var(--t1)}.feed-box .ok{color:var(--accent);font-weight:700}
+        .feed-box a{color:var(--accent);text-decoration:none;font-weight:700}.feed-box a:hover{text-decoration:underline}
+
+        footer{border-top:1px solid var(--border);padding:28px 32px}
+        .f-w{max-width:1260px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+        .f-w span{font-size:11.5px;color:var(--t2);font-weight:500}
+        .f-links{display:flex;gap:22px}
+        .f-links a{font:700 10px/1 'DM Sans',sans-serif;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);text-decoration:none;transition:.2s}
+        .f-links a:hover{color:var(--t1)}
+
+        @media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}.nav-links{display:none}.mitre-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}}
+        @media(max-width:600px){.stats{grid-template-columns:1fr}.cap-grid{grid-template-columns:1fr}.pipe{flex-wrap:wrap}.pipe-s{flex:1 1 100%;border-radius:8px!important}.pipe-s::after{content:'\2193';right:50%;transform:translateX(50%);top:auto;bottom:-10px}}
+    </style>
+</head>
+<body>
+<nav><div class="nav-w">
+    <div class="logo"><div class="logo-mark">CDB</div><div class="logo-text">SENTINEL <b>APEX</b></div><span class="ver">v15.0</span></div>
+    <div class="nav-links">
+        <a href="https://cyberbivash.blogspot.com">Intel Blog</a>
+        <a href="#mitre">MITRE Map</a>
+        <a href="#feed">STIX Feed</a>
+        <a href="https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM">Source</a>
+        <a href="https://cyberdudebivash.com">Enterprise</a>
+    </div>
+</div></nav>
+
+<header class="hero">
+    <div class="hero-pill"><span class="dot"></span> ENGINE OPERATIONAL &mdash; v15.0 TRIPLE-LAYER DEDUP ACTIVE</div>
+    <h1>THREAT<br><em>ORCHESTRATION.</em></h1>
+    <p>AI-powered forensic triage, content-aware risk scoring, best-match threat classification, and MITRE ATT&CK-aligned detection engineering for enterprise SOC teams.</p>
+    <div class="hero-btns">
+        <a href="https://cyberbivash.blogspot.com" class="btn-a primary"><i class="fas fa-shield-halved"></i> VIEW ADVISORIES</a>
+        <a href="#feed" class="btn-a ghost"><i class="fas fa-database"></i> STIX REPOSITORY</a>
+    </div>
+</header>
+
+<section class="stats">
+    <div class="stat"><div class="stat-label">Engine</div><div class="stat-val">ONLINE</div><div class="stat-desc">v15.0 &mdash; Mobile-Aware &middot; IOC Precision</div></div>
+    <div class="stat"><div class="stat-label">Reports</div><div class="stat-val">16-SECTION</div><div class="stat-desc">10-Category &middot; 2,500+ Words</div></div>
+    <div class="stat"><div class="stat-label">Detection</div><div class="stat-val">5 FORMATS</div><div class="stat-desc">Sigma &middot; YARA &middot; KQL &middot; SPL &middot; Suricata</div></div>
+    <div class="stat"><div class="stat-label">Risk Level</div><div class="stat-val warn">ELEVATED</div><div class="stat-desc">Identity &amp; MFA campaigns trending</div></div>
+</section>
+
+<section class="section" id="mitre">
+    <div class="sec-hdr"><h2 class="sec-title">MITRE ATT&CK&reg; COVERAGE HEATMAP</h2><span class="ver">120+ Keywords</span></div>
+    <div class="mitre-grid">
+        <div class="mc h1"><div class="tac">Recon</div><div class="cnt">4</div><div class="sub">Techniques</div></div>
+        <div class="mc h3"><div class="tac">Initial Access</div><div class="cnt">9</div><div class="sub">Techniques</div></div>
+        <div class="mc h2"><div class="tac">Execution</div><div class="cnt">8</div><div class="sub">Techniques</div></div>
+        <div class="mc h2"><div class="tac">Persistence</div><div class="cnt">7</div><div class="sub">Techniques</div></div>
+        <div class="mc h1"><div class="tac">Priv Esc</div><div class="cnt">3</div><div class="sub">Techniques</div></div>
+        <div class="mc h2"><div class="tac">Def Evasion</div><div class="cnt">6</div><div class="sub">Techniques</div></div>
+        <div class="mc h3"><div class="tac">Cred Access</div><div class="cnt">12</div><div class="sub">Techniques</div></div>
+        <div class="mc h1"><div class="tac">Discovery</div><div class="cnt">3</div><div class="sub">Techniques</div></div>
+        <div class="mc h1"><div class="tac">Lat Move</div><div class="cnt">2</div><div class="sub">Techniques</div></div>
+        <div class="mc h1"><div class="tac">Collection</div><div class="cnt">3</div><div class="sub">Techniques</div></div>
+        <div class="mc h2"><div class="tac">C2</div><div class="cnt">4</div><div class="sub">Techniques</div></div>
+        <div class="mc h2"><div class="tac">Exfiltration</div><div class="cnt">5</div><div class="sub">Techniques</div></div>
+        <div class="mc h2"><div class="tac">Impact</div><div class="cnt">4</div><div class="sub">Techniques</div></div>
+        <div class="mc h1"><div class="tac">Res Dev</div><div class="cnt">2</div><div class="sub">Techniques</div></div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="sec-hdr"><h2 class="sec-title">AUTONOMOUS INTELLIGENCE PIPELINE</h2></div>
+    <div class="pipe">
+        <div class="pipe-s"><div class="sn">01</div><div class="st">RSS Ingest</div><div class="sd">Multi-feed</div></div>
+        <div class="pipe-s"><div class="sn">02</div><div class="st">Source Fetch</div><div class="sd">Full article</div></div>
+        <div class="pipe-s"><div class="sn">03</div><div class="st">IOC Extract</div><div class="sd">15+ types</div></div>
+        <div class="pipe-s"><div class="sn">04</div><div class="st">Risk Score</div><div class="sd">Content-aware</div></div>
+        <div class="pipe-s"><div class="sn">05</div><div class="st">MITRE Map</div><div class="sd">Best-match</div></div>
+        <div class="pipe-s"><div class="sn">06</div><div class="st">Detection</div><div class="sd">5 formats</div></div>
+        <div class="pipe-s"><div class="sn">07</div><div class="st">Report Gen</div><div class="sd">16-section</div></div>
+        <div class="pipe-s"><div class="sn">08</div><div class="st">Publish</div><div class="sd">Blog + STIX</div></div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="sec-hdr"><h2 class="sec-title">PLATFORM CAPABILITIES</h2></div>
+    <div class="cap-grid">
+        <div class="cap"><div class="cap-icon"><i class="fas fa-brain"></i></div><h3>10-Category Classifier</h3><p>Mobile malware, identity compromise, ransomware, browser extensions, supply chain, APT, and more — each with category-specific technical analysis.</p></div>
+        <div class="cap"><div class="cap-icon"><i class="fas fa-filter"></i></div><h3>Triple-Layer Deduplication</h3><p>Exact hash, title-normalized cross-feed detection, and 80% fuzzy word-overlap matching. Zero duplicates across 15 intelligence feeds.</p></div>
+        <div class="cap"><div class="cap-icon"><i class="fas fa-mobile-screen"></i></div><h3>Mobile Threat Intelligence</h3><p>Android firmware analysis, Zygote hooking detection, supply chain compromise tracking, MITRE Mobile ATT&amp;CK mapping. Triada/BADBOX/Vo1d attribution.</p></div>
+        <div class="cap"><div class="cap-icon"><i class="fas fa-crosshairs"></i></div><h3>Precision IOC Filtering</h3><p>Java package exclusion, JAR/DEX false positive rejection, vendor domain filtering. Zero noise — only actionable indicators in IOC tables.</p></div>
+        <div class="cap"><div class="cap-icon"><i class="fas fa-user-secret"></i></div><h3>14+ Actor Profiles</h3><p>APT29, Scattered Spider, LockBit, Triada, KeenAdu, BADBOX, Vo1d, Lazarus, Cl0p. Mobile + desktop threat clusters with attribution reconciliation.</p></div>
+        <div class="cap"><div class="cap-icon"><i class="fas fa-chart-line"></i></div><h3>Multi-Dimensional Confidence</h3><p>IOC diversity, MITRE depth, actor attribution quality, severity signals, and cross-source corroboration scoring.</p></div>
+        <div class="cap"><div class="cap-icon"><i class="fas fa-file-shield"></i></div><h3>Category-Aware Analysis</h3><p>Mobile &rarr; Zygote/firmware. Identity &rarr; AitM proxy. Ransomware &rarr; encryption. Vulnerability &rarr; PoC. Never generic text for any category.</p></div>
+        <div class="cap"><div class="cap-icon"><i class="fas fa-robot"></i></div><h3>Fully Autonomous Pipeline</h3><p>15-feed ingestion through STIX export. Every 6 hours via GitHub Actions with pre-flight classifier, dedup, IOC, and MITRE validation.</p></div>
+    </div>
+</section>
+
+<section class="section" id="feed">
+    <div class="sec-hdr"><h2 class="sec-title">LIVE STIX REPOSITORY</h2><span class="live-tag">LIVE</span></div>
+    <div class="feed-box">
+        <table>
+            <thead><tr><th>Intelligence Node</th><th>Version</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+                <tr><td class="nm">CDB-SENTINEL-APEX-STIX-FEED</td><td>v15.0</td><td class="ok">Active</td><td><a href="data/stix/">BROWSE &rarr;</a></td></tr>
+                <tr><td class="nm">CDB-THREAT-MANIFEST</td><td>v15.0</td><td class="ok">Active</td><td><a href="data/stix/manifest.json">MANIFEST &rarr;</a></td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<footer><div class="f-w">
+    <span>&copy; 2026 CYBERDUDEBIVASH PVT LTD &mdash; Sentinel APEX v15.0 &mdash; AI-Powered Global Threat Intelligence</span>
+    <div class="f-links">
+        <a href="https://cyberdudebivash.com">Enterprise</a>
+        <a href="https://cyberbivash.blogspot.com">Blog</a>
+        <a href="https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM">GitHub</a>
+        <a href="mailto:bivash@cyberdudebivash.com">Contact</a>
+    </div>
+</div></footer>
+</body>
+</html>

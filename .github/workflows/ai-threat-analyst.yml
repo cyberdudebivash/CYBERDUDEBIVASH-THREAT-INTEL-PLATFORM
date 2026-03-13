@@ -1,0 +1,43 @@
+name: CDB Sentinel APEX — AI Threat Analyst v37.0
+
+on:
+  schedule:
+    - cron: '30 */8 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ai-threat-analyst
+  cancel-in-progress: false
+
+jobs:
+  ai-analyst:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, ref: main}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12', cache: 'pip'}
+      - run: pip install --upgrade pip && pip install requests feedparser networkx && [ -f requirements.txt ] && pip install -r requirements.txt || true
+      - name: Run AI Threat Analyst
+        env:
+          MANIFEST_PATH: data/stix/feed_manifest.json
+          STIX_DIR: data/stix
+          FUSION_DIR: data/fusion
+          ZDH_DIR: data/zerodayhunter
+          ANALYST_DIR: data/analyst
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m agent.v37_analyst.analyst_engine
+      - name: Commit
+        run: |
+          git config user.name "CDB-GOC-Analyst"
+          git config user.email "goc@cyberdudebivash.com"
+          git add data/analyst/ || true
+          git diff --cached --quiet && echo "No changes" || {
+            THREATS=$(python3 -c "import json; d=json.load(open('data/analyst/analyst_report.json')); print(d['pipeline_stats']['threats_monitored'])" 2>/dev/null || echo "0")
+            RULES=$(python3 -c "import json; d=json.load(open('data/analyst/analyst_report.json')); print(d['pipeline_stats']['total_detection_rules'])" 2>/dev/null || echo "0")
+            git commit -m "🤖 AI ANALYST v37.0 — ${THREATS} threats analyzed | ${RULES} detection rules"
+            git push; }

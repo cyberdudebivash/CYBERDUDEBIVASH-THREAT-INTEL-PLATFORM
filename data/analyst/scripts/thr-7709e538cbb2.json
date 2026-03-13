@@ -1,0 +1,18 @@
+{
+  "threat_id": "thr-7709e538cbb2",
+  "title": "CVE-2026-4008 - Tenda W3 POST Parameter wifiSSIDset stack-based overflow",
+  "scripts": [
+    {
+      "type": "firewall_iptables",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 \u2014 Block threat IPs for: CVE-2026-4008 - Tenda W3 POST Parameter wifiSSIDset stack-ba\niptables -A INPUT -s 1.0.0.3 -j DROP\niptables -A OUTPUT -d 1.0.0.3 -j DROP\necho 'Firewall rules applied'"
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((dest_ip IN (\"1.0.0.3\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    },
+    {
+      "type": "hardening_bash",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 \u2014 Emergency Hardening Script\n# Threat: CVE-2026-4008 - Tenda W3 POST Parameter wifiSSIDset stack-ba\n# Generated: 2026-03-13T09:09:43.357111+00:00\n\necho \"[*] Updating system packages...\"\napt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null\n\necho \"[*] Enabling firewall...\"\nufw enable 2>/dev/null || firewall-cmd --set-default-zone=drop 2>/dev/null\n\necho \"[*] Disabling unnecessary services...\"\nsystemctl disable --now telnet.socket 2>/dev/null\nsystemctl disable --now rsh.socket 2>/dev/null\n\necho \"[*] Setting secure SSH configuration...\"\nsed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config\nsystemctl restart sshd\n\necho \"[+] Hardening complete for threat: thr-7709e538cbb2\"\n"
+    }
+  ]
+}

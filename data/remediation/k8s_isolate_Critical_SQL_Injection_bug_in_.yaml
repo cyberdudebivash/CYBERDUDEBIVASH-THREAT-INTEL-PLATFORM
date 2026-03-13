@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-2234da9ddb3b
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Critical SQL Injection bug in Ally plugin threatens 400,000+ WordPress sites"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection

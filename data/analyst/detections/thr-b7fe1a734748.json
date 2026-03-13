@@ -1,0 +1,16 @@
+{
+  "threat_id": "thr-b7fe1a734748",
+  "title": "CVE-2026-3807 - Tenda FH1202 AdvSetWrlsafeset formWrlsafeset stack-based overflo",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3807 - Tenda FH1202 AdvSetWrlsafeset formWrlsafeset\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/10\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '1.2.0.14'\n    condition: selection_ip\nlevel: high",
+    "suricata": [
+      "alert ip any any -> 1.2.0.14 any (msg:\"CDB APEX \u2014 CVE_2026_3807___Tenda_FH1202_A\"; sid:8554828; rev:1;)"
+    ],
+    "snort": [
+      "alert ip any any -> 1.2.0.14 any (msg:\"CDB APEX CVE_2026_3807___Tenda_FH1202_A\"; sid:2659672; rev:1;)"
+    ],
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"1.2.0.14\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteIP in (\"1.2.0.14\")"
+  },
+  "rule_count": 5
+}

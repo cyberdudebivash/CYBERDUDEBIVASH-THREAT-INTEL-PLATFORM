@@ -1,0 +1,24 @@
+{
+  "threat_id": "thr-d33cab384ec1",
+  "title": "Cisco flags ongoing exploitation of two recently patched Catalyst SD-WAN flaws",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 Cisco flags ongoing exploitation of two recently patched Cat\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/07\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '20.12.5.3'\n            - '20.12.6.1'\n            - '20.15.4.2'\n            - '20.18.2.1'\n            - '20.9.8.2'\n    condition: selection_ip\nlevel: high",
+    "suricata": [
+      "alert ip any any -> 20.12.5.3 any (msg:\"CDB APEX \u2014 Cisco_flags_ongoing_exploitati\"; sid:3312295; rev:1;)",
+      "alert ip any any -> 20.12.6.1 any (msg:\"CDB APEX \u2014 Cisco_flags_ongoing_exploitati\"; sid:1918606; rev:1;)",
+      "alert ip any any -> 20.15.4.2 any (msg:\"CDB APEX \u2014 Cisco_flags_ongoing_exploitati\"; sid:8781002; rev:1;)",
+      "alert ip any any -> 20.18.2.1 any (msg:\"CDB APEX \u2014 Cisco_flags_ongoing_exploitati\"; sid:3859429; rev:1;)",
+      "alert ip any any -> 20.9.8.2 any (msg:\"CDB APEX \u2014 Cisco_flags_ongoing_exploitati\"; sid:7873731; rev:1;)"
+    ],
+    "snort": [
+      "alert ip any any -> 20.12.5.3 any (msg:\"CDB APEX Cisco_flags_ongoing_exploitati\"; sid:3877327; rev:1;)",
+      "alert ip any any -> 20.12.6.1 any (msg:\"CDB APEX Cisco_flags_ongoing_exploitati\"; sid:5668685; rev:1;)",
+      "alert ip any any -> 20.15.4.2 any (msg:\"CDB APEX Cisco_flags_ongoing_exploitati\"; sid:9103085; rev:1;)",
+      "alert ip any any -> 20.18.2.1 any (msg:\"CDB APEX Cisco_flags_ongoing_exploitati\"; sid:5990321; rev:1;)",
+      "alert ip any any -> 20.9.8.2 any (msg:\"CDB APEX Cisco_flags_ongoing_exploitati\"; sid:8423815; rev:1;)"
+    ],
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"20.12.5.3\",\n              \"20.12.6.1\",\n              \"20.15.4.2\",\n              \"20.18.2.1\",\n              \"20.9.8.2\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteIP in (\"20.12.5.3\", \"20.12.6.1\", \"20.15.4.2\", \"20.18.2.1\", \"20.9.8.2\")"
+  },
+  "rule_count": 13
+}

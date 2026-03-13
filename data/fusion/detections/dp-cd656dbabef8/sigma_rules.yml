@@ -1,0 +1,23 @@
+title: CDB APEX — Network IOC Detection — CVE-2018-25197 - PlayJoom 0.10.1 SQL Injection via catid Parameter
+id: 9714a0f3-cd65-6dba-bef8-cd656dbabef8
+status: experimental
+description: Detects network connections to IOCs from CVE-2018-25197 - PlayJoom 0.10.1 SQL Injection via catid Parameter
+references:
+    - https://intel.cyberdudebivash.com/
+author: CyberDudeBivash SENTINEL APEX v33.0
+date: 2026/03/06
+tags:
+    - attack.command_and_control
+    - attack.unc-cdb-99
+logsource:
+    category: firewall
+detection:
+    selection_ip:
+        dst_ip:
+    selection_dns:
+        query:
+            - '*index.php*'
+    condition: selection_dns
+falsepositives:
+    - Legitimate traffic to shared infrastructure
+level: high

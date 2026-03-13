@@ -1,0 +1,79 @@
+{
+  "taxii_server": {
+    "title": "CyberDudeBivash TAXII Server",
+    "description": "Sentinel APEX Threat Intelligence Distribution",
+    "version": "2.1",
+    "api_root": "https://api.cyberdudebivash.com/taxii2/",
+    "discovery_url": "https://api.cyberdudebivash.com/taxii2/",
+    "max_content_length": 10485760
+  },
+  "collections": [
+    {
+      "id": "cdb-threat-intel",
+      "title": "CDB Threat Intelligence Feed",
+      "can_read": true,
+      "can_write": false,
+      "description": "Real-time threat advisories from Sentinel APEX"
+    },
+    {
+      "id": "cdb-ioc-feed",
+      "title": "CDB IOC Feed",
+      "can_read": true,
+      "can_write": false,
+      "description": "Indicators of Compromise extracted from advisories"
+    },
+    {
+      "id": "cdb-detection-rules",
+      "title": "CDB Detection Rules",
+      "can_read": true,
+      "can_write": false,
+      "description": "Auto-generated Sigma, YARA, and Snort rules"
+    },
+    {
+      "id": "cdb-actor-intel",
+      "title": "CDB Actor Intelligence",
+      "can_read": true,
+      "can_write": false,
+      "description": "Threat actor profiles and campaign intelligence"
+    }
+  ],
+  "api_endpoints": {
+    "discovery": "GET /taxii2/",
+    "api_root": "GET /taxii2/api/",
+    "collections": "GET /taxii2/api/collections/",
+    "objects": "GET /taxii2/api/collections/{id}/objects/",
+    "manifest": "GET /taxii2/api/collections/{id}/manifest/"
+  },
+  "rest_api": {
+    "base_url": "https://api.cyberdudebivash.com/v1/",
+    "endpoints": {
+      "advisories": "GET /v1/advisories",
+      "advisories_by_id": "GET /v1/advisories/{stix_id}",
+      "iocs": "GET /v1/iocs",
+      "actors": "GET /v1/actors",
+      "campaigns": "GET /v1/campaigns",
+      "detection_rules": "GET /v1/detection-rules",
+      "exposure_score": "GET /v1/exposure",
+      "stix_bundle": "GET /v1/stix/{bundle_id}",
+      "search": "POST /v1/search",
+      "stream": "WS wss://stream.cyberdudebivash.com/v1/stream"
+    },
+    "auth": "Bearer token (API key)",
+    "rate_limits": {
+      "free": "100/day",
+      "pro": "5000/day",
+      "enterprise": "unlimited"
+    },
+    "formats": [
+      "json",
+      "stix2.1",
+      "csv",
+      "misp"
+    ]
+  },
+  "current_stats": {
+    "total_objects": 50,
+    "stix_bundles": 50
+  },
+  "generated_at": "2026-03-11T07:34:54.375864+00:00"
+}

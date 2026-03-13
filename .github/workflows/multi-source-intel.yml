@@ -1,0 +1,163 @@
+name: CDB Multi-Source Intelligence Enrichment
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # Every 4 hours — enriches manifest with additional sources
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  multi-source-enrichment:
+    name: Multi-Source Intelligence Collection & Enrichment
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install requests feedparser
+
+      - name: Ensure data directories
+        run: |
+          mkdir -p data/enrichment
+          mkdir -p data/stix
+          mkdir -p data/ai_predictions  # [v30-APEX] Directory for AI cortex
+          mkdir -p data/remediation     # [v30-APEX] Directory for APEX SOAR
+          mkdir -p data/sigma_rules     # [v30-APEX] Directory for SIEM Dispatcher
+          mkdir -p data/simulations     # [v30-APEX] Directory for Purple Swarm BAS
+
+      - name: Collect Fresh Intelligence (CISA KEV + Exploit-DB + GitHub Advisory)
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN_INTEL: ${{ secrets.GH_INTEL_TOKEN }}
+        run: |
+          python - << 'PYEOF'
+          import sys, os, json
+          from datetime import datetime, timezone
+          sys.path.insert(0, os.getcwd())
+
+          try:
+              from agent.integrations.sources.multi_source_intel import SourceIntelligenceOrchestrator
+
+              github_token = os.environ.get("GITHUB_TOKEN_INTEL")
+              orchestrator = SourceIntelligenceOrchestrator(github_token=github_token)
+
+              batch = orchestrator.get_fresh_intelligence_batch()
+
+              output_path = "data/enrichment/latest_intel_batch.json"
+              with open(output_path, "w") as f:
+                  json.dump(batch, f, indent=2)
+
+              print(f"Intelligence batch collected:")
+              print(f"  Sources polled:         {batch['sources_polled']}")
+              print(f"  CISA KEV recent (7d):   {len(batch['kev_recent'])}")
+              print(f"  Ransomware victims:     {len(batch['ransomware_victims'])}")
+              print(f"  Exploit-DB exploits:    {len(batch['exploitdb_recent'])}")
+              print(f"  GitHub advisories:      {len(batch['github_advisories'])}")
+              print(f"  URLhaus IOCs:           {len(batch['urlhaus_iocs'])}")
+              print(f"  KEV total catalog:      {batch['kev_stats'].get('total_kev_entries', 0)}")
+
+          except Exception as e:
+              print(f"Multi-source enrichment skipped (non-critical): {e}")
+          PYEOF
+
+      - name: Enrich Manifest with AI Predictions
+        continue-on-error: true
+        run: |
+          python - << 'PYEOF'
+          import sys, os, json
+          sys.path.insert(0, os.getcwd())
+
+          manifest_path = "data/stix/feed_manifest.json"
+          if not os.path.exists(manifest_path):
+              print("No manifest to enrich. Skipping.")
+              sys.exit(0)
+
+          try:
+              with open(manifest_path) as f:
+                  entries = json.load(f)
+
+              from agent.ai.predictive_models import PredictiveIntelligenceEngine
+              engine = PredictiveIntelligenceEngine()
+              enriched = engine.enrich_manifest(entries[:10])  # Enrich top 10 entries
+
+              enriched_path = "data/enrichment/ai_enriched_manifest.json"
+              with open(enriched_path, "w") as f:
+                  json.dump(enriched, f, indent=2)
+
+          except Exception as e:
+              print(f"AI enrichment skipped (non-critical): {e}")
+          PYEOF
+
+      # ═══════════════════════════════════════════════════════════
+      # [v30-APEX] SOVEREIGN ASCENSION CORE (100% Non-Breaking)
+      # ═══════════════════════════════════════════════════════════
+      
+      - name: Execute v30 Apex Dark Swarm Infiltrator
+        continue-on-error: true
+        run: |
+          echo "Deploying Autonomous Neural Swarm to Deep Web vectors..."
+          python -m agent.v30_apex.dark_swarm_infiltrator || echo "Swarm execution passed with soft fallback."
+          
+      - name: Execute v30 Apex Predictive Cortex Forecaster
+        continue-on-error: true
+        run: |
+          echo "Analyzing macro-trends via Predictive Cortex..."
+          python -m agent.v30_apex.predictive_cortex || echo "Cortex execution passed with soft fallback."
+
+      - name: Execute APEX Immune Response (Auto-Healing Generation)
+        continue-on-error: true
+        run: |
+          echo "Igniting Autonomous Cyber-Immune System (SOAR)..."
+          python -m agent.v30_apex.apex_immune_response || echo "Immune Response execution passed with soft fallback."
+
+      - name: Execute SIEM Sigma Dispatcher
+        continue-on-error: true
+        run: |
+          echo "Generating native SIEM rules for Enterprise integration..."
+          python -m agent.integrations.siem_dispatcher || echo "SIEM dispatcher passed with soft fallback."
+
+      - name: Execute APEX Purple Swarm (Autonomous BAS)
+        continue-on-error: true
+        run: |
+          echo "Forging Benign Attack Simulations for Validation..."
+          python -m agent.v30_apex.apex_purple_swarm || echo "Purple Swarm execution passed with soft fallback."
+
+      - name: Broadcast APEX SOC Alerts (Discord/Slack)
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          echo "Pinging Global SOC Teams..."
+          python -m agent.v30_apex.apex_webhook_alert || echo "Webhook dispatcher bypassed cleanly."
+
+      # ═══════════════════════════════════════════════════════════
+      # [v30-APEX] ADDITIONS END HERE
+      # ═══════════════════════════════════════════════════════════
+
+      - name: Commit enrichment data
+        run: |
+          git config user.email "bivash@cyberdudebivash.com"
+          git config user.name "CDB-Enrichment-Bot"
+          # [v30-APEX] Modified to track all God-Tier generation directories
+          git add data/enrichment/ data/stix/ data/ai_predictions/ data/remediation/ data/sigma_rules/ data/simulations/ 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No enrichment changes."
+          else
+            git commit -m "👑 APEX Unified Matrix: AI, SOAR, SIEM, & BAS [skip ci]"
+            git pull origin main --rebase && git push origin main || echo "Push collision, will retry next cycle"
+          fi

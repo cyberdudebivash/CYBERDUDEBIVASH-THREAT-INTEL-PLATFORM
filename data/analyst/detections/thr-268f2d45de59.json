@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-268f2d45de59",
+  "title": "CVE-2026-3670 - Freedom Factory dGEN1 com.dgen.alarm improper authorization",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3670 - Freedom Factory dGEN1 com.dgen.alarm imprope\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/09\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*com.dgen.alarm*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"com.dgen.alarm\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"com.dgen.alarm\")"
+  },
+  "rule_count": 3
+}
