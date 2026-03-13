@@ -3741,6 +3741,382 @@
             try { renderGenesis(data); } catch(e) { console.warn('[GENESIS]', e); }
         };
 
+
+        // ═══════════════════════════════════════════════════════════════════
+        // SENTINEL APEX ENGINE DATA LOADER — Activates v39–v43 Intelligence
+        // Fetches live engine JSON outputs and wires to all dashboard panels
+        // ═══════════════════════════════════════════════════════════════════
+
+        (function initEngineLoader() {
+            const RAW_BASE = atob('aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2N5YmVyZHVkZWJpdmFzaC9DWUJFUkRVREVCSVZBU0gtVEhSRUFULUlOVEVMLVBMQVRGT1JNL21haW4v');
+            const ENGINE_URLS = {
+                nexus:    RAW_BASE + 'data/nexus/nexus_output.json',
+                genesis:  RAW_BASE + 'data/genesis/genesis_output.json',
+                cortex:   RAW_BASE + 'data/cortex/cortex_output.json',
+                quantum:  RAW_BASE + 'data/quantum/quantum_output.json',
+                sovereign: RAW_BASE + 'data/sovereign/sovereign_output.json',
+            };
+
+            // ── NEXUS RENDERER ──────────────────────────────────────────────
+            function renderNexusEngine(data) {
+                try {
+                    // Exposure Score
+                    const exp = data.exposure || {};
+                    const score = exp.overall_score != null ? exp.overall_score : null;
+                    const expEl = document.getElementById('nexus-exposure-score');
+                    if (expEl && score != null) {
+                        expEl.textContent = score.toFixed(1);
+                        expEl.style.color = score >= 8 ? '#ef4444' : score >= 6 ? '#f59e0b' : '#00d4aa';
+                    }
+
+                    // Exposure Trend
+                    const trendEl = document.getElementById('nexus-exposure-trend');
+                    if (trendEl && exp.trend) {
+                        const arrow = exp.trend === 'increasing' ? '↑' : exp.trend === 'decreasing' ? '↓' : '→';
+                        const tColor = exp.trend === 'increasing' ? '#ef4444' : exp.trend === 'decreasing' ? '#00d4aa' : '#d97706';
+                        trendEl.textContent = arrow + ' ' + exp.trend.toUpperCase() + ' | 7D: ' + (exp.forecast_7d||'?').toFixed(1) + ' | 30D: ' + (exp.forecast_30d||'?').toFixed(1);
+                        trendEl.style.color = tColor;
+                        trendEl.style.background = tColor + '18';
+                    }
+
+                    // Kill Chain (from attack_chains)
+                    const chains = data.attack_chains || [];
+                    const kcEl = document.getElementById('nexus-killchain');
+                    if (kcEl && chains.length) {
+                        const tactics = [...new Set(chains.flatMap(c => c.techniques || c.steps || []))].slice(0, 12);
+                        const tacticColors = {'T1595':'#8b5cf6','T1190':'#ef4444','T1078':'#f59e0b','T1059':'#3b82f6','T1547':'#ec4899','T1486':'#e11d48','T1566':'#06b6d4','T1203':'#22c55e','T1071':'#a855f7','T1021':'#f97316','T1036':'#14b8a6','T1055':'#7c3aed'};
+                        kcEl.innerHTML = tactics.map(t => {
+                            const c = tacticColors[t] || '#6b7280';
+                            return `<span style="background:${c}22;color:${c};border:1px solid ${c}44;border-radius:2px;padding:2px 6px;font-family:var(--font-mono);font-size:8px;letter-spacing:1px;">${t}</span>`;
+                        }).join('');
+                    }
+
+                    // Hunt Count
+                    const hunts = data.threat_hunts || [];
+                    const huntEl = document.getElementById('nexus-hunt-count');
+                    if (huntEl) huntEl.textContent = hunts.length;
+
+                    // Hunts list
+                    const huntsListEl = document.getElementById('nexus-hunts');
+                    if (huntsListEl && hunts.length) {
+                        huntsListEl.innerHTML = hunts.slice(0, 4).map(h =>
+                            `<div style="padding:5px 0;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:8px;">
+                                <span style="color:${h.priority==='CRITICAL'?'#ef4444':h.priority==='HIGH'?'#f59e0b':'#8b5cf6'};font-size:8px;font-weight:700;letter-spacing:1px;min-width:48px;">${h.priority||'HIGH'}</span>
+                                <span style="font-size:10px;color:var(--text);line-height:1.4;">${(h.hypothesis||'').slice(0,80)}...</span>
+                            </div>`
+                        ).join('');
+                    }
+
+                    // Campaigns
+                    const campaigns = data.campaigns || [];
+                    const campEl = document.getElementById('nexus-campaigns');
+                    if (campEl && campaigns.length) {
+                        campEl.innerHTML = campaigns.slice(0, 4).map(c =>
+                            `<div style="padding:5px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+                                <span style="font-size:10px;color:var(--white);">${(c.name||'').replace('Campaign: ','').slice(0,40)}</span>
+                                <div style="display:flex;gap:4px;">
+                                    ${(c.actors||[]).map(a=>`<span style="font-size:8px;background:#8b5cf622;color:#8b5cf6;border-radius:2px;padding:1px 4px;">${a}</span>`).join('')}
+                                </div>
+                            </div>`
+                        ).join('');
+                    }
+
+                    // Detection Rules Count
+                    const dp = data.detection_pack || {};
+                    const rulesEl = document.getElementById('nexus-rules-count');
+                    if (rulesEl) {
+                        const rCount = (dp.sigma_rules||0) + (dp.yara_rules||0) + (dp.suricata_rules||0) + (dp.kql_queries||0);
+                        if (rCount > 0) rulesEl.textContent = rCount;
+                    }
+
+                    // Intel Requirements (PIR)
+                    const pirs = data.intel_requirements || [];
+                    const pirBarsEl = document.getElementById('nexus-pir-bars');
+                    const pirPctEl = document.getElementById('nexus-pir-pct');
+                    if (pirBarsEl && pirs.length) {
+                        const satisfied = pirs.filter(p => p.status === 'ACTIVE' || p.priority === 'CRITICAL').length;
+                        const pct = Math.round((satisfied / pirs.length) * 100);
+                        if (pirPctEl) pirPctEl.textContent = pct + '%';
+                        pirBarsEl.innerHTML = pirs.slice(0, 4).map(p => {
+                            const c = p.priority === 'CRITICAL' ? '#ef4444' : p.priority === 'HIGH' ? '#f59e0b' : '#3b82f6';
+                            return `<div style="background:var(--bg-card);border:1px solid ${c}33;border-radius:3px;padding:8px;text-align:center;">
+                                <div style="font-size:7px;letter-spacing:1px;color:${c};margin-bottom:4px;">${p.priority||'MED'}</div>
+                                <div style="font-size:9px;color:var(--text);line-height:1.3;">${(p.requirement||p.description||'PIR').slice(0,40)}</div>
+                            </div>`;
+                        }).join('');
+                    }
+
+                    // Executive Briefing
+                    const briefEl = document.getElementById('nexus-briefing');
+                    const brief = data.executive_briefing || {};
+                    if (briefEl && brief.executive_summary) {
+                        briefEl.innerHTML = `<div style="margin-bottom:8px;"><span style="font-size:8px;letter-spacing:2px;color:#8b5cf6;font-family:var(--font-mono);">TLP:${(brief.classification||'AMBER').split(':')[1]||'AMBER'} // ${brief.period||''}</span></div>` +
+                            `<div style="font-size:12px;color:var(--text);line-height:1.7;">${(brief.executive_summary||'').slice(0, 500)}${brief.executive_summary&&brief.executive_summary.length>500?'...':''}</div>` +
+                            (brief.key_findings && brief.key_findings.length ?
+                                `<div style="margin-top:12px;"><div style="font-size:8px;letter-spacing:2px;color:var(--accent);margin-bottom:6px;">KEY FINDINGS</div>` +
+                                brief.key_findings.slice(0,3).map(f=>`<div style="font-size:10px;color:var(--text-muted);padding:3px 0;border-bottom:1px solid var(--border);">▸ ${f.slice(0,120)}</div>`).join('') + '</div>' : '');
+                    }
+
+                } catch(e) { console.warn('[NEXUS ENGINE]', e); }
+            }
+
+            // ── GENESIS RENDERER ────────────────────────────────────────────
+            function renderGenesisEngine(data) {
+                try {
+                    const engines = data.engines || {};
+                    const engineDefs = [
+                        {key:'G01_SensorNetwork',  id:'G01', name:'Sensor Network',  icon:'📡', color:'#3b82f6',
+                         valFn: s => (s.sensor_count||'?') + ' SENSORS', descFn: s => (s.total_events_24h||0).toLocaleString() + ' events/24h'},
+                        {key:'G02_HoneypotGrid',   id:'G02', name:'Honeypot Grid',   icon:'🍯', color:'#f59e0b',
+                         valFn: s => (s.honeypot_count||'?') + ' TRAPS', descFn: s => (s.total_captures_24h||0) + ' captures/24h'},
+                        {key:'G03_MalwareCloud',   id:'G03', name:'Malware Cloud',   icon:'🧬', color:'#ef4444',
+                         valFn: s => (s.malware_families_detected!=null?s.malware_families_detected:'?') + ' FAMILIES', descFn: s => (s.yara_rule_count||0) + ' YARA rules'},
+                        {key:'G04_ActorRegistry',  id:'G04', name:'Actor Registry',  icon:'🎭', color:'#8b5cf6',
+                         valFn: s => (s.total_actors||'?') + ' ACTORS', descFn: s => (s.known_actors||0) + ' known / ' + (s.discovered_actors||0) + ' new'},
+                        {key:'G05_CampaignCorr',   id:'G05', name:'Campaign Engine', icon:'🔗', color:'#ec4899',
+                         valFn: s => (s.campaign_count||s.total_campaigns||'?') + ' CAMPAIGNS', descFn: s => (s.correlated_actors||0) + ' actors correlated'},
+                        {key:'G06_IOCReputation',  id:'G06', name:'IOC Reputation',  icon:'🛡️', color:'#14b8a6',
+                         valFn: s => (s.total_iocs_scored||s.ioc_count||'?') + ' IOCs', descFn: s => 'avg trust: ' + ((s.average_trust_score||0)).toFixed(0) + '%'},
+                        {key:'G07_DetectionGen',   id:'G07', name:'Detection Gen',   icon:'⚡', color:'#f97316',
+                         valFn: s => (s.total_rules||s.rule_count||'?') + ' RULES', descFn: s => (s.sigma_count||0) + ' Sigma / ' + (s.yara_count||0) + ' YARA'},
+                        {key:'G08_TAXIIServer',    id:'G08', name:'TAXII Server',    icon:'📦', color:'#06b6d4',
+                         valFn: s => (s.collection_count||s.collections||'4') + ' FEEDS', descFn: s => 'STIX 2.1 compliant'},
+                        {key:'G09_DarkWebIntel',   id:'G09', name:'DarkWeb Intel',   icon:'🕸️', color:'#a855f7',
+                         valFn: s => (s.sources_monitored||s.source_count||'9') + ' SOURCES', descFn: s => (s.alerts_24h||s.findings_count||0) + ' alerts/24h'},
+                        {key:'G10_AttackSurface',  id:'G10', name:'Attack Surface',  icon:'🔍', color:'#22c55e',
+                         valFn: s => (s.exposure_items||s.total_assets||'?') + ' EXPOSURES', descFn: s => (s.critical_findings||0) + ' critical'},
+                        {key:'G11_AttackMap',      id:'G11', name:'Attack Map',      icon:'🗺️', color:'#e11d48',
+                         valFn: s => (s.attack_count||s.event_count||'?') + ' FLOWS', descFn: s => (s.origin_countries||s.regions_active||0) + ' regions active'},
+                        {key:'G12_AIThreatHunter', id:'G12', name:'AI Hunter',       icon:'🤖', color:'#7c3aed',
+                         valFn: s => (s.hunts_generated||s.cluster_count||'?') + ' HUNTS', descFn: s => (s.confidence_avg||0).toFixed(0) + '% avg confidence'},
+                    ];
+
+                    const grid = document.getElementById('genesis-grid');
+                    if (grid) {
+                        grid.innerHTML = engineDefs.map(def => {
+                            const eng = engines[def.key] || {};
+                            const summary = eng.summary || {};
+                            const status = eng.status || 'OK';
+                            const statusColor = status === 'OK' ? def.color : '#6b7280';
+                            let val = '—', desc = 'Initializing...';
+                            try { val = def.valFn(summary); } catch(e) {}
+                            try { desc = def.descFn(summary); } catch(e) {}
+                            return `<div style="background:var(--bg-card);border:1px solid ${statusColor}22;border-radius:4px;padding:12px;text-align:center;position:relative;">
+                                <div style="position:absolute;top:6px;right:6px;width:5px;height:5px;border-radius:50%;background:${statusColor};${status==='OK'?'box-shadow:0 0 4px '+statusColor:''}"></div>
+                                <div style="font-size:18px;margin-bottom:4px;">${def.icon}</div>
+                                <div style="font-family:var(--font-mono);font-size:7px;letter-spacing:2px;color:${statusColor};margin-bottom:4px;">${def.id} ${def.name.toUpperCase()}</div>
+                                <div style="font-size:20px;font-weight:900;color:${statusColor};font-family:var(--font-mono);">${val}</div>
+                                <div style="font-size:8px;color:var(--text-muted);margin-top:2px;">${desc}</div>
+                            </div>`;
+                        }).join('');
+                    }
+
+                    // Actor Registry Detail
+                    const actorsEl = document.getElementById('genesis-actors');
+                    const actorEng = engines['G04_ActorRegistry'] || {};
+                    const actorSum = actorEng.summary || {};
+                    if (actorsEl && (actorSum.total_actors || actorSum.actors)) {
+                        actorsEl.innerHTML = `<div style="padding:4px 0;display:flex;justify-content:space-between;border-bottom:1px solid var(--border);">
+                            <span style="color:var(--text);">Total Tracked</span><span style="color:#8b5cf6;font-weight:700;">${actorSum.total_actors||'?'} actors</span>
+                        </div>
+                        <div style="padding:4px 0;display:flex;justify-content:space-between;border-bottom:1px solid var(--border);">
+                            <span style="color:var(--text);">Known APT Groups</span><span style="color:#3b82f6;font-weight:700;">${actorSum.known_actors||'?'}</span>
+                        </div>
+                        <div style="padding:4px 0;display:flex;justify-content:space-between;">
+                            <span style="color:var(--text);">Newly Discovered</span><span style="color:#ef4444;font-weight:700;">${actorSum.discovered_actors||'?'}</span>
+                        </div>`;
+                    }
+
+                    // Attack Map flows
+                    const flowsEl = document.getElementById('genesis-attack-flows');
+                    const mapEng = engines['G11_AttackMap'] || {};
+                    const mapSum = mapEng.summary || {};
+                    if (flowsEl && mapSum.attack_count != null) {
+                        flowsEl.innerHTML = `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);">
+                            <span>Total Attack Flows</span><span style="color:#e11d48;font-weight:700;">${mapSum.attack_count||0}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);">
+                            <span>Regions Active</span><span style="color:#f59e0b;font-weight:700;">${mapSum.origin_countries||mapSum.regions_active||'—'}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:4px 0;">
+                            <span>Critical Incidents</span><span style="color:#ef4444;font-weight:700;">${mapSum.critical_attacks||mapSum.critical||'—'}</span>
+                        </div>`;
+                    }
+
+                    // Engine health badge
+                    const engOk = data.engines_ok || 0;
+                    const engTotal = data.engines_total || 12;
+                    const genesisHeader = document.querySelector('#genesis-section h2, #genesis-section .section-title');
+                    if (genesisHeader && !document.getElementById('genesis-health-badge')) {
+                        const badge = document.createElement('span');
+                        badge.id = 'genesis-health-badge';
+                        badge.style.cssText = 'margin-left:12px;font-size:10px;font-family:var(--font-mono);background:#00d4aa22;color:#00d4aa;border-radius:3px;padding:2px 8px;letter-spacing:1px;';
+                        badge.textContent = engOk + '/' + engTotal + ' ENGINES LIVE';
+                        genesisHeader.appendChild(badge);
+                    }
+
+                } catch(e) { console.warn('[GENESIS ENGINE]', e); }
+            }
+
+            // ── CORTEX RENDERER ─────────────────────────────────────────────
+            function renderCortexEngine(data) {
+                try {
+                    const kg = data.knowledge_graph || {};
+                    const cortexEl = document.getElementById('cortex-nodes');
+                    if (cortexEl && kg.total_nodes != null) {
+                        cortexEl.textContent = kg.total_nodes;
+                        // Add tooltip
+                        const parent = cortexEl.closest('[style]');
+                        if (parent) {
+                            const edgesHint = parent.querySelector('.cortex-edges-hint');
+                            if (!edgesHint) {
+                                const hint = document.createElement('div');
+                                hint.className = 'cortex-edges-hint';
+                                hint.style.cssText = 'font-size:9px;color:var(--text-muted);margin-top:2px;font-family:var(--font-mono);';
+                                hint.textContent = (kg.total_edges||0) + ' EDGES // DENSITY ' + ((kg.density||0)*100).toFixed(2) + '%';
+                                cortexEl.parentNode.appendChild(hint);
+                            }
+                        }
+                    }
+
+                    // Stream events count
+                    const stream = data.stream || {};
+                    if (stream.event_count) {
+                        const streamBadge = document.getElementById('cortex-stream-count');
+                        if (streamBadge) streamBadge.textContent = stream.event_count;
+                    }
+
+                    // Top influencers
+                    const influencers = data.top_influencers || [];
+                    const clusters = data.cluster_count || (data.clusters ? (Array.isArray(data.clusters) ? data.clusters.length : data.clusters) : null);
+                    if (clusters && cortexEl) {
+                        const clusterEl = document.createElement('div');
+                        clusterEl.style.cssText = 'font-size:8px;color:var(--accent);margin-top:4px;font-family:var(--font-mono);letter-spacing:1px;';
+                        clusterEl.textContent = clusters + ' THREAT CLUSTERS';
+                        if (!cortexEl.parentNode.querySelector('.cortex-clusters')) {
+                            clusterEl.className = 'cortex-clusters';
+                            cortexEl.parentNode.appendChild(clusterEl);
+                        }
+                    }
+
+                } catch(e) { console.warn('[CORTEX ENGINE]', e); }
+            }
+
+            // ── QUANTUM RENDERER ────────────────────────────────────────────
+            function renderQuantumEngine(data) {
+                try {
+                    const feedTrust = data.feed_trust || {};
+                    const trustScore = feedTrust.overall != null ? Math.round(feedTrust.overall) : null;
+                    const quantumEl = document.getElementById('quantum-trust');
+                    if (quantumEl && trustScore != null) {
+                        quantumEl.textContent = trustScore + '%';
+                        quantumEl.style.color = trustScore >= 90 ? '#00d4aa' : trustScore >= 75 ? '#d97706' : '#ef4444';
+                    }
+
+                    // Anomaly count
+                    const anomalies = data.anomalies || [];
+                    if (anomalies.length && quantumEl) {
+                        const aEl = document.createElement('div');
+                        aEl.style.cssText = 'font-size:9px;color:var(--text-muted);margin-top:4px;font-family:var(--font-mono);';
+                        aEl.textContent = anomalies.length + ' ANOMALIES DETECTED';
+                        if (!quantumEl.parentNode.querySelector('.quantum-anomaly')) {
+                            aEl.className = 'quantum-anomaly';
+                            quantumEl.parentNode.appendChild(aEl);
+                        }
+                    }
+
+                    // Feed trust alerts
+                    if (feedTrust.alerts) {
+                        const alertEl = document.createElement('div');
+                        alertEl.style.cssText = 'font-size:8px;color:#f59e0b;margin-top:2px;font-family:var(--font-mono);letter-spacing:1px;';
+                        alertEl.textContent = feedTrust.alerts + ' TRUST ALERTS';
+                        if (quantumEl && !quantumEl.parentNode.querySelector('.quantum-alerts')) {
+                            alertEl.className = 'quantum-alerts';
+                            quantumEl.parentNode.appendChild(alertEl);
+                        }
+                    }
+
+                } catch(e) { console.warn('[QUANTUM ENGINE]', e); }
+            }
+
+            // ── SOVEREIGN RENDERER ──────────────────────────────────────────
+            function renderSovereignEngine(data) {
+                try {
+                    const compliance = data.compliance || {};
+                    const soc2 = compliance.soc2_score || 0;
+                    const nist = compliance.nist_score || 0;
+                    const avgScore = Math.round((soc2 + nist) / 2);
+                    const sovEl = document.getElementById('sovereign-compliance');
+                    if (sovEl) {
+                        sovEl.textContent = avgScore + '%';
+                        sovEl.style.color = avgScore >= 80 ? '#00d4aa' : avgScore >= 65 ? '#d97706' : '#ef4444';
+                    }
+
+                    // Compliance breakdown
+                    if (soc2 && nist && sovEl) {
+                        const breakdownEl = document.createElement('div');
+                        breakdownEl.style.cssText = 'font-size:8px;color:var(--text-muted);margin-top:4px;font-family:var(--font-mono);line-height:1.6;';
+                        breakdownEl.innerHTML = `SOC2: <span style="color:#00d4aa">${soc2}%</span> | NIST: <span style="color:#3b82f6">${nist}%</span>`;
+                        if (!sovEl.parentNode.querySelector('.sovereign-breakdown')) {
+                            breakdownEl.className = 'sovereign-breakdown';
+                            sovEl.parentNode.appendChild(breakdownEl);
+                        }
+                    }
+
+                    // Tenant count
+                    const tenants = data.tenants || {};
+                    if (tenants.total) {
+                        const tEl = document.createElement('div');
+                        tEl.style.cssText = 'font-size:8px;color:var(--accent);margin-top:2px;font-family:var(--font-mono);letter-spacing:1px;';
+                        tEl.textContent = tenants.total + ' ACTIVE TENANTS';
+                        if (sovEl && !sovEl.parentNode.querySelector('.sovereign-tenants')) {
+                            tEl.className = 'sovereign-tenants';
+                            sovEl.parentNode.appendChild(tEl);
+                        }
+                    }
+
+                } catch(e) { console.warn('[SOVEREIGN ENGINE]', e); }
+            }
+
+            // ── ORCHESTRATOR ────────────────────────────────────────────────
+            async function loadAllEngines() {
+                const results = {};
+                const fetches = Object.entries(ENGINE_URLS).map(async ([name, url]) => {
+                    try {
+                        const resp = await fetch(url, { cache: 'no-cache' });
+                        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                        results[name] = await resp.json();
+                        console.log('[APEX ENGINE] Loaded:', name, '✓');
+                    } catch(err) {
+                        console.warn('[APEX ENGINE] Failed:', name, err.message);
+                    }
+                });
+
+                await Promise.allSettled(fetches);
+
+                // Route each engine output to its renderer
+                if (results.nexus)    renderNexusEngine(results.nexus);
+                if (results.genesis)  renderGenesisEngine(results.genesis);
+                if (results.cortex)   renderCortexEngine(results.cortex);
+                if (results.quantum)  renderQuantumEngine(results.quantum);
+                if (results.sovereign) renderSovereignEngine(results.sovereign);
+
+                // Log activation summary
+                const loaded = Object.keys(results).length;
+                console.log('[APEX ENGINE] Activation complete:', loaded + '/5 engines live');
+            }
+
+            // Trigger after DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', loadAllEngines);
+            } else {
+                // DOM already loaded — fire after a tick to allow existing renderers to run first
+                setTimeout(loadAllEngines, 500);
+            }
+
+        })();
+
+
         // ── Service Worker Registration ──
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
