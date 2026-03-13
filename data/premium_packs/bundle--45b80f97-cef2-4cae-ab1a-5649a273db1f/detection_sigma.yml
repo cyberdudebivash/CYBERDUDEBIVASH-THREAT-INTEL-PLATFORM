@@ -1,0 +1,25 @@
+# ================================================================
+# CyberDudeBivash SENTINEL APEX v20.0 — Sigma Detection Rules
+# Threat  : Who is the Kimwolf Botmaster Dort
+# Scenario: GENERIC
+# Generated: 2026-03-13T08:44:33.928181 UTC
+# Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
+# ================================================================
+
+title: 'CDB: Who is the Kimwolf Botmaster Dort - Suspicious Script Execution'
+id: cdb-928244
+status: experimental
+description: 'Detects obfuscated PowerShell and script-based execution'
+author: 'CyberDudeBivash GOC (Automated)'
+date: 2026/03/13
+tags: ['attack.execution', 'attack.defense_evasion']
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_ps:
+    CommandLine|contains: ['-EncodedCommand', '-enc ', 'IEX(', 'Invoke-Expression', 'DownloadFile']
+  condition: selection_ps
+falsepositives: ['Legitimate admin scripts']
+level: medium
+---
