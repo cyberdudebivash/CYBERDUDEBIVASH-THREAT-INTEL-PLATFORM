@@ -7,7 +7,7 @@
 
 'use strict';
 
-const SW_VERSION = 'v24.0.0';
+const SW_VERSION = 'v46.1.0';
 const CACHE_STATIC = `cdb-static-${SW_VERSION}`;
 const CACHE_FONTS  = `cdb-fonts-${SW_VERSION}`;
 const CACHE_INTEL  = `cdb-intel-${SW_VERSION}`;
@@ -31,10 +31,12 @@ const CDN_ORIGINS = [
 const INTEL_ORIGINS = [
     'https://feeds.feedburner.com',
     'https://api.cyberdudebivash.com',
+    'https://raw.githubusercontent.com',
+    'https://cdn.jsdelivr.net',
 ];
 
 // Max age for intel cache entries (5 minutes)
-const INTEL_MAX_AGE_MS = 5 * 60 * 1000;
+const INTEL_MAX_AGE_MS = 30 * 60 * 1000;
 
 
 // ── Install: Pre-cache static shell ──────────────────────────────
@@ -189,7 +191,7 @@ async function offlineFallback(request) {
         <style>body{background:#020205;color:#c8d1dc;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}.wrap{text-align:center;padding:40px;}.logo{color:#00d4aa;font-size:24px;font-weight:900;letter-spacing:-1px;margin-bottom:16px;}.msg{font-size:12px;opacity:0.6;line-height:1.8;}.btn{margin-top:24px;padding:10px 24px;background:#00d4aa;color:#020205;border:none;font-family:inherit;font-size:11px;font-weight:900;cursor:pointer;letter-spacing:1px;}</style>
         </head><body><div class="wrap">
         <div class="logo">CYBERDUDEBIVASH®</div>
-        <div style="color:#00d4aa;font-size:11px;letter-spacing:3px;margin-bottom:20px;">SENTINEL APEX v24.0 ULTRA</div>
+        <div style="color:#00d4aa;font-size:11px;letter-spacing:3px;margin-bottom:20px;">SENTINEL APEX v46.0 ULTRA</div>
         <div class="msg">⚡ OFFLINE MODE ACTIVE<br>Intelligence feed unavailable.<br>Reconnect to resume live threat monitoring.</div>
         <button class="btn" onclick="window.location.reload()">↻ RETRY CONNECTION</button>
         </div></body></html>`,
