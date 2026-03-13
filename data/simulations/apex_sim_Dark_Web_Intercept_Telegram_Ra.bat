@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: Dark Web Intercept: Telegram_RaaS_Syndicate - Potential Threat Activity
-:: Generated: 2026-03-13 20:39:34 UTC
+:: Generated: 2026-03-06 05:11:18 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================

@@ -368,50 +368,24 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
                f" | Records: {impact_metrics['records_affected']:,}"
                f" | Keywords: {len(impact_metrics['severity_keywords'])}")
 
-    # ─── STEP 6: Confidence Scoring (v46.0 RECALIBRATED) ───
-    # Fixes: (a) 8.0 floor for CVE-only items, (b) MITRE threshold too high,
-    #        (c) no CVE/EPSS/CVSS integration into base confidence
+    # ─── STEP 6: Confidence Scoring (v13.0 MULTI-DIMENSIONAL) ───
+    # Factors: IOCs + content signals + MITRE depth + actor attribution quality
     confidence = enricher.calculate_confidence(extracted_iocs, actor_mapped)
-
-    # v46.0 fix: CVE presence minimum — CVE-only items should not floor at 8.0
-    # A published CVE has inherent verification value (NVD, MITRE, vendor advisories)
-    cve_list = extracted_iocs.get("cve", [])
-    if cve_list and confidence < 20.0:
-        confidence = 20.0  # CVE-backed minimum floor
-
     if impact_metrics["records_affected"] > 0:
         confidence = min(confidence + 15.0, 100.0)  # Records confirmed
     if len(impact_metrics["severity_keywords"]) >= 3:
         confidence = min(confidence + 10.0, 100.0)  # Multiple severity signals
-    elif len(impact_metrics["severity_keywords"]) >= 1:
-        confidence = min(confidence + 4.0, 100.0)   # v46.0: at least 1 severity keyword
-
-    # v46.0 fix: MITRE tactic depth — lowered thresholds (was 5/3, now 4/2)
+    # NEW: MITRE technique depth bonus
     if len(mitre_data) >= 5:
-        confidence = min(confidence + 10.0, 100.0)  # Deep MITRE coverage
-    elif len(mitre_data) >= 4:
-        confidence = min(confidence + 8.0, 100.0)   # Strong MITRE coverage
-    elif len(mitre_data) >= 2:
-        confidence = min(confidence + 5.0, 100.0)   # v46.0: moderate coverage (was 3+)
-    elif len(mitre_data) >= 1:
-        confidence = min(confidence + 2.0, 100.0)   # v46.0: any MITRE signal
-
-    # Actor attribution quality bonus
+        confidence = min(confidence + 8.0, 100.0)   # Deep MITRE coverage
+    elif len(mitre_data) >= 3:
+        confidence = min(confidence + 4.0, 100.0)   # Moderate MITRE coverage
+    # NEW: Actor attribution quality bonus
     actor_conf_str = str(actor_data.get("profile", {}).get("confidence_score", "Low")).lower()
     if "high" in actor_conf_str:
-        confidence = min(confidence + 6.0, 100.0)   # v46.0: bumped from 5
+        confidence = min(confidence + 5.0, 100.0)   # High-confidence actor
     elif "medium" in actor_conf_str:
-        confidence = min(confidence + 4.0, 100.0)   # v46.0: bumped from 3
-    elif actor_mapped:
-        confidence = min(confidence + 2.0, 100.0)   # v46.0: any known actor tag
-
-    # v46.0 feed source quality bonus
-    feed_src = feed_source.lower() if isinstance(feed_source, str) else ""
-    _authoritative_feeds = ("securityaffairs", "cyberscoop", "bleepingcomputer",
-                             "rapid7", "tenable", "crowdstrike", "mandiant",
-                             "unit42", "microsoft.com", "cisa.gov", "nist.gov")
-    if any(af in feed_src for af in _authoritative_feeds):
-        confidence = min(confidence + 5.0, 100.0)   # Authoritative source premium
+        confidence = min(confidence + 3.0, 100.0)   # Medium-confidence actor
 
     # ─── STEP 7: Detection Engineering ───
     sigma_rule = detection_engine.generate_sigma_rule(headline, extracted_iocs)
@@ -430,26 +404,8 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
             cvss_score = _cvss
             kev_present = _kev
             nvd_url = _nvd
-            if epss_score or cvss_score or kev_present:
+            if epss_score or cvss_score:
                 logger.info(f"  → CVE enrichment: EPSS={epss_score} CVSS={cvss_score} KEV={kev_present}")
-                # v46.0: post-enrichment confidence boost from real CVE metadata
-                if kev_present:
-                    confidence = min(confidence + 20.0, 100.0)  # CISA KEV = definitive exploitation
-                if epss_score is not None and epss_score >= 50:
-                    confidence = min(confidence + 12.0, 100.0)  # High EPSS = likely exploitation
-                elif epss_score is not None and epss_score >= 10:
-                    confidence = min(confidence + 6.0, 100.0)   # Moderate EPSS signal
-                elif epss_score is not None:
-                    confidence = min(confidence + 3.0, 100.0)   # EPSS data present (any)
-                if cvss_score is not None:
-                    if cvss_score >= 9.0:
-                        confidence = min(confidence + 10.0, 100.0)  # Critical CVSS
-                    elif cvss_score >= 7.0:
-                        confidence = min(confidence + 7.0, 100.0)   # High CVSS
-                    elif cvss_score >= 4.0:
-                        confidence = min(confidence + 4.0, 100.0)   # Medium CVSS
-                    else:
-                        confidence = min(confidence + 2.0, 100.0)   # Low CVSS (data present)
         except Exception as _cve_e:
             logger.debug(f"CVE enrichment skipped (non-critical): {_cve_e}")
 
@@ -535,106 +491,49 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         return False
 
 
-# ── KEV Cache (module-level, refreshed every 4h) — v46.0 fix ──
-_KEV_CACHE: dict = {"cves": set(), "fetched_at": 0.0}
-_KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
-_KEV_TTL = 14400  # 4 hours
-
-
-def _get_kev_set() -> set:
-    """Return in-memory set of KEV CVE IDs, refreshing from CISA every 4h."""
-    import urllib.request
-    import json as _json
-    now = time.time()
-    if now - _KEV_CACHE["fetched_at"] < _KEV_TTL and _KEV_CACHE["cves"]:
-        return _KEV_CACHE["cves"]
-    try:
-        req = urllib.request.Request(
-            _KEV_URL,
-            headers={"User-Agent": "CDB-Sentinel/46.0", "Accept": "application/json"},
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            data = _json.loads(resp.read())
-        cve_set = {
-            v.get("cveID", "").upper()
-            for v in data.get("vulnerabilities", [])
-            if v.get("cveID")
-        }
-        _KEV_CACHE["cves"] = cve_set
-        _KEV_CACHE["fetched_at"] = now
-        logger.info(f"KEV cache refreshed: {len(cve_set)} entries")
-    except Exception as e:
-        logger.warning(f"KEV fetch failed (using stale cache): {e}")
-    return _KEV_CACHE["cves"]
-
-
 def _enrich_cve_metadata(cve_id: str):
     """
     Fetch EPSS score, CVSS base score, and KEV status for a given CVE ID.
-    v46.0 — adds KEV lookup, retry+backoff for EPSS, CVE normalization.
+    v21.0 addition — non-critical, returns None values on failure.
+    Sources:
+      - EPSS: https://api.first.org/data/v1/epss?cve=CVE-XXXX-XXXXX
+      - NVD:  https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=CVE-XXXX
+      - KEV:  https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
     Returns (epss_score, cvss_score, kev_present, nvd_url)
     """
     import urllib.request
-    import urllib.error
     import json as _json
 
-    # Normalize: strip whitespace, uppercase, validate format
-    cve_upper = re.sub(r"\s+", "", cve_id).upper()
-    if not re.match(r"CVE-\d{4}-\d{4,}", cve_upper):
-        return None, None, False, None
-
+    cve_upper = cve_id.upper().strip()
     epss_score = None
     cvss_score = None
     kev_present = False
     nvd_url = f"https://nvd.nist.gov/vuln/detail/{cve_upper}"
 
-    # ── KEV lookup (v46.0 fix: was always False) ──
+    # ── EPSS lookup ──
     try:
-        kev_set = _get_kev_set()
-        kev_present = cve_upper in kev_set
+        url = f"https://api.first.org/data/v1/epss?cve={cve_upper}"
+        req = urllib.request.Request(url, headers={"User-Agent": "CDB-Sentinel/21.0"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = _json.loads(resp.read())
+        if data.get("data"):
+            epss_score = round(float(data["data"][0].get("epss", 0)) * 100, 2)
     except Exception:
-        kev_present = False
-
-    # ── EPSS lookup — retry with exponential backoff (v46.0 fix) ──
-    for attempt in range(3):
-        try:
-            url = f"https://api.first.org/data/v1/epss?cve={cve_upper}"
-            req = urllib.request.Request(
-                url,
-                headers={"User-Agent": "CDB-Sentinel/46.0", "Accept": "application/json"},
-            )
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                if resp.status == 429:
-                    # Rate limited — backoff and retry
-                    time.sleep(2 ** attempt)
-                    continue
-                data = _json.loads(resp.read())
-            if data.get("data"):
-                raw = float(data["data"][0].get("epss", 0))
-                epss_score = round(raw * 100, 2)
-            break
-        except urllib.error.HTTPError as e:
-            if e.code == 429:
-                time.sleep(2 ** attempt)
-            else:
-                break
-        except Exception:
-            if attempt < 2:
-                time.sleep(1)
-            break
+        pass
 
     # ── NVD CVSS lookup ──
     try:
         nvd_key = os.getenv("NVD_API_KEY", "")
-        headers = {"User-Agent": "CDB-Sentinel/46.0"}
+        headers = {"User-Agent": "CDB-Sentinel/21.0"}
         if nvd_key:
             headers["apiKey"] = nvd_key
         url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve_upper}"
         req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             data = _json.loads(resp.read())
         vuln = data.get("vulnerabilities", [{}])[0].get("cve", {})
         metrics = vuln.get("metrics", {})
+        # Try CVSS v3.1 first, fall back to v3.0, then v2
         for key in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
             if key in metrics and metrics[key]:
                 cvss_score = metrics[key][0].get("cvssData", {}).get("baseScore")
