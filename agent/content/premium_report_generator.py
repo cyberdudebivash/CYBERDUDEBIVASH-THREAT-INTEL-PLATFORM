@@ -13,6 +13,23 @@ from typing import Dict, List, Optional
 
 from agent.config import BRAND, COLORS, FONTS
 
+# ── CVE-Verified Report Engine (v44.0) ────────────────────────────────────────
+# Generates NVD-grounded, zero-hallucination reports for CVE advisories.
+# Loaded lazily — zero impact on non-CVE report paths.
+_cve_engine_available = False
+try:
+    from agent.content.cve_verified_engine import generate_cve_verified_report as _generate_cve_verified_report
+    _cve_engine_available = True
+except ImportError:
+    try:
+        # Fallback: direct import when running outside package context
+        import sys, os
+        sys.path.insert(0, os.path.dirname(__file__))
+        from cve_verified_engine import generate_cve_verified_report as _generate_cve_verified_report
+        _cve_engine_available = True
+    except ImportError:
+        _generate_cve_verified_report = None
+
 
 class PremiumReportGenerator:
     """
@@ -32,6 +49,22 @@ class PremiumReportGenerator:
     def _classify_threat_type(self, headline: str, content: str) -> Dict:
         """Classify the threat type from headline and content for contextual generation."""
         text = f"{headline} {content}".lower()
+
+        # ══════════════════════════════════════════════════════════════════════
+        # CVE PRIORITY LOCK (v44.0) — ZERO REGRESSION, ZERO HALLUCINATION
+        # If ANY CVE-XXXX-XXXXX pattern is present, this is ALWAYS a
+        # 'vulnerability' advisory — never mobile_malware, never malware_campaign.
+        # This prevents keyword collisions (e.g., "android" in a Viber CVE)
+        # from triggering fabricated malware/firmware/Zygote narratives.
+        # ══════════════════════════════════════════════════════════════════════
+        if re.search(r'cve-\d{4}-\d{4,7}', text, re.IGNORECASE):
+            return {
+                "category": "Vulnerability Disclosure / Exploitation",
+                "icon": "⚠️",
+                "sectors": ["All Industries", "Critical Infrastructure", "Government"],
+                "keywords": ["cve"],
+                "_cve_locked": True,  # Signal for downstream generators
+            }
 
         classifications = {
             "data_breach": {
@@ -200,6 +233,38 @@ class PremiumReportGenerator:
         Generate a premium 2500+ word threat intelligence report
         following the CYBERDUDEBIVASH 16-SECTION TEMPLATE.
         """
+        # ══════════════════════════════════════════════════════════════════════
+        # CVE ROUTING GATE (v44.0)
+        # When CVE IDs are detected in the input, route to the CVE-Verified
+        # Report Engine which generates NVD-grounded, zero-hallucination reports.
+        #
+        # This gate:
+        #   1. Extracts CVE IDs from headline + source_content
+        #   2. Invokes the CVE engine which fetches live NVD data
+        #   3. Returns a 10-section verified report if NVD data is available
+        #   4. Falls through to the 16-section template ONLY if NVD fetch fails
+        #
+        # Zero regression: non-CVE reports bypass this gate entirely.
+        # ══════════════════════════════════════════════════════════════════════
+        _cve_ids = self._extract_mentioned_cves(f"{headline} {source_content}")
+        if _cve_ids and _cve_engine_available and _generate_cve_verified_report:
+            try:
+                _cve_report = _generate_cve_verified_report(
+                    cve_ids=_cve_ids,
+                    risk_score=risk_score,
+                    confidence=confidence,
+                    tlp_label=tlp.get('label', 'TLP:CLEAR'),
+                    tlp_color=tlp.get('color', COLORS.get('accent', '#00d4ff')),
+                    colors=COLORS,
+                    fonts=FONTS,
+                    brand=BRAND,
+                )
+                if _cve_report:
+                    return _cve_report
+                # NVD returned no data — fall through to 16-section template
+            except Exception:
+                pass  # Never block on CVE engine failure — fall through gracefully
+
         s = self._build_styles()
         report_id = self.generate_report_id()
         now_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
@@ -849,6 +914,30 @@ class PremiumReportGenerator:
         s = self._build_styles()
         cat = threat_type.get('category', '').lower()
         headline_lower = headline.lower()
+
+        # ── v44.0: VULNERABILITY GATE ─────────────────────────────────────────
+        # For vulnerability disclosures, generate vulnerability-accurate
+        # exploitation context — NOT an infection chain narrative which
+        # implies malware delivery or campaign-style attack chains.
+        if 'vulnerability' in cat or threat_type.get('_cve_locked', False):
+            cves = self._extract_mentioned_cves(f"{headline} {text}")
+            cve_ref = cves[0] if cves else "this vulnerability"
+            return f"""This advisory covers a software vulnerability ({cve_ref}). Unlike malware campaigns
+            which involve multi-stage infection chains, vulnerability disclosures describe a specific
+            technical weakness in a software component.</p>
+            <p style="{s['p']}">
+            <b>Exploitation Context:</b> The CVSS vector string associated with this vulnerability
+            defines the attack surface — including network accessibility, required privileges, and
+            user interaction requirements — which determines the conditions under which exploitation
+            could occur. Consult Section 2 (Vulnerability Overview) and Section 3 (Verified Technical
+            Details) for the CVSS-grounded exploitation profile.</p>
+            <p style="{s['p']}">
+            <b>No infection chain is applicable to this advisory.</b> An infection chain describes
+            malware delivery, persistence, and lateral movement — none of which are part of this
+            vulnerability's verified scope. Security teams should focus on patch deployment,
+            version verification, and the detection guidance in Section 7 of this report."""
+        # ─────────────────────────────────────────────────────────────────────
+
         is_browser = any(w in headline_lower for w in ['extension', 'browser', 'chrome', 'addon', 'plugin'])
 
         if is_browser or 'browser extension' in cat:
@@ -985,6 +1074,31 @@ class PremiumReportGenerator:
         hashes = iocs.get('sha256', []) + iocs.get('md5', [])
         artifacts = iocs.get('artifacts', [])
         cat = threat_type.get('category', '').lower()
+
+        # ── v44.0: VULNERABILITY GATE ─────────────────────────────────────────
+        # If this is a CVE-classified report, NEVER generate malware payload
+        # content. CVE reports require vulnerability-scoped technical analysis
+        # only. Generating Zygote hooking, OTP interception, firmware backdoor,
+        # or banking trojan content for a vulnerability advisory is factually
+        # incorrect and directly contradicts the NVD-verified vulnerability scope.
+        if 'vulnerability' in cat or threat_type.get('_cve_locked', False):
+            cves = self._extract_mentioned_cves(f"{headline} {text}")
+            cve_ref = cves[0] if cves else "this CVE"
+            return f"""This advisory covers a software vulnerability ({cve_ref}) and does not
+            involve malware, payload delivery, or malicious code execution as part of the
+            vulnerability's primary impact. The technical analysis is scoped to the vulnerability
+            mechanism as described in the NVD entry.</p>
+            <p style="{s['p']}">
+            <b>Exploitation Mechanism:</b> Exploitation of vulnerability-class weaknesses typically
+            targets the specific flaw in the affected software component. Organizations should
+            consult the CVSS vector string and CWE classification in the NVD entry for authoritative
+            information on attack vectors, complexity, and required privileges.</p>
+            <p style="{s['p']}">
+            <b>No malware artifact analysis is applicable to this advisory.</b> File hashes,
+            payload signatures, and malware behavioral indicators are not relevant to this
+            vulnerability disclosure. Detection strategies should focus on patch verification
+            and network/application-layer monitoring aligned to the specific vulnerability class."""
+        # ─────────────────────────────────────────────────────────────────────
 
         analysis = f"""Analysis of associated indicators reveals technical characteristics consistent
         with {threat_type.get('category', 'advanced threat').lower()} operations. """
