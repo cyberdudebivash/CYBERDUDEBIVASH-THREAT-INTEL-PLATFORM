@@ -13,8 +13,8 @@ Usage:
 # VERSION DEFINITION — EDIT ONLY HERE
 # ══════════════════════════════════════════════════════════════════════════════
 
-VERSION = "43.0.0"
-CODENAME = "GENESIS"
+VERSION = "45.0.0"
+CODENAME = "BUG HUNTER"
 RELEASE_DATE = "2026-03"
 RELEASE_TYPE = "enterprise"
 
@@ -34,6 +34,7 @@ VERSION_INFO = {
 
 # Version history for compatibility checks
 VERSION_HISTORY = [
+    {"version": "45.0.0", "codename": "BUG HUNTER", "type": "enterprise", "date": "2026-03"},
     {"version": "39.0.0", "codename": "NEXUS INTELLIGENCE", "type": "enterprise", "date": "2026-03"},
     {"version": "29.0.0", "codename": "APEX SCALE", "type": "enterprise", "date": "2026-03"},
     {"version": "28.0.0", "codename": "FORTRESS", "type": "hardening", "date": "2026-03"},
