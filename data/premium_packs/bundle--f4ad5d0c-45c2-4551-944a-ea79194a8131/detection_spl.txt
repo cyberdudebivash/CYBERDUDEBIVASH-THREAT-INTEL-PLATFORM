@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : Microsoft seizes 338 websites to disrupt rapidly growing RaccoonO365 phishing se
+# Scenario: PHISHING
+# Generated: 2026-03-13 22:35:08 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Suspicious PowerShell
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="-EncodedCommand" OR CommandLine="IEX(" OR CommandLine="DownloadFile")
+| stats count by host, user, CommandLine | eval ThreatName="Microsoft seizes 338 websites to disrupt rapidly growing RaccoonO365 phishing se"
