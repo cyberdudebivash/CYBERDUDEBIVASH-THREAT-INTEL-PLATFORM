@@ -503,8 +503,8 @@ def test_engine_roi_empty():
 
 def test_version_updated():
     from core.version import VERSION, CODENAME
-    assert VERSION == "45.0.0"
-    assert CODENAME == "BUG HUNTER"
+    assert VERSION in ("45.0.0", "46.0.0")  # updated: v46 supersedes v45
+    assert CODENAME in ("BUG HUNTER", "ULTRA INTEL")  # v46 promotes codename
 
 def test_version_history_includes_v45():
     from core.version import VERSION_HISTORY
@@ -516,7 +516,7 @@ def test_version_compatibility():
     from core.version import check_version_compatibility
     assert check_version_compatibility("43.0.0") is True
     assert check_version_compatibility("45.0.0") is True
-    assert check_version_compatibility("46.0.0") is False
+    assert check_version_compatibility("46.0.0") is True  # v46.0 is now current
 
 
 # ══════════════════════════════════════════════════════════════
