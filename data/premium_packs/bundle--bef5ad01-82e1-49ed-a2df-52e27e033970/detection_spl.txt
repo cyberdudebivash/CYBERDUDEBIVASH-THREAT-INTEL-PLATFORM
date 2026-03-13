@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : Hackers targeted Polands National Centre for Nuclear Research
+# Scenario: GENERIC
+# Generated: 2026-03-13 21:25:04 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Suspicious PowerShell
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="-EncodedCommand" OR CommandLine="IEX(" OR CommandLine="DownloadFile")
+| stats count by host, user, CommandLine | eval ThreatName="Hackers targeted Polands National Centre for Nuclear Research"

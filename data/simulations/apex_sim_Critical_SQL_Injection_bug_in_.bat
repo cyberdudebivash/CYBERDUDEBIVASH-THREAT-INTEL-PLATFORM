@@ -1,7 +1,7 @@
 @echo off
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
-:: Target Threat: Dark Web Intercept: Telegram_RaaS_Syndicate - Potential Threat Activity
+:: Target Threat: Critical SQL Injection bug in Ally plugin threatens 400,000+ WordPress sites
 :: Generated: 2026-03-13 20:39:34 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.

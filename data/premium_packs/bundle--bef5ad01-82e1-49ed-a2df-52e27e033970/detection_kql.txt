@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : Hackers targeted Polands National Centre for Nuclear Research
+// Scenario: GENERIC | CVEs: N/A
+// Generated: 2026-03-13 21:25:04 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Suspicious PowerShell
+SecurityEvent | where TimeGenerated > ago(24h)
+| where EventID == 4688
+| where CommandLine has_any ('-EncodedCommand', '-enc', 'IEX(', 'Invoke-Expression', 'DownloadFile')
+| extend ThreatName="Hackers targeted Polands National Centre for Nuclear Research", Severity="CRITICAL"

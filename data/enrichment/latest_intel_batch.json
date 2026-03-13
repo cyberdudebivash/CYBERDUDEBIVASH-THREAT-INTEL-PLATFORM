@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-13T16:45:16.179681+00:00",
+  "timestamp": "2026-03-13T20:39:29.015215+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -8,6 +8,36 @@
     "urlhaus"
   ],
   "kev_recent": [
+    {
+      "cveID": "CVE-2026-3910",
+      "vendorProject": "Google",
+      "product": "Chromium V8",
+      "vulnerabilityName": "Google Chromium V8 Improper Restriction of Operations Within the Bounds of a Memory Buffer Vulnerability",
+      "dateAdded": "2026-03-13",
+      "shortDescription": "Google Chromium V8 contains an improper restriction of operations within the bounds of a memory buffer vulnerability that could allow a remote attacker to execute arbitrary code inside a sandbox via a crafted HTML page. This vulnerability could affect multiple web browsers that utilize Chromium, including, but not limited to, Google Chrome, Microsoft Edge, and Opera.",
+      "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
+      "dueDate": "2026-03-27",
+      "knownRansomwareCampaignUse": "Unknown",
+      "notes": "https://chromereleases.googleblog.com/2026/03/stable-channel-update-for-desktop_12.html ; https://nvd.nist.gov/vuln/detail/CVE-2026-3910",
+      "cwes": [
+        "CWE-119"
+      ]
+    },
+    {
+      "cveID": "CVE-2026-3909",
+      "vendorProject": "Google",
+      "product": "Skia",
+      "vulnerabilityName": "Google Skia Out-of-Bounds Write Vulnerability",
+      "dateAdded": "2026-03-13",
+      "shortDescription": "Google Skia contains an out-of-bounds write vulnerability that could allow a remote attacker to perform out of bounds memory access via a crafted HTML page. This vulnerability affects Google Chrome and ChromeOS, Android, Flutter, and possibly other products.",
+      "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
+      "dueDate": "2026-03-27",
+      "knownRansomwareCampaignUse": "Unknown",
+      "notes": "This vulnerability affects a common open-source component, third-party library, or a protocol used by different products. Please check with specific vendors for information on patching status. For more information, please see: https://chromereleases.googleblog.com/2026/03/stable-channel-update-for-desktop_12.html#:~:text=Google%20is%20aware ; https://nvd.nist.gov/vuln/detail/CVE-2026-3909",
+      "cwes": [
+        "CWE-787"
+      ]
+    },
     {
       "cveID": "CVE-2025-68613",
       "vendorProject": "n8n",
@@ -294,6 +324,265 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-f269-vfmq-vjvj",
+      "cve_id": "CVE-2026-1528",
+      "severity": "HIGH",
+      "summary": "Undici: Malicious WebSocket 64-bit length overflows parser and crashes the client",
+      "description": "### Impact\nA server can reply with a WebSocket frame using the 64-bit length form and an extremely large length. undici's ByteParser overflows internal math, ends up in an invalid state, and throws a fatal TypeError that terminates the process. \n\n### Patches\n\n\n Patched in the undici version v7.24.0 and v6.24.0. Users should upgrade to this version or later.\n\n### Workarounds\n\nThere are no workarounds.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-248",
+        "CWE-1284"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "undici",
+        "undici"
+      ],
+      "published": "2026-03-13T20:07:26Z",
+      "updated": "2026-03-13T20:07:26Z",
+      "url": "https://github.com/advisories/GHSA-f269-vfmq-vjvj",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nodejs/undici/security/advisories/GHSA-f269-vfmq-vjvj",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-1528",
+        "https://hackerone.com/reports/3537648",
+        "https://cna.openjsf.org/security-advisories.html",
+        "https://github.com/advisories/GHSA-f269-vfmq-vjvj"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-752w-5fwx-jx9f",
+      "cve_id": "CVE-2026-32597",
+      "severity": "HIGH",
+      "summary": "PyJWT accepts unknown `crit` header extensions",
+      "description": "## Summary\n\nPyJWT does not validate the `crit` (Critical) Header Parameter defined in\nRFC 7515 \u00a74.1.11. When a JWS token contains a `crit` array listing\nextensions that PyJWT does not understand, the library accepts the token\ninstead of rejecting it. This violates the **MUST** requirement in the RFC.\n\nThis is the same class of vulnerability as CVE-2025-59420 (Authlib),\nwhich received CVSS 7.5 (HIGH).\n\n---\n\n## RFC Requirement\n\nRFC 7515 \u00a74.1.11:\n\n> The \"crit\" (Critical) Header Parameter indicates that extensions to this\n> specification and/or [JWA] are being used that **MUST** be understood and\n> processed. [...] If any of the listed extension Header Parameters are\n> **not understood and supported** by the recipient, then the **JWS is invalid**.\n\n---\n\n## Proof of Concept\n\n```python\nimport jwt  # PyJWT 2.8.0\nimport hmac, hashlib, base64, json\n\n# Construct token with unknown critical extension\nheader = {\"alg\": \"HS256\", \"crit\": [\"x-custom-policy\"], \"x-custom-policy\": \"require-mfa\"}\npayload ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-345",
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "PyJWT"
+      ],
+      "published": "2026-03-13T20:05:04Z",
+      "updated": "2026-03-13T20:05:05Z",
+      "url": "https://github.com/advisories/GHSA-752w-5fwx-jx9f",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/jpadilla/pyjwt/security/advisories/GHSA-752w-5fwx-jx9f",
+        "https://github.com/advisories/GHSA-752w-5fwx-jx9f"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-vxx9-2994-q338",
+      "cve_id": "CVE-2026-32314",
+      "severity": "HIGH",
+      "summary": "Yamux vulnerable to remote Panic via malformed Data frame with SYN set and len = 262145",
+      "description": "### Summary\nThe Rust implementation of Yamux can panic when processing a crafted inbound Data frame that sets SYN and uses a body length greater than DEFAULT_CREDIT (e.g. 262145).\nOn the first packet of a new inbound stream, stream state is created and a receiver is queued before oversized-body validation completes. When validation fails, the temporary stream is dropped and cleanup may call remove(...).expect(\"stream not found\"), triggering a panic in the connection state machine.\nThis is remotely reachable over a normal Yamux session and does not require authentication. kind of vulnerability is it? Who is \n#### Attack Scenario  \nAn attacker that can establish a Yamux session with a target node can crash the target by sending a single validly encoded Yamux Data|SYN frame with an oversized body:\n1. Establish a standard authenticated transport session that negotiates Yamux.\n2. Send one Yamux frame with:\n   - Tag = Data\n   - Flags = SYN\n   - StreamId = 1 (or any new inbound stream id)\n   ",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-617"
+      ],
+      "ecosystems": [
+        "rust"
+      ],
+      "packages": [
+        "yamux"
+      ],
+      "published": "2026-03-13T20:04:38Z",
+      "updated": "2026-03-13T20:04:40Z",
+      "url": "https://github.com/advisories/GHSA-vxx9-2994-q338",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/libp2p/rust-yamux/security/advisories/GHSA-vxx9-2994-q338",
+        "https://github.com/advisories/GHSA-vxx9-2994-q338"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4v26-v6cg-g6f9",
+      "cve_id": "CVE-2026-32313",
+      "severity": "HIGH",
+      "summary": "xmlseclibs: Missing AES-GCM Authentication Tag Validation on Encrypted Nodes Allows for Unauthorized Decryption",
+      "description": "### Summary\nXML nodes encrypted with either aes-128-gcm, aes-192-gcm, or aes-256-gcm lack validation of the authentication tag length.\nAn attacker can use this to brute-force an authentication tag, recover the [GHASH key](https://en.wikipedia.org/wiki/Galois/Counter_Mode#:~:text=%29%20is%20the-,hash%20key,-%2C%20a%20string%20of), and decrypt the encrypted nodes.\nIt also allows to forge arbitrary ciphertexts without knowing the encryption key.\n\n### Details\nWhen decrypting with either aes-128-gcm, aes-192-gcm, or aes-256-gcm [here](https://github.com/robrichards/xmlseclibs/blob/2bdfd742624d739dfadbd415f00181b4a77aaf07/src/XMLSecurityKey.php#L467-L479), the `$authTag` is set from a `substr()`, but never has its length validated (it should be validated with something like `strlen($authTag) == self::AUTHTAG_LENGTH`).\nFor that reason, a shorter than expected data blob will allow for the `$authTag` to have as short a tag as only one byte (see [PHP's documentation](https://www.php.net/manual/e",
+      "cvss_score": 8.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-354"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "robrichards/xmlseclibs"
+      ],
+      "published": "2026-03-13T20:04:21Z",
+      "updated": "2026-03-13T20:04:25Z",
+      "url": "https://github.com/advisories/GHSA-4v26-v6cg-g6f9",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/robrichards/xmlseclibs/security/advisories/GHSA-4v26-v6cg-g6f9",
+        "https://github.com/robrichards/xmlseclibs/commit/03062be78178cbb5e8f605cd255dc32a14981f92",
+        "https://github.com/robrichards/xmlseclibs/releases/tag/3.1.5",
+        "https://github.com/advisories/GHSA-4v26-v6cg-g6f9"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-cwxj-rr6w-m6w7",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Scrapy: Arbitrary Module Import via Referrer-Policy Header in RefererMiddleware",
+      "description": "### Impact\n\nSince version 1.4.0, Scrapy respects the `Referrer-Policy` response header to decide whether and how to set a `Referer` header on follow-up requests.\n\nIf the header value looked like a valid Python import path, Scrapy would import the referenced object and call it, assuming it referred to a referrer policy class (for example, `scrapy.spidermiddlewares.referer.DefaultReferrerPolicy`) and attempting to instantiate it to handle the `Referer` header.\n\nA malicious site could exploit this by setting `Referrer-Policy` to a path such as `sys.exit`, causing Scrapy to import and execute it and potentially terminate the process.\n\n### Patches\n\nUpgrade to Scrapy 2.14.2 (or later).\n\n### Workarounds\n\nIf you cannot upgrade to Scrapy 2.14.2, consider the following mitigations.\n\n- **Disable the middleware:** If you don't need the `Referer` header on follow-up requests, set [`REFERER_ENABLED`](https://docs.scrapy.org/en/latest/topics/spider-middleware.html#referer-enabled) to `False`.\n- **Set",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-470"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "Scrapy"
+      ],
+      "published": "2026-03-13T20:02:36Z",
+      "updated": "2026-03-13T20:02:40Z",
+      "url": "https://github.com/advisories/GHSA-cwxj-rr6w-m6w7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/scrapy/scrapy/security/advisories/GHSA-cwxj-rr6w-m6w7",
+        "https://github.com/scrapy/scrapy/commit/945b787a263586cb5803c01c6da57daad8997ae5",
+        "https://github.com/advisories/GHSA-cwxj-rr6w-m6w7"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4c96-w8v2-p28j",
+      "cve_id": "CVE-2026-32260",
+      "severity": "HIGH",
+      "summary": "Deno vulnerable to command Injection via incomplete shell metacharacter blocklist in node:child_process",
+      "description": "## Summary\n\n  A command injection vulnerability exists in Deno's `node:child_process` polyfill (`shell: true` mode) that bypasses the fix\n  for CVE-2026-27190 (GHSA-hmh4-3xvx-q5hr). An attacker who controls arguments passed to `spawnSync` or `spawn` with `shell:\n  true` can execute arbitrary OS commands, bypassing Deno's permission system.\n\n  **Affected versions:** Deno v2.7.0, v2.7.1\n\n  ## Details\n\n  The two-stage argument sanitization in `transformDenoShellCommand` (`ext/node/polyfills/internal/child_process.ts`) has a\n  priority bug: when an argument contains a `$VAR` pattern, it is wrapped in double quotes (L1290) instead of single quotes\n  (L1293). Double quotes in POSIX sh do not suppress backtick command substitution, allowing injected commands to execute.\n\n  Attack chain:\n  1. `escapeShellArg` wraps the argument in single quotes (safe)\n  2. `op_node_parse_shell_args` strips the single-quote delimiters during tokenization (raw argument exposed)\n  3. Re-quoting detects `$VAR` pat",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-78"
+      ],
+      "ecosystems": [
+        "rust"
+      ],
+      "packages": [
+        "deno"
+      ],
+      "published": "2026-03-13T20:02:18Z",
+      "updated": "2026-03-13T20:02:20Z",
+      "url": "https://github.com/advisories/GHSA-4c96-w8v2-p28j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/denoland/deno/security/advisories/GHSA-4c96-w8v2-p28j",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-32260",
+        "https://github.com/advisories/GHSA-4c96-w8v2-p28j"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-wvh5-6vjm-23qh",
+      "cve_id": "CVE-2026-32308",
+      "severity": "HIGH",
+      "summary": "OneUptime: Stored XSS via Mermaid Diagram Rendering (securityLevel: \"loose\")",
+      "description": "### Summary\n\nThe Markdown viewer component renders Mermaid diagrams with `securityLevel: \"loose\"` and injects the SVG output via `innerHTML`. This configuration explicitly allows interactive event bindings in Mermaid diagrams, enabling XSS through Mermaid's `click` directive which can execute arbitrary JavaScript. Any field that renders markdown (incident descriptions, status page announcements, monitor notes) is vulnerable.\n\n### Details\n\n**Mermaid configuration \u2014 `Common/UI/Components/Markdown.tsx/MarkdownViewer.tsx:76`:**\n\n```typescript\n// MarkdownViewer.tsx:76\nmermaid.initialize({\n    securityLevel: \"loose\",  // Allows interactive event bindings\n    // ...\n});\n```\n\nThe Mermaid documentation explicitly warns: `securityLevel: \"loose\"` allows click events and other interactive bindings in diagrams. The safe default is `\"strict\"` which strips all interactivity.\n\n**SVG injection via innerHTML \u2014 `MarkdownViewer.tsx:106`:**\n\n```typescript\n// MarkdownViewer.tsx:106\nif (containerRef.current)",
+      "cvss_score": 7.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "oneuptime"
+      ],
+      "published": "2026-03-13T20:00:38Z",
+      "updated": "2026-03-13T20:00:40Z",
+      "url": "https://github.com/advisories/GHSA-wvh5-6vjm-23qh",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/OneUptime/oneuptime/security/advisories/GHSA-wvh5-6vjm-23qh",
+        "https://github.com/OneUptime/oneuptime/releases/tag/10.0.23",
+        "https://github.com/advisories/GHSA-wvh5-6vjm-23qh"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-f38f-5xpm-9r7c",
+      "cve_id": "CVE-2026-31899",
+      "severity": "HIGH",
+      "summary": "CairoSVG vulnerable to Exponential DoS via recursive <use> element amplification",
+      "description": "## Summary\n\nKozea/CairoSVG has exponential denial of service via recursive `<use>` element amplification in `cairosvg/defs.py` (line ~335). This causes CPU exhaustion from a small input.\n\n## Vulnerable Code\n\nFile: `cairosvg/defs.py` (line ~335), function `use()`\n\nThe `use()` function recursively processes `<use>` elements without any depth or count limits. With 5 levels of nesting and 10 references each, a 1,411-byte SVG triggers 10^5 = 100,000 render calls.\n\n## Impact\n\n- 1,411-byte SVG payload pins CPU at 100% indefinitely\n- Memory stays flat at ~43MB \u2014 no OOM kill, process never terminates\n- Any service accepting SVG input (thumbnailing, PDF generation, avatar rendering) is DoS-able\n- Amplification factor: O(10^N) rendering calls from O(N) input\n\n## Proof of Concept\n\nSave as `poc.svg` and run `timeout 10 cairosvg poc.svg -o test.png`:\n\n```xml\n<?xml version=\"1.0\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n  <defs>\n    <g id=\"a\"><rect width=\"1",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-400"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "CairoSVG"
+      ],
+      "published": "2026-03-13T18:57:31Z",
+      "updated": "2026-03-13T18:57:34Z",
+      "url": "https://github.com/advisories/GHSA-f38f-5xpm-9r7c",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/Kozea/CairoSVG/security/advisories/GHSA-f38f-5xpm-9r7c",
+        "https://github.com/Kozea/CairoSVG/commit/6dde8685ed3f19837767bce7a13a5491e3d0e0bf",
+        "https://github.com/advisories/GHSA-f38f-5xpm-9r7c"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4w32-2493-32g7",
+      "cve_id": "CVE-2026-31814",
+      "severity": "HIGH",
+      "summary": "Yamux vulnerable to remote Panic via malformed WindowUpdate credit",
+      "description": "### Sumary\nThe Rust implementation of Yamux accepts `WindowUpdate` credit values from the remote peer and applies them to per-stream send-window state.  \nA specially crafted `WindowUpdate` can cause arithmetic overflow in send-window accounting, which triggers a panic in the connection state machine. This is remotely reachable over a normal network connection and does not require authentication.\n#### Attack Scenario  \nAn attacker that can establish a Yamux session with a target node can crash the target by sending two validly encoded Yamux frames:\n1. Open a stream (e.g. DATA + SYN) so the stream exists with initial send-window state (`DEFAULT_CREDIT`).\n2. Send a WindowUpdate on that stream with a very large credit value (e.g. 0xFFFF_0000) such that adding credit to the current send-window overflows u32.\n### Impact\nRemote unauthenticated denial of service.  \nAn attacker can repeatedly trigger panics by reconnecting and replaying the crafted frame sequence.\n### Patches\nUsers should upgra",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-190"
+      ],
+      "ecosystems": [
+        "rust"
+      ],
+      "packages": [
+        "yamux"
+      ],
+      "published": "2026-03-13T18:57:19Z",
+      "updated": "2026-03-13T18:57:21Z",
+      "url": "https://github.com/advisories/GHSA-4w32-2493-32g7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/libp2p/rust-yamux/security/advisories/GHSA-4w32-2493-32g7",
+        "https://github.com/libp2p/rust-yamux/pull/221",
+        "https://github.com/libp2p/rust-yamux/commit/b1aae09d60c0bd6a5915a5448f4e8cbc5174db53",
+        "https://github.com/libp2p/rust-yamux/releases/tag/yamux-v0.13.9",
+        "https://github.com/advisories/GHSA-4w32-2493-32g7"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-mj4p-rc52-m843",
       "cve_id": null,
       "severity": "HIGH",
@@ -464,273 +753,11 @@
         "https://github.com/WebReflection/flatted/commit/7eb65d857e1a40de11c47461cdbc8541449f0606",
         "https://github.com/advisories/GHSA-25h7-pfq9-p65f"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-g2p6-hh5v-7hfm",
-      "cve_id": "CVE-2026-32129",
-      "severity": "HIGH",
-      "summary": "Poseidon V1 variable-length input collision via implicit zero-padding",
-      "description": "## Impact\n\nPoseidon V1 (`PoseidonSponge`) accepts variable-length inputs without injective padding. When a caller provides fewer inputs than the sponge rate (`inputs.len() < T - 1`), unused rate positions are implicitly zero-filled. This allows trivial hash collisions: for any input vector `[m1, ..., mk]` hashed with a sponge of rate > k, `hash([m1, ..., mk])` equals `hash([m1, ..., mk, 0])` because both produce identical pre-permutation states.\n\nThis affects any use of `PoseidonSponge` or `poseidon_hash` where the number of inputs is less than `T - 1` (e.g., hashing 1 input with `T=3`).\n\nPoseidon2 (`Poseidon2Sponge`) is **not affected** \u2014 it encodes the input length in the capacity element (`IV = input_len << 64`), making different-length inputs produce distinct states.\n\n## Patches\n\nFixed by enforcing `inputs.len() == RATE` in `PoseidonSponge::compute_hash`, matching circom's invariant that `nInputs` always equals `T - 1`. Users should upgrade to the next release containing this fix.\n",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-328"
-      ],
-      "ecosystems": [
-        "rust"
-      ],
-      "packages": [
-        "soroban-poseidon"
-      ],
-      "published": "2026-03-13T15:40:31Z",
-      "updated": "2026-03-13T15:40:34Z",
-      "url": "https://github.com/advisories/GHSA-g2p6-hh5v-7hfm",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/stellar/rs-soroban-poseidon/security/advisories/GHSA-g2p6-hh5v-7hfm",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-32129",
-        "https://github.com/stellar/rs-soroban-poseidon/pull/10",
-        "https://github.com/stellar/rs-soroban-poseidon/commit/ceb20d3593fc4a8a951a7e99d8fa2344f8250a8c",
-        "https://github.com/stellar/rs-soroban-poseidon/releases/tag/v25.0.1",
-        "https://github.com/advisories/GHSA-g2p6-hh5v-7hfm"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-4g4c-mfqg-pj8r",
-      "cve_id": "CVE-2026-32116",
-      "severity": "HIGH",
-      "summary": "Magic Wormhole: \"wormhole receive\" allows arbitrary local file overwrite",
-      "description": "### Impact\n_What kind of vulnerability is it? Who is impacted?_\n\nReceiving a file (`wormhole receive`) from a malicious party could result in overwriting critical local files, including `~/.ssh/authorized_keys` and `.bashrc`. This could be used to compromise the receiver's computer.\n\nOnly the sender of the file (the party who runs `wormhole send`) can mount the attack. Other parties (including the transit/relay servers) are excluded by the wormhole protocol.\n\n### Patches\n_Has the problem been patched? What versions should users upgrade to?_\n\nThe bug has been fixed in magic-wormhole 0.23.0. All users should upgrade to this version.\n\nThe vulnerability first surfaced in the 0.21.0 release on 23-Oct-2025.\n\n### Workarounds\n_Is there a way for users to fix or remediate the vulnerability without upgrading?_\n\nAs a workaround, the receiver can override the sender's filename with the `--output` or `-o` option. For example: `wormhole receive -o shopping-list.txt` will write the file to `shopping-",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "magic-wormhole"
-      ],
-      "published": "2026-03-13T15:40:20Z",
-      "updated": "2026-03-13T15:40:24Z",
-      "url": "https://github.com/advisories/GHSA-4g4c-mfqg-pj8r",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/magic-wormhole/magic-wormhole/security/advisories/GHSA-4g4c-mfqg-pj8r",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-32116",
-        "https://github.com/advisories/GHSA-4g4c-mfqg-pj8r"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-9wmw-9wph-2vwp",
-      "cve_id": "CVE-2026-31882",
-      "severity": "HIGH",
-      "summary": "Dagu: SSE Authentication Bypass in Basic Auth Mode",
-      "description": "# SSE Authentication Bypass in Basic Auth Mode\n\n## Summary\n\nWhen Dagu is configured with HTTP Basic authentication (`DAGU_AUTH_MODE=basic`), all Server-Sent Events (SSE) endpoints are accessible without any credentials. This allows unauthenticated attackers to access real-time DAG execution data, workflow configurations, execution logs, and queue status \u2014 bypassing the authentication that protects the REST API.\n\n## Severity\n\n**HIGH** (CVSS 3.1: 7.5 \u2014 AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N)\n\n## Affected Versions\n\n- dagu v2.2.3 (latest) and likely all versions with basic auth support\n\n## Affected Component\n\n`internal/service/frontend/server.go` \u2014 `buildStreamAuthOptions()` function (lines 1177\u20131201)\n\n## Root Cause\n\nThe `buildStreamAuthOptions()` function builds authentication options for SSE/streaming endpoints. When the auth mode is `basic`, it returns an `auth.Options` struct with `BasicAuthEnabled: true` but `AuthRequired` defaults to `false` (Go zero value):\n\n```go\n// server.go:1195-120",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-306"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "dagu"
-      ],
-      "published": "2026-03-13T15:05:32Z",
-      "updated": "2026-03-13T15:05:35Z",
-      "url": "https://github.com/advisories/GHSA-9wmw-9wph-2vwp",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/dagu-org/dagu/security/advisories/GHSA-9wmw-9wph-2vwp",
-        "https://github.com/dagu-org/dagu/commit/064616c9b80c04824c1c7c357308f77f3f24d775",
-        "https://github.com/dagu-org/dagu/releases/tag/v2.2.4",
-        "https://github.com/advisories/GHSA-9wmw-9wph-2vwp"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-m9pm-w3gv-c68f",
-      "cve_id": "CVE-2026-32319",
-      "severity": "HIGH",
-      "summary": "Ella Core vulnerable to Unauthenticated AMF DoS via malformed InitialUEMessage with undersized integrity-protected NAS payload",
-      "description": "## Summary\n\nElla Core panics when processing a malformed integrity protected NGAP/NAS message with a length under 7 bytes.\n\n## Impact\n\nAn attacker able to send crafted NAS messages to Ella Core can crash the process, causing service disruption for all connected subscribers. No authentication is required.\n\n## Fix\n\nAdded length verification to NAS message handling.",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-125"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/ellanetworks/core"
-      ],
-      "published": "2026-03-12T20:33:22Z",
-      "updated": "2026-03-13T09:54:46Z",
-      "url": "https://github.com/advisories/GHSA-m9pm-w3gv-c68f",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/ellanetworks/core/security/advisories/GHSA-m9pm-w3gv-c68f",
-        "https://github.com/ellanetworks/core/releases/tag/v1.5.1",
-        "https://github.com/advisories/GHSA-m9pm-w3gv-c68f"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-5wcw-8jjv-m286",
-      "cve_id": "CVE-2026-32302",
-      "severity": "HIGH",
-      "summary": "OpenClaw: Untrusted web origins can obtain authenticated operator.admin access in trusted-proxy mode",
-      "description": "## Summary\nIn affected versions of `openclaw`, browser-originated WebSocket connections could bypass origin validation when `gateway.auth.mode` was set to `trusted-proxy` and the request arrived with proxy headers. A page served from an untrusted origin could connect through a trusted reverse proxy, inherit proxy-authenticated identity, and establish a privileged operator session.\n\n## Impact\nThis issue affects deployments that expose the Gateway behind a trusted reverse proxy and rely on browser origin checks such as `controlUi.allowedOrigins` to restrict browser access. An attacker who can cause a victim browser to load a malicious page that can reach the proxy endpoint could establish a cross-site WebSocket connection and call privileged Gateway methods.\n\nIn verified impact, the attacker-origin page was able to request `operator.admin` and successfully call `config.get`, exposing sensitive configuration. Depending on the deployment, the same authenticated operator path could also per",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-346"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-03-12T20:32:59Z",
-      "updated": "2026-03-12T20:32:59Z",
-      "url": "https://github.com/advisories/GHSA-5wcw-8jjv-m286",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-5wcw-8jjv-m286",
-        "https://github.com/openclaw/openclaw/commit/ebed3bbde1a72a1aaa9b87b63b91e7c04a50036b",
-        "https://github.com/openclaw/openclaw/releases/tag/v2026.3.11",
-        "https://github.com/advisories/GHSA-5wcw-8jjv-m286"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-2f24-mg4x-534q",
-      "cve_id": "CVE-2026-28793",
-      "severity": "HIGH",
-      "summary": "TinaCMS Vulnerable to Path Traversal Leading to Arbitrary File Read, Write and Delete",
-      "description": "## Summary\nThe TinaCMS CLI development server exposes media endpoints that are vulnerable to path traversal, allowing attackers to read and write arbitrary files on the filesystem outside the intended media directory.\n\n## Details\nWhen running tinacms dev, the CLI starts a local HTTP server (default port 4001) exposing endpoints such as:\n\n- /media/list/*\n\n- /media/upload/*\n\n- /media/*\n\nThese endpoints process user-controlled path segments using decodeURI() and path.join() without validating that the resolved path remains within the configured media directory.\n\n### Vulnerable code\n```\nbb.on('file', async (_name, file, _info) => {\n      const fullPath = decodeURI(req.url?.slice('/media/upload/'.length));\n      const saveTo = path.join(mediaFolder, ...fullPath.split('/'));\n// No validation that saveTo remains within mediaFolder\n      await fs.ensureDir(path.dirname(saveTo));\n      file.pipe(fs.createWriteStream(saveTo));\n    });\n```\n## PoC\n**Arbitrary File Read**\n```\ncurl \"http://localhost",
-      "cvss_score": 8.4,
-      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "@tinacms/cli"
-      ],
-      "published": "2026-03-12T20:32:26Z",
-      "updated": "2026-03-12T20:32:29Z",
-      "url": "https://github.com/advisories/GHSA-2f24-mg4x-534q",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/tinacms/tinacms/security/advisories/GHSA-2f24-mg4x-534q",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-28793",
-        "https://github.com/advisories/GHSA-2f24-mg4x-534q"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-3936-cmfr-pm3m",
-      "cve_id": "CVE-2026-32274",
-      "severity": "HIGH",
-      "summary": "Black: Arbitrary file writes from unsanitized user input in cache file name",
-      "description": "### Impact\n\nBlack writes a cache file, the name of which is computed from various formatting options. The value of the `--python-cell-magics` option was placed in the filename without sanitization, which allowed an attacker who controls the value of this argument to write cache files to arbitrary file system locations. \n\n### Patches\n\nFixed in Black 26.3.1.\n\n### Workarounds\n\nDo not allow untrusted user input into the value of the `--python-cell-magics` option.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "black"
-      ],
-      "published": "2026-03-12T18:33:10Z",
-      "updated": "2026-03-13T13:36:21Z",
-      "url": "https://github.com/advisories/GHSA-3936-cmfr-pm3m",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/psf/black/security/advisories/GHSA-3936-cmfr-pm3m",
-        "https://github.com/psf/black/pull/5038",
-        "https://github.com/psf/black/commit/4937fe6cf241139ddbfc16b0bdbb5b422798909d",
-        "https://github.com/psf/black/releases/tag/26.3.1",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-32274",
-        "https://github.com/advisories/GHSA-3936-cmfr-pm3m"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-5hxf-c7j4-279c",
-      "cve_id": "CVE-2026-28791",
-      "severity": "HIGH",
-      "summary": "Tina: Path Traversal in Media Upload Handle",
-      "description": "## Affected Package\n\n| Field | Value |\n|-------|-------|\n| **Package** | `@tinacms/cli` |\n| **Version** | `2.0.5` (latest at time of discovery) |\n| **Vulnerable File** | `packages/@tinacms/cli/src/next/commands/dev-command/server/media.ts` |\n| **Vulnerable Lines** | 42-43 |\n\n---\n\n## Summary\n\nA **path traversal vulnerability (CWE-22)** exists in the TinaCMS development server's media upload handler. The code at `media.ts:42-43` joins user-controlled path segments using `path.join()` without validating that the resulting path stays within the intended media directory. This allows writing files to arbitrary locations on the filesystem.\n\n**Attack Vector**: Network (HTTP POST request)  \n**Impact**: Arbitrary file write, potential Remote Code Execution\n\n---\n\n## Details\n\n### Vulnerable Code Location\n\n**File**: `packages/@tinacms/cli/src/next/commands/dev-command/server/media.ts`  \n**Lines**: 42-43\n\n```typescript\nbb.on('file', async (_name, file, _info) => {\n  const fullPath = decodeURI(req.ur",
-      "cvss_score": 7.4,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "tinacms"
-      ],
-      "published": "2026-03-12T18:32:38Z",
-      "updated": "2026-03-12T18:32:38Z",
-      "url": "https://github.com/advisories/GHSA-5hxf-c7j4-279c",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/tinacms/tinacms/security/advisories/GHSA-5hxf-c7j4-279c",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-28791",
-        "https://github.com/advisories/GHSA-5hxf-c7j4-279c"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-p2m9-wcp5-6qw3",
-      "cve_id": "CVE-2026-28356",
-      "severity": "HIGH",
-      "summary": "multipart vulnerable to ReDoS in `parse_options_header()`",
-      "description": "## Summary\n\nThe `parse_options_header()` function in `multipart.py` uses a regular expression with an *ambiguous alternation*, which can cause *exponential backtracking (ReDoS)* when parsing maliciously crafted HTTP or multipart segment headers. This can be abused for **denial of service (DoS)** attacks against web applications using this library to parse request headers or `multipart/form-data` streams.\n\n## Impact\n\nAny WSGI or ASGI application using `multipart.parse_form_data()` directly or indirectly (e.g. while parsing `multipart/form-data` streams) is vulnerable. The slow-down is significant enough to block request handling threads for multiple seconds per request.\n\n## Affected versions\n\nAll versions up to and including `1.3.0` are affected. The issue is fixed in `1.2.2`, `1.3.1` and `1.4.0-dev`.",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-1333"
-      ],
-      "ecosystems": [
-        "pip",
-        "pip"
-      ],
-      "packages": [
-        "multipart",
-        "multipart"
-      ],
-      "published": "2026-03-12T18:32:18Z",
-      "updated": "2026-03-12T18:32:23Z",
-      "url": "https://github.com/advisories/GHSA-p2m9-wcp5-6qw3",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/defnull/multipart/security/advisories/GHSA-p2m9-wcp5-6qw3",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-28356",
-        "https://github.com/advisories/GHSA-p2m9-wcp5-6qw3"
-      ]
     }
   ],
   "urlhaus_iocs": [],
   "kev_stats": {
-    "total_kev_entries": 1540,
+    "total_kev_entries": 1542,
     "top_vendors": [
       {
         "vendor": "Microsoft",
@@ -750,7 +777,7 @@
       },
       {
         "vendor": "Google",
-        "count": 68
+        "count": 70
       },
       {
         "vendor": "Oracle",
@@ -773,7 +800,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-13T16:45:16.293314+00:00",
+    "catalog_version": "2026-03-13T20:39:29.228879+00:00",
     "source": "CISA KEV"
   }
 }
