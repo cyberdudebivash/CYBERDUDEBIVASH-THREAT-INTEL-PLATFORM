@@ -1,0 +1,25 @@
+# ================================================================
+# CyberDudeBivash SENTINEL APEX v20.0 — Sigma Detection Rules
+# Threat  : Proactive Preparation and Hardening Against Destructive Attacks 2026 Edition
+# Scenario: MALWARE
+# Generated: 2026-03-13T16:44:10.970924 UTC
+# Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
+# ================================================================
+
+title: 'CDB: Proactive Preparation and Hardening Against Destructive Attacks 2026 Edition - Suspicious Script Execution'
+id: cdb-460746
+status: experimental
+description: 'Detects obfuscated PowerShell and script-based execution'
+author: 'CyberDudeBivash GOC (Automated)'
+date: 2026/03/13
+tags: ['attack.execution', 'attack.defense_evasion']
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_ps:
+    CommandLine|contains: ['-EncodedCommand', '-enc ', 'IEX(', 'Invoke-Expression', 'DownloadFile']
+  condition: selection_ps
+falsepositives: ['Legitimate admin scripts']
+level: medium
+---
