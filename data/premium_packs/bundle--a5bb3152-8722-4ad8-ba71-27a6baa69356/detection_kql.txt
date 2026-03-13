@@ -1,0 +1,13 @@
+// ================================================================
+// CyberDudeBivash SENTINEL APEX v20.0 — Microsoft Sentinel KQL
+// Threat  : Official Launch CYBERDUDEBIVASH CyberTwin v10 Building a Native Windows Exposure
+// Scenario: GENERIC | CVEs: N/A
+// Generated: 2026-03-13 21:43:56 UTC
+// Import into: Sentinel → Analytics → + Create → Scheduled Query
+// ================================================================
+
+// Query 3: Suspicious PowerShell
+SecurityEvent | where TimeGenerated > ago(24h)
+| where EventID == 4688
+| where CommandLine has_any ('-EncodedCommand', '-enc', 'IEX(', 'Invoke-Expression', 'DownloadFile')
+| extend ThreatName="Official Launch CYBERDUDEBIVASH CyberTwin v10 Building a Native Windows Exposure", Severity="CRITICAL"
