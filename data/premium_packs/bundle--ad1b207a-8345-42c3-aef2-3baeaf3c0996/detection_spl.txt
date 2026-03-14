@@ -1,0 +1,10 @@
+# CyberDudeBivash SENTINEL APEX v20.0 — Splunk SPL
+# Threat  : Mobile malware evolution in 2025
+# Scenario: MALWARE
+# Generated: 2026-03-14 04:59:31 UTC
+# Import: Splunk Enterprise Security → Correlation Searches
+
+| Suspicious PowerShell
+index=windows sourcetype=WinEventLog:Security EventCode=4688
+(CommandLine="-EncodedCommand" OR CommandLine="IEX(" OR CommandLine="DownloadFile")
+| stats count by host, user, CommandLine | eval ThreatName="Mobile malware evolution in 2025"
