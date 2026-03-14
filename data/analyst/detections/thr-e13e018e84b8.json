@@ -1,0 +1,17 @@
+{
+  "threat_id": "thr-e13e018e84b8",
+  "title": "From BRICKSTORM to GRIMBOLT: UNC6201 Exploiting a Dell RecoverPoint for Virtual ",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 From BRICKSTORM to GRIMBOLT: UNC6201 Exploiting a Dell Recov\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/14\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '149.248.11.71'\n    selection_dns:\n        query:\n            - '*c.substring*'\n            - '*java.io*'\n            - '*rc.local*'\n    condition: selection_ip or selection_dns\nlevel: high",
+    "yara": "rule CDB_APEX_From_BRICKSTORM_to_GRIMBOLT__UNC6201_Exp {\n    meta:\n        description = \"From BRICKSTORM to GRIMBOLT: UNC6201 Exploiting a Dell Recov\"\n        author = \"CyberDudeBivash\"\n    strings:\n        $h0 = \"2388ed7aee0b6b392778e8f9e98871c06499f476c9e7eae6ca0916f827fe65df\" ascii nocase\n        $h1 = \"24a11a26a2586f4fba7bfe89df2e21a0809ad85069e442da98c37c4add369a0c\" ascii nocase\n        $h2 = \"320a0b5d4900697e125cebb5ff03dee7368f8f087db1c1570b0b62f5a986d759\" ascii nocase\n        $h3 = \"45313a6745803a7f57ff35f5397fdf117eaec008a76417e6e2ac8a6280f7d830\" ascii nocase\n        $h4 = \"90b760ed1d0dcb3ef0f2b6d6195c9d852bcb65eca293578982a8c4b64f51b035\" ascii nocase\n        $h5 = \"92fb4ad6dee9362d0596fda7bbcfe1ba353f812ea801d1870e37bfc6376e624a\" ascii nocase\n        $h6 = \"aa688682d44f0c6b0ed7f30b981a609100107f2d414a3a6e5808671b112d1878\" ascii nocase\n        $h7 = \"dfb37247d12351ef9708cb6631ce2d7017897503657c6b882a711c0da8a9a591\" ascii nocase\n    condition:\n        any of them\n}",
+    "suricata": [
+      "alert ip any any -> 149.248.11.71 any (msg:\"CDB APEX \u2014 From_BRICKSTORM_to_GRIMBOLT__U\"; sid:4670207; rev:1;)"
+    ],
+    "snort": [
+      "alert ip any any -> 149.248.11.71 any (msg:\"CDB APEX From_BRICKSTORM_to_GRIMBOLT__U\"; sid:7060940; rev:1;)"
+    ],
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"149.248.11.71\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"c.substring\",\n              \"java.io\",\n              \"rc.local\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"file.hash.sha256\": [\n              \"2388ed7aee0b6b392778e8f9e98871c06499f476c9e7eae6ca0916f827fe65df\",\n              \"24a11a26a2586f4fba7bfe89df2e21a0809ad85069e442da98c37c4add369a0c\",\n              \"320a0b5d4900697e125cebb5ff03dee7368f8f087db1c1570b0b62f5a986d759\",\n              \"45313a6745803a7f57ff35f5397fdf117eaec008a76417e6e2ac8a6280f7d830\",\n              \"90b760ed1d0dcb3ef0f2b6d6195c9d852bcb65eca293578982a8c4b64f51b035\",\n              \"92fb4ad6dee9362d0596fda7bbcfe1ba353f812ea801d1870e37bfc6376e624a\",\n              \"aa688682d44f0c6b0ed7f30b981a609100107f2d414a3a6e5808671b112d1878\",\n              \"dfb37247d12351ef9708cb6631ce2d7017897503657c6b882a711c0da8a9a591\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteIP in (\"149.248.11.71\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"c.substring\", \"java.io\", \"rc.local\")"
+  },
+  "rule_count": 6
+}
