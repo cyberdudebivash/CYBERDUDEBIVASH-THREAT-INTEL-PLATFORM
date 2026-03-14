@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTINEL APEX Enterprise Intelligence | CyberDudeBivash</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-void: #050810;
+            --bg-primary: #0a0f1e;
+            --bg-surface: #111a2e;
+            --bg-elevated: #162040;
+            --border: rgba(56, 189, 248, 0.12);
+            --border-active: rgba(56, 189, 248, 0.35);
+            --text-primary: #e8edf5;
+            --text-secondary: #8b99b5;
+            --text-dim: #5a6785;
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.08);
+            --accent-pulse: rgba(56, 189, 248, 0.25);
+            --critical: #f43f5e;
+            --critical-glow: rgba(244, 63, 94, 0.12);
+            --high: #f97316;
+            --medium: #eab308;
+            --low: #22c55e;
+            --purple: #a78bfa;
+            --purple-glow: rgba(167, 139, 250, 0.12);
+            --gradient-brand: linear-gradient(135deg, #38bdf8, #a78bfa, #f43f5e);
+            --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+            --radius: 10px;
+            --radius-sm: 6px;
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-void);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Background Grid Effect */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                linear-gradient(rgba(56,189,248,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56,189,248,0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ---- Top Navigation ---- */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 15, 30, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .topbar-brand .logo-text {
+            font-weight: 800;
+            font-size: 1.05em;
+            background: var(--gradient-brand);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        .topbar-brand .version-badge {
+            background: var(--accent-glow);
+            color: var(--accent);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-family: var(--font-mono);
+            border: 1px solid var(--border);
+        }
+
+        .topbar-nav {
+            display: flex;
+            gap: 4px;
+        }
+
+        .topbar-nav button {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            font-family: var(--font-sans);
+            font-size: 0.85em;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+        }
+
+        .topbar-nav button:hover { color: var(--text-primary); background: var(--accent-glow); }
+        .topbar-nav button.active { color: var(--accent); background: var(--accent-glow); }
+
+        .topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .tier-badge {
+            font-family: var(--font-mono);
+            font-size: 0.72em;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .tier-free { background: var(--accent-glow); color: var(--accent); border: 1px solid var(--border); }
+        .tier-pro { background: var(--purple-glow); color: var(--purple); border: 1px solid rgba(167,139,250,0.3); }
+        .tier-enterprise { background: var(--critical-glow); color: var(--critical); border: 1px solid rgba(244,63,94,0.3); }
+
+        /* ---- Main Layout ---- */
+        .main-content {
+            position: relative;
+            z-index: 1;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 24px 32px;
+        }
+
+        /* ---- Panel (Tab Content) ---- */
+        .panel { display: none; animation: fadeIn 0.3s ease; }
+        .panel.active { display: block; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+        /* ---- Metrics Strip ---- */
+        .metrics-strip {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .metric-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .metric-card:hover { border-color: var(--border-active); }
+
+        .metric-card .metric-value {
+            font-size: 2.2em;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 4px;
+            font-family: var(--font-mono);
+        }
+
+        .metric-card .metric-label {
+            font-size: 0.78em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 600;
+        }
+
+        .metric-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+
+        .metric-critical::after { background: var(--critical); }
+        .metric-high::after { background: var(--high); }
+        .metric-accent::after { background: var(--accent); }
+        .metric-low::after { background: var(--low); }
+        .metric-purple::after { background: var(--purple); }
+
+        .metric-critical .metric-value { color: var(--critical); }
+        .metric-high .metric-value { color: var(--high); }
+        .metric-accent .metric-value { color: var(--accent); }
+        .metric-low .metric-value { color: var(--low); }
+        .metric-purple .metric-value { color: var(--purple); }
+
+        /* ---- Section Header ---- */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .section-header h2 {
+            font-size: 1.15em;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .section-header h2 .count {
+            color: var(--text-dim);
+            font-weight: 500;
+            font-size: 0.85em;
+            margin-left: 8px;
+        }
+
+        /* ---- Button Styles ---- */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            font-family: var(--font-sans);
+            font-size: 0.82em;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
+            color: var(--text-secondary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover { border-color: var(--border-active); color: var(--text-primary); background: var(--bg-elevated); }
+        .btn-accent { background: rgba(56,189,248,0.1); color: var(--accent); border-color: rgba(56,189,248,0.3); }
+        .btn-accent:hover { background: rgba(56,189,248,0.2); }
+        .btn-sm { padding: 5px 10px; font-size: 0.78em; }
+
+        /* ---- Search Box ---- */
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 14px 20px 14px 44px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .search-box input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .search-box input::placeholder { color: var(--text-dim); }
+
+        .search-box .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-dim);
+            font-size: 1em;
+        }
+
+        /* ---- Intelligence Table ---- */
+        .intel-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 24px;
+        }
+
+        .intel-table thead th {
+            background: var(--bg-surface);
+            padding: 10px 16px;
+            font-size: 0.72em;
+            font-weight: 700;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 60px;
+            z-index: 10;
+        }
+
+        .intel-table tbody tr {
+            transition: background 0.15s;
+        }
+
+        .intel-table tbody tr:hover { background: var(--accent-glow); }
+
+        .intel-table td {
+            padding: 12px 16px;
+            font-size: 0.88em;
+            border-bottom: 1px solid rgba(56,189,248,0.06);
+            vertical-align: middle;
+        }
+
+        /* ---- Tags ---- */
+        .risk-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.8em;
+            font-weight: 700;
+        }
+
+        .risk-critical { background: var(--critical-glow); color: var(--critical); }
+        .risk-high { background: rgba(249,115,22,0.12); color: var(--high); }
+        .risk-medium { background: rgba(234,179,8,0.12); color: var(--medium); }
+        .risk-low { background: rgba(34,197,94,0.12); color: var(--low); }
+
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-family: var(--font-mono);
+            margin: 1px;
+        }
+
+        .tag-mitre { background: var(--purple-glow); color: var(--purple); }
+        .tag-actor { background: var(--critical-glow); color: var(--critical); }
+        .tag-ioc { background: var(--accent-glow); color: var(--accent); }
+
+        /* ---- Watchlist Panel ---- */
+        .watchlist-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+        }
+
+        .watchlist-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            transition: border-color 0.2s;
+        }
+
+        .watchlist-card:hover { border-color: var(--border-active); }
+
+        .watchlist-card h3 {
+            font-size: 0.95em;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .watchlist-card .wl-meta {
+            font-size: 0.8em;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+        }
+
+        .watchlist-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        /* ---- Alert Cards ---- */
+        .alert-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .alert-card {
+            background: var(--bg-surface);
+            border-left: 3px solid var(--critical);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .alert-card.alert-high { border-left-color: var(--high); }
+        .alert-card.alert-medium { border-left-color: var(--medium); }
+
+        .alert-card .alert-time {
+            font-family: var(--font-mono);
+            font-size: 0.75em;
+            color: var(--text-dim);
+            white-space: nowrap;
+        }
+
+        .alert-card .alert-body { flex: 1; }
+        .alert-card .alert-title { font-weight: 700; font-size: 0.9em; }
+        .alert-card .alert-desc { font-size: 0.82em; color: var(--text-secondary); margin-top: 4px; }
+
+        /* ---- Saved Searches ---- */
+        .saved-search-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .saved-search-item {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .saved-search-item:hover { background: var(--bg-elevated); border-color: var(--border-active); }
+        .saved-search-item .ss-query { font-family: var(--font-mono); font-size: 0.85em; color: var(--accent); }
+        .saved-search-item .ss-meta { font-size: 0.75em; color: var(--text-dim); }
+
+        /* ---- Empty State ---- */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-dim);
+        }
+
+        .empty-state .icon { font-size: 3em; margin-bottom: 16px; opacity: 0.4; }
+        .empty-state h3 { font-size: 1.1em; color: var(--text-secondary); margin-bottom: 8px; }
+        .empty-state p { font-size: 0.88em; max-width: 400px; margin: 0 auto; }
+
+        /* ---- Footer ---- */
+        .footer {
+            text-align: center;
+            padding: 32px 0;
+            color: var(--text-dim);
+            font-size: 0.78em;
+            border-top: 1px solid var(--border);
+            margin-top: 40px;
+        }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 768px) {
+            .topbar { padding: 0 16px; }
+            .topbar-nav { display: none; }
+            .main-content { padding: 16px; }
+            .metrics-strip { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <header class="topbar">
+        <div class="topbar-brand">
+            <span class="logo-text">SENTINEL APEX</span>
+            <span class="version-badge">ENTERPRISE v49-53</span>
+        </div>
+        <nav class="topbar-nav">
+            <button class="active" onclick="showPanel('intelligence')">Intelligence</button>
+            <button onclick="showPanel('alerts')">Alerts</button>
+            <button onclick="showPanel('watchlists')">Watchlists</button>
+            <button onclick="showPanel('searches')">Saved Searches</button>
+            <button onclick="showPanel('api')">API Console</button>
+        </nav>
+        <div class="topbar-actions">
+            <span class="tier-badge tier-enterprise" id="tierBadge">ENTERPRISE</span>
+        </div>
+    </header>
+
+    <main class="main-content">
+
+        <!-- ======= INTELLIGENCE PANEL ======= -->
+        <div class="panel active" id="panel-intelligence">
+            <!-- Metrics -->
+            <div class="metrics-strip" id="metricsStrip">
+                <div class="metric-card metric-accent">
+                    <div class="metric-value" id="metricTotal">—</div>
+                    <div class="metric-label">Total Advisories</div>
+                </div>
+                <div class="metric-card metric-critical">
+                    <div class="metric-value" id="metricCritical">—</div>
+                    <div class="metric-label">Critical</div>
+                </div>
+                <div class="metric-card metric-high">
+                    <div class="metric-value" id="metricHigh">—</div>
+                    <div class="metric-label">High</div>
+                </div>
+                <div class="metric-card metric-low">
+                    <div class="metric-value" id="metricAvgRisk">—</div>
+                    <div class="metric-label">Avg Risk Score</div>
+                </div>
+                <div class="metric-card metric-purple">
+                    <div class="metric-value" id="metricActors">—</div>
+                    <div class="metric-label">Threat Actors</div>
+                </div>
+                <div class="metric-card metric-accent">
+                    <div class="metric-value" id="metricIOCs">—</div>
+                    <div class="metric-label">IOCs Extracted</div>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div class="search-box">
+                <span class="search-icon">⌕</span>
+                <input type="text" id="searchInput" placeholder="Search IOCs, CVEs, actors, advisories..." autocomplete="off">
+            </div>
+
+            <!-- Filters -->
+            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+                <button class="btn btn-sm btn-accent" onclick="filterSeverity('all')">All</button>
+                <button class="btn btn-sm" onclick="filterSeverity('critical')">Critical</button>
+                <button class="btn btn-sm" onclick="filterSeverity('high')">High</button>
+                <button class="btn btn-sm" onclick="filterSeverity('medium')">Medium</button>
+                <button class="btn btn-sm" onclick="filterSeverity('low')">Low</button>
+                <div style="flex:1;"></div>
+                <button class="btn btn-sm" onclick="exportData('json')">Export JSON</button>
+                <button class="btn btn-sm" onclick="exportData('csv')">Export CSV</button>
+                <button class="btn btn-sm" onclick="exportData('stix')">Export STIX</button>
+                <button class="btn btn-sm btn-accent" onclick="saveCurrentSearch()">Save Search</button>
+            </div>
+
+            <!-- Intelligence Table -->
+            <table class="intel-table" id="intelTable">
+                <thead>
+                    <tr>
+                        <th style="width:35%">Advisory</th>
+                        <th>Risk</th>
+                        <th>Actor</th>
+                        <th>MITRE Tactics</th>
+                        <th>IOCs</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="intelBody">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ======= ALERTS PANEL ======= -->
+        <div class="panel" id="panel-alerts">
+            <div class="section-header">
+                <h2>Threat Alerts <span class="count" id="alertCount">(0)</span></h2>
+                <button class="btn btn-sm" onclick="clearAlerts()">Clear All</button>
+            </div>
+            <div class="alert-list" id="alertList">
+                <div class="empty-state">
+                    <div class="icon">🔔</div>
+                    <h3>No Active Alerts</h3>
+                    <p>Alerts are generated when critical threats match your watchlist criteria.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======= WATCHLISTS PANEL ======= -->
+        <div class="panel" id="panel-watchlists">
+            <div class="section-header">
+                <h2>Watchlists</h2>
+                <button class="btn btn-accent" onclick="createWatchlist()">+ New Watchlist</button>
+            </div>
+            <div class="watchlist-grid" id="watchlistGrid">
+                <div class="empty-state">
+                    <div class="icon">👁️</div>
+                    <h3>No Watchlists</h3>
+                    <p>Create watchlists to track specific IOCs, actors, or CVEs and receive alerts.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======= SAVED SEARCHES PANEL ======= -->
+        <div class="panel" id="panel-searches">
+            <div class="section-header">
+                <h2>Saved Searches</h2>
+            </div>
+            <div class="saved-search-list" id="savedSearchList">
+                <div class="empty-state">
+                    <div class="icon">🔍</div>
+                    <h3>No Saved Searches</h3>
+                    <p>Save your intelligence searches for quick access and monitoring.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======= API CONSOLE PANEL ======= -->
+        <div class="panel" id="panel-api">
+            <div class="section-header">
+                <h2>API Console</h2>
+            </div>
+            <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;">
+                <h3 style="margin-bottom:12px;font-size:0.95em;">Intelligence API Endpoints</h3>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div style="font-family:var(--font-mono);font-size:0.85em;padding:10px 16px;background:var(--bg-primary);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+                        <span><span style="color:var(--low);font-weight:700;">GET</span> /api/ioc/search</span>
+                        <span style="color:var(--text-dim);">Search threat indicators</span>
+                    </div>
+                    <div style="font-family:var(--font-mono);font-size:0.85em;padding:10px 16px;background:var(--bg-primary);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+                        <span><span style="color:var(--low);font-weight:700;">GET</span> /api/cve/intelligence</span>
+                        <span style="color:var(--text-dim);">CVE enrichment + EPSS</span>
+                    </div>
+                    <div style="font-family:var(--font-mono);font-size:0.85em;padding:10px 16px;background:var(--bg-primary);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+                        <span><span style="color:var(--low);font-weight:700;">GET</span> /api/threat-actors</span>
+                        <span style="color:var(--text-dim);">Threat actor registry</span>
+                    </div>
+                    <div style="font-family:var(--font-mono);font-size:0.85em;padding:10px 16px;background:var(--bg-primary);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+                        <span><span style="color:var(--low);font-weight:700;">GET</span> /api/campaigns</span>
+                        <span style="color:var(--text-dim);">Campaign correlation</span>
+                    </div>
+                    <div style="font-family:var(--font-mono);font-size:0.85em;padding:10px 16px;background:var(--bg-primary);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+                        <span><span style="color:var(--accent);font-weight:700;">POST</span> /api/detection-rules</span>
+                        <span style="color:var(--text-dim);">Generate Sigma/YARA/Suricata</span>
+                    </div>
+                    <div style="font-family:var(--font-mono);font-size:0.85em;padding:10px 16px;background:var(--bg-primary);border-radius:var(--radius-sm);display:flex;justify-content:space-between;">
+                        <span><span style="color:var(--low);font-weight:700;">GET</span> /api/stix/bundle</span>
+                        <span style="color:var(--text-dim);">STIX 2.1 export</span>
+                    </div>
+                </div>
+
+                <h3 style="margin:20px 0 12px;font-size:0.95em;">Quick Test</h3>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="apiKeyInput" placeholder="Enter API Key (cdb_...)" style="flex:1;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:var(--font-mono);font-size:0.85em;outline:none;">
+                    <select id="apiEndpoint" style="padding:10px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text-primary);border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:0.85em;">
+                        <option value="/api/health">Health Check</option>
+                        <option value="/api/ioc/search?q=malware">IOC Search</option>
+                        <option value="/api/cve/intelligence">CVE Intel</option>
+                        <option value="/api/threat-actors">Threat Actors</option>
+                    </select>
+                    <button class="btn btn-accent" onclick="testAPI()">Execute</button>
+                </div>
+                <pre id="apiResponse" style="margin-top:12px;padding:16px;background:var(--bg-primary);border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:0.8em;color:var(--accent);max-height:400px;overflow:auto;white-space:pre-wrap;display:none;"></pre>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="footer">
+        &copy; 2026 CyberDudeBivash Pvt. Ltd. &mdash; SENTINEL APEX Enterprise Intelligence Platform<br>
+        <a href="https://intel.cyberdudebivash.com" style="color:var(--accent);text-decoration:none;">intel.cyberdudebivash.com</a>
+    </footer>
+
+    <script>
+    /* ============================================================
+       SENTINEL APEX — Enterprise Dashboard Controller
+       v49-53 SaaS Module Integration
+       ============================================================ */
+
+    const STATE = {
+        manifest: [],
+        filtered: [],
+        alerts: JSON.parse(localStorage.getItem('cdb_alerts') || '[]'),
+        watchlists: JSON.parse(localStorage.getItem('cdb_watchlists') || '[]'),
+        savedSearches: JSON.parse(localStorage.getItem('cdb_searches') || '[]'),
+        currentFilter: 'all',
+        searchQuery: '',
+    };
+
+    // ---- Panel Navigation ----
+    function showPanel(name) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.topbar-nav button').forEach(b => b.classList.remove('active'));
+        document.getElementById('panel-' + name).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    // ---- Data Loading ----
+    async function loadManifest() {
+        const sources = [
+            'data/stix/feed_manifest.json',
+            'feed_manifest.json',
+        ];
+
+        for (const src of sources) {
+            try {
+                const resp = await fetch(src);
+                if (resp.ok) {
+                    let data = await resp.json();
+                    STATE.manifest = Array.isArray(data) ? data : (data.entries || []);
+                    break;
+                }
+            } catch(e) { continue; }
+        }
+
+        // Try embedded data
+        if (STATE.manifest.length === 0 && typeof EMBEDDED_INTEL !== 'undefined') {
+            STATE.manifest = EMBEDDED_INTEL;
+        }
+        if (STATE.manifest.length === 0 && typeof RAW_MANIFEST !== 'undefined') {
+            STATE.manifest = RAW_MANIFEST;
+        }
+
+        STATE.filtered = [...STATE.manifest];
+        updateMetrics();
+        renderTable();
+        renderAlerts();
+        renderWatchlists();
+        renderSavedSearches();
+        checkWatchlistAlerts();
+    }
+
+    // ---- Metrics ----
+    function updateMetrics() {
+        const m = STATE.manifest;
+        const total = m.length;
+        const critical = m.filter(e => (e.risk_score || 0) >= 80).length;
+        const high = m.filter(e => (e.risk_score || 0) >= 60 && (e.risk_score || 0) < 80).length;
+        const avgRisk = total > 0 ? (m.reduce((s, e) => s + (e.risk_score || 0), 0) / total).toFixed(1) : '0';
+
+        const actors = new Set(m.map(e => e.actor_tag).filter(a => a && a !== 'Unknown'));
+        let totalIOCs = 0;
+        m.forEach(e => {
+            const iocs = e.ioc_counts || e.iocs || {};
+            Object.values(iocs).forEach(v => {
+                totalIOCs += Array.isArray(v) ? v.length : (typeof v === 'number' ? v : 0);
+            });
+        });
+
+        document.getElementById('metricTotal').textContent = total;
+        document.getElementById('metricCritical').textContent = critical;
+        document.getElementById('metricHigh').textContent = high;
+        document.getElementById('metricAvgRisk').textContent = avgRisk;
+        document.getElementById('metricActors').textContent = actors.size;
+        document.getElementById('metricIOCs').textContent = totalIOCs.toLocaleString();
+    }
+
+    // ---- Risk Badge ----
+    function riskBadge(score) {
+        if (score >= 80) return `<span class="risk-badge risk-critical">${score}</span>`;
+        if (score >= 60) return `<span class="risk-badge risk-high">${score}</span>`;
+        if (score >= 40) return `<span class="risk-badge risk-medium">${score}</span>`;
+        return `<span class="risk-badge risk-low">${score}</span>`;
+    }
+
+    // ---- Render Table ----
+    function renderTable() {
+        const body = document.getElementById('intelBody');
+        const entries = STATE.filtered.sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0));
+
+        body.innerHTML = entries.slice(0, 100).map(e => {
+            const title = (e.title || 'Unknown Advisory').substring(0, 80);
+            const actor = e.actor_tag || '—';
+            const tactics = (e.mitre_tactics || []).slice(0, 3).map(t => `<span class="tag tag-mitre">${t}</span>`).join('');
+            const iocData = e.ioc_counts || e.iocs || {};
+            let iocCount = 0;
+            Object.values(iocData).forEach(v => {
+                iocCount += Array.isArray(v) ? v.length : (typeof v === 'number' ? v : 0);
+            });
+
+            return `<tr>
+                <td>${escapeHtml(title)}</td>
+                <td>${riskBadge(e.risk_score || 0)}</td>
+                <td>${actor !== '—' ? `<span class="tag tag-actor">${escapeHtml(actor)}</span>` : '—'}</td>
+                <td>${tactics || '—'}</td>
+                <td><span class="tag tag-ioc">${iocCount}</span></td>
+                <td><button class="btn btn-sm" onclick="addToWatchlistPrompt('${escapeHtml(title)}')">Watch</button></td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ---- Search & Filter ----
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        STATE.searchQuery = e.target.value.toLowerCase();
+        applyFilters();
+    });
+
+    function filterSeverity(level) {
+        STATE.currentFilter = level;
+        document.querySelectorAll('.main-content .btn-sm').forEach(b => {
+            b.classList.remove('btn-accent');
+        });
+        if (event && event.target) event.target.classList.add('btn-accent');
+        applyFilters();
+    }
+
+    function applyFilters() {
+        let result = STATE.manifest;
+
+        if (STATE.currentFilter !== 'all') {
+            const ranges = {
+                critical: [80, 100],
+                high: [60, 80],
+                medium: [40, 60],
+                low: [0, 40],
+            };
+            const [min, max] = ranges[STATE.currentFilter] || [0, 100];
+            result = result.filter(e => (e.risk_score || 0) >= min && (e.risk_score || 0) < max);
+        }
+
+        if (STATE.searchQuery) {
+            result = result.filter(e => {
+                const searchable = JSON.stringify(e).toLowerCase();
+                return searchable.includes(STATE.searchQuery);
+            });
+        }
+
+        STATE.filtered = result;
+        renderTable();
+    }
+
+    // ---- Export ----
+    function exportData(format) {
+        const data = STATE.filtered;
+        let blob, filename;
+
+        if (format === 'json') {
+            blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            filename = `sentinel_apex_export_${Date.now()}.json`;
+        } else if (format === 'csv') {
+            const headers = 'Title,Risk Score,Actor,MITRE Tactics,Timestamp\n';
+            const rows = data.map(e =>
+                `"${(e.title || '').replace(/"/g, '""')}",${e.risk_score || 0},"${e.actor_tag || ''}","${(e.mitre_tactics || []).join(';')}","${e.timestamp || ''}"`
+            ).join('\n');
+            blob = new Blob([headers + rows], { type: 'text/csv' });
+            filename = `sentinel_apex_export_${Date.now()}.csv`;
+        } else if (format === 'stix') {
+            const bundle = {
+                type: 'bundle',
+                id: `bundle--export-${Date.now()}`,
+                objects: data.slice(0, 100).map((e, i) => ({
+                    type: 'indicator',
+                    spec_version: '2.1',
+                    id: `indicator--${i}`,
+                    name: e.title || `Advisory ${i}`,
+                    pattern: "[ipv4-addr:value = '0.0.0.0']",
+                    pattern_type: 'stix',
+                    valid_from: e.timestamp || new Date().toISOString(),
+                    confidence: Math.min(e.risk_score || 50, 100),
+                }))
+            };
+            blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+            filename = `sentinel_apex_stix_${Date.now()}.json`;
+        }
+
+        if (blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename; a.click();
+            URL.revokeObjectURL(url);
+        }
+    }
+
+    // ---- Saved Searches ----
+    function saveCurrentSearch() {
+        const query = document.getElementById('searchInput').value;
+        if (!query) return;
+
+        const search = {
+            id: Date.now(),
+            query: query,
+            filter: STATE.currentFilter,
+            saved_at: new Date().toISOString(),
+            result_count: STATE.filtered.length,
+        };
+
+        STATE.savedSearches.unshift(search);
+        localStorage.setItem('cdb_searches', JSON.stringify(STATE.savedSearches));
+        renderSavedSearches();
+    }
+
+    function renderSavedSearches() {
+        const container = document.getElementById('savedSearchList');
+        if (STATE.savedSearches.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><h3>No Saved Searches</h3></div>';
+            return;
+        }
+
+        container.innerHTML = STATE.savedSearches.map(s => `
+            <div class="saved-search-item" onclick="loadSavedSearch('${escapeHtml(s.query)}', '${s.filter}')">
+                <div>
+                    <div class="ss-query">${escapeHtml(s.query)}</div>
+                    <div class="ss-meta">Filter: ${s.filter} | ${s.result_count} results | ${new Date(s.saved_at).toLocaleDateString()}</div>
+                </div>
+                <button class="btn btn-sm" onclick="event.stopPropagation();deleteSavedSearch(${s.id})">×</button>
+            </div>
+        `).join('');
+    }
+
+    function loadSavedSearch(query, filter) {
+        document.getElementById('searchInput').value = query;
+        STATE.searchQuery = query.toLowerCase();
+        STATE.currentFilter = filter || 'all';
+        showPanel('intelligence');
+        applyFilters();
+    }
+
+    function deleteSavedSearch(id) {
+        STATE.savedSearches = STATE.savedSearches.filter(s => s.id !== id);
+        localStorage.setItem('cdb_searches', JSON.stringify(STATE.savedSearches));
+        renderSavedSearches();
+    }
+
+    // ---- Watchlists ----
+    function createWatchlist() {
+        const name = prompt('Watchlist name:');
+        if (!name) return;
+
+        const wl = {
+            id: Date.now(),
+            name: name,
+            items: [],
+            created_at: new Date().toISOString(),
+        };
+
+        STATE.watchlists.push(wl);
+        localStorage.setItem('cdb_watchlists', JSON.stringify(STATE.watchlists));
+        renderWatchlists();
+    }
+
+    function addToWatchlistPrompt(title) {
+        if (STATE.watchlists.length === 0) {
+            alert('Create a watchlist first.');
+            return;
+        }
+        const names = STATE.watchlists.map((w, i) => `${i + 1}. ${w.name}`).join('\n');
+        const choice = prompt(`Add "${title}" to which watchlist?\n${names}\nEnter number:`);
+        const idx = parseInt(choice) - 1;
+        if (idx >= 0 && idx < STATE.watchlists.length) {
+            if (!STATE.watchlists[idx].items.includes(title)) {
+                STATE.watchlists[idx].items.push(title);
+                localStorage.setItem('cdb_watchlists', JSON.stringify(STATE.watchlists));
+                renderWatchlists();
+            }
+        }
+    }
+
+    function renderWatchlists() {
+        const container = document.getElementById('watchlistGrid');
+        if (STATE.watchlists.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="icon">👁️</div><h3>No Watchlists</h3></div>';
+            return;
+        }
+
+        container.innerHTML = STATE.watchlists.map(wl => `
+            <div class="watchlist-card">
+                <h3>${escapeHtml(wl.name)}</h3>
+                <div class="wl-meta">${wl.items.length} items | Created ${new Date(wl.created_at).toLocaleDateString()}</div>
+                <div class="watchlist-items">
+                    ${wl.items.slice(0, 8).map(item => `<span class="tag tag-ioc">${escapeHtml(item.substring(0, 40))}</span>`).join('')}
+                    ${wl.items.length > 8 ? `<span class="tag" style="background:var(--bg-elevated);color:var(--text-dim);">+${wl.items.length - 8} more</span>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ---- Alerts ----
+    function checkWatchlistAlerts() {
+        STATE.watchlists.forEach(wl => {
+            wl.items.forEach(item => {
+                const matches = STATE.manifest.filter(e =>
+                    (e.title || '').includes(item) && (e.risk_score || 0) >= 70
+                );
+                matches.forEach(m => {
+                    const existing = STATE.alerts.find(a => a.advisory === m.title && a.watchlist === wl.name);
+                    if (!existing) {
+                        STATE.alerts.unshift({
+                            id: Date.now() + Math.random(),
+                            watchlist: wl.name,
+                            advisory: m.title,
+                            risk_score: m.risk_score,
+                            timestamp: new Date().toISOString(),
+                        });
+                    }
+                });
+            });
+        });
+        localStorage.setItem('cdb_alerts', JSON.stringify(STATE.alerts));
+        renderAlerts();
+    }
+
+    function renderAlerts() {
+        const container = document.getElementById('alertList');
+        document.getElementById('alertCount').textContent = `(${STATE.alerts.length})`;
+
+        if (STATE.alerts.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="icon">🔔</div><h3>No Active Alerts</h3></div>';
+            return;
+        }
+
+        container.innerHTML = STATE.alerts.slice(0, 50).map(a => {
+            const cls = (a.risk_score || 0) >= 80 ? '' : (a.risk_score || 0) >= 60 ? 'alert-high' : 'alert-medium';
+            return `<div class="alert-card ${cls}">
+                <div class="alert-time">${new Date(a.timestamp).toLocaleString()}</div>
+                <div class="alert-body">
+                    <div class="alert-title">${escapeHtml((a.advisory || '').substring(0, 80))}</div>
+                    <div class="alert-desc">Watchlist: ${escapeHtml(a.watchlist)} | Risk: ${a.risk_score}</div>
+                </div>
+                ${riskBadge(a.risk_score || 0)}
+            </div>`;
+        }).join('');
+    }
+
+    function clearAlerts() {
+        STATE.alerts = [];
+        localStorage.setItem('cdb_alerts', JSON.stringify(STATE.alerts));
+        renderAlerts();
+    }
+
+    // ---- API Console ----
+    function testAPI() {
+        const endpoint = document.getElementById('apiEndpoint').value;
+        const pre = document.getElementById('apiResponse');
+        pre.style.display = 'block';
+        pre.textContent = `// Request: GET ${endpoint}\n// Executing...\n\n`;
+
+        // Simulated response for static deployment
+        setTimeout(() => {
+            const mockResponse = {
+                status: 'success',
+                platform: 'CYBERDUDEBIVASH SENTINEL APEX',
+                version: 'v49.0',
+                timestamp: new Date().toISOString(),
+                data: {
+                    note: 'API server running on port 8900',
+                    endpoint: endpoint,
+                    total_advisories: STATE.manifest.length,
+                    sample: STATE.manifest.slice(0, 2),
+                },
+            };
+            pre.textContent = JSON.stringify(mockResponse, null, 2);
+        }, 500);
+    }
+
+    // ---- Utilities ----
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ---- Initialize ----
+    loadManifest();
+    </script>
+</body>
+</html>

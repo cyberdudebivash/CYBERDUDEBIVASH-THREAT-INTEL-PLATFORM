@@ -1,97 +1,50 @@
-# ═══════════════════════════════════════════════════════════════════════════
-# Dockerfile.api — CYBERDUDEBIVASH® SENTINEL APEX API SERVER
-# v23.0 ULTRA — Production FastAPI deployment
-#
-# NON-BREAKING: This is a SEPARATE Dockerfile from the existing Dockerfile
-# (which runs the sentinel_blogger.py pipeline). The existing Dockerfile
-# and GitHub Actions pipeline are completely unaffected.
-#
-# Build:
-#   docker build -f Dockerfile.api -t cdb-sentinel-api:v23.0 .
-#
-# Run:
-#   docker run -d \
-#     -p 8080:8080 \
-#     -v $(pwd)/data:/app/data \
-#     -e STRIPE_SECRET_KEY=sk_live_... \
-#     -e STRIPE_WEBHOOK_SECRET=whsec_... \
-#     -e CDB_PRO_KEYS=key1,key2 \
-#     -e CDB_ENTERPRISE_KEYS=ent-key1,ent-key2 \
-#     -e CDB_JWT_SECRET=your-strong-secret \
-#     -e SENDGRID_API_KEY=SG.xxx \
-#     cdb-sentinel-api:v23.0
-#
-# Deploy Options:
-#   1. Railway.app   → Free tier available, auto-deploys from Dockerfile.api
-#   2. Render.com    → Free tier, custom Dockerfile support
-#   3. Fly.io        → Global edge deployment, $0 for hobby projects
-#   4. DigitalOcean  → $5/mo App Platform
-#   5. VPS + nginx   → Full control, any cloud provider
-# ═══════════════════════════════════════════════════════════════════════════
+# CYBERDUDEBIVASH SENTINEL APEX — Intelligence API Docker Image
+# Modules: v49 (API), v50 (ASM), v51 (Detection), v52 (Reports), v53 (Subscriptions)
 
 FROM python:3.12-slim
 
-# ── Labels ──────────────────────────────────────────────────
-LABEL maintainer="bivash@cyberdudebivash.com"
-LABEL platform="CYBERDUDEBIVASH SENTINEL APEX"
-LABEL version="v23.0"
+LABEL maintainer="CyberDudeBivash Pvt. Ltd. <admin@cyberdudebivash.com>"
+LABEL version="49.0.0"
+LABEL description="SENTINEL APEX Intelligence API — SaaS Threat Intelligence Platform"
 
-# ── System dependencies ──────────────────────────────────────
+WORKDIR /app
+
+# Security: non-root user
+RUN groupadd -r sentinel && useradd -r -g sentinel -d /app -s /sbin/nologin sentinel
+
+# System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Working directory ────────────────────────────────────────
-WORKDIR /app
+# Python dependencies
+COPY requirements_saas.txt .
+RUN pip install --no-cache-dir -r requirements_saas.txt
 
-# ── Install Python dependencies ──────────────────────────────
-COPY requirements.txt .
-RUN pip install --no-cache-dir \
-    fastapi==0.115.0 \
-    uvicorn[standard]==0.30.6 \
-    stripe==10.12.0 \
-    sendgrid==6.11.0 \
-    requests==2.31.0 \
-    python-dotenv==1.0.1 \
-    feedparser==6.0.11 \
-    fpdf2==2.7.8 \
-    google-api-python-client==2.118.0 \
-    google-auth-httplib2==0.2.0 \
-    google-auth-oauthlib==1.2.0 \
-    python-dateutil==2.8.2 \
-    pyyaml==6.0.1
+# Copy application code
+COPY agent/ /app/agent/
+COPY data/ /app/data/
 
-# ── Copy platform source ─────────────────────────────────────
-COPY agent/ ./agent/
-COPY data/ ./data/
+# Create writable directories
+RUN mkdir -p /app/data/intelligence/reports \
+             /app/data/intelligence/detection_rules/sigma \
+             /app/data/intelligence/detection_rules/yara \
+             /app/data/intelligence/detection_rules/suricata \
+    && chown -R sentinel:sentinel /app/data
 
-# ── Create data directories ──────────────────────────────────
-RUN mkdir -p data/stix data/rule_packs data/playbooks \
-             data/premium_packs data/enterprise_kits \
-             data/archive credentials secrets
+# Switch to non-root user
+USER sentinel
 
-# ── Non-root user ────────────────────────────────────────────
-RUN useradd -m -u 1001 cdb && chown -R cdb:cdb /app
-USER cdb
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD curl -f http://localhost:8900/api/health || exit 1
 
-# ── Environment ──────────────────────────────────────────────
+EXPOSE 8900
+
+# Environment variables
 ENV PYTHONPATH=/app
-ENV API_HOST=0.0.0.0
-ENV API_PORT=8080
-ENV API_WORKERS=2
-ENV PYTHONUNBUFFERED=1
+ENV CDB_ADMIN_KEY=""
 
-# ── Health check ─────────────────────────────────────────────
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:8080/api/v1/health || exit 1
-
-# ── Port ─────────────────────────────────────────────────────
-EXPOSE 8080
-
-# ── Entrypoint ───────────────────────────────────────────────
-CMD ["uvicorn", "agent.api.api_server:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8080", \
-     "--workers", "2", \
-     "--log-level", "info", \
-     "--access-log"]
+CMD ["uvicorn", "agent.v49_intelligence_api.api_server:app", \
+     "--host", "0.0.0.0", "--port", "8900", \
+     "--log-level", "info", "--access-log"]
