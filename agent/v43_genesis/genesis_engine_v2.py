@@ -424,11 +424,12 @@ def build_detection_generator(intel: List[Dict]) -> Dict:
                 "severity": severity,
             })
             # KQL query for Microsoft Sentinel
+            _kql_search_term = (cves[0] if cves else title[:20]).replace("'", "")
             edr_queries.append({
                 "rule_id": f"CDB-KQL-{rule_suffix}",
                 "platform": "Microsoft Sentinel",
                 "title": f"CDB Hunt: {title[:55]}",
-                "query": f"SecurityAlert | where Description contains '{(cves[0] if cves else title[:20]).replace(\"'\",\"\")}' | project TimeGenerated, AlertName, Severity",
+                "query": f"SecurityAlert | where Description contains '{_kql_search_term}' | project TimeGenerated, AlertName, Severity",
                 "tactics": tactics[:3],
                 "severity": severity,
             })
