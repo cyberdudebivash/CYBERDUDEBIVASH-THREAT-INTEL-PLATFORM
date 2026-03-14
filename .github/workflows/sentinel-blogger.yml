@@ -258,6 +258,61 @@ jobs:
           fi
 
       # ================================================================
+      # STAGE 5B: INCIDENT INTELLIGENCE ENGINE v60 (TIP+SOAR)
+      # ================================================================
+      - name: v60 Incident Intelligence Engine
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "STAGE 5B: INCIDENT INTELLIGENCE ENGINE v60"
+          python3 -c "
+          from agent.v60_incident_engine import run
+          r = run()
+          print(f'  Incidents: {r[\"total_incidents\"]}')
+          print(f'  Severity: {r[\"severity_breakdown\"]}')
+          " || echo "v60 incident engine skipped (non-fatal)"
+
+      - name: v61 AI Playbook Generator
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "STAGE 5C: AI PLAYBOOK GENERATOR v61"
+          python3 -c "
+          from agent.v61_playbook_engine import run
+          r = run()
+          print(f'  Playbooks: {r[\"total_playbooks\"]}')
+          " || echo "v61 playbook engine skipped (non-fatal)"
+
+      - name: v62 Automated Response Engine
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "STAGE 5D: AUTOMATED RESPONSE ENGINE v62"
+          python3 -c "
+          from agent.v62_response_engine import run
+          r = run()
+          print(f'  Response Actions: {r[\"total_actions\"]}')
+          print(f'  Breakdown: {r[\"action_breakdown\"]}')
+          " || echo "v62 response engine skipped (non-fatal)"
+
+      - name: v63 AI Threat Hunter Engine
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "STAGE 5E: AI THREAT HUNTER v63"
+          python3 -c "
+          from agent.v63_threathunter import run
+          r = run()
+          print(f'  Hunt Hypotheses: {r[\"total_hunts\"]}')
+          print(f'  Active Campaigns: {r[\"active_campaigns\"]}')
+          print(f'  Attack Paths: {r[\"attack_paths\"]}')
+          " || echo "v63 threat hunter skipped (non-fatal)"
+
+      # ================================================================
       # STAGE 6: MONETISATION PIPELINE
       # ================================================================
       - name: Build Detection Pack (v48.0)
@@ -343,6 +398,10 @@ jobs:
           git add data/playbooks/scripts/ 2>/dev/null || true
           git add data/enrichment/*.json 2>/dev/null || true
           git add data/logs/ 2>/dev/null || true
+          git add data/incidents/*.json 2>/dev/null || true
+          git add data/responses/*.json 2>/dev/null || true
+          git add data/threathunts/*.json 2>/dev/null || true
+          git add data/playbooks/*.json 2>/dev/null || true
 
           if git diff --staged --quiet; then
             echo "No changes to commit."
