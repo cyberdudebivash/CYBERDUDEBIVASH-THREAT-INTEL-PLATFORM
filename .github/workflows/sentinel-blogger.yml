@@ -379,12 +379,16 @@ jobs:
           "
 
       # ================================================================
-      # STAGE 8: ATOMIC COMMIT & PUSH
+      # STAGE 8: ATOMIC COMMIT & PUSH (includes EMBEDDED_INTEL refresh)
       # ================================================================
       - name: Commit and Push Intelligence Data
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
+
+          # v56 FIX: Update EMBEDDED_INTEL BEFORE commit so dashboard gets fresh data
+          echo "Refreshing EMBEDDED_INTEL in index.html..."
+          python3 scripts/update_embedded_intel.py || echo "EMBEDDED_INTEL update non-fatal"
 
           git add data/*.json 2>/dev/null || true
           git add data/stix/*.json 2>/dev/null || true
@@ -401,13 +405,13 @@ jobs:
           git add data/incidents/*.json 2>/dev/null || true
           git add data/responses/*.json 2>/dev/null || true
           git add data/threathunts/*.json 2>/dev/null || true
-          git add data/playbooks/*.json 2>/dev/null || true
+          git add index.html 2>/dev/null || true
 
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "v48.0 Apex: Intel Sync @ $TIMESTAMP [skip ci]"
+            git commit -m "v63.0 Apex: Intel + Dashboard Sync @ $TIMESTAMP [skip ci]"
             for i in {1..5}; do
               git pull origin main --rebase && git push origin main && break || \
               (echo "Push collision - retry $i in 15s..." && sleep 15)
@@ -447,41 +451,7 @@ jobs:
           fi
 
       # ================================================================
-      # STAGE 10: UPDATE DASHBOARD EMBEDDED INTEL (v56 FIX)
-      # ================================================================
-      - name: v56 — Patch EMBEDDED_INTEL in index.html Before Deploy
-        run: |
-          echo "Updating EMBEDDED_INTEL from latest feed_manifest..."
-          python3 scripts/update_embedded_intel.py || echo "EMBEDDED_INTEL update failed (non-fatal)"
-          
-          # Verify the patch
-          python3 -c "
-          import json, re
-          with open('index.html') as f:
-              html = f.read()
-          m = re.search(r'const EMBEDDED_INTEL = (\[[\s\S]*?\]);', html)
-          if not m:
-              print('WARNING: EMBEDDED_INTEL not found')
-          else:
-              data = json.loads(m.group(1))
-              latest = max((i.get('timestamp','') for i in data), default='—')
-              print(f'  EMBEDDED_INTEL: {len(data)} items | Latest: {latest[:19]}')
-          "
-          
-          # Commit the updated index.html
-          git add index.html
-          if ! git diff --staged --quiet; then
-            git commit -m "v56.0 Dashboard: EMBEDDED_INTEL refreshed @ $(date -u +'%Y-%m-%d %H:%M UTC')"
-            for i in {1..3}; do
-              git pull origin main --rebase && git push origin main && break || \
-              (echo "Push retry $i..." && sleep 10)
-            done
-          else
-            echo "EMBEDDED_INTEL already current"
-          fi
-
-      # ================================================================
-      # STAGE 11: DEPLOY TO GITHUB PAGES
+      # STAGE 10: DEPLOY TO GITHUB PAGES
       # ================================================================
       - name: Deploy Live Feed to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4
