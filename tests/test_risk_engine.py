@@ -58,19 +58,22 @@ class TestRiskScoreContract:
 # ─── Signal Contributions ─────────────────────────────────────────────────────
 
 class TestSignalContributions:
-    def test_kev_boosts_score(self, sample_iocs):
-        without_kev = risk_engine.calculate_risk_score(iocs=sample_iocs, kev_present=False)
-        with_kev = risk_engine.calculate_risk_score(iocs=sample_iocs, kev_present=True)
+    def test_kev_boosts_score(self, minimal_iocs):
+        """v46.0 FIX: Use minimal IOCs so KEV boost has headroom below 10.0 ceiling."""
+        without_kev = risk_engine.calculate_risk_score(iocs=minimal_iocs, kev_present=False)
+        with_kev = risk_engine.calculate_risk_score(iocs=minimal_iocs, kev_present=True)
         assert with_kev > without_kev, "KEV should boost risk score"
 
-    def test_high_cvss_boosts_score(self, sample_iocs):
-        low_cvss = risk_engine.calculate_risk_score(iocs=sample_iocs, cvss_score=2.0)
-        high_cvss = risk_engine.calculate_risk_score(iocs=sample_iocs, cvss_score=9.8)
+    def test_high_cvss_boosts_score(self, minimal_iocs):
+        """v46.0 FIX: Use minimal IOCs so CVSS boost has headroom below 10.0 ceiling."""
+        low_cvss = risk_engine.calculate_risk_score(iocs=minimal_iocs, cvss_score=2.0)
+        high_cvss = risk_engine.calculate_risk_score(iocs=minimal_iocs, cvss_score=9.8)
         assert high_cvss > low_cvss, "High CVSS should yield higher risk than low CVSS"
 
-    def test_high_epss_boosts_score(self, sample_iocs):
-        low_epss = risk_engine.calculate_risk_score(iocs=sample_iocs, epss_score=0.01)
-        high_epss = risk_engine.calculate_risk_score(iocs=sample_iocs, epss_score=0.95)
+    def test_high_epss_boosts_score(self, minimal_iocs):
+        """v46.0 FIX: Use minimal IOCs so EPSS boost has headroom below 10.0 ceiling."""
+        low_epss = risk_engine.calculate_risk_score(iocs=minimal_iocs, epss_score=0.01)
+        high_epss = risk_engine.calculate_risk_score(iocs=minimal_iocs, epss_score=0.95)
         assert high_epss > low_epss, "High EPSS should yield higher risk than low EPSS"
 
     def test_mitre_matches_boost_score(self, sample_iocs):
@@ -181,17 +184,15 @@ class TestExtendedMetrics:
 
     def test_extended_metrics_returns_dict(self, sample_iocs):
         score = risk_engine.calculate_risk_score(iocs=sample_iocs)
-        severity = risk_engine.get_severity_label(score)
         metrics = risk_engine.compute_extended_metrics(
-            risk_score=score, severity=severity, iocs=sample_iocs
+            risk_score=score, iocs=sample_iocs
         )
         assert isinstance(metrics, dict)
 
     def test_extended_metrics_has_required_keys(self, sample_iocs):
         score = risk_engine.calculate_risk_score(iocs=sample_iocs)
-        severity = risk_engine.get_severity_label(score)
         metrics = risk_engine.compute_extended_metrics(
-            risk_score=score, severity=severity, iocs=sample_iocs
+            risk_score=score, iocs=sample_iocs
         )
         expected_keys = {
             "intel_confidence_score", "threat_momentum_score", "exploit_velocity",
@@ -201,12 +202,11 @@ class TestExtendedMetrics:
 
     def test_threat_momentum_in_range(self, sample_iocs):
         score = risk_engine.calculate_risk_score(iocs=sample_iocs)
-        severity = risk_engine.get_severity_label(score)
         metrics = risk_engine.compute_extended_metrics(
-            risk_score=score, severity=severity, iocs=sample_iocs
+            risk_score=score, iocs=sample_iocs
         )
         smi = metrics.get("threat_momentum_score", 0)
-        assert 0 <= smi <= 100, f"Sentinel Momentum Index {smi} outside [0, 100]"
+        assert 0 <= smi <= 10, f"Sentinel Momentum Index {smi} outside [0, 10]"
 
 
 # ─── Consistency / Determinism ────────────────────────────────────────────────
@@ -218,7 +218,8 @@ class TestDeterminism:
         score_b = risk_engine.calculate_risk_score(iocs=sample_iocs, cvss_score=7.5)
         assert score_a == score_b, "Risk scoring must be deterministic"
 
-    def test_different_cvss_different_score(self, sample_iocs):
-        score_low = risk_engine.calculate_risk_score(iocs=sample_iocs, cvss_score=2.0)
-        score_high = risk_engine.calculate_risk_score(iocs=sample_iocs, cvss_score=9.8)
+    def test_different_cvss_different_score(self, minimal_iocs):
+        """v46.0 FIX: Use minimal IOCs so different CVSS values produce different scores."""
+        score_low = risk_engine.calculate_risk_score(iocs=minimal_iocs, cvss_score=2.0)
+        score_high = risk_engine.calculate_risk_score(iocs=minimal_iocs, cvss_score=9.8)
         assert score_low != score_high
