@@ -1,0 +1,50 @@
+# ================================================================
+# STAGE 3.5: INTEGRITY GUARD v47.0 — Post-Pipeline Verification
+# Add this stage AFTER "Force Update Sync Timestamp" (STAGE 2)
+# and BEFORE "NEXUS Engine" (STAGE 3) in sentinel-blogger.yml
+#
+# COPY-PASTE this block into .github/workflows/sentinel-blogger.yml
+# at the indicated position. Zero changes to existing stages.
+# ================================================================
+
+      - name: INTEGRITY GUARD v47.0 - Post-Pipeline Verification
+        continue-on-error: true
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          echo "STAGE 3.5: INTEGRITY GUARD v47.0"
+          if [ -f "agent/v47_integrity/integrity_guard.py" ]; then
+            python agent/v47_integrity/integrity_guard.py 2>&1 | tee data/logs/integrity_$(date +%Y%m%d_%H%M%S).log
+            python3 -c "
+          import json
+          try:
+            with open('data/enrichment/integrity_summary.json') as f: d=json.load(f)
+            print('  EPSS Enriched  : ' + str(d.get('epss_enriched', 0)))
+            print('  Findings       : ' + str(len(d.get('integrity_findings', []))))
+            stale = d.get('dashboard_staleness', {})
+            if stale.get('is_stale'):
+              print('  Dashboard STALE: ' + str(stale.get('age_hours', 0)) + 'h behind')
+            else:
+              print('  Dashboard      : FRESH')
+          except Exception as e:
+            print('integrity check: ' + str(e))
+          "
+            echo "INTEGRITY GUARD v47.0 complete"
+          else
+            echo "v47_integrity not deployed yet - skipping"
+          fi
+
+# ================================================================
+# ADDITIONAL: Add to STAGE 7 "Validate Intelligence Outputs"
+# Add this to the optional checks dict:
+# ================================================================
+#     optional checks to add:
+#       'data/enrichment/integrity_summary.json': 'Integrity Guard',
+#       'data/enrichment/epss_cache.json': 'EPSS Cache',
+#       'data/enrichment/content_fingerprints.json': 'Content Fingerprints',
+
+# ================================================================
+# ADDITIONAL: Add to STAGE 8 "Commit and Push"
+# Add this git add line:
+# ================================================================
+#       git add data/enrichment/*.json 2>/dev/null || true
