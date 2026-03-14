@@ -210,6 +210,18 @@ def main():
 
     published_count = 0
 
+    # ─── v56: Retry any pending publish queue items from previous failed runs ───
+    try:
+        from agent.v56_publish_guard.publisher import retry_pending_queue
+        pending_published = retry_pending_queue(service, BLOG_ID)
+        if pending_published > 0:
+            published_count += pending_published
+            logger.info(f"  ✓ Published {pending_published} pending items from queue")
+    except ImportError:
+        pass  # v56 module not available
+    except Exception as _pq_err:
+        logger.debug(f"Pending queue retry skipped (non-critical): {_pq_err}")
+
     # ═══════════════════════════════════════════════════════
     # PHASE 1: Process Primary CDB Feed
     # v14.0 FIX: Added dedup check (was MISSING → caused 6x duplicates)
@@ -478,60 +490,62 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
     # ─── STEP 9: Smart Labels ───
     labels = _generate_smart_labels(headline, severity, tlp, feed_source, extracted_iocs)
 
-    # ─── STEP 10: Publish to Blogger ───
+    # ─── STEP 10-13: v56 Resilient Publish (Rate Limit + Retry + Manifest-First) ───
     try:
-        post_body = {
-            "kind": "blogger#post",
-            "title": headline,
-            "content": report_html,
-            "labels": labels,
-        }
-
-        response = service.posts().insert(blogId=BLOG_ID, body=post_body).execute()
-        live_blog_url = response.get('url', '')
-        logger.info(f"  ✓ PREMIUM ADVISORY PUBLISHED ({report_word_count} words): {live_blog_url}")
-
-        # ─── STEP 11: STIX Bundle + Manifest ───
-        stix_exporter.create_bundle(
-            title=headline,
-            iocs=extracted_iocs,
+        from agent.v56_publish_guard.publisher import resilient_publish
+        return resilient_publish(
+            service=service,
+            blog_id=BLOG_ID,
+            headline=headline,
+            report_html=report_html,
+            labels=labels,
+            entry=entry,
+            stix_exporter=stix_exporter,
+            dedup_engine=dedup_engine,
+            extracted_iocs=extracted_iocs,
             risk_score=risk_score,
-            metadata={"blog_url": live_blog_url, "source_url": source_url},
             confidence=confidence,
             severity=severity,
-            tlp_label=tlp.get('label', 'TLP:CLEAR'),
+            tlp=tlp,
             ioc_counts=ioc_counts,
-            actor_tag=actor_data.get('tracking_id', 'UNC-CDB-99'),
-            mitre_tactics=mitre_data,
+            actor_data=actor_data,
+            mitre_data=mitre_data,
             feed_source=feed_source,
+            source_url=source_url,
+            enriched_content=enriched_content,
             epss_score=epss_score,
             cvss_score=cvss_score,
             kev_present=kev_present,
             nvd_url=nvd_url,
         )
-
-        # ─── STEP 12: Dedup Registration ───
-        dedup_engine.mark_processed(headline, entry.get('link', ''))
-
-        # STEP 13: Revenue Bridge (v18.0) - activates CTAs + email after publish
+    except ImportError:
+        # Fallback: v56 module not available — use original logic
+        logger.warning("  ⚠ v56 publish guard not available — using legacy publish")
         try:
-            from agent.revenue_bridge import activate_revenue_pipeline
-            activate_revenue_pipeline(
-                report_html=report_html,
-                headline=headline,
-                risk_score=risk_score,
-                live_blog_url=live_blog_url,
-                content=enriched_content,
-                product_url="",
+            post_body = {
+                "kind": "blogger#post",
+                "title": headline,
+                "content": report_html,
+                "labels": labels,
+            }
+            response = service.posts().insert(blogId=BLOG_ID, body=post_body).execute()
+            live_blog_url = response.get('url', '')
+            logger.info(f"  ✓ PREMIUM ADVISORY PUBLISHED ({report_word_count} words): {live_blog_url}")
+            stix_exporter.create_bundle(
+                title=headline, iocs=extracted_iocs, risk_score=risk_score,
+                metadata={"blog_url": live_blog_url, "source_url": source_url},
+                confidence=confidence, severity=severity,
+                tlp_label=tlp.get('label', 'TLP:CLEAR'), ioc_counts=ioc_counts,
+                actor_tag=actor_data.get('tracking_id', 'UNC-CDB-99'),
+                mitre_tactics=mitre_data, feed_source=feed_source,
+                epss_score=epss_score, cvss_score=cvss_score,
+                kev_present=kev_present, nvd_url=nvd_url,
             )
-        except Exception as _rev_e:
-            logger.debug(f"Revenue bridge skipped (non-critical): {_rev_e}")
-
-        return True
-
-    except Exception as e:
-        logger.error(f"  ✗ PUBLISH FAILURE: {e}")
-        return False
+            dedup_engine.mark_processed(headline, entry.get('link', ''))
+            return True
+        except Exception as e:
+            logger.error(f"  ✗ PUBLISH FAILURE: {e}")
+            return False
 
 
 def _enrich_cve_metadata(cve_id: str):
