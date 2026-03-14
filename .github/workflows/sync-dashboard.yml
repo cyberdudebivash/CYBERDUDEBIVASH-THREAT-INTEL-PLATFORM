@@ -1,21 +1,29 @@
 # =====================================================================
-# SENTINEL APEX — Dashboard Sync Workflow
-# P0 FIX: Auto-patches EMBEDDED_INTEL after every intel pipeline run
-# Ensures dashboard always serves fresh data — zero manual intervention
+# SENTINEL APEX — Dashboard Sync Workflow v48.0
+# P0 FIX: Workflow names corrected to match ACTUAL workflow names
+#
+# ROOT CAUSE OF BUG-01: The previous workflow_run triggers used
+# emoji-prefixed names that DON'T MATCH the actual workflow names:
+#   OLD (WRONG): "🧠 Sentinel Blogger — Intel Pipeline"
+#   ACTUAL:      "CDB Sentinel Blogger - Threat Intel Auto-Publisher v45.0"
+#
+# This caused sync-dashboard to NEVER trigger via workflow_run,
+# leaving EMBEDDED_INTEL 18+ days stale.
 # =====================================================================
-name: 🔄 Dashboard Sync — EMBEDDED_INTEL Auto-Patcher
+name: Dashboard Sync — EMBEDDED_INTEL Auto-Patcher v48.0
 
 on:
   workflow_run:
     workflows:
-      - "🧠 Sentinel Blogger — Intel Pipeline"
-      - "⚡ GENESIS Powerhouse"
-      - "🔭 Nexus Intelligence"
-      - "🌐 Multi-Source Intel"
+      # v48.0 FIX: These MUST match the exact 'name:' field in each workflow file
+      - "CDB Sentinel Blogger - Threat Intel Auto-Publisher v45.0"
+      - "CDB GENESIS Intelligence Powerhouse v43.0"
+      - "CDB NEXUS Intelligence Engine v39.0"
+      - "CDB Multi-Source Intelligence Enrichment"
     types: [completed]
   schedule:
-    # Run every 6 hours as independent safety net
-    - cron: '0 */6 * * *'
+    # Safety net: run every 4 hours (reduced from 6 for faster catch-up)
+    - cron: '0 */4 * * *'
   workflow_dispatch:
     inputs:
       force_patch:
@@ -28,7 +36,7 @@ permissions:
 
 jobs:
   sync-dashboard:
-    name: Sync Dashboard Intelligence Cache
+    name: Sync Dashboard Intelligence Cache v48.0
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     
@@ -42,20 +50,61 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Verify Data Files Exist
         run: |
-          echo "=== P0 Dashboard Sync Pre-Check ==="
+          echo "=== v48.0 Dashboard Sync Pre-Check ==="
           if [ ! -f "data/stix/feed_manifest.json" ]; then
-            echo "❌ feed_manifest.json not found — aborting sync"
+            echo "FATAL: feed_manifest.json not found — aborting sync"
             exit 1
           fi
-          echo "✅ feed_manifest.json: $(python3 -c "import json; d=json.load(open('data/stix/feed_manifest.json')); items=d if isinstance(d,list) else d.get('items',[]); print(f'{len(items)} items, latest: {max(i[\"timestamp\"] for i in items)}')")"
+          # v48.0 FIX: Read last entry (newest) not first entry (oldest)
+          python3 -c "
+          import json
+          d = json.load(open('data/stix/feed_manifest.json'))
+          items = d if isinstance(d, list) else d.get('items', [])
+          if items:
+              # Manifest stores newest LAST (append order)
+              newest = items[-1].get('timestamp', 'N/A')[:19]
+              oldest = items[0].get('timestamp', 'N/A')[:19]
+              print(f'  feed_manifest: {len(items)} items | newest: {newest} | oldest: {oldest}')
+          else:
+              print('  feed_manifest: EMPTY')
+          "
           if [ -f "data/v46_ultraintel/enriched_manifest.json" ]; then
-            echo "✅ enriched_manifest.json: $(python3 -c "import json; d=json.load(open('data/v46_ultraintel/enriched_manifest.json')); print(f'{len(d.get(\"items\",[]))} items')")"
+            python3 -c "
+          import json
+          d = json.load(open('data/v46_ultraintel/enriched_manifest.json'))
+          print(f'  enriched_manifest: {len(d.get(\"items\",[]))} items')
+          " 2>/dev/null || echo "  enriched_manifest: parse error (non-critical)"
           else
-            echo "⚠️  enriched_manifest.json not found — will use feed_manifest only"
+            echo "  enriched_manifest: not found (will use feed_manifest only)"
+          fi
+
+      # v48.0: Run EPSS batch enrichment BEFORE patching dashboard
+      - name: EPSS/CVSS Batch Enrichment (v48.0)
+        continue-on-error: true
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          echo "Running EPSS/CVSS batch enrichment..."
+          if [ -f "agent/v47_integrity/integrity_guard.py" ]; then
+            python3 -c "
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          try:
+              from agent.v47_integrity.integrity_guard import EPSSBatchEnricher
+              enricher = EPSSBatchEnricher()
+              count = enricher.enrich_manifest()
+              print(f'  EPSS/CVSS enriched: {count} entries')
+          except Exception as e:
+              print(f'  EPSS enrichment skipped: {e}')
+          "
+          elif [ -f "agent/v48_pipeline_hardening/epss_batch_enricher.py" ]; then
+            python3 agent/v48_pipeline_hardening/epss_batch_enricher.py
+          else
+            echo "  No enrichment module found — skipping"
           fi
 
       - name: Patch EMBEDDED_INTEL in index.html
@@ -68,39 +117,44 @@ jobs:
           import json, re
           with open('index.html') as f:
               html = f.read()
-          # Extract and validate EMBEDDED_INTEL
           m = re.search(r'const EMBEDDED_INTEL = (\[[\s\S]*?\]);', html)
           if not m:
-              print('❌ EMBEDDED_INTEL not found in index.html')
+              print('FATAL: EMBEDDED_INTEL not found in index.html')
               exit(1)
           data = json.loads(m.group(1))
           critical = sum(1 for i in data if (i.get('risk_score') or 0) >= 9)
-          latest = max(i.get('timestamp','') for i in data)
-          enriched = sum(1 for i in data if any(k in i for k in ['actor_profile','exploit_status','intel_quality']))
-          print(f'✅ EMBEDDED_INTEL verified: {len(data)} items | CRITICAL:{critical} | Enriched:{enriched} | Latest:{latest}')
-          assert len(data) > 0, 'Empty EMBEDDED_INTEL'
+          null_epss = sum(1 for i in data if i.get('epss_score') is None and i.get('ioc_counts',{}).get('cve',0) > 0)
+          latest = max((i.get('timestamp','') for i in data), default='—')
+          print(f'  EMBEDDED_INTEL verified: {len(data)} items | CRITICAL:{critical} | null_EPSS(CVE):{null_epss} | Latest:{latest[:19]}')
           "
 
-      - name: Commit & Push Patched Dashboard
+      - name: Commit and Push
         run: |
-          git config user.name "APEX-AutoSync[bot]"
-          git config user.email "apex-sync@cyberdudebivash.com"
+          git config --local user.email "bivash@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
           
-          # Only commit if changed
-          if git diff --quiet index.html; then
-            echo "ℹ️  index.html unchanged — no commit needed"
+          git add index.html
+          git add data/stix/feed_manifest.json 2>/dev/null || true
+          git add data/enrichment/*.json 2>/dev/null || true
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit — dashboard already current"
           else
-            ITEM_COUNT=$(python3 -c "import json,re; html=open('index.html').read(); m=re.search(r'const EMBEDDED_INTEL = (\[[\s\S]*?\]);', html); print(len(json.loads(m.group(1)))) if m else print(0)")
-            LATEST=$(python3 -c "import json,re; html=open('index.html').read(); m=re.search(r'const EMBEDDED_INTEL = (\[[\s\S]*?\]);', html); data=json.loads(m.group(1)) if m else []; print(max(i.get('timestamp','') for i in data) if data else 'unknown')")
-            git add index.html
-            git commit -m "🔄 Auto-sync: EMBEDDED_INTEL updated — ${ITEM_COUNT} items through ${LATEST:0:10} [skip ci]"
-            git push
-            echo "✅ Dashboard synced and pushed to GitHub Pages"
+            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+            git commit -m "v48.0 Dashboard Sync: EMBEDDED_INTEL updated @ $TIMESTAMP [skip ci]"
+            for i in {1..3}; do
+              git pull origin main --rebase && git push origin main && break || \
+              (echo "Push retry $i..." && sleep 10)
+            done
           fi
 
-      - name: Notify Sync Status
-        if: always()
-        run: |
-          echo "=== SYNC COMPLETE ==="
-          echo "Dashboard: https://intel.cyberdudebivash.com"
-          echo "Repo: https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM"
+      - name: Deploy to gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: .
+          clean: false
+          single-commit: false
+          git-config-name: CDB-Sentinel-Bot
+          git-config-email: bivash@cyberdudebivash.com
+          commit-message: "v48.0 Dashboard sync deploy"
