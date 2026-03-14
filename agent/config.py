@@ -216,7 +216,19 @@ JAVA_PACKAGE_PREFIXES = [
 
 FALSE_POSITIVE_EXTENSIONS = [
     ".jar", ".dex", ".apk", ".class", ".so", ".aar",
-    ".gradle", ".properties", ".xml", ".json"
+    ".gradle", ".properties", ".xml", ".json",
+    # v46.0 VANGUARD: Source code filenames matched as domain FPs
+    # CRITICAL FIX: "stealer.py", "utils.cpp", "hvnc.py" were classified as domains
+    ".py", ".cpp", ".c", ".h", ".hpp", ".cc", ".cxx",
+    ".go", ".rs", ".rb", ".pl", ".pm", ".lua",
+    ".java", ".kt", ".scala", ".cs", ".vb", ".swift",
+    ".ts", ".tsx", ".jsx", ".mjs", ".sh", ".ps1",
+    ".php", ".sql", ".r", ".jl", ".zig", ".nim",
+    ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf",
+    ".md", ".rst", ".txt", ".log", ".csv", ".tsv",
+    ".html", ".htm", ".css", ".scss", ".sass", ".less",
+    ".tf", ".hcl", ".proto", ".thrift",
+    ".lock", ".sum", ".mod", ".cmake", ".mk",
 ]
 
 # ═══════════════════════════════════════════════════════════

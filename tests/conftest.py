@@ -73,6 +73,26 @@ def empty_iocs():
 
 
 @pytest.fixture
+def minimal_iocs():
+    """Minimal IOC set that produces a LOW base risk score (~3-4/10).
+    Used for signal-isolation tests where additional signals need headroom
+    below the 10.0 ceiling to demonstrate their boost effect.
+    v46.0 FIX: Prevents ceiling-collision in test_kev_boosts_score etc."""
+    return {
+        "ipv4": ["203.0.113.50"],
+        "domain": [],
+        "url": [],
+        "sha256": [],
+        "md5": [],
+        "sha1": [],
+        "email": [],
+        "cve": ["CVE-2024-99999"],
+        "registry": [],
+        "artifacts": [],
+    }
+
+
+@pytest.fixture
 def minimal_stix_bundle():
     """A minimal valid STIX 2.1 bundle for schema testing."""
     return {

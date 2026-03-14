@@ -76,6 +76,15 @@ except ImportError:
     _quality_gate = None
     _QUALITY_GATE_OK = False
 
+# v46.0 VANGUARD: IOC Validation + KEV Enrichment + Confidence Engine
+# Non-breaking: if import fails, pipeline continues as v45.0
+try:
+    from agent.v46_vanguard.vanguard_engine import vanguard_engine as _vanguard
+    _VANGUARD_OK = True
+except ImportError:
+    _vanguard = None
+    _VANGUARD_OK = False
+
 # ═══════════════════════════════════════════════════════════
 # INSTITUTIONAL LOGGING
 # ═══════════════════════════════════════════════════════════
@@ -408,6 +417,40 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
                 logger.info(f"  → CVE enrichment: EPSS={epss_score} CVSS={cvss_score} KEV={kev_present}")
         except Exception as _cve_e:
             logger.debug(f"CVE enrichment skipped (non-critical): {_cve_e}")
+
+    # ─── STEP 7c: VANGUARD v46.0 Enhancement Pass (non-breaking) ───
+    # IOC validation (removes .py/.cpp FP domains, deconflicts hashes)
+    # KEV live lookup (fixes always-False kev_present)
+    # Confidence recalculation (Bayesian weighted, replaces additive)
+    if _VANGUARD_OK and _vanguard:
+        try:
+            _v46 = _vanguard.enhance(
+                iocs=extracted_iocs,
+                source_text=enriched_content,
+                cve_ids=cve_ids,
+                mitre_data=mitre_data,
+                actor_data=actor_data,
+                impact_metrics=impact_metrics,
+                fetched_article=fetched_article,
+                source_content=enriched_content,
+                epss_score=epss_score,
+                cvss_score=cvss_score,
+                kev_present=kev_present,
+            )
+            # Apply validated IOCs
+            extracted_iocs = _v46["iocs"]
+            ioc_counts = enricher.get_ioc_counts(extracted_iocs)
+            # Apply KEV result (overrides broken v21 implementation)
+            if _v46["kev_present"]:
+                kev_present = True
+            # Apply recalculated confidence (if engine succeeded)
+            if _v46["confidence"] is not None:
+                confidence = _v46["confidence"]
+            if _v46["fp_removed_count"] > 0:
+                logger.info(f"  → VANGUARD: {_v46['fp_removed_count']} IOC FPs removed, "
+                           f"confidence recalculated to {confidence:.1f}%")
+        except Exception as _v46_e:
+            logger.debug(f"VANGUARD enhancement skipped (non-critical): {_v46_e}")
 
     # ─── STEP 8: Generate PREMIUM 16-Section Report (2500+ words) ───
     logger.info(f"  → Generating PREMIUM 16-section report...")

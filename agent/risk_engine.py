@@ -261,6 +261,7 @@ class RiskScoringEngine:
             score += 1.0
 
         # ── v22.0: EPSS Tiered Scoring (replaces binary threshold) ──
+        # v46.0 FIX: Removed dead branches (0.90/0.50 were unreachable after 0.10)
         if epss_score is not None:
             if epss_score >= 0.70:
                 score += self.weights.get("epss_tier_very_high", 1.8)
@@ -269,10 +270,8 @@ class RiskScoringEngine:
                 score += self.weights.get("epss_tier_high", 1.2)
             elif epss_score >= 0.10:
                 score += self.weights.get("epss_tier_medium", 0.6)
-            elif epss_score >= 0.90:  # backward-compat: old threshold
-                score += self.weights.get("epss_above_09", 1.5)
-            elif epss_score >= 0.50:
-                score += 0.8
+            elif epss_score >= 0.01:
+                score += 0.2  # Low but nonzero EPSS
 
         # ── v22.0: KEV Presence (CRITICAL signal — confirmed exploited) ──
         if kev_present:

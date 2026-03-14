@@ -14,11 +14,12 @@ class TestDeduplicationEngine:
         assert dedup_engine.is_duplicate(unique_title) is False
 
     def test_same_entry_is_duplicate_after_first_check(self):
-        """After first is_duplicate() call marks it, second call should return True."""
+        """After mark_processed(), same title should return True on is_duplicate()."""
         import uuid
         title = f"DUP_TEST_{uuid.uuid4().hex}"
         first = dedup_engine.is_duplicate(title)
         assert first is False, "First check must return False (not a dup yet)"
+        dedup_engine.mark_processed(title, "")  # v46.0 FIX: explicit registration required
         second = dedup_engine.is_duplicate(title)
         assert second is True, "Second check must return True (it's now a dup)"
 
