@@ -1,4 +1,4 @@
-name: CDB Sentinel Blogger - Threat Intel Auto-Publisher v45.0
+name: CDB Sentinel Blogger - Threat Intel Auto-Publisher v48.0
 
 on:
   schedule:
@@ -29,7 +29,7 @@ jobs:
       # ================================================================
       # STAGE 0: CHECKOUT & ENVIRONMENT SETUP
       # ================================================================
-      - name: Checkout repository (v45.0 Full Sync)
+      - name: Checkout repository (v48.0 Full Sync)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -93,7 +93,7 @@ jobs:
       # ================================================================
       # STAGE 2: CORE FEED INGESTION
       # ================================================================
-      - name: Run Sentinel Blogger APEX Engine (v45.0)
+      - name: Run Sentinel Blogger APEX Engine (v48.0)
         env:
           BLOG_ID: ${{ secrets.BLOG_ID }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
@@ -118,7 +118,7 @@ jobs:
           now = datetime.now(timezone.utc).isoformat()
           status = {
               "platform": "CYBERDUDEBIVASH(R) SENTINEL APEX",
-              "version": "v45.0",
+              "version": "v48.0",
               "status": "OPERATIONAL",
               "status_message": "Pipeline sync complete",
               "components": {
@@ -131,11 +131,44 @@ jobs:
           with open(status_path, "w") as f:
               json.dump(status, f, indent=2)
           print("Status updated: " + now)
-          sync_marker = {"last_sync": now, "sync_source": "github-actions-v45"}
+          sync_marker = {"last_sync": now, "sync_source": "github-actions-v48"}
           with open("data/sync_marker.json", "w") as f:
               json.dump(sync_marker, f, indent=2)
           print("Sync marker created")
           PYEOF
+
+      # ================================================================
+      # STAGE 2.5: PIPELINE HARDENER v48.0 — Sort + Enrich + Validate
+      # Fixes: BUG-02 manifest sort, BUG-03 EPSS/CVSS null scores,
+      #        BUG-04 KEV always false, manifest integrity validation
+      # Zero-regression: continue-on-error, graceful degradation
+      # ================================================================
+      - name: Pipeline Hardener v48.0 - Sort + EPSS Batch + KEV + Validate
+        continue-on-error: true
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          echo "STAGE 2.5: PIPELINE HARDENER v48.0"
+          if [ -f "agent/v48_pipeline_hardening/pipeline_hardener.py" ]; then
+            python agent/v48_pipeline_hardening/pipeline_hardener.py 2>&1 | tee data/logs/v48_hardener_$(date +%Y%m%d_%H%M%S).log
+            python3 -c "
+          import json, os
+          try:
+            with open('data/enrichment/v48_hardening_results.json') as f: d=json.load(f)
+            print('  Sort fixed     : ' + str(d.get('sort_fixed', False)))
+            print('  EPSS enriched  : ' + str(d.get('epss_enriched', 0)) + ' fields')
+            print('  KEV enriched   : ' + str(d.get('kev_enriched', 0)) + ' entries')
+            print('  Integrity issues: ' + str(d.get('integrity_findings', 0)))
+          except Exception as e:
+            print('v48 results check: ' + str(e))
+          "
+            echo "Pipeline Hardener v48.0 complete"
+          elif [ -f "agent/v47_integrity/integrity_guard.py" ]; then
+            echo "v48 not deployed — running v47 integrity guard as fallback"
+            python agent/v47_integrity/integrity_guard.py 2>&1 || echo "v47 non-fatal error"
+          else
+            echo "v48/v47 hardening modules not deployed — skipping"
+          fi
 
       # ================================================================
       # STAGE 3: NEXUS ENGINE v2 - Threat Exposure & AI Hunt
@@ -227,7 +260,7 @@ jobs:
       # ================================================================
       # STAGE 6: MONETISATION PIPELINE
       # ================================================================
-      - name: Build Detection Pack (v45.0)
+      - name: Build Detection Pack (v48.0)
         continue-on-error: true
         run: |
           python - << 'PYEOF'
@@ -272,8 +305,10 @@ jobs:
           optional = {
               'data/nexus/nexus_output.json': 'NEXUS Engine',
               'data/genesis/genesis_output.json': 'GENESIS Engine',
+              'data/enrichment/v48_hardening_results.json': 'v48 Pipeline Hardener',
+              'data/enrichment/epss_cache.json': 'EPSS Cache',
           }
-          print('=== Output Validation ===')
+          print('=== Output Validation v48.0 ===')
           for path, label in checks.items():
               if os.path.exists(path):
                   sz = os.path.getsize(path)
@@ -285,7 +320,7 @@ jobs:
                   sz = os.path.getsize(path)
                   print('  OK  ' + label + ' (' + str(sz) + ' bytes)')
               else:
-                  print('  INFO ' + label + ' not generated (engine may be pending deployment)')
+                  print('  INFO ' + label + ' not generated (module may be pending deployment)')
           "
 
       # ================================================================
@@ -313,7 +348,7 @@ jobs:
             echo "No changes to commit."
           else
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "v45.0 Apex: Intel Sync @ $TIMESTAMP [skip ci]"
+            git commit -m "v48.0 Apex: Intel Sync @ $TIMESTAMP [skip ci]"
             for i in {1..5}; do
               git pull origin main --rebase && git push origin main && break || \
               (echo "Push collision - retry $i in 15s..." && sleep 15)
@@ -325,21 +360,31 @@ jobs:
       # ================================================================
       - name: Post-Sync Verification
         run: |
-          echo "Post-sync verification..."
+          echo "Post-sync verification v48.0..."
           if [ -f "data/stix/feed_manifest.json" ]; then
-            ENTRIES=$(python3 -c "import json; d=json.load(open('data/stix/feed_manifest.json')); print(len(d) if isinstance(d,list) else len(d.get('entries',[])))" 2>/dev/null || echo "0")
-            LATEST=$(python3 -c "import json; d=json.load(open('data/stix/feed_manifest.json')); print(d[0].get('timestamp','?')[:19] if isinstance(d,list) and d else '?')" 2>/dev/null || echo "?")
-            echo "  Manifest entries: $ENTRIES"
-            echo "  Latest entry: $LATEST"
+            python3 -c "
+          import json
+          d = json.load(open('data/stix/feed_manifest.json'))
+          items = d if isinstance(d, list) else d.get('entries', [])
+          if items:
+              print('  Manifest entries: ' + str(len(items)))
+              print('  Newest: ' + items[0].get('timestamp','?')[:19])
+              print('  Oldest: ' + items[-1].get('timestamp','?')[:19])
+              null_epss = sum(1 for e in items if e.get('epss_score') is None and e.get('ioc_counts',{}).get('cve',0)>0)
+              null_cvss = sum(1 for e in items if e.get('cvss_score') is None and e.get('ioc_counts',{}).get('cve',0)>0)
+              kev = sum(1 for e in items if e.get('kev_present'))
+              desc = all(items[i].get('timestamp','')>=items[i+1].get('timestamp','') for i in range(len(items)-1))
+              print('  Sort order: ' + ('DESCENDING (OK)' if desc else 'WRONG - hardener may not have run'))
+              print('  Null EPSS (CVE entries): ' + str(null_epss))
+              print('  Null CVSS (CVE entries): ' + str(null_cvss))
+              print('  KEV present: ' + str(kev))
+          "
           fi
           if [ -f "data/sync_marker.json" ]; then
             echo "  Sync marker: present"
           fi
-          if [ -f "data/nexus/nexus_output.json" ]; then
-            echo "  NEXUS output: present"
-          fi
-          if [ -f "data/genesis/genesis_output.json" ]; then
-            echo "  GENESIS output: present"
+          if [ -f "data/enrichment/v48_hardening_results.json" ]; then
+            echo "  v48 hardener: ran successfully"
           fi
 
       # ================================================================
@@ -354,7 +399,7 @@ jobs:
           single-commit: false
           git-config-name: CDB-Sentinel-Bot
           git-config-email: bivash@cyberdudebivash.com
-          commit-message: "v45.0 Deploy: Live feed update"
+          commit-message: "v48.0 Deploy: Live feed update"
 
       - name: Verify Deployment
         run: |
