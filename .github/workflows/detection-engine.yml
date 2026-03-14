@@ -1,0 +1,66 @@
+# CYBERDUDEBIVASH SENTINEL APEX — Detection Engine Pipeline
+# Auto-generates Sigma/YARA/Suricata rules from live intelligence
+# Runs every 12 hours + manual dispatch
+
+name: 🛡️ Detection Engine — Rule Generation
+
+on:
+  schedule:
+    - cron: '30 */12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 🛡️ Run Detection Engine
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m agent.v51_detection_engine.engine
+
+      - name: 📊 Validate Rules
+        run: |
+          echo "=== Detection Rule Output ==="
+          python3 -c "
+          import json, os
+          manifest = 'data/intelligence/detection_rules/rule_manifest.json'
+          if os.path.exists(manifest):
+              with open(manifest) as f:
+                  d = json.load(f)
+              rules = d.get('rules_generated', {})
+              print(f\"Sigma:    {rules.get('sigma', 0)} rules\")
+              print(f\"YARA:     {rules.get('yara', 0)} rules\")
+              print(f\"Suricata: {rules.get('suricata', 0)} rules\")
+              print(f\"Total:    {rules.get('total', 0)} rules\")
+              print(f\"IOCs:     {d.get('ioc_count', 0)}\")
+          else:
+              print('No manifest found — IOC data may be empty')
+          "
+
+      - name: 💾 Commit Rules
+        run: |
+          git config user.name "CDB-SENTINEL-APEX"
+          git config user.email "sentinel@cyberdudebivash.com"
+          git add data/intelligence/detection_rules/ || true
+          if git diff --staged --quiet; then
+            echo "No new rules to commit"
+          else
+            git commit -m "🛡️ Detection Engine — auto-generated rules $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi
