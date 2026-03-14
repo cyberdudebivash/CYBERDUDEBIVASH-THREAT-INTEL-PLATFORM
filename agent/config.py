@@ -274,7 +274,18 @@ API_RATE_LIMIT_ENTERPRISE = int(os.environ.get('API_RATE_LIMIT_ENTERPRISE', '100
 API_RATE_WINDOW_SECONDS   = 60
 
 # ── API Authentication ────────────────────────────────────────────────────────
-CDB_JWT_SECRET          = os.environ.get('CDB_JWT_SECRET', 'cdb-sentinel-apex-v30-secret-change-in-prod')
+# SEC01_PATCHED_v48 — Hardcoded JWT secret removed
+_jwt_from_env = os.environ.get('CDB_JWT_SECRET', '')
+if not _jwt_from_env:
+    import secrets as _sec_secrets
+    import logging as _sec_logging
+    _sec_logging.getLogger("CDB-SECURITY").warning(
+        "CDB_JWT_SECRET not set. Using ephemeral random secret. "
+        "Tokens will NOT persist across restarts. "
+        "Set CDB_JWT_SECRET environment variable for production."
+    )
+    _jwt_from_env = _sec_secrets.token_urlsafe(64)
+CDB_JWT_SECRET = _jwt_from_env
 CDB_STANDARD_API_KEYS   = set(filter(None, os.environ.get('CDB_STANDARD_KEYS', '').split(',')))
 CDB_PREMIUM_API_KEYS    = set(filter(None, os.environ.get('CDB_PREMIUM_KEYS',   '').split(',')))
 CDB_PRO_API_KEYS        = set(filter(None, os.environ.get('CDB_PRO_KEYS',       '').split(',')))   
