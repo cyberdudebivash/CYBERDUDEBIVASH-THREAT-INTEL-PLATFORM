@@ -205,7 +205,7 @@ def build_malware_cloud(intel: List[Dict]) -> Dict:
     for item in intel:
         title_lower = (item.get("title", "") + " " + str(item.get("actor_tag", ""))).lower()
         for kw, family in malware_keywords.items():
-            if kw in title_lower and family not in [f["name"] for f in families_detected]:
+            if kw in title_lower and family not in [f["family"] for f in families_detected]:
                 families_detected.append({
                     "family": family,
                     "confidence": 75 + (hash(kw) % 20),
