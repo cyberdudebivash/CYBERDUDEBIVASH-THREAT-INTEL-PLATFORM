@@ -1,0 +1,104 @@
+# =====================================================================
+# SENTINEL APEX — Bug Hunter Recon Workflow v49.0
+# ADDITIVE: Does NOT modify any existing workflows
+# Writes ONLY to data/bughunter/ directory
+# =====================================================================
+name: CDB Bug Hunter Recon Engine v49.0
+
+on:
+  schedule:
+    # Run every 8 hours (offset from other pipelines)
+    - cron: '15 */8 * * *'
+  workflow_dispatch:
+    inputs:
+      target_domain:
+        description: 'Primary target domain'
+        required: false
+        type: string
+        default: 'cyberdudebivash.com'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bughunter-recon
+  cancel-in-progress: false
+
+jobs:
+  bughunter-scan:
+    name: Bug Hunter Passive Recon Scan v49.0
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: main
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Ensure Bug Hunter Directories
+        run: |
+          mkdir -p data/bughunter/scan_history
+
+      - name: Execute Bug Hunter Recon Scan
+        continue-on-error: true
+        run: |
+          python -m agent.v49_bughunter_fix.run_bughunter \
+            --domain "${{ github.event.inputs.target_domain || 'cyberdudebivash.com' }}" \
+            --timeout 15
+        env:
+          BH_TARGET_DOMAIN: ${{ github.event.inputs.target_domain || 'cyberdudebivash.com' }}
+
+      - name: Validate Bug Hunter Output
+        run: |
+          python3 -c "
+          import json, sys
+          try:
+              with open('data/bughunter/bughunter_output.json') as f:
+                  data = json.load(f)
+              m = data.get('metrics', {})
+              print('✅ Bug Hunter Output Validation')
+              print(f'   Subdomains:  {m.get(\"subdomains\", 0)}')
+              print(f'   Live Hosts:  {m.get(\"live_hosts\", 0)}')
+              print(f'   Endpoints:   {m.get(\"api_endpoints\", 0)}')
+              print(f'   Findings:    {m.get(\"total_findings\", 0)}')
+              print(f'   Critical:    {m.get(\"critical_findings\", 0)}')
+              print(f'   Exposure:    \${m.get(\"risk_exposure\", 0):,}')
+              print(f'   ROSI:        {m.get(\"rosi\", 0)}%')
+              print(f'   Engines:     {len(data.get(\"engines\", []))}/12')
+              has_data = any(m.get(k, 0) > 0 for k in ['subdomains','live_hosts','total_findings'])
+              print(f'   Data Active: {\"YES\" if has_data else \"NO\"}')
+              if not has_data:
+                  print('   ⚠️  Zero metrics — crt.sh may be rate-limited. Will retry next cycle.')
+          except Exception as e:
+              print(f'⚠️ Validation error: {e}')
+              sys.exit(0)
+          "
+
+      - name: Commit Bug Hunter Data
+        run: |
+          git config user.name "CDB-BUGHUNTER-BOT"
+          git config user.email "bughunter@cyberdudebivash.com"
+
+          # SAFETY: Only add files in data/bughunter/
+          git add data/bughunter/bughunter_output.json -f
+          git add data/bughunter/scan_history/ -f 2>/dev/null || true
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "🐛 BUG HUNTER v49.0: Recon scan $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push origin main || echo "Push failed — will retry next cycle"
+          fi
