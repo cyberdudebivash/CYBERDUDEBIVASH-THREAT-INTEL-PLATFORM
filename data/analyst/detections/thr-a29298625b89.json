@@ -4,16 +4,16 @@
   "rules": {
     "sigma": "title: CDB APEX v37.0 \u2014 Proactive Preparation and Hardening Against Destructive Atta\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/14\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '1.3.6.1'\n            - '2.5.29.37'\n            - '5.2.3.4'\n            - '5.5.7.3'\n    selection_dns:\n        query:\n            - '*details.aspx*'\n            - '*gpo-listing-all.csv*'\n            - '*hostd.log*'\n            - '*pfirewall.log*'\n            - '*shell.log*'\n            - '*snapshot.removeall*'\n            - '*vim.event*'\n            - '*vpxa.log*'\n            - '*vpxd.log*'\n            - '*vshphere.local*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "suricata": [
-      "alert ip any any -> 1.3.6.1 any (msg:\"CDB APEX \u2014 Proactive_Preparation_and_Hard\"; sid:2925642; rev:1;)",
-      "alert ip any any -> 2.5.29.37 any (msg:\"CDB APEX \u2014 Proactive_Preparation_and_Hard\"; sid:8573992; rev:1;)",
-      "alert ip any any -> 5.2.3.4 any (msg:\"CDB APEX \u2014 Proactive_Preparation_and_Hard\"; sid:1571455; rev:1;)",
-      "alert ip any any -> 5.5.7.3 any (msg:\"CDB APEX \u2014 Proactive_Preparation_and_Hard\"; sid:9527584; rev:1;)"
+      "alert ip any any -> 1.3.6.1 any (msg:\"CDB APEX \u2014 Proactive_Preparation_and_Hard\"; sid:7804705; rev:1;)",
+      "alert ip any any -> 2.5.29.37 any (msg:\"CDB APEX \u2014 Proactive_Preparation_and_Hard\"; sid:6947677; rev:1;)",
+      "alert ip any any -> 5.2.3.4 any (msg:\"CDB APEX \u2014 Proactive_Preparation_and_Hard\"; sid:5459297; rev:1;)",
+      "alert ip any any -> 5.5.7.3 any (msg:\"CDB APEX \u2014 Proactive_Preparation_and_Hard\"; sid:7914418; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 1.3.6.1 any (msg:\"CDB APEX Proactive_Preparation_and_Hard\"; sid:9269056; rev:1;)",
-      "alert ip any any -> 2.5.29.37 any (msg:\"CDB APEX Proactive_Preparation_and_Hard\"; sid:2853585; rev:1;)",
-      "alert ip any any -> 5.2.3.4 any (msg:\"CDB APEX Proactive_Preparation_and_Hard\"; sid:4770874; rev:1;)",
-      "alert ip any any -> 5.5.7.3 any (msg:\"CDB APEX Proactive_Preparation_and_Hard\"; sid:3398142; rev:1;)"
+      "alert ip any any -> 1.3.6.1 any (msg:\"CDB APEX Proactive_Preparation_and_Hard\"; sid:5177346; rev:1;)",
+      "alert ip any any -> 2.5.29.37 any (msg:\"CDB APEX Proactive_Preparation_and_Hard\"; sid:7566535; rev:1;)",
+      "alert ip any any -> 5.2.3.4 any (msg:\"CDB APEX Proactive_Preparation_and_Hard\"; sid:6835832; rev:1;)",
+      "alert ip any any -> 5.5.7.3 any (msg:\"CDB APEX Proactive_Preparation_and_Hard\"; sid:4577837; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"1.3.6.1\",\n              \"2.5.29.37\",\n              \"5.2.3.4\",\n              \"5.5.7.3\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"details.aspx\",\n              \"gpo-listing-all.csv\",\n              \"hostd.log\",\n              \"pfirewall.log\",\n              \"shell.log\",\n              \"snapshot.removeall\",\n              \"vim.event\",\n              \"vpxa.log\",\n              \"vpxd.log\",\n              \"vshphere.local\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"1.3.6.1\", \"2.5.29.37\", \"5.2.3.4\", \"5.5.7.3\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"details.aspx\", \"gpo-listing-all.csv\", \"hostd.log\", \"pfirewall.log\", \"shell.log\", \"snapshot.removeall\", \"vim.event\", \"vpxa.log\", \"vpxd.log\", \"vshphere.local\")"
