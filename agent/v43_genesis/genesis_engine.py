@@ -803,6 +803,9 @@ class AttackSurfaceIntelligence:
                 "API endpoint enumeration", "Cloud misconfiguration detection",
                 "Certificate transparency monitoring", "Subdomain discovery",
             ],
+            # v48.0 FIX: top-level scalars survive _summarize() (fixes G10 "?" display bug)
+            "total_exposures": sum(exposure_categories.values()),
+            "critical_exposures": exposure_categories.get("critical_vulnerability", 0),
             "risk_summary": {
                 "total_exposure_signals": sum(exposure_categories.values()),
                 "critical_exposures": exposure_categories.get("critical_vulnerability", 0),
