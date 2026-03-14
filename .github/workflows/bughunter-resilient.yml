@@ -1,0 +1,84 @@
+# CYBERDUDEBIVASH SENTINEL APEX — Bug Hunter Resilient Recon
+# Uses v54 resilient scanner with 3-tier subdomain fallback
+# Runs every 8 hours + manual dispatch
+
+name: 🐛 Bug Hunter Resilient Recon
+
+on:
+  schedule:
+    - cron: '15 */8 * * *'
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Target domain'
+        default: 'cyberdudebivash.com'
+        required: false
+      timeout:
+        description: 'HTTP timeout (seconds)'
+        default: '15'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  resilient-recon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 📦 Install Dependencies
+        run: |
+          pip install requests --quiet
+
+      - name: 🔍 Run Resilient Bug Hunter Scan
+        env:
+          BH_TARGET_DOMAIN: ${{ github.event.inputs.domain || 'cyberdudebivash.com' }}
+          BH_TIMEOUT: ${{ github.event.inputs.timeout || '15' }}
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m agent.v54_bughunter_resilience.resilient_scanner \
+            --domain "${BH_TARGET_DOMAIN}" \
+            --timeout "${BH_TIMEOUT}"
+
+      - name: 📊 Validate Output
+        run: |
+          echo "=== Bug Hunter Output ==="
+          python3 -c "
+          import json
+          with open('data/bughunter/bughunter_output.json') as f:
+              d = json.load(f)
+          m = d.get('metrics', {})
+          print(f\"Subdomains:  {m.get('subdomains', 0)}\")
+          print(f\"Live hosts:  {m.get('live_hosts', 0)}\")
+          print(f\"Findings:    {m.get('total_findings', 0)}\")
+          print(f\"Risk:        \${m.get('risk_exposure', 0):,}\")
+          print(f\"Engines:     {len(d.get('engines', []))}/12\")
+          has_data = m.get('subdomains', 0) > 0
+          print(f\"Has data:    {'YES ✓' if has_data else 'NO ✗'}\")
+          if not has_data:
+              print('WARNING: Zero subdomains — external APIs may be down')
+          "
+
+      - name: 💾 Commit Results
+        run: |
+          git config user.name "CDB-SENTINEL-APEX"
+          git config user.email "sentinel@cyberdudebivash.com"
+          git add data/bughunter/bughunter_output.json
+          git add data/bughunter/scan_history/ || true
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "🐛 Bug Hunter v54 resilient scan — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi

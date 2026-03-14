@@ -1,0 +1,64 @@
+# CYBERDUDEBIVASH SENTINEL APEX — Premium Report Engine
+# Auto-generates weekly executive threat intelligence reports
+# Runs every Monday at 06:00 UTC + manual dispatch
+
+name: 📊 Premium Report Engine — Weekly Briefing
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      report_type:
+        description: 'Report type'
+        default: 'weekly'
+        required: false
+        type: choice
+        options:
+          - weekly
+          - executive_briefing
+          - tactical_ioc
+          - vulnerability
+      days:
+        description: 'Time range (days)'
+        default: '7'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 📊 Generate Report
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m agent.v52_report_engine.engine \
+            --type ${{ github.event.inputs.report_type || 'weekly' }} \
+            --days ${{ github.event.inputs.days || '7' }}
+
+      - name: 💾 Commit Report
+        run: |
+          git config user.name "CDB-SENTINEL-APEX"
+          git config user.email "sentinel@cyberdudebivash.com"
+          git add data/intelligence/reports/ || true
+          if git diff --staged --quiet; then
+            echo "No reports to commit"
+          else
+            git commit -m "📊 Weekly intelligence report — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi
