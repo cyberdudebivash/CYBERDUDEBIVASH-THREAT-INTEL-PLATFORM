@@ -503,8 +503,9 @@ def test_engine_roi_empty():
 
 def test_version_updated():
     from core.version import VERSION, CODENAME
-    assert VERSION == "45.0.0"
-    assert CODENAME == "BUG HUNTER"
+    # v46.0: Updated from 45.0.0 to 46.0.0 VANGUARD
+    assert VERSION == "46.0.0"
+    assert CODENAME == "VANGUARD"
 
 def test_version_history_includes_v45():
     from core.version import VERSION_HISTORY
@@ -515,8 +516,8 @@ def test_version_history_includes_v45():
 def test_version_compatibility():
     from core.version import check_version_compatibility
     assert check_version_compatibility("43.0.0") is True
-    assert check_version_compatibility("45.0.0") is True
-    assert check_version_compatibility("46.0.0") is False
+    assert check_version_compatibility("46.0.0") is True
+    assert check_version_compatibility("47.0.0") is False
 
 
 # ══════════════════════════════════════════════════════════════
