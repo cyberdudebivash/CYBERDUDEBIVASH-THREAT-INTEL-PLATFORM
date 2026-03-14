@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: US and European authorities disrupt socksEscort proxy service tied to AVrecon botnet
-:: Generated: 2026-03-14 05:13:01 UTC
+:: Generated: 2026-03-14 08:40:11 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================
