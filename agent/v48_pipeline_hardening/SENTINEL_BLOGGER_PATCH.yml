@@ -1,0 +1,42 @@
+# ================================================================
+# v48.0 PIPELINE HARDENING — sentinel-blogger.yml PATCH
+# ================================================================
+#
+# ADD this stage AFTER "Force Update Sync Timestamp" (end of STAGE 2)
+# and BEFORE "NEXUS Engine v2" (STAGE 3).
+#
+# This runs the v48 pipeline hardener which:
+#   - Sorts manifest descending (newest first)
+#   - Batch-enriches EPSS/CVSS scores
+#   - Applies KEV enrichment
+#   - Validates manifest integrity
+#
+# COPY THE BLOCK BELOW into sentinel-blogger.yml:
+# ================================================================
+
+      # ================================================================
+      # STAGE 2.5: PIPELINE HARDENER v48.0
+      # ================================================================
+      - name: Pipeline Hardener v48.0 - Sort + Enrich + Validate
+        continue-on-error: true
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          echo "STAGE 2.5: PIPELINE HARDENER v48.0"
+          if [ -f "agent/v48_pipeline_hardening/pipeline_hardener.py" ]; then
+            python agent/v48_pipeline_hardening/pipeline_hardener.py 2>&1 | tee data/logs/v48_$(date +%Y%m%d_%H%M%S).log
+            echo "v48 Pipeline Hardener complete"
+          else
+            echo "v48 module not deployed — skipping"
+          fi
+
+# ================================================================
+# ALSO: Add to STAGE 8 "Commit and Push" git add section:
+# ================================================================
+#   git add data/enrichment/*.json 2>/dev/null || true
+
+# ================================================================
+# ALSO: Update the workflow name to include v48 in the commit message:
+# ================================================================
+# Change:  git commit -m "v45.0 Apex: Intel Sync @ $TIMESTAMP [skip ci]"
+# To:      git commit -m "v48.0 Apex: Intel Sync @ $TIMESTAMP [skip ci]"
