@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: FortiGate Edge Intrusions | Stolen Service Accounts Lead to Rogue Workstations and Deep AD Compromise
-:: Generated: 2026-03-15 16:36:55 UTC
+:: Generated: 2026-03-15 20:34:37 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================
