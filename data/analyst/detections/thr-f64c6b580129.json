@@ -2,12 +2,12 @@
   "threat_id": "thr-f64c6b580129",
   "title": "Who is the Kimwolf Botmaster \u201cDort\u201d?",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Who is the Kimwolf Botmaster \u201cDort\u201d?\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/14\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '99.241.112.24'\n    selection_dns:\n        query:\n            - '*gmail.com*'\n            - '*ocdsb.ca*'\n            - '*osint.industries*'\n    condition: selection_ip or selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Who is the Kimwolf Botmaster \u201cDort\u201d?\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/15\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '99.241.112.24'\n    selection_dns:\n        query:\n            - '*gmail.com*'\n            - '*ocdsb.ca*'\n            - '*osint.industries*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "suricata": [
-      "alert ip any any -> 99.241.112.24 any (msg:\"CDB APEX \u2014 Who_is_the_Kimwolf_Botmaster__\"; sid:7927600; rev:1;)"
+      "alert ip any any -> 99.241.112.24 any (msg:\"CDB APEX \u2014 Who_is_the_Kimwolf_Botmaster__\"; sid:4924956; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 99.241.112.24 any (msg:\"CDB APEX Who_is_the_Kimwolf_Botmaster__\"; sid:8093321; rev:1;)"
+      "alert ip any any -> 99.241.112.24 any (msg:\"CDB APEX Who_is_the_Kimwolf_Botmaster__\"; sid:2418763; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"99.241.112.24\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"gmail.com\",\n              \"ocdsb.ca\",\n              \"osint.industries\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"99.241.112.24\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"gmail.com\", \"ocdsb.ca\", \"osint.industries\")"
