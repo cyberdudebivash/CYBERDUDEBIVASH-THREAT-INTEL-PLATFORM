@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-2fdb7fb6ea30",
+  "title": "CVE-2026-32320 - Ella Core: AMF DoS via malformed PathSwitchRequest with empty N",
+  "scripts": [
+    {
+      "type": "hardening_bash",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 \u2014 Emergency Hardening Script\n# Threat: CVE-2026-32320 - Ella Core: AMF DoS via malformed PathSwitch\n# Generated: 2026-03-15T16:59:55.645447+00:00\n\necho \"[*] Updating system packages...\"\napt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null\n\necho \"[*] Enabling firewall...\"\nufw enable 2>/dev/null || firewall-cmd --set-default-zone=drop 2>/dev/null\n\necho \"[*] Disabling unnecessary services...\"\nsystemctl disable --now telnet.socket 2>/dev/null\nsystemctl disable --now rsh.socket 2>/dev/null\n\necho \"[*] Setting secure SSH configuration...\"\nsed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config\nsystemctl restart sshd\n\necho \"[+] Hardening complete for threat: thr-2fdb7fb6ea30\"\n"
+    }
+  ]
+}

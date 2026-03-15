@@ -2,12 +2,12 @@
   "threat_id": "thr-8c92c99193f1",
   "title": "Hewlett Packard Enterprise fixes critical authentication bypass in Aruba AOS-CX",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Hewlett Packard Enterprise fixes critical authentication byp\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/12\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '3.2.0.1'\n    condition: selection_ip\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Hewlett Packard Enterprise fixes critical authentication byp\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/15\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '3.2.0.1'\n    condition: selection_ip\nlevel: high",
     "suricata": [
-      "alert ip any any -> 3.2.0.1 any (msg:\"CDB APEX \u2014 Hewlett_Packard_Enterprise_fix\"; sid:5880840; rev:1;)"
+      "alert ip any any -> 3.2.0.1 any (msg:\"CDB APEX \u2014 Hewlett_Packard_Enterprise_fix\"; sid:5491098; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 3.2.0.1 any (msg:\"CDB APEX Hewlett_Packard_Enterprise_fix\"; sid:6901791; rev:1;)"
+      "alert ip any any -> 3.2.0.1 any (msg:\"CDB APEX Hewlett_Packard_Enterprise_fix\"; sid:5735450; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"3.2.0.1\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"3.2.0.1\")"
