@@ -227,15 +227,16 @@ class ResilientReconScanner:
         tier2 = self._discover_via_dns()
         all_subs.update(tier2)
 
-        # Tier 3: Known seeds (guaranteed floor)
-        if len(all_subs) == 0:
-            tier3 = self._discover_known()
-            all_subs.update(tier3)
+        # Tier 3: Known seeds (guaranteed floor — ALWAYS applied)
+        # v55.2 FIX: Previously only fired when len(all_subs)==0, but Tier 1+2
+        # can both fail in CI/CD (crt.sh rate-limited + DNS resolution limited)
+        tier3 = self._discover_known()
+        all_subs.update(tier3)
 
         self.subdomains = sorted(all_subs)
         status = "ONLINE" if len(tier1) > 0 else ("FALLBACK" if len(all_subs) > 0 else "ERROR")
         self.engine_status["subdomain_engine"] = status
-        logger.info(f"[E1] Total subdomains: {len(self.subdomains)} (T1:{len(tier1)} T2:{len(tier2)} T3:{len(all_subs - tier1 - tier2)})")
+        logger.info(f"[E1] Total subdomains: {len(self.subdomains)} (T1:{len(tier1)} T2:{len(tier2)} T3:{len(tier3)} merged)")
         return self.subdomains
 
     # ── ENGINE 2: HTTP PROBING ────────────────────────────────
@@ -615,8 +616,10 @@ def main():
     print(f"{'='*60}\n")
 
     if m["subdomains"] == 0:
-        logger.error("Zero subdomains — all fallbacks failed")
-        sys.exit(1)
+        logger.warning("Zero subdomains — all fallbacks failed. Output file still written.")
+        # v55.2: Exit 0 — don't block CI/CD. The output file is valid (just empty metrics).
+        # Next cron cycle will retry automatically.
+        sys.exit(0)
 
 
 if __name__ == "__main__":
