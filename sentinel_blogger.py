@@ -203,11 +203,16 @@ def main():
     # v14.0 FIX: Added dedup check (was MISSING → caused 6x duplicates)
     # ═══════════════════════════════════════════════════════
     logger.info("─── PHASE 1: Primary CDB Intelligence Feed ───")
+    _ph1_start = time.monotonic()
     primary_entries = fetch_feed_entries(CDB_RSS_FEED, max_entries=1)
+    if _TELEMETRY_OK and _telemetry:
+        _telemetry.record_feed_fetch(CDB_RSS_FEED, time.monotonic() - _ph1_start, success=len(primary_entries) > 0)
 
     for entry in primary_entries:
         if dedup_engine.is_duplicate(entry['title'], entry.get('link', '')):
             logger.info(f"  ⏭ SKIP (duplicate): {entry['title'][:60]}")
+            if _TELEMETRY_OK and _telemetry:
+                _telemetry.record_dedup()
             continue
         # v19.0: Quality gate — skip non-threat editorial/marketing content
         if _QUALITY_GATE_OK and _quality_gate:
@@ -249,8 +254,14 @@ def main():
         pass
 
     for feed_url in RSS_FEEDS:
+        _feed_start = time.monotonic()
         entries = fetch_feed_entries(feed_url, max_entries=MAX_ENTRIES_PER_FEED)
+        _feed_elapsed = time.monotonic() - _feed_start
         logger.info(f"Feed [{feed_url[:50]}...]: {len(entries)} entries")
+
+        # v55.0 FIX: Record feed fetch telemetry
+        if _TELEMETRY_OK and _telemetry:
+            _telemetry.record_feed_fetch(feed_url, _feed_elapsed, success=len(entries) > 0)
 
         for entry in entries:
             time.sleep(RATE_LIMIT_DELAY)
@@ -258,6 +269,9 @@ def main():
             # Triple-layer dedup check
             if dedup_engine.is_duplicate(entry['title'], entry.get('link', '')):
                 logger.info(f"  ⏭ SKIP (duplicate): {entry['title'][:60]}")
+                # v55.0 FIX: Record dedup telemetry
+                if _TELEMETRY_OK and _telemetry:
+                    _telemetry.record_dedup()
                 continue
 
             # v14.0: Manifest similarity check (catches near-identical titles)
@@ -265,6 +279,9 @@ def main():
                     entry['title'], _manifest, threshold=0.80):
                 logger.info(f"  ⏭ SKIP (manifest similar): {entry['title'][:60]}")
                 dedup_engine.mark_processed(entry['title'], entry.get('link', ''))
+                # v55.0 FIX: Record dedup telemetry
+                if _TELEMETRY_OK and _telemetry:
+                    _telemetry.record_dedup()
                 continue
 
             # v19.0: Quality gate — filter non-threat content before processing
@@ -416,16 +433,25 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
 
     # ─── STEP 10: Publish to Blogger ───
     try:
+        # v55.0 FIX: Sanitize HTML before Blogger API call
+        from agent.blogger_client import sanitize_blogger_html
+        safe_report_html = sanitize_blogger_html(report_html)
+
         post_body = {
             "kind": "blogger#post",
             "title": headline,
-            "content": report_html,
+            "content": safe_report_html,
             "labels": labels,
         }
 
         response = service.posts().insert(blogId=BLOG_ID, body=post_body).execute()
         live_blog_url = response.get('url', '')
         logger.info(f"  ✓ PREMIUM ADVISORY PUBLISHED ({report_word_count} words): {live_blog_url}")
+
+        # v55.0 FIX: Record publish + processing telemetry
+        if _TELEMETRY_OK and _telemetry:
+            _telemetry.record_publish(elapsed_sec=0.0, success=True)
+            _telemetry.record_cve_processing(elapsed_sec=0.0)
 
         # ─── STEP 11: STIX Bundle + Manifest ───
         stix_exporter.create_bundle(

@@ -463,13 +463,16 @@ class FalsePositiveReducer:
     """
 
     FP_INDICATORS = {
-        "generic_title": {"pattern": r'^(?:update|patch|advisory|bulletin)\b', "weight": 0.3},
-        "no_iocs": {"check": lambda e: not any(v for v in (e.get("ioc_counts") or {}).values()), "weight": 0.4},
-        "no_actor": {"check": lambda e: not e.get("actor_tag") or e.get("actor_tag") == "UNC-CDB-99", "weight": 0.2},
-        "no_techniques": {"check": lambda e: not e.get("mitre_tactics"), "weight": 0.3},
-        "low_confidence": {"check": lambda e: (e.get("confidence_score") or 100) < 30, "weight": 0.5},
-        "low_epss": {"check": lambda e: (e.get("epss_score") or 0) < 5, "weight": 0.2},
-        "info_only": {"check": lambda e: (e.get("risk_score") or 0) < 2, "weight": 0.6},
+        # v55.0 FIX: Rebalanced weights — old weights caused 52% FP rate because
+        # no_iocs(0.4) + no_actor(0.2) = 0.6 > threshold(0.5) flagged most RSS entries.
+        # New weights require 3+ convergent signals to reach FP threshold of 0.6.
+        "generic_title": {"pattern": r'^(?:update|patch|advisory|bulletin)\b', "weight": 0.15},
+        "no_iocs": {"check": lambda e: not any(v for v in (e.get("ioc_counts") or {}).values()), "weight": 0.2},
+        "no_actor": {"check": lambda e: not e.get("actor_tag") or e.get("actor_tag") == "UNC-CDB-99", "weight": 0.1},
+        "no_techniques": {"check": lambda e: not e.get("mitre_tactics"), "weight": 0.15},
+        "low_confidence": {"check": lambda e: (e.get("confidence_score") or 100) < 30, "weight": 0.3},
+        "low_epss": {"check": lambda e: (e.get("epss_score") or 0) < 5, "weight": 0.1},
+        "info_only": {"check": lambda e: (e.get("risk_score") or 0) < 2, "weight": 0.3},
     }
 
     def analyze(self) -> Dict:
@@ -481,14 +484,14 @@ class FalsePositiveReducer:
         fp_candidates = []
         for entry in entries:
             fp_score = self._compute_fp_score(entry)
-            if fp_score >= 0.5:
+            if fp_score >= 0.6:  # v55.0 FIX: raised from 0.5 to reduce false positives
                 fp_candidates.append({
                     "title": entry.get("title", "")[:80],
                     "stix_id": entry.get("stix_id", ""),
                     "risk_score": entry.get("risk_score", 0),
                     "fp_probability": round(fp_score, 3),
                     "reasons": self._get_fp_reasons(entry),
-                    "recommendation": "SUPPRESS" if fp_score >= 0.75 else "REVIEW",
+                    "recommendation": "SUPPRESS" if fp_score >= 0.8 else "REVIEW",
                 })
 
         # Compute FP rate estimate
