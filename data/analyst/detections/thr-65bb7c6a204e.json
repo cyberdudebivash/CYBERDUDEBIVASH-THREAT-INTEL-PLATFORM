@@ -2,7 +2,7 @@
   "threat_id": "thr-65bb7c6a204e",
   "title": "CVE-2026-31844 - Authenticated SQL Injection in Koha displayby parameter of sugg",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-31844 - Authenticated SQL Injection in Koha display\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/12\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*suggestion.pl*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-31844 - Authenticated SQL Injection in Koha display\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/15\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*suggestion.pl*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"suggestion.pl\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"suggestion.pl\")"
   },
