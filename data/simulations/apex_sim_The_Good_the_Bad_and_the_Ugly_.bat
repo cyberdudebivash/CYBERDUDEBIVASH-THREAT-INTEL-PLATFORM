@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: The Good, the Bad and the Ugly in Cybersecurity – Week 11
-:: Generated: 2026-03-15 08:41:15 UTC
+:: Generated: 2026-03-15 13:00:41 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================
