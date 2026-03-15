@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-96e93dc33646",
+  "title": "Storm-2561 lures victims to spoofed VPN sites to harvest corporate logins",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 Storm-2561 lures victims to spoofed VPN sites to harvest cor\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/15\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*connectionstore.dat*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"connectionstore.dat\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"connectionstore.dat\")"
+  },
+  "rule_count": 3
+}

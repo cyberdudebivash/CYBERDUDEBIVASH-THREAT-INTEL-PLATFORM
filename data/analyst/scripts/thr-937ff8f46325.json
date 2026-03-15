@@ -1,0 +1,18 @@
+{
+  "threat_id": "thr-937ff8f46325",
+  "title": "Dark Web Intercept: Telegram_RaaS_Syndicate - Potential Threat Activity",
+  "scripts": [
+    {
+      "type": "firewall_iptables",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 \u2014 Block threat IPs for: Dark Web Intercept: Telegram_RaaS_Syndicate - Potential Thre\niptables -A INPUT -s 185.15.10.22 -j DROP\niptables -A OUTPUT -d 185.15.10.22 -j DROP\necho 'Firewall rules applied'"
+    },
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx 185\\.15\\.10\\.22\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-937ff8f46325'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((dest_ip IN (\"185.15.10.22\")) OR (query IN (\"185.15.10.22\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    }
+  ]
+}

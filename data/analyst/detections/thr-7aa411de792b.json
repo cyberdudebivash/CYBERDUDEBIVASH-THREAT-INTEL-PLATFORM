@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-7aa411de792b",
+  "title": "BeatBanker: A dual\u2011mode Android Trojan",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 BeatBanker: A dual\u2011mode Android Trojan\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/15\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*accessor.fud2026.com*'\n            - '*com.binance.dev*'\n            - '*com.destination.cosmetics*'\n            - '*com.wallet.crypto.trustapp*'\n            - '*dalvik.system*'\n            - '*fud2026.com*'\n            - '*ipapi.is*'\n    condition: selection_ip\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"accessor.fud2026.com\",\n              \"com.binance.dev\",\n              \"com.destination.cosmetics\",\n              \"com.wallet.crypto.trustapp\",\n              \"dalvik.system\",\n              \"fud2026.com\",\n              \"ipapi.is\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"accessor.fud2026.com\", \"com.binance.dev\", \"com.destination.cosmetics\", \"com.wallet.crypto.trustapp\", \"dalvik.system\", \"fud2026.com\", \"ipapi.is\")"
+  },
+  "rule_count": 3
+}
