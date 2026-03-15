@@ -2,12 +2,12 @@
   "threat_id": "thr-5071d8def6dd",
   "title": "Siemens SIDIS Prime",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Siemens SIDIS Prime\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/14\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '1.0.2.5'\n    selection_dns:\n        query:\n            - '*commonmark-rules.js*'\n            - '*console.log*'\n            - '*parse.js*'\n            - '*qs.parse*'\n            - '*result.a.length*'\n            - '*server.fs*'\n            - '*server.fs.deny*'\n            - '*server.host*'\n            - '*utils.combine*'\n            - '*www.siemens.com*'\n    condition: selection_ip or selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Siemens SIDIS Prime\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/15\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '1.0.2.5'\n    selection_dns:\n        query:\n            - '*commonmark-rules.js*'\n            - '*console.log*'\n            - '*parse.js*'\n            - '*qs.parse*'\n            - '*result.a.length*'\n            - '*server.fs*'\n            - '*server.fs.deny*'\n            - '*server.host*'\n            - '*utils.combine*'\n            - '*www.siemens.com*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "suricata": [
-      "alert ip any any -> 1.0.2.5 any (msg:\"CDB APEX \u2014 Siemens_SIDIS_Prime\"; sid:3708019; rev:1;)"
+      "alert ip any any -> 1.0.2.5 any (msg:\"CDB APEX \u2014 Siemens_SIDIS_Prime\"; sid:9098507; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 1.0.2.5 any (msg:\"CDB APEX Siemens_SIDIS_Prime\"; sid:9461489; rev:1;)"
+      "alert ip any any -> 1.0.2.5 any (msg:\"CDB APEX Siemens_SIDIS_Prime\"; sid:7814561; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"1.0.2.5\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"commonmark-rules.js\",\n              \"console.log\",\n              \"parse.js\",\n              \"qs.parse\",\n              \"result.a.length\",\n              \"server.fs\",\n              \"server.fs.deny\",\n              \"server.host\",\n              \"utils.combine\",\n              \"www.siemens.com\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"1.0.2.5\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"commonmark-rules.js\", \"console.log\", \"parse.js\", \"qs.parse\", \"result.a.length\", \"server.fs\", \"server.fs.deny\", \"server.host\", \"utils.combine\", \"www.siemens.com\")"
