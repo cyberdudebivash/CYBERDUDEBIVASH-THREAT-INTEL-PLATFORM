@@ -23,7 +23,7 @@ concurrency:
 jobs:
   publish-threat-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
 
     steps:
       # ================================================================
@@ -136,6 +136,42 @@ jobs:
               json.dump(sync_marker, f, indent=2)
           print("Sync marker created")
           PYEOF
+
+      # ================================================================
+      # STAGE 2.1: CRITICAL DATA COMMIT (v55.3 — Anti-Timeout Safeguard)
+      # ROOT CAUSE FIX: Run #408 timed out at 45m during STAGE 5, causing
+      # ALL manifest/dedup/EMBEDDED_INTEL changes from STAGE 2 to be LOST.
+      # This intermediate commit saves the critical intel data IMMEDIATELY
+      # after feed ingestion, BEFORE the slow downstream engines run.
+      # ================================================================
+      - name: Intermediate Commit — Save Feed Intel (v55.3 Anti-Timeout)
+        continue-on-error: true
+        run: |
+          echo "STAGE 2.1: Intermediate commit — saving critical intel data"
+          
+          # Update EMBEDDED_INTEL FIRST so dashboard gets fresh data
+          python3 scripts/update_embedded_intel.py || echo "EMBEDDED_INTEL update non-fatal"
+          
+          git config --local user.email "bivash@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+          
+          git add data/stix/feed_manifest.json 2>/dev/null || true
+          git add data/blogger_processed.json 2>/dev/null || true
+          git add data/status/status.json 2>/dev/null || true
+          git add data/sync_marker.json 2>/dev/null || true
+          git add index.html 2>/dev/null || true
+          
+          if git diff --staged --quiet; then
+            echo "No feed intel changes to commit — dedup caught all entries"
+          else
+            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+            git commit -m "v55.3 Intel checkpoint: manifest + dedup @ $TIMESTAMP [skip ci]"
+            for i in {1..3}; do
+              git pull origin main --rebase && git push origin main && break || \
+              (echo "Push retry $i..." && sleep 10)
+            done
+            echo "✓ Critical intel data committed and pushed"
+          fi
 
       # ================================================================
       # STAGE 2.5: PIPELINE HARDENER v48.0 — Sort + Enrich + Validate
