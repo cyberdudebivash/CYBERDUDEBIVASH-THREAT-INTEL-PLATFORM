@@ -227,11 +227,17 @@ def main():
     # v14.0 FIX: Added dedup check (was MISSING → caused 6x duplicates)
     # ═══════════════════════════════════════════════════════
     logger.info("─── PHASE 1: Primary CDB Intelligence Feed ───")
+    _ph1_start = time.monotonic()
     primary_entries = fetch_feed_entries(CDB_RSS_FEED, max_entries=1)
+    # v55.0 FIX: Record feed telemetry
+    if _TELEMETRY_OK and _telemetry:
+        _telemetry.record_feed_fetch(CDB_RSS_FEED, time.monotonic() - _ph1_start, success=len(primary_entries) > 0)
 
     for entry in primary_entries:
         if dedup_engine.is_duplicate(entry['title'], entry.get('link', '')):
             logger.info(f"  ⏭ SKIP (duplicate): {entry['title'][:60]}")
+            if _TELEMETRY_OK and _telemetry:
+                _telemetry.record_dedup()
             continue
         # v19.0: Quality gate — skip non-threat editorial/marketing content
         if _QUALITY_GATE_OK and _quality_gate:
@@ -248,6 +254,9 @@ def main():
         result = process_entry(entry, service, feed_source="CDB-NEWS")
         if result:
             published_count += 1
+            if _TELEMETRY_OK and _telemetry:
+                _telemetry.record_publish(elapsed_sec=0.0, success=True)
+                _telemetry.record_cve_processing(elapsed_sec=0.0)
         time.sleep(RATE_LIMIT_DELAY)
 
     # ═══════════════════════════════════════════════════════
@@ -273,8 +282,13 @@ def main():
         pass
 
     for feed_url in RSS_FEEDS:
+        _feed_start = time.monotonic()
         entries = fetch_feed_entries(feed_url, max_entries=MAX_ENTRIES_PER_FEED)
+        _feed_elapsed = time.monotonic() - _feed_start
         logger.info(f"Feed [{feed_url[:50]}...]: {len(entries)} entries")
+        # v55.0 FIX: Record feed fetch telemetry
+        if _TELEMETRY_OK and _telemetry:
+            _telemetry.record_feed_fetch(feed_url, _feed_elapsed, success=len(entries) > 0)
 
         for entry in entries:
             time.sleep(RATE_LIMIT_DELAY)
@@ -282,6 +296,8 @@ def main():
             # Triple-layer dedup check
             if dedup_engine.is_duplicate(entry['title'], entry.get('link', '')):
                 logger.info(f"  ⏭ SKIP (duplicate): {entry['title'][:60]}")
+                if _TELEMETRY_OK and _telemetry:
+                    _telemetry.record_dedup()
                 continue
 
             # v14.0: Manifest similarity check (catches near-identical titles)
@@ -289,6 +305,8 @@ def main():
                     entry['title'], _manifest, threshold=0.80):
                 logger.info(f"  ⏭ SKIP (manifest similar): {entry['title'][:60]}")
                 dedup_engine.mark_processed(entry['title'], entry.get('link', ''))
+                if _TELEMETRY_OK and _telemetry:
+                    _telemetry.record_dedup()
                 continue
 
             # v19.0: Quality gate — filter non-threat content before processing
@@ -306,6 +324,9 @@ def main():
             result = process_entry(entry, service, feed_source=feed_url[:30])
             if result:
                 published_count += 1
+                if _TELEMETRY_OK and _telemetry:
+                    _telemetry.record_publish(elapsed_sec=0.0, success=True)
+                    _telemetry.record_cve_processing(elapsed_sec=0.0)
 
     logger.info("=" * 70)
     logger.info(f"APEX v19.0 COMPLETE — Published {published_count} PREMIUM advisories")
