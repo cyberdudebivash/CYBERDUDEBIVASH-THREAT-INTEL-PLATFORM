@@ -54,12 +54,27 @@ jobs:
 
       - name: Execute Bug Hunter Recon Scan
         continue-on-error: true
-        run: |
-          python -m agent.v49_bughunter_fix.run_bughunter \
-            --domain "${{ github.event.inputs.target_domain || 'cyberdudebivash.com' }}" \
-            --timeout 15
         env:
           BH_TARGET_DOMAIN: ${{ github.event.inputs.target_domain || 'cyberdudebivash.com' }}
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          # v55.2 FIX: Use v54 resilient scanner (3-tier subdomain fallback)
+          # ROOT CAUSE: v49 scanner has ZERO fallback when crt.sh is down/rate-limited
+          # → all 12 engine metrics return 0 → dashboard shows all zeros
+          # v54 adds: Tier 1 crt.sh → Tier 2 DNS brute → Tier 3 known CDB subdomains (always)
+          V54_OK=0
+          if [ -f "agent/v54_bughunter_resilience/resilient_scanner.py" ]; then
+            echo "Attempting v54 RESILIENT scanner (3-tier fallback)..."
+            python agent/v54_bughunter_resilience/resilient_scanner.py \
+              --domain "${{ github.event.inputs.target_domain || 'cyberdudebivash.com' }}" \
+              --timeout 15 2>&1 && V54_OK=1 || echo "v54 scanner exited with error"
+          fi
+          if [ "$V54_OK" = "0" ]; then
+            echo "v54 failed or not found — falling back to v49"
+            python -m agent.v49_bughunter_fix.run_bughunter \
+              --domain "${{ github.event.inputs.target_domain || 'cyberdudebivash.com' }}" \
+              --timeout 15 2>&1 || echo "v49 fallback also failed"
+          fi
 
       - name: Validate Bug Hunter Output
         run: |
