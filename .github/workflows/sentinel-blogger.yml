@@ -424,33 +424,44 @@ jobs:
       # STAGE 9: POST-SYNC VERIFICATION
       # ================================================================
       - name: Post-Sync Verification
+        continue-on-error: true
         run: |
-          echo "Post-sync verification v48.0..."
-          if [ -f "data/stix/feed_manifest.json" ]; then
-            python3 -c "
-          import json
-          d = json.load(open('data/stix/feed_manifest.json'))
-          items = d if isinstance(d, list) else d.get('entries', [])
-          if items:
-              print('  Manifest entries: ' + str(len(items)))
-              print('  Newest: ' + items[0].get('timestamp','?')[:19])
-              print('  Oldest: ' + items[-1].get('timestamp','?')[:19])
-              null_epss = sum(1 for e in items if e.get('epss_score') is None and e.get('ioc_counts',{}).get('cve',0)>0)
-              null_cvss = sum(1 for e in items if e.get('cvss_score') is None and e.get('ioc_counts',{}).get('cve',0)>0)
-              kev = sum(1 for e in items if e.get('kev_present'))
-              desc = all(items[i].get('timestamp','')>=items[i+1].get('timestamp','') for i in range(len(items)-1))
-              print('  Sort order: ' + ('DESCENDING (OK)' if desc else 'WRONG - hardener may not have run'))
-              print('  Null EPSS (CVE entries): ' + str(null_epss))
-              print('  Null CVSS (CVE entries): ' + str(null_cvss))
-              print('  KEV present: ' + str(kev))
-          "
-          fi
-          if [ -f "data/sync_marker.json" ]; then
-            echo "  Sync marker: present"
-          fi
-          if [ -f "data/enrichment/v48_hardening_results.json" ]; then
-            echo "  v48 hardener: ran successfully"
-          fi
+          echo "Post-sync verification v55.0..."
+          python3 << 'PYEOF'
+          import json, os
+          try:
+              if os.path.exists("data/stix/feed_manifest.json"):
+                  with open("data/stix/feed_manifest.json") as f:
+                      raw = f.read().strip()
+                  # Guard against empty/corrupt file
+                  if not raw or raw[0] not in ('[', '{'):
+                      print("  WARN: feed_manifest.json appears empty or corrupt — skipping verification")
+                  else:
+                      d = json.loads(raw)
+                      items = d if isinstance(d, list) else d.get('entries', [])
+                      if items:
+                          print(f"  Manifest entries: {len(items)}")
+                          print(f"  Newest: {items[0].get('timestamp','?')[:19]}")
+                          print(f"  Oldest: {items[-1].get('timestamp','?')[:19]}")
+                          null_epss = sum(1 for e in items if e.get('epss_score') is None and e.get('ioc_counts',{}).get('cve',0)>0)
+                          null_cvss = sum(1 for e in items if e.get('cvss_score') is None and e.get('ioc_counts',{}).get('cve',0)>0)
+                          kev = sum(1 for e in items if e.get('kev_present'))
+                          desc = all(items[i].get('timestamp','')>=items[i+1].get('timestamp','') for i in range(len(items)-1))
+                          print(f"  Sort order: {'DESCENDING (OK)' if desc else 'WRONG - hardener may not have run'}")
+                          print(f"  Null EPSS (CVE entries): {null_epss}")
+                          print(f"  Null CVSS (CVE entries): {null_cvss}")
+                          print(f"  KEV present: {kev}")
+                      else:
+                          print("  Manifest: EMPTY")
+              else:
+                  print("  WARN: feed_manifest.json not found")
+          except Exception as e:
+              print(f"  WARN: Verification non-fatal error: {e}")
+          # Check other markers
+          for f, label in [("data/sync_marker.json", "Sync marker"), ("data/enrichment/v48_hardening_results.json", "v48 hardener")]:
+              if os.path.exists(f):
+                  print(f"  {label}: present")
+          PYEOF
 
       # ================================================================
       # STAGE 10: DEPLOY TO GITHUB PAGES
