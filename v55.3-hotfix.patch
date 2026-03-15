@@ -1,0 +1,86 @@
+diff --git a/.github/workflows/sentinel-blogger.yml b/.github/workflows/sentinel-blogger.yml
+index dd8bb27..95d2f23 100644
+--- a/.github/workflows/sentinel-blogger.yml
++++ b/.github/workflows/sentinel-blogger.yml
+@@ -23,7 +23,7 @@ concurrency:
+ jobs:
+   publish-threat-report:
+     runs-on: ubuntu-latest
+-    timeout-minutes: 45
++    timeout-minutes: 90
+ 
+     steps:
+       # ================================================================
+@@ -137,6 +137,42 @@ jobs:
+           print("Sync marker created")
+           PYEOF
+ 
++      # ================================================================
++      # STAGE 2.1: CRITICAL DATA COMMIT (v55.3 — Anti-Timeout Safeguard)
++      # ROOT CAUSE FIX: Run #408 timed out at 45m during STAGE 5, causing
++      # ALL manifest/dedup/EMBEDDED_INTEL changes from STAGE 2 to be LOST.
++      # This intermediate commit saves the critical intel data IMMEDIATELY
++      # after feed ingestion, BEFORE the slow downstream engines run.
++      # ================================================================
++      - name: Intermediate Commit — Save Feed Intel (v55.3 Anti-Timeout)
++        continue-on-error: true
++        run: |
++          echo "STAGE 2.1: Intermediate commit — saving critical intel data"
++          
++          # Update EMBEDDED_INTEL FIRST so dashboard gets fresh data
++          python3 scripts/update_embedded_intel.py || echo "EMBEDDED_INTEL update non-fatal"
++          
++          git config --local user.email "bivash@cyberdudebivash.com"
++          git config --local user.name "CDB-Sentinel-Bot"
++          
++          git add data/stix/feed_manifest.json 2>/dev/null || true
++          git add data/blogger_processed.json 2>/dev/null || true
++          git add data/status/status.json 2>/dev/null || true
++          git add data/sync_marker.json 2>/dev/null || true
++          git add index.html 2>/dev/null || true
++          
++          if git diff --staged --quiet; then
++            echo "No feed intel changes to commit — dedup caught all entries"
++          else
++            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
++            git commit -m "v55.3 Intel checkpoint: manifest + dedup @ $TIMESTAMP [skip ci]"
++            for i in {1..3}; do
++              git pull origin main --rebase && git push origin main && break || \
++              (echo "Push retry $i..." && sleep 10)
++            done
++            echo "✓ Critical intel data committed and pushed"
++          fi
++
+       # ================================================================
+       # STAGE 2.5: PIPELINE HARDENER v48.0 — Sort + Enrich + Validate
+       # Fixes: BUG-02 manifest sort, BUG-03 EPSS/CVSS null scores,
+diff --git a/agent/config.py b/agent/config.py
+index 98bdbca..9cb055f 100644
+--- a/agent/config.py
++++ b/agent/config.py
+@@ -81,7 +81,7 @@ SOURCE_FETCH_ENABLED = True
+ # ═══════════════════════════════════════════════════════════
+ PUBLISH_RETRY_MAX = 3
+ PUBLISH_RETRY_DELAY = 10
+-RATE_LIMIT_DELAY = 8  # v56: Increased from 2→8s to prevent Blogger API 429 rate limits
++RATE_LIMIT_DELAY = 3  # v55.3: Reduced from 8→3s. v56 publisher has its own API-level rate limiter.
+ 
+ # ═══════════════════════════════════════════════════════════
+ # MANIFEST SETTINGS
+diff --git a/agent/v56_publish_guard/publisher.py b/agent/v56_publish_guard/publisher.py
+index 076af0c..5c19492 100644
+--- a/agent/v56_publish_guard/publisher.py
++++ b/agent/v56_publish_guard/publisher.py
+@@ -31,9 +31,9 @@ logger = logging.getLogger("CDB-PUBLISH-GUARD")
+ # Configuration
+ # ---------------------------------------------------------------------------
+ 
+-MIN_PUBLISH_INTERVAL = 8       # Seconds between Blogger API calls (6 posts/min max)
+-MAX_RETRY_ATTEMPTS = 5         # Retry attempts on 429/5xx
+-RETRY_BASE_DELAY = 60          # Base delay on 429 (seconds)
++MIN_PUBLISH_INTERVAL = 4       # v55.3: Reduced from 8→4s. Blogger API allows ~10 posts/min.
++MAX_RETRY_ATTEMPTS = 3         # v55.3: Reduced from 5→3. Save time budget for more articles.
++RETRY_BASE_DELAY = 20          # v55.3: Reduced from 60→20s. Blogger 429 clears faster than 60s.
+ RETRY_BACKOFF_FACTOR = 1.5     # Multiplier for exponential backoff
+ 
+ BASE_DIR = Path(__file__).resolve().parent.parent.parent
