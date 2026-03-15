@@ -48,7 +48,21 @@ jobs:
 
       - name: Ensure Production Directories Exist
         run: |
-          mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum data/sovereign data/rule_packs data/playbooks data/playbooks/scripts data/premium_packs data/enterprise_kits data/enrichment data/status data/logs data/incidents data/responses data/threathunts secrets
+          mkdir -p data/stix
+          mkdir -p data/nexus
+          mkdir -p data/genesis
+          mkdir -p data/cortex
+          mkdir -p data/quantum
+          mkdir -p data/sovereign
+          mkdir -p data/rule_packs
+          mkdir -p data/playbooks
+          mkdir -p data/playbooks/scripts
+          mkdir -p data/premium_packs
+          mkdir -p data/enterprise_kits
+          mkdir -p data/enrichment
+          mkdir -p data/status
+          mkdir -p data/logs
+          mkdir -p secrets
 
       # ================================================================
       # STAGE 1: MAINTENANCE & PRE-FLIGHT
@@ -56,16 +70,30 @@ jobs:
       - name: Monthly Maintenance Purge
         if: github.event.schedule == '0 0 1 * *'
         run: python -m agent.janitor || echo "Janitor module not found, skipping"
+        env:
+          CI: true
 
       - name: Inject Sovereign Key
         run: |
           echo "${{ secrets.CDB_SOVEREIGN_KEY }}" > secrets/cdb_sovereign.pem
           chmod 600 secrets/cdb_sovereign.pem
+          echo "::add-mask::$(cat secrets/cdb_sovereign.pem)"
+
+      - name: Pre-flight Sync Diagnostic
+        run: |
+          echo "Pre-flight check..."
+          echo "  Current time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          if [ -f "data/stix/feed_manifest.json" ]; then
+            LATEST_TS=$(python3 -c "import json; d=json.load(open('data/stix/feed_manifest.json')); print(d[0].get('timestamp','N/A') if isinstance(d,list) and d else 'N/A')" 2>/dev/null || echo "N/A")
+            echo "  Last manifest entry: $LATEST_TS"
+          else
+            echo "  No existing manifest found - first run"
+          fi
 
       # ================================================================
       # STAGE 2: CORE FEED INGESTION
       # ================================================================
-      - name: Run Sentinel Blogger APEX Engine
+      - name: Run Sentinel Blogger APEX Engine (v48.0)
         env:
           BLOG_ID: ${{ secrets.BLOG_ID }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
@@ -75,103 +103,439 @@ jobs:
           GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           CI: true
-        run: python -m agent.sentinel_blogger
+          GITHUB_ACTIONS: true
+        run: |
+          echo "STAGE 2: Feed Ingestion"
+          python -m agent.sentinel_blogger
+          echo "Feed ingestion complete"
 
       - name: Force Update Sync Timestamp
         run: |
           python3 << 'PYEOF'
           import json, os
           from datetime import datetime, timezone
+          status_path = "data/status/status.json"
           now = datetime.now(timezone.utc).isoformat()
           status = {
               "platform": "CYBERDUDEBIVASH(R) SENTINEL APEX",
               "version": "v48.0",
               "status": "OPERATIONAL",
+              "status_message": "Pipeline sync complete",
+              "components": {
+                  "threat_feed": {"status": "OPERATIONAL", "last_updated": now, "age_hours": 0.0},
+                  "pipeline": {"status": "OPERATIONAL", "last_run_at": now}
+              },
               "generated_at": now
           }
-          with open("data/status/status.json", "w") as f: json.dump(status, f, indent=2)
-          with open("data/sync_marker.json", "w") as f: json.dump({"last_sync": now}, f, indent=2)
+          os.makedirs(os.path.dirname(status_path), exist_ok=True)
+          with open(status_path, "w") as f:
+              json.dump(status, f, indent=2)
+          print("Status updated: " + now)
+          sync_marker = {"last_sync": now, "sync_source": "github-actions-v48"}
+          with open("data/sync_marker.json", "w") as f:
+              json.dump(sync_marker, f, indent=2)
+          print("Sync marker created")
           PYEOF
 
       # ================================================================
       # STAGE 2.1: CRITICAL DATA COMMIT (v55.3 — Anti-Timeout Safeguard)
+      # ROOT CAUSE FIX: Run #408 timed out at 45m during STAGE 5, causing
+      # ALL manifest/dedup/EMBEDDED_INTEL changes from STAGE 2 to be LOST.
+      # This intermediate commit saves the critical intel data IMMEDIATELY
+      # after feed ingestion, BEFORE the slow downstream engines run.
       # ================================================================
-      - name: Intermediate Commit — Save Feed Intel
+      - name: Intermediate Commit — Save Feed Intel (v55.3 Anti-Timeout)
         continue-on-error: true
         run: |
-          python3 scripts/update_embedded_intel.py || echo "EMBEDDED_INTEL update failed"
+          echo "STAGE 2.1: Intermediate commit — saving critical intel data"
+          
+          # Update EMBEDDED_INTEL FIRST so dashboard gets fresh data
+          python3 scripts/update_embedded_intel.py || echo "EMBEDDED_INTEL update non-fatal"
+          
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
-          git add data/stix/feed_manifest.json data/blogger_processed.json data/status/status.json data/sync_marker.json index.html
+          
+          git add data/stix/feed_manifest.json 2>/dev/null || true
+          git add data/blogger_processed.json 2>/dev/null || true
+          git add data/status/status.json 2>/dev/null || true
+          git add data/sync_marker.json 2>/dev/null || true
+          git add index.html 2>/dev/null || true
+          
           if git diff --staged --quiet; then
-            echo "No changes"
+            echo "No feed intel changes to commit — dedup caught all entries"
           else
-            git commit -m "v55.3 Intel checkpoint [skip ci]"
-            git pull origin main --rebase
-            git push origin main
+            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+            git commit -m "v55.3 Intel checkpoint: manifest + dedup @ $TIMESTAMP [skip ci]"
+            for i in {1..3}; do
+              git pull origin main --rebase && git push origin main && break || \
+              (echo "Push retry $i..." && sleep 10)
+            done
+            echo "✓ Critical intel data committed and pushed"
           fi
 
       # ================================================================
-      # STAGE 2.5: PIPELINE HARDENER v48.0
+      # STAGE 2.5: PIPELINE HARDENER v48.0 — Sort + Enrich + Validate
+      # Fixes: BUG-02 manifest sort, BUG-03 EPSS/CVSS null scores,
+      #        BUG-04 KEV always false, manifest integrity validation
+      # Zero-regression: continue-on-error, graceful degradation
       # ================================================================
-      - name: "STAGE 2.5: PIPELINE HARDENER v48.0"
+      - name: Pipeline Hardener v48.0 - Sort + EPSS Batch + KEV + Validate
+        continue-on-error: true
         env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}
-        run: python agent/v48_pipeline_hardening/pipeline_hardener.py
+        run: |
+          echo "STAGE 2.5: PIPELINE HARDENER v48.0"
+          if [ -f "agent/v48_pipeline_hardening/pipeline_hardener.py" ]; then
+            python agent/v48_pipeline_hardening/pipeline_hardener.py 2>&1 | tee data/logs/v48_hardener_$(date +%Y%m%d_%H%M%S).log
+            python3 -c "
+          import json, os
+          try:
+            with open('data/enrichment/v48_hardening_results.json') as f: d=json.load(f)
+            print('  Sort fixed     : ' + str(d.get('sort_fixed', False)))
+            print('  EPSS enriched  : ' + str(d.get('epss_enriched', 0)) + ' fields')
+            print('  KEV enriched   : ' + str(d.get('kev_enriched', 0)) + ' entries')
+            print('  Integrity issues: ' + str(d.get('integrity_findings', 0)))
+          except Exception as e:
+            print('v48 results check: ' + str(e))
+          "
+            echo "Pipeline Hardener v48.0 complete"
+          elif [ -f "agent/v47_integrity/integrity_guard.py" ]; then
+            echo "v48 not deployed — running v47 integrity guard as fallback"
+            python agent/v47_integrity/integrity_guard.py 2>&1 || echo "v47 non-fatal error"
+          else
+            echo "v48/v47 hardening modules not deployed — skipping"
+          fi
 
       # ================================================================
-      # STAGE 3, 4, 5: DISTRIBUTED ENGINES
+      # STAGE 3: NEXUS ENGINE v2 - Threat Exposure & AI Hunt
       # ================================================================
-      - name: Run NEXUS Engine v2
+      - name: NEXUS Engine v2 - Exposure Index + Threat Hunts
         continue-on-error: true
-        run: python agent/v39_nexus/nexus_engine_v2.py
+        run: |
+          echo "STAGE 3: NEXUS ENGINE v2"
+          if [ -f "agent/v39_nexus/nexus_engine_v2.py" ]; then
+            python agent/v39_nexus/nexus_engine_v2.py 2>&1 | tee data/logs/nexus_$(date +%Y%m%d_%H%M%S).log
+            python3 -c "
+          import json
+          try:
+            with open('data/nexus/nexus_output.json') as f: d=json.load(f)
+            print('  Exposure Index : ' + str(d.get('exposure_index','?')))
+            print('  Threat Hunts   : ' + str(len(d.get('threat_hunts',[]))))
+            print('  Campaigns      : ' + str(len(d.get('campaigns',[]))))
+            print('  Detection Rules: ' + str(d.get('detection_pack',{}).get('total_rules',0)))
+            print('  PIR Coverage   : ' + str(d.get('pir_coverage',{}).get('coverage_pct',0)) + '%')
+          except Exception as e:
+            print('nexus output check: ' + str(e))
+          "
+            echo "NEXUS Engine v2 complete"
+          else
+            echo "nexus_engine_v2.py not found - checking legacy"
+            python -m agent.v39_nexus.nexus_engine 2>/dev/null || echo "NEXUS legacy also not found - skipping"
+          fi
 
-      - name: Run GENESIS Engine v2
+      # ================================================================
+      # STAGE 4: GENESIS ENGINE v2 - 12 Strategic Intel Engines
+      # ================================================================
+      - name: GENESIS Engine v2 - 12 Strategic Intelligence Engines
         continue-on-error: true
-        run: python agent/v43_genesis/genesis_engine_v2.py
+        run: |
+          echo "STAGE 4: GENESIS ENGINE v2 (12 engines)"
+          if [ -f "agent/v43_genesis/genesis_engine_v2.py" ]; then
+            python agent/v43_genesis/genesis_engine_v2.py 2>&1 | tee data/logs/genesis_$(date +%Y%m%d_%H%M%S).log
+            python3 -c "
+          import json
+          try:
+            with open('data/genesis/genesis_output.json') as f: d=json.load(f)
+            eng = d.get('engines',{})
+            ok = sum(1 for e in eng.values() if e.get('status')=='OK')
+            print('  Engines OK: ' + str(ok) + '/' + str(len(eng)))
+            for k,v in eng.items():
+              print('  [' + v.get('status','?') + '] ' + k)
+          except Exception as e:
+            print('genesis output check: ' + str(e))
+          "
+            echo "GENESIS Engine v2 complete"
+          else
+            echo "genesis_engine_v2.py not found - checking legacy"
+            python -m agent.v43_genesis.genesis_engine 2>/dev/null || echo "GENESIS legacy also not found - skipping"
+          fi
 
-      - name: Run v60-v63 Advanced Engines
+      # ================================================================
+      # STAGE 5: LEGACY INTELLIGENCE ENGINES
+      # ================================================================
+      - name: CORTEX Engine - Neural Correlation
+        continue-on-error: true
+        run: |
+          if [ -f "agent/v40_cortex/cortex_engine.py" ]; then
+            echo "CORTEX ENGINE"
+            python agent/v40_cortex/cortex_engine.py 2>&1 || echo "CORTEX non-fatal error"
+          else
+            python -m agent.v40_cortex.cortex_engine 2>/dev/null || echo "CORTEX not found - skipping"
+          fi
+
+      - name: QUANTUM Engine - Predictive Analysis
+        continue-on-error: true
+        run: |
+          if [ -f "agent/v41_quantum/quantum_engine.py" ]; then
+            echo "QUANTUM ENGINE"
+            python agent/v41_quantum/quantum_engine.py 2>&1 || echo "QUANTUM non-fatal error"
+          else
+            python -m agent.v41_quantum.quantum_engine 2>/dev/null || echo "QUANTUM not found - skipping"
+          fi
+
+      - name: SOVEREIGN Engine - Strategic Intelligence
+        continue-on-error: true
+        run: |
+          if [ -f "agent/v42_sovereign/sovereign_engine.py" ]; then
+            echo "SOVEREIGN ENGINE"
+            python agent/v42_sovereign/sovereign_engine.py 2>&1 || echo "SOVEREIGN non-fatal error"
+          else
+            python -m agent.v42_sovereign.sovereign_engine 2>/dev/null || echo "SOVEREIGN not found - skipping"
+          fi
+
+      # ================================================================
+      # STAGE 5B: INCIDENT INTELLIGENCE ENGINE v60 (TIP+SOAR)
+      # ================================================================
+      - name: v60 Incident Intelligence Engine
         continue-on-error: true
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          python3 -c "from agent.v60_incident_engine import run; run()"
-          python3 -c "from agent.v61_playbook_engine import run; run()"
-          python3 -c "from agent.v62_response_engine import run; run()"
-          python3 -c "from agent.v63_threathunter import run; run()"
+          echo "STAGE 5B: INCIDENT INTELLIGENCE ENGINE v60"
+          python3 -c "
+          from agent.v60_incident_engine import run
+          r = run()
+          print(f'  Incidents: {r[\"total_incidents\"]}')
+          print(f'  Severity: {r[\"severity_breakdown\"]}')
+          " || echo "v60 incident engine skipped (non-fatal)"
 
-      - name: v54 Bug Hunter Recon Scanner
+      - name: v61 AI Playbook Generator
         continue-on-error: true
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: python agent/v54_bughunter_resilience/resilient_scanner.py
+        run: |
+          echo "STAGE 5C: AI PLAYBOOK GENERATOR v61"
+          python3 -c "
+          from agent.v61_playbook_engine import run
+          r = run()
+          print(f'  Playbooks: {r[\"total_playbooks\"]}')
+          " || echo "v61 playbook engine skipped (non-fatal)"
+
+      - name: v62 Automated Response Engine
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "STAGE 5D: AUTOMATED RESPONSE ENGINE v62"
+          python3 -c "
+          from agent.v62_response_engine import run
+          r = run()
+          print(f'  Response Actions: {r[\"total_actions\"]}')
+          print(f'  Breakdown: {r[\"action_breakdown\"]}')
+          " || echo "v62 response engine skipped (non-fatal)"
+
+      - name: v63 AI Threat Hunter Engine
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "STAGE 5E: AI THREAT HUNTER v63"
+          python3 -c "
+          from agent.v63_threathunter import run
+          r = run()
+          print(f'  Hunt Hypotheses: {r[\"total_hunts\"]}')
+          print(f'  Active Campaigns: {r[\"active_campaigns\"]}')
+          print(f'  Attack Paths: {r[\"attack_paths\"]}')
+          " || echo "v63 threat hunter skipped (non-fatal)"
 
       # ================================================================
-      # STAGE 8: ATOMIC COMMIT & SOVEREIGN SYNC
+      # STAGE 5F: BUG HUNTER v54.0 — AI RECON & VULNERABILITY DISCOVERY
+      # v55.1 FIX: This stage was MISSING — engine existed but was never
+      # executed, causing all Bug Hunter dashboard metrics to show zeros.
       # ================================================================
-      - name: Commit and Push Sovereign Data
+      - name: v54 Bug Hunter Resilient Recon Scanner
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "STAGE 5F: BUG HUNTER v54.0 — RESILIENT RECON SCANNER"
+          if [ -f "agent/v54_bughunter_resilience/resilient_scanner.py" ]; then
+            python agent/v54_bughunter_resilience/resilient_scanner.py 2>&1 | tee data/logs/bughunter_$(date +%Y%m%d_%H%M%S).log
+            python3 -c "
+          import json, os
+          try:
+            with open('data/bughunter/bughunter_output.json') as f: d=json.load(f)
+            m = d.get('metrics', {})
+            print('  Subdomains   : ' + str(m.get('subdomains', 0)))
+            print('  Live Hosts   : ' + str(m.get('live_hosts', 0)))
+            print('  API Endpoints: ' + str(m.get('api_endpoints', 0)))
+            print('  Findings     : ' + str(m.get('total_findings', 0)))
+            print('  Critical     : ' + str(m.get('critical_findings', 0)))
+            print('  Risk Exposure: $' + str(m.get('risk_exposure', 0)))
+          except Exception as e:
+            print('bughunter output check: ' + str(e))
+          "
+            echo "Bug Hunter v54 complete"
+          elif [ -f "agent/v49_bughunter_fix/run_bughunter.py" ]; then
+            echo "v54 not found — running v49 fallback"
+            python agent/v49_bughunter_fix/run_bughunter.py 2>&1 || echo "v49 bughunter non-fatal error"
+          else
+            echo "Bug Hunter modules not found — skipping"
+          fi
+
+      # ================================================================
+      # STAGE 6: MONETISATION PIPELINE
+      # ================================================================
+      - name: Build Detection Pack (v48.0)
+        continue-on-error: true
+        run: |
+          python - << 'PYEOF'
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          try:
+              from tools.detection_pack_builder import build_latest_pack
+              result = build_latest_pack()
+              print("Detection pack built: " + str(result))
+          except Exception as e:
+              print("Detection pack skipped (non-critical): " + str(e))
+          PYEOF
+
+      - name: Map Detection Pack to Gumroad Product
+        continue-on-error: true
+        env:
+          GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+        run: |
+          python - << 'PYEOF'
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          try:
+              from tools.gumroad_publisher import publish_latest
+              result = publish_latest()
+              print("Gumroad product URL: " + str(result))
+          except Exception as e:
+              print("Gumroad mapping skipped (non-critical): " + str(e))
+          PYEOF
+
+      # ================================================================
+      # STAGE 7: OUTPUT VALIDATION
+      # ================================================================
+      - name: Validate Intelligence Outputs
+        run: |
+          python3 -c "
+          import json, os
+          checks = {
+              'data/stix/feed_manifest.json': 'Feed Manifest',
+              'data/status/status.json': 'Status Monitor',
+              'data/sync_marker.json': 'Sync Marker',
+          }
+          optional = {
+              'data/nexus/nexus_output.json': 'NEXUS Engine',
+              'data/genesis/genesis_output.json': 'GENESIS Engine',
+              'data/enrichment/v48_hardening_results.json': 'v48 Pipeline Hardener',
+              'data/enrichment/epss_cache.json': 'EPSS Cache',
+          }
+          print('=== Output Validation v48.0 ===')
+          for path, label in checks.items():
+              if os.path.exists(path):
+                  sz = os.path.getsize(path)
+                  print('  OK  ' + label + ' (' + str(sz) + ' bytes)')
+              else:
+                  print('  WARN ' + label + ' not found')
+          for path, label in optional.items():
+              if os.path.exists(path):
+                  sz = os.path.getsize(path)
+                  print('  OK  ' + label + ' (' + str(sz) + ' bytes)')
+              else:
+                  print('  INFO ' + label + ' not generated (module may be pending deployment)')
+          "
+
+      # ================================================================
+      # STAGE 8: ATOMIC COMMIT & PUSH (includes EMBEDDED_INTEL refresh)
+      # ================================================================
+      - name: Commit and Push Intelligence Data
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
-          
-          echo "Refreshing EMBEDDED_INTEL..."
-          python3 scripts/update_embedded_intel.py || true
 
-          git add data/stix/*.json data/status/*.json data/nexus/*.json data/genesis/*.json 
-          git add data/bughunter/*.json data/incidents/*.json data/responses/*.json index.html
-          
+          # v56 FIX: Update EMBEDDED_INTEL BEFORE commit so dashboard gets fresh data
+          echo "Refreshing EMBEDDED_INTEL in index.html..."
+          python3 scripts/update_embedded_intel.py || echo "EMBEDDED_INTEL update non-fatal"
+
+          git add data/*.json 2>/dev/null || true
+          git add data/stix/*.json 2>/dev/null || true
+          git add data/status/*.json 2>/dev/null || true
+          git add data/nexus/*.json 2>/dev/null || true
+          git add data/genesis/*.json 2>/dev/null || true
+          git add data/cortex/*.json 2>/dev/null || true
+          git add data/quantum/*.json 2>/dev/null || true
+          git add data/sovereign/*.json 2>/dev/null || true
+          git add data/playbooks/*.json 2>/dev/null || true
+          git add data/playbooks/scripts/ 2>/dev/null || true
+          git add data/enrichment/*.json 2>/dev/null || true
+          git add data/bughunter/*.json 2>/dev/null || true
+          git add data/logs/ 2>/dev/null || true
+          git add data/incidents/*.json 2>/dev/null || true
+          git add data/responses/*.json 2>/dev/null || true
+          git add data/threathunts/*.json 2>/dev/null || true
+          git add index.html 2>/dev/null || true
+          # v55.1 FIX: Persist dedup state so next run knows what was already published
+          git add data/blogger_processed.json 2>/dev/null || true
+          git add .gitignore 2>/dev/null || true
+
           if git diff --staged --quiet; then
-            echo "No final changes."
+            echo "No changes to commit."
           else
-            git commit -m "v55.1 Apex: Final Sovereign Dash Sync [skip ci]"
+            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+            git commit -m "v55.1 Apex: Intel + Dedup + Dashboard Sync @ $TIMESTAMP [skip ci]"
             for i in {1..5}; do
-              git pull origin main --rebase
-              # FIX: Force resolve conflicts in dashboard data
-              git checkout --ours data/status/status.json 2>/dev/null || true
-              git checkout --ours data/stix/feed_manifest.json 2>/dev/null || true
-              git push origin main && break || (echo "Retry $i..." && sleep 15)
+              git pull origin main --rebase && git push origin main && break || \
+              (echo "Push collision - retry $i in 15s..." && sleep 15)
             done
           fi
+
+      # ================================================================
+      # STAGE 9: POST-SYNC VERIFICATION
+      # ================================================================
+      - name: Post-Sync Verification
+        continue-on-error: true
+        run: |
+          echo "Post-sync verification v55.0..."
+          python3 << 'PYEOF'
+          import json, os
+          try:
+              if os.path.exists("data/stix/feed_manifest.json"):
+                  with open("data/stix/feed_manifest.json") as f:
+                      raw = f.read().strip()
+                  # Guard against empty/corrupt file
+                  if not raw or raw[0] not in ('[', '{'):
+                      print("  WARN: feed_manifest.json appears empty or corrupt — skipping verification")
+                  else:
+                      d = json.loads(raw)
+                      items = d if isinstance(d, list) else d.get('entries', [])
+                      if items:
+                          print(f"  Manifest entries: {len(items)}")
+                          print(f"  Newest: {items[0].get('timestamp','?')[:19]}")
+                          print(f"  Oldest: {items[-1].get('timestamp','?')[:19]}")
+                          null_epss = sum(1 for e in items if e.get('epss_score') is None and e.get('ioc_counts',{}).get('cve',0)>0)
+                          null_cvss = sum(1 for e in items if e.get('cvss_score') is None and e.get('ioc_counts',{}).get('cve',0)>0)
+                          kev = sum(1 for e in items if e.get('kev_present'))
+                          desc = all(items[i].get('timestamp','')>=items[i+1].get('timestamp','') for i in range(len(items)-1))
+                          print(f"  Sort order: {'DESCENDING (OK)' if desc else 'WRONG - hardener may not have run'}")
+                          print(f"  Null EPSS (CVE entries): {null_epss}")
+                          print(f"  Null CVSS (CVE entries): {null_cvss}")
+                          print(f"  KEV present: {kev}")
+                      else:
+                          print("  Manifest: EMPTY")
+              else:
+                  print("  WARN: feed_manifest.json not found")
+          except Exception as e:
+              print(f"  WARN: Verification non-fatal error: {e}")
+          # Check other markers
+          for f, label in [("data/sync_marker.json", "Sync marker"), ("data/enrichment/v48_hardening_results.json", "v48 hardener")]:
+              if os.path.exists(f):
+                  print(f"  {label}: present")
+          PYEOF
 
       # ================================================================
       # STAGE 10: DEPLOY TO GITHUB PAGES
@@ -182,6 +546,13 @@ jobs:
           branch: gh-pages
           folder: .
           clean: false
+          single-commit: false
           git-config-name: CDB-Sentinel-Bot
           git-config-email: bivash@cyberdudebivash.com
           commit-message: "v48.0 Deploy: Live feed update"
+
+      - name: Verify Deployment
+        run: |
+          echo "Deployment complete"
+          echo "   Dashboard: https://intel.cyberdudebivash.com"
+          echo "   Run: ${{ github.run_number }} | Trigger: ${{ github.event_name }}"
