@@ -314,6 +314,41 @@ jobs:
           " || echo "v63 threat hunter skipped (non-fatal)"
 
       # ================================================================
+      # STAGE 5F: BUG HUNTER v54.0 — AI RECON & VULNERABILITY DISCOVERY
+      # v55.1 FIX: This stage was MISSING — engine existed but was never
+      # executed, causing all Bug Hunter dashboard metrics to show zeros.
+      # ================================================================
+      - name: v54 Bug Hunter Resilient Recon Scanner
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "STAGE 5F: BUG HUNTER v54.0 — RESILIENT RECON SCANNER"
+          if [ -f "agent/v54_bughunter_resilience/resilient_scanner.py" ]; then
+            python agent/v54_bughunter_resilience/resilient_scanner.py 2>&1 | tee data/logs/bughunter_$(date +%Y%m%d_%H%M%S).log
+            python3 -c "
+          import json, os
+          try:
+            with open('data/bughunter/bughunter_output.json') as f: d=json.load(f)
+            m = d.get('metrics', {})
+            print('  Subdomains   : ' + str(m.get('subdomains', 0)))
+            print('  Live Hosts   : ' + str(m.get('live_hosts', 0)))
+            print('  API Endpoints: ' + str(m.get('api_endpoints', 0)))
+            print('  Findings     : ' + str(m.get('total_findings', 0)))
+            print('  Critical     : ' + str(m.get('critical_findings', 0)))
+            print('  Risk Exposure: $' + str(m.get('risk_exposure', 0)))
+          except Exception as e:
+            print('bughunter output check: ' + str(e))
+          "
+            echo "Bug Hunter v54 complete"
+          elif [ -f "agent/v49_bughunter_fix/run_bughunter.py" ]; then
+            echo "v54 not found — running v49 fallback"
+            python agent/v49_bughunter_fix/run_bughunter.py 2>&1 || echo "v49 bughunter non-fatal error"
+          else
+            echo "Bug Hunter modules not found — skipping"
+          fi
+
+      # ================================================================
       # STAGE 6: MONETISATION PIPELINE
       # ================================================================
       - name: Build Detection Pack (v48.0)
@@ -408,12 +443,15 @@ jobs:
           git add data/responses/*.json 2>/dev/null || true
           git add data/threathunts/*.json 2>/dev/null || true
           git add index.html 2>/dev/null || true
+          # v55.1 FIX: Persist dedup state so next run knows what was already published
+          git add data/blogger_processed.json 2>/dev/null || true
+          git add .gitignore 2>/dev/null || true
 
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "v63.0 Apex: Intel + Dashboard Sync @ $TIMESTAMP [skip ci]"
+            git commit -m "v55.1 Apex: Intel + Dedup + Dashboard Sync @ $TIMESTAMP [skip ci]"
             for i in {1..5}; do
               git pull origin main --rebase && git push origin main && break || \
               (echo "Push collision - retry $i in 15s..." && sleep 15)
