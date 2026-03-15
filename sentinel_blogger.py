@@ -201,6 +201,7 @@ def main():
     # ═══════════════════════════════════════════════════════
     # PHASE 1: Process Primary CDB Feed
     # v14.0 FIX: Added dedup check (was MISSING → caused 6x duplicates)
+    # v55.1 FIX: Added manifest similarity check (was MISSING in Phase 1)
     # ═══════════════════════════════════════════════════════
     logger.info("─── PHASE 1: Primary CDB Intelligence Feed ───")
     _ph1_start = time.monotonic()
@@ -208,12 +209,39 @@ def main():
     if _TELEMETRY_OK and _telemetry:
         _telemetry.record_feed_fetch(CDB_RSS_FEED, time.monotonic() - _ph1_start, success=len(primary_entries) > 0)
 
+    # v55.1 FIX: Load manifest ONCE for Phase 1 similarity checking
+    # Previously this was only done in Phase 2, allowing Phase 1 duplicates
+    _manifest_ph1 = []
+    try:
+        import json as _json
+        _mpath_ph1 = os.path.join("data", "stix", "feed_manifest.json")
+        if os.path.exists(_mpath_ph1):
+            with open(_mpath_ph1) as _f:
+                _data_ph1 = _json.load(_f)
+            if isinstance(_data_ph1, list):
+                _manifest_ph1 = _data_ph1
+            elif isinstance(_data_ph1, dict):
+                _manifest_ph1 = _data_ph1.get("entries", [])
+    except Exception:
+        pass
+
     for entry in primary_entries:
         if dedup_engine.is_duplicate(entry['title'], entry.get('link', '')):
             logger.info(f"  ⏭ SKIP (duplicate): {entry['title'][:60]}")
             if _TELEMETRY_OK and _telemetry:
                 _telemetry.record_dedup()
             continue
+
+        # v55.1 FIX: Manifest similarity check for Phase 1
+        # ROOT CAUSE: Phase 1 had NO manifest check → same CDB articles re-published every run
+        if _manifest_ph1 and dedup_engine.is_similar_in_manifest(
+                entry['title'], _manifest_ph1, threshold=0.80):
+            logger.info(f"  ⏭ SKIP (manifest similar): {entry['title'][:60]}")
+            dedup_engine.mark_processed(entry['title'], entry.get('link', ''))
+            if _TELEMETRY_OK and _telemetry:
+                _telemetry.record_dedup()
+            continue
+
         # v19.0: Quality gate — skip non-threat editorial/marketing content
         if _QUALITY_GATE_OK and _quality_gate:
             try:

@@ -23,13 +23,23 @@ logger = logging.getLogger("CDB-DEDUP")
 
 
 class DeduplicationEngine:
-    """Triple-layer deduplication. Prevents duplicates across all feed sources."""
+    """Triple-layer deduplication. Prevents duplicates across all feed sources.
+    
+    v55.1 FIX: Seeds dedup state from feed_manifest.json on init.
+    This guarantees that even when blogger_processed.json is empty/missing
+    (first commit, cache corruption), all previously-published articles
+    in the manifest are recognized as duplicates.
+    """
 
     def __init__(self, state_file: str = "data/blogger_processed.json",
+                 manifest_path: str = "data/stix/feed_manifest.json",
                  max_state_size: int = 500):
         self.state_file = state_file
+        self.manifest_path = manifest_path
         self.max_state_size = max_state_size
         self._state = self._load_state()
+        # v55.1: Seed from manifest as safety net
+        self._seed_from_manifest()
 
     # ── Persistence ──────────────────────────────────────
 
@@ -47,6 +57,42 @@ class DeduplicationEngine:
             except (json.JSONDecodeError, Exception) as e:
                 logger.warning(f"State corrupted, fresh start: {e}")
         return {"processed_hashes": [], "hash_titles": {}, "title_hashes": []}
+
+    def _seed_from_manifest(self):
+        """v55.1 FIX: Seed dedup state from feed_manifest.json.
+        
+        ROOT CAUSE: blogger_processed.json was gitignored, so every CI run
+        started with empty dedup → all articles re-published as duplicates.
+        
+        This method reads all titles from the existing manifest and registers
+        them in the dedup engine, ensuring no already-published article
+        is re-published even if the state file was lost.
+        """
+        if not os.path.exists(self.manifest_path):
+            return
+        try:
+            with open(self.manifest_path, 'r') as f:
+                data = json.load(f)
+            entries = data if isinstance(data, list) else data.get("entries", [])
+            seeded = 0
+            for entry in entries:
+                title = entry.get("title", "")
+                url = entry.get("source_url", "") or entry.get("blog_url", "")
+                if not title:
+                    continue
+                ch = self._generate_hash(title, url)
+                th = self._generate_title_hash(title)
+                if ch not in self._state["processed_hashes"]:
+                    self._state["processed_hashes"].append(ch)
+                    self._state["hash_titles"][ch] = title[:100]
+                    seeded += 1
+                if th not in self._state.get("title_hashes", []):
+                    self._state.setdefault("title_hashes", []).append(th)
+            if seeded > 0:
+                self._save_state()
+                logger.info(f"  [DEDUP] Seeded {seeded} entries from manifest ({len(entries)} total)")
+        except Exception as e:
+            logger.warning(f"  [DEDUP] Manifest seed failed (non-fatal): {e}")
 
     def _save_state(self):
         os.makedirs(os.path.dirname(self.state_file) or '.', exist_ok=True)
