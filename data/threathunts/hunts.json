@@ -1,19 +1,19 @@
 {
   "engine": "v63_threathunter",
   "version": "63.0.0",
-  "generated_at": "2026-03-15T05:07:11.503071+00:00",
+  "generated_at": "2026-03-15T04:15:31.030483+00:00",
   "total_hunts": 8,
   "active_campaigns": 3,
   "attack_paths": 20,
   "hunt_hypotheses": [
     {
-      "hunt_id": "HUNT-F0C874A1",
+      "hunt_id": "HUNT-995894B7",
       "technique": "T1203",
       "hypothesis": "Client-side exploitation via malicious documents or browser exploits",
       "category": "exploitation",
       "confidence": 95,
       "priority": "CRITICAL",
-      "frequency": 62,
+      "frequency": 52,
       "queries": {
         "kql": "DeviceProcessEvents | where InitiatingProcessFileName in~ (\"winword.exe\",\"excel.exe\",\"powerpnt.exe\",\"outlook.exe\",\"chrome.exe\",\"msedge.exe\") | where FileName in~ (\"cmd.exe\",\"powershell.exe\",\"wscript.exe\",\"rundll32.exe\",\"regsvr32.exe\")",
         "splunk": "index=endpoint sourcetype=sysmon EventCode=1 (ParentImage=\"*winword*\" OR ParentImage=\"*excel*\" OR ParentImage=\"*chrome*\") (Image=\"*cmd*\" OR Image=\"*powershell*\" OR Image=\"*wscript*\")"
@@ -24,16 +24,16 @@
         "application_logs"
       ],
       "status": "READY",
-      "generated_at": "2026-03-15T05:07:11.502902+00:00"
+      "generated_at": "2026-03-15T04:15:31.030317+00:00"
     },
     {
-      "hunt_id": "HUNT-F552DB41",
+      "hunt_id": "HUNT-82A45AE5",
       "technique": "T1078",
       "hypothesis": "Compromised credentials are being used for unauthorized access",
       "category": "credential_abuse",
       "confidence": 95,
       "priority": "CRITICAL",
-      "frequency": 48,
+      "frequency": 46,
       "queries": {
         "kql": "SigninLogs | where ResultType == 0 | summarize DistinctIPs=dcount(IPAddress) by UserPrincipalName | where DistinctIPs > 5",
         "splunk": "index=auth sourcetype=windows:security EventCode=4624 | stats dc(src_ip) as unique_ips by user | where unique_ips > 5"
@@ -44,36 +44,16 @@
         "vpn_logs"
       ],
       "status": "READY",
-      "generated_at": "2026-03-15T05:07:11.502918+00:00"
+      "generated_at": "2026-03-15T04:15:31.030332+00:00"
     },
     {
-      "hunt_id": "HUNT-95275A3E",
-      "technique": "T1566",
-      "hypothesis": "Threat actor is using spear-phishing to establish initial access",
-      "category": "initial_access",
-      "confidence": 95,
-      "priority": "CRITICAL",
-      "frequency": 46,
-      "queries": {
-        "kql": "EmailEvents | where Subject has_any (\"urgent\",\"invoice\",\"payment\",\"verify\") | where SenderFromDomain !in (trusted_domains) | project Timestamp, Subject, SenderFromDomain, RecipientEmailAddress",
-        "splunk": "index=email sourcetype=o365:management subject IN (\"urgent\",\"invoice\",\"payment\") | stats count by sender, recipient, subject"
-      },
-      "data_sources": [
-        "email_gateway",
-        "o365_logs",
-        "exchange_tracking"
-      ],
-      "status": "READY",
-      "generated_at": "2026-03-15T05:07:11.502924+00:00"
-    },
-    {
-      "hunt_id": "HUNT-665C3CE8",
+      "hunt_id": "HUNT-62ADD3E9",
       "technique": "T1059",
       "hypothesis": "Malicious scripts are being executed for code execution",
       "category": "execution",
       "confidence": 95,
       "priority": "CRITICAL",
-      "frequency": 40,
+      "frequency": 46,
       "queries": {
         "kql": "DeviceProcessEvents | where FileName in~ (\"powershell.exe\",\"cmd.exe\",\"wscript.exe\",\"cscript.exe\",\"mshta.exe\") | where ProcessCommandLine has_any (\"-enc\",\"-nop\",\"bypass\",\"hidden\",\"downloadstring\",\"invoke-expression\")",
         "splunk": "index=endpoint sourcetype=sysmon EventCode=1 (Image=\"*powershell*\" OR Image=\"*cmd.exe*\") (CommandLine=\"*-enc*\" OR CommandLine=\"*bypass*\" OR CommandLine=\"*hidden*\")"
@@ -84,16 +64,36 @@
         "process_creation"
       ],
       "status": "READY",
-      "generated_at": "2026-03-15T05:07:11.502933+00:00"
+      "generated_at": "2026-03-15T04:15:31.030338+00:00"
     },
     {
-      "hunt_id": "HUNT-527DDF56",
+      "hunt_id": "HUNT-DFDA90BD",
+      "technique": "T1566",
+      "hypothesis": "Threat actor is using spear-phishing to establish initial access",
+      "category": "initial_access",
+      "confidence": 95,
+      "priority": "CRITICAL",
+      "frequency": 44,
+      "queries": {
+        "kql": "EmailEvents | where Subject has_any (\"urgent\",\"invoice\",\"payment\",\"verify\") | where SenderFromDomain !in (trusted_domains) | project Timestamp, Subject, SenderFromDomain, RecipientEmailAddress",
+        "splunk": "index=email sourcetype=o365:management subject IN (\"urgent\",\"invoice\",\"payment\") | stats count by sender, recipient, subject"
+      },
+      "data_sources": [
+        "email_gateway",
+        "o365_logs",
+        "exchange_tracking"
+      ],
+      "status": "READY",
+      "generated_at": "2026-03-15T04:15:31.030346+00:00"
+    },
+    {
+      "hunt_id": "HUNT-EA0517BE",
       "technique": "T1190",
       "hypothesis": "External-facing application is being exploited for initial access",
       "category": "exploitation",
       "confidence": 95,
       "priority": "CRITICAL",
-      "frequency": 32,
+      "frequency": 26,
       "queries": {
         "kql": "DeviceNetworkEvents | where RemoteIPType == \"Public\" | where ActionType == \"InboundConnectionAccepted\" | summarize ConnectionCount=count() by RemoteIP, LocalPort | where ConnectionCount > 50",
         "splunk": "index=web sourcetype=access_combined status>=400 | stats count by clientip, uri_path | where count > 100"
@@ -104,27 +104,7 @@
         "ids_alerts"
       ],
       "status": "READY",
-      "generated_at": "2026-03-15T05:07:11.502937+00:00"
-    },
-    {
-      "hunt_id": "HUNT-EF3DBED1",
-      "technique": "T1547",
-      "hypothesis": "Persistence mechanisms established via boot/logon autostart",
-      "category": "persistence",
-      "confidence": 95,
-      "priority": "CRITICAL",
-      "frequency": 14,
-      "queries": {
-        "kql": "DeviceRegistryEvents | where RegistryKey has_any (\"Run\",\"RunOnce\",\"Winlogon\") | where ActionType == \"RegistryValueSet\" | project Timestamp, DeviceName, RegistryKey, RegistryValueName, RegistryValueData",
-        "splunk": "index=endpoint sourcetype=sysmon EventCode=13 TargetObject=\"*\\Run*\" OR TargetObject=\"*\\RunOnce*\" | table _time, ComputerName, TargetObject, Details"
-      },
-      "data_sources": [
-        "registry_monitoring",
-        "sysmon",
-        "edr"
-      ],
-      "status": "READY",
-      "generated_at": "2026-03-15T05:07:11.502941+00:00"
+      "generated_at": "2026-03-15T04:15:31.030351+00:00"
     },
     {
       "hunt_id": "HUNT-09CC1CF4",
@@ -144,7 +124,7 @@
         "backup_integrity"
       ],
       "status": "READY",
-      "generated_at": "2026-03-15T05:07:11.502948+00:00"
+      "generated_at": "2026-03-15T04:15:31.030355+00:00"
     },
     {
       "hunt_id": "HUNT-8A71B72C",
@@ -164,7 +144,27 @@
         "dns_logs"
       ],
       "status": "READY",
-      "generated_at": "2026-03-15T05:07:11.502952+00:00"
+      "generated_at": "2026-03-15T04:15:31.030360+00:00"
+    },
+    {
+      "hunt_id": "HUNT-42962E22",
+      "technique": "T1547",
+      "hypothesis": "Persistence mechanisms established via boot/logon autostart",
+      "category": "persistence",
+      "confidence": 90,
+      "priority": "HIGH",
+      "frequency": 8,
+      "queries": {
+        "kql": "DeviceRegistryEvents | where RegistryKey has_any (\"Run\",\"RunOnce\",\"Winlogon\") | where ActionType == \"RegistryValueSet\" | project Timestamp, DeviceName, RegistryKey, RegistryValueName, RegistryValueData",
+        "splunk": "index=endpoint sourcetype=sysmon EventCode=13 TargetObject=\"*\\Run*\" OR TargetObject=\"*\\RunOnce*\" | table _time, ComputerName, TargetObject, Details"
+      },
+      "data_sources": [
+        "registry_monitoring",
+        "sysmon",
+        "edr"
+      ],
+      "status": "READY",
+      "generated_at": "2026-03-15T04:15:31.030364+00:00"
     }
   ],
   "campaign_intelligence": [
@@ -178,27 +178,27 @@
       "incident_count": 12,
       "avg_risk": 9.8,
       "techniques_observed": [
-        "T1555",
-        "T1566",
-        "T1476",
-        "T1059.001",
-        "T1059",
-        "T1027",
-        "T1499",
-        "T1071",
-        "T1078",
-        "T1491",
-        "T1195",
-        "T1190",
-        "T1486",
-        "T1412",
         "T1595",
-        "T1485",
+        "T1027",
+        "T1476",
         "T1566.001",
-        "T1547",
-        "T1530",
+        "T1059",
+        "T1412",
+        "T1190",
+        "T1203",
+        "T1071",
         "T1566.002",
-        "T1203"
+        "T1485",
+        "T1195",
+        "T1566",
+        "T1059.001",
+        "T1530",
+        "T1491",
+        "T1486",
+        "T1555",
+        "T1499",
+        "T1547",
+        "T1078"
       ],
       "status": "ACTIVE"
     },
@@ -210,27 +210,26 @@
         "CDB-FIN-09",
         "CDB-FIN-12"
       ],
-      "incident_count": 6,
+      "incident_count": 5,
       "avg_risk": 10.0,
       "techniques_observed": [
-        "T1530",
-        "T1595",
-        "T1566",
-        "T1204.001",
-        "T1036",
-        "T1555",
-        "T1059",
-        "T1539",
-        "T1199",
-        "T1486",
-        "T1078",
-        "T1027",
         "T1195",
-        "T1190",
+        "T1595",
+        "T1486",
+        "T1566",
+        "T1555",
+        "T1027",
+        "T1530",
+        "T1199",
+        "T1059",
+        "T1036",
+        "T1203",
         "T1547",
-        "T1547.001",
+        "T1204.001",
+        "T1539",
         "T1566.002",
-        "T1203"
+        "T1078",
+        "T1190"
       ],
       "status": "ACTIVE"
     },
@@ -244,60 +243,30 @@
       "incident_count": 3,
       "avg_risk": 8.5,
       "techniques_observed": [
-        "T1021",
         "T1595",
+        "T1567",
         "T1566",
         "T1199",
         "T1059",
+        "T1203",
         "T1068",
+        "T1021",
         "T1078",
-        "T1567",
-        "T1190",
-        "T1203"
+        "T1190"
       ],
       "status": "ACTIVE"
     }
   ],
   "attack_path_analysis": [
     {
-      "path_id": "PATH-1DC9BBC1",
-      "incident_id": "INC-48031DC9BBC1",
-      "actor": "CDB-RAN-02",
-      "kill_chain": [
-        "T1595",
-        "T1190",
-        "T1078",
-        "T1203",
-        "T1547.001"
-      ],
-      "chain_length": 5,
-      "severity": "CRITICAL",
-      "risk_score": 10.0
-    },
-    {
-      "path_id": "PATH-C3FBB2E9",
-      "incident_id": "INC-71F0C3FBB2E9",
+      "path_id": "PATH-BF998A38",
+      "incident_id": "INC-4302BF998A38",
       "actor": "UNC-CDB-99",
       "kill_chain": [
+        "T1583.001",
+        "T1566",
         "T1566.002",
-        "T1190",
-        "T1203",
-        "T1547",
-        "T1547.001"
-      ],
-      "chain_length": 5,
-      "severity": "CRITICAL",
-      "risk_score": 10.0
-    },
-    {
-      "path_id": "PATH-E9386D8A",
-      "incident_id": "INC-74F5E9386D8A",
-      "actor": "UNC-CDB-99",
-      "kill_chain": [
-        "T1593",
-        "T1190",
-        "T1203",
-        "T1036",
+        "T1199",
         "T1078"
       ],
       "chain_length": 5,
@@ -305,15 +274,15 @@
       "risk_score": 10.0
     },
     {
-      "path_id": "PATH-FFD4CBE6",
-      "incident_id": "INC-3197FFD4CBE6",
+      "path_id": "PATH-FAE4B952",
+      "incident_id": "INC-1E17FAE4B952",
       "actor": "UNC-CDB-99",
       "kill_chain": [
-        "T1195",
+        "T1595",
         "T1078",
-        "T1203",
-        "T1036",
-        "T1555"
+        "T1199",
+        "T1190",
+        "T1476"
       ],
       "chain_length": 5,
       "severity": "CRITICAL",
@@ -558,10 +527,40 @@
       "chain_length": 5,
       "severity": "CRITICAL",
       "risk_score": 10.0
+    },
+    {
+      "path_id": "PATH-5E15BC31",
+      "incident_id": "INC-C07D5E15BC31",
+      "actor": "CDB-APT-22",
+      "kill_chain": [
+        "T1595",
+        "T1566",
+        "T1566.001",
+        "T1195",
+        "T1078"
+      ],
+      "chain_length": 5,
+      "severity": "CRITICAL",
+      "risk_score": 10.0
+    },
+    {
+      "path_id": "PATH-0B2EA9AF",
+      "incident_id": "INC-AAAF0B2EA9AF",
+      "actor": "UNC-CDB-99",
+      "kill_chain": [
+        "T1595",
+        "T1195",
+        "T1542",
+        "T1555",
+        "T1071"
+      ],
+      "chain_length": 5,
+      "severity": "CRITICAL",
+      "risk_score": 10.0
     }
   ],
   "coverage": {
     "techniques_covered": 8,
-    "total_techniques_observed": 260
+    "total_techniques_observed": 240
   }
 }
