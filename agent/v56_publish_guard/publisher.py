@@ -66,11 +66,21 @@ def rate_limit_wait():
 def publish_with_retry(service, blog_id: str, post_body: Dict) -> Tuple[bool, Optional[Dict], str]:
     """
     Attempt to publish to Blogger with retry on 429/5xx errors.
+    v55.0 FIX: Sanitizes HTML content before API call to prevent HttpError 400.
 
     Returns:
         (success: bool, response: dict|None, error_msg: str)
     """
     last_error = ""
+
+    # v55.0 FIX: Sanitize content before ANY Blogger API call
+    # This fixes both new publishes AND pending queue retries
+    if "content" in post_body:
+        try:
+            from agent.blogger_client import sanitize_blogger_html
+            post_body["content"] = sanitize_blogger_html(post_body["content"])
+        except ImportError:
+            pass  # blogger_client sanitizer not available — proceed with raw content
 
     for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
         try:
