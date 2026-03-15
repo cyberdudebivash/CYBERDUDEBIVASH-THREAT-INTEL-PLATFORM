@@ -233,12 +233,40 @@ def main():
     if _TELEMETRY_OK and _telemetry:
         _telemetry.record_feed_fetch(CDB_RSS_FEED, time.monotonic() - _ph1_start, success=len(primary_entries) > 0)
 
+    # v55.2 FIX: Load manifest for Phase 1 similarity checking
+    # ROOT CAUSE: v55.1 fix was applied to root sentinel_blogger.py (dead code)
+    # but agent/sentinel_blogger.py (actually executed) was missing this check
+    # → CDB articles re-published every run when title slightly differs
+    _manifest_ph1 = []
+    try:
+        import json as _json
+        _mpath_ph1 = os.path.join("data", "stix", "feed_manifest.json")
+        if os.path.exists(_mpath_ph1):
+            with open(_mpath_ph1) as _f:
+                _data_ph1 = _json.load(_f)
+            if isinstance(_data_ph1, list):
+                _manifest_ph1 = _data_ph1
+            elif isinstance(_data_ph1, dict):
+                _manifest_ph1 = _data_ph1.get("entries", [])
+    except Exception:
+        pass
+
     for entry in primary_entries:
         if dedup_engine.is_duplicate(entry['title'], entry.get('link', '')):
             logger.info(f"  ⏭ SKIP (duplicate): {entry['title'][:60]}")
             if _TELEMETRY_OK and _telemetry:
                 _telemetry.record_dedup()
             continue
+
+        # v55.2 FIX: Manifest similarity check for Phase 1
+        if _manifest_ph1 and dedup_engine.is_similar_in_manifest(
+                entry['title'], _manifest_ph1, threshold=0.80):
+            logger.info(f"  ⏭ SKIP (manifest similar): {entry['title'][:60]}")
+            dedup_engine.mark_processed(entry['title'], entry.get('link', ''))
+            if _TELEMETRY_OK and _telemetry:
+                _telemetry.record_dedup()
+            continue
+
         # v19.0: Quality gate — skip non-threat editorial/marketing content
         if _QUALITY_GATE_OK and _quality_gate:
             try:

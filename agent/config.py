@@ -86,7 +86,7 @@ RATE_LIMIT_DELAY = 8  # v56: Increased from 2→8s to prevent Blogger API 429 ra
 # ═══════════════════════════════════════════════════════════
 # MANIFEST SETTINGS
 # ═══════════════════════════════════════════════════════════
-MANIFEST_MAX_ENTRIES = 50
+MANIFEST_MAX_ENTRIES = 200
 MANIFEST_DIR = "data/stix"
 
 # ═══════════════════════════════════════════════════════════
