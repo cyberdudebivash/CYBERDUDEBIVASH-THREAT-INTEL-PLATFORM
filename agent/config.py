@@ -81,7 +81,7 @@ SOURCE_FETCH_ENABLED = True
 # ═══════════════════════════════════════════════════════════
 PUBLISH_RETRY_MAX = 3
 PUBLISH_RETRY_DELAY = 10
-RATE_LIMIT_DELAY = 8  # v56: Increased from 2→8s to prevent Blogger API 429 rate limits
+RATE_LIMIT_DELAY = 3  # v55.3: Reduced from 8→3s. v56 publisher has its own API-level rate limiter.
 
 # ═══════════════════════════════════════════════════════════
 # MANIFEST SETTINGS
