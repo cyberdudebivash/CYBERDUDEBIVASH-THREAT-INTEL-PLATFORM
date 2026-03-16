@@ -1,6 +1,6 @@
 # ================================================================
 # CYBERDUDEBIVASH® SENTINEL APEX — Sovereign Intelligence Cycle
-# Version: v48.1 (Sovereign Stability Patch)
+# Version: v48.2 (Quality Gate Integration)
 # Path: .github/workflows/sentinel-blogger.yml
 # ================================================================
 
@@ -35,7 +35,7 @@ jobs:
       # ================================================================
       # STAGE 0: CHECKOUT & ENVIRONMENT SETUP
       # ================================================================
-      - name: Checkout repository (v48.1 Sovereign Sync)
+      - name: Checkout repository (v48.2 Sovereign Sync)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -99,11 +99,11 @@ jobs:
           now = datetime.now(timezone.utc).isoformat()
           status = {
               "platform": "CYBERDUDEBIVASH(R) SENTINEL APEX",
-              "version": "v48.1",
+              "version": "v48.2",
               "status": "OPERATIONAL",
-              "status_message": "Pipeline sync complete",
+              "status_message": "Quality Gate Audit integrated",
               "components": {
-                  "threat_feed": {"status": "OPERATIONAL", "last_updated": now, "age_hours": 0.0},
+                  "threat_feed": {"status": "OPERATIONAL", "last_updated": now},
                   "pipeline": {"status": "OPERATIONAL", "last_run_at": now}
               },
               "generated_at": now
@@ -111,15 +111,13 @@ jobs:
           os.makedirs(os.path.dirname(status_path), exist_ok=True)
           with open(status_path, "w") as f:
               json.dump(status, f, indent=2)
-          sync_marker = {"last_sync": now, "sync_source": "github-actions-v48.1"}
           with open("data/sync_marker.json", "w") as f:
-              json.dump(sync_marker, f, indent=2)
+              json.dump({"last_sync": now, "sync_source": "github-actions-v48.2"}, f, indent=2)
           PYEOF
 
       # ================================================================
       # STAGE 2.1: CRITICAL DATA COMMIT (v55.3 — Anti-Timeout Safeguard)
       # ================================================================
-      # ===== PATCH START: Intermediate Rebase Fix =====
       - name: Intermediate Commit — Save Feed Intel (v55.3 Anti-Timeout)
         continue-on-error: true
         run: |
@@ -127,22 +125,14 @@ jobs:
           python3 scripts/update_embedded_intel.py || echo "EMBEDDED_INTEL update non-fatal"
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
-          
-          # Force add index.html to prevent rebase conflict with unstaged changes
           git add data/stix/feed_manifest.json data/blogger_processed.json data/status/status.json data/sync_marker.json index.html
-          
-          if git diff --staged --quiet; then
-            echo "No feed intel changes to commit"
-          else
+          if ! git diff --staged --quiet; then
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
             git commit -m "v55.3 Intel checkpoint: manifest + dedup @ $TIMESTAMP [skip ci]"
             for i in {1..3}; do
-              git pull origin main --rebase --autostash && git push origin main && break || \
-              (echo "Push retry $i..." && sleep 10)
+              git pull origin main --rebase --autostash && git push origin main && break || (sleep 10)
             done
-            echo "✓ Critical intel data committed and pushed"
           fi
-      # ===== PATCH END =====
 
       # ================================================================
       # STAGE 2.5: PIPELINE HARDENER v48.0
@@ -159,22 +149,36 @@ jobs:
           fi
 
       # ================================================================
+      # STAGE 2.6: SOVEREIGN QUALITY GATE AUDIT (NEW)
+      # ================================================================
+      # ===== PATCH START: Automated Quality Audit =====
+      - name: Sovereign Quality Gate Audit
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "STAGE 2.6: SOVEREIGN QUALITY GATE AUDIT"
+          if [ -f "agent/quality_gate_audit.py" ]; then
+            python agent/quality_gate_audit.py
+          else
+            echo "Quality Gate Audit module not found - skipping"
+          fi
+      # ===== PATCH END =====
+
+      # ================================================================
       # STAGE 8: ATOMIC COMMIT & SOVEREIGN SYNC
       # ================================================================
-      # ===== PATCH START: Pathspec & Asset Sync Fix =====
       - name: Commit and Push Intelligence Data
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
-          echo "Refreshing EMBEDDED_INTEL in index.html..."
           python3 scripts/update_embedded_intel.py || true
 
-          # Use 2>/dev/null to prevent "fatal: pathspec did not match any files" if directories are empty
+          # Persistence logic for all core intelligence and audit artifacts
           git add data/*.json 2>/dev/null || true
           git add data/stix/*.json 2>/dev/null || true
           git add data/status/*.json 2>/dev/null || true
-          git add data/nexus/*.json 2>/dev/null || true
-          git add data/genesis/*.json 2>/dev/null || true
+          git add data/sovereign/*.json 2>/dev/null || true
           git add data/enrichment/*.json 2>/dev/null || true
           git add data/bughunter/*.json 2>/dev/null || true
           git add data/remediation/*.sh 2>/dev/null || true
@@ -182,20 +186,15 @@ jobs:
           git add data/premium_packs/*.zip 2>/dev/null || true
           git add index.html 2>/dev/null || true
 
-          if git diff --staged --quiet; then
-            echo "No changes to commit."
-          else
+          if ! git diff --staged --quiet; then
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
             git commit -m "v55.3 Apex: Sovereign Recovery & Dash Sync @ $TIMESTAMP [skip ci]"
             for i in {1..5}; do
               git pull origin main --rebase --autostash
-              # Force resolve status conflict if parallel jobs collided
               git checkout --ours data/status/status.json 2>/dev/null || true
-              git push origin main && break || \
-              (echo "Push collision - retry $i in 15s..." && sleep 15)
+              git push origin main && break || sleep 15
             done
           fi
-      # ===== PATCH END =====
 
       # ================================================================
       # STAGE 10: DEPLOY TO GITHUB PAGES
@@ -208,4 +207,4 @@ jobs:
           clean: false
           git-config-name: CDB-Sentinel-Bot
           git-config-email: bivash@cyberdudebivash.com
-          commit-message: "v48.1 Deploy: Live feed update"
+          commit-message: "v48.2 Deploy: Live feed + Quality Audit update"
