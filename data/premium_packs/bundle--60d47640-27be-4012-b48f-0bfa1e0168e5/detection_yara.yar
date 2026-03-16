@@ -3,7 +3,7 @@
 // Threat   : CVE-2026-3038 - Local DoS and possible privilege escalation via routing sockets
 // STIX ID  : bundle--60d47640-27be-4012-b48f-0bfa1e0168e5
 // Scenario : RCE
-// Generated: 2026-03-15T20:35:59.023388 UTC
+// Generated: 2026-03-16T02:16:47.192324 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
@@ -11,7 +11,7 @@ rule CDB_CVE_2026_3038___Local_DoS_and_possible_privilege_e_WebExploit {
     meta:
         description = "Web exploit payload detection for: CVE-2026-3038 - Local DoS and possible privilege escalation via routing sockets"
         author = "CyberDudeBivash GOC (Automated)"
-        date = "2026-03-15"
+        date = "2026-03-16"
     strings:
         $xss1 = "<script>alert(" ascii wide nocase
         $xss2 = "javascript:eval(" ascii wide nocase
