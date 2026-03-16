@@ -3,7 +3,7 @@
 // Threat   : CVE-2026-3038 - Local DoS and possible privilege escalation via routing sockets
 // STIX ID  : bundle--60d47640-27be-4012-b48f-0bfa1e0168e5
 // Scenario : RCE
-// Generated: 2026-03-16T02:16:47.192324 UTC
+// Generated: 2026-03-16T05:56:58.412067 UTC
 // Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 // ================================================================
 
