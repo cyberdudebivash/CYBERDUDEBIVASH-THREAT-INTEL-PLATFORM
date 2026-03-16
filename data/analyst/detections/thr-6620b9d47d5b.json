@@ -2,7 +2,7 @@
   "threat_id": "thr-6620b9d47d5b",
   "title": "CVE-2026-30921 - OneUptime Synthetic Monitor RCE via exposed Playwright browser ",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-30921 - OneUptime Synthetic Monitor RCE via exposed\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/15\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*this.constructor.constructor*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-30921 - OneUptime Synthetic Monitor RCE via exposed\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/16\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*this.constructor.constructor*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"this.constructor.constructor\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"this.constructor.constructor\")"
   },
