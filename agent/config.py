@@ -86,7 +86,7 @@ RATE_LIMIT_DELAY = 3  # v55.3: Reduced from 8→3s. v56 publisher has its own AP
 # ═══════════════════════════════════════════════════════════
 # MANIFEST SETTINGS
 # ═══════════════════════════════════════════════════════════
-MANIFEST_MAX_ENTRIES = 200
+MANIFEST_MAX_ENTRIES = 500
 MANIFEST_DIR = "data/stix"
 
 # ═══════════════════════════════════════════════════════════
