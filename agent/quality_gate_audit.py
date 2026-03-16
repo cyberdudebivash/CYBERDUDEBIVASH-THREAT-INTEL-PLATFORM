@@ -1,7 +1,7 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX — Quality Gate Audit v1.0
+CYBERDUDEBIVASH® SENTINEL APEX — Quality Gate Audit v1.1
 Path: agent/quality_gate_audit.py
-Feature: Identifies Premium-Grade Intel & Maps Remediation Assets
+Feature: Type-Safe Premium Licensing Validation
 """
 
 import json
@@ -20,7 +20,7 @@ class QualityGateAudit:
         self.audit_report_path = "data/sovereign/quality_audit_report.json"
 
     def run_audit(self):
-        """Analyzes manifest for licensing-ready high-yield intelligence."""
+        """Analyzes manifest for licensing-ready high-yield intelligence with Type-Safety."""
         logger.info("============================================================")
         logger.info("SENTINEL APEX — QUALITY GATE AUDIT START")
         logger.info("============================================================")
@@ -30,20 +30,33 @@ class QualityGateAudit:
             return
 
         with open(self.manifest_path, "r") as f:
-            items = json.load(f)
+            try:
+                items = json.load(f)
+            except Exception as e:
+                logger.error(f"Failed to parse manifest: {e}")
+                return
 
         premium_items = []
         for item in items:
-            # Extract scores
-            epss = item.get("epss_score", 0)
-            cvss = item.get("cvss_score", 0)
+            # ===== PATCH START: Sovereign Type-Safety Fix (v1.1) =====
+            # Fix: Prevent TypeError when scores are None/Null
+            epss_raw = item.get("epss_score")
+            cvss_raw = item.get("cvss_score")
+            
+            epss = float(epss_raw) if epss_raw is not None else 0.0
+            cvss = float(cvss_raw) if cvss_raw is not None else 0.0
+            # ===== PATCH END =====
+            
             cve_id = item.get("id", "N/A")
             
-            # --- PATCH: Premium Licensing Logic ---
             # Criteria: High Exploit Probability OR Critical Severity
             if epss >= self.premium_threshold or cvss >= 9.0:
-                asset_name = f"cdb_patch_{cve_id.replace('-', '_')}.sh"
-                has_remediation = os.path.exists(os.path.join(self.remediation_path, asset_name))
+                # Platform-aware asset discovery
+                sh_asset = f"cdb_patch_{cve_id.replace('-', '_')}.sh"
+                ps_asset = f"cdb_patch_{cve_id.replace('-', '_')}.ps1"
+                
+                has_sh = os.path.exists(os.path.join(self.remediation_path, sh_asset))
+                has_ps = os.path.exists(os.path.join(self.remediation_path, ps_asset))
                 
                 premium_items.append({
                     "cve_id": cve_id,
@@ -51,10 +64,10 @@ class QualityGateAudit:
                     "epss": epss,
                     "cvss": cvss,
                     "is_kev": item.get("kev_present", False),
-                    "remediation_ready": has_remediation,
-                    "monetization_status": "READY" if has_remediation else "PENDING_PATCH"
+                    "remediation_ready": has_sh or has_ps,
+                    "platforms": {"unix": has_sh, "windows": has_ps},
+                    "monetization_status": "READY" if (has_sh or has_ps) else "PENDING_PATCH"
                 })
-            # --- END PATCH ---
 
         # Finalize Audit Report
         audit_data = {
