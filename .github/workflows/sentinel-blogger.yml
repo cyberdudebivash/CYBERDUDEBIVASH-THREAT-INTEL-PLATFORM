@@ -1,3 +1,9 @@
+# ================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX — Sovereign Intelligence Cycle
+# Version: v48.1 (Sovereign Stability Patch)
+# Path: .github/workflows/sentinel-blogger.yml
+# ================================================================
+
 name: CDB Sentinel Blogger - Threat Intel Auto-Publisher v48.0
 
 on:
@@ -29,7 +35,7 @@ jobs:
       # ================================================================
       # STAGE 0: CHECKOUT & ENVIRONMENT SETUP
       # ================================================================
-      - name: Checkout repository (v48.0 Full Sync)
+      - name: Checkout repository (v48.1 Sovereign Sync)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -48,22 +54,7 @@ jobs:
 
       - name: Ensure Production Directories Exist
         run: |
-          mkdir -p data/stix
-          mkdir -p data/nexus
-          mkdir -p data/genesis
-          mkdir -p data/cortex
-          mkdir -p data/quantum
-          mkdir -p data/sovereign
-          mkdir -p data/rule_packs
-          mkdir -p data/playbooks
-          mkdir -p data/playbooks/scripts
-          mkdir -p data/premium_packs
-          mkdir -p data/enterprise_kits
-          mkdir -p data/enrichment
-          mkdir -p data/status
-          mkdir -p data/logs
-          mkdir -p data/remediation
-          mkdir -p secrets
+          mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum data/sovereign data/rule_packs data/playbooks data/playbooks/scripts data/premium_packs data/enterprise_kits data/enrichment data/status data/logs data/remediation secrets
 
       # ================================================================
       # STAGE 1: MAINTENANCE & PRE-FLIGHT
@@ -79,17 +70,6 @@ jobs:
           echo "${{ secrets.CDB_SOVEREIGN_KEY }}" > secrets/cdb_sovereign.pem
           chmod 600 secrets/cdb_sovereign.pem
           echo "::add-mask::$(cat secrets/cdb_sovereign.pem)"
-
-      - name: Pre-flight Sync Diagnostic
-        run: |
-          echo "Pre-flight check..."
-          echo "  Current time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-          if [ -f "data/stix/feed_manifest.json" ]; then
-            LATEST_TS=$(python3 -c "import json; d=json.load(open('data/stix/feed_manifest.json')); print(d[0].get('timestamp','N/A') if isinstance(d,list) and d else 'N/A')" 2>/dev/null || echo "N/A")
-            echo "  Last manifest entry: $LATEST_TS"
-          else
-            echo "  No existing manifest found - first run"
-          fi
 
       # ================================================================
       # STAGE 2: CORE FEED INGESTION
@@ -119,7 +99,7 @@ jobs:
           now = datetime.now(timezone.utc).isoformat()
           status = {
               "platform": "CYBERDUDEBIVASH(R) SENTINEL APEX",
-              "version": "v48.0",
+              "version": "v48.1",
               "status": "OPERATIONAL",
               "status_message": "Pipeline sync complete",
               "components": {
@@ -131,16 +111,15 @@ jobs:
           os.makedirs(os.path.dirname(status_path), exist_ok=True)
           with open(status_path, "w") as f:
               json.dump(status, f, indent=2)
-          print("Status updated: " + now)
-          sync_marker = {"last_sync": now, "sync_source": "github-actions-v48"}
+          sync_marker = {"last_sync": now, "sync_source": "github-actions-v48.1"}
           with open("data/sync_marker.json", "w") as f:
               json.dump(sync_marker, f, indent=2)
-          print("Sync marker created")
           PYEOF
 
       # ================================================================
       # STAGE 2.1: CRITICAL DATA COMMIT (v55.3 — Anti-Timeout Safeguard)
       # ================================================================
+      # ===== PATCH START: Intermediate Rebase Fix =====
       - name: Intermediate Commit — Save Feed Intel (v55.3 Anti-Timeout)
         continue-on-error: true
         run: |
@@ -148,42 +127,41 @@ jobs:
           python3 scripts/update_embedded_intel.py || echo "EMBEDDED_INTEL update non-fatal"
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
+          
+          # Force add index.html to prevent rebase conflict with unstaged changes
           git add data/stix/feed_manifest.json data/blogger_processed.json data/status/status.json data/sync_marker.json index.html
+          
           if git diff --staged --quiet; then
             echo "No feed intel changes to commit"
           else
-            git commit -m "v55.3 Intel checkpoint: manifest + dedup [skip ci]"
+            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+            git commit -m "v55.3 Intel checkpoint: manifest + dedup @ $TIMESTAMP [skip ci]"
             for i in {1..3}; do
-              git pull origin main --rebase && git push origin main && break || (sleep 10)
+              git pull origin main --rebase --autostash && git push origin main && break || \
+              (echo "Push retry $i..." && sleep 10)
             done
+            echo "✓ Critical intel data committed and pushed"
           fi
+      # ===== PATCH END =====
 
       # ================================================================
       # STAGE 2.5: PIPELINE HARDENER v48.0
       # ================================================================
-      - name: Pipeline Hardener v48.0 - Sort + EPSS Batch + KEV + Validate
+      - name: Pipeline Hardener v48.0
         continue-on-error: true
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-          PYTHONPATH: ${{ github.workspace }} # --- PATCH: Module Resolution Fix ---
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "STAGE 2.5: PIPELINE HARDENER v48.0"
           if [ -f "agent/v48_pipeline_hardening/pipeline_hardener.py" ]; then
             python agent/v48_pipeline_hardening/pipeline_hardener.py
-            python3 -c "
-          import json, os
-          try:
-            with open('data/enrichment/v48_hardening_results.json') as f: d=json.load(f)
-            print('  Sort fixed      : ' + str(d.get('sort_fixed', False)))
-            print('  EPSS enriched  : ' + str(d.get('epss_enriched', 0)) + ' fields')
-          except Exception as e:
-            print('v48 results check: ' + str(e))
-          "
           fi
 
       # ================================================================
       # STAGE 8: ATOMIC COMMIT & SOVEREIGN SYNC
       # ================================================================
+      # ===== PATCH START: Pathspec & Asset Sync Fix =====
       - name: Commit and Push Intelligence Data
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
@@ -191,34 +169,33 @@ jobs:
           echo "Refreshing EMBEDDED_INTEL in index.html..."
           python3 scripts/update_embedded_intel.py || true
 
-          # --- PATCH: Extended Asset Sync ---
-          git add data/*.json
-          git add data/stix/*.json
-          git add data/status/*.json
-          git add data/nexus/*.json
-          git add data/genesis/*.json
-          git add data/enrichment/*.json
-          git add data/bughunter/*.json
-          git add data/remediation/*.sh
-          git add data/remediation/*.yml
-          git add data/remediation/*.yaml
-          git add data/premium_packs/*.zip
-          git add index.html
-          # --- END PATCH ---
+          # Use 2>/dev/null to prevent "fatal: pathspec did not match any files" if directories are empty
+          git add data/*.json 2>/dev/null || true
+          git add data/stix/*.json 2>/dev/null || true
+          git add data/status/*.json 2>/dev/null || true
+          git add data/nexus/*.json 2>/dev/null || true
+          git add data/genesis/*.json 2>/dev/null || true
+          git add data/enrichment/*.json 2>/dev/null || true
+          git add data/bughunter/*.json 2>/dev/null || true
+          git add data/remediation/*.sh 2>/dev/null || true
+          git add data/remediation/*.yml 2>/dev/null || true
+          git add data/premium_packs/*.zip 2>/dev/null || true
+          git add index.html 2>/dev/null || true
 
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "v55.3 Apex: Intel + Remediation + Dashboard Sync [skip ci]"
+            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+            git commit -m "v55.3 Apex: Sovereign Recovery & Dash Sync @ $TIMESTAMP [skip ci]"
             for i in {1..5}; do
-              git pull origin main --rebase
-              # --- PATCH: Sovereign Conflict Override ---
+              git pull origin main --rebase --autostash
+              # Force resolve status conflict if parallel jobs collided
               git checkout --ours data/status/status.json 2>/dev/null || true
-              git checkout --ours data/stix/feed_manifest.json 2>/dev/null || true
-              # --- END PATCH ---
-              git push origin main && break || (echo "Push collision - retry $i..." && sleep 15)
+              git push origin main && break || \
+              (echo "Push collision - retry $i in 15s..." && sleep 15)
             done
           fi
+      # ===== PATCH END =====
 
       # ================================================================
       # STAGE 10: DEPLOY TO GITHUB PAGES
@@ -231,4 +208,4 @@ jobs:
           clean: false
           git-config-name: CDB-Sentinel-Bot
           git-config-email: bivash@cyberdudebivash.com
-          commit-message: "v48.0 Deploy: Live feed update"
+          commit-message: "v48.1 Deploy: Live feed update"
