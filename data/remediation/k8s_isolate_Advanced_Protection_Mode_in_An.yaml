@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-d4a92fdd8b84
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Advanced Protection Mode in Android 17 prevents apps from misusing Accessibility Services"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection

@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-dba3bdca99fc
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "The ransomware economy is shifting toward straight-up data extortion"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
