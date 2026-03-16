@@ -2,7 +2,7 @@
   "threat_id": "thr-b626b99b8acf",
   "title": "Security is a team sport: AWS at RSAC 2026 Conference",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Security is a team sport: AWS at RSAC 2026 Conference\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/15\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*aws.amazon.com*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Security is a team sport: AWS at RSAC 2026 Conference\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/16\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*aws.amazon.com*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"aws.amazon.com\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"aws.amazon.com\")"
   },

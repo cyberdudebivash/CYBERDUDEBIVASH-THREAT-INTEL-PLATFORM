@@ -2,7 +2,7 @@
   "threat_id": "thr-761af0e8511a",
   "title": "AWS Security Hub is expanding to unify security operations across multicloud env",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 AWS Security Hub is expanding to unify security operations a\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/15\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*aws.amazon.com*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 AWS Security Hub is expanding to unify security operations a\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/16\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*aws.amazon.com*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"aws.amazon.com\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"aws.amazon.com\")"
   },
