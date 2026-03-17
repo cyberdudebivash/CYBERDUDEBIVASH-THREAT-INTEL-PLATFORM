@@ -1,6 +1,42 @@
 {
   "sigma_rules": [
     {
+      "title": "CDB Sentinel APEX \u2014 Attack_on_Strykers_Microsoft_environment_wiped_employee_devi",
+      "id": "sigma--5a37f2ca8d7f",
+      "status": "experimental",
+      "description": "Detects activity related to Attack on Stryker\u2019s Microsoft environment wiped employee devices without malware",
+      "references": [
+        "https://blog.cyberdudebivash.com/2026/03/attack-on-strykers-microsoft_01504535528.html"
+      ],
+      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
+      "date": "2026/03/17",
+      "tags": [
+        "attack.t1566",
+        "attack.t1190",
+        "attack.t1203",
+        "attack.t1547",
+        "attack.t1078"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "T1566",
+            "T1190",
+            "T1203"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "high",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
       "title": "CDB Sentinel APEX \u2014 Russialinked_APT_uses_DRILLAPP_backdoor_to_spy_on_Ukrainian",
       "id": "sigma--a9dfe9f7eabe",
       "status": "experimental",
@@ -976,45 +1012,13 @@
       "falsepositives": [
         "Legitimate administrative activity"
       ]
-    },
-    {
-      "title": "CDB Sentinel APEX \u2014 Microsoft_seizes_338_websites_to_disrupt_rapidly_growing_Rac",
-      "id": "sigma--1f78d4713f1a",
-      "status": "experimental",
-      "description": "Detects activity related to Microsoft seizes 338 websites to disrupt rapidly growing \u2018RaccoonO365\u2019 phishing service",
-      "references": [
-        "https://blog.cyberdudebivash.com/2026/03/microsoft-seizes-338-websites-to_01403223917.html"
-      ],
-      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/17",
-      "tags": [
-        "attack.t1566",
-        "attack.t1190",
-        "attack.t1078",
-        "attack.t1203",
-        "attack.t1059"
-      ],
-      "logsource": {
-        "category": "process_creation",
-        "product": "windows"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine|contains": [
-            "T1566",
-            "T1190",
-            "T1078"
-          ]
-        },
-        "condition": "selection"
-      },
-      "level": "high",
-      "falsepositives": [
-        "Legitimate administrative activity"
-      ]
     }
   ],
   "yara_rules": [
+    {
+      "rule_name": "CDB_Attack_on_Strykers_Microsoft_environment",
+      "rule_text": "rule CDB_Attack_on_Strykers_Microsoft_environment {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Attack on Stryker\u2019s Microsoft environment wiped employee devices without malware\"\n        severity = \"critical\"\n        date = \"2026-03-17\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
     {
       "rule_name": "CDB_Russialinked_APT_uses_DRILLAPP_backdoor_",
       "rule_text": "rule CDB_Russialinked_APT_uses_DRILLAPP_backdoor_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Russia-linked APT uses DRILLAPP backdoor to spy on Ukrainian targets\"\n        severity = \"critical\"\n        date = \"2026-03-17\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
@@ -1130,22 +1134,18 @@
     {
       "rule_name": "CDB_Stryker_attack_highlights_nebulous_natur",
       "rule_text": "rule CDB_Stryker_attack_highlights_nebulous_natur {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Stryker attack highlights nebulous nature of Iranian cyber activity amid joint U\"\n        severity = \"high\"\n        date = \"2026-03-17\"\n    strings:\n                $actor = \"CDB-APT-22\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_Microsoft_seizes_338_websites_to_disrupt",
-      "rule_text": "rule CDB_Microsoft_seizes_338_websites_to_disrupt {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Microsoft seizes 338 websites to disrupt rapidly growing \u2018RaccoonO365\u2019 phishing \"\n        severity = \"critical\"\n        date = \"2026-03-17\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     }
   ],
   "snort_rules": [
     {
       "rule_name": "CVE20264253__Tenda_AC8_Web_UploadCfg_route_set_user_policy_r",
-      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-4253 - Tenda AC8 Web UploadCfg route_set_user_polic\"; content:\"CVE-2026-4253\"; nocase; sid:8412280; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
-      "sid": 8412280
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-4253 - Tenda AC8 Web UploadCfg route_set_user_polic\"; content:\"CVE-2026-4253\"; nocase; sid:4013060; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 4013060
     },
     {
       "rule_name": "CVE20263644__Incomplete_control_character_validation_in_http",
-      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-3644 - Incomplete control character validation in h\"; content:\"CVE-2026-3644\"; nocase; sid:2523543; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
-      "sid": 2523543
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-3644 - Incomplete control character validation in h\"; content:\"CVE-2026-3644\"; nocase; sid:6799266; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 6799266
     }
   ],
   "stats": {
@@ -1154,6 +1154,6 @@
     "yara_count": 30,
     "snort_count": 2,
     "coverage_techniques": 40,
-    "generated_at": "2026-03-17T07:37:18.228355+00:00"
+    "generated_at": "2026-03-17T19:22:41.288933+00:00"
   }
 }
