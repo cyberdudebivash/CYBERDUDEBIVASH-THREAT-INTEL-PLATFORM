@@ -1,10 +1,10 @@
 # ================================================================
 # CYBERDUDEBIVASH® SENTINEL APEX — Sovereign Intelligence Cycle
-# Version: v48.2 (Quality Gate Integration)
+# Version: v64.0 (Progressive Loading + Quality Gate)
 # Path: .github/workflows/sentinel-blogger.yml
 # ================================================================
 
-name: CDB Sentinel Blogger - Threat Intel Auto-Publisher v48.0
+name: CDB Sentinel Blogger - Threat Intel Auto-Publisher v64.0
 
 on:
   schedule:
@@ -35,7 +35,7 @@ jobs:
       # ================================================================
       # STAGE 0: CHECKOUT & ENVIRONMENT SETUP
       # ================================================================
-      - name: Checkout repository (v48.2 Sovereign Sync)
+      - name: Checkout repository (v64.0 Sovereign Sync)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -74,7 +74,7 @@ jobs:
       # ================================================================
       # STAGE 2: CORE FEED INGESTION
       # ================================================================
-      - name: Run Sentinel Blogger APEX Engine (v48.0)
+      - name: Run Sentinel Blogger APEX Engine (v64.0)
         env:
           BLOG_ID: ${{ secrets.BLOG_ID }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
@@ -100,9 +100,9 @@ jobs:
 
           status = {
               "platform": "CYBERDUDEBIVASH(R) SENTINEL APEX",
-              "version": "v48.2",
+              "version": "v64.0",
               "status": "OPERATIONAL",
-              "status_message": "Quality Gate Audit integrated",
+              "status_message": "Progressive Loading + Quality Gate active",
               "components": {
                   "threat_feed": {"status": "OPERATIONAL", "last_updated": now},
                   "pipeline": {"status": "OPERATIONAL", "last_run_at": now}
@@ -116,7 +116,7 @@ jobs:
               json.dump(status, f, indent=2)
 
           with open("data/sync_marker.json", "w") as f:
-              json.dump({"last_sync": now, "sync_source": "github-actions-v48.2"}, f, indent=2)
+              json.dump({"last_sync": now, "sync_source": "github-actions-v64.0"}, f, indent=2)
           PYEOF
 
       # ================================================================
@@ -124,7 +124,7 @@ jobs:
       # ================================================================
       - name: Fix Git State (Critical Stability Patch)
         run: |
-          echo "🧹 Cleaning Git state..."
+          echo "Cleaning Git state..."
           rm -rf .git/rebase-merge || true
           rm -rf .git/rebase-apply || true
           git reset --hard
@@ -149,7 +149,7 @@ jobs:
 
           if ! git diff --staged --quiet; then
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "v55.3 Intel checkpoint @ $TIMESTAMP [skip ci]"
+            git commit -m "v64.0 Intel checkpoint @ $TIMESTAMP [skip ci]"
             git push origin main
           else
             echo "No changes"
@@ -158,7 +158,7 @@ jobs:
       # ================================================================
       # STAGE 2.5: PIPELINE HARDENER
       # ================================================================
-      - name: Pipeline Hardener v48.0
+      - name: Pipeline Hardener v64.0
         continue-on-error: true
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
@@ -219,12 +219,12 @@ jobs:
           git add data/remediation/*.yml 2>/dev/null || true
           git add data/premium_packs/*.zip 2>/dev/null || true
           git add index.html 2>/dev/null || true
-          git add threat 2>/dev/null || true 2>/dev/null || true
+          git add threat/ 2>/dev/null || true
           git add sitemap.xml 2>/dev/null || true
 
           if ! git diff --staged --quiet; then
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "v55.3 Apex Sync @ $TIMESTAMP [skip ci]"
+            git commit -m "v64.0 Apex Sync @ $TIMESTAMP [skip ci]"
             git push origin main
           else
             echo "No changes to commit"
@@ -241,4 +241,4 @@ jobs:
           clean: false
           git-config-name: CDB-Sentinel-Bot
           git-config-email: bivash@cyberdudebivash.com
-          commit-message: "v48.2 Deploy: Live feed + Quality Audit update"
+          commit-message: "v64.0 Deploy: Progressive Loading + Quality Audit update"
