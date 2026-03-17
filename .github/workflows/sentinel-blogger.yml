@@ -1,11 +1,7 @@
 # ================================================================
 # CYBERDUDEBIVASH® SENTINEL APEX — Sovereign Intelligence Cycle
-# Version: v64.1 (Deploy-First Architecture + Circuit Breaker)
+# Version: v64.2 (P0 FIX — Data Integrity + Zero Regression)
 # Path: .github/workflows/sentinel-blogger.yml
-#
-# ARCHITECTURE CHANGE (v64.1):
-#   Old: Ingest → Publish → Commit → Deploy (if publishing hangs, deploy never runs)
-#   New: Ingest → Commit+Deploy DATA → Publish (deploy happens in <5min guaranteed)
 # ================================================================
 
 name: CDB Sentinel Blogger - Threat Intel Auto-Publisher v64.0
@@ -137,23 +133,20 @@ jobs:
           python3 scripts/update_embedded_intel.py || true
 
       # ================================================================
-      # STAGE 3: FIX GIT STATE + COMMIT ALL DATA
+      # ✅ STAGE 3: SAFE GIT SYNC (ZERO REGRESSION FIX)
       # ================================================================
-      - name: Fix Git State
+      - name: Fix Git State (SAFE SYNC)
         run: |
           rm -rf .git/rebase-merge || true
           rm -rf .git/rebase-apply || true
-          git reset --hard
+          git config --local user.email "bivash@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+          # Safe rebase keeps local generated data while syncing remote
+          git pull origin main --rebase || echo "Sync failed, continuing with local data"
 
       - name: Commit All Intelligence Data
         run: |
-          git config --local user.email "bivash@cyberdudebivash.com"
-          git config --local user.name "CDB-Sentinel-Bot"
-
-          git fetch origin main
-          git reset --hard origin/main
-
-          # Re-run embedded intel update after reset
+          # Re-run embedded intel update after sync to ensure final state
           python3 scripts/update_embedded_intel.py || true
 
           git add data/*.json 2>/dev/null || true
@@ -171,16 +164,14 @@ jobs:
 
           if ! git diff --staged --quiet; then
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "v64.1 Apex Sync @ $TIMESTAMP [skip ci]"
+            git commit -m "v64.2 Sovereign Sync @ $TIMESTAMP [skip ci]"
             git push origin main
           else
             echo "No changes to commit"
           fi
 
       # ================================================================
-      # STAGE 4: DEPLOY TO GH-PAGES (CRITICAL — RUNS BEFORE ANY EXTRAS)
-      # This ensures dashboard data is ALWAYS deployed, even if later
-      # stages (quality gate, threat pages) fail or timeout.
+      # STAGE 4: DEPLOY TO GH-PAGES
       # ================================================================
       - name: Deploy Live Feed to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4
@@ -190,10 +181,10 @@ jobs:
           clean: false
           git-config-name: CDB-Sentinel-Bot
           git-config-email: bivash@cyberdudebivash.com
-          commit-message: "v64.1 Deploy: Live feed update"
+          commit-message: "v64.2 Deploy: Live data fixed"
 
       # ================================================================
-      # STAGE 5: POST-DEPLOY EXTRAS (safe — deploy already done)
+      # STAGE 5: POST-DEPLOY EXTRAS
       # ================================================================
       - name: Pipeline Hardener
         continue-on-error: true
@@ -222,7 +213,7 @@ jobs:
           fi
 
       # ================================================================
-      # STAGE 6: POST-EXTRAS COMMIT + DEPLOY (if extras generated new files)
+      # STAGE 6: POST-EXTRAS COMMIT + DEPLOY
       # ================================================================
       - name: Commit and Deploy Post-Extras
         continue-on-error: true
@@ -234,7 +225,7 @@ jobs:
 
           if ! git diff --staged --quiet; then
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "v64.1 Post-extras @ $TIMESTAMP [skip ci]"
+            git commit -m "v64.2 Post-extras @ $TIMESTAMP [skip ci]"
             git push origin main
           else
             echo "No post-extras changes"
@@ -249,4 +240,4 @@ jobs:
           clean: false
           git-config-name: CDB-Sentinel-Bot
           git-config-email: bivash@cyberdudebivash.com
-          commit-message: "v64.1 Post-extras deploy"
+          commit-message: "v64.2 Post-extras deploy"
