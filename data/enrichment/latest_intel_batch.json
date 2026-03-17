@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-16T20:42:03.745305+00:00",
+  "timestamp": "2026-03-17T02:27:59.594575+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -294,6 +294,264 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-3x67-4c2c-w45m",
+      "cve_id": "CVE-2026-32813",
+      "severity": "HIGH",
+      "summary": "Admidio has a Second-Order SQL Injection via List Configuration (lsc_special_field, lsc_sort, lsc_filter)",
+      "description": "## Summary\n\nThe MyList configuration feature in Admidio allows authenticated users to define custom list column layouts. User-supplied column names, sort directions, and filter conditions are stored in the `adm_list_columns` table via prepared statements (safe storage), but are later read back and interpolated directly into dynamically constructed SQL queries without sanitization or parameterization. This is a classic second-order SQL injection: safe write, unsafe read.\n\nAn attacker can inject arbitrary SQL through these stored values to read, modify, or delete any data in the database, potentially achieving full database compromise.\n\n## Details\n\n### Step 1: Storing the Payload (Safe Write)\n\nIn `modules/groups-roles/mylist_function.php` (lines 89-115), user-supplied POST array values for column names, sort directions, and filter conditions are accepted. The only validation on column values is a prefix check (must start with `usr_` or `mem_`). Sort and condition values have no validatio",
+      "cvss_score": 8.0,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "admidio/admidio"
+      ],
+      "published": "2026-03-16T21:19:09Z",
+      "updated": "2026-03-16T21:58:11Z",
+      "url": "https://github.com/advisories/GHSA-3x67-4c2c-w45m",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/Admidio/admidio/security/advisories/GHSA-3x67-4c2c-w45m",
+        "https://github.com/advisories/GHSA-3x67-4c2c-w45m"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-95cq-p4w2-32w5",
+      "cve_id": "CVE-2026-32756",
+      "severity": "HIGH",
+      "summary": "File Upload(RCE) Vulnerability in admidio",
+      "description": "### **Summary**\n\nA critical unrestricted file upload vulnerability exists in the Documents & Files module of Admidio. Due to a design flaw in how CSRF token validation and file extension verification interact within `UploadHandlerFile.php`, an authenticated user with upload permissions can bypass file extension restrictions by intentionally submitting an invalid CSRF token. This allows the upload of arbitrary file types, including PHP scripts, which may lead to Remote Code Execution (RCE) on the server.\n\n### **Details**\n\n**1. Critical - Unrestricted File Upload leading to Remote Code Execution (RCE)**\n\n**Root Cause Analysis:**\n\nThe root cause lies in a design flaw in `src/Infrastructure/Plugins/UploadHandlerFile.php`. The `UploadHandlerFile` class overrides two methods from its parent `UploadHandler` class:\n\n- `handle_form_data($file, $index)` \u2014 Validates the CSRF token. On failure, it sets `$file->error` and returns. The request is **not** terminated.\n- `handle_file_upload(...)` \u2014 Cal",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-434"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "admidio/admidio"
+      ],
+      "published": "2026-03-16T21:16:50Z",
+      "updated": "2026-03-16T21:16:50Z",
+      "url": "https://github.com/advisories/GHSA-95cq-p4w2-32w5",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/Admidio/admidio/security/advisories/GHSA-95cq-p4w2-32w5",
+        "https://github.com/advisories/GHSA-95cq-p4w2-32w5"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4w98-xf39-23gp",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Loop with Unreachable Exit Condition ('Infinite Loop') in ewe",
+      "description": "## Summary\n\newe's `handle_trailers` function contains a bug where rejected trailer headers (forbidden or undeclared) cause an infinite loop. The function recurses with the original unparsed buffer instead of advancing past the rejected header, re-parsing the same header forever. Each malicious request permanently wedges a BEAM process at 100% CPU with no timeout or escape.\n\n## Impact\n\nWhen `handle_trailers` (`ewe/internal/http1.gleam:493`) encounters a trailer that is either not in the declared trailer set or is blocked by `is_forbidden_trailer`, three code paths (lines 520, 523, 526) recurse with the original buffer `rest` instead of `Buffer(header_rest, 0)`:\n\n```gleam\n// Line 523 \u2014 uses `rest` (original buffer), not `Buffer(header_rest, 0)` (remaining)\nFalse -> handle_trailers(req, set, rest)\n```\n\nThis causes `decoder.decode_packet` to re-parse the same header on every iteration, producing an infinite loop. The BEAM process never yields, never times out, and never terminates.\n\n**Any ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-825"
+      ],
+      "ecosystems": [
+        "erlang"
+      ],
+      "packages": [
+        "ewe"
+      ],
+      "published": "2026-03-16T20:49:50Z",
+      "updated": "2026-03-16T20:49:52Z",
+      "url": "https://github.com/advisories/GHSA-4w98-xf39-23gp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/vshakitskiy/ewe/security/advisories/GHSA-4w98-xf39-23gp",
+        "https://github.com/vshakitskiy/ewe/commit/8513de9dcdd0005f727c0f6f15dd89f8d626f560",
+        "https://github.com/vshakitskiy/ewe/commit/d8b9b8a86470c0cb5696647997c2f34763506e37",
+        "https://github.com/advisories/GHSA-4w98-xf39-23gp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-vvp9-7p8x-rfvv",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "lz4_flex's decompression can leak information from uninitialized memory or reused output buffer",
+      "description": "### Summary\nDecompressing invalid LZ4 data can leak data from uninitialized memory, or can leak content from previous decompression operations when reusing an output buffer.\n\n### Details\nThe LZ4 block format defines a \"match copy operation\" which duplicates previously written data or data from the user-supplied dict. The position of that data is defined by an _offset_. The data is copied within the output buffer from the _offset_ to the current output position.\nHowever, lz4_flex did not properly detect invalid and out-of-bounds _offset_ values properly, causing it to copy uninitialized data from the output buffer.\n\nOnly the block based API functions are affected: \n`lz4_flex::block::{decompress_into, decompress_into_with_dict}`\n\nAll `frame` APIs are _not_ affected.\n\nThere are two affected use cases:\n- decompressing LZ4 data with the `unsafe` implementation (`safe-decode` feature flag disabled, which is enabled by default):\ncan leak content of uninitialized memory as decompressed result\n",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-201",
+        "CWE-823"
+      ],
+      "ecosystems": [
+        "rust",
+        "rust"
+      ],
+      "packages": [
+        "lz4_flex",
+        "lz4_flex"
+      ],
+      "published": "2026-03-16T20:48:08Z",
+      "updated": "2026-03-16T20:48:10Z",
+      "url": "https://github.com/advisories/GHSA-vvp9-7p8x-rfvv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/PSeitz/lz4_flex/security/advisories/GHSA-vvp9-7p8x-rfvv",
+        "https://github.com/PSeitz/lz4_flex/commit/055502ee5d297ecd6bf448ac91c055c7f6df9b6d",
+        "https://github.com/advisories/GHSA-vvp9-7p8x-rfvv"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-hxm7-9q36-c77f",
+      "cve_id": "CVE-2026-32769",
+      "severity": "HIGH",
+      "summary": "Fullchain's Invalid NetworkPolicy enables a malicious actor to pivot into another namespace",
+      "description": "### Impact\n\nDue to a mis-written NetworkPolicy, a malicious actor can pivot from a subverted application to any Pod out of the origin namespace.\nThis breaks the security-by-default property expected as part of the deployment program, leading to a potential lateral movement.\n\n### Patch\n\nRemoving the `inter-ns` NetworkPolicy patches the vulnerability. If updates are not possible in production environments, we recommend to manually delete it and update as soon as possible.\n\n### Workaround\n\nGiven your context, delete the failing network policy that should be prefixed by `inter-ns-` in the target namespace.\nYou can use the following to delete all matching network policy. If unsure of the outcome, please do it manually.\n\n```bash\nfor ns in $(kubectl get ns -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\\n' | grep '^ns-'); do\n  kubectl -n \"$ns\" get networkpolicy -o name \\\n  | grep '^networkpolicy.networking.k8s.io/inter-ns-' \\\n  | xargs -r kubectl -n \"$ns\" delete\ndone\n```",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/ctfer-io/fullchain"
+      ],
+      "published": "2026-03-16T20:47:15Z",
+      "updated": "2026-03-16T21:55:30Z",
+      "url": "https://github.com/advisories/GHSA-hxm7-9q36-c77f",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ctfer-io/fullchain/security/advisories/GHSA-hxm7-9q36-c77f",
+        "https://github.com/ctfer-io/fullchain/commit/dbcb90178bcb07a3f5a1efa4c6350f3a6ce34f51",
+        "https://github.com/ctfer-io/fullchain/releases/tag/v0.1.1",
+        "https://github.com/advisories/GHSA-hxm7-9q36-c77f"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-p799-g7vv-f279",
+      "cve_id": "CVE-2026-32805",
+      "severity": "HIGH",
+      "summary": " Romeo is vulnerable to Archive Slip due to missing checks in sanitization",
+      "description": "## Summary\n\nThe `sanitizeArchivePath` function in `webserver/api/v1/decoder.go` (lines 80-88) is vulnerable to a path traversal bypass due to a missing trailing path separator in the `strings.HasPrefix` check. A crafted tar archive can write files outside the intended destination directory.\n\n## Vulnerable Code\n\nFile: `webserver/api/v1/decoder.go`, lines 80-88\n\n```go\nfunc sanitizeArchivePath(d, t string) (v string, err error) {\n\tv = filepath.Join(d, t)\n\tif strings.HasPrefix(v, filepath.Clean(d)) {\n\t\treturn v, nil\n\t}\n\treturn \"\", &ErrPathTainted{\n\t\tPath: t,\n\t}\n}\n```\n\nThe function is called at line 48 inside `[*Decompressor].Unzip`, which is invoked by `Decode` (line 80) during execution of the webserver CLI (command `download`).\n\n## Root Cause\n\n`strings.HasPrefix(v, filepath.Clean(d))` does not append a trailing `/` to the directory prefix, causing a **directory name prefix collision**. If the destination is `/home/user/extract-output` and a tar entry is named `../extract-outputevil/pwned",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/ctfer-io/romeo/webserver"
+      ],
+      "published": "2026-03-16T20:47:02Z",
+      "updated": "2026-03-16T21:55:50Z",
+      "url": "https://github.com/advisories/GHSA-p799-g7vv-f279",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ctfer-io/romeo/security/advisories/GHSA-p799-g7vv-f279",
+        "https://github.com/ctfer-io/romeo/commit/c2ebcfb9f305fd5f6ef68858de82507dbac10263",
+        "https://github.com/advisories/GHSA-p799-g7vv-f279"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-f7cq-gvh6-qr25",
+      "cve_id": "CVE-2026-32771",
+      "severity": "HIGH",
+      "summary": "Monitoring is vulnerable to Archive Slip due to missing checks in sanitization",
+      "description": "The `sanitizeArchivePath` function in `pkg/extract/extract.go` (lines 248\u2013254) is vulnerable to a path traversal bypass due to a missing trailing path separator in the `strings.HasPrefix` check. A crafted tar archive can write files outside the intended destination directory when using the `extractor` CLI tool or the `extract.DumpOTelCollector` library function.\n\n## Vulnerable Code\n\nFile: `pkg/extract/extract.go`, lines 248\u2013254\n\n```go\nfunc sanitizeArchivePath(d, t string) (v string, err error) {\n    v = filepath.Join(d, t)\n    if strings.HasPrefix(v, filepath.Clean(d)) {   // \u2190 missing trailing separator\n        return v, nil\n    }\n    return \"\", fmt.Errorf(\"filepath is tainted: %s\", t)\n}\n```\n\nThe function is called at line 219 inside `untar`, which is invoked by `copyFromPod` (line 205) during the Cold Extract data dump workflow.\n\n## Root Cause\n\n`strings.HasPrefix(v, filepath.Clean(d))` does not append a trailing `/` to the directory prefix, causing a **directory name prefix collision",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/ctfer-io/monitoring"
+      ],
+      "published": "2026-03-16T20:46:48Z",
+      "updated": "2026-03-16T21:55:40Z",
+      "url": "https://github.com/advisories/GHSA-f7cq-gvh6-qr25",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ctfer-io/monitoring/security/advisories/GHSA-f7cq-gvh6-qr25",
+        "https://github.com/ctfer-io/monitoring/commit/269dba165aa42210352628c0db6756f3b8fd3c8a",
+        "https://github.com/advisories/GHSA-f7cq-gvh6-qr25"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-fgm3-q9r5-43v9",
+      "cve_id": "CVE-2026-32737",
+      "severity": "HIGH",
+      "summary": "Romeo's invalid NetworkPolicy enables a malicious actor to pivot into another namespace ",
+      "description": "### Impact\n\nDue to a mis-written NetworkPolicy, a malicious actor can pivot from the \"hardened\" namespace to any Pod out of it.\nThis breaks the security-by-default property expected as part of the deployment program, leading to a potential lateral movement.\n\n### Patch\n\nRemoving the `inter-ns` NetworkPolicy patches the vulnerability. If updates are not possible in production environments, we recommend to manually delete it and update as soon as possible.\n\n### Workaround\n\nGiven your context, delete the failing network policy that should be prefixed by `inter-ns-` in the target namespace.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/ctfer-io/romeo/environment/deploy"
+      ],
+      "published": "2026-03-16T20:45:59Z",
+      "updated": "2026-03-16T20:46:02Z",
+      "url": "https://github.com/advisories/GHSA-fgm3-q9r5-43v9",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ctfer-io/romeo/security/advisories/GHSA-fgm3-q9r5-43v9",
+        "https://github.com/ctfer-io/romeo/commit/3bb5e9d9ce1199dfbb90fef8ad79ebdeb0bc5e78",
+        "https://github.com/advisories/GHSA-fgm3-q9r5-43v9"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mw24-f3xh-j3qv",
+      "cve_id": "CVE-2026-32768",
+      "severity": "HIGH",
+      "summary": "Chall-Manager's invalid NetworkPolicy enables a malicious actor to pivot into another namespace",
+      "description": "### Impact\n\nDue to a mis-written NetworkPolicy, a malicious actor can pivot from an instance to any Pod out of the origin namespace.\nThis breaks the security-by-default property expected as part of the deployment program, leading to a potential lateral movement.\nIn the specific case of `sdk/kubernetes.Kompose` it does not isolate the instances.\n\n### Patch\n\nRemoving the `inter-ns` NetworkPolicy patches the vulnerability. If updates are not possible in production environments, we recommend to manually delete it and update as soon as possible.\n\n### Workaround\n\nGiven your context, delete the failing network policy that should be prefixed by `inter-ns-` in the target namespace.\nYou can use the following to delete all matching network policy. If unsure of the outcome, please do it manually.\n\n```bash\nfor ns in $(kubectl get ns -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\\n' | grep '^cm-target-'); do\n  kubectl -n \"$ns\" get networkpolicy -o name \\\n  | grep '^networkpolicy.networking.k8s.i",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/ctfer-io/chall-manager/deploy",
+        "github.com/ctfer-io/chall-manager/sdk"
+      ],
+      "published": "2026-03-16T20:45:34Z",
+      "updated": "2026-03-16T21:55:25Z",
+      "url": "https://github.com/advisories/GHSA-mw24-f3xh-j3qv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ctfer-io/chall-manager/security/advisories/GHSA-mw24-f3xh-j3qv",
+        "https://github.com/ctfer-io/chall-manager/commit/dc5ef27dfed2befef7f506ab8ca14d062b0d79c5",
+        "https://github.com/ctfer-io/chall-manager/releases/tag/v0.6.5",
+        "https://github.com/advisories/GHSA-mw24-f3xh-j3qv"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-g2f6-pwvx-r275",
       "cve_id": null,
       "severity": "HIGH",
@@ -465,272 +723,6 @@
         "https://github.com/craftcms/azure-blob/commit/cf69db45f393b3508a32f89ac8235554a2f026ff",
         "https://github.com/advisories/GHSA-q6fm-p73f-x862"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-4484-8v2f-5748",
-      "cve_id": "CVE-2026-32264",
-      "severity": "HIGH",
-      "summary": "Craft CMS vulnerable to behavior injection RCE ElementIndexesController and FieldsController",
-      "description": "The fix for https://github.com/advisories/GHSA-7jx7-3846-m7w7 (commit https://github.com/craftcms/cms/commit/395c64f0b80b507be1c862a2ec942eaacb353748) only patched `src/services/Fields.php`, but the same vulnerable pattern exists in `ElementIndexesController` and `FieldsController`.\n\nYou need Craft control panel administrator permissions, and allowAdminChanges must be enabled for this to work.\n\nAn attacker can use the same gadget chain from the original advisory to achieve RCE.\n\nUsers should update to Craft 4.17.5 and 5.9.11 to mitigate the issue.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-470"
-      ],
-      "ecosystems": [
-        "composer",
-        "composer"
-      ],
-      "packages": [
-        "craftcms/cms",
-        "craftcms/cms"
-      ],
-      "published": "2026-03-16T18:13:15Z",
-      "updated": "2026-03-16T18:13:16Z",
-      "url": "https://github.com/advisories/GHSA-4484-8v2f-5748",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/craftcms/cms/security/advisories/GHSA-4484-8v2f-5748",
-        "https://github.com/craftcms/cms/security/advisories/GHSA-7jx7-3846-m7w7",
-        "https://github.com/craftcms/cms/commit/78d181e12e0b15e1300f54ec85f19859d3300f70",
-        "https://github.com/craftcms/cms/commit/dfec46362fcb40b330ce8a4d8136446e65085620",
-        "https://github.com/advisories/GHSA-4484-8v2f-5748"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-qx2q-q59v-wf3j",
-      "cve_id": "CVE-2026-32263",
-      "severity": "HIGH",
-      "summary": "Craft CMS vulnerable to behavior injection RCE via EntryTypesController",
-      "description": "The fix for GHSA-7jx7-3846-m7w7 (commit 395c64f0b80b507be1c862a2ec942eaacb353748) only patched `src/services/Fields.php`, but the same vulnerable pattern exists in `EntryTypesController::actionApplyOverrideSettings()`.\n\nIn `src/controllers/EntryTypesController.php` lines 381-387:\n\n```php\n$settingsStr = $this->request->getBodyParam('settings');\nparse_str($settingsStr, $postedSettings);\n$settingsNamespace = $this->request->getRequiredBodyParam('settingsNamespace');\n$settings = array_filter(ArrayHelper::getValue($postedSettings, $settingsNamespace, []));\n\nif (!empty($settings)) {\n    Craft::configure($entryType, $settings);\n```\n\nThe `$settings` array from `parse_str` is passed directly to `Craft::configure()` without `Component::cleanseConfig()`. This allows injecting Yii2 behavior/event handlers via `as ` or `on ` prefixed keys, the same attack vector as the original advisory.\n\nYou need Craft control panel administrator permissions, and `allowAdminChanges` must be enabled for this to wor",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-470"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "craftcms/cms"
-      ],
-      "published": "2026-03-16T18:12:32Z",
-      "updated": "2026-03-16T18:12:35Z",
-      "url": "https://github.com/advisories/GHSA-qx2q-q59v-wf3j",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/craftcms/cms/security/advisories/GHSA-7jx7-3846-m7w7",
-        "https://github.com/craftcms/cms/security/advisories/GHSA-qx2q-q59v-wf3j",
-        "https://github.com/craftcms/cms/commit/d37389dbffafa565143be40a2ab1e1db22a863f7",
-        "https://github.com/advisories/GHSA-qx2q-q59v-wf3j"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-8wg7-wm29-2rvg",
-      "cve_id": "CVE-2026-32261",
-      "severity": "HIGH",
-      "summary": "RCE via SSTI for users with permissions to access the Craft CMS Webhooks plugin",
-      "description": "The Webhooks plugin renders user-supplied template content through Twig\u2019s `renderString()` function without sandbox protection. This allows an authenticated user with access to the Craft control panel and permissions to access the Webhooks plugin to inject Twig template code that calls arbitrary PHP functions.\n\nThis is possible even if `allowAdminChanges` is set to `false`.\n\nAffected users should update to version 3.2.0 to mitigate the issue.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-1336"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "craftcms/webhooks"
-      ],
-      "published": "2026-03-16T18:11:23Z",
-      "updated": "2026-03-16T18:11:25Z",
-      "url": "https://github.com/advisories/GHSA-8wg7-wm29-2rvg",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/craftcms/webhooks/security/advisories/GHSA-8wg7-wm29-2rvg",
-        "https://github.com/craftcms/webhooks/commit/88344991a68b07145567c46dfd0ae3328c521f62",
-        "https://github.com/advisories/GHSA-8wg7-wm29-2rvg"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-vx5f-957p-qpvm",
-      "cve_id": "CVE-2026-32634",
-      "severity": "HIGH",
-      "summary": "Glances Central Browser Autodiscovery Leaks Reusable Credentials to Zeroconf-Spoofed Servers",
-      "description": "## Summary\n\nIn Central Browser mode, Glances stores both the Zeroconf-advertised server name and the discovered IP address for dynamic servers, but later builds connection URIs from the untrusted advertised name instead of the discovered IP. When a dynamic server reports itself as protected, Glances also uses that same untrusted name as the lookup key for saved passwords and the global `[passwords] default` credential.\n\nAn attacker on the same local network can advertise a fake Glances service over Zeroconf and cause the browser to automatically send a reusable Glances authentication secret to an attacker-controlled host. This affects the background polling path and the REST/WebUI click-through path in Central Browser mode.\n\n## Details\n\nDynamic server discovery keeps both a short `name` and a separate `ip`:\n\n```python\n# glances/servers_list_dynamic.py:56-61\ndef add_server(self, name, ip, port, protocol='rpc'):\n    new_server = {\n        'key': name,\n        'name': name.split(':')[0], ",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-346",
-        "CWE-522"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "Glances"
-      ],
-      "published": "2026-03-16T16:36:06Z",
-      "updated": "2026-03-16T16:36:07Z",
-      "url": "https://github.com/advisories/GHSA-vx5f-957p-qpvm",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/nicolargo/glances/security/advisories/GHSA-vx5f-957p-qpvm",
-        "https://github.com/nicolargo/glances/commit/61d38eec521703e41e4933d18d5a5ef6f854abd5",
-        "https://github.com/nicolargo/glances/releases/tag/v4.5.2",
-        "https://github.com/advisories/GHSA-vx5f-957p-qpvm"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-49g7-2ww7-3vf5",
-      "cve_id": "CVE-2026-32611",
-      "severity": "HIGH",
-      "summary": "Glances has a SQL Injection in DuckDB Export via Unparameterized DDL Statements",
-      "description": "## Summary\n\nThe GHSA-x46r fix (commit 39161f0) addressed SQL injection in the TimescaleDB export module by converting all SQL operations to use parameterized queries and `psycopg.sql` composable objects. However, the DuckDB export module (`glances/exports/glances_duckdb/__init__.py`) was not included in this fix and contains the same class of vulnerability: table names and column names derived from monitoring statistics are directly interpolated into SQL statements via f-strings. While DuckDB INSERT values already use parameterized queries (`?` placeholders), the DDL construction and table name references do not escape or parameterize identifier names.\n\n## Details\n\nThe DuckDB export module constructs SQL DDL statements by directly interpolating stat field names and plugin names into f-strings.\n\n**Vulnerable CREATE TABLE construction** (`glances/exports/glances_duckdb/__init__.py:156-162`):\n\n```python\ncreate_query = f\"\"\"\nCREATE TABLE {plugin} (\n{', '.join(creation_list)}\n);\"\"\"\nself.clie",
-      "cvss_score": 7.0,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:L/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-89"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "Glances"
-      ],
-      "published": "2026-03-16T16:34:03Z",
-      "updated": "2026-03-16T16:34:06Z",
-      "url": "https://github.com/advisories/GHSA-49g7-2ww7-3vf5",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/nicolargo/glances/security/advisories/GHSA-49g7-2ww7-3vf5",
-        "https://github.com/nicolargo/glances/commit/63b7da28895249d775202d639e5531ba63491a5c",
-        "https://github.com/nicolargo/glances/releases/tag/v4.5.2",
-        "https://github.com/advisories/GHSA-49g7-2ww7-3vf5"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-9jfm-9rc6-2hfq",
-      "cve_id": "CVE-2026-32610",
-      "severity": "HIGH",
-      "summary": "Glances's Default CORS Configuration Allows Cross-Origin Credential Theft",
-      "description": "## Summary\n\nThe Glances REST API web server ships with a default CORS configuration that sets `allow_origins=[\"*\"]` combined with `allow_credentials=True`. When both of these options are enabled together, Starlette's `CORSMiddleware` reflects the requesting `Origin` header value in the `Access-Control-Allow-Origin` response header instead of returning the literal `*` wildcard. This effectively grants any website the ability to make credentialed cross-origin API requests to the Glances server, enabling cross-site data theft of system monitoring information, configuration secrets, and command line arguments from any user who has an active browser session with a Glances instance.\n\n## Details\n\nThe CORS configuration is set up in `glances/outputs/glances_restful_api.py` lines 290-299:\n\n```python\n# glances/outputs/glances_restful_api.py:290-299\n# FastAPI Enable CORS\n# https://fastapi.tiangolo.com/tutorial/cors/\nself._app.add_middleware(\n    CORSMiddleware,\n    # Related to https://github.com",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-942"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "Glances"
-      ],
-      "published": "2026-03-16T16:32:22Z",
-      "updated": "2026-03-16T16:32:25Z",
-      "url": "https://github.com/advisories/GHSA-9jfm-9rc6-2hfq",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/nicolargo/glances/security/advisories/GHSA-9jfm-9rc6-2hfq",
-        "https://github.com/nicolargo/glances/commit/4465169b71d93991f1e49740fe02428291099832",
-        "https://github.com/nicolargo/glances/releases/tag/v4.5.2",
-        "https://github.com/advisories/GHSA-9jfm-9rc6-2hfq"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-cvwp-r2g2-j824",
-      "cve_id": "CVE-2026-32609",
-      "severity": "HIGH",
-      "summary": "Glances has Incomplete Secrets Redaction: /api/v4/args Endpoint Leaks Password Hash and SNMP Credentials",
-      "description": "## Summary\n\nThe GHSA-gh4x fix (commit 5d3de60) addressed unauthenticated configuration secrets exposure on the `/api/v4/config` endpoints by introducing `as_dict_secure()` redaction. However, the `/api/v4/args` and `/api/v4/args/{item}` endpoints were not addressed by this fix. These endpoints return the complete command-line arguments namespace via `vars(self.args)`, which includes the password hash (salt + pbkdf2_hmac), SNMP community strings, SNMP authentication keys, and the configuration file path. When Glances runs without `--password` (the default), these endpoints are accessible without any authentication.\n\n## Details\n\nThe secrets exposure fix (GHSA-gh4x, commit 5d3de60) modified three config-related endpoints to use `as_dict_secure()` when no password is configured:\n\n```python\n# glances/outputs/glances_restful_api.py:1168 (FIXED)\nargs_json = self.config.as_dict() if self.args.password else self.config.as_dict_secure()\n```\n\nHowever, the `_api_args` and `_api_args_item` endpoint",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-200"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "Glances"
-      ],
-      "published": "2026-03-16T16:26:54Z",
-      "updated": "2026-03-16T16:26:55Z",
-      "url": "https://github.com/advisories/GHSA-cvwp-r2g2-j824",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/nicolargo/glances/security/advisories/GHSA-cvwp-r2g2-j824",
-        "https://github.com/nicolargo/glances/commit/ff14eb9780ee10ec018c754754b1c8c7bfb6c44f",
-        "https://github.com/nicolargo/glances/releases/tag/v4.5.2",
-        "https://github.com/advisories/GHSA-cvwp-r2g2-j824"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-vcv2-q258-wrg7",
-      "cve_id": "CVE-2026-32608",
-      "severity": "HIGH",
-      "summary": "Glances has a Command Injection via Process Names in Action Command Templates",
-      "description": "## Summary\n\nThe Glances action system allows administrators to configure shell commands that execute when monitoring thresholds are exceeded. These commands support Mustache template variables (e.g., `{{name}}`, `{{key}}`) that are populated with runtime monitoring data. The `secure_popen()` function, which executes these commands, implements its own pipe, redirect, and chain operator handling by splitting the command string before passing each segment to `subprocess.Popen(shell=False)`. When a Mustache-rendered value (such as a process name, filesystem mount point, or container name) contains pipe, redirect, or chain metacharacters, the rendered command is split in unintended ways, allowing an attacker who controls a process name or container name to inject arbitrary commands.\n\n## Details\n\n**The action execution flow:**\n\n1. Admin configures an action in glances.conf (documented feature):\n\n```ini\n[cpu]\ncritical_action=echo \"High CPU on {{name}}\" | mail admin@example.com\n```\n\n2. When th",
-      "cvss_score": 7.0,
-      "cvss_vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-78"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "Glances"
-      ],
-      "published": "2026-03-16T16:26:22Z",
-      "updated": "2026-03-16T16:26:25Z",
-      "url": "https://github.com/advisories/GHSA-vcv2-q258-wrg7",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/nicolargo/glances/security/advisories/GHSA-vcv2-q258-wrg7",
-        "https://github.com/nicolargo/glances/commit/6f4ec53d967478e69917078e6f73f448001bf107",
-        "https://github.com/nicolargo/glances/releases/tag/v4.5.2",
-        "https://github.com/advisories/GHSA-vcv2-q258-wrg7"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-wj2j-qwcf-cfcc",
-      "cve_id": "CVE-2026-32606",
-      "severity": "HIGH",
-      "summary": "IncusOS has a LUKS encryption bypass due to insufficient TPM policy",
-      "description": "The default configuration of systemd-cryptenroll as used by IncusOS through mkosi allows for an attacker with physical access to the machine to access the encrypted data without requiring any interaction by the system's owner or any tampering of Secure Boot state or kernel (UKI) boot image.\n\nThat's because in this configuration, the LUKS key is made available by the TPM so long as the system has the expected PCR7 value and the PCR11 policy matches. That default PCR11 policy importantly allows for the TPM to release the key to the booted system rather than just from the initrd part of the signed kernel image (UKI).\n\nThe attack relies on the attacker being able to substitute the original encrypted root partition for one that they control. By doing so, the system will prompt for a recovery key on boot, which the attacker has defined and can provide, before booting the system using the attacker's root partition rather than the system's original one.\n\nThe attacker only needs to put a system",
-      "cvss_score": 7.7,
-      "cvss_vector": "CVSS:3.1/AV:P/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-522"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/lxc/incus-os/incus-osd"
-      ],
-      "published": "2026-03-16T16:26:00Z",
-      "updated": "2026-03-16T16:26:01Z",
-      "url": "https://github.com/advisories/GHSA-wj2j-qwcf-cfcc",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/lxc/incus-os/security/advisories/GHSA-wj2j-qwcf-cfcc",
-        "https://github.com/lxc/incus-os/pull/954",
-        "https://github.com/lxc/incus-os/commit/e3b35f230d23443d27752eac27ebb2b22c957b75",
-        "https://discuss.linuxcontainers.org/t/potential-luks-encryption-bypass-through-filesystem-confusion/26348",
-        "https://oddlama.org/blog/bypassing-disk-encryption-with-tpm2-unlock",
-        "https://github.com/advisories/GHSA-wj2j-qwcf-cfcc"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -778,7 +770,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-16T20:42:03.914213+00:00",
+    "catalog_version": "2026-03-17T02:27:59.977593+00:00",
     "source": "CISA KEV"
   }
 }
