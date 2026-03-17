@@ -2,7 +2,7 @@
   "threat_id": "thr-60e16cc41777",
   "title": "CVE-2025-54920 - Apache Spark: Spark History Server Code Execution Vulnerability",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2025-54920 - Apache Spark: Spark History Server Code Exe\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/16\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*hive.metastore.uris*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2025-54920 - Apache Spark: Spark History Server Code Exe\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/17\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*hive.metastore.uris*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"hive.metastore.uris\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"hive.metastore.uris\")"
   },
