@@ -12,7 +12,7 @@ import os
 import sys
 import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 REPO_ROOT = Path(__file__).parent.parent
 INDEX_HTML = REPO_ROOT / "index.html"
@@ -100,7 +100,7 @@ def compute_kpis(merged: list) -> dict:
 def main():
     print("=" * 60)
     print("SENTINEL APEX — EMBEDDED_INTEL AUTO-UPDATER")
-    print(f"Run: {datetime.utcnow().isoformat()}Z")
+    print(f"Run: {datetime.now(timezone.utc).isoformat()}")
     print("=" * 60)
 
     feed = load_manifest(FEED_MANIFEST)
