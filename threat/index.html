@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Global Threat Intelligence Feed | CYBERDUDEBIVASH Sentinel APEX</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Live global cybersecurity threat intelligence feed including CVEs, malware campaigns, APT activity, and vulnerability analysis.">
+
+<!-- SEO -->
+<link rel="canonical" href="https://intel.cyberdudebivash.com/threat/">
+
+<!-- Open Graph -->
+<meta property="og:title" content="CYBERDUDEBIVASH Threat Intelligence Feed">
+<meta property="og:description" content="Real-time global threat intelligence platform">
+
+<!-- AdSense -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+<style>
+body {
+    margin: 0;
+    font-family: system-ui;
+    background: #0b0f1a;
+    color: #e6edf3;
+}
+
+.container {
+    max-width: 1100px;
+    margin: auto;
+    padding: 20px;
+}
+
+h1 {
+    color: #58a6ff;
+}
+
+.search-box {
+    margin: 20px 0;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background: #111827;
+    color: white;
+}
+
+.card {
+    background: #111827;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 15px;
+    transition: 0.2s;
+}
+
+.card:hover {
+    transform: scale(1.01);
+}
+
+a {
+    color: #58a6ff;
+    text-decoration: none;
+}
+
+.meta {
+    font-size: 13px;
+    color: #9ca3af;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🚨 CYBERDUDEBIVASH Threat Intelligence Feed</h1>
+
+<p class="meta">Real-time global threat intelligence powered by Sentinel APEX</p>
+
+<!-- AdSense Top -->
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-XXXXXXXXXXXX"
+     data-ad-slot="1111111111"
+     data-ad-format="auto"></ins>
+
+<div class="search-box">
+<input type="text" id="search" placeholder="Search threats (CVE, malware, APT...)">
+</div>
+
+<div id="threat-list"></div>
+
+</div>
+
+<script>
+async function loadThreats() {
+    const res = await fetch("../data/stix/feed_manifest.json");
+    const data = await res.json();
+
+    const container = document.getElementById("threat-list");
+
+    data.reverse().forEach(item => {
+        const slug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0,80);
+
+        const el = document.createElement("div");
+        el.className = "card";
+
+        el.innerHTML = `
+            <h3><a href="./${slug}.html">${item.title}</a></h3>
+            <p class="meta">Risk Score: ${item.risk_score || "N/A"} / 10</p>
+        `;
+
+        container.appendChild(el);
+    });
+
+    // Search filter
+    document.getElementById("search").addEventListener("input", function() {
+        const val = this.value.toLowerCase();
+        document.querySelectorAll(".card").forEach(card => {
+            card.style.display = card.innerText.toLowerCase().includes(val) ? "block" : "none";
+        });
+    });
+}
+
+loadThreats();
+</script>
+
+<script>
+(adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+
+</body>
+</html>
