@@ -4,12 +4,12 @@
   "rules": {
     "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-31888 - Shopware has user enumeration via distinct \nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/17\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '6.6.10.15'\n            - '6.7.8.1'\n    condition: selection_ip\nlevel: high",
     "suricata": [
-      "alert ip any any -> 6.6.10.15 any (msg:\"CDB APEX \u2014 CVE_2026_31888___Shopware_has_\"; sid:6590226; rev:1;)",
-      "alert ip any any -> 6.7.8.1 any (msg:\"CDB APEX \u2014 CVE_2026_31888___Shopware_has_\"; sid:9207161; rev:1;)"
+      "alert ip any any -> 6.6.10.15 any (msg:\"CDB APEX \u2014 CVE_2026_31888___Shopware_has_\"; sid:4212972; rev:1;)",
+      "alert ip any any -> 6.7.8.1 any (msg:\"CDB APEX \u2014 CVE_2026_31888___Shopware_has_\"; sid:6309316; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 6.6.10.15 any (msg:\"CDB APEX CVE_2026_31888___Shopware_has_\"; sid:1124408; rev:1;)",
-      "alert ip any any -> 6.7.8.1 any (msg:\"CDB APEX CVE_2026_31888___Shopware_has_\"; sid:2940856; rev:1;)"
+      "alert ip any any -> 6.6.10.15 any (msg:\"CDB APEX CVE_2026_31888___Shopware_has_\"; sid:6787287; rev:1;)",
+      "alert ip any any -> 6.7.8.1 any (msg:\"CDB APEX CVE_2026_31888___Shopware_has_\"; sid:4687823; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"6.6.10.15\",\n              \"6.7.8.1\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"6.6.10.15\", \"6.7.8.1\")"
