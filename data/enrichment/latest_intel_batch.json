@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-17T13:19:56.398891+00:00",
+  "timestamp": "2026-03-17T17:06:14.250457+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -293,6 +293,96 @@
     }
   ],
   "github_advisories": [
+    {
+      "ghsa_id": "GHSA-43w5-mmxv-cpvh",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Micronaut vulnerable to DoS via crafted form-urlencoded body binding with descending array indices",
+      "description": "In `JsonBeanPropertyBinder::expandArrayToThreshold` in `io.micronaut:micronaut-json-core` before Micronaut 4 4.10.16 and in Micronaut 3 before 3.10.5 does not correctly handle descending array index order during form-urlencoded body binding, which allows remote attackers to cause a denial of service (non-terminating loop, CPU exhaustion, and OutOfMemoryError) via crafted indexed form parameters (e.g., `authors[1].name` followed by `authors[0].name`).\n\n### Example\n\nWith such an application\n\n```java\npackage dosform;\n\nimport io.micronaut.http.HttpResponse;\nimport io.micronaut.http.MediaType;\nimport io.micronaut.http.annotation.Body;\nimport io.micronaut.http.annotation.Consumes;\nimport io.micronaut.http.annotation.Controller;\nimport io.micronaut.http.annotation.Get;\nimport io.micronaut.http.annotation.Post;\nimport io.micronaut.http.annotation.Produces;\n\nimport java.net.URI;\n\n@Controller\nclass HomeController {\n\n    @Produces(MediaType.TEXT_HTML)\n    @Get\n    String index() {\n        return ",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-835"
+      ],
+      "ecosystems": [
+        "maven",
+        "maven"
+      ],
+      "packages": [
+        "io.micronaut:micronaut-json-core",
+        "io.micronaut:micronaut-json-core"
+      ],
+      "published": "2026-03-17T16:59:59Z",
+      "updated": "2026-03-17T17:00:02Z",
+      "url": "https://github.com/advisories/GHSA-43w5-mmxv-cpvh",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/micronaut-projects/micronaut-core/security/advisories/GHSA-43w5-mmxv-cpvh",
+        "https://github.com/micronaut-projects/micronaut-core/pull/12410",
+        "https://github.com/micronaut-projects/micronaut-core/commit/1afe509677c51b320041b7a2c177366d4a4deb55",
+        "https://github.com/micronaut-projects/micronaut-core/releases/tag/v3.10.5",
+        "https://github.com/micronaut-projects/micronaut-core/releases/tag/v4.10.16",
+        "https://github.com/advisories/GHSA-43w5-mmxv-cpvh"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-jr27-m4p2-rc6r",
+      "cve_id": "CVE-2026-30922",
+      "severity": "HIGH",
+      "summary": "Denial of Service in pyasn1 via Unbounded Recursion",
+      "description": "### Summary\nThe `pyasn1` library is vulnerable to a Denial of Service (DoS) attack caused by uncontrolled recursion when decoding ASN.1 data with deeply nested structures. An attacker can supply a crafted payload containing nested `SEQUENCE` (`0x30`) or `SET` (`0x31`) tags with Indefinite Length (`0x80`) markers. This forces the decoder to recursively call itself until the Python interpreter crashes with a `RecursionError` or consumes all available memory (OOM), crashing the host application.\n\nThis is a distinct vulnerability from CVE-2026-23490 (which addressed integer overflows in OID decoding). The fix for CVE-2026-23490 (`MAX_OID_ARC_CONTINUATION_OCTETS`) does not mitigate this recursion issue.\n\n### Details\nThe vulnerability exists because the decoder iterates through the input stream and recursively calls `decodeFun` (the decoding callback) for every nested component found, without tracking or limiting the recursion depth.\nVulnerable Code Locations:\n1. `indefLenValueDecoder` (Line",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-674"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "pyasn1"
+      ],
+      "published": "2026-03-17T16:17:33Z",
+      "updated": "2026-03-17T16:17:33Z",
+      "url": "https://github.com/advisories/GHSA-jr27-m4p2-rc6r",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/pyasn1/pyasn1/security/advisories/GHSA-jr27-m4p2-rc6r",
+        "https://github.com/pyasn1/pyasn1/commit/5a49bd1fe93b5b866a1210f6bf0a3924f21572c8",
+        "https://github.com/pyasn1/pyasn1/releases/tag/v0.6.3",
+        "https://github.com/advisories/GHSA-jr27-m4p2-rc6r"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-v7cf-c9rm-wm3j",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Uncontrolled recursion DoS in JustHTML() via deeply nested HTML",
+      "description": "### Summary\n\njusthtml through 1.9.1 allows denial of service via deeply nested HTML. During parsing, `JustHTML.__init__()` always reaches `TreeBuilder.finish()`, which unconditionally calls `_populate_selectedcontent()`. That function recursively traverses the DOM via `_find_elements()` / `_find_element()` without a depth bound, allowing attacker-controlled deeply nested input to trigger an unhandled `RecursionError` on CPython. Depending on the host application's exception handling, this can abort parsing, fail requests, or terminate a worker/process.\n\n### Details\n\n`TreeBuilder.finish()` ([`treebuilder.py#L476`](https://github.com/EmilStenstrom/justhtml/blob/a866b6077770d9ec4cb6b6f9bfe7c918f98455e4/src/justhtml/treebuilder.py#L476)) unconditionally calls `_populate_selectedcontent(self.document)` at [line 494](https://github.com/EmilStenstrom/justhtml/blob/a866b6077770d9ec4cb6b6f9bfe7c918f98455e4/src/justhtml/treebuilder.py#L494). `_populate_selectedcontent()` ([`treebuilder.py#L1243`",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-674"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "justhtml"
+      ],
+      "published": "2026-03-17T14:07:38Z",
+      "updated": "2026-03-17T14:07:39Z",
+      "url": "https://github.com/advisories/GHSA-v7cf-c9rm-wm3j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/EmilStenstrom/justhtml/security/advisories/GHSA-v7cf-c9rm-wm3j",
+        "https://github.com/EmilStenstrom/justhtml/releases/tag/v1.10.0",
+        "https://github.com/advisories/GHSA-v7cf-c9rm-wm3j"
+      ]
+    },
     {
       "ghsa_id": "GHSA-3x67-4c2c-w45m",
       "cve_id": "CVE-2026-32813",
@@ -634,95 +724,6 @@
         "https://github.com/openclaw/openclaw/commit/1803d16d5cec970c54b0e1ac46b31b1cbade335c",
         "https://github.com/advisories/GHSA-63f5-hhc7-cx6p"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-qvvf-q994-x79v",
-      "cve_id": "CVE-2026-32749",
-      "severity": "HIGH",
-      "summary": "SiYuan importSY/importZipMd: path traversal via multipart filename enables arbitrary file write",
-      "description": "### Summary\n`POST /api/import/importSY` and `POST /api/import/importZipMd` write uploaded archives to a path derived from the multipart filename field without sanitization, allowing an admin to write files to arbitrary locations outside the temp directory \u2014 including system paths that enable RCE.\n\n### Details\n**File:** `kernel/api/import.go` \u2014 functions `importSY` and `importZipMd`\n\n```go\nfile := files[0]\n\n// \u274c file.Filename comes from the HTTP multipart header \u2014 fully user-controlled\nwritePath := filepath.Join(util.TempDir, \"import\", file.Filename)\n// e.g. TempDir=/siyuan/workspace/temp, file.Filename=\"../../data/evil\"\n// \u2192 writePath = /siyuan/workspace/data/evil  (escapes temp/import/)\n\nwriter, err := os.OpenFile(writePath, os.O_RDWR|os.O_CREATE, 0644)\n```\n\n`importZipMd` has a second traversal in `unzipPath` construction:\n```go\nfilenameMain := strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))\nunzipPath    := filepath.Join(util.TempDir, \"import\", filenameMain)\ngulu.Zip.Un",
-      "cvss_score": 7.6,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:C/C:L/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22",
-        "CWE-73"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/siyuan-note/siyuan/kernel"
-      ],
-      "published": "2026-03-16T18:47:02Z",
-      "updated": "2026-03-16T18:47:06Z",
-      "url": "https://github.com/advisories/GHSA-qvvf-q994-x79v",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/siyuan-note/siyuan/security/advisories/GHSA-qvvf-q994-x79v",
-        "https://github.com/advisories/GHSA-qvvf-q994-x79v"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-42ph-pf9q-cr72",
-      "cve_id": "CVE-2026-32728",
-      "severity": "HIGH",
-      "summary": "Parse Server has a stored XSS filter bypass via Content-Type MIME parameter and missing XML extension blocklist entries",
-      "description": "### Impact\n\nAn attacker who is allowed to upload files can bypass the file extension filter by appending a MIME parameter (e.g. `;charset=utf-8`) to the `Content-Type` header. This causes the extension validation to fail matching against the blocklist, allowing active content to be stored and served under the application's domain. In addition, certain XML-based file extensions that can render scripts in web browsers are not included in the default blocklist.\n\nThis can lead to stored XSS attacks, compromising session tokens, user credentials, or other sensitive data accessible via the browser's local storage.\n\n### Patches\n\nThe fix strips MIME parameters from the `Content-Type` header before validating the file extension against the blocklist. The default blocklist has also been extended to include additional XML-based extensions (`xsd`, `rng`, `rdf`, `rdf+xml`, `owl`, `mathml`, `mathml+xml`) that can render active content in web browsers.\n\nNote that the `fileUpload.fileExtensions` optio",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-79"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "parse-server",
-        "parse-server"
-      ],
-      "published": "2026-03-16T18:46:00Z",
-      "updated": "2026-03-16T18:46:01Z",
-      "url": "https://github.com/advisories/GHSA-42ph-pf9q-cr72",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/parse-community/parse-server/security/advisories/GHSA-42ph-pf9q-cr72",
-        "https://github.com/parse-community/parse-server/pull/10191",
-        "https://github.com/parse-community/parse-server/pull/10192",
-        "https://github.com/parse-community/parse-server/commit/4f53ab3cad5502a51a509d53f999e00ff7217b8d",
-        "https://github.com/parse-community/parse-server/commit/c7599c577a02b97eb5e76d4e20517b0283ae73c8",
-        "https://github.com/advisories/GHSA-42ph-pf9q-cr72"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-q6fm-p73f-x862",
-      "cve_id": "CVE-2026-32268",
-      "severity": "HIGH",
-      "summary": "Azure Blob Storage for Craft CMS Potential Sensitive Information Disclosure vulnerability",
-      "description": "Unauthenticated users can view a list of buckets the plugin has access to.\n\nThe `DefaultController->actionLoadContainerData()` endpoint allows unauthenticated users with a valid CSRF token to view a list of buckets that the plugin is allowed to see.\n\nBecause Azure can return sensitive data in error messages, additional attack vectors are also exposed.\n\nUsers should update to version 2.1.1 of the plugin to mitigate the issue.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-862"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "craftcms/azure-blob"
-      ],
-      "published": "2026-03-16T18:44:38Z",
-      "updated": "2026-03-16T18:44:41Z",
-      "url": "https://github.com/advisories/GHSA-q6fm-p73f-x862",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/craftcms/azure-blob/security/advisories/GHSA-q6fm-p73f-x862",
-        "https://github.com/craftcms/azure-blob/commit/cf69db45f393b3508a32f89ac8235554a2f026ff",
-        "https://github.com/advisories/GHSA-q6fm-p73f-x862"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -770,7 +771,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-17T13:19:56.762910+00:00",
+    "catalog_version": "2026-03-17T17:06:14.516211+00:00",
     "source": "CISA KEV"
   }
 }
