@@ -5,12 +5,12 @@
     "sigma": "title: CDB APEX v37.0 \u2014 Standalone Test: Malware Campaign\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/17\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '185.220.101.45'\n            - '45.33.32.156'\n    selection_dns:\n        query:\n            - '*darknet.org*'\n            - '*evil-login.example-malware.com*'\n            - '*malware-cdn.evil.net*'\n            - '*payload.zip*'\n    condition: selection_ip or selection_ip\nlevel: high",
     "yara": "rule CDB_APEX_Standalone_Test__Malware_Campaign {\n    meta:\n        description = \"Standalone Test: Malware Campaign\"\n        author = \"CyberDudeBivash\"\n    strings:\n        $h0 = \"a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a\" ascii nocase\n    condition:\n        any of them\n}",
     "suricata": [
-      "alert ip any any -> 185.220.101.45 any (msg:\"CDB APEX \u2014 Standalone_Test__Malware_Campa\"; sid:6708099; rev:1;)",
-      "alert ip any any -> 45.33.32.156 any (msg:\"CDB APEX \u2014 Standalone_Test__Malware_Campa\"; sid:9261356; rev:1;)"
+      "alert ip any any -> 185.220.101.45 any (msg:\"CDB APEX \u2014 Standalone_Test__Malware_Campa\"; sid:9947316; rev:1;)",
+      "alert ip any any -> 45.33.32.156 any (msg:\"CDB APEX \u2014 Standalone_Test__Malware_Campa\"; sid:9931416; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 185.220.101.45 any (msg:\"CDB APEX Standalone_Test__Malware_Campa\"; sid:6193093; rev:1;)",
-      "alert ip any any -> 45.33.32.156 any (msg:\"CDB APEX Standalone_Test__Malware_Campa\"; sid:1473223; rev:1;)"
+      "alert ip any any -> 185.220.101.45 any (msg:\"CDB APEX Standalone_Test__Malware_Campa\"; sid:7457489; rev:1;)",
+      "alert ip any any -> 45.33.32.156 any (msg:\"CDB APEX Standalone_Test__Malware_Campa\"; sid:6958924; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"185.220.101.45\",\n              \"45.33.32.156\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"darknet.org\",\n              \"evil-login.example-malware.com\",\n              \"malware-cdn.evil.net\",\n              \"payload.zip\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"file.hash.sha256\": [\n              \"a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"185.220.101.45\", \"45.33.32.156\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"darknet.org\", \"evil-login.example-malware.com\", \"malware-cdn.evil.net\", \"payload.zip\")"
