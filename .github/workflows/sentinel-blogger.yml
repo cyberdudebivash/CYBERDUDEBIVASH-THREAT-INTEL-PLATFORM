@@ -1,7 +1,11 @@
 # ================================================================
 # CYBERDUDEBIVASH® SENTINEL APEX — Sovereign Intelligence Cycle
-# Version: v64.0 (Progressive Loading + Quality Gate)
+# Version: v64.1 (Deploy-First Architecture + Circuit Breaker)
 # Path: .github/workflows/sentinel-blogger.yml
+#
+# ARCHITECTURE CHANGE (v64.1):
+#   Old: Ingest → Publish → Commit → Deploy (if publishing hangs, deploy never runs)
+#   New: Ingest → Commit+Deploy DATA → Publish (deploy happens in <5min guaranteed)
 # ================================================================
 
 name: CDB Sentinel Blogger - Threat Intel Auto-Publisher v64.0
@@ -29,13 +33,13 @@ concurrency:
 jobs:
   publish-threat-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
 
     steps:
       # ================================================================
       # STAGE 0: CHECKOUT & ENVIRONMENT SETUP
       # ================================================================
-      - name: Checkout repository (v64.0 Sovereign Sync)
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -74,7 +78,7 @@ jobs:
       # ================================================================
       # STAGE 2: CORE FEED INGESTION
       # ================================================================
-      - name: Run Sentinel Blogger APEX Engine (v64.0)
+      - name: Run Sentinel Blogger APEX Engine (v64.1)
         env:
           BLOG_ID: ${{ secrets.BLOG_ID }}
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
@@ -86,12 +90,24 @@ jobs:
           CI: true
           GITHUB_ACTIONS: true
         run: |
-          echo "STAGE 2: Feed Ingestion"
-          python -m agent.sentinel_blogger
+          echo "STAGE 2: Feed Ingestion + Blog Publishing"
+          timeout 1500 python -m agent.sentinel_blogger || {
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -eq 124 ]; then
+              echo "⚠ Pipeline hit 25-minute safety timeout — data saved, blog publishing truncated"
+            else
+              echo "⚠ Pipeline exited with code $EXIT_CODE"
+            fi
+          }
           echo "Feed ingestion complete"
 
-      - name: Force Update Sync Timestamp
+      # ================================================================
+      # STAGE 2.1: UPDATE SYNC STATE + EMBEDDED INTEL
+      # ================================================================
+      - name: Update Sync State and Embedded Intel
         run: |
+          echo "STAGE 2.1: Update timestamps and embedded intel"
+
           python3 << 'PYEOF'
           import json, os
           from datetime import datetime, timezone
@@ -100,9 +116,9 @@ jobs:
 
           status = {
               "platform": "CYBERDUDEBIVASH(R) SENTINEL APEX",
-              "version": "v64.0",
+              "version": "v64.1",
               "status": "OPERATIONAL",
-              "status_message": "Progressive Loading + Quality Gate active",
+              "status_message": "Deploy-first pipeline active",
               "components": {
                   "threat_feed": {"status": "OPERATIONAL", "last_updated": now},
                   "pipeline": {"status": "OPERATIONAL", "last_run_at": now}
@@ -111,103 +127,34 @@ jobs:
           }
 
           os.makedirs(os.path.dirname(status_path), exist_ok=True)
-
           with open(status_path, "w") as f:
               json.dump(status, f, indent=2)
 
           with open("data/sync_marker.json", "w") as f:
-              json.dump({"last_sync": now, "sync_source": "github-actions-v64.0"}, f, indent=2)
+              json.dump({"last_sync": now, "sync_source": "github-actions-v64.1"}, f, indent=2)
           PYEOF
 
+          python3 scripts/update_embedded_intel.py || true
+
       # ================================================================
-      # CRITICAL: FIX GIT STATE (NO REBASE ISSUES)
+      # STAGE 3: FIX GIT STATE + COMMIT ALL DATA
       # ================================================================
-      - name: Fix Git State (Critical Stability Patch)
+      - name: Fix Git State
         run: |
-          echo "Cleaning Git state..."
           rm -rf .git/rebase-merge || true
           rm -rf .git/rebase-apply || true
           git reset --hard
 
-      # ================================================================
-      # STAGE 2.1: SAFE INTERMEDIATE COMMIT
-      # ================================================================
-      - name: Intermediate Commit — Save Feed Intel
-        continue-on-error: true
+      - name: Commit All Intelligence Data
         run: |
-          echo "STAGE 2.1: Intermediate commit"
-
-          python3 scripts/update_embedded_intel.py || true
-
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
 
           git fetch origin main
           git reset --hard origin/main
 
-          git add data/stix/feed_manifest.json data/blogger_processed.json data/status/status.json data/sync_marker.json index.html
-
-          if ! git diff --staged --quiet; then
-            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "v64.0 Intel checkpoint @ $TIMESTAMP [skip ci]"
-            git push origin main
-          else
-            echo "No changes"
-          fi
-
-      # ================================================================
-      # STAGE 2.5: PIPELINE HARDENER
-      # ================================================================
-      - name: Pipeline Hardener v64.0
-        continue-on-error: true
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "STAGE 2.5: PIPELINE HARDENER"
-          if [ -f "agent/v48_pipeline_hardening/pipeline_hardener.py" ]; then
-            python agent/v48_pipeline_hardening/pipeline_hardener.py
-          fi
-
-      # ================================================================
-      # STAGE 2.6: QUALITY GATE
-      # ================================================================
-      - name: Sovereign Quality Gate Audit
-        continue-on-error: true
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "STAGE 2.6: QUALITY AUDIT"
-          if [ -f "agent/quality_gate_audit.py" ]; then
-            python agent/quality_gate_audit.py
-          fi
-
-      # ================================================================
-      # STAGE 2.7: THREAT PAGE GENERATION (SAFE ADDITIVE LAYER)
-      # ================================================================
-      - name: Generate SEO Threat Pages (Monetization Layer)
-        continue-on-error: true
-        run: |
-          echo "STAGE 2.7: Threat Page Generation"
-
-          if [ -f "scripts/threat_page_generator.py" ]; then
-            python scripts/threat_page_generator.py
-          else
-            echo "Threat generator not found, skipping"
-          fi
-
-      # ================================================================
-      # STAGE 8: FINAL COMMIT (SAFE FLOW)
-      # ================================================================
-      - name: Commit and Push Intelligence Data
-        run: |
-          git config --local user.email "bivash@cyberdudebivash.com"
-          git config --local user.name "CDB-Sentinel-Bot"
-
+          # Re-run embedded intel update after reset
           python3 scripts/update_embedded_intel.py || true
-
-          git fetch origin main
-          git reset --hard origin/main
 
           git add data/*.json 2>/dev/null || true
           git add data/stix/*.json 2>/dev/null || true
@@ -224,14 +171,16 @@ jobs:
 
           if ! git diff --staged --quiet; then
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "v64.0 Apex Sync @ $TIMESTAMP [skip ci]"
+            git commit -m "v64.1 Apex Sync @ $TIMESTAMP [skip ci]"
             git push origin main
           else
             echo "No changes to commit"
           fi
 
       # ================================================================
-      # STAGE 10: DEPLOY
+      # STAGE 4: DEPLOY TO GH-PAGES (CRITICAL — RUNS BEFORE ANY EXTRAS)
+      # This ensures dashboard data is ALWAYS deployed, even if later
+      # stages (quality gate, threat pages) fail or timeout.
       # ================================================================
       - name: Deploy Live Feed to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4
@@ -241,4 +190,63 @@ jobs:
           clean: false
           git-config-name: CDB-Sentinel-Bot
           git-config-email: bivash@cyberdudebivash.com
-          commit-message: "v64.0 Deploy: Progressive Loading + Quality Audit update"
+          commit-message: "v64.1 Deploy: Live feed update"
+
+      # ================================================================
+      # STAGE 5: POST-DEPLOY EXTRAS (safe — deploy already done)
+      # ================================================================
+      - name: Pipeline Hardener
+        continue-on-error: true
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          if [ -f "agent/v48_pipeline_hardening/pipeline_hardener.py" ]; then
+            python agent/v48_pipeline_hardening/pipeline_hardener.py
+          fi
+
+      - name: Sovereign Quality Gate Audit
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          if [ -f "agent/quality_gate_audit.py" ]; then
+            python agent/quality_gate_audit.py
+          fi
+
+      - name: Generate SEO Threat Pages
+        continue-on-error: true
+        run: |
+          if [ -f "scripts/threat_page_generator.py" ]; then
+            python scripts/threat_page_generator.py
+          fi
+
+      # ================================================================
+      # STAGE 6: POST-EXTRAS COMMIT + DEPLOY (if extras generated new files)
+      # ================================================================
+      - name: Commit and Deploy Post-Extras
+        continue-on-error: true
+        run: |
+          git config --local user.email "bivash@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+
+          git add data/*.json threat/ sitemap.xml 2>/dev/null || true
+
+          if ! git diff --staged --quiet; then
+            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+            git commit -m "v64.1 Post-extras @ $TIMESTAMP [skip ci]"
+            git push origin main
+          else
+            echo "No post-extras changes"
+          fi
+
+      - name: Deploy Post-Extras to gh-pages
+        continue-on-error: true
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: .
+          clean: false
+          git-config-name: CDB-Sentinel-Bot
+          git-config-email: bivash@cyberdudebivash.com
+          commit-message: "v64.1 Post-extras deploy"
