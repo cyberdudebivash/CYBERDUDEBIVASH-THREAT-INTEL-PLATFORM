@@ -183,6 +183,20 @@ jobs:
           fi
 
       # ================================================================
+      # STAGE 2.7: THREAT PAGE GENERATION (SAFE ADDITIVE LAYER)
+      # ================================================================
+      - name: Generate SEO Threat Pages (Monetization Layer)
+        continue-on-error: true
+        run: |
+          echo "STAGE 2.7: Threat Page Generation"
+
+          if [ -f "scripts/threat_page_generator.py" ]; then
+            python scripts/threat_page_generator.py
+          else
+            echo "Threat generator not found, skipping"
+          fi
+
+      # ================================================================
       # STAGE 8: FINAL COMMIT (SAFE FLOW)
       # ================================================================
       - name: Commit and Push Intelligence Data
@@ -205,6 +219,8 @@ jobs:
           git add data/remediation/*.yml 2>/dev/null || true
           git add data/premium_packs/*.zip 2>/dev/null || true
           git add index.html 2>/dev/null || true
+          git add threat 2>/dev/null || true 2>/dev/null || true
+          git add sitemap.xml 2>/dev/null || true
 
           if ! git diff --staged --quiet; then
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
