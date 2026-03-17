@@ -1464,7 +1464,7 @@
             <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin:0 0 16px 0;">Intelligence Source Breakdown</p>
             <div id="source-bar-inner"></div>
         </div>
-
+        <div id="top-threats-section" style="margin-bottom: 30px;"></div>
         <!-- ═══ THREAT GRID ═══ -->
         <div id="threat-grid">
             <div class="loading-state">
@@ -2479,6 +2479,8 @@
 	    // ✅ DEDUP PATCH (SAFE — ENTRY POINT)
             const cleanData = deduplicateIntel(data);
             data = cleanData;
+             // 🔥 TOP 10 ENGINE (SAFE CALL)
+            renderTopThreats(data);
             // Populate threat registry for XSS-safe modal dispatch
             data.forEach(item => { if (item.stix_id) threatRegistry.set(item.stix_id, item); });
 
@@ -3385,6 +3387,68 @@
     }
 
     return unique;
+}
+
+// ─────────────────────────────────────────────
+// 🔥 TOP THREAT PRIORITY ENGINE (SAFE ADD)
+// ─────────────────────────────────────────────
+
+function getThreatPriorityScore(item) {
+    let score = 0;
+
+    score += (item.risk_score || 0) * 10;
+
+    if (item.kev === true || item.kev === 1) {
+        score += 50;
+    }
+
+    if (item.epss_score) {
+        score += item.epss_score * 100;
+    }
+
+    if (item.severity === "CRITICAL") score += 40;
+    if (item.severity === "HIGH") score += 25;
+
+    return score;
+}
+
+function getTopThreats(data) {
+    return [...data]
+        .sort((a, b) => getThreatPriorityScore(b) - getThreatPriorityScore(a))
+        .slice(0, 10);
+}
+
+function renderTopThreats(data) {
+    const container = document.getElementById('top-threats-section');
+    if (!container) return;
+
+    const top = getTopThreats(data);
+
+    if (!top.length) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = `
+        <div style="margin-bottom:15px;">
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--accent);letter-spacing:3px;">
+                🔥 TOP 10 ACTIONABLE THREATS
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">
+            ${top.map(item => `
+                <div style="background:var(--bg-card);border:1px solid var(--border);padding:14px;">
+                    <div style="font-size:12px;font-weight:700;color:var(--white);">
+                        ${item.title}
+                    </div>
+                    <div style="font-size:10px;color:var(--text-muted);margin-top:6px;">
+                        Risk: ${item.risk_score || 'N/A'}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
 }
 
 
