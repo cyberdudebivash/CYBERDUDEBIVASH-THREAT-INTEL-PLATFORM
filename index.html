@@ -2528,44 +2528,23 @@
             data = cleanData;
 
       // 🔥 INTEL STATUS BAR UPDATE
-           // =====================================================
-// ✅ CYBERDUDEBIVASH v64.5 — INTEL STATUS FIX
-// =====================================================
+           const lastUpdateEl = document.getElementById('intel-last-update');
+           const newCountEl = document.getElementById('intel-new-count');
+           const dedupCountEl = document.getElementById('intel-dedup-count');
 
-const lastUpdateEl = document.getElementById('intel-last-update');
-const newCountEl = document.getElementById('intel-new-count');
-const dedupCountEl = document.getElementById('intel-dedup-count');
+               if (lastUpdateEl) {
+               lastUpdateEl.textContent = 'Last Sync: ' + new Date().toLocaleTimeString();
+                  }
 
-let syncTime;
+             if (newCountEl) {
+               newCountEl.textContent = 'Active Intel: ' + data.length;
+                   }
 
-try {
-    const res = await fetch('/data/sync_marker.json?t=' + Date.now());
-    const syncData = await res.json();
-
-    syncTime = new Date(syncData.last_sync);
-
-} catch (e) {
-    console.warn("[INTEL STATUS] Sync fallback", e);
-    syncTime = new Date();
-}
-
-// ✅ REAL SYNC TIME (FIXED)
-if (lastUpdateEl) {
-    lastUpdateEl.textContent =
-        'Last Sync: ' + syncTime.toLocaleTimeString();
-}
-
-// ✅ KEEP THESE (CORRECT LOGIC)
-if (newCountEl) {
-    newCountEl.textContent = 'Active Intel: ' + data.length;
-}
-
-if (dedupCountEl) {
-    dedupCountEl.textContent =
-        'Filtered: ' + (originalLength - data.length);
-}
-
-renderLiveExploits(data);
+             if (dedupCountEl) {
+             dedupCountEl.textContent = 'Filtered: ' + (originalLength - data.length);
+               
+                 }            
+            renderLiveExploits(data);
              // 🔥 TOP 10 ENGINE (SAFE CALL)
             renderTopThreats(data);
             // Populate threat registry for XSS-safe modal dispatch
@@ -2913,53 +2892,18 @@ renderLiveExploits(data);
             }, 1000);
         }
 
-        // =====================================================
-// ✅ CYBERDUDEBIVASH v64.5 FIX — REAL SYNC INTEGRATION
-// =====================================================
-
-async function manualRefresh() {
-
-    // 🔄 UI state
-    document.getElementById('sync-val').innerHTML =
-        'SYNC: <span style="color:#ff9d00;">REFRESHING...</span>';
-
-    const prevCount = manifestData.length;
-
-    // 🔥 Reload intel
-    await loadGOCIntel();
-
-    // ✅ FETCH REAL SYNC TIME (CRITICAL FIX)
-    let syncTime;
-    try {
-        const res = await fetch('/data/sync_marker.json?t=' + Date.now());
-        const data = await res.json();
-        syncTime = new Date(data.last_sync);
-    } catch (e) {
-        console.warn("[SYNC] fallback used", e);
-        syncTime = new Date();
-    }
-
-    // ✅ Update LAST SYNC using REAL pipeline time
-    document.getElementById('last-loaded').textContent =
-        'LAST SYNC: ' + syncTime.toLocaleTimeString();
-
-    // 🔥 Optional: also update SYNC VAL immediately
-    const diff = Math.floor((new Date() - syncTime) / 1000);
-    let display = "JUST NOW";
-    if (diff > 60) display = Math.floor(diff / 60) + "m";
-    if (diff > 3600) display = Math.floor(diff / 3600) + "h";
-
-    document.getElementById('sync-val').innerHTML =
-        `SYNC: <span style="color:#00d4aa;">${display}</span>`;
-
-    // 📡 Toast logic (unchanged)
-    if (prevCount > 0 && manifestData.length > prevCount) {
-        const newCount = manifestData.length - prevCount;
-        showToast(`🔴 ${newCount} NEW THREAT${newCount > 1 ? 'S' : ''} DETECTED — Feed updated`, 'critical', 6000);
-    } else if (prevCount > 0) {
-        showToast('✓ Feed synchronized — No new threats', 'info', 2500);
-    }
-}
+        async function manualRefresh() {
+            document.getElementById('sync-val').innerHTML = 'SYNC: <span style="color:#ff9d00;">REFRESHING...</span>';
+            const prevCount = manifestData.length;
+            await loadGOCIntel();
+            document.getElementById('last-loaded').textContent = 'LAST SYNC: ' + new Date().toLocaleTimeString();
+            if (prevCount > 0 && manifestData.length > prevCount) {
+                const newCount = manifestData.length - prevCount;
+                showToast(`🔴 ${newCount} NEW THREAT${newCount > 1 ? 'S' : ''} DETECTED — Feed updated`, 'critical', 6000);
+            } else if (prevCount > 0) {
+                showToast('✓ Feed synchronized — No new threats', 'info', 2500);
+            }
+        }
 
         // ═══════════════════════════════════════════════════════
         // v64.0 APEX ULTRA — NEW FEATURE FUNCTIONS
