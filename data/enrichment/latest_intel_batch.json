@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-17T17:06:14.250457+00:00",
+  "timestamp": "2026-03-17T20:43:02.381507+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -294,6 +294,353 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-9x67-f2v7-63rw",
+      "cve_id": "CVE-2026-33039",
+      "severity": "HIGH",
+      "summary": "AVideo vulnerable to unauthenticated SSRF via HTTP redirect bypass in LiveLinks proxy",
+      "description": "## Summary\nThe `plugin/LiveLinks/proxy.php` endpoint validates user-supplied URLs against internal/private networks using `isSSRFSafeURL()`, but only checks the initial URL. When the initial URL responds with an HTTP redirect (`Location` header), the redirect target is fetched via `fakeBrowser()` without re-validation, allowing an attacker to reach internal services (cloud metadata, RFC1918 addresses) through an attacker-controlled redirect.\n\n## Affected Component\n- `plugin/LiveLinks/proxy.php` \u2014 lines 38-42 (redirect handling without SSRF re-validation)\n- `objects/functionsBrowser.php` \u2014 `fakeBrowser()` (line 123, raw cURL fetch with no SSRF protections)\n\n## Description\n\n### Missing SSRF re-validation after HTTP redirect\n\nThe `proxy.php` endpoint validates the user-supplied `livelink` parameter against internal networks on line 18, using the comprehensive `isSSRFSafeURL()` function (which blocks private IPs, loopback, link-local/metadata, cloud metadata hostnames, and resolves DNS to ",
+      "cvss_score": 8.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-17T20:33:06Z",
+      "updated": "2026-03-17T20:33:07Z",
+      "url": "https://github.com/advisories/GHSA-9x67-f2v7-63rw",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-9x67-f2v7-63rw",
+        "https://github.com/WWBN/AVideo/commit/0e56382921fc71e64829cd1ec35f04e338c70917",
+        "https://github.com/advisories/GHSA-9x67-f2v7-63rw"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-v6c2-xwv6-8xf7",
+      "cve_id": "CVE-2026-32256",
+      "severity": "HIGH",
+      "summary": "music-metadata has an infinite loop vulnerability in ASF parser",
+      "description": "# Summary\n\nmusic-metadata's ASF parser (`parseExtensionObject()` in `lib/asf/AsfParser.ts:112-158`) enters an infinite loop when a sub-object inside the ASF Header Extension Object has `objectSize = 0`.\n\n## Root Cause\n\nWhen objectSize is 0:\n1. `remaining = 0 - 24 = -24`\n2. `tokenizer.ignore(-24)` moves the read position backward by 24 bytes\n3. `extensionSize -= 0` (loop counter never decreases)\n4. `while (extensionSize > 0)` never exits\n5. The same 24-byte header is re-read infinitely\n\nThis is the same pattern as CVE-2026-31808 (GHSA-5v7r-6r5c-r473) in file-type \u2014 strtok3's `AbstractTokenizer.ignore()` accepts negative values without validation.\n\n## Affected Methods\n- `parseFile()` \u2014 HANGS (FileTokenizer inherits vulnerable ignore())\n- `parseBuffer()` \u2014 HANGS (BufferTokenizer inherits vulnerable ignore())\n- `parseStream()` \u2014 NOT affected (ReadStreamTokenizer has own ignore() that throws RangeError)\n\n## Impact\nA 100-byte crafted .asf file permanently hangs any application using parseFil",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-835"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "music-metadata"
+      ],
+      "published": "2026-03-17T20:04:48Z",
+      "updated": "2026-03-17T20:04:49Z",
+      "url": "https://github.com/advisories/GHSA-v6c2-xwv6-8xf7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/Borewit/music-metadata/security/advisories/GHSA-v6c2-xwv6-8xf7",
+        "https://github.com/Borewit/music-metadata/releases/tag/v11.12.3",
+        "https://github.com/advisories/GHSA-v6c2-xwv6-8xf7"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-qc3p-398r-p59j",
+      "cve_id": "CVE-2026-33043",
+      "severity": "HIGH",
+      "summary": "AVideo affected by Session Hijacking via Unauthenticated Session ID Disclosure with Permissive CORS",
+      "description": "### Summary\n\n`/objects/phpsessionid.json.php` exposes the current PHP session ID to any unauthenticated request. The `allowOrigin()` function reflects any `Origin` header back in `Access-Control-Allow-Origin` with `Access-Control-Allow-Credentials: true`, enabling cross-origin session theft and full account takeover.\n\n### Details\n\n**File:** `objects/phpsessionid.json.php`\n\n```php\nallowOrigin();\n$obj = new stdClass();\n$obj->phpsessid = session_id();\necho _json_encode($obj);\n```\n\nNo authentication is required. The `allowOrigin()` function in `objects/functions.php` (line ~2648) reflects the request Origin:\n\n```php\n$HTTP_ORIGIN = empty($_SERVER['HTTP_ORIGIN']) ? @$_SERVER['HTTP_REFERER'] : $_SERVER['HTTP_ORIGIN'];\nheader(\"Access-Control-Allow-Origin: \" . $HTTP_ORIGIN);\nheader(\"Access-Control-Allow-Credentials: true\");\n```\n\nThis means any external website can make a credentialed cross-origin request and read the session ID.\n\n### PoC\n\nAn attacker hosts the following page:\n\n```html\n<script>\n",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-942"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-17T19:52:28Z",
+      "updated": "2026-03-17T19:52:30Z",
+      "url": "https://github.com/advisories/GHSA-qc3p-398r-p59j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-qc3p-398r-p59j",
+        "https://github.com/WWBN/AVideo/commit/9f4f51e5df5e3343400f9d0068705f5482b6f930",
+        "https://github.com/advisories/GHSA-qc3p-398r-p59j"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-2f9h-23f7-8gcx",
+      "cve_id": "CVE-2026-33038",
+      "severity": "HIGH",
+      "summary": "AVideo affected by unauthenticated application takeover via exposed web installer on uninitialized deployments",
+      "description": "## Summary\nThe `install/checkConfiguration.php` endpoint performs full application initialization \u2014 database setup, admin account creation, and configuration file write \u2014 from unauthenticated POST input. The only guard is checking whether `videos/configuration.php` already exists. On uninitialized deployments, any remote attacker can complete the installation with attacker-controlled credentials and an attacker-controlled database, gaining full administrative access.\n\n## Affected Component\n- `install/checkConfiguration.php` \u2014 entire file (lines 1-273)\n\n## Description\n\n### No authentication or access restriction on installer endpoint\n\nThe `checkConfiguration.php` file performs the most privileged operations in the application \u2014 creating the database schema, the admin account, and the configuration file \u2014 with no authentication, no setup token, no CSRF protection, and no IP restriction. The sole guard is a file-existence check:\n\n```php\n// install/checkConfiguration.php \u2014 lines 2-5\nif (fi",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-306"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-17T19:46:40Z",
+      "updated": "2026-03-17T19:46:41Z",
+      "url": "https://github.com/advisories/GHSA-2f9h-23f7-8gcx",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-2f9h-23f7-8gcx",
+        "https://github.com/WWBN/AVideo/commit/b3fa7869dcb935c8ab5c001a88dc29d2f92cf8e1",
+        "https://github.com/advisories/GHSA-2f9h-23f7-8gcx"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-8gc5-j5rx-235r",
+      "cve_id": "CVE-2026-33036",
+      "severity": "HIGH",
+      "summary": "fast-xml-parser affected by numeric entity expansion bypassing all entity expansion limits (incomplete fix for CVE-2026-26278)",
+      "description": "## Summary\n\nThe fix for CVE-2026-26278 added entity expansion limits (`maxTotalExpansions`, `maxExpandedLength`, `maxEntityCount`, `maxEntitySize`) to prevent XML entity expansion Denial of Service. However, these limits are only enforced for DOCTYPE-defined entities. **Numeric character references** (`&#NNN;` and `&#xHH;`) and standard XML entities (`&lt;`, `&gt;`, etc.) are processed through a separate code path that does NOT enforce any expansion limits.\n\nAn attacker can use massive numbers of numeric entity references to completely bypass all configured limits, causing excessive memory allocation and CPU consumption.\n\n## Affected Versions\n\nfast-xml-parser v5.x through v5.5.3 (and likely v5.5.5 on npm)\n\n## Root Cause\n\nIn `src/xmlparser/OrderedObjParser.js`, the `replaceEntitiesValue()` function has two separate entity replacement loops:\n\n1. **Lines 638-670**: DOCTYPE entities \u2014 expansion counting with `entityExpansionCount` and `currentExpandedLength` tracking. This was the CVE-2026",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-776"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "fast-xml-parser"
+      ],
+      "published": "2026-03-17T19:45:41Z",
+      "updated": "2026-03-17T19:45:43Z",
+      "url": "https://github.com/advisories/GHSA-8gc5-j5rx-235r",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/NaturalIntelligence/fast-xml-parser/security/advisories/GHSA-8gc5-j5rx-235r",
+        "https://github.com/NaturalIntelligence/fast-xml-parser/commit/bd26122c838e6a55e7d7ac49b4ccc01a49999a01",
+        "https://github.com/NaturalIntelligence/fast-xml-parser/releases/tag/v5.5.6",
+        "https://github.com/advisories/GHSA-8gc5-j5rx-235r"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-2hcp-gjrf-7fhc",
+      "cve_id": "CVE-2026-33012",
+      "severity": "HIGH",
+      "summary": "Micronaut Framework vulnerable to a Denial of Service in HTML error response caching",
+      "description": "`DefaultHtmlErrorResponseBodyProvider` in `io.micronaut:micronaut-http-server` since `4.7.0` and until `4.10.7` used an unbounded `ConcurrentHashMap` cache with no eviction policy. If the application throws an exception whose message may be influenced by an attacker, for example, including request query value parameters,  this could be used by remote attackers\nto cause a denial of service (unbounded heap growth and OutOfMemoryError). \n\nFixed via: https://github.com/micronaut-projects/micronaut-core/commit/1e2ba2c14386af3d47751732d02053a72b0b49b3",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "maven"
+      ],
+      "packages": [
+        "io.micronaut:micronaut-http-server"
+      ],
+      "published": "2026-03-17T18:39:27Z",
+      "updated": "2026-03-17T18:39:27Z",
+      "url": "https://github.com/advisories/GHSA-2hcp-gjrf-7fhc",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/micronaut-projects/micronaut-core/security/advisories/GHSA-2hcp-gjrf-7fhc",
+        "https://github.com/micronaut-projects/micronaut-core/commit/1e2ba2c14386af3d47751732d02053a72b0b49b3",
+        "https://github.com/micronaut-projects/micronaut-core/releases/tag/v4.10.17",
+        "https://github.com/advisories/GHSA-2hcp-gjrf-7fhc"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-wf42-42fg-fg84",
+      "cve_id": "CVE-2026-33011",
+      "severity": "HIGH",
+      "summary": "Nest Fastify HEAD Request Middleware Bypass",
+      "description": "### Impact\n\nIn a NestJS application using `@nestjs/platform-fastify`, GET middleware can be bypassed because Fastify automatically redirects HEAD requests to the corresponding GET handlers (if they exist).\n\nAs a result:\n\n- Middleware will be completely skipped.\n- The HTTP response won't include a body (since the response is truncated when redirecting a HEAD request to a GET handler).\n- The actual handler will still be executed.\n\n### Patches\n\nFixed in `@nestjs/platform-fastify@11.1.16`",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-670"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@nestjs/platform-fastify"
+      ],
+      "published": "2026-03-17T18:38:38Z",
+      "updated": "2026-03-17T18:38:38Z",
+      "url": "https://github.com/advisories/GHSA-wf42-42fg-fg84",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nestjs/nest/security/advisories/GHSA-wf42-42fg-fg84",
+        "https://github.com/nestjs/nest/commit/cbdf737cd6e7cefa52d05ecea2ae4af95c464614",
+        "https://github.com/nestjs/nest/releases/tag/v11.1.17",
+        "https://github.com/advisories/GHSA-wf42-42fg-fg84"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4263-jgmp-7pf4",
+      "cve_id": "CVE-2026-32886",
+      "severity": "HIGH",
+      "summary": "Parse Server's Cloud function dispatch crashes server via prototype chain traversal",
+      "description": "### Impact\n\nRemote clients can crash the Parse Server process by calling a cloud function endpoint with a crafted function name that traverses the JavaScript prototype chain of a registered cloud function handler, causing a stack overflow.\n\n### Patches\n\nThe fix restricts property lookups during cloud function name resolution to own properties only, preventing prototype chain traversal from stored function handlers.\n\n### Workarounds\n\nThere is no known workaround.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-1321"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-17T17:58:08Z",
+      "updated": "2026-03-17T17:58:08Z",
+      "url": "https://github.com/advisories/GHSA-4263-jgmp-7pf4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-4263-jgmp-7pf4",
+        "https://github.com/parse-community/parse-server/pull/10210",
+        "https://github.com/parse-community/parse-server/pull/10211",
+        "https://github.com/advisories/GHSA-4263-jgmp-7pf4"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-9xp9-j92r-p88v",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Parse Server crash via deeply nested query condition operators",
+      "description": "### Impact\n\nAn unauthenticated attacker can crash the Parse Server process by sending a single request with deeply nested query condition operators. This terminates the server and denies service to all connected clients.\n\n### Patches\n\nA depth limit for query condition operator nesting has been added via the `requestComplexity.queryDepth` server option. The option is disabled by default to avoid a breaking change. To mitigate, upgrade and set the option to a value appropriate for your app.\n\n### Workarounds\n\nNone.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-674"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-17T17:35:52Z",
+      "updated": "2026-03-17T17:35:53Z",
+      "url": "https://github.com/advisories/GHSA-9xp9-j92r-p88v",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-9xp9-j92r-p88v",
+        "https://github.com/parse-community/parse-server/pull/10202",
+        "https://github.com/parse-community/parse-server/pull/10203",
+        "https://github.com/advisories/GHSA-9xp9-j92r-p88v"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-phqm-jgc3-qf8g",
+      "cve_id": "CVE-2026-32254",
+      "severity": "HIGH",
+      "summary": "Kube-router Proxy Module Blindly Trusts ExternalIPs/LoadBalancer IPs Enabling Cluster-Wide Traffic Hijacking and DNS DoS",
+      "description": "# kube-router Proxy Module Does Not Validate ExternalIPs or LoadBalancer IPs Against Configured Ranges\n\n## Summary\n\nThis issue primarily affects multi-tenant clusters where untrusted users are granted namespace-scoped permissions to create or modify Services. Single-tenant clusters or clusters where all Service creators are trusted are not meaningfully affected.\n\nThe kube-router proxy module's `buildServicesInfo()` function directly copies IPs from `Service.spec.externalIPs` and `status.loadBalancer.ingress` into node-level network configuration (kube-dummy-if interface, IPVS virtual services, LOCAL routing table) without validating them against the `--service-external-ip-range` parameter. A user with namespace-scoped Service CRUD permissions can bind arbitrary VIPs on all cluster nodes or cause denial of service to critical cluster services such as kube-dns.\n\nThe `--service-external-ip-range` parameter is only consumed by the netpol (network policy) module for firewall RETURN rules. T",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/cloudnativelabs/kube-router/v2"
+      ],
+      "published": "2026-03-17T17:12:17Z",
+      "updated": "2026-03-17T17:12:18Z",
+      "url": "https://github.com/advisories/GHSA-phqm-jgc3-qf8g",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/cloudnativelabs/kube-router/security/advisories/GHSA-phqm-jgc3-qf8g",
+        "https://github.com/cloudnativelabs/kube-router/commit/a1f0b2eea3ee0f66b9a5b5c49dcb714619ccd456",
+        "https://github.com/cloudnativelabs/kube-router/releases/tag/v2.8.0",
+        "https://github.com/advisories/GHSA-phqm-jgc3-qf8g"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-7x6v-j9x4-qf24",
+      "cve_id": "CVE-2026-31898",
+      "severity": "HIGH",
+      "summary": "jsPDF has a PDF Object Injection via FreeText color",
+      "description": "### Impact\n\nUser control of arguments of the `createAnnotation` method allows users to inject arbitrary PDF objects, such as JavaScript actions.\n\nIf given the possibility to pass unsanitized input to the following method, a user can inject arbitrary PDF objects, such as JavaScript actions, which might trigger when the PDF is opened or interacted with..\n\n* `createAnnotation`: `color` parameter\n\nExample attack vector:\n\n```js\nimport { jsPDF } from 'jspdf'\n\nconst doc = new jsPDF();\n\nconst payload = '000000) /AA <</E <</S /Launch /F (calc.exe)>>>> (';\n\ndoc.createAnnotation({\n  type: 'freetext',\n  bounds: { x: 10, y: 10, w: 120, h: 20 },\n  contents: 'hello',\n  color: payload\n});\n\ndoc.save('test.pdf');\n```\n\n### Patches\n\nThe vulnerability has been fixed in jsPDF@4.2.1.\n\n### Workarounds\nSanitize user input before passing it to the vulnerable API members.",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-116"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "jspdf"
+      ],
+      "published": "2026-03-17T17:07:51Z",
+      "updated": "2026-03-17T17:07:52Z",
+      "url": "https://github.com/advisories/GHSA-7x6v-j9x4-qf24",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parallax/jsPDF/security/advisories/GHSA-7x6v-j9x4-qf24",
+        "https://github.com/parallax/jsPDF/commit/4155c4819d5eca284168e51e0e1e81126b4f14b8",
+        "https://github.com/parallax/jsPDF/releases/tag/v4.2.1",
+        "https://github.com/advisories/GHSA-7x6v-j9x4-qf24"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-7x5c-vfhj-9628",
+      "cve_id": "CVE-2026-31891",
+      "severity": "HIGH",
+      "summary": "Cockpit CMS has SQL Injection in MongoLite Aggregation Optimizer via toJsonExtractRaw() ",
+      "description": "### Impact\n\nThis is a SQL Injection vulnerability in the MongoLite Aggregation Optimizer.\n\nAny Cockpit CMS instance running version **2.13.4 or earlier** with API access enabled\nis potentially affected.\n\n**Who is impacted:**\n- Any deployment where the `/api/content/aggregate/{model}` endpoint is publicly\n  accessible or reachable by untrusted users.\n- Attackers in possession of a **valid read-only API key** (the lowest privilege level)\n  can exploit this vulnerability \u2014 no admin access is required.\n\n**What an attacker can do:**\n- Inject arbitrary SQL via unsanitized field names in aggregation queries.\n- Bypass the `_state=1` published-content filter to access unpublished or restricted content.\n- Extract unauthorized data from the underlying SQLite content database.\n\n**Confidentiality impact is High.** Integrity and availability are not directly affected\nby this vulnerability.\n\n### Patches\n\nThis vulnerability has been **patched in version 2.13.5**.\n\nAll users running Cockpit CMS version",
+      "cvss_score": 7.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "cockpit-hq/cockpit"
+      ],
+      "published": "2026-03-17T17:07:41Z",
+      "updated": "2026-03-17T17:07:43Z",
+      "url": "https://github.com/advisories/GHSA-7x5c-vfhj-9628",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/Cockpit-HQ/Cockpit/security/advisories/GHSA-7x5c-vfhj-9628",
+        "https://github.com/Cockpit-HQ/Cockpit/releases/tag/2.13.5",
+        "https://github.com/advisories/GHSA-7x5c-vfhj-9628"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-43w5-mmxv-cpvh",
       "cve_id": null,
       "severity": "HIGH",
@@ -382,348 +729,6 @@
         "https://github.com/EmilStenstrom/justhtml/releases/tag/v1.10.0",
         "https://github.com/advisories/GHSA-v7cf-c9rm-wm3j"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-3x67-4c2c-w45m",
-      "cve_id": "CVE-2026-32813",
-      "severity": "HIGH",
-      "summary": "Admidio has a Second-Order SQL Injection via List Configuration (lsc_special_field, lsc_sort, lsc_filter)",
-      "description": "## Summary\n\nThe MyList configuration feature in Admidio allows authenticated users to define custom list column layouts. User-supplied column names, sort directions, and filter conditions are stored in the `adm_list_columns` table via prepared statements (safe storage), but are later read back and interpolated directly into dynamically constructed SQL queries without sanitization or parameterization. This is a classic second-order SQL injection: safe write, unsafe read.\n\nAn attacker can inject arbitrary SQL through these stored values to read, modify, or delete any data in the database, potentially achieving full database compromise.\n\n## Details\n\n### Step 1: Storing the Payload (Safe Write)\n\nIn `modules/groups-roles/mylist_function.php` (lines 89-115), user-supplied POST array values for column names, sort directions, and filter conditions are accepted. The only validation on column values is a prefix check (must start with `usr_` or `mem_`). Sort and condition values have no validatio",
-      "cvss_score": 8.0,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-89"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "admidio/admidio"
-      ],
-      "published": "2026-03-16T21:19:09Z",
-      "updated": "2026-03-16T21:58:11Z",
-      "url": "https://github.com/advisories/GHSA-3x67-4c2c-w45m",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/Admidio/admidio/security/advisories/GHSA-3x67-4c2c-w45m",
-        "https://github.com/advisories/GHSA-3x67-4c2c-w45m"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-95cq-p4w2-32w5",
-      "cve_id": "CVE-2026-32756",
-      "severity": "HIGH",
-      "summary": "File Upload(RCE) Vulnerability in admidio",
-      "description": "### **Summary**\n\nA critical unrestricted file upload vulnerability exists in the Documents & Files module of Admidio. Due to a design flaw in how CSRF token validation and file extension verification interact within `UploadHandlerFile.php`, an authenticated user with upload permissions can bypass file extension restrictions by intentionally submitting an invalid CSRF token. This allows the upload of arbitrary file types, including PHP scripts, which may lead to Remote Code Execution (RCE) on the server.\n\n### **Details**\n\n**1. Critical - Unrestricted File Upload leading to Remote Code Execution (RCE)**\n\n**Root Cause Analysis:**\n\nThe root cause lies in a design flaw in `src/Infrastructure/Plugins/UploadHandlerFile.php`. The `UploadHandlerFile` class overrides two methods from its parent `UploadHandler` class:\n\n- `handle_form_data($file, $index)` \u2014 Validates the CSRF token. On failure, it sets `$file->error` and returns. The request is **not** terminated.\n- `handle_file_upload(...)` \u2014 Cal",
-      "cvss_score": 8.8,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-434"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "admidio/admidio"
-      ],
-      "published": "2026-03-16T21:16:50Z",
-      "updated": "2026-03-16T21:16:50Z",
-      "url": "https://github.com/advisories/GHSA-95cq-p4w2-32w5",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/Admidio/admidio/security/advisories/GHSA-95cq-p4w2-32w5",
-        "https://github.com/advisories/GHSA-95cq-p4w2-32w5"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-4w98-xf39-23gp",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Loop with Unreachable Exit Condition ('Infinite Loop') in ewe",
-      "description": "## Summary\n\newe's `handle_trailers` function contains a bug where rejected trailer headers (forbidden or undeclared) cause an infinite loop. The function recurses with the original unparsed buffer instead of advancing past the rejected header, re-parsing the same header forever. Each malicious request permanently wedges a BEAM process at 100% CPU with no timeout or escape.\n\n## Impact\n\nWhen `handle_trailers` (`ewe/internal/http1.gleam:493`) encounters a trailer that is either not in the declared trailer set or is blocked by `is_forbidden_trailer`, three code paths (lines 520, 523, 526) recurse with the original buffer `rest` instead of `Buffer(header_rest, 0)`:\n\n```gleam\n// Line 523 \u2014 uses `rest` (original buffer), not `Buffer(header_rest, 0)` (remaining)\nFalse -> handle_trailers(req, set, rest)\n```\n\nThis causes `decoder.decode_packet` to re-parse the same header on every iteration, producing an infinite loop. The BEAM process never yields, never times out, and never terminates.\n\n**Any ",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-825"
-      ],
-      "ecosystems": [
-        "erlang"
-      ],
-      "packages": [
-        "ewe"
-      ],
-      "published": "2026-03-16T20:49:50Z",
-      "updated": "2026-03-16T20:49:52Z",
-      "url": "https://github.com/advisories/GHSA-4w98-xf39-23gp",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/vshakitskiy/ewe/security/advisories/GHSA-4w98-xf39-23gp",
-        "https://github.com/vshakitskiy/ewe/commit/8513de9dcdd0005f727c0f6f15dd89f8d626f560",
-        "https://github.com/vshakitskiy/ewe/commit/d8b9b8a86470c0cb5696647997c2f34763506e37",
-        "https://github.com/advisories/GHSA-4w98-xf39-23gp"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-vvp9-7p8x-rfvv",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "lz4_flex's decompression can leak information from uninitialized memory or reused output buffer",
-      "description": "### Summary\nDecompressing invalid LZ4 data can leak data from uninitialized memory, or can leak content from previous decompression operations when reusing an output buffer.\n\n### Details\nThe LZ4 block format defines a \"match copy operation\" which duplicates previously written data or data from the user-supplied dict. The position of that data is defined by an _offset_. The data is copied within the output buffer from the _offset_ to the current output position.\nHowever, lz4_flex did not properly detect invalid and out-of-bounds _offset_ values properly, causing it to copy uninitialized data from the output buffer.\n\nOnly the block based API functions are affected: \n`lz4_flex::block::{decompress_into, decompress_into_with_dict}`\n\nAll `frame` APIs are _not_ affected.\n\nThere are two affected use cases:\n- decompressing LZ4 data with the `unsafe` implementation (`safe-decode` feature flag disabled, which is enabled by default):\ncan leak content of uninitialized memory as decompressed result\n",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-201",
-        "CWE-823"
-      ],
-      "ecosystems": [
-        "rust",
-        "rust"
-      ],
-      "packages": [
-        "lz4_flex",
-        "lz4_flex"
-      ],
-      "published": "2026-03-16T20:48:08Z",
-      "updated": "2026-03-16T20:48:10Z",
-      "url": "https://github.com/advisories/GHSA-vvp9-7p8x-rfvv",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/PSeitz/lz4_flex/security/advisories/GHSA-vvp9-7p8x-rfvv",
-        "https://github.com/PSeitz/lz4_flex/commit/055502ee5d297ecd6bf448ac91c055c7f6df9b6d",
-        "https://github.com/advisories/GHSA-vvp9-7p8x-rfvv"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-hxm7-9q36-c77f",
-      "cve_id": "CVE-2026-32769",
-      "severity": "HIGH",
-      "summary": "Fullchain's Invalid NetworkPolicy enables a malicious actor to pivot into another namespace",
-      "description": "### Impact\n\nDue to a mis-written NetworkPolicy, a malicious actor can pivot from a subverted application to any Pod out of the origin namespace.\nThis breaks the security-by-default property expected as part of the deployment program, leading to a potential lateral movement.\n\n### Patch\n\nRemoving the `inter-ns` NetworkPolicy patches the vulnerability. If updates are not possible in production environments, we recommend to manually delete it and update as soon as possible.\n\n### Workaround\n\nGiven your context, delete the failing network policy that should be prefixed by `inter-ns-` in the target namespace.\nYou can use the following to delete all matching network policy. If unsure of the outcome, please do it manually.\n\n```bash\nfor ns in $(kubectl get ns -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\\n' | grep '^ns-'); do\n  kubectl -n \"$ns\" get networkpolicy -o name \\\n  | grep '^networkpolicy.networking.k8s.io/inter-ns-' \\\n  | xargs -r kubectl -n \"$ns\" delete\ndone\n```",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-284"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/ctfer-io/fullchain"
-      ],
-      "published": "2026-03-16T20:47:15Z",
-      "updated": "2026-03-16T21:55:30Z",
-      "url": "https://github.com/advisories/GHSA-hxm7-9q36-c77f",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/ctfer-io/fullchain/security/advisories/GHSA-hxm7-9q36-c77f",
-        "https://github.com/ctfer-io/fullchain/commit/dbcb90178bcb07a3f5a1efa4c6350f3a6ce34f51",
-        "https://github.com/ctfer-io/fullchain/releases/tag/v0.1.1",
-        "https://github.com/advisories/GHSA-hxm7-9q36-c77f"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-p799-g7vv-f279",
-      "cve_id": "CVE-2026-32805",
-      "severity": "HIGH",
-      "summary": " Romeo is vulnerable to Archive Slip due to missing checks in sanitization",
-      "description": "## Summary\n\nThe `sanitizeArchivePath` function in `webserver/api/v1/decoder.go` (lines 80-88) is vulnerable to a path traversal bypass due to a missing trailing path separator in the `strings.HasPrefix` check. A crafted tar archive can write files outside the intended destination directory.\n\n## Vulnerable Code\n\nFile: `webserver/api/v1/decoder.go`, lines 80-88\n\n```go\nfunc sanitizeArchivePath(d, t string) (v string, err error) {\n\tv = filepath.Join(d, t)\n\tif strings.HasPrefix(v, filepath.Clean(d)) {\n\t\treturn v, nil\n\t}\n\treturn \"\", &ErrPathTainted{\n\t\tPath: t,\n\t}\n}\n```\n\nThe function is called at line 48 inside `[*Decompressor].Unzip`, which is invoked by `Decode` (line 80) during execution of the webserver CLI (command `download`).\n\n## Root Cause\n\n`strings.HasPrefix(v, filepath.Clean(d))` does not append a trailing `/` to the directory prefix, causing a **directory name prefix collision**. If the destination is `/home/user/extract-output` and a tar entry is named `../extract-outputevil/pwned",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/ctfer-io/romeo/webserver"
-      ],
-      "published": "2026-03-16T20:47:02Z",
-      "updated": "2026-03-16T21:55:50Z",
-      "url": "https://github.com/advisories/GHSA-p799-g7vv-f279",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/ctfer-io/romeo/security/advisories/GHSA-p799-g7vv-f279",
-        "https://github.com/ctfer-io/romeo/commit/c2ebcfb9f305fd5f6ef68858de82507dbac10263",
-        "https://github.com/advisories/GHSA-p799-g7vv-f279"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-f7cq-gvh6-qr25",
-      "cve_id": "CVE-2026-32771",
-      "severity": "HIGH",
-      "summary": "Monitoring is vulnerable to Archive Slip due to missing checks in sanitization",
-      "description": "The `sanitizeArchivePath` function in `pkg/extract/extract.go` (lines 248\u2013254) is vulnerable to a path traversal bypass due to a missing trailing path separator in the `strings.HasPrefix` check. A crafted tar archive can write files outside the intended destination directory when using the `extractor` CLI tool or the `extract.DumpOTelCollector` library function.\n\n## Vulnerable Code\n\nFile: `pkg/extract/extract.go`, lines 248\u2013254\n\n```go\nfunc sanitizeArchivePath(d, t string) (v string, err error) {\n    v = filepath.Join(d, t)\n    if strings.HasPrefix(v, filepath.Clean(d)) {   // \u2190 missing trailing separator\n        return v, nil\n    }\n    return \"\", fmt.Errorf(\"filepath is tainted: %s\", t)\n}\n```\n\nThe function is called at line 219 inside `untar`, which is invoked by `copyFromPod` (line 205) during the Cold Extract data dump workflow.\n\n## Root Cause\n\n`strings.HasPrefix(v, filepath.Clean(d))` does not append a trailing `/` to the directory prefix, causing a **directory name prefix collision",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/ctfer-io/monitoring"
-      ],
-      "published": "2026-03-16T20:46:48Z",
-      "updated": "2026-03-16T21:55:40Z",
-      "url": "https://github.com/advisories/GHSA-f7cq-gvh6-qr25",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/ctfer-io/monitoring/security/advisories/GHSA-f7cq-gvh6-qr25",
-        "https://github.com/ctfer-io/monitoring/commit/269dba165aa42210352628c0db6756f3b8fd3c8a",
-        "https://github.com/advisories/GHSA-f7cq-gvh6-qr25"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-fgm3-q9r5-43v9",
-      "cve_id": "CVE-2026-32737",
-      "severity": "HIGH",
-      "summary": "Romeo's invalid NetworkPolicy enables a malicious actor to pivot into another namespace ",
-      "description": "### Impact\n\nDue to a mis-written NetworkPolicy, a malicious actor can pivot from the \"hardened\" namespace to any Pod out of it.\nThis breaks the security-by-default property expected as part of the deployment program, leading to a potential lateral movement.\n\n### Patch\n\nRemoving the `inter-ns` NetworkPolicy patches the vulnerability. If updates are not possible in production environments, we recommend to manually delete it and update as soon as possible.\n\n### Workaround\n\nGiven your context, delete the failing network policy that should be prefixed by `inter-ns-` in the target namespace.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-284"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/ctfer-io/romeo/environment/deploy"
-      ],
-      "published": "2026-03-16T20:45:59Z",
-      "updated": "2026-03-16T20:46:02Z",
-      "url": "https://github.com/advisories/GHSA-fgm3-q9r5-43v9",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/ctfer-io/romeo/security/advisories/GHSA-fgm3-q9r5-43v9",
-        "https://github.com/ctfer-io/romeo/commit/3bb5e9d9ce1199dfbb90fef8ad79ebdeb0bc5e78",
-        "https://github.com/advisories/GHSA-fgm3-q9r5-43v9"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-mw24-f3xh-j3qv",
-      "cve_id": "CVE-2026-32768",
-      "severity": "HIGH",
-      "summary": "Chall-Manager's invalid NetworkPolicy enables a malicious actor to pivot into another namespace",
-      "description": "### Impact\n\nDue to a mis-written NetworkPolicy, a malicious actor can pivot from an instance to any Pod out of the origin namespace.\nThis breaks the security-by-default property expected as part of the deployment program, leading to a potential lateral movement.\nIn the specific case of `sdk/kubernetes.Kompose` it does not isolate the instances.\n\n### Patch\n\nRemoving the `inter-ns` NetworkPolicy patches the vulnerability. If updates are not possible in production environments, we recommend to manually delete it and update as soon as possible.\n\n### Workaround\n\nGiven your context, delete the failing network policy that should be prefixed by `inter-ns-` in the target namespace.\nYou can use the following to delete all matching network policy. If unsure of the outcome, please do it manually.\n\n```bash\nfor ns in $(kubectl get ns -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\\n' | grep '^cm-target-'); do\n  kubectl -n \"$ns\" get networkpolicy -o name \\\n  | grep '^networkpolicy.networking.k8s.i",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-284"
-      ],
-      "ecosystems": [
-        "go",
-        "go"
-      ],
-      "packages": [
-        "github.com/ctfer-io/chall-manager/deploy",
-        "github.com/ctfer-io/chall-manager/sdk"
-      ],
-      "published": "2026-03-16T20:45:34Z",
-      "updated": "2026-03-16T21:55:25Z",
-      "url": "https://github.com/advisories/GHSA-mw24-f3xh-j3qv",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/ctfer-io/chall-manager/security/advisories/GHSA-mw24-f3xh-j3qv",
-        "https://github.com/ctfer-io/chall-manager/commit/dc5ef27dfed2befef7f506ab8ca14d062b0d79c5",
-        "https://github.com/ctfer-io/chall-manager/releases/tag/v0.6.5",
-        "https://github.com/advisories/GHSA-mw24-f3xh-j3qv"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-g2f6-pwvx-r275",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpneClaw accepts unsanitized iMessage attachment paths which allowed SCP remote-path command injection",
-      "description": "### Summary\n`openclaw` versions `<= 2026.3.12` accepted unsanitized iMessage remote attachment paths when staging files over SCP, allowing shell metacharacters in the remote path operand.\n\n### Affected Packages / Versions\n- Package: `openclaw` (`npm`)\n- Affected versions: `<= 2026.3.12`\n- Fixed version: `2026.3.13`\n\n### Details\nThe vulnerable path was the remote attachment staging flow in `src/auto-reply/reply/stage-sandbox-media.ts`. When `ctx.MediaRemoteHost` was set, OpenClaw staged the attachment by spawning `/usr/bin/scp` against `<remoteHost>:<remotePath>`. In affected releases, the remote host was normalized but the remote attachment path was not validated for shell metacharacters before being passed to the SCP remote operand. A sender-controlled iMessage attachment filename containing shell metacharacters could therefore trigger command execution on the configured remote host when remote attachment staging was enabled.\n\nThis issue is in scope under OpenClaw's trust model becaus",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-78"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-03-16T20:41:12Z",
-      "updated": "2026-03-16T20:41:16Z",
-      "url": "https://github.com/advisories/GHSA-g2f6-pwvx-r275",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-g2f6-pwvx-r275",
-        "https://github.com/openclaw/openclaw/commit/a54bf71b4c0cbe554a84340b773df37ee8e959de",
-        "https://github.com/advisories/GHSA-g2f6-pwvx-r275"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-jq3f-vjww-8rq7",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw Telegram webhook request bodies were read before secret validation, enabling unauthenticated resource exhaustion",
-      "description": "### Summary\n`openclaw` versions `<= 2026.3.12` read and buffered Telegram webhook request bodies before validating `x-telegram-bot-api-secret-token`. This let unauthenticated callers force up to the configured webhook body limit of pre-auth body I/O and JSON parse work per request.\n\n### Affected Packages / Versions\n- Package: `openclaw` (`npm`)\n- Affected versions: `<= 2026.3.12`\n- Fixed version: `2026.3.13`\n\n### Details\nThe vulnerable path was the standalone Telegram webhook listener in `src/telegram/webhook.ts`. In affected releases, the request handler accepted `POST` requests, called `readJsonBodyWithLimit(...)`, and only then checked the Telegram secret header. Because the secret validation happened after body reading, an unauthenticated caller could make the server spend memory, socket time, and JSON parse work on requests that should have been rejected before any body processing.\n\nThis issue is in scope under OpenClaw's trust model because the Telegram webhook endpoint accepts u",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-400"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-03-16T20:40:57Z",
-      "updated": "2026-03-16T20:41:01Z",
-      "url": "https://github.com/advisories/GHSA-jq3f-vjww-8rq7",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-jq3f-vjww-8rq7",
-        "https://github.com/openclaw/openclaw/commit/7e49e98f79073b11134beac27fdff547ba5a4a02",
-        "https://github.com/advisories/GHSA-jq3f-vjww-8rq7"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-63f5-hhc7-cx6p",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw bootstrap setup codes could be replayed to escalate pending pairing scopes before approval",
-      "description": "### Summary\n`openclaw` versions `<= 2026.3.12` allowed bootstrap setup codes to be replayed before approval, which could widen the scopes on a pending device pairing request.\n\n### Affected Packages / Versions\n- Package: `openclaw` (`npm`)\n- Affected versions: `<= 2026.3.12`\n- Fixed version: `2026.3.13`\n\n### Details\nThe vulnerable path was bootstrap token verification in `src/infra/device-bootstrap.ts`. In affected releases, a valid bootstrap setup code could be verified more than once before the pairing request was approved. That allowed a second verification attempt to mutate a pending device pairing and request broader scopes, including escalation from a lower operator scope to `operator.admin`, before an approver finalized the pairing.\n\nThis issue is in scope under OpenClaw's trust model because bootstrap setup codes are an authentication primitive for device pairing and the replay changed the privileges granted to the pending device.\n\n### Fix\n`openclaw@2026.3.13` makes bootstrap se",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-269"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-03-16T20:40:23Z",
-      "updated": "2026-03-16T20:40:26Z",
-      "url": "https://github.com/advisories/GHSA-63f5-hhc7-cx6p",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-63f5-hhc7-cx6p",
-        "https://github.com/openclaw/openclaw/commit/1803d16d5cec970c54b0e1ac46b31b1cbade335c",
-        "https://github.com/advisories/GHSA-63f5-hhc7-cx6p"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -771,7 +776,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-17T17:06:14.516211+00:00",
+    "catalog_version": "2026-03-17T20:43:02.589141+00:00",
     "source": "CISA KEV"
   }
 }
