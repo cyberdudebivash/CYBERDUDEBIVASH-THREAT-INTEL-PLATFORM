@@ -32,15 +32,22 @@ logger = logging.getLogger("CDB-PUBLISH-GUARD")
 # ---------------------------------------------------------------------------
 
 MIN_PUBLISH_INTERVAL = 4       # v55.3: Reduced from 8→4s. Blogger API allows ~10 posts/min.
-MAX_RETRY_ATTEMPTS = 3         # v55.3: Reduced from 5→3. Save time budget for more articles.
-RETRY_BASE_DELAY = 20          # v55.3: Reduced from 60→20s. Blogger 429 clears faster than 60s.
+MAX_RETRY_ATTEMPTS = 2         # v64.1: Reduced from 3→2. Save time for deploy stage.
+RETRY_BASE_DELAY = 15          # v64.1: Reduced from 20→15s. Faster recovery.
 RETRY_BACKOFF_FACTOR = 1.5     # Multiplier for exponential backoff
+CIRCUIT_BREAKER_THRESHOLD = 2  # v64.1: After N consecutive 429s, stop publishing this run
+MAX_PUBLISH_PER_RUN = 20       # v64.1: Cap publishes per run to prevent timeout
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PENDING_QUEUE_FILE = BASE_DIR / "data" / "pending_publish.json"
 
 # Track last publish timestamp for rate limiting
 _last_publish_time: float = 0.0
+
+# v64.1: Circuit breaker state — prevents timeout from cascading 429 retries
+_consecutive_429_count: int = 0
+_circuit_open: bool = False
+_publish_count_this_run: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -67,11 +74,27 @@ def publish_with_retry(service, blog_id: str, post_body: Dict) -> Tuple[bool, Op
     """
     Attempt to publish to Blogger with retry on 429/5xx errors.
     v55.0 FIX: Sanitizes HTML content before API call to prevent HttpError 400.
+    v64.1 FIX: Circuit breaker — stops publishing after N consecutive 429s to prevent timeout.
 
     Returns:
         (success: bool, response: dict|None, error_msg: str)
     """
+    global _consecutive_429_count, _circuit_open, _publish_count_this_run
     last_error = ""
+
+    # v64.1: Circuit breaker — skip if too many 429s this run
+    if _circuit_open:
+        title = post_body.get("title", "unknown")[:60]
+        logger.warning(f"  ⚡ CIRCUIT OPEN — skipping publish (queued for next run): {title}")
+        save_to_pending_queue(title, post_body)
+        return False, None, "circuit_breaker_open"
+
+    # v64.1: Publish cap per run
+    if _publish_count_this_run >= MAX_PUBLISH_PER_RUN:
+        title = post_body.get("title", "unknown")[:60]
+        logger.info(f"  ⏸ Publish cap reached ({MAX_PUBLISH_PER_RUN}/run) — queued: {title}")
+        save_to_pending_queue(title, post_body)
+        return False, None, "publish_cap_reached"
 
     # v55.0 FIX: Sanitize content before ANY Blogger API call
     # This fixes both new publishes AND pending queue retries
@@ -93,6 +116,9 @@ def publish_with_retry(service, blog_id: str, post_body: Dict) -> Tuple[bool, Op
 
             blog_url = response.get("url", "")
             logger.info(f"  ✓ Published on attempt {attempt}: {blog_url}")
+            # v64.1: Reset circuit breaker on success, increment count
+            _consecutive_429_count = 0
+            _publish_count_this_run += 1
             return True, response, ""
 
         except Exception as e:
@@ -104,6 +130,19 @@ def publish_with_retry(service, blog_id: str, post_body: Dict) -> Tuple[bool, Op
             is_server_error = any(code in error_str for code in ["500", "502", "503", "504"])
 
             if is_rate_limit or is_server_error:
+                # v64.1: Track consecutive 429s for circuit breaker
+                if is_rate_limit:
+                    _consecutive_429_count += 1
+                    if _consecutive_429_count >= CIRCUIT_BREAKER_THRESHOLD:
+                        _circuit_open = True
+                        title = post_body.get("title", "unknown")[:60]
+                        logger.warning(
+                            f"  🔴 CIRCUIT BREAKER TRIPPED after {_consecutive_429_count} consecutive 429s — "
+                            f"remaining items queued for next run"
+                        )
+                        save_to_pending_queue(title, post_body)
+                        return False, None, "circuit_breaker_tripped"
+
                 delay = RETRY_BASE_DELAY * (RETRY_BACKOFF_FACTOR ** (attempt - 1))
                 error_type = "RATE_LIMIT (429)" if is_rate_limit else "SERVER_ERROR"
                 logger.warning(
@@ -185,6 +224,11 @@ def retry_pending_queue(service, blog_id: str) -> int:
     remaining = []
 
     for item in queue:
+        # v64.1: If circuit breaker tripped during this queue pass, keep remaining items
+        if _circuit_open:
+            remaining.append(item)
+            continue
+
         title = item.get("title", "Unknown")
         post_body = item.get("post_body", {})
         retry_count = item.get("retry_count", 0)
