@@ -4,12 +4,12 @@
   "rules": {
     "sigma": "title: CDB APEX v37.0 \u2014 CODESYS in Festo Automation Suite\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/18\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '2.8.0.137'\n            - '2.8.0.138'\n    selection_dns:\n        query:\n            - '*certvde.com*'\n            - '*festo.csaf-tp.certvde.com*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "suricata": [
-      "alert ip any any -> 2.8.0.137 any (msg:\"CDB APEX \u2014 CODESYS_in_Festo_Automation_Su\"; sid:3560309; rev:1;)",
-      "alert ip any any -> 2.8.0.138 any (msg:\"CDB APEX \u2014 CODESYS_in_Festo_Automation_Su\"; sid:1110547; rev:1;)"
+      "alert ip any any -> 2.8.0.137 any (msg:\"CDB APEX \u2014 CODESYS_in_Festo_Automation_Su\"; sid:5904076; rev:1;)",
+      "alert ip any any -> 2.8.0.138 any (msg:\"CDB APEX \u2014 CODESYS_in_Festo_Automation_Su\"; sid:1355900; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 2.8.0.137 any (msg:\"CDB APEX CODESYS_in_Festo_Automation_Su\"; sid:9321228; rev:1;)",
-      "alert ip any any -> 2.8.0.138 any (msg:\"CDB APEX CODESYS_in_Festo_Automation_Su\"; sid:1499586; rev:1;)"
+      "alert ip any any -> 2.8.0.137 any (msg:\"CDB APEX CODESYS_in_Festo_Automation_Su\"; sid:5739216; rev:1;)",
+      "alert ip any any -> 2.8.0.138 any (msg:\"CDB APEX CODESYS_in_Festo_Automation_Su\"; sid:8278704; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"2.8.0.137\",\n              \"2.8.0.138\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"certvde.com\",\n              \"festo.csaf-tp.certvde.com\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"2.8.0.137\", \"2.8.0.138\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"certvde.com\", \"festo.csaf-tp.certvde.com\")"
