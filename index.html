@@ -3620,12 +3620,18 @@ function renderTopThreats(data) {
             if (aiPulse) aiPulse.style.display = 'none';
         }
 
-        // v55.2 FIX: Fetch actual pipeline run timestamp for accurate "Last Sync" display
-        // ROOT CAUSE: m-last-sync was showing data AGE (timeSince of newest item),
-        // not when the pipeline actually last ran. After dedup runs with no new data,
-        // "Last Sync" showed stale time even though pipeline ran successfully.
+        // v64.2 FIX: Freshest-wins sync time — only override m-last-sync if
+        // sync_marker/status.json provides a NEWER timestamp than manifest data.
+        // ROOT CAUSE OF v55.2 REGRESSION: sync_marker.json was not updated by
+        // recent pipeline runs, so fetchPipelineSyncTime() was overwriting the
+        // correct manifest-derived "1h ago" with stale "21h ago" from sync_marker.
         async function fetchPipelineSyncTime() {
             try {
+                // Determine the manifest-derived newest timestamp (already displayed)
+                const manifestNewest = manifestData.length
+                    ? Math.max(...manifestData.filter(d=>d.timestamp).map(d=>new Date(d.timestamp).getTime()))
+                    : 0;
+
                 const SYNC_URLS = [
                     atob('aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2N5YmVyZHVkZWJpdmFzaC9DWUJFUkRVREVCSVZBU0gtVEhSRUFULUlOVEVMLVBMQVRGT1JNL21haW4v') + 'data/sync_marker.json',
                     atob('aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2N5YmVyZHVkZWJpdmFzaC9DWUJFUkRVREVCSVZBU0gtVEhSRUFULUlOVEVMLVBMQVRGT1JNL21haW4v') + 'data/status/status.json',
@@ -3637,8 +3643,15 @@ function renderTopThreats(data) {
                         const d = await r.json();
                         const syncTs = d.last_sync || d.generated_at || (d.components && d.components.pipeline && d.components.pipeline.last_run_at);
                         if (syncTs) {
-                            const el = document.getElementById('m-last-sync');
-                            if (el) el.textContent = timeSince(syncTs);
+                            const syncTime = new Date(syncTs).getTime();
+                            // v64.2 GUARD: Only override if sync source is FRESHER than manifest
+                            if (syncTime > manifestNewest) {
+                                const el = document.getElementById('m-last-sync');
+                                if (el) el.textContent = timeSince(syncTs);
+                                console.info('[SYNC-MARKER] Override applied:', syncTs, '(newer than manifest)');
+                            } else {
+                                console.info('[SYNC-MARKER] Skipped stale override:', syncTs, '(manifest is fresher)');
+                            }
                             return;
                         }
                     } catch(e) { continue; }
