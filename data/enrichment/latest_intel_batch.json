@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-18T17:05:21.713855+00:00",
+  "timestamp": "2026-03-18T20:41:26.178837+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -8,6 +8,36 @@
     "urlhaus"
   ],
   "kev_recent": [
+    {
+      "cveID": "CVE-2025-66376",
+      "vendorProject": "Synacor",
+      "product": "Zimbra Collaboration Suite (ZCS)",
+      "vulnerabilityName": "Synacor Zimbra Collaboration Suite (ZCS) Cross-Site Scripting Vulnerability",
+      "dateAdded": "2026-03-18",
+      "shortDescription": "Synacor Zimbra Collaboration Suite (ZCS) contains a cross-site scripting vulnerability in the Classic UI where attackers could abuse Cascading Style Sheets (CSS) @import directives in email HTML.",
+      "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
+      "dueDate": "2026-04-01",
+      "knownRansomwareCampaignUse": "Unknown",
+      "notes": "https://wiki.zimbra.com/wiki/Zimbra_Security_Advisories ; https://nvd.nist.gov/vuln/detail/CVE-2025-66376",
+      "cwes": [
+        "CWE-79"
+      ]
+    },
+    {
+      "cveID": "CVE-2026-20963",
+      "vendorProject": "Microsoft",
+      "product": "SharePoint",
+      "vulnerabilityName": "Microsoft SharePoint Deserialization of Untrusted Data Vulnerability",
+      "dateAdded": "2026-03-18",
+      "shortDescription": "Microsoft SharePoint contains a deserialization of untrusted data vulnerability that allows an unauthorized attacker to execute code over a network.",
+      "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
+      "dueDate": "2026-03-21",
+      "knownRansomwareCampaignUse": "Unknown",
+      "notes": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-20963 ; https://nvd.nist.gov/vuln/detail/CVE-2026-20963",
+      "cwes": [
+        "CWE-502"
+      ]
+    },
     {
       "cveID": "CVE-2025-47813",
       "vendorProject": "Wing FTP Server",
@@ -279,273 +309,67 @@
   ],
   "github_advisories": [
     {
-      "ghsa_id": "GHSA-gcg3-c5p2-cqgg",
-      "cve_id": "CVE-2026-33142",
+      "ghsa_id": "GHSA-4647-wpjq-hh7f",
+      "cve_id": "CVE-2026-33226",
       "severity": "HIGH",
-      "summary": "OneUptime ClickHouse vulnerable to SQL Injection via unvalidated column identifiers in sort, select, and groupBy parameters",
-      "description": "The fix for GHSA-p5g2-jm85-8g35 (ClickHouse SQL injection via aggregate query parameters) added column name validation to the `_aggregateBy` method but did not apply the same validation to three other query construction paths in `StatementGenerator`. The `toSortStatement`, `toSelectStatement`, and `toGroupByStatement` methods accept user-controlled object keys from API request bodies and interpolate them as ClickHouse `Identifier` parameters without verifying they correspond to actual model columns.\n\nClickHouse Identifier parameters are substituted directly into queries without escaping, so an attacker who can reach any analytics list or aggregate endpoint can inject arbitrary SQL through crafted `sort`, `select`, or `groupBy` keys.\n\n## Details\n\n### Root cause\n\n`StatementGenerator.ts` has four methods that iterate over user-provided object keys to build SQL:\n\n| Method | Validates keys? |\n|--------|----------------|\n| `toWhereStatement` (line 292) | Yes - calls `this.model.getTableColum",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+      "summary": "Budibase Unrestricted Server-Side Request Forgery (SSRF) via REST Datasource Query Preview",
+      "description": "### Summary\nThe REST datasource query preview endpoint (`POST /api/queries/preview`) makes server-side HTTP requests to any URL supplied by the user in `fields.path` with no validation. An authenticated admin can reach internal services that are not exposed to the internet \u2014 including cloud metadata endpoints (AWS/GCP/Azure), internal databases, Kubernetes APIs, and other pods on the internal network. On GCP this leads to OAuth2 token theft with `cloud-platform` scope (full GCP access). On any deployment it enables full internal network enumeration.\n\n### Details\n\nThe vulnerable handler is in `packages/server/src/api/controllers/query.ts` (`preview()`). It reads `fields.path` from the request body and passes it directly to the REST HTTP client without any IP or hostname validation:\n\n```\nfields.path  \u2192  RestClient.read({ path })  \u2192  node-fetch(path)\n```\n\nNo blocklist exists for:\n- Loopback (`127.0.0.1`, `::1`)\n- RFC 1918 ranges (`10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`)\n- Link-local / ",
+      "cvss_score": 8.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:N",
       "epss_score": null,
       "cwe_ids": [
-        "CWE-89"
+        "CWE-918"
       ],
       "ecosystems": [
         "npm"
       ],
       "packages": [
-        "oneuptime"
+        "budibase"
       ],
-      "published": "2026-03-18T16:34:18Z",
-      "updated": "2026-03-18T16:34:21Z",
-      "url": "https://github.com/advisories/GHSA-gcg3-c5p2-cqgg",
+      "published": "2026-03-18T20:22:11Z",
+      "updated": "2026-03-18T20:22:12Z",
+      "url": "https://github.com/advisories/GHSA-4647-wpjq-hh7f",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/OneUptime/oneuptime/security/advisories/GHSA-gcg3-c5p2-cqgg",
-        "https://github.com/advisories/GHSA-gcg3-c5p2-cqgg"
+        "https://github.com/Budibase/budibase/security/advisories/GHSA-4647-wpjq-hh7f",
+        "https://github.com/advisories/GHSA-4647-wpjq-hh7f"
       ]
     },
     {
-      "ghsa_id": "GHSA-v3xv-8vc3-h2m6",
-      "cve_id": "CVE-2026-33139",
-      "severity": "HIGH",
-      "summary": "PySpector has a Plugin Sandbox Bypass leads to Arbitrary Code Execution",
-      "description": "### Summary\nPySpector versions `<= 0.1.6` are affected by a security validation bypass in the plugin system. The `validate_plugin_code()` function in `plugin_system.py`, performs static AST analysis to block dangerous API calls before a plugin is trusted and executed. However, the `internal resolve_name()` helper only handles `ast.Name` and `ast.Attribute` node types, returning `None` for all others. When a plugin uses indirect function calls via `getattr()` (such as `getattr(os, 'system')`) the outer call's func node is of type `ast.Call`, causing `resolve_name()` to return `None`, and the security check to be silently skipped. The plugin incorrectly passes the trust workflow, and executes arbitrary system commands on the user's machine when loaded.\n\n### Impact\nAn attacker who can deliver a malicious plugin file to a PySpector user and convince them to install it, can achieve arbitrary code execution on the user's local machine. Exploitation requires the victim to explicitly run `pysp",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-184"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "pyspector"
-      ],
-      "published": "2026-03-18T16:33:34Z",
-      "updated": "2026-03-18T16:33:36Z",
-      "url": "https://github.com/advisories/GHSA-v3xv-8vc3-h2m6",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/ParzivalHack/PySpector/security/advisories/GHSA-v3xv-8vc3-h2m6",
-        "https://github.com/advisories/GHSA-v3xv-8vc3-h2m6"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-3vj8-jmxq-cgj5",
-      "cve_id": "CVE-2026-33131",
-      "severity": "HIGH",
-      "summary": "h3 has a middleware bypass with one gadget",
-      "description": "# H3 NodeRequestUrl bugs \n\nVulnerable pieces of code : \n```js\nimport { H3, serve, defineHandler, getQuery, getHeaders, readBody, defineNodeHandler } from \"h3\";\nlet app = new H3()\n\nconst internalOnly = defineHandler((event, next) => {\n  const token = event.headers.get(\"x-internal-key\");\n\n  if (token !== \"SUPERRANDOMCANNOTBELEAKED\") {\n    return new Response(\"Forbidden\", { status: 403 });\n  }\n\n  return next();\n});\nconst logger = defineHandler((event, next) => {\n    console.log(\"Logging : \" +  event.url.hostname)\n    return next() \n})\napp.use(logger);\napp.use(\"/internal/run\", internalOnly);\n\n\napp.get(\"/internal/run\", () => {\n  return \"Internal OK\";\n});\n\nserve(app, { port: 3001 });\n```\n\nThe middleware is super safe now with just a logger and a middleware to block internal access.\nBut there's one problems here at the logger .\nWhen it log out the ```event.url``` or ```event.url.hostname``` or ```event.url._url```\n\nIt will lead to trigger one specials method \n\n```js \n// _url.mjs FastURL\nget _",
-      "cvss_score": 7.4,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-290"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "h3"
-      ],
-      "published": "2026-03-18T16:18:12Z",
-      "updated": "2026-03-18T16:18:13Z",
-      "url": "https://github.com/advisories/GHSA-3vj8-jmxq-cgj5",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/h3js/h3/security/advisories/GHSA-3vj8-jmxq-cgj5",
-        "https://github.com/advisories/GHSA-3vj8-jmxq-cgj5"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-22cc-p3c6-wpvm",
-      "cve_id": "CVE-2026-33128",
-      "severity": "HIGH",
-      "summary": "h3 has a Server-Sent Events Injection via Unsanitized Newlines in Event Stream Fields",
-      "description": "## Summary\n\n`createEventStream` in h3 is vulnerable to Server-Sent Events (SSE) injection due to missing newline sanitization in `formatEventStreamMessage()` and `formatEventStreamComment()`. An attacker who controls any part of an SSE message field (`id`, `event`, `data`, or comment) can inject arbitrary SSE events to connected clients.\n\n## Details\n\nThe vulnerability exists in `src/utils/internal/event-stream.ts`, lines [170](https://github.com/h3js/h3/blob/52c82e18bb643d124b8b9ec3b1f62b081f044611/src/utils/internal/event-stream.ts#L170)-[187](https://github.com/h3js/h3/blob/52c82e18bb643d124b8b9ec3b1f62b081f044611/src/utils/internal/event-stream.ts#L187):\n\n```typescript\nexport function formatEventStreamComment(comment: string): string {\n  return `: ${comment}\\n\\n`;\n}\n\nexport function formatEventStreamMessage(message: EventStreamMessage): string {\n  let result = \"\";\n  if (message.id) {\n    result += `id: ${message.id}\\n`;\n  }\n  if (message.event) {\n    result += `event: ${message.even",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:L/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-93"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "h3",
-        "h3"
-      ],
-      "published": "2026-03-18T16:17:43Z",
-      "updated": "2026-03-18T16:17:44Z",
-      "url": "https://github.com/advisories/GHSA-22cc-p3c6-wpvm",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/h3js/h3/security/advisories/GHSA-22cc-p3c6-wpvm",
-        "https://github.com/h3js/h3/commit/7791538e15ca22437307c06b78fa155bb73632a6",
-        "https://github.com/h3js/h3/blob/52c82e18bb643d124b8b9ec3b1f62b081f044611/src/utils/internal/event-stream.ts#L170-L187",
-        "https://github.com/advisories/GHSA-22cc-p3c6-wpvm"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-8mpm-q7mh-8fvh",
+      "ghsa_id": "GHSA-pcgw-qcv5-h8ch",
       "cve_id": null,
       "severity": "HIGH",
-      "summary": "Capgo CLI: symlink-following local secret writes enable arbitrary file overwrite + world-readable credentials (0600 missing)",
-      "description": "### Summary\nThe Capgo CLI writes sensitive local files (.capgo API key file and build credentials JSON) using unsafe file operations that follow symlinks and do not enforce safe permissions. This allows an attacker-controlled repository to cause arbitrary file overwrite on the developer\u2019s machine when the developer runs the CLI inside that repo. Additionally, global build credentials are written with world-readable permissions (664), exposing signing materials on shared systems.\n\n### Details\nIssue 1 - Arbitrary file overwrite via .capgo symlink (login --local)\n\n- Location: src/login.ts\n- Behavior: loginInternal(..., { local: true }) performs writeFileSync('.capgo', ...) before validating the API key with verifyUser().\n- No checks are performed to prevent writing through a symlink.\n- Result: if .capgo is a symlink to an arbitrary path, the CLI overwrites the symlink target with attacker-controlled content (the provided API key string), even when login fails.\n\nIssue 2 - Arbitrary file ov",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-59",
-        "CWE-276",
-        "CWE-377"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "@capgo/cli"
-      ],
-      "published": "2026-03-18T16:09:42Z",
-      "updated": "2026-03-18T16:09:44Z",
-      "url": "https://github.com/advisories/GHSA-8mpm-q7mh-8fvh",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/Cap-go/capgo/security/advisories/GHSA-8mpm-q7mh-8fvh",
-        "https://github.com/Cap-go/CLI/commit/b8aa5ccbfad2d7f10f3cdbc00910d4a6aab026b2",
-        "https://github.com/advisories/GHSA-8mpm-q7mh-8fvh"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-vg28-83rp-8xx4",
-      "cve_id": "CVE-2026-33125",
-      "severity": "HIGH",
-      "summary": "Frigte has broken access control viewer user can delete admin and other users account",
-      "description": "### Summary\nUsers with the viewer role can delete admin and other users account. It this leads to denial of service and affects data integrity.\n\n### Details\nEndpoint `DELETE /api/users/admin` is enable to anonymous user.\n\n<img width=\"436\" height=\"100\" alt=\"obraz\" src=\"https://github.com/user-attachments/assets/817f9c47-7bd9-4247-a2f1-0f40778ab229\" />\n\n### PoC\nI deleted admin user on `demo.frigate.video`:\n\n<img width=\"1091\" height=\"222\" alt=\"obraz\" src=\"https://github.com/user-attachments/assets/34f50a13-3bb7-4aa8-99fa-bd815b3dc915\" />\n\n\n### Impact\nIt this leads to denial of service and affects data integrity.\n\n### Recommended Fixes\nRestrict access to the endpoint to authenticated admin users only:\nAdd `dependencies=[Depends(require_role([\"admin\"]))])` to this endpoint.",
-      "cvss_score": 7.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-285"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "frigate"
-      ],
-      "published": "2026-03-18T14:25:15Z",
-      "updated": "2026-03-18T14:25:16Z",
-      "url": "https://github.com/advisories/GHSA-vg28-83rp-8xx4",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/blakeblackshear/frigate/security/advisories/GHSA-vg28-83rp-8xx4",
-        "https://github.com/advisories/GHSA-vg28-83rp-8xx4"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-c8rr-9gxc-jprv",
-      "cve_id": "CVE-2026-32875",
-      "severity": "HIGH",
-      "summary": "UltraJSON has an integer overflow handling large indent leads to buffer overflow or infinite loop",
-      "description": "### Summary\n\n`ujson.dumps()` crashes the Python interpreter (segmentation fault) when the product of the `indent` parameter and the nested depth of the input exceeds INT32_MAX. It can also get stuck in an infinite loop if the `indent` is a large negative number. Both are caused by an integer overflow/underflow whilst calculating how much memory to reserve for indentation. And both can be used to achieve denial of service.\n\n(Note: A negative indent to `ujson` means add spaces after colons but do not add line breaks or indentation. It is unclear to the current maintainers whether this was ever even an intended feature or just a byproduct of the way it was written.)\n\n### Exploitability\n\nTo be vulnerable, a service must call `ujson.dump()`/`ujson.dumps()`/`ujson.encode()` whilst giving untrusted users control over the `indent` parameter and not restrict that indentation to reasonably small non-negative values. (Even with the fix for this vulnerability, such usage is strongly advised agains",
+      "summary": "Unsigned SAML LogoutRequest Acceptance in gosaml2",
+      "description": "## Summary\n\nThe `ValidateEncodedLogoutRequestPOST` function in gosaml2 accepts completely unsigned SAML `LogoutRequest` messages even when `SkipSignatureValidation` is set to `false`. When `validateElementSignature` returns `dsig.ErrMissingSignature`, the code in `decode_logout_request.go:60-62` silently falls through to process the unverified XML element instead of rejecting it. An attacker who can reach the SP's Single Logout endpoint can forge a `LogoutRequest` for any user, terminating their session without possessing the IdP's signing key.\n\n## Affected Version\n\n- **Library**: `github.com/russellhaering/gosaml2`\n- **Version**: All versions up to and including the latest commit on `main` (as of 2026-03-16)\n- **File**: `decode_logout_request.go`, lines 58-69\n\n## Vulnerable Code\n\n```go\n// decode_logout_request.go:57-69\nvar requestSignatureValidated bool\nif !sp.SkipSignatureValidation {\n    el, err = sp.validateElementSignature(el)\n    if err == dsig.ErrMissingSignature {\n        // Un",
       "cvss_score": 7.5,
       "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
       "epss_score": null,
       "cwe_ids": [
-        "CWE-190",
-        "CWE-787",
-        "CWE-835"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "ujson"
-      ],
-      "published": "2026-03-18T13:01:24Z",
-      "updated": "2026-03-18T13:01:25Z",
-      "url": "https://github.com/advisories/GHSA-c8rr-9gxc-jprv",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/ultrajson/ultrajson/security/advisories/GHSA-c8rr-9gxc-jprv",
-        "https://github.com/ultrajson/ultrajson/issues/700",
-        "https://github.com/ultrajson/ultrajson/commit/486bd4553dc471a1de11613bc7347a6b318e37ea",
-        "https://github.com/advisories/GHSA-c8rr-9gxc-jprv"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-wgvc-ghv9-3pmm",
-      "cve_id": "CVE-2026-32874",
-      "severity": "HIGH",
-      "summary": "UltraJSON has a Memory Leak parsing large integers allows DoS ",
-      "description": "#### Summary\n\nujson 5.4.0 to 5.11.0 inclusive contain an accumulating memory leak in JSON parsing _large_ (outside of the range [-2^63, 2^64 - 1]) integers.\n\n#### Exploitability\n\nAny service that calls `ujson.load()`/`ujson.loads()`/`ujson.decode()` on untrusted inputs is affected and vulnerable to denial of service attacks.\n\n#### Details\n\nThe leaked memory is a copy of the string form of the integer plus an additional NULL byte. The leak occurs irrespective of whether the integer parses successfully or is rejected due to having more than `sys.get_int_max_str_digits()` digits, meaning that any sized leak per malicious JSON can be achieved provided that there is no limit on the overall size of the payload.\n\n```python\nujson.loads(str(2 ** 64 - 1))  # No leak\nujson.loads(str(2 ** 64))  # Leaks\nujson.loads(str(10 ** sys.get_int_max_str_digits()))  # Leaks and raises ValueError\n```\n\n#### Fix\n\nThe leak is fixed in `ujson 5.12.0` (4baeb950df780092bd3c89fc702a868e99a3a1d2). There are no workar",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-401"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "ujson"
-      ],
-      "published": "2026-03-18T13:01:15Z",
-      "updated": "2026-03-18T13:01:16Z",
-      "url": "https://github.com/advisories/GHSA-wgvc-ghv9-3pmm",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/ultrajson/ultrajson/security/advisories/GHSA-wgvc-ghv9-3pmm",
-        "https://github.com/ultrajson/ultrajson/commit/4baeb950df780092bd3c89fc702a868e99a3a1d2",
-        "https://github.com/ultrajson/ultrajson/releases/tag/5.12.0",
-        "https://github.com/advisories/GHSA-wgvc-ghv9-3pmm"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-r8x2-fhmf-6mxp",
-      "cve_id": "CVE-2026-32811",
-      "severity": "HIGH",
-      "summary": "Heimdall: Path received via Envoy gRPC corrupted when containing query string",
-      "description": "### Summary\nWhen using heimdall in envoy gRPC decision API mode, wrong encoding of the query URL string allows rules with non-wildcard path expressions to be bypassed.\n\nThe HTTP based decision API is NOT affected, and proxy mode is NOT affected either.\n\n**Note:** The issue can only lead to unintended access if heimdall is configured with an \"allow all\" default rule. Since v0.16.0, heimdall enforces secure defaults and refuses to start with such a configuration unless this enforcement is explicitly disabled, e.g. via `--insecure-skip-secure-default-rule-enforcement` or the broader `--insecure` flag.\n\n### Details\nEnvoy splits the requested URL into parts, and sends the parts individually to heimdall. Although `query` and `path` are present in the API, the `query` field is documented to be always empty and the URL query is included in the `path` field [1].\n\nThe implementation uses go's url library to reconstruct the url which automatically encodes special characters in the path. \n\n https:",
-      "cvss_score": 8.2,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-116",
-        "CWE-863"
+        "CWE-347"
       ],
       "ecosystems": [
         "go"
       ],
       "packages": [
-        "github.com/dadrus/heimdall"
+        "github.com/russellhaering/gosaml2"
       ],
-      "published": "2026-03-18T13:00:56Z",
-      "updated": "2026-03-18T13:00:57Z",
-      "url": "https://github.com/advisories/GHSA-r8x2-fhmf-6mxp",
+      "published": "2026-03-18T20:19:24Z",
+      "updated": "2026-03-18T20:19:25Z",
+      "url": "https://github.com/advisories/GHSA-pcgw-qcv5-h8ch",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/dadrus/heimdall/security/advisories/GHSA-r8x2-fhmf-6mxp",
-        "https://github.com/dadrus/heimdall/pull/3106",
-        "https://github.com/dadrus/heimdall/commit/50321b3007db1ccafdc6b1cfd6bdc3689c19a502",
-        "https://github.com/envoyproxy/envoy/blob/105b4acd422d67fcff908ec38d91c7676d079939/api/envoy/service/auth/v3/attribute_context.proto#L146-L147",
-        "https://github.com/advisories/GHSA-r8x2-fhmf-6mxp"
+        "https://github.com/russellhaering/gosaml2/security/advisories/GHSA-pcgw-qcv5-h8ch",
+        "https://github.com/advisories/GHSA-pcgw-qcv5-h8ch"
       ]
     },
     {
-      "ghsa_id": "GHSA-jqcq-xjh3-6g23",
+      "ghsa_id": "GHSA-hwqm-qvj9-4jr2",
       "cve_id": null,
       "severity": "HIGH",
-      "summary": "Denial of service in github.com/jackc/pgproto3/v2",
-      "description": "The DataRow.Decode function fails to properly validate field lengths. A malicious or compromised PostgreSQL server can send a DataRow message with a negative field length, causing a slice bounds out of range panic.",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "summary": "gosaml2 CBC Padding Panic \u2014 Unauthenticated Process Crash",
+      "description": "## Summary\n\nThe AES-CBC decryption path in `DecryptBytes()` panics on crafted ciphertext whose plaintext is all zero bytes. After decryption, `bytes.TrimRight(data, \"\\x00\")` empties the slice, then `data[len(data)-1]` panics with `index out of range [-1]`. There is no `recover()` in the library. The panic propagates through `ValidateEncodedResponse` and kills the goroutine (or the entire process in non-`net/http` servers). An attacker needs only the SP's public RSA key (published in SAML metadata) to construct the payload \u2014 no valid signature is required.\n\n## Affected Version\n\nAll versions of `github.com/russellhaering/gosaml2` through latest (`v0.9.0` and HEAD) that support AES-CBC encrypted assertions.\n\n## Vulnerable Code\n\n**`types/encrypted_assertion.go:65-79`** \u2014 `DecryptBytes`, AES-CBC branch:\n\n```go\ncase MethodAES128CBC, MethodAES256CBC, MethodTripleDESCBC:\n    if len(data)%k.BlockSize() != 0 {\n        return nil, fmt.Errorf(\"encrypted data is not a multiple of the expected CBC b",
+      "cvss_score": null,
+      "cvss_vector": null,
       "epss_score": null,
       "cwe_ids": [
         "CWE-129"
@@ -554,173 +378,371 @@
         "go"
       ],
       "packages": [
-        "github.com/jackc/pgproto3/v2"
+        "github.com/russellhaering/gosaml2"
       ],
-      "published": "2026-03-18T13:00:31Z",
-      "updated": "2026-03-18T13:00:32Z",
-      "url": "https://github.com/advisories/GHSA-jqcq-xjh3-6g23",
+      "published": "2026-03-18T20:19:11Z",
+      "updated": "2026-03-18T20:19:12Z",
+      "url": "https://github.com/advisories/GHSA-hwqm-qvj9-4jr2",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/golang/vulndb/issues/4518",
-        "https://github.com/jackc/pgx/issues/2507",
-        "https://securityinfinity.com/research/memory-safety-vulnerabilities-in-go-postgresql-wire-protocol-parsers-pgproto3-pgx",
-        "https://github.com/advisories/GHSA-jqcq-xjh3-6g23"
+        "https://github.com/russellhaering/gosaml2/security/advisories/GHSA-hwqm-qvj9-4jr2",
+        "https://github.com/advisories/GHSA-hwqm-qvj9-4jr2"
       ]
     },
     {
-      "ghsa_id": "GHSA-6g7g-w4f8-9c9x",
+      "ghsa_id": "GHSA-479m-364c-43vc",
       "cve_id": null,
       "severity": "HIGH",
-      "summary": "Denial of service in github.com/buger/jsonparser",
-      "description": "The Delete function fails to properly validate offsets when processing malformed JSON input. This can lead to a negative slice index and a runtime panic, allowing a denial of service attack.",
+      "summary": "validateSignature Loop Variable Capture Signature Bypass in goxmldsig",
+      "description": "### Details\n\nThe `validateSignature` function in `validate.go` goes through the references in the `SignedInfo` block to find one that matches the signed element's ID. In Go versions before 1.22, or when `go.mod` uses an older version, there is a loop variable capture issue. The code takes the address of the loop variable `_ref` instead of its value. As a result, if more than one reference matches the ID or if the loop logic is incorrect, the `ref` pointer will always end up pointing to the last element in the `SignedInfo.References` slice after the loop.\n\n------\n\n### Technical Details\n\nThe code takes the address of a loop iteration variable (&_ref). In the standard Go compiler, this variable is only allocated once for the whole loop, so its address stays the same, but its value changes with each iteration.\n\nAs a result, any pointer to this variable will always point to the value of the *last* element processed by the loop, no matter which element matched the search criteria.\n\nUsing Rad",
       "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
       "epss_score": null,
       "cwe_ids": [
-        "CWE-125"
+        "CWE-347",
+        "CWE-682"
       ],
       "ecosystems": [
         "go"
       ],
       "packages": [
-        "github.com/buger/jsonparser"
+        "github.com/russellhaering/goxmldsig"
       ],
-      "published": "2026-03-18T13:00:19Z",
-      "updated": "2026-03-18T13:00:20Z",
-      "url": "https://github.com/advisories/GHSA-6g7g-w4f8-9c9x",
+      "published": "2026-03-18T20:18:22Z",
+      "updated": "2026-03-18T20:18:23Z",
+      "url": "https://github.com/advisories/GHSA-479m-364c-43vc",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/buger/jsonparser/issues/275",
-        "https://github.com/golang/vulndb/issues/4514",
-        "https://cyber.securityinfinity.com/buger-jsonparser-negative-slice-panic-dos-2026",
-        "https://github.com/advisories/GHSA-6g7g-w4f8-9c9x"
+        "https://github.com/russellhaering/goxmldsig/security/advisories/GHSA-479m-364c-43vc",
+        "https://github.com/advisories/GHSA-479m-364c-43vc"
       ]
     },
     {
-      "ghsa_id": "GHSA-h9q6-hc68-35rp",
-      "cve_id": null,
+      "ghsa_id": "GHSA-xw36-67f8-339x",
+      "cve_id": "CVE-2026-33204",
       "severity": "HIGH",
-      "summary": "Denial of service in github.com/shamaton/msgpack",
-      "description": "The msgpack decoder fails to properly validate the input buffer length when processing truncated fixext data (format codes 0xd4-0xd8). This can lead to an out-of-bounds read and a runtime panic, allowing a denial of service attack.",
+      "summary": "SimpleJWT has an Unauthenticated Denial of Service via JWE header tampering",
+      "description": "## Summary\n\nAn unauthenticated attacker can perform a Denial of Service via JWE header tampering when PBES2 algorithms are used.  \nApplications that call `JWE::decrypt()` on attacker-controlled JWEs using PBES2 algorithms are affected.\n\n## Details\n\nPHP version: `PHP 8.4.11`\nSimpleJWT version: `v1.1.0`\n\nThe relevant portion of the vulnerable implementation is shown below ([PBES2.php](https://github.com/kelvinmo/simplejwt/blob/edb7807a240b72c59e72d7dca31add9d16555f9f/src/SimpleJWT/Crypt/KeyManagement/PBES2.php)):\n\n```PHP\n<?php\n/* ... SNIP ... */\nclass PBES2 extends BaseAlgorithm implements KeyEncryptionAlgorithm {\n    use AESKeyWrapTrait;\n\n    /** @var array<string, mixed> $alg_params */\n    static protected $alg_params = [\n        'PBES2-HS256+A128KW' => ['hash' => 'sha256'],\n        'PBES2-HS384+A192KW' => ['hash' => 'sha384'],\n        'PBES2-HS512+A256KW' => ['hash' => 'sha512']\n    ];\n\n    /** @var truthy-string $hash_alg */\n    protected $hash_alg;\n\n    /** @var int $iterations */\n ",
       "cvss_score": 7.5,
       "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
       "epss_score": null,
       "cwe_ids": [
-        "CWE-125"
-      ],
-      "ecosystems": [
-        "go",
-        "go"
-      ],
-      "packages": [
-        "github.com/shamaton/msgpack/v2",
-        "github.com/shamaton/msgpack/v3"
-      ],
-      "published": "2026-03-18T12:59:54Z",
-      "updated": "2026-03-18T12:59:55Z",
-      "url": "https://github.com/advisories/GHSA-h9q6-hc68-35rp",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/golang/vulndb/issues/4513",
-        "https://github.com/shamaton/msgpack/issues/59",
-        "https://securityinfinity.com/research/shamaton-msgpack-oob-panic-fixext-dos-2026",
-        "https://github.com/advisories/GHSA-h9q6-hc68-35rp"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-wmrf-hv6w-mr66",
-      "cve_id": "CVE-2026-32763",
-      "severity": "HIGH",
-      "summary": "SQL Injection via unsanitized JSON path keys when ignoring/silencing compilation errors or using `Kysely<any>`.",
-      "description": "### Summary\n\nKysely through 0.28.11 has a SQL injection vulnerability in JSON path compilation for MySQL and SQLite dialects. The `visitJSONPathLeg()` function appends user-controlled values from `.key()` and `.at()` directly into single-quoted JSON path string literals (`'$.key'`) without escaping single quotes. An attacker can break out of the JSON path string context and inject arbitrary SQL.\n\nThis is inconsistent with `sanitizeIdentifier()`, which properly doubles delimiter characters for identifiers \u2014 both are non-parameterizable SQL constructs requiring manual escaping, but only identifiers are protected.\n\n### Details\n\n`visitJSONPath()` wraps JSON path in single quotes (`'$...'`), and `visitJSONPathLeg()` appends each key/index value via `this.append(String(node.value))` with no sanitization:\n\n```javascript\n// dist/cjs/query-compiler/default-query-compiler.js\nvisitJSONPath(node) {\n    if (node.inOperator) {\n        this.visitNode(node.inOperator);\n    }\n    this.append(\"'$\");\n   ",
-      "cvss_score": 8.2,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-89"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "kysely"
-      ],
-      "published": "2026-03-18T12:59:32Z",
-      "updated": "2026-03-18T12:59:35Z",
-      "url": "https://github.com/advisories/GHSA-wmrf-hv6w-mr66",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/kysely-org/kysely/security/advisories/GHSA-wmrf-hv6w-mr66",
-        "https://github.com/kysely-org/kysely/commit/0a602bff2f442f6c26d5e047ca8f8715179f6d24",
-        "https://github.com/kysely-org/kysely/releases/tag/v0.28.12",
-        "https://github.com/advisories/GHSA-wmrf-hv6w-mr66"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-rf6x-r45m-xv3w",
-      "cve_id": "CVE-2026-33053",
-      "severity": "HIGH",
-      "summary": "Langflow is Missing Ownership Verification in API Key Deletion (IDOR)",
-      "description": "**Detection Method:** Kolega.dev Deep Code Scan\n\n| Attribute | Value |\n|---|---|\n| Location | src/backend/base/langflow/api/v1/api_key.py:44-53 |\n| Practical Exploitability | High |\n| Developer Approver | faizan@kolega.ai |\n\n### Description\nThe delete_api_key_route() endpoint accepts an api_key_id path parameter and deletes it with only a generic authentication check (get_current_active_user dependency). However, the delete_api_key() CRUD function does NOT verify that the API key belongs to the current user before deletion.\n\n### Affected Code\n```\n@router.delete(\"/{api_key_id}\", dependencies=[Depends(auth_utils.get_current_active_user)])\nasync def delete_api_key_route(\n    api_key_id: UUID,\n    db: DbSession,\n):\n    try:\n        await delete_api_key(db, api_key_id)\n    except Exception as e:\n        raise HTTPException(status_code=400, detail=str(e)) from e\n    return {\"detail\": \"API Key deleted\"}\n```\n\n### Evidence\nIn crud.py lines 44-49, delete_api_key() retrieves the API key by ID and",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-639"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "langflow"
-      ],
-      "published": "2026-03-18T12:58:35Z",
-      "updated": "2026-03-18T12:58:35Z",
-      "url": "https://github.com/advisories/GHSA-rf6x-r45m-xv3w",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/langflow-ai/langflow/security/advisories/GHSA-rf6x-r45m-xv3w",
-        "https://github.com/langflow-ai/langflow/commit/fdc1b3b1448ff3317d73d3e769a6c4a1717f74d7",
-        "https://github.com/langflow-ai/langflow/releases/tag/1.7.2",
-        "https://github.com/advisories/GHSA-rf6x-r45m-xv3w"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-9x67-f2v7-63rw",
-      "cve_id": "CVE-2026-33039",
-      "severity": "HIGH",
-      "summary": "AVideo vulnerable to unauthenticated SSRF via HTTP redirect bypass in LiveLinks proxy",
-      "description": "## Summary\nThe `plugin/LiveLinks/proxy.php` endpoint validates user-supplied URLs against internal/private networks using `isSSRFSafeURL()`, but only checks the initial URL. When the initial URL responds with an HTTP redirect (`Location` header), the redirect target is fetched via `fakeBrowser()` without re-validation, allowing an attacker to reach internal services (cloud metadata, RFC1918 addresses) through an attacker-controlled redirect.\n\n## Affected Component\n- `plugin/LiveLinks/proxy.php` \u2014 lines 38-42 (redirect handling without SSRF re-validation)\n- `objects/functionsBrowser.php` \u2014 `fakeBrowser()` (line 123, raw cURL fetch with no SSRF protections)\n\n## Description\n\n### Missing SSRF re-validation after HTTP redirect\n\nThe `proxy.php` endpoint validates the user-supplied `livelink` parameter against internal networks on line 18, using the comprehensive `isSSRFSafeURL()` function (which blocks private IPs, loopback, link-local/metadata, cloud metadata hostnames, and resolves DNS to ",
-      "cvss_score": 8.6,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-918"
+        "CWE-400"
       ],
       "ecosystems": [
         "composer"
       ],
       "packages": [
-        "wwbn/avideo"
+        "kelvinmo/simplejwt"
       ],
-      "published": "2026-03-17T20:33:06Z",
-      "updated": "2026-03-17T20:33:07Z",
-      "url": "https://github.com/advisories/GHSA-9x67-f2v7-63rw",
+      "published": "2026-03-18T20:16:59Z",
+      "updated": "2026-03-18T20:16:59Z",
+      "url": "https://github.com/advisories/GHSA-xw36-67f8-339x",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/WWBN/AVideo/security/advisories/GHSA-9x67-f2v7-63rw",
-        "https://github.com/WWBN/AVideo/commit/0e56382921fc71e64829cd1ec35f04e338c70917",
-        "https://github.com/advisories/GHSA-9x67-f2v7-63rw"
+        "https://github.com/kelvinmo/simplejwt/security/advisories/GHSA-xw36-67f8-339x",
+        "https://github.com/advisories/GHSA-xw36-67f8-339x"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-5rvc-5cwx-g5x8",
+      "cve_id": "CVE-2026-33192",
+      "severity": "HIGH",
+      "summary": "free5GC UDM incorrectly returns 500 for empty supi path parameter in PATCH sdm-subscriptions reques",
+      "description": "**Impact**  \nThis is an Improper Error Handling vulnerability with Information Exposure implications, combined with an HTTP Method Translation issue.  \n- **Security Impact**: The UDM incorrectly converts a downstream 400 Bad Request (from UDR) into a 500 Internal Server Error when handling PATCH requests with an empty `supi` path parameter. Additionally, the UDM incorrectly translates the PATCH method to PUT when forwarding to UDR, indicating a deeper architectural issue. This leaks internal error handling behavior and makes it difficult for clients to distinguish between client-side errors and server-side failures.  \n- **Functional Impact**: When a client sends a PATCH request with an empty `supi` (e.g., double slashes `//` in URL path), the UDM forwards a PUT request to UDR with the malformed path, which correctly returns 400. However, UDM propagates this as 500 SYSTEM_FAILURE instead of returning the appropriate 400 error to the client. This violates REST API best practices for PATC",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-209"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/free5gc/udm"
+      ],
+      "published": "2026-03-18T20:11:27Z",
+      "updated": "2026-03-18T20:11:28Z",
+      "url": "https://github.com/advisories/GHSA-5rvc-5cwx-g5x8",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/free5gc/free5gc/security/advisories/GHSA-5rvc-5cwx-g5x8",
+        "https://github.com/free5gc/free5gc/issues/784",
+        "https://github.com/free5gc/udm/pull/79",
+        "https://github.com/advisories/GHSA-5rvc-5cwx-g5x8"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-p9hg-pq3q-v9gv",
+      "cve_id": "CVE-2026-33191",
+      "severity": "HIGH",
+      "summary": "free5GC UDM vulnerable to null byte injection in URL path parameters causing 500 Internal Server Error",
+      "description": "**Impact**  \nThis is an Improper Input Validation vulnerability with Denial of Service and Injection implications.  \n- **Security Impact**: A remote attacker can inject null bytes (URL-encoded as `%00`) into the `supi` path parameter of the UDM's Nudm_SubscriberDataManagement API. This causes URL parsing failure in Go's `net/url` package with the error \"invalid control character in URL\", resulting in a 500 Internal Server Error. This null byte injection vulnerability can be exploited for denial of service attacks.  \n- **Functional Impact**: When the `supi` parameter contains null characters, the UDM attempts to construct a URL for UDR that includes these control characters. Go's URL parser rejects them, causing the request to fail with 500 instead of properly validating input and returning 400 Bad Request.  \n- **Affected Parties**: All deployments of free5GC v4.0.1 using the UDM Nudm_SDM service with endpoints that include path parameters (e.g., `/nudm-sdm/v2/{supi}/am-data`).\n\n**Patch",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-158",
+        "CWE-248"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/free5gc/udm"
+      ],
+      "published": "2026-03-18T20:11:15Z",
+      "updated": "2026-03-18T20:11:16Z",
+      "url": "https://github.com/advisories/GHSA-p9hg-pq3q-v9gv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/free5gc/free5gc/security/advisories/GHSA-p9hg-pq3q-v9gv",
+        "https://github.com/free5gc/udm/pull/79",
+        "https://github.com/advisories/GHSA-p9hg-pq3q-v9gv"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-3g9h-9hp4-654v",
+      "cve_id": "CVE-2026-33203",
+      "severity": "HIGH",
+      "summary": "SiYuan has an Unauthenticated WebSocket DoS via Auth Keepalive Bypass",
+      "description": "## Summary\nThe SiYuan kernel WebSocket server accepts unauthenticated connections when a specific \u201cauth keepalive\u201d query parameter is present. After connection, incoming messages are parsed using unchecked type assertions on attacker-controlled JSON.\n\nA remote attacker can send malformed messages that trigger a runtime panic, potentially crashing the kernel process and causing denial of service.\n\n## Details\n**1. Authentication Bypass via Keepalive Query**\n\nUnauthenticated connections are accepted if the request URI matches a specific pattern intended for an authentication page keepalive.\n\n**File: kernel/server/serve.go**\n\n```\nif !authOk {\n    authOk = strings.Contains(s.Request.RequestURI, \"/ws?app=siyuan\") &&\n             strings.Contains(s.Request.RequestURI, \"&id=auth&type=auth\")\n}\n\n```\n\n**2. Unsafe Type Assertions on Untrusted Input**\n\nIncoming JSON messages are parsed into a generic map and fields are accessed without validation.\n\n**File: kernel/server/serve.go**\n\n```\ncmdStr := re",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-248",
+        "CWE-306"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/siyuan-note/siyuan/kernel"
+      ],
+      "published": "2026-03-18T20:11:00Z",
+      "updated": "2026-03-18T20:11:01Z",
+      "url": "https://github.com/advisories/GHSA-3g9h-9hp4-654v",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/siyuan-note/siyuan/security/advisories/GHSA-3g9h-9hp4-654v",
+        "https://github.com/advisories/GHSA-3g9h-9hp4-654v"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-54jj-px8x-5w5q",
+      "cve_id": "CVE-2026-33155",
+      "severity": "HIGH",
+      "summary": "DeepDiff has Memory Exhaustion DoS through SAFE_TO_IMPORT",
+      "description": "### Summary\n\nThe pickle unpickler `_RestrictedUnpickler` validates which classes can be loaded but does not limit their constructor arguments. A few of the types in `SAFE_TO_IMPORT` have constructors that allocate memory proportional to their input (`builtins.bytes`, `builtins.list`, `builtins.range`). A 40-byte pickle payload can force 10+ GB of memory, which crashes applications that load delta objects or call `pickle_load` with untrusted data.\n\n### Details\n\nCVE-2025-58367 hardened the delta class against pollution and remote code execution by converting `SAFE_TO_IMPORT` to a `frozenset` and blocking traversal. `_RestrictedUnpickler.find_class` only gates which classes can be loaded. It doesn't intercept `REDUCE` opcodes or validate what is passed to constructors.\n\nIt can be exploited in 2 ways.\n\n**1 - During `pickle_load`**\n\nA pickle that calls `bytes(N)` using opcodes permitted by the allowlist. The allocation happens during deserialization and before the delta processes anything. ",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-400"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "deepdiff"
+      ],
+      "published": "2026-03-18T20:10:08Z",
+      "updated": "2026-03-18T20:10:09Z",
+      "url": "https://github.com/advisories/GHSA-54jj-px8x-5w5q",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/seperman/deepdiff/security/advisories/GHSA-54jj-px8x-5w5q",
+        "https://github.com/seperman/deepdiff/commit/0d07ec21d12b46ef4e489383b363eadc22d990fb",
+        "https://github.com/advisories/GHSA-54jj-px8x-5w5q"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-pxrr-hq57-q35p",
+      "cve_id": "CVE-2026-33154",
+      "severity": "HIGH",
+      "summary": "dynaconf Affected by Remote Code Execution (RCE) via Insecure Template Evaluation in @jinja Resolver",
+      "description": "### Summary\nDynaconf is vulnerable to Server-Side Template Injection (SSTI) due to unsafe template evaluation in the @jinja resolver.\nWhen the jinja2 package is installed, Dynaconf evaluates template expressions embedded in configuration values without a sandboxed environment.\n\nIf an attacker can influence configuration sources such as:\nenvironment variables\n.env files\ncontainer environment configuration\nCI/CD secrets\nthey can execute arbitrary OS commands on the host system.\nIn addition, the @format resolver allows object graph traversal, which may expose sensitive runtime objects and environment variables.\n\n### Details\nThe vulnerability arises because Dynaconf's string resolvers lack proper security boundaries.\n\n1. @jinja Resolver\nThe @jinja resolver renders templates using full Jinja2 evaluation.\nHowever, the rendering context is not sandboxed, which allows attackers to access Python's internal attributes.\nUsing objects such as cycler, attackers can reach Python's __globals__ and im",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-94",
+        "CWE-1336"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "dynaconf"
+      ],
+      "published": "2026-03-18T20:08:06Z",
+      "updated": "2026-03-18T20:08:07Z",
+      "url": "https://github.com/advisories/GHSA-pxrr-hq57-q35p",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/dynaconf/dynaconf/security/advisories/GHSA-pxrr-hq57-q35p",
+        "https://github.com/advisories/GHSA-pxrr-hq57-q35p"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-vv3x-j2x5-36jc",
+      "cve_id": "CVE-2026-33080",
+      "severity": "HIGH",
+      "summary": "Filament Unvalidated Range and Values summarizer values can be used for XSS",
+      "description": "Two Filament Table summarizers (`Range`, `Values`) render raw database values without escaping HTML. If there is a lack of validation for the data in the columns that use these summarizers, an attacker could plant malicious HTML / JavaScript and achieve stored XSS that executes for users who view the table with those summarizers.",
+      "cvss_score": 7.3,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-79",
+        "CWE-80"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "filament/tables",
+        "filament/tables"
+      ],
+      "published": "2026-03-18T20:07:24Z",
+      "updated": "2026-03-18T20:07:25Z",
+      "url": "https://github.com/advisories/GHSA-vv3x-j2x5-36jc",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/filamentphp/filament/security/advisories/GHSA-vv3x-j2x5-36jc",
+        "https://github.com/advisories/GHSA-vv3x-j2x5-36jc"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-7g27-v5wj-jr75",
+      "cve_id": "CVE-2026-33064",
+      "severity": "HIGH",
+      "summary": "free5GC UDM DataChangeNotification Procedure Panic Due to Nil Pointer Dereference",
+      "description": "**Impact**  \nThis is a NULL Pointer Dereference vulnerability leading to Denial of Service.  \n- **Security Impact**: A remote attacker can cause the UDM service to panic and crash by sending a crafted POST request to the `/sdm-subscriptions` endpoint with a malformed URL path containing path traversal sequences (`../`) and a large JSON payload. The `DataChangeNotificationProcedure` function in `notifier.go` attempts to access a nil pointer without proper validation, causing a complete service crash with \"runtime error: invalid memory address or nil pointer dereference\".  \n- **Functional Impact**: The service crashes completely, requiring manual restart. All UDM functionality is disrupted until recovery.  \n- **Affected Parties**: All deployments of free5GC v4.0.1 using the UDM HTTP callback functionality.\n\n**Patches**  \nYes, the issue has been patched.  \nThe fix is implemented in PR free5gc/udm#78.  \nUsers should upgrade to the next release of free5GC that includes this commit.\n\n**Worka",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-476"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/free5gc/udm"
+      ],
+      "published": "2026-03-18T20:06:36Z",
+      "updated": "2026-03-18T20:06:37Z",
+      "url": "https://github.com/advisories/GHSA-7g27-v5wj-jr75",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/free5gc/free5gc/security/advisories/GHSA-7g27-v5wj-jr75",
+        "https://github.com/free5gc/free5gc/issues/781",
+        "https://github.com/free5gc/udm/pull/78",
+        "https://github.com/free5gc/udm/commit/65d7070f4bfd016864cbbaefbd506bbc85d2fa92",
+        "https://github.com/advisories/GHSA-7g27-v5wj-jr75"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4jrw-92fg-4jwx",
+      "cve_id": "CVE-2026-33063",
+      "severity": "HIGH",
+      "summary": "free5GC AUSF UE Authentication Panic on Nil SuciSupiMap Interface Conversion",
+      "description": "**Impact**  \nThis is an Improper Null Check vulnerability leading to Denial of Service.  \n- **Security Impact**: A remote attacker can cause the AUSF service to panic and crash by sending a crafted UE authentication request that triggers a nil interface conversion in the `GetSupiFromSuciSupiMap` function. This results in complete denial of service for the AUSF authentication service.  \n- **Functional Impact**: The `GetSupiFromSuciSupiMap` function attempts to perform an interface conversion from `interface{}` to `*context.SuciSupiMap` without checking if the underlying value is nil. When `SuciSupiMap` is nil, the code panics with \"interface conversion: interface {} is nil, not *context.SuciSupiMap\".  \n- **Affected Parties**: All deployments of free5GC v4.0.1 using the AUSF UE authentication service (`/nausf-auth/v1/ue-authentications` endpoint).\n\n**Patches**  \nYes, the issue has been patched.  \nThe fix is implemented in PR free5gc/ausf#52 (commit: [add specific commit hash if available",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-476"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/free5gc/ausf"
+      ],
+      "published": "2026-03-18T20:06:14Z",
+      "updated": "2026-03-18T20:06:15Z",
+      "url": "https://github.com/advisories/GHSA-4jrw-92fg-4jwx",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/free5gc/free5gc/security/advisories/GHSA-4jrw-92fg-4jwx",
+        "https://github.com/free5gc/free5gc/issues/778",
+        "https://github.com/free5gc/ausf/pull/52",
+        "https://github.com/free5gc/ausf/commit/3b9ac4403c2756dc89a5ed3cdcefe688458588aa",
+        "https://github.com/advisories/GHSA-4jrw-92fg-4jwx"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-7c47-xr7q-p6hg",
+      "cve_id": "CVE-2026-33062",
+      "severity": "HIGH",
+      "summary": "free5GC NRF Discovery EncodeGroupId Function Panics on Malformed group-id-list Parameter",
+      "description": "**Impact**  \nThis is an Improper Input Validation vulnerability leading to Denial of Service.  \n- **Security Impact**: A remote attacker can cause the NRF service to panic and crash by sending a crafted HTTP GET request with a malformed `group-id-list` parameter. This results in complete denial of service for the NRF discovery service.  \n- **Functional Impact**: The `EncodeGroupId` function attempts to access array indices [0], [1], [2] without validating the length of the split data. When the parameter contains insufficient separator characters, the code panics with \"index out of range\".  \n- **Affected Parties**: All deployments of free5GC v4.0.1 using the NRF discovery service.\n\n**Patches**  \nYes, the issue has been patched.  \nThe fix is implemented in PR free5gc/nrf#80 (commit: [add fix reference here]).  \nUsers should upgrade to the next release of free5GC that includes this commit.\n\n**Workarounds**  \nThere is no direct workaround at the application level. The recommendation is to ",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/free5gc/nrf"
+      ],
+      "published": "2026-03-18T20:05:31Z",
+      "updated": "2026-03-18T20:05:33Z",
+      "url": "https://github.com/advisories/GHSA-7c47-xr7q-p6hg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/free5gc/free5gc/security/advisories/GHSA-7c47-xr7q-p6hg",
+        "https://github.com/free5gc/free5gc/issues/777",
+        "https://github.com/free5gc/nrf/pull/80",
+        "https://github.com/free5gc/nrf/commit/dac77d8f8f2e0f041c5634fb3c685dcb9734b872",
+        "https://github.com/advisories/GHSA-7c47-xr7q-p6hg"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-7rcv-55mj-chg7",
+      "cve_id": "CVE-2026-33172",
+      "severity": "HIGH",
+      "summary": "Statamic has Stored XSS via SVG Sanitization Bypass",
+      "description": "### Impact\n\nStored XSS vulnerability in SVG asset reuploads allows authenticated users with asset upload permissions to bypass SVG sanitization and inject malicious JavaScript that executes when the asset is viewed.\n\n### Patches\n\nThis has been fixed in 5.73.14 and 6.7.0.",
+      "cvss_score": 8.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "statamic/cms",
+        "statamic/cms"
+      ],
+      "published": "2026-03-18T19:54:30Z",
+      "updated": "2026-03-18T19:54:32Z",
+      "url": "https://github.com/advisories/GHSA-7rcv-55mj-chg7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/statamic/cms/security/advisories/GHSA-7rcv-55mj-chg7",
+        "https://github.com/advisories/GHSA-7rcv-55mj-chg7"
       ]
     }
   ],
   "urlhaus_iocs": [],
   "kev_stats": {
-    "total_kev_entries": 1543,
+    "total_kev_entries": 1545,
     "top_vendors": [
       {
         "vendor": "Microsoft",
-        "count": 361
+        "count": 362
       },
       {
         "vendor": "Apple",
@@ -759,7 +781,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-18T17:05:22.076462+00:00",
+    "catalog_version": "2026-03-18T20:41:26.609016+00:00",
     "source": "CISA KEV"
   }
 }
