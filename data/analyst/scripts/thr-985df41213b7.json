@@ -1,0 +1,18 @@
+{
+  "threat_id": "thr-985df41213b7",
+  "title": "The Proliferation of DarkSword: iOS Exploit Chain Adopted by Multiple Threat Act",
+  "scripts": [
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx 6cde159c\\.js|a9bc5c66\\.js|document\\.body|document\\.write|e5\\.malaymoil|file\\.includes|frame\\.src|frame\\.style\\.border|frame\\.style\\.height|frame\\.style\\.left\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-985df41213b7'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((query IN (\"6cde159c.js\",\"a9bc5c66.js\",\"document.body\",\"document.write\",\"e5.malaymoil\",\"file.includes\",\"frame.src\",\"frame.style.border\",\"frame.style.height\",\"frame.style.left\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    },
+    {
+      "type": "hardening_bash",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 \u2014 Emergency Hardening Script\n# Threat: The Proliferation of DarkSword: iOS Exploit Chain Adopted by\n# Generated: 2026-03-18T17:41:16.197688+00:00\n\necho \"[*] Updating system packages...\"\napt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null\n\necho \"[*] Enabling firewall...\"\nufw enable 2>/dev/null || firewall-cmd --set-default-zone=drop 2>/dev/null\n\necho \"[*] Disabling unnecessary services...\"\nsystemctl disable --now telnet.socket 2>/dev/null\nsystemctl disable --now rsh.socket 2>/dev/null\n\necho \"[*] Setting secure SSH configuration...\"\nsed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config\nsystemctl restart sshd\n\necho \"[+] Hardening complete for threat: thr-985df41213b7\"\n"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-728a517e9933",
+  "title": "The SOC Files: Time to \u201cSapecar\u201d. Unpacking a new Horabot campaign in Mexico",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 The SOC Files: Time to \u201cSapecar\u201d. Unpacking a new Horabot ca\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/18\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*aufal.filevexcasv*'\n            - '*cfg.brasilinst*'\n            - '*cgf.facturastbs*'\n            - '*cgf.midasx*'\n            - '*cgf.midasx.site*'\n            - '*evs.grupotuis*'\n            - '*obfuscated.endswith*'\n            - '*obfuscated.startswith*'\n            - '*page.url*'\n            - '*page.url.keyword*'\n            - '*pdj.gruposhac*'\n            - '*pe.exports*'\n            - '*thea.gruposhac*'\n            - '*upstar.pics*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"aufal.filevexcasv\",\n              \"cfg.brasilinst\",\n              \"cgf.facturastbs\",\n              \"cgf.midasx\",\n              \"cgf.midasx.site\",\n              \"evs.grupotuis\",\n              \"obfuscated.endswith\",\n              \"obfuscated.startswith\",\n              \"page.url\",\n              \"page.url.keyword\",\n              \"pdj.gruposhac\",\n              \"pe.exports\",\n              \"thea.gruposhac\",\n              \"upstar.pics\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"aufal.filevexcasv\", \"cfg.brasilinst\", \"cgf.facturastbs\", \"cgf.midasx\", \"cgf.midasx.site\", \"evs.grupotuis\", \"obfuscated.endswith\", \"obfuscated.startswith\", \"page.url\", \"page.url.keyword\")"
+  },
+  "rule_count": 3
+}
