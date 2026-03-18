@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-18T08:55:32.795241+00:00",
+  "timestamp": "2026-03-18T13:21:04.156004+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -279,6 +279,244 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-c8rr-9gxc-jprv",
+      "cve_id": "CVE-2026-32875",
+      "severity": "HIGH",
+      "summary": "UltraJSON has an integer overflow handling large indent leads to buffer overflow or infinite loop",
+      "description": "### Summary\n\n`ujson.dumps()` crashes the Python interpreter (segmentation fault) when the product of the `indent` parameter and the nested depth of the input exceeds INT32_MAX. It can also get stuck in an infinite loop if the `indent` is a large negative number. Both are caused by an integer overflow/underflow whilst calculating how much memory to reserve for indentation. And both can be used to achieve denial of service.\n\n(Note: A negative indent to `ujson` means add spaces after colons but do not add line breaks or indentation. It is unclear to the current maintainers whether this was ever even an intended feature or just a byproduct of the way it was written.)\n\n### Exploitability\n\nTo be vulnerable, a service must call `ujson.dump()`/`ujson.dumps()`/`ujson.encode()` whilst giving untrusted users control over the `indent` parameter and not restrict that indentation to reasonably small non-negative values. (Even with the fix for this vulnerability, such usage is strongly advised agains",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-190",
+        "CWE-787",
+        "CWE-835"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "ujson"
+      ],
+      "published": "2026-03-18T13:01:24Z",
+      "updated": "2026-03-18T13:01:25Z",
+      "url": "https://github.com/advisories/GHSA-c8rr-9gxc-jprv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ultrajson/ultrajson/security/advisories/GHSA-c8rr-9gxc-jprv",
+        "https://github.com/ultrajson/ultrajson/issues/700",
+        "https://github.com/ultrajson/ultrajson/commit/486bd4553dc471a1de11613bc7347a6b318e37ea",
+        "https://github.com/advisories/GHSA-c8rr-9gxc-jprv"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-wgvc-ghv9-3pmm",
+      "cve_id": "CVE-2026-32874",
+      "severity": "HIGH",
+      "summary": "UltraJSON has a Memory Leak parsing large integers allows DoS ",
+      "description": "#### Summary\n\nujson 5.4.0 to 5.11.0 inclusive contain an accumulating memory leak in JSON parsing _large_ (outside of the range [-2^63, 2^64 - 1]) integers.\n\n#### Exploitability\n\nAny service that calls `ujson.load()`/`ujson.loads()`/`ujson.decode()` on untrusted inputs is affected and vulnerable to denial of service attacks.\n\n#### Details\n\nThe leaked memory is a copy of the string form of the integer plus an additional NULL byte. The leak occurs irrespective of whether the integer parses successfully or is rejected due to having more than `sys.get_int_max_str_digits()` digits, meaning that any sized leak per malicious JSON can be achieved provided that there is no limit on the overall size of the payload.\n\n```python\nujson.loads(str(2 ** 64 - 1))  # No leak\nujson.loads(str(2 ** 64))  # Leaks\nujson.loads(str(10 ** sys.get_int_max_str_digits()))  # Leaks and raises ValueError\n```\n\n#### Fix\n\nThe leak is fixed in `ujson 5.12.0` (4baeb950df780092bd3c89fc702a868e99a3a1d2). There are no workar",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-401"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "ujson"
+      ],
+      "published": "2026-03-18T13:01:15Z",
+      "updated": "2026-03-18T13:01:16Z",
+      "url": "https://github.com/advisories/GHSA-wgvc-ghv9-3pmm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ultrajson/ultrajson/security/advisories/GHSA-wgvc-ghv9-3pmm",
+        "https://github.com/ultrajson/ultrajson/commit/4baeb950df780092bd3c89fc702a868e99a3a1d2",
+        "https://github.com/ultrajson/ultrajson/releases/tag/5.12.0",
+        "https://github.com/advisories/GHSA-wgvc-ghv9-3pmm"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-r8x2-fhmf-6mxp",
+      "cve_id": "CVE-2026-32811",
+      "severity": "HIGH",
+      "summary": "Heimdall: Path received via Envoy gRPC corrupted when containing query string",
+      "description": "### Summary\nWhen using heimdall in envoy gRPC decision API mode, wrong encoding of the query URL string allows rules with non-wildcard path expressions to be bypassed.\n\nThe HTTP based decision API is NOT affected, and proxy mode is NOT affected either.\n\n**Note:** The issue can only lead to unintended access if heimdall is configured with an \"allow all\" default rule. Since v0.16.0, heimdall enforces secure defaults and refuses to start with such a configuration unless this enforcement is explicitly disabled, e.g. via `--insecure-skip-secure-default-rule-enforcement` or the broader `--insecure` flag.\n\n### Details\nEnvoy splits the requested URL into parts, and sends the parts individually to heimdall. Although `query` and `path` are present in the API, the `query` field is documented to be always empty and the URL query is included in the `path` field [1].\n\nThe implementation uses go's url library to reconstruct the url which automatically encodes special characters in the path. \n\n https:",
+      "cvss_score": 8.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-116",
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/dadrus/heimdall"
+      ],
+      "published": "2026-03-18T13:00:56Z",
+      "updated": "2026-03-18T13:00:57Z",
+      "url": "https://github.com/advisories/GHSA-r8x2-fhmf-6mxp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/dadrus/heimdall/security/advisories/GHSA-r8x2-fhmf-6mxp",
+        "https://github.com/dadrus/heimdall/pull/3106",
+        "https://github.com/dadrus/heimdall/commit/50321b3007db1ccafdc6b1cfd6bdc3689c19a502",
+        "https://github.com/envoyproxy/envoy/blob/105b4acd422d67fcff908ec38d91c7676d079939/api/envoy/service/auth/v3/attribute_context.proto#L146-L147",
+        "https://github.com/advisories/GHSA-r8x2-fhmf-6mxp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-jqcq-xjh3-6g23",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Denial of service in github.com/jackc/pgproto3/v2",
+      "description": "The DataRow.Decode function fails to properly validate field lengths. A malicious or compromised PostgreSQL server can send a DataRow message with a negative field length, causing a slice bounds out of range panic.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-129"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/jackc/pgproto3/v2"
+      ],
+      "published": "2026-03-18T13:00:31Z",
+      "updated": "2026-03-18T13:00:32Z",
+      "url": "https://github.com/advisories/GHSA-jqcq-xjh3-6g23",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/golang/vulndb/issues/4518",
+        "https://github.com/jackc/pgx/issues/2507",
+        "https://securityinfinity.com/research/memory-safety-vulnerabilities-in-go-postgresql-wire-protocol-parsers-pgproto3-pgx",
+        "https://github.com/advisories/GHSA-jqcq-xjh3-6g23"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-6g7g-w4f8-9c9x",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Denial of service in github.com/buger/jsonparser",
+      "description": "The Delete function fails to properly validate offsets when processing malformed JSON input. This can lead to a negative slice index and a runtime panic, allowing a denial of service attack.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-125"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/buger/jsonparser"
+      ],
+      "published": "2026-03-18T13:00:19Z",
+      "updated": "2026-03-18T13:00:20Z",
+      "url": "https://github.com/advisories/GHSA-6g7g-w4f8-9c9x",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/buger/jsonparser/issues/275",
+        "https://github.com/golang/vulndb/issues/4514",
+        "https://cyber.securityinfinity.com/buger-jsonparser-negative-slice-panic-dos-2026",
+        "https://github.com/advisories/GHSA-6g7g-w4f8-9c9x"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-h9q6-hc68-35rp",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Denial of service in github.com/shamaton/msgpack",
+      "description": "The msgpack decoder fails to properly validate the input buffer length when processing truncated fixext data (format codes 0xd4-0xd8). This can lead to an out-of-bounds read and a runtime panic, allowing a denial of service attack.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-125"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/shamaton/msgpack/v2",
+        "github.com/shamaton/msgpack/v3"
+      ],
+      "published": "2026-03-18T12:59:54Z",
+      "updated": "2026-03-18T12:59:55Z",
+      "url": "https://github.com/advisories/GHSA-h9q6-hc68-35rp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/golang/vulndb/issues/4513",
+        "https://github.com/shamaton/msgpack/issues/59",
+        "https://securityinfinity.com/research/shamaton-msgpack-oob-panic-fixext-dos-2026",
+        "https://github.com/advisories/GHSA-h9q6-hc68-35rp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-wmrf-hv6w-mr66",
+      "cve_id": "CVE-2026-32763",
+      "severity": "HIGH",
+      "summary": "SQL Injection via unsanitized JSON path keys when ignoring/silencing compilation errors or using `Kysely<any>`.",
+      "description": "### Summary\n\nKysely through 0.28.11 has a SQL injection vulnerability in JSON path compilation for MySQL and SQLite dialects. The `visitJSONPathLeg()` function appends user-controlled values from `.key()` and `.at()` directly into single-quoted JSON path string literals (`'$.key'`) without escaping single quotes. An attacker can break out of the JSON path string context and inject arbitrary SQL.\n\nThis is inconsistent with `sanitizeIdentifier()`, which properly doubles delimiter characters for identifiers \u2014 both are non-parameterizable SQL constructs requiring manual escaping, but only identifiers are protected.\n\n### Details\n\n`visitJSONPath()` wraps JSON path in single quotes (`'$...'`), and `visitJSONPathLeg()` appends each key/index value via `this.append(String(node.value))` with no sanitization:\n\n```javascript\n// dist/cjs/query-compiler/default-query-compiler.js\nvisitJSONPath(node) {\n    if (node.inOperator) {\n        this.visitNode(node.inOperator);\n    }\n    this.append(\"'$\");\n   ",
+      "cvss_score": 8.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "kysely"
+      ],
+      "published": "2026-03-18T12:59:32Z",
+      "updated": "2026-03-18T12:59:35Z",
+      "url": "https://github.com/advisories/GHSA-wmrf-hv6w-mr66",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/kysely-org/kysely/security/advisories/GHSA-wmrf-hv6w-mr66",
+        "https://github.com/kysely-org/kysely/commit/0a602bff2f442f6c26d5e047ca8f8715179f6d24",
+        "https://github.com/kysely-org/kysely/releases/tag/v0.28.12",
+        "https://github.com/advisories/GHSA-wmrf-hv6w-mr66"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-rf6x-r45m-xv3w",
+      "cve_id": "CVE-2026-33053",
+      "severity": "HIGH",
+      "summary": "Langflow is Missing Ownership Verification in API Key Deletion (IDOR)",
+      "description": "**Detection Method:** Kolega.dev Deep Code Scan\n\n| Attribute | Value |\n|---|---|\n| Location | src/backend/base/langflow/api/v1/api_key.py:44-53 |\n| Practical Exploitability | High |\n| Developer Approver | faizan@kolega.ai |\n\n### Description\nThe delete_api_key_route() endpoint accepts an api_key_id path parameter and deletes it with only a generic authentication check (get_current_active_user dependency). However, the delete_api_key() CRUD function does NOT verify that the API key belongs to the current user before deletion.\n\n### Affected Code\n```\n@router.delete(\"/{api_key_id}\", dependencies=[Depends(auth_utils.get_current_active_user)])\nasync def delete_api_key_route(\n    api_key_id: UUID,\n    db: DbSession,\n):\n    try:\n        await delete_api_key(db, api_key_id)\n    except Exception as e:\n        raise HTTPException(status_code=400, detail=str(e)) from e\n    return {\"detail\": \"API Key deleted\"}\n```\n\n### Evidence\nIn crud.py lines 44-49, delete_api_key() retrieves the API key by ID and",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-639"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "langflow"
+      ],
+      "published": "2026-03-18T12:58:35Z",
+      "updated": "2026-03-18T12:58:35Z",
+      "url": "https://github.com/advisories/GHSA-rf6x-r45m-xv3w",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/langflow-ai/langflow/security/advisories/GHSA-rf6x-r45m-xv3w",
+        "https://github.com/langflow-ai/langflow/commit/fdc1b3b1448ff3317d73d3e769a6c4a1717f74d7",
+        "https://github.com/langflow-ai/langflow/releases/tag/1.7.2",
+        "https://github.com/advisories/GHSA-rf6x-r45m-xv3w"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-9x67-f2v7-63rw",
       "cve_id": "CVE-2026-33039",
       "severity": "HIGH",
@@ -476,244 +714,6 @@
         "https://github.com/nestjs/nest/releases/tag/v11.1.17",
         "https://github.com/advisories/GHSA-wf42-42fg-fg84"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-4263-jgmp-7pf4",
-      "cve_id": "CVE-2026-32886",
-      "severity": "HIGH",
-      "summary": "Parse Server's Cloud function dispatch crashes server via prototype chain traversal",
-      "description": "### Impact\n\nRemote clients can crash the Parse Server process by calling a cloud function endpoint with a crafted function name that traverses the JavaScript prototype chain of a registered cloud function handler, causing a stack overflow.\n\n### Patches\n\nThe fix restricts property lookups during cloud function name resolution to own properties only, preventing prototype chain traversal from stored function handlers.\n\n### Workarounds\n\nThere is no known workaround.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-1321"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "parse-server",
-        "parse-server"
-      ],
-      "published": "2026-03-17T17:58:08Z",
-      "updated": "2026-03-17T17:58:08Z",
-      "url": "https://github.com/advisories/GHSA-4263-jgmp-7pf4",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/parse-community/parse-server/security/advisories/GHSA-4263-jgmp-7pf4",
-        "https://github.com/parse-community/parse-server/pull/10210",
-        "https://github.com/parse-community/parse-server/pull/10211",
-        "https://github.com/advisories/GHSA-4263-jgmp-7pf4"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-9xp9-j92r-p88v",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Parse Server crash via deeply nested query condition operators",
-      "description": "### Impact\n\nAn unauthenticated attacker can crash the Parse Server process by sending a single request with deeply nested query condition operators. This terminates the server and denies service to all connected clients.\n\n### Patches\n\nA depth limit for query condition operator nesting has been added via the `requestComplexity.queryDepth` server option. The option is disabled by default to avoid a breaking change. To mitigate, upgrade and set the option to a value appropriate for your app.\n\n### Workarounds\n\nNone.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-674"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "parse-server",
-        "parse-server"
-      ],
-      "published": "2026-03-17T17:35:52Z",
-      "updated": "2026-03-17T17:35:53Z",
-      "url": "https://github.com/advisories/GHSA-9xp9-j92r-p88v",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/parse-community/parse-server/security/advisories/GHSA-9xp9-j92r-p88v",
-        "https://github.com/parse-community/parse-server/pull/10202",
-        "https://github.com/parse-community/parse-server/pull/10203",
-        "https://github.com/advisories/GHSA-9xp9-j92r-p88v"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-phqm-jgc3-qf8g",
-      "cve_id": "CVE-2026-32254",
-      "severity": "HIGH",
-      "summary": "Kube-router Proxy Module Blindly Trusts ExternalIPs/LoadBalancer IPs Enabling Cluster-Wide Traffic Hijacking and DNS DoS",
-      "description": "# kube-router Proxy Module Does Not Validate ExternalIPs or LoadBalancer IPs Against Configured Ranges\n\n## Summary\n\nThis issue primarily affects multi-tenant clusters where untrusted users are granted namespace-scoped permissions to create or modify Services. Single-tenant clusters or clusters where all Service creators are trusted are not meaningfully affected.\n\nThe kube-router proxy module's `buildServicesInfo()` function directly copies IPs from `Service.spec.externalIPs` and `status.loadBalancer.ingress` into node-level network configuration (kube-dummy-if interface, IPVS virtual services, LOCAL routing table) without validating them against the `--service-external-ip-range` parameter. A user with namespace-scoped Service CRUD permissions can bind arbitrary VIPs on all cluster nodes or cause denial of service to critical cluster services such as kube-dns.\n\nThe `--service-external-ip-range` parameter is only consumed by the netpol (network policy) module for firewall RETURN rules. T",
-      "cvss_score": 7.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-284"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/cloudnativelabs/kube-router/v2"
-      ],
-      "published": "2026-03-17T17:12:17Z",
-      "updated": "2026-03-18T00:17:32Z",
-      "url": "https://github.com/advisories/GHSA-phqm-jgc3-qf8g",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/cloudnativelabs/kube-router/security/advisories/GHSA-phqm-jgc3-qf8g",
-        "https://github.com/cloudnativelabs/kube-router/commit/a1f0b2eea3ee0f66b9a5b5c49dcb714619ccd456",
-        "https://github.com/cloudnativelabs/kube-router/releases/tag/v2.8.0",
-        "https://github.com/advisories/GHSA-phqm-jgc3-qf8g"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-7x6v-j9x4-qf24",
-      "cve_id": "CVE-2026-31898",
-      "severity": "HIGH",
-      "summary": "jsPDF has a PDF Object Injection via FreeText color",
-      "description": "### Impact\n\nUser control of arguments of the `createAnnotation` method allows users to inject arbitrary PDF objects, such as JavaScript actions.\n\nIf given the possibility to pass unsanitized input to the following method, a user can inject arbitrary PDF objects, such as JavaScript actions, which might trigger when the PDF is opened or interacted with..\n\n* `createAnnotation`: `color` parameter\n\nExample attack vector:\n\n```js\nimport { jsPDF } from 'jspdf'\n\nconst doc = new jsPDF();\n\nconst payload = '000000) /AA <</E <</S /Launch /F (calc.exe)>>>> (';\n\ndoc.createAnnotation({\n  type: 'freetext',\n  bounds: { x: 10, y: 10, w: 120, h: 20 },\n  contents: 'hello',\n  color: payload\n});\n\ndoc.save('test.pdf');\n```\n\n### Patches\n\nThe vulnerability has been fixed in jsPDF@4.2.1.\n\n### Workarounds\nSanitize user input before passing it to the vulnerable API members.",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-116"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "jspdf"
-      ],
-      "published": "2026-03-17T17:07:51Z",
-      "updated": "2026-03-17T17:07:52Z",
-      "url": "https://github.com/advisories/GHSA-7x6v-j9x4-qf24",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/parallax/jsPDF/security/advisories/GHSA-7x6v-j9x4-qf24",
-        "https://github.com/parallax/jsPDF/commit/4155c4819d5eca284168e51e0e1e81126b4f14b8",
-        "https://github.com/parallax/jsPDF/releases/tag/v4.2.1",
-        "https://github.com/advisories/GHSA-7x6v-j9x4-qf24"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-7x5c-vfhj-9628",
-      "cve_id": "CVE-2026-31891",
-      "severity": "HIGH",
-      "summary": "Cockpit CMS has SQL Injection in MongoLite Aggregation Optimizer via toJsonExtractRaw() ",
-      "description": "### Impact\n\nThis is a SQL Injection vulnerability in the MongoLite Aggregation Optimizer.\n\nAny Cockpit CMS instance running version **2.13.4 or earlier** with API access enabled\nis potentially affected.\n\n**Who is impacted:**\n- Any deployment where the `/api/content/aggregate/{model}` endpoint is publicly\n  accessible or reachable by untrusted users.\n- Attackers in possession of a **valid read-only API key** (the lowest privilege level)\n  can exploit this vulnerability \u2014 no admin access is required.\n\n**What an attacker can do:**\n- Inject arbitrary SQL via unsanitized field names in aggregation queries.\n- Bypass the `_state=1` published-content filter to access unpublished or restricted content.\n- Extract unauthorized data from the underlying SQLite content database.\n\n**Confidentiality impact is High.** Integrity and availability are not directly affected\nby this vulnerability.\n\n### Patches\n\nThis vulnerability has been **patched in version 2.13.5**.\n\nAll users running Cockpit CMS version",
-      "cvss_score": 7.7,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-89"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "cockpit-hq/cockpit"
-      ],
-      "published": "2026-03-17T17:07:41Z",
-      "updated": "2026-03-17T17:07:43Z",
-      "url": "https://github.com/advisories/GHSA-7x5c-vfhj-9628",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/Cockpit-HQ/Cockpit/security/advisories/GHSA-7x5c-vfhj-9628",
-        "https://github.com/Cockpit-HQ/Cockpit/releases/tag/2.13.5",
-        "https://github.com/advisories/GHSA-7x5c-vfhj-9628"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-43w5-mmxv-cpvh",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Micronaut vulnerable to DoS via crafted form-urlencoded body binding with descending array indices",
-      "description": "In `JsonBeanPropertyBinder::expandArrayToThreshold` in `io.micronaut:micronaut-json-core` before Micronaut 4 4.10.16 and in Micronaut 3 before 3.10.5 does not correctly handle descending array index order during form-urlencoded body binding, which allows remote attackers to cause a denial of service (non-terminating loop, CPU exhaustion, and OutOfMemoryError) via crafted indexed form parameters (e.g., `authors[1].name` followed by `authors[0].name`).\n\n### Example\n\nWith such an application\n\n```java\npackage dosform;\n\nimport io.micronaut.http.HttpResponse;\nimport io.micronaut.http.MediaType;\nimport io.micronaut.http.annotation.Body;\nimport io.micronaut.http.annotation.Consumes;\nimport io.micronaut.http.annotation.Controller;\nimport io.micronaut.http.annotation.Get;\nimport io.micronaut.http.annotation.Post;\nimport io.micronaut.http.annotation.Produces;\n\nimport java.net.URI;\n\n@Controller\nclass HomeController {\n\n    @Produces(MediaType.TEXT_HTML)\n    @Get\n    String index() {\n        return ",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-835"
-      ],
-      "ecosystems": [
-        "maven",
-        "maven"
-      ],
-      "packages": [
-        "io.micronaut:micronaut-json-core",
-        "io.micronaut:micronaut-json-core"
-      ],
-      "published": "2026-03-17T16:59:59Z",
-      "updated": "2026-03-17T17:00:02Z",
-      "url": "https://github.com/advisories/GHSA-43w5-mmxv-cpvh",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/micronaut-projects/micronaut-core/security/advisories/GHSA-43w5-mmxv-cpvh",
-        "https://github.com/micronaut-projects/micronaut-core/pull/12410",
-        "https://github.com/micronaut-projects/micronaut-core/commit/1afe509677c51b320041b7a2c177366d4a4deb55",
-        "https://github.com/micronaut-projects/micronaut-core/releases/tag/v3.10.5",
-        "https://github.com/micronaut-projects/micronaut-core/releases/tag/v4.10.16",
-        "https://github.com/advisories/GHSA-43w5-mmxv-cpvh"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-jr27-m4p2-rc6r",
-      "cve_id": "CVE-2026-30922",
-      "severity": "HIGH",
-      "summary": "Denial of Service in pyasn1 via Unbounded Recursion",
-      "description": "### Summary\nThe `pyasn1` library is vulnerable to a Denial of Service (DoS) attack caused by uncontrolled recursion when decoding ASN.1 data with deeply nested structures. An attacker can supply a crafted payload containing nested `SEQUENCE` (`0x30`) or `SET` (`0x31`) tags with Indefinite Length (`0x80`) markers. This forces the decoder to recursively call itself until the Python interpreter crashes with a `RecursionError` or consumes all available memory (OOM), crashing the host application.\n\nThis is a distinct vulnerability from CVE-2026-23490 (which addressed integer overflows in OID decoding). The fix for CVE-2026-23490 (`MAX_OID_ARC_CONTINUATION_OCTETS`) does not mitigate this recursion issue.\n\n### Details\nThe vulnerability exists because the decoder iterates through the input stream and recursively calls `decodeFun` (the decoding callback) for every nested component found, without tracking or limiting the recursion depth.\nVulnerable Code Locations:\n1. `indefLenValueDecoder` (Line",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-674"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "pyasn1"
-      ],
-      "published": "2026-03-17T16:17:33Z",
-      "updated": "2026-03-17T16:17:33Z",
-      "url": "https://github.com/advisories/GHSA-jr27-m4p2-rc6r",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/pyasn1/pyasn1/security/advisories/GHSA-jr27-m4p2-rc6r",
-        "https://github.com/pyasn1/pyasn1/commit/5a49bd1fe93b5b866a1210f6bf0a3924f21572c8",
-        "https://github.com/pyasn1/pyasn1/releases/tag/v0.6.3",
-        "https://github.com/advisories/GHSA-jr27-m4p2-rc6r"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-v7cf-c9rm-wm3j",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Uncontrolled recursion DoS in JustHTML() via deeply nested HTML",
-      "description": "### Summary\n\njusthtml through 1.9.1 allows denial of service via deeply nested HTML. During parsing, `JustHTML.__init__()` always reaches `TreeBuilder.finish()`, which unconditionally calls `_populate_selectedcontent()`. That function recursively traverses the DOM via `_find_elements()` / `_find_element()` without a depth bound, allowing attacker-controlled deeply nested input to trigger an unhandled `RecursionError` on CPython. Depending on the host application's exception handling, this can abort parsing, fail requests, or terminate a worker/process.\n\n### Details\n\n`TreeBuilder.finish()` ([`treebuilder.py#L476`](https://github.com/EmilStenstrom/justhtml/blob/a866b6077770d9ec4cb6b6f9bfe7c918f98455e4/src/justhtml/treebuilder.py#L476)) unconditionally calls `_populate_selectedcontent(self.document)` at [line 494](https://github.com/EmilStenstrom/justhtml/blob/a866b6077770d9ec4cb6b6f9bfe7c918f98455e4/src/justhtml/treebuilder.py#L494). `_populate_selectedcontent()` ([`treebuilder.py#L1243`",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-674"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "justhtml"
-      ],
-      "published": "2026-03-17T14:07:38Z",
-      "updated": "2026-03-17T14:07:39Z",
-      "url": "https://github.com/advisories/GHSA-v7cf-c9rm-wm3j",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/EmilStenstrom/justhtml/security/advisories/GHSA-v7cf-c9rm-wm3j",
-        "https://github.com/EmilStenstrom/justhtml/releases/tag/v1.10.0",
-        "https://github.com/advisories/GHSA-v7cf-c9rm-wm3j"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -761,7 +761,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-18T08:55:32.997436+00:00",
+    "catalog_version": "2026-03-18T13:21:04.366859+00:00",
     "source": "CISA KEV"
   }
 }
