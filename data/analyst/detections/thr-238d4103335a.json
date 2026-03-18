@@ -2,7 +2,7 @@
   "threat_id": "thr-238d4103335a",
   "title": "Free real estate: GoPix, the banking Trojan living off your memory",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Free real estate: GoPix, the banking Trojan living off your \nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/17\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*com.br*'\n            - '*correioez0ubcfht9i3.lovehomely*'\n            - '*correiotwknx9gu315h.lovehomely*'\n            - '*gov.br*'\n            - '*www2.banco*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Free real estate: GoPix, the banking Trojan living off your \nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/18\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*com.br*'\n            - '*correioez0ubcfht9i3.lovehomely*'\n            - '*correiotwknx9gu315h.lovehomely*'\n            - '*gov.br*'\n            - '*www2.banco*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"com.br\",\n              \"correioez0ubcfht9i3.lovehomely\",\n              \"correiotwknx9gu315h.lovehomely\",\n              \"gov.br\",\n              \"www2.banco\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"com.br\", \"correioez0ubcfht9i3.lovehomely\", \"correiotwknx9gu315h.lovehomely\", \"gov.br\", \"www2.banco\")"
   },
