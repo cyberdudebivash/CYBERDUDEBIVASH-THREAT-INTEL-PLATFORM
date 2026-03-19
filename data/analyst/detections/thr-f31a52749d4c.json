@@ -4,10 +4,10 @@
   "rules": {
     "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-4253 - Tenda AC8 Web UploadCfg route_set_user_polic\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/19\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '16.03.50.11'\n    selection_dns:\n        query:\n            - '*wans.policy*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "suricata": [
-      "alert ip any any -> 16.03.50.11 any (msg:\"CDB APEX \u2014 CVE_2026_4253___Tenda_AC8_Web_\"; sid:3645050; rev:1;)"
+      "alert ip any any -> 16.03.50.11 any (msg:\"CDB APEX \u2014 CVE_2026_4253___Tenda_AC8_Web_\"; sid:5422218; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 16.03.50.11 any (msg:\"CDB APEX CVE_2026_4253___Tenda_AC8_Web_\"; sid:6511831; rev:1;)"
+      "alert ip any any -> 16.03.50.11 any (msg:\"CDB APEX CVE_2026_4253___Tenda_AC8_Web_\"; sid:1914932; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"16.03.50.11\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"wans.policy\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"16.03.50.11\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"wans.policy\")"
