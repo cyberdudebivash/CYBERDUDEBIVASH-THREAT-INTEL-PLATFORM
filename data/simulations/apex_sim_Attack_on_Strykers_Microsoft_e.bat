@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: Attack on Stryker’s Microsoft environment wiped employee devices without malware
-:: Generated: 2026-03-19 02:34:04 UTC
+:: Generated: 2026-03-19 05:23:57 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================
