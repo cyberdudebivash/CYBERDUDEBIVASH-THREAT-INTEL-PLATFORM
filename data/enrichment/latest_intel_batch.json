@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-19T17:01:44.233320+00:00",
+  "timestamp": "2026-03-19T20:42:18.927096+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -324,6 +324,314 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-4jw9-5hrc-m4j6",
+      "cve_id": "CVE-2026-33354",
+      "severity": "HIGH",
+      "summary": "AVideo has an authenticated arbitrary local file read via `chunkFile` path injection in `aVideoEncoder.json.php`",
+      "description": "## Summary\n`POST /objects/aVideoEncoder.json.php` accepts a requester-controlled `chunkFile` parameter intended for staged upload chunks. Instead of restricting that path to trusted server-generated chunk locations, the endpoint accepts arbitrary local filesystem paths that pass `isValidURLOrPath()`. That helper allows files under broad server directories including `/var/www/`, the application root, cache, tmp, and `videos`, only rejecting `.php` files.\n\nFor an authenticated uploader editing their own video, this becomes an arbitrary local file read. The endpoint copies the attacker-chosen local file into the attacker's public video storage path, after which it can be downloaded over HTTP.\n\nI confirmed this locally by creating an attacker-owned video, then calling `aVideoEncoder.json.php` with `videos_id=<own video>`, `format=mp4`, and `chunkFile=/var/www/html/AVideo/.compose/letsencrypt/live/localhost/privkey.pem`. The resulting public video URL returned the local TLS private key and ",
+      "cvss_score": 7.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:L/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-73"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-19T19:34:06Z",
+      "updated": "2026-03-19T19:34:07Z",
+      "url": "https://github.com/advisories/GHSA-4jw9-5hrc-m4j6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-4jw9-5hrc-m4j6",
+        "https://github.com/advisories/GHSA-4jw9-5hrc-m4j6"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-xgxp-f695-6vrp",
+      "cve_id": "CVE-2026-33353",
+      "severity": "HIGH",
+      "summary": "In Soft Serve, an authenticated repo import can clone server-local private repositories",
+      "description": "### Summary\nAn authorization flaw in `repo import` allows any authenticated SSH user to clone a server-local Git repository, including another user's private repo, into a new repository they control. This breaks the private-repository confidentiality boundary and should be treated as High severity.\n\n### Details\nRepo import checks authorization only for the destination repository name, not for the source remote. The destination-side authorization comes from [`pkg/ssh/cmd/cmd.go:172`](https://github.com/charmbracelet/soft-serve/blob/main/pkg/ssh/cmd/cmd.go#L172), which calls [`pkg/backend/user.go:46`](https://github.com/charmbracelet/soft-serve/blob/main/pkg/backend/user.go#L46). If the destination repo does not already exist, any authenticated user is granted `ReadWriteAccess` at [`pkg/backend/user.go:94`](https://github.com/charmbracelet/soft-serve/blob/main/pkg/backend/user.go#L94).\n\nThe import command then passes the user-controlled `REMOTE` into [`pkg/backend/repo.go:102`](https://g",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-200",
+        "CWE-862"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/charmbracelet/soft-serve"
+      ],
+      "published": "2026-03-19T19:27:58Z",
+      "updated": "2026-03-19T19:27:59Z",
+      "url": "https://github.com/advisories/GHSA-xgxp-f695-6vrp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/charmbracelet/soft-serve/security/advisories/GHSA-xgxp-f695-6vrp",
+        "https://github.com/advisories/GHSA-xgxp-f695-6vrp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-ph8x-4jfv-v9v8",
+      "cve_id": "CVE-2026-33344",
+      "severity": "HIGH",
+      "summary": "Dagu has an incomplete fix for CVE-2026-27598: path traversal via %2F-encoded slashes in locateDAG",
+      "description": "The fix for CVE-2026-27598 (commit e2ed589, PR #1691) added `ValidateDAGName` to `CreateNewDAG` and rewrote `generateFilePath` to use `filepath.Base`. This patched the CREATE path. The remaining API endpoints - GET, DELETE, RENAME, EXECUTE - all pass the `{fileName}` URL path parameter to `locateDAG` without calling `ValidateDAGName`. `%2F`-encoded forward slashes in the `{fileName}` segment traverse outside the DAGs directory.\n\n### Vulnerable code\n\n`internal/persis/filedag/store.go`, lines 508-513:\n\n```go\nfunc (store *Storage) locateDAG(nameOrPath string) (string, error) {\n    if strings.Contains(nameOrPath, string(filepath.Separator)) {\n        foundPath, err := findDAGFile(nameOrPath)\n        if err == nil {\n            return foundPath, nil  // returns arbitrary resolved path\n        }\n    }\n    // ...safe searchPaths branch follows\n```\n\n`findDAGFile` resolves the path with `filepath.Abs` and checks only that the file exists with a YAML extension. No containment check against `base",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/dagu-org/dagu"
+      ],
+      "published": "2026-03-19T19:25:44Z",
+      "updated": "2026-03-19T19:25:46Z",
+      "url": "https://github.com/advisories/GHSA-ph8x-4jfv-v9v8",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/dagu-org/dagu/security/advisories/GHSA-ph8x-4jfv-v9v8",
+        "https://github.com/dagu-org/dagu/commit/7d07fda8f9de3ae73dfb081ccd0639f8059c56bb",
+        "https://github.com/advisories/GHSA-ph8x-4jfv-v9v8"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-2mhw-8qcg-gr96",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "skia-python vendors vulnerable libfreetype because of pinned cibuildwheel version",
+      "description": "### Impact\n\nThe Linux wheels for skia-python vendor a vulnerable version of\nlibfreetype that is affected by CVE-2025-27363 [1].\n\nThe root cause is a chain of unfortunate events:\n\n1. skia-python builds wheels using pinned pypa/cibuildwheel@2.21.3 [2]\n\n2. cibuildwheel 2.21.3 in turn pins manylinux container images [3]\n\n3. In these images, version 2.9.1-9.el8 of RedHat package freetype is\n*preinstalled*. This package version is vulnerable and has since been\npatched in 2.9.1-10.\n\n4. During the skia-python Linux build, libfreetype is vendored from the\nsystem, resulting in skia-python.libs/libfreetype-29a7443c.so.6.16.1\n\n[ To find the provenance of your vendored libfreetype, we extracted the\n8-character hash of the original binary file that is added during the\nbuild process (29a7443c), and matched it against our database of hashes\nall historic Red Hat, Debian and Ubuntu releases of freetype. ]\n\n5. Because freetype is only a *transitive* dependency of the packages\nexplicitly installed by the ",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-787",
+        "CWE-1395"
+      ],
+      "ecosystems": [
+        "pip",
+        "pip"
+      ],
+      "packages": [
+        "skia-python",
+        "skia-python"
+      ],
+      "published": "2026-03-19T18:10:25Z",
+      "updated": "2026-03-19T18:10:26Z",
+      "url": "https://github.com/advisories/GHSA-2mhw-8qcg-gr96",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/kyamagu/skia-python/security/advisories/GHSA-2mhw-8qcg-gr96",
+        "https://nvd.nist.gov/vuln/detail/CVE-2025-27363",
+        "https://github.com/advisories/GHSA-2mhw-8qcg-gr96"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-826q-wrq4-p23x",
+      "cve_id": "CVE-2026-33282",
+      "severity": "HIGH",
+      "summary": "Ella Core panics on malformed NGAP Location Report",
+      "description": "## Summary\n\nElla Core panics when processing a malformed NGAP LocationReport message with  `ue-presence-in-area-of-interest` event type and omitting the optional `UEPresenceInAreaOfInterestList` IE.\n\n## Impact\nAn attacker able to send crafted NGAP messages to Ella Core can crash the process, causing service disruption for all connected subscribers. No authentication is required.\n\n## Fix\nAdded IE presence verification to NGAP message handling.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-476"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/ellanetworks/core"
+      ],
+      "published": "2026-03-19T17:47:06Z",
+      "updated": "2026-03-19T17:47:09Z",
+      "url": "https://github.com/advisories/GHSA-826q-wrq4-p23x",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ellanetworks/core/security/advisories/GHSA-826q-wrq4-p23x",
+        "https://github.com/advisories/GHSA-826q-wrq4-p23x"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-37g4-qqqv-7m99",
+      "cve_id": "CVE-2026-33310",
+      "severity": "HIGH",
+      "summary": "Intake has a Command Injection via shell() Expansion in Parameter Defaults",
+      "description": "### Summary\nThe shell() syntax within parameter default values appears to be automatically expanded during the catalog parsing process.\nIf a catalog contains a parameter default such as shell(<command>), the command may be executed when the catalog source is accessed.\nThis means that if a user loads a malicious catalog YAML, embedded commands could execute on the host system.\nThis behavior could potentially be classified as OS Command Injection / Unsafe Shell Expansion.\n\n### Details\nThe issue appears to originate from how parameter default values are expanded when a catalog source is accessed.\n\nDuring catalog loading and source access:\n\nIntake resolves parameter default values\nThe function responsible for expanding defaults processes the shell() syntax\nThe shell expression triggers a subprocess execution\nBecause this occurs during catalog evaluation, the command may execute before the user explicitly interacts with the dataset itself.\n\nAffected logic appears to involve:\n```\nexpand_defa",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-78",
+        "CWE-94"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "intake"
+      ],
+      "published": "2026-03-19T17:46:54Z",
+      "updated": "2026-03-19T17:46:55Z",
+      "url": "https://github.com/advisories/GHSA-37g4-qqqv-7m99",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/intake/intake/security/advisories/GHSA-37g4-qqqv-7m99",
+        "https://github.com/advisories/GHSA-37g4-qqqv-7m99"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-rf6f-7fwh-wjgh",
+      "cve_id": "CVE-2026-33228",
+      "severity": "HIGH",
+      "summary": "Prototype Pollution via parse() in NodeJS flatted",
+      "description": "---\n  **Summary**\n\n  The parse() function in flatted can use attacker-controlled string values from the parsed JSON as direct array index\n  keys, without validating that they are numeric. Since the internal input buffer is a JavaScript Array, accessing it\n  with the key \"\\_\\_proto\\_\\_\" returns Array.prototype via the inherited getter. This object is then treated as a legitimate\n   parsed value and assigned as a property of the output object, effectively leaking a live reference to Array.prototype\n   to the consumer. Any code that subsequently writes to that property will pollute the global prototype.\n\n  ---\n  **Root Cause**\n\n  File: esm/index.js:29 (identical in cjs/index.js)\n```\n  const resolver = (input, lazy, parsed, $) => output => {\n    for (let ke = keys(output), {length} = ke, y = 0; y < length; y++) {\n      const k = ke[y];\n      const value = output[k];    \n      if (value instanceof Primitive) {\n        const tmp = input[value];      // Bug is here\n```\n\nNo validation that val",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-1321"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "flatted"
+      ],
+      "published": "2026-03-19T17:43:54Z",
+      "updated": "2026-03-19T17:43:55Z",
+      "url": "https://github.com/advisories/GHSA-rf6f-7fwh-wjgh",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WebReflection/flatted/security/advisories/GHSA-rf6f-7fwh-wjgh",
+        "https://github.com/advisories/GHSA-rf6f-7fwh-wjgh"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-439w-v2p7-pggc",
+      "cve_id": "CVE-2026-32693",
+      "severity": "HIGH",
+      "summary": "Juju has unauthorized access to out-of-scope Kubernetes secrets",
+      "description": "### Summary\n\nGrantee is able to update secret content using the `secret-set` tool due to broad Kubernetes access policy.\nImplications are that it is possible, knowing a Kubernetes secret identifier (e.g. name), to patch without affecting the secret, revealing the value, or, patching while affecting the secrets value.\n\n### Details\n\nWhen a Juju secret is \"granted\" to an app, that app should be able to read the secret content but not modify it, and should be able to only read secrets that have been granted to it.\n\nAuthorization of the `secret-set` hook tool / controller request is not performed correctly, which allows the grantee to update the secret content and to read or affect other secrets.\n\n### PoC\n\nTested:\n- two applications in the same controller, same model: one owns the secret, another get a grant\n- relation between them\n- secret grant\n- Linux AMD64, Canonical K8s, Juju 3.6.8 controller, Juju 3.6.9 CLI\n\nNot tested:\n- admin (user) secrets\n- cross-model relations\n- cross-controller",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/juju/juju"
+      ],
+      "published": "2026-03-19T17:43:37Z",
+      "updated": "2026-03-19T17:43:39Z",
+      "url": "https://github.com/advisories/GHSA-439w-v2p7-pggc",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/juju/juju/security/advisories/GHSA-439w-v2p7-pggc",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-32693",
+        "https://github.com/juju/juju/commit/d06919eb03ec68156818bcc304b5fe1c39a8f9e9",
+        "https://github.com/advisories/GHSA-439w-v2p7-pggc"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-89x7-5m5m-mcmm",
+      "cve_id": "CVE-2026-32692",
+      "severity": "HIGH",
+      "summary": "Juju has unauthorized update of out-of-scope Vault secrets",
+      "description": "An authorization bypass vulnerability in the Vault secrets back-end implementation of Juju versions 3.1.6 through 3.6.18 allows an authenticated unit agent to perform unauthorized updates to secret revisions. With sufficient information, an attacker can poison any existing secret revision within the scope of that Vault secret back-end.\n\n\n### Impact\nAn authenticated unit agent can update any secret revision of a Vault back-end\nthat the unit's model uses. With sufficient information, an attacker can poison\nany existing secret revision within the scope of that Vault secret back-end.\n\n### Patches\n3.6.19",
+      "cvss_score": 7.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-285"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/juju/juju"
+      ],
+      "published": "2026-03-19T17:32:24Z",
+      "updated": "2026-03-19T17:32:28Z",
+      "url": "https://github.com/advisories/GHSA-89x7-5m5m-mcmm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/juju/juju/security/advisories/GHSA-89x7-5m5m-mcmm",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-32692",
+        "https://github.com/juju/juju/commit/d06919eb03ec68156818bcc304b5fe1c39a8f9e9",
+        "https://github.com/advisories/GHSA-89x7-5m5m-mcmm"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-gc3m-4mcr-h3pv",
+      "cve_id": "CVE-2026-33295",
+      "severity": "HIGH",
+      "summary": "AVideo Affected by Stored XSS via Unescaped Video Title in CDN downloadButtons.php",
+      "description": "### Summary\n\nWWBN/AVideo contains a stored cross-site scripting vulnerability in the CDN plugin's download buttons component. The `clean_title` field of a video record is interpolated directly into a JavaScript string literal without any escaping, allowing an attacker who can create or modify a video to inject arbitrary JavaScript that executes in the browser of any user who visits the affected download page.\n\n### Details\n\nAt line 59 of the affected file, the following PHP code constructs a JavaScript function call:\n\n```php\ndownloadURLOrAlertError(url, {}, '<?php echo $video['clean_title']; ?>.' + format, progress);\n```\n\nThe `clean_title` value is echoed verbatim inside a single-quoted JavaScript string literal. No JavaScript-context escaping is applied, such as wrapping with `json_encode` or htmlspecialchars with appropriate flags. Because the value sits inside a JS string delimited by single quotes, any input containing a single quote character allows an attacker to terminate the str",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-19T17:12:19Z",
+      "updated": "2026-03-19T17:12:20Z",
+      "url": "https://github.com/advisories/GHSA-gc3m-4mcr-h3pv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-gc3m-4mcr-h3pv",
+        "https://github.com/advisories/GHSA-gc3m-4mcr-h3pv"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-xmjm-86qv-g226",
+      "cve_id": "CVE-2026-33293",
+      "severity": "HIGH",
+      "summary": "AVideo Affected by Arbitrary File Deletion via Path Traversal in CloneSite deleteDump Parameter",
+      "description": "## Summary\n\nThe `deleteDump` parameter in `plugin/CloneSite/cloneServer.json.php` is passed directly to `unlink()` without any path sanitization. An attacker with valid clone credentials can use path traversal sequences (e.g., `../../`) to delete arbitrary files on the server, including critical application files such as `configuration.php`, causing complete denial of service or enabling further attacks by removing security-critical files.\n\n## Details\n\nIn `plugin/CloneSite/cloneServer.json.php`, the `$clonesDir` variable is set to the application's storage path appended with `clones/` (line 11). When a `deleteDump` GET parameter is provided, its value is concatenated directly into a path passed to `unlink()` with no validation:\n\n```php\n// plugin/CloneSite/cloneServer.json.php:10-11\n$videosDir = Video::getStoragePath() . \"\";\n$clonesDir = \"{$videosDir}clones/\";\n```\n\n```php\n// plugin/CloneSite/cloneServer.json.php:44-46\nif (!empty($_GET['deleteDump'])) {\n    $resp->error = !unlink(\"{$clon",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-19T17:12:04Z",
+      "updated": "2026-03-19T17:12:05Z",
+      "url": "https://github.com/advisories/GHSA-xmjm-86qv-g226",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-xmjm-86qv-g226",
+        "https://github.com/advisories/GHSA-xmjm-86qv-g226"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-pw4v-x838-w5pg",
       "cve_id": "CVE-2026-33292",
       "severity": "HIGH",
@@ -436,314 +744,6 @@
         "https://github.com/ormar-orm/ormar/security/advisories/GHSA-f964-whrq-44h8",
         "https://github.com/advisories/GHSA-f964-whrq-44h8"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-3m6g-2423-7cp3",
-      "cve_id": "CVE-2026-33210",
-      "severity": "HIGH",
-      "summary": "Ruby JSON has a format string injection vulnerability",
-      "description": "### Impact\n\nA format string injection vulnerability than that lead to denial of service attacks or information disclosure, when the `allow_duplicate_key: false` parsing option is used to parse user supplied documents. \n\nThis option isn't the default, if you didn't opt-in to use it, you are not impacted.\n\n### Patches\n\nPatched in `2.19.2`.\n\n### Workarounds\n\nThe issue can be avoided by not using the `allow_duplicate_key: false` parsing option.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-134"
-      ],
-      "ecosystems": [
-        "rubygems",
-        "rubygems",
-        "rubygems"
-      ],
-      "packages": [
-        "json",
-        "json",
-        "json"
-      ],
-      "published": "2026-03-19T12:45:53Z",
-      "updated": "2026-03-19T12:45:54Z",
-      "url": "https://github.com/advisories/GHSA-3m6g-2423-7cp3",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/ruby/json/security/advisories/GHSA-3m6g-2423-7cp3",
-        "https://github.com/advisories/GHSA-3m6g-2423-7cp3"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-pp9r-xg4c-8j4x",
-      "cve_id": "CVE-2026-33241",
-      "severity": "HIGH",
-      "summary": "Salvo Affected by Denial of Service via Unbounded Memory Allocation in Form Data Parsing",
-      "description": "## Summary\nSalvo's form data parsing implementations (`form_data()` method and `Extractible` macro) do not enforce payload size limits before reading request bodies into memory. This allows attackers to cause Out-of-Memory (OOM) conditions by sending extremely large payloads, leading to service crashes and denial of service.\n\n## Details\n### Vulnerability Description\nThree attack vectors exist in Salvo's form handling:\n\n1. **URL-encoded form data** (`application/x-www-form-urlencoded`)\n   - `Request::form_data()` calls `BodyExt::collect(body)` which reads the entire body into memory without size checking\n   - Affects handlers using `req.form_data().await` directly\n\n2. **Multipart form data** (`multipart/form-data`)\n   - Similar unbounded memory allocation during parsing\n   - Affects handlers processing multipart uploads\n\n3. **Extractible macro**\n   - `#[derive(Extractible)]` with `#[salvo(extract(default_source(from = \"body\")))]` internally calls `form_data()`\n   - Vulnerabilities propa",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-770"
-      ],
-      "ecosystems": [
-        "rust"
-      ],
-      "packages": [
-        "salvo"
-      ],
-      "published": "2026-03-19T12:44:56Z",
-      "updated": "2026-03-19T12:44:57Z",
-      "url": "https://github.com/advisories/GHSA-pp9r-xg4c-8j4x",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/salvo-rs/salvo/security/advisories/GHSA-pp9r-xg4c-8j4x",
-        "https://github.com/advisories/GHSA-pp9r-xg4c-8j4x"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-f842-phm9-p4v4",
-      "cve_id": "CVE-2026-33242",
-      "severity": "HIGH",
-      "summary": "Salvo has a Path Traversal in salvo-proxy::encode_url_path allows API Gateway Bypass",
-      "description": "### Details\n\nA Path Traversal and Access Control Bypass vulnerability was discovered in the salvo-proxy component of the Salvo Rust framework (v0.89.2). The vulnerability allows an unauthenticated external attacker to bypass proxy routing constraints and access unintended backend paths (e.g., protected endpoints or administrative dashboards). This issue stems from the encode_url_path function, which fails to normalize \"../\" sequences and inadvertently forwards them verbatim to the upstream server by not re-encoding the \".\" character.\n\n---\n\n### Technical Details\n\nIf someone tries to attack by sending a special code like `%2e%2e`, Salvo changes it back to `../` when it first checks the path. The proxy then gets this plain `../` value. When making the new URL to send forward, the `encode_url_path` function tries to change the path again, but its normal settings do not include the `.` (dot) character. Because of this, the proxy puts `../` straight into the new URL and sends a request like ",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "rust"
-      ],
-      "packages": [
-        "salvo"
-      ],
-      "published": "2026-03-19T12:44:28Z",
-      "updated": "2026-03-19T12:44:28Z",
-      "url": "https://github.com/advisories/GHSA-f842-phm9-p4v4",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/salvo-rs/salvo/security/advisories/GHSA-f842-phm9-p4v4",
-        "https://github.com/salvo-rs/salvo/commit/7bac30e6960355c58e358e402072d4a3e5c4e1bb#diff-e319bf7afcb577f7e9f4fb767005072f6335d23f306dd52e8c94f3d222610d02R20",
-        "https://github.com/advisories/GHSA-f842-phm9-p4v4"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-q382-vc8q-7jhj",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Improper handling of null Unicode character when parsing JSON in github.com/modelcontextprotocol/go-sdk",
-      "description": "The Go SDK recently transitioned to the `segmentio/encoding` library for JSON parsing in version 1.3.1. While this change addressed both case-insensitivity and ASCII folding issues, the new parser implemented aggressive key matching that treated keys with `null` Unicode characters appended at the end as equivalent to their base strings.\n\n#### Impact\n\nWhen combined with duplicate keys, the described behavior leads to a \"last key wins\" resolution that could override the intended MCP message. This had the potential for:\n  - **Bypassing intermediary inspection:** Proxies or policy layers that matched on exact field names may have failed to detect or filter these messages.\n  - **Cross-implementation inconsistency:** Other MCP SDKs (TypeScript, Python) use case-sensitive parsing and would reject the same messages, creating potential security-boundary confusion.\n\n####  Fix:\n\nThe `segmentio/encoding` package was patched with a fix in https://github.com/segmentio/encoding/commit/7d5a25dbc5da13a",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-436",
-        "CWE-1395"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/modelcontextprotocol/go-sdk"
-      ],
-      "published": "2026-03-19T12:44:07Z",
-      "updated": "2026-03-19T12:44:08Z",
-      "url": "https://github.com/advisories/GHSA-q382-vc8q-7jhj",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/modelcontextprotocol/go-sdk/security/advisories/GHSA-q382-vc8q-7jhj",
-        "https://github.com/modelcontextprotocol/go-sdk/commit/724dd47aa3431b9d4cf9ac2eebbf7b38a629afca",
-        "https://github.com/segmentio/encoding/commit/7d5a25dbc5da13aed3cb047a127e4d0e96f536fb",
-        "https://github.com/advisories/GHSA-q382-vc8q-7jhj"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-469j-vmhf-r6v7",
-      "cve_id": "CVE-2026-33236",
-      "severity": "HIGH",
-      "summary": "NLTK has a Downloader Path Traversal Vulnerability (AFO) - Arbitrary File Overwrite",
-      "description": "## Vulnerability Description\n\nThe NLTK downloader does not validate the `subdir` and `id` attributes when processing remote XML index files. Attackers can control a remote XML index server to provide malicious values containing path traversal sequences (such as `../`), which can lead to:\n\n1. **Arbitrary Directory Creation**: Create directories at arbitrary locations in the file system\n2. **Arbitrary File Creation**: Create arbitrary files\n3. **Arbitrary File Overwrite**: Overwrite critical system files (such as `/etc/passwd`, `~/.ssh/authorized_keys`, etc.)\n\n## Vulnerability Principle\n\n### Key Code Locations\n\n**1. XML Parsing Without Validation** (`nltk/downloader.py:253`)\n```python\nself.filename = os.path.join(subdir, id + ext)\n```\n- `subdir` and `id` are directly from XML attributes without any validation\n\n**2. Path Construction Without Checks** (`nltk/downloader.py:679`)\n```python\nfilepath = os.path.join(download_dir, info.filename)\n```\n- Directly uses `filename` which may contain p",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "nltk"
-      ],
-      "published": "2026-03-19T12:42:42Z",
-      "updated": "2026-03-19T12:42:43Z",
-      "url": "https://github.com/advisories/GHSA-469j-vmhf-r6v7",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/nltk/nltk/security/advisories/GHSA-469j-vmhf-r6v7",
-        "https://github.com/advisories/GHSA-469j-vmhf-r6v7"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-jm6w-m3j8-898g",
-      "cve_id": "CVE-2026-33231",
-      "severity": "HIGH",
-      "summary": "Unauthenticated remote shutdown in nltk.app.wordnet_app",
-      "description": "### Summary\n`nltk.app.wordnet_app` allows unauthenticated remote shutdown of the local WordNet Browser HTTP server when it is started in its default mode. A simple `GET /SHUTDOWN%20THE%20SERVER` request causes the process to terminate immediately via `os._exit(0)`, resulting in a denial of service.\n\n### Details\nThe vulnerable logic is in `nltk/app/wordnet_app.py`:\n\n- [`nltk/app/wordnet_app.py:242`](/mnt/Data/my_brains/test/nltk/nltk/app/wordnet_app.py#L242)\n  - The server listens on all interfaces:\n  - `server = HTTPServer((\"\", port), MyServerHandler)`\n\n- [`nltk/app/wordnet_app.py:87`](/mnt/Data/my_brains/test/nltk/nltk/app/wordnet_app.py#L87)\n  - Incoming requests are checked for the exact path:\n  - `if unquote_plus(sp) == \"SHUTDOWN THE SERVER\":`\n\n- [`nltk/app/wordnet_app.py:88`](/mnt/Data/my_brains/test/nltk/nltk/app/wordnet_app.py#L88)\n  - The shutdown protection only depends on `server_mode`\n\n- [`nltk/app/wordnet_app.py:93`](/mnt/Data/my_brains/test/nltk/nltk/app/wordnet_app.py#L93",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-306"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "nltk"
-      ],
-      "published": "2026-03-19T12:42:20Z",
-      "updated": "2026-03-19T12:42:23Z",
-      "url": "https://github.com/advisories/GHSA-jm6w-m3j8-898g",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/nltk/nltk/security/advisories/GHSA-jm6w-m3j8-898g",
-        "https://github.com/advisories/GHSA-jm6w-m3j8-898g"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-mmgp-wc2j-qcv7",
-      "cve_id": "CVE-2026-33068",
-      "severity": "HIGH",
-      "summary": "Claude Code has a Workspace Trust Dialog Bypass via Repo-Controlled Settings File",
-      "description": "Claude Code resolved the permission mode from settings files, including the repo-controlled `.claude/settings.json`, before determining whether to display the workspace trust confirmation dialog. A malicious repository could set `permissions.defaultMode` to `bypassPermissions` in its committed `.claude/settings.json`, causing the trust dialog to be silently skipped on first open. This allowed a user to be placed into a permissive mode without seeing the trust confirmation prompt, making it easier for an attacker-controlled repository to gain tool execution without explicit user consent.\n\nUsers on standard Claude Code auto-update have received this fix already. Users performing manual updates are advised to update to the latest version.\n\nThank you to hackerone.com/cantina_xyz for reporting this issue.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-807"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "@anthropic-ai/claude-code"
-      ],
-      "published": "2026-03-19T12:42:09Z",
-      "updated": "2026-03-19T12:42:10Z",
-      "url": "https://github.com/advisories/GHSA-mmgp-wc2j-qcv7",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/anthropics/claude-code/security/advisories/GHSA-mmgp-wc2j-qcv7",
-        "https://github.com/advisories/GHSA-mmgp-wc2j-qcv7"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-pfv5-rpcw-x34x",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Duplicate Advisory: OpenClaw's allow-always wrapper persistence could bypass future approvals and enable command execution",
-      "description": "## Duplicate Advisory\n\nThis advisory has been withdrawn because it is a duplicate of GHSA-6j27-pc5c-m8w8. This link is maintained to preserve external references.\n\n## Original Description\nOpenClaw versions prior to 2026.2.22 contain an authorization bypass vulnerability in allow-always wrapper persistence that allows attackers to bypass approval checks by persisting wrapper-level allowlist entries instead of validating inner executable intent. Remote attackers can approve benign wrapped system.run commands and subsequently execute different payloads without approval, enabling remote code execution on gateway and node-host execution flows.",
-      "cvss_score": 6.4,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:R/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-78"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-03-19T03:30:57Z",
-      "updated": "2026-03-19T16:25:55Z",
-      "url": "https://github.com/advisories/GHSA-pfv5-rpcw-x34x",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-6j27-pc5c-m8w8",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-29607",
-        "https://github.com/openclaw/openclaw/commit/24c954d972400f508814532dea0e4dcb38418bb0",
-        "https://www.vulncheck.com/advisories/openclaw-authorization-bypass-via-allow-always-wrapper-persistence",
-        "https://github.com/advisories/GHSA-pfv5-rpcw-x34x"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-4647-wpjq-hh7f",
-      "cve_id": "CVE-2026-33226",
-      "severity": "HIGH",
-      "summary": "Budibase Unrestricted Server-Side Request Forgery (SSRF) via REST Datasource Query Preview",
-      "description": "### Summary\nThe REST datasource query preview endpoint (`POST /api/queries/preview`) makes server-side HTTP requests to any URL supplied by the user in `fields.path` with no validation. An authenticated admin can reach internal services that are not exposed to the internet \u2014 including cloud metadata endpoints (AWS/GCP/Azure), internal databases, Kubernetes APIs, and other pods on the internal network. On GCP this leads to OAuth2 token theft with `cloud-platform` scope (full GCP access). On any deployment it enables full internal network enumeration.\n\n### Details\n\nThe vulnerable handler is in `packages/server/src/api/controllers/query.ts` (`preview()`). It reads `fields.path` from the request body and passes it directly to the REST HTTP client without any IP or hostname validation:\n\n```\nfields.path  \u2192  RestClient.read({ path })  \u2192  node-fetch(path)\n```\n\nNo blocklist exists for:\n- Loopback (`127.0.0.1`, `::1`)\n- RFC 1918 ranges (`10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`)\n- Link-local / ",
-      "cvss_score": 8.7,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-918"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "budibase"
-      ],
-      "published": "2026-03-18T20:22:11Z",
-      "updated": "2026-03-18T20:22:12Z",
-      "url": "https://github.com/advisories/GHSA-4647-wpjq-hh7f",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/Budibase/budibase/security/advisories/GHSA-4647-wpjq-hh7f",
-        "https://github.com/advisories/GHSA-4647-wpjq-hh7f"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-pcgw-qcv5-h8ch",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Unsigned SAML LogoutRequest Acceptance in gosaml2",
-      "description": "## Summary\n\nThe `ValidateEncodedLogoutRequestPOST` function in gosaml2 accepts completely unsigned SAML `LogoutRequest` messages even when `SkipSignatureValidation` is set to `false`. When `validateElementSignature` returns `dsig.ErrMissingSignature`, the code in `decode_logout_request.go:60-62` silently falls through to process the unverified XML element instead of rejecting it. An attacker who can reach the SP's Single Logout endpoint can forge a `LogoutRequest` for any user, terminating their session without possessing the IdP's signing key.\n\n## Affected Version\n\n- **Library**: `github.com/russellhaering/gosaml2`\n- **Version**: All versions up to and including the latest commit on `main` (as of 2026-03-16)\n- **File**: `decode_logout_request.go`, lines 58-69\n\n## Vulnerable Code\n\n```go\n// decode_logout_request.go:57-69\nvar requestSignatureValidated bool\nif !sp.SkipSignatureValidation {\n    el, err = sp.validateElementSignature(el)\n    if err == dsig.ErrMissingSignature {\n        // Un",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-347"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/russellhaering/gosaml2"
-      ],
-      "published": "2026-03-18T20:19:24Z",
-      "updated": "2026-03-18T20:19:25Z",
-      "url": "https://github.com/advisories/GHSA-pcgw-qcv5-h8ch",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/russellhaering/gosaml2/security/advisories/GHSA-pcgw-qcv5-h8ch",
-        "https://github.com/advisories/GHSA-pcgw-qcv5-h8ch"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-hwqm-qvj9-4jr2",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "gosaml2 CBC Padding Panic \u2014 Unauthenticated Process Crash",
-      "description": "## Summary\n\nThe AES-CBC decryption path in `DecryptBytes()` panics on crafted ciphertext whose plaintext is all zero bytes. After decryption, `bytes.TrimRight(data, \"\\x00\")` empties the slice, then `data[len(data)-1]` panics with `index out of range [-1]`. There is no `recover()` in the library. The panic propagates through `ValidateEncodedResponse` and kills the goroutine (or the entire process in non-`net/http` servers). An attacker needs only the SP's public RSA key (published in SAML metadata) to construct the payload \u2014 no valid signature is required.\n\n## Affected Version\n\nAll versions of `github.com/russellhaering/gosaml2` through latest (`v0.9.0` and HEAD) that support AES-CBC encrypted assertions.\n\n## Vulnerable Code\n\n**`types/encrypted_assertion.go:65-79`** \u2014 `DecryptBytes`, AES-CBC branch:\n\n```go\ncase MethodAES128CBC, MethodAES256CBC, MethodTripleDESCBC:\n    if len(data)%k.BlockSize() != 0 {\n        return nil, fmt.Errorf(\"encrypted data is not a multiple of the expected CBC b",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-129"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/russellhaering/gosaml2"
-      ],
-      "published": "2026-03-18T20:19:11Z",
-      "updated": "2026-03-18T20:19:12Z",
-      "url": "https://github.com/advisories/GHSA-hwqm-qvj9-4jr2",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/russellhaering/gosaml2/security/advisories/GHSA-hwqm-qvj9-4jr2",
-        "https://github.com/advisories/GHSA-hwqm-qvj9-4jr2"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -791,7 +791,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-19T17:01:44.410071+00:00",
+    "catalog_version": "2026-03-19T20:42:19.225029+00:00",
     "source": "CISA KEV"
   }
 }
