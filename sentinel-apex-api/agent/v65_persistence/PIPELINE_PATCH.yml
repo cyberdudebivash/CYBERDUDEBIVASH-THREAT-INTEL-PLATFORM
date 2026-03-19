@@ -1,0 +1,21 @@
+# ============================================================================
+# SENTINEL APEX — Pipeline PG Persistence Stage
+# ADD as new step in sentinel-blogger.yml AFTER STIX export, BEFORE Blogger publish.
+#
+# Required GitHub Secrets:
+#   SUPABASE_URL, SUPABASE_SERVICE_KEY, SENTINEL_API_URL, PIPELINE_SECRET
+# ============================================================================
+
+      - name: "STAGE 7.5: Persist to Supabase PG"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SENTINEL_API_URL: ${{ secrets.SENTINEL_API_URL }}
+          PIPELINE_SECRET: ${{ secrets.PIPELINE_SECRET }}
+        run: |
+          echo "=== STAGE 7.5: PERSIST TO POSTGRESQL ==="
+          pip install httpx --quiet
+          python -m agent.v65_persistence.pg_writer \
+            --manifest data/feed_manifest.json \
+            --mode auto
+          echo "=== PG PERSISTENCE COMPLETE ==="
