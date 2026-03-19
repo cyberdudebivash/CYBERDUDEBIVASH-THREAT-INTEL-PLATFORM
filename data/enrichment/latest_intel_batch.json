@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-19T08:50:02.213411+00:00",
+  "timestamp": "2026-03-19T13:12:40.379968+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -309,6 +309,203 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-3m6g-2423-7cp3",
+      "cve_id": "CVE-2026-33210",
+      "severity": "HIGH",
+      "summary": "Ruby JSON has a format string injection vulnerability",
+      "description": "### Impact\n\nA format string injection vulnerability than that lead to denial of service attacks or information disclosure, when the `allow_duplicate_key: false` parsing option is used to parse user supplied documents. \n\nThis option isn't the default, if you didn't opt-in to use it, you are not impacted.\n\n### Patches\n\nPatched in `2.19.2`.\n\n### Workarounds\n\nThe issue can be avoided by not using the `allow_duplicate_key: false` parsing option.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-134"
+      ],
+      "ecosystems": [
+        "rubygems",
+        "rubygems",
+        "rubygems"
+      ],
+      "packages": [
+        "json",
+        "json",
+        "json"
+      ],
+      "published": "2026-03-19T12:45:53Z",
+      "updated": "2026-03-19T12:45:54Z",
+      "url": "https://github.com/advisories/GHSA-3m6g-2423-7cp3",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ruby/json/security/advisories/GHSA-3m6g-2423-7cp3",
+        "https://github.com/advisories/GHSA-3m6g-2423-7cp3"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-pp9r-xg4c-8j4x",
+      "cve_id": "CVE-2026-33241",
+      "severity": "HIGH",
+      "summary": "Salvo Affected by Denial of Service via Unbounded Memory Allocation in Form Data Parsing",
+      "description": "## Summary\nSalvo's form data parsing implementations (`form_data()` method and `Extractible` macro) do not enforce payload size limits before reading request bodies into memory. This allows attackers to cause Out-of-Memory (OOM) conditions by sending extremely large payloads, leading to service crashes and denial of service.\n\n## Details\n### Vulnerability Description\nThree attack vectors exist in Salvo's form handling:\n\n1. **URL-encoded form data** (`application/x-www-form-urlencoded`)\n   - `Request::form_data()` calls `BodyExt::collect(body)` which reads the entire body into memory without size checking\n   - Affects handlers using `req.form_data().await` directly\n\n2. **Multipart form data** (`multipart/form-data`)\n   - Similar unbounded memory allocation during parsing\n   - Affects handlers processing multipart uploads\n\n3. **Extractible macro**\n   - `#[derive(Extractible)]` with `#[salvo(extract(default_source(from = \"body\")))]` internally calls `form_data()`\n   - Vulnerabilities propa",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "rust"
+      ],
+      "packages": [
+        "salvo"
+      ],
+      "published": "2026-03-19T12:44:56Z",
+      "updated": "2026-03-19T12:44:57Z",
+      "url": "https://github.com/advisories/GHSA-pp9r-xg4c-8j4x",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/salvo-rs/salvo/security/advisories/GHSA-pp9r-xg4c-8j4x",
+        "https://github.com/advisories/GHSA-pp9r-xg4c-8j4x"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-f842-phm9-p4v4",
+      "cve_id": "CVE-2026-33242",
+      "severity": "HIGH",
+      "summary": "Salvo has a Path Traversal in salvo-proxy::encode_url_path allows API Gateway Bypass",
+      "description": "### Details\n\nA Path Traversal and Access Control Bypass vulnerability was discovered in the salvo-proxy component of the Salvo Rust framework (v0.89.2). The vulnerability allows an unauthenticated external attacker to bypass proxy routing constraints and access unintended backend paths (e.g., protected endpoints or administrative dashboards). This issue stems from the encode_url_path function, which fails to normalize \"../\" sequences and inadvertently forwards them verbatim to the upstream server by not re-encoding the \".\" character.\n\n---\n\n### Technical Details\n\nIf someone tries to attack by sending a special code like `%2e%2e`, Salvo changes it back to `../` when it first checks the path. The proxy then gets this plain `../` value. When making the new URL to send forward, the `encode_url_path` function tries to change the path again, but its normal settings do not include the `.` (dot) character. Because of this, the proxy puts `../` straight into the new URL and sends a request like ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "rust"
+      ],
+      "packages": [
+        "salvo"
+      ],
+      "published": "2026-03-19T12:44:28Z",
+      "updated": "2026-03-19T12:44:28Z",
+      "url": "https://github.com/advisories/GHSA-f842-phm9-p4v4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/salvo-rs/salvo/security/advisories/GHSA-f842-phm9-p4v4",
+        "https://github.com/salvo-rs/salvo/commit/7bac30e6960355c58e358e402072d4a3e5c4e1bb#diff-e319bf7afcb577f7e9f4fb767005072f6335d23f306dd52e8c94f3d222610d02R20",
+        "https://github.com/advisories/GHSA-f842-phm9-p4v4"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-q382-vc8q-7jhj",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Improper handling of null Unicode character when parsing JSON in github.com/modelcontextprotocol/go-sdk",
+      "description": "The Go SDK recently transitioned to the `segmentio/encoding` library for JSON parsing in version 1.3.1. While this change addressed both case-insensitivity and ASCII folding issues, the new parser implemented aggressive key matching that treated keys with `null` Unicode characters appended at the end as equivalent to their base strings.\n\n#### Impact\n\nWhen combined with duplicate keys, the described behavior leads to a \"last key wins\" resolution that could override the intended MCP message. This had the potential for:\n  - **Bypassing intermediary inspection:** Proxies or policy layers that matched on exact field names may have failed to detect or filter these messages.\n  - **Cross-implementation inconsistency:** Other MCP SDKs (TypeScript, Python) use case-sensitive parsing and would reject the same messages, creating potential security-boundary confusion.\n\n####  Fix:\n\nThe `segmentio/encoding` package was patched with a fix in https://github.com/segmentio/encoding/commit/7d5a25dbc5da13a",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-436",
+        "CWE-1395"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/modelcontextprotocol/go-sdk"
+      ],
+      "published": "2026-03-19T12:44:07Z",
+      "updated": "2026-03-19T12:44:08Z",
+      "url": "https://github.com/advisories/GHSA-q382-vc8q-7jhj",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/modelcontextprotocol/go-sdk/security/advisories/GHSA-q382-vc8q-7jhj",
+        "https://github.com/modelcontextprotocol/go-sdk/commit/724dd47aa3431b9d4cf9ac2eebbf7b38a629afca",
+        "https://github.com/segmentio/encoding/commit/7d5a25dbc5da13aed3cb047a127e4d0e96f536fb",
+        "https://github.com/advisories/GHSA-q382-vc8q-7jhj"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-469j-vmhf-r6v7",
+      "cve_id": "CVE-2026-33236",
+      "severity": "HIGH",
+      "summary": "NLTK has a Downloader Path Traversal Vulnerability (AFO) - Arbitrary File Overwrite",
+      "description": "## Vulnerability Description\n\nThe NLTK downloader does not validate the `subdir` and `id` attributes when processing remote XML index files. Attackers can control a remote XML index server to provide malicious values containing path traversal sequences (such as `../`), which can lead to:\n\n1. **Arbitrary Directory Creation**: Create directories at arbitrary locations in the file system\n2. **Arbitrary File Creation**: Create arbitrary files\n3. **Arbitrary File Overwrite**: Overwrite critical system files (such as `/etc/passwd`, `~/.ssh/authorized_keys`, etc.)\n\n## Vulnerability Principle\n\n### Key Code Locations\n\n**1. XML Parsing Without Validation** (`nltk/downloader.py:253`)\n```python\nself.filename = os.path.join(subdir, id + ext)\n```\n- `subdir` and `id` are directly from XML attributes without any validation\n\n**2. Path Construction Without Checks** (`nltk/downloader.py:679`)\n```python\nfilepath = os.path.join(download_dir, info.filename)\n```\n- Directly uses `filename` which may contain p",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "nltk"
+      ],
+      "published": "2026-03-19T12:42:42Z",
+      "updated": "2026-03-19T12:42:43Z",
+      "url": "https://github.com/advisories/GHSA-469j-vmhf-r6v7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nltk/nltk/security/advisories/GHSA-469j-vmhf-r6v7",
+        "https://github.com/advisories/GHSA-469j-vmhf-r6v7"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-jm6w-m3j8-898g",
+      "cve_id": "CVE-2026-33231",
+      "severity": "HIGH",
+      "summary": "Unauthenticated remote shutdown in nltk.app.wordnet_app",
+      "description": "### Summary\n`nltk.app.wordnet_app` allows unauthenticated remote shutdown of the local WordNet Browser HTTP server when it is started in its default mode. A simple `GET /SHUTDOWN%20THE%20SERVER` request causes the process to terminate immediately via `os._exit(0)`, resulting in a denial of service.\n\n### Details\nThe vulnerable logic is in `nltk/app/wordnet_app.py`:\n\n- [`nltk/app/wordnet_app.py:242`](/mnt/Data/my_brains/test/nltk/nltk/app/wordnet_app.py#L242)\n  - The server listens on all interfaces:\n  - `server = HTTPServer((\"\", port), MyServerHandler)`\n\n- [`nltk/app/wordnet_app.py:87`](/mnt/Data/my_brains/test/nltk/nltk/app/wordnet_app.py#L87)\n  - Incoming requests are checked for the exact path:\n  - `if unquote_plus(sp) == \"SHUTDOWN THE SERVER\":`\n\n- [`nltk/app/wordnet_app.py:88`](/mnt/Data/my_brains/test/nltk/nltk/app/wordnet_app.py#L88)\n  - The shutdown protection only depends on `server_mode`\n\n- [`nltk/app/wordnet_app.py:93`](/mnt/Data/my_brains/test/nltk/nltk/app/wordnet_app.py#L93",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-306"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "nltk"
+      ],
+      "published": "2026-03-19T12:42:20Z",
+      "updated": "2026-03-19T12:42:23Z",
+      "url": "https://github.com/advisories/GHSA-jm6w-m3j8-898g",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nltk/nltk/security/advisories/GHSA-jm6w-m3j8-898g",
+        "https://github.com/advisories/GHSA-jm6w-m3j8-898g"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mmgp-wc2j-qcv7",
+      "cve_id": "CVE-2026-33068",
+      "severity": "HIGH",
+      "summary": "Claude Code has a Workspace Trust Dialog Bypass via Repo-Controlled Settings File",
+      "description": "Claude Code resolved the permission mode from settings files, including the repo-controlled `.claude/settings.json`, before determining whether to display the workspace trust confirmation dialog. A malicious repository could set `permissions.defaultMode` to `bypassPermissions` in its committed `.claude/settings.json`, causing the trust dialog to be silently skipped on first open. This allowed a user to be placed into a permissive mode without seeing the trust confirmation prompt, making it easier for an attacker-controlled repository to gain tool execution without explicit user consent.\n\nUsers on standard Claude Code auto-update have received this fix already. Users performing manual updates are advised to update to the latest version.\n\nThank you to hackerone.com/cantina_xyz for reporting this issue.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-807"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@anthropic-ai/claude-code"
+      ],
+      "published": "2026-03-19T12:42:09Z",
+      "updated": "2026-03-19T12:42:10Z",
+      "url": "https://github.com/advisories/GHSA-mmgp-wc2j-qcv7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/anthropics/claude-code/security/advisories/GHSA-mmgp-wc2j-qcv7",
+        "https://github.com/advisories/GHSA-mmgp-wc2j-qcv7"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-4647-wpjq-hh7f",
       "cve_id": "CVE-2026-33226",
       "severity": "HIGH",
@@ -529,211 +726,6 @@
         "https://github.com/siyuan-note/siyuan/security/advisories/GHSA-3g9h-9hp4-654v",
         "https://github.com/advisories/GHSA-3g9h-9hp4-654v"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-54jj-px8x-5w5q",
-      "cve_id": "CVE-2026-33155",
-      "severity": "HIGH",
-      "summary": "DeepDiff has Memory Exhaustion DoS through SAFE_TO_IMPORT",
-      "description": "### Summary\n\nThe pickle unpickler `_RestrictedUnpickler` validates which classes can be loaded but does not limit their constructor arguments. A few of the types in `SAFE_TO_IMPORT` have constructors that allocate memory proportional to their input (`builtins.bytes`, `builtins.list`, `builtins.range`). A 40-byte pickle payload can force 10+ GB of memory, which crashes applications that load delta objects or call `pickle_load` with untrusted data.\n\n### Details\n\nCVE-2025-58367 hardened the delta class against pollution and remote code execution by converting `SAFE_TO_IMPORT` to a `frozenset` and blocking traversal. `_RestrictedUnpickler.find_class` only gates which classes can be loaded. It doesn't intercept `REDUCE` opcodes or validate what is passed to constructors.\n\nIt can be exploited in 2 ways.\n\n**1 - During `pickle_load`**\n\nA pickle that calls `bytes(N)` using opcodes permitted by the allowlist. The allocation happens during deserialization and before the delta processes anything. ",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-400"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "deepdiff"
-      ],
-      "published": "2026-03-18T20:10:08Z",
-      "updated": "2026-03-18T20:10:09Z",
-      "url": "https://github.com/advisories/GHSA-54jj-px8x-5w5q",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/seperman/deepdiff/security/advisories/GHSA-54jj-px8x-5w5q",
-        "https://github.com/seperman/deepdiff/commit/0d07ec21d12b46ef4e489383b363eadc22d990fb",
-        "https://github.com/advisories/GHSA-54jj-px8x-5w5q"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-pxrr-hq57-q35p",
-      "cve_id": "CVE-2026-33154",
-      "severity": "HIGH",
-      "summary": "dynaconf Affected by Remote Code Execution (RCE) via Insecure Template Evaluation in @jinja Resolver",
-      "description": "### Summary\nDynaconf is vulnerable to Server-Side Template Injection (SSTI) due to unsafe template evaluation in the @jinja resolver.\nWhen the jinja2 package is installed, Dynaconf evaluates template expressions embedded in configuration values without a sandboxed environment.\n\nIf an attacker can influence configuration sources such as:\nenvironment variables\n.env files\ncontainer environment configuration\nCI/CD secrets\nthey can execute arbitrary OS commands on the host system.\nIn addition, the @format resolver allows object graph traversal, which may expose sensitive runtime objects and environment variables.\n\n### Details\nThe vulnerability arises because Dynaconf's string resolvers lack proper security boundaries.\n\n1. @jinja Resolver\nThe @jinja resolver renders templates using full Jinja2 evaluation.\nHowever, the rendering context is not sandboxed, which allows attackers to access Python's internal attributes.\nUsing objects such as cycler, attackers can reach Python's __globals__ and im",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-94",
-        "CWE-1336"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "dynaconf"
-      ],
-      "published": "2026-03-18T20:08:06Z",
-      "updated": "2026-03-18T20:08:07Z",
-      "url": "https://github.com/advisories/GHSA-pxrr-hq57-q35p",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/dynaconf/dynaconf/security/advisories/GHSA-pxrr-hq57-q35p",
-        "https://github.com/advisories/GHSA-pxrr-hq57-q35p"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-vv3x-j2x5-36jc",
-      "cve_id": "CVE-2026-33080",
-      "severity": "HIGH",
-      "summary": "Filament Unvalidated Range and Values summarizer values can be used for XSS",
-      "description": "Two Filament Table summarizers (`Range`, `Values`) render raw database values without escaping HTML. If there is a lack of validation for the data in the columns that use these summarizers, an attacker could plant malicious HTML / JavaScript and achieve stored XSS that executes for users who view the table with those summarizers.",
-      "cvss_score": 7.3,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-79",
-        "CWE-80"
-      ],
-      "ecosystems": [
-        "composer",
-        "composer"
-      ],
-      "packages": [
-        "filament/tables",
-        "filament/tables"
-      ],
-      "published": "2026-03-18T20:07:24Z",
-      "updated": "2026-03-18T20:07:25Z",
-      "url": "https://github.com/advisories/GHSA-vv3x-j2x5-36jc",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/filamentphp/filament/security/advisories/GHSA-vv3x-j2x5-36jc",
-        "https://github.com/advisories/GHSA-vv3x-j2x5-36jc"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-7g27-v5wj-jr75",
-      "cve_id": "CVE-2026-33064",
-      "severity": "HIGH",
-      "summary": "free5GC UDM DataChangeNotification Procedure Panic Due to Nil Pointer Dereference",
-      "description": "**Impact**  \nThis is a NULL Pointer Dereference vulnerability leading to Denial of Service.  \n- **Security Impact**: A remote attacker can cause the UDM service to panic and crash by sending a crafted POST request to the `/sdm-subscriptions` endpoint with a malformed URL path containing path traversal sequences (`../`) and a large JSON payload. The `DataChangeNotificationProcedure` function in `notifier.go` attempts to access a nil pointer without proper validation, causing a complete service crash with \"runtime error: invalid memory address or nil pointer dereference\".  \n- **Functional Impact**: The service crashes completely, requiring manual restart. All UDM functionality is disrupted until recovery.  \n- **Affected Parties**: All deployments of free5GC v4.0.1 using the UDM HTTP callback functionality.\n\n**Patches**  \nYes, the issue has been patched.  \nThe fix is implemented in PR free5gc/udm#78.  \nUsers should upgrade to the next release of free5GC that includes this commit.\n\n**Worka",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-476"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/free5gc/udm"
-      ],
-      "published": "2026-03-18T20:06:36Z",
-      "updated": "2026-03-18T20:06:37Z",
-      "url": "https://github.com/advisories/GHSA-7g27-v5wj-jr75",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/free5gc/free5gc/security/advisories/GHSA-7g27-v5wj-jr75",
-        "https://github.com/free5gc/free5gc/issues/781",
-        "https://github.com/free5gc/udm/pull/78",
-        "https://github.com/free5gc/udm/commit/65d7070f4bfd016864cbbaefbd506bbc85d2fa92",
-        "https://github.com/advisories/GHSA-7g27-v5wj-jr75"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-4jrw-92fg-4jwx",
-      "cve_id": "CVE-2026-33063",
-      "severity": "HIGH",
-      "summary": "free5GC AUSF UE Authentication Panic on Nil SuciSupiMap Interface Conversion",
-      "description": "**Impact**  \nThis is an Improper Null Check vulnerability leading to Denial of Service.  \n- **Security Impact**: A remote attacker can cause the AUSF service to panic and crash by sending a crafted UE authentication request that triggers a nil interface conversion in the `GetSupiFromSuciSupiMap` function. This results in complete denial of service for the AUSF authentication service.  \n- **Functional Impact**: The `GetSupiFromSuciSupiMap` function attempts to perform an interface conversion from `interface{}` to `*context.SuciSupiMap` without checking if the underlying value is nil. When `SuciSupiMap` is nil, the code panics with \"interface conversion: interface {} is nil, not *context.SuciSupiMap\".  \n- **Affected Parties**: All deployments of free5GC v4.0.1 using the AUSF UE authentication service (`/nausf-auth/v1/ue-authentications` endpoint).\n\n**Patches**  \nYes, the issue has been patched.  \nThe fix is implemented in PR free5gc/ausf#52 (commit: [add specific commit hash if available",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-476"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/free5gc/ausf"
-      ],
-      "published": "2026-03-18T20:06:14Z",
-      "updated": "2026-03-18T20:06:15Z",
-      "url": "https://github.com/advisories/GHSA-4jrw-92fg-4jwx",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/free5gc/free5gc/security/advisories/GHSA-4jrw-92fg-4jwx",
-        "https://github.com/free5gc/free5gc/issues/778",
-        "https://github.com/free5gc/ausf/pull/52",
-        "https://github.com/free5gc/ausf/commit/3b9ac4403c2756dc89a5ed3cdcefe688458588aa",
-        "https://github.com/advisories/GHSA-4jrw-92fg-4jwx"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-7c47-xr7q-p6hg",
-      "cve_id": "CVE-2026-33062",
-      "severity": "HIGH",
-      "summary": "free5GC NRF Discovery EncodeGroupId Function Panics on Malformed group-id-list Parameter",
-      "description": "**Impact**  \nThis is an Improper Input Validation vulnerability leading to Denial of Service.  \n- **Security Impact**: A remote attacker can cause the NRF service to panic and crash by sending a crafted HTTP GET request with a malformed `group-id-list` parameter. This results in complete denial of service for the NRF discovery service.  \n- **Functional Impact**: The `EncodeGroupId` function attempts to access array indices [0], [1], [2] without validating the length of the split data. When the parameter contains insufficient separator characters, the code panics with \"index out of range\".  \n- **Affected Parties**: All deployments of free5GC v4.0.1 using the NRF discovery service.\n\n**Patches**  \nYes, the issue has been patched.  \nThe fix is implemented in PR free5gc/nrf#80 (commit: [add fix reference here]).  \nUsers should upgrade to the next release of free5GC that includes this commit.\n\n**Workarounds**  \nThere is no direct workaround at the application level. The recommendation is to ",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-284"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/free5gc/nrf"
-      ],
-      "published": "2026-03-18T20:05:31Z",
-      "updated": "2026-03-18T20:05:33Z",
-      "url": "https://github.com/advisories/GHSA-7c47-xr7q-p6hg",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/free5gc/free5gc/security/advisories/GHSA-7c47-xr7q-p6hg",
-        "https://github.com/free5gc/free5gc/issues/777",
-        "https://github.com/free5gc/nrf/pull/80",
-        "https://github.com/free5gc/nrf/commit/dac77d8f8f2e0f041c5634fb3c685dcb9734b872",
-        "https://github.com/advisories/GHSA-7c47-xr7q-p6hg"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-7rcv-55mj-chg7",
-      "cve_id": "CVE-2026-33172",
-      "severity": "HIGH",
-      "summary": "Statamic has Stored XSS via SVG Sanitization Bypass",
-      "description": "### Impact\n\nStored XSS vulnerability in SVG asset reuploads allows authenticated users with asset upload permissions to bypass SVG sanitization and inject malicious JavaScript that executes when the asset is viewed.\n\n### Patches\n\nThis has been fixed in 5.73.14 and 6.7.0.",
-      "cvss_score": 8.7,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-79"
-      ],
-      "ecosystems": [
-        "composer",
-        "composer"
-      ],
-      "packages": [
-        "statamic/cms",
-        "statamic/cms"
-      ],
-      "published": "2026-03-18T19:54:30Z",
-      "updated": "2026-03-18T19:54:32Z",
-      "url": "https://github.com/advisories/GHSA-7rcv-55mj-chg7",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/statamic/cms/security/advisories/GHSA-7rcv-55mj-chg7",
-        "https://github.com/advisories/GHSA-7rcv-55mj-chg7"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -781,7 +773,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-19T08:50:02.482285+00:00",
+    "catalog_version": "2026-03-19T13:12:40.539405+00:00",
     "source": "CISA KEV"
   }
 }
