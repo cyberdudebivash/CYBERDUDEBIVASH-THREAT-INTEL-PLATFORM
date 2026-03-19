@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-19T13:12:40.379968+00:00",
+  "timestamp": "2026-03-19T17:01:44.233320+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -8,6 +8,21 @@
     "urlhaus"
   ],
   "kev_recent": [
+    {
+      "cveID": "CVE-2026-20131",
+      "vendorProject": "Cisco",
+      "product": "Secure Firewall Management Center (FMC)",
+      "vulnerabilityName": "Cisco Secure Firewall Management Center (FMC) Software and Cisco Security Cloud Control (SCC) Firewall Management Deserialization of Untrusted Data Vulnerability",
+      "dateAdded": "2026-03-19",
+      "shortDescription": "Cisco Secure Firewall Management Center (FMC) Software and Cisco Security Cloud Control (SCC) Firewall Management contain a deserialization of untrusted data vulnerability in the web-based management interface that could allow an unauthenticated, remote attacker to execute arbitrary Java code as root on an affected device.",
+      "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
+      "dueDate": "2026-03-22",
+      "knownRansomwareCampaignUse": "Known",
+      "notes": "https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-fmc-rce-NKhnULJh ; https://nvd.nist.gov/vuln/detail/CVE-2026-20131",
+      "cwes": [
+        "CWE-502"
+      ]
+    },
     {
       "cveID": "CVE-2025-66376",
       "vendorProject": "Synacor",
@@ -309,6 +324,120 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-pw4v-x838-w5pg",
+      "cve_id": "CVE-2026-33292",
+      "severity": "HIGH",
+      "summary": "AVideo has an Authorization Bypass via Path Traversal in HLS Endpoint Allows Streaming Private/Paid Videos",
+      "description": "## Summary\n\nThe HLS streaming endpoint (`view/hls.php`) is vulnerable to a path traversal attack that allows an unauthenticated attacker to stream any private or paid video on the platform. The `videoDirectory` GET parameter is used in two divergent code paths \u2014 one for authorization (which truncates at the first `/` segment) and one for file access (which preserves `..` traversal sequences) \u2014 creating a split-oracle condition where authorization is checked against one video while content is served from another.\n\n## Details\n\nThe vulnerability is a split-oracle between the authorization lookup and the filesystem path construction. When `hls.php` receives a request, it processes `$_GET['videoDirectory']` through two independent functions that interpret the input differently.\n\n**Step 1 \u2014 Authorization lookup truncates at first path segment** (`objects/video.php:1685-1688`):\n\n```php\npublic static function getVideoFromFileName($fileName, $ignoreGroup = false, $ignoreTags = false)\n{\n    // .",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-19T16:43:03Z",
+      "updated": "2026-03-19T16:43:07Z",
+      "url": "https://github.com/advisories/GHSA-pw4v-x838-w5pg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-pw4v-x838-w5pg",
+        "https://github.com/advisories/GHSA-pw4v-x838-w5pg"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-89xv-2j6f-qhc8",
+      "cve_id": "CVE-2026-33252",
+      "severity": "HIGH",
+      "summary": "Cross-Site Tool Execution for HTTP Servers without Authorizatrion in github.com/modelcontextprotocol/go-sdk",
+      "description": "The Go SDK's Streamable HTTP transport accepted browser-generated cross-site `POST` requests without validating the `Origin` header and without requiring `Content-Type: application/json`. In deployments without Authorization, especially stateless or sessionless configurations, this allows an arbitrary website to send MCP requests to a local server and potentially trigger tool execution.\n\n#### Impact:\n\nA malicious website may have been able to send cross-site POST requests with `Content-Type: text/plain`, which due to CORS-safelisted properties would reach the MCP message handling without any CORS preflight barrier.\n\n#### Fix:\n\nThe SDK was modified to perform `Content-Type` header validation for POST requests and introduced a configurable protection for verifying the origin of the request in commit a433a83. Users are advised to update to v1.4.1 to use this additional protection.\n\nNote: v1.4.1 requires Go 1.25 or later.\n\n#### Credits:\n\nThank you to L\u00ea Minh Qu\u00e2n for reporting the issue.",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-352"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/modelcontextprotocol/go-sdk"
+      ],
+      "published": "2026-03-19T16:42:40Z",
+      "updated": "2026-03-19T16:42:42Z",
+      "url": "https://github.com/advisories/GHSA-89xv-2j6f-qhc8",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/modelcontextprotocol/go-sdk/security/advisories/GHSA-89xv-2j6f-qhc8",
+        "https://github.com/modelcontextprotocol/go-sdk/commit/a433a831d6e5d5ac3b9e625a8095aa8eaa040dfc",
+        "https://github.com/advisories/GHSA-89xv-2j6f-qhc8"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-94g3-g5v7-q4jg",
+      "cve_id": "CVE-2026-32935",
+      "severity": "HIGH",
+      "summary": "phpseclib's AES-CBC unpadding susceptible to padding oracle timing attack",
+      "description": "### Impact\nThose using AES in CBC mode may be susceptible to a padding oracle timing attack.\n\n### Patches\nhttps://github.com/phpseclib/phpseclib/commit/ccc21aef71eb170e9bf819b167e67d1fd9e6e788\n\n### Workarounds\nUse AES in CTR, CFB or OFB modes",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-208"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "phpseclib/phpseclib",
+        "phpseclib/phpseclib",
+        "phpseclib/phpseclib"
+      ],
+      "published": "2026-03-19T16:42:18Z",
+      "updated": "2026-03-19T16:42:22Z",
+      "url": "https://github.com/advisories/GHSA-94g3-g5v7-q4jg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/phpseclib/phpseclib/security/advisories/GHSA-94g3-g5v7-q4jg",
+        "https://github.com/phpseclib/phpseclib/commit/ccc21aef71eb170e9bf819b167e67d1fd9e6e788",
+        "https://github.com/advisories/GHSA-94g3-g5v7-q4jg"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-f964-whrq-44h8",
+      "cve_id": "CVE-2026-27953",
+      "severity": "HIGH",
+      "summary": "ormar Pydantic Validation Bypass via __pk_only__ and __excluded__ Kwargs Injection in Model Constructor",
+      "description": "### Summary\n\nA Pydantic validation bypass in `ormar`'s model constructor allows any unauthenticated user to skip **all** field validation \u2014 type checks, constraints, `@field_validator`/`@model_validator` decorators, choices enforcement, and required-field checks \u2014 by injecting `\"__pk_only__\": true` into a JSON request body. The unvalidated data is subsequently persisted to the database. This affects the **canonical usage pattern** recommended in ormar's official documentation and examples.\n\nA secondary `__excluded__` parameter injection uses the same design pattern to selectively nullify arbitrary model fields during construction.\n\n### Details\n\n**Root cause:** `NewBaseModel.__init__` ([`ormar/models/newbasemodel.py`, line 128](https://github.com/collerek/ormar/blob/master/ormar/models/newbasemodel.py#L128)) pops `__pk_only__` directly from user-supplied `**kwargs` before any validation occurs:\n\n```python\n# ormar/models/newbasemodel.py, lines 128-142\npk_only = kwargs.pop(\"__pk_only__\", ",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-20"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "ormar"
+      ],
+      "published": "2026-03-19T16:27:43Z",
+      "updated": "2026-03-19T16:27:43Z",
+      "url": "https://github.com/advisories/GHSA-f964-whrq-44h8",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ormar-orm/ormar/security/advisories/GHSA-f964-whrq-44h8",
+        "https://github.com/advisories/GHSA-f964-whrq-44h8"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-3m6g-2423-7cp3",
       "cve_id": "CVE-2026-33210",
       "severity": "HIGH",
@@ -506,6 +635,36 @@
       ]
     },
     {
+      "ghsa_id": "GHSA-pfv5-rpcw-x34x",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Duplicate Advisory: OpenClaw's allow-always wrapper persistence could bypass future approvals and enable command execution",
+      "description": "## Duplicate Advisory\n\nThis advisory has been withdrawn because it is a duplicate of GHSA-6j27-pc5c-m8w8. This link is maintained to preserve external references.\n\n## Original Description\nOpenClaw versions prior to 2026.2.22 contain an authorization bypass vulnerability in allow-always wrapper persistence that allows attackers to bypass approval checks by persisting wrapper-level allowlist entries instead of validating inner executable intent. Remote attackers can approve benign wrapped system.run commands and subsequently execute different payloads without approval, enabling remote code execution on gateway and node-host execution flows.",
+      "cvss_score": 6.4,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:R/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-78"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-19T03:30:57Z",
+      "updated": "2026-03-19T16:25:55Z",
+      "url": "https://github.com/advisories/GHSA-pfv5-rpcw-x34x",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-6j27-pc5c-m8w8",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-29607",
+        "https://github.com/openclaw/openclaw/commit/24c954d972400f508814532dea0e4dcb38418bb0",
+        "https://www.vulncheck.com/advisories/openclaw-authorization-bypass-via-allow-always-wrapper-persistence",
+        "https://github.com/advisories/GHSA-pfv5-rpcw-x34x"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-4647-wpjq-hh7f",
       "cve_id": "CVE-2026-33226",
       "severity": "HIGH",
@@ -585,152 +744,11 @@
         "https://github.com/russellhaering/gosaml2/security/advisories/GHSA-hwqm-qvj9-4jr2",
         "https://github.com/advisories/GHSA-hwqm-qvj9-4jr2"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-479m-364c-43vc",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "validateSignature Loop Variable Capture Signature Bypass in goxmldsig",
-      "description": "### Details\n\nThe `validateSignature` function in `validate.go` goes through the references in the `SignedInfo` block to find one that matches the signed element's ID. In Go versions before 1.22, or when `go.mod` uses an older version, there is a loop variable capture issue. The code takes the address of the loop variable `_ref` instead of its value. As a result, if more than one reference matches the ID or if the loop logic is incorrect, the `ref` pointer will always end up pointing to the last element in the `SignedInfo.References` slice after the loop.\n\n------\n\n### Technical Details\n\nThe code takes the address of a loop iteration variable (&_ref). In the standard Go compiler, this variable is only allocated once for the whole loop, so its address stays the same, but its value changes with each iteration.\n\nAs a result, any pointer to this variable will always point to the value of the *last* element processed by the loop, no matter which element matched the search criteria.\n\nUsing Rad",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-347",
-        "CWE-682"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/russellhaering/goxmldsig"
-      ],
-      "published": "2026-03-18T20:18:22Z",
-      "updated": "2026-03-18T20:18:23Z",
-      "url": "https://github.com/advisories/GHSA-479m-364c-43vc",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/russellhaering/goxmldsig/security/advisories/GHSA-479m-364c-43vc",
-        "https://github.com/advisories/GHSA-479m-364c-43vc"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-xw36-67f8-339x",
-      "cve_id": "CVE-2026-33204",
-      "severity": "HIGH",
-      "summary": "SimpleJWT has an Unauthenticated Denial of Service via JWE header tampering",
-      "description": "## Summary\n\nAn unauthenticated attacker can perform a Denial of Service via JWE header tampering when PBES2 algorithms are used.  \nApplications that call `JWE::decrypt()` on attacker-controlled JWEs using PBES2 algorithms are affected.\n\n## Details\n\nPHP version: `PHP 8.4.11`\nSimpleJWT version: `v1.1.0`\n\nThe relevant portion of the vulnerable implementation is shown below ([PBES2.php](https://github.com/kelvinmo/simplejwt/blob/edb7807a240b72c59e72d7dca31add9d16555f9f/src/SimpleJWT/Crypt/KeyManagement/PBES2.php)):\n\n```PHP\n<?php\n/* ... SNIP ... */\nclass PBES2 extends BaseAlgorithm implements KeyEncryptionAlgorithm {\n    use AESKeyWrapTrait;\n\n    /** @var array<string, mixed> $alg_params */\n    static protected $alg_params = [\n        'PBES2-HS256+A128KW' => ['hash' => 'sha256'],\n        'PBES2-HS384+A192KW' => ['hash' => 'sha384'],\n        'PBES2-HS512+A256KW' => ['hash' => 'sha512']\n    ];\n\n    /** @var truthy-string $hash_alg */\n    protected $hash_alg;\n\n    /** @var int $iterations */\n ",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-400"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "kelvinmo/simplejwt"
-      ],
-      "published": "2026-03-18T20:16:59Z",
-      "updated": "2026-03-18T20:16:59Z",
-      "url": "https://github.com/advisories/GHSA-xw36-67f8-339x",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/kelvinmo/simplejwt/security/advisories/GHSA-xw36-67f8-339x",
-        "https://github.com/advisories/GHSA-xw36-67f8-339x"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-5rvc-5cwx-g5x8",
-      "cve_id": "CVE-2026-33192",
-      "severity": "HIGH",
-      "summary": "free5GC UDM incorrectly returns 500 for empty supi path parameter in PATCH sdm-subscriptions reques",
-      "description": "**Impact**  \nThis is an Improper Error Handling vulnerability with Information Exposure implications, combined with an HTTP Method Translation issue.  \n- **Security Impact**: The UDM incorrectly converts a downstream 400 Bad Request (from UDR) into a 500 Internal Server Error when handling PATCH requests with an empty `supi` path parameter. Additionally, the UDM incorrectly translates the PATCH method to PUT when forwarding to UDR, indicating a deeper architectural issue. This leaks internal error handling behavior and makes it difficult for clients to distinguish between client-side errors and server-side failures.  \n- **Functional Impact**: When a client sends a PATCH request with an empty `supi` (e.g., double slashes `//` in URL path), the UDM forwards a PUT request to UDR with the malformed path, which correctly returns 400. However, UDM propagates this as 500 SYSTEM_FAILURE instead of returning the appropriate 400 error to the client. This violates REST API best practices for PATC",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-209"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/free5gc/udm"
-      ],
-      "published": "2026-03-18T20:11:27Z",
-      "updated": "2026-03-18T20:11:28Z",
-      "url": "https://github.com/advisories/GHSA-5rvc-5cwx-g5x8",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/free5gc/free5gc/security/advisories/GHSA-5rvc-5cwx-g5x8",
-        "https://github.com/free5gc/free5gc/issues/784",
-        "https://github.com/free5gc/udm/pull/79",
-        "https://github.com/advisories/GHSA-5rvc-5cwx-g5x8"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-p9hg-pq3q-v9gv",
-      "cve_id": "CVE-2026-33191",
-      "severity": "HIGH",
-      "summary": "free5GC UDM vulnerable to null byte injection in URL path parameters causing 500 Internal Server Error",
-      "description": "**Impact**  \nThis is an Improper Input Validation vulnerability with Denial of Service and Injection implications.  \n- **Security Impact**: A remote attacker can inject null bytes (URL-encoded as `%00`) into the `supi` path parameter of the UDM's Nudm_SubscriberDataManagement API. This causes URL parsing failure in Go's `net/url` package with the error \"invalid control character in URL\", resulting in a 500 Internal Server Error. This null byte injection vulnerability can be exploited for denial of service attacks.  \n- **Functional Impact**: When the `supi` parameter contains null characters, the UDM attempts to construct a URL for UDR that includes these control characters. Go's URL parser rejects them, causing the request to fail with 500 instead of properly validating input and returning 400 Bad Request.  \n- **Affected Parties**: All deployments of free5GC v4.0.1 using the UDM Nudm_SDM service with endpoints that include path parameters (e.g., `/nudm-sdm/v2/{supi}/am-data`).\n\n**Patch",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-158",
-        "CWE-248"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/free5gc/udm"
-      ],
-      "published": "2026-03-18T20:11:15Z",
-      "updated": "2026-03-18T20:11:16Z",
-      "url": "https://github.com/advisories/GHSA-p9hg-pq3q-v9gv",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/free5gc/free5gc/security/advisories/GHSA-p9hg-pq3q-v9gv",
-        "https://github.com/free5gc/udm/pull/79",
-        "https://github.com/advisories/GHSA-p9hg-pq3q-v9gv"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-3g9h-9hp4-654v",
-      "cve_id": "CVE-2026-33203",
-      "severity": "HIGH",
-      "summary": "SiYuan has an Unauthenticated WebSocket DoS via Auth Keepalive Bypass",
-      "description": "## Summary\nThe SiYuan kernel WebSocket server accepts unauthenticated connections when a specific \u201cauth keepalive\u201d query parameter is present. After connection, incoming messages are parsed using unchecked type assertions on attacker-controlled JSON.\n\nA remote attacker can send malformed messages that trigger a runtime panic, potentially crashing the kernel process and causing denial of service.\n\n## Details\n**1. Authentication Bypass via Keepalive Query**\n\nUnauthenticated connections are accepted if the request URI matches a specific pattern intended for an authentication page keepalive.\n\n**File: kernel/server/serve.go**\n\n```\nif !authOk {\n    authOk = strings.Contains(s.Request.RequestURI, \"/ws?app=siyuan\") &&\n             strings.Contains(s.Request.RequestURI, \"&id=auth&type=auth\")\n}\n\n```\n\n**2. Unsafe Type Assertions on Untrusted Input**\n\nIncoming JSON messages are parsed into a generic map and fields are accessed without validation.\n\n**File: kernel/server/serve.go**\n\n```\ncmdStr := re",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-248",
-        "CWE-306"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/siyuan-note/siyuan/kernel"
-      ],
-      "published": "2026-03-18T20:11:00Z",
-      "updated": "2026-03-18T20:11:01Z",
-      "url": "https://github.com/advisories/GHSA-3g9h-9hp4-654v",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/siyuan-note/siyuan/security/advisories/GHSA-3g9h-9hp4-654v",
-        "https://github.com/advisories/GHSA-3g9h-9hp4-654v"
-      ]
     }
   ],
   "urlhaus_iocs": [],
   "kev_stats": {
-    "total_kev_entries": 1545,
+    "total_kev_entries": 1546,
     "top_vendors": [
       {
         "vendor": "Microsoft",
@@ -742,7 +760,7 @@
       },
       {
         "vendor": "Cisco",
-        "count": 85
+        "count": 86
       },
       {
         "vendor": "Adobe",
@@ -773,7 +791,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-19T13:12:40.539405+00:00",
+    "catalog_version": "2026-03-19T17:01:44.410071+00:00",
     "source": "CISA KEV"
   }
 }
