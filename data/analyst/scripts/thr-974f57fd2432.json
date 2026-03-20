@@ -1,0 +1,22 @@
+{
+  "threat_id": "thr-974f57fd2432",
+  "title": "Schneider Electric Modicon Controllers M241, M251, M258, and LMC058",
+  "scripts": [
+    {
+      "type": "firewall_iptables",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 \u2014 Block threat IPs for: Schneider Electric Modicon Controllers M241, M251, M258, and\niptables -A INPUT -s 5.4.13.12 -j DROP\niptables -A OUTPUT -d 5.4.13.12 -j DROP\necho 'Firewall rules applied'"
+    },
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx 00\\.pdf|2026\\-069\\-02\\.pdf|download\\.schneider\\-electric\\.com|www\\.se\\.com\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-974f57fd2432'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((dest_ip IN (\"5.4.13.12\")) OR (query IN (\"00.pdf\",\"2026-069-02.pdf\",\"download.schneider-electric.com\",\"www.se.com\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    },
+    {
+      "type": "hardening_bash",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 \u2014 Emergency Hardening Script\n# Threat: Schneider Electric Modicon Controllers M241, M251, M258, and\n# Generated: 2026-03-20T03:18:08.584735+00:00\n\necho \"[*] Updating system packages...\"\napt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null\n\necho \"[*] Enabling firewall...\"\nufw enable 2>/dev/null || firewall-cmd --set-default-zone=drop 2>/dev/null\n\necho \"[*] Disabling unnecessary services...\"\nsystemctl disable --now telnet.socket 2>/dev/null\nsystemctl disable --now rsh.socket 2>/dev/null\n\necho \"[*] Setting secure SSH configuration...\"\nsed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config\nsystemctl restart sshd\n\necho \"[+] Hardening complete for threat: thr-974f57fd2432\"\n"
+    }
+  ]
+}
