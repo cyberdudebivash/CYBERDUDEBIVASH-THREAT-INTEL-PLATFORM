@@ -574,6 +574,13 @@ class ScoreStage(PipelineStage):
         except ImportError:
             ai_engine = None
 
+        # Seed detection watchlists from current batch IOCs for cross-item matching
+        if det_engine:
+            for item in ctx.items:
+                for ioc_type, values in item.get("iocs", {}).items():
+                    if isinstance(values, list) and values:
+                        det_engine.ioc_matcher.load_watchlist(ioc_type, values)
+
         total_detections = 0
 
         for item in ctx.items:

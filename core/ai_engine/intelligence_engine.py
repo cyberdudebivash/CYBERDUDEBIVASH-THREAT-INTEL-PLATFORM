@@ -694,11 +694,11 @@ class AIIntelligenceEngine:
             "tags": [],
         }
 
-        title = intel_item.get("title", "").lower()
+        text = f"{intel_item.get('title', '')} {intel_item.get('content', '')}".lower()
         risk_score = float(intel_item.get("risk_score", 0))
 
         # Zero-day detection
-        if any(t in title for t in ["zero-day", "0-day", "zero day"]):
+        if any(t in text for t in ["zero-day", "0-day", "zero day"]):
             signals["ai_risk_modifier"] += 1.5
             signals["threat_category"] = "ZERO_DAY"
             signals["tags"].append("zero-day")
@@ -706,18 +706,18 @@ class AIIntelligenceEngine:
         # APT detection
         apt_indicators = ["apt", "nation-state", "state-sponsored", "lazarus", "cozy bear",
                           "fancy bear", "volt typhoon", "sandworm", "hafnium"]
-        if any(t in title for t in apt_indicators):
+        if any(t in text for t in apt_indicators):
             signals["ai_risk_modifier"] += 1.0
             signals["threat_category"] = "APT"
             signals["tags"].append("apt")
 
         # Supply chain
-        if any(t in title for t in ["supply chain", "dependency", "npm", "pypi", "package"]):
+        if any(t in text for t in ["supply chain", "dependency", "npm", "pypi", "package"]):
             signals["ai_risk_modifier"] += 0.8
             signals["tags"].append("supply-chain")
 
         # Multi-CVE correlation signal
-        cves = re.findall(r'CVE-\d{4}-\d{4,}', title, re.IGNORECASE)
+        cves = re.findall(r'CVE-\d{4}-\d{4,}', text, re.IGNORECASE)
         if len(cves) > 1:
             signals["ai_risk_modifier"] += 0.5
             signals["tags"].append("multi-cve")
