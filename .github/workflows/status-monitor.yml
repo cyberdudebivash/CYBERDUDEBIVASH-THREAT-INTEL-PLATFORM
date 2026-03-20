@@ -9,6 +9,10 @@ permissions:
   contents: write
   pages: write
 
+concurrency:
+  group: sentinel-main-deploy
+  cancel-in-progress: false
+
 jobs:
   status-check:
     name: Platform Health Check & Status Page Generation
@@ -75,7 +79,12 @@ jobs:
             echo "No status changes to commit."
           else
             git commit -m "🔍 Status update: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
-            git pull origin main --rebase && git push origin main || echo "Push skipped"
+            for i in 1 2 3; do
+              git pull --rebase origin main || true
+              git push origin main && break
+              echo "Retry $i failed, retrying..."
+              sleep 3
+            done
           fi
 
       - name: Deploy status page to GitHub Pages

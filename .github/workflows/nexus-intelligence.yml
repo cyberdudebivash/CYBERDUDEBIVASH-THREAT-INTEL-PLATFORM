@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: nexus-intel
+  group: sentinel-main-deploy
   cancel-in-progress: false
 
 jobs:
@@ -73,9 +73,15 @@ jobs:
           "
 
       - name: Commit NEXUS Intelligence Data
+        continue-on-error: true
         run: |
           git config user.name "CDB-NEXUS-BOT"
           git config user.email "nexus@cyberdudebivash.com"
           git add data/nexus/ -f
           git diff --cached --quiet || git commit -m "🧠 NEXUS v39.0: Intelligence cycle $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          git push origin main || echo "Push failed — will retry next cycle"
+          for i in 1 2 3; do
+            git pull --rebase origin main || true
+            git push origin main && break
+            echo "Retry $i failed, retrying..."
+            sleep 3
+          done

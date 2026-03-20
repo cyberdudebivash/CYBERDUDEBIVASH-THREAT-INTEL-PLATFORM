@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write   # Required to commit syndication state back to repo
 
+concurrency:
+  group: sentinel-main-deploy
+  cancel-in-progress: false
+
 jobs:
   syndicate:
     name: RSS → Social Media Syndication
@@ -153,7 +157,12 @@ jobs:
           git config user.email "iambivash.bn@gmail.com"
           git add data/syndication_state.json data/last_run_summary.json data/syndication_run.log || true
           git diff --staged --quiet || git commit -m "🤖 Syndication state update — $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push || echo "Nothing to push"
+          for i in 1 2 3; do
+              git pull --rebase origin main || true
+              git push origin main && break
+              echo "Retry $i failed, retrying..."
+              sleep 3
+            done
 
       # ── 6.1 [v30-APEX] Commit APEX Matrix State ───────────────────────
       - name: Commit APEX Marketing State
@@ -162,7 +171,12 @@ jobs:
           git config user.email "iambivash.bn@gmail.com"
           git add data/syndication_queue/ 2>/dev/null || true
           git diff --staged --quiet || git commit -m "👑 APEX Matrix state update [skip ci]"
-          git pull origin main --rebase && git push origin main || echo "APEX state push deferred"
+          for i in 1 2 3; do
+              git pull --rebase origin main || true
+              git push origin main && break
+              echo "Retry $i failed, retrying..."
+              sleep 3
+            done
 
       # ── 7. Upload run log as artifact ─────────────────────────────────
       - name: Upload run log
