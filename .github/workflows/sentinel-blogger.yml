@@ -121,18 +121,24 @@ jobs:
 # STAGE 4: COMMIT CORE DATA
 # ================================================================
       - name: Commit Core Data
+        continue-on-error: true
         run: |
-          git add data/*.json data/stix/*.json index.html threat/ sitemap.xml 2>/dev/null || true
+          git add data/*.json data/stix/feed_manifest.json index.html threat/ sitemap.xml 2>/dev/null || true
 
           if ! git diff --staged --quiet; then
             git commit -m "v64.4 Core Sync [skip ci]"
-            git push origin main
+            git push origin main || {
+              echo "Push failed — retrying after rebase..."
+              git pull origin main --rebase --autostash || true
+              git push origin main || echo "Push failed after retry (non-blocking)"
+            }
           fi
 
 # ================================================================
 # STAGE 5: DEPLOY CORE
 # ================================================================
       - name: Deploy Core
+        continue-on-error: true
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
