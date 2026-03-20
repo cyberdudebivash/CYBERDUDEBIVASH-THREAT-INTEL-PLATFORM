@@ -2,7 +2,7 @@
 """
 SENTINEL APEX — Auto-update EMBEDDED_INTEL in index.html
 Runs post-pipeline to keep dashboard fallback cache always current.
-Merges feed_manifest.json + enriched_manifest.json → patches index.html
+SINGLE SOURCE OF TRUTH: data/stix/feed_manifest.json
 
 Usage: python3 scripts/update_embedded_intel.py
 CI:    Add as final step in any workflow that updates feed_manifest.json
@@ -17,12 +17,6 @@ from datetime import datetime, timezone
 REPO_ROOT = Path(__file__).parent.parent
 INDEX_HTML = REPO_ROOT / "index.html"
 FEED_MANIFEST = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
-ENRICHED_MANIFEST = REPO_ROOT / "data" / "v46_ultraintel" / "enriched_manifest.json"
-
-ENRICHMENT_KEYS = [
-    "actor_profile", "sector_tags", "exploit_status",
-    "cwe_classification", "intel_quality"
-]
 
 
 def load_manifest(path: Path) -> list:
@@ -37,23 +31,7 @@ def load_manifest(path: Path) -> list:
     return data.get("items", data.get("entries", []))
 
 
-def merge_intelligence(feed: list, enriched: list) -> list:
-    """Merge enriched v46 fields onto feed_manifest items."""
-    enriched_lookup = {item.get("stix_id", ""): item for item in enriched}
-    merged = []
-    for item in feed:
-        sid = item.get("stix_id", "")
-        merged_item = dict(item)
-        if sid in enriched_lookup:
-            enc = enriched_lookup[sid]
-            for key in ENRICHMENT_KEYS:
-                if key in enc:
-                    merged_item[key] = enc[key]
-        merged.append(merged_item)
-    return merged
-
-
-def patch_index_html(merged: list) -> bool:
+def patch_index_html(items: list) -> bool:
     """Surgically replace EMBEDDED_INTEL in index.html."""
     if not INDEX_HTML.exists():
         print(f"[ERROR] index.html not found at {INDEX_HTML}")
@@ -63,7 +41,7 @@ def patch_index_html(merged: list) -> bool:
         html = f.read()
 
     # Build new EMBEDDED_INTEL block
-    compact_json = json.dumps(merged, separators=(",", ":"), ensure_ascii=False)
+    compact_json = json.dumps(items, separators=(",", ":"), ensure_ascii=False)
     new_block = f"        const EMBEDDED_INTEL = {compact_json};"
 
     # Match existing EMBEDDED_INTEL assignment (handles any existing data shape)
@@ -84,16 +62,15 @@ def patch_index_html(merged: list) -> bool:
     return True
 
 
-def compute_kpis(merged: list) -> dict:
+def compute_kpis(items: list) -> dict:
     """Compute summary KPIs for CI log output."""
-    critical = sum(1 for i in merged if (i.get("risk_score") or 0) >= 9)
-    high = sum(1 for i in merged if 7 <= (i.get("risk_score") or 0) < 9)
-    kev = sum(1 for i in merged if i.get("kev_present"))
-    enriched = sum(1 for i in merged if any(k in i for k in ENRICHMENT_KEYS))
-    latest = max((i.get("timestamp", "") for i in merged), default="—")
+    critical = sum(1 for i in items if (i.get("risk_score") or 0) >= 9)
+    high = sum(1 for i in items if 7 <= (i.get("risk_score") or 0) < 9)
+    kev = sum(1 for i in items if i.get("kev_present"))
+    latest = max((i.get("timestamp", "") for i in items), default="—")
     return {
-        "total": len(merged), "critical": critical, "high": high,
-        "kev": kev, "enriched": enriched, "latest": latest
+        "total": len(items), "critical": critical, "high": high,
+        "kev": kev, "latest": latest
     }
 
 
@@ -101,31 +78,29 @@ def main():
     print("=" * 60)
     print("SENTINEL APEX — EMBEDDED_INTEL AUTO-UPDATER")
     print(f"Run: {datetime.now(timezone.utc).isoformat()}")
+    print(f"Source: {FEED_MANIFEST} (SINGLE SOURCE OF TRUTH)")
     print("=" * 60)
 
     feed = load_manifest(FEED_MANIFEST)
-    enriched = load_manifest(ENRICHED_MANIFEST)
 
     if not feed:
         print("[ERROR] feed_manifest.json is empty or missing — aborting")
         sys.exit(1)
 
     print(f"[INFO] feed_manifest: {len(feed)} items")
-    print(f"[INFO] enriched_manifest: {len(enriched)} items")
 
-    merged = merge_intelligence(feed, enriched)
-    kpis = compute_kpis(merged)
+    kpis = compute_kpis(feed)
 
     print(
-        f"[INFO] Merged: {kpis['total']} items | "
+        f"[INFO] Total: {kpis['total']} items | "
         f"CRITICAL:{kpis['critical']} HIGH:{kpis['high']} "
-        f"KEV:{kpis['kev']} | Enriched:{kpis['enriched']} | "
+        f"KEV:{kpis['kev']} | "
         f"Latest: {kpis['latest']}"
     )
 
-    success = patch_index_html(merged)
+    success = patch_index_html(feed)
     if success:
-        print("[SUCCESS] index.html EMBEDDED_INTEL patched ✓")
+        print("[SUCCESS] index.html EMBEDDED_INTEL patched")
     else:
         print("[ERROR] Patch failed")
         sys.exit(1)
