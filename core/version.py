@@ -13,8 +13,8 @@ Usage:
 # VERSION DEFINITION — EDIT ONLY HERE
 # ══════════════════════════════════════════════════════════════════════════════
 
-VERSION = "47.0.0"
-CODENAME = "COMMAND CENTER"
+VERSION = "64.0.0"
+CODENAME = "DOMINATION"
 RELEASE_DATE = "2026-03"
 RELEASE_TYPE = "enterprise"
 
@@ -34,6 +34,7 @@ VERSION_INFO = {
 
 # Version history for compatibility checks
 VERSION_HISTORY = [
+    {"version": "64.0.0", "codename": "DOMINATION", "type": "enterprise", "date": "2026-03"},
     {"version": "47.0.0", "codename": "COMMAND CENTER", "type": "enterprise", "date": "2026-03"},
     {"version": "46.0.0", "codename": "VANGUARD", "type": "enterprise", "date": "2026-03"},
     {"version": "45.0.0", "codename": "BUG HUNTER", "type": "enterprise", "date": "2026-03"},

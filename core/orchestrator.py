@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-orchestrator.py — CYBERDUDEBIVASH® SENTINEL APEX v47.0 (COMMAND CENTER)
+orchestrator.py — CYBERDUDEBIVASH® SENTINEL APEX v64.0 (COMMAND CENTER)
 ════════════════════════════════════════════════════════════════════════════
 CENTRAL ORCHESTRATOR — Single Source of Truth.
 
@@ -18,9 +18,11 @@ Features:
   - Strict execution order enforcement
   - Concurrency lock (only one pipeline run at a time)
   - Idempotent processing
+  - Per-stage retry with exponential backoff
   - Circuit breaker for external APIs
-  - Full audit trail
+  - Full audit trail with observability metrics
   - Graceful degradation on component failure
+  - Dashboard sync signaling system
 
 Usage:
     from core.orchestrator import orchestrator
@@ -44,6 +46,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("CDB-ORCHESTRATOR")
+
+PLATFORM_VERSION = "v64.0"
 
 # ═══════════════════════════════════════════════════════════
 # CIRCUIT BREAKER
@@ -98,11 +102,16 @@ class SentinelOrchestrator:
       3. Only this orchestrator writes manifest/STIX/dashboard data
       4. All operations are audited
       5. Component failures are isolated (circuit breaker)
+      6. Each stage retries up to MAX_STAGE_RETRIES on transient failure
+      7. Dashboard sync signal updated after every successful run
     """
 
     PIPELINE_STAGES = [
         "ingest", "normalize", "enrich", "correlate", "score", "store", "publish"
     ]
+
+    MAX_STAGE_RETRIES = 2
+    STAGE_RETRY_BACKOFF = [1.0, 3.0]  # seconds between retries
 
     def __init__(self):
         self._circuit_breakers: Dict[str, CircuitBreaker] = {
@@ -111,6 +120,12 @@ class SentinelOrchestrator:
         self._run_history: List[Dict] = []
         self._is_running = False
         self._lock_token: Optional[str] = None
+        self._stage_timings: Dict[str, float] = {}
+        self._last_sync_at: Optional[str] = None
+        self._pipeline_state: str = "idle"  # idle | running | error
+        self._total_items_processed: int = 0
+        self._total_detections: int = 0
+        self._error_count: int = 0
 
     def run_pipeline(
         self,
@@ -137,6 +152,8 @@ class SentinelOrchestrator:
             return {"error": "Failed to acquire pipeline lock", "status": "rejected"}
 
         self._is_running = True
+        self._pipeline_state = "running"
+        self._stage_timings = {}
         skip_stages = set(skip_stages or [])
 
         # Import pipeline components
@@ -149,6 +166,10 @@ class SentinelOrchestrator:
         ctx = PipelineContext(run_id=run_id)
         if items:
             ctx.items = items
+
+        # Allow test manifest injection for test isolation
+        if hasattr(self, '_test_manifest_manager'):
+            ctx.metadata["_test_manifest_manager"] = self._test_manifest_manager
 
         # Stage registry
         stage_map = {
@@ -169,10 +190,10 @@ class SentinelOrchestrator:
         })
 
         logger.info(f"{'='*60}")
-        logger.info(f"SENTINEL APEX ORCHESTRATOR — Pipeline Run: {ctx.run_id}")
+        logger.info(f"SENTINEL APEX ORCHESTRATOR {PLATFORM_VERSION} — Pipeline Run: {ctx.run_id}")
         logger.info(f"{'='*60}")
 
-        # Execute stages in strict order
+        # Execute stages in strict order with retry
         for stage_name in self.PIPELINE_STAGES:
             if stage_name in skip_stages:
                 logger.info(f"[SKIP] Stage: {stage_name}")
@@ -188,24 +209,49 @@ class SentinelOrchestrator:
                 "run_id": ctx.run_id, "stage": stage_name
             })
 
-            try:
-                stage = stage_map[stage_name]
-                logger.info(f"[STAGE] {stage_name.upper()} — Processing {len(ctx.items)} items")
-                ctx = stage.execute(ctx)
-                cb.record_success()
+            stage_start = time.time()
+            executed = False
 
-                self._emit_event("pipeline.stage.completed", {
-                    "run_id": ctx.run_id,
-                    "stage": stage_name,
-                    "item_count": len(ctx.items),
-                })
+            # Retry loop for transient failures
+            for attempt in range(1 + self.MAX_STAGE_RETRIES):
+                try:
+                    stage = stage_map[stage_name]
+                    logger.info(
+                        f"[STAGE] {stage_name.upper()} — Processing {len(ctx.items)} items"
+                        + (f" (retry {attempt})" if attempt > 0 else "")
+                    )
+                    ctx = stage.execute(ctx)
+                    cb.record_success()
+                    executed = True
 
-            except Exception as e:
-                cb.record_failure()
-                error_msg = f"Stage {stage_name} failed: {e}"
-                logger.error(error_msg)
-                ctx.add_error(stage_name, str(e))
+                    stage_duration = round(time.time() - stage_start, 3)
+                    self._stage_timings[stage_name] = stage_duration
 
+                    self._emit_event("pipeline.stage.completed", {
+                        "run_id": ctx.run_id,
+                        "stage": stage_name,
+                        "item_count": len(ctx.items),
+                        "duration_seconds": stage_duration,
+                        "attempt": attempt + 1,
+                    })
+                    break  # Stage succeeded
+
+                except Exception as e:
+                    if attempt < self.MAX_STAGE_RETRIES:
+                        backoff = self.STAGE_RETRY_BACKOFF[min(attempt, len(self.STAGE_RETRY_BACKOFF) - 1)]
+                        logger.warning(
+                            f"[RETRY] Stage {stage_name} attempt {attempt + 1} failed: {e} "
+                            f"— retrying in {backoff}s"
+                        )
+                        time.sleep(backoff)
+                    else:
+                        cb.record_failure()
+                        error_msg = f"Stage {stage_name} failed after {attempt + 1} attempts: {e}"
+                        logger.error(error_msg)
+                        ctx.add_error(stage_name, str(e))
+                        self._error_count += 1
+
+            if not executed:
                 # Continue pipeline despite stage failure (graceful degradation)
                 continue
 
@@ -215,11 +261,19 @@ class SentinelOrchestrator:
         # Store pipeline run
         self._store_run(summary)
 
+        # Update sync signal
+        self._update_sync_signal(summary)
+
+        # Update cumulative metrics
+        self._total_items_processed += len(ctx.items)
+        self._total_detections += ctx.metrics.get("detections", 0)
+
         # Emit completion event
         self._emit_event("pipeline.completed", summary)
 
         # Release lock
         self._is_running = False
+        self._pipeline_state = "idle" if not ctx.errors else "error"
         self._release_lock()
 
         logger.info(f"{'='*60}")
@@ -229,15 +283,22 @@ class SentinelOrchestrator:
         return summary
 
     def get_status(self) -> Dict:
-        """Get orchestrator and system status."""
+        """Get orchestrator and system status with full observability."""
         status = {
             "orchestrator": {
                 "running": self._is_running,
+                "pipeline_state": self._pipeline_state,
+                "version": PLATFORM_VERSION,
                 "circuit_breakers": {
                     name: cb._state for name, cb in self._circuit_breakers.items()
                 },
                 "total_runs": len(self._run_history),
                 "last_run": self._run_history[-1] if self._run_history else None,
+                "last_sync_at": self._last_sync_at,
+                "total_items_processed": self._total_items_processed,
+                "total_detections": self._total_detections,
+                "error_count": self._error_count,
+                "stage_timings": self._stage_timings,
             },
         }
 
@@ -306,12 +367,28 @@ class SentinelOrchestrator:
         status["timestamp"] = datetime.now(timezone.utc).isoformat()
         return status
 
+    def get_sync_signal(self) -> Dict:
+        """Get the current dashboard sync signal for frontend polling."""
+        return {
+            "last_sync_at": self._last_sync_at,
+            "pipeline_state": self._pipeline_state,
+            "is_running": self._is_running,
+            "total_runs": len(self._run_history),
+            "total_items_processed": self._total_items_processed,
+            "total_detections": self._total_detections,
+            "error_count": self._error_count,
+            "stage_timings": self._stage_timings,
+            "last_run_summary": self._run_history[-1] if self._run_history else None,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
     def get_dashboard_data(self) -> Dict:
-        """Generate comprehensive dashboard data."""
+        """Generate comprehensive dashboard data with sync signal."""
         data = {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "platform": "CYBERDUDEBIVASH SENTINEL APEX",
-            "version": "v47.0 COMMAND CENTER",
+            "version": f"{PLATFORM_VERSION} COMMAND CENTER",
+            "sync_signal": self.get_sync_signal(),
         }
 
         # Manifest stats
@@ -385,7 +462,30 @@ class SentinelOrchestrator:
             "errors": ctx.errors[:20],
             "ai_analysis": ctx.metadata.get("ai_analysis", {}),
             "campaigns_detected": len(ctx.metadata.get("campaigns", [])),
+            "stage_timings": dict(self._stage_timings),
+            "version": PLATFORM_VERSION,
         }
+
+    def _update_sync_signal(self, summary: Dict):
+        """Update the dashboard sync signal after a pipeline run."""
+        self._last_sync_at = datetime.now(timezone.utc).isoformat()
+        try:
+            sync_data = {
+                "last_sync_at": self._last_sync_at,
+                "last_run_id": summary.get("run_id", ""),
+                "item_count": summary.get("item_count", 0),
+                "status": summary.get("status", "unknown"),
+                "duration_seconds": summary.get("duration_seconds", 0),
+                "pipeline_state": "idle" if summary.get("error_count", 0) == 0 else "error",
+                "total_items_processed": self._total_items_processed,
+                "total_detections": self._total_detections,
+                "stage_timings": summary.get("stage_timings", {}),
+            }
+            os.makedirs("data/status", exist_ok=True)
+            with open("data/status/sync_signal.json", "w") as f:
+                json.dump(sync_data, f, indent=2, default=str)
+        except Exception as e:
+            logger.debug(f"Sync signal write failed (non-fatal): {e}")
 
     def _store_run(self, summary: Dict):
         self._run_history.append(summary)
@@ -440,7 +540,7 @@ def main():
     )
 
     parser = argparse.ArgumentParser(
-        description="CYBERDUDEBIVASH® SENTINEL APEX — Central Orchestrator v47.0"
+        description=f"CYBERDUDEBIVASH® SENTINEL APEX — Central Orchestrator {PLATFORM_VERSION}"
     )
     parser.add_argument("--status", action="store_true", help="Show system status")
     parser.add_argument("--stats", action="store_true", help="Show dashboard stats")
