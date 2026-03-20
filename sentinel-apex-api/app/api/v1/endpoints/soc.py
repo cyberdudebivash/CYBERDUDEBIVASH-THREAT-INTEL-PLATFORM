@@ -1,5 +1,9 @@
 """
+<<<<<<< HEAD
 SENTINEL APEX — SOC & Threat Hunting API Endpoints v47.0
+=======
+SENTINEL APEX — SOC & Threat Hunting API Endpoints v64.0
+>>>>>>> claude/ai-threat-intelligence-system-eFwfT
 ═══════════════════════════════════════════════════════════
 Advanced SOC operations, threat hunting, and AI intelligence endpoints.
 
@@ -328,6 +332,32 @@ async def check_iocs(req: IOCCheckRequest):
         raise HTTPException(status_code=500, detail=f"IOC check failed: {e}")
 
 
+<<<<<<< HEAD
+=======
+@router.get("/sync-signal")
+async def get_sync_signal():
+    """Get the dashboard sync signal for real-time status updates."""
+    try:
+        from core.orchestrator import orchestrator
+        return {"status": "ok", "data": orchestrator.get_sync_signal()}
+    except Exception as e:
+        logger.error(f"Sync signal failed: {e}")
+        # Fallback: read from file
+        try:
+            import os
+            signal_path = "data/status/sync_signal.json"
+            if os.path.exists(signal_path):
+                with open(signal_path, "r") as f:
+                    return {"status": "ok", "data": json.load(f)}
+        except Exception:
+            pass
+        return {
+            "status": "degraded",
+            "data": {"pipeline_state": "unknown", "last_sync_at": None},
+        }
+
+
+>>>>>>> claude/ai-threat-intelligence-system-eFwfT
 @router.get("/pipeline-runs")
 async def get_pipeline_runs(
     limit: int = Query(10, ge=1, le=50),
@@ -354,3 +384,76 @@ async def get_pipeline_runs(
     except Exception as e:
         logger.error(f"Pipeline runs query failed: {e}")
         return {"status": "ok", "count": 0, "runs": []}
+<<<<<<< HEAD
+=======
+
+
+@router.get("/threat-report/{intel_id}")
+async def get_threat_report(intel_id: str):
+    """Generate a premium intelligence report for a specific threat item."""
+    try:
+        from core.manifest_manager import manifest_manager
+        entry = manifest_manager.get_entry_by_stix_id(intel_id)
+        if not entry:
+            # Try by title hash
+            entries = manifest_manager.read_manifest()
+            entry = next((e for e in entries if e.get("intel_id") == intel_id), None)
+
+        if not entry:
+            raise HTTPException(status_code=404, detail="Intelligence item not found")
+
+        try:
+            from core.report_engine import report_engine
+            report = report_engine.generate_report(entry)
+            return {"status": "ok", "report": report}
+        except ImportError:
+            return {"status": "error", "detail": "Report engine not available"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Report generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Report generation failed: {e}")
+
+
+@router.get("/executive-briefing")
+async def get_executive_briefing(limit: int = Query(20, ge=5, le=100)):
+    """Generate an executive briefing summarizing top threats."""
+    try:
+        from core.manifest_manager import manifest_manager
+        entries = manifest_manager.read_manifest()
+
+        # Sort by risk score descending, take top N
+        entries.sort(key=lambda e: float(e.get("risk_score", 0)), reverse=True)
+        top_entries = entries[:limit]
+
+        try:
+            from core.report_engine import report_engine
+            briefing = report_engine.generate_executive_briefing(top_entries)
+            return {"status": "ok", "briefing": briefing}
+        except ImportError:
+            return {"status": "error", "detail": "Report engine not available"}
+
+    except Exception as e:
+        logger.error(f"Executive briefing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Briefing generation failed: {e}")
+
+
+@router.get("/action-cards")
+async def get_soc_action_cards():
+    """Get SOC-ready action cards for the top 10 actionable threats."""
+    try:
+        from core.manifest_manager import manifest_manager
+        entries = manifest_manager.read_manifest()
+
+        try:
+            from core.report_engine import report_engine
+            cards = report_engine.generate_soc_action_cards(entries)
+            return {"status": "ok", "count": len(cards), "action_cards": cards}
+        except ImportError:
+            return {"status": "error", "detail": "Report engine not available"}
+
+    except Exception as e:
+        logger.error(f"Action cards failed: {e}")
+        return {"status": "ok", "count": 0, "action_cards": []}
+>>>>>>> claude/ai-threat-intelligence-system-eFwfT
