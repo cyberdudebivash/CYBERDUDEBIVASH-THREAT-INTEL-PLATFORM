@@ -301,6 +301,206 @@ MIGRATIONS: List[Dict] = [
             DROP TABLE IF EXISTS sales_leads;
         """,
     },
+    {
+        "version": "v47_006",
+        "description": "Threat intelligence core tables (orchestrator v47.0)",
+        "up": """
+            CREATE TABLE IF NOT EXISTS threat_intelligence (
+                id {serial} PRIMARY KEY,
+                intel_id TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                source_url TEXT,
+                blog_url TEXT,
+                feed_source TEXT,
+                content_hash TEXT UNIQUE,
+                severity TEXT NOT NULL DEFAULT 'MEDIUM',
+                risk_score REAL DEFAULT 0.0,
+                confidence_score REAL DEFAULT 0.0,
+                cvss_score REAL,
+                epss_score REAL,
+                kev_present BOOLEAN DEFAULT FALSE,
+                tlp_label TEXT DEFAULT 'TLP:CLEAR',
+                actor_tag TEXT DEFAULT 'UNC-CDB-99',
+                supply_chain BOOLEAN DEFAULT FALSE,
+                stix_id TEXT,
+                stix_file TEXT,
+                stix_object_count INTEGER DEFAULT 0,
+                ioc_counts {jsonb} DEFAULT '{}',
+                mitre_tactics {jsonb} DEFAULT '[]',
+                extended_metrics {jsonb} DEFAULT '{}',
+                ai_analysis {jsonb} DEFAULT '{}',
+                campaign_id TEXT,
+                cluster_id TEXT,
+                pipeline_run_id TEXT,
+                status TEXT DEFAULT 'active',
+                ingested_at {ts_default},
+                enriched_at TEXT,
+                published_at TEXT,
+                updated_at {ts_default}
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_intel_severity ON threat_intelligence(severity);
+            CREATE INDEX IF NOT EXISTS idx_intel_risk ON threat_intelligence(risk_score);
+            CREATE INDEX IF NOT EXISTS idx_intel_status ON threat_intelligence(status);
+            CREATE INDEX IF NOT EXISTS idx_intel_campaign ON threat_intelligence(campaign_id);
+            CREATE INDEX IF NOT EXISTS idx_intel_hash ON threat_intelligence(content_hash);
+        """,
+        "down": "DROP TABLE IF EXISTS threat_intelligence",
+    },
+    {
+        "version": "v47_007",
+        "description": "IOC storage and threat campaigns (orchestrator v47.0)",
+        "up": """
+            CREATE TABLE IF NOT EXISTS indicators_of_compromise (
+                id {serial} PRIMARY KEY,
+                ioc_id TEXT NOT NULL UNIQUE,
+                intel_id TEXT NOT NULL,
+                ioc_type TEXT NOT NULL,
+                ioc_value TEXT NOT NULL,
+                confidence REAL DEFAULT 0.0,
+                first_seen TEXT,
+                last_seen TEXT,
+                source TEXT,
+                tags {jsonb} DEFAULT '[]',
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at {ts_default},
+                UNIQUE(ioc_type, ioc_value)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_ioc_type ON indicators_of_compromise(ioc_type);
+            CREATE INDEX IF NOT EXISTS idx_ioc_intel ON indicators_of_compromise(intel_id);
+            CREATE INDEX IF NOT EXISTS idx_ioc_value ON indicators_of_compromise(ioc_value);
+
+            CREATE TABLE IF NOT EXISTS threat_campaigns (
+                id {serial} PRIMARY KEY,
+                campaign_id TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                description TEXT,
+                actor_tag TEXT,
+                first_seen TEXT,
+                last_seen TEXT,
+                severity TEXT DEFAULT 'MEDIUM',
+                confidence REAL DEFAULT 0.0,
+                intel_count INTEGER DEFAULT 0,
+                ioc_count INTEGER DEFAULT 0,
+                mitre_techniques {jsonb} DEFAULT '[]',
+                related_cves {jsonb} DEFAULT '[]',
+                sectors_targeted {jsonb} DEFAULT '[]',
+                geo_targets {jsonb} DEFAULT '[]',
+                status TEXT DEFAULT 'active',
+                created_at {ts_default},
+                updated_at {ts_default}
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_campaign_status ON threat_campaigns(status);
+            CREATE INDEX IF NOT EXISTS idx_campaign_actor ON threat_campaigns(actor_tag);
+        """,
+        "down": """
+            DROP TABLE IF EXISTS threat_campaigns;
+            DROP TABLE IF EXISTS indicators_of_compromise;
+        """,
+    },
+    {
+        "version": "v47_008",
+        "description": "Detection results and pipeline executions (orchestrator v47.0)",
+        "up": """
+            CREATE TABLE IF NOT EXISTS detection_results (
+                id {serial} PRIMARY KEY,
+                detection_id TEXT NOT NULL UNIQUE,
+                intel_id TEXT,
+                rule_type TEXT NOT NULL,
+                rule_id TEXT NOT NULL,
+                rule_name TEXT,
+                match_data {jsonb} DEFAULT '{}',
+                severity TEXT DEFAULT 'MEDIUM',
+                confidence REAL DEFAULT 0.0,
+                false_positive BOOLEAN DEFAULT FALSE,
+                validated BOOLEAN DEFAULT FALSE,
+                created_at {ts_default}
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_detection_intel ON detection_results(intel_id);
+            CREATE INDEX IF NOT EXISTS idx_detection_rule ON detection_results(rule_type, rule_id);
+
+            CREATE TABLE IF NOT EXISTS pipeline_executions (
+                id {serial} PRIMARY KEY,
+                run_id TEXT NOT NULL UNIQUE,
+                status TEXT DEFAULT 'running',
+                started_at {ts_default},
+                completed_at TEXT,
+                items_ingested INTEGER DEFAULT 0,
+                items_enriched INTEGER DEFAULT 0,
+                items_published INTEGER DEFAULT 0,
+                items_deduplicated INTEGER DEFAULT 0,
+                errors {jsonb} DEFAULT '[]',
+                stages_completed {jsonb} DEFAULT '[]',
+                duration_seconds REAL DEFAULT 0.0
+            );
+
+            CREATE TABLE IF NOT EXISTS soc_hunt_results (
+                id {serial} PRIMARY KEY,
+                hunt_id TEXT NOT NULL UNIQUE,
+                hunt_name TEXT NOT NULL,
+                hypothesis TEXT,
+                query_type TEXT,
+                query_data {jsonb} DEFAULT '{}',
+                results {jsonb} DEFAULT '[]',
+                findings_count INTEGER DEFAULT 0,
+                severity TEXT DEFAULT 'INFO',
+                analyst TEXT DEFAULT 'SENTINEL-AI',
+                status TEXT DEFAULT 'completed',
+                created_at {ts_default}
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_hunt_status ON soc_hunt_results(status);
+        """,
+        "down": """
+            DROP TABLE IF EXISTS soc_hunt_results;
+            DROP TABLE IF EXISTS pipeline_executions;
+            DROP TABLE IF EXISTS detection_results;
+        """,
+    },
+    {
+        "version": "v47_009",
+        "description": "API keys and usage tracking (orchestrator v47.0)",
+        "up": """
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id {serial} PRIMARY KEY,
+                key_id TEXT NOT NULL UNIQUE,
+                key_hash TEXT NOT NULL UNIQUE,
+                owner_id TEXT NOT NULL,
+                tier TEXT DEFAULT 'FREE',
+                name TEXT,
+                rate_limit INTEGER DEFAULT 60,
+                daily_limit INTEGER DEFAULT 100,
+                is_active BOOLEAN DEFAULT TRUE,
+                last_used_at TEXT,
+                expires_at TEXT,
+                created_at {ts_default}
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_apikey_owner ON api_keys(owner_id);
+            CREATE INDEX IF NOT EXISTS idx_apikey_hash ON api_keys(key_hash);
+
+            CREATE TABLE IF NOT EXISTS api_usage (
+                id {serial} PRIMARY KEY,
+                api_key_hash TEXT NOT NULL,
+                tier TEXT DEFAULT 'FREE',
+                endpoint TEXT NOT NULL,
+                method TEXT DEFAULT 'GET',
+                status_code INTEGER,
+                response_time_ms REAL,
+                request_date TEXT NOT NULL,
+                created_at {ts_default}
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_api_key_usage ON api_usage(api_key_hash, request_date);
+        """,
+        "down": """
+            DROP TABLE IF EXISTS api_usage;
+            DROP TABLE IF EXISTS api_keys;
+        """,
+    },
 ]
 
 
