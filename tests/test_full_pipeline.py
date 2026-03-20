@@ -503,25 +503,30 @@ def test_pipeline():
         fresh["title"] = item["title"] + ts_suffix
         fresh_items.append(fresh)
 
-    # Patch agent dedup to avoid false positives from fuzzy matching against
-    # previously-processed titles (Layer 3: 80% word overlap catches timestamped
-    # variants). This isolates the test without modifying production logic.
+    # Use a clean temporary manifest for test isolation.
+    # This avoids monkey-patching the deduplication engine and ensures
+    # production manifest is never modified by tests.
+    import tempfile, shutil
+    test_manifest_dir = tempfile.mkdtemp(prefix="cdb_test_pipeline_")
     try:
-        from agent.deduplication import DeduplicationEngine
-        _orig_is_dup = DeduplicationEngine.is_duplicate
-        DeduplicationEngine.is_duplicate = lambda self, *a, **kw: False
-        _patched_dedup = True
+        from core.manifest_manager import ManifestManager
+        test_mm = ManifestManager(manifest_dir=test_manifest_dir, max_entries=500)
+        # Inject test manifest into orchestrator for this run
+        orch._test_manifest_manager = test_mm
     except ImportError:
-        _patched_dedup = False
+        pass
 
     # 6.2 — Full pipeline with pre-loaded items
     start = time.time()
     result = orch.run_pipeline(items=fresh_items, run_id="VALIDATION-FULL")
     duration = time.time() - start
 
-    # Restore original dedup method
-    if _patched_dedup:
-        DeduplicationEngine.is_duplicate = _orig_is_dup
+    # Clean up test manifest
+    try:
+        del orch._test_manifest_manager
+    except AttributeError:
+        pass
+    shutil.rmtree(test_manifest_dir, ignore_errors=True)
 
     record("Pipeline completes without crash",
            result.get("status") in ("completed", "completed_with_errors"),

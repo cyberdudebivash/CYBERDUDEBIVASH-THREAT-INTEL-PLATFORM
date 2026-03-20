@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-stages.py — CYBERDUDEBIVASH® SENTINEL APEX v47.0 (COMMAND CENTER)
+stages.py — CYBERDUDEBIVASH® SENTINEL APEX v64.0 (COMMAND CENTER)
 ════════════════════════════════════════════════════════════════════
 Pipeline Stages: Strict execution order enforcement.
 
@@ -60,6 +60,7 @@ class PipelineContext:
             "published": 0,
             "deduplicated": 0,
             "detections": 0,
+            "reports_generated": 0,
         }
 
     def add_error(self, stage: str, error: str, item_title: str = ""):
@@ -214,12 +215,17 @@ class NormalizeStage(PipelineStage):
         except ImportError:
             dedup = None
 
-        # Also check against hardened manifest
-        try:
-            from core.manifest_manager import manifest_manager
-            manifest_check = manifest_manager.is_duplicate
-        except ImportError:
-            manifest_check = None
+        # Check against hardened manifest (prefer test manifest if injected)
+        manifest_check = None
+        test_mm = ctx.metadata.get("_test_manifest_manager")
+        if test_mm:
+            manifest_check = test_mm.is_duplicate
+        else:
+            try:
+                from core.manifest_manager import manifest_manager
+                manifest_check = manifest_manager.is_duplicate
+            except ImportError:
+                pass
 
         normalized = []
         dedup_count = 0
@@ -438,14 +444,14 @@ class EnrichStage(PipelineStage):
         return result
 
     def _map_mitre(self, item: Dict) -> List[str]:
-        """Map intelligence item to MITRE ATT&CK techniques."""
+        """Map intelligence item to MITRE ATT&CK techniques using full mapper."""
         try:
             from agent.mitre_mapper import map_mitre_tactics
             return map_mitre_tactics(item.get("title", ""), item.get("content", ""))
-        except ImportError:
+        except (ImportError, Exception):
             pass
 
-        # Fallback: keyword-based mapping
+        # Fallback: keyword-based mapping (if mitre_mapper unavailable)
         text = f"{item.get('title', '')} {item.get('content', '')}".lower()
         tactics = []
         mapping = {
@@ -463,7 +469,7 @@ class EnrichStage(PipelineStage):
         for technique_id, keywords in mapping.items():
             if any(kw in text for kw in keywords):
                 tactics.append(technique_id)
-        return tactics[:5]
+        return tactics[:10]
 
     def _refine_actor(self, item: Dict) -> str:
         """Refine threat actor attribution from content."""
@@ -705,11 +711,13 @@ class StoreStage(PipelineStage):
         except ImportError:
             stix_exporter = None
 
-        # Load manifest manager
-        try:
-            from core.manifest_manager import manifest_manager
-        except ImportError:
-            manifest_manager = None
+        # Load manifest manager (prefer test manifest if injected)
+        manifest_manager = ctx.metadata.get("_test_manifest_manager")
+        if not manifest_manager:
+            try:
+                from core.manifest_manager import manifest_manager
+            except ImportError:
+                manifest_manager = None
 
         # Load database
         try:
@@ -810,6 +818,7 @@ class StoreStage(PipelineStage):
 class PublishStage(PipelineStage):
     """
     Publishes intelligence to blog, dashboard, and notification channels.
+    Generates premium intelligence reports for high-severity items.
     Wraps existing publisher.py and sentinel_blogger.py.
     """
 
@@ -820,14 +829,46 @@ class PublishStage(PipelineStage):
 
         published_count = 0
 
+        # Load report engine for premium report generation
+        try:
+            from core.report_engine import report_engine
+            has_reports = True
+        except ImportError:
+            has_reports = False
+
         for item in ctx.items:
             try:
                 # Mark as ready for blog publishing (actual publish handled by workflows)
                 item["status"] = "ready_to_publish"
                 item["published_at"] = datetime.now(timezone.utc).isoformat()
+
+                # Generate premium report for HIGH+ severity items
+                if has_reports and item.get("risk_score", 0) >= 6.0:
+                    try:
+                        report = report_engine.generate_report(item)
+                        item["intel_report"] = report
+                    except Exception as e:
+                        logger.debug(f"Report generation skipped for '{item.get('title', '')[:40]}': {e}")
+
                 published_count += 1
             except Exception as e:
                 ctx.add_error(self.name, str(e), item.get("title", ""))
+
+        # Generate executive briefing for the batch
+        if has_reports and ctx.items:
+            try:
+                briefing = report_engine.generate_executive_briefing(ctx.items)
+                ctx.metadata["executive_briefing"] = briefing
+            except Exception:
+                pass
+
+        # Generate SOC action cards for top threats
+        if has_reports and ctx.items:
+            try:
+                action_cards = report_engine.generate_soc_action_cards(ctx.items)
+                ctx.metadata["soc_action_cards"] = action_cards
+            except Exception:
+                pass
 
         # Emit critical threat alerts
         critical_items = [i for i in ctx.items if i.get("severity") == "CRITICAL"]
@@ -851,11 +892,19 @@ class PublishStage(PipelineStage):
             })
 
         ctx.metrics["published"] = published_count
+        ctx.metrics["reports_generated"] = sum(
+            1 for i in ctx.items if i.get("intel_report")
+        )
         ctx.mark_stage_complete(self.name)
 
         self._emit_event("intel.published", {
-            "run_id": ctx.run_id, "published": published_count
+            "run_id": ctx.run_id,
+            "published": published_count,
+            "reports_generated": ctx.metrics["reports_generated"],
         })
 
-        logger.info(f"[{self.name}] {published_count} items published")
+        logger.info(
+            f"[{self.name}] {published_count} items published, "
+            f"{ctx.metrics['reports_generated']} reports generated"
+        )
         return ctx
