@@ -4,10 +4,10 @@
   "rules": {
     "sigma": "title: CDB APEX v37.0 \u2014 Schneider Electric Modicon Controllers M241, M251, M258, and\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/20\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '5.4.13.12'\n    selection_dns:\n        query:\n            - '*00.pdf*'\n            - '*2026-069-02.pdf*'\n            - '*download.schneider-electric.com*'\n            - '*www.se.com*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "suricata": [
-      "alert ip any any -> 5.4.13.12 any (msg:\"CDB APEX \u2014 Schneider_Electric_Modicon_Con\"; sid:2737596; rev:1;)"
+      "alert ip any any -> 5.4.13.12 any (msg:\"CDB APEX \u2014 Schneider_Electric_Modicon_Con\"; sid:5916038; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 5.4.13.12 any (msg:\"CDB APEX Schneider_Electric_Modicon_Con\"; sid:2917936; rev:1;)"
+      "alert ip any any -> 5.4.13.12 any (msg:\"CDB APEX Schneider_Electric_Modicon_Con\"; sid:9256961; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"5.4.13.12\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"00.pdf\",\n              \"2026-069-02.pdf\",\n              \"download.schneider-electric.com\",\n              \"www.se.com\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"5.4.13.12\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"00.pdf\", \"2026-069-02.pdf\", \"download.schneider-electric.com\", \"www.se.com\")"
