@@ -462,12 +462,219 @@
             margin-top: 40px;
         }
 
+        /* ---- System Status Bar ---- */
+        .system-status-bar {
+            position: relative;
+            z-index: 50;
+            background: rgba(10, 15, 30, 0.92);
+            border-bottom: 1px solid var(--border);
+            padding: 8px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 0.75em;
+            gap: 16px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 140px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--medium);
+            animation: pulse-dot 2s infinite;
+        }
+
+        .status-dot.active { background: var(--low); }
+        .status-dot.error { background: var(--critical); animation: none; }
+        .status-dot.running { background: var(--accent); animation: pulse-dot 0.8s infinite; }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .status-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .status-metrics {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .status-key {
+            color: var(--text-dim);
+            font-size: 0.85em;
+            letter-spacing: 0.06em;
+        }
+
+        .status-val {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* ---- Top 10 Threat Cards ---- */
+        .threat-cards-section {
+            margin-bottom: 28px;
+        }
+
+        .threat-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 16px;
+        }
+
+        .threat-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.25s, transform 0.15s;
+            cursor: default;
+        }
+
+        .threat-card:hover {
+            border-color: var(--border-active);
+            transform: translateY(-2px);
+        }
+
+        .threat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+
+        .threat-card.sev-critical::before { background: var(--critical); }
+        .threat-card.sev-high::before { background: var(--high); }
+        .threat-card.sev-medium::before { background: var(--medium); }
+        .threat-card.sev-low::before { background: var(--low); }
+
+        .threat-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            gap: 12px;
+        }
+
+        .threat-card-title {
+            font-size: 0.88em;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.35;
+            flex: 1;
+        }
+
+        .threat-card-risk {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 52px;
+        }
+
+        .risk-circle {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-weight: 800;
+            font-size: 1.1em;
+            border: 2px solid;
+        }
+
+        .risk-circle.rc-critical { color: var(--critical); border-color: var(--critical); background: var(--critical-glow); }
+        .risk-circle.rc-high { color: var(--high); border-color: var(--high); background: rgba(249,115,22,0.1); }
+        .risk-circle.rc-medium { color: var(--medium); border-color: var(--medium); background: rgba(234,179,8,0.1); }
+        .risk-circle.rc-low { color: var(--low); border-color: var(--low); background: rgba(34,197,94,0.1); }
+
+        .risk-label {
+            font-size: 0.65em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-top: 3px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        .threat-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .meta-chip {
+            font-family: var(--font-mono);
+            font-size: 0.72em;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .chip-kev { background: rgba(244,63,94,0.15); color: var(--critical); border: 1px solid rgba(244,63,94,0.3); }
+        .chip-cvss { background: rgba(249,115,22,0.12); color: var(--high); }
+        .chip-epss { background: rgba(167,139,250,0.12); color: var(--purple); }
+        .chip-actor { background: rgba(56,189,248,0.1); color: var(--accent); }
+        .chip-ioc { background: rgba(34,197,94,0.1); color: var(--low); }
+        .chip-exploit { background: rgba(244,63,94,0.2); color: #ff6b8a; border: 1px solid rgba(244,63,94,0.3); }
+        .chip-confidence { background: var(--bg-elevated); color: var(--text-secondary); }
+
+        .threat-card-mitre {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+
+        .threat-card-why {
+            font-size: 0.8em;
+            color: var(--text-secondary);
+            line-height: 1.45;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+
+        .threat-card-why strong {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
         /* ---- Responsive ---- */
         @media (max-width: 768px) {
             .topbar { padding: 0 16px; }
             .topbar-nav { display: none; }
             .main-content { padding: 16px; }
             .metrics-strip { grid-template-columns: repeat(2, 1fr); }
+            .threat-cards-grid { grid-template-columns: 1fr; }
+            .system-status-bar { flex-direction: column; gap: 8px; padding: 8px 16px; }
+            .status-metrics { gap: 12px; }
         }
     </style>
 </head>
@@ -476,7 +683,7 @@
     <header class="topbar">
         <div class="topbar-brand">
             <span class="logo-text">SENTINEL APEX</span>
-            <span class="version-badge">ENTERPRISE v49-53</span>
+            <span class="version-badge">ENTERPRISE v64.0</span>
         </div>
         <nav class="topbar-nav">
             <button class="active" onclick="showPanel('intelligence')">Intelligence</button>
@@ -489,6 +696,40 @@
             <span class="tier-badge tier-enterprise" id="tierBadge">ENTERPRISE</span>
         </div>
     </header>
+
+    <!-- System Status Panel -->
+    <div class="system-status-bar" id="systemStatusBar">
+        <div class="status-indicator">
+            <span class="status-dot" id="statusDot"></span>
+            <span class="status-label" id="statusLabel">INITIALIZING</span>
+        </div>
+        <div class="status-metrics">
+            <div class="status-item">
+                <span class="status-key">LAST SYNC</span>
+                <span class="status-val" id="statusLastSync">--</span>
+            </div>
+            <div class="status-item">
+                <span class="status-key">PIPELINE</span>
+                <span class="status-val" id="statusPipeline">--</span>
+            </div>
+            <div class="status-item">
+                <span class="status-key">ITEMS</span>
+                <span class="status-val" id="statusItems">0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-key">DETECTIONS</span>
+                <span class="status-val" id="statusDetections">0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-key">VELOCITY</span>
+                <span class="status-val" id="statusVelocity">--</span>
+            </div>
+            <div class="status-item">
+                <span class="status-key">FEEDS</span>
+                <span class="status-val" id="statusFeeds">--</span>
+            </div>
+        </div>
+    </div>
 
     <main class="main-content">
 
@@ -519,6 +760,17 @@
                 <div class="metric-card metric-accent">
                     <div class="metric-value" id="metricIOCs">—</div>
                     <div class="metric-label">IOCs Extracted</div>
+                </div>
+            </div>
+
+            <!-- TOP 10 ACTIONABLE THREATS -->
+            <div class="threat-cards-section">
+                <div class="section-header">
+                    <h2>Top 10 Actionable Threats</h2>
+                    <button class="btn btn-sm btn-accent" onclick="showPanel('intelligence')">View All</button>
+                </div>
+                <div class="threat-cards-grid" id="topThreatsGrid">
+                    <!-- Populated by JS -->
                 </div>
             </div>
 
@@ -662,7 +914,7 @@
     <script>
     /* ============================================================
        SENTINEL APEX — Enterprise Dashboard Controller
-       v49-53 SaaS Module Integration
+       v64.0 COMMAND CENTER
        ============================================================ */
 
     const STATE = {
@@ -1027,7 +1279,7 @@
             const mockResponse = {
                 status: 'success',
                 platform: 'CYBERDUDEBIVASH SENTINEL APEX',
-                version: 'v49.0',
+                version: 'v64.0',
                 timestamp: new Date().toISOString(),
                 data: {
                     note: 'API server running on port 8900',
@@ -1047,8 +1299,178 @@
         return div.innerHTML;
     }
 
+    // ---- Top 10 Actionable Threats ----
+    function renderTopThreats() {
+        const grid = document.getElementById('topThreatsGrid');
+        const top10 = STATE.manifest
+            .slice()
+            .sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0))
+            .slice(0, 10);
+
+        if (top10.length === 0) {
+            grid.innerHTML = '<div class="empty-state"><h3>Loading intelligence data...</h3></div>';
+            return;
+        }
+
+        grid.innerHTML = top10.map((e, idx) => {
+            const risk = e.risk_score || 0;
+            const severity = e.severity || deriveSeverity(risk);
+            const sevClass = severity.toLowerCase();
+            const riskClass = risk >= 80 ? 'rc-critical' : risk >= 60 ? 'rc-high' : risk >= 40 ? 'rc-medium' : 'rc-low';
+            const title = (e.title || 'Unknown Advisory').substring(0, 90);
+            const actor = e.actor_tag || '';
+            const mitreTactics = e.mitre_tactics || [];
+            const iocData = e.ioc_counts || e.iocs || {};
+            let iocTotal = 0;
+            Object.values(iocData).forEach(v => {
+                iocTotal += Array.isArray(v) ? v.length : (typeof v === 'number' ? v : 0);
+            });
+
+            // Build meta chips
+            let chips = '';
+            if (e.kev_present) chips += '<span class="meta-chip chip-kev">KEV</span>';
+            if (e.cvss_score) chips += `<span class="meta-chip chip-cvss">CVSS ${e.cvss_score}</span>`;
+            if (e.epss_score) chips += `<span class="meta-chip chip-epss">EPSS ${(e.epss_score * 100).toFixed(1)}%</span>`;
+
+            // Exploit status from content
+            const contentLower = ((e.title || '') + ' ' + (e.content || '')).toLowerCase();
+            const isExploited = ['actively exploited', 'in the wild', 'in-the-wild', 'zero-day', '0-day'].some(k => contentLower.includes(k));
+            if (isExploited) chips += '<span class="meta-chip chip-exploit">EXPLOITED</span>';
+
+            if (actor && actor !== 'Unknown') chips += `<span class="meta-chip chip-actor">${escapeHtml(actor)}</span>`;
+            if (iocTotal > 0) chips += `<span class="meta-chip chip-ioc">${iocTotal} IOCs</span>`;
+
+            // Confidence
+            const confidence = computeConfidence(e);
+            chips += `<span class="meta-chip chip-confidence">${confidence}% conf.</span>`;
+
+            // MITRE tags
+            let mitreHtml = mitreTactics.slice(0, 4).map(t => `<span class="tag tag-mitre">${t}</span>`).join('');
+
+            // Why this matters
+            const why = generateWhyItMatters(e, isExploited, iocTotal);
+
+            return `<div class="threat-card sev-${sevClass}">
+                <div class="threat-card-header">
+                    <div class="threat-card-title">${escapeHtml(title)}</div>
+                    <div class="threat-card-risk">
+                        <div class="risk-circle ${riskClass}">${risk}</div>
+                        <div class="risk-label">${severity}</div>
+                    </div>
+                </div>
+                <div class="threat-card-meta">${chips}</div>
+                ${mitreHtml ? `<div class="threat-card-mitre">${mitreHtml}</div>` : ''}
+                <div class="threat-card-why"><strong>Why this matters:</strong> ${why}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function deriveSeverity(risk) {
+        if (risk >= 80) return 'CRITICAL';
+        if (risk >= 60) return 'HIGH';
+        if (risk >= 40) return 'MEDIUM';
+        return 'LOW';
+    }
+
+    function computeConfidence(entry) {
+        let score = 30;
+        if (entry.source_url) score += 10;
+        const feed = (entry.feed_source || '').toLowerCase();
+        if (['cisa.gov', 'nist.gov', 'cert.', 'unit42', 'mandiant'].some(s => feed.includes(s))) score += 15;
+        else if (feed) score += 5;
+        if (entry.kev_present) score += 15;
+        if (entry.cvss_score && entry.cvss_score > 0) score += 5;
+        if (entry.epss_score && entry.epss_score > 0) score += 5;
+        const iocs = entry.ioc_counts || entry.iocs || {};
+        let ic = 0;
+        Object.values(iocs).forEach(v => { ic += Array.isArray(v) ? v.length : (typeof v === 'number' ? v : 0); });
+        if (ic >= 3) score += 10;
+        else if (ic >= 1) score += 5;
+        if (entry.mitre_tactics && entry.mitre_tactics.length > 0) score += 5;
+        if (entry.actor_tag && entry.actor_tag !== 'Unknown') score += 5;
+        return Math.min(score, 100);
+    }
+
+    function generateWhyItMatters(e, isExploited, iocTotal) {
+        const parts = [];
+        const risk = e.risk_score || 0;
+        const sev = (e.severity || '').toUpperCase();
+        if (sev === 'CRITICAL') parts.push(`CRITICAL threat (risk ${risk}/100)`);
+        else if (sev === 'HIGH') parts.push(`High-severity threat (risk ${risk}/100)`);
+        if (isExploited) parts.push('with confirmed active exploitation');
+        if (e.kev_present) parts.push('listed in CISA KEV catalog');
+        const actor = e.actor_tag || '';
+        if (actor && actor !== 'Unknown') parts.push(`attributed to ${actor}`);
+        const cl = ((e.title || '') + ' ' + (e.content || '')).toLowerCase();
+        if (cl.includes('ransomware')) parts.push('involving ransomware deployment');
+        if (cl.includes('supply chain') || e.supply_chain) parts.push('with supply chain implications');
+        if (iocTotal > 0) parts.push(`${iocTotal} actionable IOCs available`);
+        if (parts.length === 0) parts.push('Monitor for updates');
+        return parts.join('. ') + '.';
+    }
+
+    // ---- System Status Panel ----
+    function updateSystemStatus() {
+        const m = STATE.manifest;
+        const dot = document.getElementById('statusDot');
+        const label = document.getElementById('statusLabel');
+
+        if (m.length > 0) {
+            dot.className = 'status-dot active';
+            label.textContent = 'OPERATIONAL';
+            label.style.color = 'var(--low)';
+        } else {
+            dot.className = 'status-dot';
+            label.textContent = 'NO DATA';
+        }
+
+        document.getElementById('statusItems').textContent = m.length;
+
+        // Count detections (entries with iocs)
+        let detCount = 0;
+        m.forEach(e => {
+            const iocs = e.ioc_counts || e.iocs || {};
+            Object.values(iocs).forEach(v => {
+                detCount += Array.isArray(v) ? v.length : (typeof v === 'number' ? v : 0);
+            });
+        });
+        document.getElementById('statusDetections').textContent = detCount;
+
+        // Find latest timestamp for sync
+        let latestTs = null;
+        m.forEach(e => {
+            const ts = e.timestamp || e.published_at || e.ingested_at;
+            if (ts) {
+                const d = new Date(ts);
+                if (!latestTs || d > latestTs) latestTs = d;
+            }
+        });
+        document.getElementById('statusLastSync').textContent = latestTs
+            ? latestTs.toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+            : '--';
+
+        // Threat velocity (critical items in last 24h)
+        const now = Date.now();
+        const recentCritical = m.filter(e => {
+            const ts = e.timestamp || e.published_at;
+            if (!ts) return false;
+            return (now - new Date(ts).getTime()) < 86400000 && (e.risk_score || 0) >= 80;
+        }).length;
+        document.getElementById('statusVelocity').textContent = recentCritical + '/24h';
+
+        // Feed health
+        const feedSources = new Set(m.map(e => e.feed_source).filter(Boolean));
+        document.getElementById('statusFeeds').textContent = feedSources.size + ' active';
+        document.getElementById('statusPipeline').textContent = m.length > 0 ? 'COMPLETE' : 'IDLE';
+    }
+
     // ---- Initialize ----
-    loadManifest();
+    async function init() {
+        await loadManifest();
+        renderTopThreats();
+        updateSystemStatus();
+    }
+    init();
     </script>
 </body>
 </html>

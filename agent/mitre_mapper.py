@@ -324,3 +324,13 @@ class MITREMapper:
 
 
 mitre_engine = MITREMapper()
+
+
+def map_mitre_tactics(title: str, content: str = "") -> list:
+    """
+    Wrapper function for pipeline stage compatibility.
+    Returns list of technique ID strings from combined title+content analysis.
+    """
+    corpus = f"{title} {content}"
+    matches = mitre_engine.map_threat(corpus)
+    return [m["id"] for m in matches]
