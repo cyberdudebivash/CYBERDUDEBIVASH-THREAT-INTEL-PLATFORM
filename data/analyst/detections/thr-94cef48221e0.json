@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-94cef48221e0",
+  "title": "Mitsubishi Electric CNC Series",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 Mitsubishi Electric CNC Series\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/20\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*www.mitsubishielectric.com*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"www.mitsubishielectric.com\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"www.mitsubishielectric.com\")"
+  },
+  "rule_count": 3
+}
