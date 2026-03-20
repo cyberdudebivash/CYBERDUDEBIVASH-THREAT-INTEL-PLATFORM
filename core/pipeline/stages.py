@@ -209,15 +209,25 @@ class NormalizeStage(PipelineStage):
         logger.info(f"[{self.name}] Normalizing {len(ctx.items)} items")
 
         # Load deduplication engine
+        # When a test manifest is injected, use isolated dedup state to avoid
+        # reading/writing production blogger_processed.json
+        test_mm = ctx.metadata.get("_test_manifest_manager")
         try:
             from agent.deduplication import DeduplicationEngine
-            dedup = DeduplicationEngine()
+            if test_mm:
+                import tempfile
+                _test_state = os.path.join(tempfile.gettempdir(), f"cdb_test_dedup_{ctx.run_id}.json")
+                dedup = DeduplicationEngine(
+                    state_file=_test_state,
+                    manifest_path="/dev/null",
+                )
+            else:
+                dedup = DeduplicationEngine()
         except ImportError:
             dedup = None
 
         # Check against hardened manifest (prefer test manifest if injected)
         manifest_check = None
-        test_mm = ctx.metadata.get("_test_manifest_manager")
         if test_mm:
             manifest_check = test_mm.is_duplicate
         else:
