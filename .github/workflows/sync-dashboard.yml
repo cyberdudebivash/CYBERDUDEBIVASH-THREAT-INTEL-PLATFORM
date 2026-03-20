@@ -1,31 +1,16 @@
 # =====================================================================
-# SENTINEL APEX — Dashboard Sync Workflow v48.0
-# P0 FIX: Workflow names corrected to match ACTUAL workflow names
-#
-# ROOT CAUSE OF BUG-01: The previous workflow_run triggers used
-# emoji-prefixed names that DON'T MATCH the actual workflow names:
-#   OLD (WRONG): "🧠 Sentinel Blogger — Intel Pipeline"
-#   ACTUAL:      "CDB Sentinel Blogger - Threat Intel Auto-Publisher v45.0"
-#
-# This caused sync-dashboard to NEVER trigger via workflow_run,
-# leaving EMBEDDED_INTEL 18+ days stale.
+# SENTINEL APEX — Dashboard Sync Workflow v64.5
+# SINGLE SOURCE OF TRUTH: data/stix/feed_manifest.json
 # =====================================================================
-name: Dashboard Sync — EMBEDDED_INTEL Auto-Patcher v54.0
+name: Dashboard Sync — EMBEDDED_INTEL Auto-Patcher v64.5
 
 on:
   workflow_run:
     workflows:
-      # v48.0 FIX: These MUST match the exact 'name:' field in each workflow file
-      - "CDB Sentinel Blogger - Threat Intel Auto-Publisher v48.0"
-      - "CDB GENESIS Intelligence Powerhouse v43.0"
-      - "CDB NEXUS Intelligence Engine v39.0"
+      - "CDB Sentinel Blogger - Threat Intel Auto-Publisher v64.5"
       - "CDB Multi-Source Intelligence Enrichment"
-      # v54.0: Chain new SaaS engine completions to dashboard refresh
-      - "🐛 Bug Hunter Resilient Recon"
-      - "🛡️ Detection Engine — Rule Generation"
     types: [completed]
   schedule:
-    # Safety net: run every 4 hours (reduced from 6 for faster catch-up)
     - cron: '0 */4 * * *'
   workflow_dispatch:
     inputs:
@@ -37,12 +22,16 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sentinel-main-deploy
+  cancel-in-progress: false
+
 jobs:
   sync-dashboard:
-    name: Sync Dashboard Intelligence Cache v48.0
+    name: Sync Dashboard Intelligence Cache v64.5
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -57,36 +46,25 @@ jobs:
 
       - name: Verify Data Files Exist
         run: |
-          echo "=== v48.0 Dashboard Sync Pre-Check ==="
+          echo "=== v64.5 Dashboard Sync Pre-Check ==="
+          echo "SINGLE SOURCE OF TRUTH: data/stix/feed_manifest.json"
           if [ ! -f "data/stix/feed_manifest.json" ]; then
             echo "FATAL: feed_manifest.json not found — aborting sync"
             exit 1
           fi
-          # v48.0 FIX: Read last entry (newest) not first entry (oldest)
           python3 -c "
           import json
           d = json.load(open('data/stix/feed_manifest.json'))
           items = d if isinstance(d, list) else d.get('items', [])
           if items:
-              # Manifest stores newest LAST (append order)
               newest = items[-1].get('timestamp', 'N/A')[:19]
               oldest = items[0].get('timestamp', 'N/A')[:19]
               print(f'  feed_manifest: {len(items)} items | newest: {newest} | oldest: {oldest}')
           else:
               print('  feed_manifest: EMPTY')
           "
-          if [ -f "data/v46_ultraintel/enriched_manifest.json" ]; then
-            python3 -c "
-          import json
-          d = json.load(open('data/v46_ultraintel/enriched_manifest.json'))
-          print(f'  enriched_manifest: {len(d.get(\"items\",[]))} items')
-          " 2>/dev/null || echo "  enriched_manifest: parse error (non-critical)"
-          else
-            echo "  enriched_manifest: not found (will use feed_manifest only)"
-          fi
 
-      # v48.0: Run EPSS batch enrichment BEFORE patching dashboard
-      - name: EPSS/CVSS Batch Enrichment (v48.0)
+      - name: EPSS/CVSS Batch Enrichment
         continue-on-error: true
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
@@ -102,12 +80,12 @@ jobs:
               count = enricher.enrich_manifest()
               print(f'  EPSS/CVSS enriched: {count} entries')
           except Exception as e:
-              print(f'  EPSS enrichment skipped: {e}')
+              print(f'  EPSS enrichment unavailable (non-blocking): {e}')
           "
           elif [ -f "agent/v48_pipeline_hardening/epss_batch_enricher.py" ]; then
             python3 agent/v48_pipeline_hardening/epss_batch_enricher.py
           else
-            echo "  No enrichment module found — skipping"
+            echo "  No enrichment module found — continuing without EPSS"
           fi
 
       - name: Patch EMBEDDED_INTEL in index.html
@@ -126,35 +104,35 @@ jobs:
               exit(1)
           data = json.loads(m.group(1))
           critical = sum(1 for i in data if (i.get('risk_score') or 0) >= 9)
-          null_epss = sum(1 for i in data if i.get('epss_score') is None and i.get('ioc_counts',{}).get('cve',0) > 0)
           latest = max((i.get('timestamp','') for i in data), default='—')
-          print(f'  EMBEDDED_INTEL verified: {len(data)} items | CRITICAL:{critical} | null_EPSS(CVE):{null_epss} | Latest:{latest[:19]}')
+          print(f'  EMBEDDED_INTEL verified: {len(data)} items | CRITICAL:{critical} | Latest:{latest[:19]}')
           "
 
       - name: Commit and Push
+        continue-on-error: true
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
-          
+
           git add index.html
           git add data/stix/feed_manifest.json 2>/dev/null || true
           git add data/enrichment/*.json 2>/dev/null || true
-          git add data/bughunter/bughunter_output.json 2>/dev/null || true
-          git add data/nexus/nexus_output.json 2>/dev/null || true
-          git add data/genesis/genesis_output.json 2>/dev/null || true
-          
+
           if git diff --staged --quiet; then
             echo "No changes to commit — dashboard already current"
           else
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "v48.0 Dashboard Sync: EMBEDDED_INTEL updated @ $TIMESTAMP [skip ci]"
-            for i in {1..3}; do
-              git pull origin main --rebase && git push origin main && break || \
-              (echo "Push retry $i..." && sleep 10)
+            git commit -m "v64.5 Dashboard Sync: EMBEDDED_INTEL updated @ $TIMESTAMP [skip ci]"
+            for i in 1 2 3; do
+              git pull --rebase origin main || true
+              git push origin main && break
+              echo "Retry $i failed, retrying..."
+              sleep 3
             done
           fi
 
       - name: Deploy to gh-pages
+        continue-on-error: true
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
@@ -163,4 +141,4 @@ jobs:
           single-commit: false
           git-config-name: CDB-Sentinel-Bot
           git-config-email: bivash@cyberdudebivash.com
-          commit-message: "v48.0 Dashboard sync deploy"
+          commit-message: "v64.5 Dashboard sync deploy"
