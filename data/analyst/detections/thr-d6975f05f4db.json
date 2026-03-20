@@ -1,0 +1,16 @@
+{
+  "threat_id": "thr-d6975f05f4db",
+  "title": "CVE-2026-32238 - OpenEMR has Remote Code Execution in backup functionality",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-32238 - OpenEMR has Remote Code Execution in backup\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/20\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '8.0.0.2'\n    condition: selection_ip\nlevel: high",
+    "suricata": [
+      "alert ip any any -> 8.0.0.2 any (msg:\"CDB APEX \u2014 CVE_2026_32238___OpenEMR_has_R\"; sid:5796180; rev:1;)"
+    ],
+    "snort": [
+      "alert ip any any -> 8.0.0.2 any (msg:\"CDB APEX CVE_2026_32238___OpenEMR_has_R\"; sid:1069312; rev:1;)"
+    ],
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"8.0.0.2\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteIP in (\"8.0.0.2\")"
+  },
+  "rule_count": 5
+}

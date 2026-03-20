@@ -2,12 +2,12 @@
   "threat_id": "thr-095a6bf82a05",
   "title": "Dark Web Intercept: Telegram_RaaS_Syndicate - Potential Threat Activity",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Dark Web Intercept: Telegram_RaaS_Syndicate - Potential Thre\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/19\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '185.15.10.22'\n    selection_dns:\n        query:\n            - '*185.15.10.22*'\n    condition: selection_ip or selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Dark Web Intercept: Telegram_RaaS_Syndicate - Potential Thre\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/20\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '185.15.10.22'\n    selection_dns:\n        query:\n            - '*185.15.10.22*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "suricata": [
-      "alert ip any any -> 185.15.10.22 any (msg:\"CDB APEX \u2014 Dark_Web_Intercept__Telegram_R\"; sid:6555778; rev:1;)"
+      "alert ip any any -> 185.15.10.22 any (msg:\"CDB APEX \u2014 Dark_Web_Intercept__Telegram_R\"; sid:2363491; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 185.15.10.22 any (msg:\"CDB APEX Dark_Web_Intercept__Telegram_R\"; sid:9304723; rev:1;)"
+      "alert ip any any -> 185.15.10.22 any (msg:\"CDB APEX Dark_Web_Intercept__Telegram_R\"; sid:2889494; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"185.15.10.22\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"185.15.10.22\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"185.15.10.22\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"185.15.10.22\")"
