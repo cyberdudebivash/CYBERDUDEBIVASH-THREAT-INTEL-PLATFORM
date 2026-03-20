@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sentinel-main-deploy
+  cancel-in-progress: false
+
 jobs:
   multi-source-enrichment:
     name: Multi-Source Intelligence Collection & Enrichment
@@ -149,15 +153,15 @@ jobs:
       # [v30-APEX] ADDITIONS END HERE
       # ═══════════════════════════════════════════════════════════
 
-      - name: Commit enrichment data
+      - name: Commit enrichment data (NO PUSH — sentinel-blogger owns main push)
+        continue-on-error: true
         run: |
           git config user.email "bivash@cyberdudebivash.com"
           git config user.name "CDB-Enrichment-Bot"
-          # [v30-APEX] Modified to track all God-Tier generation directories
           git add data/enrichment/ data/stix/feed_manifest.json data/ai_predictions/ data/remediation/ data/sigma_rules/ data/simulations/ 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No enrichment changes."
           else
-            git commit -m "👑 APEX Unified Matrix: AI, SOAR, SIEM, & BAS [skip ci]"
-            git pull origin main --rebase && git push origin main || echo "Push collision, will retry next cycle"
+            git commit -m "APEX Unified Matrix: AI, SOAR, SIEM, & BAS [skip ci]"
+            echo "Commit staged locally. Push deferred to sentinel-blogger pipeline."
           fi

@@ -1,9 +1,9 @@
 # ================================================================
 # CYBERDUDEBIVASH® SENTINEL APEX — Sovereign Intelligence Cycle
-# Version: v64.4 (FULL FIX — Zero Regression + All Stages Preserved)
+# Version: v64.5 (FULL FIX — Zero Regression + All Stages Preserved)
 # ================================================================
 
-name: CDB Sentinel Blogger - Threat Intel Auto-Publisher v64.4
+name: CDB Sentinel Blogger - Threat Intel Auto-Publisher v64.5
 
 on:
   schedule:
@@ -22,7 +22,7 @@ permissions:
   pages: write
 
 concurrency:
-  group: sentinel-sync
+  group: sentinel-main-deploy
   cancel-in-progress: false
 
 jobs:
@@ -126,12 +126,13 @@ jobs:
           git add data/*.json data/stix/feed_manifest.json index.html threat/ sitemap.xml 2>/dev/null || true
 
           if ! git diff --staged --quiet; then
-            git commit -m "v64.4 Core Sync [skip ci]"
-            git push origin main || {
-              echo "Push failed — retrying after rebase..."
-              git pull origin main --rebase --autostash || true
-              git push origin main || echo "Push failed after retry (non-blocking)"
-            }
+            git commit -m "v64.5 Core Sync [skip ci]"
+            for i in 1 2 3; do
+              git pull --rebase origin main || true
+              git push origin main && break
+              echo "Retry $i failed, retrying..."
+              sleep 3
+            done
           fi
 
 # ================================================================
@@ -175,8 +176,13 @@ jobs:
           git add data/*.json threat/ sitemap.xml 2>/dev/null || true
 
           if ! git diff --staged --quiet; then
-            git commit -m "v64.4 Post Extras [skip ci]"
-            git push origin main
+            git commit -m "v64.5 Post Extras [skip ci]"
+            for i in 1 2 3; do
+              git pull --rebase origin main || true
+              git push origin main && break
+              echo "Retry $i failed, retrying..."
+              sleep 3
+            done
           fi
 
       - name: Deploy Post Extras
