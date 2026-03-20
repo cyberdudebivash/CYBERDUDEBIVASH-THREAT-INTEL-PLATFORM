@@ -45,12 +45,18 @@ jobs:
         run: python -m agent.subscription_manager --webhook-event
 
       - name: Sync Sovereign Registry
+        continue-on-error: true
         run: |
           git config --local user.name "CDB-Sentinel-Bot"
           git config --local user.email "bivash@cyberdudebivash.com"
           git add data/sovereign/tenants.json
           git commit -m "💰 v44 Auto-Provision Enterprise License [skip ci]" || echo "No changes"
-          git push origin main
+          for i in 1 2 3; do
+            git pull --rebase origin main || true
+            git push origin main && break
+            echo "Retry $i failed, retrying..."
+            sleep 3
+          done
 
   ceo-financial-briefing:
     if: github.event_name == 'schedule' || github.event.inputs.action == 'report'
@@ -72,9 +78,15 @@ jobs:
         run: python -m agent.revenue_analytics --generate-mrr-report
 
       - name: Commit Financial Status
+        continue-on-error: true
         run: |
           git config --local user.name "CDB-Sentinel-Bot"
           git config --local user.email "bivash@cyberdudebivash.com"
           git add data/sovereign/mrr_report.json data/revenue/transaction_log.json
           git commit -m "📈 v44 CEO Financial Update" || echo "No changes"
-          git push origin main
+          for i in 1 2 3; do
+            git pull --rebase origin main || true
+            git push origin main && break
+            echo "Retry $i failed, retrying..."
+            sleep 3
+          done

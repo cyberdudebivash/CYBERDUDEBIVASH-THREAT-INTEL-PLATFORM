@@ -38,9 +38,15 @@ jobs:
           AUTHORITY: "CYBERDUDEBIVASH OFFICIAL"
 
       - name: Commit Packaged Products
+        continue-on-error: true
         run: |
           git config --local user.name "CDB-Sentinel-Bot"
           git config --local user.email "bivash@cyberdudebivash.com"
           git add data/products/
           git commit -m "🏭 v45.0: New Intelligence Products Packaged [skip ci]"
-          git push origin main
+          for i in 1 2 3; do
+            git pull --rebase origin main || true
+            git push origin main && break
+            echo "Retry $i failed, retrying..."
+            sleep 3
+          done

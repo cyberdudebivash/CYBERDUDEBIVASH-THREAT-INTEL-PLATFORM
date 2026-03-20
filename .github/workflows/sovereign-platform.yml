@@ -9,10 +9,6 @@ permissions:
   contents: write
 
 concurrency:
-  group: sovereign-platform
-  cancel-in-progress: false
-
-concurrency:
   group: sentinel-main-deploy
   cancel-in-progress: false
 
@@ -60,9 +56,15 @@ jobs:
           python -m pytest tests/test_v39_modules.py tests/test_v40_v41_v42_modules.py -v --tb=short 2>&1 | tail -20
 
       - name: Commit all intelligence data
+        continue-on-error: true
         run: |
           git config user.name "CDB-SOVEREIGN-BOT"
           git config user.email "sovereign@cyberdudebivash.com"
           git add data/nexus/ data/cortex/ data/quantum/ data/sovereign/ -f
           git diff --cached --quiet || git commit -m "🏛️ SOVEREIGN v42.0: Full platform cycle $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          git push origin main || echo "Push deferred"
+          for i in 1 2 3; do
+            git pull --rebase origin main || true
+            git push origin main && break
+            echo "Retry $i failed, retrying..."
+            sleep 3
+          done
