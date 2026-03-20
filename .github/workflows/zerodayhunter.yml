@@ -15,10 +15,6 @@ permissions:
   contents: write
 
 concurrency:
-  group: zerodayhunter
-  cancel-in-progress: false
-
-concurrency:
   group: sentinel-main-deploy
   cancel-in-progress: false
 
@@ -61,6 +57,7 @@ jobs:
           python -m agent.v35_zerodayhunter.zeroday.zerodayhunter_engine
 
       - name: Commit outputs
+        continue-on-error: true
         run: |
           git config user.name "CDB-GOC-ZeroDayHunter"
           git config user.email "bivash@cyberdudebivash.com"
@@ -81,17 +78,9 @@ jobs:
 
           git commit -m "🎯 ZERO-DAY HUNTER v45.0 — GTI: ${GTI} | ${ZD} zero-day alerts"
 
-          # Sync with latest repo state
-          git pull --rebase origin main || true
-
-          # Push changes
-          git push origin main || (
-            echo "Push failed due to race condition, retrying..."
-            git pull --rebase origin main
-            for i in 1 2 3; do
-              git pull --rebase origin main || true
-              git push origin main && break
-              echo "Retry $i failed, retrying..."
-              sleep 3
-            done
-          )
+          for i in 1 2 3; do
+            git pull --rebase origin main || true
+            git push origin main && break
+            echo "Retry $i failed, retrying..."
+            sleep 3
+          done
