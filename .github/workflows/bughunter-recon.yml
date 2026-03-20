@@ -21,7 +21,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: bughunter-recon
+  group: sentinel-main-deploy
   cancel-in-progress: false
 
 jobs:
@@ -103,6 +103,7 @@ jobs:
           "
 
       - name: Commit Bug Hunter Data
+        continue-on-error: true
         run: |
           git config user.name "CDB-BUGHUNTER-BOT"
           git config user.email "bughunter@cyberdudebivash.com"
@@ -115,5 +116,10 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "🐛 BUG HUNTER v49.0: Recon scan $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git push origin main || echo "Push failed — will retry next cycle"
+            for i in 1 2 3; do
+              git pull --rebase origin main || true
+              git push origin main && break
+              echo "Retry $i failed, retrying..."
+              sleep 3
+            done
           fi

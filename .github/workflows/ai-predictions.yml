@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sentinel-main-deploy
+  cancel-in-progress: false
+
 jobs:
   ai-predictions:
     name: AI Predictive Model Scoring & Financial Impact Analysis
@@ -100,6 +104,7 @@ jobs:
           PYEOF
 
       - name: Commit AI prediction results
+        continue-on-error: true
         run: |
           git config user.email "bivash@cyberdudebivash.com"
           git config user.name "CDB-AI-Bot"
@@ -108,5 +113,10 @@ jobs:
             echo "No AI prediction changes."
           else
             git commit -m "🤖 AI Predictions: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
-            git pull origin main --rebase && git push origin main || echo "Push collision, skipping"
+            for i in 1 2 3; do
+              git pull --rebase origin main || true
+              git push origin main && break
+              echo "Retry $i failed, retrying..."
+              sleep 3
+            done
           fi

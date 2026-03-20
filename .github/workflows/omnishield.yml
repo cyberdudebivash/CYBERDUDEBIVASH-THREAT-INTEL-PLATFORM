@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: omnishield
+  group: sentinel-main-deploy
   cancel-in-progress: false
 
 jobs:
@@ -39,6 +39,7 @@ jobs:
         run: python -m agent.v36_omnishield.omnishield_orchestrator
 
       - name: Commit outputs
+        continue-on-error: true
         run: |
           git config user.name "CDB-GOC-OmniShield"
           git config user.email "goc@cyberdudebivash.com"
@@ -46,5 +47,10 @@ jobs:
           if git diff --cached --quiet; then echo "No changes"; else
             SCORE=$(python3 -c "import json; d=json.load(open('data/omnishield/omnishield_report.json')); print(d['platform_security_score']['composite'])" 2>/dev/null || echo "N/A")
             git commit -m "🛡️ OMNISHIELD v36.0 — Platform Score: ${SCORE}/10 | 12 subsystems"
-            git push
+            for i in 1 2 3; do
+              git pull --rebase origin main || true
+              git push origin main && break
+              echo "Retry $i failed, retrying..."
+              sleep 3
+            done
           fi

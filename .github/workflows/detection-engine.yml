@@ -12,6 +12,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sentinel-main-deploy
+  cancel-in-progress: false
+
 jobs:
   generate-rules:
     runs-on: ubuntu-latest
@@ -54,6 +58,7 @@ jobs:
           "
 
       - name: 💾 Commit Rules
+        continue-on-error: true
         run: |
           git config user.name "CDB-SENTINEL-APEX"
           git config user.email "sentinel@cyberdudebivash.com"
@@ -62,5 +67,10 @@ jobs:
             echo "No new rules to commit"
           else
             git commit -m "🛡️ Detection Engine — auto-generated rules $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git push
+            for i in 1 2 3; do
+              git pull --rebase origin main || true
+              git push origin main && break
+              echo "Retry $i failed, retrying..."
+              sleep 3
+            done
           fi

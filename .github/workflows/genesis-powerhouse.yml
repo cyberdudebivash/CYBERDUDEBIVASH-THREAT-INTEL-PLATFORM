@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: genesis-powerhouse
+  group: sentinel-main-deploy
   cancel-in-progress: false
 
 jobs:
@@ -28,9 +28,15 @@ jobs:
       - name: Validate
         run: python -m pytest tests/test_v43_genesis.py -v --tb=short 2>&1 | tail -15
       - name: Commit
+        continue-on-error: true
         run: |
           git config user.name "CDB-GENESIS-BOT"
           git config user.email "genesis@cyberdudebivash.com"
           git add data/genesis/ -f
           git diff --cached --quiet || git commit -m "🌐 GENESIS v43.0: 12-engine cycle $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          git push origin main || echo "Push deferred"
+          for i in 1 2 3; do
+            git pull --rebase origin main || true
+            git push origin main && break
+            echo "Retry $i failed, retrying..."
+            sleep 3
+          done
