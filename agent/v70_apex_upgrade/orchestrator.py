@@ -336,7 +336,7 @@ class Orchestrator:
             if self.config.enable_ai:
                 t0 = time.time()
                 try:
-                    summarizer = ThreatSummarizer(use_transformers=True)
+                    summarizer = ThreatSummarizer(use_transformers=False)
                     advisories = summarizer.summarize_batch(advisories)
                     logger.info("Phase 8: AI summarization complete")
                     result.add_phase("ai_summarization", "OK", time.time() - t0)
