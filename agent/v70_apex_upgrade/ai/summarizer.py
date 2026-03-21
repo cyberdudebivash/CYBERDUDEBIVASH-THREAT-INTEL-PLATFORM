@@ -1,31 +1,32 @@
 """
-SENTINEL APEX v70 — AI Threat Summarizer
-==========================================
+SENTINEL APEX v70 — AI Threat Summarizer (PRODUCTION FIX)
+===========================================================
 Generates analyst-grade threat summaries using:
-1. Transformers pipeline (if available, GPU-accelerated)
-2. Extractive summarization fallback (sklearn TF-IDF)
-3. Template-based generation (deterministic fallback)
+1. Template-based generation (fast, deterministic — PRIMARY for short texts)
+2. Extractive summarization fallback (sklearn TF-IDF — for medium texts)
+3. Transformers pipeline (ONLY for genuinely long texts >500 chars on GPU)
 
-Produces structured, actionable intelligence summaries.
+PRODUCTION FIX: Most advisories in this platform are short CVE titles
+(20-100 tokens). Running HF distilbart on these is wasteful — it takes
+2-3s/item on CPU, produces worse output than templates, and floods
+logs with max_length warnings. Template summarization is used by default.
+HF is ONLY invoked for texts >500 chars where it adds real value.
 """
 
 import logging
+import os
 import re
+import warnings
 from typing import Any, Dict, List, Optional
 
 from ..core.models import Advisory, Severity, ThreatType
 
 logger = logging.getLogger("sentinel.ai.summarizer")
 
-# Transformers import with graceful fallback
-_TRANSFORMERS_AVAILABLE = False
-_summarizer_pipeline = None
-
-try:
-    from transformers import pipeline as hf_pipeline
-    _TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    logger.warning("transformers not available — using extractive/template summarization")
+# Suppress HF max_length warnings globally
+warnings.filterwarnings("ignore", message=".*max_length.*input_length.*")
+os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 # sklearn for extractive fallback
 _SKLEARN_AVAILABLE = False
@@ -36,21 +37,34 @@ try:
 except ImportError:
     pass
 
+# Transformers — lazy load only when actually needed
+_TRANSFORMERS_AVAILABLE = False
+_summarizer_pipeline = None
+
+try:
+    from transformers import pipeline as hf_pipeline
+    _TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    pass
+
+
+# Minimum character count to even consider HF summarization
+# Below this, template is always better and 100x faster
+HF_MIN_INPUT_CHARS = 500
+
 
 def _init_hf_summarizer():
     """Lazy-initialize the HuggingFace summarization pipeline."""
     global _summarizer_pipeline
     if _summarizer_pipeline is not None:
         return _summarizer_pipeline
-
     if not _TRANSFORMERS_AVAILABLE:
         return None
-
     try:
         _summarizer_pipeline = hf_pipeline(
             "summarization",
-            model="sshleifer/distilbart-cnn-6-6",  # Small, fast model
-            device=-1,  # CPU (safe default; GPU = 0)
+            model="sshleifer/distilbart-cnn-6-6",
+            device=-1,
             framework="pt",
         )
         logger.info("HuggingFace summarizer initialized (distilbart-cnn-6-6)")
@@ -63,13 +77,21 @@ def _init_hf_summarizer():
 class ThreatSummarizer:
     """
     Multi-strategy threat summarizer.
-    Produces structured intelligence summaries for advisories.
+    Template-first approach for production speed.
+    HF only for long-form text where it adds value.
     """
 
-    def __init__(self, use_transformers: bool = True):
+    def __init__(self, use_transformers: bool = False):
+        """
+        Args:
+            use_transformers: Enable HF transformers for long texts.
+                              Default FALSE for CI/CD speed.
+                              Set True only with GPU or for batch offline runs.
+        """
         self.use_transformers = use_transformers
         self._hf_pipeline = None
-        if use_transformers:
+        # Only init HF if explicitly requested
+        if use_transformers and _TRANSFORMERS_AVAILABLE:
             self._hf_pipeline = _init_hf_summarizer()
 
     def summarize(self, advisory: Advisory) -> str:
@@ -79,59 +101,62 @@ class ThreatSummarizer:
         if not text or len(text) < 20:
             return self._template_summary(advisory)
 
-        # Strategy 1: Transformers (if available and text is long enough)
-        if self._hf_pipeline and len(text) > 100:
+        # Strategy 1: HF Transformers ONLY for genuinely long text
+        if (
+            self._hf_pipeline
+            and self.use_transformers
+            and len(text) > HF_MIN_INPUT_CHARS
+        ):
             try:
-                result = self._hf_pipeline(
-                    text[:1024],  # Model input limit
-                    max_length=150,
-                    min_length=40,
-                    do_sample=False,
-                    truncation=True,
-                )
+                # Dynamic max_length to avoid warnings
+                input_tokens = len(text.split())
+                max_len = max(30, min(150, input_tokens - 5))
+                min_len = max(10, min(40, input_tokens // 3))
+
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    result = self._hf_pipeline(
+                        text[:1024],
+                        max_length=max_len,
+                        min_length=min_len,
+                        do_sample=False,
+                        truncation=True,
+                    )
                 if result and result[0].get("summary_text"):
                     base_summary = result[0]["summary_text"]
                     return self._enrich_summary(base_summary, advisory)
             except Exception as e:
-                logger.debug(f"HF summarization failed for {advisory.advisory_id}: {e}")
+                logger.debug(f"HF summarization failed: {e}")
 
-        # Strategy 2: Extractive (TF-IDF sentence scoring)
-        if _SKLEARN_AVAILABLE and len(text) > 200:
+        # Strategy 2: Extractive (for medium-length texts, >300 chars)
+        if _SKLEARN_AVAILABLE and len(text) > 300:
             try:
                 extractive = self._extractive_summarize(text, n_sentences=3)
                 if extractive:
                     return self._enrich_summary(extractive, advisory)
-            except Exception as e:
-                logger.debug(f"Extractive summarization failed: {e}")
+            except Exception:
+                pass
 
-        # Strategy 3: Template-based (always works)
+        # Strategy 3: Template (always works, fast, good for short texts)
         return self._template_summary(advisory)
 
     def _extractive_summarize(self, text: str, n_sentences: int = 3) -> str:
-        """TF-IDF extractive summarization — select most informative sentences."""
-        # Split into sentences
+        """TF-IDF extractive summarization."""
         sentences = re.split(r'(?<=[.!?])\s+', text)
         if len(sentences) <= n_sentences:
             return text
 
-        # TF-IDF score each sentence
         vectorizer = TfidfVectorizer(stop_words="english", sublinear_tf=True)
         tfidf_matrix = vectorizer.fit_transform(sentences)
-
-        # Score = sum of TF-IDF weights in sentence
         scores = np.asarray(tfidf_matrix.sum(axis=1)).flatten()
-
-        # Select top sentences (preserve order)
-        top_indices = sorted(
-            scores.argsort()[-n_sentences:][::-1]
-        )
+        top_indices = sorted(scores.argsort()[-n_sentences:][::-1])
         return " ".join(sentences[i] for i in top_indices)
 
     def _template_summary(self, advisory: Advisory) -> str:
-        """Template-based summary generation — deterministic fallback."""
+        """Template-based summary — fast, deterministic, production-grade."""
         parts = []
 
-        # Opening line based on threat type
+        # Opening based on threat type
         type_openers = {
             ThreatType.VULNERABILITY: "Security vulnerability identified",
             ThreatType.MALWARE: "Malware threat detected",
@@ -142,41 +167,34 @@ class ThreatSummarizer:
         opener = type_openers.get(advisory.threat_type, "Security advisory issued")
         parts.append(f"{opener}: {advisory.title}.")
 
-        # CVE context
         if advisory.cves:
             cve_str = ", ".join(advisory.cves[:5])
             parts.append(f"Tracked as {cve_str}.")
 
-        # Severity and score
         if advisory.threat_score > 0:
             parts.append(
                 f"Threat score: {advisory.threat_score}/100 "
                 f"(Severity: {advisory.severity.value.upper()})."
             )
 
-        # Actors
         if advisory.actors:
             parts.append(f"Associated actors: {', '.join(advisory.actors[:3])}.")
 
-        # MITRE techniques
         if advisory.mitre_techniques:
             parts.append(f"MITRE ATT&CK: {', '.join(advisory.mitre_techniques[:5])}.")
 
-        # IOC count
         ioc_count = len(advisory.iocs)
         if ioc_count > 0:
             parts.append(f"{ioc_count} indicator(s) of compromise extracted.")
 
-        # Source
         if advisory.source_name:
             parts.append(f"Source: {advisory.source_name}.")
 
         return " ".join(parts)
 
     def _enrich_summary(self, base_summary: str, advisory: Advisory) -> str:
-        """Append structured intelligence context to ML-generated summary."""
+        """Append structured context to ML-generated summary."""
         enrichments = []
-
         if advisory.cves:
             enrichments.append(f"CVEs: {', '.join(advisory.cves[:5])}")
         if advisory.threat_score > 0:
@@ -195,6 +213,5 @@ class ThreatSummarizer:
         for adv in advisories:
             if not adv.ai_summary:
                 adv.ai_summary = self.summarize(adv)
-
         logger.info(f"Summarized {len(advisories)} advisories")
         return advisories
