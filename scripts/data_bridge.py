@@ -217,7 +217,7 @@ def load_embedded_intel() -> list:
 def main():
     t0 = time.time()
     print("=" * 60)
-    print("SENTINEL APEX v70.3 — Enhanced Data Bridge")
+    print("SENTINEL APEX v71.0 — Enhanced Data Bridge")
     print("=" * 60)
 
     raw_items = load_stix_manifest()
@@ -235,6 +235,10 @@ def main():
             print(f"[BRIDGE] WARN: Conversion error: {e}")
     if not converted:
         print("[BRIDGE] CRITICAL: All items failed conversion!")
+        sys.exit(1)
+
+    if len(converted) < 5:
+        print(f"[BRIDGE] BLOCKED: Only {len(converted)} items — preventing manifest corruption (min: 5)")
         sys.exit(1)
 
     # Build CVE enrichment index
