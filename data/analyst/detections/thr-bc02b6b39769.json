@@ -2,7 +2,7 @@
   "threat_id": "thr-bc02b6b39769",
   "title": "CVE-2026-32761 - File Browser has an Authorization Policy Bypass in its Public S",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-32761 - File Browser has an Authorization Policy By\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/20\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*perm.download*'\n            - '*perm.share*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-32761 - File Browser has an Authorization Policy By\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/21\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*perm.download*'\n            - '*perm.share*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"perm.download\",\n              \"perm.share\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"perm.download\", \"perm.share\")"
   },
