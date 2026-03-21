@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENTINEL APEX Enterprise Dashboard v73.0 | CyberDudeBivash</title>
+    <title>CYBERDUDEBIVASH SENTINEL APEX Enterprise Dashboard v73.0</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -475,7 +475,7 @@
     <!-- Top Bar -->
     <header class="topbar">
         <div class="topbar-brand">
-            <span class="logo-text">SENTINEL APEX</span>
+            <span class="logo-text">CYBERDUDEBIVASH SENTINEL APEX</span>
             <span class="version-badge">ENTERPRISE v73.0</span>
         </div>
         <nav class="topbar-nav">
@@ -486,7 +486,7 @@
             <button onclick="showPanel('api')">API Console</button>
         </nav>
         <div class="topbar-actions">
-            <a href="/" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:6px;color:#38bdf8;font-size:0.8em;font-weight:600;text-decoration:none;font-family:var(--font-sans);transition:all 0.2s;" onmouseover="this.style.background='rgba(56,189,248,0.15)';this.style.borderColor='rgba(56,189,248,0.4)'" onmouseout="this.style.background='rgba(56,189,248,0.08)';this.style.borderColor='rgba(56,189,248,0.2)'">← Main Dashboard</a>
+            <a href="/" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:6px;color:#38bdf8;font-size:0.8em;font-weight:600;text-decoration:none;font-family:var(--font-sans);transition:all 0.2s;" onmouseover="this.style.background='rgba(56,189,248,0.15)'" onmouseout="this.style.background='rgba(56,189,248,0.08)'">&larr; Main Dashboard</a>
             <span class="tier-badge tier-enterprise" id="tierBadge">ENTERPRISE</span>
         </div>
     </header>
@@ -522,13 +522,10 @@
                     <div class="metric-label">IOCs Extracted</div>
                 </div>
             </div>
-
-            <!-- Sync Status -->
-            <div id="syncStatus" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:16px;font-family:var(--font-mono);font-size:0.78em;">
-                <span style="color:var(--low);">● CONNECTED TO SENTINEL APEX</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:16px;font-family:var(--font-mono);font-size:0.78em;">
+                <span style="color:var(--low);">&bull; CONNECTED TO CYBERDUDEBIVASH SENTINEL APEX</span>
                 <span id="entLastSync" style="color:var(--text-dim);">Loading...</span>
             </div>
-
             <!-- Search -->
             <div class="search-box">
                 <span class="search-icon">⌕</span>
@@ -662,13 +659,13 @@
     </main>
 
     <footer class="footer">
-        &copy; 2026 CyberDudeBivash Pvt. Ltd. &mdash; SENTINEL APEX Enterprise Intelligence Platform<br>
+        &copy; 2026 CyberDudeBivash Pvt. Ltd. &mdash; CYBERDUDEBIVASH SENTINEL APEX Enterprise Intelligence Platform<br>
         <a href="https://intel.cyberdudebivash.com" style="color:var(--accent);text-decoration:none;">intel.cyberdudebivash.com</a>
     </footer>
 
     <script>
     /* ============================================================
-       SENTINEL APEX — Enterprise Dashboard Controller
+       CYBERDUDEBIVASH SENTINEL APEX — Enterprise Dashboard Controller
        v49-53 SaaS Module Integration
        ============================================================ */
 
@@ -676,8 +673,16 @@
         manifest: [],
         filtered: [],
         alerts: JSON.parse(localStorage.getItem('cdb_alerts') || '[]'),
-        watchlists: JSON.parse(localStorage.getItem('cdb_watchlists') || '[]'),
-        savedSearches: JSON.parse(localStorage.getItem('cdb_searches') || '[]'),
+        watchlists: JSON.parse(localStorage.getItem('cdb_watchlists') || 'null') || [
+            {id:1,name:'Critical CVEs',items:['CVE-2026','CVE-2025'],created_at:new Date().toISOString()},
+            {id:2,name:'APT Campaign Tracking',items:['APT','ransomware','backdoor'],created_at:new Date().toISOString()},
+            {id:3,name:'Supply Chain Threats',items:['supply chain','npm','PyPI','dependency'],created_at:new Date().toISOString()},
+        ],
+        savedSearches: JSON.parse(localStorage.getItem('cdb_searches') || 'null') || [
+            {id:1,query:'ransomware',filter:'critical',saved_at:new Date().toISOString(),result_count:0},
+            {id:2,query:'CVE-2026',filter:'all',saved_at:new Date().toISOString(),result_count:0},
+            {id:3,query:'zero-day exploit',filter:'high',saved_at:new Date().toISOString(),result_count:0},
+        ],
         currentFilter: 'all',
         searchQuery: '',
     };
@@ -715,16 +720,12 @@
         if (STATE.manifest.length === 0 && typeof RAW_MANIFEST !== 'undefined') {
             STATE.manifest = RAW_MANIFEST;
         }
-        
-        // Fallback: Fetch from GitHub raw (for when relative paths fail)
+        // Fallback: GitHub raw
         if (STATE.manifest.length === 0) {
             try {
-                const ghResp = await fetch('https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json');
-                if (ghResp.ok) {
-                    let ghData = await ghResp.json();
-                    STATE.manifest = Array.isArray(ghData) ? ghData : (ghData.items || ghData.entries || []);
-                }
-            } catch(e) { console.debug('GitHub fallback failed:', e); }
+                const ghR = await fetch('https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json');
+                if (ghR.ok) { let d = await ghR.json(); STATE.manifest = Array.isArray(d) ? d : (d.items || d.entries || []); }
+            } catch(e) {}
         }
 
         STATE.filtered = [...STATE.manifest];
@@ -759,18 +760,13 @@
         document.getElementById('metricAvgRisk').textContent = avgRisk;
         document.getElementById('metricActors').textContent = actors.size;
         document.getElementById('metricIOCs').textContent = totalIOCs.toLocaleString();
-
-        // Update sync status
         try {
-            const timestamps = m.map(e => new Date(e.timestamp || 0).getTime()).filter(t => t > 0);
-            if (timestamps.length) {
-                const newest = Math.max(...timestamps);
-                const diff = Math.floor((Date.now() - newest) / 60000);
-                const age = diff < 60 ? diff + 'm ago' : Math.floor(diff/60) + 'h ago';
-                const el = document.getElementById('entLastSync');
-                if (el) el.textContent = 'Last Sync: ' + age + ' | ' + total + ' advisories loaded';
-            }
-        } catch(e) {}
+            const ts = m.map(e=>new Date(e.timestamp||0).getTime()).filter(t=>t>0);
+            if(ts.length){const n=Math.max(...ts),d=Math.floor((Date.now()-n)/60000);
+            const a=d<60?d+'m ago':Math.floor(d/60)+'h ago';
+            const el=document.getElementById('entLastSync');
+            if(el) el.textContent='Last Sync: '+a+' | '+total+' advisories loaded';}
+        }catch(e){}
     }
 
     // ---- Risk Badge ----
@@ -1056,7 +1052,7 @@
         setTimeout(() => {
             const mockResponse = {
                 status: 'success',
-                platform: 'CYBERDUDEBIVASH SENTINEL APEX',
+                platform: 'CYBERDUDEBIVASH CYBERDUDEBIVASH SENTINEL APEX',
                 version: 'v73.0',
                 timestamp: new Date().toISOString(),
                 data: {
