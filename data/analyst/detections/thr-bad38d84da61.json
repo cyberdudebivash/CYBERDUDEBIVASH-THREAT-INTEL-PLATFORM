@@ -4,10 +4,10 @@
   "rules": {
     "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-32119 - OpenEMR has Stored DOM XSS via SearchHighli\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/21\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '8.0.0.2'\n    condition: selection_ip\nlevel: high",
     "suricata": [
-      "alert ip any any -> 8.0.0.2 any (msg:\"CDB APEX \u2014 CVE_2026_32119___OpenEMR_has_S\"; sid:2624003; rev:1;)"
+      "alert ip any any -> 8.0.0.2 any (msg:\"CDB APEX \u2014 CVE_2026_32119___OpenEMR_has_S\"; sid:1412753; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 8.0.0.2 any (msg:\"CDB APEX CVE_2026_32119___OpenEMR_has_S\"; sid:5145234; rev:1;)"
+      "alert ip any any -> 8.0.0.2 any (msg:\"CDB APEX CVE_2026_32119___OpenEMR_has_S\"; sid:7475049; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"8.0.0.2\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"8.0.0.2\")"
