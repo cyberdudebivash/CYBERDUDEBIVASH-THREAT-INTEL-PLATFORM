@@ -11,11 +11,11 @@
 # - Rollback on validation failure
 ####################################################################
 
-name: sentinel-blogger-v70
+name: sentinel-blogger
 
 on:
   schedule:
-    - cron: '0 */4 * * *'  # Every 4 hours
+    - cron: '0 */4 * * *'
   workflow_dispatch:
     inputs:
       skip_ai:
@@ -65,10 +65,9 @@ jobs:
             google-api-python-client google-auth-httplib2 google-auth-oauthlib \
             stix2 \
             2>&1 | tail -5
-          # Optional: transformers (heavy, may skip for speed)
-          pip install transformers torch --quiet 2>/dev/null || echo "⚠ Transformers not installed (optional)"
+          pip install transformers torch --quiet 2>/dev/null || echo "Transformers not installed (optional)"
           echo "::endgroup::"
-          echo "✓ Dependencies installed"
+          echo "Dependencies installed"
 
       # ─── STAGE 2: Preserve Existing Data ───
       - name: "STAGE 2: Preserve existing sync artifacts"
@@ -76,17 +75,18 @@ jobs:
           echo "::group::Preserving sync artifacts"
           mkdir -p data/.manifest_backups data/manifest_versions
           if [ -f data/feed_manifest.json ]; then
-            cp data/feed_manifest.json data/.manifest_backups/pre_run_$(date +%Y%m%dT%H%M%S).json
-            echo "✓ Manifest backed up"
-            echo "manifest_size=$(stat -c%s data/feed_manifest.json)" >> $GITHUB_OUTPUT
-            echo "advisory_count=$(python3 -c 'import json;d=json.load(open("data/feed_manifest.json"));print(len(d.get("advisories",[])))')" >> $GITHUB_OUTPUT
+            cp data/feed_manifest.json "data/.manifest_backups/pre_run_$(date +%Y%m%dT%H%M%S).json"
+            echo "Manifest backed up"
+            MSIZE=$(stat -c%s data/feed_manifest.json)
+            echo "manifest_size=$MSIZE" >> $GITHUB_OUTPUT
+            ACOUNT=$(python3 -c 'import json; d=json.load(open("data/feed_manifest.json")); print(len(d.get("advisories",[])))')
+            echo "advisory_count=$ACOUNT" >> $GITHUB_OUTPUT
           else
-            echo "⚠ No existing manifest found"
+            echo "No existing manifest found"
           fi
-          # Preserve blogger_processed.json
           if [ -f data/blogger_processed.json ]; then
             cp data/blogger_processed.json data/.manifest_backups/blogger_processed_backup.json
-            echo "✓ Blogger processed state backed up"
+            echo "Blogger processed state backed up"
           fi
           echo "::endgroup::"
         id: preserve
@@ -96,13 +96,13 @@ jobs:
       - name: "STAGE 3: Feed ingestion"
         run: |
           echo "::group::Feed Ingestion"
-          echo "▶ Running sentinel_blogger feed ingestion..."
+          echo "Running sentinel_blogger feed ingestion..."
           if [ -f "agent/sentinel_blogger.py" ]; then
-            python -m agent.sentinel_blogger 2>&1 || echo "⚠ sentinel_blogger encountered issues"
+            python -m agent.sentinel_blogger 2>&1 || echo "sentinel_blogger encountered issues"
           elif [ -f "sentinel_blogger.py" ]; then
-            python sentinel_blogger.py 2>&1 || echo "⚠ sentinel_blogger encountered issues"
+            python sentinel_blogger.py 2>&1 || echo "sentinel_blogger encountered issues"
           else
-            echo "⚠ No sentinel_blogger entry point found — checking for feed_manifest"
+            echo "No sentinel_blogger entry point found"
           fi
           echo "::endgroup::"
         timeout-minutes: 30
@@ -116,7 +116,7 @@ jobs:
       - name: "STAGE 4: v70 Intelligence Pipeline"
         run: |
           echo "::group::v70 Intelligence Pipeline"
-          echo "▶ Running SENTINEL APEX v70 orchestrator..."
+          echo "Running SENTINEL APEX v70 orchestrator..."
 
           AI_FLAG=""
           DRY_FLAG=""
@@ -134,10 +134,9 @@ jobs:
             $AI_FLAG $DRY_FLAG \
             | tee /tmp/v70_pipeline_result.json
 
-          # Check result
-          RESULT=$(python3 -c 'import json;d=json.load(open("/tmp/v70_pipeline_result.json"));print("PASS" if d.get("success") else "FAIL")')
+          RESULT=$(python3 -c 'import json; d=json.load(open("/tmp/v70_pipeline_result.json")); print("PASS" if d.get("success") else "FAIL")')
           echo "pipeline_result=$RESULT" >> $GITHUB_OUTPUT
-          echo "▶ Pipeline result: $RESULT"
+          echo "Pipeline result: $RESULT"
           echo "::endgroup::"
         id: v70_pipeline
         timeout-minutes: 30
@@ -148,9 +147,9 @@ jobs:
         run: |
           echo "::group::Update EMBEDDED_INTEL"
           if [ -f "scripts/update_embedded_intel.py" ]; then
-            python scripts/update_embedded_intel.py 2>&1 || echo "⚠ EMBEDDED_INTEL update had issues"
+            python scripts/update_embedded_intel.py 2>&1 || echo "EMBEDDED_INTEL update had issues"
           else
-            echo "ℹ No update_embedded_intel.py — dashboard uses manifest fetch"
+            echo "No update_embedded_intel.py — dashboard uses manifest fetch"
           fi
           echo "::endgroup::"
         continue-on-error: true
@@ -159,7 +158,7 @@ jobs:
       - name: "STAGE 6: Pre-deploy validation"
         run: |
           echo "::group::Pre-Deploy Validation"
-          echo "▶ Running validation gate..."
+          echo "Running validation gate..."
 
           python -m agent.v70_apex_upgrade.pipeline.validator \
             --data-dir data \
@@ -167,18 +166,19 @@ jobs:
             --json \
             | tee /tmp/v70_validation_result.json
 
-          VALID=$(python3 -c 'import json;d=json.load(open("/tmp/v70_validation_result.json"));print("PASS" if d.get("passed") else "FAIL")')
+          VALID=$(python3 -c 'import json; d=json.load(open("/tmp/v70_validation_result.json")); print("PASS" if d.get("passed") else "FAIL")')
           echo "validation_result=$VALID" >> $GITHUB_OUTPUT
 
           if [ "$VALID" = "FAIL" ]; then
             echo "::error::Pre-deploy validation FAILED — deployment blocked"
-            echo "▶ Attempting rollback to last valid manifest..."
-            python3 -c "
-from agent.v70_apex_upgrade.core.manifest_manager import ManifestManager
-mgr = ManifestManager('data')
-ok, msg = mgr.rollback()
-print(f'Rollback: {\"OK\" if ok else \"FAILED\"} — {msg}')
-"
+            echo "Attempting rollback to last valid manifest..."
+            python3 -c '
+          from agent.v70_apex_upgrade.core.manifest_manager import ManifestManager
+          mgr = ManifestManager("data")
+          ok, msg = mgr.rollback()
+          status = "OK" if ok else "FAILED"
+          print("Rollback: " + status + " -- " + msg)
+          '
           fi
           echo "::endgroup::"
         id: validation
@@ -192,10 +192,10 @@ print(f'Rollback: {\"OK\" if ok else \"FAILED\"} — {msg}')
           git config user.email "sentinel@cyberdudebivash.com"
           git add -A data/ 2>/dev/null || true
           if git diff --cached --quiet; then
-            echo "ℹ No data changes to commit"
+            echo "No data changes to commit"
           else
             git commit -m "[SENTINEL v70] Pipeline data update $(date -u +%Y-%m-%dT%H:%M:%SZ)" || true
-            git push || echo "⚠ Push failed — will retry in final stage"
+            git push || echo "Push failed — will retry in final stage"
           fi
           echo "::endgroup::"
         continue-on-error: true
@@ -207,13 +207,13 @@ print(f'Rollback: {\"OK\" if ok else \"FAILED\"} — {msg}')
           echo "::group::Final Deploy"
           git add -A
           if git diff --cached --quiet; then
-            echo "ℹ No changes to deploy"
+            echo "No changes to deploy"
           else
             TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-            ADVISORY_COUNT=$(python3 -c 'import json;d=json.load(open("data/feed_manifest.json"));print(len(d.get("advisories",[])))' 2>/dev/null || echo "?")
+            ADVISORY_COUNT=$(python3 -c 'import json; d=json.load(open("data/feed_manifest.json")); print(len(d.get("advisories",[])))' 2>/dev/null || echo "?")
             git commit -m "[SENTINEL v70] Deploy: ${ADVISORY_COUNT} advisories @ ${TIMESTAMP}"
             git push
-            echo "✓ Deployed successfully"
+            echo "Deployed successfully"
           fi
           echo "::endgroup::"
 
@@ -221,26 +221,28 @@ print(f'Rollback: {\"OK\" if ok else \"FAILED\"} — {msg}')
       - name: "STAGE 9: Pipeline summary"
         if: always()
         run: |
-          echo "═══════════════════════════════════════════════"
+          echo "======================================================="
           echo "SENTINEL APEX v70 Pipeline Summary"
-          echo "═══════════════════════════════════════════════"
+          echo "======================================================="
           echo "Timestamp: $(date -u)"
           echo "Version: ${{ env.SENTINEL_VERSION }}"
           if [ -f /tmp/v70_pipeline_result.json ]; then
-            python3 -c "
-import json
-d = json.load(open('/tmp/v70_pipeline_result.json'))
-print(f\"Status: {'PASS ✓' if d.get('success') else 'FAIL ✗'}\")
-print(f\"Advisories: {d.get('total_advisories', '?')}\")
-print(f\"Dedup Removed: {d.get('dedup_removed', '?')}\")
-print(f\"Correlations: {d.get('correlations_found', '?')}\")
-print(f\"Campaigns: {d.get('campaigns_detected', '?')}\")
-print(f\"Duration: {d.get('duration_seconds', '?')}s\")
-for p in d.get('phases', []):
-    icon = {'OK':'✓','SKIPPED':'⏭','DEGRADED':'⚠','FAILED':'✗'}.get(p['status'],'?')
-    print(f\"  [{icon}] {p['phase']}: {p['status']} ({p['duration_s']}s)\")
-"
+            python3 -c '
+          import json
+          d = json.load(open("/tmp/v70_pipeline_result.json"))
+          status = "PASS" if d.get("success") else "FAIL"
+          print("Status: " + status)
+          print("Advisories: " + str(d.get("total_advisories", "?")))
+          print("Dedup Removed: " + str(d.get("dedup_removed", "?")))
+          print("Correlations: " + str(d.get("correlations_found", "?")))
+          print("Campaigns: " + str(d.get("campaigns_detected", "?")))
+          print("Duration: " + str(d.get("duration_seconds", "?")) + "s")
+          icons = {"OK": "+", "SKIPPED": ">", "DEGRADED": "!", "FAILED": "X"}
+          for p in d.get("phases", []):
+              icon = icons.get(p["status"], "?")
+              print("  [" + icon + "] " + p["phase"] + ": " + p["status"] + " (" + str(p["duration_s"]) + "s)")
+          '
           else
-            echo "⚠ No pipeline result available"
+            echo "No pipeline result available"
           fi
-          echo "═══════════════════════════════════════════════"
+          echo "======================================================="
