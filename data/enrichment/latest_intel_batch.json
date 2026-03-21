@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-20T20:37:16.655944+00:00",
+  "timestamp": "2026-03-21T02:20:47.083249+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -369,317 +369,102 @@
   ],
   "github_advisories": [
     {
-      "ghsa_id": "GHSA-7j2x-32w6-p43p",
-      "cve_id": "CVE-2026-33418",
+      "ghsa_id": "GHSA-8fw8-q79c-fp9m",
+      "cve_id": null,
       "severity": "HIGH",
-      "summary": "SVG Dimension Capping Bypass via XML Comment Injection in @dicebear/converter ensureSize()",
-      "description": "## Summary\n\nThe `ensureSize()` function in `@dicebear/converter` used a regex-based approach to rewrite SVG `width`/`height` attributes, capping them at 2048px to prevent denial of service. This size capping could be bypassed by crafting SVG input that causes the regex to match a non-functional occurrence of `<svg` before the actual SVG root element. When the SVG is subsequently rendered via `@resvg/resvg-js` on the Node.js code path, it renders at the attacker-specified dimensions, potentially causing out-of-memory crashes.\n\n## Details\n\nThe vulnerable function used `String.prototype.replace()` with a non-global regex to find and rewrite the first `<svg` tag's dimensions. Since the regex does not distinguish between `<svg` appearing inside non-element XML constructs and the actual SVG root element, a crafted input can cause the regex to match a decoy instead of the real element, leaving the actual SVG dimensions unclamped.\n\nIn the Node.js rendering path, `renderAsync` from `@resvg/resv",
+      "summary": "AVideo has an Unauthenticated Local File Inclusion in API locale (RCE possible with writable PHP)",
+      "description": "### Summary\nAn unauthenticated API endpoint (`APIName=locale`) concatenates user input into an `include` path with no canonicalization or whitelist. Path traversal is accepted, so arbitrary PHP files under the web root can be included. In our test this yielded confirmed file disclosure and code execution of existing PHP content (e.g., `view/about.php`), and it *can* escalate to RCE if an attacker can place or control a PHP file elsewhere in the tree. \n### Details\n- Entry point: `plugin/API/get.json.php` sets `$global['bypassSameDomainCheck']=1` and merges GET/POST/JSON into `$parameters` without authentication or API secret.\n- Handler: `plugin/API/API.php`, method `get_api_locale()` (lines ~5009\u20135023):\n  ```php\n  $parameters['language'] = strtolower($parameters['language']);\n  $file = \"{$global['systemRootPath']}locale/{$parameters['language']}.php\";\n  if (!file_exists($file)) { return new ApiObject(\"This language does not exists\"); }\n  include $file;\n  ```\n  No validation is performed",
+      "cvss_score": 8.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22",
+        "CWE-98"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-20T21:55:31Z",
+      "updated": "2026-03-20T21:55:37Z",
+      "url": "https://github.com/advisories/GHSA-8fw8-q79c-fp9m",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-8fw8-q79c-fp9m",
+        "https://github.com/advisories/GHSA-8fw8-q79c-fp9m"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mwjc-5j4x-r686",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "AVideo has an unauthenticated decrypt oracle leaking any ciphertext",
+      "description": "### Summary\nThe API plugin exposes a `decryptString` action without any authentication. Anyone can submit ciphertext and receive plaintext. Ciphertext is issued publicly (e.g., `view/url2Embed.json.php`), so any user can recover protected tokens/metadata. Severity: High.\n\n### Details\n- Entry: `plugin/API/get.json.php` is unauthenticated.\n- Handler: `plugin/API/API.php` `get_api_decryptString()` (lines ~5945\u20135966):\n  ```php\n  $string = decryptString($_REQUEST['string']);\n  return new ApiObject($string, empty($string));\n  ```\n  No APISecret or user check occurs before decrypting.\n- Public ciphertext source: `view/url2Embed.json.php` returns `playLink`/`playEmbedLink` (`encryptString(json_encode(...))`) to any caller.\n\n### PoC\n1. Obtain ciphertext:\n   ```\n   GET /view/url2Embed.json.php?url=https://example.com/video.mp4\n   ```\n   Copy `playLink`.\n2. Decrypt without auth:\n   ```\n   POST /plugin/API/get.json.php?APIName=decryptString\n   Content-Type: application/x-www-form-urlencoded\n\n   st",
       "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
       "epss_score": null,
       "cwe_ids": [
-        "CWE-185"
+        "CWE-287",
+        "CWE-312",
+        "CWE-326",
+        "CWE-327"
       ],
       "ecosystems": [
-        "npm"
+        "composer"
       ],
       "packages": [
-        "@dicebear/converter"
+        "wwbn/avideo"
       ],
-      "published": "2026-03-20T20:35:40Z",
-      "updated": "2026-03-20T20:35:42Z",
-      "url": "https://github.com/advisories/GHSA-7j2x-32w6-p43p",
+      "published": "2026-03-20T21:55:12Z",
+      "updated": "2026-03-20T21:55:17Z",
+      "url": "https://github.com/advisories/GHSA-mwjc-5j4x-r686",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/dicebear/dicebear/security/advisories/GHSA-7j2x-32w6-p43p",
-        "https://github.com/advisories/GHSA-7j2x-32w6-p43p"
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-mwjc-5j4x-r686",
+        "https://github.com/advisories/GHSA-mwjc-5j4x-r686"
       ]
     },
     {
-      "ghsa_id": "GHSA-9f94-5g5w-gf6r",
-      "cve_id": null,
+      "ghsa_id": "GHSA-r7mc-x6x7-cqxx",
+      "cve_id": "CVE-2026-33509",
       "severity": "HIGH",
-      "summary": "CRL Distribution Point Scope Check Logic Error in AWS-LC",
-      "description": "### Summary\n\nAWS-LC is an open-source, general-purpose cryptographic library.\n\n### Impact \n\nA logic error in CRL distribution point matching in AWS-LC allows a revoked certificate to bypass revocation checks during certificate validation, when the application enables CRL checking and uses partitioned CRLs with Issuing Distribution Point (IDP) extensions.\n\nCustomers of AWS services do not need to take action. aws-lc-sys and aws-lc-fips-sys contain code from AWS-LC. Applications using aws-lc-sys or aws-lc-fips-sys should upgrade to the most recent releases of aws-lc-sys or aws-lc-fips-sys.\n\n### Impacted versions:\n* aws-lc-sys >= v0.15.0, < v0.39.0\n* aws-lc-fips-sys >= v0.13.0, < v0.13.13\n\n### Patches \n\nThe patch is included in aws-lc-sys v0.39.0 and aws-lc-fips-sys v0.13.13.\n\n### Workarounds\n\nApplications can workaround this issue if they do not enable CRL checking (X509_V_FLAG_CRL_CHECK). Applications using complete (non-partitioned) CRLs without IDP extensions are also not affected.\n\nO",
-      "cvss_score": 7.4,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+      "summary": "pyLoad SETTINGS Permission Users Can Achieve Remote Code Execution via Unrestricted Reconnect Script Configuration",
+      "description": "## Summary\n\nThe `set_config_value()` API endpoint allows users with the non-admin `SETTINGS` permission to modify any configuration option without restriction. The `reconnect.script` config option controls a file path that is passed directly to `subprocess.run()` in the thread manager's reconnect logic. A SETTINGS user can set this to any executable file on the system, achieving Remote Code Execution. The only validation in `set_config_value()` is a hardcoded check for `general.storage_folder` \u2014 all other security-critical settings including `reconnect.script` are writable without any allowlist or path restriction.\n\n## Details\n\nThe vulnerability chain spans two components:\n\n**1. Unrestricted config write \u2014 `src/pyload/core/api/__init__.py:210-243`**\n\n```python\n@permission(Perms.SETTINGS)\n@post\ndef set_config_value(self, category: str, option: str, value: Any, section: str = \"core\") -> None:\n    self.pyload.addon_manager.dispatch_event(\n        \"config_changed\", category, option, value,",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
       "epss_score": null,
       "cwe_ids": [
-        "CWE-295"
+        "CWE-269"
       ],
       "ecosystems": [
-        "rust",
-        "rust"
-      ],
-      "packages": [
-        "aws-lc-fips-sys",
-        "aws-lc-sys"
-      ],
-      "published": "2026-03-20T20:35:14Z",
-      "updated": "2026-03-20T20:35:33Z",
-      "url": "https://github.com/advisories/GHSA-9f94-5g5w-gf6r",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/aws/aws-lc-rs/security/advisories/GHSA-9f94-5g5w-gf6r",
-        "https://aws.amazon.com/security/security-bulletins/2026-010-AWS",
-        "https://rustsec.org/advisories/RUSTSEC-2026-0042.html",
-        "https://rustsec.org/advisories/RUSTSEC-2026-0048.html",
-        "https://github.com/advisories/GHSA-9f94-5g5w-gf6r"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-394x-vwmw-crm3",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "AWS-LC X.509 Name Constraints Bypass via Wildcard/Unicode CN",
-      "description": "### Summary\n\nAWS-LC is an open-source, general-purpose cryptographic library.\n\n### Impact\n\nA logic error in CN (Common Name) validation allows certificates with wildcard or raw UTF-8 Unicode CN values to bypass name constraints enforcement. The `cn2dnsid` function does not recognize these CN patterns as valid DNS identifiers, causing `NAME_CONSTRAINTS_check_CN` to skip validation. However, `X509_check_host` accepts these CN values when no dNSName SAN is present, allowing certificates to bypass name constraints while still being used for hostname verification.\n\nCustomers of AWS services do not need to take action. Applications using aws-lc-sys should upgrade to the most recent release of aws-lc-sys.\n\n### Impacted versions:\n\n* aws-lc-sys >= v0.32.0, < v0.39.0\n\n### Patches\n\nThe patch is included in aws-lc-sys v0.39.0.\n\n### Workarounds\n\nApplications that set `X509_CHECK_FLAG_NEVER_CHECK_SUBJECT` to disable CN fallback are not affected. Applications that only encounter certificates with dNS",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-155",
-        "CWE-295"
-      ],
-      "ecosystems": [
-        "rust"
-      ],
-      "packages": [
-        "aws-lc-sys"
-      ],
-      "published": "2026-03-20T20:34:59Z",
-      "updated": "2026-03-20T20:35:00Z",
-      "url": "https://github.com/advisories/GHSA-394x-vwmw-crm3",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/aws/aws-lc-rs/security/advisories/GHSA-394x-vwmw-crm3",
-        "https://rustsec.org/advisories/RUSTSEC-2026-0044.html",
-        "https://github.com/advisories/GHSA-394x-vwmw-crm3"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-38f7-945m-qr2g",
-      "cve_id": "CVE-2026-32887",
-      "severity": "HIGH",
-      "summary": "Effect `AsyncLocalStorage` context lost/contaminated inside Effect fibers under concurrent load with RPC",
-      "description": "## Versions\n\n- `effect`: 3.19.15\n- `@effect/rpc`: 0.72.1\n- `@effect/platform`: 0.94.2\n- Node.js: v22.20.0\n- Vercel runtime with Fluid compute\n- Next.js: 16 (App Router)\n- `@clerk/nextjs`: 6.x\n\n## Root cause\n\nEffect's `MixedScheduler` batches fiber continuations and drains them inside a **single** microtask or timer callback. The `AsyncLocalStorage` context active during that callback belongs to whichever request first triggered the scheduler's drain cycle \u2014 **not** the request that owns the fiber being resumed.\n\n### Detailed mechanism\n\n#### 1. Scheduler batching (`effect/src/Scheduler.ts`, `MixedScheduler`)\n\n```typescript\n// MixedScheduler.starve() \u2014 called once when first task is scheduled\nprivate starve(depth = 0) {\n  if (depth >= this.maxNextTickBeforeTimer) {\n    setTimeout(() => this.starveInternal(0), 0)       // timer queue\n  } else {\n    Promise.resolve(void 0).then(() => this.starveInternal(depth + 1)) // microtask queue\n  }\n}\n\n// MixedScheduler.starveInternal() \u2014 drains ALL a",
-      "cvss_score": 7.4,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-362"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "effect"
-      ],
-      "published": "2026-03-20T20:34:06Z",
-      "updated": "2026-03-20T20:34:06Z",
-      "url": "https://github.com/advisories/GHSA-38f7-945m-qr2g",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/Effect-TS/effect/security/advisories/GHSA-38f7-945m-qr2g",
-        "https://github.com/advisories/GHSA-38f7-945m-qr2g"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-7f6v-3gx7-27q8",
-      "cve_id": "CVE-2026-33331",
-      "severity": "HIGH",
-      "summary": "oRPC has Stored XSS in OpenAPI Reference Plugin via unescaped JSON.stringify",
-      "description": "A Stored Cross-Site Scripting (XSS) vulnerability exists in the OpenAPI documentation generation of orpc. If an attacker can control any field within the OpenAPI specification (such as info.description), they can break out of the JSON context and execute arbitrary JavaScript when a user views the generated API documentation.\nIn the packages/openapi/src/plugins/openapi-reference.ts file, the renderDocsHtml() function takes an OpenAPI spec object and embeds it directly into the HTML response using a template literal:\n\n`<script id=\"spec\" type=\"application/json\">${JSON.stringify(spec)}</script>`\n\nThe JSON.stringify() function does not escape HTML characters like < or >. Therefore, if an attacker provides a string containing </script><script>..., the browser will prematurely close the application/json script block and execute the subsequent malicious script block.\n\nProof of Concept (PoC)\n\n1. Create an API router with **orpc** and configure the OpenAPI plugin.\n2. In the API specification, in",
-      "cvss_score": 8.2,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:L/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-79"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "@orpc/openapi"
-      ],
-      "published": "2026-03-20T17:25:56Z",
-      "updated": "2026-03-20T17:25:56Z",
-      "url": "https://github.com/advisories/GHSA-7f6v-3gx7-27q8",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/middleapi/orpc/security/advisories/GHSA-7f6v-3gx7-27q8",
-        "https://github.com/advisories/GHSA-7f6v-3gx7-27q8"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-vq4q-79hh-q767",
-      "cve_id": "CVE-2026-33316",
-      "severity": "HIGH",
-      "summary": "Vikunja\u2019s Improper Access Control Enables Bypass of Administrator-Imposed Account Disablement ",
-      "description": "### Summary\n\nA flaw in Vikunja\u2019s password reset logic allows disabled users to regain access to their accounts. The `ResetPassword()` function sets the user\u2019s status to `StatusActive` after a successful password reset without verifying whether the account was previously disabled. By requesting a reset token through `/api/v1/user/password/token` and completing the reset via `/api/v1/user/password/reset`, a disabled user can reactivate their account and bypass administrator-imposed account disablement.\n\n#### Vulnerable Code Snippet\n\nIn `pkg/user/user_password_reset.go`, beginning at line 66:\n\n```go\n\t// Hash the password\n\tuser.Password, err = HashPassword(reset.NewPassword)\n\tif err != nil {\n\t\treturn\n\t}\n\n\terr = removeTokens(s, user, TokenPasswordReset)\n\tif err != nil {\n\t\treturn\n\t}\n\n\tuser.Status = StatusActive // <--- VULNERABILITY: Unconditionally sets status to Active\n\t_, err = s.\n\t\tCols(\"password\", \"status\").\n\t\tWhere(\"id = ?\", user.ID).\n\t\tUpdate(user)\n\tif err != nil {\n\t\treturn\n\t}\n```\n\nTh",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-284",
-        "CWE-862",
-        "CWE-863"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "code.vikunja.io/api"
-      ],
-      "published": "2026-03-20T17:25:47Z",
-      "updated": "2026-03-20T17:25:48Z",
-      "url": "https://github.com/advisories/GHSA-vq4q-79hh-q767",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/go-vikunja/vikunja/security/advisories/GHSA-vq4q-79hh-q767",
-        "https://github.com/go-vikunja/vikunja/commit/049f4a6be46f9460bd516f489ef9f569574bc70d",
-        "https://github.com/go-vikunja/vikunja/commit/d8570c603da1f26635ce6048d6af85ede827abfb",
-        "https://github.com/advisories/GHSA-vq4q-79hh-q767"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-v856-2rf8-9f28",
-      "cve_id": "CVE-2026-32711",
-      "severity": "HIGH",
-      "summary": "pydicom has a path traversal in FileSet/DICOMDIR ReferencedFileID allows file access outside the File-set root",
-      "description": "### Summary\nA crafted `DICOMDIR` can set `ReferencedFileID` to a path outside the File-set root. `pydicom` resolves the path only to confirm that it exists, but does not verify that the resolved path remains under the File-set root. Subsequent public `FileSet` operations such as `copy()`, `write()`, and `remove()+write(use_existing=True)` use that unchecked path in file I/O operations. This allows arbitrary file read/copy and, in some flows, move/delete outside the File-set root.\n\n### Details\nVerified on `pydicom 3.1.0.dev0`.\n\nRelevant logic is in `src/pydicom/fileset.py`:\n\n- `RecordNode._file_id` converts `ReferencedFileID` directly to `Path(...)`\n- `FileSet.load()` checks only `(root / file_id).resolve(strict=True)` to confirm existence\n- `FileSet.load()` does not verify that the final resolved path is contained within the File-set root\n- `FileInstance.path` returns `self.file_set.path / self.node._file_id`\n- `FileSet.copy()` uses `shutil.copyfile(instance.path, dst)`\n- `FileSet.writ",
-      "cvss_score": 7.8,
-      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "pip",
         "pip"
       ],
       "packages": [
-        "pydicom",
-        "pydicom"
+        "pyload-ng"
       ],
-      "published": "2026-03-20T15:57:01Z",
-      "updated": "2026-03-20T15:57:02Z",
-      "url": "https://github.com/advisories/GHSA-v856-2rf8-9f28",
+      "published": "2026-03-20T21:50:30Z",
+      "updated": "2026-03-20T21:50:31Z",
+      "url": "https://github.com/advisories/GHSA-r7mc-x6x7-cqxx",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/pydicom/pydicom/security/advisories/GHSA-v856-2rf8-9f28",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-32711",
-        "https://github.com/pydicom/pydicom/commit/6414f01a053dff925578799f5a7208d2ae585e82",
-        "https://github.com/pydicom/pydicom/releases/tag/v3.0.2",
-        "https://github.com/advisories/GHSA-v856-2rf8-9f28"
+        "https://github.com/pyload/pyload/security/advisories/GHSA-r7mc-x6x7-cqxx",
+        "https://github.com/pyload/pyload/commit/f5e284fcdfeaf08436bb03e5fcf697aaac659d8b",
+        "https://github.com/advisories/GHSA-r7mc-x6x7-cqxx"
       ]
     },
     {
-      "ghsa_id": "GHSA-whhv-gg5v-864r",
-      "cve_id": "CVE-2026-32701",
+      "ghsa_id": "GHSA-6qh5-m6g3-xhq6",
+      "cve_id": "CVE-2026-33508",
       "severity": "HIGH",
-      "summary": "Qwik City has array method pollution in FormData processing allows type confusion and DoS",
-      "description": "**Summary**\n\nQwik City improperly inferred arrays from dotted form field names during `FormData` parsing. By submitting mixed array-index and object-property keys for the same path, an attacker could cause user-controlled properties to be written onto values that application code expected to be arrays.\n\n**Description**\n\nWhen processing `application/x-www-form-urlencoded` or `multipart/form-data` requests, Qwik City converted dotted field names such as `items.0` and `items.1` into nested structures. If a path was interpreted as an array, additional attacker-controlled keys on the same path, such as `items.toString`, `items.push`, `items.valueOf`, or `items.length`, could alter the resulting server-side value in unexpected ways.\n\nApplications that assumed these parsed values were safe arrays could be affected. Depending on application behavior, this could lead to request handling failures, denial of service through malformed array state or oversized lengths, and type confusion in downstr",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-843"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "@builder.io/qwik-city"
-      ],
-      "published": "2026-03-20T15:56:44Z",
-      "updated": "2026-03-20T15:56:45Z",
-      "url": "https://github.com/advisories/GHSA-whhv-gg5v-864r",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/QwikDev/qwik/security/advisories/GHSA-whhv-gg5v-864r",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-32701",
-        "https://github.com/QwikDev/qwik/commit/7b5867c3dd8925df9aa96c4296b1e95a4c2af87d",
-        "https://github.com/advisories/GHSA-whhv-gg5v-864r"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-wvvq-wgcr-9q48",
-      "cve_id": "CVE-2026-32305",
-      "severity": "HIGH",
-      "summary": "Traefik has a Potential mTLS Bypass via Fragmented TLS ClientHello Causing Pre-SNI Sniff Fallback to Default Non-mTLS TLS Config",
-      "description": "## Summary\n\nThere is a potential vulnerability in Traefik's TLS SNI pre-sniffing logic related to fragmented ClientHello packets.\n\nWhen a TLS ClientHello is fragmented across multiple records, Traefik's SNI extraction may fail with an EOF and return an empty SNI. The TCP router then falls back to the default TLS configuration, which does not require client certificates by default. This allows an attacker to bypass route-level mTLS enforcement and access services that should require mutual TLS authentication.\n\n## Patches\n\n- https://github.com/traefik/traefik/releases/tag/v2.11.41\n- https://github.com/traefik/traefik/releases/tag/v3.6.11\n- https://github.com/traefik/traefik/releases/tag/v3.7.0-ea.2\n\n## For more information\n\nIf you have any questions or comments about this advisory, please [open an issue](https://github.com/traefik/traefik/issues).\n\n<details>\n<summary>Original Description</summary>\n\n### Summary\nI found a behavior in Traefik's latest version where fragmented ClientHello pa",
+      "summary": "Parse Server LiveQuery subscription query depth bypass",
+      "description": "### Impact\n\nParse Server's LiveQuery component does not enforce the `requestComplexity.queryDepth` configuration setting when processing WebSocket subscription requests. An attacker can send a subscription with deeply nested logical operators, causing excessive recursion and CPU consumption that degrades or disrupts service availability.\n\nDeployments are affected when the LiveQuery WebSocket endpoint is reachable by untrusted clients.\n\n### Patches\n\nThe fix adds query condition depth validation to the LiveQuery subscription handler, enforcing the same `requestComplexity.queryDepth` limit that already protects REST API queries.\n\n### Workarounds\n\nThere is no known workaround other than upgrading.",
       "cvss_score": null,
       "cvss_vector": null,
       "epss_score": null,
       "cwe_ids": [
-        "CWE-287"
-      ],
-      "ecosystems": [
-        "go",
-        "go",
-        "go",
-        "go"
-      ],
-      "packages": [
-        "github.com/traefik/traefik/v3",
-        "github.com/traefik/traefik/v3",
-        "github.com/traefik/traefik/v2",
-        "github.com/traefik/traefik"
-      ],
-      "published": "2026-03-20T15:43:01Z",
-      "updated": "2026-03-20T15:43:02Z",
-      "url": "https://github.com/advisories/GHSA-wvvq-wgcr-9q48",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/traefik/traefik/security/advisories/GHSA-wvvq-wgcr-9q48",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-32305",
-        "https://github.com/traefik/traefik/releases/tag/v2.11.41",
-        "https://github.com/traefik/traefik/releases/tag/v3.6.11",
-        "https://github.com/traefik/traefik/releases/tag/v3.7.0-ea.2",
-        "https://github.com/advisories/GHSA-wvvq-wgcr-9q48"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-f53h-mxv9-cp98",
-      "cve_id": "CVE-2026-4342",
-      "severity": "HIGH",
-      "summary": "ingress-nginx comment-based nginx configuration injection",
-      "description": "A security issue was discovered in ingress-nginx where a combination of Ingress annotations can be used to inject configuration into nginx. This can lead to arbitrary code execution in the context of the ingress-nginx controller, and disclosure of Secrets accessible to the controller. (Note that in the default installation, the controller can access all Secrets cluster-wide.)",
-      "cvss_score": 8.8,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-20"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "k8s.io/ingress-nginx"
-      ],
-      "published": "2026-03-20T00:31:28Z",
-      "updated": "2026-03-20T17:26:11Z",
-      "url": "https://github.com/advisories/GHSA-f53h-mxv9-cp98",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-4342",
-        "https://github.com/kubernetes/kubernetes/issues/137893",
-        "http://www.openwall.com/lists/oss-security/2026/03/19/9",
-        "https://github.com/kubernetes/ingress-nginx/commit/5183b7d861377a9a2f6d2acaf44f8f6abd5cd0aa",
-        "https://github.com/advisories/GHSA-f53h-mxv9-cp98"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-pfj7-wv7c-22pr",
-      "cve_id": "CVE-2026-33409",
-      "severity": "HIGH",
-      "summary": "Parse Server has an auth provider validation bypass on login via partial authData",
-      "description": "### Impact\n\nAn authentication bypass vulnerability allows an attacker to log in as any user who has linked a third-party authentication provider, without knowing the user's credentials. The attacker only needs to know the user's provider ID to gain full access to their account, including a valid session token.\n\nThis affects Parse Server deployments where the server option `allowExpiredAuthDataToken` is set to `true`. The default value is `false`.\n\n### Patches\n\nAuth providers are now always validated on login, regardless of the `allowExpiredAuthDataToken` setting. The option `allowExpiredAuthDataToken` has been deprecated and will be removed in a future major version.\n\n### Workarounds\n\nSet `allowExpiredAuthDataToken` to `false` (the default) or remove the option from the server configuration.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-287"
+        "CWE-674"
       ],
       "ecosystems": [
         "npm",
@@ -689,85 +474,28 @@
         "parse-server",
         "parse-server"
       ],
-      "published": "2026-03-19T21:32:10Z",
-      "updated": "2026-03-19T21:32:11Z",
-      "url": "https://github.com/advisories/GHSA-pfj7-wv7c-22pr",
+      "published": "2026-03-20T21:48:17Z",
+      "updated": "2026-03-20T21:48:21Z",
+      "url": "https://github.com/advisories/GHSA-6qh5-m6g3-xhq6",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/parse-community/parse-server/security/advisories/GHSA-pfj7-wv7c-22pr",
-        "https://github.com/parse-community/parse-server/pull/10246",
-        "https://github.com/parse-community/parse-server/pull/10247",
-        "https://github.com/advisories/GHSA-pfj7-wv7c-22pr"
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-6qh5-m6g3-xhq6",
+        "https://github.com/parse-community/parse-server/pull/10259",
+        "https://github.com/parse-community/parse-server/pull/10260",
+        "https://github.com/advisories/GHSA-6qh5-m6g3-xhq6"
       ]
     },
     {
-      "ghsa_id": "GHSA-grr9-747v-xvcp",
-      "cve_id": null,
+      "ghsa_id": "GHSA-hv36-p4w4-6vmj",
+      "cve_id": "CVE-2026-33507",
       "severity": "HIGH",
-      "summary": "Scriban has an Infinite Recursion during Object Rendering Leads to Stack Overflow and Process Crash (Denial of Service)",
-      "description": "When Scriban renders an object that contains a circular reference, it traverses the object's members infinitely. Because the `ObjectRecursionLimit` property defaults to unlimited, this behavior exhausts the thread's stack space, triggering an uncatchable `StackOverflowException` that immediately terminates the hosting process.\n\nWhen rendering objects (e.g., `{{ obj }}`), the Scriban rendering engine recursively inspects and formats the object's properties. To prevent infinite loops caused by deeply nested or circular data structures, `TemplateContext` contains an `ObjectRecursionLimit` property. \n\nHowever, this property currently defaults to `0` (unlimited). If the data context pushed into the template contains a circular reference, the renderer will recurse indefinitely. This is especially dangerous for web applications that map user-controlled payloads (like JSON) directly to rendering contexts, or for applications that pass ORM objects (like Entity Framework models, which frequently",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "summary": "AVideo Affected by CSRF on Plugin Import Endpoint Enables Unauthenticated Remote Code Execution via Malicious Plugin Upload",
+      "description": "## Summary\n\nThe `objects/pluginImport.json.php` endpoint allows admin users to upload and install plugin ZIP files containing executable PHP code, but lacks any CSRF protection. Combined with the application explicitly setting `session.cookie_samesite = 'None'` for HTTPS connections, an unauthenticated attacker can craft a page that, when visited by an authenticated admin, silently uploads a malicious plugin containing a PHP webshell, achieving Remote Code Execution on the server.\n\n## Details\n\nThe root cause has two components working together:\n\n**1. SameSite=None on session cookies (`objects/include_config.php:134-137`):**\n\n```php\nif ($isHTTPS) {\n    ini_set('session.cookie_samesite', 'None');\n    ini_set('session.cookie_secure', '1');\n}\n```\n\nThis explicitly allows browsers to include the session cookie on cross-origin requests to the AVideo instance.\n\n**2. No CSRF protection on pluginImport.json.php (`objects/pluginImport.json.php:18`):**\n\n```php\nif (!User::isAdmin()) {\n    $obj->msg",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
       "epss_score": null,
       "cwe_ids": [
-        "CWE-674"
-      ],
-      "ecosystems": [
-        "nuget"
-      ],
-      "packages": [
-        "scriban"
-      ],
-      "published": "2026-03-19T21:31:01Z",
-      "updated": "2026-03-19T21:31:01Z",
-      "url": "https://github.com/advisories/GHSA-grr9-747v-xvcp",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/scriban/scriban/security/advisories/GHSA-grr9-747v-xvcp",
-        "https://github.com/scriban/scriban/commit/a6fe6074199e5c04f4d29dc8d8e652b24d33e3e4",
-        "https://github.com/advisories/GHSA-grr9-747v-xvcp"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-wgh7-7m3c-fx25",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Scriban has Uncontrolled Recursion in Parser Leads to Stack Overflow and Process Crash (Denial of Service)",
-      "description": "Scriban is vulnerable to an uncontrolled process crash resulting in a Denial of Service. Because the recursive-descent parser does not enforce a default limit on expression depth, an attacker who controls template input can craft a heavily nested template that triggers a `StackOverflowException`. In .NET, a `StackOverflowException` cannot be caught by standard `try-catch` blocks, resulting in the immediate and ungraceful termination of the entire hosting process. \n\nScriban utilizes a recursive-descent parser to process template expressions. While the library exposes an `ExpressionDepthLimit` property in its `ParserOptions`, this property defaults to `null` (disabled). \n\nIf an application accepts user-supplied templates (or dynamically constructs templates from untrusted input), an attacker can supply thousands of nested parentheses or blocks. As the parser recursively evaluates each nested layer, it consumes thread stack space until it exceeds the limits of the host OS, triggering a fa",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-674"
-      ],
-      "ecosystems": [
-        "nuget"
-      ],
-      "packages": [
-        "scriban"
-      ],
-      "published": "2026-03-19T21:30:54Z",
-      "updated": "2026-03-19T21:30:56Z",
-      "url": "https://github.com/advisories/GHSA-wgh7-7m3c-fx25",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/scriban/scriban/security/advisories/GHSA-wgh7-7m3c-fx25",
-        "https://github.com/scriban/scriban/commit/a6fe6074199e5c04f4d29dc8d8e652b24d33e3e4",
-        "https://github.com/scriban/scriban/commit/b5ac4bf30459fdc76964e3f751e16f7e96079ea7",
-        "https://github.com/advisories/GHSA-wgh7-7m3c-fx25"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-4jw9-5hrc-m4j6",
-      "cve_id": "CVE-2026-33354",
-      "severity": "HIGH",
-      "summary": "AVideo has an authenticated arbitrary local file read via `chunkFile` path injection in `aVideoEncoder.json.php`",
-      "description": "## Summary\n`POST /objects/aVideoEncoder.json.php` accepts a requester-controlled `chunkFile` parameter intended for staged upload chunks. Instead of restricting that path to trusted server-generated chunk locations, the endpoint accepts arbitrary local filesystem paths that pass `isValidURLOrPath()`. That helper allows files under broad server directories including `/var/www/`, the application root, cache, tmp, and `videos`, only rejecting `.php` files.\n\nFor an authenticated uploader editing their own video, this becomes an arbitrary local file read. The endpoint copies the attacker-chosen local file into the attacker's public video storage path, after which it can be downloaded over HTTP.\n\nI confirmed this locally by creating an attacker-owned video, then calling `aVideoEncoder.json.php` with `videos_id=<own video>`, `format=mp4`, and `chunkFile=/var/www/html/AVideo/.compose/letsencrypt/live/localhost/privkey.pem`. The resulting public video URL returned the local TLS private key and ",
-      "cvss_score": 7.6,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:L/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-73"
+        "CWE-352"
       ],
       "ecosystems": [
         "composer"
@@ -775,41 +503,291 @@
       "packages": [
         "wwbn/avideo"
       ],
-      "published": "2026-03-19T19:34:06Z",
-      "updated": "2026-03-19T19:34:07Z",
-      "url": "https://github.com/advisories/GHSA-4jw9-5hrc-m4j6",
+      "published": "2026-03-20T21:47:50Z",
+      "updated": "2026-03-20T21:47:51Z",
+      "url": "https://github.com/advisories/GHSA-hv36-p4w4-6vmj",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/WWBN/AVideo/security/advisories/GHSA-4jw9-5hrc-m4j6",
-        "https://github.com/advisories/GHSA-4jw9-5hrc-m4j6"
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-hv36-p4w4-6vmj",
+        "https://github.com/advisories/GHSA-hv36-p4w4-6vmj"
       ]
     },
     {
-      "ghsa_id": "GHSA-xgxp-f695-6vrp",
-      "cve_id": "CVE-2026-33353",
+      "ghsa_id": "GHSA-gv7f-w92j-383q",
+      "cve_id": "CVE-2025-55988",
       "severity": "HIGH",
-      "summary": "In Soft Serve, an authenticated repo import can clone server-local private repositories",
-      "description": "### Summary\nAn authorization flaw in `repo import` allows any authenticated SSH user to clone a server-local Git repository, including another user's private repo, into a new repository they control. This breaks the private-repository confidentiality boundary and should be treated as High severity.\n\n### Details\nRepo import checks authorization only for the destination repository name, not for the source remote. The destination-side authorization comes from [`pkg/ssh/cmd/cmd.go:172`](https://github.com/charmbracelet/soft-serve/blob/main/pkg/ssh/cmd/cmd.go#L172), which calls [`pkg/backend/user.go:46`](https://github.com/charmbracelet/soft-serve/blob/main/pkg/backend/user.go#L46). If the destination repo does not already exist, any authenticated user is granted `ReadWriteAccess` at [`pkg/backend/user.go:94`](https://github.com/charmbracelet/soft-serve/blob/main/pkg/backend/user.go#L94).\n\nThe import command then passes the user-controlled `REMOTE` into [`pkg/backend/repo.go:102`](https://g",
+      "summary": "DreamFactory has a directory traversal",
+      "description": "An issue in the component /Controllers/RestController.php of DreamFactory Core v1.0.3 allows attackers to execute a directory traversal via an unsanitized URI path.",
+      "cvss_score": 7.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "dreamfactory/df-core"
+      ],
+      "published": "2026-03-20T21:31:28Z",
+      "updated": "2026-03-20T21:53:21Z",
+      "url": "https://github.com/advisories/GHSA-gv7f-w92j-383q",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://nvd.nist.gov/vuln/detail/CVE-2025-55988",
+        "https://github.com/dreamfactorysoftware/df-core/commit/54354605b2ec9afe6ee96756a5a22f6f56828950#diff-e57a7c0af25166ac8f02695307c6c413ca4ba0a48a20b2202ad910654528aab1",
+        "https://pentest-tools.com/PTT-2025-001-RemoteCodeExecution-via-URL-Path-Traversal.pdf",
+        "https://github.com/advisories/GHSA-gv7f-w92j-383q"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-9fjp-q3c4-6w3j",
+      "cve_id": "CVE-2026-33498",
+      "severity": "HIGH",
+      "summary": "Parse Server has a query condition depth bypass via pre-validation transform pipeline",
+      "description": "### Impact\n\nAn attacker can send an unauthenticated HTTP request with a deeply nested query containing logical operators to permanently hang the Parse Server process. The server becomes completely unresponsive and must be manually restarted. This is a bypass of the fix for CVE-2026-32944.\n\n### Patches\n\nThe query condition nesting depth is now validated before the query enters the transformation pipeline, preventing deeply nested structures from being recursively processed before the existing depth guard can fire.\n\n### Workarounds\n\nNone.",
       "cvss_score": null,
       "cvss_vector": null,
       "epss_score": null,
       "cwe_ids": [
-        "CWE-200",
-        "CWE-862"
+        "CWE-674"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-20T20:56:22Z",
+      "updated": "2026-03-20T20:56:23Z",
+      "url": "https://github.com/advisories/GHSA-9fjp-q3c4-6w3j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-9fjp-q3c4-6w3j",
+        "https://github.com/parse-community/parse-server/pull/10257",
+        "https://github.com/parse-community/parse-server/pull/10258",
+        "https://github.com/advisories/GHSA-9fjp-q3c4-6w3j"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-ph9w-r52h-28p7",
+      "cve_id": "CVE-2026-33497",
+      "severity": "HIGH",
+      "summary": "langflow: /profile_pictures/{folder_name}/{file_name} endpoint file reading",
+      "description": "### Summary\nIn the download_profile_picture function of the /profile_pictures/{folder_name}/{file_name} endpoint, the folder_name and file_name parameters are not strictly filtered, which allows the secret_key to be read across directories.\n\n### Details\nsrc/backend/base/langflow/api/v1/files.py\n\n![image](https://github.com/user-attachments/assets/19bc387c-93d8-475b-bab0-2675669c1c36)\n\nstorage local get_file, directly concatenate flow_id and file_name\n![image](https://github.com/user-attachments/assets/daf47b73-6e1b-414e-bb8b-66b67cf5a9e9)\n\n### PoC\n```curl --path-as-is 'http://127.0.0.1:7860/api/v1/files/profile_pictures/../secret_key' ```\n```QNuonm***********```\n\n### Impact\nsecret_key is used for jwt authentication. Attackers can forge authentication tokens and log into the system.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "langflow"
+      ],
+      "published": "2026-03-20T20:56:14Z",
+      "updated": "2026-03-20T20:56:17Z",
+      "url": "https://github.com/advisories/GHSA-ph9w-r52h-28p7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/langflow-ai/langflow/security/advisories/GHSA-ph9w-r52h-28p7",
+        "https://github.com/advisories/GHSA-ph9w-r52h-28p7"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-c38g-mx2c-9wf2",
+      "cve_id": "CVE-2026-33505",
+      "severity": "HIGH",
+      "summary": "Ory Keto has a SQL injection via forged pagination tokens",
+      "description": "## Description\n\nThe **GetRelationships API** in Ory Keto is vulnerable to SQL injection due to flaws in its pagination implementation.\n\nPagination tokens are encrypted using the secret configured in `secrets.pagination`. An attacker who knows this secret can craft their own tokens, including malicious tokens that lead to SQL injection. If this configuration value is not set, Keto falls back to a hard-coded default pagination encryption secret. Because this default value is publicly known, attackers can generate valid and malicious pagination tokens manually for installations where this secret is not set.\n\n## Preconditions\n\nThis issue can be exploited when all of the following conditions are met:\n\n- **GetRelationships API** is directly or indirectly accessible to the attacker\n- The attacker can pass a raw pagination token to the affected API\n- The configuration value `secrets.pagination` is not set or known to the attacker\n\n## Impact\n\nAn attacker can execute arbitrary SQL queries throug",
+      "cvss_score": 7.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
       ],
       "ecosystems": [
         "go"
       ],
       "packages": [
-        "github.com/charmbracelet/soft-serve"
+        "github.com/ory/keto"
       ],
-      "published": "2026-03-19T19:27:58Z",
-      "updated": "2026-03-20T09:18:44Z",
-      "url": "https://github.com/advisories/GHSA-xgxp-f695-6vrp",
+      "published": "2026-03-20T20:55:44Z",
+      "updated": "2026-03-20T20:55:47Z",
+      "url": "https://github.com/advisories/GHSA-c38g-mx2c-9wf2",
       "source": "github-advisory",
       "poc_urls": [
-        "https://github.com/charmbracelet/soft-serve/security/advisories/GHSA-xgxp-f695-6vrp",
-        "https://github.com/advisories/GHSA-xgxp-f695-6vrp"
+        "https://github.com/ory/keto/security/advisories/GHSA-c38g-mx2c-9wf2",
+        "https://github.com/advisories/GHSA-c38g-mx2c-9wf2"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-r9w3-57w2-gch2",
+      "cve_id": "CVE-2026-33504",
+      "severity": "HIGH",
+      "summary": "Ory Hydra has a SQL injection via forged pagination tokens",
+      "description": "## Description\n\nFollowing Admin APIs in Ory Hydra are vulnerable to SQL injection due to flaws in its pagination implementation:\n\n- listOAuth2Clients\n- listOAuth2ConsentSessions\n- listTrustedOAuth2JwtGrantIssuers\n\nPagination tokens are encrypted using the secret configured in `secrets.pagination`. If this value is not set, Hydra falls back to using `secrets.system`. An attacker who knows this secret can craft their own tokens, including malicious tokens that lead to SQL injection.\n\n## Preconditions\n\nThis issue can be exploited when the following conditions are met:\n\n- One or more **admin APIs** listed above are directly or indirectly accessible to the attacker\n- The attacker can pass a raw pagination token to the affected API\n- The configuration value `secrets.pagination` is set and known to the attacker, or `secrets.pagination` is not set and `secrets.system` is known to the attacker\n\n## Impact\n\nAn attacker can execute arbitrary SQL queries through forged pagination tokens.\n\n## Mitiga",
+      "cvss_score": 7.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/ory/hydra"
+      ],
+      "published": "2026-03-20T20:55:04Z",
+      "updated": "2026-03-20T20:55:07Z",
+      "url": "https://github.com/advisories/GHSA-r9w3-57w2-gch2",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ory/hydra/security/advisories/GHSA-r9w3-57w2-gch2",
+        "https://github.com/advisories/GHSA-r9w3-57w2-gch2"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-hgx2-28f8-6g2r",
+      "cve_id": "CVE-2026-33503",
+      "severity": "HIGH",
+      "summary": "Ory Kratos has a SQL injection via forged pagination tokens",
+      "description": "## Description\n\nThe **ListCourierMessages** Admin API in Ory Kratos is vulnerable to SQL injection due to flaws in its pagination implementation.\n\nPagination tokens are encrypted using the secret configured in `secrets.pagination`. An attacker who knows this secret can craft their own tokens, including malicious tokens that lead to SQL injection. If this configuration value is not set, Kratos falls back to a default pagination encryption secret. Because this default value is publicly known, attackers can generate valid and malicious pagination tokens manually for installations where this secret is not set.\n\n## Preconditions\n\nThis issue can be exploited when the following conditions are met:\n\n- **ListCourierMessages API** is directly or indirectly accessible to the attacker\n- The attacker can pass a raw pagination token to the affected API\n- The configuration value `secrets.pagination` is not set or known to the attacker\n\n## Impact\n\nAn attacker can execute arbitrary SQL queries through ",
+      "cvss_score": 7.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/ory/kratos"
+      ],
+      "published": "2026-03-20T20:54:54Z",
+      "updated": "2026-03-20T20:54:56Z",
+      "url": "https://github.com/advisories/GHSA-hgx2-28f8-6g2r",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ory/kratos/security/advisories/GHSA-hgx2-28f8-6g2r",
+        "https://github.com/advisories/GHSA-hgx2-28f8-6g2r"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4mq7-pvjg-xp2r",
+      "cve_id": "CVE-2026-33496",
+      "severity": "HIGH",
+      "summary": "Ory Oathkeeper has an authentication bypass by cache key confusion",
+      "description": "## Description\n\nOry Oathkeeper is vulnerable to authentication bypass due to cache key confusion. The `oauth2_introspection` authenticator cache does not distinguish tokens that were validated with different introspection URLs. An attacker can therefore legitimately use a token to prime the cache, and subsequently use the same token for rules that use a different introspection server.\n\n## Preconditions\n\nOry Oathkeeper has to be configured with multiple `oauth2_introspection` authenticator servers, each accepting different tokens. The authenticators also must be [configured to use caching](https://www.ory.com/docs/oathkeeper/pipeline/authn#oauth2_introspection-configuration). An attacker has to have a way to gain a valid token for one of the configured introspection servers.\n\n## Mitigation\n\nOry Oathkeeper now includes the introspection server URL in the cache key, preventing confusion of tokens.\n\nUpdate to the patched version of Ory Oathkeeper. If that is not immediately possible, disab",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-305",
+        "CWE-1289"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/ory/oathkeeper"
+      ],
+      "published": "2026-03-20T20:51:07Z",
+      "updated": "2026-03-20T20:51:08Z",
+      "url": "https://github.com/advisories/GHSA-4mq7-pvjg-xp2r",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ory/oathkeeper/security/advisories/GHSA-4mq7-pvjg-xp2r",
+        "https://github.com/ory/oathkeeper/commit/198a2bc82a99e0a77bd0ffe290cbdd5285a1b17c",
+        "https://github.com/advisories/GHSA-4mq7-pvjg-xp2r"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-83xq-8jxj-4rxm",
+      "cve_id": "CVE-2026-33493",
+      "severity": "HIGH",
+      "summary": "AVideo has a Path Traversal in import.json.php Allows Private Video Theft and Arbitrary File Read/Deletion via fileURI Parameter",
+      "description": "## Summary\n\nThe `objects/import.json.php` endpoint accepts a user-controlled `fileURI` POST parameter with only a regex check that the value ends in `.mp4`. Unlike `objects/listFiles.json.php`, which was hardened with a `realpath()` + directory prefix check to restrict paths to the `videos/` directory, `import.json.php` performs no directory restriction. This allows an authenticated user with upload permission to: (1) steal any other user's private video files by importing them into their own account, (2) read `.txt`/`.html`/`.htm` files adjacent to any `.mp4` file on the filesystem, and (3) delete `.mp4` and adjacent text files if writable by the web server process.\n\n## Details\n\n### Missing path restriction in import.json.php\n\nAt `objects/import.json.php:12`, the only validation on the user-supplied `fileURI` is a regex ensuring it ends with `.mp4`:\n\n```php\n// objects/import.json.php:12\nif (!preg_match(\"/.*\\\\.mp4$/i\", $_POST['fileURI'])) {\n    return false;\n}\n```\n\nCompare this to the ",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-20T20:49:36Z",
+      "updated": "2026-03-20T20:49:37Z",
+      "url": "https://github.com/advisories/GHSA-83xq-8jxj-4rxm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-83xq-8jxj-4rxm",
+        "https://github.com/advisories/GHSA-83xq-8jxj-4rxm"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-x3pr-vrhq-vq43",
+      "cve_id": "CVE-2026-33492",
+      "severity": "HIGH",
+      "summary": "AVideo has Session Fixation via GET PHPSESSID Parameter With Disabled Login Session Regeneration",
+      "description": "## Summary\n\nAVideo's `_session_start()` function accepts arbitrary session IDs via the `PHPSESSID` GET parameter and sets them as the active PHP session. A session regeneration bypass exists for specific blacklisted endpoints when the request originates from the same domain. Combined with the explicitly disabled session regeneration in `User::login()`, this allows a classic session fixation attack where an attacker can fix a victim's session ID before authentication and then hijack the authenticated session.\n\n## Details\n\nThe vulnerability is a chain of three weaknesses that together enable session fixation:\n\n### 1. Attacker-controlled session ID acceptance (`objects/functionsPHP.php:344-367`)\n\n```php\nfunction _session_start(array $options = [])\n{\n    // ...\n    if (isset($_GET['PHPSESSID']) && !_empty($_GET['PHPSESSID'])) {\n        $PHPSESSID = $_GET['PHPSESSID'];\n        // ...\n        if (!User::isLogged()) {\n            if ($PHPSESSID !== session_id()) {\n                _session_wri",
+      "cvss_score": 7.3,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-384"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-20T20:49:23Z",
+      "updated": "2026-03-20T20:49:25Z",
+      "url": "https://github.com/advisories/GHSA-x3pr-vrhq-vq43",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-x3pr-vrhq-vq43",
+        "https://github.com/advisories/GHSA-x3pr-vrhq-vq43"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-6m5f-j7w2-w953",
+      "cve_id": "CVE-2026-33488",
+      "severity": "HIGH",
+      "summary": "AVideo has a PGP 2FA Bypass via Cryptographically Broken 512-bit RSA Key Generation in LoginControl Plugin",
+      "description": "## Summary\n\nThe `createKeys()` function in the LoginControl plugin's PGP 2FA system generates 512-bit RSA keys, which have been publicly factorable since 1999. An attacker who obtains a target user's public key can factor the 512-bit RSA modulus on commodity hardware in hours, derive the complete private key, and decrypt any PGP 2FA challenge issued by the system \u2014 completely bypassing the second authentication factor. Additionally, the `generateKeys.json.php` and `encryptMessage.json.php` endpoints lack any authentication checks, exposing CPU-intensive key generation to anonymous users.\n\n## Details\n\nThe vulnerability originates in `plugin/LoginControl/pgp/functions.php` at line 26:\n\n```php\n// plugin/LoginControl/pgp/functions.php:26\n$privateKey = RSA::createKey(512);\n```\n\nThis code was copied from the `singpolyma/openpgp-php` library's example/demo code, which was never intended for production use. The entire PGP 2FA flow relies on these weak keys:\n\n1. **Key generation**: When a user ",
+      "cvss_score": 7.4,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-326"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-20T20:49:06Z",
+      "updated": "2026-03-20T20:49:07Z",
+      "url": "https://github.com/advisories/GHSA-6m5f-j7w2-w953",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-6m5f-j7w2-w953",
+        "https://github.com/advisories/GHSA-6m5f-j7w2-w953"
       ]
     }
   ],
@@ -858,7 +836,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-20T20:37:16.773651+00:00",
+    "catalog_version": "2026-03-21T02:20:47.286603+00:00",
     "source": "CISA KEV"
   }
 }
