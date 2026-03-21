@@ -1,8 +1,10 @@
 """
-SENTINEL APEX v70 — Master Pipeline Orchestrator
-===================================================
+SENTINEL APEX v70 — Master Pipeline Orchestrator (PATCHED)
+=============================================================
+CRITICAL FIX: Removes early-exit. Always processes data. Hard fails on 0 advisories.
+
 Single entry point that executes all phases in order:
-1. Load existing manifest (preserve current data)
+1. Load existing manifest (from data_bridge output)
 2. Convert to structured Advisory models
 3. Deduplicate
 4. AI Classification
@@ -12,11 +14,8 @@ Single entry point that executes all phases in order:
 8. Correlation
 9. Threat Scoring
 10. Confidence Scoring
-11. Generate blog reports
-12. Publish manifest (validated, versioned)
-13. Pre-deploy validation
-
-Idempotent. Safe to re-run. Zero regression.
+11. Publish manifest (validated, versioned)
+12. Pre-deploy validation
 """
 
 import json
@@ -28,7 +27,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 # Core
-from .core.models import Advisory, Manifest, advisory_from_legacy, CVERecord
+from .core.models import Advisory, Manifest, advisory_from_legacy, CVERecord, IOC, IOCType, Severity, ThreatType
 from .core.schema_validator import validate_manifest
 from .core.manifest_manager import ManifestManager
 
@@ -42,9 +41,6 @@ from .ai.threat_classifier import ThreatClassifier
 from .ai.threat_clusterer import ThreatClusterer
 from .ai.summarizer import ThreatSummarizer
 from .ai.risk_predictor import RiskPredictor
-
-# Blog
-from .blog.report_generator import BlogReportGenerator
 
 # Pipeline
 from .pipeline.validator import PipelineValidator, PipelineValidationResult
@@ -114,10 +110,94 @@ class OrchestratorResult:
         return json.dumps(self.to_dict(), indent=2, default=str)
 
 
+def _convert_real_advisory(item: Dict[str, Any]) -> Advisory:
+    """
+    Convert an advisory from the ACTUAL repo data format.
+    Handles both the STIX manifest format and legacy flat format.
+    """
+    import re
+
+    title = item.get("title", "")
+
+    # Extract CVEs from title if not in a 'cves' field
+    cves = item.get("cves", [])
+    if not cves and title:
+        cves = re.findall(r"CVE-\d{4}-\d{4,}", title, re.IGNORECASE)
+
+    # IOCs — may be a list of values or just a count
+    iocs = []
+    raw_iocs = item.get("iocs", [])
+    for raw in raw_iocs:
+        if isinstance(raw, str):
+            iocs.append(IOC(value=raw, source=item.get("source", "")))
+        elif isinstance(raw, dict):
+            iocs.append(IOC(
+                value=raw.get("value", ""),
+                source=raw.get("source", item.get("source", "")),
+            ))
+
+    # Severity
+    sev_str = (item.get("severity", "") or "").lower()
+    severity = Severity.INFO
+    for s in Severity:
+        if s.value == sev_str:
+            severity = s
+            break
+
+    # Threat type inference
+    threat_type = ThreatType.GENERIC
+    if cves:
+        threat_type = ThreatType.VULNERABILITY
+    elif any(kw in title.lower() for kw in ["malware", "ransomware", "trojan", "botnet"]):
+        threat_type = ThreatType.MALWARE
+    elif any(kw in title.lower() for kw in ["campaign", "apt", "threat actor", "espionage"]):
+        threat_type = ThreatType.CAMPAIGN
+
+    # MITRE techniques
+    mitre_raw = item.get("mitre_techniques", item.get("mitre_tactics", ""))
+    mitre_techniques = []
+    if isinstance(mitre_raw, str) and mitre_raw:
+        mitre_techniques = [t.strip() for t in mitre_raw.split(",") if t.strip()]
+    elif isinstance(mitre_raw, list):
+        mitre_techniques = mitre_raw
+
+    # Actors
+    actors = item.get("actors", [])
+    actor_tag = item.get("actor_tag", "")
+    if actor_tag and isinstance(actor_tag, str) and actor_tag.lower() not in ("", "none", "unknown", "n/a"):
+        if actor_tag not in actors:
+            actors.append(actor_tag)
+
+    # Source name
+    source_name = item.get("source", "") or item.get("source_name", "") or item.get("feed_source", "")
+
+    return Advisory(
+        advisory_id=item.get("advisory_id", ""),
+        title=title,
+        summary=item.get("description", "") or item.get("summary", "") or title,
+        source_url=item.get("link", "") or item.get("source_url", ""),
+        source_name=source_name,
+        published_date=item.get("published", "") or item.get("published_date", "") or item.get("timestamp", ""),
+        threat_type=threat_type,
+        severity=severity,
+        confidence=float(item.get("confidence", 0) or item.get("confidence_score", 0) or 0),
+        cves=cves,
+        iocs=iocs,
+        actors=actors,
+        mitre_techniques=mitre_techniques,
+        tags=item.get("tags", []),
+        threat_score=float(item.get("threat_score", 0) or item.get("risk_score", 0) or 0),
+        blog_post_url=item.get("blog_post_url", "") or item.get("blog_url", ""),
+        blog_post_id=item.get("blog_post_id", ""),
+        stix_id=item.get("stix_id", ""),
+    )
+
+
 class Orchestrator:
     """
     Master pipeline orchestrator.
     Executes all v70 intelligence phases in sequence.
+    NEVER exits early. HARD FAILS on 0 data.
     """
 
     def __init__(self, config: Optional[OrchestratorConfig] = None):
@@ -134,20 +214,50 @@ class Orchestrator:
             t0 = time.time()
             raw_advisories = self.manifest_mgr.load_current_advisories()
             logger.info(f"Phase 0: Loaded {len(raw_advisories)} existing advisories")
-            result.add_phase("load_existing", "OK", time.time() - t0, {"count": len(raw_advisories)})
+            result.add_phase("load_existing", "OK", time.time() - t0, {
+                "count": len(raw_advisories),
+                "manifest_path": self.manifest_mgr.latest_path,
+            })
 
+            # ─── CRITICAL: HARD FAIL on 0 advisories ───
             if not raw_advisories:
-                logger.warning("No existing advisories found — pipeline has nothing to process")
-                result.add_phase("early_exit", "WARN", 0, {"reason": "no data"})
-                result.success = True
-                result.duration_seconds = time.time() - start_time
+                msg = (
+                    f"CRITICAL: 0 advisories loaded from {self.manifest_mgr.latest_path}. "
+                    f"Data bridge may not have run, or STIX manifest is empty. "
+                    f"Pipeline CANNOT proceed without data."
+                )
+                logger.error(msg)
+                result.add_phase("data_check", "FAILED", 0, {"error": msg})
+                result.error = msg
+                result.success = False
+                result.duration_seconds = round(time.time() - start_time, 3)
                 return result
+
+            result.add_phase("data_check", "OK", 0, {"count": len(raw_advisories)})
 
             # ─── Phase 1: Convert to structured models ───
             t0 = time.time()
-            advisories = [advisory_from_legacy(item) for item in raw_advisories]
-            logger.info(f"Phase 1: Converted {len(advisories)} advisories to structured models")
-            result.add_phase("model_conversion", "OK", time.time() - t0, {"count": len(advisories)})
+            advisories = []
+            convert_errors = 0
+            for item in raw_advisories:
+                try:
+                    advisories.append(_convert_real_advisory(item))
+                except Exception as e:
+                    convert_errors += 1
+                    if convert_errors <= 3:
+                        logger.warning(f"Conversion error: {e}")
+
+            logger.info(f"Phase 1: Converted {len(advisories)} advisories ({convert_errors} errors)")
+            result.add_phase("model_conversion", "OK", time.time() - t0, {
+                "converted": len(advisories),
+                "errors": convert_errors,
+            })
+
+            if not advisories:
+                result.error = "All advisory conversions failed"
+                result.success = False
+                result.duration_seconds = round(time.time() - start_time, 3)
+                return result
 
             # ─── Phase 2: Deduplication ───
             if self.config.enable_dedup:
@@ -157,7 +267,7 @@ class Orchestrator:
                 advisories = dedup_engine.deduplicate(advisories)
                 removed = pre_count - len(advisories)
                 result.dedup_removed = removed
-                logger.info(f"Phase 2: Dedup removed {removed} duplicates ({pre_count} → {len(advisories)})")
+                logger.info(f"Phase 2: Dedup {pre_count} -> {len(advisories)} ({removed} removed)")
                 result.add_phase("deduplication", "OK", time.time() - t0, dedup_engine.stats)
             else:
                 result.add_phase("deduplication", "SKIPPED", 0)
@@ -214,11 +324,8 @@ class Orchestrator:
                     advisories = corr_engine.correlate(advisories)
                     result.correlations_found = len(corr_engine.links)
                     result.campaigns_detected = len(corr_engine.campaigns)
-                    logger.info(
-                        f"Phase 7: Correlation found {result.correlations_found} links, "
-                        f"{result.campaigns_detected} campaigns"
-                    )
-                    result.add_phase("correlation", "OK", time.time() - t0, corr_engine.get_correlation_graph())
+                    logger.info(f"Phase 7: {result.correlations_found} links, {result.campaigns_detected} campaigns")
+                    result.add_phase("correlation", "OK", time.time() - t0)
                 except Exception as e:
                     logger.warning(f"Phase 7: Correlation failed (non-fatal): {e}")
                     result.add_phase("correlation", "DEGRADED", time.time() - t0, {"error": str(e)})
@@ -229,12 +336,12 @@ class Orchestrator:
             if self.config.enable_ai:
                 t0 = time.time()
                 try:
-                    summarizer = ThreatSummarizer(use_transformers=True)
+                    summarizer = ThreatSummarizer(use_transformers=False)
                     advisories = summarizer.summarize_batch(advisories)
                     logger.info("Phase 8: AI summarization complete")
                     result.add_phase("ai_summarization", "OK", time.time() - t0)
                 except Exception as e:
-                    logger.warning(f"Phase 8: AI summarization failed (non-fatal): {e}")
+                    logger.warning(f"Phase 8: Summarization failed (non-fatal): {e}")
                     result.add_phase("ai_summarization", "DEGRADED", time.time() - t0, {"error": str(e)})
             else:
                 result.add_phase("ai_summarization", "SKIPPED", 0)
@@ -245,10 +352,10 @@ class Orchestrator:
                 try:
                     risk_pred = RiskPredictor()
                     advisories = risk_pred.predict_batch(advisories)
-                    logger.info("Phase 9: AI risk prediction complete")
+                    logger.info("Phase 9: Risk prediction complete")
                     result.add_phase("ai_risk_prediction", "OK", time.time() - t0)
                 except Exception as e:
-                    logger.warning(f"Phase 9: AI risk prediction failed (non-fatal): {e}")
+                    logger.warning(f"Phase 9: Risk prediction failed (non-fatal): {e}")
                     result.add_phase("ai_risk_prediction", "DEGRADED", time.time() - t0, {"error": str(e)})
             else:
                 result.add_phase("ai_risk_prediction", "SKIPPED", 0)
@@ -277,7 +384,6 @@ class Orchestrator:
                 else:
                     logger.error(f"Phase 10: Manifest publish failed: {msg}")
                     result.add_phase("publish_manifest", "FAILED", time.time() - t0, {"error": msg})
-                    # Attempt rollback
                     rb_success, rb_msg = self.manifest_mgr.rollback()
                     if rb_success:
                         logger.info("Rollback successful")
@@ -290,10 +396,10 @@ class Orchestrator:
             val_result = validator.validate_all()
             result.validation_result = val_result
             if val_result.passed:
-                logger.info("Phase 11: Pre-deploy validation PASSED ✓")
+                logger.info("Phase 11: Validation PASSED")
                 result.add_phase("pre_deploy_validation", "OK", time.time() - t0)
             else:
-                logger.error(f"Phase 11: Pre-deploy validation FAILED — {len(val_result.errors)} errors")
+                logger.error(f"Phase 11: Validation FAILED — {len(val_result.errors)} errors")
                 result.add_phase("pre_deploy_validation", "FAILED", time.time() - t0, {
                     "errors": val_result.errors,
                 })
@@ -304,17 +410,17 @@ class Orchestrator:
             result.duration_seconds = round(time.time() - start_time, 3)
 
             logger.info(
-                f"Pipeline complete: {result.total_advisories} advisories, "
+                f"Pipeline COMPLETE: {result.total_advisories} advisories, "
                 f"{result.dedup_removed} deduped, "
                 f"{result.correlations_found} correlations, "
-                f"{result.duration_seconds}s total"
+                f"{result.duration_seconds}s"
             )
 
         except Exception as e:
             result.error = str(e)
             result.success = False
             result.duration_seconds = round(time.time() - start_time, 3)
-            logger.error(f"Pipeline failed with exception: {e}", exc_info=True)
+            logger.error(f"Pipeline FAILED: {e}", exc_info=True)
 
         return result
 
@@ -359,10 +465,10 @@ def main():
         print(result.to_json())
     else:
         print(f"\n{'='*60}")
-        print(f"SENTINEL APEX v70 Pipeline {'PASSED ✓' if result.success else 'FAILED ✗'}")
+        print(f"SENTINEL APEX v70 Pipeline {'PASSED' if result.success else 'FAILED'}")
         print(f"{'='*60}")
         for phase in result.phases:
-            status_icon = {"OK": "✓", "SKIPPED": "⏭", "DEGRADED": "⚠", "FAILED": "✗", "DRY_RUN": "🔍"}.get(
+            status_icon = {"OK": "+", "SKIPPED": ">", "DEGRADED": "!", "FAILED": "X", "DRY_RUN": "~"}.get(
                 phase["status"], "?"
             )
             print(f"  [{status_icon}] {phase['phase']}: {phase['status']} ({phase['duration_s']}s)")
