@@ -1,30 +1,47 @@
-#!/usr/bin/env bash
-# ============================================================
-# SENTINEL APEX v64.2 — Sync Marker Updater
-# ============================================================
-# PURPOSE: Updates data/sync_marker.json on every pipeline run
-#          so the dashboard's fetchPipelineSyncTime() has fresh data.
-#
-# ADD TO WORKFLOW: After STAGE 2 completes (feed ingestion done),
-#                  add this step:
-#
-#   - name: "Update sync marker"
-#     run: bash scripts/update_sync_marker.sh
-#
-# ============================================================
+#!/bin/bash
+# ================================================================
+# SENTINEL APEX v70 — Sync Marker Update Script
+# ================================================================
+# Updates data/sync_marker.json with current pipeline sync time.
+# FRESHEST-WINS GUARD: Only updates if new timestamp > existing.
+# ================================================================
+
 set -euo pipefail
 
-REPO_ROOT="${GITHUB_WORKSPACE:-$(pwd)}"
-MARKER_FILE="${REPO_ROOT}/data/sync_marker.json"
-TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%S+00:00)
+SYNC_MARKER="data/sync_marker.json"
+NOW_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+NOW_EPOCH=$(date -u +%s)
 
-mkdir -p "$(dirname "${MARKER_FILE}")"
+mkdir -p data
 
-cat > "${MARKER_FILE}" << EOF
+# Read existing marker
+if [ -f "$SYNC_MARKER" ]; then
+    EXISTING_TS=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$SYNC_MARKER'))
+    print(d.get('last_sync', ''))
+except:
+    print('')
+" 2>/dev/null || echo "")
+
+    if [ -n "$EXISTING_TS" ]; then
+        EXISTING_EPOCH=$(date -d "$EXISTING_TS" +%s 2>/dev/null || echo "0")
+        if [ "$NOW_EPOCH" -le "$EXISTING_EPOCH" ]; then
+            echo "[SYNC] Existing marker ($EXISTING_TS) is newer or equal — skipping update"
+            exit 0
+        fi
+    fi
+fi
+
+# Write new marker
+cat > "$SYNC_MARKER" << EOF
 {
-  "last_sync": "${TIMESTAMP}",
-  "sync_source": "github-actions-v64.2"
+  "last_sync": "$NOW_ISO",
+  "epoch": $NOW_EPOCH,
+  "pipeline_version": "v70.0",
+  "status": "complete"
 }
 EOF
 
-echo "[SYNC-MARKER] Updated: ${TIMESTAMP}"
+echo "[SYNC] Marker updated: $NOW_ISO (epoch: $NOW_EPOCH)"
