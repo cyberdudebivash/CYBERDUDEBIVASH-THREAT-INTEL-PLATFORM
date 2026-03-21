@@ -302,12 +302,40 @@ class Orchestrator:
             else:
                 result.add_phase("ai_clustering", "SKIPPED", 0)
 
-            # ─── Phase 5: Threat Scoring ───
+            # ─── Phase 5: Threat Scoring (with CVE enrichment) ───
             t0 = time.time()
-            scoring_engine = ThreatScoringEngine()
+            # Load CVE index from data bridge (CVSS/EPSS/KEV data)
+            cve_lookup = {}
+            cve_index_path = os.path.join(self.config.data_dir, "cve_index.json")
+            if os.path.isfile(cve_index_path):
+                try:
+                    with open(cve_index_path, "r") as f:
+                        raw_index = json.load(f)
+                    for cve_id, data in raw_index.items():
+                        cve_lookup[cve_id.upper()] = CVERecord(
+                            cve_id=cve_id.upper(),
+                            cvss_score=float(data.get("cvss_score", 0) or 0),
+                            epss_score=float(data.get("epss_score", 0) or 0),
+                            kev_status=bool(data.get("kev_status", False)),
+                            exploit_available=bool(data.get("exploit_available", False)),
+                        )
+                    logger.info(f"Phase 5: Loaded {len(cve_lookup)} CVE enrichments (CVSS/EPSS/KEV)")
+                except Exception as e:
+                    logger.warning(f"Phase 5: CVE index load failed (non-fatal): {e}")
+            else:
+                # Fallback: extract from manifest advisories
+                for adv in advisories:
+                    for cve in adv.cves:
+                        cu = cve.upper()
+                        if cu not in cve_lookup:
+                            cve_lookup[cu] = CVERecord(cve_id=cu)
+
+            scoring_engine = ThreatScoringEngine(cve_lookup=cve_lookup)
             advisories = scoring_engine.score_batch(advisories)
-            logger.info("Phase 5: Threat scoring complete")
-            result.add_phase("threat_scoring", "OK", time.time() - t0)
+            logger.info(f"Phase 5: Threat scoring complete ({len(cve_lookup)} CVE enrichments)")
+            result.add_phase("threat_scoring", "OK", time.time() - t0, {
+                "cve_enrichments": len(cve_lookup),
+            })
 
             # ─── Phase 6: Confidence Scoring ───
             t0 = time.time()
