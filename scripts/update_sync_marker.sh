@@ -1,47 +1,82 @@
-#!/bin/bash
-# ================================================================
-# SENTINEL APEX v70 — Sync Marker Update Script
-# ================================================================
-# Updates data/sync_marker.json with current pipeline sync time.
-# FRESHEST-WINS GUARD: Only updates if new timestamp > existing.
-# ================================================================
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════
+# SENTINEL APEX v72.0 — Sync Marker Updater
+# ═══════════════════════════════════════════════════════════
+# Updates data/sync_marker.json with current timestamp after
+# every successful pipeline run. This ensures the dashboard's
+# fetchPipelineSyncTime() always has a fresh value to display.
+#
+# Called from sentinel-blogger.yml AFTER the main commit+push.
+# ═══════════════════════════════════════════════════════════
 
 set -euo pipefail
 
-SYNC_MARKER="data/sync_marker.json"
-NOW_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-NOW_EPOCH=$(date -u +%s)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SYNC_MARKER="${REPO_ROOT}/data/sync_marker.json"
+STATUS_JSON="${REPO_ROOT}/data/status/status.json"
 
-mkdir -p data
+NOW_ISO=$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")
 
-# Read existing marker
-if [ -f "$SYNC_MARKER" ]; then
-    EXISTING_TS=$(python3 -c "
+echo "=== v72.0 Sync Marker Update ==="
+echo "  Timestamp: ${NOW_ISO}"
+
+# ─── Update sync_marker.json ───
+mkdir -p "$(dirname "${SYNC_MARKER}")"
+
+# Read existing marker to preserve structure, or create new
+if [ -f "${SYNC_MARKER}" ]; then
+    python3 -c "
 import json, sys
 try:
-    d = json.load(open('$SYNC_MARKER'))
-    print(d.get('last_sync', ''))
+    with open('${SYNC_MARKER}', 'r') as f:
+        data = json.load(f)
 except:
-    print('')
-" 2>/dev/null || echo "")
-
-    if [ -n "$EXISTING_TS" ]; then
-        EXISTING_EPOCH=$(date -d "$EXISTING_TS" +%s 2>/dev/null || echo "0")
-        if [ "$NOW_EPOCH" -le "$EXISTING_EPOCH" ]; then
-            echo "[SYNC] Existing marker ($EXISTING_TS) is newer or equal — skipping update"
-            exit 0
-        fi
-    fi
+    data = {}
+data['last_sync'] = '${NOW_ISO}'
+data['updated_by'] = 'sentinel-blogger-v72'
+data['pipeline_run'] = '${GITHUB_RUN_NUMBER:-unknown}'
+with open('${SYNC_MARKER}', 'w') as f:
+    json.dump(data, f, indent=2)
+print(f'  sync_marker.json updated: {data[\"last_sync\"][:19]}')
+" 2>/dev/null || {
+    # Fallback: create fresh
+    cat > "${SYNC_MARKER}" << MARKER_EOF
+{
+  "last_sync": "${NOW_ISO}",
+  "updated_by": "sentinel-blogger-v72",
+  "pipeline_run": "${GITHUB_RUN_NUMBER:-unknown}"
+}
+MARKER_EOF
+    echo "  sync_marker.json created (fresh)"
+}
+else
+    cat > "${SYNC_MARKER}" << MARKER_EOF
+{
+  "last_sync": "${NOW_ISO}",
+  "updated_by": "sentinel-blogger-v72",
+  "pipeline_run": "${GITHUB_RUN_NUMBER:-unknown}"
+}
+MARKER_EOF
+    echo "  sync_marker.json created (new)"
 fi
 
-# Write new marker
-cat > "$SYNC_MARKER" << EOF
-{
-  "last_sync": "$NOW_ISO",
-  "epoch": $NOW_EPOCH,
-  "pipeline_version": "v70.0",
-  "status": "complete"
-}
-EOF
+# ─── Update status.json generated_at ───
+mkdir -p "$(dirname "${STATUS_JSON}")"
+if [ -f "${STATUS_JSON}" ]; then
+    python3 -c "
+import json
+try:
+    with open('${STATUS_JSON}', 'r') as f:
+        data = json.load(f)
+except:
+    data = {}
+data['generated_at'] = '${NOW_ISO}'
+data['status'] = 'OPERATIONAL'
+with open('${STATUS_JSON}', 'w') as f:
+    json.dump(data, f, indent=2)
+print(f'  status.json updated: {data[\"generated_at\"][:19]}')
+" 2>/dev/null || echo "  status.json update skipped (non-fatal)"
+fi
 
-echo "[SYNC] Marker updated: $NOW_ISO (epoch: $NOW_EPOCH)"
+echo "  SUCCESS"
+echo "==================================="
