@@ -125,6 +125,10 @@ jobs:
 
       - name: "v70: Intelligence Pipeline"
         continue-on-error: true
+        timeout-minutes: 5
+        env:
+          TRANSFORMERS_NO_ADVISORY_WARNINGS: "1"
+          TOKENIZERS_PARALLELISM: "false"
         run: |
           echo "::group::v70 Intelligence Pipeline"
           if [ -d agent/v70_apex_upgrade ]; then
@@ -132,7 +136,7 @@ jobs:
             if [ "${{ github.event.inputs.skip_ai }}" = "true" ]; then
               AI_FLAG="--no-ai"
             fi
-            python -m agent.v70_apex_upgrade.orchestrator \
+            timeout 240 python -m agent.v70_apex_upgrade.orchestrator \
               --data-dir data \
               --dashboard index.html \
               --json $AI_FLAG \
