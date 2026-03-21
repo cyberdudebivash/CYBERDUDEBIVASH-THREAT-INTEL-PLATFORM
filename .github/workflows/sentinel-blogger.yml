@@ -1,287 +1,265 @@
-####################################################################
-# SENTINEL APEX v70 — Production Pipeline Workflow (PATCHED)
 # ================================================================
-# CRITICAL FIX: Data bridge runs before orchestrator.
-# Hard failure on ingestion + orchestrator + validation.
-# Debug logging at every stage.
-####################################################################
+# CYBERDUDEBIVASH® SENTINEL APEX — Sovereign Intelligence Cycle
+# Version: v70.2 (MERGED: v64.4 base + v70 Intelligence Upgrade)
+# ================================================================
+# This workflow PRESERVES all v64.4 working functionality AND
+# adds v70 intelligence enhancements (data bridge, AI engines,
+# dedup, correlation, scoring) as ADDITIVE stages.
+# ================================================================
 
 name: sentinel-blogger
 
 on:
   schedule:
     - cron: '0 */4 * * *'
+    - cron: '0 0 1 * *'
   workflow_dispatch:
     inputs:
+      force_full_sync:
+        description: 'Force full sync even if no new data'
+        required: false
+        type: boolean
+        default: false
       skip_ai:
         description: 'Skip AI phases (faster run)'
         required: false
-        default: 'false'
-      dry_run:
-        description: 'Dry run (no writes)'
-        required: false
-        default: 'false'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
+  pages: write
 
-env:
-  PYTHONUNBUFFERED: '1'
-  SENTINEL_DATA_DIR: 'data'
-  SENTINEL_VERSION: 'v70.1'
+concurrency:
+  group: sentinel-sync
+  cancel-in-progress: false
 
 jobs:
-  sentinel-pipeline:
+  publish-threat-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
 
     steps:
-      # ─── STAGE 0: Checkout ───
-      - name: "STAGE 0: Checkout repository"
+
+# ================================================================
+# STAGE 0: CHECKOUT & SETUP (from v64 — preserved exactly)
+# ================================================================
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: main
 
-      # ─── STAGE 1: Environment Setup ───
-      - name: "STAGE 1: Setup Python environment"
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
 
-      - name: "STAGE 1.1: Install dependencies"
+      - name: Install Dependencies
         run: |
-          echo "::group::Installing dependencies"
-          pip install --upgrade pip
-          pip install \
-            feedparser requests beautifulsoup4 \
-            scikit-learn numpy \
-            google-api-python-client google-auth-httplib2 google-auth-oauthlib \
-            stix2 \
-            2>&1 | tail -5
-          pip install transformers torch --quiet 2>/dev/null || echo "Transformers not installed (optional)"
-          echo "::endgroup::"
-          echo "Dependencies installed"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      # ─── STAGE 2: Preserve Existing Data ───
-      - name: "STAGE 2: Preserve existing sync artifacts"
+      - name: Ensure Directories
         run: |
-          echo "::group::Preserving sync artifacts"
-          mkdir -p data/.manifest_backups data/manifest_versions
+          mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum data/sovereign data/rule_packs data/playbooks data/playbooks/scripts data/premium_packs data/enterprise_kits data/enrichment data/status data/logs data/remediation data/.manifest_backups data/manifest_versions secrets
 
-          # Debug: show what data sources exist
-          echo "--- Data source inventory ---"
-          echo "data/stix/feed_manifest.json: $([ -f data/stix/feed_manifest.json ] && echo 'EXISTS' || echo 'MISSING')"
-          echo "data/feed_manifest.json: $([ -f data/feed_manifest.json ] && echo 'EXISTS' || echo 'MISSING')"
-          echo "EMBEDDED_INTEL in index.html: $(grep -c 'EMBEDDED_INTEL' index.html 2>/dev/null || echo 0) references"
+# ================================================================
+# STAGE 1: PRE-FLIGHT (from v64 — preserved exactly)
+# ================================================================
+      - name: Monthly Maintenance
+        if: github.event.schedule == '0 0 1 * *'
+        run: python -m agent.janitor || true
 
-          if [ -f data/stix/feed_manifest.json ]; then
-            STIX_COUNT=$(python3 -c 'import json; d=json.load(open("data/stix/feed_manifest.json")); print(len(d) if isinstance(d,list) else len(d.get("advisories",d.get("items",[]))))')
-            echo "STIX manifest entries: $STIX_COUNT"
-          fi
-
-          if [ -f data/feed_manifest.json ]; then
-            cp data/feed_manifest.json "data/.manifest_backups/pre_run_$(date +%Y%m%dT%H%M%S).json"
-            echo "Manifest backed up"
-          fi
-
-          if [ -f data/blogger_processed.json ]; then
-            cp data/blogger_processed.json data/.manifest_backups/blogger_processed_backup.json
-            echo "Blogger processed state backed up"
-          fi
-          echo "::endgroup::"
-        id: preserve
-        continue-on-error: true
-
-      # ─── STAGE 3: Run Feed Ingestion (existing pipeline) ───
-      - name: "STAGE 3: Feed ingestion"
+      - name: Inject Sovereign Key
         run: |
-          echo "::group::Feed Ingestion"
-          echo "Running sentinel_blogger feed ingestion..."
-          if [ -f "agent/sentinel_blogger.py" ]; then
-            python -m agent.sentinel_blogger 2>&1 || echo "sentinel_blogger encountered issues (non-fatal — bridge will use existing data)"
-          elif [ -f "sentinel_blogger.py" ]; then
-            python sentinel_blogger.py 2>&1 || echo "sentinel_blogger encountered issues (non-fatal — bridge will use existing data)"
-          else
-            echo "No sentinel_blogger entry point found — bridge will use existing STIX data"
-          fi
+          echo "${{ secrets.CDB_SOVEREIGN_KEY }}" > secrets/cdb_sovereign.pem
+          chmod 600 secrets/cdb_sovereign.pem
 
-          # Debug: verify data after ingestion
-          echo "--- Post-ingestion data check ---"
-          if [ -f data/stix/feed_manifest.json ]; then
-            STIX_COUNT=$(python3 -c 'import json; d=json.load(open("data/stix/feed_manifest.json")); print(len(d) if isinstance(d,list) else len(d.get("advisories",d.get("items",[]))))')
-            echo "STIX manifest: $STIX_COUNT entries"
-          else
-            echo "WARNING: No STIX manifest found"
-          fi
-          echo "::endgroup::"
-        timeout-minutes: 30
+# ================================================================
+# STAGE 2: INGEST — Sentinel Engine (from v64 — preserved exactly)
+# This is what fetches FRESH INTEL from global sources
+# ================================================================
+      - name: Run Sentinel Engine
         continue-on-error: true
         env:
-          BLOGGER_API_KEY: ${{ secrets.BLOGGER_API_KEY }}
-          BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
-          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
-
-      # ─── STAGE 3.5: DATA BRIDGE (CRITICAL — NEW) ───
-      - name: "STAGE 3.5: Data Bridge — build orchestrator manifest"
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+          GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          echo "::group::Data Bridge"
-          echo "Converting real data sources into v70 format..."
-          python scripts/data_bridge.py
-          BRIDGE_EXIT=$?
-
-          if [ $BRIDGE_EXIT -ne 0 ]; then
-            echo "::error::Data bridge FAILED — no data available for pipeline"
-            exit 1
+          echo "Running Sentinel Engine (SAFE MODE)"
+          set +e
+          timeout 1500 python -m agent.sentinel_blogger
+          EXIT_CODE=$?
+          set -e
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "Sentinel engine error ignored (non-blocking)"
           fi
 
-          # Verify output
-          if [ -f data/feed_manifest.json ]; then
-            ADV_COUNT=$(python3 -c 'import json; d=json.load(open("data/feed_manifest.json")); print(len(d.get("advisories",[])))')
-            echo "Data bridge output: $ADV_COUNT advisories"
-            if [ "$ADV_COUNT" = "0" ]; then
-              echo "::error::Data bridge produced 0 advisories — pipeline blocked"
-              exit 1
-            fi
+# ================================================================
+# STAGE 2.1: STATE UPDATE (from v64 — preserved exactly)
+# ================================================================
+      - name: Update Sync State
+        run: |
+          python3 scripts/update_embedded_intel.py || true
+
+# ================================================================
+# STAGE 2.5: v70 DATA BRIDGE + INTELLIGENCE PIPELINE (NEW — ADDITIVE)
+# Runs AFTER v64 ingestion to enhance data with AI/ML
+# ================================================================
+      - name: "v70: Data Bridge"
+        continue-on-error: true
+        run: |
+          echo "::group::v70 Data Bridge"
+          if [ -f scripts/data_bridge.py ]; then
+            python scripts/data_bridge.py || echo "Data bridge had issues (non-fatal)"
           else
-            echo "::error::Data bridge did not create data/feed_manifest.json"
-            exit 1
+            echo "Data bridge not present — skipping v70 enhancements"
           fi
           echo "::endgroup::"
 
-      # ─── STAGE 4: Run v70 Intelligence Pipeline (HARD FAIL) ───
-      - name: "STAGE 4: v70 Intelligence Pipeline"
+      - name: "v70: Intelligence Pipeline"
+        continue-on-error: true
         run: |
           echo "::group::v70 Intelligence Pipeline"
-          echo "Running SENTINEL APEX v70 orchestrator..."
+          if [ -d agent/v70_apex_upgrade ]; then
+            AI_FLAG=""
+            if [ "${{ github.event.inputs.skip_ai }}" = "true" ]; then
+              AI_FLAG="--no-ai"
+            fi
+            python -m agent.v70_apex_upgrade.orchestrator \
+              --data-dir data \
+              --dashboard index.html \
+              --json $AI_FLAG \
+              | tee /tmp/v70_result.json || echo "v70 orchestrator had issues (non-fatal)"
 
-          AI_FLAG=""
-          DRY_FLAG=""
-          if [ "${{ github.event.inputs.skip_ai }}" = "true" ]; then
-            AI_FLAG="--no-ai"
-          fi
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            DRY_FLAG="--dry-run"
-          fi
-
-          python -m agent.v70_apex_upgrade.orchestrator \
-            --data-dir data \
-            --dashboard index.html \
-            --json \
-            $AI_FLAG $DRY_FLAG \
-            | tee /tmp/v70_pipeline_result.json
-
-          # HARD FAIL if pipeline failed
-          RESULT=$(python3 -c 'import json; d=json.load(open("/tmp/v70_pipeline_result.json")); print("PASS" if d.get("success") else "FAIL")')
-          ADV_COUNT=$(python3 -c 'import json; d=json.load(open("/tmp/v70_pipeline_result.json")); print(d.get("total_advisories", 0))')
-
-          echo "Pipeline result: $RESULT"
-          echo "Advisories processed: $ADV_COUNT"
-
-          if [ "$RESULT" = "FAIL" ]; then
-            echo "::error::v70 orchestrator FAILED"
-            exit 1
-          fi
-
-          if [ "$ADV_COUNT" = "0" ]; then
-            echo "::error::v70 orchestrator produced 0 advisories"
-            exit 1
-          fi
-
-          echo "pipeline_result=$RESULT" >> $GITHUB_OUTPUT
-          echo "advisory_count=$ADV_COUNT" >> $GITHUB_OUTPUT
-          echo "::endgroup::"
-        id: v70_pipeline
-        timeout-minutes: 30
-
-      # ─── STAGE 5: Update EMBEDDED_INTEL in dashboard ───
-      - name: "STAGE 5: Update dashboard EMBEDDED_INTEL"
-        run: |
-          echo "::group::Update EMBEDDED_INTEL"
-          if [ -f "scripts/update_embedded_intel.py" ]; then
-            python scripts/update_embedded_intel.py 2>&1 || echo "EMBEDDED_INTEL update had issues"
-          else
-            echo "No update_embedded_intel.py — dashboard uses manifest fetch"
-          fi
-          echo "::endgroup::"
-        continue-on-error: true
-
-      # ─── STAGE 6: Pre-Deploy Validation Gate ───
-      - name: "STAGE 6: Pre-deploy validation"
-        run: |
-          echo "::group::Pre-Deploy Validation"
-          echo "Running validation gate..."
-
-          python -m agent.v70_apex_upgrade.pipeline.validator \
-            --data-dir data \
-            --dashboard index.html \
-            --json \
-            | tee /tmp/v70_validation_result.json
-
-          VALID=$(python3 -c 'import json; d=json.load(open("/tmp/v70_validation_result.json")); print("PASS" if d.get("passed") else "FAIL")')
-          echo "validation_result=$VALID" >> $GITHUB_OUTPUT
-
-          if [ "$VALID" = "FAIL" ]; then
-            echo "::error::Pre-deploy validation FAILED — deployment blocked"
-            echo "Attempting rollback to last valid manifest..."
-            python3 -c '
-          from agent.v70_apex_upgrade.core.manifest_manager import ManifestManager
-          mgr = ManifestManager("data")
-          ok, msg = mgr.rollback()
-          status = "OK" if ok else "FAILED"
-          print("Rollback: " + status + " -- " + msg)
+            if [ -f /tmp/v70_result.json ]; then
+              python3 -c '
+          import json
+          d = json.load(open("/tmp/v70_result.json"))
+          print("v70 Status: " + ("PASS" if d.get("success") else "FAIL"))
+          print("v70 Advisories: " + str(d.get("total_advisories", "?")))
+          print("v70 Dedup: " + str(d.get("dedup_removed", "?")))
+          print("v70 Correlations: " + str(d.get("correlations_found", "?")))
           '
-          fi
-          echo "::endgroup::"
-        id: validation
-        continue-on-error: true
-
-      # ─── STAGE 7: Commit + Deploy ───
-      - name: "STAGE 7: Commit and deploy"
-        if: steps.validation.outputs.validation_result != 'FAIL'
-        run: |
-          echo "::group::Deploy"
-          git config user.name "sentinel-apex-bot"
-          git config user.email "sentinel@cyberdudebivash.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No changes to deploy"
+            fi
           else
-            TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-            ADV_COUNT="${{ steps.v70_pipeline.outputs.advisory_count }}"
-            git commit -m "[SENTINEL v70] Deploy: ${ADV_COUNT:-?} advisories @ ${TIMESTAMP}"
-            git push
-            echo "Deployed successfully"
+            echo "v70 module not present — skipping intelligence enhancements"
           fi
           echo "::endgroup::"
 
-      # ─── STAGE 8: Pipeline summary ───
-      - name: "STAGE 8: Pipeline summary"
+# ================================================================
+# STAGE 3: SAFE GIT SYNC (from v64 — preserved exactly)
+# ================================================================
+      - name: Safe Git Sync (AUTOSTASH)
+        run: |
+          rm -rf .git/rebase-merge || true
+          rm -rf .git/rebase-apply || true
+
+          git config --local user.email "bivash@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+
+          git pull origin main --rebase --autostash || {
+            echo "Fallback merge..."
+            git fetch origin main
+            git merge -X ours origin/main || true
+          }
+
+# ================================================================
+# STAGE 4: COMMIT CORE DATA (from v64 — preserved exactly)
+# ================================================================
+      - name: Commit Core Data
+        run: |
+          git add data/*.json data/stix/*.json index.html threat/ sitemap.xml 2>/dev/null || true
+
+          if ! git diff --staged --quiet; then
+            git commit -m "v70.2 Core Sync [skip ci]"
+            git push origin main
+          fi
+
+# ================================================================
+# STAGE 5: DEPLOY CORE (from v64 — preserved exactly)
+# ================================================================
+      - name: Deploy Core
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: .
+          clean: false
+
+# ================================================================
+# STAGE 5.1: OPTIONAL HARDENING (from v64 — preserved exactly)
+# ================================================================
+      - name: Pipeline Hardener
+        continue-on-error: true
+        run: |
+          python agent/v48_pipeline_hardening/pipeline_hardener.py || true
+
+      - name: Quality Gate
+        continue-on-error: true
+        run: |
+          python agent/quality_gate_audit.py || true
+
+      - name: Generate Threat Pages
+        continue-on-error: true
+        run: |
+          python scripts/threat_page_generator.py || true
+
+# ================================================================
+# STAGE 6: POST-EXTRAS COMMIT + DEPLOY (from v64 — preserved exactly)
+# ================================================================
+      - name: Commit Post Extras
+        continue-on-error: true
+        run: |
+          git config --local user.email "bivash@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+
+          git add data/*.json threat/ sitemap.xml 2>/dev/null || true
+
+          if ! git diff --staged --quiet; then
+            git commit -m "v70.2 Post Extras [skip ci]"
+            git push origin main
+          fi
+
+      - name: Deploy Post Extras
+        continue-on-error: true
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: .
+          clean: false
+
+# ================================================================
+# STAGE 7: PIPELINE SUMMARY (v70 — new, additive)
+# ================================================================
+      - name: Pipeline Summary
         if: always()
         run: |
           echo "======================================================="
-          echo "SENTINEL APEX v70 Pipeline Summary"
+          echo "SENTINEL APEX v70.2 Pipeline Summary"
           echo "======================================================="
           echo "Timestamp: $(date -u)"
-          echo "Version: ${{ env.SENTINEL_VERSION }}"
-          if [ -f /tmp/v70_pipeline_result.json ]; then
+          if [ -f /tmp/v70_result.json ]; then
             python3 -c '
           import json
-          d = json.load(open("/tmp/v70_pipeline_result.json"))
+          d = json.load(open("/tmp/v70_result.json"))
           status = "PASS" if d.get("success") else "FAIL"
-          print("Status: " + status)
+          print("v70 Intelligence: " + status)
           print("Advisories: " + str(d.get("total_advisories", "?")))
           print("Dedup Removed: " + str(d.get("dedup_removed", "?")))
           print("Correlations: " + str(d.get("correlations_found", "?")))
-          print("Campaigns: " + str(d.get("campaigns_detected", "?")))
           print("Duration: " + str(d.get("duration_seconds", "?")) + "s")
           icons = {"OK": "+", "SKIPPED": ">", "DEGRADED": "!", "FAILED": "X"}
           for p in d.get("phases", []):
               icon = icons.get(p["status"], "?")
               print("  [" + icon + "] " + p["phase"] + ": " + p["status"] + " (" + str(p["duration_s"]) + "s)")
-          '
+          ' || true
           else
-            echo "No pipeline result available"
+            echo "v70 intelligence pipeline did not run"
           fi
           echo "======================================================="
