@@ -2,7 +2,7 @@
   "threat_id": "thr-ec24a6509334",
   "title": "Russia-linked APT uses DRILLAPP backdoor to spy on Ukrainian targets",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Russia-linked APT uses DRILLAPP backdoor to spy on Ukrainian\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/20\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*gnome.com*'\n            - '*pastefy.app*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Russia-linked APT uses DRILLAPP backdoor to spy on Ukrainian\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/21\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*gnome.com*'\n            - '*pastefy.app*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"gnome.com\",\n              \"pastefy.app\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"gnome.com\", \"pastefy.app\")"
   },
