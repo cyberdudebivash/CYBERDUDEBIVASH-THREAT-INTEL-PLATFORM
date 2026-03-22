@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-989a3dbccf05",
+  "title": "CVE-2026-4544 - Wavlink WL-WN578W2 POST Request login.cgi cross site scripting",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-4544 - Wavlink WL-WN578W2 POST Request login.cgi cr\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/22\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*login.cgi*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"login.cgi\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"login.cgi\")"
+  },
+  "rule_count": 3
+}
