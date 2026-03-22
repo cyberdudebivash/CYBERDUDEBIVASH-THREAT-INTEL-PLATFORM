@@ -465,6 +465,261 @@ def dispatch_telegram_alerts(alerts: list):
 
 
 # ═══════════════════════════════════════════════════════════
+# OPENCLAW — Behavioral Intelligence Engine (v74.3.1 EXTENDED)
+# ═══════════════════════════════════════════════════════════
+
+# Attack chain phase mapping for pattern detection
+_OPENCLAW_PHASES = {
+    "recon": {"T1595", "T1592", "T1589", "T1590", "T1591"},
+    "weaponize": {"T1587", "T1588", "T1583", "T1584"},
+    "deliver": {"T1566", "T1190", "T1133", "T1195", "T1199", "T1200"},
+    "exploit": {"T1203", "T1068", "T1059", "T1053"},
+    "install": {"T1547", "T1543", "T1546", "T1136", "T1078"},
+    "command": {"T1071", "T1105", "T1573", "T1572", "T1219"},
+    "action": {"T1486", "T1490", "T1561", "T1489", "T1041", "T1048", "T1567"},
+}
+
+# Attack surface product/platform taxonomy
+_OPENCLAW_PRODUCTS = {
+    "windows": ["windows", "win32", "win64", "ntlm", "active directory", "exchange server"],
+    "linux": ["linux", "ubuntu", "debian", "centos", "rhel", "kernel"],
+    "macos": ["macos", "mac os", "osx", "apple silicon"],
+    "android": ["android", "google play", "apk"],
+    "ios": ["ios", "iphone", "ipad", "apple ios"],
+    "cloud_aws": ["aws", "amazon web services", "s3 bucket", "ec2", "lambda"],
+    "cloud_azure": ["azure", "microsoft cloud", "entra"],
+    "cloud_gcp": ["google cloud", "gcp", "firebase"],
+    "network_cisco": ["cisco", "ios xe", "webex"],
+    "network_fortinet": ["fortinet", "fortigate", "fortios"],
+    "network_paloalto": ["palo alto", "pan-os", "panorama"],
+    "web_wordpress": ["wordpress", "wp plugin", "woocommerce"],
+    "web_apache": ["apache", "httpd", "tomcat", "struts"],
+    "web_nginx": ["nginx"],
+    "browser_chrome": ["chrome", "chromium", "v8 engine"],
+    "browser_firefox": ["firefox", "mozilla"],
+    "email_microsoft": ["outlook", "exchange", "office 365", "microsoft 365"],
+    "container": ["docker", "kubernetes", "k8s", "container"],
+    "scada_ics": ["scada", "ics", "plc", "modbus", "ot security", "industrial"],
+    "vpn": ["vpn", "ivanti", "pulse secure", "sslvpn"],
+    "identity": ["okta", "auth0", "saml", "oauth", "sso", "ldap"],
+}
+
+
+def openclaw_enrich(data: list) -> dict:
+    """
+    OpenClaw Intelligence Engine v74.3.1 — Extended behavioral analysis.
+
+    For EVERY item, computes:
+      - score (0-100): composite intelligence density
+      - patterns: detected kill chain / behavioral patterns
+      - anomaly: True if item deviates from baseline
+      - velocity: threat_type surge detection ("rising"/"stable"/"declining")
+      - attack_surface: targeted products/platforms
+      - fingerprint: compact behavioral signature for similarity matching
+      - trend: whether this item's threat category is escalating
+
+    Returns: {item_index: {score, patterns, anomaly, velocity, attack_surface, fingerprint, trend}}
+
+    Performance: O(n) — two passes (baselines + enrichment).
+    """
+    if not data:
+        return {}
+
+    # ══════════════════════════════════════════════════════
+    # PASS 1: Pre-compute baselines + temporal distributions
+    # ══════════════════════════════════════════════════════
+    risks = []
+    ioc_totals = []
+    tactic_counts = []
+    type_daily_counts = {}   # {threat_type: {date_str: count}}
+    type_totals = {}         # {threat_type: total_count}
+
+    for item in data:
+        risks.append(float(item.get("risk_score", 0) or 0))
+        iocs = item.get("ioc_counts") or {}
+        ioc_totals.append(sum(v for v in iocs.values() if isinstance(v, (int, float))))
+        tactic_counts.append(len(item.get("mitre_tactics", [])))
+
+        # Temporal distribution by threat_type
+        tt = item.get("threat_type", "General")
+        date_str = (item.get("timestamp") or "")[:10]
+        type_totals[tt] = type_totals.get(tt, 0) + 1
+        if date_str:
+            type_daily_counts.setdefault(tt, {})
+            type_daily_counts[tt][date_str] = type_daily_counts[tt].get(date_str, 0) + 1
+
+    n = len(data)
+    avg_risk = sum(risks) / n
+    avg_ioc = sum(ioc_totals) / n
+
+    risk_var = sum((r - avg_risk) ** 2 for r in risks) / n
+    risk_std = risk_var ** 0.5 if risk_var > 0 else 1.0
+    ioc_var = sum((c - avg_ioc) ** 2 for c in ioc_totals) / n
+    ioc_std = ioc_var ** 0.5 if ioc_var > 0 else 1.0
+
+    # Pre-compute velocity (trend direction) per threat_type
+    type_velocity = {}
+    for tt, daily in type_daily_counts.items():
+        if len(daily) < 3:
+            type_velocity[tt] = "stable"
+            continue
+        sorted_dates = sorted(daily.keys())
+        # Compare recent half vs older half
+        mid = len(sorted_dates) // 2
+        older = sum(daily[d] for d in sorted_dates[:mid])
+        newer = sum(daily[d] for d in sorted_dates[mid:])
+        older_days = max(1, mid)
+        newer_days = max(1, len(sorted_dates) - mid)
+        older_rate = older / older_days
+        newer_rate = newer / newer_days
+        if newer_rate > older_rate * 1.5:
+            type_velocity[tt] = "rising"
+        elif newer_rate < older_rate * 0.6:
+            type_velocity[tt] = "declining"
+        else:
+            type_velocity[tt] = "stable"
+
+    # ══════════════════════════════════════════════════════
+    # PASS 2: Enrich every item
+    # ══════════════════════════════════════════════════════
+    results = {}
+
+    import hashlib  # For behavioral fingerprint
+
+    for idx, item in enumerate(data):
+        try:
+            score = 0
+            patterns = []
+            anomaly = False
+
+            risk = risks[idx]
+            ioc_total = ioc_totals[idx]
+            tactics = set(item.get("mitre_tactics", []))
+            title_lower = item.get("title", "").lower()
+            tt = item.get("threat_type", "General")
+
+            # ── Score: Signal Density ──
+            if risk >= 7:
+                score += 15
+            if item.get("kev_present"):
+                score += 20
+            if item.get("exploit_probability") in ("Critical", "High"):
+                score += 10
+            if item.get("correlation"):
+                score += 10
+            if item.get("campaign"):
+                score += 10
+            if ioc_total > 0:
+                score += min(15, ioc_total)
+            if len(tactics) >= 3:
+                score += 10
+            if item.get("cvss_score") and float(item.get("cvss_score", 0) or 0) >= 9:
+                score += 10
+
+            # ── Pattern Detection: Kill Chain Phase Coverage ──
+            phases_hit = []
+            for phase_name, phase_tactics in _OPENCLAW_PHASES.items():
+                if tactics & phase_tactics:
+                    phases_hit.append(phase_name)
+
+            if len(phases_hit) >= 3:
+                patterns.append("kill_chain:" + "+".join(phases_hit))
+                score += 5
+
+            if {"deliver", "exploit", "action"} <= set(phases_hit):
+                patterns.append("full_attack_chain")
+                score += 10
+
+            if item.get("kev_present") and item.get("campaign") and risk >= 9:
+                patterns.append("multi_vector_convergence")
+                score += 5
+
+            actor = item.get("actor_tag", "")
+            if actor and actor != "UNC-CDB-99" and tactics & _OPENCLAW_PHASES.get("action", set()):
+                patterns.append(f"actor_impact:{actor}")
+
+            # ── Anomaly Detection ──
+            if risk > avg_risk + 2 * risk_std and risk >= 8:
+                anomaly = True
+
+            if ioc_total > avg_ioc + 3 * ioc_std and ioc_total >= 10:
+                anomaly = True
+                patterns.append(f"ioc_spike:{ioc_total}")
+
+            if len(tactics) >= 4:
+                patterns.append("high_tactic_diversity")
+
+            # ══════════════════════════════════════════════
+            # NEW: Attack Surface Detection (v74.3.1)
+            # ══════════════════════════════════════════════
+            attack_surface = []
+            for platform, keywords in _OPENCLAW_PRODUCTS.items():
+                for kw in keywords:
+                    if kw in title_lower:
+                        attack_surface.append(platform)
+                        break
+            if not attack_surface:
+                attack_surface = ["general"]
+
+            # ══════════════════════════════════════════════
+            # NEW: Threat Velocity (v74.3.1)
+            # ══════════════════════════════════════════════
+            velocity = type_velocity.get(tt, "stable")
+            if velocity == "rising":
+                score += 5
+                patterns.append(f"surge:{tt.lower()}")
+
+            # ══════════════════════════════════════════════
+            # NEW: Severity Trend (v74.3.1)
+            # ══════════════════════════════════════════════
+            trend = "stable"
+            item_date = (item.get("timestamp") or "")[:10]
+            if item_date and tt in type_daily_counts:
+                daily = type_daily_counts[tt]
+                sorted_dates = sorted(daily.keys())
+                if len(sorted_dates) >= 3:
+                    recent_3 = sorted_dates[-3:]
+                    older_3 = sorted_dates[:3]
+                    recent_avg = sum(daily[d] for d in recent_3) / 3
+                    older_avg = sum(daily[d] for d in older_3) / 3
+                    if recent_avg > older_avg * 1.8:
+                        trend = "escalating"
+                    elif recent_avg < older_avg * 0.5:
+                        trend = "diminishing"
+
+            # ══════════════════════════════════════════════
+            # NEW: Behavioral Fingerprint (v74.3.1)
+            # ══════════════════════════════════════════════
+            fp_components = [
+                tt,
+                item.get("exploit_probability", "Low"),
+                str(len(tactics)),
+                "+".join(sorted(phases_hit)) if phases_hit else "none",
+                "+".join(sorted(attack_surface)),
+            ]
+            fingerprint = hashlib.md5("|".join(fp_components).encode()).hexdigest()[:12]
+
+            # ── Finalize ──
+            score = min(score, 100)
+
+            # v74.3.1: Enrich ALL items (not just score >= 15)
+            results[idx] = {
+                "score": score,
+                "patterns": patterns if patterns else ["baseline"],
+                "anomaly": anomaly,
+                "velocity": velocity,
+                "attack_surface": attack_surface,
+                "fingerprint": fingerprint,
+                "trend": trend,
+            }
+
+        except Exception:
+            continue
+
+    return results
+
+
+# ═══════════════════════════════════════════════════════════
 # MAIN ENRICHMENT
 # ═══════════════════════════════════════════════════════════
 def enrich_manifest():
@@ -601,6 +856,19 @@ def enrich_manifest():
     except Exception as e:
         log.warning(f"Alert generation failed (non-fatal): {e}")
 
+    # ── OPENCLAW ENRICHMENT (v74.3) ──
+    added_oc = 0
+    try:
+        oc_results = openclaw_enrich(data)
+        for idx, oc_obj in oc_results.items():
+            if not data[idx].get("openclaw"):
+                data[idx]["openclaw"] = oc_obj
+                added_oc += 1
+        anomalies = sum(1 for v in oc_results.values() if v.get("anomaly"))
+        log.info(f"OpenClaw: {added_oc} items enriched, {anomalies} anomalies detected")
+    except Exception as e:
+        log.warning(f"OpenClaw enrichment failed (non-fatal): {e}")
+
     # ── WRITE ATOMICALLY ──
     tmp_path = MANIFEST_PATH + ".v74tmp"
     output_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
@@ -630,7 +898,7 @@ def enrich_manifest():
     os.replace(tmp_path, MANIFEST_PATH)
 
     elapsed = _time.monotonic() - _t0
-    log.info(f"Enriched: threat_type +{added_tt}, exploit_probability +{added_ep}, correlation +{added_corr}, campaigns +{added_camp}, alerts +{added_alerts}, skipped: {skipped}")
+    log.info(f"Enriched: threat_type +{added_tt}, exploit_probability +{added_ep}, correlation +{added_corr}, campaigns +{added_camp}, alerts +{added_alerts}, openclaw +{added_oc}, skipped: {skipped}")
     log.info(f"Total: {len(data)} items | Output: {len(output_json):,} bytes | Time: {elapsed:.2f}s")
 
     # Store new alerts for telegram dispatch (accessible from __main__)
@@ -710,7 +978,7 @@ def generate_api_layer():
 
 if __name__ == "__main__":
     log.info("=" * 60)
-    log.info("SENTINEL APEX v74.2 — Manifest Enricher + Correlation + Alerts")
+    log.info("SENTINEL APEX v74.3.1 — Manifest Enricher + Correlation + Alerts + OpenClaw Extended")
     log.info("=" * 60)
 
     try:
