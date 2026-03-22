@@ -165,6 +165,122 @@ def calculate_exploit_probability(
 
 
 # ═══════════════════════════════════════════════════════════
+# CORRELATION ENGINE (v74.1 — anchor-based, no transitive chains)
+# ═══════════════════════════════════════════════════════════
+def compute_correlations(data: list) -> dict:
+    """
+    Anchor-based correlation: groups items by shared CVE, named actor,
+    or matching TTP fingerprint. No transitive chaining (avoids mega-clusters).
+
+    Returns: {item_index: {cluster_id, cluster_type, related_count, confidence}}
+    """
+    import hashlib
+    from itertools import combinations
+    from collections import Counter, defaultdict
+
+    # Identify common (non-discriminating) tactics
+    tactic_freq = Counter()
+    for item in data:
+        for t in item.get("mitre_tactics", []):
+            tactic_freq[t] += 1
+    common_tactics = {t for t, c in tactic_freq.items() if c > len(data) * 0.25}
+
+    # ── Level 1: CVE anchors (confidence: 90) ──
+    cve_groups = defaultdict(list)
+    for idx, item in enumerate(data):
+        cves = re.findall(r"CVE-\d{4}-\d{4,}", item.get("title", ""), re.IGNORECASE)
+        for cve in cves:
+            cve_groups[cve.upper()].append(idx)
+
+    # ── Level 2: Named actor anchors (confidence: 80) ──
+    actor_groups = defaultdict(list)
+    for idx, item in enumerate(data):
+        actor = item.get("actor_tag", "")
+        if actor and actor != "UNC-CDB-99":
+            actor_groups[actor].append(idx)
+
+    # ── Level 3: TTP anchors — same threat_type + rare tactic fingerprint (confidence: 65) ──
+    ttp_groups = defaultdict(list)
+    for idx, item in enumerate(data):
+        tt = item.get("threat_type", "General")
+        if tt == "Vulnerability":
+            continue
+        rare = tuple(sorted(set(item.get("mitre_tactics", [])) - common_tactics))
+        if len(rare) >= 2:
+            ttp_groups[f"{tt}|{rare}"].append(idx)
+
+    # ── Assign items: highest-confidence anchor wins ──
+    assignments = {}
+
+    for cve, idxs in cve_groups.items():
+        if len(idxs) >= 2:
+            cid = "CVE-" + hashlib.md5(cve.encode()).hexdigest()[:8].upper()
+            for idx in idxs:
+                if idx not in assignments or assignments[idx][2] < 90:
+                    assignments[idx] = (cid, "cve", 90, len(idxs))
+
+    for actor, idxs in actor_groups.items():
+        if len(idxs) >= 2:
+            cid = "ACT-" + hashlib.md5(actor.encode()).hexdigest()[:8].upper()
+            for idx in idxs:
+                if idx not in assignments or assignments[idx][2] < 80:
+                    assignments[idx] = (cid, "actor", 80, len(idxs))
+
+    for ttp_key, idxs in ttp_groups.items():
+        if len(idxs) >= 2:
+            cid = "TTP-" + hashlib.md5(ttp_key.encode()).hexdigest()[:8].upper()
+            for idx in idxs:
+                if idx not in assignments:
+                    assignments[idx] = (cid, "ttp", 65, len(idxs))
+
+    return assignments
+
+
+def detect_campaigns(data: list) -> dict:
+    """
+    Detect campaigns from named actor groups within 7-day windows.
+
+    Returns: {item_index: {name, threat_count, risk}}
+    """
+    import hashlib
+    from collections import Counter, defaultdict
+
+    actor_groups = defaultdict(list)
+    for idx, item in enumerate(data):
+        actor = item.get("actor_tag", "")
+        if actor and actor != "UNC-CDB-99":
+            actor_groups[actor].append(idx)
+
+    campaign_assignments = {}
+
+    for actor, idxs in actor_groups.items():
+        if len(idxs) < 2:
+            continue
+
+        types = Counter(data[i].get("threat_type", "General") for i in idxs)
+        dominant_type = types.most_common(1)[0][0]
+        max_risk = max((data[i].get("risk_score", 0) or 0) for i in idxs)
+        risk_level = (
+            "Critical" if max_risk >= 9 else
+            "High" if max_risk >= 7 else
+            "Medium" if max_risk >= 4 else "Low"
+        )
+
+        camp_name = f"{actor} {dominant_type} Campaign"
+
+        camp_data = {
+            "name": camp_name,
+            "threat_count": len(idxs),
+            "risk": risk_level,
+        }
+
+        for idx in idxs:
+            campaign_assignments[idx] = camp_data
+
+    return campaign_assignments
+
+
+# ═══════════════════════════════════════════════════════════
 # MAIN ENRICHMENT
 # ═══════════════════════════════════════════════════════════
 def enrich_manifest():
@@ -243,6 +359,39 @@ def enrich_manifest():
         shutil.copy2(BACKUP_PATH, MANIFEST_PATH)
         return False
 
+    # ── CORRELATION + CAMPAIGN ENRICHMENT (v74.1) ──
+    added_corr = 0
+    added_camp = 0
+    try:
+        correlations = compute_correlations(data)
+        campaigns = detect_campaigns(data)
+
+        for idx, item in enumerate(data):
+            # Correlation: only add if missing
+            if not item.get("correlation"):
+                corr = correlations.get(idx)
+                if corr:
+                    item["correlation"] = {
+                        "cluster_id": corr[0],
+                        "cluster_type": corr[1],
+                        "related_count": corr[3],
+                        "confidence": corr[2],
+                    }
+                    added_corr += 1
+
+            # Campaign: only add if missing
+            if not item.get("campaign"):
+                camp = campaigns.get(idx)
+                if camp:
+                    item["campaign"] = camp
+                    added_camp += 1
+
+        unique_clusters = len(set(c[0] for c in correlations.values())) if correlations else 0
+        unique_campaigns = len(set(c["name"] for c in campaigns.values())) if campaigns else 0
+        log.info(f"Correlation: {added_corr} items in {unique_clusters} clusters | Campaigns: {added_camp} items in {unique_campaigns} campaigns")
+    except Exception as e:
+        log.warning(f"Correlation/campaign enrichment failed (non-fatal): {e}")
+
     # ── WRITE ATOMICALLY ──
     tmp_path = MANIFEST_PATH + ".v74tmp"
     output_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
@@ -272,7 +421,7 @@ def enrich_manifest():
     os.replace(tmp_path, MANIFEST_PATH)
 
     elapsed = _time.monotonic() - _t0
-    log.info(f"Enriched: threat_type +{added_tt}, exploit_probability +{added_ep}, skipped: {skipped}")
+    log.info(f"Enriched: threat_type +{added_tt}, exploit_probability +{added_ep}, correlation +{added_corr}, campaigns +{added_camp}, skipped: {skipped}")
     log.info(f"Total: {len(data)} items | Output: {len(output_json):,} bytes | Time: {elapsed:.2f}s")
 
     # Cleanup backup (only after successful validation)
