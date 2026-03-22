@@ -160,7 +160,7 @@ jobs:
 # ================================================================
 # STAGE 3: SAFE GIT SYNC (from v64 — preserved exactly)
 # ================================================================
-      - name: Safe Git Sync (AUTOSTASH)
+      - name: "STAGE 3: Safe Git Sync (v73.4 — COMMIT-FIRST)"
         run: |
           rm -rf .git/rebase-merge || true
           rm -rf .git/rebase-apply || true
@@ -168,27 +168,53 @@ jobs:
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
 
-          git pull origin main --rebase --autostash || {
-            echo "Fallback merge..."
-            git fetch origin main
-            git merge -X ours origin/main || true
+          # v73.4 FIX: Commit local changes FIRST, then pull
+          # This prevents autostash conflicts that inject <<<<<<< markers
+          git add data/*.json data/stix/*.json index.html threat/ sitemap.xml 2>/dev/null || true
+          if ! git diff --staged --quiet; then
+            git commit -m "v73.4 Pipeline data [skip ci]"
+          fi
+
+          # Pull with merge (not rebase), ours strategy for conflicts
+          git pull origin main --no-rebase --no-edit -X ours || {
+            echo "Pull conflict — resolving with ours strategy..."
+            git checkout --ours index.html 2>/dev/null || true
+            git add index.html 2>/dev/null || true
+            git commit --no-edit 2>/dev/null || true
           }
+
+          # SAFETY CHECK: Verify no conflict markers in index.html
+          if grep -q '<<<<<<<' index.html 2>/dev/null; then
+            echo "FATAL: Conflict markers detected — cleaning index.html"
+            git checkout HEAD~1 -- index.html 2>/dev/null || true
+            python3 scripts/update_embedded_intel.py || true
+            git add index.html
+            git commit --amend --no-edit 2>/dev/null || true
+          fi
 
 # ================================================================
 # STAGE 4: COMMIT CORE DATA (from v64 — preserved exactly)
 # ================================================================
-      - name: Commit Core Data
+      - name: "STAGE 4: Push (v73.4)"
         run: |
-          git add data/*.json data/stix/*.json index.html threat/ sitemap.xml 2>/dev/null || true
-
-          if ! git diff --staged --quiet; then
-            git commit -m "v70.2 Core Sync [skip ci]"
+          # Changes already committed in STAGE 3
+          # Just push (or pull+push if behind)
+          git push origin main || {
+            git pull origin main --no-rebase --no-edit -X ours
             git push origin main
-          fi
+          }
 
 # ================================================================
 # STAGE 5: DEPLOY CORE (from v64 — preserved exactly)
 # ================================================================
+      - name: "GATE: Pre-deploy integrity check (v73.4)"
+        run: |
+          python3 scripts/pre_deploy_gate.py || {
+            echo "GATE FAILED — attempting auto-repair..."
+            python3 scripts/update_embedded_intel.py || true
+            python3 scripts/pre_deploy_gate.py
+          }
+
       - name: Deploy Core
         uses: JamesIves/github-pages-deploy-action@v4
         with:
@@ -229,6 +255,10 @@ jobs:
             git commit -m "v70.2 Post Extras [skip ci]"
             git push origin main
           fi
+
+      - name: "GATE: Pre-deploy check (Post Extras)"
+        continue-on-error: true
+        run: python3 scripts/pre_deploy_gate.py
 
       - name: Deploy Post Extras
         continue-on-error: true

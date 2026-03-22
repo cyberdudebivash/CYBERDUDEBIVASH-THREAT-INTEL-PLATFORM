@@ -126,7 +126,7 @@ jobs:
             TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
             git commit -m "v71.0 Dashboard Sync @ $TIMESTAMP [skip ci]"
             for i in 1 2 3; do
-              git pull origin main --rebase && git push origin main && break || \
+              git pull origin main --no-rebase --no-edit -X ours && git push origin main && break || \
               (echo "Push retry $i..." && sleep 10)
             done
           fi
