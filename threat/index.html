@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>CYBERDUDEBIVASH SENTINEL APEX SOC 3.0 — Threat Intelligence</title>
+<title>CYBERDUDEBIVASH SENTINEL APEX SOC 3.0 v74 — Threat Intelligence</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="CYBERDUDEBIVASH SENTINEL APEX SOC 3.0 — AI-Powered Threat Intelligence. Real-time CVE, MITRE ATT&CK, threat actor tracking, IOC enrichment.">
 <link rel="canonical" href="https://intel.cyberdudebivash.com/threat/">
@@ -111,6 +111,11 @@
 .ld{text-align:center;padding:50px;font-family:var(--fm);font-size:11px;color:var(--text-muted);letter-spacing:3px}
 .rb2{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:8px 0}
 .rb2 div{transition:width .5s ease}
+.tg1.tt{background:rgba(59,130,246,.08);color:var(--blue);font-weight:600;letter-spacing:.5px}
+.tg1.ep-crit{background:rgba(220,38,38,.12);color:#ff6b6b;font-weight:700}
+.tg1.ep-high{background:rgba(234,88,12,.1);color:#fb923c;font-weight:600}
+.tg1.ep-med{background:rgba(217,119,6,.08);color:#fbbf24}
+.tg1.ep-low{background:rgba(22,163,74,.06);color:#4ade80}
 </style>
 </head>
 <body>
@@ -138,6 +143,11 @@
 <button class="fb" onclick="flt('HIGH',this)">HIGH</button>
 <button class="fb" onclick="flt('MEDIUM',this)">MEDIUM</button>
 <button class="fb" onclick="flt('LOW',this)">LOW</button>
+<span style="width:1px;height:16px;background:var(--border);margin:0 4px"></span>
+<button class="fb" onclick="flt('Vulnerability',this)">VULN</button>
+<button class="fb" onclick="flt('Ransomware',this)">RANSOMWARE</button>
+<button class="fb" onclick="flt('APT',this)">APT</button>
+<button class="fb" onclick="flt('Malware',this)">MALWARE</button>
 <input class="sb" type="text" placeholder="Search threats, CVEs, actors..." id="srch" oninput="doS(this.value)">
 <select class="ss" onchange="doSort(this.value)"><option value="newest">Newest</option><option value="risk">Risk &#x2193;</option></select>
 </div>
@@ -200,11 +210,11 @@ function flt(s,b){cf=s;pg=1;document.querySelectorAll('.fb').forEach(function(x)
 function doS(q){sq=q.toLowerCase();pg=1;filters()}
 function doSort(v){so=v;filters()}
 
-function filters(){F=[].concat(D);if(cf!=='all')F=F.filter(function(x){return sv(x.risk_score)===cf});if(sq)F=F.filter(function(x){return((x.title||'')+(x.actor_tag||'')).toLowerCase().indexOf(sq)>=0});if(so==='risk')F.sort(function(a,b){return(b.risk_score||0)-(a.risk_score||0)});cards();pagi()}
+function filters(){F=[].concat(D);if(cf!=='all'){if(['CRITICAL','HIGH','MEDIUM','LOW'].indexOf(cf)>=0)F=F.filter(function(x){return sv(x.risk_score)===cf});else F=F.filter(function(x){return(x.threat_type||'')==cf})};if(sq)F=F.filter(function(x){return((x.title||'')+(x.actor_tag||'')).toLowerCase().indexOf(sq)>=0});if(so==='risk')F.sort(function(a,b){return(b.risk_score||0)-(a.risk_score||0)});cards();pagi()}
 
 function cards(){var s=(pg-1)*PP,p=F.slice(s,s+PP),g=document.getElementById('clist');if(!p.length){g.innerHTML='<div class="ld">NO MATCHING THREATS</div>';return}
 g.innerHTML=p.map(function(d){var rs=d.risk_score||0,sev=sv(rs),cves=(d.title||'').match(/CVE-\d{4}-\d{4,}/gi)||[],tac=(d.mitre_tactics||[]).slice(0,3),lk=d.blog_url||'#',ts=ago(d.timestamp),ioc=0;if(d.ioc_counts)Object.values(d.ioc_counts).forEach(function(v){ioc+=typeof v==='number'?v:0});
-return '<div class="cc '+sc(rs)+'"><div class="ct2"><span class="sv s'+svn(rs)+'">'+sev+' '+rs.toFixed(1)+'/10</span><span class="tm">'+ts+'</span></div><div class="tt">'+esc(d.title||'Unknown')+'</div><div class="tg">'+(cves.length?'<span class="tg1 cv">'+cves[0]+'</span>':'')+(d.kev_present?'<span class="tg1 kv">KEV</span>':'')+(d.actor_tag&&d.actor_tag!=='UNC-CDB-99'?'<span class="tg1 ac">'+esc(d.actor_tag)+'</span>':'')+tac.map(function(t){return '<span class="tg1 mi">'+t+'</span>'}).join('')+(ioc?'<span class="tg1 io">'+ioc+' IOCs</span>':'')+'</div><div class="rb"><div class="rf" style="width:'+Math.min(rs*10,100)+'%;background:'+svc(rs)+';"></div></div><div style="display:flex;gap:10px;margin-top:6px;align-items:center"><a href="'+esc(lk)+'" style="font-family:var(--fm);font-size:9px;color:var(--accent)">VIEW REPORT &rarr;</a><button class="ab" onclick="event.stopPropagation();opAg('+JSON.stringify(JSON.stringify(d)).replace(/'/g,"\'")+')">&#x1f9e0; ANALYZE</button></div></div>'}).join('')}
+return '<div class="cc '+sc(rs)+'"><div class="ct2"><span class="sv s'+svn(rs)+'">'+sev+' '+rs.toFixed(1)+'/10</span><span class="tm">'+ts+'</span></div><div class="tt">'+esc(d.title||'Unknown')+'</div><div class="tg">'+(cves.length?'<span class="tg1 cv">'+cves[0]+'</span>':'')+(d.kev_present?'<span class="tg1 kv">KEV</span>':'')+(d.actor_tag&&d.actor_tag!=='UNC-CDB-99'?'<span class="tg1 ac">'+esc(d.actor_tag)+'</span>':'')+tac.map(function(t){return '<span class="tg1 mi">'+t+'</span>'}).join('')+(ioc?'<span class="tg1 io">'+ioc+' IOCs</span>':'')+(d.threat_type&&d.threat_type!=='General'?'<span class="tg1 tt">'+d.threat_type+'</span>':'')+(d.exploit_probability?'<span class="tg1 ep-'+(d.exploit_probability==='Critical'?'crit':d.exploit_probability==='High'?'high':d.exploit_probability==='Medium'?'med':'low')+'">EP: '+d.exploit_probability+'</span>':'')+'</div><div class="rb"><div class="rf" style="width:'+Math.min(rs*10,100)+'%;background:'+svc(rs)+';"></div></div><div style="display:flex;gap:10px;margin-top:6px;align-items:center"><a href="'+esc(lk)+'" style="font-family:var(--fm);font-size:9px;color:var(--accent)">VIEW REPORT &rarr;</a><button class="ab" onclick="event.stopPropagation();opAg('+JSON.stringify(JSON.stringify(d)).replace(/'/g,"\'")+')">&#x1f9e0; ANALYZE</button></div></div>'}).join('')}
 
 function pagi(){var tp=Math.ceil(F.length/PP);if(tp<=1){document.getElementById('pag').innerHTML='';return}var h='';for(var i=1;i<=Math.min(tp,12);i++)h+='<button class="pb'+(i===pg?' on':'')+'" onclick="gp('+i+')">'+i+'</button>';if(tp>12)h+='<span style="color:var(--text-muted);font-size:10px;padding:5px">...'+tp+'</span>';document.getElementById('pag').innerHTML=h}
 function gp(n){pg=n;cards();pagi();window.scrollTo({top:document.getElementById('clist').offsetTop-80,behavior:'smooth'})}
@@ -229,7 +239,21 @@ var h='<div class="mg"><div class="kp"><div class="kn">'+t+'</div><div class="kl
 
 h+='<div style="margin-bottom:16px"><div style="font-family:var(--fm);font-size:9px;color:var(--text-muted);letter-spacing:2px;margin-bottom:6px">RISK DISTRIBUTION</div><div class="rb2"><div style="width:'+cp+'%;background:var(--critical)"></div><div style="width:'+hp+'%;background:var(--high)"></div><div style="width:'+mp+'%;background:var(--medium)"></div><div style="width:'+lp+'%;background:var(--low)"></div></div><div style="display:flex;justify-content:space-between;font-family:var(--fm);font-size:9px;color:var(--text-muted);margin-top:4px"><span style="color:var(--critical)">Critical '+cp+'%</span><span style="color:var(--high)">High '+hp+'%</span><span style="color:var(--medium)">Medium '+mp+'%</span><span style="color:var(--low)">Low '+lp+'%</span></div></div>';
 
-h+='<div class="ds"><div class="gc"><div class="gh"><div class="gn">Top Threat Actors</div></div><div class="gi">';ta.forEach(function(e){h+='<div class="gj"><span style="color:var(--critical);font-weight:600">'+esc(e[0])+'</span><span style="color:var(--accent)">'+e[1]+' intel</span></div>'});h+='</div></div><div class="gc"><div class="gh"><div class="gn">Top MITRE Techniques</div></div><div class="gi">';tt.forEach(function(e){h+='<div class="gj"><a href="https://attack.mitre.org/techniques/'+e[0].replace('.','/') +'/" target="_blank" style="color:var(--purple)">'+e[0]+(MT[e[0]]?' — '+MT[e[0]]:'')+'</a><span style="color:var(--accent)">'+e[1]+'</span></div>'});h+='</div></div></div>';p.innerHTML=h}
+h+='<div class="ds"><div class="gc"><div class="gh"><div class="gn">Top Threat Actors</div></div><div class="gi">';ta.forEach(function(e){h+='<div class="gj"><span style="color:var(--critical);font-weight:600">'+esc(e[0])+'</span><span style="color:var(--accent)">'+e[1]+' intel</span></div>'});h+='</div></div><div class="gc"><div class="gh"><div class="gn">Top MITRE Techniques</div></div><div class="gi">';tt.forEach(function(e){h+='<div class="gj"><a href="https://attack.mitre.org/techniques/'+e[0].replace('.','/') +'/" target="_blank" style="color:var(--purple)">'+e[0]+(MT[e[0]]?' — '+MT[e[0]]:'')+'</a><span style="color:var(--accent)">'+e[1]+'</span></div>'});h+='</div></div></div>';// Threat type distribution
+var ttm={};D.forEach(function(x){var t=x.threat_type||'General';ttm[t]=(ttm[t]||0)+1});
+var tta=Object.entries(ttm).sort(function(a,b){return b[1]-a[1]});
+h+='<div class="gc"><div class="gh"><div class="gn">Threat Type Distribution</div></div><div class="gi">';
+tta.forEach(function(e){h+='<div class="gj"><span style="color:#E6EDF3;font-weight:600">'+e[0]+'</span><span style="color:var(--accent)">'+e[1]+' intel</span></div>'});
+h+='</div></div>';
+
+// Exploit probability distribution
+var epm={};D.forEach(function(x){var e=x.exploit_probability||'Unknown';epm[e]=(epm[e]||0)+1});
+var epa=Object.entries(epm).sort(function(a,b){return b[1]-a[1]});
+h+='<div class="gc"><div class="gh"><div class="gn">Exploit Probability</div></div><div class="gi">';
+epa.forEach(function(e){var ec=e[0]==='Critical'?'var(--critical)':e[0]==='High'?'var(--high)':e[0]==='Medium'?'var(--medium)':'var(--low)';h+='<div class="gj"><span style="color:'+ec+';font-weight:600">'+e[0]+'</span><span style="color:var(--accent)">'+e[1]+' intel</span></div>'});
+h+='</div></div>';
+
+p.innerHTML=h}
 
 // Agent
 function opAg(jsonStr){try{var item=JSON.parse(jsonStr);var m=document.getElementById('agm'),b=document.getElementById('ag-body'),s=document.getElementById('ag-sub');m.classList.add('op');b.innerHTML='<div class="ld">Analyzing threat...</div>';s.textContent=(item.title||'').substring(0,55)+'...';setTimeout(function(){try{var a=analyze(item);renderAg(a,b)}catch(e){b.innerHTML='<div class="se"><h4>Error</h4><p>Analysis failed. Raw data shown.</p><pre style="font-size:10px;color:#6B7C93;white-space:pre-wrap;margin-top:8px">'+esc(JSON.stringify(item,null,2).substring(0,1500))+'</pre></div>'}},350)}catch(e){console.warn('[AGENT]',e)}}
@@ -238,7 +262,7 @@ function clAg(){document.getElementById('agm').classList.remove('op')}
 document.addEventListener('keydown',function(e){if(e.key==='Escape')clAg()});
 
 function analyze(i){var rs=i.risk_score||0,t=i.title||'',cves=t.match(/CVE-\d{4}-\d{4,}/gi)||[],cvss=i.cvss_score!=null?parseFloat(i.cvss_score):null,epss=i.epss_score!=null?parseFloat(i.epss_score):null,kev=!!i.kev_present,actor=i.actor_tag||'Unattributed',tacs=i.mitre_tactics||[],ioc=0;if(i.ioc_counts)Object.values(i.ioc_counts).forEach(function(v){ioc+=typeof v==='number'?v:0});var sev=sv(rs),src=(i.feed_source||'').replace(/https?:\/\//,'').split('/')[0];
-var sum='';if(cves.length){sum='This advisory concerns '+cves[0]+', a '+sev.toLowerCase()+' vulnerability';if(cvss)sum+=' (CVSS '+cvss+'/10)';sum+='. ';if(kev)sum+='CRITICAL: Listed in CISA KEV — active exploitation confirmed. ';if(epss&&epss>.5)sum+='EPSS: '+(epss*100).toFixed(1)+'% exploitation probability. '}else{sum='"'+t.substring(0,80)+'" assessed at '+rs.toFixed(1)+'/10 ('+sev+'). '}if(ioc)sum+=ioc+' IOCs extracted. ';
+var tt=i.threat_type||'General';var ep=i.exploit_probability||'Unknown';var sum='';if(cves.length){sum='This advisory concerns '+cves[0]+', a '+sev.toLowerCase()+' vulnerability';if(cvss)sum+=' (CVSS '+cvss+'/10)';sum+='. ';if(kev)sum+='CRITICAL: Listed in CISA KEV — active exploitation confirmed. ';if(epss&&epss>.5)sum+='EPSS: '+(epss*100).toFixed(1)+'% exploitation probability. '}else{sum='"'+t.substring(0,80)+'" assessed at '+rs.toFixed(1)+'/10 ('+sev+'). '}if(ioc)sum+=ioc+' IOCs extracted. ';
 var ra='Risk: '+rs.toFixed(1)+'/10 ('+sev+')\n';if(cvss)ra+='CVSS: '+cvss+'/10\n';if(kev)ra+='KEV: ACTIVE EXPLOITATION\n';if(epss)ra+='EPSS: '+(epss*100).toFixed(1)+'%\n';
 var acts=[];if(kev)acts.push({p:'P0',t:'IMMEDIATE: Patch within 24h (CISA KEV active)'});if(cves.length)acts.push({p:'P1',t:'Scan assets for '+cves[0]});if(ioc)acts.push({p:'P1',t:'Deploy '+ioc+' IOCs to SIEM/EDR'});if(rs>=7)acts.push({p:'P2',t:'Initiate threat hunt for related indicators'});acts.push({p:'P3',t:'Update SOC intelligence briefing'});
 return{sum:sum,ra:ra,acts:acts,tacs:tacs,sev:sev,svc:svc(rs),rs:rs,cves:cves,kev:kev,cvss:cvss,epss:epss,ioc:ioc,src:src}}
