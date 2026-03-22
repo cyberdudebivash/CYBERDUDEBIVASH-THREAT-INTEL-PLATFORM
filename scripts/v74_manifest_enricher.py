@@ -34,6 +34,9 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST_PATH = os.path.join(REPO_ROOT, "data", "stix", "feed_manifest.json")
 BACKUP_PATH = MANIFEST_PATH + ".v74bak"
 
+# Module-level state for cross-function communication
+_pending_telegram_alerts = []
+
 
 # ═══════════════════════════════════════════════════════════
 # THREAT TYPE CLASSIFIER (keyword-based, zero dependencies)
@@ -281,6 +284,187 @@ def detect_campaigns(data: list) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════
+# ALERT ENGINE (v74.2 — multi-signal, non-blocking)
+# ═══════════════════════════════════════════════════════════
+ALERT_HISTORY_PATH = os.path.join(REPO_ROOT, "data", "alert_history.json")
+MAX_ALERTS_PER_RUN = 5
+
+
+def _compute_alert_severity(item: dict) -> tuple:
+    """
+    Multi-signal alert scoring. Returns (severity, score, reasons[]).
+    Severity: CRITICAL / HIGH / MEDIUM / LOW / None
+    """
+    score = 0
+    reasons = []
+    risk = float(item.get("risk_score", 0) or 0)
+
+    # Signal 1: Risk score
+    if risk >= 9.5:
+        score += 40
+        reasons.append(f"risk_score={risk}/10")
+    elif risk >= 9.0:
+        score += 35
+        reasons.append(f"risk_score={risk}/10")
+    elif risk >= 8.0:
+        score += 25
+        reasons.append(f"risk_score={risk}/10")
+    elif risk >= 7.0:
+        score += 15
+
+    # Signal 2: CISA KEV (confirmed exploitation)
+    if item.get("kev_present"):
+        score += 30
+        reasons.append("CISA_KEV_active")
+
+    # Signal 3: Exploit probability
+    ep = item.get("exploit_probability", "")
+    if ep == "Critical":
+        score += 20
+        reasons.append("exploit_probability=Critical")
+    elif ep == "High":
+        score += 10
+        reasons.append("exploit_probability=High")
+
+    # Signal 4: Campaign membership (coordinated threat)
+    camp = item.get("campaign")
+    if camp and camp.get("risk") in ("Critical", "High"):
+        score += 10
+        reasons.append(f"campaign={camp.get('name', '?')[:40]}")
+
+    # Signal 5: Correlation cluster (related threats)
+    corr = item.get("correlation")
+    if corr and corr.get("related_count", 0) >= 5:
+        score += 5
+        reasons.append(f"cluster_size={corr['related_count']}")
+
+    # Determine severity tier
+    if score >= 60:
+        severity = "CRITICAL"
+    elif score >= 40:
+        severity = "HIGH"
+    elif score >= 25:
+        severity = "MEDIUM"
+    elif score >= 15:
+        severity = "LOW"
+    else:
+        return None, score, reasons
+
+    return severity, score, reasons
+
+
+def generate_alerts(data: list) -> list:
+    """
+    Scan manifest items and generate alert objects for qualifying threats.
+    Returns list of (item_index, alert_dict) tuples.
+    """
+    alerts = []
+    for idx, item in enumerate(data):
+        severity, score, reasons = _compute_alert_severity(item)
+        if severity and severity in ("CRITICAL", "HIGH"):
+            alerts.append((idx, {
+                "severity": severity,
+                "score": score,
+                "reasons": reasons,
+                "stix_id": item.get("stix_id", ""),
+                "title": item.get("title", "")[:120],
+                "risk_score": item.get("risk_score", 0),
+            }))
+
+    # Sort by score descending
+    alerts.sort(key=lambda x: x[1]["score"], reverse=True)
+    return alerts
+
+
+def load_alert_history() -> set:
+    """Load previously-alerted stix_ids to avoid duplicates."""
+    try:
+        if os.path.exists(ALERT_HISTORY_PATH):
+            with open(ALERT_HISTORY_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return set(data.get("alerted_ids", []))
+    except Exception:
+        pass
+    return set()
+
+
+def save_alert_history(alerted_ids: set):
+    """Persist alerted stix_ids. Rolling window: keep last 2000."""
+    try:
+        ids_list = sorted(alerted_ids)[-2000:]
+        os.makedirs(os.path.dirname(ALERT_HISTORY_PATH), exist_ok=True)
+        with open(ALERT_HISTORY_PATH, "w", encoding="utf-8") as f:
+            json.dump({
+                "alerted_ids": ids_list,
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+                "count": len(ids_list),
+            }, f, ensure_ascii=False)
+    except Exception as e:
+        log.warning(f"Failed to save alert history: {e}")
+
+
+def dispatch_telegram_alerts(alerts: list):
+    """
+    Send top alerts to Telegram. COMPLETELY NON-BLOCKING.
+    Requires: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID env vars.
+    If either missing → silent skip. If API fails → log and continue.
+    """
+    import urllib.request
+    import urllib.error
+
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+
+    if not bot_token or not chat_id:
+        log.info("Telegram not configured (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID missing) — skipping alerts")
+        return 0
+
+    sent = 0
+    for _, alert in alerts[:MAX_ALERTS_PER_RUN]:
+        try:
+            sev = alert["severity"]
+            icon = "\U0001f6a8" if sev == "CRITICAL" else "\u26a0\ufe0f"
+            risk = alert.get("risk_score", 0)
+            title = alert.get("title", "Unknown")
+            reasons = ", ".join(alert.get("reasons", []))
+
+            text = (
+                f"{icon} *SENTINEL APEX — {sev} ALERT*\n\n"
+                f"*{title}*\n\n"
+                f"\U0001f4ca Risk: *{risk}/10*\n"
+                f"\U0001f50d Signals: _{reasons}_\n"
+                f"\U0001f310 Dashboard: [View](https://intel.cyberdudebivash.com/)\n\n"
+                f"_CYBERDUDEBIVASH SENTINEL APEX v74.2_"
+            )
+
+            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            payload = json.dumps({
+                "chat_id": chat_id,
+                "text": text,
+                "parse_mode": "Markdown",
+                "disable_web_page_preview": True,
+            }).encode("utf-8")
+
+            req = urllib.request.Request(
+                url,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 200:
+                    sent += 1
+                    log.info(f"Telegram alert sent: {sev} — {title[:50]}")
+
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
+            log.warning(f"Telegram API error (non-fatal): {e}")
+        except Exception as e:
+            log.warning(f"Telegram dispatch error (non-fatal): {e}")
+
+    return sent
+
+
+# ═══════════════════════════════════════════════════════════
 # MAIN ENRICHMENT
 # ═══════════════════════════════════════════════════════════
 def enrich_manifest():
@@ -392,6 +576,31 @@ def enrich_manifest():
     except Exception as e:
         log.warning(f"Correlation/campaign enrichment failed (non-fatal): {e}")
 
+    # ── ALERT GENERATION (v74.2) ──
+    added_alerts = 0
+    _new_alerts = []
+    try:
+        all_alerts = generate_alerts(data)
+        history = load_alert_history()
+        for idx, alert_obj in all_alerts:
+            stix_id = data[idx].get("stix_id", "")
+            # Add alert field to manifest item (always, for API consumers)
+            if not data[idx].get("alert"):
+                data[idx]["alert"] = {
+                    "severity": alert_obj["severity"],
+                    "score": alert_obj["score"],
+                    "reasons": alert_obj["reasons"],
+                }
+                added_alerts += 1
+            # Track new alerts for Telegram dispatch (only unseen ones)
+            if stix_id and stix_id not in history:
+                _new_alerts.append((idx, alert_obj))
+                history.add(stix_id)
+        save_alert_history(history)
+        log.info(f"Alerts: {added_alerts} items tagged ({len(all_alerts)} total, {len(_new_alerts)} new)")
+    except Exception as e:
+        log.warning(f"Alert generation failed (non-fatal): {e}")
+
     # ── WRITE ATOMICALLY ──
     tmp_path = MANIFEST_PATH + ".v74tmp"
     output_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
@@ -421,8 +630,12 @@ def enrich_manifest():
     os.replace(tmp_path, MANIFEST_PATH)
 
     elapsed = _time.monotonic() - _t0
-    log.info(f"Enriched: threat_type +{added_tt}, exploit_probability +{added_ep}, correlation +{added_corr}, campaigns +{added_camp}, skipped: {skipped}")
+    log.info(f"Enriched: threat_type +{added_tt}, exploit_probability +{added_ep}, correlation +{added_corr}, campaigns +{added_camp}, alerts +{added_alerts}, skipped: {skipped}")
     log.info(f"Total: {len(data)} items | Output: {len(output_json):,} bytes | Time: {elapsed:.2f}s")
+
+    # Store new alerts for telegram dispatch (accessible from __main__)
+    global _pending_telegram_alerts
+    _pending_telegram_alerts = _new_alerts
 
     # Cleanup backup (only after successful validation)
     try:
@@ -497,7 +710,7 @@ def generate_api_layer():
 
 if __name__ == "__main__":
     log.info("=" * 60)
-    log.info("SENTINEL APEX v74.0 — Manifest Enricher")
+    log.info("SENTINEL APEX v74.2 — Manifest Enricher + Correlation + Alerts")
     log.info("=" * 60)
 
     try:
@@ -505,6 +718,17 @@ if __name__ == "__main__":
         if ok:
             api_ok = generate_api_layer()
             log.info(f"v74 enrichment: COMPLETE | API: {'OK' if api_ok else 'SKIPPED'}")
+
+            # ── TELEGRAM ALERTING (completely non-blocking) ──
+            try:
+                if _pending_telegram_alerts:
+                    sent = dispatch_telegram_alerts(_pending_telegram_alerts)
+                    log.info(f"Telegram: {sent}/{min(len(_pending_telegram_alerts), MAX_ALERTS_PER_RUN)} alerts dispatched")
+                else:
+                    log.info("Telegram: 0 new alerts to dispatch")
+            except Exception as e:
+                log.warning(f"Telegram dispatch failed (non-fatal): {e}")
+
         else:
             log.warning("Enrichment skipped — see warnings above")
             sys.exit(0)  # Exit 0 to not break pipeline
