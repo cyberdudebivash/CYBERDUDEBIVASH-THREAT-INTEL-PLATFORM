@@ -5,12 +5,12 @@
     "sigma": "title: CDB APEX v37.0 \u2014 Interesting Message Stored in Cowrie Logs, (Wed, Mar 18th)\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/22\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '188.214.30.5'\n            - '64.89.161.198'\n    selection_dns:\n        query:\n            - '*isc.sans.edu*'\n            - '*www.shodan.io*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "yara": "rule CDB_APEX_Interesting_Message_Stored_in_Cowrie_Log {\n    meta:\n        description = \"Interesting Message Stored in Cowrie Logs, (Wed, Mar 18th)\"\n        author = \"CyberDudeBivash\"\n    strings:\n        $h0 = \"f1c0e109640d154246d27ff05074365740e994f142ef9846634bec7b18e3b715\" ascii nocase\n    condition:\n        any of them\n}",
     "suricata": [
-      "alert ip any any -> 188.214.30.5 any (msg:\"CDB APEX \u2014 Interesting_Message_Stored_in_\"; sid:1631953; rev:1;)",
-      "alert ip any any -> 64.89.161.198 any (msg:\"CDB APEX \u2014 Interesting_Message_Stored_in_\"; sid:8405700; rev:1;)"
+      "alert ip any any -> 188.214.30.5 any (msg:\"CDB APEX \u2014 Interesting_Message_Stored_in_\"; sid:7981874; rev:1;)",
+      "alert ip any any -> 64.89.161.198 any (msg:\"CDB APEX \u2014 Interesting_Message_Stored_in_\"; sid:2214852; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 188.214.30.5 any (msg:\"CDB APEX Interesting_Message_Stored_in_\"; sid:2104901; rev:1;)",
-      "alert ip any any -> 64.89.161.198 any (msg:\"CDB APEX Interesting_Message_Stored_in_\"; sid:7317876; rev:1;)"
+      "alert ip any any -> 188.214.30.5 any (msg:\"CDB APEX Interesting_Message_Stored_in_\"; sid:5947546; rev:1;)",
+      "alert ip any any -> 64.89.161.198 any (msg:\"CDB APEX Interesting_Message_Stored_in_\"; sid:5701123; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"188.214.30.5\",\n              \"64.89.161.198\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"isc.sans.edu\",\n              \"www.shodan.io\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"file.hash.sha256\": [\n              \"f1c0e109640d154246d27ff05074365740e994f142ef9846634bec7b18e3b715\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"188.214.30.5\", \"64.89.161.198\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"isc.sans.edu\", \"www.shodan.io\")"
