@@ -2,7 +2,7 @@
   "threat_id": "thr-cb0ef3950351",
   "title": "Ransomware Under Pressure: Tactics, Techniques, and Procedures in a Shifting Thr",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Ransomware Under Pressure: Tactics, Techniques, and Procedur\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/21\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*akiral2iz6a7qgd3ayp3l6yub7xx2uep76idk3u2kollpj5z3z636bad.onion*'\n            - '*pe.imphash*'\n            - '*www.torproject.org*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Ransomware Under Pressure: Tactics, Techniques, and Procedur\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/22\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*akiral2iz6a7qgd3ayp3l6yub7xx2uep76idk3u2kollpj5z3z636bad.onion*'\n            - '*pe.imphash*'\n            - '*www.torproject.org*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"akiral2iz6a7qgd3ayp3l6yub7xx2uep76idk3u2kollpj5z3z636bad.onion\",\n              \"pe.imphash\",\n              \"www.torproject.org\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"akiral2iz6a7qgd3ayp3l6yub7xx2uep76idk3u2kollpj5z3z636bad.onion\", \"pe.imphash\", \"www.torproject.org\")"
   },

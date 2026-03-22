@@ -2,7 +2,7 @@
   "threat_id": "thr-524cf7bd7def",
   "title": "Schneider Electric EcoStruxure PME and EPO",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Schneider Electric EcoStruxure PME and EPO\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/21\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*overview.jsp*'\n            - '*product-help.schneider-electric.com*'\n            - '*www.se.com*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Schneider Electric EcoStruxure PME and EPO\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/22\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*overview.jsp*'\n            - '*product-help.schneider-electric.com*'\n            - '*www.se.com*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"overview.jsp\",\n              \"product-help.schneider-electric.com\",\n              \"www.se.com\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"overview.jsp\", \"product-help.schneider-electric.com\", \"www.se.com\")"
   },
