@@ -69,7 +69,30 @@ RSS_FEEDS = [
     # ── TIER 6: Offensive Security & Cloud Threats ──
     "https://portswigger.net/daily-swig/rss", # Web App Sec
     "https://cloud.google.com/blog/products/identity-security/rss", # GCP Sec
-    "https://aws.amazon.com/blogs/security/feed/", # AWS Sec
+    "https://aws.amazon.com/blogs/security/feed/",
+    # ── v73.0 EXPANDED SOURCES ──
+    "https://www.us-cert.gov/ncas/alerts.xml",  # US-CERT Alerts
+    "https://advisories.ncsc.nl/rss/advisories",  # NCSC Netherlands
+    "https://cert.gov.au/rss/alerts",  # AusCERT Alerts
+    "https://googleprojectzero.blogspot.com/feeds/posts/default",  # Google Project Zero
+    "https://github.com/advisories.atom",  # GitHub Security Advisories
+    "https://www.rapid7.com/blog/rss/",  # Rapid7 Research
+    "https://www.qualys.com/research/rss/",  # Qualys Threat Research
+    "https://www.welivesecurity.com/feed/",  # ESET WeLiveSecurity
+    "https://news.sophos.com/en-us/feed/",  # Sophos News
+    "https://www.fortinet.com/blog/threat-research.xml",  # Fortinet FortiGuard
+    "https://www.proofpoint.com/us/blog/threat-insight/rss.xml",  # Proofpoint Threat Insight
+    "https://www.trendmicro.com/en_us/research.rss.xml",  # Trend Micro Research
+    "https://symantec-enterprise-blogs.security.com/blogs/threat-intelligence/rss",  # Symantec/Broadcom
+    "https://isc.sans.edu/rssfeed_full.xml",  # SANS Internet Storm Center
+    "https://www.wordfence.com/blog/feed/",  # Wordfence (WordPress Security)
+    "https://www.tripwire.com/state-of-security/feed/",  # Tripwire State of Security
+    "https://grahamcluley.com/feed/",  # Graham Cluley
+    "https://nakedsecurity.sophos.com/feed/",  # Naked Security (Sophos)
+    "https://blog.malwarebytes.com/feed/",  # Malwarebytes Labs
+    "https://any.run/cybersecurity-blog/feed/",  # ANY.RUN Blog
+    "https://www.virustotal.com/ui/blog/rss",  # VirusTotal Blog
+ # AWS Sec
 ]
 
 MAX_ENTRIES_PER_FEED = 5
