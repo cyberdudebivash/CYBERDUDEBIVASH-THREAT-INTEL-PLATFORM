@@ -169,26 +169,46 @@ def calculate_exploit_probability(
 # ═══════════════════════════════════════════════════════════
 def enrich_manifest():
     """Load manifest, add missing fields, write back atomically."""
+    import time as _time
+    _t0 = _time.monotonic()
+
+    # ── INPUT VALIDATION ──
     if not os.path.exists(MANIFEST_PATH):
         log.warning(f"Manifest not found: {MANIFEST_PATH}")
         return False
 
-    # Read
-    with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    if not isinstance(data, list):
-        log.warning("Manifest is not a list — skipping")
+    try:
+        with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
+            raw = f.read()
+        data = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        log.error(f"FATAL: Manifest is not valid JSON: {e}")
         return False
 
-    log.info(f"Loaded: {len(data)} items")
+    if not isinstance(data, list):
+        log.warning(f"Manifest is not a list (type={type(data).__name__}) — skipping")
+        return False
 
-    # Backup
+    if len(data) == 0:
+        log.warning("Manifest is empty — skipping")
+        return False
+
+    input_count = len(data)
+    log.info(f"Loaded: {input_count} items ({len(raw):,} bytes)")
+
+    # ── INPUT SANITY: check items have minimum structure ──
+    sample = data[0]
+    if not isinstance(sample, dict) or "title" not in sample:
+        log.error("FATAL: Manifest items lack expected structure (no 'title' field)")
+        return False
+
+    # ── BACKUP ──
     shutil.copy2(MANIFEST_PATH, BACKUP_PATH)
 
-    # Enrich
+    # ── ENRICH ──
     added_tt = 0
     added_ep = 0
+    skipped = 0
 
     for item in data:
         try:
@@ -214,19 +234,48 @@ def enrich_manifest():
         except Exception as e:
             # FAILSAFE: Skip item, don't crash
             log.warning(f"Skipping item: {e}")
+            skipped += 1
             continue
 
-    # Write atomically (write to temp, then rename)
-    tmp_path = MANIFEST_PATH + ".v74tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    # ── ITEM COUNT GUARD ──
+    if len(data) != input_count:
+        log.error(f"FATAL: Item count changed during enrichment ({input_count} → {len(data)}). Restoring backup.")
+        shutil.copy2(BACKUP_PATH, MANIFEST_PATH)
+        return False
 
+    # ── WRITE ATOMICALLY ──
+    tmp_path = MANIFEST_PATH + ".v74tmp"
+    output_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        f.write(output_json)
+
+    # ── OUTPUT VALIDATION: re-read and verify ──
+    try:
+        with open(tmp_path, "r", encoding="utf-8") as f:
+            verify = json.load(f)
+        if not isinstance(verify, list) or len(verify) != input_count:
+            raise ValueError(f"Output verification failed: {len(verify)} items (expected {input_count})")
+        # Spot-check first item
+        if "title" not in verify[0]:
+            raise ValueError("Output verification failed: first item missing 'title'")
+    except Exception as e:
+        log.error(f"FATAL: Output validation failed: {e}. Restoring backup.")
+        shutil.copy2(BACKUP_PATH, MANIFEST_PATH)
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+        return False
+
+    # ── COMMIT: atomic replace ──
     os.replace(tmp_path, MANIFEST_PATH)
 
-    log.info(f"Enriched: threat_type +{added_tt}, exploit_probability +{added_ep}")
-    log.info(f"Total: {len(data)} items | Backup: {BACKUP_PATH}")
+    elapsed = _time.monotonic() - _t0
+    log.info(f"Enriched: threat_type +{added_tt}, exploit_probability +{added_ep}, skipped: {skipped}")
+    log.info(f"Total: {len(data)} items | Output: {len(output_json):,} bytes | Time: {elapsed:.2f}s")
 
-    # Cleanup backup
+    # Cleanup backup (only after successful validation)
     try:
         os.remove(BACKUP_PATH)
     except Exception:
@@ -241,43 +290,60 @@ def enrich_manifest():
 def generate_api_layer():
     """Create /api/feed.json from manifest (static file, zero backend)."""
     if not os.path.exists(MANIFEST_PATH):
+        log.warning("Manifest not found — skipping API generation")
         return False
 
-    api_dir = os.path.join(REPO_ROOT, "api")
-    os.makedirs(api_dir, exist_ok=True)
+    try:
+        api_dir = os.path.join(REPO_ROOT, "api")
+        os.makedirs(api_dir, exist_ok=True)
 
-    with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-    # /api/feed.json — full manifest with CORS-friendly wrapper
-    api_feed = {
-        "version": "v74.0",
-        "generated": datetime.now(timezone.utc).isoformat(),
-        "count": len(data),
-        "data": data,
-    }
+        if not isinstance(data, list) or len(data) == 0:
+            log.warning("Manifest empty or invalid — skipping API generation")
+            return False
 
-    feed_path = os.path.join(api_dir, "feed.json")
-    with open(feed_path, "w", encoding="utf-8") as f:
-        json.dump(api_feed, f, ensure_ascii=False, separators=(",", ":"))
+        # /api/feed.json — full manifest with API envelope
+        api_feed = {
+            "version": "v74.0",
+            "generated": datetime.now(timezone.utc).isoformat(),
+            "count": len(data),
+            "data": data,
+        }
 
-    log.info(f"API: {feed_path} ({len(data)} items)")
+        feed_path = os.path.join(api_dir, "feed.json")
+        with open(feed_path, "w", encoding="utf-8") as f:
+            json.dump(api_feed, f, ensure_ascii=False, separators=(",", ":"))
 
-    # /api/latest.json — last 20 items
-    latest = {
-        "version": "v74.0",
-        "generated": datetime.now(timezone.utc).isoformat(),
-        "count": min(20, len(data)),
-        "data": data[:20],
-    }
+        # Verify feed.json is valid JSON
+        with open(feed_path, "r", encoding="utf-8") as f:
+            verify = json.load(f)
+        if verify.get("count") != len(data):
+            log.error(f"API feed.json verification failed: count mismatch")
+            return False
 
-    latest_path = os.path.join(api_dir, "latest.json")
-    with open(latest_path, "w", encoding="utf-8") as f:
-        json.dump(latest, f, ensure_ascii=False, separators=(",", ":"))
+        log.info(f"API: {feed_path} ({len(data)} items, {os.path.getsize(feed_path):,} bytes)")
 
-    log.info(f"API: {latest_path} ({latest['count']} items)")
+        # /api/latest.json — last 20 items
+        latest = {
+            "version": "v74.0",
+            "generated": datetime.now(timezone.utc).isoformat(),
+            "count": min(20, len(data)),
+            "data": data[:20],
+        }
 
-    return True
+        latest_path = os.path.join(api_dir, "latest.json")
+        with open(latest_path, "w", encoding="utf-8") as f:
+            json.dump(latest, f, ensure_ascii=False, separators=(",", ":"))
+
+        log.info(f"API: {latest_path} ({latest['count']} items, {os.path.getsize(latest_path):,} bytes)")
+
+        return True
+
+    except Exception as e:
+        log.error(f"API generation failed: {e}")
+        return False
 
 
 if __name__ == "__main__":
@@ -285,10 +351,15 @@ if __name__ == "__main__":
     log.info("SENTINEL APEX v74.0 — Manifest Enricher")
     log.info("=" * 60)
 
-    ok = enrich_manifest()
-    if ok:
-        generate_api_layer()
-        log.info("v74 enrichment complete ✓")
-    else:
-        log.warning("Enrichment skipped — manifest issue")
-        sys.exit(0)  # Exit 0 to not break pipeline
+    try:
+        ok = enrich_manifest()
+        if ok:
+            api_ok = generate_api_layer()
+            log.info(f"v74 enrichment: COMPLETE | API: {'OK' if api_ok else 'SKIPPED'}")
+        else:
+            log.warning("Enrichment skipped — see warnings above")
+            sys.exit(0)  # Exit 0 to not break pipeline
+    except Exception as e:
+        log.error(f"UNHANDLED ERROR: {e}")
+        log.info("Exiting with code 0 to not break pipeline")
+        sys.exit(0)  # NEVER break the pipeline
