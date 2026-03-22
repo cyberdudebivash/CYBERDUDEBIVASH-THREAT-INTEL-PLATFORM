@@ -1,0 +1,11 @@
+{
+  "threat_id": "thr-89f2014f61d4",
+  "title": "GSocket Backdoor Delivered Through Bash Script, (Fri, Mar 20th)",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 GSocket Backdoor Delivered Through Bash Script, (Fri, Mar 20\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/22\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*isc.sans.edu*'\n            - '*www.gsocket.io*'\n            - '*zone-xsec.com*'\n    condition: selection_dns\nlevel: high",
+    "yara": "rule CDB_APEX_GSocket_Backdoor_Delivered_Through_Bash_ {\n    meta:\n        description = \"GSocket Backdoor Delivered Through Bash Script, (Fri, Mar 20\"\n        author = \"CyberDudeBivash\"\n    strings:\n        $h0 = \"6ce69f0a0db6c5e1479d2b05fb361846957f5ad8170f5e43c7d66928a43f3286\" ascii nocase\n        $h1 = \"d94f75a70b5cabaf786ac57177ed841732e62bdcc9a29e06e5b41d9be567bcfa\" ascii nocase\n    condition:\n        any of them\n}",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"isc.sans.edu\",\n              \"www.gsocket.io\",\n              \"zone-xsec.com\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"file.hash.sha256\": [\n              \"6ce69f0a0db6c5e1479d2b05fb361846957f5ad8170f5e43c7d66928a43f3286\",\n              \"d94f75a70b5cabaf786ac57177ed841732e62bdcc9a29e06e5b41d9be567bcfa\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"isc.sans.edu\", \"www.gsocket.io\", \"zone-xsec.com\")"
+  },
+  "rule_count": 4
+}

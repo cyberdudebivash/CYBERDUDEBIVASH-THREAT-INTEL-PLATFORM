@@ -1,0 +1,22 @@
+{
+  "threat_id": "thr-890cc59f4b96",
+  "title": "Wordfence Intelligence Weekly WordPress Vulnerability Report (March 9, 2026 to M",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 Wordfence Intelligence Weekly WordPress Vulnerability Report\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/22\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '28.1.2.1'\n            - '4.3.2.8'\n            - '6.0.7.1'\n            - '7.1.0.30'\n    condition: selection_ip\nlevel: high",
+    "suricata": [
+      "alert ip any any -> 28.1.2.1 any (msg:\"CDB APEX \u2014 Wordfence_Intelligence_Weekly_\"; sid:9694114; rev:1;)",
+      "alert ip any any -> 4.3.2.8 any (msg:\"CDB APEX \u2014 Wordfence_Intelligence_Weekly_\"; sid:4406712; rev:1;)",
+      "alert ip any any -> 6.0.7.1 any (msg:\"CDB APEX \u2014 Wordfence_Intelligence_Weekly_\"; sid:6014587; rev:1;)",
+      "alert ip any any -> 7.1.0.30 any (msg:\"CDB APEX \u2014 Wordfence_Intelligence_Weekly_\"; sid:1348451; rev:1;)"
+    ],
+    "snort": [
+      "alert ip any any -> 28.1.2.1 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:1281891; rev:1;)",
+      "alert ip any any -> 4.3.2.8 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:5476650; rev:1;)",
+      "alert ip any any -> 6.0.7.1 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:4692196; rev:1;)",
+      "alert ip any any -> 7.1.0.30 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:4748414; rev:1;)"
+    ],
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"28.1.2.1\",\n              \"4.3.2.8\",\n              \"6.0.7.1\",\n              \"7.1.0.30\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteIP in (\"28.1.2.1\", \"4.3.2.8\", \"6.0.7.1\", \"7.1.0.30\")"
+  },
+  "rule_count": 11
+}
