@@ -159,7 +159,19 @@ jobs:
 
       - name: "v74: Manifest Enrichment"
         continue-on-error: true
-        run: python3 scripts/v74_manifest_enricher.py
+        run: |
+          if [ -f scripts/v74_manifest_enricher.py ]; then
+            python3 scripts/v74_manifest_enricher.py
+          else
+            echo "v74 enricher not present — skipping"
+          fi
+
+      - name: "v74: Re-patch EMBEDDED_INTEL with enriched data"
+        continue-on-error: true
+        run: |
+          if [ -f scripts/update_embedded_intel.py ]; then
+            python3 scripts/update_embedded_intel.py || true
+          fi
 
 # ================================================================
 # STAGE 3: SAFE GIT SYNC (from v64 — preserved exactly)
@@ -174,7 +186,7 @@ jobs:
 
           # v73.4 FIX: Commit local changes FIRST, then pull
           # This prevents autostash conflicts that inject <<<<<<< markers
-          git add data/*.json data/stix/*.json index.html threat/ sitemap.xml 2>/dev/null || true
+          git add data/*.json data/stix/*.json index.html threat/ sitemap.xml api/*.json 2>/dev/null || true
           if ! git diff --staged --quiet; then
             git commit -m "v73.4 Pipeline data [skip ci]"
           fi
@@ -253,7 +265,7 @@ jobs:
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
 
-          git add data/*.json threat/ sitemap.xml 2>/dev/null || true
+          git add data/*.json threat/ sitemap.xml api/*.json 2>/dev/null || true
 
           if ! git diff --staged --quiet; then
             git commit -m "v70.2 Post Extras [skip ci]"

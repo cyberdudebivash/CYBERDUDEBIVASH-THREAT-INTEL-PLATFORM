@@ -92,7 +92,12 @@ jobs:
 
       - name: "v74: Manifest Enrichment (threat_type + exploit_probability)"
         continue-on-error: true
-        run: python3 scripts/v74_manifest_enricher.py
+        run: |
+          if [ -f scripts/v74_manifest_enricher.py ]; then
+            python3 scripts/v74_manifest_enricher.py
+          else
+            echo "v74 enricher not present — skipping"
+          fi
 
       - name: Patch EMBEDDED_INTEL in index.html
         run: |
