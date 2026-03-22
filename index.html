@@ -1299,6 +1299,19 @@
             #threat-grid { grid-template-columns: repeat(3, 1fr); }
         }
 
+
+        /* v73.1: Time range toggle buttons */
+        .time-range-btn {
+            font-size: 9px !important;
+            padding: 5px 12px !important;
+            letter-spacing: 0.5px;
+            transition: all 0.2s;
+        }
+        .time-range-btn.active {
+            background: rgba(0,212,170,0.12) !important;
+            color: var(--accent) !important;
+            border-color: var(--accent) !important;
+        }
     </style>
 </head>
 <body>
@@ -1601,6 +1614,11 @@
 
         <!-- ═══ FILTER BAR (NEW) ═══ -->
         <div class="filter-bar">
+            <label style="margin-right:4px;">RANGE:</label>
+            <button class="filter-btn time-range-btn active" data-range="7d" onclick="filterTimeRange('7d', this)" style="background:rgba(0,212,170,0.12);color:var(--accent);border-color:var(--accent);">LIVE 7D</button>
+            <button class="filter-btn time-range-btn" data-range="30d" onclick="filterTimeRange('30d', this)">30D</button>
+            <button class="filter-btn time-range-btn" data-range="all" onclick="filterTimeRange('all', this)">ALL TIME</button>
+            <span style="width:1px;height:20px;background:var(--border);margin:0 8px;"></span>
             <label>FILTER:</label>
             <button class="filter-btn active" data-filter="all" onclick="filterCards('all', this)">All</button>
             <button class="filter-btn f-critical" data-filter="CRITICAL" onclick="filterCards('CRITICAL', this)">Critical</button>
@@ -2647,6 +2665,7 @@
         let currentFilter = 'all';
         let currentSort = 'newest';
         let searchQuery = '';
+        let currentTimeRange = '7d';  // v73.1: '7d' (default), '30d', 'all'
         let autoRefreshTimer = null;
         let autoRefreshCountdown = null;
         const AUTO_REFRESH_INTERVAL = 30 * 60; // 30 minutes
@@ -3296,8 +3315,24 @@
         // ── Filter & Sort ──
         function filterCards(sev, btn) {
             currentFilter = sev;
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.filter-btn:not(.time-range-btn)').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            applyView();
+        }
+
+        // v73.1: Time range toggle — filters display without re-fetch or data loss
+        function filterTimeRange(range, btn) {
+            currentTimeRange = range;
+            document.querySelectorAll('.time-range-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = '';
+                b.style.color = '';
+                b.style.borderColor = '';
+            });
+            btn.classList.add('active');
+            btn.style.background = 'rgba(0,212,170,0.12)';
+            btn.style.color = 'var(--accent)';
+            btn.style.borderColor = 'var(--accent)';
             applyView();
         }
 
@@ -3308,6 +3343,29 @@
 
         function applyView() {
             let filtered = [...manifestData];
+
+            // v73.1: Time-range filter (SAFE — falls back to full dataset on failure)
+            if (currentTimeRange !== 'all') {
+                try {
+                    const now = Date.now();
+                    const ranges = { '24h': 1, '7d': 7, '30d': 30 };
+                    const days = ranges[currentTimeRange] || 7;
+                    const cutoff = now - (days * 24 * 60 * 60 * 1000);
+                    const timeFiltered = filtered.filter(d => {
+                        const ts = d.timestamp || d.published || d.created;
+                        if (!ts) return true;  // Keep items without timestamps (safety)
+                        return new Date(ts).getTime() >= cutoff;
+                    });
+                    // HARD SAFETY: Never show empty dashboard
+                    if (timeFiltered.length > 0) {
+                        filtered = timeFiltered;
+                    }
+                } catch(e) {
+                    // Filter failed — use full dataset (zero-failure guarantee)
+                    console.warn('[CDB-TIMEFILTER] Filter error, using full dataset:', e);
+                }
+            }
+
             if (currentFilter !== 'all') {
                 filtered = filtered.filter(d => getSeverity(d.risk_score, d) === currentFilter);
             }
