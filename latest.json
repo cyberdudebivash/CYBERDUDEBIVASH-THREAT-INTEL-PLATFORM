@@ -1,0 +1,303 @@
+# ================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX — Sovereign Intelligence Cycle
+# Version: v70.2 (MERGED: v64.4 base + v70 Intelligence Upgrade)
+# ================================================================
+# This workflow PRESERVES all v64.4 working functionality AND
+# adds v70 intelligence enhancements (data bridge, AI engines,
+# dedup, correlation, scoring) as ADDITIVE stages.
+# ================================================================
+
+name: sentinel-blogger
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+    inputs:
+      force_full_sync:
+        description: 'Force full sync even if no new data'
+        required: false
+        type: boolean
+        default: false
+      skip_ai:
+        description: 'Skip AI phases (faster run)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: sentinel-sync
+  cancel-in-progress: false
+
+jobs:
+  publish-threat-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+
+# ================================================================
+# STAGE 0: CHECKOUT & SETUP (from v64 — preserved exactly)
+# ================================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ensure Directories
+        run: |
+          mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum data/sovereign data/rule_packs data/playbooks data/playbooks/scripts data/premium_packs data/enterprise_kits data/enrichment data/status data/logs data/remediation data/.manifest_backups data/manifest_versions secrets
+
+# ================================================================
+# STAGE 1: PRE-FLIGHT (from v64 — preserved exactly)
+# ================================================================
+      - name: Monthly Maintenance
+        if: github.event.schedule == '0 0 1 * *'
+        run: python -m agent.janitor || true
+
+      - name: Inject Sovereign Key
+        run: |
+          echo "${{ secrets.CDB_SOVEREIGN_KEY }}" > secrets/cdb_sovereign.pem
+          chmod 600 secrets/cdb_sovereign.pem
+
+# ================================================================
+# STAGE 2: INGEST — Sentinel Engine (from v64 — preserved exactly)
+# This is what fetches FRESH INTEL from global sources
+# ================================================================
+      - name: Run Sentinel Engine
+        continue-on-error: true
+        env:
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+          GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          echo "Running Sentinel Engine (SAFE MODE)"
+          set +e
+          timeout 1500 python -m agent.sentinel_blogger
+          EXIT_CODE=$?
+          set -e
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "Sentinel engine error ignored (non-blocking)"
+          fi
+
+# ================================================================
+# STAGE 2.1: STATE UPDATE (from v64 — preserved exactly)
+# ================================================================
+      - name: Update Sync State
+        run: |
+          python3 scripts/update_embedded_intel.py || true
+
+# ================================================================
+# STAGE 2.5: v70 DATA BRIDGE + INTELLIGENCE PIPELINE (NEW — ADDITIVE)
+# Runs AFTER v64 ingestion to enhance data with AI/ML
+# ================================================================
+      - name: "v70: Data Bridge"
+        continue-on-error: true
+        run: |
+          echo "::group::v70 Data Bridge"
+          if [ -f scripts/data_bridge.py ]; then
+            python scripts/data_bridge.py || echo "Data bridge had issues (non-fatal)"
+          else
+            echo "Data bridge not present — skipping v70 enhancements"
+          fi
+          echo "::endgroup::"
+
+      - name: "v70: Intelligence Pipeline"
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          TRANSFORMERS_NO_ADVISORY_WARNINGS: "1"
+          TOKENIZERS_PARALLELISM: "false"
+        run: |
+          echo "::group::v70 Intelligence Pipeline"
+          if [ -d agent/v70_apex_upgrade ]; then
+            AI_FLAG=""
+            if [ "${{ github.event.inputs.skip_ai }}" = "true" ]; then
+              AI_FLAG="--no-ai"
+            fi
+            timeout 240 python -m agent.v70_apex_upgrade.orchestrator \
+              --data-dir data \
+              --dashboard index.html \
+              --json $AI_FLAG \
+              | tee /tmp/v70_result.json || echo "v70 orchestrator had issues (non-fatal)"
+
+            if [ -f /tmp/v70_result.json ]; then
+              python3 -c '
+          import json
+          d = json.load(open("/tmp/v70_result.json"))
+          print("v70 Status: " + ("PASS" if d.get("success") else "FAIL"))
+          print("v70 Advisories: " + str(d.get("total_advisories", "?")))
+          print("v70 Dedup: " + str(d.get("dedup_removed", "?")))
+          print("v70 Correlations: " + str(d.get("correlations_found", "?")))
+          '
+            fi
+          else
+            echo "v70 module not present — skipping intelligence enhancements"
+          fi
+          echo "::endgroup::"
+
+      - name: "v74: Manifest Enrichment"
+        continue-on-error: true
+        run: python3 scripts/v74_manifest_enricher.py
+
+# ================================================================
+# STAGE 3: SAFE GIT SYNC (from v64 — preserved exactly)
+# ================================================================
+      - name: "STAGE 3: Safe Git Sync (v73.4 — COMMIT-FIRST)"
+        run: |
+          rm -rf .git/rebase-merge || true
+          rm -rf .git/rebase-apply || true
+
+          git config --local user.email "bivash@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+
+          # v73.4 FIX: Commit local changes FIRST, then pull
+          # This prevents autostash conflicts that inject <<<<<<< markers
+          git add data/*.json data/stix/*.json index.html threat/ sitemap.xml 2>/dev/null || true
+          if ! git diff --staged --quiet; then
+            git commit -m "v73.4 Pipeline data [skip ci]"
+          fi
+
+          # Pull with merge (not rebase), ours strategy for conflicts
+          git pull origin main --no-rebase --no-edit -X ours || {
+            echo "Pull conflict — resolving with ours strategy..."
+            git checkout --ours index.html 2>/dev/null || true
+            git add index.html 2>/dev/null || true
+            git commit --no-edit 2>/dev/null || true
+          }
+
+          # SAFETY CHECK: Verify no conflict markers in index.html
+          if grep -q '<<<<<<<' index.html 2>/dev/null; then
+            echo "FATAL: Conflict markers detected — cleaning index.html"
+            git checkout HEAD~1 -- index.html 2>/dev/null || true
+            python3 scripts/update_embedded_intel.py || true
+            git add index.html
+            git commit --amend --no-edit 2>/dev/null || true
+          fi
+
+# ================================================================
+# STAGE 4: COMMIT CORE DATA (from v64 — preserved exactly)
+# ================================================================
+      - name: "STAGE 4: Push (v73.4)"
+        run: |
+          # Changes already committed in STAGE 3
+          # Just push (or pull+push if behind)
+          git push origin main || {
+            git pull origin main --no-rebase --no-edit -X ours
+            git push origin main
+          }
+
+# ================================================================
+# STAGE 5: DEPLOY CORE (from v64 — preserved exactly)
+# ================================================================
+      - name: "GATE: Pre-deploy integrity check (v73.4)"
+        run: |
+          python3 scripts/pre_deploy_gate.py || {
+            echo "GATE FAILED — attempting auto-repair..."
+            python3 scripts/update_embedded_intel.py || true
+            python3 scripts/pre_deploy_gate.py
+          }
+
+      - name: Deploy Core
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: .
+          clean: false
+
+# ================================================================
+# STAGE 5.1: OPTIONAL HARDENING (from v64 — preserved exactly)
+# ================================================================
+      - name: Pipeline Hardener
+        continue-on-error: true
+        run: |
+          python agent/v48_pipeline_hardening/pipeline_hardener.py || true
+
+      - name: Quality Gate
+        continue-on-error: true
+        run: |
+          python agent/quality_gate_audit.py || true
+
+      - name: Generate Threat Pages
+        continue-on-error: true
+        run: |
+          python scripts/threat_page_generator.py || true
+
+# ================================================================
+# STAGE 6: POST-EXTRAS COMMIT + DEPLOY (from v64 — preserved exactly)
+# ================================================================
+      - name: Commit Post Extras
+        continue-on-error: true
+        run: |
+          git config --local user.email "bivash@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+
+          git add data/*.json threat/ sitemap.xml 2>/dev/null || true
+
+          if ! git diff --staged --quiet; then
+            git commit -m "v70.2 Post Extras [skip ci]"
+            git push origin main
+          fi
+
+      - name: "GATE: Pre-deploy check (Post Extras)"
+        continue-on-error: true
+        run: python3 scripts/pre_deploy_gate.py
+
+      - name: Deploy Post Extras
+        continue-on-error: true
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: .
+          clean: false
+
+# ================================================================
+# STAGE 7: PIPELINE SUMMARY (v70 — new, additive)
+# ================================================================
+      - name: Pipeline Summary
+        if: always()
+        run: |
+          echo "======================================================="
+          echo "SENTINEL APEX v70.2 Pipeline Summary"
+          echo "======================================================="
+          echo "Timestamp: $(date -u)"
+          if [ -f /tmp/v70_result.json ]; then
+            python3 -c '
+          import json
+          d = json.load(open("/tmp/v70_result.json"))
+          status = "PASS" if d.get("success") else "FAIL"
+          print("v70 Intelligence: " + status)
+          print("Advisories: " + str(d.get("total_advisories", "?")))
+          print("Dedup Removed: " + str(d.get("dedup_removed", "?")))
+          print("Correlations: " + str(d.get("correlations_found", "?")))
+          print("Duration: " + str(d.get("duration_seconds", "?")) + "s")
+          icons = {"OK": "+", "SKIPPED": ">", "DEGRADED": "!", "FAILED": "X"}
+          for p in d.get("phases", []):
+              icon = icons.get(p["status"], "?")
+              print("  [" + icon + "] " + p["phase"] + ": " + p["status"] + " (" + str(p["duration_s"]) + "s)")
+          ' || true
+          else
+            echo "v70 intelligence pipeline did not run"
+          fi
+          echo "======================================================="

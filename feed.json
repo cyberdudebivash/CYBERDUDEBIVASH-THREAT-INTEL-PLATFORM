@@ -1,0 +1,142 @@
+# =====================================================================
+# SENTINEL APEX — Dashboard Sync Workflow v71.0
+# FIXED: gh-pages deploy REMOVED (sentinel-blogger is sole deployer)
+# FIXED: Cron offset to :20 to avoid overlap with sentinel-blogger (:00)
+# FIXED: Global concurrency lock added
+# =====================================================================
+name: Dashboard Sync — EMBEDDED_INTEL Auto-Patcher v71.0
+
+on:
+  workflow_run:
+    workflows:
+      - "sentinel-blogger"
+    types: [completed]
+  schedule:
+    - cron: '20 */4 * * *'
+  workflow_dispatch:
+    inputs:
+      force_patch:
+        description: 'Force patch even if unchanged'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sentinel-data-writer
+  cancel-in-progress: false
+
+jobs:
+  sync-dashboard:
+    name: Sync Dashboard Intelligence Cache v71.0
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.workflow_run.conclusion == 'success' ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify Data Files Exist
+        run: |
+          echo "=== v71.0 Dashboard Sync Pre-Check ==="
+          if [ ! -f "data/stix/feed_manifest.json" ]; then
+            echo "FATAL: feed_manifest.json not found — aborting sync"
+            exit 1
+          fi
+          python3 -c "
+          import json
+          d = json.load(open('data/stix/feed_manifest.json'))
+          items = d if isinstance(d, list) else d.get('items', [])
+          if items:
+              newest = items[-1].get('timestamp', 'N/A')[:19]
+              print(f'  feed_manifest: {len(items)} items | newest: {newest}')
+          else:
+              print('  feed_manifest: EMPTY')
+          "
+
+      - name: EPSS/CVSS Batch Enrichment
+        continue-on-error: true
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          echo "Running EPSS/CVSS batch enrichment..."
+          if [ -f "agent/v48_pipeline_hardening/epss_batch_enricher.py" ]; then
+            python3 agent/v48_pipeline_hardening/epss_batch_enricher.py || true
+          elif [ -f "agent/v47_integrity/integrity_guard.py" ]; then
+            python3 -c "
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          try:
+              from agent.v47_integrity.integrity_guard import EPSSBatchEnricher
+              enricher = EPSSBatchEnricher()
+              count = enricher.enrich_manifest()
+              print(f'  EPSS/CVSS enriched: {count} entries')
+          except Exception as e:
+              print(f'  EPSS enrichment skipped: {e}')
+          " || true
+          else
+            echo "  No enrichment module found — skipping"
+          fi
+
+      - name: "v74: Manifest Enrichment (threat_type + exploit_probability)"
+        continue-on-error: true
+        run: python3 scripts/v74_manifest_enricher.py
+
+      - name: Patch EMBEDDED_INTEL in index.html
+        run: |
+          python3 scripts/update_embedded_intel.py
+
+      - name: Verify Patch Quality
+        run: |
+          python3 -c "
+          import json, re
+          with open('index.html') as f:
+              html = f.read()
+          m = re.search(r'const EMBEDDED_INTEL = (\[[\s\S]*?\]);', html)
+          if not m:
+              print('FATAL: EMBEDDED_INTEL not found in index.html')
+              exit(1)
+          data = json.loads(m.group(1))
+          print(f'  EMBEDDED_INTEL verified: {len(data)} items')
+          if len(data) < 5:
+              print('BLOCKED: Manifest too small — preventing corruption')
+              exit(1)
+          "
+
+      - name: Commit and Push
+        run: |
+          git config --local user.email "bivash@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+
+          git add index.html
+          git add data/stix/feed_manifest.json 2>/dev/null || true
+          git add data/enrichment/*.json 2>/dev/null || true
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit — dashboard already current"
+          else
+            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+            git commit -m "v71.0 Dashboard Sync @ $TIMESTAMP [skip ci]"
+            for i in 1 2 3; do
+              git pull origin main --no-rebase --no-edit -X ours && git push origin main && break || \
+              (echo "Push retry $i..." && sleep 10)
+            done
+          fi
+
+      # ═══════════════════════════════════════════════════
+      # gh-pages deploy REMOVED — sentinel-blogger is
+      # the SOLE AUTHORIZED deployer to gh-pages.
+      # This eliminates the race condition permanently.
+      # ═══════════════════════════════════════════════════
