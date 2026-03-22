@@ -1,0 +1,14 @@
+{
+  "threat_id": "thr-2e9424ba2dd3",
+  "title": "Metasploit Wrap-Up 03/20/2026",
+  "scripts": [
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx docs\\.metasploit\\.com|leakix\\.net\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-2e9424ba2dd3'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((query IN (\"docs.metasploit.com\",\"leakix.net\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    }
+  ]
+}

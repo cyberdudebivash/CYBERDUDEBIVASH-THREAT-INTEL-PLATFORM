@@ -2,7 +2,7 @@
   "threat_id": "thr-fbeec547efc4",
   "title": "FortiGate Edge Intrusions | Stolen Service Accounts Lead to Rogue Workstations a",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 FortiGate Edge Intrusions | Stolen Service Accounts Lead to \nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/21\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*delete.me*'\n            - '*mail.io*'\n            - '*paswr.zip*'\n            - '*storage.googleapis*'\n            - '*system.admin*'\n            - '*user.local*'\n    condition: selection_ip\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 FortiGate Edge Intrusions | Stolen Service Accounts Lead to \nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/22\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*delete.me*'\n            - '*mail.io*'\n            - '*paswr.zip*'\n            - '*storage.googleapis*'\n            - '*system.admin*'\n            - '*user.local*'\n    condition: selection_ip\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"delete.me\",\n              \"mail.io\",\n              \"paswr.zip\",\n              \"storage.googleapis\",\n              \"system.admin\",\n              \"user.local\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"delete.me\", \"mail.io\", \"paswr.zip\", \"storage.googleapis\", \"system.admin\", \"user.local\")"
   },
