@@ -220,7 +220,9 @@ class RiskScoringEngine:
         v22.0: NOW INCLUDES KEV, supply chain, EPSS tiers, PoC, active exploitation.
         Signature extended with optional kev_present (default False = backward compatible).
         """
-        score = self.weights.get("base_score", 2.0)
+        # v23.0: base_score reduced 2.0→1.0
+        # This prevents articles with zero real threat signals from scoring 4+ from base alone
+        score = 1.0
         text_lower = f"{headline} {content}".lower()
 
         # ── IOC Diversity Scoring (preserved) ──
@@ -338,15 +340,26 @@ class RiskScoringEngine:
             if cve_boost > 0:
                 logger.debug(f"Multi-CVE boost ({len(cve_ids)} CVEs): +{cve_boost}")
 
-        # ── Content-Aware Intelligence Analysis (preserved from v17.0) ──
+        # ── Content-Aware Intelligence Analysis (v23.0 FIXED) ──
+        # v23.0 FIX: Cap content boost when no real IOCs present.
+        # Without this cap, articles with zero IOCs (Google announcements, news roundups)
+        # could reach 8-10 score purely from keyword matching in the article text.
         if headline or content:
             impact = self.extract_impact_metrics(headline, content)
             content_boost = impact["impact_score"]
             if content_boost > 0:
+                # Cap content boost based on IOC presence to prevent keyword inflation
+                real_ioc_count = sum(1 for k in ['sha256','md5','sha1','ipv4','domain','cve']
+                                     if iocs.get(k))
+                if real_ioc_count == 0:
+                    content_boost = min(content_boost, 1.5)  # Hard cap: no IOCs = max +1.5
+                elif real_ioc_count == 1:
+                    content_boost = min(content_boost, 3.0)  # One IOC type = max +3.0
                 score += content_boost
                 logger.info(f"Content intelligence boost: +{content_boost} "
                            f"(records: {impact['records_affected']:,}, "
-                           f"keywords: {len(impact['severity_keywords'])})")
+                           f"keywords: {len(impact['severity_keywords'])}, "
+                           f"ioc_types: {real_ioc_count})")
 
         # ── Cap at maximum ──
         max_score = self.weights.get("max_score", 10.0)
@@ -374,11 +387,42 @@ class RiskScoringEngine:
             return "LOW"
         return "INFO"
 
-    def get_tlp_label(self, risk_score: float) -> Dict[str, str]:
-        for level in ["RED", "AMBER", "GREEN", "CLEAR"]:
-            tlp = TLP_MATRIX[level]
-            if risk_score >= tlp["min_score"]:
-                return {"label": tlp["label"], "color": tlp["color"]}
+    def get_tlp_label(self, risk_score: float,
+                      iocs: Dict = None, kev_present: bool = False,
+                      confirmed_actor: bool = False) -> Dict[str, str]:
+        """
+        v23.0 PERMANENT FIX: TLP classification requires EVIDENCE, not just score.
+        TLP:RED   → score >= 9.0 AND (KEV confirmed OR real IOCs OR confirmed named actor)
+        TLP:AMBER → score >= 7.0 AND (score >= 7.0 from real signals, not content keywords)
+        TLP:GREEN → score >= 4.0
+        TLP:CLEAR → anything else
+
+        This prevents Google product announcements from being classified TLP:RED
+        simply because the AI-generated report text contains scary keywords.
+        """
+        iocs = iocs or {}
+        has_real_iocs = any([
+            iocs.get('sha256'), iocs.get('md5'), iocs.get('sha1'),
+            iocs.get('ipv4'), iocs.get('domain'), iocs.get('cve'),
+        ])
+
+        # TLP:RED — requires confirmed exploitation evidence
+        if risk_score >= 9.0:
+            if kev_present or (has_real_iocs and confirmed_actor):
+                return {"label": "TLP:RED", "color": "#ff3e3e"}
+            # Score is high but no confirmed IOCs — downgrade to AMBER
+            return {"label": "TLP:AMBER", "color": "#ff9f43"}
+
+        # TLP:AMBER — requires real IOCs or CVEs
+        if risk_score >= 7.0:
+            if has_real_iocs or kev_present:
+                return {"label": "TLP:AMBER", "color": "#ff9f43"}
+            return {"label": "TLP:GREEN", "color": "#00e5c3"}
+
+        # TLP:GREEN — low-medium threat with some signals
+        if risk_score >= 4.0:
+            return {"label": "TLP:GREEN", "color": "#00e5c3"}
+
         return {"label": "TLP:CLEAR", "color": "#94a3b8"}
 
     # ══════════════════════════════════════════════════════════════
