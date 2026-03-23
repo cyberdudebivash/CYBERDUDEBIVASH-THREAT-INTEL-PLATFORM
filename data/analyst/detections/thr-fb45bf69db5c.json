@@ -2,7 +2,7 @@
   "threat_id": "thr-fb45bf69db5c",
   "title": "Pro-Russia Hacktivists Conduct Opportunistic Attacks Against US and Global Criti",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Pro-Russia Hacktivists Conduct Opportunistic Attacks Against\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/22\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*cisa.dhs.gov*'\n            - '*cyber.gc.ca*'\n            - '*cyber.gov.au*'\n            - '*ncsc.govt.nz*'\n            - '*nsa.gov*'\n            - '*report.ncsc.gov.uk*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Pro-Russia Hacktivists Conduct Opportunistic Attacks Against\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/23\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*cisa.dhs.gov*'\n            - '*cyber.gc.ca*'\n            - '*cyber.gov.au*'\n            - '*ncsc.govt.nz*'\n            - '*nsa.gov*'\n            - '*report.ncsc.gov.uk*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"cisa.dhs.gov\",\n              \"cyber.gc.ca\",\n              \"cyber.gov.au\",\n              \"ncsc.govt.nz\",\n              \"nsa.gov\",\n              \"report.ncsc.gov.uk\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"cisa.dhs.gov\", \"cyber.gc.ca\", \"cyber.gov.au\", \"ncsc.govt.nz\", \"nsa.gov\", \"report.ncsc.gov.uk\")"
   },
