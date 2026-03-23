@@ -173,6 +173,15 @@ jobs:
             python3 scripts/update_embedded_intel.py || true
           fi
 
+      - name: "Update Sync Marker"
+        continue-on-error: true
+        run: |
+          if [ -f scripts/update_sync_marker.sh ]; then
+            bash scripts/update_sync_marker.sh || true
+          else
+            echo "{\"last_sync\":\"$(date -u +%Y-%m-%dT%H:%M:%S+00:00)\",\"updated_by\":\"sentinel-blogger\"}" > data/sync_marker.json
+          fi
+
 # ================================================================
 # STAGE 3: SAFE GIT SYNC (from v64 — preserved exactly)
 # ================================================================
