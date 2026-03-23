@@ -433,6 +433,67 @@ class RiskScoringEngine:
 
         return {"label": "TLP:CLEAR", "color": "#94a3b8"}
 
+
+    def recalculate_with_nvd(
+        self,
+        base_score: float,
+        cvss_score: float = None,
+        epss_score: float = None,
+        kev_present: bool = False,
+    ) -> float:
+        """
+        v75.5: Recalculate risk score AFTER NVD data is fetched.
+        Call this AFTER _enrich_cve_metadata() to apply real CVSS/EPSS to score.
+
+        This fixes the pipeline ordering bug:
+          Step 5: calculate_risk_score() → base_score (no CVSS yet)
+          Step 7b: _enrich_cve_metadata() → CVSS, EPSS, KEV fetched
+          ← INSERT: recalculate_with_nvd() → final_score with CVSS applied
+
+        Rules:
+          - CVSS 9.0-10.0 → minimum score 8.5 (CRITICAL floor)
+          - CVSS 7.0-8.9  → minimum score 6.5 (HIGH floor)
+          - CVSS 4.0-6.9  → minimum score 4.0 (MEDIUM floor)
+          - EPSS > 0.70   → +2.0 boost (very high exploitation probability)
+          - EPSS > 0.40   → +1.5 boost
+          - EPSS > 0.10   → +0.8 boost
+          - KEV confirmed → +2.5 boost (confirmed exploited in wild)
+          - Never LOWER a score below base_score
+        """
+        score = base_score
+
+        # CVSS floor enforcement — never score below CVSS-derived minimum
+        if cvss_score is not None:
+            if cvss_score >= 9.0:
+                score = max(score, 8.5)   # CRITICAL floor
+                score += self.weights.get('cvss_above_9', 2.0)
+            elif cvss_score >= 7.0:
+                score = max(score, 6.5)   # HIGH floor
+                score += 1.0
+            elif cvss_score >= 4.0:
+                score = max(score, 4.0)   # MEDIUM floor
+                score += 0.5
+
+        # EPSS tiered boost
+        if epss_score is not None:
+            if epss_score >= 0.70:
+                score += self.weights.get('epss_tier_very_high', 1.8)
+            elif epss_score >= 0.40:
+                score += self.weights.get('epss_tier_high', 1.2)
+            elif epss_score >= 0.10:
+                score += self.weights.get('epss_tier_medium', 0.6)
+
+        # KEV confirmed exploited
+        if kev_present:
+            score += self.weights.get('kev_present', 2.5)
+            logger.info(f"KEV CONFIRMED: +{self.weights.get('kev_present', 2.5)} NVD boost")
+
+        final = min(round(score, 1), self.weights.get('max_score', 10.0))
+        if final != base_score:
+            logger.info(f"NVD recalculation: {base_score:.1f} → {final:.1f} "
+                        f"(CVSS={cvss_score}, EPSS={epss_score}, KEV={kev_present})")
+        return final
+
     # ══════════════════════════════════════════════════════════════
     # v17.0 EXTENDED METRICS — SUPPLEMENTARY INTELLIGENCE FIELDS
     # All methods below are ADDITIVE. They do not modify any
