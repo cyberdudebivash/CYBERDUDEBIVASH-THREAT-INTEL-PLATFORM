@@ -422,15 +422,34 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
     actor_mapped = actor_data.get('tracking_id', '').startswith('CDB-')
 
     # ─── STEP 5: Dynamic Risk Scoring (NOW CONTENT-AWARE) ───
+    # v23.0 FIX: Score risk using ONLY the source article text.
+    # The old code used enriched_content which included AI-generated report sections.
+    # Those generated sections contain scary keywords (Zygote, nation-state, firmware)
+    # that inflated scores, creating a self-fulfilling prophecy where the AI wrote
+    # scary content then scored it as CRITICAL. Use source only.
+    _source_for_scoring = (
+        (fetched_article or {}).get('full_text', '') or
+        entry.get('content', '') or
+        entry.get('summary', '') or
+        enriched_content[:2000]  # Fallback: first 2000 chars only
+    )
     risk_score = risk_engine.calculate_risk_score(
         iocs=extracted_iocs,
         mitre_matches=mitre_data,
         actor_data=actor_data,
         headline=headline,
-        content=enriched_content,
+        content=_source_for_scoring,
     )
     severity = risk_engine.get_severity_label(risk_score)
-    tlp = risk_engine.get_tlp_label(risk_score)
+    # v23.0 FIX: Pass evidence to TLP classifier (prevents keyword-inflated TLP:RED)
+    _confirmed_actor = bool(actor_data and
+                            not actor_data.get('tracking_id','').startswith('UNC-'))
+    tlp = risk_engine.get_tlp_label(
+        risk_score,
+        iocs=extracted_iocs,
+        kev_present=kev_present if 'kev_present' in dir() else False,
+        confirmed_actor=_confirmed_actor,
+    )
 
     # Extract impact metrics for report enrichment
     impact_metrics = risk_engine.extract_impact_metrics(headline, enriched_content)
