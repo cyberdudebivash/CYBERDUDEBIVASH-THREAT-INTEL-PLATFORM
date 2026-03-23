@@ -2,7 +2,7 @@
   "threat_id": "thr-ac9730b40b8b",
   "title": "Breaking the Sound Barrier, Part II: Exploiting CVE-2024-54529",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Breaking the Sound Barrier, Part II: Exploiting CVE-2024-545\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/22\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*libdispatch.dylib*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Breaking the Sound Barrier, Part II: Exploiting CVE-2024-545\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/23\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*libdispatch.dylib*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"libdispatch.dylib\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"libdispatch.dylib\")"
   },

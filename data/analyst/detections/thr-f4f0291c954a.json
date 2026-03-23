@@ -2,7 +2,7 @@
   "threat_id": "thr-f4f0291c954a",
   "title": "CISA and USCG Identify Areas for Cyber Hygiene Improvement After Conducting Proa",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 CISA and USCG Identify Areas for Cyber Hygiene Improvement A\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/22\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*machine.config*'\n            - '*mail.cisa.dhs.gov*'\n            - '*uscg.mil*'\n            - '*web.config*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 CISA and USCG Identify Areas for Cyber Hygiene Improvement A\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/23\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*machine.config*'\n            - '*mail.cisa.dhs.gov*'\n            - '*uscg.mil*'\n            - '*web.config*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"machine.config\",\n              \"mail.cisa.dhs.gov\",\n              \"uscg.mil\",\n              \"web.config\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"machine.config\", \"mail.cisa.dhs.gov\", \"uscg.mil\", \"web.config\")"
   },
