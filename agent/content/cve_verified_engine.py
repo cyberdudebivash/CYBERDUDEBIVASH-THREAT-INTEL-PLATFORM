@@ -297,6 +297,161 @@ CWE_DESCRIPTIONS = {
         "mitre_technique": "T1078 (Valid Accounts)",
         "owasp": "A07:2021 – Identification and Authentication Failures",
     },
+    # ── v75.6: Extended CWE coverage ──────────────────────────────
+    "CWE-434": {
+        "name": "Unrestricted Upload of File with Dangerous Type",
+        "description": "The software allows the upload or transfer of dangerous file types that can be processed automatically when used by attackers.",
+        "class": "File Upload Vulnerability",
+        "mitre_technique": "T1505.003 (Web Shell)",
+        "owasp": "A04:2021 – Insecure Design",
+    },
+    "CWE-639": {
+        "name": "Authorization Bypass Through User-Controlled Key (IDOR)",
+        "description": "The system's authorization functionality does not prevent one user from gaining access to another user's data by modifying a key value.",
+        "class": "Broken Access Control / IDOR",
+        "mitre_technique": "T1078 (Valid Accounts)",
+        "owasp": "A01:2021 – Broken Access Control",
+    },
+    "CWE-918": {
+        "name": "Server-Side Request Forgery (SSRF)",
+        "description": "The software receives a URL or similar request parameter and fetches the contents without sufficiently ensuring that the request is being sent to the expected destination.",
+        "class": "SSRF",
+        "mitre_technique": "T1090 (Proxy)",
+        "owasp": "A10:2021 – Server-Side Request Forgery",
+    },
+    "CWE-862": {
+        "name": "Missing Authorization",
+        "description": "The software does not perform an authorization check when an actor attempts to access a resource or perform an action.",
+        "class": "Access Control",
+        "mitre_technique": "T1078 (Valid Accounts)",
+        "owasp": "A01:2021 – Broken Access Control",
+    },
+    "CWE-863": {
+        "name": "Incorrect Authorization",
+        "description": "The software performs an authorization check, but it contains an implementation error preventing it from correctly restricting access.",
+        "class": "Access Control",
+        "mitre_technique": "T1078 (Valid Accounts)",
+        "owasp": "A01:2021 – Broken Access Control",
+    },
+    "CWE-400": {
+        "name": "Uncontrolled Resource Consumption (Resource Exhaustion / DoS)",
+        "description": "The software does not properly control the allocation and maintenance of limited resources, allowing an attacker to exhaust those resources.",
+        "class": "Denial of Service",
+        "mitre_technique": "T1499 (Endpoint Denial of Service)",
+        "owasp": "A04:2021 – Insecure Design",
+    },
+    "CWE-601": {
+        "name": "URL Redirection to Untrusted Site (Open Redirect)",
+        "description": "A web application accepts a user-controlled input that specifies a link to an external site, and uses that link in a redirect.",
+        "class": "Web Application Weakness",
+        "mitre_technique": "T1566.002 (Spearphishing Link)",
+        "owasp": "A01:2021 – Broken Access Control",
+    },
+    "CWE-200": {
+        "name": "Exposure of Sensitive Information to an Unauthorized Actor",
+        "description": "The product exposes sensitive information to an actor that is not explicitly authorized to have access to that information.",
+        "class": "Information Disclosure",
+        "mitre_technique": "T1213 (Data from Information Repositories)",
+        "owasp": "A02:2021 – Cryptographic Failures",
+    },
+    "CWE-502": {
+        "name": "Deserialization of Untrusted Data",
+        "description": "The application deserializes untrusted data without sufficiently verifying that the resulting data will be valid.",
+        "class": "Injection",
+        "mitre_technique": "T1190 (Exploit Public-Facing Application)",
+        "owasp": "A08:2021 – Software and Data Integrity Failures",
+    },
+    "CWE-20": {
+        "name": "Improper Input Validation",
+        "description": "The product receives input or data, but it does not validate that the input has the properties required to process the data safely and correctly.",
+        "class": "Input Validation",
+        "mitre_technique": "T1190 (Exploit Public-Facing Application)",
+        "owasp": "A03:2021 – Injection",
+    },
+    "CWE-276": {
+        "name": "Incorrect Default Permissions",
+        "description": "During installation, installed file permissions are set to allow anyone to modify those files.",
+        "class": "Permissions, Privileges, Access Controls",
+        "mitre_technique": "T1222 (File and Directory Permissions Modification)",
+        "owasp": "A01:2021 – Broken Access Control",
+    },
+    "CWE-284": {
+        "name": "Improper Access Control",
+        "description": "The software does not restrict or incorrectly restricts access to a resource from an unauthorized actor.",
+        "class": "Access Control",
+        "mitre_technique": "T1078 (Valid Accounts)",
+        "owasp": "A01:2021 – Broken Access Control",
+    },
+    "CWE-190": {
+        "name": "Integer Overflow or Wraparound",
+        "description": "The software performs a calculation that can produce an integer overflow or wraparound, when the logic assumes that the resulting value will always be larger than the original value.",
+        "class": "Memory Corruption",
+        "mitre_technique": "T1203 (Exploitation for Client Execution)",
+        "owasp": "A06:2021 – Vulnerable and Outdated Components",
+    },
+    "CWE-125": {
+        "name": "Out-of-Bounds Read",
+        "description": "The software reads data past the end, or before the beginning, of the intended buffer.",
+        "class": "Memory Safety",
+        "mitre_technique": "T1499 (Endpoint Denial of Service)",
+        "owasp": "A06:2021 – Vulnerable and Outdated Components",
+    },
+    "CWE-787": {
+        "name": "Out-of-Bounds Write",
+        "description": "The software writes data past the end, or before the beginning, of the intended buffer.",
+        "class": "Memory Corruption",
+        "mitre_technique": "T1203 (Exploitation for Client Execution)",
+        "owasp": "A06:2021 – Vulnerable and Outdated Components",
+    },
+    "CWE-295": {
+        "name": "Improper Certificate Validation",
+        "description": "The software does not validate, or incorrectly validates, a certificate.",
+        "class": "Cryptography",
+        "mitre_technique": "T1557 (Adversary-in-the-Middle)",
+        "owasp": "A02:2021 – Cryptographic Failures",
+    },
+    "CWE-732": {
+        "name": "Incorrect Permission Assignment for Critical Resource",
+        "description": "The product specifies permissions for a security-critical resource in a way that allows that resource to be read or modified by unintended actors.",
+        "class": "Permissions, Privileges, Access Controls",
+        "mitre_technique": "T1222 (File and Directory Permissions Modification)",
+        "owasp": "A01:2021 – Broken Access Control",
+    },
+    "CWE-338": {
+        "name": "Use of Cryptographically Weak Pseudo-Random Number Generator",
+        "description": "The product uses a pseudo-random number generator (PRNG) in a security context, but the PRNG's algorithm is not cryptographically strong.",
+        "class": "Cryptography",
+        "mitre_technique": "T1552 (Unsecured Credentials)",
+        "owasp": "A02:2021 – Cryptographic Failures",
+    },
+    "CWE-327": {
+        "name": "Use of a Broken or Risky Cryptographic Algorithm",
+        "description": "The use of a broken or risky cryptographic algorithm is an unnecessary risk that may result in the exposure of sensitive information.",
+        "class": "Cryptography",
+        "mitre_technique": "T1040 (Network Sniffing)",
+        "owasp": "A02:2021 – Cryptographic Failures",
+    },
+    "CWE-77": {
+        "name": "Command Injection",
+        "description": "The software constructs all or part of a command using externally-influenced input, but it does not neutralize elements that could modify the intended command.",
+        "class": "Injection",
+        "mitre_technique": "T1059 (Command and Scripting Interpreter)",
+        "owasp": "A03:2021 – Injection",
+    },
+    "CWE-78": {
+        "name": "OS Command Injection",
+        "description": "The software constructs all or part of an OS command using externally-influenced input, but it does not neutralize elements that could modify the intended OS command.",
+        "class": "Injection",
+        "mitre_technique": "T1059 (Command and Scripting Interpreter)",
+        "owasp": "A03:2021 – Injection",
+    },
+    "CWE-1321": {
+        "name": "Improperly Controlled Modification of Object Prototype Attributes (Prototype Pollution)",
+        "description": "The software receives input from an upstream component that specifies attributes that are to be initialized or updated in an object, but it does not properly control modifications of attributes of the object prototype.",
+        "class": "Injection",
+        "mitre_technique": "T1190 (Exploit Public-Facing Application)",
+        "owasp": "A03:2021 – Injection",
+    },
 }
 
 def get_cwe_info(cwe_id: str) -> Dict[str, str]:
@@ -759,6 +914,7 @@ class CVEReportEngine:
             <span style="{s['badge']}background:{sev_col}15;color:{sev_col};">CVSS {score_display}</span>
             <span style="{s['badge']}background:{C.get('cyber_blue','#3b82f6')}15;color:{C.get('cyber_blue','#3b82f6')};border:1px solid {C.get('border','#2d2d2d')};RISK {risk_score}/10</span>
             <span style="{s['badge']}background:#16a34a22;color:#16a34a;">✓ NVD-VERIFIED</span>
+            {self._patch_badge(facts, s)}
             <span style="{s['badge']}background:#11111180;color:{C.get('text_muted','#888')};border:1px solid {C.get('border','#2d2d2d')};">⚠️ Vulnerability Disclosure</span>
         </div>
 
@@ -862,16 +1018,19 @@ class CVEReportEngine:
                 </tr>
                 <tr>
                     <td style="{s['td']}"><b>Intelligence Confidence</b></td>
-                    <td style="{s['td']}">High — NVD Analyzed status, researcher-attributed</td>
+                    <td style="{s['td']}">{
+                        "High — NVD Analyzed status, researcher-attributed" if facts.status == "Analyzed"
+                        else "Medium — NVD entry received, awaiting full analysis. Consult vendor advisory for confirmation."
+                        if facts.status == "Received"
+                        else f"Medium — NVD status: {facts.status}. Verify with vendor advisory."
+                    }</td>
                     <td style="{s['td']}color:{self.C.get('text_muted','#888')};font-size:12px;">CDB-GOC Assessment</td>
                 </tr>
             </table>
         </div>
         <p style="{s['p']}">
             <b>Business Risk Implications:</b>
-            Organizations and individuals deploying the affected software version(s) are the
-            primary affected population. Security teams should consult the NVD entry and
-            vendor advisory links in the References section for authoritative remediation guidance.
+            {self._derive_business_risk(facts)}
         </p>
 """
 
@@ -1241,7 +1400,7 @@ class CVEReportEngine:
                 Based on the CVSS vector and CWE classification, threat actors aware of this
                 vulnerability may attempt exploitation in targeted attack chains. Organizations
                 should monitor for indicators consistent with the exploitation techniques
-                mapped in Section 7.
+                described in the MITRE ATT&CK mapping in the Detection section.
             </p>
             <p style="{s['p']}">
                 These scenarios are analytical hypotheses based on the vulnerability class and CVSS
@@ -1306,7 +1465,7 @@ class CVEReportEngine:
             network_detection = f"""
             <p style="{s['p']}">
                 Detection strategies should be tailored to the vulnerability class ({', '.join(cwes)}).
-                Consult the MITRE ATT&CK techniques mapped in Section 7 for specific detection
+                Consult the MITRE ATT&CK techniques in the table below for specific detection
                 opportunities aligned to the threat model.
             </p>"""
 
@@ -1595,6 +1754,83 @@ class CVEReportEngine:
 </div>
 """
 
+
+    # ── v75.6 ENHANCEMENT METHODS ────────────────────────────────────────────
+
+    def _patch_badge(self, facts: "CVEFacts", s: dict) -> str:
+        """Render patch availability badge based on NVD references."""
+        refs = facts.references or []
+        patch_signals = ['commit', 'patch', 'fix', 'advisory', 'release', 'security']
+        has_patch = bool(refs) and any(
+            any(sig in str(r).lower() for sig in patch_signals) for r in refs
+        )
+        if has_patch:
+            return f'<span style="{s["badge"]}background:#16a34a22;color:#16a34a;">✅ PATCH AVAILABLE</span>'
+        return f'<span style="{s["badge"]}background:#dc262622;color:#dc2626;">⚠ PATCH STATUS UNKNOWN</span>'
+
+    def _derive_business_risk(self, facts: "CVEFacts") -> str:
+        """Generate product-specific business risk from NVD description."""
+        import re as _re
+        desc = facts.description or ""
+        cvss = facts.cvss_score or 0
+        sev = facts.cvss_severity or "Unknown"
+        cwe = facts.cwes[0] if facts.cwes else ""
+        av = getattr(facts, 'attack_vector', 'NETWORK')
+        pr = getattr(facts, 'privileges_required', 'NONE')
+
+        # Extract product name from NVD description
+        product_match = _re.match(
+            r'^([^.]{3,60}?)(?:\s+is\s+|\s+has\s+|\s+contains\s+|\s+version|\s+before\s+)',
+            desc, _re.IGNORECASE)
+        product = product_match.group(1).strip() if product_match else "the affected software"
+        if len(product) > 60:
+            product = "the affected software"
+
+        auth_ctx = "without authentication" if str(pr) in ("NONE", "N") else "with low-privilege credentials"
+
+        impact_map = {
+            "CWE-89":  f"An attacker can inject arbitrary SQL to extract all database contents from {product}, including credentials, API keys, and sensitive records.",
+            "CWE-434": f"Unrestricted file upload enables persistent web shell placement, leading to full remote code execution on {product} servers.",
+            "CWE-79":  f"Cross-site scripting enables session hijacking and credential theft from {product} users.",
+            "CWE-78":  f"OS command injection grants arbitrary command execution with the privileges of the {product} web server process.",
+            "CWE-77":  f"Command injection enables arbitrary code execution within the {product} application context.",
+            "CWE-22":  f"Path traversal allows attackers to read sensitive files outside the web root on {product} systems.",
+            "CWE-639": f"IDOR allows authenticated attackers to access or modify other users' private data within {product}.",
+            "CWE-918": f"SSRF enables attackers to reach internal services and cloud metadata endpoints via {product} servers.",
+            "CWE-862": f"Missing authorization exposes privileged {product} functionality to unauthenticated attackers.",
+            "CWE-306": f"Missing authentication allows unauthenticated access to critical {product} functionality.",
+            "CWE-352": f"CSRF allows attackers to perform state-changing actions on {product} on behalf of authenticated users.",
+            "CWE-200": f"Sensitive data including credentials and PII may be exposed to unauthorized users of {product}.",
+        }
+        impact = impact_map.get(cwe, f"This {sev.lower()}-severity vulnerability in {product} requires immediate remediation.")
+
+        exposure = "internet-facing" if str(av) in ("NETWORK", "N") else "locally accessible"
+        urgency = "Patch immediately — apply vendor fix before next maintenance window." if cvss >= 7.0 else "Apply vendor patch within your scheduled maintenance window."
+
+        return (
+            f"Organizations running {exposure} {product} deployments are at risk. "
+            f"An attacker can exploit this vulnerability {auth_ctx}. {impact} "
+            f"{urgency} Consult the vendor advisory in Section 9 for affected versions and patch instructions."
+        )
+
+    def _yara_strings_for_cwe(self, facts: "CVEFacts") -> str:
+        """Generate CWE-specific YARA detection strings."""
+        cwe = facts.cwes[0] if facts.cwes else ""
+        cwe_strings = {
+            "CWE-89":  '        $vuln_sqli_1 = "UNION SELECT" ascii nocase\n        $vuln_sqli_2 = "OR 1=1" ascii nocase\n        $vuln_sqli_3 = "DROP TABLE" ascii nocase',
+            "CWE-434": '        $vuln_upload_1 = "<?php" ascii\n        $vuln_upload_2 = ".php" ascii\n        $vuln_upload_3 = "exec(" ascii nocase',
+            "CWE-79":  '        $vuln_xss_1 = "<script>" ascii nocase\n        $vuln_xss_2 = "javascript:" ascii nocase\n        $vuln_xss_3 = "onerror=" ascii nocase',
+            "CWE-78":  '        $vuln_cmdi_1 = "; id" ascii\n        $vuln_cmdi_2 = "| whoami" ascii\n        $vuln_cmdi_3 = "cat /etc/passwd" ascii',
+            "CWE-22":  '        $vuln_trav_1 = "../../../" ascii\n        $vuln_trav_2 = "%2e%2e%2f" ascii nocase\n        $vuln_trav_3 = "etc/passwd" ascii',
+            "CWE-918": '        $vuln_ssrf_1 = "169.254.169.254" ascii\n        $vuln_ssrf_2 = "localhost" ascii\n        $vuln_ssrf_3 = "file://" ascii nocase',
+            "CWE-639": '        $vuln_idor_1 = "user_id=" ascii\n        $vuln_idor_2 = "account_id=" ascii\n        $vuln_idor_3 = "id=" ascii',
+        }
+        cve_str = f'        $cve_ref = "{facts.cve_id}" ascii nocase'
+        cwe_specific = cwe_strings.get(cwe, "")
+        if cwe_specific:
+            return f"{cve_str}\n{cwe_specific}"
+        return cve_str
+
     # ── main entry point ──────────────────────────────────────────────────────
 
     def generate(
@@ -1626,6 +1862,29 @@ class CVEReportEngine:
             self._section_10_confidence_assessment(facts, confidence, report_id),
         ]
 
+        # v75.6: schema.org TechArticle JSON-LD for SEO
+        try:
+            from datetime import datetime as _sdt, timezone as _stz
+            _sc = facts.cve_id or ""
+            _st = self._derive_title(facts).replace('"', "'")
+            _sv = str(facts.cvss_score or "")
+            _ss = str(facts.cvss_severity or "")
+            _sw = ", ".join(facts.cwes) if facts.cwes else ""
+            _sd = _sdt.now(_stz.utc).strftime("%Y-%m-%d")
+            schema_ld = (
+                '<script type="application/ld+json">{"@context":"https://schema.org",'
+                '"@type":"TechArticle","headline":"' + _sc + ' - ' + _st + '",'
+                '"description":"NVD-verified CVE advisory. CVSS ' + _sv + ' (' + _ss + ').",'
+                '"author":{"@type":"Organization","name":"CyberDudeBivash GOC"},'
+                '"publisher":{"@type":"Organization","name":"CyberDudeBivash Pvt. Ltd.",'
+                '"url":"https://www.cyberdudebivash.com"},'
+                '"datePublished":"' + _sd + '",'
+                '"keywords":"' + _sc + ', ' + _sw + ', cybersecurity, vulnerability, CVE"}'
+                '</script>'
+            )
+            sections.insert(0, schema_ld)
+        except Exception:
+            pass
         return "\n".join(sections)
 
 
