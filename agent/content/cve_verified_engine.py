@@ -818,7 +818,7 @@ class CVEReportEngine:
                 published on {self._format_date(facts.published)} with a CVSS {facts.cvss_version}
                 base score of <b style="color:{sev_col};">{score_display}</b>.
                 The vulnerability is classified under <b>{', '.join(facts.cwes)}</b>
-                ({cwe_display}) and affects Rakuten Viber's Cloak proxy mode.
+                ({cwe_display}).
                 {platform_note}
             </p>
         </div>
@@ -869,11 +869,9 @@ class CVEReportEngine:
         </div>
         <p style="{s['p']}">
             <b>Business Risk Implications:</b>
-            Organizations and individuals deploying Rakuten Viber with Cloak proxy mode enabled
-            for censorship circumvention are the primary affected population. The vulnerability
-            does not affect standard Viber messaging functionality and is scoped specifically to
-            the proxy traffic obfuscation capability. Deployment of updated Viber versions as
-            specified in the vendor advisory is the recommended remediation path.
+            Organizations and individuals deploying the affected software version(s) are the
+            primary affected population. Security teams should consult the NVD entry and
+            vendor advisory links in the References section for authoritative remediation guidance.
         </p>
 """
 
@@ -1149,7 +1147,7 @@ class CVEReportEngine:
                     "The use of a static, predictable TLS ClientHello fingerprint (CWE-327) means that "
                     "Deep Packet Inspection (DPI) systems can identify the proxy traffic without breaking encryption. "
                     "The encryption itself is not compromised — the <em>identifiability</em> of the traffic is the security failure. "
-                    "Users in regions with active DPI-capable censorship infrastructure face loss of proxy traffic obfuscation."
+                    "Users in regions with active DPI-capable censorship infrastructure face detection of protocol-specific traffic patterns."
                 )
             elif cwe == "CWE-200":
                 cwe_implications.append("Sensitive information may be exposed to unauthorized parties.")
@@ -1198,14 +1196,13 @@ class CVEReportEngine:
             Based on the verified technical scope, the following user populations are affected:
         </p>
         <ul style="{s['ul']}">
-            <li>Users of Rakuten Viber on Android and Windows platforms who have Cloak proxy mode enabled</li>
-            <li>Users in regions where censorship circumvention via proxy is operationally relevant</li>
-            <li>Organizations deploying Viber as an enterprise communication platform with proxy configurations</li>
+            <li>Organizations running affected versions of the software described in the NVD entry</li>
+            <li>Users or administrators with access to the affected component or endpoint</li>
+            <li>Systems where the affected software is internet-facing or accessible by untrusted users</li>
         </ul>
         <p style="{s['p']}">
-            Standard Viber users not utilizing Cloak proxy mode are not directly affected by this
-            specific vulnerability. The vulnerability is isolated to the proxy traffic obfuscation
-            component, not the core messaging functionality.
+            Consult the NVD entry and vendor advisory for the definitive list of affected versions.
+            Systems that have applied the vendor patch or mitigation are not affected.
         </p>
 """
 
@@ -1226,7 +1223,7 @@ class CVEReportEngine:
             <p style="{s['p']}">
                 <b>Hypothesis 2 — Passive Traffic Identification:</b>
                 Network adversaries with access to traffic flows (man-in-the-middle position on
-                shared networks) could use the predictable TLS fingerprint to identify Viber Cloak
+                shared networks) could use predictable fingerprints to identify traffic from this software
                 proxy sessions without decrypting them, enabling targeted monitoring or disruption.
             </p>
             <p style="{s['p']}">
@@ -1296,7 +1293,7 @@ class CVEReportEngine:
             </p>
             <p style="{s['p']}">
                 <b>JA3 Fingerprinting:</b> Deploy JA3 TLS fingerprinting at network egress points.
-                Monitor for repetitive, static JA3 hashes from Viber Cloak proxy connections
+                Monitor for exploitation indicators specific to the affected component (see CVSS vector for attack surface)
                 that lack extension diversity. Normal TLS stacks produce varied JA3 hashes across
                 different connection contexts.
             </p>
@@ -1376,17 +1373,17 @@ class CVEReportEngine:
                 https://www.kb.cert.org/vuls/id/772695</code> for patched version information.
             </li>
             <li><b>Operational — Verify Proxy Cloak Mode Security:</b>
-                If Viber Cloak proxy mode is used for censorship circumvention, verify that the
+                If the affected software component is actively used, verify that the
                 deployed version implements TLS ClientHello extension diversity before relying on
                 it for traffic obfuscation in adversarial network environments.
             </li>
             <li><b>Alternative Obfuscation Tools:</b>
                 In high-risk environments where TLS fingerprinting is a known threat, consider
-                supplementing or replacing the Viber Cloak proxy with obfuscation tools that
+                Consider supplementing or replacing the affected component with alternatives that
                 implement randomized TLS extension sets (e.g., obfs4, meek, or QUIC-based proxies).
             </li>
             <li><b>Network Monitoring:</b>
-                Security teams managing networks used for censorship circumvention operations
+                Security teams managing networks with the affected software
                 should deploy TLS fingerprinting analysis (JA3/JA3S) to detect and alert on
                 low-diversity ClientHello patterns in proxy traffic.
             </li>
