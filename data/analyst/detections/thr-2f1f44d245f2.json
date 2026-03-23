@@ -1,0 +1,16 @@
+{
+  "threat_id": "thr-2f1f44d245f2",
+  "title": "CVE-2026-4567 - Tenda A15 UploadCfg stack-based overflow",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-4567 - Tenda A15 UploadCfg stack-based overflow\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/23\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '15.13.07.13'\n    condition: selection_ip\nlevel: high",
+    "suricata": [
+      "alert ip any any -> 15.13.07.13 any (msg:\"CDB APEX \u2014 CVE_2026_4567___Tenda_A15_Uplo\"; sid:2435636; rev:1;)"
+    ],
+    "snort": [
+      "alert ip any any -> 15.13.07.13 any (msg:\"CDB APEX CVE_2026_4567___Tenda_A15_Uplo\"; sid:5005865; rev:1;)"
+    ],
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"15.13.07.13\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteIP in (\"15.13.07.13\")"
+  },
+  "rule_count": 5
+}
