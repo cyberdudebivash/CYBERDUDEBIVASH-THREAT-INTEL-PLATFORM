@@ -537,6 +537,8 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
                         confirmed_actor=_confirmed_actor,
                     )
                     logger.info(f"  → NVD-updated: Risk={risk_score}/10 | Severity={severity} | TLP={tlp.get('label')}")
+                    # v75.6: Rebuild smart labels with updated severity for correct Blogger post tags
+                    labels = _generate_smart_labels(headline, severity, tlp, feed_source, extracted_iocs)
         except Exception as _cve_e:
             logger.debug(f"CVE enrichment skipped (non-critical): {_cve_e}")
 
