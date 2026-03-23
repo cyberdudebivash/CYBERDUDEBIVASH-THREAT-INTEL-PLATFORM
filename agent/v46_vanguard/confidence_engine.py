@@ -40,7 +40,7 @@ logger = logging.getLogger("CDB-CONFIDENCE")
 class ConfidenceResult:
     """Structured confidence assessment."""
     score: float = 0.0
-    label: str = "UNVERIFIED"
+    label: str = "PRELIMINARY"  # v75.5: default updated to PRELIMINARY
     dimensions: Dict[str, float] = field(default_factory=dict)
     rationale: str = ""
 
@@ -270,6 +270,10 @@ class ConfidenceEngine:
         if kev_present:
             score += 25.0  # CISA confirmed
 
+        # v75.5: NVD-verified floor — when CVE_VERIFICATION is high (NVD data present),
+        # ensure minimum confidence of 30% (ANALYST ASSESSED)
+        if score < 30.0 and kev_present:
+            score = max(score, 45.0)  # KEV = confirmed exploited = at least MODERATE
         return min(score, 100.0)
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -277,13 +281,16 @@ class ConfidenceEngine:
     # ══════════════════════════════════════════════════════════════════════════
 
     def _label(self, score: float) -> str:
+        """v75.5: Confidence label mapping."""
         if score >= 80.0:
-            return "HIGH"
+            return "HIGH CONFIDENCE"
         elif score >= 55.0:
-            return "MODERATE"
+            return "MODERATE CONFIDENCE"
         elif score >= 30.0:
-            return "LOW"
-        return "UNVERIFIED"
+            return "ANALYST ASSESSED"
+        elif score >= 15.0:
+            return "PRELIMINARY"  # NVD-sourced but limited signals
+        return "PRELIMINARY"  # v75.5: replaced with PRELIMINARY
 
     def _build_rationale(self, dims: Dict[str, float], total: float) -> str:
         """Build human-readable rationale string."""
