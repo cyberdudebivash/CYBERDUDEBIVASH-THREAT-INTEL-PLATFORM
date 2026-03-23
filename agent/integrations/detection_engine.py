@@ -13,12 +13,127 @@ from typing import Dict, List
 class DetectionEngine:
     """Enterprise-grade automated detection rule synthesis."""
 
+    def _detect_threat_platform(self, title: str, iocs: Dict) -> str:
+        """v23.0: Detect the platform this threat targets — windows/android/linux/web/network"""
+        text = title.lower()
+        cves = iocs.get('cve', [])
+        # Mobile/Android
+        mobile_signals = ['android', 'apk', 'mobile malware', 'zygote', 'triada',
+                         'badbox', 'vo1d', 'keenadu', 'sideload', 'bootloader',
+                         'google play', 'play store malware', 'flubot', 'cerberus']
+        if any(s in text for s in mobile_signals):
+            return 'android'
+        # Linux
+        linux_signals = ['linux', 'ubuntu', 'debian', 'centos', 'rhel', 'kernel exploit',
+                        'bash', 'ssh exploit', 'rootkit linux']
+        if any(s in text for s in linux_signals):
+            return 'linux'
+        # Web/Network
+        web_signals = ['web shell', 'sql injection', 'xss', 'csrf', 'ssrf',
+                      'phishing', 'credential harvest', 'c2', 'botnet']
+        if any(s in text for s in web_signals) and not any(w in text for w in ['windows', 'endpoint']):
+            return 'web'
+        # Default: Windows (most enterprise threats)
+        return 'windows'
+
     def generate_sigma_rule(self, title: str, iocs: Dict) -> str:
         """
-        Generates a production-ready, SIEM-agnostic Sigma rule.
-        Enhanced: Handles multiple IOC types, produces valid rules
-        even with empty IOCs using behavioral patterns.
+        v23.0: Platform-aware Sigma rule generation.
+        Android threats → Android/mobile detection, NOT Windows powershell rules.
+        Generates meaningful detection rules matched to the actual threat platform.
         """
+        platform = self._detect_threat_platform(title, iocs)
+        if platform == 'android':
+            return self._generate_android_sigma_rule(title, iocs)
+        return self._generate_windows_sigma_rule(title, iocs)
+
+    def _generate_android_sigma_rule(self, title: str, iocs: Dict) -> str:
+        """Generate Android/mobile-specific Sigma detection rule."""
+        import yaml
+        safe_title = re.sub(r'[^a-zA-Z0-9 _-]', '', title)[:80]
+        date_str = datetime.now(timezone.utc).strftime('%Y/%m/%d')
+        apks = iocs.get('artifacts', [])
+        hashes = iocs.get('sha256', []) + iocs.get('md5', [])
+
+        rules = []
+        # Android MDM/SIEM detection
+        rule = {
+            'title': f'CDB-Sentinel: {safe_title} - Android Threat Detection',
+            'id': f'cdb-android-{abs(hash(title)) % 999999:06d}',
+            'status': 'experimental',
+            'description': f'Detects Android-platform threat activity associated with: {safe_title}.',
+            'author': 'CyberDudeBivash GOC (Automated)',
+            'date': date_str,
+            'tags': ['attack.t1476', 'attack.t1475', 'attack.mobile'],
+            'logsource': {'product': 'android', 'category': 'application'},
+            'detection': {
+                'selection_install': {
+                    'event_type': ['PACKAGE_INSTALL', 'PACKAGE_ADDED'],
+                    'source|contains': ['sideload', 'unknown_source', 'adb'],
+                },
+                'condition': 'selection_install',
+            },
+            'falsepositives': ['Legitimate enterprise app deployment via MDM', 'Developer devices'],
+            'level': 'medium',
+        }
+        if hashes:
+            rule['detection']['selection_hash'] = {'file_hash|contains': hashes[:5]}
+            rule['detection']['condition'] = 'selection_install or selection_hash'
+        rules.append(yaml.dump(rule, default_flow_style=False, sort_keys=False))
+
+        # Network rule if domains/IPs present
+        domains = iocs.get('domain', [])
+        ips = iocs.get('ipv4', [])
+        if domains or ips:
+            net_rule = {
+                'title': f'CDB-Sentinel: {safe_title} - C2 Network Indicators',
+                'id': f'cdb-android-net-{abs(hash(title+"net")) % 999999:06d}',
+                'status': 'experimental',
+                'description': f'Detects C2 communication from Android threat: {safe_title}.',
+                'author': 'CyberDudeBivash GOC (Automated)',
+                'date': date_str,
+                'tags': ['attack.command_and_control'],
+                'logsource': {'category': 'dns', 'product': 'any'},
+                'detection': {
+                    'selection': {'query|contains': (domains + ips)[:8]},
+                    'condition': 'selection',
+                },
+                'falsepositives': ['Legitimate app CDN domains'],
+                'level': 'high',
+            }
+            rules.append(yaml.dump(net_rule, default_flow_style=False, sort_keys=False))
+
+        return '\n---\n'.join(rules) if rules else self._generate_no_ioc_android_sigma(title, date_str)
+
+    def _generate_no_ioc_android_sigma(self, title: str, date_str: str) -> str:
+        """Behavioral Android detection when no IOCs available."""
+        import yaml
+        safe_title = re.sub(r'[^a-zA-Z0-9 _-]', '', title)[:80]
+        rule = {
+            'title': f'CDB-Sentinel: {safe_title} - Behavioral Android Detection',
+            'id': f'cdb-android-beh-{abs(hash(title+"beh")) % 999999:06d}',
+            'status': 'experimental',
+            'description': f'Behavioral detection for Android threat: {safe_title}.',
+            'author': 'CyberDudeBivash GOC (Automated)',
+            'date': date_str,
+            'tags': ['attack.t1476', 'attack.persistence'],
+            'logsource': {'product': 'android', 'category': 'application'},
+            'detection': {
+                'selection_suspicious': {
+                    'event_type': 'PACKAGE_INSTALL',
+                    'install_source': 'sideload',
+                    'permissions|contains': ['READ_SMS', 'RECEIVE_SMS', 'READ_CONTACTS',
+                                             'PROCESS_OUTGOING_CALLS', 'ACCESS_FINE_LOCATION'],
+                },
+                'condition': 'selection_suspicious',
+            },
+            'falsepositives': ['Legitimate apps with SMS access (banking, 2FA apps)'],
+            'level': 'medium',
+        }
+        return yaml.dump(rule, default_flow_style=False, sort_keys=False)
+
+    def _generate_windows_sigma_rule(self, title: str, iocs: Dict) -> str:
+        """Original Windows sigma rule logic (formerly generate_sigma_rule)."""
         domains = iocs.get('domain', [])
         ips = iocs.get('ipv4', [])
         urls = iocs.get('url', [])
