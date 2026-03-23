@@ -46,6 +46,44 @@ class PremiumReportGenerator:
         seq = hashlib.sha256(str(time.time()).encode()).hexdigest()[:4].upper()
         return f"CDB-APEX-{ts}-{seq}"
 
+
+    def _is_confirmed_mobile_malware(self, headline: str, text: str) -> bool:
+        """
+        v23.0: Returns True ONLY for confirmed mobile MALWARE stories.
+        Returns False for feature announcements, security improvements, news about
+        Google/Apple improving Android/iOS security.
+
+        The old code triggered Zygote/firmware hallucination for ANY article
+        mentioning 'android' or 'mobile' — including "Google makes Android safer".
+        """
+        combined = f"{headline} {text}".lower()
+
+        # ── INSTANT DISQUALIFIERS — these are product news, not malware ──────
+        disqualifiers = [
+            "will make", "makes it safer", "making android safer",
+            "sideloading safer", "advanced flow", "safer sideloading",
+            "improving security", "new security feature", "security update for",
+            "google announces", "apple announces", "rolling out",
+            "play protect update", "android update", "ios update",
+            "week in security", "security roundup", "a week in",
+        ]
+        if any(d in combined for d in disqualifiers):
+            return False
+
+        # ── CONFIRMATION REQUIRED: Must have malware-specific signals ─────────
+        malware_confirmed_signals = [
+            "preinstalled malware", "firmware backdoor", "zygote",
+            "system partition", "triada", "badbox", "vo1d", "keenadu",
+            "mobile malware", "android malware", "apk malware",
+            "malicious apk", "android trojan", "android botnet",
+            "counterfeit device", "fake android", "trojanized app",
+            "banking trojan", "cerberus", "flubot", "sharkbot", "medusa",
+            "anubis malware", "joker malware", "harly malware",
+            "sideloaded malware", "malicious sideload",
+        ]
+        confirmed = any(s in combined for s in malware_confirmed_signals)
+        return confirmed
+
     def _classify_threat_type(self, headline: str, content: str) -> Dict:
         """Classify the threat type from headline and content for contextual generation."""
         text = f"{headline} {content}".lower()
@@ -989,10 +1027,8 @@ class PremiumReportGenerator:
                 through cloud services or compromised infrastructure to blend with normal traffic."""
         elif 'malware' in cat:
             # v15.0: Mobile malware detection
-            is_mobile = ('mobile' in cat or 'android' in cat or
-                         any(w in headline_lower for w in ['android', 'mobile', 'apk', 'firmware',
-                                                           'zygote', 'bootloader', 'triada',
-                                                           'keenadu', 'badbox', 'vo1d']))
+            # v23.0 FIX: Use confirmed malware check, not keyword match
+            is_mobile = self._is_confirmed_mobile_malware(headline, text if text else source_content if hasattr(self, '_current_source') else "")
             if is_mobile:
                 chain = f"""This campaign targets the Android mobile ecosystem through firmware-level
                 compromise of devices during the manufacturing or distribution supply chain. The malware
@@ -1055,9 +1091,8 @@ class PremiumReportGenerator:
         elif 'phishing' in cat:
             return "[Phishing Lure] → [User Interaction] → [Payload Delivery] → [Execution] → [Persistence] → [C2 Communication] → [Credential Theft / Data Exfiltration]"
         elif 'malware' in cat:
-            is_mobile = ('mobile' in cat or 'android' in cat or
-                         any(w in headline_lower for w in ['android', 'mobile', 'apk', 'firmware',
-                                                           'zygote', 'triada', 'keenadu', 'badbox', 'vo1d']))
+            # v23.0 FIX: Use confirmed malware check
+            is_mobile = self._is_confirmed_mobile_malware(headline, headline_lower)
             if is_mobile:
                 return "[Supply Chain / Firmware Injection] → [System Partition Compromise] → [Zygote Process Hooking] → [App-Level Code Injection] → [Credential Interception] → [SMS/OTP Hijacking] → [Botnet Enrollment] → [Data Exfiltration via C2]"
             else:
@@ -1111,9 +1146,8 @@ class PremiumReportGenerator:
 
         # v14.0+v15.0: Category-specific payload analysis
         # v15.0: Check mobile FIRST before generic malware
-        is_mobile = ('mobile' in cat or 'android' in cat or
-                     any(w in headline.lower() for w in ['android', 'mobile', 'apk', 'firmware',
-                                                         'zygote', 'triada', 'keenadu', 'badbox', 'vo1d']))
+        # v23.0 FIX: Must confirm actual mobile MALWARE, not feature announcement
+        is_mobile = self._is_confirmed_mobile_malware(headline, text)
         if is_mobile:
             analysis += f"""</p><p style="{s['p']}">This mobile malware operates at the firmware level, embedding itself
             into Android system partitions that persist across factory resets. The primary persistence mechanism
