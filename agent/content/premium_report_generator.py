@@ -284,7 +284,13 @@ class PremiumReportGenerator:
         #
         # Zero regression: non-CVE reports bypass this gate entirely.
         # ══════════════════════════════════════════════════════════════════════
-        _cve_ids = self._extract_mentioned_cves(f"{headline} {source_content}")
+        # v75.3 FIX: CVE engine only fires when CVE is in the HEADLINE (primary subject).
+        # Old code fired when CVE was merely mentioned in body text — "The phone call is
+        # the new phishing email" mentioned CVE-2025-31324 in body → generated wrong SAP report.
+        _cve_ids_title = self._extract_mentioned_cves(headline)
+        # Also accept when article starts with CVE (feed title = CVE ID)
+        _cve_ids_body_start = self._extract_mentioned_cves(source_content.strip()[:100])
+        _cve_ids = _cve_ids_title or _cve_ids_body_start
         if _cve_ids and _cve_engine_available and _generate_cve_verified_report:
             try:
                 _cve_report = _generate_cve_verified_report(
@@ -365,8 +371,8 @@ class PremiumReportGenerator:
             <span style="{s['badge']}background:{sev_color}22;color:{sev_color};">{severity}</span>
             <span style="{s['badge']}background:{tlp_color}22;color:{tlp_color};">{tlp_label}</span>
             <span style="{s['badge']}background:{COLORS['accent']}15;color:{COLORS['accent']};">RISK {risk_score}/10</span>
-            <span style="{s['badge']}background:{COLORS['cyber_purple']}15;color:{COLORS['cyber_purple']};">CONFIDENCE {confidence}%</span>
-            <span style="{s['badge']}background:{COLORS['cyber_blue']}15;color:{COLORS['cyber_blue']};">ACTOR {tracking_id}</span>
+            <span style="{s['badge']}background:{COLORS['cyber_purple']}15;color:{COLORS['cyber_purple']};">{ 'VERIFIED' if confidence >= 85 else 'HIGH CONFIDENCE' if confidence >= 70 else 'ANALYST ASSESSED' if confidence >= 40 else 'PRELIMINARY INTEL'}</span>
+            <span style="{s['badge']}background:{COLORS['cyber_blue']}15;color:{COLORS['cyber_blue']};">{ ', '.join(actor_profile.get('alias',[tracking_id])[:1]) if not actor_profile.get('_is_unknown') else 'UNATTRIBUTED'}</span>
             {'<span style="' + s['badge'] + 'background:' + COLORS['cyber_pink'] + '15;color:' + COLORS['cyber_pink'] + ';">IMPACT: ' + f"{impact.get('records_affected', 0):,}" + ' RECORDS</span>' if impact.get('records_affected', 0) > 0 else ''}
             <span style="{s['badge']}background:#11111180;color:{COLORS['text_muted']};border:1px solid {COLORS['border']};">
                 {threat_type['icon']} {threat_type['category']}</span>
@@ -464,12 +470,21 @@ class PremiumReportGenerator:
             </table>
         </div>
         <p style="{s['p']}"><b>Attribution Reconciliation:</b> The CyberDudeBivash GOC employs an
-            institutional tracking framework (<b>{tracking_id}</b>) for internal campaign correlation
-            and continuity. This identifier maps to the community-recognized designations listed under
-            Aliases above, as reported by OSINT researchers and threat intelligence vendors including
-            Mandiant, CrowdStrike, Microsoft, and Group-IB. Organizations may use either the CDB
-            tracking identifier or any recognized community alias for cross-platform intelligence
-            sharing and ISAC coordination.</p>
+            {
+                (
+                    "Attribution has not been established with sufficient confidence for definitive "
+                    "actor assignment. The CyberDudeBivash GOC tracks this activity as an "
+                    "unattributed cluster pending further technical analysis. Intelligence consumers "
+                    "should treat third-party attribution claims with appropriate skepticism."
+                ) if actor_profile.get('_is_unknown') or tracking_id in ('UNC-CDB-99','UNC-UNKNOWN')
+                else (
+                    f"This activity is attributed to <b>{', '.join(actor_profile.get('alias',[tracking_id]))}</b> "
+                    f"(Origin: {actor_profile.get('origin','Unknown')}). "
+                    f"Attribution confidence: {actor_profile.get('confidence_score','Open source intelligence')}. "
+                    f"The CyberDudeBivash tracking ID <b>{tracking_id}</b> maps to the community-recognized "
+                    f"designations listed under Aliases above."
+                )
+            }</p>
 """)
 
         # ═══════════════════════════════════════════════════════════════
