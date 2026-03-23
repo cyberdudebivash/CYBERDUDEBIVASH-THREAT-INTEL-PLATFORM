@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write   # Required to commit syndication state back to repo
 
+concurrency:
+  group: syndicate
+  cancel-in-progress: false
+
 jobs:
   syndicate:
     name: RSS → Social Media Syndication
@@ -162,7 +166,7 @@ jobs:
           git config user.email "iambivash.bn@gmail.com"
           git add data/syndication_queue/ 2>/dev/null || true
           git diff --staged --quiet || git commit -m "👑 APEX Matrix state update [skip ci]"
-          git pull origin main --rebase && git push origin main || echo "APEX state push deferred"
+          git pull origin main --no-rebase --no-edit -X ours && git push origin main || echo "APEX state push deferred"
 
       # ── 7. Upload run log as artifact ─────────────────────────────────
       - name: Upload run log
