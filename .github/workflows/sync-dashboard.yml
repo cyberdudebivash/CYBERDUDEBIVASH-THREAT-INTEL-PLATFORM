@@ -134,12 +134,13 @@ jobs:
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
 
-          git add index.html
-          git add data/stix/feed_manifest.json 2>/dev/null || true
-          git add data/enrichment/*.json 2>/dev/null || true
-          git add api/*.json 2>/dev/null || true
-          git add data/sync_marker.json 2>/dev/null || true
-          git add data/status/status.json 2>/dev/null || true
+          # v74.5 PERMANENT FIX: Stage ALL of data/ recursively — future-proof
+          # Replaces fragile per-file/per-subdir globs that miss new pipeline writes
+          git add data/ 2>/dev/null || true
+          git add api/ 2>/dev/null || true
+          git add index.html 2>/dev/null || true
+          # Discard remaining unstaged so git pull can NEVER abort
+          git checkout -- . 2>/dev/null || true
 
           if git diff --staged --quiet; then
             echo "No changes to commit — dashboard already current"

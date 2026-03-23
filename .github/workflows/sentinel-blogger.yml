@@ -185,7 +185,7 @@ jobs:
 # ================================================================
 # STAGE 3: SAFE GIT SYNC (from v64 — preserved exactly)
 # ================================================================
-      - name: "STAGE 3: Safe Git Sync (v73.4 — COMMIT-FIRST)"
+      - name: "STAGE 3: Safe Git Sync (v74.5 — COMMIT-FIRST + PERMANENT FULL STAGE)"
         run: |
           rm -rf .git/rebase-merge || true
           rm -rf .git/rebase-apply || true
@@ -193,12 +193,38 @@ jobs:
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
 
-          # v73.4 FIX: Commit local changes FIRST, then pull
-          # This prevents autostash conflicts that inject <<<<<<< markers
-          git add data/*.json data/stix/*.json index.html threat/ sitemap.xml api/*.json 2>/dev/null || true
+          # ─────────────────────────────────────────────────────────────────────
+          # v74.5 PERMANENT FIX — DEFINITIVE SOLUTION
+          #
+          # ROOT CAUSE OF RECURRING FAILURES:
+          #   The old "data/*.json" glob only matches FILES in the data/ root.
+          #   It does NOT match subdirectories. The pipeline writes to:
+          #     data/status/status.json         ← update_sync_marker.sh
+          #     data/.manifest_backups/         ← update_embedded_intel.py + v70
+          #     data/manifest_versions/         ← update_embedded_intel.py + v70
+          #     data/sovereign/                 ← quality_gate_audit.py
+          #     data/enrichment/                ← pipeline_hardener.py
+          #   All these were left UNSTAGED, causing git pull to abort with
+          #   "your local changes would be overwritten" even after committing.
+          #
+          # THE FIX:
+          #   Use "git add data/" to stage the ENTIRE data directory recursively.
+          #   This is future-proof: any new subdirectory added by any script
+          #   will automatically be staged without needing another workflow patch.
+          # ─────────────────────────────────────────────────────────────────────
+          git add data/ 2>/dev/null || true          # ALL of data/ — recursive, future-proof
+          git add api/ 2>/dev/null || true           # api/feed.json + api/latest.json
+          git add index.html 2>/dev/null || true     # dashboard
+          git add threat/ 2>/dev/null || true        # threat intelligence pages
+          git add sitemap.xml 2>/dev/null || true    # sitemap
+
           if ! git diff --staged --quiet; then
-            git commit -m "v73.4 Pipeline data [skip ci]"
+            git commit -m "v74.5 Pipeline data [skip ci]"
           fi
+
+          # SAFETY LAYER: Discard any remaining unstaged changes (e.g. temp files)
+          # so git pull can NEVER abort with "changes would be overwritten"
+          git checkout -- . 2>/dev/null || true
 
           # Pull with merge (not rebase), ours strategy for conflicts
           git pull origin main --no-rebase --no-edit -X ours || {
@@ -274,7 +300,11 @@ jobs:
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "CDB-Sentinel-Bot"
 
-          git add data/*.json threat/ sitemap.xml api/*.json 2>/dev/null || true
+          # v74.5: Same permanent fix — stage ALL of data/ recursively
+          git add data/ 2>/dev/null || true
+          git add api/ 2>/dev/null || true
+          git add threat/ sitemap.xml 2>/dev/null || true
+          git checkout -- . 2>/dev/null || true  # discard any remaining unstaged
 
           if ! git diff --staged --quiet; then
             git commit -m "v70.2 Post Extras [skip ci]"
