@@ -120,6 +120,15 @@ jobs:
               exit(1)
           "
 
+      - name: "Update Sync Marker"
+        continue-on-error: true
+        run: |
+          if [ -f scripts/update_sync_marker.sh ]; then
+            bash scripts/update_sync_marker.sh || true
+          else
+            echo "{\"last_sync\":\"$(date -u +%Y-%m-%dT%H:%M:%S+00:00)\",\"updated_by\":\"sync-dashboard\"}" > data/sync_marker.json
+          fi
+
       - name: Commit and Push
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
@@ -129,6 +138,8 @@ jobs:
           git add data/stix/feed_manifest.json 2>/dev/null || true
           git add data/enrichment/*.json 2>/dev/null || true
           git add api/*.json 2>/dev/null || true
+          git add data/sync_marker.json 2>/dev/null || true
+          git add data/status/status.json 2>/dev/null || true
 
           if git diff --staged --quiet; then
             echo "No changes to commit — dashboard already current"
