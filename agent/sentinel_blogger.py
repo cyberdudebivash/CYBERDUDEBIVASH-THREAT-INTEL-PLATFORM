@@ -441,16 +441,25 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         headline=headline,
         content=_source_for_scoring,
     )
-    # v75.4: Cap risk at MEDIUM (6.4) when no source article fetched AND no exploitation
-    # This prevents title-keyword-only CVEs from scoring HIGH without real evidence
+    # v75.5 FIX: Score cap is now CVSS-aware.
+    # v75.4 cap was too aggressive: it capped CVSS 8.8 articles to risk 5.7-6.2.
+    # New rule: only cap when CVSS < 6.0 OR CVSS unknown.
+    # Never cap when CVSS >= 7.0 (real HIGH/CRITICAL vulnerabilities deserve their score).
     _cve_only = bool(extracted_iocs.get('cve')) and not any([
         extracted_iocs.get('sha256'), extracted_iocs.get('ipv4'),
         extracted_iocs.get('domain'), kev_present if 'kev_present' in dir() else False
     ])
-    if _source_word_count < 50 and _cve_only and risk_score > 6.4:
+    # Get CVSS if already available (from RSS title enrichment)
+    _cvss_at_cap_time = None
+    try:
+        _cvss_at_cap_time = float(re.search(r'CVSS[: ]+(\d+\.?\d*)', enriched_content[:500] + headline).group(1)) if re.search(r'CVSS[: ]+(\d+\.?\d*)', enriched_content[:500] + headline) else None
+    except Exception:
+        pass
+    _cap_exempt = _cvss_at_cap_time and _cvss_at_cap_time >= 7.0
+    if _source_word_count < 50 and _cve_only and risk_score > 6.4 and not _cap_exempt:
         _original_score = risk_score
         risk_score = min(risk_score, 6.4)
-        logger.info(f"  → v75.4 score cap: {_original_score:.1f}→{risk_score:.1f} (no source, CVE-only, no exploitation)")
+        logger.info(f"  → v75.5 score cap: {_original_score:.1f}→{risk_score:.1f} (no source, CVE-only, CVSS<7)")
 
     severity = risk_engine.get_severity_label(risk_score)
     # v23.0 FIX: Pass evidence to TLP classifier (prevents keyword-inflated TLP:RED)
@@ -507,6 +516,27 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
             nvd_url = _nvd
             if epss_score or cvss_score:
                 logger.info(f"  → CVE enrichment: EPSS={epss_score} CVSS={cvss_score} KEV={kev_present}")
+                # v75.5 FIX: Recalculate risk with real NVD CVSS/EPSS data
+                # This fixes: CVSS 9.4 article scoring only 6.7 because
+                # risk was calculated BEFORE NVD fetch (step 5 vs step 7b)
+                _nvd_score = risk_engine.recalculate_with_nvd(
+                    base_score=risk_score,
+                    cvss_score=cvss_score,
+                    epss_score=epss_score,
+                    kev_present=kev_present,
+                )
+                if _nvd_score != risk_score:
+                    risk_score = _nvd_score
+                    severity = risk_engine.get_severity_label(risk_score)
+                    _confirmed_actor = bool(actor_data and
+                                           not actor_data.get('tracking_id','').startswith('UNC-'))
+                    tlp = risk_engine.get_tlp_label(
+                        risk_score,
+                        iocs=extracted_iocs,
+                        kev_present=kev_present,
+                        confirmed_actor=_confirmed_actor,
+                    )
+                    logger.info(f"  → NVD-updated: Risk={risk_score}/10 | Severity={severity} | TLP={tlp.get('label')}")
         except Exception as _cve_e:
             logger.debug(f"CVE enrichment skipped (non-critical): {_cve_e}")
 
