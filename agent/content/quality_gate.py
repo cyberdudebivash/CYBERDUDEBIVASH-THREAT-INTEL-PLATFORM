@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
 """
-quality_gate.py — CYBERDUDEBIVASH® SENTINEL APEX v19.0
-CONTENT INTELLIGENCE RELEVANCE GATE
+quality_gate.py — CyberDudeBivash® SENTINEL APEX v22.0 (INTELLIGENCE INTEGRITY ENGINE)
+========================================================================================
+PERMANENT FIX: Complete rewrite of content relevance gate.
 
-Prevents editorial/opinion/marketing articles from being processed as
-threat intelligence. Scores each incoming article before it enters
-the expensive processing pipeline.
+v22.0 CHANGES (permanent fixes for report credibility):
+  1. Raised THRESHOLD from 3.5 → 6.0 — only genuine threats pass
+  2. Added PRODUCT_NEWS_PHRASES instant-fail list — Google/MS announcements blocked
+  3. Added POSITIVE_FEATURE_SIGNALS — "safer", "will make", "introducing" = instant fail
+  4. Requires MIN_THREAT_SIGNALS >= 2 strong signals to pass (not just score)
+  5. Added ANDROID_SECURITY_FEATURE_PATTERNS — blocks feature announcements disguised as threats
+  6. MIN_WORDS raised 60 → 80
 
-Examples that PASS:  "CVE-2025-1234 Exploited in Wild" ✅
-                     "LockBit Ransomware Hits Healthcare" ✅
-                     "APT29 Using New Backdoor in Campaign" ✅
-
-Examples that FAIL:  "Alert Fatigue Isn't Going Away" ❌
-                     "New eBook: SOC Analyst's Playbook" ❌
-                     "Best Practices for Cloud Security" ❌
-
-NON-BREAKING: If this module fails, sentinel_blogger.py continues as before.
-Called BEFORE process_entry() — no impact on existing reports.
+NON-BREAKING: If import fails, sentinel_blogger.py continues as before.
 """
 
 import re
@@ -28,119 +24,200 @@ logger = logging.getLogger("CDB-QUALITY-GATE")
 # ── STRONG THREAT INTEL SIGNALS ──────────────────────────────────────────────
 THREAT_SIGNALS = {
     "cve-":                3.0,  "zero-day":            3.5,  "0-day":               3.5,
-    "actively exploited":  3.0,  "in the wild":         2.5,  "remote code exec":    3.0,
-    "rce":                 2.5,  "privilege escalation":2.5,  "authentication bypass":2.5,
-    "nation-state":        3.0,  "state-sponsored":     3.0,
-    "ransomware attack":   3.0,  "supply chain attack": 3.0,
-    "data breach":         2.5,  "records exposed":     2.5,  "records leaked":      2.5,
-    "malware":             2.0,  "ransomware":          2.5,  "trojan":              2.0,
-    "backdoor":            2.5,  "botnet":              2.0,  "infostealer":         2.5,
-    "stealer":             2.0,  "loader":              2.0,  "dropper":             2.0,
-    "apt":                 2.5,  "threat actor":        2.0,  "threat group":        2.0,
-    "lazarus":             3.0,  "lockbit":             3.0,  "blackcat":            2.5,
-    "volt typhoon":        3.0,  "fancy bear":          3.0,  "cobalt strike":       3.0,
-    "indicators of compromise": 3.0,  "ioc":            2.5,
-    "command and control": 2.5,  "c2 server":           2.5,  "c&c":                2.0,
-    "cisa":                2.0,  "kev":                 2.5,  "advisory":            1.0,
-    "sigma":               2.0,  "yara":                2.5,  "stix":                2.0,
-    "exploited":           2.0,  "exploit":             1.5,  "vulnerability":       1.5,
-    "patch":               1.0,  "security update":     1.0,
-    "phishing campaign":   2.0,  "spear-phishing":      2.5,  "spearphishing":       2.5,
-    "credential theft":    2.0,  "credential harvest":  2.0,
-    "compromised":         1.5,  "hacked":              1.5,  "breach":              1.5,
-    "data exfiltration":   2.5,  "exfiltration":        2.0,
-    "malicious":           1.5,  "infected":            1.5,
-    "supply chain":        2.5,  "dependency":          1.0,
+    "actively exploited":  4.0,  "in the wild":         3.0,  "remote code exec":    3.5,
+    "rce":                 3.0,  "privilege escalation": 3.0, "authentication bypass": 3.0,
+    "nation-state":        3.5,  "state-sponsored":     3.5,
+    "ransomware attack":   3.5,  "supply chain attack": 3.5,
+    "data breach":         3.0,  "records exposed":     3.0,  "records leaked":      3.0,
+    "malware":             2.5,  "ransomware":          3.0,  "trojan":              2.5,
+    "backdoor":            3.0,  "botnet":              2.5,  "infostealer":         3.0,
+    "stealer":             2.5,  "loader":              2.5,  "dropper":             2.5,
+    "apt":                 3.0,  "threat actor":        2.5,  "threat group":        2.5,
+    "lazarus":             3.5,  "lockbit":             3.5,  "blackcat":            3.0,
+    "volt typhoon":        3.5,  "fancy bear":          3.5,  "cobalt strike":       3.5,
+    "indicators of compromise": 3.5, "ioc":             3.0,
+    "command and control": 3.0,  "c2 server":           3.0,  "c&c":                2.5,
+    "cisa":                2.5,  "kev":                 3.0,
+    "exploited":           2.5,  "exploit":             2.0,
+    "phishing campaign":   2.5,  "spear-phishing":      3.0,
+    "credential theft":    2.5,  "credential harvest":  2.5,
+    "hacked":              2.5,  "breach":              2.5,
+    "data exfiltration":   3.0,  "exfiltration":        2.5,
+    "compromised":         2.5,  "unauthorized access": 3.0,
+    "malicious":           2.0,
+    "proof of concept":    3.0,  "poc released":        3.5,
+    "actively being exploited": 4.0,
+    "emergency patch":     3.5,  "critical patch":      3.0,
+    "under active attack": 4.0,
+    "vulnerability":       1.5,  "patch tuesday":       2.0,
 }
 
 # ── NOISE / NON-THREAT SIGNALS (NEGATIVE) ────────────────────────────────────
 NOISE_SIGNALS = {
-    "new ebook":           -5.0,  "download our":        -5.0,  "free ebook":         -5.0,
-    "we created":          -3.0,  "why we built":        -3.0,  "we're excited":      -3.0,
-    "register now":        -4.0,  "free webinar":        -4.0,  "join our webinar":   -4.0,
-    "best practices":      -2.0,  "how to avoid":        -2.0,  "tips for":           -2.0,
-    "guide to":            -2.0,  "introduction to":     -2.5,  "what is":            -2.0,
-    "here's how":          -3.0,  "fighting back":       -3.0,  "isn't going away":   -3.0,
-    "you should":          -2.0,  "you need to":         -2.0,  "why you":            -2.0,
-    "our new":             -2.0,  "announcing":          -2.5,  "product launch":     -3.0,
-    "job posting":         -5.0,  "we are hiring":       -5.0,  "career opportunity": -5.0,
-    "conference talk":     -3.0,  "event recap":         -3.0,  "year in review":     -3.0,
-    "opinion:":            -3.5,  "editorial:":          -3.5,  "commentary:":        -3.0,
-    "predictions for":     -2.0,  "trends in":           -1.5,  "future of":          -1.5,
-    "alert fatigue":       -3.0,  "soc analyst's playbook": -4.0,
-    "customer story":      -3.0,  "case study:":         -2.0,
-    "burnout":             -1.5,  "security culture":    -1.5,  "hiring":             -3.0,
+    "new ebook":           -8.0,  "download our":        -6.0,  "free ebook":        -8.0,
+    "we created":          -5.0,  "why we built":        -5.0,  "we're excited":     -5.0,
+    "register now":        -6.0,  "free webinar":        -6.0,  "join our webinar":  -6.0,
+    "best practices":      -3.0,  "how to avoid":        -3.0,  "tips for":          -3.0,
+    "guide to":            -3.0,  "introduction to":     -4.0,  "what is":           -3.0,
+    "here's how":          -4.0,  "fighting back":       -4.0,
+    "you should":          -3.0,  "you need to":         -3.0,  "why you":           -3.0,
+    "our new":             -4.0,  "announcing":          -4.0,  "product launch":    -5.0,
+    "job posting":         -8.0,  "we are hiring":       -8.0,  "career opportunity":-8.0,
+    "conference talk":     -5.0,  "event recap":         -5.0,  "year in review":    -4.0,
+    "opinion:":            -5.0,  "editorial:":          -5.0,  "commentary:":       -4.0,
+    "predictions for":     -3.0,  "trends in":           -2.0,  "future of":         -2.0,
+    "alert fatigue":       -4.0,  "burnout":             -3.0,  "hiring":            -5.0,
+    "customer story":      -5.0,  "case study:":         -3.0,
+    # ── v22.0 NEW: Product / Feature announcement signals ──────────────────
+    "will make":           -5.0,  "makes it easier":     -5.0,  "making it safer":   -6.0,
+    "will be safer":       -6.0,  "safer than":          -5.0,  "more secure than":  -4.0,
+    "introducing":         -4.0,  "rolling out":         -4.0,  "launching":         -4.0,
+    "feature announcement":-7.0,  "new feature":         -5.0,  "now available":     -4.0,
+    "google announces":    -6.0,  "apple announces":     -6.0,  "microsoft releases":-5.0,
+    "android update":      -4.0,  "android feature":     -6.0,  "ios update":        -4.0,
+    "sideloading safer":   -8.0,  "advanced flow":       -6.0,
+    "week in security":    -5.0,  "security roundup":    -5.0,  "security news":     -3.0,
+    "lock and code":       -5.0,  "podcast":             -4.0,
 }
 
-# Absolute skip phrases — immediate fail
+# ── INSTANT FAIL — any of these = immediate rejection ────────────────────────
 INSTANT_FAIL_PHRASES = [
+    # Marketing content
     "new ebook", "download our ebook", "free webinar", "register for webinar",
     "product announcement", "we are hiring", "join our team", "open position",
     "soc analyst's playbook", "isn't going away. here's how",
     "here's how modern socs are fighting back",
+    # ── v22.0 NEW: Feature / improvement announcements ──
+    "will make android sideloading safer",
+    "make android sideloading safer",
+    "sideloading safer",
+    "advanced flow will make",
+    "week in security (",
+    "lock and code s0",
+    "a week in security",
+    # Positive product news framing
+    "safer for users",
+    "improving security for",
+    "security improvements in",
+    "new security feature",
+    "security feature rollout",
+    # News roundups
+    "this week in security",
+    "security news roundup",
+    "monthly security digest",
 ]
 
-# Minimum relevance score to process
-THRESHOLD = 3.5
+# ── v22.0 NEW: HARD TOPIC BLOCKLIST ─────────────────────────────────────────
+# These topic patterns are NEVER threat intel regardless of score
+HARD_BLOCKED_PATTERNS = [
+    r'will make .{0,40} safer',        # "will make sideloading safer"
+    r'makes .{0,40} more secure',      # "makes Android more secure"
+    r'introducing .{0,40} protection', # "introducing new protection"
+    r'new .{0,40} security feature',   # "new Android security feature"
+    r'week in security',               # Weekly roundups
+    r'security podcast',               # Podcasts
+    r'a week in',                      # Weekly summaries
+    r'\badvanced flow\b',              # Google's Advanced Flow feature
+]
 
-# Minimum words in content
-MIN_WORDS = 60
+# Minimum score to process
+THRESHOLD = 6.0
+
+# Minimum words in combined content
+MIN_WORDS = 80
+
+# ── v22.0: Minimum strong signals required (prevents score gaming) ───────────
+# A story must have at least 2 strong threat signals (score >= 2.5 each)
+# This prevents a story with many weak signals from sneaking through
+MIN_STRONG_SIGNAL_COUNT = 2
+STRONG_SIGNAL_THRESHOLD = 2.5
 
 
-def score_article(title: str, content: str) -> Tuple[float, str]:
-    """Score article for threat intelligence relevance. Returns (score, reason)."""
+def score_article(title: str, content: str) -> Tuple[float, str, int]:
+    """
+    Score article for threat intelligence relevance.
+    Returns (score, reason, strong_signal_count).
+    """
     text = f"{title} {content}".lower()
+
+    # Hard blocked patterns (regex)
+    for pattern in HARD_BLOCKED_PATTERNS:
+        if re.search(pattern, text, re.IGNORECASE):
+            return -15.0, f"hard_blocked:'{pattern[:40]}'", 0
 
     # Instant fail check
     for phrase in INSTANT_FAIL_PHRASES:
-        if phrase in text:
-            return -10.0, f"instant_fail:'{phrase[:40]}'"
+        if phrase.lower() in text:
+            return -10.0, f"instant_fail:'{phrase[:40]}'", 0
 
     score = 0.0
     hits = []
+    strong_signal_count = 0
 
     for signal, w in THREAT_SIGNALS.items():
         if signal in text:
             score += w
             hits.append(f"+{w}[{signal}]")
+            if w >= STRONG_SIGNAL_THRESHOLD:
+                strong_signal_count += 1
 
     for signal, w in NOISE_SIGNALS.items():
         if signal in text:
             score += w
             hits.append(f"{w}[{signal}]")
 
-    # CVE bonus
+    # CVE bonus — real CVE = high-confidence threat
     cves = re.findall(r'CVE-\d{4}-\d{4,7}', text, re.IGNORECASE)
     if cves:
-        bonus = min(len(cves) * 2.0, 8.0)
+        bonus = min(len(cves) * 2.5, 10.0)
         score += bonus
+        strong_signal_count += len(cves)
         hits.append(f"+{bonus}[{len(cves)}CVEs]")
 
-    # Hash bonus (SHA256/MD5 = confirmed IOCs)
+    # Hash bonus (confirmed IOCs = real threat)
     if re.search(r'\b[a-fA-F0-9]{64}\b', text):
-        score += 4.0; hits.append("+4.0[sha256]")
+        score += 5.0
+        strong_signal_count += 1
+        hits.append("+5.0[sha256_ioc]")
     elif re.search(r'\b[a-fA-F0-9]{32}\b', text):
-        score += 2.5; hits.append("+2.5[md5]")
+        score += 3.0
+        strong_signal_count += 1
+        hits.append("+3.0[md5_ioc]")
 
-    # IP address bonus
+    # IP address bonus (network IOCs = real threat)
     ips = re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', text)
-    if len(ips) >= 3:
-        score += 2.0; hits.append(f"+2.0[{len(ips)}IPs]")
+    real_ips = [ip for ip in ips if not any(
+        ip.startswith(p) for p in ['10.', '192.168.', '127.', '172.16.']
+    )]
+    if len(real_ips) >= 3:
+        score += 3.0
+        strong_signal_count += 1
+        hits.append(f"+3.0[{len(real_ips)}real_IPs]")
 
-    reason = f"score={score:.1f} top_signals={' '.join(hits[:4])}"
-    return score, reason
+    # v22.0: "Google/Apple/Microsoft will" → heavy penalty
+    if re.search(r'\b(google|apple|microsoft|android|ios)\b.{0,30}\b(will|is|has|have)\b.{0,40}\b(safer|secure|protect|better)\b', text):
+        score -= 8.0
+        hits.append("-8.0[vendor_improvement_news]")
+
+    reason = f"score={score:.1f} strong_signals={strong_signal_count} top={' '.join(hits[:4])}"
+    return score, reason, strong_signal_count
 
 
 def is_relevant_threat(title: str, content: str) -> Tuple[bool, float, str]:
     """
     Gate function. Returns (should_process, score, reason).
-    Usage: relevant, score, reason = is_relevant_threat(title, content)
+    v22.0: Requires BOTH score >= THRESHOLD AND >= MIN_STRONG_SIGNAL_COUNT strong signals.
     """
     wc = len(content.split())
     if wc < MIN_WORDS:
         return False, 0.0, f"thin_content:{wc}words"
 
-    score, reason = score_article(title, content)
-    if score >= THRESHOLD:
-        return True, score, reason
-    return False, score, f"low_relevance({score:.1f}):{reason}"
+    score, reason, strong_count = score_article(title, content)
+
+    if score < THRESHOLD:
+        return False, score, f"low_relevance({score:.1f}):{reason}"
+
+    if strong_count < MIN_STRONG_SIGNAL_COUNT:
+        return False, score, f"insufficient_threat_signals({strong_count}<{MIN_STRONG_SIGNAL_COUNT}):{reason}"
+
+    return True, score, reason
