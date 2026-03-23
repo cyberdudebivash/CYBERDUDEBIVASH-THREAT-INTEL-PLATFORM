@@ -433,6 +433,7 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         entry.get('summary', '') or
         enriched_content[:2000]  # Fallback: first 2000 chars only
     )
+    _source_word_count = len(_source_for_scoring.split())
     risk_score = risk_engine.calculate_risk_score(
         iocs=extracted_iocs,
         mitre_matches=mitre_data,
@@ -440,6 +441,17 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         headline=headline,
         content=_source_for_scoring,
     )
+    # v75.4: Cap risk at MEDIUM (6.4) when no source article fetched AND no exploitation
+    # This prevents title-keyword-only CVEs from scoring HIGH without real evidence
+    _cve_only = bool(extracted_iocs.get('cve')) and not any([
+        extracted_iocs.get('sha256'), extracted_iocs.get('ipv4'),
+        extracted_iocs.get('domain'), kev_present if 'kev_present' in dir() else False
+    ])
+    if _source_word_count < 50 and _cve_only and risk_score > 6.4:
+        _original_score = risk_score
+        risk_score = min(risk_score, 6.4)
+        logger.info(f"  → v75.4 score cap: {_original_score:.1f}→{risk_score:.1f} (no source, CVE-only, no exploitation)")
+
     severity = risk_engine.get_severity_label(risk_score)
     # v23.0 FIX: Pass evidence to TLP classifier (prevents keyword-inflated TLP:RED)
     _confirmed_actor = bool(actor_data and
