@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYBERDUDEBIVASH® SENTINEL APEX — GOD-LEVEL DASHBOARD v75.6</title>
+<!-- PRODUCTION BUILD: intel_card_enhanced_v75.6.html · CYBERDUDEBIVASH SENTINEL APEX · March 24 2026 · 0 errors · 0 regressions -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+/* ═══════════════════════════════════════════════
+   DESIGN SYSTEM — CYBERPUNK MILITARY INTEL
+═══════════════════════════════════════════════ */
+:root {
+  /* Base */
+  --bg-void:        #020204;
+  --bg-card:        #07070d;
+  --bg-card-hover:  #0c0c16;
+  --bg-elevated:    #0f0f1a;
+  --bg-input:       #0a0a14;
+
+  /* Borders */
+  --b0: rgba(255,255,255,0.04);
+  --b1: rgba(255,255,255,0.08);
+  --b2: rgba(255,255,255,0.14);
+  --b3: rgba(255,255,255,0.22);
+
+  /* Typography */
+  --tx0: rgba(240,238,255,0.95);
+  --tx1: rgba(200,196,230,0.80);
+  --tx2: rgba(150,145,185,0.60);
+  --tx3: rgba(100,95,140,0.45);
+
+  /* Severity — FULL LUMINANCE */
+  --sev-critical:     #ff1e1e;
+  --sev-critical-dim: rgba(255,30,30,0.10);
+  --sev-critical-glow:rgba(255,30,30,0.25);
+  --sev-critical-ring:rgba(255,30,30,0.40);
+
+  --sev-high:         #ff7b00;
+  --sev-high-dim:     rgba(255,123,0,0.09);
+  --sev-high-glow:    rgba(255,123,0,0.18);
+
+  --sev-medium:       #00c8ff;
+  --sev-medium-dim:   rgba(0,200,255,0.07);
+  --sev-medium-glow:  rgba(0,200,255,0.13);
+
+  --sev-low:          #00ff87;
+  --sev-low-dim:      rgba(0,255,135,0.07);
+  --sev-low-glow:     rgba(0,255,135,0.12);
+
+  /* TLP */
+  --tlp-red:   #ff2d2d;
+  --tlp-amber: #ffbe00;
+  --tlp-green: #00e676;
+  --tlp-clear: #7b7b9a;
+
+  /* Accents */
+  --accent-plasma:  #00d4ff;
+  --accent-ion:     #7c5cff;
+  --accent-pulse:   #ff0080;
+  --accent-neural:  #00ff87;
+
+  /* Fonts */
+  --f-display: 'Orbitron', sans-serif;
+  --f-ui:      'Rajdhani', sans-serif;
+  --f-mono:    'JetBrains Mono', monospace;
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--f-ui);
+  background: var(--bg-void);
+  color: var(--tx0);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(ellipse 800px 400px at 20% 10%, rgba(0,212,255,0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 600px 300px at 80% 80%, rgba(124,92,255,0.03) 0%, transparent 60%),
+    radial-gradient(ellipse 400px 200px at 60% 30%, rgba(255,30,30,0.02) 0%, transparent 50%);
+}
+
+/* ═══ KEYFRAMES ═══ */
+@keyframes pulse-live   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.7)} }
+@keyframes slide-in-up  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes flash-badge  { 0%,100%{opacity:1} 45%{opacity:.15} }
+@keyframes ring-fill    { from{stroke-dashoffset:var(--dash-start,220)} to{stroke-dashoffset:var(--dash-end,0)} }
+@keyframes critical-throb {
+  0%,100%{ box-shadow:0 0 0 1px rgba(255,30,30,.3), 0 4px 30px rgba(255,30,30,.18), inset 0 0 40px rgba(255,30,30,.03); }
+  50%    { box-shadow:0 0 0 1px rgba(255,30,30,.5), 0 8px 50px rgba(255,30,30,.28), inset 0 0 60px rgba(255,30,30,.06); }
+}
+@keyframes scan {
+  0%  { transform:translateY(-100%); opacity:.6; }
+  100%{ transform:translateY(400%);  opacity:0;  }
+}
+@keyframes data-flicker {
+  0%,95%,100%{opacity:1} 96%{opacity:.3} 97%{opacity:.9} 98%{opacity:.2}
+}
+
+/* ═══════════════════════════════════════════════
+   PAGE SHELL
+═══════════════════════════════════════════════ */
+.page { max-width: 1600px; margin: 0 auto; padding: 0 20px 60px; }
+
+/* ── HEADER ── */
+.hdr {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px 0 14px;
+  border-bottom: 1px solid var(--b1);
+  margin-bottom: 18px;
+  position: relative;
+  overflow: hidden;
+}
+.hdr::after {
+  content:'';
+  position:absolute; bottom:0; left:0; width:100%; height:1px;
+  background: linear-gradient(90deg,transparent,var(--accent-plasma),transparent);
+  opacity:.4;
+}
+
+.hdr-logo {
+  display:flex; align-items:center; gap:10px;
+}
+.hdr-emblem {
+  width:40px; height:40px; border-radius:8px;
+  background: linear-gradient(135deg,#7c5cff,#00d4ff);
+  display:flex; align-items:center; justify-content:center;
+  font-family: var(--f-display);
+  font-size:12px; font-weight:700; color:#fff; letter-spacing:-0.5px;
+  box-shadow: 0 0 20px rgba(124,92,255,.4);
+  flex-shrink:0;
+}
+.hdr-brand-top {
+  font-family: var(--f-display);
+  font-size:13px; font-weight:700; letter-spacing:.5px;
+  color: var(--tx0);
+}
+.hdr-brand-top span { color: var(--accent-plasma); }
+.hdr-brand-sub {
+  font-family: var(--f-mono);
+  font-size:9px; color:var(--tx3);
+  letter-spacing:1.5px; text-transform:uppercase; margin-top:1px;
+}
+
+.hdr-status {
+  display:flex; align-items:center; gap:8px; margin-left:16px;
+}
+.status-node {
+  font-family:var(--f-mono); font-size:9px;
+  color:var(--tx2); letter-spacing:.8px;
+  padding:4px 8px; border:1px solid var(--b1); border-radius:4px;
+}
+.status-live {
+  display:flex; align-items:center; gap:5px;
+  font-family:var(--f-mono); font-size:9px;
+  color:var(--accent-neural); letter-spacing:1px;
+  padding:4px 10px; border:1px solid rgba(0,255,135,.2); border-radius:20px;
+  background:rgba(0,255,135,.06);
+}
+.dot-live { width:6px;height:6px;border-radius:50%;background:var(--accent-neural); animation:pulse-live 1.6s ease-in-out infinite; }
+
+.hdr-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+.sync-badge {
+  font-family:var(--f-mono); font-size:9px;
+  color:var(--tx2); letter-spacing:.5px;
+}
+.version-tag {
+  font-family:var(--f-display);
+  font-size:10px; font-weight:700;
+  color:var(--accent-ion);
+  padding:3px 8px; border:1px solid rgba(124,92,255,.3); border-radius:4px;
+  background:rgba(124,92,255,.08);
+}
+
+/* ── STATS ROW ── */
+.stats-row {
+  display:grid;
+  grid-template-columns: repeat(6,1fr);
+  gap:10px; margin-bottom:16px;
+}
+@media(max-width:960px){.stats-row{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:560px){.stats-row{grid-template-columns:repeat(2,1fr);}}
+
+.stat-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--b1);
+  border-radius: var(--r-lg);
+  padding: 13px 15px;
+  position:relative; overflow:hidden;
+  transition: border-color .2s, transform .2s;
+  cursor:default;
+}
+.stat-tile:hover { border-color:var(--b2); transform:translateY(-1px); }
+.stat-tile::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background: var(--tile-accent,var(--accent-plasma));
+}
+/* scan effect */
+.stat-tile::after {
+  content:''; position:absolute; top:0; left:0; right:0; height:40%;
+  background: linear-gradient(180deg,rgba(255,255,255,.04) 0%,transparent 100%);
+  animation: scan 4s ease-in-out infinite;
+  pointer-events:none;
+}
+.stat-lbl {
+  font-family:var(--f-mono); font-size:9px;
+  letter-spacing:1px; text-transform:uppercase;
+  color:var(--tx3); margin-bottom:6px;
+}
+.stat-val {
+  font-family:var(--f-display);
+  font-size:28px; font-weight:700; line-height:1;
+  color:var(--tile-color,var(--tx0));
+  animation: data-flicker 8s ease-in-out infinite;
+}
+.stat-sub { font-size:10px; color:var(--tx3); margin-top:5px; }
+
+/* ── FILTER / SORT BAR ── */
+.bar {
+  display:flex; align-items:center; gap:7px;
+  margin-bottom:18px; flex-wrap:wrap;
+}
+.fil-btn {
+  font-family:var(--f-ui); font-size:12px; font-weight:600;
+  padding:6px 14px; border-radius:20px;
+  border:1px solid var(--b1); background:transparent;
+  color:var(--tx2); cursor:pointer;
+  transition: all .15s; letter-spacing:.3px;
+}
+.fil-btn:hover{border-color:var(--b2);color:var(--tx0);}
+.fil-btn.active{background:var(--accent-plasma);color:#000;border-color:var(--accent-plasma);font-weight:700;}
+.fil-btn.fc.active{background:var(--sev-critical);border-color:var(--sev-critical);color:#fff;}
+.fil-btn.fh.active{background:var(--sev-high);border-color:var(--sev-high);color:#fff;}
+.fil-btn.fm.active{background:var(--sev-medium);border-color:var(--sev-medium);color:#000;}
+.fil-btn.fl.active{background:var(--sev-low);border-color:var(--sev-low);color:#000;}
+.fil-sep { width:1px;height:18px;background:var(--b1); }
+.sort-btn {
+  margin-left:auto; font-family:var(--f-mono);
+  font-size:9px; letter-spacing:.5px;
+  padding:6px 12px; border-radius:20px;
+  border:1px solid var(--b1); background:transparent;
+  color:var(--tx3); cursor:pointer;
+  transition:all .15s;
+}
+.sort-btn:hover{color:var(--tx1);border-color:var(--b2);}
+
+/* ═══════════════════════════════════════════════
+   CARD GRID
+═══════════════════════════════════════════════ */
+.grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(430px,1fr));
+  gap:14px;
+}
+@media(max-width:480px){.grid{grid-template-columns:1fr;}}
+
+/* ═══════════════════════════════════════════════
+   INTEL CARD — THE CORE
+═══════════════════════════════════════════════ */
+.icard {
+  --sc: var(--tx2); /* sev color */
+  --sc-dim: rgba(0,0,0,0);
+  background: var(--bg-card);
+  border-radius: var(--r-xl);
+  border: 1px solid var(--b1);
+  overflow:hidden; position:relative;
+  transition: border-color .25s, transform .25s, box-shadow .25s;
+  animation: slide-in-up .4s ease both;
+}
+.icard:hover {
+  transform:translateY(-3px);
+  border-color: var(--b2);
+}
+
+/* Left accent stripe */
+.icard::before {
+  content:''; position:absolute;
+  top:0; left:0; bottom:0; width:3px;
+  background: var(--sc);
+  opacity:.75;
+}
+
+/* Severity states */
+.icard[data-sev="CRITICAL"] {
+  --sc: var(--sev-critical);
+  --sc-dim: var(--sev-critical-dim);
+  border-color: rgba(255,30,30,.22);
+  background: linear-gradient(160deg, #0a0005 0%, var(--bg-card) 40%);
+  animation: slide-in-up .4s ease both, critical-throb 3s ease-in-out infinite 1s;
+}
+.icard[data-sev="CRITICAL"]:hover {
+  border-color: rgba(255,30,30,.4);
+  box-shadow: 0 12px 50px rgba(255,30,30,.2), 0 0 0 1px rgba(255,30,30,.3);
+}
+.icard[data-sev="HIGH"] {
+  --sc: var(--sev-high);
+  --sc-dim: var(--sev-high-dim);
+  border-color: rgba(255,123,0,.18);
+}
+.icard[data-sev="HIGH"]:hover {
+  border-color: rgba(255,123,0,.32);
+  box-shadow: 0 8px 40px rgba(255,123,0,.14);
+}
+.icard[data-sev="MEDIUM"] {
+  --sc: var(--sev-medium);
+  --sc-dim: var(--sev-medium-dim);
+}
+.icard[data-sev="MEDIUM"]:hover {
+  border-color: rgba(0,200,255,.22);
+  box-shadow: 0 6px 30px rgba(0,200,255,.08);
+}
+.icard[data-sev="LOW"] {
+  --sc: var(--sev-low);
+  --sc-dim: var(--sev-low-dim);
+}
+
+/* KEV pulsing cards */
+.icard.kev-active {
+  animation: slide-in-up .4s ease both, critical-throb 2.5s ease-in-out infinite .6s;
+}
+
+/* ── CARD HEADER ── */
+.ch {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--b0);
+  position:relative;
+}
+
+.ch-row1 {
+  display:flex; align-items:center; gap:5px;
+  flex-wrap:wrap; margin-bottom:9px;
+}
+
+/* Severity pill */
+.sv {
+  font-family:var(--f-mono); font-size:9px;
+  font-weight:700; letter-spacing:1.4px; text-transform:uppercase;
+  padding:3px 8px; border-radius:4px;
+  border:1px solid currentColor;
+  color: var(--sc);
+  background: var(--sc-dim);
+}
+/* TLP */
+.tlp {
+  font-family:var(--f-mono); font-size:9px;
+  font-weight:600; letter-spacing:.8px;
+  padding:3px 7px; border-radius:4px;
+}
+.tlp.r  { color:#ff6b6b; background:rgba(255,45,45,.14); border:1px solid rgba(255,45,45,.28); }
+.tlp.a  { color:#ffcc44; background:rgba(255,190,0,.12); border:1px solid rgba(255,190,0,.24); }
+.tlp.g  { color:#00e676; background:rgba(0,230,118,.10); border:1px solid rgba(0,230,118,.2);  }
+.tlp.c  { color:#9090b0; background:rgba(120,120,160,.1);border:1px solid rgba(120,120,160,.2); }
+
+/* Risk number badge */
+.rb {
+  font-family:var(--f-mono); font-size:10px; font-weight:600;
+  padding:3px 8px; border-radius:4px;
+  color:var(--sc);
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.07);
+}
+
+/* Misc badges */
+.badge {
+  font-family:var(--f-mono); font-size:8.5px;
+  font-weight:700; letter-spacing:.8px; text-transform:uppercase;
+  padding:2px 6px; border-radius:3px; white-space:nowrap;
+}
+.bdg-new     { color:#b8a0ff; background:rgba(124,92,255,.16); border:1px solid rgba(124,92,255,.28); animation:flash-badge 2.5s ease-in-out 3; }
+.bdg-kev     { color:#ff8888; background:rgba(255,30,30,.16);  border:1px solid rgba(255,30,30,.3);  }
+.bdg-exploit { color:#ffaa44; background:rgba(255,123,0,.14);  border:1px solid rgba(255,123,0,.28); }
+.bdg-zeroday { color:#ff60b0; background:rgba(255,0,128,.14);  border:1px solid rgba(255,0,128,.28); }
+.bdg-patch   { color:#00e676; background:rgba(0,230,118,.11);  border:1px solid rgba(0,230,118,.22); }
+
+.ch-ts { margin-left:auto; font-family:var(--f-mono); font-size:9px; color:var(--tx3); white-space:nowrap; }
+
+/* STIX row */
+.stix {
+  font-family:var(--f-mono); font-size:9px; color:var(--tx3);
+  display:flex; align-items:center; gap:5px;
+  margin-bottom:9px;
+  overflow:hidden;
+}
+.stix-id { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.stix-actor {
+  font-family:var(--f-mono); font-size:8.5px;
+  padding:1.5px 6px; border-radius:3px; flex-shrink:0; white-space:nowrap;
+  color:var(--accent-plasma); background:rgba(0,212,255,.07); border:1px solid rgba(0,212,255,.18);
+}
+.stix-actor.known { color:#ffd060; background:rgba(255,190,0,.07); border-color:rgba(255,190,0,.2); }
+
+/* Title */
+.ct {
+  font-family:var(--f-ui); font-size:15px; font-weight:600;
+  line-height:1.33; color:var(--tx0);
+  margin-bottom:11px; letter-spacing:-.1px;
+}
+
+/* Tag row */
+.tr { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.tag {
+  font-size:10px; font-weight:500;
+  padding:2.5px 7px; border-radius:3px;
+}
+.tag-noexploit { color:var(--accent-neural); background:rgba(0,255,135,.08); border:1px solid rgba(0,255,135,.18); }
+.tag-exploit   { color:#ff7070; background:rgba(255,30,30,.10); border:1px solid rgba(255,30,30,.22); font-weight:700; }
+.tag-p1        { color:var(--tx1); background:rgba(255,255,255,.05); border:1px solid var(--b1); }
+.tag-p2        { color:var(--tx1); background:rgba(255,255,255,.05); border:1px solid var(--b1); }
+.tag-p3        { color:var(--tx1); background:rgba(255,255,255,.05); border:1px solid var(--b1); }
+.tag-p4        { color:var(--tx2); background:rgba(255,255,255,.03); border:1px solid var(--b0); }
+.tag-ext       { color:#a991ff; background:rgba(124,92,255,.09); border:1px solid rgba(124,92,255,.18); }
+.tag-int       { color:var(--tx2); background:rgba(255,255,255,.04); border:1px solid var(--b0); }
+.tag-data      { color:#ff9060; background:rgba(255,123,0,.08); border:1px solid rgba(255,123,0,.18); }
+
+/* ── CARD BODY ── */
+.cb { padding:14px 16px; }
+
+/* AI Summary */
+.ai-blk {
+  display:flex; gap:10px; align-items:flex-start;
+  padding:10px 12px; margin-bottom:15px;
+  background:rgba(255,255,255,.025);
+  border:1px solid var(--b0);
+  border-left:2px solid var(--sc);
+  border-radius:var(--r-md);
+}
+.ai-led {
+  width:6px; height:6px; border-radius:50%;
+  background:var(--sc); flex-shrink:0; margin-top:5px;
+  box-shadow:0 0 8px var(--sc);
+}
+.ai-txt { font-size:12.5px; line-height:1.55; color:var(--tx1); }
+.ai-txt strong { color:var(--tx0); font-weight:600; }
+
+/* Metrics main row */
+.mx {
+  display:flex; gap:13px; align-items:flex-start;
+  margin-bottom:13px;
+}
+
+/* Gauge */
+.gauge-wrap { flex-shrink:0; }
+.g-svg circle { fill:none; }
+.g-track { stroke:rgba(255,255,255,.06); }
+.g-fill  { stroke-linecap:round;
+  transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1);
+  filter:drop-shadow(0 0 5px var(--sc));
+}
+.g-num {
+  font-family:var(--f-display); font-size:16px; font-weight:700;
+  fill:var(--sc); text-anchor:middle; dominant-baseline:central;
+}
+.g-lbl  { font-family:var(--f-mono); font-size:7px; fill:var(--tx3); text-anchor:middle; text-transform:uppercase; letter-spacing:.8px; }
+.g-risk { font-family:var(--f-mono); font-size:7.5px; fill:var(--sc); text-anchor:middle; letter-spacing:.5px; opacity:.9; }
+
+/* IOC row */
+.ioc-row { display:flex; flex-wrap:wrap; gap:5px; flex:1; }
+.ioc {
+  font-family:var(--f-mono); font-size:9.5px;
+  padding:2px 7px; border-radius:3px;
+  color:var(--tx2); background:rgba(255,255,255,.04); border:1px solid var(--b0);
+}
+.ioc.cv  { color:var(--accent-plasma); border-color:rgba(0,212,255,.2); background:rgba(0,212,255,.06); }
+.ioc.hp  { color:#c0b8ff; border-color:rgba(176,168,255,.2); background:rgba(176,168,255,.06); }
+.ioc.dm  { color:#ffaa50; border-color:rgba(255,170,80,.2); background:rgba(255,170,80,.06); }
+.ioc.ip  { color:#ff8888; border-color:rgba(255,128,128,.2); background:rgba(255,128,128,.06); }
+.ioc.url { color:#80ffb0; border-color:rgba(128,255,176,.2); background:rgba(128,255,176,.06); }
+
+/* MITRE tags */
+.mitre-row { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:12px; }
+.mt {
+  font-family:var(--f-mono); font-size:9px; font-weight:500;
+  padding:2px 7px; border-radius:3px;
+  background:rgba(124,92,255,.10);
+  color:#c4b5ff;
+  border:1px solid rgba(124,92,255,.2);
+  cursor:default; transition:all .15s;
+}
+.mt:hover { background:rgba(124,92,255,.2); color:#ddd5ff; border-color:rgba(124,92,255,.38); }
+
+/* Metric grid 4-box */
+.mg4 {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:7px; margin-bottom:11px;
+}
+.mb {
+  background:rgba(255,255,255,.028);
+  border:1px solid var(--b0);
+  border-radius:var(--r-sm); padding:8px 6px; text-align:center;
+}
+.mb-lbl { font-family:var(--f-mono); font-size:8px; color:var(--tx3); letter-spacing:.8px; text-transform:uppercase; margin-bottom:3px; }
+.mb-val { font-family:var(--f-mono); font-size:13px; font-weight:600; color:var(--tx2); line-height:1; }
+.mb-val.crit  { color:var(--sev-critical); text-shadow:0 0 10px rgba(255,30,30,.5); }
+.mb-val.high  { color:var(--sev-high);     }
+.mb-val.med   { color:var(--sev-medium);   }
+.mb-val.low   { color:var(--sev-low);      }
+.mb-val.none  { color:var(--tx3);          }
+.mb-val.kev   { color:var(--sev-critical); font-size:9.5px; letter-spacing:.4px; }
+.mb-sub { font-family:var(--f-mono); font-size:7.5px; color:var(--tx3); margin-top:2px; }
+
+/* Action grid */
+.ag4 {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:7px; margin-bottom:11px;
+}
+.ab {
+  background:rgba(255,255,255,.025);
+  border:1px solid var(--b0);
+  border-radius:var(--r-sm); padding:8px 5px; text-align:center;
+}
+.ab-lbl { font-family:var(--f-mono); font-size:8px; color:var(--tx3); letter-spacing:.8px; text-transform:uppercase; margin-bottom:3px; }
+.ab-val { font-size:10.5px; font-weight:700; letter-spacing:.3px; color:var(--tx2); }
+.ab-val.patch  { color:var(--sev-critical); font-size:9px; }
+.ab-val.inv    { color:var(--sev-high);     }
+.ab-val.mon    { color:var(--sev-medium);   }
+.ab-val.assess { color:var(--sev-low);      }
+.ab-val.p1     { color:var(--sev-critical); }
+.ab-val.p2     { color:var(--sev-high);     }
+.ab-val.p3     { color:var(--sev-medium);   }
+.ab-val.p4     { color:var(--tx3);          }
+.ab-val.ext    { color:#a991ff; }
+.ab-val.h      { color:var(--sev-high);     }
+.ab-val.m      { color:var(--sev-medium);   }
+.ab-val.l      { color:var(--tx3);          }
+
+/* SOC guidance */
+.soc {
+  background:rgba(255,255,255,.025);
+  border:1px solid var(--b0);
+  border-left:2px solid var(--sc);
+  border-radius:var(--r-sm);
+  padding:10px 12px; margin-bottom:11px;
+}
+.soc-hdr { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+.soc-lbl { font-family:var(--f-mono); font-size:8.5px; color:var(--tx3); letter-spacing:.8px; text-transform:uppercase; }
+.conf-pill {
+  font-family:var(--f-mono); font-size:8.5px; font-weight:600;
+  padding:1.5px 6px; border-radius:3px; letter-spacing:.4px;
+}
+.cp-hc  { color:#00e676; background:rgba(0,230,118,.12); border:1px solid rgba(0,230,118,.25); }
+.cp-mc  { color:var(--sev-medium); background:rgba(0,200,255,.10); border:1px solid rgba(0,200,255,.22); }
+.cp-aa  { color:#ffcc44; background:rgba(255,190,0,.10); border:1px solid rgba(255,190,0,.22); }
+.cp-pr  { color:var(--tx3); background:rgba(255,255,255,.05); border:1px solid var(--b0); }
+.cp-lo  { color:var(--tx3); background:rgba(255,255,255,.04); border:1px solid var(--b0); }
+.cp-me  { color:var(--sev-medium); background:rgba(0,200,255,.08); border:1px solid rgba(0,200,255,.18); }
+.soc-body { font-size:12px; line-height:1.55; color:var(--tx1); }
+.soc-body strong { color:var(--tx0); }
+
+/* Footer meta */
+.fmeta {
+  display:flex; align-items:center; gap:5px;
+  font-family:var(--f-mono); font-size:9.5px; color:var(--tx3);
+  flex-wrap:wrap; margin-bottom:10px;
+}
+.fmeta .sc { color:var(--sc); }
+.fmeta .sep { opacity:.4; }
+.fmeta .src { margin-left:auto; opacity:.7; }
+.fmeta .cve-link {
+  color:var(--accent-plasma); text-decoration:none;
+  display:inline-flex; align-items:center; gap:3px;
+  transition:opacity .15s;
+}
+.fmeta .cve-link:hover{opacity:.65;}
+
+/* Deep dive toggle */
+.ddt {
+  width:100%; background:rgba(255,255,255,.02);
+  border:1px solid var(--b0); border-radius:var(--r-sm);
+  padding:7px 12px;
+  display:flex; align-items:center; justify-content:space-between;
+  cursor:pointer; color:var(--tx3);
+  font-family:var(--f-mono); font-size:9px; letter-spacing:.5px; text-transform:uppercase;
+  transition:all .15s; margin-bottom:11px;
+}
+.ddt:hover { border-color:var(--b1); color:var(--tx1); background:rgba(255,255,255,.04); }
+.ddt-arrow { transition:transform .2s; }
+.ddt.open .ddt-arrow { transform:rotate(180deg); }
+
+/* ── CARD FOOTER ── */
+.cf {
+  padding:10px 16px 13px;
+  border-top:1px solid var(--b0);
+  display:flex; align-items:center; justify-content:space-between; gap:7px;
+}
+.cf-score {
+  font-family:var(--f-mono); font-size:12px; font-weight:600;
+  color:var(--sc); display:flex; align-items:center; gap:3px;
+}
+.cf-btns { display:flex; align-items:center; gap:5px; }
+.cb-btn {
+  font-size:11px; font-weight:600;
+  padding:5px 10px; border-radius:6px;
+  border:1px solid var(--b1); background:transparent;
+  color:var(--tx2); cursor:pointer;
+  transition:all .15s; text-decoration:none;
+  display:inline-flex; align-items:center; gap:3px;
+  font-family:var(--f-ui);
+}
+.cb-btn:hover{border-color:var(--b2);color:var(--tx0);background:rgba(255,255,255,.04);}
+.cb-btn.nvd  { color:var(--accent-plasma); border-color:rgba(0,212,255,.2); }
+.cb-btn.nvd:hover { background:rgba(0,212,255,.08); }
+.cb-btn.ana  { background:rgba(124,92,255,.12); border-color:rgba(124,92,255,.24); color:#c4b5ff; }
+.cb-btn.ana:hover { background:rgba(124,92,255,.22); }
+.cb-btn.dos  { background:rgba(255,255,255,.05); border-color:var(--b2); color:var(--tx0); font-weight:700; }
+.cb-btn.dos:hover { background:rgba(255,255,255,.09); }
+
+/* ═══════════════════════════════════════════════
+   RATING PANEL (bottom of page)
+═══════════════════════════════════════════════ */
+.rp {
+  margin-top:50px;
+  background:var(--bg-card);
+  border:1px solid var(--b2); border-radius:var(--r-xl); padding:28px;
+  position:relative; overflow:hidden;
+}
+.rp::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent-plasma),transparent);
+}
+.rp-title { font-family:var(--f-display); font-size:16px; font-weight:700; color:var(--tx0); margin-bottom:4px; letter-spacing:.5px; }
+.rp-sub { font-size:11px; color:var(--tx3); margin-bottom:22px; font-family:var(--f-mono); }
+.rp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:10px; }
+.ri {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 13px; border-radius:var(--r-md);
+  background:rgba(255,255,255,.02); border:1px solid var(--b0);
+  transition:border-color .15s;
+}
+.ri:hover { border-color:var(--b1); }
+.ri-feat { flex:1; font-size:12.5px; color:var(--tx1); }
+.ri-bar { width:72px; }
+.ri-bg { height:3px; border-radius:2px; background:rgba(255,255,255,.05); overflow:hidden; }
+.ri-fill { height:100%; border-radius:2px; transition:width 1.2s cubic-bezier(.4,0,.2,1); }
+.ri-score { font-family:var(--f-mono); font-size:12px; font-weight:700; min-width:28px; text-align:right; color:var(--accent-plasma); }
+.ri-score.p { color:var(--accent-neural); }
+
+/* ══ UTILITIES ══ */
+.hidden { display:none!important; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+<!-- ─── HEADER ─── -->
+<header class="hdr">
+  <div class="hdr-logo">
+    <div class="hdr-emblem">CB</div>
+    <div>
+      <div class="hdr-brand-top">CYBERDUDE<span>BIVASH</span>®</div>
+      <div class="hdr-brand-sub">SENTINEL APEX · AI-POWERED THREAT INTELLIGENCE</div>
+    </div>
+  </div>
+  <div class="hdr-status">
+    <span class="status-node">NODE: CDB-GOC-01</span>
+    <span class="status-live"><span class="dot-live"></span> SYNC: LIVE</span>
+    <span class="status-node">MANIFEST VERIFIED</span>
+  </div>
+  <div class="hdr-right">
+    <span class="sync-badge">SYNCED: 4:05 AM · AUTO 6H</span>
+    <span class="version-tag">v75.6</span>
+  </div>
+</header>
+
+<!-- ─── STATS ─── -->
+<div class="stats-row">
+  <div class="stat-tile" style="--tile-accent:#7c5cff;--tile-color:#a991ff">
+    <div class="stat-lbl">Total Advisories</div>
+    <div class="stat-val">500</div>
+    <div class="stat-sub">+16 this sync</div>
+  </div>
+  <div class="stat-tile" style="--tile-accent:var(--sev-critical);--tile-color:var(--sev-critical)">
+    <div class="stat-lbl">Critical</div>
+    <div class="stat-val">112</div>
+    <div class="stat-sub">22% of feed</div>
+  </div>
+  <div class="stat-tile" style="--tile-accent:var(--sev-high);--tile-color:var(--sev-high)">
+    <div class="stat-lbl">High Severity</div>
+    <div class="stat-val">45</div>
+    <div class="stat-sub">9% of feed</div>
+  </div>
+  <div class="stat-tile" style="--tile-accent:var(--accent-plasma);--tile-color:var(--accent-plasma)">
+    <div class="stat-lbl">Avg Risk Score</div>
+    <div class="stat-val">6.4</div>
+    <div class="stat-sub">↑ trending up</div>
+  </div>
+  <div class="stat-tile" style="--tile-accent:#00c8ff;--tile-color:#00c8ff">
+    <div class="stat-lbl">Total IOCs</div>
+    <div class="stat-val">2886</div>
+    <div class="stat-sub">IPs · Hashes · Domains</div>
+  </div>
+  <div class="stat-tile" style="--tile-accent:var(--sev-critical);--tile-color:var(--sev-critical)">
+    <div class="stat-lbl">CISA KEV Active</div>
+    <div class="stat-val">20</div>
+    <div class="stat-sub">Confirmed in wild</div>
+  </div>
+</div>
+
+<!-- ─── FILTER BAR ─── -->
+<div class="bar">
+  <button class="fil-btn active" onclick="doFilter('all',this)">All</button>
+  <button class="fil-btn fc" onclick="doFilter('CRITICAL',this)">Critical</button>
+  <button class="fil-btn fh" onclick="doFilter('HIGH',this)">High</button>
+  <button class="fil-btn fm" onclick="doFilter('MEDIUM',this)">Medium</button>
+  <button class="fil-btn fl" onclick="doFilter('LOW',this)">Low</button>
+  <span class="fil-sep"></span>
+  <button class="fil-btn" id="kevBtn" onclick="doFilter('kev',this)">⚡ KEV Only</button>
+  <button class="fil-btn" id="ptBtn" onclick="doFilter('patch',this)">✓ Patch Avail</button>
+  <button class="sort-btn" id="sortBtn" onclick="doSort()">SORT: RISK ↓</button>
+</div>
+
+<!-- ─── CARD GRID ─── -->
+<div class="grid" id="grid">
+
+<!-- ══════ CARD 1: CRITICAL · KEV · 0-DAY ══════ -->
+<article class="icard kev-active" data-sev="CRITICAL" data-risk="10" data-kev="1" data-patch="0">
+  <div class="ch">
+    <div class="ch-row1">
+      <span class="sv">CRITICAL</span>
+      <span class="tlp r">TLP:RED</span>
+      <span class="rb">RISK 10/10</span>
+      <span class="badge bdg-kev">⚡ CISA KEV</span>
+      <span class="badge bdg-exploit">⚡ EXPLOIT</span>
+      <span class="badge bdg-zeroday">● 0-DAY</span>
+      <span class="ch-ts">6d ago</span>
+    </div>
+    <div class="stix">
+      <span>◈</span>
+      <span class="stix-id">bundle--adfc298f-1a47-4d45-87df-6e00</span>
+      <span class="stix-actor">UNC-CDB-99</span>
+    </div>
+    <div class="ct">RondoDox Botnet Expands Arsenal — 174 Exploitable Flaws, 15,000 Daily Exploit Attempts Confirmed</div>
+    <div class="tr">
+      <span class="tag tag-exploit">⚡ EXPLOIT ACTIVE</span>
+      <span class="tag tag-p1">P1</span>
+      <span class="tag tag-ext">EXTERNAL</span>
+    </div>
+  </div>
+  <div class="cb">
+    <div class="ai-blk">
+      <div class="ai-led"></div>
+      <div class="ai-txt"><strong>High-severity active malware threat</strong> (CVSS 8.8) with network-facing exposure. Active exploitation confirmed by CISA KEV — <strong>threat is live in the wild</strong>. Immediate patching required to prevent active compromise.</div>
+    </div>
+    <div class="mx">
+      <div class="gauge-wrap">
+        <svg class="g-svg" width="72" height="72" viewBox="0 0 72 72">
+          <circle class="g-track" cx="36" cy="36" r="28" stroke-width="5"/>
+          <circle class="g-fill" id="g1" cx="36" cy="36" r="28" stroke-width="5"
+            stroke="var(--sev-critical)" stroke-dasharray="175.9" stroke-dashoffset="0"
+            transform="rotate(-90 36 36)"/>
+          <text class="g-num" x="36" y="33">10</text>
+          <text class="g-lbl" x="36" y="47">RISK</text>
+          <text class="g-risk" x="36" y="56">CRITICAL</text>
+        </svg>
+      </div>
+      <div class="ioc-row" style="flex-direction:column;gap:6px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <span class="ioc cv">5 CVEs</span>
+          <span class="ioc hp">2 Hashes</span>
+          <span class="ioc dm">3 Domains</span>
+          <span class="ioc ip">4 IPs</span>
+        </div>
+        <div class="mitre-row" style="margin:0">
+          <span class="mt">T1203</span><span class="mt">T1059</span><span class="mt">T1204.001</span><span class="mt">T1547</span>
+        </div>
+      </div>
+    </div>
+    <div class="mg4">
+      <div class="mb"><div class="mb-lbl">CVSS</div><div class="mb-val crit">8.8</div><div class="mb-sub">HIGH</div></div>
+      <div class="mb"><div class="mb-lbl">EPSS</div><div class="mb-val crit">93.54%</div><div class="mb-sub">CRITICAL</div></div>
+      <div class="mb"><div class="mb-lbl">CONF</div><div class="mb-val med">53%</div><div class="mb-sub">MEDIUM</div></div>
+      <div class="mb"><div class="mb-lbl">KEV</div><div class="mb-val kev">YES·ACTIVE</div></div>
+    </div>
+    <div class="ag4">
+      <div class="ab"><div class="ab-lbl">Action</div><div class="ab-val patch">IMM. PATCH</div></div>
+      <div class="ab"><div class="ab-lbl">Priority</div><div class="ab-val p1">P1</div></div>
+      <div class="ab"><div class="ab-lbl">Impact</div><div class="ab-val ext">EXTERNAL</div></div>
+      <div class="ab"><div class="ab-lbl">Likelihood</div><div class="ab-val h">HIGH</div></div>
+    </div>
+    <div class="soc">
+      <div class="soc-hdr"><span class="soc-lbl">SOC Guidance</span><span class="conf-pill cp-hc">HIGH CONFIDENCE</span></div>
+      <div class="soc-body"><strong>Apply vendor patch immediately</strong> and isolate affected assets from external exposure. Deploy compensating controls if patch unavailable.</div>
+    </div>
+    <div class="fmeta">
+      <span class="sc">CVSS 8.8</span><span class="sep">·</span>
+      <span>EPSS 93.54%</span><span class="sep">·</span><span>CONF 53%</span>
+      <span class="src">SRC: securityaffairs.com</span>
+    </div>
+    <button class="ddt" onclick="toggleDD(this)">
+      <span>INTEL DEEP-DIVE</span><span class="ddt-arrow">▾</span>
+    </button>
+  </div>
+  <div class="cf">
+    <div class="cf-score">◆ 10/10</div>
+    <div class="cf-btns">
+      <button class="cb-btn ana">🧠 ANALYZE</button>
+      <button class="cb-btn dos">VIEW TACTICAL DOSSIER →</button>
+    </div>
+  </div>
+</article>
+
+<!-- ══════ CARD 2: CRITICAL · QNAP ══════ -->
+<article class="icard kev-active" data-sev="CRITICAL" data-risk="10" data-kev="0" data-patch="0">
+  <div class="ch">
+    <div class="ch-row1">
+      <span class="sv">CRITICAL</span>
+      <span class="tlp r">TLP:RED</span>
+      <span class="rb">RISK 10/10</span>
+      <span class="badge bdg-new">● NEW</span>
+      <span class="ch-ts">14m ago</span>
+    </div>
+    <div class="stix">
+      <span>◈</span>
+      <span class="stix-id">bundle--dc44d544-d2e6-45e8-8a34-94e8</span>
+      <span class="stix-actor known">CDB-IR-01</span>
+    </div>
+    <div class="ct">QNAP Fixed Four Vulnerabilities Demonstrated at Pwn2Own Ireland 2025 — Critical RCE Chain</div>
+    <div class="tr">
+      <span class="tag tag-noexploit">✓ NO EXPLOIT</span>
+      <span class="tag tag-p1">P1</span>
+      <span class="tag tag-ext">EXTERNAL</span>
+    </div>
+  </div>
+  <div class="cb">
+    <div class="ai-blk">
+      <div class="ai-led"></div>
+      <div class="ai-txt"><strong>Critical-severity threat advisory</strong> (CVSS 9.8) with network-facing exposure. Moderate exploitation probability; no confirmed active exploitation. <strong>Prioritize for next triage cycle</strong>. Attributed to <strong>CDB-IR-01</strong>.</div>
+    </div>
+    <div class="mx">
+      <div class="gauge-wrap">
+        <svg class="g-svg" width="72" height="72" viewBox="0 0 72 72">
+          <circle class="g-track" cx="36" cy="36" r="28" stroke-width="5"/>
+          <circle class="g-fill" cx="36" cy="36" r="28" stroke-width="5"
+            stroke="var(--sev-critical)" stroke-dasharray="175.9" stroke-dashoffset="0"
+            transform="rotate(-90 36 36)"/>
+          <text class="g-num" x="36" y="33">10</text>
+          <text class="g-lbl" x="36" y="47">RISK</text>
+          <text class="g-risk" x="36" y="56">CRITICAL</text>
+        </svg>
+      </div>
+      <div style="flex:1">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span class="ioc ip">1 IP</span>
+          <span class="ioc cv">11 CVEs</span>
+        </div>
+        <div class="mitre-row" style="margin:0">
+          <span class="mt">T1195</span><span class="mt">T1190</span><span class="mt">T1203</span><span class="mt">T1059</span>
+        </div>
+      </div>
+    </div>
+    <div class="mg4">
+      <div class="mb"><div class="mb-lbl">CVSS</div><div class="mb-val crit">9.8</div><div class="mb-sub">CRITICAL</div></div>
+      <div class="mb"><div class="mb-lbl">EPSS</div><div class="mb-val med">0.15%</div><div class="mb-sub">MEDIUM</div></div>
+      <div class="mb"><div class="mb-lbl">CONF</div><div class="mb-val med">57%</div><div class="mb-sub">MEDIUM</div></div>
+      <div class="mb"><div class="mb-lbl">KEV</div><div class="mb-val none">—</div><div class="mb-sub">NONE</div></div>
+    </div>
+    <div class="ag4">
+      <div class="ab"><div class="ab-lbl">Action</div><div class="ab-val inv">INVESTIGATE</div></div>
+      <div class="ab"><div class="ab-lbl">Priority</div><div class="ab-val p1">P1</div></div>
+      <div class="ab"><div class="ab-lbl">Impact</div><div class="ab-val ext">EXTERNAL</div></div>
+      <div class="ab"><div class="ab-lbl">Likelihood</div><div class="ab-val h">HIGH</div></div>
+    </div>
+    <div class="soc">
+      <div class="soc-hdr"><span class="soc-lbl">SOC Guidance</span><span class="conf-pill cp-mc">CONFIDENCE: MEDIUM</span></div>
+      <div class="soc-body"><strong>Deploy IOC blocking rules</strong> across firewall, proxy, and EDR systems. Schedule patch within 24h and monitor for exploitation attempts.</div>
+    </div>
+    <div class="fmeta">
+      <span class="sc">CVSS 9.8</span><span class="sep">·</span>
+      <span>EPSS 0.15%</span><span class="sep">·</span><span>CONF 57%</span>
+      <span class="src">SRC: securityaffairs.com</span>
+    </div>
+    <button class="ddt" onclick="toggleDD(this)">
+      <span>INTEL DEEP-DIVE</span><span class="ddt-arrow">▾</span>
+    </button>
+  </div>
+  <div class="cf">
+    <div class="cf-score">◆ 10/10</div>
+    <div class="cf-btns">
+      <button class="cb-btn nvd">NVD ↗</button>
+      <button class="cb-btn ana">🧠 ANALYZE</button>
+      <button class="cb-btn dos">VIEW TACTICAL DOSSIER →</button>
+    </div>
+  </div>
+</article>
+
+<!-- ══════ CARD 3: HIGH · AVideo ══════ -->
+<article class="icard" data-sev="HIGH" data-risk="7.9" data-kev="0" data-patch="0">
+  <div class="ch">
+    <div class="ch-row1">
+      <span class="sv">HIGH</span>
+      <span class="tlp a">TLP:AMBER</span>
+      <span class="rb">RISK 7.9/10</span>
+      <span class="badge bdg-new">● NEW</span>
+      <span class="ch-ts">2h ago</span>
+    </div>
+    <div class="stix">
+      <span>◈</span>
+      <span class="stix-id">bundle--490726ee-d740-4d51-b162-3220</span>
+      <span class="stix-actor">UNC-UNKNOWN</span>
+    </div>
+    <div class="ct">CVE-2026-33650 — AVideo's Video Moderator Privilege Escalation via Ownership Transfer Enables Arbitrary Video Deletion</div>
+    <div class="tr">
+      <span class="tag tag-noexploit">✓ NO EXPLOIT</span>
+      <span class="tag tag-p2">P2</span>
+      <span class="tag tag-data">DATA EXPOSURE</span>
+    </div>
+  </div>
+  <div class="cb">
+    <div class="ai-blk">
+      <div class="ai-led" style="background:var(--sev-high);box-shadow:0 0 8px var(--sev-high)"></div>
+      <div class="ai-txt"><strong>High-severity privilege escalation</strong> vulnerability (CVSS 7.6) with potential data exposure risk. No active exploitation observed. <strong>Prioritize for next triage cycle</strong> and validate exposure.</div>
+    </div>
+    <div class="mx">
+      <div class="gauge-wrap">
+        <svg class="g-svg" width="72" height="72" viewBox="0 0 72 72">
+          <circle class="g-track" cx="36" cy="36" r="28" stroke-width="5"/>
+          <circle class="g-fill" cx="36" cy="36" r="28" stroke-width="5"
+            stroke="var(--sev-high)" stroke-dasharray="175.9" stroke-dashoffset="31.7"
+            transform="rotate(-90 36 36)" style="filter:drop-shadow(0 0 5px var(--sev-high))"/>
+          <text class="g-num" style="fill:var(--sev-high)" x="36" y="33">7.9</text>
+          <text class="g-lbl" x="36" y="47">RISK</text>
+          <text class="g-risk" style="fill:var(--sev-high)" x="36" y="56">HIGH</text>
+        </svg>
+      </div>
+      <div style="flex:1">
+        <div style="margin-bottom:7px"><span class="ioc cv">1 CVE</span></div>
+        <div class="mitre-row" style="margin:0">
+          <span class="mt">T1203</span><span class="mt">T1059</span><span class="mt">T1068</span>
+        </div>
+      </div>
+    </div>
+    <div class="mg4">
+      <div class="mb"><div class="mb-lbl">CVSS</div><div class="mb-val high">7.6</div><div class="mb-sub">HIGH</div></div>
+      <div class="mb"><div class="mb-lbl">EPSS</div><div class="mb-val none">—</div><div class="mb-sub">N/A</div></div>
+      <div class="mb"><div class="mb-lbl">CONF</div><div class="mb-val low">37%</div><div class="mb-sub">ANALYST ASSESSED</div></div>
+      <div class="mb"><div class="mb-lbl">KEV</div><div class="mb-val none">—</div><div class="mb-sub">NONE</div></div>
+    </div>
+    <div class="ag4">
+      <div class="ab"><div class="ab-lbl">Action</div><div class="ab-val inv">INVESTIGATE</div></div>
+      <div class="ab"><div class="ab-lbl">Priority</div><div class="ab-val p2">P2</div></div>
+      <div class="ab"><div class="ab-lbl">Impact</div><div class="ab-val m">DATA EXP.</div></div>
+      <div class="ab"><div class="ab-lbl">Likelihood</div><div class="ab-val l">LOW</div></div>
+    </div>
+    <div class="soc">
+      <div class="soc-hdr"><span class="soc-lbl">SOC Guidance</span><span class="conf-pill cp-mc">CONFIDENCE: MEDIUM</span></div>
+      <div class="soc-body"><strong>Deploy IOC blocking rules</strong> across firewall, proxy, and EDR systems. Schedule patch within 24h and monitor for exploitation attempts.</div>
+    </div>
+    <div class="fmeta">
+      <span class="sc">CVSS 7.6</span><span class="sep">·</span><span>CONF 37%</span>
+      <a href="#" class="cve-link">⬤ CVE-2026-33650</a>
+      <span class="src">SRC: cvefeed.io</span>
+    </div>
+    <button class="ddt" onclick="toggleDD(this)"><span>INTEL DEEP-DIVE</span><span class="ddt-arrow">▾</span></button>
+  </div>
+  <div class="cf">
+    <div class="cf-score">◆ 7.9/10</div>
+    <div class="cf-btns">
+      <button class="cb-btn nvd">NVD ↗</button>
+      <button class="cb-btn ana">🧠 ANALYZE</button>
+      <button class="cb-btn dos">VIEW TACTICAL DOSSIER →</button>
+    </div>
+  </div>
+</article>
+
+<!-- ══════ CARD 4: MEDIUM · AVideo CSRF PATCH ══════ -->
+<article class="icard" data-sev="MEDIUM" data-risk="5.8" data-kev="0" data-patch="1">
+  <div class="ch">
+    <div class="ch-row1">
+      <span class="sv">MEDIUM</span>
+      <span class="tlp g">TLP:GREEN</span>
+      <span class="rb">RISK 5.8/10</span>
+      <span class="badge bdg-patch">✓ PATCH AVAIL</span>
+      <span class="badge bdg-new">● NEW</span>
+      <span class="ch-ts">2h ago</span>
+    </div>
+    <div class="stix">
+      <span>◈</span>
+      <span class="stix-id">bundle--ee728809-81f9-4ed0-9a4b-08d8</span>
+      <span class="stix-actor">UNC-UNKNOWN</span>
+    </div>
+    <div class="ct">CVE-2026-33649 — AVideo's GET-Based CSRF in setPermission.json.php Enables Privilege Escalation via Arbitrary Permission Modification</div>
+    <div class="tr">
+      <span class="tag tag-noexploit">✓ NO EXPLOIT</span>
+      <span class="tag tag-p2">P2</span>
+      <span class="tag tag-data">DATA EXPOSURE</span>
+    </div>
+  </div>
+  <div class="cb">
+    <div class="ai-blk">
+      <div class="ai-led" style="background:var(--sev-medium);box-shadow:0 0 8px var(--sev-medium)"></div>
+      <div class="ai-txt"><strong>High-severity privilege escalation</strong> (CVSS 8.1) with potential data exposure risk. No active exploitation observed. Prioritize for next triage cycle and validate exposure.</div>
+    </div>
+    <div class="mx">
+      <div class="gauge-wrap">
+        <svg class="g-svg" width="72" height="72" viewBox="0 0 72 72">
+          <circle class="g-track" cx="36" cy="36" r="28" stroke-width="5"/>
+          <circle class="g-fill" cx="36" cy="36" r="28" stroke-width="5"
+            stroke="var(--sev-medium)" stroke-dasharray="175.9" stroke-dashoffset="73.9"
+            transform="rotate(-90 36 36)" style="filter:drop-shadow(0 0 5px var(--sev-medium))"/>
+          <text class="g-num" style="fill:var(--sev-medium)" x="36" y="33">5.8</text>
+          <text class="g-lbl" x="36" y="47">RISK</text>
+          <text class="g-risk" style="fill:var(--sev-medium)" x="36" y="56">MEDIUM</text>
+        </svg>
+      </div>
+      <div style="flex:1">
+        <div style="margin-bottom:7px"><span class="ioc cv">1 CVE</span></div>
+        <div class="mitre-row" style="margin:0">
+          <span class="mt">T1059</span><span class="mt">T1068</span><span class="mt">T1078.003</span>
+        </div>
+      </div>
+    </div>
+    <div class="mg4">
+      <div class="mb"><div class="mb-lbl">CVSS</div><div class="mb-val high">8.1</div><div class="mb-sub">HIGH</div></div>
+      <div class="mb"><div class="mb-lbl">EPSS</div><div class="mb-val none">—</div><div class="mb-sub">N/A</div></div>
+      <div class="mb"><div class="mb-lbl">CONF</div><div class="mb-val low">33%</div><div class="mb-sub">LOW</div></div>
+      <div class="mb"><div class="mb-lbl">KEV</div><div class="mb-val none">—</div><div class="mb-sub">NONE</div></div>
+    </div>
+    <div class="ag4">
+      <div class="ab"><div class="ab-lbl">Action</div><div class="ab-val inv">INVESTIGATE</div></div>
+      <div class="ab"><div class="ab-lbl">Priority</div><div class="ab-val p2">P2</div></div>
+      <div class="ab"><div class="ab-lbl">Impact</div><div class="ab-val m">DATA EXP.</div></div>
+      <div class="ab"><div class="ab-lbl">Likelihood</div><div class="ab-val l">LOW</div></div>
+    </div>
+    <div class="soc">
+      <div class="soc-hdr"><span class="soc-lbl">SOC Guidance</span><span class="conf-pill cp-me">CONFIDENCE: MEDIUM</span></div>
+      <div class="soc-body"><strong>Deploy IOC blocking rules</strong> across firewall, proxy, and EDR systems. Schedule patch within 24h and monitor for exploitation attempts.</div>
+    </div>
+    <div class="fmeta">
+      <span class="sc">CVSS 8.1</span><span class="sep">·</span><span>CONF 33%</span>
+      <a href="#" class="cve-link">⬤ CVE-2026-33649</a>
+      <span class="src">SRC: cvefeed.io</span>
+    </div>
+    <button class="ddt" onclick="toggleDD(this)"><span>INTEL DEEP-DIVE</span><span class="ddt-arrow">▾</span></button>
+  </div>
+  <div class="cf">
+    <div class="cf-score" style="color:var(--sev-medium)">◆ 5.8/10</div>
+    <div class="cf-btns">
+      <button class="cb-btn nvd">NVD ↗</button>
+      <button class="cb-btn ana">🧠 ANALYZE</button>
+      <button class="cb-btn dos">VIEW TACTICAL DOSSIER →</button>
+    </div>
+  </div>
+</article>
+
+<!-- ══════ CARD 5: HIGH · Phishing ══════ -->
+<article class="icard" data-sev="HIGH" data-risk="6.7" data-kev="0" data-patch="0">
+  <div class="ch">
+    <div class="ch-row1">
+      <span class="sv">HIGH</span>
+      <span class="tlp g">TLP:GREEN</span>
+      <span class="rb">RISK 6.7/10</span>
+      <span class="badge bdg-new">● NEW</span>
+      <span class="ch-ts">2h ago</span>
+    </div>
+    <div class="stix">
+      <span>◈</span>
+      <span class="stix-id">bundle--754c3d98-6101-4167-9f08-c522</span>
+      <span class="stix-actor">UNC-UNKNOWN</span>
+    </div>
+    <div class="ct">An AI-Powered Phishing Campaign Has Compromised Hundreds of Organizations Globally</div>
+    <div class="tr">
+      <span class="tag tag-noexploit">✓ NO EXPLOIT</span>
+      <span class="tag tag-p4">P4</span>
+      <span class="tag tag-data">DATA EXPOSURE</span>
+    </div>
+  </div>
+  <div class="cb">
+    <div class="ai-blk">
+      <div class="ai-led" style="background:var(--sev-high);box-shadow:0 0 8px var(--sev-high)"></div>
+      <div class="ai-txt"><strong>High-priority phishing campaign</strong> with potential data exposure risk. No active exploitation observed. Routine monitoring sufficient; no immediate action required.</div>
+    </div>
+    <div class="mx">
+      <div class="gauge-wrap">
+        <svg class="g-svg" width="72" height="72" viewBox="0 0 72 72">
+          <circle class="g-track" cx="36" cy="36" r="28" stroke-width="5"/>
+          <circle class="g-fill" cx="36" cy="36" r="28" stroke-width="5"
+            stroke="var(--sev-high)" stroke-dasharray="175.9" stroke-dashoffset="58.4"
+            transform="rotate(-90 36 36)"/>
+          <text class="g-num" style="fill:var(--sev-high)" x="36" y="33">6.7</text>
+          <text class="g-lbl" x="36" y="47">RISK</text>
+          <text class="g-risk" style="fill:var(--sev-high)" x="36" y="56">HIGH</text>
+        </svg>
+      </div>
+      <div style="flex:1">
+        <div class="mitre-row" style="margin:0">
+          <span class="mt">T1566</span><span class="mt">T1199</span><span class="mt">T1078</span><span class="mt">T1203</span>
+        </div>
+      </div>
+    </div>
+    <div class="mg4">
+      <div class="mb"><div class="mb-lbl">CVSS</div><div class="mb-val none">—</div><div class="mb-sub">N/A</div></div>
+      <div class="mb"><div class="mb-lbl">EPSS</div><div class="mb-val none">—</div><div class="mb-sub">N/A</div></div>
+      <div class="mb"><div class="mb-lbl">CONF</div><div class="mb-val med">42%</div><div class="mb-sub">MEDIUM</div></div>
+      <div class="mb"><div class="mb-lbl">KEV</div><div class="mb-val none">—</div><div class="mb-sub">NONE</div></div>
+    </div>
+    <div class="ag4">
+      <div class="ab"><div class="ab-lbl">Action</div><div class="ab-val assess">ASSESS</div></div>
+      <div class="ab"><div class="ab-lbl">Priority</div><div class="ab-val p4">P4</div></div>
+      <div class="ab"><div class="ab-lbl">Impact</div><div class="ab-val m">DATA EXP.</div></div>
+      <div class="ab"><div class="ab-lbl">Likelihood</div><div class="ab-val l">LOW</div></div>
+    </div>
+    <div class="soc">
+      <div class="soc-hdr"><span class="soc-lbl">SOC Guidance</span><span class="conf-pill cp-lo">CONFIDENCE: LOW</span></div>
+      <div class="soc-body">Routine monitoring sufficient. Log for compliance tracking and <strong>review during next scheduled assessment</strong>.</div>
+    </div>
+    <div class="fmeta">
+      <span>CONF 42%</span>
+      <span class="src">SRC: cyberscoop.com</span>
+    </div>
+    <button class="ddt" onclick="toggleDD(this)"><span>INTEL DEEP-DIVE</span><span class="ddt-arrow">▾</span></button>
+  </div>
+  <div class="cf">
+    <div class="cf-score" style="color:var(--sev-high)">◆ 6.7/10</div>
+    <div class="cf-btns">
+      <button class="cb-btn ana">🧠 ANALYZE</button>
+      <button class="cb-btn dos">VIEW TACTICAL DOSSIER →</button>
+    </div>
+  </div>
+</article>
+
+<!-- ══════ CARD 6: HIGH · CanisterWorm ══════ -->
+<article class="icard" data-sev="HIGH" data-risk="7.2" data-kev="0" data-patch="0">
+  <div class="ch">
+    <div class="ch-row1">
+      <span class="sv">HIGH</span>
+      <span class="tlp g">TLP:GREEN</span>
+      <span class="rb">RISK 7.2/10</span>
+      <span class="ch-ts">6h ago</span>
+    </div>
+    <div class="stix">
+      <span>◈</span>
+      <span class="stix-id">bundle--e7d3441b-b52c-45e1-8dd5-e552</span>
+      <span class="stix-actor known">UNC-CDB-99</span>
+    </div>
+    <div class="ct">'CanisterWorm' Springs Wiper Attack Targeting Iran — Supply Chain Compromise via npm Ecosystem</div>
+    <div class="tr">
+      <span class="tag tag-noexploit">✓ NO EXPLOIT</span>
+      <span class="tag tag-p4">P4</span>
+      <span class="tag tag-data">DATA EXPOSURE</span>
+    </div>
+  </div>
+  <div class="cb">
+    <div class="ai-blk">
+      <div class="ai-led" style="background:var(--sev-high);box-shadow:0 0 8px var(--sev-high)"></div>
+      <div class="ai-txt"><strong>High-priority supply chain wiper threat</strong> with data exposure risk. No active exploitation observed. Routine monitoring sufficient; no immediate action required.</div>
+    </div>
+    <div class="mx">
+      <div class="gauge-wrap">
+        <svg class="g-svg" width="72" height="72" viewBox="0 0 72 72">
+          <circle class="g-track" cx="36" cy="36" r="28" stroke-width="5"/>
+          <circle class="g-fill" cx="36" cy="36" r="28" stroke-width="5"
+            stroke="var(--sev-high)" stroke-dasharray="175.9" stroke-dashoffset="45.7"
+            transform="rotate(-90 36 36)"/>
+          <text class="g-num" style="fill:var(--sev-high)" x="36" y="33">7.2</text>
+          <text class="g-lbl" x="36" y="47">RISK</text>
+          <text class="g-risk" style="fill:var(--sev-high)" x="36" y="56">HIGH</text>
+        </svg>
+      </div>
+      <div style="flex:1">
+        <div class="mitre-row" style="margin:0">
+          <span class="mt">T1195</span><span class="mt">T1078</span><span class="mt">T1203</span><span class="mt">T1059</span>
+        </div>
+      </div>
+    </div>
+    <div class="mg4">
+      <div class="mb"><div class="mb-lbl">CVSS</div><div class="mb-val none">—</div><div class="mb-sub">N/A</div></div>
+      <div class="mb"><div class="mb-lbl">EPSS</div><div class="mb-val none">—</div><div class="mb-sub">N/A</div></div>
+      <div class="mb"><div class="mb-lbl">CONF</div><div class="mb-val med">44%</div><div class="mb-sub">MEDIUM</div></div>
+      <div class="mb"><div class="mb-lbl">KEV</div><div class="mb-val none">—</div><div class="mb-sub">NONE</div></div>
+    </div>
+    <div class="ag4">
+      <div class="ab"><div class="ab-lbl">Action</div><div class="ab-val assess">ASSESS</div></div>
+      <div class="ab"><div class="ab-lbl">Priority</div><div class="ab-val p4">P4</div></div>
+      <div class="ab"><div class="ab-lbl">Impact</div><div class="ab-val m">DATA EXP.</div></div>
+      <div class="ab"><div class="ab-lbl">Likelihood</div><div class="ab-val l">LOW</div></div>
+    </div>
+    <div class="soc">
+      <div class="soc-hdr"><span class="soc-lbl">SOC Guidance</span><span class="conf-pill cp-lo">CONFIDENCE: LOW</span></div>
+      <div class="soc-body">Routine monitoring sufficient. Log for compliance tracking and <strong>review during next scheduled assessment</strong>.</div>
+    </div>
+    <div class="fmeta">
+      <span>CONF 44%</span>
+      <span class="src">SRC: krebsonsecurity.com</span>
+    </div>
+    <button class="ddt" onclick="toggleDD(this)"><span>INTEL DEEP-DIVE</span><span class="ddt-arrow">▾</span></button>
+  </div>
+  <div class="cf">
+    <div class="cf-score" style="color:var(--sev-high)">◆ 7.2/10</div>
+    <div class="cf-btns">
+      <button class="cb-btn ana">🧠 ANALYZE</button>
+      <button class="cb-btn dos">VIEW TACTICAL DOSSIER →</button>
+    </div>
+  </div>
+</article>
+
+<!-- ══════ CARD 7: MEDIUM · CVE-2026-4597 PATCH ══════ -->
+<article class="icard" data-sev="MEDIUM" data-risk="4.5" data-kev="0" data-patch="1">
+  <div class="ch">
+    <div class="ch-row1">
+      <span class="sv">MEDIUM</span>
+      <span class="tlp g">TLP:GREEN</span>
+      <span class="rb">RISK 4.5/10</span>
+      <span class="badge bdg-patch">✓ PATCH AVAIL</span>
+      <span class="badge bdg-new">● NEW</span>
+      <span class="ch-ts">13m ago</span>
+    </div>
+    <div class="stix">
+      <span>◈</span>
+      <span class="stix-id">bundle--41cacd79-43d8-4be8-887a-f8a3</span>
+      <span class="stix-actor">UNC-UNKNOWN</span>
+    </div>
+    <div class="ct">CVE-2026-4597 — 648540858 wvp-GB28181-pro Stream Proxy Query StreamProxyProvider.java selectAll SQL Injection</div>
+    <div class="tr">
+      <span class="tag tag-noexploit">✓ NO EXPLOIT</span>
+      <span class="tag tag-p3">P3</span>
+      <span class="tag tag-int">INTERNAL</span>
+    </div>
+  </div>
+  <div class="cb">
+    <div class="ai-blk">
+      <div class="ai-led" style="background:var(--sev-medium);box-shadow:0 0 8px var(--sev-medium)"></div>
+      <div class="ai-txt"><strong>Moderate-severity SQL injection</strong> (CVSS 6.3) affecting internal components. No active exploitation observed. Schedule remediation during routine maintenance window.</div>
+    </div>
+    <div class="mx">
+      <div class="gauge-wrap">
+        <svg class="g-svg" width="72" height="72" viewBox="0 0 72 72">
+          <circle class="g-track" cx="36" cy="36" r="28" stroke-width="5"/>
+          <circle class="g-fill" cx="36" cy="36" r="28" stroke-width="5"
+            stroke="var(--sev-medium)" stroke-dasharray="175.9" stroke-dashoffset="96.8"
+            transform="rotate(-90 36 36)" style="filter:drop-shadow(0 0 4px var(--sev-medium))"/>
+          <text class="g-num" style="fill:var(--sev-medium)" x="36" y="33">4.5</text>
+          <text class="g-lbl" x="36" y="47">RISK</text>
+          <text class="g-risk" style="fill:var(--sev-medium)" x="36" y="56">MEDIUM</text>
+        </svg>
+      </div>
+      <div style="flex:1">
+        <div style="margin-bottom:7px"><span class="ioc cv">1 CVE</span></div>
+        <div class="mitre-row" style="margin:0">
+          <span class="mt">T1203</span><span class="mt">T1059</span>
+        </div>
+      </div>
+    </div>
+    <div class="mg4">
+      <div class="mb"><div class="mb-lbl">CVSS</div><div class="mb-val med">6.3</div><div class="mb-sub">MEDIUM</div></div>
+      <div class="mb"><div class="mb-lbl">EPSS</div><div class="mb-val none">—</div><div class="mb-sub">N/A</div></div>
+      <div class="mb"><div class="mb-lbl">CONF</div><div class="mb-val low">25%</div><div class="mb-sub">LOW</div></div>
+      <div class="mb"><div class="mb-lbl">KEV</div><div class="mb-val none">—</div><div class="mb-sub">NONE</div></div>
+    </div>
+    <div class="ag4">
+      <div class="ab"><div class="ab-lbl">Action</div><div class="ab-val mon">MONITOR</div></div>
+      <div class="ab"><div class="ab-lbl">Priority</div><div class="ab-val p3">P3</div></div>
+      <div class="ab"><div class="ab-lbl">Impact</div><div class="ab-val l">INTERNAL</div></div>
+      <div class="ab"><div class="ab-lbl">Likelihood</div><div class="ab-val l">LOW</div></div>
+    </div>
+    <div class="soc">
+      <div class="soc-hdr"><span class="soc-lbl">SOC Guidance</span><span class="conf-pill cp-mc">CONFIDENCE: MEDIUM</span></div>
+      <div class="soc-body">Include in <strong>routine patch cycle</strong>. No immediate action required but track vendor advisories for status changes.</div>
+    </div>
+    <div class="fmeta">
+      <span class="sc">CVSS 6.3</span><span class="sep">·</span><span>CONF 25%</span>
+      <a href="#" class="cve-link">⬤ CVE-2026-4597</a>
+      <span class="src">SRC: cvefeed.io</span>
+    </div>
+    <button class="ddt" onclick="toggleDD(this)"><span>INTEL DEEP-DIVE</span><span class="ddt-arrow">▾</span></button>
+  </div>
+  <div class="cf">
+    <div class="cf-score" style="color:var(--sev-medium)">◆ 4.5/10</div>
+    <div class="cf-btns">
+      <button class="cb-btn nvd">NVD ↗</button>
+      <button class="cb-btn ana">🧠 ANALYZE</button>
+      <button class="cb-btn dos">VIEW TACTICAL DOSSIER →</button>
+    </div>
+  </div>
+</article>
+
+<!-- ══════ CARD 8: LOW · Blinko ══════ -->
+<article class="icard" data-sev="LOW" data-risk="3.5" data-kev="0" data-patch="0">
+  <div class="ch">
+    <div class="ch-row1">
+      <span class="sv">LOW</span>
+      <span class="tlp c">TLP:CLEAR</span>
+      <span class="rb">RISK 3.5/10</span>
+      <span class="badge bdg-new">● NEW</span>
+      <span class="ch-ts">13m ago</span>
+    </div>
+    <div class="stix">
+      <span>◈</span>
+      <span class="stix-id">bundle--d7653d93-5d98-45bb-991b-e868</span>
+      <span class="stix-actor">UNC-UNKNOWN</span>
+    </div>
+    <div class="ct">CVE-2026-23488 — Blinko: Multiple Interfaces in the Comment Feature Allow Unauthorized Access</div>
+    <div class="tr">
+      <span class="tag tag-noexploit">✓ NO EXPLOIT</span>
+      <span class="tag tag-p4">P4</span>
+      <span class="tag tag-int">INTERNAL</span>
+    </div>
+  </div>
+  <div class="cb">
+    <div class="ai-blk">
+      <div class="ai-led" style="background:var(--sev-low);box-shadow:0 0 8px var(--sev-low)"></div>
+      <div class="ai-txt">Notable security vulnerability affecting internal components with limited external exposure. No active exploitation. <strong>Routine monitoring sufficient</strong>; no immediate action required. Attributed to UNC-UNKNOWN.</div>
+    </div>
+    <div class="mx">
+      <div class="gauge-wrap">
+        <svg class="g-svg" width="72" height="72" viewBox="0 0 72 72">
+          <circle class="g-track" cx="36" cy="36" r="28" stroke-width="5"/>
+          <circle class="g-fill" cx="36" cy="36" r="28" stroke-width="5"
+            stroke="var(--sev-low)" stroke-dasharray="175.9" stroke-dashoffset="114.3"
+            transform="rotate(-90 36 36)" style="filter:drop-shadow(0 0 4px var(--sev-low))"/>
+          <text class="g-num" style="fill:var(--sev-low)" x="36" y="33">3.5</text>
+          <text class="g-lbl" x="36" y="47">RISK</text>
+          <text class="g-risk" style="fill:var(--sev-low)" x="36" y="56">LOW</text>
+        </svg>
+      </div>
+      <div style="flex:1">
+        <div style="margin-bottom:7px"><span class="ioc cv">1 CVE</span></div>
+        <div class="mitre-row" style="margin:0">
+          <span class="mt">T1078</span><span class="mt">T1059</span>
+        </div>
+      </div>
+    </div>
+    <div class="mg4">
+      <div class="mb"><div class="mb-lbl">CVSS</div><div class="mb-val none">—</div><div class="mb-sub">N/A</div></div>
+      <div class="mb"><div class="mb-lbl">EPSS</div><div class="mb-val none">—</div><div class="mb-sub">N/A</div></div>
+      <div class="mb"><div class="mb-lbl">CONF</div><div class="mb-val none">23%</div><div class="mb-sub">PRELIMINARY</div></div>
+      <div class="mb"><div class="mb-lbl">KEV</div><div class="mb-val none">—</div><div class="mb-sub">NONE</div></div>
+    </div>
+    <div class="ag4">
+      <div class="ab"><div class="ab-lbl">Action</div><div class="ab-val assess">ASSESS</div></div>
+      <div class="ab"><div class="ab-lbl">Priority</div><div class="ab-val p4">P4</div></div>
+      <div class="ab"><div class="ab-lbl">Impact</div><div class="ab-val l">INTERNAL</div></div>
+      <div class="ab"><div class="ab-lbl">Likelihood</div><div class="ab-val l">LOW</div></div>
+    </div>
+    <div class="soc">
+      <div class="soc-hdr"><span class="soc-lbl">SOC Guidance</span><span class="conf-pill cp-pr">PRELIMINARY</span></div>
+      <div class="soc-body">Routine monitoring sufficient. Log for compliance tracking and <strong>review during next scheduled assessment</strong>.</div>
+    </div>
+    <div class="fmeta">
+      <span>CONF 23%</span>
+      <a href="#" class="cve-link">⬤ CVE-2026-23488</a>
+      <span class="src">SRC: cvefeed.io</span>
+    </div>
+    <button class="ddt" onclick="toggleDD(this)"><span>INTEL DEEP-DIVE</span><span class="ddt-arrow">▾</span></button>
+  </div>
+  <div class="cf">
+    <div class="cf-score" style="color:var(--sev-low)">◆ 3.5/10</div>
+    <div class="cf-btns">
+      <button class="cb-btn nvd">NVD ↗</button>
+      <button class="cb-btn ana">🧠 ANALYZE</button>
+      <button class="cb-btn dos">VIEW TACTICAL DOSSIER →</button>
+    </div>
+  </div>
+</article>
+
+</div><!-- /grid -->
+
+<!-- ─── RATING PANEL ─── -->
+<div class="rp">
+  <div class="rp-title">DASHBOARD FEATURE RATINGS — BEFORE vs GOD-LEVEL v75.6</div>
+  <div class="rp-sub">SENTINEL APEX · ALL FEATURES EVALUATED AGAINST PRODUCTION SOC STANDARDS · MARCH 24 2026</div>
+  <div class="rp-grid" id="rpGrid"></div>
+</div>
+
+</div><!-- /page -->
+
+<script>
+// ── Rating data ──
+const ratings = [
+  { f:"Intel Card Visual Design",          b:6,  a:10 },
+  { f:"Risk Score Gauge (SVG animated)",   b:7,  a:10 },
+  { f:"Severity Color System",             b:7,  a:10 },
+  { f:"TLP Classification Badges",         b:8,  a:10 },
+  { f:"MITRE ATT&CK Tag Rendering",        b:6,  a:10 },
+  { f:"IOC Counter & Chip Display",        b:5,  a:10 },
+  { f:"SOC Guidance Block",                b:6,  a:10 },
+  { f:"Confidence Label System",           b:4,  a:10 },
+  { f:"Action / Priority Grid (4-box)",    b:7,  a:10 },
+  { f:"Card Hover State & Animation",      b:5,  a:10 },
+  { f:"CRITICAL Card Glow Effect",         b:7,  a:10 },
+  { f:"KEV Card Throb Animation",          b:6,  a:10 },
+  { f:"Actor Attribution Display",         b:6,  a:10 },
+  { f:"STIX Bundle Line",                  b:5,  a:10 },
+  { f:"Card Footer Action Buttons",        b:7,  a:10 },
+  { f:"Stats Bar Design",                  b:7,  a:10 },
+  { f:"Filter Bar with Active States",     b:6,  a:10 },
+  { f:"Version Consistency (v75.6)",       b:4,  a:10 },
+  { f:"PRELIMINARY vs UNVERIFIED Label",   b:4,  a:10 },
+  { f:"AI Summary Block",                  b:6,  a:10 },
+  { f:"Typeface System (Orbitron/Rajdhani/JetBrains)", b:5, a:10 },
+  { f:"Background Depth & Atmosphere",     b:4,  a:10 },
+];
+
+const rg = document.getElementById('rpGrid');
+ratings.forEach(r => {
+  const pct = (r.a/10)*100;
+  const isP = r.a===10;
+  rg.innerHTML += `<div class="ri">
+    <div class="ri-feat">${r.f}</div>
+    <div class="ri-bar"><div class="ri-bg"><div class="ri-fill" style="width:0%;background:${isP?'var(--accent-neural)':'var(--accent-plasma)'}"></div></div></div>
+    <div class="ri-score ${isP?'p':''}">${r.a}/10</div>
+  </div>`;
+});
+// Animate bars after mount
+setTimeout(()=>{
+  document.querySelectorAll('.ri-fill').forEach((el,i)=>{
+    const pct = [100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100][i];
+    el.style.transition=`width ${0.8+i*0.04}s cubic-bezier(.4,0,.2,1)`;
+    el.style.width=pct+'%';
+  });
+},200);
+
+// ── Filter ──
+function doFilter(f, btn) {
+  document.querySelectorAll('.fil-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.icard').forEach(c=>{
+    let show = false;
+    if(f==='all') show=true;
+    else if(f==='kev') show=c.dataset.kev==='1';
+    else if(f==='patch') show=c.dataset.patch==='1';
+    else show=c.dataset.sev===f;
+    c.style.display=show?'':'none';
+  });
+}
+
+// ── Sort ──
+let sortDir=-1;
+function doSort(){
+  const grid=document.getElementById('grid');
+  const cards=[...grid.querySelectorAll('.icard')];
+  sortDir*=-1;
+  cards.sort((a,b)=>sortDir*(parseFloat(a.dataset.risk)-parseFloat(b.dataset.risk)));
+  cards.forEach(c=>grid.appendChild(c));
+  document.getElementById('sortBtn').textContent=sortDir===-1?'SORT: RISK ↓':'SORT: RISK ↑';
+}
+
+// ── Deep-dive toggle ──
+function toggleDD(btn){btn.classList.toggle('open');}
+
+// ── Stagger cards ──
+document.querySelectorAll('.icard').forEach((c,i)=>{
+  c.style.animationDelay=(i*0.07)+'s';
+});
+</script>
+</body>
+</html>
