@@ -311,20 +311,28 @@ class RiskScoringEngine:
 
         # ── v22.0: Nation-State Actor Involvement ──
         nation_state_terms = [
-            "nation-state", "state-sponsored", "apt", "lazarus group",
+            # v75.3: removed bare "apt" (fires on laptop/captain/adapt)
+            "nation-state", "state-sponsored", "lazarus group",
             "cozy bear", "fancy bear", "volt typhoon", "salt typhoon",
-            "sandworm", "hafnium", "charming kitten"
+            "sandworm", "hafnium", "charming kitten", "apt28", "apt29",
+            "apt34", "apt41", "apt38", "nasir security", "teampcp",
+            "state-nexus actor", "state-sponsored actor", "pro-iranian threat",
         ]
-        if any(t in text_lower for t in nation_state_terms):
+        import re as _re_ns
+        _apt_number = bool(_re_ns.search(r'\\bapt\\s*\\d+', text_lower))
+        if _apt_number or any(t in text_lower for t in nation_state_terms):
             boost = self.weights.get("nation_state", 1.8)
             score += boost
             logger.info(f"🏛️ Nation-state signal detected: +{boost}")
 
         # ── v22.0: Critical Infrastructure Targeting ──
         critical_infra_terms = [
-            "critical infrastructure", "power grid", "water treatment",
-            "hospital", "healthcare", "financial institution", "bank",
-            "government network", "military", "nuclear"
+            # v75.3: removed bare "bank" (fires on "banking app", "bank account")
+            "critical infrastructure", "power grid", "water treatment plant",
+            "hospital network", "healthcare system", "financial institution",
+            "government network", "military network", "nuclear facility",
+            "ics attack", "scada attack", "operational technology breach",
+            "industrial control system", "energy grid attack", "utility attack",
         ]
         if any(t in text_lower for t in critical_infra_terms):
             boost = self.weights.get("critical_infra", 1.5)
