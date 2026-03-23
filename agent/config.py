@@ -226,7 +226,12 @@ FALSE_POSITIVE_DOMAINS = {
     "securelist.com", "microsoft.com", "bleepingcomputer.com", "virustotal.com", 
     "github.com", "blogspot.com", "wordpress.com", "medium.com", "twitter.com", 
     "linkedin.com", "youtube.com", "arstechnica.com", "reuters.com", "cnn.com",
-    "nist.gov", "mitre.org", "cisa.gov"
+    "nist.gov", "mitre.org", "cisa.gov",
+    # v75.4: CVE feed & research domains — never real IOCs
+    "cvefeed.io", "nvd.nist.gov", "cve.mitre.org", "vuldb.com", "exploit-db.com",
+    "packetstormsecurity.com", "zerodayinitiative.com", "securityfocus.com",
+    "cert.org", "kb.cert.org", "us-cert.gov", "vulners.com", "huntr.com",
+    "snyk.io", "sonatype.com", "ossindex.sonatype.org"
 }
 
 JAVA_PACKAGE_PREFIXES = [
