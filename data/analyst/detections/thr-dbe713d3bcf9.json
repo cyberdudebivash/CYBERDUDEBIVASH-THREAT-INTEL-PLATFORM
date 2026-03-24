@@ -1,0 +1,16 @@
+{
+  "threat_id": "thr-dbe713d3bcf9",
+  "title": "CVE-2026-3225 - LearnPress <= 4.3.2.8 - Missing Authorization to Authenticated (",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-3225 - LearnPress <= 4.3.2.8 - Missing Authorizatio\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/24\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '4.3.2.8'\n    condition: selection_ip\nlevel: high",
+    "suricata": [
+      "alert ip any any -> 4.3.2.8 any (msg:\"CDB APEX \u2014 CVE_2026_3225___LearnPress____\"; sid:8715174; rev:1;)"
+    ],
+    "snort": [
+      "alert ip any any -> 4.3.2.8 any (msg:\"CDB APEX CVE_2026_3225___LearnPress____\"; sid:3063409; rev:1;)"
+    ],
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"4.3.2.8\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteIP in (\"4.3.2.8\")"
+  },
+  "rule_count": 5
+}
