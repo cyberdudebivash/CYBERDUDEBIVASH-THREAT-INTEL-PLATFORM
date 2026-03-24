@@ -26,6 +26,11 @@ on:
         type: boolean
         default: false
 
+# v75.0: Opt into Node.js 24 runtime for all actions — eliminates Node.js 20 deprecation warning
+# GitHub will force Node.js 24 on June 2nd 2026. This is a safe early opt-in.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write
   pages: write
@@ -117,8 +122,17 @@ jobs:
         run: |
           echo "::group::v70 Data Bridge"
           if [ -f scripts/data_bridge.py ]; then
-            python scripts/data_bridge.py || echo "Data bridge had issues (non-fatal)"
+            python scripts/data_bridge.py
+            BRIDGE_EXIT=$?
+            if [ $BRIDGE_EXIT -eq 0 ]; then
+              echo "DATA_BRIDGE_OK=true" >> $GITHUB_ENV
+              echo "Data bridge completed successfully"
+            else
+              echo "DATA_BRIDGE_OK=false" >> $GITHUB_ENV
+              echo "Data bridge had issues (non-fatal)"
+            fi
           else
+            echo "DATA_BRIDGE_OK=false" >> $GITHUB_ENV
             echo "Data bridge not present — skipping v70 enhancements"
           fi
           echo "::endgroup::"
@@ -136,6 +150,8 @@ jobs:
             if [ "${{ github.event.inputs.skip_ai }}" = "true" ]; then
               AI_FLAG="--no-ai"
             fi
+            # v75.0: Always run orchestrator regardless of data bridge status
+            # Previously only ran when DATA_BRIDGE_OK=true, causing silent skips
             timeout 240 python -m agent.v70_apex_upgrade.orchestrator \
               --data-dir data \
               --dashboard index.html \
