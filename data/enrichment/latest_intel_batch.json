@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-24T13:19:33.498708+00:00",
+  "timestamp": "2026-03-24T17:03:12.921755+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -352,7 +352,471 @@
       "poc_public": true
     }
   ],
-  "github_advisories": [],
+  "github_advisories": [
+    {
+      "ghsa_id": "GHSA-2fph-6v5w-89hh",
+      "cve_id": "CVE-2026-33157",
+      "severity": "HIGH",
+      "summary": "Craft CMS is Vulnerable to Authenticated Remote Code Execution via Malicious Attached Behavior",
+      "description": "## Summary\n\nA Remote Code Execution (RCE) vulnerability exists in Craft CMS 5.x and 4.x that bypasses the security fixes for GHSA-7jx7-3846-m7w7 and GHSA-255j-qw47-wjh5. This vulnerability can be exploited by any authenticated user with control panel access.\n\nThe existing patches add `cleanseConfig()` to `assembleLayoutFromPost()` and various `FieldsController` actions to strip Yii2 behavior/event injection keys (`as ` and `on ` prefixed keys). However, the `fieldLayouts` parameter in `ElementIndexesController::actionFilterHud()` is passed directly to `FieldLayout::createFromConfig()` without any sanitization, enabling the same behavior injection attack chain.\n\n## Impact\n\n- **Attack Type**: Remote Code Execution (RCE)\n- **Authentication Required**: Authenticated user with control panel access (`accessCp` permission)\n\n## Vulnerability Details\n\n### Root Cause\n\nIn `ElementIndexesController::actionFilterHud()` (line 493-494), the `fieldLayouts` body parameter is passed to `FieldLayout::cre",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-470"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "craftcms/cms"
+      ],
+      "published": "2026-03-24T16:50:42Z",
+      "updated": "2026-03-24T16:50:43Z",
+      "url": "https://github.com/advisories/GHSA-2fph-6v5w-89hh",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/craftcms/cms/security/advisories/GHSA-2fph-6v5w-89hh",
+        "https://github.com/craftcms/cms/commit/97e90b4bdee369c1af3ca77a77531132df240e4e",
+        "https://github.com/advisories/GHSA-255j-qw47-wjh5",
+        "https://github.com/advisories/GHSA-7jx7-3846-m7w7",
+        "https://github.com/craftcms/cms/releases/tag/5.9.13",
+        "https://github.com/advisories/GHSA-2fph-6v5w-89hh"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-x6w6-2xwp-3jh6",
+      "cve_id": "CVE-2026-30932",
+      "severity": "HIGH",
+      "summary": "Froxlor is vulnerable to BIND zone file injection via unsanitized DNS record content in DomainZones API",
+      "description": "## Summary\n\nThe `DomainZones.add` API endpoint (accessible to customers with DNS enabled) does not validate the `content` field for several DNS record types (LOC, RP, SSHFP, TLSA). An attacker can inject newlines and BIND zone file directives (e.g. `$INCLUDE`) into the zone file that gets written to disk when the DNS rebuild cron job runs.\n\n## Affected Code\n\n`lib/Froxlor/Api/Commands/DomainZones.php`, lines 213-214, 253-254, 290-291, 292-293:\n\n```php\n} elseif ($type == 'LOC' && !empty($content)) {\n    $content = $content; // no validation\n} ...\n} elseif ($type == 'RP' && !empty($content)) {\n    $content = $content; // no validation\n} ...\n} elseif ($type == 'SSHFP' && !empty($content)) {\n    $content = $content; // no validation\n} elseif ($type == 'TLSA' && !empty($content)) {\n    $content = $content; // no validation\n}\n```\n\nThere is even a TODO comment at line 148 acknowledging this gap:\n```php\n// TODO regex validate content for invalid characters\n```\n\nThe content is then written direc",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-74"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "froxlor/froxlor"
+      ],
+      "published": "2026-03-24T16:49:21Z",
+      "updated": "2026-03-24T16:49:23Z",
+      "url": "https://github.com/advisories/GHSA-x6w6-2xwp-3jh6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/froxlor/froxlor/security/advisories/GHSA-x6w6-2xwp-3jh6",
+        "https://github.com/froxlor/froxlor/commit/b34829262dc32818b37f6a1eabb426d0b277a86b",
+        "https://github.com/froxlor/froxlor/releases/tag/2.3.5",
+        "https://github.com/advisories/GHSA-x6w6-2xwp-3jh6"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-r3r2-35v9-v238",
+      "cve_id": "CVE-2026-33430",
+      "severity": "HIGH",
+      "summary": "Briefcase: Windows MSI Installer Privilege Escalation via Insecure Directory Permissions ",
+      "description": "### Impact\n\nIf a developer uses Briefcase to produce an Windows MSI installer for a project, and that project is installed for All Users (i.e., per-machine scope), the installation process creates an directory that inherits all the permissions of the parent directory. Depending on the location chosen by the installing user, this may allow a low privilege but authenticated user to replace or modify the binaries installed by the application. If an administrator then runs the altered binary, the binary will run with elevated privileges.\n\n### Patches\n\nThe problem is caused by the template used to generate the WXS file for Windows projects. It was fixed with the following PRs:\n\n* beeware/briefcase-windows-app-template#86\n* beeware/briefcase-windows-VisualStudio-template#85\n\nThese patches have been backported to the templates used in Briefcase 0.3.26, 0.4.0, and 0.4.1. Re-running `briefcase create` on your Briefcase project will result in the updated templates being used.\n\n### Workarounds\n\nT",
+      "cvss_score": 7.3,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-732"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "briefcase"
+      ],
+      "published": "2026-03-23T21:40:10Z",
+      "updated": "2026-03-23T21:40:13Z",
+      "url": "https://github.com/advisories/GHSA-r3r2-35v9-v238",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/beeware/briefcase/security/advisories/GHSA-r3r2-35v9-v238",
+        "https://github.com/beeware/briefcase/issues/2759",
+        "https://github.com/beeware/briefcase-windows-VisualStudio-template/pull/85",
+        "https://github.com/beeware/briefcase-windows-app-template/pull/86",
+        "https://github.com/advisories/GHSA-r3r2-35v9-v238"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-9xrj-h377-fr87",
+      "cve_id": "CVE-2026-33195",
+      "severity": "HIGH",
+      "summary": "Rails Active Storage has possible Path Traversal in DiskService",
+      "description": "### Impact\nActive Storage's `DiskService#path_for` does not validate that the resolved filesystem path remains within the storage root directory. If a blob key containing path traversal sequences (e.g. `../`) is used, it could allow reading, writing, or deleting arbitrary files on the server. Blob keys are expected to be trusted strings, but some applications could be passing user input as keys and would be affected.\n\n### Releases\nThe fixed releases are available at the normal locations.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "rubygems",
+        "rubygems",
+        "rubygems"
+      ],
+      "packages": [
+        "activestorage",
+        "activestorage",
+        "activestorage"
+      ],
+      "published": "2026-03-23T21:17:19Z",
+      "updated": "2026-03-23T21:17:20Z",
+      "url": "https://github.com/advisories/GHSA-9xrj-h377-fr87",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/rails/rails/security/advisories/GHSA-9xrj-h377-fr87",
+        "https://github.com/rails/rails/commit/4933c1e3b8c1bb04925d60347be9f69270392f2c",
+        "https://github.com/rails/rails/commit/9b06fbc0f504b8afe333f33d19548f3b85fbe655",
+        "https://github.com/rails/rails/commit/a290c8a1ec189d793aa6d7f2570b6a763f675348",
+        "https://github.com/rails/rails/releases/tag/v7.2.3.1",
+        "https://github.com/rails/rails/releases/tag/v8.0.4.1",
+        "https://github.com/rails/rails/releases/tag/v8.1.2.1",
+        "https://github.com/advisories/GHSA-9xrj-h377-fr87"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-rm2q-f7jv-3cfp",
+      "cve_id": "CVE-2026-33046",
+      "severity": "HIGH",
+      "summary": "Indico discloses local files resulting in Remote Code Execution through LaTeX injection ",
+      "description": "> [!NOTE]\n> If server-side LaTeX rendering is not in use (ie `XELATEX_PATH` was not set in `indico.conf`), this vulnerability does not apply.\n\n### Impact\nDue to vulnerabilities in TeXLive and obscure LaTeX syntax that allowed circumventing Indico's LaTeX sanitizer, it is possible to use specially-crafted LaTeX snippets which can read local files or execute code with the privileges of the user running Indico on the server.\n\n### Patches\nIt is recommended to update to [Indico 3.3.12](https://github.com/indico/indico/releases/tag/v3.3.12) as soon as possible.\nSee [the docs](https://docs.getindico.io/en/stable/installation/upgrade/) for instructions on how to update.\n\nIt is also strongly recommended to enable the containerized LaTeX renderer (using `podman`), which isolates it from the rest of the system. See [the docs](https://docs.getindico.io/en/stable/installation/upgrade/#upgrading-to-3-3-12) for details - it is very easy and from now on the only recommended/supported way of using LaTe",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22",
+        "CWE-78"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "indico"
+      ],
+      "published": "2026-03-23T20:43:43Z",
+      "updated": "2026-03-23T20:43:44Z",
+      "url": "https://github.com/advisories/GHSA-rm2q-f7jv-3cfp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/indico/indico/security/advisories/GHSA-rm2q-f7jv-3cfp",
+        "https://github.com/indico/indico/commit/0adb70f0ed66e129361d447868f5f3eb90dc5e96",
+        "https://github.com/indico/indico/commit/1dbb12525b3de14229bf4d1ae192988068f975f6",
+        "https://github.com/indico/indico/commit/5f24d23ce9c4b0e4b68b3d0b58987a948fc57c8a",
+        "https://github.com/indico/indico/commit/fb169ced710c30cf792ce4b9f48688db0633cfd8",
+        "https://github.com/indico/indico/releases/tag/v3.3.12",
+        "https://github.com/advisories/GHSA-rm2q-f7jv-3cfp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-qr6x-wvxr-8hm9",
+      "cve_id": "CVE-2026-32300",
+      "severity": "HIGH",
+      "summary": "Connect CMS: Improper Authorization in the My Page Profile Update Feature Allows Modification of Arbitrary User Information",
+      "description": "# Security Advisory \u2014 My Page Profile Update (Improper Authorization)\n\n## Summary\n\nAn improper authorization issue in the My Page profile update feature may allow modification of arbitrary user information.\n\n## Affected Versions\n\n- 1.x series: <= 1.41.0\n- 2.x series: <= 2.41.0\n\n## Patched Versions\n\n- 1.41.1\n- 2.41.1\n\n## Description\n\nIn part of the My Page profile update feature, another user's profile information or password could be modified. If exploited, arbitrary user accounts may be taken over. Exploitation requires that the attacker be able to reach the affected functionality as an authenticated user. Users affected by this vulnerability should update to a fixed version.\n\n## Solution\n\nUpdate to the fixed version.\nFor the 1.x series, update to 1.41.1 or later.\nFor the 2.x series, update to 2.41.1 or later.\n\n## Credits\n\nOpenSource WorkShops thanks **Sho Odagiri** (\u5c0f\u7530\u5207 \u7965) of **GMO Cybersecurity by Ierae, Inc.** for reporting this vulnerability.",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-285",
+        "CWE-639"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "opensource-workshop/connect-cms",
+        "opensource-workshop/connect-cms"
+      ],
+      "published": "2026-03-23T20:39:10Z",
+      "updated": "2026-03-23T20:39:11Z",
+      "url": "https://github.com/advisories/GHSA-qr6x-wvxr-8hm9",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/opensource-workshop/connect-cms/security/advisories/GHSA-qr6x-wvxr-8hm9",
+        "https://github.com/opensource-workshop/connect-cms/commit/7c9951738c62a1d51b91e9956d1eb756c5d52cce",
+        "https://github.com/opensource-workshop/connect-cms/releases/tag/v1.41.1",
+        "https://github.com/advisories/GHSA-qr6x-wvxr-8hm9"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-62ch-j6x7-722j",
+      "cve_id": "CVE-2026-32299",
+      "severity": "HIGH",
+      "summary": "Connect CMS: Information Disclosure Due to Improper Authorization through the Page Content Retrieval Feature",
+      "description": "# Security Advisory \u2014 Page Content Retrieval (Improper Authorization)\n\n## Summary\n\nAn improper authorization issue in the page content retrieval feature may allow retrieval of non-public information.\n\n## Affected Versions\n\n- 1.x series: <= 1.41.0\n- 2.x series: <= 2.41.0\n\n## Patched Versions\n\n- 1.41.1\n- 2.41.1\n\n## Description\n\nIn part of the page content retrieval feature, insufficient authorization checks could allow processing associated with non-public pages to be executed. If exploited, the contents and attachments of non-public pages may be obtained by a third party. Users affected by this vulnerability should update to a fixed version.\n\n## Solution\n\nUpdate to the fixed version.\nFor the 1.x series, update to 1.41.1 or later.\nFor the 2.x series, update to 2.41.1 or later.\n\n## Credits\n\nOpenSource WorkShop thanks **Sho Odagiri** (\u5c0f\u7530\u5207 \u7965) of **GMO Cybersecurity by Ierae, Inc.** for reporting this vulnerability.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "opensource-workshop/connect-cms",
+        "opensource-workshop/connect-cms"
+      ],
+      "published": "2026-03-23T20:38:16Z",
+      "updated": "2026-03-23T20:38:17Z",
+      "url": "https://github.com/advisories/GHSA-62ch-j6x7-722j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/opensource-workshop/connect-cms/security/advisories/GHSA-62ch-j6x7-722j",
+        "https://github.com/advisories/GHSA-62ch-j6x7-722j"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mv3p-7p89-wq9p",
+      "cve_id": "CVE-2026-32278",
+      "severity": "HIGH",
+      "summary": "Connect CMS has Stored Cross-site Scripting (XSS) in the File Field of its Form Plugin",
+      "description": "# Security Advisory \u2014 Form Plugin (Stored XSS)\n\n## Summary\n\nA Stored Cross-site Scripting (XSS) issue exists in the file field of the Form Plugin.\n\n## Affected Versions\n\n- 1.x series: <= 1.41.0\n- 2.x series: <= 2.41.0\n\n## Patched Versions\n\n- 1.41.1\n- 2.41.1\n\n## Description\n\nIn the file field of the Form Plugin, Stored Cross-site Scripting (XSS) could occur. If exploited, arbitrary script could run in an administrator's browser, which may lead to unauthorized actions or information theft. Users affected by this vulnerability should update to a fixed version.\n\n## Solution\n\nUpdate to the fixed version.\nFor the 1.x series, update to 1.41.1 or later.\nFor the 2.x series, update to 2.41.1 or later.\n\n## Credits\n\nOpenSource WorkShop thanks **Sho Odagiri** (\u5c0f\u7530\u5207 \u7965) of **GMO Cybersecurity by Ierae, Inc.** for reporting this vulnerability.",
+      "cvss_score": 8.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:H/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-434"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "opensource-workshop/connect-cms",
+        "opensource-workshop/connect-cms"
+      ],
+      "published": "2026-03-23T20:36:15Z",
+      "updated": "2026-03-23T20:36:16Z",
+      "url": "https://github.com/advisories/GHSA-mv3p-7p89-wq9p",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/opensource-workshop/connect-cms/security/advisories/GHSA-mv3p-7p89-wq9p",
+        "https://github.com/opensource-workshop/connect-cms/commit/9d87fe8ecf7f57efbb0e5231be058807734c96b3",
+        "https://github.com/opensource-workshop/connect-cms/releases/tag/v1.41.1",
+        "https://github.com/opensource-workshop/connect-cms/releases/tag/v2.41.1",
+        "https://github.com/advisories/GHSA-mv3p-7p89-wq9p"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-cmfh-mpmf-fmq4",
+      "cve_id": "CVE-2026-32277",
+      "severity": "HIGH",
+      "summary": "Connect-CMS has DOM-based Cross-Site Scripting (XSS) in the Cabinet Plugin List View",
+      "description": "# Security Advisory \u2014 Cabinet Plugin (DOM-based XSS)\n\n## Summary\n\nA DOM-based Cross-Site Scripting (XSS) issue exists in the Cabinet Plugin list view.\n\n## Affected Versions\n\n- 1.x series: >= 1.35.0, <= 1.41.0\n- 2.x series: >= 2.35.0, <= 2.41.0\n\n## Patched Versions\n\n- 1.41.1\n- 2.41.1\n\n## Description\n\nIn the Cabinet Plugin list view, DOM-based Cross-Site Scripting (XSS) could occur due to how saved names were rendered.\nIf exploited, arbitrary script could run in the victim's browser, which may lead to unauthorized actions or information theft.\nExploitation requires that the attacker be able to reach the affected functionality as an authenticated user.\nUsers affected by this vulnerability should update to a fixed version.\n\n## Solution\n\nUpdate to the fixed version.\nFor the 1.x series, update to 1.41.1 or later.\nFor the 2.x series, update to 2.41.1 or later.\n\n## Credits\n\nOpenSource WorkShop thanks **Sho Odagiri** (\u5c0f\u7530\u5207 \u7965) of **GMO Cybersecurity by Ierae, Inc.** for reporting this vulnerabili",
+      "cvss_score": 8.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "opensource-workshop/connect-cms",
+        "opensource-workshop/connect-cms"
+      ],
+      "published": "2026-03-23T20:35:48Z",
+      "updated": "2026-03-23T20:35:51Z",
+      "url": "https://github.com/advisories/GHSA-cmfh-mpmf-fmq4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/opensource-workshop/connect-cms/security/advisories/GHSA-cmfh-mpmf-fmq4",
+        "https://github.com/opensource-workshop/connect-cms/commit/c04dc40f814eff891915752ef1ec00ba6612441c",
+        "https://github.com/opensource-workshop/connect-cms/releases/tag/v1.41.1",
+        "https://github.com/opensource-workshop/connect-cms/releases/tag/v2.41.1",
+        "https://github.com/advisories/GHSA-cmfh-mpmf-fmq4"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-hxqw-6qv7-cqfv",
+      "cve_id": "CVE-2026-32276",
+      "severity": "HIGH",
+      "summary": "Connect-CMS has Arbitrary Code Execution by an Authenticated User in its Code Study Plugin",
+      "description": "# Security Advisory \u2014 Code Study Plugin\n\n## Summary\n\nAn authenticated user may be able to execute arbitrary code in the Code Study Plugin.\n\n## Affected Versions\n\n- 1.x series: <= 1.41.0\n- 2.x series: <= 2.41.0\n\n## Patched Versions\n\n- 1.41.1\n- 2.41.1\n\n## Description\n\nIn the Code Study Plugin, an authenticated user could trigger unintended code execution. If exploited, it may lead to code execution on the server or information disclosure. Users affected by this vulnerability should update to a fixed version.\n\n## Solution\n\nUpdate to the fixed version.\nFor the 1.x series, update to 1.41.1 or later.\nFor the 2.x series, update to 2.41.1 or later.\n\n## Credits\n\nOpenSource WorkShop thanks **Sho Odagiri** (\u5c0f\u7530\u5207 \u7965) of **GMO Cybersecurity by Ierae, Inc.** for reporting this vulnerability.",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-94"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "opensource-workshop/connect-cms",
+        "opensource-workshop/connect-cms"
+      ],
+      "published": "2026-03-23T20:33:34Z",
+      "updated": "2026-03-23T20:33:35Z",
+      "url": "https://github.com/advisories/GHSA-hxqw-6qv7-cqfv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/opensource-workshop/connect-cms/security/advisories/GHSA-hxqw-6qv7-cqfv",
+        "https://github.com/opensource-workshop/connect-cms/commit/c0bcd07fc1e9375941aa1295d044328ecd44ed85",
+        "https://github.com/opensource-workshop/connect-cms/releases/tag/v1.41.1",
+        "https://github.com/opensource-workshop/connect-cms/releases/tag/v2.41.1",
+        "https://github.com/advisories/GHSA-hxqw-6qv7-cqfv"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-3c37-wwvx-h642",
+      "cve_id": "CVE-2026-26209",
+      "severity": "HIGH",
+      "summary": "cbor2 has a Denial of Service via Uncontrolled Recursion in cbor2.loads",
+      "description": "### Summary\n\n- The `cbor2` library is vulnerable to a Denial of Service (DoS) attack caused by uncontrolled recursion when decoding deeply nested CBOR structures.\n- This vulnerability affects both the pure Python implementation and the C extension (`_cbor2`). The C extension correctly uses Python's C-API for recursion protection (`Py_EnterRecursiveCall`), but this mechanism is designed to prevent a stack overflow by raising a `RecursionError`. In some environments, this exception is not caught, thus causing the service process to terminate.\n- While the library handles moderate nesting, it lacks a configurable, data-driven depth limit independent of Python's global recursion setting. An attacker can supply a crafted CBOR payload containing thousands of nested arrays (e.g., `0x81`). When `cbor2.loads()` attempts to parse this, it hits the interpreter's recursion limit, causing the call to raise a `RecursionError`.\n- By sending a stream of small (<100KB) malicious packets, an attacker can",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-674"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "cbor2"
+      ],
+      "published": "2026-03-23T20:23:57Z",
+      "updated": "2026-03-23T20:24:00Z",
+      "url": "https://github.com/advisories/GHSA-3c37-wwvx-h642",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/agronholm/cbor2/security/advisories/GHSA-3c37-wwvx-h642",
+        "https://github.com/agronholm/cbor2/pull/275",
+        "https://github.com/agronholm/cbor2/releases/tag/5.9.0",
+        "https://github.com/advisories/GHSA-3c37-wwvx-h642"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-8fw8-q79c-fp9m",
+      "cve_id": "CVE-2026-33513",
+      "severity": "HIGH",
+      "summary": "AVideo has an Unauthenticated Local File Inclusion in API locale (RCE possible with writable PHP)",
+      "description": "### Summary\nAn unauthenticated API endpoint (`APIName=locale`) concatenates user input into an `include` path with no canonicalization or whitelist. Path traversal is accepted, so arbitrary PHP files under the web root can be included. In our test this yielded confirmed file disclosure and code execution of existing PHP content (e.g., `view/about.php`), and it *can* escalate to RCE if an attacker can place or control a PHP file elsewhere in the tree. \n### Details\n- Entry point: `plugin/API/get.json.php` sets `$global['bypassSameDomainCheck']=1` and merges GET/POST/JSON into `$parameters` without authentication or API secret.\n- Handler: `plugin/API/API.php`, method `get_api_locale()` (lines ~5009\u20135023):\n  ```php\n  $parameters['language'] = strtolower($parameters['language']);\n  $file = \"{$global['systemRootPath']}locale/{$parameters['language']}.php\";\n  if (!file_exists($file)) { return new ApiObject(\"This language does not exists\"); }\n  include $file;\n  ```\n  No validation is performed",
+      "cvss_score": 8.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22",
+        "CWE-98"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-20T21:55:31Z",
+      "updated": "2026-03-23T17:31:53Z",
+      "url": "https://github.com/advisories/GHSA-8fw8-q79c-fp9m",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-8fw8-q79c-fp9m",
+        "https://github.com/advisories/GHSA-8fw8-q79c-fp9m"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mwjc-5j4x-r686",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "AVideo has an unauthenticated decrypt oracle leaking any ciphertext",
+      "description": "### Summary\nThe API plugin exposes a `decryptString` action without any authentication. Anyone can submit ciphertext and receive plaintext. Ciphertext is issued publicly (e.g., `view/url2Embed.json.php`), so any user can recover protected tokens/metadata. Severity: High.\n\n### Details\n- Entry: `plugin/API/get.json.php` is unauthenticated.\n- Handler: `plugin/API/API.php` `get_api_decryptString()` (lines ~5945\u20135966):\n  ```php\n  $string = decryptString($_REQUEST['string']);\n  return new ApiObject($string, empty($string));\n  ```\n  No APISecret or user check occurs before decrypting.\n- Public ciphertext source: `view/url2Embed.json.php` returns `playLink`/`playEmbedLink` (`encryptString(json_encode(...))`) to any caller.\n\n### PoC\n1. Obtain ciphertext:\n   ```\n   GET /view/url2Embed.json.php?url=https://example.com/video.mp4\n   ```\n   Copy `playLink`.\n2. Decrypt without auth:\n   ```\n   POST /plugin/API/get.json.php?APIName=decryptString\n   Content-Type: application/x-www-form-urlencoded\n\n   st",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-287",
+        "CWE-312",
+        "CWE-326",
+        "CWE-327"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "wwbn/avideo"
+      ],
+      "published": "2026-03-20T21:55:12Z",
+      "updated": "2026-03-20T21:55:17Z",
+      "url": "https://github.com/advisories/GHSA-mwjc-5j4x-r686",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/WWBN/AVideo/security/advisories/GHSA-mwjc-5j4x-r686",
+        "https://github.com/advisories/GHSA-mwjc-5j4x-r686"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-r7mc-x6x7-cqxx",
+      "cve_id": "CVE-2026-33509",
+      "severity": "HIGH",
+      "summary": "pyLoad SETTINGS Permission Users Can Achieve Remote Code Execution via Unrestricted Reconnect Script Configuration",
+      "description": "## Summary\n\nThe `set_config_value()` API endpoint allows users with the non-admin `SETTINGS` permission to modify any configuration option without restriction. The `reconnect.script` config option controls a file path that is passed directly to `subprocess.run()` in the thread manager's reconnect logic. A SETTINGS user can set this to any executable file on the system, achieving Remote Code Execution. The only validation in `set_config_value()` is a hardcoded check for `general.storage_folder` \u2014 all other security-critical settings including `reconnect.script` are writable without any allowlist or path restriction.\n\n## Details\n\nThe vulnerability chain spans two components:\n\n**1. Unrestricted config write \u2014 `src/pyload/core/api/__init__.py:210-243`**\n\n```python\n@permission(Perms.SETTINGS)\n@post\ndef set_config_value(self, category: str, option: str, value: Any, section: str = \"core\") -> None:\n    self.pyload.addon_manager.dispatch_event(\n        \"config_changed\", category, option, value,",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-269"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "pyload-ng"
+      ],
+      "published": "2026-03-20T21:50:30Z",
+      "updated": "2026-03-20T21:50:31Z",
+      "url": "https://github.com/advisories/GHSA-r7mc-x6x7-cqxx",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/pyload/pyload/security/advisories/GHSA-r7mc-x6x7-cqxx",
+        "https://github.com/pyload/pyload/commit/f5e284fcdfeaf08436bb03e5fcf697aaac659d8b",
+        "https://github.com/advisories/GHSA-r7mc-x6x7-cqxx"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-6qh5-m6g3-xhq6",
+      "cve_id": "CVE-2026-33508",
+      "severity": "HIGH",
+      "summary": "Parse Server LiveQuery subscription query depth bypass",
+      "description": "### Impact\n\nParse Server's LiveQuery component does not enforce the `requestComplexity.queryDepth` configuration setting when processing WebSocket subscription requests. An attacker can send a subscription with deeply nested logical operators, causing excessive recursion and CPU consumption that degrades or disrupts service availability.\n\nDeployments are affected when the LiveQuery WebSocket endpoint is reachable by untrusted clients.\n\n### Patches\n\nThe fix adds query condition depth validation to the LiveQuery subscription handler, enforcing the same `requestComplexity.queryDepth` limit that already protects REST API queries.\n\n### Workarounds\n\nThere is no known workaround other than upgrading.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-674"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-20T21:48:17Z",
+      "updated": "2026-03-20T21:48:21Z",
+      "url": "https://github.com/advisories/GHSA-6qh5-m6g3-xhq6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-6qh5-m6g3-xhq6",
+        "https://github.com/parse-community/parse-server/pull/10259",
+        "https://github.com/parse-community/parse-server/pull/10260",
+        "https://github.com/advisories/GHSA-6qh5-m6g3-xhq6"
+      ]
+    }
+  ],
   "urlhaus_iocs": [],
   "kev_stats": {
     "total_kev_entries": 1551,
@@ -398,7 +862,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-24T13:19:33.674542+00:00",
+    "catalog_version": "2026-03-24T17:03:13.053366+00:00",
     "source": "CISA KEV"
   }
 }
