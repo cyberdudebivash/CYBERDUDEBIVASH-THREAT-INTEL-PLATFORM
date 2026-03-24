@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-24T17:03:12.921755+00:00",
+  "timestamp": "2026-03-24T20:46:04.319158+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -354,6 +354,191 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-x6g4-f6q3-fqvv",
+      "cve_id": "CVE-2026-33247",
+      "severity": "HIGH",
+      "summary": "NATS credentials are exposed in monitoring port via command-line argv",
+      "description": "### Background\n\nNATS.io is a high performance open source pub-sub distributed communication technology, built for the cloud, on-premise, IoT, and edge computing.\n\nThe nats-server provides an optional monitoring port, which provides access to sensitive data.  The nats-server can take certain configuration options on the command-line instead of requiring a configuration file.\n\n\n### Problem Description\n\nIf a nats-server is run with static credentials for all clients provided via argv (the command-line), then those credentials are visible to any user who can see the monitoring port, if that too is enabled.\n\nThe `/debug/vars` end-point contains an unredacted copy of argv.\n\n### Patches\n\nFixed in nats-server 2.12.6 & 2.11.15\n\n### Workarounds\n\nThe NATS Maintainers are bemused at the concept of someone deploying a real configuration using `--pass` to avoid a config file, but also enabling monitoring.\n\nConfigure credentials inside a configuration file instead of via argv.\n\nDo not enable the moni",
+      "cvss_score": 7.4,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-215"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/nats-io/nats-server/v2",
+        "github.com/nats-io/nats-server/v2"
+      ],
+      "published": "2026-03-24T20:44:00Z",
+      "updated": "2026-03-24T20:44:01Z",
+      "url": "https://github.com/advisories/GHSA-x6g4-f6q3-fqvv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nats-io/nats-server/security/advisories/GHSA-x6g4-f6q3-fqvv",
+        "https://advisories.nats.io/CVE/secnote-2026-14.txt",
+        "https://github.com/advisories/GHSA-x6g4-f6q3-fqvv"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-37mj-c2wf-cx96",
+      "cve_id": "CVE-2026-33627",
+      "severity": "HIGH",
+      "summary": "Parse Server exposes auth data via /users/me endpoint",
+      "description": "### Impact\n\nAn authenticated user calling `GET /users/me` receives unsanitized auth data, including sensitive credentials such as MFA TOTP secrets and recovery codes. The endpoint internally uses master-level authentication for the session query, and the master context leaks through to the user data, bypassing auth adapter sanitization. An attacker who obtains a user's session token can extract MFA secrets to generate valid TOTP codes indefinitely.\n\n### Patches\n\nThe `/users/me` endpoint now queries the session and user data separately, using the caller's authentication context for the user query so that all security layers apply correctly.\n\n### Workarounds\n\nThere is no known workaround.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-200"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-24T20:17:02Z",
+      "updated": "2026-03-24T20:17:03Z",
+      "url": "https://github.com/advisories/GHSA-37mj-c2wf-cx96",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-37mj-c2wf-cx96",
+        "https://github.com/parse-community/parse-server/pull/10278",
+        "https://github.com/parse-community/parse-server/pull/10279",
+        "https://github.com/advisories/GHSA-37mj-c2wf-cx96"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-5vp3-3cg6-2rq3",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "JustHTML is vulnerable to XSS via code fence breakout in <pre> content",
+      "description": "## Summary\n\n`to_markdown()` is vulnerable when serializing attacker-controlled `<pre>` content. The `<pre>` handler emits a fixed three-backtick fenced code block, but writes decoded text content into that fence without choosing a delimiter longer than any backtick run inside the content.\n\nAn attacker can place backticks and HTML-like text inside a sanitized `<pre>` element so that the generated Markdown closes the fence early and leaves raw HTML outside the code block. When that Markdown is rendered by a CommonMark/GFM-style renderer that allows raw HTML, the HTML executes.\n\nThis is a bypass of the v1.12.0 Markdown hardening. That fix escaped HTML-significant characters for regular text nodes, but `<pre>` uses a separate serialization path and does not apply the same protection.\n\n## Details\n\nThe vulnerable `<pre>` Markdown path:\n\n- extracts decoded text from the `<pre>` subtree\n- opens a fenced block with a fixed delimiter of ``````\n- writes the decoded text directly into the output\n-",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-79",
+        "CWE-80"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "justhtml"
+      ],
+      "published": "2026-03-24T19:22:21Z",
+      "updated": "2026-03-24T19:22:21Z",
+      "url": "https://github.com/advisories/GHSA-5vp3-3cg6-2rq3",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/EmilStenstrom/justhtml/security/advisories/GHSA-5vp3-3cg6-2rq3",
+        "https://github.com/EmilStenstrom/justhtml/commit/f35f8f723c713bd8f912d86e9ec6881275ff5af9",
+        "https://github.com/EmilStenstrom/justhtml/releases/tag/v1.13.0",
+        "https://github.com/advisories/GHSA-5vp3-3cg6-2rq3"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-p2w6-rmh7-w8q3",
+      "cve_id": "CVE-2026-33539",
+      "severity": "HIGH",
+      "summary": "Parse Server has SQL Injection through aggregate and distinct field names in PostgreSQL adapter",
+      "description": "### Impact\n\nAn attacker with master key access can execute arbitrary SQL statements on the PostgreSQL database by injecting SQL metacharacters into field name parameters of the aggregate `$group` pipeline stage or the `distinct` operation. This allows privilege escalation from Parse Server application-level administrator to PostgreSQL database-level access.\n\nOnly Parse Server deployments using PostgreSQL are affected. MongoDB deployments are not affected.\n\n### Patches\n\nField names in the aggregate `$group._id` object values and `distinct` dot-notation parameters are now validated to only contain alphanumeric characters and underscores, preventing SQL injection via the `:raw` interpolation used in the PostgreSQL storage adapter.\n\n### Workarounds\n\nNo workaround. Upgrade to a patched version.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-24T19:12:06Z",
+      "updated": "2026-03-24T19:12:07Z",
+      "url": "https://github.com/advisories/GHSA-p2w6-rmh7-w8q3",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-p2w6-rmh7-w8q3",
+        "https://github.com/parse-community/parse-server/pull/10272",
+        "https://github.com/parse-community/parse-server/pull/10273",
+        "https://github.com/advisories/GHSA-p2w6-rmh7-w8q3"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-g4cf-xj29-wqqr",
+      "cve_id": "CVE-2026-33538",
+      "severity": "HIGH",
+      "summary": "Parse Server: Denial of Service via unindexed database query for unconfigured auth providers",
+      "description": "### Impact\n\nAn unauthenticated attacker can cause Denial of Service by sending authentication requests with arbitrary, unconfigured provider names. The server executes a database query for each unconfigured provider before rejecting the request, and since no database index exists for unconfigured providers, each request triggers a full collection scan on the user database. This can be parallelized to saturate database resources.\n\n### Patches\n\nThe fix validates that an authentication provider is configured before executing any database query. Requests with unconfigured providers are now rejected immediately without querying the database.\n\n### Workarounds\n\nThere is no known workaround other than upgrading.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-400"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "parse-server",
+        "parse-server"
+      ],
+      "published": "2026-03-24T19:11:40Z",
+      "updated": "2026-03-24T19:12:23Z",
+      "url": "https://github.com/advisories/GHSA-g4cf-xj29-wqqr",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/parse-community/parse-server/security/advisories/GHSA-g4cf-xj29-wqqr",
+        "https://github.com/parse-community/parse-server/pull/10270",
+        "https://github.com/parse-community/parse-server/pull/10271",
+        "https://github.com/advisories/GHSA-g4cf-xj29-wqqr"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-g3qj-j598-cxmq",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "fido2-lib is vulnerable to DoS via cbor-extract heap buffer over-read in CBOR attestation parsing",
+      "description": "### Summary\nfido2-lib v3.x depends on cbor-x (~1.6.0), which optionally pulls in cbor-extract (C++ native addon). cbor-extract <= 2.2.0 has a heap buffer over-read in `extractStrings()` \u2014 a 5-byte CBOR payload crashes Node.js with SIGSEGV. No JS exception, no try/catch, process dead.\n\nThe crash triggers during WebAuthn registration when the server decodes the attestation object. An attacker sends a crafted authenticator response to the registration endpoint \u2014 single request, unauthenticated, instant kill.\n\nFixed in cbor-extract@2.2.1 / cbor-x@1.6.3 (2026-03-08). fido2-lib@3.5.7 still pins cbor-x ~1.6.0 which resolves to vulnerable cbor-extract.\n\n## Affected versions\n\nfido2-lib <= 3.5.7 (introduced cbor-x dependency). fido2-lib 2.x uses the old `cbor` package \u2014 not affected.\n\nOnly affects systems where `cbor-extract` native addon is installed (prebuilt binary available for platform). Pure JS fallback is safe.\n\n## PoC\n\n```js\nconst { decode } = require(\"cbor-x\");\ndecode(Buffer.from(\"7a100",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-125",
+        "CWE-126",
+        "CWE-1395"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "fido2-lib"
+      ],
+      "published": "2026-03-24T19:10:38Z",
+      "updated": "2026-03-24T19:10:41Z",
+      "url": "https://github.com/advisories/GHSA-g3qj-j598-cxmq",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/webauthn-open-source/fido2-lib/security/advisories/GHSA-g3qj-j598-cxmq",
+        "https://github.com/kriszyp/cbor-extract/issues/2",
+        "https://github.com/kriszyp/cbor-extract/issues/3",
+        "https://github.com/kriszyp/cbor-extract/commit/1f6e0d9704149bdb5531d25f5d08a0280a71e2ca",
+        "https://github.com/advisories/GHSA-g3qj-j598-cxmq"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-2fph-6v5w-89hh",
       "cve_id": "CVE-2026-33157",
       "severity": "HIGH",
@@ -637,184 +822,6 @@
         "https://github.com/opensource-workshop/connect-cms/releases/tag/v2.41.1",
         "https://github.com/advisories/GHSA-cmfh-mpmf-fmq4"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-hxqw-6qv7-cqfv",
-      "cve_id": "CVE-2026-32276",
-      "severity": "HIGH",
-      "summary": "Connect-CMS has Arbitrary Code Execution by an Authenticated User in its Code Study Plugin",
-      "description": "# Security Advisory \u2014 Code Study Plugin\n\n## Summary\n\nAn authenticated user may be able to execute arbitrary code in the Code Study Plugin.\n\n## Affected Versions\n\n- 1.x series: <= 1.41.0\n- 2.x series: <= 2.41.0\n\n## Patched Versions\n\n- 1.41.1\n- 2.41.1\n\n## Description\n\nIn the Code Study Plugin, an authenticated user could trigger unintended code execution. If exploited, it may lead to code execution on the server or information disclosure. Users affected by this vulnerability should update to a fixed version.\n\n## Solution\n\nUpdate to the fixed version.\nFor the 1.x series, update to 1.41.1 or later.\nFor the 2.x series, update to 2.41.1 or later.\n\n## Credits\n\nOpenSource WorkShop thanks **Sho Odagiri** (\u5c0f\u7530\u5207 \u7965) of **GMO Cybersecurity by Ierae, Inc.** for reporting this vulnerability.",
-      "cvss_score": 8.8,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-94"
-      ],
-      "ecosystems": [
-        "composer",
-        "composer"
-      ],
-      "packages": [
-        "opensource-workshop/connect-cms",
-        "opensource-workshop/connect-cms"
-      ],
-      "published": "2026-03-23T20:33:34Z",
-      "updated": "2026-03-23T20:33:35Z",
-      "url": "https://github.com/advisories/GHSA-hxqw-6qv7-cqfv",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/opensource-workshop/connect-cms/security/advisories/GHSA-hxqw-6qv7-cqfv",
-        "https://github.com/opensource-workshop/connect-cms/commit/c0bcd07fc1e9375941aa1295d044328ecd44ed85",
-        "https://github.com/opensource-workshop/connect-cms/releases/tag/v1.41.1",
-        "https://github.com/opensource-workshop/connect-cms/releases/tag/v2.41.1",
-        "https://github.com/advisories/GHSA-hxqw-6qv7-cqfv"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-3c37-wwvx-h642",
-      "cve_id": "CVE-2026-26209",
-      "severity": "HIGH",
-      "summary": "cbor2 has a Denial of Service via Uncontrolled Recursion in cbor2.loads",
-      "description": "### Summary\n\n- The `cbor2` library is vulnerable to a Denial of Service (DoS) attack caused by uncontrolled recursion when decoding deeply nested CBOR structures.\n- This vulnerability affects both the pure Python implementation and the C extension (`_cbor2`). The C extension correctly uses Python's C-API for recursion protection (`Py_EnterRecursiveCall`), but this mechanism is designed to prevent a stack overflow by raising a `RecursionError`. In some environments, this exception is not caught, thus causing the service process to terminate.\n- While the library handles moderate nesting, it lacks a configurable, data-driven depth limit independent of Python's global recursion setting. An attacker can supply a crafted CBOR payload containing thousands of nested arrays (e.g., `0x81`). When `cbor2.loads()` attempts to parse this, it hits the interpreter's recursion limit, causing the call to raise a `RecursionError`.\n- By sending a stream of small (<100KB) malicious packets, an attacker can",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-674"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "cbor2"
-      ],
-      "published": "2026-03-23T20:23:57Z",
-      "updated": "2026-03-23T20:24:00Z",
-      "url": "https://github.com/advisories/GHSA-3c37-wwvx-h642",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/agronholm/cbor2/security/advisories/GHSA-3c37-wwvx-h642",
-        "https://github.com/agronholm/cbor2/pull/275",
-        "https://github.com/agronholm/cbor2/releases/tag/5.9.0",
-        "https://github.com/advisories/GHSA-3c37-wwvx-h642"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-8fw8-q79c-fp9m",
-      "cve_id": "CVE-2026-33513",
-      "severity": "HIGH",
-      "summary": "AVideo has an Unauthenticated Local File Inclusion in API locale (RCE possible with writable PHP)",
-      "description": "### Summary\nAn unauthenticated API endpoint (`APIName=locale`) concatenates user input into an `include` path with no canonicalization or whitelist. Path traversal is accepted, so arbitrary PHP files under the web root can be included. In our test this yielded confirmed file disclosure and code execution of existing PHP content (e.g., `view/about.php`), and it *can* escalate to RCE if an attacker can place or control a PHP file elsewhere in the tree. \n### Details\n- Entry point: `plugin/API/get.json.php` sets `$global['bypassSameDomainCheck']=1` and merges GET/POST/JSON into `$parameters` without authentication or API secret.\n- Handler: `plugin/API/API.php`, method `get_api_locale()` (lines ~5009\u20135023):\n  ```php\n  $parameters['language'] = strtolower($parameters['language']);\n  $file = \"{$global['systemRootPath']}locale/{$parameters['language']}.php\";\n  if (!file_exists($file)) { return new ApiObject(\"This language does not exists\"); }\n  include $file;\n  ```\n  No validation is performed",
-      "cvss_score": 8.6,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22",
-        "CWE-98"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "wwbn/avideo"
-      ],
-      "published": "2026-03-20T21:55:31Z",
-      "updated": "2026-03-23T17:31:53Z",
-      "url": "https://github.com/advisories/GHSA-8fw8-q79c-fp9m",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/WWBN/AVideo/security/advisories/GHSA-8fw8-q79c-fp9m",
-        "https://github.com/advisories/GHSA-8fw8-q79c-fp9m"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-mwjc-5j4x-r686",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "AVideo has an unauthenticated decrypt oracle leaking any ciphertext",
-      "description": "### Summary\nThe API plugin exposes a `decryptString` action without any authentication. Anyone can submit ciphertext and receive plaintext. Ciphertext is issued publicly (e.g., `view/url2Embed.json.php`), so any user can recover protected tokens/metadata. Severity: High.\n\n### Details\n- Entry: `plugin/API/get.json.php` is unauthenticated.\n- Handler: `plugin/API/API.php` `get_api_decryptString()` (lines ~5945\u20135966):\n  ```php\n  $string = decryptString($_REQUEST['string']);\n  return new ApiObject($string, empty($string));\n  ```\n  No APISecret or user check occurs before decrypting.\n- Public ciphertext source: `view/url2Embed.json.php` returns `playLink`/`playEmbedLink` (`encryptString(json_encode(...))`) to any caller.\n\n### PoC\n1. Obtain ciphertext:\n   ```\n   GET /view/url2Embed.json.php?url=https://example.com/video.mp4\n   ```\n   Copy `playLink`.\n2. Decrypt without auth:\n   ```\n   POST /plugin/API/get.json.php?APIName=decryptString\n   Content-Type: application/x-www-form-urlencoded\n\n   st",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-287",
-        "CWE-312",
-        "CWE-326",
-        "CWE-327"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "wwbn/avideo"
-      ],
-      "published": "2026-03-20T21:55:12Z",
-      "updated": "2026-03-20T21:55:17Z",
-      "url": "https://github.com/advisories/GHSA-mwjc-5j4x-r686",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/WWBN/AVideo/security/advisories/GHSA-mwjc-5j4x-r686",
-        "https://github.com/advisories/GHSA-mwjc-5j4x-r686"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-r7mc-x6x7-cqxx",
-      "cve_id": "CVE-2026-33509",
-      "severity": "HIGH",
-      "summary": "pyLoad SETTINGS Permission Users Can Achieve Remote Code Execution via Unrestricted Reconnect Script Configuration",
-      "description": "## Summary\n\nThe `set_config_value()` API endpoint allows users with the non-admin `SETTINGS` permission to modify any configuration option without restriction. The `reconnect.script` config option controls a file path that is passed directly to `subprocess.run()` in the thread manager's reconnect logic. A SETTINGS user can set this to any executable file on the system, achieving Remote Code Execution. The only validation in `set_config_value()` is a hardcoded check for `general.storage_folder` \u2014 all other security-critical settings including `reconnect.script` are writable without any allowlist or path restriction.\n\n## Details\n\nThe vulnerability chain spans two components:\n\n**1. Unrestricted config write \u2014 `src/pyload/core/api/__init__.py:210-243`**\n\n```python\n@permission(Perms.SETTINGS)\n@post\ndef set_config_value(self, category: str, option: str, value: Any, section: str = \"core\") -> None:\n    self.pyload.addon_manager.dispatch_event(\n        \"config_changed\", category, option, value,",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-269"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "pyload-ng"
-      ],
-      "published": "2026-03-20T21:50:30Z",
-      "updated": "2026-03-20T21:50:31Z",
-      "url": "https://github.com/advisories/GHSA-r7mc-x6x7-cqxx",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/pyload/pyload/security/advisories/GHSA-r7mc-x6x7-cqxx",
-        "https://github.com/pyload/pyload/commit/f5e284fcdfeaf08436bb03e5fcf697aaac659d8b",
-        "https://github.com/advisories/GHSA-r7mc-x6x7-cqxx"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-6qh5-m6g3-xhq6",
-      "cve_id": "CVE-2026-33508",
-      "severity": "HIGH",
-      "summary": "Parse Server LiveQuery subscription query depth bypass",
-      "description": "### Impact\n\nParse Server's LiveQuery component does not enforce the `requestComplexity.queryDepth` configuration setting when processing WebSocket subscription requests. An attacker can send a subscription with deeply nested logical operators, causing excessive recursion and CPU consumption that degrades or disrupts service availability.\n\nDeployments are affected when the LiveQuery WebSocket endpoint is reachable by untrusted clients.\n\n### Patches\n\nThe fix adds query condition depth validation to the LiveQuery subscription handler, enforcing the same `requestComplexity.queryDepth` limit that already protects REST API queries.\n\n### Workarounds\n\nThere is no known workaround other than upgrading.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-674"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "parse-server",
-        "parse-server"
-      ],
-      "published": "2026-03-20T21:48:17Z",
-      "updated": "2026-03-20T21:48:21Z",
-      "url": "https://github.com/advisories/GHSA-6qh5-m6g3-xhq6",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/parse-community/parse-server/security/advisories/GHSA-6qh5-m6g3-xhq6",
-        "https://github.com/parse-community/parse-server/pull/10259",
-        "https://github.com/parse-community/parse-server/pull/10260",
-        "https://github.com/advisories/GHSA-6qh5-m6g3-xhq6"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -862,7 +869,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-24T17:03:13.053366+00:00",
+    "catalog_version": "2026-03-24T20:46:04.477926+00:00",
     "source": "CISA KEV"
   }
 }
