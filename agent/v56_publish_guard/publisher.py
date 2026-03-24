@@ -167,6 +167,10 @@ def retry_pending_queue(service, blog_id: str) -> int:
     Retry publishing items from the pending queue.
     Called at the start of each pipeline run.
     Returns number of successfully published items.
+
+    v75.0: Items with retry_count >= MAX_RETRY_ATTEMPTS are purged before any API calls,
+    preventing Blogger 400 BadRequest spam on items with permanent content issues.
+    Items are also re-sanitized on every retry pass to catch new edge cases.
     """
     if not PENDING_QUEUE_FILE.exists():
         return 0
@@ -189,9 +193,21 @@ def retry_pending_queue(service, blog_id: str) -> int:
         post_body = item.get("post_body", {})
         retry_count = item.get("retry_count", 0)
 
+        # v75.0: Drop items that have exhausted all retries — do NOT attempt API call
+        # Previous behavior: called publish_with_retry even on retry_count=5, wasting a
+        # Blogger API call and generating a non-retryable 400 error in the log.
         if retry_count >= MAX_RETRY_ATTEMPTS:
-            logger.warning(f"  ⏭ Dropping (max retries exceeded): {title[:60]}")
+            logger.warning(f"  ⏭ Dropping (max retries exhausted after {retry_count} attempts): {title[:60]}")
             continue
+
+        # v75.0: Re-sanitize content on every retry pass
+        # Catches Unicode chars that the sanitizer may have missed on previous runs
+        if isinstance(post_body, dict) and "content" in post_body:
+            try:
+                from agent.blogger_client import sanitize_blogger_html
+                post_body["content"] = sanitize_blogger_html(post_body["content"])
+            except ImportError:
+                pass
 
         success, response, error = publish_with_retry(service, blog_id, post_body)
 
