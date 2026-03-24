@@ -207,17 +207,29 @@ def is_relevant_threat(title: str, content: str) -> Tuple[bool, float, str]:
     """
     Gate function. Returns (should_process, score, reason).
     v22.0: Requires BOTH score >= THRESHOLD AND >= MIN_STRONG_SIGNAL_COUNT strong signals.
+    v75.0: CVE-titled entries bypass MIN_WORDS check — short CVE advisories are always
+           genuine threat intelligence regardless of RSS word count.
     """
     wc = len(content.split())
-    if wc < MIN_WORDS:
+
+    # v75.0: CVE bypass — CVE advisories are real threats regardless of word count
+    # Root cause: RSS feeds for vulnerability databases (WPVulnDB, NVD, CISA) return
+    # short descriptions (20-50 words) but these are always genuine threat intel
+    title_has_cve = bool(re.search(r'CVE-\d{4}-\d{4,7}', title, re.IGNORECASE))
+    if wc < MIN_WORDS and not title_has_cve:
         return False, 0.0, f"thin_content:{wc}words"
+    # CVE titles with thin content get a reduced minimum (allow ≥10 words)
+    if wc < 10 and title_has_cve:
+        return False, 0.0, f"thin_content_cve:{wc}words"
 
     score, reason, strong_count = score_article(title, content)
 
     if score < THRESHOLD:
         return False, score, f"low_relevance({score:.1f}):{reason}"
 
-    if strong_count < MIN_STRONG_SIGNAL_COUNT:
-        return False, score, f"insufficient_threat_signals({strong_count}<{MIN_STRONG_SIGNAL_COUNT}):{reason}"
+    # v75.0: CVE titles get reduced strong-signal requirement (CVE itself counts as strong signal)
+    min_signals = 1 if title_has_cve else MIN_STRONG_SIGNAL_COUNT
+    if strong_count < min_signals:
+        return False, score, f"insufficient_threat_signals({strong_count}<{min_signals}):{reason}"
 
     return True, score, reason

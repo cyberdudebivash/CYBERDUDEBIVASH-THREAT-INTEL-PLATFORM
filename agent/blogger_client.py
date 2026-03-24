@@ -36,6 +36,7 @@ def sanitize_blogger_html(html: str) -> str:
       3. Removing HTML comments
       4. Cleaning null bytes and control characters
       5. Truncating oversized payloads with a "continued on platform" footer
+      6. v75.0: Extended Unicode → ASCII/HTML-entity substitution table
 
     This is ADDITIVE — does not alter the report generation pipeline.
     """
@@ -45,8 +46,65 @@ def sanitize_blogger_html(html: str) -> str:
     # 1. Clean null bytes and control chars (except newline/tab)
     html = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', html)
 
+    # v75.0: Extended Unicode substitution — covers all chars seen in 400-error items
+    # Original map handled: \u2013 \u2014 \u2018 \u2019 \u201c \u201d \u2122 \u00ae \u00a9
+    # Added: emoji variants, arrows, info, check, warning, bullet, ellipsis, etc.
+    _UNICODE_MAP = {
+        '\u2013': '-',        # en dash
+        '\u2014': '--',       # em dash
+        '\u2015': '--',       # horizontal bar
+        '\u2018': "'",        # left single quotation
+        '\u2019': "'",        # right single quotation
+        '\u201c': '"',        # left double quotation
+        '\u201d': '"',        # right double quotation
+        '\u2026': '...',      # horizontal ellipsis
+        '\u00a0': ' ',        # non-breaking space
+        '\u00ad': '',         # soft hyphen
+        '\u00a9': '(C)',      # copyright
+        '\u00ae': '(R)',      # registered
+        '\u2122': '(TM)',     # trade mark
+        '\u2020': '+',        # dagger
+        '\u2021': '++',       # double dagger
+        '\u2022': '*',        # bullet
+        '\u2023': '>',        # triangular bullet
+        '\u25cf': '*',        # black circle
+        '\u25e6': 'o',        # white bullet
+        '\u2713': '[OK]',     # check mark (✓)
+        '\u2714': '[OK]',     # heavy check mark (✔)
+        '\u2715': '[X]',      # multiplication x
+        '\u2716': '[X]',      # heavy multiplication x
+        '\u2717': '[X]',      # ballot x
+        '\u2718': '[X]',      # heavy ballot x
+        '\u26a0': '[!]',      # warning sign (⚠)
+        '\u26a1': '[!]',      # lightning bolt
+        '\u2192': '->',       # rightwards arrow (→)
+        '\u2190': '<-',       # leftwards arrow
+        '\u2191': '^',        # upwards arrow
+        '\u2193': 'v',        # downwards arrow
+        '\u21d2': '=>',       # rightwards double arrow
+        '\u2139': '[i]',      # information source (ℹ)
+        '\u24d8': '[i]',      # circled latin small letter i
+        '\uff5c': '|',        # fullwidth vertical bar
+        '\ufe0f': '',         # variation selector-16 (emoji modifier — strip)
+        '\u200b': '',         # zero-width space
+        '\u200c': '',         # zero-width non-joiner
+        '\u200d': '',         # zero-width joiner
+        '\ufeff': '',         # zero-width no-break space (BOM)
+        '\u00b7': '*',        # middle dot
+        '\u2019': "'",        # right single quote (duplicate kept for safety)
+        '\u0000': '',         # null byte
+    }
+    for uni, replacement in _UNICODE_MAP.items():
+        if uni in html:
+            html = html.replace(uni, replacement)
+
+    # Fallback: replace remaining non-ASCII chars that aren't standard HTML entities
+    # This catches any emoji or special chars not in the map above
+    html = html.encode('ascii', errors='xmlcharrefreplace').decode('ascii')
+
     # 2. Remove HTML comments
     html = re.sub(r'<!--.*?-->', '', html, flags=re.DOTALL)
+
 
     # 3. Convert <pre>/<code> to safe styled equivalents
     for tag, replacement in _CONVERT_TAGS.items():
