@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-1977c1b57ca3
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "LiteLLM PyPI packages compromised in expanding TeamPCP supply chain attacks"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
