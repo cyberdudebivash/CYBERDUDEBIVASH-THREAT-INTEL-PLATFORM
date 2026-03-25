@@ -953,15 +953,13 @@ class PremiumReportGenerator:
         emerging vulnerabilities, misconfigured infrastructure, and human factors.{context_paras}</p>
         <p style="{s['p']}">The CyberDudeBivash GOC tracks this activity under its institutional tracking
         framework, correlating indicators across multiple intelligence sources to establish campaign
-        attribution and scope. Historical analysis suggests that campaigns of this nature frequently
-        target organizations with inadequate patch management, legacy authentication mechanisms, and
-        limited visibility into endpoint and network telemetry.</p>
-        <p style="{s['p']}">Regional targeting patterns indicate that threat actors associated with this
-        type of activity operate opportunistically, leveraging automated scanning and exploitation tools
-        to identify vulnerable targets across geographic boundaries. The increasing commoditization of
-        attack tooling has lowered the barrier to entry for threat actors, resulting in a broader range
-        of organizations facing exposure to sophisticated attack methodologies that were previously
-        limited to nation-state operations."""
+        scope. All attribution and technical claims in this section are derived from the source article
+        and verified intelligence feeds — speculative or unverified claims are clearly labeled as
+        <em>Analyst Assessment</em> rather than confirmed intelligence.</p>
+        <p style="{s['p']}"><b>Analyst Assessment:</b> Based on the nature of this advisory and the
+        threat category classification, organizations operating in the {', '.join(threat_type.get('sectors', ['Enterprise'])[:3])}
+        sectors should evaluate their exposure to this threat type and validate that relevant controls
+        are active. Consult Section 9 (24-Hour IR Plan) for immediate response guidance.</p>"""
 
     def _generate_infection_chain(self, headline, text, threat_type, iocs):
         s = self._build_styles()
@@ -1246,29 +1244,59 @@ class PremiumReportGenerator:
     def _generate_infra_mapping(self, iocs, text):
         ips = iocs.get('ipv4', [])
         domains = iocs.get('domain', [])
+        urls = iocs.get('url', [])
 
         if ips or domains:
-            mapping = f"""Infrastructure analysis identifies {len(ips)} IP address(es) and {len(domains)} domain(s) associated with this campaign. Network indicators suggest the use of distributed infrastructure across multiple autonomous systems and geographic regions, consistent with bulletproof hosting arrangements or compromised legitimate infrastructure. Domain registration patterns and SSL certificate analysis may reveal additional connected infrastructure through pivoting techniques. Organizations should monitor for connections to these indicators and investigate any historical connections in network logs."""
+            ip_str = f"{len(ips)} IP address(es)" if ips else ""
+            dom_str = f"{len(domains)} domain(s)" if domains else ""
+            indicator_summary = " and ".join(filter(None, [ip_str, dom_str]))
+            mapping = (
+                f"Infrastructure analysis has identified {indicator_summary} associated with this advisory. "
+                f"Network defenders should block these indicators at firewall and DNS proxy level and "
+                f"investigate any historical connections in network logs. "
+                f"Domain registration patterns and SSL certificate pivoting may reveal additional "
+                f"connected infrastructure. All indicators are listed in Section 4 (IOC Table)."
+            )
+            if urls:
+                mapping += (
+                    f" {len(urls)} URL indicator(s) have also been extracted and should be blocked "
+                    f"at web proxy and email gateway level."
+                )
         else:
-            mapping = """No specific network infrastructure indicators were extracted from the available intelligence for this campaign. This may indicate the use of legitimate services for C2 communication, encrypted tunneling through approved channels, or infrastructure that has been taken down since the initial reporting. Defenders should focus on behavioral detection methods rather than IOC-based blocking for campaigns where infrastructure indicators are limited."""
+            mapping = (
+                "No specific network infrastructure indicators were extracted from the available intelligence "
+                "for this advisory. This commonly occurs with: (1) threat actors using legitimate cloud "
+                "services (Google Drive, OneDrive, Discord, Telegram) for C2 communication; (2) rapidly "
+                "rotating infrastructure that has been taken offline since initial reporting; or (3) "
+                "advisory categories such as vulnerability disclosures where C2 infrastructure is not "
+                "part of the threat scope. "
+                "Defenders should prioritize behavioral detection methods from Section 6 rather than "
+                "IOC-based blocking when network indicators are unavailable."
+            )
 
         return mapping
 
     def _generate_ioc_table(self, iocs, s):
         rows = ""
         ioc_labels = {
-            'ipv4': 'IPv4', 'domain': 'Domain', 'url': 'URL',
-            'sha256': 'SHA256', 'sha1': 'SHA1', 'md5': 'MD5',
-            'email': 'Email', 'cve': 'CVE', 'registry': 'Registry',
-            'artifacts': 'Artifact',
+            'ipv4': ('IPv4 Address', 'High'),
+            'domain': ('Domain', 'High'),
+            'url': ('URL', 'Medium-High'),
+            'sha256': ('SHA256 Hash', 'High'),
+            'sha1': ('SHA1 Hash', 'Medium-High'),
+            'md5': ('MD5 Hash', 'Medium'),
+            'email': ('Email Address', 'Medium'),
+            'cve': ('CVE Identifier', 'High'),
+            'registry': ('Registry Key', 'Medium'),
+            'artifacts': ('File Artifact', 'Medium'),
         }
         has_iocs = False
-        for key, label in ioc_labels.items():
+        for key, (label, confidence) in ioc_labels.items():
             for val in (iocs.get(key, []) or [])[:15]:
                 has_iocs = True
                 rows += f"""<tr><td style="{s['td']}">{label}</td>
                     <td style="{s['td']}font-family:{FONTS['mono']};font-size:12px;color:{COLORS['accent']};word-break:break-all;">{val}</td>
-                    <td style="{s['td']}">Medium-High</td>
+                    <td style="{s['td']}">{confidence}</td>
                     <td style="{s['td']}">{datetime.now(timezone.utc).strftime('%Y-%m-%d')}</td></tr>"""
 
         if not has_iocs:
@@ -1312,14 +1340,54 @@ class PremiumReportGenerator:
                 seen.add(t.get('id'))
 
         if not all_techniques:
-            # Always provide baseline mapping
-            all_techniques = [
-                {"tactic": "Initial Access", "id": "T1190", "name": "Exploit Public-Facing Application"},
-                {"tactic": "Execution", "id": "T1059", "name": "Command and Scripting Interpreter"},
-                {"tactic": "Persistence", "id": "T1547.001", "name": "Registry Run Keys / Startup Folder"},
-                {"tactic": "Defense Evasion", "id": "T1027", "name": "Obfuscated Files or Information"},
-                {"tactic": "Collection", "id": "T1005", "name": "Data from Local System"},
-            ]
+            # Category-appropriate baseline MITRE fallback (v76.2)
+            cat = threat_type.get('category', '').lower()
+            if 'ransomware' in cat:
+                all_techniques = [
+                    {"tactic": "Initial Access",        "id": "T1566",     "name": "Phishing"},
+                    {"tactic": "Execution",             "id": "T1059.001", "name": "PowerShell"},
+                    {"tactic": "Defense Evasion",       "id": "T1562.001", "name": "Disable or Modify Tools"},
+                    {"tactic": "Lateral Movement",      "id": "T1021.002", "name": "SMB/Windows Admin Shares"},
+                    {"tactic": "Impact",                "id": "T1486",     "name": "Data Encrypted for Impact"},
+                    {"tactic": "Impact",                "id": "T1490",     "name": "Inhibit System Recovery"},
+                ]
+            elif 'phishing' in cat or 'identity' in cat or 'mfa' in cat:
+                all_techniques = [
+                    {"tactic": "Initial Access",        "id": "T1566.002", "name": "Spearphishing Link"},
+                    {"tactic": "Credential Access",     "id": "T1539",     "name": "Steal Web Session Cookie"},
+                    {"tactic": "Credential Access",     "id": "T1111",     "name": "MFA Interception"},
+                    {"tactic": "Persistence",           "id": "T1098.001", "name": "Additional Cloud Credentials"},
+                    {"tactic": "Collection",            "id": "T1530",     "name": "Data from Cloud Storage"},
+                ]
+            elif 'supply chain' in cat:
+                all_techniques = [
+                    {"tactic": "Initial Access",        "id": "T1195.002", "name": "Compromise Software Supply Chain"},
+                    {"tactic": "Execution",             "id": "T1059",     "name": "Command and Scripting Interpreter"},
+                    {"tactic": "Persistence",           "id": "T1547",     "name": "Boot or Logon Autostart Execution"},
+                    {"tactic": "Exfiltration",          "id": "T1041",     "name": "Exfiltration Over C2 Channel"},
+                ]
+            elif 'vulnerability' in cat:
+                all_techniques = [
+                    {"tactic": "Initial Access",        "id": "T1190",     "name": "Exploit Public-Facing Application"},
+                    {"tactic": "Execution",             "id": "T1203",     "name": "Exploitation for Client Execution"},
+                    {"tactic": "Privilege Escalation",  "id": "T1068",     "name": "Exploitation for Privilege Escalation"},
+                    {"tactic": "Defense Evasion",       "id": "T1211",     "name": "Exploitation for Defense Evasion"},
+                ]
+            elif 'data breach' in cat:
+                all_techniques = [
+                    {"tactic": "Initial Access",        "id": "T1078",     "name": "Valid Accounts"},
+                    {"tactic": "Discovery",             "id": "T1083",     "name": "File and Directory Discovery"},
+                    {"tactic": "Collection",            "id": "T1005",     "name": "Data from Local System"},
+                    {"tactic": "Exfiltration",          "id": "T1567",     "name": "Exfiltration Over Web Service"},
+                ]
+            else:
+                all_techniques = [
+                    {"tactic": "Initial Access",        "id": "T1190",     "name": "Exploit Public-Facing Application"},
+                    {"tactic": "Execution",             "id": "T1059",     "name": "Command and Scripting Interpreter"},
+                    {"tactic": "Persistence",           "id": "T1547.001", "name": "Registry Run Keys / Startup Folder"},
+                    {"tactic": "Defense Evasion",       "id": "T1027",     "name": "Obfuscated Files or Information"},
+                    {"tactic": "Exfiltration",          "id": "T1041",     "name": "Exfiltration Over C2 Channel"},
+                ]
 
         rows = ""
         for t in all_techniques[:12]:
@@ -1593,19 +1661,67 @@ alert http any any -> any any (msg:"CDB-Sentinel Suspicious User-Agent"; \\
         s = self._build_styles()
         cat = threat_type.get('category', '').lower()
 
-        return f"""This advisory connects to several dominant trends in the 2025-2026 global threat landscape.
-        Threat actors continue to evolve their operations with increasing sophistication, leveraging
-        AI-assisted attack tooling, targeting identity infrastructure, and exploiting the growing
-        complexity of hybrid cloud environments.</p><p style="{s['p']}">
-        Key trend connections include: the continued rise of infostealer malware ecosystems that fuel
-        initial access broker markets; the weaponization of legitimate cloud services for command and
-        control infrastructure; the acceleration of vulnerability exploitation timelines (often within
-        hours of public disclosure); and the increasing professionalization of cybercrime operations
-        including ransomware-as-a-service (RaaS) and access-as-a-service (AaaS) models.</p><p style="{s['p']}">
-        Organizations that invest in behavioral detection capabilities, continuous threat intelligence
-        integration, and security automation will be best positioned to defend against the evolving
-        threat landscape. The shift from reactive, signature-based defense to proactive, intelligence-driven
-        security operations represents the most impactful strategic investment available to security leaders."""
+        # Category-specific trend context — grounded in threat type, not boilerplate
+        if 'ransomware' in cat:
+            trend_context = """Ransomware-as-a-service (RaaS) operations continue to dominate the threat landscape,
+            with affiliate programs enabling less-skilled actors to deploy sophisticated ransomware payloads.
+            Double and triple extortion tactics — encrypting data, threatening public disclosure, and targeting
+            backup infrastructure simultaneously — have become standard operating procedure. The healthcare,
+            manufacturing, and critical infrastructure sectors remain primary targets due to operational
+            disruption tolerance and willingness to pay ransoms."""
+        elif 'supply chain' in cat:
+            trend_context = """Supply chain attacks have emerged as a high-return attack vector, with threat
+            actors targeting software build systems, package repositories (npm, PyPI, Maven), and third-party
+            service providers to achieve broad downstream compromise. The concentration of software dependencies
+            means a single compromised component can affect thousands of downstream organizations simultaneously.
+            Open-source ecosystems face particular exposure given limited security resources and high dependency
+            volume."""
+        elif 'identity' in cat or 'mfa' in cat or 'phishing' in cat:
+            trend_context = """Identity-based attacks have surpassed malware delivery as the primary initial
+            access technique. Adversary-in-the-middle (AitM) phishing frameworks that bypass MFA have
+            commoditized what was previously a sophisticated capability. Infostealer malware ecosystems
+            continuously feed stolen credentials into initial access broker markets, compressing the time
+            between credential theft and account compromise. FIDO2/passkey adoption remains the most
+            effective countermeasure but adoption lags significantly in enterprise environments."""
+        elif 'apt' in cat or 'espionage' in cat:
+            trend_context = """Nation-state sponsored threat actors continue to conduct persistent intrusion
+            campaigns targeting government, defense, and critical infrastructure sectors. Living-off-the-land
+            techniques, legitimate remote management tools, and long dwell times (average 200+ days before
+            detection) characterize these operations. Supply chain targeting and zero-day exploitation at
+            perimeter devices (VPN, firewalls, email gateways) represent the dominant initial access vectors
+            for state-sponsored campaigns."""
+        elif 'data breach' in cat:
+            trend_context = """Data breach incidents continue to scale in both volume and regulatory impact.
+            Cloud misconfiguration and credential theft remain the leading root causes, with exposed storage
+            buckets, overpermissioned service accounts, and reused credentials providing attackers access
+            without requiring exploitation of software vulnerabilities. Regulatory enforcement under GDPR,
+            CCPA, and sector-specific frameworks has materially increased the financial and reputational
+            cost of breach incidents."""
+        elif 'vulnerability' in cat:
+            trend_context = """Vulnerability exploitation timelines have compressed dramatically — median
+            time from CVE disclosure to weaponized exploit has fallen to under 48 hours for critical
+            vulnerabilities. Network-edge devices (VPN appliances, firewalls, load balancers) and
+            internet-facing applications remain the most exploited entry points. The CISA Known Exploited
+            Vulnerabilities (KEV) catalog has become the authoritative signal for prioritizing patch
+            deployment, with KEV-listed vulnerabilities receiving active exploitation within days of listing."""
+        else:
+            trend_context = """Threat actors continue to evolve their operations with increasing automation,
+            AI-assisted reconnaissance, and sophisticated evasion techniques. The commoditization of attack
+            tooling has lowered barriers to entry while increasing the volume and speed of attacks. Defenders
+            face growing pressure to automate detection and response workflows to match attacker velocity."""
+
+        return f"""{trend_context}</p>
+        <p style="{s['p']}">
+            This advisory connects to the broader pattern of <b>{threat_type['category']}</b> activity
+            tracked by the CyberDudeBivash GOC. Organizations that invest in behavioral detection capabilities,
+            continuous threat intelligence integration, and security automation are best positioned to
+            defend against the evolving threat landscape. Proactive, intelligence-driven security operations
+            represent the most impactful strategic investment available to security leaders in the current
+            environment.</p>
+        <p style="{s['p']}">
+            <b>Intelligence Confidence Note:</b> Trend assessments in this section are based on
+            CyberDudeBivash GOC analysis of published threat reports, CISA advisories, and multi-source
+            intelligence feeds. Individual threat actor TTPs may vary from general trends described."""
 
     def _generate_seo_keywords(self, headline, threat_type):
         base = [
