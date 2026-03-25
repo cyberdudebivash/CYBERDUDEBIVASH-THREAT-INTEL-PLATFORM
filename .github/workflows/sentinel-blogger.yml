@@ -189,21 +189,17 @@ jobs:
       - name: "v75: Pipeline Hardener (Sort + Dedup + Archive)"
         continue-on-error: false
         run: |
-          echo "::group::v75 Pipeline Hardener"
-          # CRITICAL: Runs AFTER all intel generation, BEFORE dashboard patch.
-          # Fixes: sort-before-trim bug, strong dedup, timestamp validation, daily archive.
           if [ -f scripts/v75_pipeline_hardener.py ]; then
-            python3 scripts/v75_pipeline_hardener.py
+            python3 -u scripts/v75_pipeline_hardener.py
             HARDENER_EXIT=$?
             if [ $HARDENER_EXIT -ne 0 ]; then
-              echo "::error::v75 hardener failed (exit $HARDENER_EXIT) — pipeline halted"
+              echo "::error::v75 hardener failed (exit $HARDENER_EXIT)"
               exit 1
             fi
             echo "v75 hardener: PASS"
           else
             echo "::warning::v75_pipeline_hardener.py not found — skipping"
           fi
-          echo "::endgroup::"
 
       - name: "v74: Re-patch EMBEDDED_INTEL with enriched data"
         continue-on-error: true
@@ -370,13 +366,12 @@ jobs:
       - name: "v76: Platform Finalizer"
         continue-on-error: true
         run: |
-          echo "::group::v76 Platform Finalizer"
           if [ -f scripts/v76_platform_finalizer.py ]; then
-            python3 scripts/v76_platform_finalizer.py
+            python3 -u scripts/v76_platform_finalizer.py
+            echo "v76 finalizer: COMPLETE"
           else
             echo "::warning::v76_platform_finalizer.py not found"
           fi
-          echo "::endgroup::"
 
       - name: "v76: Commit Finalizer Outputs"
         continue-on-error: true
