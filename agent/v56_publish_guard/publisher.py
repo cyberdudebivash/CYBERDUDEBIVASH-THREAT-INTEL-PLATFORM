@@ -209,6 +209,15 @@ def retry_pending_queue(service, blog_id: str) -> int:
             except ImportError:
                 pass
 
+        # v75.1: Also sanitize the title on retry — '<=' in CVE titles causes 400
+        if isinstance(post_body, dict) and "title" in post_body:
+            import re as _re2
+            _t = post_body["title"]
+            for _c, _r in [('<', '&lt;'), ('>', '&gt;'), ('&', '&amp;'),
+                           ('\u2013', '-'), ('\u2014', '--'), ('\u00a0', ' ')]:
+                _t = _t.replace(_c, _r)
+            post_body["title"] = _re2.sub(r'[\x00-\x1f\x7f]', '', _t).strip()
+
         success, response, error = publish_with_retry(service, blog_id, post_body)
 
         if success:
@@ -300,9 +309,35 @@ def resilient_publish(
     dedup_engine.mark_processed(headline, entry.get('link', ''))
 
     # ─── FIX 1 + FIX 2: Rate-limited publish with retry ───
+    # v75.1 FIX: Sanitize the TITLE as well as the content.
+    # CVE titles like "Easy Image Gallery <= 1.5.3" contain '<=' which the
+    # Blogger API rejects with HttpError 400 "invalid argument".
+    # The content sanitizer was already in place; title was missed.
+    safe_title = headline
+    try:
+        # Minimal title sanitization: replace XML-unsafe chars only
+        # (do NOT run full HTML sanitizer on title — it's plain text, not HTML)
+        _title_map = {
+            '<': '&lt;', '>': '&gt;', '&': '&amp;',
+            '\u2013': '-', '\u2014': '--', '\u00a0': ' ',
+            '\u2018': "'", '\u2019': "'", '\u201c': '"', '\u201d': '"',
+            '\u2026': '...', '\u00ae': '(R)', '\u2122': '(TM)',
+            '\uff5c': '|', '\u200b': '', '\ufeff': '', '\u0000': '',
+        }
+        for char, replacement in _title_map.items():
+            if char in safe_title:
+                safe_title = safe_title.replace(char, replacement)
+        # Strip any remaining non-printable ASCII control chars
+        import re as _re
+        safe_title = _re.sub(r'[\x00-\x1f\x7f]', '', safe_title).strip()
+        if not safe_title:
+            safe_title = headline[:100]  # fallback — never submit empty title
+    except Exception:
+        safe_title = headline
+
     post_body = {
         "kind": "blogger#post",
-        "title": headline,
+        "title": safe_title,
         "content": report_html,
         "labels": labels,
     }
