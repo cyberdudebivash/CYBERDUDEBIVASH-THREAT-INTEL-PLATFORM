@@ -271,7 +271,9 @@ def main():
         if _QUALITY_GATE_OK and _quality_gate:
             try:
                 _qok, _qscore, _qreason = _quality_gate(
-                    entry['title'], entry.get('content', '') + entry.get('summary', ''))
+                    entry['title'],
+                    entry.get('content', '') + entry.get('summary', ''),
+                    source_url=entry.get('link', ''))  # v75.1: pass URL for trusted-source bypass
                 if not _qok:
                     logger.info(f"  ⏭ SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}")
                     dedup_engine.mark_processed(entry['title'], entry.get('link', ''))
@@ -341,7 +343,9 @@ def main():
             if _QUALITY_GATE_OK and _quality_gate:
                 try:
                     _qok, _qscore, _qreason = _quality_gate(
-                        entry['title'], entry.get('content', '') + entry.get('summary', ''))
+                        entry['title'],
+                        entry.get('content', '') + entry.get('summary', ''),
+                        source_url=entry.get('link', ''))  # v75.1: trusted-source bypass
                     if not _qok:
                         logger.info(f"  ⏭ SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}")
                         dedup_engine.mark_processed(entry['title'], entry.get('link', ''))
