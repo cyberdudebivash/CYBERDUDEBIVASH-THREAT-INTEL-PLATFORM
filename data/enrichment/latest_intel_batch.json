@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-25T13:18:51.507301+00:00",
+  "timestamp": "2026-03-25T17:07:14.663666+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -323,6 +323,68 @@
     }
   ],
   "github_advisories": [
+    {
+      "ghsa_id": "GHSA-wwv8-cqpr-vx3m",
+      "cve_id": "CVE-2026-27602",
+      "severity": "HIGH",
+      "summary": "Modoboa has OS Command Injection",
+      "description": "### Summary\n\n`exec_cmd()` in `modoboa/lib/sysutils.py` always runs subprocess calls with `shell=True`. Since domain names flow directly into shell command strings without any sanitization, a Reseller or SuperAdmin can include shell metacharacters in a domain name to run arbitrary OS commands on the server.\n\n### Details\n\nThe root cause is in `modoboa/lib/sysutils.py:31`:\n\n```python\nkwargs[\"shell\"] = True\nprocess = subprocess.Popen(cmd, **kwargs)\n```\n\nWhen a create a domain is created with DKIM enabled, the domain name gets embedded into a shell command like this:\n\n```python\nexec_cmd(f\"openssl genrsa -out {dkim_storage_dir}/{domain.name}.pem {key_size}\")\n```\n\nIf the domain name contains something like `$(id>/tmp/proof).example.com`, the shell executes the injected command before running openssl.\n\nThe same pattern appears in several other places:\n\n- `modoboa/admin/jobs.py:38` \u2014 mailbox rename via `mv` using `full_address`\n- `modoboa/amavis/lib.py:202` \u2014 `sa-learn` using `domain.name`\n- `m",
+      "cvss_score": 7.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-78"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "modoboa"
+      ],
+      "published": "2026-03-25T17:03:37Z",
+      "updated": "2026-03-25T17:03:40Z",
+      "url": "https://github.com/advisories/GHSA-wwv8-cqpr-vx3m",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/modoboa/modoboa/security/advisories/GHSA-wwv8-cqpr-vx3m",
+        "https://github.com/modoboa/modoboa/commit/27a7aa133d3608fe8c25ae39125d1012c333cbfa",
+        "https://github.com/modoboa/modoboa/releases/tag/2.7.1",
+        "https://github.com/advisories/GHSA-wwv8-cqpr-vx3m"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-xvh5-5qg4-x9qp",
+      "cve_id": "CVE-2026-27496",
+      "severity": "HIGH",
+      "summary": "n8n has In-Process Memory Disclosure in its Task Runner",
+      "description": "## Impact\nAn authenticated user with permission to create or modify workflows could use the JavaScript Task Runner to allocate uninitialized memory buffers. Uninitialized buffers may contain residual data from the same Node.js process \u2014 including data from prior requests, tasks, secrets, or tokens \u2014 resulting in information disclosure of sensitive in-process data.\n- Task Runners must be enabled using `N8N_RUNNERS_ENABLED=true`.\n- In external runner mode, the impact is limited to data within the external runner process.\n\n## Patches\nThe issue has been fixed in n8n versions >= 1.123.22, >= 2.10.1 , and >= 2.9.3. Users should upgrade to this version or later to remediate the vulnerability.\n\n## Workarounds\nIf upgrading is not immediately possible, administrators should consider the following temporary mitigations:\n- Limit workflow creation and editing permissions to fully trusted users only.\n- Use external runner mode (`N8N_RUNNERS_MODE=external`) to isolate the runner process.\n\nThese worka",
+      "cvss_score": 6.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-908"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "n8n",
+        "n8n",
+        "n8n"
+      ],
+      "published": "2026-03-25T17:00:25Z",
+      "updated": "2026-03-25T17:00:30Z",
+      "url": "https://github.com/advisories/GHSA-xvh5-5qg4-x9qp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/n8n-io/n8n/security/advisories/GHSA-xvh5-5qg4-x9qp",
+        "https://docs.n8n.io/hosting/configuration/task-runners",
+        "https://docs.n8n.io/hosting/securing/blocking-nodes",
+        "https://github.com/advisories/GHSA-xvh5-5qg4-x9qp"
+      ]
+    },
     {
       "ghsa_id": "GHSA-xcx6-vp38-8hr5",
       "cve_id": null,
@@ -702,69 +764,6 @@
         "https://github.com/parse-community/parse-server/pull/10273",
         "https://github.com/advisories/GHSA-p2w6-rmh7-w8q3"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-g4cf-xj29-wqqr",
-      "cve_id": "CVE-2026-33538",
-      "severity": "HIGH",
-      "summary": "Parse Server: Denial of Service via unindexed database query for unconfigured auth providers",
-      "description": "### Impact\n\nAn unauthenticated attacker can cause Denial of Service by sending authentication requests with arbitrary, unconfigured provider names. The server executes a database query for each unconfigured provider before rejecting the request, and since no database index exists for unconfigured providers, each request triggers a full collection scan on the user database. This can be parallelized to saturate database resources.\n\n### Patches\n\nThe fix validates that an authentication provider is configured before executing any database query. Requests with unconfigured providers are now rejected immediately without querying the database.\n\n### Workarounds\n\nThere is no known workaround other than upgrading.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-400"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "parse-server",
-        "parse-server"
-      ],
-      "published": "2026-03-24T19:11:40Z",
-      "updated": "2026-03-24T19:12:23Z",
-      "url": "https://github.com/advisories/GHSA-g4cf-xj29-wqqr",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/parse-community/parse-server/security/advisories/GHSA-g4cf-xj29-wqqr",
-        "https://github.com/parse-community/parse-server/pull/10270",
-        "https://github.com/parse-community/parse-server/pull/10271",
-        "https://github.com/advisories/GHSA-g4cf-xj29-wqqr"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-g3qj-j598-cxmq",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "fido2-lib is vulnerable to DoS via cbor-extract heap buffer over-read in CBOR attestation parsing",
-      "description": "### Summary\nfido2-lib v3.x depends on cbor-x (~1.6.0), which optionally pulls in cbor-extract (C++ native addon). cbor-extract <= 2.2.0 has a heap buffer over-read in `extractStrings()` \u2014 a 5-byte CBOR payload crashes Node.js with SIGSEGV. No JS exception, no try/catch, process dead.\n\nThe crash triggers during WebAuthn registration when the server decodes the attestation object. An attacker sends a crafted authenticator response to the registration endpoint \u2014 single request, unauthenticated, instant kill.\n\nFixed in cbor-extract@2.2.1 / cbor-x@1.6.3 (2026-03-08). fido2-lib@3.5.7 still pins cbor-x ~1.6.0 which resolves to vulnerable cbor-extract.\n\n## Affected versions\n\nfido2-lib <= 3.5.7 (introduced cbor-x dependency). fido2-lib 2.x uses the old `cbor` package \u2014 not affected.\n\nOnly affects systems where `cbor-extract` native addon is installed (prebuilt binary available for platform). Pure JS fallback is safe.\n\n## PoC\n\n```js\nconst { decode } = require(\"cbor-x\");\ndecode(Buffer.from(\"7a100",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-125",
-        "CWE-126",
-        "CWE-1395"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "fido2-lib"
-      ],
-      "published": "2026-03-24T19:10:38Z",
-      "updated": "2026-03-24T19:10:41Z",
-      "url": "https://github.com/advisories/GHSA-g3qj-j598-cxmq",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/webauthn-open-source/fido2-lib/security/advisories/GHSA-g3qj-j598-cxmq",
-        "https://github.com/kriszyp/cbor-extract/issues/2",
-        "https://github.com/kriszyp/cbor-extract/issues/3",
-        "https://github.com/kriszyp/cbor-extract/commit/1f6e0d9704149bdb5531d25f5d08a0280a71e2ca",
-        "https://github.com/advisories/GHSA-g3qj-j598-cxmq"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -812,7 +811,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-25T13:18:51.875941+00:00",
+    "catalog_version": "2026-03-25T17:07:14.856296+00:00",
     "source": "CISA KEV"
   }
 }
