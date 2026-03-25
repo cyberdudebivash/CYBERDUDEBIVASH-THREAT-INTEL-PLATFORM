@@ -58,9 +58,9 @@ jobs:
           python3 -c "
           import json
           d = json.load(open('data/stix/feed_manifest.json'))
-          items = d if isinstance(d, list) else d.get('items', [])
+          items = d if isinstance(d, list) else d.get('advisories', d.get('entries', d.get('items', [])))
           if items:
-              newest = items[-1].get('timestamp', 'N/A')[:19]
+              newest = items[0].get('timestamp', items[0].get('published', 'N/A'))[:19]
               print(f'  feed_manifest: {len(items)} items | newest: {newest}')
           else:
               print('  feed_manifest: EMPTY')

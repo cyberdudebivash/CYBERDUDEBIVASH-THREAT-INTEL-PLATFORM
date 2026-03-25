@@ -8,6 +8,12 @@ on:
 permissions:
   contents: write
 
+# v75.1 FIX: Added concurrency group to prevent race conditions with sentinel-blogger.
+# Both workflows run at :00 — without this lock, concurrent pushes corrupt the manifest.
+concurrency:
+  group: sentinel-data-writer
+  cancel-in-progress: false
+
 jobs:
   multi-source-enrichment:
     name: Multi-Source Intelligence Collection & Enrichment

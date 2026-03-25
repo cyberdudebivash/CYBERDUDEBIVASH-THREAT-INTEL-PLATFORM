@@ -1,10 +1,9 @@
 # ================================================================
 # CYBERDUDEBIVASH® SENTINEL APEX — Sovereign Intelligence Cycle
-# Version: v75.0 (v70.2 base + v75 Pipeline Hardener)
+# Version: v76.0 (v75.1 base + v76 Platform Finalizer)
 # ================================================================
 # This workflow PRESERVES all v64.4 working functionality AND
-# adds v70 intelligence enhancements (data bridge, AI engines,
-# dedup, correlation, scoring) as ADDITIVE stages.
+# adds v70/v75/v76 intelligence enhancements as ADDITIVE stages.
 # ================================================================
 
 name: sentinel-blogger
@@ -68,14 +67,19 @@ jobs:
 
       - name: Ensure Directories
         run: |
-          mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum data/sovereign data/rule_packs data/playbooks data/playbooks/scripts data/premium_packs data/enterprise_kits data/enrichment data/status data/logs data/remediation data/.manifest_backups data/manifest_versions data/archive data/v46_ultraintel secrets
+          mkdir -p data/stix data/stix/archive data/nexus data/genesis data/cortex data/quantum data/sovereign data/rule_packs data/playbooks data/playbooks/scripts data/premium_packs data/enterprise_kits data/enrichment data/status data/logs data/remediation data/.manifest_backups data/manifest_versions data/archive data/v46_ultraintel api secrets
 
 # ================================================================
 # STAGE 1: PRE-FLIGHT (from v64 — preserved exactly)
 # ================================================================
       - name: Monthly Maintenance
         if: github.event.schedule == '0 0 1 * *'
-        run: python -m agent.janitor || true
+        run: |
+          python -m agent.janitor || true
+          # v75.1: Archive orphaned STIX bundles older than 90 days
+          if [ -f scripts/v75_stix_cleanup.py ]; then
+            python3 scripts/v75_stix_cleanup.py --max-orphans=500 || true
+          fi
 
       - name: Inject Sovereign Key
         run: |
@@ -255,7 +259,7 @@ jobs:
           git add sitemap.xml 2>/dev/null || true    # sitemap
 
           if ! git diff --staged --quiet; then
-            git commit -m "v75.0 Pipeline data [skip ci]"
+            git commit -m "v76.0 Pipeline data [skip ci]"
           fi
 
           # SAFETY LAYER: Discard any remaining unstaged changes (e.g. temp files)
@@ -343,7 +347,7 @@ jobs:
           git checkout -- . 2>/dev/null || true  # discard any remaining unstaged
 
           if ! git diff --staged --quiet; then
-            git commit -m "v75.0 Post Extras [skip ci]"
+            git commit -m "v76.0 Post Extras [skip ci]"
             git push origin main
           fi
 
@@ -360,13 +364,39 @@ jobs:
           clean: false
 
 # ================================================================
+# STAGE 6.5: v76 PLATFORM FINALIZER (NEW — runs after all deploys)
+# Syncs API endpoints, writes health reports, prunes old data
+# ================================================================
+      - name: "v76: Platform Finalizer"
+        continue-on-error: true
+        run: |
+          echo "::group::v76 Platform Finalizer"
+          if [ -f scripts/v76_platform_finalizer.py ]; then
+            python3 scripts/v76_platform_finalizer.py
+          else
+            echo "::warning::v76_platform_finalizer.py not found"
+          fi
+          echo "::endgroup::"
+
+      - name: "v76: Commit Finalizer Outputs"
+        continue-on-error: true
+        run: |
+          git config --local user.email "bivash@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+          git add api/ data/status/ data/archive/ VERSION 2>/dev/null || true
+          if ! git diff --staged --quiet; then
+            git commit -m "v76.0 Platform state [skip ci]"
+            git push origin main || true
+          fi
+
+# ================================================================
 # STAGE 7: PIPELINE SUMMARY (v70 — new, additive)
 # ================================================================
       - name: Pipeline Summary
         if: always()
         run: |
           echo "======================================================="
-          echo "SENTINEL APEX v75.0 Pipeline Summary"
+          echo "SENTINEL APEX v76.0 Pipeline Summary"
           echo "======================================================="
           echo "Timestamp: $(date -u)"
           if [ -f /tmp/v70_result.json ]; then
@@ -397,6 +427,15 @@ jobs:
           if dates:
               latest = dates[0]
               print("  Latest: " + latest.get("date","?") + " — " + str(latest.get("count","?")) + " entries")
+          ' || true
+          fi
+          if [ -f data/status/pipeline_health.json ]; then
+            python3 -c '
+          import json
+          h = json.load(open("data/status/pipeline_health.json"))
+          s = h.get("severity_breakdown", {})
+          print("v76 Platform: " + h.get("pipeline_status","?") + " | v" + h.get("platform_version","?"))
+          print("  CRIT=" + str(s.get("CRITICAL",0)) + " HIGH=" + str(s.get("HIGH",0)) + " MED=" + str(s.get("MEDIUM",0)) + " KEV=" + str(h.get("kev_confirmed",0)))
           ' || true
           fi
           echo "======================================================="
