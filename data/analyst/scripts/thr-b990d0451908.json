@@ -1,0 +1,14 @@
+{
+  "threat_id": "thr-b990d0451908",
+  "title": "SmartApeSG ClickFix Campaign Delivers Remcos, NetSupport RAT, StealC and Sectop ",
+  "scripts": [
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx post\\.hta\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-b990d0451908'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((query IN (\"post.hta\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    }
+  ]
+}
