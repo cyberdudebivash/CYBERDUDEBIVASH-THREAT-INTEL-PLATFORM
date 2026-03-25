@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 MANIFEST_PATH = "data/stix/feed_manifest.json"
@@ -94,7 +94,7 @@ a {{ color: #58a6ff; }}
 <div class="card">
 <p><strong>Risk Score:</strong> {risk}/10</p>
 <p><strong>STIX ID:</strong> {stix_id}</p>
-<p><strong>Published:</strong> {datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}</p>
+<p><strong>Published:</strong> {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}</p>
 </div>
 
 <div class="section">
