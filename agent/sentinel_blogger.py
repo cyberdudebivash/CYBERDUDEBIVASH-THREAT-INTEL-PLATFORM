@@ -474,6 +474,7 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         iocs=extracted_iocs,
         kev_present=kev_present if 'kev_present' in dir() else False,
         confirmed_actor=_confirmed_actor,
+        cvss_score=None,  # CVSS not yet available at this point — re-evaluated after NVD fetch
     )
 
     # Extract impact metrics for report enrichment
@@ -539,6 +540,7 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
                         iocs=extracted_iocs,
                         kev_present=kev_present,
                         confirmed_actor=_confirmed_actor,
+                        cvss_score=cvss_score,  # v76.2: pass CVSS for RED qualification
                     )
                     logger.info(f"  → NVD-updated: Risk={risk_score}/10 | Severity={severity} | TLP={tlp.get('label')}")
                     # v75.6: Rebuild smart labels with updated severity for correct Blogger post tags
