@@ -1,7 +1,7 @@
 @echo off
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
-:: Target Threat: CVE-2026-3055: Citrix NetScaler ADC and NetScaler Gateway Out-of-Bounds Read
+:: Target Threat: SmartApeSG campaign pushes Remcos RAT, NetSupport RAT, StealC, and Sectop RAT (ArechClient2), (Wed, Mar 25th)
 :: Generated: 2026-03-25 02:32:39 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.

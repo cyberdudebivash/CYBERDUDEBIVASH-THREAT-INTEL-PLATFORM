@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-24T20:46:04.319158+00:00",
+  "timestamp": "2026-03-25T02:32:15.280466+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -94,36 +94,6 @@
       "dueDate": "2026-03-22",
       "knownRansomwareCampaignUse": "Known",
       "notes": "https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-fmc-rce-NKhnULJh ; https://nvd.nist.gov/vuln/detail/CVE-2026-20131",
-      "cwes": [
-        "CWE-502"
-      ]
-    },
-    {
-      "cveID": "CVE-2025-66376",
-      "vendorProject": "Synacor",
-      "product": "Zimbra Collaboration Suite (ZCS)",
-      "vulnerabilityName": "Synacor Zimbra Collaboration Suite (ZCS) Cross-Site Scripting Vulnerability",
-      "dateAdded": "2026-03-18",
-      "shortDescription": "Synacor Zimbra Collaboration Suite (ZCS) contains a cross-site scripting vulnerability in the Classic UI where attackers could abuse Cascading Style Sheets (CSS) @import directives in email HTML.",
-      "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
-      "dueDate": "2026-04-01",
-      "knownRansomwareCampaignUse": "Unknown",
-      "notes": "https://wiki.zimbra.com/wiki/Zimbra_Security_Advisories ; https://nvd.nist.gov/vuln/detail/CVE-2025-66376",
-      "cwes": [
-        "CWE-79"
-      ]
-    },
-    {
-      "cveID": "CVE-2026-20963",
-      "vendorProject": "Microsoft",
-      "product": "SharePoint",
-      "vulnerabilityName": "Microsoft SharePoint Deserialization of Untrusted Data Vulnerability",
-      "dateAdded": "2026-03-18",
-      "shortDescription": "Microsoft SharePoint contains a deserialization of untrusted data vulnerability that allows an unauthorized attacker to execute code over a network.",
-      "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
-      "dueDate": "2026-03-21",
-      "knownRansomwareCampaignUse": "Unknown",
-      "notes": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-20963 ; https://nvd.nist.gov/vuln/detail/CVE-2026-20963",
       "cwes": [
         "CWE-502"
       ]
@@ -354,6 +324,264 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-xcx6-vp38-8hr5",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Scriban has Uncontrolled Recursion in `object.to_json` Causing Unrecoverable Process Crash via StackOverflowException",
+      "description": "## Summary\n\nThe `object.to_json` builtin function in Scriban performs recursive JSON serialization via an internal `WriteValue()` static local function that has no depth limit, no circular reference detection, and no stack overflow guard. A Scriban template containing a self-referencing object passed to `object.to_json` triggers unbounded recursion, causing a `StackOverflowException` that terminates the hosting .NET process. This is a fatal, unrecoverable crash \u2014 `StackOverflowException` cannot be caught by user code in .NET.\n\n## Details\n\nThe vulnerable code is the `WriteValue()` static local function at `src/Scriban/Functions/ObjectFunctions.cs:494`:\n\n```csharp\nstatic void WriteValue(TemplateContext context, Utf8JsonWriter writer, object value)\n{\n    var type = value?.GetType() ?? typeof(object);\n    if (value is null || value is string || value is bool ||\n        type.IsPrimitiveOrDecimal() || value is IFormattable)\n    {\n        JsonSerializer.Serialize(writer, value, type);\n    }\n ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-674"
+      ],
+      "ecosystems": [
+        "nuget"
+      ],
+      "packages": [
+        "Scriban"
+      ],
+      "published": "2026-03-24T22:15:13Z",
+      "updated": "2026-03-24T22:15:15Z",
+      "url": "https://github.com/advisories/GHSA-xcx6-vp38-8hr5",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/scriban/scriban/security/advisories/GHSA-xcx6-vp38-8hr5",
+        "https://github.com/advisories/GHSA-xcx6-vp38-8hr5"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-v66j-x4hw-fv9g",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Scriban: Uncontrolled Memory Allocation via string.pad_left/pad_right Allows Remote Denial of Service",
+      "description": "## Summary\n\nThe built-in `string.pad_left` and `string.pad_right` template functions in Scriban perform no validation on the `width` parameter, allowing a template expression to allocate arbitrarily large strings in a single call. When Scriban is exposed to untrusted template input \u2014 as in the official Scriban.AppService playground deployed on Azure \u2014 an unauthenticated attacker can trigger ~1GB memory allocations with a 39-byte payload, crashing the service via `OutOfMemoryException`.\n\n## Details\n\n`StringFunctions.PadLeft` and `StringFunctions.PadRight` (`src/Scriban/Functions/StringFunctions.cs:1181-1203`) directly delegate to .NET's `String.PadLeft(int)` / `String.PadRight(int)` with no bounds checking:\n\n```csharp\n// src/Scriban/Functions/StringFunctions.cs:1181-1183\npublic static string PadLeft(string text, int width)\n{\n    return (text ?? string.Empty).PadLeft(width);\n}\n\n// src/Scriban/Functions/StringFunctions.cs:1200-1202\npublic static string PadRight(string text, int width)\n{\n ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "nuget"
+      ],
+      "packages": [
+        "Scriban"
+      ],
+      "published": "2026-03-24T22:13:37Z",
+      "updated": "2026-03-24T22:13:39Z",
+      "url": "https://github.com/advisories/GHSA-v66j-x4hw-fv9g",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/scriban/scriban/security/advisories/GHSA-v66j-x4hw-fv9g",
+        "https://github.com/advisories/GHSA-v66j-x4hw-fv9g"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-c875-h985-hvrc",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Scriban: Built-in operations bypass LoopLimit and delay cancellation, enabling Denial of Service",
+      "description": "## Summary\n\nScriban's `LoopLimit` only applies to script loop statements, not to expensive iteration performed inside operators and builtins. An attacker can submit a single expression such as `{{ 1..1000000 | array.size }}` and force large amounts of CPU work even when `LoopLimit` is set to a very small value.\n\n## Details\n\nThe relevant code path is:\n\n- `ScriptBlockStatement.Evaluate()` calls `context.CheckAbort()` once per statement in `src/Scriban/Syntax/Statements/ScriptBlockStatement.cs` lines 41\u201346.\n- `LoopLimit` enforcement is tied to script loop execution via `TemplateContext.StepLoop()`, not to internal helper iteration.\n- `array.size` in `src/Scriban/Functions/ArrayFunctions.cs` lines 596\u2013609 calls `list.Cast<object>().Count()` for non-collection enumerables.\n- `1..N` creates a `ScriptRange` from `ScriptBinaryExpression.RangeInclude()` in `src/Scriban/Syntax/Expressions/ScriptBinaryExpression.cs` lines 745\u2013748.\n- `ScriptRange` then yields every element one by one **without goi",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-400"
+      ],
+      "ecosystems": [
+        "nuget"
+      ],
+      "packages": [
+        "scriban"
+      ],
+      "published": "2026-03-24T22:13:08Z",
+      "updated": "2026-03-24T22:13:09Z",
+      "url": "https://github.com/advisories/GHSA-c875-h985-hvrc",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/scriban/scriban/security/advisories/GHSA-c875-h985-hvrc",
+        "https://github.com/advisories/GHSA-c875-h985-hvrc"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-x6m9-38vm-2xhf",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Scriban has an authorization bypass due to stale include cache surviving TemplateContext.Reset() ",
+      "description": "## Summary\n\n`TemplateContext.Reset()` claims that a `TemplateContext` can be reused safely on the same thread, but it does not clear `CachedTemplates`. If an application pools `TemplateContext` objects and uses an `ITemplateLoader` that resolves content per request, tenant, or user, a previously authorized include can be served to later renders without calling `TemplateLoader.Load()` again.\n\n## Details\n\nThe relevant code path is:\n\n- `TemplateContext.Reset()` only clears output, globals, cultures, and source files in `src/Scriban/TemplateContext.cs` lines 877\u2013902.\n- `CachedTemplates` is initialized once and kept on the context in `src/Scriban/TemplateContext.cs` line 197.\n- `include` resolves templates through `IncludeFunction.Invoke()` in `src/Scriban/Functions/IncludeFunction.cs` lines 29\u201343.\n- `IncludeFunction.Invoke()` calls `TemplateContext.GetOrCreateTemplate()` in `src/Scriban/TemplateContext.cs` lines 1249\u20131256.\n- If a template path is already present in `CachedTemplates`, Scrib",
+      "cvss_score": 8.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-226"
+      ],
+      "ecosystems": [
+        "nuget"
+      ],
+      "packages": [
+        "scriban"
+      ],
+      "published": "2026-03-24T22:09:49Z",
+      "updated": "2026-03-24T22:09:54Z",
+      "url": "https://github.com/advisories/GHSA-x6m9-38vm-2xhf",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/scriban/scriban/security/advisories/GHSA-x6m9-38vm-2xhf",
+        "https://github.com/advisories/GHSA-x6m9-38vm-2xhf"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-p6q4-fgr8-vx4p",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Scriban has a Stack Overflow via Nested Array Initializers That Bypass the ExpressionDepthLimit Fix",
+      "description": "### Summary\nStackOverflowException via nested array initializers bypasses ExpressionDepthLimit fix (GHSA-wgh7-7m3c-fx25)\n\n### Details\nThe recent fix for GHSA-wgh7-7m3c-fx25 (uncontrolled recursion in parser) added `ExpressionDepthLimit` defaulting to 250. However, deeply nested **array initializers** (`[[[[...`) recurse through `ParseArrayInitializer` \u2192 `ParseExpression` \u2192 `ParseArrayInitializer`, which is a **different recursion path** not covered by the expression depth counter.\n\nThis causes a `StackOverflowException` on current main (commit b5ac4bf - \"Add limits for default safety\").\n\n### PoC\n```\nusing Scriban;\n\n// ExpressionDepthLimit (default 250) does NOT prevent this crash\nstring nested = \"{{ \" + new string('[', 5000) + \"1\" + new string(']', 5000) + \" }}\";\nTemplate.Parse(nested); // StackOverflowException - process terminates\n```\n\n### Impact\nSame as GHSA-wgh7-7m3c-fx25: High severity. StackOverflowException cannot be caught with try/catch in .NET - the process terminates immedia",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-674"
+      ],
+      "ecosystems": [
+        "nuget"
+      ],
+      "packages": [
+        "Scriban"
+      ],
+      "published": "2026-03-24T22:06:24Z",
+      "updated": "2026-03-24T22:06:24Z",
+      "url": "https://github.com/advisories/GHSA-p6q4-fgr8-vx4p",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/scriban/scriban/security/advisories/GHSA-p6q4-fgr8-vx4p",
+        "https://github.com/advisories/GHSA-wgh7-7m3c-fx25",
+        "https://github.com/advisories/GHSA-p6q4-fgr8-vx4p"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-vprv-35vv-q339",
+      "cve_id": "CVE-2026-33218",
+      "severity": "HIGH",
+      "summary": "NATS has pre-auth server panic via leafnode handling",
+      "description": "### Background\n\nNATS.io is a high performance open source pub-sub distributed communication technology, built for the cloud, on-premise, IoT, and edge computing.\n\nThe nats-server allows hub/spoke topologies using \"leafnode\" connections by other nats-servers.\n\n### Problem Description\n\nA client which can connect to the leafnode port can crash the nats-server with a certain malformed message pre-authentication.\n\n### Affected Versions\n\nAny version before v2.12.6 or v2.11.15\n\n### Workarounds\n\n1. Disable leafnode support if not needed.\n2. Restrict network connections to your leafnode port, if plausible without compromising the service offered.\n\n### References\n\n * This document is canonically: <https://advisories.nats.io/CVE/secnote-2026-10.txt>\n * GHSA advisory: <https://github.com/nats-io/nats-server/security/advisories/GHSA-vprv-35vv-q339>\n * MITRE CVE entry: <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-33218>",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-20"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/nats-io/nats-server/v2",
+        "github.com/nats-io/nats-server/v2"
+      ],
+      "published": "2026-03-24T21:45:29Z",
+      "updated": "2026-03-24T21:45:30Z",
+      "url": "https://github.com/advisories/GHSA-vprv-35vv-q339",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nats-io/nats-server/security/advisories/GHSA-vprv-35vv-q339",
+        "https://advisories.nats.io/CVE/secnote-2026-10.txt",
+        "https://github.com/advisories/GHSA-vprv-35vv-q339"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-jxxm-27vp-c3m5",
+      "cve_id": "CVE-2026-33217",
+      "severity": "HIGH",
+      "summary": "NATS allows MQTT clients to bypass ACL checks",
+      "description": "### Background\n\nNATS.io is a high performance open source pub-sub distributed communication technology, built for the cloud, on-premise, IoT, and edge computing.\n\nThe nats-server provides an MQTT client interface.\n\n### Problem Description\n\nWhen using ACLs on message subjects, these ACLs were not applied in the `$MQTT.>` namespace, allowing MQTT clients to bypass ACL checks for MQTT subjects.\n\n### Affected Versions\n\nAny version before v2.12.6 or v2.11.15\n\n### Workarounds\n\nNone.",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/nats-io/nats-server/v2",
+        "github.com/nats-io/nats-server/v2"
+      ],
+      "published": "2026-03-24T21:44:17Z",
+      "updated": "2026-03-24T21:45:05Z",
+      "url": "https://github.com/advisories/GHSA-jxxm-27vp-c3m5",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nats-io/nats-server/security/advisories/GHSA-jxxm-27vp-c3m5",
+        "https://advisories.nats.io/CVE/secnote-2026-07.txt",
+        "https://github.com/advisories/GHSA-jxxm-27vp-c3m5"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-v722-jcv5-w7mc",
+      "cve_id": "CVE-2026-33216",
+      "severity": "HIGH",
+      "summary": "NATS has MQTT plaintext password disclosure",
+      "description": "### Background\n\nNATS.io is a high performance open source pub-sub distributed communication technology, built for the cloud, on-premise, IoT, and edge computing.\n\nThe nats-server provides an MQTT client interface.\n\n### Problem Description\n\nFor MQTT deployments using usercodes/passwords: MQTT passwords are incorrectly classified as a non-authenticating identity statement (JWT) and exposed via monitoring endpoints.\n\n### Affected Versions\n\nAny version before v2.12.6 or v2.11.15\n\n### Workarounds\n\nEnsure monitoring end-points are adequately secured.\n\nBest practice remains to not expose the monitoring endpoint to the Internet or other untrusted network users.",
+      "cvss_score": 8.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-256"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/nats-io/nats-server/v2",
+        "github.com/nats-io/nats-server/v2"
+      ],
+      "published": "2026-03-24T21:42:10Z",
+      "updated": "2026-03-24T21:42:11Z",
+      "url": "https://github.com/advisories/GHSA-v722-jcv5-w7mc",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nats-io/nats-server/security/advisories/GHSA-v722-jcv5-w7mc",
+        "https://github.com/nats-io/nats-server/commit/b5b63cfc35a57075e09c1f57503d31721bed8099",
+        "https://advisories.nats.io/CVE/secnote-2026-05.txt",
+        "https://github.com/advisories/GHSA-v722-jcv5-w7mc"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-52jh-2xxh-pwh6",
+      "cve_id": "CVE-2026-29785",
+      "severity": "HIGH",
+      "summary": "NATS Server panic via malicious compression on leafnode port",
+      "description": "### Background\n\nNATS.io is a high performance open source pub-sub distributed communication technology, built for the cloud, on-premise, IoT, and edge computing.\n\nWhen configured to accept leafnode connections (for a hub/spoke topology of multiple nats-servers), then the default configuration allows for negotiating compression; a malicious remote NATS server can trigger a server panic via that compression.\n\n### Problem Description\n\nIf the nats-server has the \"leafnode\" configuration enabled (not default), then anyone who can connect can crash the nats-server by triggering a panic. This happens pre-authentication and requires that compression be enabled (which it is, by default, when leafnodes are used).\n\nContext: a NATS server can form various clustering topologies, including local clusters, and superclusters of clusters, but leafnodes allow for separate administrative domains to link together with limited data communication; eg, a server in a moving vehicle might use a local leafnode ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-476"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/nats-io/nats-server/v2",
+        "github.com/nats-io/nats-server/v2"
+      ],
+      "published": "2026-03-24T21:29:06Z",
+      "updated": "2026-03-24T21:29:09Z",
+      "url": "https://github.com/advisories/GHSA-52jh-2xxh-pwh6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nats-io/nats-server/security/advisories/GHSA-52jh-2xxh-pwh6",
+        "https://github.com/nats-io/nats-server/commit/a1488de6f2ba6e666aef0f9cce0016f7f167d6a8",
+        "https://advisories.nats.io/CVE/secnote-2026-04.txt",
+        "https://github.com/advisories/GHSA-52jh-2xxh-pwh6"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-x6g4-f6q3-fqvv",
       "cve_id": "CVE-2026-33247",
       "severity": "HIGH",
@@ -537,291 +765,6 @@
         "https://github.com/kriszyp/cbor-extract/commit/1f6e0d9704149bdb5531d25f5d08a0280a71e2ca",
         "https://github.com/advisories/GHSA-g3qj-j598-cxmq"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-2fph-6v5w-89hh",
-      "cve_id": "CVE-2026-33157",
-      "severity": "HIGH",
-      "summary": "Craft CMS is Vulnerable to Authenticated Remote Code Execution via Malicious Attached Behavior",
-      "description": "## Summary\n\nA Remote Code Execution (RCE) vulnerability exists in Craft CMS 5.x and 4.x that bypasses the security fixes for GHSA-7jx7-3846-m7w7 and GHSA-255j-qw47-wjh5. This vulnerability can be exploited by any authenticated user with control panel access.\n\nThe existing patches add `cleanseConfig()` to `assembleLayoutFromPost()` and various `FieldsController` actions to strip Yii2 behavior/event injection keys (`as ` and `on ` prefixed keys). However, the `fieldLayouts` parameter in `ElementIndexesController::actionFilterHud()` is passed directly to `FieldLayout::createFromConfig()` without any sanitization, enabling the same behavior injection attack chain.\n\n## Impact\n\n- **Attack Type**: Remote Code Execution (RCE)\n- **Authentication Required**: Authenticated user with control panel access (`accessCp` permission)\n\n## Vulnerability Details\n\n### Root Cause\n\nIn `ElementIndexesController::actionFilterHud()` (line 493-494), the `fieldLayouts` body parameter is passed to `FieldLayout::cre",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-470"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "craftcms/cms"
-      ],
-      "published": "2026-03-24T16:50:42Z",
-      "updated": "2026-03-24T16:50:43Z",
-      "url": "https://github.com/advisories/GHSA-2fph-6v5w-89hh",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/craftcms/cms/security/advisories/GHSA-2fph-6v5w-89hh",
-        "https://github.com/craftcms/cms/commit/97e90b4bdee369c1af3ca77a77531132df240e4e",
-        "https://github.com/advisories/GHSA-255j-qw47-wjh5",
-        "https://github.com/advisories/GHSA-7jx7-3846-m7w7",
-        "https://github.com/craftcms/cms/releases/tag/5.9.13",
-        "https://github.com/advisories/GHSA-2fph-6v5w-89hh"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-x6w6-2xwp-3jh6",
-      "cve_id": "CVE-2026-30932",
-      "severity": "HIGH",
-      "summary": "Froxlor is vulnerable to BIND zone file injection via unsanitized DNS record content in DomainZones API",
-      "description": "## Summary\n\nThe `DomainZones.add` API endpoint (accessible to customers with DNS enabled) does not validate the `content` field for several DNS record types (LOC, RP, SSHFP, TLSA). An attacker can inject newlines and BIND zone file directives (e.g. `$INCLUDE`) into the zone file that gets written to disk when the DNS rebuild cron job runs.\n\n## Affected Code\n\n`lib/Froxlor/Api/Commands/DomainZones.php`, lines 213-214, 253-254, 290-291, 292-293:\n\n```php\n} elseif ($type == 'LOC' && !empty($content)) {\n    $content = $content; // no validation\n} ...\n} elseif ($type == 'RP' && !empty($content)) {\n    $content = $content; // no validation\n} ...\n} elseif ($type == 'SSHFP' && !empty($content)) {\n    $content = $content; // no validation\n} elseif ($type == 'TLSA' && !empty($content)) {\n    $content = $content; // no validation\n}\n```\n\nThere is even a TODO comment at line 148 acknowledging this gap:\n```php\n// TODO regex validate content for invalid characters\n```\n\nThe content is then written direc",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-74"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "froxlor/froxlor"
-      ],
-      "published": "2026-03-24T16:49:21Z",
-      "updated": "2026-03-24T16:49:23Z",
-      "url": "https://github.com/advisories/GHSA-x6w6-2xwp-3jh6",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/froxlor/froxlor/security/advisories/GHSA-x6w6-2xwp-3jh6",
-        "https://github.com/froxlor/froxlor/commit/b34829262dc32818b37f6a1eabb426d0b277a86b",
-        "https://github.com/froxlor/froxlor/releases/tag/2.3.5",
-        "https://github.com/advisories/GHSA-x6w6-2xwp-3jh6"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-r3r2-35v9-v238",
-      "cve_id": "CVE-2026-33430",
-      "severity": "HIGH",
-      "summary": "Briefcase: Windows MSI Installer Privilege Escalation via Insecure Directory Permissions ",
-      "description": "### Impact\n\nIf a developer uses Briefcase to produce an Windows MSI installer for a project, and that project is installed for All Users (i.e., per-machine scope), the installation process creates an directory that inherits all the permissions of the parent directory. Depending on the location chosen by the installing user, this may allow a low privilege but authenticated user to replace or modify the binaries installed by the application. If an administrator then runs the altered binary, the binary will run with elevated privileges.\n\n### Patches\n\nThe problem is caused by the template used to generate the WXS file for Windows projects. It was fixed with the following PRs:\n\n* beeware/briefcase-windows-app-template#86\n* beeware/briefcase-windows-VisualStudio-template#85\n\nThese patches have been backported to the templates used in Briefcase 0.3.26, 0.4.0, and 0.4.1. Re-running `briefcase create` on your Briefcase project will result in the updated templates being used.\n\n### Workarounds\n\nT",
-      "cvss_score": 7.3,
-      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-732"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "briefcase"
-      ],
-      "published": "2026-03-23T21:40:10Z",
-      "updated": "2026-03-23T21:40:13Z",
-      "url": "https://github.com/advisories/GHSA-r3r2-35v9-v238",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/beeware/briefcase/security/advisories/GHSA-r3r2-35v9-v238",
-        "https://github.com/beeware/briefcase/issues/2759",
-        "https://github.com/beeware/briefcase-windows-VisualStudio-template/pull/85",
-        "https://github.com/beeware/briefcase-windows-app-template/pull/86",
-        "https://github.com/advisories/GHSA-r3r2-35v9-v238"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-9xrj-h377-fr87",
-      "cve_id": "CVE-2026-33195",
-      "severity": "HIGH",
-      "summary": "Rails Active Storage has possible Path Traversal in DiskService",
-      "description": "### Impact\nActive Storage's `DiskService#path_for` does not validate that the resolved filesystem path remains within the storage root directory. If a blob key containing path traversal sequences (e.g. `../`) is used, it could allow reading, writing, or deleting arbitrary files on the server. Blob keys are expected to be trusted strings, but some applications could be passing user input as keys and would be affected.\n\n### Releases\nThe fixed releases are available at the normal locations.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "rubygems",
-        "rubygems",
-        "rubygems"
-      ],
-      "packages": [
-        "activestorage",
-        "activestorage",
-        "activestorage"
-      ],
-      "published": "2026-03-23T21:17:19Z",
-      "updated": "2026-03-23T21:17:20Z",
-      "url": "https://github.com/advisories/GHSA-9xrj-h377-fr87",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/rails/rails/security/advisories/GHSA-9xrj-h377-fr87",
-        "https://github.com/rails/rails/commit/4933c1e3b8c1bb04925d60347be9f69270392f2c",
-        "https://github.com/rails/rails/commit/9b06fbc0f504b8afe333f33d19548f3b85fbe655",
-        "https://github.com/rails/rails/commit/a290c8a1ec189d793aa6d7f2570b6a763f675348",
-        "https://github.com/rails/rails/releases/tag/v7.2.3.1",
-        "https://github.com/rails/rails/releases/tag/v8.0.4.1",
-        "https://github.com/rails/rails/releases/tag/v8.1.2.1",
-        "https://github.com/advisories/GHSA-9xrj-h377-fr87"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-rm2q-f7jv-3cfp",
-      "cve_id": "CVE-2026-33046",
-      "severity": "HIGH",
-      "summary": "Indico discloses local files resulting in Remote Code Execution through LaTeX injection ",
-      "description": "> [!NOTE]\n> If server-side LaTeX rendering is not in use (ie `XELATEX_PATH` was not set in `indico.conf`), this vulnerability does not apply.\n\n### Impact\nDue to vulnerabilities in TeXLive and obscure LaTeX syntax that allowed circumventing Indico's LaTeX sanitizer, it is possible to use specially-crafted LaTeX snippets which can read local files or execute code with the privileges of the user running Indico on the server.\n\n### Patches\nIt is recommended to update to [Indico 3.3.12](https://github.com/indico/indico/releases/tag/v3.3.12) as soon as possible.\nSee [the docs](https://docs.getindico.io/en/stable/installation/upgrade/) for instructions on how to update.\n\nIt is also strongly recommended to enable the containerized LaTeX renderer (using `podman`), which isolates it from the rest of the system. See [the docs](https://docs.getindico.io/en/stable/installation/upgrade/#upgrading-to-3-3-12) for details - it is very easy and from now on the only recommended/supported way of using LaTe",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22",
-        "CWE-78"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "indico"
-      ],
-      "published": "2026-03-23T20:43:43Z",
-      "updated": "2026-03-23T20:43:44Z",
-      "url": "https://github.com/advisories/GHSA-rm2q-f7jv-3cfp",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/indico/indico/security/advisories/GHSA-rm2q-f7jv-3cfp",
-        "https://github.com/indico/indico/commit/0adb70f0ed66e129361d447868f5f3eb90dc5e96",
-        "https://github.com/indico/indico/commit/1dbb12525b3de14229bf4d1ae192988068f975f6",
-        "https://github.com/indico/indico/commit/5f24d23ce9c4b0e4b68b3d0b58987a948fc57c8a",
-        "https://github.com/indico/indico/commit/fb169ced710c30cf792ce4b9f48688db0633cfd8",
-        "https://github.com/indico/indico/releases/tag/v3.3.12",
-        "https://github.com/advisories/GHSA-rm2q-f7jv-3cfp"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-qr6x-wvxr-8hm9",
-      "cve_id": "CVE-2026-32300",
-      "severity": "HIGH",
-      "summary": "Connect CMS: Improper Authorization in the My Page Profile Update Feature Allows Modification of Arbitrary User Information",
-      "description": "# Security Advisory \u2014 My Page Profile Update (Improper Authorization)\n\n## Summary\n\nAn improper authorization issue in the My Page profile update feature may allow modification of arbitrary user information.\n\n## Affected Versions\n\n- 1.x series: <= 1.41.0\n- 2.x series: <= 2.41.0\n\n## Patched Versions\n\n- 1.41.1\n- 2.41.1\n\n## Description\n\nIn part of the My Page profile update feature, another user's profile information or password could be modified. If exploited, arbitrary user accounts may be taken over. Exploitation requires that the attacker be able to reach the affected functionality as an authenticated user. Users affected by this vulnerability should update to a fixed version.\n\n## Solution\n\nUpdate to the fixed version.\nFor the 1.x series, update to 1.41.1 or later.\nFor the 2.x series, update to 2.41.1 or later.\n\n## Credits\n\nOpenSource WorkShops thanks **Sho Odagiri** (\u5c0f\u7530\u5207 \u7965) of **GMO Cybersecurity by Ierae, Inc.** for reporting this vulnerability.",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-285",
-        "CWE-639"
-      ],
-      "ecosystems": [
-        "composer",
-        "composer"
-      ],
-      "packages": [
-        "opensource-workshop/connect-cms",
-        "opensource-workshop/connect-cms"
-      ],
-      "published": "2026-03-23T20:39:10Z",
-      "updated": "2026-03-23T20:39:11Z",
-      "url": "https://github.com/advisories/GHSA-qr6x-wvxr-8hm9",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/opensource-workshop/connect-cms/security/advisories/GHSA-qr6x-wvxr-8hm9",
-        "https://github.com/opensource-workshop/connect-cms/commit/7c9951738c62a1d51b91e9956d1eb756c5d52cce",
-        "https://github.com/opensource-workshop/connect-cms/releases/tag/v1.41.1",
-        "https://github.com/advisories/GHSA-qr6x-wvxr-8hm9"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-62ch-j6x7-722j",
-      "cve_id": "CVE-2026-32299",
-      "severity": "HIGH",
-      "summary": "Connect CMS: Information Disclosure Due to Improper Authorization through the Page Content Retrieval Feature",
-      "description": "# Security Advisory \u2014 Page Content Retrieval (Improper Authorization)\n\n## Summary\n\nAn improper authorization issue in the page content retrieval feature may allow retrieval of non-public information.\n\n## Affected Versions\n\n- 1.x series: <= 1.41.0\n- 2.x series: <= 2.41.0\n\n## Patched Versions\n\n- 1.41.1\n- 2.41.1\n\n## Description\n\nIn part of the page content retrieval feature, insufficient authorization checks could allow processing associated with non-public pages to be executed. If exploited, the contents and attachments of non-public pages may be obtained by a third party. Users affected by this vulnerability should update to a fixed version.\n\n## Solution\n\nUpdate to the fixed version.\nFor the 1.x series, update to 1.41.1 or later.\nFor the 2.x series, update to 2.41.1 or later.\n\n## Credits\n\nOpenSource WorkShop thanks **Sho Odagiri** (\u5c0f\u7530\u5207 \u7965) of **GMO Cybersecurity by Ierae, Inc.** for reporting this vulnerability.",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-284"
-      ],
-      "ecosystems": [
-        "composer",
-        "composer"
-      ],
-      "packages": [
-        "opensource-workshop/connect-cms",
-        "opensource-workshop/connect-cms"
-      ],
-      "published": "2026-03-23T20:38:16Z",
-      "updated": "2026-03-23T20:38:17Z",
-      "url": "https://github.com/advisories/GHSA-62ch-j6x7-722j",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/opensource-workshop/connect-cms/security/advisories/GHSA-62ch-j6x7-722j",
-        "https://github.com/advisories/GHSA-62ch-j6x7-722j"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-mv3p-7p89-wq9p",
-      "cve_id": "CVE-2026-32278",
-      "severity": "HIGH",
-      "summary": "Connect CMS has Stored Cross-site Scripting (XSS) in the File Field of its Form Plugin",
-      "description": "# Security Advisory \u2014 Form Plugin (Stored XSS)\n\n## Summary\n\nA Stored Cross-site Scripting (XSS) issue exists in the file field of the Form Plugin.\n\n## Affected Versions\n\n- 1.x series: <= 1.41.0\n- 2.x series: <= 2.41.0\n\n## Patched Versions\n\n- 1.41.1\n- 2.41.1\n\n## Description\n\nIn the file field of the Form Plugin, Stored Cross-site Scripting (XSS) could occur. If exploited, arbitrary script could run in an administrator's browser, which may lead to unauthorized actions or information theft. Users affected by this vulnerability should update to a fixed version.\n\n## Solution\n\nUpdate to the fixed version.\nFor the 1.x series, update to 1.41.1 or later.\nFor the 2.x series, update to 2.41.1 or later.\n\n## Credits\n\nOpenSource WorkShop thanks **Sho Odagiri** (\u5c0f\u7530\u5207 \u7965) of **GMO Cybersecurity by Ierae, Inc.** for reporting this vulnerability.",
-      "cvss_score": 8.2,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:H/I:H/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-434"
-      ],
-      "ecosystems": [
-        "composer",
-        "composer"
-      ],
-      "packages": [
-        "opensource-workshop/connect-cms",
-        "opensource-workshop/connect-cms"
-      ],
-      "published": "2026-03-23T20:36:15Z",
-      "updated": "2026-03-23T20:36:16Z",
-      "url": "https://github.com/advisories/GHSA-mv3p-7p89-wq9p",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/opensource-workshop/connect-cms/security/advisories/GHSA-mv3p-7p89-wq9p",
-        "https://github.com/opensource-workshop/connect-cms/commit/9d87fe8ecf7f57efbb0e5231be058807734c96b3",
-        "https://github.com/opensource-workshop/connect-cms/releases/tag/v1.41.1",
-        "https://github.com/opensource-workshop/connect-cms/releases/tag/v2.41.1",
-        "https://github.com/advisories/GHSA-mv3p-7p89-wq9p"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-cmfh-mpmf-fmq4",
-      "cve_id": "CVE-2026-32277",
-      "severity": "HIGH",
-      "summary": "Connect-CMS has DOM-based Cross-Site Scripting (XSS) in the Cabinet Plugin List View",
-      "description": "# Security Advisory \u2014 Cabinet Plugin (DOM-based XSS)\n\n## Summary\n\nA DOM-based Cross-Site Scripting (XSS) issue exists in the Cabinet Plugin list view.\n\n## Affected Versions\n\n- 1.x series: >= 1.35.0, <= 1.41.0\n- 2.x series: >= 2.35.0, <= 2.41.0\n\n## Patched Versions\n\n- 1.41.1\n- 2.41.1\n\n## Description\n\nIn the Cabinet Plugin list view, DOM-based Cross-Site Scripting (XSS) could occur due to how saved names were rendered.\nIf exploited, arbitrary script could run in the victim's browser, which may lead to unauthorized actions or information theft.\nExploitation requires that the attacker be able to reach the affected functionality as an authenticated user.\nUsers affected by this vulnerability should update to a fixed version.\n\n## Solution\n\nUpdate to the fixed version.\nFor the 1.x series, update to 1.41.1 or later.\nFor the 2.x series, update to 2.41.1 or later.\n\n## Credits\n\nOpenSource WorkShop thanks **Sho Odagiri** (\u5c0f\u7530\u5207 \u7965) of **GMO Cybersecurity by Ierae, Inc.** for reporting this vulnerabili",
-      "cvss_score": 8.7,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-79"
-      ],
-      "ecosystems": [
-        "composer",
-        "composer"
-      ],
-      "packages": [
-        "opensource-workshop/connect-cms",
-        "opensource-workshop/connect-cms"
-      ],
-      "published": "2026-03-23T20:35:48Z",
-      "updated": "2026-03-23T20:35:51Z",
-      "url": "https://github.com/advisories/GHSA-cmfh-mpmf-fmq4",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/opensource-workshop/connect-cms/security/advisories/GHSA-cmfh-mpmf-fmq4",
-        "https://github.com/opensource-workshop/connect-cms/commit/c04dc40f814eff891915752ef1ec00ba6612441c",
-        "https://github.com/opensource-workshop/connect-cms/releases/tag/v1.41.1",
-        "https://github.com/opensource-workshop/connect-cms/releases/tag/v2.41.1",
-        "https://github.com/advisories/GHSA-cmfh-mpmf-fmq4"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -869,7 +812,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-24T20:46:04.477926+00:00",
+    "catalog_version": "2026-03-25T02:32:15.510097+00:00",
     "source": "CISA KEV"
   }
 }
