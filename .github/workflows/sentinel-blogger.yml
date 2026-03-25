@@ -68,7 +68,7 @@ jobs:
 
       - name: Ensure Directories
         run: |
-          mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum data/sovereign data/rule_packs data/playbooks data/playbooks/scripts data/premium_packs data/enterprise_kits data/enrichment data/status data/logs data/remediation data/.manifest_backups data/manifest_versions data/archive secrets
+          mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum data/sovereign data/rule_packs data/playbooks data/playbooks/scripts data/premium_packs data/enterprise_kits data/enrichment data/status data/logs data/remediation data/.manifest_backups data/manifest_versions data/archive data/v46_ultraintel secrets
 
 # ================================================================
 # STAGE 1: PRE-FLIGHT (from v64 — preserved exactly)
@@ -386,5 +386,17 @@ jobs:
           ' || true
           else
             echo "v70 intelligence pipeline did not run"
+          fi
+          # v75 archive summary
+          if [ -f data/archive/index.json ]; then
+            python3 -c '
+          import json
+          idx = json.load(open("data/archive/index.json"))
+          print("v75 Archive: " + str(idx.get("total_archive_days","?")) + " days | " + str(idx.get("total_archive_entries","?")) + " total archived")
+          dates = idx.get("dates", [])
+          if dates:
+              latest = dates[0]
+              print("  Latest: " + latest.get("date","?") + " — " + str(latest.get("count","?")) + " entries")
+          ' || true
           fi
           echo "======================================================="
