@@ -1,19 +1,22 @@
 {
   "sigma_rules": [
     {
-      "title": "CDB Sentinel APEX \u2014 CVE202633678__Vikunja_has_IDOR_in_Task_Attachment_ReadOne_Al",
-      "id": "sigma--dac4709fbacc",
+      "title": "CDB Sentinel APEX \u2014 snapconfine__systemdtmpfiles__root_CVE20263888",
+      "id": "sigma--c5d50b16fd85",
       "status": "experimental",
-      "description": "Detects activity related to CVE-2026-33678 - Vikunja has IDOR in Task Attachment ReadOne Allows Cross-Project File Access and De",
+      "description": "Detects activity related to snap-confine + systemd-tmpfiles = root (CVE-2026-3888)",
       "references": [
-        "https://blog.cyberdudebivash.com/2026/03/cve-2026-33678-vikunja-has-idor-in-task.html"
+        "https://blog.cyberdudebivash.com/2026/03/snap-confine-systemd-tmpfiles-root-cve.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
+        "attack.t1203",
         "attack.t1059",
-        "attack.t1087",
-        "cve.cve-2026-33678"
+        "attack.t1542",
+        "attack.t1068",
+        "attack.t1499",
+        "cve.cve-2026-3888"
       ],
       "logsource": {
         "category": "process_creation",
@@ -22,8 +25,45 @@
       "detection": {
         "selection": {
           "CommandLine|contains": [
+            "T1203",
             "T1059",
-            "T1087"
+            "T1542"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "high",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX \u2014 Dell_Wyse_Management_Vulnerabilities_Enables_Complete_System",
+      "id": "sigma--8dca7be96654",
+      "status": "experimental",
+      "description": "Detects activity related to Dell Wyse Management Vulnerabilities Enables Complete System Compromise",
+      "references": [
+        "https://blog.cyberdudebivash.com/2026/03/dell-wyse-management-vulnerabilities.html"
+      ],
+      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
+      "date": "2026/03/25",
+      "tags": [
+        "attack.t1190",
+        "attack.t1078",
+        "attack.t1476",
+        "attack.t1203",
+        "attack.t1505.003"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "T1190",
+            "T1078",
+            "T1476"
           ]
         },
         "condition": "selection"
@@ -34,50 +74,20 @@
       ]
     },
     {
-      "title": "CDB Sentinel APEX \u2014 CVE202633680__Vikunja_Vulnerable_to_Link_Share_Hash_Disclosu",
-      "id": "sigma--afc2561343d3",
+      "title": "CDB Sentinel APEX \u2014 Aqua_Securitys_Trivy_Scanner_Compromised_in_Supply_Chain_Att",
+      "id": "sigma--82dedfdff0bc",
       "status": "experimental",
-      "description": "Detects activity related to CVE-2026-33680 - Vikunja Vulnerable to Link Share Hash Disclosure via ReadAll Endpoint Enables Permi",
+      "description": "Detects activity related to Aqua Security\u2019s Trivy Scanner Compromised in Supply Chain Attack",
       "references": [
-        "https://blog.cyberdudebivash.com/2026/03/cve-2026-33680-vikunja-vulnerable-to.html"
+        "https://blog.cyberdudebivash.com/2026/03/aqua-securitys-trivy-scanner.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
-        "attack.t1059",
-        "attack.t1078.003",
-        "cve.cve-2026-33680"
-      ],
-      "logsource": {
-        "category": "process_creation",
-        "product": "windows"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine|contains": [
-            "T1059",
-            "T1078.003"
-          ]
-        },
-        "condition": "selection"
-      },
-      "level": "medium",
-      "falsepositives": [
-        "Legitimate administrative activity"
-      ]
-    },
-    {
-      "title": "CDB Sentinel APEX \u2014 Grassroots_DICOM_GDCM",
-      "id": "sigma--27155d832bb2",
-      "status": "experimental",
-      "description": "Detects activity related to Grassroots DICOM (GDCM)",
-      "references": [
-        "https://blog.cyberdudebivash.com/2026/03/grassroots-dicom-gdcm.html"
-      ],
-      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
-      "tags": [
-        "attack.t1566",
+        "attack.t1595",
+        "attack.t1195",
+        "attack.t1078",
+        "attack.t1190",
         "attack.t1203"
       ],
       "logsource": {
@@ -87,8 +97,9 @@
       "detection": {
         "selection": {
           "CommandLine|contains": [
-            "T1566",
-            "T1203"
+            "T1595",
+            "T1195",
+            "T1078"
           ]
         },
         "condition": "selection"
@@ -99,21 +110,21 @@
       ]
     },
     {
-      "title": "CDB Sentinel APEX \u2014 Schneider_Electric_EcoStruxure_Foxboro_DCS",
-      "id": "sigma--0f524f5d4c20",
+      "title": "CDB Sentinel APEX \u2014 February_2026_CVE_Landscape_13_Critical_Vulnerabilities_Mark",
+      "id": "sigma--94c636e71277",
       "status": "experimental",
-      "description": "Detects activity related to Schneider Electric EcoStruxure Foxboro DCS",
+      "description": "Detects activity related to February 2026 CVE Landscape: 13 Critical Vulnerabilities Mark 43% Drop from January",
       "references": [
-        "https://blog.cyberdudebivash.com/2026/03/schneider-electric-ecostruxure-foxboro.html"
+        "https://blog.cyberdudebivash.com/2026/03/february-2026-cve-landscape-13-critical.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
-        "attack.t1078",
-        "attack.t1203",
-        "attack.t1059",
-        "attack.t1542",
-        "attack.t1486"
+        "attack.t1593",
+        "attack.t1595",
+        "attack.t1195",
+        "attack.t1199",
+        "attack.t1078"
       ],
       "logsource": {
         "category": "process_creation",
@@ -122,34 +133,170 @@
       "detection": {
         "selection": {
           "CommandLine|contains": [
+            "T1593",
+            "T1595",
+            "T1195"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "high",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX \u2014 2025_Identity_Threat_Landscape_Report_Inside_the_Infostealer",
+      "id": "sigma--481b0dbcfa62",
+      "status": "experimental",
+      "description": "Detects activity related to 2025 Identity Threat Landscape Report: Inside the Infostealer Economy: Credential Threats in 2025",
+      "references": [
+        "https://blog.cyberdudebivash.com/2026/03/2025-identity-threat-landscape-report.html"
+      ],
+      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
+      "date": "2026/03/25",
+      "tags": [
+        "attack.t1195",
+        "attack.t1078",
+        "attack.t1199",
+        "attack.t1190",
+        "attack.t1203"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "T1195",
             "T1078",
+            "T1199"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "high",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX \u2014 The_Iran_War_What_You_Need_to_Know",
+      "id": "sigma--ac52355640e3",
+      "status": "experimental",
+      "description": "Detects activity related to The Iran War: What You Need to Know",
+      "references": [
+        "https://blog.cyberdudebivash.com/2026/03/the-iran-war-what-you-need-to-know.html"
+      ],
+      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
+      "date": "2026/03/25",
+      "tags": [
+        "attack.t1595",
+        "attack.t1566",
+        "attack.t1078",
+        "attack.t1203",
+        "attack.t1059"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "T1595",
+            "T1566",
+            "T1078"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "high",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX \u2014 CVE20262072__CrossSite_Scripting_vulnerability_in_Hitachi_In",
+      "id": "sigma--35554df06f4d",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-2072 - Cross-Site Scripting vulnerability in Hitachi Infrastructure Analytics Advisor and H",
+      "references": [
+        "https://blog.cyberdudebivash.com/2026/03/cve-2026-2072-cross-site-scripting.html"
+      ],
+      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
+      "date": "2026/03/25",
+      "tags": [
+        "attack.t1059",
+        "cve.cve-2026-2072"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "T1059"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX \u2014 CVE20264784__codeprojects_Simple_Laundry_System_Parameter_ch",
+      "id": "sigma--c8b5f9705fd0",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-4784 - code-projects Simple Laundry System Parameter checkcheckout.php sql injection",
+      "references": [
+        "https://blog.cyberdudebivash.com/2026/03/cve-2026-4784-code-projects-simple.html"
+      ],
+      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
+      "date": "2026/03/25",
+      "tags": [
+        "attack.t1203",
+        "attack.t1059",
+        "cve.cve-2026-4784"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
             "T1203",
             "T1059"
           ]
         },
         "condition": "selection"
       },
-      "level": "high",
+      "level": "medium",
       "falsepositives": [
         "Legitimate administrative activity"
       ]
     },
     {
-      "title": "CDB Sentinel APEX \u2014 Schneider_Electric_Plant_iTBrewmaxx",
-      "id": "sigma--f8d8401ac244",
+      "title": "CDB Sentinel APEX \u2014 CanisterWorm_Springs_Wiper_Attack_Targeting_Iran",
+      "id": "sigma--2868c7d47872",
       "status": "experimental",
-      "description": "Detects activity related to Schneider Electric Plant iT/Brewmaxx",
+      "description": "Detects activity related to \u2018CanisterWorm\u2019 Springs Wiper Attack Targeting Iran",
       "references": [
-        "https://blog.cyberdudebivash.com/2026/03/schneider-electric-plant-itbrewmaxx.html"
+        "https://blog.cyberdudebivash.com/2026/03/canisterworm-springs-wiper-attack_01110799146.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
-        "attack.t1566",
-        "attack.t1199",
+        "attack.t1195",
+        "attack.t1078",
         "attack.t1203",
         "attack.t1059",
-        "attack.t1068"
+        "attack.t1555"
       ],
       "logsource": {
         "category": "process_creation",
@@ -158,8 +305,8 @@
       "detection": {
         "selection": {
           "CommandLine|contains": [
-            "T1566",
-            "T1199",
+            "T1195",
+            "T1078",
             "T1203"
           ]
         },
@@ -179,7 +326,7 @@
         "https://blog.cyberdudebivash.com/2026/03/citrix-netscaler-critical-flaw-could.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1190",
         "attack.t1203",
@@ -214,7 +361,7 @@
         "https://blog.cyberdudebivash.com/2026/03/security-affairs-malware-newsletter_0779377148.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1190",
         "attack.t1203",
@@ -250,7 +397,7 @@
         "https://blog.cyberdudebivash.com/2026/03/security-affairs-newsletter-round-568_0321592934.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1566",
         "attack.t1199",
@@ -286,7 +433,7 @@
         "https://blog.cyberdudebivash.com/2026/03/lazarusai-and-trust-abusetop-enterprise.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1566",
         "attack.t1190",
@@ -322,7 +469,7 @@
         "https://blog.cyberdudebivash.com/2026/03/how-to-reduce-mttr-in-your-soc-with.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1566",
         "attack.t1190",
@@ -358,7 +505,7 @@
         "https://blog.cyberdudebivash.com/2026/03/ready-formacosthreats-expanding-your.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1566",
         "attack.t1190",
@@ -394,7 +541,7 @@
         "https://blog.cyberdudebivash.com/2026/03/researchers-found-font-rendering-trick.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1204.001",
         "attack.t1059",
@@ -429,7 +576,7 @@
         "https://blog.cyberdudebivash.com/2026/03/your-tax-forms-sell-for-20-on-dark-web.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1566",
         "attack.t1195",
@@ -465,7 +612,7 @@
         "https://blog.cyberdudebivash.com/2026/03/a-darksword-hangs-over-unpatched-iphones.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1078",
         "attack.t1203",
@@ -501,7 +648,7 @@
         "https://blog.cyberdudebivash.com/2026/03/that-job-brief-on-google-forms-could.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1566",
         "attack.t1078",
@@ -537,7 +684,7 @@
         "https://blog.cyberdudebivash.com/2026/03/wordfence-intelligence-weekly-wordpress_01152037144.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1203",
         "attack.t1059",
@@ -573,7 +720,7 @@
         "https://blog.cyberdudebivash.com/2026/03/wordfence-intelligence-weekly-wordpress.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1190",
         "attack.t1203",
@@ -609,7 +756,7 @@
         "https://blog.cyberdudebivash.com/2026/03/interesting-message-stored-in-cowrie.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1595",
         "attack.t1203",
@@ -644,7 +791,7 @@
         "https://blog.cyberdudebivash.com/2026/03/gsocket-backdoor-delivered-through-bash.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1059",
         "attack.t1547",
@@ -678,7 +825,7 @@
         "https://blog.cyberdudebivash.com/2026/03/the-attack-cycle-is-accelerating.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1595",
         "attack.t1566",
@@ -714,7 +861,7 @@
         "https://blog.cyberdudebivash.com/2026/03/preemptive-and-proactive-enhanced-cnapp.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1595",
         "attack.t1190",
@@ -750,7 +897,7 @@
         "https://blog.cyberdudebivash.com/2026/03/cve-2026-31381-cve-2026-31382-gainsight.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1566",
         "attack.t1566.002",
@@ -788,7 +935,7 @@
         "https://blog.cyberdudebivash.com/2026/03/negotiating-with-board-translating.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1595",
         "attack.t1203",
@@ -822,7 +969,7 @@
         "https://blog.cyberdudebivash.com/2026/03/metasploit-wrap-up-03202026.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1203",
         "attack.t1059"
@@ -854,7 +1001,7 @@
         "https://blog.cyberdudebivash.com/2026/03/bypassing-windows-administrator.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1203",
         "attack.t1059.001",
@@ -890,7 +1037,7 @@
         "https://blog.cyberdudebivash.com/2026/03/breaking-sound-barrier-part-ii.html"
       ],
       "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
+      "date": "2026/03/25",
       "tags": [
         "attack.t1476",
         "attack.t1203",
@@ -917,302 +1064,163 @@
       "falsepositives": [
         "Legitimate administrative activity"
       ]
-    },
-    {
-      "title": "CDB Sentinel APEX \u2014 Bypassing_Administrator_Protection_by_Abusing_UI_Access",
-      "id": "sigma--bb3b48ed96ce",
-      "status": "experimental",
-      "description": "Detects activity related to Bypassing Administrator Protection by Abusing UI Access",
-      "references": [
-        "https://blog.cyberdudebivash.com/2026/03/bypassing-administrator-protection-by.html"
-      ],
-      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
-      "tags": [
-        "attack.t1476",
-        "attack.t1203",
-        "attack.t1059.001",
-        "attack.t1059",
-        "attack.t1547.001"
-      ],
-      "logsource": {
-        "category": "process_creation",
-        "product": "windows"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine|contains": [
-            "T1476",
-            "T1203",
-            "T1059.001"
-          ]
-        },
-        "condition": "selection"
-      },
-      "level": "high",
-      "falsepositives": [
-        "Legitimate administrative activity"
-      ]
-    },
-    {
-      "title": "CDB Sentinel APEX \u2014 A_Deep_Dive_into_the_GetProcessHandleFromHwnd_API",
-      "id": "sigma--74a3b8d9921c",
-      "status": "experimental",
-      "description": "Detects activity related to A Deep Dive into the GetProcessHandleFromHwnd API",
-      "references": [
-        "https://blog.cyberdudebivash.com/2026/03/a-deep-dive-into-getprocesshandlefromhw.html"
-      ],
-      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
-      "tags": [
-        "attack.t1203",
-        "attack.t1059",
-        "attack.t1547.001",
-        "attack.t1542",
-        "attack.t1087"
-      ],
-      "logsource": {
-        "category": "process_creation",
-        "product": "windows"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine|contains": [
-            "T1203",
-            "T1059",
-            "T1547.001"
-          ]
-        },
-        "condition": "selection"
-      },
-      "level": "high",
-      "falsepositives": [
-        "Legitimate administrative activity"
-      ]
-    },
-    {
-      "title": "CDB Sentinel APEX \u2014 StopRansomware_Interlock",
-      "id": "sigma--d4080c369bdd",
-      "status": "experimental",
-      "description": "Detects activity related to #StopRansomware: Interlock",
-      "references": [
-        "https://blog.cyberdudebivash.com/2026/03/stopransomware-interlock.html"
-      ],
-      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
-      "tags": [
-        "attack.t1593",
-        "attack.t1595",
-        "attack.t1566",
-        "attack.t1189",
-        "attack.t1078"
-      ],
-      "logsource": {
-        "category": "process_creation",
-        "product": "windows"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine|contains": [
-            "T1593",
-            "T1595",
-            "T1566"
-          ]
-        },
-        "condition": "selection"
-      },
-      "level": "high",
-      "falsepositives": [
-        "Legitimate administrative activity"
-      ]
-    },
-    {
-      "title": "CDB Sentinel APEX \u2014 CISA_and_USCG_Identify_Areas_for_Cyber_Hygiene_Improvement_A",
-      "id": "sigma--9cb2a1fae233",
-      "status": "experimental",
-      "description": "Detects activity related to CISA and USCG Identify Areas for Cyber Hygiene Improvement After Conducting Proactive Threat Hunt at",
-      "references": [
-        "https://blog.cyberdudebivash.com/2026/03/cisa-and-uscg-identify-areas-for-cyber.html"
-      ],
-      "author": "CyberDudeBivash GOC \u2014 Sentinel APEX v39.0",
-      "date": "2026/03/24",
-      "tags": [
-        "attack.t1595",
-        "attack.t1566",
-        "attack.t1078",
-        "attack.t1190",
-        "attack.t1203"
-      ],
-      "logsource": {
-        "category": "process_creation",
-        "product": "windows"
-      },
-      "detection": {
-        "selection": {
-          "CommandLine|contains": [
-            "T1595",
-            "T1566",
-            "T1078"
-          ]
-        },
-        "condition": "selection"
-      },
-      "level": "high",
-      "falsepositives": [
-        "Legitimate administrative activity"
-      ]
     }
   ],
   "yara_rules": [
     {
-      "rule_name": "CDB_CVE202633678__Vikunja_has_IDOR_in_Task_A",
-      "rule_text": "rule CDB_CVE202633678__Vikunja_has_IDOR_in_Task_A {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-33678 - Vikunja has IDOR in Task Attachment ReadOne Allows Cross-Projec\"\n        severity = \"high\"\n        date = \"2026-03-24\"\n    strings:\n                $cve0 = \"CVE-2026-33678\" ascii wide nocase\n        $actor = \"UNC-UNKNOWN\" ascii wide nocase\n        $kw0 = \"ReadOne\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_name": "CDB_snapconfine__systemdtmpfiles__root_CVE20",
+      "rule_text": "rule CDB_snapconfine__systemdtmpfiles__root_CVE20 {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for snap-confine + systemd-tmpfiles = root (CVE-2026-3888)\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $cve0 = \"CVE-2026-3888\" ascii wide nocase\n        $actor = \"UNC-UNKNOWN\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
-      "rule_name": "CDB_CVE202633680__Vikunja_Vulnerable_to_Link",
-      "rule_text": "rule CDB_CVE202633680__Vikunja_Vulnerable_to_Link {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-33680 - Vikunja Vulnerable to Link Share Hash Disclosure via ReadAll En\"\n        severity = \"high\"\n        date = \"2026-03-24\"\n    strings:\n                $cve0 = \"CVE-2026-33680\" ascii wide nocase\n        $actor = \"UNC-UNKNOWN\" ascii wide nocase\n        $kw0 = \"ReadAll\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_name": "CDB_Dell_Wyse_Management_Vulnerabilities_Ena",
+      "rule_text": "rule CDB_Dell_Wyse_Management_Vulnerabilities_Ena {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Dell Wyse Management Vulnerabilities Enables Complete System Compromise\"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-UNKNOWN\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
-      "rule_name": "CDB_Grassroots_DICOM_GDCM",
-      "rule_text": "rule CDB_Grassroots_DICOM_GDCM {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Grassroots DICOM (GDCM)\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"CDB-APT-22\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_name": "CDB_Aqua_Securitys_Trivy_Scanner_Compromised",
+      "rule_text": "rule CDB_Aqua_Securitys_Trivy_Scanner_Compromised {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Aqua Security\u2019s Trivy Scanner Compromised in Supply Chain Attack\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-UNKNOWN\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
-      "rule_name": "CDB_Schneider_Electric_EcoStruxure_Foxboro_D",
-      "rule_text": "rule CDB_Schneider_Electric_EcoStruxure_Foxboro_D {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Schneider Electric EcoStruxure Foxboro DCS\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"CDB-APT-22\" ascii wide nocase\n        $kw0 = \"EcoStruxure\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_name": "CDB_February_2026_CVE_Landscape_13_Critical_",
+      "rule_text": "rule CDB_February_2026_CVE_Landscape_13_Critical_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for February 2026 CVE Landscape: 13 Critical Vulnerabilities Mark 43% Drop from Janu\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"CDB-APT-28\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
-      "rule_name": "CDB_Schneider_Electric_Plant_iTBrewmaxx",
-      "rule_text": "rule CDB_Schneider_Electric_Plant_iTBrewmaxx {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Schneider Electric Plant iT/Brewmaxx\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"CDB-APT-22\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_name": "CDB_2025_Identity_Threat_Landscape_Report_In",
+      "rule_text": "rule CDB_2025_Identity_Threat_Landscape_Report_In {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for 2025 Identity Threat Landscape Report: Inside the Infostealer Economy: Credentia\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"CDB-FIN-12\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_The_Iran_War_What_You_Need_to_Know",
+      "rule_text": "rule CDB_The_Iran_War_What_You_Need_to_Know {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for The Iran War: What You Need to Know\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"CDB-IR-02\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE20262072__CrossSite_Scripting_vulnera",
+      "rule_text": "rule CDB_CVE20262072__CrossSite_Scripting_vulnera {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-2072 - Cross-Site Scripting vulnerability in Hitachi Infrastructure Ana\"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $cve0 = \"CVE-2026-2072\" ascii wide nocase\n        $actor = \"UNC-UNKNOWN\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE20264784__codeprojects_Simple_Laundry",
+      "rule_text": "rule CDB_CVE20264784__codeprojects_Simple_Laundry {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-4784 - code-projects Simple Laundry System Parameter checkcheckout.php \"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $cve0 = \"CVE-2026-4784\" ascii wide nocase\n        $actor = \"UNC-UNKNOWN\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CanisterWorm_Springs_Wiper_Attack_Target",
+      "rule_text": "rule CDB_CanisterWorm_Springs_Wiper_Attack_Target {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for \u2018CanisterWorm\u2019 Springs Wiper Attack Targeting Iran\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"CDB-CYB-01\" ascii wide nocase\n        $kw0 = \"CanisterWorm\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Citrix_NetScaler_critical_flaw_could_lea",
-      "rule_text": "rule CDB_Citrix_NetScaler_critical_flaw_could_lea {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Citrix NetScaler critical flaw could leak data, update now\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"CDB-FIN-09\" ascii wide nocase\n        $kw0 = \"NetScaler\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Citrix_NetScaler_critical_flaw_could_lea {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Citrix NetScaler critical flaw could leak data, update now\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"CDB-FIN-09\" ascii wide nocase\n        $kw0 = \"NetScaler\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_SECURITY_AFFAIRS_MALWARE_NEWSLETTER_ROUN",
-      "rule_text": "rule CDB_SECURITY_AFFAIRS_MALWARE_NEWSLETTER_ROUN {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for SECURITY AFFAIRS MALWARE NEWSLETTER ROUND 89\"\n        severity = \"high\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_SECURITY_AFFAIRS_MALWARE_NEWSLETTER_ROUN {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for SECURITY AFFAIRS MALWARE NEWSLETTER ROUND 89\"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Security_Affairs_newsletter_Round_568_by",
-      "rule_text": "rule CDB_Security_Affairs_newsletter_Round_568_by {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Security Affairs newsletter Round 568 by Pierluigi Paganini \u2013 INTERNATIONAL EDIT\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"CDB-APT-22\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Security_Affairs_newsletter_Round_568_by {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Security Affairs newsletter Round 568 by Pierluigi Paganini \u2013 INTERNATIONAL EDIT\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"CDB-APT-22\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_LazarusAI_and_Trust_AbuseTop_Enterprise_",
-      "rule_text": "rule CDB_LazarusAI_and_Trust_AbuseTop_Enterprise_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Lazarus,\u00a0AI, and Trust Abuse:\u00a0Top Enterprise Cybersecurity Risks 2026\"\n        severity = \"high\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"CDB-FIN-09\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_LazarusAI_and_Trust_AbuseTop_Enterprise_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Lazarus,\u00a0AI, and Trust Abuse:\u00a0Top Enterprise Cybersecurity Risks 2026\"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"CDB-FIN-09\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_How_to_Reduce_MTTR_in_Your_SOC_with_Bett",
-      "rule_text": "rule CDB_How_to_Reduce_MTTR_in_Your_SOC_with_Bett {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for How to Reduce MTTR in Your SOC with Better Threat Intelligence\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_How_to_Reduce_MTTR_in_Your_SOC_with_Bett {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for How to Reduce MTTR in Your SOC with Better Threat Intelligence\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Ready_formacOSThreats_Expanding_Your_SOC",
-      "rule_text": "rule CDB_Ready_formacOSThreats_Expanding_Your_SOC {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Ready for\u00a0macOS\u00a0Threats: Expanding Your SOC\u2019s Cross-Platform\u00a0Analysis with ANY.R\"\n        severity = \"high\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Ready_formacOSThreats_Expanding_Your_SOC {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Ready for\u00a0macOS\u00a0Threats: Expanding Your SOC\u2019s Cross-Platform\u00a0Analysis with ANY.R\"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Researchers_found_fontrendering_trick_to",
-      "rule_text": "rule CDB_Researchers_found_fontrendering_trick_to {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Researchers found font-rendering trick to hide malicious commands\"\n        severity = \"high\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Researchers_found_fontrendering_trick_to {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Researchers found font-rendering trick to hide malicious commands\"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Your_tax_forms_sell_for_20_on_the_dark_w",
-      "rule_text": "rule CDB_Your_tax_forms_sell_for_20_on_the_dark_w {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Your tax forms sell for $20 on the dark web\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Your_tax_forms_sell_for_20_on_the_dark_w {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Your tax forms sell for $20 on the dark web\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_A_DarkSword_hangs_over_unpatched_iPhones",
-      "rule_text": "rule CDB_A_DarkSword_hangs_over_unpatched_iPhones {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for A DarkSword hangs over unpatched iPhones\"\n        severity = \"high\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n        $kw0 = \"DarkSword\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_A_DarkSword_hangs_over_unpatched_iPhones {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for A DarkSword hangs over unpatched iPhones\"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n        $kw0 = \"DarkSword\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_That_job_brief_on_Google_Forms_could_inf",
-      "rule_text": "rule CDB_That_job_brief_on_Google_Forms_could_inf {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for That \u201cjob brief\u201d on Google Forms could infect your device\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_That_job_brief_on_Google_Forms_could_inf {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for That \u201cjob brief\u201d on Google Forms could infect your device\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Wordfence_Intelligence_Weekly_WordPress_",
-      "rule_text": "rule CDB_Wordfence_Intelligence_Weekly_WordPress_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Wordfence Intelligence Weekly WordPress Vulnerability Report (February 23, 2026 \"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n        $kw0 = \"WordPress\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Wordfence_Intelligence_Weekly_WordPress_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Wordfence Intelligence Weekly WordPress Vulnerability Report (February 23, 2026 \"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n        $kw0 = \"WordPress\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Wordfence_Intelligence_Weekly_WordPress_",
-      "rule_text": "rule CDB_Wordfence_Intelligence_Weekly_WordPress_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Wordfence Intelligence Weekly WordPress Vulnerability Report (March 9, 2026 to M\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n        $kw0 = \"WordPress\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Wordfence_Intelligence_Weekly_WordPress_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Wordfence Intelligence Weekly WordPress Vulnerability Report (March 9, 2026 to M\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n        $kw0 = \"WordPress\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Interesting_Message_Stored_in_Cowrie_Log",
-      "rule_text": "rule CDB_Interesting_Message_Stored_in_Cowrie_Log {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Interesting Message Stored in Cowrie Logs, (Wed, Mar 18th)\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Interesting_Message_Stored_in_Cowrie_Log {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Interesting Message Stored in Cowrie Logs, (Wed, Mar 18th)\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_GSocket_Backdoor_Delivered_Through_Bash_",
-      "rule_text": "rule CDB_GSocket_Backdoor_Delivered_Through_Bash_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for GSocket Backdoor Delivered Through Bash Script, (Fri, Mar 20th)\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_GSocket_Backdoor_Delivered_Through_Bash_ {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for GSocket Backdoor Delivered Through Bash Script, (Fri, Mar 20th)\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_The_Attack_Cycle_is_Accelerating_Announc",
-      "rule_text": "rule CDB_The_Attack_Cycle_is_Accelerating_Announc {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for The Attack Cycle is Accelerating: Announcing the Rapid7 2026 Global Threat Lands\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_The_Attack_Cycle_is_Accelerating_Announc {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for The Attack Cycle is Accelerating: Announcing the Rapid7 2026 Global Threat Lands\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Preemptive_and_Proactive_An_enhanced_CNA",
-      "rule_text": "rule CDB_Preemptive_and_Proactive_An_enhanced_CNA {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Preemptive and Proactive: An enhanced CNAPP available with Exposure Command\"\n        severity = \"high\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Preemptive_and_Proactive_An_enhanced_CNA {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Preemptive and Proactive: An enhanced CNAPP available with Exposure Command\"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_CVE202631381_CVE202631382_Gainsight_Assi",
-      "rule_text": "rule CDB_CVE202631381_CVE202631382_Gainsight_Assi {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-31381, CVE-2026-31382: Gainsight Assist Information Disclosure and Cros\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $cve0 = \"CVE-2026-31381\" ascii wide nocase\n        $cve1 = \"CVE-2026-31382\" ascii wide nocase\n        $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_CVE202631381_CVE202631382_Gainsight_Assi {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-31381, CVE-2026-31382: Gainsight Assist Information Disclosure and Cros\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $cve0 = \"CVE-2026-31381\" ascii wide nocase\n        $cve1 = \"CVE-2026-31382\" ascii wide nocase\n        $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Negotiating_with_the_Board_Translating_A",
-      "rule_text": "rule CDB_Negotiating_with_the_Board_Translating_A {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Negotiating with the Board: Translating Active Risk into Financial Exposure\"\n        severity = \"high\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Negotiating_with_the_Board_Translating_A {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Negotiating with the Board: Translating Active Risk into Financial Exposure\"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Metasploit_WrapUp_03202026",
-      "rule_text": "rule CDB_Metasploit_WrapUp_03202026 {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Metasploit Wrap-Up 03/20/2026\"\n        severity = \"high\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Metasploit_WrapUp_03202026 {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Metasploit Wrap-Up 03/20/2026\"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Bypassing_Windows_Administrator_Protecti",
-      "rule_text": "rule CDB_Bypassing_Windows_Administrator_Protecti {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Bypassing Windows Administrator Protection\"\n        severity = \"high\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Bypassing_Windows_Administrator_Protecti {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Bypassing Windows Administrator Protection\"\n        severity = \"high\"\n        date = \"2026-03-25\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Breaking_the_Sound_Barrier_Part_II_Explo",
-      "rule_text": "rule CDB_Breaking_the_Sound_Barrier_Part_II_Explo {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Breaking the Sound Barrier, Part II: Exploiting CVE-2024-54529\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $cve0 = \"CVE-2024-54529\" ascii wide nocase\n        $actor = \"CDB-FIN-11\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_Bypassing_Administrator_Protection_by_Ab",
-      "rule_text": "rule CDB_Bypassing_Administrator_Protection_by_Ab {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Bypassing Administrator Protection by Abusing UI Access\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"CDB-APT-28\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_A_Deep_Dive_into_the_GetProcessHandleFro",
-      "rule_text": "rule CDB_A_Deep_Dive_into_the_GetProcessHandleFro {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for A Deep Dive into the GetProcessHandleFromHwnd API\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"UNC-CDB-99\" ascii wide nocase\n        $kw0 = \"GetProcessHandleFromHwnd\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_StopRansomware_Interlock",
-      "rule_text": "rule CDB_StopRansomware_Interlock {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for #StopRansomware: Interlock\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"CDB-APT-22\" ascii wide nocase\n        $kw0 = \"StopRansomware\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_CISA_and_USCG_Identify_Areas_for_Cyber_H",
-      "rule_text": "rule CDB_CISA_and_USCG_Identify_Areas_for_Cyber_H {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for CISA and USCG Identify Areas for Cyber Hygiene Improvement After Conducting Proa\"\n        severity = \"critical\"\n        date = \"2026-03-24\"\n    strings:\n                $actor = \"CDB-APT-22\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Breaking_the_Sound_Barrier_Part_II_Explo {\n    meta:\n        author = \"CyberDudeBivash GOC \u2014 Sentinel APEX v39.0\"\n        description = \"Detection for Breaking the Sound Barrier, Part II: Exploiting CVE-2024-54529\"\n        severity = \"critical\"\n        date = \"2026-03-25\"\n    strings:\n                $cve0 = \"CVE-2024-54529\" ascii wide nocase\n        $actor = \"CDB-FIN-11\" ascii wide nocase\n    condition:\n        any of them\n}"
     }
   ],
   "snort_rules": [
     {
-      "rule_name": "CVE202633678__Vikunja_has_IDOR_in_Task_Attachment_ReadOne_Al",
-      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-33678 - Vikunja has IDOR in Task Attachment ReadOne\"; content:\"CVE-2026-33678\"; nocase; sid:9701645; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
-      "sid": 9701645
+      "rule_name": "snapconfine__systemdtmpfiles__root_CVE20263888",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: snap-confine + systemd-tmpfiles = root (CVE-2026-3888)\"; content:\"CVE-2026-3888\"; nocase; sid:1192558; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 1192558
     },
     {
-      "rule_name": "CVE202633680__Vikunja_Vulnerable_to_Link_Share_Hash_Disclosu",
-      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-33680 - Vikunja Vulnerable to Link Share Hash Discl\"; content:\"CVE-2026-33680\"; nocase; sid:4086820; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
-      "sid": 4086820
+      "rule_name": "CVE20262072__CrossSite_Scripting_vulnerability_in_Hitachi_In",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-2072 - Cross-Site Scripting vulnerability in Hitach\"; content:\"CVE-2026-2072\"; nocase; sid:8329721; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 8329721
+    },
+    {
+      "rule_name": "CVE20264784__codeprojects_Simple_Laundry_System_Parameter_ch",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-4784 - code-projects Simple Laundry System Paramete\"; content:\"CVE-2026-4784\"; nocase; sid:1783651; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 1783651
     },
     {
       "rule_name": "CVE202631381_CVE202631382_Gainsight_Assist_Information_Discl",
-      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-31381, CVE-2026-31382: Gainsight Assist Information\"; content:\"CVE-2026-31381\"; nocase; sid:3583250; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
-      "sid": 3583250
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-31381, CVE-2026-31382: Gainsight Assist Information\"; content:\"CVE-2026-31381\"; nocase; sid:1963815; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 1963815
     },
     {
       "rule_name": "Breaking_the_Sound_Barrier_Part_II_Exploiting_CVE202454529",
-      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: Breaking the Sound Barrier, Part II: Exploiting CVE-2024-545\"; content:\"CVE-2024-54529\"; nocase; sid:3648300; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
-      "sid": 3648300
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: Breaking the Sound Barrier, Part II: Exploiting CVE-2024-545\"; content:\"CVE-2024-54529\"; nocase; sid:7597132; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 7597132
     }
   ],
   "stats": {
-    "total_rules": 64,
+    "total_rules": 65,
     "sigma_count": 30,
     "yara_count": 30,
-    "snort_count": 4,
-    "coverage_techniques": 50,
-    "generated_at": "2026-03-24T19:35:01.942344+00:00"
+    "snort_count": 5,
+    "coverage_techniques": 49,
+    "generated_at": "2026-03-25T07:20:02.981698+00:00"
   }
 }
