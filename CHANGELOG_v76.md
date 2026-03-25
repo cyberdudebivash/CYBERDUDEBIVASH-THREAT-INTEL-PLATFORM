@@ -1,7 +1,72 @@
-# CHANGELOG — SENTINEL APEX v76.0 / v76.1
+# CHANGELOG — SENTINEL APEX v76.0 / v76.1 / v76.2
 **Platform:** intel.cyberdudebivash.com
 **Released:** 2026-03-26
-**Based on:** Run #549 → #551 analysis + full 24-workflow audit
+**Based on:** Run #549 → #551 analysis + full 24-workflow audit + dashboard card audit
+
+---
+
+## v76.2.0 (2026-03-26) — DASHBOARD INTELLIGENCE CARD ACCURACY
+
+### Critical Dashboard Fixes (11 bugs closed)
+
+**BUG 1 — PRIORITY: P4 displayed on 10/10 CRITICAL advisories** *(root cause confirmed in screenshots)*
+- Root cause: when `cvss_score = null`, old logic defaulted `_prioNum = 4` unconditionally
+- Fix: added Rule 7 — `risk_score` is now the universal fallback when CVSS is absent
+- Risk ≥ 9 → P1, ≥ 7 → P2, ≥ 5 → P3, else P4
+
+**BUG 2 — ACTION: "ASSESS" displayed on 10/10 CRITICAL advisories**
+- Root cause: with old P4 the action fell through to ASSESS
+- Fix: P1 + risk ≥ 9 now shows `PATCH NOW`; P1/P2 shows `INVESTIGATE`
+
+**BUG 3 — EPSS: 0.29% displayed as "MEDIUM" likelihood**
+- Root cause: threshold `_epss >= 0.1` was too low — 0.29% = 1-in-345 chance
+- Fix: <1% = LOW, 1-10% = LOW-MED, 10-50% = MEDIUM, ≥50% = HIGH
+
+**BUG 4 — EXPLOIT badge: fired at EPSS ≥ 70% (inconsistent)**
+- Fix: unified exploit threshold to EPSS ≥ 50% across all signals
+
+**BUG 5 — `_exploit` variable used 70% threshold**
+- Fix: changed to 50% to match badge and likelihood logic
+
+**BUG 6 — LIKELIHOOD: MEDIUM shown for 0.29% EPSS advisory**
+- Fix: corrected thresholds + risk_score fallback when EPSS is null
+
+**BUG 7 — EPSS bar: red at ≥70%, orange at ≥40% (misaligned)**
+- Fix: red ≥ 50%, orange ≥ 10%, amber ≥ 1%, green below 1%
+
+**BUG 8 — IMPACT: purely score-based, ignored `threat_type` from manifest**
+- Fix: uses `item.threat_type` first, falls back to score threshold
+
+**BUG 9 — `item.kev` wrong field name in two functions**
+- `getLiveExploitedThreats()` used `item.kev` — never matched
+- `getThreatPriorityScore()` used `item.kev === true || item.kev === 1` — never matched
+- Fix: both corrected to `item.kev_present === true`
+
+**BUG 10 — Exploit narrative: "Moderate exploitation probability" for 0.29% EPSS**
+- Fix: now says "Low exploitation probability (EPSS X%)" for values < 1%
+
+**BUG 11 — SOC CONFIDENCE: LOW on 10/10 no-CVSS advisories**
+- Fix: risk score fallback — risk ≥ 9 → MEDIUM confidence, risk ≥ 7 → MEDIUM
+
+### Additional Dashboard Fixes
+- Modal EPSS bar color thresholds aligned (was 70/40, now 50/10/1)
+- `generateAINarrative()` EPSS thresholds aligned (was 70/40, now 50/10/1)
+- Playbook SIEM threshold raised from 0.1% to 1% — more accurate SOC guidance
+- `_actionCtx` updated to cover both `IMMEDIATE PATCH` and `PATCH NOW` labels
+- Workflow concurrency: `detection-engine.yml` and `revenue-orchestrator.yml` added groups
+- `ai-predictions.yml`: concurrency added + manifest format bug fixed
+
+### Before vs After (from screenshots)
+
+| Card | Field | Before (Wrong) | After (Correct) |
+|---|---|---|---|
+| Schneider Electric Risk 10/10 | Priority | **P4** | **P1** |
+| Schneider Electric Risk 10/10 | Action | **ASSESS** | **PATCH NOW** |
+| Schneider Electric EPSS 0.29% | Likelihood | **MEDIUM** | **LOW** |
+| Schneider Electric Risk 10/10 | SOC Confidence | **LOW** | **MEDIUM** |
+| LiteLLM Risk 9.4/10 | Priority | **P4** | **P1** |
+| LiteLLM Risk 9.4/10 | Action | **ASSESS** | **PATCH NOW** |
+| LiteLLM Risk 9.4/10 | SOC Confidence | **LOW** | **MEDIUM** |
 
 ---
 
