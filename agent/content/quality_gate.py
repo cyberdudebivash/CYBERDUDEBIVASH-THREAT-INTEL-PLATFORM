@@ -124,7 +124,24 @@ HARD_BLOCKED_PATTERNS = [
 THRESHOLD = 6.0
 
 # Minimum words in combined content
+# v75.1 NOTE: This is the RSS-summary word count, NOT the fetched article word count.
+# Premium tier-1 sources (BleepingComputer, Dark Reading, SecurityWeek, TheRecord etc.)
+# return RSS excerpts of only 20-40 words. Those sources are checked by TRUSTED_SOURCES.
 MIN_WORDS = 80
+
+# Trusted tier-1 sources — bypass MIN_WORDS gate entirely and let source_fetcher
+# retrieve the full article. These sources NEVER publish low-quality content.
+TRUSTED_SOURCES = {
+    "bleepingcomputer.com", "krebsonsecurity.com", "darkreading.com",
+    "securityweek.com", "therecord.media", "cyberscoop.com",
+    "securityaffairs.com", "infosecurity-magazine.com", "cisa.gov",
+    "ncsc.gov.uk", "cert.europa.eu", "zerodayinitiative.com",
+    "sentinelone.com", "unit42.paloaltonetworks.com", "securelist.com",
+    "crowdstrike.com", "mandiant.com", "microsoft.com", "talosintelligence.com",
+    "research.checkpoint.com", "rapid7.com", "helpnetsecurity.com",
+    "cybersecuritynews.com", "malwarebytes.com", "theregister.com",
+    "arstechnica.com", "wired.com", "404media.co",
+}
 
 # ── v22.0: Minimum strong signals required (prevents score gaming) ───────────
 # A story must have at least 2 strong threat signals (score >= 2.5 each)
@@ -203,22 +220,34 @@ def score_article(title: str, content: str) -> Tuple[float, str, int]:
     return score, reason, strong_signal_count
 
 
-def is_relevant_threat(title: str, content: str) -> Tuple[bool, float, str]:
+def is_relevant_threat(title: str, content: str, source_url: str = "") -> Tuple[bool, float, str]:
     """
     Gate function. Returns (should_process, score, reason).
+
+    v75.1 UPGRADE: Three-tier word-count logic:
+      1. Trusted tier-1 sources bypass MIN_WORDS entirely — full article fetched downstream
+      2. CVE-titled entries bypass MIN_WORDS — short CVE advisories are always real intel
+      3. All others: require MIN_WORDS=80
+
     v22.0: Requires BOTH score >= THRESHOLD AND >= MIN_STRONG_SIGNAL_COUNT strong signals.
-    v75.0: CVE-titled entries bypass MIN_WORDS check — short CVE advisories are always
-           genuine threat intelligence regardless of RSS word count.
     """
     wc = len(content.split())
 
-    # v75.0: CVE bypass — CVE advisories are real threats regardless of word count
-    # Root cause: RSS feeds for vulnerability databases (WPVulnDB, NVD, CISA) return
-    # short descriptions (20-50 words) but these are always genuine threat intel
+    # v75.1: Trusted tier-1 source bypass — don't gate on RSS excerpt length
+    is_trusted_source = False
+    if source_url:
+        try:
+            from urllib.parse import urlparse
+            domain = urlparse(source_url).netloc.replace("www.", "").lower()
+            is_trusted_source = any(t in domain for t in TRUSTED_SOURCES)
+        except Exception:
+            pass
+
+    # v75.0: CVE bypass — always real intel regardless of word count
     title_has_cve = bool(re.search(r'CVE-\d{4}-\d{4,7}', title, re.IGNORECASE))
-    if wc < MIN_WORDS and not title_has_cve:
+
+    if wc < MIN_WORDS and not title_has_cve and not is_trusted_source:
         return False, 0.0, f"thin_content:{wc}words"
-    # CVE titles with thin content get a reduced minimum (allow ≥10 words)
     if wc < 10 and title_has_cve:
         return False, 0.0, f"thin_content_cve:{wc}words"
 
@@ -227,8 +256,7 @@ def is_relevant_threat(title: str, content: str) -> Tuple[bool, float, str]:
     if score < THRESHOLD:
         return False, score, f"low_relevance({score:.1f}):{reason}"
 
-    # v75.0: CVE titles get reduced strong-signal requirement (CVE itself counts as strong signal)
-    min_signals = 1 if title_has_cve else MIN_STRONG_SIGNAL_COUNT
+    min_signals = 1 if (title_has_cve or is_trusted_source) else MIN_STRONG_SIGNAL_COUNT
     if strong_count < min_signals:
         return False, score, f"insufficient_threat_signals({strong_count}<{min_signals}):{reason}"
 
