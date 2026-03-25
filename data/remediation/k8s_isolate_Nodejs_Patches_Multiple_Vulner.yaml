@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-9d9a76c8fe56
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Node.js Patches Multiple Vulnerabilities That Enable DoS Attacks and Process Crashes"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
