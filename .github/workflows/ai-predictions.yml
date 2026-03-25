@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ai-predictions
+  cancel-in-progress: false
+
 jobs:
   ai-predictions:
     name: AI Predictive Model Scoring & Financial Impact Analysis
@@ -43,7 +47,9 @@ jobs:
               sys.exit(0)
 
           with open(manifest_path) as f:
-              entries = json.load(f)
+              raw = json.load(f)
+          # v75.1 FIX: Handle both flat list and v70 dict envelope
+          entries = raw if isinstance(raw, list) else raw.get("advisories", raw.get("entries", []))
 
           print(f"Processing {len(entries)} manifest entries...")
 
