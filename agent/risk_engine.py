@@ -397,37 +397,52 @@ class RiskScoringEngine:
 
     def get_tlp_label(self, risk_score: float,
                       iocs: Dict = None, kev_present: bool = False,
-                      confirmed_actor: bool = False) -> Dict[str, str]:
+                      confirmed_actor: bool = False,
+                      cvss_score: float = None) -> Dict[str, str]:
         """
-        v23.0 PERMANENT FIX: TLP classification requires EVIDENCE, not just score.
-        TLP:RED   → score >= 9.0 AND (KEV confirmed OR real IOCs OR confirmed named actor)
-        TLP:AMBER → score >= 7.0 AND (score >= 7.0 from real signals, not content keywords)
+        v76.2 CORRECTED: Evidence-based TLP with CVSS as primary qualifier.
+
+        TLP:RED   → (KEV confirmed) OR (CVSS >= 9.0) OR (score >= 9 AND real IOCs AND confirmed actor)
+        TLP:AMBER → score >= 7.0 AND (real IOCs OR CVEs OR CVSS >= 7.0 OR KEV)
         TLP:GREEN → score >= 4.0
         TLP:CLEAR → anything else
 
-        This prevents Google product announcements from being classified TLP:RED
-        simply because the AI-generated report text contains scary keywords.
+        v23.0 introduced evidence gating to prevent keyword-inflated TLP:RED.
+        v76.2 fixes the over-correction: CVSS >= 9.0 is definitive evidence of
+        a critical vulnerability — it does NOT require KEV confirmation.
+        A Canon CVSS 9.8 RCE is TLP:RED regardless of KEV catalog status.
+        Non-CVE articles still require KEV or confirmed actor+IOC for RED.
         """
         iocs = iocs or {}
         has_real_iocs = any([
             iocs.get('sha256'), iocs.get('md5'), iocs.get('sha1'),
             iocs.get('ipv4'), iocs.get('domain'), iocs.get('cve'),
         ])
+        has_cvss_critical = cvss_score is not None and float(cvss_score) >= 9.0
+        has_cvss_high     = cvss_score is not None and float(cvss_score) >= 7.0
 
-        # TLP:RED — requires confirmed exploitation evidence
+        # ── TLP:RED ──────────────────────────────────────────────────
         if risk_score >= 9.0:
-            if kev_present or (has_real_iocs and confirmed_actor):
+            if kev_present:
+                # KEV = confirmed active exploitation → always RED
                 return {"label": "TLP:RED", "color": "#ff3e3e"}
-            # Score is high but no confirmed IOCs — downgrade to AMBER
+            if has_cvss_critical:
+                # CVSS >= 9.0 is definitive severity evidence → RED
+                return {"label": "TLP:RED", "color": "#ff3e3e"}
+            if has_real_iocs and confirmed_actor:
+                # Named actor + confirmed IOCs → RED
+                return {"label": "TLP:RED", "color": "#ff3e3e"}
+            # High score but no CVE/KEV/actor evidence → AMBER
+            # (prevents non-CVE editorial articles scoring 10/10 from getting RED)
             return {"label": "TLP:AMBER", "color": "#ff9f43"}
 
-        # TLP:AMBER — requires real IOCs or CVEs
+        # ── TLP:AMBER ─────────────────────────────────────────────────
         if risk_score >= 7.0:
-            if has_real_iocs or kev_present:
+            if kev_present or has_real_iocs or has_cvss_high:
                 return {"label": "TLP:AMBER", "color": "#ff9f43"}
             return {"label": "TLP:GREEN", "color": "#00e5c3"}
 
-        # TLP:GREEN — low-medium threat with some signals
+        # ── TLP:GREEN ─────────────────────────────────────────────────
         if risk_score >= 4.0:
             return {"label": "TLP:GREEN", "color": "#00e5c3"}
 
