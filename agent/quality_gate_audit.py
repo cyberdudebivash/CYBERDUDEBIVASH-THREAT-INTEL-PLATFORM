@@ -31,7 +31,14 @@ class QualityGateAudit:
 
         with open(self.manifest_path, "r") as f:
             try:
-                items = json.load(f)
+                raw = json.load(f)
+                # v75.1 FIX: Handle both flat list and v70 dict envelope
+                if isinstance(raw, list):
+                    items = raw
+                elif isinstance(raw, dict):
+                    items = raw.get("advisories", raw.get("entries", raw.get("items", [])))
+                else:
+                    items = []
             except Exception as e:
                 logger.error(f"Failed to parse manifest: {e}")
                 return
