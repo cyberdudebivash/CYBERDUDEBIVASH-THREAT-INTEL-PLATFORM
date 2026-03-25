@@ -693,8 +693,22 @@ class STIXExporter:
         manifest_entries.sort(key=_ts_sort_key, reverse=True)
         trimmed = manifest_entries[:MANIFEST_MAX_ENTRIES]
 
-        with open(self.manifest_path, 'w') as f:
-            json.dump(trimmed, f, indent=4)
+        # v75.1 ATOMIC WRITE: write to temp file then os.replace() — POSIX-atomic.
+        # Eliminates corruption risk if process is killed during write.
+        # Previously: plain json.dump() could leave partial JSON on disk.
+        _tmp_path = self.manifest_path + ".tmp"
+        try:
+            with open(_tmp_path, 'w', encoding='utf-8') as f:
+                json.dump(trimmed, f, indent=4, ensure_ascii=False, default=str)
+            os.replace(_tmp_path, self.manifest_path)
+        except Exception as _e:
+            # Clean up temp on failure — never leave .tmp on disk
+            try:
+                if os.path.exists(_tmp_path):
+                    os.remove(_tmp_path)
+            except Exception:
+                pass
+            raise _e
 
         logger.info(f"Manifest updated: {len(trimmed)} entries | latest: {title[:50]}")
 
