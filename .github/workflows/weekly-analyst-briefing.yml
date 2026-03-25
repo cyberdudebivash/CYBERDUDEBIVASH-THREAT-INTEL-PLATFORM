@@ -65,7 +65,9 @@ jobs:
               sys.exit(0)
 
           with open(manifest_path) as f:
-              entries = json.load(f)
+              raw = json.load(f)
+          # v75.1 FIX: Handle both flat list and v70 dict envelope
+          entries = raw if isinstance(raw, list) else raw.get("advisories", raw.get("entries", []))
 
           # Filter to last 7 days
           cutoff = datetime.now(timezone.utc) - timedelta(days=7)
@@ -125,7 +127,9 @@ jobs:
               from agent.ai.predictive_models import PredictiveIntelligenceEngine
               manifest_path = "data/stix/feed_manifest.json"
               with open(manifest_path) as f:
-                  entries = json.load(f)[:20]
+                  raw = json.load(f)
+              entries = raw if isinstance(raw, list) else raw.get("advisories", raw.get("entries", []))
+              entries = entries[:20]
 
               engine = PredictiveIntelligenceEngine()
               summary = engine.generate_executive_summary(entries)
