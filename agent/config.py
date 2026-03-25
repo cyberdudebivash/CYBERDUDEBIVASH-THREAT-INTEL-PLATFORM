@@ -35,64 +35,69 @@ RSS_FEEDS = [
     "https://cyberscoop.com/feed/",
     "https://securityaffairs.com/feed",
     "https://www.infosecurity-magazine.com/rss/news/",
-    
+
     # ── TIER 2: Government & Institutional Cyber Commands ──
     "https://www.cisa.gov/cybersecurity-advisories/all.xml",
-    "https://www.ncsc.gov.uk/api/1/services/v1/report-rss.xml", # UK NCSC
-    "https://cyber.gc.ca/api/v1/cyber-centre/rss-feed?lang=en", # Canadian Centre for Cyber Security
-    "https://cert.europa.eu/publications/rss", # CERT-EU
-    
+    "https://www.ncsc.gov.uk/api/1/services/v1/report-rss.xml",
+    "https://cyber.gc.ca/api/v1/cyber-centre/rss-feed?lang=en",
+    "https://cert.europa.eu/publications/rss",
+
     # ── TIER 3: Zero-Day & Vulnerability Intelligence ──
     "https://cvefeed.io/rssfeed/latest.xml",
     "https://vulners.com/rss.xml",
     "https://www.zerodayinitiative.com/rss/published/",
     "https://www.tenable.com/cve/rss",
-    "https://packetstormsecurity.com/feeds/exploits/", # Underground Exploit Database
-    
+    "https://packetstormsecurity.com/feeds/exploits/",
+
     # ── TIER 4: Vendor Threat Research (APT Tracking) ──
     "https://www.sentinelone.com/blog/feed/",
     "https://unit42.paloaltonetworks.com/feed/",
-    "https://securelist.com/feed/", # Kaspersky Lab
+    "https://securelist.com/feed/",
     "https://www.crowdstrike.com/blog/feed/",
     "https://www.mandiant.com/resources/blog/rss.xml",
     "https://blogs.microsoft.com/on-the-issues/category/cybersecurity/feed/",
-    "https://blog.talosintelligence.com/rss.xml", # Cisco Talos
+    "https://blog.talosintelligence.com/rss.xml",
     "https://research.checkpoint.com/feed/",
-    
+
     # ── TIER 5: Deep Web Observers & Malware Analysis ──
-    "https://vx-underground.org/rss.xml", # Premium Malware Repository
-    "https://bazaar.abuse.ch/rss/", # MalwareBazaar Active Hashes
-    "https://urlhaus.abuse.ch/downloads/rss/", # Malicious URLs
-    "https://feodotracker.abuse.ch/downloads/rss/", # Botnet C2 tracking
-    "https://ransomwatch.telemetry.ltd/feed.xml", # Ransomware Extortion Tracker
-    
+    "https://vx-underground.org/rss.xml",
+    "https://bazaar.abuse.ch/rss/",
+    "https://urlhaus.abuse.ch/downloads/rss/",
+    "https://feodotracker.abuse.ch/downloads/rss/",
+    "https://ransomwatch.telemetry.ltd/feed.xml",
+
     # ── TIER 6: Offensive Security & Cloud Threats ──
-    "https://portswigger.net/daily-swig/rss", # Web App Sec
-    "https://cloud.google.com/blog/products/identity-security/rss", # GCP Sec
+    "https://portswigger.net/daily-swig/rss",
     "https://aws.amazon.com/blogs/security/feed/",
-    # ── v73.0 EXPANDED SOURCES ──
-    "https://www.us-cert.gov/ncas/alerts.xml",  # US-CERT Alerts
-    "https://advisories.ncsc.nl/rss/advisories",  # NCSC Netherlands
-    "https://cert.gov.au/rss/alerts",  # AusCERT Alerts
-    "https://googleprojectzero.blogspot.com/feeds/posts/default",  # Google Project Zero
-    "https://github.com/advisories.atom",  # GitHub Security Advisories
-    "https://www.rapid7.com/blog/rss/",  # Rapid7 Research
-    "https://www.qualys.com/research/rss/",  # Qualys Threat Research
-    "https://www.welivesecurity.com/feed/",  # ESET WeLiveSecurity
-    "https://news.sophos.com/en-us/feed/",  # Sophos News
-    "https://www.fortinet.com/blog/threat-research.xml",  # Fortinet FortiGuard
-    "https://www.proofpoint.com/us/blog/threat-insight/rss.xml",  # Proofpoint Threat Insight
-    "https://www.trendmicro.com/en_us/research.rss.xml",  # Trend Micro Research
-    "https://symantec-enterprise-blogs.security.com/blogs/threat-intelligence/rss",  # Symantec/Broadcom
-    "https://isc.sans.edu/rssfeed_full.xml",  # SANS Internet Storm Center
-    "https://www.wordfence.com/blog/feed/",  # Wordfence (WordPress Security)
-    "https://www.tripwire.com/state-of-security/feed/",  # Tripwire State of Security
-    "https://grahamcluley.com/feed/",  # Graham Cluley
-    "https://nakedsecurity.sophos.com/feed/",  # Naked Security (Sophos)
-    "https://blog.malwarebytes.com/feed/",  # Malwarebytes Labs
-    "https://any.run/cybersecurity-blog/feed/",  # ANY.RUN Blog
-    "https://www.virustotal.com/ui/blog/rss",  # VirusTotal Blog
- # AWS Sec
+    "https://www.us-cert.gov/ncas/alerts.xml",
+    "https://advisories.ncsc.nl/rss/advisories",
+    "https://cert.gov.au/rss/alerts",
+    "https://googleprojectzero.blogspot.com/feeds/posts/default",
+    "https://github.com/advisories.atom",
+    "https://www.rapid7.com/blog/rss/",
+    "https://www.welivesecurity.com/feed/",
+    "https://isc.sans.edu/rssfeed_full.xml",
+    "https://www.wordfence.com/blog/feed/",
+    "https://grahamcluley.com/feed/",
+    "https://blog.malwarebytes.com/feed/",
+    "https://any.run/cybersecurity-blog/feed/",
+
+    # ── TIER 7: v75.1 NEW — Active feeds replacing dead ones ──
+    # Replacing: cloud.google.com (0 entries), talos (0), tenable (0),
+    # qualys (0), sophos (0), fortinet (0), proofpoint (0), trendmicro (0),
+    # symantec (0), virustotal (0), nakedsecurity (0), tripwire (0)
+    "https://feeds.feedburner.com/eset/blog",          # ESET Research
+    "https://www.recordedfuture.com/feed",              # Recorded Future
+    "https://www.darkreading.com/attacks-breaches/rss.xml",  # Dark Reading attacks
+    "https://www.scmagazine.com/feed",                 # SC Media
+    "https://www.helpnetsecurity.com/feed/",           # Help Net Security
+    "https://threatpost.com/feed/",                    # Threatpost
+    "https://cybersecuritynews.com/feed/",             # CyberSecurityNews
+    "https://www.bleepingcomputer.com/feed/?category=Vulnerabilities",
+    "https://www.bleepingcomputer.com/feed/?category=Malware",
+    "https://seclists.org/rss/fulldisclosure.rss",     # Full Disclosure
+    "https://www.cert.be/en/rss",                      # CERT Belgium
+    "https://bsi.bund.de/SiteGlobals/Functions/RSSFeed/RSSNewsfeed_Cybersicherheit/RSSNewsfeed_Cybersicherheit_node.xml",
 ]
 
 MAX_ENTRIES_PER_FEED = 5
