@@ -634,34 +634,16 @@ class STIXExporter:
                 if isinstance(data, list):
                     manifest_entries = data
                 elif isinstance(data, dict):
-                    # v70 envelope: extract advisories list, discard wrapper
-                    # (v75 hardener will re-wrap on its pass)
-                    manifest_entries = data.get("advisories", data.get("entries", []))
+                    manifest_entries = data.get("entries", [])
             except Exception:
                 manifest_entries = []
 
-        # ── v75.0 STRONG DEDUP GUARD ──────────────────────────────────────────
-        # Layer 1: advisory_id (most reliable — UUID-based primary key)
-        # Layer 2: dedup_key  (sha256 fingerprint of title|url|cves)
-        # Layer 3: title (normalised — last resort fallback)
-        # Replaces the old title-only check which missed same-CVE/different-wording dupes.
-        import re as _re
-        def _norm(t): return _re.sub(r'\s+', ' ', _re.sub(r'[^\w\s]', '', (t or '').lower().strip()))
+        # Dedup guard
+        existing_titles = {e.get("title", "").strip().lower() for e in manifest_entries}
+        if title.strip().lower() in existing_titles:
+            logger.info(f"  [MANIFEST] Dedup guard: skipping duplicate: {title[:60]}")
+            return
 
-        existing_advisory_ids = {
-            e.get("advisory_id", "").strip()
-            for e in manifest_entries if e.get("advisory_id")
-        }
-        existing_dedup_keys = {
-            e.get("dedup_key", "").strip()
-            for e in manifest_entries if e.get("dedup_key")
-        }
-        existing_titles = {
-            _norm(e.get("title", ""))
-            for e in manifest_entries if e.get("title")
-        }
-
-        # Build the new entry first so we can check its keys
         entry = {
             # v11.0 original fields (preserved)
             "title":            title,
@@ -696,35 +678,20 @@ class STIXExporter:
             "schema_version":   "v22.0",
         }
 
-        new_aid  = (entry.get("advisory_id") or "").strip()
-        new_dkey = (entry.get("dedup_key") or "").strip()
-        new_norm = _norm(entry.get("title", ""))
-
-        is_dup = (
-            (new_aid  and new_aid  in existing_advisory_ids) or
-            (new_dkey and new_dkey in existing_dedup_keys)   or
-            (new_norm and len(new_norm) >= 10 and new_norm in existing_titles)
-        )
-        if is_dup:
-            logger.info(f"  [MANIFEST] v75 dedup guard: skipping duplicate: {title[:60]}")
-            return
-
-        # ── v75.0 FIX: SORT FIRST, THEN TRIM ─────────────────────────────────
-        # ROOT CAUSE OF ORIGINAL BUG: manifest_entries[-500:] trimmed from an
-        # UNSORTED list, causing RECENT intel to be evicted while old entries
-        # survived. Fix: sort by timestamp DESC, THEN slice [:500].
         manifest_entries.append(entry)
 
+        # v75.0 FIX: Sort BEFORE trim. Original bug used [-500:] on an
+        # unsorted list, silently evicting the newest entries. The correct
+        # order is: deduplicate -> sort DESC -> slice [:500].
         def _ts_sort_key(e):
-            """Sort key: prefer published/published_date, fallback to timestamp."""
             for f in ("published", "published_date", "generated_at", "timestamp"):
                 v = e.get(f)
                 if v and isinstance(v, str) and len(v) >= 10:
                     return v
             return "1970-01-01T00:00:00+00:00"
 
-        manifest_entries.sort(key=_ts_sort_key, reverse=True)   # newest first
-        trimmed = manifest_entries[:MANIFEST_MAX_ENTRIES]        # CORRECT: head after sort
+        manifest_entries.sort(key=_ts_sort_key, reverse=True)
+        trimmed = manifest_entries[:MANIFEST_MAX_ENTRIES]
 
         with open(self.manifest_path, 'w') as f:
             json.dump(trimmed, f, indent=4)
