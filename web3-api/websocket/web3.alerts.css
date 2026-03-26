@@ -1,0 +1,293 @@
+/**
+ * ALERT SYSTEM CSS — PHASE 2 ADDITIONS
+ * ========================================
+ * APPEND this entire file to the bottom of /web3/styles/web3.css
+ * All classes are .web3-* prefixed — zero collision guaranteed.
+ *
+ * Place at: /web3/styles/web3.alerts.css  (then @import or append to web3.css)
+ */
+
+/* ─── ALERT PANEL (fixed bottom-right) ───────────────────────────────────── */
+.web3-alert-panel {
+  position:       fixed;
+  bottom:         24px;
+  right:          24px;
+  z-index:        9999;
+  display:        flex;
+  flex-direction: column;
+  align-items:    flex-end;
+  gap:            12px;
+  font-family:    var(--web3-font-ui, 'Syne', system-ui, sans-serif);
+}
+
+/* ─── TOGGLE BUTTON ──────────────────────────────────────────────────────── */
+.web3-alert-toggle {
+  width:         52px;
+  height:        52px;
+  border-radius: 50%;
+  background:    #0d1117;
+  border:        1px solid #1e2433;
+  cursor:        pointer;
+  display:       flex;
+  align-items:   center;
+  justify-content: center;
+  font-size:     20px;
+  position:      relative;
+  transition:    border-color 150ms, box-shadow 150ms, transform 150ms;
+  box-shadow:    0 4px 20px #00000080;
+}
+
+.web3-alert-toggle:hover {
+  border-color: #00d4ff;
+  transform:    translateY(-2px);
+}
+
+.web3-alert-toggle--critical {
+  border-color: #ff0044;
+  box-shadow:   0 0 0 3px #ff004430, 0 4px 20px #00000080;
+  animation:    web3-alert-pulse 1s ease-in-out infinite;
+}
+
+@keyframes web3-alert-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px #ff004430, 0 4px 20px #00000080; }
+  50%       { box-shadow: 0 0 0 8px #ff004415, 0 4px 20px #00000080; }
+}
+
+.web3-alert-toggle__icon { line-height: 1; }
+
+.web3-alert-toggle__badge {
+  position:       absolute;
+  top:            -5px;
+  right:          -5px;
+  background:     #00d4ff;
+  color:          #000;
+  font-size:      9px;
+  font-weight:    700;
+  min-width:      18px;
+  height:         18px;
+  border-radius:  9px;
+  display:        flex;
+  align-items:    center;
+  justify-content: center;
+  padding:        0 4px;
+  font-family:    var(--web3-font-mono, monospace);
+  border:         2px solid #080c14;
+  animation:      web3-fadeIn 200ms ease;
+}
+
+.web3-alert-toggle__badge--critical {
+  background: #ff0044;
+  color:      #fff;
+}
+
+/* ─── ALERT DRAWER ───────────────────────────────────────────────────────── */
+.web3-alert-drawer {
+  width:          380px;
+  max-height:     520px;
+  background:     #0d1117;
+  border:         1px solid #1e2433;
+  border-radius:  12px;
+  overflow:       hidden;
+  display:        flex;
+  flex-direction: column;
+  box-shadow:     0 20px 60px #00000099, 0 0 0 1px #ffffff08;
+  animation:      web3-slideUp 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes web3-slideUp {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.web3-alert-drawer__header {
+  display:         flex;
+  justify-content: space-between;
+  align-items:     center;
+  padding:         14px 16px;
+  border-bottom:   1px solid #1e2433;
+  background:      #111827;
+  flex-shrink:     0;
+}
+
+.web3-alert-drawer__title {
+  font-size:   14px;
+  font-weight: 800;
+  color:       #f0f6fc;
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  letter-spacing: -0.01em;
+}
+
+/* ─── ALERT LIST ─────────────────────────────────────────────────────────── */
+.web3-alert-list {
+  overflow-y:     auto;
+  flex:           1;
+  display:        flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: #1e2433 transparent;
+}
+
+.web3-alert-list::-webkit-scrollbar       { width: 4px; }
+.web3-alert-list::-webkit-scrollbar-track { background: transparent; }
+.web3-alert-list::-webkit-scrollbar-thumb { background: #1e2433; border-radius: 2px; }
+
+.web3-alert-empty {
+  padding:     48px 24px;
+  text-align:  center;
+  color:       #8b949e;
+  font-size:   13px;
+  display:     flex;
+  flex-direction: column;
+  align-items: center;
+  gap:         8px;
+}
+
+/* ─── ALERT TOAST ────────────────────────────────────────────────────────── */
+.web3-alert-toast {
+  padding:      12px 14px;
+  border-left:  3px solid var(--alert-color, #00d4ff);
+  border-bottom: 1px solid #1e2433;
+  display:      flex;
+  flex-direction: column;
+  gap:          6px;
+  animation:    web3-toastIn 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition:   background 150ms;
+}
+
+.web3-alert-toast:last-child { border-bottom: none; }
+
+.web3-alert-toast:hover {
+  background: #111827;
+}
+
+@keyframes web3-toastIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Severity backgrounds */
+.web3-alert-toast--critical { background: #ff004406; }
+.web3-alert-toast--high     { background: #ff660006; }
+.web3-alert-toast--medium   { background: #ffaa0006; }
+.web3-alert-toast--low      { background: #00ff8806; }
+
+.web3-alert-toast__header {
+  display:         flex;
+  justify-content: space-between;
+  align-items:     center;
+}
+
+.web3-alert-toast__meta {
+  display:     flex;
+  gap:         6px;
+  font-size:   10px;
+  align-items: center;
+  font-family: var(--web3-font-mono, monospace);
+}
+
+.web3-alert-toast__severity {
+  font-weight:    700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.web3-alert-toast__channel {
+  color:          #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.web3-alert-toast__time { color: #555; }
+
+.web3-alert-toast__close {
+  background:  transparent;
+  border:      none;
+  color:       #555;
+  cursor:      pointer;
+  font-size:   12px;
+  padding:     2px 6px;
+  border-radius: 3px;
+  transition:  color 150ms, background 150ms;
+  line-height: 1;
+}
+.web3-alert-toast__close:hover {
+  color:       #ff0044;
+  background:  #ff004415;
+}
+
+.web3-alert-toast__title {
+  font-size:   13px;
+  font-weight: 700;
+  color:       #f0f6fc;
+  line-height: 1.3;
+}
+
+.web3-alert-toast__message {
+  font-size:   12px;
+  color:       #8b949e;
+  line-height: 1.5;
+}
+
+.web3-alert-toast__data {
+  display:   flex;
+  flex-wrap: wrap;
+  gap:       5px;
+  margin-top: 2px;
+}
+
+.web3-alert-toast__datum {
+  font-family:   var(--web3-font-mono, monospace);
+  font-size:     10px;
+  background:    #1a1f2e;
+  padding:       2px 8px;
+  border-radius: 3px;
+  color:         var(--alert-color, #00d4ff);
+  display:       flex;
+  gap:           5px;
+  align-items:   center;
+  border:        1px solid #ffffff08;
+}
+
+.web3-alert-toast__datum-key {
+  color:          #666;
+  font-weight:    400;
+}
+
+/* ─── CONNECTION STATUS DOT ──────────────────────────────────────────────── */
+.web3-conn-dot {
+  display:     inline-flex;
+  align-items: center;
+  gap:         5px;
+}
+
+.web3-conn-dot__circle {
+  width:         7px;
+  height:        7px;
+  border-radius: 50%;
+  flex-shrink:   0;
+  display:       inline-block;
+}
+
+.web3-conn-dot--pulse {
+  animation: web3-connPulse 2s ease-in-out infinite;
+}
+
+@keyframes web3-connPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(0.9); }
+}
+
+.web3-conn-dot__label {
+  font-size:      10px;
+  font-weight:    700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ─── RESPONSIVE ─────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .web3-alert-panel  { bottom: 12px; right: 12px; }
+  .web3-alert-drawer { width: calc(100vw - 24px); }
+}
