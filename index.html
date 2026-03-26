@@ -5553,13 +5553,24 @@ function renderTopThreats(data) {
         })();
 
 
-        document.addEventListener('DOMContentLoaded', () => {
-            // PHASE 1: Instant render from embedded cache (< 50ms)
+        // ── v73.2 BOOT FIX: readyState guard — prevents stuck BOOTING... ──
+        // DOMContentLoaded only fires if DOM is still loading.
+        // If script runs after DOM is ready (cached page, fast CDN),
+        // we must call boot functions directly — not wait for an event that already fired.
+        function _cdbBootSequence() {
+            // PHASE 1: Instant render from embedded cache (< 50ms, zero network)
             try { bootFromEmbeddedCache(); } catch(e) { console.warn('[BOOT] Embedded cache error:', e); }
-            // PHASE 2: Attempt live data upgrade in background
+            // PHASE 2: Upgrade to live data in background
             loadGOCIntel().then(() => fetchPipelineSyncTime()).catch(() => {});
             scheduleAutoRefresh();
-        });
+        }
+        if (document.readyState === 'loading') {
+            // DOM not yet ready — wait for it
+            document.addEventListener('DOMContentLoaded', _cdbBootSequence);
+        } else {
+            // DOM already ready (cached/fast load) — call immediately
+            _cdbBootSequence();
+        }
 
         // ═══════════════════════════════════════════════════════
         // v46.0 NEXUS INTELLIGENCE — Client-Side Analytics Engine
