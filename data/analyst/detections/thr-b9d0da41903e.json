@@ -2,7 +2,7 @@
   "threat_id": "thr-b9d0da41903e",
   "title": "Aqua Security\u2019s Trivy Scanner Compromised in Supply Chain Attack",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Aqua Security\u2019s Trivy Scanner Compromised in Supply Chain At\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/25\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*icp0.io*'\n            - '*plug-tab-protective-relay.trycloudflare.com*'\n            - '*scan.aquasecurtiy*'\n            - '*tdtqy-oyaaa-aaaae-af2dq-cai.raw.icp0.io*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 Aqua Security\u2019s Trivy Scanner Compromised in Supply Chain At\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/26\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*icp0.io*'\n            - '*plug-tab-protective-relay.trycloudflare.com*'\n            - '*scan.aquasecurtiy*'\n            - '*tdtqy-oyaaa-aaaae-af2dq-cai.raw.icp0.io*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"icp0.io\",\n              \"plug-tab-protective-relay.trycloudflare.com\",\n              \"scan.aquasecurtiy\",\n              \"tdtqy-oyaaa-aaaae-af2dq-cai.raw.icp0.io\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"icp0.io\", \"plug-tab-protective-relay.trycloudflare.com\", \"scan.aquasecurtiy\", \"tdtqy-oyaaa-aaaae-af2dq-cai.raw.icp0.io\")"
   },
