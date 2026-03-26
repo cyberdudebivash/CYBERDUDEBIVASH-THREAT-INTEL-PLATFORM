@@ -87,9 +87,18 @@ jobs:
             MISSING+=("CDB_JWT_SECRET")
           fi
 
-          # Required for publishing
-          if [ -z "${{ secrets.BLOGGER_CREDENTIALS }}" ]; then
-            MISSING+=("BLOGGER_CREDENTIALS")
+          # Required for publishing (Blogger OAuth)
+          if [ -z "${{ secrets.CLIENT_ID }}" ]; then
+            MISSING+=("CLIENT_ID")
+          fi
+          if [ -z "${{ secrets.CLIENT_SECRET }}" ]; then
+            MISSING+=("CLIENT_SECRET")
+          fi
+          if [ -z "${{ secrets.REFRESH_TOKEN }}" ]; then
+            MISSING+=("REFRESH_TOKEN")
+          fi
+          if [ -z "${{ secrets.BLOG_ID }}" ]; then
+            MISSING+=("BLOG_ID")
           fi
 
           if [ ${#MISSING[@]} -gt 0 ]; then
@@ -186,10 +195,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Write env file for Python scripts to source
+          # Write env file for Python scripts to source — all secrets from repo
           cat > secrets/.env << ENVEOF
           CDB_JWT_SECRET=${{ secrets.CDB_JWT_SECRET }}
-          BLOGGER_CREDENTIALS_JSON=${{ secrets.BLOGGER_CREDENTIALS }}
+          CLIENT_ID=${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET=${{ secrets.CLIENT_SECRET }}
+          REFRESH_TOKEN=${{ secrets.REFRESH_TOKEN }}
+          BLOG_ID=${{ secrets.BLOG_ID }}
+          CDB_SOVEREIGN_KEY=${{ secrets.CDB_SOVEREIGN_KEY || '' }}
+          GUMROAD_ACCESS_TOKEN=${{ secrets.GUMROAD_ACCESS_TOKEN || '' }}
+          LINKEDIN_ACCESS_TOKEN=${{ secrets.LINKEDIN_ACCESS_TOKEN || '' }}
+          LINKEDIN_AUTHOR_URN=${{ secrets.LINKEDIN_AUTHOR_URN || '' }}
+          LINKEDIN_MEMBER_URN=${{ secrets.LINKEDIN_MEMBER_URN || '' }}
+          MASTODON_ACCESS_TOKEN=${{ secrets.MASTODON_ACCESS_TOKEN || '' }}
+          MASTODON_INSTANCE_URL=${{ secrets.MASTODON_INSTANCE_URL || '' }}
+          SENDER_EMAIL=${{ secrets.SENDER_EMAIL || '' }}
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY || '' }}
+          SENTINEL_REVENUE_TOKEN=${{ secrets.SENTINEL_REVENUE_TOKEN || '' }}
           NVD_API_KEY=${{ secrets.NVD_API_KEY || '' }}
           TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
           STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY || '' }}
@@ -250,7 +272,16 @@ jobs:
         timeout-minutes: 12         # [FIX-14] Hard timeout
         env:
           CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
-          BLOGGER_CREDENTIALS_JSON: ${{ secrets.BLOGGER_CREDENTIALS }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+          CDB_SOVEREIGN_KEY: ${{ secrets.CDB_SOVEREIGN_KEY || '' }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN || '' }}
+          MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN || '' }}
+          MASTODON_INSTANCE_URL: ${{ secrets.MASTODON_INSTANCE_URL || '' }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY || '' }}
+          SENTINEL_REVENUE_TOKEN: ${{ secrets.SENTINEL_REVENUE_TOKEN || '' }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY || '' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || '' }}
