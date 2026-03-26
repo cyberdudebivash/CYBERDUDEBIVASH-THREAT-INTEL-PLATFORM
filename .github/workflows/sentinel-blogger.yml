@@ -74,7 +74,9 @@ jobs:
   publish-threat-report:
     name: publish-threat-report
     runs-on: ubuntu-latest
-    timeout-minutes: 25             # [FIX-14] Hard ceiling — prevents infinite hangs
+    timeout-minutes: 35             # v77.2 FIX: Increased 25→35 min. Stage 1 is now 20 min.
+                                    # Remaining stages (2-9) need ~10 min. Total: 30 min.
+                                    # 35 min ceiling gives 5 min safety buffer.
 
     permissions:
       contents: write
@@ -262,7 +264,10 @@ jobs:
       # ── STAGE 1: Core Intelligence Engine ────────────────────────────────
       - name: Run Sentinel Engine (SAFE MODE)
         shell: bash
-        timeout-minutes: 12
+        timeout-minutes: 20         # v77.2 FIX: Increased 12→20 min. Previous 12 min caused
+                                    # timeout when Blogger 429 retry delays (15s×2=30s) plus
+                                    # feed processing time exceeded the limit. 20 min provides
+                                    # headroom for up to 20 publishes + retry waits safely.
         env:
           CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
