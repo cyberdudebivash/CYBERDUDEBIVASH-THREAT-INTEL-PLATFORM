@@ -32,9 +32,15 @@ logger = logging.getLogger("CDB-PUBLISH-GUARD")
 # ---------------------------------------------------------------------------
 
 MIN_PUBLISH_INTERVAL = 8       # Seconds between Blogger API calls (6 posts/min max)
-MAX_RETRY_ATTEMPTS = 5         # Retry attempts on 429/5xx
-RETRY_BASE_DELAY = 60          # Base delay on 429 (seconds)
-RETRY_BACKOFF_FACTOR = 1.5     # Multiplier for exponential backoff
+MAX_RETRY_ATTEMPTS = 3         # v77.2 FIX: Reduced 5→3. 5 attempts × 60s backoff = 5+ min
+                               # per article. With 10+ articles published per run this
+                               # caused Stage 1 to hit the 12-min CI timeout on any 429.
+                               # 3 attempts with 15s base = max 45s per article — safe.
+RETRY_BASE_DELAY = 15          # v77.2 FIX: Reduced 60→15s. Blogger 429 is momentary
+                               # (rate burst), not quota exhaustion. 60s was a timeout killer.
+RETRY_BACKOFF_FACTOR = 2.0     # v77.2 FIX: 2.0 (was 1.5). Faster backoff with lower base:
+                               # attempt 1: 15s, attempt 2: 30s, attempt 3: skip (last)
+                               # Max total wait per article: 45s (was 150s+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PENDING_QUEUE_FILE = BASE_DIR / "data" / "pending_publish.json"
