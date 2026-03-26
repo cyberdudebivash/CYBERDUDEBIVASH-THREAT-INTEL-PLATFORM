@@ -187,12 +187,14 @@ class SentinelBlogger:
         logger.info("======================================================================")
 
 async def main():
-    # Dynamic ingestion from multi-source aggregator
-    from agent.integrations.sources.multi_source_intel import fetch_all_feeds
-    entries = await fetch_all_feeds()
-    
-    blogger = SentinelBlogger()
-    await blogger.run_cycle(entries)
+    # v77.1 FIX: Delegate to the production pipeline in agent/sentinel_blogger.py
+    # The fetch_all_feeds function does not exist in multi_source_intel.py — 
+    # this caused Stage 1 to silently exit with 0 articles published every run.
+    # agent/sentinel_blogger.py contains the full v21.0 multi-feed fusion pipeline.
+    import importlib
+    agent_main_module = importlib.import_module("agent.sentinel_blogger")
+    agent_main_module.main()
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
