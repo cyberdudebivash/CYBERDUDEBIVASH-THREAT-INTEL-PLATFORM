@@ -158,17 +158,17 @@ def enrich_with_source_content(entry: Dict) -> Optional[Dict]:
     if not source_url:
         return None
     try:
-        logger.info(f"  -> Fetching source article: {source_url[:80]}...")
+        logger.info(f"  → Fetching source article: {source_url[:80]}...")
         fetched = source_fetcher.fetch_article(source_url)
         if fetched and fetched.get("fetch_status") == "success":
             logger.info(
-                f"  -> Source fetched: {fetched.get('word_count', 0)} words, "
+                f"  → Source fetched: {fetched.get('word_count', 0)} words, "
                 f"{len(fetched.get('paragraphs', []))} paragraphs"
             )
             return fetched
-        logger.warning(f"  -> Source fetch incomplete for: {source_url[:60]}")
+        logger.warning(f"  → Source fetch incomplete for: {source_url[:60]}")
     except Exception as e:
-        logger.warning(f"  -> Source fetch error: {e}")
+        logger.warning(f"  → Source fetch error: {e}")
     return None
 
 
@@ -191,22 +191,22 @@ def build_enriched_content(entry: Dict, fetched_article: Optional[Dict]) -> str:
 def main():
     logger.info("=" * 70)
     logger.info("SENTINEL APEX v21.0 — ULTRA-PREMIUM REPORT ENGINE ACTIVATED")
-    logger.info("Triple-Layer Dedup * 15 Feeds * Quality Gate * IOC FP Filter")
-    logger.info("v21.0: EPSS+CVSS Enrichment * Source URL Fix * KEV Lookup")
+    logger.info("Triple-Layer Dedup • 15 Feeds • Quality Gate • IOC FP Filter")
+    logger.info("v21.0: EPSS+CVSS Enrichment • Source URL Fix • KEV Lookup")
     logger.info("=" * 70)
 
     _run_start = time.monotonic()
 
     if _TELEMETRY_OK and _telemetry:
         _telemetry.start_timer("total_run")
-        logger.info("Telemetry: ENABLED")
+        logger.info("📊 Telemetry: ENABLED")
     else:
-        logger.info("Telemetry: DISABLED or module not loaded")
+        logger.info("📊 Telemetry: DISABLED or module not loaded")
 
     if _PREDICTIVE_OK:
-        logger.info("Predictive Engine: ENABLED")
+        logger.info("🔮 Predictive Engine: ENABLED")
     if _CAMPAIGN_OK:
-        logger.info("Campaign Tracker: ENABLED")
+        logger.info("🎯 Campaign Tracker: ENABLED")
 
     try:
         service = get_blogger_service()
@@ -222,13 +222,13 @@ def main():
         pending_published = retry_pending_queue(service, BLOG_ID)
         if pending_published > 0:
             published_count += pending_published
-            logger.info(f"  Published {pending_published} pending items from queue")
+            logger.info(f"  ✓ Published {pending_published} pending items from queue")
     except ImportError:
         pass
     except Exception as _pq_err:
         logger.debug(f"Pending queue retry skipped (non-critical): {_pq_err}")
 
-    # ── Load manifest once — used for similarity dedup in both phases ──────
+    # ── Load manifest once for similarity checking ─────────────────────────
     def _load_manifest(path: str) -> List[Dict]:
         try:
             if os.path.exists(path):
@@ -245,12 +245,8 @@ def main():
     _manifest_path = os.path.join("data", "stix", "feed_manifest.json")
     _manifest = _load_manifest(_manifest_path)
 
-    # ══════════════════════════════════════════════════════════════════════
-    # PHASE 1: Primary CDB Feed
-    # v14.0 FIX: Dedup check added (was MISSING — caused 6x duplicates)
-    # v55.2 FIX: Manifest similarity check added (CDB re-published every run)
-    # ══════════════════════════════════════════════════════════════════════
-    logger.info("--- PHASE 1: Primary CDB Intelligence Feed ---")
+    # ── PHASE 1: Primary CDB Feed ──────────────────────────────────────────
+    logger.info("─── PHASE 1: Primary CDB Intelligence Feed ───")
     _ph1_start = time.monotonic()
     primary_entries = fetch_feed_entries(CDB_RSS_FEED, max_entries=1)
     if _TELEMETRY_OK and _telemetry:
@@ -261,14 +257,14 @@ def main():
 
     for entry in primary_entries:
         if dedup_engine.is_duplicate(entry["title"], entry.get("link", "")):
-            logger.info(f"  SKIP (duplicate): {entry['title'][:60]}")
+            logger.info(f"  ⏭ SKIP (duplicate): {entry['title'][:60]}")
             if _TELEMETRY_OK and _telemetry:
                 _telemetry.record_dedup()
             continue
 
         if _manifest and dedup_engine.is_similar_in_manifest(
                 entry["title"], _manifest, threshold=0.80):
-            logger.info(f"  SKIP (manifest similar): {entry['title'][:60]}")
+            logger.info(f"  ⏭ SKIP (manifest similar): {entry['title'][:60]}")
             dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
             if _TELEMETRY_OK and _telemetry:
                 _telemetry.record_dedup()
@@ -283,11 +279,11 @@ def main():
                 )
                 if not _qok:
                     logger.info(
-                        f"  SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}"
+                        f"  ⏭ SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}"
                     )
                     dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
                     continue
-                logger.info(f"  Quality gate PASS (score={_qscore:.1f}): {entry['title'][:50]}")
+                logger.info(f"  ✅ Quality gate PASS (score={_qscore:.1f}): {entry['title'][:50]}")
             except Exception as _qe:
                 logger.debug(f"  Quality gate error (non-critical): {_qe}")
 
@@ -299,11 +295,8 @@ def main():
                 _telemetry.record_cve_processing(elapsed_sec=0.0)
         time.sleep(RATE_LIMIT_DELAY)
 
-    # ══════════════════════════════════════════════════════════════════════
-    # PHASE 2: Multi-Feed Fusion (ENHANCED v14.0)
-    # v14.0 FIX: Manifest similarity check added (was never called)
-    # ══════════════════════════════════════════════════════════════════════
-    logger.info("--- PHASE 2: Multi-Feed Intelligence Fusion ---")
+    # ── PHASE 2: Multi-Feed Fusion ─────────────────────────────────────────
+    logger.info("─── PHASE 2: Multi-Feed Intelligence Fusion ───")
 
     for feed_url in RSS_FEEDS:
         _feed_start = time.monotonic()
@@ -317,14 +310,14 @@ def main():
             time.sleep(RATE_LIMIT_DELAY)
 
             if dedup_engine.is_duplicate(entry["title"], entry.get("link", "")):
-                logger.info(f"  SKIP (duplicate): {entry['title'][:60]}")
+                logger.info(f"  ⏭ SKIP (duplicate): {entry['title'][:60]}")
                 if _TELEMETRY_OK and _telemetry:
                     _telemetry.record_dedup()
                 continue
 
             if _manifest and dedup_engine.is_similar_in_manifest(
                     entry["title"], _manifest, threshold=0.80):
-                logger.info(f"  SKIP (manifest similar): {entry['title'][:60]}")
+                logger.info(f"  ⏭ SKIP (manifest similar): {entry['title'][:60]}")
                 dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
                 if _TELEMETRY_OK and _telemetry:
                     _telemetry.record_dedup()
@@ -339,7 +332,7 @@ def main():
                     )
                     if not _qok:
                         logger.info(
-                            f"  SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}"
+                            f"  ⏭ SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}"
                         )
                         dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
                         continue
@@ -361,7 +354,7 @@ def main():
         try:
             trend = _trend_model.analyze()
             logger.info(
-                f"Risk Trend: {trend.get('trend_direction', 'N/A')} | "
+                f"📈 Risk Trend: {trend.get('trend_direction', 'N/A')} | "
                 f"Velocity: {trend.get('attack_velocity_per_day', 0)}/day | "
                 f"High Risk Rate: {trend.get('high_risk_rate_pct', 0)}%"
             )
@@ -382,59 +375,59 @@ def main():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ENTRY PROCESSOR — Full 13-step premium pipeline
+# ENTRY PROCESSOR
 # ══════════════════════════════════════════════════════════════════════════════
 
 def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
     """
-    Full premium pipeline for a single intelligence entry.
+    Full 13-step premium pipeline for a single intelligence entry.
     Returns True if published successfully.
 
     Steps:
-      1   Fetch full source article
-      2   IOC extraction from enriched content
-      3   MITRE ATT&CK mapping
-      4   Actor attribution
-      5   Dynamic risk scoring (source-only, avoids AI-inflation)
-      6   Confidence scoring (multi-dimensional)
-      7   Detection engineering (Sigma + YARA)
-      7b  CVE enrichment (EPSS + CVSS + KEV via NVD/FIRST/CISA)
-      7c  VANGUARD IOC validation pass
-      8   16-section premium report generation (2500+ words)
-      9   Smart SEO labels
-      10  Resilient publish (rate-limit retry + pending queue)
+      1  Fetch full source article
+      2  IOC extraction from enriched content
+      3  MITRE ATT&CK mapping
+      4  Actor attribution
+      5  Dynamic risk scoring (source-only, avoids AI-inflation)
+      6  Confidence scoring (multi-dimensional)
+      7  Detection engineering (Sigma + YARA)
+      7b CVE enrichment (EPSS + CVSS + KEV via NVD/FIRST/CISA)
+      7c VANGUARD IOC validation pass
+      8  16-section premium report generation (2500+ words)
+      9  Smart SEO labels
+      10 Resilient publish (rate-limit retry + pending queue)
     """
     headline   = entry["title"]
     source_url = entry.get("link", "")
 
-    logger.info(f"PROCESSING: {headline[:80]}")
+    logger.info(f"▶ PROCESSING: {headline[:80]}")
 
-    # ── STEP 1: Fetch full source article ─────────────────────────────────
+    # ── STEP 1: Source article ─────────────────────────────────────────────
     fetched_article  = enrich_with_source_content(entry)
     enriched_content = build_enriched_content(entry, fetched_article)
-    logger.info(f"  -> Enriched content: {len(enriched_content.split())} words available for analysis")
+    logger.info(f"  → Enriched content: {len(enriched_content.split())} words available for analysis")
 
     # ── STEP 2: IOC extraction ─────────────────────────────────────────────
     extracted_iocs = enricher.extract_iocs(enriched_content)
     ioc_counts     = enricher.get_ioc_counts(extracted_iocs)
     total_iocs     = sum(ioc_counts.values())
     logger.info(
-        f"  -> IOCs extracted: {total_iocs} indicators across "
+        f"  → IOCs extracted: {total_iocs} indicators across "
         f"{sum(1 for v in extracted_iocs.values() if v)} categories"
     )
 
     # ── STEP 3: MITRE ATT&CK mapping ──────────────────────────────────────
     full_corpus = f"{headline} {enriched_content}"
     mitre_data  = mitre_engine.map_threat(full_corpus)
-    logger.info(f"  -> MITRE techniques mapped: {len(mitre_data)}")
+    logger.info(f"  → MITRE techniques mapped: {len(mitre_data)}")
 
     # ── STEP 4: Actor attribution ──────────────────────────────────────────
-    actor_data   = actor_matrix.correlate_actor(full_corpus, extracted_iocs)
+    actor_data  = actor_matrix.correlate_actor(full_corpus, extracted_iocs)
     actor_mapped = actor_data.get("tracking_id", "").startswith("CDB-")
 
     # ── STEP 5: Dynamic risk scoring ──────────────────────────────────────
     # v23.0 FIX: score ONLY from source text, not AI-generated report sections.
-    # AI sections inflate keywords → self-fulfilling CRITICAL scores.
+    # AI sections contain inflated keywords → self-fulfilling CRITICAL scores.
     _source_for_scoring = (
         (fetched_article or {}).get("full_text", "")
         or entry.get("content", "")
@@ -443,10 +436,10 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
     )
     _source_word_count = len(_source_for_scoring.split())
 
-    # v77.1 FIX: initialise ALL CVE enrichment vars here — before ANY use.
-    # Previously kev_present was set in STEP 7b but referenced in STEP 5
-    # via `kev_present if 'kev_present' in dir() else False` — unsafe hack
-    # that caused NameError on Python 3.12 strict-mode runners.
+    # v77.1 FIX: initialise kev_present here so it is always defined,
+    # even before the CVE enrichment step (STEP 7b) sets its real value.
+    # Previously this was set in STEP 7b but referenced in STEP 5 via
+    # `kev_present if 'kev_present' in dir() else False` — an unsafe hack.
     kev_present = False
     epss_score  = None
     cvss_score  = None
@@ -477,34 +470,29 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         _original_score = risk_score
         risk_score = min(risk_score, 6.4)
         logger.info(
-            f"  -> v75.5 score cap: {_original_score:.1f}->{risk_score:.1f} "
+            f"  → v75.5 score cap: {_original_score:.1f}→{risk_score:.1f} "
             f"(no source, CVE-only, CVSS<7)"
         )
 
     severity = risk_engine.get_severity_label(risk_score)
-
-    # v77.1 FIX: use local kev_present variable (False at this point, updated in 7b)
-    # NOT the unsafe dir() hack from the previous version.
-    _confirmed_actor = bool(
-        actor_data and not actor_data.get("tracking_id", "").startswith("UNC-")
-    )
+    _confirmed_actor = bool(actor_data and not actor_data.get("tracking_id", "").startswith("UNC-"))
 
     tlp = risk_engine.get_tlp_label(
         risk_score,
         iocs=extracted_iocs,
-        kev_present=kev_present,        # safe — always defined above
+        kev_present=kev_present,        # v77.1: uses local variable, not dir() hack
         confirmed_actor=_confirmed_actor,
-        cvss_score=None,                # CVSS not yet fetched — re-evaluated after NVD (7b)
+        cvss_score=None,                # Real CVSS not yet fetched — re-evaluated after NVD
     )
 
     impact_metrics = risk_engine.extract_impact_metrics(headline, enriched_content)
     logger.info(
-        f"  -> Risk: {risk_score}/10 | Severity: {severity} | TLP: {tlp.get('label')} "
+        f"  → Risk: {risk_score}/10 | Severity: {severity} | TLP: {tlp.get('label')} "
         f"| Records: {impact_metrics['records_affected']:,} "
         f"| Keywords: {len(impact_metrics['severity_keywords'])}"
     )
 
-    # ── STEP 6: Confidence scoring — multi-dimensional ────────────────────
+    # ── STEP 6: Confidence scoring ─────────────────────────────────────────
     confidence = enricher.calculate_confidence(extracted_iocs, actor_mapped)
     if impact_metrics["records_affected"] > 0:
         confidence = min(confidence + 15.0, 100.0)
@@ -531,15 +519,13 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
             _epss, _cvss, _kev, _nvd = _enrich_cve_metadata(cve_ids[0])
             epss_score  = _epss
             cvss_score  = _cvss
-            kev_present = _kev      # update from False to real KEV status
+            kev_present = _kev
             nvd_url     = _nvd
             if epss_score or cvss_score:
                 logger.info(
-                    f"  -> CVE enrichment: EPSS={epss_score} CVSS={cvss_score} KEV={kev_present}"
+                    f"  → CVE enrichment: EPSS={epss_score} CVSS={cvss_score} KEV={kev_present}"
                 )
-                # v75.5 FIX: Recalculate risk with real NVD CVSS/EPSS data.
-                # Fixes: CVSS 9.4 article only scoring 6.7 because risk was
-                # calculated BEFORE the NVD fetch in step 5.
+                # v75.5 FIX: Recalculate risk with real NVD data
                 _nvd_score = risk_engine.recalculate_with_nvd(
                     base_score=risk_score,
                     cvss_score=cvss_score,
@@ -557,17 +543,17 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
                         cvss_score=cvss_score,   # v76.2: enables TLP:RED for CVSS 9+
                     )
                     logger.info(
-                        f"  -> NVD-updated: Risk={risk_score}/10 "
+                        f"  → NVD-updated: Risk={risk_score}/10 "
                         f"| Severity={severity} | TLP={tlp.get('label')}"
                     )
-                    # v75.6: Rebuild labels with updated severity for correct Blogger tags
+                    # v75.6: Rebuild labels with updated severity
                     labels = _generate_smart_labels(
                         headline, severity, tlp, feed_source, extracted_iocs
                     )
         except Exception as _cve_e:
             logger.debug(f"CVE enrichment skipped (non-critical): {_cve_e}")
 
-    # ── STEP 7c: VANGUARD IOC validation pass ─────────────────────────────
+    # ── STEP 7c: VANGUARD IOC validation ──────────────────────────────────
     if _VANGUARD_OK and _vanguard:
         try:
             _v46 = _vanguard.enhance(
@@ -591,14 +577,14 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
                 confidence = _v46["confidence"]
             if _v46["fp_removed_count"] > 0:
                 logger.info(
-                    f"  -> VANGUARD: {_v46['fp_removed_count']} IOC FPs removed, "
+                    f"  → VANGUARD: {_v46['fp_removed_count']} IOC FPs removed, "
                     f"confidence recalculated to {confidence:.1f}%"
                 )
         except Exception as _v46_e:
             logger.debug(f"VANGUARD enhancement skipped (non-critical): {_v46_e}")
 
     # ── STEP 8: Premium report generation ─────────────────────────────────
-    logger.info("  -> Generating PREMIUM 16-section report...")
+    logger.info("  → Generating PREMIUM 16-section report...")
     report_html = premium_report_gen.generate_premium_report(
         headline=headline,
         source_content=enriched_content,
@@ -616,9 +602,9 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         impact_metrics=impact_metrics,
     )
     report_word_count = len(re.sub(r"<[^>]+>", " ", report_html).split())
-    logger.info(f"  -> Report generated: ~{report_word_count} words (target: 2500+)")
+    logger.info(f"  → Report generated: ~{report_word_count} words (target: 2500+)")
 
-    # ── STEP 9: Smart SEO labels ───────────────────────────────────────────
+    # ── STEP 9: Smart labels ───────────────────────────────────────────────
     labels = _generate_smart_labels(headline, severity, tlp, feed_source, extracted_iocs)
 
     # ── STEP 10: Resilient publish ─────────────────────────────────────────
@@ -650,8 +636,8 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
             nvd_url=nvd_url,
         )
     except ImportError:
-        # v56 module not available — legacy publish path
-        logger.warning("  v56 publish guard not available — using legacy publish")
+        # Fallback: v56 module unavailable
+        logger.warning("  ⚠ v56 publish guard not available — using legacy publish")
         try:
             post_body = {
                 "kind":    "blogger#post",
@@ -662,7 +648,7 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
             response      = service.posts().insert(blogId=BLOG_ID, body=post_body).execute()
             live_blog_url = response.get("url", "")
             logger.info(
-                f"  PREMIUM ADVISORY PUBLISHED ({report_word_count} words): {live_blog_url}"
+                f"  ✓ PREMIUM ADVISORY PUBLISHED ({report_word_count} words): {live_blog_url}"
             )
             stix_exporter.create_bundle(
                 title=headline,
@@ -684,7 +670,7 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
             dedup_engine.mark_processed(headline, entry.get("link", ""))
             return True
         except Exception as e:
-            logger.error(f"  PUBLISH FAILURE: {e}")
+            logger.error(f"  ✗ PUBLISH FAILURE: {e}")
             return False
 
 
@@ -694,19 +680,18 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
 
 def _enrich_cve_metadata(cve_id: str):
     """
-    Fetch EPSS, CVSS base score, and KEV status for a CVE ID.
+    Fetch EPSS, CVSS base score, and KEV status for a CVE.
     Non-critical — returns (None, None, False, nvd_url) on any failure.
-
     Sources:
-      EPSS: https://api.first.org/data/v1/epss
-      CVSS: https://services.nvd.nist.gov/rest/json/cves/2.0
-      KEV:  handled by VANGUARD engine or v48 pipeline hardener
+      EPSS  → https://api.first.org/data/v1/epss
+      CVSS  → https://services.nvd.nist.gov/rest/json/cves/2.0
+      KEV   → CISA Known Exploited Vulnerabilities (via VANGUARD or v48 hardener)
     """
-    cve_upper   = cve_id.upper().strip()
-    epss_score  = None
-    cvss_score  = None
+    cve_upper  = cve_id.upper().strip()
+    epss_score = None
+    cvss_score = None
     kev_present = False
-    nvd_url     = f"https://nvd.nist.gov/vuln/detail/{cve_upper}"
+    nvd_url    = f"https://nvd.nist.gov/vuln/detail/{cve_upper}"
 
     # EPSS lookup
     try:
@@ -731,7 +716,6 @@ def _enrich_cve_metadata(cve_id: str):
             data = json.loads(resp.read())
         vuln    = data.get("vulnerabilities", [{}])[0].get("cve", {})
         metrics = vuln.get("metrics", {})
-        # Try CVSS v3.1 first, then v3.0, then v2
         for key in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
             if key in metrics and metrics[key]:
                 cvss_score = metrics[key][0].get("cvssData", {}).get("baseScore")
@@ -751,7 +735,7 @@ def _generate_smart_labels(
     headline: str, severity: str, tlp: Dict,
     feed_source: str, iocs: Dict
 ) -> List[str]:
-    """Generate SEO-optimised contextual Blogger post labels."""
+    """Generate SEO-optimised contextual Blogger labels."""
     labels = [
         "Threat Intelligence",
         "CyberDudeBivash",
