@@ -1,0 +1,120 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# GITHUB ACTIONS — WEB3 STIX AUTO-EXPORT
+# ══════════════════════════════════════════════════════════════════════════════
+# Place at: .github/workflows/web3-stix-export.yml
+#
+# Automatically exports Web3 threats as STIX 2.1 bundles on a schedule.
+# Commits the bundles to /web3/stix/ in your repository.
+#
+# ISOLATION:
+# • Only writes to web3/stix/ — never touches existing stix/ directory
+# • Separate workflow file — never conflicts with your core STIX pipeline
+# • Disabled by default (schedule commented out)
+# ══════════════════════════════════════════════════════════════════════════════
+
+name: Web3 STIX Export
+
+on:
+  # Uncomment to enable scheduled export:
+  # schedule:
+  #   - cron: '0 */6 * * *'   # Every 6 hours
+
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (generate but do not commit)'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  export-stix:
+    name: Export Web3 Threats as STIX 2.1
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write   # Needed to commit STIX files
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'web3-api/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: web3-api
+        run: npm ci
+
+      - name: Generate STIX bundle
+        working-directory: web3-api
+        run: |
+          node -e "
+            process.env.WEB3_STIX_EXPORT = 'true';
+            process.env.WEB3_STIX_OUTPUT_DIR = '../web3/stix';
+            const { exportThreatsAsSTIX } = require('./services/stixBridge');
+            // In production: replace with real threat DB query
+            const threats = require('./routes/threats').MOCK_THREATS || [];
+            const { bundle, filePath } = exportThreatsAsSTIX(threats, { writeToDisk: true });
+            console.log('Bundle ID:', bundle?.id);
+            console.log('Objects:', bundle?.objects?.length);
+            console.log('Output:', filePath);
+          "
+
+      - name: Validate STIX bundle
+        run: |
+          if ls web3/stix/*.json 1> /dev/null 2>&1; then
+            echo "✅ STIX files generated:"
+            ls -la web3/stix/
+            # Validate JSON is well-formed
+            for f in web3/stix/*.json; do
+              python3 -c "import json,sys; json.load(open('$f')); print('✅ Valid JSON:', '$f')"
+            done
+          else
+            echo "❌ No STIX files generated"
+            exit 1
+          fi
+
+      - name: Commit STIX bundles
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          git config user.name  "Sentinel APEX Bot"
+          git config user.email "sentinel-apex-bot@users.noreply.github.com"
+
+          git add web3/stix/
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            BUNDLE_COUNT=$(ls web3/stix/*.json | wc -l)
+            git commit -m "🛡 web3: auto-export STIX bundles [$(date -u +%Y-%m-%d)]
+
+            - Updated Web3 threat intelligence bundles
+            - STIX 2.1 format, TLP-marked
+            - Source: Sentinel APEX Web3 Module
+            - Bundles: $BUNDLE_COUNT
+
+            [skip ci]"
+            git push
+            echo "✅ STIX bundles committed"
+          fi
+
+      - name: Upload STIX as artifact (dry run)
+        if: github.event.inputs.dry_run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: web3-stix-bundles-${{ github.run_id }}
+          path: web3/stix/
+          retention-days: 30
