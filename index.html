@@ -6560,12 +6560,40 @@ function renderTopThreats(data) {
         })();
 
 
-        // ── Service Worker Registration ──
+        // ── Service Worker Registration v77.1 — Force-update on deploy ──
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-                    .then(reg => console.log('[SW] Registered:', reg.scope))
+                    .then(reg => {
+                        console.log('[SW] Registered:', reg.scope);
+                        // Force update check on every load — ensures new deployments are served immediately
+                        reg.update();
+                        // If a new SW is waiting (installed but not activated), skip waiting and activate now
+                        if (reg.waiting) {
+                            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            if (newWorker) {
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        // New SW installed — skip waiting to activate immediately
+                                        newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                        console.log('[SW] New version activated');
+                                    }
+                                });
+                            }
+                        });
+                    })
                     .catch(err => console.warn('[SW] Registration failed:', err));
+                // Reload page when new SW takes control (ensures fresh content served)
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (!window._swReloading) {
+                        window._swReloading = true;
+                        console.log('[SW] New service worker active — reloading for fresh content');
+                        window.location.reload();
+                    }
+                });
             });
         }
 
