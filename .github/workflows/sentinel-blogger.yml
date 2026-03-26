@@ -296,12 +296,26 @@ jobs:
           # [FIX-03] Suppress file_cache and oauth warnings at process level
           export PYTHONWARNINGS="ignore::DeprecationWarning,ignore::UserWarning"
 
-          if [ -f scripts/sentinel_engine.py ]; then
+          # [FIX-STAGE1] v77.1: Priority order corrected.
+          # ROOT CAUSE OF 0-PUBLISH BUG: sentinel_blogger.py (root) calls
+          # fetch_all_feeds() which does NOT exist in multi_source_intel.py →
+          # ImportError silently caught → 0 articles published every run.
+          # FIX: Call agent/sentinel_blogger.py directly — this is the real
+          # v21.0 multi-feed fusion pipeline with 15 feeds + full enrichment.
+          if [ -f agent/sentinel_blogger.py ]; then
+            echo "Running production pipeline: agent/sentinel_blogger.py"
+            python3 agent/sentinel_blogger.py
+          elif [ -f sentinel_blogger.py ]; then
+            echo "Running root sentinel_blogger.py (fallback)"
+            python3 sentinel_blogger.py
+          elif [ -f scripts/sentinel_engine.py ]; then
+            echo "Running alternate engine: scripts/sentinel_engine.py"
             python3 scripts/sentinel_engine.py
-          elif [ -f agent/enricher.py ]; then
-            python3 agent/enricher.py
+          elif [ -f publisher.py ]; then
+            echo "Running legacy publisher: publisher.py"
+            python3 publisher.py
           else
-            echo "ERROR: No sentinel engine script found" >&2
+            echo "ERROR: No runnable sentinel pipeline script found" >&2
             exit 1
           fi
 
@@ -432,7 +446,7 @@ jobs:
           echo "=== STAGE 5: Commit to main ==="
 
           git config --local user.email "bivash@cyberdudebivash.com"
-          git config --local user.name "CDB-Sentinel-Bot"
+          git config --local user.name "cyberdudebivash"
 
           # Remove temp secrets before committing
           rm -f secrets/.env
@@ -475,7 +489,7 @@ jobs:
 
           # Commit extras if any changes
           git config --local user.email "bivash@cyberdudebivash.com"
-          git config --local user.name "CDB-Sentinel-Bot"
+          git config --local user.name "cyberdudebivash"
           git add --all
           if ! git diff --staged --quiet; then
             git commit -m "v77.0 Post Extras [skip ci]" --no-verify
@@ -572,8 +586,8 @@ jobs:
           folder: .
           clean: false
           commit-message: "Deploying to gh-pages from @ ${{ github.repository }}@${{ github.sha }} 🚀"
-          git-config-name: CDB-Sentinel-Bot
-          git-config-email: bivash@cyberdudebivash.com
+          git-config-name: cyberdudebivash
+          git-config-email: cyberdudebivash@users.noreply.github.com
           token: ${{ secrets.GITHUB_TOKEN }}
           # Exclude non-public files
           # Note: .github is already excluded by the action by default
