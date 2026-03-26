@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CYBERDUDEBIVASH® SENTINEL APEX v77.1
+sentinel_blogger.py — CYBERDUDEBIVASH® SENTINEL APEX v77.2
 Path: sentinel_blogger.py (ROOT — thin launcher)
 
-PURPOSE: This file is the entry point called by the GitHub Actions workflow.
-         It delegates ALL work to agent/sentinel_blogger.py (the real v21.0
-         production pipeline with 15 feeds, premium report generation, STIX,
-         deduplication, KEV/EPSS enrichment, etc.)
+PURPOSE:
+    Entry point called by GitHub Actions workflow (sentinel-blogger.yml).
+    Delegates ALL work to agent/sentinel_blogger.py — the real v21.0
+    production pipeline.
 
-HISTORY OF FIXES:
-  v69.1  Original root file — called fetch_all_feeds() from multi_source_intel.py
-  v77.0  BUG: fetch_all_feeds does NOT exist in multi_source_intel.py
-         → ImportError silently caught → 0 articles published every run
-  v77.1  FIX: Delegate directly to agent/sentinel_blogger.main()
-         This is the correct production pipeline.
+    DO NOT add feed-fetching or publishing logic here.
+    All production logic lives in agent/sentinel_blogger.py.
 
-DO NOT add feed-fetching or publishing logic here.
-All production logic lives in agent/sentinel_blogger.py.
+HISTORY:
+    v69.1  Original — called fetch_all_feeds() from multi_source_intel.py
+    v77.0  BUG: fetch_all_feeds does NOT exist in multi_source_intel.py
+               → ImportError silently caught → 0 articles published every run
+    v77.1  FIX: Delegate directly to agent/sentinel_blogger.main()
+    v77.2  Updated to match v77.2 platform release:
+               - Workflow: GOOGLE_OAUTH_DISABLE_FILE_CACHE, NVD_API_KEY,
+                 Node.js 24 actions, PYTHONWARNINGS fix, reset --soft push
+               - agent/sentinel_blogger.py: IOC telemetry fix (record_iocs)
+               - agent/content/quality_gate.py: threshold 6.0→4.5,
+                 vendor award instant-fail, bug bounty positive signal
+               - agent/config.py: dead feeds replaced with active feeds
 """
 
 import os
@@ -32,20 +38,23 @@ logger = logging.getLogger("CDB-LAUNCHER")
 
 def main():
     """
-    v77.1 FIX: Delegate to the real production pipeline.
-    agent/sentinel_blogger.py is the authoritative v21.0 engine:
-      - Phase 1: Primary CDB RSS feed
-      - Phase 2: 15 multi-source RSS feeds (THN, Krebs, CISA, Project Zero, etc.)
-      - Triple-layer deduplication
-      - Full source article fetching
+    Thin launcher — delegates to agent/sentinel_blogger.py.
+
+    agent/sentinel_blogger.py is the authoritative v21.0 production engine:
+      - Phase 1: Primary CDB RSS feed (1 entry)
+      - Phase 2: Multi-source RSS fusion (15+ feeds)
+      - Triple-layer deduplication (exact + URL + fuzzy similarity)
+      - Full source article fetching (enrich thin RSS summaries)
       - 16-section premium report generation (2500+ words)
-      - EPSS + CVSS + KEV enrichment
-      - STIX 2.1 bundle creation
-      - Manifest update
-      - Blogger publish with rate-limit protection
+      - EPSS + CVSS + KEV enrichment (NVD + CISA + FIRST)
+      - VANGUARD IOC validation + false-positive removal
+      - STIX 2.1 bundle creation + manifest update
+      - Resilient Blogger publish (rate-limit retry + pending queue)
+      - Revenue CTA injection on every published post
+      - IOC telemetry accumulation (v77.2 fix)
     """
     logger.info("=" * 70)
-    logger.info("SENTINEL APEX v77.1 — LAUNCHER ACTIVATED")
+    logger.info("SENTINEL APEX v77.2 — LAUNCHER ACTIVATED")
     logger.info("Delegating to agent/sentinel_blogger.py (production pipeline)")
     logger.info("=" * 70)
 
@@ -62,7 +71,7 @@ def main():
         logger.error("Ensure PYTHONPATH includes the repo root directory.")
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Pipeline error: {e}")
+        logger.error(f"Pipeline error in agent/sentinel_blogger.py: {e}")
         raise
 
 
