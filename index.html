@@ -4053,7 +4053,7 @@
         function renderTrendChart(data) {
             const section = document.getElementById('trend-section');
             const barsEl = document.getElementById('trend-bars');
-            if (!data.length) return;
+            if (!data.length || !barsEl) return;
 
             const sorted = [...data].sort((a,b) => new Date(a.timestamp||0) - new Date(b.timestamp||0));
             const n = trendRange === 50 ? sorted.length : Math.min(trendRange, sorted.length);
@@ -4876,16 +4876,21 @@ function renderTopThreats(data) {
         function bootFromEmbeddedCache() {
             // Instant render from embedded cache — zero network dependency
             if (!EMBEDDED_INTEL || !EMBEDDED_INTEL.length) return;
-            manifestData = [...EMBEDDED_INTEL].reverse();
-            computeMetrics(manifestData);
-            renderTrendChart(manifestData);
-            applyView();
-
+            try {
+                manifestData = [...EMBEDDED_INTEL].reverse();
+                try { computeMetrics(manifestData); } catch(e) { console.warn('[BOOT] computeMetrics error:', e); }
+                try { renderTrendChart(manifestData); } catch(e) { console.warn('[BOOT] renderTrendChart error:', e); }
+                try { applyView(); } catch(e) { console.warn('[BOOT] applyView error:', e); }
+            } catch(e) {
+                console.warn('[BOOT] Data setup error:', e);
+            }
+            // UI updates — always run, even if render steps above had errors
             const syncVal = document.getElementById('sync-val');
             const integrityEl = document.getElementById('integrity-status');
+            const lastLoaded = document.getElementById('last-loaded');
             if (syncVal) syncVal.innerHTML = 'SYNC: <span style="color:var(--medium);">CACHE</span>';
             if (integrityEl) integrityEl.innerHTML = '<span class="integrity-badge" style="background:rgba(217,119,6,0.08);color:var(--medium);border:1px solid rgba(217,119,6,0.25);">⚡ EMBEDDED CACHE ACTIVE</span>';
-            document.getElementById('last-loaded').textContent = 'CACHE: ' + new Date().toLocaleTimeString() + ' · UPGRADING TO LIVE...';
+            if (lastLoaded) lastLoaded.textContent = 'CACHE: ' + new Date().toLocaleTimeString() + ' · UPGRADING TO LIVE...';
             document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('syncing'));
             console.log('[CDB-GOC] Instant boot from embedded cache:', EMBEDDED_INTEL.length, 'items');
             try { _cdbUpdateTabCounts(); } catch(e) {}
@@ -6560,40 +6565,35 @@ function renderTopThreats(data) {
         })();
 
 
-        // ── Service Worker Registration v77.1 — Force-update on deploy ──
+        // ── Service Worker Registration v78.0 — Stable update (no reload loop) ──
+        // v78.0 FIX: Removed aggressive controllerchange → window.location.reload()
+        // which caused "BOOTING..." flash on every pipeline deploy (every 6h).
+        // The embedded cache now renders instantly on boot — SW updates are invisible.
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
                     .then(reg => {
                         console.log('[SW] Registered:', reg.scope);
-                        // Force update check on every load — ensures new deployments are served immediately
+                        // Check for updates on load — new SW will pre-cache assets silently
                         reg.update();
-                        // If a new SW is waiting (installed but not activated), skip waiting and activate now
-                        if (reg.waiting) {
-                            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                        }
+                        // If a new SW is waiting, let it activate on next natural page load
+                        // Do NOT force skipWaiting + reload — this caused the BOOTING... loop
                         reg.addEventListener('updatefound', () => {
                             const newWorker = reg.installing;
                             if (newWorker) {
                                 newWorker.addEventListener('statechange', () => {
-                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                        // New SW installed — skip waiting to activate immediately
-                                        newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                        console.log('[SW] New version activated');
+                                    if (newWorker.state === 'installed') {
+                                        // New version ready — log only, no forced reload
+                                        // Dashboard renders from EMBEDDED_INTEL instantly anyway
+                                        console.log('[SW] New version ready — will activate on next visit');
                                     }
                                 });
                             }
                         });
                     })
-                    .catch(err => console.warn('[SW] Registration failed:', err));
-                // Reload page when new SW takes control (ensures fresh content served)
-                navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    if (!window._swReloading) {
-                        window._swReloading = true;
-                        console.log('[SW] New service worker active — reloading for fresh content');
-                        window.location.reload();
-                    }
-                });
+                    .catch(err => console.warn('[SW] Registration failed (non-fatal):', err));
+                // v78.0: controllerchange listener REMOVED — reload loop caused "BOOTING..." P0
+                // The embedded cache handles content freshness; SW is asset cache only
             });
         }
 
@@ -6603,4 +6603,15 @@ function renderTopThreats(data) {
             var t = e.target.closest('.cdb-xtoggle');
             if (!t) return;
             var id = t.getAttribute('data-target');
-         
+            var panel = document.getElementById(id);
+            if (!panel) return;
+            // cdb-xopen drives: panel max-height/opacity AND button chevron rotation
+            // CSS: .cdb-xpanel.cdb-xopen{max-height:500px;opacity:1;}
+            // CSS: .cdb-xtoggle.cdb-xopen .cdb-xchev{transform:rotate(180deg);}
+            panel.classList.toggle('cdb-xopen');
+            t.classList.toggle('cdb-xopen');
+        });
+
+    </script>
+</body>
+</html>
