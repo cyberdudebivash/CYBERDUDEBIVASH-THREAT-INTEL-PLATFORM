@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-26T17:06:48.136815+00:00",
+  "timestamp": "2026-03-26T20:39:39.361483+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -91,7 +91,7 @@
       "product": "Multiple Products",
       "vulnerabilityName": "Apple Multiple Products Classic Buffer Overflow Vulnerability",
       "dateAdded": "2026-03-20",
-      "shortDescription": "Apple watchOS, iOS, iPadOS, macOS, visionOS, tvOS, and iPadOS contain a classic buffer overflow vulnerability which could allow a malicious application to cause unexpected system termination or write kernel memory.",
+      "shortDescription": "Apple watchOS, iOS, iPadOS, macOS, visionOS, and tvOS contain a classic buffer overflow vulnerability which could allow a malicious application to cause unexpected system termination or write kernel memory.",
       "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
       "dueDate": "2026-04-03",
       "knownRansomwareCampaignUse": "Unknown",
@@ -339,7 +339,439 @@
       "poc_public": true
     }
   ],
-  "github_advisories": [],
+  "github_advisories": [
+    {
+      "ghsa_id": "GHSA-39pp-xp36-q6mg",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw has Inconsistent Host Exec Environment Override Sanitization",
+      "description": "## Summary\nGateway host exec env override handling did not consistently apply the shared host environment policy, so blocked or malformed override keys could slip through inconsistent sanitization paths.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: < 2026.3.22\n- Fixed: >= 2026.3.22\n- Latest released tag checked: `v2026.3.23-2` (`630f1479c44f78484dfa21bb407cbe6f171dac87`)\n- Latest published npm version checked: `2026.3.23-2`\n\n## Fix Commit(s)\n- `7abfff756d6c68d17e21d1657bbacbaec86de232`\n\n## Release Status\nThe fix shipped in `v2026.3.22` and remains present in `v2026.3.23` and `v2026.3.23-2`.\n\n## Code-Level Confirmation\n- src/infra/host-env-security.ts now provides one shared sanitizer and fail-closed diagnostics for blocked or malformed override keys.\n- src/agents/bash-tools.exec.ts and src/node-host/invoke-system-run.ts both route env overrides through the shared sanitizer before execution.\n\nOpenClaw thanks @zpbrent for reporting.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-15",
+        "CWE-693"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-26T19:51:12Z",
+      "updated": "2026-03-26T19:51:13Z",
+      "url": "https://github.com/advisories/GHSA-39pp-xp36-q6mg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-39pp-xp36-q6mg",
+        "https://github.com/advisories/GHSA-39pp-xp36-q6mg"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-48vw-m3qc-wr99",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw's Trusted-proxy Control UI sessions retain privileged scopes without device identity on device-less allow paths",
+      "description": "## Summary\nTrusted-proxy Control UI sessions without device identity could retain self-declared privileged scopes on the device-less allow path.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: < 2026.3.22\n- Fixed: >= 2026.3.22\n- Latest released tag checked: `v2026.3.23-2` (`630f1479c44f78484dfa21bb407cbe6f171dac87`)\n- Latest published npm version checked: `2026.3.23-2`\n\n## Fix Commit(s)\n- `ccf16cd8892402022439346ae1d23352e3707e9e`\n\n## Release Status\nThe fix shipped in `v2026.3.22` and remains present in `v2026.3.23` and `v2026.3.23-2`.\n\n## Code-Level Confirmation\n- src/gateway/server/ws-connection/message-handler.ts now strips unbound self-declared scopes on the trusted-proxy no-device path.\n- src/gateway/server/ws-connection/connect-policy.ts remains the allow path, but the shipped scope scrub prevents privilege retention without device identity.\n\nOpenClaw thanks @nexrin for reporting.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-26T19:50:59Z",
+      "updated": "2026-03-26T19:51:01Z",
+      "url": "https://github.com/advisories/GHSA-48vw-m3qc-wr99",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-48vw-m3qc-wr99",
+        "https://github.com/openclaw/openclaw/commit/ccf16cd8892402022439346ae1d23352e3707e9e",
+        "https://github.com/advisories/GHSA-48vw-m3qc-wr99"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4qwc-c7g9-4xcw",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Remote media error responses could trigger unbounded memory allocation before failure",
+      "description": "## Summary\nRemote media HTTP error bodies were read without a hard size cap before failure handling, allowing unbounded allocation on error responses.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: < 2026.3.22\n- Fixed: >= 2026.3.22\n- Latest released tag checked: `v2026.3.23-2` (`630f1479c44f78484dfa21bb407cbe6f171dac87`)\n- Latest published npm version checked: `2026.3.23-2`\n\n## Fix Commit(s)\n- `81445a901091a5d27ef0b56fceedbe4724566438`\n\n## Release Status\nThe fix shipped in `v2026.3.22` and remains present in `v2026.3.23` and `v2026.3.23-2`.\n\n## Code-Level Confirmation\n- src/media/fetch.ts now routes non-2xx failures through bounded prefix reads instead of buffering the whole error body.\n- src/media/read-response-with-limit.ts enforces capped reads and truncates oversized snippets before surfacing failure text.\n\nOpenClaw thanks @YLChen-007 for reporting.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-400",
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-26T19:50:06Z",
+      "updated": "2026-03-26T19:50:08Z",
+      "url": "https://github.com/advisories/GHSA-4qwc-c7g9-4xcw",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-4qwc-c7g9-4xcw",
+        "https://github.com/openclaw/openclaw/commit/81445a901091a5d27ef0b56fceedbe4724566438",
+        "https://github.com/advisories/GHSA-4qwc-c7g9-4xcw"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-g9ww-x58f-9g6m",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Contrast BadAML injection allows arbitrary code execution",
+      "description": "# BadAML\n\nBadAML is an AML injection attack that exploits the ACPI interface and allows arbitrary code execution in a confidential VM. The attack was first published in 2024:\n\n- <https://blackhat.com/eu-24/briefings/schedule/#aml-injection-attacks-on-confidential-vms-42723>\n- <https://dl.acm.org/doi/pdf/10.1145/3719027.3765123>\n\n## Impact\n\nAn attacker with control over the host (which is assumed in the attacker model of Contrast) can execute malicious AML code to gain arbitrary code execution within the confidential guest.\n\nAML is byte code embedded in ACPI tables that are passed from the host (QEMU) to the guest firmware (OVMF), and then passed from OVMF to the Linux kernel. The Linux kernel has an interpreter that executes the AML code. An attacker can craft a table with malicious AML code and the kernel will execute it. AML is Turing-complete and the interpreter has access to the full guest memory, including private pages.\n\nSee the [paper](https://dl.acm.org/doi/pdf/10.1145/3719027.",
+      "cvss_score": 8.4,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-94"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/edgelesssys/contrast"
+      ],
+      "published": "2026-03-26T19:49:27Z",
+      "updated": "2026-03-26T19:49:28Z",
+      "url": "https://github.com/advisories/GHSA-g9ww-x58f-9g6m",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/edgelesssys/contrast/security/advisories/GHSA-g9ww-x58f-9g6m",
+        "https://blackhat.com/eu-24/briefings/schedule/#aml-injection-attacks-on-confidential-vms-42723",
+        "https://dl.acm.org/doi/pdf/10.1145/3719027.3765123",
+        "https://github.com/advisories/GHSA-g9ww-x58f-9g6m"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-cxmw-p77q-wchg",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Arbitrary code execution via unvalidated WebView JavascriptInterface",
+      "description": "## Summary\nAndroid Canvas WebView pages from untrusted origins could invoke the JavascriptInterface bridge and inject instructions into the app.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: < 2026.3.22\n- Fixed: >= 2026.3.22\n- Latest released tag checked: `v2026.3.23-2` (`630f1479c44f78484dfa21bb407cbe6f171dac87`)\n- Latest published npm version checked: `2026.3.23-2`\n\n## Fix Commit(s)\n- `8b02ef133275be96d8aac2283100016c8a7f32e5`\n\n## Release Status\nThe fix shipped in `v2026.3.22` and remains present in `v2026.3.23` and `v2026.3.23-2`.\n\n## Code-Level Confirmation\n- apps/android/app/src/main/java/ai/openclaw/app/ui/CanvasScreen.kt now snapshots page origin and rejects untrusted bridge calls.\n- apps/android/app/src/main/java/ai/openclaw/app/node/CanvasActionTrust.kt centralizes trusted origin and path validation for the bridge.\n\nOpenClaw thanks @cyjhhh for reporting.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-77",
+        "CWE-940"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-26T19:30:52Z",
+      "updated": "2026-03-26T19:30:56Z",
+      "url": "https://github.com/advisories/GHSA-cxmw-p77q-wchg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-cxmw-p77q-wchg",
+        "https://github.com/openclaw/openclaw/commit/630f1479c44f78484dfa21bb407cbe6f171dac87",
+        "https://github.com/advisories/GHSA-cxmw-p77q-wchg"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-qm9x-v7cx-7rq4",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw's system.run allowlist can be bypassed through an unregistered time dispatch wrapper",
+      "description": "## Summary\nAllow-always exec approvals did not unwrap /usr/bin/time, so an unregistered time wrapper could bypass executable binding and reuse approval state for the inner command.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: < 2026.3.22\n- Fixed: >= 2026.3.22\n- Latest released tag checked: `v2026.3.23-2` (`630f1479c44f78484dfa21bb407cbe6f171dac87`)\n- Latest published npm version checked: `2026.3.23-2`\n\n## Fix Commit(s)\n- `39409b6a6dd4239deea682e626bac9ba547bfb14`\n\n## Release Status\nThe fix shipped in `v2026.3.22` and remains present in `v2026.3.23` and `v2026.3.23-2`.\n\n## Code-Level Confirmation\n- src/infra/dispatch-wrapper-resolution.ts now unwraps /usr/bin/time and binds approvals to the real inner executable.\n- src/infra/exec-approvals-allow-always.test.ts ships regression coverage for time-wrapper allow-always approval bypasses.\n\nOpenClaw thanks @YLChen-007 for reporting.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-26T19:08:45Z",
+      "updated": "2026-03-26T19:08:47Z",
+      "url": "https://github.com/advisories/GHSA-qm9x-v7cx-7rq4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-qm9x-v7cx-7rq4",
+        "https://github.com/openclaw/openclaw/commit/39409b6a6dd4239deea682e626bac9ba547bfb14",
+        "https://github.com/advisories/GHSA-qm9x-v7cx-7rq4"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-65h8-27jh-q8wv",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Nostr inbound DMs could trigger unauthenticated crypto work before sender policy enforcement",
+      "description": "## Summary\nNostr inbound DM handling could perform crypto and dispatch work before sender and pairing policy enforcement, enabling unauthorized pre-auth computation.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: < 2026.3.22\n- Fixed: >= 2026.3.22\n- Latest released tag checked: `v2026.3.23-2` (`630f1479c44f78484dfa21bb407cbe6f171dac87`)\n- Latest published npm version checked: `2026.3.23-2`\n\n## Fix Commit(s)\n- `1ee9611079e81b9122f4bed01abb3d9f56206c77`\n\n## Release Status\nThe fix shipped in `v2026.3.22` and remains present in `v2026.3.23` and `v2026.3.23-2`.\n\n## Code-Level Confirmation\n- extensions/nostr/src/channel.ts now performs authorization before decrypting and dispatching inbound DM content.\n- extensions/nostr/src/nostr-bus.ts adds pre-crypto authorization, size, and rate guardrails before expensive decrypt work.\n\nOpenClaw thanks @kuranikaran for reporting.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-26T19:08:34Z",
+      "updated": "2026-03-26T19:08:35Z",
+      "url": "https://github.com/advisories/GHSA-65h8-27jh-q8wv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-65h8-27jh-q8wv",
+        "https://github.com/openclaw/openclaw/commit/1ee9611079e81b9122f4bed01abb3d9f56206c77",
+        "https://github.com/advisories/GHSA-65h8-27jh-q8wv"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-wv46-v6xc-2qhf",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Synology Chat reply delivery could be rebound through username-based user resolution.",
+      "description": "## Summary\nSynology Chat reply delivery could rebind to a mutable username match instead of the stable numeric user_id recorded by the webhook event.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: < 2026.3.22\n- Fixed: >= 2026.3.22\n- Latest released tag checked: `v2026.3.23-2` (`630f1479c44f78484dfa21bb407cbe6f171dac87`)\n- Latest published npm version checked: `2026.3.23-2`\n\n## Fix Commit(s)\n- `7ade3553b74ee3f461c4acd216653d5ba411f455`\n\n## Release Status\nThe fix shipped in `v2026.3.22` and remains present in `v2026.3.23` and `v2026.3.23-2`.\n\n## Code-Level Confirmation\n- extensions/synology-chat/src/webhook-handler.ts now keeps replies bound to the stable webhook user identifier unless an explicit dangerous opt-in is enabled.\n- extensions/synology-chat/src/config-schema.ts contains the explicit dangerous opt-in seam instead of silent username rebinding.\n\nOpenClaw thanks @nexrin for reporting.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-639",
+        "CWE-706"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-26T19:08:16Z",
+      "updated": "2026-03-26T19:08:19Z",
+      "url": "https://github.com/advisories/GHSA-wv46-v6xc-2qhf",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-wv46-v6xc-2qhf",
+        "https://github.com/openclaw/openclaw/commit/7ade3553b74ee3f461c4acd216653d5ba411f455",
+        "https://github.com/advisories/GHSA-wv46-v6xc-2qhf"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-wq58-2pvg-5h4f",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Gateway agent /reset exposes admin session reset to operator.write callers",
+      "description": "## Summary\nBefore `v2026.3.23`, the Gateway `agent` RPC accepted `/reset` and `/new` for callers with only `operator.write`, even though the direct `sessions.reset` RPC correctly requires `operator.admin`.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: `< 2026.3.23`\n- Fixed: `>= 2026.3.23`\n- Latest released tag checked: `v2026.3.23-2` (`630f1479c44f78484dfa21bb407cbe6f171dac87`)\n- Latest published npm version checked: `2026.3.23-2`\n\n## Root Cause\nThe vulnerable path lived in `src/gateway/server-methods/agent.ts`. A `/reset` or `/new` message with an explicit `sessionKey` reached `performGatewaySessionReset(...)` without enforcing the same `operator.admin` guard used by `sessions.reset`.\n\n## Fix Commit(s)\n- `50f6a2f136fed85b58548a38f7a3dbb98d2cd1a0` \u2014 `fix(gateway): require admin for agent session reset`\n\n## Release Status\nThe fix commit is contained in released tags `v2026.3.23` and `v2026.3.23-2`. The latest shipped tag and npm release both include the fix.\n\n",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-862"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-26T19:00:45Z",
+      "updated": "2026-03-26T19:00:48Z",
+      "url": "https://github.com/advisories/GHSA-wq58-2pvg-5h4f",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-wq58-2pvg-5h4f",
+        "https://github.com/openclaw/openclaw/commit/50f6a2f136fed85b58548a38f7a3dbb98d2cd1a0",
+        "https://github.com/advisories/GHSA-wq58-2pvg-5h4f"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-cg6c-q2hx-69h7",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw: Plivo V2 verified replay identity drifts on query-only variants",
+      "description": "## Summary\nBefore `v2026.3.23`, the Plivo V2 verification path treated query-only variants of the same signed request as fresh verified work. Plivo V2 signatures authenticate `baseUrl + nonce`, but the replay key was derived from the full verification URL including the query string, so unsigned query-only changes minted a new `verifiedRequestKey`.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Affected: `< 2026.3.23`\n- Fixed: `>= 2026.3.23`\n- Latest released tag checked: `v2026.3.23-2` (`630f1479c44f78484dfa21bb407cbe6f171dac87`)\n- Latest published npm version checked: `2026.3.23-2`\n\n## Root Cause\nThe vulnerable logic lived in `extensions/voice-call/src/webhook-security.ts`. V2 signature validation already canonicalized to the base URL without query parameters, but the replay key used the full `verificationUrl`, letting query-only variants bypass replay identity stability.\n\n## Fix Commit(s)\n- `b0ce53a79cf63834660270513e26d921899b4e5b` \u2014 `fix(voice-call): stabilize plivo",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-294"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-03-26T18:56:32Z",
+      "updated": "2026-03-26T18:56:32Z",
+      "url": "https://github.com/advisories/GHSA-cg6c-q2hx-69h7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-cg6c-q2hx-69h7",
+        "https://github.com/openclaw/openclaw/commit/b0ce53a79cf63834660270513e26d921899b4e5b",
+        "https://github.com/advisories/GHSA-cg6c-q2hx-69h7"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-w9fj-cfpg-grvv",
+      "cve_id": "CVE-2026-33871",
+      "severity": "HIGH",
+      "summary": "Netty HTTP/2 CONTINUATION Frame Flood DoS via Zero-Byte Frame Bypass",
+      "description": "### Summary\nA remote user can trigger a Denial of Service (DoS) against a Netty HTTP/2 server by sending a flood of `CONTINUATION` frames. The server's lack of a limit on the number of `CONTINUATION` frames, combined with a bypass of existing size-based mitigations using zero-byte frames, allows an user to cause excessive CPU consumption with minimal bandwidth, rendering the server unresponsive.\n\n### Details\nThe vulnerability exists in Netty's `DefaultHttp2FrameReader`. When an HTTP/2 `HEADERS` frame is received without the `END_HEADERS` flag, the server expects one or more subsequent `CONTINUATION` frames. However, the implementation does not enforce a limit on the *count* of these `CONTINUATION` frames.\n\nThe key issue is located in `codec-http2/src/main/java/io/netty/handler/codec/http2/DefaultHttp2FrameReader.java`. The `verifyContinuationFrame()` method checks for stream association but fails to implement a frame count limit.\n\nAny user can exploit this by sending a stream of `CONTI",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "maven",
+        "maven"
+      ],
+      "packages": [
+        "io.netty:netty-codec-http2",
+        "io.netty:netty-codec-http2"
+      ],
+      "published": "2026-03-26T18:49:21Z",
+      "updated": "2026-03-26T18:49:21Z",
+      "url": "https://github.com/advisories/GHSA-w9fj-cfpg-grvv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/netty/netty/security/advisories/GHSA-w9fj-cfpg-grvv",
+        "https://github.com/advisories/GHSA-w9fj-cfpg-grvv"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-pwqr-wmgm-9rr8",
+      "cve_id": "CVE-2026-33870",
+      "severity": "HIGH",
+      "summary": "Netty: HTTP Request Smuggling via Chunked Extension Quoted-String Parsing",
+      "description": "## Summary\n\nNetty incorrectly parses quoted strings in HTTP/1.1 chunked transfer encoding extension values, enabling request smuggling attacks.\n\n## Background\n\nThis vulnerability is a new variant discovered during research into the \"Funky Chunks\" HTTP request smuggling techniques:\n\n- <https://w4ke.info/2025/06/18/funky-chunks.html>\n- <https://w4ke.info/2025/10/29/funky-chunks-2.html>\n\nThe original research tested various chunk extension parsing differentials but did not cover quoted-string handling within extension values.\n\n## Technical Details\n\n**RFC 9110 Section 7.1.1** defines chunked transfer encoding:\n\n```\nchunk = chunk-size [ chunk-ext ] CRLF chunk-data CRLF\nchunk-ext = *( BWS \";\" BWS chunk-ext-name [ BWS \"=\" BWS chunk-ext-val ] )\nchunk-ext-val = token / quoted-string\n```\n\n**RFC 9110 Section 5.6.4** defines quoted-string:\n\n```\nquoted-string = DQUOTE *( qdtext / quoted-pair ) DQUOTE\n```\n\nCritically, the allowed character ranges within a quoted-string are:\n\n```\nqdtext = HTAB / SP /",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-444"
+      ],
+      "ecosystems": [
+        "maven",
+        "maven"
+      ],
+      "packages": [
+        "io.netty:netty-codec-http",
+        "io.netty:netty-codec-http"
+      ],
+      "published": "2026-03-26T18:48:55Z",
+      "updated": "2026-03-26T18:48:56Z",
+      "url": "https://github.com/advisories/GHSA-pwqr-wmgm-9rr8",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/netty/netty/security/advisories/GHSA-pwqr-wmgm-9rr8",
+        "https://w4ke.info/2025/06/18/funky-chunks.html",
+        "https://w4ke.info/2025/10/29/funky-chunks-2.html",
+        "https://www.rfc-editor.org/rfc/rfc9110",
+        "https://github.com/advisories/GHSA-pwqr-wmgm-9rr8"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4vrq-3vrq-g6gg",
+      "cve_id": "CVE-2026-33748",
+      "severity": "HIGH",
+      "summary": "BuildKit Git URL subdir component can cause access to restricted files",
+      "description": "### Impact\nInsufficient validation of Git URL fragment subdir components (`<url>#<ref>:<subdir>`, [docs](https://docs.docker.com/build/concepts/context/#url-fragments)) may allow access to files outside the checked-out Git repository root. Possible access is limited to files on the same mounted filesystem.\n\n### Patches\nThe issue has been fixed in version v0.28.1\n\n### Workarounds\nThe issue affects only builds that use Git URLs with a subpath component. Avoid building Dockerfiles from untrusted sources or using the subdir component from an untrusted Git repository where the subdir component could point to a symlink.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22",
+        "CWE-59"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/moby/buildkit"
+      ],
+      "published": "2026-03-26T18:27:49Z",
+      "updated": "2026-03-26T18:27:50Z",
+      "url": "https://github.com/advisories/GHSA-4vrq-3vrq-g6gg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/moby/buildkit/security/advisories/GHSA-4vrq-3vrq-g6gg",
+        "https://docs.docker.com/build/concepts/context/#url-fragments",
+        "https://github.com/moby/buildkit/releases/tag/v0.28.1",
+        "https://github.com/advisories/GHSA-4vrq-3vrq-g6gg"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4c29-8rgm-jvjj",
+      "cve_id": "CVE-2026-33747",
+      "severity": "HIGH",
+      "summary": "BuildKit's Malicious frontend can cause file escape outside of storage root",
+      "description": "### Impact\nWhen using a custom BuildKit frontend, the frontend can craft an API message that causes files to be written outside of the BuildKit state directory for the execution context.\n\n### Patches\nThe issue has been fixed in v0.28.1+\n\n### Workarounds\nIssue requires using an untrusted BuildKit frontend set with `#syntax` or `--build-arg BUILDKIT_SYNTAX`. Using these options with a well-known frontend image like `docker/dockerfile` is not affected.",
+      "cvss_score": 8.4,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/moby/buildkit"
+      ],
+      "published": "2026-03-26T18:26:09Z",
+      "updated": "2026-03-26T18:26:09Z",
+      "url": "https://github.com/advisories/GHSA-4c29-8rgm-jvjj",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/moby/buildkit/security/advisories/GHSA-4c29-8rgm-jvjj",
+        "https://github.com/moby/buildkit/releases/tag/v0.28.1",
+        "https://github.com/advisories/GHSA-4c29-8rgm-jvjj"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-rwcr-rpcc-3g9m",
+      "cve_id": "CVE-2026-33872",
+      "severity": "HIGH",
+      "summary": "Ielixir-nodejs has Cross-User Data Leakage or Information Disclosure due to Worker Protocol Race Condition",
+      "description": "### Impact\n\nThis vulnerability results in Cross-User Data Leakage or Information Disclosure due to a race condition in the worker protocol.\n\nThe lack of request-response correlation creates a \"stale response\" vulnerability. Because the worker does not verify which request a response belongs to, it may return the next available data in the buffer to an unrelated caller.\n\nIn high-throughput environments where the library processes sensitive user data (e.g., PII, authentication tokens, or private records), a timeout or high concurrent load can cause Data A (belonging to User A) to be returned to User B.\n\nThis may lead to unauthorized information disclosure that is difficult to trace, as the application may not throw an error but instead provide \"valid-looking\" yet entirely incorrect and private data to the wrong session.\n\n### Patches\n\nfixed in v3.1.4\n\n### Resources\nhttps://github.com/revelrylabs/elixir-nodejs/issues/100\n\nhttps://github.com/revelrylabs/elixir-nodejs/pull/105",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-362"
+      ],
+      "ecosystems": [
+        "erlang"
+      ],
+      "packages": [
+        "nodejs"
+      ],
+      "published": "2026-03-26T18:23:01Z",
+      "updated": "2026-03-26T18:23:02Z",
+      "url": "https://github.com/advisories/GHSA-rwcr-rpcc-3g9m",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/revelrylabs/elixir-nodejs/security/advisories/GHSA-rwcr-rpcc-3g9m",
+        "https://github.com/revelrylabs/elixir-nodejs/issues/100",
+        "https://github.com/revelrylabs/elixir-nodejs/pull/105",
+        "https://github.com/revelrylabs/elixir-nodejs/releases/tag/v3.1.4",
+        "https://github.com/advisories/GHSA-rwcr-rpcc-3g9m"
+      ]
+    }
+  ],
   "urlhaus_iocs": [],
   "kev_stats": {
     "total_kev_entries": 1553,
@@ -385,7 +817,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-03-26T17:06:48.274436+00:00",
+    "catalog_version": "2026-03-26T20:39:39.548950+00:00",
     "source": "CISA KEV"
   }
 }

@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-eb1123a9475a
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "800,000 WordPress Sites Affected by Arbitrary File Read Vulnerability in Smart Slider 3 WordPress Plugin"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
