@@ -1,0 +1,14 @@
+{
+  "threat_id": "thr-a73017f0eee9",
+  "title": "Shadow Agents: How SentinelOne Secures the AI Tools That Act Like Users",
+  "scripts": [
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx dst\\.ip\\.address|dst\\.port\\.number|e\\.trim|endpoint\\.name|event\\.time|event\\.type|g\\.length|src\\.ip\\.address|src\\.port\\.number|src\\.process\\.cmdline\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-a73017f0eee9'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((query IN (\"dst.ip.address\",\"dst.port.number\",\"e.trim\",\"endpoint.name\",\"event.time\",\"event.type\",\"g.length\",\"src.ip.address\",\"src.port.number\",\"src.process.cmdline\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    }
+  ]
+}
