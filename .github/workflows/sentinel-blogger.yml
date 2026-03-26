@@ -49,7 +49,7 @@ concurrency:
 env:
   # [FIX-09] Force Node.js 24 for all actions — eliminates DEP0169 + deprecation warnings
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::UserWarning,ignore::RequestsDependencyWarning"
+  PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::UserWarning"
   PYTHONDONTWRITEBYTECODE: "1"
   PYTHONUNBUFFERED: "1"
   TZ: "UTC"
@@ -456,20 +456,36 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit — pipeline data unchanged"
           else
-            # Clean up any stale rebase state
-            rm -rf .git/rebase-merge 2>/dev/null || true
+            # Clean up any stale rebase/merge state from previous failed runs
+            rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
             git commit -m "v77.0 Pipeline data [skip ci]" --no-verify
 
-            # Retry push with rebase on conflict
+            # v77.2 FIX: Robust push with fetch+reset strategy.
+            # ROOT CAUSE of #567 failure: rebase hits content conflict on
+            # data/status/status.json when two runs overlap. Rebase cannot
+            # auto-resolve JSON content conflicts.
+            # FIX: fetch + reset --soft origin/main so remote is the base,
+            # then re-commit our pipeline data on top cleanly — no conflicts.
             for attempt in 1 2 3; do
-              git fetch origin main --quiet
               if git push origin main; then
                 echo "✓ Pushed to main (attempt $attempt)"
                 break
+              elif [ $attempt -lt 3 ]; then
+                echo "Push attempt $attempt failed — fetching and re-applying..."
+                git fetch origin main --quiet
+                # Save our pipeline changes as a patch
+                git diff HEAD origin/main > /tmp/pipeline.patch || true
+                # Reset to remote HEAD (non-destructive — keeps working tree)
+                git reset --soft origin/main
+                # Re-stage all pipeline output files
+                git add --all
+                # Re-commit on top of fresh remote HEAD
+                git diff --staged --quiet || \
+                  git commit -m "v77.0 Pipeline data [skip ci]" --no-verify
               else
-                echo "Push attempt $attempt failed — rebasing..."
-                git rebase origin/main || { git rebase --abort; exit 1; }
+                echo "ERROR: All push attempts failed" >&2
+                exit 1
               fi
             done
           fi
