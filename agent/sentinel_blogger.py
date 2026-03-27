@@ -363,6 +363,21 @@ def main():
     logger.info("=" * 70)
     logger.info(f"APEX v21.0 COMPLETE - Published {published_count} PREMIUM advisories")
 
+    # [R-07] Telegram pipeline summary — fires once per run, non-blocking
+    try:
+        _critical_count = sum(
+            1 for e in _telemetry._run_data.get("entries", [])
+            if e.get("risk_score", 0) >= 9.0
+        ) if (_TELEMETRY_OK and _telemetry and hasattr(_telemetry, "_run_data")) else 0
+        send_pipeline_summary(
+            published=published_count,
+            failed=0,
+            critical=_critical_count,
+            run_ts=time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()),
+        )
+    except Exception:
+        pass  # Never crash pipeline on Telegram failure
+
     # -- Predictive trend analysis ------------------------------------------
     if _PREDICTIVE_OK and _trend_model:
         try:
