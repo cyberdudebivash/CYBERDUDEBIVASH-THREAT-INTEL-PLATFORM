@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: Telnyx PyPI Package With 742,000 downloads Compromised in TeamPCP Supply Chain Attack
-:: Generated: 2026-03-27 20:42:56 UTC
+:: Generated: 2026-03-27 16:59:02 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================
