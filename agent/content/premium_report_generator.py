@@ -53,7 +53,7 @@ class PremiumReportGenerator:
 
         Stage 2 — Brotli/compressed data decoded as Latin-1 (the main junk source):
             Brotli-as-Latin-1 produces printable-looking garbage like:
-            "Y1T;]H|M-Cu`wGr2/b/LV]Z]9w?]\~:?>_GU'w>ru7b{??}"
+            "Y1T;]H|M-Cu`wGr2/b/LV]Z]9w?]\\~:?>_GU'w>ru7b{??}"
             Real English text has <20% punctuation/symbol density.
             Brotli garbage has 40-70% punctuation/symbols (`;]|` `~:?>` `{??}`).
             Gate: if >22% of chars are non-alphanumeric non-space punctuation → reject.

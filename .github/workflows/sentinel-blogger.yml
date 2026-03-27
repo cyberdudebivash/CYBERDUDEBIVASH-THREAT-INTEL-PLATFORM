@@ -69,6 +69,11 @@ env:
   PYTHONDONTWRITEBYTECODE: "1"
   PYTHONUNBUFFERED: "1"
   TZ: "UTC"
+  # [FIX-R05] Job-level propagation — silences oauth2client file_cache warning
+  # GOOGLE_OAUTH_DISABLE_FILE_CACHE must be set at global env level so it is
+  # inherited by ALL steps AND all subprocesses before any Python import occurs.
+  # Setting it only in Stage 1 step env was too late — module already imported.
+  GOOGLE_OAUTH_DISABLE_FILE_CACHE: "1"
 
 jobs:
   publish-threat-report:
@@ -454,19 +459,29 @@ jobs:
             # Run #567 failed because: rebase hit content conflict in status.json
             # when two pipeline runs overlapped. Rebase cannot auto-resolve JSON.
             # FIX: fetch + reset --soft keeps our data, puts it on fresh remote HEAD.
-            for attempt in 1 2 3; do
+            # [FIX-R04] Hardened push — 4 attempts, exponential backoff (10s/20s/30s),
+            # always-fresh fetch+reset before each attempt prevents stale ref conflicts.
+            # Empty-commit guard prevents "nothing to commit" being treated as failure.
+            MAX_ATTEMPTS=4
+            for attempt in 1 2 3 4; do
+              echo "=== Push attempt $attempt / $MAX_ATTEMPTS ==="
+              git fetch origin main --quiet
+              git reset --soft origin/main
+              git add --all
+              if git diff --staged --quiet; then
+                echo "✓ Nothing new to commit — dashboard already current"
+                break
+              fi
+              git commit -m "v77.0 Pipeline data [skip ci]" --no-verify
               if git push origin main; then
                 echo "✓ Pushed to main (attempt $attempt)"
                 break
-              elif [ $attempt -lt 3 ]; then
-                echo "Push attempt $attempt failed — fetching and re-applying..."
-                git fetch origin main --quiet
-                git reset --soft origin/main
-                git add --all
-                git diff --staged --quiet || \
-                  git commit -m "v77.0 Pipeline data [skip ci]" --no-verify
+              elif [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+                SLEEP_SEC=$((attempt * 10))
+                echo "Push failed — retrying in ${SLEEP_SEC}s (exponential backoff)..."
+                sleep $SLEEP_SEC
               else
-                echo "ERROR: All push attempts failed" >&2
+                echo "ERROR: All $MAX_ATTEMPTS push attempts exhausted" >&2
                 exit 1
               fi
             done
