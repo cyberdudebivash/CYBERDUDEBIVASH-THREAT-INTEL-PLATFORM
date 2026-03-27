@@ -394,6 +394,12 @@ let ALL_DATA = [];
 let FILTERED  = [];
 let CURRENT_FILTER = 'all';
 
+// Live API URL — Railway production
+const API_BASE = 'https://cyberdudebivash-threat-intel-platform-production.up.railway.app';
+const API_FEED = `${API_BASE}/api/v1/intel/feed?limit=500`;
+const API_STATS= `${API_BASE}/api/v1/stats`;
+const FEED_FALLBACK = '../api/feed.json';  // Static fallback if API down
+
 const SEV_COLOR = {
   CRITICAL: 'var(--red)', HIGH: 'var(--orange)',
   MEDIUM: 'var(--accent3)', LOW: 'var(--muted)'
@@ -405,15 +411,28 @@ const TLP_COLOR = {
 
 async function loadData() {
   try {
-    const r = await fetch('../api/feed.json');
-    const d = await r.json();
-    ALL_DATA = d.data || [];
+    // Try live Railway API first
+    const r = await fetch(API_FEED);
+    if (r.ok) {
+      const d = await r.json();
+      ALL_DATA = d.data || [];
+      console.log(`[API] Loaded ${ALL_DATA.length} advisories from Railway API`);
+    } else {
+      throw new Error(`API returned ${r.status}`);
+    }
   } catch(e) {
-    // Try manifest fallback
+    console.warn(`[API] Railway API unavailable (${e.message}), using static fallback`);
     try {
-      const r2 = await fetch('../data/stix/feed_manifest.json');
-      ALL_DATA  = await r2.json();
-    } catch(e2) { ALL_DATA = []; }
+      const r2 = await fetch(FEED_FALLBACK);
+      const d2 = await r2.json();
+      ALL_DATA = d2.data || [];
+      console.log(`[FALLBACK] Loaded ${ALL_DATA.length} advisories from static feed`);
+    } catch(e2) {
+      try {
+        const r3 = await fetch('../data/stix/feed_manifest.json');
+        ALL_DATA = await r3.json();
+      } catch(e3) { ALL_DATA = []; }
+    }
   }
   computeMetrics();
   applyFilter(CURRENT_FILTER);
