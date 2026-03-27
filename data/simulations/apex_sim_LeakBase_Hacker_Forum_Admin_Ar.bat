@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: LeakBase Hacker Forum Admin Arrested in Russia by Law Enforcement Authorities
-:: Generated: 2026-03-26 20:39:43 UTC
+:: Generated: 2026-03-27 02:41:31 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================
