@@ -1,0 +1,9 @@
+{
+  "threat_id": "thr-58cfee4d0cd8",
+  "title": "Hackers Use USB Malware, RATs, and Stealers in Espionage Attacks on Southeast As",
+  "rules": {
+    "yara": "rule CDB_APEX_Hackers_Use_USB_Malware__RATs__and_Steal {\n    meta:\n        description = \"Hackers Use USB Malware, RATs, and Stealers in Espionage Att\"\n        author = \"CyberDudeBivash\"\n    strings:\n        $h0 = \"4b29b74798a4e6538f2ba245c57be82953383dc91fe0a91b984b903d12043e92\" ascii nocase\n    condition:\n        any of them\n}",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"file.hash.sha256\": [\n              \"4b29b74798a4e6538f2ba245c57be82953383dc91fe0a91b984b903d12043e92\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}"
+  },
+  "rule_count": 2
+}
