@@ -47,6 +47,7 @@ from agent.integrations.actor_matrix import actor_matrix
 from agent.integrations.detection_engine import detection_engine
 from agent.content.premium_report_generator import premium_report_gen
 from agent.content.source_fetcher import source_fetcher
+from agent.telegram_alerts import send_threat_alert, send_pipeline_summary
 from agent.config import (
     BLOG_ID as CONFIG_BLOG_ID,
     CDB_RSS_FEED,
@@ -718,6 +719,13 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
                 nvd_url=nvd_url,
             )
             dedup_engine.mark_processed(headline, entry.get("link", ""))
+            # [R-07] Telegram alert — non-blocking, fires on HIGH/CRITICAL only
+            send_threat_alert(
+                title=headline, risk=risk_score, url=live_blog_url,
+                cves=[c for c in re.findall(r'CVE-\d{4}-\d+', enriched_content or "")[:3]],
+                ioc_count=sum(ioc_counts.values()) if isinstance(ioc_counts, dict) else 0,
+                feed_source=feed_source,
+            )
             return True
         except Exception as e:
             logger.error(f"  [X] PUBLISH FAILURE: {e}")
