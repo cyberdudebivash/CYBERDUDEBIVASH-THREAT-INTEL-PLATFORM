@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-enterprise_firehose.py — CyberDudeBivash v30.0 (APEX WEBSOCKET FIREHOSE)
+enterprise_firehose.py - CyberDudeBivash v30.0 (APEX WEBSOCKET FIREHOSE)
 Author: CYBERGOD / TECH GOD
 Description: Ultra-low latency WebSocket server for Enterprise clients. 
              Streams STIX 2.1 JSON payloads in real-time as they are created.

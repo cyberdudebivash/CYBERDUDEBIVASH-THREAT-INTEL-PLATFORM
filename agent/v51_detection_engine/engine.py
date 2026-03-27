@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX v51 — Detection Engine
+CYBERDUDEBIVASH SENTINEL APEX v51 - Detection Engine
 Automated detection rule generation from intelligence feeds.
 
 Reads IOC data from existing STIX bundles and feed manifests,
@@ -570,7 +570,7 @@ class SuricataGenerator:
         if not rule_lines:
             return []
 
-        content = f"# CDB SENTINEL APEX v51 — Auto-Generated Suricata Rules\n"
+        content = f"# CDB SENTINEL APEX v51 - Auto-Generated Suricata Rules\n"
         content += f"# Batch: {batch_id} | Generated: {ts}\n"
         content += f"# IOC Count: {sum(len(v) for v in by_type.values())}\n"
         content += f"# Source: https://intel.cyberdudebivash.com\n\n"
@@ -609,7 +609,7 @@ class DetectionEngine:
         start_time = datetime.now(timezone.utc)
         batch_id = hashlib.md5(start_time.isoformat().encode()).hexdigest()[:12]
 
-        logger.info(f"Detection Engine v51 starting — batch {batch_id}")
+        logger.info(f"Detection Engine v51 starting - batch {batch_id}")
 
         # Phase 1: Extract IOCs
         logger.info("[1/4] Extracting IOCs from intelligence feeds")
@@ -625,9 +625,9 @@ class DetectionEngine:
                 seen.add(key)
                 all_iocs.append(ioc)
 
-        logger.info(f"  → {len(all_iocs)} unique IOCs extracted")
+        logger.info(f"  -> {len(all_iocs)} unique IOCs extracted")
         if not all_iocs:
-            logger.warning("No IOCs found — aborting rule generation")
+            logger.warning("No IOCs found - aborting rule generation")
             return {"status": "no_iocs", "batch_id": batch_id}
 
         # Phase 2: Generate Sigma rules
@@ -635,21 +635,21 @@ class DetectionEngine:
         sigma_rules = self.sigma_gen.generate(all_iocs, batch_id)
         for rule in sigma_rules:
             self._write_rule(SIGMA_DIR / rule.filename, rule.content)
-        logger.info(f"  → {len(sigma_rules)} Sigma rules generated")
+        logger.info(f"  -> {len(sigma_rules)} Sigma rules generated")
 
         # Phase 3: Generate YARA rules
         logger.info("[3/4] Generating YARA rules")
         yara_rules = self.yara_gen.generate(all_iocs, batch_id)
         for rule in yara_rules:
             self._write_rule(YARA_DIR / rule.filename, rule.content)
-        logger.info(f"  → {len(yara_rules)} YARA rules generated")
+        logger.info(f"  -> {len(yara_rules)} YARA rules generated")
 
         # Phase 4: Generate Suricata rules
         logger.info("[4/4] Generating Suricata rules")
         suricata_rules = self.suricata_gen.generate(all_iocs, batch_id)
         for rule in suricata_rules:
             self._write_rule(SURICATA_DIR / rule.filename, rule.content)
-        logger.info(f"  → {len(suricata_rules)} Suricata rule sets generated")
+        logger.info(f"  -> {len(suricata_rules)} Suricata rule sets generated")
 
         # Build manifest
         all_rules = sigma_rules + yara_rules + suricata_rules

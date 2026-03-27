@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — NLP Module
+SENTINEL APEX v27.0 - NLP Module
 =================================
 AI-powered threat intelligence analysis.
 """

@@ -1,7 +1,7 @@
 """
 CDB-SENTINEL Weekly CVE Mega-Report Orchestrator v3.0
 Fetches, ranks, formats, and publishes the weekly top-exploited CVE report.
-© 2026 CyberDudeBivash Pvt Ltd — All rights reserved.
+(C) 2026 CyberDudeBivash Pvt Ltd - All rights reserved.
 """
 
 import os
@@ -53,13 +53,13 @@ def run():
     result = publish_post(
         service=service,
         blog_id=blog_id,
-        title="Weekly Top Exploited CVEs — Cyber Threat Intelligence Mega-Report | CyberDudeBivash",
+        title="Weekly Top Exploited CVEs - Cyber Threat Intelligence Mega-Report | CyberDudeBivash",
         content=content,
         labels=["Weekly Report", "CVE", "Threat Intelligence", "CyberDudeBivash", "2026"],
         is_draft=False,
     )
 
-    logger.info(f"✅ Weekly report published: {result.get('url')}")
+    logger.info(f"? Weekly report published: {result.get('url')}")
     return result
 
 

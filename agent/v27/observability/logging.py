@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — Structured Logging
+SENTINEL APEX v27.0 - Structured Logging
 =========================================
 JSON structured logging with correlation IDs.
 

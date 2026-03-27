@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-revenue_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v44.0
+revenue_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v44.0
 CENTRAL REVENUE ORCHESTRATION ENGINE
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 
 Handles usage-based billing logic, unit calculations, and transaction orchestration.
 """

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-metrics.py — CyberDudeBivash SENTINEL APEX v17.0
+metrics.py - CyberDudeBivash SENTINEL APEX v17.0
 PLATFORM METRICS ENGINE
 
 Aggregates and exposes platform-wide performance metrics.

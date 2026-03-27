@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-ai_subsystems.py — CYBERDUDEBIVASH® SENTINEL APEX v36.0 (OMNISHIELD)
+ai_subsystems.py - CYBERDUDEBIVASH(R) SENTINEL APEX v36.0 (OMNISHIELD)
 ======================================================================
 Six AI-powered defense subsystems operating on existing platform data.
 
-S1 — AI Context Engine: Cross-source correlation + incident narrative generation
-S2 — Behavioral Anomaly Detection: Statistical baseline + anomaly scoring
-S3 — Agentic Security AI: Incident triage + defense recommendation generation
-S4 — AI Security Posture: Pipeline integrity + prompt injection detection
-S6 — AI Threat Countermeasures: AI-phishing/deepfake/malware pattern detection
-S10 — Synthetic Threat Training: Attack scenario generation for detection tuning
+S1 - AI Context Engine: Cross-source correlation + incident narrative generation
+S2 - Behavioral Anomaly Detection: Statistical baseline + anomaly scoring
+S3 - Agentic Security AI: Incident triage + defense recommendation generation
+S4 - AI Security Posture: Pipeline integrity + prompt injection detection
+S6 - AI Threat Countermeasures: AI-phishing/deepfake/malware pattern detection
+S10 - Synthetic Threat Training: Attack scenario generation for detection tuning
 
 Non-Breaking: Reads from manifest, fusion, ZDH data. Writes to data/omnishield/ai/.
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os, re, json, math, hashlib, logging, statistics
@@ -38,9 +38,9 @@ def _entries() -> List[Dict]:
     return d if isinstance(d, list) else (d.get("entries", []) if d else [])
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S1 — AI CONTEXT ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S1 - AI CONTEXT ENGINE
+# ===============================================================================
 
 class AIContextEngine:
     """Correlates intelligence across manifest, fusion, and ZDH to build incident narratives."""
@@ -121,9 +121,9 @@ class AIContextEngine:
         return " ".join(parts)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S2 — BEHAVIORAL ANOMALY DETECTION
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S2 - BEHAVIORAL ANOMALY DETECTION
+# ===============================================================================
 
 class BehavioralAnomalyDetector:
     """Statistical baseline modeling + anomaly detection on platform telemetry."""
@@ -186,22 +186,22 @@ class BehavioralAnomalyDetector:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S3 — AGENTIC SECURITY AI
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S3 - AGENTIC SECURITY AI
+# ===============================================================================
 
 class AgenticSecurityAI:
     """Incident triage, defense recommendations, and detection rule generation."""
 
     TRIAGE_MATRIX = {
-        (True, True, True): ("P1_CRITICAL", "Immediate IR activation — active zero-day with actor attribution"),
-        (True, True, False): ("P1_CRITICAL", "Confirmed exploitation with actor — escalate to SOC Tier 3"),
-        (True, False, True): ("P2_HIGH", "Zero-day signal without attribution — deploy detection rules"),
-        (True, False, False): ("P2_HIGH", "Active exploitation detected — prioritize patching"),
-        (False, True, True): ("P2_HIGH", "Actor activity with zero-day signal — increase hunting"),
-        (False, True, False): ("P3_MEDIUM", "Actor activity observed — monitor and track"),
-        (False, False, True): ("P3_MEDIUM", "Zero-day signal without exploitation — watch closely"),
-        (False, False, False): ("P4_LOW", "Standard threat intelligence — routine processing"),
+        (True, True, True): ("P1_CRITICAL", "Immediate IR activation - active zero-day with actor attribution"),
+        (True, True, False): ("P1_CRITICAL", "Confirmed exploitation with actor - escalate to SOC Tier 3"),
+        (True, False, True): ("P2_HIGH", "Zero-day signal without attribution - deploy detection rules"),
+        (True, False, False): ("P2_HIGH", "Active exploitation detected - prioritize patching"),
+        (False, True, True): ("P2_HIGH", "Actor activity with zero-day signal - increase hunting"),
+        (False, True, False): ("P3_MEDIUM", "Actor activity observed - monitor and track"),
+        (False, False, True): ("P3_MEDIUM", "Zero-day signal without exploitation - watch closely"),
+        (False, False, False): ("P4_LOW", "Standard threat intelligence - routine processing"),
     }
 
     def run(self) -> Dict:
@@ -256,7 +256,7 @@ class AgenticSecurityAI:
 
         result = {
             "subsystem": "S3_Agentic_Security_AI",
-            "mode": "RECOMMENDATION_ONLY",  # AI does NOT auto-execute — human approval required
+            "mode": "RECOMMENDATION_ONLY",  # AI does NOT auto-execute - human approval required
             "triage_count": len(triage_results),
             "priority_distribution": dict(priority_dist),
             "triage_results": triage_results[:20],
@@ -268,9 +268,9 @@ class AgenticSecurityAI:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S4 — AI SECURITY POSTURE MANAGEMENT
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S4 - AI SECURITY POSTURE MANAGEMENT
+# ===============================================================================
 
 class AISecurityPosture:
     """Monitors AI pipeline integrity, detects prompt injection patterns, validates model outputs."""
@@ -340,9 +340,9 @@ class AISecurityPosture:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S6 — AI THREAT COUNTERMEASURES
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S6 - AI THREAT COUNTERMEASURES
+# ===============================================================================
 
 class AIThreatCountermeasures:
     """Detects AI-powered cyber threats: AI phishing, deepfake, AI malware, social engineering."""
@@ -401,9 +401,9 @@ class AIThreatCountermeasures:
         return recs.get(category, "Increase monitoring for AI-powered threats.")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S10 — SYNTHETIC THREAT TRAINING
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S10 - SYNTHETIC THREAT TRAINING
+# ===============================================================================
 
 class SyntheticThreatTraining:
     """Generates synthetic attack scenarios for detection tuning and team training."""

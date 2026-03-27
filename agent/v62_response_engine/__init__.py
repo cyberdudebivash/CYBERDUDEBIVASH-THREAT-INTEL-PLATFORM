@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v62.0 — Automated Response Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v62.0 - Automated Response Engine
 ================================================================
 Generates automated mitigation and remediation actions (simulation layer).
 Produces actionable response recommendations with audit trail.
@@ -7,7 +7,7 @@ Produces actionable response recommendations with audit trail.
 Input:  data/incidents/incidents.json
 Output: data/responses/response_log.json
 
-© 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
+(C) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
 """
 
 import json
@@ -66,7 +66,7 @@ RESPONSE_RULES = [
     {
         "check": lambda inc: inc.get("kev_present", False),
         "action_type": "patch_vulnerability",
-        "description": "CISA KEV mandated patching — compliance deadline active",
+        "description": "CISA KEV mandated patching - compliance deadline active",
         "target_template": "Vulnerability management platform",
         "automation_level": "URGENT",
     },
@@ -120,7 +120,7 @@ def generate_responses(incidents: List[Dict]) -> List[Dict]:
 
 def run():
     logger.info("=" * 60)
-    logger.info("  SENTINEL APEX v62.0 — Automated Response Engine")
+    logger.info("  SENTINEL APEX v62.0 - Automated Response Engine")
     logger.info("=" * 60)
 
     if not INCIDENTS_FILE.exists():
@@ -158,7 +158,7 @@ def run():
     with open(OUTPUT_FILE, "w") as f:
         json.dump(output, f, indent=2, default=str)
 
-    logger.info(f"✅ {len(responses)} response actions generated")
+    logger.info(f"? {len(responses)} response actions generated")
     for atype, count in by_type.items():
         logger.info(f"   {atype}: {count}")
     return output

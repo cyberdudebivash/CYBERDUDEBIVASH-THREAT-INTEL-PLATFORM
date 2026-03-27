@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v27.0 — Prometheus Metrics Exporter
+CYBERDUDEBIVASH(R) SENTINEL APEX v27.0 - Prometheus Metrics Exporter
 ===================================================================
 Production-grade metrics for monitoring and alerting.
 
@@ -226,9 +226,9 @@ class MetricsExporter:
             self._fallback_metrics[name] = FallbackMetric(name)
             self._metrics[name] = self._fallback_metrics[name]
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # THREAT METRICS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     
     def inc_threats(self, severity: str = "medium", source: str = "feed"):
         """Increment threat counter"""
@@ -244,9 +244,9 @@ class MetricsExporter:
         """Increment IOC counter"""
         self._metrics["iocs_total"].labels(type=ioc_type).inc(count)
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # API METRICS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     
     def inc_api_request(self, endpoint: str, method: str = "GET", status: int = 200):
         """Increment API request counter"""
@@ -280,9 +280,9 @@ class MetricsExporter:
             return wrapper
         return decorator
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # ENRICHMENT METRICS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     
     def inc_enrichment(self, provider: str, success: bool = True):
         """Increment enrichment counter"""
@@ -297,9 +297,9 @@ class MetricsExporter:
             provider=provider
         ).observe(latency_seconds)
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # QUEUE METRICS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     
     def set_queue_depth(self, queue: str, depth: int):
         """Set current queue depth"""
@@ -309,9 +309,9 @@ class MetricsExporter:
         """Set active worker count"""
         self._metrics["active_workers"].labels(type=worker_type).set(count)
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # SYNC METRICS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     
     def set_sync_status(self, success: bool):
         """Set sync status"""
@@ -319,17 +319,17 @@ class MetricsExporter:
         if success:
             self._metrics["sync_timestamp"].set(time.time())
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # RULE GENERATION METRICS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     
     def inc_rules_generated(self, rule_type: str = "sigma"):
         """Increment rule generation counter"""
         self._metrics["rules_generated_total"].labels(type=rule_type).inc()
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # ERROR METRICS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     
     def inc_error(self, error_type: str, module: str = "unknown"):
         """Increment error counter"""
@@ -337,9 +337,9 @@ class MetricsExporter:
             type=error_type, module=module
         ).inc()
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # PROCESSING METRICS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     
     def observe_processing_latency(self, event_type: str, latency_seconds: float):
         """Record event processing latency"""
@@ -351,9 +351,9 @@ class MetricsExporter:
         """Record report size"""
         self._metrics["report_size_bytes"].observe(size_bytes)
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # SERVER
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     
     def start_server(self, port: int = 9090):
         """Start Prometheus metrics HTTP server"""
@@ -399,9 +399,9 @@ class MetricsExporter:
         }
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # SINGLETON
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 _metrics: Optional[MetricsExporter] = None
 
 

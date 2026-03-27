@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-cortex_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v40.0 (CORTEX)
+cortex_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v40.0 (CORTEX)
 ==================================================================
 Real-Time Intelligence Streaming, Threat Knowledge Graph,
 Natural Language Query Interface, and Relationship Explorer.
 
 4 New Subsystems (features NOT in v22-v39):
-  C1 — IntelFirehose: WebSocket-ready real-time threat event streaming
-  C2 — ThreatKnowledgeGraph: In-memory entity-relationship graph w/ traversal
-  C3 — NaturalLanguageQueryEngine: NLQ → structured intel queries
-  C4 — RelationshipExplorer: Multi-hop entity relationship mapping & pathfinding
+  C1 - IntelFirehose: WebSocket-ready real-time threat event streaming
+  C2 - ThreatKnowledgeGraph: In-memory entity-relationship graph w/ traversal
+  C3 - NaturalLanguageQueryEngine: NLQ -> structured intel queries
+  C4 - RelationshipExplorer: Multi-hop entity relationship mapping & pathfinding
 
 Non-Breaking: Reads from manifest/STIX/nexus data.
 Writes to data/cortex/. Zero modification to any existing file.
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os
@@ -71,9 +71,9 @@ def _gen_id(prefix, seed):
     return f"{prefix}--{hashlib.sha256(seed.encode()).hexdigest()[:12]}"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # ENTITY TYPES & DATA CLASSES
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class EntityType(Enum):
     ADVISORY = "advisory"
@@ -132,9 +132,9 @@ class StreamEvent:
     channel: str = "threat-intel"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C1 — INTEL FIREHOSE (WebSocket-Ready Event Streaming)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C1 - INTEL FIREHOSE (WebSocket-Ready Event Streaming)
+# ===============================================================================
 
 class IntelFirehose:
     """
@@ -313,9 +313,9 @@ class IntelFirehose:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C2 — THREAT KNOWLEDGE GRAPH
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C2 - THREAT KNOWLEDGE GRAPH
+# ===============================================================================
 
 class ThreatKnowledgeGraph:
     """
@@ -373,7 +373,7 @@ class ThreatKnowledgeGraph:
                 })
                 self._add_edge(stix_id, actor_id, RelationType.ATTRIBUTED_TO.value, risk * 0.6)
 
-                # Actor → CVE relationships
+                # Actor -> CVE relationships
                 for cve in cves:
                     self._add_edge(actor_id, cve.upper(), RelationType.EXPLOITS.value, risk * 0.5)
 
@@ -570,9 +570,9 @@ class ThreatKnowledgeGraph:
         return sectors if sectors else ["Cross-Sector"]
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C3 — NATURAL LANGUAGE QUERY ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C3 - NATURAL LANGUAGE QUERY ENGINE
+# ===============================================================================
 
 class NaturalLanguageQueryEngine:
     """
@@ -813,9 +813,9 @@ class NaturalLanguageQueryEngine:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C4 — RELATIONSHIP EXPLORER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C4 - RELATIONSHIP EXPLORER
+# ===============================================================================
 
 class RelationshipExplorer:
     """
@@ -827,7 +827,7 @@ class RelationshipExplorer:
         self.graph = graph
 
     def find_attack_corridors(self) -> List[Dict]:
-        """Identify high-risk attack corridors (actor → technique → sector chains)."""
+        """Identify high-risk attack corridors (actor -> technique -> sector chains)."""
         corridors = []
 
         actor_nodes = [n for n in self.graph.nodes.values() if n.entity_type == EntityType.ACTOR.value]
@@ -942,9 +942,9 @@ class RelationshipExplorer:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # CORTEX ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class CortexOrchestrator:
     """Master orchestrator for all CORTEX v40.0 subsystems."""
@@ -1043,11 +1043,11 @@ class CortexOrchestrator:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
     print("=" * 70)
-    print("CYBERDUDEBIVASH® SENTINEL APEX v40.0 — CORTEX")
+    print("CYBERDUDEBIVASH(R) SENTINEL APEX v40.0 - CORTEX")
     print("=" * 70)
     orchestrator = CortexOrchestrator()
     results = orchestrator.execute_full_cycle()
-    print(f"\n✅ CORTEX Cycle Complete")
+    print(f"\n? CORTEX Cycle Complete")
     print(f"   Stream Events:    {results.get('stream', {}).get('total_events', 0)}")
     print(f"   Graph Nodes:      {results.get('knowledge_graph', {}).get('total_nodes', 0)}")
     print(f"   Graph Edges:      {results.get('knowledge_graph', {}).get('total_edges', 0)}")

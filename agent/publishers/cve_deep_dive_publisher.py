@@ -1,6 +1,6 @@
 """
-CVE Deep-Dive Publisher — Publishes individual authority-grade CVE reports.
-© 2026 CyberDudeBivash Pvt Ltd — All rights reserved.
+CVE Deep-Dive Publisher - Publishes individual authority-grade CVE reports.
+(C) 2026 CyberDudeBivash Pvt Ltd - All rights reserved.
 """
 
 import logging
@@ -30,7 +30,7 @@ def publish_cve_deep_dive(
     cve_id = cve.get("id", "Unknown-CVE")
     severity = (cve.get("severity") or "Unknown").upper()
 
-    title = f"{cve_id} — {severity} Vulnerability Deep Dive | CyberDudeBivash Threat Intel"
+    title = f"{cve_id} - {severity} Vulnerability Deep Dive | CyberDudeBivash Threat Intel"
 
     content = format_cve_deep_dive(
         cve=cve,
@@ -50,5 +50,5 @@ def publish_cve_deep_dive(
         is_draft=False,
     )
 
-    logger.info(f"Deep dive published: {cve_id} → {result.get('url')}")
+    logger.info(f"Deep dive published: {cve_id} -> {result.get('url')}")
     return result

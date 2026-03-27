@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-revenue_analytics.py — CYBERDUDEBIVASH® SENTINEL APEX v44.0
+revenue_analytics.py - CYBERDUDEBIVASH(R) SENTINEL APEX v44.0
 CEO REVENUE MONITORING
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 """
 
 import json
@@ -18,7 +18,7 @@ class CDBRevenueAnalytics:
                 transactions = data.get("transactions", [])
                 
                 briefing = {
-                    "platform": "CYBERDUDEBIVASH® SENTINEL APEX",
+                    "platform": "CYBERDUDEBIVASH(R) SENTINEL APEX",
                     "version": "44.0",
                     "total_mrr": data.get("total_revenue_usd", 0.0),
                     "transaction_count": len(transactions),

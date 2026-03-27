@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v70 — Pipeline Validator
+SENTINEL APEX v70 - Pipeline Validator
 ========================================
 Pre-deployment validation gate.
 Runs BEFORE any git commit/push to ensure data integrity.
@@ -124,7 +124,7 @@ class PipelineValidator:
 
     def _check_manifest_schema(self, result: PipelineValidationResult):
         if not os.path.isfile(self.manifest_path):
-            result.add_check("manifest_schema", False, "Cannot validate — file missing")
+            result.add_check("manifest_schema", False, "Cannot validate - file missing")
             return
 
         is_valid, errors = validate_manifest_file(self.manifest_path)
@@ -147,7 +147,7 @@ class PipelineValidator:
             if len(advisories) == 0:
                 result.add_check(
                     "no_empty_advisories", False,
-                    "Manifest has ZERO advisories — dashboard would be empty"
+                    "Manifest has ZERO advisories - dashboard would be empty"
                 )
             else:
                 result.add_check(
@@ -181,7 +181,7 @@ class PipelineValidator:
             if dupe_ratio > 0.20:
                 result.add_check(
                     "duplicate_check", False,
-                    f"Excessive duplicates: {total_dupes} ({dupe_ratio:.1%}) — dedup engine may have failed"
+                    f"Excessive duplicates: {total_dupes} ({dupe_ratio:.1%}) - dedup engine may have failed"
                 )
             elif total_dupes > 0:
                 result.add_warning(f"{total_dupes} duplicates detected ({dupe_ratio:.1%})")
@@ -208,8 +208,8 @@ class PipelineValidator:
                 content = f.read()
 
             if "EMBEDDED_INTEL" not in content:
-                result.add_warning("No EMBEDDED_INTEL block found in dashboard — using manifest fetch")
-                result.add_check("embedded_intel", True, "No EMBEDDED_INTEL (acceptable — fetch-based)")
+                result.add_warning("No EMBEDDED_INTEL block found in dashboard - using manifest fetch")
+                result.add_check("embedded_intel", True, "No EMBEDDED_INTEL (acceptable - fetch-based)")
                 return
 
             # Try to extract and parse
@@ -240,7 +240,7 @@ class PipelineValidator:
                 age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
 
                 if age_hours > 48:
-                    result.add_warning(f"Manifest is {age_hours:.1f}h old — may be stale")
+                    result.add_warning(f"Manifest is {age_hours:.1f}h old - may be stale")
                 result.add_check("data_freshness", True, f"Manifest age: {age_hours:.1f}h")
             else:
                 result.add_warning("No generated_at timestamp in manifest")
@@ -288,15 +288,15 @@ def main():
         print(result.to_json())
     else:
         print(f"\n{'='*60}")
-        print(f"SENTINEL APEX Pipeline Validation {'PASSED ✓' if result.passed else 'FAILED ✗'}")
+        print(f"SENTINEL APEX Pipeline Validation {'PASSED [OK]' if result.passed else 'FAILED [X]'}")
         print(f"{'='*60}")
         for check in result.checks:
-            status = "✓" if check["passed"] else "✗"
+            status = "[OK]" if check["passed"] else "[X]"
             print(f"  [{status}] {check['check']}: {check['message']}")
         if result.warnings:
             print(f"\n  Warnings:")
             for w in result.warnings:
-                print(f"    ⚠ {w}")
+                print(f"    [!] {w}")
         print(f"\n  Total: {len(result.checks)} checks, {len(result.errors)} errors, {len(result.warnings)} warnings")
         print(f"{'='*60}\n")
 

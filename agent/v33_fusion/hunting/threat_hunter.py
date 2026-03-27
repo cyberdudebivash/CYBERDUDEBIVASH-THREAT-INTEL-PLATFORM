@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
-threat_hunter.py — CYBERDUDEBIVASH® SENTINEL APEX v33.0
+threat_hunter.py - CYBERDUDEBIVASH(R) SENTINEL APEX v33.0
 =========================================================
-Autonomous Threat Hunter — detects emerging threats by correlating
+Autonomous Threat Hunter - detects emerging threats by correlating
 velocity signals across the intelligence pipeline.
 
 Detection Logic:
-1. CVE Velocity Spike — new CVE appears + risk escalates within 24h
-2. Actor Surge — known actor shows sudden activity increase
-3. Exploit Chain Detection — CVE + PoC + scanning = imminent exploitation
-4. Sector Targeting Wave — multiple threats converging on same sector
-5. IOC Cluster Alert — correlated IOC infrastructure patterns
+1. CVE Velocity Spike - new CVE appears + risk escalates within 24h
+2. Actor Surge - known actor shows sudden activity increase
+3. Exploit Chain Detection - CVE + PoC + scanning = imminent exploitation
+4. Sector Targeting Wave - multiple threats converging on same sector
+5. IOC Cluster Alert - correlated IOC infrastructure patterns
 
 Non-Breaking: Reads from feed_manifest.json and fusion outputs.
 Writes to isolated data/fusion/hunting/ directory.
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os
@@ -318,14 +318,14 @@ class AutonomousThreatHunter:
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "alert_count": len(alerts),
                 "alerts": [a.to_dict() for a in alerts],
-                "platform": "SENTINEL APEX v33.0 — Autonomous Threat Hunter",
+                "platform": "SENTINEL APEX v33.0 - Autonomous Threat Hunter",
             }, f, indent=2)
         logger.info(f"Saved {len(alerts)} alerts to {output_path}")
 
 
 def main():
     """CLI entry point for threat hunting."""
-    logging.basicConfig(level=logging.INFO, format="[THREAT-HUNTER] %(asctime)s — %(message)s")
+    logging.basicConfig(level=logging.INFO, format="[THREAT-HUNTER] %(asctime)s - %(message)s")
     hunter = AutonomousThreatHunter()
     alerts = hunter.hunt(window_hours=72)
     for alert in alerts:

@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — RBAC Module
+SENTINEL APEX v27.0 - RBAC Module
 ==================================
 Role-Based Access Control.
 """

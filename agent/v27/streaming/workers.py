@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — Streaming Workers
+SENTINEL APEX v27.0 - Streaming Workers
 ========================================
 Specialized workers for threat processing.
 

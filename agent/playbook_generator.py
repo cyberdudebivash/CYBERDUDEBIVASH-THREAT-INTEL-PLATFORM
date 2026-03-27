@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-playbook_generator.py — CYBERDUDEBIVASH® SENTINEL APEX v20.0
+playbook_generator.py - CYBERDUDEBIVASH(R) SENTINEL APEX v20.0
 AUTOMATED INCIDENT RESPONSE PLAYBOOK ENGINE
 
 Generates NIST SP 800-61 / SANS 6-Step compliant Incident Response Playbooks
@@ -12,9 +12,9 @@ Features:
   - Saves as both .md (Blogger embed) and .json (API / STIX enrichment)
   - Generates YARA, Sigma, KQL, PowerShell containment scripts per incident
   - Gumroad product URL injection for revenue bridge
-  - Zero breaking changes — fully standalone, called after publish in sentinel_blogger.py
+  - Zero breaking changes - fully standalone, called after publish in sentinel_blogger.py
 
-Called from: agent/sentinel_blogger.py → process_entry() → Step 14
+Called from: agent/sentinel_blogger.py -> process_entry() -> Step 14
 Output dirs:  data/playbooks/  (markdown + json)
               data/playbooks/scripts/  (generated containment scripts)
 """
@@ -38,16 +38,16 @@ from agent.config import BRAND, COLORS
 
 logger = logging.getLogger("CDB-PLAYBOOK")
 
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # OUTPUT DIRECTORIES
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 PLAYBOOK_DIR = Path("data/playbooks")
 SCRIPTS_DIR  = Path("data/playbooks/scripts")
 
 
-# ──────────────────────────────────────────────────────────────────────
-# SCENARIO DETECTION — maps headline/content to playbook type
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
+# SCENARIO DETECTION - maps headline/content to playbook type
+# ----------------------------------------------------------------------
 _SCENARIO_MAP = {
     "ransomware":       ["ransomware", "ransom", "lockbit", "blackcat", "cl0p", "encrypt files"],
     "supply_chain":     ["supply chain", "dependency confusion", "package poisoning", "build system", "npm", "pypi"],
@@ -73,9 +73,9 @@ def _detect_scenario(headline: str, content: str) -> str:
     return max(scores, key=scores.get) if scores else "generic"
 
 
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # CONTAINMENT SCRIPT GENERATORS
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 
 def _gen_powershell_containment(headline: str, iocs: Dict, scenario: str) -> str:
     """Generate a PowerShell containment script tailored to the threat."""
@@ -87,7 +87,7 @@ def _gen_powershell_containment(headline: str, iocs: Dict, scenario: str) -> str
     ts = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
 
     script = f"""# ============================================================
-# CyberDudeBivash SENTINEL APEX — Containment Script
+# CyberDudeBivash SENTINEL APEX - Containment Script
 # Threat  : {safe_title}
 # Scenario: {scenario.upper()}
 # Generated: {ts}
@@ -184,7 +184,7 @@ def _gen_bash_containment(headline: str, iocs: Dict, scenario: str) -> str:
 
     script = f"""#!/bin/bash
 # ============================================================
-# CyberDudeBivash SENTINEL APEX — Linux Containment Script
+# CyberDudeBivash SENTINEL APEX - Linux Containment Script
 # Threat  : {safe_title}
 # Scenario: {scenario.upper()}
 # Generated: {ts}
@@ -240,7 +240,7 @@ def _gen_eradication_script(headline: str, iocs: Dict, cves: List, scenario: str
 
     return f"""#!/usr/bin/env python3
 # ============================================================
-# CyberDudeBivash SENTINEL APEX — Eradication & Hardening Guide
+# CyberDudeBivash SENTINEL APEX - Eradication & Hardening Guide
 # Threat   : {safe_title}
 # CVEs     : {cve_list}
 # Scenario : {scenario.upper()}
@@ -248,7 +248,7 @@ def _gen_eradication_script(headline: str, iocs: Dict, cves: List, scenario: str
 # Authority: CyberDudeBivash Pvt. Ltd. | intel.cyberdudebivash.com
 # ============================================================
 \"\"\"
-ERADICATION CHECKLIST — Run step by step after containment.
+ERADICATION CHECKLIST - Run step by step after containment.
 
 [PHASE 1] ROOT CAUSE REMOVAL
   1. Apply all vendor patches for: {cve_list}
@@ -273,7 +273,7 @@ ERADICATION CHECKLIST — Run step by step after containment.
   6. Schedule 30-day threat hunt for re-infection indicators
 
 [PHASE 4] LESSONS LEARNED (NIST SP 800-61 R2)
-  1. Document full incident timeline (detection → containment → eradication)
+  1. Document full incident timeline (detection -> containment -> eradication)
   2. Identify detection gap that allowed initial compromise
   3. Update your runbooks and IR playbooks based on this incident
   4. Report to stakeholders with executive summary
@@ -286,12 +286,12 @@ print("Eradication guide loaded. Follow each phase in sequence.")
 """
 
 
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # PLAYBOOK JINJA2 TEMPLATE
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 
 _PLAYBOOK_TEMPLATE_MD = """\
-# 🛡️ CYBERDUDEBIVASH® Incident Response Playbook
+# ? CYBERDUDEBIVASH(R) Incident Response Playbook
 **Authority:** CyberDudeBivash SENTINEL APEX v20.0 | [intel.cyberdudebivash.com](https://intel.cyberdudebivash.com)
 **Generated:** {{ timestamp }}
 **Incident ID:** `{{ incident_id }}`
@@ -318,7 +318,7 @@ _PLAYBOOK_TEMPLATE_MD = """\
 
 ---
 
-## 2. Phase 1 — Detection & Identification
+## 2. Phase 1 - Detection & Identification
 
 ### 2.1 Indicators of Compromise (IOCs)
 
@@ -333,7 +333,7 @@ _PLAYBOOK_TEMPLATE_MD = """\
 
 ### 2.2 MITRE ATT&CK Techniques
 {% if mitre_techniques %}
-{% for t in mitre_techniques %}- **{{ t }}** — see [MITRE ATT&CK](https://attack.mitre.org/techniques/{{ t }}/)
+{% for t in mitre_techniques %}- **{{ t }}** - see [MITRE ATT&CK](https://attack.mitre.org/techniques/{{ t }}/)
 {% endfor %}
 {% else %}
 - No MITRE techniques automatically mapped. Manual triage recommended.
@@ -347,15 +347,15 @@ _PLAYBOOK_TEMPLATE_MD = """\
 
 ---
 
-## 3. Phase 2 — Containment Strategies
+## 3. Phase 2 - Containment Strategies
 
 ### 3.1 Short-Term Containment (Execute Immediately)
 
 {% if scenario == "ransomware" %}
 1. **ISOLATE** the infected host from the network immediately (disable NIC or VLAN quarantine)
-2. **DISABLE** VSS deletion: `vssadmin delete shadows /all` — prevent ransomware from clearing backups
+2. **DISABLE** VSS deletion: `vssadmin delete shadows /all` - prevent ransomware from clearing backups
 3. **REVOKE** active user sessions and invalidate SSO tokens
-4. **NOTIFY** CISO and legal team — activate your Incident Response retainer
+4. **NOTIFY** CISO and legal team - activate your Incident Response retainer
 5. **PRESERVE** forensic evidence before any remediation (disk image if possible)
 {% elif scenario in ["xss_injection", "vulnerability", "rce"] %}
 1. **DISABLE** the vulnerable endpoint or service temporarily
@@ -364,22 +364,22 @@ _PLAYBOOK_TEMPLATE_MD = """\
 4. **ROTATE** all application secrets, API keys, and database credentials
 5. **ENABLE** WAF rule blocking the exploit pattern immediately
 {% elif scenario == "supply_chain" %}
-1. **PIN** all package versions immediately — freeze dependency updates
+1. **PIN** all package versions immediately - freeze dependency updates
 2. **AUDIT** recent CI/CD pipeline runs for unauthorized package pulls
 3. **REVOKE** build system credentials and rotate secrets
 4. **QUARANTINE** any systems that executed compromised builds
 5. **NOTIFY** all downstream customers / tenants if shared infrastructure
 {% elif scenario == "apt" %}
-1. **ISOLATE** compromised systems — APTs move laterally, stop the spread
+1. **ISOLATE** compromised systems - APTs move laterally, stop the spread
 2. **RESET** all privileged account credentials (AD, cloud IAM)
 3. **AUDIT** authentication logs for lateral movement (Pass-the-Hash, Pass-the-Ticket)
 4. **ENGAGE** your incident response retainer or MSSP immediately
-5. **PRESERVE** all log data — APT investigations require extensive forensics
+5. **PRESERVE** all log data - APT investigations require extensive forensics
 {% elif scenario == "data_breach" %}
 1. **CLOSE** the exfiltration channel (revoke credentials, close API endpoint)
 2. **ASSESS** scope of data exposed (PII, PCI, PHI, IP)
 3. **PRESERVE** access logs for forensic investigation
-4. **NOTIFY** legal team — GDPR/PDPB breach notification requirements may apply (72h window)
+4. **NOTIFY** legal team - GDPR/PDPB breach notification requirements may apply (72h window)
 5. **FREEZE** affected database accounts
 {% else %}
 1. **BLOCK** all IOC-associated IPs, domains, and URLs at firewall/proxy
@@ -402,7 +402,7 @@ _PLAYBOOK_TEMPLATE_MD = """\
 
 ---
 
-## 4. Phase 3 — Eradication & Recovery
+## 4. Phase 3 - Eradication & Recovery
 
 ### 4.1 Root Cause Removal
 {% if cves %}
@@ -431,7 +431,7 @@ _PLAYBOOK_TEMPLATE_MD = """\
 
 ---
 
-## 5. Phase 4 — Post-Incident Activity
+## 5. Phase 4 - Post-Incident Activity
 
 ### 5.1 Incident Timeline (Complete After Resolution)
 
@@ -464,10 +464,10 @@ _PLAYBOOK_TEMPLATE_MD = """\
 
 > **This playbook was auto-generated by CyberDudeBivash SENTINEL APEX v20.0**
 
-- 🛒 **Defense Kit (Sigma + YARA + KQL + Scripts)**: [Download on Gumroad]({{ gumroad_url }})
-- 🏢 **Enterprise IR Retainer**: [Contact CyberDudeBivash](https://www.cyberdudebivash.com/#contact)
-- 📊 **Live Threat Dashboard**: [intel.cyberdudebivash.com](https://intel.cyberdudebivash.com)
-- 📞 **Emergency Hotline**: +91 8179881447 | bivash@cyberdudebivash.com
+- ? **Defense Kit (Sigma + YARA + KQL + Scripts)**: [Download on Gumroad]({{ gumroad_url }})
+- ? **Enterprise IR Retainer**: [Contact CyberDudeBivash](https://www.cyberdudebivash.com/#contact)
+- ? **Live Threat Dashboard**: [intel.cyberdudebivash.com](https://intel.cyberdudebivash.com)
+- ? **Emergency Hotline**: +91 8179881447 | bivash@cyberdudebivash.com
 
 ---
 *Generated by CyberDudeBivash SENTINEL APEX v20.0 | [cyberdudebivash.com](https://cyberdudebivash.com)*
@@ -475,9 +475,9 @@ _PLAYBOOK_TEMPLATE_MD = """\
 """
 
 
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # MAIN GENERATOR CLASS
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 
 class PlaybookGenerator:
     """
@@ -610,7 +610,7 @@ class PlaybookGenerator:
             "gumroad_url": gumroad_url,
         }
 
-        # ── Render Playbook Markdown ──
+        # -- Render Playbook Markdown --
         if _JINJA2_OK:
             tmpl = Template(_PLAYBOOK_TEMPLATE_MD)
             playbook_md = tmpl.render(**template_vars)
@@ -620,7 +620,7 @@ class PlaybookGenerator:
             for k, v in template_vars.items():
                 playbook_md = playbook_md.replace(f"{{{{ {k} }}}}", str(v))
 
-        # ── Save Markdown ──
+        # -- Save Markdown --
         md_filename  = f"{incident_id}.md"
         json_filename = f"{incident_id}.json"
         md_path   = PLAYBOOK_DIR / md_filename
@@ -628,7 +628,7 @@ class PlaybookGenerator:
 
         md_path.write_text(playbook_md, encoding="utf-8")
 
-        # ── Save JSON (for API + STIX enrichment) ──
+        # -- Save JSON (for API + STIX enrichment) --
         playbook_json = {
             "incident_id": incident_id,
             "title": headline,
@@ -652,7 +652,7 @@ class PlaybookGenerator:
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(playbook_json, f, indent=2)
 
-        # ── Generate Containment Scripts ──
+        # -- Generate Containment Scripts --
         ps_script  = _gen_powershell_containment(headline, iocs, scenario)
         bash_script = _gen_bash_containment(headline, iocs, scenario)
         eradic_script = _gen_eradication_script(headline, iocs, cve_list, scenario)
@@ -665,9 +665,9 @@ class PlaybookGenerator:
         bash_path.write_text(bash_script, encoding="utf-8")
         eradic_path.write_text(eradic_script, encoding="utf-8")
 
-        logger.info(f"  ✅ Playbook generated: {incident_id} | Scenario: {scenario}")
-        logger.info(f"     → MD: {md_path} | JSON: {json_path}")
-        logger.info(f"     → Scripts: PowerShell + Bash + Eradication")
+        logger.info(f"  ? Playbook generated: {incident_id} | Scenario: {scenario}")
+        logger.info(f"     -> MD: {md_path} | JSON: {json_path}")
+        logger.info(f"     -> Scripts: PowerShell + Bash + Eradication")
 
         return {
             "incident_id": incident_id,

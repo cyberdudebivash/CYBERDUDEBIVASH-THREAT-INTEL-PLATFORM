@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — Queue Management
+SENTINEL APEX v27.0 - Queue Management
 =======================================
 Priority queue and dead letter queue management.
 

@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX — Revenue Dashboard v1.0
+CYBERDUDEBIVASH(R) SENTINEL APEX - Revenue Dashboard v1.0
 Path: agent/core/revenue_portal.py
 Feature: Gumroad Sales Sync + EPSS Demand Correlation
 """
@@ -80,7 +80,7 @@ Correlates EPSS probability with current manifest items."""
         with open(self.output_report, "w") as f:
             json.dump(dashboard_state, f, indent=4)
         
-        logger.info(f"✓ Revenue Intelligence archived to {self.output_report}")
+        logger.info(f"[OK] Revenue Intelligence archived to {self.output_report}")
         return dashboard_state
 
 if __name__ == "__main__":

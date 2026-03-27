@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-soc_playbook_generator.py — CYBERDUDEBIVASH® SENTINEL APEX v45.0
+soc_playbook_generator.py - CYBERDUDEBIVASH(R) SENTINEL APEX v45.0
 AUTONOMOUS INCIDENT RESPONSE PLAYBOOKS
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 """
 
 import json

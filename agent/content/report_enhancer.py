@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-report_enhancer.py — CYBERDUDEBIVASH® SENTINEL APEX v19.0
+report_enhancer.py - CYBERDUDEBIVASH(R) SENTINEL APEX v19.0
 ULTRA-PREMIUM REPORT ENHANCEMENT ENGINE
 
 Adds world-class intelligence sections that outclass Mandiant/Unit42/CrowdStrike:
-  1. Executive One-Pager  — printable CISO-ready summary card
-  2. Attack Timeline       — visual HTML timeline with stage reconstruction
-  3. Geolocation Intel     — SVG world heatmap of targeted regions
-  4. Patch Priority Matrix — ranked CVE patching table with urgency scores
-  5. Threat Actor Dossier  — structured actor profile card
-  6. Contextual AI Analysis — smart extraction from article text
+  1. Executive One-Pager  - printable CISO-ready summary card
+  2. Attack Timeline       - visual HTML timeline with stage reconstruction
+  3. Geolocation Intel     - SVG world heatmap of targeted regions
+  4. Patch Priority Matrix - ranked CVE patching table with urgency scores
+  5. Threat Actor Dossier  - structured actor profile card
+  6. Contextual AI Analysis - smart extraction from article text
 
 NON-BREAKING: All functions return HTML strings injected into existing reports.
-If any function fails, it returns '' — the report continues unchanged.
+If any function fails, it returns '' - the report continues unchanged.
 """
 
 import re
@@ -36,7 +36,7 @@ MONO    = "'JetBrains Mono', 'Courier New', monospace"
 FONT    = "'Segoe UI', Arial, sans-serif"
 
 
-# ── SECTION 0: Executive One-Pager ──────────────────────────────────────────
+# -- SECTION 0: Executive One-Pager ------------------------------------------
 def build_executive_onepager(
     headline: str, risk_score: float, severity: str,
     confidence: float, tlp_label: str, total_iocs: int,
@@ -69,14 +69,14 @@ def build_executive_onepager(
         cve_html = f"""
         <div style="margin-top:12px;padding:12px 16px;background:{BG};border-left:3px solid {ACCENT};">
             <span style="font-family:{MONO};font-size:9px;color:{ACCENT};letter-spacing:2px;">REFERENCED CVEs: </span>
-            <span style="font-family:{MONO};font-size:11px;color:{WHITE};">{' • '.join(cves[:8])}</span>
+            <span style="font-family:{MONO};font-size:11px;color:{WHITE};">{' * '.join(cves[:8])}</span>
         </div>""" if cves else ""
 
         conf_color = ACCENT if confidence >= 70 else HIGH if confidence >= 40 else MEDIUM
         conf_pct = f"{confidence:.0f}%"
 
         return f"""
-<!-- EXECUTIVE ONE-PAGER — PRINT-READY CISO SUMMARY -->
+<!-- EXECUTIVE ONE-PAGER - PRINT-READY CISO SUMMARY -->
 <div style="background:linear-gradient(135deg,{BG_CARD},{BG});border:1px solid {sev_color}44;
             border-left:5px solid {sev_color};padding:28px 32px;margin-bottom:0;
             font-family:{FONT};">
@@ -85,7 +85,7 @@ def build_executive_onepager(
         <div>
             <div style="font-family:{MONO};font-size:8px;color:{sev_color};letter-spacing:4px;
                         text-transform:uppercase;margin-bottom:8px;">
-                CYBERDUDEBIVASH® SENTINEL APEX — EXECUTIVE INTELLIGENCE BRIEF
+                CYBERDUDEBIVASH(R) SENTINEL APEX - EXECUTIVE INTELLIGENCE BRIEF
             </div>
             <div style="font-size:18px;font-weight:900;color:{WHITE};letter-spacing:-0.5px;
                         line-height:1.3;max-width:600px;">{headline[:100]}</div>
@@ -136,7 +136,7 @@ def build_executive_onepager(
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
         <div style="flex:2;padding:12px 16px;background:{BG};border:1px solid {BORDER};">
             <span style="font-family:{MONO};font-size:9px;color:{TEXT};letter-spacing:2px;">TARGETED SECTORS: </span>
-            <span style="font-family:{MONO};font-size:10px;color:{WHITE};">{' · '.join(sectors[:4])}</span>
+            <span style="font-family:{MONO};font-size:10px;color:{WHITE};">{' * '.join(sectors[:4])}</span>
         </div>
         <div style="flex:1;padding:12px 16px;background:{BG};border:1px solid {BORDER};">
             <span style="font-family:{MONO};font-size:9px;color:{TEXT};letter-spacing:2px;">ACTOR CLUSTER: </span>
@@ -150,7 +150,7 @@ def build_executive_onepager(
         return ""
 
 
-# ── SECTION: Attack Timeline ─────────────────────────────────────────────────
+# -- SECTION: Attack Timeline -------------------------------------------------
 def build_attack_timeline(
     headline: str, content: str, threat_category: str,
     mitre_data: List[Dict], iocs: Dict
@@ -172,50 +172,50 @@ def build_attack_timeline(
                 ("Credential Access", "LSASS dumping / Mimikatz / SAM database", CRITICAL, "T1003"),
                 ("Lateral Movement", "Pass-the-hash / SMB / RDP propagation", HIGH, "T1021"),
                 ("Data Exfiltration", "Archive & exfiltrate before encryption", CRITICAL, "T1048"),
-                ("Impact", "Files encrypted · Ransom note deployed · Backups destroyed", CRITICAL, "T1486"),
+                ("Impact", "Files encrypted * Ransom note deployed * Backups destroyed", CRITICAL, "T1486"),
             ],
             "apt_espionage": [
                 ("Initial Compromise", "Spear-phishing / Watering hole / Supply chain", CRITICAL, "T1566"),
-                ("Foothold Established", "Custom implant deployed · Backdoor installed", CRITICAL, "T1105"),
-                ("Reconnaissance", "Network discovery · Active Directory enumeration", HIGH, "T1087"),
+                ("Foothold Established", "Custom implant deployed * Backdoor installed", CRITICAL, "T1105"),
+                ("Reconnaissance", "Network discovery * Active Directory enumeration", HIGH, "T1087"),
                 ("Privilege Escalation", "Local exploit / Token impersonation / AS-REP roast", HIGH, "T1068"),
                 ("Persistence", "COM hijacking / DLL sideloading / Scheduled tasks", HIGH, "T1574"),
                 ("C2 Communication", "Encrypted HTTPS / Domain fronting / DNS tunneling", HIGH, "T1071"),
-                ("Collection", "Keylogging · Screenshot · Email collection · File staging", CRITICAL, "T1114"),
+                ("Collection", "Keylogging * Screenshot * Email collection * File staging", CRITICAL, "T1114"),
                 ("Exfiltration", "Compressed archive over C2 / Cloud storage abuse", CRITICAL, "T1567"),
             ],
             "malware_campaign": [
                 ("Delivery Vector", "Malicious email / Fake software / Trojanized download", HIGH, "T1566"),
-                ("Execution", "User launches file · Macro execution · Dropper activated", HIGH, "T1204"),
-                ("Payload Deployment", "Stealer/RAT unpacked to memory · Anti-sandbox checks", HIGH, "T1027"),
-                ("Persistence", "Registry modification · Startup folder · Scheduled task", MEDIUM, "T1547"),
-                ("C2 Callback", "Encrypted channel established · Operator notified", HIGH, "T1071"),
-                ("Data Collection", "Credentials · Browser data · Crypto wallets · Screenshots", CRITICAL, "T1555"),
-                ("Exfiltration", "Data sent to C2 · Telegram bot / Dark web marketplace", CRITICAL, "T1041"),
+                ("Execution", "User launches file * Macro execution * Dropper activated", HIGH, "T1204"),
+                ("Payload Deployment", "Stealer/RAT unpacked to memory * Anti-sandbox checks", HIGH, "T1027"),
+                ("Persistence", "Registry modification * Startup folder * Scheduled task", MEDIUM, "T1547"),
+                ("C2 Callback", "Encrypted channel established * Operator notified", HIGH, "T1071"),
+                ("Data Collection", "Credentials * Browser data * Crypto wallets * Screenshots", CRITICAL, "T1555"),
+                ("Exfiltration", "Data sent to C2 * Telegram bot / Dark web marketplace", CRITICAL, "T1041"),
             ],
             "data_breach": [
                 ("Initial Intrusion", "Stolen credentials / Unpatched vulnerability / Insider", CRITICAL, "T1078"),
                 ("Access Validation", "Attacker validates scope of database access", HIGH, "T1087"),
-                ("Data Enumeration", "Tables mapped · PII fields identified · Volume assessed", HIGH, "T1213"),
-                ("Bulk Exfiltration", "Database dump executed · Transfer to attacker infra", CRITICAL, "T1530"),
-                ("Evidence Destruction", "Access logs cleared · Intrusion artifacts removed", HIGH, "T1070"),
+                ("Data Enumeration", "Tables mapped * PII fields identified * Volume assessed", HIGH, "T1213"),
+                ("Bulk Exfiltration", "Database dump executed * Transfer to attacker infra", CRITICAL, "T1530"),
+                ("Evidence Destruction", "Access logs cleared * Intrusion artifacts removed", HIGH, "T1070"),
                 ("Monetization", "Data listed on dark web forum / Direct ransom demand", CRITICAL, "T1657"),
             ],
             "vulnerability": [
-                ("Disclosure", "CVE published · Proof-of-concept code released", HIGH, "N/A"),
+                ("Disclosure", "CVE published * Proof-of-concept code released", HIGH, "N/A"),
                 ("Exploitation Window", "Threat actors reverse-engineer patch / develop exploit", CRITICAL, "T1588"),
                 ("Scanning Phase", "Mass internet scanning for vulnerable endpoints begins", HIGH, "T1595"),
-                ("Exploitation", "Remote exploit executed · Shell obtained or payload dropped", CRITICAL, "T1190"),
+                ("Exploitation", "Remote exploit executed * Shell obtained or payload dropped", CRITICAL, "T1190"),
                 ("Post-Exploitation", "Lateral movement / Persistence / Further compromise", HIGH, "T1021"),
                 ("Patching Race", "Defenders race to patch before wider exploitation spreads", MEDIUM, "N/A"),
             ],
             "phishing_social": [
                 ("Lure Construction", "Themed email crafted targeting specific organization", HIGH, "T1566"),
                 ("Delivery", "Mass or targeted email sent with malicious link/attachment", HIGH, "T1566.001"),
-                ("User Interaction", "Victim opens lure · Clicks link · Downloads attachment", HIGH, "T1204"),
+                ("User Interaction", "Victim opens lure * Clicks link * Downloads attachment", HIGH, "T1204"),
                 ("Credential Harvest", "Fake login page captures username / password / MFA", CRITICAL, "T1056"),
                 ("Account Takeover", "Stolen credentials used to access email / VPN / SaaS", CRITICAL, "T1078"),
-                ("Persistence", "Inbox rules set · OAuth tokens granted · Backdoor access", HIGH, "T1137"),
+                ("Persistence", "Inbox rules set * OAuth tokens granted * Backdoor access", HIGH, "T1137"),
             ],
             "default": [
                 ("Initial Access", "Entry vector exploited to gain foothold in target", HIGH, "T1566"),
@@ -277,13 +277,13 @@ def build_attack_timeline(
             {connector}"""
 
         return f"""
-<!-- ATTACK TIMELINE — CDB SENTINEL APEX v19.0 -->
+<!-- ATTACK TIMELINE - CDB SENTINEL APEX v19.0 -->
 <div style="background:{BG_CARD};border:1px solid {BORDER};padding:24px 28px;margin:24px 0;
             font-family:{FONT};">
     <div style="font-family:{MONO};font-size:9px;color:{ACCENT};letter-spacing:4px;
                 text-transform:uppercase;margin-bottom:4px;">ATTACK CHAIN RECONSTRUCTION</div>
     <div style="font-size:15px;font-weight:700;color:{WHITE};margin-bottom:20px;">
-        Adversary Kill Chain · Stage-by-Stage Analysis
+        Adversary Kill Chain * Stage-by-Stage Analysis
     </div>
     <div style="padding-left:4px;">
         {items_html}
@@ -294,7 +294,7 @@ def build_attack_timeline(
         return ""
 
 
-# ── SECTION: Geolocation Intel Map ───────────────────────────────────────────
+# -- SECTION: Geolocation Intel Map -------------------------------------------
 def build_geo_heatmap(content: str, threat_category: str, headline: str) -> str:
     """
     SVG-based geolocation intelligence showing targeted regions.
@@ -347,7 +347,7 @@ def build_geo_heatmap(content: str, threat_category: str, headline: str) -> str:
     <div style="font-family:{MONO};font-size:9px;color:{ACCENT};letter-spacing:4px;
                 text-transform:uppercase;margin-bottom:4px;">GEOLOCATION INTELLIGENCE</div>
     <div style="font-size:15px;font-weight:700;color:{WHITE};margin-bottom:20px;">
-        Targeted Regions · Threat Activity Distribution
+        Targeted Regions * Threat Activity Distribution
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
         <div>
@@ -386,7 +386,7 @@ def build_geo_heatmap(content: str, threat_category: str, headline: str) -> str:
                 {'<circle cx="70" cy="65" r="5" fill="none" stroke="#ff3e3e" stroke-width="1.5" opacity="0.8"><animate attributeName="r" values="5;12;5" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0;0.8" dur="2s" repeatCount="indefinite"/></circle>' if 'North America' in targeted else ''}
                 {'<circle cx="150" cy="55" r="5" fill="none" stroke="#ff3e3e" stroke-width="1.5" opacity="0.8"><animate attributeName="r" values="5;10;5" dur="2.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0;0.8" dur="2.5s" repeatCount="indefinite"/></circle>' if 'Europe' in targeted else ''}
                 {'<circle cx="230" cy="60" r="5" fill="none" stroke="#ff3e3e" stroke-width="1.5" opacity="0.8"><animate attributeName="r" values="5;11;5" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0;0.8" dur="3s" repeatCount="indefinite"/></circle>' if 'Asia Pacific' in targeted else ''}
-                <text x="150" y="155" text-anchor="middle" fill="{TEXT}" font-size="6" font-family="monospace">CDB SENTINEL APEX — GEOLOCATION INTELLIGENCE MODULE v19.0</text>
+                <text x="150" y="155" text-anchor="middle" fill="{TEXT}" font-size="6" font-family="monospace">CDB SENTINEL APEX - GEOLOCATION INTELLIGENCE MODULE v19.0</text>
             </svg>
         </div>
     </div>
@@ -396,7 +396,7 @@ def build_geo_heatmap(content: str, threat_category: str, headline: str) -> str:
         return ""
 
 
-# ── SECTION: Patch Priority Matrix ───────────────────────────────────────────
+# -- SECTION: Patch Priority Matrix -------------------------------------------
 def build_patch_priority_matrix(cves: List[str], content: str, risk_score: float) -> str:
     """
     Ranked CVE patch priority table. Shows which CVEs need urgent patching.
@@ -455,7 +455,7 @@ def build_patch_priority_matrix(cves: List[str], content: str, risk_score: float
     <div style="font-family:{MONO};font-size:9px;color:{ACCENT};letter-spacing:4px;
                 text-transform:uppercase;margin-bottom:4px;">PATCH PRIORITY MATRIX</div>
     <div style="font-size:15px;font-weight:700;color:{WHITE};margin-bottom:16px;">
-        Vulnerability Remediation Priority · Ranked by CVSS & Exploit Status
+        Vulnerability Remediation Priority * Ranked by CVSS & Exploit Status
     </div>
     <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;min-width:500px;">
@@ -498,7 +498,7 @@ def build_patch_priority_matrix(cves: List[str], content: str, risk_score: float
         return ""
 
 
-# ── SECTION: Smart Context Extraction ───────────────────────────────────────
+# -- SECTION: Smart Context Extraction ---------------------------------------
 def extract_smart_context(
     headline: str, paragraphs: List[str], full_text: str
 ) -> Dict:

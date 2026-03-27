@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v25.0 Configuration
+CYBERDUDEBIVASH(R) SENTINEL APEX v25.0 Configuration
 ===================================================
 Enterprise-Grade Configuration Management
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-sovereignty_engine.py — CYBERDUDEBIVASH® SENTINEL APEX
+sovereignty_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX
 SECURE SOVEREIGNTY & CRYPTOGRAPHIC SIGNING ENGINE (v2.0)
 Mandate: 100% Secure Environment Validation | RSA-2048 signing.
 """
@@ -30,12 +30,12 @@ class SovereigntyEngine:
         
         # 2. Institutional Logic: Block local execution of master signing
         if not (is_ci and is_github):
-            logger.critical("🛑 SECURITY BREACH ATTEMPT: Non-Secure environment detected.")
+            logger.critical("? SECURITY BREACH ATTEMPT: Non-Secure environment detected.")
             logger.critical("Sovereignty Engine initialization ABORTED to protect Master Key.")
             # Hard crash to prevent any memory leakage of signing functions
             raise SystemError("UNAUTHORIZED_ENVIRONMENT: Sovereignty Engine requires a hardened runner.")
 
-        logger.info("🛡️ SECURE ENVIRONMENT VERIFIED: Hardened GitHub Runner detected.")
+        logger.info("? SECURE ENVIRONMENT VERIFIED: Hardened GitHub Runner detected.")
 
     def sign_asset(self, asset_content: str) -> str:
         """
@@ -43,7 +43,7 @@ class SovereigntyEngine:
         Only accessible if the secure environment validation passed.
         """
         if not os.path.exists(self.key_path):
-            logger.error(f"❌ Master Key Missing at {self.key_path}. Signing aborted.")
+            logger.error(f"? Master Key Missing at {self.key_path}. Signing aborted.")
             return "SIGNATURE_FAILED:KEY_MISSING"
 
         try:
@@ -57,7 +57,7 @@ class SovereigntyEngine:
             )
             return signature.hex()
         except Exception as e:
-            logger.error(f"❌ Cryptographic Error: {e}")
+            logger.error(f"? Cryptographic Error: {e}")
             return "SIGNATURE_FAILED:CRYPTO_ERROR"
 
 # Initialize Sovereign Engine

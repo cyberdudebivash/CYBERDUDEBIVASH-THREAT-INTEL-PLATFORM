@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-siem_connectors.py — CYBERDUDEBIVASH® SENTINEL APEX v24.0
+siem_connectors.py - CYBERDUDEBIVASH(R) SENTINEL APEX v24.0
 Official SIEM/SOAR Integration Connectors.
 
 Non-Breaking Addition: Standalone connector module.
@@ -55,9 +55,9 @@ logger = logging.getLogger("CDB-SIEM-Connectors")
 CONNECTOR_VERSION = "1.0.0"
 
 
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 # Base Connector
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 
 class BaseSIEMConnector(ABC):
     """Abstract base class for all SIEM connectors."""
@@ -159,9 +159,9 @@ class BaseSIEMConnector(ABC):
         }
 
 
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 # Splunk HEC Connector
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 
 class SplunkHECConnector(BaseSIEMConnector):
     """
@@ -169,7 +169,7 @@ class SplunkHECConnector(BaseSIEMConnector):
     Sends CDB threat intelligence to Splunk for indexing and alerting.
 
     Setup in Splunk:
-        Settings → Data Inputs → HTTP Event Collector → New Token
+        Settings -> Data Inputs -> HTTP Event Collector -> New Token
         Assign to index: cdb_threat_intel (recommended)
     """
 
@@ -282,9 +282,9 @@ class SplunkHECConnector(BaseSIEMConnector):
         return {"sent": 0, "failed": len(events)}
 
 
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 # Microsoft Sentinel Connector
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 
 class MicrosoftSentinelConnector(BaseSIEMConnector):
     """
@@ -292,7 +292,7 @@ class MicrosoftSentinelConnector(BaseSIEMConnector):
     Uses the Data Collector API to push CDB threat intelligence.
 
     Setup:
-        Azure Portal → Log Analytics Workspace → Agents → Workspace ID + Primary Key
+        Azure Portal -> Log Analytics Workspace -> Agents -> Workspace ID + Primary Key
         Custom log table: CDB_ThreatIntel_CL
     """
 
@@ -384,9 +384,9 @@ class MicrosoftSentinelConnector(BaseSIEMConnector):
         return results
 
 
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 # Elastic SIEM Connector
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 
 class ElasticSIEMConnector(BaseSIEMConnector):
     """
@@ -506,9 +506,9 @@ class ElasticSIEMConnector(BaseSIEMConnector):
         return {"sent": 0, "failed": len(events)}
 
 
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 # IBM QRadar Connector
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 
 class QRadarConnector(BaseSIEMConnector):
     """
@@ -606,9 +606,9 @@ class QRadarConnector(BaseSIEMConnector):
         return {"sent": 0, "failed": len(values)}
 
 
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 # Cortex XSOAR Connector
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 
 class CortexXSOARConnector(BaseSIEMConnector):
     """
@@ -710,7 +710,7 @@ class CortexXSOARConnector(BaseSIEMConnector):
                 "value":          ioc.get("value", ""),
                 "indicator_type": type_map.get(ioc.get("type", "").lower(), "Unknown"),
                 "score":          3 if ioc.get("confidence", 0) > 70 else 2,
-                "comment":        f"CDB SENTINEL APEX — Confidence: {ioc.get('confidence', 0)}%",
+                "comment":        f"CDB SENTINEL APEX - Confidence: {ioc.get('confidence', 0)}%",
                 "fields": {
                     "tags":      ["CDB-APEX", f"TLP:{ioc.get('tlp', 'GREEN')}"],
                     "tlp":       ioc.get("tlp", "GREEN"),
@@ -738,9 +738,9 @@ class CortexXSOARConnector(BaseSIEMConnector):
         return {"sent": 0, "failed": len(indicators)}
 
 
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 # Generic Webhook Connector (Slack, Teams, Discord, etc.)
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 
 class WebhookConnector(BaseSIEMConnector):
     """
@@ -762,7 +762,7 @@ class WebhookConnector(BaseSIEMConnector):
 
     def test_connection(self) -> bool:
         test_payload = self._build_payload({
-            "title": "CDB SENTINEL APEX — Connection Test",
+            "title": "CDB SENTINEL APEX - Connection Test",
             "severity": "LOW",
             "risk_score": 0,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -788,7 +788,7 @@ class WebhookConnector(BaseSIEMConnector):
             return {
                 "attachments": [{
                     "color":  color,
-                    "title":  f"🚨 [{severity}] {title}",
+                    "title":  f"? [{severity}] {title}",
                     "text":   f"*Risk Score:* {score}/10 | *TLP:* {tlp} | *Time:* {timestamp}",
                     "footer": "CyberDudeBivash SENTINEL APEX",
                     "fields": [
@@ -807,7 +807,7 @@ class WebhookConnector(BaseSIEMConnector):
                 "themeColor": color.lstrip("#"),
                 "summary": f"[CDB] {severity} Threat: {title}",
                 "sections": [{
-                    "activityTitle":    f"🛡️ CDB SENTINEL APEX — {severity} Threat",
+                    "activityTitle":    f"? CDB SENTINEL APEX - {severity} Threat",
                     "activitySubtitle": title,
                     "facts": [
                         {"name": "Risk Score", "value": f"{score}/10"},
@@ -827,7 +827,7 @@ class WebhookConnector(BaseSIEMConnector):
         elif self.platform == "discord":
             return {
                 "embeds": [{
-                    "title":       f"🚨 [{severity}] Threat Alert",
+                    "title":       f"? [{severity}] Threat Alert",
                     "description": title,
                     "color":       int(color.lstrip("#"), 16),
                     "fields": [
@@ -847,7 +847,7 @@ class WebhookConnector(BaseSIEMConnector):
     def send_event(self, event: Dict) -> bool:
         severity = event.get("severity", "")
         if self.severity_filter and severity not in self.severity_filter:
-            return True  # Skip silently — not in filter
+            return True  # Skip silently - not in filter
 
         payload = self._build_payload(event)
         for attempt in range(self.max_retries):
@@ -870,9 +870,9 @@ class WebhookConnector(BaseSIEMConnector):
         return False
 
 
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 # Connector Factory
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 
 class SIEMConnectorFactory:
     """
@@ -924,9 +924,9 @@ class SIEMConnectorFactory:
         return list(cls._REGISTRY.keys())
 
 
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 # Multi-SIEM Fan-out
-# ──────────────────────────────────────────────────────
+# ------------------------------------------------------
 
 class MultiSIEMFanout:
     """

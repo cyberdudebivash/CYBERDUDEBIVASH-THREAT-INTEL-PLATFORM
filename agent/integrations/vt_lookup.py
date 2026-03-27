@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-vt_lookup.py — CyberDudeBivash v7.5
+vt_lookup.py - CyberDudeBivash v7.5
 Enterprise Enrichment: Extracts Community Comments and Analyst Tags.
 """
 import os

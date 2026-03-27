@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-kev_enricher.py — CYBERDUDEBIVASH® SENTINEL APEX v46.0 VANGUARD
+kev_enricher.py - CYBERDUDEBIVASH(R) SENTINEL APEX v46.0 VANGUARD
 CISA Known Exploited Vulnerabilities (KEV) Live Enrichment Engine
 
 FIXES: sentinel_blogger.py _enrich_cve_metadata() always returned
@@ -40,7 +40,7 @@ class KEVEnricher:
     """
 
     def __init__(self):
-        self._catalog: Dict[str, Dict] = {}  # CVE-ID → metadata
+        self._catalog: Dict[str, Dict] = {}  # CVE-ID -> metadata
         self._last_load: float = 0.0
         self._load_attempted: bool = False
 
@@ -105,7 +105,7 @@ class KEVEnricher:
         if cve_upper in self._catalog:
             meta = self._catalog[cve_upper]
             logger.info(
-                f"🚨 KEV CONFIRMED: {cve_upper} — "
+                f"? KEV CONFIRMED: {cve_upper} - "
                 f"{meta.get('vendor', '?')}/{meta.get('product', '?')} "
                 f"(added: {meta.get('date_added', '?')})"
             )
@@ -132,5 +132,5 @@ class KEVEnricher:
         return bool(self._catalog)
 
 
-# ── Singleton ──
+# -- Singleton --
 kev_enricher = KEVEnricher()

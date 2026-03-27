@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-upsell_injector.py — CYBERDUDEBIVASH® SENTINEL APEX v18.0
+upsell_injector.py - CYBERDUDEBIVASH(R) SENTINEL APEX v18.0
 REVENUE BRIDGE & MULTI-TIER CTA INJECTION ENGINE
 
 v18.0 UPGRADE:
-  - Threat-category → Gumroad product URL mapping (was static/empty)
+  - Threat-category -> Gumroad product URL mapping (was static/empty)
   - UTM parameter tracking on every Gumroad link
   - Mid-report inline CTA + footer CTA (dual placement)
-  - Tier-aware messaging (Free → Pro → Enterprise funnel)
+  - Tier-aware messaging (Free -> Pro -> Enterprise funnel)
   - Emergency kit CTA for CRITICAL threats (score >= 9.0)
-  - Zero breaking changes — inject_premium_cta() signature preserved
+  - Zero breaking changes - inject_premium_cta() signature preserved
 """
 
 import logging
@@ -17,7 +17,7 @@ from urllib.parse import urlencode
 
 logger = logging.getLogger("CDB-INJECTOR")
 
-# Gumroad Product Catalog — keyed by threat category
+# Gumroad Product Catalog - keyed by threat category
 GUMROAD_PRODUCTS = {
     "vulnerability":        "https://cyberdudebivash.gumroad.com/l/pwynns",
     "zero_day":             "https://cyberdudebivash.gumroad.com/l/pwynns",
@@ -67,7 +67,7 @@ class UpsellInjector:
         """
         Inject dual CTA (mid-report + footer) into threat report HTML.
         v18.0: threat_category enables contextual product matching.
-        Backward compatible — existing calls still work unchanged.
+        Backward compatible - existing calls still work unchanged.
         """
         resolved_url = product_url or GUMROAD_PRODUCTS.get(threat_category, GUMROAD_PRODUCTS["default"])
         tracked_url  = _utm_url(resolved_url, threat_category, risk_score)
@@ -76,7 +76,7 @@ class UpsellInjector:
 
         if risk_score >= 9.0:
             badge_color = "#ff3e3e"; badge_label = "CRITICAL THREAT ACTIVE"
-            kit_title   = "EMERGENCY DEFENSE KIT — Deploy Immediately"
+            kit_title   = "EMERGENCY DEFENSE KIT - Deploy Immediately"
             kit_desc    = "CRITICAL severity threat. Pre-built SIGMA rules, YARA signatures, IR playbook and remediation scripts ready for immediate deployment."
             primary_btn = "GET EMERGENCY DEFENSE KIT ->"
         elif risk_score >= 7.0:
@@ -102,7 +102,7 @@ class UpsellInjector:
 <hr style="border:0;border-top:1px solid #151a24;margin:50px 0 40px 0;">
 <div style="background:#06080d;border:1px solid #00d4aa22;font-family:'Segoe UI',Arial,sans-serif;">
   <div style="background:#080a10;padding:28px 32px;border-bottom:1px solid #151a24;">
-    <p style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#00d4aa;letter-spacing:4px;margin:0 0 8px 0;text-transform:uppercase;">CYBERDUDEBIVASH SENTINEL APEX — OPERATIONAL INTELLIGENCE</p>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#00d4aa;letter-spacing:4px;margin:0 0 8px 0;text-transform:uppercase;">CYBERDUDEBIVASH SENTINEL APEX - OPERATIONAL INTELLIGENCE</p>
     <h3 style="color:#f0f4f8;font-size:20px;margin:0 0 8px 0;font-weight:900;">{kit_title}</h3>
     <p style="color:#64748b;font-size:14px;margin:0;line-height:1.6;">{kit_desc}</p>
   </div>

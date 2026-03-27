@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-revenue_bridge.py — CYBERDUDEBIVASH® SENTINEL APEX v18.0
+revenue_bridge.py - CYBERDUDEBIVASH(R) SENTINEL APEX v18.0
 REVENUE ORCHESTRATION BRIDGE
 
 Connects the threat intel pipeline to ALL monetization modules in one call:
@@ -9,7 +9,7 @@ Connects the threat intel pipeline to ALL monetization modules in one call:
   3. Records revenue metrics (clicks tracked via UTM, emails sent)
 
 Called from process_entry() in sentinel_blogger.py AFTER Blogger publish.
-Non-blocking — ALL errors are caught and logged, never crash the pipeline.
+Non-blocking - ALL errors are caught and logged, never crash the pipeline.
 Zero breaking changes to existing code.
 """
 
@@ -68,19 +68,19 @@ def activate_revenue_pipeline(
         product_url:   Explicit Gumroad URL override (optional)
 
     Returns:
-        report_html with CTAs injected (for reference — Blogger post already published)
+        report_html with CTAs injected (for reference - Blogger post already published)
     """
     enriched_html = report_html
 
-    # ── Step 1: Detect threat category ──────────────────────────────────
+    # -- Step 1: Detect threat category ----------------------------------
     try:
         threat_category = detect_threat_category(headline, content)
-        logger.info(f"  💰 Revenue: Threat category detected → {threat_category}")
+        logger.info(f"  ? Revenue: Threat category detected -> {threat_category}")
     except Exception as e:
         threat_category = "default"
-        logger.warning(f"  ⚠️  Revenue: Category detection failed (non-critical): {e}")
+        logger.warning(f"  [!]  Revenue: Category detection failed (non-critical): {e}")
 
-    # ── Step 2: Inject CTAs into report HTML (for reference/logging) ────
+    # -- Step 2: Inject CTAs into report HTML (for reference/logging) ----
     try:
         from agent.upsell_injector import upsell_engine
         enriched_html = upsell_engine.inject_premium_cta(
@@ -89,11 +89,11 @@ def activate_revenue_pipeline(
             risk_score=risk_score,
             threat_category=threat_category,
         )
-        logger.info(f"  ✅ Revenue: Dual CTA injected (category={threat_category}, score={risk_score})")
+        logger.info(f"  ? Revenue: Dual CTA injected (category={threat_category}, score={risk_score})")
     except Exception as e:
-        logger.warning(f"  ⚠️  Revenue: CTA injection failed (non-critical): {e}")
+        logger.warning(f"  [!]  Revenue: CTA injection failed (non-critical): {e}")
 
-    # ── Step 3: Email executive briefing to subscribers ─────────────────
+    # -- Step 3: Email executive briefing to subscribers -----------------
     # Only trigger for High+ severity (score >= 6.5) to avoid subscriber fatigue
     if risk_score >= 6.5:
         try:
@@ -104,15 +104,15 @@ def activate_revenue_pipeline(
                 content_html=enriched_html,
                 url=live_blog_url,
             )
-            logger.info(f"  📧 Revenue: Executive briefing dispatched (score={risk_score})")
+            logger.info(f"  ? Revenue: Executive briefing dispatched (score={risk_score})")
         except ImportError:
-            logger.debug("  Email dispatcher not available — skipping")
+            logger.debug("  Email dispatcher not available - skipping")
         except Exception as e:
-            logger.warning(f"  ⚠️  Revenue: Email dispatch failed (non-critical): {e}")
+            logger.warning(f"  [!]  Revenue: Email dispatch failed (non-critical): {e}")
     else:
-        logger.info(f"  📧 Revenue: Email skipped (score {risk_score} < 6.5 threshold)")
+        logger.info(f"  ? Revenue: Email skipped (score {risk_score} < 6.5 threshold)")
 
-    # ── Step 4: Log revenue event ────────────────────────────────────────
+    # -- Step 4: Log revenue event ----------------------------------------
     try:
         _log_revenue_event(headline, risk_score, threat_category, live_blog_url)
     except Exception as e:

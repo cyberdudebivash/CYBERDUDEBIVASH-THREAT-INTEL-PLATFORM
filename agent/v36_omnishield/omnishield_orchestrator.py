@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-omnishield_orchestrator.py — CYBERDUDEBIVASH® SENTINEL APEX v36.0 (OMNISHIELD)
+omnishield_orchestrator.py - CYBERDUDEBIVASH(R) SENTINEL APEX v36.0 (OMNISHIELD)
 ================================================================================
 Master orchestrator for 12 AI-powered cyber defense subsystems.
 
@@ -8,10 +8,10 @@ Also contains: S5 Cross-Domain Telemetry, S7 Identity Risk Engine,
 S8 Self-Healing Defense, S9 Quantum Crypto Auditor, S11 Attack Simulation,
 S12 Human Oversight Governance.
 
-Pipeline: AI Analysis → Defense Posture → Risk Assessment → Governance → Output
+Pipeline: AI Analysis -> Defense Posture -> Risk Assessment -> Governance -> Output
 
 Non-Breaking: Reads from manifest, fusion, ZDH. Writes to data/omnishield/.
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os, re, json, hashlib, logging, math, statistics
@@ -30,9 +30,9 @@ logger = logging.getLogger("CDB-OmniShield")
 OUTPUT_DIR = os.environ.get("OMNISHIELD_DIR", "data/omnishield")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S5 — CROSS-DOMAIN TELEMETRY ANALYZER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S5 - CROSS-DOMAIN TELEMETRY ANALYZER
+# ===============================================================================
 
 class CrossDomainTelemetry:
     """Analyzes telemetry coverage across cloud, endpoint, network, identity domains."""
@@ -82,9 +82,9 @@ class CrossDomainTelemetry:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S7 — IDENTITY RISK ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S7 - IDENTITY RISK ENGINE
+# ===============================================================================
 
 class IdentityRiskEngine:
     """Continuous identity risk scoring from threat intelligence signals."""
@@ -138,9 +138,9 @@ class IdentityRiskEngine:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S8 — SELF-HEALING DEFENSE ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S8 - SELF-HEALING DEFENSE ENGINE
+# ===============================================================================
 
 class SelfHealingDefense:
     """Generates auto-remediation recommendations for detected vulnerabilities."""
@@ -203,9 +203,9 @@ class SelfHealingDefense:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S9 — QUANTUM-AWARE CRYPTOGRAPHY AUDITOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S9 - QUANTUM-AWARE CRYPTOGRAPHY AUDITOR
+# ===============================================================================
 
 class QuantumCryptoAuditor:
     """Audits threat landscape for quantum-vulnerable cryptographic patterns."""
@@ -217,9 +217,9 @@ class QuantumCryptoAuditor:
         "dh": {"risk": "HIGH", "recommendation": "Replace with ML-KEM or hybrid key exchange"},
         "dsa": {"risk": "HIGH", "recommendation": "Migrate to ML-DSA or SLH-DSA"},
         "sha1": {"risk": "CRITICAL", "recommendation": "Replace immediately with SHA-256 or SHA-3"},
-        "md5": {"risk": "CRITICAL", "recommendation": "Replace immediately — broken even classically"},
+        "md5": {"risk": "CRITICAL", "recommendation": "Replace immediately - broken even classically"},
         "3des": {"risk": "HIGH", "recommendation": "Migrate to AES-256"},
-        "rc4": {"risk": "CRITICAL", "recommendation": "Replace immediately — fundamentally broken"},
+        "rc4": {"risk": "CRITICAL", "recommendation": "Replace immediately - fundamentally broken"},
     }
 
     PQC_STANDARDS = [
@@ -245,8 +245,8 @@ class QuantumCryptoAuditor:
 
         # Platform crypto audit
         platform_audit = {
-            "stix_transport": {"protocol": "HTTPS/TLS", "quantum_risk": "MEDIUM", "note": "TLS 1.3 uses ECDHE — quantum vulnerable for key exchange"},
-            "jwt_tokens": {"algorithm": "HS256", "quantum_risk": "LOW", "note": "Symmetric crypto — quantum resistant (Grover halves keyspace)"},
+            "stix_transport": {"protocol": "HTTPS/TLS", "quantum_risk": "MEDIUM", "note": "TLS 1.3 uses ECDHE - quantum vulnerable for key exchange"},
+            "jwt_tokens": {"algorithm": "HS256", "quantum_risk": "LOW", "note": "Symmetric crypto - quantum resistant (Grover halves keyspace)"},
             "api_keys": {"method": "SHA-256 hash", "quantum_risk": "LOW", "note": "SHA-256 has adequate quantum margin"},
         }
 
@@ -267,9 +267,9 @@ class QuantumCryptoAuditor:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S11 — ATTACK SIMULATION ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S11 - ATTACK SIMULATION ENGINE
+# ===============================================================================
 
 class AttackSimulationEngine:
     """Models attack paths and simulates breach scenarios from real intelligence."""
@@ -319,9 +319,9 @@ class AttackSimulationEngine:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S12 — HUMAN OVERSIGHT GOVERNANCE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S12 - HUMAN OVERSIGHT GOVERNANCE
+# ===============================================================================
 
 class HumanOversightGovernance:
     """Ensures all AI actions operate under human supervision with audit trails."""
@@ -371,10 +371,10 @@ class HumanOversightGovernance:
             "actions_pending_approval": actions_requiring_approval[:15],
             "safety_violations": safety_violations,
             "policy": {
-                "ai_auto_execution": "DISABLED — All high-risk actions require human approval",
-                "recommendation_mode": "ENABLED — AI generates recommendations, humans decide",
-                "audit_logging": "ENABLED — All actions logged with timestamps",
-                "override_capability": "ENABLED — Analysts can override any AI recommendation",
+                "ai_auto_execution": "DISABLED - All high-risk actions require human approval",
+                "recommendation_mode": "ENABLED - AI generates recommendations, humans decide",
+                "audit_logging": "ENABLED - All actions logged with timestamps",
+                "override_capability": "ENABLED - Analysts can override any AI recommendation",
             },
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
@@ -382,9 +382,9 @@ class HumanOversightGovernance:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # OMNISHIELD MASTER ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class OmniShieldEngine:
     """Master orchestrator for all 12 AI-powered cyber defense subsystems."""
@@ -397,57 +397,57 @@ class OmniShieldEngine:
 
     def run(self) -> Dict:
         logger.info("=" * 65)
-        logger.info("SENTINEL APEX v36.0 — OMNISHIELD ENGINE")
+        logger.info("SENTINEL APEX v36.0 - OMNISHIELD ENGINE")
         logger.info("12 AI-Powered Cyber Defense Subsystems")
         logger.info("=" * 65)
         now = datetime.now(timezone.utc).isoformat()
         results = {}
 
-        # S1 — AI Context Engine
+        # S1 - AI Context Engine
         logger.info("[S1/12] AI Context Engine...")
         results["S1_Context"] = AIContextEngine().run()
 
-        # S2 — Behavioral Anomaly Detection
+        # S2 - Behavioral Anomaly Detection
         logger.info("[S2/12] Behavioral Anomaly Detection...")
         results["S2_Behavioral"] = BehavioralAnomalyDetector().run()
 
-        # S3 — Agentic Security AI
+        # S3 - Agentic Security AI
         logger.info("[S3/12] Agentic Security AI...")
         results["S3_Agentic"] = AgenticSecurityAI().run()
 
-        # S4 — AI Security Posture
+        # S4 - AI Security Posture
         logger.info("[S4/12] AI Security Posture Management...")
         results["S4_Posture"] = AISecurityPosture().run()
 
-        # S5 — Cross-Domain Telemetry
+        # S5 - Cross-Domain Telemetry
         logger.info("[S5/12] Cross-Domain Telemetry Analysis...")
         results["S5_Telemetry"] = CrossDomainTelemetry().run()
 
-        # S6 — AI Threat Countermeasures
+        # S6 - AI Threat Countermeasures
         logger.info("[S6/12] AI Threat Countermeasures...")
         results["S6_Countermeasures"] = AIThreatCountermeasures().run()
 
-        # S7 — Identity Risk Engine
+        # S7 - Identity Risk Engine
         logger.info("[S7/12] Identity Risk Engine...")
         results["S7_Identity"] = IdentityRiskEngine().run()
 
-        # S8 — Self-Healing Defense
+        # S8 - Self-Healing Defense
         logger.info("[S8/12] Self-Healing Defense Engine...")
         results["S8_SelfHeal"] = SelfHealingDefense().run()
 
-        # S9 — Quantum Crypto Auditor
+        # S9 - Quantum Crypto Auditor
         logger.info("[S9/12] Quantum Cryptography Auditor...")
         results["S9_Quantum"] = QuantumCryptoAuditor().run()
 
-        # S10 — Synthetic Threat Training
+        # S10 - Synthetic Threat Training
         logger.info("[S10/12] Synthetic Threat Training...")
         results["S10_Synthetic"] = SyntheticThreatTraining().run()
 
-        # S11 — Attack Simulation
+        # S11 - Attack Simulation
         logger.info("[S11/12] Attack Simulation Engine...")
         results["S11_Simulation"] = AttackSimulationEngine().run()
 
-        # S12 — Human Oversight Governance (audits all other subsystems)
+        # S12 - Human Oversight Governance (audits all other subsystems)
         logger.info("[S12/12] Human Oversight Governance...")
         results["S12_Governance"] = HumanOversightGovernance().run(results)
 
@@ -470,7 +470,7 @@ class OmniShieldEngine:
         self._save(report, results)
 
         logger.info("=" * 65)
-        logger.info(f"OMNISHIELD COMPLETE — Platform Score: {platform_score['composite']}/10")
+        logger.info(f"OMNISHIELD COMPLETE - Platform Score: {platform_score['composite']}/10")
         logger.info(f"  12/12 subsystems operational")
         logger.info("=" * 65)
         return report
@@ -514,12 +514,12 @@ class OmniShieldEngine:
         logger.info(f"All outputs saved to {self.output_dir}/")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # CLI ENTRY POINT
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="[OMNISHIELD] %(asctime)s — %(levelname)s — %(message)s")
+    logging.basicConfig(level=logging.INFO, format="[OMNISHIELD] %(asctime)s - %(levelname)s - %(message)s")
     engine = OmniShieldEngine()
     result = engine.run()
     score = result["platform_security_score"]

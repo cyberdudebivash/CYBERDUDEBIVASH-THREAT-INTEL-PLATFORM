@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — TAXII 2.1 Module
+SENTINEL APEX v27.0 - TAXII 2.1 Module
 =======================================
 STIX threat intelligence sharing.
 """

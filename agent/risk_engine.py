@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-risk_engine.py — CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
+risk_engine.py - CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
 UPGRADED: Content-Aware Dynamic Risk Scoring + KEV weighting + EPSS tiers
 + Supply chain detection + PoC/active exploitation signals + CVE count scoring.
 
-v22.0 ADDITIONS (fully non-breaking — calculate_risk_score() signature unchanged):
+v22.0 ADDITIONS (fully non-breaking - calculate_risk_score() signature unchanged):
   - KEV presence now directly boosts base risk score (+2.5)
   - EPSS tiered weighting (very-high / high / medium) instead of binary threshold
   - Supply chain attack detection with dedicated signal weight
@@ -35,7 +35,7 @@ class RiskScoringEngine:
     Content-aware dynamic risk scoring with impact intelligence.
     """
 
-    # ── Threat severity keywords with weights ──
+    # -- Threat severity keywords with weights --
     SEVERITY_SIGNALS = {
         # Critical severity (weight 3.0+)
         "zero-day": 3.5, "zero day": 3.5, "0-day": 3.5, "0day": 3.5,
@@ -99,7 +99,7 @@ class RiskScoringEngine:
         "fake ai": 1.5, "malicious ai": 1.5,
     }
 
-    # ── Impact magnitude patterns ──
+    # -- Impact magnitude patterns --
     # KEY FIXES in v12.1:
     # - \+? after K/M to handle "260K+" shorthand
     # - (?:\w+\s+){0,3} to handle multi-word gaps like "Chrome Users"
@@ -107,31 +107,31 @@ class RiskScoringEngine:
     # - Patterns that work WITHOUT requiring action verb after entity
     ENTITY_WORDS = r'(?:records|users|customers|accounts|people|individuals|patients|loanees|members|victims|devices|systems|endpoints)'
     IMPACT_PATTERNS = [
-        # ── K/M SHORTHAND (260K+, 2.5M, 600K) ──
+        # -- K/M SHORTHAND (260K+, 2.5M, 600K) --
         # Handles: "260K+ Chrome Users", "2.5M records exposed", "600K customer records"
         (r'(\d+(?:\.\d+)?)[Kk]\+?\s+(?:\w+\s+){0,3}' + ENTITY_WORDS, "records", 1_000),
         (r'(\d+(?:\.\d+)?)[Mm]\+?\s+(?:\w+\s+){0,3}' + ENTITY_WORDS, "records", 1_000_000),
 
-        # ── MILLIONS: "2.5 million loanees", "over 1.2 million patient records" ──
+        # -- MILLIONS: "2.5 million loanees", "over 1.2 million patient records" --
         (r'(?:over\s+)?(\d+(?:\.\d+)?)\s*(?:million)\s+(?:\w+\s+){0,3}' + ENTITY_WORDS,
          "records", 1_000_000),
         (r'(\d+(?:\.\d+)?)\s*(?:million)\s+(?:affected|impacted|exposed|breached|compromised)',
          "affected", 1_000_000),
 
-        # ── THOUSANDS: "50 thousand users" ──
+        # -- THOUSANDS: "50 thousand users" --
         (r'(?:over\s+)?(\d+(?:\.\d+)?)\s*(?:thousand)\s+(?:\w+\s+){0,3}' + ENTITY_WORDS,
          "records", 1_000),
 
-        # ── DIRECT NUMBERS: "260,000 Chrome users", "600000 customer records" ──
+        # -- DIRECT NUMBERS: "260,000 Chrome users", "600000 customer records" --
         # Up to 3 words between number and entity
         (r'(?:over\s+|more\s+than\s+)?(\d[\d,]+)\s+(?:\w+\s+){0,3}' + ENTITY_WORDS,
          "records", 1),
 
-        # ── VERB-FIRST: "affected 500,000 users", "exposed 2.5M records" ──
+        # -- VERB-FIRST: "affected 500,000 users", "exposed 2.5M records" --
         (r'(?:exposed|leaked|breached|stolen|compromised|affected|impacted|infected|hit|targeted|duped|tricked)\s+(?:\w+\s+){0,2}(\d[\d,]+)\s+(?:\w+\s+){0,2}' + ENTITY_WORDS,
          "records", 1),
 
-        # ── DOLLAR AMOUNTS ──
+        # -- DOLLAR AMOUNTS --
         (r'\$\s*(\d+(?:\.\d+)?)\s*(?:million|M|billion|B)', "financial", 1_000_000),
         (r'(\d+(?:\.\d+)?)\s*(?:million|M)\s*(?:dollars|\$|USD)', "financial", 1_000_000),
     ]
@@ -220,12 +220,12 @@ class RiskScoringEngine:
         v22.0: NOW INCLUDES KEV, supply chain, EPSS tiers, PoC, active exploitation.
         Signature extended with optional kev_present (default False = backward compatible).
         """
-        # v23.0: base_score reduced 2.0→1.0
+        # v23.0: base_score reduced 2.0->1.0
         # This prevents articles with zero real threat signals from scoring 4+ from base alone
         score = 1.0
         text_lower = f"{headline} {content}".lower()
 
-        # ── IOC Diversity Scoring (preserved) ──
+        # -- IOC Diversity Scoring (preserved) --
         ioc_categories_found = sum(1 for v in iocs.values() if v)
         score += ioc_categories_found * self.weights.get("base_ioc_count", 0.5)
 
@@ -244,11 +244,11 @@ class RiskScoringEngine:
         if iocs.get('artifacts'):
             score += self.weights.get("has_artifacts", 1.0)
 
-        # ── MITRE ATT&CK Scoring (preserved) ──
+        # -- MITRE ATT&CK Scoring (preserved) --
         if mitre_matches:
             score += len(mitre_matches) * self.weights.get("mitre_technique_count", 0.3)
 
-        # ── Actor Attribution Scoring (preserved) ──
+        # -- Actor Attribution Scoring (preserved) --
         if actor_data:
             tracking_id = actor_data.get('tracking_id', '')
             if tracking_id and not tracking_id.startswith('UNC-'):
@@ -256,13 +256,13 @@ class RiskScoringEngine:
             else:
                 score += 0.3
 
-        # ── CVSS Scoring (preserved) ──
+        # -- CVSS Scoring (preserved) --
         if cvss_score and cvss_score >= 9.0:
             score += self.weights.get("cvss_above_9", 2.0)
         elif cvss_score and cvss_score >= 7.0:
             score += 1.0
 
-        # ── v22.0: EPSS Tiered Scoring (replaces binary threshold) ──
+        # -- v22.0: EPSS Tiered Scoring (replaces binary threshold) --
         # v46.0 FIX: Removed dead branches (0.90/0.50 were unreachable after 0.10)
         if epss_score is not None:
             if epss_score >= 0.70:
@@ -275,13 +275,13 @@ class RiskScoringEngine:
             elif epss_score >= 0.01:
                 score += 0.2  # Low but nonzero EPSS
 
-        # ── v22.0: KEV Presence (CRITICAL signal — confirmed exploited) ──
+        # -- v22.0: KEV Presence (CRITICAL signal - confirmed exploited) --
         if kev_present:
             kev_boost = self.weights.get("kev_present", 2.5)
             score += kev_boost
-            logger.info(f"🚨 KEV CONFIRMED: +{kev_boost} risk boost applied")
+            logger.info(f"? KEV CONFIRMED: +{kev_boost} risk boost applied")
 
-        # ── v22.0: Active Exploitation Signal ──
+        # -- v22.0: Active Exploitation Signal --
         active_exploit_terms = [
             "actively exploited", "in the wild", "active exploitation",
             "exploited in the wild", "under active attack", "being exploited"
@@ -289,16 +289,16 @@ class RiskScoringEngine:
         if any(t in text_lower for t in active_exploit_terms):
             boost = self.weights.get("active_exploitation", 2.0)
             score += boost
-            logger.info(f"⚡ Active exploitation detected: +{boost}")
+            logger.info(f"[!] Active exploitation detected: +{boost}")
 
-        # ── v22.0: Supply Chain Attack Detection ──
+        # -- v22.0: Supply Chain Attack Detection --
         supply_chain_hit = any(sig in text_lower for sig in SUPPLY_CHAIN_SIGNALS)
         if supply_chain_hit:
             boost = self.weights.get("supply_chain_signal", 2.0)
             score += boost
-            logger.info(f"🔗 Supply chain signal detected: +{boost}")
+            logger.info(f"? Supply chain signal detected: +{boost}")
 
-        # ── v22.0: Public PoC Availability ──
+        # -- v22.0: Public PoC Availability --
         poc_terms = [
             "proof of concept", "poc available", "poc released",
             "exploit released", "exploit code available", "weaponized",
@@ -307,9 +307,9 @@ class RiskScoringEngine:
         if any(t in text_lower for t in poc_terms):
             boost = self.weights.get("poc_public", 1.5)
             score += boost
-            logger.info(f"💣 Public PoC detected: +{boost}")
+            logger.info(f"? Public PoC detected: +{boost}")
 
-        # ── v22.0: Nation-State Actor Involvement ──
+        # -- v22.0: Nation-State Actor Involvement --
         nation_state_terms = [
             # v75.3: removed bare "apt" (fires on laptop/captain/adapt)
             "nation-state", "state-sponsored", "lazarus group",
@@ -323,9 +323,9 @@ class RiskScoringEngine:
         if _apt_number or any(t in text_lower for t in nation_state_terms):
             boost = self.weights.get("nation_state", 1.8)
             score += boost
-            logger.info(f"🏛️ Nation-state signal detected: +{boost}")
+            logger.info(f"? Nation-state signal detected: +{boost}")
 
-        # ── v22.0: Critical Infrastructure Targeting ──
+        # -- v22.0: Critical Infrastructure Targeting --
         critical_infra_terms = [
             # v75.3: removed bare "bank" (fires on "banking app", "bank account")
             "critical infrastructure", "power grid", "water treatment plant",
@@ -337,9 +337,9 @@ class RiskScoringEngine:
         if any(t in text_lower for t in critical_infra_terms):
             boost = self.weights.get("critical_infra", 1.5)
             score += boost
-            logger.info(f"🏭 Critical infrastructure target detected: +{boost}")
+            logger.info(f"? Critical infrastructure target detected: +{boost}")
 
-        # ── v22.0: Multi-CVE Boosting ──
+        # -- v22.0: Multi-CVE Boosting --
         cve_ids = iocs.get('cve', [])
         if len(cve_ids) > 1:
             extra_cves = len(cve_ids) - 1
@@ -348,7 +348,7 @@ class RiskScoringEngine:
             if cve_boost > 0:
                 logger.debug(f"Multi-CVE boost ({len(cve_ids)} CVEs): +{cve_boost}")
 
-        # ── Content-Aware Intelligence Analysis (v23.0 FIXED) ──
+        # -- Content-Aware Intelligence Analysis (v23.0 FIXED) --
         # v23.0 FIX: Cap content boost when no real IOCs present.
         # Without this cap, articles with zero IOCs (Google announcements, news roundups)
         # could reach 8-10 score purely from keyword matching in the article text.
@@ -369,7 +369,7 @@ class RiskScoringEngine:
                            f"keywords: {len(impact['severity_keywords'])}, "
                            f"ioc_types: {real_ioc_count})")
 
-        # ── Cap at maximum ──
+        # -- Cap at maximum --
         max_score = self.weights.get("max_score", 10.0)
         final_score = min(round(score, 1), max_score)
 
@@ -402,14 +402,14 @@ class RiskScoringEngine:
         """
         v76.2 CORRECTED: Evidence-based TLP with CVSS as primary qualifier.
 
-        TLP:RED   → (KEV confirmed) OR (CVSS >= 9.0) OR (score >= 9 AND real IOCs AND confirmed actor)
-        TLP:AMBER → score >= 7.0 AND (real IOCs OR CVEs OR CVSS >= 7.0 OR KEV)
-        TLP:GREEN → score >= 4.0
-        TLP:CLEAR → anything else
+        TLP:RED   -> (KEV confirmed) OR (CVSS >= 9.0) OR (score >= 9 AND real IOCs AND confirmed actor)
+        TLP:AMBER -> score >= 7.0 AND (real IOCs OR CVEs OR CVSS >= 7.0 OR KEV)
+        TLP:GREEN -> score >= 4.0
+        TLP:CLEAR -> anything else
 
         v23.0 introduced evidence gating to prevent keyword-inflated TLP:RED.
         v76.2 fixes the over-correction: CVSS >= 9.0 is definitive evidence of
-        a critical vulnerability — it does NOT require KEV confirmation.
+        a critical vulnerability - it does NOT require KEV confirmation.
         A Canon CVSS 9.8 RCE is TLP:RED regardless of KEV catalog status.
         Non-CVE articles still require KEV or confirmed actor+IOC for RED.
         """
@@ -421,28 +421,28 @@ class RiskScoringEngine:
         has_cvss_critical = cvss_score is not None and float(cvss_score) >= 9.0
         has_cvss_high     = cvss_score is not None and float(cvss_score) >= 7.0
 
-        # ── TLP:RED ──────────────────────────────────────────────────
+        # -- TLP:RED --------------------------------------------------
         if risk_score >= 9.0:
             if kev_present:
-                # KEV = confirmed active exploitation → always RED
+                # KEV = confirmed active exploitation -> always RED
                 return {"label": "TLP:RED", "color": "#ff3e3e"}
             if has_cvss_critical:
-                # CVSS >= 9.0 is definitive severity evidence → RED
+                # CVSS >= 9.0 is definitive severity evidence -> RED
                 return {"label": "TLP:RED", "color": "#ff3e3e"}
             if has_real_iocs and confirmed_actor:
-                # Named actor + confirmed IOCs → RED
+                # Named actor + confirmed IOCs -> RED
                 return {"label": "TLP:RED", "color": "#ff3e3e"}
-            # High score but no CVE/KEV/actor evidence → AMBER
+            # High score but no CVE/KEV/actor evidence -> AMBER
             # (prevents non-CVE editorial articles scoring 10/10 from getting RED)
             return {"label": "TLP:AMBER", "color": "#ff9f43"}
 
-        # ── TLP:AMBER ─────────────────────────────────────────────────
+        # -- TLP:AMBER -------------------------------------------------
         if risk_score >= 7.0:
             if kev_present or has_real_iocs or has_cvss_high:
                 return {"label": "TLP:AMBER", "color": "#ff9f43"}
             return {"label": "TLP:GREEN", "color": "#00e5c3"}
 
-        # ── TLP:GREEN ─────────────────────────────────────────────────
+        # -- TLP:GREEN -------------------------------------------------
         if risk_score >= 4.0:
             return {"label": "TLP:GREEN", "color": "#00e5c3"}
 
@@ -461,23 +461,23 @@ class RiskScoringEngine:
         Call this AFTER _enrich_cve_metadata() to apply real CVSS/EPSS to score.
 
         This fixes the pipeline ordering bug:
-          Step 5: calculate_risk_score() → base_score (no CVSS yet)
-          Step 7b: _enrich_cve_metadata() → CVSS, EPSS, KEV fetched
-          ← INSERT: recalculate_with_nvd() → final_score with CVSS applied
+          Step 5: calculate_risk_score() -> base_score (no CVSS yet)
+          Step 7b: _enrich_cve_metadata() -> CVSS, EPSS, KEV fetched
+          <- INSERT: recalculate_with_nvd() -> final_score with CVSS applied
 
         Rules:
-          - CVSS 9.0-10.0 → minimum score 8.5 (CRITICAL floor)
-          - CVSS 7.0-8.9  → minimum score 6.5 (HIGH floor)
-          - CVSS 4.0-6.9  → minimum score 4.0 (MEDIUM floor)
-          - EPSS > 0.70   → +2.0 boost (very high exploitation probability)
-          - EPSS > 0.40   → +1.5 boost
-          - EPSS > 0.10   → +0.8 boost
-          - KEV confirmed → +2.5 boost (confirmed exploited in wild)
+          - CVSS 9.0-10.0 -> minimum score 8.5 (CRITICAL floor)
+          - CVSS 7.0-8.9  -> minimum score 6.5 (HIGH floor)
+          - CVSS 4.0-6.9  -> minimum score 4.0 (MEDIUM floor)
+          - EPSS > 0.70   -> +2.0 boost (very high exploitation probability)
+          - EPSS > 0.40   -> +1.5 boost
+          - EPSS > 0.10   -> +0.8 boost
+          - KEV confirmed -> +2.5 boost (confirmed exploited in wild)
           - Never LOWER a score below base_score
         """
         score = base_score
 
-        # CVSS floor enforcement — never score below CVSS-derived minimum
+        # CVSS floor enforcement - never score below CVSS-derived minimum
         if cvss_score is not None:
             if cvss_score >= 9.0:
                 score = max(score, 8.5)   # CRITICAL floor
@@ -505,16 +505,16 @@ class RiskScoringEngine:
 
         final = min(round(score, 1), self.weights.get('max_score', 10.0))
         if final != base_score:
-            logger.info(f"NVD recalculation: {base_score:.1f} → {final:.1f} "
+            logger.info(f"NVD recalculation: {base_score:.1f} -> {final:.1f} "
                         f"(CVSS={cvss_score}, EPSS={epss_score}, KEV={kev_present})")
         return final
 
-    # ══════════════════════════════════════════════════════════════
-    # v17.0 EXTENDED METRICS — SUPPLEMENTARY INTELLIGENCE FIELDS
+    # ==============================================================
+    # v17.0 EXTENDED METRICS - SUPPLEMENTARY INTELLIGENCE FIELDS
     # All methods below are ADDITIVE. They do not modify any
     # existing method output. Call compute_extended_metrics() after
     # calculate_risk_score() to get additional intelligence signals.
-    # ══════════════════════════════════════════════════════════════
+    # ==============================================================
 
     def compute_extended_metrics(
         self,
@@ -530,13 +530,13 @@ class RiskScoringEngine:
     ) -> Dict:
         """
         Compute supplementary intelligence metrics for a threat item.
-        Returns a dict of new fields — NEVER modifies base risk_score.
+        Returns a dict of new fields - NEVER modifies base risk_score.
 
         New fields:
           - predictive_risk_delta: estimated risk change signal (-3.0 to +3.0)
           - exploit_velocity: exploit momentum signal (0.0-10.0)
           - intel_confidence_score: multi-source confidence (0.0-100.0)
-          - threat_momentum_score: Sentinel Momentum Index™ (0.0-10.0)
+          - threat_momentum_score: Sentinel Momentum Index(TM) (0.0-10.0)
         """
         predictive_delta = self._compute_predictive_risk_delta(
             headline, content, cvss_score, epss_score, kev_present
@@ -556,8 +556,8 @@ class RiskScoringEngine:
         }
 
         logger.info(
-            f"📊 Extended Metrics | "
-            f"Δ Risk: {extended['predictive_risk_delta']:+.2f} | "
+            f"? Extended Metrics | "
+            f"? Risk: {extended['predictive_risk_delta']:+.2f} | "
             f"Velocity: {extended['exploit_velocity']}/10 | "
             f"Confidence: {extended['intel_confidence_score']}% | "
             f"Momentum: {extended['threat_momentum_score']}/10 ({extended['threat_momentum_label']})"
@@ -678,8 +678,8 @@ class RiskScoringEngine:
         self, exploit_velocity: float, predictive_delta: float
     ) -> float:
         """
-        Sentinel Momentum Index™ (SMI) — composite threat acceleration score.
-        Formula: SMI = (exploit_velocity × 0.6) + (predictive_delta_normalized × 0.4)
+        Sentinel Momentum Index(TM) (SMI) - composite threat acceleration score.
+        Formula: SMI = (exploit_velocity x 0.6) + (predictive_delta_normalized x 0.4)
         Range: 0.0 - 10.0
         """
         # Normalize predictive_delta from [-3, 3] to [0, 10]

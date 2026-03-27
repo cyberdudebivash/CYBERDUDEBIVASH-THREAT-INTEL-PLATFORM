@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
 """
-config.py — CyberDudeBivash v30.0 (APEX SOVEREIGN CORTEX)
+config.py - CyberDudeBivash v30.0 (APEX SOVEREIGN CORTEX)
 Global Configuration for the Sentinel APEX Intelligence Platform.
 UPGRADED v30.0: WebSocket Firehose, eBPF Sensor Mesh, AI SOAR.
-All existing constants preserved — 100% backward compatible.
+All existing constants preserved - 100% backward compatible.
 """
 import os
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # BLOGGER CONFIGURATION
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 BLOG_ID = os.environ.get('BLOG_ID', '8435132226685160824')
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # FORENSIC PERSISTENCE
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 STATE_FILE = "data/blogger_processed.json"
 MAX_STATE_SIZE = 500
 MAX_PER_FEED = 5
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # INTELLIGENCE SOURCES (Multi-Feed Fusion APEX MATRIX)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 CDB_RSS_FEED = "https://cyberdudebivash-news.blogspot.com/feeds/posts/default?alt=rss"
 
 RSS_FEEDS = [
-    # ── TIER 1: Premium Breaking News & Global Incidents ──
+    # -- TIER 1: Premium Breaking News & Global Incidents --
     "https://www.bleepingcomputer.com/feed/",
     "https://feeds.feedburner.com/TheHackersNews",
     "https://krebsonsecurity.com/feed/",
@@ -36,20 +36,20 @@ RSS_FEEDS = [
     "https://securityaffairs.com/feed",
     "https://www.infosecurity-magazine.com/rss/news/",
 
-    # ── TIER 2: Government & Institutional Cyber Commands ──
+    # -- TIER 2: Government & Institutional Cyber Commands --
     "https://www.cisa.gov/cybersecurity-advisories/all.xml",
     "https://www.ncsc.gov.uk/api/1/services/v1/report-rss.xml",
     "https://cyber.gc.ca/api/v1/cyber-centre/rss-feed?lang=en",
     "https://cert.europa.eu/publications/rss",
 
-    # ── TIER 3: Zero-Day & Vulnerability Intelligence ──
+    # -- TIER 3: Zero-Day & Vulnerability Intelligence --
     "https://cvefeed.io/rssfeed/latest.xml",
     "https://vulners.com/rss.xml",
     "https://www.zerodayinitiative.com/rss/published/",
     "https://www.tenable.com/cve/rss",
     "https://packetstormsecurity.com/feeds/exploits/",
 
-    # ── TIER 4: Vendor Threat Research (APT Tracking) ──
+    # -- TIER 4: Vendor Threat Research (APT Tracking) --
     "https://www.sentinelone.com/blog/feed/",
     "https://unit42.paloaltonetworks.com/feed/",
     "https://securelist.com/feed/",
@@ -59,14 +59,14 @@ RSS_FEEDS = [
     "https://blog.talosintelligence.com/rss.xml",
     "https://research.checkpoint.com/feed/",
 
-    # ── TIER 5: Deep Web Observers & Malware Analysis ──
+    # -- TIER 5: Deep Web Observers & Malware Analysis --
     "https://vx-underground.org/rss.xml",
     "https://bazaar.abuse.ch/rss/",
     "https://urlhaus.abuse.ch/downloads/rss/",
     "https://feodotracker.abuse.ch/downloads/rss/",
     "https://ransomwatch.telemetry.ltd/feed.xml",
 
-    # ── TIER 6: Offensive Security & Cloud Threats ──
+    # -- TIER 6: Offensive Security & Cloud Threats --
     "https://portswigger.net/daily-swig/rss",
     "https://aws.amazon.com/blogs/security/feed/",
     "https://www.us-cert.gov/ncas/alerts.xml",
@@ -82,7 +82,7 @@ RSS_FEEDS = [
     "https://blog.malwarebytes.com/feed/",
     "https://any.run/cybersecurity-blog/feed/",
 
-    # ── TIER 7: v75.1 NEW — Active feeds replacing dead ones ──
+    # -- TIER 7: v75.1 NEW - Active feeds replacing dead ones --
     # Replacing: cloud.google.com (0 entries), talos (0), tenable (0),
     # qualys (0), sophos (0), fortinet (0), proofpoint (0), trendmicro (0),
     # symantec (0), virustotal (0), nakedsecurity (0), tripwire (0)
@@ -104,28 +104,28 @@ MAX_ENTRIES_PER_FEED = 5
 SOURCE_FETCH_TIMEOUT = 15
 SOURCE_FETCH_ENABLED = True
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # ORCHESTRATION SETTINGS
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 PUBLISH_RETRY_MAX = 3
 PUBLISH_RETRY_DELAY = 10
-RATE_LIMIT_DELAY = 3  # v55.3: Reduced from 8→3s. v56 publisher has its own API-level rate limiter.
+RATE_LIMIT_DELAY = 3  # v55.3: Reduced from 8->3s. v56 publisher has its own API-level rate limiter.
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # MANIFEST SETTINGS
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 MANIFEST_MAX_ENTRIES = 500
 MANIFEST_DIR = "data/stix"
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # WEEKLY CVE REPORT SETTINGS
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 WEEKLY_CVE_HOURS = 168
 WEEKLY_TOP_N = 10
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # BRANDING
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 BRAND = {
     "name": "CyberDudeBivash",
     "legal": "CyberDudeBivash Pvt. Ltd.",
@@ -148,9 +148,9 @@ BLOGS = {
     "medium": "https://medium.com/@cyberdudebivash",
 }
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # DESIGN SYSTEM
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 COLORS = {
     "accent": "#00d4aa", "white": "#ffffff", "bg_dark": "#06080d",
     "bg_card": "#0d1117", "border": "#1e293b", "text": "#cbd5e1",
@@ -168,9 +168,9 @@ FONTS = {
     "mono": "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
 }
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # TLP CLASSIFICATION MATRIX
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 TLP_MATRIX = {
     "RED":   {"label": "TLP:RED",   "color": "#ff3e3e", "min_score": 9.0},
     "AMBER": {"label": "TLP:AMBER", "color": "#ff9f43", "min_score": 7.0},
@@ -178,9 +178,9 @@ TLP_MATRIX = {
     "CLEAR": {"label": "TLP:CLEAR", "color": "#94a3b8", "min_score": 0.0},
 }
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # DYNAMIC RISK SCORING WEIGHTS
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 RISK_WEIGHTS = {
     "base_ioc_count": 0.5,
     "has_sha256": 1.5,
@@ -208,9 +208,9 @@ RISK_WEIGHTS = {
     "critical_infra": 1.5,         
 }
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # IOC VALIDATION
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 PRIVATE_IP_RANGES = [
     "10.", "192.168.", "172.16.", "172.17.", "172.18.", "172.19.",
     "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", 
@@ -232,7 +232,7 @@ FALSE_POSITIVE_DOMAINS = {
     "github.com", "blogspot.com", "wordpress.com", "medium.com", "twitter.com", 
     "linkedin.com", "youtube.com", "arstechnica.com", "reuters.com", "cnn.com",
     "nist.gov", "mitre.org", "cisa.gov",
-    # v75.4: CVE feed & research domains — never real IOCs
+    # v75.4: CVE feed & research domains - never real IOCs
     "cvefeed.io", "nvd.nist.gov", "cve.mitre.org", "vuldb.com", "exploit-db.com",
     "packetstormsecurity.com", "zerodayinitiative.com", "securityfocus.com",
     "cert.org", "kb.cert.org", "us-cert.gov", "vulners.com", "huntr.com",
@@ -264,14 +264,14 @@ FALSE_POSITIVE_EXTENSIONS = [
     ".lock", ".sum", ".mod", ".cmake", ".mk",
 ]
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # API KEYS (from environment)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 VT_API_KEY = os.environ.get('VT_API_KEY', '')
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # PRESERVED APEX CONFIGURATIONS
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 ARCHIVE_RETENTION_DAYS = int(os.environ.get('ARCHIVE_RETENTION_DAYS', '15'))
 ARCHIVE_DIR = "data/archive"
 
@@ -292,13 +292,13 @@ API_ENTERPRISE_MAX_ENTRIES = 500
 PREDICTIVE_ENABLED = os.environ.get('PREDICTIVE_ENABLED', 'true').lower() == 'true'
 CAMPAIGN_TRACKER_ENABLED = os.environ.get('CAMPAIGN_TRACKER_ENABLED', 'true').lower() == 'true'
 
-# ── EPSS / NVD Enrichment ──
+# -- EPSS / NVD Enrichment --
 EPSS_API_URL = "https://api.first.org/data/v1/epss"
 NVD_CVE_API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 EPSS_FETCH_ENABLED = os.environ.get('EPSS_FETCH_ENABLED', 'true').lower() == 'true'
 EPSS_FETCH_TIMEOUT = 8  
 
-# ── API Rate Limiting ─────────────────────────────────────────────────────────
+# -- API Rate Limiting ---------------------------------------------------------
 API_RATE_LIMIT_PUBLIC     = int(os.environ.get('API_RATE_LIMIT_PUBLIC',     '60'))    
 API_RATE_LIMIT_STANDARD   = int(os.environ.get('API_RATE_LIMIT_STANDARD',   '150'))   
 API_RATE_LIMIT_PREMIUM    = int(os.environ.get('API_RATE_LIMIT_PREMIUM',    '500'))   
@@ -306,8 +306,8 @@ API_RATE_LIMIT_PRO        = int(os.environ.get('API_RATE_LIMIT_PRO',        '300
 API_RATE_LIMIT_ENTERPRISE = int(os.environ.get('API_RATE_LIMIT_ENTERPRISE', '1000'))  
 API_RATE_WINDOW_SECONDS   = 60
 
-# ── API Authentication ────────────────────────────────────────────────────────
-# SEC01_PATCHED_v48 — Hardcoded JWT secret removed
+# -- API Authentication --------------------------------------------------------
+# SEC01_PATCHED_v48 - Hardcoded JWT secret removed
 _jwt_from_env = os.environ.get('CDB_JWT_SECRET', '')
 if not _jwt_from_env:
     import secrets as _sec_secrets
@@ -324,12 +324,12 @@ CDB_PREMIUM_API_KEYS    = set(filter(None, os.environ.get('CDB_PREMIUM_KEYS',   
 CDB_PRO_API_KEYS        = set(filter(None, os.environ.get('CDB_PRO_KEYS',       '').split(',')))   
 CDB_ENTERPRISE_API_KEYS = set(filter(None, os.environ.get('CDB_ENTERPRISE_KEYS','').split(',')))
 
-# ── Audit Logging ──
+# -- Audit Logging --
 AUDIT_LOG_ENABLED = os.environ.get('AUDIT_LOG_ENABLED', 'true').lower() == 'true'
 AUDIT_LOG_PATH = "data/audit_log.json"
 AUDIT_MAX_ENTRIES = 10000
 
-# ── Supply Chain Detection Patterns ──
+# -- Supply Chain Detection Patterns --
 SUPPLY_CHAIN_SIGNALS = [
     "supply chain", "software supply chain", "build pipeline",
     "npm package", "pypi package", "dependency confusion",
@@ -340,16 +340,16 @@ SUPPLY_CHAIN_SIGNALS = [
     "upstream compromise",
 ]
 
-# ── MISP Integration ──
+# -- MISP Integration --
 MISP_URL = os.environ.get('MISP_URL', '')
 MISP_KEY = os.environ.get('MISP_KEY', '')
 MISP_VERIFYCERT = os.environ.get('MISP_VERIFYCERT', 'true').lower() == 'true'
 
-# ── Response Cache TTL ──
+# -- Response Cache TTL --
 API_CACHE_TTL_PUBLIC = 300     
 API_CACHE_TTL_ENTERPRISE = 60  
 
-# ── STIX 2.1 Marking Definitions ──
+# -- STIX 2.1 Marking Definitions --
 STIX_IDENTITY_ID = "identity--cyberdudebivash-sentinel-apex-v30"
 STIX_TLP_MARKING = {
     "GREEN": "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a",

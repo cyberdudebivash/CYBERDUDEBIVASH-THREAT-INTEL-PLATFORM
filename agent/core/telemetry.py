@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-telemetry.py — CyberDudeBivash SENTINEL APEX v17.0
+telemetry.py - CyberDudeBivash SENTINEL APEX v17.0
 PRODUCTION OBSERVABILITY ENGINE
 
 Tracks pipeline execution timing, performance, and intelligence throughput
-for enterprise SLA monitoring. Non-breaking addition — purely additive.
+for enterprise SLA monitoring. Non-breaking addition - purely additive.
 
 Records:
   - Processing time per CVE / threat item
@@ -31,7 +31,7 @@ MAX_TELEMETRY_ENTRIES = 500  # Rolling window
 class SentinelTelemetry:
     """
     Lightweight telemetry engine for pipeline observability.
-    All methods are additive — no changes to existing pipeline flow.
+    All methods are additive - no changes to existing pipeline flow.
     Usage: wrap existing pipeline steps with start/stop timers.
     """
 
@@ -59,7 +59,7 @@ class SentinelTelemetry:
             "run_status": "running",
         }
 
-    # ── Timer API ──────────────────────────────────────────
+    # -- Timer API ------------------------------------------
 
     def start_timer(self, label: str):
         """Start a named timer."""
@@ -72,7 +72,7 @@ class SentinelTelemetry:
         elapsed = round(time.monotonic() - self._timers.pop(label), 4)
         return elapsed
 
-    # ── Feed Tracking ──────────────────────────────────────
+    # -- Feed Tracking --------------------------------------
 
     def record_feed_fetch(self, feed_url: str, elapsed_sec: float, success: bool):
         """Record feed fetch latency and status."""
@@ -86,7 +86,7 @@ class SentinelTelemetry:
         else:
             self._current_run["feeds_failed"] += 1
 
-    # ── Processing Tracking ────────────────────────────────
+    # -- Processing Tracking --------------------------------
 
     def record_cve_processing(self, elapsed_sec: float):
         """Record time to process a single CVE/threat item."""
@@ -121,7 +121,7 @@ class SentinelTelemetry:
             self._current_run["error_counts"].get(module, 0) + 1
         )
 
-    # ── Run Finalization ────────────────────────────────────
+    # -- Run Finalization ------------------------------------
 
     def finalize_run(self, total_elapsed: float, status: str = "success"):
         """
@@ -175,7 +175,7 @@ class SentinelTelemetry:
     def _log_summary(self, run: Dict):
         """Log human-readable summary to stdout."""
         logger.info(
-            f"📊 TELEMETRY SUMMARY | Run: {run['run_id']} | "
+            f"? TELEMETRY SUMMARY | Run: {run['run_id']} | "
             f"Status: {run['run_status'].upper()} | "
             f"Total time: {run['total_run_time']}s | "
             f"Processed: {run['items_processed']} | "

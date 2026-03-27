@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-enricher_pro.py — CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
+enricher_pro.py - CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
 PRODUCTION UPGRADE: Advanced Multi-Source Intelligence Enrichment Engine.
 
 v22.0 CAPABILITIES (new, fully additive):
@@ -8,7 +8,7 @@ v22.0 CAPABILITIES (new, fully additive):
   - NVD CVE metadata enrichment (CVSS v3.1 vectors, CWE, references)
   - Domain Generating Algorithm (DGA) detection via Shannon entropy
   - Supply chain attack indicator correlation
-  - IP ASN / geolocation context (ip-api.com — preserved from v1.0)
+  - IP ASN / geolocation context (ip-api.com - preserved from v1.0)
   - Automated confidence score synthesis (multi-source weighted)
   - Response caching with TTL to prevent redundant API calls
   - Full backward compatibility: get_ip_context() and get_whois_domain() preserved
@@ -74,7 +74,7 @@ class ProEnricher:
         self.geo_url = "http://ip-api.com/json/"
         self.session = _make_session()
 
-    # ── PRESERVED v1.0 METHODS ──────────────────────────────────
+    # -- PRESERVED v1.0 METHODS ----------------------------------
 
     def get_ip_context(self, ip: str) -> Dict[str, str]:
         """Gathers Geographic and ISP context for a specific IPv4 address."""
@@ -112,7 +112,7 @@ class ProEnricher:
         except socket.gaierror:
             return None
 
-    # ── v22.0 NEW: EPSS AUTO-FETCH ───────────────────────────────
+    # -- v22.0 NEW: EPSS AUTO-FETCH -------------------------------
 
     def fetch_epss_scores(self, cve_ids: List[str]) -> Dict[str, float]:
         """
@@ -175,7 +175,7 @@ class ProEnricher:
             return _EPSS_CACHE[cve_upper][0]
         return None
 
-    # ── v22.0 NEW: NVD CVE METADATA ─────────────────────────────
+    # -- v22.0 NEW: NVD CVE METADATA -----------------------------
 
     def fetch_nvd_cve(self, cve_id: str) -> Optional[Dict]:
         """
@@ -242,7 +242,7 @@ class ProEnricher:
             logger.error(f"NVD fetch error for {cve_upper}: {e}")
         return None
 
-    # ── v22.0 NEW: DOMAIN ANALYSIS (DGA DETECTION) ──────────────
+    # -- v22.0 NEW: DOMAIN ANALYSIS (DGA DETECTION) --------------
 
     def analyze_domain(self, domain: str) -> Dict:
         """
@@ -299,7 +299,7 @@ class ProEnricher:
         results = [self.analyze_domain(d) for d in domains[:50]]
         return sorted(results, key=lambda x: x["dga_probability"], reverse=True)
 
-    # ── v22.0 NEW: SUPPLY CHAIN CORRELATION ─────────────────────
+    # -- v22.0 NEW: SUPPLY CHAIN CORRELATION ---------------------
 
     def detect_supply_chain_indicators(
         self,
@@ -345,7 +345,7 @@ class ProEnricher:
             "signal_count":    total,
         }
 
-    # ── v22.0 NEW: SYNTHESIZED CONFIDENCE SCORE ─────────────────
+    # -- v22.0 NEW: SYNTHESIZED CONFIDENCE SCORE -----------------
 
     def compute_enriched_confidence(
         self,
@@ -406,7 +406,7 @@ class ProEnricher:
                            f"{len(components)} contributing signals."),
         }
 
-    # ── INTERNAL HELPERS ─────────────────────────────────────────
+    # -- INTERNAL HELPERS -----------------------------------------
 
     def _shannon_entropy(self, text: str) -> float:
         if not text:
@@ -434,5 +434,5 @@ class ProEnricher:
                 "nvd_cached":  len(_NVD_CACHE)}
 
 
-# Global Instance (backward compatible — same variable name as v1.0)
+# Global Instance (backward compatible - same variable name as v1.0)
 enricher_pro = ProEnricher()

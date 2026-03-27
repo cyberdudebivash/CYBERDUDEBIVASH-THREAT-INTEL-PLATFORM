@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-intelligence_quality.py — CYBERDUDEBIVASH® SENTINEL APEX v23.0 ULTRA
+intelligence_quality.py - CYBERDUDEBIVASH(R) SENTINEL APEX v23.0 ULTRA
 INTELLIGENCE QUALITY ENHANCEMENT ENGINE
 
 Fixes identified quality gaps in the platform:
@@ -14,10 +14,10 @@ Non-Breaking Contract:
   - Does NOT modify calculate_risk_score() signature
   - Does NOT modify enricher.py, risk_engine.py, or export_stix.py
   - Provides ADDITIVE quality enhancement as a post-processing step
-  - All methods return enriched copies — original data is never mutated
+  - All methods return enriched copies - original data is never mutated
   - Callable from sentinel_blogger.py AFTER existing pipeline steps
 
-Usage in sentinel_blogger.py (additive call — no existing code removed):
+Usage in sentinel_blogger.py (additive call - no existing code removed):
     from agent.core.intelligence_quality import quality_engine
     manifest_entry = quality_engine.enhance_manifest_entry(manifest_entry)
 """
@@ -37,14 +37,14 @@ class IntelligenceQualityEngine:
     Post-processing quality enhancement for manifest entries.
 
     Addresses the following gaps identified in feed_manifest.json:
-      - confidence_score: 18.0 (minimum base — no actual signal calculation)
+      - confidence_score: 18.0 (minimum base - no actual signal calculation)
       - cvss_score: null (not fetched or fetch failed silently)
-      - epss_score: null (same — EPSS API may have been skipped)
+      - epss_score: null (same - EPSS API may have been skipped)
       - actor_tag: UNC-CDB-99 (unclassified default for all CVE entries)
-      - extended_metrics: {} (empty — compute_extended_metrics never called for CVE entries)
+      - extended_metrics: {} (empty - compute_extended_metrics never called for CVE entries)
     """
 
-    # ── Known CVE → CVSS mapping (covers common high-value CVEs without API call) ──
+    # -- Known CVE -> CVSS mapping (covers common high-value CVEs without API call) --
     KNOWN_CVSS: Dict[str, float] = {
         # Critical RCE CVEs
         "CVE-2024-3400": 10.0,  # PAN-OS GlobalProtect
@@ -59,7 +59,7 @@ class IntelligenceQualityEngine:
         "CVE-2025-0282":  9.0,  # Ivanti Connect Secure
     }
 
-    # ── CVE product name → sector mapping for richer classification ──
+    # -- CVE product name -> sector mapping for richer classification --
     CVE_SECTOR_PATTERNS = {
         "openemr":       "healthcare",
         "epic":          "healthcare",
@@ -88,7 +88,7 @@ class IntelligenceQualityEngine:
         "joomla":        "cms",
     }
 
-    # ── Confidence scoring signals by data richness ──
+    # -- Confidence scoring signals by data richness --
     CONFIDENCE_SIGNALS = {
         "has_cvss":           15.0,  # CVSS score available
         "has_epss":           12.0,  # EPSS score available
@@ -107,7 +107,7 @@ class IntelligenceQualityEngine:
     def enhance_manifest_entry(self, entry: Dict) -> Dict:
         """
         Main enhancement method. Takes a manifest entry and returns an enriched copy.
-        Preserves ALL existing fields — only adds/corrects values.
+        Preserves ALL existing fields - only adds/corrects values.
 
         Enhancements:
           - Recalculates confidence_score using full signal set
@@ -117,54 +117,54 @@ class IntelligenceQualityEngine:
           - Populates extended_metrics if empty
           - Adds quality_score and data_quality label
         """
-        # Work on a copy — never mutate original
+        # Work on a copy - never mutate original
         enhanced = dict(entry)
 
-        # ── 1. Recalculate confidence score ──
+        # -- 1. Recalculate confidence score --
         enhanced["confidence_score"] = self._compute_confidence(enhanced)
         enhanced["confidence"]       = enhanced["confidence_score"]  # keep both fields
 
-        # ── 2. Enrich CVSS if null ──
+        # -- 2. Enrich CVSS if null --
         if enhanced.get("cvss_score") is None:
             cves = self._extract_cves(enhanced)
             if cves:
                 cvss = self._lookup_cvss(cves[0])
                 if cvss:
                     enhanced["cvss_score"] = cvss
-                    logger.info(f"✅ CVSS enriched: {cves[0]} → {cvss}")
+                    logger.info(f"? CVSS enriched: {cves[0]} -> {cvss}")
 
-        # ── 3. Compute data quality label ──
+        # -- 3. Compute data quality label --
         enhanced["data_quality"] = self._compute_quality_label(enhanced)
 
-        # ── 4. Refine actor classification for CVE entries ──
+        # -- 4. Refine actor classification for CVE entries --
         if enhanced.get("actor_tag", "").startswith("UNC-CDB-99"):
             refined_actor = self._refine_actor_tag(enhanced)
             if refined_actor != enhanced.get("actor_tag"):
                 enhanced["actor_tag"] = refined_actor
-                logger.debug(f"Actor refined: {entry.get('actor_tag')} → {refined_actor}")
+                logger.debug(f"Actor refined: {entry.get('actor_tag')} -> {refined_actor}")
 
-        # ── 5. Compute extended metrics if empty ──
+        # -- 5. Compute extended metrics if empty --
         if not enhanced.get("extended_metrics"):
             enhanced["extended_metrics"] = self._compute_extended_metrics(enhanced)
 
-        # ── 6. Add sector classification ──
+        # -- 6. Add sector classification --
         if not enhanced.get("sector"):
             enhanced["sector"] = self._classify_sector(enhanced)
 
-        # ── 7. Add quality metadata ──
+        # -- 7. Add quality metadata --
         enhanced["_quality_enhanced"] = True
         enhanced["_quality_enhanced_at"] = datetime.now(timezone.utc).isoformat()
         enhanced["_quality_engine_version"] = "v23.0"
 
         return enhanced
 
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
     # Confidence Score Computation
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
 
     def _compute_confidence(self, entry: Dict) -> float:
         """
-        Compute calibrated intelligence confidence score (0–100).
+        Compute calibrated intelligence confidence score (0-100).
 
         This replaces the base 20.0 minimum with a rich signal-based model.
         The previous implementation awarded:
@@ -175,7 +175,7 @@ class IntelligenceQualityEngine:
           - Risk bonus: up to 5 pts
         
         Problem: source_count is almost always 1 for single-feed entries,
-        and IOC types are 0 for CVE-only entries → most entries stuck at 18–23%.
+        and IOC types are 0 for CVE-only entries -> most entries stuck at 18-23%.
         
         This enhanced model uses the actual manifest data fields to compute
         a meaningful confidence score.
@@ -183,22 +183,22 @@ class IntelligenceQualityEngine:
         score = self.CONFIDENCE_SIGNALS["base"]
         signals = []
 
-        # ── CVSS availability ──
+        # -- CVSS availability --
         if entry.get("cvss_score") is not None:
             score += self.CONFIDENCE_SIGNALS["has_cvss"]
             signals.append("CVSS")
 
-        # ── EPSS availability ──
+        # -- EPSS availability --
         if entry.get("epss_score") is not None:
             score += self.CONFIDENCE_SIGNALS["has_epss"]
             signals.append("EPSS")
 
-        # ── CISA KEV ──
+        # -- CISA KEV --
         if entry.get("kev_present"):
             score += self.CONFIDENCE_SIGNALS["has_kev"]
             signals.append("KEV")
 
-        # ── IOC diversity ──
+        # -- IOC diversity --
         ioc_counts = entry.get("ioc_counts", {})
         ioc_types_with_data = sum(1 for v in ioc_counts.values() if v and v > 0)
         ioc_bonus = min(ioc_types_with_data * self.CONFIDENCE_SIGNALS["has_iocs"], 30.0)
@@ -206,25 +206,25 @@ class IntelligenceQualityEngine:
             score += ioc_bonus
             signals.append(f"IOCs({ioc_types_with_data})")
 
-        # ── MITRE techniques ──
+        # -- MITRE techniques --
         mitre_count = len(entry.get("mitre_tactics", []))
         if mitre_count > 0:
             mitre_bonus = min(mitre_count * 4.0, self.CONFIDENCE_SIGNALS["has_mitre"])
             score += mitre_bonus
             signals.append(f"MITRE({mitre_count})")
 
-        # ── Known actor ──
+        # -- Known actor --
         actor = entry.get("actor_tag", "")
         if actor and not actor.startswith("UNC-CDB-99"):
             score += self.CONFIDENCE_SIGNALS["has_actor_known"]
             signals.append("Actor")
 
-        # ── Published report ──
+        # -- Published report --
         if entry.get("blog_url"):
             score += self.CONFIDENCE_SIGNALS["has_blog_url"]
             signals.append("Published")
 
-        # ── Risk score bonuses ──
+        # -- Risk score bonuses --
         risk_score = entry.get("risk_score", 0.0)
         if risk_score >= 9.0:
             score += self.CONFIDENCE_SIGNALS["has_risk_critical"]
@@ -234,26 +234,26 @@ class IntelligenceQualityEngine:
             score += self.CONFIDENCE_SIGNALS["has_risk_high"]
             signals.append("HIGH")
 
-        # ── CVE presence ──
+        # -- CVE presence --
         ioc_cve_count = ioc_counts.get("cve", 0)
         if ioc_cve_count and ioc_cve_count > 0:
             score += self.CONFIDENCE_SIGNALS["has_cve"]
             signals.append(f"CVE({ioc_cve_count})")
 
-        # ── Extended metrics ──
+        # -- Extended metrics --
         if entry.get("extended_metrics"):
             score += self.CONFIDENCE_SIGNALS["has_extended_metrics"]
 
         final_score = round(min(score, 100.0), 1)
         logger.debug(
-            f"Confidence: {entry.get('title', '')[:50]} → {final_score}% "
+            f"Confidence: {entry.get('title', '')[:50]} -> {final_score}% "
             f"[{', '.join(signals)}]"
         )
         return final_score
 
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
     # CVSS Lookup
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
 
     def _lookup_cvss(self, cve_id: str) -> Optional[float]:
         """
@@ -305,9 +305,9 @@ class IntelligenceQualityEngine:
         cves.extend([c.upper() for c in cve_matches])
         return list(dict.fromkeys(cves))  # Deduplicate preserving order
 
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
     # Actor Refinement
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
 
     def _refine_actor_tag(self, entry: Dict) -> str:
         """
@@ -345,14 +345,14 @@ class IntelligenceQualityEngine:
             return "CDB-MEDIUM-CVE"
         return "CDB-UNCLASSIFIED-CVE"
 
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
     # Extended Metrics Computation
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
 
     def _compute_extended_metrics(self, entry: Dict) -> Dict:
         """
         Compute extended metrics for entries that have empty extended_metrics.
-        Uses available manifest data — no external API calls.
+        Uses available manifest data - no external API calls.
         """
         risk_score = entry.get("risk_score", 0.0)
         cvss_score = entry.get("cvss_score")
@@ -403,9 +403,9 @@ class IntelligenceQualityEngine:
             "threat_momentum_label":  momentum_label,
         }
 
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
     # Sector Classification
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
 
     def _classify_sector(self, entry: Dict) -> str:
         """Classify the affected sector from title and feed source."""
@@ -415,9 +415,9 @@ class IntelligenceQualityEngine:
                 return sector
         return "general"
 
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
     # Data Quality Label
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
 
     def _compute_quality_label(self, entry: Dict) -> str:
         """
@@ -434,21 +434,21 @@ class IntelligenceQualityEngine:
         signals = sum([has_cvss, has_epss, has_kev, has_iocs, has_mitre, has_actor])
 
         if signals >= 5:
-            return "GOLD"     # Richly enriched — all key signals present
+            return "GOLD"     # Richly enriched - all key signals present
         elif signals >= 3:
-            return "SILVER"   # Well enriched — most signals present
+            return "SILVER"   # Well enriched - most signals present
         elif signals >= 1:
-            return "BRONZE"   # Partially enriched — minimal signals
-        return "RAW"          # Baseline — minimal enrichment
+            return "BRONZE"   # Partially enriched - minimal signals
+        return "RAW"          # Baseline - minimal enrichment
 
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
     # Manifest Batch Enhancement
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
 
     def enhance_manifest(self, manifest: List[Dict]) -> List[Dict]:
         """
         Batch enhance all entries in a manifest.
-        Returns new list — original manifest is never modified.
+        Returns new list - original manifest is never modified.
         """
         enhanced = []
         for i, entry in enumerate(manifest):
@@ -491,8 +491,8 @@ class IntelligenceQualityEngine:
         }
 
 
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
 # Singleton
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
 
 quality_engine = IntelligenceQualityEngine()

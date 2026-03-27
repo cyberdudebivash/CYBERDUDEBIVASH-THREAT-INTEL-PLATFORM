@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print guardian report summary — called by autonomous-guardian.yml summary step."""
+"""Print guardian report summary - called by autonomous-guardian.yml summary step."""
 import json, sys
 from pathlib import Path
 
@@ -27,4 +27,4 @@ if r["failures_detected"]:
         run_no = f.get("run_number", "?")
         print(f"  [{f['severity']}] {f['name']} in {wf} #{run_no}")
 else:
-    print("No failures — platform healthy.")
+    print("No failures - platform healthy.")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-siem_dispatcher.py — CyberDudeBivash v30.0
+siem_dispatcher.py - CyberDudeBivash v30.0
 Description: Reads threat intelligence and autonomously generates/dispatches 
              Sigma rules to Enterprise SIEMs (Splunk, Elastic).
 Compliance: 0 REGRESSION. Read-only on local data.

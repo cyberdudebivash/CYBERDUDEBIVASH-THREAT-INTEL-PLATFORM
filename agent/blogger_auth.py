@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-blogger_auth.py — CyberDudeBivash v7.2.1
+blogger_auth.py - CyberDudeBivash v7.2.1
 Final Production Version: Corrected OAuth2 Refresh Flow.
 """
 import os
@@ -19,7 +19,7 @@ def get_blogger_credentials():
     cs = os.environ.get('CLIENT_SECRET')
 
     if rt and cid and cs:
-        logger.info("✓ Mapped Environment Secrets detected.")
+        logger.info("[OK] Mapped Environment Secrets detected.")
         creds = Credentials(
             token=None,  # Access token will be generated on refresh
             refresh_token=rt,
@@ -36,7 +36,7 @@ def get_blogger_credentials():
             logger.error(f"OAuth Refresh Failure: {e}")
             raise
 
-    logger.critical("✖ CRITICAL: Missing REFRESH_TOKEN, CLIENT_ID, or CLIENT_SECRET.")
+    logger.critical("? CRITICAL: Missing REFRESH_TOKEN, CLIENT_ID, or CLIENT_SECRET.")
     raise ValueError("Missing Blogger OAuth secrets: REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET.")
 
 def get_blogger_service():

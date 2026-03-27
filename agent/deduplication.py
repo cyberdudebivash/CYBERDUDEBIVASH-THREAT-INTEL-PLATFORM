@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-deduplication.py — CyberDudeBivash v14.0 (SENTINEL APEX ULTRA)
+deduplication.py - CyberDudeBivash v14.0 (SENTINEL APEX ULTRA)
 TRIPLE-LAYER Intelligence Deduplication Engine.
 
 v14.0 ROOT CAUSE FIX for duplicate reports:
-  Layer 1: Exact hash (title + URL) — catches identical republish
-  Layer 2: Title-only hash — catches SAME article from DIFFERENT feeds
-  Layer 3: Fuzzy word-overlap — catches near-identical titles (80% threshold)
+  Layer 1: Exact hash (title + URL) - catches identical republish
+  Layer 2: Title-only hash - catches SAME article from DIFFERENT feeds
+  Layer 3: Fuzzy word-overlap - catches near-identical titles (80% threshold)
 
 BUG HISTORY: v13.0 only had Layer 1. Same article from Threatpost AND
-BleepingComputer had different URLs → different hashes → published twice.
-CDB-NEWS Phase 1 had NO dedup at all → articles repeated 6x.
+BleepingComputer had different URLs -> different hashes -> published twice.
+CDB-NEWS Phase 1 had NO dedup at all -> articles repeated 6x.
 """
 import hashlib
 import json
@@ -41,7 +41,7 @@ class DeduplicationEngine:
         # v55.1: Seed from manifest as safety net
         self._seed_from_manifest()
 
-    # ── Persistence ──────────────────────────────────────
+    # -- Persistence --------------------------------------
 
     def _load_state(self) -> Dict:
         if os.path.exists(self.state_file):
@@ -62,7 +62,7 @@ class DeduplicationEngine:
         """v55.1 FIX: Seed dedup state from feed_manifest.json.
         
         ROOT CAUSE: blogger_processed.json was gitignored, so every CI run
-        started with empty dedup → all articles re-published as duplicates.
+        started with empty dedup -> all articles re-published as duplicates.
         
         This method reads all titles from the existing manifest and registers
         them in the dedup engine, ensuring no already-published article
@@ -102,7 +102,7 @@ class DeduplicationEngine:
         with open(self.state_file, 'w') as f:
             json.dump(self._state, f, indent=2)
 
-    # ── Hash generators ──────────────────────────────────
+    # -- Hash generators ----------------------------------
 
     def _generate_hash(self, title: str, source_url: str = "") -> str:
         """Layer 1: Exact hash from title + URL."""
@@ -125,7 +125,7 @@ class DeduplicationEngine:
         mx = max(len(wa), len(wb))
         return (overlap / mx) >= threshold if mx > 0 else False
 
-    # ── Core API ─────────────────────────────────────────
+    # -- Core API -----------------------------------------
 
     def is_duplicate(self, title: str, source_url: str = "") -> bool:
         """Triple-layer duplicate check. Returns True if already processed."""
@@ -139,7 +139,7 @@ class DeduplicationEngine:
         # Layer 3: Fuzzy word-overlap against recent titles
         for existing in list(self._state.get("hash_titles", {}).values())[-150:]:
             if self._titles_similar(title, existing):
-                logger.info(f"  [DEDUP-L3] Similar: {title[:40]}… ≈ {existing[:40]}…")
+                logger.info(f"  [DEDUP-L3] Similar: {title[:40]}... ~= {existing[:40]}...")
                 return True
         return False
 
@@ -153,7 +153,7 @@ class DeduplicationEngine:
         if th not in self._state.get("title_hashes", []):
             self._state.setdefault("title_hashes", []).append(th)
         self._save_state()
-        logger.info(f"  [DEDUP] Registered: {title[:60]}…")
+        logger.info(f"  [DEDUP] Registered: {title[:60]}...")
 
     def get_processed_count(self) -> int:
         return len(self._state["processed_hashes"])

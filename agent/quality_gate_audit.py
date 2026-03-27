@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX — Quality Gate Audit v1.1
+CYBERDUDEBIVASH(R) SENTINEL APEX - Quality Gate Audit v1.1
 Path: agent/quality_gate_audit.py
 Feature: Type-Safe Premium Licensing Validation
 """
@@ -22,7 +22,7 @@ class QualityGateAudit:
     def run_audit(self):
         """Analyzes manifest for licensing-ready high-yield intelligence with Type-Safety."""
         logger.info("============================================================")
-        logger.info("SENTINEL APEX — QUALITY GATE AUDIT START")
+        logger.info("SENTINEL APEX - QUALITY GATE AUDIT START")
         logger.info("============================================================")
 
         if not os.path.exists(self.manifest_path):

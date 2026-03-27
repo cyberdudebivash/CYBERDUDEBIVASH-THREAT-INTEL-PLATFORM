@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-fusion_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v33.0 (FUSION DOMINANCE)
+fusion_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v33.0 (FUSION DOMINANCE)
 ===========================================================================
-The Intelligence Fusion Engine — connects isolated threat signals into
+The Intelligence Fusion Engine - connects isolated threat signals into
 correlated intelligence context using entity extraction, relationship
 mapping, confidence scoring, and narrative generation.
 
@@ -10,13 +10,13 @@ This is the SINGLE ARCHITECTURE UPGRADE that transforms Sentinel from a
 threat feed into a cyber intelligence company product.
 
 Pipeline:
-    Raw Signal → Normalize → Extract Entities → Resolve → Map Relationships
-    → Score Confidence → Build Context → Generate Intelligence Report
+    Raw Signal -> Normalize -> Extract Entities -> Resolve -> Map Relationships
+    -> Score Confidence -> Build Context -> Generate Intelligence Report
 
 Non-Breaking: Reads from existing feed_manifest.json and STIX bundles.
 Writes to isolated data/fusion/ directory. Zero impact on existing pipeline.
 
-Author: CyberDudeBivash Pvt. Ltd. — SENTINEL APEX GOC
+Author: CyberDudeBivash Pvt. Ltd. - SENTINEL APEX GOC
 """
 
 import os
@@ -32,9 +32,9 @@ from enum import Enum
 
 logger = logging.getLogger("CDB-FusionEngine")
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # CONSTANTS & CONFIGURATION
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 FUSION_DATA_DIR = os.environ.get("FUSION_DATA_DIR", "data/fusion")
 MANIFEST_PATH = os.environ.get("MANIFEST_PATH", "data/stix/feed_manifest.json")
@@ -71,9 +71,9 @@ class RelationshipType(Enum):
     MITIGATED_BY = "mitigated_by"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # DATA STRUCTURES
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 @dataclass
 class FusionEntity:
@@ -162,9 +162,9 @@ class FusionContext:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # SIGNAL NORMALIZER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class SignalNormalizer:
     """Normalizes raw threat signals into canonical schema."""
@@ -196,7 +196,7 @@ class SignalNormalizer:
         """Normalize a feed_manifest.json entry into canonical signal format.
         Handles actual Sentinel APEX manifest schema:
         - actor_tag (not actor_id)
-        - ioc_counts (not iocs) — IOC values are in STIX bundles
+        - ioc_counts (not iocs) - IOC values are in STIX bundles
         - mitre_tactics contains technique IDs (T1xxx)
         - CVEs extracted from title
         """
@@ -309,9 +309,9 @@ class SignalNormalizer:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # ENTITY EXTRACTOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class EntityExtractor:
     """Extracts typed entities from normalized signals."""
@@ -513,9 +513,9 @@ class EntityExtractor:
         return title.split(":")[0].strip()[:60] if ":" in title else None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # RELATIONSHIP MAPPER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class RelationshipMapper:
     """Maps relationships between extracted entities within and across signals."""
@@ -531,7 +531,7 @@ class RelationshipMapper:
         for entity in entities:
             by_type[entity.entity_type].append(entity)
 
-        # Actor → CVE (exploits)
+        # Actor -> CVE (exploits)
         for actor in by_type.get(EntityType.THREAT_ACTOR, []):
             for cve in by_type.get(EntityType.CVE, []):
                 relationships.append(FusionRelationship(
@@ -544,7 +544,7 @@ class RelationshipMapper:
                     last_observed=timestamp,
                 ))
 
-        # Actor → Sector (targets)
+        # Actor -> Sector (targets)
         for actor in by_type.get(EntityType.THREAT_ACTOR, []):
             for sector in by_type.get(EntityType.SECTOR, []):
                 relationships.append(FusionRelationship(
@@ -557,7 +557,7 @@ class RelationshipMapper:
                     last_observed=timestamp,
                 ))
 
-        # Actor → Malware (uses)
+        # Actor -> Malware (uses)
         for actor in by_type.get(EntityType.THREAT_ACTOR, []):
             for malware in by_type.get(EntityType.MALWARE, []):
                 relationships.append(FusionRelationship(
@@ -570,7 +570,7 @@ class RelationshipMapper:
                     last_observed=timestamp,
                 ))
 
-        # Actor → Technique (uses)
+        # Actor -> Technique (uses)
         for actor in by_type.get(EntityType.THREAT_ACTOR, []):
             for technique in by_type.get(EntityType.TECHNIQUE, []):
                 relationships.append(FusionRelationship(
@@ -583,7 +583,7 @@ class RelationshipMapper:
                     last_observed=timestamp,
                 ))
 
-        # Malware → IOC (indicates)
+        # Malware -> IOC (indicates)
         for malware in by_type.get(EntityType.MALWARE, []):
             for ioc in by_type.get(EntityType.IOC, []):
                 relationships.append(FusionRelationship(
@@ -596,7 +596,7 @@ class RelationshipMapper:
                     last_observed=timestamp,
                 ))
 
-        # CVE → Technique (associated)
+        # CVE -> Technique (associated)
         for cve in by_type.get(EntityType.CVE, []):
             for technique in by_type.get(EntityType.TECHNIQUE, []):
                 relationships.append(FusionRelationship(
@@ -612,9 +612,9 @@ class RelationshipMapper:
         return relationships
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # CONFIDENCE SCORER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class ConfidenceScorer:
     """Multi-signal confidence aggregation engine."""
@@ -657,9 +657,9 @@ class ConfidenceScorer:
         return min(1.0, base + diversity_bonus + corroboration)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # THREAT CONTEXT BUILDER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class ThreatContextBuilder:
     """Builds fused intelligence context from entities and relationships."""
@@ -768,9 +768,9 @@ class ThreatContextBuilder:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # INTELLIGENCE FUSION ENGINE (MAIN ORCHESTRATOR)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class IntelligenceFusionEngine:
     """
@@ -862,7 +862,7 @@ class IntelligenceFusionEngine:
             Fusion report summary
         """
         logger.info("=" * 60)
-        logger.info("SENTINEL APEX v33.0 — INTELLIGENCE FUSION ENGINE")
+        logger.info("SENTINEL APEX v33.0 - INTELLIGENCE FUSION ENGINE")
         logger.info("=" * 60)
 
         # 1. Load and normalize signals
@@ -1061,13 +1061,13 @@ class IntelligenceFusionEngine:
             logger.debug(f"Graph population skipped (optional): {e}")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # GLOBAL THREAT INDEX
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class GlobalThreatIndex:
     """
-    Calculates the CyberDudeBivash Global Threat Index — a daily composite
+    Calculates the CyberDudeBivash Global Threat Index - a daily composite
     cyber risk score that media, enterprises, and SOCs can reference.
     """
 
@@ -1151,18 +1151,18 @@ class GlobalThreatIndex:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # CLI ENTRY POINT
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 def main():
     """CLI entry point for running the fusion engine."""
     logging.basicConfig(
         level=logging.INFO,
-        format="[FUSION-ENGINE] %(asctime)s — %(levelname)s — %(message)s"
+        format="[FUSION-ENGINE] %(asctime)s - %(levelname)s - %(message)s"
     )
 
-    logger.info("Initializing SENTINEL APEX v33.0 — FUSION DOMINANCE")
+    logger.info("Initializing SENTINEL APEX v33.0 - FUSION DOMINANCE")
 
     engine = IntelligenceFusionEngine()
     result = engine.run_fusion(max_signals=500, window_hours=168)

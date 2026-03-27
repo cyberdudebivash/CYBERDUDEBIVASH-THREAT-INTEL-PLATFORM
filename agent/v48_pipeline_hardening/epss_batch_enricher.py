@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-epss_batch_enricher.py — CYBERDUDEBIVASH® SENTINEL APEX v48.0
+epss_batch_enricher.py - CYBERDUDEBIVASH(R) SENTINEL APEX v48.0
 Batch EPSS/CVSS enrichment with persistent local cache.
 
 FIXES BUG-03: 70% of manifest entries have null epss_score/cvss_score

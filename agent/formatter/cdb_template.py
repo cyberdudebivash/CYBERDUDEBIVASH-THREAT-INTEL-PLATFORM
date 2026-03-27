@@ -3,7 +3,7 @@ CyberDudeBivash Authority Threat Intelligence Formatter v4.0
 Generates professional, inline-styled daily threat reports.
 
 Interface-hardened: All parameters optional. Never breaks pipelines.
-© 2026 CyberDudeBivash Pvt Ltd — All rights reserved.
+(C) 2026 CyberDudeBivash Pvt Ltd - All rights reserved.
 """
 
 from datetime import datetime, timezone
@@ -51,7 +51,7 @@ def format_daily_report(
     site_url = site_url or BRAND["website"]
     sections: List[str] = []
 
-    # ── HEADER ──
+    # -- HEADER --
     sections.append(f"""
 <div style="{_s['card']}border-left:4px solid {COLORS['accent']};">
   <h2 style="font-family:{FONTS['heading']};color:{COLORS['white']};font-size:24px;font-weight:800;margin:0 0 8px;">
@@ -63,15 +63,15 @@ def format_daily_report(
     <strong>Classification:</strong> TLP:CLEAR
   </p>
   <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
-    <span style="{_s['badge']}background:rgba(0,212,170,0.12);color:{COLORS['accent']};">📊 {len(cves)} CVEs</span>
-    <span style="{_s['badge']}background:rgba(220,38,38,0.12);color:{COLORS['critical']};">🔴 {len(kev_items)} KEVs</span>
-    <span style="{_s['badge']}background:rgba(139,92,246,0.12);color:{COLORS['cyber_purple']};">🧬 {len(malware_items)} Malware</span>
-    <span style="{_s['badge']}background:rgba(59,130,246,0.12);color:{COLORS['cyber_blue']};">🎯 {len(coverage_gaps)} Gaps</span>
+    <span style="{_s['badge']}background:rgba(0,212,170,0.12);color:{COLORS['accent']};">? {len(cves)} CVEs</span>
+    <span style="{_s['badge']}background:rgba(220,38,38,0.12);color:{COLORS['critical']};">? {len(kev_items)} KEVs</span>
+    <span style="{_s['badge']}background:rgba(139,92,246,0.12);color:{COLORS['cyber_purple']};">? {len(malware_items)} Malware</span>
+    <span style="{_s['badge']}background:rgba(59,130,246,0.12);color:{COLORS['cyber_blue']};">? {len(coverage_gaps)} Gaps</span>
   </div>
 </div>
 """)
 
-    # ── EXECUTIVE SUMMARY ──
+    # -- EXECUTIVE SUMMARY --
     sections.append(f"""
 <h2 style="{_s['h2']}">Executive Intelligence Summary</h2>
 <p style="{_s['p']}">
@@ -88,7 +88,7 @@ immediately relevant to enterprise risk management.</strong>
 </p>
 """)
 
-    # ── CISA KEV ──
+    # -- CISA KEV --
     sections.append(f'<h2 style="{_s["h2"]}">Known Exploited Vulnerabilities (CISA KEV)</h2>')
     if kev_items:
         for kev in kev_items[:10]:
@@ -99,7 +99,7 @@ immediately relevant to enterprise risk management.</strong>
   <p style="{_s['muted']}margin-bottom:6px;">
     <strong>Vendor:</strong> {kev.get('vendorProject', 'Unknown')} &nbsp;|&nbsp;
     <strong>Product:</strong> {kev.get('product', 'Unknown')} &nbsp;|&nbsp;
-    <span style="color:{COLORS['critical']};font-weight:700;">⚡ Actively Exploited</span>
+    <span style="color:{COLORS['critical']};font-weight:700;">[!] Actively Exploited</span>
   </p>
   <p style="{_s['p']}">
     Confirmed exploitation by real-world threat actors. Unpatched systems
@@ -114,7 +114,7 @@ No newly added CISA KEVs were identified during this reporting window.
 Previously cataloged KEVs remain relevant and should continue to be prioritized.
 </p>""")
 
-    # ── CVEs ──
+    # -- CVEs --
     sections.append(f'<h2 style="{_s["h2"]}">Critical &amp; High-Risk Vulnerabilities</h2>')
     if cves:
         for cve in cves[:15]:
@@ -140,7 +140,7 @@ Previously cataloged KEVs remain relevant and should continue to be prioritized.
     else:
         sections.append(f'<p style="{_s["p"]}">No newly disclosed high-impact CVEs during this window.</p>')
 
-    # ── MALWARE ──
+    # -- MALWARE --
     sections.append(f'<h2 style="{_s["h2"]}">Malware &amp; Campaign Activity</h2>')
     if malware_items:
         for m in malware_items[:8]:
@@ -156,7 +156,7 @@ Previously cataloged KEVs remain relevant and should continue to be prioritized.
     else:
         sections.append(f'<p style="{_s["p"]}">No confirmed malware samples retrieved during this window.</p>')
 
-    # ── COVERAGE GAPS ──
+    # -- COVERAGE GAPS --
     sections.append(f'<h2 style="{_s["h2"]}">MITRE ATT&amp;CK Coverage Gaps</h2>')
     if coverage_gaps:
         for gap in coverage_gaps:
@@ -164,17 +164,17 @@ Previously cataloged KEVs remain relevant and should continue to be prioritized.
             gc = _sev_color(gs)
             sections.append(f"""
 <div style="{_s['card']}border-left:4px solid {gc};">
-  <strong style="color:{COLORS['white']};">{gap.get('technique_id')} — {gap.get('technique_name')}</strong>
+  <strong style="color:{COLORS['white']};">{gap.get('technique_id')} - {gap.get('technique_name')}</strong>
   <span style="{_s['badge']}background:rgba({','.join(str(int(gc[i:i+2],16)) for i in (1,3,5))},0.12);color:{gc};margin-left:8px;">{gs}</span>
   <p style="{_s['p']}margin-top:6px;">
-    Tactic: {gap.get('tactic', 'Unknown')} — Defensive blind spot enabling
+    Tactic: {gap.get('tactic', 'Unknown')} - Defensive blind spot enabling
     undetected adversary progression. <strong>Action: {gap.get('recommended_action', 'DETECTION REQUIRED')}</strong>
   </p>
 </div>""")
     else:
         sections.append(f'<p style="{_s["p"]}">No immediate ATT&CK coverage gaps identified.</p>')
 
-    # ── STRATEGIC TAKEAWAYS ──
+    # -- STRATEGIC TAKEAWAYS --
     sections.append(f"""
 <h2 style="{_s['h2']}">Strategic Security Takeaways</h2>
 <p style="{_s['p']}">
@@ -185,7 +185,7 @@ operating at unacceptable risk levels in the current threat environment.
 </p>
 """)
 
-    # ── CDB FOOTER ──
+    # -- CDB FOOTER --
     sections.append(f"""
 <div style="{_s['card']}text-align:center;border-color:rgba(0,212,170,0.2);margin-top:28px;">
   <p style="font-size:18px;font-weight:700;color:{COLORS['accent']};margin:0 0 4px;">CyberDudeBivash Intelligence Note</p>
@@ -193,9 +193,9 @@ operating at unacceptable risk levels in the current threat environment.
     Generated by the CDB-SENTINEL Threat Intelligence Platform using automated
     intelligence correlation, risk enrichment, and adversary behavior analysis.
   </p>
-  <a href="{site_url}" style="{_s['cta']}" target="_blank" rel="noopener">Explore Platform →</a>
+  <a href="{site_url}" style="{_s['cta']}" target="_blank" rel="noopener">Explore Platform -></a>
   <p style="{_s['muted']}margin:12px 0 0;">
-    © 2026 {BRAND['legal']} — {BRAND['city']}, {BRAND['country']}
+    (C) 2026 {BRAND['legal']} - {BRAND['city']}, {BRAND['country']}
   </p>
 </div>
 """)

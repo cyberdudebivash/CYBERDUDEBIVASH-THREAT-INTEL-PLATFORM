@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-cdb_python_sdk.py — CYBERDUDEBIVASH® SENTINEL APEX v24.0
+cdb_python_sdk.py - CYBERDUDEBIVASH(R) SENTINEL APEX v24.0
 Official Python SDK for the CDB Threat Intelligence Platform API.
 
 Non-Breaking Addition: Standalone SDK module.
@@ -44,9 +44,9 @@ except ImportError:
 
 logger = logging.getLogger("CDB-SDK")
 
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 # SDK Constants
-# ──────────────────────────────────────────────
+# ----------------------------------------------
 SDK_VERSION       = "1.0.0"
 DEFAULT_BASE_URL  = "https://api.cyberdudebivash.com"
 DEFAULT_TIMEOUT   = 30
@@ -78,9 +78,9 @@ class CDBClient:
     Official Python client for the CYBERDUDEBIVASH SENTINEL APEX API.
 
     Tier Access:
-        FREE       — No API key required. 60 req/min. Latest 10 threats.
-        PRO        — API key (cdb-pro-xxx). 300 req/min. Full IOC + detection feed.
-        ENTERPRISE — API key (cdb-ent-xxx). 1000 req/min. Full intelligence + STIX + actors.
+        FREE       - No API key required. 60 req/min. Latest 10 threats.
+        PRO        - API key (cdb-pro-xxx). 300 req/min. Full IOC + detection feed.
+        ENTERPRISE - API key (cdb-ent-xxx). 1000 req/min. Full intelligence + STIX + actors.
 
     Get API Key: https://cyberdudebivash.gumroad.com
     """
@@ -112,9 +112,9 @@ class CDBClient:
 
         logger.debug(f"CDB SDK v{SDK_VERSION} initialized. Base URL: {self.base_url}")
 
-    # ──────────────────────────────────────────
+    # ------------------------------------------
     # Internal HTTP layer
-    # ──────────────────────────────────────────
+    # ------------------------------------------
 
     def _headers(self) -> Dict[str, str]:
         """Build request headers with auth."""
@@ -196,9 +196,9 @@ class CDBClient:
 
         raise CDBAPIError(0, f"Max retries exceeded: {last_error}")
 
-    # ──────────────────────────────────────────
+    # ------------------------------------------
     # Authentication
-    # ──────────────────────────────────────────
+    # ------------------------------------------
 
     def authenticate(self) -> Dict:
         """
@@ -214,9 +214,9 @@ class CDBClient:
         logger.info(f"Authenticated. Tier: {result.get('tier')}. Token valid 24hr.")
         return result
 
-    # ──────────────────────────────────────────
+    # ------------------------------------------
     # Free Tier Endpoints
-    # ──────────────────────────────────────────
+    # ------------------------------------------
 
     def health(self) -> Dict:
         """Platform health check (FREE). Returns operational status."""
@@ -228,7 +228,7 @@ class CDBClient:
 
     def get_threats(self) -> Dict:
         """
-        Latest 10 threat advisories — FREE tier.
+        Latest 10 threat advisories - FREE tier.
         IOC details stripped. Use PRO/ENTERPRISE for full data.
         """
         return self._request("GET", "/api/v1/threats")
@@ -246,9 +246,9 @@ class CDBClient:
         """
         return self._request("GET", f"/api/v1/threat/{threat_id}")
 
-    # ──────────────────────────────────────────
+    # ------------------------------------------
     # PRO Tier Endpoints
-    # ──────────────────────────────────────────
+    # ------------------------------------------
 
     def get_full_threats(self, limit: int = 50) -> Dict:
         """
@@ -264,7 +264,7 @@ class CDBClient:
 
     def get_iocs(self, limit: int = 50) -> Dict:
         """
-        IOC export feed — IPs, domains, hashes, URLs, CVEs (PRO tier).
+        IOC export feed - IPs, domains, hashes, URLs, CVEs (PRO tier).
         Ready for SIEM ingestion.
 
         Args:
@@ -276,16 +276,16 @@ class CDBClient:
 
     def get_detections(self) -> Dict:
         """
-        Detection rules feed — Sigma, YARA, KQL, SPL, Suricata (PRO tier).
+        Detection rules feed - Sigma, YARA, KQL, SPL, Suricata (PRO tier).
         Ready for direct SIEM/EDR import.
 
         Requires: PRO API key
         """
         return self._request("GET", "/api/v1/pro/detections")
 
-    # ──────────────────────────────────────────
+    # ------------------------------------------
     # Enterprise Tier Endpoints
-    # ──────────────────────────────────────────
+    # ------------------------------------------
 
     def get_enterprise_threats(self, limit: int = 100, include_archived: bool = False) -> Dict:
         """
@@ -315,7 +315,7 @@ class CDBClient:
 
     def get_actors(self) -> Dict:
         """
-        Actor intelligence registry — APT groups, nation-state actors (ENTERPRISE tier).
+        Actor intelligence registry - APT groups, nation-state actors (ENTERPRISE tier).
 
         Requires: ENTERPRISE API key
         """
@@ -427,9 +427,9 @@ class CDBClient:
             params={"window_hours": window_hours}
         )
 
-    # ──────────────────────────────────────────
+    # ------------------------------------------
     # TAXII 2.1
-    # ──────────────────────────────────────────
+    # ------------------------------------------
 
     def get_taxii_collections(self) -> Dict:
         """TAXII 2.1 collection listing (FREE)."""
@@ -450,9 +450,9 @@ class CDBClient:
             params={"limit": limit}
         )
 
-    # ──────────────────────────────────────────
+    # ------------------------------------------
     # Convenience / Helper Methods
-    # ──────────────────────────────────────────
+    # ------------------------------------------
 
     def get_critical_threats(self, limit: int = 20) -> List[Dict]:
         """
@@ -533,9 +533,9 @@ class CDBClient:
         return f"<CDBClient tier={tier} base_url={self.base_url} sdk_version={SDK_VERSION}>"
 
 
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 # Quick-start CLI demo (python -m agent.sdk.cdb_python_sdk)
-# ──────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------
 
 if __name__ == "__main__":
     import sys
@@ -543,35 +543,35 @@ if __name__ == "__main__":
     api_key = sys.argv[1] if len(sys.argv) > 1 else None
 
     print(f"""
-╔══════════════════════════════════════════════════════════╗
-║  CyberDudeBivash Python SDK v{SDK_VERSION}                       ║
-║  Platform: https://intel.cyberdudebivash.com             ║
-║  API Docs: https://api.cyberdudebivash.com/docs          ║
-╚══════════════════════════════════════════════════════════╝
++==========================================================+
+|  CyberDudeBivash Python SDK v{SDK_VERSION}                       |
+|  Platform: https://intel.cyberdudebivash.com             |
+|  API Docs: https://api.cyberdudebivash.com/docs          |
++==========================================================+
     """)
 
     client = CDBClient(api_key=api_key, verbose=True)
     print(f"Client: {client}\n")
 
-    print("→ Fetching platform health...")
+    print("-> Fetching platform health...")
     try:
         h = client.health()
         print(f"   Status: {h.get('status', 'N/A')}")
     except Exception as e:
         print(f"   Error: {e}")
 
-    print("\n→ Fetching public stats...")
+    print("\n-> Fetching public stats...")
     try:
         s = client.stats()
         print(f"   Data: {json.dumps(s, indent=4)}")
     except Exception as e:
         print(f"   Error: {e}")
 
-    print("\n→ Fetching latest threats (FREE tier)...")
+    print("\n-> Fetching latest threats (FREE tier)...")
     try:
         t = client.get_threats()
         print(f"   Returned {len(t.get('data', t.get('threats', [])))} threats")
     except Exception as e:
         print(f"   Error: {e}")
 
-    print("\n✅ SDK demo complete. Get your API key: https://cyberdudebivash.gumroad.com")
+    print("\n? SDK demo complete. Get your API key: https://cyberdudebivash.gumroad.com")

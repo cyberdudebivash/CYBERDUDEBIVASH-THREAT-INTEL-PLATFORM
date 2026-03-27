@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-detection_pack_builder.py — CYBERDUDEBIVASH® SENTINEL APEX v45.0
+detection_pack_builder.py - CYBERDUDEBIVASH(R) SENTINEL APEX v45.0
 AUTOMATED DETECTION ASSET PACKAGING
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 """
 
 import json

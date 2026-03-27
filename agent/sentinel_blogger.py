@@ -1,12 +1,31 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash v21.0 (SENTINEL APEX ULTRA)
-Path: agent/sentinel_blogger.py  (PRODUCTION PIPELINE — authoritative)
+sentinel_blogger.py - CyberDudeBivash v21.0 (SENTINEL APEX ULTRA)
+Path: agent/sentinel_blogger.py (PRODUCTION PIPELINE - authoritative)
 
-v77.2 FIXES APPLIED:
-  - IOC telemetry accumulator: record_iocs() now called after each publish
-    (was never called → Total IOCs: 0 in every telemetry summary)
-  - All previous v77.1 fixes retained (kev_present init, etc.)
+PRODUCTION ORCHESTRATOR: Multi-feed fusion, source article fetching,
+PREMIUM 16-section report generation (2500+ words), dynamic risk scoring,
+TRIPLE-LAYER deduplication, enhanced STIX, MITRE mapping, actor attribution,
+TLP classification, confidence scoring, rate-limit protection.
+
+VERSION HISTORY:
+  v11.5  Source article fetching added
+  v13.0  Multi-dimensional confidence scoring
+  v14.0  Manifest similarity dedup check added
+  v17.0  Telemetry + predictive engine + campaign tracker
+  v19.0  Content quality gate
+  v21.0  EPSS + CVSS enrichment, source_url fix, KEV lookup, NVD schema
+  v23.0  Content-aware risk scoring (fixes keyword inflation from AI sections)
+  v46.0  VANGUARD IOC validation engine
+  v55.0  Feed telemetry recording
+  v55.2  Phase 1 manifest similarity check (was missing - caused CDB re-publishes)
+  v56.0  Resilient publish guard (rate-limit retry + pending queue)
+  v75.1  Trusted-source quality gate bypass via URL
+  v75.5  CVSS-aware score cap + NVD recalculation after fetch
+  v75.6  Smart labels rebuilt after NVD score update
+  v76.2  CVSS passed to TLP classifier for RED qualification
+  v77.1  FIX: kev_present initialised before use in process_entry (was NameError)
+         FIX: _confirmed_actor guard uses local kev_present not dir() hack
 """
 import os
 import re
@@ -39,6 +58,8 @@ from agent.config import (
     PREDICTIVE_ENABLED,
     CAMPAIGN_TRACKER_ENABLED,
 )
+
+# -- Optional module imports - all wrapped, degrade gracefully --------------
 
 try:
     from agent.core.telemetry import telemetry as _telemetry
@@ -79,6 +100,8 @@ except ImportError:
     _vanguard = None
     _VANGUARD_OK = False
 
+# -- Logging ----------------------------------------------------------------
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [CDB-ENRICHER] %(message)s"
@@ -88,7 +111,12 @@ logger = logging.getLogger("CDB-ENRICHER")
 BLOG_ID = os.getenv("BLOG_ID") or CONFIG_BLOG_ID
 
 
+# ==============================================================================
+# FEED INGESTION ENGINE
+# ==============================================================================
+
 def fetch_feed_entries(feed_url: str, max_entries: int = 3) -> List[Dict]:
+    """Fetch and normalise entries from a single RSS/Atom feed."""
     try:
         feed = feedparser.parse(feed_url)
         entries = []
@@ -100,9 +128,11 @@ def fetch_feed_entries(feed_url: str, max_entries: int = 3) -> List[Dict]:
                 content = entry.description
             if not content and hasattr(entry, "summary"):
                 content = entry.summary
+
             summary = ""
             if hasattr(entry, "summary") and entry.summary != content:
                 summary = entry.summary
+
             entries.append({
                 "title":     entry.get("title", "Untitled Advisory"),
                 "content":   content,
@@ -118,7 +148,12 @@ def fetch_feed_entries(feed_url: str, max_entries: int = 3) -> List[Dict]:
         return []
 
 
+# ==============================================================================
+# SOURCE ARTICLE ENRICHMENT
+# ==============================================================================
+
 def enrich_with_source_content(entry: Dict) -> Optional[Dict]:
+    """Fetch the full source article for deeper IOC extraction."""
     source_url = entry.get("link", "")
     if not source_url:
         return None
@@ -138,6 +173,7 @@ def enrich_with_source_content(entry: Dict) -> Optional[Dict]:
 
 
 def build_enriched_content(entry: Dict, fetched_article: Optional[Dict]) -> str:
+    """Combine RSS + full source article text."""
     parts = []
     if entry.get("content"):
         parts.append(entry["content"])
@@ -148,9 +184,13 @@ def build_enriched_content(entry: Dict, fetched_article: Optional[Dict]) -> str:
     return "\n\n".join(parts)
 
 
+# ==============================================================================
+# MAIN ORCHESTRATOR
+# ==============================================================================
+
 def main():
     logger.info("=" * 70)
-    logger.info("SENTINEL APEX v21.0 — ULTRA-PREMIUM REPORT ENGINE ACTIVATED")
+    logger.info("SENTINEL APEX v21.0 - ULTRA-PREMIUM REPORT ENGINE ACTIVATED")
     logger.info("Triple-Layer Dedup * 15 Feeds * Quality Gate * IOC FP Filter")
     logger.info("v21.0: EPSS+CVSS Enrichment * Source URL Fix * KEV Lookup")
     logger.info("=" * 70)
@@ -159,14 +199,14 @@ def main():
 
     if _TELEMETRY_OK and _telemetry:
         _telemetry.start_timer("total_run")
-        logger.info("Telemetry: ENABLED")
+        logger.info("[STATS] Telemetry: ENABLED")
     else:
-        logger.info("Telemetry: DISABLED or module not loaded")
+        logger.info("[STATS] Telemetry: DISABLED or module not loaded")
 
     if _PREDICTIVE_OK:
-        logger.info("Predictive Engine: ENABLED")
+        logger.info("? Predictive Engine: ENABLED")
     if _CAMPAIGN_OK:
-        logger.info("Campaign Tracker: ENABLED")
+        logger.info("? Campaign Tracker: ENABLED")
 
     try:
         service = get_blogger_service()
@@ -176,17 +216,19 @@ def main():
 
     published_count = 0
 
+    # -- v56: Retry pending queue from previous failed runs -----------------
     try:
         from agent.v56_publish_guard.publisher import retry_pending_queue
         pending_published = retry_pending_queue(service, BLOG_ID)
         if pending_published > 0:
             published_count += pending_published
-            logger.info(f"  Published {pending_published} pending items from queue")
+            logger.info(f"  [OK] Published {pending_published} pending items from queue")
     except ImportError:
         pass
     except Exception as _pq_err:
         logger.debug(f"Pending queue retry skipped (non-critical): {_pq_err}")
 
+    # -- Load manifest once for similarity checking -------------------------
     def _load_manifest(path: str) -> List[Dict]:
         try:
             if os.path.exists(path):
@@ -203,6 +245,7 @@ def main():
     _manifest_path = os.path.join("data", "stix", "feed_manifest.json")
     _manifest = _load_manifest(_manifest_path)
 
+    # -- PHASE 1: Primary CDB Feed ------------------------------------------
     logger.info("--- PHASE 1: Primary CDB Intelligence Feed ---")
     _ph1_start = time.monotonic()
     primary_entries = fetch_feed_entries(CDB_RSS_FEED, max_entries=1)
@@ -214,17 +257,19 @@ def main():
 
     for entry in primary_entries:
         if dedup_engine.is_duplicate(entry["title"], entry.get("link", "")):
-            logger.info(f"  SKIP (duplicate): {entry['title'][:60]}")
+            logger.info(f"  ? SKIP (duplicate): {entry['title'][:60]}")
             if _TELEMETRY_OK and _telemetry:
                 _telemetry.record_dedup()
             continue
+
         if _manifest and dedup_engine.is_similar_in_manifest(
                 entry["title"], _manifest, threshold=0.80):
-            logger.info(f"  SKIP (manifest similar): {entry['title'][:60]}")
+            logger.info(f"  ? SKIP (manifest similar): {entry['title'][:60]}")
             dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
             if _TELEMETRY_OK and _telemetry:
                 _telemetry.record_dedup()
             continue
+
         if _QUALITY_GATE_OK and _quality_gate:
             try:
                 _qok, _qscore, _qreason = _quality_gate(
@@ -233,10 +278,12 @@ def main():
                     source_url=entry.get("link", ""),
                 )
                 if not _qok:
-                    logger.info(f"  SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}")
+                    logger.info(
+                        f"  ? SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}"
+                    )
                     dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
                     continue
-                logger.info(f"  Quality gate PASS (score={_qscore:.1f}): {entry['title'][:50]}")
+                logger.info(f"  ? Quality gate PASS (score={_qscore:.1f}): {entry['title'][:50]}")
             except Exception as _qe:
                 logger.debug(f"  Quality gate error (non-critical): {_qe}")
 
@@ -248,6 +295,7 @@ def main():
                 _telemetry.record_cve_processing(elapsed_sec=0.0)
         time.sleep(RATE_LIMIT_DELAY)
 
+    # -- PHASE 2: Multi-Feed Fusion -----------------------------------------
     logger.info("--- PHASE 2: Multi-Feed Intelligence Fusion ---")
 
     for feed_url in RSS_FEEDS:
@@ -260,18 +308,21 @@ def main():
 
         for entry in entries:
             time.sleep(RATE_LIMIT_DELAY)
+
             if dedup_engine.is_duplicate(entry["title"], entry.get("link", "")):
-                logger.info(f"  SKIP (duplicate): {entry['title'][:60]}")
+                logger.info(f"  ? SKIP (duplicate): {entry['title'][:60]}")
                 if _TELEMETRY_OK and _telemetry:
                     _telemetry.record_dedup()
                 continue
+
             if _manifest and dedup_engine.is_similar_in_manifest(
                     entry["title"], _manifest, threshold=0.80):
-                logger.info(f"  SKIP (manifest similar): {entry['title'][:60]}")
+                logger.info(f"  ? SKIP (manifest similar): {entry['title'][:60]}")
                 dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
                 if _TELEMETRY_OK and _telemetry:
                     _telemetry.record_dedup()
                 continue
+
             if _QUALITY_GATE_OK and _quality_gate:
                 try:
                     _qok, _qscore, _qreason = _quality_gate(
@@ -280,7 +331,9 @@ def main():
                         source_url=entry.get("link", ""),
                     )
                     if not _qok:
-                        logger.info(f"  SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}")
+                        logger.info(
+                            f"  ? SKIP (quality gate [{_qreason[:60]}]): {entry['title'][:50]}"
+                        )
                         dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
                         continue
                 except Exception as _qe:
@@ -294,19 +347,21 @@ def main():
                     _telemetry.record_cve_processing(elapsed_sec=0.0)
 
     logger.info("=" * 70)
-    logger.info(f"APEX v21.0 COMPLETE — Published {published_count} PREMIUM advisories")
+    logger.info(f"APEX v21.0 COMPLETE - Published {published_count} PREMIUM advisories")
 
+    # -- Predictive trend analysis ------------------------------------------
     if _PREDICTIVE_OK and _trend_model:
         try:
             trend = _trend_model.analyze()
             logger.info(
-                f"Risk Trend: {trend.get('trend_direction', 'N/A')} | "
+                f"? Risk Trend: {trend.get('trend_direction', 'N/A')} | "
                 f"Velocity: {trend.get('attack_velocity_per_day', 0)}/day | "
                 f"High Risk Rate: {trend.get('high_risk_rate_pct', 0)}%"
             )
         except Exception as e:
             logger.warning(f"Trend analysis failed (non-critical): {e}")
 
+    # -- Finalise telemetry -------------------------------------------------
     if _TELEMETRY_OK and _telemetry:
         try:
             total_elapsed = time.monotonic() - _run_start
@@ -319,16 +374,40 @@ def main():
     logger.info("=" * 70)
 
 
+# ==============================================================================
+# ENTRY PROCESSOR
+# ==============================================================================
+
 def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
+    """
+    Full 13-step premium pipeline for a single intelligence entry.
+    Returns True if published successfully.
+
+    Steps:
+      1  Fetch full source article
+      2  IOC extraction from enriched content
+      3  MITRE ATT&CK mapping
+      4  Actor attribution
+      5  Dynamic risk scoring (source-only, avoids AI-inflation)
+      6  Confidence scoring (multi-dimensional)
+      7  Detection engineering (Sigma + YARA)
+      7b CVE enrichment (EPSS + CVSS + KEV via NVD/FIRST/CISA)
+      7c VANGUARD IOC validation pass
+      8  16-section premium report generation (2500+ words)
+      9  Smart SEO labels
+      10 Resilient publish (rate-limit retry + pending queue)
+    """
     headline   = entry["title"]
     source_url = entry.get("link", "")
 
-    logger.info(f"PROCESSING: {headline[:80]}")
+    logger.info(f"? PROCESSING: {headline[:80]}")
 
+    # -- STEP 1: Source article ---------------------------------------------
     fetched_article  = enrich_with_source_content(entry)
     enriched_content = build_enriched_content(entry, fetched_article)
     logger.info(f"  -> Enriched content: {len(enriched_content.split())} words available for analysis")
 
+    # -- STEP 2: IOC extraction ---------------------------------------------
     extracted_iocs = enricher.extract_iocs(enriched_content)
     ioc_counts     = enricher.get_ioc_counts(extracted_iocs)
     total_iocs     = sum(ioc_counts.values())
@@ -337,19 +416,18 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         f"{sum(1 for v in extracted_iocs.values() if v)} categories"
     )
 
+    # -- STEP 3: MITRE ATT&CK mapping --------------------------------------
     full_corpus = f"{headline} {enriched_content}"
     mitre_data  = mitre_engine.map_threat(full_corpus)
     logger.info(f"  -> MITRE techniques mapped: {len(mitre_data)}")
 
-    actor_data   = actor_matrix.correlate_actor(full_corpus, extracted_iocs)
+    # -- STEP 4: Actor attribution ------------------------------------------
+    actor_data  = actor_matrix.correlate_actor(full_corpus, extracted_iocs)
     actor_mapped = actor_data.get("tracking_id", "").startswith("CDB-")
 
-    # v77.1 FIX: all CVE vars initialised here — safe before step 7b
-    kev_present = False
-    epss_score  = None
-    cvss_score  = None
-    nvd_url     = None
-
+    # -- STEP 5: Dynamic risk scoring --------------------------------------
+    # v23.0 FIX: score ONLY from source text, not AI-generated report sections.
+    # AI sections contain inflated keywords -> self-fulfilling CRITICAL scores.
     _source_for_scoring = (
         (fetched_article or {}).get("full_text", "")
         or entry.get("content", "")
@@ -357,6 +435,15 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         or enriched_content[:2000]
     )
     _source_word_count = len(_source_for_scoring.split())
+
+    # v77.1 FIX: initialise kev_present here so it is always defined,
+    # even before the CVE enrichment step (STEP 7b) sets its real value.
+    # Previously this was set in STEP 7b but referenced in STEP 5 via
+    # `kev_present if 'kev_present' in dir() else False` - an unsafe hack.
+    kev_present = False
+    epss_score  = None
+    cvss_score  = None
+    nvd_url     = None
 
     risk_score = risk_engine.calculate_risk_score(
         iocs=extracted_iocs,
@@ -366,6 +453,7 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         content=_source_for_scoring,
     )
 
+    # v75.5 FIX: CVSS-aware score cap - never cap real HIGH/CRITICAL CVEs.
     _cve_only = bool(extracted_iocs.get("cve")) and not any([
         extracted_iocs.get("sha256"),
         extracted_iocs.get("ipv4"),
@@ -381,7 +469,10 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
     if _source_word_count < 50 and _cve_only and risk_score > 6.4 and not _cap_exempt:
         _original_score = risk_score
         risk_score = min(risk_score, 6.4)
-        logger.info(f"  -> v75.5 score cap: {_original_score:.1f}->{risk_score:.1f}")
+        logger.info(
+            f"  -> v75.5 score cap: {_original_score:.1f}->{risk_score:.1f} "
+            f"(no source, CVE-only, CVSS<7)"
+        )
 
     severity = risk_engine.get_severity_label(risk_score)
     _confirmed_actor = bool(actor_data and not actor_data.get("tracking_id", "").startswith("UNC-"))
@@ -389,17 +480,19 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
     tlp = risk_engine.get_tlp_label(
         risk_score,
         iocs=extracted_iocs,
-        kev_present=kev_present,
+        kev_present=kev_present,        # v77.1: uses local variable, not dir() hack
         confirmed_actor=_confirmed_actor,
-        cvss_score=None,
+        cvss_score=None,                # Real CVSS not yet fetched - re-evaluated after NVD
     )
 
     impact_metrics = risk_engine.extract_impact_metrics(headline, enriched_content)
     logger.info(
         f"  -> Risk: {risk_score}/10 | Severity: {severity} | TLP: {tlp.get('label')} "
-        f"| Records: {impact_metrics['records_affected']:,}"
+        f"| Records: {impact_metrics['records_affected']:,} "
+        f"| Keywords: {len(impact_metrics['severity_keywords'])}"
     )
 
+    # -- STEP 6: Confidence scoring -----------------------------------------
     confidence = enricher.calculate_confidence(extracted_iocs, actor_mapped)
     if impact_metrics["records_affected"] > 0:
         confidence = min(confidence + 15.0, 100.0)
@@ -415,9 +508,11 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
     elif "medium" in actor_conf_str:
         confidence = min(confidence + 3.0, 100.0)
 
+    # -- STEP 7: Detection engineering -------------------------------------
     sigma_rule = detection_engine.generate_sigma_rule(headline, extracted_iocs)
     yara_rule  = detection_engine.generate_yara_rule(headline, extracted_iocs)
 
+    # -- STEP 7b: CVE enrichment - EPSS + CVSS + KEV -----------------------
     cve_ids = extracted_iocs.get("cve", [])
     if cve_ids:
         try:
@@ -427,7 +522,10 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
             kev_present = _kev
             nvd_url     = _nvd
             if epss_score or cvss_score:
-                logger.info(f"  -> CVE enrichment: EPSS={epss_score} CVSS={cvss_score} KEV={kev_present}")
+                logger.info(
+                    f"  -> CVE enrichment: EPSS={epss_score} CVSS={cvss_score} KEV={kev_present}"
+                )
+                # v75.5 FIX: Recalculate risk with real NVD data
                 _nvd_score = risk_engine.recalculate_with_nvd(
                     base_score=risk_score,
                     cvss_score=cvss_score,
@@ -442,13 +540,20 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
                         iocs=extracted_iocs,
                         kev_present=kev_present,
                         confirmed_actor=_confirmed_actor,
-                        cvss_score=cvss_score,
+                        cvss_score=cvss_score,   # v76.2: enables TLP:RED for CVSS 9+
                     )
-                    logger.info(f"  -> NVD-updated: Risk={risk_score}/10 | Severity={severity} | TLP={tlp.get('label')}")
-                    labels = _generate_smart_labels(headline, severity, tlp, feed_source, extracted_iocs)
+                    logger.info(
+                        f"  -> NVD-updated: Risk={risk_score}/10 "
+                        f"| Severity={severity} | TLP={tlp.get('label')}"
+                    )
+                    # v75.6: Rebuild labels with updated severity
+                    labels = _generate_smart_labels(
+                        headline, severity, tlp, feed_source, extracted_iocs
+                    )
         except Exception as _cve_e:
             logger.debug(f"CVE enrichment skipped (non-critical): {_cve_e}")
 
+    # -- STEP 7c: VANGUARD IOC validation ----------------------------------
     if _VANGUARD_OK and _vanguard:
         try:
             _v46 = _vanguard.enhance(
@@ -478,6 +583,7 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
         except Exception as _v46_e:
             logger.debug(f"VANGUARD enhancement skipped (non-critical): {_v46_e}")
 
+    # -- STEP 8: Premium report generation ---------------------------------
     logger.info("  -> Generating PREMIUM 16-section report...")
     report_html = premium_report_gen.generate_premium_report(
         headline=headline,
@@ -498,16 +604,10 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
     report_word_count = len(re.sub(r"<[^>]+>", " ", report_html).split())
     logger.info(f"  -> Report generated: ~{report_word_count} words (target: 2500+)")
 
+    # -- STEP 9: Smart labels -----------------------------------------------
     labels = _generate_smart_labels(headline, severity, tlp, feed_source, extracted_iocs)
 
-    # v77.2 FIX: record IOCs to telemetry BEFORE publish attempt
-    # Previously record_iocs() was never called → Total IOCs: 0 in every run summary
-    if _TELEMETRY_OK and _telemetry and ioc_counts:
-        try:
-            _telemetry.record_iocs(extracted_iocs)
-        except Exception:
-            pass
-
+    # -- STEP 10: Resilient publish -----------------------------------------
     try:
         from agent.v56_publish_guard.publisher import resilient_publish
         return resilient_publish(
@@ -536,7 +636,8 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
             nvd_url=nvd_url,
         )
     except ImportError:
-        logger.warning("  v56 publish guard not available — using legacy publish")
+        # Fallback: v56 module unavailable
+        logger.warning("  [!] v56 publish guard not available - using legacy publish")
         try:
             post_body = {
                 "kind":    "blogger#post",
@@ -546,7 +647,9 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
             }
             response      = service.posts().insert(blogId=BLOG_ID, body=post_body).execute()
             live_blog_url = response.get("url", "")
-            logger.info(f"  PREMIUM ADVISORY PUBLISHED ({report_word_count} words): {live_blog_url}")
+            logger.info(
+                f"  [OK] PREMIUM ADVISORY PUBLISHED ({report_word_count} words): {live_blog_url}"
+            )
             stix_exporter.create_bundle(
                 title=headline,
                 iocs=extracted_iocs,
@@ -567,17 +670,30 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
             dedup_engine.mark_processed(headline, entry.get("link", ""))
             return True
         except Exception as e:
-            logger.error(f"  PUBLISH FAILURE: {e}")
+            logger.error(f"  [X] PUBLISH FAILURE: {e}")
             return False
 
 
-def _enrich_cve_metadata(cve_id: str):
-    cve_upper   = cve_id.upper().strip()
-    epss_score  = None
-    cvss_score  = None
-    kev_present = False
-    nvd_url     = f"https://nvd.nist.gov/vuln/detail/{cve_upper}"
+# ==============================================================================
+# CVE METADATA ENRICHMENT
+# ==============================================================================
 
+def _enrich_cve_metadata(cve_id: str):
+    """
+    Fetch EPSS, CVSS base score, and KEV status for a CVE.
+    Non-critical - returns (None, None, False, nvd_url) on any failure.
+    Sources:
+      EPSS  -> https://api.first.org/data/v1/epss
+      CVSS  -> https://services.nvd.nist.gov/rest/json/cves/2.0
+      KEV   -> CISA Known Exploited Vulnerabilities (via VANGUARD or v48 hardener)
+    """
+    cve_upper  = cve_id.upper().strip()
+    epss_score = None
+    cvss_score = None
+    kev_present = False
+    nvd_url    = f"https://nvd.nist.gov/vuln/detail/{cve_upper}"
+
+    # EPSS lookup
     try:
         url = f"https://api.first.org/data/v1/epss?cve={cve_upper}"
         req = urllib.request.Request(url, headers={"User-Agent": "CDB-Sentinel/21.0"})
@@ -588,6 +704,7 @@ def _enrich_cve_metadata(cve_id: str):
     except Exception:
         pass
 
+    # NVD CVSS lookup
     try:
         nvd_key = os.getenv("NVD_API_KEY", "")
         headers = {"User-Agent": "CDB-Sentinel/21.0"}
@@ -610,8 +727,15 @@ def _enrich_cve_metadata(cve_id: str):
     return epss_score, cvss_score, kev_present, nvd_url
 
 
-def _generate_smart_labels(headline: str, severity: str, tlp: Dict,
-                            feed_source: str, iocs: Dict) -> List[str]:
+# ==============================================================================
+# SMART LABEL GENERATION
+# ==============================================================================
+
+def _generate_smart_labels(
+    headline: str, severity: str, tlp: Dict,
+    feed_source: str, iocs: Dict
+) -> List[str]:
+    """Generate SEO-optimised contextual Blogger labels."""
     labels = [
         "Threat Intelligence",
         "CyberDudeBivash",

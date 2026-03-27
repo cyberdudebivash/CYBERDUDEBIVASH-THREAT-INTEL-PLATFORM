@@ -1,6 +1,6 @@
 """
 CISA Known Exploited Vulnerabilities (KEV) Feed Ingestion
-FINAL • PRODUCTION • INTERFACE-HARDENED
+FINAL * PRODUCTION * INTERFACE-HARDENED
 
 This module provides a stable and resilient interface
 for consuming the CISA KEV catalog across the platform.
@@ -51,7 +51,7 @@ def fetch_kev_catalog() -> List[Dict]:
     try:
         return _fetch_kev_data()
     except Exception as exc:
-        print(f"⚠️ KEV feed unavailable: {exc}")
+        print(f"[!] KEV feed unavailable: {exc}")
         return []
 
 

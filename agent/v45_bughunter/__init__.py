@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — BUG HUNTER Integration Module
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - BUG HUNTER Integration Module
 =====================================================================
 AI-Powered Attack Surface Recon & Vulnerability Discovery Platform
 Integrated into Sentinel APEX as an additive subsystem.

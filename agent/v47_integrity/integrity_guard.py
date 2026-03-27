@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-integrity_guard.py — CYBERDUDEBIVASH® SENTINEL APEX v47.0 INTEGRITY GUARD
+integrity_guard.py - CYBERDUDEBIVASH(R) SENTINEL APEX v47.0 INTEGRITY GUARD
 Post-Pipeline Integrity Verification & Auto-Repair Engine
 
 FIXES ADDRESSED (all additive, zero-regression):
@@ -13,7 +13,7 @@ ARCHITECTURE:
   - Runs as a POST-PIPELINE verification step in GitHub Actions
   - Reads feed_manifest.json, validates integrity, auto-repairs where safe
   - Fully non-breaking: if any check fails, logs warning and continues
-  - No modification of existing modules — standalone v47 module
+  - No modification of existing modules - standalone v47 module
 
 Usage:
     python agent/v47_integrity/integrity_guard.py
@@ -35,9 +35,9 @@ from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger("CDB-INTEGRITY-GUARD")
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # EPSS BATCH ENRICHMENT ENGINE (fixes BUG-04)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 EPSS_CACHE_FILE = "data/enrichment/epss_cache.json"
 EPSS_CACHE_TTL_HOURS = 24
@@ -228,9 +228,9 @@ class EPSSBatchEnricher:
         return updated
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # REPORT INTEGRITY VALIDATOR (fixes BUG-03)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class ReportIntegrityValidator:
     """
@@ -352,9 +352,9 @@ class ReportIntegrityValidator:
             return True
 
 
-# ═══════════════════════════════════════════════════════════
-# CONTENT FINGERPRINT DEDUP — LAYER 4 (SimHash)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
+# CONTENT FINGERPRINT DEDUP - LAYER 4 (SimHash)
+# ===========================================================
 
 class ContentFingerprintDedup:
     """
@@ -426,7 +426,7 @@ class ContentFingerprintDedup:
             existing_title = self._fingerprints[fp]
             logger.info(
                 f"  [DEDUP-L4] Content fingerprint match: "
-                f"'{title[:40]}...' ≈ '{existing_title[:40]}...'"
+                f"'{title[:40]}...' ~= '{existing_title[:40]}...'"
             )
             return True
         return False
@@ -439,9 +439,9 @@ class ContentFingerprintDedup:
             self._save()
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # DASHBOARD STALENESS DETECTOR
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class DashboardStalenessDetector:
     """
@@ -527,9 +527,9 @@ class DashboardStalenessDetector:
         return result
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # INTEGRITY GUARD ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class IntegrityGuard:
     """
@@ -549,7 +549,7 @@ class IntegrityGuard:
         Returns summary of findings and actions.
         """
         logger.info("=" * 60)
-        logger.info("INTEGRITY GUARD v47.0 — Post-Pipeline Verification")
+        logger.info("INTEGRITY GUARD v47.0 - Post-Pipeline Verification")
         logger.info("=" * 60)
 
         summary = {
@@ -600,7 +600,7 @@ class IntegrityGuard:
             pass
 
         logger.info("=" * 60)
-        logger.info("INTEGRITY GUARD v47.0 — Complete")
+        logger.info("INTEGRITY GUARD v47.0 - Complete")
         logger.info("=" * 60)
 
         return summary

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-quota_manager.py — CYBERDUDEBIVASH® SENTINEL APEX v55.0
+quota_manager.py - CYBERDUDEBIVASH(R) SENTINEL APEX v55.0
 MULTI-TIERED API & QUOTA MANAGEMENT ENGINE
 
 Production-grade Redis-backed quota enforcement with:
@@ -19,7 +19,7 @@ Integration:
         return 429, result
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
-Founder & CEO — Bivash Kumar Nayak
+Founder & CEO - Bivash Kumar Nayak
 """
 
 import os
@@ -35,9 +35,9 @@ from enum import Enum
 
 logger = logging.getLogger("CDB-QUOTA-MANAGER")
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # TIER DEFINITIONS
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class QuotaTier(str, Enum):
     FREE = "FREE"
@@ -103,9 +103,9 @@ TIER_QUOTAS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # REDIS BACKEND (with in-memory fallback)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 REDIS_URL = os.environ.get("CDB_REDIS_URL", "redis://localhost:6379/0")
 REDIS_PREFIX = "cdb:quota:"
@@ -218,9 +218,9 @@ class RedisBackend:
             self._fallback_expiry.pop(full_key, None)
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # PULSE WAVE AGGREGATOR (Free Tier Batched Delivery)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class PulseWaveBuffer:
     """
@@ -285,9 +285,9 @@ class PulseWaveBuffer:
             return len(self._buffer.get(org_id, []))
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # QUOTA ENGINE (Core Enforcement)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class QuotaEngine:
     """
@@ -352,7 +352,7 @@ class QuotaEngine:
         resolved_tier = tier or self.resolve_tier(org_id)
         config = self.get_quota_config(resolved_tier)
 
-        # ── Multi-window enforcement ──
+        # -- Multi-window enforcement --
         enforcement = self._enforce_windows(org_id, metric, cost, resolved_tier, config)
 
         if not enforcement["allowed"]:
@@ -372,7 +372,7 @@ class QuotaEngine:
                 # Log overage for billing
                 self._log_overage(org_id, metric, cost, resolved_tier, endpoint)
 
-        # ── Delivery mode routing ──
+        # -- Delivery mode routing --
         delivery_mode = config.get("delivery_mode", "REALTIME")
         enforcement["delivery_mode"] = delivery_mode
         enforcement["tier"] = resolved_tier
@@ -454,7 +454,7 @@ class QuotaEngine:
                 return [o for o in self._overage_log if o["org_id"] == org_id]
             return list(self._overage_log)
 
-    # ── Internal Methods ──
+    # -- Internal Methods --
 
     def _enforce_windows(
         self, org_id: str, metric: str, cost: int, tier: str, config: Dict
@@ -571,7 +571,7 @@ class QuotaEngine:
             sub_metric = sub_metric_map.get(metric, metric)
             mgr.record_usage(org_id, sub_metric, cost)
         except Exception:
-            pass  # Non-critical — don't block quota enforcement
+            pass  # Non-critical - don't block quota enforcement
 
     @staticmethod
     def _current_month() -> str:
@@ -588,9 +588,9 @@ class QuotaEngine:
         return int((next_hour - now).total_seconds())
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # FASTAPI MIDDLEWARE INTEGRATION
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class QuotaMiddleware:
     """
@@ -667,8 +667,8 @@ class QuotaMiddleware:
         return None
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # GLOBAL SINGLETON
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 quota_engine = QuotaEngine()

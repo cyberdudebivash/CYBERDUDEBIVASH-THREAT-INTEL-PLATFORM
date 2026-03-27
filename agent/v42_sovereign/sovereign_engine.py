@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-sovereign_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v42.0 (SOVEREIGN)
+sovereign_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v42.0 (SOVEREIGN)
 ========================================================================
 Multi-Tenant SaaS Platform, Usage-Based Billing, SOC 2 Type II Compliance
 Automation, Self-Service Onboarding, and White-Label MSSP Capability.
 
 5 New Subsystems:
-  S1 — TenantManager: Multi-tenant org isolation with RBAC
-  S2 — BillingEngine: Usage metering, Stripe integration, tier enforcement
-  S3 — ComplianceAutomation: SOC 2 / ISO 27001 / NIST CSF evidence collection
-  S4 — OnboardingPortal: Self-service tenant provisioning and configuration
-  S5 — WhiteLabelEngine: MSSP branding, custom domains, themed dashboards
+  S1 - TenantManager: Multi-tenant org isolation with RBAC
+  S2 - BillingEngine: Usage metering, Stripe integration, tier enforcement
+  S3 - ComplianceAutomation: SOC 2 / ISO 27001 / NIST CSF evidence collection
+  S4 - OnboardingPortal: Self-service tenant provisioning and configuration
+  S5 - WhiteLabelEngine: MSSP branding, custom domains, themed dashboards
 
 Non-Breaking: Writes to data/sovereign/. Zero modification to v22-v41.
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os, re, json, hashlib, logging, time, uuid, secrets
@@ -52,9 +52,9 @@ def _entries():
     return d.get("entries", []) if isinstance(d, dict) else []
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # ENUMS & DATA CLASSES
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class SubscriptionTier(Enum):
     FREE = "free"
@@ -113,9 +113,9 @@ class ComplianceEvidence:
     collected_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S1 — TENANT MANAGER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S1 - TENANT MANAGER
+# ===============================================================================
 
 class TenantManager:
     """
@@ -253,9 +253,9 @@ class TenantManager:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S2 — BILLING ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S2 - BILLING ENGINE
+# ===============================================================================
 
 class BillingEngine:
     """
@@ -430,9 +430,9 @@ class BillingEngine:
         return features_map.get(tier, [])
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S3 — COMPLIANCE AUTOMATION
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S3 - COMPLIANCE AUTOMATION
+# ===============================================================================
 
 class ComplianceAutomation:
     """
@@ -584,13 +584,13 @@ class ComplianceAutomation:
             f"with {framework} requirements ({met}/{total} controls met). "
             f"Automated evidence collection covers continuous monitoring, risk assessment, "
             f"access controls, encryption, incident response, and change management. "
-            f"{'No gaps identified — platform is audit-ready.' if score >= 90 else 'Some controls require additional manual evidence collection.'}"
+            f"{'No gaps identified - platform is audit-ready.' if score >= 90 else 'Some controls require additional manual evidence collection.'}"
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S4 — ONBOARDING PORTAL
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S4 - ONBOARDING PORTAL
+# ===============================================================================
 
 class OnboardingPortal:
     """Self-service tenant onboarding and provisioning."""
@@ -633,9 +633,9 @@ class OnboardingPortal:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# S5 — WHITE LABEL ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# S5 - WHITE LABEL ENGINE
+# ===============================================================================
 
 class WhiteLabelEngine:
     """
@@ -693,9 +693,9 @@ class WhiteLabelEngine:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # SOVEREIGN ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class SovereignOrchestrator:
     def __init__(self):
@@ -783,11 +783,11 @@ class SovereignOrchestrator:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
     print("=" * 70)
-    print("CYBERDUDEBIVASH® SENTINEL APEX v42.0 — SOVEREIGN")
+    print("CYBERDUDEBIVASH(R) SENTINEL APEX v42.0 - SOVEREIGN")
     print("=" * 70)
     o = SovereignOrchestrator()
     r = o.execute_full_cycle()
-    print(f"\n✅ SOVEREIGN Cycle Complete")
+    print(f"\n? SOVEREIGN Cycle Complete")
     print(f"   Tenants:     {r.get('tenants', {}).get('total_tenants', 0)}")
     print(f"   MRR:         ${r.get('billing', {}).get('mrr', 0)}")
     print(f"   ARR:         ${r.get('billing', {}).get('arr', 0)}")

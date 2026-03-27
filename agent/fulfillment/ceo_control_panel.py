@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-ceo_control_panel.py — CYBERDUDEBIVASH® SENTINEL APEX v46.0
+ceo_control_panel.py - CYBERDUDEBIVASH(R) SENTINEL APEX v46.0
 EXECUTIVE COMMAND & CONTROL INTERFACE
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 """
 
 import sys
@@ -13,7 +13,7 @@ from agent.revenue_analytics import MONEY_ANALYTICS
 class CDBCeoPanel:
     def get_status(self):
         briefing = MONEY_ANALYTICS.generate_briefing()
-        print("\n" + "🛰️  " + "="*40)
+        print("\n" + "?  " + "="*40)
         print(f"  CDB SENTINEL APEX C2 - v46.0")
         print("  " + "="*40)
         print(f"  Platform Status: {briefing.get('status')}")
@@ -23,7 +23,7 @@ class CDBCeoPanel:
 
     def provision_client(self, name, tier):
         key = SUBSCRIPTION_CORE.provision_tenant(name, tier)
-        print(f"✅ Key provisioned for {name} ({tier}): {key}")
+        print(f"? Key provisioned for {name} ({tier}): {key}")
 
 def main():
     parser = argparse.ArgumentParser(description="CYBERDUDEBIVASH C2 PANEL")

@@ -1,7 +1,7 @@
 """
 CyberDudeBivash CVE Deep-Dive Formatter v4.0
 Generates authority-grade, inline-styled CVE intelligence reports.
-© 2026 CyberDudeBivash Pvt Ltd — All rights reserved.
+(C) 2026 CyberDudeBivash Pvt Ltd - All rights reserved.
 """
 
 from datetime import datetime, timezone
@@ -50,9 +50,9 @@ def format_cve_deep_dive(
 
     return f"""
 <div style="{_s['card']}border-left:4px solid {sc};">
-  <h2 style="font-family:{FONTS['heading']};color:{COLORS['white']};font-size:24px;font-weight:800;margin:0 0 8px;">{cve_id} — Cyber Threat Intelligence Deep Dive</h2>
+  <h2 style="font-family:{FONTS['heading']};color:{COLORS['white']};font-size:24px;font-weight:800;margin:0 0 8px;">{cve_id} - Cyber Threat Intelligence Deep Dive</h2>
   <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-    <span style="{_s['badge']}background:rgba({','.join(str(int(sc[i:i+2],16)) for i in (1,3,5))},0.15);color:{sc};">⚡ {severity}</span>
+    <span style="{_s['badge']}background:rgba({','.join(str(int(sc[i:i+2],16)) for i in (1,3,5))},0.15);color:{sc};">[!] {severity}</span>
     <span style="{_s['badge']}background:rgba(0,212,170,0.1);color:{COLORS['accent']};">CVSS {cvss}</span>
     <span style="{_s['badge']}background:rgba(59,130,246,0.1);color:{COLORS['cyber_blue']};">EPSS {epss}</span>
   </div>
@@ -74,7 +74,7 @@ high-priority security concern for all affected organizations.
 <p style="{_s['p']}">
 Threat actors increasingly weaponize vulnerabilities of this nature to gain initial
 access, establish persistence, and deploy follow-on payloads including credential
-harvesters, backdoors, and ransomware — often within hours of public disclosure.
+harvesters, backdoors, and ransomware - often within hours of public disclosure.
 </p>
 
 <h2 style="{_s['h2']}">Vulnerability Overview</h2>
@@ -102,7 +102,7 @@ environments, increasing the likelihood of broad exposure and exploitation at sc
 At a technical level, this vulnerability stems from insufficient validation,
 improper boundary enforcement, or flawed trust assumptions within the affected
 code path. Exploitation enables attackers to manipulate execution flow or system
-state beyond intended constraints — bypassing authorization controls, achieving
+state beyond intended constraints - bypassing authorization controls, achieving
 code execution, or exfiltrating sensitive data.
 </p>
 
@@ -135,7 +135,7 @@ attack surface.
 <h2 style="{_s['h2']}">Mitigation &amp; Remediation</h2>
 <p style="{_s['p']}">
 Organizations should apply vendor-provided patches immediately. If patching is
-not feasible within 24–48 hours, implement compensating controls: network
+not feasible within 24-48 hours, implement compensating controls: network
 segmentation, WAF rules, access restrictions, and enhanced monitoring. Verify
 remediation through vulnerability scanning and penetration testing.
 </p>
@@ -149,9 +149,9 @@ remediation through vulnerability scanning and penetration testing.
     Based on exploitation potential, affected software prevalence, and relevance
     to modern attack campaigns, this vulnerability poses real-world risk.
   </p>
-  <a href="{site_url}" style="{_s['cta']}" target="_blank" rel="noopener">Explore CyberDudeBivash Platform →</a>
+  <a href="{site_url}" style="{_s['cta']}" target="_blank" rel="noopener">Explore CyberDudeBivash Platform -></a>
   <p style="{_s['muted']}margin:12px 0 0;">
-    © 2026 {BRAND['legal']} — {BRAND['city']}, {BRAND['country']}
+    (C) 2026 {BRAND['legal']} - {BRAND['city']}, {BRAND['country']}
   </p>
 </div>
 """

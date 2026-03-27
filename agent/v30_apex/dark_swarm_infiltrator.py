@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-dark_swarm_infiltrator.py — CyberDudeBivash v30.0 (APEX NEURAL SWARM)
+dark_swarm_infiltrator.py - CyberDudeBivash v30.0 (APEX NEURAL SWARM)
 Author: CYBERGOD / TECH GOD
 Description: Autonomous AI personas that monitor underground chatter, extract raw zero-day 
              telemetry, and inject it seamlessly into the legacy STIX 2.1 pipeline.

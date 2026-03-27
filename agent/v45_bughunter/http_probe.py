@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — HTTP Probe Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - HTTP Probe Engine
 =========================================================
 High-speed async HTTP/HTTPS probing with title extraction,
 header analysis, redirect detection, and response timing.
@@ -77,7 +77,7 @@ class HTTPProbeEngine:
             for batch in responses:
                 results.extend(batch)
 
-        logger.info(f"[PROBE] Probed {len(hosts)} hosts → {len(results)} live endpoints")
+        logger.info(f"[PROBE] Probed {len(hosts)} hosts -> {len(results)} live endpoints")
         return results
 
 

@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — Asset Delta Analyzer
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - Asset Delta Analyzer
 =============================================================
 Tracks attack surface drift by comparing scan results over time.
 Identifies newly exposed assets, removed assets, and tech stack changes.
@@ -79,7 +79,7 @@ class AssetDeltaAnalyzer:
                 })
 
         logger.info(
-            f"[DELTA] {domain}: +{len(added)} | -{len(removed)} | Δ{len(modified)}"
+            f"[DELTA] {domain}: +{len(added)} | -{len(removed)} | ?{len(modified)}"
         )
 
         return {

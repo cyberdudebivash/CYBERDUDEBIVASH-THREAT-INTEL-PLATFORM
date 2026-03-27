@@ -1,9 +1,9 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX v51 — Detection Engine Module
+CYBERDUDEBIVASH SENTINEL APEX v51 - Detection Engine Module
 Automated detection rule generation from IOC intelligence feeds.
-© 2026 CyberDudeBivash Pvt. Ltd. All rights reserved.
+(C) 2026 CyberDudeBivash Pvt. Ltd. All rights reserved.
 
-ADDITIVE MODULE — Does NOT modify any existing platform components.
+ADDITIVE MODULE - Does NOT modify any existing platform components.
 """
 
 __version__ = "51.0.0"

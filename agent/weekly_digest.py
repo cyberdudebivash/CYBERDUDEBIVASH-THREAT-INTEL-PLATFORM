@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-weekly_digest.py — CYBERDUDEBIVASH® SENTINEL APEX v18.0
+weekly_digest.py - CYBERDUDEBIVASH(R) SENTINEL APEX v18.0
 WEEKLY THREAT INTELLIGENCE DIGEST EMAIL ENGINE
 
 Reads the threat manifest, picks the top 5 highest-risk threats from
@@ -10,7 +10,7 @@ subscribers via SendGrid.
 Run: python -m agent.weekly_digest
 Scheduled: Every Sunday via GitHub Actions (weekly-digest.yml)
 
-Revenue impact: Weekly touchpoint → subscriber retention → Gumroad conversions.
+Revenue impact: Weekly touchpoint -> subscriber retention -> Gumroad conversions.
 """
 
 import os
@@ -111,7 +111,7 @@ def _build_threat_card(threat: Dict, index: int) -> str:
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
             <span style="font-family:'Courier New',monospace;font-size:9px;color:{color};
                          letter-spacing:3px;text-transform:uppercase;">
-                #{index} — {sev_label} — CDB-RISK {score:.1f}/10
+                #{index} - {sev_label} - CDB-RISK {score:.1f}/10
             </span>
             <span style="font-family:'Courier New',monospace;font-size:9px;
                          color:#334155;letter-spacing:1px;">{tlp}</span>
@@ -147,7 +147,7 @@ def build_digest_html(threats: List[Dict], week_label: str) -> str:
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>CyberDudeBivash Weekly Threat Digest — {week_label}</title></head>
+<title>CyberDudeBivash Weekly Threat Digest - {week_label}</title></head>
 <body style="margin:0;padding:0;background:#06080d;font-family:'Segoe UI',Arial,sans-serif;">
 <div style="max-width:640px;margin:0 auto;background:#06080d;color:#94a3b8;">
 
@@ -156,13 +156,13 @@ def build_digest_html(threats: List[Dict], week_label: str) -> str:
               border-bottom:1px solid #1e293b;text-align:center;">
     <p style="font-family:'Courier New',monospace;font-size:9px;color:#00d4aa;
               letter-spacing:5px;margin:0 0 12px 0;text-transform:uppercase;">
-      CYBERDUDEBIVASH® SENTINEL APEX v18.0
+      CYBERDUDEBIVASH(R) SENTINEL APEX v18.0
     </p>
     <h1 style="color:#f0f4f8;font-size:26px;margin:0 0 8px 0;font-weight:900;letter-spacing:-1px;">
       Weekly Threat Intelligence Digest
     </h1>
     <p style="color:#475569;font-size:13px;margin:0;font-family:'Courier New',monospace;
-              letter-spacing:1px;">{week_label} · Global Operations Center</p>
+              letter-spacing:1px;">{week_label} * Global Operations Center</p>
   </div>
 
   <!-- Stats Bar -->
@@ -238,7 +238,7 @@ def build_digest_html(threats: List[Dict], week_label: str) -> str:
   <div style="padding:24px 28px;border-top:1px solid #1e293b;text-align:center;">
     <p style="font-family:'Courier New',monospace;font-size:10px;color:#334155;
               line-height:1.8;margin:0;">
-      CYBERDUDEBIVASH PVT. LTD. · Bhubaneswar, Odisha, India · © 2026<br>
+      CYBERDUDEBIVASH PVT. LTD. * Bhubaneswar, Odisha, India * (C) 2026<br>
       <a href="{WEBSITE_URL}" style="color:#475569;text-decoration:none;">cyberdudebivash.com</a>
       &nbsp;|&nbsp;
       <a href="{WHATSAPP_URL}" target="_blank" style="color:#25d366;text-decoration:none;">WhatsApp</a>
@@ -278,7 +278,7 @@ def send_weekly_digest():
         return
 
     recipients = [r.strip() for r in recipients_raw.split(",") if r.strip()]
-    subject = f"[CyberDudeBivash] Weekly Threat Digest — {week_label} | {len(threats)} Active Threats"
+    subject = f"[CyberDudeBivash] Weekly Threat Digest - {week_label} | {len(threats)} Active Threats"
 
     try:
         from sendgrid import SendGridAPIClient
@@ -294,9 +294,9 @@ def send_weekly_digest():
             )
             response = sg.send(msg)
             if response.status_code in (200, 201, 202):
-                logger.info(f"  ✅ Digest sent to: {recipient}")
+                logger.info(f"  ? Digest sent to: {recipient}")
             else:
-                logger.warning(f"  ⚠️  Digest failed for {recipient}: HTTP {response.status_code}")
+                logger.warning(f"  [!]  Digest failed for {recipient}: HTTP {response.status_code}")
 
     except ImportError:
         logger.error("sendgrid package not installed. pip install sendgrid")

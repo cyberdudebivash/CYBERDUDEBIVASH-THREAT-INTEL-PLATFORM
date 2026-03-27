@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — Subdomain Intelligence Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - Subdomain Intelligence Engine
 =====================================================================
 Passive (Certificate Transparency) + Active (DNS Bruteforce) subdomain discovery.
 
@@ -36,7 +36,7 @@ class SubdomainEngine:
         try:
             import aiohttp
         except ImportError:
-            logger.warning("[CT] aiohttp not installed — skipping CT log fetch")
+            logger.warning("[CT] aiohttp not installed - skipping CT log fetch")
             return set()
 
         url = CRT_SH_API.format(domain=self.domain)
@@ -64,7 +64,7 @@ class SubdomainEngine:
     async def dns_bruteforce(self) -> Set[str]:
         """Active DNS resolution against a wordlist."""
         if not self.wordlist_path:
-            logger.info("[DNS] No wordlist provided — skipping active bruteforce")
+            logger.info("[DNS] No wordlist provided - skipping active bruteforce")
             return set()
 
         try:

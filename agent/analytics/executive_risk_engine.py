@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-executive_risk_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v55.0
+executive_risk_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v55.0
 EXECUTIVE FINANCIAL RISK QUANTIFICATION ENGINE
 
 Maps technical findings (CVE, BOLA, Cloud misconfig, etc.) to:
   - Regional regulatory fines (GDPR, EU AI Act, India DPDP Act, CCPA, HIPAA)
-  - Annualized Loss Exposure (ALE) = SLE × ARO
+  - Annualized Loss Exposure (ALE) = SLE x ARO
   - Return on Security Investment (ROSI)
   - Sector-specific breach cost multipliers
   - Executive-ready JSON + PDF-ready summaries
@@ -15,7 +15,7 @@ Integration:
     report = executive_risk_engine.quantify(findings, region="EU", sector="FINANCE")
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
-Founder & CEO — Bivash Kumar Nayak
+Founder & CEO - Bivash Kumar Nayak
 """
 
 import json
@@ -28,9 +28,9 @@ from enum import Enum
 
 logger = logging.getLogger("CDB-EXEC-RISK")
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # REGULATORY FRAMEWORK DEFINITIONS (2025-2026)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class Regulation(str, Enum):
     GDPR = "GDPR"
@@ -74,8 +74,8 @@ REGULATORY_FINES: Dict[str, Dict[str, Any]] = {
         "currency": "EUR",
     },
     Regulation.DPDP: {
-        "max_fine_inr": 2_500_000_000,     # ₹250 Crore (≈$30M)
-        "breach_fine_inr": 2_000_000_000,  # ₹200 Crore for breach of personal data
+        "max_fine_inr": 2_500_000_000,     # ?250 Crore (~=$30M)
+        "breach_fine_inr": 2_000_000_000,  # ?200 Crore for breach of personal data
         "child_data_fine_inr": 2_500_000_000,
         "applies_to": ["IN"],
         "notification_window_hrs": 72,
@@ -118,9 +118,9 @@ REGULATORY_FINES: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# ═══════════════════════════════════════════════════════════
-# FINDING TYPE → IMPACT MATRIX
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
+# FINDING TYPE -> IMPACT MATRIX
+# ===========================================================
 
 # Base Single Loss Expectancy (SLE) per finding type (USD)
 FINDING_SLE_MATRIX: Dict[str, Dict[str, Any]] = {
@@ -224,9 +224,9 @@ FINDING_SLE_MATRIX: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # SECTOR MULTIPLIERS (Industry vertical risk amplifiers)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 SECTOR_MULTIPLIERS: Dict[str, float] = {
     "FINANCE": 2.2,
@@ -256,9 +256,9 @@ AVG_RECORDS_EXPOSED: Dict[str, int] = {
 }
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # EXECUTIVE RISK ENGINE
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class ExecutiveRiskEngine:
     """
@@ -275,7 +275,7 @@ class ExecutiveRiskEngine:
     def __init__(self):
         self._output_dir = Path("data/executive_risk")
         self._output_dir.mkdir(parents=True, exist_ok=True)
-        self.authority = "CYBERDUDEBIVASH® SENTINEL APEX"
+        self.authority = "CYBERDUDEBIVASH(R) SENTINEL APEX"
 
     def quantify(
         self,
@@ -308,7 +308,7 @@ class ExecutiveRiskEngine:
         sector_mult = SECTOR_MULTIPLIERS.get(sector.upper(), 1.0)
         agg_factors = aggravating_factors or []
 
-        # ── Per-finding quantification ──
+        # -- Per-finding quantification --
         finding_results = []
         total_ale = 0.0
         total_sle = 0.0
@@ -327,17 +327,17 @@ class ExecutiveRiskEngine:
             for reg, amount in result.get("regulatory_fines", {}).items():
                 regulatory_exposure[reg] = regulatory_exposure.get(reg, 0) + amount
 
-        # ── ROSI Calculation ──
+        # -- ROSI Calculation --
         mitigated_ale = total_ale * 0.95  # CDB platform mitigation rate
         rosi = ((mitigated_ale - platform_cost_usd) / platform_cost_usd) * 100 if platform_cost_usd > 0 else 0
 
-        # ── Cost of Inaction (3-year projection) ──
+        # -- Cost of Inaction (3-year projection) --
         cost_of_inaction = self._project_cost_of_inaction(total_ale, findings)
 
-        # ── Severity Distribution ──
+        # -- Severity Distribution --
         severity_dist = self._compute_severity_distribution(findings)
 
-        # ── Build Report ──
+        # -- Build Report --
         report = {
             "report_id": f"CDB-EXEC-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -426,10 +426,10 @@ class ExecutiveRiskEngine:
         if epss and float(epss) > 0:
             aro = max(aro, float(epss))  # Use higher of default ARO or EPSS
 
-        # ALE = SLE × ARO
+        # ALE = SLE x ARO
         ale = adjusted_sle * aro
 
-        # ── Regulatory fine calculation ──
+        # -- Regulatory fine calculation --
         reg_fines = {}
         if sle_config.get("regulatory_relevant"):
             reg_fines = self._calculate_regulatory_fines(
@@ -473,7 +473,7 @@ class ExecutiveRiskEngine:
             fine = 0.0
 
             if reg == Regulation.GDPR:
-                # GDPR: max(€20M, 4% of annual turnover)
+                # GDPR: max(?20M, 4% of annual turnover)
                 pct_fine = annual_revenue * reg_config.get("max_fine_pct_revenue", 0.04)
                 base_fine = min(pct_fine, reg_config.get("max_fine_eur", 20_000_000))
                 # Scale by breach probability and severity
@@ -485,7 +485,7 @@ class ExecutiveRiskEngine:
                 fine *= 1.2  # EUR to USD approximation
 
             elif reg == Regulation.EU_AI_ACT:
-                # EU AI Act: up to €35M or 7% for prohibited practices
+                # EU AI Act: up to ?35M or 7% for prohibited practices
                 if finding_type in ("AI_MODEL_POISONING",):
                     fine = reg_config.get("tier_fines", {}).get("high_risk_non_compliance", 15_000_000)
                 else:
@@ -493,7 +493,7 @@ class ExecutiveRiskEngine:
                 fine *= breach_prob * 1.2  # EUR to USD
 
             elif reg == Regulation.DPDP:
-                # India DPDP: up to ₹250 Crore
+                # India DPDP: up to ?250 Crore
                 inr_to_usd = reg_config.get("inr_to_usd", 0.012)
                 if finding_type in ("BOLA", "CLOUD_BUCKET_EXPOSURE", "SECRET_LEAK"):
                     fine_inr = reg_config.get("breach_fine_inr", 2_000_000_000)
@@ -622,17 +622,17 @@ class ExecutiveRiskEngine:
         config = REGULATORY_FINES.get(regulation, {})
         if regulation == Regulation.GDPR:
             pct = config.get("max_fine_pct_revenue", 0.04)
-            return f"max(€20M, {pct*100:.0f}% of annual turnover) ≈ ${max(20_000_000*1.2, annual_revenue*pct*1.2):,.0f}"
+            return f"max(?20M, {pct*100:.0f}% of annual turnover) ~= ${max(20_000_000*1.2, annual_revenue*pct*1.2):,.0f}"
         elif regulation == Regulation.EU_AI_ACT:
-            return f"up to €35M or 7% of turnover ≈ ${max(35_000_000*1.2, annual_revenue*0.07*1.2):,.0f}"
+            return f"up to ?35M or 7% of turnover ~= ${max(35_000_000*1.2, annual_revenue*0.07*1.2):,.0f}"
         elif regulation == Regulation.DPDP:
-            return "up to ₹250 Crore (≈$30M)"
+            return "up to ?250 Crore (~=$30M)"
         elif regulation == Regulation.CCPA:
             return "$7,500 per intentional violation"
         elif regulation == Regulation.HIPAA:
             return "up to $1.8M per violation category per year"
         elif regulation == Regulation.NIS2:
-            return f"max(€10M, 2% of turnover) ≈ ${max(10_000_000*1.2, annual_revenue*0.02*1.2):,.0f}"
+            return f"max(?10M, 2% of turnover) ~= ${max(10_000_000*1.2, annual_revenue*0.02*1.2):,.0f}"
         return "Varies by jurisdiction"
 
     def _generate_recommendations(
@@ -720,7 +720,7 @@ class ExecutiveRiskEngine:
         """
         summary = report.get("executive_summary", {})
         return {
-            "headline": f"Executive Risk Assessment — {report.get('report_id', 'N/A')}",
+            "headline": f"Executive Risk Assessment - {report.get('report_id', 'N/A')}",
             "risk_score": self._ale_to_score(summary.get("annualized_loss_exposure_usd", 0)),
             "iocs": [],
             "mitre_data": [],
@@ -744,8 +744,8 @@ class ExecutiveRiskEngine:
         return round(score, 1)
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # GLOBAL SINGLETON
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 executive_risk_engine = ExecutiveRiskEngine()

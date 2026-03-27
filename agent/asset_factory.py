@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-asset_factory.py — CyberDudeBivash v16.4
+asset_factory.py - CyberDudeBivash v16.4
 The "Premium Asset Forge": Generates downloadable defense kits (ZIP/PDF).
 """
 import os
@@ -22,7 +22,7 @@ class AssetFactory:
         headline = report_data.get('headline', 'threat_intel')
         safe_name = "".join(x for x in headline if x.isalnum() or x in "._- ").replace(" ", "_")
         
-        logger.info(f"🛠️ FORGE: Crafting Defense Kit for: {safe_name}")
+        logger.info(f"? FORGE: Crafting Defense Kit for: {safe_name}")
         
         # Placeholder for technical asset generation logic (Sigma rules, STIX, etc.)
         asset_path = os.path.join(self.asset_dir, f"{safe_name}_Defense_Kit.txt")
@@ -35,10 +35,10 @@ class AssetFactory:
                 f.write(f"Signature: {report_data.get('signature')}\n")
                 f.write("\n[Sigma Rules & IOCs would be injected here]\n")
             
-            logger.info(f"✅ FORGE COMPLETE: {asset_path}")
+            logger.info(f"? FORGE COMPLETE: {asset_path}")
             return asset_path
         except Exception as e:
-            logger.error(f"❌ FORGE FAILURE: {e}")
+            logger.error(f"? FORGE FAILURE: {e}")
             return ""
 
 # MANDATORY: Explicit instance for sentinel_blogger.py

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-vanguard_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v46.0 VANGUARD
+vanguard_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v46.0 VANGUARD
 Pipeline Enhancement Orchestrator
 
 Provides a single integration point for all v46 VANGUARD modules.
@@ -10,7 +10,7 @@ and BEFORE report generation, as a post-processing enhancement pass.
 ARCHITECTURE:
   - Takes existing pipeline outputs (iocs, risk_score, etc.)
   - Applies IOC validation, KEV enrichment, confidence recalculation
-  - Returns enhanced data dict — caller merges into existing flow
+  - Returns enhanced data dict - caller merges into existing flow
   - Fully non-breaking: if any sub-module fails, returns original data
 
 Usage:
@@ -22,9 +22,9 @@ Usage:
         actor_data=actor_data,
         ...
     )
-    # enhanced["iocs"] → cleaned IOCs
-    # enhanced["kev_present"] → True/False from live KEV lookup
-    # enhanced["confidence"] → recalculated confidence score
+    # enhanced["iocs"] -> cleaned IOCs
+    # enhanced["kev_present"] -> True/False from live KEV lookup
+    # enhanced["confidence"] -> recalculated confidence score
 """
 
 import logging
@@ -87,7 +87,7 @@ class VanguardEngine:
             "enhancements_applied": [],
         }
 
-        # ── 1. IOC Validation ──
+        # -- 1. IOC Validation --
         if _ioc_validator:
             try:
                 cleaned_iocs = _ioc_validator.validate(iocs, source_text=source_text)
@@ -105,7 +105,7 @@ class VanguardEngine:
             except Exception as e:
                 logger.warning(f"VANGUARD IOC validation failed (non-critical): {e}")
 
-        # ── 2. KEV Enrichment ──
+        # -- 2. KEV Enrichment --
         if _kev_enricher and cve_ids:
             try:
                 for cve_id in cve_ids[:5]:  # Limit to first 5 CVEs
@@ -119,7 +119,7 @@ class VanguardEngine:
             except Exception as e:
                 logger.warning(f"VANGUARD KEV enrichment failed (non-critical): {e}")
 
-        # ── 3. Confidence Recalculation ──
+        # -- 3. Confidence Recalculation --
         if _confidence_engine:
             try:
                 conf_result = _confidence_engine.score(
@@ -149,5 +149,5 @@ class VanguardEngine:
         return result
 
 
-# ── Singleton ──
+# -- Singleton --
 vanguard_engine = VanguardEngine()

@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v70 — Structured Threat Data Models
+SENTINEL APEX v70 - Structured Threat Data Models
 ===================================================
 Converts flat JSON into relational entities with graph-ready relationships.
 Entities: Threat, IOC, CVE, Actor, Campaign, Advisory
@@ -277,13 +277,13 @@ class Campaign:
 
 
 # ---------------------------------------------------------------------------
-# Advisory (unified threat entry — replaces flat manifest item)
+# Advisory (unified threat entry - replaces flat manifest item)
 # ---------------------------------------------------------------------------
 
 @dataclass
 class Advisory:
     """
-    Unified threat advisory — the core entity in the manifest.
+    Unified threat advisory - the core entity in the manifest.
     Replaces the flat JSON structure with a relational model.
     Backward-compatible: to_legacy_dict() produces the old format.
     """
@@ -407,7 +407,7 @@ class Advisory:
             "mitre_techniques": self.mitre_techniques,
             "actors": self.actors,
             "tags": self.tags,
-            # v70 enrichment fields (additive — existing dashboard ignores unknown keys)
+            # v70 enrichment fields (additive - existing dashboard ignores unknown keys)
             "advisory_id": self.advisory_id,
             "dedup_key": self.dedup_key,
             "confidence_level": self.confidence_level.value,
@@ -421,7 +421,7 @@ class Advisory:
 
 
 # ---------------------------------------------------------------------------
-# Manifest (the top-level container — versioned, validated)
+# Manifest (the top-level container - versioned, validated)
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -465,7 +465,7 @@ class Manifest:
 
 
 # ---------------------------------------------------------------------------
-# Factory: Convert legacy flat items → Advisory
+# Factory: Convert legacy flat items -> Advisory
 # ---------------------------------------------------------------------------
 
 def advisory_from_legacy(item: Dict[str, Any]) -> Advisory:

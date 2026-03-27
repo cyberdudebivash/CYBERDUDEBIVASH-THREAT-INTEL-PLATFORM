@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-premium_api.py — CYBERDUDEBIVASH® SENTINEL APEX v45.0
+premium_api.py - CYBERDUDEBIVASH(R) SENTINEL APEX v45.0
 PREMIUM PRODUCT DELIVERY MESH
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 """
 
 from fastapi import APIRouter, Header, HTTPException, Depends

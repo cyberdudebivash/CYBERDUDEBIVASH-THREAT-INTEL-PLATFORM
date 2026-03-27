@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-notifier.py — CyberDudeBivash v17.0 (SENTINEL APEX ULTRA)
+notifier.py - CyberDudeBivash v17.0 (SENTINEL APEX ULTRA)
 ENHANCED: Red Alert Engine with MITRE & TLP Awareness.
 
 v17.0 ADDITIONS (fully non-breaking):
@@ -24,7 +24,7 @@ logger = logging.getLogger("CDB-NOTIFIER")
 def send_sentinel_alert(headline, risk_score, post_url, mitre_data=None):
     """
     Dispatches real-time alerts to Discord, Slack, Teams, and Generic webhooks.
-    SIGNATURE UNCHANGED from v7.4.1 — fully backward compatible.
+    SIGNATURE UNCHANGED from v7.4.1 - fully backward compatible.
 
     v17.0: Added Teams + Generic webhook dispatchers.
     Returns: dict summary of dispatch results for telemetry.
@@ -81,7 +81,7 @@ def send_sentinel_alert(headline, risk_score, post_url, mitre_data=None):
 
     total_sent = sum(1 for v in dispatch_results["channels"].values() if v == "sent")
     logger.info(
-        f"✅ Alert Dispatch Complete | "
+        f"? Alert Dispatch Complete | "
         f"Channels attempted: {len(dispatch_results['channels'])} | "
         f"Sent: {total_sent} | "
         f"Risk: {risk_score}/10 | TLP: {tlp_label}"
@@ -90,7 +90,7 @@ def send_sentinel_alert(headline, risk_score, post_url, mitre_data=None):
     return dispatch_results
 
 
-# ── Individual channel dispatchers ────────────────────────────────────────────
+# -- Individual channel dispatchers --------------------------------------------
 
 def _dispatch_discord(
     webhook_url: str, headline: str, risk_score: float,
@@ -101,7 +101,7 @@ def _dispatch_discord(
         "username": "CDB Sentinel Red Alert",
         "avatar_url": "https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/assets/logo.png",
         "embeds": [{
-            "title": f"🚨 CRITICAL ADVISORY: {headline}",
+            "title": f"? CRITICAL ADVISORY: {headline}",
             "url": post_url,
             "color": 15158332,
             "description": "The APEX Engine has triaged a high-severity threat node requiring immediate attention.",
@@ -116,13 +116,13 @@ def _dispatch_discord(
     try:
         resp = requests.post(webhook_url, json=payload, timeout=10)
         if resp.status_code == 204:
-            logger.info("✓ Discord Red Alert successfully dispatched.")
+            logger.info("[OK] Discord Red Alert successfully dispatched.")
             return True
         else:
             logger.warning(f"Discord returned status {resp.status_code}")
             return False
     except Exception as e:
-        logger.error(f"✖ Discord Webhook Failure: {e}")
+        logger.error(f"? Discord Webhook Failure: {e}")
         return False
 
 
@@ -132,13 +132,13 @@ def _dispatch_slack(
 ) -> bool:
     """Dispatch Slack Block Kit alert."""
     payload = {
-        "text": f"*🚨 RED ALERT: {headline}*",
+        "text": f"*? RED ALERT: {headline}*",
         "blocks": [
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*🚨 CRITICAL THREAT DETECTED*\n*Advisory:* {headline}\n*Risk Score:* `{risk_score}/10` | *TLP:* `{tlp_label}`"
+                    "text": f"*? CRITICAL THREAT DETECTED*\n*Advisory:* {headline}\n*Risk Score:* `{risk_score}/10` | *TLP:* `{tlp_label}`"
                 }
             },
             {
@@ -159,13 +159,13 @@ def _dispatch_slack(
     try:
         resp = requests.post(webhook_url, json=payload, timeout=10)
         if resp.status_code == 200:
-            logger.info("✓ Slack Red Alert successfully dispatched.")
+            logger.info("[OK] Slack Red Alert successfully dispatched.")
             return True
         else:
             logger.warning(f"Slack returned status {resp.status_code}")
             return False
     except Exception as e:
-        logger.error(f"✖ Slack Webhook Failure: {e}")
+        logger.error(f"? Slack Webhook Failure: {e}")
         return False
 
 
@@ -184,7 +184,7 @@ def _dispatch_teams(
         "themeColor": severity_color,
         "summary": f"CDB SENTINEL RED ALERT: {headline}",
         "sections": [{
-            "activityTitle": f"🚨 CRITICAL THREAT ADVISORY",
+            "activityTitle": f"? CRITICAL THREAT ADVISORY",
             "activitySubtitle": "CyberDudeBivash SENTINEL APEX v17.0",
             "activityText": headline,
             "facts": [
@@ -204,13 +204,13 @@ def _dispatch_teams(
     try:
         resp = requests.post(webhook_url, json=payload, timeout=10)
         if resp.status_code == 200:
-            logger.info("✓ Teams Red Alert successfully dispatched.")
+            logger.info("[OK] Teams Red Alert successfully dispatched.")
             return True
         else:
             logger.warning(f"Teams returned status {resp.status_code}")
             return False
     except Exception as e:
-        logger.error(f"✖ Teams Webhook Failure: {e}")
+        logger.error(f"? Teams Webhook Failure: {e}")
         return False
 
 
@@ -248,13 +248,13 @@ def _dispatch_generic(
             timeout=10
         )
         if 200 <= resp.status_code < 300:
-            logger.info(f"✓ Generic Webhook dispatched (HTTP {resp.status_code}).")
+            logger.info(f"[OK] Generic Webhook dispatched (HTTP {resp.status_code}).")
             return True
         else:
             logger.warning(f"Generic webhook returned status {resp.status_code}")
             return False
     except Exception as e:
-        logger.error(f"✖ Generic Webhook Failure: {e}")
+        logger.error(f"? Generic Webhook Failure: {e}")
         return False
     """
     Dispatches real-time alerts to Discord and Slack for high-risk threats.
@@ -284,7 +284,7 @@ def _dispatch_generic(
             "username": "CDB Sentinel Red Alert",
             "avatar_url": "https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/assets/logo.png",
             "embeds": [{
-                "title": f"🚨 CRITICAL ADVISORY: {headline}",
+                "title": f"? CRITICAL ADVISORY: {headline}",
                 "url": post_url,
                 "color": 15158332, # Vibrant Red
                 "description": f"The APEX Engine has triaged a high-severity threat node requiring immediate attention.",
@@ -299,18 +299,18 @@ def _dispatch_generic(
         try:
             resp = requests.post(discord_webhook, json=discord_payload, timeout=10)
             if resp.status_code == 204:
-                logger.info("✓ Discord Red Alert successfully dispatched.")
+                logger.info("[OK] Discord Red Alert successfully dispatched.")
         except Exception as e:
-            logger.error(f"✖ Discord Webhook Failure: {e}")
+            logger.error(f"? Discord Webhook Failure: {e}")
 
     # 5. Dispatch Slack Red Alert
     if slack_webhook:
         slack_payload = {
-            "text": f"*🚨 RED ALERT: {headline}*",
+            "text": f"*? RED ALERT: {headline}*",
             "blocks": [
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"*🚨 CRITICAL THREAT DETECTED*\n*Advisory:* {headline}\n*Risk Score:* `{risk_score}/10` | *TLP:* `{tlp_label}`"}
+                    "text": {"type": "mrkdwn", "text": f"*? CRITICAL THREAT DETECTED*\n*Advisory:* {headline}\n*Risk Score:* `{risk_score}/10` | *TLP:* `{tlp_label}`"}
                 },
                 {
                     "type": "section", 
@@ -330,6 +330,6 @@ def _dispatch_generic(
         try:
             resp = requests.post(slack_webhook, json=slack_payload, timeout=10)
             if resp.status_code == 200:
-                logger.info("✓ Slack Red Alert successfully dispatched.")
+                logger.info("[OK] Slack Red Alert successfully dispatched.")
         except Exception as e:
-            logger.error(f"✖ Slack Webhook Failure: {e}")
+            logger.error(f"? Slack Webhook Failure: {e}")

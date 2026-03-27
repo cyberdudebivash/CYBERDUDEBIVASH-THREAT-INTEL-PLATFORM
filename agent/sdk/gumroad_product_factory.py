@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gumroad_product_factory.py — CYBERDUDEBIVASH® SENTINEL APEX v30.0+
+gumroad_product_factory.py - CYBERDUDEBIVASH(R) SENTINEL APEX v30.0+
 Production Factory for Automated Product Creation.
 
 FIX: Corrects the "Product Creation Failure" by enforcing 

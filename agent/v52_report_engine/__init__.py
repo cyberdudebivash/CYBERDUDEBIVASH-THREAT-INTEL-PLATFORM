@@ -1,9 +1,9 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX v52 — Premium Report Engine
+CYBERDUDEBIVASH SENTINEL APEX v52 - Premium Report Engine
 Enterprise-grade automated threat intelligence report generation.
-© 2026 CyberDudeBivash Pvt. Ltd. All rights reserved.
+(C) 2026 CyberDudeBivash Pvt. Ltd. All rights reserved.
 
-ADDITIVE MODULE — Does NOT modify any existing platform components.
+ADDITIVE MODULE - Does NOT modify any existing platform components.
 """
 
 __version__ = "52.0.0"

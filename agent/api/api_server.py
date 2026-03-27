@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-api_server.py — CYBERDUDEBIVASH® SENTINEL APEX v46.0
+api_server.py - CYBERDUDEBIVASH(R) SENTINEL APEX v46.0
 UNIFIED ORCHESTRATION HUB (COMMUNITY + ENTERPRISE + VAULT)
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 """
 
 from fastapi import FastAPI, Header, HTTPException, Depends
@@ -13,7 +13,7 @@ import os
 import json
 
 app = FastAPI(
-    title="CYBERDUDEBIVASH® SENTINEL APEX",
+    title="CYBERDUDEBIVASH(R) SENTINEL APEX",
     description="Global Cybersecurity Tools, Threat Intelligence & AI Security Platform",
     version=VERSION
 )
@@ -52,9 +52,9 @@ async def get_vault_session_key(x_api_key: str = Header(None)):
 
 @app.on_event("startup")
 async def startup_event():
-    print(f"🚀 CDB SENTINEL APEX v{VERSION}: ONLINE")
-    print(f"🔒 DELIVERY VAULT: ACTIVE")
-    print(f"💼 REVENUE ENGINE: MONITORING MRR")
+    print(f"? CDB SENTINEL APEX v{VERSION}: ONLINE")
+    print(f"? DELIVERY VAULT: ACTIVE")
+    print(f"? REVENUE ENGINE: MONITORING MRR")
     print(f"Authority: {AUTHORITY}")
 
 if __name__ == "__main__":

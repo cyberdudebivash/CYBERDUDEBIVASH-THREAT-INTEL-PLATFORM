@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-auth.py — CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
+auth.py - CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
 NEW MODULE: API Authentication & JWT Middleware
 
 Provides:
@@ -36,11 +36,11 @@ from agent.config import (
 
 logger = logging.getLogger("CDB-AUTH")
 
-# ── Tier constants (4-tier model v1.0.0) ──
+# -- Tier constants (4-tier model v1.0.0) --
 TIER_FREE       = "FREE"
 TIER_STANDARD   = "STANDARD"
 TIER_PREMIUM    = "PREMIUM"
-TIER_PRO        = "PRO"        # legacy alias — treated as PREMIUM internally
+TIER_PRO        = "PRO"        # legacy alias - treated as PREMIUM internally
 TIER_ENTERPRISE = "ENTERPRISE"
 
 JWT_ALGORITHM   = "HS256"
@@ -80,7 +80,7 @@ class AuthHandler:
             if tier != TIER_FREE:
                 self._audit("APIKEY_AUTH_SUCCESS", identity, tier, remote_ip)
                 return tier, identity, None
-            # Unknown key → still FREE but logged
+            # Unknown key -> still FREE but logged
             self._audit("APIKEY_UNKNOWN", api_key[:8] + "***", TIER_FREE, remote_ip)
 
         # 3. Default: FREE anonymous
@@ -92,7 +92,7 @@ class AuthHandler:
         if key in CDB_ENTERPRISE_API_KEYS:
             return TIER_ENTERPRISE, f"ent:{key[:8]}"
         if key in CDB_PREMIUM_API_KEYS or key in CDB_PRO_API_KEYS:
-            # CDB_PRO_API_KEYS is a legacy alias — treated as PREMIUM
+            # CDB_PRO_API_KEYS is a legacy alias - treated as PREMIUM
             return TIER_PREMIUM, f"prm:{key[:8]}"
         if key in CDB_STANDARD_API_KEYS:
             return TIER_STANDARD, f"std:{key[:8]}"
@@ -168,7 +168,7 @@ class AuthHandler:
         order = {
             TIER_FREE:       0,
             TIER_STANDARD:   1,
-            TIER_PRO:        2,   # legacy — same level as PREMIUM
+            TIER_PRO:        2,   # legacy - same level as PREMIUM
             TIER_PREMIUM:    2,
             TIER_ENTERPRISE: 3,
         }

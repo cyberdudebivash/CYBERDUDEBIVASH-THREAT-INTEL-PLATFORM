@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v70 — Manifest Manager
+SENTINEL APEX v70 - Manifest Manager
 ======================================
 Versioned manifest management.
 - manifest_latest.json = current production
@@ -57,7 +57,7 @@ class ManifestManager:
         """Load the current valid manifest (with fallback to backups)."""
         data = get_last_valid_manifest(self.latest_path, self.backup_dir)
         if data is None:
-            logger.warning("No valid manifest found — starting fresh")
+            logger.warning("No valid manifest found - starting fresh")
         return data
 
     def load_current_advisories(self) -> List[Dict[str, Any]]:

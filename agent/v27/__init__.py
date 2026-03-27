@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v27.0 — ENTERPRISE UPGRADE
+CYBERDUDEBIVASH(R) SENTINEL APEX v27.0 - ENTERPRISE UPGRADE
 ==========================================================
 Codename: PHOENIX ENTERPRISE
 

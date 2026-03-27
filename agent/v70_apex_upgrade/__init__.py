@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX — v70 Platform Upgrade
+CYBERDUDEBIVASH SENTINEL APEX - v70 Platform Upgrade
 =====================================================
 Production-grade intelligence engine upgrade with:
 - Structured threat data model (Phase 3)

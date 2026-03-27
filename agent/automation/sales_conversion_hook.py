@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-sales_conversion_hook.py — CYBERDUDEBIVASH® SENTINEL APEX v55.0
+sales_conversion_hook.py - CYBERDUDEBIVASH(R) SENTINEL APEX v55.0
 AUTONOMOUS LEAD CONVERSION PIPELINE
 
 Links ReasoningOrchestrator / BugHunter CRITICAL findings directly to
 automated sales funnel:
 
-  1. Finding ingestion → severity triage
+  1. Finding ingestion -> severity triage
   2. CRITICAL findings trigger executive_risk_engine for ALE/ROSI
   3. Auto-generate branded "Risk Mitigation Advisory" PDF
   4. Dispatch to client via email or webhook
@@ -17,7 +17,7 @@ Integration:
     conversion_pipeline.process_finding(finding, client_context)
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
-Founder & CEO — Bivash Kumar Nayak
+Founder & CEO - Bivash Kumar Nayak
 """
 
 import os
@@ -32,9 +32,9 @@ from enum import Enum
 
 logger = logging.getLogger("CDB-SALES-CONVERSION")
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # CONFIGURATION
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "bivash@cyberdudebivash.com")
@@ -60,9 +60,9 @@ AUTO_TRIGGER_SEVERITIES = {"CRITICAL", "HIGH"}
 IMMEDIATE_TRIGGER_SEVERITIES = {"CRITICAL"}
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # PIPELINE STAGES
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class PipelineStage(str, Enum):
     INGESTED = "INGESTED"
@@ -101,9 +101,9 @@ class ClientContext:
         self.existing_tools = existing_tools or []
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # PDF ADVISORY GENERATOR
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class AdvisoryPDFGenerator:
     """
@@ -134,14 +134,14 @@ class AdvisoryPDFGenerator:
         try:
             from fpdf import FPDF
         except ImportError:
-            logger.warning("fpdf2 not installed — generating JSON advisory instead")
+            logger.warning("fpdf2 not installed - generating JSON advisory instead")
             return self._generate_json_fallback(risk_report, client, findings)
 
         try:
             pdf = FPDF()
             pdf.set_auto_page_break(auto=True, margin=20)
 
-            # ── Page 1: Cover ──
+            # -- Page 1: Cover --
             pdf.add_page()
             self._draw_background(pdf)
 
@@ -167,7 +167,7 @@ class AdvisoryPDFGenerator:
             pdf.cell(0, 6, f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}", ln=True)
             pdf.ln(8)
 
-            # ── Executive Summary Box ──
+            # -- Executive Summary Box --
             summary = risk_report.get("executive_summary", {})
             pdf.set_font("Arial", "B", 13)
             pdf.set_text_color(*self.ACCENT_COLOR)
@@ -188,7 +188,7 @@ class AdvisoryPDFGenerator:
                               summary.get("risk_rating", "N/A"))
             pdf.ln(8)
 
-            # ── Regulatory Exposure ──
+            # -- Regulatory Exposure --
             reg_exposure = risk_report.get("regulatory_exposure", {})
             if reg_exposure:
                 pdf.set_font("Arial", "B", 13)
@@ -208,7 +208,7 @@ class AdvisoryPDFGenerator:
 
                 pdf.ln(5)
 
-            # ── Critical Findings ──
+            # -- Critical Findings --
             pdf.set_font("Arial", "B", 13)
             pdf.set_text_color(*self.ACCENT_COLOR)
             pdf.cell(0, 10, "[#] CRITICAL FINDINGS REQUIRING IMMEDIATE ACTION", ln=True)
@@ -235,7 +235,7 @@ class AdvisoryPDFGenerator:
 
             pdf.ln(8)
 
-            # ── Recommendations ──
+            # -- Recommendations --
             recs = risk_report.get("recommendations", [])
             if recs:
                 pdf.add_page()
@@ -259,7 +259,7 @@ class AdvisoryPDFGenerator:
                     pdf.cell(0, 6, f"     Impact: {impact}", ln=True)
                     pdf.ln(2)
 
-            # ── CTA Section ──
+            # -- CTA Section --
             pdf.ln(10)
             pdf.set_font("Arial", "B", 14)
             pdf.set_text_color(*self.ACCENT_COLOR)
@@ -280,7 +280,7 @@ class AdvisoryPDFGenerator:
                 align="C",
             )
 
-            # ── Footer ──
+            # -- Footer --
             pdf.ln(15)
             pdf.set_font("Arial", "", 7)
             pdf.set_text_color(*self.MUTED_COLOR)
@@ -354,9 +354,9 @@ class AdvisoryPDFGenerator:
         return str(filepath)
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # EMAIL DISPATCHER
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class AdvisoryDispatcher:
     """Dispatches advisories via email (SendGrid) or webhook."""
@@ -371,7 +371,7 @@ class AdvisoryDispatcher:
     ) -> Dict[str, Any]:
         """Send advisory email with optional PDF attachment."""
         if not SENDGRID_API_KEY:
-            logger.warning("SendGrid API key not configured — email skipped")
+            logger.warning("SendGrid API key not configured - email skipped")
             return {"status": "SKIPPED", "reason": "NO_SENDGRID_KEY"}
 
         try:
@@ -497,17 +497,17 @@ class AdvisoryDispatcher:
 """
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # CONVERSION PIPELINE (Main Orchestrator)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class ConversionPipeline:
     """
     End-to-end autonomous sales conversion pipeline.
     
     Flow:
-      Finding → Severity Triage → Risk Quantification →
-      PDF Advisory → Email/Webhook Dispatch → Lead Tracking
+      Finding -> Severity Triage -> Risk Quantification ->
+      PDF Advisory -> Email/Webhook Dispatch -> Lead Tracking
     """
 
     def __init__(self):
@@ -555,7 +555,7 @@ class ConversionPipeline:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-        # ── Severity Triage ──
+        # -- Severity Triage --
         if severity not in AUTO_TRIGGER_SEVERITIES:
             pipeline_entry["stage"] = PipelineStage.INGESTED
             pipeline_entry["note"] = f"Severity {severity} below auto-trigger threshold"
@@ -565,7 +565,7 @@ class ConversionPipeline:
         if severity == "CRITICAL":
             self._metrics["critical_findings"] += 1
 
-        # ── Build client context ──
+        # -- Build client context --
         if not client:
             client = ClientContext(
                 org_id=finding.get("org_id", finding.get("target", "unknown")),
@@ -575,7 +575,7 @@ class ConversionPipeline:
                 sector=finding.get("sector", "DEFAULT"),
             )
 
-        # ── Risk Quantification via Executive Risk Engine ──
+        # -- Risk Quantification via Executive Risk Engine --
         try:
             from agent.analytics.executive_risk_engine import executive_risk_engine
             risk_report = executive_risk_engine.quantify(
@@ -595,7 +595,7 @@ class ConversionPipeline:
             pipeline_entry["stage"] = PipelineStage.RISK_QUANTIFIED
             pipeline_entry["note"] = "Used basic risk estimation"
 
-        # ── Generate Advisory PDF ──
+        # -- Generate Advisory PDF --
         if severity in IMMEDIATE_TRIGGER_SEVERITIES:
             pdf_path = self._pdf_gen.generate(
                 risk_report=risk_report,
@@ -608,7 +608,7 @@ class ConversionPipeline:
                 pipeline_entry["advisory_path"] = pdf_path
                 self._metrics["advisories_generated"] += 1
 
-                # ── Auto-dispatch ──
+                # -- Auto-dispatch --
                 if auto_dispatch and client.contact_email:
                     dispatch_result = self._dispatch_advisory(
                         client=client,
@@ -621,7 +621,7 @@ class ConversionPipeline:
                         pipeline_entry["stage"] = PipelineStage.ADVISORY_DISPATCHED
                         self._metrics["advisories_dispatched"] += 1
 
-                # ── Create lead ──
+                # -- Create lead --
                 lead = self._create_lead(client, risk_report, pipeline_entry)
                 pipeline_entry["lead"] = lead
                 pipeline_entry["stage"] = PipelineStage.LEAD_CREATED
@@ -704,7 +704,7 @@ class ConversionPipeline:
             "computed_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    # ── Internal Methods ──
+    # -- Internal Methods --
 
     def _dispatch_advisory(
         self, client: ClientContext, risk_report: Dict, pdf_path: str
@@ -715,7 +715,7 @@ class ConversionPipeline:
         rating = summary.get("risk_rating", "CRITICAL")
 
         subject = (
-            f"[{rating}] Risk Mitigation Advisory — "
+            f"[{rating}] Risk Mitigation Advisory - "
             f"${ale:,.0f} Projected Exposure | {client.org_name}"
         )
 
@@ -836,8 +836,8 @@ class ConversionPipeline:
                 pass
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # GLOBAL SINGLETON
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 conversion_pipeline = ConversionPipeline()

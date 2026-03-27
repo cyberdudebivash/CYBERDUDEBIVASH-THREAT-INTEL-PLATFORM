@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-pdf_generator.py — CyberDudeBivash v7.2
+pdf_generator.py - CyberDudeBivash v7.2
 Automated Enterprise Whitepaper Generator.
 """
 import os

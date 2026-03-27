@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-detection_forge.py — CYBERDUDEBIVASH® SENTINEL APEX v33.0
+detection_forge.py - CYBERDUDEBIVASH(R) SENTINEL APEX v33.0
 ==========================================================
-DetectionForge — Unified multi-format detection artifact generation engine.
+DetectionForge - Unified multi-format detection artifact generation engine.
 Consolidates Sigma, YARA, Suricata, Snort, Elastic, and KQL generation
 into a single pipeline that auto-generates detection packs from fusion contexts.
 
 Integrates with existing v27 auto_rules/* modules (non-breaking).
 Adds: Suricata, Snort, Elastic DSL, KQL output formats.
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os
@@ -200,11 +200,11 @@ class DetectionForge:
         with open(os.path.join(pack_dir, "pack_manifest.json"), 'w') as f:
             json.dump(pack.to_dict(), f, indent=2)
 
-    # ─── SIGMA GENERATION ─────────────────────────────────────────────────
+    # --- SIGMA GENERATION -------------------------------------------------
 
     def _gen_sigma_network(self, title: str, ips: List, domains: List, actor: str = None) -> str:
         safe_title = re.sub(r'[^a-zA-Z0-9_]', '_', title[:60])
-        rule = f"""title: CDB APEX — Network IOC Detection — {title[:80]}
+        rule = f"""title: CDB APEX - Network IOC Detection - {title[:80]}
 id: {hashlib.md5(f'sigma-net-{title}'.encode()).hexdigest()[:8]}-{hashlib.md5(title.encode()).hexdigest()[:4]}-{hashlib.md5(title.encode()).hexdigest()[4:8]}-{hashlib.md5(title.encode()).hexdigest()[8:12]}-{hashlib.md5(title.encode()).hexdigest()[:12]}
 status: experimental
 description: Detects network connections to IOCs from {title[:80]}
@@ -248,7 +248,7 @@ level: high"""
         return rule
 
     def _gen_sigma_hash(self, title: str, hashes: List, actor: str = None) -> str:
-        rule = f"""title: CDB APEX — Hash IOC Detection — {title[:80]}
+        rule = f"""title: CDB APEX - Hash IOC Detection - {title[:80]}
 id: {hashlib.md5(f'sigma-hash-{title}'.encode()).hexdigest()[:36]}
 status: experimental
 description: Detects file hashes from {title[:80]}
@@ -268,7 +268,7 @@ level: critical"""
         return rule
 
     def _gen_sigma_file(self, title: str, files: List, actor: str = None) -> str:
-        rule = f"""title: CDB APEX — Suspicious File Detection — {title[:80]}
+        rule = f"""title: CDB APEX - Suspicious File Detection - {title[:80]}
 id: {hashlib.md5(f'sigma-file-{title}'.encode()).hexdigest()[:36]}
 status: experimental
 description: Detects suspicious files from {title[:80]}
@@ -287,13 +287,13 @@ detection:
 level: high"""
         return rule
 
-    # ─── YARA GENERATION ──────────────────────────────────────────────────
+    # --- YARA GENERATION --------------------------------------------------
 
     def _gen_yara(self, title: str, hashes: List, files: List, actor: str = None) -> str:
         safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', title[:50])
         rule = f"""rule CDB_APEX_{safe_name} {{
     meta:
-        description = "CDB APEX v33.0 — {title[:80]}"
+        description = "CDB APEX v33.0 - {title[:80]}"
         author = "CyberDudeBivash SENTINEL APEX"
         date = "{datetime.now().strftime('%Y-%m-%d')}"
         reference = "https://intel.cyberdudebivash.com/"
@@ -316,14 +316,14 @@ level: high"""
         rule += "    condition:\n        any of them\n}"
         return rule
 
-    # ─── SURICATA GENERATION ──────────────────────────────────────────────
+    # --- SURICATA GENERATION ----------------------------------------------
 
     def _gen_suricata_ip(self, title: str, ip: str, pack_id: str) -> str:
         sid = abs(hash(f"suricata-{ip}-{pack_id}")) % 9000000 + 1000000
         safe_msg = re.sub(r'[^a-zA-Z0-9 _\-]', '', title[:60])
         return (
             f'alert ip any any -> {ip} any '
-            f'(msg:"CDB APEX — C2 IOC — {safe_msg}"; '
+            f'(msg:"CDB APEX - C2 IOC - {safe_msg}"; '
             f'sid:{sid}; rev:1; '
             f'metadata: created_by CyberDudeBivash, severity high;)'
         )
@@ -333,13 +333,13 @@ level: high"""
         safe_msg = re.sub(r'[^a-zA-Z0-9 _\-]', '', title[:60])
         return (
             f'alert dns any any -> any any '
-            f'(msg:"CDB APEX — DNS IOC — {safe_msg}"; '
+            f'(msg:"CDB APEX - DNS IOC - {safe_msg}"; '
             f'dns.query; content:"{domain}"; nocase; '
             f'sid:{sid}; rev:1; '
             f'metadata: created_by CyberDudeBivash, severity high;)'
         )
 
-    # ─── SNORT GENERATION ─────────────────────────────────────────────────
+    # --- SNORT GENERATION -------------------------------------------------
 
     def _gen_snort_ip(self, title: str, ip: str, pack_id: str) -> str:
         sid = abs(hash(f"snort-{ip}-{pack_id}")) % 9000000 + 1000000
@@ -350,7 +350,7 @@ level: high"""
             f'sid:{sid}; rev:1;)'
         )
 
-    # ─── ELASTIC DSL GENERATION ───────────────────────────────────────────
+    # --- ELASTIC DSL GENERATION -------------------------------------------
 
     def _gen_elastic_query(self, title: str, ips: List, domains: List, hashes: List) -> str:
         query = {"bool": {"should": [], "minimum_should_match": 1}}
@@ -369,15 +369,15 @@ level: high"""
             })
 
         return json.dumps({
-            "_comment": f"CDB APEX v33.0 — {title[:80]}",
+            "_comment": f"CDB APEX v33.0 - {title[:80]}",
             "query": query,
         }, indent=2)
 
-    # ─── KQL GENERATION ───────────────────────────────────────────────────
+    # --- KQL GENERATION ---------------------------------------------------
 
     def _gen_kql_query(self, title: str, ips: List, domains: List, hashes: List) -> str:
         parts = []
-        comment = f"// CDB APEX v33.0 — {title[:80]}\n"
+        comment = f"// CDB APEX v33.0 - {title[:80]}\n"
 
         if ips:
             ip_list = ", ".join(f'"{ip}"' for ip in ips[:15])
@@ -397,7 +397,7 @@ level: high"""
 
 def main():
     """CLI entry point for DetectionForge."""
-    logging.basicConfig(level=logging.INFO, format="[DETECTION-FORGE] %(asctime)s — %(message)s")
+    logging.basicConfig(level=logging.INFO, format="[DETECTION-FORGE] %(asctime)s - %(message)s")
 
     manifest_path = os.environ.get("MANIFEST_PATH", "data/stix/feed_manifest.json")
     try:
@@ -413,7 +413,7 @@ def main():
 
     for pack in packs:
         forge.save_pack(pack)
-        logger.info(f"Generated detection pack: {pack.pack_id} — {pack.to_dict()['total_rules']} rules")
+        logger.info(f"Generated detection pack: {pack.pack_id} - {pack.to_dict()['total_rules']} rules")
 
     logger.info(f"DetectionForge complete: {len(packs)} packs generated")
 

@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — Multi-Cloud Bucket Hunter
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - Multi-Cloud Bucket Hunter
 =================================================================
 Discovers misconfigured cloud storage across AWS S3, Azure Blob, and GCP.
 Uses intelligent name permutation based on target domain.

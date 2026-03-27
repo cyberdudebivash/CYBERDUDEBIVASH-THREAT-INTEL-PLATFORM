@@ -1,7 +1,7 @@
 """
-Blogger API Client — Publish, update, and manage posts.
+Blogger API Client - Publish, update, and manage posts.
 v55.0 FIX: HTML sanitization to prevent HttpError 400 from Blogger API.
-© 2026 CyberDudeBivash Pvt Ltd — All rights reserved.
+(C) 2026 CyberDudeBivash Pvt Ltd - All rights reserved.
 """
 
 import re
@@ -36,9 +36,9 @@ def sanitize_blogger_html(html: str) -> str:
       3. Removing HTML comments
       4. Cleaning null bytes and control characters
       5. Truncating oversized payloads with a "continued on platform" footer
-      6. v75.0: Extended Unicode → ASCII/HTML-entity substitution table
+      6. v75.0: Extended Unicode -> ASCII/HTML-entity substitution table
 
-    This is ADDITIVE — does not alter the report generation pipeline.
+    This is ADDITIVE - does not alter the report generation pipeline.
     """
     if not html:
         return html
@@ -46,7 +46,7 @@ def sanitize_blogger_html(html: str) -> str:
     # 1. Clean null bytes and control chars (except newline/tab)
     html = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', html)
 
-    # v75.0: Extended Unicode substitution — covers all chars seen in 400-error items
+    # v75.0: Extended Unicode substitution - covers all chars seen in 400-error items
     # Original map handled: \u2013 \u2014 \u2018 \u2019 \u201c \u201d \u2122 \u00ae \u00a9
     # Added: emoji variants, arrows, info, check, warning, bullet, ellipsis, etc.
     _UNICODE_MAP = {
@@ -69,23 +69,23 @@ def sanitize_blogger_html(html: str) -> str:
         '\u2023': '>',        # triangular bullet
         '\u25cf': '*',        # black circle
         '\u25e6': 'o',        # white bullet
-        '\u2713': '[OK]',     # check mark (✓)
-        '\u2714': '[OK]',     # heavy check mark (✔)
+        '\u2713': '[OK]',     # check mark ([OK])
+        '\u2714': '[OK]',     # heavy check mark ([OK])
         '\u2715': '[X]',      # multiplication x
         '\u2716': '[X]',      # heavy multiplication x
         '\u2717': '[X]',      # ballot x
         '\u2718': '[X]',      # heavy ballot x
-        '\u26a0': '[!]',      # warning sign (⚠)
+        '\u26a0': '[!]',      # warning sign ([!])
         '\u26a1': '[!]',      # lightning bolt
-        '\u2192': '->',       # rightwards arrow (→)
+        '\u2192': '->',       # rightwards arrow (->)
         '\u2190': '<-',       # leftwards arrow
         '\u2191': '^',        # upwards arrow
         '\u2193': 'v',        # downwards arrow
         '\u21d2': '=>',       # rightwards double arrow
-        '\u2139': '[i]',      # information source (ℹ)
+        '\u2139': '[i]',      # information source ([i])
         '\u24d8': '[i]',      # circled latin small letter i
         '\uff5c': '|',        # fullwidth vertical bar
-        '\ufe0f': '',         # variation selector-16 (emoji modifier — strip)
+        '\ufe0f': '',         # variation selector-16 (emoji modifier - strip)
         '\u200b': '',         # zero-width space
         '\u200c': '',         # zero-width non-joiner
         '\u200d': '',         # zero-width joiner
@@ -98,9 +98,14 @@ def sanitize_blogger_html(html: str) -> str:
         if uni in html:
             html = html.replace(uni, replacement)
 
-    # Fallback: replace remaining non-ASCII chars that aren't standard HTML entities
-    # This catches any emoji or special chars not in the map above
-    html = html.encode('ascii', errors='xmlcharrefreplace').decode('ascii')
+    # Fallback: silently drop any remaining non-ASCII characters.
+    # v77.2 FIX: Changed from 'xmlcharrefreplace' to 'ignore'.
+    # 'xmlcharrefreplace' was converting surviving Unicode (e.g. emoji U+1F513)
+    # into visible numeric HTML entities like &#128274; which Blogger rendered
+    # as literal junk text in published posts.
+    # 'ignore' silently drops them - source files are now 100% ASCII-clean so
+    # this line is a belt-and-suspenders guard that should never fire in production.
+    html = html.encode('ascii', errors='ignore').decode('ascii')
 
     # 2. Remove HTML comments
     html = re.sub(r'<!--.*?-->', '', html, flags=re.DOTALL)
@@ -115,7 +120,7 @@ def sanitize_blogger_html(html: str) -> str:
             html,
             flags=re.IGNORECASE,
         )
-        # Closing tag — extract just the tag name from replacement
+        # Closing tag - extract just the tag name from replacement
         close_tag = replacement.split()[0] if ' ' in replacement else replacement
         html = re.sub(
             rf'</{tag}\s*>',
@@ -143,7 +148,7 @@ def sanitize_blogger_html(html: str) -> str:
         truncation_notice = (
             '<div style="background:#1a1a2e;border:2px solid #f97316;border-radius:8px;'
             'padding:16px;margin-top:20px;text-align:center;">'
-            '<p style="color:#f97316;font-weight:bold;margin:0;">⚠️ Advisory Truncated</p>'
+            '<p style="color:#f97316;font-weight:bold;margin:0;">[!] Advisory Truncated</p>'
             '<p style="color:#94a3b8;font-size:13px;margin:4px 0 0 0;">'
             'Full advisory available at '
             '<a href="https://intel.cyberdudebivash.com" style="color:#00d4aa;">'

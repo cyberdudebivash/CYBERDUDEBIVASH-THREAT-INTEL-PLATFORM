@@ -1,8 +1,8 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — Recon Pipeline Orchestrator
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - Recon Pipeline Orchestrator
 ===================================================================
-Full-stack recon pipeline: subdomain → probe → fingerprint → JS extraction
-→ BOLA testing → cloud hunting → port scanning → takeover detection.
+Full-stack recon pipeline: subdomain -> probe -> fingerprint -> JS extraction
+-> BOLA testing -> cloud hunting -> port scanning -> takeover detection.
 
 Integrates with Sentinel APEX threat intel feed via STIX bridge.
 
@@ -42,7 +42,7 @@ class ReconPipeline:
       7. Port Scanning
       8. Subdomain Takeover Detection
       9. ROI Calculation
-      10. Sentinel APEX STIX Bridge (findings → threat intel)
+      10. Sentinel APEX STIX Bridge (findings -> threat intel)
     """
 
     def __init__(self, domain: str, wordlist: Optional[str] = None,

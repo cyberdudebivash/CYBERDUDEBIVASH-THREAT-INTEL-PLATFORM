@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 """
-multi_source_intel.py — CYBERDUDEBIVASH® SENTINEL APEX v24.0
+multi_source_intel.py - CYBERDUDEBIVASH(R) SENTINEL APEX v24.0
 Multi-Source Intelligence Expansion Module.
 
 Non-Breaking Addition: New intelligence source adapters.
 Does NOT modify existing RSS feed pipeline or sentinel_blogger.py.
 
 New Sources Added (additive only):
-    1. Shodan InternetDB — exposure signals for IPs/domains
-    2. Exploit-DB RSS — exploit publication monitoring
-    3. GitHub Security Advisories — GHSA CVE feed
-    4. CISA Known Exploited Vulnerabilities (KEV) — live pull
-    5. Microsoft MSRC — Security Update Guide
+    1. Shodan InternetDB - exposure signals for IPs/domains
+    2. Exploit-DB RSS - exploit publication monitoring
+    3. GitHub Security Advisories - GHSA CVE feed
+    4. CISA Known Exploited Vulnerabilities (KEV) - live pull
+    5. Microsoft MSRC - Security Update Guide
     6. Vendor Advisory Aggregator (Apple, Google, Cisco, VMware, Apache)
-    7. Ransomware.live — ransomware gang victim tracking
-    8. AlienVault OTX — open threat exchange pulses
-    9. GreyNoise Community — benign vs threat IP classification
-   10. URLhaus — malicious URL/domain feed
+    7. Ransomware.live - ransomware gang victim tracking
+    8. AlienVault OTX - open threat exchange pulses
+    9. GreyNoise Community - benign vs threat IP classification
+   10. URLhaus - malicious URL/domain feed
 
 Author: CyberDudeBivash Pvt. Ltd.
 Platform: https://intel.cyberdudebivash.com
@@ -47,10 +47,10 @@ logger = logging.getLogger("CDB-MultiSource-Intel")
 MODULE_VERSION = "1.0.0"
 DEFAULT_TIMEOUT = 20
 
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 # Additional RSS/Feed Sources (drop-in additions to RSS_FEEDS)
 # These can be appended to RSS_FEEDS in config.py non-destructively
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 
 ADDITIONAL_RSS_FEEDS = [
     # Exploit tracking
@@ -99,9 +99,9 @@ VENDOR_ADVISORY_FEEDS = {
 }
 
 
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 # Shodan InternetDB Adapter
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 
 class ShodanInternetDBAdapter:
     """
@@ -188,16 +188,16 @@ class ShodanInternetDBAdapter:
             signals["risk_addons"].append(f"dangerous_ports:{','.join(map(str, exposed))}")
 
         if enriched.get("is_honeypot"):
-            score = 0  # Honeypot — skip
+            score = 0  # Honeypot - skip
             signals["risk_addons"].append("honeypot_skip")
 
         signals["exposure_score"] = round(min(score, 3.0), 2)
         return signals
 
 
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 # CISA KEV Live Puller
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 
 class CISAKEVAdapter:
     """
@@ -310,9 +310,9 @@ class CISAKEVAdapter:
         }
 
 
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 # Ransomware.live Adapter
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 
 class RansomwareLiveAdapter:
     """
@@ -395,13 +395,13 @@ class RansomwareLiveAdapter:
         }
 
 
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 # URLhaus Feed Adapter
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 
 class URLhausAdapter:
     """
-    Abuse.ch URLhaus — malicious URL and domain threat feed.
+    Abuse.ch URLhaus - malicious URL and domain threat feed.
     Provides real-time malicious URLs used for malware distribution.
     """
 
@@ -486,9 +486,9 @@ class URLhausAdapter:
         return iocs
 
 
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 # GreyNoise Community API
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 
 class GreyNoiseCommunityAdapter:
     """
@@ -543,9 +543,9 @@ class GreyNoiseCommunityAdapter:
         return malicious
 
 
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 # Exploit-DB RSS Adapter
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 
 class ExploitDBAdapter:
     """
@@ -600,9 +600,9 @@ class ExploitDBAdapter:
         return [e for e in exploits if cve_id.upper() in [c.upper() for c in e.get("cve_ids", [])]]
 
 
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 # GitHub Security Advisory Adapter
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 
 class GitHubSecurityAdvisoryAdapter:
     """
@@ -682,9 +682,9 @@ class GitHubSecurityAdvisoryAdapter:
         return []
 
 
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 # AlienVault OTX Pulse Adapter
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 
 class OTXPulseAdapter:
     """
@@ -749,16 +749,16 @@ class OTXPulseAdapter:
         return iocs
 
 
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 # Source Intelligence Orchestrator
-# ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------
 
 class SourceIntelligenceOrchestrator:
     """
     Orchestrates all additional intelligence sources.
     Provides a unified interface for multi-source enrichment.
 
-    Non-Breaking: All enrichment is additive — results augment existing
+    Non-Breaking: All enrichment is additive - results augment existing
     manifest entries without replacing any existing pipeline data.
     """
 
@@ -779,7 +779,7 @@ class SourceIntelligenceOrchestrator:
     def enrich_manifest_entry(self, entry: Dict) -> Dict:
         """
         Enrich a single manifest entry with multi-source intelligence.
-        Returns the entry with additional fields — original fields untouched.
+        Returns the entry with additional fields - original fields untouched.
         """
         enriched = dict(entry)
         enrichments = {}

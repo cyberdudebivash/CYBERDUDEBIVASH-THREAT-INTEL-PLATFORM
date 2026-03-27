@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-apex_marketing_matrix.py — CyberDudeBivash v30.0 (APEX VIRAL ENGINE)
+apex_marketing_matrix.py - CyberDudeBivash v30.0 (APEX VIRAL ENGINE)
 Author: CYBERGOD / TECH GOD
 Description: Autonomously reads AI predictions, generates highly viral, 
              CISO-targeted threat advisories, and stages them for global syndication.
@@ -38,16 +38,16 @@ class ApexMarketingMatrix:
         
         # The Viral Template Strategy: Hook -> Context -> Authority -> Call to Action
         post_content = (
-            f"🚨 [CYBERDUDEBIVASH APEX SOVEREIGN ALERT] 🚨\n\n"
+            f"? [CYBERDUDEBIVASH APEX SOVEREIGN ALERT] ?\n\n"
             f"Our autonomous eBPF Swarm has detected macro-level anomalies indicating an imminent "
             f"spike in {vector} targeting the {sector} sector. \n\n"
-            f"🧠 APEX AI Confidence: {confidence}%\n"
-            f"⚡ Global Risk Velocity is heavily elevated.\n\n"
+            f"? APEX AI Confidence: {confidence}%\n"
+            f"[!] Global Risk Velocity is heavily elevated.\n\n"
             f"While traditional SOCs are waiting for the breach, CYBERDUDEBIVASH Enterprise clients "
             f"already have the STIX 2.1 telemetry streaming directly into their firewalls via our "
             f"Zero-Latency WebSocket Firehose.\n\n"
             f"Stop reacting. Start predicting. Protect your MNC today.\n"
-            f"👑 Access the APEX Stream: https://intel.cyberdudebivash.com/enterprise\n\n"
+            f"? Access the APEX Stream: https://intel.cyberdudebivash.com/enterprise\n\n"
             f"#CyberSecurity #ThreatIntel #CISO #ZeroDay #CyberDudeBivash #InfoSec"
         )
 

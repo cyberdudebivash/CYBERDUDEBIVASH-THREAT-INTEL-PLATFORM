@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
-signal_pipeline.py — CYBERDUDEBIVASH® SENTINEL APEX v35.0 (ZERO-DAY HUNTER)
+signal_pipeline.py - CYBERDUDEBIVASH(R) SENTINEL APEX v35.0 (ZERO-DAY HUNTER)
 ==============================================================================
-Unified Signal Pipeline — collects, normalizes, correlates, and forecasts
+Unified Signal Pipeline - collects, normalizes, correlates, and forecasts
 threat signals from multiple intelligence sources.
 
-Pipeline: Collect → Normalize → Correlate → Forecast → Output
+Pipeline: Collect -> Normalize -> Correlate -> Forecast -> Output
 
 Collectors:
-  ManifestCollector  — Extracts signals from existing STIX manifest (always available)
-  STIXBundleCollector— Extracts IOCs directly from STIX bundle files
-  NVDCollector       — CVE publication velocity from NVD API 2.0
-  KEVCollector       — CISA Known Exploited Vulnerabilities additions
-  GitHubPoCCollector — Exploit PoC repository detection
-  FusionCollector    — Signals from v33 fusion entity store
+  ManifestCollector  - Extracts signals from existing STIX manifest (always available)
+  STIXBundleCollector- Extracts IOCs directly from STIX bundle files
+  NVDCollector       - CVE publication velocity from NVD API 2.0
+  KEVCollector       - CISA Known Exploited Vulnerabilities additions
+  GitHubPoCCollector - Exploit PoC repository detection
+  FusionCollector    - Signals from v33 fusion entity store
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 import os, re, json, math, hashlib, logging, time
 from abc import ABC, abstractmethod
@@ -36,9 +36,9 @@ try:
 except ImportError:
     _HTTP = False
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # NORMALIZED SIGNAL SCHEMA
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 @dataclass
 class ThreatSignal:
@@ -69,9 +69,9 @@ def _sev(risk: float) -> str:
 
 CVE_RE = re.compile(r'CVE-\d{4}-\d{4,7}', re.IGNORECASE)
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # COLLECTORS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class BaseCollector(ABC):
     def __init__(self, name: str): self.name = name; self.errors: List[str] = []
@@ -87,7 +87,7 @@ class BaseCollector(ABC):
 
 
 class ManifestCollector(BaseCollector):
-    """Extracts signals from existing feed_manifest.json — always available."""
+    """Extracts signals from existing feed_manifest.json - always available."""
     def __init__(self): super().__init__("manifest")
     def collect(self, window_hours: int = 72) -> List[ThreatSignal]:
         sigs = []
@@ -266,9 +266,9 @@ class GitHubPoCCollector(BaseCollector):
         logger.info(f"GitHubPoCCollector: {len(sigs)} signals"); return sigs
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # CORRELATION ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 CHAIN_STAGES = ["cve_pub", "patch_gap", "poc_release", "kev_add", "scan_spike",
                 "exploit_sub", "severity_spike", "actor_activity", "ioc_volume", "ioc_extracted", "fusion_entity"]
@@ -334,13 +334,13 @@ def correlate_signals(signals: List[ThreatSignal]) -> List[SignalCluster]:
             list(all_rel)[:20]))
 
     clusters.sort(key=lambda c: c.completeness * c.confidence, reverse=True)
-    logger.info(f"Correlated {len(signals)} signals → {len(clusters)} clusters")
+    logger.info(f"Correlated {len(signals)} signals -> {len(clusters)} clusters")
     return clusters
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # FORECAST ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 STAGE_PROB = {"cve_pub": .05, "patch_gap": .15, "poc_release": .25, "kev_add": .30,
               "scan_spike": .20, "exploit_sub": .20, "severity_spike": .10,
@@ -388,7 +388,7 @@ def forecast_clusters(clusters: List[SignalCluster]) -> List[Forecast]:
         elif prob >= 0.2: wh = 720
         else: wh = 2160
 
-        wl = {0: "ACTIVE — Exploitation in progress", 24: "≤24 hours", 72: "24-72 hours",
+        wl = {0: "ACTIVE - Exploitation in progress", 24: "<=24 hours", 72: "24-72 hours",
               168: "1-7 days", 336: "1-2 weeks", 720: "2-4 weeks"}.get(wh, "1-3 months")
 
         # Sectors
@@ -414,7 +414,7 @@ def forecast_clusters(clusters: List[SignalCluster]) -> List[Forecast]:
         reasons = [f"{len(cl.chain)} chain stages: {', '.join(cl.chain)}"]
         if "kev_add" in cl.chain: reasons.append("CISA KEV confirms active exploitation")
         if "poc_release" in cl.chain: reasons.append("Public PoC exploit lowers exploitation barrier")
-        if "patch_gap" in cl.chain: reasons.append("No patch available — window remains open")
+        if "patch_gap" in cl.chain: reasons.append("No patch available - window remains open")
         if "scan_spike" in cl.chain: reasons.append("Mass scanning detected")
         if cl.velocity > 1: reasons.append(f"High velocity: {cl.velocity:.1f} signals/hour")
         if len(set(s.source for s in cl.signals)) > 2: reasons.append(f"Corroborated by {len(set(s.source for s in cl.signals))} sources")
@@ -430,12 +430,12 @@ def forecast_clusters(clusters: List[SignalCluster]) -> List[Forecast]:
     return forecasts
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # PIPELINE ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class SignalPipeline:
-    """Unified signal collection → correlation → forecasting pipeline."""
+    """Unified signal collection -> correlation -> forecasting pipeline."""
     def __init__(self, enable_external: bool = True):
         self.collectors: List[BaseCollector] = [ManifestCollector(), STIXBundleCollector(), FusionCollector()]
         if enable_external:

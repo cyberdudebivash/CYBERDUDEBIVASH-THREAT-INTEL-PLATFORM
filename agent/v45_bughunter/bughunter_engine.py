@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — Bug Hunter Engine (Top-Level Facade)
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - Bug Hunter Engine (Top-Level Facade)
 ============================================================================
 Primary entry point for the Bug Hunter subsystem.
 Provides the integration bridge between Bug Hunter findings and

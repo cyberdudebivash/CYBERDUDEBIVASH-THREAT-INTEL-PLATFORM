@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-cve_verified_engine.py — CyberDudeBivash Sentinel APEX™ v44.0
+cve_verified_engine.py - CyberDudeBivash Sentinel APEX(TM) v44.0
 CVE-Verified Threat Intelligence Report Engine
 
 MANDATE: Every claim in a CVE report must be anchored to a verified source.
@@ -8,11 +8,11 @@ MANDATE: Every claim in a CVE report must be anchored to a verified source.
          No templates. No hallucination. No keyword-driven fabrication.
 
 Architecture:
-  1. NVDClient       — fetches and caches NVD data per CVE
-  2. CVEFactsParser  — parses NVD JSON into structured, typed facts
-  3. CWELibrary      — maps CWE IDs to precise technical descriptions
-  4. CVSSInterpreter — decodes CVSS vector into human-readable implications
-  5. CVEReportEngine — generates the 10-section HTML report from verified facts only
+  1. NVDClient       - fetches and caches NVD data per CVE
+  2. CVEFactsParser  - parses NVD JSON into structured, typed facts
+  3. CWELibrary      - maps CWE IDs to precise technical descriptions
+  4. CVSSInterpreter - decodes CVSS vector into human-readable implications
+  5. CVEReportEngine - generates the 10-section HTML report from verified facts only
 
 Zero-regression: invoked only when CVE IDs are present in headline/content.
 All non-CVE paths in premium_report_generator.py are unmodified.
@@ -27,9 +27,9 @@ import urllib.error
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # NVD CLIENT
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 class NVDClient:
     """
@@ -70,9 +70,9 @@ class NVDClient:
             return None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # CVE FACTS PARSER
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 class CVEFacts:
     """Structured, typed container for NVD-verified CVE facts."""
@@ -184,15 +184,15 @@ class CVEFacts:
                     # Also handle version embedded in CPE string itself
                     cpe_version = parts[5] if len(parts) > 5 and parts[5] not in ("*", "-", "") else ""
                     if v_start_inc and v_end_inc:
-                        version_str = f" v{v_start_inc} – v{v_end_inc} (inclusive)"
+                        version_str = f" v{v_start_inc} - v{v_end_inc} (inclusive)"
                     elif v_start_inc and v_end_exc:
-                        version_str = f" v{v_start_inc} – v{v_end_exc} (exclusive end)"
+                        version_str = f" v{v_start_inc} - v{v_end_exc} (exclusive end)"
                     elif v_end_inc:
-                        version_str = f" ≤ v{v_end_inc}"
+                        version_str = f" <= v{v_end_inc}"
                     elif v_end_exc:
                         version_str = f" < v{v_end_exc}"
                     elif cpe_version:
-                        # Specific version in CPE — also check update field
+                        # Specific version in CPE - also check update field
                         update = parts[6] if len(parts) > 6 and parts[6] not in ("*", "-", "") else ""
                         version_str = f" v{cpe_version}" + (f".{update}" if update else "")
                     entry = f"{vendor} {product}{platform_str}{version_str}"
@@ -202,9 +202,9 @@ class CVEFacts:
         return f
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # CWE LIBRARY
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 CWE_DESCRIPTIONS = {
     "CWE-327": {
@@ -213,244 +213,244 @@ CWE_DESCRIPTIONS = {
             "The software uses a cryptographic algorithm or protocol that is considered "
             "broken, deprecated, or insufficiently strong for the intended security requirement. "
             "This weakness applies when an algorithm is used in a way that does not meet the "
-            "security strength required — including predictable, static, or low-entropy implementations "
+            "security strength required - including predictable, static, or low-entropy implementations "
             "that allow adversaries to identify or reproduce cryptographic material."
         ),
         "class": "Cryptographic Weakness",
-        "mitre_technique": "T1573 (Encrypted Channel) — adversarial abuse",
-        "owasp": "A02:2021 – Cryptographic Failures",
+        "mitre_technique": "T1573 (Encrypted Channel) - adversarial abuse",
+        "owasp": "A02:2021 - Cryptographic Failures",
     },
     "CWE-200": {
         "name": "Exposure of Sensitive Information to an Unauthorized Actor",
         "description": "The software exposes sensitive information to an actor not explicitly authorized to access it.",
         "class": "Information Disclosure",
         "mitre_technique": "T1040 (Network Sniffing)",
-        "owasp": "A01:2021 – Broken Access Control",
+        "owasp": "A01:2021 - Broken Access Control",
     },
     "CWE-79": {
         "name": "Cross-site Scripting (XSS)",
         "description": "The software does not neutralize user-controllable input before it is placed in output as web page content.",
         "class": "Injection",
         "mitre_technique": "T1059.007 (JavaScript)",
-        "owasp": "A03:2021 – Injection",
+        "owasp": "A03:2021 - Injection",
     },
     "CWE-89": {
         "name": "SQL Injection",
         "description": "The software constructs SQL commands using externally-influenced input without proper neutralization.",
         "class": "Injection",
         "mitre_technique": "T1190 (Exploit Public-Facing Application)",
-        "owasp": "A03:2021 – Injection",
+        "owasp": "A03:2021 - Injection",
     },
     "CWE-78": {
         "name": "OS Command Injection",
         "description": "The software constructs OS commands using externally-influenced input without proper neutralization.",
         "class": "Injection",
         "mitre_technique": "T1059 (Command and Scripting Interpreter)",
-        "owasp": "A03:2021 – Injection",
+        "owasp": "A03:2021 - Injection",
     },
     "CWE-22": {
         "name": "Path Traversal",
         "description": "The software uses external input to construct a pathname intended to identify a file, but does not neutralize sequences that can resolve to a location outside the intended directory.",
         "class": "Path Traversal",
         "mitre_technique": "T1083 (File and Directory Discovery)",
-        "owasp": "A01:2021 – Broken Access Control",
+        "owasp": "A01:2021 - Broken Access Control",
     },
     "CWE-287": {
         "name": "Improper Authentication",
         "description": "The software does not adequately verify the identity of an actor.",
         "class": "Authentication Weakness",
         "mitre_technique": "T1078 (Valid Accounts)",
-        "owasp": "A07:2021 – Identification and Authentication Failures",
+        "owasp": "A07:2021 - Identification and Authentication Failures",
     },
     "CWE-416": {
         "name": "Use After Free",
         "description": "The software references memory after it has been freed, which can lead to arbitrary code execution.",
         "class": "Memory Corruption",
         "mitre_technique": "T1203 (Exploitation for Client Execution)",
-        "owasp": "A06:2021 – Vulnerable and Outdated Components",
+        "owasp": "A06:2021 - Vulnerable and Outdated Components",
     },
     "CWE-120": {
         "name": "Buffer Copy Without Checking Size of Input (Buffer Overflow)",
         "description": "The software copies an input buffer to an output buffer without verifying that the size of the input buffer is less than the size of the output buffer.",
         "class": "Memory Corruption",
         "mitre_technique": "T1499 (Endpoint Denial of Service)",
-        "owasp": "A06:2021 – Vulnerable and Outdated Components",
+        "owasp": "A06:2021 - Vulnerable and Outdated Components",
     },
     "CWE-352": {
         "name": "Cross-Site Request Forgery (CSRF)",
         "description": "The software does not verify that the requester intended to perform the action.",
         "class": "Web Application Weakness",
         "mitre_technique": "T1185 (Browser Session Hijacking)",
-        "owasp": "A01:2021 – Broken Access Control",
+        "owasp": "A01:2021 - Broken Access Control",
     },
     "CWE-611": {
         "name": "Improper Restriction of XML External Entity Reference",
         "description": "The software processes an XML document that can contain XML entities with URIs that resolve to documents outside of the intended sphere of control.",
         "class": "Injection",
         "mitre_technique": "T1190 (Exploit Public-Facing Application)",
-        "owasp": "A05:2021 – Security Misconfiguration",
+        "owasp": "A05:2021 - Security Misconfiguration",
     },
     "CWE-306": {
         "name": "Missing Authentication for Critical Function",
         "description": "The software does not perform any authentication for functionality that requires a provable user identity.",
         "class": "Authentication Weakness",
         "mitre_technique": "T1078 (Valid Accounts)",
-        "owasp": "A07:2021 – Identification and Authentication Failures",
+        "owasp": "A07:2021 - Identification and Authentication Failures",
     },
-    # ── v75.6: Extended CWE coverage ──────────────────────────────
+    # -- v75.6: Extended CWE coverage ------------------------------
     "CWE-434": {
         "name": "Unrestricted Upload of File with Dangerous Type",
         "description": "The software allows the upload or transfer of dangerous file types that can be processed automatically when used by attackers.",
         "class": "File Upload Vulnerability",
         "mitre_technique": "T1505.003 (Web Shell)",
-        "owasp": "A04:2021 – Insecure Design",
+        "owasp": "A04:2021 - Insecure Design",
     },
     "CWE-639": {
         "name": "Authorization Bypass Through User-Controlled Key (IDOR)",
         "description": "The system's authorization functionality does not prevent one user from gaining access to another user's data by modifying a key value.",
         "class": "Broken Access Control / IDOR",
         "mitre_technique": "T1078 (Valid Accounts)",
-        "owasp": "A01:2021 – Broken Access Control",
+        "owasp": "A01:2021 - Broken Access Control",
     },
     "CWE-918": {
         "name": "Server-Side Request Forgery (SSRF)",
         "description": "The software receives a URL or similar request parameter and fetches the contents without sufficiently ensuring that the request is being sent to the expected destination.",
         "class": "SSRF",
         "mitre_technique": "T1090 (Proxy)",
-        "owasp": "A10:2021 – Server-Side Request Forgery",
+        "owasp": "A10:2021 - Server-Side Request Forgery",
     },
     "CWE-862": {
         "name": "Missing Authorization",
         "description": "The software does not perform an authorization check when an actor attempts to access a resource or perform an action.",
         "class": "Access Control",
         "mitre_technique": "T1078 (Valid Accounts)",
-        "owasp": "A01:2021 – Broken Access Control",
+        "owasp": "A01:2021 - Broken Access Control",
     },
     "CWE-863": {
         "name": "Incorrect Authorization",
         "description": "The software performs an authorization check, but it contains an implementation error preventing it from correctly restricting access.",
         "class": "Access Control",
         "mitre_technique": "T1078 (Valid Accounts)",
-        "owasp": "A01:2021 – Broken Access Control",
+        "owasp": "A01:2021 - Broken Access Control",
     },
     "CWE-400": {
         "name": "Uncontrolled Resource Consumption (Resource Exhaustion / DoS)",
         "description": "The software does not properly control the allocation and maintenance of limited resources, allowing an attacker to exhaust those resources.",
         "class": "Denial of Service",
         "mitre_technique": "T1499 (Endpoint Denial of Service)",
-        "owasp": "A04:2021 – Insecure Design",
+        "owasp": "A04:2021 - Insecure Design",
     },
     "CWE-601": {
         "name": "URL Redirection to Untrusted Site (Open Redirect)",
         "description": "A web application accepts a user-controlled input that specifies a link to an external site, and uses that link in a redirect.",
         "class": "Web Application Weakness",
         "mitre_technique": "T1566.002 (Spearphishing Link)",
-        "owasp": "A01:2021 – Broken Access Control",
+        "owasp": "A01:2021 - Broken Access Control",
     },
     "CWE-200": {
         "name": "Exposure of Sensitive Information to an Unauthorized Actor",
         "description": "The product exposes sensitive information to an actor that is not explicitly authorized to have access to that information.",
         "class": "Information Disclosure",
         "mitre_technique": "T1213 (Data from Information Repositories)",
-        "owasp": "A02:2021 – Cryptographic Failures",
+        "owasp": "A02:2021 - Cryptographic Failures",
     },
     "CWE-502": {
         "name": "Deserialization of Untrusted Data",
         "description": "The application deserializes untrusted data without sufficiently verifying that the resulting data will be valid.",
         "class": "Injection",
         "mitre_technique": "T1190 (Exploit Public-Facing Application)",
-        "owasp": "A08:2021 – Software and Data Integrity Failures",
+        "owasp": "A08:2021 - Software and Data Integrity Failures",
     },
     "CWE-20": {
         "name": "Improper Input Validation",
         "description": "The product receives input or data, but it does not validate that the input has the properties required to process the data safely and correctly.",
         "class": "Input Validation",
         "mitre_technique": "T1190 (Exploit Public-Facing Application)",
-        "owasp": "A03:2021 – Injection",
+        "owasp": "A03:2021 - Injection",
     },
     "CWE-276": {
         "name": "Incorrect Default Permissions",
         "description": "During installation, installed file permissions are set to allow anyone to modify those files.",
         "class": "Permissions, Privileges, Access Controls",
         "mitre_technique": "T1222 (File and Directory Permissions Modification)",
-        "owasp": "A01:2021 – Broken Access Control",
+        "owasp": "A01:2021 - Broken Access Control",
     },
     "CWE-284": {
         "name": "Improper Access Control",
         "description": "The software does not restrict or incorrectly restricts access to a resource from an unauthorized actor.",
         "class": "Access Control",
         "mitre_technique": "T1078 (Valid Accounts)",
-        "owasp": "A01:2021 – Broken Access Control",
+        "owasp": "A01:2021 - Broken Access Control",
     },
     "CWE-190": {
         "name": "Integer Overflow or Wraparound",
         "description": "The software performs a calculation that can produce an integer overflow or wraparound, when the logic assumes that the resulting value will always be larger than the original value.",
         "class": "Memory Corruption",
         "mitre_technique": "T1203 (Exploitation for Client Execution)",
-        "owasp": "A06:2021 – Vulnerable and Outdated Components",
+        "owasp": "A06:2021 - Vulnerable and Outdated Components",
     },
     "CWE-125": {
         "name": "Out-of-Bounds Read",
         "description": "The software reads data past the end, or before the beginning, of the intended buffer.",
         "class": "Memory Safety",
         "mitre_technique": "T1499 (Endpoint Denial of Service)",
-        "owasp": "A06:2021 – Vulnerable and Outdated Components",
+        "owasp": "A06:2021 - Vulnerable and Outdated Components",
     },
     "CWE-787": {
         "name": "Out-of-Bounds Write",
         "description": "The software writes data past the end, or before the beginning, of the intended buffer.",
         "class": "Memory Corruption",
         "mitre_technique": "T1203 (Exploitation for Client Execution)",
-        "owasp": "A06:2021 – Vulnerable and Outdated Components",
+        "owasp": "A06:2021 - Vulnerable and Outdated Components",
     },
     "CWE-295": {
         "name": "Improper Certificate Validation",
         "description": "The software does not validate, or incorrectly validates, a certificate.",
         "class": "Cryptography",
         "mitre_technique": "T1557 (Adversary-in-the-Middle)",
-        "owasp": "A02:2021 – Cryptographic Failures",
+        "owasp": "A02:2021 - Cryptographic Failures",
     },
     "CWE-732": {
         "name": "Incorrect Permission Assignment for Critical Resource",
         "description": "The product specifies permissions for a security-critical resource in a way that allows that resource to be read or modified by unintended actors.",
         "class": "Permissions, Privileges, Access Controls",
         "mitre_technique": "T1222 (File and Directory Permissions Modification)",
-        "owasp": "A01:2021 – Broken Access Control",
+        "owasp": "A01:2021 - Broken Access Control",
     },
     "CWE-338": {
         "name": "Use of Cryptographically Weak Pseudo-Random Number Generator",
         "description": "The product uses a pseudo-random number generator (PRNG) in a security context, but the PRNG's algorithm is not cryptographically strong.",
         "class": "Cryptography",
         "mitre_technique": "T1552 (Unsecured Credentials)",
-        "owasp": "A02:2021 – Cryptographic Failures",
+        "owasp": "A02:2021 - Cryptographic Failures",
     },
     "CWE-327": {
         "name": "Use of a Broken or Risky Cryptographic Algorithm",
         "description": "The use of a broken or risky cryptographic algorithm is an unnecessary risk that may result in the exposure of sensitive information.",
         "class": "Cryptography",
         "mitre_technique": "T1040 (Network Sniffing)",
-        "owasp": "A02:2021 – Cryptographic Failures",
+        "owasp": "A02:2021 - Cryptographic Failures",
     },
     "CWE-77": {
         "name": "Command Injection",
         "description": "The software constructs all or part of a command using externally-influenced input, but it does not neutralize elements that could modify the intended command.",
         "class": "Injection",
         "mitre_technique": "T1059 (Command and Scripting Interpreter)",
-        "owasp": "A03:2021 – Injection",
+        "owasp": "A03:2021 - Injection",
     },
     "CWE-78": {
         "name": "OS Command Injection",
         "description": "The software constructs all or part of an OS command using externally-influenced input, but it does not neutralize elements that could modify the intended OS command.",
         "class": "Injection",
         "mitre_technique": "T1059 (Command and Scripting Interpreter)",
-        "owasp": "A03:2021 – Injection",
+        "owasp": "A03:2021 - Injection",
     },
     "CWE-1321": {
         "name": "Improperly Controlled Modification of Object Prototype Attributes (Prototype Pollution)",
         "description": "The software receives input from an upstream component that specifies attributes that are to be initialized or updated in an object, but it does not properly control modifications of attributes of the object prototype.",
         "class": "Injection",
         "mitre_technique": "T1190 (Exploit Public-Facing Application)",
-        "owasp": "A03:2021 – Injection",
+        "owasp": "A03:2021 - Injection",
     },
 }
 
@@ -472,24 +472,24 @@ def get_cwe_info(cwe_id: str) -> Dict[str, str]:
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # SUPPLEMENTAL PUBLIC DISCLOSURE RESEARCHER REGISTRY
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # When NVD credits field is empty, some CVEs have researchers who publicly
 # identified themselves via LinkedIn, GitHub, blog posts, or CERT/CC advisories.
 # These entries are sourced exclusively from verifiable public disclosures.
 # All entries are documented with their public attribution source.
 #
-# Format: CVE-ID → {name, role, source_url, source_type}
-# ─────────────────────────────────────────────────────────────────────────────
+# Format: CVE-ID -> {name, role, source_url, source_type}
+# -----------------------------------------------------------------------------
 
 SUPPLEMENTAL_RESEARCHER_REGISTRY: Dict[str, List[Dict[str, str]]] = {
     "CVE-2025-13476": [
         {
-            "name": "Oleksii Gaienko (Олексій Гаєнко)",
-            "role": "Original Vulnerability Discoverer — Responsible Disclosure",
+            "name": "Oleksii Gaienko (??????? ??????)",
+            "role": "Original Vulnerability Discoverer - Responsible Disclosure",
             "source": "Researcher publicly identified as discoverer via LinkedIn comment "
-                      "on CYBERDUDEBIVASH Sentinel APEX™ post and CERT/CC VU#772695",
+                      "on CYBERDUDEBIVASH Sentinel APEX(TM) post and CERT/CC VU#772695",
             "source_url": "https://www.kb.cert.org/vuls/id/772695",
             "source_type": "Public Disclosure / CERT Third-Party Advisory",
         }
@@ -502,14 +502,14 @@ def get_supplemental_researchers(cve_id: str) -> List[Dict[str, str]]:
     return SUPPLEMENTAL_RESEARCHER_REGISTRY.get(cve_id.upper(), [])
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # CVSS INTERPRETER
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 class CVSSInterpreter:
     """
     Translates CVSS vector components into precise, human-readable
-    security implications. No hallucination — strictly mechanical translation.
+    security implications. No hallucination - strictly mechanical translation.
     """
 
     AV_MAP = {
@@ -519,7 +519,7 @@ class CVSSInterpreter:
         "PHYSICAL": "Exploitation requires physical interaction with the affected hardware.",
     }
     AC_MAP = {
-        "LOW": "No specialized conditions are required — exploitation can be automated and repeated reliably.",
+        "LOW": "No specialized conditions are required - exploitation can be automated and repeated reliably.",
         "HIGH": "Exploitation depends on specific conditions beyond the attacker's direct control, reducing repeatability.",
     }
     PR_MAP = {
@@ -528,13 +528,13 @@ class CVSSInterpreter:
         "HIGH": "Exploitation requires elevated privileges (administrator or equivalent).",
     }
     UI_MAP = {
-        "NONE": "Exploitation does not require any user interaction — attacks can be fully automated.",
+        "NONE": "Exploitation does not require any user interaction - attacks can be fully automated.",
         "REQUIRED": "Successful exploitation requires a user to take a specific action (e.g., click a link, open a file).",
     }
     IMPACT_MAP = {
         "NONE": "No impact",
-        "LOW": "Limited impact — partial disclosure or modification possible",
-        "HIGH": "Complete impact — full disclosure or modification possible",
+        "LOW": "Limited impact - partial disclosure or modification possible",
+        "HIGH": "Complete impact - full disclosure or modification possible",
     }
 
     @classmethod
@@ -550,9 +550,9 @@ class CVSSInterpreter:
         }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# MITRE ATT&CK MAPPING — CWE → TECHNIQUE (verified mappings)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# MITRE ATT&CK MAPPING - CWE -> TECHNIQUE (verified mappings)
+# -----------------------------------------------------------------------------
 
 CWE_TO_MITRE = {
     "CWE-327": [
@@ -592,9 +592,9 @@ def get_mitre_for_cwes(cwes: List[str]) -> List[dict]:
     return result
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# DETECTION RULE GENERATOR — Vulnerability-class-aware, not malware-generic
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# DETECTION RULE GENERATOR - Vulnerability-class-aware, not malware-generic
+# -----------------------------------------------------------------------------
 
 def generate_sigma_for_cve(facts: "CVEFacts") -> str:
     """
@@ -607,7 +607,7 @@ def generate_sigma_for_cve(facts: "CVEFacts") -> str:
     cwes = facts.cwes
     description_short = facts.description[:120].rstrip() + "..." if len(facts.description) > 120 else facts.description
 
-    # CWE-327: TLS/Crypto weakness — network detection
+    # CWE-327: TLS/Crypto weakness - network detection
     if "CWE-327" in cwes:
         return f"""title: Detection of Potentially Fingerprint-Identifiable TLS Traffic ({cve_id})
 id: cdb-{safe_id}-sigma-001
@@ -619,7 +619,7 @@ description: >
 references:
   - https://nvd.nist.gov/vuln/detail/{cve_id}
   - https://www.kb.cert.org/vuls/id/772695
-author: CyberDudeBivash Sentinel APEX™ GOC
+author: CyberDudeBivash Sentinel APEX(TM) GOC
 date: {now}
 tags:
   - attack.command_and_control
@@ -650,13 +650,13 @@ level: medium
 
     # CWE-79 XSS
     elif "CWE-79" in cwes:
-        return f"""title: Potential XSS Exploitation Attempt — {cve_id}
+        return f"""title: Potential XSS Exploitation Attempt - {cve_id}
 id: cdb-{safe_id}-sigma-001
 status: experimental
 description: Detects HTTP requests containing common XSS payloads targeting {cve_id}.
 references:
   - https://nvd.nist.gov/vuln/detail/{cve_id}
-author: CyberDudeBivash Sentinel APEX™ GOC
+author: CyberDudeBivash Sentinel APEX(TM) GOC
 date: {now}
 tags:
   - attack.initial_access
@@ -679,13 +679,13 @@ level: medium
 
     # CWE-89 SQLi
     elif "CWE-89" in cwes:
-        return f"""title: SQL Injection Attempt — {cve_id}
+        return f"""title: SQL Injection Attempt - {cve_id}
 id: cdb-{safe_id}-sigma-001
 status: experimental
 description: Detects SQL injection patterns in HTTP requests targeting {cve_id}.
 references:
   - https://nvd.nist.gov/vuln/detail/{cve_id}
-author: CyberDudeBivash Sentinel APEX™ GOC
+author: CyberDudeBivash Sentinel APEX(TM) GOC
 date: {now}
 tags:
   - attack.initial_access
@@ -708,7 +708,7 @@ level: high
 
     # Generic vulnerability detection
     else:
-        return f"""title: Vulnerability Exploitation Attempt — {cve_id}
+        return f"""title: Vulnerability Exploitation Attempt - {cve_id}
 id: cdb-{safe_id}-sigma-001
 status: experimental
 description: >
@@ -716,7 +716,7 @@ description: >
   {description_short}
 references:
   - https://nvd.nist.gov/vuln/detail/{cve_id}
-author: CyberDudeBivash Sentinel APEX™ GOC
+author: CyberDudeBivash Sentinel APEX(TM) GOC
 date: {now}
 tags:
   - attack.initial_access
@@ -743,12 +743,12 @@ def generate_yara_for_cve(facts: "CVEFacts") -> str:
     cwes = facts.cwes
 
     if "CWE-327" in cwes:
-        # TLS fingerprinting — file artifact detection (e.g., static TLS config in app binary)
+        # TLS fingerprinting - file artifact detection (e.g., static TLS config in app binary)
         return f"""/*
-  YARA Rule: {cve_id} — Static TLS Fingerprint Detection
+  YARA Rule: {cve_id} - Static TLS Fingerprint Detection
   Description: Detects binary artifacts containing static/hardcoded TLS
                ClientHello configurations consistent with {cve_id}.
-  Author: CyberDudeBivash Sentinel APEX™ GOC
+  Author: CyberDudeBivash Sentinel APEX(TM) GOC
   Date: {now}
   Reference: https://nvd.nist.gov/vuln/detail/{cve_id}
   Note: Apply to application binaries and network capture analysis tools.
@@ -763,7 +763,7 @@ rule {safe_id}_static_tls_fingerprint {{
         date = "{now}"
         reference = "https://nvd.nist.gov/vuln/detail/{cve_id}"
         severity = "MEDIUM"
-        context = "Vulnerability detection — not malware signature"
+        context = "Vulnerability detection - not malware signature"
 
     strings:
         // Static cipher suite byte sequences common in non-diverse TLS stacks
@@ -783,7 +783,7 @@ rule {safe_id}_static_tls_fingerprint {{
         return f"""/*
   YARA Rule: {cve_id}
   Description: Generic vulnerability class detection for {cve_id} ({', '.join(cwes)})
-  Author: CyberDudeBivash Sentinel APEX™ GOC
+  Author: CyberDudeBivash Sentinel APEX(TM) GOC
   Date: {now}
   Reference: https://nvd.nist.gov/vuln/detail/{cve_id}
 */
@@ -796,7 +796,7 @@ rule {safe_id}_generic_vuln_indicator {{
         date = "{now}"
         reference = "https://nvd.nist.gov/vuln/detail/{cve_id}"
         severity = "REVIEW"
-        context = "Vulnerability detection — consult NVD for precise scope"
+        context = "Vulnerability detection - consult NVD for precise scope"
 
     strings:
         $cve_ref = "{cve_id}" ascii nocase
@@ -808,19 +808,19 @@ rule {safe_id}_generic_vuln_indicator {{
 """
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CVE REPORT ENGINE — Main HTML Generator
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# CVE REPORT ENGINE - Main HTML Generator
+# -----------------------------------------------------------------------------
 
 class CVEReportEngine:
     """
-    Generates the 10-section CYBERDUDEBIVASH Sentinel APEX™ Threat Intelligence Report
+    Generates the 10-section CYBERDUDEBIVASH Sentinel APEX(TM) Threat Intelligence Report
     strictly from NVD-verified facts.
 
     Section separation:
-      A) VERIFIED TECHNICAL FACTS   — NVD-confirmed only
-      B) SECURITY IMPLICATIONS      — logical consequences of verified facts
-      C) THREAT INTELLIGENCE HYPOTHESIS — explicitly labeled speculation
+      A) VERIFIED TECHNICAL FACTS   - NVD-confirmed only
+      B) SECURITY IMPLICATIONS      - logical consequences of verified facts
+      C) THREAT INTELLIGENCE HYPOTHESIS - explicitly labeled speculation
 
     No template-driven narrative injection. No keyword-based content selection.
     """
@@ -837,7 +837,7 @@ class CVEReportEngine:
         self.F = fonts
         self.B = brand
 
-    # ── helpers ──────────────────────────────────────────────────────────────
+    # -- helpers --------------------------------------------------------------
 
     def _s(self) -> dict:
         """Inline style constants."""
@@ -878,7 +878,7 @@ class CVEReportEngine:
         seq = hashlib.sha256(f"{cve_id}{time.time()}".encode()).hexdigest()[:6].upper()
         return f"CDB-CVE-{ts}-{seq}"
 
-    # ── section generators ────────────────────────────────────────────────────
+    # -- section generators ----------------------------------------------------
 
     def _section_header(self, facts: CVEFacts, report_id: str, now_str: str,
                         risk_score: float, confidence: float, tlp_label: str, tlp_color: str) -> str:
@@ -903,7 +903,7 @@ class CVEReportEngine:
         </div>
         <div style="{s['p_muted']}margin-bottom:20px;">
             <b>Prepared By:</b> {B.get('name','CyberDudeBivash')} Global Operations Center (GOC) &nbsp;|&nbsp;
-            <b>Report Type:</b> CVE Intelligence Advisory — NVD-Verified &nbsp;|&nbsp;
+            <b>Report Type:</b> CVE Intelligence Advisory - NVD-Verified &nbsp;|&nbsp;
             <b>Distribution:</b> SOC / Enterprise / Executive
         </div>
 
@@ -913,19 +913,19 @@ class CVEReportEngine:
             <span style="{s['badge']}background:{tlp_color}22;color:{tlp_color};">{tlp_label}</span>
             <span style="{s['badge']}background:{sev_col}15;color:{sev_col};">CVSS {score_display}</span>
             <span style="{s['badge']}background:{C.get('cyber_blue','#3b82f6')}15;color:{C.get('cyber_blue','#3b82f6')};border:1px solid {C.get('border','#2d2d2d')};RISK {risk_score}/10</span>
-            <span style="{s['badge']}background:#16a34a22;color:#16a34a;">✓ NVD-VERIFIED</span>
+            <span style="{s['badge']}background:#16a34a22;color:#16a34a;">[OK] NVD-VERIFIED</span>
             {self._patch_badge(facts, s)}
-            <span style="{s['badge']}background:#11111180;color:{C.get('text_muted','#888')};border:1px solid {C.get('border','#2d2d2d')};">⚠️ Vulnerability Disclosure</span>
+            <span style="{s['badge']}background:#11111180;color:{C.get('text_muted','#888')};border:1px solid {C.get('border','#2d2d2d')};">[!] Vulnerability Disclosure</span>
         </div>
 
         <!-- TITLE -->
         <p style="color:{C.get('accent','#00d4ff')};font-weight:700;font-size:11px;letter-spacing:2px;margin:0;">
-            CYBERDUDEBIVASH SENTINEL APEX™ // CVE THREAT INTELLIGENCE ADVISORY</p>
+            CYBERDUDEBIVASH SENTINEL APEX(TM) // CVE THREAT INTELLIGENCE ADVISORY</p>
         <h1 style="font-family:{self.F['heading']};color:{C.get('white','#fff')};font-size:32px;font-weight:800;letter-spacing:-1.5px;line-height:1.2;margin:8px 0 0;">
             {facts.cve_id}: {self._derive_title(facts)}
         </h1>
         <p style="{s['p_muted']}margin-top:8px;">
-            NVD-Verified Intelligence Advisory — {B.get('name','CyberDudeBivash')} Sentinel APEX™ |
+            NVD-Verified Intelligence Advisory - {B.get('name','CyberDudeBivash')} Sentinel APEX(TM) |
             All technical claims verified against NIST NVD, CERT/CC, and official vendor references.
         </p>
     </div>
@@ -937,10 +937,10 @@ class CVEReportEngine:
         """Derive a factually accurate short title from NVD description."""
         desc = facts.description
         if not desc:
-            return f"Security Vulnerability — {facts.cve_id}"
+            return f"Security Vulnerability - {facts.cve_id}"
         # Take the first clause (up to first period or comma, max 100 chars)
         short = desc.split(".")[0][:120]
-        return short if short else f"Security Vulnerability — {facts.cve_id}"
+        return short if short else f"Security Vulnerability - {facts.cve_id}"
 
     def _section_1_executive_summary(self, facts: CVEFacts, risk_score: float,
                                       confidence: float, report_id: str, now_str: str) -> str:
@@ -968,7 +968,7 @@ class CVEReportEngine:
         <h2 style="{s['h2']}">1. EXECUTIVE SUMMARY</h2>
 
         <div style="{s['card_verified']}">
-            <span style="{s['verified_label']}">✓ VERIFIED INTELLIGENCE</span>
+            <span style="{s['verified_label']}">[OK] VERIFIED INTELLIGENCE</span>
             <p style="{s['p']}margin:0;">
                 <b>{facts.cve_id}</b> is a <b>{facts.cvss_severity}</b>-severity vulnerability
                 published on {self._format_date(facts.published)} with a CVSS {facts.cvss_version}
@@ -1019,10 +1019,10 @@ class CVEReportEngine:
                 <tr>
                     <td style="{s['td']}"><b>Intelligence Confidence</b></td>
                     <td style="{s['td']}">{
-                        "High — NVD Analyzed status, researcher-attributed" if facts.status == "Analyzed"
-                        else "Medium — NVD entry received, awaiting full analysis. Consult vendor advisory for confirmation."
+                        "High - NVD Analyzed status, researcher-attributed" if facts.status == "Analyzed"
+                        else "Medium - NVD entry received, awaiting full analysis. Consult vendor advisory for confirmation."
                         if facts.status == "Received"
-                        else f"Medium — NVD status: {facts.status}. Verify with vendor advisory."
+                        else f"Medium - NVD status: {facts.status}. Verify with vendor advisory."
                     }</td>
                     <td style="{s['td']}color:{self.C.get('text_muted','#888')};font-size:12px;">CDB-GOC Assessment</td>
                 </tr>
@@ -1082,16 +1082,16 @@ class CVEReportEngine:
 
         <h3 style="{s['h3']}">Weakness Classification</h3>
         <div style="{s['card_verified']}">
-            <span style="{s['verified_label']}">✓ MITRE CWE / NVD VERIFIED</span>
+            <span style="{s['verified_label']}">[OK] MITRE CWE / NVD VERIFIED</span>
             <table style="{s['table']}">
                 <tr><th style="{s['th']}">CWE ID</th><th style="{s['th']}">Name</th><th style="{s['th']}">Class</th></tr>
-                {cwe_rows if cwe_rows else f'<tr><td colspan="3" style="{s["td"]}">No CWE assigned — see NVD entry for details.</td></tr>'}
+                {cwe_rows if cwe_rows else f'<tr><td colspan="3" style="{s["td"]}">No CWE assigned - see NVD entry for details.</td></tr>'}
             </table>
         </div>
 
         {''.join([f"""
         <div style="{s['card']}">
-            <h3 style="color:{self.C.get('white','#fff')};font-size:14px;margin:0 0 10px;">{cwe} — Technical Context</h3>
+            <h3 style="color:{self.C.get('white','#fff')};font-size:14px;margin:0 0 10px;">{cwe} - Technical Context</h3>
             <p style="{s['p']}margin:0;">{info['description']}</p>
             {'<p style="' + s['p_muted'] + 'margin:8px 0 0;"><b>OWASP Category:</b> ' + info.get("owasp","N/A") + '</p>' if info.get("owasp") else ""}
         </div>""" for cwe, info in zip(cwes, cwe_info_list)])}
@@ -1113,7 +1113,7 @@ class CVEReportEngine:
             versions_html = f"""
         <h3 style="{s['h3']}">Affected Products and Versions</h3>
         <div style="{s['card_verified']}">
-            <span style="{s['verified_label']}">✓ NVD CPE VERIFIED</span>
+            <span style="{s['verified_label']}">[OK] NVD CPE VERIFIED</span>
             <table style="{s['table']}">
                 <tr><th style="{s['th']}">Affected Component</th></tr>
                 {rows}
@@ -1124,7 +1124,7 @@ class CVEReportEngine:
             versions_html = f"""
         <h3 style="{s['h3']}">Affected Products and Versions</h3>
         <div style="{s['card_verified']}">
-            <span style="{s['verified_label']}">✓ NVD DESCRIPTION DERIVED</span>
+            <span style="{s['verified_label']}">[OK] NVD DESCRIPTION DERIVED</span>
             <p style="{s['p']}margin:0;">
                 Affected versions are described in the official NVD entry:
                 <b>{facts.cve_id}</b>. Consult the NVD reference and vendor advisory
@@ -1139,7 +1139,7 @@ class CVEReportEngine:
         <h2 style="{s['h2']}">3. VERIFIED TECHNICAL DETAILS</h2>
 
         <div style="{s['card_verified']}margin-bottom:20px;">
-            <span style="{s['verified_label']}">✓ NVD AUTHORITATIVE DESCRIPTION</span>
+            <span style="{s['verified_label']}">[OK] NVD AUTHORITATIVE DESCRIPTION</span>
             <p style="{s['p']}margin:0;"><b>NVD Official Description:</b></p>
             <p style="{s['p']}margin:8px 0 0;font-style:italic;border-left:3px solid #16a34a;padding-left:12px;">
                 {desc}
@@ -1163,7 +1163,7 @@ class CVEReportEngine:
 
         <h3 style="{s['h3']}">CVSS Exploitability Profile</h3>
         <div style="{s['card_verified']}">
-            <span style="{s['verified_label']}">✓ NVD CVSS {facts.cvss_version} VERIFIED</span>
+            <span style="{s['verified_label']}">[OK] NVD CVSS {facts.cvss_version} VERIFIED</span>
             <table style="{s['table']}">
                 <tr><th style="{s['th']}">Parameter</th><th style="{s['th']}">Value</th></tr>
                 <tr><td style="{s['td']}">Base Score</td>
@@ -1181,7 +1181,7 @@ class CVEReportEngine:
 
         <div style="{s['card']}border-left:4px solid #dc2626;">
             <p style="{s['p']}margin:0;font-size:13px;color:{self.C.get('text_muted','#888')};">
-                <b>⚠ Scope Boundary:</b> The technical analysis above is confined to the verified
+                <b>[!] Scope Boundary:</b> The technical analysis above is confined to the verified
                 vulnerability scope as disclosed in the NVD entry. Claims regarding malware,
                 firmware compromise, process injection, credential interception, OTP theft,
                 supply chain attacks, or any attack technique not directly described in the NVD entry
@@ -1207,7 +1207,7 @@ class CVEReportEngine:
                 attribution_source_note = f"""
         <div style="{s['card']}border-left:4px solid #d97706;margin-bottom:16px;">
             <p style="{s['p_muted']}margin:0;">
-                <b>⚠ Attribution Source Note:</b> Researcher credit is not present in the NVD credits
+                <b>[!] Attribution Source Note:</b> Researcher credit is not present in the NVD credits
                 field for {facts.cve_id} at time of report generation. The attribution below is sourced
                 from publicly verifiable disclosure records (CERT/CC third-party advisory and public
                 researcher self-identification). NVD credits will supersede this entry when populated.
@@ -1235,7 +1235,7 @@ class CVEReportEngine:
                         <td style="{s['td']}font-weight:700;color:{C.get('accent','#00d4ff')};">{i+1}</td>
                         <td style="{s['td']}">{name}</td>
                         <td style="{s['td']}">Original Vulnerability Discoverer</td>
-                        <td style="{s['td']}font-size:12px;">NVD Credits — {facts.cve_id}</td>
+                        <td style="{s['td']}font-size:12px;">NVD Credits - {facts.cve_id}</td>
                     </tr>"""
                     for i, name in enumerate(all_credits)
                 )
@@ -1243,7 +1243,7 @@ class CVEReportEngine:
             attribution_block = f"""
         {attribution_source_note}
         <div style="{s['card_researcher']}">
-            <span style="{s['verified_label']}">{'✓ NVD-CREDITED RESEARCHER' if credits_from_nvd else '✓ PUBLIC DISCLOSURE — VERIFIED ATTRIBUTION'}</span>
+            <span style="{s['verified_label']}">{'[OK] NVD-CREDITED RESEARCHER' if credits_from_nvd else '[OK] PUBLIC DISCLOSURE - VERIFIED ATTRIBUTION'}</span>
             <table style="{s['table']}">
                 <tr>
                     <th style="{s['th']}">#</th>
@@ -1256,8 +1256,8 @@ class CVEReportEngine:
         </div>
 
         <p style="{s['p']}">
-            <b>CyberDudeBivash Sentinel APEX™ Attribution Statement:</b>
-            The CYBERDUDEBIVASH Sentinel APEX™ Global Operations Center fully recognizes and credits
+            <b>CyberDudeBivash Sentinel APEX(TM) Attribution Statement:</b>
+            The CYBERDUDEBIVASH Sentinel APEX(TM) Global Operations Center fully recognizes and credits
             the original vulnerability researcher(s) listed above for their discovery and responsible
             disclosure of {facts.cve_id}. The security community depends on the rigorous, independent
             work of researchers who identify and responsibly disclose vulnerabilities. Their technical
@@ -1266,7 +1266,7 @@ class CVEReportEngine:
         </p>
         <p style="{s['p']}">
             If any researcher named in this attribution wishes to provide additional technical
-            context, corrections, or clarifications, CYBERDUDEBIVASH Sentinel APEX™ will update
+            context, corrections, or clarifications, CYBERDUDEBIVASH Sentinel APEX(TM) will update
             this report promptly and in alignment with responsible disclosure principles. Researcher
             feedback is treated as the highest-priority correction signal for report accuracy.
         </p>"""
@@ -1275,7 +1275,7 @@ class CVEReportEngine:
         <div style="{s['card']}">
             <p style="{s['p']}margin:0;">
                 Researcher attribution data is not available in the NVD entry for {facts.cve_id}
-                at the time of this report's generation. CYBERDUDEBIVASH Sentinel APEX™ will update
+                at the time of this report's generation. CYBERDUDEBIVASH Sentinel APEX(TM) will update
                 this section if attribution information becomes available via NVD, CERT/CC, or
                 researcher public disclosure.
             </p>
@@ -1292,7 +1292,7 @@ class CVEReportEngine:
         desc = facts.description or ""
         interp = CVSSInterpreter.interpret(facts)
 
-        # Derive precise implications from CVSS + CWE — no template injection
+        # Derive precise implications from CVSS + CWE - no template injection
         av_text = interp.get("attack_vector", "")
         pr_text = interp.get("privileges_required", "")
         ui_text = interp.get("user_interaction", "")
@@ -1305,7 +1305,7 @@ class CVEReportEngine:
                 cwe_implications.append(
                     "The use of a static, predictable TLS ClientHello fingerprint (CWE-327) means that "
                     "Deep Packet Inspection (DPI) systems can identify the proxy traffic without breaking encryption. "
-                    "The encryption itself is not compromised — the <em>identifiability</em> of the traffic is the security failure. "
+                    "The encryption itself is not compromised - the <em>identifiability</em> of the traffic is the security failure. "
                     "Users in regions with active DPI-capable censorship infrastructure face detection of protocol-specific traffic patterns."
                 )
             elif cwe == "CWE-200":
@@ -1333,7 +1333,7 @@ class CVEReportEngine:
         <h2 style="{s['h2']}">5. SECURITY IMPLICATIONS</h2>
 
         <div style="{s['card']}border-left:4px solid #3b82f6;">
-            <span style="{s['implications_label']}">ℹ SECURITY IMPLICATIONS — Derived from Verified Facts</span>
+            <span style="{s['implications_label']}">[i] SECURITY IMPLICATIONS - Derived from Verified Facts</span>
             <p style="{s['p']}margin:0;">
                 The following implications follow logically from the verified vulnerability facts.
                 These represent the realistic security consequences of the vulnerability as disclosed.
@@ -1369,24 +1369,24 @@ class CVEReportEngine:
         s = self._s()
         cwes = facts.cwes
 
-        # CWE-specific hypothesis — clearly labeled as speculative
+        # CWE-specific hypothesis - clearly labeled as speculative
         if "CWE-327" in cwes:
             hypothesis_content = f"""
             <p style="{s['p']}">
-                <b>Hypothesis 1 — Nation-State DPI Exploitation:</b>
+                <b>Hypothesis 1 - Nation-State DPI Exploitation:</b>
                 Governments or ISPs operating Deep Packet Inspection infrastructure in regions with
                 active internet censorship could potentially leverage static TLS fingerprints consistent
                 with this vulnerability to selectively identify and block Viber proxy traffic. This would
                 allow targeted traffic blocking without requiring decryption of message content.
             </p>
             <p style="{s['p']}">
-                <b>Hypothesis 2 — Passive Traffic Identification:</b>
+                <b>Hypothesis 2 - Passive Traffic Identification:</b>
                 Network adversaries with access to traffic flows (man-in-the-middle position on
                 shared networks) could use predictable fingerprints to identify traffic from this software
                 proxy sessions without decrypting them, enabling targeted monitoring or disruption.
             </p>
             <p style="{s['p']}">
-                <b>Out of Scope — Not Supported by Evidence:</b>
+                <b>Out of Scope - Not Supported by Evidence:</b>
                 This vulnerability does not involve and should not be linked to malware delivery,
                 Android firmware compromise, Zygote process hooking, SMS/OTP interception,
                 banking trojans, supply chain attacks, credential theft, or lateral movement.
@@ -1418,11 +1418,11 @@ class CVEReportEngine:
         <h2 style="{s['h2']}">6. THREAT INTELLIGENCE CONTEXT</h2>
 
         <div style="{s['card_hypothesis']}">
-            <span style="{s['hypothesis_label']}">⚠ THREAT INTELLIGENCE HYPOTHESIS — Analytical Speculation</span>
+            <span style="{s['hypothesis_label']}">[!] THREAT INTELLIGENCE HYPOTHESIS - Analytical Speculation</span>
             <p style="{s['p']}margin:0;">
                 The scenarios below are analytical hypotheses derived from the vulnerability class,
                 CVSS characteristics, and threat landscape context. They are <b>not confirmed
-                exploitation reports</b>. They represent plausible — but unverified — threat scenarios
+                exploitation reports</b>. They represent plausible - but unverified - threat scenarios
                 that security teams may wish to consider in their risk modeling.
             </p>
         </div>
@@ -1444,7 +1444,7 @@ class CVEReportEngine:
         if "CWE-327" in cwes:
             network_detection = f"""
             <p style="{s['p']}">
-                <b>Primary Detection Vector — Network/TLS Layer:</b>
+                <b>Primary Detection Vector - Network/TLS Layer:</b>
                 The most reliable detection method for this vulnerability class is TLS ClientHello
                 fingerprint analysis at the network perimeter. Tools such as Zeek (Bro),
                 JA3/JA3S fingerprinting, or commercial NDR platforms can identify traffic
@@ -1504,7 +1504,7 @@ class CVEReportEngine:
         )
         return f"""
         <div style="{s['card_verified']}">
-            <span style="{s['verified_label']}">✓ CWE → ATT&CK MAPPING</span>
+            <span style="{s['verified_label']}">[OK] CWE -> ATT&CK MAPPING</span>
             <table style="{s['table']}">
                 <tr>
                     <th style="{s['th']}">Technique ID</th>
@@ -1520,10 +1520,10 @@ class CVEReportEngine:
         s = self._s()
         cwes = facts.cwes
 
-        # CWE-specific recommendations — grounded in the actual vulnerability
+        # CWE-specific recommendations - grounded in the actual vulnerability
         if "CWE-327" in cwes:
             primary_rec = f"""
-            <li><b>Immediate — Update Affected Applications:</b>
+            <li><b>Immediate - Update Affected Applications:</b>
                 Deploy updated Viber versions beyond the vulnerable version ranges identified in
                 the NVD entry for {facts.cve_id}. Consult the vendor advisory at
                 <code style="font-family:{self.F['mono']};color:{self.C.get('accent','#00d4ff')};font-size:12px;">
@@ -1531,7 +1531,7 @@ class CVEReportEngine:
                 <code style="font-family:{self.F['mono']};color:{self.C.get('accent','#00d4ff')};font-size:12px;">
                 https://www.kb.cert.org/vuls/id/772695</code> for patched version information.
             </li>
-            <li><b>Operational — Verify Proxy Cloak Mode Security:</b>
+            <li><b>Operational - Verify Proxy Cloak Mode Security:</b>
                 If the affected software component is actively used, verify that the
                 deployed version implements TLS ClientHello extension diversity before relying on
                 it for traffic obfuscation in adversarial network environments.
@@ -1553,7 +1553,7 @@ class CVEReportEngine:
             </li>"""
         elif "CWE-79" in cwes or "CWE-89" in cwes:
             primary_rec = f"""
-            <li><b>Immediate — Apply Vendor Patches:</b>
+            <li><b>Immediate - Apply Vendor Patches:</b>
                 Deploy all patches referenced in the NVD entry for {facts.cve_id} immediately.
                 Prioritize internet-facing systems and those with public accessibility.
             </li>
@@ -1565,7 +1565,7 @@ class CVEReportEngine:
             </li>"""
         else:
             primary_rec = f"""
-            <li><b>Immediate — Apply Vendor Patches:</b>
+            <li><b>Immediate - Apply Vendor Patches:</b>
                 Deploy all patches referenced in the NVD entry for {facts.cve_id}.
             </li>
             <li><b>Verify Patch Deployment:</b>
@@ -1601,7 +1601,7 @@ class CVEReportEngine:
                 your vulnerability management platform and CISA's Known Exploited Vulnerabilities
                 (KEV) catalog. Adjust patch priority based on your organization's threat exposure.</li>
             <li><b>Patch Testing Pipeline:</b> Establish a tested patch deployment workflow that
-                enables critical patches to reach production within 24–72 hours of vendor release.</li>
+                enables critical patches to reach production within 24-72 hours of vendor release.</li>
         </ul>
 """
 
@@ -1627,13 +1627,13 @@ class CVEReportEngine:
                 <td style="{s['td']}font-family:{self.F['mono']};font-size:12px;color:{self.C.get('text_muted','#888')};">NVD</td>
                 <td style="{s['td']}"><a href="{nvd_url}" style="color:{self.C.get('accent','#00d4ff')};text-decoration:none;"
                     target="_blank" rel="noopener noreferrer">{nvd_url}</a></td>
-                <td style="{s['td']}font-size:12px;">Primary — NVD Official Entry</td>
+                <td style="{s['td']}font-size:12px;">Primary - NVD Official Entry</td>
             </tr>""" + ref_rows
 
         return f"""
         <h2 style="{s['h2']}">9. REFERENCES</h2>
         <div style="{s['card_verified']}">
-            <span style="{s['verified_label']}">✓ AUTHORITATIVE SOURCES</span>
+            <span style="{s['verified_label']}">[OK] AUTHORITATIVE SOURCES</span>
             <table style="{s['table']}">
                 <tr>
                     <th style="{s['th']}">Source</th>
@@ -1658,26 +1658,26 @@ class CVEReportEngine:
         # Confidence factors
         conf_factors = []
         if facts.status == "Analyzed":
-            conf_factors.append(("✓", "NVD Status: Analyzed", "HIGH", "Full NVD analysis completed — most reliable data state"))
+            conf_factors.append(("[OK]", "NVD Status: Analyzed", "HIGH", "Full NVD analysis completed - most reliable data state"))
         elif facts.status == "Awaiting Analysis":
-            conf_factors.append(("⚠", "NVD Status: Awaiting Analysis", "MEDIUM", "NVD analysis pending — description may be preliminary"))
+            conf_factors.append(("[!]", "NVD Status: Awaiting Analysis", "MEDIUM", "NVD analysis pending - description may be preliminary"))
 
         if facts.cvss_score:
-            conf_factors.append(("✓", f"CVSS {facts.cvss_version} Score Available", "HIGH", "Quantitative risk metric confirmed"))
+            conf_factors.append(("[OK]", f"CVSS {facts.cvss_version} Score Available", "HIGH", "Quantitative risk metric confirmed"))
         if facts.cwes:
-            conf_factors.append(("✓", "CWE Classification Confirmed", "HIGH", "Weakness class verified by NVD"))
+            conf_factors.append(("[OK]", "CWE Classification Confirmed", "HIGH", "Weakness class verified by NVD"))
         if facts.credits:
-            conf_factors.append(("✓", "Researcher Attribution Confirmed", "HIGH", "Original discoverer credited in NVD"))
+            conf_factors.append(("[OK]", "Researcher Attribution Confirmed", "HIGH", "Original discoverer credited in NVD"))
         if facts.references:
-            conf_factors.append(("✓", f"{len(facts.references)} Reference(s) Available", "HIGH", "Vendor and third-party sources linked in NVD"))
+            conf_factors.append(("[OK]", f"{len(facts.references)} Reference(s) Available", "HIGH", "Vendor and third-party sources linked in NVD"))
 
         # What we do NOT have
         if not facts.is_kev:
-            conf_factors.append(("ℹ", "CISA KEV Status", "N/A", "Not confirmed in CISA Known Exploited Vulnerabilities catalog at time of report generation"))
+            conf_factors.append(("[i]", "CISA KEV Status", "N/A", "Not confirmed in CISA Known Exploited Vulnerabilities catalog at time of report generation"))
 
         conf_rows = "".join(
             f"""<tr>
-                <td style="{s['td']}color:{'#16a34a' if icon == '✓' else '#d97706' if icon == '⚠' else '#3b82f6'};">{icon}</td>
+                <td style="{s['td']}color:{'#16a34a' if icon == '[OK]' else '#d97706' if icon == '[!]' else '#3b82f6'};">{icon}</td>
                 <td style="{s['td']}">{factor}</td>
                 <td style="{s['td']}font-size:12px;color:{'#16a34a' if conf_lvl == 'HIGH' else '#d97706' if conf_lvl == 'MEDIUM' else '#3b82f6'};">{conf_lvl}</td>
                 <td style="{s['td']}font-size:12px;">{note}</td>
@@ -1698,7 +1698,7 @@ class CVEReportEngine:
         else:
             overall_conf = "LOW"
             overall_color = "#dc2626"
-            overall_note = "Limited NVD verification signals. Treat as preliminary — monitor NVD for updates."
+            overall_note = "Limited NVD verification signals. Treat as preliminary - monitor NVD for updates."
 
         C, F, B = self.C, self.F, self.B
 
@@ -1715,7 +1715,7 @@ class CVEReportEngine:
                 </tr>
                 {conf_rows}
                 <tr style="border-top:2px solid {C.get('border','#2d2d2d')};">
-                    <td style="{s['td']}font-weight:700;color:{overall_color};">→</td>
+                    <td style="{s['td']}font-weight:700;color:{overall_color};">-></td>
                     <td style="{s['td']}font-weight:700;color:{C.get('white','#fff')};">OVERALL INTELLIGENCE CONFIDENCE</td>
                     <td style="{s['td']}font-weight:700;color:{overall_color};">{overall_conf}</td>
                     <td style="{s['td']}font-size:12px;">{overall_note}</td>
@@ -1725,13 +1725,13 @@ class CVEReportEngine:
 
         <h3 style="{s['h3']}">Methodology Transparency</h3>
         <p style="{s['p']}">
-            This report was generated by the <b>CYBERDUDEBIVASH Sentinel APEX™ CVE-Verified
+            This report was generated by the <b>CYBERDUDEBIVASH Sentinel APEX(TM) CVE-Verified
             Report Engine v44.0</b>. All technical claims are sourced exclusively from:
             (1) the NIST National Vulnerability Database REST API v2 ({facts.cve_id}),
             (2) CWE/MITRE classification data, and (3) CVSS vector mechanical interpretation.
             No keyword-driven narrative templates, machine learning content generation, or
             speculative attack chain injection were used in producing the verified sections
-            (Sections 1–5) of this report.
+            (Sections 1-5) of this report.
         </p>
         <p style="{s['p']}">
             Section 6 (Threat Intelligence Context) is explicitly labeled as analytical
@@ -1741,9 +1741,9 @@ class CVEReportEngine:
         <!-- FOOTER -->
         <div style="margin-top:60px;border-top:1px solid {C.get('border','#2d2d2d')};padding:30px 0;text-align:center;">
             <p style="color:{C.get('accent','#00d4ff')};font-weight:700;font-size:13px;letter-spacing:2px;margin:0 0 8px;">
-                CYBERDUDEBIVASH SENTINEL APEX™</p>
+                CYBERDUDEBIVASH SENTINEL APEX(TM)</p>
             <p style="{s['p_muted']}margin:0 0 4px;">Global Threat Intelligence Platform</p>
-            <p style="{s['p_muted']}margin:0 0 4px;">© CyberDudeBivash Pvt. Ltd. | Bhubaneswar, Odisha, India</p>
+            <p style="{s['p_muted']}margin:0 0 4px;">(C) CyberDudeBivash Pvt. Ltd. | Bhubaneswar, Odisha, India</p>
             <p style="{s['p_muted']}margin:0 0 4px;">Report ID: {report_id} | Generated: {now_str}</p>
             <p style="{s['p_muted']}margin:0;">
                 This advisory is produced for defensive intelligence purposes.
@@ -1755,7 +1755,7 @@ class CVEReportEngine:
 """
 
 
-    # ── v75.6 ENHANCEMENT METHODS ────────────────────────────────────────────
+    # -- v75.6 ENHANCEMENT METHODS --------------------------------------------
 
     def _patch_badge(self, facts: "CVEFacts", s: dict) -> str:
         """Render patch availability badge based on NVD references."""
@@ -1765,8 +1765,8 @@ class CVEReportEngine:
             any(sig in str(r).lower() for sig in patch_signals) for r in refs
         )
         if has_patch:
-            return f'<span style="{s["badge"]}background:#16a34a22;color:#16a34a;">✅ PATCH AVAILABLE</span>'
-        return f'<span style="{s["badge"]}background:#dc262622;color:#dc2626;">⚠ PATCH STATUS UNKNOWN</span>'
+            return f'<span style="{s["badge"]}background:#16a34a22;color:#16a34a;">? PATCH AVAILABLE</span>'
+        return f'<span style="{s["badge"]}background:#dc262622;color:#dc2626;">[!] PATCH STATUS UNKNOWN</span>'
 
     def _derive_business_risk(self, facts: "CVEFacts") -> str:
         """Generate product-specific business risk from NVD description."""
@@ -1805,7 +1805,7 @@ class CVEReportEngine:
         impact = impact_map.get(cwe, f"This {sev.lower()}-severity vulnerability in {product} requires immediate remediation.")
 
         exposure = "internet-facing" if str(av) in ("NETWORK", "N") else "locally accessible"
-        urgency = "Patch immediately — apply vendor fix before next maintenance window." if cvss >= 7.0 else "Apply vendor patch within your scheduled maintenance window."
+        urgency = "Patch immediately - apply vendor fix before next maintenance window." if cvss >= 7.0 else "Apply vendor patch within your scheduled maintenance window."
 
         return (
             f"Organizations running {exposure} {product} deployments are at risk. "
@@ -1831,7 +1831,7 @@ class CVEReportEngine:
             return f"{cve_str}\n{cwe_specific}"
         return cve_str
 
-    # ── main entry point ──────────────────────────────────────────────────────
+    # -- main entry point ------------------------------------------------------
 
     def generate(
         self,
@@ -1888,9 +1888,9 @@ class CVEReportEngine:
         return "\n".join(sections)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PUBLIC API — called by premium_report_generator.py
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# PUBLIC API - called by premium_report_generator.py
+# -----------------------------------------------------------------------------
 
 def generate_cve_verified_report(
     cve_ids: List[str],
@@ -1915,7 +1915,7 @@ def generate_cve_verified_report(
     primary_cve = cve_ids[0]
     nvd_data = NVDClient.fetch(primary_cve)
     if not nvd_data:
-        return None  # Fallback to existing generator — zero regression
+        return None  # Fallback to existing generator - zero regression
 
     facts = CVEFacts.from_nvd(nvd_data)
     engine = CVEReportEngine(colors=colors, fonts=fonts, brand=brand)

@@ -1,10 +1,10 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v26.0 Configuration
+CYBERDUDEBIVASH(R) SENTINEL APEX v26.0 Configuration
 ====================================================
 Production-grade configuration for v26.0 with enhanced features.
 
 New in v26.0:
-- Fixed GitHub Actions deployment (peaceiris → JamesIves)
+- Fixed GitHub Actions deployment (peaceiris -> JamesIves)
 - Fixed dashboard timestamp display bug
 - Enhanced threat scoring with temporal decay
 - Improved IOC correlation engine
@@ -47,34 +47,34 @@ class V26Config:
     Production settings with enhanced defaults.
     """
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # PLATFORM METADATA
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     VERSION: str = "26.0.0"
     CODENAME: str = "Phoenix"
-    PLATFORM_NAME: str = "CYBERDUDEBIVASH® SENTINEL APEX"
-    FULL_NAME: str = "CYBERDUDEBIVASH® SENTINEL APEX v26.0 ULTRA"
+    PLATFORM_NAME: str = "CYBERDUDEBIVASH(R) SENTINEL APEX"
+    FULL_NAME: str = "CYBERDUDEBIVASH(R) SENTINEL APEX v26.0 ULTRA"
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # API & ENDPOINT CONFIGURATION
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     API_VERSION: str = "v26"
     API_BASE_URL: str = "https://intel.cyberdudebivash.com/api"
     DASHBOARD_URL: str = "https://intel.cyberdudebivash.com"
     STIX_FEED_URL: str = "https://intel.cyberdudebivash.com/data/stix/feed_manifest.json"
     STATUS_ENDPOINT: str = "/data/status/status.json"
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # RATE LIMITING
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     RATE_LIMIT_FREE: int = 100       # Requests per hour (free tier)
     RATE_LIMIT_PRO: int = 1000       # Requests per hour (pro tier)
     RATE_LIMIT_ENTERPRISE: int = 10000  # Requests per hour (enterprise)
     RATE_LIMIT_WINDOW_SECONDS: int = 3600
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # THREAT INTELLIGENCE SETTINGS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     MAX_FEED_ENTRIES: int = 500
     STIX_VERSION: str = "2.1"
     DEFAULT_TLP: str = "TLP:AMBER"
@@ -83,45 +83,45 @@ class V26Config:
     HIGH_THRESHOLD: float = 7.0
     MEDIUM_THRESHOLD: float = 4.0
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # SYNC CONFIGURATION
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     SYNC_INTERVAL_HOURS: int = 4
     SYNC_TIMEOUT_SECONDS: int = 300
     SYNC_RETRY_ATTEMPTS: int = 5
     SYNC_RETRY_DELAY_SECONDS: int = 15
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # v26.0 NEW: TEMPORAL DECAY SCORING
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     TEMPORAL_DECAY_ENABLED: bool = True
     DECAY_HALF_LIFE_DAYS: int = 30
     DECAY_MIN_SCORE_FACTOR: float = 0.3  # Minimum 30% of original score
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # v26.0 NEW: IOC CORRELATION
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     CORRELATION_ENABLED: bool = True
     CORRELATION_WINDOW_HOURS: int = 72
     MIN_CORRELATION_CONFIDENCE: float = 0.7
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # v26.0 NEW: RESILIENCE SETTINGS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     CIRCUIT_BREAKER_ENABLED: bool = True
     CIRCUIT_BREAKER_THRESHOLD: int = 5
     CIRCUIT_BREAKER_TIMEOUT_SECONDS: int = 60
     GRACEFUL_DEGRADATION: bool = True
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # DATA SOVEREIGNTY
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     DEFAULT_SOVEREIGNTY: DataSovereignty = DataSovereignty.INDIA
     ENFORCE_DATA_RESIDENCY: bool = True
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # FEATURE FLAGS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     FEATURES: Dict[str, bool] = field(default_factory=lambda: {
         "cyber_risk_credit": True,
         "cvss_v4": True,
@@ -203,9 +203,9 @@ class V26Config:
         }
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # GLOBAL CONFIG INSTANCE
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 config = V26Config()
 
 # Exports

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-pipeline_hardener.py — CYBERDUDEBIVASH® SENTINEL APEX v48.0
+pipeline_hardener.py - CYBERDUDEBIVASH(R) SENTINEL APEX v48.0
 Post-pipeline orchestrator that runs after sentinel_blogger.py completes.
 
 FIXES:
@@ -182,14 +182,14 @@ def validate_manifest_integrity(manifest_path: str = MANIFEST_PATH) -> List[Dict
 
 
 def run_post_pipeline():
-    """Main orchestrator — runs all v48 hardening passes."""
+    """Main orchestrator - runs all v48 hardening passes."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [CDB-v48] %(message)s"
     )
 
     logger.info("=" * 60)
-    logger.info("PIPELINE HARDENER v48.0 — Post-Pipeline Orchestrator")
+    logger.info("PIPELINE HARDENER v48.0 - Post-Pipeline Orchestrator")
     logger.info("=" * 60)
 
     results = {
@@ -261,7 +261,7 @@ def run_post_pipeline():
         pass
 
     logger.info("=" * 60)
-    logger.info(f"PIPELINE HARDENER v48.0 — Complete | "
+    logger.info(f"PIPELINE HARDENER v48.0 - Complete | "
                 f"EPSS:{results['epss_enriched']} KEV:{results['kev_enriched']} "
                 f"Issues:{results['integrity_findings']}")
     logger.info("=" * 60)

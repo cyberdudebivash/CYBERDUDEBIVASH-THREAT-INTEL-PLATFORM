@@ -1,5 +1,5 @@
 """
-email_dispatcher.py — CyberDudeBivash Executive Briefing v1.1
+email_dispatcher.py - CyberDudeBivash Executive Briefing v1.1
 Automated B2B email dispatch for high-priority threat intelligence.
 """
 
@@ -48,8 +48,8 @@ def send_executive_briefing(title: str, score: float, content_html: str, url: st
 
         <hr style="border:0; border-top:1px solid #1e293b; margin:30px 0;">
         <p style="font-size:11px; text-align:center; line-height:1.5;">
-            © 2026 <strong>CYBERDUDEBIVASH PVT LTD</strong><br>
-            Global Digital Sovereignty — SOC Triage & AI Threat Intel<br>
+            (C) 2026 <strong>CYBERDUDEBIVASH PVT LTD</strong><br>
+            Global Digital Sovereignty - SOC Triage & AI Threat Intel<br>
             <a href="https://wa.me/918179881447" style="color:{color}; text-decoration:none; font-weight:700;">REQUEST CONSULTATION</a>
         </p>
     </div>
@@ -66,6 +66,6 @@ def send_executive_briefing(title: str, score: float, content_html: str, url: st
         )
         try:
             sg.send(message)
-            logger.info(f"✓ Executive Briefing dispatched to: {recipient}")
+            logger.info(f"[OK] Executive Briefing dispatched to: {recipient}")
         except Exception as e:
             logger.error(f"Email dispatch failed for {recipient}: {e}")

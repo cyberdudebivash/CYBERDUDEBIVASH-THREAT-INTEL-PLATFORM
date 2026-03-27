@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — Observability Stack
+SENTINEL APEX v27.0 - Observability Stack
 ==========================================
 Prometheus metrics, structured logging, and health checks.
 """

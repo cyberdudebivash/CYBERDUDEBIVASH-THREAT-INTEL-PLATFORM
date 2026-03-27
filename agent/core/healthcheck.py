@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-healthcheck.py — CyberDudeBivash SENTINEL APEX v17.0
+healthcheck.py - CyberDudeBivash SENTINEL APEX v17.0
 PLATFORM HEALTH CHECK ENGINE
 
 Provides system health status for the APEX platform.
@@ -176,7 +176,7 @@ class HealthCheckEngine:
         issues = []
         jwt_secret = os.environ.get("CDB_JWT_SECRET", "")
         if not jwt_secret or "change-in-prod" in jwt_secret:
-            issues.append("CDB_JWT_SECRET is not set or using default — change for production")
+            issues.append("CDB_JWT_SECRET is not set or using default - change for production")
         pro_keys  = len([k for k in os.environ.get("CDB_PRO_KEYS", "").split(",") if k])
         ent_keys  = len([k for k in os.environ.get("CDB_ENTERPRISE_KEYS", "").split(",") if k])
         status = "warning" if issues else "ok"

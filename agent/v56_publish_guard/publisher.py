@@ -1,12 +1,12 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v56.0 — Resilient Publisher
+CYBERDUDEBIVASH(R) SENTINEL APEX v56.0 - Resilient Publisher
 ============================================================
 Drop-in replacement for the Blogger publish logic in process_entry().
 
 Three production fixes:
-  FIX 1: Rate limiter — 8s minimum between API calls
-  FIX 2: Retry handler — 5 attempts with 60s backoff on 429
-  FIX 3: Manifest-first — STIX bundle written BEFORE publish attempt
+  FIX 1: Rate limiter - 8s minimum between API calls
+  FIX 2: Retry handler - 5 attempts with 60s backoff on 429
+  FIX 3: Manifest-first - STIX bundle written BEFORE publish attempt
 
 Plus: Failed publish queue for zero intel loss.
 
@@ -14,7 +14,7 @@ Usage from sentinel_blogger.py:
     from agent.v56_publish_guard.publisher import resilient_publish
     result = resilient_publish(service, blog_id, post_body, stix_params, entry, ...)
 
-© 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
+(C) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
 """
 
 import json
@@ -32,11 +32,11 @@ logger = logging.getLogger("CDB-PUBLISH-GUARD")
 # ---------------------------------------------------------------------------
 
 MIN_PUBLISH_INTERVAL = 8       # Seconds between Blogger API calls (6 posts/min max)
-MAX_RETRY_ATTEMPTS = 3         # v77.2 FIX: Reduced 5→3. 5 attempts × 60s backoff = 5+ min
+MAX_RETRY_ATTEMPTS = 3         # v77.2 FIX: Reduced 5->3. 5 attempts x 60s backoff = 5+ min
                                # per article. With 10+ articles published per run this
                                # caused Stage 1 to hit the 12-min CI timeout on any 429.
-                               # 3 attempts with 15s base = max 45s per article — safe.
-RETRY_BASE_DELAY = 15          # v77.2 FIX: Reduced 60→15s. Blogger 429 is momentary
+                               # 3 attempts with 15s base = max 45s per article - safe.
+RETRY_BASE_DELAY = 15          # v77.2 FIX: Reduced 60->15s. Blogger 429 is momentary
                                # (rate burst), not quota exhaustion. 60s was a timeout killer.
 RETRY_BACKOFF_FACTOR = 2.0     # v77.2 FIX: 2.0 (was 1.5). Faster backoff with lower base:
                                # attempt 1: 15s, attempt 2: 30s, attempt 3: skip (last)
@@ -60,7 +60,7 @@ def rate_limit_wait():
         elapsed = time.time() - _last_publish_time
         if elapsed < MIN_PUBLISH_INTERVAL:
             wait_time = MIN_PUBLISH_INTERVAL - elapsed
-            logger.info(f"  ⏱ Rate limiter: waiting {wait_time:.1f}s before next publish")
+            logger.info(f"  ? Rate limiter: waiting {wait_time:.1f}s before next publish")
             time.sleep(wait_time)
     _last_publish_time = time.time()
 
@@ -86,7 +86,7 @@ def publish_with_retry(service, blog_id: str, post_body: Dict) -> Tuple[bool, Op
             from agent.blogger_client import sanitize_blogger_html
             post_body["content"] = sanitize_blogger_html(post_body["content"])
         except ImportError:
-            pass  # blogger_client sanitizer not available — proceed with raw content
+            pass  # blogger_client sanitizer not available - proceed with raw content
 
     for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
         try:
@@ -98,7 +98,7 @@ def publish_with_retry(service, blog_id: str, post_body: Dict) -> Tuple[bool, Op
             ).execute()
 
             blog_url = response.get("url", "")
-            logger.info(f"  ✓ Published on attempt {attempt}: {blog_url}")
+            logger.info(f"  [OK] Published on attempt {attempt}: {blog_url}")
             return True, response, ""
 
         except Exception as e:
@@ -113,7 +113,7 @@ def publish_with_retry(service, blog_id: str, post_body: Dict) -> Tuple[bool, Op
                 delay = RETRY_BASE_DELAY * (RETRY_BACKOFF_FACTOR ** (attempt - 1))
                 error_type = "RATE_LIMIT (429)" if is_rate_limit else "SERVER_ERROR"
                 logger.warning(
-                    f"  ⚠ {error_type} on attempt {attempt}/{MAX_RETRY_ATTEMPTS} — "
+                    f"  [!] {error_type} on attempt {attempt}/{MAX_RETRY_ATTEMPTS} - "
                     f"retrying in {delay:.0f}s: {str(e)[:100]}"
                 )
                 if attempt < MAX_RETRY_ATTEMPTS:
@@ -121,11 +121,11 @@ def publish_with_retry(service, blog_id: str, post_body: Dict) -> Tuple[bool, Op
                 continue
 
             # Non-retryable error (400 bad request, auth error, etc.)
-            logger.error(f"  ✗ Non-retryable publish error on attempt {attempt}: {e}")
+            logger.error(f"  [X] Non-retryable publish error on attempt {attempt}: {e}")
             return False, None, str(e)
 
     # All retries exhausted
-    logger.error(f"  ✗ All {MAX_RETRY_ATTEMPTS} publish attempts failed: {last_error[:100]}")
+    logger.error(f"  [X] All {MAX_RETRY_ATTEMPTS} publish attempts failed: {last_error[:100]}")
     return False, None, last_error
 
 
@@ -148,7 +148,7 @@ def save_to_pending_queue(headline: str, post_body: Dict, stix_id: str = ""):
         # Avoid duplicates
         existing_titles = {item.get("title", "") for item in queue}
         if headline in existing_titles:
-            logger.info(f"  ℹ Already in pending queue: {headline[:60]}")
+            logger.info(f"  [i] Already in pending queue: {headline[:60]}")
             return
 
         queue.append({
@@ -162,7 +162,7 @@ def save_to_pending_queue(headline: str, post_body: Dict, stix_id: str = ""):
         with open(PENDING_QUEUE_FILE, "w") as f:
             json.dump(queue, f, indent=2, default=str)
 
-        logger.info(f"  📋 Saved to pending queue ({len(queue)} total): {headline[:60]}")
+        logger.info(f"  ? Saved to pending queue ({len(queue)} total): {headline[:60]}")
 
     except Exception as e:
         logger.warning(f"  Failed to save to pending queue: {e}")
@@ -190,7 +190,7 @@ def retry_pending_queue(service, blog_id: str) -> int:
     if not queue:
         return 0
 
-    logger.info(f"📋 Pending publish queue: {len(queue)} items to retry")
+    logger.info(f"? Pending publish queue: {len(queue)} items to retry")
     published = 0
     remaining = []
 
@@ -199,11 +199,11 @@ def retry_pending_queue(service, blog_id: str) -> int:
         post_body = item.get("post_body", {})
         retry_count = item.get("retry_count", 0)
 
-        # v75.0: Drop items that have exhausted all retries — do NOT attempt API call
+        # v75.0: Drop items that have exhausted all retries - do NOT attempt API call
         # Previous behavior: called publish_with_retry even on retry_count=5, wasting a
         # Blogger API call and generating a non-retryable 400 error in the log.
         if retry_count >= MAX_RETRY_ATTEMPTS:
-            logger.warning(f"  ⏭ Dropping (max retries exhausted after {retry_count} attempts): {title[:60]}")
+            logger.warning(f"  ? Dropping (max retries exhausted after {retry_count} attempts): {title[:60]}")
             continue
 
         # v75.0: Re-sanitize content on every retry pass
@@ -215,7 +215,7 @@ def retry_pending_queue(service, blog_id: str) -> int:
             except ImportError:
                 pass
 
-        # v75.1: Also sanitize the title on retry — '<=' in CVE titles causes 400
+        # v75.1: Also sanitize the title on retry - '<=' in CVE titles causes 400
         if isinstance(post_body, dict) and "title" in post_body:
             import re as _re2
             _t = post_body["title"]
@@ -228,20 +228,20 @@ def retry_pending_queue(service, blog_id: str) -> int:
 
         if success:
             published += 1
-            logger.info(f"  ✅ Pending item published: {title[:60]}")
+            logger.info(f"  ? Pending item published: {title[:60]}")
         else:
             item["retry_count"] = retry_count + 1
             item["last_error"] = error[:200]
             item["last_retry"] = datetime.now(timezone.utc).isoformat()
             remaining.append(item)
-            logger.warning(f"  ❌ Pending retry failed (attempt {retry_count + 1}): {title[:60]}")
+            logger.warning(f"  ? Pending retry failed (attempt {retry_count + 1}): {title[:60]}")
 
     # Write remaining items back
     with open(PENDING_QUEUE_FILE, "w") as f:
         json.dump(remaining, f, indent=2, default=str)
 
     if published:
-        logger.info(f"📋 Pending queue: {published} published, {len(remaining)} remaining")
+        logger.info(f"? Pending queue: {published} published, {len(remaining)} remaining")
 
     return published
 
@@ -285,7 +285,7 @@ def resilient_publish(
     Returns True if advisory was processed (manifest updated), regardless of publish status.
     """
 
-    # ─── FIX 3: MANIFEST-FIRST — Write STIX bundle BEFORE publish ───
+    # --- FIX 3: MANIFEST-FIRST - Write STIX bundle BEFORE publish ---
     # This ensures the dashboard always gets new intelligence
     # even if Blogger publishing fails
     try:
@@ -306,15 +306,15 @@ def resilient_publish(
             kev_present=kev_present,
             nvd_url=nvd_url,
         )
-        logger.info(f"  ✓ STIX bundle + manifest written (pre-publish)")
+        logger.info(f"  [OK] STIX bundle + manifest written (pre-publish)")
     except Exception as stix_err:
-        logger.error(f"  ✗ STIX bundle write failed: {stix_err}")
-        # Continue to publish attempt — don't abort the entire advisory
+        logger.error(f"  [X] STIX bundle write failed: {stix_err}")
+        # Continue to publish attempt - don't abort the entire advisory
 
-    # ─── Dedup Registration (pre-publish to prevent re-processing) ───
+    # --- Dedup Registration (pre-publish to prevent re-processing) ---
     dedup_engine.mark_processed(headline, entry.get('link', ''))
 
-    # ─── FIX 1 + FIX 2: Rate-limited publish with retry ───
+    # --- FIX 1 + FIX 2: Rate-limited publish with retry ---
     # v75.1 FIX: Sanitize the TITLE as well as the content.
     # CVE titles like "Easy Image Gallery <= 1.5.3" contain '<=' which the
     # Blogger API rejects with HttpError 400 "invalid argument".
@@ -322,7 +322,7 @@ def resilient_publish(
     safe_title = headline
     try:
         # Minimal title sanitization: replace XML-unsafe chars only
-        # (do NOT run full HTML sanitizer on title — it's plain text, not HTML)
+        # (do NOT run full HTML sanitizer on title - it's plain text, not HTML)
         _title_map = {
             '<': '&lt;', '>': '&gt;', '&': '&amp;',
             '\u2013': '-', '\u2014': '--', '\u00a0': ' ',
@@ -337,7 +337,7 @@ def resilient_publish(
         import re as _re
         safe_title = _re.sub(r'[\x00-\x1f\x7f]', '', safe_title).strip()
         if not safe_title:
-            safe_title = headline[:100]  # fallback — never submit empty title
+            safe_title = headline[:100]  # fallback - never submit empty title
     except Exception:
         safe_title = headline
 
@@ -357,7 +357,7 @@ def resilient_publish(
         try:
             _update_manifest_blog_url(headline, live_blog_url)
         except Exception:
-            pass  # Non-critical — manifest already has the intel data
+            pass  # Non-critical - manifest already has the intel data
 
         # Revenue bridge (non-critical)
         try:
@@ -376,12 +376,12 @@ def resilient_publish(
         return True
 
     else:
-        # ─── Failed Publish Queue — Save for retry on next run ───
+        # --- Failed Publish Queue - Save for retry on next run ---
         save_to_pending_queue(headline, post_body)
 
         # Return True because the MANIFEST was updated successfully
         # The dashboard will show the intel even without the blog URL
-        logger.info(f"  ℹ Advisory in manifest (blog publish pending): {headline[:60]}")
+        logger.info(f"  [i] Advisory in manifest (blog publish pending): {headline[:60]}")
         return True
 
 

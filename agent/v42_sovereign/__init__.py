@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v42.0 — SOVEREIGN
+CYBERDUDEBIVASH(R) SENTINEL APEX v42.0 - SOVEREIGN
 ===================================================
 Multi-Tenant SaaS, Usage-Based Billing, SOC 2 Compliance
 Automation, White-Label MSSP Platform.

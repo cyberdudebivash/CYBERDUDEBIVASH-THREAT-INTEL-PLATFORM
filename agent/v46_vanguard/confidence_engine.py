@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-confidence_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v46.0 VANGUARD
+confidence_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v46.0 VANGUARD
 Multi-Dimensional Confidence Scoring Engine
 
 FIXES: Previous additive confidence model in sentinel_blogger.py stacked
@@ -24,9 +24,9 @@ ARCHITECTURE:
 Usage:
     from agent.v46_vanguard.confidence_engine import confidence_engine
     result = confidence_engine.score(iocs=..., mitre_data=..., ...)
-    # result.score → 67.3
-    # result.label → "MODERATE"
-    # result.dimensions → {"ioc_richness": 85.0, ...}
+    # result.score -> 67.3
+    # result.label -> "MODERATE"
+    # result.dimensions -> {"ioc_richness": 85.0, ...}
 """
 
 import logging
@@ -45,7 +45,7 @@ class ConfidenceResult:
     rationale: str = ""
 
 
-# ── Dimension Weights (must sum to 1.0) ──
+# -- Dimension Weights (must sum to 1.0) --
 WEIGHTS = {
     "ioc_richness":       0.30,  # Hash diversity, IP/domain presence
     "source_depth":       0.20,  # Full article fetched, word count
@@ -79,29 +79,29 @@ class ConfidenceEngine:
         """
         dims = {}
 
-        # ── D1: IOC Richness (0-100) ──
+        # -- D1: IOC Richness (0-100) --
         dims["ioc_richness"] = self._score_ioc_richness(iocs)
 
-        # ── D2: Source Depth (0-100) ──
+        # -- D2: Source Depth (0-100) --
         dims["source_depth"] = self._score_source_depth(
             fetched_article, source_content
         )
 
-        # ── D3: MITRE Coverage (0-100) ──
+        # -- D3: MITRE Coverage (0-100) --
         dims["mitre_coverage"] = self._score_mitre(mitre_data or [])
 
-        # ── D4: Actor Attribution (0-100) ──
+        # -- D4: Actor Attribution (0-100) --
         dims["actor_attribution"] = self._score_actor(actor_data or {})
 
-        # ── D5: Impact Evidence (0-100) ──
+        # -- D5: Impact Evidence (0-100) --
         dims["impact_evidence"] = self._score_impact(impact_metrics or {})
 
-        # ── D6: CVE Verification (0-100) ──
+        # -- D6: CVE Verification (0-100) --
         dims["cve_verification"] = self._score_cve_verification(
             iocs.get("cve", []), epss_score, cvss_score, kev_present
         )
 
-        # ── Weighted combination ──
+        # -- Weighted combination --
         total = sum(dims[k] * WEIGHTS[k] for k in WEIGHTS)
         total = round(min(max(total, 0.0), 100.0), 1)
 
@@ -124,9 +124,9 @@ class ConfidenceEngine:
 
         return result
 
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # DIMENSION SCORERS
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
 
     def _score_ioc_richness(self, iocs: Dict[str, List[str]]) -> float:
         """Score based on IOC type diversity and volume."""
@@ -270,15 +270,15 @@ class ConfidenceEngine:
         if kev_present:
             score += 25.0  # CISA confirmed
 
-        # v75.5: NVD-verified floor — when CVE_VERIFICATION is high (NVD data present),
+        # v75.5: NVD-verified floor - when CVE_VERIFICATION is high (NVD data present),
         # ensure minimum confidence of 30% (ANALYST ASSESSED)
         if score < 30.0 and kev_present:
             score = max(score, 45.0)  # KEV = confirmed exploited = at least MODERATE
         return min(score, 100.0)
 
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # LABELS AND RATIONALE
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
 
     def _label(self, score: float) -> str:
         """v75.5: Confidence label mapping."""
@@ -303,5 +303,5 @@ class ConfidenceEngine:
         )
 
 
-# ── Singleton ──
+# -- Singleton --
 confidence_engine = ConfidenceEngine()

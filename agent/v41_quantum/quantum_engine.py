@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-quantum_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v41.0 (QUANTUM)
+quantum_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v41.0 (QUANTUM)
 ====================================================================
 Machine Learning Intelligence: Anomaly Detection, Adversarial Feed
 Protection, False Positive Reduction, and Detection Rule A/B Testing.
 
 4 New Subsystems:
-  Q1 — AnomalyDetector: Statistical anomaly detection on threat patterns
-  Q2 — AdversarialFeedGuard: Poisoned/manipulated feed detection
-  Q3 — FalsePositiveReducer: Feedback-driven FP scoring and suppression
-  Q4 — DetectionABTester: A/B testing framework for detection rule efficacy
+  Q1 - AnomalyDetector: Statistical anomaly detection on threat patterns
+  Q2 - AdversarialFeedGuard: Poisoned/manipulated feed detection
+  Q3 - FalsePositiveReducer: Feedback-driven FP scoring and suppression
+  Q4 - DetectionABTester: A/B testing framework for detection rule efficacy
 
 Non-Breaking: Reads from manifest/nexus/cortex. Writes to data/quantum/.
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os, re, json, math, hashlib, logging, time, statistics
@@ -59,9 +59,9 @@ def _gen_id(prefix, seed):
     return f"{prefix}--{hashlib.sha256(seed.encode()).hexdigest()[:12]}"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Q1 — ANOMALY DETECTOR (Statistical ML)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# Q1 - ANOMALY DETECTOR (Statistical ML)
+# ===============================================================================
 
 class AnomalyDetector:
     """
@@ -125,14 +125,14 @@ class AnomalyDetector:
         for entry in entries:
             score = entry.get("risk_score", 0) or 0
             z = (score - mean) / stdev
-            if abs(z) > 2.5:  # 2.5σ threshold
+            if abs(z) > 2.5:  # 2.5? threshold
                 anomalies.append({
                     "type": "RISK_SCORE_ANOMALY",
-                    "description": f"Risk score {score} is {abs(z):.1f}σ from mean ({mean:.1f})",
+                    "description": f"Risk score {score} is {abs(z):.1f}? from mean ({mean:.1f})",
                     "advisory": entry.get("title", "")[:80],
                     "z_score": round(z, 2),
                     "severity_score": min(10, abs(z) * 2),
-                    "recommendation": "Verify scoring inputs — potential miscalculation or genuine outlier",
+                    "recommendation": "Verify scoring inputs - potential miscalculation or genuine outlier",
                 })
 
         return anomalies[:5]
@@ -164,7 +164,7 @@ class AnomalyDetector:
             if z > 2.0:
                 anomalies.append({
                     "type": "VOLUME_SPIKE",
-                    "description": f"Day {day}: {count} advisories ({z:.1f}σ above average {mean:.0f})",
+                    "description": f"Day {day}: {count} advisories ({z:.1f}? above average {mean:.0f})",
                     "date": day,
                     "count": count,
                     "z_score": round(z, 2),
@@ -174,12 +174,12 @@ class AnomalyDetector:
             elif z < -2.0:
                 anomalies.append({
                     "type": "VOLUME_DROP",
-                    "description": f"Day {day}: Only {count} advisories ({abs(z):.1f}σ below average)",
+                    "description": f"Day {day}: Only {count} advisories ({abs(z):.1f}? below average)",
                     "date": day,
                     "count": count,
                     "z_score": round(z, 2),
                     "severity_score": min(5, abs(z)),
-                    "recommendation": "Check feed health — possible source outage or collection gap",
+                    "recommendation": "Check feed health - possible source outage or collection gap",
                 })
 
         return sorted(anomalies, key=lambda x: abs(x["z_score"]), reverse=True)[:5]
@@ -208,13 +208,13 @@ class AnomalyDetector:
                 avg_risk = statistics.mean(actor_risks[actor])
                 anomalies.append({
                     "type": "ACTOR_SURGE",
-                    "description": f"{actor}: {count} advisories ({z:.1f}σ above normal), avg risk {avg_risk:.1f}",
+                    "description": f"{actor}: {count} advisories ({z:.1f}? above normal), avg risk {avg_risk:.1f}",
                     "actor": actor,
                     "advisory_count": count,
                     "avg_risk_score": round(avg_risk, 1),
                     "z_score": round(z, 2),
                     "severity_score": min(9, z * 2 + (avg_risk / 3)),
-                    "recommendation": f"Prioritize {actor} threat hunt — elevated campaign activity detected",
+                    "recommendation": f"Prioritize {actor} threat hunt - elevated campaign activity detected",
                 })
 
         return sorted(anomalies, key=lambda x: x["severity_score"], reverse=True)[:5]
@@ -241,7 +241,7 @@ class AnomalyDetector:
             if z > 2.0:
                 anomalies.append({
                     "type": "TECHNIQUE_CLUSTER",
-                    "description": f"{tech} observed {count}x ({z:.1f}σ above baseline) — possible coordinated use",
+                    "description": f"{tech} observed {count}x ({z:.1f}? above baseline) - possible coordinated use",
                     "technique": tech,
                     "count": count,
                     "z_score": round(z, 2),
@@ -263,7 +263,7 @@ class AnomalyDetector:
             if epss >= 70 and risk < 5:
                 anomalies.append({
                     "type": "SCORING_DIVERGENCE",
-                    "description": f"EPSS {epss}% but risk only {risk}/10 — potential underscoring",
+                    "description": f"EPSS {epss}% but risk only {risk}/10 - potential underscoring",
                     "advisory": e.get("title", "")[:80],
                     "epss_score": epss,
                     "risk_score": risk,
@@ -274,7 +274,7 @@ class AnomalyDetector:
             elif kev and epss < 20 and risk < 7:
                 anomalies.append({
                     "type": "KEV_EPSS_MISMATCH",
-                    "description": f"CISA KEV confirmed but EPSS only {epss}% — EPSS may be lagging",
+                    "description": f"CISA KEV confirmed but EPSS only {epss}% - EPSS may be lagging",
                     "advisory": e.get("title", "")[:80],
                     "kev_present": True,
                     "epss_score": epss,
@@ -297,9 +297,9 @@ class AnomalyDetector:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Q2 — ADVERSARIAL FEED GUARD
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# Q2 - ADVERSARIAL FEED GUARD
+# ===============================================================================
 
 class AdversarialFeedGuard:
     """
@@ -361,7 +361,7 @@ class AdversarialFeedGuard:
             alerts.append({
                 "type": "FEED_DOMINANCE",
                 "feed": feed,
-                "message": f"{feed} represents {pct:.0f}% of all intel — over-reliance risk",
+                "message": f"{feed} represents {pct:.0f}% of all intel - over-reliance risk",
                 "severity": 4,
             })
 
@@ -392,7 +392,7 @@ class AdversarialFeedGuard:
                 alerts.append({
                     "type": "LOW_VARIANCE",
                     "feed": feed,
-                    "message": f"Unusually uniform risk scores (stdev={risk_stdev:.2f}) — potential manipulation",
+                    "message": f"Unusually uniform risk scores (stdev={risk_stdev:.2f}) - potential manipulation",
                     "severity": 5,
                 })
 
@@ -408,7 +408,7 @@ class AdversarialFeedGuard:
                     alerts.append({
                         "type": "STALE_FEED",
                         "feed": feed,
-                        "message": f"Latest entry is {age_days} days old — feed may be inactive",
+                        "message": f"Latest entry is {age_days} days old - feed may be inactive",
                         "severity": 3,
                     })
             except (ValueError, TypeError):
@@ -445,16 +445,16 @@ class AdversarialFeedGuard:
         if dupe_count > 10:
             alerts.append({
                 "type": "CROSS_FEED_DUPLICATION",
-                "message": f"{dupe_count} entries appear across 3+ feeds — normal for major events, monitor for injection",
+                "message": f"{dupe_count} entries appear across 3+ feeds - normal for major events, monitor for injection",
                 "severity": 3,
             })
 
         return alerts
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Q3 — FALSE POSITIVE REDUCER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# Q3 - FALSE POSITIVE REDUCER
+# ===============================================================================
 
 class FalsePositiveReducer:
     """
@@ -463,7 +463,7 @@ class FalsePositiveReducer:
     """
 
     FP_INDICATORS = {
-        # v55.0 FIX: Rebalanced weights — old weights caused 52% FP rate because
+        # v55.0 FIX: Rebalanced weights - old weights caused 52% FP rate because
         # no_iocs(0.4) + no_actor(0.2) = 0.6 > threshold(0.5) flagged most RSS entries.
         # New weights require 3+ convergent signals to reach FP threshold of 0.6.
         "generic_title": {"pattern": r'^(?:update|patch|advisory|bulletin)\b', "weight": 0.15},
@@ -543,9 +543,9 @@ class FalsePositiveReducer:
         return reasons
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Q4 — DETECTION A/B TESTER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# Q4 - DETECTION A/B TESTER
+# ===============================================================================
 
 class DetectionABTester:
     """
@@ -628,9 +628,9 @@ class DetectionABTester:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # QUANTUM ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class QuantumOrchestrator:
     def __init__(self):
@@ -690,11 +690,11 @@ class QuantumOrchestrator:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
     print("=" * 70)
-    print("CYBERDUDEBIVASH® SENTINEL APEX v41.0 — QUANTUM")
+    print("CYBERDUDEBIVASH(R) SENTINEL APEX v41.0 - QUANTUM")
     print("=" * 70)
     o = QuantumOrchestrator()
     r = o.execute_full_cycle()
-    print(f"\n✅ QUANTUM Cycle Complete")
+    print(f"\n? QUANTUM Cycle Complete")
     print(f"   Anomalies:     {r.get('anomalies', {}).get('count', 0)} (score: {r.get('anomalies', {}).get('score', 0)})")
     print(f"   Feed Trust:    {r.get('feed_trust', {}).get('overall', 0)}")
     print(f"   FP Rate:       {r.get('false_positives', {}).get('fp_rate', 0)}%")

@@ -1,5 +1,5 @@
 """
-MITRE ATT&CK Navigator Layer Export – FINAL PRODUCTION VERSION
+MITRE ATT&CK Navigator Layer Export - FINAL PRODUCTION VERSION
 
 Purpose:
 Generate ATT&CK Navigator-compatible heatmap JSON
@@ -12,7 +12,7 @@ Highlights:
 - Navigator v4.x compliant
 
 Designed for:
-SOC • Purple Team • Detection Engineering • CISO Reporting
+SOC * Purple Team * Detection Engineering * CISO Reporting
 """
 
 import json
@@ -101,7 +101,7 @@ def export_attack_navigator_layer(
         })
 
     navigator_layer = {
-        "name": "ATT&CK Coverage Heatmap – CYBERDUDEBIVASH",
+        "name": "ATT&CK Coverage Heatmap - CYBERDUDEBIVASH",
         "version": "4.5",
         "domain": "enterprise-attack",
         "description": (

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-status_page.py — CYBERDUDEBIVASH® SENTINEL APEX v24.0
+status_page.py - CYBERDUDEBIVASH(R) SENTINEL APEX v24.0
 Platform Status & Uptime Monitoring Module.
 
 Generates a live status.json and status.html for public display.
@@ -227,7 +227,7 @@ class PlatformStatusMonitor:
             overall = "MONITORING"
 
         status = {
-            "platform":       "CYBERDUDEBIVASH® SENTINEL APEX",
+            "platform":       "CYBERDUDEBIVASH(R) SENTINEL APEX",
             "version":        "v24.0",
             "page_title":     "CDB Platform Status",
             "status":         overall,
@@ -268,7 +268,7 @@ class PlatformStatusMonitor:
         with open(STATUS_JSON_PATH, "w") as f:
             json.dump(status, f, indent=2)
 
-        logger.info(f"Status JSON generated: {STATUS_JSON_PATH} — Overall: {overall}")
+        logger.info(f"Status JSON generated: {STATUS_JSON_PATH} - Overall: {overall}")
         return status
 
     def generate_status_html(self, status: Dict) -> str:
@@ -282,11 +282,11 @@ class PlatformStatusMonitor:
         }.get(overall, "#64748b")
 
         status_icon = {
-            "OPERATIONAL": "✅",
-            "DEGRADED":    "⚠️",
-            "OUTAGE":      "🔴",
-            "MONITORING":  "🔵",
-        }.get(overall, "❓")
+            "OPERATIONAL": "?",
+            "DEGRADED":    "[!]",
+            "OUTAGE":      "?",
+            "MONITORING":  "?",
+        }.get(overall, "?")
 
         manifest  = status.get("components", {}).get("threat_feed", {})
         sla       = status.get("sla", {})
@@ -298,7 +298,7 @@ class PlatformStatusMonitor:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="refresh" content="300">
-<title>CDB Platform Status — CYBERDUDEBIVASH SENTINEL APEX</title>
+<title>CDB Platform Status - CYBERDUDEBIVASH SENTINEL APEX</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -330,7 +330,7 @@ body {{ background: #06080d; color: #cbd5e1; font-family: 'Inter', sans-serif; m
 </head>
 <body>
 <div class="header">
-  <div class="logo">🛡️ CYBERDUDEBIVASH® SENTINEL APEX</div>
+  <div class="logo">? CYBERDUDEBIVASH(R) SENTINEL APEX</div>
   <div style="color:#64748b;font-size:0.85rem;margin-top:4px;">Platform Status &amp; Uptime</div>
 </div>
 
@@ -345,27 +345,27 @@ body {{ background: #06080d; color: #cbd5e1; font-family: 'Inter', sans-serif; m
   <div class="section">
     <div class="section-title">System Components</div>
     <div class="component">
-      <span class="component-name">🔴 Threat Intelligence Feed</span>
+      <span class="component-name">? Threat Intelligence Feed</span>
       <span class="badge badge-{manifest.get('status','unknown').lower()}">{manifest.get('status','UNKNOWN')}</span>
     </div>
     <div class="component">
-      <span class="component-name">⚙️ Ingestion Pipeline (6-hr sweep)</span>
+      <span class="component-name">? Ingestion Pipeline (6-hr sweep)</span>
       <span class="badge badge-{status.get('components',{}).get('pipeline',{}).get('status','unknown').lower()}">{status.get('components',{}).get('pipeline',{}).get('status','UNKNOWN')}</span>
     </div>
     <div class="component">
-      <span class="component-name">🌐 REST API Server</span>
+      <span class="component-name">? REST API Server</span>
       <span class="badge badge-{status.get('components',{}).get('api_server',{}).get('status','unknown').lower()}">{status.get('components',{}).get('api_server',{}).get('status','UNKNOWN')}</span>
     </div>
     <div class="component">
-      <span class="component-name">📊 Live Dashboard</span>
+      <span class="component-name">? Live Dashboard</span>
       <span class="badge badge-operational">OPERATIONAL</span>
     </div>
     <div class="component">
-      <span class="component-name">📡 TAXII 2.1 Feed Server</span>
+      <span class="component-name">? TAXII 2.1 Feed Server</span>
       <span class="badge badge-operational">OPERATIONAL</span>
     </div>
     <div class="component">
-      <span class="component-name">🤖 Social Syndication Engine</span>
+      <span class="component-name">? Social Syndication Engine</span>
       <span class="badge badge-operational">OPERATIONAL</span>
     </div>
   </div>
@@ -426,7 +426,7 @@ body {{ background: #06080d; color: #cbd5e1; font-family: 'Inter', sans-serif; m
 </div>
 
 <div class="footer">
-  <p>CYBERDUDEBIVASH® SENTINEL APEX — <a href="https://intel.cyberdudebivash.com">intel.cyberdudebivash.com</a></p>
+  <p>CYBERDUDEBIVASH(R) SENTINEL APEX - <a href="https://intel.cyberdudebivash.com">intel.cyberdudebivash.com</a></p>
   <p style="margin-top:8px;">Contact: <a href="mailto:bivash@cyberdudebivash.com">bivash@cyberdudebivash.com</a> | <a href="https://api.cyberdudebivash.com/docs">API Docs</a></p>
   <p style="margin-top:8px;color:#334155;">Status page auto-refreshes every 5 minutes. Powered by CDB Monitor v{VERSION}</p>
 </div>

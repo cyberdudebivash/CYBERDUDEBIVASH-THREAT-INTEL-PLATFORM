@@ -11,7 +11,7 @@ STRICT POLICY:
 
 Authoritative Platform:
 CYBERDUDEBIVASH OFFICIAL AUTHORITY
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 """
 
 import importlib
@@ -26,7 +26,7 @@ from datetime import datetime
 
 logging.basicConfig(
     level=logging.INFO,
-    format="[PRECognition] %(asctime)s — %(levelname)s — %(message)s"
+    format="[PRECognition] %(asctime)s - %(levelname)s - %(message)s"
 )
 
 logger = logging.getLogger("sentinel_precognition")
@@ -85,7 +85,7 @@ def run_predictive_pipeline():
     """
 
     logger.info("===================================================")
-    logger.info("SENTINEL APEX v34.0 — PRECOGNITION ENGINE")
+    logger.info("SENTINEL APEX v34.0 - PRECOGNITION ENGINE")
     logger.info("Predictive Threat Intelligence Pipeline")
     logger.info("===================================================")
 
@@ -119,7 +119,7 @@ def run_predictive_pipeline():
 
         except Exception as exc:
             logger.error(
-                f"Module execution failed: {module.__name__} — {exc}"
+                f"Module execution failed: {module.__name__} - {exc}"
             )
 
     logger.info("===================================================")

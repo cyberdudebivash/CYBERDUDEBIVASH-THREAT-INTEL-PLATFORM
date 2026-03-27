@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-analyst_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v37.0 (AI THREAT ANALYST)
+analyst_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v37.0 (AI THREAT ANALYST)
 ==============================================================================
 Autonomous AI-powered threat analysis engine with 10 integrated subsystems.
 
-Pipeline: Monitor → Analyze → Triage → Generate (Mitigations + Detections +
-          Playbooks + Reports) → Knowledge Graph → Copilot Output
+Pipeline: Monitor -> Analyze -> Triage -> Generate (Mitigations + Detections +
+          Playbooks + Reports) -> Knowledge Graph -> Copilot Output
 
 Reads from: manifest, STIX bundles, fusion entity store, ZDH alerts/forecasts
 Writes to: data/analyst/ (isolated, non-breaking)
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os, re, json, math, hashlib, logging, statistics, textwrap
@@ -60,9 +60,9 @@ def _stix_iocs(stix_file: str) -> Dict[str, List[str]]:
     return iocs
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# A1 — THREAT MONITOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# A1 - THREAT MONITOR
+# ===============================================================================
 
 class ThreatMonitor:
     """Collects and normalizes threat signals from all platform data sources."""
@@ -104,31 +104,31 @@ class ThreatMonitor:
         return threats
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# A2 — EXPLOIT ANALYZER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# A2 - EXPLOIT ANALYZER
+# ===============================================================================
 
 class ExploitAnalyzer:
     """Analyzes exploit characteristics, attack vectors, and exploit chains."""
 
     VECTOR_MAP = {
-        "T1190": "Network — Exploit Public-Facing Application",
-        "T1133": "Network — External Remote Services",
-        "T1566": "Email — Phishing",
-        "T1195": "Supply Chain — Compromise",
-        "T1078": "Credential — Valid Accounts",
-        "T1059": "Execution — Command and Scripting Interpreter",
-        "T1203": "Client — Exploitation for Client Execution",
-        "T1068": "Local — Exploitation for Privilege Escalation",
-        "T1055": "Memory — Process Injection",
-        "T1021": "Network — Remote Services",
+        "T1190": "Network - Exploit Public-Facing Application",
+        "T1133": "Network - External Remote Services",
+        "T1566": "Email - Phishing",
+        "T1195": "Supply Chain - Compromise",
+        "T1078": "Credential - Valid Accounts",
+        "T1059": "Execution - Command and Scripting Interpreter",
+        "T1203": "Client - Exploitation for Client Execution",
+        "T1068": "Local - Exploitation for Privilege Escalation",
+        "T1055": "Memory - Process Injection",
+        "T1021": "Network - Remote Services",
     }
 
     IMPACT_CLASS = {
-        (9.0, 10.0): "CATASTROPHIC — Complete system compromise likely",
-        (7.0, 8.9): "SEVERE — Significant unauthorized access or data loss",
-        (4.0, 6.9): "MODERATE — Limited impact, conditional exploitation",
-        (0.0, 3.9): "LOW — Minimal direct impact",
+        (9.0, 10.0): "CATASTROPHIC - Complete system compromise likely",
+        (7.0, 8.9): "SEVERE - Significant unauthorized access or data loss",
+        (4.0, 6.9): "MODERATE - Limited impact, conditional exploitation",
+        (0.0, 3.9): "LOW - Minimal direct impact",
     }
 
     def analyze(self, threats: List[Dict]) -> List[Dict]:
@@ -195,9 +195,9 @@ class ExploitAnalyzer:
         return min(10.0, score)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# A3 — AI THREAT REASONER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# A3 - AI THREAT REASONER
+# ===============================================================================
 
 class AIThreatReasoner:
     """Generates contextual intelligence analysis for each threat."""
@@ -225,24 +225,24 @@ class AIThreatReasoner:
             # Chain analysis
             if a.get("exploit_chain"):
                 stages = [f"{c['stage']} ({','.join(c['techniques'])})" for c in a["exploit_chain"]]
-                parts.append(f"Attack Chain: {' → '.join(stages)}")
+                parts.append(f"Attack Chain: {' -> '.join(stages)}")
 
             # Zero-day / KEV correlation
             if t.get("zeroday_match"):
-                parts.append("⚠ ZERO-DAY CORRELATION: Active exploitation signals detected by Zero-Day Hunter")
+                parts.append("[!] ZERO-DAY CORRELATION: Active exploitation signals detected by Zero-Day Hunter")
             if t.get("kev"):
-                parts.append("⚠ CISA KEV: Confirmed active exploitation — federal patch mandate active")
+                parts.append("[!] CISA KEV: Confirmed active exploitation - federal patch mandate active")
 
             # Assessment
             risk = t["risk_score"]
             if risk >= 9:
-                parts.append("ASSESSMENT: CRITICAL — Immediate defensive action required. Activate IR procedures.")
+                parts.append("ASSESSMENT: CRITICAL - Immediate defensive action required. Activate IR procedures.")
             elif risk >= 7:
-                parts.append("ASSESSMENT: HIGH — Prioritize patching and detection deployment within 24-48 hours.")
+                parts.append("ASSESSMENT: HIGH - Prioritize patching and detection deployment within 24-48 hours.")
             elif risk >= 5:
-                parts.append("ASSESSMENT: MEDIUM — Monitor closely. Deploy detection rules proactively.")
+                parts.append("ASSESSMENT: MEDIUM - Monitor closely. Deploy detection rules proactively.")
             else:
-                parts.append("ASSESSMENT: LOW — Standard monitoring. Track for escalation.")
+                parts.append("ASSESSMENT: LOW - Standard monitoring. Track for escalation.")
 
             reports.append({
                 "threat_id": t["threat_id"],
@@ -255,9 +255,9 @@ class AIThreatReasoner:
         return reports
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# A4 — AUTOMATED TRIAGE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# A4 - AUTOMATED TRIAGE
+# ===============================================================================
 
 class AutomatedTriage:
     """SOC-level threat triage with priority classification."""
@@ -305,9 +305,9 @@ class AutomatedTriage:
         return products or ["Unknown"]
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# A5 — MITIGATION SCRIPT GENERATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# A5 - MITIGATION SCRIPT GENERATOR
+# ===============================================================================
 
 class MitigationScriptGenerator:
     """Generates defensive automation scripts: firewall, WAF, SIEM, hardening."""
@@ -328,7 +328,7 @@ class MitigationScriptGenerator:
             if ips:
                 rules = "\n".join(f"iptables -A INPUT -s {ip} -j DROP" for ip in ips[:15])
                 rules += "\n" + "\n".join(f"iptables -A OUTPUT -d {ip} -j DROP" for ip in ips[:15])
-                pack["scripts"].append({"type": "firewall_iptables", "content": f"#!/bin/bash\n# CDB APEX v37.0 — Block threat IPs for: {t['title'][:60]}\n{rules}\necho 'Firewall rules applied'"})
+                pack["scripts"].append({"type": "firewall_iptables", "content": f"#!/bin/bash\n# CDB APEX v37.0 - Block threat IPs for: {t['title'][:60]}\n{rules}\necho 'Firewall rules applied'"})
 
             # WAF rules (ModSecurity format)
             if domains:
@@ -347,7 +347,7 @@ class MitigationScriptGenerator:
             # Security hardening script
             if cves or t["risk_score"] >= 8:
                 harden = f"""#!/bin/bash
-# CDB APEX v37.0 — Emergency Hardening Script
+# CDB APEX v37.0 - Emergency Hardening Script
 # Threat: {t['title'][:60]}
 # Generated: {datetime.now(timezone.utc).isoformat()}
 
@@ -377,9 +377,9 @@ echo "[+] Hardening complete for threat: {t['threat_id']}"
         return scripts
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# A6 — DETECTION RULE GENERATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# A6 - DETECTION RULE GENERATOR
+# ===============================================================================
 
 class DetectionRuleGenerator:
     """Generates detection rules: Sigma, YARA, Snort, Suricata, Elastic, KQL."""
@@ -403,7 +403,7 @@ class DetectionRuleGenerator:
                 if ips: sel_parts.append("    selection_ip:\n        dst_ip:\n" + "\n".join(f"            - '{ip}'" for ip in ips[:15]))
                 if domains: sel_parts.append("    selection_dns:\n        query:\n" + "\n".join(f"            - '*{d}*'" for d in domains[:15]))
                 cond = " or ".join(f"selection_{'ip' if 'ip' in s else 'dns'}" for s in sel_parts)
-                rules["rules"]["sigma"] = f"title: CDB APEX v37.0 — {t['title'][:60]}\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: {date}\nlogsource:\n    category: firewall\ndetection:\n{chr(10).join(sel_parts)}\n    condition: {cond}\nlevel: high"
+                rules["rules"]["sigma"] = f"title: CDB APEX v37.0 - {t['title'][:60]}\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: {date}\nlogsource:\n    category: firewall\ndetection:\n{chr(10).join(sel_parts)}\n    condition: {cond}\nlevel: high"
 
             # YARA
             if hashes:
@@ -414,7 +414,7 @@ class DetectionRuleGenerator:
             for ip in ips[:10]:
                 sid = abs(hash(f"sur-{ip}-{t['threat_id']}")) % 9000000 + 1000000
                 rules.setdefault("rules", {}).setdefault("suricata", [])
-                rules["rules"]["suricata"].append(f'alert ip any any -> {ip} any (msg:"CDB APEX — {safe[:30]}"; sid:{sid}; rev:1;)')
+                rules["rules"]["suricata"].append(f'alert ip any any -> {ip} any (msg:"CDB APEX - {safe[:30]}"; sid:{sid}; rev:1;)')
 
             # Snort
             for ip in ips[:10]:
@@ -444,9 +444,9 @@ class DetectionRuleGenerator:
         return packs
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# A7 — PLAYBOOK ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# A7 - PLAYBOOK ENGINE
+# ===============================================================================
 
 class PlaybookEngine:
     """Generates structured incident response playbooks."""
@@ -497,9 +497,9 @@ class PlaybookEngine:
                     ],
                 },
                 "escalation": {
-                    "T+0": "SOC Tier 1 — Initial triage and detection deployment",
-                    "T+30min": "SOC Tier 2 — Deep analysis and containment",
-                    "T+2hr": "SOC Tier 3 — Advanced forensics if unresolved",
+                    "T+0": "SOC Tier 1 - Initial triage and detection deployment",
+                    "T+30min": "SOC Tier 2 - Deep analysis and containment",
+                    "T+2hr": "SOC Tier 3 - Advanced forensics if unresolved",
                     "T+4hr": "CISO briefing if P1 or data breach confirmed",
                 },
             }
@@ -509,9 +509,9 @@ class PlaybookEngine:
         return playbooks
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# A8 — THREAT REPORT GENERATOR (Blogger-compatible)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# A8 - THREAT REPORT GENERATOR (Blogger-compatible)
+# ===============================================================================
 
 class ThreatReportGenerator:
     """Generates structured intel reports compatible with Blogger publishing pipeline."""
@@ -534,7 +534,7 @@ class ThreatReportGenerator:
             # Build HTML-compatible report sections
             sections = {
                 "executive_summary": (
-                    f"This report covers {entity} — a threat with risk score {t['risk_score']}/10. "
+                    f"This report covers {entity} - a threat with risk score {t['risk_score']}/10. "
                     f"Priority: {tri.get('priority', 'N/A')}. "
                     f"{'CISA KEV confirms active exploitation. ' if t.get('kev') else ''}"
                     f"{'Zero-day signals detected. ' if t.get('zeroday_match') else ''}"
@@ -570,16 +570,16 @@ class ThreatReportGenerator:
                 "classification": t.get("kev", False) and "TLP:RED" or "TLP:AMBER" if t["risk_score"] >= 7 else "TLP:GREEN",
                 "sections": sections,
                 "generated": datetime.now(timezone.utc).isoformat(),
-                "platform": "CYBERDUDEBIVASH SENTINEL APEX v37.0 — AI THREAT ANALYST",
+                "platform": "CYBERDUDEBIVASH SENTINEL APEX v37.0 - AI THREAT ANALYST",
             })
 
         logger.info(f"A8 Reports: {len(reports)} intelligence reports")
         return reports
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# A9 — THREAT KNOWLEDGE GRAPH
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# A9 - THREAT KNOWLEDGE GRAPH
+# ===============================================================================
 
 class ThreatKnowledgeGraph:
     """Builds entity-relationship intelligence graph from all analyzed data."""
@@ -647,12 +647,12 @@ class ThreatKnowledgeGraph:
         return graph
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# A10 — AI SECURITY COPILOT
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# A10 - AI SECURITY COPILOT
+# ===============================================================================
 
 class AISecurityCopilot:
-    """Analyst assistance engine — generates threat explanations and investigation guidance."""
+    """Analyst assistance engine - generates threat explanations and investigation guidance."""
 
     def assist(self, threats: List[Dict], analyses: List[Dict],
                reasoning: List[Dict], triaged: List[Dict]) -> List[Dict]:
@@ -675,9 +675,9 @@ class AISecurityCopilot:
             briefing.append(f"Risk: {t['risk_score']}/10 | Exploitability: {a.get('exploitability_score', 'N/A')}/10")
 
             if t.get("kev"):
-                briefing.append("STATUS: CISA KEV — Active exploitation confirmed. Treat as emergency.")
+                briefing.append("STATUS: CISA KEV - Active exploitation confirmed. Treat as emergency.")
             if t.get("zeroday_match"):
-                briefing.append("STATUS: Zero-day signals detected — exploitation imminent or active.")
+                briefing.append("STATUS: Zero-day signals detected - exploitation imminent or active.")
 
             # Investigation steps
             investigation = [
@@ -713,15 +713,15 @@ class AISecurityCopilot:
         return guidance
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # MAIN ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class AIThreatAnalystEngine:
     """
-    Master orchestrator — runs the complete AI Threat Analyst pipeline.
-    Pipeline: Monitor → Analyze → Reason → Triage → Generate (Scripts +
-              Detections + Playbooks + Reports) → Graph → Copilot
+    Master orchestrator - runs the complete AI Threat Analyst pipeline.
+    Pipeline: Monitor -> Analyze -> Reason -> Triage -> Generate (Scripts +
+              Detections + Playbooks + Reports) -> Graph -> Copilot
     """
 
     def __init__(self, output_dir: str = ANALYST_DIR):
@@ -731,47 +731,47 @@ class AIThreatAnalystEngine:
 
     def run(self, window_hours: int = 168) -> Dict:
         logger.info("=" * 65)
-        logger.info("SENTINEL APEX v37.0 — AI THREAT ANALYST")
+        logger.info("SENTINEL APEX v37.0 - AI THREAT ANALYST")
         logger.info("=" * 65)
         now = datetime.now(timezone.utc).isoformat()
 
-        # A1 — Monitor
+        # A1 - Monitor
         logger.info("[A1/10] Threat Monitoring...")
         threats = ThreatMonitor().scan(window_hours)
 
-        # A2 — Exploit Analysis
+        # A2 - Exploit Analysis
         logger.info("[A2/10] Exploit Analysis...")
         analyses = ExploitAnalyzer().analyze(threats)
 
-        # A3 — AI Reasoning
+        # A3 - AI Reasoning
         logger.info("[A3/10] AI Threat Reasoning...")
         reasoning = AIThreatReasoner().reason(threats, analyses)
 
-        # A4 — Triage
+        # A4 - Triage
         logger.info("[A4/10] Automated Triage...")
         triaged = AutomatedTriage().triage(threats, analyses)
 
-        # A5 — Mitigation Scripts
+        # A5 - Mitigation Scripts
         logger.info("[A5/10] Mitigation Script Generation...")
         scripts = MitigationScriptGenerator().generate(threats)
 
-        # A6 — Detection Rules
+        # A6 - Detection Rules
         logger.info("[A6/10] Detection Rule Generation...")
         detections = DetectionRuleGenerator().generate(threats)
 
-        # A7 — Playbooks
+        # A7 - Playbooks
         logger.info("[A7/10] Playbook Generation...")
         playbooks = PlaybookEngine().generate(triaged, analyses)
 
-        # A8 — Intelligence Reports
+        # A8 - Intelligence Reports
         logger.info("[A8/10] Intelligence Report Generation...")
         reports = ThreatReportGenerator().generate(threats, analyses, reasoning, triaged)
 
-        # A9 — Knowledge Graph
+        # A9 - Knowledge Graph
         logger.info("[A9/10] Knowledge Graph Construction...")
         graph = ThreatKnowledgeGraph().build(threats, analyses)
 
-        # A10 — Security Copilot
+        # A10 - Security Copilot
         logger.info("[A10/10] AI Security Copilot...")
         copilot = AISecurityCopilot().assist(threats, analyses, reasoning, triaged)
 
@@ -858,7 +858,7 @@ class AIThreatAnalystEngine:
 
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="[AI-ANALYST] %(asctime)s — %(levelname)s — %(message)s")
+    logging.basicConfig(level=logging.INFO, format="[AI-ANALYST] %(asctime)s - %(levelname)s - %(message)s")
     engine = AIThreatAnalystEngine()
     result = engine.run(window_hours=168)
     print(json.dumps({"pipeline_stats": result["pipeline_stats"], "triage_distribution": result["triage_distribution"],

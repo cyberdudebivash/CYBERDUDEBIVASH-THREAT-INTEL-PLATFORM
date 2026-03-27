@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v70 — Threat Classifier (AI-Powered)
+SENTINEL APEX v70 - Threat Classifier (AI-Powered)
 ====================================================
 Hybrid classification engine:
 1. Rule-based IOC type detection (regex, deterministic)
@@ -29,7 +29,7 @@ try:
     import numpy as np
     _ML_AVAILABLE = True
 except ImportError:
-    logger.warning("sklearn not available — falling back to rule-based classification")
+    logger.warning("sklearn not available - falling back to rule-based classification")
 
 
 # ---------------------------------------------------------------------------

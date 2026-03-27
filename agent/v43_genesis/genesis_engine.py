@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-genesis_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v43.0 (GENESIS)
+genesis_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v43.0 (GENESIS)
 =====================================================================
-The Global Cybersecurity Intelligence Powerhouse — 12 Strategic Engines.
+The Global Cybersecurity Intelligence Powerhouse - 12 Strategic Engines.
 
 Non-Breaking: Reads from manifest/STIX/nexus/cortex/quantum/sovereign data.
 Writes to data/genesis/. Zero modification to any existing file.
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os, re, json, math, hashlib, logging, time, random, statistics, uuid, ipaddress
@@ -52,12 +52,12 @@ def _now():
     return datetime.now(timezone.utc).isoformat()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G01 — GLOBAL CYBER SENSOR NETWORK
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G01 - GLOBAL CYBER SENSOR NETWORK
+# ===============================================================================
 
 class GlobalCyberSensorNetwork:
-    """Distributed telemetry sensor network — collects attack data from
+    """Distributed telemetry sensor network - collects attack data from
     global cloud regions: port scans, exploit attempts, botnet callbacks,
     credential attacks, C2 beacons."""
 
@@ -146,9 +146,9 @@ class GlobalCyberSensorNetwork:
         return "LOW"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G02 — SENTINEL GLOBAL HONEYPOT GRID
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G02 - SENTINEL GLOBAL HONEYPOT GRID
+# ===============================================================================
 
 class HoneypotGrid:
     """Multi-protocol deception infrastructure capturing attacker behavior,
@@ -236,9 +236,9 @@ class HoneypotGrid:
                 for u, p in creds.get(hp_type, [])]
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G03 — MALWARE ANALYSIS CLOUD
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G03 - MALWARE ANALYSIS CLOUD
+# ===============================================================================
 
 class MalwareAnalysisCloud:
     """Scalable malware analysis: static analysis, sandbox execution,
@@ -319,9 +319,9 @@ class MalwareAnalysisCloud:
         return rules
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G04 — THREAT ACTOR INTELLIGENCE REGISTRY
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G04 - THREAT ACTOR INTELLIGENCE REGISTRY
+# ===============================================================================
 
 class ThreatActorIntelRegistry:
     """Structured threat actor database with MITRE ATT&CK mapping,
@@ -410,9 +410,9 @@ class ThreatActorIntelRegistry:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G05 — CAMPAIGN CORRELATION ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G05 - CAMPAIGN CORRELATION ENGINE
+# ===============================================================================
 
 class CampaignCorrelationEngine:
     """Graph-based campaign detection through infrastructure reuse,
@@ -494,9 +494,9 @@ class CampaignCorrelationEngine:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G06 — IOC REPUTATION ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G06 - IOC REPUTATION ENGINE
+# ===============================================================================
 
 class IOCReputationEngine:
     """Multi-signal reputation scoring for IPs, domains, URLs, hashes."""
@@ -555,9 +555,9 @@ class IOCReputationEngine:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G07 — AUTOMATED DETECTION RULE GENERATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G07 - AUTOMATED DETECTION RULE GENERATOR
+# ===============================================================================
 
 class AutoDetectionGenerator:
     """Auto-generates Sigma, YARA, Suricata, Snort, and EDR hunting queries."""
@@ -633,9 +633,9 @@ class AutoDetectionGenerator:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G08 — TAXII / CTI API SERVER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G08 - TAXII / CTI API SERVER
+# ===============================================================================
 
 class TAXIIServer:
     """Enterprise-grade STIX/TAXII 2.1 distribution configuration."""
@@ -696,9 +696,9 @@ class TAXIIServer:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G09 — DARKWEB INTELLIGENCE ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G09 - DARKWEB INTELLIGENCE ENGINE
+# ===============================================================================
 
 class DarkWebIntelligence:
     """Monitor ransomware leak sites, darknet markets, paste sites,
@@ -762,9 +762,9 @@ class DarkWebIntelligence:
         return groups.most_common(10)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G10 — ATTACK SURFACE INTELLIGENCE ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G10 - ATTACK SURFACE INTELLIGENCE ENGINE
+# ===============================================================================
 
 class AttackSurfaceIntelligence:
     """External exposure intelligence: open ports, vulnerable services,
@@ -815,9 +815,9 @@ class AttackSurfaceIntelligence:
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G11 — REAL-TIME GLOBAL ATTACK MAP
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G11 - REAL-TIME GLOBAL ATTACK MAP
+# ===============================================================================
 
 class GlobalAttackMap:
     """Real-time attack visualization data for global threat mapping."""
@@ -886,9 +886,9 @@ class GlobalAttackMap:
         return targets if targets else ["US"]
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# G12 — AI THREAT HUNTING ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# G12 - AI THREAT HUNTING ENGINE
+# ===============================================================================
 
 class AIThreatHuntingEngine:
     """AI-driven threat analysis: emerging campaign identification,
@@ -989,7 +989,7 @@ class AIThreatHuntingEngine:
                 predictions.append({
                     "technique": tech,
                     "velocity": count,
-                    "prediction": f"{tech} usage trending — {count} sightings in 7 days",
+                    "prediction": f"{tech} usage trending - {count} sightings in 7 days",
                     "confidence": min(85, 30 + count * 10),
                     "action": f"Deploy targeted detection for {tech} across all endpoints",
                 })
@@ -1008,9 +1008,9 @@ class AIThreatHuntingEngine:
         return hypotheses
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # GENESIS ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class GenesisOrchestrator:
     """Master orchestrator for all 12 GENESIS engines."""
@@ -1084,12 +1084,12 @@ class GenesisOrchestrator:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
     print("=" * 70)
-    print("CYBERDUDEBIVASH® SENTINEL APEX v43.0 — GENESIS")
+    print("CYBERDUDEBIVASH(R) SENTINEL APEX v43.0 - GENESIS")
     print("The Global Cybersecurity Intelligence Powerhouse")
     print("=" * 70)
     o = GenesisOrchestrator()
     r = o.execute_full_cycle()
-    print(f"\n✅ GENESIS Cycle: {r['engines_ok']}/{r['engines_total']} engines OK in {r['execution_time_ms']}ms")
+    print(f"\n? GENESIS Cycle: {r['engines_ok']}/{r['engines_total']} engines OK in {r['execution_time_ms']}ms")
     for name, info in r["engines"].items():
-        status = "✅" if info["status"] == "OK" else "❌"
+        status = "?" if info["status"] == "OK" else "?"
         print(f"   {status} {name}")

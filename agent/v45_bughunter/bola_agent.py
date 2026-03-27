@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — BOLA Intelligence Agent
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - BOLA Intelligence Agent
 ===============================================================
 Agentic BOLA (Broken Object Level Authorization) detection engine.
 Tests API endpoints for IDOR vulnerabilities by manipulating object IDs.

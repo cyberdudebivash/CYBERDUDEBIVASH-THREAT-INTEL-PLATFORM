@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-actor_registry.py — CyberDudeBivash SENTINEL APEX v17.0
+actor_registry.py - CyberDudeBivash SENTINEL APEX v17.0
 ADVERSARY INTELLIGENCE REGISTRY
 
 Maintains and expands the threat actor knowledge base with:

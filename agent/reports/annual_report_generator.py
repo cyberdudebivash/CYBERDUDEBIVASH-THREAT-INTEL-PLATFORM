@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-annual_report_generator.py — CYBERDUDEBIVASH® SENTINEL APEX v24.0
+annual_report_generator.py - CYBERDUDEBIVASH(R) SENTINEL APEX v24.0
 Annual Threat Landscape & Intelligence Report Generator.
 
 Non-Breaking Addition: Standalone annual report module.
@@ -8,7 +8,7 @@ Generates the flagship CDB Annual Threat Intelligence Report.
 
 Report Sections:
     1. Executive Summary
-    2. Year in Review — Key Statistics
+    2. Year in Review - Key Statistics
     3. Top 10 Most Exploited CVEs
     4. Threat Actor Activity Analysis
     5. Ransomware Landscape
@@ -102,9 +102,9 @@ class AnnualReportGenerator:
         stats   = self.compute_year_stats(entries)
 
         report = {
-            "report_title":   f"CYBERDUDEBIVASH® SENTINEL APEX — Annual Threat Intelligence Report {self.YEAR}",
+            "report_title":   f"CYBERDUDEBIVASH(R) SENTINEL APEX - Annual Threat Intelligence Report {self.YEAR}",
             "report_id":      f"CDB-ANNUAL-{self.YEAR}",
-            "classification": "TLP:GREEN — Unrestricted Distribution",
+            "classification": "TLP:GREEN - Unrestricted Distribution",
             "publisher":      "CyberDudeBivash Pvt. Ltd.",
             "published_at":   datetime.now(timezone.utc).isoformat(),
             "version":        "1.0",
@@ -189,16 +189,16 @@ class AnnualReportGenerator:
 
             "strategic_recommendations": {
                 "immediate_actions": [
-                    "Implement zero-trust architecture — lateral movement is primary escalation vector",
+                    "Implement zero-trust architecture - lateral movement is primary escalation vector",
                     "Patch management SLA: Critical CVEs < 24 hours, High < 72 hours",
-                    "Enable MFA universally — 80%+ of breaches involve compromised credentials",
-                    "Deploy EDR on all endpoints — behavioral detection outperforms signature",
-                    "Establish vendor risk program — supply chain attacks require upstream controls",
+                    "Enable MFA universally - 80%+ of breaches involve compromised credentials",
+                    "Deploy EDR on all endpoints - behavioral detection outperforms signature",
+                    "Establish vendor risk program - supply chain attacks require upstream controls",
                 ],
                 "strategic_investments": [
                     "Threat intelligence platform subscription for real-time IOC feeds",
-                    "Detection engineering capability — custom rules for your environment",
-                    "Purple team exercises — validate detection coverage quarterly",
+                    "Detection engineering capability - custom rules for your environment",
+                    "Purple team exercises - validate detection coverage quarterly",
                     "Cloud security posture management (CSPM) for cloud-native environments",
                     "AI-powered threat hunting to reduce MTTD from weeks to hours",
                 ],
@@ -298,7 +298,7 @@ li {{margin-bottom:6px;}}
 </head>
 <body>
 <div class="hero">
-  <div class="badge">CYBERDUDEBIVASH® SENTINEL APEX</div>
+  <div class="badge">CYBERDUDEBIVASH(R) SENTINEL APEX</div>
   <h1>Annual Threat Intelligence Report<br>{year}</h1>
   <div class="subtitle">AI-Powered Global Cybersecurity Intelligence | {datetime.now(timezone.utc).strftime('%B %Y')}</div>
 </div>
@@ -328,9 +328,9 @@ li {{margin-bottom:6px;}}
   </div>
 </div>
 <div class="footer">
-  <p><strong>CYBERDUDEBIVASH® SENTINEL APEX</strong> — <a href="https://intel.cyberdudebivash.com">intel.cyberdudebivash.com</a></p>
-  <p style="margin-top:8px;">© {year} CyberDudeBivash Pvt. Ltd. · Bhubaneswar, Odisha, India · <a href="mailto:bivash@cyberdudebivash.com">bivash@cyberdudebivash.com</a></p>
-  <p style="margin-top:8px;font-size:0.75rem;color:#334155;">TLP:GREEN — This report may be distributed without restriction. For Enterprise licensing: bivash@cyberdudebivash.com</p>
+  <p><strong>CYBERDUDEBIVASH(R) SENTINEL APEX</strong> - <a href="https://intel.cyberdudebivash.com">intel.cyberdudebivash.com</a></p>
+  <p style="margin-top:8px;">(C) {year} CyberDudeBivash Pvt. Ltd. * Bhubaneswar, Odisha, India * <a href="mailto:bivash@cyberdudebivash.com">bivash@cyberdudebivash.com</a></p>
+  <p style="margin-top:8px;font-size:0.75rem;color:#334155;">TLP:GREEN - This report may be distributed without restriction. For Enterprise licensing: bivash@cyberdudebivash.com</p>
 </div>
 </body>
 </html>"""
