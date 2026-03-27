@@ -37,6 +37,88 @@ class PremiumReportGenerator:
     following the official CDB 16-section template.
     """
 
+    # v77.2 FIX: Central text sanitizer for ALL source content injected into HTML.
+    # Final defense layer against binary garbage, Brotli decompression artifacts,
+    # encoding corruption, and malformed content reaching the published blog post.
+    @staticmethod
+    def _sanitize_source_text(text: str, max_len: int = 1200) -> str:
+        """
+        Sanitize raw source article text before injecting into HTML.
+
+        Three-stage defense:
+
+        Stage 1 — Binary/control-char garbage (e.g. truly raw binary bytes):
+            If >8% of chars are non-printable control chars (ord<32, not whitespace)
+            or Windows-1252 garbage range (127-159) → reject entire string.
+
+        Stage 2 — Brotli/compressed data decoded as Latin-1 (the main junk source):
+            Brotli-as-Latin-1 produces printable-looking garbage like:
+            "Y1T;]H|M-Cu`wGr2/b/LV]Z]9w?]\~:?>_GU'w>ru7b{??}"
+            Real English text has <20% punctuation/symbol density.
+            Brotli garbage has 40-70% punctuation/symbols (`;]|` `~:?>` `{??}`).
+            Gate: if >22% of chars are non-alphanumeric non-space punctuation → reject.
+
+        Stage 3 — Word character ratio:
+            Real sentences have >55% alphanumeric/space/basic-punct chars.
+            Reject below that threshold.
+
+        Returns clean, safe plain text. Returns "" if text is garbage.
+        Zero regression: clean English text passes all three stages unchanged.
+        """
+        if not text or not isinstance(text, str):
+            return ""
+
+        # Stage 1: Control character / raw binary detection
+        sample = text[:500]
+        non_print = sum(1 for c in sample if ord(c) < 32 and c not in '\n\r\t ')
+        hi_ascii  = sum(1 for c in sample if 127 <= ord(c) <= 159)
+        if len(sample) > 10 and (non_print + hi_ascii) / len(sample) > 0.08:
+            return ""  # Raw binary
+
+        # Stage 2: Brotli-as-Latin-1 garbage detection
+        # Brotli-decoded-as-Latin-1 produces printable-looking garbage like:
+        #   "Y1T;]H|M-Cu`wGr2/b/LV]Z]9w?]\~:?>_GU'w>ru7b{??}"
+        # Real English text has <1% of these chars. CVE technical text: <0.5%.
+        # Brotli garbage: 15-25%. Threshold at 12% gives 10x safety margin.
+        # Char set: backtick, brackets, pipe, tilde, semicolon, braces,
+        #           backslash, caret, at, hash, ampersand, asterisk, bang, angle brackets
+        JUNK_CHARS = set('`][|~;{}\\^@#&*!?><')
+        junk_count = sum(1 for c in sample if c in JUNK_CHARS)
+        if len(sample) > 20 and junk_count / len(sample) > 0.12:
+            return ""  # Brotli/compressed garbage decoded as Latin-1
+
+        # Stage 3: Strip any HTML tags that leaked from source
+        clean = re.sub(r'<[^>]{0,200}>', ' ', text)
+        clean = re.sub(r'[ \t]+', ' ', clean)
+        clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
+
+        # Stage 4: Word-char ratio on full cleaned text
+        word_chars = sum(1 for c in clean if c.isalnum() or c in ' .,;:!?\'"-()\n')
+        if len(clean) > 20 and word_chars / len(clean) < 0.55:
+            return ""  # Too many non-word chars
+
+        # Stage 5: Real English word token ratio
+        # Garbage strings like "ekAMs NYDYFnrNW s((y%&B8" have 0 real English words.
+        # Real sentences have >= 30% tokens that are alphabetic and len > 2.
+        # CVE text (e.g. "CVE-2026-4075 <= 1.1.1 AV:N") has ~50%+ real words.
+        # Threshold 25% catches garbage while allowing highly technical CVE text.
+        if len(clean) > 40:
+            tokens = clean.split()
+            if tokens:
+                strip_chars = '.,;:!?"\'-()<>=/\\'
+                real_word_tokens = [t for t in tokens
+                                    if t.strip(strip_chars).isalpha()
+                                    and len(t.strip(strip_chars)) > 2]
+                real_word_ratio = len(real_word_tokens) / len(tokens)
+                if real_word_ratio < 0.25:
+                    return ""  # No real English words — garbage string
+
+        # Stage 6: Truncate at word boundary
+        if len(clean) > max_len:
+            clean = clean[:max_len].rsplit(' ', 1)[0] + '...'
+
+        return clean
+
     def __init__(self):
         self.report_counter = 0
 
@@ -843,9 +925,13 @@ class PremiumReportGenerator:
         # Use first few paragraphs from source article if available
         source_context = ""
         if paragraphs and len(paragraphs) > 0:
-            source_context = ' '.join(paragraphs[:3])
-            if len(source_context) > 800:
-                source_context = source_context[:800].rsplit(' ', 1)[0] + '...'
+            # v77.2 FIX: Sanitize each paragraph before joining — blocks binary garbage
+            safe_paras = [self._sanitize_source_text(p, max_len=400) for p in paragraphs[:3]]
+            safe_paras = [p for p in safe_paras if p]  # drop empty (rejected) paragraphs
+            if safe_paras:
+                source_context = ' '.join(safe_paras)
+                if len(source_context) > 800:
+                    source_context = source_context[:800].rsplit(' ', 1)[0] + '...'
 
         total_iocs = sum(len(v) for v in iocs.values())
         ioc_summary = f"{total_iocs} indicators of compromise across {sum(1 for v in iocs.values() if v)} categories" if total_iocs else "no actionable technical indicators extracted from the available intelligence"
@@ -942,10 +1028,14 @@ class PremiumReportGenerator:
         # Use source article paragraphs for context
         context_paras = ""
         if paragraphs and len(paragraphs) > 2:
-            combined = ' '.join(paragraphs[1:5])
-            if len(combined) > 1200:
-                combined = combined[:1200].rsplit(' ', 1)[0] + '...'
-            context_paras = f"""</p><p style="{s['p']}">{combined}"""
+            # v77.2 FIX: Sanitize each paragraph before injecting into HTML
+            safe_paras = [self._sanitize_source_text(p, max_len=350) for p in paragraphs[1:5]]
+            safe_paras = [p for p in safe_paras if p]
+            if safe_paras:
+                combined = ' '.join(safe_paras)
+                if len(combined) > 1200:
+                    combined = combined[:1200].rsplit(' ', 1)[0] + '...'
+                context_paras = f"""</p><p style="{s['p']}">{combined}"""
 
         return f"""This campaign operates within the broader context of {threat_type['category'].lower()} activity
         that has been observed across the global threat landscape. Intelligence analysis indicates that

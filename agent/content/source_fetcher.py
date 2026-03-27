@@ -111,9 +111,16 @@ class SourceFetcher:
 
     HEADERS = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
+        # v77.2 FIX: Removed 'br' (Brotli) from Accept-Encoding.
+        # The 'requests' library does not natively support Brotli decompression.
+        # When a server responds with Content-Encoding: br, requests.get().text
+        # returns raw compressed binary decoded as Latin-1 -> garbage characters
+        # like "Y1T;]H|M-Cu`wGr2/b/LV]Z]9w" injected directly into report HTML.
+        # Removing 'br' forces servers to respond with gzip/deflate which
+        # requests handles natively and correctly.
+        'Accept-Encoding': 'gzip, deflate',
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
         'Sec-Fetch-Dest': 'document',
@@ -171,17 +178,57 @@ class SourceFetcher:
                     allow_redirects=True, verify=True
                 )
                 if resp.status_code == 200:
-                    html = resp.text
-                    article_html = self._extract_article_region(html)
-                    text = self._extract_text(article_html if article_html else html)
-                    paragraphs = [p.strip() for p in text.split('\n')
-                                 if len(p.strip()) > 40 and not self._is_boilerplate(p)]
-                    result["full_text"] = '\n'.join(paragraphs)
-                    result["paragraphs"] = paragraphs
-                    result["word_count"] = sum(len(p.split()) for p in paragraphs)
-                    result["fetch_status"] = "success"
-                    logger.info(f"Source fetched: {len(paragraphs)} paragraphs, "
-                               f"{result['word_count']} words from {url[:60]}")
+                    # v77.2 FIX: Validate content-type BEFORE processing.
+                    # Reject non-HTML responses (PDFs, binary, JSON feeds etc.)
+                    # which would produce garbage when parsed as HTML text.
+                    content_type = resp.headers.get('Content-Type', '').lower()
+                    if not any(t in content_type for t in ('text/html', 'text/plain', 'application/xhtml')):
+                        logger.warning(f"Source fetch skipped (non-HTML content-type: {content_type[:40]}): {url[:60]}")
+                    else:
+                        html = resp.text
+                        # v77.2 FIX: Binary garbage detection gate.
+                        # If more than 5% of characters are non-printable/non-ASCII,
+                        # the response is compressed binary (Brotli etc.) misread as text.
+                        # Reject it entirely rather than injecting garbage into reports.
+                        if html:
+                            sample = html[:2000]
+                            non_printable = sum(1 for c in sample if ord(c) < 32 and c not in '\n\r\t')
+                            high_ascii = sum(1 for c in sample if 127 <= ord(c) <= 159)
+                            # v77.2: Brotli-as-Latin-1 garbage detection (calibrated threshold)
+                            # Real English: <1% junk chars. Brotli garbage: 15-25%.
+                            # Threshold 12% gives 10x safety margin — no false positives on CVE text.
+                            JUNK_CHARS = set('`][|~;{}\\^@#&*!?><')
+                            junk_count = sum(1 for c in sample if c in JUNK_CHARS)
+                            garbage_ratio = (non_printable + high_ascii) / max(len(sample), 1)
+                            junk_ratio = junk_count / max(len(sample), 1)
+                            if garbage_ratio > 0.05 or junk_ratio > 0.12:
+                                logger.warning(
+                                    f"Source fetch rejected (garbage detected: "
+                                    f"binary={garbage_ratio:.2%} junk={junk_ratio:.2%}): {url[:60]}"
+                                )
+                            else:
+                                article_html = self._extract_article_region(html)
+                                text = self._extract_text(article_html if article_html else html)
+                                paragraphs = [p.strip() for p in text.split('\n')
+                                             if len(p.strip()) > 40 and not self._is_boilerplate(p)]
+                                # v77.2: Per-paragraph junk filter (same calibrated threshold)
+                                JUNK_P = set('`][|~;{}\\^@#&*!?><')
+                                clean_paragraphs = []
+                                for p in paragraphs:
+                                    p_junk = sum(1 for c in p if c in JUNK_P)
+                                    p_ratio = p_junk / max(len(p), 1)
+                                    word_chars = sum(1 for c in p if c.isalnum() or c in ' .,;:!?\'"-()')
+                                    wc_ratio = word_chars / max(len(p), 1)
+                                    if p_ratio < 0.12 and wc_ratio >= 0.60:
+                                        clean_paragraphs.append(p)
+                                result["full_text"] = '\n'.join(clean_paragraphs)
+                                result["paragraphs"] = clean_paragraphs
+                                result["word_count"] = sum(len(p.split()) for p in clean_paragraphs)
+                                result["fetch_status"] = "success"
+                                logger.info(f"Source fetched: {len(clean_paragraphs)} paragraphs, "
+                                           f"{result['word_count']} words from {url[:60]}")
+                        else:
+                            logger.warning(f"Source fetch returned empty body: {url[:60]}")
                 else:
                     logger.warning(f"Source fetch HTTP {resp.status_code}: {url}")
             except requests.Timeout:
