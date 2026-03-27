@@ -5,7 +5,8 @@ telegram_alerts.py — SENTINEL APEX Real-Time Alert Engine
 Delivers instant threat notifications to Telegram.
 Non-blocking, fault-tolerant, never crashes the pipeline.
 
-Activation: Add TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID to GitHub Secrets.
+Channel : https://t.me/cyberdudebivashSentinelApex
+Activation: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID in GitHub Secrets ✅ ACTIVE
 Thresholds : HIGH (>=7.0) and CRITICAL (>=9.0) threats only.
 """
 
