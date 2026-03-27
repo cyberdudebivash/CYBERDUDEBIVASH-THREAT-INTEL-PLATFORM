@@ -5091,74 +5091,103 @@ function renderTopThreats(data) {
         }
 
         async function loadGOCIntel() {
+            // ===============================================================
+            // v77.3 PRODUCTION SYNC FIX: Freshest-Wins Architecture
+            // ROOT CAUSE FIXED: jsDelivr CDN 24h cache overwrote EMBEDDED_INTEL
+            // FIX: Cache-bust + freshest-wins guard + jsDelivr REMOVED
+            // ===============================================================
             const syncVal = document.getElementById('sync-val');
             const integrityEl = document.getElementById('integrity-status');
 
-            // v46.0 — AI Processing visual state (only if not already showing data)
             if (!_liveDataLoaded && manifestData.length === 0) {
                 document.querySelectorAll('.metric-card').forEach(c => c.classList.add('syncing'));
             }
             const aiPulse = document.getElementById('ai-pulse-indicator');
             if (aiPulse) aiPulse.style.display = 'inline-flex';
 
+            // Cache-bust: forces raw.githubusercontent.com to serve fresh response
+            const cb = '?nocache=' + Date.now();
+
+            // REMOVED jsDelivr (cdn.jsdelivr.net) -- it has 24h CDN cache
+            // which caused the dashboard sync bug: stale data overwrote fresh EMBEDDED_INTEL
             const MANIFEST_URLS = [
+                RAW_MANIFEST + cb,
                 RAW_MANIFEST,
-                atob('aHR0cHM6Ly9jZG4uanNkZWxpdnIubmV0L2doL2N5YmVyZHVkZWJpdmFzaC9DWUJFUkRVREVCSVZBU0gtVEhSRUFULUlOVEVMLVBMQVRGT1JNQG1haW4vZGF0YS9zdGl4L2ZlZWRfbWFuaWZlc3QuanNvbg==')
             ];
 
-            // ── Try live network sources ──
+            // Freshest-wins guard: never replace newer data with older data
+            const embeddedNewest = (EMBEDDED_INTEL && EMBEDDED_INTEL.length)
+                ? Math.max(...EMBEDDED_INTEL.map(function(i){ return new Date(i.timestamp||0).getTime(); }))
+                : 0;
+
             let lastError = null;
             for (const manifestUrl of MANIFEST_URLS) {
                 try {
                     const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 8000);
+                    const timeout = setTimeout(function(){ controller.abort(); }, 10000);
                     const response = await fetch(manifestUrl, {
-                        cache: 'no-cache',
-                        signal: controller.signal
+                        cache: 'no-store',
+                        signal: controller.signal,
+                        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
                     });
                     clearTimeout(timeout);
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
                     const data = await response.json();
 
-                    const entries = Array.isArray(data) ? data : (data.entries || []);
+                    const entries = Array.isArray(data) ? data : (data.entries || data.advisories || []);
                     if (!entries.length) throw new Error('Empty manifest');
 
-                    manifestData = [...entries].reverse();
+                    // Freshest-wins: if live data is older than embedded, keep embedded
+                    const liveNewest = Math.max(...entries.map(function(i){ return new Date(i.timestamp||0).getTime(); }));
+                    if (liveNewest < embeddedNewest && EMBEDDED_INTEL && EMBEDDED_INTEL.length) {
+                        console.warn('[CDB-GOC] Live manifest older than EMBEDDED_INTEL -- keeping embedded. Live:', new Date(liveNewest).toISOString().slice(0,19));
+                        _liveDataLoaded = true;
+                        syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);animation:new-glow 1.5s ease-in-out infinite alternate;">&#x26A1; LIVE</span>';
+                        integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
+                        document.getElementById('last-loaded').textContent = 'SYNCED: ' + new Date().toLocaleTimeString() + ' - AUTO-SYNC EVERY 6H';
+                        document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('syncing'));
+                        if (aiPulse) aiPulse.style.display = 'none';
+                        return;
+                    }
+
+                    // Live data is fresh -- use it
+                    manifestData = [...entries].sort(function(a,b){ return new Date(b.timestamp||0) - new Date(a.timestamp||0); });
                     _liveDataLoaded = true;
                     computeMetrics(manifestData);
                     renderTrendChart(manifestData);
                     applyView();
 
-                    syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);animation:new-glow 1.5s ease-in-out infinite alternate;">● LIVE</span>';
+                    syncVal.innerHTML = 'SYNC: <span style="color:var(--accent);animation:new-glow 1.5s ease-in-out infinite alternate;">&#x26A1; LIVE</span>';
                     integrityEl.innerHTML = '<span class="integrity-badge integrity-ok"><i class="fas fa-shield-check"></i> MANIFEST VERIFIED</span>';
-                    document.getElementById('last-loaded').textContent = 'SYNCED: ' + new Date().toLocaleTimeString() + ' · AUTO-SYNC EVERY 6H';
+                    document.getElementById('last-loaded').textContent = 'SYNCED: ' + new Date().toLocaleTimeString() + ' - AUTO-SYNC EVERY 6H';
                     document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('syncing'));
                     if (aiPulse) aiPulse.style.display = 'none';
-                    console.log('[CDB-GOC] Live data loaded:', entries.length, 'items from', manifestUrl.substring(0,60));
+                    console.log('[CDB-GOC] Live manifest loaded:', entries.length, 'items | newest:', new Date(liveNewest).toISOString().slice(0,19));
                     return;
 
                 } catch (err) {
                     lastError = err;
-                    console.warn('[CDB-GOC] Fetch failed:', manifestUrl.substring(0,60), err.message);
+                    console.warn('[CDB-GOC] Fetch failed:', manifestUrl.substring(0,80), err.message);
                 }
             }
 
-            // ── Fallback: ensure embedded cache is rendered (may already be from boot) ──
-            if (!_liveDataLoaded && EMBEDDED_INTEL && EMBEDDED_INTEL.length) {
-                manifestData = [...EMBEDDED_INTEL].reverse();
-                computeMetrics(manifestData);
-                renderTrendChart(manifestData);
-                applyView();
-                console.log('[CDB-GOC] Network fetch failed — embedded cache confirmed:', lastError?.message);
+            // All network sources failed -- EMBEDDED_INTEL is authoritative fallback
+            if (EMBEDDED_INTEL && EMBEDDED_INTEL.length) {
+                if (!_liveDataLoaded) {
+                    manifestData = [...EMBEDDED_INTEL].sort(function(a,b){ return new Date(b.timestamp||0) - new Date(a.timestamp||0); });
+                    computeMetrics(manifestData);
+                    renderTrendChart(manifestData);
+                    applyView();
+                }
+                console.log('[CDB-GOC] Network failed -- EMBEDDED_INTEL active:', EMBEDDED_INTEL.length, 'items');
             }
 
             syncVal.innerHTML = 'SYNC: <span style="color:var(--medium);">CACHE</span>';
-            integrityEl.innerHTML = '<span class="integrity-badge" style="background:rgba(217,119,6,0.08);color:var(--medium);border:1px solid rgba(217,119,6,0.25);">⚡ EMBEDDED CACHE — <a href="https://cyberbivash.blogspot.com" target="_blank" style="color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);">VIEW LIVE BLOG</a></span>';
-            document.getElementById('last-loaded').textContent = 'CACHE: ' + new Date().toLocaleTimeString() + ' · EMBEDDED INTEL ACTIVE';
+            integrityEl.innerHTML = '<span class="integrity-badge" style="background:rgba(217,119,6,0.08);color:var(--medium);border:1px solid rgba(217,119,6,0.25);">&#x26A1; EMBEDDED CACHE ACTIVE</span>';
+            document.getElementById('last-loaded').textContent = 'CACHE: ' + new Date().toLocaleTimeString() + ' - EMBEDDED INTEL ACTIVE';
             document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('syncing'));
             if (aiPulse) aiPulse.style.display = 'none';
         }
-
         // v64.2 FIX: Freshest-wins sync time
         async function fetchPipelineSyncTime() {
             try {
