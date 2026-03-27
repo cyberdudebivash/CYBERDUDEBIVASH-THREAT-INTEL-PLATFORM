@@ -2,7 +2,7 @@
   "threat_id": "thr-200a8ac8b928",
   "title": "Fake npm Install Messages Hide RAT Malware in New Open Source Supply Chain Campa",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 Fake npm Install Messages Hide RAT Malware in New Open Sourc\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/27\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*teletype.in*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - Fake npm Install Messages Hide RAT Malware in New Open Sourc\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/27\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*teletype.in*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"teletype.in\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"teletype.in\")"
   },
