@@ -2,7 +2,7 @@
   "threat_id": "thr-c6b8aa05e051",
   "title": "CVE-2026-4861 - Wavlink WL-NU516U1 nas.cgi ftext stack-based overflow",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-4861 - Wavlink WL-NU516U1 nas.cgi ftext stack-based\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/26\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*nas.cgi*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 \u2014 CVE-2026-4861 - Wavlink WL-NU516U1 nas.cgi ftext stack-based\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/27\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*nas.cgi*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"nas.cgi\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"nas.cgi\")"
   },
