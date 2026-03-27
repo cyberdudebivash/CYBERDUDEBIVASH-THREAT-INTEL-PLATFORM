@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-07ee9e15e6cb
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Telnyx PyPI Package With 742,000 downloads Compromised in TeamPCP Supply Chain Attack"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
