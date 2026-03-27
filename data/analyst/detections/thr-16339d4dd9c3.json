@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-16339d4dd9c3",
+  "title": "GhostClaw AI Assisted Malware Attacking macOS Users to Deploy Credential-Stealin",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 \u2014 GhostClaw AI Assisted Malware Attacking macOS Users to Deplo\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/27\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*monitor.js*'\n            - '*setup.js*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"monitor.js\",\n              \"setup.js\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"monitor.js\", \"setup.js\")"
+  },
+  "rule_count": 3
+}
