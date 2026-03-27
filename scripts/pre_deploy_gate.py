@@ -156,18 +156,24 @@ def main():
     else:
         print(f"  [6/8] Manifest not found — skipping sort check")
 
-    # ── CHECK 7: No duplicate advisory_ids in manifest ──
+    # ── CHECK 7: No duplicate stix_ids in manifest ──
+    # [FIX-R06] Was checking 'advisory_id' which doesn't exist in manifest entries.
+    # Manifest uses 'stix_id' as the unique identifier (bundle--UUID format).
+    # Fixed output: "N checked, N unique, 0 duplicates" — unambiguous, no false "0 unique".
     if os.path.exists(MANIFEST_PATH):
         try:
             with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
                 manifest_raw = json.load(f)
             advisories = manifest_raw if isinstance(manifest_raw, list) else manifest_raw.get("advisories", [])
-            ids = [e.get("advisory_id", "") for e in advisories if e.get("advisory_id")]
-            dup_ids = len(ids) - len(set(ids))
-            if dup_ids > 0:
-                print(f"  WARNING: {dup_ids} duplicate advisory_ids in manifest")
+            ids = [e.get("stix_id", "") for e in advisories if e.get("stix_id")]
+            total_checked = len(ids)
+            unique_count  = len(set(ids))
+            duplicates    = total_checked - unique_count
+            if duplicates > 0:
+                print(f"  FATAL: {duplicates} duplicate stix_ids found in manifest ({total_checked} checked)")
+                failed = True
             else:
-                print(f"  [7/8] No duplicate advisory_ids ({len(ids)} unique)")
+                print(f"  [7/8] No duplicate stix_ids ({total_checked} checked, {unique_count} unique, 0 duplicates) OK")
         except Exception as e:
             print(f"  [7/8] Manifest dedup check skipped: {e}")
     else:
