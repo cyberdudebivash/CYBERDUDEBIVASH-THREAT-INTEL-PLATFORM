@@ -26,10 +26,14 @@ CDB_RSS_FEED = "https://cyberdudebivash-news.blogspot.com/feeds/posts/default?al
 
 RSS_FEEDS = [
     # -- TIER 1: Premium Breaking News & Global Incidents --
-    "https://www.bleepingcomputer.com/feed/",
+    # [FIX-R03] BleepingComputer REMOVED — CDN permanently blocks CI runner IPs
+    #           HTTPError on every run since v77.0. Replaced with SC Magazine.
+    # [FIX-R03] Dark Reading REMOVED — HTTP 403 on every article fetch (run #580)
+    #           Returns feed entries but blocks source fetches. Net value = zero.
+    "https://www.scmagazine.com/feed",
     "https://feeds.feedburner.com/TheHackersNews",
     "https://krebsonsecurity.com/feed/",
-    "https://www.darkreading.com/rss.xml",
+    "https://cybersecuritynews.com/feed/",
     "https://www.securityweek.com/feed/",
     "https://therecord.media/feed/",
     "https://cyberscoop.com/feed/",
@@ -86,15 +90,12 @@ RSS_FEEDS = [
     # Replacing: cloud.google.com (0 entries), talos (0), tenable (0),
     # qualys (0), sophos (0), fortinet (0), proofpoint (0), trendmicro (0),
     # symantec (0), virustotal (0), nakedsecurity (0), tripwire (0)
+    # [FIX-R03] Dark Reading attacks feed REMOVED — HTTP 403 on all source fetches
+    # [FIX-R03] BleepingComputer category feeds REMOVED — CDN blocks CI runner IPs
     "https://feeds.feedburner.com/eset/blog",          # ESET Research
     "https://www.recordedfuture.com/feed",              # Recorded Future
-    "https://www.darkreading.com/attacks-breaches/rss.xml",  # Dark Reading attacks
-    "https://www.scmagazine.com/feed",                 # SC Media
     "https://www.helpnetsecurity.com/feed/",           # Help Net Security
     "https://threatpost.com/feed/",                    # Threatpost
-    "https://cybersecuritynews.com/feed/",             # CyberSecurityNews
-    "https://www.bleepingcomputer.com/feed/?category=Vulnerabilities",
-    "https://www.bleepingcomputer.com/feed/?category=Malware",
     "https://seclists.org/rss/fulldisclosure.rss",     # Full Disclosure
     "https://www.cert.be/en/rss",                      # CERT Belgium
     "https://bsi.bund.de/SiteGlobals/Functions/RSSFeed/RSSNewsfeed_Cybersicherheit/RSSNewsfeed_Cybersicherheit_node.xml",

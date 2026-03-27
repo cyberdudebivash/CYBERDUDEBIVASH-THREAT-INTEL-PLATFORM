@@ -5,6 +5,12 @@ Final Production Version: Corrected OAuth2 Refresh Flow.
 """
 import os
 import logging
+# [FIX-R05] Suppress oauth2client file_cache warning permanently.
+# The warning "file_cache is only supported with oauth2client<4.0.0" is emitted
+# by the googleapiclient discovery module at import time regardless of the
+# GOOGLE_OAUTH_DISABLE_FILE_CACHE env var. Suppressing at logger level is the
+# only reliable fix — the cache is not used, this is purely cosmetic noise.
+logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
