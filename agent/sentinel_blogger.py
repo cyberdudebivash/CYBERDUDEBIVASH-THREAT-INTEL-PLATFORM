@@ -287,7 +287,14 @@ def main():
             except Exception as _qe:
                 logger.debug(f"  Quality gate error (non-critical): {_qe}")
 
-        result = process_entry(entry, service, feed_source="CDB-NEWS")
+        # v77.2 PIPELINE CRASH GUARD: wrap process_entry so a single article
+        # error (NameError, AttributeError, timeout etc.) never kills the
+        # whole pipeline. Crash on one entry = log + continue to next entry.
+        try:
+            result = process_entry(entry, service, feed_source="CDB-NEWS")
+        except Exception as _pe:
+            logger.error(f"  [CRASH-GUARD] process_entry failed for '{entry['title'][:60]}': {_pe}")
+            result = False
         if result:
             published_count += 1
             if _TELEMETRY_OK and _telemetry:
@@ -339,7 +346,13 @@ def main():
                 except Exception as _qe:
                     logger.debug(f"  Quality gate error (non-critical): {_qe}")
 
-            result = process_entry(entry, service, feed_source=feed_url[:30])
+            # v77.2 PIPELINE CRASH GUARD: same as Phase 1 — one bad article
+            # must never crash the entire run and block all remaining entries.
+            try:
+                result = process_entry(entry, service, feed_source=feed_url[:30])
+            except Exception as _pe:
+                logger.error(f"  [CRASH-GUARD] process_entry failed for '{entry['title'][:60]}': {_pe}")
+                result = False
             if result:
                 published_count += 1
                 if _TELEMETRY_OK and _telemetry:
@@ -603,6 +616,43 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
     )
     report_word_count = len(re.sub(r"<[^>]+>", " ", report_html).split())
     logger.info(f"  -> Report generated: ~{report_word_count} words (target: 2500+)")
+
+    # -- STEP 8b: Report Quality Gate (v77.2) --------------------------------
+    # Validates the generated HTML before publishing to Blogger.
+    # Catches: junk chars surviving into final HTML, Brotli garbage, empty reports,
+    # suspiciously short reports, and structural integrity issues.
+    JUNK_CHARS_SET = set('`][|~;{}\\^@#&*!?><')
+    _html_text_only = re.sub(r"<[^>]+>", " ", report_html)
+    _junk_in_report = sum(1 for c in _html_text_only[:3000] if c in JUNK_CHARS_SET)
+    _junk_ratio = _junk_in_report / max(len(_html_text_only[:3000]), 1)
+    _quality_failures = []
+
+    if report_word_count < 300:
+        _quality_failures.append(f"report too short ({report_word_count} words, min=300)")
+    if _junk_ratio > 0.08:
+        _quality_failures.append(f"junk char ratio too high ({_junk_ratio:.2%}, max=8%)")
+    if '&#' in report_html:
+        # Count numeric HTML entities — sign of unescaped non-ASCII leaking through
+        _entity_count = len(re.findall(r'&#\d+;', report_html))
+        if _entity_count > 5:
+            _quality_failures.append(f"{_entity_count} raw &#NNN; entities in HTML (junk chars)")
+    if '<h2' not in report_html:
+        _quality_failures.append("missing section headers (structural failure)")
+
+    if _quality_failures:
+        logger.error(
+            f"  [QUALITY-GATE] Report BLOCKED for '{headline[:60]}': "
+            f"{'; '.join(_quality_failures)}"
+        )
+        # Save to pending queue as failed — will retry on next run with clean content
+        try:
+            from agent.v56_publish_guard.publisher import save_to_pending_queue
+            save_to_pending_queue(headline, {"title": headline, "content": report_html, "labels": []})
+        except Exception:
+            pass
+        return False  # Skip publishing this report
+
+    logger.info(f"  [QUALITY-GATE] Report PASSED ({report_word_count} words, junk={_junk_ratio:.2%})")
 
     # -- STEP 9: Smart labels -----------------------------------------------
     labels = _generate_smart_labels(headline, severity, tlp, feed_source, extracted_iocs)
