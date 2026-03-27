@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-feed_reliability.py — CyberDudeBivash SENTINEL APEX ULTRA v1.0.0
+feed_reliability.py - CyberDudeBivash SENTINEL APEX ULTRA v1.0.0
 Feed Pipeline Reliability Layer
 
 Non-breaking addition to the existing feed pipeline.
@@ -46,9 +46,9 @@ except ImportError:
 logger = logging.getLogger("CDB-FeedReliability")
 
 
-# ─── Configuration ────────────────────────────────────────────────────────────
+# --- Configuration ------------------------------------------------------------
 
-DEFAULT_TIMEOUT = 25          # seconds — slightly higher than existing 20s
+DEFAULT_TIMEOUT = 25          # seconds - slightly higher than existing 20s
 MAX_RETRIES = 3               # network retries per feed
 BACKOFF_FACTOR = 1.5          # exponential backoff multiplier
 RETRY_STATUS_CODES = {429, 500, 502, 503, 504}  # HTTP codes that trigger retry
@@ -61,7 +61,7 @@ USER_AGENTS = [
 ]
 
 
-# ─── Retry-Enabled HTTP Session ───────────────────────────────────────────────
+# --- Retry-Enabled HTTP Session -----------------------------------------------
 
 def _build_retry_session(
     max_retries: int = MAX_RETRIES,
@@ -72,7 +72,7 @@ def _build_retry_session(
     Uses urllib3's Retry adapter for HTTP 429/5xx and connection errors.
     """
     if not _REQUESTS_AVAILABLE:
-        raise ImportError("requests library not available — install with: pip install requests")
+        raise ImportError("requests library not available - install with: pip install requests")
 
     session = requests.Session()
 
@@ -143,7 +143,7 @@ def reliable_get(
             feed_health.record_success(url, latency_ms=latency_ms)
             return response
         elif response.status_code == 429:
-            logger.warning(f"[FeedReliability] Rate limited ({url}) — backing off")
+            logger.warning(f"[FeedReliability] Rate limited ({url}) - backing off")
             feed_health.record_failure(url, error=f"HTTP 429 Rate Limited")
             return response
         else:
@@ -160,14 +160,14 @@ def reliable_get(
         session.close()
 
 
-# ─── Feed Health Tracker ──────────────────────────────────────────────────────
+# --- Feed Health Tracker ------------------------------------------------------
 
 class FeedHealthTracker:
     """
     Tracks per-feed reliability metrics across pipeline runs.
 
     Thread-safe for read/write within a single process.
-    Persists in-memory only — resets on process restart.
+    Persists in-memory only - resets on process restart.
     For persistent health state, call get_summary() and save to JSON.
     """
 
@@ -272,11 +272,11 @@ class FeedHealthTracker:
             self._feeds.clear()
 
 
-# Module-level singleton — import and use anywhere in the pipeline
+# Module-level singleton - import and use anywhere in the pipeline
 feed_health = FeedHealthTracker()
 
 
-# ─── Utility: Check Feed Connectivity ────────────────────────────────────────
+# --- Utility: Check Feed Connectivity ----------------------------------------
 
 def probe_feeds(feed_urls: List[str], timeout: int = 10) -> Dict[str, str]:
     """
@@ -302,7 +302,7 @@ def probe_feeds(feed_urls: List[str], timeout: int = 10) -> Dict[str, str]:
     return results
 
 
-# ─── CLI: Feed Health Check ───────────────────────────────────────────────────
+# --- CLI: Feed Health Check ---------------------------------------------------
 
 if __name__ == "__main__":
     """
@@ -318,17 +318,17 @@ if __name__ == "__main__":
         RSS_FEEDS = []
 
     print("=" * 65)
-    print("CDB SENTINEL APEX — Feed Connectivity Probe")
+    print("CDB SENTINEL APEX - Feed Connectivity Probe")
     print("=" * 65)
 
     if not RSS_FEEDS:
-        print("⚠️  No RSS_FEEDS found in agent.config")
+        print("[!]  No RSS_FEEDS found in agent.config")
     else:
         print(f"Probing {len(RSS_FEEDS)} feeds...")
         results = probe_feeds(RSS_FEEDS, timeout=15)
         ok = sum(1 for v in results.values() if v == "ok")
         for url, status in results.items():
-            icon = "✅" if status == "ok" else "❌"
+            icon = "?" if status == "ok" else "?"
             print(f"  {icon} {status:20s}  {url[:60]}")
         print(f"\n{ok}/{len(results)} feeds reachable")
 

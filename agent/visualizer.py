@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-visualizer.py — CyberDudeBivash v1.0
+visualizer.py - CyberDudeBivash v1.0
 Spatial Intelligence: Heat Map Generation for Global Threats.
 """
 import logging

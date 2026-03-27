@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — Subdomain Takeover Detector
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - Subdomain Takeover Detector
 ===================================================================
 Detects potential subdomain takeover vulnerabilities via
 DNS CNAME analysis + HTTP response fingerprint matching.
@@ -79,7 +79,7 @@ class TakeoverDetector:
                                 "indicator": fp,
                                 "severity": "HIGH",
                             })
-                            logger.warning(f"[TAKEOVER] {host} → {provider}")
+                            logger.warning(f"[TAKEOVER] {host} -> {provider}")
                             break
         return findings
 

@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — Auto Rule Generation
+SENTINEL APEX v27.0 - Auto Rule Generation
 ============================================
 AI-powered detection rule synthesis.
 """

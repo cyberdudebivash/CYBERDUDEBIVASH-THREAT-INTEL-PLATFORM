@@ -1,15 +1,15 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX v49 — Intelligence API Server
+CYBERDUDEBIVASH SENTINEL APEX v49 - Intelligence API Server
 Production-grade FastAPI server exposing threat intelligence endpoints.
 
 Endpoints:
-    /api/ioc/search         — Search IOCs across all intelligence datasets
-    /api/cve/intelligence   — CVE intelligence with CVSS/EPSS enrichment
-    /api/threat-actors      — Threat actor registry and attribution
-    /api/campaigns          — Campaign correlation and tracking
-    /api/detection-rules    — Detection rule generation (Sigma/YARA/Suricata)
-    /api/stix/bundle        — STIX 2.1 bundle export
-    /api/health             — Platform health check
+    /api/ioc/search         - Search IOCs across all intelligence datasets
+    /api/cve/intelligence   - CVE intelligence with CVSS/EPSS enrichment
+    /api/threat-actors      - Threat actor registry and attribution
+    /api/campaigns          - Campaign correlation and tracking
+    /api/detection-rules    - Detection rule generation (Sigma/YARA/Suricata)
+    /api/stix/bundle        - STIX 2.1 bundle export
+    /api/health             - Platform health check
 
 Authentication: API key via X-API-Key header
 Rate Limiting: Tier-based (FREE/PRO/ENTERPRISE)
@@ -551,11 +551,11 @@ key_manager = APIKeyManager()
 intel_loader = IntelligenceLoader()
 
 app = FastAPI(
-    title="CYBERDUDEBIVASH SENTINEL APEX — Intelligence API",
+    title="CYBERDUDEBIVASH SENTINEL APEX - Intelligence API",
     description=(
         "Enterprise threat intelligence API providing IOC search, CVE intelligence, "
         "threat actor tracking, campaign correlation, and detection rule generation. "
-        "© 2026 CyberDudeBivash Pvt. Ltd."
+        "(C) 2026 CyberDudeBivash Pvt. Ltd."
     ),
     version="49.0.0",
     docs_url="/api/docs",
@@ -762,7 +762,7 @@ async def usage_stats(request: Request, auth=Depends(verify_api_key)):
 
 
 # ---------------------------------------------------------------------------
-# Admin Endpoints (internal — protected by master key)
+# Admin Endpoints (internal - protected by master key)
 # ---------------------------------------------------------------------------
 
 ADMIN_KEY = os.environ.get("CDB_ADMIN_KEY", "")

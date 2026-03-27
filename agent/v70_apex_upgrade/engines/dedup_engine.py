@@ -1,13 +1,13 @@
 """
-SENTINEL APEX v70.3 — Optimized Deduplication Engine
+SENTINEL APEX v70.3 - Optimized Deduplication Engine
 ======================================================
-Performance fix: replaces O(n²) title similarity with:
+Performance fix: replaces O(n^2) title similarity with:
 1. Exact dedup_key match (O(n) hash lookup)
 2. URL dedup (O(n) hash lookup)
 3. CVE-set overlap (O(n) inverted index, only checks pairs sharing CVEs)
 4. Title similarity ONLY on short candidate lists from CVE/URL groups
 
-Target: 15.86s → <2s for 400 items.
+Target: 15.86s -> <2s for 400 items.
 """
 
 import hashlib
@@ -88,8 +88,8 @@ class DedupEngine:
         if len(advisories) < 2:
             return advisories
 
-        # Phase 1: Exact dedup_key — O(n) hash grouping
-        key_map: Dict[str, int] = {}  # dedup_key → first index
+        # Phase 1: Exact dedup_key - O(n) hash grouping
+        key_map: Dict[str, int] = {}  # dedup_key -> first index
         merged_indices: Set[int] = set()
         advs = list(advisories)
 
@@ -103,7 +103,7 @@ class DedupEngine:
             else:
                 key_map[dk] = idx
 
-        # Phase 2: URL dedup — O(n) hash grouping
+        # Phase 2: URL dedup - O(n) hash grouping
         url_map: Dict[str, int] = {}
         for idx, adv in enumerate(advs):
             if idx in merged_indices:
@@ -120,7 +120,7 @@ class DedupEngine:
             else:
                 url_map[url] = idx
 
-        # Phase 3: CVE overlap — inverted index (only check pairs sharing CVEs)
+        # Phase 3: CVE overlap - inverted index (only check pairs sharing CVEs)
         cve_to_indices: Dict[str, List[int]] = defaultdict(list)
         for idx, adv in enumerate(advs):
             if idx in merged_indices or not adv.cves:
@@ -151,7 +151,7 @@ class DedupEngine:
                         merged_indices.add(b)
                         self._stats["duplicates_found"] += 1
 
-        # Phase 4: Title fingerprint dedup — O(n) pre-grouping
+        # Phase 4: Title fingerprint dedup - O(n) pre-grouping
         # Only run similarity check within groups that share the same title prefix
         title_groups: Dict[str, List[int]] = defaultdict(list)
         for idx, adv in enumerate(advs):

@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v34.0 — PRECOGNITION ENGINE
+SENTINEL APEX v34.0 - PRECOGNITION ENGINE
 Predictive Threat Intelligence Pipeline
 """
 
@@ -10,7 +10,7 @@ logger = logging.getLogger("Precognition")
 
 def run():
     logger.info("====================================================")
-    logger.info("SENTINEL APEX v34.0 — PRECOGNITION ENGINE")
+    logger.info("SENTINEL APEX v34.0 - PRECOGNITION ENGINE")
     logger.info("Predictive Threat Intelligence Pipeline")
     logger.info("====================================================")
 

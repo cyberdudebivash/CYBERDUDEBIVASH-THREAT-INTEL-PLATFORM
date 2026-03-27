@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v27.0 — NLP Threat Summarizer
+CYBERDUDEBIVASH(R) SENTINEL APEX v27.0 - NLP Threat Summarizer
 ==============================================================
 AI-powered threat intelligence summarization.
 
@@ -376,9 +376,9 @@ class ThreatSummarizer:
         return min(1.0, round(score, 2))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # SINGLETON
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 _summarizer: Optional[ThreatSummarizer] = None
 
 

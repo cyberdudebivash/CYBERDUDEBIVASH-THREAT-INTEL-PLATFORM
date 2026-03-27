@@ -1,34 +1,34 @@
 #!/usr/bin/env python3
 """
-adversary_swarm.py — CYBERDUDEBIVASH® SENTINEL APEX v1.0.0
-ADVERSARY SWARM — SAFE BREACH SIMULATION ENGINE
+adversary_swarm.py - CYBERDUDEBIVASH(R) SENTINEL APEX v1.0.0
+ADVERSARY SWARM - SAFE BREACH SIMULATION ENGINE
 
 Generates safe, detection-validation Python scripts from threat intel
 (IOCs + CVEs + actor data). These scripts simulate adversary behaviour
-to verify that your EDR/SIEM/SOAR rules fire correctly — without any
+to verify that your EDR/SIEM/SOAR rules fire correctly - without any
 real malicious payload.
 
 What the generated scripts DO:
-  ✅ Create temp files with IOC-derived names and metadata
-  ✅ Write safe canary registry keys (HKCU\Software\CDB-SWARM-TEST-*)
-  ✅ Attempt DNS resolution of IOC domains (non-destructive probe)
-  ✅ Simulate network connection attempts (TCP connect-only, no data send)
-  ✅ Write safe file content that matches known IOC patterns
-  ✅ Generate event log entries simulating malware activity
-  ✅ Include full rollback/cleanup to restore original state
+  ? Create temp files with IOC-derived names and metadata
+  ? Write safe canary registry keys (HKCU\Software\CDB-SWARM-TEST-*)
+  ? Attempt DNS resolution of IOC domains (non-destructive probe)
+  ? Simulate network connection attempts (TCP connect-only, no data send)
+  ? Write safe file content that matches known IOC patterns
+  ? Generate event log entries simulating malware activity
+  ? Include full rollback/cleanup to restore original state
 
 What the generated scripts NEVER do:
-  ❌ No real shellcode or exploit code
-  ❌ No privilege escalation
-  ❌ No data exfiltration
-  ❌ No encryption/ransomware operations
-  ❌ No actual network data transfer
-  ❌ No persistence without explicit rollback
+  ? No real shellcode or exploit code
+  ? No privilege escalation
+  ? No data exfiltration
+  ? No encryption/ransomware operations
+  ? No actual network data transfer
+  ? No persistence without explicit rollback
 
 Architecture:
   - AdversarySwarm.generate_simulation(headline, iocs, severity, actor_tag, cves)
-      → Returns SimulationKit dataclass with .script and .path
-  - Purely additive — does not touch any existing module
+      -> Returns SimulationKit dataclass with .script and .path
+  - Purely additive - does not touch any existing module
 
 Output:
   data/simulations/CDB-SWARM-{slug}-{epoch}.py
@@ -70,7 +70,7 @@ class AdversarySwarm:
     2. Creates only canary/temp artefacts (auto-cleaned on exit)
     3. Logs every simulated action to a local file
     4. Includes a full CLEANUP section that runs on exit/error
-    5. Uses only stdlib — no external dependencies
+    5. Uses only stdlib - no external dependencies
     """
 
     # Simulation technique templates per actor
@@ -88,7 +88,7 @@ class AdversarySwarm:
     def __init__(self):
         os.makedirs(OUT_DIR, exist_ok=True)
 
-    # ── Public API ────────────────────────────────────────────────────────────
+    # -- Public API ------------------------------------------------------------
 
     def generate_simulation(
         self,
@@ -145,7 +145,7 @@ class AdversarySwarm:
 
         return kit
 
-    # ── Script Builder ────────────────────────────────────────────────────────
+    # -- Script Builder --------------------------------------------------------
 
     def _build_script(
         self,
@@ -161,10 +161,10 @@ class AdversarySwarm:
         lines = [
             '#!/usr/bin/env python3',
             '"""',
-            '╔══════════════════════════════════════════════════════════════════════════╗',
-            '║  CYBERDUDEBIVASH® SENTINEL APEX — ADVERSARY SWARM SIMULATION           ║',
-            '║  ⚠  SAFE DETECTION-VALIDATION SCRIPT — NO REAL PAYLOAD                ║',
-            '╚══════════════════════════════════════════════════════════════════════════╝',
+            '+==========================================================================+',
+            '|  CYBERDUDEBIVASH(R) SENTINEL APEX - ADVERSARY SWARM SIMULATION           |',
+            '|  [!]  SAFE DETECTION-VALIDATION SCRIPT - NO REAL PAYLOAD                |',
+            '+==========================================================================+',
             '',
             'PURPOSE:',
             '  This script simulates adversary behaviour to verify that your EDR, SIEM,',
@@ -177,19 +177,19 @@ class AdversarySwarm:
             f'  CVEs     : {", ".join(cves[:8]) or "None"}',
             '',
             'WHAT THIS SCRIPT DOES (SAFE ONLY):',
-            '  ✅ Creates temp canary files with IOC-derived names',
-            '  ✅ Writes safe canary registry keys (Windows only, auto-cleaned)',
-            '  ✅ Performs DNS resolution probes on IOC domains',
-            '  ✅ Attempts TCP connect probes to IOC IPs (no data sent)',
-            '  ✅ Writes event log simulation entries',
-            '  ✅ Auto-cleans all artefacts on exit',
+            '  ? Creates temp canary files with IOC-derived names',
+            '  ? Writes safe canary registry keys (Windows only, auto-cleaned)',
+            '  ? Performs DNS resolution probes on IOC domains',
+            '  ? Attempts TCP connect probes to IOC IPs (no data sent)',
+            '  ? Writes event log simulation entries',
+            '  ? Auto-cleans all artefacts on exit',
             '',
             'WHAT THIS SCRIPT NEVER DOES:',
-            '  ❌ No real exploit or shellcode',
-            '  ❌ No data exfiltration',
-            '  ❌ No encryption or file destruction',
-            '  ❌ No privilege escalation',
-            '  ❌ No network data transmission',
+            '  ? No real exploit or shellcode',
+            '  ? No data exfiltration',
+            '  ? No encryption or file destruction',
+            '  ? No privilege escalation',
+            '  ? No network data transmission',
             '',
             'USAGE:',
             '  python CDB-SWARM-*.py                  # Full simulation',
@@ -236,14 +236,14 @@ class AdversarySwarm:
             'def record(name, status, detail=""):',
             '    RESULTS["total"] += 1',
             '    RESULTS[status].append(name)',
-            '    icon = {"passed": "✅", "failed": "❌", "skipped": "⚠ "}.get(status, " ")',
+            '    icon = {"passed": "?", "failed": "?", "skipped": "[!] "}.get(status, " ")',
             '    log.info(f"  {icon} {name}" + (f": {detail}" if detail else ""))',
             '',
         ]
 
-        # ── IOC Data ──
+        # -- IOC Data --
         lines += [
-            '# ── Threat Intelligence Data ────────────────────────────────────────────',
+            '# -- Threat Intelligence Data --------------------------------------------',
             f'IOC_IPS     = {repr(ipv4s[:20])}',
             f'IOC_DOMAINS = {repr(domains[:15])}',
             f'IOC_HASHES  = {repr(sha256s[:10])}',
@@ -251,11 +251,11 @@ class AdversarySwarm:
             '',
         ]
 
-        # ── Simulation Functions ──
+        # -- Simulation Functions --
 
         # 1. Canary file drop simulation
         lines += [
-            '# ── SIMULATION 1: Canary File Drop ──────────────────────────────────────',
+            '# -- SIMULATION 1: Canary File Drop --------------------------------------',
             'def sim_file_drop():',
             '    """Simulate malware dropping files to disk (canary files only)."""',
             '    tmp = Path(tempfile.gettempdir())',
@@ -283,7 +283,7 @@ class AdversarySwarm:
 
         # 2. DNS probe simulation
         lines += [
-            '# ── SIMULATION 2: C2 DNS Resolution Probe ──────────────────────────────',
+            '# -- SIMULATION 2: C2 DNS Resolution Probe ------------------------------',
             'def sim_c2_dns():',
             '    """Simulate C2 domain lookups. Triggers DNS monitoring rules."""',
             '    for domain in IOC_DOMAINS[:5]:',
@@ -302,7 +302,7 @@ class AdversarySwarm:
 
         # 3. TCP connection probe
         lines += [
-            '# ── SIMULATION 3: C2 TCP Connection Probe ──────────────────────────────',
+            '# -- SIMULATION 3: C2 TCP Connection Probe ------------------------------',
             'def sim_c2_tcp():',
             '    """Simulate TCP connection attempts to C2 IPs. Triggers network rules."""',
             '    for ip in IOC_IPS[:5]:',
@@ -323,7 +323,7 @@ class AdversarySwarm:
 
         # 4. Registry canary (Windows only)
         lines += [
-            '# ── SIMULATION 4: Registry Canary Write (Windows Only) ─────────────────',
+            '# -- SIMULATION 4: Registry Canary Write (Windows Only) -----------------',
             'def sim_registry_canary():',
             '    """Write a canary registry key to simulate persistence. Windows only."""',
             '    if not IS_WINDOWS:',
@@ -355,7 +355,7 @@ class AdversarySwarm:
         # 5. Ransomware canary (if ransomware actor or CRITICAL)
         if actor_tag in ("CDB-RAN-01", "CDB-RAN-02") or severity == "CRITICAL":
             lines += [
-                '# ── SIMULATION 5: Ransomware Canary (CRITICAL Severity) ─────────────',
+                '# -- SIMULATION 5: Ransomware Canary (CRITICAL Severity) -------------',
                 'def sim_ransomware_canary():',
                 '    """',
                 '    Simulate ransomware precursor behaviour:',
@@ -369,12 +369,12 @@ class AdversarySwarm:
                 '        _CLEANUP_TARGETS.append(str(tmp / "README_RANSOM_CANARY.txt"))',
                 '        _CLEANUP_TARGETS.append(str(tmp / "STAGED_DATA_CANARY.txt"))',
                 '        (tmp / "README_RANSOM_CANARY.txt").write_text(',
-                '            "# CDB-SWARM CANARY — RANSOMWARE NOTE SIMULATION\\n"',
+                '            "# CDB-SWARM CANARY - RANSOMWARE NOTE SIMULATION\\n"',
                 '            "# This is a SAFE simulation file. No encryption occurred.\\n"',
                 f'            "# Threat: {headline[:60]}\\n"',
                 '        )',
                 '        (tmp / "STAGED_DATA_CANARY.txt").write_text(',
-                '            "# CDB-SWARM CANARY — DATA STAGING SIMULATION\\n"',
+                '            "# CDB-SWARM CANARY - DATA STAGING SIMULATION\\n"',
                 '            "# Simulates data collected before exfiltration attempt.\\n"',
                 '        )',
                 '        record("ransomware_canary:note_drop", "passed")',
@@ -391,14 +391,14 @@ class AdversarySwarm:
         # 6. IOC hash signature simulation
         if sha256s:
             lines += [
-                '# ── SIMULATION 6: Hash-Based Detection Canary ───────────────────────',
+                '# -- SIMULATION 6: Hash-Based Detection Canary -----------------------',
                 'def sim_hash_canary():',
                 '    """Write canary files embedding known IOC hash metadata."""',
                 '    tmp = Path(tempfile.gettempdir())',
                 '    for h in IOC_HASHES[:3]:',
                 '        p = tmp / f"CDB_SWARM_HASH_{h[:16]}.sim"',
                 '        if not DRY_RUN:',
-                '            p.write_text(f"CDB-SWARM-HASH-SIM:{h}\\nSAFE CANARY — NOT MALICIOUS\\n")',
+                '            p.write_text(f"CDB-SWARM-HASH-SIM:{h}\\nSAFE CANARY - NOT MALICIOUS\\n")',
                 '            _CLEANUP_TARGETS.append(str(p))',
                 '            record(f"hash_canary:{h[:16]}", "passed")',
                 '        else:',
@@ -408,11 +408,11 @@ class AdversarySwarm:
 
         # Main runner
         lines += [
-            '# ── MAIN RUNNER ─────────────────────────────────────────────────────────',
+            '# -- MAIN RUNNER ---------------------------------------------------------',
             'def main():',
-            f'    log.info("╔══════════════════════════════════════════════════════╗")',
-            f'    log.info("║  CDB ADVERSARY SWARM — SIMULATION STARTING          ║")',
-            f'    log.info("╚══════════════════════════════════════════════════════╝")',
+            f'    log.info("+======================================================+")',
+            f'    log.info("|  CDB ADVERSARY SWARM - SIMULATION STARTING          |")',
+            f'    log.info("+======================================================+")',
             f'    log.info(f"Threat  : {headline[:60]}")',
             f'    log.info("Severity: {severity}  |  Actor: {actor_tag or "Unknown"}")',
             '    log.info(f"Mode    : {\'DRY-RUN\' if DRY_RUN else \'LIVE SIMULATION\'}")',
@@ -436,16 +436,16 @@ class AdversarySwarm:
             '',
             '    for name, fn in sims.items():',
             '        if TECHNIQUE == "all" or TECHNIQUE == name:',
-            '            log.info(f"── Running: {name} ──────────────────────────")',
+            '            log.info(f"-- Running: {name} --------------------------")',
             '            try: fn()',
             '            except Exception as e:',
             '                record(name, "failed", str(e))',
             '',
             '    # Summary',
             '    log.info("")',
-            '    log.info("════════════════════════════════════════════════════")',
-            '    log.info("  ADVERSARY SWARM SIMULATION — RESULTS SUMMARY")',
-            '    log.info("════════════════════════════════════════════════════")',
+            '    log.info("====================================================")',
+            '    log.info("  ADVERSARY SWARM SIMULATION - RESULTS SUMMARY")',
+            '    log.info("====================================================")',
             '    log.info(f"  Total   : {RESULTS[\'total\']}")',
             '    log.info(f"  Passed  : {len(RESULTS[\'passed\'])}")',
             '    log.info(f"  Failed  : {len(RESULTS[\'failed\'])}")',
@@ -453,10 +453,10 @@ class AdversarySwarm:
             '    log.info("")',
             '    if RESULTS["failed"]:',
             '        log.warning("FAILED SIMULATIONS (check EDR/SIEM rules):")',
-            '        for f in RESULTS["failed"]: log.warning(f"  ❌ {f}")',
+            '        for f in RESULTS["failed"]: log.warning(f"  ? {f}")',
             '    else:',
-            '        log.info("✅ All simulations completed — Review your SIEM/EDR for alerts")',
-            '    log.info("════════════════════════════════════════════════════")',
+            '        log.info("? All simulations completed - Review your SIEM/EDR for alerts")',
+            '    log.info("====================================================")',
             '',
             '    # Save results',
             '    _ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")',
@@ -474,5 +474,5 @@ class AdversarySwarm:
         return "\n".join(lines)
 
 
-# ── Singleton ─────────────────────────────────────────────────────────────────
+# -- Singleton -----------------------------------------------------------------
 adversary_swarm = AdversarySwarm()

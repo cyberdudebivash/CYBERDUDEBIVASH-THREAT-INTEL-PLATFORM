@@ -1,9 +1,9 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX v49 — Intelligence API Module
+CYBERDUDEBIVASH SENTINEL APEX v49 - Intelligence API Module
 SaaS-grade threat intelligence API with authentication, rate limiting, and usage tracking.
-© 2026 CyberDudeBivash Pvt. Ltd. All rights reserved.
+(C) 2026 CyberDudeBivash Pvt. Ltd. All rights reserved.
 
-ADDITIVE MODULE — Does NOT modify any existing platform components.
+ADDITIVE MODULE - Does NOT modify any existing platform components.
 """
 
 __version__ = "49.0.0"

@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
 """
-convergence_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v37.0 (CONVERGENCE)
+convergence_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v37.0 (CONVERGENCE)
 ============================================================================
-Zero Day Hunter ↔ Sentinel APEX Integration Layer
+Zero Day Hunter ? Sentinel APEX Integration Layer
 
 Bridges extended features from the CYBERDUDEBIVASH ZERO-DAY HUNTER project
 into the production Sentinel APEX platform.
 
 8 Integration Modules:
-  C1 — Detection Rules Repository: Consolidates all rules from v33 DetectionForge,
+  C1 - Detection Rules Repository: Consolidates all rules from v33 DetectionForge,
        v35 ZDH, and v36 OmniShield into unified, searchable repository
-  C2 — Mitigation Script Library: Auto-generated defensive scripts
+  C2 - Mitigation Script Library: Auto-generated defensive scripts
        (iptables, ModSecurity, Splunk SPL, PowerShell, hardening)
-  C3 — Code Exposure Monitor: GitHub Security Advisory scanning for
+  C3 - Code Exposure Monitor: GitHub Security Advisory scanning for
        CVEs referenced in platform intelligence
-  C4 — Threat Radar Data Feed: Structured data feed for the dashboard
+  C4 - Threat Radar Data Feed: Structured data feed for the dashboard
        integrating all platform intelligence layers
-  C5 — Report-to-Blogger Bridge: Generates Blogger-ready intelligence
+  C5 - Report-to-Blogger Bridge: Generates Blogger-ready intelligence
        reports from ZDH/Fusion/OmniShield outputs
-  C6 — Agent Telemetry Ingestion: Accepts and normalizes telemetry
+  C6 - Agent Telemetry Ingestion: Accepts and normalizes telemetry
        from external ZDH binary agents
-  C7 — Unified API Manifest: Consolidates all API endpoints into
+  C7 - Unified API Manifest: Consolidates all API endpoints into
        a single OpenAPI-compatible service catalog
-  C8 — Plugin Framework: Extensible plugin loading architecture
+  C8 - Plugin Framework: Extensible plugin loading architecture
 
 Non-Breaking: Reads from all existing data layers. Writes to data/convergence/.
 Zero modification to any existing file.
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os, re, json, hashlib, logging, statistics, glob
@@ -62,13 +62,13 @@ def _entries():
     return d if isinstance(d, list) else (d.get("entries", []) if d else [])
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C1 — DETECTION RULES REPOSITORY
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C1 - DETECTION RULES REPOSITORY
+# ===============================================================================
 
 class DetectionRulesRepository:
     """Consolidates detection rules from v33 DetectionForge, v35 ZDH, and generates
-    new rules — unified searchable repository with per-format export."""
+    new rules - unified searchable repository with per-format export."""
 
     def build(self) -> Dict:
         rules_db = {"sigma": [], "yara": [], "suricata": [], "snort": [], "elastic": [], "kql": []}
@@ -116,14 +116,14 @@ class DetectionRulesRepository:
                     if ips: parts.append("    selection_ip:\n        dst_ip:\n" + "\n".join(f"            - '{ip}'" for ip in ips[:15]))
                     if domains: parts.append("    selection_dns:\n        query:\n" + "\n".join(f"            - '*{d}*'" for d in domains[:15]))
                     cond = " or ".join("selection_ip" if "ip" in p else "selection_dns" for p in parts)
-                    sigma = f"title: CDB APEX v37.0 — {title}\nstatus: experimental\nauthor: CyberDudeBivash\ndate: {datetime.now().strftime('%Y/%m/%d')}\nlogsource:\n    category: firewall\ndetection:\n{chr(10).join(parts)}\n    condition: {cond}\nlevel: high"
+                    sigma = f"title: CDB APEX v37.0 - {title}\nstatus: experimental\nauthor: CyberDudeBivash\ndate: {datetime.now().strftime('%Y/%m/%d')}\nlogsource:\n    category: firewall\ndetection:\n{chr(10).join(parts)}\n    condition: {cond}\nlevel: high"
                     rules_db["sigma"].append({"source": "v37_convergence", "stix": sf, "content": sigma})
 
                 # Suricata
                 for ip in ips[:10]:
                     sid = abs(hash(f"conv-{ip}-{sf}")) % 9000000 + 1000000
                     rules_db["suricata"].append({"source": "v37_convergence", "stix": sf,
-                        "content": f'alert ip any any -> {ip} any (msg:"CDB APEX v37 — {safe[:30]}"; sid:{sid}; rev:1;)'})
+                        "content": f'alert ip any any -> {ip} any (msg:"CDB APEX v37 - {safe[:30]}"; sid:{sid}; rev:1;)'})
 
                 # KQL
                 if ips or domains:
@@ -146,9 +146,9 @@ class DetectionRulesRepository:
         return result, rules_db
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C2 — MITIGATION SCRIPT LIBRARY
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C2 - MITIGATION SCRIPT LIBRARY
+# ===============================================================================
 
 class MitigationScriptLibrary:
     """Auto-generates defensive scripts from platform intelligence."""
@@ -179,7 +179,7 @@ class MitigationScriptLibrary:
             # iptables
             if ips:
                 rules = "\n".join(f"iptables -A INPUT -s {ip} -j DROP\niptables -A OUTPUT -d {ip} -j DROP" for ip in ips[:15])
-                scripts["iptables"].append({"threat": title, "content": f"#!/bin/bash\n# CDB APEX v37.0 — {title}\n{rules}"})
+                scripts["iptables"].append({"threat": title, "content": f"#!/bin/bash\n# CDB APEX v37.0 - {title}\n{rules}"})
 
             # ModSecurity
             if domains:
@@ -198,12 +198,12 @@ class MitigationScriptLibrary:
             # PowerShell (Windows Defender)
             if ips:
                 ps_rules = "\n".join(f'New-NetFirewallRule -DisplayName "CDB-Block-{ip}" -Direction Outbound -RemoteAddress {ip} -Action Block' for ip in ips[:10])
-                scripts["powershell"].append({"threat": title, "content": f"# CDB APEX v37.0 — {title}\n{ps_rules}"})
+                scripts["powershell"].append({"threat": title, "content": f"# CDB APEX v37.0 - {title}\n{ps_rules}"})
 
             # Hardening
             if risk >= 8:
                 scripts["hardening"].append({"threat": title, "content": f"""#!/bin/bash
-# CDB APEX v37.0 Emergency Hardening — {title}
+# CDB APEX v37.0 Emergency Hardening - {title}
 apt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null
 ufw enable 2>/dev/null; sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
 systemctl restart sshd 2>/dev/null
@@ -220,9 +220,9 @@ echo '[+] Hardening applied for: {sf}'"""})
         return result, scripts
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C3 — CODE EXPOSURE MONITOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C3 - CODE EXPOSURE MONITOR
+# ===============================================================================
 
 class CodeExposureMonitor:
     """Scans GitHub Security Advisories for CVEs referenced in platform intelligence."""
@@ -278,9 +278,9 @@ class CodeExposureMonitor:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C4 — THREAT RADAR DATA FEED
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C4 - THREAT RADAR DATA FEED
+# ===============================================================================
 
 class ThreatRadarFeed:
     """Generates structured data feed for the intel.cyberdudebivash.com dashboard,
@@ -356,9 +356,9 @@ class ThreatRadarFeed:
         return radar
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C5 — REPORT-TO-BLOGGER BRIDGE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C5 - REPORT-TO-BLOGGER BRIDGE
+# ===============================================================================
 
 class ReportBloggerBridge:
     """Generates Blogger-ready intelligence summaries from ZDH/Fusion/OmniShield data
@@ -384,16 +384,16 @@ class ReportBloggerBridge:
             if critical_alerts:
                 summary_sections.append("CRITICAL ZERO-DAY ALERTS:")
                 for a in critical_alerts[:5]:
-                    summary_sections.append(f"  — {a.get('entity', '')} [{a.get('alert_type', '')}]: {a.get('exploitation_status', '').upper()}")
+                    summary_sections.append(f"  - {a.get('entity', '')} [{a.get('alert_type', '')}]: {a.get('exploitation_status', '').upper()}")
 
             if high_forecasts:
                 summary_sections.append("HIGH-PROBABILITY EXPLOITATION FORECASTS:")
                 for f in high_forecasts[:5]:
-                    summary_sections.append(f"  — {f.get('entity', '')}: {f.get('probability_pct', 0)}% within {f.get('window', 'N/A')}")
+                    summary_sections.append(f"  - {f.get('entity', '')}: {f.get('probability_pct', 0)}% within {f.get('window', 'N/A')}")
 
             reports.append({
                 "report_type": "zdh_weekly_summary",
-                "title": f"Sentinel APEX Zero-Day Hunter Weekly Intelligence Summary — GTI: {gti.get('index', 'N/A')}/10",
+                "title": f"Sentinel APEX Zero-Day Hunter Weekly Intelligence Summary - GTI: {gti.get('index', 'N/A')}/10",
                 "classification": "TLP:AMBER",
                 "content": "\n".join(summary_sections),
                 "risk_score": gti.get("index", 5),
@@ -416,7 +416,7 @@ class ReportBloggerBridge:
                     f"Confidence: {alert.get('confidence', 0)}\n"
                     f"Chain Evidence: {', '.join(alert.get('chain_evidence', []))}\n"
                     f"Recommended Actions:\n" +
-                    "\n".join(f"  — {a}" for a in alert.get("recommended_actions", [])[:5])
+                    "\n".join(f"  - {a}" for a in alert.get("recommended_actions", [])[:5])
                 ),
                 "risk_score": 10 if alert.get("exploitation_status") == "confirmed" else 8,
                 "generated": datetime.now(timezone.utc).isoformat(),
@@ -427,9 +427,9 @@ class ReportBloggerBridge:
         return reports
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C6 — AGENT TELEMETRY INGESTION
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C6 - AGENT TELEMETRY INGESTION
+# ===============================================================================
 
 class AgentTelemetryIngestion:
     """Defines the ingestion schema and validation for external ZDH binary agent telemetry.
@@ -484,9 +484,9 @@ class AgentTelemetryIngestion:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C7 — UNIFIED API MANIFEST
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C7 - UNIFIED API MANIFEST
+# ===============================================================================
 
 class UnifiedAPIManifest:
     """Consolidates all API endpoints across platform versions into a single service catalog."""
@@ -551,12 +551,12 @@ class UnifiedAPIManifest:
         return catalog
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# C8 — PLUGIN FRAMEWORK
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# C8 - PLUGIN FRAMEWORK
+# ===============================================================================
 
 class PluginFramework:
-    """Extensible plugin loading architecture — defines the contract for ZDH plugins."""
+    """Extensible plugin loading architecture - defines the contract for ZDH plugins."""
 
     PLUGIN_CONTRACT = {
         "required_methods": ["initialize", "execute", "health_check"],
@@ -575,7 +575,7 @@ class PluginFramework:
         {"id": "omnishield", "version": "36.0.0", "status": "RUNNING", "type": "defense",
          "desc": "12-subsystem AI defense platform"},
         {"id": "convergence", "version": "37.0.0", "status": "RUNNING", "type": "integration",
-         "desc": "ZDH ↔ Sentinel APEX integration layer"},
+         "desc": "ZDH ? Sentinel APEX integration layer"},
     ]
 
     EXTERNAL_PLUGIN_SLOTS = [
@@ -601,12 +601,12 @@ class PluginFramework:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # CONVERGENCE ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class ConvergenceEngine:
-    """Master orchestrator — runs all 8 ZDH integration modules."""
+    """Master orchestrator - runs all 8 ZDH integration modules."""
 
     def __init__(self, output_dir: str = OUTPUT_DIR):
         self.output_dir = output_dir
@@ -615,40 +615,40 @@ class ConvergenceEngine:
 
     def run(self) -> Dict:
         logger.info("=" * 65)
-        logger.info("SENTINEL APEX v37.0 — CONVERGENCE ENGINE")
-        logger.info("Zero Day Hunter ↔ Sentinel APEX Integration")
+        logger.info("SENTINEL APEX v37.0 - CONVERGENCE ENGINE")
+        logger.info("Zero Day Hunter ? Sentinel APEX Integration")
         logger.info("=" * 65)
         now = datetime.now(timezone.utc).isoformat()
 
-        # C1 — Detection Rules Repository
+        # C1 - Detection Rules Repository
         logger.info("[C1/8] Detection Rules Repository...")
         rules_result, rules_db = DetectionRulesRepository().build()
 
-        # C2 — Mitigation Script Library
+        # C2 - Mitigation Script Library
         logger.info("[C2/8] Mitigation Script Library...")
         scripts_result, scripts_db = MitigationScriptLibrary().build()
 
-        # C3 — Code Exposure Monitor
+        # C3 - Code Exposure Monitor
         logger.info("[C3/8] Code Exposure Monitor...")
         exposure = CodeExposureMonitor().scan()
 
-        # C4 — Threat Radar Data Feed
+        # C4 - Threat Radar Data Feed
         logger.info("[C4/8] Threat Radar Data Feed...")
         radar = ThreatRadarFeed().build()
 
-        # C5 — Report-to-Blogger Bridge
+        # C5 - Report-to-Blogger Bridge
         logger.info("[C5/8] Report-to-Blogger Bridge...")
         blogger_reports = ReportBloggerBridge().generate()
 
-        # C6 — Agent Telemetry Ingestion
+        # C6 - Agent Telemetry Ingestion
         logger.info("[C6/8] Agent Telemetry Schema...")
         telemetry = AgentTelemetryIngestion().ingest([])
 
-        # C7 — Unified API Manifest
+        # C7 - Unified API Manifest
         logger.info("[C7/8] Unified API Manifest...")
         api_manifest = UnifiedAPIManifest().build()
 
-        # C8 — Plugin Framework
+        # C8 - Plugin Framework
         logger.info("[C8/8] Plugin Framework Status...")
         plugins = PluginFramework().status()
 
@@ -677,7 +677,7 @@ class ConvergenceEngine:
 
         total = result["integration_stats"]
         logger.info("=" * 65)
-        logger.info(f"CONVERGENCE COMPLETE — {total['detection_rules']} rules | {total['mitigation_scripts']} scripts")
+        logger.info(f"CONVERGENCE COMPLETE - {total['detection_rules']} rules | {total['mitigation_scripts']} scripts")
         logger.info(f"  {total['blogger_reports']} reports | {total['api_endpoints']} API endpoints | {total['active_plugins']} plugins")
         logger.info("=" * 65)
         return result
@@ -719,7 +719,7 @@ class ConvergenceEngine:
 
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="[CONVERGENCE] %(asctime)s — %(levelname)s — %(message)s")
+    logging.basicConfig(level=logging.INFO, format="[CONVERGENCE] %(asctime)s - %(levelname)s - %(message)s")
     engine = ConvergenceEngine()
     result = engine.run()
     print(json.dumps({

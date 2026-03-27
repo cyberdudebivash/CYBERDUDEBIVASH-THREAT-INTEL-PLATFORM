@@ -1,12 +1,12 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v26.0 Module
+CYBERDUDEBIVASH(R) SENTINEL APEX v26.0 Module
 =============================================
 New features and fixes for v26.0 release.
 
 v26.0 Release Notes:
 -------------------
 CRITICAL FIXES:
-- Fixed GitHub Actions deployment failure (peaceiris → JamesIves action)
+- Fixed GitHub Actions deployment failure (peaceiris -> JamesIves action)
 - Fixed dashboard "Last Sync: 3d ago" timestamp bug (line 2285)
 - Fixed git context loss in gh-pages deployment
 

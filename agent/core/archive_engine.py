@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-archive_engine.py — CyberDudeBivash SENTINEL APEX v17.0
+archive_engine.py - CyberDudeBivash SENTINEL APEX v17.0
 INTELLIGENT REPORT ARCHIVING ENGINE
 
 Mandate: Archive STIX bundles and reports older than 15 days
@@ -51,7 +51,7 @@ class ArchiveEngine:
         self.cutoff_dt = datetime.now(timezone.utc) - timedelta(days=retention_days)
         os.makedirs(ARCHIVE_DIR, exist_ok=True)
         logger.info(
-            f"🗄️  Archive Engine initialized | Retention: {retention_days} days | "
+            f"?  Archive Engine initialized | Retention: {retention_days} days | "
             f"Cutoff: {self.cutoff_dt.strftime('%Y-%m-%d %H:%M UTC')}"
         )
 
@@ -66,7 +66,7 @@ class ArchiveEngine:
 
         Returns: summary dict with counts
         """
-        logger.info("🗄️  INITIATING ARCHIVE PASS...")
+        logger.info("?  INITIATING ARCHIVE PASS...")
 
         stix_archived = self._archive_stix_bundles()
         pdf_archived = self._archive_whitepapers()
@@ -86,7 +86,7 @@ class ArchiveEngine:
         self._persist_archive_log(summary)
 
         logger.info(
-            f"✅ ARCHIVE COMPLETE | "
+            f"? ARCHIVE COMPLETE | "
             f"STIX: {len(stix_archived)} | "
             f"PDFs: {len(pdf_archived)} | "
             f"Total: {summary['total_archived']} files archived"
@@ -110,7 +110,7 @@ class ArchiveEngine:
             if f.endswith(".json") and f != "feed_manifest.json"
         ]
 
-        logger.info(f"📦 Scanning {len(stix_files)} STIX bundles for archival...")
+        logger.info(f"? Scanning {len(stix_files)} STIX bundles for archival...")
 
         for filename in stix_files:
             filepath = os.path.join(STIX_DIR, filename)
@@ -121,12 +121,12 @@ class ArchiveEngine:
                 if dest_path:
                     archived.append(filename)
                     logger.info(
-                        f"  📁 Archived STIX: {filename} "
+                        f"  ? Archived STIX: {filename} "
                         f"(age: {self._age_str(file_age_dt)})"
                     )
             else:
                 age_str = self._age_str(file_age_dt) if file_age_dt else "unknown age"
-                logger.debug(f"  ⏸  Retained STIX: {filename} ({age_str})")
+                logger.debug(f"  ?  Retained STIX: {filename} ({age_str})")
 
         return archived
 
@@ -137,11 +137,11 @@ class ArchiveEngine:
         """
         archived = []
         if not os.path.isdir(WHITEPAPER_DIR):
-            logger.debug(f"Whitepaper directory not found: {WHITEPAPER_DIR} — skipping")
+            logger.debug(f"Whitepaper directory not found: {WHITEPAPER_DIR} - skipping")
             return archived
 
         pdf_files = [f for f in os.listdir(WHITEPAPER_DIR) if f.endswith(".pdf")]
-        logger.info(f"📄 Scanning {len(pdf_files)} whitepapers for archival...")
+        logger.info(f"? Scanning {len(pdf_files)} whitepapers for archival...")
 
         for filename in pdf_files:
             filepath = os.path.join(WHITEPAPER_DIR, filename)
@@ -152,7 +152,7 @@ class ArchiveEngine:
                 if dest_path:
                     archived.append(filename)
                     logger.info(
-                        f"  📁 Archived PDF: {filename} "
+                        f"  ? Archived PDF: {filename} "
                         f"(age: {self._age_str(file_age_dt)})"
                     )
 
@@ -198,7 +198,7 @@ class ArchiveEngine:
             shutil.move(src_path, dest_path)
             return dest_path
         except Exception as e:
-            logger.error(f"  ❌ Failed to archive {filename}: {e}")
+            logger.error(f"  ? Failed to archive {filename}: {e}")
             return None
 
     def _compress_old_archives(self):
@@ -222,7 +222,7 @@ class ArchiveEngine:
                 with tarfile.open(tar_path, "w:gz") as tar:
                     tar.add(month_path, arcname=month_dir)
                 shutil.rmtree(month_path)
-                logger.info(f"🗜️  Compressed archive: {month_dir} → {tar_path}")
+                logger.info(f"?  Compressed archive: {month_dir} -> {tar_path}")
             except Exception as e:
                 logger.warning(f"Compression failed for {month_dir}: {e}")
 
@@ -246,7 +246,7 @@ class ArchiveEngine:
                 bundle_id = entry.get("bundle_id", "")
                 # Match bundle_id suffix against archived filenames
                 for archived_file in archived_set:
-                    # CDB-APEX-{ts}.json → check if ts is in bundle_id
+                    # CDB-APEX-{ts}.json -> check if ts is in bundle_id
                     ts_part = archived_file.replace(".json", "").split("-")[-1]
                     if ts_part and ts_part in bundle_id:
                         entry["status"] = "archived"
@@ -262,7 +262,7 @@ class ArchiveEngine:
             with open(MANIFEST_PATH, "w") as f:
                 json.dump(manifest, f, indent=2)
 
-            logger.info(f"📋 Manifest updated: {updated_count} entries marked as archived")
+            logger.info(f"? Manifest updated: {updated_count} entries marked as archived")
 
         except Exception as e:
             logger.warning(f"Manifest archive update failed: {e}")

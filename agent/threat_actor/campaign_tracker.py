@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-campaign_tracker.py — CyberDudeBivash SENTINEL APEX v17.0
+campaign_tracker.py - CyberDudeBivash SENTINEL APEX v17.0
 ADVERSARY CAMPAIGN LIFECYCLE TRACKER
 
 Tracks threat actor campaigns across multiple intel items:
@@ -85,7 +85,7 @@ class CampaignTracker:
         self._persist()
 
         logger.debug(
-            f"📌 Campaign activity recorded | "
+            f"? Campaign activity recorded | "
             f"Campaign: {campaign_id} | Actor: {actor_tag} | "
             f"Activities: {campaign['activity_count']}"
         )
@@ -153,7 +153,7 @@ class CampaignTracker:
             existing_tactics = set(campaign.get("all_tactics", []))
             new_tactics = set(tactics)
             if existing_tactics & new_tactics:
-                # Check recency — don't merge campaigns that are >90 days apart
+                # Check recency - don't merge campaigns that are >90 days apart
                 last_seen_str = campaign.get("last_seen", "")
                 if last_seen_str:
                     try:
@@ -189,7 +189,7 @@ class CampaignTracker:
             )
             del self._campaigns[oldest_key]
 
-        logger.info(f"🆕 New campaign cluster created: {campaign_id} | Actor: {actor_tag}")
+        logger.info(f"? New campaign cluster created: {campaign_id} | Actor: {actor_tag}")
         return campaign_id
 
     def _compute_intensity(self, campaign: Dict) -> float:

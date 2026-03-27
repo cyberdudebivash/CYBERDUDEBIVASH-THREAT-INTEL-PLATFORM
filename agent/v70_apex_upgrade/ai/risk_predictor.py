@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v70 — AI Risk Predictor
+SENTINEL APEX v70 - AI Risk Predictor
 =======================================
 Predicts risk level using a feature-engineered sklearn model.
 Uses GradientBoosting for structured data risk prediction.
@@ -23,7 +23,7 @@ try:
     import numpy as np
     _ML_AVAILABLE = True
 except ImportError:
-    logger.warning("sklearn not available — using rule-based risk prediction")
+    logger.warning("sklearn not available - using rule-based risk prediction")
 
 
 # Training data: feature vectors + risk labels
@@ -108,7 +108,7 @@ class RiskPredictor:
         # We don't have direct CVSS here, approximate from threat_score
         cvss_norm = min(advisory.threat_score / 100.0, 1.0)
 
-        # EPSS — approximate from confidence if not available
+        # EPSS - approximate from confidence if not available
         epss = advisory.confidence / 100.0 * 0.5  # Rough proxy
 
         # IOC count normalized
@@ -140,7 +140,7 @@ class RiskPredictor:
             for kw in ["exploit", "poc", "proof of concept", "in the wild", "actively exploited"]
         ) else 0
 
-        # KEV (binary) — check tags/title
+        # KEV (binary) - check tags/title
         is_kev = 1 if any(
             kw in (advisory.title + " " + " ".join(advisory.tags)).lower()
             for kw in ["kev", "known exploited", "cisa kev"]

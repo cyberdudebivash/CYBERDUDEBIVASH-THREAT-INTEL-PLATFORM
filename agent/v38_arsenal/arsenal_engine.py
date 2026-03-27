@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """
-arsenal_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v38.0 (ARSENAL)
+arsenal_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v38.0 (ARSENAL)
 ====================================================================
 Intelligence Productization & Monetization Engine
 
 4 New Subsystems (features NOT already in v33-v37):
-  P1 — Intelligence Feed Factory: Packaged IOC/CVE/Actor/Exploit feeds
+  P1 - Intelligence Feed Factory: Packaged IOC/CVE/Actor/Exploit feeds
        exported in JSON, STIX 2.1, CSV, TAXII-compatible formats
-  P2 — API Monetization Gateway: Usage metering, billing counters,
+  P2 - API Monetization Gateway: Usage metering, billing counters,
        tier enforcement, revenue analytics
-  P3 — Security Tools Marketplace: Catalog of 85+ CDB tools/apps,
+  P3 - Security Tools Marketplace: Catalog of 85+ CDB tools/apps,
        Gumroad integration, licensing, distribution
-  P4 — Sensor Grid Templates: Honeypot deployment configs, scan
+  P4 - Sensor Grid Templates: Honeypot deployment configs, scan
        detection schemas, telemetry collection templates
 
 Non-Breaking: Reads from manifest/STIX/fusion/ZDH/analyst data.
 Writes to data/arsenal/. Zero modification to any existing file.
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os, re, json, csv, io, hashlib, logging, time
@@ -46,9 +46,9 @@ def _entries():
     return d if isinstance(d, list) else (d.get("entries", []) if d else [])
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# P1 — INTELLIGENCE FEED FACTORY
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# P1 - INTELLIGENCE FEED FACTORY
+# ===============================================================================
 
 class IntelligenceFeedFactory:
     """Generates packaged intelligence feeds in JSON, CSV, and STIX 2.1 formats
@@ -203,9 +203,9 @@ class IntelligenceFeedFactory:
                 "formats": ["json", "stix"]}
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# P2 — API MONETIZATION GATEWAY
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# P2 - API MONETIZATION GATEWAY
+# ===============================================================================
 
 class APIMonetizationGateway:
     """Usage metering, billing counters, tier enforcement, and revenue analytics."""
@@ -292,9 +292,9 @@ class APIMonetizationGateway:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# P3 — SECURITY TOOLS MARKETPLACE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# P3 - SECURITY TOOLS MARKETPLACE
+# ===============================================================================
 
 class SecurityToolsMarketplace:
     """Catalog of CyberDudeBivash security tools/apps with distribution channels."""
@@ -354,9 +354,9 @@ class SecurityToolsMarketplace:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# P4 — SENSOR GRID TEMPLATES
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# P4 - SENSOR GRID TEMPLATES
+# ===============================================================================
 
 class SensorGridTemplates:
     """Honeypot deployment configs, scan detection schemas, telemetry templates."""
@@ -427,7 +427,7 @@ class SensorGridTemplates:
             "deployment_guide": {
                 "minimum_sensors": 4,
                 "recommended_topology": "1x SSH + 1x HTTP + 1x RDP + 1x Malware per region",
-                "telemetry_flow": "Sensor → HTTPS POST → /api/v1/telemetry/ingest → Signal Pipeline → ZDH → Fusion",
+                "telemetry_flow": "Sensor -> HTTPS POST -> /api/v1/telemetry/ingest -> Signal Pipeline -> ZDH -> Fusion",
                 "estimated_setup_time": "30 minutes per sensor (Docker)",
             },
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -436,9 +436,9 @@ class SensorGridTemplates:
         return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # ARSENAL ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class ArsenalEngine:
     """Master orchestrator for Intelligence Productization & Monetization."""
@@ -450,24 +450,24 @@ class ArsenalEngine:
 
     def run(self) -> Dict:
         logger.info("=" * 65)
-        logger.info("SENTINEL APEX v38.0 — ARSENAL ENGINE")
+        logger.info("SENTINEL APEX v38.0 - ARSENAL ENGINE")
         logger.info("Intelligence Productization & Monetization")
         logger.info("=" * 65)
         now = datetime.now(timezone.utc).isoformat()
 
-        # P1 — Intelligence Feeds
+        # P1 - Intelligence Feeds
         logger.info("[P1/4] Intelligence Feed Factory...")
         feed_result, feeds = IntelligenceFeedFactory().generate_all()
 
-        # P2 — Monetization Gateway
+        # P2 - Monetization Gateway
         logger.info("[P2/4] API Monetization Gateway...")
         monetization = APIMonetizationGateway().generate_analytics()
 
-        # P3 — Tools Marketplace
+        # P3 - Tools Marketplace
         logger.info("[P3/4] Security Tools Marketplace...")
         marketplace = SecurityToolsMarketplace().build()
 
-        # P4 — Sensor Grid
+        # P4 - Sensor Grid
         logger.info("[P4/4] Sensor Grid Templates...")
         sensors = SensorGridTemplates().build()
 
@@ -501,7 +501,7 @@ class ArsenalEngine:
 
         mrr = monetization["revenue_model"]["mrr_projection"]["total_mrr_projection"]
         logger.info("=" * 65)
-        logger.info(f"ARSENAL COMPLETE — {feed_result['total_feed_items']} feed items | MRR ${mrr}")
+        logger.info(f"ARSENAL COMPLETE - {feed_result['total_feed_items']} feed items | MRR ${mrr}")
         logger.info(f"  {marketplace['total_products']} products | {sensors['honeypot_count']} sensor templates")
         logger.info("=" * 65)
         return result
@@ -534,7 +534,7 @@ class ArsenalEngine:
 
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="[ARSENAL] %(asctime)s — %(levelname)s — %(message)s")
+    logging.basicConfig(level=logging.INFO, format="[ARSENAL] %(asctime)s - %(levelname)s - %(message)s")
     engine = ArsenalEngine()
     result = engine.run()
     print(json.dumps({"productization_stats": result["productization_stats"],

@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX v53 — Subscription & SaaS Management
+CYBERDUDEBIVASH SENTINEL APEX v53 - Subscription & SaaS Management
 Production-grade subscription management with user/org accounts, tier enforcement,
 API usage tracking, and Stripe/Gumroad billing integration.
 
@@ -575,7 +575,7 @@ class SubscriptionManager:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="CDB SENTINEL APEX — Subscription Manager v53")
+    parser = argparse.ArgumentParser(description="CDB SENTINEL APEX - Subscription Manager v53")
     sub = parser.add_subparsers(dest="command")
 
     p_pricing = sub.add_parser("pricing", help="Show pricing tiers")

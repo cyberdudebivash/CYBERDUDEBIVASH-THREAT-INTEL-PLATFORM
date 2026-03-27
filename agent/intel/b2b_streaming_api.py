@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-b2b_streaming_api.py — CYBERDUDEBIVASH® SENTINEL APEX v55.0
+b2b_streaming_api.py - CYBERDUDEBIVASH(R) SENTINEL APEX v55.0
 B2B INTELLIGENCE STREAMING & WEBHOOK FIREHOSE ENGINE
 
 Production-grade secure intelligence distribution for B2B vendors:
@@ -18,7 +18,7 @@ Integration:
     b2b_streaming_engine.dispatch_pulse(threat_pulse_payload)
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
-Founder & CEO — Bivash Kumar Nayak
+Founder & CEO - Bivash Kumar Nayak
 """
 
 import os
@@ -39,9 +39,9 @@ from dataclasses import dataclass, field, asdict
 
 logger = logging.getLogger("CDB-B2B-STREAMING")
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # CONFIGURATION
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 B2B_HMAC_SECRET_ENV = "CDB_B2B_HMAC_SECRET"
 B2B_MTLS_CA_CERT = os.environ.get("CDB_MTLS_CA_CERT", "certs/ca.pem")
@@ -63,9 +63,9 @@ MAX_PAYLOAD_SIZE_BYTES = 1_048_576  # 1MB
 SIGNATURE_TIMESTAMP_TOLERANCE_SEC = 300  # 5 minutes
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # DATA MODELS
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class SubscriptionTier(str, Enum):
     STANDARD = "STANDARD"     # HMAC-signed webhooks
@@ -123,9 +123,9 @@ class ThreatPulse:
     mitre_techniques: List[str] = field(default_factory=list)
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # HMAC SIGNING ENGINE
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class HMACSigner:
     """
@@ -198,9 +198,9 @@ class HMACSigner:
             return False, f"Signature parse error: {e}"
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # mTLS CERTIFICATE AUTHENTICATION
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class MTLSAuthenticator:
     """
@@ -220,13 +220,13 @@ class MTLSAuthenticator:
         if os.path.exists(B2B_MTLS_SERVER_CERT) and os.path.exists(B2B_MTLS_SERVER_KEY):
             ctx.load_cert_chain(B2B_MTLS_SERVER_CERT, B2B_MTLS_SERVER_KEY)
         else:
-            logger.warning("mTLS server cert/key not found — mTLS disabled")
+            logger.warning("mTLS server cert/key not found - mTLS disabled")
 
         # Load CA for client cert verification
         if os.path.exists(B2B_MTLS_CA_CERT):
             ctx.load_verify_locations(B2B_MTLS_CA_CERT)
         else:
-            logger.warning("mTLS CA cert not found — client verification disabled")
+            logger.warning("mTLS CA cert not found - client verification disabled")
 
         # Harden TLS
         ctx.set_ciphers(
@@ -255,7 +255,7 @@ class MTLSAuthenticator:
     def validate_client_cert(cert_fingerprint: str, subscription: WebhookSubscription) -> Tuple[bool, str]:
         """Validate client certificate against subscription registration."""
         if subscription.tier != SubscriptionTier.ENTERPRISE:
-            return True, "Non-Enterprise tier — mTLS not required"
+            return True, "Non-Enterprise tier - mTLS not required"
 
         if not subscription.mtls_client_cert_fingerprint:
             return False, "Enterprise subscription missing client cert fingerprint"
@@ -266,9 +266,9 @@ class MTLSAuthenticator:
         return False, "Client certificate fingerprint mismatch"
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # DELIVERY ENGINE
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class DeliveryEngine:
     """Async webhook delivery with retry, backpressure, and DLQ."""
@@ -371,7 +371,7 @@ class DeliveryEngine:
                 wait = RETRY_BACKOFF_BASE ** attempt
                 await asyncio.sleep(wait)
 
-        # All retries exhausted → DLQ
+        # All retries exhausted -> DLQ
         dlq_result = self._send_to_dlq(subscription, pulse, payload_bytes, last_error)
 
         return {
@@ -466,16 +466,16 @@ class DeliveryEngine:
         try:
             with open(filepath, "w") as f:
                 json.dump(dlq_entry, f, indent=2)
-            logger.warning(f"DLQ: {subscription.subscription_id} → {filepath}")
+            logger.warning(f"DLQ: {subscription.subscription_id} -> {filepath}")
             return {"path": str(filepath)}
         except Exception as e:
             logger.error(f"DLQ write failed: {e}")
             return {"path": None}
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # B2B STREAMING ENGINE (Main Orchestrator)
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 class B2BStreamingEngine:
     """
@@ -492,7 +492,7 @@ class B2BStreamingEngine:
         self._mtls = MTLSAuthenticator()
         self._load_subscriptions()
 
-    # ── Subscription Management ──
+    # -- Subscription Management --
 
     def create_subscription(
         self,
@@ -544,7 +544,7 @@ class B2BStreamingEngine:
 
         return {
             "subscription_id": sub_id,
-            "hmac_secret": hmac_secret,     # Return once — client must store
+            "hmac_secret": hmac_secret,     # Return once - client must store
             "tier": tier,
             "status": SubscriptionStatus.ACTIVE,
             "webhook_url": webhook_url,
@@ -618,7 +618,7 @@ class B2BStreamingEngine:
             for s in subs
         ]
 
-    # ── Dispatch Engine ──
+    # -- Dispatch Engine --
 
     async def dispatch_pulse(self, pulse: ThreatPulse) -> Dict[str, Any]:
         """
@@ -702,7 +702,7 @@ class B2BStreamingEngine:
             mitre_techniques=finding.get("mitre_tactics", finding.get("mitre_techniques", [])),
         )
 
-    # ── Verification Endpoint ──
+    # -- Verification Endpoint --
 
     def verify_signature(
         self,
@@ -717,7 +717,7 @@ class B2BStreamingEngine:
 
         return self._hmac.verify(payload_bytes, signature_header, sub.hmac_secret)
 
-    # ── Persistence ──
+    # -- Persistence --
 
     def _load_subscriptions(self):
         """Load subscriptions from disk."""
@@ -777,8 +777,8 @@ class B2BStreamingEngine:
         }
 
 
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 # GLOBAL SINGLETON
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 b2b_streaming_engine = B2BStreamingEngine()

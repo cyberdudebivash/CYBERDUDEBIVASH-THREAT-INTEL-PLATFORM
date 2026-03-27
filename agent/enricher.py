@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-enricher.py — CyberDudeBivash v11.0 (SENTINEL APEX ULTRA)
+enricher.py - CyberDudeBivash v11.0 (SENTINEL APEX ULTRA)
 UPGRADED: SHA256/MD5 extraction, URL extraction, email extraction,
 private IP exclusion, false-positive domain filtering, confidence scoring.
 """
@@ -23,7 +23,7 @@ class IntelligenceEnricher:
     """Enhanced IOC extraction engine with validation and confidence scoring."""
 
     def __init__(self):
-        # ── Regex Patterns ──
+        # -- Regex Patterns --
         self.ip_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
         self.domain_pattern = r'\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b'
         self.google_group_pattern = r'googlegroups\.com/g/u/[\w-]+'
@@ -42,7 +42,7 @@ class IntelligenceEnricher:
 
     def _is_private_ip(self, ip: str) -> bool:
         """Check if IP is in private/reserved ranges or is a well-known benign public IP."""
-        # Well-known benign public IPs (DNS resolvers, etc.) — not threat IOCs
+        # Well-known benign public IPs (DNS resolvers, etc.) - not threat IOCs
         if ip in WELL_KNOWN_IPS:
             return True
         for prefix in PRIVATE_IP_RANGES:
@@ -122,12 +122,12 @@ class IntelligenceEnricher:
         # Strip HTML to reveal obfuscated indicators
         clean_text = re.sub(r'<[^<]+?>', ' ', text)
 
-        # ── Extract Raw IOCs ──
+        # -- Extract Raw IOCs --
         raw_ips = set(re.findall(self.ip_pattern, clean_text))
         raw_domains = set(re.findall(self.domain_pattern, clean_text))
         raw_urls = set(re.findall(self.url_pattern, clean_text))
 
-        # ── Validate & Filter ──
+        # -- Validate & Filter --
         valid_ips = sorted([
             ip for ip in raw_ips
             if not self._is_private_ip(ip)

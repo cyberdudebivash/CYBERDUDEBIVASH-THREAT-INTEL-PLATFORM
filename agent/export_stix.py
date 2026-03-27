@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-export_stix.py — CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
-STIX 2.1 EXPORTER + MISP BRIDGE — PRODUCTION UPGRADE
+export_stix.py - CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
+STIX 2.1 EXPORTER + MISP BRIDGE - PRODUCTION UPGRADE
 
 v22.0 ADDITIONS (all additive, non-breaking):
   - STIX 2.1 Identity object for CyberDudeBivash as producer
@@ -25,9 +25,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-# ── Optional: stix2 library for deep schema validation ──────────────────────
+# -- Optional: stix2 library for deep schema validation ----------------------
 # Install with: pip install stix2==3.0.1
-# Falls back gracefully when not installed — all existing functionality intact.
+# Falls back gracefully when not installed - all existing functionality intact.
 try:
     import stix2 as _stix2_lib
     _STIX2_AVAILABLE = True
@@ -44,7 +44,7 @@ from agent.config import (
 
 logger = logging.getLogger("CDB-STIX")
 
-# ── STIX 2.1 Standard TLP Marking Definitions (OASIS spec) ──
+# -- STIX 2.1 Standard TLP Marking Definitions (OASIS spec) --
 TLP_MARKING_DEFS = {
     "TLP:CLEAR": {
         "type": "marking-definition",
@@ -80,13 +80,13 @@ TLP_MARKING_DEFS = {
     },
 }
 
-# ── Producer Identity Object ──
+# -- Producer Identity Object --
 CDB_IDENTITY = {
     "type": "identity",
     "spec_version": "2.1",
     "id": STIX_IDENTITY_ID,
     "name": "CyberDudeBivash SENTINEL APEX",
-    "description": "CyberDudeBivash Pvt. Ltd. — Global Cybersecurity Intelligence Infrastructure",
+    "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
     "identity_class": "organization",
     "sectors": ["technology"],
     "contact_information": "bivash@cyberdudebivash.com",
@@ -164,7 +164,7 @@ class STIXExporter:
             obj["created_by_ref"]      = STIX_IDENTITY_ID
             return obj
 
-        # ── Intrusion Set (Campaign/Actor) ──
+        # -- Intrusion Set (Campaign/Actor) --
         objects.append(_mark({
             "type":            "intrusion-set",
             "spec_version":    "2.1",
@@ -179,7 +179,7 @@ class STIXExporter:
             **({"labels": ["supply-chain-attack"]} if supply_chain else {}),
         }))
 
-        # ── Indicator Objects ──
+        # -- Indicator Objects --
         indicator_ids = []
 
         for ip in (iocs.get('ipv4') or [])[:20]:
@@ -248,7 +248,7 @@ class STIXExporter:
                 "indicator_types": ["malicious-activity"],
             }))
 
-        # ── Relationships: Indicator → Intrusion Set ──
+        # -- Relationships: Indicator -> Intrusion Set --
         for ind_id in indicator_ids:
             objects.append(_mark({
                 "type":              "relationship",
@@ -261,7 +261,7 @@ class STIXExporter:
                 "modified":          timestamp,
             }))
 
-        # ── Attack Patterns (MITRE) ──
+        # -- Attack Patterns (MITRE) --
         attack_pattern_ids = []
         if mitre_tactics:
             for tactic in mitre_tactics[:10]:
@@ -298,7 +298,7 @@ class STIXExporter:
                     "modified":          timestamp,
                 }))
 
-        # ── v17.0: CVE Vulnerability Objects ──
+        # -- v17.0: CVE Vulnerability Objects --
         cve_pattern    = _re.compile(r'CVE-\d{4}-\d{4,}', _re.IGNORECASE)
         title_text     = title or ""
         meta_text      = str(metadata or {})
@@ -363,11 +363,11 @@ class STIXExporter:
                     "description":       "CVE exploited via mapped ATT&CK technique",
                 }))
 
-        # ── v22.0: CourseOfAction (Remediation Guidance) ──
+        # -- v22.0: CourseOfAction (Remediation Guidance) --
         if cvss_score is not None or kev_present:
-            priority = ("CRITICAL — Patch immediately" if kev_present else
-                        "HIGH — Patch within 7 days"   if (cvss_score or 0) >= 9.0 else
-                        "MEDIUM — Patch within 30 days")
+            priority = ("CRITICAL - Patch immediately" if kev_present else
+                        "HIGH - Patch within 7 days"   if (cvss_score or 0) >= 9.0 else
+                        "MEDIUM - Patch within 30 days")
             coa_id = f"course-of-action--{uuid.uuid4()}"
             objects.append(_mark({
                 "type":         "course-of-action",
@@ -377,7 +377,7 @@ class STIXExporter:
                 "description":  (
                     f"Remediation guidance for: {title}\n"
                     f"Priority: {priority}\n"
-                    f"{'CISA KEV confirmed — treat as immediate emergency.' if kev_present else ''}\n"
+                    f"{'CISA KEV confirmed - treat as immediate emergency.' if kev_present else ''}\n"
                     f"{'NVD Reference: ' + nvd_url if nvd_url else ''}"
                 ).strip(),
                 "created":  timestamp,
@@ -396,7 +396,7 @@ class STIXExporter:
                     "modified":          timestamp,
                 }))
 
-        # ── v22.0: Note (AI Narrative) ──
+        # -- v22.0: Note (AI Narrative) --
         if ai_narrative:
             objects.append(_mark({
                 "type":         "note",
@@ -410,7 +410,7 @@ class STIXExporter:
                 "authors":      ["CDB-SENTINEL-APEX-AI"],
             }))
 
-        # ── Write bundle ──
+        # -- Write bundle --
         stix_bundle = {
             "type":    "bundle",
             "id":      bundle_id,
@@ -429,7 +429,7 @@ class STIXExporter:
             f"Indicators: {len(indicator_ids)} | CVEs: {len(cve_ids_found)}"
         )
 
-        # ── Update Manifest ──
+        # -- Update Manifest --
         blog_url   = (metadata or {}).get('blog_url', '')
         source_url = (metadata or {}).get('source_url', '') or blog_url
         self._update_manifest(
@@ -460,7 +460,7 @@ class STIXExporter:
 
         return bundle_id
 
-    # ── v22.0 NEW: MISP Bridge ─────────────────────────────────
+    # -- v22.0 NEW: MISP Bridge ---------------------------------
 
     def export_to_misp(
         self,
@@ -549,7 +549,7 @@ class STIXExporter:
         }
         return {"Event": event}
 
-    # ── v22.0 NEW: Bundle Validation ──────────────────────────
+    # -- v22.0 NEW: Bundle Validation --------------------------
 
     def validate_bundle(self, bundle: Dict) -> Dict:
         """
@@ -590,7 +590,7 @@ class STIXExporter:
             if not obj.get("created") or not obj.get("modified"):
                 warnings.append(f"Object {i} ({obj.get('type')}) missing created/modified")
 
-        # ── v23.0 ADDITION: Deep stix2 library validation (optional) ────────
+        # -- v23.0 ADDITION: Deep stix2 library validation (optional) --------
         # Uses the official Oasis stix2 Python library when available.
         # Adds findings to warnings (non-breaking) rather than hard errors
         # so existing pipelines are never disrupted by library availability.
@@ -615,7 +615,7 @@ class STIXExporter:
             "stix2_errors":   stix2_errors,
         }
 
-    # ── Manifest Update (preserved + v22.0 fields) ──────────────
+    # -- Manifest Update (preserved + v22.0 fields) --------------
 
     def _update_manifest(self, title, stix_id, risk_score, blog_url,
                          severity, confidence, tlp_label, ioc_counts,
@@ -625,7 +625,7 @@ class STIXExporter:
                          kev_present=False, source_url="",
                          nvd_url=None, extended_metrics=None,
                          supply_chain=False, object_count=0):
-        """Update manifest — backward-compatible + v22.0 new fields."""
+        """Update manifest - backward-compatible + v22.0 new fields."""
         manifest_entries = []
         if os.path.exists(self.manifest_path):
             try:
@@ -693,7 +693,7 @@ class STIXExporter:
         manifest_entries.sort(key=_ts_sort_key, reverse=True)
         trimmed = manifest_entries[:MANIFEST_MAX_ENTRIES]
 
-        # v75.1 ATOMIC WRITE: write to temp file then os.replace() — POSIX-atomic.
+        # v75.1 ATOMIC WRITE: write to temp file then os.replace() - POSIX-atomic.
         # Eliminates corruption risk if process is killed during write.
         # Previously: plain json.dump() could leave partial JSON on disk.
         _tmp_path = self.manifest_path + ".tmp"
@@ -702,7 +702,7 @@ class STIXExporter:
                 json.dump(trimmed, f, indent=4, ensure_ascii=False, default=str)
             os.replace(_tmp_path, self.manifest_path)
         except Exception as _e:
-            # Clean up temp on failure — never leave .tmp on disk
+            # Clean up temp on failure - never leave .tmp on disk
             try:
                 if os.path.exists(_tmp_path):
                     os.remove(_tmp_path)

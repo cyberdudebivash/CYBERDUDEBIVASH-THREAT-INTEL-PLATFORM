@@ -1,5 +1,5 @@
 """
-MITRE ATT&CK Coverage Gap Analysis – FINAL PRODUCTION VERSION
+MITRE ATT&CK Coverage Gap Analysis - FINAL PRODUCTION VERSION
 
 Purpose:
 Identify MITRE ATT&CK techniques actively used by current threats
@@ -10,7 +10,7 @@ Outputs:
 - SOC / Purple Team actionable insights
 
 Designed for:
-SOC • Purple Team • Detection Engineering • ATT&CK Navigator
+SOC * Purple Team * Detection Engineering * ATT&CK Navigator
 """
 
 from typing import List, Dict, Set
@@ -143,9 +143,9 @@ def summarize_gaps(coverage_gaps: List[Dict]) -> str:
     Generate a human-readable summary for reports or blogs.
     """
     if not coverage_gaps:
-        return "✅ No ATT&CK coverage gaps detected."
+        return "? No ATT&CK coverage gaps detected."
 
-    lines = ["🚨 ATT&CK Coverage Gaps Identified:\n"]
+    lines = ["? ATT&CK Coverage Gaps Identified:\n"]
 
     for gap in coverage_gaps:
         lines.append(

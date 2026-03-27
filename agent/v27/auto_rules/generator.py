@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v27.0 — Auto Rule Generator
+CYBERDUDEBIVASH(R) SENTINEL APEX v27.0 - Auto Rule Generator
 ============================================================
 AI-powered detection rule synthesis from threat intelligence.
 
@@ -329,9 +329,9 @@ class RuleGenerator:
         }
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # SINGLETON
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 _generator: Optional[RuleGenerator] = None
 
 

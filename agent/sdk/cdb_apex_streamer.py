@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-cdb_apex_streamer.py — CYBERDUDEBIVASH® SENTINEL APEX v30.0+ 
+cdb_apex_streamer.py - CYBERDUDEBIVASH(R) SENTINEL APEX v30.0+ 
 High-Velocity Data Orchestrator
 
 PURPOSE: Manages enterprise-grade data distribution for March 2026 campaigns.

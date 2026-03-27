@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-risk_trend_model.py — CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
-THREAT RISK TREND ANALYZER — PRODUCTION UPGRADE
+risk_trend_model.py - CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
+THREAT RISK TREND ANALYZER - PRODUCTION UPGRADE
 
 v22.0 ADDITIONS (fully additive):
   - KEV trend tracking: rate of KEV-confirmed threats over time
@@ -32,7 +32,7 @@ MANIFEST_PATH = "data/stix/feed_manifest.json"
 class RiskTrendModel:
     """
     Analyzes intelligence history to detect risk trends, KEV acceleration,
-    EPSS drift, and supply chain activity — all from existing manifest data.
+    EPSS drift, and supply chain activity - all from existing manifest data.
     """
 
     # Sector classification keywords
@@ -66,7 +66,7 @@ class RiskTrendModel:
         entries_14d = self._filter_by_time(entries, cutoff_14d)
         entries_7d  = self._filter_by_time(entries, cutoff_7d)
 
-        # ── Core metrics (preserved) ──
+        # -- Core metrics (preserved) --
         trend_direction  = self._compute_trend_direction(entries_7d, entries_30d)
         attack_velocity  = self._compute_attack_velocity(entries_30d)
         severity_dist    = self._compute_severity_distribution(entries_30d)
@@ -75,7 +75,7 @@ class RiskTrendModel:
         risk_avg_30d     = self._compute_avg_risk(entries_30d)
         high_risk_rate   = self._compute_high_risk_rate(entries_30d)
 
-        # ── v22.0 extended metrics ──
+        # -- v22.0 extended metrics --
         kev_trend        = self._compute_kev_trend(entries_7d, entries_30d)
         epss_avg_7d      = self._compute_avg_epss(entries_7d)
         epss_avg_30d     = self._compute_avg_epss(entries_30d)
@@ -119,14 +119,14 @@ class RiskTrendModel:
         }
 
         logger.info(
-            f"📈 Risk Trend v22.0 | Dir: {trend_direction} | "
+            f"? Risk Trend v22.0 | Dir: {trend_direction} | "
             f"Velocity: {attack_velocity}/day | KEV rate: {kev_trend.get('kev_rate_7d', 0):.1%} | "
             f"SC rate: {supply_chain_rate}% | EPSS avg: {epss_avg_7d}"
         )
 
         return result
 
-    # ── v22.0 NEW ANALYSIS METHODS ─────────────────────────────
+    # -- v22.0 NEW ANALYSIS METHODS -----------------------------
 
     def _compute_kev_trend(
         self, entries_7d: List[Dict], entries_30d: List[Dict]
@@ -151,11 +151,11 @@ class RiskTrendModel:
             "kev_rate_30d":   round(rate_30d, 3),
             "trend":          direction,
             "interpretation": (
-                "⚠️ KEV rate accelerating — confirmed exploitation increasing"
+                "[!] KEV rate accelerating - confirmed exploitation increasing"
                 if direction == "ESCALATING" else
-                "📉 KEV rate declining — fewer confirmed exploitations"
+                "? KEV rate declining - fewer confirmed exploitations"
                 if direction == "DECLINING" else
-                "📊 KEV rate stable"
+                "? KEV rate stable"
             ),
         }
 
@@ -243,7 +243,7 @@ class RiskTrendModel:
             "avg_mitre_count":  round(sum(mitre_counts) / len(entries), 1),
         }
 
-    # ── PRESERVED v17.0 METHODS ────────────────────────────────
+    # -- PRESERVED v17.0 METHODS --------------------------------
 
     def _load_manifest_entries(self) -> List[Dict]:
         if not os.path.exists(MANIFEST_PATH):
@@ -314,12 +314,12 @@ class RiskTrendModel:
 
     def _generate_summary(self, direction: str, velocity: float, high_risk_rate: float) -> str:
         if direction == "ESCALATING" and high_risk_rate >= 50:
-            return "⚠️ ELEVATED THREAT ENVIRONMENT: Attack velocity increasing with high proportion of critical threats."
+            return "[!] ELEVATED THREAT ENVIRONMENT: Attack velocity increasing with high proportion of critical threats."
         elif direction == "ESCALATING":
-            return "📈 THREAT ACTIVITY INCREASING: New threats arriving faster than baseline."
+            return "? THREAT ACTIVITY INCREASING: New threats arriving faster than baseline."
         elif direction == "DECLINING":
-            return "📉 THREAT ACTIVITY NORMALIZING: Reduced threat velocity vs. prior period."
-        return "📊 STABLE THREAT ENVIRONMENT: Threat activity within expected baseline range."
+            return "? THREAT ACTIVITY NORMALIZING: Reduced threat velocity vs. prior period."
+        return "? STABLE THREAT ENVIRONMENT: Threat activity within expected baseline range."
 
     def _empty_trend(self) -> Dict:
         return {

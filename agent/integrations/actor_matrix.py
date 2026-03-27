@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-actor_matrix.py — CyberDudeBivash v12.0 (SENTINEL APEX ULTRA)
+actor_matrix.py - CyberDudeBivash v12.0 (SENTINEL APEX ULTRA)
 EXPANDED: 10+ threat actor profiles with keyword-based attribution
 covering APTs, FIN groups, and common threat categories.
 """
@@ -114,7 +114,7 @@ class ActorMatrix:
                 "keywords": ["vo1d", "void backdoor", "android tv box", "tv box malware",
                              "set-top box", "android tv", "ott box"],
             },
-            # ── v75.3 NEW: Iran-linked, Hacktivists, Cybercrime clusters ──
+            # -- v75.3 NEW: Iran-linked, Hacktivists, Cybercrime clusters --
             "CDB-IR-01": {
                 "alias": ["Nasir Security", "NasirSec"],
                 "origin": "Iran",
@@ -281,7 +281,7 @@ class ActorMatrix:
                 "alias": ["Unattributed Threat Actor"],
                 "origin": "Not Yet Attributed",
                 "motivation": "Under Analysis",
-                "tooling": ["Varies — see technical analysis"],
+                "tooling": ["Varies - see technical analysis"],
                 "confidence_score": "Insufficient data for attribution",
                 "_is_unknown": True,
             }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ioc_validator.py — CYBERDUDEBIVASH® SENTINEL APEX v46.0 VANGUARD
+ioc_validator.py - CYBERDUDEBIVASH(R) SENTINEL APEX v46.0 VANGUARD
 Advanced IOC Validation & Hash Deconfliction Engine
 
 CRITICAL FIXES (Zero-Regression, Additive-Only):
@@ -9,7 +9,7 @@ CRITICAL FIXES (Zero-Regression, Additive-Only):
   2. Hash deconfliction: SHA256 substrings no longer inflating SHA1/MD5 counts
   3. Version string FP filter: "2.0.1", "v3.14" no longer extracted as IPs
   4. CIDR notation handling: /24, /16 suffixes stripped from IP extraction
-  5. Defanged IOC normalization: hxxp://, [.]com, (.com) → normalized
+  5. Defanged IOC normalization: hxxp://, [.]com, (.com) -> normalized
 
 ARCHITECTURE:
   - Wraps existing enricher.extract_iocs() output
@@ -30,10 +30,10 @@ from typing import Dict, List, Set, Optional
 logger = logging.getLogger("CDB-IOC-VALIDATOR")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # FALSE POSITIVE EXTENSION LIST (Source code, config, data files)
-# These get matched by domain regex pattern: filename.ext → "filename.ext"
-# ═══════════════════════════════════════════════════════════════════════════════
+# These get matched by domain regex pattern: filename.ext -> "filename.ext"
+# ===============================================================================
 SOURCE_CODE_EXTENSIONS = frozenset({
     # Programming languages
     ".py", ".cpp", ".c", ".h", ".hpp", ".cc", ".cxx",
@@ -105,7 +105,7 @@ class IOCValidator:
         """
         cleaned = {}
 
-        # ── 1. Hash Deconfliction ──
+        # -- 1. Hash Deconfliction --
         # SHA256 hashes are 64 chars. SHA1 (40) and MD5 (32) regexes will
         # match substrings of SHA256 hashes. Remove those overlaps.
         sha256_set = set(iocs.get("sha256", []))
@@ -122,24 +122,24 @@ class IOCValidator:
         cleaned["sha1"] = sorted(sha1_clean)
         cleaned["md5"] = sorted(md5_clean)
 
-        # ── 2. Domain FP Filter ──
+        # -- 2. Domain FP Filter --
         cleaned["domain"] = sorted(self._validate_domains(iocs.get("domain", [])))
 
-        # ── 3. IP Validation ──
+        # -- 3. IP Validation --
         cleaned["ipv4"] = sorted(self._validate_ips(iocs.get("ipv4", [])))
 
-        # ── 4. URL Validation ──
+        # -- 4. URL Validation --
         cleaned["url"] = sorted(self._validate_urls(iocs.get("url", [])))
 
-        # ── 5. Email Validation ──
+        # -- 5. Email Validation --
         cleaned["email"] = sorted(self._validate_emails(iocs.get("email", [])))
 
-        # ── 6. Pass-through (already validated) ──
+        # -- 6. Pass-through (already validated) --
         cleaned["cve"] = iocs.get("cve", [])
         cleaned["registry"] = iocs.get("registry", [])
         cleaned["artifacts"] = iocs.get("artifacts", [])
 
-        # ── Log cleanup stats ──
+        # -- Log cleanup stats --
         removed = {}
         for key in iocs:
             orig = len(iocs.get(key, []))
@@ -251,5 +251,5 @@ class IOCValidator:
         return valid
 
 
-# ── Singleton ──
+# -- Singleton --
 ioc_validator = IOCValidator()

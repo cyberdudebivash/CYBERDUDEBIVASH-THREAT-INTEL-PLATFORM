@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — GENESIS ENGINE v2.0
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - GENESIS ENGINE v2.0
 ============================================================
 Production-grade AI-powered genesis intelligence engine.
 Generates fully structured genesis_output.json with real data arrays.
 
 Architecture:
   EMBEDDED_INTEL / feed_manifest.json
-    → G01 Sensor Network   (event telemetry simulation)
-    → G02 Honeypot Grid    (deception layer simulation)
-    → G03 Malware Cloud    (YARA-based family detection)
-    → G04 Actor Registry   (APT actor tracking)
-    → G05 Campaign Corr    (AI actor+MITRE clustering)
-    → G06 IOC Reputation   (multi-source trust scoring)
-    → G07 Detection Gen    (Sigma/YARA/Suricata/Snort/KQL generation)
-    → G08 TAXII Server     (STIX 2.1 collection stats)
-    → G09 DarkWeb Intel    (source monitoring simulation)
-    → G10 Attack Surface   (exposure enumeration from IOCs)
-    → G11 Global Attack Map (geo-attribution from feed sources)
-    → G12 AI Threat Hunter  (ML hypothesis generation)
-    → genesis_output.json  (fully structured, dashboard-ready)
+    -> G01 Sensor Network   (event telemetry simulation)
+    -> G02 Honeypot Grid    (deception layer simulation)
+    -> G03 Malware Cloud    (YARA-based family detection)
+    -> G04 Actor Registry   (APT actor tracking)
+    -> G05 Campaign Corr    (AI actor+MITRE clustering)
+    -> G06 IOC Reputation   (multi-source trust scoring)
+    -> G07 Detection Gen    (Sigma/YARA/Suricata/Snort/KQL generation)
+    -> G08 TAXII Server     (STIX 2.1 collection stats)
+    -> G09 DarkWeb Intel    (source monitoring simulation)
+    -> G10 Attack Surface   (exposure enumeration from IOCs)
+    -> G11 Global Attack Map (geo-attribution from feed sources)
+    -> G12 AI Threat Hunter  (ML hypothesis generation)
+    -> genesis_output.json  (fully structured, dashboard-ready)
 
 Author: CyberDudeBivash Pvt. Ltd.
 Version: 2.0.0 | Codename: GENESIS-ULTRA
@@ -37,22 +37,22 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from collections import defaultdict, Counter
 
-# ─── Logging ────────────────────────────────────────────────────────────────
+# --- Logging ----------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [GENESIS-v2] %(levelname)s — %(message)s',
+    format='%(asctime)s [GENESIS-v2] %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 log = logging.getLogger("genesis_v2")
 
-# ─── Constants ──────────────────────────────────────────────────────────────
+# --- Constants --------------------------------------------------------------
 VERSION = "45.0.0"
 CODENAME = "GENESIS-ULTRA"
 OUTPUT_DIR = Path("data/genesis")
 OUTPUT_FILE = OUTPUT_DIR / "genesis_output.json"
 MANIFEST_PATH = Path("data/stix/feed_manifest.json")
 
-# MITRE tactic → kill chain phase mapping
+# MITRE tactic -> kill chain phase mapping
 MITRE_PHASES = {
     "T1595": "Reconnaissance", "T1590": "Reconnaissance",
     "T1566": "Initial Access", "T1190": "Initial Access", "T1078": "Initial Access",
@@ -65,7 +65,7 @@ MITRE_PHASES = {
     "T1499": "Impact", "T1486": "Impact",
 }
 
-# Feed source → geo-attribution mapping
+# Feed source -> geo-attribution mapping
 FEED_GEO = {
     "securityaffairs.com": {"country": "IT", "name": "Italy (EU)", "region": "EU"},
     "cyberscoop.com":       {"country": "US", "name": "USA", "region": "AMER"},
@@ -89,7 +89,7 @@ KNOWN_ACTORS = [
     {"id": "CDB-APT-LK", "name": "LockBit Syndicate",  "nation": "MULTI", "ttps": ["T1486","T1499","T1078"], "confidence": 76},
 ]
 
-# ─── Utility helpers ────────────────────────────────────────────────────────
+# --- Utility helpers --------------------------------------------------------
 
 def gen_id(prefix: str) -> str:
     return f"{prefix}--{uuid.uuid4().hex[:12]}"
@@ -98,7 +98,7 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 def parse_int_from_str(s: Any) -> int:
-    """Parse '24 items' → 24 or pass-through ints."""
+    """Parse '24 items' -> 24 or pass-through ints."""
     if isinstance(s, int): return s
     if isinstance(s, str):
         m = re.search(r'\d+', s)
@@ -111,7 +111,7 @@ def extract_cves(text: str) -> List[str]:
 def severity_to_risk(sev: str) -> float:
     return {"CRITICAL": 9.5, "HIGH": 7.5, "MEDIUM": 5.0, "LOW": 2.5}.get(sev.upper(), 5.0)
 
-# ─── Data Loader ────────────────────────────────────────────────────────────
+# --- Data Loader ------------------------------------------------------------
 
 def load_intel() -> List[Dict]:
     """Load threat intel from feed_manifest.json or return empty list."""
@@ -125,13 +125,13 @@ def load_intel() -> List[Dict]:
                     return data["entries"]
         except Exception as e:
             log.warning(f"Failed to parse feed_manifest: {e}")
-    log.warning("feed_manifest.json not found — using empty dataset")
+    log.warning("feed_manifest.json not found - using empty dataset")
     return []
 
-# ─── G01: Sensor Network ────────────────────────────────────────────────────
+# --- G01: Sensor Network ----------------------------------------------------
 
 def build_sensor_network(intel: List[Dict]) -> Dict:
-    log.info("G01 — Building Sensor Network intelligence")
+    log.info("G01 - Building Sensor Network intelligence")
     sensors = [
         {"sensor_id": f"SN-{i:03d}", "region": r, "type": t, "status": "ACTIVE",
          "events_24h": (len(intel) * m) % 500 + 50}
@@ -158,10 +158,10 @@ def build_sensor_network(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── G02: Honeypot Grid ─────────────────────────────────────────────────────
+# --- G02: Honeypot Grid -----------------------------------------------------
 
 def build_honeypot_grid(intel: List[Dict]) -> Dict:
-    log.info("G02 — Building Honeypot Grid intelligence")
+    log.info("G02 - Building Honeypot Grid intelligence")
     protocols = ["HTTP", "SSH", "SMB", "RDP", "FTP", "MySQL", "Telnet", "Redis"]
     traps = [
         {"trap_id": f"HP-{p}", "protocol": p, "status": "ACTIVE",
@@ -189,10 +189,10 @@ def build_honeypot_grid(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── G03: Malware Cloud ─────────────────────────────────────────────────────
+# --- G03: Malware Cloud -----------------------------------------------------
 
 def build_malware_cloud(intel: List[Dict]) -> Dict:
-    log.info("G03 — Analyzing Malware Cloud samples")
+    log.info("G03 - Analyzing Malware Cloud samples")
     # Extract malware indicators from titles
     malware_keywords = {
         "ransomware": "Ransomware", "trojan": "Trojan", "rat": "RAT",
@@ -250,10 +250,10 @@ def build_malware_cloud(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── G04: Actor Registry ────────────────────────────────────────────────────
+# --- G04: Actor Registry ----------------------------------------------------
 
 def build_actor_registry(intel: List[Dict]) -> Dict:
-    log.info("G04 — Building Actor Intelligence Registry")
+    log.info("G04 - Building Actor Intelligence Registry")
     # Add discovered actors from intel tags
     discovered = []
     known_ids = {a["id"] for a in KNOWN_ACTORS}
@@ -283,10 +283,10 @@ def build_actor_registry(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── G05: Campaign Correlation Engine ───────────────────────────────────────
+# --- G05: Campaign Correlation Engine ---------------------------------------
 
 def build_campaign_correlation(intel: List[Dict]) -> Dict:
-    log.info("G05 — AI Campaign Correlation Engine running")
+    log.info("G05 - AI Campaign Correlation Engine running")
     # Cluster by MITRE tactic fingerprint + actor tag
     tactic_groups = defaultdict(list)
     for item in intel:
@@ -334,10 +334,10 @@ def build_campaign_correlation(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── G06: IOC Reputation Engine ─────────────────────────────────────────────
+# --- G06: IOC Reputation Engine ---------------------------------------------
 
 def build_ioc_reputation(intel: List[Dict]) -> Dict:
-    log.info("G06 — IOC Reputation Scoring Engine running")
+    log.info("G06 - IOC Reputation Scoring Engine running")
     ioc_scores = []
     ioc_types_count = Counter()
     for item in intel:
@@ -375,10 +375,10 @@ def build_ioc_reputation(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── G07: Detection Generator ────────────────────────────────────────────────
+# --- G07: Detection Generator ------------------------------------------------
 
 def build_detection_generator(intel: List[Dict]) -> Dict:
-    log.info("G07 — Detection Rule Generator running")
+    log.info("G07 - Detection Rule Generator running")
 
     sigma_rules = []
     yara_rules = []
@@ -474,10 +474,10 @@ def build_detection_generator(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── G08: TAXII Server ───────────────────────────────────────────────────────
+# --- G08: TAXII Server -------------------------------------------------------
 
 def build_taxii_server(intel: List[Dict]) -> Dict:
-    log.info("G08 — TAXII Server status check")
+    log.info("G08 - TAXII Server status check")
     collections = [
         {"id": "col-001", "title": "CDB Threat Advisories", "description": "STIX 2.1 threat advisory bundles", "count": len(intel)},
         {"id": "col-002", "title": "CDB IOC Feed",           "description": "Machine-readable IOC indicators",  "count": sum(i.get("indicator_count",0) for i in intel)},
@@ -501,10 +501,10 @@ def build_taxii_server(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── G09: DarkWeb Intel ──────────────────────────────────────────────────────
+# --- G09: DarkWeb Intel ------------------------------------------------------
 
 def build_darkweb_intel(intel: List[Dict]) -> Dict:
-    log.info("G09 — DarkWeb Intelligence gathering")
+    log.info("G09 - DarkWeb Intelligence gathering")
     # Derive darkweb signals from title keywords
     darkweb_kw = {"ransomware", "leak", "breach", "sale", "credential", "stolen", "dump", "darkweb", "dark web"}
     signals = []
@@ -540,10 +540,10 @@ def build_darkweb_intel(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── G10: Attack Surface Intelligence ────────────────────────────────────────
+# --- G10: Attack Surface Intelligence ----------------------------------------
 
 def build_attack_surface(intel: List[Dict]) -> Dict:
-    log.info("G10 — Attack Surface Intelligence mapping")
+    log.info("G10 - Attack Surface Intelligence mapping")
     # Enumerate exposures from IOC data
     cve_items = [i for i in intel if i.get("ioc_counts", {}).get("cve", 0) > 0]
     ip_items  = [i for i in intel if i.get("ioc_counts", {}).get("ipv4", 0) > 0]
@@ -595,10 +595,10 @@ def build_attack_surface(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── G11: Global Attack Map ───────────────────────────────────────────────────
+# --- G11: Global Attack Map ---------------------------------------------------
 
 def build_global_attack_map(intel: List[Dict]) -> Dict:
-    log.info("G11 — Global Attack Map computation")
+    log.info("G11 - Global Attack Map computation")
     attack_flows = []
     corridor_counter = Counter()
 
@@ -625,7 +625,7 @@ def build_global_attack_map(intel: List[Dict]) -> Dict:
         elif any(kw in title_lower for kw in ["india","indian"]):
             target = "IN"
 
-        corridor = f"{geo['country']}→{target}"
+        corridor = f"{geo['country']}->{target}"
         corridor_counter[corridor] += 1
 
         attack_flows.append({
@@ -658,10 +658,10 @@ def build_global_attack_map(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── G12: AI Threat Hunter ───────────────────────────────────────────────────
+# --- G12: AI Threat Hunter ---------------------------------------------------
 
 def build_ai_threat_hunter(intel: List[Dict]) -> Dict:
-    log.info("G12 — AI Threat Hunter: generating hypotheses")
+    log.info("G12 - AI Threat Hunter: generating hypotheses")
     # Cluster threats by MITRE tactic combinations
     threat_clusters = []
     cluster_map = defaultdict(list)
@@ -683,13 +683,13 @@ def build_ai_threat_hunter(intel: List[Dict]) -> Dict:
 
     # AI hunt hypotheses from high-risk patterns
     hunt_patterns = [
-        (["T1595","T1190"], "Reconnaissance-to-Exploitation chain detected — hunt for pre-exploitation scanning artifacts in NetFlow and DNS"),
-        (["T1566","T1059"], "Spearphishing→Execution pattern — hunt for malicious macro execution in Office processes and suspicious child processes"),
-        (["T1078","T1547"], "Valid account abuse with persistence — hunt for new registry run keys and scheduled tasks created by unusual accounts"),
-        (["T1203","T1036"], "Exploitation with masquerading — hunt for processes with mismatched parent-child relationships and unusual binary paths"),
-        (["T1555","T1071"], "Credential theft with C2 — hunt for LSASS access events followed by unusual outbound connections"),
-        (["T1486","T1499"], "Ransomware kill-chain — hunt for mass file encryption events and VSS deletion commands"),
-        (["T1213","T1567"], "Data collection-exfiltration chain — hunt for large outbound data transfers to cloud storage services"),
+        (["T1595","T1190"], "Reconnaissance-to-Exploitation chain detected - hunt for pre-exploitation scanning artifacts in NetFlow and DNS"),
+        (["T1566","T1059"], "Spearphishing->Execution pattern - hunt for malicious macro execution in Office processes and suspicious child processes"),
+        (["T1078","T1547"], "Valid account abuse with persistence - hunt for new registry run keys and scheduled tasks created by unusual accounts"),
+        (["T1203","T1036"], "Exploitation with masquerading - hunt for processes with mismatched parent-child relationships and unusual binary paths"),
+        (["T1555","T1071"], "Credential theft with C2 - hunt for LSASS access events followed by unusual outbound connections"),
+        (["T1486","T1499"], "Ransomware kill-chain - hunt for mass file encryption events and VSS deletion commands"),
+        (["T1213","T1567"], "Data collection-exfiltration chain - hunt for large outbound data transfers to cloud storage services"),
     ]
 
     hunt_hypotheses = []
@@ -706,7 +706,7 @@ def build_ai_threat_hunter(intel: List[Dict]) -> Dict:
                 "mitre_tactics": tactics_check,
                 "priority": "HIGH" if len(matching) >= 5 else "MEDIUM",
                 "confidence_pct": round(min(95, avg_conf + len(matching) * 2), 1),
-                "recommended_hunt": hypothesis_text.split("—")[1].strip() if "—" in hypothesis_text else "",
+                "recommended_hunt": hypothesis_text.split("-")[1].strip() if "-" in hypothesis_text else "",
             })
 
     # Infrastructure reuse detection
@@ -756,10 +756,10 @@ def build_ai_threat_hunter(intel: List[Dict]) -> Dict:
         }
     }
 
-# ─── Master Orchestrator ─────────────────────────────────────────────────────
+# --- Master Orchestrator -----------------------------------------------------
 
 def run_genesis_engine() -> Dict:
-    log.info(f"GENESIS ENGINE v2 starting — Codename: {CODENAME}")
+    log.info(f"GENESIS ENGINE v2 starting - Codename: {CODENAME}")
     intel = load_intel()
     log.info(f"Loaded {len(intel)} threat intelligence records")
 
@@ -786,9 +786,9 @@ def run_genesis_engine() -> Dict:
             engines[engine_id] = result
             if result.get("status") == "OK":
                 engines_ok += 1
-            log.info(f"  ✅ {engine_id}: {result.get('status','?')}")
+            log.info(f"  ? {engine_id}: {result.get('status','?')}")
         except Exception as e:
-            log.error(f"  ❌ {engine_id}: FAILED — {e}")
+            log.error(f"  ? {engine_id}: FAILED - {e}")
             engines[engine_id] = {"status": "ERROR", "error": str(e), "summary": {}}
 
     genesis_output = {
@@ -808,12 +808,12 @@ def run_genesis_engine() -> Dict:
         json.dump(genesis_output, f, indent=2, ensure_ascii=False, default=str)
 
     size_kb = OUTPUT_FILE.stat().st_size / 1024
-    log.info(f"✅ genesis_output.json written: {size_kb:.1f} KB — {engines_ok}/{len(builders)} engines OK")
+    log.info(f"? genesis_output.json written: {size_kb:.1f} KB - {engines_ok}/{len(builders)} engines OK")
     return genesis_output
 
-# ─── Entry Point ─────────────────────────────────────────────────────────────
+# --- Entry Point -------------------------------------------------------------
 
 if __name__ == "__main__":
     result = run_genesis_engine()
-    log.info(f"GENESIS ENGINE COMPLETE — Health: {result['health_pct']}%")
+    log.info(f"GENESIS ENGINE COMPLETE - Health: {result['health_pct']}%")
     sys.exit(0 if result["health_pct"] >= 80 else 1)

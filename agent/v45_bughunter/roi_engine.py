@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — ROI & Risk Exposure Calculator
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - ROI & Risk Exposure Calculator
 ======================================================================
 Automates financial risk quantification using industry breach cost models.
 Calculates Annualized Loss Exposure (ALE) and platform ROSI.
@@ -42,9 +42,9 @@ class ROIEngine:
         Calculate total risk exposure and ROI metrics.
         
         Formula:
-          SLE = base_impact × severity_multiplier
-          ALE = Σ(SLE) × ARO (assumed 1.0 per year for critical)
-          ROSI = (mitigated_loss / subscription_cost) × 100
+          SLE = base_impact x severity_multiplier
+          ALE = ?(SLE) x ARO (assumed 1.0 per year for critical)
+          ROSI = (mitigated_loss / subscription_cost) x 100
         """
         total_sle = 0.0
         by_type: Dict[str, float] = {}

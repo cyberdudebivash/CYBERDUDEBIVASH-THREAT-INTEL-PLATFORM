@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-gumroad_handler.py — CYBERDUDEBIVASH® SENTINEL APEX v44.0
+gumroad_handler.py - CYBERDUDEBIVASH(R) SENTINEL APEX v44.0
 GUMROAD PURCHASE FULFILLMENT & API PROVISIONING
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 
 This module automates the bridge between a Gumroad sale and the 
 Sentinel APEX Enterprise SaaS environment.

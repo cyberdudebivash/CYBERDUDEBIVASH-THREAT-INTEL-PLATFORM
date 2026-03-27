@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v49.0 — Bug Hunter Runner
+CYBERDUDEBIVASH(R) SENTINEL APEX v49.0 - Bug Hunter Runner
 ==========================================================
 CLI entry point for Bug Hunter scan execution.
 
@@ -9,9 +9,9 @@ Usage:
     python -m agent.v49_bughunter_fix.run_bughunter --domains example.com,test.com
 
 Environment:
-    BH_TARGET_DOMAIN  — Primary scan target (default: cyberdudebivash.com)
-    BH_EXTRA_DOMAINS  — Comma-separated additional domains
-    BH_TIMEOUT        — HTTP request timeout in seconds (default: 12)
+    BH_TARGET_DOMAIN  - Primary scan target (default: cyberdudebivash.com)
+    BH_EXTRA_DOMAINS  - Comma-separated additional domains
+    BH_TIMEOUT        - HTTP request timeout in seconds (default: 12)
 
 Designed for safe execution in GitHub Actions CI/CD.
 
@@ -36,7 +36,7 @@ from agent.v49_bughunter_fix.dashboard_bridge import (
     validate_output,
 )
 
-# ── LOGGING SETUP ─────────────────────────────────────────────
+# -- LOGGING SETUP ---------------------------------------------
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,7 +45,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("CDB-BH-RUNNER")
 
-# ── DEFAULT TARGET ────────────────────────────────────────────
+# -- DEFAULT TARGET --------------------------------------------
 
 DEFAULT_DOMAIN = "cyberdudebivash.com"
 
@@ -53,7 +53,7 @@ DEFAULT_DOMAIN = "cyberdudebivash.com"
 def run_scan(domain: str, timeout: int = 12) -> dict:
     """Execute a full Bug Hunter scan on a single domain."""
     logger.info(f"{'='*60}")
-    logger.info(f"  SENTINEL APEX v{V49_VERSION} — {V49_CODENAME}")
+    logger.info(f"  SENTINEL APEX v{V49_VERSION} - {V49_CODENAME}")
     logger.info(f"  Target: {domain}")
     logger.info(f"{'='*60}")
 
@@ -114,7 +114,7 @@ def merge_multi_domain_results(results: list) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="CDB SENTINEL APEX — Bug Hunter Recon Scanner"
+        description="CDB SENTINEL APEX - Bug Hunter Recon Scanner"
     )
     parser.add_argument(
         "--domain",
@@ -167,7 +167,7 @@ def main():
 
     # Summary
     print(f"\n{'='*60}")
-    print(f"  ✅ BUG HUNTER SCAN COMPLETE")
+    print(f"  ? BUG HUNTER SCAN COMPLETE")
     print(f"{'='*60}")
     print(f"  Domains scanned:    {len(domains)}")
     print(f"  Subdomains found:   {validation['subdomains']}")
@@ -177,14 +177,14 @@ def main():
     print(f"  Critical findings:  {validation['critical_findings']}")
     print(f"  Risk exposure:      ${validation['risk_exposure']:,}")
     print(f"  Engines active:     {validation['engines_count']}/12")
-    print(f"  Has data:           {'YES ✓' if validation['has_nonzero_metrics'] else 'NO ✗'}")
+    print(f"  Has data:           {'YES [OK]' if validation['has_nonzero_metrics'] else 'NO [X]'}")
     print(f"  Duration:           {total_time:.1f}s")
     print(f"  Output:             {output_path}")
     print(f"{'='*60}\n")
 
     if not validation["has_nonzero_metrics"]:
-        logger.warning("Scanner produced zero metrics — external API may be down")
-        # Still exit 0 — don't block CI/CD for transient crt.sh failures
+        logger.warning("Scanner produced zero metrics - external API may be down")
+        # Still exit 0 - don't block CI/CD for transient crt.sh failures
         sys.exit(0)
 
 

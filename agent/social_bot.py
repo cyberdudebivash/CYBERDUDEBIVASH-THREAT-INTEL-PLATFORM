@@ -1,5 +1,5 @@
 """
-social_bot.py — CyberDudeBivash Social Dispatcher v2.5
+social_bot.py - CyberDudeBivash Social Dispatcher v2.5
 Final Production Edition: Resolved 403 Author Validation Error.
 """
 import os
@@ -52,7 +52,7 @@ def post_to_linkedin(message, url):
             response = requests.post(endpoint, headers=headers, json=payload)
 
         if response.status_code == 201:
-            logger.info("✓ LinkedIn broadcast successful! Advisory is live on your profile.")
+            logger.info("[OK] LinkedIn broadcast successful! Advisory is live on your profile.")
         else:
             # Captures exact refusal reason for final audit
             logger.error(f"LinkedIn API Refusal {response.status_code}: {response.text}")
@@ -62,13 +62,13 @@ def post_to_linkedin(message, url):
 
 def broadcast_to_social(title, url, score):
     """Constructs the professional network alert advisory."""
-    severity = "🔴 CRITICAL" if score >= 8.5 else "🟠 HIGH"
+    severity = "? CRITICAL" if score >= 8.5 else "? HIGH"
     message = (
         f"{severity} THREAT ADVISORY\n"
-        f"━━━━━━━━━━━━━━━\n"
+        f"???????????????\n"
         f"THREAT: {title}\n"
         f"CDB-RISK INDEX: {score}/10.0\n\n"
-        f"🔗 Technical Analysis: {url}\n\n"
+        f"? Technical Analysis: {url}\n\n"
         f"#CyberSecurity #ThreatIntel #CyberDudeBivash"
     )
     post_to_linkedin(message, url)

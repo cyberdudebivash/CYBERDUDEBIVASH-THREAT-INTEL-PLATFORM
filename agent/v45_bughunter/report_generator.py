@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — Bug Hunter Report Generator
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - Bug Hunter Report Generator
 ===================================================================
 Generates branded PDF security audit reports with risk scoring,
 financial impact metrics, and remediation strategies.
@@ -56,15 +56,15 @@ class ReportGenerator:
 
         lines = [
             "=" * 70,
-            "CYBERDUDEBIVASH® BUG HUNTER — SECURITY AUDIT REPORT",
+            "CYBERDUDEBIVASH(R) BUG HUNTER - SECURITY AUDIT REPORT",
             "=" * 70,
             f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC",
             f"Target: {domain}",
             f"CyberDudeBivash Risk Score: {risk_score}/100",
             "",
-            "─" * 70,
+            "-" * 70,
             "1. EXECUTIVE RISK ASSESSMENT",
-            "─" * 70,
+            "-" * 70,
             f"Total findings: {len(findings)}",
             f"Critical: {sum(1 for f in findings if f.get('severity') == 'CRITICAL')}",
             f"High: {sum(1 for f in findings if f.get('severity') == 'HIGH')}",
@@ -74,9 +74,9 @@ class ReportGenerator:
 
         if roi:
             lines.extend([
-                "─" * 70,
+                "-" * 70,
                 "2. FINANCIAL IMPACT ANALYSIS",
-                "─" * 70,
+                "-" * 70,
                 f"Total Risk Exposure: ${roi.get('total_risk_exposure', 0):,.2f}",
                 f"Mitigated Value: ${roi.get('mitigated_value', 0):,.2f}",
                 f"Platform ROSI: {roi.get('rosi_percentage', 0):.1f}%",
@@ -84,9 +84,9 @@ class ReportGenerator:
             ])
 
         lines.extend([
-            "─" * 70,
+            "-" * 70,
             "3. TECHNICAL FINDINGS",
-            "─" * 70,
+            "-" * 70,
         ])
 
         if not findings:
@@ -94,24 +94,24 @@ class ReportGenerator:
         else:
             for i, f in enumerate(findings, 1):
                 lines.extend([
-                    f"  [{i}] {f.get('type', 'UNKNOWN')} — {f.get('severity', 'N/A')}",
+                    f"  [{i}] {f.get('type', 'UNKNOWN')} - {f.get('severity', 'N/A')}",
                     f"      Target: {f.get('url') or f.get('host') or f.get('bucket', 'N/A')}",
                     f"      Evidence: {f.get('evidence', 'See technical details')}",
                     "",
                 ])
 
         lines.extend([
-            "─" * 70,
+            "-" * 70,
             "4. REMEDIATION STRATEGY",
-            "─" * 70,
+            "-" * 70,
             "  1. Enforce BOLA validation on all user-specific API endpoints.",
             "  2. Audit cloud storage bucket policies for public access.",
             "  3. Remove hardcoded secrets from client-side JavaScript.",
             "  4. Implement CNAME lifecycle management to prevent takeovers.",
             "  5. Restrict exposed ports to required services only.",
             "",
-            "─" * 70,
-            f"Confidential — CyberDudeBivash Pvt. Ltd.",
+            "-" * 70,
+            f"Confidential - CyberDudeBivash Pvt. Ltd.",
             f"Official Authority: Bivash Kumar, Founder & CEO",
             "=" * 70,
         ])
@@ -140,7 +140,7 @@ class ReportGenerator:
         try:
             from fpdf import FPDF
         except ImportError:
-            logger.warning("[REPORT] fpdf not installed — falling back to text report")
+            logger.warning("[REPORT] fpdf not installed - falling back to text report")
             return self.save_report(scan_data)
 
         domain = scan_data.get("domain", "unknown")

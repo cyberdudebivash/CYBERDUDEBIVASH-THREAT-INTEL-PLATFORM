@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-delivery_vault.py — CYBERDUDEBIVASH® SENTINEL APEX v46.0
+delivery_vault.py - CYBERDUDEBIVASH(R) SENTINEL APEX v46.0
 ENCRYPTED INTELLIGENCE DELIVERY VAULT
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 """
 
 import os
@@ -38,7 +38,7 @@ class CDBDeliveryVault:
         # Log to Manifest for SDK access
         self._log_delivery(tenant_id, vault_path, key.decode())
         
-        print(f"🔒 v46.0: Asset secured for {tenant_id}")
+        print(f"? v46.0: Asset secured for {tenant_id}")
         return vault_path
 
     def _log_delivery(self, tenant_id: str, path: str, key: str):

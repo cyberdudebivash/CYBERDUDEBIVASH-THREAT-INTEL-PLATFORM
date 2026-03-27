@@ -1,6 +1,6 @@
 """
 CVE Deep-Dive Selection Engine
-FINAL • PRODUCTION • STRICT PRIORITIZATION
+FINAL * PRODUCTION * STRICT PRIORITIZATION
 
 Selects only high-impact CVEs suitable for long-form authority posts.
 """

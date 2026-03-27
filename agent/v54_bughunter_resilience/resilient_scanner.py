@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v54.0 — Resilient Recon Scanner
+CYBERDUDEBIVASH(R) SENTINEL APEX v54.0 - Resilient Recon Scanner
 ================================================================
 Hardened Bug Hunter scanner with multi-source subdomain fallback.
 
@@ -11,7 +11,7 @@ SOLUTION: 3-tier subdomain discovery with guaranteed non-empty results:
   Tier 2: DNS resolution of common subdomain prefixes (fallback)
   Tier 3: Hardcoded known subdomains for CDB domains (guaranteed floor)
 
-This module wraps the existing v49 SafeReconScanner — does NOT modify it.
+This module wraps the existing v49 SafeReconScanner - does NOT modify it.
 """
 
 import json
@@ -37,7 +37,7 @@ try:
     HAS_V49 = True
 except ImportError:
     HAS_V49 = False
-    logger.warning("v49_bughunter_fix not available — using standalone mode")
+    logger.warning("v49_bughunter_fix not available - using standalone mode")
 
 try:
     import requests
@@ -156,7 +156,7 @@ class ResilientReconScanner:
         self.scan_id = f"BH-{int(time.time())}"
         self.start_time = time.time()
 
-    # ── TIER 1: crt.sh CT Logs ────────────────────────────────
+    # -- TIER 1: crt.sh CT Logs --------------------------------
 
     def _discover_via_crtsh(self) -> Set[str]:
         """Primary: Certificate Transparency logs via crt.sh."""
@@ -180,7 +180,7 @@ class ResilientReconScanner:
             logger.warning(f"[TIER-1] crt.sh failed: {e}")
         return subs
 
-    # ── TIER 2: DNS Resolution Fallback ───────────────────────
+    # -- TIER 2: DNS Resolution Fallback -----------------------
 
     def _discover_via_dns(self) -> Set[str]:
         """Fallback: Resolve common subdomain prefixes via DNS."""
@@ -201,7 +201,7 @@ class ResilientReconScanner:
         logger.info(f"[TIER-2] DNS resolution: {len(subs)} subdomains")
         return subs
 
-    # ── TIER 3: Known Subdomains (guaranteed floor) ───────────
+    # -- TIER 3: Known Subdomains (guaranteed floor) -----------
 
     def _discover_known(self) -> Set[str]:
         """Guaranteed floor: Hardcoded known subdomains for CDB domains."""
@@ -213,7 +213,7 @@ class ResilientReconScanner:
         logger.info(f"[TIER-3] Known seeds: {len(subs)} subdomains")
         return subs
 
-    # ── COMBINED SUBDOMAIN DISCOVERY ──────────────────────────
+    # -- COMBINED SUBDOMAIN DISCOVERY --------------------------
 
     def engine_subdomain_discovery(self) -> List[str]:
         """3-tier subdomain discovery with guaranteed non-empty output."""
@@ -223,11 +223,11 @@ class ResilientReconScanner:
         tier1 = self._discover_via_crtsh()
         all_subs.update(tier1)
 
-        # Tier 2: DNS fallback (always run — catches subdomains crt.sh misses)
+        # Tier 2: DNS fallback (always run - catches subdomains crt.sh misses)
         tier2 = self._discover_via_dns()
         all_subs.update(tier2)
 
-        # Tier 3: Known seeds (guaranteed floor — ALWAYS applied)
+        # Tier 3: Known seeds (guaranteed floor - ALWAYS applied)
         # v55.2 FIX: Previously only fired when len(all_subs)==0, but Tier 1+2
         # can both fail in CI/CD (crt.sh rate-limited + DNS resolution limited)
         tier3 = self._discover_known()
@@ -239,7 +239,7 @@ class ResilientReconScanner:
         logger.info(f"[E1] Total subdomains: {len(self.subdomains)} (T1:{len(tier1)} T2:{len(tier2)} T3:{len(tier3)} merged)")
         return self.subdomains
 
-    # ── ENGINE 2: HTTP PROBING ────────────────────────────────
+    # -- ENGINE 2: HTTP PROBING --------------------------------
 
     def engine_http_probe(self) -> List[Dict[str, Any]]:
         """Probe each subdomain for HTTP/HTTPS liveness."""
@@ -280,7 +280,7 @@ class ResilientReconScanner:
         logger.info(f"[E2] HTTP Probe: {len(probed)} live hosts")
         return probed
 
-    # ── ENGINE 3: TECH FINGERPRINT ────────────────────────────
+    # -- ENGINE 3: TECH FINGERPRINT ----------------------------
 
     def engine_tech_fingerprint(self) -> Dict[str, List[str]]:
         for host in self.live_hosts:
@@ -298,7 +298,7 @@ class ResilientReconScanner:
         logger.info(f"[E3] Tech fingerprint: {sum(len(v) for v in self.technologies.values())} detections")
         return self.technologies
 
-    # ── ENGINE 4: JS ENDPOINT EXTRACTION ──────────────────────
+    # -- ENGINE 4: JS ENDPOINT EXTRACTION ----------------------
 
     def engine_js_endpoint_extraction(self) -> List[str]:
         endpoints: Set[str] = set()
@@ -314,7 +314,7 @@ class ResilientReconScanner:
         logger.info(f"[E4] JS endpoints: {len(self.api_endpoints)}")
         return self.api_endpoints
 
-    # ── ENGINE 5: SECURITY HEADER AUDIT ───────────────────────
+    # -- ENGINE 5: SECURITY HEADER AUDIT -----------------------
 
     def engine_security_header_audit(self):
         for host in self.live_hosts:
@@ -329,7 +329,7 @@ class ResilientReconScanner:
                 )
         self.engine_status["bola_agent"] = "ONLINE"
 
-    # ── ENGINE 6: CLOUD BUCKET DETECTION ──────────────────────
+    # -- ENGINE 6: CLOUD BUCKET DETECTION ----------------------
 
     def engine_cloud_bucket_detection(self):
         for host in self.live_hosts:
@@ -345,7 +345,7 @@ class ResilientReconScanner:
                     )
         self.engine_status["cloud_bucket_hunter"] = "ONLINE"
 
-    # ── ENGINE 7: TAKEOVER DETECTION ──────────────────────────
+    # -- ENGINE 7: TAKEOVER DETECTION --------------------------
 
     def engine_takeover_detection(self):
         for host in self.live_hosts:
@@ -362,7 +362,7 @@ class ResilientReconScanner:
                         break
         self.engine_status["takeover_detector"] = "ONLINE"
 
-    # ── ENGINE 8: PORT HEURISTIC ──────────────────────────────
+    # -- ENGINE 8: PORT HEURISTIC ------------------------------
 
     def engine_port_heuristic(self):
         detected_ports = set()
@@ -383,7 +383,7 @@ class ResilientReconScanner:
                 pass
         self.engine_status["port_scanner"] = "ONLINE"
 
-    # ── ENGINE 9: SECRET DETECTION ────────────────────────────
+    # -- ENGINE 9: SECRET DETECTION ----------------------------
 
     def engine_secret_detection(self):
         for host in self.live_hosts:
@@ -398,7 +398,7 @@ class ResilientReconScanner:
                     )
         self.engine_status["asset_delta"] = "ONLINE"
 
-    # ── ENGINE 10: ROI CALCULATION ────────────────────────────
+    # -- ENGINE 10: ROI CALCULATION ----------------------------
 
     def engine_roi_calculation(self) -> Dict[str, Any]:
         total_exposure = 0
@@ -420,7 +420,7 @@ class ResilientReconScanner:
             "finding_breakdown": breakdown,
         }
 
-    # ── FINDING HELPER ────────────────────────────────────────
+    # -- FINDING HELPER ----------------------------------------
 
     def _add_finding(self, ftype: str, target: str, severity: str, evidence: str):
         self.findings.append({
@@ -432,7 +432,7 @@ class ResilientReconScanner:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
 
-    # ── FULL SCAN ORCHESTRATION ───────────────────────────────
+    # -- FULL SCAN ORCHESTRATION -------------------------------
 
     def run_full_scan(self, previous_output_path: Optional[str] = None) -> Dict:
         """Execute all 12 engines in sequence with resilient subdomain discovery."""
@@ -581,7 +581,7 @@ def main():
     )
 
     parser = argparse.ArgumentParser(
-        description="CDB SENTINEL APEX v54 — Resilient Bug Hunter Scanner"
+        description="CDB SENTINEL APEX v54 - Resilient Bug Hunter Scanner"
     )
     parser.add_argument(
         "--domain",
@@ -601,7 +601,7 @@ def main():
 
     m = result["metrics"]
     print(f"\n{'='*60}")
-    print(f"  ✅ BUG HUNTER v54 RESILIENT SCAN COMPLETE")
+    print(f"  ? BUG HUNTER v54 RESILIENT SCAN COMPLETE")
     print(f"{'='*60}")
     print(f"  Domain:           {args.domain}")
     print(f"  Subdomains:       {m['subdomains']}")
@@ -616,8 +616,8 @@ def main():
     print(f"{'='*60}\n")
 
     if m["subdomains"] == 0:
-        logger.warning("Zero subdomains — all fallbacks failed. Output file still written.")
-        # v55.2: Exit 0 — don't block CI/CD. The output file is valid (just empty metrics).
+        logger.warning("Zero subdomains - all fallbacks failed. Output file still written.")
+        # v55.2: Exit 0 - don't block CI/CD. The output file is valid (just empty metrics).
         # Next cron cycle will retry automatically.
         sys.exit(0)
 

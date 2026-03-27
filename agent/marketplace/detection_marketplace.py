@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-detection_marketplace.py — CYBERDUDEBIVASH® SENTINEL APEX v24.0
+detection_marketplace.py - CYBERDUDEBIVASH(R) SENTINEL APEX v24.0
 Detection Rule Marketplace Module.
 
 Non-Breaking Addition: Standalone marketplace catalog module.
@@ -372,9 +372,9 @@ class DetectionMarketplace:
   </div>
   <h3 style="color:#e2e8f0;margin-bottom:8px;">{pack['name']}</h3>
   <p style="color:#94a3b8;font-size:0.9rem;margin-bottom:12px;">{pack['description'][:200]}...</p>
-  <div style="color:#64748b;font-size:0.8rem;margin-bottom:12px;">📋 {pack.get('rule_count',0)} rules | {rule_summary}</div>
+  <div style="color:#64748b;font-size:0.8rem;margin-bottom:12px;">? {pack.get('rule_count',0)} rules | {rule_summary}</div>
   <div style="margin-bottom:16px;">{tags_html}</div>
-  <a href="{pack.get('gumroad_url','https://cyberdudebivash.gumroad.com')}" target="_blank" style="display:inline-block;background:{tier_color};color:#000;font-weight:700;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:0.9rem;">Get Pack →</a>
+  <a href="{pack.get('gumroad_url','https://cyberdudebivash.gumroad.com')}" target="_blank" style="display:inline-block;background:{tier_color};color:#000;font-weight:700;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:0.9rem;">Get Pack -></a>
 </div>"""
 
         html = f"""<!DOCTYPE html>
@@ -382,7 +382,7 @@ class DetectionMarketplace:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Detection Rule Marketplace — CyberDudeBivash SENTINEL APEX</title>
+<title>Detection Rule Marketplace - CyberDudeBivash SENTINEL APEX</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 body {{ background:#06080d; color:#cbd5e1; font-family:'Inter',sans-serif; max-width:900px; margin:0 auto; padding:20px; }}
@@ -390,14 +390,14 @@ body {{ background:#06080d; color:#cbd5e1; font-family:'Inter',sans-serif; max-w
 </head>
 <body>
 <div style="text-align:center;padding:40px 20px;border-bottom:1px solid #1e293b;margin-bottom:40px;">
-  <div style="color:#00d4aa;font-size:1.1rem;font-weight:700;">Shield CYBERDUDEBIVASH® SENTINEL APEX</div>
+  <div style="color:#00d4aa;font-size:1.1rem;font-weight:700;">Shield CYBERDUDEBIVASH(R) SENTINEL APEX</div>
   <h1 style="font-size:2.2rem;color:#e2e8f0;margin:12px 0;">Detection Rule Marketplace</h1>
   <p style="color:#64748b;">Production-ready detection rules for SIEM, EDR, and NDR platforms.</p>
-  <p style="color:#64748b;">Sigma · YARA · KQL · SPL · Suricata · EQL</p>
+  <p style="color:#64748b;">Sigma * YARA * KQL * SPL * Suricata * EQL</p>
 </div>
 {pack_cards}
 <div style="text-align:center;padding:40px;color:#475569;font-size:0.8rem;">
-  <p>CYBERDUDEBIVASH® SENTINEL APEX · <a href="https://intel.cyberdudebivash.com" style="color:#00d4aa;">intel.cyberdudebivash.com</a></p>
+  <p>CYBERDUDEBIVASH(R) SENTINEL APEX * <a href="https://intel.cyberdudebivash.com" style="color:#00d4aa;">intel.cyberdudebivash.com</a></p>
   <p>Enterprise licensing: <a href="mailto:bivash@cyberdudebivash.com" style="color:#00d4aa;">bivash@cyberdudebivash.com</a></p>
 </div>
 </body>

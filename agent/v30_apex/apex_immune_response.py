@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-apex_immune_response.py — CyberDudeBivash v30.0 (APEX SOAR ENGINE)
+apex_immune_response.py - CyberDudeBivash v30.0 (APEX SOAR ENGINE)
 Author: CYBERGOD / TECH GOD
 Description: Autonomous Self-Healing Engine. Reads the latest threat intelligence 
              and mathematically generates Remediation-as-Code (Ansible/K8s/Yara) 
@@ -131,7 +131,7 @@ spec:
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "status": "READY_FOR_DEPLOYMENT"
             })
-            logging.info(f"⚡ Forged Immune Playbooks for: {threat.get('title')}")
+            logging.info(f"[!] Forged Immune Playbooks for: {threat.get('title')}")
 
         # Save the master index
         manifest_path = os.path.join(self.remediation_dir, "apex_remediation_manifest.json")

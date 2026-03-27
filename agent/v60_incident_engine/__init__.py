@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v60.0 — Incident Intelligence Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v60.0 - Incident Intelligence Engine
 ====================================================================
 Converts threat intelligence records into structured security incidents.
 Correlates IOCs, maps MITRE ATT&CK, assigns severity, and generates
@@ -8,7 +8,7 @@ incident records for SOC consumption.
 Input:  data/stix/feed_manifest.json
 Output: data/incidents/incidents.json
 
-© 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
+(C) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
 """
 
 import json
@@ -122,7 +122,7 @@ def correlate_incidents(intel_records: List[Dict]) -> List[Dict]:
 def run():
     """Execute the Incident Intelligence Engine."""
     logger.info("=" * 60)
-    logger.info("  SENTINEL APEX v60.0 — Incident Intelligence Engine")
+    logger.info("  SENTINEL APEX v60.0 - Incident Intelligence Engine")
     logger.info("=" * 60)
 
     if not MANIFEST_PATH.exists():
@@ -159,7 +159,7 @@ def run():
     with open(OUTPUT_FILE, "w") as f:
         json.dump(output, f, indent=2, default=str)
 
-    logger.info(f"✅ {len(incidents)} incidents generated (CRIT:{critical} HIGH:{high} Actors:{actors})")
+    logger.info(f"? {len(incidents)} incidents generated (CRIT:{critical} HIGH:{high} Actors:{actors})")
     logger.info(f"   Output: {OUTPUT_FILE}")
     return output
 

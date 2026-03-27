@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-zerodayhunter_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v35.0 (ZERO-DAY HUNTER)
+zerodayhunter_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v35.0 (ZERO-DAY HUNTER)
 ==================================================================================
-Core Zero-Day Hunter Engine — detects early-stage attacks before mass exploitation.
+Core Zero-Day Hunter Engine - detects early-stage attacks before mass exploitation.
 
 Subsystems:
-  1. ZeroDaySignalDetector  — Identifies potential zero-day exploitation chains
-  2. AttackWaveDetector     — Detects coordinated campaign waves
-  3. ThreatReasoningAI      — Generates contextual intelligence explanations
-  4. EarlyWarningSystem     — Threshold-based predictive alerts
-  5. PlaybookGenerator      — Automated incident response playbooks
-  6. GlobalThreatIndex      — Daily composite cyber risk index
+  1. ZeroDaySignalDetector  - Identifies potential zero-day exploitation chains
+  2. AttackWaveDetector     - Detects coordinated campaign waves
+  3. ThreatReasoningAI      - Generates contextual intelligence explanations
+  4. EarlyWarningSystem     - Threshold-based predictive alerts
+  5. PlaybookGenerator      - Automated incident response playbooks
+  6. GlobalThreatIndex      - Daily composite cyber risk index
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os, json, hashlib, logging, math
@@ -29,9 +29,9 @@ logger = logging.getLogger("CDB-ZeroDayHunter")
 OUTPUT_DIR = os.environ.get("ZDH_OUTPUT_DIR", "data/zerodayhunter")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # 1. ZERO-DAY SIGNAL DETECTOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 @dataclass
 class ZeroDayAlert:
@@ -138,7 +138,7 @@ class ZeroDaySignalDetector:
                 alerts.append(ZeroDayAlert(
                     alert_id=f"zd-{alert_hash}",
                     entity=cluster.entity, alert_type=rule["name"], severity=sev,
-                    title=f"Zero-Day Signal: {cluster.entity} — {rule['name']}",
+                    title=f"Zero-Day Signal: {cluster.entity} - {rule['name']}",
                     description=desc, confidence=cluster.confidence,
                     chain_evidence=cluster.chain, exploitation_status=status,
                     indicators=[cluster.entity] + cluster.related[:5],
@@ -151,9 +151,9 @@ class ZeroDaySignalDetector:
         return alerts
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # 2. ATTACK WAVE DETECTOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 @dataclass
 class AttackWave:
@@ -209,9 +209,9 @@ class AttackWaveDetector:
         return waves
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # 3. AI THREAT REASONING ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class ThreatReasoningAI:
     """Generates contextual intelligence explanations from threat data."""
@@ -287,9 +287,9 @@ class ThreatReasoningAI:
         return reports
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # 4. EARLY WARNING SYSTEM
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 @dataclass
 class EarlyWarning:
@@ -333,9 +333,9 @@ class EarlyWarningSystem:
         return warnings
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # 5. PLAYBOOK GENERATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class PlaybookGenerator:
     def generate(self, warnings: List[EarlyWarning], zd_alerts: List[ZeroDayAlert]) -> List[Dict]:
@@ -392,9 +392,9 @@ class PlaybookGenerator:
         return playbooks
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # 6. GLOBAL THREAT INDEX
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class GlobalThreatIndex:
     def calculate(self, forecasts: List[Forecast], zd_alerts: List[ZeroDayAlert], waves: List[AttackWave]) -> Dict:
@@ -424,19 +424,19 @@ class GlobalThreatIndex:
             "critical_threats": critical_count, "high_threats": high_count,
             "zeroday_alerts": len(zd_alerts), "attack_waves": len(waves),
             "brand": "CyberDudeBivash Global Threat Index",
-            "platform": "SENTINEL APEX v35.0 — ZERO-DAY HUNTER",
+            "platform": "SENTINEL APEX v35.0 - ZERO-DAY HUNTER",
         }
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # MAIN ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class ZeroDayHunterEngine:
     """
-    Master orchestrator — runs the complete Zero-Day Hunter pipeline.
-    Pipeline: Signals → Correlation → Forecasting → Zero-Day Detection →
-              Wave Detection → AI Reasoning → Early Warning → Playbooks → GTI
+    Master orchestrator - runs the complete Zero-Day Hunter pipeline.
+    Pipeline: Signals -> Correlation -> Forecasting -> Zero-Day Detection ->
+              Wave Detection -> AI Reasoning -> Early Warning -> Playbooks -> GTI
     """
 
     def __init__(self, output_dir: str = OUTPUT_DIR, enable_external: bool = True):
@@ -455,7 +455,7 @@ class ZeroDayHunterEngine:
 
     def run(self, window_hours: int = 72) -> Dict:
         logger.info("=" * 65)
-        logger.info("SENTINEL APEX v35.0 — ZERO-DAY HUNTER ENGINE")
+        logger.info("SENTINEL APEX v35.0 - ZERO-DAY HUNTER ENGINE")
         logger.info("=" * 65)
         now = datetime.now(timezone.utc).isoformat()
 
@@ -513,7 +513,7 @@ class ZeroDayHunterEngine:
         self._save(result, signals, clusters, forecasts, zd_alerts, waves, ai_reports, warnings, playbooks, threat_index)
 
         logger.info("=" * 65)
-        logger.info(f"ZERO-DAY HUNTER COMPLETE — GTI: {threat_index['index']}/10 ({threat_index['level']})")
+        logger.info(f"ZERO-DAY HUNTER COMPLETE - GTI: {threat_index['index']}/10 ({threat_index['level']})")
         logger.info(f"  {len(zd_alerts)} zero-day alerts | {len(waves)} waves | {len(warnings)} warnings")
         logger.info("=" * 65)
         return result
@@ -541,12 +541,12 @@ class ZeroDayHunterEngine:
         logger.info(f"All outputs saved to {d}/")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # CLI ENTRY POINT
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="[ZDH] %(asctime)s — %(levelname)s — %(message)s")
+    logging.basicConfig(level=logging.INFO, format="[ZDH] %(asctime)s - %(levelname)s - %(message)s")
     try:
         import requests; ext = True
     except ImportError: ext = False

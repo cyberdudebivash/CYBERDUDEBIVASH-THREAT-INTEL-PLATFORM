@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-premium_report_generator.py — CyberDudeBivash v12.0 (SENTINEL APEX ULTRA)
+premium_report_generator.py - CyberDudeBivash v12.0 (SENTINEL APEX ULTRA)
 NEW MODULE: Premium 16-Section Threat Intelligence Report Generator.
 Produces 2500+ word, enterprise-grade reports following the
 CYBERDUDEBIVASH PREMIUM THREAT INTEL REPORT TEMPLATE exactly.
@@ -13,9 +13,9 @@ from typing import Dict, List, Optional
 
 from agent.config import BRAND, COLORS, FONTS
 
-# ── CVE-Verified Report Engine (v44.0) ────────────────────────────────────────
+# -- CVE-Verified Report Engine (v44.0) ----------------------------------------
 # Generates NVD-grounded, zero-hallucination reports for CVE advisories.
-# Loaded lazily — zero impact on non-CVE report paths.
+# Loaded lazily - zero impact on non-CVE report paths.
 _cve_engine_available = False
 try:
     from agent.content.cve_verified_engine import generate_cve_verified_report as _generate_cve_verified_report
@@ -54,11 +54,11 @@ class PremiumReportGenerator:
         Google/Apple improving Android/iOS security.
 
         The old code triggered Zygote/firmware hallucination for ANY article
-        mentioning 'android' or 'mobile' — including "Google makes Android safer".
+        mentioning 'android' or 'mobile' - including "Google makes Android safer".
         """
         combined = f"{headline} {text}".lower()
 
-        # ── INSTANT DISQUALIFIERS — these are product news, not malware ──────
+        # -- INSTANT DISQUALIFIERS - these are product news, not malware ------
         disqualifiers = [
             "will make", "makes it safer", "making android safer",
             "sideloading safer", "advanced flow", "safer sideloading",
@@ -70,7 +70,7 @@ class PremiumReportGenerator:
         if any(d in combined for d in disqualifiers):
             return False
 
-        # ── CONFIRMATION REQUIRED: Must have malware-specific signals ─────────
+        # -- CONFIRMATION REQUIRED: Must have malware-specific signals ---------
         malware_confirmed_signals = [
             "preinstalled malware", "firmware backdoor", "zygote",
             "system partition", "triada", "badbox", "vo1d", "keenadu",
@@ -88,20 +88,20 @@ class PremiumReportGenerator:
         """Classify the threat type from headline and content for contextual generation."""
         text = f"{headline} {content}".lower()
 
-        # ══════════════════════════════════════════════════════════════════════
-        # CVE PRIORITY LOCK (v44.0) — ZERO REGRESSION, ZERO HALLUCINATION
+        # ======================================================================
+        # CVE PRIORITY LOCK (v44.0) - ZERO REGRESSION, ZERO HALLUCINATION
         # If ANY CVE-XXXX-XXXXX pattern is present, this is ALWAYS a
-        # 'vulnerability' advisory — never mobile_malware, never malware_campaign.
+        # 'vulnerability' advisory - never mobile_malware, never malware_campaign.
         # This prevents keyword collisions (e.g., "android" in a Viber CVE)
         # from triggering fabricated malware/firmware/Zygote narratives.
-        # ══════════════════════════════════════════════════════════════════════
+        # ======================================================================
         if re.search(r'cve-\d{4}-\d{4,7}', text, re.IGNORECASE):
             return {
                 "category": "Vulnerability Disclosure / Exploitation",
-                "icon": "⚠️",
+                "icon": "[!]",
                 "sectors": ["All Industries", "Critical Infrastructure", "Government"],
                 "keywords": ["cve"],
-                "_cve_locked": True,  # Signal for downstream generators
+                "_cve_locked": True,
             }
 
         classifications = {
@@ -109,7 +109,7 @@ class PremiumReportGenerator:
                 "keywords": ["breach", "leak", "exposed", "stolen data", "customer records",
                              "data dump", "hackers leak", "compromised data"],
                 "category": "Data Breach / Data Exposure Incident",
-                "icon": "🔓",
+                "icon": "[BREACH]",
                 "sectors": ["Retail", "Financial Services", "Healthcare", "Technology"],
             },
             "mobile_malware": {
@@ -123,7 +123,7 @@ class PremiumReportGenerator:
                              "sharkbot", "xenomorph", "hook", "teabot", "ermac",
                              "joker malware", "harly", "fleckpe", "golddigger"],
                 "category": "Mobile Malware / Android Threat Campaign",
-                "icon": "📱",
+                "icon": "[MOBILE]",
                 "sectors": ["Enterprise", "Financial Services", "Government", "Consumer Technology"],
             },
             "malware_campaign": {
@@ -131,7 +131,7 @@ class PremiumReportGenerator:
                              "infostealer", "lumma", "redline", "vidar", "raccoon",
                              "loader", "dropper"],
                 "category": "Malware Campaign / Threat Actor Operation",
-                "icon": "☣️",
+                "icon": "[MALWARE]",
                 "sectors": ["Enterprise", "Financial Services", "Government", "Technology"],
             },
             "vulnerability": {
@@ -139,7 +139,7 @@ class PremiumReportGenerator:
                              "patch", "security update", "rce", "privilege escalation",
                              "buffer overflow", "code execution"],
                 "category": "Vulnerability Disclosure / Exploitation",
-                "icon": "⚠️",
+                "icon": "[VULN]",
                 "sectors": ["All Industries", "Critical Infrastructure", "Government"],
             },
             "browser_extension": {
@@ -148,7 +148,7 @@ class PremiumReportGenerator:
                              "webstore", "web store", "browser add-on",
                              "chrome users", "firefox extension", "edge extension"],
                 "category": "Browser Extension Compromise / Marketplace Abuse",
-                "icon": "🧩",
+                "icon": "[EXT]",
                 "sectors": ["Enterprise", "Financial Services", "Technology", "Education"],
             },
             "identity_compromise": {
@@ -157,40 +157,40 @@ class PremiumReportGenerator:
                              "sim swap", "0ktapus", "oktapus", "account takeover",
                              "smishing", "sms phishing"],
                 "category": "Identity Compromise / MFA Bypass Campaign",
-                "icon": "🔑",
+                "icon": "[IDENTITY]",
                 "sectors": ["Enterprise", "Financial Services", "Technology", "SaaS Providers"],
             },
             "phishing_social": {
                 "keywords": ["phishing", "clickfix", "social engineering", "fake",
                              "lure", "credential", "impersonation", "scam"],
                 "category": "Phishing / Social Engineering Campaign",
-                "icon": "🎣",
+                "icon": "[PHISHING]",
                 "sectors": ["Enterprise", "Financial Services", "Healthcare", "Education"],
             },
             "ransomware": {
                 "keywords": ["ransomware", "ransom", "encrypted files", "double extortion",
                              "lockbit", "blackcat", "cl0p", "akira", "play"],
                 "category": "Ransomware / Extortion Operation",
-                "icon": "💰",
+                "icon": "[RANSOM]",
                 "sectors": ["Healthcare", "Manufacturing", "Government", "Education"],
             },
             "apt_espionage": {
                 "keywords": ["apt", "nation-state", "espionage", "cyber espionage",
                              "state-sponsored", "volt typhoon", "lazarus", "fancy bear"],
                 "category": "Advanced Persistent Threat / Cyber Espionage",
-                "icon": "🕵️",
+                "icon": "[APT]",
                 "sectors": ["Government", "Defense", "Critical Infrastructure", "Technology"],
             },
             "supply_chain": {
                 "keywords": ["supply chain", "dependency", "package", "npm", "pypi",
                              "software update", "compromised update"],
                 "category": "Supply Chain Compromise",
-                "icon": "🔗",
+                "icon": "[SUPPLY-CHAIN]",
                 "sectors": ["Technology", "Software Development", "SaaS Providers"],
             },
         }
 
-        # ═══ BEST-MATCH SCORING ═══
+        # === BEST-MATCH SCORING ===
         # Count keyword hits per category and select the one with MOST matches.
         # This prevents a single generic word like "breach" from overriding
         # 6 specific identity_compromise matches (the v12.2 0ktapus bug).
@@ -206,7 +206,7 @@ class PremiumReportGenerator:
 
         return {
             "category": "Cyber Threat Intelligence Advisory",
-            "icon": "🛡️",
+            "icon": "[INTEL]",
             "sectors": ["Enterprise", "Government", "Technology"],
             "keywords": [],
         }
@@ -271,7 +271,7 @@ class PremiumReportGenerator:
         Generate a premium 2500+ word threat intelligence report
         following the CYBERDUDEBIVASH 16-SECTION TEMPLATE.
         """
-        # ══════════════════════════════════════════════════════════════════════
+        # ======================================================================
         # CVE ROUTING GATE (v44.0)
         # When CVE IDs are detected in the input, route to the CVE-Verified
         # Report Engine which generates NVD-grounded, zero-hallucination reports.
@@ -283,10 +283,10 @@ class PremiumReportGenerator:
         #   4. Falls through to the 16-section template ONLY if NVD fetch fails
         #
         # Zero regression: non-CVE reports bypass this gate entirely.
-        # ══════════════════════════════════════════════════════════════════════
+        # ======================================================================
         # v75.3 FIX: CVE engine only fires when CVE is in the HEADLINE (primary subject).
-        # Old code fired when CVE was merely mentioned in body text — "The phone call is
-        # the new phishing email" mentioned CVE-2025-31324 in body → generated wrong SAP report.
+        # Old code fired when CVE was merely mentioned in body text - "The phone call is
+        # the new phishing email" mentioned CVE-2025-31324 in body -> generated wrong SAP report.
         _cve_ids_title = self._extract_mentioned_cves(headline)
         # Also accept when article starts with CVE (feed title = CVE ID)
         _cve_ids_body_start = self._extract_mentioned_cves(source_content.strip()[:100])
@@ -305,9 +305,9 @@ class PremiumReportGenerator:
                 )
                 if _cve_report:
                     return _cve_report
-                # NVD returned no data — fall through to 16-section template
+                # NVD returned no data - fall through to 16-section template
             except Exception:
-                pass  # Never block on CVE engine failure — fall through gracefully
+                pass  # Never block on CVE engine failure - fall through gracefully
 
         s = self._build_styles()
         report_id = self.generate_report_id()
@@ -331,9 +331,9 @@ class PremiumReportGenerator:
 
         sections = []
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # v19.0: Load enhancement engine (non-breaking)
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         _enhancer = None
         try:
             from agent.content import report_enhancer as _enhancer
@@ -343,9 +343,9 @@ class PremiumReportGenerator:
         total_iocs = sum(len(v) for v in iocs.values())
         mitre_count = len(mitre_data)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # COVER / HEADER
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
 <div style="{s['wrapper']}">
 
@@ -380,19 +380,19 @@ class PremiumReportGenerator:
 
         <!-- TITLE -->
         <p style="color:{COLORS['accent']};font-weight:700;font-size:11px;letter-spacing:2px;margin:0;">
-            CYBERDUDEBIVASH SENTINEL APEX™ // PREMIUM THREAT INTELLIGENCE ADVISORY</p>
+            CYBERDUDEBIVASH SENTINEL APEX&#8482; // PREMIUM THREAT INTELLIGENCE ADVISORY</p>
         <h1 style="{s['h1']}">{headline}</h1>
         <p style="{s['p_muted']}margin-top:8px;">
-            Advanced Threat Intelligence Advisory by {BRAND['name']} Sentinel APEX™ —
+            Advanced Threat Intelligence Advisory by {BRAND['name']} Sentinel APEX&#8482; &#8212;
             AI-Powered Global Threat Intelligence Infrastructure</p>
     </div>
 
     <div style="{s['section']}">
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 1: EXECUTIVE SUMMARY
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
 
         # v19.0: Executive One-Pager (CISO-ready summary card)
         _onepager_html = ""
@@ -441,9 +441,9 @@ class PremiumReportGenerator:
         </p>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 2: THREAT LANDSCAPE CONTEXT
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
         <h2 style="{s['h2']}">2. THREAT LANDSCAPE CONTEXT</h2>
         <h3 style="{s['h3']}">Campaign Background</h3>
@@ -487,9 +487,9 @@ class PremiumReportGenerator:
             }</p>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # v19.0: ATTACK TIMELINE + GEO INTELLIGENCE
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         if _enhancer:
             try:
                 _timeline_html = _enhancer.build_attack_timeline(
@@ -513,9 +513,9 @@ class PremiumReportGenerator:
             except Exception:
                 pass
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 3: TECHNICAL ANALYSIS (DEEP-DIVE)
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
         <h2 style="{s['h2']}">3. TECHNICAL ANALYSIS (DEEP-DIVE)</h2>
         <h3 style="{s['h3']}">3.1 Infection Chain Reconstruction</h3>
@@ -540,9 +540,9 @@ class PremiumReportGenerator:
         </p>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 4: IOCs
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         ioc_table = self._generate_ioc_table(iocs, s)
         sections.append(f"""
         <h2 style="{s['h2']}">4. INDICATORS OF COMPROMISE (IOC SECTION)</h2>
@@ -561,18 +561,18 @@ class PremiumReportGenerator:
         </ul>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 5: MITRE ATT&CK MAPPING
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         mitre_table = self._generate_mitre_table(mitre_data, headline, article_text, s)
         sections.append(f"""
-        <h2 style="{s['h2']}">5. MITRE ATT&CK® MAPPING</h2>
+        <h2 style="{s['h2']}">5. MITRE ATT&CK(R) MAPPING</h2>
         {mitre_table}
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 6: DETECTION ENGINEERING
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
         <h2 style="{s['h2']}">6. DETECTION ENGINEERING (SOC READY)</h2>
 
@@ -598,9 +598,9 @@ class PremiumReportGenerator:
         <pre style="{s['pre']}">{self._generate_suricata_rule(iocs, headline)}</pre>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 7: VULNERABILITY & EXPLOIT ANALYSIS
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
         <h2 style="{s['h2']}">7. VULNERABILITY &amp; EXPLOIT ANALYSIS</h2>
         <p style="{s['p']}">
@@ -618,9 +618,9 @@ class PremiumReportGenerator:
             except Exception:
                 pass
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 8: RISK SCORING METHODOLOGY
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
         <h2 style="{s['h2']}">8. RISK SCORING METHODOLOGY</h2>
         <p style="{s['p']}">
@@ -657,9 +657,9 @@ class PremiumReportGenerator:
         </p>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 9: 24-HOUR INCIDENT RESPONSE PLAN
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
         <h2 style="{s['h2']}">9. 24-HOUR INCIDENT RESPONSE PLAN</h2>
         <p style="{s['p']}">Organizations that identify exposure to this threat should execute the following
@@ -680,30 +680,30 @@ class PremiumReportGenerator:
         </ul>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 10: 7-DAY REMEDIATION STRATEGY
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
         <h2 style="{s['h2']}">10. 7-DAY REMEDIATION STRATEGY</h2>
         <p style="{s['p']}">Following initial containment, execute this structured remediation plan over
             the subsequent 7 days to ensure comprehensive threat elimination and hardening:</p>
         <ul style="{s['ul']}">
-            <li><b>Day 1-2 — MFA Enforcement:</b> Deploy FIDO2-compliant multi-factor authentication across all
+            <li><b>Day 1-2 - MFA Enforcement:</b> Deploy FIDO2-compliant multi-factor authentication across all
                 external-facing and privileged accounts. Disable legacy authentication protocols (NTLM, Basic Auth).</li>
-            <li><b>Day 2-3 — Patch Deployment:</b> Accelerate patching for all vulnerabilities referenced in this
+            <li><b>Day 2-3 - Patch Deployment:</b> Accelerate patching for all vulnerabilities referenced in this
                 advisory. Prioritize internet-facing systems and those with known exploit availability.</li>
-            <li><b>Day 3-5 — Access Policy Hardening:</b> Review and tighten conditional access policies.
+            <li><b>Day 3-5 - Access Policy Hardening:</b> Review and tighten conditional access policies.
                 Implement Just-In-Time (JIT) access for administrative functions. Audit service accounts.</li>
-            <li><b>Day 5-6 — Threat Hunting Sweep:</b> Conduct comprehensive threat hunting across the enterprise
+            <li><b>Day 5-6 - Threat Hunting Sweep:</b> Conduct comprehensive threat hunting across the enterprise
                 using behavioral indicators from the MITRE ATT&CK mappings in Section 5.</li>
-            <li><b>Day 6-7 — Log Retention Review:</b> Ensure logging coverage meets forensic investigation
+            <li><b>Day 6-7 - Log Retention Review:</b> Ensure logging coverage meets forensic investigation
                 requirements (minimum 90-day retention). Verify SIEM ingestion of all critical data sources.</li>
         </ul>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 11: STRATEGIC RECOMMENDATIONS
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
         <h2 style="{s['h2']}">11. STRATEGIC RECOMMENDATIONS</h2>
         <p style="{s['p']}">Beyond immediate incident response, organizations should evaluate the following
@@ -724,9 +724,9 @@ class PremiumReportGenerator:
         </ul>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 12: INDUSTRY-SPECIFIC GUIDANCE
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         industry_guidance = self._generate_industry_guidance(threat_type, severity, headline)
         sections.append(f"""
         <h2 style="{s['h2']}">12. INDUSTRY-SPECIFIC GUIDANCE</h2>
@@ -735,9 +735,9 @@ class PremiumReportGenerator:
         {industry_guidance}
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 13: GLOBAL THREAT TRENDS
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
         <h2 style="{s['h2']}">13. GLOBAL THREAT TRENDS CONNECTION</h2>
         <p style="{s['p']}">
@@ -745,9 +745,9 @@ class PremiumReportGenerator:
         </p>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 14: CDB AUTHORITY SECTION
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
         <h2 style="{s['h2']}">14. {BRAND['name'].upper()} AUTHORITY SECTION</h2>
         <div style="{s['card']}border-left:4px solid {COLORS['accent']};">
@@ -774,9 +774,9 @@ class PremiumReportGenerator:
         </div>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 15: SEO KEYWORDS
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         seo_keywords = self._generate_seo_keywords(headline, threat_type)
         sections.append(f"""
         <h2 style="{s['h2']}">15. INTELLIGENCE KEYWORDS &amp; TAXONOMY</h2>
@@ -787,9 +787,9 @@ class PremiumReportGenerator:
         </div>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # SECTION 16: APPENDIX
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
         <h2 style="{s['h2']}">16. APPENDIX</h2>
         <p style="{s['p']}"><b>Source Reference:</b>
@@ -802,16 +802,16 @@ class PremiumReportGenerator:
         <p style="{s['p']}"><b>Report Version:</b> {BRAND['version']} | Generated by Sentinel APEX AI Engine</p>
 """)
 
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         # FOOTER
-        # ═══════════════════════════════════════════════════════════════
+        # ===============================================================
         sections.append(f"""
     </div>
 
     <!-- FOOTER -->
     <div style="{s['footer']}">
         <p style="font-size:14px;font-weight:700;color:{COLORS['accent']};margin:0 0 6px;">
-            {BRAND['name']}® — AI-Powered Global Threat Intelligence</p>
+            {BRAND['name']}(R) - AI-Powered Global Threat Intelligence</p>
         <p style="{s['p_muted']}margin:0 0 14px;">
             This advisory is produced by the {BRAND['legal']} Global Operations Center.
             Intelligence correlation, risk scoring, and detection engineering
@@ -819,10 +819,10 @@ class PremiumReportGenerator:
         <a href="{BRAND['website']}" style="display:inline-block;padding:10px 24px;
             background:{COLORS['accent']};color:{COLORS['bg_dark']};font-weight:700;
             font-size:13px;border-radius:100px;text-decoration:none;" target="_blank" rel="noopener">
-            Explore CyberDudeBivash Platform →</a>
+            Explore CyberDudeBivash Platform -></a>
         <p style="font-family:{FONTS['mono']};font-size:9px;color:{COLORS['text_muted']};
             letter-spacing:3px;margin:16px 0 0;text-transform:uppercase;">
-            © 2026 {BRAND['legal']} // {BRAND['node_id']} // {BRAND['city']}, {BRAND['country']}
+            (C) 2026 {BRAND['legal']} // {BRAND['node_id']} // {BRAND['city']}, {BRAND['country']}
         </p>
     </div>
 </div>
@@ -830,9 +830,9 @@ class PremiumReportGenerator:
 
         return '\n'.join(sections)
 
-    # ═══════════════════════════════════════════════════════════════════
+    # ===================================================================
     # CONTENT GENERATION HELPERS
-    # ═══════════════════════════════════════════════════════════════════
+    # ===================================================================
 
     def _generate_executive_summary(self, headline, paragraphs, full_text,
                                      threat_type, risk, sev, conf, actor, iocs, cves,
@@ -954,7 +954,7 @@ class PremiumReportGenerator:
         <p style="{s['p']}">The CyberDudeBivash GOC tracks this activity under its institutional tracking
         framework, correlating indicators across multiple intelligence sources to establish campaign
         scope. All attribution and technical claims in this section are derived from the source article
-        and verified intelligence feeds — speculative or unverified claims are clearly labeled as
+        and verified intelligence feeds - speculative or unverified claims are clearly labeled as
         <em>Analyst Assessment</em> rather than confirmed intelligence.</p>
         <p style="{s['p']}"><b>Analyst Assessment:</b> Based on the nature of this advisory and the
         threat category classification, organizations operating in the {', '.join(threat_type.get('sectors', ['Enterprise'])[:3])}
@@ -966,9 +966,9 @@ class PremiumReportGenerator:
         cat = threat_type.get('category', '').lower()
         headline_lower = headline.lower()
 
-        # ── v44.0: VULNERABILITY GATE ─────────────────────────────────────────
+        # -- v44.0: VULNERABILITY GATE -----------------------------------------
         # For vulnerability disclosures, generate vulnerability-accurate
-        # exploitation context — NOT an infection chain narrative which
+        # exploitation context - NOT an infection chain narrative which
         # implies malware delivery or campaign-style attack chains.
         if 'vulnerability' in cat or threat_type.get('_cve_locked', False):
             cves = self._extract_mentioned_cves(f"{headline} {text}")
@@ -978,16 +978,16 @@ class PremiumReportGenerator:
             technical weakness in a software component.</p>
             <p style="{s['p']}">
             <b>Exploitation Context:</b> The CVSS vector string associated with this vulnerability
-            defines the attack surface — including network accessibility, required privileges, and
-            user interaction requirements — which determines the conditions under which exploitation
+            defines the attack surface - including network accessibility, required privileges, and
+            user interaction requirements - which determines the conditions under which exploitation
             could occur. Consult Section 2 (Vulnerability Overview) and Section 3 (Verified Technical
             Details) for the CVSS-grounded exploitation profile.</p>
             <p style="{s['p']}">
             <b>No infection chain is applicable to this advisory.</b> An infection chain describes
-            malware delivery, persistence, and lateral movement — none of which are part of this
+            malware delivery, persistence, and lateral movement - none of which are part of this
             vulnerability's verified scope. Security teams should focus on patch deployment,
             version verification, and the detection guidance in Section 7 of this report."""
-        # ─────────────────────────────────────────────────────────────────────
+        # ---------------------------------------------------------------------
 
         is_browser = any(w in headline_lower for w in ['extension', 'browser', 'chrome', 'addon', 'plugin'])
 
@@ -1048,7 +1048,7 @@ class PremiumReportGenerator:
                 is deployed directly to system partitions, establishing persistence that survives factory
                 resets and is invisible to standard mobile security applications.</p>
                 <p style="{s['p']}">
-                The primary infection vector involves hooking into the Zygote process — the parent process
+                The primary infection vector involves hooking into the Zygote process - the parent process
                 for all Android applications. By compromising Zygote, the malware gains the ability to
                 inject code into every application launched on the device, enabling credential interception
                 from banking apps, messaging platforms, and social media applications. The malware operates
@@ -1098,24 +1098,24 @@ class PremiumReportGenerator:
         headline_lower = headline.lower()
         is_browser = any(w in headline_lower for w in ['extension', 'browser', 'chrome', 'addon', 'plugin'])
         if is_browser or 'browser extension' in cat:
-            return "[Marketplace Listing] → [User Installation] → [Permission Grant] → [Background Execution] → [Session/Cookie Capture] → [Credential Harvest] → [Data Exfiltration to C2]"
+            return "[Marketplace Listing] -> [User Installation] -> [Permission Grant] -> [Background Execution] -> [Session/Cookie Capture] -> [Credential Harvest] -> [Data Exfiltration to C2]"
         elif 'identity' in cat or 'mfa' in cat:
-            return "[SMS/Email Lure] → [Spoofed Auth Page] → [Credential Capture] → [Real-Time MFA Relay] → [Session Token Theft] → [Account Takeover] → [OAuth Persistence] → [Data Exfiltration]"
+            return "[SMS/Email Lure] -> [Spoofed Auth Page] -> [Credential Capture] -> [Real-Time MFA Relay] -> [Session Token Theft] -> [Account Takeover] -> [OAuth Persistence] -> [Data Exfiltration]"
         elif 'phishing' in cat:
-            return "[Phishing Lure] → [User Interaction] → [Payload Delivery] → [Execution] → [Persistence] → [C2 Communication] → [Credential Theft / Data Exfiltration]"
+            return "[Phishing Lure] -> [User Interaction] -> [Payload Delivery] -> [Execution] -> [Persistence] -> [C2 Communication] -> [Credential Theft / Data Exfiltration]"
         elif 'malware' in cat:
             # v23.0 FIX: Use confirmed malware check
             is_mobile = self._is_confirmed_mobile_malware(headline, headline_lower)
             if is_mobile:
-                return "[Supply Chain / Firmware Injection] → [System Partition Compromise] → [Zygote Process Hooking] → [App-Level Code Injection] → [Credential Interception] → [SMS/OTP Hijacking] → [Botnet Enrollment] → [Data Exfiltration via C2]"
+                return "[Supply Chain / Firmware Injection] -> [System Partition Compromise] -> [Zygote Process Hooking] -> [App-Level Code Injection] -> [Credential Interception] -> [SMS/OTP Hijacking] -> [Botnet Enrollment] -> [Data Exfiltration via C2]"
             else:
-                return "[Dropper Delivery] → [Payload Download] → [Memory Execution] → [Anti-Analysis Evasion] → [Registry Persistence] → [C2 Callback] → [Data Staging] → [Exfiltration]"
+                return "[Dropper Delivery] -> [Payload Download] -> [Memory Execution] -> [Anti-Analysis Evasion] -> [Registry Persistence] -> [C2 Callback] -> [Data Staging] -> [Exfiltration]"
         elif 'ransomware' in cat:
-            return "[Initial Access] → [Reconnaissance] → [Lateral Movement] → [Privilege Escalation] → [Data Exfiltration] → [Encryption Deployment] → [Ransom Demand]"
+            return "[Initial Access] -> [Reconnaissance] -> [Lateral Movement] -> [Privilege Escalation] -> [Data Exfiltration] -> [Encryption Deployment] -> [Ransom Demand]"
         elif 'breach' in cat:
-            return "[Credential Compromise] → [Initial Access] → [Internal Reconnaissance] → [Lateral Movement] → [Data Access] → [Data Staging] → [Exfiltration]"
+            return "[Credential Compromise] -> [Initial Access] -> [Internal Reconnaissance] -> [Lateral Movement] -> [Data Access] -> [Data Staging] -> [Exfiltration]"
         else:
-            return "[Initial Access] → [Execution] → [Persistence] → [Defense Evasion] → [Discovery] → [Collection] → [Exfiltration / Impact]"
+            return "[Initial Access] -> [Execution] -> [Persistence] -> [Defense Evasion] -> [Discovery] -> [Collection] -> [Exfiltration / Impact]"
 
     def _generate_malware_analysis(self, headline, text, iocs, threat_type):
         s = self._build_styles()
@@ -1123,7 +1123,7 @@ class PremiumReportGenerator:
         artifacts = iocs.get('artifacts', [])
         cat = threat_type.get('category', '').lower()
 
-        # ── v44.0: VULNERABILITY GATE ─────────────────────────────────────────
+        # -- v44.0: VULNERABILITY GATE -----------------------------------------
         # If this is a CVE-classified report, NEVER generate malware payload
         # content. CVE reports require vulnerability-scoped technical analysis
         # only. Generating Zygote hooking, OTP interception, firmware backdoor,
@@ -1146,7 +1146,7 @@ class PremiumReportGenerator:
             payload signatures, and malware behavioral indicators are not relevant to this
             vulnerability disclosure. Detection strategies should focus on patch verification
             and network/application-layer monitoring aligned to the specific vulnerability class."""
-        # ─────────────────────────────────────────────────────────────────────
+        # ---------------------------------------------------------------------
 
         analysis = f"""Analysis of associated indicators reveals technical characteristics consistent
         with {threat_type.get('category', 'advanced threat').lower()} operations. """
@@ -1164,7 +1164,7 @@ class PremiumReportGenerator:
         if is_mobile:
             analysis += f"""</p><p style="{s['p']}">This mobile malware operates at the firmware level, embedding itself
             into Android system partitions that persist across factory resets. The primary persistence mechanism
-            involves hooking into the Zygote process — the parent of all Android application processes — enabling
+            involves hooking into the Zygote process - the parent of all Android application processes - enabling
             the malware to inject code into every application launched on the device without requiring root access
             from the user's perspective.</p><p style="{s['p']}">
             The malware's modular architecture includes credential interception modules that overlay fake login
@@ -1181,7 +1181,7 @@ class PremiumReportGenerator:
             MFA challenges to the legitimate identity provider, harvesting authenticated session tokens upon
             successful completion. Post-compromise tooling involves OAuth application consent abuse for persistence,
             email forwarding rule creation via Graph API or Exchange Web Services, and automated data exfiltration
-            scripts targeting cloud storage repositories. No disk-resident malware is required — identity provider
+            scripts targeting cloud storage repositories. No disk-resident malware is required - identity provider
             log analysis and Conditional Access telemetry are the primary detection vectors."""
         elif 'ransomware' in cat:
             analysis += f"""</p><p style="{s['p']}">The ransomware payload employs hybrid encryption combining asymmetric RSA key exchange
@@ -1398,7 +1398,7 @@ class PremiumReportGenerator:
                 <td style="{s['td']}font-size:13px;color:{COLORS['text_muted']};">{desc}</td></tr>"""
 
         return f"""
-        <p style="{s['p']}">The following MITRE ATT&CK® techniques have been identified through automated
+        <p style="{s['p']}">The following MITRE ATT&CK(R) techniques have been identified through automated
             analysis of the threat intelligence associated with this campaign. Each technique represents
             a documented adversary behavior that defenders can use to build detection and response capabilities.</p>
         <div style="{s['card']}overflow-x:auto;">
@@ -1661,12 +1661,12 @@ alert http any any -> any any (msg:"CDB-Sentinel Suspicious User-Agent"; \\
         s = self._build_styles()
         cat = threat_type.get('category', '').lower()
 
-        # Category-specific trend context — grounded in threat type, not boilerplate
+        # Category-specific trend context - grounded in threat type, not boilerplate
         if 'ransomware' in cat:
             trend_context = """Ransomware-as-a-service (RaaS) operations continue to dominate the threat landscape,
             with affiliate programs enabling less-skilled actors to deploy sophisticated ransomware payloads.
-            Double and triple extortion tactics — encrypting data, threatening public disclosure, and targeting
-            backup infrastructure simultaneously — have become standard operating procedure. The healthcare,
+            Double and triple extortion tactics - encrypting data, threatening public disclosure, and targeting
+            backup infrastructure simultaneously - have become standard operating procedure. The healthcare,
             manufacturing, and critical infrastructure sectors remain primary targets due to operational
             disruption tolerance and willingness to pay ransoms."""
         elif 'supply chain' in cat:
@@ -1698,7 +1698,7 @@ alert http any any -> any any (msg:"CDB-Sentinel Suspicious User-Agent"; \\
             CCPA, and sector-specific frameworks has materially increased the financial and reputational
             cost of breach incidents."""
         elif 'vulnerability' in cat:
-            trend_context = """Vulnerability exploitation timelines have compressed dramatically — median
+            trend_context = """Vulnerability exploitation timelines have compressed dramatically - median
             time from CVE disclosure to weaponized exploit has fallen to under 48 hours for critical
             vulnerabilities. Network-edge devices (VPN appliances, firewalls, load balancers) and
             internet-facing applications remain the most exploited entry points. The CISA Known Exploited
@@ -1739,7 +1739,7 @@ alert http any any -> any any (msg:"CDB-Sentinel Suspicious User-Agent"; \\
             if len(w) > 4 and w.isalpha():
                 base.append(w)
 
-        return ' • '.join(base[:20])
+        return ' * '.join(base[:20])
 
     def _confidence_label(self, conf):
         if conf >= 70: return f"High ({conf}%)"

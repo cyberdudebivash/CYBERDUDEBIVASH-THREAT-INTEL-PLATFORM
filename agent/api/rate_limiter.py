@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-rate_limiter.py — CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
+rate_limiter.py - CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
 NEW MODULE: Token-Bucket API Rate Limiting Engine
 
 Provides per-API-key and per-IP rate limiting for all API tiers.
-Fully in-memory (no Redis dependency) — production-ready for single-node.
+Fully in-memory (no Redis dependency) - production-ready for single-node.
 Thread-safe via per-bucket locks.
 
 Usage (FastAPI middleware integration):

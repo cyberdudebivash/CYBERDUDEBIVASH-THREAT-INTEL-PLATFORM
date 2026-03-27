@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-stripe_gateway.py — CYBERDUDEBIVASH® SENTINEL APEX v23.0 ULTRA
+stripe_gateway.py - CYBERDUDEBIVASH(R) SENTINEL APEX v23.0 ULTRA
 STRIPE SUBSCRIPTION & BILLING GATEWAY
 
 Handles:
@@ -10,16 +10,16 @@ Handles:
   - Revenue event logging for platform metrics
 
 Non-Breaking Contract:
-  - Fully standalone module — does NOT import sentinel_blogger.py
+  - Fully standalone module - does NOT import sentinel_blogger.py
   - Does NOT modify any existing module signatures
   - Called from api_server.py stripe_webhook endpoint ONLY
-  - All errors are caught and logged — never crash the pipeline
+  - All errors are caught and logged - never crash the pipeline
 
 Required ENV:
-  STRIPE_SECRET_KEY      — Your Stripe secret key (sk_live_... or sk_test_...)
-  STRIPE_WEBHOOK_SECRET  — Endpoint signing secret (whsec_...)
-  SENDGRID_API_KEY       — For provisioning emails (reuses existing key)
-  SENDER_EMAIL           — bivash@cyberdudebivash.com
+  STRIPE_SECRET_KEY      - Your Stripe secret key (sk_live_... or sk_test_...)
+  STRIPE_WEBHOOK_SECRET  - Endpoint signing secret (whsec_...)
+  SENDGRID_API_KEY       - For provisioning emails (reuses existing key)
+  SENDER_EMAIL           - bivash@cyberdudebivash.com
 
 Setup:
   1. pip install stripe
@@ -35,8 +35,8 @@ Setup:
      - invoice.payment_failed
 
 Pricing Tiers (configure in Stripe):
-  PRO tier:        Price ID → set CDB_STRIPE_PRO_PRICE_ID env var
-  ENTERPRISE tier: Price ID → set CDB_STRIPE_ENT_PRICE_ID env var
+  PRO tier:        Price ID -> set CDB_STRIPE_PRO_PRICE_ID env var
+  ENTERPRISE tier: Price ID -> set CDB_STRIPE_ENT_PRICE_ID env var
 """
 
 import os
@@ -52,16 +52,16 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger("CDB-STRIPE-GATEWAY")
 
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
 # Configuration
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
 
 STRIPE_SECRET_KEY     = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
 # Stripe Price IDs (set in Stripe Dashboard, then copy IDs here)
-# PRO:        Monthly → ~$149 USD
-# ENTERPRISE: Annual  → ~$1999 USD
+# PRO:        Monthly -> ~$149 USD
+# ENTERPRISE: Annual  -> ~$1999 USD
 CDB_STRIPE_PRO_PRICE_ID = os.environ.get("CDB_STRIPE_PRO_PRICE_ID", "")
 CDB_STRIPE_ENT_PRICE_ID = os.environ.get("CDB_STRIPE_ENT_PRICE_ID", "")
 
@@ -80,23 +80,23 @@ GUMROAD_URL   = "https://cyberdudebivash.gumroad.com"
 DASHBOARD_URL = "https://intel.cyberdudebivash.com"
 
 
-# ─────────────────────────────────────────────────────────────
-# Stripe Import — Graceful degradation
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
+# Stripe Import - Graceful degradation
+# -------------------------------------------------------------
 
 try:
     import stripe as _stripe  # type: ignore
     _stripe.api_key = STRIPE_SECRET_KEY
     _STRIPE_AVAILABLE = True
-    logger.info("✅ Stripe SDK loaded")
+    logger.info("? Stripe SDK loaded")
 except ImportError:
     _STRIPE_AVAILABLE = False
     logger.warning("Stripe SDK not installed. Run: pip install stripe")
 
 
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
 # API Key Manager
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
 
 class APIKeyManager:
     """
@@ -119,7 +119,7 @@ class APIKeyManager:
             "status":         "active",
         }
         self._store_key(entry)
-        logger.info(f"✅ API key generated for {email} ({tier}): {key[:18]}...")
+        logger.info(f"? API key generated for {email} ({tier}): {key[:18]}...")
         return key
 
     def revoke_key_by_customer(self, customer_id: str) -> bool:
@@ -131,7 +131,7 @@ class APIKeyManager:
                 entry["status"]  = "revoked"
                 entry["revoked_at"] = datetime.now(timezone.utc).isoformat()
                 changed = True
-                logger.info(f"🔒 API key revoked for customer {customer_id}")
+                logger.info(f"? API key revoked for customer {customer_id}")
         if changed:
             self._save_db(db)
         return changed
@@ -170,18 +170,18 @@ class APIKeyManager:
 api_key_manager = APIKeyManager()
 
 
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
 # Stripe Gateway
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
 
 class StripeGateway:
     """
     Handles Stripe webhook events and provisions/revokes API access.
 
     Event Flow:
-      checkout.session.completed → provision_access()
-      customer.subscription.deleted → revoke_access()
-      invoice.payment_failed → send_payment_failure_email()
+      checkout.session.completed -> provision_access()
+      customer.subscription.deleted -> revoke_access()
+      invoice.payment_failed -> send_payment_failure_email()
     """
 
     def handle_webhook(self, payload: bytes, sig_header: str) -> Dict:
@@ -190,7 +190,7 @@ class StripeGateway:
         Verifies Stripe signature and dispatches event handlers.
         """
         if not STRIPE_WEBHOOK_SECRET:
-            logger.warning("STRIPE_WEBHOOK_SECRET not set — skipping signature verification")
+            logger.warning("STRIPE_WEBHOOK_SECRET not set - skipping signature verification")
             try:
                 event = json.loads(payload)
             except Exception:
@@ -201,12 +201,12 @@ class StripeGateway:
                 return {"received": True, "error": "invalid_signature"}
 
         event_type = event.get("type", "")
-        logger.info(f"📦 Stripe event received: {event_type}")
+        logger.info(f"? Stripe event received: {event_type}")
 
-        # ── Log revenue event ──
+        # -- Log revenue event --
         self._log_revenue_event(event)
 
-        # ── Route event ──
+        # -- Route event --
         handlers = {
             "checkout.session.completed":        self._handle_checkout_completed,
             "customer.subscription.created":     self._handle_subscription_created,
@@ -227,12 +227,12 @@ class StripeGateway:
 
         return {"received": True, "event_type": event_type}
 
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
     # Event Handlers
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
 
     def _handle_checkout_completed(self, event: Dict):
-        """New purchase via Stripe Checkout — provision API access immediately."""
+        """New purchase via Stripe Checkout - provision API access immediately."""
         session = event.get("data", {}).get("object", {})
         email       = session.get("customer_details", {}).get("email", "")
         customer_id = session.get("customer", "")
@@ -246,53 +246,53 @@ class StripeGateway:
             return
 
         tier = self._resolve_tier_from_price(price_id)
-        logger.info(f"💳 Checkout completed: {email} → {tier} tier")
+        logger.info(f"? Checkout completed: {email} -> {tier} tier")
         self._provision_access(email=email, tier=tier, customer_id=customer_id)
 
     def _handle_subscription_created(self, event: Dict):
-        """New recurring subscription — provision if not already done."""
+        """New recurring subscription - provision if not already done."""
         sub = event.get("data", {}).get("object", {})
         customer_id = sub.get("customer", "")
         price_id    = sub.get("items", {}).get("data", [{}])[0].get("price", {}).get("id", "")
         tier = self._resolve_tier_from_price(price_id)
-        logger.info(f"📋 Subscription created: customer={customer_id} tier={tier}")
+        logger.info(f"? Subscription created: customer={customer_id} tier={tier}")
         # Note: email provisioning done at checkout_completed; this is a backup
 
     def _handle_subscription_updated(self, event: Dict):
-        """Subscription plan change — update tier."""
+        """Subscription plan change - update tier."""
         sub = event.get("data", {}).get("object", {})
         status = sub.get("status", "")
         if status in ("active", "trialing"):
-            logger.info(f"🔄 Subscription updated: status={status}")
+            logger.info(f"? Subscription updated: status={status}")
         elif status == "canceled":
             self._handle_subscription_deleted(event)
 
     def _handle_subscription_deleted(self, event: Dict):
-        """Subscription cancelled — revoke API access."""
+        """Subscription cancelled - revoke API access."""
         sub = event.get("data", {}).get("object", {})
         customer_id = sub.get("customer", "")
-        logger.info(f"🔴 Subscription cancelled: customer={customer_id}")
+        logger.info(f"? Subscription cancelled: customer={customer_id}")
         revoked = api_key_manager.revoke_key_by_customer(customer_id)
         if revoked:
-            logger.info(f"✅ API key(s) revoked for customer {customer_id}")
+            logger.info(f"? API key(s) revoked for customer {customer_id}")
 
     def _handle_payment_succeeded(self, event: Dict):
-        """Invoice paid — log revenue and extend access if needed."""
+        """Invoice paid - log revenue and extend access if needed."""
         invoice     = event.get("data", {}).get("object", {})
         amount_paid = invoice.get("amount_paid", 0)
         customer_id = invoice.get("customer", "")
-        logger.info(f"💰 Payment succeeded: customer={customer_id} amount=${amount_paid/100:.2f}")
+        logger.info(f"? Payment succeeded: customer={customer_id} amount=${amount_paid/100:.2f}")
 
     def _handle_payment_failed(self, event: Dict):
-        """Invoice payment failed — notify customer."""
+        """Invoice payment failed - notify customer."""
         invoice     = event.get("data", {}).get("object", {})
         customer_id = invoice.get("customer", "")
-        logger.warning(f"⚠️ Payment failed: customer={customer_id}")
+        logger.warning(f"[!] Payment failed: customer={customer_id}")
         # TODO: Send dunning email via SendGrid
 
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
     # Provisioning
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
 
     def _provision_access(self, email: str, tier: str, customer_id: str = ""):
         """Generate API key and send credentials email."""
@@ -308,7 +308,7 @@ class StripeGateway:
             email=email, api_key=api_key, tier=tier
         )
 
-        logger.info(f"✅ Access provisioned: {email} → {tier} ({api_key[:18]}...)")
+        logger.info(f"? Access provisioned: {email} -> {tier} ({api_key[:18]}...)")
 
     def _inject_key_to_runtime(self, api_key: str, tier: str):
         """
@@ -320,17 +320,17 @@ class StripeGateway:
             from agent.config import CDB_PRO_API_KEYS, CDB_ENTERPRISE_API_KEYS
             if tier == "ENTERPRISE":
                 CDB_ENTERPRISE_API_KEYS.add(api_key)
-                logger.info(f"🔑 Enterprise key injected into runtime auth registry")
+                logger.info(f"? Enterprise key injected into runtime auth registry")
             elif tier == "PRO":
                 CDB_PRO_API_KEYS.add(api_key)
-                logger.info(f"🔑 Pro key injected into runtime auth registry")
+                logger.info(f"? Pro key injected into runtime auth registry")
         except Exception as e:
             logger.error(f"Runtime key injection failed (non-critical): {e}")
 
     def _send_credentials_email(self, email: str, api_key: str, tier: str):
         """Send API credentials email via SendGrid."""
         if not SENDGRID_KEY:
-            logger.warning("SENDGRID_API_KEY not set — skipping credentials email")
+            logger.warning("SENDGRID_API_KEY not set - skipping credentials email")
             return
 
         try:
@@ -338,7 +338,7 @@ class StripeGateway:
             from sendgrid.helpers.mail import Mail, HtmlContent  # type: ignore
 
             tier_label = "PRO DEFENSE" if tier == "PRO" else "ENTERPRISE"
-            subject = f"🛡️ Your CyberDudeBivash {tier_label} API Key — Sentinel APEX"
+            subject = f"? Your CyberDudeBivash {tier_label} API Key - Sentinel APEX"
 
             html_body = f"""
 <!DOCTYPE html>
@@ -358,8 +358,8 @@ class StripeGateway:
 <body>
 <div class="card">
   <div class="badge">{tier_label} ACCESS GRANTED</div>
-  <h1>Welcome to SENTINEL APEX <span class="accent">®</span></h1>
-  <p>Your subscription is active. Below are your API credentials — keep them secure.</p>
+  <h1>Welcome to SENTINEL APEX <span class="accent">(R)</span></h1>
+  <p>Your subscription is active. Below are your API credentials - keep them secure.</p>
 
   <p class="mono" style="color:#64748b;font-size:10px;letter-spacing:2px;text-transform:uppercase;">YOUR API KEY</p>
   <div class="key-box mono accent">{api_key}</div>
@@ -381,11 +381,11 @@ class StripeGateway:
 
   <p>Questions? Reply to this email or WhatsApp: <a href="https://wa.me/918179881447" style="color:#00d4aa;">+91 8179881447</a></p>
 
-  <a href="{DASHBOARD_URL}" class="cta">ACCESS LIVE DASHBOARD →</a>
+  <a href="{DASHBOARD_URL}" class="cta">ACCESS LIVE DASHBOARD -></a>
 
   <p style="font-size:11px;color:#334155;margin-top:28px;border-top:1px solid #1e293b;padding-top:16px;">
-    CYBERDUDEBIVASH Pvt. Ltd. · Bhubaneswar, Odisha, India<br>
-    bivash@cyberdudebivash.com · intel.cyberdudebivash.com
+    CYBERDUDEBIVASH Pvt. Ltd. * Bhubaneswar, Odisha, India<br>
+    bivash@cyberdudebivash.com * intel.cyberdudebivash.com
   </p>
 </div>
 </body>
@@ -399,14 +399,14 @@ class StripeGateway:
             )
             sg = SendGridAPIClient(SENDGRID_KEY)
             response = sg.send(mail)
-            logger.info(f"📧 Credentials email sent to {email} (status: {response.status_code})")
+            logger.info(f"? Credentials email sent to {email} (status: {response.status_code})")
 
         except Exception as e:
             logger.error(f"Credentials email failed for {email}: {e}")
 
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
     # Helpers
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
 
     def _resolve_tier_from_price(self, price_id: str) -> str:
         """Map Stripe price ID to CDB tier."""
@@ -489,9 +489,9 @@ class StripeGateway:
         except Exception as e:
             logger.debug(f"Revenue log write failed (non-critical): {e}")
 
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
     # Manual Provisioning (for Gumroad / manual sales)
-    # ─────────────────────────────────────────────────────────
+    # ---------------------------------------------------------
 
     def provision_manual(self, email: str, tier: str, note: str = "") -> str:
         """
@@ -504,7 +504,7 @@ class StripeGateway:
             print(f"API Key: {key}")
         """
         customer_id = f"manual-{uuid.uuid4().hex[:8]}"
-        logger.info(f"🔑 Manual provisioning: {email} → {tier} ({note})")
+        logger.info(f"? Manual provisioning: {email} -> {tier} ({note})")
         api_key = api_key_manager.generate_key(
             tier=tier, email=email, customer_id=customer_id
         )
@@ -513,33 +513,33 @@ class StripeGateway:
         return api_key
 
 
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
 # Singleton
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
 
 stripe_gateway = StripeGateway()
 
 
-# ─────────────────────────────────────────────────────────────
-# CLI — Manual provisioning helper
-# ─────────────────────────────────────────────────────────────
+# -------------------------------------------------------------
+# CLI - Manual provisioning helper
+# -------------------------------------------------------------
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="CDB Stripe Gateway — Manual API Key Provisioning"
+        description="CDB Stripe Gateway - Manual API Key Provisioning"
     )
     parser.add_argument("--email", required=True, help="Customer email")
     parser.add_argument("--tier",  required=True, choices=["PRO", "ENTERPRISE"], help="Access tier")
     parser.add_argument("--note",  default="", help="Optional note (invoice ID, etc)")
     args = parser.parse_args()
 
-    print(f"\n🔑 Provisioning {args.tier} access for {args.email}...")
+    print(f"\n? Provisioning {args.tier} access for {args.email}...")
     key = stripe_gateway.provision_manual(
         email=args.email, tier=args.tier, note=args.note
     )
-    print(f"\n✅ API Key Provisioned:")
+    print(f"\n? API Key Provisioned:")
     print(f"   {key}")
-    print(f"\n📧 Credentials email sent to {args.email}")
-    print(f"\n⚠️  Store this key securely — it cannot be recovered.")
+    print(f"\n? Credentials email sent to {args.email}")
+    print(f"\n[!]  Store this key securely - it cannot be recovered.")

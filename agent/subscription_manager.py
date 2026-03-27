@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-subscription_manager.py — CYBERDUDEBIVASH® SENTINEL APEX v44.0
+subscription_manager.py - CYBERDUDEBIVASH(R) SENTINEL APEX v44.0
 TENANT LIFECYCLE MANAGEMENT
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 """
 
 import json

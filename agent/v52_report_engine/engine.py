@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX v52 — Premium Report Engine
+CYBERDUDEBIVASH SENTINEL APEX v52 - Premium Report Engine
 Generates enterprise threat intelligence reports in HTML and STIX formats.
 
 Output Formats:
@@ -393,13 +393,13 @@ class PremiumReportEngine:
     def _default_title(self, report_type: str, ts: datetime) -> str:
         date_str = ts.strftime("%B %d, %Y")
         titles = {
-            "executive_briefing": f"Executive Threat Intelligence Briefing — {date_str}",
-            "tactical_ioc": f"Tactical IOC Intelligence Report — {date_str}",
-            "campaign": f"Campaign Analysis & Attribution Report — {date_str}",
-            "vulnerability": f"Vulnerability Intelligence Report — {date_str}",
-            "weekly": f"Weekly Threat Landscape Report — {date_str}",
+            "executive_briefing": f"Executive Threat Intelligence Briefing - {date_str}",
+            "tactical_ioc": f"Tactical IOC Intelligence Report - {date_str}",
+            "campaign": f"Campaign Analysis & Attribution Report - {date_str}",
+            "vulnerability": f"Vulnerability Intelligence Report - {date_str}",
+            "weekly": f"Weekly Threat Landscape Report - {date_str}",
         }
-        return titles.get(report_type, f"Threat Intelligence Report — {date_str}")
+        return titles.get(report_type, f"Threat Intelligence Report - {date_str}")
 
     def _build_html(self, config: ReportConfig, title: str, report_id: str,
                     ts: datetime, entries: List[Dict], stats: Dict) -> str:
@@ -449,7 +449,7 @@ class PremiumReportEngine:
 <body>
     <div class="report-header">
         <h1>{html.escape(title)}</h1>
-        <div class="subtitle">CYBERDUDEBIVASH SENTINEL APEX — Premium Threat Intelligence</div>
+        <div class="subtitle">CYBERDUDEBIVASH SENTINEL APEX - Premium Threat Intelligence</div>
         <div class="meta-strip">
             <span class="meta-badge">Report ID: {report_id}</span>
             <span class="meta-badge">Generated: {ts.strftime('%Y-%m-%d %H:%M UTC')}</span>
@@ -461,7 +461,7 @@ class PremiumReportEngine:
     {sections_html}
 
     <div class="footer">
-        <p>&copy; {ts.year} CyberDudeBivash Pvt. Ltd. — All Rights Reserved</p>
+        <p>&copy; {ts.year} CyberDudeBivash Pvt. Ltd. - All Rights Reserved</p>
         <p>CYBERDUDEBIVASH SENTINEL APEX v52 Premium Report Engine</p>
         <p>intel.cyberdudebivash.com | cyberdudebivash.com</p>
     </div>
@@ -537,8 +537,8 @@ class PremiumReportEngine:
             score = e.get("risk_score", 0)
             css = "severity-critical" if score >= 80 else "severity-high" if score >= 60 else "severity-medium" if score >= 40 else "severity-low"
             title = html.escape(str(e.get("title", "N/A"))[:80])
-            actor = html.escape(str(e.get("actor_tag", "—")))
-            tactics = ", ".join(e.get("mitre_tactics", [])[:3]) or "—"
+            actor = html.escape(str(e.get("actor_tag", "-")))
+            tactics = ", ".join(e.get("mitre_tactics", [])[:3]) or "-"
             rows += f"<tr><td>{title}</td><td class='{css}'>{score}</td><td>{actor}</td><td>{html.escape(tactics)}</td></tr>\n"
 
         return f"""
@@ -648,10 +648,10 @@ class PremiumReportEngine:
         </ul>
         <h3>Rule Deployment Priority</h3>
         <ul>
-            <li><span class="severity-critical">P0:</span> All IOCs from CRITICAL severity advisories — deploy within 1 hour</li>
-            <li><span class="severity-high">P1:</span> All IOCs from HIGH severity advisories — deploy within 4 hours</li>
-            <li><span class="severity-medium">P2:</span> MEDIUM severity IOCs — deploy within 24 hours</li>
-            <li><span class="severity-low">P3:</span> LOW severity IOCs — schedule for next maintenance window</li>
+            <li><span class="severity-critical">P0:</span> All IOCs from CRITICAL severity advisories - deploy within 1 hour</li>
+            <li><span class="severity-high">P1:</span> All IOCs from HIGH severity advisories - deploy within 4 hours</li>
+            <li><span class="severity-medium">P2:</span> MEDIUM severity IOCs - deploy within 24 hours</li>
+            <li><span class="severity-low">P3:</span> LOW severity IOCs - schedule for next maintenance window</li>
         </ul>
         <p><strong>Note:</strong> Detection rules are available via the SENTINEL APEX API at
         <code>/api/detection-rules</code> in Sigma, YARA, Suricata, Snort, KQL, and SPL formats.</p>
@@ -774,7 +774,7 @@ class PremiumReportEngine:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="CDB SENTINEL APEX — Premium Report Engine v52")
+    parser = argparse.ArgumentParser(description="CDB SENTINEL APEX - Premium Report Engine v52")
     parser.add_argument("--type", choices=["executive_briefing", "tactical_ioc", "campaign", "vulnerability", "weekly"],
                         default="executive_briefing", help="Report type")
     parser.add_argument("--days", type=int, default=7, help="Time range in days")

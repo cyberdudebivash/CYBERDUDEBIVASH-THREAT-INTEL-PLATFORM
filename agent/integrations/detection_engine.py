@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-detection_engine.py — CyberDudeBivash v11.5 (SENTINEL APEX ULTRA)
+detection_engine.py - CyberDudeBivash v11.5 (SENTINEL APEX ULTRA)
 UPGRADED: Production-ready Sigma and YARA rule generation with real IOC data.
 Generates meaningful detection rules even when IOC data is limited.
 """
@@ -14,7 +14,7 @@ class DetectionEngine:
     """Enterprise-grade automated detection rule synthesis."""
 
     def _detect_threat_platform(self, title: str, iocs: Dict) -> str:
-        """v23.0: Detect the platform this threat targets — windows/android/linux/web/network"""
+        """v23.0: Detect the platform this threat targets - windows/android/linux/web/network"""
         text = title.lower()
         cves = iocs.get('cve', [])
         # Mobile/Android
@@ -39,7 +39,7 @@ class DetectionEngine:
     def generate_sigma_rule(self, title: str, iocs: Dict) -> str:
         """
         v23.0: Platform-aware Sigma rule generation.
-        Android threats → Android/mobile detection, NOT Windows powershell rules.
+        Android threats -> Android/mobile detection, NOT Windows powershell rules.
         Generates meaningful detection rules matched to the actual threat platform.
         """
         platform = self._detect_threat_platform(title, iocs)

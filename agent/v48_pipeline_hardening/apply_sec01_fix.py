@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-apply_sec01_fix.py — CYBERDUDEBIVASH® SENTINEL APEX v48.0
+apply_sec01_fix.py - CYBERDUDEBIVASH(R) SENTINEL APEX v48.0
 SEC-01 CRITICAL: Remove hardcoded JWT secret from agent/config.py
 
 The public repository exposes:
@@ -49,7 +49,7 @@ def apply():
         r"'cdb-sentinel-apex-v[0-9]+-secret-change-in-prod'\s*\)"
     )
 
-    replacement = """# SEC01_PATCHED_v48 — Hardcoded JWT secret removed
+    replacement = """# SEC01_PATCHED_v48 - Hardcoded JWT secret removed
 _jwt_from_env = os.environ.get('CDB_JWT_SECRET', '')
 if not _jwt_from_env:
     import secrets as _sec_secrets

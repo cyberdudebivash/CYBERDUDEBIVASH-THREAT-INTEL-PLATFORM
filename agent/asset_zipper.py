@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-asset_zipper.py — CYBERDUDEBIVASH® SENTINEL APEX
+asset_zipper.py - CYBERDUDEBIVASH(R) SENTINEL APEX
 ENTERPRISE ASSET BUNDLING ENGINE
 Mandate: Zero-Error compression of Signed Rules, Playbooks, and Certificates.
 """
@@ -37,13 +37,13 @@ class AssetZipper:
                         # Add to ZIP using its base name (no folder nesting)
                         zipf.write(file, arcname=os.path.basename(file))
                     else:
-                        logger.error(f"❌ Missing expected asset for bundle: {file}")
+                        logger.error(f"? Missing expected asset for bundle: {file}")
 
-            logger.info(f"✅ ASSET BUNDLED SUCCESSFULLY: {zip_path}")
+            logger.info(f"? ASSET BUNDLED SUCCESSFULLY: {zip_path}")
             return zip_path
 
         except Exception as e:
-            logger.error(f"❌ Critical Failure in Asset Bundling: {e}")
+            logger.error(f"? Critical Failure in Asset Bundling: {e}")
             return None
 
 # Global Instance for the Apex Engine

@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v70 — Enhanced Blog Report Generator
+SENTINEL APEX v70 - Enhanced Blog Report Generator
 =====================================================
 Produces analyst-grade blog reports with:
 - Attack chain modeling (kill chain phases)
@@ -9,7 +9,7 @@ Produces analyst-grade blog reports with:
 - MITRE ATT&CK technique detail
 - Structured HTML output for Blogger
 
-Does NOT just rephrase NVD — adds real intelligence context.
+Does NOT just rephrase NVD - adds real intelligence context.
 """
 
 import html
@@ -128,7 +128,7 @@ KNOWN_ACTORS: Dict[str, Dict[str, Any]] = {
         "aliases": ["LockBit", "LockBit 3.0", "LockBit Black"],
         "origin": "Russia-linked",
         "motivation": "Financial (Ransomware)",
-        "targets": ["All sectors — opportunistic"],
+        "targets": ["All sectors - opportunistic"],
     },
     "clop": {
         "aliases": ["Cl0p", "TA505"],
@@ -170,11 +170,11 @@ class BlogReportGenerator:
     }
 
     SEVERITY_BADGES = {
-        "critical": "🔴 CRITICAL",
-        "high": "🟠 HIGH",
-        "medium": "🟡 MEDIUM",
-        "low": "🔵 LOW",
-        "info": "⚪ INFO",
+        "critical": "? CRITICAL",
+        "high": "? HIGH",
+        "medium": "? MEDIUM",
+        "low": "? LOW",
+        "info": "? INFO",
     }
 
     def generate_report(
@@ -188,7 +188,7 @@ class BlogReportGenerator:
         """
         sev = advisory.severity.value
         color = self.SEVERITY_COLORS.get(sev, "#6b7280")
-        badge = self.SEVERITY_BADGES.get(sev, "⚪ INFO")
+        badge = self.SEVERITY_BADGES.get(sev, "? INFO")
 
         # Build attack chain
         kill_chain = infer_kill_chain_phases(advisory.mitre_techniques)
@@ -196,39 +196,39 @@ class BlogReportGenerator:
 
         sections = []
 
-        # ── Header Section ──
+        # -- Header Section --
         sections.append(self._header_section(advisory, badge, color))
 
-        # ── Executive Summary ──
+        # -- Executive Summary --
         sections.append(self._executive_summary(advisory))
 
-        # ── Threat Intelligence Details ──
+        # -- Threat Intelligence Details --
         sections.append(self._threat_details(advisory, color))
 
-        # ── Attack Chain Analysis ──
+        # -- Attack Chain Analysis --
         if kill_chain:
             sections.append(self._attack_chain_section(kill_chain, advisory.mitre_techniques))
 
-        # ── Threat Actor Profile ──
+        # -- Threat Actor Profile --
         if advisory.actors:
             sections.append(self._actor_profile_section(advisory.actors))
 
-        # ── IOC Section ──
+        # -- IOC Section --
         if advisory.iocs:
             sections.append(self._ioc_section(advisory))
 
-        # ── CVE Detail Section ──
+        # -- CVE Detail Section --
         if advisory.cves:
             sections.append(self._cve_section(advisory))
 
-        # ── Cross-References ──
+        # -- Cross-References --
         if related_advisories:
             sections.append(self._cross_reference_section(related_advisories))
 
-        # ── Recommendations ──
+        # -- Recommendations --
         sections.append(self._recommendations_section(advisory))
 
-        # ── Footer ──
+        # -- Footer --
         sections.append(self._footer_section(advisory))
 
         full_html = "\n".join(sections)
@@ -260,7 +260,7 @@ class BlogReportGenerator:
     def _executive_summary(self, adv: Advisory) -> str:
         summary_text = adv.ai_summary or adv.summary or "No summary available."
         return f"""
-<h3>📋 Executive Summary</h3>
+<h3>? Executive Summary</h3>
 <p>{html.escape(summary_text)}</p>"""
 
     def _threat_details(self, adv: Advisory, color: str) -> str:
@@ -284,7 +284,7 @@ class BlogReportGenerator:
 
         table_rows = "\n".join(rows)
         return f"""
-<h3>🔍 Threat Intelligence Details</h3>
+<h3>? Threat Intelligence Details</h3>
 <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
 <tbody>
 {table_rows}
@@ -313,7 +313,7 @@ class BlogReportGenerator:
             phases_html += f'<li><strong>{html.escape(phase)}</strong>{html.escape(tech_str)}<br/><em>{html.escape(desc)}</em></li>\n'
 
         return f"""
-<h3>⚔️ Attack Chain Analysis</h3>
+<h3>? Attack Chain Analysis</h3>
 <p>Based on observed techniques, this threat maps to the following kill chain phases:</p>
 <ol style="line-height:1.8;">
 {phases_html}
@@ -334,10 +334,10 @@ class BlogReportGenerator:
   <br/>Known Targets: {html.escape(', '.join(info.get('targets', [])[:5]))}
 </div>""")
             else:
-                profiles.append(f"<p><strong>{html.escape(actor)}</strong> — No known profile in database.</p>")
+                profiles.append(f"<p><strong>{html.escape(actor)}</strong> - No known profile in database.</p>")
 
         return f"""
-<h3>🎭 Threat Actor Profile</h3>
+<h3>? Threat Actor Profile</h3>
 {''.join(profiles)}"""
 
     def _ioc_section(self, adv: Advisory) -> str:
@@ -355,7 +355,7 @@ class BlogReportGenerator:
             rows.append(f"<tr><td><code>{val}</code></td><td>{itype}</td></tr>")
 
         return f"""
-<h3>🎯 Indicators of Compromise (IOCs)</h3>
+<h3>? Indicators of Compromise (IOCs)</h3>
 <table style="width:100%;border-collapse:collapse;">
 <thead><tr><th style="text-align:left;">Value</th><th style="text-align:left;">Type</th></tr></thead>
 <tbody>
@@ -370,11 +370,11 @@ class BlogReportGenerator:
             cve_escaped = html.escape(cve)
             nvd_link = f"https://nvd.nist.gov/vuln/detail/{cve_escaped}"
             cve_items.append(
-                f'<li><a href="{nvd_link}" target="_blank"><strong>{cve_escaped}</strong></a> — '
+                f'<li><a href="{nvd_link}" target="_blank"><strong>{cve_escaped}</strong></a> - '
                 f'<a href="https://www.cvedetails.com/cve/{cve_escaped}/" target="_blank">Details</a></li>'
             )
         return f"""
-<h3>🛡️ CVE References</h3>
+<h3>? CVE References</h3>
 <ul>
 {''.join(cve_items)}
 </ul>"""
@@ -382,14 +382,14 @@ class BlogReportGenerator:
     def _cross_reference_section(self, related: List[Advisory]) -> str:
         items = []
         for r in related[:5]:
-            sev_badge = self.SEVERITY_BADGES.get(r.severity.value, "⚪")
+            sev_badge = self.SEVERITY_BADGES.get(r.severity.value, "?")
             items.append(
                 f"<li>{sev_badge} {html.escape(r.title)} "
                 f"(Score: {r.threat_score}, {html.escape(r.published_date or 'N/A')})"
-                f"{'  — ' + html.escape(r.blog_post_url) if r.blog_post_url else ''}</li>"
+                f"{'  - ' + html.escape(r.blog_post_url) if r.blog_post_url else ''}</li>"
             )
         return f"""
-<h3>🔗 Related Advisories</h3>
+<h3>? Related Advisories</h3>
 <ul>
 {''.join(items)}
 </ul>"""
@@ -414,7 +414,7 @@ class BlogReportGenerator:
 
         items = "\n".join(f"<li>{html.escape(r)}</li>" for r in recs)
         return f"""
-<h3>✅ Recommendations</h3>
+<h3>? Recommendations</h3>
 <ul>
 {items}
 </ul>"""

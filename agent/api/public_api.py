@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-public_api.py — CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
-PUBLIC API DATA LAYER — PRODUCTION UPGRADE
+public_api.py - CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
+PUBLIC API DATA LAYER - PRODUCTION UPGRADE
 
 v22.0 ADDITIONS (additive, backward compatible):
   - Rate limiting on all endpoints via RateLimiter
@@ -13,11 +13,11 @@ v22.0 ADDITIONS (additive, backward compatible):
 All existing method signatures preserved.
 
 Endpoints (data layer):
-  GET /api/v1/threats          → Latest 10 threats (stripped)
-  GET /api/v1/feed             → Public feed manifest (limited)
-  GET /api/v1/health           → Platform health
-  GET /api/v1/stats            → Public statistics + KEV count [v22.0]
-  GET /api/v1/threat/{id}      → Single threat summary (no IOC details)
+  GET /api/v1/threats          -> Latest 10 threats (stripped)
+  GET /api/v1/feed             -> Public feed manifest (limited)
+  GET /api/v1/health           -> Platform health
+  GET /api/v1/stats            -> Public statistics + KEV count [v22.0]
+  GET /api/v1/threat/{id}      -> Single threat summary (no IOC details)
 """
 import json
 import os

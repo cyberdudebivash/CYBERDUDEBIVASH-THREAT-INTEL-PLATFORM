@@ -68,13 +68,13 @@ def fetch_recent_cves(hours=24, max_results=5):
     try:
         r = requests.get(NVD_API, params=params, timeout=30)
         if r.status_code != 200:
-            print("⚠️ NVD API unavailable")
+            print("[!] NVD API unavailable")
             return []
 
         data = r.json()
 
     except requests.RequestException as e:
-        print(f"⚠️ CVE fetch failed: {e}")
+        print(f"[!] CVE fetch failed: {e}")
         return []
 
     cves = []

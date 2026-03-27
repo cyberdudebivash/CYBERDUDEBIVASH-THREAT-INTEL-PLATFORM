@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-apex_purple_swarm.py — CyberDudeBivash v30.0 (APEX PURPLE SWARM)
+apex_purple_swarm.py - CyberDudeBivash v30.0 (APEX PURPLE SWARM)
 Author: CYBERGOD / TECH GOD
 Description: Autonomous Breach & Attack Simulation (BAS). Generates safe, 
              benign atomic test scripts based on live threat intel to 
@@ -80,7 +80,7 @@ pause
                 with open(file_path, 'w') as f:
                     f.write(script)
                 sims_generated += 1
-                logging.info(f"⚡ Forged Benign Attack Simulation: apex_sim_{title}.bat")
+                logging.info(f"[!] Forged Benign Attack Simulation: apex_sim_{title}.bat")
 
         logging.info(f"Purple Swarm cycle complete. Generated {sims_generated} safe simulations.")
 

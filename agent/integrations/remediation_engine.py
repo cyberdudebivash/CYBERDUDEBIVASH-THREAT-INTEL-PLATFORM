@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX — Autonomous Remediation v2.2
+CYBERDUDEBIVASH(R) SENTINEL APEX - Autonomous Remediation v2.2
 Path: agent/integrations/remediation_engine.py
 Feature: Type-Safe Audit-Driven Patch Generation
 """
@@ -24,7 +24,7 @@ class RemediationEngine:
     def run_automated_inventory_build(self):
         """Processes the Quality Audit report to generate missing high-yield patches with type-safety."""
         logger.info("============================================================")
-        logger.info(f"SENTINEL APEX — REMEDIATION INVENTORY BUILD v{self.version}")
+        logger.info(f"SENTINEL APEX - REMEDIATION INVENTORY BUILD v{self.version}")
         logger.info("============================================================")
 
         if not os.path.exists(self.audit_report_path):
@@ -69,7 +69,7 @@ class RemediationEngine:
         """Generates a hardened Shell script for Linux/Unix/Cloud targets."""
         patch_content = f"""#!/bin/bash
 # ==============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX — PREMIUM REMEDIATION KIT
+# CYBERDUDEBIVASH(R) SENTINEL APEX - PREMIUM REMEDIATION KIT
 # TARGET: {cve_id} | SEVERITY: {severity}
 # GENERATED: {datetime.now(timezone.utc).isoformat()}
 # LICENSE: CyberDudeBivash Official Authority
@@ -93,7 +93,7 @@ echo "[SUCCESS] {cve_id} mitigation applied successfully."
         """Generates a hardened PowerShell script for Windows Enterprise targets."""
         patch_content = f"""<#
 .SYNOPSIS
-    CYBERDUDEBIVASH® SENTINEL APEX — PREMIUM REMEDIATION KIT
+    CYBERDUDEBIVASH(R) SENTINEL APEX - PREMIUM REMEDIATION KIT
     TARGET: {cve_id} | SEVERITY: {severity}
 .DESCRIPTION
     Sovereign Hardening Script for Windows Environments.

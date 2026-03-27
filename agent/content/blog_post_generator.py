@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-blog_post_generator.py — CyberDudeBivash v10.1 (APEX ELITE)
+blog_post_generator.py - CyberDudeBivash v10.1 (APEX ELITE)
 Standard: CTIF v1.0 Professional Production Logic
 """
 
@@ -76,7 +76,7 @@ def generate_full_post_content(intel_items, iocs, pro_data, map_html, stix_id, m
                 </div>
             </div>
 
-            <h2 style="color:#fff; border-bottom:1px solid #222; padding-bottom:10px; margin-top:45px; font-size:18px;">3. MITRE ATT&CK® Mapping Table</h2>
+            <h2 style="color:#fff; border-bottom:1px solid #222; padding-bottom:10px; margin-top:45px; font-size:18px;">3. MITRE ATT&CK(R) Mapping Table</h2>
             <div style="margin-top:20px;">{_generate_mitre_table()}</div>
 
             <h2 style="color:#fff; border-bottom:1px solid #222; padding-bottom:10px; margin-top:45px; font-size:18px;">4. Detection Engineering (Verified Logic)</h2>
@@ -96,7 +96,7 @@ def generate_full_post_content(intel_items, iocs, pro_data, map_html, stix_id, m
             </ul>
             
             <div style="margin-top:100px; border-top:1px solid #1a1a1a; padding-top:30px; text-align:center; font-size:10px; color:#222; letter-spacing:5px;">
-                © 2026 CYBERDUDEBIVASH GOC // v10.1 APEX PREDATOR // PROPRIETARY UNIT
+                (C) 2026 CYBERDUDEBIVASH GOC // v10.1 APEX PREDATOR // PROPRIETARY UNIT
             </div>
         </div>
     </div>

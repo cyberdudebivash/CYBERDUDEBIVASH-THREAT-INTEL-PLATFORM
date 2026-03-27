@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — Port Scanner Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - Port Scanner Engine
 ============================================================
 High-performance async TCP port scanner with banner grabbing
 and service identification.

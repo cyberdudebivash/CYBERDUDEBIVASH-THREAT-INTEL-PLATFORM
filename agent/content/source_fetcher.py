@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-source_fetcher.py — CyberDudeBivash v75.1 (SENTINEL APEX ULTRA)
+source_fetcher.py - CyberDudeBivash v75.1 (SENTINEL APEX ULTRA)
 Fetches full source article content from news URLs for rich report generation.
 Extracts meaningful text, strips navigation/ads, handles various site structures.
 
@@ -18,7 +18,7 @@ from typing import Dict, Optional, List
 
 logger = logging.getLogger("CDB-FETCHER")
 
-# CVE sources known to block scrapers — trigger NVD fallback immediately
+# CVE sources known to block scrapers - trigger NVD fallback immediately
 _CVE_BLOCKED_SOURCES = {
     "cvefeed.io", "vulners.com", "vuldb.com", "exploit-db.com",
     "packetstormsecurity.com", "zerodayinitiative.com",
@@ -140,7 +140,7 @@ class SourceFetcher:
         Returns dict with: full_text, paragraphs (list), word_count, fetch_status
 
         v75.1: If the source returns 0 words AND the URL contains a CVE ID,
-        automatically falls back to NVD enrichment for that CVE — guaranteeing
+        automatically falls back to NVD enrichment for that CVE - guaranteeing
         that reports always have substantive content regardless of source blocking.
         """
         result = {
@@ -163,7 +163,7 @@ class SourceFetcher:
         cve_match = re.search(r'(CVE-\d{4}-\d{4,})', url, re.IGNORECASE)
         cve_id_from_url = cve_match.group(1).upper() if cve_match else None
 
-        # Skip slow HTTP fetch for known blocked CVE sources — go straight to NVD
+        # Skip slow HTTP fetch for known blocked CVE sources - go straight to NVD
         if not is_cve_source:
             try:
                 resp = requests.get(
@@ -193,7 +193,7 @@ class SourceFetcher:
 
         # v75.1 FALLBACK: If we got 0 words and have a CVE ID, enrich from NVD
         if result["word_count"] == 0 and cve_id_from_url:
-            logger.info(f"[v75.1] Source returned 0 words — fetching NVD enrichment for {cve_id_from_url}")
+            logger.info(f"[v75.1] Source returned 0 words - fetching NVD enrichment for {cve_id_from_url}")
             nvd_text = _fetch_nvd_summary(cve_id_from_url)
             if nvd_text:
                 paragraphs = [s.strip() for s in re.split(r'(?<=[.!?])\s+', nvd_text) if len(s.strip()) > 20]
@@ -271,7 +271,7 @@ class SourceFetcher:
             'share this', 'follow us', 'related articles',
             'read more', 'click here', 'learn more',
             'advertisement', 'sponsored', 'powered by',
-            'copyright ©', 'footer', 'navigation',
+            'copyright (C)', 'footer', 'navigation',
         ]
         for phrase in boilerplate_phrases:
             if phrase in text_lower and len(text_lower) < 150:

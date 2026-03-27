@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v27.0 Configuration
+CYBERDUDEBIVASH(R) SENTINEL APEX v27.0 Configuration
 ====================================================
 Enterprise-grade configuration with streaming, observability, and AI features.
 
@@ -34,17 +34,17 @@ class V27Config:
     Enterprise settings with streaming, observability, and AI capabilities.
     """
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # PLATFORM METADATA
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     VERSION: str = "27.0.0"
     CODENAME: str = "Phoenix Enterprise"
-    PLATFORM_NAME: str = "CYBERDUDEBIVASH® SENTINEL APEX"
+    PLATFORM_NAME: str = "CYBERDUDEBIVASH(R) SENTINEL APEX"
     DEPLOYMENT_MODE: DeploymentMode = DeploymentMode.STANDALONE
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # STREAMING PIPELINE CONFIGURATION
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     STREAMING_ENABLED: bool = True
     STREAMING_BACKEND: StreamingBackend = StreamingBackend.REDIS
     
@@ -65,9 +65,9 @@ class V27Config:
     WORKER_PREFETCH: int = 2
     TASK_TIMEOUT_SECONDS: int = 300
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # OBSERVABILITY CONFIGURATION
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     OBSERVABILITY_ENABLED: bool = True
     METRICS_PORT: int = 9090
     METRICS_PATH: str = "/metrics"
@@ -84,9 +84,9 @@ class V27Config:
     HEALTH_CHECK_INTERVAL: int = 30
     HEALTH_CHECK_TIMEOUT: int = 10
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # AUTO RULE GENERATION
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     AUTO_RULES_ENABLED: bool = True
     
     # Rule types
@@ -99,18 +99,18 @@ class V27Config:
     RULE_MAX_CONDITIONS: int = 10
     RULE_INCLUDE_METADATA: bool = True
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # NLP SUMMARIZATION
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     NLP_ENABLED: bool = True
     NLP_MODEL: str = "local"  # local, openai, anthropic
     NLP_MAX_SUMMARY_LENGTH: int = 500
     NLP_EXTRACT_ENTITIES: bool = True
     NLP_SENTIMENT_ANALYSIS: bool = True
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # TAXII 2.1 SERVER
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     TAXII_ENABLED: bool = True
     TAXII_PORT: int = 443
     TAXII_DISCOVERY_PATH: str = "/taxii2/"
@@ -125,9 +125,9 @@ class V27Config:
         "internal", "partners", "isac"
     ])
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # ENHANCED RBAC
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     RBAC_ENABLED: bool = True
     
     # Default roles
@@ -149,9 +149,9 @@ class V27Config:
     SESSION_TIMEOUT_MINUTES: int = 480  # 8 hours
     MAX_SESSIONS_PER_USER: int = 5
     
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # INHERITED FROM v26
-    # ══════════════════════════════════════════════════════════════════════════
+    # ==========================================================================
     # Sync settings
     SYNC_INTERVAL_HOURS: int = 4
     SYNC_TIMEOUT_SECONDS: int = 300

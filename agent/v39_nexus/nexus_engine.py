@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 """
-nexus_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v39.0 (NEXUS INTELLIGENCE)
+nexus_engine.py - CYBERDUDEBIVASH(R) SENTINEL APEX v39.0 (NEXUS INTELLIGENCE)
 ==============================================================================
 Master Orchestrator: AI-Driven Threat Hunting, Cross-Signal Correlation,
 Attack Chain Reconstruction, and Predictive Exposure Scoring.
 
 8 New Subsystems (features NOT in v22-v38):
-  N1 — HuntingEngine: Hypothesis-driven proactive threat discovery
-  N2 — CorrelationMatrix: Multi-dimensional IOC/TTP/Actor correlation
-  N3 — AttackChainReconstructor: MITRE ATT&CK kill-chain stage auto-mapping
-  N4 — ExposureForecaster: ML-based organizational risk prediction
-  N5 — DetectionEngineer: Self-tuning Sigma/YARA/Snort rule generation
-  N6 — ExecBriefingGenerator: AI C-suite threat intelligence briefings
-  N7 — AdversaryEmulationPlanner: Automated purple-team exercise creation
-  N8 — IntelRequirementsManager: PIR/EEI tracking & intelligence gap analysis
+  N1 - HuntingEngine: Hypothesis-driven proactive threat discovery
+  N2 - CorrelationMatrix: Multi-dimensional IOC/TTP/Actor correlation
+  N3 - AttackChainReconstructor: MITRE ATT&CK kill-chain stage auto-mapping
+  N4 - ExposureForecaster: ML-based organizational risk prediction
+  N5 - DetectionEngineer: Self-tuning Sigma/YARA/Snort rule generation
+  N6 - ExecBriefingGenerator: AI C-suite threat intelligence briefings
+  N7 - AdversaryEmulationPlanner: Automated purple-team exercise creation
+  N8 - IntelRequirementsManager: PIR/EEI tracking & intelligence gap analysis
 
 Non-Breaking: Reads from manifest/STIX/fusion/analyst/arsenal data.
 Writes to data/nexus/. Zero modification to any existing file.
 
-Author: CyberDudeBivash Pvt. Ltd. — GOC
+Author: CyberDudeBivash Pvt. Ltd. - GOC
 """
 
 import os
@@ -36,9 +36,9 @@ from enum import Enum
 
 logger = logging.getLogger("CDB-Nexus")
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # PATH CONFIGURATION (Environment-overridable)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 MANIFEST_PATH = os.environ.get("MANIFEST_PATH", "data/stix/feed_manifest.json")
 STIX_DIR = os.environ.get("STIX_DIR", "data/stix")
@@ -56,9 +56,9 @@ HASH_MD5_RE = re.compile(r'\b[a-fA-F0-9]{32}\b')
 HASH_SHA256_RE = re.compile(r'\b[a-fA-F0-9]{64}\b')
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # DATA CLASSES & ENUMS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class ThreatSeverity(Enum):
     CRITICAL = "CRITICAL"
@@ -125,9 +125,9 @@ class ExposureScore:
     generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # UTILITY FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 def _load_json(path: str) -> Any:
     """Safe JSON loader with error handling."""
@@ -188,9 +188,9 @@ def _severity_from_score(score: float) -> str:
     return ThreatSeverity.INFO.value
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # MITRE ATT&CK KILL CHAIN MAPPER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 TACTIC_PHASE_MAP = {
     "TA0043": KillChainPhase.RECONNAISSANCE,
@@ -235,9 +235,9 @@ def _map_technique_to_phase(tech_id: str) -> Optional[KillChainPhase]:
     return None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# N1 — AI THREAT HUNTING ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# N1 - AI THREAT HUNTING ENGINE
+# ===============================================================================
 
 class HuntingEngine:
     """
@@ -406,9 +406,9 @@ class HuntingEngine:
         return "enterprise"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# N2 — CROSS-SIGNAL CORRELATION MATRIX
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# N2 - CROSS-SIGNAL CORRELATION MATRIX
+# ===============================================================================
 
 class CorrelationMatrix:
     """
@@ -567,9 +567,9 @@ class CorrelationMatrix:
         return list(sectors) if sectors else ["Cross-Sector"]
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# N3 — ATTACK CHAIN RECONSTRUCTOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# N3 - ATTACK CHAIN RECONSTRUCTOR
+# ===============================================================================
 
 class AttackChainReconstructor:
     """
@@ -670,9 +670,9 @@ class AttackChainReconstructor:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# N4 — PREDICTIVE EXPOSURE FORECASTER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# N4 - PREDICTIVE EXPOSURE FORECASTER
+# ===============================================================================
 
 class ExposureForecaster:
     """
@@ -795,9 +795,9 @@ class ExposureForecaster:
             return False
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# N5 — AUTONOMOUS DETECTION ENGINEER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# N5 - AUTONOMOUS DETECTION ENGINEER
+# ===============================================================================
 
 class DetectionEngineer:
     """
@@ -875,12 +875,12 @@ class DetectionEngineer:
             tags.extend([f"cve.{c.lower()}" for c in cves[:3]])
 
         rule = {
-            "title": f"CDB Sentinel APEX — {name}",
+            "title": f"CDB Sentinel APEX - {name}",
             "id": _generate_id("sigma", name),
             "status": "experimental",
             "description": f"Detects activity related to {entry.get('title', '')[:100]}",
             "references": [entry.get("blog_url", "https://intel.cyberdudebivash.com")],
-            "author": "CyberDudeBivash GOC — Sentinel APEX v39.0",
+            "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
             "date": datetime.now(timezone.utc).strftime("%Y/%m/%d"),
             "tags": tags,
             "logsource": {"category": "process_creation", "product": "windows"},
@@ -914,7 +914,7 @@ class DetectionEngineer:
 
         rule_text = f"""rule CDB_{rule_name} {{
     meta:
-        author = "CyberDudeBivash GOC — Sentinel APEX v39.0"
+        author = "CyberDudeBivash GOC - Sentinel APEX v39.0"
         description = "Detection for {title[:80]}"
         severity = "{'critical' if (entry.get('risk_score',0) or 0) >= 9 else 'high'}"
         date = "{datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
@@ -943,9 +943,9 @@ class DetectionEngineer:
         return {"rule_name": name, "rule_text": rule, "sid": sid}
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# N6 — EXECUTIVE INTELLIGENCE BRIEFING GENERATOR
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# N6 - EXECUTIVE INTELLIGENCE BRIEFING GENERATOR
+# ===============================================================================
 
 class ExecBriefingGenerator:
     """
@@ -1004,7 +1004,7 @@ class ExecBriefingGenerator:
                 }
                 for e in critical[:5]
             ],
-            "prepared_by": "CyberDudeBivash GOC — Sentinel APEX v39.0 AI Engine",
+            "prepared_by": "CyberDudeBivash GOC - Sentinel APEX v39.0 AI Engine",
         }
 
     def _build_narrative(self, total, critical, high, kev, top_actors) -> str:
@@ -1051,9 +1051,9 @@ class ExecBriefingGenerator:
         return recs
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# N7 — ADVERSARY EMULATION PLANNER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# N7 - ADVERSARY EMULATION PLANNER
+# ===============================================================================
 
 class AdversaryEmulationPlanner:
     """
@@ -1129,9 +1129,9 @@ class AdversaryEmulationPlanner:
         return exercises
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# N8 — INTELLIGENCE REQUIREMENTS MANAGER
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# N8 - INTELLIGENCE REQUIREMENTS MANAGER
+# ===============================================================================
 
 class IntelRequirementsManager:
     """
@@ -1206,9 +1206,9 @@ class IntelRequirementsManager:
         return keyword_map.get(category, [category.lower()])
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# NEXUS ORCHESTRATOR — MASTER ENGINE
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# NEXUS ORCHESTRATOR - MASTER ENGINE
+# ===============================================================================
 
 class NexusOrchestrator:
     """
@@ -1322,9 +1322,9 @@ class NexusOrchestrator:
         return results
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # CLI ENTRY POINT
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -1333,13 +1333,13 @@ if __name__ == "__main__":
     )
 
     print("=" * 70)
-    print("CYBERDUDEBIVASH® SENTINEL APEX v39.0 — NEXUS INTELLIGENCE")
+    print("CYBERDUDEBIVASH(R) SENTINEL APEX v39.0 - NEXUS INTELLIGENCE")
     print("=" * 70)
 
     orchestrator = NexusOrchestrator()
     results = orchestrator.execute_full_cycle()
 
-    print(f"\n✅ NEXUS Intelligence Cycle Complete")
+    print(f"\n? NEXUS Intelligence Cycle Complete")
     print(f"   Threat Hunts:      {len(results.get('threat_hunts', []))}")
     print(f"   Campaigns:         {len(results.get('campaigns', []))}")
     print(f"   Attack Chains:     {len(results.get('attack_chains', []))}")
@@ -1348,4 +1348,4 @@ if __name__ == "__main__":
     print(f"   PIR Coverage:      {results.get('intel_requirements', {}).get('overall_coverage_pct', 0)}%")
     print(f"   Emulation Plans:   {len(results.get('emulation_exercises', []))}")
     print(f"   Execution Time:    {results.get('execution_time_ms', 0)}ms")
-    print(f"\n📁 Output: {NEXUS_DIR}/")
+    print(f"\n? Output: {NEXUS_DIR}/")

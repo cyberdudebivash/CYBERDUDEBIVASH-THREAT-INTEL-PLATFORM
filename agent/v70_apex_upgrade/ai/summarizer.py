@@ -1,13 +1,13 @@
 """
-SENTINEL APEX v70 — AI Threat Summarizer (PRODUCTION FIX)
+SENTINEL APEX v70 - AI Threat Summarizer (PRODUCTION FIX)
 ===========================================================
 Generates analyst-grade threat summaries using:
-1. Template-based generation (fast, deterministic — PRIMARY for short texts)
-2. Extractive summarization fallback (sklearn TF-IDF — for medium texts)
+1. Template-based generation (fast, deterministic - PRIMARY for short texts)
+2. Extractive summarization fallback (sklearn TF-IDF - for medium texts)
 3. Transformers pipeline (ONLY for genuinely long texts >500 chars on GPU)
 
 PRODUCTION FIX: Most advisories in this platform are short CVE titles
-(20-100 tokens). Running HF distilbart on these is wasteful — it takes
+(20-100 tokens). Running HF distilbart on these is wasteful - it takes
 2-3s/item on CPU, produces worse output than templates, and floods
 logs with max_length warnings. Template summarization is used by default.
 HF is ONLY invoked for texts >500 chars where it adds real value.
@@ -37,7 +37,7 @@ try:
 except ImportError:
     pass
 
-# Transformers — lazy load only when actually needed
+# Transformers - lazy load only when actually needed
 _TRANSFORMERS_AVAILABLE = False
 _summarizer_pipeline = None
 
@@ -153,7 +153,7 @@ class ThreatSummarizer:
         return " ".join(sentences[i] for i in top_indices)
 
     def _template_summary(self, advisory: Advisory) -> str:
-        """Template-based summary — fast, deterministic, production-grade."""
+        """Template-based summary - fast, deterministic, production-grade."""
         parts = []
 
         # Opening based on threat type

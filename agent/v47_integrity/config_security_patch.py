@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-config_security_patch.py — CYBERDUDEBIVASH® SENTINEL APEX v47.0
+config_security_patch.py - CYBERDUDEBIVASH(R) SENTINEL APEX v47.0
 SEC-01 FIX: Remove hardcoded JWT secret default from config.py
 
 USAGE:
@@ -43,8 +43,8 @@ def apply_patch():
         "'CDB_JWT_SECRET', 'cdb-sentinel-apex-v30-secret-change-in-prod')"
     )
 
-    new_block = '''# ── SEC-01 FIX (v47.0): Hardcoded JWT secret removed ─────────────────────────
-# INSECURE_DEFAULT_REMOVED — v47.0 security hardening
+    new_block = '''# -- SEC-01 FIX (v47.0): Hardcoded JWT secret removed -------------------------
+# INSECURE_DEFAULT_REMOVED - v47.0 security hardening
 _jwt_env = os.environ.get('CDB_JWT_SECRET', '')
 if not _jwt_env:
     import secrets as _secrets

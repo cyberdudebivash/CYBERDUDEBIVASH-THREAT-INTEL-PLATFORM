@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — JavaScript Endpoint Extractor
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - JavaScript Endpoint Extractor
 =====================================================================
 Discovers JS files from pages, extracts API endpoints, URLs, paths,
 and detects hardcoded tokens/keys (AWS, GCP, Stripe).
@@ -15,9 +15,9 @@ from urllib.parse import urljoin
 
 logger = logging.getLogger("CDB-BH-JSEXTRACT")
 
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 # REGEX PATTERNS
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 
 ENDPOINT_RE = re.compile(
     r"""(?:"|')((?:https?://[^\s"']+)|(?:/[a-zA-Z0-9_\-/.]+))(?:"|')""",
@@ -119,9 +119,9 @@ class JSEndpointExtractor:
         result["secrets"] = all_secrets
 
         if result["endpoints"]:
-            logger.info(f"[JS] {url} → {len(result['endpoints'])} endpoints")
+            logger.info(f"[JS] {url} -> {len(result['endpoints'])} endpoints")
         if result["secrets"]:
-            logger.warning(f"[JS] {url} → {len(result['secrets'])} SECRETS DETECTED")
+            logger.warning(f"[JS] {url} -> {len(result['secrets'])} SECRETS DETECTED")
 
         return result
 

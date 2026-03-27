@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX v49 — Detection Rule Generator (API-embedded)
+CYBERDUDEBIVASH SENTINEL APEX v49 - Detection Rule Generator (API-embedded)
 Generates Sigma, YARA, Suricata, Snort, KQL, SPL rules from IOC values.
 """
 

@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v70 — Threat Clustering Engine (AI-Powered)
+SENTINEL APEX v70 - Threat Clustering Engine (AI-Powered)
 ===========================================================
 Groups related advisories into clusters using:
 1. TF-IDF vectorization of advisory text
@@ -26,7 +26,7 @@ try:
     import numpy as np
     _ML_AVAILABLE = True
 except ImportError:
-    logger.warning("sklearn not available — using rule-based clustering")
+    logger.warning("sklearn not available - using rule-based clustering")
 
 
 class ThreatClusterer:
@@ -101,7 +101,7 @@ class ThreatClusterer:
             self._clusters = defaultdict(list)
             for idx, label in enumerate(labels):
                 if label == -1:
-                    # Noise point — assign to singleton cluster
+                    # Noise point - assign to singleton cluster
                     cluster_id = f"cluster_singleton_{idx}"
                 else:
                     cluster_id = f"cluster_{label}"
@@ -143,7 +143,7 @@ class ThreatClusterer:
     def _rule_cluster(self, advisories: List[Advisory]) -> List[Advisory]:
         """
         Rule-based clustering fallback.
-        Groups by: shared CVEs → shared actors → shared tags.
+        Groups by: shared CVEs -> shared actors -> shared tags.
         """
         self._clusters = defaultdict(list)
         assigned = set()
@@ -185,7 +185,7 @@ class ThreatClusterer:
                         assigned.add(idx)
                 self._cluster_labels[cluster_id] = f"Actor: {actor}"
 
-        # Remaining → singleton
+        # Remaining -> singleton
         for idx, adv in enumerate(advisories):
             if idx not in assigned:
                 cluster_id = f"cluster_singleton_{idx}"

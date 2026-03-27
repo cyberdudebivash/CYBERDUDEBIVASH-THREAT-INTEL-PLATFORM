@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v70 — Schema Validation Engine
+SENTINEL APEX v70 - Schema Validation Engine
 ==============================================
 Strict validation before any manifest write or deployment.
 Rejects invalid data. Maintains last-known-good state.
@@ -88,7 +88,7 @@ def validate_advisory(item: Dict[str, Any], index: int = 0) -> List[str]:
                 if len(parts) != 3:
                     errors.append(f"{prefix}: malformed CVE '{cve}'")
 
-    # IOCs — must be list
+    # IOCs - must be list
     iocs = item.get("iocs", [])
     if not isinstance(iocs, list):
         errors.append(f"{prefix}: iocs must be a list")

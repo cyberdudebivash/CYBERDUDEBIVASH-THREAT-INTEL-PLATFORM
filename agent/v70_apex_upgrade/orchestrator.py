@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v70 — Master Pipeline Orchestrator (PATCHED)
+SENTINEL APEX v70 - Master Pipeline Orchestrator (PATCHED)
 =============================================================
 CRITICAL FIX: Removes early-exit. Always processes data. Hard fails on 0 advisories.
 
@@ -124,7 +124,7 @@ def _convert_real_advisory(item: Dict[str, Any]) -> Advisory:
     if not cves and title:
         cves = re.findall(r"CVE-\d{4}-\d{4,}", title, re.IGNORECASE)
 
-    # IOCs — may be a list of values or just a count
+    # IOCs - may be a list of values or just a count
     iocs = []
     raw_iocs = item.get("iocs", [])
     for raw in raw_iocs:
@@ -210,7 +210,7 @@ class Orchestrator:
         start_time = time.time()
 
         try:
-            # ─── Phase 0: Load existing data ───
+            # --- Phase 0: Load existing data ---
             t0 = time.time()
             raw_advisories = self.manifest_mgr.load_current_advisories()
             logger.info(f"Phase 0: Loaded {len(raw_advisories)} existing advisories")
@@ -219,7 +219,7 @@ class Orchestrator:
                 "manifest_path": self.manifest_mgr.latest_path,
             })
 
-            # ─── CRITICAL: HARD FAIL on 0 advisories ───
+            # --- CRITICAL: HARD FAIL on 0 advisories ---
             if not raw_advisories:
                 msg = (
                     f"CRITICAL: 0 advisories loaded from {self.manifest_mgr.latest_path}. "
@@ -235,7 +235,7 @@ class Orchestrator:
 
             result.add_phase("data_check", "OK", 0, {"count": len(raw_advisories)})
 
-            # ─── Phase 1: Convert to structured models ───
+            # --- Phase 1: Convert to structured models ---
             t0 = time.time()
             advisories = []
             convert_errors = 0
@@ -259,7 +259,7 @@ class Orchestrator:
                 result.duration_seconds = round(time.time() - start_time, 3)
                 return result
 
-            # ─── Phase 2: Deduplication ───
+            # --- Phase 2: Deduplication ---
             if self.config.enable_dedup:
                 t0 = time.time()
                 dedup_engine = DedupEngine()
@@ -272,7 +272,7 @@ class Orchestrator:
             else:
                 result.add_phase("deduplication", "SKIPPED", 0)
 
-            # ─── Phase 3: AI Classification ───
+            # --- Phase 3: AI Classification ---
             if self.config.enable_ai:
                 t0 = time.time()
                 try:
@@ -286,7 +286,7 @@ class Orchestrator:
             else:
                 result.add_phase("ai_classification", "SKIPPED", 0)
 
-            # ─── Phase 4: AI Clustering ───
+            # --- Phase 4: AI Clustering ---
             if self.config.enable_ai:
                 t0 = time.time()
                 try:
@@ -302,7 +302,7 @@ class Orchestrator:
             else:
                 result.add_phase("ai_clustering", "SKIPPED", 0)
 
-            # ─── Phase 5: Threat Scoring (with CVE enrichment) ───
+            # --- Phase 5: Threat Scoring (with CVE enrichment) ---
             t0 = time.time()
             # Load CVE index from data bridge (CVSS/EPSS/KEV data)
             cve_lookup = {}
@@ -337,14 +337,14 @@ class Orchestrator:
                 "cve_enrichments": len(cve_lookup),
             })
 
-            # ─── Phase 6: Confidence Scoring ───
+            # --- Phase 6: Confidence Scoring ---
             t0 = time.time()
             confidence_engine = ConfidenceEngine()
             advisories = confidence_engine.score_batch(advisories)
             logger.info("Phase 6: Confidence scoring complete")
             result.add_phase("confidence_scoring", "OK", time.time() - t0)
 
-            # ─── Phase 7: Correlation ───
+            # --- Phase 7: Correlation ---
             if self.config.enable_correlation:
                 t0 = time.time()
                 try:
@@ -360,7 +360,7 @@ class Orchestrator:
             else:
                 result.add_phase("correlation", "SKIPPED", 0)
 
-            # ─── Phase 8: AI Summarization ───
+            # --- Phase 8: AI Summarization ---
             if self.config.enable_ai:
                 t0 = time.time()
                 try:
@@ -374,7 +374,7 @@ class Orchestrator:
             else:
                 result.add_phase("ai_summarization", "SKIPPED", 0)
 
-            # ─── Phase 9: AI Risk Prediction ───
+            # --- Phase 9: AI Risk Prediction ---
             if self.config.enable_ai:
                 t0 = time.time()
                 try:
@@ -388,7 +388,7 @@ class Orchestrator:
             else:
                 result.add_phase("ai_risk_prediction", "SKIPPED", 0)
 
-            # ─── Phase 10: Publish Manifest ───
+            # --- Phase 10: Publish Manifest ---
             t0 = time.time()
             manifest = Manifest(
                 version="70.0",
@@ -402,7 +402,7 @@ class Orchestrator:
             )
 
             if self.config.dry_run:
-                logger.info("Phase 10: DRY RUN — skipping manifest write")
+                logger.info("Phase 10: DRY RUN - skipping manifest write")
                 result.add_phase("publish_manifest", "DRY_RUN", time.time() - t0)
             else:
                 success, msg = self.manifest_mgr.publish(manifest, advisories)
@@ -418,7 +418,7 @@ class Orchestrator:
                     else:
                         logger.error(f"Rollback also failed: {rb_msg}")
 
-            # ─── Phase 11: Pre-Deploy Validation ───
+            # --- Phase 11: Pre-Deploy Validation ---
             t0 = time.time()
             validator = PipelineValidator(self.config.data_dir, self.config.dashboard_file)
             val_result = validator.validate_all()
@@ -427,12 +427,12 @@ class Orchestrator:
                 logger.info("Phase 11: Validation PASSED")
                 result.add_phase("pre_deploy_validation", "OK", time.time() - t0)
             else:
-                logger.error(f"Phase 11: Validation FAILED — {len(val_result.errors)} errors")
+                logger.error(f"Phase 11: Validation FAILED - {len(val_result.errors)} errors")
                 result.add_phase("pre_deploy_validation", "FAILED", time.time() - t0, {
                     "errors": val_result.errors,
                 })
 
-            # ─── Finalize ───
+            # --- Finalize ---
             result.total_advisories = len(advisories)
             result.success = val_result.passed if not self.config.dry_run else True
             result.duration_seconds = round(time.time() - start_time, 3)

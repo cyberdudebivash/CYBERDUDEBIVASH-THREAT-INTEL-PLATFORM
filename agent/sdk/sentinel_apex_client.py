@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CYBERDUDEBIVASH® SENTINEL APEX v30.0+ 
+CYBERDUDEBIVASH(R) SENTINEL APEX v30.0+ 
 Elite Enterprise SDK Extension (March 2026 Production Build)
 
 MANDATE: 
@@ -23,7 +23,7 @@ logger = logging.getLogger("CDB_SENTINEL_APEX_SDK")
 
 class SentinelApexClient(CDBSDK):
     """
-    Final Production Client for the CYBERDUDEBIVASH® Ecosystem.
+    Final Production Client for the CYBERDUDEBIVASH(R) Ecosystem.
     Integrates real-time AI Predictive Cortex streaming with Gumroad License Protection.
     """
 

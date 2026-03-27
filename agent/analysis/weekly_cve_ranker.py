@@ -1,6 +1,6 @@
 """
 Weekly CVE Risk Ranking Engine
-FINAL • PRODUCTION • EXPLOITATION-FOCUSED
+FINAL * PRODUCTION * EXPLOITATION-FOCUSED
 
 Ranks CVEs based on real-world exploitation signals,
 not just raw severity scores.
@@ -26,7 +26,7 @@ def rank_weekly_cves(
 
     Risk Score Formula:
         CVSS
-      + (EPSS × 10)
+      + (EPSS x 10)
       + Severity Weight
       + KEV Bonus (+5)
 

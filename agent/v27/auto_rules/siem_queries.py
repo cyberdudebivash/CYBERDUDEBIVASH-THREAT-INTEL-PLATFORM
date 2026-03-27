@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — SIEM Query Generators
+SENTINEL APEX v27.0 - SIEM Query Generators
 =============================================
 Generates native SIEM queries for various platforms.
 

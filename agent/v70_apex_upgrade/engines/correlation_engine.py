@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v70 — Correlation Engine
+SENTINEL APEX v70 - Correlation Engine
 ========================================
 Links advisories across multiple dimensions:
 - Shared CVEs

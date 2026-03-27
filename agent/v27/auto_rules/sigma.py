@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — Sigma Rule Generator
+SENTINEL APEX v27.0 - Sigma Rule Generator
 ============================================
 Generates SIEM-agnostic Sigma detection rules.
 

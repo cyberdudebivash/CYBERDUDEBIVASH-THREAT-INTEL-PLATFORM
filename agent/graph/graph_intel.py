@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-graph_intel.py — CYBERDUDEBIVASH® SENTINEL APEX v24.0
+graph_intel.py - CYBERDUDEBIVASH(R) SENTINEL APEX v24.0
 Intelligence Correlation Graph Engine.
 
 Non-Breaking Addition: Standalone graph analysis module.
 Does NOT modify existing pipeline modules.
 
 Provides a lightweight in-memory graph layer that correlates:
-    CVE ↔ Threat Actors
-    Threat Actors ↔ Campaigns
-    Malware ↔ Infrastructure
-    Industry ↔ Attack Patterns
-    Geo ↔ Sector Targeting
+    CVE ? Threat Actors
+    Threat Actors ? Campaigns
+    Malware ? Infrastructure
+    Industry ? Attack Patterns
+    Geo ? Sector Targeting
 
 Optional: Uses Neo4j when available, falls back to networkx, then pure Python.
 
@@ -76,7 +76,7 @@ class ThreatIntelligenceGraph:
     - Malware nodes linked to infrastructure
     - Industry nodes linked to attack patterns
 
-    Pure Python implementation — no external graph DB required.
+    Pure Python implementation - no external graph DB required.
     Optional Neo4j export for enterprise deployments.
     """
 
@@ -85,7 +85,7 @@ class ThreatIntelligenceGraph:
         self._edges: List[IntelligenceEdge] = []
         self._adj: Dict[str, List[str]] = defaultdict(list)  # adjacency list
 
-    # ── Node Management ──────────────────────────────────────
+    # -- Node Management --------------------------------------
 
     def add_node(self, node_id: str, node_type: str, **properties) -> IntelligenceNode:
         if node_id not in self._nodes:
@@ -100,7 +100,7 @@ class ThreatIntelligenceGraph:
     def node_count(self) -> int:
         return len(self._nodes)
 
-    # ── Edge Management ──────────────────────────────────────
+    # -- Edge Management --------------------------------------
 
     def add_edge(self, source_id: str, target_id: str, relationship: str,
                  confidence: float = 0.7, **properties) -> IntelligenceEdge:
@@ -118,7 +118,7 @@ class ThreatIntelligenceGraph:
     def edge_count(self) -> int:
         return len(self._edges)
 
-    # ── Graph Queries ─────────────────────────────────────────
+    # -- Graph Queries -----------------------------------------
 
     def get_neighbors(self, node_id: str) -> List[IntelligenceNode]:
         return [self._nodes[nid] for nid in self._adj.get(node_id, []) if nid in self._nodes]
@@ -183,7 +183,7 @@ class ThreatIntelligenceGraph:
 
         return paths
 
-    # ── Graph Building from Manifest ─────────────────────────
+    # -- Graph Building from Manifest -------------------------
 
     def build_from_manifest(self, entries: List[Dict]) -> Dict:
         """
@@ -276,7 +276,7 @@ class ThreatIntelligenceGraph:
         logger.info(f"Graph built: {stats}")
         return stats
 
-    # ── Graph Analytics ───────────────────────────────────────
+    # -- Graph Analytics ---------------------------------------
 
     def compute_threat_clustering(self) -> Dict:
         """Identify clusters of related threats based on shared actors/CVEs."""

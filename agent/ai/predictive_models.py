@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
-predictive_models.py — CYBERDUDEBIVASH® SENTINEL APEX v24.0
+predictive_models.py - CYBERDUDEBIVASH(R) SENTINEL APEX v24.0
 AI-Driven Predictive Threat Intelligence Models.
 
 Non-Breaking Addition: Standalone AI model module.
 Does NOT modify existing risk_engine.py or any core pipeline module.
 
 Models Included:
-    1. ExploitProbabilityModel    — Beyond CVSS/EPSS: multi-signal exploit probability
-    2. ThreatActorAttributionModel — Attribution confidence scoring
-    3. IndustryImpactModel         — Sector/industry blast radius prediction
-    4. FinancialImpactModel         — Estimated financial damage range
-    5. TriagePrioritizationModel    — SOC triage score for analyst workflow
-    6. ThreatMomentumModel          — Attack campaign velocity and momentum
-    7. AttackSurfaceModel           — Attack surface exposure assessment
+    1. ExploitProbabilityModel    - Beyond CVSS/EPSS: multi-signal exploit probability
+    2. ThreatActorAttributionModel - Attribution confidence scoring
+    3. IndustryImpactModel         - Sector/industry blast radius prediction
+    4. FinancialImpactModel         - Estimated financial damage range
+    5. TriagePrioritizationModel    - SOC triage score for analyst workflow
+    6. ThreatMomentumModel          - Attack campaign velocity and momentum
+    7. AttackSurfaceModel           - Attack surface exposure assessment
 
-These models augment the existing risk scoring — they do NOT replace it.
+These models augment the existing risk scoring - they do NOT replace it.
 All scores are additive fields in the manifest entry.
 
 Author: CyberDudeBivash Pvt. Ltd.
@@ -33,9 +33,9 @@ logger = logging.getLogger("CDB-AI-Models")
 MODELS_VERSION = "1.0.0"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 1. Exploit Probability Model
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 class ExploitProbabilityModel:
     """
@@ -74,7 +74,7 @@ class ExploitProbabilityModel:
         score    = 0.0
         max_score = 0.0
 
-        # ── Signal 1: CVSS Score (0-10 → 0-0.30 weight) ──
+        # -- Signal 1: CVSS Score (0-10 -> 0-0.30 weight) --
         cvss = float(entry.get("cvss_score") or 0)
         if cvss > 0:
             cvss_contrib = min(cvss / 10.0, 1.0) * 0.25
@@ -82,7 +82,7 @@ class ExploitProbabilityModel:
             signals["cvss"] = round(cvss_contrib, 4)
         max_score += 0.25
 
-        # ── Signal 2: EPSS Probability (0-1 → 0-0.30 weight) ──
+        # -- Signal 2: EPSS Probability (0-1 -> 0-0.30 weight) --
         epss = float(entry.get("epss_score") or 0)
         if epss > 0:
             # Amplify high EPSS: non-linear scaling
@@ -91,21 +91,21 @@ class ExploitProbabilityModel:
             signals["epss"] = round(epss_contrib, 4)
         max_score += 0.30
 
-        # ── Signal 3: CISA KEV Status (confirmed exploitation = +0.25) ──
+        # -- Signal 3: CISA KEV Status (confirmed exploitation = +0.25) --
         kev = bool(entry.get("kev_present") or entry.get("kev_confirmed"))
         if kev:
             score         += 0.25
             signals["kev"] = 0.25
         max_score += 0.25
 
-        # ── Signal 4: Public PoC Availability ──
+        # -- Signal 4: Public PoC Availability --
         has_poc = bool(entry.get("poc_public") or self._detect_poc_signals(entry))
         if has_poc:
             score           += 0.10
             signals["poc"]   = 0.10
         max_score += 0.10
 
-        # ── Signal 5: Nation-State Actor Attribution ──
+        # -- Signal 5: Nation-State Actor Attribution --
         actor_tag = str(entry.get("actor_tag") or "")
         nation_state_keywords = ["apt", "ta", "lazarus", "sandworm", "cozy bear",
                                   "fancy bear", "charcoal typhoon", "volt typhoon", "salt typhoon"]
@@ -115,7 +115,7 @@ class ExploitProbabilityModel:
             signals["nation_state"]  = 0.07
         max_score += 0.07
 
-        # ── Signal 6: Supply Chain Involvement ──
+        # -- Signal 6: Supply Chain Involvement --
         supply_chain_keywords = ["supply chain", "npm", "pypi", "dependency", "build pipeline"]
         title_lower = (entry.get("title") or "").lower()
         is_supply_chain = any(kw in title_lower for kw in supply_chain_keywords)
@@ -124,7 +124,7 @@ class ExploitProbabilityModel:
             signals["supply_chain"]    = 0.05
         max_score += 0.05
 
-        # ── Signal 7: Active Exploitation Indicators ──
+        # -- Signal 7: Active Exploitation Indicators --
         active_exploit_keywords = ["actively exploited", "in the wild", "0-day", "zero-day",
                                     "zero day", "mass exploitation", "widespread exploitation"]
         is_active = any(kw in title_lower for kw in active_exploit_keywords)
@@ -175,15 +175,15 @@ class ExploitProbabilityModel:
         return any(kw in text for kw in poc_keywords)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 2. Threat Actor Attribution Confidence Model
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 class ThreatActorAttributionModel:
     """
     Attribution confidence scoring for threat actor identification.
 
-    Attribution is often uncertain — this model scores the confidence
+    Attribution is often uncertain - this model scores the confidence
     of an actor attribution based on available intelligence signals.
     """
 
@@ -291,15 +291,15 @@ class ThreatActorAttributionModel:
         return result
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 3. Industry Impact Model
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 class IndustryImpactModel:
     """
     Predicts industry/sector impact for each threat advisory.
 
-    Maps threat characteristics → affected industries with impact scores.
+    Maps threat characteristics -> affected industries with impact scores.
     Outputs sector-specific risk levels for targeted alerting.
     """
 
@@ -421,9 +421,9 @@ class IndustryImpactModel:
         }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 4. Financial Impact Model
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 class FinancialImpactModel:
     """
@@ -508,7 +508,7 @@ class FinancialImpactModel:
         loss_min = int(base["min"] * risk_mult * sector_mult)
         loss_max = int(base["max"] * risk_mult * sector_mult)
 
-        # KEV = confirmed exploitation → increase upper bound
+        # KEV = confirmed exploitation -> increase upper bound
         if entry.get("kev_present") or entry.get("kev_confirmed"):
             loss_max = int(loss_max * 1.5)
             loss_min = int(loss_min * 1.3)
@@ -527,7 +527,7 @@ class FinancialImpactModel:
             "loss_max_usd":       loss_max,
             "loss_min_formatted": _format_usd(loss_min),
             "loss_max_formatted": _format_usd(loss_max),
-            "loss_range_label":   f"{_format_usd(loss_min)} – {_format_usd(loss_max)} USD",
+            "loss_range_label":   f"{_format_usd(loss_min)} - {_format_usd(loss_max)} USD",
             "threat_category":    category,
             "risk_multiplier":    round(risk_mult, 2),
             "sector_multiplier":  sector_mult,
@@ -539,9 +539,9 @@ class FinancialImpactModel:
         }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 5. SOC Triage Prioritization Model
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 class TriagePrioritizationModel:
     """
@@ -569,20 +569,20 @@ class TriagePrioritizationModel:
         """
         score = 0.0
 
-        # ── Exploitation urgency (0-35 pts) ──
+        # -- Exploitation urgency (0-35 pts) --
         risk_score = float(entry.get("risk_score") or 0)
         score += min(risk_score / 10 * 35, 35)
 
         if entry.get("kev_present") or entry.get("kev_confirmed"):
-            score += 15  # Confirmed exploitation → immediate
+            score += 15  # Confirmed exploitation -> immediate
         if entry.get("poc_public"):
             score += 5
 
-        # ── Data quality (0-15 pts) ──
+        # -- Data quality (0-15 pts) --
         quality_map = {"GOLD": 15, "SILVER": 10, "BRONZE": 6, "RAW": 2}
         score += quality_map.get(entry.get("data_quality", "RAW"), 2)
 
-        # ── Detection coverage (0-20 pts) ──
+        # -- Detection coverage (0-20 pts) --
         if has_detection:
             score += 10
         detection_rules = entry.get("detection_rules", {})
@@ -590,7 +590,7 @@ class TriagePrioritizationModel:
             rule_count = sum(len(v) for v in detection_rules.values() if isinstance(v, (list, str)))
             score += min(rule_count * 2, 10)
 
-        # ── Sector relevance (0-15 pts) ──
+        # -- Sector relevance (0-15 pts) --
         if org_sector:
             impact_model = IndustryImpactModel()
             impact = impact_model.predict_impact(entry)
@@ -598,7 +598,7 @@ class TriagePrioritizationModel:
                 sector_score = impact.get("sector_risk_scores", {}).get(org_sector, 0)
                 score += sector_score * 15
 
-        # ── IOC richness (0-10 pts) ──
+        # -- IOC richness (0-10 pts) --
         ioc_count = int(entry.get("ioc_count") or len(entry.get("iocs", [])))
         score += min(ioc_count * 0.5, 5)
 
@@ -610,23 +610,23 @@ class TriagePrioritizationModel:
 
         # Priority tier
         if final_score >= 85:
-            priority = "P0 — IMMEDIATE (< 15 min)"
+            priority = "P0 - IMMEDIATE (< 15 min)"
             action   = "Escalate to IR team. Deploy detections NOW. Begin containment."
             sla_h    = 0.25
         elif final_score >= 70:
-            priority = "P1 — CRITICAL (< 1 hour)"
+            priority = "P1 - CRITICAL (< 1 hour)"
             action   = "Assign to senior analyst. Review IOCs. Deploy detection rules."
             sla_h    = 1
         elif final_score >= 55:
-            priority = "P2 — HIGH (< 4 hours)"
+            priority = "P2 - HIGH (< 4 hours)"
             action   = "Assign to analyst. Hunt in SIEM. Update block lists."
             sla_h    = 4
         elif final_score >= 35:
-            priority = "P3 — MEDIUM (< 24 hours)"
+            priority = "P3 - MEDIUM (< 24 hours)"
             action   = "Review in next shift. Add to watchlist. Monitor for escalation."
             sla_h    = 24
         else:
-            priority = "P4 — LOW (48-72 hours)"
+            priority = "P4 - LOW (48-72 hours)"
             action   = "Log for awareness. Include in weekly threat brief."
             sla_h    = 72
 
@@ -645,9 +645,9 @@ class TriagePrioritizationModel:
         }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 6. Threat Momentum Model
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 class ThreatMomentumModel:
     """
@@ -696,19 +696,19 @@ class ThreatMomentumModel:
         momentum = round(momentum, 2)
 
         if momentum >= 8.0:
-            label = "CRITICAL — RAPIDLY ESCALATING"
+            label = "CRITICAL - RAPIDLY ESCALATING"
             trend = "SURGE"
         elif momentum >= 5.0:
-            label = "HIGH — ACTIVE CAMPAIGN"
+            label = "HIGH - ACTIVE CAMPAIGN"
             trend = "RISING"
         elif momentum >= 2.0:
-            label = "MEDIUM — SUSTAINED ACTIVITY"
+            label = "MEDIUM - SUSTAINED ACTIVITY"
             trend = "STABLE"
         elif momentum >= 0.5:
-            label = "LOW — SPORADIC ACTIVITY"
+            label = "LOW - SPORADIC ACTIVITY"
             trend = "DECLINING"
         else:
-            label = "MINIMAL — BACKGROUND NOISE"
+            label = "MINIMAL - BACKGROUND NOISE"
             trend = "FLAT"
 
         return {
@@ -725,16 +725,16 @@ class ThreatMomentumModel:
         }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 7. Predictive Intelligence Engine (Orchestrator)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 class PredictiveIntelligenceEngine:
     """
     Master orchestrator for all AI predictive models.
     Applies all models to a manifest entry and returns enriched output.
 
-    Non-Breaking: All predictions are additive fields — original entry unchanged.
+    Non-Breaking: All predictions are additive fields - original entry unchanged.
     """
 
     def __init__(self):

@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v49.0 — Bug Hunter Dashboard Bridge
+CYBERDUDEBIVASH(R) SENTINEL APEX v49.0 - Bug Hunter Dashboard Bridge
 ====================================================================
 Writes Bug Hunter scan results to data/bughunter/bughunter_output.json
 in the exact schema consumed by renderBugHunterEngine() in index.html.
@@ -22,7 +22,7 @@ from typing import Any, Dict
 
 logger = logging.getLogger("CDB-BH-BRIDGE")
 
-# Output path — matches ENGINE_URLS.bughunter in index.html line 3834
+# Output path - matches ENGINE_URLS.bughunter in index.html line 3834
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "bughunter")
 _OUTPUT_FILE = os.path.join(_DATA_DIR, "bughunter_output.json")
 _HISTORY_DIR = os.path.join(_DATA_DIR, "scan_history")
@@ -33,14 +33,14 @@ def write_dashboard_output(scan_data: Dict[str, Any]) -> str:
     Write scan results to bughunter_output.json.
 
     The dashboard's renderBugHunterEngine() reads:
-      data.metrics.subdomains        → #bh-subdomain-count
-      data.metrics.live_hosts        → #bh-livehost-count
-      data.metrics.api_endpoints     → #bh-api-count
-      data.metrics.critical_findings → #bh-critical-count
-      data.metrics.risk_exposure     → #bh-risk-exposure
-      data.metrics.rosi              → #bh-rosi
-      data.findings_summary[]        → #bh-findings-feed
-      data.engines[]                 → engine status indicators
+      data.metrics.subdomains        -> #bh-subdomain-count
+      data.metrics.live_hosts        -> #bh-livehost-count
+      data.metrics.api_endpoints     -> #bh-api-count
+      data.metrics.critical_findings -> #bh-critical-count
+      data.metrics.risk_exposure     -> #bh-risk-exposure
+      data.metrics.rosi              -> #bh-rosi
+      data.findings_summary[]        -> #bh-findings-feed
+      data.engines[]                 -> engine status indicators
 
     Args:
         scan_data: Output from SafeReconScanner.run_full_scan()

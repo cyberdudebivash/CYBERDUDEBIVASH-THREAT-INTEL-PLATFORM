@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v27.0 — Streaming Pipeline
+CYBERDUDEBIVASH(R) SENTINEL APEX v27.0 - Streaming Pipeline
 ===========================================================
 Real-time threat ingestion pipeline replacing batch processing.
 
@@ -11,10 +11,10 @@ Features:
 - Delta feed support
 
 Architecture:
-    [Feed Sources] → [Ingest Workers] → [Redis Queue] → [Process Workers] → [Storage]
-                                              ↓
+    [Feed Sources] -> [Ingest Workers] -> [Redis Queue] -> [Process Workers] -> [Storage]
+                                              ?
                                     [Priority Routing]
-                                              ↓
+                                              ?
                             [Critical] [High] [Normal] [Low]
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
@@ -422,9 +422,9 @@ class StreamingPipeline:
         return depths
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # SINGLETON
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 _pipeline: Optional[StreamingPipeline] = None
 
 
@@ -440,9 +440,9 @@ def get_pipeline(redis_url: Optional[str] = None) -> StreamingPipeline:
     return _pipeline
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # EXPORTS
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 __all__ = [
     "StreamingPipeline",
     "StreamEvent",

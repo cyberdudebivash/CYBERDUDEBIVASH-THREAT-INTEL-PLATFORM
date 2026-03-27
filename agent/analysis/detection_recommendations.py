@@ -1,5 +1,5 @@
 """
-Detection Recommendation Engine – FINAL PRODUCTION VERSION
+Detection Recommendation Engine - FINAL PRODUCTION VERSION
 
 Purpose:
 Generate Sigma and KQL detection recommendations
@@ -7,14 +7,14 @@ for uncovered MITRE ATT&CK techniques identified
 by ATT&CK coverage gap analysis.
 
 Designed for:
-SOC • Detection Engineering • Purple Team • Microsoft Sentinel • SIEM Teams
+SOC * Detection Engineering * Purple Team * Microsoft Sentinel * SIEM Teams
 """
 
 from typing import List, Dict
 
 
 # =================================================
-# DETECTION KNOWLEDGE BASE (ATT&CK → DETECTIONS)
+# DETECTION KNOWLEDGE BASE (ATT&CK -> DETECTIONS)
 # =================================================
 # NOTE:
 # These are BASELINE detection recommendations.
@@ -239,14 +239,14 @@ def summarize_recommendations(recommendations: List[Dict]) -> str:
     Generate a human-readable summary for reports, blogs, or tickets.
     """
     if not recommendations:
-        return "✅ No detection recommendations required."
+        return "? No detection recommendations required."
 
-    lines = ["🛡️ Detection Recommendations (SOC Action Required):\n"]
+    lines = ["? Detection Recommendations (SOC Action Required):\n"]
 
     for rec in recommendations:
         lines.append(
             f"- [{rec['gap_severity']}] "
-            f"{rec['technique_id']} – {rec['detection_title']} | "
+            f"{rec['technique_id']} - {rec['detection_title']} | "
             f"Priority: {rec['priority']}"
         )
 

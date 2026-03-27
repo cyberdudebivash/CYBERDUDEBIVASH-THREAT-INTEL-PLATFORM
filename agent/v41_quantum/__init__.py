@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v41.0 — QUANTUM
+CYBERDUDEBIVASH(R) SENTINEL APEX v41.0 - QUANTUM
 =================================================
 ML Anomaly Detection, Adversarial Feed Protection,
 False Positive Reduction, and Detection Rule A/B Testing.

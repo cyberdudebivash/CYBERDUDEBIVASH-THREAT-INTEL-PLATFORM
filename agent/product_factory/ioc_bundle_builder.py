@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-ioc_bundle_builder.py — CYBERDUDEBIVASH® SENTINEL APEX v45.0
+ioc_bundle_builder.py - CYBERDUDEBIVASH(R) SENTINEL APEX v45.0
 COMMERCIAL IOC BUNDLE ORCHESTRATION
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 """
 
 import json

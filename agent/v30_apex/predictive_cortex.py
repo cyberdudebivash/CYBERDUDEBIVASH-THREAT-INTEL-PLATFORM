@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-predictive_cortex.py — CyberDudeBivash v30.0 (APEX PREDICTIVE ENGINE)
+predictive_cortex.py - CyberDudeBivash v30.0 (APEX PREDICTIVE ENGINE)
 Author: CYBERGOD / TECH GOD
 Description: Ingests historical STIX manifests, applies AI-driven statistical modeling
              to predict future CVE weaponization and target sectors.

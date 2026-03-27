@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-janitor.py — CYBERDUDEBIVASH® SENTINEL APEX v17.0
+janitor.py - CYBERDUDEBIVASH(R) SENTINEL APEX v17.0
 PRODUCTION WORKSPACE PURIFICATION + INTELLIGENCE ARCHIVING ENGINE
 
 v17.0 ENHANCEMENTS (non-breaking):
@@ -44,13 +44,13 @@ class WorkspaceJanitor:
         Surgically cleans the data/ directory for production.
         v17.0: Also runs archive pass for reports older than 15 days.
         """
-        logger.info("🛡️  INITIATING WORKSPACE PURIFICATION + ARCHIVE PASS...")
+        logger.info("?  INITIATING WORKSPACE PURIFICATION + ARCHIVE PASS...")
         logger.info(f"   Timestamp: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
-        # ── STEP 1: Archive old reports BEFORE purification (data safety first) ──
+        # -- STEP 1: Archive old reports BEFORE purification (data safety first) --
         self._run_archive_pass()
 
-        # ── STEP 2: Purge test artifact directories ──
+        # -- STEP 2: Purge test artifact directories --
         purged_total = 0
         initialized_dirs = []
 
@@ -58,7 +58,7 @@ class WorkspaceJanitor:
             if os.path.exists(target):
                 files = os.listdir(target)
                 if files:
-                    logger.info(f"🗑️  Purging {len(files)} test files from {target}...")
+                    logger.info(f"?  Purging {len(files)} test files from {target}...")
                     for f in files:
                         file_path = os.path.join(target, f)
                         try:
@@ -69,17 +69,17 @@ class WorkspaceJanitor:
                                 shutil.rmtree(file_path)
                                 purged_total += 1
                         except Exception as e:
-                            logger.error(f"   ❌ Failed to delete {file_path}: {e}")
+                            logger.error(f"   ? Failed to delete {file_path}: {e}")
                 else:
-                    logger.info(f"✅ Directory {target} is already clean.")
+                    logger.info(f"? Directory {target} is already clean.")
             else:
                 os.makedirs(target, exist_ok=True)
                 initialized_dirs.append(target)
-                logger.info(f"📁 Initialized production directory: {target}")
+                logger.info(f"? Initialized production directory: {target}")
 
-        # ── STEP 3: Summary ──
+        # -- STEP 3: Summary --
         logger.info(
-            f"✅ PURIFICATION COMPLETE | "
+            f"? PURIFICATION COMPLETE | "
             f"Files purged: {purged_total} | "
             f"Dirs initialized: {len(initialized_dirs)} | "
             f"System ready for Sovereign Run v17.0."
@@ -91,7 +91,7 @@ class WorkspaceJanitor:
         Non-destructive: moves to data/archive/, never deletes.
         """
         try:
-            logger.info("🗄️  Running archive pass (retention: 15 days)...")
+            logger.info("?  Running archive pass (retention: 15 days)...")
             from agent.core.archive_engine import ArchiveEngine
             engine = ArchiveEngine(retention_days=15)
             summary = engine.run_full_archive()
@@ -102,9 +102,9 @@ class WorkspaceJanitor:
                 f"Total: {summary.get('total_archived', 0)}"
             )
         except ImportError:
-            logger.warning("   Archive engine not available — skipping archive pass.")
+            logger.warning("   Archive engine not available - skipping archive pass.")
         except Exception as e:
-            logger.error(f"   Archive pass failed: {e} — continuing with purification.")
+            logger.error(f"   Archive pass failed: {e} - continuing with purification.")
 
 
 if __name__ == "__main__":

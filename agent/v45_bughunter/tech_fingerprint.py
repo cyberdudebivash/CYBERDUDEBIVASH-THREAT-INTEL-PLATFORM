@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — Technology Fingerprinter
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - Technology Fingerprinter
 ================================================================
 Response-based technology identification via header and body signatures.
 
@@ -11,9 +11,9 @@ from typing import List, Dict
 
 logger = logging.getLogger("CDB-BH-FINGERPRINT")
 
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 # TECHNOLOGY SIGNATURE DATABASE
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 
 SIGNATURES: Dict[str, Dict] = {
     "nginx": {"pattern": "nginx", "category": "web_server"},

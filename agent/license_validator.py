@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-license_validator.py — CYBERDUDEBIVASH® SENTINEL APEX v44.0
+license_validator.py - CYBERDUDEBIVASH(R) SENTINEL APEX v44.0
 ZERO-TRUST LICENSE INTERCEPTOR
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 """
 
 import json

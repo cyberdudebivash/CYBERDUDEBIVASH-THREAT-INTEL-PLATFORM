@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v46.0 — VANGUARD
+CYBERDUDEBIVASH(R) SENTINEL APEX v46.0 - VANGUARD
 Zero-False-Positive Intelligence Enhancement Suite
 
 Modules:

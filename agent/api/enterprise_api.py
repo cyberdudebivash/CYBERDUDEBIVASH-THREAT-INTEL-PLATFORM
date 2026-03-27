@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-enterprise_api.py — CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
-ENTERPRISE API DATA LAYER — PRODUCTION UPGRADE
+enterprise_api.py - CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
+ENTERPRISE API DATA LAYER - PRODUCTION UPGRADE
 
 v22.0 ADDITIONS (all additive, backward compatible):
   - Rate limiting via RateLimiter (token-bucket, per-identity)
@@ -15,21 +15,21 @@ v22.0 ADDITIONS (all additive, backward compatible):
   - Exploit forecast batch endpoint
   - Response envelope with request_id, latency
 
-All existing method signatures preserved — 100% backward compatible.
+All existing method signatures preserved - 100% backward compatible.
 
 Endpoints (data layer):
-  GET  /api/v1/enterprise/threats           → Full threat entries + IOCs
-  GET  /api/v1/enterprise/stix/{bundle_id}  → Full STIX bundle
-  GET  /api/v1/enterprise/actors            → Actor intelligence
-  GET  /api/v1/enterprise/campaigns         → Active campaign data
-  GET  /api/v1/enterprise/forecast/{id}     → Exploit forecast
-  GET  /api/v1/enterprise/metrics           → Platform metrics
-  GET  /api/v1/enterprise/archive           → Archived threat list
-  POST /api/v1/enterprise/search           → Full-text + filtered search
-  GET  /api/v1/enterprise/supply-chain     → Supply chain intel [v22.0]
-  GET  /api/v1/enterprise/epss             → EPSS score bulk fetch [v22.0]
-  GET  /api/v1/enterprise/risk-trend       → Risk trend analysis [v22.0]
-  POST /api/v1/enterprise/forecast/batch   → Batch exploit forecast [v22.0]
+  GET  /api/v1/enterprise/threats           -> Full threat entries + IOCs
+  GET  /api/v1/enterprise/stix/{bundle_id}  -> Full STIX bundle
+  GET  /api/v1/enterprise/actors            -> Actor intelligence
+  GET  /api/v1/enterprise/campaigns         -> Active campaign data
+  GET  /api/v1/enterprise/forecast/{id}     -> Exploit forecast
+  GET  /api/v1/enterprise/metrics           -> Platform metrics
+  GET  /api/v1/enterprise/archive           -> Archived threat list
+  POST /api/v1/enterprise/search           -> Full-text + filtered search
+  GET  /api/v1/enterprise/supply-chain     -> Supply chain intel [v22.0]
+  GET  /api/v1/enterprise/epss             -> EPSS score bulk fetch [v22.0]
+  GET  /api/v1/enterprise/risk-trend       -> Risk trend analysis [v22.0]
+  POST /api/v1/enterprise/forecast/batch   -> Batch exploit forecast [v22.0]
 """
 import json
 import os
@@ -68,7 +68,7 @@ class EnterpriseAPIHandler:
     All methods now include rate-limit awareness + audit + versioned envelopes.
     """
 
-    # ── PRESERVED v17.0 METHODS (signatures unchanged) ────────────
+    # -- PRESERVED v17.0 METHODS (signatures unchanged) ------------
 
     def get_all_threats(
         self,
@@ -375,7 +375,7 @@ class EnterpriseAPIHandler:
             "archived_files":entries,
         }, req_id, (time.monotonic() - t0) * 1000)
 
-    # ── v22.0 NEW ENDPOINTS ───────────────────────────────────────
+    # -- v22.0 NEW ENDPOINTS ---------------------------------------
 
     def get_supply_chain_intel(
         self,
@@ -536,7 +536,7 @@ class EnterpriseAPIHandler:
             "forecasts":     results,
         }, req_id, (time.monotonic() - t0) * 1000)
 
-    # ── INTERNAL ──────────────────────────────────────────────────
+    # -- INTERNAL --------------------------------------------------
 
     def _load_manifest_entries(self) -> List[Dict]:
         if not os.path.exists(MANIFEST_PATH):

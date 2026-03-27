@@ -1,11 +1,11 @@
 """
-SENTINEL APEX v70 — Threat Scoring Engine
+SENTINEL APEX v70 - Threat Scoring Engine
 ===========================================
 Real composite threat scoring combining:
 - CVSS base score (0-10)
 - EPSS probability (0-1)
-- KEV status (boolean → binary)
-- Exploit availability (boolean → binary)
+- KEV status (boolean -> binary)
+- Exploit availability (boolean -> binary)
 - Source trust rating (0-1)
 - Temporal recency decay
 - IOC density factor
@@ -122,7 +122,7 @@ class ThreatScoringEngine:
         """
         signals: Dict[str, float] = {}
 
-        # 1. CVSS — max across all linked CVEs
+        # 1. CVSS - max across all linked CVEs
         max_cvss = 0.0
         max_epss = 0.0
         any_kev = False
@@ -151,14 +151,14 @@ class ThreatScoringEngine:
         # 5. Source trust
         signals["source_trust"] = get_source_trust(advisory.source_name)
 
-        # 6. IOC density — more IOCs = higher threat signal
+        # 6. IOC density - more IOCs = higher threat signal
         ioc_count = len(advisory.iocs)
         signals["ioc_density"] = min(ioc_count / 10.0, 1.0)  # Cap at 10 IOCs = 1.0
 
-        # 7. Recency decay — newer = higher
+        # 7. Recency decay - newer = higher
         signals["recency"] = self._recency_score(advisory.published_date)
 
-        # 8. Actor presence — named actor = higher confidence
+        # 8. Actor presence - named actor = higher confidence
         signals["actor_presence"] = min(len(advisory.actors), 2) / 2.0
 
         # Composite weighted score
@@ -255,7 +255,7 @@ class ConfidenceEngine:
         # 1. Source credibility
         signals["source_credibility"] = get_source_trust(advisory.source_name)
 
-        # 2. CVE verification — verified CVEs boost confidence
+        # 2. CVE verification - verified CVEs boost confidence
         if advisory.cves:
             # More CVEs with proper format = higher confidence
             valid_cves = sum(
@@ -266,7 +266,7 @@ class ConfidenceEngine:
         else:
             signals["cve_verification"] = 0.2  # No CVEs = lower but not zero
 
-        # 3. IOC corroboration — IOCs present with proper types
+        # 3. IOC corroboration - IOCs present with proper types
         if advisory.iocs:
             typed_iocs = sum(
                 1 for ioc in advisory.iocs
@@ -281,7 +281,7 @@ class ConfidenceEngine:
         corr_keys = len(advisory.correlation_keys)
         signals["cross_reference"] = min((related + corr_keys) / 10.0, 1.0)
 
-        # 5. Temporal validity — recent data is more trustworthy
+        # 5. Temporal validity - recent data is more trustworthy
         try:
             if advisory.published_date:
                 dt = datetime.fromisoformat(advisory.published_date.replace("Z", "+00:00"))
@@ -301,7 +301,7 @@ class ConfidenceEngine:
         except (ValueError, TypeError):
             signals["temporal_validity"] = 0.3
 
-        # 6. Data completeness — how much of the advisory is filled in
+        # 6. Data completeness - how much of the advisory is filled in
         completeness_fields = [
             advisory.title, advisory.summary, advisory.source_url,
             advisory.source_name, advisory.published_date,

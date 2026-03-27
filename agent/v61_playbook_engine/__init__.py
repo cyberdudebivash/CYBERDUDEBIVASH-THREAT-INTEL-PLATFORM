@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v61.0 — AI Playbook Generator
+CYBERDUDEBIVASH(R) SENTINEL APEX v61.0 - AI Playbook Generator
 ==============================================================
 Automatically generates response playbooks for each incident.
 Produces investigation, containment, remediation, and recovery steps.
@@ -7,7 +7,7 @@ Produces investigation, containment, remediation, and recovery steps.
 Input:  data/incidents/incidents.json
 Output: data/playbooks/playbook_<incident_id>.json
 
-© 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
+(C) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
 """
 
 import json
@@ -46,7 +46,7 @@ CONTAINMENT_ACTIONS = {
         "Disable compromised user accounts and rotate credentials",
         "Enable enhanced logging on all critical systems",
         "Activate incident response team and notify CISO",
-        "Preserve forensic evidence — do not reboot affected systems",
+        "Preserve forensic evidence - do not reboot affected systems",
     ],
     "HIGH": [
         "Quarantine affected endpoints via EDR",
@@ -177,7 +177,7 @@ def generate_playbook(incident: Dict) -> Dict:
 
 def run():
     logger.info("=" * 60)
-    logger.info("  SENTINEL APEX v61.0 — AI Playbook Generator")
+    logger.info("  SENTINEL APEX v61.0 - AI Playbook Generator")
     logger.info("=" * 60)
 
     if not INCIDENTS_FILE.exists():
@@ -211,7 +211,7 @@ def run():
     with open(PLAYBOOK_DIR / "playbook_index.json", "w") as f:
         json.dump(index, f, indent=2, default=str)
 
-    logger.info(f"✅ {generated} playbooks generated → {PLAYBOOK_DIR}")
+    logger.info(f"? {generated} playbooks generated -> {PLAYBOOK_DIR}")
     return index
 
 

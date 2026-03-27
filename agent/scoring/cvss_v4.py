@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v25.0
+CYBERDUDEBIVASH(R) SENTINEL APEX v25.0
 CVSS v4.0 Calculator
 ====================
 

@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v63.0 — AI Threat Hunter Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v63.0 - AI Threat Hunter Engine
 ================================================================
 Generates proactive threat hunting hypotheses, hunt queries,
 attack path analysis, and investigation leads.
@@ -7,7 +7,7 @@ attack path analysis, and investigation leads.
 Input:  data/stix/feed_manifest.json + data/incidents/incidents.json
 Output: data/threathunts/hunts.json
 
-© 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
+(C) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
 """
 
 import json
@@ -171,7 +171,7 @@ def generate_attack_paths(incidents: List[Dict]) -> List[Dict]:
 
 def run():
     logger.info("=" * 60)
-    logger.info("  SENTINEL APEX v63.0 — AI Threat Hunter Engine")
+    logger.info("  SENTINEL APEX v63.0 - AI Threat Hunter Engine")
     logger.info("=" * 60)
 
     intel = []
@@ -212,7 +212,7 @@ def run():
     with open(OUTPUT_FILE, "w") as f:
         json.dump(output, f, indent=2, default=str)
 
-    logger.info(f"✅ {len(hunts)} hunt hypotheses | {len(campaigns)} campaigns | {len(attack_paths)} attack paths")
+    logger.info(f"? {len(hunts)} hunt hypotheses | {len(campaigns)} campaigns | {len(attack_paths)} attack paths")
     return output
 
 

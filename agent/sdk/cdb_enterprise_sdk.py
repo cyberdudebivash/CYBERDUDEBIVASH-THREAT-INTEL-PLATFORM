@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-cdb_enterprise_sdk.py — CYBERDUDEBIVASH® SENTINEL APEX v46.0
+cdb_enterprise_sdk.py - CYBERDUDEBIVASH(R) SENTINEL APEX v46.0
 OFFICIAL B2B PARTNER INTEGRATION SDK
-Founder & CEO — CyberDudeBivash Pvt. Ltd.
+Founder & CEO - CyberDudeBivash Pvt. Ltd.
 
 Provides high-level abstraction for Enterprise partners to automate 
 Intelligence consumption and Vaulted asset retrieval.
@@ -53,7 +53,7 @@ class CDBEnterpriseSDK:
             with open(local_path, "wb") as out_file:
                 out_file.write(decrypted_data)
             
-            print(f"✅ SDK: Successfully synchronized {product_type} to {local_path}")
+            print(f"? SDK: Successfully synchronized {product_type} to {local_path}")
             return True
 
 # SDK Usage Example (Internal Documentation)

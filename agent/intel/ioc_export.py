@@ -1,6 +1,6 @@
 """
 IOC Export Module (STIX 2.1 + MISP)
-FINAL • PRODUCTION • INTERFACE-HARDENED
+FINAL * PRODUCTION * INTERFACE-HARDENED
 
 This module guarantees stable IOC export functions
 expected by all orchestrators.
@@ -76,11 +76,11 @@ def export_stix_bundle(
         with open(path, "w", encoding="utf-8") as f:
             json.dump(bundle, f, indent=2)
 
-        print(f"📦 STIX exported → {path}")
+        print(f"? STIX exported -> {path}")
         return path
 
     except Exception as exc:
-        print(f"⚠️ STIX export failed: {exc}")
+        print(f"[!] STIX export failed: {exc}")
         return ""
 
 
@@ -125,11 +125,11 @@ def export_misp_event(
         with open(path, "w", encoding="utf-8") as f:
             json.dump(event, f, indent=2)
 
-        print(f"📦 MISP exported → {path}")
+        print(f"? MISP exported -> {path}")
         return path
 
     except Exception as exc:
-        print(f"⚠️ MISP export failed: {exc}")
+        print(f"[!] MISP export failed: {exc}")
         return ""
 
 

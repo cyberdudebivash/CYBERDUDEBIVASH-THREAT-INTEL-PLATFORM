@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v29.0 — Prometheus Metrics
+CYBERDUDEBIVASH(R) SENTINEL APEX v29.0 - Prometheus Metrics
 ==========================================================
 Enterprise-grade /metrics endpoint with Prometheus format.
 
@@ -37,9 +37,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # METRIC TYPES
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 @dataclass
 class MetricValue:
@@ -203,9 +203,9 @@ class HistogramTimer:
         self.histogram.observe(duration, **self.labels)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # PROMETHEUS EXPORTER
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 class PrometheusExporter:
     """
@@ -220,7 +220,7 @@ class PrometheusExporter:
     def _init_metrics(self):
         """Initialize all metrics"""
         
-        # ─── THREAT INTELLIGENCE METRICS ──────────────────────────────────
+        # --- THREAT INTELLIGENCE METRICS ----------------------------------
         self.threats_total = Counter(
             "sentinel_threats_total",
             "Total number of threats processed",
@@ -245,7 +245,7 @@ class PrometheusExporter:
             ["type"]
         )
         
-        # ─── API METRICS ──────────────────────────────────────────────────
+        # --- API METRICS --------------------------------------------------
         self.api_requests = Counter(
             "sentinel_api_requests_total",
             "Total API requests",
@@ -265,7 +265,7 @@ class PrometheusExporter:
             []
         )
         
-        # ─── ENRICHMENT METRICS ───────────────────────────────────────────
+        # --- ENRICHMENT METRICS -------------------------------------------
         self.enrichment_duration = Histogram(
             "sentinel_enrichment_duration_seconds",
             "Enrichment processing time",
@@ -279,7 +279,7 @@ class PrometheusExporter:
             ["source", "error_type"]
         )
         
-        # ─── FEED SYNC METRICS ────────────────────────────────────────────
+        # --- FEED SYNC METRICS --------------------------------------------
         self.feed_sync_duration = Histogram(
             "sentinel_feed_sync_duration_seconds",
             "Feed synchronization time",
@@ -293,7 +293,7 @@ class PrometheusExporter:
             ["feed", "status"]
         )
         
-        # ─── QUEUE METRICS ────────────────────────────────────────────────
+        # --- QUEUE METRICS ------------------------------------------------
         self.queue_depth = Gauge(
             "sentinel_queue_depth",
             "Current queue depth",
@@ -306,7 +306,7 @@ class PrometheusExporter:
             ["queue"]
         )
         
-        # ─── SLA METRICS ──────────────────────────────────────────────────
+        # --- SLA METRICS --------------------------------------------------
         self.uptime_seconds = Counter(
             "sentinel_uptime_seconds",
             "Platform uptime in seconds",
@@ -332,7 +332,7 @@ class PrometheusExporter:
             buckets=(60, 300, 600, 1800, 3600, 7200, 14400)
         )
         
-        # ─── ML METRICS ───────────────────────────────────────────────────
+        # --- ML METRICS ---------------------------------------------------
         self.model_predictions = Counter(
             "sentinel_model_predictions_total",
             "ML model predictions",
@@ -346,7 +346,7 @@ class PrometheusExporter:
             buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5)
         )
         
-        # ─── INFO METRICS ─────────────────────────────────────────────────
+        # --- INFO METRICS -------------------------------------------------
         self.build_info = Gauge(
             "sentinel_build_info",
             "Build information",
@@ -435,9 +435,9 @@ class PrometheusExporter:
         }
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # FASTAPI INTEGRATION
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 def create_metrics_router():
     """Create FastAPI router for /metrics endpoint"""
@@ -468,9 +468,9 @@ def create_metrics_router():
         return None
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # MIDDLEWARE
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 class MetricsMiddleware:
     """FastAPI middleware for automatic metrics collection"""
@@ -505,9 +505,9 @@ class MetricsMiddleware:
         await self.app(scope, receive, send_wrapper)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # SINGLETON
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 _exporter_instance: Optional[PrometheusExporter] = None
 

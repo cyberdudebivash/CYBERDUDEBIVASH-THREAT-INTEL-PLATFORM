@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-mitre_mapper.py — CyberDudeBivash v12.0 (SENTINEL APEX ULTRA)
+mitre_mapper.py - CyberDudeBivash v12.0 (SENTINEL APEX ULTRA)
 REWRITE: Expanded from 8 keywords to 50+ high-fidelity triggers
 covering all 14 MITRE ATT&CK tactics. Includes technique names
 and descriptions for report enrichment.
@@ -9,18 +9,18 @@ and descriptions for report enrichment.
 
 class MITREMapper:
     def __init__(self):
-        # Comprehensive keyword → technique mapping
+        # Comprehensive keyword -> technique mapping
         self.mapping_db = {
-            # ── RECONNAISSANCE ──
+            # -- RECONNAISSANCE --
             "scanning": {"id": "T1595", "tactic": "Reconnaissance", "name": "Active Scanning"},
             "osint": {"id": "T1593", "tactic": "Reconnaissance", "name": "Search Open Websites/Domains"},
             "reconnaissance": {"id": "T1595", "tactic": "Reconnaissance", "name": "Active Scanning"},
 
-            # ── RESOURCE DEVELOPMENT ──
+            # -- RESOURCE DEVELOPMENT --
             "typosquatting": {"id": "T1583.001", "tactic": "Resource Development", "name": "Acquire Infrastructure: Domains"},
             "fake website": {"id": "T1583.001", "tactic": "Resource Development", "name": "Acquire Infrastructure: Domains"},
 
-            # ── INITIAL ACCESS ──
+            # -- INITIAL ACCESS --
             "phishing": {"id": "T1566", "tactic": "Initial Access", "name": "Phishing"},
             "spearphishing": {"id": "T1566.001", "tactic": "Initial Access", "name": "Spearphishing Attachment"},
             "phishing link": {"id": "T1566.002", "tactic": "Initial Access", "name": "Spearphishing Link"},
@@ -42,7 +42,7 @@ class MITREMapper:
             "trusted relationship": {"id": "T1199", "tactic": "Initial Access", "name": "Trusted Relationship"},
             "third-party": {"id": "T1199", "tactic": "Initial Access", "name": "Trusted Relationship"},
 
-            # ── EXECUTION ──
+            # -- EXECUTION --
             "exploit": {"id": "T1203", "tactic": "Execution", "name": "Exploitation for Client Execution"},
             "powershell": {"id": "T1059.001", "tactic": "Execution", "name": "PowerShell"},
             "script": {"id": "T1059", "tactic": "Execution", "name": "Command and Scripting Interpreter"},
@@ -60,7 +60,7 @@ class MITREMapper:
             "fake ai": {"id": "T1204.001", "tactic": "Execution", "name": "Malicious Link"},
             "fake app": {"id": "T1204", "tactic": "Execution", "name": "User Execution"},
 
-            # ── PERSISTENCE ──
+            # -- PERSISTENCE --
             "persistence": {"id": "T1547", "tactic": "Persistence", "name": "Boot or Logon Autostart Execution"},
             "registry": {"id": "T1547.001", "tactic": "Persistence", "name": "Registry Run Keys"},
             "scheduled task": {"id": "T1053.005", "tactic": "Persistence", "name": "Scheduled Task"},
@@ -77,12 +77,12 @@ class MITREMapper:
             "addon": {"id": "T1176", "tactic": "Persistence", "name": "Browser Extensions"},
             "add-on": {"id": "T1176", "tactic": "Persistence", "name": "Browser Extensions"},
 
-            # ── PRIVILEGE ESCALATION ──
+            # -- PRIVILEGE ESCALATION --
             "privilege escalation": {"id": "T1068", "tactic": "Privilege Escalation", "name": "Exploitation for Privilege Escalation"},
             "elevation": {"id": "T1068", "tactic": "Privilege Escalation", "name": "Exploitation for Privilege Escalation"},
             "admin access": {"id": "T1078.003", "tactic": "Privilege Escalation", "name": "Local Accounts"},
 
-            # ── DEFENSE EVASION ──
+            # -- DEFENSE EVASION --
             "obfuscation": {"id": "T1027", "tactic": "Defense Evasion", "name": "Obfuscated Files or Information"},
             "evasion": {"id": "T1027", "tactic": "Defense Evasion", "name": "Obfuscated Files or Information"},
             "dll sideloading": {"id": "T1574.002", "tactic": "Defense Evasion", "name": "DLL Side-Loading"},
@@ -97,7 +97,7 @@ class MITREMapper:
             "deceptive": {"id": "T1036", "tactic": "Defense Evasion", "name": "Masquerading"},
             "fake brand": {"id": "T1036.005", "tactic": "Defense Evasion", "name": "Match Legitimate Name or Location"},
 
-            # ── CREDENTIAL ACCESS ──
+            # -- CREDENTIAL ACCESS --
             "credential": {"id": "T1555", "tactic": "Credential Access", "name": "Credentials from Password Stores"},
             "brute force": {"id": "T1110", "tactic": "Credential Access", "name": "Brute Force"},
             "password spray": {"id": "T1110.003", "tactic": "Credential Access", "name": "Password Spraying"},
@@ -128,18 +128,18 @@ class MITREMapper:
             "account takeover": {"id": "T1078", "tactic": "Credential Access", "name": "Valid Accounts"},
             "sim swap": {"id": "T1111", "tactic": "Credential Access", "name": "Multi-Factor Authentication Interception"},
 
-            # ── DISCOVERY ──
+            # -- DISCOVERY --
             "reconnaissance internal": {"id": "T1083", "tactic": "Discovery", "name": "File and Directory Discovery"},
             "network scanning": {"id": "T1046", "tactic": "Discovery", "name": "Network Service Discovery"},
             "enumerat": {"id": "T1087", "tactic": "Discovery", "name": "Account Discovery"},
 
-            # ── LATERAL MOVEMENT ──
+            # -- LATERAL MOVEMENT --
             "lateral movement": {"id": "T1021", "tactic": "Lateral Movement", "name": "Remote Services"},
             "remote desktop": {"id": "T1021.001", "tactic": "Lateral Movement", "name": "Remote Desktop Protocol"},
             "internal spread": {"id": "T1021", "tactic": "Lateral Movement", "name": "Remote Services"},
             "pass the hash": {"id": "T1550.002", "tactic": "Lateral Movement", "name": "Pass the Hash"},
 
-            # ── COLLECTION ──
+            # -- COLLECTION --
             "data collection": {"id": "T1005", "tactic": "Collection", "name": "Data from Local System"},
             "database": {"id": "T1213", "tactic": "Collection", "name": "Data from Information Repositories"},
             "screen capture": {"id": "T1113", "tactic": "Collection", "name": "Screen Capture"},
@@ -151,7 +151,7 @@ class MITREMapper:
             "exposed": {"id": "T1567", "tactic": "Exfiltration", "name": "Exfiltration Over Web Service"},
             "unauthorized access": {"id": "T1078", "tactic": "Initial Access", "name": "Valid Accounts"},
 
-            # ── COMMAND AND CONTROL ──
+            # -- COMMAND AND CONTROL --
             "c2": {"id": "T1071", "tactic": "Command and Control", "name": "Application Layer Protocol"},
             "beacon": {"id": "T1071.004", "tactic": "Command and Control", "name": "DNS"},
             "dns tunneling": {"id": "T1071.004", "tactic": "Command and Control", "name": "DNS"},
@@ -159,7 +159,7 @@ class MITREMapper:
             "cobalt strike": {"id": "T1071.001", "tactic": "Command and Control", "name": "Web Protocols"},
             "reverse shell": {"id": "T1572", "tactic": "Command and Control", "name": "Protocol Tunneling"},
 
-            # ── EXFILTRATION ──
+            # -- EXFILTRATION --
             "exfiltration": {"id": "T1041", "tactic": "Exfiltration", "name": "Exfiltration Over C2 Channel"},
             "data leak": {"id": "T1567", "tactic": "Exfiltration", "name": "Exfiltration Over Web Service"},
             "leaked": {"id": "T1567", "tactic": "Exfiltration", "name": "Exfiltration Over Web Service"},
@@ -168,7 +168,7 @@ class MITREMapper:
             "breach": {"id": "T1190", "tactic": "Initial Access", "name": "Exploit Public-Facing Application"},
             "compromised": {"id": "T1078", "tactic": "Initial Access", "name": "Valid Accounts"},
 
-            # ── IMPACT ──
+            # -- IMPACT --
             "ransomware": {"id": "T1486", "tactic": "Impact", "name": "Data Encrypted for Impact"},
             "encrypt": {"id": "T1486", "tactic": "Impact", "name": "Data Encrypted for Impact"},
             "wiper": {"id": "T1485", "tactic": "Impact", "name": "Data Destruction"},
@@ -176,7 +176,7 @@ class MITREMapper:
             "ddos": {"id": "T1498", "tactic": "Impact", "name": "Network Denial of Service"},
             "defacement": {"id": "T1491", "tactic": "Impact", "name": "Defacement"},
 
-            # ── MOBILE ATT&CK (v15.0) ──
+            # -- MOBILE ATT&CK (v15.0) --
             "zygote": {"id": "T1398", "tactic": "Persistence", "name": "Boot or Logon Initialization Scripts (Mobile)"},
             "system partition": {"id": "T1398", "tactic": "Persistence", "name": "Boot or Logon Initialization Scripts (Mobile)"},
             "firmware": {"id": "T1542", "tactic": "Persistence", "name": "Pre-OS Boot: Firmware Corruption"},
@@ -220,10 +220,10 @@ class MITREMapper:
 
         return matches
 
-    # ══════════════════════════════════════════════════════════════
-    # v17.0 ADDITIONS — MITRE COVERAGE ANALYTICS
+    # ==============================================================
+    # v17.0 ADDITIONS - MITRE COVERAGE ANALYTICS
     # Non-breaking. Call compute_coverage_score() with match list.
-    # ══════════════════════════════════════════════════════════════
+    # ==============================================================
 
     def compute_coverage_score(self, matches: list) -> dict:
         """

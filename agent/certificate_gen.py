@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-certificate_gen.py — CYBERDUDEBIVASH® SENTINEL APEX
+certificate_gen.py - CYBERDUDEBIVASH(R) SENTINEL APEX
 INSTITUTIONAL SECURITY CERTIFICATE GENERATOR
 Mandate: Automatic Brand Authority & Forensic Verification.
 """
@@ -34,7 +34,7 @@ class CertificateGenerator:
         # 2. Header Area
         pdf.set_font("Helvetica", 'B', 24)
         pdf.set_text_color(21, 26, 36) # Dark Navy
-        pdf.cell(0, 30, "CYBERDUDEBIVASH® SENTINEL APEX", ln=True, align='C')
+        pdf.cell(0, 30, "CYBERDUDEBIVASH(R) SENTINEL APEX", ln=True, align='C')
         pdf.set_font("Helvetica", '', 16)
         pdf.cell(0, 10, "OFFICIAL CERTIFICATE OF AUTHENTICITY", ln=True, align='C')
         
@@ -61,7 +61,7 @@ class CertificateGenerator:
         # Final Output
         file_path = os.path.join(self.output_dir, f"CERT_{cert_id}.pdf")
         pdf.output(file_path)
-        logger.info(f"✅ CERTIFICATE GENERATED: {file_path}")
+        logger.info(f"? CERTIFICATE GENERATED: {file_path}")
         return file_path
 
 # Initialize for use in Asset Factory

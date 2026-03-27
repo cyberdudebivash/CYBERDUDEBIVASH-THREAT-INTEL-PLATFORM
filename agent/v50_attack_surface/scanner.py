@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX v50 — Attack Surface Scanner
+CYBERDUDEBIVASH SENTINEL APEX v50 - Attack Surface Scanner
 Production-grade external attack surface monitoring:
   - Subdomain discovery (DNS brute-force, certificate transparency)
   - Port scanning (TCP connect scan with service fingerprinting)
@@ -535,20 +535,20 @@ class AttackSurfaceScanner:
         if self.scan_subdomains_enabled:
             logger.info(f"[1/4] Subdomain discovery for {target}")
             asset.subdomains = self.subdomain_scanner.discover(target)
-            logger.info(f"  → Found {len(asset.subdomains)} subdomains")
+            logger.info(f"  -> Found {len(asset.subdomains)} subdomains")
 
         # Phase 2: Port Scanning (primary host)
         if self.scan_ports_enabled and primary_ip != "unresolved":
             logger.info(f"[2/4] Port scanning {target} ({primary_ip})")
             asset.open_ports = self.port_scanner.scan(primary_ip)
             open_count = sum(1 for p in asset.open_ports if p.state == "open")
-            logger.info(f"  → {open_count} open ports detected")
+            logger.info(f"  -> {open_count} open ports detected")
 
         # Phase 3: Technology Detection
         if self.detect_tech_enabled:
             logger.info(f"[3/4] Technology fingerprinting {target}")
             asset.technologies = self.tech_detector.detect(target)
-            logger.info(f"  → {len(asset.technologies)} technologies identified")
+            logger.info(f"  -> {len(asset.technologies)} technologies identified")
 
         # Phase 4: Exposure Analysis
         logger.info(f"[4/4] Exposure analysis")
@@ -622,7 +622,7 @@ class AttackSurfaceScanner:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="CDB SENTINEL APEX — Attack Surface Scanner v50")
+    parser = argparse.ArgumentParser(description="CDB SENTINEL APEX - Attack Surface Scanner v50")
     parser.add_argument("target", help="Target domain to scan")
     parser.add_argument("--no-subdomains", action="store_true", help="Skip subdomain discovery")
     parser.add_argument("--no-ports", action="store_true", help="Skip port scanning")

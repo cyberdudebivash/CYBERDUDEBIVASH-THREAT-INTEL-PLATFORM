@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — Bug Hunter Data Models
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - Bug Hunter Data Models
 ==============================================================
 SQLModel-based schemas for recon persistence.
 Isolated from core Sentinel APEX data layer.
@@ -15,9 +15,9 @@ from typing import Optional, List, Dict, Any
 
 logger = logging.getLogger("CDB-BH-MODELS")
 
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 # DATA DIRECTORY
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "bughunter")
 
@@ -28,9 +28,9 @@ def _ensure_dirs():
         os.makedirs(path, exist_ok=True)
 
 
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 # SCAN RECORD
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 
 class BugHunterScan:
     """Represents a completed recon scan session."""
@@ -100,9 +100,9 @@ class BugHunterScan:
             return None
 
 
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 # VULNERABILITY FINDING
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 
 class BugHunterFinding:
     """Standardized vulnerability finding record."""
@@ -150,7 +150,7 @@ class BugHunterFinding:
         }
 
     def to_stix_indicator(self) -> Dict[str, Any]:
-        """Convert to a STIX 2.1–compatible indicator stub for Sentinel APEX."""
+        """Convert to a STIX 2.1-compatible indicator stub for Sentinel APEX."""
         return {
             "type": "indicator",
             "spec_version": "2.1",

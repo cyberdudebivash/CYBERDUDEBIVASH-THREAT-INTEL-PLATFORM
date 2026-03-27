@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ebpf_apex_sensor.py — CyberDudeBivash v30.0 (APEX KERNEL SENSOR)
+ebpf_apex_sensor.py - CyberDudeBivash v30.0 (APEX KERNEL SENSOR)
 Author: CYBERGOD / TECH GOD
 Description: eBPF Linux Kernel Agent. Monitors malicious process executions 
              in real-time and streams telemetry to the APEX Firehose.

@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH® SENTINEL APEX v49.0 — Safe Passive Recon Scanner
+CYBERDUDEBIVASH(R) SENTINEL APEX v49.0 - Safe Passive Recon Scanner
 ==================================================================
 Production-grade passive reconnaissance engine that activates Bug Hunter
 data flow without requiring external tools or active scanning.
@@ -18,7 +18,7 @@ Engines implemented:
   11. Pipeline Orchestrator (sequenced execution)
   12. Structured Output Generator (dashboard-ready JSON)
 
-All operations are passive — no active port scanning, no brute-force,
+All operations are passive - no active port scanning, no brute-force,
 no exploitation. Safe for CI/CD execution in GitHub Actions.
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
@@ -40,9 +40,9 @@ import requests
 
 logger = logging.getLogger("CDB-BH-SCANNER")
 
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 # CONSTANTS
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 
 CRT_SH_URL = "https://crt.sh/?q=%25.{domain}&output=json"
 REQUEST_TIMEOUT = 12
@@ -119,9 +119,9 @@ API_ENDPOINT_PATTERNS = [
     r"/wp-json/[^\s\"'<>]+",
 ]
 
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 # SEVERITY WEIGHTS FOR ROI CALCULATION
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 
 SEVERITY_COST_MAP = {
     "CRITICAL": 75000,
@@ -132,9 +132,9 @@ SEVERITY_COST_MAP = {
 }
 
 
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 # RECON SCANNER
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
 
 class SafeReconScanner:
     """
@@ -164,7 +164,7 @@ class SafeReconScanner:
         self.scan_id = f"BH-{int(time.time())}"
         self.start_time = time.time()
 
-    # ── ENGINE 1: CT LOG SUBDOMAIN DISCOVERY ──────────────────
+    # -- ENGINE 1: CT LOG SUBDOMAIN DISCOVERY ------------------
 
     def engine_subdomain_discovery(self) -> List[str]:
         """Query crt.sh Certificate Transparency logs for passive subdomain enum."""
@@ -195,7 +195,7 @@ class SafeReconScanner:
             self.engine_status[engine_name] = "ERROR"
             return []
 
-    # ── ENGINE 2: HTTP PROBING ────────────────────────────────
+    # -- ENGINE 2: HTTP PROBING --------------------------------
 
     def engine_http_probe(self) -> List[Dict[str, Any]]:
         """Probe each subdomain for HTTP/HTTPS liveness."""
@@ -222,7 +222,7 @@ class SafeReconScanner:
                         "body_preview": resp.text[:5000] if resp.text else "",
                     }
                     probed.append(entry)
-                    logger.debug(f"[E2] {url} → {resp.status_code}")
+                    logger.debug(f"[E2] {url} -> {resp.status_code}")
                     break  # HTTPS success, skip HTTP
                 except requests.exceptions.SSLError:
                     if scheme == "https":
@@ -242,7 +242,7 @@ class SafeReconScanner:
         logger.info(f"[E2] HTTP Probe: {len(probed)} live hosts")
         return probed
 
-    # ── ENGINE 3: TECHNOLOGY FINGERPRINTING ───────────────────
+    # -- ENGINE 3: TECHNOLOGY FINGERPRINTING -------------------
 
     def engine_tech_fingerprint(self) -> Dict[str, List[str]]:
         """Extract technology stack from server headers."""
@@ -287,7 +287,7 @@ class SafeReconScanner:
         logger.info(f"[E3] Tech Fingerprint: {len(self.technologies)} hosts profiled")
         return self.technologies
 
-    # ── ENGINE 4: JS ENDPOINT EXTRACTION ──────────────────────
+    # -- ENGINE 4: JS ENDPOINT EXTRACTION ----------------------
 
     def engine_js_extractor(self) -> List[str]:
         """Extract API endpoints and secrets from page source."""
@@ -323,7 +323,7 @@ class SafeReconScanner:
         logger.info(f"[E4] JS Extractor: {len(self.api_endpoints)} endpoints")
         return self.api_endpoints
 
-    # ── ENGINE 5: BOLA DETECTION (PASSIVE) ────────────────────
+    # -- ENGINE 5: BOLA DETECTION (PASSIVE) --------------------
 
     def engine_bola_detection(self) -> None:
         """Detect BOLA-susceptible API patterns (passive analysis)."""
@@ -350,7 +350,7 @@ class SafeReconScanner:
 
         self.engine_status[engine_name] = "ONLINE"
 
-    # ── ENGINE 6: CLOUD BUCKET DETECTION ──────────────────────
+    # -- ENGINE 6: CLOUD BUCKET DETECTION ----------------------
 
     def engine_cloud_bucket_hunter(self) -> None:
         """Detect cloud storage references in page source."""
@@ -370,7 +370,7 @@ class SafeReconScanner:
 
         self.engine_status[engine_name] = "ONLINE"
 
-    # ── ENGINE 7: PORT EXPOSURE HEURISTIC ─────────────────────
+    # -- ENGINE 7: PORT EXPOSURE HEURISTIC ---------------------
 
     def engine_port_heuristic(self) -> None:
         """Detect non-standard port exposure from URLs and headers."""
@@ -406,7 +406,7 @@ class SafeReconScanner:
 
         self.engine_status[engine_name] = "ONLINE"
 
-    # ── ENGINE 8: SUBDOMAIN TAKEOVER DETECTION ────────────────
+    # -- ENGINE 8: SUBDOMAIN TAKEOVER DETECTION ----------------
 
     def engine_takeover_detection(self) -> None:
         """Detect potential subdomain takeover via CNAME + error fingerprints."""
@@ -441,14 +441,14 @@ class SafeReconScanner:
                             ftype="DANGLING_CNAME",
                             target=sub,
                             severity="HIGH",
-                            evidence=f"CNAME → {cname} (external, 404 response)",
+                            evidence=f"CNAME -> {cname} (external, 404 response)",
                         )
                 except Exception:
                     pass
 
         self.engine_status[engine_name] = "ONLINE"
 
-    # ── ENGINE 9: ASSET DELTA TRACKING ────────────────────────
+    # -- ENGINE 9: ASSET DELTA TRACKING ------------------------
 
     def engine_asset_delta(self, previous_scan_path: Optional[str] = None) -> Dict[str, Any]:
         """Compare current scan against previous baseline."""
@@ -475,7 +475,7 @@ class SafeReconScanner:
         self.engine_status[engine_name] = "ONLINE"
         return delta
 
-    # ── ENGINE 10: ROI & RISK CALCULATOR ──────────────────────
+    # -- ENGINE 10: ROI & RISK CALCULATOR ----------------------
 
     def engine_roi_calculator(self) -> Dict[str, Any]:
         """Calculate financial risk exposure from findings."""
@@ -504,7 +504,7 @@ class SafeReconScanner:
         self.engine_status[engine_name] = "ONLINE"
         return roi_data
 
-    # ── ENGINE 11: SECURITY HEADER AUDIT ──────────────────────
+    # -- ENGINE 11: SECURITY HEADER AUDIT ----------------------
 
     def engine_security_header_audit(self) -> None:
         """Check for missing security headers (OWASP baseline)."""
@@ -540,7 +540,7 @@ class SafeReconScanner:
                             evidence=f"HSTS max-age={max_age} (< 31536000 recommended)",
                         )
 
-    # ── ENGINE 12: REPORT GENERATOR (STRUCTURED OUTPUT) ───────
+    # -- ENGINE 12: REPORT GENERATOR (STRUCTURED OUTPUT) -------
 
     def engine_generate_output(self, roi_data: Dict) -> Dict[str, Any]:
         """Generate dashboard-ready structured output."""
@@ -629,7 +629,7 @@ class SafeReconScanner:
             "engines": engines_list,
         }
 
-    # ── PIPELINE ORCHESTRATOR ─────────────────────────────────
+    # -- PIPELINE ORCHESTRATOR ---------------------------------
 
     def run_full_scan(self, previous_output_path: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -645,7 +645,7 @@ class SafeReconScanner:
         self.engine_subdomain_discovery()
 
         if not self.subdomains:
-            logger.warning("[PIPELINE] No subdomains found — generating minimal output")
+            logger.warning("[PIPELINE] No subdomains found - generating minimal output")
             roi = self.engine_roi_calculator()
             return self.engine_generate_output(roi)
 
@@ -693,7 +693,7 @@ class SafeReconScanner:
 
         return output
 
-    # ── HELPERS ────────────────────────────────────────────────
+    # -- HELPERS ------------------------------------------------
 
     def _add_finding(self, ftype: str, target: str, severity: str,
                      evidence: str = "") -> None:

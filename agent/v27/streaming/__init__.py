@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — Streaming Pipeline
+SENTINEL APEX v27.0 - Streaming Pipeline
 """
 from .pipeline import StreamingPipeline, get_pipeline
 from .workers import ThreatWorker, EnrichmentWorker

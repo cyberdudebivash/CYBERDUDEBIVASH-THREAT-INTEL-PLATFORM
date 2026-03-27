@@ -18,7 +18,7 @@ from .graph_models import ThreatGraph
 
 logging.basicConfig(
     level=logging.INFO,
-    format="[GRAPH] %(asctime)s — %(levelname)s — %(message)s"
+    format="[GRAPH] %(asctime)s - %(levelname)s - %(message)s"
 )
 
 logger = logging.getLogger("threat_graph")
@@ -96,7 +96,7 @@ def export_graph(graph: ThreatGraph):
     with open(out_file, "w") as f:
         json.dump(output, f, indent=2)
 
-    logger.info(f"Graph exported → {out_file}")
+    logger.info(f"Graph exported -> {out_file}")
 
 
 def main():

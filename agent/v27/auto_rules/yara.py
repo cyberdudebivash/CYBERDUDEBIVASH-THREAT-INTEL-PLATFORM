@@ -1,5 +1,5 @@
 """
-SENTINEL APEX v27.0 — YARA Rule Generator
+SENTINEL APEX v27.0 - YARA Rule Generator
 ===========================================
 Generates YARA rules for malware detection.
 

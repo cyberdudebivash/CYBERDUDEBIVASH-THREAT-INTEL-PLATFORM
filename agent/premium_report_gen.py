@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-premium_report_gen.py — CYBERDUDEBIVASH® SENTINEL APEX
+premium_report_gen.py - CYBERDUDEBIVASH(R) SENTINEL APEX
 PROFESSIONAL IR PLAYBOOK & TECHNICAL DOSSIER GENERATOR
 Mandate: High-word-count, 18-section forensic reports for Enterprise Kits.
 """
@@ -32,7 +32,7 @@ class PremiumReportGenerator:
         # 1. Institutional Branding
         pdf.set_font("Arial", 'B', 20)
         pdf.set_text_color(0, 212, 170) # CDB Emerald
-        pdf.cell(200, 10, "CYBERDUDEBIVASH® TECHNICAL DOSSIER", ln=True, align='C')
+        pdf.cell(200, 10, "CYBERDUDEBIVASH(R) TECHNICAL DOSSIER", ln=True, align='C')
         pdf.set_font("Arial", 'I', 10)
         pdf.set_text_color(100, 100, 100)
         pdf.cell(200, 10, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Classified: Confidential", ln=True, align='C')
@@ -57,7 +57,7 @@ class PremiumReportGenerator:
         # [Sections 3-18 would follow a similar high-fidelity structure...]
 
         pdf.output(file_path)
-        logger.info(f"✅ PREMIUM PLAYBOOK GENERATED: {file_path}")
+        logger.info(f"? PREMIUM PLAYBOOK GENERATED: {file_path}")
         return file_path
 
 # Initialize for use in the Sentinel Pipeline

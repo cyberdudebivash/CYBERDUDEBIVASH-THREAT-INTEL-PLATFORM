@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CYBERDUDEBIVASH® SENTINEL APEX v45.0 — NEXUS ENGINE v2.0
+CYBERDUDEBIVASH(R) SENTINEL APEX v45.0 - NEXUS ENGINE v2.0
 ==========================================================
 AI Threat Hunting & Correlation Command Center.
 Generates nexus_output.json powering the NEXUS INTELLIGENCE panel.
@@ -20,7 +20,7 @@ from pathlib import Path
 from collections import defaultdict, Counter
 from typing import Dict, List, Any
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [NEXUS-v2] %(levelname)s — %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [NEXUS-v2] %(levelname)s - %(message)s')
 log = logging.getLogger("nexus_v2")
 
 VERSION = "45.0.0"
@@ -44,8 +44,8 @@ HUNT_PATTERNS = [
     {"tactics": ["T1595","T1190"], "tpl": "Reconnaissance-to-Exploitation: scan artifacts preceding exploit attempts", "pri": "CRITICAL"},
     {"tactics": ["T1566","T1059"], "tpl": "Phishing-to-Execution: macro/script execution from email clients", "pri": "HIGH"},
     {"tactics": ["T1078","T1547"], "tpl": "Valid account abuse with persistence mechanisms established", "pri": "HIGH"},
-    {"tactics": ["T1203","T1036"], "tpl": "Exploitation with LOLBIN masquerading — anomalous parent-child processes", "pri": "HIGH"},
-    {"tactics": ["T1555","T1071"], "tpl": "Credential theft followed by C2 beacon — LSASS + unusual outbound", "pri": "CRITICAL"},
+    {"tactics": ["T1203","T1036"], "tpl": "Exploitation with LOLBIN masquerading - anomalous parent-child processes", "pri": "HIGH"},
+    {"tactics": ["T1555","T1071"], "tpl": "Credential theft followed by C2 beacon - LSASS + unusual outbound", "pri": "CRITICAL"},
     {"tactics": ["T1486","T1499"], "tpl": "Ransomware kill-chain: VSS deletion + mass encryption pattern", "pri": "CRITICAL"},
     {"tactics": ["T1213","T1567"], "tpl": "Data staging and exfiltration to cloud storage detected", "pri": "HIGH"},
     {"tactics": ["T1547","T1036"], "tpl": "Persistence via masqueraded registry run keys", "pri": "MEDIUM"},
@@ -182,7 +182,7 @@ def build_executive_briefing(intel, exposure, hunts):
         "exposure_index": exposure,
         "key_findings": [
             f"{len(critical)} CRITICAL advisories requiring immediate SOC attention",
-            f"{len(kev_items)} CISA KEV confirmed — exploited in the wild",
+            f"{len(kev_items)} CISA KEV confirmed - exploited in the wild",
             f"Active threat actors: {', '.join(top_actors) if top_actors else 'UNC clusters detected'}",
             f"Top CVEs: {', '.join(top_cves) if top_cves else 'Multi-CVE exploitation pattern'}",
         ],
@@ -224,7 +224,7 @@ def run_nexus_engine():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_FILE, "w") as f:
         json.dump(output, f, indent=2, ensure_ascii=False, default=str)
-    log.info(f"✅ nexus_output.json — exposure={exposure}, hunts={len(hunts)}, campaigns={len(campaigns)}")
+    log.info(f"? nexus_output.json - exposure={exposure}, hunts={len(hunts)}, campaigns={len(campaigns)}")
     return output
 
 if __name__ == "__main__":
