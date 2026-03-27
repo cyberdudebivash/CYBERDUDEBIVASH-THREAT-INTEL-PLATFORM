@@ -646,7 +646,7 @@ class PremiumReportGenerator:
         # ===============================================================
         # SECTION 5: MITRE ATT&CK MAPPING
         # ===============================================================
-        mitre_table = self._generate_mitre_table(mitre_data, headline, article_text, s)
+        mitre_table = self._generate_mitre_table(mitre_data, headline, article_text, s, threat_type)
         sections.append(f"""
         <h2 style="{s['h2']}">5. MITRE ATT&CK(R) MAPPING</h2>
         {mitre_table}
@@ -1414,7 +1414,13 @@ class PremiumReportGenerator:
             </table>
         </div>"""
 
-    def _generate_mitre_table(self, mitre_data, headline, text, s):
+    def _generate_mitre_table(self, mitre_data, headline, text, s, threat_type=None):
+        # v77.2 FIX: threat_type was used inside this function but never passed
+        # as a parameter — caused NameError crash on run #578 when article had
+        # only 33 words (SecurityWeek 403) and mitre_data was empty.
+        # Fix: accept threat_type as optional param with safe fallback.
+        if threat_type is None:
+            threat_type = self._classify_threat_type(headline, text or "")
         # Expanded MITRE context mapping
         expanded = self._expand_mitre_context(headline, text)
 
