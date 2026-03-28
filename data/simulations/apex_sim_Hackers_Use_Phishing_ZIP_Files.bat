@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: Hackers Use Phishing ZIP Files to Deploy PXA Stealer Against Financial Firms
-:: Generated: 2026-03-27 16:59:02 UTC
+:: Generated: 2026-03-28 05:22:37 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================
