@@ -531,6 +531,8 @@ jobs:
             echo "[APEX] APEX ENABLED — Feature flag is TRUE — starting enrichment"
             python3 -m agent.apex_wrapper || echo "[APEX] Enrichment completed with warnings (non-fatal)"
             echo "[APEX] Enrichment stage complete"
+            # v23.0: Backfill apex field into manifest from apex_index.json
+            python3 scripts/apex_manifest_patcher.py || echo "[APEX-PATCHER] Patcher completed (non-fatal)"
           else
             echo "[APEX] Feature flag DISABLED (CDB_APEX_ENABLED=false) — skipping safely"
             echo "[APEX] To enable: set CDB_APEX_ENABLED=true in GitHub repo variables"

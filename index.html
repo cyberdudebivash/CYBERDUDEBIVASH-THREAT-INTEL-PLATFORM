@@ -444,6 +444,47 @@
             font-family: var(--font-mono); font-size: 9px;
             color: var(--text-muted); display: flex; align-items: center; gap: 4px;
         }
+        /* ── APEX AI Intelligence Panel (v23.0) ── */
+        .apex-panel {
+            margin-top: 10px; padding: 8px 10px;
+            background: linear-gradient(135deg, rgba(0,212,170,0.05), rgba(59,130,246,0.05));
+            border: 1px solid rgba(0,212,170,0.18);
+            border-radius: 6px; font-family: var(--font-mono);
+        }
+        .apex-panel-hdr {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 8.5px; font-weight: 700; letter-spacing: 1px;
+            color: var(--accent); margin-bottom: 6px;
+        }
+        .apex-panel-hdr .apex-badge {
+            background: linear-gradient(90deg,#00d4aa,#3b82f6);
+            color: #0a0f1c; padding: 1px 5px; border-radius: 3px;
+            font-size: 7.5px; font-weight: 800;
+        }
+        .apex-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 4px; }
+        .apex-kv { display: flex; flex-direction: column; gap: 1px; }
+        .apex-k { font-size: 7.5px; color: var(--text-muted); letter-spacing: 0.5px; }
+        .apex-v { font-size: 9.5px; color: var(--text-primary); font-weight: 600; }
+        .apex-v.p1 { color: #ff3b3b; }
+        .apex-v.p2 { color: #ff8c00; }
+        .apex-v.p3 { color: #00c2ff; }
+        .apex-v.p4 { color: #00ff9f; }
+        .apex-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 5px; }
+        .apex-tag {
+            font-size: 7.5px; padding: 1px 5px; border-radius: 3px;
+            background: rgba(0,212,170,0.12); color: var(--accent);
+            border: 1px solid rgba(0,212,170,0.2); letter-spacing: 0.3px;
+        }
+        .apex-summary {
+            font-size: 9px; color: var(--text-secondary); line-height: 1.4;
+            margin-top: 5px; padding-top: 5px;
+            border-top: 1px solid rgba(0,212,170,0.1);
+            max-height: 48px; overflow: hidden;
+        }
+        .apex-action {
+            font-size: 8px; font-weight: 700; letter-spacing: 0.5px;
+            color: #ff8c00; margin-top: 4px;
+        }
         .enrich-item .e-val { color: var(--white); font-weight: 700; }
 
         /* ═══ THREAT GRID ═══ */
@@ -4345,6 +4386,55 @@
                     ${_decHtml}
                     ${_socHtml}
                     ${enrichHtml}
+                    ${(function(){
+                        // v23.0 APEX AI Intelligence Panel — safe rendering with fallback
+                        // If apex absent or malformed → returns '' (zero UI impact)
+                        try {
+                            const ap = item.apex;
+                            if (!ap || typeof ap !== 'object') return '';
+                            const prioClass = (ap.priority||'P4').toLowerCase();
+                            const prioColor = ap.priority==='P1' ? 'var(--critical)' : ap.priority==='P2' ? 'var(--high)' : ap.priority==='P3' ? 'var(--medium)' : 'var(--low)';
+                            const tlvl = ap.threat_level || 'UNKNOWN';
+                            const cat  = (ap.threat_category || 'UNKNOWN').replace(/_/g,' ');
+                            const pScore = ap.predictive_score != null ? parseFloat(ap.predictive_score).toFixed(1) : '—';
+                            const campId = ap.campaign_id || '—';
+                            const action = ap.recommended_action || '';
+                            const summary = ap.ai_summary || '';
+                            const tags = Array.isArray(ap.behavioral_tags) ? ap.behavioral_tags : [];
+                            const tagsHtml = tags.slice(0,5).map(t=>`<span class="apex-tag">${t}</span>`).join('');
+                            return `<div class="apex-panel">
+                                <div class="apex-panel-hdr">
+                                    <span class="apex-badge">⬡ APEX AI</span>
+                                    <span style="color:var(--text-muted)">INTELLIGENCE ENGINE OUTPUT</span>
+                                </div>
+                                <div class="apex-row">
+                                    <div class="apex-kv">
+                                        <span class="apex-k">SOC PRIORITY</span>
+                                        <span class="apex-v ${prioClass}" style="color:${prioColor}">${ap.priority||'P4'}</span>
+                                    </div>
+                                    <div class="apex-kv">
+                                        <span class="apex-k">THREAT LEVEL</span>
+                                        <span class="apex-v" style="color:${tlvl==='CRITICAL_SURGE'?'#ff3b3b':'var(--text-primary)'}">${tlvl}</span>
+                                    </div>
+                                    <div class="apex-kv">
+                                        <span class="apex-k">CATEGORY</span>
+                                        <span class="apex-v">${cat}</span>
+                                    </div>
+                                    <div class="apex-kv">
+                                        <span class="apex-k">AI SCORE</span>
+                                        <span class="apex-v">${pScore}/10</span>
+                                    </div>
+                                    <div class="apex-kv">
+                                        <span class="apex-k">CAMPAIGN ID</span>
+                                        <span class="apex-v" style="color:var(--blue)">${campId}</span>
+                                    </div>
+                                </div>
+                                ${tagsHtml ? `<div class="apex-tags">${tagsHtml}</div>` : ''}
+                                ${action ? `<div class="apex-action">→ ${action}</div>` : ''}
+                                ${summary ? `<div class="apex-summary">${summary}</div>` : ''}
+                            </div>`;
+                        } catch(e) { return ''; }
+                    })()}
                     ${item.epss_score != null ? `<div class="epss-bar-wrap"><span class="epss-bar-label">EPSS RISK</span><div class="epss-bar-track"><div class="epss-bar-fill" style="width:${Math.min(item.epss_score,100)}%;background:${item.epss_score>=50?'#ff3b3b':item.epss_score>=10?'#ff8c00':item.epss_score>=1?'#f59e0b':'var(--accent)'};"></div></div><span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">${item.epss_score}%</span></div>` : ''}
                     <div class="card-copy-strip">
                         ${cves.map(cve => `<span class="copy-chip" onclick="copyToClipboard('${cve}',this)"><i class="fas fa-copy"></i>${cve}</span>`).join('')}
