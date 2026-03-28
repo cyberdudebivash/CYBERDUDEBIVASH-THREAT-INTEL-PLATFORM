@@ -384,6 +384,24 @@ def main():
     except Exception as _ae_err:
         logger.warning(f"[ALERT-ENGINE] Non-fatal error: {_ae_err}")
 
+    # [R-09] APEX Auto Response Engine — fires AFTER alert engine, non-blocking
+    # SAFE mode (default): logs + writes files; LIVE mode: real firewall/ITSM
+    # Config: CDB_AUTO_RESPONSE_ENABLED, CDB_AUTO_RESPONSE_MODE
+    try:
+        from agent.response_engine import run_response_engine
+        _resp_result = run_response_engine()
+        logger.info(
+            f"[RESPONSE-ENGINE] mode={_resp_result.get('mode','?')} "
+            f"executed={_resp_result.get('responses_executed',0)} "
+            f"dedup_skip={_resp_result.get('skipped_dedup',0)} "
+            f"detected={_resp_result.get('total_detected',0)} "
+            f"status={_resp_result.get('status','?')}"
+        )
+    except ImportError:
+        pass  # response_engine not present — degraded mode
+    except Exception as _re_err:
+        logger.warning(f"[RESPONSE-ENGINE] Non-fatal error: {_re_err}")
+
     # [R-07] Telegram pipeline summary — fires once per run, non-blocking
     try:
         _critical_count = sum(
