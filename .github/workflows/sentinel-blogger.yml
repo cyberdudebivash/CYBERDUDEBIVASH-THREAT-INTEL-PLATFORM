@@ -510,6 +510,31 @@ jobs:
             git push origin main || true
           fi
 
+      # ── STAGE 6b: APEX AI Enrichment Layer (OPTIONAL — feature-flagged) ───────
+      # SAFE MERGE: runs AFTER primary pipeline, isolated, never blocks deploy
+      # Enable: set CDB_APEX_ENABLED=true in GitHub repo variables
+      # Disable: set CDB_APEX_ENABLED=false (default) — zero impact
+      - name: APEX AI Enrichment Layer
+        shell: bash
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          CDB_APEX_ENABLED: ${{ vars.CDB_APEX_ENABLED || 'false' }}
+          CDB_MANIFEST_PATH: data/stix/feed_manifest.json
+          CDB_ENRICHMENT_DIR: data/apex_enrichments
+          CDB_APEX_BATCH_SIZE: "50"
+        run: |
+          echo "=== STAGE 6b: APEX AI Enrichment Layer ==="
+          echo "CDB_APEX_ENABLED=${CDB_APEX_ENABLED}"
+          if [ "${CDB_APEX_ENABLED}" = "true" ]; then
+            echo "[APEX] Feature flag ENABLED — running enrichment"
+            python3 -m agent.apex_wrapper || echo "[APEX] Enrichment completed with warnings (non-fatal)"
+          else
+            echo "[APEX] Feature flag DISABLED (CDB_APEX_ENABLED=false) — skipping safely"
+            echo "[APEX] To enable: set CDB_APEX_ENABLED=true in GitHub repo variables"
+          fi
+
       # ── STAGE 7: Pre-deploy integrity gate (BLOCKING) ────────────────────
       - name: Pre-deploy integrity gate
         shell: bash

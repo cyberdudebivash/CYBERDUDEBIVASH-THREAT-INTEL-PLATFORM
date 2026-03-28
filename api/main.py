@@ -596,6 +596,14 @@ async def get_tier_info():
 # ── Startup ────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
+    # Mount APEX Intelligence Engine routes (/apex/v1/*)
+    try:
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from agent.apex_api_router import mount_apex_routes
+        mount_apex_routes(app)
+    except Exception as e:
+        print(f"[STARTUP] APEX router mount warning: {e}")
     feed = get_feed()
     logger.info(f"SENTINEL APEX API {VERSION} started — {len(feed)} advisories loaded")
 
