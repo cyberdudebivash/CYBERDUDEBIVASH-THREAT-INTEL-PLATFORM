@@ -526,10 +526,11 @@ jobs:
           CDB_APEX_BATCH_SIZE: "50"
         run: |
           echo "=== STAGE 6b: APEX AI Enrichment Layer ==="
-          echo "CDB_APEX_ENABLED=${CDB_APEX_ENABLED}"
+          echo "CDB_APEX_ENABLED = ${CDB_APEX_ENABLED}"
           if [ "${CDB_APEX_ENABLED}" = "true" ]; then
-            echo "[APEX] Feature flag ENABLED — running enrichment"
+            echo "[APEX] APEX ENABLED — Feature flag is TRUE — starting enrichment"
             python3 -m agent.apex_wrapper || echo "[APEX] Enrichment completed with warnings (non-fatal)"
+            echo "[APEX] Enrichment stage complete"
           else
             echo "[APEX] Feature flag DISABLED (CDB_APEX_ENABLED=false) — skipping safely"
             echo "[APEX] To enable: set CDB_APEX_ENABLED=true in GitHub repo variables"

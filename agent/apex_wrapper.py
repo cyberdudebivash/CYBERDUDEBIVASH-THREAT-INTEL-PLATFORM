@@ -143,6 +143,7 @@ def run_apex_enrichment() -> Dict:
 
     logger.info("[APEX-WRAPPER] ====== APEX ENRICHMENT LAYER STARTING ======")
     logger.info(f"[APEX-WRAPPER] Feature flag: CDB_APEX_ENABLED=true")
+    logger.info(f"[APEX-WRAPPER] APEX ENABLED — all 12 engines will execute")
 
     # ── PHASE 2: Load manifest ───────────────────────────────────────────────
     manifest = _load_manifest()
