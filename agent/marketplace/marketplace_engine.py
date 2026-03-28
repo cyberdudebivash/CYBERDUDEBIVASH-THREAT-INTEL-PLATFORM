@@ -37,7 +37,7 @@ SUBSCRIPTION_TIERS = {
         "price_monthly": 499,
         "rate_limit_per_day": 50000,
         "access_level": 5,
-        "features": ["unlimited_feed", "stix_taxii", "custom_feeds", "sla", "dedicated_support",
+        "features": ["unlimited_feed", "stix_exports", "stix_taxii", "custom_feeds", "sla", "dedicated_support",
                      "misp_export", "webhook", "white_label"],
         "stix_exports": True,
         "api_access": True,
@@ -72,7 +72,7 @@ DATA_PRODUCTS = [
 ]
 
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "marketplace")
+DATA_DIR = os.environ.get("CDB_DATA_DIR", os.path.join("data", "marketplace"))
 
 
 class ThreatIntelMarketplace:

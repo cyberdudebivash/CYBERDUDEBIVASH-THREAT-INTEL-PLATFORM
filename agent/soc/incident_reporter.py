@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("CDB-SOC-REPORTER")
 
-REPORT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "incidents")
+REPORT_DIR = os.environ.get("CDB_INCIDENTS_DIR", os.path.join("data", "incidents"))
 
 
 class IncidentReporter:

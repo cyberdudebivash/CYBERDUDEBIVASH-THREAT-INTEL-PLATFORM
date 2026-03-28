@@ -86,6 +86,7 @@ class ApexIntelligenceEngine:
         """
         self._lazy_init()
         results: Dict[str, Any] = {
+            "status":         "PROCESSING",
             "advisory_id":    advisory.get("stix_id", ""),
             "advisory_title": advisory.get("title", "")[:80],
             "processed_at":   datetime.now(timezone.utc).isoformat(),
@@ -180,6 +181,7 @@ class ApexIntelligenceEngine:
             logger.debug(f"[APEX] copilot index error: {e}")
 
         self.stats["advisories_processed"] += 1
+        results["status"] = "PROCESSED"
         results["apex_stats"] = self.stats.copy()
 
         logger.info(f"[APEX-ENGINE] Processed: {advisory.get('title','')[:50]} | "
