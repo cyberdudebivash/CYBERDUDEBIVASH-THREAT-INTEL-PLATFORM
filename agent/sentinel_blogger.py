@@ -217,9 +217,16 @@ def main():
 
     published_count = 0
 
-    # -- v56: Retry pending queue from previous failed runs -----------------
+    # -- v56.1: STRICT SYNC MODE — retry pending queue FIRST ----------------
+    # TASK 3: Queue items are PRIORITIZED over new advisories.
+    # TASK 4: Mandatory logging: QUEUE SIZE, RETRY SUCCESS, DEFERRED TO NEXT RUN
+    _queue_size_before = 0
     try:
-        from agent.v56_publish_guard.publisher import retry_pending_queue
+        from agent.v56_publish_guard.publisher import retry_pending_queue, _load_queue
+        _queue_before = _load_queue()
+        _queue_size_before = len(_queue_before)
+        if _queue_size_before > 0:
+            logger.info(f"  [QUEUE SIZE] {_queue_size_before} items pending before run")
         pending_published = retry_pending_queue(service, BLOG_ID)
         if pending_published > 0:
             published_count += pending_published
