@@ -91,7 +91,9 @@ jobs:
           git config --local user.name "CDB-Guardian-Bot"
 
           git add data/health/ 2>/dev/null || true
+          # HARDENED: Exclude feed_manifest.json — sentinel-blogger owns it exclusively
           git add data/ 2>/dev/null || true
+          git restore --staged data/stix/feed_manifest.json 2>/dev/null || true
           git checkout -- . 2>/dev/null || true  # clean unstaged before pull
 
           if git diff --staged --quiet; then
