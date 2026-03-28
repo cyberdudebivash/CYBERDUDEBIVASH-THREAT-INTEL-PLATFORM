@@ -187,8 +187,15 @@ class ThreatIntelGraph:
                 added_edges += 1
             elif obj_type in NODE_TYPES:
                 name = (obj.get("name") or obj.get("external_references", [{}])[0].get("external_id", obj_id))
-                risk_score = float(obj.get("x_risk_score") or
-                                   obj.get("cvss_v3", {}).get("base_score", 5.0) or 5.0)
+                def _safe_risk(o):
+                    for k in ("x_risk_score","cvss_score","risk_score","cvss"):
+                        v = o.get(k)
+                        if v is not None:
+                            try: return float(v)
+                            except: pass
+                    try: return float(o.get("cvss_v3",{}).get("base_score",5.0) or 5.0)
+                    except: return 5.0
+                risk_score = _safe_risk(obj)
                 node = ThreatGraphNode(
                     node_id=obj_id,
                     node_type=NODE_TYPES[obj_type],
@@ -207,37 +214,67 @@ class ThreatIntelGraph:
     def ingest_advisory(self, advisory: Dict) -> Dict:
         """Convert a threat advisory into graph nodes and edges."""
         added = 0
+        title = str(advisory.get("title", ""))[:80]
+        risk  = float(advisory.get("risk_score") or advisory.get("cvss_score") or
+                      advisory.get("cvss") or 5.0)
+        stix_id = advisory.get("stix_id", "")
 
-        # Create CVE nodes from advisory
-        for cve in advisory.get("cves", []):
+        # ── CVE nodes — check both 'cves' and extract from title/summary ──
+        cves = advisory.get("cves") or advisory.get("cve_list") or []
+        if not cves:
+            import re
+            text = f"{title} {str(advisory.get('summary',''))}"
+            cves = list(set(re.findall(r"CVE-\d{4}-\d{4,}", text, re.I)))
+
+        for cve in cves:
             cve_id = str(cve).upper()
             node = ThreatGraphNode(
                 node_id=f"vulnerability--{cve_id}",
                 node_type="CVE",
                 name=cve_id,
-                risk_score=float(advisory.get("cvss") or 5.0),
-                properties={"cvss": advisory.get("cvss"), "epss": advisory.get("epss"),
-                             "kev": advisory.get("kev_confirmed", False)},
+                risk_score=risk,
+                properties={"cvss": advisory.get("cvss_score") or advisory.get("cvss"),
+                             "epss": advisory.get("epss_score") or advisory.get("epss"),
+                             "kev": advisory.get("kev_present") or advisory.get("kev_confirmed", False)},
             )
             if self.add_node(node):
                 added += 1
 
-        # Create IOC nodes
-        for ioc in advisory.get("iocs", [])[:20]:
-            ioc_val = str(ioc.get("value", ioc) if isinstance(ioc, dict) else ioc)
-            ioc_id = f"indicator--{hashlib.md5(ioc_val.encode()).hexdigest()}"
+        # ── IOC nodes — support both list and count-dict format ──────────
+        raw_iocs = advisory.get("iocs") or []
+        ioc_counts = advisory.get("ioc_counts") or {}
+        ioc_count = advisory.get("indicator_count", 0)
+        # If no ioc list but count > 0, create a synthetic indicator node
+        if not raw_iocs and ioc_count:
+            ioc_id = f"indicator--{stix_id or title[:20]}-synthetic"
             node = ThreatGraphNode(
                 node_id=ioc_id,
                 node_type="IOC",
-                name=ioc_val[:80],
-                risk_score=float(advisory.get("risk_score") or 5.0),
-                properties={"type": ioc.get("type","unknown") if isinstance(ioc,dict) else "string"},
+                name=f"IOCs({ioc_count}) from {title[:40]}",
+                risk_score=risk,
+                properties={"count": ioc_count, "types": list(ioc_counts.keys()) if ioc_counts else []},
             )
             if self.add_node(node):
                 added += 1
+        else:
+            for ioc in raw_iocs[:20]:
+                ioc_val = str(ioc.get("value", ioc) if isinstance(ioc, dict) else ioc)
+                ioc_id = f"indicator--{hashlib.md5(ioc_val.encode()).hexdigest()}"
+                node = ThreatGraphNode(
+                    node_id=ioc_id,
+                    node_type="IOC",
+                    name=ioc_val[:80],
+                    risk_score=risk,
+                    properties={"type": ioc.get("type","unknown") if isinstance(ioc,dict) else "string"},
+                )
+                if self.add_node(node):
+                    added += 1
 
-        # Create TTP nodes
-        for ttp in advisory.get("mitre_techniques", [])[:10]:
+        # ── TTP nodes — check both 'mitre_techniques' and 'mitre_tactics' ─
+        ttps = (advisory.get("mitre_techniques") or
+                advisory.get("mitre_tactics") or
+                advisory.get("techniques") or [])
+        for ttp in ttps[:10]:
             ttp_id = str(ttp).upper()
             node = ThreatGraphNode(
                 node_id=f"attack-pattern--{ttp_id}",
@@ -248,7 +285,31 @@ class ThreatIntelGraph:
             if self.add_node(node):
                 added += 1
 
-        return {"advisory_ingested": advisory.get("title",""), "nodes_added": added}
+        # ── Actor node ─────────────────────────────────────────────────────
+        actor = advisory.get("actor_tag") or advisory.get("actor") or ""
+        if actor and actor not in ("UNKNOWN", "UNC-UNKNOWN", ""):
+            node = ThreatGraphNode(
+                node_id=f"threat-actor--{hashlib.md5(str(actor).encode()).hexdigest()[:16]}",
+                node_type="ACTOR",
+                name=str(actor)[:80],
+                risk_score=min(10.0, risk + 1.5),
+            )
+            if self.add_node(node):
+                added += 1
+
+        # ── Advisory node always created ───────────────────────────────────
+        adv_id = f"advisory--{stix_id or hashlib.md5(title.encode()).hexdigest()[:16]}"
+        node = ThreatGraphNode(
+            node_id=adv_id,
+            node_type="ADVISORY",
+            name=title,
+            risk_score=risk,
+            properties={"severity": advisory.get("severity",""), "timestamp": advisory.get("timestamp","")},
+        )
+        if self.add_node(node):
+            added += 1
+
+        return {"advisory_ingested": title, "nodes_added": added}
 
     def get_graph_summary(self) -> Dict:
         type_counts: Dict[str, int] = defaultdict(int)

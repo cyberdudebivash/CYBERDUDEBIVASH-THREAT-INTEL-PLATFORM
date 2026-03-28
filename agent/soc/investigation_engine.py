@@ -53,7 +53,7 @@ class Tier2InvestigationAgent:
 
     def map_ttps(self, alert: Dict) -> Dict:
         """Map MITRE ATT&CK TTPs from alert data."""
-        techniques = alert.get("mitre_techniques", [])
+        techniques = (alert.get("mitre_techniques") or alert.get("mitre_tactics") or [])
         if not techniques:
             # Extract from text
             text = f"{alert.get('title','')} {alert.get('summary','')}"
@@ -124,7 +124,7 @@ class Tier2InvestigationAgent:
         """Estimate potential blast radius and business impact."""
         severity = alert.get("severity", "MEDIUM")
         cvss = float(alert.get("cvss", 5.0) or 5.0)
-        ioc_count = len(alert.get("iocs", []))
+        ioc_count = len(alert.get("iocs") or [])
         text = f"{alert.get('title','')} {alert.get('summary','')}".lower()
 
         # Impact categories

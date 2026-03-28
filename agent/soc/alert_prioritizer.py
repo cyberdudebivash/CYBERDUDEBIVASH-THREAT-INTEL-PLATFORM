@@ -53,13 +53,16 @@ class AlertPrioritizer:
         factors = {}
 
         # 1. CVSS base score (0-10)
-        cvss = float(alert.get("cvss") or alert.get("cvss_score") or 0)
+        def _sf(v):
+            try: return float(v) if v is not None else 0.0
+            except (ValueError, TypeError): return 0.0
+        cvss = _sf(alert.get("cvss") or alert.get("cvss_score"))
         cvss_contribution = cvss * 0.35
         score += cvss_contribution
         factors["cvss"] = {"value": cvss, "contribution": round(cvss_contribution, 2)}
 
         # 2. EPSS probability (0-1 → 0-10 scale)
-        epss = float(alert.get("epss") or alert.get("epss_score") or 0)
+        epss = _sf(alert.get("epss") or alert.get("epss_score"))
         epss_contribution = epss * 10 * 0.25
         score += epss_contribution
         factors["epss"] = {"value": epss, "contribution": round(epss_contribution, 2)}
@@ -80,8 +83,8 @@ class AlertPrioritizer:
 
         # 5. Contextual bonuses
         bonuses = []
-        title = str(alert.get("title", "")).lower()
-        tags = [str(t).lower() for t in alert.get("tags", [])]
+        title = str(alert.get("title") or "").lower()
+        tags = [str(t).lower() for t in (alert.get("tags") or [])]
         all_text = title + " " + " ".join(tags)
 
         if alert.get("kev_confirmed") or "kev" in all_text:
@@ -98,7 +101,7 @@ class AlertPrioritizer:
         factors["bonuses"] = bonuses
 
         # 6. IOC count signal
-        ioc_count = len(alert.get("iocs", []))
+        ioc_count = len(alert.get("iocs") or [])
         if ioc_count > 10:
             ioc_b = min(1.0, ioc_count / 50)
             score += ioc_b

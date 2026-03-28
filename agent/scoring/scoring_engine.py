@@ -39,9 +39,12 @@ class ScoringEngine:
     """
 
     def score_advisory(self, advisory: Dict) -> Dict:
-        cvss    = float(advisory.get("cvss") or advisory.get("cvss_score") or 0)
-        epss    = float(advisory.get("epss") or advisory.get("epss_score") or 0)
-        kev     = advisory.get("kev_confirmed", False) or advisory.get("kev", False)
+        def safe_float(v, default=0.0):
+            try: return float(v) if v is not None else default
+            except (ValueError, TypeError): return default
+        cvss = safe_float(advisory.get("cvss") or advisory.get("cvss_score"))
+        epss = safe_float(advisory.get("epss") or advisory.get("epss_score"))
+        kev  = bool(advisory.get("kev_confirmed") or advisory.get("kev", False))
         title   = str(advisory.get("title", "")).lower()
         summary = str(advisory.get("summary", "")).lower()
         text    = title + " " + summary

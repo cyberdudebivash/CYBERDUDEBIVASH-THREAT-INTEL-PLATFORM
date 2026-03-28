@@ -59,14 +59,14 @@ class Tier1TriageAgent:
     # ── False-positive filter ────────────────────────────────────────────────
 
     def _is_false_positive(self, alert: Dict) -> bool:
-        text = f"{alert.get('title','')} {alert.get('summary','')}".lower()
+        text = f"{str(alert.get('title') or '')} {str(alert.get('summary') or '')}".lower()
         return any(re.search(p, text, re.I) for p in FP_PATTERNS)
 
     # ── Enrichment ──────────────────────────────────────────────────────────
 
     def _extract_ioc_types(self, alert: Dict) -> List[str]:
         ioc_types = set()
-        for ioc in alert.get("iocs", []):
+        for ioc in (alert.get("iocs") or []):
             v = str(ioc.get("value", ioc) if isinstance(ioc, dict) else ioc)
             if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", v):
                 ioc_types.add("ip")
@@ -85,9 +85,9 @@ class Tier1TriageAgent:
         enriched = dict(alert)
         enriched["tier1_processed_at"] = datetime.now(timezone.utc).isoformat()
         enriched["ioc_types"] = self._extract_ioc_types(alert)
-        enriched["ioc_count"] = len(alert.get("iocs", []))
-        enriched["cve_count"] = len(alert.get("cves", []))
-        enriched["mitre_technique_count"] = len(alert.get("mitre_techniques", []))
+        enriched["ioc_count"] = len(alert.get("iocs") or [])
+        enriched["cve_count"] = len(alert.get("cves") or [])
+        enriched["mitre_technique_count"] = len(alert.get("mitre_techniques") or [])
         # Extract CVEs from title/summary if not present
         if not enriched.get("cves"):
             cve_matches = re.findall(r"CVE-\d{4}-\d{4,}", f"{alert.get('title','')} {alert.get('summary','')}", re.I)
@@ -123,7 +123,7 @@ class Tier1TriageAgent:
         else:
             self.stats["closed"] += 1
 
-        logger.info(f"[T1-TRIAGE] {alert.get('title','')[:60]} → {priority} | {action}")
+        logger.info(f"[T1-TRIAGE] {str(alert.get('title') or '')[:60]} → {priority} | {action}")
 
         return {
             "status": "TRIAGED",

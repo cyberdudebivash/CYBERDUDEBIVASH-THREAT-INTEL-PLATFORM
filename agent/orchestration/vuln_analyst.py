@@ -42,9 +42,12 @@ class VulnerabilityAnalystAgent:
 
     def compute_exploitability_score(self, advisory: Dict) -> Dict:
         """Compute composite exploitability score."""
-        cvss = float(advisory.get("cvss") or 0)
-        epss = float(advisory.get("epss") or 0)
-        kev = advisory.get("kev_confirmed", False)
+        def _sf(v, d=0.0):
+            try: return float(v) if v is not None else d
+            except (ValueError, TypeError): return d
+        cvss = _sf(advisory.get("cvss") or advisory.get("cvss_score"))
+        epss = _sf(advisory.get("epss") or advisory.get("epss_score"))
+        kev = bool(advisory.get("kev_confirmed") or advisory.get("kev", False))
         text = f"{advisory.get('title','')} {advisory.get('summary','')}".lower()
 
         # Base from CVSS
