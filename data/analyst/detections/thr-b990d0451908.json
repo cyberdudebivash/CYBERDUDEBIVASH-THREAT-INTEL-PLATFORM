@@ -2,7 +2,7 @@
   "threat_id": "thr-b990d0451908",
   "title": "SmartApeSG ClickFix Campaign Delivers Remcos, NetSupport RAT, StealC and Sectop ",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - SmartApeSG ClickFix Campaign Delivers Remcos, NetSupport RAT\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/27\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*post.hta*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - SmartApeSG ClickFix Campaign Delivers Remcos, NetSupport RAT\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/28\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*post.hta*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"post.hta\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"post.hta\")"
   },
