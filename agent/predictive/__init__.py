@@ -1,4 +1,6 @@
-"""
-agent/predictive - CyberDudeBivash SENTINEL APEX v17.0
-Predictive threat intelligence: exploit forecasting and risk trend modeling.
-"""
+"""CYBERDUDEBIVASH® Predictive Threat Engine — package init"""
+from .predictive_engine import PredictiveThreatEngine
+from .behavioral_analytics import BehavioralAnalytics
+from .risk_forecaster import RiskForecaster
+
+__all__ = ["PredictiveThreatEngine", "BehavioralAnalytics", "RiskForecaster"]
