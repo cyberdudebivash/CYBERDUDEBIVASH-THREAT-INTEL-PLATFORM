@@ -2,12 +2,12 @@
   "threat_id": "thr-644126840803",
   "title": "CVE-2026-1014 - IBM InfoSphere Information Server is vulnerable due to disclosur",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - CVE-2026-1014 - IBM InfoSphere Information Server is vulnera\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/28\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '11.7.1.6'\n    condition: selection_ip\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - CVE-2026-1014 - IBM InfoSphere Information Server is vulnera\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/27\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '11.7.1.6'\n    condition: selection_ip\nlevel: high",
     "suricata": [
-      "alert ip any any -> 11.7.1.6 any (msg:\"CDB APEX - CVE_2026_1014___IBM_InfoSphere\"; sid:8320728; rev:1;)"
+      "alert ip any any -> 11.7.1.6 any (msg:\"CDB APEX - CVE_2026_1014___IBM_InfoSphere\"; sid:2337795; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 11.7.1.6 any (msg:\"CDB APEX CVE_2026_1014___IBM_InfoSphere\"; sid:8131892; rev:1;)"
+      "alert ip any any -> 11.7.1.6 any (msg:\"CDB APEX CVE_2026_1014___IBM_InfoSphere\"; sid:5850596; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"11.7.1.6\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"11.7.1.6\")"
