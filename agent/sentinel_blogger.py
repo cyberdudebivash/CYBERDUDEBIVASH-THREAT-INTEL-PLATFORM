@@ -370,6 +370,20 @@ def main():
     logger.info("=" * 70)
     logger.info(f"APEX v21.0 COMPLETE - Published {published_count} PREMIUM advisories")
 
+    # [R-08] APEX Real-Time Alert Engine — fires AFTER manifest write, non-blocking
+    try:
+        from agent.alert_engine import run_alert_engine
+        _alert_result = run_alert_engine()
+        logger.info(
+            f"[ALERT-ENGINE] fired={_alert_result.get('alerts_fired',0)} "
+            f"dedup_skip={_alert_result.get('alerts_skipped_dedup',0)} "
+            f"critical_detected={_alert_result.get('total_critical_detected',0)}"
+        )
+    except ImportError:
+        pass  # alert_engine not present — degraded mode
+    except Exception as _ae_err:
+        logger.warning(f"[ALERT-ENGINE] Non-fatal error: {_ae_err}")
+
     # [R-07] Telegram pipeline summary — fires once per run, non-blocking
     try:
         _critical_count = sum(
