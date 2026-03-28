@@ -29,6 +29,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
+# ── APEX Injector (safe, optional enrichment layer) ───────────────────────
+_APEX_INJECTOR_OK = False
+try:
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).parent.parent))
+    from agent.apex_injector import (
+        inject_apex, inject_apex_batch,
+        get_enrichment_cache, get_apex_summary,
+        APEX_ENABLED as _APEX_ENABLED,
+    )
+    _APEX_INJECTOR_OK = True
+except Exception as _apex_import_err:
+    # Graceful degradation — API works perfectly without APEX
+    _APEX_ENABLED = False
+    def inject_apex(item, cache=None): return item
+    def inject_apex_batch(items, cache=None): return items
+    def get_enrichment_cache(advisories=None): return {}
+    def get_apex_summary(): return {"apex_enabled": False}
+
 # ── Logging ───────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [APEX-API] %(message)s")
 logger = logging.getLogger("APEX-API")
@@ -267,6 +286,7 @@ async def health_check():
             "version":    VERSION,
             "advisories": count,
             "feed_exists": FEED_PATH.exists(),
+            "apex":        get_apex_summary(),
         }
     )
 
@@ -321,6 +341,13 @@ async def get_intelligence_feed(
     if not TIERS[tier]["ioc_details"]:
         paginated = [strip_iocs(i) for i in paginated]
 
+    # ── APEX safe injection (non-destructive, fails silently) ─────────────
+    try:
+        _apex_cache = get_enrichment_cache(feed)
+        paginated = inject_apex_batch(paginated, _apex_cache)
+    except Exception:
+        pass  # Original data always returned on any APEX failure
+
     return {
         "status": "ok",
         "version": VERSION,
@@ -348,6 +375,12 @@ async def get_latest_advisories(
     results   = feed[:min(n, max_limit)]
     if not TIERS[tier]["ioc_details"]:
         results = [strip_iocs(i) for i in results]
+    # ── APEX safe injection ───────────────────────────────────────────────
+    try:
+        _apex_cache = get_enrichment_cache(feed)
+        results = inject_apex_batch(results, _apex_cache)
+    except Exception:
+        pass
     return {
         "status": "ok", "tier": tier, "count": len(results),
         "generated": datetime.now(timezone.utc).isoformat(),
@@ -368,6 +401,12 @@ async def get_advisory_by_id(
         raise HTTPException(404, {"error": f"Advisory {stix_id} not found"})
     if not TIERS[auth["tier"]]["ioc_details"]:
         item = strip_iocs(item)
+    # ── APEX safe injection ───────────────────────────────────────────────
+    try:
+        _apex_cache = get_enrichment_cache(feed)
+        item = inject_apex(item, _apex_cache)
+    except Exception:
+        pass
     return {"status": "ok", "tier": auth["tier"], "data": item}
 
 # ── GET /api/v1/intel/search ──────────────────────────────────────────────
@@ -404,6 +443,12 @@ async def search_intelligence(
     results = results[:max_r]
     if not TIERS[tier]["ioc_details"]:
         results = [strip_iocs(i) for i in results]
+    # ── APEX safe injection ───────────────────────────────────────────────
+    try:
+        _apex_cache = get_enrichment_cache(feed)
+        results = inject_apex_batch(results, _apex_cache)
+    except Exception:
+        pass
     return {
         "status": "ok", "tier": tier, "query": q,
         "count": len(results),
@@ -495,6 +540,7 @@ async def get_platform_stats():
             "critical_count": severities.get("CRITICAL", 0),
             "high_count": severities.get("HIGH", 0),
         },
+        "apex_intelligence": get_apex_summary(),
         "generated": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -606,6 +652,13 @@ async def startup():
         print(f"[STARTUP] APEX router mount warning: {e}")
     feed = get_feed()
     logger.info(f"SENTINEL APEX API {VERSION} started — {len(feed)} advisories loaded")
+    # Warm APEX enrichment cache in background (non-blocking)
+    if _APEX_ENABLED:
+        try:
+            get_enrichment_cache(get_manifest())
+            logger.info("[APEX-INJECTOR] Enrichment cache warmed at startup")
+        except Exception as _e:
+            logger.warning(f"[APEX-INJECTOR] Cache warm failed (non-critical): {_e}")
 
 if __name__ == "__main__":
     import uvicorn

@@ -339,8 +339,20 @@ def run_apex_enrichment() -> Dict:
         engine_statuses["Marketplace"] = f"FAILED: {e}"
         run_record["errors"].append(f"Marketplace: {e}")
 
-    # ── PHASE 5: Save enrichments ────────────────────────────────────────────
+    # ── PHASE 5: Save enrichments + per-advisory index ──────────────────────
     _save_enrichments(results, manifest)
+
+    # Build and save per-advisory APEX index for injector consumption
+    try:
+        from agent.apex_injector import _build_enrichment_index
+        apex_index = _build_enrichment_index(advisories)
+        if apex_index:
+            index_path = os.path.join(ENRICHMENT_DIR, "apex_index.json")
+            with open(index_path, "w", encoding="utf-8") as _f:
+                json.dump(apex_index, _f, indent=2, default=str)
+            logger.info(f"[APEX-WRAPPER] Advisory index saved: {len(apex_index)} entries → {index_path}")
+    except Exception as _e:
+        logger.warning(f"[APEX-WRAPPER] Index save failed (non-critical): {_e}")
 
     # ── PHASE 6: Log run summary ─────────────────────────────────────────────
     elapsed = round(time.time() - run_start, 2)
