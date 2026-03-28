@@ -1,7 +1,7 @@
 @echo off
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
-:: Target Threat: Free real estate: GoPix, the banking Trojan living off your memory
+:: Target Threat: Metasploit Wrap-Up 03/27/2026
 :: Generated: 2026-03-28 08:44:42 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
