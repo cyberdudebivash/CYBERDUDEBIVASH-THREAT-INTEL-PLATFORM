@@ -4,16 +4,16 @@
   "rules": {
     "sigma": "title: CDB APEX v37.0 - Wordfence Intelligence Weekly WordPress Vulnerability Report\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/28\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '28.1.2.1'\n            - '4.3.2.8'\n            - '6.0.7.1'\n            - '7.1.0.30'\n    condition: selection_ip\nlevel: high",
     "suricata": [
-      "alert ip any any -> 28.1.2.1 any (msg:\"CDB APEX - Wordfence_Intelligence_Weekly_\"; sid:8237277; rev:1;)",
-      "alert ip any any -> 4.3.2.8 any (msg:\"CDB APEX - Wordfence_Intelligence_Weekly_\"; sid:9826125; rev:1;)",
-      "alert ip any any -> 6.0.7.1 any (msg:\"CDB APEX - Wordfence_Intelligence_Weekly_\"; sid:2246728; rev:1;)",
-      "alert ip any any -> 7.1.0.30 any (msg:\"CDB APEX - Wordfence_Intelligence_Weekly_\"; sid:8621810; rev:1;)"
+      "alert ip any any -> 28.1.2.1 any (msg:\"CDB APEX - Wordfence_Intelligence_Weekly_\"; sid:2076518; rev:1;)",
+      "alert ip any any -> 4.3.2.8 any (msg:\"CDB APEX - Wordfence_Intelligence_Weekly_\"; sid:7400502; rev:1;)",
+      "alert ip any any -> 6.0.7.1 any (msg:\"CDB APEX - Wordfence_Intelligence_Weekly_\"; sid:5934606; rev:1;)",
+      "alert ip any any -> 7.1.0.30 any (msg:\"CDB APEX - Wordfence_Intelligence_Weekly_\"; sid:5760946; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 28.1.2.1 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:3374283; rev:1;)",
-      "alert ip any any -> 4.3.2.8 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:9082911; rev:1;)",
-      "alert ip any any -> 6.0.7.1 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:3915847; rev:1;)",
-      "alert ip any any -> 7.1.0.30 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:3386076; rev:1;)"
+      "alert ip any any -> 28.1.2.1 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:8639639; rev:1;)",
+      "alert ip any any -> 4.3.2.8 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:1366201; rev:1;)",
+      "alert ip any any -> 6.0.7.1 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:8240465; rev:1;)",
+      "alert ip any any -> 7.1.0.30 any (msg:\"CDB APEX Wordfence_Intelligence_Weekly_\"; sid:2873623; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"28.1.2.1\",\n              \"4.3.2.8\",\n              \"6.0.7.1\",\n              \"7.1.0.30\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"28.1.2.1\", \"4.3.2.8\", \"6.0.7.1\", \"7.1.0.30\")"
