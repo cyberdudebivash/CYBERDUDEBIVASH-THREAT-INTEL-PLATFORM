@@ -46,7 +46,7 @@ class DeduplicationEngine:
     def _load_state(self) -> Dict:
         if os.path.exists(self.state_file):
             try:
-                with open(self.state_file, 'r') as f:
+                with open(self.state_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     if isinstance(data, list):
                         return {"processed_hashes": data, "hash_titles": {},
@@ -71,7 +71,7 @@ class DeduplicationEngine:
         if not os.path.exists(self.manifest_path):
             return
         try:
-            with open(self.manifest_path, 'r') as f:
+            with open(self.manifest_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             entries = data if isinstance(data, list) else data.get("entries", [])
             seeded = 0
@@ -99,7 +99,7 @@ class DeduplicationEngine:
         for key in ("processed_hashes", "title_hashes"):
             if len(self._state.get(key, [])) > self.max_state_size:
                 self._state[key] = self._state[key][-self.max_state_size:]
-        with open(self.state_file, 'w') as f:
+        with open(self.state_file, 'w', encoding='utf-8') as f:
             json.dump(self._state, f, indent=2)
 
     # -- Hash generators ----------------------------------
