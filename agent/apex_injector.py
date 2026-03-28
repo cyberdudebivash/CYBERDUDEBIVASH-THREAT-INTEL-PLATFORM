@@ -199,7 +199,54 @@ def _enrich_single(adv: Dict, engine, scored: Dict,
     except Exception:
         pass
 
+    # ── STEP 1: Structured APEX output fields for STIX + manifest ────────────
+    # Derive threat_category from malware_family + supply chain + social eng
+    threat_category = "VULNERABILITY"
+    if supply_chain_risk:
+        threat_category = "SUPPLY_CHAIN"
+    elif social_eng_risk:
+        threat_category = "SOCIAL_ENGINEERING"
+    elif quantum_risk:
+        threat_category = "QUANTUM_RISK"
+    elif malware_family not in ("UNKNOWN", ""):
+        threat_category = malware_family.upper()
+    elif "ransomware" in (malware_family + top_prediction + threat_level).lower():
+        threat_category = "RANSOMWARE"
+    elif priority in ("P1", "P2"):
+        threat_category = "ACTIVE_THREAT"
+
+    # Behavioral tags: machine-readable signal tags for SOC/SIEM
+    behavioral_tags: list = []
+    if priority == "P1":           behavioral_tags.append("P1_CRITICAL")
+    if priority == "P2":           behavioral_tags.append("P2_HIGH")
+    if supply_chain_risk:          behavioral_tags.append("SUPPLY_CHAIN")
+    if social_eng_risk:            behavioral_tags.append("SOCIAL_ENGINEERING")
+    if quantum_risk:               behavioral_tags.append("QUANTUM_VULNERABLE")
+    if "CRITICAL_SURGE" in threat_level: behavioral_tags.append("CRITICAL_SURGE")
+    if malware_family not in ("UNKNOWN",""):
+        behavioral_tags.append(f"MALWARE:{malware_family}")
+    if "Ransomware" in top_prediction:   behavioral_tags.append("RANSOMWARE_PREDICTED")
+
+    # Risk factors: structured risk signal list for analysts
+    risk_factors: list = []
+    if composite_score >= 9.0:    risk_factors.append("COMPOSITE_SCORE_CRITICAL")
+    if supply_chain_risk:          risk_factors.append("SUPPLY_CHAIN_COMPROMISE")
+    if social_eng_risk:            risk_factors.append("SOCIAL_ENGINEERING_DETECTED")
+    if quantum_risk:               risk_factors.append("QUANTUM_VULNERABLE_CRYPTO")
+    if "CRITICAL_SURGE" in threat_level: risk_factors.append("THREAT_LEVEL_CRITICAL_SURGE")
+    if priority == "P1":           risk_factors.append("SOC_P1_IMMEDIATE")
+    if not risk_factors:           risk_factors.append("STANDARD_RISK")
+
+    # Campaign ID: deterministic from stix_id for correlation
+    import hashlib as _hl
+    _cid_raw = _hl.md5(stix_id.encode()).hexdigest()[:8].upper()
+    campaign_id = f"CDB-CAMP-{_cid_raw}"
+
+    # ai_summary: human-readable consolidated analysis (ai_summary = agent_analysis alias)
+    ai_summary = agent_analysis
+
     return {
+        # ── Core SOC fields ──────────────────────────────────────────────────
         "priority":           priority,
         "priority_score":     round(priority_score, 2),
         "sla":                sla,
@@ -213,6 +260,13 @@ def _enrich_single(adv: Dict, engine, scored: Dict,
         "quantum_risk":       quantum_risk,
         "recommended_action": recommended_action,
         "agent_analysis":     agent_analysis,
+        # ── STEP 1: New structured output fields for STIX + manifest ─────────
+        "threat_category":    threat_category,
+        "behavioral_tags":    behavioral_tags,
+        "risk_factors":       risk_factors,
+        "campaign_id":        campaign_id,
+        "ai_summary":         ai_summary,
+        # ── Metadata ─────────────────────────────────────────────────────────
         "enriched_at":        datetime.now(timezone.utc).isoformat(),
         "engine_version":     "1.0",
     }

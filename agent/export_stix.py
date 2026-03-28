@@ -136,6 +136,8 @@ class STIXExporter:
         ai_narrative: Optional[str] = None,
         supply_chain: bool = False,
         cwe_ids: Optional[List[str]] = None,
+        # v23.0 additions — APEX AI enrichment (fully optional, zero regression)
+        apex_data: Optional[Dict] = None,
     ) -> str:
         """
         Create a comprehensive STIX 2.1 bundle with:
@@ -165,7 +167,7 @@ class STIXExporter:
             return obj
 
         # -- Intrusion Set (Campaign/Actor) --
-        objects.append(_mark({
+        _intrusion_set_obj = {
             "type":            "intrusion-set",
             "spec_version":    "2.1",
             "id":              intrusion_set_id,
@@ -177,7 +179,28 @@ class STIXExporter:
             "aliases":         [actor_tag],
             # v22.0: supply chain flag
             **({"labels": ["supply-chain-attack"]} if supply_chain else {}),
-        }))
+        }
+        # v23.0: APEX AI Extension — injected only when apex_data present (backward compat)
+        if apex_data and isinstance(apex_data, dict):
+            try:
+                _apex_ext = {
+                    "predictive_score":   float(apex_data.get("composite_score", 0.0)),
+                    "campaign_id":        str(apex_data.get("campaign_id", "")),
+                    "campaign_confidence": float(apex_data.get("priority_score", 0.0)),
+                    "threat_category":    str(apex_data.get("threat_category", "UNKNOWN")),
+                    "behavioral_tags":    list(apex_data.get("behavioral_tags", [])),
+                    "ai_summary":         str(apex_data.get("ai_summary", ""))[:500],
+                    "risk_factors":       list(apex_data.get("risk_factors", [])),
+                    "soc_priority":       str(apex_data.get("priority", "P4")),
+                    "threat_level":       str(apex_data.get("threat_level", "UNKNOWN")),
+                    "recommended_action": str(apex_data.get("recommended_action", ""))[:200],
+                }
+                _intrusion_set_obj["extensions"] = {
+                    "x-cdb-apex-1": _apex_ext
+                }
+            except Exception:
+                pass  # Never block STIX generation on apex error
+        objects.append(_mark(_intrusion_set_obj))
 
         # -- Indicator Objects --
         indicator_ids = []
@@ -456,6 +479,7 @@ class STIXExporter:
             nvd_url=nvd_url,
             supply_chain=supply_chain,
             object_count=len(objects),
+            apex_data=apex_data,   # v23.0: pass through to manifest
         )
 
         return bundle_id
@@ -624,7 +648,9 @@ class STIXExporter:
                          cvss_score=None, epss_score=None,
                          kev_present=False, source_url="",
                          nvd_url=None, extended_metrics=None,
-                         supply_chain=False, object_count=0):
+                         supply_chain=False, object_count=0,
+                         # v23.0: APEX enrichment (optional, backward compat)
+                         apex_data=None):
         """Update manifest - backward-compatible + v22.0 new fields."""
         manifest_entries = []
         if os.path.exists(self.manifest_path):
@@ -681,6 +707,23 @@ class STIXExporter:
             # True  = blog post successfully published (set by publisher.py)
             "published":        False if not blog_url else True,
         }
+
+        # v23.0: Inject compact APEX field (optional — zero regression on absence)
+        if apex_data and isinstance(apex_data, dict):
+            try:
+                entry["apex"] = {
+                    "predictive_score": round(float(apex_data.get("composite_score", 0.0)), 2),
+                    "campaign_id":      str(apex_data.get("campaign_id", "")),
+                    "threat_category":  str(apex_data.get("threat_category", "UNKNOWN")),
+                    "confidence":       round(float(apex_data.get("priority_score", 0.0)), 2),
+                    "priority":         str(apex_data.get("priority", "P4")),
+                    "threat_level":     str(apex_data.get("threat_level", "UNKNOWN")),
+                    "behavioral_tags":  list(apex_data.get("behavioral_tags", []))[:5],
+                    "ai_summary":       str(apex_data.get("ai_summary", ""))[:300],
+                    "recommended_action": str(apex_data.get("recommended_action", ""))[:150],
+                }
+            except Exception:
+                pass  # Never block manifest write on apex error
 
         manifest_entries.append(entry)
 
