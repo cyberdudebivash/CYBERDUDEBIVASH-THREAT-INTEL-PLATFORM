@@ -230,30 +230,48 @@ def get_manifest() -> List[Dict]:
     return raw if isinstance(raw, list) else []
 
 # ── Auth Dependency ────────────────────────────────────────────────────────
+# v2.0: uses new api_key_manager for persistent key validation
+_KEY_MGR_OK = False
+try:
+    from agent.monetization.api_key_manager import validate_key as _validate_key
+    _KEY_MGR_OK = True
+except Exception:
+    _validate_key = None
+
 def get_api_key(x_api_key: Optional[str] = Header(default=None)) -> Dict:
     """Resolve API key to tier. No key = free tier (demo)."""
     if not x_api_key:
         return {"tier": "free", "name": "Anonymous", "key": "anon"}
+
+    # Try new key manager first (persistent DB)
+    if _KEY_MGR_OK and _validate_key:
+        info = _validate_key(x_api_key)
+        if info.get("valid"):
+            tier = info["tier"]
+            if not check_rate_limit(x_api_key, tier):
+                raise HTTPException(
+                    status_code=429,
+                    detail={"error": f"Rate limit exceeded for {tier} tier",
+                            "limit": f"{TIERS[tier]['rate_limit']} req/hour",
+                            "upgrade": STORE_URL},
+                )
+            return {"tier": tier, "name": info.get("name",""), "key": x_api_key}
+
+    # Fallback to static DEMO_KEYS (backward compat)
     key_info = DEMO_KEYS.get(x_api_key)
     if not key_info:
-        # Production: query DB here
         raise HTTPException(
             status_code=401,
-            detail={
-                "error": "Invalid API key",
-                "upgrade": STORE_URL,
-                "docs": "/api/docs",
-            }
+            detail={"error": "Invalid API key",
+                    "upgrade": STORE_URL, "docs": "/api/docs"},
         )
     tier = key_info["tier"]
     if not check_rate_limit(x_api_key, tier):
         raise HTTPException(
             status_code=429,
-            detail={
-                "error": f"Rate limit exceeded for {tier} tier",
-                "limit": f"{TIERS[tier]['rate_limit']} req/hour",
-                "upgrade": STORE_URL,
-            }
+            detail={"error": f"Rate limit exceeded for {tier} tier",
+                    "limit": f"{TIERS[tier]['rate_limit']} req/hour",
+                    "upgrade": STORE_URL},
         )
     return {**key_info, "key": x_api_key}
 
@@ -640,6 +658,97 @@ async def get_tier_info():
     }
 
 # ── Startup ────────────────────────────────────────────────────────────────
+# ── Monetization Endpoints (v2.0) ────────────────────────────────────────────
+
+class _OnboardReq(BaseModel):
+    name: str
+    email: str
+    tier: str = "pro"
+    payment_provider: str = "stripe"
+
+@app.post("/api/v1/subscribe", tags=["Monetization"])
+async def create_subscription(req: _OnboardReq):
+    """Create Stripe or Razorpay checkout session for subscription."""
+    tier = req.tier.lower()
+    if tier == "free":
+        return {"status": "ok", "tier": "free",
+                "message": "Free tier — no payment needed. Use API without key.",
+                "dashboard": DASHBOARD, "api_docs": "/api/docs"}
+    if tier not in ("pro", "enterprise", "mssp"):
+        raise HTTPException(400, {"error": f"Unknown tier: {tier}"})
+    try:
+        from agent.monetization.payment_gateway import (
+            create_stripe_checkout_session, create_razorpay_subscription
+        )
+        result = (create_razorpay_subscription(tier, req.email, req.name)
+                  if req.payment_provider == "razorpay"
+                  else create_stripe_checkout_session(tier, req.email, req.name))
+        if "error" in result:
+            return {"status": "redirect", "checkout_url": STORE_URL,
+                    "gumroad_url": STORE_URL, "tier": tier,
+                    "message": f"Use Gumroad store: {STORE_URL}"}
+        return {"status": "ok", "tier": tier,
+                "checkout_url": result.get("url") or result.get("short_url"),
+                "provider": result.get("provider"),
+                "message": f"Complete payment to activate {tier.title()} plan."}
+    except Exception:
+        return {"status": "redirect", "checkout_url": STORE_URL, "tier": tier}
+
+@app.post("/api/v1/webhooks/stripe", tags=["Monetization"], include_in_schema=False)
+async def stripe_webhook(request: Request):
+    """Stripe webhook — auto-provisions API key on successful payment."""
+    try:
+        from agent.monetization.payment_gateway import handle_stripe_webhook
+        body = await request.body()
+        sig = request.headers.get("stripe-signature", "")
+        ok, msg = handle_stripe_webhook(body, sig)
+        return JSONResponse({"status": "ok" if ok else "error", "msg": msg},
+                            status_code=200 if ok else 400)
+    except Exception as e:
+        return JSONResponse({"status": "error", "msg": str(e)}, status_code=400)
+
+@app.post("/api/v1/webhooks/razorpay", tags=["Monetization"], include_in_schema=False)
+async def razorpay_webhook(request: Request):
+    """Razorpay webhook — auto-provisions API key on successful payment."""
+    try:
+        from agent.monetization.payment_gateway import handle_razorpay_webhook
+        body = await request.body()
+        sig = request.headers.get("x-razorpay-signature", "")
+        ok, msg = handle_razorpay_webhook(body, sig)
+        return JSONResponse({"status": "ok" if ok else "error", "msg": msg},
+                            status_code=200 if ok else 400)
+    except Exception as e:
+        return JSONResponse({"status": "error", "msg": str(e)}, status_code=400)
+
+@app.get("/api/v1/onboard", tags=["Monetization"])
+async def onboarding_guide():
+    """Complete onboarding: pricing, quick-start, subscribe URL."""
+    return {
+        "status":   "ok",
+        "platform": PLATFORM,
+        "tagline":  "AI-Powered Global Cybersecurity Threat Intelligence",
+        "pricing": {
+            "free":       {"price_usd": "$0/mo",     "price_inr": "Free",           "rpm": 60,    "advisories": 10,  "features": ["Basic intel feed", "CVE+EPSS data", "STIX 2.1"]},
+            "pro":        {"price_usd": "$49/mo",    "price_inr": "Rs 4,099/mo",    "rpm": 1000,  "advisories": 100, "features": ["Full IOC details", "Search API", "APEX AI scores", "Alert webhook"]},
+            "enterprise": {"price_usd": "$499/mo",   "price_inr": "Rs 41,599/mo",   "rpm": 10000, "advisories": 500, "features": ["Bulk export", "STIX bundles", "APEX priority scores", "Priority SLA 4h"]},
+            "mssp":       {"price_usd": "$1,999/mo", "price_inr": "Rs 1,66,599/mo", "rpm": 99999, "advisories": 500, "features": ["Unlimited RPM", "Webhook push", "White-label", "Custom feeds", "SLA 1h"]},
+        },
+        "quick_start": {
+            "free":      "curl https://cyberdudebivash-threat-intel-platform-production.up.railway.app/api/v1/intel/latest",
+            "paid":      "curl -H 'X-API-Key: YOUR_KEY' .../api/v1/intel/feed?limit=100",
+            "subscribe": "POST /api/v1/subscribe  body: {name, email, tier, payment_provider}",
+            "test_key":  "Use demo-pro-key-1111 for free Pro tier testing",
+        },
+        "channels": {
+            "store":            STORE_URL,
+            "dashboard":        DASHBOARD,
+            "telegram_alerts":  "https://t.me/cyberdudebivashSentinelApex",
+            "docs":             "/api/docs",
+            "contact":          "bivash@cyberdudebivash.com",
+        },
+    }
+
+# ── startup event ─────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
     # Mount APEX Intelligence Engine routes (/apex/v1/*)
