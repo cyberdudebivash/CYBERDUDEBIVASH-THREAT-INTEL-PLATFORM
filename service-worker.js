@@ -4,7 +4,7 @@
 // activates immediately (skipWaiting + clientsClaim)
 // ═══════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'sentinel-apex-v773-syncfix';
+const CACHE_VERSION = 'sentinel-apex-v774-live';
 const CACHE_NAME    = CACHE_VERSION;
 
 // Assets to cache for offline use (non-HTML only)
