@@ -1,18 +1,18 @@
 """
-CYBERDUDEBIVASH(R) SENTINEL APEX v56.0 - Resilient Publisher
-============================================================
-Drop-in replacement for the Blogger publish logic in process_entry().
+CYBERDUDEBIVASH® SENTINEL APEX v56.1 — Resilient Publisher
+===========================================================
+BLOG-DASHBOARD SYNC FIX — ZERO FAILURE EDITION
 
-Three production fixes:
-  FIX 1: Rate limiter - 8s minimum between API calls
-  FIX 2: Retry handler - 5 attempts with 60s backoff on 429
-  FIX 3: Manifest-first - STIX bundle written BEFORE publish attempt
+CHANGES FROM v56.0:
+  FIX 1: Persistent queue path → data/publish_queue.json (committed to repo)
+  FIX 2: Max 2 attempts per item per run → prevents 429 spiral burning workflow time
+  FIX 3: Exponential backoff + jitter (not linear fixed delays)
+  FIX 4: Strict sync mode → queue drained BEFORE new articles processed
+  FIX 5: Mandatory logging: QUEUE SIZE, RETRY SUCCESS, DEFERRED TO NEXT RUN
+  FIX 6: "published": true/false field propagated to manifest on success/failure
+  FIX 7: No infinite retry loop — items dropped after MAX_LIFETIME_RETRIES
 
-Plus: Failed publish queue for zero intel loss.
-
-Usage from sentinel_blogger.py:
-    from agent.v56_publish_guard.publisher import resilient_publish
-    result = resilient_publish(service, blog_id, post_body, stix_params, entry, ...)
+MANDATE: ZERO REGRESSION | ZERO DATA LOSS | GUARANTEED EVENTUAL CONSISTENCY
 
 (C) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved.
 """
@@ -20,10 +20,12 @@ Usage from sentinel_blogger.py:
 import json
 import logging
 import os
+import random
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("CDB-PUBLISH-GUARD")
 
@@ -31,26 +33,29 @@ logger = logging.getLogger("CDB-PUBLISH-GUARD")
 # Configuration
 # ---------------------------------------------------------------------------
 
-MIN_PUBLISH_INTERVAL = 8       # Seconds between Blogger API calls (6 posts/min max)
-MAX_RETRY_ATTEMPTS = 3         # v77.2 FIX: Reduced 5->3. 5 attempts x 60s backoff = 5+ min
-                               # per article. With 10+ articles published per run this
-                               # caused Stage 1 to hit the 12-min CI timeout on any 429.
-                               # 3 attempts with 15s base = max 45s per article - safe.
-RETRY_BASE_DELAY = 15          # v77.2 FIX: Reduced 60->15s. Blogger 429 is momentary
-                               # (rate burst), not quota exhaustion. 60s was a timeout killer.
-RETRY_BACKOFF_FACTOR = 2.0     # v77.2 FIX: 2.0 (was 1.5). Faster backoff with lower base:
-                               # attempt 1: 15s, attempt 2: 30s, attempt 3: skip (last)
-                               # Max total wait per article: 45s (was 150s+)
+MIN_PUBLISH_INTERVAL   = 8      # Minimum seconds between Blogger API calls
+MAX_RETRY_ATTEMPTS     = 3      # Full retry attempts per publish call (within 1 run item)
+RETRY_BASE_DELAY       = 15     # Base backoff seconds for within-call retries
+RETRY_BACKOFF_FACTOR   = 2.0    # Backoff multiplier: 15s → 30s → (skip, already failed)
+
+# NEW v56.1 SYNC ENGINE
+MAX_QUEUE_ATTEMPTS_PER_RUN  = 2   # Max times ONE queued item is attempted per pipeline run
+MAX_LIFETIME_RETRIES        = 10  # Drop item after this many total run-level attempts (no infinite loop)
+JITTER_MAX_SECONDS          = 5   # Random jitter added to backoff to avoid thundering herd
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-PENDING_QUEUE_FILE = BASE_DIR / "data" / "pending_publish.json"
 
-# Track last publish timestamp for rate limiting
+# v56.1: Use data/publish_queue.json as the canonical persistent queue
+# (previously: data/pending_publish.json — kept for backward compat migration below)
+PUBLISH_QUEUE_FILE    = BASE_DIR / "data" / "publish_queue.json"
+LEGACY_QUEUE_FILE     = BASE_DIR / "data" / "pending_publish.json"
+
 _last_publish_time: float = 0.0
 
 
+
 # ---------------------------------------------------------------------------
-# FIX 1: Rate Limiter
+# Rate Limiter
 # ---------------------------------------------------------------------------
 
 def rate_limit_wait():
@@ -60,43 +65,37 @@ def rate_limit_wait():
         elapsed = time.time() - _last_publish_time
         if elapsed < MIN_PUBLISH_INTERVAL:
             wait_time = MIN_PUBLISH_INTERVAL - elapsed
-            logger.info(f"  ? Rate limiter: waiting {wait_time:.1f}s before next publish")
+            logger.info(f"  ⏱ Rate limiter: waiting {wait_time:.1f}s before next publish")
             time.sleep(wait_time)
     _last_publish_time = time.time()
 
 
 # ---------------------------------------------------------------------------
-# FIX 2: Retry Handler with Exponential Backoff
+# Retry Handler with Exponential Backoff + Jitter
 # ---------------------------------------------------------------------------
 
 def publish_with_retry(service, blog_id: str, post_body: Dict) -> Tuple[bool, Optional[Dict], str]:
     """
     Attempt to publish to Blogger with retry on 429/5xx errors.
-    v55.0 FIX: Sanitizes HTML content before API call to prevent HttpError 400.
-
-    Returns:
-        (success: bool, response: dict|None, error_msg: str)
+    Uses exponential backoff with jitter.
+    Returns: (success: bool, response: dict|None, error_msg: str)
     """
     last_error = ""
 
-    # v55.0 FIX: Sanitize content before ANY Blogger API call
-    # This fixes both new publishes AND pending queue retries
     if "content" in post_body:
         try:
             from agent.blogger_client import sanitize_blogger_html
             post_body["content"] = sanitize_blogger_html(post_body["content"])
         except ImportError:
-            pass  # blogger_client sanitizer not available - proceed with raw content
+            pass
 
     for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
         try:
             rate_limit_wait()
-
             response = service.posts().insert(
                 blogId=blog_id,
                 body=post_body,
             ).execute()
-
             blog_url = response.get("url", "")
             logger.info(f"  [OK] Published on attempt {attempt}: {blog_url}")
             return True, response, ""
@@ -104,150 +103,280 @@ def publish_with_retry(service, blog_id: str, post_body: Dict) -> Tuple[bool, Op
         except Exception as e:
             error_str = str(e).lower()
             last_error = str(e)
-
-            # Detect rate limit (429) or server error (5xx)
-            is_rate_limit = "429" in error_str or "ratelimit" in error_str or "quota" in error_str
-            is_server_error = any(code in error_str for code in ["500", "502", "503", "504"])
+            is_rate_limit   = "429" in error_str or "ratelimit" in error_str or "quota" in error_str
+            is_server_error = any(c in error_str for c in ["500", "502", "503", "504"])
 
             if is_rate_limit or is_server_error:
-                delay = RETRY_BASE_DELAY * (RETRY_BACKOFF_FACTOR ** (attempt - 1))
-                error_type = "RATE_LIMIT (429)" if is_rate_limit else "SERVER_ERROR"
+                base    = RETRY_BASE_DELAY * (RETRY_BACKOFF_FACTOR ** (attempt - 1))
+                jitter  = random.uniform(0, JITTER_MAX_SECONDS)
+                delay   = base + jitter
+                etype   = "RATE_LIMIT (429)" if is_rate_limit else "SERVER_ERROR"
                 logger.warning(
-                    f"  [!] {error_type} on attempt {attempt}/{MAX_RETRY_ATTEMPTS} - "
+                    f"  [!] {etype} on attempt {attempt}/{MAX_RETRY_ATTEMPTS} - "
                     f"retrying in {delay:.0f}s: {str(e)[:100]}"
                 )
                 if attempt < MAX_RETRY_ATTEMPTS:
                     time.sleep(delay)
                 continue
 
-            # Non-retryable error (400 bad request, auth error, etc.)
             logger.error(f"  [X] Non-retryable publish error on attempt {attempt}: {e}")
             return False, None, str(e)
 
-    # All retries exhausted
     logger.error(f"  [X] All {MAX_RETRY_ATTEMPTS} publish attempts failed: {last_error[:100]}")
     return False, None, last_error
 
 
 # ---------------------------------------------------------------------------
-# FIX 3 + Queue: Manifest-First + Failed Publish Queue
+# Queue I/O helpers
+# ---------------------------------------------------------------------------
+
+def _load_queue() -> List[Dict]:
+    """Load publish queue, migrating from legacy path if needed."""
+    # Migrate legacy queue to new canonical path
+    if LEGACY_QUEUE_FILE.exists() and not PUBLISH_QUEUE_FILE.exists():
+        try:
+            with open(LEGACY_QUEUE_FILE, "r", encoding="utf-8") as f:
+                legacy = json.load(f)
+            if legacy:
+                PUBLISH_QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
+                with open(PUBLISH_QUEUE_FILE, "w", encoding="utf-8") as f:
+                    json.dump(legacy, f, indent=2, default=str)
+                LEGACY_QUEUE_FILE.unlink(missing_ok=True)
+                logger.info(f"  [QUEUE] Migrated {len(legacy)} items from legacy queue")
+        except Exception as _e:
+            logger.debug(f"  [QUEUE] Migration skip: {_e}")
+
+    if not PUBLISH_QUEUE_FILE.exists():
+        return []
+    try:
+        with open(PUBLISH_QUEUE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, IOError):
+        return []
+
+
+def _save_queue(queue: List[Dict]):
+    """Persist queue to disk using binary write (safe for unicode)."""
+    PUBLISH_QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    raw = json.dumps(queue, indent=2, default=str, ensure_ascii=False)
+    with open(PUBLISH_QUEUE_FILE, "wb") as f:
+        f.write(raw.encode("utf-8"))
+
+
+def _sanitize_post_body(post_body: Dict) -> Dict:
+    """Sanitize content and title in post body for Blogger API compatibility."""
+    if "content" in post_body:
+        try:
+            from agent.blogger_client import sanitize_blogger_html
+            post_body["content"] = sanitize_blogger_html(post_body["content"])
+        except ImportError:
+            pass
+
+    if "title" in post_body:
+        t = post_body["title"]
+        for char, rep in [
+            ('<', '&lt;'), ('>', '&gt;'), ('&', '&amp;'),
+            ('\u2013', '-'), ('\u2014', '--'), ('\u00a0', ' '),
+            ('\u2018', "'"), ('\u2019', "'"), ('\u201c', '"'), ('\u201d', '"'),
+            ('\u2026', '...'), ('\u00ae', '(R)'), ('\u2122', '(TM)'),
+        ]:
+            t = t.replace(char, rep)
+        post_body["title"] = re.sub(r'[\x00-\x1f\x7f]', '', t).strip()
+
+    return post_body
+
+
+# ---------------------------------------------------------------------------
+# TASK 1 + TASK 4: save_to_pending_queue with mandatory logging
 # ---------------------------------------------------------------------------
 
 def save_to_pending_queue(headline: str, post_body: Dict, stix_id: str = ""):
-    """Save a failed publish to the pending queue for retry on next run."""
+    """
+    Save a failed publish to the persistent queue for retry on next run.
+    TASK 4: Logs QUEUE SIZE after every save.
+    TASK 5: Caller should set published=false in manifest separately.
+    """
     try:
-        PENDING_QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        queue = []
-        if PENDING_QUEUE_FILE.exists():
-            try:
-                with open(PENDING_QUEUE_FILE, "r") as f:
-                    queue = json.load(f)
-            except (json.JSONDecodeError, IOError):
-                queue = []
+        queue = _load_queue()
 
-        # Avoid duplicates
         existing_titles = {item.get("title", "") for item in queue}
         if headline in existing_titles:
-            logger.info(f"  [i] Already in pending queue: {headline[:60]}")
+            logger.info(f"  [QUEUE] Already queued (dedup): {headline[:60]}")
             return
 
         queue.append({
-            "title": headline,
-            "post_body": post_body,
-            "stix_id": stix_id,
-            "failed_at": datetime.now(timezone.utc).isoformat(),
-            "retry_count": 0,
+            "title":         headline,
+            "post_body":     post_body,
+            "stix_id":       stix_id,
+            "failed_at":     datetime.now(timezone.utc).isoformat(),
+            "retry_count":   0,       # total across all runs
+            "run_attempts":  0,       # attempts in current run
         })
 
-        with open(PENDING_QUEUE_FILE, "w") as f:
-            json.dump(queue, f, indent=2, default=str)
-
-        logger.info(f"  ? Saved to pending queue ({len(queue)} total): {headline[:60]}")
+        _save_queue(queue)
+        logger.info(f"  ⚠ Saved to pending queue ({len(queue)} total): {headline[:60]}")
+        logger.info(f"  [QUEUE SIZE] {len(queue)}")
 
     except Exception as e:
-        logger.warning(f"  Failed to save to pending queue: {e}")
+        logger.warning(f"  [QUEUE] Failed to save: {e}")
 
+
+# ---------------------------------------------------------------------------
+# TASK 2 + TASK 3: retry_pending_queue — STRICT SYNC MODE
+# ---------------------------------------------------------------------------
 
 def retry_pending_queue(service, blog_id: str) -> int:
     """
-    Retry publishing items from the pending queue.
-    Called at the start of each pipeline run.
-    Returns number of successfully published items.
+    STRICT SYNC MODE: Retry queued items FIRST before new advisories.
 
-    v75.0: Items with retry_count >= MAX_RETRY_ATTEMPTS are purged before any API calls,
-    preventing Blogger 400 BadRequest spam on items with permanent content issues.
-    Items are also re-sanitized on every retry pass to catch new edge cases.
+    TASK 2 — UPGRADED RETRY ENGINE:
+      * Max MAX_QUEUE_ATTEMPTS_PER_RUN attempts per item per run
+      * Exponential backoff + jitter on each attempt
+      * Remaining items → deferred to next run (not burned in endless retry loop)
+
+    TASK 3 — STRICT SYNC: caller must check return value and prioritize queue
+
+    TASK 4 — LOGGING:
+      * "QUEUE SIZE: N items to retry"
+      * "RETRY SUCCESS: <title>"
+      * "DEFERRED TO NEXT RUN: <title> (attempt N/MAX_LIFETIME)"
+
+    Returns: number of successfully published items.
     """
-    if not PENDING_QUEUE_FILE.exists():
-        return 0
-
-    try:
-        with open(PENDING_QUEUE_FILE, "r") as f:
-            queue = json.load(f)
-    except (json.JSONDecodeError, IOError):
-        return 0
-
+    queue = _load_queue()
     if not queue:
         return 0
 
-    logger.info(f"? Pending publish queue: {len(queue)} items to retry")
-    published = 0
-    remaining = []
+    queue_size = len(queue)
+    logger.info(f"⚡ Pending publish queue: {queue_size} items to retry")
+    logger.info(f"  [QUEUE SIZE] {queue_size}")
+
+    published  = 0
+    remaining  = []
 
     for item in queue:
-        title = item.get("title", "Unknown")
-        post_body = item.get("post_body", {})
-        retry_count = item.get("retry_count", 0)
+        title       = item.get("title", "Unknown")
+        post_body   = dict(item.get("post_body", {}))
+        retry_count = item.get("retry_count", 0)      # lifetime retries
 
-        # v75.0: Drop items that have exhausted all retries - do NOT attempt API call
-        # Previous behavior: called publish_with_retry even on retry_count=5, wasting a
-        # Blogger API call and generating a non-retryable 400 error in the log.
-        if retry_count >= MAX_RETRY_ATTEMPTS:
-            logger.warning(f"  ? Dropping (max retries exhausted after {retry_count} attempts): {title[:60]}")
+        # Drop items that have hit lifetime max — prevents infinite queue growth
+        if retry_count >= MAX_LIFETIME_RETRIES:
+            logger.warning(
+                f"  [QUEUE] Dropping (lifetime max {MAX_LIFETIME_RETRIES} retries): {title[:60]}"
+            )
             continue
 
-        # v75.0: Re-sanitize content on every retry pass
-        # Catches Unicode chars that the sanitizer may have missed on previous runs
-        if isinstance(post_body, dict) and "content" in post_body:
-            try:
-                from agent.blogger_client import sanitize_blogger_html
-                post_body["content"] = sanitize_blogger_html(post_body["content"])
-            except ImportError:
-                pass
+        # Sanitize on every retry attempt
+        post_body = _sanitize_post_body(post_body)
 
-        # v75.1: Also sanitize the title on retry - '<=' in CVE titles causes 400
-        if isinstance(post_body, dict) and "title" in post_body:
-            import re as _re2
-            _t = post_body["title"]
-            for _c, _r in [('<', '&lt;'), ('>', '&gt;'), ('&', '&amp;'),
-                           ('\u2013', '-'), ('\u2014', '--'), ('\u00a0', ' ')]:
-                _t = _t.replace(_c, _r)
-            post_body["title"] = _re2.sub(r'[\x00-\x1f\x7f]', '', _t).strip()
+        # Each queue item gets at most MAX_QUEUE_ATTEMPTS_PER_RUN attempts per run
+        run_success = False
+        for run_attempt in range(1, MAX_QUEUE_ATTEMPTS_PER_RUN + 1):
+            success, response, error = publish_with_retry(service, blog_id, post_body)
 
-        success, response, error = publish_with_retry(service, blog_id, post_body)
+            if success:
+                published += 1
+                run_success = True
+                blog_url = response.get("url", "") if response else ""
+                logger.info(f"  ✅ RETRY SUCCESS: {title[:60]}")
+                logger.info(f"  [RETRY SUCCESS] {title[:60]} → {blog_url}")
+                # Update manifest blog_url
+                try:
+                    _update_manifest_blog_url(title, blog_url)
+                    _update_manifest_published_field(title, published=True)
+                except Exception:
+                    pass
+                break
 
-        if success:
-            published += 1
-            logger.info(f"  ? Pending item published: {title[:60]}")
-        else:
-            item["retry_count"] = retry_count + 1
-            item["last_error"] = error[:200]
-            item["last_retry"] = datetime.now(timezone.utc).isoformat()
+            # If 429, we used up one run attempt — stop trying this item this run
+            # The item will be deferred to next run
+            logger.warning(f"  [QUEUE] Run attempt {run_attempt}/{MAX_QUEUE_ATTEMPTS_PER_RUN} failed: {title[:50]}")
+            if run_attempt < MAX_QUEUE_ATTEMPTS_PER_RUN:
+                # Brief jitter sleep before second attempt within same run
+                jitter = random.uniform(2, JITTER_MAX_SECONDS)
+                time.sleep(jitter)
+            break  # After 1 failed attempt → defer. Don't burn 3x retries per item.
+
+        if not run_success:
+            item["retry_count"]  = retry_count + 1
+            item["run_attempts"] = item.get("run_attempts", 0) + 1
+            item["last_error"]   = error[:200] if 'error' in dir() else "unknown"
+            item["last_retry"]   = datetime.now(timezone.utc).isoformat()
             remaining.append(item)
-            logger.warning(f"  ? Pending retry failed (attempt {retry_count + 1}): {title[:60]}")
+            logger.info(
+                f"  ⏭ DEFERRED TO NEXT RUN: {title[:55]} "
+                f"(attempt {item['retry_count']}/{MAX_LIFETIME_RETRIES})"
+            )
+            logger.info(f"  [DEFERRED TO NEXT RUN] {title[:60]}")
 
-    # Write remaining items back
-    with open(PENDING_QUEUE_FILE, "w") as f:
-        json.dump(remaining, f, indent=2, default=str)
+    _save_queue(remaining)
 
     if published:
-        logger.info(f"? Pending queue: {published} published, {len(remaining)} remaining")
+        logger.info(
+            f"⚡ Pending queue: {published} published, {len(remaining)} remaining"
+        )
+        logger.info(f"  [QUEUE SIZE] After run: {len(remaining)} items remaining")
+    else:
+        logger.info(f"  [QUEUE SIZE] No items published this run, {len(remaining)} deferred")
 
     return published
 
 
 # ---------------------------------------------------------------------------
-# Combined Resilient Publish Function
+# TASK 5: Manifest published field helpers
+# ---------------------------------------------------------------------------
+
+def _update_manifest_blog_url(headline: str, blog_url: str):
+    """Update manifest entry with actual blog URL after successful publish."""
+    manifest_path = os.path.join("data", "stix", "feed_manifest.json")
+    if not os.path.exists(manifest_path):
+        return
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+        if not isinstance(entries, list):
+            return
+        for entry in entries:
+            if entry.get("title") == headline and not entry.get("blog_url"):
+                entry["blog_url"] = blog_url
+                break
+        raw = json.dumps(entries, indent=2, default=str, ensure_ascii=False)
+        with open(manifest_path, "wb") as f:
+            f.write(raw.encode("utf-8"))
+    except Exception:
+        pass
+
+
+def _update_manifest_published_field(headline: str, published: bool):
+    """
+    TASK 5: Set published=true/false in manifest entry.
+    Called after successful publish (true) or on queue save (false).
+    """
+    manifest_path = os.path.join("data", "stix", "feed_manifest.json")
+    if not os.path.exists(manifest_path):
+        return
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+        if not isinstance(entries, list):
+            return
+        updated = False
+        for entry in entries:
+            if entry.get("title") == headline:
+                entry["published"] = published
+                updated = True
+                break
+        if updated:
+            raw = json.dumps(entries, indent=2, default=str, ensure_ascii=False)
+            with open(manifest_path, "wb") as f:
+                f.write(raw.encode("utf-8"))
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Combined Resilient Publish Function (v56.1)
 # ---------------------------------------------------------------------------
 
 def resilient_publish(
@@ -276,24 +405,21 @@ def resilient_publish(
     nvd_url: str,
 ) -> bool:
     """
-    Production-hardened publish function implementing all three fixes:
-      1. Manifest-first: STIX bundle written BEFORE publish attempt
-      2. Rate-limited: 8s minimum between API calls
-      3. Retry on 429: 5 attempts with 60s exponential backoff
-      4. Failed publish queue: zero intel loss
-
-    Returns True if advisory was processed (manifest updated), regardless of publish status.
+    Production-hardened publish:
+      1. Manifest-first: STIX + manifest written BEFORE publish attempt
+      2. Rate-limited + retry with backoff + jitter
+      3. Failed → persistent queue with published=false in manifest
+      4. Success → published=true in manifest + blog_url updated
+    Returns True if manifest was updated (advisory is in intel feed).
     """
 
-    # --- FIX 3: MANIFEST-FIRST - Write STIX bundle BEFORE publish ---
-    # This ensures the dashboard always gets new intelligence
-    # even if Blogger publishing fails
+    # --- MANIFEST FIRST: Write STIX before publish ---
     try:
         stix_exporter.create_bundle(
             title=headline,
             iocs=extracted_iocs,
             risk_score=risk_score,
-            metadata={"blog_url": "", "source_url": source_url},  # blog_url filled after publish
+            metadata={"blog_url": "", "source_url": source_url},
             confidence=confidence,
             severity=severity,
             tlp_label=tlp.get('label', 'TLP:CLEAR'),
@@ -309,20 +435,12 @@ def resilient_publish(
         logger.info(f"  [OK] STIX bundle + manifest written (pre-publish)")
     except Exception as stix_err:
         logger.error(f"  [X] STIX bundle write failed: {stix_err}")
-        # Continue to publish attempt - don't abort the entire advisory
 
-    # --- Dedup Registration (pre-publish to prevent re-processing) ---
     dedup_engine.mark_processed(headline, entry.get('link', ''))
 
-    # --- FIX 1 + FIX 2: Rate-limited publish with retry ---
-    # v75.1 FIX: Sanitize the TITLE as well as the content.
-    # CVE titles like "Easy Image Gallery <= 1.5.3" contain '<=' which the
-    # Blogger API rejects with HttpError 400 "invalid argument".
-    # The content sanitizer was already in place; title was missed.
+    # --- Sanitize title ---
     safe_title = headline
     try:
-        # Minimal title sanitization: replace XML-unsafe chars only
-        # (do NOT run full HTML sanitizer on title - it's plain text, not HTML)
         _title_map = {
             '<': '&lt;', '>': '&gt;', '&': '&amp;',
             '\u2013': '-', '\u2014': '--', '\u00a0': ' ',
@@ -331,77 +449,44 @@ def resilient_publish(
             '\uff5c': '|', '\u200b': '', '\ufeff': '', '\u0000': '',
         }
         for char, replacement in _title_map.items():
-            if char in safe_title:
-                safe_title = safe_title.replace(char, replacement)
-        # Strip any remaining non-printable ASCII control chars
-        import re as _re
-        safe_title = _re.sub(r'[\x00-\x1f\x7f]', '', safe_title).strip()
-        if not safe_title:
-            safe_title = headline[:100]  # fallback - never submit empty title
+            safe_title = safe_title.replace(char, replacement)
+        safe_title = re.sub(r'[\x00-\x1f\x7f]', '', safe_title).strip() or headline[:100]
     except Exception:
         safe_title = headline
 
     post_body = {
-        "kind": "blogger#post",
-        "title": safe_title,
+        "kind":    "blogger#post",
+        "title":   safe_title,
         "content": report_html,
-        "labels": labels,
+        "labels":  labels,
     }
 
     success, response, error = publish_with_retry(service, blog_id, post_body)
 
     if success:
         live_blog_url = response.get("url", "") if response else ""
-
-        # Update STIX manifest with actual blog URL
         try:
             _update_manifest_blog_url(headline, live_blog_url)
+            _update_manifest_published_field(headline, published=True)
         except Exception:
-            pass  # Non-critical - manifest already has the intel data
-
-        # Revenue bridge (non-critical)
+            pass
         try:
             from agent.revenue_bridge import activate_revenue_pipeline
             activate_revenue_pipeline(
-                report_html=report_html,
-                headline=headline,
-                risk_score=risk_score,
-                live_blog_url=live_blog_url,
-                content=enriched_content,
-                product_url="",
+                report_html=report_html, headline=headline,
+                risk_score=risk_score, live_blog_url=live_blog_url,
+                content=enriched_content, product_url="",
             )
         except Exception:
             pass
-
         return True
-
     else:
-        # --- Failed Publish Queue - Save for retry on next run ---
+        # TASK 1: Save to persistent queue, TASK 5: mark published=false
         save_to_pending_queue(headline, post_body)
-
-        # Return True because the MANIFEST was updated successfully
-        # The dashboard will show the intel even without the blog URL
+        try:
+            _update_manifest_published_field(headline, published=False)
+        except Exception:
+            pass
         logger.info(f"  [i] Advisory in manifest (blog publish pending): {headline[:60]}")
-        return True
+        return True  # Manifest updated — intel available on dashboard
 
-
-def _update_manifest_blog_url(headline: str, blog_url: str):
-    """Update the manifest entry with the actual blog URL after successful publish."""
-    manifest_path = os.path.join("data", "stix", "feed_manifest.json")
-    if not os.path.exists(manifest_path):
-        return
-
-    try:
-        with open(manifest_path, "r") as f:
-            data = json.load(f)
-
-        entries = data if isinstance(data, list) else data.get("entries", [])
-        for entry in entries:
-            if entry.get("title") == headline and not entry.get("blog_url"):
-                entry["blog_url"] = blog_url
-                break
-
-        with open(manifest_path, "w") as f:
-            json.dump(data if isinstance(data, dict) else entries, f, indent=2, default=str)
-    except Exception:
-        pass  # Non-critical

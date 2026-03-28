@@ -676,6 +676,10 @@ class STIXExporter:
             "stix_object_count":object_count,
             "stix_version":     "2.1",
             "schema_version":   "v22.0",
+            # v56.1: Blog publish sync tracking (TASK 5)
+            # False = written to manifest but blog post not yet published
+            # True  = blog post successfully published (set by publisher.py)
+            "published":        False if not blog_url else True,
         }
 
         manifest_entries.append(entry)
