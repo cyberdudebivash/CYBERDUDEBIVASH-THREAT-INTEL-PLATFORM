@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-a4c7e3573e59
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "CISA Warns of F5 BIG-IP Vulnerability Actively Exploited in Attacks"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
