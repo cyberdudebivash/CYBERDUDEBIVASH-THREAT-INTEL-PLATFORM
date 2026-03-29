@@ -2,7 +2,7 @@
   "threat_id": "thr-9ddd15d42c8f",
   "title": "Schneider Electric Plant iT/Brewmaxx",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - Schneider Electric Plant iT/Brewmaxx\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/28\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*2026-013-01.pdf*'\n            - '*download.schneider-electric.com*'\n            - '*www.proleit.com*'\n            - '*www.se.com*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - Schneider Electric Plant iT/Brewmaxx\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/29\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*2026-013-01.pdf*'\n            - '*download.schneider-electric.com*'\n            - '*www.proleit.com*'\n            - '*www.se.com*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"2026-013-01.pdf\",\n              \"download.schneider-electric.com\",\n              \"www.proleit.com\",\n              \"www.se.com\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"2026-013-01.pdf\", \"download.schneider-electric.com\", \"www.proleit.com\", \"www.se.com\")"
   },
