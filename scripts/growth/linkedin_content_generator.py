@@ -185,49 +185,66 @@ Link in comments 👇
 
 
 def run_linkedin_content(post_type: str = "threat_insight") -> Dict:
-    """Generate and optionally publish LinkedIn post."""
+    """
+    Generate and optionally publish LinkedIn post.
+    post_type: threat_insight | stats_post | platform_post | force
+    'force' prefix re-posts even if already posted today.
+    """
     LI_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     manifest: List[Dict] = []
     if MANIFEST_PATH.exists():
-        with open(MANIFEST_PATH, encoding="utf-8") as f:
+        with open(MANIFEST_PATH, encoding="utf-8", errors="replace") as f:
             manifest = json.load(f)
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    state = _load_li_state()
-    if state.get("last_post_date") == today and post_type != "force":
-        logger.info("[LI-CONTENT] Already posted today")
+    today  = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    state  = _load_li_state()
+    forced = post_type.startswith("force_")
+    actual_type = post_type.replace("force_", "") if forced else post_type
+
+    if not forced and state.get("last_post_date") == today:
+        logger.info("[LI-CONTENT] Already posted today (use force_<type> to override)")
         return {"status": "ALREADY_POSTED", "posted": False}
 
     text = ""
-    if post_type == "threat_insight" and manifest:
-        # Pick highest-risk entry
+    if actual_type == "threat_insight" and manifest:
         entry = sorted(manifest, key=lambda x: float(x.get("risk_score",0)), reverse=True)[0]
         text = _build_threat_insight(entry)
-    elif post_type == "stats_post":
+    elif actual_type == "stats_post":
         text = _build_stats_post(manifest)
-    elif post_type == "platform_post":
+    elif actual_type == "platform_post":
         text = _build_platform_post()
     else:
-        entry = sorted(manifest, key=lambda x: float(x.get("risk_score",0)), reverse=True)[0]
-        text = _build_threat_insight(entry)
+        # Default: threat_insight from top entry
+        if manifest:
+            entry = sorted(manifest, key=lambda x: float(x.get("risk_score",0)), reverse=True)[0]
+            text = _build_threat_insight(entry)
 
     if not text:
         return {"status": "EMPTY", "posted": False}
 
-    # Save to file always
-    out_path = LI_OUTPUT_DIR / f"{today}-{post_type}.txt"
+    # Always save to file
+    out_path = LI_OUTPUT_DIR / f"{today}-{actual_type}.txt"
     out_path.write_bytes(text.encode("utf-8"))
-    logger.info(f"[LI-CONTENT] Saved: {out_path.name}")
+    logger.info(f"[LI-CONTENT] Saved: {out_path.name} ({len(text)} chars)")
 
-    # Try posting
+    # Attempt LinkedIn API post
     posted = _post_to_linkedin(text)
-    state["last_post_date"] = today
-    state["posted_count"]   = state.get("posted_count", 0) + (1 if posted else 0)
+    state["last_post_date"]  = today
+    state["posted_count"]    = state.get("posted_count", 0) + (1 if posted else 0)
+    state["last_post_type"]  = actual_type
+    state["last_post_chars"] = len(text)
     _save_li_state(state)
 
-    return {"status": "OK", "posted": posted, "type": post_type,
-            "chars": len(text), "file": str(out_path.name)}
+    logger.info(f"[LI-CONTENT] Result: posted={posted} type={actual_type} chars={len(text)}")
+    return {
+        "status":   "OK",
+        "posted":   posted,
+        "type":     actual_type,
+        "chars":    len(text),
+        "file":     str(out_path.name),
+        "api_live": bool(LI_TOKEN and LI_AUTHOR),
+    }
 
 
 if __name__ == "__main__":
