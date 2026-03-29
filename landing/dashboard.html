@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard — CYBERDUDEBIVASH® Sentinel APEX</title>
+<meta name="description" content="Access your Sentinel APEX threat intelligence dashboard. Enter your API key to fetch live advisories with full APEX AI enrichment.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23020810'/><text x='6' y='23' font-size='20' fill='%2300e5ff'>⬡</text></svg>">
+<style>
+.dash-layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh;padding-top:var(--nav-h)}
+.dash-sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px 0;position:sticky;top:var(--nav-h);height:calc(100vh - var(--nav-h));overflow-y:auto;z-index:10}
+.sidebar-section{padding:8px 14px;margin-bottom:4px}
+.sidebar-section-title{font-family:var(--font-mono);font-size:.65rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;padding:0 4px;margin-bottom:8px}
+.dash-nav{list-style:none;display:flex;flex-direction:column;gap:2px}
+.dash-nav a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r);font-size:.855rem;color:var(--muted);transition:all .2s;font-weight:500;cursor:pointer}
+.dash-nav a:hover,.dash-nav a.active{background:var(--cyan-dim);color:var(--cyan);opacity:1}
+.sidebar-divider{height:1px;background:var(--border);margin:12px 14px}
+.dash-main{padding:28px;overflow-y:auto;min-width:0}
+.tier-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:20px;font-size:.72rem;font-family:var(--font-mono);letter-spacing:.5px;font-weight:700;border:1px solid}
+.tier-free{color:var(--muted);border-color:var(--muted2)}
+.tier-pro{color:var(--cyan);border-color:var(--border2);background:var(--cyan-dim)}
+.tier-enterprise{color:var(--purple);border-color:rgba(185,117,255,.3);background:rgba(185,117,255,.1)}
+.tier-mssp{color:var(--amber);border-color:rgba(255,152,0,.3);background:rgba(255,152,0,.1)}
+#intel-grid{display:flex;flex-direction:column;gap:12px;margin-top:0}
+.loading-state{text-align:center;padding:48px;color:var(--muted);font-family:var(--font-mono);font-size:.9rem}
+.loading-state .spin{display:inline-block;animation:spin 1s linear infinite;font-size:1.5rem}
+@keyframes spin{100%{transform:rotate(360deg)}}
+.ioc-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ioc-chip{padding:2px 8px;border-radius:3px;font-size:.7rem;font-family:var(--font-data);background:var(--surface2);border:1px solid var(--border);color:var(--muted)}
+.mitre-chip{padding:2px 8px;border-radius:3px;font-size:.7rem;font-family:var(--font-data);background:rgba(185,117,255,.1);border:1px solid rgba(185,117,255,.2);color:var(--purple)}
+.threat-link{font-size:.78rem;color:var(--cyan);font-family:var(--font-mono)}
+</style>
+</head>
+<body>
+<div id="toast-container"></div>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <div class="nav-logo-icon"><svg viewBox="0 0 18 18" fill="none"><polygon points="9,1 17,5 17,13 9,17 1,13 1,5" stroke="#00e5ff" stroke-width="1.5" fill="rgba(0,229,255,0.08)"/><circle cx="9" cy="9" r="2.5" fill="#00e5ff"/></svg></div>
+      <span class="nav-logo-text">CYBERDUDEBIVASH<span>®</span></span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="pricing.html">Pricing</a></li>
+      <li><a href="https://intel.cyberdudebivash.com" target="_blank">Live Dashboard</a></li>
+      <li><a href="https://cyberdudebivash-threat-intel-platform-production.up.railway.app/api/docs" target="_blank">API Docs</a></li>
+    </ul>
+    <div class="nav-cta">
+      <span id="nav-tier-badge" class="tier-badge tier-free">FREE</span>
+    </div>
+  </div>
+</nav>
+
+<div class="dash-layout">
+  <!-- Sidebar -->
+  <aside class="dash-sidebar" aria-label="Dashboard navigation">
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Intel</div>
+      <ul class="dash-nav">
+        <li><a class="active" onclick="showView('feed')"><span class="nav-icon">◈</span> Live Feed</a></li>
+        <li><a onclick="showView('search')"><span class="nav-icon">🔍</span> Search</a></li>
+        <li><a href="https://intel.cyberdudebivash.com" target="_blank"><span class="nav-icon">🌐</span> Full Dashboard ↗</a></li>
+      </ul>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Platform</div>
+      <ul class="dash-nav">
+        <li><a onclick="showView('stats')"><span class="nav-icon">📊</span> Stats</a></li>
+        <li><a href="https://cyberdudebivash-threat-intel-platform-production.up.railway.app/api/docs" target="_blank"><span class="nav-icon">📖</span> API Docs ↗</a></li>
+        <li><a href="pricing.html"><span class="nav-icon">⬆</span> Upgrade Plan</a></li>
+      </ul>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section" style="padding-bottom:0">
+      <div class="sidebar-section-title">Support</div>
+      <ul class="dash-nav">
+        <li><a href="https://t.me/cyberdudebivashSentinelApex" target="_blank"><span class="nav-icon">📡</span> Telegram</a></li>
+        <li><a href="mailto:bivash@cyberdudebivash.com"><span class="nav-icon">✉</span> Contact</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="dash-main" id="dash-main">
+
+    <!-- API Key Panel -->
+    <div class="key-panel" id="key-panel">
+      <div class="key-panel-title">⬡ AUTHENTICATION — SENTINEL APEX API</div>
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:16px">Enter your API key to access full intelligence feed. Leave blank for free tier (10 results, no APEX enrichment). <a href="pricing.html">Get a key →</a></p>
+      <div class="key-input-row">
+        <input class="key-input" id="api-key-input" type="password" placeholder="cdb_pro_... or demo-pro-key-1111 to test Pro" autocomplete="off" spellcheck="false">
+        <button class="btn btn-primary" id="fetch-btn" onclick="fetchAndRender()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L13 7L7 13M1 7h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Load Intel
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="clearKey()" title="Clear key" style="padding:10px 14px">✕</button>
+      </div>
+      <div style="margin-top:10px;font-size:.78rem;color:var(--muted);font-family:var(--font-data)">
+        Free demo keys: <span style="color:var(--cyan);cursor:pointer" onclick="useDemo('demo-pro-key-1111')">demo-pro-key-1111</span> &nbsp;|&nbsp;
+        <span style="color:var(--muted2);cursor:pointer" onclick="useDemo('')">anonymous (free)</span>
+      </div>
+    </div>
+
+    <!-- Views -->
+    <div id="view-feed">
+      <!-- Upgrade Banner (free tier) -->
+      <div class="upgrade-banner" id="upgrade-banner" style="display:none">
+        <div class="upgrade-text">
+          <h3>🔓 Unlock Full APEX Intelligence</h3>
+          <p>You're on the Free tier. Upgrade to Pro ($49/mo) for 100 advisories/req, full IOC data, APEX AI enrichment, and Telegram alerts.</p>
+        </div>
+        <a href="pricing.html" class="btn btn-primary btn-sm">Upgrade to Pro →</a>
+      </div>
+
+      <!-- Stats Row -->
+      <div class="dash-stats-row" id="stats-row" style="display:none">
+        <div class="dash-stat-card"><div class="dash-stat-label">TOTAL ADVISORIES</div><div class="dash-stat-value cyan" id="stat-total">—</div></div>
+        <div class="dash-stat-card"><div class="dash-stat-label">CRITICAL THREATS</div><div class="dash-stat-value red" id="stat-critical">—</div></div>
+        <div class="dash-stat-card"><div class="dash-stat-label">YOUR PLAN</div><div class="dash-stat-value amber" id="stat-plan">FREE</div></div>
+        <div class="dash-stat-card"><div class="dash-stat-label">LAST UPDATED</div><div class="dash-stat-value" id="stat-updated" style="font-size:1rem;color:var(--green)">—</div></div>
+      </div>
+
+      <!-- Intel Grid -->
+      <div id="intel-grid"><div class="loading-state">Enter your API key above and click Load Intel to fetch live threat advisories.</div></div>
+    </div>
+
+    <div id="view-search" style="display:none">
+      <div class="key-panel" style="margin-bottom:24px">
+        <div class="key-panel-title">🔍 SEARCH THREAT INTELLIGENCE</div>
+        <div class="key-input-row" style="margin-top:12px">
+          <input class="key-input" id="search-input" type="text" placeholder="Search CVE, actor, keyword, MITRE tactic..." onkeydown="if(event.key==='Enter')runSearch()">
+          <button class="btn btn-primary" onclick="runSearch()">Search</button>
+        </div>
+        <div style="margin-top:8px;font-size:.78rem;color:var(--muted)">Requires Pro tier API key. Search across 500+ advisories.</div>
+      </div>
+      <div id="search-results"></div>
+    </div>
+
+    <div id="view-stats" style="display:none">
+      <div class="dash-header"><div class="dash-title">PLATFORM STATISTICS</div><div class="dash-subtitle">Live data from CYBERDUDEBIVASH® Sentinel APEX API</div></div>
+      <div id="stats-content"><div class="loading-state">Loading stats... <span class="spin" aria-hidden="true">⟳</span></div></div>
+    </div>
+  </main>
+</div>
+
+<script src="api.js"></script>
+<script src="script.js"></script>
+<script>
+'use strict';
+
+const LS_KEY = 'cdb_api_key';
+let currentKey = localStorage.getItem(LS_KEY) || '';
+let currentTier = 'free';
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  if (currentKey) {
+    document.getElementById('api-key-input').value = currentKey;
+    fetchAndRender();
+  }
+  // Check URL params for success/cancel
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('upgrade') === 'success') {
+    Toast.success('Payment successful! Your API key has been sent to your email.');
+  } else if (params.get('upgrade') === 'cancelled') {
+    Toast.warn('Payment cancelled. You can try again anytime.');
+  }
+});
+
+function useDemo(key) {
+  document.getElementById('api-key-input').value = key;
+}
+
+function clearKey() {
+  document.getElementById('api-key-input').value = '';
+  localStorage.removeItem(LS_KEY);
+  currentKey = '';
+  currentTier = 'free';
+  updateTierBadge('free');
+  document.getElementById('intel-grid').innerHTML = '<div class="loading-state">API key cleared. Enter a key to load intel.</div>';
+  document.getElementById('stats-row').style.display = 'none';
+  document.getElementById('upgrade-banner').style.display = 'none';
+}
+
+function showView(name) {
+  ['feed','search','stats'].forEach(v => {
+    document.getElementById('view-' + v).style.display = v === name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.dash-nav a').forEach(a => a.classList.remove('active'));
+  if (name === 'stats') loadStats();
+}
+
+function updateTierBadge(tier) {
+  const badge = document.getElementById('nav-tier-badge');
+  const statPlan = document.getElementById('stat-plan');
+  const classes = { free: 'tier-free', pro: 'tier-pro', enterprise: 'tier-enterprise', mssp: 'tier-mssp' };
+  badge.className = 'tier-badge ' + (classes[tier] || 'tier-free');
+  badge.textContent = tier.toUpperCase();
+  if (statPlan) statPlan.textContent = tier.toUpperCase();
+  currentTier = tier;
+  document.getElementById('upgrade-banner').style.display = tier === 'free' ? 'flex' : 'none';
+}
+
+function getSevClass(sev) {
+  const s = (sev || '').toUpperCase();
+  if (s === 'CRITICAL') return 'crit';
+  if (s === 'HIGH') return 'high';
+  return 'med';
+}
+
+function getBadgeClass(sev) {
+  const s = (sev || '').toUpperCase();
+  if (s === 'CRITICAL') return 'badge-critical';
+  if (s === 'HIGH') return 'badge-high';
+  if (s === 'MEDIUM') return 'badge-medium';
+  return 'badge-low';
+}
+
+function timeSince(ts) {
+  if (!ts) return '';
+  try {
+    const d = new Date(ts);
+    const diff = Math.floor((Date.now() - d) / 1000);
+    if (diff < 60) return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+    return Math.floor(diff/86400) + 'd ago';
+  } catch { return ''; }
+}
+
+function renderApexPanel(apex) {
+  if (!apex || typeof apex !== 'object') return '';
+  try {
+    const prio = apex.priority || apex.apex_priority || 'P4';
+    const pc = prio.toLowerCase();
+    const tlevel = (apex.threat_level || '').replace(/_/g,' ');
+    const cat = (apex.threat_category || '').replace(/_/g,' ');
+    const score = apex.predictive_score != null ? parseFloat(apex.predictive_score).toFixed(1) : '—';
+    const campId = apex.campaign_id || '—';
+    const action = apex.recommended_action || '';
+    const summary = apex.ai_summary || '';
+    const tags = Array.isArray(apex.behavioral_tags) ? apex.behavioral_tags.slice(0,4) : [];
+    return `<div class="threat-apex-panel">
+      <div class="apex-kv"><span class="apex-k">SOC PRIORITY</span><span class="apex-v ${pc}">${prio}</span></div>
+      <div class="apex-kv"><span class="apex-k">THREAT LEVEL</span><span class="apex-v">${tlevel||'—'}</span></div>
+      <div class="apex-kv"><span class="apex-k">AI SCORE</span><span class="apex-v">${score}/10</span></div>
+      <div class="apex-kv"><span class="apex-k">CATEGORY</span><span class="apex-v">${cat||'—'}</span></div>
+      <div class="apex-kv"><span class="apex-k">CAMPAIGN</span><span class="apex-v" style="color:var(--cyan);font-size:.76rem">${campId}</span></div>
+      <div class="apex-kv"><span class="apex-k">TAGS</span><span class="apex-v" style="font-size:.72rem">${tags.join(' · ')||'—'}</span></div>
+      ${action ? `<div class="apex-kv" style="grid-column:1/-1"><span class="apex-k">ACTION</span><span class="apex-v" style="color:var(--amber)">${action.slice(0,120)}</span></div>` : ''}
+      ${summary ? `<div class="apex-ai-summary">${summary.slice(0,240)}</div>` : ''}
+    </div>`;
+  } catch { return ''; }
+}
+
+function renderCard(item) {
+  const sev = item.severity || 'UNKNOWN';
+  const sc = getSevClass(sev);
+  const risk = parseFloat(item.risk_score || 0).toFixed(1);
+  const ts = timeSince(item.timestamp);
+  const iocs = item.ioc_counts || {};
+  const iocChips = Object.entries(iocs)
+    .filter(([,v]) => v > 0)
+    .map(([k,v]) => `<span class="ioc-chip">${v} ${k.toUpperCase()}</span>`).join('');
+  const tactics = (item.mitre_tactics || []).slice(0,3);
+  const mitreChips = tactics.map(t => `<span class="mitre-chip">${typeof t === 'string' ? t : (t.technique_id || t.id || '')}</span>`).join('');
+  const apexPanel = renderApexPanel(item.apex);
+  const apexBadge = item.apex && item.apex.priority ? `<span class="threat-badge badge-apex">⬡ APEX ${item.apex.priority||''}</span>` : '';
+  const kevBadge = item.kev_present ? `<span class="threat-badge badge-critical">⚡ KEV</span>` : '';
+  const url = item.blog_url || item.source_url || '#';
+
+  return `<article class="threat-card">
+    <div class="threat-card-top">
+      <div>
+        <div class="threat-meta" style="margin-bottom:8px">
+          <span class="threat-badge ${getBadgeClass(sev)}">${sev}</span>
+          ${kevBadge}${apexBadge}
+          ${ts ? `<span style="font-size:.72rem;color:var(--muted);font-family:var(--font-data)">${ts}</span>` : ''}
+        </div>
+        <div class="threat-title">${item.title || 'Advisory'}</div>
+      </div>
+      <div class="threat-score ${sc}">${risk}</div>
+    </div>
+    ${(iocChips||mitreChips) ? `<div class="ioc-chips">${iocChips}${mitreChips}</div>` : ''}
+    ${apexPanel}
+    <div style="margin-top:10px;display:flex;gap:12px;align-items:center">
+      ${url !== '#' ? `<a href="${url}" target="_blank" rel="noopener" class="threat-link">Read Report →</a>` : ''}
+      ${item.cvss_score != null ? `<span style="font-size:.75rem;font-family:var(--font-data);color:var(--muted)">CVSS ${item.cvss_score}</span>` : ''}
+      ${item.epss_score != null ? `<span style="font-size:.75rem;font-family:var(--font-data);color:var(--muted)">EPSS ${item.epss_score}%</span>` : ''}
+      ${item.feed_source ? `<span style="font-size:.72rem;color:var(--muted2);font-family:var(--font-mono);margin-left:auto">${item.feed_source.replace(/https?:\/\/(www\.)?/,'').split('/')[0]}</span>` : ''}
+    </div>
+  </article>`;
+}
+
+async function fetchAndRender() {
+  const keyInput = document.getElementById('api-key-input');
+  const key = keyInput ? keyInput.value.trim() : '';
+  if (key) { localStorage.setItem(LS_KEY, key); currentKey = key; }
+  const btn = document.getElementById('fetch-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span style="font-family:var(--font-data)">⟳ Loading...</span>'; }
+  document.getElementById('intel-grid').innerHTML = '<div class="loading-state"><span class="spin" aria-hidden="true">⟳</span> Fetching threat intelligence...</div>';
+
+  const { ok, data, error, status } = await APEX.fetchIntel(key || null, 20);
+
+  if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L13 7L7 13M1 7h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> Load Intel'; }
+
+  if (!ok) {
+    if (status === 401) {
+      Toast.error('Invalid API key. Check your key or use a demo key.');
+      document.getElementById('intel-grid').innerHTML = '<div class="loading-state" style="color:var(--red)">✕ Invalid API key. <a href="pricing.html" style="color:var(--cyan)">Get a valid key →</a></div>';
+    } else if (status === 429) {
+      Toast.warn('Rate limit exceeded. Upgrade for higher limits.');
+      document.getElementById('intel-grid').innerHTML = '<div class="loading-state" style="color:var(--amber)">⚠ Rate limit exceeded. <a href="pricing.html" style="color:var(--cyan)">Upgrade →</a></div>';
+    } else {
+      Toast.error('Failed to load intel: ' + (typeof error === 'string' ? error : JSON.stringify(error)));
+      document.getElementById('intel-grid').innerHTML = '<div class="loading-state" style="color:var(--red)">✕ Failed to load. Check your connection.</div>';
+    }
+    return;
+  }
+
+  const items = Array.isArray(data) ? data : (data.items || data.advisories || []);
+  const tier = (data.tier || (items[0] && items[0].tier) || 'free').toLowerCase();
+  updateTierBadge(tier);
+
+  // Stats
+  const statsRow = document.getElementById('stats-row');
+  statsRow.style.display = 'grid';
+  document.getElementById('stat-total').textContent = items.length;
+  const crit = items.filter(i => (i.severity||'').toUpperCase() === 'CRITICAL' || parseFloat(i.risk_score||0) >= 9).length;
+  document.getElementById('stat-critical').textContent = crit;
+  if (items[0] && items[0].timestamp) {
+    document.getElementById('stat-updated').textContent = timeSince(items[0].timestamp);
+  }
+
+  if (!items.length) {
+    document.getElementById('intel-grid').innerHTML = '<div class="loading-state">No advisories returned. Try a different key or check your plan limits.</div>';
+    return;
+  }
+
+  document.getElementById('intel-grid').innerHTML = items.map(renderCard).join('');
+  Toast.success(`Loaded ${items.length} advisories — ${crit} critical`);
+}
+
+async function runSearch() {
+  const q = (document.getElementById('search-input').value || '').trim();
+  if (!q) { Toast.warn('Enter a search query.'); return; }
+  document.getElementById('search-results').innerHTML = '<div class="loading-state"><span class="spin">⟳</span> Searching...</div>';
+  const key = currentKey || localStorage.getItem(LS_KEY) || '';
+  const headers = key ? { 'X-API-Key': key } : {};
+  const BASE = 'https://cyberdudebivash-threat-intel-platform-production.up.railway.app';
+  try {
+    const res = await fetch(`${BASE}/api/v1/intel/search?q=${encodeURIComponent(q)}&limit=20`, { headers });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const items = Array.isArray(data) ? data : (data.items || data.results || []);
+    if (!items.length) { document.getElementById('search-results').innerHTML = '<div class="loading-state">No results for "' + q + '"</div>'; return; }
+    document.getElementById('search-results').innerHTML = `<div style="font-family:var(--font-mono);font-size:.78rem;color:var(--muted);margin-bottom:12px">${items.length} RESULTS FOR "${q.toUpperCase()}"</div>` + items.map(renderCard).join('');
+  } catch(e) {
+    document.getElementById('search-results').innerHTML = `<div class="loading-state" style="color:var(--amber)">Search requires Pro tier. <a href="pricing.html" style="color:var(--cyan)">Upgrade →</a></div>`;
+  }
+}
+
+async function loadStats() {
+  const key = currentKey || localStorage.getItem(LS_KEY) || '';
+  document.getElementById('stats-content').innerHTML = '<div class="loading-state"><span class="spin">⟳</span> Loading stats...</div>';
+  const { ok, data } = await APEX.fetchStats(key);
+  if (!ok || !data) {
+    document.getElementById('stats-content').innerHTML = '<div class="loading-state" style="color:var(--amber)">Could not load stats.</div>';
+    return;
+  }
+  const s = data;
+  document.getElementById('stats-content').innerHTML = `
+    <div class="dash-stats-row" style="display:grid;margin-bottom:24px">
+      <div class="dash-stat-card"><div class="dash-stat-label">TOTAL ADVISORIES</div><div class="dash-stat-value cyan">${s.total_advisories||s.count||'—'}</div></div>
+      <div class="dash-stat-card"><div class="dash-stat-label">CRITICAL</div><div class="dash-stat-value red">${s.critical_count||'—'}</div></div>
+      <div class="dash-stat-card"><div class="dash-stat-label">AVG RISK SCORE</div><div class="dash-stat-value amber">${s.avg_risk_score ? parseFloat(s.avg_risk_score).toFixed(1) : '—'}</div></div>
+      <div class="dash-stat-card"><div class="dash-stat-label">KEV CONFIRMED</div><div class="dash-stat-value green">${s.kev_count||'—'}</div></div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;font-family:var(--font-data);font-size:.82rem">
+      <div style="color:var(--cyan);font-family:var(--font-mono);font-size:.75rem;letter-spacing:1px;margin-bottom:14px">RAW PLATFORM STATS</div>
+      <pre style="color:var(--muted);overflow-x:auto">${JSON.stringify(s, null, 2)}</pre>
+    </div>`;
+}
+</script>
+</body>
+</html>
