@@ -611,6 +611,31 @@ jobs:
           PYEOF
           fi
 
+      # ── STAGE 7b: Growth Engine (SEO Blog + Social Content) ─────────────
+      - name: Growth Engine — SEO Blog + Social Content
+        if: always()
+        shell: bash
+        env:
+          TELEGRAM_BOT_TOKEN:    ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:      ${{ secrets.TELEGRAM_CHAT_ID }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN || '' }}
+          LINKEDIN_AUTHOR_URN:   ${{ secrets.LINKEDIN_AUTHOR_URN || '' }}
+          PYTHONPATH:            ${{ github.workspace }}
+        run: |
+          echo "--- [GROWTH] SEO Blog Generator ---"
+          python3 scripts/growth/seo_blog_generator.py \
+            && echo "[GROWTH] SEO posts generated" \
+            || echo "[GROWTH] SEO complete (non-fatal)"
+          echo "--- [GROWTH] Telegram Daily Roundup ---"
+          python3 scripts/growth/telegram_content_generator.py daily_roundup \
+            && echo "[GROWTH] Telegram roundup done" \
+            || echo "[GROWTH] Telegram complete (non-fatal)"
+          echo "--- [GROWTH] LinkedIn Threat Insight ---"
+          python3 scripts/growth/linkedin_content_generator.py threat_insight \
+            && echo "[GROWTH] LinkedIn post generated" \
+            || echo "[GROWTH] LinkedIn complete (non-fatal)"
+          echo "[GROWTH] Content generation stage complete"
+
       # ── STAGE 8: Deploy to GitHub Pages ──────────────────────────────────
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
