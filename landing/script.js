@@ -114,6 +114,7 @@ async function handleSubscribe(btn) {
     }
   } catch (e) {
     Toast.error('Network error — please try again.');
+    ErrorBanner.show('Network error — could not reach payment server. Try again or use the <a href="https://cyberdudebivash.gumroad.com/" style="color:var(--cyan)" target="_blank">Gumroad store</a>.');
   }
   btn.disabled = false;
   btn.innerHTML = orig;
@@ -173,6 +174,8 @@ function animateCounter(el, target, duration = 1600) {
 document.addEventListener('DOMContentLoaded', () => {
   initNav();
   initReveal();
+  initButtonEffects();
+  initLazyLoad();
 
   // Subscribe buttons
   document.querySelectorAll('[data-subscribe]').forEach(btn => {
@@ -206,3 +209,102 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.APEX_UI = { Toast, handleSubscribe };
+
+/* ── Urgency Strip — Live count from API ──────────────────────────────── */
+(function initUrgencyStrip() {
+  const el = document.getElementById('urgency-count');
+  if (!el) return;
+  // Try fetching live critical count (non-blocking, fail-safe)
+  try {
+    fetch('https://cyberdudebivash-threat-intel-platform-production.up.railway.app/api/v1/stats', {
+      signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined,
+    })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      const count = data.critical_count || data.apex_intelligence?.total_p1 || null;
+      if (count != null && !isNaN(count)) {
+        animateCounter(el, parseInt(count), 1200);
+      }
+    })
+    .catch(() => {}); // Silent fail — default 125 stays
+  } catch(e) { /* non-critical */ }
+})();
+
+/* ── Error Banner System ──────────────────────────────────────────────── */
+const ErrorBanner = (() => {
+  let _banner = null;
+  function _getOrCreate() {
+    if (_banner) return _banner;
+    _banner = document.createElement('div');
+    _banner.id = 'error-banner';
+    _banner.style.cssText = [
+      'display:none','position:fixed','top:64px','left:0','right:0','z-index:888',
+      'background:rgba(255,23,68,.12)','border-bottom:1px solid rgba(255,23,68,.25)',
+      'padding:12px 24px','font-size:.85rem','color:#ff6680',
+      'font-family:var(--font-mono,monospace)','letter-spacing:.3px',
+      'display:none','align-items:center','justify-content:center','gap:10px',
+    ].join(';');
+    document.body.appendChild(_banner);
+    return _banner;
+  }
+  function show(msg, autohide = 6000) {
+    const b = _getOrCreate();
+    b.innerHTML = `<span style="color:#ff1744;font-weight:700">⚠</span> ${msg} <button onclick="ErrorBanner.hide()" style="margin-left:12px;background:none;border:none;color:rgba(232,240,254,.4);cursor:pointer;font-size:1.1rem;padding:0 4px">✕</button>`;
+    b.style.display = 'flex';
+    if (autohide > 0) setTimeout(() => hide(), autohide);
+  }
+  function hide() {
+    const b = document.getElementById('error-banner');
+    if (b) b.style.display = 'none';
+  }
+  return { show, hide };
+})();
+window.ErrorBanner = ErrorBanner;
+
+/* ── Button Micro-Interactions ────────────────────────────────────────── */
+function initButtonEffects() {
+  // Ripple effect on primary/secondary buttons
+  const style = document.createElement('style');
+  style.textContent = `
+    .btn { position:relative; overflow:hidden; }
+    .btn-ripple { position:absolute; border-radius:50%;
+      background:rgba(255,255,255,.2); transform:scale(0);
+      animation:btn-ripple .45s ease-out forwards; pointer-events:none; }
+    @keyframes btn-ripple { to { transform:scale(4); opacity:0; } }
+    .btn-primary:active, .btn-secondary:active { transform:scale(.97) !important; }
+    .pricing-card { transition:transform .25s cubic-bezier(.16,1,.3,1),
+      border-color .25s, box-shadow .25s; }
+    .feature-card { transition:transform .25s cubic-bezier(.16,1,.3,1),
+      border-color .25s, background .25s; }
+    .feature-card:hover { transform:translateY(-4px); }
+    .solution-card { transition:transform .3s cubic-bezier(.16,1,.3,1),
+      border-color .3s, box-shadow .3s; }
+  `;
+  document.head.appendChild(style);
+
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-primary, .btn-secondary');
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const size = Math.max(r.width, r.height) * 1.8;
+    const ripple = document.createElement('span');
+    ripple.className = 'btn-ripple';
+    ripple.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX-r.left-size/2}px;top:${e.clientY-r.top-size/2}px`;
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 500);
+  });
+}
+
+/* ── Lazy Load Sections ───────────────────────────────────────────────── */
+function initLazyLoad() {
+  // Add loading='lazy' to any img tags injected later
+  // Defer non-critical sections using CSS contain
+  const style = document.createElement('style');
+  style.textContent = `
+    .section-pad, .section-pad-sm { contain:layout style; }
+    .features-grid, .problem-grid { will-change:auto; }
+  `;
+  document.head.appendChild(style);
+}
+
