@@ -2,7 +2,7 @@
   "threat_id": "thr-17d3622e5d64",
   "title": "PTC Windchill Product Lifecycle Management",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - PTC Windchill Product Lifecycle Management\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/28\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*www.ptc.com*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - PTC Windchill Product Lifecycle Management\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/29\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*www.ptc.com*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"www.ptc.com\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"www.ptc.com\")"
   },
