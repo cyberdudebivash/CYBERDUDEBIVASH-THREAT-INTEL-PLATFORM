@@ -26,6 +26,22 @@
 .loading-state{text-align:center;padding:48px;color:var(--muted);font-family:var(--font-mono);font-size:.9rem}
 .loading-state .spin{display:inline-block;animation:spin 1s linear infinite;font-size:1.5rem}
 @keyframes spin{100%{transform:rotate(360deg)}}
+/* Locked features */
+.locked-features-panel{background:linear-gradient(135deg,rgba(0,229,255,.04),rgba(185,117,255,.03));border:1px solid rgba(0,229,255,.12);border-radius:var(--r-lg);padding:20px 24px;margin-bottom:20px}
+.locked-features-title{font-family:var(--font-mono);font-size:.75rem;letter-spacing:1px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.locked-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.locked-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:.82rem;color:var(--muted)}
+.locked-icon{font-size:1rem;opacity:.6}
+.locked-item .locked-tier{font-size:.65rem;margin-left:auto;font-family:var(--font-mono);padding:1px 6px;border-radius:3px;font-weight:700}
+.tier-pro-badge{background:rgba(0,229,255,.1);color:var(--cyan);border:1px solid rgba(0,229,255,.2)}
+.tier-ent-badge{background:rgba(185,117,255,.1);color:var(--purple);border:1px solid rgba(185,117,255,.2)}
+/* Key validation states */
+.key-input.valid{border-color:var(--green)!important}
+.key-input.invalid{border-color:var(--red)!important}
+.key-status{font-size:.78rem;margin-top:6px;font-family:var(--font-data);display:none}
+.key-status.show{display:block}
+.key-status.valid-msg{color:var(--green)}
+.key-status.error-msg{color:var(--red)}
 .ioc-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .ioc-chip{padding:2px 8px;border-radius:3px;font-size:.7rem;font-family:var(--font-data);background:var(--surface2);border:1px solid var(--border);color:var(--muted)}
 .mitre-chip{padding:2px 8px;border-radius:3px;font-size:.7rem;font-family:var(--font-data);background:rgba(185,117,255,.1);border:1px solid rgba(185,117,255,.2);color:var(--purple)}
@@ -99,6 +115,7 @@
         </button>
         <button class="btn btn-ghost btn-sm" onclick="clearKey()" title="Clear key" style="padding:10px 14px">✕</button>
       </div>
+      <div class="key-status" id="key-status"></div>
       <div style="margin-top:10px;font-size:.78rem;color:var(--muted);font-family:var(--font-data)">
         Free demo keys: <span style="color:var(--cyan);cursor:pointer" onclick="useDemo('demo-pro-key-1111')">demo-pro-key-1111</span> &nbsp;|&nbsp;
         <span style="color:var(--muted2);cursor:pointer" onclick="useDemo('')">anonymous (free)</span>
@@ -107,13 +124,29 @@
 
     <!-- Views -->
     <div id="view-feed">
-      <!-- Upgrade Banner (free tier) -->
-      <div class="upgrade-banner" id="upgrade-banner" style="display:none">
+      <!-- Upgrade Banner (free tier) — sticky top -->
+      <div class="upgrade-banner" id="upgrade-banner" style="display:none;position:sticky;top:0;z-index:100;margin-bottom:16px">
         <div class="upgrade-text">
           <h3>🔓 Unlock Full APEX Intelligence</h3>
-          <p>You're on the Free tier. Upgrade to Pro ($49/mo) for 100 advisories/req, full IOC data, APEX AI enrichment, and Telegram alerts.</p>
+          <p>Free tier: 10 advisories, no APEX enrichment. <strong style="color:var(--cyan)">Pro ($49/mo)</strong> unlocks 100 advisories, full IOC data, APEX AI, and Telegram alerts.</p>
         </div>
-        <a href="pricing.html" class="btn btn-primary btn-sm">Upgrade to Pro →</a>
+        <a href="pricing.html" class="btn btn-primary btn-sm">Upgrade Now →</a>
+      </div>
+
+      <!-- Locked Features (free tier only) -->
+      <div class="locked-features-panel" id="locked-panel" style="display:none">
+        <div class="locked-features-title">
+          <span>🔒</span> FEATURES LOCKED ON FREE TIER — UPGRADE TO UNLOCK
+        </div>
+        <div class="locked-grid">
+          <div class="locked-item"><span class="locked-icon">⚡</span>Real-Time Telegram Alerts<span class="locked-tier tier-pro-badge">PRO</span></div>
+          <div class="locked-item"><span class="locked-icon">📦</span>Full IOC Export (IPs, Hashes)<span class="locked-tier tier-pro-badge">PRO</span></div>
+          <div class="locked-item"><span class="locked-icon">⬡</span>APEX AI Enrichment<span class="locked-tier tier-pro-badge">PRO</span></div>
+          <div class="locked-item"><span class="locked-icon">🔍</span>Full-Text Search API<span class="locked-tier tier-pro-badge">PRO</span></div>
+          <div class="locked-item"><span class="locked-icon">📊</span>Bulk STIX 2.1 Export<span class="locked-tier tier-ent-badge">ENT</span></div>
+          <div class="locked-item"><span class="locked-icon">🛡</span>Auto Response Engine<span class="locked-tier tier-ent-badge">ENT</span></div>
+        </div>
+        <a href="pricing.html" style="display:inline-block;margin-top:14px;font-size:.82rem;color:var(--cyan);font-family:var(--font-mono)">View all plan features →</a>
       </div>
 
       <!-- Stats Row -->
@@ -184,6 +217,12 @@ function clearKey() {
   document.getElementById('intel-grid').innerHTML = '<div class="loading-state">API key cleared. Enter a key to load intel.</div>';
   document.getElementById('stats-row').style.display = 'none';
   document.getElementById('upgrade-banner').style.display = 'none';
+  const lp = document.getElementById('locked-panel');
+  if (lp) lp.style.display = 'none';
+  const ks = document.getElementById('key-status');
+  if (ks) { ks.className = 'key-status'; ks.textContent = ''; }
+  const ki = document.getElementById('api-key-input');
+  if (ki) ki.classList.remove('valid','invalid');
 }
 
 function showView(name) {
@@ -300,7 +339,14 @@ async function fetchAndRender() {
   const keyInput = document.getElementById('api-key-input');
   const key = keyInput ? keyInput.value.trim() : '';
   if (key) { localStorage.setItem(LS_KEY, key); currentKey = key; }
+
   const btn = document.getElementById('fetch-btn');
+  const keyStatus = document.getElementById('key-status');
+
+  // Reset key status UI
+  if (keyInput) { keyInput.classList.remove('valid','invalid'); }
+  if (keyStatus) { keyStatus.className = 'key-status'; keyStatus.textContent = ''; }
+
   if (btn) { btn.disabled = true; btn.innerHTML = '<span style="font-family:var(--font-data)">⟳ Loading...</span>'; }
   document.getElementById('intel-grid').innerHTML = '<div class="loading-state"><span class="spin" aria-hidden="true">⟳</span> Fetching threat intelligence...</div>';
 
@@ -310,23 +356,38 @@ async function fetchAndRender() {
 
   if (!ok) {
     if (status === 401) {
-      Toast.error('Invalid API key. Check your key or use a demo key.');
+      // Invalid key — show red state
+      if (keyInput) keyInput.classList.add('invalid');
+      if (keyStatus) { keyStatus.className = 'key-status show error-msg'; keyStatus.textContent = '✕ Invalid API key — check your key or use a demo key'; }
+      Toast.error('Invalid API key.');
       document.getElementById('intel-grid').innerHTML = '<div class="loading-state" style="color:var(--red)">✕ Invalid API key. <a href="pricing.html" style="color:var(--cyan)">Get a valid key →</a></div>';
     } else if (status === 429) {
       Toast.warn('Rate limit exceeded. Upgrade for higher limits.');
       document.getElementById('intel-grid').innerHTML = '<div class="loading-state" style="color:var(--amber)">⚠ Rate limit exceeded. <a href="pricing.html" style="color:var(--cyan)">Upgrade →</a></div>';
     } else {
-      Toast.error('Failed to load intel: ' + (typeof error === 'string' ? error : JSON.stringify(error)));
-      document.getElementById('intel-grid').innerHTML = '<div class="loading-state" style="color:var(--red)">✕ Failed to load. Check your connection.</div>';
+      Toast.error('Connection error — please retry.');
+      document.getElementById('intel-grid').innerHTML = '<div class="loading-state" style="color:var(--red)">✕ Failed to load. Check your connection and try again.</div>';
     }
     return;
+  }
+
+  // Success — show green key status
+  if (key && keyInput) keyInput.classList.add('valid');
+  if (key && keyStatus) {
+    const tierLabel = currentTier !== 'free' ? ` — ${currentTier.toUpperCase()} plan` : ' — Free tier';
+    keyStatus.className = 'key-status show valid-msg';
+    keyStatus.textContent = `✓ API Key Valid — Access Granted${tierLabel}`;
   }
 
   const items = Array.isArray(data) ? data : (data.items || data.advisories || []);
   const tier = (data.tier || (items[0] && items[0].tier) || 'free').toLowerCase();
   updateTierBadge(tier);
 
-  // Stats
+  // Show/hide locked panel
+  const lockedPanel = document.getElementById('locked-panel');
+  if (lockedPanel) lockedPanel.style.display = tier === 'free' ? 'block' : 'none';
+
+  // Stats row
   const statsRow = document.getElementById('stats-row');
   statsRow.style.display = 'grid';
   document.getElementById('stat-total').textContent = items.length;
@@ -342,7 +403,7 @@ async function fetchAndRender() {
   }
 
   document.getElementById('intel-grid').innerHTML = items.map(renderCard).join('');
-  Toast.success(`Loaded ${items.length} advisories — ${crit} critical`);
+  Toast.success(`✓ Loaded ${items.length} advisories — ${crit} critical`);
 }
 
 async function runSearch() {

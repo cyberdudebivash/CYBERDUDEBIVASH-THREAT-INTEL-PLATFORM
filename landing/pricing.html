@@ -23,6 +23,12 @@
 .faq-item.open .faq-q::after{transform:rotate(45deg)}
 .faq-a{display:none;padding:0 22px 18px;color:var(--muted);font-size:.9rem;line-height:1.7}
 .faq-item.open .faq-a{display:block}
+/* Loading state for subscribe buttons */
+.btn.loading{opacity:.75;cursor:not-allowed;pointer-events:none}
+/* Trust row */
+.pricing-trust{text-align:center;margin-top:24px;font-size:.82rem;color:rgba(232,240,254,.4);font-family:var(--font-mono);letter-spacing:.3px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+.pricing-trust span{display:flex;align-items:center;gap:5px}
+.pricing-trust span::before{content:'✓';color:#00e676}
 </style>
 </head>
 <body>
@@ -158,11 +164,15 @@
         <div class="form-group" style="margin-bottom:12px"><input class="form-input key-input" id="mssp-name" type="text" placeholder="MSSP company name"></div>
         <button class="btn btn-secondary btn-full" data-subscribe data-plan="mssp" onclick="subscribePlan('mssp',this)">Get MSSP Access →</button>
       </article>
+    </div><!-- /pricing-grid -->
+    <div class="pricing-trust">
+      <span>Cancel anytime</span>
+      <span>Secure payments via Stripe &amp; Razorpay</span>
+      <span>API key provisioned instantly</span>
+      <span>No hidden fees</span>
     </div>
   </div>
 </section>
-
-<!-- ── Add-Ons ── -->
 <section class="section-pad-sm" style="background:rgba(0,229,255,.015);border-top:1px solid var(--border)">
   <div class="container">
     <div class="text-center" data-reveal>
@@ -242,6 +252,7 @@
 <script src="script.js" defer></script>
 <script>
 let currentProvider = 'stripe';
+const _activeRequests = new Set(); // prevent duplicate submissions
 function setProvider(p) {
   currentProvider = p;
   document.querySelectorAll('.provider-btn').forEach(b => b.classList.remove('active'));
@@ -249,11 +260,11 @@ function setProvider(p) {
   const showInr = p === 'razorpay';
   ['pro','ent','mssp'].forEach(t => {
     const inrEl = document.getElementById('inr-' + t);
-    const periodEl = document.getElementById('period-' + t);
     if (inrEl) inrEl.style.display = showInr ? 'block' : 'none';
   });
 }
 function subscribePlan(plan, btn) {
+  if (_activeRequests.has(plan)) return; // prevent duplicate
   const emailEl = document.getElementById(plan.substring(0,3) + '-email') ||
                   document.getElementById(plan.slice(0,4) + '-email');
   const nameEl  = document.getElementById(plan.substring(0,3) + '-name') ||
@@ -265,23 +276,33 @@ function subscribePlan(plan, btn) {
     if (emailEl) emailEl.focus();
     return;
   }
+  // Loading state
+  _activeRequests.add(plan);
   btn.disabled = true;
+  btn.classList.add('loading');
   const orig = btn.innerHTML;
-  btn.innerHTML = '<span style="font-family:var(--font-data)">⟳ Connecting...</span>';
+  btn.innerHTML = '<span style="font-family:var(--font-data)">⟳ Connecting to payment...</span>';
+
   APEX.subscribe(plan, currentProvider, name, email).then(({ ok, data, error }) => {
     if (ok && data.checkout_url) {
-      if (window.APEX_UI) window.APEX_UI.Toast.success('Redirecting to checkout...');
+      if (window.APEX_UI) window.APEX_UI.Toast.success('Redirecting to secure checkout...');
+      btn.innerHTML = '<span style="color:var(--green)">✓ Redirecting...</span>';
       setTimeout(() => { window.location.href = data.checkout_url; }, 700);
+      return; // Don't re-enable — we're navigating away
     } else {
-      if (window.APEX_UI) window.APEX_UI.Toast.error('Checkout unavailable. Redirecting to store...');
+      if (window.APEX_UI) window.APEX_UI.Toast.error('Checkout unavailable — redirecting to store...');
+      btn.innerHTML = '<span style="font-family:var(--font-data)">⟳ Opening store...</span>';
       setTimeout(() => { window.open('https://cyberdudebivash.gumroad.com/', '_blank'); }, 800);
     }
-    btn.disabled = false;
-    btn.innerHTML = orig;
   }).catch(() => {
     window.open('https://cyberdudebivash.gumroad.com/', '_blank');
-    btn.disabled = false;
-    btn.innerHTML = orig;
+  }).finally(() => {
+    setTimeout(() => {
+      _activeRequests.delete(plan);
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      btn.innerHTML = orig;
+    }, 2000);
   });
 }
 function toggleFaq(el) {
