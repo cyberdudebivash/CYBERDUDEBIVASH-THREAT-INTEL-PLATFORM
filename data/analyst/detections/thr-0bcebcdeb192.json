@@ -2,21 +2,21 @@
   "threat_id": "thr-0bcebcdeb192",
   "title": "February 2026 CVE Landscape: 13 Critical Vulnerabilities Mark 43% Drop from Janu",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - February 2026 CVE Landscape: 13 Critical Vulnerabilities Mar\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/28\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '20.12.5.3'\n            - '20.12.6.1'\n            - '20.15.4.2'\n            - '20.18.2.1'\n            - '20.9.8.2'\n    selection_dns:\n        query:\n            - '*document.doc*'\n    condition: selection_ip or selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - February 2026 CVE Landscape: 13 Critical Vulnerabilities Mar\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/29\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '20.12.5.3'\n            - '20.12.6.1'\n            - '20.15.4.2'\n            - '20.18.2.1'\n            - '20.9.8.2'\n    selection_dns:\n        query:\n            - '*document.doc*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "yara": "rule CDB_APEX_February_2026_CVE_Landscape__13_Critical {\n    meta:\n        description = \"February 2026 CVE Landscape: 13 Critical Vulnerabilities Mar\"\n        author = \"CyberDudeBivash\"\n    strings:\n        $h0 = \"4d4aec6120290e21778c1b14c94aa6ebff3b0816fb6798495dc2eae165db4566\" ascii nocase\n    condition:\n        any of them\n}",
     "suricata": [
-      "alert ip any any -> 20.12.5.3 any (msg:\"CDB APEX - February_2026_CVE_Landscape__1\"; sid:3586767; rev:1;)",
-      "alert ip any any -> 20.12.6.1 any (msg:\"CDB APEX - February_2026_CVE_Landscape__1\"; sid:9475388; rev:1;)",
-      "alert ip any any -> 20.15.4.2 any (msg:\"CDB APEX - February_2026_CVE_Landscape__1\"; sid:9411633; rev:1;)",
-      "alert ip any any -> 20.18.2.1 any (msg:\"CDB APEX - February_2026_CVE_Landscape__1\"; sid:9019389; rev:1;)",
-      "alert ip any any -> 20.9.8.2 any (msg:\"CDB APEX - February_2026_CVE_Landscape__1\"; sid:6555156; rev:1;)"
+      "alert ip any any -> 20.12.5.3 any (msg:\"CDB APEX - February_2026_CVE_Landscape__1\"; sid:1083173; rev:1;)",
+      "alert ip any any -> 20.12.6.1 any (msg:\"CDB APEX - February_2026_CVE_Landscape__1\"; sid:3585751; rev:1;)",
+      "alert ip any any -> 20.15.4.2 any (msg:\"CDB APEX - February_2026_CVE_Landscape__1\"; sid:8597157; rev:1;)",
+      "alert ip any any -> 20.18.2.1 any (msg:\"CDB APEX - February_2026_CVE_Landscape__1\"; sid:1717748; rev:1;)",
+      "alert ip any any -> 20.9.8.2 any (msg:\"CDB APEX - February_2026_CVE_Landscape__1\"; sid:3700669; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 20.12.5.3 any (msg:\"CDB APEX February_2026_CVE_Landscape__1\"; sid:6067383; rev:1;)",
-      "alert ip any any -> 20.12.6.1 any (msg:\"CDB APEX February_2026_CVE_Landscape__1\"; sid:9852135; rev:1;)",
-      "alert ip any any -> 20.15.4.2 any (msg:\"CDB APEX February_2026_CVE_Landscape__1\"; sid:8880556; rev:1;)",
-      "alert ip any any -> 20.18.2.1 any (msg:\"CDB APEX February_2026_CVE_Landscape__1\"; sid:6943504; rev:1;)",
-      "alert ip any any -> 20.9.8.2 any (msg:\"CDB APEX February_2026_CVE_Landscape__1\"; sid:7103870; rev:1;)"
+      "alert ip any any -> 20.12.5.3 any (msg:\"CDB APEX February_2026_CVE_Landscape__1\"; sid:2505120; rev:1;)",
+      "alert ip any any -> 20.12.6.1 any (msg:\"CDB APEX February_2026_CVE_Landscape__1\"; sid:2523961; rev:1;)",
+      "alert ip any any -> 20.15.4.2 any (msg:\"CDB APEX February_2026_CVE_Landscape__1\"; sid:6332063; rev:1;)",
+      "alert ip any any -> 20.18.2.1 any (msg:\"CDB APEX February_2026_CVE_Landscape__1\"; sid:9969837; rev:1;)",
+      "alert ip any any -> 20.9.8.2 any (msg:\"CDB APEX February_2026_CVE_Landscape__1\"; sid:9331512; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"20.12.5.3\",\n              \"20.12.6.1\",\n              \"20.15.4.2\",\n              \"20.18.2.1\",\n              \"20.9.8.2\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"document.doc\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"file.hash.sha256\": [\n              \"4d4aec6120290e21778c1b14c94aa6ebff3b0816fb6798495dc2eae165db4566\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"20.12.5.3\", \"20.12.6.1\", \"20.15.4.2\", \"20.18.2.1\", \"20.9.8.2\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"document.doc\")"
