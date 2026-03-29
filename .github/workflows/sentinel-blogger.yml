@@ -626,10 +626,20 @@ jobs:
           python3 scripts/growth/seo_blog_generator.py \
             && echo "[GROWTH] SEO posts generated" \
             || echo "[GROWTH] SEO complete (non-fatal)"
+          echo "--- [GROWTH] Weekly Threat Page ---"
+          python3 -c "
+from scripts.growth.seo_blog_generator import generate_weekly_page
+r = generate_weekly_page()
+print('[GROWTH] Weekly page:', r or 'skipped')
+" || echo "[GROWTH] Weekly page complete (non-fatal)"
           echo "--- [GROWTH] Telegram Daily Roundup ---"
           python3 scripts/growth/telegram_content_generator.py daily_roundup \
             && echo "[GROWTH] Telegram roundup done" \
             || echo "[GROWTH] Telegram complete (non-fatal)"
+          echo "--- [GROWTH] Telegram CVE Spotlight ---"
+          python3 scripts/growth/telegram_content_generator.py cve_spotlight \
+            && echo "[GROWTH] Telegram spotlight done" \
+            || echo "[GROWTH] Telegram spotlight complete (non-fatal)"
           echo "--- [GROWTH] LinkedIn Threat Insight ---"
           python3 scripts/growth/linkedin_content_generator.py threat_insight \
             && echo "[GROWTH] LinkedIn post generated" \

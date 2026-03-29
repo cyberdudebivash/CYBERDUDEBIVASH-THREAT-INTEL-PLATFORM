@@ -115,9 +115,13 @@ def _build_daily_roundup(manifest: List[Dict]) -> str:
         f"• {kev_count} CISA KEV confirmed exploits",
         f"",
         f"🔗 [Live Dashboard]({PLATFORM_URL}) | [Get API Access]({PRICING_URL})",
+        f"📱 [Join Telegram Channel]({PLATFORM_URL.replace('intel.','t.me/cyberdudebivash')}SentinelApex)",
         f"",
-        f"_Join free → get P1 alerts in this channel_",
-        f"_Pro subscribers → full IOC + APEX AI analysis_",
+        f"💡 *Free API — no signup:*",
+        f"`curl {PLATFORM_URL.replace('https://intel.','https://cyberdudebivash-threat-intel-platform-production.up.railway.app')}/api/v1/intel/latest`",
+        f"",
+        f"_Pro plan ($49/mo) → full IOC + APEX AI + Telegram alerts_",
+        f"_→ {PRICING_URL}_",
     ])
     return "\n".join(lines)
 
@@ -165,9 +169,11 @@ def _build_cve_spotlight(entry: Dict) -> str:
         f"",
         f"━━━━━━━━━━━━━━━━━━━━",
         f"📋 [Full Advisory + IOCs]({blog_url or PLATFORM_URL})",
-        f"🌐 [Live Dashboard]({PLATFORM_URL})",
-        f"🔑 [Get Pro API Access]({PRICING_URL}) | `$49/mo`",
+        f"🌐 [Live Dashboard — 500+ Advisories]({PLATFORM_URL})",
+        f"🔑 [Get Pro API $49/mo — Full APEX AI]({PRICING_URL})",
+        f"📡 [Join Telegram](https://t.me/cyberdudebivashSentinelApex)",
         f"",
+        f"_Free: `curl .../api/v1/intel/latest` — no signup_",
         f"_CYBERDUDEBIVASH® Sentinel APEX — AI-Powered Threat Intelligence_",
     ])
     return "\n".join(line for line in lines if line is not None)

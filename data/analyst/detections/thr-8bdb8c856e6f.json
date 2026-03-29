@@ -2,7 +2,7 @@
   "threat_id": "thr-8bdb8c856e6f",
   "title": "Open Directory Malware Campaign Uses Obfuscated VBS, PNG Loaders and RAT Payload",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - Open Directory Malware Campaign Uses Obfuscated VBS, PNG Loa\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/29\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*uac.png*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - Open Directory Malware Campaign Uses Obfuscated VBS, PNG Loa\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/28\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*uac.png*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"uac.png\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"uac.png\")"
   },
