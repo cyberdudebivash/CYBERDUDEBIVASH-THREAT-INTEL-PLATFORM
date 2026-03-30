@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
-enricher.py - CyberDudeBivash v11.0 (SENTINEL APEX ULTRA)
+enricher.py - CyberDudeBivash v12.0 (SENTINEL APEX ULTRA)
 UPGRADED: SHA256/MD5 extraction, URL extraction, email extraction,
 private IP exclusion, false-positive domain filtering, confidence scoring.
+
+v12.0 CHANGES:
+  - calculate_confidence_v47(): KEV floor (70%), CVSS+EPSS critical floor (80%),
+    EPSS tier bonuses, severity-weighted IMPACT score.
+    Fixes Fortinet FortiClient KEV=True/EPSS=94% scoring only 46% confidence.
 """
 import re
 import math
@@ -203,6 +208,74 @@ class IntelligenceEnricher:
             score += 5
 
         return min(round(score, 1), 100.0)
+
+    def calculate_confidence_v47(
+        self,
+        iocs: Dict[str, List[str]],
+        actor_mapped: bool = False,
+        kev_present: bool = False,
+        epss_score: float = 0.0,
+        cvss_score: float = 0.0,
+    ) -> float:
+        """
+        v47.0: KEV-aware, severity-weighted confidence scoring.
+
+        Improvements over v11.0:
+          - KEV floor: KEV-confirmed advisories can never score below 70%
+            (fixes Fortinet FortiClient: KEV=True, EPSS=94%, confidence=46% bug)
+          - CVSS 9+ + EPSS 70%+ critical floor: always >= 80%
+          - EPSS tier bonuses: reward high-exploit-probability advisories
+          - Actor uncertainty bypass: when KEV confirmed, actor_mapped is less
+            critical (known exploitation removes uncertainty)
+          - Backward compatible: same IOC richness scoring as v11.0 base
+
+        Returns: float 0.0–100.0
+        """
+        # --- Base IOC richness score (same as v11.0) ---
+        base_score = self.calculate_confidence(iocs, actor_mapped)
+
+        # --- v47.0: EPSS tier bonuses ---
+        epss = epss_score or 0.0
+        if epss >= 90.0:
+            base_score = min(base_score + 20.0, 100.0)
+        elif epss >= 70.0:
+            base_score = min(base_score + 12.0, 100.0)
+        elif epss >= 40.0:
+            base_score = min(base_score + 6.0, 100.0)
+
+        # --- v47.0: CVSS severity bonus ---
+        cvss = cvss_score or 0.0
+        if cvss >= 9.5:
+            base_score = min(base_score + 15.0, 100.0)
+        elif cvss >= 9.0:
+            base_score = min(base_score + 10.0, 100.0)
+        elif cvss >= 7.0:
+            base_score = min(base_score + 5.0, 100.0)
+
+        # --- v47.0: CVSS 9+ AND EPSS 70%+ critical floor ---
+        if cvss >= 9.0 and epss >= 70.0:
+            if base_score < 80.0:
+                logger.info(
+                    f"[v47.0] Critical floor applied (CVSS={cvss}/EPSS={epss:.1f}%): "
+                    f"{base_score:.1f}% -> 80.0%"
+                )
+                base_score = 80.0
+
+        # --- v47.0: KEV floor — ground truth of active exploitation ---
+        if kev_present:
+            if base_score < 70.0:
+                logger.info(
+                    f"[v47.0] KEV floor applied: {base_score:.1f}% -> 70.0%"
+                )
+                base_score = 70.0
+            # KEV + EPSS > 70 → confirmed active exploitation → 85% floor
+            if epss >= 70.0 and base_score < 85.0:
+                logger.info(
+                    f"[v47.0] KEV+EPSS exploitation floor: {base_score:.1f}% -> 85.0%"
+                )
+                base_score = 85.0
+
+        return min(round(base_score, 1), 100.0)
 
     def get_ioc_counts(self, iocs: Dict[str, List[str]]) -> Dict[str, int]:
         """Return count of each IOC category (for manifest storage)."""

@@ -70,18 +70,13 @@ env:
   PYTHONUNBUFFERED: "1"
   TZ: "UTC"
   # [FIX-R05] Job-level propagation — silences oauth2client file_cache warning
-  # GOOGLE_OAUTH_DISABLE_FILE_CACHE must be set at global env level so it is
-  # inherited by ALL steps AND all subprocesses before any Python import occurs.
-  # Setting it only in Stage 1 step env was too late — module already imported.
   GOOGLE_OAUTH_DISABLE_FILE_CACHE: "1"
 
 jobs:
   publish-threat-report:
     name: publish-threat-report
     runs-on: ubuntu-latest
-    timeout-minutes: 35             # v77.2 FIX: Increased 25→35 min. Stage 1 is now 20 min.
-                                    # Remaining stages (2-9) need ~10 min. Total: 30 min.
-                                    # 35 min ceiling gives 5 min safety buffer.
+    timeout-minutes: 35             # v77.2 FIX: Increased 25→35 min safety buffer.
 
     permissions:
       contents: write
@@ -269,10 +264,7 @@ jobs:
       # ── STAGE 1: Core Intelligence Engine ────────────────────────────────
       - name: Run Sentinel Engine (SAFE MODE)
         shell: bash
-        timeout-minutes: 20         # v77.2 FIX: Increased 12→20 min. Previous 12 min caused
-                                    # timeout when Blogger 429 retry delays (15s×2=30s) plus
-                                    # feed processing time exceeded the limit. 20 min provides
-                                    # headroom for up to 20 publishes + retry waits safely.
+        timeout-minutes: 20
         env:
           PYTHONIOENCODING: utf-8
           CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
@@ -286,9 +278,6 @@ jobs:
           MASTODON_INSTANCE_URL: ${{ secrets.MASTODON_INSTANCE_URL || '' }}
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY || '' }}
           SENTINEL_REVENUE_TOKEN: ${{ secrets.SENTINEL_REVENUE_TOKEN || '' }}
-          # [FIX-v77.2-E] NVD_API_KEY — now populated (secret added by user)
-          # Enables 50 req/30s NVD rate limit instead of 5 req/30s unauthenticated
-          # Full CVSS enrichment for every CVE advisory published
           NVD_API_KEY: ${{ secrets.NVD_API_KEY || '' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '' }}
@@ -297,9 +286,6 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
           FORCE_PUBLISH: ${{ github.event.inputs.force_publish || 'false' }}
           DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
-          # [FIX-v77.2-D] Silences: "file_cache is only supported with oauth2client<4.0.0"
-          # googleapiclient tries to use deprecated oauth2client file cache at startup.
-          # This env var disables it cleanly without requiring a downgrade.
           GOOGLE_OAUTH_DISABLE_FILE_CACHE: "1"
         run: |
           set -euo pipefail
@@ -308,9 +294,6 @@ jobs:
 
           export PYTHONWARNINGS="ignore::DeprecationWarning,ignore::UserWarning"
 
-          # [FIX-STAGE1] v77.1: agent/sentinel_blogger.py is the real v21.0 pipeline.
-          # ROOT CAUSE OF 0-PUBLISH BUG: root sentinel_blogger.py called
-          # fetch_all_feeds() which does NOT exist in multi_source_intel.py.
           if [ -f agent/sentinel_blogger.py ]; then
             echo "Running production pipeline: agent/sentinel_blogger.py"
             python3 agent/sentinel_blogger.py
@@ -458,13 +441,6 @@ jobs:
 
             git commit -m "v77.0 Pipeline data [skip ci]" --no-verify
 
-            # [FIX-v77.2-F] reset --soft strategy — eliminates rebase JSON conflicts.
-            # Run #567 failed because: rebase hit content conflict in status.json
-            # when two pipeline runs overlapped. Rebase cannot auto-resolve JSON.
-            # FIX: fetch + reset --soft keeps our data, puts it on fresh remote HEAD.
-            # [FIX-R04] Hardened push — 4 attempts, exponential backoff (10s/20s/30s),
-            # always-fresh fetch+reset before each attempt prevents stale ref conflicts.
-            # Empty-commit guard prevents "nothing to commit" being treated as failure.
             MAX_ATTEMPTS=4
             for attempt in 1 2 3 4; do
               echo "=== Push attempt $attempt / $MAX_ATTEMPTS ==="
@@ -511,9 +487,6 @@ jobs:
           fi
 
       # ── STAGE 6b: APEX AI Enrichment Layer (OPTIONAL — feature-flagged) ───────
-      # SAFE MERGE: runs AFTER primary pipeline, isolated, never blocks deploy
-      # Enable: set CDB_APEX_ENABLED=true in GitHub repo variables
-      # Disable: set CDB_APEX_ENABLED=false (default) — zero impact
       - name: APEX AI Enrichment Layer
         shell: bash
         timeout-minutes: 5
@@ -531,7 +504,6 @@ jobs:
             echo "[APEX] APEX ENABLED — Feature flag is TRUE — starting enrichment"
             python3 -m agent.apex_wrapper || echo "[APEX] Enrichment completed with warnings (non-fatal)"
             echo "[APEX] Enrichment stage complete"
-            # v23.0: Backfill apex field into manifest from apex_index.json
             python3 scripts/apex_manifest_patcher.py || echo "[APEX-PATCHER] Patcher completed (non-fatal)"
           else
             echo "[APEX] Feature flag DISABLED (CDB_APEX_ENABLED=false) — skipping safely"
@@ -622,28 +594,48 @@ jobs:
           LINKEDIN_AUTHOR_URN:   ${{ secrets.LINKEDIN_AUTHOR_URN || '' }}
           PYTHONPATH:            ${{ github.workspace }}
         run: |
+          set -euo pipefail
+
           echo "--- [GROWTH] SEO Blog Generator ---"
-          python3 scripts/growth/seo_blog_generator.py \
-            && echo "[GROWTH] SEO posts generated" \
-            || echo "[GROWTH] SEO complete (non-fatal)"
+          if python3 scripts/growth/seo_blog_generator.py; then
+            echo "[GROWTH] SEO posts generated"
+          else
+            echo "[GROWTH] SEO complete (non-fatal)"
+          fi
+
           echo "--- [GROWTH] Weekly Threat Page ---"
-          python3 -c "
-from scripts.growth.seo_blog_generator import generate_weekly_page
-r = generate_weekly_page()
-print('[GROWTH] Weekly page:', r or 'skipped')
-" || echo "[GROWTH] Weekly page complete (non-fatal)"
+          if python3 << 'EOF'
+          from scripts.growth.seo_blog_generator import generate_weekly_page
+          r = generate_weekly_page()
+          print("[GROWTH] Weekly page:", r or "skipped")
+          EOF
+          then
+            echo "[GROWTH] Weekly page generated"
+          else
+            echo "[GROWTH] Weekly page complete (non-fatal)"
+          fi
+
           echo "--- [GROWTH] Telegram Daily Roundup ---"
-          python3 scripts/growth/telegram_content_generator.py daily_roundup \
-            && echo "[GROWTH] Telegram roundup done" \
-            || echo "[GROWTH] Telegram complete (non-fatal)"
+          if python3 scripts/growth/telegram_content_generator.py daily_roundup; then
+            echo "[GROWTH] Telegram roundup done"
+          else
+            echo "[GROWTH] Telegram complete (non-fatal)"
+          fi
+
           echo "--- [GROWTH] Telegram CVE Spotlight ---"
-          python3 scripts/growth/telegram_content_generator.py cve_spotlight \
-            && echo "[GROWTH] Telegram spotlight done" \
-            || echo "[GROWTH] Telegram spotlight complete (non-fatal)"
+          if python3 scripts/growth/telegram_content_generator.py cve_spotlight; then
+            echo "[GROWTH] Telegram spotlight done"
+          else
+            echo "[GROWTH] Telegram spotlight complete (non-fatal)"
+          fi
+
           echo "--- [GROWTH] LinkedIn Threat Insight ---"
-          python3 scripts/growth/linkedin_content_generator.py threat_insight \
-            && echo "[GROWTH] LinkedIn post generated" \
-            || echo "[GROWTH] LinkedIn complete (non-fatal)"
+          if python3 scripts/growth/linkedin_content_generator.py threat_insight; then
+            echo "[GROWTH] LinkedIn post generated"
+          else
+            echo "[GROWTH] LinkedIn complete (non-fatal)"
+          fi
+
           echo "[GROWTH] Content generation stage complete"
 
       # ── STAGE 8: Deploy to GitHub Pages ──────────────────────────────────
