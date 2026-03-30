@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-d8698da576e2",
+  "title": "TeamPCP Supply Chain Campaign: Update 004 - Databricks Investigating Alleged Com",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 - TeamPCP Supply Chain Campaign: Update 004 - Databricks Inves\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/30\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*crates.io*'\n            - '*isc.sans.edu*'\n            - '*sans.org*'\n            - '*v1.82.6.rc*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"crates.io\",\n              \"isc.sans.edu\",\n              \"sans.org\",\n              \"v1.82.6.rc\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"crates.io\", \"isc.sans.edu\", \"sans.org\", \"v1.82.6.rc\")"
+  },
+  "rule_count": 3
+}

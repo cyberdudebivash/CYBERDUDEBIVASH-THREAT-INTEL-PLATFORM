@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-9f2a693b9806",
+  "title": "Stored XSS Bug in Jira Work Management Could Lead to Full Organization Takeover",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 - Stored XSS Bug in Jira Work Management Could Lead to Full Or\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/30\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*jira-xss.js*'\n            - '*snapsec.co*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"jira-xss.js\",\n              \"snapsec.co\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"jira-xss.js\", \"snapsec.co\")"
+  },
+  "rule_count": 3
+}

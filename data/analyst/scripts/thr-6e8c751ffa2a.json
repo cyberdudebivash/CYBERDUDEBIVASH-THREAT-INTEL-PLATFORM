@@ -1,0 +1,22 @@
+{
+  "threat_id": "thr-6e8c751ffa2a",
+  "title": "Hackers Backdoor Telnyx Python SDK on PyPI to Steal Cloud and Dev Credentials",
+  "scripts": [
+    {
+      "type": "firewall_iptables",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 - Block threat IPs for: Hackers Backdoor Telnyx Python SDK on PyPI to Steal Cloud an\niptables -A INPUT -s 83.142.209.203 -j DROP\niptables -A OUTPUT -d 83.142.209.203 -j DROP\necho 'Firewall rules applied'"
+    },
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx checkmarx\\.zone|hangup\\.wav|ringtone\\.wav|sysmon\\.service|tpcp\\.tar\\.gz\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-6e8c751ffa2a'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((dest_ip IN (\"83.142.209.203\")) OR (query IN (\"checkmarx.zone\",\"hangup.wav\",\"ringtone.wav\",\"sysmon.service\",\"tpcp.tar.gz\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    },
+    {
+      "type": "hardening_bash",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 - Emergency Hardening Script\n# Threat: Hackers Backdoor Telnyx Python SDK on PyPI to Steal Cloud an\n# Generated: 2026-03-30T17:32:12.351069+00:00\n\necho \"[*] Updating system packages...\"\napt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null\n\necho \"[*] Enabling firewall...\"\nufw enable 2>/dev/null || firewall-cmd --set-default-zone=drop 2>/dev/null\n\necho \"[*] Disabling unnecessary services...\"\nsystemctl disable --now telnet.socket 2>/dev/null\nsystemctl disable --now rsh.socket 2>/dev/null\n\necho \"[*] Setting secure SSH configuration...\"\nsed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config\nsystemctl restart sshd\n\necho \"[+] Hardening complete for threat: thr-6e8c751ffa2a\"\n"
+    }
+  ]
+}
