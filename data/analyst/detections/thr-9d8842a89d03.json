@@ -2,7 +2,7 @@
   "threat_id": "thr-9d8842a89d03",
   "title": "CVE-2026-4907 - Page-Replica Page Replica Endpoint sitemap sitemap.fetch server-",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - CVE-2026-4907 - Page-Replica Page Replica Endpoint sitemap s\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/29\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*sitemap.fetch*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - CVE-2026-4907 - Page-Replica Page Replica Endpoint sitemap s\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/30\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*sitemap.fetch*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"sitemap.fetch\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"sitemap.fetch\")"
   },
