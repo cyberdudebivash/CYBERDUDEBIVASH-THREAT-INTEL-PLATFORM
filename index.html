@@ -5195,32 +5195,47 @@
             a.href = url; a.download = filename; a.click();
             URL.revokeObjectURL(url);
         }  
+      // ── deduplicateIntel v78.0 ──────────────────────────────────────────────
+      // FIX: Dual-key dedup (ID + normalized title) eliminates cross-run
+      // cross-feed duplicates that share content but have different stix_ids.
+      // Root cause of P0 dashboard duplication bug (confirmed run #598).
+      // ────────────────────────────────────────────────────────────────────────
+      function _normTitle(t) {
+          if (!t) return '';
+          const stop = new Set(['a','an','the','in','on','at','for','of','and','or','to','via','by','with','from']);
+          return t.toLowerCase()
+              .replace(/[^a-z0-9\s]/g, '')
+              .split(/\s+/)
+              .filter(w => w && !stop.has(w))
+              .slice(0, 12)
+              .join(' ');
+      }
+
       function deduplicateIntel(data) {
-    if (!Array.isArray(data)) return data;
-
-    const seen = new Set();
-    const unique = [];
-
-    for (const item of data) {
-        const key =
-            item.cve_id ||
-            item.id ||
-            item.stix_id ||
-            (item.title && item.title.toLowerCase().trim());
-
-        if (!key) {
-            unique.push(item);
-            continue;
-        }
-
-        if (!seen.has(key)) {
-            seen.add(key);
-            unique.push(item);
-        }
-    }
-
-    return unique;
-}
+          if (!Array.isArray(data)) return data;
+          const seenIds    = new Set();
+          const seenTitles = new Set();
+          const unique     = [];
+          for (const item of data) {
+              // Primary key: stix_id or id (authoritative)
+              const idKey = item.stix_id || item.id || item.cve_id;
+              if (idKey) {
+                  if (seenIds.has(idKey)) continue;
+                  seenIds.add(idKey);
+              }
+              // Secondary key: normalized title (catches cross-run same-story dupes)
+              if (item.title) {
+                  const normKey = _normTitle(item.title);
+                  if (normKey && normKey.length > 8) {
+                      if (seenTitles.has(normKey)) continue;
+                      seenTitles.add(normKey);
+                  }
+              }
+              // No key at all — include but don't dedup (safety: never drop data)
+              unique.push(item);
+          }
+          return unique;
+      }
 
 // ─────────────────────────────────────────────
 // 🔥 TOP THREAT PRIORITY ENGINE (SAFE ADD)

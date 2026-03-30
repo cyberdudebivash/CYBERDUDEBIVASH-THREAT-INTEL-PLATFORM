@@ -189,11 +189,60 @@ def build_enriched_content(entry: Dict, fetched_article: Optional[Dict]) -> str:
 # MAIN ORCHESTRATOR
 # ==============================================================================
 
+# ==============================================================================
+# TEMPORAL RELEVANCE GATE (v78.0 — Issue #7 Fix)
+# Rejects CVEs older than 2 years unless they have KEV confirmation or
+# high EPSS score (>= 0.7). Prevents 2018/2019 CVEs from polluting the
+# LIVE feed and misleading SOC analysts.
+# ==============================================================================
+import re as _re_temporal
+from datetime import datetime, timezone as _tz
+
+CVE_MAX_AGE_YEARS = 2    # CVEs older than this require exceptional signals to pass
+CVE_EPSS_EXCEPTION = 0.7  # EPSS >= this value = pass regardless of age
+
+
+def is_temporally_relevant(entry: dict) -> bool:
+    """
+    v78.0: Temporal relevance gate for CVE entries.
+    Returns True if entry should be processed, False if stale CVE.
+    """
+    title = entry.get("title", "")
+    cve_match = _re_temporal.search(r'CVE-(\d{4})-', title)
+    if not cve_match:
+        return True  # Not a CVE entry — pass through unconditionally
+
+    cve_year = int(cve_match.group(1))
+    current_year = datetime.now(_tz.utc).year
+    age_years = current_year - cve_year
+
+    if age_years <= CVE_MAX_AGE_YEARS:
+        return True  # Recent CVE — always relevant
+
+    # Old CVE — allow through ONLY with exceptional exploitation evidence
+    kev     = entry.get("kev_present", False)
+    epss    = entry.get("epss_score") or 0.0
+    act_exp = any(s in title.lower() for s in ["actively exploited", "in the wild"])
+
+    if kev:
+        logger.info(f"[TEMPORAL] Old CVE-{cve_year} passes — KEV confirmed")
+        return True
+    if epss >= CVE_EPSS_EXCEPTION:
+        logger.info(f"[TEMPORAL] Old CVE-{cve_year} passes — EPSS={epss:.2f} (high)")
+        return True
+    if act_exp:
+        logger.info(f"[TEMPORAL] Old CVE-{cve_year} passes — active exploitation signal")
+        return True
+
+    logger.info(f"[TEMPORAL] SKIP stale CVE-{cve_year} (age={age_years}y, KEV={kev}, EPSS={epss:.3f})")
+    return False
+
+
 def main():
     logger.info("=" * 70)
-    logger.info("SENTINEL APEX v21.0 - ULTRA-PREMIUM REPORT ENGINE ACTIVATED")
-    logger.info("Triple-Layer Dedup * 15 Feeds * Quality Gate * IOC FP Filter")
-    logger.info("v21.0: EPSS+CVSS Enrichment * Source URL Fix * KEV Lookup")
+    logger.info("SENTINEL APEX v78.0 - ULTRA-PREMIUM REPORT ENGINE ACTIVATED")
+    logger.info("Triple-Layer Dedup * 47 Feeds * Quality Gate * IOC FP Filter")
+    logger.info("v78.0: Temporal Gate * Behavioral Cap * Confidence v47 * STIX Fix")
     logger.info("=" * 70)
 
     _run_start = time.monotonic()
@@ -278,6 +327,12 @@ def main():
                 _telemetry.record_dedup()
             continue
 
+        # v78.0: Temporal relevance gate (Phase 1) — same logic as Phase 2.
+        # Rejects stale CVEs (>2y old) without KEV/EPSS exception.
+        if not is_temporally_relevant(entry):
+            dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
+            continue
+
         if _QUALITY_GATE_OK and _quality_gate:
             try:
                 _qok, _qscore, _qreason = _quality_gate(
@@ -336,6 +391,11 @@ def main():
                 dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
                 if _TELEMETRY_OK and _telemetry:
                     _telemetry.record_dedup()
+                continue
+
+            # v78.0: Temporal relevance gate — reject stale CVEs without KEV/EPSS
+            if not is_temporally_relevant(entry):
+                dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
                 continue
 
             if _QUALITY_GATE_OK and _quality_gate:
@@ -650,6 +710,26 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
                 )
         except Exception as _v46_e:
             logger.debug(f"VANGUARD enhancement skipped (non-critical): {_v46_e}")
+
+    # -- STEP 7d: v47.0 Confidence floors (post-enrichment, post-VANGUARD) --
+    # Applied AFTER all enrichment so KEV/EPSS/CVSS signals are fully resolved.
+    # Fixes: KEV-confirmed advisories scoring <50% due to thin IOC content.
+    try:
+        _v47_confidence = enricher.calculate_confidence_v47(
+            iocs=extracted_iocs,
+            actor_mapped=actor_mapped,
+            kev_present=kev_present,
+            epss_score=epss_score or 0.0,
+            cvss_score=cvss_score or 0.0,
+        )
+        if _v47_confidence > confidence:
+            logger.info(
+                f"  -> [v47.0] Confidence upgraded: {confidence:.1f}% -> {_v47_confidence:.1f}% "
+                f"(KEV={kev_present}, EPSS={epss_score}, CVSS={cvss_score})"
+            )
+            confidence = _v47_confidence
+    except Exception as _v47_e:
+        logger.debug(f"v47.0 confidence upgrade skipped: {_v47_e}")
 
     # -- STEP 8: Premium report generation ---------------------------------
     logger.info("  -> Generating PREMIUM 16-section report...")

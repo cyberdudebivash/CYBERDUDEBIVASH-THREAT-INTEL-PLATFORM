@@ -236,10 +236,48 @@ def score_article(title: str, content: str) -> Tuple[float, str, int]:
     return score, reason, strong_signal_count
 
 
+# -- v78.0: Title-signal instant pass (ISSUE #6 FIX) ─────────────────────────
+# Legitimate high-value threat intel articles often have thin RSS summaries
+# but HIGHLY specific threat-signal titles. A title containing "malicious LNK"
+# or "nation-state toolkit" is unambiguously threat intel regardless of summary length.
+TITLE_INSTANT_PASS_SIGNALS = {
+    "malicious lnk":       10.0,  "lnk file":            8.0,
+    "zero-day":            10.0,  "zero day":             10.0,  "0-day": 10.0,
+    "actively exploited":  10.0,  "exploited in the wild": 10.0,
+    "ransomware attack":    9.0,  "wiper attack":          9.0,
+    "supply chain attack":  9.0,  "supply chain compromise": 9.0,
+    "backdoor":             8.0,  "infostealer":           8.0,
+    "apt":                  7.0,  "nation-state":          9.0,  "state-sponsored": 9.0,
+    "lazarus":              9.0,  "volt typhoon":          9.0,   "fancy bear": 9.0,
+    "cobalt strike":        9.0,  "lockbit":               9.0,
+    "data breach":          7.0,  "records exposed":       8.0,
+    "remote code execution": 9.0, "rce":                   8.0,
+    "authentication bypass": 9.0, "privilege escalation":  8.0,
+    "rootkit":              9.0,  "spyware":               8.0,
+    "toolkit":              6.0,  "exploit kit":           8.0,
+    "indicators of compromise": 9.0, "ioc":               7.0,
+    "hijack":               7.0,  "campaign":              5.0,
+    "hidden":               5.0,  "covert":                6.0,
+}
+TITLE_INSTANT_PASS_THRESHOLD = 9.0  # Single strong signal or combined >= 9.0
+
+
+def _score_title_signals(title: str) -> float:
+    """v78.0: Score title against high-signal threat intel patterns."""
+    title_lower = title.lower()
+    total = 0.0
+    for signal, weight in TITLE_INSTANT_PASS_SIGNALS.items():
+        if signal in title_lower:
+            total += weight
+    return total
+
+
 def is_relevant_threat(title: str, content: str, source_url: str = "") -> Tuple[bool, float, str]:
     """
     Gate function. Returns (should_process, score, reason).
 
+    v78.0 UPGRADE: Title-signal instant pass (Issue #6 fix):
+      0. [NEW] High-signal title bypasses thin-content gate entirely
     v75.1 UPGRADE: Three-tier word-count logic:
       1. Trusted tier-1 sources bypass MIN_WORDS entirely - full article fetched downstream
       2. CVE-titled entries bypass MIN_WORDS - short CVE advisories are always real intel
@@ -248,6 +286,12 @@ def is_relevant_threat(title: str, content: str, source_url: str = "") -> Tuple[
     v22.0: Requires BOTH score >= THRESHOLD AND >= MIN_STRONG_SIGNAL_COUNT strong signals.
     """
     wc = len(content.split())
+
+    # v78.0: Title-signal instant pass — high-signal titles bypass thin-content gate
+    title_signal_score = _score_title_signals(title)
+    if title_signal_score >= TITLE_INSTANT_PASS_THRESHOLD:
+        logger.info(f"[QUALITY-GATE] Title instant pass (score={title_signal_score:.0f}): {title[:60]}")
+        return True, title_signal_score, f"title_instant_pass:{title_signal_score:.0f}"
 
     # v75.1: Trusted tier-1 source bypass - don't gate on RSS excerpt length
     is_trusted_source = False
