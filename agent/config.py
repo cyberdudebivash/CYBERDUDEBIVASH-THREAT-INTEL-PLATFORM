@@ -1,7 +1,18 @@
 #!/usr/bin/env python3
 """
-config.py - CyberDudeBivash v30.0 (APEX SOVEREIGN CORTEX)
+config.py - CyberDudeBivash v31.0 (APEX SOVEREIGN CORTEX)
 Global Configuration for the Sentinel APEX Intelligence Platform.
+
+v31.0 CHANGES (AUDIT-v78 dead feed purge):
+  - REMOVED: securityweek.com (HTTP 403 all source fetches, 0 IOCs — run #598)
+  - REMOVED: scmagazine.com (HTTP 403 all source fetches — run #598)
+  - REMOVED: infosecurity-magazine.com (returns 1 paragraph, 8 words — run #598)
+  - REMOVED: ncsc.gov.uk RSS (returns 0 entries — run #598)
+  - REMOVED: cyber.gc.ca RSS (returns 0 entries — run #598)
+  - REMOVED: cert.europa.eu RSS (returns 0 entries — run #598)
+  - ADDED: darkreading.com RSS, securitymagazine.com, cshub.com (Tier 1 replacements)
+  - ADDED: NCSC UK guidance feed, ENISA, FBI IC3 (Tier 2 replacements)
+  - RISK_WEIGHTS: behavioral_signal_cap=3.5 (prevents risk score inflation)
 UPGRADED v30.0: WebSocket Firehose, eBPF Sensor Mesh, AI SOAR.
 All existing constants preserved - 100% backward compatible.
 """
@@ -27,24 +38,30 @@ CDB_RSS_FEED = "https://cyberdudebivash-news.blogspot.com/feeds/posts/default?al
 RSS_FEEDS = [
     # -- TIER 1: Premium Breaking News & Global Incidents --
     # [FIX-R03] BleepingComputer REMOVED — CDN permanently blocks CI runner IPs
-    #           HTTPError on every run since v77.0. Replaced with SC Magazine.
     # [FIX-R03] Dark Reading REMOVED — HTTP 403 on every article fetch (run #580)
-    #           Returns feed entries but blocks source fetches. Net value = zero.
-    "https://www.scmagazine.com/feed",
+    # [AUDIT-v78] scmagazine.com REMOVED — HTTP 403 on all source fetches (run #598)
+    # [AUDIT-v78] securityweek.com REMOVED — HTTP 403 on ALL source fetches, 0 IOCs (run #598)
+    # [AUDIT-v78] infosecurity-magazine.com REMOVED — returns 1 paragraph/8 words only (run #598)
     "https://feeds.feedburner.com/TheHackersNews",
     "https://krebsonsecurity.com/feed/",
     "https://cybersecuritynews.com/feed/",
-    "https://www.securityweek.com/feed/",
     "https://therecord.media/feed/",
     "https://cyberscoop.com/feed/",
     "https://securityaffairs.com/feed",
-    "https://www.infosecurity-magazine.com/rss/news/",
+    # [AUDIT-v78] Replacements for removed Tier 1 dead feeds:
+    "https://www.darkreading.com/rss.xml",              # Dark Reading (RSS feed works, source fetch blocked — RSS still valuable)
+    "https://www.securitymagazine.com/rss/topic/2236",  # Security Magazine
+    "https://www.cshub.com/rss/articles",               # CS Hub
 
     # -- TIER 2: Government & Institutional Cyber Commands --
     "https://www.cisa.gov/cybersecurity-advisories/all.xml",
-    "https://www.ncsc.gov.uk/api/1/services/v1/report-rss.xml",
-    "https://cyber.gc.ca/api/v1/cyber-centre/rss-feed?lang=en",
-    "https://cert.europa.eu/publications/rss",
+    # [AUDIT-v78] ncsc.gov.uk REMOVED — returns 0 entries consistently (run #598)
+    # [AUDIT-v78] cyber.gc.ca REMOVED — returns 0 entries consistently (run #598)
+    # [AUDIT-v78] cert.europa.eu REMOVED — returns 0 entries consistently (run #598)
+    # [AUDIT-v78] Replacements for removed Tier 2 dead government feeds:
+    "https://www.ncsc.gov.uk/feeds/all-guidance-updates.xml",  # NCSC UK guidance (different endpoint)
+    "https://www.enisa.europa.eu/news/enisa-news/RSS",          # ENISA European cybersecurity agency
+    "https://www.ic3.gov/Media/Y2024/PSA/rss",                  # FBI IC3 alerts
 
     # -- TIER 3: Zero-Day & Vulnerability Intelligence --
     "https://cvefeed.io/rssfeed/latest.xml",
@@ -183,6 +200,7 @@ TLP_MATRIX = {
 # DYNAMIC RISK SCORING WEIGHTS
 # ===========================================================
 RISK_WEIGHTS = {
+    # ── Core IOC weights ──────────────────────────────────────────────────────
     "base_ioc_count": 0.5,
     "has_sha256": 1.5,
     "has_ipv4": 1.0,
@@ -191,22 +209,31 @@ RISK_WEIGHTS = {
     "has_email": 0.5,
     "has_registry": 1.2,
     "has_artifacts": 1.0,
+    # ── CVSS / EPSS ───────────────────────────────────────────────────────────
     "cvss_above_9": 2.0,
     "epss_above_09": 1.5,
+    "epss_tier_very_high": 2.0,    # increased from 1.8 — very high EPSS = near-certain exploit
+    "epss_tier_high": 1.4,         # increased from 1.2
+    "epss_tier_medium": 0.7,       # increased from 0.6
+    # ── Ground-truth signals ──────────────────────────────────────────────────
+    "kev_present": 3.0,            # v23.0 INCREASE: KEV = confirmed exploitation ground truth
+    "active_exploitation": 2.5,    # v23.0 INCREASE: confirmed in-the-wild = hard evidence
+    # ── Contextual signals (REBALANCED v23.0 — prevent stacking inflation) ────
+    # Max combined contribution from behavioral signals: see behavioral_signal_cap
+    "supply_chain_signal": 1.5,    # REDUCED from 2.0 — was causing score inflation
+    "poc_public": 1.2,             # REDUCED from 1.5 — PoC alone ≠ CRITICAL
+    "nation_state": 1.5,           # REDUCED from 1.8 — attribution alone ≠ CRITICAL
+    "cve_count_multi": 0.4,        # unchanged
+    "critical_infra": 1.5,         # unchanged
+    # ── Structural weights ────────────────────────────────────────────────────
     "actor_mapped": 1.0,
     "mitre_technique_count": 0.3,
-    "base_score": 2.0,
+    "base_score": 1.5,             # REDUCED from 2.0 — gives more headroom for signal scoring
     "max_score": 10.0,
-    "kev_present": 2.5,            
-    "epss_tier_very_high": 1.8,    
-    "epss_tier_high": 1.2,         
-    "epss_tier_medium": 0.6,       
-    "supply_chain_signal": 2.0,    
-    "poc_public": 1.5,             
-    "active_exploitation": 2.0,   
-    "nation_state": 1.8,           
-    "cve_count_multi": 0.4,        
-    "critical_infra": 1.5,         
+    # ── v23.0 NEW: Behavioral signal stacking cap ─────────────────────────────
+    # nation_state + supply_chain + poc_public combined <= this value
+    # Prevents any non-ground-truth signal combination from hitting 10/10 alone.
+    "behavioral_signal_cap": 3.5,
 }
 
 # ===========================================================

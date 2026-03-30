@@ -282,20 +282,28 @@ class RiskScoringEngine:
             logger.info(f"? KEV CONFIRMED: +{kev_boost} risk boost applied")
 
         # -- v22.0: Active Exploitation Signal --
+        # NOTE: active_exploitation is a GROUND-TRUTH signal — NOT subject to behavioral cap.
         active_exploit_terms = [
             "actively exploited", "in the wild", "active exploitation",
             "exploited in the wild", "under active attack", "being exploited"
         ]
         if any(t in text_lower for t in active_exploit_terms):
-            boost = self.weights.get("active_exploitation", 2.0)
+            boost = self.weights.get("active_exploitation", 2.5)
             score += boost
             logger.info(f"[!] Active exploitation detected: +{boost}")
+
+        # -- v23.0: Behavioral Signals (with stacking cap) ──────────────────
+        # Supply chain, PoC, and nation-state are CONTEXTUAL signals.
+        # They add to score but are collectively CAPPED to prevent inflation
+        # to 10/10 from signal stacking alone (without ground-truth evidence).
+        _behavioral_cap = self.weights.get("behavioral_signal_cap", 3.5)
+        _behavioral_total = 0.0
 
         # -- v22.0: Supply Chain Attack Detection --
         supply_chain_hit = any(sig in text_lower for sig in SUPPLY_CHAIN_SIGNALS)
         if supply_chain_hit:
-            boost = self.weights.get("supply_chain_signal", 2.0)
-            score += boost
+            boost = self.weights.get("supply_chain_signal", 1.5)
+            _behavioral_total += boost
             logger.info(f"? Supply chain signal detected: +{boost}")
 
         # -- v22.0: Public PoC Availability --
@@ -305,8 +313,8 @@ class RiskScoringEngine:
             "metasploit module", "exploit published"
         ]
         if any(t in text_lower for t in poc_terms):
-            boost = self.weights.get("poc_public", 1.5)
-            score += boost
+            boost = self.weights.get("poc_public", 1.2)
+            _behavioral_total += boost
             logger.info(f"? Public PoC detected: +{boost}")
 
         # -- v22.0: Nation-State Actor Involvement --
@@ -321,9 +329,15 @@ class RiskScoringEngine:
         import re as _re_ns
         _apt_number = bool(_re_ns.search(r'\\bapt\\s*\\d+', text_lower))
         if _apt_number or any(t in text_lower for t in nation_state_terms):
-            boost = self.weights.get("nation_state", 1.8)
-            score += boost
+            boost = self.weights.get("nation_state", 1.5)
+            _behavioral_total += boost
             logger.info(f"? Nation-state signal detected: +{boost}")
+
+        # Apply behavioral signals with cap enforcement
+        capped_behavioral = min(_behavioral_total, _behavioral_cap)
+        if capped_behavioral < _behavioral_total:
+            logger.info(f"[v23.0] Behavioral signal cap applied: {_behavioral_total:.1f} -> {capped_behavioral:.1f}")
+        score += capped_behavioral
 
         # -- v22.0: Critical Infrastructure Targeting --
         critical_infra_terms = [
@@ -374,7 +388,7 @@ class RiskScoringEngine:
         final_score = min(round(score, 1), max_score)
 
         logger.info(
-            f"Dynamic Risk Score v22.0: {final_score}/10 "
+            f"Dynamic Risk Score v23.0: {final_score}/10 "
             f"(IOC cats: {ioc_categories_found}, "
             f"MITRE: {len(mitre_matches or [])}, "
             f"KEV: {kev_present}, "
