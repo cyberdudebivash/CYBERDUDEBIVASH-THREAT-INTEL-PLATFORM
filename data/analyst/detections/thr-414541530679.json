@@ -2,7 +2,7 @@
   "threat_id": "thr-414541530679",
   "title": "Apple Patches (almost) everything again. March 2026 edition., (Wed, Mar 25th)",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - Apple Patches (almost) everything again. March 2026 edition.\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/29\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*isc.sans.edu*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - Apple Patches (almost) everything again. March 2026 edition.\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/30\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*isc.sans.edu*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"isc.sans.edu\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"isc.sans.edu\")"
   },

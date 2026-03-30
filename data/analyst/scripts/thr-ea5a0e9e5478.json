@@ -1,0 +1,14 @@
+{
+  "threat_id": "thr-ea5a0e9e5478",
+  "title": "ShipSec Studio brings open-source workflow orchestration to security operations",
+  "scripts": [
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx xterm\\.js\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-ea5a0e9e5478'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((query IN (\"xterm.js\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    }
+  ]
+}
