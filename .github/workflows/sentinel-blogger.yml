@@ -420,50 +420,52 @@ jobs:
             echo "✓ Sync marker updated"
           fi
 
-      # ── STAGE 5: Hardened Atomic Commit & Push ───────────────────────────
-      - name: Atomic Commit to main
+      # ── STAGE 5: Commit data to main branch ──────────────────────────────
+      - name: Commit pipeline data to main
         shell: bash
         run: |
           set -euo pipefail
+          echo "=== STAGE 5: Commit to main ==="
+
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "cyberdudebivash"
 
-          # Remove sensitive files before staging
-          rm -f secrets/.env 
+          rm -f secrets/.env
 
           git add --all
-          
-          if git diff --staged --quiet; then
-            echo "No changes to commit."
-          else
-            # Create the commit locally
-            git commit -m "v77.2.1 Pipeline Auto-Sync [skip ci]" --no-verify
 
-            # ATOMIC PUSH STRATEGY: Retry with fresh fetch
-            MAX_ATTEMPTS=5
-            for i in $(seq 1 $MAX_ATTEMPTS); do
-              echo "Push attempt $i..."
-              git fetch origin main
-              
-              # Rebase our new commit on top of the latest remote
-              if git rebase origin/main; then
-                if git push origin main; then
-                  echo "Successfully pushed to main."
-                  exit 0
-                fi
+          if git diff --staged --quiet; then
+            echo "No changes to commit — pipeline data unchanged"
+          else
+            rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
+
+            git commit -m "v77.0 Pipeline data [skip ci]" --no-verify
+
+            MAX_ATTEMPTS=4
+            for attempt in 1 2 3 4; do
+              echo "=== Push attempt $attempt / $MAX_ATTEMPTS ==="
+              git fetch origin main --quiet
+              git reset --soft origin/main
+              git add --all
+              if git diff --staged --quiet; then
+                echo "✓ Nothing new to commit — dashboard already current"
+                break
               fi
-              
-              echo "Conflict detected, retrying in 10s..."
-              sleep 10
-              git rebase --abort || true
+              git commit -m "v77.0 Pipeline data [skip ci]" --no-verify
+              if git push origin main; then
+                echo "✓ Pushed to main (attempt $attempt)"
+                break
+              elif [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+                SLEEP_SEC=$((attempt * 10))
+                echo "Push failed — retrying in ${SLEEP_SEC}s (exponential backoff)..."
+                sleep $SLEEP_SEC
+              else
+                echo "ERROR: All $MAX_ATTEMPTS push attempts exhausted" >&2
+                exit 1
+              fi
             done
-            echo "Final attempt: Force-syncing with soft reset"
-            git fetch origin main
-            git reset --soft origin/main
-            git add --all
-            git commit --amend -m "v77.2.1 Forced Pipeline Sync [skip ci]" --no-verify
-            git push origin main --force
           fi
+
       # ── STAGE 6: Post-commit extras ───────────────────────────────────────
       - name: Run post-commit extras
         shell: bash
@@ -645,7 +647,7 @@ jobs:
           clean: false
           commit-message: "Deploying to gh-pages from @ ${{ github.repository }}@${{ github.sha }} 🚀"
           git-config-name: cyberdudebivash
-          git-config-email: cyberdudebivash@users.noreply.github.com
+          git-config-email: bivash@cyberdudebivash.com
           token: ${{ secrets.GITHUB_TOKEN }}
 
       # ── STAGE 9: Pipeline summary ─────────────────────────────────────────
