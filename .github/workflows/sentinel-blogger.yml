@@ -611,40 +611,61 @@ jobs:
           PYEOF
           fi
 
-      # ── STAGE 7b: Growth Engine (SEO Blog + Social Content) ─────────────
-      - name: Growth Engine — SEO Blog + Social Content
-        if: always()
-        shell: bash
-        env:
-          TELEGRAM_BOT_TOKEN:    ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID:      ${{ secrets.TELEGRAM_CHAT_ID }}
-          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN || '' }}
-          LINKEDIN_AUTHOR_URN:   ${{ secrets.LINKEDIN_AUTHOR_URN || '' }}
-          PYTHONPATH:            ${{ github.workspace }}
-        run: |
-          echo "--- [GROWTH] SEO Blog Generator ---"
-          python3 scripts/growth/seo_blog_generator.py \
-            && echo "[GROWTH] SEO posts generated" \
-            || echo "[GROWTH] SEO complete (non-fatal)"
-          echo "--- [GROWTH] Weekly Threat Page ---"
-          python3 -c "
+     # ── STAGE 7b: Growth Engine (SEO Blog + Social Content) ─────────────
+- name: Growth Engine — SEO Blog + Social Content
+  if: always()
+  shell: bash
+  env:
+    TELEGRAM_BOT_TOKEN:    ${{ secrets.TELEGRAM_BOT_TOKEN }}
+    TELEGRAM_CHAT_ID:      ${{ secrets.TELEGRAM_CHAT_ID }}
+    LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN || '' }}
+    LINKEDIN_AUTHOR_URN:   ${{ secrets.LINKEDIN_AUTHOR_URN || '' }}
+    PYTHONPATH:            ${{ github.workspace }}
+  run: |
+    set -euo pipefail
+
+    echo "--- [GROWTH] SEO Blog Generator ---"
+    if python3 scripts/growth/seo_blog_generator.py; then
+      echo "[GROWTH] SEO posts generated"
+    else
+      echo "[GROWTH] SEO complete (non-fatal)"
+    fi
+
+    echo "--- [GROWTH] Weekly Threat Page ---"
+    if python3 << 'EOF'
 from scripts.growth.seo_blog_generator import generate_weekly_page
+
 r = generate_weekly_page()
-print('[GROWTH] Weekly page:', r or 'skipped')
-" || echo "[GROWTH] Weekly page complete (non-fatal)"
-          echo "--- [GROWTH] Telegram Daily Roundup ---"
-          python3 scripts/growth/telegram_content_generator.py daily_roundup \
-            && echo "[GROWTH] Telegram roundup done" \
-            || echo "[GROWTH] Telegram complete (non-fatal)"
-          echo "--- [GROWTH] Telegram CVE Spotlight ---"
-          python3 scripts/growth/telegram_content_generator.py cve_spotlight \
-            && echo "[GROWTH] Telegram spotlight done" \
-            || echo "[GROWTH] Telegram spotlight complete (non-fatal)"
-          echo "--- [GROWTH] LinkedIn Threat Insight ---"
-          python3 scripts/growth/linkedin_content_generator.py threat_insight \
-            && echo "[GROWTH] LinkedIn post generated" \
-            || echo "[GROWTH] LinkedIn complete (non-fatal)"
-          echo "[GROWTH] Content generation stage complete"
+print("[GROWTH] Weekly page:", r or "skipped")
+EOF
+    then
+      echo "[GROWTH] Weekly page generated"
+    else
+      echo "[GROWTH] Weekly page complete (non-fatal)"
+    fi
+
+    echo "--- [GROWTH] Telegram Daily Roundup ---"
+    if python3 scripts/growth/telegram_content_generator.py daily_roundup; then
+      echo "[GROWTH] Telegram roundup done"
+    else
+      echo "[GROWTH] Telegram complete (non-fatal)"
+    fi
+
+    echo "--- [GROWTH] Telegram CVE Spotlight ---"
+    if python3 scripts/growth/telegram_content_generator.py cve_spotlight; then
+      echo "[GROWTH] Telegram spotlight done"
+    else
+      echo "[GROWTH] Telegram spotlight complete (non-fatal)"
+    fi
+
+    echo "--- [GROWTH] LinkedIn Threat Insight ---"
+    if python3 scripts/growth/linkedin_content_generator.py threat_insight; then
+      echo "[GROWTH] LinkedIn post generated"
+    else
+      echo "[GROWTH] LinkedIn complete (non-fatal)"
+    fi
+
+    echo "[GROWTH] Content generation stage complete"
 
       # ── STAGE 8: Deploy to GitHub Pages ──────────────────────────────────
       - name: Deploy to GitHub Pages
