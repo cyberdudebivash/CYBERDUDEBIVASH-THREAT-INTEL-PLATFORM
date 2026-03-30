@@ -1,0 +1,18 @@
+{
+  "threat_id": "thr-1a94d56e9b70",
+  "title": "CVE-2025-15036 - Path Traversal Vulnerability in mlflow/mlflow",
+  "scripts": [
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx tar\\.gz\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-1a94d56e9b70'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((query IN (\"tar.gz\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    },
+    {
+      "type": "hardening_bash",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 - Emergency Hardening Script\n# Threat: CVE-2025-15036 - Path Traversal Vulnerability in mlflow/mlfl\n# Generated: 2026-03-30T09:58:35.537427+00:00\n\necho \"[*] Updating system packages...\"\napt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null\n\necho \"[*] Enabling firewall...\"\nufw enable 2>/dev/null || firewall-cmd --set-default-zone=drop 2>/dev/null\n\necho \"[*] Disabling unnecessary services...\"\nsystemctl disable --now telnet.socket 2>/dev/null\nsystemctl disable --now rsh.socket 2>/dev/null\n\necho \"[*] Setting secure SSH configuration...\"\nsed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config\nsystemctl restart sshd\n\necho \"[+] Hardening complete for threat: thr-1a94d56e9b70\"\n"
+    }
+  ]
+}
