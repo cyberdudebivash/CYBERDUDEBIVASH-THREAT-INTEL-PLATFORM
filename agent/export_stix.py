@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """
-export_stix.py - CyberDudeBivash v22.0 (SENTINEL APEX ULTRA)
+export_stix.py - CyberDudeBivash v23.1 (SENTINEL APEX ULTRA)
 STIX 2.1 EXPORTER + MISP BRIDGE - PRODUCTION UPGRADE
+
+v23.1 ADDITIONS (all additive, non-breaking):
+  - STIX Indicator objects for SHA-1, MD5, malware artifacts, registry keys
+    Fixes: "STIX Indicators: 0" for advisories with only artifact/hash IOCs
+    Root cause: export loop only handled ipv4/domain/sha256/url types
 
 v22.0 ADDITIONS (all additive, non-breaking):
   - STIX 2.1 Identity object for CyberDudeBivash as producer
@@ -269,6 +274,82 @@ class STIXExporter:
                 "created":      timestamp,
                 "modified":     timestamp,
                 "indicator_types": ["malicious-activity"],
+            }))
+
+        # v23.1 FIX: SHA-1 hash indicators (was missing → "STIX Indicators: 0" for
+        # advisories whose only IOCs were SHA1/MD5/artifacts/registry keys)
+        for sha1 in (iocs.get('sha1') or [])[:10]:
+            ind_id = f"indicator--{uuid.uuid4()}"
+            indicator_ids.append(ind_id)
+            objects.append(_mark({
+                "type":         "indicator",
+                "spec_version": "2.1",
+                "id":           ind_id,
+                "name":         f"Malicious Hash (SHA-1): {sha1[:16]}...",
+                "pattern":      f"[file:hashes.'SHA-1' = '{sha1}']",
+                "pattern_type": "stix",
+                "valid_from":   timestamp,
+                "created":      timestamp,
+                "modified":     timestamp,
+                "indicator_types": ["malicious-activity"],
+                "confidence":   int(confidence),
+            }))
+
+        # v23.1 FIX: MD5 hash indicators
+        for md5 in (iocs.get('md5') or [])[:10]:
+            ind_id = f"indicator--{uuid.uuid4()}"
+            indicator_ids.append(ind_id)
+            objects.append(_mark({
+                "type":         "indicator",
+                "spec_version": "2.1",
+                "id":           ind_id,
+                "name":         f"Malicious Hash (MD5): {md5}",
+                "pattern":      f"[file:hashes.MD5 = '{md5}']",
+                "pattern_type": "stix",
+                "valid_from":   timestamp,
+                "created":      timestamp,
+                "modified":     timestamp,
+                "indicator_types": ["malicious-activity"],
+                "confidence":   int(confidence),
+            }))
+
+        # v23.1 FIX: Malware artifact indicators (filenames: .exe, .dll, .lnk, etc.)
+        for artifact in (iocs.get('artifacts') or [])[:10]:
+            # Sanitize artifact name for STIX pattern (escape single quotes)
+            safe_artifact = artifact.replace("'", "\\'")
+            ind_id = f"indicator--{uuid.uuid4()}"
+            indicator_ids.append(ind_id)
+            objects.append(_mark({
+                "type":         "indicator",
+                "spec_version": "2.1",
+                "id":           ind_id,
+                "name":         f"Malicious Artifact: {artifact}",
+                "pattern":      f"[file:name = '{safe_artifact}']",
+                "pattern_type": "stix",
+                "valid_from":   timestamp,
+                "created":      timestamp,
+                "modified":     timestamp,
+                "indicator_types": ["malicious-activity"],
+                "confidence":   int(confidence),
+            }))
+
+        # v23.1 FIX: Windows registry key persistence indicators
+        for reg_key in (iocs.get('registry') or [])[:10]:
+            safe_reg = reg_key.replace("'", "\\'").replace("\\", "\\\\")
+            ind_id = f"indicator--{uuid.uuid4()}"
+            indicator_ids.append(ind_id)
+            objects.append(_mark({
+                "type":         "indicator",
+                "spec_version": "2.1",
+                "id":           ind_id,
+                "name":         f"Registry Persistence: {reg_key[:60]}",
+                "pattern":      f"[windows-registry-key:key = '{safe_reg}']",
+                "pattern_type": "stix",
+                "valid_from":   timestamp,
+                "created":      timestamp,
+                "modified":     timestamp,
+                "indicator_types": ["malicious-activity", "compromised"],
+                "confidence":   int(confidence),
             }))
 
         # -- Relationships: Indicator -> Intrusion Set --

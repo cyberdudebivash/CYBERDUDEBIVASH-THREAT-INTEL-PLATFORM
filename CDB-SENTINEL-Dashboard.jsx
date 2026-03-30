@@ -11,8 +11,9 @@ import ApexThreatGlobe from "./components/ApexThreatGlobe";
 
 const API_BASE = "";
 
-// [CYBERGOD FIX]: Valid Enterprise Token structure for production.
-const ENTERPRISE_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0aWVyIjoiRU5URVJQUklTRSIsImNsaWVudCI6Ikdsb2JhbF9CYW5rX0NvcnAifQ.YOUR_SECURE_SIGNATURE_HERE"; 
+// [SEC-FIX v78.0]: JWT loaded from environment — never hardcoded in source.
+// Set REACT_APP_ENTERPRISE_JWT in your .env file (not committed to git).
+const ENTERPRISE_JWT = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_ENTERPRISE_JWT) || null;
 
 // ═══════════════════════════════════════════════════
 // DESIGN TOKENS
