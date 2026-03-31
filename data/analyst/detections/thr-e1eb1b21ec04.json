@@ -1,0 +1,11 @@
+{
+  "threat_id": "thr-e1eb1b21ec04",
+  "title": "Application Control Bypass for Data Exfiltration, (Tue, Mar 31st)",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 - Application Control Bypass for Data Exfiltration, (Tue, Mar \nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/31\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*04d.bin*'\n            - '*data.zip*'\n            - '*isc.sans.edu*'\n            - '*pastebin.com*'\n            - '*victim.tgz*'\n            - '*victim.zip*'\n            - '*wild.server.com*'\n    condition: selection_ip\nlevel: high",
+    "yara": "rule CDB_APEX_Application_Control_Bypass_for_Data_Exfi {\n    meta:\n        description = \"Application Control Bypass for Data Exfiltration, (Tue, Mar \"\n        author = \"CyberDudeBivash\"\n    strings:\n        $h0 = \"955587e24628dc46c85a7635cae888832113e86e6870cba0312591c44acf9833\" ascii nocase\n    condition:\n        any of them\n}",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"04d.bin\",\n              \"data.zip\",\n              \"isc.sans.edu\",\n              \"pastebin.com\",\n              \"victim.tgz\",\n              \"victim.zip\",\n              \"wild.server.com\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"file.hash.sha256\": [\n              \"955587e24628dc46c85a7635cae888832113e86e6870cba0312591c44acf9833\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"04d.bin\", \"data.zip\", \"isc.sans.edu\", \"pastebin.com\", \"victim.tgz\", \"victim.zip\", \"wild.server.com\")"
+  },
+  "rule_count": 4
+}

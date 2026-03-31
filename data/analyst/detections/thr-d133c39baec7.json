@@ -1,0 +1,16 @@
+{
+  "threat_id": "thr-d133c39baec7",
+  "title": "Axios npm packages backdoored in supply chain attack",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 - Axios npm packages backdoored in supply chain attack\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/31\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '142.11.206.73'\n    selection_dns:\n        query:\n            - '*setup.js*'\n            - '*sfrclak.com*'\n    condition: selection_ip or selection_dns\nlevel: high",
+    "suricata": [
+      "alert ip any any -> 142.11.206.73 any (msg:\"CDB APEX - Axios_npm_packages_backdoored_\"; sid:8764045; rev:1;)"
+    ],
+    "snort": [
+      "alert ip any any -> 142.11.206.73 any (msg:\"CDB APEX Axios_npm_packages_backdoored_\"; sid:2706910; rev:1;)"
+    ],
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"142.11.206.73\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"setup.js\",\n              \"sfrclak.com\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteIP in (\"142.11.206.73\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"setup.js\", \"sfrclak.com\")"
+  },
+  "rule_count": 5
+}
