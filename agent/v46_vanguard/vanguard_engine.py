@@ -136,13 +136,13 @@ class VanguardEngine:
                 result["confidence"] = conf_result.score
                 result["confidence_label"] = conf_result.label
                 result["confidence_dimensions"] = conf_result.dimensions
-                result["enhancements_applied"].append("confidence_v46")
+                result["enhancements_applied"].append("confidence_v47")
             except Exception as e:
                 logger.warning(f"VANGUARD confidence engine failed (non-critical): {e}")
 
         if result["enhancements_applied"]:
             logger.info(
-                f"VANGUARD v46.0 enhancements applied: "
+                f"VANGUARD v47.0 enhancements applied: "
                 f"{', '.join(result['enhancements_applied'])}"
             )
 
