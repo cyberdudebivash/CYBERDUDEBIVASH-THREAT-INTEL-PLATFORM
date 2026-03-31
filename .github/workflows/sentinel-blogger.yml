@@ -184,6 +184,10 @@ jobs:
             data/manifest_versions \
             data/archive \
             data/v46_ultraintel \
+            data/ai_intelligence \
+            data/intelligence/detection_rules/sigma \
+            data/intelligence/detection_rules/yara \
+            data/intelligence/detection_rules/suricata \
             api \
             secrets
           echo "✓ Workspace ready"
@@ -565,6 +569,55 @@ jobs:
             echo "[APEX] Feature flag DISABLED (CDB_APEX_ENABLED=false) — skipping safely"
             echo "[APEX] To enable: set CDB_APEX_ENABLED=true in GitHub repo variables"
           fi
+
+      # ── STAGE 6c: AI Decision Engine + Detection Rule Forge ──────────────
+      - name: AI Decision Engine + Detection Rule Forge
+        shell: bash
+        timeout-minutes: 8
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          CDB_MANIFEST_PATH: data/stix/feed_manifest.json
+          CDB_AI_OUTPUT_DIR: data/ai_intelligence
+          CDB_DETECTION_DIR: data/intelligence/detection_rules
+        run: |
+          echo "=== STAGE 6c: AI Decision Engine + Detection Rule Forge ==="
+          echo "Timestamp: $(date -u)"
+
+          # Ensure output directories exist
+          mkdir -p \
+            data/ai_intelligence \
+            data/intelligence/detection_rules/sigma \
+            data/intelligence/detection_rules/yara \
+            data/intelligence/detection_rules/suricata
+
+          if [ -f scripts/run_ai_and_detection.py ]; then
+            echo "[AI+DETECTION] Launching wrapper..."
+            python3 scripts/run_ai_and_detection.py
+            echo "[AI+DETECTION] Wrapper completed"
+          else
+            echo "[AI+DETECTION] WARN: scripts/run_ai_and_detection.py not found — skipping"
+          fi
+
+          # Print run summary if log exists
+          if [ -f data/ai_intelligence/wrapper_run_log.json ]; then
+            python3 - << 'PYEOF'
+          import json
+          with open("data/ai_intelligence/wrapper_run_log.json") as f:
+              log = json.load(f)
+          ai = log.get("ai_engine", {})
+          df = log.get("detection_forge", {})
+          st = log.get("manifest_stitch", {})
+          print(f"  AI Engine      : {ai.get('status','?').upper()} | {ai.get('advisories_processed',0)} advisories | {ai.get('duration_s',0)}s")
+          print(f"  Detection Forge: {df.get('status','?').upper()} | {df.get('rules_generated',0)} rules | {df.get('duration_s',0)}s")
+          if st:
+              print(f"  Manifest Stitch: {st.get('status','?').upper()} | {st.get('stitched',0)} entries enriched")
+          overall = log.get('overall_status','?').upper()
+          print(f"  Overall        : {overall}")
+          PYEOF
+          fi
+
+          echo "[AI+DETECTION] Stage 6c complete"
 
       # ── STAGE 7: Pre-deploy integrity gate (BLOCKING) ────────────────────
       - name: Pre-deploy integrity gate
