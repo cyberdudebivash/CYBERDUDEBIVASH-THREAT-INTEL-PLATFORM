@@ -188,6 +188,8 @@ jobs:
             data/intelligence/detection_rules/sigma \
             data/intelligence/detection_rules/yara \
             data/intelligence/detection_rules/suricata \
+            data/threat_memory \
+            data/ai_learning \
             api \
             secrets
           echo "✓ Workspace ready"
@@ -618,6 +620,96 @@ jobs:
           fi
 
           echo "[AI+DETECTION] Stage 6c complete"
+
+      # ── STAGE 6d: Threat Memory Engine ───────────────────────────────────
+      - name: Threat Memory Engine
+        shell: bash
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          CDB_MANIFEST_PATH: data/stix/feed_manifest.json
+          CDB_AI_INDEX_PATH: data/ai_intelligence/ai_index.json
+          CDB_MEMORY_DIR: data/threat_memory
+        run: |
+          echo "=== STAGE 6d: Threat Memory Engine ==="
+          echo "Timestamp: $(date -u)"
+
+          mkdir -p data/threat_memory
+
+          if [ -f agent/threat_memory.py ]; then
+            echo "[MEMORY] Running Threat Memory Engine..."
+            python3 agent/threat_memory.py
+            echo "[MEMORY] Engine completed"
+          else
+            echo "[MEMORY] WARN: agent/threat_memory.py not found — skipping"
+          fi
+
+          # Print memory stats if available
+          if [ -f data/threat_memory/memory_meta.json ]; then
+            python3 - << 'PYEOF'
+          import json
+          with open("data/threat_memory/memory_meta.json") as f:
+              meta = json.load(f)
+          runs = meta.get("run_history", [])
+          last = runs[-1] if runs else {}
+          print(f"  Total runs   : {meta.get('total_runs', 0)}")
+          print(f"  CVEs tracked : {last.get('total_cves', 0)}")
+          print(f"  Actors tracked: {last.get('total_actors', 0)}")
+          print(f"  Campaigns    : {last.get('total_campaigns', 0)}")
+          print(f"  Processed    : {last.get('processed', 0)} advisories")
+          PYEOF
+          fi
+
+          echo "[MEMORY] Stage 6d complete"
+
+      # ── STAGE 6e: AI Learning Engine ──────────────────────────────────
+      - name: AI Learning Engine
+        shell: bash
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          CDB_MANIFEST_PATH: data/stix/feed_manifest.json
+          CDB_AI_INDEX_PATH: data/ai_intelligence/ai_index.json
+          CDB_MEMORY_DIR: data/threat_memory
+          CDB_LEARNING_DIR: data/ai_learning
+        run: |
+          echo "=== STAGE 6e: AI Learning Engine ==="
+          echo "Timestamp: $(date -u)"
+
+          mkdir -p data/ai_learning
+
+          if [ -f agent/ai_learning_engine.py ]; then
+            echo "[LEARN] Running AI Learning Engine..."
+            python3 agent/ai_learning_engine.py
+            echo "[LEARN] Engine completed"
+          else
+            echo "[LEARN] WARN: agent/ai_learning_engine.py not found — skipping"
+          fi
+
+          # Print learning report if available
+          if [ -f data/ai_learning/learning_report.json ]; then
+            python3 - << 'PYEOF'
+          import json
+          with open("data/ai_learning/learning_report.json") as f:
+              r = json.load(f)
+          print(f"  Status         : {r.get('status','?').upper()}")
+          print(f"  Entries adjusted: {r.get('entries_adjusted', 0)}")
+          print(f"  Priority escalated: {r.get('priority_escalated', 0)}")
+          print(f"  Avg risk boost : +{r.get('avg_risk_boost', 0):.4f}")
+          print(f"  Weight adaptations: {r.get('weight_adaptations', 0)}")
+          print(f"  Learning run # : {r.get('weight_run', 'N/A')}")
+          ps = r.get('pattern_summary', {})
+          if ps:
+              print(f"  Recurring CVEs : {ps.get('recurring_cves', 0)}")
+              print(f"  Escalating CVEs: {ps.get('escalating_cves', 0)}")
+              print(f"  Active actors  : {ps.get('active_actors', 0)}")
+              print(f"  Active campaigns: {ps.get('active_campaigns', 0)}")
+          PYEOF
+          fi
+
+          echo "[LEARN] Stage 6e complete"
 
       # ── STAGE 7: Pre-deploy integrity gate (BLOCKING) ────────────────────
       - name: Pre-deploy integrity gate
