@@ -1,0 +1,10 @@
+{
+  "threat_id": "thr-a408638cf783",
+  "title": "Exposed Server Reveals TheGentlemen Ransomware Toolkit, Victim Credentials, and ",
+  "rules": {
+    "sigma": "title: CDB APEX v37.0 - Exposed Server Reveals TheGentlemen Ransomware Toolkit, Vict\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/31\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*z1.bat*'\n    condition: selection_dns\nlevel: high",
+    "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"z1.bat\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
+    "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"z1.bat\")"
+  },
+  "rule_count": 3
+}
