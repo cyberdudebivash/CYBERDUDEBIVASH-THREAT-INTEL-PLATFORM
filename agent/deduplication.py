@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
 """
-deduplication.py - CyberDudeBivash v14.0 (SENTINEL APEX ULTRA)
+deduplication.py - CyberDudeBivash v15.0 (SENTINEL APEX ULTRA)
 TRIPLE-LAYER Intelligence Deduplication Engine.
+
+v15.0 PERMANENT STABILITY FIXES:
+  - max_state_size increased 500 -> 2000 (prevents hash truncation on 500-item manifest)
+  - Generic-title guard added to Layer 2: skip title-only hash for known generic
+    patterns (e.g. "CISA Adds One Known Exploited Vulnerability to Catalog") that
+    reuse the same wording for entirely different CVE entries. Without this guard,
+    every subsequent CISA KEV advisory is blocked as a duplicate of the first.
+  - KNOWN_GENERIC_TITLE_PATTERNS: centralized list of vendor template phrases
+    that must bypass L2 and fall through to L1 (URL-discriminated) only.
 
 v14.0 ROOT CAUSE FIX for duplicate reports:
   Layer 1: Exact hash (title + URL) - catches identical republish
@@ -21,6 +30,41 @@ from typing import Dict, List
 
 logger = logging.getLogger("CDB-DEDUP")
 
+# v15.0: Generic title patterns that MUST skip Layer 2 title-only hash check.
+# These are vendor/agency template phrases reused verbatim for different CVEs/events,
+# meaning the L2 title hash would treat article #2 as a duplicate of article #1
+# even though they concern entirely different vulnerabilities or advisories.
+KNOWN_GENERIC_TITLE_PATTERNS = [
+    # CISA KEV advisories — same phrase, different CVE each time
+    "cisa adds one known exploited vulnerability",
+    "cisa adds",
+    # Generic advisory titles from government feeds
+    "security advisory",
+    "advisory update",
+    "vulnerability advisory",
+    # Vendor patch cycle titles that repeat weekly/monthly
+    "patch tuesday",
+    "monthly security update",
+    "security bulletin",
+    "security update",
+    "product security advisory",
+    # Generic news wires that add new entries with same title template
+    "weekly threat roundup",
+    "weekly security roundup",
+    "threat intelligence report",
+]
+
+# Minimum number of meaningful (non-stopword) words a title must have
+# before Layer 2 is applied. Single-word or 2-word titles are too vague
+# to be reliable cross-feed dedup keys.
+_L2_MIN_MEANINGFUL_WORDS = 4
+_L2_STOPWORDS = frozenset({
+    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to",
+    "for", "of", "with", "by", "from", "is", "are", "was", "were",
+    "be", "been", "has", "have", "had", "its", "it", "this", "that",
+    "new", "update", "adds", "one",
+})
+
 
 class DeduplicationEngine:
     """Triple-layer deduplication. Prevents duplicates across all feed sources.
@@ -33,7 +77,7 @@ class DeduplicationEngine:
 
     def __init__(self, state_file: str = "data/blogger_processed.json",
                  manifest_path: str = "data/stix/feed_manifest.json",
-                 max_state_size: int = 500):
+                 max_state_size: int = 2000):
         self.state_file = state_file
         self.manifest_path = manifest_path
         self.max_state_size = max_state_size
@@ -115,6 +159,34 @@ class DeduplicationEngine:
         normalized = re.sub(r'\s+', ' ', normalized).strip()
         return hashlib.sha256(normalized.encode()).hexdigest()[:16]
 
+    def _is_generic_title(self, title: str) -> bool:
+        """v15.0: Returns True if title is a known generic vendor/agency template.
+
+        Generic titles MUST skip Layer 2 (title-only hash) because multiple
+        distinct advisories share the same boilerplate phrase. For example,
+        CISA uses "CISA Adds One Known Exploited Vulnerability to Catalog" for
+        every single KEV entry — a different CVE each time. L2 would block all
+        entries after the first as duplicates.
+
+        Two checks:
+          1. Title matches a known generic pattern prefix (KNOWN_GENERIC_TITLE_PATTERNS)
+          2. Title has fewer than _L2_MIN_MEANINGFUL_WORDS non-stopword words
+        Either check returning True means: skip L2, use L1 (URL-discriminated) only.
+        """
+        t_lower = title.strip().lower()
+        # Check 1: Known generic pattern match
+        for pattern in KNOWN_GENERIC_TITLE_PATTERNS:
+            if t_lower.startswith(pattern) or pattern in t_lower:
+                logger.debug(f"  [DEDUP-L2-SKIP] Generic title pattern '{pattern}': {title[:60]}")
+                return True
+        # Check 2: Too few meaningful words to be a reliable dedup key
+        words = re.sub(r'[^\w\s]', '', t_lower).split()
+        meaningful = [w for w in words if w not in _L2_STOPWORDS and len(w) > 2]
+        if len(meaningful) < _L2_MIN_MEANINGFUL_WORDS:
+            logger.debug(f"  [DEDUP-L2-SKIP] Only {len(meaningful)} meaningful words: {title[:60]}")
+            return True
+        return False
+
     def _titles_similar(self, a: str, b: str, threshold: float = 0.80) -> bool:
         """Layer 3: Fuzzy word-overlap similarity."""
         wa = set(re.sub(r'[^\w\s]', '', a.lower()).split())
@@ -128,14 +200,21 @@ class DeduplicationEngine:
     # -- Core API -----------------------------------------
 
     def is_duplicate(self, title: str, source_url: str = "") -> bool:
-        """Triple-layer duplicate check. Returns True if already processed."""
-        # Layer 1: Exact hash match (title + URL)
+        """Triple-layer duplicate check. Returns True if already processed.
+
+        v15.0: Layer 2 now skipped for generic titles (CISA KEV boilerplate,
+        short advisory titles, etc.) to prevent false-positive dedup blocking
+        distinct advisories that share a template title phrase.
+        """
+        # Layer 1: Exact hash match (title + URL) — always runs
         if self._generate_hash(title, source_url) in self._state["processed_hashes"]:
             return True
         # Layer 2: Title-only hash (catches cross-feed duplicates)
-        if self._generate_title_hash(title) in self._state.get("title_hashes", []):
-            logger.info(f"  [DEDUP-L2] Cross-feed dup: {title[:60]}")
-            return True
+        # SKIPPED for generic titles — see _is_generic_title() and v15.0 notes
+        if not self._is_generic_title(title):
+            if self._generate_title_hash(title) in self._state.get("title_hashes", []):
+                logger.info(f"  [DEDUP-L2] Cross-feed dup: {title[:60]}")
+                return True
         # Layer 3: Fuzzy word-overlap against recent titles
         for existing in list(self._state.get("hash_titles", {}).values())[-150:]:
             if self._titles_similar(title, existing):
