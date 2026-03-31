@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
 """
-config.py - CyberDudeBivash v31.0 (APEX SOVEREIGN CORTEX)
+config.py - CyberDudeBivash v32.0 (APEX SOVEREIGN CORTEX)
 Global Configuration for the Sentinel APEX Intelligence Platform.
+
+v32.0 PERMANENT STABILITY CHANGES (run #605 dead feed purge):
+  - MAX_STATE_SIZE: 500 -> 2000 (was truncating dedup hash state prematurely)
+  - REMOVED: 17 confirmed zero-entry feeds from run #605 workflow log:
+      ncsc.gov.uk guidance feed, ENISA, FBI IC3 (returned 0 entries since v31.0)
+      tenable.com/cve/rss, packetstormsecurity.com/exploits (0 entries, CI blocked)
+      vx-underground.org, bazaar/urlhaus/feodo abuse.ch (0 entries run #605)
+      ransomwatch.telemetry.ltd (0 entries), portswigger daily-swig (0 entries)
+      cert.gov.au (0 entries), github.com/advisories.atom (auth required)
+      blog.talosintelligence.com (0 entries since run #590)
+      bsi.bund.de Cybersicherheit feed (0 entries — encoding issues)
+      cert.be/en/rss (0 entries), cshub.com/rss (0 entries since v31.0 add)
+  Each removal saves ~3-5s pipeline time per run; combined: ~50-85s saved per run.
 
 v31.0 CHANGES (AUDIT-v78 dead feed purge):
   - REMOVED: securityweek.com (HTTP 403 all source fetches, 0 IOCs — run #598)
@@ -27,7 +40,7 @@ BLOG_ID = os.environ.get('BLOG_ID', '8435132226685160824')
 # FORENSIC PERSISTENCE
 # ===========================================================
 STATE_FILE = "data/blogger_processed.json"
-MAX_STATE_SIZE = 500
+MAX_STATE_SIZE = 2000  # v32.0: Increased from 500 — prevents dedup hash truncation on large manifests
 MAX_PER_FEED = 5
 
 # ===========================================================
@@ -51,24 +64,24 @@ RSS_FEEDS = [
     # [AUDIT-v78] Replacements for removed Tier 1 dead feeds:
     "https://www.darkreading.com/rss.xml",              # Dark Reading (RSS feed works, source fetch blocked — RSS still valuable)
     "https://www.securitymagazine.com/rss/topic/2236",  # Security Magazine
-    "https://www.cshub.com/rss/articles",               # CS Hub
+    # [v32.0-PURGE] cshub.com/rss/articles REMOVED — 0 entries confirmed run #605
 
     # -- TIER 2: Government & Institutional Cyber Commands --
     "https://www.cisa.gov/cybersecurity-advisories/all.xml",
     # [AUDIT-v78] ncsc.gov.uk REMOVED — returns 0 entries consistently (run #598)
     # [AUDIT-v78] cyber.gc.ca REMOVED — returns 0 entries consistently (run #598)
     # [AUDIT-v78] cert.europa.eu REMOVED — returns 0 entries consistently (run #598)
-    # [AUDIT-v78] Replacements for removed Tier 2 dead government feeds:
-    "https://www.ncsc.gov.uk/feeds/all-guidance-updates.xml",  # NCSC UK guidance (different endpoint)
-    "https://www.enisa.europa.eu/news/enisa-news/RSS",          # ENISA European cybersecurity agency
-    "https://www.ic3.gov/Media/Y2024/PSA/rss",                  # FBI IC3 alerts
+    # [v32.0-PURGE] All 3 v31.0 government feed additions confirmed dead (0 entries run #605):
+    # ncsc.gov.uk/feeds/all-guidance-updates.xml REMOVED — 0 entries
+    # enisa.europa.eu/news/enisa-news/RSS REMOVED — 0 entries
+    # ic3.gov/Media/Y2024/PSA/rss REMOVED — 0 entries (year-specific URL, no longer active)
 
     # -- TIER 3: Zero-Day & Vulnerability Intelligence --
     "https://cvefeed.io/rssfeed/latest.xml",
     "https://vulners.com/rss.xml",
     "https://www.zerodayinitiative.com/rss/published/",
-    "https://www.tenable.com/cve/rss",
-    "https://packetstormsecurity.com/feeds/exploits/",
+    # [v32.0-PURGE] tenable.com/cve/rss REMOVED — 0 entries confirmed run #605
+    # [v32.0-PURGE] packetstormsecurity.com/feeds/exploits/ REMOVED — 0 entries / CI IP blocked run #605
 
     # -- TIER 4: Vendor Threat Research (APT Tracking) --
     "https://www.sentinelone.com/blog/feed/",
@@ -77,24 +90,24 @@ RSS_FEEDS = [
     "https://www.crowdstrike.com/blog/feed/",
     "https://www.mandiant.com/resources/blog/rss.xml",
     "https://blogs.microsoft.com/on-the-issues/category/cybersecurity/feed/",
-    "https://blog.talosintelligence.com/rss.xml",
+    # [v32.0-PURGE] blog.talosintelligence.com/rss.xml REMOVED — 0 entries since run #590, confirmed dead run #605
     "https://research.checkpoint.com/feed/",
 
     # -- TIER 5: Deep Web Observers & Malware Analysis --
-    "https://vx-underground.org/rss.xml",
-    "https://bazaar.abuse.ch/rss/",
-    "https://urlhaus.abuse.ch/downloads/rss/",
-    "https://feodotracker.abuse.ch/downloads/rss/",
-    "https://ransomwatch.telemetry.ltd/feed.xml",
+    # [v32.0-PURGE] vx-underground.org/rss.xml REMOVED — 0 entries confirmed run #605
+    # [v32.0-PURGE] bazaar.abuse.ch/rss/ REMOVED — 0 entries confirmed run #605
+    # [v32.0-PURGE] urlhaus.abuse.ch/downloads/rss/ REMOVED — 0 entries confirmed run #605
+    # [v32.0-PURGE] feodotracker.abuse.ch/downloads/rss/ REMOVED — 0 entries confirmed run #605
+    # [v32.0-PURGE] ransomwatch.telemetry.ltd/feed.xml REMOVED — 0 entries confirmed run #605
 
     # -- TIER 6: Offensive Security & Cloud Threats --
-    "https://portswigger.net/daily-swig/rss",
+    # [v32.0-PURGE] portswigger.net/daily-swig/rss REMOVED — 0 entries confirmed run #605
     "https://aws.amazon.com/blogs/security/feed/",
     "https://www.us-cert.gov/ncas/alerts.xml",
     "https://advisories.ncsc.nl/rss/advisories",
-    "https://cert.gov.au/rss/alerts",
+    # [v32.0-PURGE] cert.gov.au/rss/alerts REMOVED — 0 entries confirmed run #605
     "https://googleprojectzero.blogspot.com/feeds/posts/default",
-    "https://github.com/advisories.atom",
+    # [v32.0-PURGE] github.com/advisories.atom REMOVED — requires auth token, returns 0 entries in CI run #605
     "https://www.rapid7.com/blog/rss/",
     "https://www.welivesecurity.com/feed/",
     "https://isc.sans.edu/rssfeed_full.xml",
@@ -114,8 +127,8 @@ RSS_FEEDS = [
     "https://www.helpnetsecurity.com/feed/",           # Help Net Security
     "https://threatpost.com/feed/",                    # Threatpost
     "https://seclists.org/rss/fulldisclosure.rss",     # Full Disclosure
-    "https://www.cert.be/en/rss",                      # CERT Belgium
-    "https://bsi.bund.de/SiteGlobals/Functions/RSSFeed/RSSNewsfeed_Cybersicherheit/RSSNewsfeed_Cybersicherheit_node.xml",
+    # [v32.0-PURGE] cert.be/en/rss REMOVED — 0 entries confirmed run #605
+    # [v32.0-PURGE] bsi.bund.de RSSNewsfeed_Cybersicherheit_node.xml REMOVED — 0 entries / encoding issues run #605
 ]
 
 MAX_ENTRIES_PER_FEED = 5
