@@ -2,7 +2,7 @@
   "threat_id": "thr-c6a7124c0ad6",
   "title": "\u201cHandala Hack\u201d \u2013 Unveiling Group\u2019s Modus Operandi",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - \u201cHandala Hack\u201d \u2013 Unveiling Group\u2019s Modus Operandi\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/30\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*handala.bat*'\n            - '*handala.rar*'\n            - '*i.gif*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - \u201cHandala Hack\u201d \u2013 Unveiling Group\u2019s Modus Operandi\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/31\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*handala.bat*'\n            - '*handala.rar*'\n            - '*i.gif*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"handala.bat\",\n              \"handala.rar\",\n              \"i.gif\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"handala.bat\", \"handala.rar\", \"i.gif\")"
   },

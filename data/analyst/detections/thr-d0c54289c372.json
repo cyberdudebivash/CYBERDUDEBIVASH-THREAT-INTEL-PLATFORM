@@ -2,7 +2,7 @@
   "threat_id": "thr-d0c54289c372",
   "title": "Grassroots DICOM (GDCM)",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - Grassroots DICOM (GDCM)\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/30\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*sourceforge.net*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - Grassroots DICOM (GDCM)\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/31\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*sourceforge.net*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"sourceforge.net\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"sourceforge.net\")"
   },

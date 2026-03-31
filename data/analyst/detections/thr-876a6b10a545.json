@@ -2,7 +2,7 @@
   "threat_id": "thr-876a6b10a545",
   "title": "Infiniti Stealer: a new macOS infostealer using ClickFix and Python/Nuitka",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - Infiniti Stealer: a new macOS infostealer using ClickFix and\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/30\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*any.run*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - Infiniti Stealer: a new macOS infostealer using ClickFix and\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/31\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*any.run*'\n    condition: selection_dns\nlevel: high",
     "yara": "rule CDB_APEX_Infiniti_Stealer__a_new_macOS_infosteale {\n    meta:\n        description = \"Infiniti Stealer: a new macOS infostealer using ClickFix and\"\n        author = \"CyberDudeBivash\"\n    strings:\n        $h0 = \"1e63be724bf651bb17bcf181d11bacfabef6a6360dcdfda945d6389e80f2b958\" ascii nocase\n    condition:\n        any of them\n}",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"any.run\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"file.hash.sha256\": [\n              \"1e63be724bf651bb17bcf181d11bacfabef6a6360dcdfda945d6389e80f2b958\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"any.run\")"
