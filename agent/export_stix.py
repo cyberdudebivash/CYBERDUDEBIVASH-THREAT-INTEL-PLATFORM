@@ -528,7 +528,7 @@ class STIXExporter:
             json.dump(stix_bundle, f, indent=2)
 
         logger.info(
-            f"STIX v22.0 bundle written: {stix_filename} | "
+            f"STIX v23.1 bundle written: {stix_filename} | "
             f"Objects: {len(objects)} | TLP: {tlp_label} | "
             f"Indicators: {len(indicator_ids)} | CVEs: {len(cve_ids_found)}"
         )
