@@ -116,7 +116,7 @@ class ConfidenceEngine:
         )
 
         logger.info(
-            f"Confidence v46: {total}% ({label}) | "
+            f"Confidence v47: {total}% ({label}) | "
             f"IOC:{dims['ioc_richness']:.0f} SRC:{dims['source_depth']:.0f} "
             f"MITRE:{dims['mitre_coverage']:.0f} ACTOR:{dims['actor_attribution']:.0f} "
             f"IMPACT:{dims['impact_evidence']:.0f} CVE:{dims['cve_verification']:.0f}"
