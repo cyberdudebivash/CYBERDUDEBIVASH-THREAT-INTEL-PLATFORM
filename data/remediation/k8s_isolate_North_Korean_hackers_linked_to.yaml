@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-0452bd3597ff
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "North Korean hackers linked to Axios npm supply chain compromise"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
