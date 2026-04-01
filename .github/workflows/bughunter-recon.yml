@@ -103,9 +103,12 @@ jobs:
           "
 
       - name: Commit Bug Hunter Data
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "CDB-BUGHUNTER-BOT"
           git config user.email "bughunter@cyberdudebivash.com"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
 
           # SAFETY: Only add files in data/bughunter/
           git add data/bughunter/bughunter_output.json -f
@@ -115,5 +118,6 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "🐛 BUG HUNTER v49.0: Recon scan $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git pull --rebase origin main || true
             git push origin main || echo "Push failed — will retry next cycle"
           fi

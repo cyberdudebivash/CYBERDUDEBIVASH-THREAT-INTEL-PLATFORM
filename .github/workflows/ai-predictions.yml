@@ -106,8 +106,11 @@ jobs:
           PYEOF
 
       - name: Commit AI prediction results
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.email "bivash@cyberdudebivash.com"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
           git config user.name "CDB-AI-Bot"
           git add data/ai_predictions/ 2>/dev/null || true
           if git diff --staged --quiet; then

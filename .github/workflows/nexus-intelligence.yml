@@ -73,9 +73,13 @@ jobs:
           "
 
       - name: Commit NEXUS Intelligence Data
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "CDB-NEXUS-BOT"
           git config user.email "nexus@cyberdudebivash.com"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
           git add data/nexus/ -f
           git diff --cached --quiet || git commit -m "🧠 NEXUS v39.0: Intelligence cycle $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git pull --rebase origin main || true
           git push origin main || echo "Push failed — will retry next cycle"
