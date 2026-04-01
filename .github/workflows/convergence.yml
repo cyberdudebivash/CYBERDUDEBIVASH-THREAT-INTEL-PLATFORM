@@ -33,11 +33,15 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: python -m agent.v37_convergence.convergence_engine
       - name: Commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "CDB-GOC-Convergence"
           git config user.email "goc@cyberdudebivash.com"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
           git add data/convergence/ || true
           git diff --cached --quiet && echo "No changes" || {
             RULES=$(python3 -c "import json; d=json.load(open('data/convergence/convergence_report.json')); print(d['integration_stats']['detection_rules'])" 2>/dev/null || echo "0")
             git commit -m "🔗 CONVERGENCE v37.0 — ZDH Integration | ${RULES} detection rules"
+            git pull --rebase origin main || true
             git push; }

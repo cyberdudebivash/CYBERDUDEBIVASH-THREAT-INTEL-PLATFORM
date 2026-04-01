@@ -52,13 +52,17 @@ jobs:
             --days ${{ github.event.inputs.days || '7' }}
 
       - name: 💾 Commit Report
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "CDB-SENTINEL-APEX"
           git config user.email "sentinel@cyberdudebivash.com"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
           git add data/intelligence/reports/ || true
           if git diff --staged --quiet; then
             echo "No reports to commit"
           else
             git commit -m "📊 Weekly intelligence report — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git push
+            git pull --rebase origin main || true
+            git push origin main
           fi

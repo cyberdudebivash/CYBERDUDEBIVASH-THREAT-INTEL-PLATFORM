@@ -57,9 +57,12 @@ jobs:
           python -m agent.v35_zerodayhunter.zeroday.zerodayhunter_engine
 
       - name: Commit outputs
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "CDB-GOC-ZeroDayHunter"
           git config user.email "bivash@cyberdudebivash.com"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
 
           # Stage generated JSON outputs only
           git add data/zerodayhunter/*.json || true
@@ -81,8 +84,10 @@ jobs:
           git pull --rebase origin main || true
 
           # Push changes
+          git pull --rebase origin main || true
           git push origin main || (
             echo "Push failed due to race condition, retrying..."
             git pull --rebase origin main
+            git pull --rebase origin main || true
             git push origin main
           )
