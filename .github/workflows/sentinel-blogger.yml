@@ -196,6 +196,13 @@ jobs:
             data/auth \
             data/billing \
             data/subscriptions \
+            data/agentic_intel \
+            data/identity_intel \
+            data/darkweb_intel \
+            data/risk_quantification \
+            data/ttp_engine \
+            data/soar_engine \
+            data/soar_engine/playbooks \
             api \
             secrets
           echo "✓ Workspace ready"
@@ -878,6 +885,211 @@ jobs:
           PYEOF
 
           echo "[ENTERPRISE] Stage 6i complete"
+
+      # ── STAGE 6j: Agentic AI + Predictive Threat Intelligence ───────────
+      - name: Agentic AI — Predictive Threat Intelligence
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "=== STAGE 6j: Agentic AI + Predictive Threat Intelligence ==="
+          mkdir -p data/agentic_intel
+          if [ -f agent/agentic_intel_engine.py ]; then
+            python3 agent/agentic_intel_engine.py || true
+          else
+            echo "WARN: agentic_intel_engine.py not found — skipping"
+          fi
+          python3 - << 'PYEOF' || true
+          import json, os
+          meta = "data/agentic_intel/engine_meta.json"
+          if os.path.exists(meta):
+              with open(meta) as f: r = json.load(f)
+              print(f"  Engine            : {r.get('engine', 'N/A')}")
+              print(f"  Advisories        : {r.get('advisories_processed', 0)}")
+              print(f"  Predictions       : {r.get('predictions_generated', 0)}")
+              print(f"  Supply chain risks: {r.get('supply_chain_risks', 0)}")
+              print(f"  Actors detected   : {r.get('actors_detected', 0)}")
+              print(f"  Verified CVEs     : {r.get('verified_cves', 0)}")
+          else:
+              print("  [INFO] agentic_intel/engine_meta.json not yet generated")
+          PYEOF
+          echo "[AGENTIC] Stage 6j complete"
+
+      # ── STAGE 6k: Identity Intelligence + Stealer Log Monitoring ─────────
+      - name: Identity Intelligence — Stealer Log Monitoring
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "=== STAGE 6k: Identity Intelligence + Stealer Log Monitoring ==="
+          mkdir -p data/identity_intel
+          if [ -f agent/identity_intel_engine.py ]; then
+            python3 agent/identity_intel_engine.py || true
+          else
+            echo "WARN: identity_intel_engine.py not found — skipping"
+          fi
+          python3 - << 'PYEOF' || true
+          import json, os
+          meta = "data/identity_intel/engine_meta.json"
+          if os.path.exists(meta):
+              with open(meta) as f: r = json.load(f)
+              print(f"  Engine            : {r.get('engine', 'N/A')}")
+              print(f"  Advisories scanned: {r.get('advisories_scanned', 0)}")
+              print(f"  Stealer signals   : {r.get('stealer_signals', 0)}")
+              print(f"  Identity risk     : {r.get('identity_risk_level', 'N/A')}")
+              print(f"  Stealer families  : {r.get('stealer_families_detected', 0)}")
+              print(f"  Remediation acts  : {r.get('remediation_actions', 0)}")
+          else:
+              print("  [INFO] identity_intel/engine_meta.json not yet generated")
+          PYEOF
+          echo "[IDENTITY] Stage 6k complete"
+
+      # ── STAGE 6l: Dark Web Intelligence Engine ───────────────────────────
+      - name: Dark Web Intelligence Engine
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "=== STAGE 6l: Dark Web Intelligence Engine ==="
+          mkdir -p data/darkweb_intel
+          if [ -f agent/darkweb_intel_engine.py ]; then
+            python3 agent/darkweb_intel_engine.py || true
+          else
+            echo "WARN: darkweb_intel_engine.py not found — skipping"
+          fi
+          python3 - << 'PYEOF' || true
+          import json, os
+          meta = "data/darkweb_intel/engine_meta.json"
+          if os.path.exists(meta):
+              with open(meta) as f: r = json.load(f)
+              print(f"  Engine            : {r.get('engine', 'N/A')}")
+              print(f"  Dark web signals  : {r.get('darkweb_signals', 0)}")
+              print(f"  Actors profiled   : {r.get('actors_profiled', 0)}")
+              print(f"  Campaigns detected: {r.get('campaigns_detected', 0)}")
+              print(f"  Wallet detections : {r.get('wallet_detections', 0)}")
+              print(f"  Highest campaign  : {r.get('highest_campaign', 'N/A')}")
+          else:
+              print("  [INFO] darkweb_intel/engine_meta.json not yet generated")
+          PYEOF
+          echo "[DARKWEB] Stage 6l complete"
+
+      # ── STAGE 6m: ROI Risk Quantification + Brand Protection ─────────────
+      - name: Risk Quantification — ROI + Brand Protection
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "=== STAGE 6m: ROI Risk Quantification + Brand Protection ==="
+          mkdir -p data/risk_quantification
+          if [ -f agent/risk_quantification_engine.py ]; then
+            python3 agent/risk_quantification_engine.py || true
+          else
+            echo "WARN: risk_quantification_engine.py not found — skipping"
+          fi
+          python3 - << 'PYEOF' || true
+          import json, os
+          meta = "data/risk_quantification/engine_meta.json"
+          if os.path.exists(meta):
+              with open(meta) as f: r = json.load(f)
+              print(f"  Engine            : {r.get('engine', 'N/A')}")
+              print(f"  CVEs quantified   : {r.get('cves_quantified', 0)}")
+              total = r.get('total_potential_loss_usd', 0)
+              fmt = f"${total/1_000_000:.2f}M" if total >= 1_000_000 else f"${total/1_000:.1f}K"
+              print(f"  Total potential $ : {fmt}")
+              print(f"  Critical risk CVEs: {r.get('critical_risk_cves', 0)}")
+              print(f"  Phishing threats  : {r.get('phishing_threats', 0)}")
+              print(f"  Brand risk level  : {r.get('brand_risk_level', 'N/A')}")
+          else:
+              print("  [INFO] risk_quantification/engine_meta.json not yet generated")
+          PYEOF
+          echo "[RISK-QUANT] Stage 6m complete"
+
+      # ── STAGE 6n: MITRE ATT&CK TTP Engine ───────────────────────────────
+      - name: MITRE ATT&CK TTP Engine
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "=== STAGE 6n: MITRE ATT&CK TTP Engine ==="
+          mkdir -p data/ttp_engine
+          if [ -f agent/ttp_engine.py ]; then
+            python3 agent/ttp_engine.py || true
+          else
+            echo "WARN: ttp_engine.py not found — skipping"
+          fi
+          python3 - << 'PYEOF' || true
+          import json, os
+          meta = "data/ttp_engine/engine_meta.json"
+          if os.path.exists(meta):
+              with open(meta) as f: r = json.load(f)
+              print(f"  Engine            : {r.get('engine', 'N/A')}")
+              print(f"  Advisories mapped : {r.get('advisories_mapped', 0)}")
+              print(f"  Unique TTPs       : {r.get('unique_techniques', 0)}")
+              print(f"  Tactic coverage   : {r.get('tactics_covered', 0)}/{r.get('total_tactics', 14)} ({r.get('coverage_pct', 0)}%)")
+              print(f"  Sigma rules       : {r.get('sigma_rules_generated', 0)}")
+              print(f"  YARA rules        : {r.get('yara_rules_generated', 0)}")
+              print(f"  SIEM rules        : {r.get('siem_rules_generated', 0)}")
+          else:
+              print("  [INFO] ttp_engine/engine_meta.json not yet generated")
+          PYEOF
+          echo "[TTP] Stage 6n complete"
+
+      # ── STAGE 6o: SOAR + Integration Engine ──────────────────────────────
+      - name: SOAR Engine — Integration + Response Automation
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          SPLUNK_BASE_URL:       ${{ secrets.SPLUNK_BASE_URL || '' }}
+          SPLUNK_API_TOKEN:      ${{ secrets.SPLUNK_API_TOKEN || '' }}
+          SENTINEL_WORKSPACE_ID: ${{ secrets.SENTINEL_WORKSPACE_ID || '' }}
+          SENTINEL_API_TOKEN:    ${{ secrets.SENTINEL_API_TOKEN || '' }}
+          CS_CLIENT_ID:          ${{ secrets.CS_CLIENT_ID || '' }}
+          CS_CLIENT_SECRET:      ${{ secrets.CS_CLIENT_SECRET || '' }}
+          ELASTIC_BASE_URL:      ${{ secrets.ELASTIC_BASE_URL || '' }}
+          ELASTIC_API_KEY:       ${{ secrets.ELASTIC_API_KEY || '' }}
+        run: |
+          echo "=== STAGE 6o: SOAR Engine + Integration ==="
+          mkdir -p data/soar_engine data/soar_engine/playbooks
+          if [ -f agent/soar_engine.py ]; then
+            python3 agent/soar_engine.py || true
+          else
+            echo "WARN: soar_engine.py not found — skipping"
+          fi
+          python3 - << 'PYEOF' || true
+          import json, os
+          meta = "data/soar_engine/engine_meta.json"
+          if os.path.exists(meta):
+              with open(meta) as f: r = json.load(f)
+              print(f"  Engine            : {r.get('engine', 'N/A')}")
+              print(f"  IOCs extracted    : {r.get('iocs_extracted', 0)}")
+              print(f"  Playbooks         : {r.get('playbooks_generated', 0)}")
+              print(f"  SIEM dispatches   : {r.get('siem_dispatches_queued', 0)}")
+              print(f"  Response actions  : {r.get('response_actions', 0)}")
+              print(f"  P1 responses      : {r.get('priority_1_responses', 0)}")
+              print(f"  SIEM platforms    : {r.get('siem_platforms', [])}")
+              print(f"  Mode              : {r.get('execution_mode', 'N/A')}")
+          else:
+              print("  [INFO] soar_engine/engine_meta.json not yet generated")
+          PYEOF
+          echo "[SOAR] Stage 6o complete"
 
       # ── STAGE 7: Pre-deploy integrity gate (BLOCKING) ────────────────────
       - name: Pre-deploy integrity gate
