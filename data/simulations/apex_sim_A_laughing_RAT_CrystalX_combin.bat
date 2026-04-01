@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: A laughing RAT: CrystalX combines spyware, stealer, and prankware features
-:: Generated: 2026-04-01 09:11:14 UTC
+:: Generated: 2026-04-01 13:41:33 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================
