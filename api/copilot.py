@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  CYBERDUDEBIVASH® SENTINEL APEX — AI SECURITY COPILOT v1.0                ║
+║  CYBERDUDEBIVASH® SENTINEL APEX — AI SECURITY COPILOT v81.0               ║
 ║  Deterministic SOC intelligence engine — zero external LLM dependency     ║
 ║  Rule-based + template-driven threat analysis                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -226,10 +226,18 @@ class CopilotEngine:
 
         # Build MITRE context
         mitre_details = []
-        for t in mitre[:5]:
+        for t in (mitre or [])[:5]:
+            if not t or not isinstance(t, str):
+                continue
             ctx = MITRE_CONTEXT.get(t, {})
             if ctx:
-                mitre_details.append({"technique": t, "name": ctx["name"], "tactic": ctx["tactic"], "description": ctx["desc"]})
+                mitre_details.append({
+                    "technique":   t,
+                    "name":        ctx.get("name", "Unknown"),
+                    "tactic":      ctx.get("tactic", "Unknown"),
+                    "description": ctx.get("desc", "See MITRE ATT&CK for details"),
+                    "mitigation":  ctx.get("mitigation", "See MITRE ATT&CK for mitigations"),
+                })
 
         return {
             "mode":         "explain_threat",
@@ -243,7 +251,11 @@ class CopilotEngine:
                     "severity":      sev,
                     "risk_level":    self._soc_score_color(score),
                     "cvss":          cvss,
-                    "epss_pct":      f"{float(epss)*100:.2f}%" if epss is not None else "N/A",
+                    "epss_pct":      (
+                        (lambda e: f"{float(e)*100:.2f}%" if e not in (None, "", "N/A") else "N/A")(epss)
+                        if epss is not None
+                        else "N/A"
+                    ),
                     "kev_status":    "IN CISA KEV — exploitation confirmed" if kev else "Not in KEV",
                     "exploit_prob":  exploit,
                     "supply_chain":  "Yes — supply chain event" if sc else "No",
@@ -340,7 +352,7 @@ class CopilotEngine:
 
     def ioc_summary(self, threat: Dict, question: str = "") -> Dict:
         iocs  = threat.get("ioc_counts") or {}
-        total = sum(v for v in iocs.values() if v)
+        total = sum(v for v in iocs.values() if v and isinstance(v, (int, float)) and v > 0)
         active = {k: v for k, v in iocs.items() if v and v > 0}
         tlp    = threat.get("tlp_label") or "TLP:CLEAR"
         return {
@@ -400,7 +412,11 @@ class CopilotEngine:
                 "risk_score":      score,
                 "risk_level":      level,
                 "cvss":            cvss,
-                "epss":            f"{float(epss)*100:.2f}%" if epss else "N/A",
+                "epss":            (
+                    (lambda e: f"{float(e)*100:.2f}%" if str(e) not in ("", "None", "N/A") else "N/A")(epss)
+                    if epss
+                    else "N/A"
+                ),
                 "kev":             kev,
                 "supply_chain":    sc,
                 "financial_impact_estimate": fin_impact,
@@ -424,14 +440,19 @@ class CopilotEngine:
         if not threat and threat_id:
             threat = self._find_threat(threat_id) or {}
         if not threat:
-            # Try to answer generically from question context
+            # Construct a generic threat context from the question
             threat = {
-                "title":        f"Query: {question[:80]}",
+                "title":        f"Query: {(question or 'Security Analysis')[:80]}",
                 "severity":     "MEDIUM",
                 "risk_score":   5.0,
                 "threat_type":  "General",
                 "mitre_tactics": [],
                 "ioc_counts":   {},
+                "kev_present":  False,
+                "supply_chain": False,
+                "actor_tag":    "UNATTRIBUTED",
+                "epss_score":   None,
+                "cvss_score":   None,
             }
 
         # Dispatch mode
@@ -444,11 +465,61 @@ class CopilotEngine:
             "risk_brief":     self.risk_brief,
         }
         fn = MODES.get(mode, self.explain_threat)
-        result = fn(threat, question)
+        try:
+            result = fn(threat, question)
+        except Exception as _mode_err:
+            logger.warning(f"[Copilot] Mode '{mode}' error: {_mode_err} — falling back to explain_threat")
+            try:
+                result = self.explain_threat(threat, question)
+            except Exception:
+                result = {
+                    "mode":  mode,
+                    "title": threat.get("title", "Unknown"),
+                    "error": "Analysis engine encountered an issue — partial results returned",
+                }
+
+        # ── Phase 2: Top-level convenience fields (additive, non-breaking) ──────
+        _pb          = self._get_playbook(threat.get("threat_type") or "General")
+        _risk_score  = float(threat.get("risk_score") or 5.0)
+        _sev         = (threat.get("severity") or "MEDIUM").upper()
+        _risk_level  = self._soc_score_color(_risk_score)
+        _title       = threat.get("title") or (f"Query: {question[:60]}" if question else "Security Analysis")
+        _kev         = threat.get("kev_present", False)
+
+        # Summary: 1-2 sentence high-level explanation
+        _summary = (
+            f"{_title} — {_sev} severity "
+            f"(risk: {_risk_score:.1f}/10). "
+            f"{_pb.get('summary', 'Security advisory requiring assessment and appropriate response.')}"
+            + (" CISA has confirmed active exploitation in the wild." if _kev else "")
+        )
+
+        # Actions: top 5 immediate prioritized steps from playbook
+        _actions = _pb.get("immediate", [
+            "Assess threat relevance to your environment",
+            "Check for affected systems in your inventory",
+            "Search SIEM for related indicators",
+            "Apply relevant patches or mitigations",
+            "Update detection rules with new IOCs",
+        ])[:5]
+
+        # Confidence: data completeness score (0.0 – 1.0)
+        _confidence = round(min(1.0, sum([
+            0.25 if (threat.get("title") and "Query:" not in (threat.get("title") or "")) else 0.05,
+            0.25 if threat.get("risk_score") else 0.0,
+            0.25 if threat.get("mitre_tactics") else 0.0,
+            0.25 if (threat.get("threat_type") and threat.get("threat_type") != "General") else 0.05,
+        ])), 2)
 
         return {
             **result,
-            "query":          question,
+            # ── Phase 2: New top-level fields ──────────────────────────────
+            "summary":         _summary,
+            "actions":         _actions,
+            "risk_level":      _risk_level,
+            "confidence":      _confidence,
+            # ── Existing metadata (unchanged) ──────────────────────────────
+            "query":           question,
             "processed_in_ms": round((time.time() - t0) * 1000),
             "engine":          "CDB-Copilot v1.0 (deterministic)",
             "generated_at":    datetime.now(timezone.utc).isoformat(),
@@ -486,7 +557,7 @@ if _FASTAPI_OK:
                 threat_id  = req.threat_id,
                 threat_data= req.threat_data,
             )
-            return {"status": "ok", **result}
+            return {"status": "success", **result}
         except Exception as e:
             logger.error(f"Copilot error: {e}")
             raise HTTPException(500, {"error": "Copilot engine error — please retry", "detail": str(e)})
@@ -494,7 +565,7 @@ if _FASTAPI_OK:
     @copilot_router.get("/modes", summary="List available copilot modes")
     async def list_modes():
         return {
-            "status": "ok",
+            "status": "success",
             "modes": [
                 {"id": "explain_threat",  "label": "Explain Threat",        "desc": "SOC-style threat breakdown with context"},
                 {"id": "what_to_do",      "label": "What Should I Do?",     "desc": "Prioritized action plan with SLA"},

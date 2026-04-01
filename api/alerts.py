@@ -473,6 +473,7 @@ async def alerts_health():
 
     return JSONResponse({
         "status":         "ok",
+        "version":        "v81.0",
         "subsystem":      "live-alerts",
         "queue_size":     total,
         "sse_clients":    sse_clients,
