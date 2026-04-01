@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-5a379c32fb29
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "ZDI-26-250: Linux Kernel Analog Device Driver Improper Validation of Array Index Local Privilege Escalation Vulnerability"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
