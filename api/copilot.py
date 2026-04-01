@@ -34,7 +34,8 @@ try:
     _FASTAPI_OK = True
 
     class CopilotRequest(PM):
-        question:      str
+        question:      str = ""      # Primary field
+        query:         str = ""      # Alias for question (backwards compat)
         threat_id:     Optional[str] = None
         threat_data:   Optional[Dict] = None
         mode:          str = "explain_threat"   # explain_threat | what_to_do | soc_report | ioc_summary | mitre_mapping | risk_brief
@@ -469,8 +470,10 @@ if _FASTAPI_OK:
 
     @copilot_router.post("/query", summary="AI Security Copilot — SOC threat analysis")
     async def copilot_query(req: CopilotRequest):
-        if not req.question and not req.threat_id and not req.threat_data:
-            raise HTTPException(400, {"error": "Provide question, threat_id, or threat_data"})
+        # Support both 'question' and 'query' field names
+        effective_question = req.question or req.query or ""
+        if not effective_question and not req.threat_id and not req.threat_data:
+            raise HTTPException(400, {"error": "Provide question/query, threat_id, or threat_data"})
 
         valid_modes = {"explain_threat", "what_to_do", "soc_report", "ioc_summary", "mitre_mapping", "risk_brief"}
         mode = req.mode if req.mode in valid_modes else "explain_threat"
@@ -478,7 +481,7 @@ if _FASTAPI_OK:
         try:
             engine = get_engine()
             result = engine.query(
-                question   = req.question or "",
+                question   = effective_question,
                 mode       = mode,
                 threat_id  = req.threat_id,
                 threat_data= req.threat_data,
