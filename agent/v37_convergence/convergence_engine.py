@@ -582,7 +582,7 @@ class PluginFramework:
         {"id": "zdh-binary-agent", "type": "agent", "desc": "ZDH Zig binary endpoint agent",
          "status": "AVAILABLE", "install": "Deploy ZDH binary to target hosts"},
         {"id": "zdh-tauri-desktop", "type": "ui", "desc": "ZDH Tauri desktop application",
-         "status": "AVAILABLE", "install": "Install from cyberdudebivash.gumroad.com"},
+         "status": "AVAILABLE", "install": "Install from https://tools.cyberdudebivash.com/"},
         {"id": "siem-connector", "type": "integration", "desc": "SIEM bidirectional connector",
          "status": "AVAILABLE", "install": "Configure via API key"},
     ]

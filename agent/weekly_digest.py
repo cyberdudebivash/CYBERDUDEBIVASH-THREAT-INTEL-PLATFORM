@@ -24,7 +24,7 @@ logger = logging.getLogger("CDB-WEEKLY-DIGEST")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [CDB-DIGEST] %(message)s")
 
 MANIFEST_PATH = "data/stix/feed_manifest.json"
-GUMROAD_STORE = "https://cyberdudebivash.gumroad.com/"
+GUMROAD_STORE = "https://tools.cyberdudebivash.com/"
 PLATFORM_URL  = "https://intel.cyberdudebivash.com"
 BLOG_URL      = "https://cyberbivash.blogspot.com"
 WEBSITE_URL   = "https://cyberdudebivash.com"

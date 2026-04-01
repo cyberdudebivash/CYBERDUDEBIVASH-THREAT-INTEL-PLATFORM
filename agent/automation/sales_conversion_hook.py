@@ -44,7 +44,7 @@ PLATFORM_URL = "https://intel.cyberdudebivash.com"
 PRICING_URL = f"{PLATFORM_URL}/pricing"
 ENTERPRISE_EMAIL = "enterprise@cyberdudebivash.com"
 WHATSAPP_URL = "https://wa.me/918179881447"
-STORE_URL = "https://cyberdudebivash.gumroad.com"
+STORE_URL = "https://tools.cyberdudebivash.com/"
 
 DATA_DIR = Path("data/sales_conversion")
 ADVISORIES_DIR = DATA_DIR / "advisories"

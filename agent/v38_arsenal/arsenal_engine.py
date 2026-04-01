@@ -279,7 +279,7 @@ class APIMonetizationGateway:
                 "customer_portal": "/api/v1/billing/portal",
             },
             "gumroad_integration": {
-                "store_url": "https://cyberdudebivash.gumroad.com",
+                "store_url": "https://tools.cyberdudebivash.com/",
                 "product_slugs": {
                     "sentinel_pro": "sentinel-apex-pro-api",
                     "detection_pack": "sentinel-apex-detection-pack",
@@ -303,23 +303,23 @@ class SecurityToolsMarketplace:
         {"id": "sentinel-apex", "name": "Sentinel APEX Threat Intel Platform", "category": "Threat Intelligence",
          "price": "Enterprise", "channel": "Direct", "url": "https://intel.cyberdudebivash.com", "status": "LIVE"},
         {"id": "zdh-binary", "name": "Zero Day Hunter Agent", "category": "Endpoint Detection",
-         "price": "$2,999+", "channel": "Direct", "url": "https://cyberdudebivash.gumroad.com", "status": "LIVE"},
+         "price": "$2,999+", "channel": "Direct", "url": "https://tools.cyberdudebivash.com/", "status": "LIVE"},
         {"id": "phishradar-ai", "name": "PhishRadar AI", "category": "Phishing Detection",
-         "price": "$49", "channel": "Gumroad", "url": "https://cyberdudebivash.gumroad.com", "status": "LIVE"},
+         "price": "$49", "channel": "Gumroad", "url": "https://tools.cyberdudebivash.com/", "status": "LIVE"},
         {"id": "threat-analyzer", "name": "Threat Analyzer App", "category": "Threat Analysis",
-         "price": "$29", "channel": "Gumroad", "url": "https://cyberdudebivash.gumroad.com", "status": "LIVE"},
+         "price": "$29", "channel": "Gumroad", "url": "https://tools.cyberdudebivash.com/", "status": "LIVE"},
         {"id": "session-shield", "name": "SessionShield", "category": "Session Security",
-         "price": "$39", "channel": "Gumroad", "url": "https://cyberdudebivash.gumroad.com", "status": "LIVE"},
+         "price": "$39", "channel": "Gumroad", "url": "https://tools.cyberdudebivash.com/", "status": "LIVE"},
         {"id": "blackpearl", "name": "BlackPearl Full-Stack Enumerator", "category": "Reconnaissance",
-         "price": "$99", "channel": "Gumroad", "url": "https://cyberdudebivash.gumroad.com", "status": "LIVE"},
+         "price": "$99", "channel": "Gumroad", "url": "https://tools.cyberdudebivash.com/", "status": "LIVE"},
         {"id": "detection-pack", "name": "Sentinel APEX Detection Pack", "category": "Detection Rules",
-         "price": "$49/mo", "channel": "Gumroad", "url": "https://cyberdudebivash.gumroad.com", "status": "LIVE"},
+         "price": "$49/mo", "channel": "Gumroad", "url": "https://tools.cyberdudebivash.com/", "status": "LIVE"},
         {"id": "ioc-feed-pro", "name": "IOC Intelligence Feed (Pro)", "category": "Threat Feeds",
          "price": "$99/mo", "channel": "API", "url": "https://intel.cyberdudebivash.com/api", "status": "LIVE"},
         {"id": "enterprise-feed", "name": "Enterprise Threat Feed", "category": "Threat Feeds",
          "price": "$499/mo", "channel": "API", "url": "https://intel.cyberdudebivash.com/api", "status": "LIVE"},
         {"id": "ir-playbook-pack", "name": "IR Playbook Collection", "category": "Incident Response",
-         "price": "$29", "channel": "Gumroad", "url": "https://cyberdudebivash.gumroad.com", "status": "PLANNED"},
+         "price": "$29", "channel": "Gumroad", "url": "https://tools.cyberdudebivash.com/", "status": "PLANNED"},
     ]
 
     GITHUB_TOOLS = [
@@ -339,7 +339,7 @@ class SecurityToolsMarketplace:
             "catalog": self.TOOL_CATALOG,
             "github_repos": self.GITHUB_TOOLS,
             "distribution_channels": {
-                "gumroad": {"url": "https://cyberdudebivash.gumroad.com", "products": sum(1 for t in self.TOOL_CATALOG if t["channel"] == "Gumroad")},
+                "gumroad": {"url": "https://tools.cyberdudebivash.com/", "products": sum(1 for t in self.TOOL_CATALOG if t["channel"] == "Gumroad")},
                 "direct_api": {"url": "https://intel.cyberdudebivash.com/api", "products": sum(1 for t in self.TOOL_CATALOG if t["channel"] == "API")},
                 "github": {"url": "https://github.com/cyberdudebivash", "repos": len(self.GITHUB_TOOLS)},
             },

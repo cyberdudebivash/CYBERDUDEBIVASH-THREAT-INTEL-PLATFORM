@@ -103,7 +103,7 @@ class PublicAPIHandler:
             "active_entries": len(active),
             "preview_entries":[self._strip_for_public(e) for e in active[:PUBLIC_MAX_ENTRIES]],
             "feed_url":       "https://intel.cyberdudebivash.com",
-            "upgrade_url":    "https://cyberdudebivash.gumroad.com",
+            "upgrade_url":    "https://tools.cyberdudebivash.com/",
         }, req_id, (time.monotonic() - t0) * 1000)
 
     def get_platform_health(self, identity: str = "anon") -> Dict:

@@ -540,7 +540,7 @@ class TestZeroRegression(unittest.TestCase):
         """Existing lead_autoresponder.py must still import."""
         from agent.lead_autoresponder import ENTERPRISE_URL, STORE_URL
         self.assertEqual(ENTERPRISE_URL, "https://intel.cyberdudebivash.com/pricing")
-        self.assertEqual(STORE_URL, "https://cyberdudebivash.gumroad.com")
+        self.assertEqual(STORE_URL, "https://tools.cyberdudebivash.com/")
 
     def test_07_subscription_manager_intact(self):
         """Existing v53 subscription manager must still work."""
