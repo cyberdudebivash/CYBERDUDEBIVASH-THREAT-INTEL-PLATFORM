@@ -442,7 +442,7 @@ if _FASTAPI_OK:
             from api.auth import get_key_manager
 
         mgr     = get_key_manager()
-        raw_key = mgr.create_key(tier="FREE", owner="anonymous", label="Self-service free key")
+        raw_key, _ = mgr.create_key(tier="FREE", owner="anonymous", label="Self-service free key")
         masked  = raw_key[:12] + "..." + raw_key[-4:]
         return {
             "status":         "ok",
