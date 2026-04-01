@@ -82,7 +82,7 @@ class CDBClient:
         PRO        - API key (cdb-pro-xxx). 300 req/min. Full IOC + detection feed.
         ENTERPRISE - API key (cdb-ent-xxx). 1000 req/min. Full intelligence + STIX + actors.
 
-    Get API Key: https://cyberdudebivash.gumroad.com
+    Get API Key: https://tools.cyberdudebivash.com/
     """
 
     def __init__(
@@ -169,7 +169,7 @@ class CDBClient:
                     raise CDBAuthError(
                         403,
                         f"Insufficient tier. {detail.get('message', '')} "
-                        f"Upgrade: {detail.get('upgrade_url', 'cyberdudebivash.gumroad.com')}",
+                        f"Upgrade: {detail.get('upgrade_url', 'https://tools.cyberdudebivash.com/')}",
                         detail,
                     )
 
@@ -574,4 +574,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"   Error: {e}")
 
-    print("\n? SDK demo complete. Get your API key: https://cyberdudebivash.gumroad.com")
+    print("\n? SDK demo complete. Get your API key: https://tools.cyberdudebivash.com/")

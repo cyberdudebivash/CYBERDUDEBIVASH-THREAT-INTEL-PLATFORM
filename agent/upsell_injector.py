@@ -19,26 +19,26 @@ logger = logging.getLogger("CDB-INJECTOR")
 
 # Gumroad Product Catalog - keyed by threat category
 GUMROAD_PRODUCTS = {
-    "vulnerability":        "https://cyberdudebivash.gumroad.com/l/pwynns",
-    "zero_day":             "https://cyberdudebivash.gumroad.com/l/pwynns",
-    "malware_campaign":     "https://cyberdudebivash.gumroad.com/l/ytqra",
-    "ransomware":           "https://cyberdudebivash.gumroad.com/l/ytqra",
-    "mobile_malware":       "https://cyberdudebivash.gumroad.com/l/ytqra",
-    "data_breach":          "https://cyberdudebivash.gumroad.com/l/yrjznw",
-    "apt":                  "https://cyberdudebivash.gumroad.com/l/pwynns",
-    "supply_chain":         "https://cyberdudebivash.gumroad.com/l/pwynns",
-    "phishing":             "https://cyberdudebivash.gumroad.com/l/ytqra",
-    "browser_extension":    "https://cyberdudebivash.gumroad.com/l/ytqra",
-    "cloud_attack":         "https://cyberdudebivash.gumroad.com/l/yrjznw",
-    "ddos":                 "https://cyberdudebivash.gumroad.com/l/yrjznw",
-    "default":              "https://cyberdudebivash.gumroad.com/l/pwynns",
+    "vulnerability":        "https://tools.cyberdudebivash.com/",
+    "zero_day":             "https://tools.cyberdudebivash.com/",
+    "malware_campaign":     "https://tools.cyberdudebivash.com/",
+    "ransomware":           "https://tools.cyberdudebivash.com/",
+    "mobile_malware":       "https://tools.cyberdudebivash.com/",
+    "data_breach":          "https://tools.cyberdudebivash.com/",
+    "apt":                  "https://tools.cyberdudebivash.com/",
+    "supply_chain":         "https://tools.cyberdudebivash.com/",
+    "phishing":             "https://tools.cyberdudebivash.com/",
+    "browser_extension":    "https://tools.cyberdudebivash.com/",
+    "cloud_attack":         "https://tools.cyberdudebivash.com/",
+    "ddos":                 "https://tools.cyberdudebivash.com/",
+    "default":              "https://tools.cyberdudebivash.com/",
 }
 
 ENTERPRISE_INQUIRY_URL = "https://www.cyberdudebivash.com/#contact"
 ENTERPRISE_EMAIL = "bivash@cyberdudebivash.com"
 WHATSAPP_URL = "https://wa.me/918179881447"
 PLATFORM_URL = "https://intel.cyberdudebivash.com"
-GUMROAD_STORE = "https://cyberdudebivash.gumroad.com/"
+GUMROAD_STORE = "https://tools.cyberdudebivash.com/"
 
 
 def _utm_url(base_url, threat_category, risk_score):

@@ -519,11 +519,11 @@ class PlaybookGenerator:
                 "data_breach": GUMROAD_PRODUCTS.get("data_breach", ""),
                 "phishing": GUMROAD_PRODUCTS.get("phishing", ""),
                 "malware_campaign": GUMROAD_PRODUCTS.get("malware_campaign", ""),
-                "default": GUMROAD_PRODUCTS.get("default", "https://cyberdudebivash.gumroad.com"),
+                "default": GUMROAD_PRODUCTS.get("default", "https://tools.cyberdudebivash.com/"),
             }
             return mapping.get(scenario, mapping["default"])
         except Exception:
-            return "https://cyberdudebivash.gumroad.com"
+            return "https://tools.cyberdudebivash.com/"
 
     def generate(
         self,

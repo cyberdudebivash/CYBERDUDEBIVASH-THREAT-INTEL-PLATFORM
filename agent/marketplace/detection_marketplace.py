@@ -303,7 +303,7 @@ class DetectionMarketplace:
             "rating":       pack.get("rating", 0.0),
             "reviews":      pack.get("reviews", 0),
             "available":    True,
-            "gumroad_url":  f"https://cyberdudebivash.gumroad.com/{pack['pack_id']}",
+            "gumroad_url":  f"https://tools.cyberdudebivash.com/'pack_id']}",
         } for pack in self.BUILT_IN_PACKS]
 
         self.save_catalog(catalog)
@@ -374,7 +374,7 @@ class DetectionMarketplace:
   <p style="color:#94a3b8;font-size:0.9rem;margin-bottom:12px;">{pack['description'][:200]}...</p>
   <div style="color:#64748b;font-size:0.8rem;margin-bottom:12px;">? {pack.get('rule_count',0)} rules | {rule_summary}</div>
   <div style="margin-bottom:16px;">{tags_html}</div>
-  <a href="{pack.get('gumroad_url','https://cyberdudebivash.gumroad.com')}" target="_blank" style="display:inline-block;background:{tier_color};color:#000;font-weight:700;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:0.9rem;">Get Pack -></a>
+  <a href="{pack.get('gumroad_url','https://tools.cyberdudebivash.com/')}" target="_blank" style="display:inline-block;background:{tier_color};color:#000;font-weight:700;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:0.9rem;">Get Pack -></a>
 </div>"""
 
         html = f"""<!DOCTYPE html>

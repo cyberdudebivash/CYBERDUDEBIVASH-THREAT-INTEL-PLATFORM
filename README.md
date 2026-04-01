@@ -20,7 +20,7 @@
 | 📡 **Production API** | [Railway — FastAPI](https://cyberdudebivash-threat-intel-platform-production.up.railway.app/api/docs) |
 | 💰 **Pricing** | [Free / Pro / Enterprise / MSSP](https://intel.cyberdudebivash.com/landing/pricing.html) |
 | 📱 **Telegram Alerts** | [t.me/cyberdudebivashSentinelApex](https://t.me/cyberdudebivashSentinelApex) |
-| 🛒 **Store** | [cyberdudebivash.gumroad.com](https://cyberdudebivash.gumroad.com) |
+| 🛒 **Store** | [https://tools.cyberdudebivash.com/](https://tools.cyberdudebivash.com/) |
 | 📝 **Blog** | [blog.cyberdudebivash.com](https://blog.cyberdudebivash.com) |
 
 ---

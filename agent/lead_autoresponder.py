@@ -40,7 +40,7 @@ SENDER_EMAIL   = os.environ.get("SENDER_EMAIL", "bivash@cyberdudebivash.com")
 SENDER_NAME    = os.environ.get("SENDER_NAME", "CyberDudeBivash SENTINEL APEX")
 
 ENTERPRISE_URL  = "https://intel.cyberdudebivash.com/pricing"
-STORE_URL       = "https://cyberdudebivash.gumroad.com"
+STORE_URL       = "https://tools.cyberdudebivash.com/"
 PLATFORM_URL    = "https://intel.cyberdudebivash.com"
 WHATSAPP_URL    = "https://wa.me/918179881447"
 ENTERPRISE_EMAIL = "bivash@cyberdudebivash.com"

@@ -76,7 +76,7 @@ SENDER_NAME  = os.environ.get("SENDER_NAME", "CyberDudeBivash SENTINEL APEX")
 SENDGRID_KEY = os.environ.get("SENDGRID_API_KEY", "")
 
 PLATFORM_URL  = "https://intel.cyberdudebivash.com"
-GUMROAD_URL   = "https://cyberdudebivash.gumroad.com"
+GUMROAD_URL   = "https://tools.cyberdudebivash.com/"
 DASHBOARD_URL = "https://intel.cyberdudebivash.com"
 
 

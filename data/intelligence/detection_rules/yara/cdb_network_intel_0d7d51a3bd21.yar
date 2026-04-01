@@ -68,7 +68,7 @@ rule CDB_SENTINEL_Network_Intel_0d7d51a3bd21
         $dom_55 = "webapps.copeland.com" ascii wide nocase
         $dom_56 = "www.sentinelone.com" ascii wide nocase
         $dom_57 = "cyberdudebivash.com" ascii wide nocase
-        $dom_58 = "cyberdudebivash.gumroad.com" ascii wide nocase
+        $dom_58 = "https://tools.cyberdudebivash.com/" ascii wide nocase
         $dom_59 = "vulnerable-grafana.com" ascii wide nocase
         $dom_60 = "vulnerable-ngfw.com" ascii wide nocase
         $dom_61 = "sec.cloudapps.cisco.com" ascii wide nocase

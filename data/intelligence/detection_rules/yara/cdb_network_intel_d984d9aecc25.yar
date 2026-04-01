@@ -94,7 +94,7 @@ rule CDB_SENTINEL_Network_Intel_d984d9aecc25
         $dom_81 = "b38w09ecdejfqsf.xyz" ascii wide nocase
         $dom_82 = "polyfill.io" ascii wide nocase
         $dom_83 = "malicious-polyfill-update.net" ascii wide nocase
-        $dom_84 = "cyberdudebivash.gumroad.com" ascii wide nocase
+        $dom_84 = "https://tools.cyberdudebivash.com/" ascii wide nocase
         $dom_85 = "contact.yokogawa.com" ascii wide nocase
         $dom_86 = "web-material3.yokogawa.com" ascii wide nocase
         $dom_87 = "eurail.com" ascii wide nocase

@@ -114,7 +114,7 @@ async function handleSubscribe(btn) {
     }
   } catch (e) {
     Toast.error('Network error — please try again.');
-    ErrorBanner.show('Network error — could not reach payment server. Try again or use the <a href="https://cyberdudebivash.gumroad.com/" style="color:var(--cyan)" target="_blank">Gumroad store</a>.');
+    ErrorBanner.show('Network error — could not reach payment server. Try again or use the <a href="https://tools.cyberdudebivash.com/" style="color:var(--cyan)" target="_blank">Gumroad store</a>.');
   }
   btn.disabled = false;
   btn.innerHTML = orig;

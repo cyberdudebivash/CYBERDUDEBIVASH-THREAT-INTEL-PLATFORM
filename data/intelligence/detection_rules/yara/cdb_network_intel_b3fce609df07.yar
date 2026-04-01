@@ -90,7 +90,7 @@ rule CDB_SENTINEL_Network_Intel_b3fce609df07
         $dom_77 = "www.se.com" ascii wide nocase
         $dom_78 = "polyfill.io" ascii wide nocase
         $dom_79 = "malicious-polyfill-update.net" ascii wide nocase
-        $dom_80 = "cyberdudebivash.gumroad.com" ascii wide nocase
+        $dom_80 = "https://tools.cyberdudebivash.com/" ascii wide nocase
         $dom_81 = "2s3b3rknfqtwwpo.xyz" ascii wide nocase
         $dom_82 = "6zvjeulzaw5c0mv.xyz" ascii wide nocase
         $dom_83 = "8fn4957c5g986jp.xyz" ascii wide nocase

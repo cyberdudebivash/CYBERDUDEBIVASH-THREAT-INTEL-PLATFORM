@@ -281,7 +281,7 @@ def publish_latest() -> Optional[str]:
         return product_url
     else:
         # Fallback: return static store URL (non-blocking)
-        fallback = "https://cyberdudebivash.gumroad.com"
+        fallback = "https://tools.cyberdudebivash.com/"
         logger.info(f"  ℹ️  Gumroad publish skipped — using store fallback: {fallback}")
         latest["gumroad_url"] = fallback
         save_manifest(manifest)

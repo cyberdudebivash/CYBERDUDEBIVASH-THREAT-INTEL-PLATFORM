@@ -160,7 +160,7 @@ class ThreatIntelMarketplace:
         if requested_feature and requested_feature not in tier_config["features"]:
             return {"valid": False, "error": f"Feature '{requested_feature}' requires upgrade",
                     "required_tier": self._get_required_tier(requested_feature),
-                    "upgrade_url": "https://cyberdudebivash.gumroad.com",
+                    "upgrade_url": "https://tools.cyberdudebivash.com/",
                     "http_status": 403}
 
         # Increment usage
@@ -214,7 +214,7 @@ class ThreatIntelMarketplace:
             "data_products": DATA_PRODUCTS,
             "total_products": len(DATA_PRODUCTS),
             "currency": "USD",
-            "payment_url": "https://cyberdudebivash.gumroad.com",
+            "payment_url": "https://tools.cyberdudebivash.com/",
             "api_docs": "https://intel.cyberdudebivash.com/api/docs",
         }
 
