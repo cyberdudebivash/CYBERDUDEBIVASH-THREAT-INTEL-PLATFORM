@@ -457,27 +457,6 @@ async def get_latest_advisories(
     }
 
 # ── GET /api/v1/intel/{stix_id} ───────────────────────────────────────────
-@app.get("/api/v1/intel/{stix_id}", tags=["Intelligence"])
-async def get_advisory_by_id(
-    stix_id: str,
-    auth:    Dict = Depends(get_api_key),
-):
-    feed = get_feed()
-    item = next((i for i in feed if i.get("stix_id") == stix_id
-                 or i.get("bundle_id") == stix_id), None)
-    if not item:
-        raise HTTPException(404, {"error": f"Advisory {stix_id} not found"})
-    if not TIERS[auth["tier"]]["ioc_details"]:
-        item = strip_iocs(item)
-    # ── APEX safe injection ───────────────────────────────────────────────
-    try:
-        _apex_cache = get_enrichment_cache(feed)
-        item = inject_apex(item, _apex_cache)
-    except Exception:
-        pass
-    return {"status": "ok", "tier": auth["tier"], "data": item}
-
-# ── GET /api/v1/intel/search ──────────────────────────────────────────────
 @app.get("/api/v1/intel/search", tags=["Intelligence"])
 async def search_intelligence(
     q:        str   = Query(..., min_length=2, description="Search keyword"),
@@ -525,6 +504,27 @@ async def search_intelligence(
     }
 
 # ── GET /api/v1/iocs ──────────────────────────────────────────────────────
+@app.get("/api/v1/intel/{stix_id}", tags=["Intelligence"])
+async def get_advisory_by_id(
+    stix_id: str,
+    auth:    Dict = Depends(get_api_key),
+):
+    feed = get_feed()
+    item = next((i for i in feed if i.get("stix_id") == stix_id
+                 or i.get("bundle_id") == stix_id), None)
+    if not item:
+        raise HTTPException(404, {"error": f"Advisory {stix_id} not found"})
+    if not TIERS[auth["tier"]]["ioc_details"]:
+        item = strip_iocs(item)
+    # ── APEX safe injection ───────────────────────────────────────────────
+    try:
+        _apex_cache = get_enrichment_cache(feed)
+        item = inject_apex(item, _apex_cache)
+    except Exception:
+        pass
+    return {"status": "ok", "tier": auth["tier"], "data": item}
+
+# ── GET /api/v1/intel/search ──────────────────────────────────────────────
 @app.get("/api/v1/iocs", tags=["IOC Intelligence"])
 async def get_ioc_feed(
     ioc_type: Optional[str] = Query(default=None,
