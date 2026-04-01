@@ -2,7 +2,7 @@
   "threat_id": "thr-fb6f4d4c2c55",
   "title": "CVE-2026-5176 - Totolink A3300R cstecgi.cgi setSyslogCfg command injection",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - CVE-2026-5176 - Totolink A3300R cstecgi.cgi setSyslogCfg com\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/31\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*cstecgi.cgi*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - CVE-2026-5176 - Totolink A3300R cstecgi.cgi setSyslogCfg com\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/01\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*cstecgi.cgi*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"cstecgi.cgi\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"cstecgi.cgi\")"
   },

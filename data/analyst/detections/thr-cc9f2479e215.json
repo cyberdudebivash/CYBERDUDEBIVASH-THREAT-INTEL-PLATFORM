@@ -2,7 +2,7 @@
   "threat_id": "thr-cc9f2479e215",
   "title": "TeamPCP strikes again: Backdoored Telnyx PyPI package delivers malware",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - TeamPCP strikes again: Backdoored Telnyx PyPI package delive\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/03/31\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*models.litellm.cloud*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - TeamPCP strikes again: Backdoored Telnyx PyPI package delive\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/01\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*models.litellm.cloud*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"models.litellm.cloud\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"models.litellm.cloud\")"
   },

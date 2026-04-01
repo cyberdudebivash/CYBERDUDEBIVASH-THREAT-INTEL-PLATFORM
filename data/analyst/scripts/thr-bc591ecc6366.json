@@ -1,0 +1,22 @@
+{
+  "threat_id": "thr-bc591ecc6366",
+  "title": "North Korea-Nexus Threat Actor Compromises Widely Used Axios NPM Package in Supp",
+  "scripts": [
+    {
+      "type": "firewall_iptables",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 - Block threat IPs for: North Korea-Nexus Threat Actor Compromises Widely Used Axios\niptables -A INPUT -s 142.11.206.73 -j DROP\niptables -A INPUT -s 23.254.167.216 -j DROP\niptables -A OUTPUT -d 142.11.206.73 -j DROP\niptables -A OUTPUT -d 23.254.167.216 -j DROP\necho 'Firewall rules applied'"
+    },
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx packages\\.npm\\.org|plain\\-crypto\\-js\\-4\\.2\\.1\\.tgz|proton\\.me|setup\\.js|sfrclak\\.com|system\\.bat|t\\.rename|t\\.unlink\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-bc591ecc6366'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((dest_ip IN (\"142.11.206.73\",\"23.254.167.216\")) OR (query IN (\"packages.npm.org\",\"plain-crypto-js-4.2.1.tgz\",\"proton.me\",\"setup.js\",\"sfrclak.com\",\"system.bat\",\"t.rename\",\"t.unlink\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    },
+    {
+      "type": "hardening_bash",
+      "content": "#!/bin/bash\n# CDB APEX v37.0 - Emergency Hardening Script\n# Threat: North Korea-Nexus Threat Actor Compromises Widely Used Axios\n# Generated: 2026-04-01T03:53:25.768854+00:00\n\necho \"[*] Updating system packages...\"\napt-get update && apt-get upgrade -y 2>/dev/null || yum update -y 2>/dev/null\n\necho \"[*] Enabling firewall...\"\nufw enable 2>/dev/null || firewall-cmd --set-default-zone=drop 2>/dev/null\n\necho \"[*] Disabling unnecessary services...\"\nsystemctl disable --now telnet.socket 2>/dev/null\nsystemctl disable --now rsh.socket 2>/dev/null\n\necho \"[*] Setting secure SSH configuration...\"\nsed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config\nsystemctl restart sshd\n\necho \"[+] Hardening complete for threat: thr-bc591ecc6366\"\n"
+    }
+  ]
+}
