@@ -1,0 +1,14 @@
+{
+  "threat_id": "thr-1ddde8850b42",
+  "title": "XLoader Malware Upgrades Obfuscation Tactics and Hides C2 Traffic Behind Decoy S",
+  "scripts": [
+    {
+      "type": "waf_modsecurity",
+      "content": "SecRule REQUEST_HEADERS:Host \"@rx gmail\\.com\" \"id:370001,phase:1,deny,status:403,msg:'CDB APEX Block: thr-1ddde8850b42'\""
+    },
+    {
+      "type": "siem_splunk_spl",
+      "content": "| CDB APEX v37.0 Threat Hunt Query\nindex=* ((query IN (\"gmail.com\"))) | stats count by src_ip, dest_ip, action | sort -count"
+    }
+  ]
+}
