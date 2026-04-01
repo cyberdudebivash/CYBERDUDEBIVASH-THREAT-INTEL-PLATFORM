@@ -66,7 +66,7 @@ MRR_PATH     = BASE_DIR / "data" / "sovereign" / "mrr_report.json"
 VERSION      = "v1.0"
 PLATFORM     = "CYBERDUDEBIVASH® Sentinel APEX"
 DASHBOARD    = "https://intel.cyberdudebivash.com"
-STORE_URL    = "https://cyberdudebivash.gumroad.com/"
+STORE_URL    = "https://tools.cyberdudebivash.com/"
 
 logger.info(f"BASE_DIR resolved to: {BASE_DIR}")
 logger.info(f"FEED_PATH exists: {FEED_PATH.exists()}")
@@ -151,6 +151,56 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+# ── V1 Router — all /api/v1/* engine endpoints ────────────────────────────
+# Includes: threats, IOCs, predict, identity-risk, darkweb, risk-score,
+#           detections, SOAR, health, engines/status, me
+try:
+    from api.v1_router import router as _v1_router
+    app.include_router(_v1_router)
+    logger.info("[API] V1 Router registered — /api/v1/* endpoints active")
+except ImportError:
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "v1_router",
+            Path(__file__).parent / "v1_router.py",
+        )
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
+        app.include_router(_mod.router)
+        logger.info("[API] V1 Router registered via file loader")
+    except Exception as _v1_err:
+        logger.warning(f"[API] V1 Router registration failed (non-critical): {_v1_err}")
+
+# ── User Auth Router — /auth/* ────────────────────────────────────────────
+# Provides: register, login, me, logout, apikey/generate, apikey/generate-free
+def _load_router_safe(module_name: str, file_name: str, attr: str, label: str) -> None:
+    """Generic dual-strategy router loader (package import → file loader fallback)."""
+    try:
+        import importlib
+        mod = importlib.import_module(f"api.{module_name}")
+        router_obj = getattr(mod, attr)
+        app.include_router(router_obj)
+        logger.info(f"[API] {label} registered (package import)")
+    except Exception:
+        try:
+            import importlib.util as _ilu
+            _spec = _ilu.spec_from_file_location(
+                module_name,
+                Path(__file__).parent / file_name,
+            )
+            _mod = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
+            router_obj = getattr(_mod, attr)
+            app.include_router(router_obj)
+            logger.info(f"[API] {label} registered (file loader)")
+        except Exception as _err:
+            logger.warning(f"[API] {label} registration failed (non-critical): {_err}")
+
+_load_router_safe("user_auth",  "user_auth.py",  "auth_router",    "Auth Router    (/auth/*)")
+_load_router_safe("copilot",    "copilot.py",    "copilot_router", "Copilot Router (/api/v1/copilot/*)")
+_load_router_safe("alerts",     "alerts.py",     "alerts_router",  "Alerts Router  (/api/v1/alerts/*)")
 
 # ── Pydantic Schemas ──────────────────────────────────────────────────────
 class AdvisoryItem(BaseModel):

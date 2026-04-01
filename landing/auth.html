@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In / Register — CYBERDUDEBIVASH® Sentinel APEX</title>
+  <meta name="description" content="Sign in or create your Sentinel APEX account for AI-powered threat intelligence.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-void:    #020811;
+      --bg-deep:    #030d1a;
+      --bg-card:    #071428;
+      --cyan:       #00d4ff;
+      --red:        #ff2244;
+      --orange:     #ff8c00;
+      --green:      #00e676;
+      --text-primary:   #e0f0ff;
+      --text-secondary: #8aaac8;
+      --text-muted:     #4a6a8a;
+      --border-dim:     rgba(0,212,255,0.12);
+      --border-glow:    rgba(0,212,255,0.35);
+      --radius-sm: 6px;
+      --radius-md: 12px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--bg-void);
+      color: var(--text-primary);
+      overflow-x: hidden;
+    }
+
+    /* Ambient background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 15% 20%, rgba(0,212,255,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 85% 80%, rgba(255,34,68,0.03) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Scan line */
+    body::after {
+      content: '';
+      position: fixed; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(0,212,255,0.15), transparent);
+      animation: scan 8s linear infinite;
+      z-index: 0; pointer-events: none;
+    }
+    @keyframes scan { from { top: -2px; } to { top: 100vh; } }
+
+    .auth-wrapper {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px 16px;
+    }
+
+    /* Brand */
+    .brand {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .brand-logo {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.78rem; font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .brand-name {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.5rem; font-weight: 900;
+      color: var(--text-primary);
+      letter-spacing: 0.08em;
+    }
+    .brand-name span { color: var(--cyan); }
+    .brand-tagline {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Auth card */
+    .auth-card {
+      background: var(--bg-deep);
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-md);
+      width: 100%; max-width: 420px;
+      padding: 28px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    /* Tab bar */
+    .tab-bar {
+      display: flex; gap: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-sm);
+      padding: 3px;
+      margin-bottom: 24px;
+    }
+    .tab-btn {
+      flex: 1; padding: 9px 16px;
+      border: none; background: transparent;
+      color: var(--text-muted);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.83rem; font-weight: 600;
+      border-radius: 4px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: rgba(0,212,255,0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(0,212,255,0.25);
+    }
+
+    /* Form */
+    .auth-form { display: flex; flex-direction: column; gap: 14px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .field-wrap {
+      position: relative;
+      display: flex; align-items: center;
+    }
+    .field-icon {
+      position: absolute; left: 12px;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      pointer-events: none;
+    }
+    .field-wrap input {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      padding: 10px 12px 10px 36px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field-wrap input:focus { border-color: var(--cyan); }
+    .field-wrap input::placeholder { color: var(--text-muted); }
+    .pw-toggle {
+      position: absolute; right: 10px;
+      background: none; border: none;
+      color: var(--text-muted); cursor: pointer;
+      font-size: 0.8rem; padding: 4px;
+    }
+    .pw-toggle:hover { color: var(--cyan); }
+
+    /* Submit button */
+    .submit-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #007fa8, var(--cyan));
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #000;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      transition: opacity 0.2s, transform 0.1s;
+      margin-top: 4px;
+    }
+    .submit-btn:hover { opacity: 0.9; }
+    .submit-btn:active { transform: scale(0.98); }
+    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Divider */
+    .divider {
+      display: flex; align-items: center; gap: 10px;
+      color: var(--text-muted); font-size: 0.75rem;
+      margin: 4px 0;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1;
+      height: 1px; background: var(--border-dim);
+    }
+
+    /* Social / demo buttons */
+    .demo-btn {
+      width: 100%; padding: 10px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.82rem; font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .demo-btn:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: rgba(0,212,255,0.06);
+    }
+
+    /* Messages */
+    .msg-box {
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      display: none;
+      margin-top: 4px;
+    }
+    .msg-box.error   { background: rgba(255,34,68,0.1); border: 1px solid rgba(255,34,68,0.3); color: var(--red); }
+    .msg-box.success { background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.3); color: var(--green); }
+    .msg-box.info    { background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); color: var(--cyan); }
+
+    /* Password strength */
+    .pw-strength { height: 3px; border-radius: 2px; margin-top: 5px; transition: all 0.3s; background: var(--border-dim); }
+    .pw-strength.s1 { background: var(--red); width: 25%; }
+    .pw-strength.s2 { background: var(--orange); width: 50%; }
+    .pw-strength.s3 { background: #f0c420; width: 75%; }
+    .pw-strength.s4 { background: var(--green); width: 100%; }
+    .pw-strength-lbl { font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* Token display */
+    .token-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      margin-top: 14px;
+      display: none;
+    }
+    .token-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .token-display {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .token-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--cyan);
+      flex: 1;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+    .token-copy {
+      padding: 4px 10px;
+      background: rgba(0,212,255,0.12);
+      border: 1px solid rgba(0,212,255,0.3);
+      color: var(--cyan);
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .token-copy:hover { background: rgba(0,212,255,0.22); }
+
+    /* Footer links */
+    .auth-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .auth-footer a {
+      color: var(--cyan);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .auth-footer a:hover { text-decoration: underline; }
+
+    /* Nav back to dashboard */
+    .back-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.75rem; color: var(--text-muted);
+      text-decoration: none;
+      margin-bottom: 20px;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--cyan); }
+
+    /* Spinner */
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .fa-spin { animation: spin 0.8s linear infinite; }
+
+    /* Tier badges on register */
+    .tier-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tier-badge {
+      flex: 1; min-width: 80px;
+      padding: 8px 10px;
+      border: 1px solid var(--border-dim);
+      background: var(--bg-card);
+      border-radius: var(--radius-sm);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 0.75rem;
+    }
+    .tier-badge.selected { border-color: var(--cyan); background: rgba(0,212,255,0.1); color: var(--cyan); }
+    .tier-badge-name { font-weight: 700; display: block; }
+    .tier-badge-price { font-size: 0.63rem; color: var(--text-muted); }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .auth-card { padding: 20px; }
+      .brand-name { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="auth-wrapper">
+
+  <!-- Brand header -->
+  <a class="back-link" href="../index.html">
+    <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+  </a>
+  <div class="brand">
+    <div class="brand-logo">CYBERDUDEBIVASH®</div>
+    <div class="brand-name">SENTINEL <span>APEX</span></div>
+    <div class="brand-tagline">AI-Powered Threat Intelligence Platform</div>
+  </div>
+
+  <!-- Auth card -->
+  <div class="auth-card">
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabLogin" onclick="switchTab('login')">
+        <i class="fa-solid fa-right-to-bracket" style="margin-right:5px"></i>Sign In
+      </button>
+      <button class="tab-btn" id="tabRegister" onclick="switchTab('register')">
+        <i class="fa-solid fa-user-plus" style="margin-right:5px"></i>Register
+      </button>
+    </div>
+
+    <!-- ── LOGIN FORM ─────────────────────────────────────────── -->
+    <div id="loginForm">
+      <form class="auth-form" onsubmit="doLogin(event)">
+        <div class="field">
+          <label>Email Address</label>
+          <div class="field-wrap">
+            <i class="fa-solid fa-envelope field-icon"></i>
+            <input type="email" id="loginEmail" placeholder="you@company.com" required autocomplete="email">
+          </div>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div class="field-wrap">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <input type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
+            <button type="button" class="pw-toggle" onclick="togglePw('loginPassword',this)">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+        </div>
+        <div class="msg-box" id="loginMsg"></div>
+        <button type="submit" class="submit-btn" id="loginBtn">
+          <i class="fa-solid fa-right-to-bracket" style="margin-right:6px"></i>Sign In
+        </button>
+        <div class="divider">or</div>
+        <button type="button" class="demo-btn" onclick="demoLogin()">
+          <i class="fa-solid fa-flask"></i> Use Demo Account
+        </button>
+      </form>
+
+      <!-- Token panel (shown after login) -->
+      <div class="token-panel" id="loginTokenPanel">
+        <div class="token-label"><i class="fa-solid fa-shield-halved" style="margin-right:4px;color:var(--cyan)"></i>JWT Token (store this securely)</div>
+        <div class="token-display">
+          <div class="token-value" id="loginTokenValue">—</div>
+          <button class="token-copy" onclick="copyToken('loginTokenValue')"><i class="fa-solid fa-copy" style="margin-right:3px"></i>Copy</button>
+        </div>
+        <div style="margin-top:10px;font-size:0.72rem;color:var(--text-muted)">
+          Use as: <code style="color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:0.7rem">Authorization: Bearer YOUR_TOKEN</code>
+        </div>
+        <a href="../index.html" class="submit-btn" style="display:block;text-align:center;text-decoration:none;margin-top:12px;padding:10px">
+          <i class="fa-solid fa-gauge-high" style="margin-right:6px"></i>Go to Dashboard
+        </a>
+      </div>
+    </div>
+
+    <!-- ── REGISTER FORM ──────────────────────────────────────── -->
+    <div id="registerForm" style="display:none">
+      <form class="auth-form" onsubmit="doRegister(event)">
+        <div class="field">
+          <label>Full Name</label>
+          <div class="field-wrap">
+            <i class="fa-solid fa-user field-icon"></i>
+            <input type="text" id="regName" placeholder="Your name or org" maxlength="80" autocomplete="name">
+          </div>
+        </div>
+        <div class="field">
+          <label>Email Address</label>
+          <div class="field-wrap">
+            <i class="fa-solid fa-envelope field-icon"></i>
+            <input type="email" id="regEmail" placeholder="you@company.com" required autocomplete="email">
+          </div>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div class="field-wrap">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <input type="password" id="regPassword" placeholder="Min 8 characters" required minlength="8"
+              autocomplete="new-password" oninput="checkPwStrength(this.value)">
+            <button type="button" class="pw-toggle" onclick="togglePw('regPassword',this)">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <div class="pw-strength" id="pwStrength"></div>
+          <div class="pw-strength-lbl" id="pwStrengthLbl"></div>
+        </div>
+        <div class="field">
+          <label>Confirm Password</label>
+          <div class="field-wrap">
+            <i class="fa-solid fa-lock-open field-icon"></i>
+            <input type="password" id="regConfirm" placeholder="Repeat password" required
+              autocomplete="new-password">
+          </div>
+        </div>
+
+        <!-- Plan selector -->
+        <div class="field">
+          <label>Plan</label>
+          <div class="tier-row">
+            <div class="tier-badge selected" data-tier="free" onclick="selectRegTier('free',this)">
+              <span class="tier-badge-name">Free</span>
+              <span class="tier-badge-price">$0/mo</span>
+            </div>
+            <div class="tier-badge" data-tier="pro" onclick="selectRegTier('pro',this)">
+              <span class="tier-badge-name">Pro</span>
+              <span class="tier-badge-price">$49/mo</span>
+            </div>
+            <div class="tier-badge" data-tier="enterprise" onclick="selectRegTier('enterprise',this)">
+              <span class="tier-badge-name">Enterprise</span>
+              <span class="tier-badge-price">$499/mo</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="msg-box" id="registerMsg"></div>
+        <button type="submit" class="submit-btn" id="registerBtn">
+          <i class="fa-solid fa-user-plus" style="margin-right:6px"></i>Create Account
+        </button>
+        <div style="font-size:0.7rem;color:var(--text-muted);text-align:center;margin-top:4px">
+          By registering you agree to our <a href="#" style="color:var(--cyan)">Terms of Service</a>
+        </div>
+      </form>
+
+      <!-- Success panel -->
+      <div class="token-panel" id="registerSuccessPanel">
+        <div style="text-align:center;margin-bottom:12px">
+          <i class="fa-solid fa-circle-check" style="color:var(--green);font-size:2rem"></i>
+          <div style="font-weight:700;margin-top:8px;color:var(--green)">Account Created!</div>
+        </div>
+        <div class="token-label">Your API Key</div>
+        <div class="token-display">
+          <div class="token-value" id="regApiKey">—</div>
+          <button class="token-copy" onclick="copyToken('regApiKey')"><i class="fa-solid fa-copy" style="margin-right:3px"></i>Copy</button>
+        </div>
+        <div style="margin-top:12px;font-size:0.72rem;color:var(--text-muted)">
+          <i class="fa-solid fa-triangle-exclamation" style="color:var(--orange);margin-right:4px"></i>
+          Save your API key — it won't be shown again.
+        </div>
+        <button class="submit-btn" style="margin-top:12px" onclick="switchTab('login')">
+          <i class="fa-solid fa-right-to-bracket" style="margin-right:6px"></i>Sign In Now
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /auth-card -->
+
+  <!-- Footer -->
+  <div class="auth-footer">
+    <a href="../index.html"><i class="fa-solid fa-gauge-high" style="margin-right:4px"></i>Dashboard</a> &nbsp;·&nbsp;
+    <a href="https://tools.cyberdudebivash.com" target="_blank"><i class="fa-solid fa-store" style="margin-right:4px"></i>Store</a> &nbsp;·&nbsp;
+    <a href="https://cyberdudebivash-threat-intel-platform-production.up.railway.app/api/docs" target="_blank"><i class="fa-solid fa-code" style="margin-right:4px"></i>API Docs</a>
+    <div style="margin-top:8px;opacity:0.5">© 2026 CyberDudeBivash Pvt. Ltd.</div>
+  </div>
+
+</div><!-- /auth-wrapper -->
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   AUTH PAGE — CLIENT-SIDE LOGIC
+══════════════════════════════════════════════════════════════════ */
+const API_BASE = 'https://cyberdudebivash-threat-intel-platform-production.up.railway.app';
+const AUTH_STATE = { regTier: 'free' };
+
+/* ── Utilities ────────────────────────────────────────────────── */
+const el = id => document.getElementById(id);
+
+function showMsg(id, type, text) {
+  const box = el(id);
+  if (!box) return;
+  box.className = `msg-box ${type}`;
+  box.textContent = text;
+  box.style.display = 'block';
+}
+function hideMsg(id) {
+  const box = el(id);
+  if (box) box.style.display = 'none';
+}
+
+function setLoading(btnId, loading, defaultHTML) {
+  const btn = el(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? '<i class="fa-solid fa-spinner fa-spin"></i> Please wait...'
+    : defaultHTML;
+}
+
+/* ── Tab switching ────────────────────────────────────────────── */
+function switchTab(tab) {
+  const isLogin = (tab === 'login');
+  el('loginForm').style.display    = isLogin ? 'block' : 'none';
+  el('registerForm').style.display = isLogin ? 'none'  : 'block';
+  el('tabLogin').classList.toggle('active', isLogin);
+  el('tabRegister').classList.toggle('active', !isLogin);
+  hideMsg('loginMsg');
+  hideMsg('registerMsg');
+  // Reset success panels
+  el('loginTokenPanel').style.display     = 'none';
+  el('registerSuccessPanel').style.display = 'none';
+}
+
+/* ── Password toggle ──────────────────────────────────────────── */
+function togglePw(inputId, btn) {
+  const input = el(inputId);
+  if (!input) return;
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.innerHTML = show
+    ? '<i class="fa-solid fa-eye-slash"></i>'
+    : '<i class="fa-solid fa-eye"></i>';
+}
+
+/* ── Password strength ────────────────────────────────────────── */
+function checkPwStrength(pw) {
+  const bar = el('pwStrength');
+  const lbl = el('pwStrengthLbl');
+  if (!bar || !lbl) return;
+  let score = 0;
+  if (pw.length >= 8)  score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const levels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+  bar.className = `pw-strength s${score}`;
+  lbl.textContent = score > 0 ? `Password strength: ${levels[score]}` : '';
+}
+
+/* ── Tier selection ───────────────────────────────────────────── */
+function selectRegTier(tier, btn) {
+  AUTH_STATE.regTier = tier;
+  document.querySelectorAll('.tier-badge').forEach(b => b.classList.remove('selected'));
+  if (btn) btn.classList.add('selected');
+}
+
+/* ── Copy token ───────────────────────────────────────────────── */
+function copyToken(elId) {
+  const tokenEl = el(elId);
+  if (!tokenEl) return;
+  try {
+    navigator.clipboard.writeText(tokenEl.textContent);
+    const orig = tokenEl.style.color;
+    tokenEl.style.color = 'var(--green)';
+    setTimeout(() => { tokenEl.style.color = orig; }, 1000);
+  } catch(e) {
+    // Manual fallback
+    const range = document.createRange();
+    range.selectNode(tokenEl);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    document.execCommand('copy');
+    window.getSelection().removeAllRanges();
+  }
+}
+
+/* ── LOGIN ────────────────────────────────────────────────────── */
+async function doLogin(e) {
+  e.preventDefault();
+  hideMsg('loginMsg');
+
+  const email    = (el('loginEmail')    ? el('loginEmail').value    : '').trim();
+  const password =  el('loginPassword') ? el('loginPassword').value : '';
+
+  if (!email || !password) {
+    showMsg('loginMsg', 'error', 'Please fill in all fields.'); return;
+  }
+
+  setLoading('loginBtn', true, '<i class="fa-solid fa-right-to-bracket" style="margin-right:6px"></i>Sign In');
+
+  let token = null;
+  let userName = '';
+
+  // Try live API
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (res.ok && data.token) {
+      token    = data.token;
+      userName = data.user?.name || email;
+    } else {
+      showMsg('loginMsg', 'error', data.detail || data.error || 'Invalid credentials.');
+      setLoading('loginBtn', false, '<i class="fa-solid fa-right-to-bracket" style="margin-right:6px"></i>Sign In');
+      return;
+    }
+  } catch(err) {
+    // Offline fallback — accept demo credentials
+    if (email === 'demo@cyberdudebivash.com' && password === 'Demo@1234') {
+      token    = _makeDemoToken(email);
+      userName = 'Demo User';
+    } else {
+      showMsg('loginMsg', 'info', 'API not reachable. Try demo@cyberdudebivash.com / Demo@1234 for demo access.');
+      setLoading('loginBtn', false, '<i class="fa-solid fa-right-to-bracket" style="margin-right:6px"></i>Sign In');
+      return;
+    }
+  }
+
+  // Store token
+  try { localStorage.setItem('apex_jwt', token); localStorage.setItem('apex_user', userName); } catch(e){}
+
+  setLoading('loginBtn', false, '<i class="fa-solid fa-right-to-bracket" style="margin-right:6px"></i>Sign In');
+  showMsg('loginMsg', 'success', `Welcome back, ${userName}! Redirecting...`);
+
+  const tokenPanel = el('loginTokenPanel');
+  const tokenVal   = el('loginTokenValue');
+  if (tokenPanel) tokenPanel.style.display = 'block';
+  if (tokenVal)   tokenVal.textContent = token;
+
+  // Auto-redirect after 2s
+  setTimeout(() => { window.location.href = '../index.html'; }, 2500);
+}
+
+/* ── DEMO LOGIN ───────────────────────────────────────────────── */
+function demoLogin() {
+  const emailEl = el('loginEmail');
+  const passEl  = el('loginPassword');
+  if (emailEl) emailEl.value = 'demo@cyberdudebivash.com';
+  if (passEl)  passEl.value  = 'Demo@1234';
+  showMsg('loginMsg', 'info', 'Demo credentials filled. Click Sign In.');
+}
+
+/* ── REGISTER ─────────────────────────────────────────────────── */
+async function doRegister(e) {
+  e.preventDefault();
+  hideMsg('registerMsg');
+
+  const name     = (el('regName')     ? el('regName').value     : '').trim();
+  const email    = (el('regEmail')    ? el('regEmail').value    : '').trim();
+  const password =  el('regPassword') ? el('regPassword').value : '';
+  const confirm  =  el('regConfirm')  ? el('regConfirm').value  : '';
+  const tier     = AUTH_STATE.regTier;
+
+  if (!email || !password) {
+    showMsg('registerMsg', 'error', 'Please fill in all required fields.'); return;
+  }
+  if (password !== confirm) {
+    showMsg('registerMsg', 'error', 'Passwords do not match.'); return;
+  }
+  if (password.length < 8) {
+    showMsg('registerMsg', 'error', 'Password must be at least 8 characters.'); return;
+  }
+
+  setLoading('registerBtn', true, '<i class="fa-solid fa-user-plus" style="margin-right:6px"></i>Create Account');
+
+  let apiKey = null;
+
+  // Try live API
+  try {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name || email, email, password, tier }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      apiKey = data.api_key || data.key;
+    } else {
+      showMsg('registerMsg', 'error', data.detail || data.error || 'Registration failed. Try again.');
+      setLoading('registerBtn', false, '<i class="fa-solid fa-user-plus" style="margin-right:6px"></i>Create Account');
+      return;
+    }
+  } catch(err) {
+    // Offline: generate local demo key
+    apiKey = _genLocalKey(tier, email);
+    showMsg('registerMsg', 'info', 'API offline — generated local demo key for testing.');
+  }
+
+  setLoading('registerBtn', false, '<i class="fa-solid fa-user-plus" style="margin-right:6px"></i>Create Account');
+
+  // Show success panel
+  const regApiKeyEl = el('regApiKey');
+  if (regApiKeyEl) regApiKeyEl.textContent = apiKey || 'See email for your key.';
+  el('registerSuccessPanel').style.display = 'block';
+
+  // Hide the form fields
+  document.querySelector('#registerForm form').style.display = 'none';
+}
+
+/* ── Helpers ──────────────────────────────────────────────────── */
+function _makeDemoToken(email) {
+  // Demo JWT-like structure (NOT cryptographically valid — for UI testing only)
+  const header  = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).replace(/=/g,'');
+  const payload = btoa(JSON.stringify({ sub: email, tier: 'free', iat: Date.now(), demo: true })).replace(/=/g,'');
+  return `${header}.${payload}.DEMO_SIGNATURE_NOT_VALID`;
+}
+
+function _genLocalKey(tier, email) {
+  let h = 0;
+  for (const c of email) h = ((h << 5) - h + c.charCodeAt(0)) | 0;
+  const hex  = Math.abs(h).toString(16).padStart(8, '0');
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `cbdb-${tier}-${hex}-${rand}`;
+}
+
+/* ── On page load: check for existing token ───────────────────── */
+window.addEventListener('load', () => {
+  try {
+    const tok = localStorage.getItem('apex_jwt');
+    if (tok) {
+      showMsg('loginMsg', 'info', 'You are already signed in. Redirecting to dashboard...');
+      setTimeout(() => { window.location.href = '../index.html'; }, 1500);
+    }
+  } catch(e) {}
+});
+</script>
+</body>
+</html>
