@@ -190,6 +190,12 @@ jobs:
             data/intelligence/detection_rules/suricata \
             data/threat_memory \
             data/ai_learning \
+            data/detection_engine \
+            data/threat_graph \
+            data/exploit_intel \
+            data/auth \
+            data/billing \
+            data/subscriptions \
             api \
             secrets
           echo "✓ Workspace ready"
@@ -710,6 +716,168 @@ jobs:
           fi
 
           echo "[LEARN] Stage 6e complete"
+
+      # ── STAGE 6f: Detection Engine (SIEM Export Layer) ───────────────────
+      - name: Detection Engine — SIEM Export Layer
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "=== STAGE 6f: Detection Engine — SIEM Export Layer ==="
+
+          if [ -f agent/detection_engine.py ]; then
+            python3 agent/detection_engine.py || true
+          else
+            echo "WARN: agent/detection_engine.py not found — skipping"
+          fi
+
+          python3 - << 'PYEOF' || true
+          import json, os
+          meta = "data/detection_engine/engine_meta.json"
+          if os.path.exists(meta):
+              with open(meta) as f:
+                  r = json.load(f)
+              print(f"  Engine         : {r.get('engine', 'N/A')}")
+              print(f"  Version        : {r.get('version', 'N/A')}")
+              print(f"  Rules generated: {r.get('rules_generated', 0)}")
+              print(f"  SIEM platforms : {r.get('siem_platforms', [])}")
+              print(f"  TTPs covered   : {r.get('ttps_covered', 0)}")
+              print(f"  Run timestamp  : {r.get('run_timestamp', 'N/A')}")
+          else:
+              print("  [INFO] detection_engine/engine_meta.json not yet generated")
+          PYEOF
+
+          echo "[DETECT] Stage 6f complete"
+
+      # ── STAGE 6g: Threat Graph Engine (Knowledge Graph) ──────────────────
+      - name: Threat Graph Engine — Knowledge Graph
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "=== STAGE 6g: Threat Graph Engine — Knowledge Graph ==="
+
+          if [ -f agent/threat_graph_engine.py ]; then
+            python3 agent/threat_graph_engine.py || true
+          else
+            echo "WARN: agent/threat_graph_engine.py not found — skipping"
+          fi
+
+          python3 - << 'PYEOF' || true
+          import json, os
+          meta = "data/threat_graph/graph_meta.json"
+          if os.path.exists(meta):
+              with open(meta) as f:
+                  r = json.load(f)
+              print(f"  Engine         : {r.get('engine', 'N/A')}")
+              print(f"  Version        : {r.get('version', 'N/A')}")
+              print(f"  Total nodes    : {r.get('total_nodes', 0)}")
+              print(f"  Total edges    : {r.get('total_edges', 0)}")
+              print(f"  CVE nodes      : {r.get('cve_nodes', 0)}")
+              print(f"  Actor nodes    : {r.get('actor_nodes', 0)}")
+              print(f"  Clusters       : {r.get('correlation_clusters', 0)}")
+              print(f"  High risk paths: {r.get('high_risk_paths', 0)}")
+              print(f"  Run timestamp  : {r.get('run_timestamp', 'N/A')}")
+          else:
+              print("  [INFO] threat_graph/graph_meta.json not yet generated")
+          PYEOF
+
+          echo "[GRAPH] Stage 6g complete"
+
+      # ── STAGE 6h: Exploit Intelligence Layer ─────────────────────────────
+      - name: Exploit Intelligence Layer — KEV + EPSS + PoC
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "=== STAGE 6h: Exploit Intelligence Layer — KEV + EPSS + PoC ==="
+
+          if [ -f agent/exploit_intel_engine.py ]; then
+            python3 agent/exploit_intel_engine.py || true
+          else
+            echo "WARN: agent/exploit_intel_engine.py not found — skipping"
+          fi
+
+          python3 - << 'PYEOF' || true
+          import json, os
+          meta = "data/exploit_intel/engine_meta.json"
+          if os.path.exists(meta):
+              with open(meta) as f:
+                  r = json.load(f)
+              print(f"  Engine         : {r.get('engine', 'N/A')}")
+              print(f"  Version        : {r.get('version', 'N/A')}")
+              print(f"  CVEs analyzed  : {r.get('cves_analyzed', 0)}")
+              print(f"  KEV confirmed  : {r.get('kev_confirmed', 0)}")
+              print(f"  PoC detected   : {r.get('poc_detected', 0)}")
+              print(f"  Weaponized     : {r.get('weaponized', 0)}")
+              print(f"  High priority  : {r.get('high_priority', 0)}")
+              print(f"  Run timestamp  : {r.get('run_timestamp', 'N/A')}")
+          else:
+              print("  [INFO] exploit_intel/engine_meta.json not yet generated")
+          PYEOF
+
+          echo "[EXPLOIT] Stage 6h complete"
+
+      # ── STAGE 6i: Enterprise API Dirs + Auth Bootstrap ───────────────────
+      - name: Enterprise API — Directory Bootstrap
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "=== STAGE 6i: Enterprise API — Directory Bootstrap ==="
+
+          mkdir -p data/auth data/billing data/subscriptions
+          echo "  ✓ data/auth created"
+          echo "  ✓ data/billing created"
+          echo "  ✓ data/subscriptions created"
+
+          python3 - << 'PYEOF' || true
+          import os, json
+          # Verify all enterprise API modules are present
+          modules = [
+              ("api/auth.py",         "Enterprise Auth Layer"),
+              ("api/billing.py",      "Enterprise Billing Layer"),
+              ("api/subscription.py", "Subscription Management"),
+          ]
+          all_ok = True
+          for path, label in modules:
+              if os.path.exists(path):
+                  size = os.path.getsize(path)
+                  print(f"  ✓ {label}: {path} ({size:,} bytes)")
+              else:
+                  print(f"  WARN: {label}: {path} NOT FOUND")
+                  all_ok = False
+
+          # Verify detection/graph/exploit engines too
+          engines = [
+              ("agent/detection_engine.py",   "Detection Engine"),
+              ("agent/threat_graph_engine.py", "Threat Graph Engine"),
+              ("agent/exploit_intel_engine.py","Exploit Intel Engine"),
+          ]
+          for path, label in engines:
+              if os.path.exists(path):
+                  size = os.path.getsize(path)
+                  print(f"  ✓ {label}: {path} ({size:,} bytes)")
+              else:
+                  print(f"  WARN: {label}: {path} NOT FOUND")
+                  all_ok = False
+
+          print(f"\n  Enterprise Layer Status: {'ALL SYSTEMS PRESENT' if all_ok else 'PARTIAL — some modules missing'}")
+          PYEOF
+
+          echo "[ENTERPRISE] Stage 6i complete"
 
       # ── STAGE 7: Pre-deploy integrity gate (BLOCKING) ────────────────────
       - name: Pre-deploy integrity gate
