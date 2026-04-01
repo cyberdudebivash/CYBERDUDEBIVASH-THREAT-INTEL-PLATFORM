@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CYBERDUDEBIVASH® SENTINEL APEX — FastAPI Intelligence Backend v1.0
+CYBERDUDEBIVASH® SENTINEL APEX — FastAPI Intelligence Backend v81.0
 ===================================================================
 Production-grade REST API for tiered threat intelligence delivery.
 
@@ -122,7 +122,8 @@ DEMO_KEYS: Dict[str, Dict] = {
 _rate_counters: Dict[str, Dict] = {}
 
 def check_rate_limit(api_key: str, tier: str) -> bool:
-    limit = TIERS[tier]["rate_limit"]
+    _tier_cfg = TIERS.get(tier, TIERS.get("free", {"rate_limit": 60}))
+    limit = _tier_cfg["rate_limit"]
     now   = int(time.time() / 3600)   # bucket = 1 hour
     key   = f"{api_key}:{now}"
     c     = _rate_counters.get(key, {"count": 0})
@@ -151,6 +152,16 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+# ── Phase 3: Version + platform headers on every response ─────────────────
+@app.middleware("http")
+async def add_api_headers(request: Request, call_next):
+    """Inject X-API-Version, X-Platform, X-Powered-By on all responses."""
+    response = await call_next(request)
+    response.headers["X-API-Version"]  = VERSION
+    response.headers["X-Platform"]     = "CDB-SENTINEL-APEX"
+    response.headers["X-Powered-By"]   = "CYBERDUDEBIVASH Sentinel APEX"
+    return response
 
 # ── V1 Router — all /api/v1/* engine endpoints ────────────────────────────
 # Includes: threats, IOCs, predict, identity-risk, darkweb, risk-score,
@@ -270,10 +281,21 @@ def load_json(path: Path, cache_key: str) -> Any:
         return None
 
 def get_feed() -> List[Dict]:
-    raw = load_json(FEED_PATH, "feed")
-    if raw and isinstance(raw, dict):
-        return raw.get("data", [])
-    return []
+    """Load intelligence feed. Always returns list (never None). Thread-safe."""
+    try:
+        raw = load_json(FEED_PATH, "feed")
+        if raw is None:
+            # Try manifest as fallback
+            raw = load_json(MANIFEST_PATH, "manifest")
+        if isinstance(raw, list):
+            return [i for i in raw if isinstance(i, dict)]
+        if isinstance(raw, dict):
+            items = raw.get("data", raw.get("items", raw.get("advisories", [])))
+            return [i for i in (items or []) if isinstance(i, dict)]
+        return []
+    except Exception as _e:
+        logger.error(f"[get_feed] Error loading feed: {_e}")
+        return []
 
 def get_manifest() -> List[Dict]:
     raw = load_json(MANIFEST_PATH, "manifest")
@@ -298,14 +320,15 @@ def get_api_key(x_api_key: Optional[str] = Header(default=None)) -> Dict:
         info = _validate_key(x_api_key)
         if info.get("valid"):
             tier = info["tier"]
-            if not check_rate_limit(x_api_key, tier):
+            _tier_norm = tier.lower()
+            if not check_rate_limit(x_api_key, _tier_norm):
                 raise HTTPException(
                     status_code=429,
-                    detail={"error": f"Rate limit exceeded for {tier} tier",
-                            "limit": f"{TIERS[tier]['rate_limit']} req/hour",
+                    detail={"error": f"Rate limit exceeded for {_tier_norm} tier",
+                            "limit": f"{TIERS.get(_tier_norm, TIERS['free'])['rate_limit']} req/hour",
                             "upgrade": STORE_URL},
                 )
-            return {"tier": tier, "name": info.get("name",""), "key": x_api_key}
+            return {"tier": _tier_norm, "name": info.get("name",""), "key": x_api_key}
 
     # Fallback to static DEMO_KEYS (backward compat)
     key_info = DEMO_KEYS.get(x_api_key)
@@ -315,15 +338,15 @@ def get_api_key(x_api_key: Optional[str] = Header(default=None)) -> Dict:
             detail={"error": "Invalid API key",
                     "upgrade": STORE_URL, "docs": "/api/docs"},
         )
-    tier = key_info["tier"]
+    tier = key_info["tier"].lower()
     if not check_rate_limit(x_api_key, tier):
         raise HTTPException(
             status_code=429,
             detail={"error": f"Rate limit exceeded for {tier} tier",
-                    "limit": f"{TIERS[tier]['rate_limit']} req/hour",
+                    "limit": f"{TIERS.get(tier, TIERS['free'])['rate_limit']} req/hour",
                     "upgrade": STORE_URL},
         )
-    return {**key_info, "key": x_api_key}
+    return {**key_info, "tier": tier, "key": x_api_key}
 
 def strip_iocs(item: Dict) -> Dict:
     """Remove IOC details for free tier."""
@@ -389,7 +412,7 @@ async def get_intelligence_feed(
     auth:     Dict  = Depends(get_api_key),
 ):
     tier       = auth["tier"]
-    max_limit  = TIERS[tier]["max_results"]
+    max_limit  = TIERS.get(tier, TIERS["free"])["max_results"]
     limit      = min(limit, max_limit)
     feed       = get_feed()
     if not feed:
@@ -406,7 +429,7 @@ async def get_intelligence_feed(
     paginated = results[offset: offset + limit]
 
     # Strip IOCs for free tier
-    if not TIERS[tier]["ioc_details"]:
+    if not TIERS.get(tier, TIERS["free"])["ioc_details"]:
         paginated = [strip_iocs(i) for i in paginated]
 
     # ── APEX safe injection (non-destructive, fails silently) ─────────────
@@ -438,10 +461,10 @@ async def get_latest_advisories(
     auth: Dict = Depends(get_api_key),
 ):
     tier      = auth["tier"]
-    max_limit = min(TIERS[tier]["max_results"], 50)
+    max_limit = min(TIERS.get(tier, TIERS["free"])["max_results"], 50)
     feed      = get_feed()
     results   = feed[:min(n, max_limit)]
-    if not TIERS[tier]["ioc_details"]:
+    if not TIERS.get(tier, TIERS["free"])["ioc_details"]:
         results = [strip_iocs(i) for i in results]
     # ── APEX safe injection ───────────────────────────────────────────────
     try:
@@ -456,7 +479,7 @@ async def get_latest_advisories(
         "data": results,
     }
 
-# ── GET /api/v1/intel/{stix_id} ───────────────────────────────────────────
+# ── GET /api/v1/intel/search ────────────────────────────────────────────
 @app.get("/api/v1/intel/search", tags=["Intelligence"])
 async def search_intelligence(
     q:        str   = Query(..., min_length=2, description="Search keyword"),
@@ -466,7 +489,7 @@ async def search_intelligence(
     auth:     Dict  = Depends(get_api_key),
 ):
     tier = auth["tier"]
-    if not TIERS[tier]["search"]:
+    if not TIERS.get(tier, TIERS["free"])["search"]:
         raise HTTPException(403, {
             "error": "Search requires Pro tier or higher",
             "upgrade": STORE_URL,
@@ -486,9 +509,9 @@ async def search_intelligence(
         results = [i for i in results if i.get("severity","").upper() == severity.upper()]
     if min_risk > 0:
         results = [i for i in results if i.get("risk_score", 0) >= min_risk]
-    max_r   = min(limit, TIERS[tier]["max_results"])
+    max_r   = min(limit, TIERS.get(tier, TIERS["free"])["max_results"])
     results = results[:max_r]
-    if not TIERS[tier]["ioc_details"]:
+    if not TIERS.get(tier, TIERS["free"])["ioc_details"]:
         results = [strip_iocs(i) for i in results]
     # ── APEX safe injection ───────────────────────────────────────────────
     try:
@@ -496,14 +519,32 @@ async def search_intelligence(
         results = inject_apex_batch(results, _apex_cache)
     except Exception:
         pass
+    _result_count = len(results)
     return {
-        "status": "ok", "tier": tier, "query": q,
-        "count": len(results),
+        "status":    "success",
+        "tier":      tier,
+        "query":     q,
+        "count":     _result_count,        # kept for backward compat
         "generated": datetime.now(timezone.utc).isoformat(),
-        "data": results,
+        "data":      results,
+        "meta": {
+            "count":         _result_count,
+            "query":         q,
+            "message":       (
+                f"{_result_count} result(s) found"
+                if _result_count > 0
+                else "No results found — try broader keywords or a different search term"
+            ),
+            "search_fields": ["title", "threat_type", "actor_tag", "mitre_tactics", "feed_source"],
+            "filters_applied": {
+                "severity": severity,
+                "min_risk": min_risk if min_risk > 0 else None,
+            },
+            "tier_limit":    TIERS.get(tier, TIERS["free"])["max_results"],
+        },
     }
 
-# ── GET /api/v1/iocs ──────────────────────────────────────────────────────
+# ── GET /api/v1/intel/{stix_id} ─────────────────────────────────────────
 @app.get("/api/v1/intel/{stix_id}", tags=["Intelligence"])
 async def get_advisory_by_id(
     stix_id: str,
@@ -513,8 +554,16 @@ async def get_advisory_by_id(
     item = next((i for i in feed if i.get("stix_id") == stix_id
                  or i.get("bundle_id") == stix_id), None)
     if not item:
-        raise HTTPException(404, {"error": f"Advisory {stix_id} not found"})
-    if not TIERS[auth["tier"]]["ioc_details"]:
+        raise HTTPException(404, {
+            "status": "error",
+            "error":  f"Advisory '{stix_id}' not found in feed",
+            "code":   404,
+            "meta":   {
+                "stix_id": stix_id,
+                "hint":    "Use /api/v1/intel/latest or /api/v1/intel/search to discover valid advisory IDs",
+            },
+        })
+    if not TIERS.get(auth["tier"], TIERS["free"])["ioc_details"]:
         item = strip_iocs(item)
     # ── APEX safe injection ───────────────────────────────────────────────
     try:
@@ -524,7 +573,7 @@ async def get_advisory_by_id(
         pass
     return {"status": "ok", "tier": auth["tier"], "data": item}
 
-# ── GET /api/v1/intel/search ──────────────────────────────────────────────
+# ── GET /api/v1/iocs ────────────────────────────────────────────────────
 @app.get("/api/v1/iocs", tags=["IOC Intelligence"])
 async def get_ioc_feed(
     ioc_type: Optional[str] = Query(default=None,
@@ -534,7 +583,7 @@ async def get_ioc_feed(
     auth:     Dict  = Depends(get_api_key),
 ):
     tier = auth["tier"]
-    if not TIERS[tier]["ioc_details"]:
+    if not TIERS.get(tier, TIERS["free"])["ioc_details"]:
         raise HTTPException(403, {
             "error": "IOC details require Pro tier or higher",
             "upgrade": STORE_URL, "current_tier": tier,
@@ -564,7 +613,7 @@ async def get_ioc_feed(
                 })
     ioc_list = sorted(ioc_list, key=lambda x: x["risk_score"], reverse=True)
     total    = len(ioc_list)
-    ioc_list = ioc_list[:min(limit, TIERS[tier]["max_results"])]
+    ioc_list = ioc_list[:min(limit, TIERS.get(tier, TIERS["free"])["max_results"])]
     return {
         "status": "ok", "tier": tier,
         "ioc_type_filter": ioc_type or "all",
@@ -597,6 +646,7 @@ async def get_platform_stats():
         "status": "ok",
         "platform": PLATFORM,
         "version": VERSION,
+        "platform_version": VERSION,
         "dashboard": DASHBOARD,
         "store": STORE_URL,
         "metrics": {
@@ -619,7 +669,7 @@ async def export_stix_bundle(
     auth:    Dict = Depends(get_api_key),
 ):
     tier = auth["tier"]
-    if not TIERS[tier]["stix_export"]:
+    if not TIERS.get(tier, TIERS["free"])["stix_export"]:
         raise HTTPException(403, {
             "error": "STIX export requires Pro tier or higher",
             "upgrade": STORE_URL, "current_tier": tier,
@@ -656,7 +706,7 @@ async def bulk_export(
     auth:     Dict  = Depends(get_api_key),
 ):
     tier = auth["tier"]
-    if not TIERS[tier]["bulk_export"]:
+    if not TIERS.get(tier, TIERS["free"])["bulk_export"]:
         raise HTTPException(403, {
             "error": "Bulk export requires Enterprise tier or higher",
             "upgrade": STORE_URL, "current_tier": tier,
