@@ -405,7 +405,7 @@ if _FASTAPI_OK:
             except Exception as e:
                 raise HTTPException(500, {"error": f"Key manager unavailable: {e}"})
 
-        raw_key = mgr.create_key(
+        raw_key, _ = mgr.create_key(
             tier=tier,
             owner=current_user["email"],
             label=req.label or f"Self-service {tier} key",
