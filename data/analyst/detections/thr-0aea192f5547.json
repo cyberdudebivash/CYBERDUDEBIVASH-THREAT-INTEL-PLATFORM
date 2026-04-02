@@ -2,7 +2,7 @@
   "threat_id": "thr-0aea192f5547",
   "title": "Malicious Script That Gets Rid of ADS, (Wed, Apr 1st)",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - Malicious Script That Gets Rid of ADS, (Wed, Apr 1st)\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/01\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*dwm.cmd*'\n            - '*isc.sans.edu*'\n            - '*test.ext*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - Malicious Script That Gets Rid of ADS, (Wed, Apr 1st)\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/02\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*dwm.cmd*'\n            - '*isc.sans.edu*'\n            - '*test.ext*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"dwm.cmd\",\n              \"isc.sans.edu\",\n              \"test.ext\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"dwm.cmd\", \"isc.sans.edu\", \"test.ext\")"
   },

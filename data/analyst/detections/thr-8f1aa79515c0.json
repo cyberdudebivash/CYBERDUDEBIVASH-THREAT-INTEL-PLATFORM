@@ -2,13 +2,13 @@
   "threat_id": "thr-8f1aa79515c0",
   "title": "Bogus Avast website fakes virus scan, installs Venom Stealer instead",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - Bogus Avast website fakes virus scan, installs Venom Stealer\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/01\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '104.21.14.89'\n    selection_dns:\n        query:\n            - '*avast.com*'\n            - '*cookies.sqlite*'\n    condition: selection_ip or selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - Bogus Avast website fakes virus scan, installs Venom Stealer\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/02\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '104.21.14.89'\n    selection_dns:\n        query:\n            - '*avast.com*'\n            - '*cookies.sqlite*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "yara": "rule CDB_APEX_Bogus_Avast_website_fakes_virus_scan__in {\n    meta:\n        description = \"Bogus Avast website fakes virus scan, installs Venom Stealer\"\n        author = \"CyberDudeBivash\"\n    strings:\n        $h0 = \"ecbeaa13921dbad8028d29534c3878503f45a82a09cf27857fa4335bd1c9286d\" ascii nocase\n    condition:\n        any of them\n}",
     "suricata": [
-      "alert ip any any -> 104.21.14.89 any (msg:\"CDB APEX - Bogus_Avast_website_fakes_viru\"; sid:9260940; rev:1;)"
+      "alert ip any any -> 104.21.14.89 any (msg:\"CDB APEX - Bogus_Avast_website_fakes_viru\"; sid:1132889; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 104.21.14.89 any (msg:\"CDB APEX Bogus_Avast_website_fakes_viru\"; sid:2976157; rev:1;)"
+      "alert ip any any -> 104.21.14.89 any (msg:\"CDB APEX Bogus_Avast_website_fakes_viru\"; sid:8974805; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"104.21.14.89\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"avast.com\",\n              \"cookies.sqlite\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"file.hash.sha256\": [\n              \"ecbeaa13921dbad8028d29534c3878503f45a82a09cf27857fa4335bd1c9286d\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"104.21.14.89\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"avast.com\", \"cookies.sqlite\")"
