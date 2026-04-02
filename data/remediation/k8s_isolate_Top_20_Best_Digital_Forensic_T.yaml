@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-999c9313abc8
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Top 20 Best Digital Forensic Tools in 2026"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
