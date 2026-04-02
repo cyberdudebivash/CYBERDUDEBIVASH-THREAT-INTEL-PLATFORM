@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-f86a8f89d9e0
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Italian spyware vendor creates Fake WhatsApp app, targeting 200 users"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
