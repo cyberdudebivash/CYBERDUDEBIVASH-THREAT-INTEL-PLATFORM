@@ -38,10 +38,10 @@ jobs:
           git config user.name "CDB-GOC-Analyst"
           git config user.email "goc@cyberdudebivash.com"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
-          git add data/analyst/ || true
+          git add -f data/analyst/ 2>/dev/null || true
           git diff --cached --quiet && echo "No changes" || {
             THREATS=$(python3 -c "import json; d=json.load(open('data/analyst/analyst_report.json')); print(d['pipeline_stats']['threats_monitored'])" 2>/dev/null || echo "0")
             RULES=$(python3 -c "import json; d=json.load(open('data/analyst/analyst_report.json')); print(d['pipeline_stats']['total_detection_rules'])" 2>/dev/null || echo "0")
             git commit -m "🤖 AI ANALYST v37.0 — ${THREATS} threats analyzed | ${RULES} detection rules"
             git pull --rebase origin main || true
-            git push; }
+            git push origin main; }

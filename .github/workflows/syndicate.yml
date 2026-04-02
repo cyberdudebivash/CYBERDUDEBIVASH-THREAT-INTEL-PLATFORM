@@ -155,16 +155,16 @@ jobs:
         run: |
           git config user.name "CyberDudeBivash Syndication Bot"
           git config user.email "iambivash.bn@gmail.com"
-          git add data/syndication_state.json data/last_run_summary.json data/syndication_run.log || true
+          git add -f data/syndication_state.json data/last_run_summary.json data/syndication_run.log 2>/dev/null || true
           git diff --staged --quiet || git commit -m "🤖 Syndication state update — $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push || echo "Nothing to push"
+          git push origin main || echo "Nothing to push"
 
       # ── 6.1 [v30-APEX] Commit APEX Matrix State ───────────────────────
       - name: Commit APEX Marketing State
         run: |
           git config user.name "CyberDudeBivash APEX Bot"
           git config user.email "iambivash.bn@gmail.com"
-          git add data/syndication_queue/ 2>/dev/null || true
+          git add -f data/syndication_queue/ 2>/dev/null || true
           git diff --staged --quiet || git commit -m "👑 APEX Matrix state update [skip ci]"
           git pull origin main --no-rebase --no-edit -X ours && git push origin main || echo "APEX state push deferred"
 

@@ -45,7 +45,7 @@ jobs:
           git config user.name "CDB-GOC-OmniShield"
           git config user.email "goc@cyberdudebivash.com"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
-          git add data/omnishield/ || true
+          git add -f data/omnishield/ 2>/dev/null || true
           if git diff --cached --quiet; then echo "No changes"; else
             SCORE=$(python3 -c "import json; d=json.load(open('data/omnishield/omnishield_report.json')); print(d['platform_security_score']['composite'])" 2>/dev/null || echo "N/A")
             git commit -m "OmniShield v36.0 | Platform Score: ${SCORE}/10 | 12 subsystems"
