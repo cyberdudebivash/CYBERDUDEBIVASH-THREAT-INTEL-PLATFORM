@@ -90,9 +90,77 @@ jobs:
           git config --local user.email "guardian@cyberdudebivash.com"
           git config --local user.name "CDB-Guardian-Bot"
 
-          git add data/health/ 2>/dev/null || true
+          git add -f data/health/ 2>/dev/null || true
           # HARDENED: Exclude feed_manifest.json — sentinel-blogger owns it exclusively
-          git add data/ 2>/dev/null || true
+          git add -f data/ 2>/dev/null || true
+          git restore --staged data/stix/feed_manifest.json 2>/dev/null || true
+          git checkout -- . 2>/dev/null || true  # clean unstaged before pull
+
+          if git diff --staged --quiet; then
+            echo "No guardian report changes to commit."
+          else
+            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+            git commit -m "🤖 Guardian report @ ${TIMESTAMP} [skip ci]"
+            for i in 1 2 3; do
+              git pull origin main --no-rebase --no-edit -X ours && \
+              git push origin main && break || \
+              (echo "Push retry $i/3..." && sleep 10)
+            done
+          fi
+
+      - name: "✅ Guardian Summary"
+        run: |
+          if [ -f data/health/guardian_report.json ]; then
+            echo "=== GUARDIAN REPORT SUMMARY ==="
+            python3 agent/autonomous_guardian/print_report.py
+          else
+            echo "No guardian report generated."
+          fi
+  guardian:
+    name: 🤖 Autonomous Guardian Cycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.4.0
+        with:
+          python-version: '3.12'
+
+      - name: Install minimal dependencies
+        run: pip install requests pyyaml --quiet
+
+      - name: "🤖 Run Autonomous Guardian"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '6' }}
+          FORCE_REPORT: ${{ github.event.inputs.force_report || 'false' }}
+          TRIGGER_WORKFLOW: ${{ github.event.workflow_run.name || 'scheduled' }}
+          TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion || 'n/a' }}
+        run: |
+          echo "=================================================="
+          echo "🤖 CDB AUTONOMOUS GUARDIAN AGENT v1.0"
+          echo "Triggered by: ${TRIGGER_WORKFLOW} (${TRIGGER_CONCLUSION})"
+          echo "Lookback: ${LOOKBACK_HOURS}h"
+          echo "=================================================="
+          python3 agent/autonomous_guardian/guardian.py
+          echo "Guardian cycle complete."
+
+      - name: "📊 Commit Guardian Report"
+        run: |
+          git config --local user.email "guardian@cyberdudebivash.com"
+          git config --local user.name "CDB-Guardian-Bot"
+
+          git add -f data/health/ 2>/dev/null || true
+          # HARDENED: Exclude feed_manifest.json — sentinel-blogger owns it exclusively
+          git add -f data/ 2>/dev/null || true
           git restore --staged data/stix/feed_manifest.json 2>/dev/null || true
           git checkout -- . 2>/dev/null || true  # clean unstaged before pull
 

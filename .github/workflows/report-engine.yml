@@ -27,10 +27,14 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: report-engine
+  cancel-in-progress: false
+
 jobs:
   generate-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: 📥 Checkout Repository
@@ -58,7 +62,7 @@ jobs:
           git config user.name "CDB-SENTINEL-APEX"
           git config user.email "sentinel@cyberdudebivash.com"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
-          git add data/intelligence/reports/ || true
+          git add -f data/intelligence/reports/ 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No reports to commit"
           else

@@ -156,15 +156,21 @@ jobs:
       # ═══════════════════════════════════════════════════════════
 
       - name: Commit enrichment data
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.email "bivash@cyberdudebivash.com"
           git config user.name "CDB-Enrichment-Bot"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
           # [v30-APEX] Modified to track all God-Tier generation directories
           # HARDENED: Removed data/stix/ — feed_manifest.json owned by sentinel-blogger only
-          git add data/enrichment/ data/ai_predictions/ data/remediation/ data/sigma_rules/ data/simulations/ 2>/dev/null || true
+          git add -f data/enrichment/ data/ai_predictions/ data/remediation/ data/sigma_rules/ data/simulations/ 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No enrichment changes."
           else
             git commit -m "👑 APEX Unified Matrix: AI, SOAR, SIEM, & BAS [skip ci]"
-            git pull origin main --rebase && git push origin main || echo "Push collision, will retry next cycle"
+            for i in 1 2 3; do
+              git pull origin main --rebase && git push origin main && break || \
+              (echo "Push retry $i/3..." && sleep 5)
+            done
           fi

@@ -31,6 +31,7 @@ jobs:
   sync-dashboard:
     name: Sync Dashboard Intelligence Cache v71.0
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     if: >-
       github.event.workflow_run.conclusion == 'success' ||
       github.event_name == 'schedule' ||
@@ -137,9 +138,9 @@ jobs:
           # v74.5 PERMANENT FIX: Stage ALL of data/ recursively — future-proof
           # Replaces fragile per-file/per-subdir globs that miss new pipeline writes
           # HARDENED: Exclude feed_manifest.json — sentinel-blogger owns it exclusively
-          git add data/ 2>/dev/null || true
+          git add -f data/ 2>/dev/null || true
           git restore --staged data/stix/feed_manifest.json 2>/dev/null || true
-          git add api/ 2>/dev/null || true
+          git add -f api/ 2>/dev/null || true
           git add index.html 2>/dev/null || true
           # Discard remaining unstaged so git pull can NEVER abort
           git checkout -- . 2>/dev/null || true
