@@ -2,7 +2,7 @@
   "threat_id": "thr-5dc71a8c1d28",
   "title": "New ClickFix Variant Uses Rundll32 and WebDAV to Evade PowerShell Detection",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - New ClickFix Variant Uses Rundll32 and WebDAV to Evade Power\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/01\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*data-x7-sync.neurosync*'\n            - '*mer-forgea.sightup*'\n            - '*verification.google*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - New ClickFix Variant Uses Rundll32 and WebDAV to Evade Power\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/02\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*data-x7-sync.neurosync*'\n            - '*mer-forgea.sightup*'\n            - '*verification.google*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"data-x7-sync.neurosync\",\n              \"mer-forgea.sightup\",\n              \"verification.google\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"data-x7-sync.neurosync\", \"mer-forgea.sightup\", \"verification.google\")"
   },
