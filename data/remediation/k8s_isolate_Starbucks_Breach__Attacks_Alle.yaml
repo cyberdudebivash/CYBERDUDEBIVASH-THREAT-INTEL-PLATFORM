@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-acfe30c07a1a
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "Starbucks Breach – Attacks Allegedly Claim 10GB of Stolen Source Code"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
