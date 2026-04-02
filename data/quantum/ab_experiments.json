@@ -2,8 +2,8 @@
   "total_experiments": 10,
   "experiments": [
     {
-      "experiment_id": "abtest--4c68a7b5e29a",
-      "name": "Detection Optimization: Google fixes Chrome zero-day with in-the-wild expl",
+      "experiment_id": "abtest--32cb7a09d893",
+      "name": "Detection Optimization: CVE-2026-21765 - HCL BigFix Platform is affected b",
       "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
       "variant_a": {
         "name": "Broad Detection",
@@ -30,11 +30,48 @@
       "duration_days": 14,
       "status": "PROPOSED",
       "advisory_context": {
-        "title": "Google fixes Chrome zero-day with in-the-wild exploit (CVE-2026-5281)",
-        "risk_score": 9.4,
+        "title": "CVE-2026-21765 - HCL BigFix Platform is affected by insecure permissions on priv",
+        "risk_score": 7.5,
         "cves": [
-          "CVE-2026-5281"
+          "CVE-2026-21765"
         ],
+        "techniques": [
+          "T1059"
+        ]
+      }
+    },
+    {
+      "experiment_id": "abtest--2d161a03c804",
+      "name": "Detection Optimization: Public PoC Exploit Released for Nginx-UI Backup Re",
+      "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
+      "variant_a": {
+        "name": "Broad Detection",
+        "description": "Matches any related IOC or technique indicator",
+        "expected_recall": 0.95,
+        "expected_precision": 0.6,
+        "rule_type": "sigma",
+        "detection_logic": "selection: any technique OR any CVE mention"
+      },
+      "variant_b": {
+        "name": "Precise Detection",
+        "description": "Requires multiple correlated indicators",
+        "expected_recall": 0.75,
+        "expected_precision": 0.9,
+        "rule_type": "sigma",
+        "detection_logic": "selection: (technique AND CVE) OR (IOC AND actor_tag)"
+      },
+      "metrics": [
+        "true_positive_rate",
+        "false_positive_rate",
+        "mean_time_to_detect",
+        "analyst_triage_time"
+      ],
+      "duration_days": 14,
+      "status": "PROPOSED",
+      "advisory_context": {
+        "title": "Public PoC Exploit Released for Nginx-UI Backup Restore Vulnerability",
+        "risk_score": 10.0,
+        "cves": [],
         "techniques": [
           "T1078",
           "T1203",
@@ -43,8 +80,8 @@
       }
     },
     {
-      "experiment_id": "abtest--e6b794242081",
-      "name": "Detection Optimization: Major Cyber Attacks in March 2026: OAuth Phishing,",
+      "experiment_id": "abtest--266107442570",
+      "name": "Detection Optimization: Google fixes fourth actively exploited Chrome zero",
       "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
       "variant_a": {
         "name": "Broad Detection",
@@ -71,137 +108,19 @@
       "duration_days": 14,
       "status": "PROPOSED",
       "advisory_context": {
-        "title": "Major Cyber Attacks in March 2026: OAuth Phishing,\u00a0SVG Smuggling,\u00a0Magecart, and ",
+        "title": "Google fixes fourth actively exploited Chrome zero-day of 2026",
         "risk_score": 10.0,
         "cves": [],
         "techniques": [
-          "T1566",
-          "T1566.002",
-          "T1190"
-        ]
-      }
-    },
-    {
-      "experiment_id": "abtest--61a288db5af1",
-      "name": "Detection Optimization: Malicious Script That Gets Rid of ADS, (Wed, Apr 1",
-      "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
-      "variant_a": {
-        "name": "Broad Detection",
-        "description": "Matches any related IOC or technique indicator",
-        "expected_recall": 0.95,
-        "expected_precision": 0.6,
-        "rule_type": "sigma",
-        "detection_logic": "selection: any technique OR any CVE mention"
-      },
-      "variant_b": {
-        "name": "Precise Detection",
-        "description": "Requires multiple correlated indicators",
-        "expected_recall": 0.75,
-        "expected_precision": 0.9,
-        "rule_type": "sigma",
-        "detection_logic": "selection: (technique AND CVE) OR (IOC AND actor_tag)"
-      },
-      "metrics": [
-        "true_positive_rate",
-        "false_positive_rate",
-        "mean_time_to_detect",
-        "analyst_triage_time"
-      ],
-      "duration_days": 14,
-      "status": "PROPOSED",
-      "advisory_context": {
-        "title": "Malicious Script That Gets Rid of ADS, (Wed, Apr 1st)",
-        "risk_score": 8.6,
-        "cves": [],
-        "techniques": [
-          "T1059.001",
-          "T1059",
-          "T1547"
-        ]
-      }
-    },
-    {
-      "experiment_id": "abtest--94f9d8647cca",
-      "name": "Detection Optimization: TeamPCP Supply Chain Campaign: Update 005 - First ",
-      "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
-      "variant_a": {
-        "name": "Broad Detection",
-        "description": "Matches any related IOC or technique indicator",
-        "expected_recall": 0.95,
-        "expected_precision": 0.6,
-        "rule_type": "sigma",
-        "detection_logic": "selection: any technique OR any CVE mention"
-      },
-      "variant_b": {
-        "name": "Precise Detection",
-        "description": "Requires multiple correlated indicators",
-        "expected_recall": 0.75,
-        "expected_precision": 0.9,
-        "rule_type": "sigma",
-        "detection_logic": "selection: (technique AND CVE) OR (IOC AND actor_tag)"
-      },
-      "metrics": [
-        "true_positive_rate",
-        "false_positive_rate",
-        "mean_time_to_detect",
-        "analyst_triage_time"
-      ],
-      "duration_days": 14,
-      "status": "PROPOSED",
-      "advisory_context": {
-        "title": "TeamPCP Supply Chain Campaign: Update 005 - First Confirmed Victim Disclosure, P",
-        "risk_score": 10.0,
-        "cves": [],
-        "techniques": [
-          "T1595",
           "T1195",
-          "T1078"
-        ]
-      }
-    },
-    {
-      "experiment_id": "abtest--e6a46bc81fbb",
-      "name": "Detection Optimization: CVE-2026-22767 - Dell AppSync Symlink Following In",
-      "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
-      "variant_a": {
-        "name": "Broad Detection",
-        "description": "Matches any related IOC or technique indicator",
-        "expected_recall": 0.95,
-        "expected_precision": 0.6,
-        "rule_type": "sigma",
-        "detection_logic": "selection: any technique OR any CVE mention"
-      },
-      "variant_b": {
-        "name": "Precise Detection",
-        "description": "Requires multiple correlated indicators",
-        "expected_recall": 0.75,
-        "expected_precision": 0.9,
-        "rule_type": "sigma",
-        "detection_logic": "selection: (technique AND CVE) OR (IOC AND actor_tag)"
-      },
-      "metrics": [
-        "true_positive_rate",
-        "false_positive_rate",
-        "mean_time_to_detect",
-        "analyst_triage_time"
-      ],
-      "duration_days": 14,
-      "status": "PROPOSED",
-      "advisory_context": {
-        "title": "CVE-2026-22767 - Dell AppSync Symlink Following Information Disclosure Vulnerabi",
-        "risk_score": 7.5,
-        "cves": [
-          "CVE-2026-22767"
-        ],
-        "techniques": [
           "T1203",
           "T1059"
         ]
       }
     },
     {
-      "experiment_id": "abtest--16843b2c318c",
-      "name": "Detection Optimization: CVE-2026-22768 - Dell AppSync Privilege Escalation",
+      "experiment_id": "abtest--40ddc6d96896",
+      "name": "Detection Optimization: CVE-2026-34751 - Payload has Unvalidated Input in ",
       "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
       "variant_a": {
         "name": "Broad Detection",
@@ -228,21 +147,19 @@
       "duration_days": 14,
       "status": "PROPOSED",
       "advisory_context": {
-        "title": "CVE-2026-22768 - Dell AppSync Privilege Escalation Vulnerability",
-        "risk_score": 7.5,
+        "title": "CVE-2026-34751 - Payload has Unvalidated Input in Password Recovery Endpoints",
+        "risk_score": 10.0,
         "cves": [
-          "CVE-2026-22768"
+          "CVE-2026-34751"
         ],
         "techniques": [
-          "T1203",
-          "T1059",
-          "T1068"
+          "T1059"
         ]
       }
     },
     {
-      "experiment_id": "abtest--9f1e6645f834",
-      "name": "Detection Optimization: SentinelOne autonomous detection blocks trojaned L",
+      "experiment_id": "abtest--9f61e88b92ef",
+      "name": "Detection Optimization: CVE-2026-34875 - Mbed TLS FFDH Key Export Buffer O",
       "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
       "variant_a": {
         "name": "Broad Detection",
@@ -269,8 +186,47 @@
       "duration_days": 14,
       "status": "PROPOSED",
       "advisory_context": {
-        "title": "SentinelOne autonomous detection blocks trojaned LiteLLM triggered by Claude Cod",
-        "risk_score": 8.8,
+        "title": "CVE-2026-34875 - Mbed TLS FFDH Key Export Buffer Overflow",
+        "risk_score": 10.0,
+        "cves": [
+          "CVE-2026-34875"
+        ],
+        "techniques": [
+          "T1059"
+        ]
+      }
+    },
+    {
+      "experiment_id": "abtest--12519fb1a555",
+      "name": "Detection Optimization: Industrialization of the Fraud Ecosystem Blog",
+      "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
+      "variant_a": {
+        "name": "Broad Detection",
+        "description": "Matches any related IOC or technique indicator",
+        "expected_recall": 0.95,
+        "expected_precision": 0.6,
+        "rule_type": "sigma",
+        "detection_logic": "selection: any technique OR any CVE mention"
+      },
+      "variant_b": {
+        "name": "Precise Detection",
+        "description": "Requires multiple correlated indicators",
+        "expected_recall": 0.75,
+        "expected_precision": 0.9,
+        "rule_type": "sigma",
+        "detection_logic": "selection: (technique AND CVE) OR (IOC AND actor_tag)"
+      },
+      "metrics": [
+        "true_positive_rate",
+        "false_positive_rate",
+        "mean_time_to_detect",
+        "analyst_triage_time"
+      ],
+      "duration_days": 14,
+      "status": "PROPOSED",
+      "advisory_context": {
+        "title": "Industrialization of the Fraud Ecosystem Blog",
+        "risk_score": 7.0,
         "cves": [],
         "techniques": [
           "T1195",
@@ -280,8 +236,8 @@
       }
     },
     {
-      "experiment_id": "abtest--4b593f21f96b",
-      "name": "Detection Optimization: New Chrome Zero-Day Vulnerability Actively Exploit",
+      "experiment_id": "abtest--d0adde4a4680",
+      "name": "Detection Optimization: Mercor confirms security incident tied to LiteLLM ",
       "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
       "variant_a": {
         "name": "Broad Detection",
@@ -308,58 +264,18 @@
       "duration_days": 14,
       "status": "PROPOSED",
       "advisory_context": {
-        "title": "New Chrome Zero-Day Vulnerability Actively Exploited in Attacks \u2014 Patch Now",
-        "risk_score": 9.8,
+        "title": "Mercor confirms security incident tied to LiteLLM supply chain attack",
+        "risk_score": 7.1,
         "cves": [],
         "techniques": [
-          "T1203",
-          "T1555",
-          "T1567"
-        ]
-      }
-    },
-    {
-      "experiment_id": "abtest--3d3ef80a5d0e",
-      "name": "Detection Optimization: Russian Hackers Using Remote Access Toolkit \u201cCTRL\u201d",
-      "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
-      "variant_a": {
-        "name": "Broad Detection",
-        "description": "Matches any related IOC or technique indicator",
-        "expected_recall": 0.95,
-        "expected_precision": 0.6,
-        "rule_type": "sigma",
-        "detection_logic": "selection: any technique OR any CVE mention"
-      },
-      "variant_b": {
-        "name": "Precise Detection",
-        "description": "Requires multiple correlated indicators",
-        "expected_recall": 0.75,
-        "expected_precision": 0.9,
-        "rule_type": "sigma",
-        "detection_logic": "selection: (technique AND CVE) OR (IOC AND actor_tag)"
-      },
-      "metrics": [
-        "true_positive_rate",
-        "false_positive_rate",
-        "mean_time_to_detect",
-        "analyst_triage_time"
-      ],
-      "duration_days": 14,
-      "status": "PROPOSED",
-      "advisory_context": {
-        "title": "Russian Hackers Using Remote Access Toolkit \u201cCTRL\u201d for\u00a0 RDP Hijacking",
-        "risk_score": 10.0,
-        "cves": [],
-        "techniques": [
-          "T1595",
-          "T1566",
+          "T1195",
           "T1078"
         ]
       }
     },
     {
-      "experiment_id": "abtest--a16093171f22",
-      "name": "Detection Optimization: Hackers Actively Exploiting Critical WebLogic RCE ",
+      "experiment_id": "abtest--22eb499a1ed0",
+      "name": "Detection Optimization: Magecart Hackers Uses 100+ Domains to Hijack eStor",
       "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
       "variant_a": {
         "name": "Broad Detection",
@@ -386,13 +302,91 @@
       "duration_days": 14,
       "status": "PROPOSED",
       "advisory_context": {
-        "title": "Hackers Actively Exploiting Critical WebLogic RCE Vulnerabilities in Attacks",
+        "title": "Magecart Hackers Uses 100+ Domains to Hijack eStores Checkouts and Steal Card Da",
         "risk_score": 10.0,
         "cves": [],
         "techniques": [
-          "T1203",
-          "T1059",
-          "T1027"
+          "T1566.002",
+          "T1199",
+          "T1476"
+        ]
+      }
+    },
+    {
+      "experiment_id": "abtest--b31142719b32",
+      "name": "Detection Optimization: CVE-2026-35093 - Libinput: libinput: unauthorized ",
+      "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
+      "variant_a": {
+        "name": "Broad Detection",
+        "description": "Matches any related IOC or technique indicator",
+        "expected_recall": 0.95,
+        "expected_precision": 0.6,
+        "rule_type": "sigma",
+        "detection_logic": "selection: any technique OR any CVE mention"
+      },
+      "variant_b": {
+        "name": "Precise Detection",
+        "description": "Requires multiple correlated indicators",
+        "expected_recall": 0.75,
+        "expected_precision": 0.9,
+        "rule_type": "sigma",
+        "detection_logic": "selection: (technique AND CVE) OR (IOC AND actor_tag)"
+      },
+      "metrics": [
+        "true_positive_rate",
+        "false_positive_rate",
+        "mean_time_to_detect",
+        "analyst_triage_time"
+      ],
+      "duration_days": 14,
+      "status": "PROPOSED",
+      "advisory_context": {
+        "title": "CVE-2026-35093 - Libinput: libinput: unauthorized code execution and information",
+        "risk_score": 7.5,
+        "cves": [
+          "CVE-2026-35093"
+        ],
+        "techniques": [
+          "T1059"
+        ]
+      }
+    },
+    {
+      "experiment_id": "abtest--25203e00cd12",
+      "name": "Detection Optimization: North Korean hackers linked to Axios npm supply ch",
+      "hypothesis": "Narrow detection rules reduce false positives without missing true threats",
+      "variant_a": {
+        "name": "Broad Detection",
+        "description": "Matches any related IOC or technique indicator",
+        "expected_recall": 0.95,
+        "expected_precision": 0.6,
+        "rule_type": "sigma",
+        "detection_logic": "selection: any technique OR any CVE mention"
+      },
+      "variant_b": {
+        "name": "Precise Detection",
+        "description": "Requires multiple correlated indicators",
+        "expected_recall": 0.75,
+        "expected_precision": 0.9,
+        "rule_type": "sigma",
+        "detection_logic": "selection: (technique AND CVE) OR (IOC AND actor_tag)"
+      },
+      "metrics": [
+        "true_positive_rate",
+        "false_positive_rate",
+        "mean_time_to_detect",
+        "analyst_triage_time"
+      ],
+      "duration_days": 14,
+      "status": "PROPOSED",
+      "advisory_context": {
+        "title": "North Korean hackers linked to Axios npm supply chain compromise",
+        "risk_score": 10.0,
+        "cves": [],
+        "techniques": [
+          "T1595",
+          "T1195",
+          "T1078"
         ]
       }
     }
@@ -403,5 +397,5 @@
     "statistical_test": "chi_squared",
     "rollout_strategy": "gradual"
   },
-  "generated_at": "2026-04-01T14:06:32.391555+00:00"
+  "generated_at": "2026-04-02T03:28:21.842680+00:00"
 }
