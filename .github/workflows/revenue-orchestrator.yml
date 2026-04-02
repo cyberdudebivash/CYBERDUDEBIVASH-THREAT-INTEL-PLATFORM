@@ -50,10 +50,15 @@ jobs:
         run: |
           git config --local user.name "CDB-Sentinel-Bot"
           git config --local user.email "bivash@cyberdudebivash.com"
-          git add data/sovereign/tenants.json
-          git commit -m "💰 v44 Auto-Provision Enterprise License [skip ci]" || echo "No changes"
-          git pull --rebase origin main || true
-          git push origin main
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
+          git add -f data/sovereign/tenants.json || true
+          if git diff --staged --quiet; then
+            echo "No tenant changes"
+          else
+            git commit -m "💰 v44 Auto-Provision Enterprise License [skip ci]"
+            git pull --rebase origin main || true
+            git push origin main
+          fi
 
   ceo-financial-briefing:
     if: github.event_name == 'schedule' || github.event.inputs.action == 'report'
@@ -80,7 +85,13 @@ jobs:
         run: |
           git config --local user.name "CDB-Sentinel-Bot"
           git config --local user.email "bivash@cyberdudebivash.com"
-          git add data/sovereign/mrr_report.json data/revenue/transaction_log.json
-          git commit -m "📈 v44 CEO Financial Update" || echo "No changes"
-          git pull --rebase origin main || true
-          git push origin main
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
+          git add -f data/sovereign/mrr_report.json || true
+          git add -f data/revenue/transaction_log.json || true
+          if git diff --staged --quiet; then
+            echo "No financial data changes to commit"
+          else
+            git commit -m "📈 v44 CEO Financial Update [skip ci]"
+            git pull --rebase origin main || true
+            git push origin main
+          fi

@@ -498,12 +498,15 @@ jobs:
       # ── STAGE 5: Commit data to main branch ──────────────────────────────
       - name: Commit pipeline data to main
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           echo "=== STAGE 5: Commit to main ==="
 
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "cyberdudebivash"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
 
           rm -f secrets/.env
 
@@ -514,7 +517,8 @@ jobs:
           else
             rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
-            git commit -m "v77.0 Pipeline data [skip ci]" --no-verify
+            COMMIT_MSG="v81.5 Pipeline data $(date -u +%Y-%m-%dT%H:%M:%SZ) [skip ci]"
+            git commit -m "${COMMIT_MSG}" --no-verify
 
             MAX_ATTEMPTS=4
             for attempt in 1 2 3 4; do
@@ -526,7 +530,7 @@ jobs:
                 echo "✓ Nothing new to commit — dashboard already current"
                 break
               fi
-              git commit -m "v77.0 Pipeline data [skip ci]" --no-verify
+              git commit -m "${COMMIT_MSG}" --no-verify
               if git push origin main; then
                 echo "✓ Pushed to main (attempt $attempt)"
                 break
@@ -547,6 +551,7 @@ jobs:
         timeout-minutes: 3
         env:
           PYTHONPATH: ${{ github.workspace }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "=== STAGE 6: Post-commit extras ==="
 
@@ -555,9 +560,10 @@ jobs:
 
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name "cyberdudebivash"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
           git add --all
           if ! git diff --staged --quiet; then
-            git commit -m "v77.0 Post Extras [skip ci]" --no-verify
+            git commit -m "v81.5 Post Extras $(date -u +%Y-%m-%dT%H:%M:%SZ) [skip ci]" --no-verify
             git push origin main || true
           fi
 
