@@ -2,14 +2,14 @@
   "threat_id": "thr-7a4d479770b6",
   "title": "Russian Hackers Using Remote Access Toolkit \u201cCTRL\u201d for\u00a0 RDP Hijacking",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - Russian Hackers Using Remote Access Toolkit \u201cCTRL\u201d for\u00a0 RDP \nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/02\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '109.107.168.18'\n            - '194.33.61.36'\n    condition: selection_ip\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - Russian Hackers Using Remote Access Toolkit \u201cCTRL\u201d for\u00a0 RDP \nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/03\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '109.107.168.18'\n            - '194.33.61.36'\n    condition: selection_ip\nlevel: high",
     "suricata": [
-      "alert ip any any -> 109.107.168.18 any (msg:\"CDB APEX - Russian_Hackers_Using_Remote_A\"; sid:1876463; rev:1;)",
-      "alert ip any any -> 194.33.61.36 any (msg:\"CDB APEX - Russian_Hackers_Using_Remote_A\"; sid:5930646; rev:1;)"
+      "alert ip any any -> 109.107.168.18 any (msg:\"CDB APEX - Russian_Hackers_Using_Remote_A\"; sid:5463998; rev:1;)",
+      "alert ip any any -> 194.33.61.36 any (msg:\"CDB APEX - Russian_Hackers_Using_Remote_A\"; sid:8374397; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 109.107.168.18 any (msg:\"CDB APEX Russian_Hackers_Using_Remote_A\"; sid:7001259; rev:1;)",
-      "alert ip any any -> 194.33.61.36 any (msg:\"CDB APEX Russian_Hackers_Using_Remote_A\"; sid:3539395; rev:1;)"
+      "alert ip any any -> 109.107.168.18 any (msg:\"CDB APEX Russian_Hackers_Using_Remote_A\"; sid:8307691; rev:1;)",
+      "alert ip any any -> 194.33.61.36 any (msg:\"CDB APEX Russian_Hackers_Using_Remote_A\"; sid:4927811; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"109.107.168.18\",\n              \"194.33.61.36\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"109.107.168.18\", \"194.33.61.36\")"

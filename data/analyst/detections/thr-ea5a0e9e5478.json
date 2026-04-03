@@ -2,7 +2,7 @@
   "threat_id": "thr-ea5a0e9e5478",
   "title": "ShipSec Studio brings open-source workflow orchestration to security operations",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - ShipSec Studio brings open-source workflow orchestration to \nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/02\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*xterm.js*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - ShipSec Studio brings open-source workflow orchestration to \nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/03\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*xterm.js*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"xterm.js\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"xterm.js\")"
   },
