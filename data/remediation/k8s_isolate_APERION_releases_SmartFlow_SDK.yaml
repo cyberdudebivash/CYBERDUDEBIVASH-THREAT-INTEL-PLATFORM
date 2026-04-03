@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apex-quarantine-3d0c0550e1c9
+  namespace: production
+  labels:
+    managed-by: cdb-apex-soar
+    threat-ref: "APERION releases SmartFlow SDK for secure, on-prem AI governance without cloud reliance"
+spec:
+  podSelector:
+    matchLabels:
+      apex-isolated: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Default Deny All to isolate the compromised pod milliseconds after detection
