@@ -36,5 +36,12 @@ jobs:
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
           git add data/genesis/ -f
           git diff --cached --quiet || git commit -m "🌐 GENESIS v43.0: 12-engine cycle $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          git pull --rebase origin main || true
-          git push origin main || echo "Push deferred"
+                      git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
+            rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
+            for i in 1 2 3 4; do
+              git fetch origin main --quiet
+              git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null||true; git merge origin/main -X ours --no-edit --quiet||true; }
+              git push origin main && { echo "Push OK ($i/4)"; break; }
+              sleep $((i*15))
+              [ $i -eq 4 ] && echo "Push deferred."
+            done

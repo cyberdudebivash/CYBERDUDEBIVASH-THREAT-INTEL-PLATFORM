@@ -1,176 +1,105 @@
-name: CDB Multi-Source Intelligence Enrichment
+# =============================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX v101 — MULTI-SOURCE INTELLIGENCE ENRICHMENT
+# Version: v101.0.0 — PERMANENT PRODUCTION CONTRACT
+# Race condition FIX: Cron changed from '0 */4 * * *' (same as sentinel-blogger)
+#                     to '45 1,5,9,13,17,21 * * *' — 45 min past odd hours
+#                     (sentinel-blogger runs at 0,4,8,12,16,20 → no overlap)
+# =============================================================================
+name: CDB Multi-Source Intelligence Enrichment v101
 
 on:
   schedule:
-    - cron: '0 */4 * * *'  # Every 4 hours — enriches manifest with additional sources
+    - cron: '45 1,5,9,13,17,21 * * *'   # FIXED: no overlap with sentinel-blogger
   workflow_dispatch:
 
 permissions:
   contents: write
 
-# v75.1 FIX: Added concurrency group to prevent race conditions with sentinel-blogger.
-# Both workflows run at :00 — without this lock, concurrent pushes corrupt the manifest.
 concurrency:
   group: sentinel-data-writer
   cancel-in-progress: false
 
 jobs:
   multi-source-enrichment:
-    name: Multi-Source Intelligence Collection & Enrichment
+    name: Multi-Source Intelligence v101
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
-        with:
-          fetch-depth: 1
+      - uses: actions/checkout@v4.2.2
+        with: {fetch-depth: 1, ref: main}
+      - uses: actions/setup-python@v5.4.0
+        with: {python-version: '3.12', cache: 'pip'}
+      - run: pip install requests feedparser --quiet
+      - run: mkdir -p data/enrichment data/stix api
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5.4.0
-        with:
-          python-version: '3.12'
-          cache: 'pip'
+      - name: "Bootstrap Critical Files"
+        run: python3 scripts/bootstrap_critical_files.py
 
-      - name: Install dependencies
-        run: |
-          pip install requests feedparser
-
-      - name: Ensure data directories
-        run: |
-          mkdir -p data/enrichment
-          mkdir -p data/stix
-          mkdir -p data/ai_predictions  # [v30-APEX] Directory for AI cortex
-          mkdir -p data/remediation     # [v30-APEX] Directory for APEX SOAR
-          mkdir -p data/sigma_rules     # [v30-APEX] Directory for SIEM Dispatcher
-          mkdir -p data/simulations     # [v30-APEX] Directory for Purple Swarm BAS
-
-      - name: Collect Fresh Intelligence (CISA KEV + Exploit-DB + GitHub Advisory)
+      - name: "Collect Fresh Intelligence"
         continue-on-error: true
         env:
           GITHUB_TOKEN_INTEL: ${{ secrets.GH_INTEL_TOKEN }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          python - << 'PYEOF'
+          python3 - << 'PYEOF'
           import sys, os, json
           from datetime import datetime, timezone
           sys.path.insert(0, os.getcwd())
-
           try:
               from agent.integrations.sources.multi_source_intel import SourceIntelligenceOrchestrator
-
-              github_token = os.environ.get("GITHUB_TOKEN_INTEL")
-              orchestrator = SourceIntelligenceOrchestrator(github_token=github_token)
-
-              batch = orchestrator.get_fresh_intelligence_batch()
-
-              output_path = "data/enrichment/latest_intel_batch.json"
-              with open(output_path, "w") as f:
+              orch = SourceIntelligenceOrchestrator(github_token=os.environ.get("GITHUB_TOKEN_INTEL"))
+              batch = orch.get_fresh_intelligence_batch()
+              os.makedirs("data/enrichment", exist_ok=True)
+              with open("data/enrichment/latest_intel_batch.json","w") as f:
                   json.dump(batch, f, indent=2)
-
-              print(f"Intelligence batch collected:")
-              print(f"  Sources polled:         {batch['sources_polled']}")
-              print(f"  CISA KEV recent (7d):   {len(batch['kev_recent'])}")
-              print(f"  Ransomware victims:     {len(batch['ransomware_victims'])}")
-              print(f"  Exploit-DB exploits:    {len(batch['exploitdb_recent'])}")
-              print(f"  GitHub advisories:      {len(batch['github_advisories'])}")
-              print(f"  URLhaus IOCs:           {len(batch['urlhaus_iocs'])}")
-              print(f"  KEV total catalog:      {batch['kev_stats'].get('total_kev_entries', 0)}")
-
+              print(f"Intel batch: {batch.get('sources_polled',0)} sources polled")
           except Exception as e:
               print(f"Multi-source enrichment skipped (non-critical): {e}")
           PYEOF
 
-      - name: Enrich Manifest with AI Predictions
+      - name: "Merge Into Manifest"
         continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          python - << 'PYEOF'
+          python3 - << 'PYEOF'
           import sys, os, json
+          from datetime import datetime, timezone
           sys.path.insert(0, os.getcwd())
-
-          manifest_path = "data/stix/feed_manifest.json"
-          if not os.path.exists(manifest_path):
-              print("No manifest to enrich. Skipping.")
-              sys.exit(0)
-
           try:
-              with open(manifest_path) as f:
-                  entries = json.load(f)
-
-              from agent.ai.predictive_models import PredictiveIntelligenceEngine
-              engine = PredictiveIntelligenceEngine()
-              enriched = engine.enrich_manifest(entries[:10])  # Enrich top 10 entries
-
-              enriched_path = "data/enrichment/ai_enriched_manifest.json"
-              with open(enriched_path, "w") as f:
-                  json.dump(enriched, f, indent=2)
-
+              from agent.integrations.sources.multi_source_intel import ManifestMerger
+              merger = ManifestMerger()
+              result = merger.merge_batch_into_manifest(
+                  "data/enrichment/latest_intel_batch.json",
+                  "data/stix/feed_manifest.json"
+              )
+              print(f"Manifest merge: {result.get('new_entries', 0)} new entries added")
           except Exception as e:
-              print(f"AI enrichment skipped (non-critical): {e}")
+              print(f"Manifest merge skipped (non-critical): {e}")
           PYEOF
 
-      # ═══════════════════════════════════════════════════════════
-      # [v30-APEX] SOVEREIGN ASCENSION CORE (100% Non-Breaking)
-      # ═══════════════════════════════════════════════════════════
-      
-      - name: Execute v30 Apex Dark Swarm Infiltrator
-        continue-on-error: true
-        run: |
-          echo "Deploying Autonomous Neural Swarm to Deep Web vectors..."
-          python -m agent.v30_apex.dark_swarm_infiltrator || echo "Swarm execution passed with soft fallback."
-          
-      - name: Execute v30 Apex Predictive Cortex Forecaster
-        continue-on-error: true
-        run: |
-          echo "Analyzing macro-trends via Predictive Cortex..."
-          python -m agent.v30_apex.predictive_cortex || echo "Cortex execution passed with soft fallback."
-
-      - name: Execute APEX Immune Response (Auto-Healing Generation)
-        continue-on-error: true
-        run: |
-          echo "Igniting Autonomous Cyber-Immune System (SOAR)..."
-          python -m agent.v30_apex.apex_immune_response || echo "Immune Response execution passed with soft fallback."
-
-      - name: Execute SIEM Sigma Dispatcher
-        continue-on-error: true
-        run: |
-          echo "Generating native SIEM rules for Enterprise integration..."
-          python -m agent.integrations.siem_dispatcher || echo "SIEM dispatcher passed with soft fallback."
-
-      - name: Execute APEX Purple Swarm (Autonomous BAS)
-        continue-on-error: true
-        run: |
-          echo "Forging Benign Attack Simulations for Validation..."
-          python -m agent.v30_apex.apex_purple_swarm || echo "Purple Swarm execution passed with soft fallback."
-
-      - name: Broadcast APEX SOC Alerts (Discord/Slack)
-        continue-on-error: true
+      - name: "Safe Commit & Push"
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Pinging Global SOC Teams..."
-          python -m agent.v30_apex.apex_webhook_alert || echo "Webhook dispatcher bypassed cleanly."
+          git config --local user.email "intel@cyberdudebivash.com"
+          git config --local user.name  "CDB-Intel-Bot"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
+          git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
+          rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
-      # ═══════════════════════════════════════════════════════════
-      # [v30-APEX] ADDITIONS END HERE
-      # ═══════════════════════════════════════════════════════════
+          git add -f data/enrichment/ 2>/dev/null || true
+          git add -f data/stix/feed_manifest.json 2>/dev/null || true
 
-      - name: Commit enrichment data
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          git config user.email "bivash@cyberdudebivash.com"
-          git config user.name "CDB-Enrichment-Bot"
-          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
-          # [v30-APEX] Modified to track all God-Tier generation directories
-          # HARDENED: Removed data/stix/ — feed_manifest.json owned by sentinel-blogger only
-          git add -f data/enrichment/ data/ai_predictions/ data/remediation/ data/sigma_rules/ data/simulations/ 2>/dev/null || true
           if git diff --staged --quiet; then
-            echo "No enrichment changes."
-          else
-            git commit -m "👑 APEX Unified Matrix: AI, SOAR, SIEM, & BAS [skip ci]"
-            for i in 1 2 3; do
-              git pull origin main --rebase && git push origin main && break || \
-              (echo "Push retry $i/3..." && sleep 5)
-            done
+            echo "No enrichment changes."; exit 0
           fi
+
+          git commit -m "Multi-source Intel v101 @ $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
+          for i in 1 2 3 4; do
+            git fetch origin main --quiet
+            git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null||true; git merge origin/main -X ours --no-edit --quiet||true; }
+            git push origin main && break
+            sleep $((i*15)); [ $i -eq 4 ] && echo "Push deferred."
+          done
