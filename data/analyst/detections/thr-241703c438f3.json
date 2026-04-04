@@ -2,7 +2,7 @@
   "threat_id": "thr-241703c438f3",
   "title": "CVE-2026-5271 - Possible to hijack modules in current working directory",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - CVE-2026-5271 - Possible to hijack modules in current workin\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/03\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*sys.path*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - CVE-2026-5271 - Possible to hijack modules in current workin\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/04\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*sys.path*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"sys.path\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"sys.path\")"
   },

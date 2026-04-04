@@ -2,13 +2,13 @@
   "threat_id": "thr-b16ecf2e28ec",
   "title": "Axios supply chain attack chops away at npm trust",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - Axios supply chain attack chops away at npm trust\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/03\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '142.11.206.73'\n    selection_dns:\n        query:\n            - '*6202033.vbs*'\n            - '*node.js*'\n            - '*setup.js*'\n    condition: selection_ip or selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - Axios supply chain attack chops away at npm trust\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/04\nlogsource:\n    category: firewall\ndetection:\n    selection_ip:\n        dst_ip:\n            - '142.11.206.73'\n    selection_dns:\n        query:\n            - '*6202033.vbs*'\n            - '*node.js*'\n            - '*setup.js*'\n    condition: selection_ip or selection_dns\nlevel: high",
     "yara": "rule CDB_APEX_Axios_supply_chain_attack_chops_away_at_ {\n    meta:\n        description = \"Axios supply chain attack chops away at npm trust\"\n        author = \"CyberDudeBivash\"\n    strings:\n        $h0 = \"07d889e2dadce6f3910dcbc253317d28ca61c766\" ascii nocase\n        $h1 = \"2553649f2322049666871cea80a5d0d6adc700ca\" ascii nocase\n        $h2 = \"d6f3f62fd3b9f5432f5782b62d8cfd5247d5ee71\" ascii nocase\n    condition:\n        any of them\n}",
     "suricata": [
-      "alert ip any any -> 142.11.206.73 any (msg:\"CDB APEX - Axios_supply_chain_attack_chop\"; sid:1764198; rev:1;)"
+      "alert ip any any -> 142.11.206.73 any (msg:\"CDB APEX - Axios_supply_chain_attack_chop\"; sid:6107737; rev:1;)"
     ],
     "snort": [
-      "alert ip any any -> 142.11.206.73 any (msg:\"CDB APEX Axios_supply_chain_attack_chop\"; sid:4901933; rev:1;)"
+      "alert ip any any -> 142.11.206.73 any (msg:\"CDB APEX Axios_supply_chain_attack_chop\"; sid:7447054; rev:1;)"
     ],
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"destination.ip\": [\n              \"142.11.206.73\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"6202033.vbs\",\n              \"node.js\",\n              \"setup.js\"\n            ]\n          }\n        },\n        {\n          \"terms\": {\n            \"file.hash.sha256\": []\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteIP in (\"142.11.206.73\")\n// OR\nDeviceNetworkEvents | where RemoteUrl has_any (\"6202033.vbs\", \"node.js\", \"setup.js\")"

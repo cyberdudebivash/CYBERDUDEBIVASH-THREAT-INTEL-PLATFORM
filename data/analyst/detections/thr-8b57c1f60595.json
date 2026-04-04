@@ -2,7 +2,7 @@
   "threat_id": "thr-8b57c1f60595",
   "title": "BlankGrabber Stealer Uses Fake Certificate Loader to Hide Malware Delivery Chain",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - BlankGrabber Stealer Uses Fake Certificate Loader to Hide Ma\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/03\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*blank.aes*'\n            - '*stub-o.pyc*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - BlankGrabber Stealer Uses Fake Certificate Loader to Hide Ma\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/04\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*blank.aes*'\n            - '*stub-o.pyc*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"blank.aes\",\n              \"stub-o.pyc\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"blank.aes\", \"stub-o.pyc\")"
   },

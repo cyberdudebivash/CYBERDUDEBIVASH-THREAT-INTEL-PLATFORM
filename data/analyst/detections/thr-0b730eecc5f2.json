@@ -2,7 +2,7 @@
   "threat_id": "thr-0b730eecc5f2",
   "title": "CVE-2025-13535 - King Addons for Elementor <= 51.1.38 - Authenticated (Contribut",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - CVE-2025-13535 - King Addons for Elementor <= 51.1.38 - Auth\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/03\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*window.location.href*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - CVE-2025-13535 - King Addons for Elementor <= 51.1.38 - Auth\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/04\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*window.location.href*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"window.location.href\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"window.location.href\")"
   },

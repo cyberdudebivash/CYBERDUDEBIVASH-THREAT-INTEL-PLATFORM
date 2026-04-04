@@ -2,7 +2,7 @@
   "threat_id": "thr-7ade8291b498",
   "title": "CVE-2026-34070 - LangChain Core has Path Traversal vulnerabilites in legacy `loa",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - CVE-2026-34070 - LangChain Core has Path Traversal vulnerabi\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/03\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*prompts.loading*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - CVE-2026-34070 - LangChain Core has Path Traversal vulnerabi\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/04\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*prompts.loading*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"prompts.loading\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"prompts.loading\")"
   },
