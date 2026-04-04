@@ -525,12 +525,16 @@ else:
 
 def _tier_features(tier: str) -> List[str]:
     all_features = {
-        "FREE":       ["advisories"],
-        "PRO":        ["advisories", "search", "ioc_details", "stix_export"],
-        "ENTERPRISE": ["advisories", "search", "ioc_details", "stix_export",
-                       "bulk_export", "ingestion_status", "custom_filters"],
-        "MSSP":       ["advisories", "search", "ioc_details", "stix_export",
-                       "bulk_export", "ingestion_status", "custom_filters",
-                       "webhook_push", "admin_api", "white_label"],
+        "FREE":       ["advisories (10/req)", "CVE + EPSS data", "STIX 2.1 format",
+                       "Public health endpoint", "60 req/hour"],
+        "PRO":        ["advisories (100/req)", "Full IOC details", "Search API",
+                       "STIX export", "APEX AI enrichment", "1,000 req/hour",
+                       "Alert webhooks"],
+        "ENTERPRISE": ["advisories (500/req)", "Bulk export", "STIX bundles",
+                       "APEX priority scoring", "10,000 req/hour",
+                       "4h SLA", "Ingestion API access"],
+        "MSSP":       ["Unlimited advisories", "White-label API", "Webhook push",
+                       "Custom feeds", "Unlimited RPM", "1h SLA",
+                       "Dedicated support"],
     }
     return all_features.get(tier.upper(), all_features["FREE"])

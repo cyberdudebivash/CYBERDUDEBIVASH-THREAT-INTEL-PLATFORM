@@ -249,9 +249,9 @@ class NVDSource(BaseSource):
                 raise ParseError(f"NVD HTTP {resp.status}")
         except HTTPError as exc:
             if exc.code == 403:
-                raise AuthError(f"NVD API key rejected: {exc}") from exc
+                raise AuthError(f"NVD API key invalid or quota exceeded (HTTP 403)")
             if exc.code == 429:
-                raise RateLimitError(f"NVD rate limit: {exc}") from exc
-            raise
+                raise RateLimitError("NVD rate limit hit", retry_after_s=30)
+            raise ParseError(f"NVD HTTP error {exc.code}")
         except URLError as exc:
-            raise ConnectionError(f"NVD unreachable: {exc}") from exc
+            raise NetworkError(f"NVD network error: {exc.reason}") from exc

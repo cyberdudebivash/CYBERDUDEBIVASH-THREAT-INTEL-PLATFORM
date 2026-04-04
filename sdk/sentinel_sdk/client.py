@@ -436,13 +436,12 @@ class SentinelClient:
 
     def _build_url(self, path: str,
                    params: Optional[Dict[str, Any]] = None) -> str:
-        url = self._base_url + path
+        """Construct full URL with query string."""
+        base = self.base_url.rstrip("/")
+        url  = f"{base}{path}"
         if params:
-            url += "?" + urlencode({k: v for k, v in params.items() if v is not None})
+            from urllib.parse import urlencode
+            qs = urlencode({k: v for k, v in params.items() if v is not None})
+            if qs:
+                url = f"{url}?{qs}"
         return url
-
-    @staticmethod
-    def _backoff_delay(attempt: int) -> float:
-        """Exponential backoff with ±20% jitter."""
-        delay = min(_RETRY_BASE_S * (2 ** (attempt - 1)), _RETRY_MAX_S)
-        return delay * (1.0 + random.uniform(-0.2, 0.2))

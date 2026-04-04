@@ -394,11 +394,13 @@ let ALL_DATA = [];
 let FILTERED  = [];
 let CURRENT_FILTER = 'all';
 
-// Live API URL — Railway production
-const API_BASE = 'https://cyberdudebivash-threat-intel-platform-production.up.railway.app';
-const API_FEED = `${API_BASE}/api/v1/intel/feed?limit=500`;
-const API_STATS= `${API_BASE}/api/v1/stats`;
-const FEED_FALLBACK = '../api/feed.json';  // Static fallback if API down
+// v100.0: Dynamic origin (works when served from Railway) + explicit Railway URL
+const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? window.location.origin
+  : 'https://cyberdudebivash-threat-intel-platform-production.up.railway.app';
+const API_FEED  = `${API_BASE}/api/v1/intel/feed?limit=500`;
+const API_STATS = `${API_BASE}/api/v1/stats`;
+const FEED_FALLBACK = `${API_BASE}/api/feed.json`;  // compat route fallback
 
 const SEV_COLOR = {
   CRITICAL: 'var(--red)', HIGH: 'var(--orange)',

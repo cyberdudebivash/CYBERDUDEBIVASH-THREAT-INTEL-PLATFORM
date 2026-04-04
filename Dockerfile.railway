@@ -1,23 +1,53 @@
+# =============================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX — Railway Production Dockerfile v100.0
+# =============================================================================
 FROM python:3.12-slim
 
 LABEL maintainer="CyberDudeBivash Pvt. Ltd."
-LABEL description="Sentinel APEX Intelligence API v1.0"
+LABEL description="Sentinel APEX Intelligence Platform API v100.0"
+LABEL version="100.0.0"
+
+# ── System deps ───────────────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install only FastAPI requirements
+# ── Python deps (cached layer — only invalidated when requirements change) ────
 COPY api/requirements.txt /app/api/requirements.txt
-RUN pip install --no-cache-dir -r api/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /app/api/requirements.txt
 
-# Copy full repo
+# ── Full project copy (respects .dockerignore) ────────────────────────────────
 COPY . /app
 
+# ── Ensure all runtime data directories exist (engines write here) ────────────
+RUN mkdir -p \
+    /app/data/stix \
+    /app/data/analyst \
+    /app/data/agentic_intel \
+    /app/data/identity_intel \
+    /app/data/darkweb_intel \
+    /app/data/risk_quantification \
+    /app/data/ttp_engine \
+    /app/data/detection_engine \
+    /app/data/exploit_intel \
+    /app/data/auth \
+    /app/data/billing \
+    /tmp/sentinel_data/usage
+
+# ── Python path — ensures all project packages resolve correctly ──────────────
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PORT=8000
 
+# ── Health check — Railway uses this to confirm container is alive ────────────
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+
 EXPOSE 8000
 
-# Shell form CMD — allows $PORT variable expansion by Railway
-CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# ── Start command — $PORT injected by Railway at runtime ─────────────────────
+CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level info --access-log"]

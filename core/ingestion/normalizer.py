@@ -417,16 +417,39 @@ def _canonicalize_severity(severity: str, score: float) -> str:
 
 def _build_cve_tags(d: Dict[str, Any]) -> List[str]:
     tags = ["cve"]
-    if d.get("epss_score", 0) and float(d.get("epss_score", 0)) > 0.5:
+    if d.get("epss_score", 0.0) >= 0.7:
         tags.append("high-epss")
-    if d.get("actively_exploited"):
+    if d.get("kev_present") or d.get("kev_due_date"):
+        tags.append("kev")
         tags.append("actively-exploited")
-    if d.get("cisa_kev"):
-        tags.append("cisa-kev")
-    sev = d.get("severity", "")
-    if sev:
-        tags.append(f"severity-{sev.lower()}")
-    for cwe in (d.get("cwes") or [])[:3]:
-        if cwe:
-            tags.append(cwe.lower())
-    return tags
+    if d.get("base_score", 0.0) >= 9.0:
+        tags.append("critical-cvss")
+    cwes = d.get("cwe_ids", []) or []
+    for cwe in cwes[:3]:
+        tags.append(cwe.lower().replace(" ", "-"))
+    return list(dict.fromkeys(tags))  # deduplicate, preserve order
+
+
+def _build_malware_tags(d: Dict[str, Any]) -> List[str]:
+    """Build tag list for malware/indicator items."""
+    tags = ["malware"]
+    sig = d.get("signature", "").lower()
+    if sig:
+        tags.append(sig.replace(" ", "-")[:40])
+    for t in d.get("tags", [])[:5]:
+        tags.append(str(t).lower().replace(" ", "-")[:30])
+    if d.get("c2_urls"):
+        tags.append("c2")
+    return list(dict.fromkeys(tags))
+
+
+def _build_ip_tags(d: Dict[str, Any]) -> List[str]:
+    """Build tag list for IP threat items."""
+    tags = ["ip-threat"]
+    abuse_types = d.get("abuse_types", [])
+    for at in abuse_types[:3]:
+        tags.append(str(at).lower().replace(" ", "-")[:30])
+    confidence = d.get("abuse_confidence_score", 0)
+    if confidence >= 90:
+        tags.append("high-confidence")
+    return list(dict.fromkeys(tags))

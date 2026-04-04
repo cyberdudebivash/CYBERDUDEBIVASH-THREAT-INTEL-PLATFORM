@@ -62,5 +62,25 @@ class NetworkError(SentinelError):
 class SDKConfigurationError(SentinelError):
     """SDK misconfiguration (missing API key, invalid base URL, etc.)."""
 
-    def __init__(self, message: str) -> None:
-        super().__init__(message, status_code=0)
+    def __init__(self, message: str, param: str = "", **kwargs) -> None:
+        super().__init__(message, **kwargs)
+        self.param = param
+
+
+# Optional re-export so callers can do: from sentinel_sdk.exceptions import *
+try:
+    from typing import Optional  # noqa: F401 — used in type stubs
+except ImportError:
+    pass
+
+__all__ = [
+    "SentinelError",
+    "AuthenticationError",
+    "RateLimitError",
+    "TierPermissionError",
+    "NotFoundError",
+    "ValidationError",
+    "ServerError",
+    "NetworkError",
+    "SDKConfigurationError",
+]
