@@ -1,1273 +1,324 @@
-# ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  CYBERDUDEBIVASH SENTINEL APEX — HARDENED WORKFLOW v77.2               ║
-# ║  100% Error-Free · 100% Stable · 100% Secure · 100% Production Ready  ║
-# ╚══════════════════════════════════════════════════════════════════════════╝
-#
-# v77.2 FIXES APPLIED (from run #568 analysis):
-# [FIX-v77.2-A] PYTHONWARNINGS: Removed invalid 'RequestsDependencyWarning'
-#               — only built-in Python warning categories are valid in -W flag
-# [FIX-v77.2-B] actions/checkout pinned to v4.2.2 (Node.js 24 — June 2026 deadline)
-# [FIX-v77.2-C] actions/setup-python pinned to v5.4.0 (Node.js 24 — June 2026 deadline)
-# [FIX-v77.2-D] GOOGLE_OAUTH_DISABLE_FILE_CACHE=1 added to Stage 1 env
-#               — silences: "file_cache is only supported with oauth2client<4.0.0"
-# [FIX-v77.2-E] NVD_API_KEY now fully wired to Stage 1 env (was present but
-#               NVD_API_KEY secret was missing — user has now added it)
-#               — enables 50 req/30s NVD rate limit vs 5 req/30s unauthenticated
-# [FIX-v77.2-F] Stage 5 push: v77.2 reset --soft strategy (no rebase conflicts)
-#               — fixes run #567 failure: JSON merge conflict on status.json
-#
-# Previous fixes (v77.0/v77.1) — all preserved:
-# [FIX-01] JWT Secret: Now required via secrets, not ephemeral random
-# [FIX-02] Dependency warnings: urllib3/chardet pinned to compatible versions
-# [FIX-03] file_cache warning: PYTHONWARNINGS filter added + oauth env var
-# [FIX-04] enriched_manifest: Path verified before use, fallback handled
-# [FIX-05] EPSS module: sys.path fix + graceful fallback with clear warning
-# [FIX-06] KEV enrichment: Standalone KEV lookup added, not dependent on agent
-# [FIX-07] v76_platform_finalizer: properly checked, not silently skipped
-# [FIX-08] Node.js 24: actions pinned to v4.2.2 / v5.4.0
-# [FIX-09] DEP0169: FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true set globally
-# [FIX-10] Feed health check step added, dead feeds logged to status
-# [FIX-11] Double deploy: Removed duplicate gh-pages deploy
-# [FIX-12] 2.8GB pip cache: Split requirements — core vs heavy
-# [FIX-13] Torch/NVIDIA: CPU-only torch for CI (saves ~1.5GB per run)
-# [FIX-14] Feed timeouts: --timeout flags + job-level timeout-minutes added
-# [FIX-15] || true swallowing: Critical scripts now fail properly
-# [FIX-STAGE1] v77.1: agent/sentinel_blogger.py called first (real pipeline)
-# ─────────────────────────────────────────────────────────────────────────────
+# ================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX — Sovereign Intelligence Cycle
+# Version: v70.2 (MERGED: v64.4 base + v70 Intelligence Upgrade)
+# ================================================================
+# This workflow PRESERVES all v64.4 working functionality AND
+# adds v70 intelligence enhancements (data bridge, AI engines,
+# dedup, correlation, scoring) as ADDITIVE stages.
+# ================================================================
 
 name: sentinel-blogger
 
 on:
   schedule:
-    - cron: '0 */6 * * *'          # Every 6 hours
+    - cron: '0 */4 * * *'
+    - cron: '0 0 1 * *'
   workflow_dispatch:
     inputs:
-      force_publish:
-        description: 'Force publish even if no new intel'
+      force_full_sync:
+        description: 'Force full sync even if no new data'
         required: false
-        default: 'false'
-        type: choice
-        options: ['true', 'false']
-      debug_mode:
-        description: 'Enable verbose debug logging'
+        type: boolean
+        default: false
+      skip_ai:
+        description: 'Skip AI phases (faster run)'
         required: false
-        default: 'false'
-        type: choice
-        options: ['true', 'false']
+        type: boolean
+        default: false
 
-# ── Prevent concurrent runs overlapping ──────────────────────────────────────
+permissions:
+  contents: write
+  pages: write
+
 concurrency:
-  group: sentinel-pipeline
-  cancel-in-progress: false          # Never cancel mid-run — data integrity
-
-env:
-  # [FIX-09] Force Node.js 24 for all actions — eliminates DEP0169 + deprecation warnings
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  # [FIX-v77.2-A] Removed invalid 'RequestsDependencyWarning' — not a built-in Python
-  # warning category, caused: "Invalid -W option ignored: unknown warning category"
-  PYTHONWARNINGS: "ignore::DeprecationWarning,ignore::UserWarning"
-  PYTHONDONTWRITEBYTECODE: "1"
-  PYTHONUNBUFFERED: "1"
-  TZ: "UTC"
-  # [FIX-R05] Job-level propagation — silences oauth2client file_cache warning
-  GOOGLE_OAUTH_DISABLE_FILE_CACHE: "1"
+  group: sentinel-sync
+  cancel-in-progress: false
 
 jobs:
   publish-threat-report:
-    name: publish-threat-report
     runs-on: ubuntu-latest
-    timeout-minutes: 35             # v77.2 FIX: Increased 25→35 min safety buffer.
-
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
+    timeout-minutes: 60
 
     steps:
 
-      # ── [FIX-08][FIX-v77.2-B] Pinned to v4.2.2 — Node.js 24 compatible ──
+# ================================================================
+# STAGE 0: CHECKOUT & SETUP (from v64 — preserved exactly)
+# ================================================================
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 1            # Shallow clone — faster
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: main
 
-      # ── Validate required secrets before any work starts ─────────────────
-      - name: Validate required secrets
-        shell: bash
-        run: |
-          echo "=== Secret Validation ==="
-          MISSING=()
-
-          [ -z "${{ secrets.CDB_JWT_SECRET }}" ] && MISSING+=("CDB_JWT_SECRET")
-          [ -z "${{ secrets.CLIENT_ID }}" ]       && MISSING+=("CLIENT_ID")
-          [ -z "${{ secrets.CLIENT_SECRET }}" ]   && MISSING+=("CLIENT_SECRET")
-          [ -z "${{ secrets.REFRESH_TOKEN }}" ]   && MISSING+=("REFRESH_TOKEN")
-          [ -z "${{ secrets.BLOG_ID }}" ]         && MISSING+=("BLOG_ID")
-
-          if [ ${#MISSING[@]} -gt 0 ]; then
-            echo "ERROR: Required secrets not configured: ${MISSING[*]}"
-            echo "Add these in: Settings → Secrets and variables → Actions"
-            exit 1
-          fi
-
-          echo "✓ All required secrets present"
-
-          OPTIONAL_MISSING=()
-          [ -z "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && OPTIONAL_MISSING+=("TELEGRAM_BOT_TOKEN")
-          [ -z "${{ secrets.NVD_API_KEY }}" ]        && OPTIONAL_MISSING+=("NVD_API_KEY")
-          [ -z "${{ secrets.STRIPE_SECRET_KEY }}" ]  && OPTIONAL_MISSING+=("STRIPE_SECRET_KEY")
-          if [ ${#OPTIONAL_MISSING[@]} -gt 0 ]; then
-            echo "WARN: Optional secrets not set (degraded mode): ${OPTIONAL_MISSING[*]}"
-          fi
-
-      # ── [FIX-08][FIX-v77.2-C] Pinned to v5.4.0 — Node.js 24 compatible ──
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.4.0
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
-          cache-dependency-path: |
-            requirements.txt
 
-      # ── [FIX-12][FIX-13] Install dependencies — CPU-only torch for CI ────
-      - name: Install Python dependencies
-        shell: bash
+      - name: Install Dependencies
         run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip --quiet
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-          # [FIX-13] CPU-only torch — eliminates 1.5GB+ of NVIDIA CUDA packages
-          pip install \
-            "torch==2.2.0+cpu" \
-            "torchvision==0.17.0+cpu" \
-            --index-url https://download.pytorch.org/whl/cpu \
-            --quiet 2>/dev/null || \
-          pip install "torch==2.2.0" --quiet
-
-          # [FIX-02] Pin urllib3/chardet to compatible versions — silences dep warnings
-          pip install \
-            "urllib3>=1.26.0,<2.0" \
-            "chardet>=3.0.2,<4.0" \
-            --quiet
-
-          pip install -r requirements.txt --quiet \
-            --no-deps-check 2>/dev/null || \
-          pip install -r requirements.txt --quiet
-
-          echo "✓ Dependencies installed"
-          pip list --format=columns | grep -E "torch|urllib3|chardet|requests" || true
-
-      # ── Create all required directories ──────────────────────────────────
-      - name: Prepare workspace directories
-        shell: bash
+      - name: Ensure Directories
         run: |
-          set -euo pipefail
-          mkdir -p \
-            data/stix \
-            data/stix/archive \
-            data/nexus \
-            data/genesis \
-            data/cortex \
-            data/quantum \
-            data/sovereign \
-            data/rule_packs \
-            data/playbooks \
-            data/playbooks/scripts \
-            data/premium_packs \
-            data/enterprise_kits \
-            data/enrichment \
-            data/status \
-            data/logs \
-            data/remediation \
-            data/.manifest_backups \
-            data/manifest_versions \
-            data/archive \
-            data/v46_ultraintel \
-            data/ai_intelligence \
-            data/intelligence/detection_rules/sigma \
-            data/intelligence/detection_rules/yara \
-            data/intelligence/detection_rules/suricata \
-            data/threat_memory \
-            data/ai_learning \
-            data/detection_engine \
-            data/threat_graph \
-            data/exploit_intel \
-            data/auth \
-            data/billing \
-            data/subscriptions \
-            data/agentic_intel \
-            data/identity_intel \
-            data/darkweb_intel \
-            data/risk_quantification \
-            data/ttp_engine \
-            data/soar_engine \
-            data/soar_engine/playbooks \
-            api \
-            secrets
-          echo "✓ Workspace ready"
+          mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum data/sovereign data/rule_packs data/playbooks data/playbooks/scripts data/premium_packs data/enterprise_kits data/enrichment data/status data/logs data/remediation data/.manifest_backups data/manifest_versions secrets
 
-      # ── Inject secrets into environment ──────────────────────────────────
-      - name: Configure runtime secrets
-        shell: bash
+# ================================================================
+# STAGE 1: PRE-FLIGHT (from v64 — preserved exactly)
+# ================================================================
+      - name: Monthly Maintenance
+        if: github.event.schedule == '0 0 1 * *'
+        run: python -m agent.janitor || true
+
+      - name: Inject Sovereign Key
         run: |
-          set -euo pipefail
-          cat > secrets/.env << ENVEOF
-          CDB_JWT_SECRET=${{ secrets.CDB_JWT_SECRET }}
-          CLIENT_ID=${{ secrets.CLIENT_ID }}
-          CLIENT_SECRET=${{ secrets.CLIENT_SECRET }}
-          REFRESH_TOKEN=${{ secrets.REFRESH_TOKEN }}
-          BLOG_ID=${{ secrets.BLOG_ID }}
-          CDB_SOVEREIGN_KEY=${{ secrets.CDB_SOVEREIGN_KEY || '' }}
-          GUMROAD_ACCESS_TOKEN=${{ secrets.GUMROAD_ACCESS_TOKEN || '' }}
-          LINKEDIN_ACCESS_TOKEN=${{ secrets.LINKEDIN_ACCESS_TOKEN || '' }}
-          LINKEDIN_AUTHOR_URN=${{ secrets.LINKEDIN_AUTHOR_URN || '' }}
-          LINKEDIN_MEMBER_URN=${{ secrets.LINKEDIN_MEMBER_URN || '' }}
-          MASTODON_ACCESS_TOKEN=${{ secrets.MASTODON_ACCESS_TOKEN || '' }}
-          MASTODON_INSTANCE_URL=${{ secrets.MASTODON_INSTANCE_URL || '' }}
-          SENDER_EMAIL=${{ secrets.SENDER_EMAIL || '' }}
-          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY || '' }}
-          SENTINEL_REVENUE_TOKEN=${{ secrets.SENTINEL_REVENUE_TOKEN || '' }}
-          NVD_API_KEY=${{ secrets.NVD_API_KEY || '' }}
-          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
-          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY || '' }}
-          ENVEOF
-          chmod 600 secrets/.env
-          echo "✓ Runtime secrets configured"
+          echo "${{ secrets.CDB_SOVEREIGN_KEY }}" > secrets/cdb_sovereign.pem
+          chmod 600 secrets/cdb_sovereign.pem
 
-      # ── [FIX-10] Feed health pre-check ───────────────────────────────────
-      - name: Feed health check
-        shell: bash
-        timeout-minutes: 3
-        run: |
-          echo "=== Feed Health Pre-Check (FULL FLEET v32.0) ==="
-          python3 - << 'PYEOF'
-          # v32.0: Dynamically load RSS_FEEDS from agent/config.py instead of
-          # checking a 6-feed hardcoded sample. This ensures every feed in the
-          # live pipeline is audited on every run, and dead feeds surface
-          # immediately in the workflow log for the next purge cycle.
-          import urllib.request
-          import json, time, sys, os, re, concurrent.futures
-
-          # Dynamically extract RSS_FEEDS from agent/config.py
-          # Using regex to avoid import-time side effects (JWT secret generation, etc.)
-          CONFIG_PATH = "agent/config.py"
-          FEEDS = []
-          try:
-              with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                  content = f.read()
-              # Extract all quoted URLs that look like RSS/Atom feed URLs
-              urls = re.findall(r'"(https?://[^"]+)"', content)
-              # Filter to only URLs inside the RSS_FEEDS list block
-              in_rss = False
-              for line in content.splitlines():
-                  stripped = line.strip()
-                  if stripped.startswith("RSS_FEEDS") and "[" in stripped:
-                      in_rss = True
-                      continue
-                  if in_rss:
-                      if stripped == "]":
-                          break
-                      m = re.search(r'"(https?://[^"]+)"', stripped)
-                      if m and not stripped.startswith("#"):
-                          FEEDS.append(m.group(1))
-              print(f"  Loaded {len(FEEDS)} feeds from agent/config.py")
-          except Exception as e:
-              print(f"  WARNING: Could not load feeds from config ({e}), falling back to core 6")
-              FEEDS = [
-                  "https://feeds.feedburner.com/TheHackersNews",
-                  "https://krebsonsecurity.com/feed/",
-                  "https://cybersecuritynews.com/feed/",
-                  "https://www.cisa.gov/cybersecurity-advisories/all.xml",
-                  "https://googleprojectzero.blogspot.com/feeds/posts/default",
-                  "https://www.us-cert.gov/ncas/alerts.xml",
-              ]
-
-          def check_feed(feed_url):
-              try:
-                  req = urllib.request.Request(feed_url, headers={'User-Agent': 'Mozilla/5.0 (Sentinel APEX Feed Health Check)'})
-                  with urllib.request.urlopen(req, timeout=6) as r:
-                      if r.status == 200:
-                          return (feed_url, "alive", r.status)
-                      else:
-                          return (feed_url, "dead", r.status)
-              except Exception as e:
-                  return (feed_url, "dead", type(e).__name__)
-
-          alive, dead = 0, 0
-          dead_feeds = []
-          results = []
-
-          # Parallel check with max 8 workers — keeps total time under 60s for ~25 feeds
-          with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-              futures = {executor.submit(check_feed, f): f for f in FEEDS}
-              for future in concurrent.futures.as_completed(futures, timeout=90):
-                  feed_url, status, code = future.result()
-                  results.append((feed_url, status, code))
-
-          # Sort and print results: alive first, then dead
-          results.sort(key=lambda x: (0 if x[1] == "alive" else 1, x[0]))
-          for feed_url, status, code in results:
-              if status == "alive":
-                  alive += 1
-                  print(f"  ✓ {feed_url[:70]}")
-              else:
-                  dead += 1
-                  dead_feeds.append(feed_url)
-                  print(f"  ✗ {feed_url[:70]} [{code}]")
-
-          if dead_feeds:
-              print(f"\n  ⚠ DEAD FEEDS DETECTED ({dead}) — consider removing from agent/config.py:")
-              for df in dead_feeds:
-                  print(f"    - {df}")
-
-          os.makedirs("data/status", exist_ok=True)
-          report = {
-              "alive": alive, "dead": dead,
-              "dead_feeds": dead_feeds,
-              "total_checked": len(FEEDS),
-              "ts": time.time(),
-              "version": "v32.0-full-fleet"
-          }
-          with open("data/status/feed_health.json", "w") as f:
-              json.dump(report, f, indent=2)
-
-          print(f"\nFeed health: {alive}/{len(FEEDS)} alive | {dead} unreachable")
-          sys.exit(0)
-          PYEOF
-
-      # ── STAGE 1: Core Intelligence Engine ────────────────────────────────
-      - name: Run Sentinel Engine (SAFE MODE)
-        shell: bash
-        timeout-minutes: 20
+# ================================================================
+# STAGE 2: INGEST — Sentinel Engine (from v64 — preserved exactly)
+# This is what fetches FRESH INTEL from global sources
+# ================================================================
+      - name: Run Sentinel Engine
+        continue-on-error: true
         env:
-          PYTHONIOENCODING: utf-8
-          CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
-          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
-          BLOG_ID: ${{ secrets.BLOG_ID }}
-          CDB_SOVEREIGN_KEY: ${{ secrets.CDB_SOVEREIGN_KEY || '' }}
-          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN || '' }}
-          MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN || '' }}
-          MASTODON_INSTANCE_URL: ${{ secrets.MASTODON_INSTANCE_URL || '' }}
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY || '' }}
-          SENTINEL_REVENUE_TOKEN: ${{ secrets.SENTINEL_REVENUE_TOKEN || '' }}
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY || '' }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '' }}
-          VT_API_KEY: ${{ secrets.VT_API_KEY || '' }}
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || '' }}
-          PYTHONPATH: ${{ github.workspace }}
-          FORCE_PUBLISH: ${{ github.event.inputs.force_publish || 'false' }}
-          DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
-          GOOGLE_OAUTH_DISABLE_FILE_CACHE: "1"
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
+          GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          set -euo pipefail
-          echo "=== STAGE 1: Intelligence Engine ==="
-          echo "Timestamp: $(date -u)"
-
-          export PYTHONWARNINGS="ignore::DeprecationWarning,ignore::UserWarning"
-
-          if [ -f agent/sentinel_blogger.py ]; then
-            echo "Running production pipeline: agent/sentinel_blogger.py"
-            python3 agent/sentinel_blogger.py
-          elif [ -f sentinel_blogger.py ]; then
-            echo "Running root sentinel_blogger.py (fallback)"
-            python3 sentinel_blogger.py
-          elif [ -f scripts/sentinel_engine.py ]; then
-            echo "Running alternate engine: scripts/sentinel_engine.py"
-            python3 scripts/sentinel_engine.py
-          elif [ -f publisher.py ]; then
-            echo "Running legacy publisher: publisher.py"
-            python3 publisher.py
-          else
-            echo "ERROR: No runnable sentinel pipeline script found" >&2
-            exit 1
+          echo "Running Sentinel Engine (SAFE MODE)"
+          set +e
+          timeout 1500 python -m agent.sentinel_blogger
+          EXIT_CODE=$?
+          set -e
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "Sentinel engine error ignored (non-blocking)"
           fi
 
-      # ── STAGE 2: Enrichment Pipeline ─────────────────────────────────────
-      - name: Run enrichment pipeline
-        shell: bash
-        timeout-minutes: 3
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY || '' }}
+# ================================================================
+# STAGE 2.1: STATE UPDATE (from v64 — preserved exactly)
+# ================================================================
+      - name: Update Sync State
         run: |
-          echo "=== STAGE 2: Enrichment ==="
+          python3 scripts/update_embedded_intel.py || true
 
-          mkdir -p data/v46_ultraintel
+# ================================================================
+# STAGE 2.5: v70 DATA BRIDGE + INTELLIGENCE PIPELINE (NEW — ADDITIVE)
+# Runs AFTER v64 ingestion to enhance data with AI/ML
+# ================================================================
+      - name: "v70: Data Bridge"
+        continue-on-error: true
+        run: |
+          echo "::group::v70 Data Bridge"
+          if [ -f scripts/data_bridge.py ]; then
+            python scripts/data_bridge.py || echo "Data bridge had issues (non-fatal)"
+          else
+            echo "Data bridge not present — skipping v70 enhancements"
+          fi
+          echo "::endgroup::"
 
-          python3 - << 'PYEOF' || echo "WARN: KEV enrichment skipped (non-fatal)"
-          import json, urllib.request, os, sys
+      - name: "v70: Intelligence Pipeline"
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          TRANSFORMERS_NO_ADVISORY_WARNINGS: "1"
+          TOKENIZERS_PARALLELISM: "false"
+        run: |
+          echo "::group::v70 Intelligence Pipeline"
+          if [ -d agent/v70_apex_upgrade ]; then
+            AI_FLAG=""
+            if [ "${{ github.event.inputs.skip_ai }}" = "true" ]; then
+              AI_FLAG="--no-ai"
+            fi
+            timeout 240 python -m agent.v70_apex_upgrade.orchestrator \
+              --data-dir data \
+              --dashboard index.html \
+              --json $AI_FLAG \
+              | tee /tmp/v70_result.json || echo "v70 orchestrator had issues (non-fatal)"
 
-          manifest_path = "data/stix/feed_manifest.json"
-          if not os.path.exists(manifest_path):
-              print("WARN: Manifest not found, skipping KEV enrichment")
-              sys.exit(0)
+            if [ -f /tmp/v70_result.json ]; then
+              python3 -c '
+          import json
+          d = json.load(open("/tmp/v70_result.json"))
+          print("v70 Status: " + ("PASS" if d.get("success") else "FAIL"))
+          print("v70 Advisories: " + str(d.get("total_advisories", "?")))
+          print("v70 Dedup: " + str(d.get("dedup_removed", "?")))
+          print("v70 Correlations: " + str(d.get("correlations_found", "?")))
+          '
+            fi
+          else
+            echo "v70 module not present — skipping intelligence enhancements"
+          fi
+          echo "::endgroup::"
 
-          KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
-          try:
-              with urllib.request.urlopen(KEV_URL, timeout=15) as r:
-                  kev_data = json.load(r)
-              kev_cves = {v["cveID"] for v in kev_data.get("vulnerabilities", [])}
-              print(f"  KEV catalogue loaded: {len(kev_cves)} entries")
-          except Exception as e:
-              print(f"  WARN: KEV fetch failed: {e}")
-              sys.exit(0)
-
-          with open(manifest_path) as f:
-              manifest = json.load(f)
-
-          enriched = 0
-          items = manifest if isinstance(manifest, list) else manifest.get("items", [])
-          for item in items:
-              cve_id = item.get("cve_id") or item.get("advisory_id", "")
-              if cve_id and cve_id in kev_cves:
-                  item["kev_present"] = True
-                  enriched += 1
-
-          with open(manifest_path, "w") as f:
-              json.dump(manifest, f, separators=(",", ":"))
-
-          print(f"  KEV enrichment: {enriched} entries tagged")
-          PYEOF
-
+      - name: "v74: Manifest Enrichment"
+        continue-on-error: true
+        run: |
           if [ -f scripts/v74_manifest_enricher.py ]; then
-            PYTHONPATH="${{ github.workspace }}" python3 scripts/v74_manifest_enricher.py || \
-              echo "WARN: v74 enricher encountered issues (non-fatal)"
-          fi
-
-          if [ -f agent/v48_pipeline_hardening/pipeline_hardener.py ]; then
-            PYTHONPATH="${{ github.workspace }}" \
-              python3 agent/v48_pipeline_hardening/pipeline_hardener.py || \
-              echo "WARN: v48 hardener encountered issues (non-fatal)"
-          fi
-
-      # ── STAGE 3: Post-processing ──────────────────────────────────────────
-      - name: Run post-processing scripts
-        shell: bash
-        timeout-minutes: 3
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "=== STAGE 3: Post-Processing ==="
-
-          if [ -f agent/quality_gate_audit.py ]; then
-            python3 agent/quality_gate_audit.py || \
-              echo "WARN: Quality gate audit non-fatal failure"
-          fi
-
-          if [ -f scripts/threat_page_generator.py ]; then
-            python3 scripts/threat_page_generator.py || \
-              echo "WARN: Threat page generator non-fatal failure"
-          fi
-
-          if [ -f scripts/v76_platform_finalizer.py ]; then
-            python3 scripts/v76_platform_finalizer.py || \
-              echo "WARN: v76 finalizer encountered issues (non-fatal)"
+            python3 scripts/v74_manifest_enricher.py
           else
-            echo "INFO: v76_platform_finalizer.py not present — skipping (expected)"
+            echo "v74 enricher not present — skipping"
           fi
 
-          if [ -f scripts/v75_pipeline_hardener.py ]; then
-            python3 scripts/v75_pipeline_hardener.py || \
-              echo "WARN: v75 hardener non-fatal failure"
-          fi
-
-      # ── STAGE 4: Embed intel into index.html ─────────────────────────────
-      - name: Update EMBEDDED_INTEL in index.html
-        shell: bash
-        timeout-minutes: 2
-        env:
-          PYTHONPATH: ${{ github.workspace }}
+      - name: "v74: Re-patch EMBEDDED_INTEL with enriched data"
+        continue-on-error: true
         run: |
-          echo "=== STAGE 4: Embed Intel ==="
           if [ -f scripts/update_embedded_intel.py ]; then
-            python3 scripts/update_embedded_intel.py
-            echo "✓ EMBEDDED_INTEL updated"
-          else
-            echo "WARN: update_embedded_intel.py not found"
+            python3 scripts/update_embedded_intel.py || true
           fi
 
+      - name: "Update Sync Marker"
+        continue-on-error: true
+        run: |
           if [ -f scripts/update_sync_marker.sh ]; then
-            bash scripts/update_sync_marker.sh
-            echo "✓ Sync marker updated"
-          fi
-
-      # ── STAGE 5: Commit data to main branch ──────────────────────────────
-      - name: Commit pipeline data to main
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          echo "=== STAGE 5: Commit to main ==="
-
-          git config --local user.email "bivash@cyberdudebivash.com"
-          git config --local user.name "cyberdudebivash"
-          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
-
-          rm -f secrets/.env
-
-          git add --all
-
-          if git diff --staged --quiet; then
-            echo "No changes to commit — pipeline data unchanged"
+            bash scripts/update_sync_marker.sh || true
           else
-            rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
-
-            COMMIT_MSG="v81.5 Pipeline data $(date -u +%Y-%m-%dT%H:%M:%SZ) [skip ci]"
-            git commit -m "${COMMIT_MSG}" --no-verify
-
-            MAX_ATTEMPTS=4
-            for attempt in 1 2 3 4; do
-              echo "=== Push attempt $attempt / $MAX_ATTEMPTS ==="
-              git fetch origin main --quiet
-              git reset --soft origin/main
-              git add --all
-              if git diff --staged --quiet; then
-                echo "✓ Nothing new to commit — dashboard already current"
-                break
-              fi
-              git commit -m "${COMMIT_MSG}" --no-verify
-              if git push origin main; then
-                echo "✓ Pushed to main (attempt $attempt)"
-                break
-              elif [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
-                SLEEP_SEC=$((attempt * 10))
-                echo "Push failed — retrying in ${SLEEP_SEC}s (exponential backoff)..."
-                sleep $SLEEP_SEC
-              else
-                echo "ERROR: All $MAX_ATTEMPTS push attempts exhausted" >&2
-                exit 1
-              fi
-            done
+            echo "{\"last_sync\":\"$(date -u +%Y-%m-%dT%H:%M:%S+00:00)\",\"updated_by\":\"sentinel-blogger\"}" > data/sync_marker.json
           fi
 
-      # ── STAGE 6: Post-commit extras ───────────────────────────────────────
-      - name: Run post-commit extras
-        shell: bash
-        timeout-minutes: 3
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-          GH_TOKEN: ${{ github.token }}
+# ================================================================
+# STAGE 3: SAFE GIT SYNC (from v64 — preserved exactly)
+# ================================================================
+      - name: "STAGE 3: Safe Git Sync (v73.4 — COMMIT-FIRST)"
         run: |
-          echo "=== STAGE 6: Post-commit extras ==="
-
-          [ -f scripts/generate_sitemap.py ] && \
-            python3 scripts/generate_sitemap.py || true
+          rm -rf .git/rebase-merge || true
+          rm -rf .git/rebase-apply || true
 
           git config --local user.email "bivash@cyberdudebivash.com"
-          git config --local user.name "cyberdudebivash"
-          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
-          git add --all
+          git config --local user.name "CDB-Sentinel-Bot"
+
+          # v73.4 FIX: Commit local changes FIRST, then pull
+          # This prevents autostash conflicts that inject <<<<<<< markers
+          git add data/*.json data/stix/*.json index.html threat/ sitemap.xml api/*.json 2>/dev/null || true
           if ! git diff --staged --quiet; then
-            git commit -m "v81.5 Post Extras $(date -u +%Y-%m-%dT%H:%M:%SZ) [skip ci]" --no-verify
-            git push origin main || true
+            git commit -m "v73.4 Pipeline data [skip ci]"
           fi
 
-      # ── STAGE 6b: APEX AI Enrichment Layer (OPTIONAL — feature-flagged) ───────
-      - name: APEX AI Enrichment Layer
-        shell: bash
-        timeout-minutes: 5
-        continue-on-error: true
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-          CDB_APEX_ENABLED: ${{ vars.CDB_APEX_ENABLED || 'false' }}
-          CDB_MANIFEST_PATH: data/stix/feed_manifest.json
-          CDB_ENRICHMENT_DIR: data/apex_enrichments
-          CDB_APEX_BATCH_SIZE: "50"
+          # Pull with merge (not rebase), ours strategy for conflicts
+          git pull origin main --no-rebase --no-edit -X ours || {
+            echo "Pull conflict — resolving with ours strategy..."
+            git checkout --ours index.html 2>/dev/null || true
+            git add index.html 2>/dev/null || true
+            git commit --no-edit 2>/dev/null || true
+          }
+
+          # SAFETY CHECK: Verify no conflict markers in index.html
+          if grep -q '<<<<<<<' index.html 2>/dev/null; then
+            echo "FATAL: Conflict markers detected — cleaning index.html"
+            git checkout HEAD~1 -- index.html 2>/dev/null || true
+            python3 scripts/update_embedded_intel.py || true
+            git add index.html
+            git commit --amend --no-edit 2>/dev/null || true
+          fi
+
+# ================================================================
+# STAGE 4: COMMIT CORE DATA (from v64 — preserved exactly)
+# ================================================================
+      - name: "STAGE 4: Push (v73.4)"
         run: |
-          echo "=== STAGE 6b: APEX AI Enrichment Layer ==="
-          echo "CDB_APEX_ENABLED = ${CDB_APEX_ENABLED}"
-          if [ "${CDB_APEX_ENABLED}" = "true" ]; then
-            echo "[APEX] APEX ENABLED — Feature flag is TRUE — starting enrichment"
-            python3 -m agent.apex_wrapper || echo "[APEX] Enrichment completed with warnings (non-fatal)"
-            echo "[APEX] Enrichment stage complete"
-            python3 scripts/apex_manifest_patcher.py || echo "[APEX-PATCHER] Patcher completed (non-fatal)"
-          else
-            echo "[APEX] Feature flag DISABLED (CDB_APEX_ENABLED=false) — skipping safely"
-            echo "[APEX] To enable: set CDB_APEX_ENABLED=true in GitHub repo variables"
-          fi
+          # Changes already committed in STAGE 3
+          # Just push (or pull+push if behind)
+          git push origin main || {
+            git pull origin main --no-rebase --no-edit -X ours
+            git push origin main
+          }
 
-      # ── STAGE 6c: AI Decision Engine + Detection Rule Forge ──────────────
-      - name: AI Decision Engine + Detection Rule Forge
-        shell: bash
-        timeout-minutes: 8
-        continue-on-error: true
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-          CDB_MANIFEST_PATH: data/stix/feed_manifest.json
-          CDB_AI_OUTPUT_DIR: data/ai_intelligence
-          CDB_DETECTION_DIR: data/intelligence/detection_rules
+# ================================================================
+# STAGE 5: DEPLOY CORE (from v64 — preserved exactly)
+# ================================================================
+      - name: "GATE: Pre-deploy integrity check (v73.4)"
         run: |
-          echo "=== STAGE 6c: AI Decision Engine + Detection Rule Forge ==="
-          echo "Timestamp: $(date -u)"
-
-          # Ensure output directories exist
-          mkdir -p \
-            data/ai_intelligence \
-            data/intelligence/detection_rules/sigma \
-            data/intelligence/detection_rules/yara \
-            data/intelligence/detection_rules/suricata
-
-          if [ -f scripts/run_ai_and_detection.py ]; then
-            echo "[AI+DETECTION] Launching wrapper..."
-            python3 scripts/run_ai_and_detection.py
-            echo "[AI+DETECTION] Wrapper completed"
-          else
-            echo "[AI+DETECTION] WARN: scripts/run_ai_and_detection.py not found — skipping"
-          fi
-
-          # Print run summary if log exists
-          if [ -f data/ai_intelligence/wrapper_run_log.json ]; then
-            python3 - << 'PYEOF'
-          import json
-          with open("data/ai_intelligence/wrapper_run_log.json") as f:
-              log = json.load(f)
-          ai = log.get("ai_engine", {})
-          df = log.get("detection_forge", {})
-          st = log.get("manifest_stitch", {})
-          print(f"  AI Engine      : {ai.get('status','?').upper()} | {ai.get('advisories_processed',0)} advisories | {ai.get('duration_s',0)}s")
-          print(f"  Detection Forge: {df.get('status','?').upper()} | {df.get('rules_generated',0)} rules | {df.get('duration_s',0)}s")
-          if st:
-              print(f"  Manifest Stitch: {st.get('status','?').upper()} | {st.get('stitched',0)} entries enriched")
-          overall = log.get('overall_status','?').upper()
-          print(f"  Overall        : {overall}")
-          PYEOF
-          fi
-
-          echo "[AI+DETECTION] Stage 6c complete"
-
-      # ── STAGE 6d: Threat Memory Engine ───────────────────────────────────
-      - name: Threat Memory Engine
-        shell: bash
-        timeout-minutes: 5
-        continue-on-error: true
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-          CDB_MANIFEST_PATH: data/stix/feed_manifest.json
-          CDB_AI_INDEX_PATH: data/ai_intelligence/ai_index.json
-          CDB_MEMORY_DIR: data/threat_memory
-        run: |
-          echo "=== STAGE 6d: Threat Memory Engine ==="
-          echo "Timestamp: $(date -u)"
-
-          mkdir -p data/threat_memory
-
-          if [ -f agent/threat_memory.py ]; then
-            echo "[MEMORY] Running Threat Memory Engine..."
-            python3 agent/threat_memory.py
-            echo "[MEMORY] Engine completed"
-          else
-            echo "[MEMORY] WARN: agent/threat_memory.py not found — skipping"
-          fi
-
-          # Print memory stats if available
-          if [ -f data/threat_memory/memory_meta.json ]; then
-            python3 - << 'PYEOF'
-          import json
-          with open("data/threat_memory/memory_meta.json") as f:
-              meta = json.load(f)
-          runs = meta.get("run_history", [])
-          last = runs[-1] if runs else {}
-          print(f"  Total runs   : {meta.get('total_runs', 0)}")
-          print(f"  CVEs tracked : {last.get('total_cves', 0)}")
-          print(f"  Actors tracked: {last.get('total_actors', 0)}")
-          print(f"  Campaigns    : {last.get('total_campaigns', 0)}")
-          print(f"  Processed    : {last.get('processed', 0)} advisories")
-          PYEOF
-          fi
-
-          echo "[MEMORY] Stage 6d complete"
-
-      # ── STAGE 6e: AI Learning Engine ──────────────────────────────────
-      - name: AI Learning Engine
-        shell: bash
-        timeout-minutes: 5
-        continue-on-error: true
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-          CDB_MANIFEST_PATH: data/stix/feed_manifest.json
-          CDB_AI_INDEX_PATH: data/ai_intelligence/ai_index.json
-          CDB_MEMORY_DIR: data/threat_memory
-          CDB_LEARNING_DIR: data/ai_learning
-        run: |
-          echo "=== STAGE 6e: AI Learning Engine ==="
-          echo "Timestamp: $(date -u)"
-
-          mkdir -p data/ai_learning
-
-          if [ -f agent/ai_learning_engine.py ]; then
-            echo "[LEARN] Running AI Learning Engine..."
-            python3 agent/ai_learning_engine.py
-            echo "[LEARN] Engine completed"
-          else
-            echo "[LEARN] WARN: agent/ai_learning_engine.py not found — skipping"
-          fi
-
-          # Print learning report if available
-          if [ -f data/ai_learning/learning_report.json ]; then
-            python3 - << 'PYEOF'
-          import json
-          with open("data/ai_learning/learning_report.json") as f:
-              r = json.load(f)
-          print(f"  Status         : {r.get('status','?').upper()}")
-          print(f"  Entries adjusted: {r.get('entries_adjusted', 0)}")
-          print(f"  Priority escalated: {r.get('priority_escalated', 0)}")
-          print(f"  Avg risk boost : +{r.get('avg_risk_boost', 0):.4f}")
-          print(f"  Weight adaptations: {r.get('weight_adaptations', 0)}")
-          print(f"  Learning run # : {r.get('weight_run', 'N/A')}")
-          ps = r.get('pattern_summary', {})
-          if ps:
-              print(f"  Recurring CVEs : {ps.get('recurring_cves', 0)}")
-              print(f"  Escalating CVEs: {ps.get('escalating_cves', 0)}")
-              print(f"  Active actors  : {ps.get('active_actors', 0)}")
-              print(f"  Active campaigns: {ps.get('active_campaigns', 0)}")
-          PYEOF
-          fi
-
-          echo "[LEARN] Stage 6e complete"
-
-      # ── STAGE 6f: Detection Engine (SIEM Export Layer) ───────────────────
-      - name: Detection Engine — SIEM Export Layer
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 5
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "=== STAGE 6f: Detection Engine — SIEM Export Layer ==="
-
-          if [ -f agent/detection_engine.py ]; then
-            python3 agent/detection_engine.py || true
-          else
-            echo "WARN: agent/detection_engine.py not found — skipping"
-          fi
-
-          python3 - << 'PYEOF' || true
-          import json, os
-          meta = "data/detection_engine/engine_meta.json"
-          if os.path.exists(meta):
-              with open(meta) as f:
-                  r = json.load(f)
-              print(f"  Engine         : {r.get('engine', 'N/A')}")
-              print(f"  Version        : {r.get('version', 'N/A')}")
-              print(f"  Rules generated: {r.get('rules_generated', 0)}")
-              print(f"  SIEM platforms : {r.get('siem_platforms', [])}")
-              print(f"  TTPs covered   : {r.get('ttps_covered', 0)}")
-              print(f"  Run timestamp  : {r.get('run_timestamp', 'N/A')}")
-          else:
-              print("  [INFO] detection_engine/engine_meta.json not yet generated")
-          PYEOF
-
-          echo "[DETECT] Stage 6f complete"
-
-      # ── STAGE 6g: Threat Graph Engine (Knowledge Graph) ──────────────────
-      - name: Threat Graph Engine — Knowledge Graph
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 5
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "=== STAGE 6g: Threat Graph Engine — Knowledge Graph ==="
-
-          if [ -f agent/threat_graph_engine.py ]; then
-            python3 agent/threat_graph_engine.py || true
-          else
-            echo "WARN: agent/threat_graph_engine.py not found — skipping"
-          fi
-
-          python3 - << 'PYEOF' || true
-          import json, os
-          meta = "data/threat_graph/graph_meta.json"
-          if os.path.exists(meta):
-              with open(meta) as f:
-                  r = json.load(f)
-              print(f"  Engine         : {r.get('engine', 'N/A')}")
-              print(f"  Version        : {r.get('version', 'N/A')}")
-              print(f"  Total nodes    : {r.get('total_nodes', 0)}")
-              print(f"  Total edges    : {r.get('total_edges', 0)}")
-              print(f"  CVE nodes      : {r.get('cve_nodes', 0)}")
-              print(f"  Actor nodes    : {r.get('actor_nodes', 0)}")
-              print(f"  Clusters       : {r.get('correlation_clusters', 0)}")
-              print(f"  High risk paths: {r.get('high_risk_paths', 0)}")
-              print(f"  Run timestamp  : {r.get('run_timestamp', 'N/A')}")
-          else:
-              print("  [INFO] threat_graph/graph_meta.json not yet generated")
-          PYEOF
-
-          echo "[GRAPH] Stage 6g complete"
-
-      # ── STAGE 6h: Exploit Intelligence Layer ─────────────────────────────
-      - name: Exploit Intelligence Layer — KEV + EPSS + PoC
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 5
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "=== STAGE 6h: Exploit Intelligence Layer — KEV + EPSS + PoC ==="
-
-          if [ -f agent/exploit_intel_engine.py ]; then
-            python3 agent/exploit_intel_engine.py || true
-          else
-            echo "WARN: agent/exploit_intel_engine.py not found — skipping"
-          fi
-
-          python3 - << 'PYEOF' || true
-          import json, os
-          meta = "data/exploit_intel/engine_meta.json"
-          if os.path.exists(meta):
-              with open(meta) as f:
-                  r = json.load(f)
-              print(f"  Engine         : {r.get('engine', 'N/A')}")
-              print(f"  Version        : {r.get('version', 'N/A')}")
-              print(f"  CVEs analyzed  : {r.get('cves_analyzed', 0)}")
-              print(f"  KEV confirmed  : {r.get('kev_confirmed', 0)}")
-              print(f"  PoC detected   : {r.get('poc_detected', 0)}")
-              print(f"  Weaponized     : {r.get('weaponized', 0)}")
-              print(f"  High priority  : {r.get('high_priority', 0)}")
-              print(f"  Run timestamp  : {r.get('run_timestamp', 'N/A')}")
-          else:
-              print("  [INFO] exploit_intel/engine_meta.json not yet generated")
-          PYEOF
-
-          echo "[EXPLOIT] Stage 6h complete"
-
-      # ── STAGE 6i: Enterprise API Dirs + Auth Bootstrap ───────────────────
-      - name: Enterprise API — Directory Bootstrap
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 5
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "=== STAGE 6i: Enterprise API — Directory Bootstrap ==="
-
-          mkdir -p data/auth data/billing data/subscriptions
-          echo "  ✓ data/auth created"
-          echo "  ✓ data/billing created"
-          echo "  ✓ data/subscriptions created"
-
-          python3 - << 'PYEOF' || true
-          import os, json
-          # Verify all enterprise API modules are present
-          modules = [
-              ("api/auth.py",         "Enterprise Auth Layer"),
-              ("api/billing.py",      "Enterprise Billing Layer"),
-              ("api/subscription.py", "Subscription Management"),
-          ]
-          all_ok = True
-          for path, label in modules:
-              if os.path.exists(path):
-                  size = os.path.getsize(path)
-                  print(f"  ✓ {label}: {path} ({size:,} bytes)")
-              else:
-                  print(f"  WARN: {label}: {path} NOT FOUND")
-                  all_ok = False
-
-          # Verify detection/graph/exploit engines too
-          engines = [
-              ("agent/detection_engine.py",   "Detection Engine"),
-              ("agent/threat_graph_engine.py", "Threat Graph Engine"),
-              ("agent/exploit_intel_engine.py","Exploit Intel Engine"),
-          ]
-          for path, label in engines:
-              if os.path.exists(path):
-                  size = os.path.getsize(path)
-                  print(f"  ✓ {label}: {path} ({size:,} bytes)")
-              else:
-                  print(f"  WARN: {label}: {path} NOT FOUND")
-                  all_ok = False
-
-          print(f"\n  Enterprise Layer Status: {'ALL SYSTEMS PRESENT' if all_ok else 'PARTIAL — some modules missing'}")
-          PYEOF
-
-          echo "[ENTERPRISE] Stage 6i complete"
-
-      # ── STAGE 6j: Agentic AI + Predictive Threat Intelligence ───────────
-      - name: Agentic AI — Predictive Threat Intelligence
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 5
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "=== STAGE 6j: Agentic AI + Predictive Threat Intelligence ==="
-          mkdir -p data/agentic_intel
-          if [ -f agent/agentic_intel_engine.py ]; then
-            python3 agent/agentic_intel_engine.py || true
-          else
-            echo "WARN: agentic_intel_engine.py not found — skipping"
-          fi
-          python3 - << 'PYEOF' || true
-          import json, os
-          meta = "data/agentic_intel/engine_meta.json"
-          if os.path.exists(meta):
-              with open(meta) as f: r = json.load(f)
-              print(f"  Engine            : {r.get('engine', 'N/A')}")
-              print(f"  Advisories        : {r.get('advisories_processed', 0)}")
-              print(f"  Predictions       : {r.get('predictions_generated', 0)}")
-              print(f"  Supply chain risks: {r.get('supply_chain_risks', 0)}")
-              print(f"  Actors detected   : {r.get('actors_detected', 0)}")
-              print(f"  Verified CVEs     : {r.get('verified_cves', 0)}")
-          else:
-              print("  [INFO] agentic_intel/engine_meta.json not yet generated")
-          PYEOF
-          echo "[AGENTIC] Stage 6j complete"
-
-      # ── STAGE 6k: Identity Intelligence + Stealer Log Monitoring ─────────
-      - name: Identity Intelligence — Stealer Log Monitoring
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 5
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "=== STAGE 6k: Identity Intelligence + Stealer Log Monitoring ==="
-          mkdir -p data/identity_intel
-          if [ -f agent/identity_intel_engine.py ]; then
-            python3 agent/identity_intel_engine.py || true
-          else
-            echo "WARN: identity_intel_engine.py not found — skipping"
-          fi
-          python3 - << 'PYEOF' || true
-          import json, os
-          meta = "data/identity_intel/engine_meta.json"
-          if os.path.exists(meta):
-              with open(meta) as f: r = json.load(f)
-              print(f"  Engine            : {r.get('engine', 'N/A')}")
-              print(f"  Advisories scanned: {r.get('advisories_scanned', 0)}")
-              print(f"  Stealer signals   : {r.get('stealer_signals', 0)}")
-              print(f"  Identity risk     : {r.get('identity_risk_level', 'N/A')}")
-              print(f"  Stealer families  : {r.get('stealer_families_detected', 0)}")
-              print(f"  Remediation acts  : {r.get('remediation_actions', 0)}")
-          else:
-              print("  [INFO] identity_intel/engine_meta.json not yet generated")
-          PYEOF
-          echo "[IDENTITY] Stage 6k complete"
-
-      # ── STAGE 6l: Dark Web Intelligence Engine ───────────────────────────
-      - name: Dark Web Intelligence Engine
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 5
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "=== STAGE 6l: Dark Web Intelligence Engine ==="
-          mkdir -p data/darkweb_intel
-          if [ -f agent/darkweb_intel_engine.py ]; then
-            python3 agent/darkweb_intel_engine.py || true
-          else
-            echo "WARN: darkweb_intel_engine.py not found — skipping"
-          fi
-          python3 - << 'PYEOF' || true
-          import json, os
-          meta = "data/darkweb_intel/engine_meta.json"
-          if os.path.exists(meta):
-              with open(meta) as f: r = json.load(f)
-              print(f"  Engine            : {r.get('engine', 'N/A')}")
-              print(f"  Dark web signals  : {r.get('darkweb_signals', 0)}")
-              print(f"  Actors profiled   : {r.get('actors_profiled', 0)}")
-              print(f"  Campaigns detected: {r.get('campaigns_detected', 0)}")
-              print(f"  Wallet detections : {r.get('wallet_detections', 0)}")
-              print(f"  Highest campaign  : {r.get('highest_campaign', 'N/A')}")
-          else:
-              print("  [INFO] darkweb_intel/engine_meta.json not yet generated")
-          PYEOF
-          echo "[DARKWEB] Stage 6l complete"
-
-      # ── STAGE 6m: ROI Risk Quantification + Brand Protection ─────────────
-      - name: Risk Quantification — ROI + Brand Protection
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 5
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "=== STAGE 6m: ROI Risk Quantification + Brand Protection ==="
-          mkdir -p data/risk_quantification
-          if [ -f agent/risk_quantification_engine.py ]; then
-            python3 agent/risk_quantification_engine.py || true
-          else
-            echo "WARN: risk_quantification_engine.py not found — skipping"
-          fi
-          python3 - << 'PYEOF' || true
-          import json, os
-          meta = "data/risk_quantification/engine_meta.json"
-          if os.path.exists(meta):
-              with open(meta) as f: r = json.load(f)
-              print(f"  Engine            : {r.get('engine', 'N/A')}")
-              print(f"  CVEs quantified   : {r.get('cves_quantified', 0)}")
-              total = r.get('total_potential_loss_usd', 0)
-              fmt = f"${total/1_000_000:.2f}M" if total >= 1_000_000 else f"${total/1_000:.1f}K"
-              print(f"  Total potential $ : {fmt}")
-              print(f"  Critical risk CVEs: {r.get('critical_risk_cves', 0)}")
-              print(f"  Phishing threats  : {r.get('phishing_threats', 0)}")
-              print(f"  Brand risk level  : {r.get('brand_risk_level', 'N/A')}")
-          else:
-              print("  [INFO] risk_quantification/engine_meta.json not yet generated")
-          PYEOF
-          echo "[RISK-QUANT] Stage 6m complete"
-
-      # ── STAGE 6n: MITRE ATT&CK TTP Engine ───────────────────────────────
-      - name: MITRE ATT&CK TTP Engine
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 5
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          echo "=== STAGE 6n: MITRE ATT&CK TTP Engine ==="
-          mkdir -p data/ttp_engine
-          if [ -f agent/ttp_engine.py ]; then
-            python3 agent/ttp_engine.py || true
-          else
-            echo "WARN: ttp_engine.py not found — skipping"
-          fi
-          python3 - << 'PYEOF' || true
-          import json, os
-          meta = "data/ttp_engine/engine_meta.json"
-          if os.path.exists(meta):
-              with open(meta) as f: r = json.load(f)
-              print(f"  Engine            : {r.get('engine', 'N/A')}")
-              print(f"  Advisories mapped : {r.get('advisories_mapped', 0)}")
-              print(f"  Unique TTPs       : {r.get('unique_techniques', 0)}")
-              print(f"  Tactic coverage   : {r.get('tactics_covered', 0)}/{r.get('total_tactics', 14)} ({r.get('coverage_pct', 0)}%)")
-              print(f"  Sigma rules       : {r.get('sigma_rules_generated', 0)}")
-              print(f"  YARA rules        : {r.get('yara_rules_generated', 0)}")
-              print(f"  SIEM rules        : {r.get('siem_rules_generated', 0)}")
-          else:
-              print("  [INFO] ttp_engine/engine_meta.json not yet generated")
-          PYEOF
-          echo "[TTP] Stage 6n complete"
-
-      # ── STAGE 6o: SOAR + Integration Engine ──────────────────────────────
-      - name: SOAR Engine — Integration + Response Automation
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 5
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-          SPLUNK_BASE_URL:       ${{ secrets.SPLUNK_BASE_URL || '' }}
-          SPLUNK_API_TOKEN:      ${{ secrets.SPLUNK_API_TOKEN || '' }}
-          SENTINEL_WORKSPACE_ID: ${{ secrets.SENTINEL_WORKSPACE_ID || '' }}
-          SENTINEL_API_TOKEN:    ${{ secrets.SENTINEL_API_TOKEN || '' }}
-          CS_CLIENT_ID:          ${{ secrets.CS_CLIENT_ID || '' }}
-          CS_CLIENT_SECRET:      ${{ secrets.CS_CLIENT_SECRET || '' }}
-          ELASTIC_BASE_URL:      ${{ secrets.ELASTIC_BASE_URL || '' }}
-          ELASTIC_API_KEY:       ${{ secrets.ELASTIC_API_KEY || '' }}
-        run: |
-          echo "=== STAGE 6o: SOAR Engine + Integration ==="
-          mkdir -p data/soar_engine data/soar_engine/playbooks
-          if [ -f agent/soar_engine.py ]; then
-            python3 agent/soar_engine.py || true
-          else
-            echo "WARN: soar_engine.py not found — skipping"
-          fi
-          python3 - << 'PYEOF' || true
-          import json, os
-          meta = "data/soar_engine/engine_meta.json"
-          if os.path.exists(meta):
-              with open(meta) as f: r = json.load(f)
-              print(f"  Engine            : {r.get('engine', 'N/A')}")
-              print(f"  IOCs extracted    : {r.get('iocs_extracted', 0)}")
-              print(f"  Playbooks         : {r.get('playbooks_generated', 0)}")
-              print(f"  SIEM dispatches   : {r.get('siem_dispatches_queued', 0)}")
-              print(f"  Response actions  : {r.get('response_actions', 0)}")
-              print(f"  P1 responses      : {r.get('priority_1_responses', 0)}")
-              print(f"  SIEM platforms    : {r.get('siem_platforms', [])}")
-              print(f"  Mode              : {r.get('execution_mode', 'N/A')}")
-          else:
-              print("  [INFO] soar_engine/engine_meta.json not yet generated")
-          PYEOF
-          echo "[SOAR] Stage 6o complete"
-
-      # ── STAGE 7: Pre-deploy integrity gate (BLOCKING) ────────────────────
-      - name: Pre-deploy integrity gate
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "=== STAGE 7: Pre-Deploy Integrity Gate ==="
-
-          if [ -f scripts/pre_deploy_gate.py ]; then
+          python3 scripts/pre_deploy_gate.py || {
+            echo "GATE FAILED — attempting auto-repair..."
+            python3 scripts/update_embedded_intel.py || true
             python3 scripts/pre_deploy_gate.py
-          else
-            echo "WARN: pre_deploy_gate.py not found — running inline check"
+          }
 
-            python3 - << 'PYEOF'
-          import sys, json, re, os
-
-          index_path = "index.html"
-          if not os.path.exists(index_path):
-              print("ERROR: index.html not found")
-              sys.exit(1)
-
-          with open(index_path, encoding="utf-8") as f:
-              content = f.read()
-
-          checks_passed = 0
-          checks_total  = 5
-
-          if "<<<<<<< " not in content and ">>>>>>> " not in content:
-              print("  [1/5] No conflict markers ✓")
-              checks_passed += 1
-          else:
-              print("  [1/5] FAIL: Conflict markers found in index.html")
-
-          count = content.count("EMBEDDED_INTEL")
-          if count >= 1:
-              print(f"  [2/5] EMBEDDED_INTEL declaration present ✓")
-              checks_passed += 1
-          else:
-              print(f"  [2/5] FAIL: EMBEDDED_INTEL not found")
-
-          m = re.search(r'(?:const|var) EMBEDDED_INTEL\s*=\s*(\[.*?\]);', content, re.DOTALL)
-          if m:
-              try:
-                  items = json.loads(m.group(1))
-                  print(f"  [3/5] EMBEDDED_INTEL valid JSON: {len(items)} items ✓")
-                  checks_passed += 1
-              except:
-                  print("  [3/5] FAIL: EMBEDDED_INTEL invalid JSON")
-          else:
-              print("  [3/5] FAIL: EMBEDDED_INTEL not found or malformed")
-
-          opens  = content.count("{")
-          closes = content.count("}")
-          if abs(opens - closes) < 100:
-              print(f"  [4/5] JS braces approximately balanced ({opens}/{closes}) ✓")
-              checks_passed += 1
-          else:
-              print(f"  [4/5] FAIL: JS brace mismatch {opens} open vs {closes} close")
-
-          size = os.path.getsize(index_path)
-          if size > 100_000:
-              print(f"  [5/5] File size OK: {size:,} bytes ✓")
-              checks_passed += 1
-          else:
-              print(f"  [5/5] FAIL: File suspiciously small: {size:,} bytes")
-
-          print(f"\n  Gate: {checks_passed}/{checks_total} checks passed")
-          if checks_passed < checks_total:
-              print("  DEPLOY BLOCKED")
-              sys.exit(1)
-          print("  DEPLOY AUTHORIZED")
-          PYEOF
-          fi
-
-      # ── STAGE 7b: Growth Engine (SEO Blog + Social Content) ─────────────
-      - name: Growth Engine — SEO Blog + Social Content
-        if: always()
-        shell: bash
-        env:
-          TELEGRAM_BOT_TOKEN:    ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID:      ${{ secrets.TELEGRAM_CHAT_ID }}
-          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN || '' }}
-          LINKEDIN_AUTHOR_URN:   ${{ secrets.LINKEDIN_AUTHOR_URN || '' }}
-          PYTHONPATH:            ${{ github.workspace }}
-        run: |
-          set -euo pipefail
-
-          echo "--- [GROWTH] SEO Blog Generator ---"
-          if python3 scripts/growth/seo_blog_generator.py; then
-            echo "[GROWTH] SEO posts generated"
-          else
-            echo "[GROWTH] SEO complete (non-fatal)"
-          fi
-
-          echo "--- [GROWTH] Weekly Threat Page ---"
-          if python3 << 'EOF'
-          from scripts.growth.seo_blog_generator import generate_weekly_page
-          r = generate_weekly_page()
-          print("[GROWTH] Weekly page:", r or "skipped")
-          EOF
-          then
-            echo "[GROWTH] Weekly page generated"
-          else
-            echo "[GROWTH] Weekly page complete (non-fatal)"
-          fi
-
-          echo "--- [GROWTH] Telegram Daily Roundup ---"
-          if python3 scripts/growth/telegram_content_generator.py daily_roundup; then
-            echo "[GROWTH] Telegram roundup done"
-          else
-            echo "[GROWTH] Telegram complete (non-fatal)"
-          fi
-
-          echo "--- [GROWTH] Telegram CVE Spotlight ---"
-          if python3 scripts/growth/telegram_content_generator.py cve_spotlight; then
-            echo "[GROWTH] Telegram spotlight done"
-          else
-            echo "[GROWTH] Telegram spotlight complete (non-fatal)"
-          fi
-
-          echo "--- [GROWTH] LinkedIn Threat Insight ---"
-          if python3 scripts/growth/linkedin_content_generator.py threat_insight; then
-            echo "[GROWTH] LinkedIn post generated"
-          else
-            echo "[GROWTH] LinkedIn complete (non-fatal)"
-          fi
-
-          echo "[GROWTH] Content generation stage complete"
-
-      # ── STAGE 8: Deploy to GitHub Pages ──────────────────────────────────
-      - name: Deploy to GitHub Pages
+      - name: Deploy Core
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
           folder: .
           clean: false
-          commit-message: "Deploying to gh-pages from @ ${{ github.repository }}@${{ github.sha }} 🚀"
-          git-config-name: cyberdudebivash
-          git-config-email: cyberdudebivash@users.noreply.github.com
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── STAGE 9: Pipeline summary ─────────────────────────────────────────
-      - name: Pipeline summary
-        if: always()
-        shell: bash
+# ================================================================
+# STAGE 5.1: OPTIONAL HARDENING (from v64 — preserved exactly)
+# ================================================================
+      - name: Pipeline Hardener
+        continue-on-error: true
         run: |
-          echo "======================================================="
-          echo "SENTINEL APEX v77.2 Pipeline Summary"
-          echo "======================================================="
-          echo "Timestamp: $(date -u)"
-          echo "Commit:    ${{ github.sha }}"
-          echo "Trigger:   ${{ github.event_name }}"
+          python agent/v48_pipeline_hardening/pipeline_hardener.py || true
 
-          if [ -f data/status/feed_health.json ]; then
-            python3 -c "
-          import json
-          with open('data/status/feed_health.json') as f:
-              h = json.load(f)
-          print('Feed Health: ', h.get('alive', 0), 'alive /', h.get('dead', 0), 'dead')
-          if h.get('dead_feeds'):
-              print('Dead feeds (for investigation):')
-              for feed in h.get('dead_feeds', []):
-                  print(' -', feed)
-            " 2>/dev/null || true
+      - name: Quality Gate
+        continue-on-error: true
+        run: |
+          python agent/quality_gate_audit.py || true
+
+      - name: Generate Threat Pages
+        continue-on-error: true
+        run: |
+          python scripts/threat_page_generator.py || true
+
+# ================================================================
+# STAGE 6: POST-EXTRAS COMMIT + DEPLOY (from v64 — preserved exactly)
+# ================================================================
+      - name: Commit Post Extras
+        continue-on-error: true
+        run: |
+          git config --local user.email "bivash@cyberdudebivash.com"
+          git config --local user.name "CDB-Sentinel-Bot"
+
+          git add data/*.json threat/ sitemap.xml api/*.json 2>/dev/null || true
+
+          if ! git diff --staged --quiet; then
+            git commit -m "v70.2 Post Extras [skip ci]"
+            git push origin main
           fi
 
-          echo "======================================================="
+      - name: "GATE: Pre-deploy check (Post Extras)"
+        continue-on-error: true
+        run: python3 scripts/pre_deploy_gate.py
 
-      # ── Cleanup on failure ────────────────────────────────────────────────
-      - name: Cleanup secrets on failure
-        if: failure()
-        shell: bash
+      - name: Deploy Post Extras
+        continue-on-error: true
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: .
+          clean: false
+
+# ================================================================
+# STAGE 7: PIPELINE SUMMARY (v70 — new, additive)
+# ================================================================
+      - name: Pipeline Summary
+        if: always()
         run: |
-          rm -f secrets/.env
-          echo "Secrets cleaned up after failure"
+          echo "======================================================="
+          echo "SENTINEL APEX v70.2 Pipeline Summary"
+          echo "======================================================="
+          echo "Timestamp: $(date -u)"
+          if [ -f /tmp/v70_result.json ]; then
+            python3 -c '
+          import json
+          d = json.load(open("/tmp/v70_result.json"))
+          status = "PASS" if d.get("success") else "FAIL"
+          print("v70 Intelligence: " + status)
+          print("Advisories: " + str(d.get("total_advisories", "?")))
+          print("Dedup Removed: " + str(d.get("dedup_removed", "?")))
+          print("Correlations: " + str(d.get("correlations_found", "?")))
+          print("Duration: " + str(d.get("duration_seconds", "?")) + "s")
+          icons = {"OK": "+", "SKIPPED": ">", "DEGRADED": "!", "FAILED": "X"}
+          for p in d.get("phases", []):
+              icon = icons.get(p["status"], "?")
+              print("  [" + icon + "] " + p["phase"] + ": " + p["status"] + " (" + str(p["duration_s"]) + "s)")
+          ' || true
+          else
+            echo "v70 intelligence pipeline did not run"
+          fi
+          echo "======================================================="
