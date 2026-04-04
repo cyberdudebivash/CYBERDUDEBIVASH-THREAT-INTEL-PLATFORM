@@ -209,9 +209,21 @@ def _load_router_safe(module_name: str, file_name: str, attr: str, label: str) -
         except Exception as _err:
             logger.warning(f"[API] {label} registration failed (non-critical): {_err}")
 
-_load_router_safe("user_auth",  "user_auth.py",  "auth_router",    "Auth Router    (/auth/*)")
-_load_router_safe("copilot",    "copilot.py",    "copilot_router", "Copilot Router (/api/v1/copilot/*)")
-_load_router_safe("alerts",     "alerts.py",     "alerts_router",  "Alerts Router  (/api/v1/alerts/*)")
+_load_router_safe("user_auth",    "user_auth.py",    "auth_router",       "Auth Router       (/auth/*)")
+_load_router_safe("copilot",      "copilot.py",      "copilot_router",    "Copilot Router    (/api/v1/copilot/*)")
+_load_router_safe("alerts",       "alerts.py",       "alerts_router",     "Alerts Router     (/api/v1/alerts/*)")
+_load_router_safe("monetization", "monetization.py", "router",            "Monetize Router   (/api/v1/monetize/*)")
+
+# ── Stability: health + metrics endpoints ────────────────────────────────────
+try:
+    import sys as _sys
+    _sys.path.insert(0, str(BASE_DIR))
+    from core.stability.pipeline_guardian import health_router as _health_router
+    if _health_router is not None:
+        app.include_router(_health_router)
+        logger.info("[API] Health Router registered — /api/v1/health/* active")
+except Exception as _hrex:
+    logger.warning(f"[API] Health Router registration skipped: {_hrex}")
 
 # ── Pydantic Schemas ──────────────────────────────────────────────────────
 class AdvisoryItem(BaseModel):
