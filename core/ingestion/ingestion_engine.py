@@ -641,16 +641,16 @@ try:
             raise HTTPException(404, f"Source '{source_id}' not found")
         engine._schedules[source_id].enabled = True
         engine._schedules[source_id].consecutive_failures = 0
-        return {"source_id": source_id, "enabled": True}
+        return {"status": "ok", "source_id": source_id, "enabled": True}
 
     @ingestion_router.post("/sources/{source_id}/disable")
     async def disable_source(source_id: str, engine: IngestionEngine = Depends(_get_engine)):
         if source_id not in engine._schedules:
             raise HTTPException(404, f"Source '{source_id}' not found")
         engine._schedules[source_id].enabled = False
-        return {"source_id": source_id, "enabled": False}
+        return {"status": "ok", "source_id": source_id, "enabled": False}
 
 except ImportError:
-    # FastAPI not available in test/offline environments
-    ingestion_router = None  # type: ignore
-    logger.debug("ingestion_router FastAPI unavailable; router not registered")
+    # FastAPI not installed — ingestion_router is None; API still starts without it
+    ingestion_router = None  # type: ignore[assignment]
+    logger.warning("ingestion_router_unavailable reason='fastapi not installed'")

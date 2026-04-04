@@ -279,9 +279,9 @@ class AbuseIPDBSource(BaseSource):
                 raise ParseError(f"AbuseIPDB HTTP {resp.status}")
         except HTTPError as exc:
             if exc.code == 401:
-                raise AuthError(f"AbuseIPDB API key invalid: {exc}") from exc
+                raise AuthError(f"AbuseIPDB API key invalid (HTTP 401)")
             if exc.code == 429:
-                raise RateLimitError(f"AbuseIPDB rate limit: {exc}") from exc
-            raise
+                raise RateLimitError("AbuseIPDB rate limit hit", retry_after_s=60)
+            raise ParseError(f"AbuseIPDB HTTP error {exc.code}")
         except URLError as exc:
-            raise ConnectionError(f"AbuseIPDB unreachable: {exc}") from exc
+            raise NetworkError(f"AbuseIPDB network error: {exc.reason}") from exc

@@ -222,11 +222,31 @@ class StixBundle:
 
 @dataclass
 class Page:
-    """Generic paginated result container."""
-    items:    List[Any]
-    metadata: FeedMetadata
-    raw:      Dict[str, Any] = field(default_factory=dict)
+    """Generic paginated result container with cursor/offset metadata."""
+    items:           List[Any]
+    total_available: int       = 0
+    offset:          int       = 0
+    limit:           int       = 0
+    tier:            str       = ""
+    generated:       str       = ""
 
     @property
     def has_more(self) -> bool:
-        return self.metadata.returned < self.metadata.total
+        return (self.offset + len(self.items)) < self.total_available
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any], item_class=None) -> "Page":
+        raw_items = d.get("data", d.get("items", []))
+        if item_class is not None:
+            items = [item_class.from_dict(i) if isinstance(i, dict) else i
+                     for i in raw_items]
+        else:
+            items = raw_items
+        return cls(
+            items           = items,
+            total_available = d.get("total_available", len(items)),
+            offset          = d.get("offset", 0),
+            limit           = d.get("limit", len(items)),
+            tier            = d.get("tier", ""),
+            generated       = d.get("generated", ""),
+        )

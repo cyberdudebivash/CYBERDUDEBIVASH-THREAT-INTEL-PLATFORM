@@ -161,6 +161,11 @@ class KEVSource(BaseSource):
     @staticmethod
     def _parse_date(date_str: str) -> datetime:
         try:
-            return datetime.fromisoformat(date_str).replace(tzinfo=timezone.utc)
+            for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S"):
+                try:
+                    return datetime.strptime(date_str, fmt)
+                except ValueError:
+                    continue
+            return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
         except Exception:
-            return datetime.min.replace(tzinfo=timezone.utc)
+            return datetime(1970, 1, 1)

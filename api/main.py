@@ -63,7 +63,7 @@ FEED_PATH    = BASE_DIR / "api" / "feed.json"
 LATEST_PATH  = BASE_DIR / "api" / "latest.json"
 MANIFEST_PATH= BASE_DIR / "data" / "stix" / "feed_manifest.json"
 MRR_PATH     = BASE_DIR / "data" / "sovereign" / "mrr_report.json"
-VERSION      = "v81.0"
+VERSION      = "v100.0"
 PLATFORM     = "CYBERDUDEBIVASH® Sentinel APEX"
 DASHBOARD    = "https://intel.cyberdudebivash.com"
 STORE_URL    = "https://tools.cyberdudebivash.com/"
@@ -878,26 +878,74 @@ async def onboarding_guide():
         },
     }
 
+# ── Static-compatibility routes ──────────────────────────────────────────────
+# Dashboards built against /api/feed.json and /api/latest.json (static files).
+# These routes serve the same data via the live feed loader so the container
+# works even when no static files exist (e.g., after a clean Docker build).
+
+@app.get("/api/feed.json", include_in_schema=False)
+async def serve_feed_json():
+    """Backward-compat: serve feed.json via live loader."""
+    feed = get_feed()
+    return JSONResponse(content=feed)
+
+@app.get("/api/latest.json", include_in_schema=False)
+async def serve_latest_json():
+    """Backward-compat: serve latest.json via live loader (last 20 items)."""
+    feed = get_feed()
+    return JSONResponse(content=feed[:20])
+
 # ── startup event ─────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
-    # Mount APEX Intelligence Engine routes (/apex/v1/*)
+    """
+    Production boot sequence — structured manifest logging so Railway/Docker
+    logs prove exactly what loaded and what degraded gracefully.
+    """
+    import sys as _sys
+
+    # ── Ensure project root is always on sys.path ─────────────────────────
+    _root = str(BASE_DIR)
+    if _root not in _sys.path:
+        _sys.path.insert(0, _root)
+
+    # ── Mount APEX Intelligence Engine routes (/apex/v1/*) ─────────────
     try:
-        import sys, os
-        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         from agent.apex_api_router import mount_apex_routes
         mount_apex_routes(app)
-    except Exception as e:
-        print(f"[STARTUP] APEX router mount warning: {e}")
+        logger.info("[BOOT] APEX API router mounted — /apex/v1/* active")
+    except Exception as _e:
+        logger.warning(f"[BOOT] APEX router skipped (agent/ not present): {_e}")
+
+    # ── Feed warm-up ───────────────────────────────────────────────────────
     feed = get_feed()
-    logger.info(f"SENTINEL APEX API {VERSION} started — {len(feed)} advisories loaded")
-    # Warm APEX enrichment cache in background (non-blocking)
+    logger.info(f"[BOOT] Feed loaded — {len(feed)} advisories")
+
+    # ── APEX enrichment cache warm-up ──────────────────────────────────────
     if _APEX_ENABLED:
         try:
             get_enrichment_cache(get_manifest())
-            logger.info("[APEX-INJECTOR] Enrichment cache warmed at startup")
+            logger.info("[BOOT] APEX enrichment cache warmed")
         except Exception as _e:
-            logger.warning(f"[APEX-INJECTOR] Cache warm failed (non-critical): {_e}")
+            logger.warning(f"[BOOT] APEX cache warm skipped: {_e}")
+
+    # ── Route manifest (proves every router loaded) ────────────────────────
+    _routes = sorted(
+        {f"{r.methods} {r.path}" for r in app.routes
+         if hasattr(r, "methods") and hasattr(r, "path")},
+    )
+    logger.info(
+        f"\n{'='*72}\n"
+        f"  CYBERDUDEBIVASH® SENTINEL APEX {VERSION} — BOOT COMPLETE\n"
+        f"  Platform  : {PLATFORM}\n"
+        f"  Docs      : /api/docs\n"
+        f"  Health    : /health\n"
+        f"  Advisories: {len(feed)}\n"
+        f"  Routes    : {len(_routes)} registered\n"
+        f"  APEX      : {'enabled' if _APEX_ENABLED else 'degraded (agent/ absent)'}\n"
+        f"  PYTHONPATH: {_sys.path[0]}\n"
+        f"{'='*72}"
+    )
 
 if __name__ == "__main__":
     import uvicorn

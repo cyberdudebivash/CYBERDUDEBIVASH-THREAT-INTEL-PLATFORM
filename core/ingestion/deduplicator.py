@@ -212,7 +212,11 @@ class Deduplicator:
             logger.warning("dedup_load_failed err=%s", exc)
 
     @staticmethod
-    def _make_semantic_key(item: RawIntelItem) -> str:
-        """Logical identity key: source + raw_id."""
-        raw = f"{item.source_id}:{item.raw_id}"
-        return hashlib.sha256(raw.encode()).hexdigest()[:32]
+    def _semantic_key(item: "RawIntelItem") -> str:  # type: ignore[name-defined]
+        """
+        Derive a stable semantic key for logical deduplication.
+        Two items with the same semantic key are the same logical entity
+        even if their raw_data changed (updated record). Format:
+            <source_id>:<raw_id>
+        """
+        return f"{item.source_id}:{item.raw_id}"

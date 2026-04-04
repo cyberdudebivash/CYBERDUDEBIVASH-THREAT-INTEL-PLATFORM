@@ -277,16 +277,27 @@ class BaseSource(ABC):
 # ─────────────────────────────────────────────
 
 class SourceError(Exception):
-    """Base class for all source errors."""
+    """Base exception for all ingestion source errors."""
 
 
-class RateLimitError(SourceError):
-    """HTTP 429 or API quota exhausted."""
+class SourceAuthError(SourceError):
+    """API key missing, invalid, or quota exhausted."""
 
 
-class AuthError(SourceError):
-    """API key missing, invalid, or expired."""
+class SourceRateLimitError(SourceError):
+    """Source rate limit hit — caller should back off."""
+    def __init__(self, message: str = "Rate limit exceeded", retry_after_s: int = 60) -> None:
+        super().__init__(message)
+        self.retry_after_s = retry_after_s
 
 
-class ParseError(SourceError):
-    """Unexpected response structure from source."""
+class SourceNetworkError(SourceError):
+    """Network-level failure (timeout, DNS, TLS)."""
+
+
+class SourceParseError(SourceError):
+    """Unexpected response format — schema changed upstream."""
+
+
+class SourceConfigError(SourceError):
+    """Source mis-configured (missing required env var, bad URL, etc.)."""
