@@ -2,7 +2,7 @@
   "threat_id": "thr-b2467050aa2e",
   "title": "How SentinelOne\u2019s AI EDR Autonomously Discovered and Stopped Anthropic\u2019s Claude ",
   "rules": {
-    "sigma": "title: CDB APEX v37.0 - How SentinelOne\u2019s AI EDR Autonomously Discovered and Stopped\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/03\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*litellm.proxy*'\n            - '*models.litellm.cloud*'\n            - '*sysmon.service*'\n            - '*tpcp.tar.gz*'\n    condition: selection_dns\nlevel: high",
+    "sigma": "title: CDB APEX v37.0 - How SentinelOne\u2019s AI EDR Autonomously Discovered and Stopped\nstatus: experimental\nauthor: CyberDudeBivash SENTINEL APEX\ndate: 2026/04/04\nlogsource:\n    category: firewall\ndetection:\n    selection_dns:\n        query:\n            - '*litellm.proxy*'\n            - '*models.litellm.cloud*'\n            - '*sysmon.service*'\n            - '*tpcp.tar.gz*'\n    condition: selection_dns\nlevel: high",
     "elastic": "{\n  \"query\": {\n    \"bool\": {\n      \"should\": [\n        {\n          \"terms\": {\n            \"dns.question.name\": [\n              \"litellm.proxy\",\n              \"models.litellm.cloud\",\n              \"sysmon.service\",\n              \"tpcp.tar.gz\"\n            ]\n          }\n        }\n      ],\n      \"minimum_should_match\": 1\n    }\n  }\n}",
     "kql": "DeviceNetworkEvents | where RemoteUrl has_any (\"litellm.proxy\", \"models.litellm.cloud\", \"sysmon.service\", \"tpcp.tar.gz\")"
   },
