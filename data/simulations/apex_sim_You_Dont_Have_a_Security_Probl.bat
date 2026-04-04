@@ -2,7 +2,7 @@
 :: ==============================================================================
 :: CYBERDUDEBIVASH APEX PURPLE SWARM - AUTONOMOUS BAS
 :: Target Threat: You Don’t Have a Security Problem, You Have a Visibility Problem
-:: Generated: 2026-04-03 20:40:29 UTC
+:: Generated: 2026-04-04 02:30:25 UTC
 :: WARNING: This is a SAFE simulation script. It contains NO malicious payload.
 :: Usage: Run this in a sandbox to trigger the APEX Sigma/SOAR detections.
 :: ==============================================================================
