@@ -1,0 +1,1679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYBERDUDEBIVASH® SENTINEL APEX — Analyst Dashboard v82.0</title>
+<style>
+  /* ═══════════════════════════════════════════════════════
+     CYBERDUDEBIVASH SENTINEL APEX — Design System
+     Dark SOC theme, production-grade UI
+  ═══════════════════════════════════════════════════════ */
+  :root {
+    --bg-primary:   #0a0d14;
+    --bg-secondary: #0f1320;
+    --bg-card:      #141926;
+    --bg-hover:     #1a2035;
+    --border:       #1f2840;
+    --accent-cyan:  #00d4ff;
+    --accent-green: #00ff9d;
+    --accent-red:   #ff3366;
+    --accent-orange:#ff8c00;
+    --accent-yellow:#ffd700;
+    --text-primary: #e8edf5;
+    --text-secondary:#8b95a8;
+    --text-dim:     #4a5568;
+    --crit-bg:      rgba(255,51,102,0.12);
+    --high-bg:      rgba(255,140,0,0.12);
+    --med-bg:       rgba(255,215,0,0.12);
+    --low-bg:       rgba(0,255,157,0.10);
+    --font-mono:    'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    --font-sans:    'Inter', 'Segoe UI', system-ui, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* ── HEADER ──────────────────────────────────────────── */
+  .header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brand-logo {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--accent-cyan), #0066ff);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .brand-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    letter-spacing: 0.5px;
+  }
+  .brand-sub {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 1px;
+  }
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .header-time {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  /* ── LAYOUT ──────────────────────────────────────────── */
+  .container { max-width: 1600px; margin: 0 auto; padding: 24px; }
+
+  /* ── KPI STRIP ───────────────────────────────────────── */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: border-color 0.2s;
+  }
+  .kpi-card:hover { border-color: var(--accent-cyan); }
+  .kpi-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .kpi-delta {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+  .kpi-crit  .kpi-value { color: var(--accent-red); }
+  .kpi-high  .kpi-value { color: var(--accent-orange); }
+  .kpi-med   .kpi-value { color: var(--accent-yellow); }
+  .kpi-cyan  .kpi-value { color: var(--accent-cyan); }
+  .kpi-green .kpi-value { color: var(--accent-green); }
+
+  /* ── MAIN GRID ───────────────────────────────────────── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  /* ── SIDEBAR ─────────────────────────────────────────── */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+  /* ── PANEL ───────────────────────────────────────────── */
+  .panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-badge {
+    background: var(--accent-cyan);
+    color: var(--bg-primary);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+  .panel-body { padding: 16px 18px; }
+
+  /* ── SEARCH ──────────────────────────────────────────── */
+  .search-bar {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px 10px 38px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: var(--font-sans);
+    outline: none;
+    transition: border-color 0.2s;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%238b95a8' viewBox='0 0 24 24' width='16' height='16'%3E%3Cpath d='M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z' stroke='%238b95a8' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 12px center;
+    background-size: 16px;
+  }
+  .search-bar:focus { border-color: var(--accent-cyan); }
+  .search-bar::placeholder { color: var(--text-dim); }
+
+  /* ── FILTER CHIPS ─────────────────────────────────────── */
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .chip {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .chip:hover, .chip.active { border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0,212,255,0.08); }
+  .chip.crit  { border-color: var(--accent-red);    color: var(--accent-red);    background: var(--crit-bg); }
+  .chip.high  { border-color: var(--accent-orange); color: var(--accent-orange); background: var(--high-bg); }
+  .chip.med   { border-color: var(--accent-yellow); color: var(--accent-yellow); background: var(--med-bg); }
+  .chip.low   { border-color: var(--accent-green);  color: var(--accent-green);  background: var(--low-bg); }
+
+  /* ── THREAT FEED ─────────────────────────────────────── */
+  .threat-feed { display: flex; flex-direction: column; gap: 0; }
+  .threat-item {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .threat-item:last-child { border-bottom: none; }
+  .threat-item:hover { background: var(--bg-hover); }
+  .threat-item.selected { background: rgba(0,212,255,0.06); border-left: 3px solid var(--accent-cyan); }
+  .threat-item-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .threat-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+    flex: 1;
+  }
+  .severity-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+  }
+  .sev-CRITICAL { background: var(--crit-bg);  color: var(--accent-red);    border: 1px solid var(--accent-red); }
+  .sev-HIGH     { background: var(--high-bg);  color: var(--accent-orange); border: 1px solid var(--accent-orange); }
+  .sev-MEDIUM   { background: var(--med-bg);   color: var(--accent-yellow); border: 1px solid var(--accent-yellow); }
+  .sev-LOW      { background: var(--low-bg);   color: var(--accent-green);  border: 1px solid var(--accent-green); }
+  .sev-INFORMATIONAL { background: rgba(139,149,168,0.1); color: var(--text-secondary); border: 1px solid var(--border); }
+  .threat-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .threat-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(139,149,168,0.08);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+  }
+  .tag.cve   { color: var(--accent-red); border-color: rgba(255,51,102,0.3); }
+  .tag.actor { color: var(--accent-cyan); border-color: rgba(0,212,255,0.3); }
+  .tag.mal   { color: var(--accent-orange); border-color: rgba(255,140,0,0.3); }
+
+  /* ── DETAIL PANEL ─────────────────────────────────────── */
+  .detail-panel { display: flex; flex-direction: column; gap: 16px; }
+  .detail-header {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+  .detail-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .detail-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+  .detail-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .detail-meta-item span { color: var(--text-primary); font-weight: 600; }
+
+  /* ── SCORE GAUGE ──────────────────────────────────────── */
+  .score-display {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 20px;
+    align-items: center;
+    padding: 16px 0;
+  }
+  .score-ring {
+    width: 90px;
+    height: 90px;
+    position: relative;
+  }
+  .score-ring svg { width: 90px; height: 90px; transform: rotate(-90deg); }
+  .score-ring-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .score-number { font-size: 22px; font-weight: 800; font-family: var(--font-mono); }
+  .score-label  { font-size: 9px; color: var(--text-secondary); text-transform: uppercase; }
+  .score-breakdown { display: flex; flex-direction: column; gap: 6px; }
+  .score-component {
+    display: grid;
+    grid-template-columns: 120px 1fr 40px;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+  }
+  .score-comp-label { color: var(--text-secondary); }
+  .score-comp-bar {
+    height: 4px;
+    background: var(--bg-secondary);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .score-comp-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent-cyan);
+    transition: width 0.5s ease;
+  }
+  .score-comp-val { font-family: var(--font-mono); font-size: 11px; text-align: right; }
+
+  /* ── IOC EXPLORER ────────────────────────────────────── */
+  .ioc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ioc-section { }
+  .ioc-section-title {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ioc-list { display: flex; flex-direction: column; gap: 4px; }
+  .ioc-item {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-primary);
+    padding: 6px 10px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .ioc-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .copy-btn {
+    font-size: 10px;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .copy-btn:hover { color: var(--accent-cyan); background: rgba(0,212,255,0.1); }
+
+  /* ── ATTACK CHAIN VISUALIZER ──────────────────────────── */
+  .kill-chain { display: flex; gap: 0; overflow-x: auto; padding: 4px 0; }
+  .kc-phase {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 100px;
+    position: relative;
+    padding: 8px 6px;
+  }
+  .kc-phase::after {
+    content: '';
+    position: absolute;
+    right: -10px;
+    top: 20px;
+    width: 20px;
+    height: 2px;
+    background: var(--border);
+    z-index: 1;
+  }
+  .kc-phase:last-child::after { display: none; }
+  .kc-phase.active::after { background: var(--accent-cyan); }
+  .kc-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    margin-bottom: 6px;
+    z-index: 2;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .kc-phase.active .kc-dot {
+    background: rgba(0,212,255,0.15);
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 12px rgba(0,212,255,0.3);
+  }
+  .kc-phase.current .kc-dot {
+    background: rgba(255,51,102,0.15);
+    border-color: var(--accent-red);
+    box-shadow: 0 0 12px rgba(255,51,102,0.4);
+    animation: pulse 1.5s infinite;
+  }
+  .kc-name { font-size: 10px; color: var(--text-dim); text-align: center; line-height: 1.2; }
+  .kc-phase.active .kc-name { color: var(--accent-cyan); }
+  .kc-phase.current .kc-name { color: var(--accent-red); font-weight: 600; }
+
+  /* ── RECOMMENDATIONS ─────────────────────────────────── */
+  .rec-list { display: flex; flex-direction: column; gap: 10px; }
+  .rec-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .rec-header {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .rec-header:hover { background: var(--bg-hover); }
+  .rec-priority {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .p1 { background: rgba(255,51,102,0.2); color: var(--accent-red); border: 1px solid var(--accent-red); }
+  .p2 { background: rgba(255,140,0,0.2); color: var(--accent-orange); border: 1px solid var(--accent-orange); }
+  .p3 { background: rgba(255,215,0,0.2); color: var(--accent-yellow); border: 1px solid var(--accent-yellow); }
+  .p4 { background: rgba(0,255,157,0.1); color: var(--accent-green); border: 1px solid var(--accent-green); }
+  .rec-action { font-size: 13px; font-weight: 600; flex: 1; }
+  .rec-urgency { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+  .rec-body { padding: 0 14px 14px; display: none; }
+  .rec-body.expanded { display: block; }
+  .rec-rationale { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; font-style: italic; }
+  .rec-steps { font-size: 12px; }
+  .rec-step { padding: 4px 0; color: var(--text-primary); padding-left: 16px; position: relative; }
+  .rec-step::before { content: '›'; position: absolute; left: 0; color: var(--accent-cyan); }
+
+  /* ── MITRE HEATMAP ───────────────────────────────────── */
+  .mitre-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mitre-cell {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    padding: 5px 8px;
+    border-radius: 4px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--accent-cyan);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mitre-cell:hover { background: rgba(0,212,255,0.2); }
+
+  /* ── TABS ────────────────────────────────────────────── */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab {
+    padding: 10px 18px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text-primary); }
+  .tab.active { color: var(--accent-cyan); border-bottom-color: var(--accent-cyan); }
+
+  /* ── STIX VIEWER ─────────────────────────────────────── */
+  .stix-viewer {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--accent-green);
+    line-height: 1.6;
+  }
+
+  /* ── BOTTOM GRID ─────────────────────────────────────── */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* ── SCROLLBAR ───────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* ── EMPTY STATE ─────────────────────────────────────── */
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-dim);
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; }
+
+  /* ── LOADER ──────────────────────────────────────────── */
+  .loader {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent-cyan);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── TOAST ───────────────────────────────────────────── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--accent-green);
+    color: var(--accent-green);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 12px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    z-index: 999;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── RESPONSIVE ──────────────────────────────────────── */
+  @media (max-width: 1200px) {
+    .kpi-strip { grid-template-columns: repeat(3, 1fr); }
+    .main-grid { grid-template-columns: 1fr; }
+    .bottom-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+    .ioc-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── API KEY STATUS ──────────────────────────────────── */
+  .api-status-bar {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
+  .api-key-display {
+    font-family: var(--font-mono);
+    color: var(--accent-cyan);
+    font-size: 11px;
+  }
+  .tier-badge {
+    background: rgba(0,212,255,0.15);
+    border: 1px solid var(--accent-cyan);
+    color: var(--accent-cyan);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── NO ITEM SELECTED STATE ──────────────────────────── */
+  .no-selection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: var(--text-dim);
+    text-align: center;
+    gap: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+  }
+  .no-selection .icon { font-size: 48px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════ HEADER -->
+<header class="header">
+  <div class="header-brand">
+    <div class="brand-logo">🛡</div>
+    <div>
+      <div class="brand-name">CYBERDUDEBIVASH® SENTINEL APEX</div>
+      <div class="brand-sub">Threat Intelligence Platform v82.0</div>
+    </div>
+  </div>
+  <div class="header-status">
+    <div class="status-pill">
+      <span class="status-dot"></span>
+      <span>Pipeline Active</span>
+    </div>
+    <div class="status-pill">
+      <span class="status-dot" style="background: var(--accent-cyan);"></span>
+      <span id="feed-count">Loading...</span>
+    </div>
+    <div class="status-pill" id="sync-status-pill" title="Platform sync status — updated every 30s">
+      <span class="status-dot" id="sync-status-dot" style="background: var(--accent-cyan);"></span>
+      <span id="sync-status-label">SYNC</span>
+    </div>
+    <div class="header-time" id="live-clock"></div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════ MAIN -->
+<div class="container">
+
+  <!-- API Key Status Bar -->
+  <div class="api-status-bar">
+    <div>API Endpoint: <span class="api-key-display" id="api-endpoint">Loading...</span></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span>Tier:</span>
+      <span class="tier-badge" id="api-tier">FREE</span>
+      <span id="api-rate-status" style="color:var(--accent-green);">● Rate limit OK</span>
+    </div>
+  </div>
+
+  <!-- KPI Strip -->
+  <div class="kpi-strip">
+    <div class="kpi-card kpi-crit">
+      <div class="kpi-label">Critical Threats</div>
+      <div class="kpi-value" id="kpi-critical">—</div>
+      <div class="kpi-delta">Active in last 24h</div>
+    </div>
+    <div class="kpi-card kpi-high">
+      <div class="kpi-label">High Severity</div>
+      <div class="kpi-value" id="kpi-high">—</div>
+      <div class="kpi-delta">Requires action</div>
+    </div>
+    <div class="kpi-card kpi-cyan">
+      <div class="kpi-label">IOCs Tracked</div>
+      <div class="kpi-value" id="kpi-iocs">—</div>
+      <div class="kpi-delta">Across all feeds</div>
+    </div>
+    <div class="kpi-card kpi-cyan">
+      <div class="kpi-label">CVEs Enriched</div>
+      <div class="kpi-value" id="kpi-cves">—</div>
+      <div class="kpi-delta">NVD + EPSS + KEV</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-label">Detection Rules</div>
+      <div class="kpi-value" id="kpi-rules">—</div>
+      <div class="kpi-delta">Sigma + YARA</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Last Pipeline</div>
+      <div class="kpi-value" id="kpi-pipeline" style="font-size:14px;color:var(--accent-green);">—</div>
+      <div class="kpi-delta" id="kpi-pipeline-time">N/A</div>
+    </div>
+  </div>
+
+  <!-- Main Grid: Feed + Detail -->
+  <div class="main-grid">
+
+    <!-- LEFT: Threat Feed Sidebar -->
+    <div class="sidebar">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">🔴 Threat Intelligence Feed
+            <span class="panel-badge" id="feed-badge">0</span>
+          </span>
+          <span class="loader" id="feed-loader" style="display:none;"></span>
+        </div>
+        <div class="panel-body" style="padding-bottom:0;">
+          <input type="text" class="search-bar" id="search-input"
+                 placeholder="Search CVE, actor, malware, IOC..." />
+          <div class="filter-row">
+            <span class="chip active" data-filter="all">All</span>
+            <span class="chip crit" data-filter="CRITICAL">Critical</span>
+            <span class="chip high" data-filter="HIGH">High</span>
+            <span class="chip med" data-filter="MEDIUM">Medium</span>
+            <span class="chip low" data-filter="LOW">Low</span>
+          </div>
+        </div>
+        <div class="threat-feed" id="threat-feed" style="max-height:600px;overflow-y:auto;">
+          <div class="empty-state"><div class="icon">📡</div><p>Loading threat intelligence...</p></div>
+        </div>
+      </div>
+
+      <!-- IOC Quick Reference -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">🔍 IOC Explorer</span>
+        </div>
+        <div class="panel-body">
+          <input type="text" class="search-bar" id="ioc-search"
+                 placeholder="Search IP, domain, hash..." style="margin-bottom:12px;" />
+          <div id="ioc-explorer-results">
+            <div class="empty-state" style="padding:20px;">
+              <p style="font-size:11px;">Select a threat or type to search IOCs</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Detail Panel -->
+    <div class="detail-panel" id="detail-panel">
+      <div class="no-selection">
+        <div class="icon">🛡</div>
+        <div>
+          <p style="font-size:14px;font-weight:600;color:var(--text-secondary);">Select a threat from the feed</p>
+          <p style="font-size:12px;margin-top:6px;">or load the latest intelligence</p>
+        </div>
+        <button onclick="loadFeed()" style="
+          margin-top:12px;padding:10px 24px;border-radius:6px;
+          background:rgba(0,212,255,0.1);border:1px solid var(--accent-cyan);
+          color:var(--accent-cyan);font-size:13px;cursor:pointer;
+        ">Load Latest Intel</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom Grid: MITRE + Rules + Stats -->
+  <div class="bottom-grid">
+
+    <!-- MITRE ATT&CK Coverage -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">⚔️ MITRE ATT&CK Coverage</span>
+      </div>
+      <div class="panel-body">
+        <div class="mitre-grid" id="mitre-heatmap">
+          <div class="empty-state" style="padding:20px;width:100%;">
+            <p style="font-size:11px;">Load intel to view TTP coverage</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detection Rules Summary -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📋 Detection Rules</span>
+        <span class="panel-badge" id="rules-badge">0</span>
+      </div>
+      <div class="panel-body">
+        <div id="rules-summary">
+          <div class="empty-state" style="padding:20px;">
+            <p style="font-size:11px;">No rules generated yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Platform Stats -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📊 Platform Statistics</span>
+      </div>
+      <div class="panel-body">
+        <div id="platform-stats">
+          <div class="empty-state" style="padding:20px;">
+            <p style="font-size:11px;">Connecting to API...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// CYBERDUDEBIVASH® SENTINEL APEX — Dashboard v82.0
+// Production JavaScript: Real API integration, reactive UI
+// ══════════════════════════════════════════════════════════════════
+
+'use strict';
+
+// ── Configuration ─────────────────────────────────────────────────
+const CONFIG = {
+  apiBase:   window.location.origin,
+  // v100.0: Live API endpoints (primary) + static file fallbacks
+  feedPath:  '/api/v1/intel/feed?limit=200',
+  latestPath:'/api/v1/intel/latest?n=50',
+  // Legacy static fallbacks (served by /api/feed.json compat route)
+  feedPathStatic:  '/api/feed.json',
+  latestPathStatic:'/api/latest.json',
+  refreshMs: 120000,  // 2-minute auto-refresh
+  maxItems:  200,
+};
+
+// ── State ─────────────────────────────────────────────────────────
+let state = {
+  items:        [],
+  filtered:     [],
+  selected:     null,
+  filterSev:    'all',
+  searchQuery:  '',
+  apiKey:       localStorage.getItem('cdb_api_key') || '',
+  tier:         localStorage.getItem('cdb_tier') || 'FREE',
+  syncState:    { status: 'unknown', apex_mode: null, feed_age_h: null, last_checked: null },
+};
+
+// ── Initialize ────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  startClock();
+  startHeartbeat();          // sync status widget — 30s polling
+  loadFeed();
+  loadPlatformStats();
+  setupSearch();
+  setupFilters();
+  setInterval(loadFeed, CONFIG.refreshMs);
+
+  // Show API endpoint
+  document.getElementById('api-endpoint').textContent = CONFIG.apiBase + '/api/v1';
+  document.getElementById('api-tier').textContent = state.tier;
+});
+
+// ── Live Clock ────────────────────────────────────────────────────
+function startClock() {
+  const el = document.getElementById('live-clock');
+  const update = () => {
+    el.textContent = new Date().toUTCString().replace(' GMT', ' UTC');
+  };
+  update();
+  setInterval(update, 1000);
+}
+
+// ── Sync Heartbeat ────────────────────────────────────────────────
+// Polls /api/v1/health/full every 30 seconds.
+// Updates the LIVE/WARN/STALE/DEGRADED sync pill in the header.
+function startHeartbeat() {
+  const HEARTBEAT_MS = 30000;
+  const dot   = document.getElementById('sync-status-dot');
+  const label = document.getElementById('sync-status-label');
+  const pill  = document.getElementById('sync-status-pill');
+
+  const STATUS_COLORS = {
+    live:     'var(--accent-green)',
+    warn:     'var(--accent-yellow, #f59e0b)',
+    stale:    'var(--accent-orange, #f97316)',
+    degraded: 'var(--accent-red)',
+    unknown:  'var(--accent-cyan)',
+  };
+  const STATUS_LABELS = {
+    live:     '● LIVE',
+    warn:     '◐ WARN',
+    stale:    '◑ STALE',
+    degraded: '✖ DEGRADED',
+    unknown:  '○ SYNC',
+  };
+
+  async function heartbeat() {
+    try {
+      const headers = {};
+      if (state.apiKey) headers['X-API-Key'] = state.apiKey;
+      const r = await fetch(`${CONFIG.apiBase}/api/v1/health/full`, {
+        cache: 'no-store', headers,
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const body = await r.json();
+
+      const status   = (body.status || 'unknown').toLowerCase();
+      const apexMode = body.apex_mode || null;
+      const feedAge  = body.feed_freshness ? body.feed_freshness.age_hours : null;
+
+      state.syncState = {
+        status,
+        apex_mode:    apexMode,
+        feed_age_h:   feedAge,
+        last_checked: new Date().toISOString(),
+        advisory_count: body.advisory_count || null,
+        desync:       body.desync_detected || false,
+      };
+
+      // Update pill
+      const color  = STATUS_COLORS[status] || STATUS_COLORS.unknown;
+      const lbl    = STATUS_LABELS[status]  || `○ ${status.toUpperCase()}`;
+      dot.style.background = color;
+      label.textContent    = lbl;
+
+      // Tooltip: apex mode + feed age
+      const ageStr  = feedAge !== null ? `Feed: ${feedAge.toFixed(1)}h old` : '';
+      const modeStr = apexMode ? `Mode: ${apexMode}` : '';
+      const desync  = state.syncState.desync ? ' | ⚠ DESYNC' : '';
+      pill.title = `${lbl} — ${[ageStr, modeStr].filter(Boolean).join(' | ')}${desync}`;
+
+      // Red flash on desync
+      if (state.syncState.desync) {
+        pill.style.border = '1px solid var(--accent-red)';
+      } else {
+        pill.style.border = '';
+      }
+    } catch (e) {
+      dot.style.background = STATUS_COLORS.unknown;
+      label.textContent    = STATUS_LABELS.unknown;
+      pill.title           = `Heartbeat error: ${e.message}`;
+    }
+  }
+
+  heartbeat();                               // immediate first check
+  setInterval(heartbeat, HEARTBEAT_MS);      // then every 30 seconds
+}
+
+// ── Feed Loading ──────────────────────────────────────────────────
+async function loadFeed() {
+  showLoader(true);
+
+  try {
+    // v100.0: Primary = live API (/api/v1/intel/feed), fallbacks = compat routes
+    let data = await fetchWithFallback(
+      CONFIG.feedPath,
+      CONFIG.latestPath,
+      CONFIG.feedPathStatic,
+      CONFIG.latestPathStatic
+    );
+    if (!data) {
+      data = generateDemoData();
+    }
+
+    state.items = normalizeItems(data);
+    updateKPIs();
+    renderFeed();
+    updateMitreHeatmap();
+    document.getElementById('feed-count').textContent = `${state.items.length} advisories`;
+    document.getElementById('feed-badge').textContent = state.items.length;
+  } catch (err) {
+    console.warn('Feed load failed, using demo data:', err);
+    state.items = generateDemoData();
+    updateKPIs();
+    renderFeed();
+  } finally {
+    showLoader(false);
+  }
+}
+
+async function fetchWithFallback(...urls) {
+  for (const url of urls) {
+    try {
+      const headers = {};
+      if (state.apiKey) headers['X-API-Key'] = state.apiKey;
+      const r = await fetch(url, { cache: 'no-store', headers });
+      if (r.ok) {
+        const raw = await r.json();
+        // Handle API envelope {status, data:[...]} and plain arrays
+        const items = raw.data || raw.advisories || raw.items || (Array.isArray(raw) ? raw : null);
+        if (items && items.length > 0) return items;
+      }
+    } catch (e) { /* try next url */ }
+  }
+  return null;
+}
+
+function normalizeItems(raw) {
+  if (!Array.isArray(raw)) {
+    raw = raw.advisories || raw.items || [];
+  }
+  return raw.slice(0, CONFIG.maxItems).map((item, i) => ({
+    id:          item.id || item.intel_id || `ITEM-${i}`,
+    title:       item.title || 'Unknown Threat',
+    severity:    item.severity || item.risk_severity || inferSeverity(item),
+    risk_score:  item.risk_score || item.score || 0,
+    cves:        item.cves || extractCVEs(item.title + ' ' + (item.description || '')),
+    actors:      item.actors || item.threat_actors || [],
+    malware:     item.malware_families || item.malware || [],
+    iocs:        item.iocs || {},
+    ttps:        item.ttps || item.mitre_ttps || [],
+    source:      item.source || item.source_url || '',
+    published:   item.published || item.date || item.timestamp || new Date().toISOString(),
+    description: item.description || item.content || item.summary || '',
+    stix_bundle: item.stix_bundle || null,
+    kev_status:  item.kev_status || false,
+    epss_score:  item.epss_score || 0,
+    attack_chain:item.attack_chain || null,
+    recommendations: item.recommendations || [],
+  }));
+}
+
+function inferSeverity(item) {
+  const score = item.risk_score || item.score || 0;
+  if (score >= 85 || item.kev_status) return 'CRITICAL';
+  if (score >= 70) return 'HIGH';
+  if (score >= 45) return 'MEDIUM';
+  if (score >= 20) return 'LOW';
+  return 'INFORMATIONAL';
+}
+
+function extractCVEs(text) {
+  return [...new Set((text.match(/CVE-\d{4}-\d{4,7}/gi) || []).map(c => c.toUpperCase()))].slice(0, 5);
+}
+
+// ── Demo Data ─────────────────────────────────────────────────────
+function generateDemoData() {
+  return [
+    {
+      id: 'APEX-2024-001', title: 'CRITICAL: LockBit 3.0 + Log4Shell CVE-2021-44228 Active Campaign',
+      severity: 'CRITICAL', risk_score: 97, cves: ['CVE-2021-44228'],
+      actors: ['LockBit', 'APT41'], malware: ['LockBit', 'Cobalt Strike'],
+      ttps: ['T1190', 'T1059.001', 'T1486', 'T1490', 'T1003.001'],
+      iocs: { ipv4: ['198.51.100.10', '203.0.113.50'], domain: ['lockbit-c2.example.com'], sha256: ['a3f1d2c4' + 'e5b67890'.repeat(7)] },
+      published: new Date(Date.now() - 2*3600000).toISOString(),
+      kev_status: true, epss_score: 0.97,
+      description: 'Active ransomware campaign exploiting Log4Shell. CISA KEV-listed. Immediate patching required.',
+    },
+    {
+      id: 'APEX-2024-002', title: 'HIGH: ProxyLogon Exploitation Chain — Exchange Server Compromise',
+      severity: 'HIGH', risk_score: 78, cves: ['CVE-2021-26855'],
+      actors: ['HAFNIUM', 'APT28'], malware: ['China Chopper', 'DLTMiner'],
+      ttps: ['T1190', 'T1059.003', 'T1078', 'T1071.001'],
+      iocs: { ipv4: ['192.0.2.100'], domain: ['hafnium-c2.example.com', 'exchange-webshell.net'] },
+      published: new Date(Date.now() - 6*3600000).toISOString(),
+      kev_status: true, epss_score: 0.75,
+      description: 'HAFNIUM exploiting Exchange ProxyLogon chain. Web shells deployed post-compromise.',
+    },
+    {
+      id: 'APEX-2024-003', title: 'MEDIUM: Cl0p Ransomware MOVEit Transfer Zero-Day Exploitation',
+      severity: 'MEDIUM', risk_score: 62, cves: ['CVE-2023-34362'],
+      actors: ['Cl0p'], malware: ['Cl0p'],
+      ttps: ['T1190', 'T1566', 'T1486'],
+      iocs: { domain: ['clop-ransom.example.com'], sha256: ['deadbeef'.repeat(8)] },
+      published: new Date(Date.now() - 24*3600000).toISOString(),
+      kev_status: false, epss_score: 0.42,
+      description: 'Cl0p ransomware actively exploiting MOVEit Transfer SQL injection vulnerability.',
+    },
+    {
+      id: 'APEX-2024-004', title: 'HIGH: BlackCat ALPHV Ransomware — Healthcare Sector Targeting',
+      severity: 'HIGH', risk_score: 81, cves: ['CVE-2024-1709'],
+      actors: ['BlackCat'], malware: ['BlackCat', 'Cobalt Strike'],
+      ttps: ['T1486', 'T1490', 'T1059', 'T1562', 'T1190'],
+      iocs: { ipv4: ['10.0.0.1', '172.16.0.1'], domain: ['blackcat-leak.example.com'] },
+      published: new Date(Date.now() - 12*3600000).toISOString(),
+      kev_status: true, epss_score: 0.88,
+      description: 'ALPHV/BlackCat targeting critical healthcare infrastructure. ConnectWise ScreenConnect exploit.',
+    },
+    {
+      id: 'APEX-2024-005', title: 'CRITICAL: APT29 Midnight Blizzard — Supply Chain Compromise',
+      severity: 'CRITICAL', risk_score: 92, cves: [],
+      actors: ['APT29', 'Midnight Blizzard'], malware: ['SUNBURST', 'TEARDROP'],
+      ttps: ['T1195', 'T1566', 'T1071', 'T1027', 'T1550'],
+      iocs: { domain: ['updates.example-sw.com', 'telemetry.avsvmcloud.com'] },
+      published: new Date(Date.now() - 1*3600000).toISOString(),
+      kev_status: false, epss_score: 0.0,
+      description: 'Russian SVR-attributed supply chain attack. Multiple government and technology sector victims.',
+    },
+    {
+      id: 'APEX-2024-006', title: 'LOW: Emotet Banking Trojan Resurgence — Phishing Campaign',
+      severity: 'LOW', risk_score: 35, cves: [],
+      actors: ['TA542'], malware: ['Emotet', 'TrickBot'],
+      ttps: ['T1566.001', 'T1059.003', 'T1027'],
+      iocs: { ipv4: ['198.51.100.20'], domain: ['emotet-dropper.example.net'] },
+      published: new Date(Date.now() - 48*3600000).toISOString(),
+      kev_status: false, epss_score: 0.05,
+      description: 'New Emotet spam campaign via malicious Office macros. Standard phishing prevention applies.',
+    },
+  ];
+}
+
+// ── KPI Update ────────────────────────────────────────────────────
+function updateKPIs() {
+  const counts = { CRITICAL: 0, HIGH: 0 };
+  let totalIocs = 0, totalCves = new Set(), totalRules = 0;
+
+  state.items.forEach(item => {
+    if (counts[item.severity] !== undefined) counts[item.severity]++;
+    Object.values(item.iocs).forEach(v => { if (Array.isArray(v)) totalIocs += v.length; });
+    item.cves.forEach(c => totalCves.add(c));
+    totalRules += (item.ttps.length > 0 ? 2 : 0);
+  });
+
+  document.getElementById('kpi-critical').textContent = counts.CRITICAL;
+  document.getElementById('kpi-high').textContent     = counts.HIGH;
+  document.getElementById('kpi-iocs').textContent     = totalIocs.toLocaleString();
+  document.getElementById('kpi-cves').textContent     = totalCves.size;
+  document.getElementById('kpi-rules').textContent    = totalRules;
+  document.getElementById('kpi-pipeline').textContent = '✓ OK';
+  document.getElementById('kpi-pipeline-time').textContent = new Date().toUTCString().slice(17, 25) + ' UTC';
+}
+
+// ── Render Feed ───────────────────────────────────────────────────
+function renderFeed() {
+  const q = state.searchQuery.toLowerCase();
+  const sevFilter = state.filterSev;
+
+  state.filtered = state.items.filter(item => {
+    if (sevFilter !== 'all' && item.severity !== sevFilter) return false;
+    if (!q) return true;
+    const text = [
+      item.title, item.description,
+      ...item.cves, ...item.actors, ...item.malware,
+      ...Object.values(item.iocs).flat(),
+    ].join(' ').toLowerCase();
+    return text.includes(q);
+  });
+
+  const container = document.getElementById('threat-feed');
+
+  if (state.filtered.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><p>No threats match filters</p></div>';
+    return;
+  }
+
+  container.innerHTML = state.filtered.map(item => `
+    <div class="threat-item ${state.selected?.id === item.id ? 'selected' : ''}"
+         onclick="selectItem('${item.id}')">
+      <div class="threat-item-header">
+        <div class="threat-title">${escHtml(item.title)}</div>
+        <span class="severity-badge sev-${item.severity}">${item.severity}</span>
+      </div>
+      <div class="threat-meta">
+        <span>⚡ ${item.risk_score}/100</span>
+        ${item.kev_status ? '<span style="color:var(--accent-red);">🚨 KEV</span>' : ''}
+        <span>${timeAgo(item.published)}</span>
+      </div>
+      <div class="threat-tags">
+        ${item.cves.slice(0,2).map(c => `<span class="tag cve">${escHtml(c)}</span>`).join('')}
+        ${item.actors.slice(0,1).map(a => `<span class="tag actor">${escHtml(a)}</span>`).join('')}
+        ${item.malware.slice(0,1).map(m => `<span class="tag mal">${escHtml(m)}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Select Item ───────────────────────────────────────────────────
+function selectItem(id) {
+  state.selected = state.items.find(i => i.id === id) || null;
+  if (!state.selected) return;
+
+  // Re-render feed to update selection highlight
+  renderFeed();
+  renderDetail(state.selected);
+  renderIOCExplorer(state.selected.iocs);
+  updateRulesSummary(state.selected);
+}
+
+// ── Detail Panel ──────────────────────────────────────────────────
+function renderDetail(item) {
+  const panel = document.getElementById('detail-panel');
+  const iocs = item.iocs || {};
+  const scoreColor = item.risk_score >= 85 ? '#ff3366' : item.risk_score >= 70 ? '#ff8c00' : item.risk_score >= 45 ? '#ffd700' : '#00ff9d';
+  const circumference = 2 * Math.PI * 36;
+  const dashoffset = circumference * (1 - item.risk_score / 100);
+
+  const scoreComponents = [
+    { label: 'CVSS Base',  val: Math.min(30, (item.risk_score / 100) * 30), max: 30 },
+    { label: 'EPSS Score', val: (item.epss_score || 0) * 20, max: 20 },
+    { label: 'KEV Status', val: item.kev_status ? 25 : 0, max: 25 },
+    { label: 'Malware',    val: item.malware.length > 0 ? Math.min(15, item.malware.length * 5) : 0, max: 15 },
+    { label: 'IOC Density',val: Math.min(5, Object.values(iocs).flat().length * 0.2), max: 5 },
+  ];
+
+  panel.innerHTML = `
+    <!-- Detail Header -->
+    <div class="detail-header">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div class="detail-title">${escHtml(item.title)}</div>
+        <span class="severity-badge sev-${item.severity}" style="font-size:12px;padding:5px 12px;">${item.severity}</span>
+      </div>
+
+      <!-- Score Display -->
+      <div class="score-display">
+        <div class="score-ring">
+          <svg viewBox="0 0 90 90">
+            <circle cx="45" cy="45" r="36" fill="none" stroke="var(--bg-secondary)" stroke-width="7"/>
+            <circle cx="45" cy="45" r="36" fill="none" stroke="${scoreColor}" stroke-width="7"
+              stroke-dasharray="${circumference}" stroke-dashoffset="${dashoffset}"
+              stroke-linecap="round"/>
+          </svg>
+          <div class="score-ring-text">
+            <span class="score-number" style="color:${scoreColor}">${item.risk_score}</span>
+            <span class="score-label">RISK</span>
+          </div>
+        </div>
+        <div class="score-breakdown">
+          ${scoreComponents.map(c => `
+            <div class="score-component">
+              <span class="score-comp-label">${c.label}</span>
+              <div class="score-comp-bar">
+                <div class="score-comp-fill" style="width:${(c.val/c.max*100)}%;background:${c.val>20?'var(--accent-red)':c.val>10?'var(--accent-orange)':'var(--accent-cyan)'}"></div>
+              </div>
+              <span class="score-comp-val" style="color:${c.val>20?'var(--accent-red)':'var(--text-secondary)'}">${c.val.toFixed(1)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="detail-meta">
+        <div class="detail-meta-item">📅 Published: <span>${new Date(item.published).toUTCString().slice(0,25)}</span></div>
+        ${item.kev_status ? '<div class="detail-meta-item" style="color:var(--accent-red);">🚨 <span>CISA KEV Confirmed</span></div>' : ''}
+        ${item.epss_score > 0 ? `<div class="detail-meta-item">🎯 EPSS: <span>${(item.epss_score*100).toFixed(0)}%</span></div>` : ''}
+        ${item.source ? `<div class="detail-meta-item">🔗 <a href="${item.source}" target="_blank" style="color:var(--accent-cyan);text-decoration:none;font-size:12px;">Source</a></div>` : ''}
+      </div>
+
+      <p style="font-size:12px;color:var(--text-secondary);margin-top:12px;line-height:1.6;">${escHtml(item.description)}</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="panel" style="overflow:visible;">
+      <div class="panel-body">
+        <div class="tabs" id="detail-tabs">
+          <span class="tab active" onclick="switchTab('attack-chain', this)">⚔️ Attack Chain</span>
+          <span class="tab" onclick="switchTab('iocs', this)">🔍 IOCs</span>
+          <span class="tab" onclick="switchTab('recommendations', this)">🛡 Recommendations</span>
+          <span class="tab" onclick="switchTab('stix', this)">📦 STIX Bundle</span>
+        </div>
+
+        <!-- Tab: Attack Chain -->
+        <div id="tab-attack-chain" class="tab-content">
+          ${renderAttackChain(item)}
+        </div>
+
+        <!-- Tab: IOCs -->
+        <div id="tab-iocs" class="tab-content" style="display:none;">
+          ${renderIOCDetail(iocs)}
+        </div>
+
+        <!-- Tab: Recommendations -->
+        <div id="tab-recommendations" class="tab-content" style="display:none;">
+          ${renderRecommendations(item)}
+        </div>
+
+        <!-- Tab: STIX -->
+        <div id="tab-stix" class="tab-content" style="display:none;">
+          <div class="stix-viewer">${escHtml(JSON.stringify(item.stix_bundle || buildDemoStix(item), null, 2))}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAttackChain(item) {
+  const phases = ['Initial Access', 'Execution', 'Persistence', 'Defense Evasion',
+                  'Credential Access', 'Discovery', 'Lateral Movement', 'C&C', 'Exfiltration', 'Impact'];
+  const activeTtps = item.ttps || [];
+
+  const phaseActive = {
+    'Initial Access':    activeTtps.some(t => ['T1566','T1190','T1133'].includes(t.split('.')[0])),
+    'Execution':         activeTtps.some(t => t.startsWith('T1059') || t === 'T1105'),
+    'Persistence':       activeTtps.some(t => t.startsWith('T1053') || t.startsWith('T1543')),
+    'Defense Evasion':   activeTtps.some(t => ['T1027','T1055','T1562','T1070'].includes(t.split('.')[0])),
+    'Credential Access': activeTtps.some(t => t.startsWith('T1003') || t.startsWith('T1558')),
+    'Discovery':         activeTtps.some(t => ['T1082','T1016','T1083'].includes(t)),
+    'Lateral Movement':  activeTtps.some(t => t.startsWith('T1021') || t === 'T1570'),
+    'C&C':               activeTtps.some(t => t.startsWith('T1071')),
+    'Exfiltration':      activeTtps.some(t => ['T1537','T1041'].includes(t)),
+    'Impact':            activeTtps.some(t => ['T1486','T1490','T1489'].includes(t)),
+  };
+
+  const currentPhase = [...Object.entries(phaseActive)].reverse().find(([,v]) => v)?.[0] || null;
+
+  const icons = {
+    'Initial Access': '🎣', 'Execution': '⚡', 'Persistence': '🔒',
+    'Defense Evasion': '🫥', 'Credential Access': '🔑', 'Discovery': '🔭',
+    'Lateral Movement': '↔️', 'C&C': '📡', 'Exfiltration': '📤', 'Impact': '💥',
+  };
+
+  return `
+    <div style="margin-bottom:16px;">
+      <div class="kill-chain">
+        ${phases.map(ph => {
+          const isActive = phaseActive[ph];
+          const isCurrent = ph === currentPhase;
+          return `
+            <div class="kc-phase ${isActive ? 'active' : ''} ${isCurrent ? 'current' : ''}">
+              <div class="kc-dot">${icons[ph] || '●'}</div>
+              <div class="kc-name">${ph}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+    ${currentPhase ? `
+      <div style="background:rgba(255,51,102,0.08);border:1px solid rgba(255,51,102,0.2);border-radius:6px;padding:12px;margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--accent-red);font-weight:600;margin-bottom:4px;">⚠ CURRENT PHASE: ${currentPhase}</div>
+        <div style="font-size:11px;color:var(--text-secondary);">${getPhasePrediction(currentPhase, item.malware)}</div>
+      </div>
+    ` : ''}
+    <div style="font-size:12px;color:var(--text-secondary);">
+      <strong style="color:var(--text-primary);">TTPs Observed:</strong>
+      <div class="mitre-grid" style="margin-top:8px;">
+        ${(item.ttps || []).map(t => `<span class="mitre-cell">${escHtml(t)}</span>`).join('') || '<span style="color:var(--text-dim);">No TTPs mapped</span>'}
+      </div>
+    </div>
+  `;
+}
+
+function getPhasePrediction(phase, malware) {
+  const preds = {
+    'Initial Access':  'Adversary has gained entry. Expect rapid execution and persistence next.',
+    'Execution':       'Payload running. Credential dumping and lateral movement likely next.',
+    'Credential Access':'Credentials compromised. Lateral movement with stolen credentials imminent.',
+    'Lateral Movement':'Spreading across network. Data collection and exfiltration risk is HIGH.',
+    'C&C':            'C2 established. Adversary can issue commands and receive stolen data.',
+    'Exfiltration':   'Data being exfiltrated. Ransomware deployment may follow.',
+    'Impact':         'CRITICAL: Ransomware/destruction in progress. Immediate containment required.',
+  };
+  return preds[phase] || 'Attack chain in progress. Monitor for escalation.';
+}
+
+function renderIOCDetail(iocs) {
+  const sections = [
+    { key: 'ipv4',   label: 'IP Addresses',    icon: '🌐' },
+    { key: 'domain', label: 'Domains',          icon: '🔗' },
+    { key: 'sha256', label: 'SHA256 Hashes',   icon: '🔏' },
+    { key: 'url',    label: 'URLs',             icon: '🌍' },
+    { key: 'cve',    label: 'CVE IDs',          icon: '⚠️' },
+  ];
+
+  const nonEmpty = sections.filter(s => (iocs[s.key] || []).length > 0);
+  if (nonEmpty.length === 0) return '<div class="empty-state" style="padding:30px;"><p>No IOCs extracted</p></div>';
+
+  return `<div class="ioc-grid">
+    ${nonEmpty.map(s => `
+      <div class="ioc-section">
+        <div class="ioc-section-title">${s.icon} ${s.label} (${(iocs[s.key]||[]).length})</div>
+        <div class="ioc-list">
+          ${(iocs[s.key] || []).slice(0, 10).map(v => `
+            <div class="ioc-item">
+              <span class="ioc-val" title="${escHtml(v)}">${escHtml(v)}</span>
+              <span class="copy-btn" onclick="copyToClip('${escHtml(v)}')">copy</span>
+            </div>
+          `).join('')}
+          ${(iocs[s.key]||[]).length > 10 ? `<div style="font-size:11px;color:var(--text-dim);padding:4px;">+${(iocs[s.key]||[]).length - 10} more</div>` : ''}
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function renderRecommendations(item) {
+  const recs = item.recommendations.length > 0 ? item.recommendations : generateDemoRecs(item);
+  return `<div class="rec-list">
+    ${recs.map((rec, i) => `
+      <div class="rec-item">
+        <div class="rec-header" onclick="toggleRec(${i})">
+          <span class="rec-priority ${(rec.priority||'P3').toLowerCase()}">${rec.priority || 'P3'}</span>
+          <span class="rec-action">${escHtml(rec.action || rec)}</span>
+          <span class="rec-urgency">${escHtml(rec.urgency || '')}</span>
+        </div>
+        <div class="rec-body" id="rec-body-${i}">
+          ${rec.rationale ? `<div class="rec-rationale">${escHtml(rec.rationale)}</div>` : ''}
+          ${rec.implementation ? `<div class="rec-steps">${rec.implementation.map(s => `<div class="rec-step">${escHtml(s)}</div>`).join('')}</div>` : ''}
+          ${rec.control ? `<div style="margin-top:8px;font-size:11px;color:var(--accent-cyan);">📋 ${escHtml(rec.control)}</div>` : ''}
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function generateDemoRecs(item) {
+  const recs = [];
+  if ((item.iocs.ipv4 || []).length > 0) {
+    recs.push({ priority: 'P1', urgency: 'Immediate', action: `Block ${(item.iocs.ipv4||[]).length} malicious IPs at perimeter firewall`,
+      rationale: 'Active C2 infrastructure. Blocking prevents beacon check-ins.',
+      implementation: ['Add to firewall deny rule immediately', 'Apply to all ingress/egress points'],
+      control: 'CIS Control 12: Network Infrastructure Management' });
+  }
+  if (item.kev_status) {
+    recs.push({ priority: 'P1', urgency: '< 24h (CISA KEV)', action: `Emergency patch for KEV CVEs: ${item.cves.join(', ')}`,
+      rationale: 'CISA KEV = confirmed active exploitation. Federal mandate requires urgent patching.',
+      implementation: ['Identify all instances in asset inventory', 'Apply vendor patch immediately'],
+      control: 'CIS Control 7: Continuous Vulnerability Management' });
+  }
+  if (item.malware.some(m => ['LockBit','BlackCat','Conti','REvil'].includes(m))) {
+    recs.push({ priority: 'P1', urgency: 'Immediate', action: 'Activate ransomware response: verify backups + segment network',
+      rationale: 'Ransomware detected. Backup integrity critical — groups target backups first.',
+      implementation: ['Verify offline backup integrity NOW', 'Block SMB lateral movement', 'Enable canary file monitoring'],
+      control: 'CIS Control 11: Data Recovery' });
+  }
+  recs.push({ priority: 'P3', urgency: 'Within 8h', action: 'Deploy generated detection rules to SIEM',
+    rationale: 'Sigma/YARA rules from SENTINEL APEX provide immediate SIEM/EDR coverage.',
+    implementation: ['Convert Sigma rules via sigma-cli', 'Import to Splunk/Elastic/Sentinel'],
+    control: 'CIS Control 8: Audit Log Management' });
+  return recs;
+}
+
+function buildDemoStix(item) {
+  return {
+    type: 'bundle', spec_version: '2.1',
+    id: `bundle--${item.id.toLowerCase().replace(/[^a-z0-9]/g,'-')}`,
+    objects: [
+      { type: 'report', name: item.title, x_cdb_risk_score: item.risk_score },
+      ...(item.iocs.ipv4 || []).slice(0,3).map(ip => ({
+        type: 'indicator', pattern: `[ipv4-addr:value = '${ip}']`, pattern_type: 'stix',
+      })),
+    ],
+  };
+}
+
+// ── Tab Switching ─────────────────────────────────────────────────
+function switchTab(tabId, el) {
+  document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const target = document.getElementById(`tab-${tabId}`);
+  if (target) target.style.display = 'block';
+  el.classList.add('active');
+}
+
+function toggleRec(i) {
+  const body = document.getElementById(`rec-body-${i}`);
+  if (body) body.classList.toggle('expanded');
+}
+
+// ── IOC Explorer ──────────────────────────────────────────────────
+function renderIOCExplorer(iocs) {
+  const container = document.getElementById('ioc-explorer-results');
+  const allIocs = [];
+  Object.entries(iocs || {}).forEach(([type, vals]) => {
+    (vals || []).forEach(v => allIocs.push({ type, value: v }));
+  });
+
+  if (allIocs.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:20px;"><p style="font-size:11px;">No IOCs in selection</p></div>';
+    return;
+  }
+
+  container.innerHTML = allIocs.slice(0, 15).map(({ type, value }) => `
+    <div class="ioc-item" style="margin-bottom:4px;">
+      <span style="font-size:9px;color:var(--text-dim);min-width:45px;">${type}</span>
+      <span class="ioc-val" style="font-size:10px;">${escHtml(value)}</span>
+      <span class="copy-btn" onclick="copyToClip('${escHtml(value)}')">⌘</span>
+    </div>
+  `).join('');
+}
+
+// ── MITRE Heatmap ─────────────────────────────────────────────────
+function updateMitreHeatmap() {
+  const ttpCounts = {};
+  state.items.forEach(item => {
+    (item.ttps || []).forEach(t => { ttpCounts[t] = (ttpCounts[t] || 0) + 1; });
+  });
+
+  const sorted = Object.entries(ttpCounts).sort((a,b) => b[1] - a[1]).slice(0, 30);
+  const container = document.getElementById('mitre-heatmap');
+
+  if (sorted.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:20px;width:100%;"><p style="font-size:11px;">No TTPs mapped</p></div>';
+    return;
+  }
+
+  const maxCount = sorted[0]?.[1] || 1;
+  container.innerHTML = sorted.map(([ttp, count]) => {
+    const intensity = count / maxCount;
+    const bg = `rgba(0,212,255,${0.05 + intensity * 0.35})`;
+    return `<span class="mitre-cell" style="background:${bg};" title="${ttp}: ${count} occurrences" onclick="filterByTtp('${ttp}')">${escHtml(ttp)} <sup>${count}</sup></span>`;
+  }).join('');
+}
+
+// ── Rules Summary ─────────────────────────────────────────────────
+function updateRulesSummary(item) {
+  const sigmaCount = item.ttps.length > 0 ? item.ttps.length + 1 : 0;
+  const yaraCount  = Object.keys(item.iocs).length > 0 ? 2 : 0;
+
+  document.getElementById('rules-badge').textContent = sigmaCount + yaraCount;
+  document.getElementById('rules-summary').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+        <span style="color:var(--text-secondary);">Sigma Rules</span>
+        <span style="color:var(--accent-cyan);font-family:var(--font-mono);font-weight:700;">${sigmaCount}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+        <span style="color:var(--text-secondary);">YARA Rules</span>
+        <span style="color:var(--accent-cyan);font-family:var(--font-mono);font-weight:700;">${yaraCount}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+        <span style="color:var(--text-secondary);">Playbooks</span>
+        <span style="color:var(--accent-green);font-family:var(--font-mono);font-weight:700;">1</span>
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;color:var(--text-secondary);">MITRE Coverage:</div>
+        <div class="mitre-grid" style="margin-top:6px;">
+          ${(item.ttps || []).slice(0,8).map(t => `<span class="mitre-cell" style="font-size:9px;">${escHtml(t)}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Platform Stats ────────────────────────────────────────────────
+async function loadPlatformStats() {
+  const container = document.getElementById('platform-stats');
+  // v100.0: Pull live stats from API; fall back to client-side computation
+  let apiStats = null;
+  try {
+    const headers = state.apiKey ? { 'X-API-Key': state.apiKey } : {};
+    const r = await fetch(`${CONFIG.apiBase}/api/v1/stats`, { headers, cache: 'no-store' });
+    if (r.ok) apiStats = await r.json();
+  } catch (_) { /* use client-side fallback */ }
+
+  const m = apiStats && apiStats.metrics ? apiStats.metrics : {};
+  const stats = {
+    'Total Advisories': m.total_advisories || state.items.length || '—',
+    'Critical':         m.critical_count   || state.items.filter(i => i.severity === 'CRITICAL').length || '—',
+    'KEV Tagged':       m.kev_tagged       || state.items.filter(i => i.kev_status).length || '—',
+    'Avg Risk Score':   m.avg_risk_score   || (state.items.length ? (state.items.reduce((s,i) => s+i.risk_score, 0)/state.items.length).toFixed(1) : '—'),
+    'API Version':      (apiStats && apiStats.platform_version) || 'v100.0',
+    'STIX Version':     '2.1',
+  };
+
+  container.innerHTML = Object.entries(stats).map(([k, v]) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;">
+      <span style="color:var(--text-secondary);">${k}</span>
+      <span style="color:var(--text-primary);font-family:var(--font-mono);font-weight:600;">${v}</span>
+    </div>
+  `).join('');
+}
+
+// ── Search & Filter ───────────────────────────────────────────────
+function setupSearch() {
+  let debounce;
+  document.getElementById('search-input').addEventListener('input', e => {
+    clearTimeout(debounce);
+    state.searchQuery = e.target.value;
+    debounce = setTimeout(renderFeed, 200);
+  });
+
+  document.getElementById('ioc-search').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    if (!q || !state.selected) return;
+    const allIocs = [];
+    Object.entries(state.selected.iocs || {}).forEach(([type, vals]) => {
+      (vals || []).forEach(v => { if (v.toLowerCase().includes(q)) allIocs.push({ type, value: v }); });
+    });
+    const container = document.getElementById('ioc-explorer-results');
+    if (allIocs.length === 0) {
+      container.innerHTML = '<div class="empty-state" style="padding:20px;"><p style="font-size:11px;">No IOCs match</p></div>';
+    } else {
+      container.innerHTML = allIocs.slice(0, 15).map(({ type, value }) => `
+        <div class="ioc-item" style="margin-bottom:4px;">
+          <span style="font-size:9px;color:var(--text-dim);min-width:45px;">${type}</span>
+          <span class="ioc-val" style="font-size:10px;">${escHtml(value)}</span>
+          <span class="copy-btn" onclick="copyToClip('${escHtml(value)}')">⌘</span>
+        </div>
+      `).join('');
+    }
+  });
+}
+
+function setupFilters() {
+  document.querySelectorAll('[data-filter]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('[data-filter]').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      state.filterSev = chip.dataset.filter;
+      renderFeed();
+    });
+  });
+}
+
+function filterByTtp(ttp) {
+  document.getElementById('search-input').value = ttp;
+  state.searchQuery = ttp;
+  renderFeed();
+}
+
+// ── Utilities ─────────────────────────────────────────────────────
+function showLoader(show) {
+  const l = document.getElementById('feed-loader');
+  if (l) l.style.display = show ? 'inline-block' : 'none';
+}
+
+function escHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function timeAgo(iso) {
+  const d = Date.now() - new Date(iso).getTime();
+  if (d < 3600000) return `${Math.floor(d/60000)}m ago`;
+  if (d < 86400000) return `${Math.floor(d/3600000)}h ago`;
+  return `${Math.floor(d/86400000)}d ago`;
+}
+
+async function copyToClip(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(`Copied: ${text.slice(0, 40)}...`);
+  } catch {
+    showToast('Copy failed — use manual select');
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = '✓ ' + msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Auto-load demo data on first render
+setTimeout(() => {
+  if (state.items.length === 0) {
+    state.items = generateDemoData().map((d,i) => ({...d, ...{id: d.id, risk_score: d.risk_score || 50}}));
+    state.items = normalizeItems(state.items);
+    updateKPIs();
+    renderFeed();
+    updateMitreHeatmap();
+    loadPlatformStats();
+  }
+}, 1500);
+</script>
+</body>
+</html>
