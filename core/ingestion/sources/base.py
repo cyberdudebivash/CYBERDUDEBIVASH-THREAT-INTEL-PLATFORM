@@ -301,3 +301,16 @@ class SourceParseError(SourceError):
 
 class SourceConfigError(SourceError):
     """Source mis-configured (missing required env var, bad URL, etc.)."""
+
+
+# ─────────────────────────────────────────────
+# Short-name aliases
+# ─────────────────────────────────────────────
+# BaseSource.fetch() catches these bare names in its exception handlers.
+# Define them here so all ingestion sources and the engine can import them
+# without needing the "Source" prefix.
+RateLimitError = SourceRateLimitError
+AuthError      = SourceAuthError
+ParseError     = SourceParseError
+NetworkError   = SourceNetworkError
+ConfigError    = SourceConfigError
