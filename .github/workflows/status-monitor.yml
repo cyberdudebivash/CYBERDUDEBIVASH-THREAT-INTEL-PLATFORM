@@ -1,10 +1,8 @@
-# =====================================================================
-# SENTINEL APEX — Platform Status Monitor v71.0
-# FIXED: gh-pages deploy REMOVED (sentinel-blogger is sole deployer)
-# FIXED: Global concurrency lock added
-# Status data written to data/status/ and committed to main only.
-# =====================================================================
-name: CDB Platform Status Monitor
+# =============================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX v101 — PLATFORM STATUS MONITOR
+# Version: v101.0.0 — PERMANENT PRODUCTION CONTRACT
+# =============================================================================
+name: CDB Platform Status Monitor v101
 
 on:
   schedule:
@@ -15,80 +13,63 @@ permissions:
   contents: write
 
 concurrency:
-  group: sentinel-data-writer
+  group: autonomous-guardian   # Use guardian group — status is lightweight
   cancel-in-progress: false
 
 jobs:
   status-check:
-    name: Platform Health Check & Status Page Generation
+    name: Platform Health Check v101
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
-        with:
-          fetch-depth: 1
+      - uses: actions/checkout@v4.2.2
+        with: {fetch-depth: 1}
+      - uses: actions/setup-python@v5.4.0
+        with: {python-version: '3.12', cache: 'pip'}
+      - run: pip install requests --quiet
+      - run: mkdir -p data/status
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5.4.0
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          pip install requests
-
-      - name: Create status directory
-        run: mkdir -p data/status
-
-      - name: Run Platform Status Monitor
+      - name: "Run Platform Status Monitor"
         env:
           CDB_API_URL: ${{ vars.CDB_API_URL || 'https://api.cyberdudebivash.com' }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           python3 - << 'PYEOF'
-          import sys, os
+          import sys, os, json
+          from datetime import datetime, timezone
           sys.path.insert(0, os.getcwd())
           try:
               from agent.monitoring.status_page import PlatformStatusMonitor
               monitor = PlatformStatusMonitor()
-              status  = monitor.run()
-              print(f"Platform Status: {status['status']}")
-              print(f"   Feed entries: {status['components']['threat_feed'].get('entry_count', 0)}")
+              status = monitor.run()
+              print(f"Platform: {status.get('status','UNKNOWN')}")
           except Exception as e:
-              print(f"Status monitor error: {e}")
-              import json
-              from datetime import datetime, timezone
-              fallback = {
-                  "platform": "CYBERDUDEBIVASH SENTINEL APEX",
-                  "status": "MONITORING",
-                  "generated_at": datetime.now(timezone.utc).isoformat(),
-                  "note": "Status monitor initializing"
-              }
-              os.makedirs("data/status", exist_ok=True)
-              with open("data/status/status.json", "w") as f:
-                  json.dump(fallback, f, indent=2)
+              print(f"Status monitor: {e}")
+              from pathlib import Path
+              Path("data/status").mkdir(exist_ok=True)
+              with open("data/status/status.json","w") as f:
+                  json.dump({"version":"101.0.0","platform":"CYBERDUDEBIVASH SENTINEL APEX",
+                             "status":"MONITORING","generated_at":datetime.now(timezone.utc).isoformat()},f,indent=2)
           PYEOF
 
-      - name: Commit status data
+      - name: "Safe Commit Status"
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.email "bivash@cyberdudebivash.com"
-          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
-          git config user.name "CDB-Status-Bot"
-          git add -f data/status/ 2>/dev/null || true
-          if git diff --staged --quiet; then
-            echo "No status changes to commit."
-          else
-            git commit -m "Status update: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
-            git pull origin main --no-rebase --no-edit -X ours && git push origin main || echo "Push skipped"
-          fi
+          git config --local user.email "status@cyberdudebivash.com"
+          git config --local user.name  "CDB-Status-Bot"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
+          git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
+          rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
-      # ═══════════════════════════════════════════════════
-      # gh-pages deploy REMOVED — sentinel-blogger is
-      # the SOLE AUTHORIZED deployer to gh-pages.
-      # Status data is committed to main and included
-      # in the next sentinel-blogger deployment cycle.
-      # ═══════════════════════════════════════════════════
+          git add -f data/status/ 2>/dev/null || true
+          if git diff --staged --quiet; then echo "No status changes."; exit 0; fi
+
+          git commit -m "Status update: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+          for i in 1 2 3; do
+            git fetch origin main --quiet
+            git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null||true; git merge origin/main -X ours --no-edit --quiet||true; }
+            git push origin main && break
+            sleep $((i*10)); [ $i -eq 3 ] && echo "Push deferred."
+          done

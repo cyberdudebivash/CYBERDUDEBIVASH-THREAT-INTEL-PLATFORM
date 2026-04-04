@@ -1,8 +1,11 @@
 # =================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX - MASTER IGNORE FILE
+# CYBERDUDEBIVASH® SENTINEL APEX v101 — MASTER IGNORE FILE
+# Last enforced: v101.0.0 — PERMANENT PRODUCTION CONTRACT
+# Architecture: Runtime-generated volatile data excluded;
+#               Pipeline-critical state files EXPLICITLY ALLOWED.
 # =================================================================
 
-# --- 🛑 CRITICAL: SOVEREIGNTY & AUTH (NEVER PUSH THESE) ---
+# --- SOVEREIGNTY & AUTH (NEVER PUSH) ---
 secrets/
 *.pem
 *.key
@@ -12,36 +15,78 @@ token.json
 credentials.json
 .env
 
-# --- 📦 ENTERPRISE ASSETS (PROTECT REVENUE) ---
-# Do not push the raw sellable assets; let the engine upload them to Gumroad
+# --- ENTERPRISE SELLABLE ASSETS (protect revenue, upload via Gumroad engine) ---
 data/rule_packs/
 data/playbooks/
 data/certificates/
 data/enterprise_kits/
 data/temp/
-data/
-api/*.json
-# --- 📉 PERSISTENCE & TRACKING ---
-# Keep manifest.json (needed for tracking), but ignore local cache
+
+# --- RUNTIME-VOLATILE DATA (generated fresh each cycle — NOT committed) ---
 data/blogger_processed.json
 data/sentinel_apex.db
 data/manifest_audit.json
 data/manifest_backups/
+data/.manifest_backups/
+data/manifest_versions/
+data/logs/
 *.log
 
-# --- 🐍 PYTHON HYGIENE ---
+# --- HIGH-VOLUME STIX INDIVIDUAL OBJECTS (committed via -f by sentinel-blogger) ---
+# These are large individual advisory JSON files — exclude from default tracking
+# The feed_manifest.json AGGREGATION is what matters and IS committed.
+data/stix/CDB-APEX-*.json
+
+# --- PIPELINE-CRITICAL STATE FILES — EXPLICITLY UN-IGNORED ---
+# These MUST be committed so all downstream workflows find them on checkout.
+!data/stix/feed_manifest.json
+!data/sync_marker.json
+!data/alert_history.json
+!data/audit_log.json
+!data/publish_queue.json
+!data/pending_publish.json
+!data/revenue_log.json
+!data/telemetry_log.json
+!data/cve_index.json
+!data/status/status.json
+!data/health/guardian_report.json
+!data/ai_predictions/latest.json
+!data/bughunter/bughunter_output.json
+!data/genesis/genesis_report.json
+!data/analyst/analyst_report.json
+!data/arsenal/arsenal_report.json
+!data/convergence/convergence_report.json
+!data/intelligence/detection_rules/rule_manifest.json
+
+# --- API ENDPOINT FILES — PIPELINE STATE (un-ignored) ---
+# api/ dir is committed — these are the live feed endpoints
+!api/feed.json
+!api/latest.json
+!api/status.json
+
+# --- PYTHON HYGIENE ---
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
 venv/
 env/
+.eggs/
+*.egg-info/
+dist/
+build/
 
-# --- 🖥️ OS TRASH ---
+# --- OS / IDE TRASH ---
 .DS_Store
 Thumbs.db
-* . b a k 
- 
- c h a n g e d _ f i l e s _ m i g r a t i o n . t x t 
- 
- 
+*.bak
+*.swp
+*.swo
+~$*
+changed_files_migration.txt
+
+# --- LARGE BINARIES / ARTIFACTS ---
+*.tar.gz
+*.zip
+*.patch
+3.9

@@ -43,5 +43,12 @@ jobs:
           git diff --cached --quiet && echo "No changes" || {
             RULES=$(python3 -c "import json; d=json.load(open('data/convergence/convergence_report.json')); print(d['integration_stats']['detection_rules'])" 2>/dev/null || echo "0")
             git commit -m "🔗 CONVERGENCE v37.0 — ZDH Integration | ${RULES} detection rules"
-            git pull --rebase origin main || true
-            git push; }
+                        git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
+            rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
+            for i in 1 2 3 4; do
+              git fetch origin main --quiet
+              git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null||true; git merge origin/main -X ours --no-edit --quiet||true; }
+              git push origin main && { echo "Push OK ($i/4)"; break; }
+              sleep $((i*15))
+              [ $i -eq 4 ] && echo "Push deferred."
+            done

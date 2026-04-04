@@ -1,33 +1,15 @@
-name: 🤖 CDB Autonomous Guardian Agent v1.0
-
-# ================================================================
-# AUTONOMOUS GUARDIAN — 24/7 self-healing platform monitor
-#
-# Triggers:
-#   1. After sentinel-blogger completes (primary pipeline watchdog)
-#   2. After sync-dashboard completes (sync watchdog)
-#   3. Hourly cron (catch failures from ALL other workflows)
-#   4. Manual dispatch (on-demand audit)
-#
-# What it does:
-#   - Reads GitHub Actions API for all recent workflow runs
-#   - Parses logs line-by-line for known failure signatures
-#   - Classifies root cause and applies the permanent fix
-#   - Validates the fix locally before committing
-#   - Commits + pushes fix autonomously to main branch
-#   - Writes structured health report to data/health/
-# ================================================================
+# =============================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX v101 — AUTONOMOUS GUARDIAN AGENT
+# Version: v101.0.0 — PERMANENT PRODUCTION CONTRACT
+# =============================================================================
+name: Autonomous Guardian Agent v101.0
 
 on:
   workflow_run:
-    workflows:
-      - "sentinel-blogger"
-      - "Dashboard Sync — EMBEDDED_INTEL Auto-Patcher v71.0"
+    workflows: ["sentinel-blogger", "Dashboard Sync — EMBEDDED_INTEL Auto-Patcher v101.0"]
     types: [completed]
-
   schedule:
-    - cron: '30 * * * *'  # Every hour at :30 — catches ALL workflow failures
-
+    - cron: '30 * * * *'   # Hourly at :30 — catches ALL workflow failures
   workflow_dispatch:
     inputs:
       lookback_hours:
@@ -41,34 +23,37 @@ on:
 
 permissions:
   contents: write
-  actions: read    # Required to read workflow run logs via API
+  actions: read
 
 concurrency:
   group: autonomous-guardian
-  cancel-in-progress: false  # Never cancel a running guardian cycle
+  cancel-in-progress: false
 
 jobs:
   guardian:
-    name: 🤖 Autonomous Guardian Cycle
+    name: Autonomous Guardian Cycle v101
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
+      - name: "Checkout"
         uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 1
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Python 3.12
+      - name: "Set up Python 3.12"
         uses: actions/setup-python@v5.4.0
         with:
           python-version: '3.12'
 
-      - name: Install minimal dependencies
+      - name: "Install Dependencies"
         run: pip install requests pyyaml --quiet
 
-      - name: "🤖 Run Autonomous Guardian"
+      - name: "Bootstrap Critical Files"
+        run: python3 scripts/bootstrap_critical_files.py
+
+      - name: "Run Autonomous Guardian"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -76,43 +61,41 @@ jobs:
           FORCE_REPORT: ${{ github.event.inputs.force_report || 'false' }}
           TRIGGER_WORKFLOW: ${{ github.event.workflow_run.name || 'scheduled' }}
           TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion || 'n/a' }}
-        run: |
-          echo "=================================================="
-          echo "🤖 CDB AUTONOMOUS GUARDIAN AGENT v1.0"
-          echo "Triggered by: ${TRIGGER_WORKFLOW} (${TRIGGER_CONCLUSION})"
-          echo "Lookback: ${LOOKBACK_HOURS}h"
-          echo "=================================================="
-          python3 agent/autonomous_guardian/guardian.py
-          echo "Guardian cycle complete."
+        run: python3 agent/autonomous_guardian/guardian.py || true
 
-      - name: "📊 Commit Guardian Report"
+      - name: "Commit Guardian Report"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --local user.email "guardian@cyberdudebivash.com"
-          git config --local user.name "CDB-Guardian-Bot"
+          git config --local user.name  "CDB-Guardian-Bot"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
+          git rebase --abort 2>/dev/null || true
+          git merge  --abort 2>/dev/null || true
+          rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
           git add -f data/health/ 2>/dev/null || true
-          # HARDENED: Exclude feed_manifest.json — sentinel-blogger owns it exclusively
-          git add -f data/ 2>/dev/null || true
+          # STRICT: do NOT stage feed_manifest.json — sentinel-blogger owns it
           git restore --staged data/stix/feed_manifest.json 2>/dev/null || true
-          git checkout -- . 2>/dev/null || true  # clean unstaged before pull
 
           if git diff --staged --quiet; then
-            echo "No guardian report changes to commit."
-          else
-            TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
-            git commit -m "🤖 Guardian report @ ${TIMESTAMP} [skip ci]"
-            for i in 1 2 3; do
-              git pull origin main --no-rebase --no-edit -X ours && \
-              git push origin main && break || \
-              (echo "Push retry $i/3..." && sleep 10)
-            done
+            echo "No guardian report changes."
+            exit 0
           fi
 
-      - name: "✅ Guardian Summary"
+          git commit -m "Guardian report @ $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+
+          for i in 1 2 3 4; do
+            git fetch origin main --quiet
+            git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null||true; git merge origin/main -X ours --no-edit --quiet||true; }
+            git push origin main && { echo "Push OK"; break; }
+            sleep $((i*10))
+            [ $i -eq 4 ] && echo "Push deferred."
+          done
+
+      - name: "Summary"
+        if: always()
         run: |
-          if [ -f data/health/guardian_report.json ]; then
-            echo "=== GUARDIAN REPORT SUMMARY ==="
-            python3 agent/autonomous_guardian/print_report.py
-          else
-            echo "No guardian report generated."
-          fi
+          [ -f data/health/guardian_report.json ] && \
+            python3 -c "import json; d=json.load(open('data/health/guardian_report.json')); print(f'Guardian: {d.get(\"status\",\"N/A\")} | Failures: {d.get(\"failures_detected\",0)} | Fixes: {d.get(\"fixes_applied\",0)}')" || \
+            echo "No guardian report."
