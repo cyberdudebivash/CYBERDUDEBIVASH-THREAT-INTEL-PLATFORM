@@ -225,6 +225,24 @@ try:
 except Exception as _hrex:
     logger.warning(f"[API] Health Router registration skipped: {_hrex}")
 
+# ── Ingestion: data ingestion pipeline endpoints ──────────────────────────────
+try:
+    from core.ingestion.ingestion_engine import ingestion_router as _ingestion_router
+    if _ingestion_router is not None:
+        app.include_router(_ingestion_router)
+        logger.info("[API] Ingestion Router registered — /api/v1/ingestion/* active")
+except Exception as _irex:
+    logger.warning(f"[API] Ingestion Router registration skipped: {_irex}")
+
+# ── Onboarding: developer getting-started endpoints ───────────────────────────
+try:
+    from api.onboarding import onboarding_router as _onboarding_router
+    if _onboarding_router is not None:
+        app.include_router(_onboarding_router)
+        logger.info("[API] Onboarding Router registered — /api/v1/onboarding/* active")
+except Exception as _orex:
+    logger.warning(f"[API] Onboarding Router registration skipped: {_orex}")
+
 # ── Pydantic Schemas ──────────────────────────────────────────────────────
 class AdvisoryItem(BaseModel):
     stix_id: str
