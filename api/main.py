@@ -184,16 +184,29 @@ except ImportError:
     except Exception as _v1_err:
         logger.warning(f"[API] V1 Router registration failed (non-critical): {_v1_err}")
 
+# ── Router load-status tracker — used in boot manifest ───────────────────
+# Keys = router label; values = True (loaded) | False (failed)
+_router_status: Dict[str, bool] = {}
+
 # ── User Auth Router — /auth/* ────────────────────────────────────────────
 # Provides: register, login, me, logout, apikey/generate, apikey/generate-free
 def _load_router_safe(module_name: str, file_name: str, attr: str, label: str) -> None:
-    """Generic dual-strategy router loader (package import → file loader fallback)."""
+    """
+    Generic dual-strategy router loader (package import → file loader fallback).
+    Records result in _router_status for the boot manifest.
+    Skips mounting if the router object is None (graceful degradation).
+    """
     try:
         import importlib
         mod = importlib.import_module(f"api.{module_name}")
-        router_obj = getattr(mod, attr)
+        router_obj = getattr(mod, attr, None)
+        if router_obj is None:
+            logger.warning(f"[API] {label} — router attribute is None (FastAPI unavailable?)")
+            _router_status[label] = False
+            return
         app.include_router(router_obj)
         logger.info(f"[API] {label} registered (package import)")
+        _router_status[label] = True
     except Exception:
         try:
             import importlib.util as _ilu
@@ -203,16 +216,22 @@ def _load_router_safe(module_name: str, file_name: str, attr: str, label: str) -
             )
             _mod = _ilu.module_from_spec(_spec)
             _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
-            router_obj = getattr(_mod, attr)
+            router_obj = getattr(_mod, attr, None)
+            if router_obj is None:
+                logger.warning(f"[API] {label} — router attribute is None after file load")
+                _router_status[label] = False
+                return
             app.include_router(router_obj)
             logger.info(f"[API] {label} registered (file loader)")
+            _router_status[label] = True
         except Exception as _err:
-            logger.warning(f"[API] {label} registration failed (non-critical): {_err}")
+            logger.warning(f"[API] {label} registration failed: {_err}")
+            _router_status[label] = False
 
-_load_router_safe("user_auth",    "user_auth.py",    "auth_router",       "Auth Router       (/auth/*)")
-_load_router_safe("copilot",      "copilot.py",      "copilot_router",    "Copilot Router    (/api/v1/copilot/*)")
-_load_router_safe("alerts",       "alerts.py",       "alerts_router",     "Alerts Router     (/api/v1/alerts/*)")
-_load_router_safe("monetization", "monetization.py", "router",            "Monetize Router   (/api/v1/monetize/*)")
+_load_router_safe("user_auth",    "user_auth.py",    "auth_router",       "auth")
+_load_router_safe("copilot",      "copilot.py",      "copilot_router",    "copilot")
+_load_router_safe("alerts",       "alerts.py",       "alerts_router",     "alerts")
+_load_router_safe("monetization", "monetization.py", "router",            "monetize")
 
 # ── Stability: health + metrics endpoints ────────────────────────────────────
 try:
@@ -222,8 +241,13 @@ try:
     if _health_router is not None:
         app.include_router(_health_router)
         logger.info("[API] Health Router registered — /api/v1/health/* active")
+        _router_status["stability"] = True
+    else:
+        logger.warning("[API] Health Router is None — FastAPI not available in stability module")
+        _router_status["stability"] = False
 except Exception as _hrex:
     logger.warning(f"[API] Health Router registration skipped: {_hrex}")
+    _router_status["stability"] = False
 
 # ── Ingestion: data ingestion pipeline endpoints ──────────────────────────────
 try:
@@ -231,8 +255,13 @@ try:
     if _ingestion_router is not None:
         app.include_router(_ingestion_router)
         logger.info("[API] Ingestion Router registered — /api/v1/ingestion/* active")
+        _router_status["ingestion"] = True
+    else:
+        logger.warning("[API] Ingestion Router is None — FastAPI not available in ingestion module")
+        _router_status["ingestion"] = False
 except Exception as _irex:
     logger.warning(f"[API] Ingestion Router registration skipped: {_irex}")
+    _router_status["ingestion"] = False
 
 # ── Onboarding: developer getting-started endpoints ───────────────────────────
 try:
@@ -240,8 +269,13 @@ try:
     if _onboarding_router is not None:
         app.include_router(_onboarding_router)
         logger.info("[API] Onboarding Router registered — /api/v1/onboarding/* active")
+        _router_status["onboarding"] = True
+    else:
+        logger.warning("[API] Onboarding Router is None")
+        _router_status["onboarding"] = False
 except Exception as _orex:
     logger.warning(f"[API] Onboarding Router registration skipped: {_orex}")
+    _router_status["onboarding"] = False
 
 # ── Pydantic Schemas ──────────────────────────────────────────────────────
 class AdvisoryItem(BaseModel):
@@ -934,6 +968,21 @@ async def startup():
         {f"{r.methods} {r.path}" for r in app.routes
          if hasattr(r, "methods") and hasattr(r, "path")},
     )
+
+    # ── Determine operational mode ─────────────────────────────────────────
+    # Critical routers that must load for "fully operational" status
+    _critical = {"monetize", "ingestion", "stability", "onboarding"}
+    _loaded   = {k for k, v in _router_status.items() if v}
+    _failed   = {k for k, v in _router_status.items() if not v}
+    _apex_ok  = _APEX_ENABLED and _critical.issubset(_loaded)
+    _mode     = "fully operational" if _apex_ok or not _failed.intersection(_critical) else "degraded"
+
+    # Build router status table line
+    _rs_line = "  ".join(
+        f"{k}={'✓' if v else '✗'}"
+        for k, v in sorted(_router_status.items())
+    )
+
     logger.info(
         f"\n{'='*72}\n"
         f"  CYBERDUDEBIVASH® SENTINEL APEX {VERSION} — BOOT COMPLETE\n"
@@ -942,7 +991,8 @@ async def startup():
         f"  Health    : /health\n"
         f"  Advisories: {len(feed)}\n"
         f"  Routes    : {len(_routes)} registered\n"
-        f"  APEX      : {'enabled' if _APEX_ENABLED else 'degraded (agent/ absent)'}\n"
+        f"  Routers   : {_rs_line}\n"
+        f"  APEX      : {_mode}\n"
         f"  PYTHONPATH: {_sys.path[0]}\n"
         f"{'='*72}"
     )
