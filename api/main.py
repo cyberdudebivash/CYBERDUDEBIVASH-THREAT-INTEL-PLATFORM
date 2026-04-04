@@ -249,6 +249,15 @@ except Exception as _hrex:
     logger.warning(f"[API] Health Router registration skipped: {_hrex}")
     _router_status["stability"] = False
 
+# ── Pipeline Guardian — dynamic APEX evaluation engine ───────────────────────
+# Imported AFTER stability router registration so _router_status is populated.
+_guardian = None
+try:
+    from core.stability.pipeline_guardian import pipeline_guardian as _guardian
+    logger.info("[API] PipelineGuardian loaded — dynamic APEX evaluation active")
+except Exception as _guard_err:
+    logger.warning(f"[API] PipelineGuardian unavailable (static fallback): {_guard_err}")
+
 # ── Ingestion: data ingestion pipeline endpoints ──────────────────────────────
 try:
     from core.ingestion.ingestion_engine import ingestion_router as _ingestion_router
@@ -343,6 +352,37 @@ def load_json(path: Path, cache_key: str) -> Any:
     except Exception as e:
         logger.error(f"Failed to load {path}: {e}")
         return None
+
+def _get_feed_sync_info() -> Dict[str, Any]:
+    """
+    Return lightweight feed freshness snapshot for /stats and boot manifest.
+    Uses guardian if available; falls back to direct stat check.
+    """
+    if _guardian:
+        try:
+            state = _guardian.health_check(_router_status)
+            return {
+                "status":       state.status,
+                "feed_age_h":   state.feed_freshness.age_hours if state.feed_freshness else None,
+                "feed_status":  state.feed_freshness.status if state.feed_freshness else "unknown",
+                "last_ingest":  state.last_ingestion_ts,
+                "apex_mode":    state.apex_mode,
+                "advisories":   state.advisory_count,
+                "desync":       state.desync_detected,
+            }
+        except Exception:
+            pass
+    # Fallback: direct filesystem check
+    try:
+        mtime = FEED_PATH.stat().st_mtime if FEED_PATH.exists() else None
+        age_h = round((time.time() - mtime) / 3600, 2) if mtime else None
+        return {
+            "status":      "live" if age_h and age_h < 4 else ("warn" if age_h and age_h < 12 else "stale"),
+            "feed_age_h":  age_h,
+            "feed_exists": FEED_PATH.exists(),
+        }
+    except Exception:
+        return {"status": "unknown"}
 
 def get_feed() -> List[Dict]:
     """Load intelligence feed. Always returns list (never None). Thread-safe."""
@@ -723,6 +763,7 @@ async def get_platform_stats():
             "high_count": severities.get("HIGH", 0),
         },
         "apex_intelligence": get_apex_summary(),
+        "feed_sync": _get_feed_sync_info(),
         "generated": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -929,6 +970,43 @@ async def serve_latest_json():
     feed = get_feed()
     return JSONResponse(content=feed[:20])
 
+# ── POST /api/v1/intel/refresh ────────────────────────────────────────────────
+@app.post("/api/v1/intel/refresh", tags=["Intelligence"])
+async def refresh_intel_cache(auth: Dict = Depends(get_api_key)):
+    """
+    Cache invalidation endpoint — forces immediate reload of feed.json and manifest
+    on the next request. Called post-ingestion to ensure live data flow.
+    Enterprise+ tier required to prevent abuse.
+    """
+    tier = auth["tier"]
+    if tier not in ("enterprise", "mssp"):
+        raise HTTPException(403, {
+            "error": "Cache refresh requires Enterprise tier or higher",
+            "reason": "Prevents cache-flood abuse on shared infrastructure",
+            "upgrade": STORE_URL,
+            "current_tier": tier,
+        })
+    # Bust all cache entries
+    _cache.clear()
+    _cache_ts.clear()
+
+    # Notify guardian of manual refresh
+    if _guardian:
+        try:
+            _guardian.emit_ingestion_complete(source="manual_refresh", items_written=0)
+        except Exception:
+            pass
+
+    feed_count = len(get_feed())   # warm cache with fresh data
+    return JSONResponse(status_code=200, content={
+        "status": "ok",
+        "message": "Intelligence cache invalidated and rewarmed",
+        "advisories_loaded": feed_count,
+        "feed_path": str(FEED_PATH),
+        "feed_exists": FEED_PATH.exists(),
+        "generated": datetime.now(timezone.utc).isoformat(),
+    })
+
 # ── startup event ─────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
@@ -969,18 +1047,43 @@ async def startup():
          if hasattr(r, "methods") and hasattr(r, "path")},
     )
 
-    # ── Determine operational mode ─────────────────────────────────────────
-    # Critical routers that must load for "fully operational" status
-    _critical = {"monetize", "ingestion", "stability", "onboarding"}
-    _loaded   = {k for k, v in _router_status.items() if v}
-    _failed   = {k for k, v in _router_status.items() if not v}
-    _apex_ok  = _APEX_ENABLED and _critical.issubset(_loaded)
-    _mode     = "fully operational" if _apex_ok or not _failed.intersection(_critical) else "degraded"
+    # ── Determine operational mode (DYNAMIC — guardian evaluated) ─────────────
+    # Guardian performs 4-gate evaluation: feed_exists, feed_fresh,
+    # manifest_ok, routers_ok — produces authoritative APEX mode.
+    _mode      = "degraded"
+    _apex_info = {}
+    if _guardian:
+        try:
+            _apex_state = _guardian.evaluate_apex(_router_status)
+            _mode       = "fully operational" if _apex_state.enabled else "degraded"
+            _apex_info  = {
+                "gates_passed": _apex_state.gates_passed,
+                "gates_failed": _apex_state.gates_failed,
+                "advisory_count": _apex_state.advisory_count,
+            }
+        except Exception as _ge:
+            logger.warning(f"[BOOT] Guardian evaluate_apex failed: {_ge}")
+            # Fallback: static critical-router check
+            _critical = {"monetize", "ingestion", "stability", "onboarding"}
+            _loaded   = {k for k, v in _router_status.items() if v}
+            _failed   = {k for k, v in _router_status.items() if not v}
+            _mode     = "fully operational" if not _failed.intersection(_critical) else "degraded"
+    else:
+        # No guardian — use static critical-router check
+        _critical = {"monetize", "ingestion", "stability", "onboarding"}
+        _loaded   = {k for k, v in _router_status.items() if v}
+        _failed   = {k for k, v in _router_status.items() if not v}
+        _mode     = "fully operational" if not _failed.intersection(_critical) else "degraded"
 
     # Build router status table line
     _rs_line = "  ".join(
         f"{k}={'✓' if v else '✗'}"
         for k, v in sorted(_router_status.items())
+    )
+    _gates_line = (
+        f"  Gates     : passed={_apex_info.get('gates_passed',[])} "
+        f"failed={_apex_info.get('gates_failed',[])}\n"
+        if _apex_info else ""
     )
 
     logger.info(
@@ -989,9 +1092,12 @@ async def startup():
         f"  Platform  : {PLATFORM}\n"
         f"  Docs      : /api/docs\n"
         f"  Health    : /health\n"
+        f"  Full Health: /api/v1/health/full\n"
+        f"  APEX Status: /apex/v1/status\n"
         f"  Advisories: {len(feed)}\n"
         f"  Routes    : {len(_routes)} registered\n"
         f"  Routers   : {_rs_line}\n"
+        f"{_gates_line}"
         f"  APEX      : {_mode}\n"
         f"  PYTHONPATH: {_sys.path[0]}\n"
         f"{'='*72}"
