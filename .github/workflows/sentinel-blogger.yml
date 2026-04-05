@@ -110,7 +110,7 @@ jobs:
           else:
               try:
                   d = json.load(open(manifest_path))
-                  entries = d.get("advisories", d if isinstance(d, list) else [])
+                  entries = d if isinstance(d, list) else d.get("advisories", d.get("entries", d.get("items", [])))
                   print(f"✅ feed_manifest.json: {len(entries)} advisories")
               except Exception as e:
                   errors.append(f"FATAL: feed_manifest.json corrupt: {e}")
@@ -324,7 +324,7 @@ jobs:
           import json
           try:
               d = json.load(open('data/stix/feed_manifest.json'))
-              print(len(d.get('advisories', d if isinstance(d,list) else [])))
+              print(len(d if isinstance(d,list) else d.get('advisories', d.get('entries', d.get('items', [])))))
           except:
               print('N/A')
           " 2>/dev/null || echo "N/A")
@@ -397,7 +397,7 @@ jobs:
           import json
           try:
               d = json.load(open('data/stix/feed_manifest.json'))
-              items = d.get('advisories', d if isinstance(d,list) else [])
+              items = d if isinstance(d,list) else d.get('advisories', d.get('entries', d.get('items', [])))
               print(len(items))
           except: print(0)
           " 2>/dev/null || echo 0)
@@ -495,8 +495,8 @@ jobs:
           import json, os
           try:
               d = json.load(open("data/stix/feed_manifest.json"))
-              advisories = d.get("advisories", d if isinstance(d, list) else [])
-              summary = d.get("summary", {})
+              advisories = d if isinstance(d, list) else d.get("advisories", d.get("entries", d.get("items", [])))
+              summary = {} if isinstance(d, list) else d.get("summary", {})
               print(f"  Total advisories : {len(advisories)}")
               print(f"  Critical         : {summary.get('critical', 'N/A')}")
               print(f" 
