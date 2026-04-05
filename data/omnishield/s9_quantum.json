@@ -1,9 +1,40 @@
 {
   "subsystem": "S9_Quantum_Crypto_Auditor",
-  "quantum_readiness_score": 10,
-  "quantum_risk_level": "LOW",
-  "vulnerable_algorithms_detected": 0,
-  "findings": [],
+  "quantum_readiness_score": 0,
+  "quantum_risk_level": "HIGH",
+  "vulnerable_algorithms_detected": 5,
+  "findings": [
+    {
+      "algorithm": "RSA",
+      "quantum_risk": "HIGH",
+      "recommendation": "Migrate to ML-KEM (CRYSTALS-Kyber) for key exchange",
+      "detected_in": "threat_intelligence_feed"
+    },
+    {
+      "algorithm": "ECDSA",
+      "quantum_risk": "HIGH",
+      "recommendation": "Migrate to ML-DSA (CRYSTALS-Dilithium) for signatures",
+      "detected_in": "threat_intelligence_feed"
+    },
+    {
+      "algorithm": "DH",
+      "quantum_risk": "HIGH",
+      "recommendation": "Replace with ML-KEM or hybrid key exchange",
+      "detected_in": "threat_intelligence_feed"
+    },
+    {
+      "algorithm": "DSA",
+      "quantum_risk": "HIGH",
+      "recommendation": "Migrate to ML-DSA or SLH-DSA",
+      "detected_in": "threat_intelligence_feed"
+    },
+    {
+      "algorithm": "MD5",
+      "quantum_risk": "CRITICAL",
+      "recommendation": "Replace immediately - broken even classically",
+      "detected_in": "threat_intelligence_feed"
+    }
+  ],
   "platform_crypto_audit": {
     "stix_transport": {
       "protocol": "HTTPS/TLS",
@@ -44,5 +75,5 @@
     }
   ],
   "recommendation": "Begin hybrid key exchange deployment. Inventory all RSA/ECDSA usage for PQC migration.",
-  "timestamp": "2026-04-05T03:37:07.284181+00:00"
+  "timestamp": "2026-04-05T13:22:01.126264+00:00"
 }
