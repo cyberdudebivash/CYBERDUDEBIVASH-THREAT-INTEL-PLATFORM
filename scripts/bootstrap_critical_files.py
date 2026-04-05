@@ -208,15 +208,17 @@ def _write_manifest(entries: list, path: Path) -> None:
 
 def _load_existing_manifest_entries(stix_path: "Path", root_path: "Path") -> list:
     """
-    Load entries from the best existing committed manifest.
-    Used by force-rebuild to preserve entries from previous runs whose
-    individual STIX bundles were NOT committed to git (gitignored).
-    Without this merge, those entries would be silently dropped each run.
+    Load entries from the best available pre-run manifest snapshot.
+    Priority:
+      1. /tmp/pre_run_manifest.json — saved at run start BEFORE v70 overwrites
+      2. data/stix/feed_manifest.json
+      3. data/feed_manifest.json
+    Used by force-rebuild MERGE so entries from previous runs survive v70.
     """
-    import shutil as _shutil  # local import to avoid top-level dep
+    snapshot = Path("/tmp/pre_run_manifest.json")
     existing: list = []
     best_count = 0
-    for candidate in (stix_path, root_path):
+    for candidate in (snapshot, stix_path, root_path):
         if not candidate.exists():
             continue
         try:
@@ -233,6 +235,7 @@ def _load_existing_manifest_entries(stix_path: "Path", root_path: "Path") -> lis
             if len(items) > best_count:
                 best_count = len(items)
                 existing = items
+                print(f"  [bootstrap] MERGE source: {candidate.name} ({best_count} entries)")
         except Exception:
             pass
     return existing
@@ -313,6 +316,18 @@ def bootstrap_feed_manifest(entries: list, force_rebuild: bool = False) -> None:
         print("  [bootstrap] feed_manifest.json MISSING — building from STIX bundles")
 
     if not entries:
+        # No STIX bundles on disk. Before creating an empty skeleton, check if
+        # an existing manifest has valid entries — if so, preserve it rather
+        # than destroying accumulated historical data.
+        if not force_rebuild:
+            best_path, best_count = _best_existing_manifest()
+        if not force_rebuild and best_path and best_count > 0:
+            import shutil as _shutil_pres
+            for target in (stix_path, root_path):
+                if not target.exists() or _count_manifest_entries(target) < best_count:
+                    _shutil_pres.copy2(best_path, target)
+            print(f"  [bootstrap] feed_manifest.json PRESERVED ({best_count} entries — no STIX bundles, keeping existing)")
+            return
         skeleton = {
             "version": VERSION, "platform": PLATFORM,
             "generated_at": now_iso(),
@@ -447,6 +462,20 @@ def main() -> int:
 
     ensure_dirs()
 
+    # ── SNAPSHOT: Save committed manifest BEFORE any step can overwrite it ──
+    # This snapshot is used by force-rebuild MERGE so that entries from the
+    # previous run's manifest (committed in git) survive v70's overwrite.
+    import shutil as _shutil_snap
+    _snapshot = Path("/tmp/pre_run_manifest.json")
+    if not _snapshot.exists():  # only save once per runner lifetime
+        for _cand in (STIX_DIR / "feed_manifest.json", DATA_DIR / "feed_manifest.json"):
+            if _cand.exists():
+                n = _count_manifest_entries(_cand)
+                if n > 0:
+                    _shutil_snap.copy2(_cand, _snapshot)
+                    print(f"  [bootstrap] Snapshot saved: {n} entries → /tmp/pre_run_manifest.json")
+                    break
+
     # Load STIX entries (needed for manifest + api rebuild)
     stix_files = list(STIX_DIR.glob("CDB-APEX-*.json"))
     if stix_files:
@@ -454,7 +483,7 @@ def main() -> int:
         entries = load_stix_entries()
         print(f"  Resolved {len(entries)} unique advisories")
     else:
-        print("\nNo STIX bundle files found — using empty state")
+        print("\nNo STIX bundle files found — using existing manifest state")
         entries = []
 
     print("\nBootstrapping pipeline-critical files:")
