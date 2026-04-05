@@ -32,13 +32,18 @@ from datetime import datetime, timezone
 REPO_ROOT = Path(__file__).parent.parent
 INDEX_HTML = REPO_ROOT / "index.html"
 
-# ── Manifest search path (ordered by richness preference) ──────────────────
-# data/feed_manifest.json     = v70 orchestrator output (richest — 483+ entries)
-# data/stix/feed_manifest.json = bootstrap / sentinel_blogger (may be 1-entry after a run)
-# The loader picks the path with the most advisories automatically.
+# ── Single Source of Truth ────────────────────────────────────────────────
+# data/stix/feed_manifest.json is the canonical manifest.
+# The workflow's "v101 Manifest Sync" step guarantees it is always the
+# richest version (synced from v70 orchestrator after every run).
+# The bootstrap enforces MIN_MANIFEST_ENTRIES=50 to reject partial writes.
+FEED_MANIFEST = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
+
+# Fallback candidates if the canonical path is missing or stale (<5 entries).
+# This is a defence-in-depth guard only — the sync step prevents this case.
 FEED_MANIFEST_CANDIDATES = [
-    REPO_ROOT / "data" / "feed_manifest.json",
-    REPO_ROOT / "data" / "stix" / "feed_manifest.json",
+    REPO_ROOT / "data" / "stix" / "feed_manifest.json",  # canonical — always first
+    REPO_ROOT / "data" / "feed_manifest.json",            # v70 fallback
 ]
 ENRICHED_MANIFEST = REPO_ROOT / "data" / "v46_ultraintel" / "enriched_manifest.json"
 

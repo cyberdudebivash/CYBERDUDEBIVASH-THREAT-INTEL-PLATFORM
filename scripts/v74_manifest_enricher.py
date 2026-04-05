@@ -32,40 +32,30 @@ log = logging.getLogger("v74")
 # ═══════════════════════════════════════════════════════════
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Multi-path manifest resolution — always use the richest manifest.
-# data/feed_manifest.json      = v70 orchestrator (richest, 483+ entries)
-# data/stix/feed_manifest.json = bootstrap / sentinel_blogger (may be 1-entry)
-_MANIFEST_CANDIDATES = [
-    os.path.join(REPO_ROOT, "data", "feed_manifest.json"),
-    os.path.join(REPO_ROOT, "data", "stix", "feed_manifest.json"),
-]
+# ── Single Source of Truth ────────────────────────────────────────────────
+# The canonical manifest is data/stix/feed_manifest.json.
+# The workflow "v101 Manifest Sync" step ensures it always contains the
+# richest dataset before v74 runs.  Fallback to data/feed_manifest.json
+# only if the canonical path is unreadable (defence-in-depth).
+_CANONICAL_MANIFEST = os.path.join(REPO_ROOT, "data", "stix", "feed_manifest.json")
+_FALLBACK_MANIFEST  = os.path.join(REPO_ROOT, "data", "feed_manifest.json")
 
 def _resolve_manifest_path() -> str:
-    """Return the candidate manifest path with the most advisory entries."""
-    best_path, best_count = None, 0
-    for p in _MANIFEST_CANDIDATES:
+    """
+    Return the canonical manifest path.  Falls back to the v70 path only if
+    the canonical path is missing or produces a JSON parse error.
+    """
+    for p in (_CANONICAL_MANIFEST, _FALLBACK_MANIFEST):
         if not os.path.exists(p):
             continue
         try:
             with open(p, "r", encoding="utf-8") as f:
-                d = json.load(f)
-            if isinstance(d, list):
-                n = len(d)
-            else:
-                for key in ("advisories", "entries", "items"):
-                    val = d.get(key)
-                    if isinstance(val, list):
-                        n = len(val)
-                        break
-                else:
-                    n = 0
-            if n > best_count:
-                best_count = n
-                best_path = p
+                json.load(f)   # validate parseable
+            return p
         except Exception:
             continue
-    # Fall back to the stix path (creates or overwrites safely)
-    return best_path or os.path.join(REPO_ROOT, "data", "stix", "feed_manifest.json")
+    # Last resort: return canonical path (bootstrap will recreate it)
+    return _CANONICAL_MANIFEST
 
 MANIFEST_PATH = _resolve_manifest_path()
 BACKUP_PATH = MANIFEST_PATH + ".v74bak"
