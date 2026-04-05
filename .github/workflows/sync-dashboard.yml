@@ -26,6 +26,8 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 concurrency:
   group: sentinel-data-writer
   cancel-in-progress: false
@@ -62,7 +64,9 @@ jobs:
       - name: "Bootstrap Critical Files (self-healing)"
         run: |
           echo "=== Dashboard Sync v101 Pre-flight Bootstrap ==="
-          python3 scripts/bootstrap_critical_files.py
+          # --force-rebuild: MERGE existing committed manifest with any new STIX bundles
+          # ensuring entries from previous sentinel-blogger runs are never discarded
+          python3 scripts/bootstrap_critical_files.py --force-rebuild
 
       - name: "Validate Data State"
         run: |
