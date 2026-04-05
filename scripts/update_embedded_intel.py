@@ -31,7 +31,15 @@ from datetime import datetime, timezone
 
 REPO_ROOT = Path(__file__).parent.parent
 INDEX_HTML = REPO_ROOT / "index.html"
-FEED_MANIFEST = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
+
+# ── Manifest search path (ordered by richness preference) ──────────────────
+# data/feed_manifest.json     = v70 orchestrator output (richest — 483+ entries)
+# data/stix/feed_manifest.json = bootstrap / sentinel_blogger (may be 1-entry after a run)
+# The loader picks the path with the most advisories automatically.
+FEED_MANIFEST_CANDIDATES = [
+    REPO_ROOT / "data" / "feed_manifest.json",
+    REPO_ROOT / "data" / "stix" / "feed_manifest.json",
+]
 ENRICHED_MANIFEST = REPO_ROOT / "data" / "v46_ultraintel" / "enriched_manifest.json"
 
 ENRICHMENT_KEYS = [
@@ -258,17 +266,37 @@ def compute_kpis(merged: list) -> dict:
     }
 
 
+def load_best_manifest(candidates: list) -> tuple:
+    """
+    Try each candidate path and return (items, path_used) for the one with
+    the most advisories.  Falls back to an empty list with None path if all
+    candidates are missing or empty.
+    """
+    best_items, best_path, best_count = [], None, 0
+    for p in candidates:
+        items = load_manifest(p)
+        if len(items) > best_count:
+            best_count = len(items)
+            best_items = items
+            best_path = p
+    return best_items, best_path
+
+
 def main():
     print("=" * 60)
     print("CYBERDUDEBIVASH SENTINEL APEX — EMBEDDED_INTEL AUTO-UPDATER")
     print(f"Run: {datetime.now(timezone.utc).isoformat()}")
     print("=" * 60)
 
-    feed = load_manifest(FEED_MANIFEST)
+    # Multi-path resolution: use whichever manifest has the most entries.
+    # This prevents the 1-entry sentinel_blogger manifest from blocking the patch.
+    feed, feed_path = load_best_manifest(FEED_MANIFEST_CANDIDATES)
     enriched = load_manifest(ENRICHED_MANIFEST)
 
+    if feed_path:
+        print(f"[INFO] Using manifest: {feed_path} ({len(feed)} items)")
     if not feed:
-        print("[ERROR] feed_manifest.json is empty or missing — aborting")
+        print("[ERROR] feed_manifest.json is empty or missing across all candidate paths — aborting")
         sys.exit(1)
 
     print(f"[INFO] feed_manifest: {len(feed)} items")

@@ -31,7 +31,43 @@ log = logging.getLogger("v74")
 # PATHS
 # ═══════════════════════════════════════════════════════════
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MANIFEST_PATH = os.path.join(REPO_ROOT, "data", "stix", "feed_manifest.json")
+
+# Multi-path manifest resolution — always use the richest manifest.
+# data/feed_manifest.json      = v70 orchestrator (richest, 483+ entries)
+# data/stix/feed_manifest.json = bootstrap / sentinel_blogger (may be 1-entry)
+_MANIFEST_CANDIDATES = [
+    os.path.join(REPO_ROOT, "data", "feed_manifest.json"),
+    os.path.join(REPO_ROOT, "data", "stix", "feed_manifest.json"),
+]
+
+def _resolve_manifest_path() -> str:
+    """Return the candidate manifest path with the most advisory entries."""
+    best_path, best_count = None, 0
+    for p in _MANIFEST_CANDIDATES:
+        if not os.path.exists(p):
+            continue
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                d = json.load(f)
+            if isinstance(d, list):
+                n = len(d)
+            else:
+                for key in ("advisories", "entries", "items"):
+                    val = d.get(key)
+                    if isinstance(val, list):
+                        n = len(val)
+                        break
+                else:
+                    n = 0
+            if n > best_count:
+                best_count = n
+                best_path = p
+        except Exception:
+            continue
+    # Fall back to the stix path (creates or overwrites safely)
+    return best_path or os.path.join(REPO_ROOT, "data", "stix", "feed_manifest.json")
+
+MANIFEST_PATH = _resolve_manifest_path()
 BACKUP_PATH = MANIFEST_PATH + ".v74bak"
 
 # Module-level state for cross-function communication

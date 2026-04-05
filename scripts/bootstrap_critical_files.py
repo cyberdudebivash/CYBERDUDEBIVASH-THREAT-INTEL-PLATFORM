@@ -28,6 +28,12 @@ DATA_DIR = ROOT / "data"
 PLATFORM = "CYBERDUDEBIVASH SENTINEL APEX"
 VERSION  = "101.0.0"
 
+# Minimum number of advisories a manifest must have to be considered valid.
+# If the file exists but has fewer entries than this, the bootstrap FORCES a
+# full rebuild from STIX bundles. This prevents sentinel_blogger.py from
+# overwriting the full manifest with only the per-run 1-entry slice.
+MIN_MANIFEST_ENTRIES = 50
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -142,35 +148,49 @@ def write_json(path: Path, data: dict, compact: bool = False) -> None:
         path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-def bootstrap_feed_manifest(entries: list) -> None:
-    path = STIX_DIR / "feed_manifest.json"
+def _count_manifest_entries(path: Path) -> int:
+    """Return the number of advisories in a manifest file; 0 on any error."""
+    try:
+        existing = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(existing, list):
+            return len(existing)
+        for key in ("advisories", "entries", "items"):
+            val = existing.get(key)
+            if isinstance(val, list):
+                return len(val)
+        return 0
+    except Exception:
+        return 0
 
-    if path.exists() and path.stat().st_size > 1000:
-        # Validate it's readable
-        try:
-            existing = json.loads(path.read_text(encoding="utf-8"))
-            e = existing if isinstance(existing, list) else existing.get("advisories", existing.get("entries", []))
-            if len(e) > 0:
-                print(f"  [bootstrap] feed_manifest.json OK ({len(e)} entries) — skipping rebuild")
-                return
-        except Exception:
-            pass
 
-    if not entries:
-        skeleton = {
-            "version": VERSION, "platform": PLATFORM,
-            "generated_at": now_iso(),
-            "entry_count": 0, "advisories": [],
-            "note": "Skeleton — will be populated on next intelligence cycle",
-        }
-        write_json(path, skeleton, compact=True)
-        print("  [bootstrap] feed_manifest.json: skeleton created (no STIX bundles found)")
-        return
+def _best_existing_manifest() -> tuple:
+    """
+    Scan all known manifest locations and return (path, entry_count) for the
+    one with the most advisories.  Returns (None, 0) if none found.
 
+    Priority order (tried in order, winner = most entries):
+      1. data/feed_manifest.json          — v70 orchestrator writes here (richest)
+      2. data/stix/feed_manifest.json     — bootstrap / sentinel_blogger
+    """
+    candidates = [
+        DATA_DIR / "feed_manifest.json",
+        STIX_DIR / "feed_manifest.json",
+    ]
+    best_path, best_count = None, 0
+    for p in candidates:
+        if p.exists() and p.stat().st_size > 100:
+            n = _count_manifest_entries(p)
+            if n > best_count:
+                best_count = n
+                best_path = p
+    return best_path, best_count
+
+
+def _write_manifest(entries: list, path: Path) -> None:
+    """Serialise entries into the canonical manifest schema and write to path."""
     critical = sum(1 for e in entries if e["severity"] == "CRITICAL")
     high     = sum(1 for e in entries if e["severity"] == "HIGH")
     avg_risk = round(sum(e["risk_score"] for e in entries) / len(entries), 2)
-
     manifest = {
         "version": VERSION, "platform": PLATFORM,
         "generated_at": now_iso(),
@@ -184,20 +204,89 @@ def bootstrap_feed_manifest(entries: list) -> None:
         "advisories": entries,
     }
     write_json(path, manifest, compact=True)
-    size_kb = path.stat().st_size / 1024
-    print(f"  [bootstrap] feed_manifest.json rebuilt: {len(entries)} entries, {size_kb:.1f} KB")
+
+
+def bootstrap_feed_manifest(entries: list) -> None:
+    """
+    Ensure data/stix/feed_manifest.json AND data/feed_manifest.json both
+    contain a full advisory set (>= MIN_MANIFEST_ENTRIES).
+
+    Decision logic:
+      1. Find the existing manifest with the most entries.
+      2. If it has >= MIN_MANIFEST_ENTRIES → copy it to both canonical paths
+         (no STIX rebuild needed).
+      3. If no manifest meets the threshold → rebuild from STIX bundles and
+         write to both paths.
+    """
+    stix_path = STIX_DIR / "feed_manifest.json"
+    root_path = DATA_DIR / "feed_manifest.json"  # v70 orchestrator path
+
+    best_path, best_count = _best_existing_manifest()
+
+    if best_path and best_count >= MIN_MANIFEST_ENTRIES:
+        print(f"  [bootstrap] feed_manifest.json OK ({best_count} entries @ {best_path.name}) — skipping rebuild")
+        # Sync whichever canonical path is missing or stale
+        for target in (stix_path, root_path):
+            if target != best_path:
+                target_count = _count_manifest_entries(target) if target.exists() else 0
+                if target_count < MIN_MANIFEST_ENTRIES:
+                    import shutil
+                    shutil.copy2(best_path, target)
+                    print(f"  [bootstrap] Synced {best_path.name} → {target.relative_to(ROOT)} ({best_count} entries)")
+        return
+
+    # ── Rebuild required ──────────────────────────────────────────────────
+    if best_path and best_count > 0:
+        print(f"  [bootstrap] feed_manifest.json STALE ({best_count} entries < {MIN_MANIFEST_ENTRIES} min) — forcing rebuild")
+    else:
+        print("  [bootstrap] feed_manifest.json MISSING — building from STIX bundles")
+
+    if not entries:
+        skeleton = {
+            "version": VERSION, "platform": PLATFORM,
+            "generated_at": now_iso(),
+            "entry_count": 0, "advisories": [],
+            "note": "Skeleton — will be populated on next intelligence cycle",
+        }
+        write_json(stix_path, skeleton, compact=True)
+        write_json(root_path, skeleton, compact=True)
+        print("  [bootstrap] feed_manifest.json: skeleton created (no STIX bundles found)")
+        return
+
+    _write_manifest(entries, stix_path)
+    _write_manifest(entries, root_path)
+    size_kb = stix_path.stat().st_size / 1024
+    print(f"  [bootstrap] feed_manifest.json rebuilt: {len(entries)} entries, {size_kb:.1f} KB (synced to both paths)")
 
 
 def bootstrap_api_files(entries: list) -> None:
-    """Ensure api/feed.json, api/latest.json, api/status.json are present."""
+    """
+    Ensure api/feed.json, api/latest.json, api/status.json exist AND contain
+    a full dataset.  If the existing API files have fewer than MIN_MANIFEST_ENTRIES
+    items, they are regenerated from `entries` (which comes from the best available
+    manifest, not the per-run 1-entry sentinel_blogger slice).
+    """
     total = len(entries)
     critical = sum(1 for e in entries if e["severity"] == "CRITICAL")
     high     = sum(1 for e in entries if e["severity"] == "HIGH")
     avg_risk = round(sum(e["risk_score"] for e in entries) / max(total, 1), 2)
 
-    # api/feed.json
+    def _api_entry_count(path: Path) -> int:
+        """Return the number of items in an API file; 0 on error."""
+        try:
+            d = json.loads(path.read_text(encoding="utf-8"))
+            for key in ("items", "latest", "advisories"):
+                val = d.get(key)
+                if isinstance(val, list):
+                    return len(val)
+            return 0
+        except Exception:
+            return 0
+
+    # ── api/feed.json ───────────────────────────────────────────────────
     feed_path = API_DIR / "feed.json"
-    if not feed_path.exists() or feed_path.stat().st_size < 100:
+    existing_count = _api_entry_count(feed_path) if feed_path.exists() else 0
+    if existing_count < MIN_MANIFEST_ENTRIES:
         feed_data = {
             "version": VERSION, "platform": PLATFORM,
             "generated_at": now_iso(),
@@ -205,13 +294,14 @@ def bootstrap_api_files(entries: list) -> None:
             "items": entries[:100],
         }
         write_json(feed_path, feed_data)
-        print(f"  [bootstrap] api/feed.json created: {min(total, 100)} items")
+        print(f"  [bootstrap] api/feed.json {'created' if existing_count == 0 else 'refreshed'}: {min(total, 100)} items")
     else:
-        print("  [bootstrap] api/feed.json OK")
+        print(f"  [bootstrap] api/feed.json OK ({existing_count} items)")
 
-    # api/latest.json
+    # ── api/latest.json ─────────────────────────────────────────────────
     latest_path = API_DIR / "latest.json"
-    if not latest_path.exists() or latest_path.stat().st_size < 100:
+    existing_latest = _api_entry_count(latest_path) if latest_path.exists() else 0
+    if existing_latest < MIN_MANIFEST_ENTRIES:
         latest_data = {
             "version": VERSION, "platform": PLATFORM,
             "generated_at": now_iso(),
@@ -226,9 +316,9 @@ def bootstrap_api_files(entries: list) -> None:
             "latest": entries[:20],
         }
         write_json(latest_path, latest_data)
-        print("  [bootstrap] api/latest.json created")
+        print(f"  [bootstrap] api/latest.json {'created' if existing_latest == 0 else 'refreshed'}")
     else:
-        print("  [bootstrap] api/latest.json OK")
+        print(f"  [bootstrap] api/latest.json OK")
 
     # api/status.json
     status_path = API_DIR / "status.json"
