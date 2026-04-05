@@ -308,6 +308,13 @@ def main():
     print(f"[INFO] enriched_manifest: {len(enriched)} items")
 
     merged = merge_intelligence(feed, enriched)
+
+    # Sort newest-first so dashboard always shows the freshest intel at the top
+    merged.sort(
+        key=lambda x: str(x.get("timestamp", x.get("published", x.get("created", "")))),
+        reverse=True,
+    )
+
     kpis = compute_kpis(merged)
 
     print(

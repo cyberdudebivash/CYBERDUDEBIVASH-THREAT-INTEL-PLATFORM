@@ -206,39 +206,46 @@ def _write_manifest(entries: list, path: Path) -> None:
     write_json(path, manifest, compact=True)
 
 
-def bootstrap_feed_manifest(entries: list) -> None:
+def bootstrap_feed_manifest(entries: list, force_rebuild: bool = False) -> None:
     """
     Ensure data/stix/feed_manifest.json AND data/feed_manifest.json both
     contain a full advisory set (>= MIN_MANIFEST_ENTRIES).
 
     Decision logic:
       1. Find the existing manifest with the most entries.
-      2. If it has >= MIN_MANIFEST_ENTRIES → copy it to both canonical paths
+      2. If force_rebuild=True → always rebuild from STIX bundles (picks up
+         new bundles written by sentinel_blogger this run).
+      3. If it has >= MIN_MANIFEST_ENTRIES → copy it to both canonical paths
          (no STIX rebuild needed).
-      3. If no manifest meets the threshold → rebuild from STIX bundles and
+      4. If no manifest meets the threshold → rebuild from STIX bundles and
          write to both paths.
     """
     stix_path = STIX_DIR / "feed_manifest.json"
     root_path = DATA_DIR / "feed_manifest.json"  # v70 orchestrator path
 
-    best_path, best_count = _best_existing_manifest()
+    if force_rebuild:
+        print(f"  [bootstrap] FORCE REBUILD requested — rebuilding from {len(entries)} STIX bundles")
+    else:
+        best_path, best_count = _best_existing_manifest()
 
-    if best_path and best_count >= MIN_MANIFEST_ENTRIES:
-        print(f"  [bootstrap] feed_manifest.json OK ({best_count} entries @ {best_path.name}) — skipping rebuild")
-        # Sync whichever canonical path is missing or stale
-        for target in (stix_path, root_path):
-            if target != best_path:
-                target_count = _count_manifest_entries(target) if target.exists() else 0
-                if target_count < MIN_MANIFEST_ENTRIES:
-                    import shutil
-                    shutil.copy2(best_path, target)
-                    print(f"  [bootstrap] Synced {best_path.name} → {target.relative_to(ROOT)} ({best_count} entries)")
-        return
+        if best_path and best_count >= MIN_MANIFEST_ENTRIES:
+            print(f"  [bootstrap] feed_manifest.json OK ({best_count} entries @ {best_path.name}) — skipping rebuild")
+            # Sync whichever canonical path is missing or stale
+            for target in (stix_path, root_path):
+                if target != best_path:
+                    target_count = _count_manifest_entries(target) if target.exists() else 0
+                    if target_count < MIN_MANIFEST_ENTRIES:
+                        import shutil
+                        shutil.copy2(best_path, target)
+                        print(f"  [bootstrap] Synced {best_path.name} → {target.relative_to(ROOT)} ({best_count} entries)")
+            return
 
     # ── Rebuild required ──────────────────────────────────────────────────
-    if best_path and best_count > 0:
+    if not force_rebuild:
+        best_path, best_count = _best_existing_manifest()
+    if not force_rebuild and best_path and best_count > 0:
         print(f"  [bootstrap] feed_manifest.json STALE ({best_count} entries < {MIN_MANIFEST_ENTRIES} min) — forcing rebuild")
-    else:
+    elif not force_rebuild:
         print("  [bootstrap] feed_manifest.json MISSING — building from STIX bundles")
 
     if not entries:
@@ -364,9 +371,14 @@ def bootstrap_sentinel_files() -> None:
 
 
 def main() -> int:
+    # ── CLI flags ──────────────────────────────────────────────────────────
+    force_rebuild = "--force-rebuild" in sys.argv
+
     print("=" * 70)
     print(f"SENTINEL APEX v{VERSION} — CRITICAL FILE BOOTSTRAP")
     print(f"Timestamp: {now_iso()}")
+    if force_rebuild:
+        print("Mode: FORCE REBUILD (--force-rebuild specified)")
     print("=" * 70)
 
     ensure_dirs()
@@ -382,7 +394,7 @@ def main() -> int:
         entries = []
 
     print("\nBootstrapping pipeline-critical files:")
-    bootstrap_feed_manifest(entries)
+    bootstrap_feed_manifest(entries, force_rebuild=force_rebuild)
     bootstrap_api_files(entries)
     bootstrap_sentinel_files()
 

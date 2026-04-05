@@ -766,9 +766,19 @@ def enrich_manifest():
         log.error(f"FATAL: Manifest is not valid JSON: {e}")
         return False
 
+    # ── Normalize dict/list manifest format ──────────────────────────────
     if not isinstance(data, list):
-        log.warning(f"Manifest is not a list (type={type(data).__name__}) — skipping")
-        return False
+        # bootstrap writes dict format: {"advisories": [...], ...}
+        for key in ("advisories", "entries", "items"):
+            val = data.get(key)
+            if isinstance(val, list) and len(val) > 0:
+                log.info(f"Manifest dict normalized: extracted {len(val)} items from '{key}' key")
+                data = val
+                raw = json.dumps(data)  # update raw for size reporting
+                break
+        else:
+            log.warning(f"Manifest is not a list and has no recognized array key (type={type(data).__name__}) — skipping")
+            return False
 
     if len(data) == 0:
         log.warning("Manifest is empty — skipping")
@@ -956,9 +966,20 @@ def generate_api_layer():
         with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
 
+        # Normalize dict→list (bootstrap writes dict format)
+        if not isinstance(data, list):
+            for key in ("advisories", "entries", "items"):
+                val = data.get(key)
+                if isinstance(val, list) and len(val) > 0:
+                    data = val
+                    break
+
         if not isinstance(data, list) or len(data) == 0:
             log.warning("Manifest empty or invalid — skipping API generation")
             return False
+
+        # Sort by timestamp DESC — newest first for API consumers and dashboard
+        data.sort(key=lambda x: str(x.get("timestamp", x.get("published", x.get("created", "")))), reverse=True)
 
         # /api/feed.json — full manifest with API envelope
         api_feed = {
