@@ -198,6 +198,63 @@ jobs:
               | tee /tmp/v70_result.json || true
           fi
 
+      - name: "🔄 v101 Manifest Sync — Consolidate all manifest paths"
+        run: |
+          # ── CRITICAL SYNC STEP ────────────────────────────────────────────────
+          # After v70 orchestrator runs it writes data/feed_manifest.json (richest).
+          # sentinel_blogger.py overwrote data/stix/feed_manifest.json with only
+          # the per-run slice (1 entry).  This step picks the richest manifest and
+          # syncs it to ALL canonical paths so every downstream script reads the
+          # full dataset.
+          python3 - << 'PYEOF'
+          import json, os, shutil
+          from datetime import datetime, timezone
+
+          ROOT = os.path.dirname(os.path.dirname(os.path.abspath("scripts")))
+          ROOT = os.getcwd()  # GH Actions: cwd is repo root
+
+          CANDIDATES = [
+              os.path.join(ROOT, "data", "feed_manifest.json"),
+              os.path.join(ROOT, "data", "stix", "feed_manifest.json"),
+          ]
+
+          def count_entries(path):
+              try:
+                  with open(path, encoding="utf-8") as f:
+                      d = json.load(f)
+                  if isinstance(d, list):
+                      return len(d)
+                  for key in ("advisories", "entries", "items"):
+                      v = d.get(key)
+                      if isinstance(v, list):
+                          return len(v)
+              except Exception:
+                  pass
+              return 0
+
+          best_path, best_count = None, 0
+          for p in CANDIDATES:
+              if os.path.exists(p):
+                  n = count_entries(p)
+                  print(f"  [sync] {p}: {n} entries")
+                  if n > best_count:
+                      best_count = n
+                      best_path = p
+
+          MIN_ENTRIES = 50
+          if best_path and best_count >= MIN_ENTRIES:
+              for target in CANDIDATES:
+                  if target != best_path:
+                      shutil.copy2(best_path, target)
+                      print(f"  [sync] Copied {best_count} entries → {target}")
+              print(f"  [sync] COMPLETE — all paths now have {best_count} entries")
+          else:
+              print(f"  [sync] WARNING: best manifest has only {best_count} entries — running bootstrap")
+          PYEOF
+
+          # Re-run bootstrap to ensure API files are refreshed from the best manifest
+          python3 scripts/bootstrap_critical_files.py
+
       - name: "🔍 v74 Manifest Enrichment"
         continue-on-error: true
         run: |
@@ -372,10 +429,4 @@ jobs:
               summary = d.get("summary", {})
               print(f"  Total advisories : {len(advisories)}")
               print(f"  Critical         : {summary.get('critical', 'N/A')}")
-              print(f"  High             : {summary.get('high', 'N/A')}")
-              print(f"  Avg risk score   : {summary.get('avg_risk_score', 'N/A')}")
-              print(f"  Version          : {d.get('version', 'N/A')}")
-          except Exception as e:
-              print(f"  Summary unavailable: {e}")
-          PYEOF
-          echo "=================================================="
+              print(f" 
