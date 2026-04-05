@@ -168,9 +168,13 @@ jobs:
 # ═══════════════════════════════════════════════════════════════════════════
 # STAGE 2.1: EMBEDDED INTEL UPDATE
 # ═══════════════════════════════════════════════════════════════════════════
-      - name: "💾 Update Sync State"
+      - name: "💾 Update Sync State (pre-v70 attempt — non-fatal)"
         continue-on-error: true
-        run: python3 scripts/update_embedded_intel.py || true
+        run: |
+          # NOTE: This runs BEFORE v70 orchestrator, so if sentinel_blogger wrote a
+          # 1-entry manifest the patch will fail and roll back safely (|| true).
+          # The authoritative patch runs AFTER the v101 Manifest Sync step below.
+          python3 scripts/update_embedded_intel.py || true
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STAGE 2.5: INTELLIGENCE PIPELINE (v70 ADDITIVE)
@@ -302,6 +306,7 @@ jobs:
 
           # ── Stage critical pipeline files (force-add for gitignored paths)
           git add -f data/stix/feed_manifest.json      2>/dev/null || true
+          git add -f data/feed_manifest.json            2>/dev/null || true  # v70 canonical
           git add -f data/sync_marker.json              2>/dev/null || true
           git add -f api/feed.json api/latest.json api/status.json 2>/dev/null || true
           git add    index.html sitemap.xml             2>/dev/null || true
@@ -309,6 +314,7 @@ jobs:
           git add -f data/status/status.json            2>/dev/null || true
           git add -f data/health/guardian_report.json  2>/dev/null || true
           git add    threat/                            2>/dev/null || true
+          git add -f data/publish_queue.json            2>/dev/null || true
 
           # ── Check if there is anything to commit ──────────────────────
           if git diff --staged --quiet; then
@@ -353,6 +359,70 @@ jobs:
 # ═══════════════════════════════════════════════════════════════════════════
 # STAGE 4: DEPLOY
 # ═══════════════════════════════════════════════════════════════════════════
+      - name: "🔐 Final Dashboard Sync Gate — Mandatory EMBEDDED_INTEL Verification"
+        run: |
+          # ── MANDATORY: Verify EMBEDDED_INTEL is fresh before deploy ───────
+          # Count items in EMBEDDED_INTEL currently in index.html
+          EMBEDDED_COUNT=$(python3 - << 'PYEOF'
+          import re, sys
+          try:
+              html = open("index.html", encoding="utf-8").read()
+              pos = html.find("const EMBEDDED_INTEL = [")
+              if pos == -1:
+                  print(0); sys.exit(0)
+              start = pos + len("const EMBEDDED_INTEL = ")
+              depth = 0; i = start; in_s = False; esc = False
+              while i < len(html):
+                  c = html[i]
+                  if esc: esc = False; i += 1; continue
+                  if c == '\\' and in_s: esc = True; i += 1; continue
+                  if c == '"' and not esc: in_s = not in_s; i += 1; continue
+                  if not in_s:
+                      if c == '[': depth += 1
+                      elif c == ']':
+                          depth -= 1
+                          if depth == 0:
+                              import json
+                              try: items = json.loads(html[start:i+1]); print(len(items))
+                              except: print(0)
+                              sys.exit(0)
+                  i += 1
+              print(0)
+          except Exception as e:
+              print(0)
+          PYEOF
+          )
+
+          MANIFEST_COUNT=$(python3 -c "
+          import json
+          try:
+              d = json.load(open('data/stix/feed_manifest.json'))
+              items = d.get('advisories', d if isinstance(d,list) else [])
+              print(len(items))
+          except: print(0)
+          " 2>/dev/null || echo 0)
+
+          echo "EMBEDDED_INTEL items: $EMBEDDED_COUNT | Manifest items: $MANIFEST_COUNT"
+
+          # If EMBEDDED_INTEL is stale (differs from manifest by >10%) — force re-patch
+          if [ "$MANIFEST_COUNT" -gt 50 ]; then
+            THRESHOLD=$(( MANIFEST_COUNT * 90 / 100 ))
+            if [ "$EMBEDDED_COUNT" -lt "$THRESHOLD" ]; then
+              echo "⚠️ EMBEDDED_INTEL stale ($EMBEDDED_COUNT < 90% of manifest $MANIFEST_COUNT) — forcing re-patch..."
+              python3 scripts/update_embedded_intel.py
+              echo "✅ Force re-patch complete"
+              # Re-stage index.html with fresh EMBEDDED_INTEL
+              git add index.html 2>/dev/null || true
+            else
+              echo "✅ EMBEDDED_INTEL fresh ($EMBEDDED_COUNT items matches manifest $MANIFEST_COUNT)"
+            fi
+          else
+            echo "⚠️ Manifest too small ($MANIFEST_COUNT) — running bootstrap first"
+            python3 scripts/bootstrap_critical_files.py
+            python3 scripts/update_embedded_intel.py || true
+            git add index.html 2>/dev/null || true
+          fi
+
       - name: "🚀 Pre-deploy Integrity Gate"
         continue-on-error: true
         run: |
