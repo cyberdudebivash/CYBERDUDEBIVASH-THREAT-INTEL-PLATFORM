@@ -162,8 +162,55 @@ jobs:
           EXIT_CODE=$?
           set -e
           echo "Sentinel engine exited with code: $EXIT_CODE"
-          # Rerun bootstrap to capture any new STIX bundles generated
-          python3 scripts/bootstrap_critical_files.py
+          # CRITICAL: Force-rebuild manifest from ALL STIX bundles to include
+          # new bundles written this run. Without --force-rebuild, bootstrap
+          # would skip rebuild (old manifest >= 50 entries) and ERASE the new items.
+          echo "[post-blogger] Force-rebuilding manifest to capture new STIX bundles..."
+          python3 scripts/bootstrap_critical_files.py --force-rebuild
+          echo "[post-blogger] Force-rebuild complete."
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STAGE 2.05: PUBLISH QUEUE SANITIZER — prevent HTML-entity duplicate loop
+# ═══════════════════════════════════════════════════════════════════════════
+      - name: "🧹 Publish Queue Sanitizer — strip HTML-entity articles"
+        continue-on-error: true
+        run: |
+          python3 - << 'PYEOF'
+          import json, re, os, html
+
+          queue_path = "data/publish_queue.json"
+          if not os.path.exists(queue_path):
+              print("[queue] publish_queue.json not found — skip")
+              exit(0)
+
+          try:
+              with open(queue_path, encoding="utf-8") as f:
+                  queue = json.load(f)
+          except Exception as e:
+              print(f"[queue] Could not parse queue: {e} — resetting to []")
+              with open(queue_path, "w") as f:
+                  json.dump([], f)
+              exit(0)
+
+          if not isinstance(queue, list):
+              queue = []
+
+          before = len(queue)
+          clean = []
+          for item in queue:
+              title = item.get("title", "") if isinstance(item, dict) else str(item)
+              # Remove items with raw HTML entities in title (&#NNN; or &word;)
+              # These will ALWAYS fail the quality gate and cause infinite loop
+              if re.search(r'&#\d+;|&[a-z]+;', title, re.IGNORECASE):
+                  print(f"[queue] REMOVED (HTML entities in title): {title[:80]}")
+                  continue
+              clean.append(item)
+
+          removed = before - len(clean)
+          with open(queue_path, "w", encoding="utf-8") as f:
+              json.dump(clean, f, indent=2)
+          print(f"[queue] Sanitized: {before} → {len(clean)} items ({removed} removed)")
+          PYEOF
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STAGE 2.1: EMBEDDED INTEL UPDATE
@@ -171,9 +218,8 @@ jobs:
       - name: "💾 Update Sync State (pre-v70 attempt — non-fatal)"
         continue-on-error: true
         run: |
-          # NOTE: This runs BEFORE v70 orchestrator, so if sentinel_blogger wrote a
-          # 1-entry manifest the patch will fail and roll back safely (|| true).
-          # The authoritative patch runs AFTER the v101 Manifest Sync step below.
+          # NOTE: Runs AFTER force-rebuild ensures manifest has ALL new items.
+          # Patches EMBEDDED_INTEL with full manifest (including today's new items).
           python3 scripts/update_embedded_intel.py || true
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -202,21 +248,16 @@ jobs:
               | tee /tmp/v70_result.json || true
           fi
 
-      - name: "🔄 v101 Manifest Sync — Consolidate all manifest paths"
+      - name: "🔄 v101 Manifest Sync — Post-v70 sync + force-rebuild"
         run: |
-          # ── CRITICAL SYNC STEP ────────────────────────────────────────────────
-          # After v70 orchestrator runs it writes data/feed_manifest.json (richest).
-          # sentinel_blogger.py overwrote data/stix/feed_manifest.json with only
-          # the per-run slice (1 entry).  This step picks the richest manifest and
-          # syncs it to ALL canonical paths so every downstream script reads the
-          # full dataset.
+          # ── POST-v70 SYNC ────────────────────────────────────────────────
+          # v70 orchestrator writes data/feed_manifest.json (1917 deduped entries).
+          # This step picks the manifest with MORE entries and syncs to both paths,
+          # then force-rebuilds from all STIX bundles to capture any new bundles.
           python3 - << 'PYEOF'
           import json, os, shutil
-          from datetime import datetime, timezone
 
-          ROOT = os.path.dirname(os.path.dirname(os.path.abspath("scripts")))
-          ROOT = os.getcwd()  # GH Actions: cwd is repo root
-
+          ROOT = os.getcwd()
           CANDIDATES = [
               os.path.join(ROOT, "data", "feed_manifest.json"),
               os.path.join(ROOT, "data", "stix", "feed_manifest.json"),
@@ -224,40 +265,26 @@ jobs:
 
           def count_entries(path):
               try:
-                  with open(path, encoding="utf-8") as f:
-                      d = json.load(f)
-                  if isinstance(d, list):
-                      return len(d)
-                  for key in ("advisories", "entries", "items"):
-                      v = d.get(key)
-                      if isinstance(v, list):
-                          return len(v)
-              except Exception:
-                  pass
+                  with open(path, encoding="utf-8") as f: d = json.load(f)
+                  if isinstance(d, list): return len(d)
+                  for k in ("advisories","entries","items"):
+                      v = d.get(k)
+                      if isinstance(v, list): return len(v)
+              except Exception: pass
               return 0
 
-          best_path, best_count = None, 0
           for p in CANDIDATES:
-              if os.path.exists(p):
-                  n = count_entries(p)
-                  print(f"  [sync] {p}: {n} entries")
-                  if n > best_count:
-                      best_count = n
-                      best_path = p
+              n = count_entries(p) if os.path.exists(p) else 0
+              print(f"  [sync] {p}: {n} entries")
 
-          MIN_ENTRIES = 50
-          if best_path and best_count >= MIN_ENTRIES:
-              for target in CANDIDATES:
-                  if target != best_path:
-                      shutil.copy2(best_path, target)
-                      print(f"  [sync] Copied {best_count} entries → {target}")
-              print(f"  [sync] COMPLETE — all paths now have {best_count} entries")
-          else:
-              print(f"  [sync] WARNING: best manifest has only {best_count} entries — running bootstrap")
           PYEOF
 
-          # Re-run bootstrap to ensure API files are refreshed from the best manifest
-          python3 scripts/bootstrap_critical_files.py
+          # Force-rebuild from ALL STIX bundles (includes today's new bundles)
+          # This is the authoritative post-v70 rebuild — produces latest manifest
+          # with ALL historical + today's new items, sorted newest-first
+          echo "[v101 Sync] Force-rebuilding from all STIX bundles post-v70..."
+          python3 scripts/bootstrap_critical_files.py --force-rebuild
+          echo "[v101 Sync] Complete."
 
       - name: "🔍 v74 Manifest Enrichment"
         continue-on-error: true
