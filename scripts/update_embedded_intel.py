@@ -309,6 +309,21 @@ def main():
 
     merged = merge_intelligence(feed, enriched)
 
+    # ── Deduplicate by stix_id then title (prevents ticker showing same item twice) ──
+    seen_keys: set = set()
+    deduped: list = []
+    for item in merged:
+        key = (item.get("stix_id") or item.get("id") or "")[:120]
+        if not key:
+            key = item.get("title", "")[:120]
+        if key and key not in seen_keys:
+            seen_keys.add(key)
+            deduped.append(item)
+    removed_dupes = len(merged) - len(deduped)
+    if removed_dupes:
+        print(f"[INFO] Deduplication: {len(merged)} → {len(deduped)} items ({removed_dupes} duplicates removed)")
+    merged = deduped
+
     # Sort newest-first so dashboard always shows the freshest intel at the top
     merged.sort(
         key=lambda x: str(x.get("timestamp", x.get("published", x.get("created", "")))),

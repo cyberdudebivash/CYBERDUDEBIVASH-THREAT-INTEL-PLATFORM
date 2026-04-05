@@ -206,6 +206,38 @@ def _write_manifest(entries: list, path: Path) -> None:
     write_json(path, manifest, compact=True)
 
 
+def _load_existing_manifest_entries(stix_path: "Path", root_path: "Path") -> list:
+    """
+    Load entries from the best existing committed manifest.
+    Used by force-rebuild to preserve entries from previous runs whose
+    individual STIX bundles were NOT committed to git (gitignored).
+    Without this merge, those entries would be silently dropped each run.
+    """
+    import shutil as _shutil  # local import to avoid top-level dep
+    existing: list = []
+    best_count = 0
+    for candidate in (stix_path, root_path):
+        if not candidate.exists():
+            continue
+        try:
+            raw = json.loads(candidate.read_text(encoding="utf-8"))
+            if isinstance(raw, list):
+                items = raw
+            else:
+                items = []
+                for k in ("advisories", "entries", "items"):
+                    v = raw.get(k)
+                    if isinstance(v, list):
+                        items = v
+                        break
+            if len(items) > best_count:
+                best_count = len(items)
+                existing = items
+        except Exception:
+            pass
+    return existing
+
+
 def bootstrap_feed_manifest(entries: list, force_rebuild: bool = False) -> None:
     """
     Ensure data/stix/feed_manifest.json AND data/feed_manifest.json both
@@ -213,8 +245,13 @@ def bootstrap_feed_manifest(entries: list, force_rebuild: bool = False) -> None:
 
     Decision logic:
       1. Find the existing manifest with the most entries.
-      2. If force_rebuild=True → always rebuild from STIX bundles (picks up
-         new bundles written by sentinel_blogger this run).
+      2. If force_rebuild=True → MERGE existing committed manifest with new
+         STIX-bundle-derived entries (union by stix_id/title).
+         This is CRITICAL: individual STIX bundles from previous runs are NOT
+         committed to git (they are gitignored). Without this merge, entries
+         from the previous run are lost every cycle, causing the dashboard to
+         show only the current run's new items plus old committed bundle items,
+         and NOTHING from runs in between.
       3. If it has >= MIN_MANIFEST_ENTRIES → copy it to both canonical paths
          (no STIX rebuild needed).
       4. If no manifest meets the threshold → rebuild from STIX bundles and
@@ -224,7 +261,34 @@ def bootstrap_feed_manifest(entries: list, force_rebuild: bool = False) -> None:
     root_path = DATA_DIR / "feed_manifest.json"  # v70 orchestrator path
 
     if force_rebuild:
-        print(f"  [bootstrap] FORCE REBUILD requested — rebuilding from {len(entries)} STIX bundles")
+        # ── MERGE: existing committed manifest + new STIX-bundle entries ──
+        # Load the existing committed manifest (may have entries from previous
+        # runs whose STIX bundles were NOT committed and are therefore absent
+        # from the `entries` list derived from scanning disk bundles).
+        existing_entries = _load_existing_manifest_entries(stix_path, root_path)
+
+        # Build dedup index from STIX-bundle entries (highest priority: current run)
+        seen_keys: set = set()
+        merged: list = []
+        for e in entries:
+            key = (e.get("stix_id") or e.get("id") or "")[:120] or e.get("title", "")[:120]
+            if key and key not in seen_keys:
+                seen_keys.add(key)
+                merged.append(e)
+
+        # Append existing manifest entries not already present
+        appended = 0
+        for e in existing_entries:
+            key = (e.get("stix_id") or e.get("id") or "")[:120] or e.get("title", "")[:120]
+            if key and key not in seen_keys:
+                seen_keys.add(key)
+                merged.append(e)
+                appended += 1
+
+        print(f"  [bootstrap] FORCE REBUILD+MERGE: {len(entries)} STIX-bundle entries "
+              f"+ {appended} preserved from committed manifest "
+              f"= {len(merged)} total (was {len(existing_entries)} committed)")
+        entries = merged
     else:
         best_path, best_count = _best_existing_manifest()
 
