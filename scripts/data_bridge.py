@@ -83,7 +83,11 @@ def convert_stix_item(item: dict) -> dict:
             source_name = "Unknown"
 
     ioc_counts = item.get("ioc_counts", {})
+    raw_iocs = item.get("iocs", [])
+    if not isinstance(raw_iocs, list): raw_iocs = []
     total_iocs = item.get("indicator_count", 0) or 0
+    if not total_iocs and raw_iocs:
+        total_iocs = len(raw_iocs)
     if not total_iocs and ioc_counts:
         total_iocs = sum(v for v in ioc_counts.values() if isinstance(v, (int, float)))
 
@@ -103,7 +107,7 @@ def convert_stix_item(item: dict) -> dict:
         "confidence": float(item.get("confidence_score", 0) or item.get("confidence", 0) or 0),
         "threat_score": float(item.get("risk_score", 0) or 0),
         "cves": cves,
-        "iocs": [],
+        "iocs": raw_iocs[:10],  # actual IOCs from source (capped)
         "ioc_count": total_iocs,
         "actors": actors,
         "mitre_techniques": mitre_techniques,
@@ -280,10 +284,12 @@ def main():
     # Sanitize pending publish queue
     sanitize_pending_publish()
 
+    kev_total = sum(1 for adv in converted if adv.get("kev_present"))
+    kev_cve_idx = sum(1 for c in cve_index.values() if c.get("kev_status"))
     elapsed = round(time.time() - t0, 3)
     print(f"[BRIDGE] Advisories: {len(converted)}")
     print(f"[BRIDGE] CVEs: {len(all_cves)} | CVE index: {len(cve_index)} entries")
-    print(f"[BRIDGE] KEV: {sum(1 for c in cve_index.values() if c.get('kev_status'))}")
+    print(f"[BRIDGE] KEV: {kev_total} ({kev_cve_idx} CVE-indexed)")
     print(f"[BRIDGE] IOCs: {total_iocs}")
     print(f"[BRIDGE] Pending publish sanitized")
     print(f"[BRIDGE] Duration: {elapsed}s")

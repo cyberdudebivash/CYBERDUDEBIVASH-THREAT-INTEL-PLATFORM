@@ -25,10 +25,18 @@ Or from GitHub Actions (add after sentinel_blogger stage):
 import json
 import os
 import re
+import sys
 import time
 import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+
+# sys.path fix: add repo root so `from agent.xxx import yyy` works when
+# this script is invoked as `python agent/v48_pipeline_hardening/pipeline_hardener.py`
+_THIS_DIR  = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.dirname(os.path.dirname(_THIS_DIR))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 logger = logging.getLogger("CDB-PIPELINE-HARDENER")
 
@@ -181,6 +189,42 @@ def validate_manifest_integrity(manifest_path: str = MANIFEST_PATH) -> List[Dict
     return findings
 
 
+def normalize_manifest_severity(manifest_path: str = MANIFEST_PATH) -> int:
+    """
+    FIX severity_mismatch: align severity field with risk_score for every entry.
+    Bands (aligned with update_embedded_intel.py _sev_to_priority):
+      risk >= 8.5 -> CRITICAL | risk >= 6.5 -> HIGH
+      risk >= 4.0 -> MEDIUM   | risk < 4.0  -> LOW
+    Handles both flat list and v70 envelope (dict with "advisories" key).
+    """
+    if not os.path.exists(manifest_path):
+        return 0
+    try:
+        with open(manifest_path) as f:
+            data = json.load(f)
+    except Exception:
+        return 0
+    is_env = isinstance(data, dict)
+    entries = (data.get("advisories") or data.get("items") or data.get("entries") or []) if is_env else data
+    if not isinstance(entries, list):
+        return 0
+    corrected = 0
+    for e in entries:
+        risk = float(e.get("risk_score") or 0)
+        exp = "CRITICAL" if risk >= 8.5 else "HIGH" if risk >= 6.5 else "MEDIUM" if risk >= 4.0 else "LOW"
+        if e.get("severity") != exp:
+            e["severity"] = exp
+            corrected += 1
+    if corrected:
+        try:
+            with open(manifest_path, "w") as f:
+                json.dump(data, f, indent=4)
+        except Exception as ex:
+            logger.warning(f"  Severity write-back failed: {ex}")
+            return 0
+    return corrected
+
+
 def run_post_pipeline():
     """Main orchestrator - runs all v48 hardening passes."""
     logging.basicConfig(
@@ -199,6 +243,14 @@ def run_post_pipeline():
         "integrity_findings": 0,
         "run_at": datetime.now(timezone.utc).isoformat(),
     }
+
+    # 0. Normalize severity bands — fixes 354 severity_mismatch findings
+    try:
+        sev_fixed = normalize_manifest_severity()
+        results["severity_corrected"] = sev_fixed
+        logger.info(f"  Severity normalize: {sev_fixed} entries corrected")
+    except Exception as e:
+        logger.warning(f"  Severity normalization failed: {e}")
 
     # 1. Fix manifest sort order
     try:
