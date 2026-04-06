@@ -504,6 +504,31 @@ jobs:
         continue-on-error: true
         run: python scripts/threat_page_generator.py || true
 
+
+      - name: "🌐 API Layer v101.1 — Build Static API + Exports"
+        continue-on-error: true
+        run: |
+          # ADDITIVE: generates /api/feed.json /api/stats.json /api/exports/*
+          # Feature-flagged: ENABLE_API_V101 must be true in config/feature_flags.json
+          python3 scripts/api_layer_v101.py && echo "✅ API layer built" || echo "⚠️ API layer warn (non-fatal)"
+
+      - name: "📬 Blog Queue Retry — Process Failed Posts"
+        continue-on-error: true
+        run: |
+          # ADDITIVE: retries posts that failed due to Blogger rate-limits
+          # Feature-flagged: ENABLE_BLOG_QUEUE must be true in config/feature_flags.json
+          # First: enqueue any new failures from blogger log
+          python3 scripts/blog_queue_manager.py enqueue --from-failed-log || true
+          # Then: retry up to 10 pending posts with exponential backoff
+          python3 scripts/blog_queue_manager.py retry --max 10 && echo "✅ Blog queue processed" || echo "⚠️ Blog queue warn (non-fatal)"
+
+      - name: "🛡️ Enhanced Platform Guardian v101.1"
+        continue-on-error: true
+        run: |
+          # Runs full guardian suite including new v101.1 checks:
+          #   check_api_consistency, check_queue_health, check_feature_flags
+          python3 scripts/platform_integrity_guard.py --mode=full || echo "⚠️ Guardian advisory — see output above"
+
       - name: "💾 Commit Post-Extras"
         continue-on-error: true
         env:
@@ -514,6 +539,10 @@ jobs:
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
 
           git add -f data/stix/feed_manifest.json api/feed.json api/latest.json 2>/dev/null || true
+          git add -f api/stats.json api/status.json 2>/dev/null || true
+          git add -f api/exports/ 2>/dev/null || true
+          git add -f config/feature_flags.json 2>/dev/null || true
+          git add -f data/blog_queue/ 2>/dev/null || true
           git add    threat/ sitemap.xml 2>/dev/null || true
 
           if ! git diff --staged --quiet; then
