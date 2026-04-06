@@ -308,6 +308,22 @@ def normalise_item(item: dict) -> dict:
         else:
             out["primary_actor"] = "UNATTRIBUTED"
 
+    # ── kev_present: derive from title/description if not already set ─────
+    # CISA KEV & active exploitation keyword detection ensures KEV dashboard
+    # counter reflects real threat signal rather than always showing 0.
+    if not out.get("kev_present"):
+        _kev_text = " ".join([
+            str(out.get("title") or ""),
+            str(out.get("description") or ""),
+        ]).lower()
+        _KEV_SIGNALS = [
+            "cisa kev", "known exploited", "actively exploited",
+            "exploitation detected", "exploited in the wild",
+            "zero-day", "0-day", "exploit in the wild",
+            "under active attack", "ransomware deployment",
+        ]
+        out["kev_present"] = any(sig in _kev_text for sig in _KEV_SIGNALS)
+
     return out
 
 
@@ -449,6 +465,10 @@ def patch_index_html(merged: list) -> bool:
     before_fingerprint = compute_fingerprint(original_html, array_start, array_end)
 
     # ── Step 3: Build new array data ──
+    # ── Strip bloat fields before embedding (0% utilization in dashboard JS) ──
+    _BLOAT_FIELDS = {"ttps", "alert", "correlation"}
+    merged = [{k: v for k, v in item.items() if k not in _BLOAT_FIELDS} for item in merged]
+
     new_array = json.dumps(merged, separators=(",", ":"), ensure_ascii=False)
 
     # ── Step 4: Create backup in /tmp (avoids NTFS immutability issues on mounted shares) ──
