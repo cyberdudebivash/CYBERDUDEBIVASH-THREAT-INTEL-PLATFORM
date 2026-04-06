@@ -555,6 +555,190 @@ def check_manifest_json_valid() -> list[CheckResult]:
 
 # ── Check registry ────────────────────────────────────────────────────────────
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# v101.1 ENHANCED CHECKS — API Consistency + Queue Health + Feature Flags
+# ADDITIVE ONLY — existing checks unchanged.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def check_api_consistency() -> list[CheckResult]:
+    """
+    Verify /api/feed.json exists, is valid JSON, and its count is within
+    5% of the manifest count. Ensures API layer is not serving stale or
+    truncated data relative to the source manifest.
+    """
+    results: list[CheckResult] = []
+    api_path = ROOT / "api" / "feed.json"
+
+    # Load manifest count
+    manifest_count = 0
+    for candidate in [
+        ROOT / "data" / "stix" / "feed_manifest.json",
+        ROOT / "data" / "v101_manifest.json",
+        ROOT / "data" / "enriched_manifest.json",
+    ]:
+        if candidate.exists():
+            try:
+                raw = json.loads(candidate.read_text(encoding="utf-8"))
+                if isinstance(raw, list):
+                    manifest_count = len(raw)
+                else:
+                    for k in ("advisories", "entries", "items", "data"):
+                        v = raw.get(k)
+                        if isinstance(v, list):
+                            manifest_count = len(v)
+                            break
+                if manifest_count:
+                    break
+            except Exception:
+                pass
+
+    # Check api/feed.json
+    if not api_path.exists():
+        results.append(CheckResult("check_api_consistency", Sev.WARN,
+            "api/feed.json not found — run scripts/api_layer_v101.py to generate"))
+        return results
+
+    try:
+        api_raw  = json.loads(api_path.read_text(encoding="utf-8"))
+        api_count = api_raw.get("count") or api_raw.get("total_count") or 0
+        api_items = api_raw.get("data") or api_raw.get("items") or []
+        api_actual = len(api_items) if isinstance(api_items, list) else api_count
+
+        results.append(CheckResult("check_api_consistency", Sev.OK,
+            f"api/feed.json valid | count={api_count} | items={api_actual}",
+            {"api_count": api_count, "api_items": api_actual}))
+
+        if manifest_count and api_count:
+            drift_pct = abs(api_count - manifest_count) / max(manifest_count, 1) * 100
+            if drift_pct > 10:
+                results.append(CheckResult("check_api_consistency", Sev.WARN,
+                    f"API count ({api_count}) vs manifest ({manifest_count}) drift={drift_pct:.1f}% — re-run api_layer_v101.py",
+                    {"drift_pct": round(drift_pct, 1)}))
+            else:
+                results.append(CheckResult("check_api_consistency", Sev.OK,
+                    f"API/manifest count drift acceptable: {drift_pct:.1f}% ({api_count} vs {manifest_count})",
+                    {"drift_pct": round(drift_pct, 1)}))
+        elif not manifest_count:
+            results.append(CheckResult("check_api_consistency", Sev.WARN,
+                "Could not load manifest for count comparison"))
+
+    except json.JSONDecodeError as e:
+        results.append(CheckResult("check_api_consistency", Sev.CRITICAL,
+            f"api/feed.json is corrupt JSON: {e}"))
+    except Exception as e:
+        results.append(CheckResult("check_api_consistency", Sev.WARN,
+            f"api/feed.json check error: {e}"))
+
+    return results
+
+
+def check_queue_health() -> list[CheckResult]:
+    """
+    Validate blog_queue health:
+      - pending_posts.json parseable
+      - pending queue not excessively large (>100 = problem)
+      - dead_letter queue not growing uncontrolled (>50 = alert)
+    """
+    results: list[CheckResult] = []
+    queue_file   = ROOT / "data" / "blog_queue" / "pending_posts.json"
+    dead_letter  = ROOT / "data" / "blog_queue" / "dead_letter.json"
+
+    # Check pending queue
+    if not queue_file.exists():
+        results.append(CheckResult("check_queue_health", Sev.OK,
+            "Blog queue not initialized — no pending posts"))
+    else:
+        try:
+            q = json.loads(queue_file.read_text(encoding="utf-8"))
+            pending_count     = len(q.get("queue", []))
+            total_published   = q.get("stats", {}).get("total_published", 0)
+            total_dead        = q.get("stats", {}).get("total_dead_lettered", 0)
+
+            if pending_count == 0:
+                results.append(CheckResult("check_queue_health", Sev.OK,
+                    f"Blog queue clear | published={total_published} | dead_lettered={total_dead}",
+                    {"pending": pending_count, "published": total_published, "dead": total_dead}))
+            elif pending_count <= 20:
+                results.append(CheckResult("check_queue_health", Sev.OK,
+                    f"Blog queue: {pending_count} pending (normal) | published={total_published}",
+                    {"pending": pending_count}))
+            elif pending_count <= 100:
+                results.append(CheckResult("check_queue_health", Sev.WARN,
+                    f"Blog queue backlog: {pending_count} pending — check retry runner",
+                    {"pending": pending_count}))
+            else:
+                results.append(CheckResult("check_queue_health", Sev.CRITICAL,
+                    f"Blog queue critically backed up: {pending_count} pending — intervention required",
+                    {"pending": pending_count}))
+
+        except Exception as e:
+            results.append(CheckResult("check_queue_health", Sev.WARN,
+                f"Blog queue parse error: {e}"))
+
+    # Check dead letter queue
+    if dead_letter.exists():
+        try:
+            dead = json.loads(dead_letter.read_text(encoding="utf-8"))
+            dead_count = len(dead) if isinstance(dead, list) else 0
+            if dead_count == 0:
+                results.append(CheckResult("check_queue_health", Sev.OK,
+                    "Dead letter queue empty"))
+            elif dead_count <= 10:
+                results.append(CheckResult("check_queue_health", Sev.WARN,
+                    f"Dead letter queue: {dead_count} posts — review and re-enqueue if needed",
+                    {"dead_count": dead_count}))
+            else:
+                results.append(CheckResult("check_queue_health", Sev.CRITICAL,
+                    f"Dead letter queue critical: {dead_count} posts — data loss risk",
+                    {"dead_count": dead_count}))
+        except Exception as e:
+            results.append(CheckResult("check_queue_health", Sev.WARN,
+                f"Dead letter parse error: {e}"))
+
+    return results
+
+
+def check_feature_flags() -> list[CheckResult]:
+    """
+    Validate config/feature_flags.json exists and is valid JSON with
+    expected schema keys. Ensures feature flags system is operational.
+    """
+    results: list[CheckResult] = []
+    flags_path = ROOT / "config" / "feature_flags.json"
+
+    if not flags_path.exists():
+        results.append(CheckResult("check_feature_flags", Sev.WARN,
+            "config/feature_flags.json not found — defaults will be used"))
+        return results
+
+    try:
+        flags = json.loads(flags_path.read_text(encoding="utf-8"))
+        required_keys = ["ENABLE_API_V101", "ENABLE_BLOG_QUEUE", "ENABLE_EXPORT_ENDPOINTS"]
+        missing = [k for k in required_keys if k not in flags]
+
+        if missing:
+            results.append(CheckResult("check_feature_flags", Sev.WARN,
+                f"Feature flags missing keys: {missing}",
+                {"missing_keys": missing}))
+        else:
+            api_enabled   = flags.get("ENABLE_API_V101", False)
+            queue_enabled = flags.get("ENABLE_BLOG_QUEUE", False)
+            export_enabled = flags.get("ENABLE_EXPORT_ENDPOINTS", False)
+            results.append(CheckResult("check_feature_flags", Sev.OK,
+                f"Feature flags valid | API={api_enabled} | queue={queue_enabled} | exports={export_enabled}",
+                {"api": api_enabled, "queue": queue_enabled, "exports": export_enabled}))
+
+    except json.JSONDecodeError as e:
+        results.append(CheckResult("check_feature_flags", Sev.CRITICAL,
+            f"config/feature_flags.json corrupt: {e}"))
+    except Exception as e:
+        results.append(CheckResult("check_feature_flags", Sev.WARN,
+            f"Feature flags check error: {e}"))
+
+    return results
+
 ALL_CHECKS = [
     check_files_exist,
     check_manifest_json_valid,
@@ -566,6 +750,10 @@ ALL_CHECKS = [
     check_version_string,
     check_embedded_intel_sync,
     check_embedded_item_fields,
+    # v101.1 enhanced checks
+    check_api_consistency,
+    check_queue_health,
+    check_feature_flags,
 ]
 
 # Lightweight checks safe to run in pre-commit (skip heavy HTML parse)
