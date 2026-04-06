@@ -89,8 +89,15 @@ jobs:
           PYEOF
 
       - name: "Patch EMBEDDED_INTEL in index.html"
-        continue-on-error: true
-        run: python3 scripts/update_embedded_intel.py || true
+        run: |
+          # MANDATORY: Dashboard sync must patch EMBEDDED_INTEL successfully.
+          # continue-on-error and || true REMOVED — if this fails the sync is corrupt.
+          python3 scripts/update_embedded_intel.py && echo "✅ sync-dashboard EMBEDDED_INTEL patch OK" || {
+            echo "❌ EMBEDDED_INTEL patch FAILED in sync-dashboard — aborting sync"
+            exit 1
+          }
+          # Run platform integrity guard as advisory (non-fatal on first run)
+          python3 scripts/platform_integrity_guard.py --mode=sync || echo "⚠️ Guard advisory — see output"
 
       - name: "Validate — no conflict markers"
         continue-on-error: true

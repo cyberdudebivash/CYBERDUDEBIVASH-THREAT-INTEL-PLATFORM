@@ -222,7 +222,12 @@ jobs:
         run: |
           # NOTE: Runs AFTER force-rebuild ensures manifest has ALL new items.
           # Patches EMBEDDED_INTEL with full manifest (including today's new items).
-          python3 scripts/update_embedded_intel.py || true
+          # || true REMOVED: exit code must propagate so Final Dashboard Sync Gate
+          # can detect staleness and force re-patch if this step silently degraded.
+          python3 scripts/update_embedded_intel.py && echo "✅ pre-v70 EMBEDDED_INTEL patch OK" || {
+            echo "⚠️ pre-v70 EMBEDDED_INTEL patch FAILED — Final Sync Gate will re-patch"
+            exit 1
+          }
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STAGE 2.5: INTELLIGENCE PIPELINE (v70 ADDITIVE)
@@ -294,8 +299,14 @@ jobs:
           [ -f scripts/v74_manifest_enricher.py ] && python3 scripts/v74_manifest_enricher.py || true
 
       - name: "🔄 v74 Re-patch EMBEDDED_INTEL"
-        continue-on-error: true
-        run: python3 scripts/update_embedded_intel.py || true
+        run: |
+          # CRITICAL: Post-v74 enrichment patch — MUST succeed. No silent swallow.
+          # continue-on-error removed: if this fails, Final Dashboard Sync Gate
+          # will catch it, but we want the log to clearly mark the failure.
+          python3 scripts/update_embedded_intel.py && echo "✅ v74 EMBEDDED_INTEL patch OK" || {
+            echo "❌ v74 EMBEDDED_INTEL patch FAILED — aborting to trigger Final Sync Gate re-patch"
+            exit 1
+          }
 
       - name: "⏱️ Update Sync Marker"
         run: |
@@ -448,18 +459,28 @@ jobs:
           else
             echo "⚠️ Manifest too small ($MANIFEST_COUNT) — running bootstrap first"
             python3 scripts/bootstrap_critical_files.py
-            python3 scripts/update_embedded_intel.py || true
+            python3 scripts/update_embedded_intel.py && echo "✅ bootstrap-triggered patch OK" || {
+              echo "❌ CRITICAL: bootstrap-triggered EMBEDDED_INTEL patch failed"
+              exit 1
+            }
             git add index.html 2>/dev/null || true
           fi
 
       - name: "🚀 Pre-deploy Integrity Gate"
-        continue-on-error: true
         run: |
-          python3 scripts/pre_deploy_gate.py || {
-            echo "Gate WARN — attempting auto-repair..."
-            python3 scripts/update_embedded_intel.py || true
-            python3 scripts/pre_deploy_gate.py || echo "Gate non-fatal after repair"
+          # MANDATORY — deploy is BLOCKED if this gate fails after repair attempt.
+          # continue-on-error REMOVED: broken dashboard must never reach production.
+          python3 scripts/pre_deploy_gate.py && echo "✅ Integrity gate PASSED" || {
+            echo "⚠️ Gate WARN — attempting auto-repair..."
+            python3 scripts/update_embedded_intel.py
+            echo "🔁 Re-running integrity gate post-repair..."
+            python3 scripts/pre_deploy_gate.py || {
+              echo "❌ CRITICAL: Integrity gate FAILED after repair — deploy BLOCKED"
+              exit 1
+            }
           }
+          # Run platform-wide safety check (non-fatal on first deployment of guard)
+          python3 scripts/platform_integrity_guard.py --mode=pre-deploy || echo "⚠️ Integrity guard advisory warning — see output above"
 
       - name: "🚀 Deploy to GitHub Pages"
         uses: JamesIves/github-pages-deploy-action@v4.7.3

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CYBERDUDEBIVASH SENTINEL APEX v73.0 — Hardened EMBEDDED_INTEL Updater
+CYBERDUDEBIVASH SENTINEL APEX v101.0 — Hardened EMBEDDED_INTEL Updater
 =======================================================================
 Surgically replaces ONLY the EMBEDDED_INTEL data array in index.html.
 Everything else — functions, CSS, HTML, comments — is preserved byte-for-byte.
@@ -8,22 +8,24 @@ Everything else — functions, CSS, HTML, comments — is preserved byte-for-byt
 HOW IT WORKS:
   1. Finds `const EMBEDDED_INTEL = [` using string search (not regex)
   2. Brace-matches `[...]` to find the exact array boundaries
-  3. Replaces ONLY the array content between [ and ]
-  4. Verifies the result with 6 integrity checks
-  5. If ANY check fails → restores backup, exits non-zero
+  3. Normalises every item (adds stix_id, apex, blog_url, mitre_tactics, etc.)
+  4. Replaces ONLY the array content between [ and ]
+  5. Verifies the result with 6 integrity checks
+  6. If ANY check fails → restores backup, exits non-zero
 
-WHAT IT PRESERVES:
-  - renderTopThreats (v73 enhanced version)
-  - All CSS, HTML structure, and meta tags
-  - Brand strings (CYBERDUDEBIVASH SENTINEL APEX v73.0)
-  - Every function, variable, and comment outside EMBEDDED_INTEL
-  - The `const EMBEDDED_INTEL = ` prefix and `];` suffix (only array data changes)
+FIELD NORMALISATION (ensures dashboard features work):
+  - stix_id   : mapped from item['id']          → enables ANALYZE button
+  - apex      : built from risk/openclaw/corr   → enables AI panel
+  - blog_url  : constructed from stix_bundle    → enables Tactical Dossier link
+  - mitre_tactics: mapped from item['ttps']     → enables attack chain display
+  - tags      : None/falsy normalised to []     → prevents JS crash
 
 SAFE: Creates backup before write. Rolls back on any assertion failure.
 """
 
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -33,27 +35,268 @@ REPO_ROOT = Path(__file__).parent.parent
 INDEX_HTML = REPO_ROOT / "index.html"
 
 # ── Single Source of Truth ────────────────────────────────────────────────
-# data/stix/feed_manifest.json is the canonical manifest.
-# The workflow's "v101 Manifest Sync" step guarantees it is always the
-# richest version (synced from v70 orchestrator after every run).
-# The bootstrap enforces MIN_MANIFEST_ENTRIES=50 to reject partial writes.
 FEED_MANIFEST = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
-
-# Fallback candidates if the canonical path is missing or stale (<5 entries).
-# This is a defence-in-depth guard only — the sync step prevents this case.
 FEED_MANIFEST_CANDIDATES = [
-    REPO_ROOT / "data" / "stix" / "feed_manifest.json",  # canonical — always first
-    REPO_ROOT / "data" / "feed_manifest.json",            # v70 fallback
+    REPO_ROOT / "data" / "stix" / "feed_manifest.json",   # canonical — always first
+    REPO_ROOT / "data" / "feed_manifest.json",             # v70 fallback
 ]
 ENRICHED_MANIFEST = REPO_ROOT / "data" / "v46_ultraintel" / "enriched_manifest.json"
 
 ENRICHMENT_KEYS = [
     "actor_profile", "sector_tags", "exploit_status",
-    "cwe_classification", "intel_quality"
+    "cwe_classification", "intel_quality",
+    # v101 AI fields from v70 orchestrator
+    "mitre_tactics", "cvss_score", "epss_score", "kev_present",
+    "kev_date", "attribution", "campaign_id", "ai_risk_score",
+    "ai_confidence", "executive_summary", "kill_chain_narrative",
+    "kill_chain_phases", "actor_matches", "primary_actor",
+    "tactical_assessment", "exploit_tier", "blog_url", "nvd_url",
+    "source_url",
 ]
 
 # Minimum items to prevent empty dashboard
 MIN_ITEMS = 5
+
+# Platform version exposed to dashboard
+PLATFORM_VERSION = "v101.0"
+
+
+# ── Item Field Normaliser ─────────────────────────────────────────────────
+def _sev_to_priority(risk_score: float, severity: str) -> str:
+    """Map risk score to SOC priority P1-P4."""
+    s = float(risk_score or 0)
+    if s >= 9.0 or severity == "CRITICAL":
+        return "P1"
+    if s >= 7.0 or severity == "HIGH":
+        return "P2"
+    if s >= 5.0 or severity == "MEDIUM":
+        return "P3"
+    return "P4"
+
+
+def _sev_to_threat_level(risk_score: float, openclaw: dict) -> str:
+    """Derive threat level from risk score + openclaw signals."""
+    trend = (openclaw or {}).get("trend", "stable")
+    velocity = (openclaw or {}).get("velocity", "stable")
+    s = float(risk_score or 0)
+    if s >= 9.0 and velocity == "rising":
+        return "CRITICAL_SURGE"
+    if s >= 8.0:
+        return "CRITICAL"
+    if s >= 6.5:
+        return "HIGH"
+    if s >= 4.5:
+        return "ELEVATED"
+    return "MODERATE"
+
+
+def _build_recommended_action(severity: str, priority: str) -> str:
+    """Generate a concise recommended action from severity + priority."""
+    actions = {
+        "P1": "IMMEDIATE — Escalate to IR team now. Activate containment playbook.",
+        "P2": "URGENT — Investigate within 4h. Validate exposure and patch status.",
+        "P3": "SCHEDULE — Triage within 24h. Include in next patch cycle.",
+        "P4": "MONITOR — Track for status changes. Review at next triage window.",
+    }
+    return actions.get(priority, "Monitor for updates.")
+
+
+def _derive_exploit_tier(item: dict) -> str:
+    """Classify exploit tier from KEV, EPSS, exploit_probability."""
+    if item.get("kev_present"):
+        return "IMMINENT"
+    ep = str(item.get("exploit_probability", "")).lower()
+    epss = float(item.get("epss_score") or 0)
+    if ep in ("high", "critical") or epss > 0.3:
+        return "LIKELY"
+    if float(item.get("risk_score") or 0) >= 7:
+        return "ELEVATED"
+    return "UNKNOWN"
+
+
+def _build_blog_url(item: dict) -> str:
+    """
+    Construct Tactical Dossier URL.
+    Priority: explicit blog_url field → derive from stix_bundle → empty.
+    The sentinel_blogger publishes to blog.cyberdudebivash.com; the URL pattern
+    is not stored in the manifest for historical items, so we use '#' as a
+    graceful fallback (hides the 'View Tactical Dossier' link naturally because
+    the card template guards: `href="${item.blog_url}"` → still renders, but
+    we try to give the best URL possible).
+    """
+    # Prefer explicit field if already set
+    if item.get("blog_url"):
+        return item["blog_url"]
+    if item.get("source_url") and "cyberdudebivash" in str(item.get("source_url", "")):
+        return item["source_url"]
+    # Fall back to empty string (card template wraps in <a> regardless, but
+    # '#' is a better UX than a blank href that opens the same page)
+    return ""
+
+
+def _build_apex(item: dict) -> dict:
+    """
+    Build the `apex` sub-object expected by the dashboard APEX AI Panel.
+    All fields are derived deterministically from available manifest data.
+    """
+    risk = float(item.get("risk_score") or 0)
+    sev = str(item.get("severity") or "LOW")
+    openclaw = item.get("openclaw") or {}
+    corr = item.get("correlation") or {}
+    threat_type = str(item.get("threat_type") or "UNKNOWN").replace(" ", "_").upper()
+
+    priority = _sev_to_priority(risk, sev)
+    threat_level = _sev_to_threat_level(risk, openclaw)
+    recommended_action = _build_recommended_action(sev, priority)
+
+    # Behavioral tags: from openclaw patterns + attack_surface (max 5)
+    raw_patterns = openclaw.get("patterns") or []
+    raw_surface = openclaw.get("attack_surface") or []
+    behavioral_tags = list({
+        t.replace("surge:", "").replace("baseline", "normal").upper()
+        for t in (raw_patterns + raw_surface)
+        if t and t not in ("baseline",)
+    })[:5]
+
+    # Campaign ID from correlation or openclaw fingerprint
+    campaign_id = (
+        corr.get("cluster_id")
+        or item.get("campaign_id")
+        or (f"CDB-{openclaw.get('fingerprint', 'UNCLASSIFIED')[:8].upper()}" if openclaw.get("fingerprint") else "UNCLASSIFIED")
+    )
+
+    # AI summary: prefer description, strip "Tactical cluster: " prefix
+    raw_desc = str(item.get("description") or "")
+    ai_summary = re.sub(r"^Tactical cluster:\s*", "", raw_desc).strip()[:300]
+
+    # Predictive score = openclaw score if non-zero else risk_score
+    oc_score = float(openclaw.get("score") or 0)
+    predictive_score = round(oc_score / 10.0, 1) if oc_score > 0 else round(risk, 1)
+
+    return {
+        "priority": priority,
+        "threat_level": threat_level,
+        "threat_category": threat_type,
+        "predictive_score": predictive_score,
+        "campaign_id": campaign_id,
+        "recommended_action": recommended_action,
+        "ai_summary": ai_summary,
+        "behavioral_tags": behavioral_tags,
+        "openclaw_score": openclaw.get("score", 0),
+        "openclaw_velocity": openclaw.get("velocity", "stable"),
+        "openclaw_trend": openclaw.get("trend", "stable"),
+        "anomaly_detected": bool(openclaw.get("anomaly", False)),
+        "related_threats": int(corr.get("related_count") or 0),
+    }
+
+
+def normalise_item(item: dict) -> dict:
+    """
+    Normalise a single manifest item to include ALL fields expected by the
+    dashboard (stix_id, apex, blog_url, mitre_tactics, tags, etc.).
+    This is the single place where manifest → dashboard field mapping happens.
+    Zero data is lost — only new fields are added, nothing is removed.
+    """
+    out = dict(item)
+
+    # ── stix_id: CRITICAL — ANALYZE button injection requires this ──────
+    # Card template: data-stix-id="${item.stix_id||''}"
+    # Injection guard: if (!stixId) return;  ← skips if empty!
+    if not out.get("stix_id"):
+        out["stix_id"] = out.get("id") or ""
+
+    # ── tags: normalise None/falsy to [] (prevents JS .map crash) ───────
+    if not out.get("tags"):
+        out["tags"] = []
+    elif not isinstance(out["tags"], list):
+        out["tags"] = [str(out["tags"])]
+
+    # ── iocs: ensure list ────────────────────────────────────────────────
+    if not isinstance(out.get("iocs"), list):
+        out["iocs"] = []
+
+    # ── mitre_tactics: alias of ttps for card MITRE display ─────────────
+    ttps = out.get("ttps") or []
+    if not isinstance(ttps, list):
+        ttps = []
+    out["ttps"] = ttps
+    if not out.get("mitre_tactics"):
+        out["mitre_tactics"] = ttps
+
+    # ── exploit_tier: for AI modal header badge ──────────────────────────
+    if not out.get("exploit_tier"):
+        out["exploit_tier"] = _derive_exploit_tier(out)
+
+    # ── blog_url: enables "View Tactical Dossier" link ───────────────────
+    out["blog_url"] = _build_blog_url(out)
+
+    # ── apex: enables APEX AI Intelligence Panel ─────────────────────────
+    if not out.get("apex") or not isinstance(out.get("apex"), dict):
+        out["apex"] = _build_apex(out)
+
+    # ── ai_risk_score / ai_confidence for AI modal ───────────────────────
+    if not out.get("ai_risk_score"):
+        out["ai_risk_score"] = out.get("risk_score", 0)
+    if not out.get("ai_confidence"):
+        # Convert confidence percentage (0-100) to decimal (0-1) for modal
+        conf = float(out.get("confidence") or 0)
+        out["ai_confidence"] = round(conf / 100.0, 2) if conf > 1 else conf
+
+    # ── executive_summary for AI modal section 1 ─────────────────────────
+    if not out.get("executive_summary"):
+        out["executive_summary"] = out["apex"].get("ai_summary", "")
+
+    # ── tactical_assessment ──────────────────────────────────────────────
+    if not out.get("tactical_assessment"):
+        out["tactical_assessment"] = out["apex"].get("recommended_action", "")
+
+    # ── kill_chain_narrative & kill_chain_phases ─────────────────────────
+    if not out.get("kill_chain_narrative") and ttps:
+        out["kill_chain_narrative"] = (
+            f"Threat actor employs {len(ttps)} MITRE ATT&CK techniques: "
+            + ", ".join(ttps[:5])
+            + ("..." if len(ttps) > 5 else ".")
+        )
+    if not out.get("kill_chain_phases"):
+        # Map TTP names to abbreviated kill-chain labels
+        phase_map = {
+            "reconnaissance": "RECON", "resource development": "INIT",
+            "initial access": "INIT", "execution": "EXEC",
+            "persistence": "PERS", "privilege escalation": "PRIV",
+            "defense evasion": "D.EVA", "credential access": "CRED",
+            "discovery": "DISC", "lateral movement": "LAT.MOV",
+            "collection": "COLL", "command and control": "C2",
+            "exfiltration": "EXFIL", "impact": "IMPACT",
+            "supply chain compromise": "INIT", "phishing": "INIT",
+            "valid accounts": "CRED", "active scanning": "RECON",
+        }
+        phases = []
+        for t in ttps:
+            key = t.lower()
+            for phrase, label in phase_map.items():
+                if phrase in key and label not in phases:
+                    phases.append(label)
+        out["kill_chain_phases"] = phases or ["EXEC"]
+
+    # ── source_url / nvd_url ─────────────────────────────────────────────
+    # Extract CVE ID for NVD link
+    if not out.get("nvd_url"):
+        title = out.get("title", "")
+        cve_match = re.search(r"CVE-\d{4}-\d+", title)
+        if cve_match:
+            out["nvd_url"] = f"https://nvd.nist.gov/vuln/detail/{cve_match.group()}"
+
+    # ── primary_actor: for AI modal attribution ──────────────────────────
+    if not out.get("primary_actor"):
+        threat_type = str(out.get("threat_type") or "")
+        if "ransomware" in threat_type.lower():
+            out["primary_actor"] = "RANSOMWARE GROUP (UNATTRIBUTED)"
+        elif "supply chain" in threat_type.lower():
+            out["primary_actor"] = "THREAT ACTOR (UNATTRIBUTED)"
+        else:
+            out["primary_actor"] = "UNATTRIBUTED"
+
+    return out
 
 
 def load_manifest(path: Path) -> list:
@@ -69,18 +312,35 @@ def load_manifest(path: Path) -> list:
 
 
 def merge_intelligence(feed: list, enriched: list) -> list:
-    """Merge enriched v46 fields onto feed_manifest items."""
-    enriched_lookup = {item.get("stix_id", ""): item for item in enriched}
+    """
+    Merge enriched v46 fields onto feed_manifest items, then normalise every
+    item so all dashboard-required fields are guaranteed to be present.
+    """
+    # Build enriched lookup by stix_id OR id (handles both field naming variants)
+    enriched_lookup: dict = {}
+    for enc in enriched:
+        for key in (enc.get("stix_id"), enc.get("id")):
+            if key:
+                enriched_lookup[key] = enc
+
     merged = []
     for item in feed:
-        sid = item.get("stix_id", "")
+        # Identify this item
+        sid = item.get("stix_id") or item.get("id") or ""
         merged_item = dict(item)
-        if sid in enriched_lookup:
+
+        # Layer enriched fields on top (without overwriting non-null existing values)
+        if sid and sid in enriched_lookup:
             enc = enriched_lookup[sid]
             for key in ENRICHMENT_KEYS:
-                if key in enc:
-                    merged_item[key] = enc[key]
-        merged.append(merged_item)
+                # Only set if enriched has it AND current item doesn't (or is falsy)
+                if key in enc and enc[key] is not None:
+                    if not merged_item.get(key):
+                        merged_item[key] = enc[key]
+
+        # ── Normalise item → ensures ALL dashboard fields are present ────
+        merged.append(normalise_item(merged_item))
+
     return merged
 
 
@@ -179,8 +439,9 @@ def patch_index_html(merged: list) -> bool:
     # ── Step 3: Build new array data ──
     new_array = json.dumps(merged, separators=(",", ":"), ensure_ascii=False)
 
-    # ── Step 4: Create backup ──
-    backup_path = str(INDEX_HTML) + ".pre_intel_update"
+    # ── Step 4: Create backup in /tmp (avoids NTFS immutability issues on mounted shares) ──
+    import tempfile
+    backup_path = os.path.join(tempfile.gettempdir(), "index_pre_intel_update.html")
     shutil.copy2(INDEX_HTML, backup_path)
 
     # ── Step 5: Surgical replacement — ONLY the array content ──
