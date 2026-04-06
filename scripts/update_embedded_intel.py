@@ -28,6 +28,7 @@ import os
 import re
 import shutil
 import sys
+import urllib.parse
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -129,8 +130,13 @@ def _build_blog_url(item: dict) -> str:
         return item["blog_url"]
     if item.get("source_url") and "cyberdudebivash" in str(item.get("source_url", "")):
         return item["source_url"]
-    # Fall back to empty string (card template wraps in <a> regardless, but
-    # '#' is a better UX than a blank href that opens the same page)
+    # Smart fallback: Blogger search URL so "View Tactical Dossier" always
+    # navigates to real content instead of looping back to dashboard.
+    # Uses title-based search on the Sentinel APEX Blogger blog.
+    title = str(item.get("title") or "").strip()
+    if title:
+        query = urllib.parse.quote_plus(title[:80])
+        return f"https://cyberbivash.blogspot.com/search?q={query}"
     return ""
 
 
@@ -214,6 +220,12 @@ def normalise_item(item: dict) -> dict:
     # ── iocs: ensure list ────────────────────────────────────────────────
     if not isinstance(out.get("iocs"), list):
         out["iocs"] = []
+
+    # ── indicator_count: derived from iocs list → powers IOC metric counter ─
+    # Dashboard computeMetrics() checks d.indicator_count to sum total IOCs.
+    # Since manifest lacks this field, we compute it here from the iocs array.
+    if not out.get("indicator_count"):
+        out["indicator_count"] = len(out["iocs"])
 
     # ── mitre_tactics: alias of ttps for card MITRE display ─────────────
     ttps = out.get("ttps") or []

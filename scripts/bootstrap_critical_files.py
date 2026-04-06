@@ -119,6 +119,19 @@ def load_stix_entries() -> list:
                 if o.get("type") == "attack-pattern" and o.get("name")
             ))[:5]
 
+            # Extract blog_url from external_references on report/intrusion-set objects.
+            # The sentinel_blogger writes the published post URL into the STIX bundle
+            # external_references so we can reconstruct the Tactical Dossier link.
+            blog_url = ""
+            for obj in objs:
+                for ref in obj.get("external_references", []):
+                    url = ref.get("url", "")
+                    if url and any(k in url for k in ["cyberdudebivash", "cyberbivash.blogspot"]):
+                        blog_url = url
+                        break
+                if blog_url:
+                    break
+
             entries.append({
                 "id": primary.get("id", f"intel--{fpath.stem}"),
                 "title": title,
@@ -132,6 +145,7 @@ def load_stix_entries() -> list:
                 "iocs": iocs,
                 "ttps": attack_patterns,
                 "tags": primary.get("labels", []),
+                "blog_url": blog_url,
             })
         except Exception as exc:  # noqa: BLE001
             print(f"  [bootstrap] WARN: could not parse {fpath.name}: {exc}")
