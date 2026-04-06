@@ -324,6 +324,23 @@ def normalise_item(item: dict) -> dict:
         ]
         out["kev_present"] = any(sig in _kev_text for sig in _KEV_SIGNALS)
 
+    # feed_source: powers m-feed-count FEEDS counter on dashboard
+    # JS counts unique d.feed_source values; without this field FEEDS shows "—"
+    if not out.get("feed_source"):
+        _src_name = str(out.get("source", "") or "")
+        _src_url  = str(out.get("source_url") or "")
+        if _src_name and _src_name.lower() not in ("", "unknown", "none", "null", "n/a"):
+            out["feed_source"] = _src_name
+        elif _src_url:
+            try:
+                import urllib.parse as _up
+                _nl = _up.urlparse(_src_url).netloc
+                out["feed_source"] = _nl if _nl else "Sentinel APEX"
+            except Exception:
+                out["feed_source"] = "Sentinel APEX"
+        else:
+            out["feed_source"] = "Sentinel APEX"
+
     return out
 
 
@@ -589,7 +606,9 @@ def main():
     # Multi-path resolution: use whichever manifest has the most entries.
     # This prevents the 1-entry sentinel_blogger manifest from blocking the patch.
     feed, feed_path = load_best_manifest(FEED_MANIFEST_CANDIDATES)
-    enriched = load_manifest(ENRICHED_MANIFEST)
+    # ENRICHED_MANIFEST is a legacy v46_ultraintel path no longer in production.
+    # Load only if the file actually exists to suppress the spurious WARN.
+    enriched = load_manifest(ENRICHED_MANIFEST) if ENRICHED_MANIFEST.exists() else []
 
     if feed_path:
         print(f"[INFO] Using manifest: {feed_path} ({len(feed)} items)")

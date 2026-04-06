@@ -502,7 +502,32 @@ def main() -> int:
 
     print("\nBootstrapping pipeline-critical files:")
     bootstrap_feed_manifest(entries, force_rebuild=force_rebuild)
-    bootstrap_api_files(entries)
+
+    # FIX-5: Load the now-correct full manifest for API file metrics.
+    # bootstrap_api_files() was receiving only the sparse STIX-bundle slice
+    # (9 items, risk_score ~7.0, all LOW/MEDIUM) — giving zeros in status.json.
+    best_path, best_count = _best_existing_manifest()
+    if best_path and best_count > len(entries):
+        try:
+            import json as _j
+            _raw = _j.loads(best_path.read_text(encoding="utf-8"))
+            if isinstance(_raw, list):
+                full_entries = _raw
+            else:
+                full_entries = entries
+                for _k in ("advisories", "entries", "items"):
+                    _v = _raw.get(_k)
+                    if isinstance(_v, list):
+                        full_entries = _v
+                        break
+            print(f"  [bootstrap] API metrics: {best_path.name} ({len(full_entries)} entries)")
+        except Exception as _e:
+            print(f"  [bootstrap] WARN: Full manifest load failed: {_e}")
+            full_entries = entries
+    else:
+        full_entries = entries
+
+    bootstrap_api_files(full_entries)
     bootstrap_sentinel_files()
 
     print("\n[bootstrap] COMPLETE — all critical files verified/created")
