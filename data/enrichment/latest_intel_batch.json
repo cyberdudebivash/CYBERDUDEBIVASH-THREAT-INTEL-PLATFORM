@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-07T14:55:28.762677+00:00",
+  "timestamp": "2026-04-07T18:35:19.806643+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -278,6 +278,164 @@
     }
   ],
   "github_advisories": [
+    {
+      "ghsa_id": "GHSA-qmwh-9m9c-h36m",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Gotenberg has incomplete fix for ExifTool arbitrary file write: case-insensitive bypass and missing HardLink/SymLink tags",
+      "description": "## Summary\n\nThe fix for ExifTool arbitrary file write (commit `043b158`, released in v8.29.0) uses a case-sensitive blocklist to filter dangerous pseudo-tags. ExifTool processes tag names case-insensitively, so alternate casings bypass the filter. The blocklist also omits the `HardLink` and `SymLink` pseudo-tags entirely.\n\nConfirmed end-to-end against Gotenberg v8.29.1 via the unauthenticated HTTP API.\n\n## Root Cause\n\n`pkg/modules/exiftool/exiftool.go` lines 231-237:\n\n    dangerousTags := []string{\n        \"FileName\",  // Writing this triggers a file rename in ExifTool\n        \"Directory\", // Writing this triggers a file move in ExifTool\n    }\n    for _, tag := range dangerousTags {\n        delete(metadata, tag)\n    }\n\nGo's `delete(metadata, tag)` is case-sensitive. It only removes the exact keys `\"FileName\"` and `\"Directory\"`. ExifTool processes tag names case-insensitively (per ExifTool documentation). Alternate casings like `filename`, `FILENAME`, `directory` all bypass the Go block",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-73",
+        "CWE-178"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/gotenberg/gotenberg/v8"
+      ],
+      "published": "2026-04-07T18:16:22Z",
+      "updated": "2026-04-07T18:16:23Z",
+      "url": "https://github.com/advisories/GHSA-qmwh-9m9c-h36m",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/gotenberg/gotenberg/security/advisories/GHSA-qmwh-9m9c-h36m",
+        "https://github.com/gotenberg/gotenberg/commit/15050a311b73d76d8b9223bafe7fa7ba71240011",
+        "https://github.com/advisories/GHSA-qmwh-9m9c-h36m"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-fmwg-qcqh-m992",
+      "cve_id": "CVE-2026-35458",
+      "severity": "HIGH",
+      "summary": "Gotenberg Vulnerable to ReDoS via extraHttpHeaders scope feature",
+      "description": "### Summary\nGotenberg uses `dlclark/regexp2` to compile user-supplied scope patterns without setting a proper timeout. Users with access to features using this logic can hang workers indefinitely. \n\n### Details\nGotenberg uses `dlclark/regexp2` to compile user-supplied scope patterns (gotenberg/pkg/modules/chromium/routes.go:200) with no MatchTimeout set, therefore using the default of math.MaxInt64 = \"forever\".\n\nFor example, any user with access to the endpoint `/forms/chromium/screenshot/url` can add a crafted scope pattern to the `extraHttpHeaders` form field using a nested quantifiers that causes infinite backtracking, hanging the Gotenberg worker indefinitely.\n\nSee the [dlclark/regexp2 README.md](https://github.com/dlclark/regexp2?tab=readme-ov-file#catastrophic-backtracking-and-timeouts) for further considerations.\n\nTested on the latest container version gotenberg/gotenberg:8.29.1\n\n### PoC\n\nThe following Python script uses the `/forms/chromium/screenshot/url` endpoint, testing for",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-1333"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/gotenberg/gotenberg/v8"
+      ],
+      "published": "2026-04-07T18:16:19Z",
+      "updated": "2026-04-07T18:16:20Z",
+      "url": "https://github.com/advisories/GHSA-fmwg-qcqh-m992",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/gotenberg/gotenberg/security/advisories/GHSA-fmwg-qcqh-m992",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-35458",
+        "https://github.com/gotenberg/gotenberg/commit/cfb48d9af48cb236244eabe5c67fe1d30fb3fe25",
+        "https://github.com/advisories/GHSA-fmwg-qcqh-m992"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-vfw7-6rhc-6xxg",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OpenClaw Has Incomplete Fix for CVE-2026-4039: CLI Backend Environment Variable Injection via Workspace Config",
+      "description": "## Summary\nIncomplete Fix for CVE-2026-4039: CLI Backend Environment Variable Injection via Workspace Config\n\n## Current Maintainer Triage\n- Status: open\n- Normalized severity: high\n- Assessment: Real shipped malicious-workspace-config env injection in the CLI backend runner, fixed by sanitizing backend env before spawn and shipped in v2026.3.24, so advisory stays open until published.\n\n## Affected Packages / Versions\n- Package: `openclaw` (npm)\n- Latest published npm version: `2026.3.31`\n- Vulnerable version range: `<=2026.3.23-2`\n- Patched versions: `>= 2026.3.24`\n- First stable tag containing the fix: `v2026.3.24`\n\n## Fix Commit(s)\n- `c2fb7f1948c3226732a630256b5179a60664ec24` \u2014 2026-03-24T12:58:10-07:00\n\n## Release Process Note\n- The fix is already present in released version `2026.3.24`.\n- This draft looks ready for final maintainer disposition or publication, not additional code-fix work.\n\nThanks @YLChen-007 for reporting.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-426"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "openclaw"
+      ],
+      "published": "2026-04-07T18:10:52Z",
+      "updated": "2026-04-07T18:10:53Z",
+      "url": "https://github.com/advisories/GHSA-vfw7-6rhc-6xxg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/openclaw/openclaw/security/advisories/GHSA-vfw7-6rhc-6xxg",
+        "https://github.com/openclaw/openclaw/commit/c2fb7f1948c3226732a630256b5179a60664ec24",
+        "https://github.com/advisories/GHSA-vfw7-6rhc-6xxg"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-gm9m-gwc4-hwgp",
+      "cve_id": "CVE-2026-34148",
+      "severity": "HIGH",
+      "summary": "Fedify affected by resource exhaustion caused by unbounded redirect following during remote key/document resolution",
+      "description": "### Summary\n\n`@fedify/fedify` follows HTTP redirects recursively in its remote document loader and authenticated document loader without enforcing a maximum redirect count or visited-URL loop detection. An attacker who controls a remote ActivityPub key or actor URL can force a server using Fedify to make repeated outbound requests from a single inbound request, leading to resource consumption and denial of service.\n\n### Details\n\nFedify verifies ActivityPub HTTP signatures by fetching the remote `keyId` during request processing. The relevant flow is `handleInboxInternal()` -> `verifyRequest()` -> `fetchKeyInternal()` -> document loader.\n\nIn affected versions:\n- the generic document loader recursively follows `3xx` responses by calling `load()` again on the `Location` header\n- the authenticated redirect path (`doubleKnock()`) also recursively follows redirects\n- neither path enforces a redirect cap or tracks visited URLs to detect self-referential redirect loops\n\nAs a result, if an atta",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-400",
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm",
+        "npm",
+        "npm",
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "@fedify/fedify",
+        "@fedify/vocab-runtime",
+        "@fedify/vocab-runtime",
+        "@fedify/fedify",
+        "@fedify/fedify",
+        "@fedify/fedify"
+      ],
+      "published": "2026-04-07T18:04:09Z",
+      "updated": "2026-04-07T18:04:11Z",
+      "url": "https://github.com/advisories/GHSA-gm9m-gwc4-hwgp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/fedify-dev/fedify/security/advisories/GHSA-gm9m-gwc4-hwgp",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-34148",
+        "https://github.com/fedify-dev/fedify/releases/tag/1.10.5",
+        "https://github.com/fedify-dev/fedify/releases/tag/1.9.6",
+        "https://github.com/fedify-dev/fedify/releases/tag/2.0.8",
+        "https://github.com/fedify-dev/fedify/releases/tag/2.1.1",
+        "https://github.com/advisories/GHSA-gm9m-gwc4-hwgp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-69v7-xpr6-6gjm",
+      "cve_id": "CVE-2026-34444",
+      "severity": "HIGH",
+      "summary": "Lupa has a Sandbox escape and RCE due to incomplete attribute_filter enforcement in getattr / setattr",
+      "description": "### Summary\nThe `attribute_filter` in the Lupa library is intended to restrict access to sensitive Python attributes when exposing objects to Lua.\n\nHowever, the filter is not consistently applied when attributes are accessed through built-in functions like getattr and setattr. This allows an attacker to bypass the intended restrictions and eventually achieve arbitrary code execution.\n\n### Details\nThe `attribute_filter` is meant to block access to attributes such as `__class__`, `__mro__`, and similar internal properties.\n\nIn practice, it only applies to direct attribute access:\n- `obj.attr` \u2192 filtered\n- `getattr(obj, \"attr\")` \u2192 not filtered\nBecause of this inconsistency, it\u2019s possible to bypass the filter entirely, if access to the Python builtins is granted to Lua code.\n\nAn attacker can use getattr to-\n- Access `__class__`\n- Walk the `__mro__` chain\n- Call `__subclasses__()`\n- Iterate over available classes\n- Find a function that exposes `__globals__`\n- Retrieve something like `os.sys",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284",
+        "CWE-693"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "lupa"
+      ],
+      "published": "2026-04-07T15:48:13Z",
+      "updated": "2026-04-07T15:48:16Z",
+      "url": "https://github.com/advisories/GHSA-69v7-xpr6-6gjm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/scoder/lupa/security/advisories/GHSA-69v7-xpr6-6gjm",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-34444",
+        "https://github.com/advisories/GHSA-69v7-xpr6-6gjm"
+      ]
+    },
     {
       "ghsa_id": "GHSA-r9x3-wx45-2v7f",
       "cve_id": "CVE-2026-39308",
@@ -580,156 +738,6 @@
         "https://github.com/authorizerdev/authorizer/releases/tag/2.0.1",
         "https://github.com/advisories/GHSA-x3f4-v83f-7wp2"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-jfwg-rxf3-p7r9",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Authorizer: CQL/N1QL Injection in Cassandra and Couchbase Backends via fmt.Sprintf String Interpolation",
-      "description": "## Vulnerability Details\n\n**CWE:** CWE-943 - Improper Neutralization of Special Elements in Data Query Logic\n\nAll 66+ CQL queries in `internal/storage/db/cassandradb/` use `fmt.Sprintf` to interpolate user-controlled values directly into CQL query strings without parameterization.\n\nUnauthenticated endpoints (`signup`, `login`, `forgot_password`, `magic_link_login`) pass user input directly into CQL query strings.\n\n**Note:** This advisory covers the Cassandra CQL injection only. The Couchbase N1QL injection is tracked in a separate advisory per CVE rule 4.2.11.\n\n## Affected Code Pattern\n\n```go\n// Before (VULNERABLE) - e.g. cassandradb/user.go\nquery := fmt.Sprintf(\"SELECT ... FROM %s WHERE email = '%s'\", table, email)\nerr := p.db.Query(query).Scan(...)\n```\n\n## Steps to Reproduce\n\n1. Deploy Authorizer <= 2.0.0 with Cassandra backend\n2. Send a signup request with a CQL injection payload in the email field:\n\n```bash\ncurl -X POST http://localhost:8080/graphql \\\n  -H 'Content-Type: applicatio",
-      "cvss_score": 7.3,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-209",
-        "CWE-943"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/authorizerdev/authorizer"
-      ],
-      "published": "2026-04-06T17:56:31Z",
-      "updated": "2026-04-06T17:56:35Z",
-      "url": "https://github.com/advisories/GHSA-jfwg-rxf3-p7r9",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/authorizerdev/authorizer/security/advisories/GHSA-jfwg-rxf3-p7r9",
-        "https://github.com/authorizerdev/authorizer/pull/500",
-        "https://github.com/authorizerdev/authorizer/commit/73679faa53cd215c7524d651046e402c43809786",
-        "https://github.com/authorizerdev/authorizer/releases/tag/2.0.1",
-        "https://github.com/advisories/GHSA-jfwg-rxf3-p7r9"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-f2g3-hh2r-cwgc",
-      "cve_id": "CVE-2026-35172",
-      "severity": "HIGH",
-      "summary": "Distribution: stale blob access resurrection via repo-scoped redis descriptor cache invalidation",
-      "description": "## summary:\ndistribution can restore read access in `repo a` after an explicit delete when `storage.cache.blobdescriptor: redis` and `storage.delete.enabled: true` are both enabled. the delete path clears the shared digest descriptor but leaves stale repo-scoped membership behind, so a later `Stat` or `Get` from `repo b` repopulates the shared descriptor and makes the deleted blob readable from `repo a` again.\n\n## Severity\n\nHIGH\n\njustification: this is a repo-local authorization bypass after explicit delete, with concrete confidentiality impact and no requirement for write access after the delete event. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N (7.5). CWE-284.\n\n# affected version\n\n- repository: https://github.com/distribution/distribution\n- commit: ab67ffa0bda3712991194841d0fde727464feeb9\n- affected versions: \\<= 3.0.x, \\<= 2.8.x when redis blob descriptor cache and delete are both enabled\n- affected file:\n  - https://github.com/distribution/distribution/blob/ab67ffa0bda371299119484",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-284"
-      ],
-      "ecosystems": [
-        "go",
-        "go"
-      ],
-      "packages": [
-        "github.com/distribution/distribution/v3",
-        "github.com/distribution/distribution"
-      ],
-      "published": "2026-04-06T17:53:40Z",
-      "updated": "2026-04-06T23:14:52Z",
-      "url": "https://github.com/advisories/GHSA-f2g3-hh2r-cwgc",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/distribution/distribution/security/advisories/GHSA-f2g3-hh2r-cwgc",
-        "https://github.com/distribution/distribution/commit/078b0783f239b4115d1a979e66f08832084e9d1d",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-35172",
-        "https://github.com/advisories/GHSA-f2g3-hh2r-cwgc"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-3p65-76g6-3w7r",
-      "cve_id": "CVE-2026-33540",
-      "severity": "HIGH",
-      "summary": "Distribution affected by pull-through cache credential exfiltration via www-authenticate bearer realm",
-      "description": "hi guys,\n\ncommit: 40594bd98e6d6ed993b5c6021c93fdf96d2e5851 (as-of 2026-01-31)\ncontact: GitHub Security Advisory (https://github.com/distribution/distribution/security/advisories/new)\n\n## summary\n\nin pull-through cache mode, distribution discovers token auth endpoints by parsing `WWW-Authenticate` challenges returned by the configured upstream registry. the `realm` URL from a bearer challenge is used without validating that it matches the upstream registry host. as a result, an attacker-controlled upstream (or an attacker with MitM position to the upstream) can cause distribution to send the configured upstream credentials via basic auth to an attacker-controlled `realm` URL.\n\nthis is the same vulnerability class as CVE-2020-15157 (containerd), but in distribution\u2019s pull-through cache proxy auth flow.\n\n## severity\n\nHIGH\n\nnote: the baseline impact is credential disclosure of the configured upstream credentials. if a deployment uses broader credentials for upstream auth (for example cloud",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-918"
-      ],
-      "ecosystems": [
-        "go",
-        "go"
-      ],
-      "packages": [
-        "github.com/distribution/distribution/v3",
-        "github.com/distribution/distribution"
-      ],
-      "published": "2026-04-06T17:52:52Z",
-      "updated": "2026-04-06T23:42:46Z",
-      "url": "https://github.com/advisories/GHSA-3p65-76g6-3w7r",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/distribution/distribution/security/advisories/GHSA-3p65-76g6-3w7r",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-33540",
-        "https://github.com/distribution/distribution/commit/cc5d5fa4ba02157501e6afa2cc6a903ad0338e7b",
-        "https://github.com/advisories/GHSA-3p65-76g6-3w7r"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-4744-96p5-mp2j",
-      "cve_id": "CVE-2026-35464",
-      "severity": "HIGH",
-      "summary": "pyLoad: Unprotected storage_folder enables arbitrary file write to Flask session store and code execution (Incomplete fix for CVE-2026-33509)",
-      "description": "## Summary\n\nThe fix for CVE-2026-33509 (GHSA-r7mc-x6x7-cqxx) added an `ADMIN_ONLY_OPTIONS` set to block non-admin users from modifying security-critical config options. The `storage_folder` option is not in this set and passes the existing path restriction because the Flask session directory is outside both PKGDIR and userdir. A user with SETTINGS and ADD permissions can redirect downloads to the Flask filesystem session store, plant a malicious pickle payload as a predictable session file, and trigger arbitrary code execution when any HTTP request arrives with the corresponding session cookie.\n\n## Required Privileges\n\nThe chain requires a single non-admin user with both `SETTINGS` (to change `storage_folder`) and `ADD` (to submit a download URL) permissions. These are independent bitmask flags that can be assigned together by an admin. The final RCE trigger is unauthenticated: any HTTP request with the crafted session cookie causes deserialization.\n\n## Root Cause\n\n`storage_folder` at ",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-502",
-        "CWE-863"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "pyload-ng"
-      ],
-      "published": "2026-04-04T06:43:37Z",
-      "updated": "2026-04-04T06:43:37Z",
-      "url": "https://github.com/advisories/GHSA-4744-96p5-mp2j",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/pyload/pyload/security/advisories/GHSA-4744-96p5-mp2j",
-        "https://github.com/pyload/pyload/security/advisories/GHSA-r7mc-x6x7-cqxx",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-33509",
-        "https://github.com/advisories/GHSA-4744-96p5-mp2j"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-w48f-wwwf-f5fr",
-      "cve_id": "CVE-2026-35463",
-      "severity": "HIGH",
-      "summary": "pyLoad: Improper Neutralization of Special Elements used in an OS Command",
-      "description": "### Summary\n\nThe `ADMIN_ONLY_OPTIONS` protection mechanism restricts security-critical configuration values (reconnect scripts, SSL certs, proxy credentials) to admin-only access. However, this protection is **only applied to core config options**, not to plugin config options. The `AntiVirus` plugin stores an executable path (`avfile`) in its config, which is passed directly to `subprocess.Popen()`. A non-admin user with SETTINGS permission can change this path to achieve remote code execution.\n\n### Details\n\n**Safe wrapper \u2014 `ADMIN_ONLY_OPTIONS` (core/api/__init__.py:225-235):**\n\n```python\nADMIN_ONLY_OPTIONS = {\n    \"reconnect.script\",      # Blocks script path change\n    \"webui.host\",            # Blocks bind address change\n    \"ssl.cert_file\",         # Blocks cert path change\n    \"ssl.key_file\",          # Blocks key path change\n    # ... other sensitive options\n}\n```\n\n**Where it IS enforced \u2014 core config (core/api/__init__.py:255):**\n\n```python\ndef set_config_value(self, section, ",
-      "cvss_score": 8.8,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-78"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "pyload-ng"
-      ],
-      "published": "2026-04-04T06:41:59Z",
-      "updated": "2026-04-04T06:42:02Z",
-      "url": "https://github.com/advisories/GHSA-w48f-wwwf-f5fr",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/pyload/pyload/security/advisories/GHSA-w48f-wwwf-f5fr",
-        "https://github.com/advisories/GHSA-w48f-wwwf-f5fr"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -777,7 +785,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-04-07T14:55:28.901846+00:00",
+    "catalog_version": "2026-04-07T18:35:19.947757+00:00",
     "source": "CISA KEV"
   }
 }
