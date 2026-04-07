@@ -133,6 +133,30 @@ def build_feed_json(entries: List[Dict], flags: Dict) -> Path:
             entries = entries[:window]
             log(f"Rolling window applied: {window} entries")
 
+    # ── v102.0 SCHEMA NORMALIZATION ───────────────────────────────────────────────
+    # v74 manifest enricher writes items with STIX object 'id' instead of 'stix_id'.
+    # Normalize here so ALL api/feed.json consumers receive 'stix_id' unconditionally.
+    for entry in entries:
+        # Map STIX object id → stix_id (primary AI key for threatRegistry + ANALYZE btn)
+        if not entry.get("stix_id") and entry.get("id"):
+            entry["stix_id"] = entry["id"]
+        # Map v74 ttps → mitre_techniques
+        if not entry.get("mitre_techniques") and entry.get("ttps"):
+            entry["mitre_techniques"] = entry["ttps"]
+        # Map v74 confidence (0-100 int) → confidence_score (0.0-1.0 float)
+        if entry.get("confidence_score") is None and entry.get("confidence") is not None:
+            try:
+                cv = float(entry["confidence"])
+                entry["confidence_score"] = round(cv / 100 if cv > 1 else cv, 4)
+            except (ValueError, TypeError):
+                pass
+        # Ensure risk_score is numeric
+        if entry.get("risk_score") is not None:
+            try:
+                entry["risk_score"] = float(entry["risk_score"])
+            except (ValueError, TypeError):
+                pass
+
     sorted_entries = sorted(
         entries,
         key=lambda x: str(x.get("timestamp", x.get("published", x.get("created", "")))),
