@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-06T22:04:45.239284+00:00",
+  "timestamp": "2026-04-07T04:19:07.458240+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -279,6 +279,149 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-r9x3-wx45-2v7f",
+      "cve_id": "CVE-2026-39308",
+      "severity": "HIGH",
+      "summary": "PraisonAI recipe registry publish path traversal allows out-of-root file write",
+      "description": "### Summary\n\nPraisonAI's recipe registry publish endpoint writes uploaded recipe bundles to a filesystem path derived from the bundle's internal `manifest.json` before it verifies that the manifest `name` and `version` match the HTTP route. A malicious publisher can place `../` traversal sequences in the bundle manifest and cause the registry server to create files outside the configured registry root even though the request is ultimately rejected with HTTP `400`.\n\nThis is an arbitrary file write / path traversal issue on the registry host. It affects deployments that expose the recipe registry publish flow. If the registry is intentionally run without a token, any network client that can reach the service can trigger it. If a token is configured, any user with publish access can still exploit it.\n\n### Details\n\nThe bug is caused by the order of operations between the HTTP handler and the registry storage layer.\n\n1. `RegistryServer._handle_publish()` in `src/praisonai/praisonai/recipe/s",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "PraisonAI"
+      ],
+      "published": "2026-04-06T23:09:19Z",
+      "updated": "2026-04-06T23:09:21Z",
+      "url": "https://github.com/advisories/GHSA-r9x3-wx45-2v7f",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-r9x3-wx45-2v7f",
+        "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.113",
+        "https://github.com/advisories/GHSA-r9x3-wx45-2v7f"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4rx4-4r3x-6534",
+      "cve_id": "CVE-2026-39306",
+      "severity": "HIGH",
+      "summary": "PraisonAI recipe registry pull path traversal writes files outside the chosen output directory",
+      "description": "### Summary\n\nPraisonAI's recipe registry pull flow extracts attacker-controlled `.praison` tar archives with `tar.extractall()` and does not validate archive member paths before extraction. A malicious publisher can upload a recipe bundle that contains `../` traversal entries and any user who later pulls that recipe will write files outside the output directory they selected.\n\nThis is a path traversal / arbitrary file write vulnerability on the client side of the recipe registry workflow. It affects both the local registry pull path and the HTTP registry pull path. The checksum verification does not prevent exploitation because the malicious traversal payload is part of the signed bundle itself.\n\n### Details\n\nThe issue is caused by unsafe extraction of tar archive contents during recipe pull.\n\n1. A malicious publisher creates a valid `.praison` bundle whose `manifest.json` is benign enough to pass publish, but whose tar members include traversal entries such as:\n\n```text\n../../escape-h",
+      "cvss_score": 7.3,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:N/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "PraisonAI"
+      ],
+      "published": "2026-04-06T23:09:12Z",
+      "updated": "2026-04-06T23:09:12Z",
+      "url": "https://github.com/advisories/GHSA-4rx4-4r3x-6534",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-4rx4-4r3x-6534",
+        "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.113",
+        "https://github.com/advisories/GHSA-4rx4-4r3x-6534"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4ph2-f6pf-79wv",
+      "cve_id": "CVE-2026-39307",
+      "severity": "HIGH",
+      "summary": "PraisonAI Has Arbitrary File Write (Zip Slip) in Templates Extraction",
+      "description": "The PraisonAI templates installation feature is vulnerable to a \"Zip Slip\" Arbitrary File Write attack. When downloading and extracting template archives from external sources (e.g., GitHub), the application uses Python's `zipfile.extractall()` without verifying if the files within the archive resolve outside of the intended extraction directory. \n\n### Details\nLocation: `src/praisonai/praisonai/cli/features/templates.py` (Line 852)\n\nVulnerable Code snippet:\n```python\nzip_ref.extractall(tmpdir)\n```\n\nDuring installation, the CLI downloads a ZIP archive and extracts it directly into a temporary directory using `zip_ref.extractall(tmpdir)`. A specially crafted ZIP archive can contain file entries with relative paths (such as `../../../../tmp/evil.sh`). If extracting this archive in older Python versions or environments where extraction rules aren't strict, `extractall` will write these files outside the target directory, allowing an attacker to overwrite arbitrary files on the victim's fil",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-23"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "PraisonAI"
+      ],
+      "published": "2026-04-06T23:08:55Z",
+      "updated": "2026-04-06T23:08:56Z",
+      "url": "https://github.com/advisories/GHSA-4ph2-f6pf-79wv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-4ph2-f6pf-79wv",
+        "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.113",
+        "https://github.com/advisories/GHSA-4ph2-f6pf-79wv"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-788v-5pfp-93ff",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "PocketMine-MP: JSON decoding of unlimited size large arrays/objects in ModalFormResponse Handling",
+      "description": "### Impact\n\nThe server does not meaningfully limit the size of the JSON payload in `ModalFormResponsePacket`. This can be abused by an attacker to waste memory and CPU on an affected server, e.g. by sending arrays with millions of elements.\n\nThe player must have a full session on the server (i.e. spawned in the world) to exploit this, as form responses are not handled unless the player is in game.\n\n### Patches\nThe issue was fixed in two parts:\n- cef1088341e40ee7a6fa079bca47a84f3524d877 limits the size of a single form response to 10 KB, which is well above expected size, but low enough to prevent abuse\n- f983f4f66d5e72d7a07109c8175799ab0ee771d5 avoids decoding the form response if there is no form associated with the given ID\n\n### Workarounds\nThis issue can be worked around in a plugin using `DataPacketReceiveEvent` by:\n- checking the max size of the `formData` field\n- making sure the form ID is not repeated\n\nHowever, a full workaround for the issue would require reflection to access t",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "pocketmine/pocketmine-mp"
+      ],
+      "published": "2026-04-06T22:54:07Z",
+      "updated": "2026-04-06T22:54:08Z",
+      "url": "https://github.com/advisories/GHSA-788v-5pfp-93ff",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/pmmp/PocketMine-MP/security/advisories/GHSA-788v-5pfp-93ff",
+        "https://github.com/pmmp/PocketMine-MP/commit/cef1088341e40ee7a6fa079bca47a84f3524d877",
+        "https://github.com/pmmp/PocketMine-MP/commit/f983f4f66d5e72d7a07109c8175799ab0ee771d5",
+        "https://github.com/advisories/GHSA-788v-5pfp-93ff"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-h6rj-3m53-887h",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "PocketMine-MP: LogDoS by large complex unknown property logging in clientData in LoginPacket",
+      "description": "### Impact\n\nAttackers can put large and/or complex structures as a value to an unknown property in the clientData JWT body in the Minecraft `LoginPacket`, causing the server to generate very long log messages.\nAdditionally, the property name is logged without any length limitations or sanitization, which can also be abused for LogDoS.\n\nThis may be used to spam the log/console, waste CPU time serializing the offending structure, and potentially to crash the server entirely.\n\nThis happens because the JsonMapper instance used to process the JWT body is configured to warn on unexpected properties instead of rejecting them outright. While this behaviour increases flexibility for random changes introduced by Microsoft, it also creates vulnerabilities if not handled carefully.\n\nThis vulnerability affects PocketMine-MP servers exposed to a public network where unknown actors may have access.\n\n### PoC\n1. Connect to the server using a custom client.\n\n2. Send a Minecraft `LoginPacket` containing ",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-400"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "pocketmine/pocketmine-mp"
+      ],
+      "published": "2026-04-06T22:54:03Z",
+      "updated": "2026-04-06T22:54:05Z",
+      "url": "https://github.com/advisories/GHSA-h6rj-3m53-887h",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/pmmp/PocketMine-MP/security/advisories/GHSA-h6rj-3m53-887h",
+        "https://github.com/pmmp/PocketMine-MP/commit/87d1c0cea09d972fd4c2fafb84dac2ecab7649f0",
+        "https://github.com/pmmp/PocketMine-MP/blob/5.41.0/src/network/mcpe/handler/LoginPacketHandler.php#L288-L302",
+        "https://github.com/pmmp/PocketMine-MP/blob/5.41.0/src/network/mcpe/handler/LoginPacketHandler.php#L333-L349",
+        "https://github.com/advisories/GHSA-h6rj-3m53-887h"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-v2wj-q39q-566r",
       "cve_id": null,
       "severity": "HIGH",
@@ -314,7 +457,7 @@
     },
     {
       "ghsa_id": "GHSA-p9ff-h696-f583",
-      "cve_id": null,
+      "cve_id": "CVE-2026-39363",
       "severity": "HIGH",
       "summary": "Vite Vulnerable to Arbitrary File Read via Vite Dev Server WebSocket",
       "description": "### Summary\n\n[`server.fs`](https://vite.dev/config/server-options#server-fs-strict) check was not enforced to the `fetchModule` method that is exposed in Vite dev server's WebSocket. \n\n### Impact\n\nOnly apps that match the following conditions are affected:\n\n- explicitly exposes the Vite dev server to the network (using `--host` or [`server.host` config option](https://vitejs.dev/config/server-options.html#server-host))\n- WebSocket is not disabled by `server.ws: false`\n\nArbitrary files on the server (development machine, CI environment, container, etc.) can be exposed.\n\n### Details\n\nIf it is possible to connect to the Vite dev server\u2019s WebSocket **without an `Origin` header**, an attacker can invoke `fetchModule` via the custom WebSocket event `vite:invoke` and combine `file://...` with `?raw` (or `?inline`) to retrieve the contents of arbitrary files on the server as a JavaScript string (e.g., `export default \"...\"`).\n\nThe access control enforced in the HTTP request path (such as `serv",
@@ -336,7 +479,7 @@
         "vite"
       ],
       "published": "2026-04-06T18:03:24Z",
-      "updated": "2026-04-06T18:03:26Z",
+      "updated": "2026-04-06T23:44:11Z",
       "url": "https://github.com/advisories/GHSA-p9ff-h696-f583",
       "source": "github-advisory",
       "poc_urls": [
@@ -490,12 +633,13 @@
         "github.com/distribution/distribution"
       ],
       "published": "2026-04-06T17:53:40Z",
-      "updated": "2026-04-06T17:53:44Z",
+      "updated": "2026-04-06T23:14:52Z",
       "url": "https://github.com/advisories/GHSA-f2g3-hh2r-cwgc",
       "source": "github-advisory",
       "poc_urls": [
         "https://github.com/distribution/distribution/security/advisories/GHSA-f2g3-hh2r-cwgc",
         "https://github.com/distribution/distribution/commit/078b0783f239b4115d1a979e66f08832084e9d1d",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-35172",
         "https://github.com/advisories/GHSA-f2g3-hh2r-cwgc"
       ]
     },
@@ -504,7 +648,7 @@
       "cve_id": "CVE-2026-33540",
       "severity": "HIGH",
       "summary": "Distribution affected by pull-through cache credential exfiltration via www-authenticate bearer realm",
-      "description": "commit: 40594bd98e6d6ed993b5c6021c93fdf96d2e5851 (as-of 2026-01-31)\ncontact: GitHub Security Advisory (https://github.com/distribution/distribution/security/advisories/new)\n\n## summary\n\nin pull-through cache mode, distribution discovers token auth endpoints by parsing `WWW-Authenticate` challenges returned by the configured upstream registry. the `realm` URL from a bearer challenge is used without validating that it matches the upstream registry host. as a result, an attacker-controlled upstream (or an attacker with MitM position to the upstream) can cause distribution to send the configured upstream credentials via basic auth to an attacker-controlled `realm` URL.\n\nthis is the same vulnerability class as CVE-2020-15157 (containerd), but in distribution\u2019s pull-through cache proxy auth flow.\n\n## severity\n\nHIGH\n\nnote: the baseline impact is credential disclosure of the configured upstream credentials. if a deployment uses broader credentials for upstream auth (for example cloud iam crede",
+      "description": "hi guys,\n\ncommit: 40594bd98e6d6ed993b5c6021c93fdf96d2e5851 (as-of 2026-01-31)\ncontact: GitHub Security Advisory (https://github.com/distribution/distribution/security/advisories/new)\n\n## summary\n\nin pull-through cache mode, distribution discovers token auth endpoints by parsing `WWW-Authenticate` challenges returned by the configured upstream registry. the `realm` URL from a bearer challenge is used without validating that it matches the upstream registry host. as a result, an attacker-controlled upstream (or an attacker with MitM position to the upstream) can cause distribution to send the configured upstream credentials via basic auth to an attacker-controlled `realm` URL.\n\nthis is the same vulnerability class as CVE-2020-15157 (containerd), but in distribution\u2019s pull-through cache proxy auth flow.\n\n## severity\n\nHIGH\n\nnote: the baseline impact is credential disclosure of the configured upstream credentials. if a deployment uses broader credentials for upstream auth (for example cloud",
       "cvss_score": 7.5,
       "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
       "epss_score": null,
@@ -520,7 +664,7 @@
         "github.com/distribution/distribution"
       ],
       "published": "2026-04-06T17:52:52Z",
-      "updated": "2026-04-06T17:52:54Z",
+      "updated": "2026-04-06T23:42:46Z",
       "url": "https://github.com/advisories/GHSA-3p65-76g6-3w7r",
       "source": "github-advisory",
       "poc_urls": [
@@ -586,144 +730,6 @@
         "https://github.com/pyload/pyload/security/advisories/GHSA-w48f-wwwf-f5fr",
         "https://github.com/advisories/GHSA-w48f-wwwf-f5fr"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-v5hw-cv9c-rpg7",
-      "cve_id": "CVE-2026-35457",
-      "severity": "HIGH",
-      "summary": "libp2p-rendezvous: Unbounded rendezvous DISCOVER cookies enable remote memory exhaustion",
-      "description": "### Summary\nThe rendezvous server stores pagination cookies without bounds. An unauthenticated peer can repeatedly issue `DISCOVER` requests and force unbounded memory growth.\n\n### Details\n\nPagination state is stored in:\n\n```rs\nHashMap<Cookie, HashSet<RegistrationId>>\n```\n\nOn `Message::Discover`:\n\n```\nremote peer\n\u2192 DISCOVER\n\u2192 handle_request\n\u2192 registrations.get(...)\n\u2192 new cookie generated\n\u2192 cookie inserted into Registrations::cookies\n```\n\nThere is **no upper bound or eviction policy**, so repeated DISCOVER requests grow this map indefinitely.\n\n\n### PoC\nA reproduction test and minimal harness will be provided in a private fork in a follow-up comment.\n\n### Impact\n\n**Remote state amplification leading to memory exhaustion.**\n\n\nProperties:\n\n- etwork reachable\n- no authentication required\n- low attack complexity\n- protocol-compliant traffic\n\nImpacts rendezvous nodes exposed to untrusted peers.\n---\n\n### Possible Fixes\n\n1. **Global cap + eviction**\n\nBound cookie storage (`MAX_COOKIES_TRACKED`)",
-      "cvss_score": 8.2,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-770"
-      ],
-      "ecosystems": [
-        "rust"
-      ],
-      "packages": [
-        "libp2p-rendezvous"
-      ],
-      "published": "2026-04-04T06:34:29Z",
-      "updated": "2026-04-04T06:34:32Z",
-      "url": "https://github.com/advisories/GHSA-v5hw-cv9c-rpg7",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/libp2p/rust-libp2p/security/advisories/GHSA-v5hw-cv9c-rpg7",
-        "https://github.com/advisories/GHSA-v5hw-cv9c-rpg7"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-cqfx-gf56-8x59",
-      "cve_id": "CVE-2026-35405",
-      "severity": "HIGH",
-      "summary": "libp2p-rendezvous: Unlimited namespace registrations per peer enables OOM DoS on rendezvous servers",
-      "description": "### Summary\n\nThe`libp2p-rendezvous` server has no limit on how many namespaces a single peer can register. A malicious peer can repeatedly register unique namespaces in a loop, and the server accepts the requests, allocating memory for each registration without pushback. If an attacker continues submitting malicous requests for long enough, (or with multiple sybil peers) the server process crashes due to OOM.\n\nNo auth is required; therefore, any peer on the network can do this.\n\n\n\n### Details\n\nthe bug is in `Registrations::add()` inside `protocols/rendezvous/src/server.rs`.\n\nthe store uses a BiMap keyed on `(PeerId, Namespace)`  so yes, a peer can't register the *same* namespace twice. but there's nothing stopping it from registering 10,000 *different* namespaces. each unique one gets its own entry in:\n\n- `registrations_for_peer` (BiMap)\n- `registrations` (HashMap)\n- `next_expiry` (FuturesUnordered  a new heap-allocated BoxFuture per registration)\n\nnamespace strings are only validated ",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-770"
-      ],
-      "ecosystems": [
-        "rust"
-      ],
-      "packages": [
-        "libp2p-rendezvous"
-      ],
-      "published": "2026-04-04T06:33:46Z",
-      "updated": "2026-04-04T06:33:46Z",
-      "url": "https://github.com/advisories/GHSA-cqfx-gf56-8x59",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/libp2p/rust-libp2p/security/advisories/GHSA-cqfx-gf56-8x59",
-        "https://github.com/advisories/GHSA-cqfx-gf56-8x59"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-9jpj-g8vv-j5mf",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Gemini OAuth exposed the PKCE verifier through the OAuth state parameter",
-      "description": "## Summary\n\nBefore OpenClaw 2026.4.2, the Gemini OAuth flow reused the PKCE verifier as the OAuth `state` value. Because the provider reflected `state` back in the redirect URL, the verifier could be exposed alongside the authorization code.\n\n## Impact\n\nAnyone who could capture the redirect URL could learn both the authorization code and the PKCE verifier, defeating PKCE's interception protection for that flow and enabling token redemption.\n\n## Affected Packages / Versions\n\n- Package: `openclaw` (npm)\n- Affected versions: `<= 2026.4.1`\n- Patched versions: `>= 2026.4.2`\n- Latest published npm version: `2026.4.1`\n\n## Fix Commit(s)\n\n- `a26f4d0f3ef0757db6c6c40277cc06a5de76c52f` \u2014 separate OAuth state from the PKCE verifier\n\nOpenClaw thanks @BG0ECV for reporting.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-345"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-04T06:26:55Z",
-      "updated": "2026-04-04T06:26:56Z",
-      "url": "https://github.com/advisories/GHSA-9jpj-g8vv-j5mf",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-9jpj-g8vv-j5mf",
-        "https://github.com/openclaw/openclaw/commit/a26f4d0f3ef0757db6c6c40277cc06a5de76c52f",
-        "https://github.com/advisories/GHSA-9jpj-g8vv-j5mf"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-8x9r-hvwg-c55h",
-      "cve_id": "CVE-2026-35454",
-      "severity": "HIGH",
-      "summary": "Code Extension Marketplace: Zip Slip Path Traversal",
-      "description": "# Zip Slip Path Traversal in coder/code-marketplace\n\n## Summary\n\nA Zip Slip (CWE-22) vulnerability in `coder/code-marketplace` \u2264 v2.4.1 allowed a malicious VSIX file to write arbitrary files outside the extension directory. `ExtractZip` passed raw zip entry names to a callback that wrote files via `filepath.Join` with no boundary check; `filepath.Join` resolved `..` components but did not prevent the result from escaping the base path.\n\n\n## Root Cause\n\n`ExtractZip` passed the raw, attacker-controlled `zf.Name` to a caller-supplied callback:\n\n```go\nreturn false, fn(zf.Name, zr)  // zf.Name not sanitized\n```\n\n`AddExtension` constructed the output path with `filepath.Join` and no boundary check:\n\n```go\npath := filepath.Join(dir, name)              // zip loop\npath := filepath.Join(dir, file.RelativePath) // extra files loop\n```\n\n`filepath.Clean` resolved `..` lexically but did not confine the result to `dir`:\n\n```\nfilepath.Join(\"/srv/ext/pub/1.0\", \"../../../../etc/cron.d/evil\")\n  \u2192 \"/etc/",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/coder/code-marketplace"
-      ],
-      "published": "2026-04-04T06:26:02Z",
-      "updated": "2026-04-04T06:26:04Z",
-      "url": "https://github.com/advisories/GHSA-8x9r-hvwg-c55h",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/coder/code-marketplace/security/advisories/GHSA-8x9r-hvwg-c55h",
-        "https://github.com/coder/code-marketplace/commit/988440dee05fceef8400ed725badc604dbf90792",
-        "https://github.com/coder/code-marketplace/releases/tag/v2.4.2",
-        "https://github.com/advisories/GHSA-8x9r-hvwg-c55h"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-737v-mqg7-c878",
-      "cve_id": "CVE-2026-35209",
-      "severity": "HIGH",
-      "summary": "defu: Prototype pollution via `__proto__` key in defaults argument",
-      "description": "### Impact\n\nApplications that pass unsanitized user input (e.g. parsed JSON request bodies, database records, or config files from untrusted sources) as the first argument to `defu()` are vulnerable to prototype pollution.\n\nA crafted payload containing a `__proto__` key can override intended default values in the merged result:\n\n```js\nimport { defu } from 'defu'\n\nconst userInput = JSON.parse('{\"__proto__\":{\"isAdmin\":true}}')\nconst config = defu(userInput, { isAdmin: false })\n\nconfig.isAdmin // true \u2014 attacker overrides the server default\n```\n\n### Root Cause\n\nThe internal `_defu` function used `Object.assign({}, defaults)` to copy the defaults object. `Object.assign` invokes the `__proto__` setter, which replaces the resulting object's `[[Prototype]]` with attacker-controlled values. Properties inherited from the polluted prototype then bypass the existing `__proto__` key guard in the `for...in` loop and land in the final result.\n\n### Fix\n\nReplace `Object.assign({}, defaults)` with obje",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-1321"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "defu"
-      ],
-      "published": "2026-04-04T06:17:53Z",
-      "updated": "2026-04-04T06:17:54Z",
-      "url": "https://github.com/advisories/GHSA-737v-mqg7-c878",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/unjs/defu/security/advisories/GHSA-737v-mqg7-c878",
-        "https://github.com/advisories/GHSA-737v-mqg7-c878"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -771,7 +777,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-04-06T22:04:45.390139+00:00",
+    "catalog_version": "2026-04-07T04:19:07.606706+00:00",
     "source": "CISA KEV"
   }
 }
