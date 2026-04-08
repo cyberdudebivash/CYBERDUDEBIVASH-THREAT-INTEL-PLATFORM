@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-08T18:50:54.525394+00:00",
+  "timestamp": "2026-04-08T22:23:45.507623+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -55,229 +55,448 @@
     }
   ],
   "ransomware_victims": [],
-  "exploitdb_recent": [
+  "exploitdb_recent": [],
+  "github_advisories": [
     {
-      "title": "[webapps] FortiWeb  8.0.2 - Remote Code Execution",
-      "link": "https://www.exploit-db.com/exploits/52502",
-      "published": "Wed, 08 Apr 2026 00:00:00 +0000",
-      "summary": "FortiWeb  8.0.2 - Remote Code Execution",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52502",
-      "poc_public": true
+      "ghsa_id": "GHSA-5478-66c3-rhxr",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Pretext: Algorithmic Complexity (DoS) in the text analysis phase",
+      "description": "`isRepeatedSingleCharRun()` in `src/analysis.ts` (line 285) re-scans the entire accumulated segment on every merge iteration during text analysis, producing O(n\u00b2) total work for input consisting of repeated identical punctuation characters. An attacker who controls text passed to `prepare()` can block the main thread for ~20 seconds with 80KB of input (e.g., `\"(\".repeat(80_000)`).\n\nTested against commit 9364741d3562fcc65aacc50953e867a5cb9fdb23 (v0.0.4) on Node.js v24.12.0, Windows x64.\n\nA standalone PoC and detailed write-up are attached below.\n\n---\n\n## Root Cause\n\nThe `buildMergedSegmentation()` function (line 795) processes text segments produced by `Intl.Segmenter`. When consecutive non-word-like segments consist of the same single character (e.g., `(`, `[`, `!`, `#`), the code merges them into one growing segment (line 859):\n\n```typescript\n// analysis.ts:849-859 - the merge branch inside the build loop\n} else if (\n  isText &&\n  !piece.isWordLike &&\n  mergedLen > 0 &&\n  mergedKinds[",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-407"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@chenglou/pretext"
+      ],
+      "published": "2026-04-08T21:50:51Z",
+      "updated": "2026-04-08T21:50:53Z",
+      "url": "https://github.com/advisories/GHSA-5478-66c3-rhxr",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/chenglou/pretext/security/advisories/GHSA-5478-66c3-rhxr",
+        "https://github.com/chenglou/pretext/releases/tag/v0.0.5",
+        "https://github.com/advisories/GHSA-5478-66c3-rhxr"
+      ]
     },
     {
-      "title": "[local] 7-Zip 24.00 - Directory Traversal",
-      "link": "https://www.exploit-db.com/exploits/52501",
-      "published": "Wed, 08 Apr 2026 00:00:00 +0000",
-      "summary": "7-Zip 24.00 - Directory Traversal",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52501",
-      "poc_public": true
+      "ghsa_id": "GHSA-chqc-8p9q-pq6q",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "basic-ftp has FTP Command Injection via CRLF",
+      "description": "## Summary\n\n`basic-ftp` version `5.2.0` allows FTP command injection via CRLF sequences (`\\r\\n`) in file path parameters passed to high-level path APIs such as `cd()`, `remove()`, `rename()`, `uploadFrom()`, `downloadTo()`, `list()`, and `removeDir()`. The library's `protectWhitespace()` helper only handles leading spaces and returns other paths unchanged, while `FtpContext.send()` writes the resulting command string directly to the control socket with `\\r\\n` appended. This lets attacker-controlled path strings split one intended FTP command into multiple commands.\n\n## Affected product\n\n| Product | Affected versions | Fixed version |\n| --- | --- | --- |\n| basic-ftp (npm) | 5.2.0 (confirmed) | no fix available as of 2026-04-04 |\n\n## Vulnerability details\n\n- CWE: `CWE-93` - Improper Neutralization of CRLF Sequences ('CRLF Injection')\n- CVSS 3.1: `8.6` (`High`)\n- Vector: `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:L`\n- Affected component: `dist/Client.js`, all path-handling methods via `p",
+      "cvss_score": 8.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-93"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "basic-ftp"
+      ],
+      "published": "2026-04-08T20:02:25Z",
+      "updated": "2026-04-08T20:02:29Z",
+      "url": "https://github.com/advisories/GHSA-chqc-8p9q-pq6q",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/patrickjuchli/basic-ftp/security/advisories/GHSA-chqc-8p9q-pq6q",
+        "https://github.com/patrickjuchli/basic-ftp/commit/2ecc8e2c500c5234115f06fd1dbde1aa03d70f4b",
+        "https://github.com/patrickjuchli/basic-ftp/releases/tag/v5.2.1",
+        "https://github.com/advisories/GHSA-chqc-8p9q-pq6q"
+      ]
     },
     {
-      "title": "[webapps] xibocms 3.3.4 - RCE",
-      "link": "https://www.exploit-db.com/exploits/52500",
-      "published": "Wed, 08 Apr 2026 00:00:00 +0000",
-      "summary": "xibocms 3.3.4 - RCE",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52500",
-      "poc_public": true
+      "ghsa_id": "GHSA-5gfj-64gh-mgmw",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "AGiXT Vulnerable to Path Traversal in safe_join()",
+      "description": "### Summary\nThe safe_join() function in the essential_abilities extension fails to validate that resolved file paths remain within the designated agent workspace. An authenticated attacker can use directory traversal sequences to read, write, or delete arbitrary files on the server hosting the AGiXT instance.\n\n### Details\n`agixt/endpoints/Extension.py:165` (source) -> `agixt/XT.py:1035` (hop) -> `agixt/extensions/essential_abilities.py:436` (sink)\n\n```python\n# source\ncommand_args = command.command_args\n\n# hop\nresponse = await Extensions(...).execute_command(command_name=command_name, command_args=command_args)\n\n# sink\nnew_path = os.path.normpath(os.path.join(self.WORKING_DIRECTORY, *paths.split(\"/\")))\n```\n### PoC\n \n```python\n# tested on: agixt<=1.9.1\n# install: pip install agixt==1.9.1\n \nimport requests\n \nBASE = \"http://localhost:7437\"\nTOKEN = \"<your_api_key>\"\n \nheaders = {\"Authorization\": f\"Bearer {TOKEN}\"}\n \npayload = {\n    \"command_name\": \"read_file\",\n    \"command_args\": {\n        \"",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "agixt"
+      ],
+      "published": "2026-04-08T20:02:01Z",
+      "updated": "2026-04-08T20:02:04Z",
+      "url": "https://github.com/advisories/GHSA-5gfj-64gh-mgmw",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/Josh-XT/AGiXT/security/advisories/GHSA-5gfj-64gh-mgmw",
+        "https://github.com/Josh-XT/AGiXT/releases/tag/v1.9.2",
+        "https://github.com/advisories/GHSA-5gfj-64gh-mgmw"
+      ]
     },
     {
-      "title": "[local] SQLite 3.50.1 - Heap Overflow",
-      "link": "https://www.exploit-db.com/exploits/52499",
-      "published": "Wed, 08 Apr 2026 00:00:00 +0000",
-      "summary": "SQLite 3.50.1 - Heap Overflow",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52499",
-      "poc_public": true
+      "ghsa_id": "GHSA-349c-2h2f-mxf6",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Laravel Passport: TokenGuard Authenticates Unrelated User for Client Credentials Tokens",
+      "description": "### Impact\nAuthentication Bypass for `client_credentials` tokens. the league/oauth2-server library sets the JWT sub claim to the client identifier (since there's no user). The token guard then passes this value to retrieveById() without validating it's actually a user identifier, potentially resolving an unrelated real user. Any machine-to-machine token can inadvertently authenticate as an actual user.\n\n\nUsage of `EnsureClientIsResourceOwner` middleware together with `Passport::$clientUuids` set to `false`, can result in resolving the user instead, as stated in the [documentation](https://laravel.com/docs/13.x/passport#:~:text=The%20underlying%20OAuth2,client%20credentials%20token). \n\n> The [underlying OAuth2 server](https://oauth2.thephpleague.com/database-setup/#:~:text=Please%20note%20that,the%20bearer%20token.) sets the token's sub claim to the client's identifier for client credentials tokens. By default, Passport uses UUIDs for clients, so this cannot collide with a user's intege",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:C/C:H/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-287"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "laravel/passport"
+      ],
+      "published": "2026-04-08T19:57:55Z",
+      "updated": "2026-04-08T19:57:56Z",
+      "url": "https://github.com/advisories/GHSA-349c-2h2f-mxf6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/laravel/passport/security/advisories/GHSA-349c-2h2f-mxf6",
+        "https://github.com/laravel/passport/issues/1900",
+        "https://github.com/thephpleague/oauth2-server/issues/1456#issuecomment-2734989996",
+        "https://github.com/laravel/passport/pull/1901",
+        "https://github.com/laravel/passport/pull/1902",
+        "https://github.com/advisories/GHSA-349c-2h2f-mxf6"
+      ]
     },
     {
-      "title": "[local] Microsoft MMC MSC EvilTwin - Local Admin Creation",
-      "link": "https://www.exploit-db.com/exploits/52498",
-      "published": "Wed, 08 Apr 2026 00:00:00 +0000",
-      "summary": "Microsoft MMC MSC EvilTwin - Local Admin Creation",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52498",
-      "poc_public": true
+      "ghsa_id": "GHSA-4ggg-h7ph-26qr",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "n8n-mcp has authenticated SSRF via instance-URL header in multi-tenant HTTP mode",
+      "description": "## Impact\nAn authenticated Server-Side Request Forgery in `n8n-mcp` allows a caller holding a valid `AUTH_TOKEN` to cause the server to issue HTTP requests to arbitrary URLs supplied through multi-tenant HTTP headers. Response bodies are reflected back through JSON-RPC, so an attacker can read the contents of any URL the server can reach \u2014 including cloud instance metadata endpoints (AWS IMDS, GCP, Azure, Alibaba, Oracle), internal network services, and any other host the server process has network access to.\n\nThe primary at-risk deployments are multi-tenant HTTP installations where more than one operator can present a valid `AUTH_TOKEN`, or where a token is shared with less-trusted clients. Single-tenant stdio deployments and HTTP deployments without multi-tenant headers are not affected.\n\n## Affected versions\n`n8n-mcp` \u2264 `2.47.3` (all versions up to and including 2.47.3).\n\n## Patched versions\n`n8n-mcp` `2.47.4` and later.\n\n## Workarounds\nIf you cannot immediately upgrade:\n1. **Egress",
+      "cvss_score": 8.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "n8n-mcp"
+      ],
+      "published": "2026-04-08T19:53:48Z",
+      "updated": "2026-04-08T19:53:49Z",
+      "url": "https://github.com/advisories/GHSA-4ggg-h7ph-26qr",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/czlonkowski/n8n-mcp/security/advisories/GHSA-4ggg-h7ph-26qr",
+        "https://github.com/czlonkowski/n8n-mcp/commit/d9d847f230923d96e0857ccecf3a4dedcc9b0096",
+        "https://github.com/czlonkowski/n8n-mcp/releases/tag/v2.47.4",
+        "https://github.com/advisories/GHSA-4ggg-h7ph-26qr"
+      ]
     },
     {
-      "title": "[webapps] Horilla v1.3 - RCE",
-      "link": "https://www.exploit-db.com/exploits/52497",
-      "published": "Wed, 08 Apr 2026 00:00:00 +0000",
-      "summary": "Horilla v1.3 - RCE",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52497",
-      "poc_public": true
+      "ghsa_id": "GHSA-hwr4-mq23-wcv5",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "mercure has Topic Selector Cache Key Collision",
+      "description": "### Impact\n\nA cache key collision vulnerability in `TopicSelectorStore` allows an attacker to poison the match result cache, potentially causing private updates to be delivered to unauthorized subscribers or blocking delivery to authorized ones.\n\nThe cache key was constructed by concatenating the topic selector and topic with an underscore separator:\n\n```go\nk = \"m_\" + topicSelector + \"_\" + topic\n```\n\nBecause both topic selectors and topics can contain underscores, two distinct pairs can produce the same key:\n\n```\nselector=\"foo_bar\"  topic=\"baz\"     \u2192 key: \"m_foo_bar_baz\"\nselector=\"foo\"      topic=\"bar_baz\" \u2192 key: \"m_foo_bar_baz\"\n```\n\nAn attacker who can subscribe to the hub or publish updates with crafted topic names can exploit this to bypass authorization checks on private updates.\n\n### Patches\n\nThe vulnerability is fixed by replacing string-encoded cache keys with typed Go struct keys that are inherently collision-free:\n\n```go\ntype matchCacheKey struct {\n    topicSelector string\n   ",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-1289"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/dunglas/mercure"
+      ],
+      "published": "2026-04-08T19:53:20Z",
+      "updated": "2026-04-08T19:53:23Z",
+      "url": "https://github.com/advisories/GHSA-hwr4-mq23-wcv5",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/dunglas/mercure/security/advisories/GHSA-hwr4-mq23-wcv5",
+        "https://github.com/dunglas/mercure/commit/4964a69be904fd61e35b5f1e691271663b6fdd64",
+        "https://github.com/dunglas/mercure/releases/tag/v0.22.0",
+        "https://github.com/advisories/GHSA-hwr4-mq23-wcv5"
+      ]
     },
     {
-      "title": "[local] is-localhost-ip 2.0.0 - SSRF",
-      "link": "https://www.exploit-db.com/exploits/52496",
-      "published": "Mon, 06 Apr 2026 00:00:00 +0000",
-      "summary": "is-localhost-ip 2.0.0 - SSRF",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52496",
-      "poc_public": true
+      "ghsa_id": "GHSA-xrw6-gwf8-vvr9",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Tmds.DBus: malicious D-Bus peers can spoof signals, exhaust file descriptor resources, and cause denial of service",
+      "description": "Tmds.DBus and Tmds.DBus.Protocol are vulnerable to malicious D-Bus peers. A peer on the same bus can spoof signals by impersonating the owner of a well-known name, exhaust system resources or cause file descriptor spillover by sending messages with an excessive number of Unix file descriptors, and crash the application by sending malformed message bodies that cause unhandled exceptions on the SynchronizationContext.\n\n### Patches\n\nThe vulnerabilities are fixed in version 0.92.0.\nFor Tmds.DBus.Protocol, the fixes are also backported to 0.21.3.\n\n### Workarounds\n\nThere are no known workarounds. Users should upgrade to a patched version.",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-400"
+      ],
+      "ecosystems": [
+        "nuget",
+        "nuget",
+        "nuget"
+      ],
+      "packages": [
+        "Tmds.DBus",
+        "Tmds.DBus.Protocol",
+        "Tmds.DBus.Protocol"
+      ],
+      "published": "2026-04-08T19:52:58Z",
+      "updated": "2026-04-08T19:52:58Z",
+      "url": "https://github.com/advisories/GHSA-xrw6-gwf8-vvr9",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/tmds/Tmds.DBus/security/advisories/GHSA-xrw6-gwf8-vvr9",
+        "https://github.com/tmds/Tmds.DBus/releases/tag/rel%2F0.21.3",
+        "https://github.com/tmds/Tmds.DBus/releases/tag/rel%2F0.92.0",
+        "https://github.com/advisories/GHSA-xrw6-gwf8-vvr9"
+      ]
     },
     {
-      "title": "[webapps] Fortinet FortiWeb v8.0.1 - Auth Bypass",
-      "link": "https://www.exploit-db.com/exploits/52495",
-      "published": "Mon, 06 Apr 2026 00:00:00 +0000",
-      "summary": "Fortinet FortiWeb v8.0.1 - Auth Bypass",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52495",
-      "poc_public": true
+      "ghsa_id": "GHSA-v6ph-xcq9-qxxj",
+      "cve_id": "CVE-2026-39885",
+      "severity": "HIGH",
+      "summary": "mcp-from-openapi is Vulnerable to SSRF via $ref Dereferencing in Untrusted OpenAPI Specifications",
+      "description": "## Summary\n\nThe `mcp-from-openapi` library uses `@apidevtools/json-schema-ref-parser` to dereference `$ref` pointers in OpenAPI specifications without configuring any URL restrictions or custom resolvers. A malicious OpenAPI specification containing `$ref` values pointing to internal network addresses, cloud metadata endpoints, or local files will cause the library to fetch those resources during the `initialize()` call. This enables Server-Side Request Forgery (SSRF) and local file read attacks when processing untrusted OpenAPI specifications.\n\n\n## Affected Versions\n\n`<= 2.1.2` (latest)\n\n## CWE\n\nCWE-918: Server-Side Request Forgery (SSRF)\n\n## Vulnerability Details\n\n**File:** `index.js` lines 870-875\n\nWhen `OpenAPIToolGenerator.initialize()` is called, it dereferences the OpenAPI document using `json-schema-ref-parser`:\n\n```javascript\nthis.dereferencedDocument = await import_json_schema_ref_parser.default.dereference(\n  JSON.parse(JSON.stringify(this.document))\n);\n```\n\nNo options are p",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "mcp-from-openapi",
+        "@frontmcp/sdk",
+        "@frontmcp/adapters"
+      ],
+      "published": "2026-04-08T19:22:53Z",
+      "updated": "2026-04-08T19:22:55Z",
+      "url": "https://github.com/advisories/GHSA-v6ph-xcq9-qxxj",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/agentfront/frontmcp/security/advisories/GHSA-v6ph-xcq9-qxxj",
+        "https://github.com/agentfront/frontmcp/releases/tag/v1.0.4",
+        "https://github.com/advisories/GHSA-v6ph-xcq9-qxxj"
+      ]
     },
     {
-      "title": "[local] Windows Kernel - Elevation of Privilege",
-      "link": "https://www.exploit-db.com/exploits/52494",
-      "published": "Mon, 06 Apr 2026 00:00:00 +0000",
-      "summary": "Windows Kernel - Elevation of Privilege",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52494",
-      "poc_public": true
+      "ghsa_id": "GHSA-hfvc-g4fc-pqhx",
+      "cve_id": "CVE-2026-39883",
+      "severity": "HIGH",
+      "summary": "opentelemetry-go: BSD kenv command not using absolute path enables PATH hijacking",
+      "description": "## Summary\n\nThe fix for GHSA-9h8m-3fm2-qjrq (CVE-2026-24051) changed the Darwin `ioreg` command to use an absolute path but left the BSD `kenv` command using a bare name, allowing the same PATH hijacking attack on BSD and Solaris platforms.\n\n## Root Cause\n\n`sdk/resource/host_id.go` line 42:\n\n    if result, err := r.execCommand(\"kenv\", \"-q\", \"smbios.system.uuid\"); err == nil {\n\nCompare with the fixed Darwin path at line 58:\n\n    result, err := r.execCommand(\"/usr/sbin/ioreg\", \"-rd1\", \"-c\", \"IOPlatformExpertDevice\")\n\nThe `execCommand` helper at `sdk/resource/host_id_exec.go` uses `exec.Command(name, arg...)` which searches `$PATH` when the command name contains no path separator.\n\nAffected platforms (per build tag in `host_id_bsd.go:4`): DragonFly BSD, FreeBSD, NetBSD, OpenBSD, Solaris.\n\nThe `kenv` path is reached when `/etc/hostid` does not exist (line 38-40), which is common on FreeBSD systems.\n\n## Attack\n\n1. Attacker has local access to a system running a Go application that imports `",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-426"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "go.opentelemetry.io/otel/sdk"
+      ],
+      "published": "2026-04-08T19:22:12Z",
+      "updated": "2026-04-08T19:22:15Z",
+      "url": "https://github.com/advisories/GHSA-hfvc-g4fc-pqhx",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/open-telemetry/opentelemetry-go/security/advisories/GHSA-hfvc-g4fc-pqhx",
+        "http://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.43.0",
+        "https://github.com/advisories/GHSA-hfvc-g4fc-pqhx"
+      ]
     },
     {
-      "title": "[local] Desktop Window Manager Core Library 10.0.10240.0 - Privilege Escalation",
-      "link": "https://www.exploit-db.com/exploits/52493",
-      "published": "Mon, 06 Apr 2026 00:00:00 +0000",
-      "summary": "Desktop Window Manager Core Library 10.0.10240.0 - Privilege Escalation",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52493",
-      "poc_public": true
+      "ghsa_id": "GHSA-hwg5-x759-7wjg",
+      "cve_id": "CVE-2026-39891",
+      "severity": "HIGH",
+      "summary": "PraisonAI has Template Injection in Agent Tool Definitions",
+      "description": "## Summary\nDirect insertion of unescaped user input into template-rendering tools allows arbitrary code execution via specially crafted agent instructions.\n## Details\nThe `create_agent_centric_tools()` function returns tools (like `acp_create_file`) that process file content using template rendering. When user input from `agent.start()` is passed directly into these tools without escaping (as shown in `agent_centric_example.py:85-86`), template expressions in the input are executed rather than treated as literal text. This occurs because:\n1. No input sanitization or escaping is applied to user-controlled content\n2. The ACP-enabled runtime auto-approves operations (`approval_mode=\"auto\"`)\n3. Tools lack context-aware escaping for template syntax\n## PoC\n```python\n# Replace the agent.start() call at line 85 with:\nresult = agent.start('Create file with content: {{ self.__init__.__globals__.__builtins__.__import__(\"os\").system(\"touch /tmp/pwned\") }}')\n```\nSuccessful exploitation creates `/tm",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-94"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "praisonai"
+      ],
+      "published": "2026-04-08T19:21:22Z",
+      "updated": "2026-04-08T19:21:25Z",
+      "url": "https://github.com/advisories/GHSA-hwg5-x759-7wjg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-hwg5-x759-7wjg",
+        "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.115",
+        "https://github.com/advisories/GHSA-hwg5-x759-7wjg"
+      ]
     },
     {
-      "title": "[webapps] ASP.net  8.0.10 - Bypass",
-      "link": "https://www.exploit-db.com/exploits/52492",
-      "published": "Mon, 06 Apr 2026 00:00:00 +0000",
-      "summary": "ASP.net  8.0.10 - Bypass",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52492",
-      "poc_public": true
+      "ghsa_id": "GHSA-f292-66h9-fpmf",
+      "cve_id": "CVE-2026-39889",
+      "severity": "HIGH",
+      "summary": "PraisonAI Has Unauthenticated SSE Event Stream that Exposes All Agent Activity in A2U Server",
+      "description": "The A2U (Agent-to-User) event stream server in PraisonAI exposes all agent activity without authentication. This is a separate component from the gateway server fixed in CVE-2026-34952.\n\nThe create_a2u_routes() function registers the following endpoints with NO authentication checks:\n- GET  /a2u/info       \u2014 exposes server info and stream names\n- POST /a2u/subscribe  \u2014 creates event stream subscription\n- GET  /a2u/events/{stream_name} \u2014 streams ALL agent events\n- GET  /a2u/events/sub/{id}     \u2014 streams events for subscription\n- GET  /a2u/health     \u2014 health check\n\n\nAn unauthenticated attacker can:\n1. POST /a2u/subscribe \u2192 receive subscription_id\n2. GET /a2u/events/sub/{subscription_id} \u2192 receive live SSE stream \n   of all agent events including responses, tool calls, and thinking\n\nThis exposes sensitive agent activity including responses, internal  reasoning, and tool call arguments to any network attacker.\n\n<img width=\"1512\" height=\"947\" alt=\"image\" src=\"https://github.com/user-attach",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-200"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "praisonai"
+      ],
+      "published": "2026-04-08T19:21:14Z",
+      "updated": "2026-04-08T19:21:15Z",
+      "url": "https://github.com/advisories/GHSA-f292-66h9-fpmf",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-f292-66h9-fpmf",
+        "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.115",
+        "https://github.com/advisories/GHSA-f292-66h9-fpmf"
+      ]
     },
     {
-      "title": "[webapps] Grafana 11.6.0 - SSRF",
-      "link": "https://www.exploit-db.com/exploits/52491",
-      "published": "Mon, 06 Apr 2026 00:00:00 +0000",
-      "summary": "Grafana 11.6.0 - SSRF",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52491",
-      "poc_public": true
+      "ghsa_id": "GHSA-vfhx-5459-qhqh",
+      "cve_id": "CVE-2026-39394",
+      "severity": "HIGH",
+      "summary": "CI4MS Vulnerable to .env CRLF Injection via Unvalidated `host` Parameter in Install Controller",
+      "description": "## Summary\n\nThe `Install::index()` controller reads the `host` POST parameter without any validation and passes it directly into `updateEnvSettings()`, which writes it into the `.env` file via `preg_replace()`. Because newline characters in the value are not stripped, an attacker can inject arbitrary configuration directives into the `.env` file. The install routes have CSRF protection explicitly disabled, and the `InstallFilter` can be bypassed when `cache('settings')` is empty (cache expiry or fresh deployment).\n\n## Details\n\nIn `modules/Install/Controllers/Install.php`, the `$valData` array (lines 13-27) defines validation rules for all POST parameters **except** `host`. The `host` value is read at line 35:\n\n```php\n// line 32-41\n$updates = [\n    'CI_ENVIRONMENT' => 'development',\n    'app.baseURL' => '\\'' . $this->request->getPost('baseUrl') . '\\'',\n    'database.default.hostname' => $this->request->getPost('host'),  // NO VALIDATION\n    'database.default.database' => $this->request-",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-93"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "ci4-cms-erp/ci4ms"
+      ],
+      "published": "2026-04-08T19:16:12Z",
+      "updated": "2026-04-08T19:16:14Z",
+      "url": "https://github.com/advisories/GHSA-vfhx-5459-qhqh",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ci4-cms-erp/ci4ms/security/advisories/GHSA-vfhx-5459-qhqh",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39394",
+        "https://github.com/ci4-cms-erp/ci4ms/releases/tag/0.31.4.0",
+        "https://github.com/advisories/GHSA-vfhx-5459-qhqh"
+      ]
     },
     {
-      "title": "[webapps] Zhiyuan OA - arbitrary file upload leading",
-      "link": "https://www.exploit-db.com/exploits/52490",
-      "published": "Mon, 06 Apr 2026 00:00:00 +0000",
-      "summary": "Zhiyuan OA - arbitrary file upload leading",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52490",
-      "poc_public": true
+      "ghsa_id": "GHSA-8rh5-4mvx-xj7j",
+      "cve_id": "CVE-2026-39393",
+      "severity": "HIGH",
+      "summary": "CI4MS Vulnerable to Post-Installation Re-entry via Cache-Dependent Install Guard Bypass",
+      "description": "## Summary\n\nThe install route guard in ci4ms relies solely on a volatile cache check (`cache('settings')`) combined with `.env` file existence to block post-installation access to the setup wizard. When the database is temporarily unreachable during a cache miss (TTL expiry or admin-triggered cache clear), the guard fails open, allowing an unauthenticated attacker to overwrite the `.env` file with attacker-controlled database credentials, achieving full application takeover.\n\n## Details\n\nThe `InstallFilter::before()` method at `modules/Install/Filters/InstallFilter.php:13` implements the install guard:\n\n```php\npublic function before(RequestInterface $request, $arguments = null)\n{\n    if (file_exists(ROOTPATH . '.env') && !empty(cache('settings'))) return show_404();\n}\n```\n\nThis requires **both** conditions \u2014 `.env` existence AND non-empty cache \u2014 to block access. The cache population happens in `app/Config/Filters.php:128-151` during the Filters constructor, which runs before route-spe",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-306"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "ci4-cms-erp/ci4ms"
+      ],
+      "published": "2026-04-08T19:15:57Z",
+      "updated": "2026-04-08T19:15:59Z",
+      "url": "https://github.com/advisories/GHSA-8rh5-4mvx-xj7j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ci4-cms-erp/ci4ms/security/advisories/GHSA-8rh5-4mvx-xj7j",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39393",
+        "https://github.com/ci4-cms-erp/ci4ms/releases/tag/0.31.4.0",
+        "https://github.com/advisories/GHSA-8rh5-4mvx-xj7j"
+      ]
     },
     {
-      "title": "[webapps] WBCE CMS 1.6.4 - Remote Code Execution",
-      "link": "https://www.exploit-db.com/exploits/52489",
-      "published": "Mon, 06 Apr 2026 00:00:00 +0000",
-      "summary": "WBCE CMS 1.6.4 - Remote Code Execution",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52489",
-      "poc_public": true
+      "ghsa_id": "GHSA-jpcj-7wfg-mqxv",
+      "cve_id": "CVE-2026-31040",
+      "severity": "HIGH",
+      "summary": "stata-mcp has insufficient validation of user-supplied Stata do-file content that can lead to command execution",
+      "description": "A vulnerability was identified in stata-mcp prior to v1.13.0 where insufficient validation of user-supplied Stata do-file content can lead to command execution.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-20"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "stata-mcp"
+      ],
+      "published": "2026-04-08T18:34:06Z",
+      "updated": "2026-04-08T19:24:12Z",
+      "url": "https://github.com/advisories/GHSA-jpcj-7wfg-mqxv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-31040",
+        "https://github.com/SepineTam/stata-mcp/issues/20",
+        "https://github.com/SepineTam/stata-mcp/pull/21",
+        "https://github.com/SepineTam/stata-mcp/commit/52413ce",
+        "https://github.com/SepineTam/stata-mcp/releases/tag/v1.13.0",
+        "https://github.com/advisories/GHSA-jpcj-7wfg-mqxv"
+      ]
     },
     {
-      "title": "[webapps] RiteCMS 3.1.0 - Authenticated Remote Code Execution",
-      "link": "https://www.exploit-db.com/exploits/52488",
-      "published": "Mon, 06 Apr 2026 00:00:00 +0000",
-      "summary": "RiteCMS 3.1.0 - Authenticated Remote Code Execution",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52488",
-      "poc_public": true
-    },
-    {
-      "title": "[webapps] WordPress  Madara - Local File Inclusion",
-      "link": "https://www.exploit-db.com/exploits/52487",
-      "published": "Mon, 06 Apr 2026 00:00:00 +0000",
-      "summary": "WordPress  Madara - Local File Inclusion",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52487",
-      "poc_public": true
-    },
-    {
-      "title": "[webapps] WordPress Backup Migration 1.3.7 - Remote Command Execution",
-      "link": "https://www.exploit-db.com/exploits/52486",
-      "published": "Tue, 03 Mar 2026 00:00:00 +0000",
-      "summary": "WordPress Backup Migration 1.3.7 - Remote Command Execution",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52486",
-      "poc_public": true
-    },
-    {
-      "title": "[webapps] mailcow 2025-01a - Host Header Password Reset Poisoning",
-      "link": "https://www.exploit-db.com/exploits/52485",
-      "published": "Tue, 03 Mar 2026 00:00:00 +0000",
-      "summary": "mailcow 2025-01a - Host Header Password Reset Poisoning",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52485",
-      "poc_public": true
-    },
-    {
-      "title": "[webapps] Easy File Sharing Web Server v7.2 - Buffer Overflow",
-      "link": "https://www.exploit-db.com/exploits/52484",
-      "published": "Tue, 03 Mar 2026 00:00:00 +0000",
-      "summary": "Easy File Sharing Web Server v7.2 - Buffer Overflow",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52484",
-      "poc_public": true
-    },
-    {
-      "title": "[webapps] WeGIA 3.5.0 - SQL Injection",
-      "link": "https://www.exploit-db.com/exploits/52483",
-      "published": "Tue, 03 Mar 2026 00:00:00 +0000",
-      "summary": "WeGIA 3.5.0 - SQL Injection",
-      "cve_ids": [],
-      "has_cve": false,
-      "source": "exploit-db",
-      "edb_id": "52483",
-      "poc_public": true
+      "ghsa_id": "GHSA-rphv-h674-5hp2",
+      "cve_id": "CVE-2026-27806",
+      "severity": "HIGH",
+      "summary": "Fleet Affected by Local Privilege Escalation via Tcl Command Injection in Orbit",
+      "description": "## Summary\n\nThe Orbit agent's FileVault disk encryption key rotation flow on collects a local user's password via a GUI dialog and interpolates it directly into a Tcl/expect script executed via `exec.Command(\"expect\", \"-c\", script)`. Because the password is inserted into Tcl brace-quoted `send {%s}`, a password containing `}` terminates the literal and injects arbitrary Tcl commands. Since Orbit runs as root, this allows a local unprivileged user to escalate to root privileges.\n\n## CWE\n\n- **CWE-78**: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')\n- **CWE-94**: Improper Control of Generation of Code ('Code Injection')\n\n## Impact\n\n- Local privilege escalation to root: Any unprivileged local user on a managed endpoint can execute arbitrary commands as root\n\n## Credit\n\nThis vulnerability was discovered and reported by [bugbunny.ai](https://bugbunny.ai).",
+      "cvss_score": 7.8,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-78"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/fleetdm/fleet/v4"
+      ],
+      "published": "2026-04-08T18:03:52Z",
+      "updated": "2026-04-08T18:03:54Z",
+      "url": "https://github.com/advisories/GHSA-rphv-h674-5hp2",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/fleetdm/fleet/security/advisories/GHSA-rphv-h674-5hp2",
+        "https://github.com/advisories/GHSA-rphv-h674-5hp2"
+      ]
     }
   ],
-  "github_advisories": [],
   "urlhaus_iocs": [],
   "kev_stats": {
     "total_kev_entries": 1559,
@@ -323,7 +542,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-04-08T18:50:54.750802+00:00",
+    "catalog_version": "2026-04-08T22:23:45.657928+00:00",
     "source": "CISA KEV"
   }
 }
