@@ -1,6 +1,110 @@
 {
-  "sigma_rules": [],
-  "yara_rules": [],
-  "snort_rules": [],
-  "stats": {}
+  "sigma_rules": [
+    {
+      "title": "CDB Sentinel APEX - Attackers_exploit_critical_Flowise_flaw_CVE202559528_for_rem",
+      "id": "sigma--d6623957afb0",
+      "status": "experimental",
+      "description": "Detects activity related to Attackers exploit critical Flowise flaw CVE-2025-59528 for remote code execution",
+      "references": [
+        ""
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/04/09",
+      "tags": [
+        "cve.cve-2025-59528"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "high",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX - Attackers_exploit_critical_Flowise_flaw_CVE202559528_for_rem",
+      "id": "sigma--d6623957afb0",
+      "status": "experimental",
+      "description": "Detects activity related to Attackers exploit critical Flowise flaw CVE-2025-59528 for remote code execution",
+      "references": [
+        ""
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/04/09",
+      "tags": [
+        "cve.cve-2025-59528"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "high",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    }
+  ],
+  "yara_rules": [
+    {
+      "rule_name": "CDB_Attackers_exploit_critical_Flowise_flaw_",
+      "rule_text": "rule CDB_Attackers_exploit_critical_Flowise_flaw_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Attackers exploit critical Flowise flaw CVE-2025-59528 for remote code execution\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $cve0 = \"CVE-2025-59528\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Attackers_exploit_critical_Flowise_flaw_",
+      "rule_text": "rule CDB_Attackers_exploit_critical_Flowise_flaw_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Attackers exploit critical Flowise flaw CVE-2025-59528 for remote code execution\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $cve0 = \"CVE-2025-59528\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Fortinet_Issues_Emergency_Patch_for_Fort",
+      "rule_text": "rule CDB_Fortinet_Issues_Emergency_Patch_for_Fort {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Fortinet Issues Emergency Patch for FortiClient Zero-Day\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $kw0 = \"FortiClient\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Phishing_LNK_files_and_GitHub_C2_power_n",
+      "rule_text": "rule CDB_Phishing_LNK_files_and_GitHub_C2_power_n {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Phishing LNK files and GitHub C2 power new DPRK cyber attacks\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $kw0 = \"GitHub\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Experts_published_unpatched_Windows_zero",
+      "rule_text": "rule CDB_Experts_published_unpatched_Windows_zero {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Experts published unpatched Windows zero-day BlueHammer\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $kw0 = \"BlueHammer\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Experts_published_unpatched_Windows_zero",
+      "rule_text": "rule CDB_Experts_published_unpatched_Windows_zero {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Experts published unpatched Windows zero-day BlueHammer\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $kw0 = \"BlueHammer\" ascii wide nocase\n    condition:\n        any of them\n}"
+    }
+  ],
+  "snort_rules": [
+    {
+      "rule_name": "Attackers_exploit_critical_Flowise_flaw_CVE202559528_for_rem",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: Attackers exploit critical Flowise flaw CVE-2025-59528 for r\"; content:\"CVE-2025-59528\"; nocase; sid:8934504; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 8934504
+    },
+    {
+      "rule_name": "Attackers_exploit_critical_Flowise_flaw_CVE202559528_for_rem",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: Attackers exploit critical Flowise flaw CVE-2025-59528 for r\"; content:\"CVE-2025-59528\"; nocase; sid:8934504; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 8934504
+    }
+  ],
+  "stats": {
+    "total_rules": 10,
+    "sigma_count": 2,
+    "yara_count": 6,
+    "snort_count": 2,
+    "coverage_techniques": 0,
+    "generated_at": "2026-04-09T03:30:49.430184+00:00"
+  }
 }
