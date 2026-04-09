@@ -31,6 +31,36 @@
       ]
     },
     {
+      "title": "CDB Sentinel APEX - FortiGate_CVE202559718_Exploitation_Incident_Response_Findin",
+      "id": "sigma--96e04e25a0a2",
+      "status": "experimental",
+      "description": "Detects activity related to FortiGate CVE-2025-59718 Exploitation: Incident Response Findings",
+      "references": [
+        ""
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/04/09",
+      "tags": [
+        "cve.cve-2025-59718"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
       "title": "CDB Sentinel APEX - Attackers_exploit_critical_Flowise_flaw_CVE202559528_for_rem",
       "id": "sigma--d6623957afb0",
       "status": "experimental",
@@ -97,6 +127,10 @@
       "rule_text": "rule CDB_FortiGate_CVE202559718_Exploitation_Inci {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for FortiGate CVE-2025-59718 Exploitation: Incident Response Findings\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $cve0 = \"CVE-2025-59718\" ascii wide nocase\n        $kw0 = \"FortiGate\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
+      "rule_name": "CDB_FortiGate_CVE202559718_Exploitation_Inci",
+      "rule_text": "rule CDB_FortiGate_CVE202559718_Exploitation_Inci {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for FortiGate CVE-2025-59718 Exploitation: Incident Response Findings\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $cve0 = \"CVE-2025-59718\" ascii wide nocase\n        $kw0 = \"FortiGate\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
       "rule_name": "CDB_Attackers_exploit_critical_Flowise_flaw_",
       "rule_text": "rule CDB_Attackers_exploit_critical_Flowise_flaw_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Attackers exploit critical Flowise flaw CVE-2025-59528 for remote code execution\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $cve0 = \"CVE-2025-59528\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
@@ -107,39 +141,36 @@
     {
       "rule_name": "CDB_Fortinet_Issues_Emergency_Patch_for_Fort",
       "rule_text": "rule CDB_Fortinet_Issues_Emergency_Patch_for_Fort {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Fortinet Issues Emergency Patch for FortiClient Zero-Day\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $kw0 = \"FortiClient\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_Phishing_LNK_files_and_GitHub_C2_power_n",
-      "rule_text": "rule CDB_Phishing_LNK_files_and_GitHub_C2_power_n {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Phishing LNK files and GitHub C2 power new DPRK cyber attacks\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $kw0 = \"GitHub\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_Experts_published_unpatched_Windows_zero",
-      "rule_text": "rule CDB_Experts_published_unpatched_Windows_zero {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Experts published unpatched Windows zero-day BlueHammer\"\n        severity = \"high\"\n        date = \"2026-04-09\"\n    strings:\n                $kw0 = \"BlueHammer\" ascii wide nocase\n    condition:\n        any of them\n}"
     }
   ],
   "snort_rules": [
     {
       "rule_name": "FortiGate_CVE202559718_Exploitation_Incident_Response_Findin",
-      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: FortiGate CVE-2025-59718 Exploitation: Incident Response Fin\"; content:\"CVE-2025-59718\"; nocase; sid:4216182; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
-      "sid": 4216182
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: FortiGate CVE-2025-59718 Exploitation: Incident Response Fin\"; content:\"CVE-2025-59718\"; nocase; sid:9222606; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 9222606
+    },
+    {
+      "rule_name": "FortiGate_CVE202559718_Exploitation_Incident_Response_Findin",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: FortiGate CVE-2025-59718 Exploitation: Incident Response Fin\"; content:\"CVE-2025-59718\"; nocase; sid:9222606; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 9222606
     },
     {
       "rule_name": "Attackers_exploit_critical_Flowise_flaw_CVE202559528_for_rem",
-      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: Attackers exploit critical Flowise flaw CVE-2025-59528 for r\"; content:\"CVE-2025-59528\"; nocase; sid:9766526; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
-      "sid": 9766526
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: Attackers exploit critical Flowise flaw CVE-2025-59528 for r\"; content:\"CVE-2025-59528\"; nocase; sid:6317689; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 6317689
     },
     {
       "rule_name": "Attackers_exploit_critical_Flowise_flaw_CVE202559528_for_rem",
-      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: Attackers exploit critical Flowise flaw CVE-2025-59528 for r\"; content:\"CVE-2025-59528\"; nocase; sid:9766526; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
-      "sid": 9766526
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: Attackers exploit critical Flowise flaw CVE-2025-59528 for r\"; content:\"CVE-2025-59528\"; nocase; sid:6317689; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 6317689
     }
   ],
   "stats": {
-    "total_rules": 12,
-    "sigma_count": 3,
-    "yara_count": 6,
-    "snort_count": 3,
+    "total_rules": 13,
+    "sigma_count": 4,
+    "yara_count": 5,
+    "snort_count": 4,
     "coverage_techniques": 0,
-    "generated_at": "2026-04-09T08:01:39.431336+00:00"
+    "generated_at": "2026-04-09T14:16:46.455806+00:00"
   }
 }
