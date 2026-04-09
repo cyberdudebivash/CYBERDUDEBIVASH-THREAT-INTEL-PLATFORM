@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-09T18:38:11.752678+00:00",
+  "timestamp": "2026-04-09T22:24:53.948186+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -264,6 +264,72 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-9hfr-gw99-8rhx",
+      "cve_id": "CVE-2026-40069",
+      "severity": "HIGH",
+      "summary": "bsv-sdk ARC broadcaster treats INVALID/MALFORMED/ORPHAN responses as successful broadcasts",
+      "description": "# ARC broadcaster treats failure statuses as successful broadcasts\n\n## Summary\n\n`BSV::Network::ARC`'s failure detection only recognises `REJECTED` and `DOUBLE_SPEND_ATTEMPTED`. ARC responses with `txStatus` values of `INVALID`, `MALFORMED`, `MINED_IN_STALE_BLOCK`, or any `ORPHAN`-containing `extraInfo` / `txStatus` are silently treated as successful broadcasts. Applications that gate actions on broadcaster success are tricked into trusting transactions that were never accepted by the network.\n\n## Details\n\n`lib/bsv/network/arc.rb` (lines ~74-100 in the affected code) uses a narrow failure predicate compared to the TypeScript reference SDK. The TS broadcaster additionally recognises:\n\n- `INVALID`\n- `MALFORMED`\n- `MINED_IN_STALE_BLOCK`\n- Any response containing `ORPHAN` in `extraInfo` or `txStatus`\n\nThe Ruby implementation omits all of these, so ARC responses carrying any of these statuses are returned to the caller as successful broadcasts.\n\nAdditional divergences in the same module comp",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-754"
+      ],
+      "ecosystems": [
+        "rubygems"
+      ],
+      "packages": [
+        "bsv-sdk"
+      ],
+      "published": "2026-04-09T20:28:26Z",
+      "updated": "2026-04-09T20:28:27Z",
+      "url": "https://github.com/advisories/GHSA-9hfr-gw99-8rhx",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/sgbett/bsv-ruby-sdk/security/advisories/GHSA-9hfr-gw99-8rhx",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-40069",
+        "https://github.com/sgbett/bsv-ruby-sdk/issues/305",
+        "https://github.com/sgbett/bsv-ruby-sdk/pull/306",
+        "https://github.com/sgbett/bsv-ruby-sdk/commit/4992e8a265fd914a7eeb0405c69d1ff0122a84cc",
+        "https://github.com/sgbett/bsv-ruby-sdk/releases/tag/v0.8.2",
+        "https://github.com/advisories/GHSA-9hfr-gw99-8rhx"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-hc36-c89j-5f4j",
+      "cve_id": "CVE-2026-40070",
+      "severity": "HIGH",
+      "summary": "bsv-sdk and bsv-wallet persist unverified certifier signatures in acquire_certificate (direct and issuance paths)",
+      "description": "# Unverified certifier signatures persisted by `acquire_certificate`\n\n## Affected packages\n\nBoth `bsv-sdk` and `bsv-wallet` are published from the [sgbett/bsv-ruby-sdk](https://github.com/sgbett/bsv-ruby-sdk) repository. The vulnerable code lives in `lib/bsv/wallet_interface/wallet_client.rb`, which is **physically shipped inside both gems** (the `bsv-wallet.gemspec` `files` list bundles the entire `lib/bsv/wallet_interface/` tree). Consumers of either gem are independently vulnerable; the two packages are versioned separately, so each has its own affected range.\n\n| Package | Affected | Patched |\n| --- | --- | --- |\n| `bsv-sdk` | `>= 0.3.1, < 0.8.2` | `0.8.2` |\n| `bsv-wallet` | `>= 0.1.2, < 0.3.4` | `0.3.4` |\n\n## Summary\n\n`BSV::Wallet::WalletClient#acquire_certificate` persists certificate records to storage **without verifying the certifier's signature** over the certificate contents. Both acquisition paths are affected:\n\n- `acquisition_protocol: 'direct'` \u2014 the caller supplies all ce",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-347"
+      ],
+      "ecosystems": [
+        "rubygems",
+        "rubygems"
+      ],
+      "packages": [
+        "bsv-sdk",
+        "bsv-wallet"
+      ],
+      "published": "2026-04-09T20:28:10Z",
+      "updated": "2026-04-09T20:28:11Z",
+      "url": "https://github.com/advisories/GHSA-hc36-c89j-5f4j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/sgbett/bsv-ruby-sdk/security/advisories/GHSA-hc36-c89j-5f4j",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-40070",
+        "https://github.com/sgbett/bsv-ruby-sdk/issues/305",
+        "https://github.com/sgbett/bsv-ruby-sdk/pull/306",
+        "https://github.com/sgbett/bsv-ruby-sdk/commit/4992e8a265fd914a7eeb0405c69d1ff0122a84cc",
+        "https://brc.dev/52",
+        "https://github.com/advisories/GHSA-hc36-c89j-5f4j"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-qx8j-g322-qj6m",
       "cve_id": null,
       "severity": "HIGH",
@@ -479,13 +545,14 @@
         "basic-ftp"
       ],
       "published": "2026-04-08T20:02:25Z",
-      "updated": "2026-04-09T14:31:28Z",
+      "updated": "2026-04-09T19:06:13Z",
       "url": "https://github.com/advisories/GHSA-chqc-8p9q-pq6q",
       "source": "github-advisory",
       "poc_urls": [
         "https://github.com/patrickjuchli/basic-ftp/security/advisories/GHSA-chqc-8p9q-pq6q",
         "https://github.com/patrickjuchli/basic-ftp/commit/2ecc8e2c500c5234115f06fd1dbde1aa03d70f4b",
         "https://github.com/patrickjuchli/basic-ftp/releases/tag/v5.2.1",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39983",
         "https://github.com/advisories/GHSA-chqc-8p9q-pq6q"
       ]
     },
@@ -508,12 +575,14 @@
         "agixt"
       ],
       "published": "2026-04-08T20:02:01Z",
-      "updated": "2026-04-09T14:31:23Z",
+      "updated": "2026-04-09T19:06:08Z",
       "url": "https://github.com/advisories/GHSA-5gfj-64gh-mgmw",
       "source": "github-advisory",
       "poc_urls": [
         "https://github.com/Josh-XT/AGiXT/security/advisories/GHSA-5gfj-64gh-mgmw",
         "https://github.com/Josh-XT/AGiXT/releases/tag/v1.9.2",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39981",
+        "https://github.com/Josh-XT/AGiXT/commit/2079ea5a88fa671a921bf0b5eba887a5a1b73d5f",
         "https://github.com/advisories/GHSA-5gfj-64gh-mgmw"
       ]
     },
@@ -567,13 +636,14 @@
         "n8n-mcp"
       ],
       "published": "2026-04-08T19:53:48Z",
-      "updated": "2026-04-09T14:31:08Z",
+      "updated": "2026-04-09T19:05:58Z",
       "url": "https://github.com/advisories/GHSA-4ggg-h7ph-26qr",
       "source": "github-advisory",
       "poc_urls": [
         "https://github.com/czlonkowski/n8n-mcp/security/advisories/GHSA-4ggg-h7ph-26qr",
         "https://github.com/czlonkowski/n8n-mcp/commit/d9d847f230923d96e0857ccecf3a4dedcc9b0096",
         "https://github.com/czlonkowski/n8n-mcp/releases/tag/v2.47.4",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39974",
         "https://github.com/advisories/GHSA-4ggg-h7ph-26qr"
       ]
     },
@@ -596,13 +666,14 @@
         "github.com/dunglas/mercure"
       ],
       "published": "2026-04-08T19:53:20Z",
-      "updated": "2026-04-09T14:31:04Z",
+      "updated": "2026-04-09T19:05:43Z",
       "url": "https://github.com/advisories/GHSA-hwr4-mq23-wcv5",
       "source": "github-advisory",
       "poc_urls": [
         "https://github.com/dunglas/mercure/security/advisories/GHSA-hwr4-mq23-wcv5",
         "https://github.com/dunglas/mercure/commit/4964a69be904fd61e35b5f1e691271663b6fdd64",
         "https://github.com/dunglas/mercure/releases/tag/v0.22.0",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39972",
         "https://github.com/advisories/GHSA-hwr4-mq23-wcv5"
       ]
     },
@@ -616,6 +687,7 @@
       "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H",
       "epss_score": null,
       "cwe_ids": [
+        "CWE-290",
         "CWE-400"
       ],
       "ecosystems": [
@@ -629,76 +701,15 @@
         "Tmds.DBus.Protocol"
       ],
       "published": "2026-04-08T19:52:58Z",
-      "updated": "2026-04-09T14:31:00Z",
+      "updated": "2026-04-09T19:05:48Z",
       "url": "https://github.com/advisories/GHSA-xrw6-gwf8-vvr9",
       "source": "github-advisory",
       "poc_urls": [
         "https://github.com/tmds/Tmds.DBus/security/advisories/GHSA-xrw6-gwf8-vvr9",
         "https://github.com/tmds/Tmds.DBus/releases/tag/rel%2F0.21.3",
         "https://github.com/tmds/Tmds.DBus/releases/tag/rel%2F0.92.0",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39959",
         "https://github.com/advisories/GHSA-xrw6-gwf8-vvr9"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-v6ph-xcq9-qxxj",
-      "cve_id": "CVE-2026-39885",
-      "severity": "HIGH",
-      "summary": "mcp-from-openapi is Vulnerable to SSRF via $ref Dereferencing in Untrusted OpenAPI Specifications",
-      "description": "## Summary\n\nThe `mcp-from-openapi` library uses `@apidevtools/json-schema-ref-parser` to dereference `$ref` pointers in OpenAPI specifications without configuring any URL restrictions or custom resolvers. A malicious OpenAPI specification containing `$ref` values pointing to internal network addresses, cloud metadata endpoints, or local files will cause the library to fetch those resources during the `initialize()` call. This enables Server-Side Request Forgery (SSRF) and local file read attacks when processing untrusted OpenAPI specifications.\n\n\n## Affected Versions\n\n`<= 2.1.2` (latest)\n\n## CWE\n\nCWE-918: Server-Side Request Forgery (SSRF)\n\n## Vulnerability Details\n\n**File:** `index.js` lines 870-875\n\nWhen `OpenAPIToolGenerator.initialize()` is called, it dereferences the OpenAPI document using `json-schema-ref-parser`:\n\n```javascript\nthis.dereferencedDocument = await import_json_schema_ref_parser.default.dereference(\n  JSON.parse(JSON.stringify(this.document))\n);\n```\n\nNo options are p",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-918"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "mcp-from-openapi",
-        "@frontmcp/sdk",
-        "@frontmcp/adapters"
-      ],
-      "published": "2026-04-08T19:22:53Z",
-      "updated": "2026-04-09T14:29:54Z",
-      "url": "https://github.com/advisories/GHSA-v6ph-xcq9-qxxj",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/agentfront/frontmcp/security/advisories/GHSA-v6ph-xcq9-qxxj",
-        "https://github.com/agentfront/frontmcp/releases/tag/v1.0.4",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-39885",
-        "https://github.com/advisories/GHSA-v6ph-xcq9-qxxj"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-hfvc-g4fc-pqhx",
-      "cve_id": "CVE-2026-39883",
-      "severity": "HIGH",
-      "summary": "opentelemetry-go: BSD kenv command not using absolute path enables PATH hijacking",
-      "description": "## Summary\n\nThe fix for GHSA-9h8m-3fm2-qjrq (CVE-2026-24051) changed the Darwin `ioreg` command to use an absolute path but left the BSD `kenv` command using a bare name, allowing the same PATH hijacking attack on BSD and Solaris platforms.\n\n## Root Cause\n\n`sdk/resource/host_id.go` line 42:\n\n    if result, err := r.execCommand(\"kenv\", \"-q\", \"smbios.system.uuid\"); err == nil {\n\nCompare with the fixed Darwin path at line 58:\n\n    result, err := r.execCommand(\"/usr/sbin/ioreg\", \"-rd1\", \"-c\", \"IOPlatformExpertDevice\")\n\nThe `execCommand` helper at `sdk/resource/host_id_exec.go` uses `exec.Command(name, arg...)` which searches `$PATH` when the command name contains no path separator.\n\nAffected platforms (per build tag in `host_id_bsd.go:4`): DragonFly BSD, FreeBSD, NetBSD, OpenBSD, Solaris.\n\nThe `kenv` path is reached when `/etc/hostid` does not exist (line 38-40), which is common on FreeBSD systems.\n\n## Attack\n\n1. Attacker has local access to a system running a Go application that imports `",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-426"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "go.opentelemetry.io/otel/sdk"
-      ],
-      "published": "2026-04-08T19:22:12Z",
-      "updated": "2026-04-09T14:29:42Z",
-      "url": "https://github.com/advisories/GHSA-hfvc-g4fc-pqhx",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/open-telemetry/opentelemetry-go/security/advisories/GHSA-hfvc-g4fc-pqhx",
-        "http://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.43.0",
-        "https://nvd.nist.gov/vuln/detail/CVE-2026-39883",
-        "https://github.com/advisories/GHSA-hfvc-g4fc-pqhx"
       ]
     }
   ],
@@ -747,7 +758,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-04-09T18:38:11.918128+00:00",
+    "catalog_version": "2026-04-09T22:24:54.253040+00:00",
     "source": "CISA KEV"
   }
 }
