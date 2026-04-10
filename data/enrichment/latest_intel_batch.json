@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-10T18:33:39.103612+00:00",
+  "timestamp": "2026-04-10T22:07:33.843998+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -262,7 +262,443 @@
       "poc_public": true
     }
   ],
-  "github_advisories": [],
+  "github_advisories": [
+    {
+      "ghsa_id": "GHSA-75hx-xj24-mqrw",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "n8n-mcp has unauthenticated session termination and information disclosure in HTTP transport",
+      "description": "### Summary\n\nSeveral HTTP transport endpoints in n8n-mcp lacked proper authentication, and the health check endpoint exposed sensitive operational metadata without credentials.\n\n### Impact\n\nAn unauthenticated attacker with network access to the n8n-mcp HTTP server could disrupt active MCP sessions and gather information useful for further attacks.\n\n### Patches\n\nFixed in **v2.47.6**. All MCP session endpoints now require Bearer authentication. The health check endpoint has been reduced to a minimal liveness response.\n\n### Workarounds\n\nIf you cannot upgrade immediately:\n\n- **Restrict network access** to the HTTP server using firewall rules, reverse proxy IP allowlists, or a VPN so that only trusted clients can reach it.\n- **Use stdio mode** (`MCP_MODE=stdio`) instead of HTTP mode. The stdio transport does not expose any HTTP endpoints and is unaffected by this vulnerability.\n\nUpgrading to v2.47.6 is still strongly recommended.\n\n### Credit\n\nReported by @yotampe-pluto.",
+      "cvss_score": 8.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-306"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "n8n-mcp"
+      ],
+      "published": "2026-04-10T20:59:58Z",
+      "updated": "2026-04-10T20:59:59Z",
+      "url": "https://github.com/advisories/GHSA-75hx-xj24-mqrw",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/czlonkowski/n8n-mcp/security/advisories/GHSA-75hx-xj24-mqrw",
+        "https://github.com/czlonkowski/n8n-mcp/commit/ca9d4b3df6419b8338983be98f7940400f78bde3",
+        "https://github.com/czlonkowski/n8n-mcp/releases/tag/v2.47.6",
+        "https://github.com/advisories/GHSA-75hx-xj24-mqrw"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-ff24-4prj-gpmj",
+      "cve_id": "CVE-2026-40242",
+      "severity": "HIGH",
+      "summary": "Arcane has Unauthenticated SSRF with Conditional Response Reflection in Template Fetch Endpoint",
+      "description": "### Summary\nThe /api/templates/fetch endpoint accepts a caller-supplied url parameter and performs a server-side HTTP GET request to that URL without authentication and without URL scheme or host validation. The server's response is returned directly to the caller. type. This constitutes an unauthenticated SSRF vulnerability affecting any publicly reachable Arcane instance.\n\n### Details\n- No allowlist or denylist of destination hosts/CIDRs\n- No requirement for the caller to be authenticated\n\nResponse handling produces four distinct outcomes observable by the caller: \n- Valid JSON targets return a fully reflected response body if the returned fields fit the expected internal struct\n- Non-JSON HTTP 200 responses produce an error leaking the first byte of the response (`\"Invalid JSON response: invalid character '<'...\"`)\n- Non-200 responses leak the HTTP status code\n- TCP-level failures distinguish between closed ports (`\"connection refused\"`) and filtered ones (`\"i/o timeout\"`)\n\n### PoC\n",
+      "cvss_score": 7.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:L/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/getarcaneapp/arcane/backend"
+      ],
+      "published": "2026-04-10T20:59:27Z",
+      "updated": "2026-04-10T21:37:59Z",
+      "url": "https://github.com/advisories/GHSA-ff24-4prj-gpmj",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/getarcaneapp/arcane/security/advisories/GHSA-ff24-4prj-gpmj",
+        "https://github.com/getarcaneapp/arcane/releases/tag/v1.17.3",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-40242",
+        "https://github.com/advisories/GHSA-ff24-4prj-gpmj"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-ffq7-898w-9jc4",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "DotNetNuke.Core has stored cross-site-scripting (XSS) via SVG upload",
+      "description": "A user could upload a specially crafted SVG file that could include scripts that can target both authenticated and unauthenticated DNN users. The impact is increased if the scripts are run by a power user.",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:R/S:C/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-87"
+      ],
+      "ecosystems": [
+        "nuget"
+      ],
+      "packages": [
+        "DotNetNuke.Core"
+      ],
+      "published": "2026-04-10T20:42:48Z",
+      "updated": "2026-04-10T20:42:51Z",
+      "url": "https://github.com/advisories/GHSA-ffq7-898w-9jc4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/dnnsoftware/Dnn.Platform/security/advisories/GHSA-ffq7-898w-9jc4",
+        "https://github.com/dnnsoftware/Dnn.Platform/releases/tag/v10.2.2",
+        "https://github.com/advisories/GHSA-ffq7-898w-9jc4"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-6v7q-wjvx-w8wg",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "basic-ftp: Incomplete CRLF Injection Protection Allows Arbitrary FTP Command Execution via Credentials and MKD Commands",
+      "description": "## Summary\n\nbasic-ftp's CRLF injection protection (added in commit 2ecc8e2 for GHSA-chqc-8p9q-pq6q) is incomplete. Two code paths bypass the `protectWhitespace()` control character check: (1) the `login()` method directly concatenates user-supplied credentials into USER/PASS FTP commands without any validation, and (2) the `_openDir()` method sends an MKD command before `cd()` invokes `protectWhitespace()`, creating a TOCTOU bypass. Both vectors allow an attacker who controls input to inject arbitrary FTP commands into the control connection.\n\n## Details\n\n### Vector 1: Credential Injection (login)\n\nThe `login()` method constructs FTP commands by direct string concatenation with no CRLF validation:\n\n```typescript\n// src/Client.ts:216-231\nlogin(user = \"anonymous\", password = \"guest\"): Promise<FTPResponse> {\n    this.ftp.log(`Login security: ${describeTLS(this.ftp.socket)}`)\n    return this.ftp.handle(\"USER \" + user, (res, task) => {  // Line 218: no validation on `user`\n        // ...\n  ",
+      "cvss_score": 8.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-93"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "basic-ftp"
+      ],
+      "published": "2026-04-10T20:18:23Z",
+      "updated": "2026-04-10T20:18:24Z",
+      "url": "https://github.com/advisories/GHSA-6v7q-wjvx-w8wg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/patrickjuchli/basic-ftp/security/advisories/GHSA-6v7q-wjvx-w8wg",
+        "https://github.com/patrickjuchli/basic-ftp/commit/20327d35126e57e5fdbaae79a4b65222fbadc53c",
+        "https://github.com/patrickjuchli/basic-ftp/releases/tag/v5.2.2",
+        "https://github.com/advisories/GHSA-6v7q-wjvx-w8wg"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-2943-crp8-38xx",
+      "cve_id": "CVE-2026-40188",
+      "severity": "HIGH",
+      "summary": "goshs is Missing Write Protection for Parametric Data Values",
+      "description": "### Summary\nThe SFTP command rename sanitizes only the source path and not the destination, so it is possible to write outside of the root directory of the SFTP. \n\n### Details\n\nHere is the issue:\n```go\n// helper.go:155-215\nfunc cmdFile(root string, r *sftp.Request, ip string, sftpServer *SFTPServer) error {\n    fullPath, err := sanitizePath(r.Filepath, root)  // Source: SANITIZED\n    if err != nil {\n        return err\n    }\n    switch r.Method {\n    // ...\n    case \"Rename\":\n        err := os.Rename(fullPath, r.Target)  // Destination: NOT SANITIZED!\n```\n\n\n### PoC\n\nTo exploit just upload a file on the SFTP and rename it to a file with full path. \n\nCurrently no key.txt file inside /tmp\n\n``` bash\n$ ls key.txt\nls: key.txt: No such file or directory\n```\n\n\nStart the SFTP server:\n``` bash\n/tmp/sftp-server $ goshs -sftp -b 'user:user' -d .\nWARNING[2026-04-02 20:00:18] upload-folder mode deactivated due to use of 'sftp' mode\nWARNING[2026-04-02 20:00:18] There is a newer Version (v2.0.0-beta.3)",
+      "cvss_score": 7.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:N/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-1314"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/patrickhener/goshs"
+      ],
+      "published": "2026-04-10T20:00:28Z",
+      "updated": "2026-04-10T21:37:28Z",
+      "url": "https://github.com/advisories/GHSA-2943-crp8-38xx",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/patrickhener/goshs/security/advisories/GHSA-2943-crp8-38xx",
+        "https://github.com/patrickhener/goshs/commit/141c188ce270ffbec087844a50e5e695b7da7744",
+        "https://github.com/patrickhener/goshs/releases/tag/v2.0.0-beta.4",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-40188",
+        "https://github.com/advisories/GHSA-2943-crp8-38xx"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4h9q-p5j4-xvvh",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Ech0: Scoped admin access tokens can bypass least-privilege controls on privileged endpoints, including backup export",
+      "description": "## Summary\n\nEch0 scoped access tokens do not reliably enforce least privilege: multiple privileged admin routes omit scope checks, and the backup export handler strips token scope metadata entirely, allowing a low-scope admin access token to reach broader admin functionality than intended.\n\n## Impact\n\nAn attacker who obtains a deliberately limited access token for an admin account can use that token to access privileged functionality outside its assigned scope. Confirmed impact includes access to `/api/inbox` with a token scoped only for `echo:read` and successful backup export via `/api/backup/export?token=...`, which returns a full ZIP archive. In practice, this turns a narrowly delegated API token into a broader privileged access and data exfiltration primitive.\n\n## Details\n\nThe issue is caused by a split authorization model:\n\n- `JWTAuthMiddleware()` authenticates the token and stores scope metadata in the viewer context\n- `RequireScopes(...)` enforces least privilege, but only when",
+      "cvss_score": 7.6,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:L/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-285"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/lin-snow/ech0"
+      ],
+      "published": "2026-04-10T19:39:46Z",
+      "updated": "2026-04-10T19:39:46Z",
+      "url": "https://github.com/advisories/GHSA-4h9q-p5j4-xvvh",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/lin-snow/Ech0/security/advisories/GHSA-4h9q-p5j4-xvvh",
+        "https://github.com/lin-snow/Ech0/releases/tag/v4.3.5",
+        "https://github.com/advisories/GHSA-4h9q-p5j4-xvvh"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-g985-wjh9-qxxc",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "PraisonAI Vulnerable to RCE via Automatic tools.py Import",
+      "description": "PraisonAI automatically imports `./tools.py` from the current working directory when launching certain components. This includes call.py, tool_resolver.py, and CLI tool-loading paths.\n\nA malicious tools.py placed in the process working directory is executed immediately, allowing arbitrary Python code execution in the host environment.\n\n### Affected Code\n- call.py \u2192 `import_tools_from_file()`\n- tool_resolver.py \u2192 `_load_local_tools()`\n- tools.py \u2192 local tool import flow\n- \n\n### PoC\nCreate tools.py in the directory where PraisonAI is launched:\n\n```python\n# tools.py\nimport os\nos.system(\"echo pwned > /tmp/pwned.txt\")\n```\n\nRun any PraisonAI component that loads local tools, for example:\n\n```bash\npraisonai workflow run safe.yaml\n```\n\n### Reproduction Steps\n1. Create a malicious tools.py in the current working directory.\n2. Start PraisonAI or invoke a CLI command that loads local tools.\n3. Verify that `/tmp/pwned.txt` or the malicious command output exists.\n\n### Impact\nAn attacker who can pla",
+      "cvss_score": 8.4,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-94",
+        "CWE-426"
+      ],
+      "ecosystems": [
+        "pip",
+        "pip"
+      ],
+      "packages": [
+        "praisonaiagents",
+        "PraisonAI"
+      ],
+      "published": "2026-04-10T19:32:32Z",
+      "updated": "2026-04-10T19:32:34Z",
+      "url": "https://github.com/advisories/GHSA-g985-wjh9-qxxc",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-g985-wjh9-qxxc",
+        "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.139",
+        "https://github.com/advisories/GHSA-g985-wjh9-qxxc"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-vw86-c94w-v3x4",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "SiYuan: Publish Reader Path Traversal Delete via `removeUnusedAttributeView`",
+      "description": "SiYuan's publish/read-only boundary can be broken through `/api/av/removeUnusedAttributeView`.\n\nA publish-service Reader context can call this endpoint because it is protected only by `CheckAuth`, and publish requests are forwarded upstream with a valid `RoleReader` JWT. The handler accepts attacker-controlled `id` input and passes it directly into a filesystem delete sink:\n\n- no admin check\n- no readonly check\n- no node-ID validation\n- no subpath enforcement\n- no verification that the target AV is actually unused\n\nBecause the sink builds the file path with:\n\n```go\nfilepath.Join(util.DataDir, \"storage\", \"av\", id+\".json\")\n```\n\nan attacker can supply `../` path traversal sequences and delete arbitrary `.json` files reachable from the workspace, rather than only `data/storage/av/<id>.json`.\n\nThis is a real write/destructive authorization bug, not a `visible=false` listing issue.\n\n## Impact\n\nAn attacker with publish-reader access can delete arbitrary `.json` files under the workspace path ",
+      "cvss_score": 8.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:N/I:L/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-24"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/siyuan-note/siyuan/kernel"
+      ],
+      "published": "2026-04-10T19:32:12Z",
+      "updated": "2026-04-10T19:32:13Z",
+      "url": "https://github.com/advisories/GHSA-vw86-c94w-v3x4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/siyuan-note/siyuan/security/advisories/GHSA-vw86-c94w-v3x4",
+        "https://github.com/advisories/GHSA-vw86-c94w-v3x4"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-7m5h-w69j-qggg",
+      "cve_id": "CVE-2026-40259",
+      "severity": "HIGH",
+      "summary": "SiYuan: Publish Reader Can Arbitrarily Delete Attribute View Files via `/api/av/removeUnusedAttributeView`",
+      "description": "## Summary\n\nAn authenticated publish-service reader can invoke `/api/av/removeUnusedAttributeView` and cause persistent deletion of arbitrary attribute view (`AV`) definition files from the workspace.\n\nThe route is protected only by generic `CheckAuth`, which accepts publish `RoleReader` requests. The handler forwards a caller-controlled `id` directly into a model function that deletes `data/storage/av/<id>.json` without verifying either:\n\n- that the caller is allowed to perform write/destructive actions; or\n- that the target AV is actually unused.\n\nThis is a persistent integrity and availability issue reachable from the publish surface.\n\n## Root Cause\n\n### 1. Publish users are issued a `RoleReader` JWT\n\n- [kernel/model/auth.go](/root/audit/siyuan/kernel/model/auth.go#L105)\n\n```go\nClaimsKeyRole: RoleReader,\n```\n\n### 2. The publish reverse proxy forwards that token upstream\n\n- [kernel/server/proxy/publish.go](/root/audit/siyuan/kernel/server/proxy/publish.go#L131)\n- [kernel/server/proxy",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-285"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/siyuan-note/siyuan/kernel"
+      ],
+      "published": "2026-04-10T19:32:07Z",
+      "updated": "2026-04-10T21:32:47Z",
+      "url": "https://github.com/advisories/GHSA-7m5h-w69j-qggg",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/siyuan-note/siyuan/security/advisories/GHSA-7m5h-w69j-qggg",
+        "https://github.com/advisories/GHSA-7m5h-w69j-qggg"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-8hw4-fhww-273g",
+      "cve_id": "CVE-2026-40162",
+      "severity": "HIGH",
+      "summary": "Bugsink affected by authenticated arbitrary file write in artifactbundle/assemble",
+      "description": "# Authenticated arbitrary file write in artifact bundle assembly\n\n## Summary\n\nAn authenticated file write vulnerability was identified in Bugsink **2.1.0** in the artifact bundle assembly flow.\n\nA user with a valid authentication token could cause the application to write attacker-controlled content to a filesystem location writable by the Bugsink process.\n\nThis issue requires authentication and affects only version **2.1.0**.\n\nThe issue is fixed in **2.1.1**.\n\n## Impact\n\nThis vulnerability allows an authenticated user to create or overwrite files **within locations writable by the Bugsink service account**.\n\nThe practical impact depends on the deployment environment and filesystem permissions of the running process.\n\nPossible consequences include:\n\n* modification of application data files\n* corruption of uploaded assets or temporary files\n* overwriting files in mounted writable volumes\n* disruption of normal application behavior\n\nNo unauthenticated exploitation is known.\n\nNo direct co",
+      "cvss_score": 7.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-20"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "bugsink"
+      ],
+      "published": "2026-04-10T19:30:42Z",
+      "updated": "2026-04-10T19:30:43Z",
+      "url": "https://github.com/advisories/GHSA-8hw4-fhww-273g",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/bugsink/bugsink/security/advisories/GHSA-8hw4-fhww-273g",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-40162",
+        "https://github.com/bugsink/bugsink/releases/tag/2.1.1",
+        "https://github.com/advisories/GHSA-8hw4-fhww-273g"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-32pv-mpqg-h292",
+      "cve_id": "CVE-2026-40163",
+      "severity": "HIGH",
+      "summary": "Saltcorn has an Unauthenticated Path Traversal in sync endpoints, allowing arbitrary file write and directory read",
+      "description": "### Summary\n\nTwo unauthenticated path traversal vulnerabilities exist in Saltcorn's mobile sync endpoints. The `POST /sync/offline_changes` endpoint allows an unauthenticated attacker to create arbitrary directories and write a `changes.json` file with attacker-controlled JSON content anywhere on the server filesystem. The `GET /sync/upload_finished` endpoint allows an unauthenticated attacker to list arbitrary directory contents and read specific JSON files.\n\nThe safe path validation function `File.normalise_in_base()` exists in the codebase and is correctly used by the `clean_sync_dir` endpoint in the **same file** (fix for GHSA-43f3-h63w-p6f6), but was not applied to these two endpoints.\n\n### Details\n\n**Finding 1: Arbitrary file write \u2014 `POST /sync/offline_changes` (sync.js line 226)**\n\nThe `newSyncTimestamp` parameter from the request body is used directly in `path.join()` without sanitization:\n\n```javascript\nconst syncDirName = `${newSyncTimestamp}_${req.user?.email || \"public\"}`;",
+      "cvss_score": 8.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "@saltcorn/server",
+        "@saltcorn/server",
+        "@saltcorn/server"
+      ],
+      "published": "2026-04-10T19:30:27Z",
+      "updated": "2026-04-10T19:30:28Z",
+      "url": "https://github.com/advisories/GHSA-32pv-mpqg-h292",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/saltcorn/saltcorn/security/advisories/GHSA-32pv-mpqg-h292",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-40163",
+        "https://github.com/advisories/GHSA-32pv-mpqg-h292"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-8frj-8q3m-xhgm",
+      "cve_id": "CVE-2026-40114",
+      "severity": "HIGH",
+      "summary": "PraisonAI Vulnerable to Server-Side Request Forgery via Unvalidated webhook_url in Jobs API",
+      "description": "## Summary\n\nThe `/api/v1/runs` endpoint accepts an arbitrary `webhook_url` in the request body with no URL validation. When a submitted job completes (success or failure), the server makes an HTTP POST request to this URL using `httpx.AsyncClient`. An unauthenticated attacker can use this to make the server send POST requests to arbitrary internal or external destinations, enabling SSRF against cloud metadata services, internal APIs, and other network-adjacent services.\n\n## Details\n\nThe vulnerability exists across the full request lifecycle:\n\n**1. User input accepted without validation** \u2014 `models.py:32`:\n```python\nclass JobSubmitRequest(BaseModel):\n    webhook_url: Optional[str] = Field(None, description=\"URL to POST results when complete\")\n```\nThe field is a plain `str` with no URL validation \u2014 no scheme restriction, no host filtering.\n\n**2. Stored directly on the Job object** \u2014 `router.py:80-86`:\n```python\njob = Job(\n    prompt=body.prompt,\n    ...\n    webhook_url=body.webhook_url,\n",
+      "cvss_score": 7.2,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:L/I:L/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "PraisonAI"
+      ],
+      "published": "2026-04-10T19:28:54Z",
+      "updated": "2026-04-10T19:28:56Z",
+      "url": "https://github.com/advisories/GHSA-8frj-8q3m-xhgm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-8frj-8q3m-xhgm",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-40114",
+        "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.128",
+        "https://github.com/advisories/GHSA-8frj-8q3m-xhgm"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-qq9r-63f6-v542",
+      "cve_id": "CVE-2026-40160",
+      "severity": "HIGH",
+      "summary": "PraisonAIAgents: SSRF via unvalidated URL in `web_crawl` httpx fallback",
+      "description": "| Field | Value |\n|---|---|\n| Severity | High |\n| Type | SSRF -- unvalidated URL in `web_crawl` httpx fallback allows internal network access |\n| Affected | `src/praisonai-agents/praisonaiagents/tools/web_crawl_tools.py:133-180` |\n\n## Summary\n\n`web_crawl`'s httpx fallback path passes user-supplied URLs directly to `httpx.AsyncClient.get()` with `follow_redirects=True` and no host validation. An LLM agent tricked into crawling an internal URL can reach cloud metadata endpoints (`169.254.169.254`), internal services, and localhost. The response content is returned to the agent and may appear in output visible to the attacker.\n\nThis fallback is the default crawl path on a fresh PraisonAI installation (no Tavily key, no Crawl4AI installed).\n\n## Details\n\nThe vulnerable code is in `tools/web_crawl_tools.py:148-155`:\n\n```python\nasync with httpx.AsyncClient(\n    follow_redirects=True,\n    timeout=httpx.Timeout(30)\n) as client:\n    response = await client.get(url)  # url from agent tool call, n",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "praisonaiagents"
+      ],
+      "published": "2026-04-10T19:28:28Z",
+      "updated": "2026-04-10T19:28:29Z",
+      "url": "https://github.com/advisories/GHSA-qq9r-63f6-v542",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-qq9r-63f6-v542",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-40160",
+        "https://github.com/advisories/GHSA-qq9r-63f6-v542"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-x462-jjpc-q4q4",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "PraisonAI: Cross-Origin Agent Execution via Hardcoded Wildcard CORS and Missing Authentication on AGUI Endpoint",
+      "description": "## Summary\n\nThe AGUI endpoint (`POST /agui`) has no authentication and hardcodes `Access-Control-Allow-Origin: *` on all responses. Combined with Starlette/FastAPI's Content-Type-agnostic JSON parsing, any website a victim visits can silently trigger arbitrary agent execution against a locally-running AGUI server and read the full response, including tool execution results and potentially sensitive data from the victim's environment.\n\n## Details\n\nThe vulnerability is a combination of three issues in `src/praisonai-agents/praisonaiagents/ui/agui/agui.py`:\n\n**1. No authentication (line 124-125):**\n```python\n@router.post(\"/agui\")\nasync def run_agent_agui(run_input: RunAgentInput):\n```\nThe endpoint accepts any request. `RunAgentInput` (defined in `types.py:159-165`) has no auth token, API key, or session validation field. No middleware or dependencies are attached to the router (line 111).\n\n**2. Hardcoded wildcard CORS (line 131-141):**\n```python\nreturn StreamingResponse(\n    event_generat",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-942"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "praisonaiagents"
+      ],
+      "published": "2026-04-10T19:28:23Z",
+      "updated": "2026-04-10T19:28:24Z",
+      "url": "https://github.com/advisories/GHSA-x462-jjpc-q4q4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-x462-jjpc-q4q4",
+        "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.128",
+        "https://github.com/advisories/GHSA-x462-jjpc-q4q4"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-2g3w-cpc4-chr4",
+      "cve_id": "CVE-2026-40156",
+      "severity": "HIGH",
+      "summary": "PraisonAI Vulnerable to Implicit Execution of Arbitrary Code via Automatic `tools.py` Loading",
+      "description": "PraisonAI automatically loads a file named `tools.py` from the current working directory to discover and register custom agent tools. This loading process uses `importlib.util.spec_from_file_location` and immediately executes module-level code via `spec.loader.exec_module()` **without explicit user consent, validation, or sandboxing**.\n\nThe `tools.py` file is loaded **implicitly**, even when it is not referenced in configuration files or explicitly requested by the user. As a result, merely placing a file named `tools.py` in the working directory is sufficient to trigger code execution.\n\nThis behavior violates the expected security boundary between **user-controlled project files** (e.g., YAML configurations) and **executable code**, as untrusted content in the working directory is treated as trusted and executed automatically.\n\nIf an attacker can place a malicious `tools.py` file into a directory where a user or automated system (e.g., CI/CD pipeline) runs `praisonai`, arbitrary code ",
+      "cvss_score": 7.8,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-94",
+        "CWE-426",
+        "CWE-829"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "praisonai"
+      ],
+      "published": "2026-04-10T19:26:44Z",
+      "updated": "2026-04-10T19:26:45Z",
+      "url": "https://github.com/advisories/GHSA-2g3w-cpc4-chr4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-2g3w-cpc4-chr4",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-40156",
+        "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.5.128",
+        "https://github.com/advisories/GHSA-2g3w-cpc4-chr4"
+      ]
+    }
+  ],
   "urlhaus_iocs": [],
   "kev_stats": {
     "total_kev_entries": 1559,
@@ -308,7 +744,7 @@
         "count": 25
       }
     ],
-    "catalog_version": "2026-04-10T18:33:39.294673+00:00",
+    "catalog_version": "2026-04-10T22:07:34.013725+00:00",
     "source": "CISA KEV"
   }
 }
