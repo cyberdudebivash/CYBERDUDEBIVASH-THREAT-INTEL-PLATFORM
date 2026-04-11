@@ -354,6 +354,7 @@ jobs:
           git add -f data/feed_manifest.json            2>/dev/null || true  # v70 canonical
           git add -f data/sync_marker.json              2>/dev/null || true
           git add -f api/feed.json api/latest.json api/status.json 2>/dev/null || true
+          git add -f api/engines.json api/ai/                    2>/dev/null || true
           git add    index.html sitemap.xml             2>/dev/null || true
           git add    .gitignore                         2>/dev/null || true
           git add -f data/status/status.json            2>/dev/null || true
@@ -527,7 +528,17 @@ jobs:
           # P0-7/8/9/10 ROOT CAUSE FIX:
           # Derives fresh engine JSON from api/feed.json (authoritative source).
           # All NEXUS/GENESIS/BugHunter/TIP+SOAR sections now reflect live feed state.
+          # Schema v47: correct 'summary' wrappers + exact field names matching renderGenesisEngine() bindings.
           python3 scripts/regenerate_engine_data.py && echo "✅ Engine data regenerated" || echo "⚠️ Engine regen warn (non-fatal)"
+
+      - name: "🤖 AI Execution Layer — Generate /api/ai/*.json endpoints (v103)"
+        continue-on-error: true
+        run: |
+          # Generates three static AI endpoints served via GitHub Pages:
+          #   /api/ai/analyze.json   — priority-ranked threats, CVSS/KEV enrichment
+          #   /api/ai/respond.json   — SOAR playbooks + automated response queue
+          #   /api/ai/correlate.json — actor/TTP/CVE correlation graph + clusters
+          python3 scripts/generate_ai_endpoints.py && echo "✅ AI endpoints generated" || echo "⚠️ AI endpoints warn (non-fatal)"
 
       - name: "📬 Blog Queue Retry — Process Failed Posts"
         continue-on-error: true
@@ -556,8 +567,8 @@ jobs:
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
 
           git add -f data/stix/feed_manifest.json api/feed.json api/latest.json 2>/dev/null || true
-          git add -f api/stats.json api/status.json 2>/dev/null || true
-          git add -f api/exports/ 2>/dev/null || true
+          git add -f api/stats.json api/status.json api/engines.json 2>/dev/null || true
+          git add -f api/exports/ api/ai/ 2>/dev/null || true
           git add -f config/feature_flags.json 2>/dev/null || true
           git add -f data/blog_queue/ 2>/dev/null || true
           git add    threat/ sitemap.xml 2>/dev/null || true
