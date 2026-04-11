@@ -77,6 +77,26 @@ def _sid(seed: str, pfx: str) -> str:
     return f"{pfx}-{hashlib.md5(seed.encode()).hexdigest()[:8].upper()}"
 
 
+# ── ISSUE 2 FIX: Single Source of Truth for priority ─────────────────────────
+# Mirrors window.computePriority() in index.html EXACTLY.
+# Rule: KEV=True → P1. Then risk_score thresholds. No other logic.
+# Changes here MUST be mirrored in index.html window.computePriority.
+def compute_priority(item: Dict) -> str:
+    """SSOT priority function — matches window.computePriority() in index.html."""
+    if not item:
+        return "P4"
+    if item.get("kev") is True or item.get("kev_present") is True:
+        return "P1"
+    r = float(item.get("risk_score") or 0)
+    if r >= 8: return "P1"
+    if r >= 6: return "P2"
+    if r >= 4: return "P3"
+    return "P4"
+
+PRIORITY_COLORS = {"P1": "#ef4444", "P2": "#f97316", "P3": "#fbbf24", "P4": "#4ade80"}
+PRIORITY_LABELS = {"P1": "IMMEDIATE", "P2": "HIGH",   "P3": "MEDIUM", "P4": "LOW"}
+
+
 ACTOR_KW = {
     "APT28": ["apt28","fancy bear","sofacy","pawn storm"],
     "APT29": ["apt29","cozy bear","midnight blizzard","nobelium"],
@@ -197,23 +217,21 @@ def build_analyze(items: List[Dict]) -> Dict:
         if ttl in seen_titles:
             continue
         seen_titles.add(ttl)
+        # ISSUE 2 FIX: use compute_priority() — SINGLE SOURCE OF TRUTH
+        pri = compute_priority(item)
+        r   = float(item.get("risk_score") or 0)
         top_threats.append({
             "id": _sid(item.get("id", ttl), "TH"),
             "title": (item.get("title") or "")[:120],
-            "risk_score": round(item.get("risk_score") or 0, 1),
-            "severity": "CRITICAL" if (item.get("risk_score") or 0) >= 9 else
-                        "HIGH"     if (item.get("risk_score") or 0) >= 7 else
-                        "MEDIUM"   if (item.get("risk_score") or 0) >= 4 else "LOW",
+            "risk_score": round(r, 1),
+            "severity": "CRITICAL" if r >= 9 else "HIGH" if r >= 7 else "MEDIUM" if r >= 4 else "LOW",
             "kev": bool(item.get("kev") or item.get("kev_present")),
             "actor": _actor(item),
             "ttps": _ttps(item)[:5],
             "cves": _cves(item)[:3],
-            "detect": item.get("detect") or "",
-            "analyze": item.get("analyze") or "",
-            "priority": item.get("priority") or (
-                "IMMEDIATE" if (item.get("risk_score") or 0) >= 9 else
-                "HIGH"      if (item.get("risk_score") or 0) >= 7 else "NORMAL"
-            ),
+            "detect":   item.get("detect") or "",
+            "analyze":  item.get("analyze") or "",
+            "priority": pri,  # SSOT — computed, not read from stored field
             "source": item.get("feed_name") or item.get("source") or "",
             "date": item.get("date_published") or item.get("_isoDate") or NOW_ISO,
         })
@@ -338,9 +356,11 @@ def build_respond(items: List[Dict]) -> Dict:
         if title in seen:
             continue
         seen.add(title)
+        # SSoT: compute_priority is the single authoritative source for priority
+        pri = compute_priority(item)
         queue.append({
             "action_id": _sid(item.get("id", title), "ACT"),
-            "priority": pb["severity"],
+            "priority": pri,
             "incident_title": title,
             "risk_score": round(item.get("risk_score") or 0, 1),
             "kev": bool(item.get("kev") or item.get("kev_present")),
@@ -350,7 +370,7 @@ def build_respond(items: List[Dict]) -> Dict:
             "actor": _actor(item),
             "ttps": _ttps(item)[:4],
             "cves": _cves(item)[:2],
-            "sla_hours": 1 if pb["severity"] == "P1" else 4 if pb["severity"] == "P2" else 24,
+            "sla_hours": 1 if pri == "P1" else 4 if pri == "P2" else 24,
             "status": "PENDING",
             "created_at": NOW_ISO,
         })
