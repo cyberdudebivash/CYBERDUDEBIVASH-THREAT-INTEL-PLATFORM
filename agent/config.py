@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
 """
-config.py - CyberDudeBivash v32.0 (APEX SOVEREIGN CORTEX)
+config.py - CyberDudeBivash v33.0 (APEX SOVEREIGN CORTEX — GLOBAL EXPANSION)
 Global Configuration for the Sentinel APEX Intelligence Platform.
+
+v33.0 CHANGES (P0-5 GLOBAL COVERAGE FIX — TIER 8 EXPANSION):
+  - ADDED 14 CI-verified feeds across 5 new categories:
+    * Vendor Research: Sophos X-Ops, IBM Security Intelligence, Red Canary, Elastic Security Labs, NCC Group
+    * Cloud Security: Cloudflare Security, GitHub Security Lab
+    * Government CERT (new endpoints): ANSSI France, NCSC UK (new API), ACSC Australia, JPCERT/CC
+    * Zero-Day Research: PortSwigger Research (not Daily Swig), OSS-Security
+    * EDR/MDR: Huntress Labs
+  - Total active feeds: 35 → 49 (40% expansion)
+  - Zero dead feeds added (all v33.0 additions verified against CI runner access)
 
 v32.0 PERMANENT STABILITY CHANGES (run #605 dead feed purge):
   - MAX_STATE_SIZE: 500 -> 2000 (was truncating dedup hash state prematurely)
@@ -129,6 +139,34 @@ RSS_FEEDS = [
     "https://seclists.org/rss/fulldisclosure.rss",     # Full Disclosure
     # [v32.0-PURGE] cert.be/en/rss REMOVED — 0 entries confirmed run #605
     # [v32.0-PURGE] bsi.bund.de RSSNewsfeed_Cybersicherheit_node.xml REMOVED — 0 entries / encoding issues run #605
+
+    # -- TIER 8: v33.0 GLOBAL EXPANSION — Premium global coverage (P0-5 FIX) --
+    # Adds 14 high-signal, CI-verified feeds across vendor research, APAC/EU/MENA,
+    # cloud security, and EDR. Zero overlap with existing active feeds.
+
+    # Vendor Threat Research (Tier 4 supplement)
+    "https://news.sophos.com/en-us/feed/",             # Sophos X-Ops Threat Research
+    "https://securityintelligence.com/feed/",          # IBM Security Intelligence
+    "https://redcanary.com/blog/feed/",                # Red Canary MDR / TI Reports
+    "https://www.elastic.co/security-labs/rss/feed.xml",  # Elastic Security Labs
+    "https://research.nccgroup.com/feed/",             # NCC Group Research
+
+    # Cloud & Infrastructure Security
+    "https://blog.cloudflare.com/tag/security/rss/",   # Cloudflare Security Blog
+    "https://github.blog/category/security/feed/",     # GitHub Security Lab
+
+    # Government & CERT — Global (v33.0 new endpoints, replacing dead v31/v32 ones)
+    "https://www.cert.ssi.gouv.fr/alerte/feed",        # ANSSI France (CRITICAL alerts)
+    "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml",  # NCSC UK new API
+    "https://www.cyber.gov.au/about-us/news/rss",      # ASD / ACSC Australia
+    "https://www.jpcert.or.jp/english/rss.html",       # JPCERT/CC (Japan CERT)
+
+    # Zero-Day & Exploit Research
+    "https://portswigger.net/research/rss",            # PortSwigger Research (not Daily Swig)
+    "https://seclists.org/rss/oss-sec.rss",            # OSS-Security — open-source CVE disclosures
+
+    # EDR / Managed Detection
+    "https://huntress.com/blog/rss.xml",               # Huntress Labs SMB threat research
 ]
 
 MAX_ENTRIES_PER_FEED = 5
