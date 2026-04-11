@@ -1,50 +1,138 @@
 {
-  "sigma_rules": [],
+  "sigma_rules": [
+    {
+      "title": "CDB Sentinel APEX - FortiGate_CVE202559718_Exploitation_Incident_Response_Findin",
+      "id": "sigma--96e04e25a0a2",
+      "status": "experimental",
+      "description": "Detects activity related to FortiGate CVE-2025-59718 Exploitation: Incident Response Findings",
+      "references": [
+        ""
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/04/11",
+      "tags": [
+        "cve.cve-2025-59718"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    },
+    {
+      "title": "CDB Sentinel APEX - CVE202639987_Marimo_RCE_exploited_in_hours_after_disclosure",
+      "id": "sigma--fb390e145f6c",
+      "status": "experimental",
+      "description": "Detects activity related to CVE-2026-39987: Marimo RCE exploited in hours after disclosure",
+      "references": [
+        ""
+      ],
+      "author": "CyberDudeBivash GOC - Sentinel APEX v39.0",
+      "date": "2026/04/11",
+      "tags": [
+        "cve.cve-2026-39987"
+      ],
+      "logsource": {
+        "category": "process_creation",
+        "product": "windows"
+      },
+      "detection": {
+        "selection": {
+          "CommandLine|contains": [
+            "suspicious"
+          ]
+        },
+        "condition": "selection"
+      },
+      "level": "medium",
+      "falsepositives": [
+        "Legitimate administrative activity"
+      ]
+    }
+  ],
   "yara_rules": [
     {
+      "rule_name": "CDB_FortiGate_CVE202559718_Exploitation_Inci",
+      "rule_text": "rule CDB_FortiGate_CVE202559718_Exploitation_Inci {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for FortiGate CVE-2025-59718 Exploitation: Incident Response Findings\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $cve0 = \"CVE-2025-59718\" ascii wide nocase\n        $kw0 = \"FortiGate\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CVE202639987_Marimo_RCE_exploited_in_hou",
+      "rule_text": "rule CDB_CVE202639987_Marimo_RCE_exploited_in_hou {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CVE-2026-39987: Marimo RCE exploited in hours after disclosure\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $cve0 = \"CVE-2026-39987\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_CISA_Adds_TrueConf_Vulnerability_to_KEV_",
+      "rule_text": "rule CDB_CISA_Adds_TrueConf_Vulnerability_to_KEV_ {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CISA Adds TrueConf Vulnerability to KEV Catalog Following Active Exploitation\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $kw0 = \"TrueConf\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Week_in_review_Axios_npm_supply_chain_co",
+      "rule_text": "rule CDB_Week_in_review_Axios_npm_supply_chain_co {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Week in review: Axios npm supply chain compromise, critical FortiClient EMS bugs\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $kw0 = \"FortiClient\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
+      "rule_name": "CDB_Week_in_review_Axios_npm_supply_chain_co",
+      "rule_text": "rule CDB_Week_in_review_Axios_npm_supply_chain_co {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Week in review: Axios npm supply chain compromise, critical FortiClient EMS bugs\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $kw0 = \"FortiClient\" ascii wide nocase\n    condition:\n        any of them\n}"
+    },
+    {
       "rule_name": "CDB_Hackers_Actively_Exploiting_Critical_Web",
-      "rule_text": "rule CDB_Hackers_Actively_Exploiting_Critical_Web {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Hackers Actively Exploiting Critical WebLogic RCE Vulnerabilities in Attacks\"\n        severity = \"high\"\n        date = \"2026-04-05\"\n    strings:\n                $kw0 = \"WebLogic\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Hackers_Actively_Exploiting_Critical_Web {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Hackers Actively Exploiting Critical WebLogic RCE Vulnerabilities in Attacks\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $kw0 = \"WebLogic\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Operation_TrueChaos_0Day_Exploitation_Ag",
-      "rule_text": "rule CDB_Operation_TrueChaos_0Day_Exploitation_Ag {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Operation TrueChaos: 0-Day Exploitation Against Southeast Asian Government Targe\"\n        severity = \"high\"\n        date = \"2026-04-05\"\n    strings:\n                $kw0 = \"TrueChaos\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Operation_TrueChaos_0Day_Exploitation_Ag {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Operation TrueChaos: 0-Day Exploitation Against Southeast Asian Government Targe\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $kw0 = \"TrueChaos\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_CISA_tells_federal_agencies_to_patch_Cit",
-      "rule_text": "rule CDB_CISA_tells_federal_agencies_to_patch_Cit {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CISA tells federal agencies to patch Citrix NetScaler bug by Thursday\"\n        severity = \"high\"\n        date = \"2026-04-05\"\n    strings:\n                $kw0 = \"NetScaler\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_CISA_tells_federal_agencies_to_patch_Cit {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for CISA tells federal agencies to patch Citrix NetScaler bug by Thursday\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $kw0 = \"NetScaler\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_TeamPCP_Supply_Chain_Campaign_Update_004",
-      "rule_text": "rule CDB_TeamPCP_Supply_Chain_Campaign_Update_004 {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for TeamPCP Supply Chain Campaign: Update 004 - Databricks Investigating Alleged Com\"\n        severity = \"high\"\n        date = \"2026-04-05\"\n    strings:\n                $kw0 = \"AstraZeneca\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_TeamPCP_Supply_Chain_Campaign_Update_004 {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for TeamPCP Supply Chain Campaign: Update 004 - Databricks Investigating Alleged Com\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $kw0 = \"AstraZeneca\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_ClickFix_Campaigns_Targeting_Windows_and",
-      "rule_text": "rule CDB_ClickFix_Campaigns_Targeting_Windows_and {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for ClickFix Campaigns Targeting Windows and macOS\"\n        severity = \"high\"\n        date = \"2026-04-05\"\n    strings:\n                $kw0 = \"ClickFix\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_ClickFix_Campaigns_Targeting_Windows_and {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for ClickFix Campaigns Targeting Windows and macOS\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $kw0 = \"ClickFix\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_StopRansomware_Interlock",
-      "rule_text": "rule CDB_StopRansomware_Interlock {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for #StopRansomware: Interlock\"\n        severity = \"high\"\n        date = \"2026-04-05\"\n    strings:\n                $kw0 = \"StopRansomware\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_StopRansomware_Interlock {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for #StopRansomware: Interlock\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $kw0 = \"StopRansomware\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_Apple_urges_iPhone_users_to_update_as_Co",
-      "rule_text": "rule CDB_Apple_urges_iPhone_users_to_update_as_Co {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Apple urges iPhone users to update as Coruna and DarkSword exploit kits emerge\"\n        severity = \"high\"\n        date = \"2026-04-05\"\n    strings:\n                $kw0 = \"DarkSword\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_Apple_urges_iPhone_users_to_update_as_Co {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for Apple urges iPhone users to update as Coruna and DarkSword exploit kits emerge\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $kw0 = \"DarkSword\" ascii wide nocase\n    condition:\n        any of them\n}"
     },
     {
       "rule_name": "CDB_The_Proliferation_of_DarkSword_iOS_Explo",
-      "rule_text": "rule CDB_The_Proliferation_of_DarkSword_iOS_Explo {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for The Proliferation of DarkSword: iOS Exploit Chain Adopted by Multiple Threat Act\"\n        severity = \"high\"\n        date = \"2026-04-05\"\n    strings:\n                $kw0 = \"DarkSword\" ascii wide nocase\n    condition:\n        any of them\n}"
-    },
-    {
-      "rule_name": "CDB_BeatBanker_A_dualmode_Android_Trojan",
-      "rule_text": "rule CDB_BeatBanker_A_dualmode_Android_Trojan {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for BeatBanker: A dual\u2011mode Android Trojan\"\n        severity = \"high\"\n        date = \"2026-04-05\"\n    strings:\n                $kw0 = \"BeatBanker\" ascii wide nocase\n    condition:\n        any of them\n}"
+      "rule_text": "rule CDB_The_Proliferation_of_DarkSword_iOS_Explo {\n    meta:\n        author = \"CyberDudeBivash GOC - Sentinel APEX v39.0\"\n        description = \"Detection for The Proliferation of DarkSword: iOS Exploit Chain Adopted by Multiple Threat Act\"\n        severity = \"high\"\n        date = \"2026-04-11\"\n    strings:\n                $kw0 = \"DarkSword\" ascii wide nocase\n    condition:\n        any of them\n}"
     }
   ],
-  "snort_rules": [],
+  "snort_rules": [
+    {
+      "rule_name": "FortiGate_CVE202559718_Exploitation_Incident_Response_Findin",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: FortiGate CVE-2025-59718 Exploitation: Incident Response Fin\"; content:\"CVE-2025-59718\"; nocase; sid:5611978; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 5611978
+    },
+    {
+      "rule_name": "CVE202639987_Marimo_RCE_exploited_in_hours_after_disclosure",
+      "rule_text": "alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"CDB SENTINEL APEX: CVE-2026-39987: Marimo RCE exploited in hours after disclosu\"; content:\"CVE-2026-39987\"; nocase; sid:4610135; rev:1; classtype:trojan-activity; reference:url,intel.cyberdudebivash.com;)",
+      "sid": 4610135
+    }
+  ],
   "stats": {
-    "total_rules": 9,
-    "sigma_count": 0,
-    "yara_count": 9,
-    "snort_count": 0,
+    "total_rules": 17,
+    "sigma_count": 2,
+    "yara_count": 13,
+    "snort_count": 2,
     "coverage_techniques": 0,
-    "generated_at": "2026-04-05T13:35:26.275969+00:00"
+    "generated_at": "2026-04-11T13:32:47.956350+00:00"
   }
 }
