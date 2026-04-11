@@ -540,6 +540,29 @@ jobs:
           #   /api/ai/correlate.json — actor/TTP/CVE correlation graph + clusters
           python3 scripts/generate_ai_endpoints.py && echo "✅ AI endpoints generated" || echo "⚠️ AI endpoints warn (non-fatal)"
 
+      - name: "🔎 Schema Regression Guard — Validate API contracts (v103)"
+        continue-on-error: true
+        run: |
+          # DATA CONTRACT ENFORCEMENT:
+          # Validates api/engines.json + api/ai/*.json against production schemas.
+          # Guards against:
+          #   - Genesis '?' regression (renderGenesisEngine() null-display bug)
+          #   - Priority SSoT violations (P1/P2/P3/P4 only, KEV→P1 enforced)
+          #   - SLA_hours mismatches (P1=1h, P2=4h, P3/P4=24h)
+          #   - Missing required fields (null safety)
+          #   - Empty endpoint arrays (no-data regression)
+          #   - Cross-endpoint priority consistency (analyze vs respond)
+          #
+          # NON-FATAL on first run (endpoints may not exist yet if AI step failed).
+          # Will become fatal (remove continue-on-error) after 2 clean pipeline runs.
+          if [ -f api/ai/analyze.json ] && [ -f api/engines.json ]; then
+            python3 scripts/validate_schemas.py && echo "✅ Schema validation PASSED" || {
+              echo "⚠️ Schema validation FAILED — review errors above (non-blocking this cycle)"
+            }
+          else
+            echo "⚠️ Schema files not present yet — skipping validation this cycle"
+          fi
+
       - name: "📬 Blog Queue Retry — Process Failed Posts"
         continue-on-error: true
         run: |
