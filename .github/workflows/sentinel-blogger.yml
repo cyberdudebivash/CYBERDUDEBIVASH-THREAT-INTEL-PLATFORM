@@ -156,6 +156,11 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
           GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          # P0-1 FIX: Telegram secrets MUST be passed to Python subprocess.
+          # telegram_alerts.py reads os.environ — if not in env block, secrets are
+          # invisible to the process and Telegram silently skips (degraded mode).
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "Running Sentinel Engine (SAFE MODE — errors non-blocking)"
@@ -355,6 +360,10 @@ jobs:
           git add -f data/health/guardian_report.json  2>/dev/null || true
           git add    threat/                            2>/dev/null || true
           git add -f data/publish_queue.json            2>/dev/null || true
+          # P0-7/8/9/10 FIX: Engine JSON dirs — included in main commit so gh-pages is always fresh
+          git add -f data/nexus/ data/genesis/ data/bughunter/ 2>/dev/null || true
+          git add -f data/incidents/ data/responses/ data/threathunts/ 2>/dev/null || true
+          git add -f data/cortex/ data/quantum/ data/sovereign/ 2>/dev/null || true
 
           # ── Check if there is anything to commit ──────────────────────
           if git diff --staged --quiet; then
@@ -512,6 +521,14 @@ jobs:
           # Feature-flagged: ENABLE_API_V101 must be true in config/feature_flags.json
           python3 scripts/api_layer_v101.py && echo "✅ API layer built" || echo "⚠️ API layer warn (non-fatal)"
 
+      - name: "🧠 Engine Data Regenerator — Nexus/Genesis/BugHunter/TIP+SOAR (P0-7/8/9/10 FIX)"
+        continue-on-error: true
+        run: |
+          # P0-7/8/9/10 ROOT CAUSE FIX:
+          # Derives fresh engine JSON from api/feed.json (authoritative source).
+          # All NEXUS/GENESIS/BugHunter/TIP+SOAR sections now reflect live feed state.
+          python3 scripts/regenerate_engine_data.py && echo "✅ Engine data regenerated" || echo "⚠️ Engine regen warn (non-fatal)"
+
       - name: "📬 Blog Queue Retry — Process Failed Posts"
         continue-on-error: true
         run: |
@@ -544,9 +561,13 @@ jobs:
           git add -f config/feature_flags.json 2>/dev/null || true
           git add -f data/blog_queue/ 2>/dev/null || true
           git add    threat/ sitemap.xml 2>/dev/null || true
+          # P0-7/8/9/10 FIX: Stage engine JSON dirs so they reach gh-pages on every run
+          git add -f data/nexus/ data/genesis/ data/bughunter/ 2>/dev/null || true
+          git add -f data/incidents/ data/responses/ data/threathunts/ 2>/dev/null || true
+          git add -f data/cortex/ data/quantum/ data/sovereign/ 2>/dev/null || true
 
           if ! git diff --staged --quiet; then
-            git commit -m "🔧 APEX v101 Post-extras [skip ci]"
+            git commit -m "🔧 APEX v102 Post-extras + engine data refresh [skip ci]"
             git fetch origin main --quiet
             git rebase origin/main --quiet 2>/dev/null || git merge origin/main -X ours --no-edit --quiet || true
             git push origin main || true
