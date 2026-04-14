@@ -313,6 +313,76 @@ jobs:
             exit 1
           }
 
+# ═══════════════════════════════════════════════════════════════════════════
+# STAGE 2.6: APEX INTELLIGENCE ENGINE v103 — GOD-LEVEL ENRICHMENT
+# Runs AFTER v74 enrichment. Adds 7 intelligence modules to every item.
+# ADDITIVE ONLY: never modifies feed_manifest.json. Zero-regression guaranteed.
+# Outputs: data/apex_enriched_manifest.json + data/apex_intelligence_report.json
+# ═══════════════════════════════════════════════════════════════════════════
+      - name: "🧬 APEX Intelligence Engine v103 — 7-Module GOD-LEVEL Enrichment"
+        continue-on-error: true
+        run: |
+          echo "============================================"
+          echo "APEX INTELLIGENCE ENGINE v103.0 — STARTING"
+          echo "============================================"
+          python3 scripts/apex_intelligence_engine.py && echo "✅ APEX Intelligence Engine complete" || {
+            echo "⚠️ APEX Intelligence Engine warn (non-fatal — pipeline continues)"
+          }
+          # Quick audit output
+          python3 - << 'PYEOF'
+          import json, os
+          audit_path = "data/health/apex_engine_report.json"
+          if os.path.exists(audit_path):
+              try:
+                  r = json.load(open(audit_path))
+                  ed = r.get("output_summary", {})
+                  print(f"[APEX-AUDIT] Items: {r.get('items_enriched','N/A')} | "
+                        f"Critical: {ed.get('critical_risk_count','N/A')} | "
+                        f"KEV: {ed.get('kev_confirmed','N/A')} | "
+                        f"Posture: {ed.get('overall_threat_posture','N/A')}")
+              except Exception as e:
+                  print(f"[APEX-AUDIT] Read failed: {e}")
+          else:
+              print("[APEX-AUDIT] Report not found (engine may have been skipped)")
+          PYEOF
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STAGE 2.7: APEX v2 EVOLUTION ENGINE — Adaptive Priority + Temporal Intelligence
+# Runs AFTER APEX v1 (Stage 2.6). Input: data/apex_enriched_manifest.json
+# ADDITIVE ONLY: never modifies apex_enriched_manifest.json. Zero-regression.
+# Outputs: data/apex_v2_manifest.json + data/apex_v2_strategic_report.json
+#          api/apex_v2/*.json (5 endpoints) + data/health/apex_v2_audit.json
+# ═══════════════════════════════════════════════════════════════════════════
+      - name: "🚀 APEX v2 Evolution Engine v104 — Priority + Temporal + Adaptive Intelligence"
+        continue-on-error: true
+        run: |
+          echo "============================================"
+          echo "APEX v2 EVOLUTION ENGINE v104.0 — STARTING"
+          echo "============================================"
+          # Ensure api/apex_v2 directory exists for static endpoint output
+          mkdir -p api/apex_v2
+          python3 scripts/apex_v2_evolution_engine.py && echo "✅ APEX v2 Evolution Engine complete" || {
+            echo "⚠️ APEX v2 Evolution Engine warn (non-fatal — pipeline continues)"
+          }
+          # Quick audit output
+          python3 - << 'PYEOF'
+          import json, os
+          audit_path = "data/health/apex_v2_audit.json"
+          if os.path.exists(audit_path):
+              try:
+                  r = json.load(open(audit_path))
+                  summary = r.get("run_summary", {})
+                  print(f"[APEX-V2-AUDIT] Items: {summary.get('items_processed','N/A')} | "
+                        f"Critical: {summary.get('critical_count','N/A')} | "
+                        f"Trending: {summary.get('trending_count','N/A')} | "
+                        f"Endpoints: {summary.get('api_endpoints_written','N/A')} | "
+                        f"Status: {summary.get('status','N/A')}")
+              except Exception as e:
+                  print(f"[APEX-V2-AUDIT] Read failed: {e}")
+          else:
+              print("[APEX-V2-AUDIT] Audit not found (engine may have been skipped)")
+          PYEOF
+
       - name: "⏱️ Update Sync Marker"
         run: |
           python3 - << 'PYEOF'
@@ -320,14 +390,16 @@ jobs:
           from datetime import datetime, timezone
           os.makedirs("data", exist_ok=True)
           marker = {
-              "version": "101.0.0",
+              "version": "104.0.0",
               "last_sync": datetime.now(timezone.utc).isoformat(),
               "updated_by": "sentinel-blogger",
+              "apex_engine": "v103",
+              "apex_v2_engine": "v104",
               "status": "ACTIVE"
           }
           with open("data/sync_marker.json", "w") as f:
               json.dump(marker, f, indent=2)
-          print("Sync marker updated.")
+          print("Sync marker updated to v104.0.0.")
           PYEOF
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -354,6 +426,7 @@ jobs:
           git add -f data/feed_manifest.json            2>/dev/null || true  # v70 canonical
           git add -f data/sync_marker.json              2>/dev/null || true
           git add -f api/feed.json api/latest.json api/status.json 2>/dev/null || true
+          git add -f api/engines.json api/ai/                    2>/dev/null || true
           git add    index.html sitemap.xml             2>/dev/null || true
           git add    .gitignore                         2>/dev/null || true
           git add -f data/status/status.json            2>/dev/null || true
@@ -364,6 +437,17 @@ jobs:
           git add -f data/nexus/ data/genesis/ data/bughunter/ 2>/dev/null || true
           git add -f data/incidents/ data/responses/ data/threathunts/ 2>/dev/null || true
           git add -f data/cortex/ data/quantum/ data/sovereign/ 2>/dev/null || true
+          # v103 APEX v1: Stage intelligence engine outputs
+          git add -f data/apex_enriched_manifest.json 2>/dev/null || true
+          git add -f data/apex_intelligence_report.json 2>/dev/null || true
+          git add -f data/health/apex_engine_report.json 2>/dev/null || true
+          git add -f data/validated_manifest.json 2>/dev/null || true
+          git add -f config/feature_flags.json 2>/dev/null || true
+          # v104 APEX v2 Evolution Engine: Stage adaptive intelligence outputs
+          git add -f data/apex_v2_manifest.json 2>/dev/null || true
+          git add -f data/apex_v2_strategic_report.json 2>/dev/null || true
+          git add -f data/health/apex_v2_audit.json 2>/dev/null || true
+          git add -f api/apex_v2/ 2>/dev/null || true
 
           # ── Check if there is anything to commit ──────────────────────
           if git diff --staged --quiet; then
@@ -377,7 +461,33 @@ jobs:
           except:
               print('N/A')
           " 2>/dev/null || echo "N/A")
-            git commit -m "🌐 SENTINEL APEX v101.0 — ${ENTRY_COUNT} advisories @ $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
+            APEX_COUNT=$(python3 -c "
+          import json, os
+          try:
+              if os.path.exists('data/apex_enriched_manifest.json'):
+                  d = json.load(open('data/apex_enriched_manifest.json'))
+                  items = d if isinstance(d, list) else []
+                  apex = sum(1 for i in items if i.get('_apex_enriched'))
+                  print(f' | APEX-enriched: {apex}/{len(items)}')
+              else:
+                  print('')
+          except: print('')
+          " 2>/dev/null || echo "")
+            APEX_V2_COUNT=$(python3 -c "
+          import json, os
+          try:
+              audit = 'data/health/apex_v2_audit.json'
+              if os.path.exists(audit):
+                  r = json.load(open(audit))
+                  s = r.get('run_summary', {})
+                  crit = s.get('critical_count', 0)
+                  trend = s.get('trending_count', 0)
+                  print(f' | V2-Critical: {crit} V2-Trending: {trend}')
+              else:
+                  print('')
+          except: print('')
+          " 2>/dev/null || echo "")
+            git commit -m "🌐 SENTINEL APEX v104.0 — ${ENTRY_COUNT} advisories${APEX_COUNT}${APEX_V2_COUNT} @ $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
           fi
 
           # ── 4-attempt push with fetch+rebase backoff ──────────────────
@@ -527,7 +637,40 @@ jobs:
           # P0-7/8/9/10 ROOT CAUSE FIX:
           # Derives fresh engine JSON from api/feed.json (authoritative source).
           # All NEXUS/GENESIS/BugHunter/TIP+SOAR sections now reflect live feed state.
+          # Schema v47: correct 'summary' wrappers + exact field names matching renderGenesisEngine() bindings.
           python3 scripts/regenerate_engine_data.py && echo "✅ Engine data regenerated" || echo "⚠️ Engine regen warn (non-fatal)"
+
+      - name: "🤖 AI Execution Layer — Generate /api/ai/*.json endpoints (v103)"
+        continue-on-error: true
+        run: |
+          # Generates three static AI endpoints served via GitHub Pages:
+          #   /api/ai/analyze.json   — priority-ranked threats, CVSS/KEV enrichment
+          #   /api/ai/respond.json   — SOAR playbooks + automated response queue
+          #   /api/ai/correlate.json — actor/TTP/CVE correlation graph + clusters
+          python3 scripts/generate_ai_endpoints.py && echo "✅ AI endpoints generated" || echo "⚠️ AI endpoints warn (non-fatal)"
+
+      - name: "🔎 Schema Regression Guard — Validate API contracts (v103)"
+        continue-on-error: true
+        run: |
+          # DATA CONTRACT ENFORCEMENT:
+          # Validates api/engines.json + api/ai/*.json against production schemas.
+          # Guards against:
+          #   - Genesis '?' regression (renderGenesisEngine() null-display bug)
+          #   - Priority SSoT violations (P1/P2/P3/P4 only, KEV→P1 enforced)
+          #   - SLA_hours mismatches (P1=1h, P2=4h, P3/P4=24h)
+          #   - Missing required fields (null safety)
+          #   - Empty endpoint arrays (no-data regression)
+          #   - Cross-endpoint priority consistency (analyze vs respond)
+          #
+          # NON-FATAL on first run (endpoints may not exist yet if AI step failed).
+          # Will become fatal (remove continue-on-error) after 2 clean pipeline runs.
+          if [ -f api/ai/analyze.json ] && [ -f api/engines.json ]; then
+            python3 scripts/validate_schemas.py && echo "✅ Schema validation PASSED" || {
+              echo "⚠️ Schema validation FAILED — review errors above (non-blocking this cycle)"
+            }
+          else
+            echo "⚠️ Schema files not present yet — skipping validation this cycle"
+          fi
 
       - name: "📬 Blog Queue Retry — Process Failed Posts"
         continue-on-error: true
@@ -556,8 +699,8 @@ jobs:
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
 
           git add -f data/stix/feed_manifest.json api/feed.json api/latest.json 2>/dev/null || true
-          git add -f api/stats.json api/status.json 2>/dev/null || true
-          git add -f api/exports/ 2>/dev/null || true
+          git add -f api/stats.json api/status.json api/engines.json 2>/dev/null || true
+          git add -f api/exports/ api/ai/ 2>/dev/null || true
           git add -f config/feature_flags.json 2>/dev/null || true
           git add -f data/blog_queue/ 2>/dev/null || true
           git add    threat/ sitemap.xml 2>/dev/null || true
