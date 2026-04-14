@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-14T18:47:11.860634+00:00",
+  "timestamp": "2026-04-14T22:29:35.914640+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -382,7 +382,469 @@
       "poc_public": true
     }
   ],
-  "github_advisories": [],
+  "github_advisories": [
+    {
+      "ghsa_id": "GHSA-7h3j-592v-jcrp",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "goshs's public collaborator feed leaks .goshs ACL credentials and enables unauthorized access",
+      "description": "### Summary\ngoshs leaks file-based ACL credentials through its public collaborator feed when the server is deployed without global basic auth. Requests to `.goshs`-protected folders are logged before authorization is enforced, and the collaborator websocket broadcasts raw request headers, including `Authorization`. An unauthenticated observer can capture a victim's folder-specific basic-auth header and replay it to read, upload, overwrite, and delete files inside the protected subtree. I reproduced this on `v2.0.0-beta.5`, the latest supported release as of April 10, 2026.\n\n### Details\nThe main web UI and collaborator websocket stay public when goshs is started without global `-b user:pass` authentication:\n\n- `httpserver/server.go:72-85` only installs `BasicAuthMiddleware()` when a global username or password is configured\n\nThe vulnerable request is logged before `.goshs` authorization is enforced:\n\n- `httpserver/handler.go:277-279` calls `emitCollabEvent()` and `logger.LogRequest()` b",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-200"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/patrickhener/goshs/v2"
+      ],
+      "published": "2026-04-14T22:28:54Z",
+      "updated": "2026-04-14T22:28:55Z",
+      "url": "https://github.com/advisories/GHSA-7h3j-592v-jcrp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/patrickhener/goshs/security/advisories/GHSA-7h3j-592v-jcrp",
+        "https://github.com/advisories/GHSA-7h3j-592v-jcrp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-5h6h-7rc9-3824",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "SFTP root escape via prefix-based path validation in goshs",
+      "description": "### Summary\ngoshs contains an SFTP root escape caused by prefix-based path validation. An authenticated SFTP user can read from and write to filesystem paths outside the configured SFTP root, which breaks the intended jail boundary and can expose or modify unrelated server files.\n\n### Details\nThe SFTP subsystem routes requests through `sftpserver/sftpserver.go:99-126` into `DefaultHandler.GetHandler()` in `sftpserver/handler.go:90-112`, which forwards file operations into `readFile`, `writeFile`, `listFile`, and `cmdFile`. All of those sinks rely on `sanitizePath()` in `sftpserver/helper.go:47-59`. The vulnerable logic is:\n\n```go\ncleanPath = filepath.Clean(\"/\" + clientPath)\nif !strings.HasPrefix(cleanPath, sftpRoot) {\n    return \"\", errors.New(\"access denied: outside of webroot\")\n}\n```\n\nThis is a raw string-prefix comparison, not a directory-boundary check. Because of that, if the configured root is `/tmp/goshsroot`, then a sibling path such as `/tmp/goshsroot_evil/secret.txt` incorrec",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/patrickhener/goshs",
+        "github.com/patrickhener/goshs/v2"
+      ],
+      "published": "2026-04-14T22:28:17Z",
+      "updated": "2026-04-14T22:28:20Z",
+      "url": "https://github.com/advisories/GHSA-5h6h-7rc9-3824",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/patrickhener/goshs/security/advisories/GHSA-5h6h-7rc9-3824",
+        "https://github.com/patrickhener/goshs/releases/tag/v2.0.0",
+        "https://github.com/advisories/GHSA-5h6h-7rc9-3824"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-ghmh-q25g-gxxx",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Decidim's comments API allows access to all commentable resources",
+      "description": "### Impact\nThe root level `commentable` field in the API allows access to all commentable resources within the platform, without any permission checks. All Decidim instances are impacted that have not secured the `/api` endpoint. The `/api` endpoint is publicly available with the default configuration.\n\n### Patches\nNot available\n\n### Workarounds\nTo mitigate the issue, you can limit the scope to only authenticated users by limiting access to the `/api` endpoint. This would require custom code or installing the 3rd party module `Decidim::Apiauth`.\n\nWith custom code, the `/api` endpoint can be limited to only authenticated users with the following code (needs to run during application initialization):\n\n```ruby\n# Within your application\n# config/initializers/limit_api_access.rb\n\nmodule LimitApiAccess\n  extend ActiveSupport::Concern\n\n  included do\n    prepend_before_action do |controller|\n      unless controller.send(:user_signed_in?)\n        render plain: I18n.t(\"actions.login_before_acces",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-862"
+      ],
+      "ecosystems": [
+        "rubygems",
+        "rubygems",
+        "rubygems",
+        "rubygems"
+      ],
+      "packages": [
+        "decidim-comments",
+        "decidim-api",
+        "decidim-comments",
+        "decidim-api"
+      ],
+      "published": "2026-04-14T22:27:49Z",
+      "updated": "2026-04-14T22:27:50Z",
+      "url": "https://github.com/advisories/GHSA-ghmh-q25g-gxxx",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/decidim/decidim/security/advisories/GHSA-ghmh-q25g-gxxx",
+        "https://github.com/advisories/GHSA-ghmh-q25g-gxxx"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-w5xj-99cg-rccm",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Decidim amendments can be accepted or rejected by anyone",
+      "description": "### Impact\nThe vulnerability allows any registered and authenticated user to accept or reject any amendments. The impact is on any users who have created proposals where the amendments feature is enabled. This also elevates the user accepting the amendment as the author of the original proposal as people amending proposals are provided coauthorship on the coauthorable resources.\n\nThe only check done when accepting or rejecting amendments is whether the amendment reactions are enabled for the component:\nhttps://github.com/decidim/decidim/blob/9d6c3d2efe5a83bb02e095824ff5998d96a75eb7/decidim-core/app/permissions/decidim/permissions.rb#L107\n\nThe permission checks have been changed at 1b99136 which was introduced in released version 0.19.0. I have not investigated whether prior versions are also affected.\n\n### Patches\n\nNot available\n\n### Workarounds\nDisable amendment reactions for the amendable component (e.g. proposals).",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-266"
+      ],
+      "ecosystems": [
+        "rubygems",
+        "rubygems"
+      ],
+      "packages": [
+        "decidim-core",
+        "decidim-core"
+      ],
+      "published": "2026-04-14T22:22:58Z",
+      "updated": "2026-04-14T22:23:00Z",
+      "url": "https://github.com/advisories/GHSA-w5xj-99cg-rccm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/decidim/decidim/security/advisories/GHSA-w5xj-99cg-rccm",
+        "https://github.com/decidim/decidim/commit/1b99136a1c7aa02616a0b54a6ab88d12907a57a9",
+        "https://github.com/advisories/GHSA-w5xj-99cg-rccm"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-q93q-v844-jrqp",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "kyverno apicall servicecall implicit bearer token injection leaks kyverno serviceaccount token",
+      "description": "kyverno\u2019s apiCall servicecall helper implicitly injects `Authorization: Bearer ...` using the kyverno controller serviceaccount token when a policy does not explicitly set an Authorization header. because `context.apiCall.service.url` is policy-controlled, this can send the kyverno serviceaccount token to an attacker-controlled endpoint (confused deputy).\n\nnamespaced policies are blocked from servicecall usage by the namespaced `urlPath` gate in `pkg/engine/apicall/apiCall.go`, so this report is scoped to ClusterPolicy and global context usage.\n\n## attacker model\n\nthe attacker can create or update a ClusterPolicy (or create a GlobalContextEntry) which uses `context.apiCall.service.url` and can choose the request URL and headers. a cross-boundary framing for real deployments is gitops: if the policy repo/controller is compromised, the ClusterPolicy/global context entry becomes untrusted input to kyverno.\n\n## relevant links\n\n- repository: https://github.com/kyverno/kyverno\n- commit: 17ae",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-441"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/kyverno/kyverno"
+      ],
+      "published": "2026-04-14T20:09:00Z",
+      "updated": "2026-04-14T20:09:02Z",
+      "url": "https://github.com/advisories/GHSA-q93q-v844-jrqp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/kyverno/kyverno/security/advisories/GHSA-q93q-v844-jrqp",
+        "https://github.com/advisories/GHSA-q93q-v844-jrqp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-fmqp-4wfc-w3v7",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Kyverno APICall SSRF Vulnerability Leading to Multi-Tenant Isolation Breach",
+      "description": "### Summary\n\nKyverno's APICall feature contains a Server-Side Request Forgery (SSRF) vulnerability that allows users with Policy creation permissions to access arbitrary internal resources through Kyverno's high-privilege ServiceAccount. In multi-tenant Kubernetes environments, this constitutes a classic Confused Deputy problem: low-privilege tenants can steal sensitive data from other tenants (such as database passwords and API keys) and cloud platform IAM credentials, completely breaking tenant isolation. This vulnerability does not require cluster-admin privileges and can be exploited with only namespace-level Policy creation permissions.\n\n### Details\n\n#### Vulnerability Mechanism\n\nKyverno's APICall feature allows Policies to fetch external data via HTTP requests. This feature does not validate target URLs when executing HTTP requests, leading to an SSRF vulnerability.\n\n**Source Point - User-Controlled URL**\n\nFile: `api/kyverno/v1/common_types.go`, lines 247-250\n\n```go\ntype ServiceC",
+      "cvss_score": 7.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/kyverno/kyverno"
+      ],
+      "published": "2026-04-14T20:06:09Z",
+      "updated": "2026-04-14T20:06:11Z",
+      "url": "https://github.com/advisories/GHSA-fmqp-4wfc-w3v7",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/kyverno/kyverno/security/advisories/GHSA-fmqp-4wfc-w3v7",
+        "https://github.com/advisories/GHSA-fmqp-4wfc-w3v7"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-qr4g-8hrp-c4rw",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Kyverno has unrestricted outbound requests in Kyverno apiCall enabling SSRF",
+      "description": "### Summary\nA Server-Side Request Forgery (SSRF) vulnerability in Kyverno allows authenticated users to induce the admission controller to send arbitrary HTTP requests to attacker-controlled endpoints.\n\nWhen a `ClusterPolicy` uses `apiCall.service.url` with variable substitution (e.g. `{{request.object.*}}`), user-controlled input can influence the request target. The Kyverno admission controller executes these requests from its privileged network position without enforcing any validation or network restrictions.\n\nThe issue becomes **non-blind SSRF**, as response data from internal services can be reflected back to the user via admission error messages.\n\n---\n\n### Details\n\nKyverno supports variable substitution in `apiCall.service.url`, a documented feature intended to enable dynamic external lookups during admission control.\n\nHowever, the current implementation lacks fundamental safeguards in the HTTP execution path:\n\n#### Missing protections\n\n- **No URL validation**  \n  User-controlle",
+      "cvss_score": 7.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/kyverno/kyverno"
+      ],
+      "published": "2026-04-14T20:05:52Z",
+      "updated": "2026-04-14T20:05:56Z",
+      "url": "https://github.com/advisories/GHSA-qr4g-8hrp-c4rw",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/kyverno/kyverno/security/advisories/GHSA-qr4g-8hrp-c4rw",
+        "https://github.com/advisories/GHSA-qr4g-8hrp-c4rw"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-wg36-wvj6-r67p",
+      "cve_id": "CVE-2026-40176",
+      "severity": "HIGH",
+      "summary": "Composer has a command injection via malicious perforce repository",
+      "description": "### Impact\nThe `Perforce::generateP4Command()` method constructed shell commands by interpolating user-supplied Perforce connection parameters (port, user, client) without proper escaping. An attacker controlling a repository configuration in a malicious composer.json declaring a Perforce VCS repository could inject arbitrary commands through these values, leading to command execution in the context of the user running Composer. Composer would execute these injected commands even if Perforce is not installed.\n\nVCS repositories are only loaded from the root composer.json file located in the directory you execute Composer commands in and from the composer config directory (e.g. `~/.config/composer/composer.json`). So this vulnerability cannot be exploited through composer.json files of packages installed as dependencies.\n\nYou are at risk of command execution if you run Composer commands on untrusted projects with attacker supplied composer.json files, regardless of whether you or any of ",
+      "cvss_score": 7.8,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-78"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "composer/composer",
+        "composer/composer"
+      ],
+      "published": "2026-04-14T20:03:08Z",
+      "updated": "2026-04-14T20:03:09Z",
+      "url": "https://github.com/advisories/GHSA-wg36-wvj6-r67p",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/composer/composer/security/advisories/GHSA-wg36-wvj6-r67p",
+        "https://github.com/advisories/GHSA-wg36-wvj6-r67p"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-gqw4-4w2p-838q",
+      "cve_id": "CVE-2026-40261",
+      "severity": "HIGH",
+      "summary": "Composer has a command injection via malicious perforce reference",
+      "description": "### Impact\nThe `Perforce::syncCodeBase()` method appended the `$sourceReference` parameter to a shell command without proper escaping, allowing an attacker to inject arbitrary commands through a crafted source reference containing shell metacharacters. Further as in GHSA-wg36-wvj6-r67p / CVE-2026-40176 the `Perforce::generateP4Command()` method constructed shell commands by interpolating user-supplied Perforce connection parameters (port, user, client) without proper escaping from the source url field. Composer would execute these injected commands even if Perforce is not installed.\n\nThe source reference and url are provided as part of package metadata. Any Composer package repository can serve package metadata declaring perforce as a source type with a malicious source reference or source url. This means the vulnerability can be exploited through any package served by a compromised or malicious Composer repository. An attack does not require Perforce to be installed on the client, as ",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-78"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "composer/composer",
+        "composer/composer"
+      ],
+      "published": "2026-04-14T20:01:42Z",
+      "updated": "2026-04-14T20:01:43Z",
+      "url": "https://github.com/advisories/GHSA-gqw4-4w2p-838q",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/composer/composer/security/advisories/GHSA-gqw4-4w2p-838q",
+        "https://github.com/advisories/GHSA-gqw4-4w2p-838q"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-jgq2-qv8v-5cmj",
+      "cve_id": "CVE-2026-40248",
+      "severity": "HIGH",
+      "summary": "free5gc UDR improper path validation allows unauthenticated creation and modification of Traffic Influence Subscriptions",
+      "description": "### Summary\nAn improper path validation vulnerability in the UDR service allows any unauthenticated attacker with access to the 5G Service Based Interface (SBI) to create or overwrite Traffic Influence Subscriptions by supplying an arbitrary value in place of the expected `subs-to-notify` path segment.\n\n### Details\nThe endpoint `PUT /nudr-dr/v2/application-data/influenceData/{influenceId}/{subscriptionId}` is intended to only operate on Traffic Influence Subscription resources when `influenceId` is exactly `subs-to-notify`.\n\nIn the free5GC UDR implementation, the path validation is present but ineffective because the handler does not return after sending the HTTP 404 response. The request handling flow is:\n\n1. The function `HandleApplicationDataInfluenceDataSubsToNotifySubscriptionIdPut`in `./free5gc_4-2-1/free5gc/NFs/udr/internal/sbi/api_datarepository.go`checks whether `influenceId != \"subs-to-notify\"`.\n2. If the value is different, it calls `c.String(http.StatusNotFound, \"404 page n",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-285",
+        "CWE-636"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/free5gc/udr"
+      ],
+      "published": "2026-04-14T20:00:45Z",
+      "updated": "2026-04-14T20:00:45Z",
+      "url": "https://github.com/advisories/GHSA-jgq2-qv8v-5cmj",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/free5gc/free5gc/security/advisories/GHSA-jgq2-qv8v-5cmj",
+        "https://github.com/advisories/GHSA-jgq2-qv8v-5cmj"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-x5r2-r74c-3w28",
+      "cve_id": "CVE-2026-40247",
+      "severity": "HIGH",
+      "summary": "free5gc UDR improper path validation allows unauthenticated access to Traffic Influence Subscriptions",
+      "description": "### Summary\nAn improper path validation vulnerability in the UDR service allows any unauthenticated attacker with access to the 5G Service Based Interface (SBI) to read Traffic Influence Subscriptions by supplying an arbitrary value in place of the expected `subs-to-notify` path segment.\n\n### Details\nThe endpoint `GET /nudr-dr/v2/application-data/influenceData/{influenceId}/{subscriptionId}` is intended to only operate on Traffic Influence Subscription resources when `influenceId` is exactly `subs-to-notify`.\n\nIn the free5GC UDR implementation, the path validation is present but ineffective because the handler does not return after sending the HTTP 404 response. The request handling flow is:\n\n1. The function `HandleApplicationDataInfluenceDataSubsToNotifySubscriptionIdGet` in `./free5gc_4-2-1/free5gc/NFs/udr/internal/sbi/api_datarepository.go` checks whether `influenceId != \"subs-to-notify\"`.\n2. If the value is different, it calls `c.String(http.StatusNotFound, \"404 page not found\")`, ",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-285",
+        "CWE-636"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/free5gc/udr"
+      ],
+      "published": "2026-04-14T20:00:35Z",
+      "updated": "2026-04-14T20:00:35Z",
+      "url": "https://github.com/advisories/GHSA-x5r2-r74c-3w28",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/free5gc/free5gc/security/advisories/GHSA-x5r2-r74c-3w28",
+        "https://github.com/advisories/GHSA-x5r2-r74c-3w28"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-g9cw-qwhf-24jp",
+      "cve_id": "CVE-2026-40246",
+      "severity": "HIGH",
+      "summary": "free5gc UDR improper path validation allows unauthenticated deletion of Traffic Influence Subscriptions",
+      "description": "### Summary\nAn improper path validation vulnerability in the UDR service allows any unauthenticated attacker with access to the 5G Service Based Interface (SBI) to delete Traffic Influence Subscriptions by supplying an arbitrary value in place of the expected `subs-to-notify` path segment.\n\n### Details\nThe endpoint `DELETE /nudr-dr/v2/application-data/influenceData/{influenceId}/{subscriptionId}` is intended to only operate on Traffic Influence Subscription resources when `influenceId` is exactly `subs-to-notify`.\n\nIn the free5GC UDR implementation, the path validation is present but ineffective because the handler does not return after sending the HTTP 404 response. The request handling flow is:\n\n1. The function `HandleApplicationDataInfluenceDataSubsToNotifySubscriptionIdDelete` in `./free5gc_4-2-1/free5gc/NFs/udr/internal/sbi/api_datarepository.go` checks whether `influenceId != \"subs-to-notify\"`.\n2. If the value is different, it calls `c.String(http.StatusNotFound, \"404 page not fo",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-285"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/free5gc/udr"
+      ],
+      "published": "2026-04-14T20:00:24Z",
+      "updated": "2026-04-14T20:00:25Z",
+      "url": "https://github.com/advisories/GHSA-g9cw-qwhf-24jp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/free5gc/free5gc/security/advisories/GHSA-g9cw-qwhf-24jp",
+        "https://github.com/advisories/GHSA-g9cw-qwhf-24jp"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-wrwh-rpq4-87hf",
+      "cve_id": "CVE-2026-40245",
+      "severity": "HIGH",
+      "summary": "free5gc UDR nudr-dr influenceData/subs-to-notify leaks SUPI in error response body without authentication",
+      "description": "### Summary\nAn information disclosure vulnerability in the UDR service allows any unauthenticated  attacker with access to the 5G Service Based Interface (SBI) to retrieve stored subscriber identifiers (SUPI/IMSI) with a single HTTP GET request requiring no parameters or credentials.\n\n### Details\nThe endpoint `GET /nudr-dr/v2/application-data/influenceData/subs-to-notify` (defined in 3GPP TS 29.519) requires at least one query parameter (`dnns`, `snssais`,  `supis`, or `internalGroupIds`) to filter results.\n\nIn the free5GC UDR implementation, the input validation is present but ineffective because the handler does not return after sending the HTTP 400 error. The request handling flow is:\n\n1. The function `HandleApplicationDataInfluenceDataSubsToNotifyGet` in  `./free5gc_4-2-1/free5gc/NFs/udr/internal/sbi/api_datarepository.go`  (around line 2793) checks whether all of `dnn`, `snssai`, `internalGroupId`, \n   and `supi` are empty.\n2. If they are all empty, it builds a `problemDetails` st",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-200",
+        "CWE-202",
+        "CWE-209"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/free5gc/udr"
+      ],
+      "published": "2026-04-14T20:00:15Z",
+      "updated": "2026-04-14T20:00:17Z",
+      "url": "https://github.com/advisories/GHSA-wrwh-rpq4-87hf",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/free5gc/free5gc/security/advisories/GHSA-wrwh-rpq4-87hf",
+        "https://github.com/advisories/GHSA-wrwh-rpq4-87hf"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-hpwf-8g29-85qm",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Nest Affected by DoS via Recursive handleData in JsonSocket (TCP Transport)",
+      "description": "### Impact\nAttacker sends many small, valid JSON messages in one TCP frame\n \u2192 handleData() recurses once per message; buffer shrinks each call\n \u2192 maxBufferSize is never reached; call stack overflows instead\n \u2192 A ~47 KB payload is sufficient to trigger RangeError\n\n### Patches\n\nFixed in `@nestjs/microservices@11.1.19`\n\n### References\n\nDiscovered by https://github.com/hwpark6804-gif",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-770"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@nestjs/microservices"
+      ],
+      "published": "2026-04-14T00:15:09Z",
+      "updated": "2026-04-14T00:15:11Z",
+      "url": "https://github.com/advisories/GHSA-hpwf-8g29-85qm",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nestjs/nest/security/advisories/GHSA-hpwf-8g29-85qm",
+        "https://github.com/advisories/GHSA-hpwf-8g29-85qm"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-x9h5-r9v2-vcww",
+      "cve_id": "CVE-2026-33901",
+      "severity": "HIGH",
+      "summary": "ImageMagick has a heap Buffer Overflow in ImageMagick MVG decoder",
+      "description": "A heap buffer overflow occurs in the MVG decoder that could result in an out of bounds write when processing a crafted image.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-122"
+      ],
+      "ecosystems": [
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget",
+        "nuget"
+      ],
+      "packages": [
+        "Magick.NET-Q16-AnyCPU",
+        "Magick.NET-Q16-HDRI-AnyCPU",
+        "Magick.NET-Q16-HDRI-OpenMP-arm64",
+        "Magick.NET-Q16-HDRI-arm64",
+        "Magick.NET-Q16-HDRI-x64",
+        "Magick.NET-Q16-HDRI-x86",
+        "Magick.NET-Q16-OpenMP-arm64",
+        "Magick.NET-Q16-OpenMP-x64",
+        "Magick.NET-Q16-arm64",
+        "Magick.NET-Q16-x64",
+        "Magick.NET-Q16-x86",
+        "Magick.NET-Q8-AnyCPU",
+        "Magick.NET-Q8-OpenMP-arm64",
+        "Magick.NET-Q8-OpenMP-x64",
+        "Magick.NET-Q8-arm64",
+        "Magick.NET-Q8-x64",
+        "Magick.NET-Q8-x86"
+      ],
+      "published": "2026-04-14T00:07:44Z",
+      "updated": "2026-04-14T00:07:45Z",
+      "url": "https://github.com/advisories/GHSA-x9h5-r9v2-vcww",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ImageMagick/ImageMagick/security/advisories/GHSA-x9h5-r9v2-vcww",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-33901",
+        "https://github.com/ImageMagick/ImageMagick/commit/4c72003e9e54a4ebaa938d239e75f5d285527ebe",
+        "https://github.com/ImageMagick/ImageMagick/releases/tag/7.1.2-19",
+        "https://github.com/dlemstra/Magick.NET/releases/tag/14.12.0",
+        "https://github.com/advisories/GHSA-x9h5-r9v2-vcww"
+      ]
+    }
+  ],
   "urlhaus_iocs": [],
   "kev_stats": {
     "total_kev_entries": 1568,
@@ -428,7 +890,7 @@
         "count": 26
       }
     ],
-    "catalog_version": "2026-04-14T18:47:12.058687+00:00",
+    "catalog_version": "2026-04-14T22:29:36.085382+00:00",
     "source": "CISA KEV"
   }
 }
