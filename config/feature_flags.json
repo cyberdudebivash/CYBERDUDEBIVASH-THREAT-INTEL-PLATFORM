@@ -1,7 +1,7 @@
 {
-  "_comment": "SENTINEL APEX v101.1 — Feature Flags. All new enterprise features gate here. Set to true to enable.",
-  "_schema_version": "1.0",
-  "_last_updated": "2026-04-06",
+  "_comment": "SENTINEL APEX v102.0 — Feature Flags. All new enterprise features gate here. Set to true to enable.",
+  "_schema_version": "2.0",
+  "_last_updated": "2026-04-07",
 
   "ENABLE_API_V101": true,
   "ENABLE_API_PAGINATION": true,
@@ -32,5 +32,104 @@
 
   "API_FREE_TIER_DAILY_LIMIT": 50,
   "API_PRO_TIER_DAILY_LIMIT": 5000,
-  "API_ENTERPRISE_TIER_DAILY_LIMIT": -1
+  "API_ENTERPRISE_TIER_DAILY_LIMIT": -1,
+
+  "_v102_validation_pipeline": "── v102.0 Pipeline Integrity Flags ──────────────────────────────────",
+
+  "ENABLE_VALIDATION_GATE": true,
+  "STRICT_VALIDATION": false,
+  "QUEUE_AUTHORITATIVE": true,
+  "DASHBOARD_FILTERING": true,
+  "MIN_CONTENT_THRESHOLD": 50,
+
+  "_v102_notes": [
+    "ENABLE_VALIDATION_GATE: master switch for intel_validation_gate.py",
+    "STRICT_VALIDATION: when true, items with descriptions < MIN_CONTENT_THRESHOLD chars are rejected",
+    "QUEUE_AUTHORITATIVE: when true, items in any queue file are excluded from validated_manifest.json",
+    "DASHBOARD_FILTERING: when true, api_layer reads from validated_manifest.json instead of feed_manifest.json",
+    "MIN_CONTENT_THRESHOLD: minimum description char length for STRICT mode (50 chars default)",
+    "Zero-regression: both queue files are empty → all items pass → no change in displayed count"
+  ],
+
+  "_v103_apex_intelligence_engine": "── v103.0 APEX Intelligence Engine Flags ────────────────────────────",
+
+  "ENABLE_APEX_INTELLIGENCE_ENGINE": true,
+
+  "APEX_MODULE_EVIDENCE":       true,
+  "APEX_MODULE_ANALYST":        true,
+  "APEX_MODULE_SOC_CONTEXT":    true,
+  "APEX_MODULE_DETECTION":      true,
+  "APEX_MODULE_REVENUE":        true,
+  "APEX_MODULE_EXECUTIVE":      true,
+  "APEX_MODULE_COMPLIANCE":     true,
+  "APEX_MAX_ITEMS":             2000,
+
+  "_v103_apex_gate_flags": "── APEX Gate Flags (all default false — zero regression guarantee) ──",
+
+  "ENABLE_APEX_VALIDATION":       false,
+  "APEX_REQUIRE_EVIDENCE_GATE":   false,
+  "APEX_REQUIRE_CONFIDENCE_GATE": false,
+  "APEX_REQUIRE_SOC_GATE":        false,
+  "APEX_MIN_EVIDENCE_SCORE":      0,
+
+  "_v103_apex_notes": [
+    "ENABLE_APEX_INTELLIGENCE_ENGINE: master switch for scripts/apex_intelligence_engine.py",
+    "APEX_MODULE_*: enable/disable individual intelligence modules (all true by default)",
+    "APEX_MAX_ITEMS: maximum items to process per pipeline run (2000 default)",
+    "ENABLE_APEX_VALIDATION: when true, activates APEX quality gates in intel_validation_gate.py",
+    "APEX_REQUIRE_EVIDENCE_GATE: when true, rejects items with LOW evidence reliability",
+    "APEX_REQUIRE_CONFIDENCE_GATE: when true, rejects items with LOW detection confidence",
+    "APEX_REQUIRE_SOC_GATE: when true, rejects items missing SOC context block",
+    "APEX_MIN_EVIDENCE_SCORE: minimum raw evidence confidence score threshold (0 = disabled)",
+    "Zero-regression: all APEX gate flags default false — no behavioral change on existing deployments",
+    "Pipeline outputs: data/apex_enriched_manifest.json + data/apex_intelligence_report.json"
+  ],
+
+  "_v104_apex_v2_evolution_engine": "── v104.0 APEX v2 Evolution Engine Flags ────────────────────────────",
+
+  "ENABLE_APEX_V2_ENGINE": true,
+
+  "APEX_V2_MODULE_THREAT_PRIORITY":       true,
+  "APEX_V2_MODULE_TEMPORAL_INTELLIGENCE": true,
+  "APEX_V2_MODULE_FEEDBACK_LEARNING":     true,
+  "APEX_V2_MODULE_AGGREGATION":           true,
+  "APEX_V2_MODULE_API_EVOLUTION":         true,
+  "APEX_V2_MODULE_DASHBOARD_PRIORITY":    true,
+  "APEX_V2_MODULE_VALIDATION_EXT":        true,
+
+  "APEX_V2_MAX_ITEMS":             2000,
+  "APEX_V2_TOP_CRITICAL_COUNT":    10,
+  "APEX_V2_TOP_TRENDING_COUNT":    10,
+  "APEX_V2_TRENDING_WINDOW_DAYS":  30,
+
+  "_v104_apex_v2_gate_flags": "── APEX v2 Gate Flags (all default false — zero regression guarantee) ──",
+
+  "APEX_V2_REQUIRE_PRIORITY_GATE":   false,
+  "APEX_V2_REQUIRE_TIMELINE_GATE":   false,
+  "APEX_V2_REQUIRE_FEEDBACK_GATE":   false,
+  "APEX_V2_MIN_PRIORITY_SCORE":      0,
+  "APEX_V2_STRICT_LIFECYCLE":        false,
+
+  "_v104_apex_v2_notes": [
+    "ENABLE_APEX_V2_ENGINE: master switch for scripts/apex_v2_evolution_engine.py (Stage 2.7)",
+    "APEX_V2_MODULE_THREAT_PRIORITY: 5-factor composite scoring (KEV+CVSS+exploit_maturity+actor+exposure)",
+    "APEX_V2_MODULE_TEMPORAL_INTELLIGENCE: lifecycle staging + urgency decay (EMERGING/PEAK/ACTIVE/DECLINING/HISTORICAL)",
+    "APEX_V2_MODULE_FEEDBACK_LEARNING: heuristic reliability scoring + confidence trends + learning signals",
+    "APEX_V2_MODULE_AGGREGATION: sector impact + top_critical + trending + declining platform analytics",
+    "APEX_V2_MODULE_API_EVOLUTION: generates api/apex_v2/{critical,trending,timeline,priority}.json endpoints",
+    "APEX_V2_MODULE_DASHBOARD_PRIORITY: generates api/apex_v2/dashboard_intel.json (top3 + alert banner)",
+    "APEX_V2_MODULE_VALIDATION_EXT: per-item gate checks for priority/timeline/feedback blocks",
+    "APEX_V2_MAX_ITEMS: max items per pipeline run (2000 default, matches APEX v1)",
+    "APEX_V2_TOP_CRITICAL_COUNT: items in critical.json / top_critical aggregation (10 default)",
+    "APEX_V2_TOP_TRENDING_COUNT: items in trending.json (10 default)",
+    "APEX_V2_TRENDING_WINDOW_DAYS: rolling window for trending calculation (30 days default)",
+    "APEX_V2_REQUIRE_PRIORITY_GATE: when true, rejects items with CRITICAL priority but score < APEX_V2_MIN_PRIORITY_SCORE",
+    "APEX_V2_REQUIRE_TIMELINE_GATE: when true, rejects items missing threat_timeline block",
+    "APEX_V2_REQUIRE_FEEDBACK_GATE: when true, rejects items with LOW intelligence_maturity",
+    "APEX_V2_MIN_PRIORITY_SCORE: minimum composite priority score threshold (0 = disabled)",
+    "APEX_V2_STRICT_LIFECYCLE: when true, enforces valid lifecycle_stage values",
+    "Zero-regression: all APEX v2 gate flags default false — no behavioral change on existing deployments",
+    "Pipeline input: data/apex_enriched_manifest.json (APEX v1 output)",
+    "Pipeline outputs: data/apex_v2_manifest.json + data/apex_v2_strategic_report.json + api/apex_v2/*.json + data/health/apex_v2_audit.json"
+  ]
 }
