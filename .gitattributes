@@ -1,0 +1,39 @@
+# SENTINEL APEX — Git Line Ending Policy
+# Enforces LF on all text files to prevent CRLF corruption in CI (Linux runners).
+# Windows CRLF in workflow YAMLs causes "unexpected EOF" shell errors in GitHub Actions.
+# This file is authoritative — overrides local git config core.autocrlf.
+
+# ── Default: normalise all text files to LF ──────────────────────────────────
+* text=auto eol=lf
+
+# ── Workflows & CI config: MUST be LF — CRLF breaks bash heredocs ────────────
+.github/workflows/*.yml     text eol=lf
+.github/workflows/*.yaml    text eol=lf
+
+# ── Python scripts: LF required for Linux CI ─────────────────────────────────
+*.py    text eol=lf
+
+# ── JSON data & config: LF for consistent diffs ──────────────────────────────
+*.json  text eol=lf
+
+# ── Shell scripts: LF only — CRLF breaks bash execution ──────────────────────
+*.sh    text eol=lf
+
+# ── Web / markup ─────────────────────────────────────────────────────────────
+*.html  text eol=lf
+*.htm   text eol=lf
+*.css   text eol=lf
+*.js    text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+
+# ── Binary files: no line-ending transformation ──────────────────────────────
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.tar   binary
