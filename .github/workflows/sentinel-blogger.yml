@@ -403,8 +403,9 @@ jobs:
           PYEOF
 
 # ═══════════════════════════════════════════════════════════════════════════
-# STAGE 3: SAFE GIT SYNC v101 — PERMANENT NON-FAST-FORWARD ELIMINATION
-# Strategy: Stash → Fetch → Reset → Stage → Commit → 4-attempt push
+# STAGE 3: SAFE GIT SYNC v104.1 — PERMANENT NON-FAST-FORWARD + LOCK ELIMINATION
+# Strategy: ClearLocks → AbortRebase → Stage → Commit → Fetch+Merge(ours) → 4-attempt push
+# v104.1 FIX: replaced rebase(O(n) conflicts) with merge -X ours (O(1), no replay risk)
 # ═══════════════════════════════════════════════════════════════════════════
       - name: "🔒 Safe Git Sync v101"
         env:
@@ -414,6 +415,13 @@ jobs:
           git config --local user.email "sentinel@cyberdudebivash.com"
           git config --local user.name  "CDB-Sentinel-Bot"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
+
+          # ── [PERMANENT FIX v104.1] Clear ALL stale git locks first ────
+          # index.lock left by crashed git process → blocks ALL git ops
+          rm -f  .git/index.lock 2>/dev/null || true
+          rm -f  .git/config.lock 2>/dev/null || true
+          rm -f  .git/HEAD.lock  2>/dev/null || true
+          rm -f  .git/packed-refs.lock 2>/dev/null || true
 
           # ── Abort any lingering rebase/merge ───────────────────────────
           git rebase --abort  2>/dev/null || true
@@ -490,18 +498,32 @@ jobs:
             git commit -m "🌐 SENTINEL APEX v104.0 — ${ENTRY_COUNT} advisories${APEX_COUNT}${APEX_V2_COUNT} @ $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
           fi
 
-          # ── 4-attempt push with fetch+rebase backoff ──────────────────
+          # ── [PERMANENT FIX v104.1] 4-attempt push — merge(ours) strategy ──
+          # WHY: Prior failures caused by git rebase replaying every local commit
+          # onto remote HEAD — O(n) conflict risk when branches diverge (e.g. 588
+          # local + 509 remote). rebase also leaves index.lock on failure, blocking
+          # all subsequent git ops until manually cleared.
+          # FIX: merge -X ours creates a SINGLE merge commit. No replay. No O(n)
+          # conflicts. CI pipeline output always wins on conflict. Safe at any divergence.
           MAX=4
           for i in $(seq 1 $MAX); do
             git fetch origin main --quiet
-            # Rebase local commits on top of remote
-            if git rebase origin/main --quiet 2>/dev/null; then
-              echo "Rebase OK on attempt $i"
+
+            # Re-clear index.lock after fetch (fetch can leave locks on timeout)
+            rm -f .git/index.lock 2>/dev/null || true
+
+            # PRIMARY sync: merge strategy — O(1) regardless of commit count
+            if git merge origin/main -X ours --no-edit --quiet 2>/dev/null; then
+              echo "Merge sync OK on attempt $i"
             else
-              git rebase --abort 2>/dev/null || true
-              # Fallback: merge with ours on conflict
-              git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true
+              # Full recovery path: stash our data → reset to remote → pop stash
+              git merge --abort 2>/dev/null || true
+              git stash push -m "sentinel-sync-recovery-$i" 2>/dev/null || true
+              git reset --hard origin/main 2>/dev/null || true
+              git stash pop 2>/dev/null || true
+              echo "Hard-reset + stash-pop recovery on attempt $i"
             fi
+
             # Attempt push
             if git push origin main; then
               echo "✅ Push succeeded (attempt $i/$MAX)"
@@ -511,7 +533,7 @@ jobs:
             echo "Push attempt $i/$MAX failed — retrying in ${BACKOFF}s..."
             sleep $BACKOFF
             if [ $i -eq $MAX ]; then
-              echo "⚠️ All push attempts failed — changes committed locally, will sync next cycle."
+              echo "⚠️ All $MAX push attempts exhausted — data committed locally, syncs next run."
             fi
           done
 
@@ -629,117 +651,4 @@ jobs:
         run: |
           # ADDITIVE: generates /api/feed.json /api/stats.json /api/exports/*
           # Feature-flagged: ENABLE_API_V101 must be true in config/feature_flags.json
-          python3 scripts/api_layer_v101.py && echo "✅ API layer built" || echo "⚠️ API layer warn (non-fatal)"
-
-      - name: "🧠 Engine Data Regenerator — Nexus/Genesis/BugHunter/TIP+SOAR (P0-7/8/9/10 FIX)"
-        continue-on-error: true
-        run: |
-          # P0-7/8/9/10 ROOT CAUSE FIX:
-          # Derives fresh engine JSON from api/feed.json (authoritative source).
-          # All NEXUS/GENESIS/BugHunter/TIP+SOAR sections now reflect live feed state.
-          # Schema v47: correct 'summary' wrappers + exact field names matching renderGenesisEngine() bindings.
-          python3 scripts/regenerate_engine_data.py && echo "✅ Engine data regenerated" || echo "⚠️ Engine regen warn (non-fatal)"
-
-      - name: "🤖 AI Execution Layer — Generate /api/ai/*.json endpoints (v103)"
-        continue-on-error: true
-        run: |
-          # Generates three static AI endpoints served via GitHub Pages:
-          #   /api/ai/analyze.json   — priority-ranked threats, CVSS/KEV enrichment
-          #   /api/ai/respond.json   — SOAR playbooks + automated response queue
-          #   /api/ai/correlate.json — actor/TTP/CVE correlation graph + clusters
-          python3 scripts/generate_ai_endpoints.py && echo "✅ AI endpoints generated" || echo "⚠️ AI endpoints warn (non-fatal)"
-
-      - name: "🔎 Schema Regression Guard — Validate API contracts (v103)"
-        continue-on-error: true
-        run: |
-          # DATA CONTRACT ENFORCEMENT:
-          # Validates api/engines.json + api/ai/*.json against production schemas.
-          # Guards against:
-          #   - Genesis '?' regression (renderGenesisEngine() null-display bug)
-          #   - Priority SSoT violations (P1/P2/P3/P4 only, KEV→P1 enforced)
-          #   - SLA_hours mismatches (P1=1h, P2=4h, P3/P4=24h)
-          #   - Missing required fields (null safety)
-          #   - Empty endpoint arrays (no-data regression)
-          #   - Cross-endpoint priority consistency (analyze vs respond)
-          #
-          # NON-FATAL on first run (endpoints may not exist yet if AI step failed).
-          # Will become fatal (remove continue-on-error) after 2 clean pipeline runs.
-          if [ -f api/ai/analyze.json ] && [ -f api/engines.json ]; then
-            python3 scripts/validate_schemas.py && echo "✅ Schema validation PASSED" || {
-              echo "⚠️ Schema validation FAILED — review errors above (non-blocking this cycle)"
-            }
-          else
-            echo "⚠️ Schema files not present yet — skipping validation this cycle"
-          fi
-
-      - name: "📬 Blog Queue Retry — Process Failed Posts"
-        continue-on-error: true
-        run: |
-          # ADDITIVE: retries posts that failed due to Blogger rate-limits
-          # Feature-flagged: ENABLE_BLOG_QUEUE must be true in config/feature_flags.json
-          # First: enqueue any new failures from blogger log
-          python3 scripts/blog_queue_manager.py enqueue --from-failed-log || true
-          # Then: retry up to 10 pending posts with exponential backoff
-          python3 scripts/blog_queue_manager.py retry --max 10 && echo "✅ Blog queue processed" || echo "⚠️ Blog queue warn (non-fatal)"
-
-      - name: "🛡️ Enhanced Platform Guardian v101.1"
-        continue-on-error: true
-        run: |
-          # Runs full guardian suite including new v101.1 checks:
-          #   check_api_consistency, check_queue_health, check_feature_flags
-          python3 scripts/platform_integrity_guard.py --mode=full || echo "⚠️ Guardian advisory — see output above"
-
-      - name: "💾 Commit Post-Extras"
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config --local user.email "sentinel@cyberdudebivash.com"
-          git config --local user.name  "CDB-Sentinel-Bot"
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
-
-          git add -f data/stix/feed_manifest.json api/feed.json api/latest.json 2>/dev/null || true
-          git add -f api/stats.json api/status.json api/engines.json 2>/dev/null || true
-          git add -f api/exports/ api/ai/ 2>/dev/null || true
-          git add -f config/feature_flags.json 2>/dev/null || true
-          git add -f data/blog_queue/ 2>/dev/null || true
-          git add    threat/ sitemap.xml 2>/dev/null || true
-          # P0-7/8/9/10 FIX: Stage engine JSON dirs so they reach gh-pages on every run
-          git add -f data/nexus/ data/genesis/ data/bughunter/ 2>/dev/null || true
-          git add -f data/incidents/ data/responses/ data/threathunts/ 2>/dev/null || true
-          git add -f data/cortex/ data/quantum/ data/sovereign/ 2>/dev/null || true
-
-          if ! git diff --staged --quiet; then
-            git commit -m "🔧 APEX v102 Post-extras + engine data refresh [skip ci]"
-            git fetch origin main --quiet
-            git rebase origin/main --quiet 2>/dev/null || git merge origin/main -X ours --no-edit --quiet || true
-            git push origin main || true
-          fi
-
-      - name: "🚀 Deploy Post-Extras"
-        continue-on-error: true
-        uses: JamesIves/github-pages-deploy-action@v4.7.3
-        with:
-          branch: gh-pages
-          folder: .
-          clean: false
-
-# ═══════════════════════════════════════════════════════════════════════════
-# STAGE 6: PIPELINE SUMMARY
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "📊 Pipeline Summary"
-        if: always()
-        run: |
-          echo "=================================================="
-          echo "SENTINEL APEX v101.0 — PIPELINE COMPLETE"
-          echo "Timestamp: $(date -u)"
-          echo "=================================================="
-          python3 - << 'PYEOF' || true
-          import json, os
-          try:
-              d = json.load(open("data/stix/feed_manifest.json"))
-              advisories = d if isinstance(d, list) else d.get("advisories", d.get("entries", d.get("items", [])))
-              summary = {} if isinstance(d, list) else d.get("summary", {})
-              print(f"  Total advisories : {len(advisories)}")
-              print(f"  Critical         : {summary.get('critical', 'N/A')}")
-              print(f" 
+          python3 scripts/api_layer_v101.py && echo "✅ API layer built" || echo "⚠️ API layer warn (non
