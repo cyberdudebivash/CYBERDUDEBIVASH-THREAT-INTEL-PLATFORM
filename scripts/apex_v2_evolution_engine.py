@@ -394,9 +394,16 @@ def module_threat_priority(item: Dict) -> Dict:
         total = max(0, total - 5)
 
     # Priority level classification
-    if total >= 85:   level = "CRITICAL"
-    elif total >= 65: level = "HIGH"
-    elif total >= 40: level = "MEDIUM"
+    # v104.2 FIX: Calibrated thresholds to match real feed data scoring.
+    # Basis: 5-factor model (KEV=30, CVSS=25, Exploit=20, Actor=15, Exposure=10).
+    # Thresholds validated against production KEV feed data with v1 enrichment:
+    #   CRITICAL (>=75): KEV + CVSS7.0+ with v1-HIGH reliability → immediately exploitable
+    #   HIGH     (>=50): CVSS9+ with active confirmed exploit, or KEV + low CVSS
+    #   MEDIUM   (>=35): CVSS7+ with PoC/exposure signals
+    #   LOW      (<35):  CVSS below 7 without active exploitation
+    if total >= 75:   level = "CRITICAL"
+    elif total >= 50: level = "HIGH"
+    elif total >= 35: level = "MEDIUM"
     else:             level = "LOW"
 
     # Build reasoning string (concise, CISO-readable)

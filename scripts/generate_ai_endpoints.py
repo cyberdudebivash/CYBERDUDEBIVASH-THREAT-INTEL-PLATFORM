@@ -568,267 +568,63 @@ def build_respond(items: List[Dict]) -> Dict:
             "kev": bool(item.get("kev") or item.get("kev_present")),
             "playbook": pb["name"],
             "response_steps": pb["steps"],
-            "mitigation": item.get("mitigation") or item.get("respond") or "",
-            "actor": _actor(item),
-            "ttps": _ttps(item)[:4],
-            "cves": _cves(item)[:2],
-            "sla_hours": 1 if pri == "P1" else 4 if pri == "P2" else 24,
-            "status": "PENDING",
-            "created_at": NOW_ISO,
-            # v104 APEX fields
-            "evidence": {
-                "exploit_status":    ev_block["exploit_status"],
-                "reliability_score": ev_block["reliability_score"],
-                "kev_verified":      ev_block["kev_verified"],
-            },
-            "executive_decision": {
-                "risk_level":         ex_block["risk_level"],
-                "decision_statement": ex_block["decision_statement"][:200],
-                "patch_priority_sla": ex_block["patch_priority_sla"],
-                "time_to_exploit":    ex_block["time_to_exploit"],
-            },
+            "evidence":          ev_block,
+            "executive_decision": ex_block,
         })
 
-    # Automation stats
-    auto_actions = {k: 0 for k in ["block_ip","quarantine_host","patch_vulnerability",
-                                    "block_domain","disable_account","remove_phishing_email",
-                                    "isolate_network_segment"]}
-    for item in items[:200]:
-        r = item.get("risk_score") or 0
-        if r < 5:
-            continue
-        tl = (item.get("title") or "").lower()
-        if "phish" in tl or "email" in tl:
-            auto_actions["remove_phishing_email"] += 1
-        elif "ransomware" in tl or "malware" in tl:
-            auto_actions["quarantine_host"] += 1
-        elif "vulnerab" in tl or "cve" in tl.lower():
-            auto_actions["patch_vulnerability"] += 1
-        elif "domain" in tl or "dns" in tl:
-            auto_actions["block_domain"] += 1
-        elif "account" in tl or "credential" in tl:
-            auto_actions["disable_account"] += 1
-        elif r >= 9.0:
-            auto_actions["isolate_network_segment"] += 1
-        else:
-            auto_actions["block_ip"] += 1
-
-    p1_count = sum(1 for a in queue if a["priority"] == "P1")
-    p2_count = sum(1 for a in queue if a["priority"] == "P2")
-
     return {
-        "endpoint": "ai/respond",
-        "version": "104.0",
-        "generated_at": NOW_ISO,
-        "model": "SENTINEL-APEX-SOAR-v104",
-        "status": "LIVE",
+        "endpoint":      "ai/respond",
+        "version":       "104.0",
+        "generated_at":  NOW_ISO,
+        "model":         "SENTINEL-APEX-RESPOND-v104",
+        "status":        "LIVE",
         "summary": {
-            "total_response_actions": len(queue),
-            "p1_critical": p1_count,
-            "p2_high": p2_count,
-            "p3_normal": len(queue) - p1_count - p2_count,
-            "automated_actions": sum(auto_actions.values()),
-            "automation_rate_pct": 94.2,
-            "avg_response_time_sec": 8.3,
-            "false_positive_rate_pct": 1.7,
+            "total_queued":   len(queue),
+            "critical_count": len(critical),
+            "high_count":     len(high),
         },
-        "response_queue": queue[:30],
-        "automation_breakdown": auto_actions,
-        "playbook_library": {
-            k: {"name": v["name"], "severity": v["severity"], "step_count": len(v["steps"])}
-            for k, v in PLAYBOOKS.items()
-        },
-        "soar_config": {
-            "auto_block_threshold": 9.0,
-            "auto_quarantine_threshold": 8.5,
-            "escalation_threshold": 9.5,
-            "enrichment_sources": ["MISP","VirusTotal","Shodan","CrowdStrike","Recorded Future"],
-            "notification_channels": ["SIEM","Email","Slack","PagerDuty"],
-        },
+        "response_queue": queue,
+        "playbook_library": {k: v["name"] for k, v in PLAYBOOKS.items()},
     }
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# /api/ai/correlate.json
-# Threat correlation: actor↔campaign↔TTP clusters, IOC overlap graph,
-# kill-chain progression analysis, temporal pattern detection
-# ═══════════════════════════════════════════════════════════════════════════
-
-def build_correlate(items: List[Dict]) -> Dict:
-    # Build actor → item index
-    actor_index: Dict[str, List] = {}
-    ttp_index: Dict[str, List]   = {}
-    cve_index: Dict[str, List]   = {}
-
-    for item in items:
-        a = _actor(item)
-        if a != "UNKNOWN":
-            actor_index.setdefault(a, []).append(item)
-        for t in _ttps(item):
-            ttp_index.setdefault(t, []).append(item)
-        for c in _cves(item):
-            cve_index.setdefault(c, []).append(item)
-
-    # Threat clusters — group by actor with TTPs + campaigns
-    clusters = []
-    for actor, actor_items in sorted(actor_index.items(), key=lambda x: -len(x[1])):
-        all_ttps = list({t for i in actor_items for t in _ttps(i)})
-        all_cves = list({c for i in actor_items for c in _cves(i)})
-        avg_r    = round(sum(i.get("risk_score") or 0 for i in actor_items) / max(len(actor_items), 1), 1)
-        has_kev  = any(i.get("kev") or i.get("kev_present") for i in actor_items)
-        clusters.append({
-            "cluster_id": _sid(actor, "CLU"),
-            "actor": actor,
-            "confidence": round(min(99, 70 + len(actor_items) * 3), 0),
-            "incident_count": len(actor_items),
-            "avg_risk": avg_r,
-            "peak_risk": round(max((i.get("risk_score") or 0) for i in actor_items), 1),
-            "ttps": all_ttps[:8],
-            "cves": all_cves[:5],
-            "has_kev": has_kev,
-            "status": "ACTIVE",
-            "last_activity": NOW_ISO,
-            "sample_titles": [(i.get("title") or "")[:80] for i in actor_items[:3]],
-        })
-
-    # TTP co-occurrence matrix (top 15 TTPs × top 15 TTPs)
-    top_ttps = sorted(ttp_index.keys(), key=lambda t: -len(ttp_index[t]))[:15]
-    cooccurrence: Dict[str, Dict[str, int]] = {}
-    for t1 in top_ttps:
-        cooccurrence[t1] = {}
-        items_t1 = set(id(i) for i in ttp_index[t1])
-        for t2 in top_ttps:
-            if t1 == t2:
-                continue
-            items_t2 = set(id(i) for i in ttp_index[t2])
-            overlap = len(items_t1 & items_t2)
-            if overlap > 0:
-                cooccurrence[t1][t2] = overlap
-
-    # IOC correlation — CVEs appearing in multiple actors
-    shared_cves = []
-    for cve, cve_items in sorted(cve_index.items(), key=lambda x: -len(x[1])):
-        actors_for_cve = list({_actor(i) for i in cve_items if _actor(i) != "UNKNOWN"})
-        if len(cve_items) >= 2:
-            shared_cves.append({
-                "cve": cve,
-                "mention_count": len(cve_items),
-                "actors_linked": actors_for_cve,
-                "max_risk": round(max((i.get("risk_score") or 0) for i in cve_items), 1),
-                "kev": any(i.get("kev") or i.get("kev_present") for i in cve_items),
-            })
-
-    # Kill-chain progression — count items at each phase
-    TTP_PHASE = {
-        "T1595":"Reconnaissance","T1592":"Reconnaissance","T1589":"Reconnaissance",
-        "T1566":"Initial Access","T1190":"Initial Access","T1133":"Initial Access",
-        "T1059":"Execution","T1203":"Execution","T1053":"Execution",
-        "T1547":"Persistence","T1543":"Persistence","T1078":"Persistence",
-        "T1068":"Privilege Escalation","T1134":"Privilege Escalation",
-        "T1071":"Command and Control","T1572":"C2","T1105":"C2",
-        "T1041":"Exfiltration","T1048":"Exfiltration",
-        "T1486":"Impact","T1489":"Impact","T1485":"Impact",
-    }
-    kill_chain: Dict[str, int] = {}
-    for item in items:
-        for t in _ttps(item):
-            phase = TTP_PHASE.get(t.split(".")[0])
-            if phase:
-                kill_chain[phase] = kill_chain.get(phase, 0) + 1
-
-    # Temporal analysis — items per day (last 7 days)
-    temporal: Dict[str, int] = {}
-    for item in items:
-        d_str = item.get("date_published") or item.get("_isoDate") or ""
-        if d_str:
-            try:
-                d = datetime.fromisoformat(d_str.replace("Z", "+00:00"))
-                day_key = d.strftime("%Y-%m-%d")
-                temporal[day_key] = temporal.get(day_key, 0) + 1
-            except Exception:
-                pass
-    temporal_sorted = dict(sorted(temporal.items())[-14:])  # last 14 days
-
-    return {
-        "endpoint": "ai/correlate",
-        "version": "104.0",
-        "generated_at": NOW_ISO,
-        "model": "SENTINEL-APEX-CORRELATE-v104",
-        "status": "LIVE",
-        "summary": {
-            "total_items": len(items),
-            "threat_clusters": len(clusters),
-            "unique_actors": len(actor_index),
-            "unique_ttps": len(ttp_index),
-            "shared_cves": len(shared_cves),
-            "kill_chain_phases_active": len(kill_chain),
-            "correlation_confidence": round(min(99.0, 75.0 + len(clusters) * 2.5), 1),
-        },
-        "threat_clusters": clusters[:20],
-        "ttp_cooccurrence": {k: v for k, v in cooccurrence.items() if v},
-        "shared_cve_graph": sorted(shared_cves, key=lambda x: -x["mention_count"])[:25],
-        "kill_chain_coverage": dict(sorted(kill_chain.items(), key=lambda x: -x[1])),
-        "temporal_activity": temporal_sorted,
-        "correlation_graph": {
-            "nodes": [
-                {"id": a, "type": "actor", "weight": len(actor_index[a])}
-                for a in list(actor_index.keys())[:20]
-            ] + [
-                {"id": t, "type": "ttp", "weight": len(ttp_index[t])}
-                for t in top_ttps[:10]
-            ],
-            "edges": [
-                {"source": a, "target": t, "weight": sum(1 for i in actor_index[a] if t in _ttps(i))}
-                for a in list(actor_index.keys())[:10]
-                for t in top_ttps[:10]
-                if any(t in _ttps(i) for i in actor_index.get(a, []))
-            ][:60],
-        },
-    }
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# ORCHESTRATOR
-# ═══════════════════════════════════════════════════════════════════════════
-
-def main():
-    log.info("=" * 60)
-    log.info("AI ENDPOINT GENERATOR — SENTINEL APEX v104")
-    log.info(f"Timestamp: {NOW_ISO}")
-    log.info("=" * 60)
+# ── Main entrypoint ────────────────────────────────────────────────────────────
+def main() -> int:
+    from datetime import datetime, timezone
+    import os, shutil
 
     items = _load_feed()
     if not items:
-        log.error("No feed items — AI endpoints not generated.")
-        sys.exit(1)
+        print("[WARN] generate_ai_endpoints: feed empty — skipping")
+        return 0
 
-    results = []
+    os.makedirs("api/ai", exist_ok=True)
+    os.makedirs("api/apex_v2", exist_ok=True)
 
-    analyze   = build_analyze(items)
-    results.append(_safe_write("analyze.json", analyze))
-    log.info(f"ANALYZE: {analyze['summary']['total_analyzed']} items, "
-             f"{analyze['summary']['critical_count']} critical, "
-             f"{analyze['summary']['kev_active']} KEV, "
-             f"{analyze['summary']['unique_actors']} actors")
+    endpoints = [
+        ("api/ai/analyze.json",  build_analyze(items)),
+        ("api/ai/respond.json",  build_respond(items)),
+    ]
 
-    respond   = build_respond(items)
-    results.append(_safe_write("respond.json", respond))
-    log.info(f"RESPOND: {respond['summary']['total_response_actions']} actions, "
-             f"P1={respond['summary']['p1_critical']}, "
-             f"auto={respond['summary']['automated_actions']}")
+    # Load and write APEX report if available
+    apex_report = _load_apex_report()
+    if apex_report:
+        endpoints.append(("api/ai/apex_report.json", apex_report))
 
-    correlate = build_correlate(items)
-    results.append(_safe_write("correlate.json", correlate))
-    log.info(f"CORRELATE: {correlate['summary']['threat_clusters']} clusters, "
-             f"{correlate['summary']['unique_ttps']} TTPs, "
-             f"{correlate['summary']['shared_cves']} shared CVEs")
+    written = 0
+    for out_path, payload in endpoints:
+        try:
+            _safe_write(out_path, payload)
+            size = os.path.getsize(out_path)
+            print(f"[OK] {out_path} ({size:,} bytes)")
+            written += 1
+        except Exception as e:
+            print(f"[WARN] {out_path} write failed: {e}")
 
-    ok = sum(results)
-    log.info(f"AI endpoints: {ok}/3 written")
-    if ok < 3:
-        sys.exit(1)
-    log.info("✅ /api/ai/analyze.json | /api/ai/respond.json | /api/ai/correlate.json — LIVE")
+    print(f"[DONE] generate_ai_endpoints: {written}/{len(endpoints)} endpoints written")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    sys.exit(main())
