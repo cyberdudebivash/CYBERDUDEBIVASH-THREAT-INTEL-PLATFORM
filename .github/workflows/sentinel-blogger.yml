@@ -651,4 +651,6 @@ jobs:
         run: |
           # ADDITIVE: generates /api/feed.json /api/stats.json /api/exports/*
           # Feature-flagged: ENABLE_API_V101 must be true in config/feature_flags.json
-          python3 scripts/api_layer_v101.py && echo "✅ API layer built" || echo "⚠️ API layer warn (non
+          python3 scripts/api_layer_v101.py && echo "✅ API layer built" || echo "⚠️ API layer warn (non-fatal)"
+          # Run generate_ai_endpoints.py to refresh AI/APEX endpoint JSON after deploy
+          python3 scripts/generate_ai_endpoints.py && echo "✅ AI endpoints refreshed" || echo "⚠️ AI endpoints warn (non-fatal)"
