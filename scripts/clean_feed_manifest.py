@@ -62,8 +62,9 @@ def clean_manifest():
     if is_dict:
         key = "advisories" if "advisories" in data else "reports"
         data[key] = clean_items
-        data["total_reports"] = final_count
-        data["cleaned_at"] = __import__("datetime").datetime.utcnow().isoformat() + "Z"
+        data["total_reports"]  = final_count
+        data["entry_count"]    = final_count   # keep in sync with validator
+        data["cleaned_at"]     = __import__("datetime").datetime.utcnow().isoformat() + "Z"
         output = data
     else:
         output = clean_items
