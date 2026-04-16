@@ -588,6 +588,179 @@ def build_respond(items: List[Dict]) -> Dict:
     }
 
 
+# ── AI Index Builder — generates ai_index.json for the Worker /api/ai endpoint ──
+
+MITRE_TACTIC_GROUPS = {
+    "Initial Access":       ["T1566", "T1190", "T1195", "T1133", "T1189", "T1091", "T1200"],
+    "Execution":            ["T1059", "T1203", "T1204", "T1569", "T1129", "T1106"],
+    "Persistence":          ["T1053", "T1078", "T1505", "T1543", "T1547", "T1574"],
+    "Privilege Escalation": ["T1055", "T1068", "T1134", "T1548", "T1611"],
+    "Defense Evasion":      ["T1562", "T1027", "T1070", "T1140", "T1218", "T1036"],
+    "Credential Access":    ["T1003", "T1110", "T1555", "T1558", "T1539"],
+    "Discovery":            ["T1046", "T1082", "T1083", "T1135", "T1057", "T1087"],
+    "Lateral Movement":     ["T1021", "T1534", "T1550", "T1563", "T1080"],
+    "Collection":           ["T1005", "T1039", "T1113", "T1119", "T1560", "T1074"],
+    "Exfiltration":         ["T1041", "T1048", "T1052", "T1071", "T1567"],
+    "Command & Control":    ["T1071", "T1090", "T1095", "T1102", "T1571", "T1572"],
+    "Impact":               ["T1485", "T1486", "T1489", "T1490", "T1498", "T1499"],
+}
+
+def build_ai_index(items: List[Dict]) -> Dict:
+    """
+    Build the master AI index file served by Worker /api/ai endpoint.
+    Includes: MITRE heatmap, risk engine summary, severity distribution,
+    top threats, IOC stats, KEV stats, confidence distribution.
+    Consumed by dashboard AI panels, MITRE heatmap grid, and API consumers.
+    """
+    now_iso_local = datetime.now(timezone.utc).isoformat()
+    total = len(items)
+
+    # ── Severity distribution ────────────────────────────────────────────────
+    sev_dist = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
+    for item in items:
+        s = (item.get("severity") or "UNKNOWN").upper().strip()
+        if s in sev_dist:
+            sev_dist[s] += 1
+        else:
+            sev_dist["UNKNOWN"] += 1
+
+    # ── MITRE technique frequency map ────────────────────────────────────────
+    mitre_freq: Dict[str, int] = {}
+    for item in items:
+        for ttp in (item.get("ttps") or item.get("mitre_tactics") or []):
+            if isinstance(ttp, str) and ttp:
+                t = ttp.strip().upper()
+                mitre_freq[t] = mitre_freq.get(t, 0) + 1
+
+    # Tactic group aggregation
+    tactic_freq: Dict[str, int] = {}
+    for tactic, tech_list in MITRE_TACTIC_GROUPS.items():
+        count = sum(mitre_freq.get(t, 0) for t in tech_list)
+        # Also count any partial matches (T1566.001 → T1566)
+        for tech, freq in mitre_freq.items():
+            if any(tech.startswith(t) for t in tech_list):
+                count += freq
+        tactic_freq[tactic] = count
+
+    top_techniques = sorted(
+        [{"technique": t, "count": c} for t, c in mitre_freq.items()],
+        key=lambda x: x["count"], reverse=True
+    )[:30]
+
+    top_tactics = sorted(
+        [{"tactic": t, "count": c} for t, c in tactic_freq.items() if c > 0],
+        key=lambda x: x["count"], reverse=True
+    )
+
+    # ── IOC stats ────────────────────────────────────────────────────────────
+    total_iocs = sum(len(item.get("iocs") or []) for item in items)
+    kev_count  = sum(1 for item in items if item.get("kev") or item.get("kev_present"))
+    avg_risk   = round(
+        sum(float(item.get("risk_score") or 0) for item in items) / max(total, 1), 2
+    )
+
+    # ── Confidence distribution ───────────────────────────────────────────────
+    conf_bins = {"90-100": 0, "70-89": 0, "50-69": 0, "0-49": 0}
+    for item in items:
+        c = float(item.get("confidence") or 0)
+        if c >= 90:   conf_bins["90-100"] += 1
+        elif c >= 70: conf_bins["70-89"]  += 1
+        elif c >= 50: conf_bins["50-69"]  += 1
+        else:         conf_bins["0-49"]   += 1
+
+    # ── Top threats (for dashboard preview) ──────────────────────────────────
+    top_threats = []
+    seen_titles: set = set()
+    for item in sorted(items, key=lambda x: float(x.get("risk_score") or 0), reverse=True)[:20]:
+        t = (item.get("title") or "")[:120].strip()
+        if t and t not in seen_titles:
+            seen_titles.add(t)
+            top_threats.append({
+                "id":         item.get("id") or _sid(t, "THR"),
+                "title":      t,
+                "severity":   (item.get("severity") or "UNKNOWN").upper(),
+                "risk_score": round(float(item.get("risk_score") or 0), 1),
+                "confidence": round(float(item.get("confidence") or 0), 1),
+                "kev":        bool(item.get("kev") or item.get("kev_present")),
+                "timestamp":  item.get("timestamp") or item.get("created") or now_iso_local,
+                "ttps":       (item.get("ttps") or item.get("mitre_tactics") or [])[:5],
+                "ioc_count":  len(item.get("iocs") or []),
+                "source":     item.get("source") or "SENTINEL-APEX",
+            })
+
+    # ── Risk engine model output ──────────────────────────────────────────────
+    risk_engine = {
+        "model":          "CDB-RISK-ENGINE-v23",
+        "status":         "OPERATIONAL",
+        "factors":        ["CVSSv3", "EPSS", "CISA_KEV", "MITRE_ATT&CK", "IOC_density", "actor_confidence"],
+        "avg_risk_score": avg_risk,
+        "kev_entries":    kev_count,
+        "kev_percentage": round(kev_count / max(total, 1) * 100, 1),
+        "high_risk_count": sev_dist["CRITICAL"] + sev_dist["HIGH"],
+        "confidence_distribution": conf_bins,
+    }
+
+    return {
+        "version":       "112.0",
+        "generated_at":  now_iso_local,
+        "platform":      "CYBERDUDEBIVASH SENTINEL APEX",
+        "ai_engine":     "APEX-v112",
+        "status":        "OPERATIONAL",
+        "summary": {
+            "total_advisories":     total,
+            "severity_distribution": sev_dist,
+            "total_iocs":            total_iocs,
+            "total_mitre_techniques": len(mitre_freq),
+            "kev_entries":           kev_count,
+            "avg_risk_score":        avg_risk,
+            "last_updated":          now_iso_local,
+        },
+        "mitre_heatmap": {
+            "status":                "active",
+            "techniques":            top_techniques,
+            "tactics":               top_tactics,
+            "total_unique_techniques": len(mitre_freq),
+            "total_unique_tactics":  len([t for t in top_tactics if t["count"] > 0]),
+            "tactic_groups":         {k: sum(mitre_freq.get(t, 0) for t in v)
+                                      for k, v in MITRE_TACTIC_GROUPS.items()},
+        },
+        "risk_engine":   risk_engine,
+        "top_threats":   top_threats,
+        "panels": {
+            "threat_analysis": {
+                "status":      "active",
+                "description": "AI-powered threat analysis using CVSSv3, EPSS, and MITRE ATT&CK",
+                "endpoint":    "https://intel.cyberdudebivash.com/api/feed",
+                "total_threats": total,
+                "critical":    sev_dist["CRITICAL"],
+                "high":        sev_dist["HIGH"],
+            },
+            "risk_engine": {
+                "status":  "active",
+                "model":   "CDB-RISK-ENGINE-v23",
+                "factors": ["CVSSv3", "EPSS", "CISA_KEV", "MITRE_ATT&CK", "IOC_density", "actor_confidence"],
+            },
+            "mitre_coverage": {
+                "status":           "active",
+                "description":      "Real-time MITRE ATT&CK heatmap from active threat feeds",
+                "data_source":      "Worker API /api/preview — ttps[] array passthrough",
+                "unique_techniques": len(mitre_freq),
+                "top_techniques":   top_techniques[:10],
+            },
+            "ioc_intelligence": {
+                "status":     "active",
+                "total_iocs": total_iocs,
+                "kev_count":  kev_count,
+            },
+            "soc_automation": {
+                "status":      "active",
+                "description": "Autonomous threat detection and response recommendations",
+                "playbooks":   list(PLAYBOOKS.keys()) if "PLAYBOOKS" in dir() else [],
+            },
+        },
+    }
+
+
 # ── Main entrypoint ────────────────────────────────────────────────────────────
 def main() -> int:
     from datetime import datetime, timezone
@@ -599,14 +772,19 @@ def main() -> int:
         return 0
 
     os.makedirs("api/ai", exist_ok=True)
+    os.makedirs("data/ai_intelligence", exist_ok=True)
     os.makedirs("api/apex_v2", exist_ok=True)
+
+    # v112.0: Added ai_index.json for Worker /api/ai endpoint and MITRE heatmap
+    ai_index = build_ai_index(items)
 
     # v110.1 FIX: use bare filenames — OUT_DIR already includes api/ai path
     # Bug was: ("api/ai/analyze.json") → ROOT/api/ai/api/ai/analyze.json (double-nested)
     # Fix:     ("analyze.json")        → ROOT/api/ai/analyze.json (correct)
     endpoints = [
-        ("analyze.json",  build_analyze(items)),
-        ("respond.json",  build_respond(items)),
+        ("analyze.json",   build_analyze(items)),
+        ("respond.json",   build_respond(items)),
+        ("ai_index.json",  ai_index),   # v112.0: master AI index for Worker
     ]
 
     # Load and write APEX report if available
@@ -618,13 +796,30 @@ def main() -> int:
     for out_path, payload in endpoints:
         try:
             _safe_write(out_path, payload)
-            size = os.path.getsize(out_path)
-            print(f"[OK] {out_path} ({size:,} bytes)")
+            size = os.path.getsize(os.path.join(OUT_DIR, out_path))
+            print(f"[OK] api/ai/{out_path} ({size:,} bytes)")
             written += 1
         except Exception as e:
             print(f"[WARN] {out_path} write failed: {e}")
 
-    print(f"[DONE] generate_ai_endpoints: {written}/{len(endpoints)} endpoints written")
+    # v112.0: Also write ai_index.json to data/ai_intelligence/ for R2 upload
+    ai_index_path = os.path.join(ROOT, "data", "ai_intelligence", "ai_index.json")
+    try:
+        import tempfile
+        tmp = ai_index_path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(ai_index, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, ai_index_path)
+        print(f"[OK] data/ai_intelligence/ai_index.json ({os.path.getsize(ai_index_path):,} bytes)")
+        written += 1
+    except Exception as e:
+        print(f"[WARN] data/ai_intelligence/ai_index.json write failed: {e}")
+
+    total_endpoints = len(endpoints) + 1  # +1 for data/ai_intelligence/ai_index.json
+    print(f"[DONE] generate_ai_endpoints: {written}/{total_endpoints} endpoints written")
+    print(f"  MITRE techniques seen: {ai_index['summary']['total_mitre_techniques']}")
+    print(f"  Total advisories:      {ai_index['summary']['total_advisories']}")
+    print(f"  KEV entries:           {ai_index['summary']['kev_entries']}")
     return 0
 
 

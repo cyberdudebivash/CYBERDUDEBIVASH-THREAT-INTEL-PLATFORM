@@ -81,7 +81,7 @@ jobs:
               print(f"Manifest merge skipped (non-critical): {e}")
           PYEOF
 
-      - name: "Safe Commit & Push"
+      - name: "Safe Commit & Push (enrichment metadata only)"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -91,14 +91,18 @@ jobs:
           git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
           rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
+          # P0 FIX v111.0: DO NOT commit feed_manifest.json to git.
+          # The manifest is R2-only data (gitignored). Committing it here caused
+          # the bootstrap to recycle stale manifest every run (skip if >= 50 entries).
+          # Only commit the enrichment batch metadata (non-intel).
           git add -f data/enrichment/ 2>/dev/null || true
-          git add -f data/stix/feed_manifest.json 2>/dev/null || true
+          # BLOCKED (R2-only): git add -f data/stix/feed_manifest.json
 
           if git diff --staged --quiet; then
-            echo "No enrichment changes."; exit 0
+            echo "No enrichment metadata changes to commit."; exit 0
           fi
 
-          git commit -m "Multi-source Intel v101 @ $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
+          git commit -m "Multi-source Intel v101 enrichment-meta @ $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
           for i in 1 2 3 4; do
             git fetch origin main --quiet
             git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null||true; git merge origin/main -X ours --no-edit --quiet||true; }
