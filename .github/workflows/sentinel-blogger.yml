@@ -627,6 +627,67 @@ jobs:
           # Run platform-wide safety check (non-fatal on first deployment of guard)
           python3 scripts/platform_integrity_guard.py --mode=pre-deploy || echo "⚠️ Integrity guard advisory warning — see output above"
 
+# ═══════════════════════════════════════════════════════════════════════════
+# STAGE 3.5: DIRECT R2 UPLOAD — FAILSAFE (runs in SAME pipeline as data gen)
+# Ensures Worker always gets fresh data even if r2-data-sync.yml fails.
+# Requires: CF_API_TOKEN + CF_ACCOUNT_ID secrets in GitHub repo settings.
+# ═══════════════════════════════════════════════════════════════════════════
+      - name: "☁️ Direct R2 Upload — Failsafe Intel Sync"
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          WORKER_ADMIN_SECRET: ${{ secrets.WORKER_ADMIN_SECRET }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "INFO: CF_API_TOKEN or CF_ACCOUNT_ID not set — skipping R2 failsafe."
+            echo "Add these secrets to enable automatic R2 sync per SETUP_GITHUB_SECRETS.md"
+            exit 0
+          fi
+
+          npm install -g wrangler@latest --quiet 2>/dev/null || true
+          command -v wrangler || { echo "WARN: wrangler not available"; exit 0; }
+
+          wrangler r2 bucket create sentinel-apex-data 2>/dev/null || true
+
+          MANIFEST="data/stix/feed_manifest.json"
+          if [ -f "$MANIFEST" ]; then
+            ITEM_COUNT=$(python3 -c "
+          import json
+          d = json.load(open('$MANIFEST'))
+          items = d.get('advisories') or d.get('reports') or (d if isinstance(d,list) else [])
+          print(len(items))
+            " 2>/dev/null || echo 0)
+            wrangler r2 object put sentinel-apex-data/intel/feed_manifest.json \
+              --file="$MANIFEST" --content-type="application/json" \
+              && echo "OK: feed_manifest.json -> R2 ($ITEM_COUNT items)" \
+              || echo "WARN: R2 upload failed (r2-data-sync.yml will retry)"
+          fi
+
+          for f in data/apex_enriched_manifest.json data/apex_v2_manifest.json; do
+            [ -f "$f" ] || continue
+            wrangler r2 object put "sentinel-apex-data/intel/$(basename $f)" \
+              --file="$f" --content-type="application/json" \
+              && echo "OK: $(basename $f) -> R2" || true
+          done
+
+          python3 -c "
+          import json, datetime, os
+          meta = {'synced_at': datetime.datetime.utcnow().isoformat() + 'Z',
+                  'source': 'sentinel-blogger-failsafe', 'version': '109.0'}
+          with open('/tmp/sync_meta.json', 'w') as f: json.dump(meta, f)
+          "
+          wrangler r2 object put sentinel-apex-data/intel/_sync_meta.json \
+            --file="/tmp/sync_meta.json" --content-type="application/json" || true
+
+          if [ -n "$WORKER_ADMIN_SECRET" ]; then
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "https://intel.cyberdudebivash.com/api/admin/cache/bust?key=idx:reports" \
+              -H "X-Admin-Secret: $WORKER_ADMIN_SECRET")
+            [ "$HTTP" = "200" ] && echo "OK: Worker KV cache busted" \
+              || echo "INFO: Cache bust HTTP $HTTP"
+          fi
+
       - name: "🚀 Deploy to GitHub Pages"
         uses: JamesIves/github-pages-deploy-action@v4.7.3
         with:
@@ -649,13 +710,8 @@ jobs:
         continue-on-error: true
         run: python scripts/threat_page_generator.py || true
 
-
       - name: "🌐 API Layer v101.1 — Build Static API + Exports"
         continue-on-error: true
         run: |
-          # ADDITIVE: generates /api/feed.json /api/stats.json /api/exports/*
-          # Feature-flagged: ENABLE_API_V101 must be true in config/feature_flags.json
-          python3 scripts/api_layer_v101.py && echo "✅ API layer built" || echo "⚠️ API layer warn (non-fatal)"
-          # Run generate_ai_endpoints.py to refresh AI/APEX endpoint JSON after deploy
-          python3 scripts/generate_ai_endpoints.py && echo "✅ AI endpoints refreshed" || echo "⚠️ AI endpoints warn (non-fatal)"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+          python3 scripts/api_layer_v101.py && echo "OK: API layer built" || echo "WARN: API layer (non-fatal)"
+          python3 scripts/generate_ai_endpoints.py && echo "OK: AI endpoints refreshed" || echo "WARN: AI endpoints (non-fatal)"
