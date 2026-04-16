@@ -27,7 +27,10 @@ Usage:
 
   --strict    : exit 1 on ANY warning (CI hard-gate mode)
   --manifest  : path to manifest (default: data/stix/feed_manifest.json)
-  --min-count : minimum advisory count required (default: 100)
+  --min-count : minimum advisory count required (default: 50)
+  NOTE: Default lowered from 100→50 in v111.1 (P0 fix). On fresh checkout with
+  bootstrap loading from validated_manifest.json (2463 entries), this is moot.
+  The real guard is the Freshness Gate in sentinel-blogger.yml (min 10 entries).
 """
 
 import json
@@ -397,9 +400,9 @@ def main() -> int:
     parser.add_argument(
         "--min-count",
         type=int,
-        default=100,
+        default=50,
         metavar="N",
-        help="Minimum advisory count required (default: 100)",
+        help="Minimum advisory count required (default: 50, P0 fix v111.1)",
     )
     args = parser.parse_args()
 

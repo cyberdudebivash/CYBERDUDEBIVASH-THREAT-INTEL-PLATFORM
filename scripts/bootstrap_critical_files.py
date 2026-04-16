@@ -185,10 +185,19 @@ def _best_existing_manifest() -> tuple:
     Priority order (tried in order, winner = most entries):
       1. data/feed_manifest.json          — v70 orchestrator writes here (richest)
       2. data/stix/feed_manifest.json     — bootstrap / sentinel_blogger
+      3. data/validated_manifest.json     — COMMITTED to git (historical snapshot)
+      4. data/apex_enriched_manifest.json — APEX enrichment output (committed)
+      5. data/apex_v2_manifest.json       — APEX v2 output (committed)
+    P0 FIX v111.1: validated_manifest.json is committed to git and contains the full
+    historical advisory set. This ensures bootstrap always finds a rich base to merge
+    from even on fresh checkout with empty data/stix/.
     """
     candidates = [
         DATA_DIR / "feed_manifest.json",
         STIX_DIR / "feed_manifest.json",
+        DATA_DIR / "validated_manifest.json",      # COMMITTED — primary historical source
+        DATA_DIR / "apex_enriched_manifest.json",  # COMMITTED — APEX enrichment
+        DATA_DIR / "apex_v2_manifest.json",        # COMMITTED — APEX v2
     ]
     best_path, best_count = None, 0
     for p in candidates:
@@ -223,16 +232,26 @@ def _write_manifest(entries: list, path: Path) -> None:
 def _load_existing_manifest_entries(stix_path: "Path", root_path: "Path") -> list:
     """
     Load entries from the best available pre-run manifest snapshot.
-    Priority:
+    Priority (searched in order; winner = most entries):
       1. /tmp/pre_run_manifest.json — saved at run start BEFORE v70 overwrites
       2. data/stix/feed_manifest.json
       3. data/feed_manifest.json
+      4. data/validated_manifest.json     — COMMITTED to git (2463+ entries on fresh checkout)
+      5. data/apex_enriched_manifest.json — COMMITTED (APEX enrichment)
+      6. data/apex_v2_manifest.json       — COMMITTED (APEX v2)
+    P0 FIX v111.1: validated_manifest.json is committed and contains the full historical
+    advisory set. This ensures the force-rebuild MERGE always starts from a non-empty
+    base, so the schema validation gate (min 100) is never triggered by an empty manifest.
     Used by force-rebuild MERGE so entries from previous runs survive v70.
     """
     snapshot = Path("/tmp/pre_run_manifest.json")
+    # P0 FIX: Include committed manifests as fallback sources
+    validated_path = DATA_DIR / "validated_manifest.json"
+    apex_enriched  = DATA_DIR / "apex_enriched_manifest.json"
+    apex_v2        = DATA_DIR / "apex_v2_manifest.json"
     existing: list = []
     best_count = 0
-    for candidate in (snapshot, stix_path, root_path):
+    for candidate in (snapshot, stix_path, root_path, validated_path, apex_enriched, apex_v2):
         if not candidate.exists():
             continue
         try:
@@ -241,7 +260,7 @@ def _load_existing_manifest_entries(stix_path: "Path", root_path: "Path") -> lis
                 items = raw
             else:
                 items = []
-                for k in ("advisories", "entries", "items"):
+                for k in ("advisories", "entries", "items", "reports"):
                     v = raw.get(k)
                     if isinstance(v, list):
                         items = v
@@ -260,19 +279,16 @@ def bootstrap_feed_manifest(entries: list, force_rebuild: bool = False) -> None:
     Ensure data/stix/feed_manifest.json AND data/feed_manifest.json both
     contain a full advisory set (>= MIN_MANIFEST_ENTRIES).
 
-    Decision logic:
-      1. Find the existing manifest with the most entries.
-      2. If force_rebuild=True → MERGE existing committed manifest with new
-         STIX-bundle-derived entries (union by stix_id/title).
-         This is CRITICAL: individual STIX bundles from previous runs are NOT
-         committed to git (they are gitignored). Without this merge, entries
-         from the previous run are lost every cycle, causing the dashboard to
-         show only the current run's new items plus old committed bundle items,
-         and NOTHING from runs in between.
-      3. If it has >= MIN_MANIFEST_ENTRIES → copy it to both canonical paths
-         (no STIX rebuild needed).
-      4. If no manifest meets the threshold → rebuild from STIX bundles and
-         write to both paths.
+    v111.0 P0 FIX:
+      ALWAYS merge new STIX-bundle entries with the existing committed manifest.
+      The old "skip if >= MIN_MANIFEST_ENTRIES" logic is REMOVED — it caused
+      fresh intel to never reach R2 (existing manifest recycled indefinitely).
+
+    Decision logic (revised):
+      force_rebuild=True  → MERGE: new STIX bundles + existing committed entries
+      force_rebuild=False → If new STIX bundles exist, merge them in.
+                            If no new STIX bundles, preserve existing manifest.
+                            If manifest below MIN threshold, rebuild from scratch.
     """
     stix_path = STIX_DIR / "feed_manifest.json"
     root_path = DATA_DIR / "feed_manifest.json"  # v70 orchestrator path
@@ -307,19 +323,42 @@ def bootstrap_feed_manifest(entries: list, force_rebuild: bool = False) -> None:
               f"= {len(merged)} total (was {len(existing_entries)} committed)")
         entries = merged
     else:
-        best_path, best_count = _best_existing_manifest()
-
-        if best_path and best_count >= MIN_MANIFEST_ENTRIES:
-            print(f"  [bootstrap] feed_manifest.json OK ({best_count} entries @ {best_path.name}) — skipping rebuild")
-            # Sync whichever canonical path is missing or stale
-            for target in (stix_path, root_path):
-                if target != best_path:
-                    target_count = _count_manifest_entries(target) if target.exists() else 0
-                    if target_count < MIN_MANIFEST_ENTRIES:
-                        import shutil
-                        shutil.copy2(best_path, target)
-                        print(f"  [bootstrap] Synced {best_path.name} → {target.relative_to(ROOT)} ({best_count} entries)")
-            return
+        # v111.0 FIX: If new STIX-bundle entries exist, ALWAYS merge them in.
+        # This replaces the old "skip if >= MIN_MANIFEST_ENTRIES" guard that
+        # caused the pipeline to recycle stale manifests indefinitely.
+        if entries:
+            print(f"  [bootstrap] {len(entries)} new STIX entries found — merging into manifest")
+            existing_entries = _load_existing_manifest_entries(stix_path, root_path)
+            seen_keys: set = set()
+            merged: list = []
+            for e in entries:
+                key = (e.get("stix_id") or e.get("id") or "")[:120] or e.get("title", "")[:120]
+                if key and key not in seen_keys:
+                    seen_keys.add(key)
+                    merged.append(e)
+            appended = 0
+            for e in existing_entries:
+                key = (e.get("stix_id") or e.get("id") or "")[:120] or e.get("title", "")[:120]
+                if key and key not in seen_keys:
+                    seen_keys.add(key)
+                    merged.append(e)
+                    appended += 1
+            print(f"  [bootstrap] MERGE: {len(entries)} new + {appended} preserved = {len(merged)} total")
+            entries = merged
+            # Fall through to write merged manifest below
+        else:
+            # No new STIX bundles — preserve existing manifest if healthy
+            best_path, best_count = _best_existing_manifest()
+            if best_path and best_count >= MIN_MANIFEST_ENTRIES:
+                print(f"  [bootstrap] feed_manifest.json preserved ({best_count} entries) — no new STIX bundles this run")
+                for target in (stix_path, root_path):
+                    if target != best_path:
+                        target_count = _count_manifest_entries(target) if target.exists() else 0
+                        if target_count < best_count:
+                            import shutil
+                            shutil.copy2(best_path, target)
+                            print(f"  [bootstrap] Synced {best_path.name} → {target.relative_to(ROOT)}")
+                return
 
     # ── Rebuild required ──────────────────────────────────────────────────
     if not force_rebuild:
@@ -479,16 +518,32 @@ def main() -> int:
     # ── SNAPSHOT: Save committed manifest BEFORE any step can overwrite it ──
     # This snapshot is used by force-rebuild MERGE so that entries from the
     # previous run's manifest (committed in git) survive v70's overwrite.
+    # P0 FIX v111.1: Include validated_manifest.json (COMMITTED) as snapshot source.
+    # On fresh checkout, data/stix/feed_manifest.json does NOT exist (R2-only).
+    # validated_manifest.json IS committed with 2463+ historical entries — use it.
     import shutil as _shutil_snap
     _snapshot = Path("/tmp/pre_run_manifest.json")
     if not _snapshot.exists():  # only save once per runner lifetime
-        for _cand in (STIX_DIR / "feed_manifest.json", DATA_DIR / "feed_manifest.json"):
+        _snap_candidates = [
+            STIX_DIR / "feed_manifest.json",
+            DATA_DIR / "feed_manifest.json",
+            DATA_DIR / "validated_manifest.json",      # COMMITTED — primary P0 fix
+            DATA_DIR / "apex_enriched_manifest.json",  # COMMITTED — fallback
+            DATA_DIR / "apex_v2_manifest.json",        # COMMITTED — fallback
+        ]
+        _best_snap_count = 0
+        _best_snap_path  = None
+        for _cand in _snap_candidates:
             if _cand.exists():
                 n = _count_manifest_entries(_cand)
-                if n > 0:
-                    _shutil_snap.copy2(_cand, _snapshot)
-                    print(f"  [bootstrap] Snapshot saved: {n} entries → /tmp/pre_run_manifest.json")
-                    break
+                if n > _best_snap_count:
+                    _best_snap_count = n
+                    _best_snap_path  = _cand
+        if _best_snap_path:
+            _shutil_snap.copy2(_best_snap_path, _snapshot)
+            print(f"  [bootstrap] Snapshot saved: {_best_snap_count} entries from {_best_snap_path.name} → /tmp/pre_run_manifest.json")
+        else:
+            print("  [bootstrap] WARN: No committed manifest found for snapshot — starting from empty")
 
     # Load STIX entries (needed for manifest + api rebuild)
     stix_files = list(STIX_DIR.glob("CDB-APEX-*.json"))
