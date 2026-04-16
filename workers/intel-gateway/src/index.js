@@ -7,7 +7,7 @@
 // =============================================================================
 
 const CONFIG = {
-  GATEWAY_VERSION:   "110.0",
+  GATEWAY_VERSION:   "110.1",
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   CACHE_TTL: {
@@ -307,24 +307,56 @@ async function handlePreview(request, env, rid) {
 
   try {
     const index     = await fetchReportsIndex(env);
-    const allItems  = index.reports;
-    const preview   = allItems.slice(0, CONFIG.PREVIEW_LIMIT).map(item => ({
-      id:          item.id          || item.advisory_id || item.cve_id || "unknown",
-      title:       item.title       || item.name         || item.cve_id || "Untitled",
-      severity:    item.severity    || item.risk_level   || "UNKNOWN",
-      description: item.description || item.summary      || `Tactical cluster: ${item.title || ""}`,
-      tags:        item.tags        || item.categories   || [],
-      threat_type: item.threat_type || item.type         || "General",
-      risk_score:  typeof item.risk_score === "number" ? item.risk_score
-                 : typeof item.cvss_score === "number" ? item.cvss_score : 0,
-    }));
+    // Filter: remove brand/identity entries and deduplicate by title
+    const seenTitles = new Set();
+    const cleanItems = index.reports.filter(item => {
+      const t = (item.title || "").trim();
+      if (!t) return false;
+      // Remove company branding entries that got into the feed
+      if (t.includes("CYBERDUDEBIVASH® PRIVATE LIMITED") ||
+          t.includes("OFFICIAL WORKPLACE") ||
+          t.includes("GST & PAN VERIFIED")) return false;
+      // Deduplicate by title
+      if (seenTitles.has(t)) return false;
+      seenTitles.add(t);
+      return true;
+    });
+    const allItems  = cleanItems;
+    const preview   = allItems.slice(0, CONFIG.PREVIEW_LIMIT).map(item => {
+      // Build a meaningful description: strip "Tactical cluster: " prefix,
+      // then enrich with IOC/TTP counts if available
+      let rawDesc = item.description || item.summary || "";
+      rawDesc = rawDesc.replace(/^Tactical cluster:\s*/i, "").trim();
+      if (!rawDesc) rawDesc = item.title || "";
+      const iocCount = Array.isArray(item.iocs) ? item.iocs.length : 0;
+      const ttpCount = Array.isArray(item.ttps) ? item.ttps.length : 0;
+      const enrich   = [];
+      if (iocCount > 0) enrich.push(`${iocCount} IOC${iocCount > 1 ? "s" : ""}`);
+      if (ttpCount > 0) enrich.push(`${ttpCount} TTP${ttpCount > 1 ? "s" : ""}`);
+      if (item.source) enrich.push(`Source: ${item.source}`);
+      const description = enrich.length > 0 ? `${rawDesc} [${enrich.join(" | ")}]` : rawDesc;
+      return {
+        id:          item.id          || item.advisory_id || item.cve_id || "unknown",
+        title:       item.title       || item.name         || item.cve_id || "Untitled",
+        severity:    item.severity    || item.risk_level   || "UNKNOWN",
+        description,
+        tags:        item.tags        || item.categories   || [],
+        threat_type: item.threat_type || item.type         || "General",
+        risk_score:  typeof item.risk_score === "number" ? item.risk_score
+                   : typeof item.cvss_score === "number" ? item.cvss_score : 0,
+        ioc_count:   iocCount,
+        ttp_count:   ttpCount,
+        confidence:  item.confidence || 0,
+        timestamp:   item.timestamp  || null,
+      };
+    });
 
     const previewPayload = {
       items:         preview,
       total_preview: preview.length,
       total_in_feed: allItems.length,
       generated_at:  index.generated_at,
-      note:          `Preview: latest ${CONFIG.PREVIEW_LIMIT} items. Get an API key for full access.`,
+      note:          `Preview: latest ${CONFIG.PREVIEW_LIMIT} of ${allItems.length} unique threat intel items. Get an API key for full access.`,
     };
 
     // Cache preview payload
@@ -372,7 +404,21 @@ async function handleFeed(request, env, auth, rid) {
 
   try {
     const index = await fetchReportsIndex(env);
-    let   items = index.reports;
+    // Deduplicate and filter brand entries from the full feed
+    const seenFeed = new Set();
+    let items = index.reports.filter(item => {
+      const t = (item.title || "").trim();
+      if (!t) return false;
+      if (t.includes("CYBERDUDEBIVASH® PRIVATE LIMITED") ||
+          t.includes("OFFICIAL WORKPLACE") ||
+          t.includes("GST & PAN VERIFIED")) return false;
+      if (seenFeed.has(t)) return false;
+      seenFeed.add(t);
+      // Enrich description
+      const raw = (item.description || "").replace(/^Tactical cluster:\s*/i, "").trim() || t;
+      item.description = raw;
+      return true;
+    });
 
     if (severity) {
       const s = severity.toLowerCase();

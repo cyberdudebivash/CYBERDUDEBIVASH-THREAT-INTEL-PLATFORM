@@ -177,7 +177,7 @@ class STIXExporter:
             "spec_version":    "2.1",
             "id":              intrusion_set_id,
             "name":            f"{actor_tag} Campaign",
-            "description":     f"Tactical cluster: {title}",
+            "description":     title,   # v110.1: real title as description (was: "Tactical cluster: {title}")
             "created":         timestamp,
             "modified":        timestamp,
             "confidence":      int(confidence),
@@ -744,6 +744,17 @@ class STIXExporter:
                     manifest_entries = data.get("entries", [])
             except Exception:
                 manifest_entries = []
+
+        # Brand/identity filter — block company identity objects from intel feed
+        _BRAND_KEYWORDS = [
+            "CYBERDUDEBIVASH® PRIVATE LIMITED",
+            "OFFICIAL WORKPLACE",
+            "GST & PAN VERIFIED",
+            "GLOBAL CYBERSECURITY AUTHORITY",
+        ]
+        if any(kw in title for kw in _BRAND_KEYWORDS):
+            logger.info(f"  [MANIFEST] Brand filter: skipping identity entry: {title[:60]}")
+            return
 
         # Dedup guard
         existing_titles = {e.get("title", "").strip().lower() for e in manifest_entries}

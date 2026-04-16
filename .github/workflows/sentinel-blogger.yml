@@ -211,6 +211,11 @@ jobs:
 # Validates generated intel against strict contract before R2 upload.
 # Prevents malformed data from reaching the Worker/Dashboard.
 # ═══════════════════════════════════════════════════════════════════════════
+      - name: "🧹 Manifest Cleanup — Remove brand entries + deduplicate"
+        continue-on-error: true
+        run: |
+          python3 scripts/clean_feed_manifest.py || echo "Cleanup skipped (non-critical)"
+
       - name: "🔍 Schema Validation — Validate intel before R2 upload"
         run: |
           python3 scripts/validate_intel_schema.py
