@@ -1,0 +1,469 @@
+#!/usr/bin/env python3
+"""
+CYBERDUDEBIVASH® SENTINEL APEX — Intel Feed Schema Validation Gate
+====================================================================
+Version     : v110.0
+Purpose     : Validate data/stix/feed_manifest.json before R2 upload.
+              Enforces the strict schema contract between the intel generation
+              pipeline and the Cloudflare Worker / dashboard consumers.
+              Exits non-zero on any contract violation — blocks R2 upload.
+
+Schema contract (feed_manifest.json):
+  TOP-LEVEL (required) : advisories[]
+  TOP-LEVEL (recommended): version, platform, generated_at, entry_count
+  PER ADVISORY (required): id, title
+  PER ADVISORY (recommended): severity, risk_score, timestamp, source
+  severity values   : CRITICAL | HIGH | MEDIUM | LOW | INFO | UNKNOWN
+  risk_score        : numeric float 0.0–10.0
+  No duplicate IDs
+  entry_count must match len(advisories)
+  Minimum advisory count enforced (default: 100)
+
+Usage:
+  python3 scripts/validate_intel_schema.py
+  python3 scripts/validate_intel_schema.py --manifest data/stix/feed_manifest.json
+  python3 scripts/validate_intel_schema.py --min-count 500 --strict
+  python3 scripts/validate_intel_schema.py --manifest path/to/manifest.json
+
+  --strict    : exit 1 on ANY warning (CI hard-gate mode)
+  --manifest  : path to manifest (default: data/stix/feed_manifest.json)
+  --min-count : minimum advisory count required (default: 100)
+"""
+
+import json
+import os
+import sys
+import argparse
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+# ─── Schema Constants ─────────────────────────────────────────────────────────
+
+VALID_SEVERITIES      = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO", "UNKNOWN"}
+REQUIRED_TOP_FIELDS   = {"advisories"}
+RECOMMENDED_TOP_FIELDS = {"version", "platform", "generated_at", "entry_count"}
+REQUIRED_ADV_FIELDS   = {"id", "title"}
+RECOMMENDED_ADV_FIELDS = {"severity", "risk_score", "timestamp", "source"}
+BLOGGER_LEGACY_FIELDS = {"blog_url", "blogger_post_id", "blogger_url", "published_to_blogger"}
+
+# Max per-item errors printed (avoids flooding log for 2000+ item feeds)
+MAX_ITEM_ERRORS = 20
+
+errors:   List[str] = []
+warnings: List[str] = []
+
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+def err(msg: str) -> None:
+    errors.append(msg)
+
+
+def warn(msg: str) -> None:
+    warnings.append(msg)
+
+
+def _load_manifest(path: str) -> Tuple[bool, Any]:
+    """Load and JSON-parse the manifest. Auto-strip null bytes."""
+    if not os.path.exists(path):
+        err(f"MANIFEST NOT FOUND: {path}")
+        return False, None
+    try:
+        with open(path, "rb") as f:
+            raw = f.read()
+        null_count = raw.count(b"\x00")
+        if null_count > 0:
+            warn(f"NULL BYTES DETECTED ({null_count}) in manifest — auto-cleaned")
+            raw = raw.replace(b"\x00", b"")
+        return True, json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError as e:
+        err(f"INVALID JSON: {e}")
+        return False, None
+    except Exception as e:
+        err(f"READ ERROR: {e}")
+        return False, None
+
+
+def _parse_ts(ts: str) -> Optional[datetime]:
+    """Parse ISO 8601 timestamp, tolerating timezone offsets and microseconds."""
+    # Strip timezone suffix to make parsing uniform
+    clean = ts.strip()
+    # Remove +HH:MM or -HH:MM or Z suffix
+    for tz_suffix in ("+00:00", "-00:00", "Z"):
+        if clean.endswith(tz_suffix):
+            clean = clean[: -len(tz_suffix)]
+            break
+    # Also strip any remaining +XX:XX at end
+    import re as _re
+    clean = _re.sub(r"[+-]\d{2}:\d{2}$", "", clean)
+
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d",
+    ):
+        try:
+            return datetime.strptime(clean[:26], fmt)
+        except ValueError:
+            continue
+    return None
+
+
+# ─── Top-Level Validation ─────────────────────────────────────────────────────
+
+def validate_top_level(data: Dict, path: str) -> None:
+    """Validate manifest envelope fields."""
+    # Required
+    for field in REQUIRED_TOP_FIELDS:
+        if field not in data:
+            err(f"[{path}] MISSING REQUIRED FIELD: '{field}'")
+
+    # Recommended
+    for field in RECOMMENDED_TOP_FIELDS:
+        if field not in data:
+            warn(f"[{path}] Missing recommended field: '{field}'")
+
+    # Platform identity
+    platform = str(data.get("platform") or "")
+    if platform and "SENTINEL" not in platform and "CYBERDUDEBIVASH" not in platform:
+        warn(f"[{path}] Unexpected platform identifier: '{platform}'")
+
+    # generated_at staleness check
+    generated_at = data.get("generated_at")
+    if generated_at:
+        ts = _parse_ts(str(generated_at))
+        if ts is None:
+            warn(f"[{path}] Cannot parse generated_at: '{generated_at}'")
+        else:
+            age_h = (datetime.utcnow() - ts).total_seconds() / 3600
+            if age_h > 8:
+                warn(
+                    f"[{path}] Manifest is {age_h:.1f}h old (generated_at={generated_at[:19]}) "
+                    f"— check pipeline schedule"
+                )
+
+    # entry_count vs actual count
+    advisories = data.get("advisories")
+    entry_count = data.get("entry_count")
+    if isinstance(advisories, list) and entry_count is not None:
+        if int(entry_count) != len(advisories):
+            err(
+                f"[{path}] entry_count={entry_count} does not match "
+                f"len(advisories)={len(advisories)} — data integrity failure"
+            )
+
+    print(
+        f"  [top-level]  platform='{data.get('platform', 'N/A')}' "
+        f"version='{data.get('version', 'N/A')}' "
+        f"generated_at='{str(data.get('generated_at', 'N/A'))[:19]}'"
+    )
+
+
+# ─── Advisories Array Validation ──────────────────────────────────────────────
+
+def validate_advisories(advisories: Any, path: str, min_count: int) -> None:
+    """Full advisory array validation: structure, fields, quality, duplicates."""
+    if not isinstance(advisories, list):
+        err(
+            f"[{path}] 'advisories' must be an array, "
+            f"got {type(advisories).__name__}"
+        )
+        return
+
+    total = len(advisories)
+    if total == 0:
+        err(
+            f"[{path}] 'advisories' array is EMPTY — intel generation failed or "
+            f"data was not written correctly."
+        )
+        return
+
+    if total < min_count:
+        err(
+            f"[{path}] Only {total} advisories found (minimum required: {min_count}). "
+            f"Intel generation may have partially failed or data was truncated. "
+            f"R2 upload blocked to prevent serving degraded data."
+        )
+    else:
+        print(f"  [advisories] {total:,} items (minimum: {min_count}) ✓")
+
+    # ── Per-item scan ──────────────────────────────────────────────────────────
+    seen_ids:          Dict[str, int] = {}
+    duplicate_ids:     List[str]      = []
+    severity_dist:     Dict[str, int] = {s: 0 for s in VALID_SEVERITIES}
+    unknown_severities: List[str]     = []
+
+    missing_risk_score  = 0
+    invalid_risk_score  = 0
+    missing_timestamp   = 0
+    future_timestamps   = 0
+    missing_source      = 0
+    non_object_count    = 0
+    now                 = datetime.utcnow()
+
+    for i, adv in enumerate(advisories):
+        if not isinstance(adv, dict):
+            non_object_count += 1
+            if len(errors) < MAX_ITEM_ERRORS:
+                err(
+                    f"[{path}.advisories[{i}]] Entry must be a JSON object, "
+                    f"got {type(adv).__name__}"
+                )
+            continue
+
+        # Required fields
+        for field in REQUIRED_ADV_FIELDS:
+            if not adv.get(field):
+                if len(errors) < MAX_ITEM_ERRORS:
+                    err(
+                        f"[{path}.advisories[{i}]] Missing/empty required field: '{field}'"
+                    )
+
+        # Duplicate ID check
+        adv_id = adv.get("id", "")
+        if adv_id:
+            if adv_id in seen_ids:
+                duplicate_ids.append(adv_id)
+            else:
+                seen_ids[adv_id] = i
+
+        # Severity classification
+        raw_sev = (adv.get("severity") or "UNKNOWN").upper().strip()
+        if raw_sev in VALID_SEVERITIES:
+            severity_dist[raw_sev] += 1
+        else:
+            severity_dist["UNKNOWN"] = severity_dist.get("UNKNOWN", 0) + 1
+            if raw_sev not in unknown_severities:
+                unknown_severities.append(raw_sev)
+
+        # Risk score
+        rs = adv.get("risk_score")
+        if rs is None:
+            missing_risk_score += 1
+        elif not isinstance(rs, (int, float)):
+            invalid_risk_score += 1
+        elif not (0.0 <= float(rs) <= 10.0):
+            if len(warnings) < MAX_ITEM_ERRORS:
+                warn(
+                    f"[{path}.advisories[{i}]] risk_score={rs} out of valid range [0-10]"
+                )
+
+        # Timestamp
+        ts_raw = (
+            adv.get("timestamp")
+            or adv.get("published")
+            or adv.get("created")
+            or adv.get("date")
+        )
+        if not ts_raw:
+            missing_timestamp += 1
+        else:
+            ts = _parse_ts(str(ts_raw))
+            if ts is not None and ts > now:
+                future_timestamps += 1
+
+        # Source
+        if not adv.get("source"):
+            missing_source += 1
+
+    # ── Duplicate IDs ──────────────────────────────────────────────────────────
+    unique_dups = list(set(duplicate_ids))
+    if unique_dups:
+        sample = unique_dups[:5]
+        err(
+            f"[{path}] {len(unique_dups)} DUPLICATE IDs detected: {sample}"
+            f"{'...' if len(unique_dups) > 5 else ''} — "
+            f"deduplication required before R2 upload"
+        )
+
+    # ── Unknown severities ────────────────────────────────────────────────────
+    if unknown_severities:
+        warn(
+            f"[{path}] Unrecognized severity values: {unknown_severities[:8]} "
+            f"— normalize to CRITICAL/HIGH/MEDIUM/LOW/INFO"
+        )
+
+    # ── Quality warnings (threshold: >50% missing = warning) ─────────────────
+    q_thresh = total * 0.5
+    if missing_risk_score > q_thresh:
+        warn(
+            f"[{path}] {missing_risk_score}/{total} advisories missing risk_score "
+            f"({missing_risk_score / total * 100:.0f}%) — enrichment incomplete"
+        )
+    if missing_timestamp > q_thresh:
+        warn(
+            f"[{path}] {missing_timestamp}/{total} advisories missing timestamp"
+        )
+    if missing_source > q_thresh:
+        warn(
+            f"[{path}] {missing_source}/{total} advisories missing source"
+        )
+    if invalid_risk_score > 0:
+        warn(
+            f"[{path}] {invalid_risk_score} advisories have non-numeric risk_score"
+        )
+    if future_timestamps > 0:
+        warn(
+            f"[{path}] {future_timestamps} advisories have future timestamps — "
+            f"possible clock sync issue"
+        )
+    if non_object_count > 0:
+        err(
+            f"[{path}] {non_object_count} advisory entries are not JSON objects"
+        )
+
+    # ── Severity distribution ─────────────────────────────────────────────────
+    dist_str = " | ".join(
+        f"{k}:{v}" for k, v in severity_dist.items() if v > 0
+    )
+    print(f"  [severity]   {dist_str}")
+
+    # ── Quality summary ───────────────────────────────────────────────────────
+    unique_count = len(seen_ids)
+    print(
+        f"  [quality]    unique_ids={unique_count:,}/{total:,} "
+        f"missing_risk={missing_risk_score} "
+        f"missing_ts={missing_timestamp} "
+        f"missing_src={missing_source}"
+    )
+
+
+# ─── Blogger Legacy Field Detection ───────────────────────────────────────────
+
+def check_blogger_remnants(data: Dict, path: str) -> None:
+    """
+    Warn if Blogger-era legacy fields are still present in advisories.
+    These are benign but indicate the purge in v110 is incomplete.
+    """
+    advisories = data.get("advisories", [])
+    if not isinstance(advisories, list) or not advisories:
+        return
+
+    found: set = set()
+    for adv in advisories[:20]:  # Spot-check first 20
+        if isinstance(adv, dict):
+            for bf in BLOGGER_LEGACY_FIELDS:
+                if bf in adv:
+                    found.add(bf)
+
+    if found:
+        warn(
+            f"[{path}] Blogger legacy fields still present: {sorted(found)} "
+            f"— harmless but should be purged in next regeneration cycle (v110 cleanup)"
+        )
+
+
+# ─── File-Level Checks ────────────────────────────────────────────────────────
+
+def check_file_properties(manifest_path: str) -> None:
+    """Check file size and encoding for R2 upload readiness."""
+    size = os.path.getsize(manifest_path)
+    size_mb = size / (1024 * 1024)
+
+    if size_mb > 500:
+        err(
+            f"[file] Manifest is {size_mb:.1f}MB — exceeds safe single-object "
+            f"threshold. Consider chunking the feed."
+        )
+    elif size_mb > 50:
+        warn(
+            f"[file] Manifest is {size_mb:.1f}MB — large file may slow R2 upload "
+            f"and Worker fetch times"
+        )
+
+    print(f"  [file]       {manifest_path}")
+    print(f"               {size:,} bytes ({size_mb:.2f} MB)")
+
+
+# ─── Main ─────────────────────────────────────────────────────────────────────
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="SENTINEL APEX v110 — Intel Feed Schema Validation Gate",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    parser.add_argument(
+        "--manifest",
+        default="data/stix/feed_manifest.json",
+        metavar="PATH",
+        help="Path to feed_manifest.json (default: data/stix/feed_manifest.json)",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit 1 on ANY warning — CI hard-gate mode",
+    )
+    parser.add_argument(
+        "--min-count",
+        type=int,
+        default=100,
+        metavar="N",
+        help="Minimum advisory count required (default: 100)",
+    )
+    args = parser.parse_args()
+
+    print("=" * 68)
+    print("SENTINEL APEX v110 — Intel Feed Schema Validation Gate")
+    print("=" * 68)
+    print(f"  Manifest  : {args.manifest}")
+    print(f"  Min-count : {args.min_count}")
+    print(f"  Strict    : {args.strict}")
+    print()
+
+    # ── Load ──────────────────────────────────────────────────────────────────
+    ok, data = _load_manifest(args.manifest)
+    if not ok:
+        print(f"\n❌ LOAD FAILED — {len(errors)} error(s):")
+        for e in errors:
+            print(f"   ERROR: {e}")
+        print("\nR2 upload BLOCKED.")
+        return 1
+
+    # ── Validate ──────────────────────────────────────────────────────────────
+    validate_top_level(data, args.manifest)
+
+    advisories = data.get("advisories", [])
+    validate_advisories(advisories, args.manifest, args.min_count)
+    check_blogger_remnants(data, args.manifest)
+    check_file_properties(args.manifest)
+
+    # ── Results ───────────────────────────────────────────────────────────────
+    print()
+
+    if warnings:
+        print(f"⚠️  {len(warnings)} WARNING(S):")
+        for w in warnings:
+            print(f"   WARN: {w}")
+
+    if errors:
+        print()
+        print(f"❌ VALIDATION FAILED — {len(errors)} ERROR(S):")
+        for e in errors:
+            print(f"   ERROR: {e}")
+        print()
+        print("R2 upload BLOCKED. Resolve errors before deploying to production.")
+        print("Platform integrity requires a valid intel feed at all times.")
+        return 1
+
+    if args.strict and warnings:
+        print()
+        print(
+            f"❌ STRICT MODE: {len(warnings)} warning(s) treated as errors. "
+            f"R2 upload BLOCKED."
+        )
+        return 1
+
+    # ── PASS ──────────────────────────────────────────────────────────────────
+    print()
+    total = len(advisories) if isinstance(advisories, list) else 0
+    print("✅ SCHEMA VALIDATION PASSED — R2 UPLOAD CLEARED")
+    print(f"   {total:,} advisories validated")
+    print(f"   Generated : {data.get('generated_at', 'N/A')}")
+    print(f"   Platform  : {data.get('platform', 'N/A')}")
+    print(f"   Version   : {data.get('version', 'N/A')}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
