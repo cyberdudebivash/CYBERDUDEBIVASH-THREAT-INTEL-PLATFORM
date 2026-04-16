@@ -1,45 +1,61 @@
-﻿name = "sentinel-apex-gateway"
-main = "src/index.js"
+name              = "sentinel-apex-gateway"
+main              = "src/index.js"
 compatibility_date = "2024-01-01"
 
 [vars]
-GATEWAY_VERSION = "109.0"
+GATEWAY_VERSION = "110.0"
 
-# KV Namespaces — create with: npx wrangler kv namespace create "<NAME>"
-[[kv_namespaces]]
-binding     = "API_KEYS_KV"
-id          = "REPLACE_WITH_YOUR_API_KEYS_KV_ID"
-
-[[kv_namespaces]]
-binding     = "RATE_LIMIT_KV"
-id          = "REPLACE_WITH_YOUR_RATE_LIMIT_KV_ID"
+# ── KV Namespaces ──────────────────────────────────────────────────────────────
+# Deployed KV IDs — verified live on intel.cyberdudebivash.com (v110)
+# To add new namespace: npx wrangler kv namespace create "<NAME>"
 
 [[kv_namespaces]]
-binding     = "ANALYTICS_KV"
-id          = "REPLACE_WITH_YOUR_ANALYTICS_KV_ID"
+binding = "API_KEYS_KV"
+id      = "ca786702c6df47b7a95d9777536c7cfb"
 
-# R2 Bucket — create with: npx wrangler r2 bucket create sentinel-apex-data
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id      = "647efdda28dc4a2db91378931cfa02dc"
+
+[[kv_namespaces]]
+binding = "ANALYTICS_KV"
+id      = "baa66e510f7247d4b268af943bfb7213"
+
+[[kv_namespaces]]
+binding = "SECURITY_HUB_KV"
+id      = "95faae90943f43afa26d552b8385d339"
+
+# ── R2 Bucket ─────────────────────────────────────────────────────────────────
+# Primary intel storage — private, never public
+# Create: npx wrangler r2 bucket create sentinel-apex-data
+
 [[r2_buckets]]
 binding     = "INTEL_R2"
 bucket_name = "sentinel-apex-data"
 
-# Secrets — set with: npx wrangler secret put ADMIN_SECRET
-# npx wrangler secret put GITHUB_TOKEN
+# ── Secrets (set via wrangler CLI, never in code) ─────────────────────────────
+# npx wrangler secret put ADMIN_SECRET    → cache bust + key management
+# npx wrangler secret put GITHUB_TOKEN    → emergency GitHub fallback reads
 
+# ── Production environment ────────────────────────────────────────────────────
 [env.production]
 name = "sentinel-apex-gateway"
 
 [[env.production.kv_namespaces]]
-binding     = "API_KEYS_KV"
-id          = "REPLACE_WITH_YOUR_API_KEYS_KV_ID"
+binding = "API_KEYS_KV"
+id      = "ca786702c6df47b7a95d9777536c7cfb"
 
 [[env.production.kv_namespaces]]
-binding     = "RATE_LIMIT_KV"
-id          = "REPLACE_WITH_YOUR_RATE_LIMIT_KV_ID"
+binding = "RATE_LIMIT_KV"
+id      = "647efdda28dc4a2db91378931cfa02dc"
 
 [[env.production.kv_namespaces]]
-binding     = "ANALYTICS_KV"
-id          = "REPLACE_WITH_YOUR_ANALYTICS_KV_ID"
+binding = "ANALYTICS_KV"
+id      = "baa66e510f7247d4b268af943bfb7213"
+
+[[env.production.kv_namespaces]]
+binding = "SECURITY_HUB_KV"
+id      = "95faae90943f43afa26d552b8385d339"
 
 [[env.production.r2_buckets]]
 binding     = "INTEL_R2"

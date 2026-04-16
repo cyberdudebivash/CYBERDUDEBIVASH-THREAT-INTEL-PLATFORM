@@ -1,23 +1,28 @@
 # =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v101 — SOVEREIGN INTELLIGENCE PIPELINE
-# Version    : v101.0.0 (PERMANENT PRODUCTION CONTRACT)
-# Rebuilt    : 2026-04-04 — ZERO failure mandate enforced
+# CYBERDUDEBIVASH® SENTINEL APEX v110 — SOVEREIGN INTELLIGENCE PIPELINE
+# Version    : v110.0.0 (R2-NATIVE PRODUCTION CONTRACT)
+# Rebuilt    : 2026-04-16 — Full Blogger removal, R2-only architecture
 # Author     : CYBERDUDEBIVASH Pvt. Ltd.
 # =============================================================================
+# ARCHITECTURE:
+#   Intel Engine → Schema Validation → R2 Upload → Worker API → Dashboard
+#   NO GitHub data exposure. NO Blogger dependency. NO EMBEDDED_INTEL.
+# =============================================================================
 # GUARANTEES:
-#   ✅ 0 non-fast-forward failures (fetch+rebase 4-attempt backoff)
-#   ✅ 0 dirty-tree conflicts (stash-before-pull strategy)
-#   ✅ 0 missing file aborts (bootstrap runs first, always)
+#   ✅ 0 Blogger dependencies (fully removed)
+#   ✅ 0 EMBEDDED_INTEL logic (Worker API is source of truth)
+#   ✅ 0 non-fast-forward git failures (merge -X ours strategy)
 #   ✅ 0 race conditions (sentinel-data-writer concurrency lock)
-#   ✅ Idempotent — safe to run multiple times with no corruption
-#   ✅ Self-healing — auto-reconstructs missing data from STIX bundles
+#   ✅ Schema validation before every R2 upload
+#   ✅ Self-healing bootstrap on every run
+#   ✅ Idempotent — safe to re-run without data corruption
 # =============================================================================
 
 name: sentinel-blogger
 
 on:
   schedule:
-    - cron: '0 */4 * * *'    # Primary cycle: every 4h at :00
+    - cron: '0 */4 * * *'    # Primary: every 4h
     - cron: '0 0 1 * *'      # Monthly maintenance
   workflow_dispatch:
     inputs:
@@ -27,7 +32,7 @@ on:
         type: boolean
         default: false
       skip_ai:
-        description: 'Skip AI phases (faster run)'
+        description: 'Skip AI enrichment phases (faster run)'
         required: false
         type: boolean
         default: false
@@ -39,22 +44,22 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-# CRITICAL: Only ONE data-writing workflow at a time.
-# sentinel-data-writer is shared with sync-dashboard and status-monitor.
-# This prevents feed_manifest.json corruption via concurrent writes.
+  PIPELINE_VERSION: "110.0.0"
+
+# Only ONE data-writing workflow at a time — prevents manifest corruption
 concurrency:
   group: sentinel-data-writer
   cancel-in-progress: false
 
 jobs:
-  publish-threat-report:
+  generate-and-sync:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
 
 # ═══════════════════════════════════════════════════════════════════════════
-# STAGE 0: CHECKOUT & SETUP
+# STAGE 0: CHECKOUT & ENVIRONMENT SETUP
 # ═══════════════════════════════════════════════════════════════════════════
       - name: "🔧 Checkout repository"
         uses: actions/checkout@v4.2.2
@@ -63,82 +68,67 @@ jobs:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "🐍 Set up Python 3.12"
+      - name: "🐍 Setup Python 3.12"
         uses: actions/setup-python@v5.4.0
         with:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: "📦 Install Dependencies (optimized)"
+      - name: "📦 Install pipeline dependencies"
         run: |
           python -m pip install --upgrade pip --quiet
-          # Install only what the core pipeline actually needs
-          pip install --quiet requests feedparser google-api-python-client \
-            google-auth-oauthlib reportlab fpdf2 cryptography pyjwt \
-            beautifulsoup4 pydantic python-dotenv psutil
-          # Install full requirements if present (non-blocking)
+          pip install --quiet requests feedparser beautifulsoup4 pydantic \
+            python-dotenv psutil cryptography pyjwt
+          pip install --quiet google-api-python-client google-auth-oauthlib \
+            reportlab fpdf2 || true
           [ -f requirements.txt ] && pip install --quiet -r requirements.txt || true
 
-      - name: "📁 Ensure all required directories"
+      - name: "📁 Ensure required directories"
         run: |
           mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum \
                    data/sovereign data/playbooks/scripts data/premium_packs \
                    data/enterprise_kits data/enrichment data/status data/logs \
                    data/remediation data/health data/ai_predictions data/bughunter \
-                   data/analyst data/arsenal data/convergence \
+                   data/analyst data/arsenal data/convergence data/incidents \
                    data/intelligence/detection_rules secrets api
 
 # ═══════════════════════════════════════════════════════════════════════════
-# STAGE 1: SELF-HEALING BOOTSTRAP (CRITICAL — RUNS BEFORE EVERYTHING)
-# Ensures feed_manifest.json, api/feed.json, api/latest.json ALWAYS EXIST
+# STAGE 1: SELF-HEALING BOOTSTRAP
+# Ensures feed_manifest.json always exists before intel engine runs
 # ═══════════════════════════════════════════════════════════════════════════
-      - name: "🛡️ Bootstrap Critical Files (self-healing)"
+      - name: "🛡️ Bootstrap — Ensure critical files exist"
         run: |
-          echo "============================================"
-          echo "SENTINEL APEX v101 — BOOTSTRAP"
-          echo "============================================"
           python3 scripts/bootstrap_critical_files.py
           echo "Bootstrap complete."
 
-      - name: "✅ Validate critical files post-bootstrap"
+      - name: "✅ Validate bootstrap output"
         run: |
           python3 - << 'PYEOF'
           import json, sys, os
           errors = []
-
-          manifest_path = "data/stix/feed_manifest.json"
-          if not os.path.exists(manifest_path):
-              errors.append("FATAL: feed_manifest.json missing after bootstrap")
+          manifest = "data/stix/feed_manifest.json"
+          if not os.path.exists(manifest):
+              errors.append(f"FATAL: {manifest} missing after bootstrap")
           else:
               try:
-                  d = json.load(open(manifest_path))
-                  entries = d if isinstance(d, list) else d.get("advisories", d.get("entries", d.get("items", [])))
-                  print(f"✅ feed_manifest.json: {len(entries)} advisories")
+                  d = json.load(open(manifest))
+                  items = d.get("advisories", d.get("reports", d.get("items", [])))
+                  print(f"Bootstrap manifest: {len(items)} items")
               except Exception as e:
-                  errors.append(f"FATAL: feed_manifest.json corrupt: {e}")
-
-          for f in ["api/feed.json", "api/latest.json", "api/status.json"]:
-              if not os.path.exists(f):
-                  errors.append(f"WARN: {f} missing")
-              else:
-                  print(f"✅ {f}: OK")
-
+                  errors.append(f"FATAL: {manifest} corrupt: {e}")
           if errors:
-              for e in errors:
-                  print(e, file=sys.stderr)
+              [print(e, file=sys.stderr) for e in errors]
               sys.exit(1)
-          print("Pre-flight validation PASSED.")
+          print("Bootstrap validation PASSED")
           PYEOF
 
 # ═══════════════════════════════════════════════════════════════════════════
-# STAGE 2: INGEST — Sentinel Engine
+# STAGE 2: INTEL GENERATION
+# Runs the Sentinel intelligence engine to fetch + process new threats.
+# Blogger publishing is bypassed (no BLOG_ID = silent skip in engine).
+# R2 is the ONLY output channel. GitHub only stores non-sensitive metadata.
 # ═══════════════════════════════════════════════════════════════════════════
-      - name: "🌐 Monthly Maintenance"
-        if: github.event.schedule == '0 0 1 * *'
-        continue-on-error: true
-        run: python -m agent.janitor || true
-
-      - name: "🔑 Inject Sovereign Key"
+      - name: "🔑 Inject Sovereign Key (optional)"
         continue-on-error: true
         run: |
           if [ -n "${{ secrets.CDB_SOVEREIGN_KEY }}" ]; then
@@ -149,102 +139,27 @@ jobs:
       - name: "📡 Run Sentinel Intelligence Engine"
         continue-on-error: true
         env:
-          BLOG_ID: ${{ secrets.BLOG_ID }}
-          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
-          CLIENT_ID: ${{ secrets.CLIENT_ID }}
-          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
-          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
-          GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+          # Intel sources
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-          # P0-1 FIX: Telegram secrets MUST be passed to Python subprocess.
-          # telegram_alerts.py reads os.environ — if not in env block, secrets are
-          # invisible to the process and Telegram silently skips (degraded mode).
+          GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+          # Telegram alerts (optional — degraded mode if not set)
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PYTHONPATH: ${{ github.workspace }}
+          # NOTE: BLOG_ID intentionally NOT passed — Blogger publishing disabled.
+          # Engine detects missing BLOG_ID and skips publish, keeps intel generation.
         run: |
-          echo "Running Sentinel Engine (SAFE MODE — errors non-blocking)"
+          echo "Running Sentinel Intel Engine v110 (R2-only mode)"
           set +e
           timeout 1500 python -m agent.sentinel_blogger
           EXIT_CODE=$?
           set -e
-          echo "Sentinel engine exited with code: $EXIT_CODE"
-          # CRITICAL: Force-rebuild manifest from ALL STIX bundles to include
-          # new bundles written this run. Without --force-rebuild, bootstrap
-          # would skip rebuild (old manifest >= 50 entries) and ERASE the new items.
-          echo "[post-blogger] Force-rebuilding manifest to capture new STIX bundles..."
+          echo "Engine exited: $EXIT_CODE"
+          # Force-rebuild manifest from ALL STIX bundles written this run
           python3 scripts/bootstrap_critical_files.py --force-rebuild
-          echo "[post-blogger] Force-rebuild complete."
+          echo "Post-engine manifest rebuild complete."
 
-# ═══════════════════════════════════════════════════════════════════════════
-# STAGE 2.05: PUBLISH QUEUE SANITIZER — prevent HTML-entity duplicate loop
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🧹 Publish Queue Sanitizer — strip HTML-entity articles"
-        continue-on-error: true
-        run: |
-          python3 - << 'PYEOF'
-          import json, re, os, html
-
-          queue_path = "data/publish_queue.json"
-          if not os.path.exists(queue_path):
-              print("[queue] publish_queue.json not found — skip")
-              exit(0)
-
-          try:
-              with open(queue_path, encoding="utf-8") as f:
-                  queue = json.load(f)
-          except Exception as e:
-              print(f"[queue] Could not parse queue: {e} — resetting to []")
-              with open(queue_path, "w") as f:
-                  json.dump([], f)
-              exit(0)
-
-          if not isinstance(queue, list):
-              queue = []
-
-          before = len(queue)
-          clean = []
-          for item in queue:
-              title = item.get("title", "") if isinstance(item, dict) else str(item)
-              # Remove items with raw HTML entities in title (&#NNN; or &word;)
-              # These will ALWAYS fail the quality gate and cause infinite loop
-              if re.search(r'&#\d+;|&[a-z]+;', title, re.IGNORECASE):
-                  print(f"[queue] REMOVED (HTML entities in title): {title[:80]}")
-                  continue
-              clean.append(item)
-
-          removed = before - len(clean)
-          with open(queue_path, "w", encoding="utf-8") as f:
-              json.dump(clean, f, indent=2)
-          print(f"[queue] Sanitized: {before} → {len(clean)} items ({removed} removed)")
-          PYEOF
-
-# ═══════════════════════════════════════════════════════════════════════════
-# STAGE 2.1: EMBEDDED INTEL UPDATE
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "💾 Update Sync State (pre-v70 attempt — non-fatal)"
-        continue-on-error: true
-        run: |
-          # NOTE: Runs AFTER force-rebuild ensures manifest has ALL new items.
-          # Patches EMBEDDED_INTEL with full manifest (including today's new items).
-          # || true REMOVED: exit code must propagate so Final Dashboard Sync Gate
-          # can detect staleness and force re-patch if this step silently degraded.
-          python3 scripts/update_embedded_intel.py && echo "✅ pre-v70 EMBEDDED_INTEL patch OK" || {
-            echo "⚠️ pre-v70 EMBEDDED_INTEL patch FAILED — Final Sync Gate will re-patch"
-            exit 1
-          }
-
-# ═══════════════════════════════════════════════════════════════════════════
-# STAGE 2.5: INTELLIGENCE PIPELINE (v70 ADDITIVE)
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🧠 v70 Data Bridge"
-        continue-on-error: true
-        run: |
-          if [ -f scripts/data_bridge.py ]; then
-            python scripts/data_bridge.py || echo "Data bridge non-fatal"
-          fi
-
-      - name: "🤖 v70 Intelligence Orchestrator"
+      - name: "🧠 v70 Intelligence Orchestrator (enrichment)"
         continue-on-error: true
         timeout-minutes: 5
         env:
@@ -256,16 +171,12 @@ jobs:
             AI_FLAG=""
             [ "${{ github.event.inputs.skip_ai }}" = "true" ] && AI_FLAG="--no-ai"
             timeout 240 python -m agent.v70_apex_upgrade.orchestrator \
-              --data-dir data --dashboard index.html --json $AI_FLAG \
-              | tee /tmp/v70_result.json || true
+              --data-dir data --dashboard index.html --json $AI_FLAG | \
+              tee /tmp/v70_result.json || true
           fi
 
-      - name: "🔄 v101 Manifest Sync — Post-v70 sync + force-rebuild"
+      - name: "🔄 Manifest Sync — Select best manifest, force-rebuild"
         run: |
-          # ── POST-v70 SYNC ────────────────────────────────────────────────
-          # v70 orchestrator writes data/feed_manifest.json (1917 deduped entries).
-          # This step picks the manifest with MORE entries and syncs to both paths,
-          # then force-rebuilds from all STIX bundles to capture any new bundles.
           python3 - << 'PYEOF'
           import json, os, shutil
 
@@ -277,417 +188,212 @@ jobs:
 
           def count_entries(path):
               try:
-                  with open(path, encoding="utf-8") as f: d = json.load(f)
-                  if isinstance(d, list): return len(d)
-                  for k in ("advisories","entries","items"):
-                      v = d.get(k)
-                      if isinstance(v, list): return len(v)
-              except Exception: pass
-              return 0
+                  d = json.load(open(path))
+                  items = d.get("advisories", d.get("reports", d if isinstance(d, list) else []))
+                  return len(items)
+              except Exception:
+                  return 0
 
-          for p in CANDIDATES:
-              n = count_entries(p) if os.path.exists(p) else 0
-              print(f"  [sync] {p}: {n} entries")
-
+          counts = [(p, count_entries(p)) for p in CANDIDATES if os.path.exists(p)]
+          if not counts:
+              print("WARNING: No manifest found — bootstrap will handle")
+          else:
+              best_path, best_count = max(counts, key=lambda x: x[1])
+              print(f"Best manifest: {best_path} ({best_count} items)")
+              for p, _ in counts:
+                  if p != best_path:
+                      shutil.copy2(best_path, p)
+                      print(f"Synced to {p}")
           PYEOF
 
-          # Force-rebuild from ALL STIX bundles (includes today's new bundles)
-          # This is the authoritative post-v70 rebuild — produces latest manifest
-          # with ALL historical + today's new items, sorted newest-first
-          echo "[v101 Sync] Force-rebuilding from all STIX bundles post-v70..."
-          python3 scripts/bootstrap_critical_files.py --force-rebuild
-          echo "[v101 Sync] Complete."
-
-      - name: "🔍 v74 Manifest Enrichment"
-        continue-on-error: true
+# ═══════════════════════════════════════════════════════════════════════════
+# STAGE 3: SCHEMA VALIDATION
+# Validates generated intel against strict contract before R2 upload.
+# Prevents malformed data from reaching the Worker/Dashboard.
+# ═══════════════════════════════════════════════════════════════════════════
+      - name: "🔍 Schema Validation — Validate intel before R2 upload"
         run: |
-          [ -f scripts/v74_manifest_enricher.py ] && python3 scripts/v74_manifest_enricher.py || true
+          python3 scripts/validate_intel_schema.py
+          echo "Schema validation complete."
 
-      - name: "🔄 v74 Re-patch EMBEDDED_INTEL"
+# ═══════════════════════════════════════════════════════════════════════════
+# STAGE 3.5: R2 UPLOAD — PRIMARY DELIVERY CHANNEL
+# Intel data flows to R2 → Worker → API consumers → Dashboard.
+# This is the ONLY path for intel data. GitHub Pages = code+assets only.
+# ═══════════════════════════════════════════════════════════════════════════
+      - name: "☁️ Upload Intel to Cloudflare R2"
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
         run: |
-          # CRITICAL: Post-v74 enrichment patch — MUST succeed. No silent swallow.
-          # continue-on-error removed: if this fails, Final Dashboard Sync Gate
-          # will catch it, but we want the log to clearly mark the failure.
-          python3 scripts/update_embedded_intel.py && echo "✅ v74 EMBEDDED_INTEL patch OK" || {
-            echo "❌ v74 EMBEDDED_INTEL patch FAILED — aborting to trigger Final Sync Gate re-patch"
+          if [ -z "$CF_ACCOUNT_ID" ] || [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "ERROR: CF_ACCOUNT_ID or CF_R2_ACCESS_KEY_ID not set."
+            echo "Add secrets per SETUP_GITHUB_SECRETS.md — R2 upload is MANDATORY."
             exit 1
-          }
+          fi
 
-# ═══════════════════════════════════════════════════════════════════════════
-# STAGE 2.6: APEX INTELLIGENCE ENGINE v103 — GOD-LEVEL ENRICHMENT
-# Runs AFTER v74 enrichment. Adds 7 intelligence modules to every item.
-# ADDITIVE ONLY: never modifies feed_manifest.json. Zero-regression guaranteed.
-# Outputs: data/apex_enriched_manifest.json + data/apex_intelligence_report.json
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🧬 APEX Intelligence Engine v103 — 7-Module GOD-LEVEL Enrichment"
+          pip install awscli --quiet 2>/dev/null
+          ENDPOINT="https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+          # Upload primary feed manifest
+          ITEM_COUNT=$(python3 -c "
+          import json
+          d = json.load(open('data/stix/feed_manifest.json'))
+          items = d.get('advisories', d.get('reports', d if isinstance(d, list) else []))
+          print(len(items))
+          " 2>/dev/null || echo 0)
+
+          aws s3 cp data/stix/feed_manifest.json \
+            s3://sentinel-apex-data/intel/feed_manifest.json \
+            --endpoint-url "$ENDPOINT" \
+            --content-type "application/json"
+          echo "OK: feed_manifest.json uploaded ($ITEM_COUNT items)"
+
+          # Upload enriched manifests
+          for f in \
+            data/apex_enriched_manifest.json \
+            data/apex_v2_manifest.json \
+            data/apex_v2_strategic_report.json \
+            data/validated_manifest.json
+          do
+            if [ -f "$f" ]; then
+              fname=$(basename "$f")
+              aws s3 cp "$f" "s3://sentinel-apex-data/intel/$fname" \
+                --endpoint-url "$ENDPOINT" \
+                --content-type "application/json"
+              echo "OK: $fname uploaded"
+            fi
+          done
+
+          # Upload apex_v2 API endpoint files
+          if [ -d "api/apex_v2" ]; then
+            for f in api/apex_v2/*.json; do
+              [ -f "$f" ] || continue
+              fname=$(basename "$f")
+              aws s3 cp "$f" "s3://sentinel-apex-data/apex_v2/$fname" \
+                --endpoint-url "$ENDPOINT" \
+                --content-type "application/json"
+            done
+            echo "OK: apex_v2/ uploaded"
+          fi
+
+          # Write sync metadata
+          python3 - << PYEOF
+          import json, datetime
+          meta = {
+              "synced_at": datetime.datetime.utcnow().isoformat() + "Z",
+              "advisory_count": int("$ITEM_COUNT"),
+              "source": "sentinel-blogger",
+              "pipeline_version": "${{ env.PIPELINE_VERSION }}",
+              "run_id": "${{ github.run_id }}"
+          }
+          with open("/tmp/sync_meta.json", "w") as fh:
+              json.dump(meta, fh, indent=2)
+          PYEOF
+
+          aws s3 cp /tmp/sync_meta.json \
+            s3://sentinel-apex-data/intel/_sync_meta.json \
+            --endpoint-url "$ENDPOINT" \
+            --content-type "application/json"
+          echo "OK: Sync metadata written ($ITEM_COUNT advisories)"
+
+      - name: "🔄 Bust Worker KV Cache"
         continue-on-error: true
+        env:
+          WORKER_ADMIN_SECRET: ${{ secrets.WORKER_ADMIN_SECRET }}
         run: |
-          echo "============================================"
-          echo "APEX INTELLIGENCE ENGINE v103.0 — STARTING"
-          echo "============================================"
-          python3 scripts/apex_intelligence_engine.py && echo "✅ APEX Intelligence Engine complete" || {
-            echo "⚠️ APEX Intelligence Engine warn (non-fatal — pipeline continues)"
-          }
-          # Quick audit output
-          python3 - << 'PYEOF'
-          import json, os
-          audit_path = "data/health/apex_engine_report.json"
-          if os.path.exists(audit_path):
-              try:
-                  r = json.load(open(audit_path))
-                  ed = r.get("output_summary", {})
-                  print(f"[APEX-AUDIT] Items: {r.get('items_enriched','N/A')} | "
-                        f"Critical: {ed.get('critical_risk_count','N/A')} | "
-                        f"KEV: {ed.get('kev_confirmed','N/A')} | "
-                        f"Posture: {ed.get('overall_threat_posture','N/A')}")
-              except Exception as e:
-                  print(f"[APEX-AUDIT] Read failed: {e}")
-          else:
-              print("[APEX-AUDIT] Report not found (engine may have been skipped)")
-          PYEOF
+          if [ -z "$WORKER_ADMIN_SECRET" ]; then
+            echo "INFO: WORKER_ADMIN_SECRET not set — KV will expire naturally (3 min TTL)"
+            exit 0
+          fi
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "https://intel.cyberdudebivash.com/api/admin/cache/bust?key=idx:reports" \
+            -H "X-Admin-Secret: ${WORKER_ADMIN_SECRET}")
+          [ "$HTTP" = "200" ] && echo "OK: Worker KV cache busted" || \
+            echo "INFO: Cache bust HTTP $HTTP (non-fatal)"
+          # Also bust preview cache
+          curl -s -o /dev/null \
+            -X POST "https://intel.cyberdudebivash.com/api/admin/cache/bust?key=preview:teaser" \
+            -H "X-Admin-Secret: ${WORKER_ADMIN_SECRET}" || true
 
 # ═══════════════════════════════════════════════════════════════════════════
-# STAGE 2.7: APEX v2 EVOLUTION ENGINE — Adaptive Priority + Temporal Intelligence
-# Runs AFTER APEX v1 (Stage 2.6). Input: data/apex_enriched_manifest.json
-# ADDITIVE ONLY: never modifies apex_enriched_manifest.json. Zero-regression.
-# Outputs: data/apex_v2_manifest.json + data/apex_v2_strategic_report.json
-#          api/apex_v2/*.json (5 endpoints) + data/health/apex_v2_audit.json
+# STAGE 4: GIT SYNC — Non-sensitive metadata only
+# SECURITY: Intel data (feed_manifest.json, api/feed.json) NEVER committed.
+# Only status, health, and code changes go to GitHub.
 # ═══════════════════════════════════════════════════════════════════════════
-      - name: "🚀 APEX v2 Evolution Engine v104 — Priority + Temporal + Adaptive Intelligence"
-        continue-on-error: true
-        run: |
-          echo "============================================"
-          echo "APEX v2 EVOLUTION ENGINE v104.0 — STARTING"
-          echo "============================================"
-          # Ensure api/apex_v2 directory exists for static endpoint output
-          mkdir -p api/apex_v2
-          python3 scripts/apex_v2_evolution_engine.py && echo "✅ APEX v2 Evolution Engine complete" || {
-            echo "⚠️ APEX v2 Evolution Engine warn (non-fatal — pipeline continues)"
-          }
-          # Quick audit output
-          python3 - << 'PYEOF'
-          import json, os
-          audit_path = "data/health/apex_v2_audit.json"
-          if os.path.exists(audit_path):
-              try:
-                  r = json.load(open(audit_path))
-                  summary = r.get("run_summary", {})
-                  print(f"[APEX-V2-AUDIT] Items: {summary.get('items_processed','N/A')} | "
-                        f"Critical: {summary.get('critical_count','N/A')} | "
-                        f"Trending: {summary.get('trending_count','N/A')} | "
-                        f"Endpoints: {summary.get('api_endpoints_written','N/A')} | "
-                        f"Status: {summary.get('status','N/A')}")
-              except Exception as e:
-                  print(f"[APEX-V2-AUDIT] Read failed: {e}")
-          else:
-              print("[APEX-V2-AUDIT] Audit not found (engine may have been skipped)")
-          PYEOF
-
-      - name: "⏱️ Update Sync Marker"
-        run: |
-          python3 - << 'PYEOF'
-          import json, os
-          from datetime import datetime, timezone
-          os.makedirs("data", exist_ok=True)
-          marker = {
-              "version": "104.0.0",
-              "last_sync": datetime.now(timezone.utc).isoformat(),
-              "updated_by": "sentinel-blogger",
-              "apex_engine": "v103",
-              "apex_v2_engine": "v104",
-              "status": "ACTIVE"
-          }
-          with open("data/sync_marker.json", "w") as f:
-              json.dump(marker, f, indent=2)
-          print("Sync marker updated to v104.0.0.")
-          PYEOF
-
-# ═══════════════════════════════════════════════════════════════════════════
-# STAGE 3: SAFE GIT SYNC v104.1 — PERMANENT NON-FAST-FORWARD + LOCK ELIMINATION
-# Strategy: ClearLocks → AbortRebase → Stage → Commit → Fetch+Merge(ours) → 4-attempt push
-# v104.1 FIX: replaced rebase(O(n) conflicts) with merge -X ours (O(1), no replay risk)
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🔒 Safe Git Sync v101"
+      - name: "🔒 Git Sync — Commit non-sensitive metadata"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # ── Configure git ──────────────────────────────────────────────
           git config --local user.email "sentinel@cyberdudebivash.com"
           git config --local user.name  "CDB-Sentinel-Bot"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
 
-          # ── [PERMANENT FIX v104.1] Clear ALL stale git locks first ────
-          # index.lock left by crashed git process → blocks ALL git ops
-          rm -f  .git/index.lock 2>/dev/null || true
-          rm -f  .git/config.lock 2>/dev/null || true
-          rm -f  .git/HEAD.lock  2>/dev/null || true
-          rm -f  .git/packed-refs.lock 2>/dev/null || true
-
-          # ── Abort any lingering rebase/merge ───────────────────────────
-          git rebase --abort  2>/dev/null || true
+          # Clear stale locks
+          rm -f  .git/index.lock .git/config.lock .git/HEAD.lock 2>/dev/null || true
+          git rebase --abort 2>/dev/null || true
           git merge  --abort  2>/dev/null || true
           rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
-          rm -f  .git/MERGE_HEAD .git/CHERRY_PICK_HEAD .git/REVERT_HEAD 2>/dev/null || true
 
-          # ── Stage critical pipeline files (force-add for gitignored paths)
-          # SECURITY v109: feed_manifest.json + api/feed.json + api/apex_v2/ are REMOVED
-          # from git tracking. They flow to Cloudflare R2 via r2-data-sync.yml only.
-          # DO NOT re-add git add -f for these files — it will re-expose intel data publicly.
-          # git add -f data/stix/feed_manifest.json    # BLOCKED: private intel → R2 only
-          # git add -f data/feed_manifest.json          # BLOCKED: private intel → R2 only
-          git add -f data/sync_marker.json              2>/dev/null || true
-          git add -f api/latest.json api/status.json 2>/dev/null || true
-          # git add -f api/feed.json                    # BLOCKED: auth-bypass vector → R2 only
-          # git add -f api/apex_v2/                     # BLOCKED: auth-bypass vector → R2 only
-          git add -f api/engines.json api/ai/                    2>/dev/null || true
-          git add    index.html sitemap.xml             2>/dev/null || true
-          git add    .gitignore                         2>/dev/null || true
-          git add -f data/status/status.json            2>/dev/null || true
-          git add -f data/health/guardian_report.json  2>/dev/null || true
-          git add    threat/                            2>/dev/null || true
-          git add -f data/publish_queue.json            2>/dev/null || true
-          # P0-7/8/9/10 FIX: Engine JSON dirs — included in main commit so gh-pages is always fresh
-          git add -f data/nexus/ data/genesis/ data/bughunter/ 2>/dev/null || true
-          git add -f data/incidents/ data/responses/ data/threathunts/ 2>/dev/null || true
-          git add -f data/cortex/ data/quantum/ data/sovereign/ 2>/dev/null || true
-          # v103 APEX v1: Stage intelligence engine outputs
-          git add -f data/apex_enriched_manifest.json 2>/dev/null || true
-          git add -f data/apex_intelligence_report.json 2>/dev/null || true
+          # Stage NON-SENSITIVE files only
+          # BLOCKED (private intel → R2 only):
+          # - data/stix/feed_manifest.json
+          # - data/feed_manifest.json
+          # - api/feed.json
+          # - api/apex_v2/
+          git add -f data/sync_marker.json               2>/dev/null || true
+          git add -f api/latest.json api/status.json     2>/dev/null || true
+          git add -f api/engines.json api/ai/            2>/dev/null || true
+          git add    index.html sitemap.xml               2>/dev/null || true
+          git add    .gitignore                           2>/dev/null || true
+          git add -f data/status/status.json              2>/dev/null || true
+          git add -f data/health/guardian_report.json    2>/dev/null || true
           git add -f data/health/apex_engine_report.json 2>/dev/null || true
-          git add -f data/validated_manifest.json 2>/dev/null || true
-          git add -f config/feature_flags.json 2>/dev/null || true
-          # v104 APEX v2 Evolution Engine: Stage adaptive intelligence outputs (summary only, no raw feed)
-          git add -f data/apex_v2_manifest.json 2>/dev/null || true
-          git add -f data/apex_v2_strategic_report.json 2>/dev/null || true
-          git add -f data/health/apex_v2_audit.json 2>/dev/null || true
+          git add -f data/health/apex_v2_audit.json      2>/dev/null || true
+          git add -f data/apex_v2_manifest.json          2>/dev/null || true
+          git add -f data/apex_v2_strategic_report.json  2>/dev/null || true
+          git add -f data/apex_intelligence_report.json  2>/dev/null || true
+          git add -f data/apex_enriched_manifest.json    2>/dev/null || true
+          git add -f data/validated_manifest.json        2>/dev/null || true
+          git add -f config/feature_flags.json           2>/dev/null || true
 
-          # ── Check if there is anything to commit ──────────────────────
           if git diff --staged --quiet; then
-            echo "No pipeline data changes to commit."
+            echo "No metadata changes to commit."
           else
             ENTRY_COUNT=$(python3 -c "
           import json
           try:
               d = json.load(open('data/stix/feed_manifest.json'))
-              print(len(d if isinstance(d,list) else d.get('advisories', d.get('entries', d.get('items', [])))))
-          except:
-              print('N/A')
-          " 2>/dev/null || echo "N/A")
-            APEX_COUNT=$(python3 -c "
-          import json, os
-          try:
-              if os.path.exists('data/apex_enriched_manifest.json'):
-                  d = json.load(open('data/apex_enriched_manifest.json'))
-                  items = d if isinstance(d, list) else []
-                  apex = sum(1 for i in items if i.get('_apex_enriched'))
-                  print(f' | APEX-enriched: {apex}/{len(items)}')
-              else:
-                  print('')
-          except: print('')
-          " 2>/dev/null || echo "")
-            APEX_V2_COUNT=$(python3 -c "
-          import json, os
-          try:
-              audit = 'data/health/apex_v2_audit.json'
-              if os.path.exists(audit):
-                  r = json.load(open(audit))
-                  s = r.get('run_summary', {})
-                  crit = s.get('critical_count', 0)
-                  trend = s.get('trending_count', 0)
-                  print(f' | V2-Critical: {crit} V2-Trending: {trend}')
-              else:
-                  print('')
-          except: print('')
-          " 2>/dev/null || echo "")
-            git commit -m "🌐 SENTINEL APEX v104.0 — ${ENTRY_COUNT} advisories${APEX_COUNT}${APEX_V2_COUNT} @ $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
+              items = d.get('advisories', d.get('reports', d if isinstance(d,list) else []))
+              print(len(items))
+          except: print('N/A')
+            " 2>/dev/null || echo "N/A")
+            git commit -m "🌐 SENTINEL APEX v110 — ${ENTRY_COUNT} advisories @ $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
           fi
 
-          # ── [PERMANENT FIX v104.1] 4-attempt push — merge(ours) strategy ──
-          # WHY: Prior failures caused by git rebase replaying every local commit
-          # onto remote HEAD — O(n) conflict risk when branches diverge (e.g. 588
-          # local + 509 remote). rebase also leaves index.lock on failure, blocking
-          # all subsequent git ops until manually cleared.
-          # FIX: merge -X ours creates a SINGLE merge commit. No replay. No O(n)
-          # conflicts. CI pipeline output always wins on conflict. Safe at any divergence.
-          MAX=4
-          for i in $(seq 1 $MAX); do
+          # 4-attempt push with merge recovery
+          for i in 1 2 3 4; do
             git fetch origin main --quiet
-
-            # Re-clear index.lock after fetch (fetch can leave locks on timeout)
             rm -f .git/index.lock 2>/dev/null || true
-
-            # PRIMARY sync: merge strategy — O(1) regardless of commit count
-            if git merge origin/main -X ours --no-edit --quiet 2>/dev/null; then
-              echo "Merge sync OK on attempt $i"
-            else
-              # Full recovery path: stash our data → reset to remote → pop stash
+            git merge origin/main -X ours --no-edit --quiet 2>/dev/null || {
               git merge --abort 2>/dev/null || true
-              git stash push -m "sentinel-sync-recovery-$i" 2>/dev/null || true
+              git stash push -m "sentinel-recovery-$i" 2>/dev/null || true
               git reset --hard origin/main 2>/dev/null || true
               git stash pop 2>/dev/null || true
-              echo "Hard-reset + stash-pop recovery on attempt $i"
-            fi
-
-            # Attempt push
+            }
             if git push origin main; then
-              echo "✅ Push succeeded (attempt $i/$MAX)"
+              echo "OK: Push succeeded (attempt $i)"
               break
             fi
-            BACKOFF=$((i * 15))
-            echo "Push attempt $i/$MAX failed — retrying in ${BACKOFF}s..."
-            sleep $BACKOFF
-            if [ $i -eq $MAX ]; then
-              echo "⚠️ All $MAX push attempts exhausted — data committed locally, syncs next run."
-            fi
+            sleep $((i * 15))
+            [ $i -eq 4 ] && echo "WARN: All push attempts exhausted — syncs next run"
           done
 
 # ═══════════════════════════════════════════════════════════════════════════
-# STAGE 4: DEPLOY
+# STAGE 5: GITHUB PAGES DEPLOY
+# Deploys code + UI assets. Intel data is served from R2/Worker, not Pages.
 # ═══════════════════════════════════════════════════════════════════════════
-      - name: "🔐 Final Dashboard Sync Gate — Mandatory EMBEDDED_INTEL Verification"
-        run: |
-          # ── MANDATORY: Verify EMBEDDED_INTEL is fresh before deploy ───────
-          # Count items in EMBEDDED_INTEL currently in index.html
-          EMBEDDED_COUNT=$(python3 - << 'PYEOF'
-          import re, sys
-          try:
-              html = open("index.html", encoding="utf-8").read()
-              pos = html.find("const EMBEDDED_INTEL = [")
-              if pos == -1:
-                  print(0); sys.exit(0)
-              start = pos + len("const EMBEDDED_INTEL = ")
-              depth = 0; i = start; in_s = False; esc = False
-              while i < len(html):
-                  c = html[i]
-                  if esc: esc = False; i += 1; continue
-                  if c == '\\' and in_s: esc = True; i += 1; continue
-                  if c == '"' and not esc: in_s = not in_s; i += 1; continue
-                  if not in_s:
-                      if c == '[': depth += 1
-                      elif c == ']':
-                          depth -= 1
-                          if depth == 0:
-                              import json
-                              try: items = json.loads(html[start:i+1]); print(len(items))
-                              except: print(0)
-                              sys.exit(0)
-                  i += 1
-              print(0)
-          except Exception as e:
-              print(0)
-          PYEOF
-          )
-
-          MANIFEST_COUNT=$(python3 -c "
-          import json
-          try:
-              d = json.load(open('data/stix/feed_manifest.json'))
-              items = d if isinstance(d,list) else d.get('advisories', d.get('entries', d.get('items', [])))
-              print(len(items))
-          except: print(0)
-          " 2>/dev/null || echo 0)
-
-          echo "EMBEDDED_INTEL items: $EMBEDDED_COUNT | Manifest items: $MANIFEST_COUNT"
-
-          # If EMBEDDED_INTEL is stale (differs from manifest by >10%) — force re-patch
-          if [ "$MANIFEST_COUNT" -gt 50 ]; then
-            THRESHOLD=$(( MANIFEST_COUNT * 90 / 100 ))
-            if [ "$EMBEDDED_COUNT" -lt "$THRESHOLD" ]; then
-              echo "⚠️ EMBEDDED_INTEL stale ($EMBEDDED_COUNT < 90% of manifest $MANIFEST_COUNT) — forcing re-patch..."
-              python3 scripts/update_embedded_intel.py
-              echo "✅ Force re-patch complete"
-              # Re-stage index.html with fresh EMBEDDED_INTEL
-              git add index.html 2>/dev/null || true
-            else
-              echo "✅ EMBEDDED_INTEL fresh ($EMBEDDED_COUNT items matches manifest $MANIFEST_COUNT)"
-            fi
-          else
-            echo "⚠️ Manifest too small ($MANIFEST_COUNT) — running bootstrap first"
-            python3 scripts/bootstrap_critical_files.py
-            python3 scripts/update_embedded_intel.py && echo "✅ bootstrap-triggered patch OK" || {
-              echo "❌ CRITICAL: bootstrap-triggered EMBEDDED_INTEL patch failed"
-              exit 1
-            }
-            git add index.html 2>/dev/null || true
-          fi
-
-      - name: "🚀 Pre-deploy Integrity Gate"
-        run: |
-          # MANDATORY — deploy is BLOCKED if this gate fails after repair attempt.
-          # continue-on-error REMOVED: broken dashboard must never reach production.
-          python3 scripts/pre_deploy_gate.py && echo "✅ Integrity gate PASSED" || {
-            echo "⚠️ Gate WARN — attempting auto-repair..."
-            python3 scripts/update_embedded_intel.py
-            echo "🔁 Re-running integrity gate post-repair..."
-            python3 scripts/pre_deploy_gate.py || {
-              echo "❌ CRITICAL: Integrity gate FAILED after repair — deploy BLOCKED"
-              exit 1
-            }
-          }
-          # Run platform-wide safety check (non-fatal on first deployment of guard)
-          python3 scripts/platform_integrity_guard.py --mode=pre-deploy || echo "⚠️ Integrity guard advisory warning — see output above"
-
-# ═══════════════════════════════════════════════════════════════════════════
-# STAGE 3.5: DIRECT R2 UPLOAD — FAILSAFE (runs in SAME pipeline as data gen)
-# Ensures Worker always gets fresh data even if r2-data-sync.yml fails.
-# Requires: CF_API_TOKEN + CF_ACCOUNT_ID secrets in GitHub repo settings.
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "☁️ Direct R2 Upload — Failsafe Intel Sync"
-        continue-on-error: true
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          WORKER_ADMIN_SECRET: ${{ secrets.WORKER_ADMIN_SECRET }}
-        run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "INFO: CF_API_TOKEN or CF_ACCOUNT_ID not set — skipping R2 failsafe."
-            echo "Add these secrets to enable automatic R2 sync per SETUP_GITHUB_SECRETS.md"
-            exit 0
-          fi
-
-          npm install -g wrangler@latest --quiet 2>/dev/null || true
-          command -v wrangler || { echo "WARN: wrangler not available"; exit 0; }
-
-          wrangler r2 bucket create sentinel-apex-data 2>/dev/null || true
-
-          MANIFEST="data/stix/feed_manifest.json"
-          if [ -f "$MANIFEST" ]; then
-            ITEM_COUNT=$(python3 -c "
-          import json
-          d = json.load(open('$MANIFEST'))
-          items = d.get('advisories') or d.get('reports') or (d if isinstance(d,list) else [])
-          print(len(items))
-            " 2>/dev/null || echo 0)
-            wrangler r2 object put sentinel-apex-data/intel/feed_manifest.json \
-              --file="$MANIFEST" --content-type="application/json" \
-              && echo "OK: feed_manifest.json -> R2 ($ITEM_COUNT items)" \
-              || echo "WARN: R2 upload failed (r2-data-sync.yml will retry)"
-          fi
-
-          for f in data/apex_enriched_manifest.json data/apex_v2_manifest.json; do
-            [ -f "$f" ] || continue
-            wrangler r2 object put "sentinel-apex-data/intel/$(basename $f)" \
-              --file="$f" --content-type="application/json" \
-              && echo "OK: $(basename $f) -> R2" || true
-          done
-
-          python3 -c "
-          import json, datetime, os
-          meta = {'synced_at': datetime.datetime.utcnow().isoformat() + 'Z',
-                  'source': 'sentinel-blogger-failsafe', 'version': '109.0'}
-          with open('/tmp/sync_meta.json', 'w') as f: json.dump(meta, f)
-          "
-          wrangler r2 object put sentinel-apex-data/intel/_sync_meta.json \
-            --file="/tmp/sync_meta.json" --content-type="application/json" || true
-
-          if [ -n "$WORKER_ADMIN_SECRET" ]; then
-            HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
-              -X POST "https://intel.cyberdudebivash.com/api/admin/cache/bust?key=idx:reports" \
-              -H "X-Admin-Secret: $WORKER_ADMIN_SECRET")
-            [ "$HTTP" = "200" ] && echo "OK: Worker KV cache busted" \
-              || echo "INFO: Cache bust HTTP $HTTP"
-          fi
-
       - name: "🚀 Deploy to GitHub Pages"
         uses: JamesIves/github-pages-deploy-action@v4.7.3
         with:
@@ -696,22 +402,41 @@ jobs:
           clean: false
 
 # ═══════════════════════════════════════════════════════════════════════════
-# STAGE 5: POST-PIPELINE EXTRAS
+# STAGE 6: POST-PIPELINE VALIDATION
+# Validates the full pipeline: R2 → Worker → API → live response
 # ═══════════════════════════════════════════════════════════════════════════
-      - name: "🔧 Pipeline Hardener"
-        continue-on-error: true
-        run: python agent/v48_pipeline_hardening/pipeline_hardener.py || true
-
-      - name: "✅ Quality Gate"
-        continue-on-error: true
-        run: python agent/quality_gate_audit.py || true
-
-      - name: "🗺️ Generate Threat Pages"
-        continue-on-error: true
-        run: python scripts/threat_page_generator.py || true
-
-      - name: "🌐 API Layer v101.1 — Build Static API + Exports"
+      - name: "✅ E2E Pipeline Validation"
         continue-on-error: true
         run: |
-          python3 scripts/api_layer_v101.py && echo "OK: API layer built" || echo "WARN: API layer (non-fatal)"
-          python3 scripts/generate_ai_endpoints.py && echo "OK: AI endpoints refreshed" || echo "WARN: AI endpoints (non-fatal)"
+          echo "=== SENTINEL APEX v110 — E2E PIPELINE VALIDATION ==="
+          sleep 5
+
+          # Test 1: Worker health
+          HEALTH=$(curl -s "https://intel.cyberdudebivash.com/api/health" 2>/dev/null)
+          R2_STATUS=$(echo "$HEALTH" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('checks',{}).get('r2_intel','unknown'))" 2>/dev/null || echo "error")
+          GATEWAY=$(echo "$HEALTH" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('gateway','unknown'))" 2>/dev/null || echo "error")
+          echo "[Health] Gateway: $GATEWAY | R2: $R2_STATUS"
+
+          # Test 2: Preview endpoint (public, no auth)
+          PREVIEW=$(curl -s "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null)
+          TOTAL=$(echo "$PREVIEW" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('preview',{}).get('total_in_feed',0))" 2>/dev/null || echo 0)
+          ITEMS=$(echo "$PREVIEW" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('preview',{}).get('items',[])))" 2>/dev/null || echo 0)
+          echo "[Preview] $ITEMS preview items | $TOTAL total in feed"
+
+          # Test 3: Auth enforcement
+          FEED_RESP=$(curl -s -o /dev/null -w "%{http_code}" "https://intel.cyberdudebivash.com/api/feed" 2>/dev/null)
+          echo "[Auth] /api/feed (no key) → HTTP $FEED_RESP (expect 401)"
+
+          # Summary
+          if [ "$R2_STATUS" = "ok" ] && [ "$TOTAL" -gt "100" ] && [ "$FEED_RESP" = "401" ]; then
+            echo "=== VALIDATION PASSED: Pipeline fully operational ==="
+          else
+            echo "=== VALIDATION WARNING: Check individual results above ==="
+          fi
+
+      - name: "🔧 Post-pipeline extras"
+        continue-on-error: true
+        run: |
+          python agent/v48_pipeline_hardening/pipeline_hardener.py || true
+          python agent/quality_gate_audit.py || true
+          python3 scripts/generate_ai_endpoints.py || true
