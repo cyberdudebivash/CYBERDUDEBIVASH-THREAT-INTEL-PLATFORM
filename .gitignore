@@ -32,14 +32,20 @@ data/manifest_versions/
 data/logs/
 *.log
 
-# --- HIGH-VOLUME STIX INDIVIDUAL OBJECTS (committed via -f by sentinel-blogger) ---
-# These are large individual advisory JSON files — exclude from default tracking
-# The feed_manifest.json AGGREGATION is what matters and IS committed.
+# --- HIGH-VOLUME STIX INDIVIDUAL OBJECTS ---
+# These are large individual advisory JSON files — excluded from tracking.
 data/stix/CDB-APEX-*.json
+
+# --- SECURITY v109: PRIVATE INTEL DATA — NEVER COMMIT TO PUBLIC REPO ---
+# These files flow to Cloudflare R2 via r2-data-sync.yml workflow ONLY.
+# Committed to GitHub = auth bypass. Do not un-ignore these lines.
+data/stix/feed_manifest.json
+data/feed_manifest.json
+api/feed.json
+api/apex_v2/
 
 # --- PIPELINE-CRITICAL STATE FILES — EXPLICITLY UN-IGNORED ---
 # These MUST be committed so all downstream workflows find them on checkout.
-!data/stix/feed_manifest.json
 !data/sync_marker.json
 !data/alert_history.json
 !data/audit_log.json
@@ -59,8 +65,8 @@ data/stix/CDB-APEX-*.json
 !data/intelligence/detection_rules/rule_manifest.json
 
 # --- API ENDPOINT FILES — PIPELINE STATE (un-ignored) ---
-# api/ dir is committed — these are the live feed endpoints
-!api/feed.json
+# NOTE: api/feed.json and api/apex_v2/ are intentionally NOT un-ignored here.
+# They are private intel data served via Cloudflare Worker + R2 only.
 !api/latest.json
 !api/status.json
 
@@ -92,6 +98,3 @@ changed_files_migration.txt
 3.9
 "*.md" 
 "*.md" 
-api/feed.json 
-api/apex_v2/ 
-data/stix/feed_manifest.json 

@@ -430,10 +430,15 @@ jobs:
           rm -f  .git/MERGE_HEAD .git/CHERRY_PICK_HEAD .git/REVERT_HEAD 2>/dev/null || true
 
           # ── Stage critical pipeline files (force-add for gitignored paths)
-          git add -f data/stix/feed_manifest.json      2>/dev/null || true
-          git add -f data/feed_manifest.json            2>/dev/null || true  # v70 canonical
+          # SECURITY v109: feed_manifest.json + api/feed.json + api/apex_v2/ are REMOVED
+          # from git tracking. They flow to Cloudflare R2 via r2-data-sync.yml only.
+          # DO NOT re-add git add -f for these files — it will re-expose intel data publicly.
+          # git add -f data/stix/feed_manifest.json    # BLOCKED: private intel → R2 only
+          # git add -f data/feed_manifest.json          # BLOCKED: private intel → R2 only
           git add -f data/sync_marker.json              2>/dev/null || true
-          git add -f api/feed.json api/latest.json api/status.json 2>/dev/null || true
+          git add -f api/latest.json api/status.json 2>/dev/null || true
+          # git add -f api/feed.json                    # BLOCKED: auth-bypass vector → R2 only
+          # git add -f api/apex_v2/                     # BLOCKED: auth-bypass vector → R2 only
           git add -f api/engines.json api/ai/                    2>/dev/null || true
           git add    index.html sitemap.xml             2>/dev/null || true
           git add    .gitignore                         2>/dev/null || true
@@ -451,11 +456,10 @@ jobs:
           git add -f data/health/apex_engine_report.json 2>/dev/null || true
           git add -f data/validated_manifest.json 2>/dev/null || true
           git add -f config/feature_flags.json 2>/dev/null || true
-          # v104 APEX v2 Evolution Engine: Stage adaptive intelligence outputs
+          # v104 APEX v2 Evolution Engine: Stage adaptive intelligence outputs (summary only, no raw feed)
           git add -f data/apex_v2_manifest.json 2>/dev/null || true
           git add -f data/apex_v2_strategic_report.json 2>/dev/null || true
           git add -f data/health/apex_v2_audit.json 2>/dev/null || true
-          git add -f api/apex_v2/ 2>/dev/null || true
 
           # ── Check if there is anything to commit ──────────────────────
           if git diff --staged --quiet; then
@@ -654,3 +658,4 @@ jobs:
           python3 scripts/api_layer_v101.py && echo "✅ API layer built" || echo "⚠️ API layer warn (non-fatal)"
           # Run generate_ai_endpoints.py to refresh AI/APEX endpoint JSON after deploy
           python3 scripts/generate_ai_endpoints.py && echo "✅ AI endpoints refreshed" || echo "⚠️ AI endpoints warn (non-fatal)"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 

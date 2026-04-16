@@ -1,0 +1,147 @@
+﻿name: R2 Intel Data Sync v109
+
+# Pushes generated intel data to Cloudflare R2 (private storage).
+# Data NEVER committed to GitHub — this is the security boundary.
+# Worker reads from R2, not GitHub raw URLs.
+
+on:
+  workflow_run:
+    workflows: ["sentinel-blogger"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read   # read-only — never writes back to GitHub
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  sync-to-r2:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup Python + AWS CLI
+        run: |
+          python -m pip install --upgrade pip --quiet
+          pip install awscli --quiet
+
+      - name: Configure AWS CLI for Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+          aws configure set default.region auto
+          echo "AWS CLI configured for R2"
+
+      - name: Validate intel data before upload
+        run: |
+          python3 - << 'PYEOF'
+          import json, sys, os
+
+          manifest = "data/stix/feed_manifest.json"
+          if not os.path.exists(manifest):
+              print(f"ERROR: {manifest} not found")
+              sys.exit(1)
+
+          with open(manifest) as f:
+              data = json.load(f)
+
+          # Support both {advisories:[...]} and {reports:[...]} formats
+          items = data.get("advisories") or data.get("reports") or (data if isinstance(data, list) else [])
+          count = len(items)
+
+          print(f"Manifest: {count} items found")
+
+          if count < 10:
+              print(f"ERROR: Only {count} items — refusing upload (minimum 10 required)")
+              sys.exit(1)
+
+          print(f"Validation PASSED: {count} items ready for R2")
+          PYEOF
+
+      - name: Upload feed_manifest.json to R2
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
+        run: |
+          ENDPOINT="https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 cp data/stix/feed_manifest.json \
+            s3://sentinel-apex-data/intel/feed_manifest.json \
+            --endpoint-url "$ENDPOINT" \
+            --content-type "application/json"
+          echo "Uploaded feed_manifest.json"
+
+      - name: Upload APEX enriched manifests to R2
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
+        run: |
+          ENDPOINT="https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          for f in data/apex_enriched_manifest.json data/apex_v2_manifest.json data/apex_v2_strategic_report.json; do
+            if [ -f "$f" ]; then
+              fname=$(basename "$f")
+              aws s3 cp "$f" "s3://sentinel-apex-data/intel/$fname" \
+                --endpoint-url "$ENDPOINT" \
+                --content-type "application/json"
+              echo "Uploaded $fname"
+            fi
+          done
+          # Upload apex_v2 endpoint files
+          if [ -d "api/apex_v2" ]; then
+            for f in api/apex_v2/*.json; do
+              if [ -f "$f" ]; then
+                fname=$(basename "$f")
+                aws s3 cp "$f" "s3://sentinel-apex-data/apex_v2/$fname" \
+                  --endpoint-url "$ENDPOINT" \
+                  --content-type "application/json"
+                echo "Uploaded apex_v2/$fname"
+              fi
+            done
+          fi
+
+      - name: Write sync metadata to R2
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
+        run: |
+          ENDPOINT="https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          ADVISORY_COUNT=$(python3 -c "
+          import json
+          d = json.load(open('data/stix/feed_manifest.json'))
+          items = d.get('advisories') or d.get('reports') or (d if isinstance(d,list) else [])
+          print(len(items))
+          " 2>/dev/null || echo "0")
+          META=$(python3 -c "
+          import json
+          from datetime import datetime, timezone
+          print(json.dumps({'synced_at': datetime.now(timezone.utc).isoformat(), 'advisory_count': $ADVISORY_COUNT, 'source': 'sentinel-blogger', 'version': '109.0'}))
+          ")
+          echo "$META" | aws s3 cp - s3://sentinel-apex-data/intel/_sync_meta.json \
+            --endpoint-url "$ENDPOINT" \
+            --content-type "application/json"
+          echo "Sync metadata written: $ADVISORY_COUNT advisories"
+
+      - name: Bust Worker KV cache
+        env:
+          WORKER_ADMIN_SECRET: ${{ secrets.WORKER_ADMIN_SECRET }}
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "https://intel.cyberdudebivash.com/api/admin/cache/bust?key=idx:reports" \
+            -H "X-Admin-Secret: ${WORKER_ADMIN_SECRET}")
+          if [ "$RESPONSE" = "200" ]; then
+            echo "KV cache busted successfully"
+          else
+            echo "Cache bust returned HTTP $RESPONSE (non-fatal — Worker will re-read R2)"
+          fi
