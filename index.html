@@ -5424,7 +5424,10 @@
 
             const counts = {};
             data.forEach(d => {
-                (d.mitre_tactics || []).forEach(t => {
+                // v112.0: Worker /api/preview returns TTPs as 'ttps' array.
+                // Legacy manifests may use 'mitre_tactics' or 'mitre_techniques'.
+                // Read all three fields to guarantee non-zero heatmap.
+                (d.ttps || d.mitre_techniques || d.mitre_tactics || []).forEach(t => {
                     const tid = typeof t === 'string' ? t : (t.technique_id || t.id || '');
                     if (tid) counts[tid] = (counts[tid] || 0) + 1;
                 });
@@ -5858,7 +5861,7 @@ function renderTopThreats(data) {
 
 
         // ── Embedded Fallback Data (real advisories — renders when network unavailable) ──
-        const EMBEDDED_INTEL = []  /* P0-FIX v111.0: EMBEDDED_INTEL cleared — Worker API (R2-backed) is authoritative. Brand-contaminated entries removed. If Worker unavailable, show loading state. */;  // v110.1: hardcoded data removed — Worker API is authoritative source
+        const EMBEDDED_INTEL = [];  // v112.0: cleared — Worker API (R2-backed) is authoritative. EMBEDDED_INTEL intentionally empty.
 
         // ── Load Data (v73.0 — Progressive Loading: Zero-Wait Boot) ──
         // ARCHITECTURE: Render EMBEDDED_INTEL immediately, then upgrade to live.
@@ -6035,16 +6038,23 @@ function renderTopThreats(data) {
                         return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
                     });
                     _liveDataLoaded = true;
-                    // v101.1 API COUNT SYNC: total advisory count from authoritative source
-                    // NOTE: version display comes from api/status.json (bootFromEmbeddedCache)
-                    // data.count = v74 enricher field; data.total_count = bootstrap field
+                    // v112.0 API COUNT SYNC: total advisory count from authoritative source
+                    // Priority: total_in_feed (Worker /api/preview) > count (v74 enricher) > total_count (bootstrap)
                     try {
-                        if (data && (data.count || data.total_count)) {
-                            var _tcVal = data.count || data.total_count || manifestData.length;
+                        if (data && (data.total_in_feed || data.count || data.total_count)) {
+                            var _tcVal = data.total_in_feed || data.count || data.total_count || manifestData.length;
                             var _tcEl  = document.getElementById('m-total');
                             if (_tcEl && isApiSource) _tcEl.textContent = _tcVal.toLocaleString();
                         }
                     } catch(_me) {}
+                    // v112.0 LAST SYNC FIX: use generated_at from Worker response (not item timestamp)
+                    // Worker /api/preview returns top-level generated_at = when R2 manifest was written
+                    try {
+                        if (data && data.generated_at && isApiSource) {
+                            var _lsEl = document.getElementById('m-last-sync');
+                            if (_lsEl) _lsEl.textContent = timeSince(data.generated_at);
+                        }
+                    } catch(_lse) {}
                     try { computeMetrics(manifestData); } catch(e) {}
                     try { renderTrendChart(manifestData); } catch(e) {}
                     try { applyView(); } catch(e) {}
