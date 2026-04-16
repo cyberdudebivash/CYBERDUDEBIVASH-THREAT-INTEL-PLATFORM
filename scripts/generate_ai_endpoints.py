@@ -601,15 +601,18 @@ def main() -> int:
     os.makedirs("api/ai", exist_ok=True)
     os.makedirs("api/apex_v2", exist_ok=True)
 
+    # v110.1 FIX: use bare filenames — OUT_DIR already includes api/ai path
+    # Bug was: ("api/ai/analyze.json") → ROOT/api/ai/api/ai/analyze.json (double-nested)
+    # Fix:     ("analyze.json")        → ROOT/api/ai/analyze.json (correct)
     endpoints = [
-        ("api/ai/analyze.json",  build_analyze(items)),
-        ("api/ai/respond.json",  build_respond(items)),
+        ("analyze.json",  build_analyze(items)),
+        ("respond.json",  build_respond(items)),
     ]
 
     # Load and write APEX report if available
     apex_report = _load_apex_report()
     if apex_report:
-        endpoints.append(("api/ai/apex_report.json", apex_report))
+        endpoints.append(("apex_report.json", apex_report))
 
     written = 0
     for out_path, payload in endpoints:
