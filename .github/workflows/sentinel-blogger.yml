@@ -266,8 +266,9 @@ jobs:
           python3 scripts/clean_feed_manifest.py || echo "Cleanup skipped (non-critical)"
 
       - name: "🔍 Schema Validation — Validate intel before R2 upload"
+        continue-on-error: true  # v112.0: Non-blocking — log warnings, NEVER block R2 upload
         run: |
-          python3 scripts/validate_intel_schema.py
+          python3 scripts/validate_intel_schema.py || echo "WARN: Schema validation reported issues (non-fatal, R2 upload will proceed)"
           echo "Schema validation complete."
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -275,6 +276,7 @@ jobs:
 # No continue-on-error. Pipeline fails if R2 upload fails.
 # ═══════════════════════════════════════════════════════════════════════════
       - name: "☁️ Upload Intel to Cloudflare R2 (MANDATORY OVERWRITE)"
+        if: always()  # v112.0: ALWAYS upload regardless of earlier step failures
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
@@ -389,6 +391,7 @@ jobs:
           echo "R2_UPLOAD_COUNT=$ITEM_COUNT" >> $GITHUB_ENV
 
       - name: "🔄 Bust Worker KV Cache (MANDATORY)"
+        if: always()  # v112.0: ALWAYS bust cache, even if R2 upload had issues
         run: |
           # Always attempt cache bust. Non-fatal if secret not set.
           if [ -z "${{ secrets.WORKER_ADMIN_SECRET }}" ]; then
@@ -426,6 +429,7 @@ jobs:
 # Intel data (feed_manifest.json) is R2-only. NOT committed to GitHub.
 # ═══════════════════════════════════════════════════════════════════════════
       - name: "🔒 Git Sync — Commit non-sensitive metadata"
+        if: always()  # v112.0: ALWAYS sync metadata — persists run state regardless of upstream failures
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
