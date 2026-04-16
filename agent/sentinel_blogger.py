@@ -258,11 +258,20 @@ def main():
     if _CAMPAIGN_OK:
         logger.info("? Campaign Tracker: ENABLED")
 
-    try:
-        service = get_blogger_service()
-    except Exception as e:
-        logger.error(f"Blogger authentication failed: {e}")
-        return
+    # v110.1 FIX: Blogger is DISABLED in R2-only mode.
+    # Previously, failure here caused immediate return — ZERO intel generated.
+    # Now: service=None → intel generation continues → Blogger publish steps skipped.
+    service = None
+    BLOG_ID_ACTIVE = os.getenv("BLOG_ID", "").strip()
+    if BLOG_ID_ACTIVE:
+        try:
+            service = get_blogger_service()
+            logger.info("[BLOGGER] Service initialized — publish mode active")
+        except Exception as e:
+            logger.warning(f"[BLOGGER] Auth skipped (R2-only mode): {e}")
+            service = None
+    else:
+        logger.info("[BLOGGER] BLOG_ID not set — R2-only mode (Blogger publish DISABLED)")
 
     published_count = 0
 
@@ -823,7 +832,23 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
     except ImportError:
         # Fallback: v56 module unavailable
         logger.warning("  [!] v56 publish guard not available - using legacy publish")
-        try:
+        # v110.1: Skip Blogger publish if service is None (R2-only mode)
+        if not service or not BLOG_ID:
+            logger.info("  [SKIP] Blogger publish skipped (R2-only mode) — STIX bundle saved to R2")
+            stix_exporter.create_bundle(
+                title=headline, iocs=extracted_iocs, risk_score=risk_score,
+                metadata={"blog_url": "", "source_url": source_url},
+                confidence=confidence, severity=severity,
+                tlp_label=tlp.get("label", "TLP:CLEAR"), ioc_counts=ioc_counts,
+                actor_tag=actor_data.get("tracking_id", "UNC-CDB-99"),
+                mitre_tactics=mitre_data, feed_source=feed_source,
+                epss_score=epss_score, cvss_score=cvss_score,
+                kev_present=kev_present, nvd_url=nvd_url,
+            )
+            dedup_engine.mark_processed(headline, entry.get("link", ""))
+            published_count += 1
+        else:
+          try:
             post_body = {
                 "kind":    "blogger#post",
                 "title":   headline,
@@ -861,7 +886,7 @@ def process_entry(entry: Dict, service, feed_source: str = "EXTERNAL") -> bool:
                 feed_source=feed_source,
             )
             return True
-        except Exception as e:
+          except Exception as e:
             logger.error(f"  [X] PUBLISH FAILURE: {e}")
             return False
 
