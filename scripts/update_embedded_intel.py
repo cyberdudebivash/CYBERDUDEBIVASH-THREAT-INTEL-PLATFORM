@@ -8,7 +8,7 @@ Everything else — functions, CSS, HTML, comments — is preserved byte-for-byt
 HOW IT WORKS:
   1. Finds `const EMBEDDED_INTEL = [` using string search (not regex)
   2. Brace-matches `[...]` to find the exact array boundaries
-  3. Normalises every item (adds stix_id, apex, blog_url, mitre_tactics, etc.)
+  3. Normalises every item (adds stix_id, apex, report_url, mitre_tactics, etc.)
   4. Replaces ONLY the array content between [ and ]
   5. Verifies the result with 6 integrity checks
   6. If ANY check fails → restores backup, exits non-zero
@@ -16,7 +16,7 @@ HOW IT WORKS:
 FIELD NORMALISATION (ensures dashboard features work):
   - stix_id   : mapped from item['id']          → enables ANALYZE button
   - apex      : built from risk/openclaw/corr   → enables AI panel
-  - blog_url  : constructed from stix_bundle    → enables Tactical Dossier link
+  - report_url: native report URL (source_url)   → enables Tactical Dossier link
   - mitre_tactics: mapped from item['ttps']     → enables attack chain display
   - tags      : None/falsy normalised to []     → prevents JS crash
 
@@ -51,7 +51,7 @@ ENRICHMENT_KEYS = [
     "kev_date", "attribution", "campaign_id", "ai_risk_score",
     "ai_confidence", "executive_summary", "kill_chain_narrative",
     "kill_chain_phases", "actor_matches", "primary_actor",
-    "tactical_assessment", "exploit_tier", "blog_url", "nvd_url",
+    "tactical_assessment", "exploit_tier", "report_url", "nvd_url",
     "source_url",
 ]
 
@@ -115,28 +115,15 @@ def _derive_exploit_tier(item: dict) -> str:
     return "UNKNOWN"
 
 
-def _build_blog_url(item: dict) -> str:
+def _build_report_url(item: dict) -> str:
     """
-    Construct Tactical Dossier URL.
-    Priority: explicit blog_url field → derive from stix_bundle → empty.
-    The sentinel_blogger publishes to blog.cyberdudebivash.com; the URL pattern
-    is not stored in the manifest for historical items, so we use '#' as a
-    graceful fallback (hides the 'View Tactical Dossier' link naturally because
-    the card template guards: `href="${item.blog_url}"` → still renders, but
-    we try to give the best URL possible).
+    v113.0: Construct native report_url — NO Blogger fallbacks.
+    Priority: explicit report_url → source_url → empty string (hides button).
     """
-    # Prefer explicit field if already set
-    if item.get("blog_url"):
-        return item["blog_url"]
-    if item.get("source_url") and "cyberdudebivash" in str(item.get("source_url", "")):
+    if item.get("report_url"):
+        return item["report_url"]
+    if item.get("source_url"):
         return item["source_url"]
-    # Smart fallback: Blogger search URL so "View Tactical Dossier" always
-    # navigates to real content instead of looping back to dashboard.
-    # Uses title-based search on the Sentinel APEX Blogger blog.
-    title = str(item.get("title") or "").strip()
-    if title:
-        query = urllib.parse.quote_plus(title[:80])
-        return f"https://cyberbivash.blogspot.com/search?q={query}"
     return ""
 
 
@@ -239,8 +226,9 @@ def normalise_item(item: dict) -> dict:
     if not out.get("exploit_tier"):
         out["exploit_tier"] = _derive_exploit_tier(out)
 
-    # ── blog_url: enables "View Tactical Dossier" link ───────────────────
-    out["blog_url"] = _build_blog_url(out)
+    # ── report_url: enables "View Tactical Dossier" link (v113.0 — no Blogger) ──
+    out["report_url"] = _build_report_url(out)
+    out.pop("blog_url", None)  # hard-remove legacy field
 
     # ── apex: enables APEX AI Intelligence Panel ─────────────────────────
     if not out.get("apex") or not isinstance(out.get("apex"), dict):
