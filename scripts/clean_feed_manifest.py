@@ -29,7 +29,13 @@ def clean_manifest():
     original_count = len(items)
     brand_removed  = 0
     dedup_removed  = 0
-    seen_titles    = set()
+    # v112.1 P0 FIX: Best-score-wins dedup (was: first-occurrence-wins).
+    # Problem: bootstrap --force-rebuild puts STIX-bundle entries first in the merge
+    # (risk_score = confidence/10, e.g. 2.8), then appends sentinel_blogger's properly
+    # enriched entries (risk_score=9.5). First-occurrence dedup kept the wrong (lower)
+    # bootstrap entry and silently discarded the enriched one.
+    # Fix: when a duplicate title is seen, keep whichever entry has the higher risk_score.
+    seen_by_title  = {}  # title_lc → index in clean_items
     clean_items    = []
 
     for item in items:
@@ -42,18 +48,25 @@ def clean_manifest():
             brand_removed += 1
             continue
 
-        # Deduplicate by title (case-insensitive)
-        title_lc = title.lower()
-        if title_lc in seen_titles:
-            dedup_removed += 1
-            continue
-        seen_titles.add(title_lc)
-
         # Fix "Tactical cluster: " prefix in description
         desc = item.get("description", "")
         if desc.startswith("Tactical cluster: "):
             item["description"] = desc[len("Tactical cluster: "):]
 
+        # Deduplicate by title — best risk_score wins
+        title_lc = title.lower()
+        if title_lc in seen_by_title:
+            dedup_removed += 1
+            existing_idx = seen_by_title[title_lc]
+            existing_rs  = float(clean_items[existing_idx].get("risk_score") or
+                                 clean_items[existing_idx].get("cvss_score") or 0)
+            new_rs       = float(item.get("risk_score") or item.get("cvss_score") or 0)
+            if new_rs > existing_rs:
+                # Enriched entry wins — replace the weaker bootstrap entry in-place
+                clean_items[existing_idx] = item
+            continue
+
+        seen_by_title[title_lc] = len(clean_items)
         clean_items.append(item)
 
     final_count = len(clean_items)
