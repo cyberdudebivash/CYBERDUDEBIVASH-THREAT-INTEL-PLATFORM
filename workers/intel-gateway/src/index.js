@@ -8,7 +8,7 @@
 // =============================================================================
 
 const CONFIG = {
-  GATEWAY_VERSION:   "112.0",
+  GATEWAY_VERSION:   "112.1",  // v112.1: P0 FIX — sort preview by timestamp DESC + risk DESC
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v111.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -328,6 +328,20 @@ async function handlePreview(request, env, rid) {
       if (seenTitles.has(t)) return false;
       seenTitles.add(t);
       return true;
+    });
+    // v112.1 P0 FIX: Sort by timestamp DESC (newest first), then risk_score DESC.
+    // Without this, preview returns the first 10 items in manifest file order,
+    // which are old bootstrap/historical entries with stale timestamps and low risk scores.
+    // pipeline writes oldest entries first → new entries appended at end → slice(0,10) = always stale.
+    cleanItems.sort((a, b) => {
+      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      if (tb !== ta) return tb - ta;
+      const ra = typeof a.risk_score === 'number' ? a.risk_score
+               : typeof a.cvss_score === 'number' ? a.cvss_score : 0;
+      const rb = typeof b.risk_score === 'number' ? b.risk_score
+               : typeof b.cvss_score === 'number' ? b.cvss_score : 0;
+      return rb - ra;
     });
     const allItems  = cleanItems;
     const preview   = allItems.slice(0, CONFIG.PREVIEW_LIMIT).map(item => {
