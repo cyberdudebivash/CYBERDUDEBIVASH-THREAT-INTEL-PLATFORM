@@ -85,8 +85,18 @@ def load_stix_entries() -> list:
                 continue
 
             description = primary.get("description", "")
+            # v112.2 P0 FIX: Since export_stix.py v110.1, description IS the plain threat
+            # title (no "Tactical cluster:" prefix). primary.get("name") is "{actor_tag} Campaign"
+            # — NOT the threat title. Old regex never matched → all 52 bundles collapsed to ~8
+            # generic actor-tag duplicates. Fix: try legacy regex for backward compat, then use
+            # description directly, fall back to name only if description is empty.
             m = re.search(r"Tactical cluster: (.+)", description)
-            title = m.group(1).strip() if m else primary.get("name", description[:120])
+            if m:
+                title = m.group(1).strip()
+            elif description.strip():
+                title = description.strip()[:200]
+            else:
+                title = primary.get("name", "")
             title = title[:200]
 
             if title in seen_titles:
@@ -257,11 +267,16 @@ def _load_existing_manifest_entries(stix_path: "Path", root_path: "Path") -> lis
     validated_path = DATA_DIR / "validated_manifest.json"
     apex_enriched  = DATA_DIR / "apex_enriched_manifest.json"
     apex_v2        = DATA_DIR / "apex_v2_manifest.json"
-    existing: list = []
-    best_count = 0
-    for candidate in (snapshot, stix_path, root_path, validated_path, apex_enriched, apex_v2):
-        if not candidate.exists():
-            continue
+
+    # v112.2 P0 FIX: Changed from winner-takes-all to UNION-ALL merge.
+    # Problem: /tmp snapshot (2463 entries) always outscored v70 enriched manifest
+    # (497 entries with Risk=10.0 CRITICAL items), so enriched intel was silently
+    # discarded. Fix: collect entries from ALL candidates and deduplicate by title,
+    # with newer / higher risk_score winning. This guarantees enriched entries from
+    # sentinel_blogger's v70 run are never lost to the historical snapshot.
+    union_by_title: dict = {}  # title_lc → entry (best-score-wins)
+
+    def _absorb(candidate: Path) -> int:
         try:
             raw = json.loads(candidate.read_text(encoding="utf-8"))
             if isinstance(raw, list):
@@ -273,12 +288,34 @@ def _load_existing_manifest_entries(stix_path: "Path", root_path: "Path") -> lis
                     if isinstance(v, list):
                         items = v
                         break
-            if len(items) > best_count:
-                best_count = len(items)
-                existing = items
-                print(f"  [bootstrap] MERGE source: {candidate.name} ({best_count} entries)")
+            absorbed = 0
+            for item in items:
+                t = (item.get("title") or item.get("name") or "").strip().lower()
+                if not t:
+                    continue
+                if t not in union_by_title:
+                    union_by_title[t] = item
+                    absorbed += 1
+                else:
+                    # Best risk_score wins (enriched sentinel_blogger entry beats bootstrap)
+                    existing_rs = float(union_by_title[t].get("risk_score") or
+                                        union_by_title[t].get("cvss_score") or 0)
+                    new_rs = float(item.get("risk_score") or item.get("cvss_score") or 0)
+                    if new_rs > existing_rs:
+                        union_by_title[t] = item
+                        absorbed += 1
+            if absorbed:
+                print(f"  [bootstrap] MERGE source: {candidate.name} (+{absorbed} entries, union total={len(union_by_title)})")
+            return absorbed
         except Exception:
-            pass
+            return 0
+
+    for candidate in (snapshot, stix_path, root_path, validated_path, apex_enriched, apex_v2):
+        if candidate.exists():
+            _absorb(candidate)
+
+    existing = list(union_by_title.values())
+    print(f"  [bootstrap] UNION MERGE complete: {len(existing)} unique entries across all sources")
     return existing
 
 

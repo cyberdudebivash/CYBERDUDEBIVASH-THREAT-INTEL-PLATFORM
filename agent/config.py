@@ -183,7 +183,7 @@ RATE_LIMIT_DELAY = 3  # v55.3: Reduced from 8->3s. v56 publisher has its own API
 # ===========================================================
 # MANIFEST SETTINGS
 # ===========================================================
-MANIFEST_MAX_ENTRIES = 500
+MANIFEST_MAX_ENTRIES = 5000  # v112.2 P0 FIX: was 500 — cap caused enriched manifest to always lose count-based merge to /tmp snapshot (2463 entries)
 MANIFEST_DIR = "data/stix"
 
 # ===========================================================
