@@ -1,9 +1,11 @@
 # =============================================================================
 # CYBERDUDEBIVASH® SENTINEL APEX v116.0 — SOVEREIGN INTELLIGENCE PIPELINE
-# Version    : v116.0.0 (R2-NATIVE / BLOGGER-FREE / P0-FIXED / MANIFEST-STABLE)
-# Rebuilt    : 2026-04-18 — P0-ESCALATION Fix: Manifest destruction eliminated,
-#              R2 corruption guard added, v70 stale-backup guard added,
-#              STIX bundle persistence added.
+# Version    : v116.1.0 (R2-NATIVE / BLOGGER-FREE / P0-FIXED / MANIFEST-STABLE)
+# Rebuilt    : 2026-04-18 — P0-ESCALATION Fix v116.0: Manifest destruction
+#              eliminated, R2 corruption guard, v70 stale-backup guard, STIX
+#              bundle persistence.
+#              v116.1 patch: Engine LIST-format manifest now correctly detected
+#              and normalised to DICT envelope before downstream steps run.
 # Author     : CYBERDUDEBIVASH Pvt. Ltd.
 # =============================================================================
 # ARCHITECTURE (v116.0 — canonical):
@@ -44,6 +46,17 @@
 #             now has cumulative bundle history across runs instead of only
 #             seeing the current run's bundles.
 # =============================================================================
+# v116.1 PATCH (2026-04-18 — root cause: run #745 failure):
+#   ✅ FIX-5: Manifest Stabilisation now handles JSON LIST format from engine.
+#             sentinel_blogger writes data/stix/feed_manifest.json as a raw
+#             JSON array [...] not {"advisories":[...]}.  Previous fix called
+#             d.get() on the list → AttributeError → engine_count=0 → fell
+#             back to --force-rebuild → 9 entries → Freshness Gate failed.
+#             Fix: detect list vs dict, if list with >= 50 entries normalise
+#             to DICT envelope in-place, then run clean_feed_manifest.py.
+#   ✅ FIX-6: Freshness Gate hardened to handle LIST format as safety net.
+#             If list reaches gate, counts items correctly instead of crashing.
+# =============================================================================
 
 name: sentinel-blogger
 
@@ -71,7 +84,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "116.0.0"
+  PIPELINE_VERSION: "116.1.0"
 
 # Only ONE data-writing workflow at a time — prevents manifest corruption
 concurrency:
@@ -287,85 +300,155 @@ jobs:
 
       - name: "🔄 Manifest Stabilisation — Preserve Engine Output / Rebuild Only If Needed"
         # ─────────────────────────────────────────────────────────────────────
-        # ROOT CAUSE FIX (run #744 regression):
-        #   The old unconditional --force-rebuild re-parsed STIX bundles from
-        #   scratch.  STIX bundles are NOT persisted between git runs, so only
-        #   the current run's freshly-created bundles exist (52 in run #744).
-        #   bootstrap parsed those 52 bundles → 9 valid entries, then overwrote
-        #   the engine's authoritative 2222-entry manifest with those 9 entries.
-        #   Freshness Gate failed (9 < 10).  R2 upload (if: always()) then
-        #   uploaded the 9-entry manifest → LIVE SYSTEM CORRUPTED.
+        # ROOT CAUSE FIX (run #744 + run #745 regression):
         #
-        # FIX LOGIC:
-        #   1. Read the manifest the engine just wrote.
-        #   2. If engine wrote >= MIN_ENGINE_ENTRIES (50), it is authoritative.
-        #      Run clean_feed_manifest.py on it (normalise + dedup) but DO NOT
-        #      re-parse STIX bundles.  Preserve the engine's full history.
-        #   3. Only fall back to --force-rebuild when the engine manifest is
-        #      absent or undersized (engine crashed before writing anything
-        #      useful).
+        #   Run #744: --force-rebuild was unconditional. It re-parsed only the
+        #     current run's 52 STIX bundles → 9 entries, destroying the engine's
+        #     2222-entry manifest.
+        #
+        #   Run #745 (new root cause discovered): The engine (sentinel_blogger)
+        #     writes data/stix/feed_manifest.json as a raw JSON ARRAY [...]
+        #     not a dict {"advisories": [...]}. The previous fix read the file
+        #     with d.get("advisories", ...) which raised:
+        #       "WARNING: Cannot parse engine manifest: 'list' object has no
+        #        attribute 'get'"
+        #     engine_count was set to 0, the fallback --force-rebuild ran,
+        #     wrote 9 entries, and the Freshness Gate failed again.
+        #     Evidence: line 1646 of run #745 log.
+        #
+        # FIX LOGIC (v116.1):
+        #   1. Read data/stix/feed_manifest.json.
+        #   2. Handle BOTH formats produced by the engine:
+        #        LIST  [...]               → raw engine output
+        #        DICT  {"advisories":[..]} → bootstrap / cleaner output
+        #   3. If entry count >= MIN_ENGINE (50), the manifest is authoritative.
+        #      If it is in LIST format, normalize it to DICT envelope in-place
+        #      before any downstream step reads it.
+        #   4. Run clean_feed_manifest.py (non-blocking) to normalise fields.
+        #   5. Only fall back to --force-rebuild when manifest is absent or
+        #      has < MIN_ENGINE entries (true engine failure).
         # ─────────────────────────────────────────────────────────────────────
         run: |
           python3 - << 'PYEOF'
           import json, os, subprocess, sys
           from pathlib import Path
+          from datetime import datetime, timezone
 
           MANIFEST   = "data/stix/feed_manifest.json"
-          MIN_ENGINE = 50   # Engine normally writes 1000+; < 50 = engine failed
+          MIN_ENGINE = 50   # Engine normally writes 1000+; < 50 means engine failed
 
-          # ── Step 1: Read engine manifest ──────────────────────────────────
-          engine_count = 0
+          def utc_now():
+              return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+          # ── Step 1: Read manifest, handle LIST and DICT formats ───────────
+          engine_count   = 0
+          engine_items   = []
+          manifest_fmt   = "absent"
+
           if os.path.exists(MANIFEST):
               try:
-                  d = json.load(open(MANIFEST))
-                  items = d.get("advisories", d.get("reports", []))
-                  engine_count = len(items)
+                  raw = json.load(open(MANIFEST, "r", encoding="utf-8"))
+
+                  if isinstance(raw, list):
+                      # Engine wrote raw JSON array — this is the run #745 root cause.
+                      engine_items = raw
+                      engine_count = len(raw)
+                      manifest_fmt = "list"
+                      print(f"INFO: Manifest is LIST format ({engine_count} items).", flush=True)
+
+                  elif isinstance(raw, dict):
+                      candidates = ["advisories", "reports", "items"]
+                      for key in candidates:
+                          if key in raw and isinstance(raw[key], list):
+                              engine_items = raw[key]
+                              break
+                      engine_count = len(engine_items)
+                      manifest_fmt = "dict"
+                      print(f"INFO: Manifest is DICT format ({engine_count} items).", flush=True)
+
+                  else:
+                      print(f"WARNING: Unexpected manifest root type: {type(raw).__name__}", flush=True)
+
               except Exception as e:
-                  print(f"WARNING: Cannot parse engine manifest: {e}")
+                  print(f"WARNING: Cannot parse manifest at {MANIFEST}: {e}", flush=True)
 
           stix_bundles = len(list(Path("data/stix").glob("CDB-APEX-*.json")))
-          print(f"Engine manifest: {engine_count} entries | STIX bundles on disk: {stix_bundles}")
+          print(f"Engine manifest: {engine_count} entries (fmt={manifest_fmt}) | "
+                f"STIX bundles on disk: {stix_bundles}", flush=True)
 
-          # ── Step 2: Decide whether to preserve or rebuild ─────────────────
+          # ── Step 2: Preserve or fall back ────────────────────────────────
           if engine_count >= MIN_ENGINE:
-              print(f"✅ Engine manifest is valid ({engine_count} >= {MIN_ENGINE}).")
-              print(f"   Preserving engine manifest. --force-rebuild SKIPPED.")
-              print(f"   (--force-rebuild would have re-parsed only {stix_bundles} bundles")
-              print(f"    and discarded the engine's {engine_count} accumulated entries.)")
-              # Run the cleaner (normalise, dedup, strip brand/blog) without
-              # touching which entries are present.
+              print(f"✅ Engine manifest is valid ({engine_count} >= {MIN_ENGINE}). "
+                    f"--force-rebuild SKIPPED.", flush=True)
+
+              # If engine wrote LIST format, normalise to DICT envelope so every
+              # downstream step (Freshness Gate, clean_feed_manifest, R2 upload,
+              # Worker) can read it with d.get("advisories", []).
+              if manifest_fmt == "list":
+                  print(f"   Normalising LIST→DICT envelope ({engine_count} entries)...", flush=True)
+                  payload = {
+                      "version":        "v114.0",
+                      "platform":       "SENTINEL-APEX",
+                      "generated_at":   utc_now(),
+                      "normalised_at":  utc_now(),
+                      "total_reports":  engine_count,
+                      "entry_count":    engine_count,
+                      "schema_version": "v114.0",
+                      "sort_order":     "timestamp DESC, risk_score DESC",
+                      "source_of_truth": "agent.sentinel_blogger (normalised by pipeline)",
+                      "advisories":     engine_items,
+                  }
+                  tmp = MANIFEST + ".norm.tmp"
+                  with open(tmp, "w", encoding="utf-8") as fh:
+                      json.dump(payload, fh, indent=2, ensure_ascii=False, default=str)
+                  os.replace(tmp, MANIFEST)
+                  print(f"   ✅ Normalised: {engine_count} entries in DICT format written.", flush=True)
+
+              # Run cleaner: normalise fields, strip brand/blog, dedup.
+              # Non-blocking — if cleaner fails the normalised manifest is kept.
+              print("   Running clean_feed_manifest.py...", flush=True)
               r = subprocess.run(
                   ["python3", "scripts/clean_feed_manifest.py"],
                   check=False, capture_output=True, text=True
               )
-              print(r.stdout.strip() or "(no cleaner output)")
+              if r.stdout.strip():
+                  print(r.stdout.strip(), flush=True)
               if r.returncode != 0:
-                  print(f"WARN: clean_feed_manifest exited {r.returncode}: {r.stderr.strip()}")
-                  print("      Cleaner is non-blocking — engine manifest retained as-is.")
+                  print(f"   WARN: clean_feed_manifest exited {r.returncode}: "
+                        f"{r.stderr.strip()}", flush=True)
+                  print("   Non-blocking — normalised engine manifest retained as-is.", flush=True)
+
           else:
-              print(f"⚠️  Engine manifest too small ({engine_count} < {MIN_ENGINE} threshold).")
-              print(f"   Falling back to --force-rebuild from {stix_bundles} STIX bundles.")
+              print(f"⚠️  Engine manifest too small ({engine_count} < {MIN_ENGINE}). "
+                    f"Falling back to --force-rebuild from {stix_bundles} STIX bundles.", flush=True)
               r = subprocess.run(
                   ["python3", "scripts/bootstrap_critical_files.py", "--force-rebuild"],
                   check=False
               )
-              print(f"   --force-rebuild exit code: {r.returncode}")
+              print(f"   --force-rebuild exit code: {r.returncode}", flush=True)
 
-          # ── Step 3: Report final manifest state ───────────────────────────
+          # ── Step 3: Report final state ────────────────────────────────────
           final_count = 0
           for path in ("data/stix/feed_manifest.json", "data/feed_manifest.json"):
               if os.path.exists(path):
                   try:
                       d = json.load(open(path))
-                      items = d.get("advisories", d.get("reports", []))
-                      cnt = len(items)
-                      print(f"  {path}: {cnt} entries  generated_at={d.get('generated_at','?')}")
+                      if isinstance(d, list):
+                          cnt = len(d)
+                          print(f"  {path}: {cnt} entries (LIST format — not yet normalised)", flush=True)
+                      elif isinstance(d, dict):
+                          items = d.get("advisories", d.get("reports", []))
+                          cnt = len(items)
+                          gen = d.get("generated_at", d.get("normalised_at", "?"))
+                          print(f"  {path}: {cnt} entries  generated_at={gen}", flush=True)
+                      else:
+                          cnt = 0
                       if path == "data/stix/feed_manifest.json":
                           final_count = cnt
                   except Exception as e:
-                      print(f"  {path}: ERROR — {e}")
+                      print(f"  {path}: ERROR reading — {e}", flush=True)
 
-          # Export for downstream steps
+          print(f"MANIFEST_FINAL_COUNT={final_count}", flush=True)
           env_file = os.environ.get("GITHUB_ENV", "/dev/null")
           with open(env_file, "a") as fh:
               fh.write(f"MANIFEST_FINAL_COUNT={final_count}\n")
@@ -380,27 +463,41 @@ jobs:
           python3 - << 'PYEOF'
           import json, sys, os
 
-          manifest = "data/stix/feed_manifest.json"
+          manifest   = "data/stix/feed_manifest.json"
           MIN_ENTRIES = 10  # Absolute minimum — fail hard if below this
 
           if not os.path.exists(manifest):
-              print(f"FATAL: {manifest} missing after bootstrap+engine+force-rebuild")
+              print(f"FATAL: {manifest} missing after stabilisation step.")
               sys.exit(1)
 
           try:
               d = json.load(open(manifest))
-              items = d.get("advisories", d.get("reports", []))
-              count = len(items)
+              # Handle both formats: engine may produce LIST or DICT.
+              # Manifest Stabilisation should have normalised to DICT by now,
+              # but this is a safety net for any future format changes.
+              if isinstance(d, list):
+                  count = len(d)
+                  print(f"WARNING: Manifest is still in LIST format at gate — "
+                        f"normalisation step may have been skipped. Count={count}.")
+              elif isinstance(d, dict):
+                  items = d.get("advisories", d.get("reports", d.get("items", [])))
+                  count = len(items) if isinstance(items, list) else 0
+              else:
+                  print(f"FATAL: Unexpected manifest root type: {type(d).__name__}")
+                  sys.exit(1)
           except Exception as e:
               print(f"FATAL: Cannot parse {manifest}: {e}")
               sys.exit(1)
 
           if count < MIN_ENTRIES:
               print(f"FATAL: Manifest has only {count} entries (minimum: {MIN_ENTRIES})")
-              print("Check engine logs above for feed failures or dedup issues.")
+              print("Root causes to check in logs above:")
+              print("  1. Engine manifest format (list vs dict)")
+              print("  2. Manifest Stabilisation normalisation output")
+              print("  3. clean_feed_manifest.py exit code")
               sys.exit(1)
 
-          print(f"FRESHNESS GATE PASSED: {count} entries in manifest")
+          print(f"✅ FRESHNESS GATE PASSED: {count} entries in manifest.")
           PYEOF
 
 # ═══════════════════════════════════════════════════════════════════════════
