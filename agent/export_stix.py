@@ -534,14 +534,16 @@ class STIXExporter:
         )
 
         # -- Update Manifest --
-        blog_url   = (metadata or {}).get('blog_url', '')
-        source_url = (metadata or {}).get('source_url', '') or blog_url
+        # v113.0: blog_url completely removed — report_url = source_url (native delivery)
+        source_url = (metadata or {}).get('source_url', '') or (metadata or {}).get('blog_url', '')
+        report_url = source_url  # native report URL; equals source until /reports/ hosting is live
         self._update_manifest(
             title=title,
             stix_id=bundle_id,
             risk_score=risk_score,
-            blog_url=blog_url,
+            blog_url='',          # legacy param kept for signature compat — always empty now
             source_url=source_url,
+            report_url=report_url,
             severity=severity,
             confidence=confidence,
             tlp_label=tlp_label,
@@ -728,6 +730,7 @@ class STIXExporter:
                          indicator_count, stix_file,
                          cvss_score=None, epss_score=None,
                          kev_present=False, source_url="",
+                         report_url="",
                          nvd_url=None, extended_metrics=None,
                          supply_chain=False, object_count=0,
                          # v23.0: APEX enrichment (optional, backward compat)
@@ -776,8 +779,9 @@ class STIXExporter:
             "stix_id":          stix_id,
             "bundle_id":        stix_id,
             "risk_score":       float(risk_score),
-            "blog_url":         blog_url,
-            "source_url":       source_url or blog_url,
+            # v113.0: blog_url removed — report_url is native delivery URL
+            "report_url":       report_url or source_url or "",
+            "source_url":       source_url or "",
             "timestamp":        datetime.now(timezone.utc).isoformat(),
             "generated_at":     datetime.now(timezone.utc).isoformat(),
             "severity":         severity,
@@ -801,11 +805,9 @@ class STIXExporter:
             "supply_chain":     supply_chain,
             "stix_object_count":object_count,
             "stix_version":     "2.1",
-            "schema_version":   "v22.0",
-            # v56.1: Blog publish sync tracking (TASK 5)
-            # False = written to manifest but blog post not yet published
-            # True  = blog post successfully published (set by publisher.py)
-            "published":        False if not blog_url else True,
+            "schema_version":   "v113.0",
+            # v113.0: always published — Blogger completely removed
+            "published":        True,
         }
 
         # v23.0: Inject compact APEX field (optional — zero regression on absence)

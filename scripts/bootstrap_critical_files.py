@@ -129,17 +129,19 @@ def load_stix_entries() -> list:
                 if o.get("type") == "attack-pattern" and o.get("name")
             ))[:5]
 
-            # Extract blog_url from external_references on report/intrusion-set objects.
-            # The sentinel_blogger writes the published post URL into the STIX bundle
-            # external_references so we can reconstruct the Tactical Dossier link.
-            blog_url = ""
+            # v113.0: Extract report_url / source_url from external_references.
+            # Priority: source_url (original intel article) > cyberdudebivash platform URLs
+            source_url = ""
             for obj in objs:
                 for ref in obj.get("external_references", []):
                     url = ref.get("url", "")
-                    if url and any(k in url for k in ["cyberdudebivash", "cyberbivash.blogspot"]):
-                        blog_url = url
+                    if url and "cyberbivash.blogspot" not in url:  # exclude old blogger
+                        if not source_url:
+                            source_url = url
+                    if url and "cyberdudebivash" in url and "blogspot" not in url:
+                        source_url = url  # prefer intel.cyberdudebivash.com URLs
                         break
-                if blog_url:
+                if source_url:
                     break
 
             entries.append({
@@ -155,7 +157,8 @@ def load_stix_entries() -> list:
                 "iocs": iocs,
                 "ttps": attack_patterns,
                 "tags": primary.get("labels", []),
-                "blog_url": blog_url,
+                "report_url": source_url,
+                "source_url": source_url,
             })
         except Exception as exc:  # noqa: BLE001
             print(f"  [bootstrap] WARN: could not parse {fpath.name}: {exc}")
@@ -458,10 +461,17 @@ def bootstrap_api_files(entries: list) -> None:
     items, they are regenerated from `entries` (which comes from the best available
     manifest, not the per-run 1-entry sentinel_blogger slice).
     """
-    total = len(entries)
-    critical = sum(1 for e in entries if e["severity"] == "CRITICAL")
-    high     = sum(1 for e in entries if e["severity"] == "HIGH")
-    avg_risk = round(sum(e["risk_score"] for e in entries) / max(total, 1), 2)
+    def _sev(e):
+        return (e.get("severity") or e.get("risk_level") or "MEDIUM").upper()
+    def _rs(e):
+        return float(e.get("risk_score") or e.get("cvss_score") or 0)
+    def _ts(e):
+        return e.get("timestamp") or e.get("published") or e.get("date") or ""
+
+    total    = len(entries)
+    critical = sum(1 for e in entries if _sev(e) == "CRITICAL")
+    high     = sum(1 for e in entries if _sev(e) == "HIGH")
+    avg_risk = round(sum(_rs(e) for e in entries) / max(total, 1), 2)
 
     def _api_entry_count(path: Path) -> int:
         """Return the number of items in an API file; 0 on error."""
@@ -499,10 +509,10 @@ def bootstrap_api_files(entries: list) -> None:
             "generated_at": now_iso(),
             "summary": {
                 "total_advisories": total, "critical": critical, "high": high,
-                "medium": sum(1 for e in entries if e["severity"] == "MEDIUM"),
-                "low": sum(1 for e in entries if e["severity"] == "LOW"),
+                "medium": sum(1 for e in entries if _sev(e) == "MEDIUM"),
+                "low": sum(1 for e in entries if _sev(e) == "LOW"),
                 "avg_risk_score": avg_risk,
-                "last_updated": entries[0]["timestamp"] if entries else None,
+                "last_updated": _ts(entries[0]) if entries else None,
                 "pipeline_status": "OPERATIONAL",
             },
             "latest": entries[:20],
@@ -522,7 +532,7 @@ def bootstrap_api_files(entries: list) -> None:
             "total_advisories": total, "critical_threats": critical,
             "high_threats": high, "pipeline_status": "ACTIVE",
             "avg_risk_score": avg_risk,
-            "data_freshness": entries[0]["timestamp"][:10] if entries else "N/A",
+            "data_freshness": _ts(entries[0])[:10] if entries else "N/A",
         },
     }
     write_json(status_path, status_data)
