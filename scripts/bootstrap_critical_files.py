@@ -211,6 +211,14 @@ def _best_existing_manifest() -> tuple:
 
 def _write_manifest(entries: list, path: Path) -> None:
     """Serialise entries into the canonical manifest schema and write to path."""
+    # v112.1 P0 FIX: Sort manifest entries by timestamp DESC → risk_score DESC before writing.
+    # This ensures Worker preview slice(0,10) always surfaces the newest high-risk items,
+    # not stale bootstrap entries that happen to sort first in merge order.
+    def _sort_key(e):
+        ts = e.get("timestamp") or e.get("created") or ""
+        rs = float(e.get("risk_score") or e.get("cvss_score") or 0)
+        return (ts, rs)
+    entries = sorted(entries, key=_sort_key, reverse=True)
     critical = sum(1 for e in entries if e["severity"] == "CRITICAL")
     high     = sum(1 for e in entries if e["severity"] == "HIGH")
     avg_risk = round(sum(e["risk_score"] for e in entries) / len(entries), 2)

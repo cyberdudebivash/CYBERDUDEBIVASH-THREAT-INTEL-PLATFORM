@@ -59,6 +59,21 @@ def clean_manifest():
     final_count = len(clean_items)
     print(f"[MANIFEST CLEAN] Original: {original_count} | Brand removed: {brand_removed} | Dedup removed: {dedup_removed} | Final: {final_count}")
 
+    # v112.1 P0 FIX: Sort manifest by timestamp DESC (newest first), then risk_score DESC.
+    # Without this, Worker preview returns manifest-order items (bootstrap entries with
+    # stale timestamps surface first, overshadowing enriched high-risk items).
+    def _sort_key(item):
+        ts = item.get("timestamp") or item.get("created") or ""
+        rs = item.get("risk_score") or item.get("cvss_score") or 0
+        try:
+            rs = float(rs)
+        except (TypeError, ValueError):
+            rs = 0.0
+        return (ts, rs)
+
+    clean_items.sort(key=_sort_key, reverse=True)
+    print(f"[MANIFEST CLEAN] Sorted by timestamp DESC → risk_score DESC (preview will show freshest high-risk intel first)")
+
     if is_dict:
         key = "advisories" if "advisories" in data else "reports"
         data[key] = clean_items
