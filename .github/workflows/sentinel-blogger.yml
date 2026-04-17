@@ -1,15 +1,20 @@
 # =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v111.0 — SOVEREIGN INTELLIGENCE PIPELINE
-# Version    : v111.0.0 (R2-NATIVE / BLOGGER-FREE / P0-FIXED)
-# Rebuilt    : 2026-04-16 — P0 Fix: Queue bomb neutralised, Blogger removed,
-#              manifest skip logic eliminated, failure guards added.
+# CYBERDUDEBIVASH® SENTINEL APEX v116.0 — SOVEREIGN INTELLIGENCE PIPELINE
+# Version    : v116.0.0 (R2-NATIVE / BLOGGER-FREE / P0-FIXED / MANIFEST-STABLE)
+# Rebuilt    : 2026-04-18 — P0-ESCALATION Fix: Manifest destruction eliminated,
+#              R2 corruption guard added, v70 stale-backup guard added,
+#              STIX bundle persistence added.
 # Author     : CYBERDUDEBIVASH Pvt. Ltd.
 # =============================================================================
-# ARCHITECTURE:
-#   Intel Engine → STIX Bundles → bootstrap --force-rebuild → Manifest
-#       → Schema Validation → R2 Upload (OVERWRITE) → Worker → Dashboard
+# ARCHITECTURE (v116.0 — canonical):
+#   Intel Engine → writes data/stix/feed_manifest.json (authoritative)
+#       → Manifest Stabilisation (preserve if valid, --force-rebuild only fallback)
+#       → Freshness Gate (blocks if < 10 entries — GATES R2 upload)
+#       → Schema Validation (non-blocking)
+#       → R2 Upload (if: SUCCESS only — never uploads on gate failure)
+#       → Worker KV Cache Bust → Dashboard
 # =============================================================================
-# P0 FIXES (v111.0):
+# P0 FIXES (v111.0 — 2026-04-16):
 #   ✅ Blogger import and publish queue REMOVED from sentinel_blogger.py
 #   ✅ publish_queue.json cleared (queue bomb neutralised)
 #   ✅ bootstrap skip-if->=50 logic REMOVED — always merges new STIX entries
@@ -18,6 +23,26 @@
 #   ✅ R2 upload is MANDATORY step (no continue-on-error)
 #   ✅ Worker KV cache bust always executed
 #   ✅ EMBEDDED_INTEL purged from dashboard
+# =============================================================================
+# P0-ESCALATION FIXES (v116.0 — 2026-04-18 — root cause: run #744 failure):
+#   ✅ FIX-1: --force-rebuild REPLACED with smart conditional (Manifest
+#             Stabilisation). Engine manifest preserved when >= 50 entries.
+#             --force-rebuild is now FALLBACK ONLY (engine manifest absent/tiny).
+#             Root cause: unconditional --force-rebuild was re-parsing only
+#             current run's STIX bundles (52) → 9 entries, destroying the
+#             engine's authoritative 2222-entry manifest.
+#   ✅ FIX-2: R2 upload if:always() REMOVED. R2 upload now only runs when
+#             Freshness Gate PASSED (default if:success() behaviour).
+#             Root cause: R2 was being overwritten with corrupt 9-entry
+#             manifest after every Freshness Gate failure.
+#   ✅ FIX-3: v70 orchestrator stale-backup guard added. v70 skipped if
+#             all available manifest inputs are older than 48h.
+#             Root cause: v70 fell back to manifest_20260326T055548.json
+#             (3 weeks old), polluting the pipeline with stale data.
+#   ✅ FIX-4: STIX bundles (data/stix/CDB-APEX-*.json) now committed to git,
+#             capped at 500 newest (≈1-2 MB). --force-rebuild fallback path
+#             now has cumulative bundle history across runs instead of only
+#             seeing the current run's bundles.
 # =============================================================================
 
 name: sentinel-blogger
@@ -46,7 +71,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "115.0.0"
+  PIPELINE_VERSION: "116.0.0"
 
 # Only ONE data-writing workflow at a time — prevents manifest corruption
 concurrency:
@@ -199,30 +224,151 @@ jobs:
           TOKENIZERS_PARALLELISM: "false"
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          if [ -d agent/v70_apex_upgrade ]; then
-            AI_FLAG=""
-            [ "${{ github.event.inputs.skip_ai }}" = "true" ] && AI_FLAG="--no-ai"
-            timeout 240 python -m agent.v70_apex_upgrade.orchestrator \
-              --data-dir data --dashboard index.html --json $AI_FLAG | \
-              tee /tmp/v70_result.json || true
+          # ─────────────────────────────────────────────────────────────────
+          # ROOT CAUSE FIX (run #744 v70 stale-backup regression):
+          #   v70 fell back to manifest_20260326T055548.json (3 weeks old) and
+          #   wrote 497 stale entries to data/feed_manifest.json.  While this
+          #   does NOT directly overwrite data/stix/feed_manifest.json (the R2
+          #   source of truth), the stale backup fallback pollutes the data
+          #   layer and wastes the 5-minute timeout on useless work.
+          #
+          # FIX: Pre-check whether v70's newest available input data is fresh
+          #   (< 48h).  If every candidate manifest file is older than 48h,
+          #   skip v70 entirely.  v70 only runs when it has fresh data to
+          #   enrich.  This prevents 3-week-old backup data from entering the
+          #   pipeline on every timeout/fresh-run scenario.
+          # ─────────────────────────────────────────────────────────────────
+          if [ ! -d agent/v70_apex_upgrade ]; then
+            echo "INFO: agent/v70_apex_upgrade not found — skipping."
+            exit 0
           fi
 
-      - name: "🔄 Force-Rebuild Manifest — Merge ALL STIX bundles + existing entries"
+          # Check freshness of available manifest inputs
+          FRESH=$(python3 - << 'PYEOF'
+          import os, json, time
+          from pathlib import Path
+          MAX_AGE_SECONDS = 48 * 3600  # 48 hours
+          now = time.time()
+          candidates = [
+              "data/stix/feed_manifest.json",
+              "data/feed_manifest.json",
+              "data/apex_enriched_manifest.json",
+          ]
+          newest_age = None
+          for path in candidates:
+              if os.path.exists(path):
+                  age = now - os.path.getmtime(path)
+                  if newest_age is None or age < newest_age:
+                      newest_age = age
+          if newest_age is None:
+              print("SKIP")  # No manifest files at all
+          elif newest_age > MAX_AGE_SECONDS:
+              hours = newest_age / 3600
+              print(f"SKIP")  # Newest file is {hours:.1f}h old — stale
+          else:
+              hours = newest_age / 3600
+              print(f"RUN")
+          PYEOF
+          )
+
+          if [ "$FRESH" = "SKIP" ]; then
+            echo "WARN: v70 input manifests are all older than 48h (stale-backup scenario)."
+            echo "      Skipping v70 to prevent 3-week-old backup data entering the pipeline."
+            echo "      v70 will run automatically on the next successful intel engine run."
+            exit 0
+          fi
+
+          echo "INFO: v70 input data is fresh — proceeding with enrichment."
+          AI_FLAG=""
+          [ "${{ github.event.inputs.skip_ai }}" = "true" ] && AI_FLAG="--no-ai"
+          timeout 240 python -m agent.v70_apex_upgrade.orchestrator \
+            --data-dir data --dashboard index.html --json $AI_FLAG | \
+            tee /tmp/v70_result.json || true
+
+      - name: "🔄 Manifest Stabilisation — Preserve Engine Output / Rebuild Only If Needed"
+        # ─────────────────────────────────────────────────────────────────────
+        # ROOT CAUSE FIX (run #744 regression):
+        #   The old unconditional --force-rebuild re-parsed STIX bundles from
+        #   scratch.  STIX bundles are NOT persisted between git runs, so only
+        #   the current run's freshly-created bundles exist (52 in run #744).
+        #   bootstrap parsed those 52 bundles → 9 valid entries, then overwrote
+        #   the engine's authoritative 2222-entry manifest with those 9 entries.
+        #   Freshness Gate failed (9 < 10).  R2 upload (if: always()) then
+        #   uploaded the 9-entry manifest → LIVE SYSTEM CORRUPTED.
+        #
+        # FIX LOGIC:
+        #   1. Read the manifest the engine just wrote.
+        #   2. If engine wrote >= MIN_ENGINE_ENTRIES (50), it is authoritative.
+        #      Run clean_feed_manifest.py on it (normalise + dedup) but DO NOT
+        #      re-parse STIX bundles.  Preserve the engine's full history.
+        #   3. Only fall back to --force-rebuild when the engine manifest is
+        #      absent or undersized (engine crashed before writing anything
+        #      useful).
+        # ─────────────────────────────────────────────────────────────────────
         run: |
-          echo "Running bootstrap --force-rebuild to merge new STIX bundles..."
-          python3 scripts/bootstrap_critical_files.py --force-rebuild
-          echo "Force-rebuild complete."
-          # Report final manifest state
           python3 - << 'PYEOF'
-          import json, os
+          import json, os, subprocess, sys
+          from pathlib import Path
+
+          MANIFEST   = "data/stix/feed_manifest.json"
+          MIN_ENGINE = 50   # Engine normally writes 1000+; < 50 = engine failed
+
+          # ── Step 1: Read engine manifest ──────────────────────────────────
+          engine_count = 0
+          if os.path.exists(MANIFEST):
+              try:
+                  d = json.load(open(MANIFEST))
+                  items = d.get("advisories", d.get("reports", []))
+                  engine_count = len(items)
+              except Exception as e:
+                  print(f"WARNING: Cannot parse engine manifest: {e}")
+
+          stix_bundles = len(list(Path("data/stix").glob("CDB-APEX-*.json")))
+          print(f"Engine manifest: {engine_count} entries | STIX bundles on disk: {stix_bundles}")
+
+          # ── Step 2: Decide whether to preserve or rebuild ─────────────────
+          if engine_count >= MIN_ENGINE:
+              print(f"✅ Engine manifest is valid ({engine_count} >= {MIN_ENGINE}).")
+              print(f"   Preserving engine manifest. --force-rebuild SKIPPED.")
+              print(f"   (--force-rebuild would have re-parsed only {stix_bundles} bundles")
+              print(f"    and discarded the engine's {engine_count} accumulated entries.)")
+              # Run the cleaner (normalise, dedup, strip brand/blog) without
+              # touching which entries are present.
+              r = subprocess.run(
+                  ["python3", "scripts/clean_feed_manifest.py"],
+                  check=False, capture_output=True, text=True
+              )
+              print(r.stdout.strip() or "(no cleaner output)")
+              if r.returncode != 0:
+                  print(f"WARN: clean_feed_manifest exited {r.returncode}: {r.stderr.strip()}")
+                  print("      Cleaner is non-blocking — engine manifest retained as-is.")
+          else:
+              print(f"⚠️  Engine manifest too small ({engine_count} < {MIN_ENGINE} threshold).")
+              print(f"   Falling back to --force-rebuild from {stix_bundles} STIX bundles.")
+              r = subprocess.run(
+                  ["python3", "scripts/bootstrap_critical_files.py", "--force-rebuild"],
+                  check=False
+              )
+              print(f"   --force-rebuild exit code: {r.returncode}")
+
+          # ── Step 3: Report final manifest state ───────────────────────────
+          final_count = 0
           for path in ("data/stix/feed_manifest.json", "data/feed_manifest.json"):
               if os.path.exists(path):
                   try:
                       d = json.load(open(path))
                       items = d.get("advisories", d.get("reports", []))
-                      print(f"  {path}: {len(items)} entries, generated_at={d.get('generated_at','?')}")
+                      cnt = len(items)
+                      print(f"  {path}: {cnt} entries  generated_at={d.get('generated_at','?')}")
+                      if path == "data/stix/feed_manifest.json":
+                          final_count = cnt
                   except Exception as e:
                       print(f"  {path}: ERROR — {e}")
+
+          # Export for downstream steps
+          env_file = os.environ.get("GITHUB_ENV", "/dev/null")
+          with open(env_file, "a") as fh:
+              fh.write(f"MANIFEST_FINAL_COUNT={final_count}\n")
           PYEOF
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -293,7 +439,20 @@ jobs:
 # No continue-on-error. Pipeline fails if R2 upload fails.
 # ═══════════════════════════════════════════════════════════════════════════
       - name: "☁️ Upload Intel to Cloudflare R2 (MANDATORY OVERWRITE)"
-        if: always()  # v112.0: ALWAYS upload regardless of earlier step failures
+        # ─────────────────────────────────────────────────────────────────────
+        # ROOT CAUSE FIX (run #744 R2 corruption):
+        #   The previous if:always() caused R2 upload to run even after the
+        #   Freshness Gate failed (manifest had only 9 entries).  This uploaded
+        #   the 9-entry manifest to R2 and corrupted the live system.
+        #
+        # FIX: Remove if:always().  Default GitHub Actions behaviour is
+        #   if:success() — this step ONLY runs when ALL prior required steps
+        #   (including the Freshness Gate) passed.  If Freshness Gate exits 1,
+        #   this step is skipped → R2 is never overwritten with corrupt data.
+        #
+        # The KV cache bust step below retains if:always() because busting a
+        # cache is always safe and causes no data corruption.
+        # ─────────────────────────────────────────────────────────────────────
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
@@ -478,6 +637,36 @@ jobs:
 
           # Stage NON-SENSITIVE files only
           # CRITICAL: feed_manifest.json, api/feed.json → R2 ONLY (never to GitHub)
+
+          # ── FIX: Persist STIX bundles across runs ──────────────────────────
+          # ROOT CAUSE (run #744): STIX bundles were not in git, so every run
+          # started with 0 bundles.  --force-rebuild's fallback path could only
+          # see the current run's bundles (52), producing only 9 valid entries.
+          # By committing bundles, --force-rebuild's fallback now has full
+          # cumulative history (hundreds of bundles) if the engine manifest is
+          # ever absent or undersized.
+          #
+          # Bundles are capped at the 500 newest files to prevent repo bloat.
+          # Each bundle is ~2-4 KB so 500 bundles ≈ 1-2 MB — acceptable.
+          python3 - << 'PYEOF'
+          import os, glob, json
+          from pathlib import Path
+          bundles = sorted(Path("data/stix").glob("CDB-APEX-*.json"),
+                           key=lambda p: p.stat().st_mtime, reverse=True)
+          if len(bundles) > 500:
+              # Remove oldest bundles from disk before staging — keeps repo lean
+              for old in bundles[500:]:
+                  try:
+                      old.unlink()
+                  except Exception:
+                      pass
+              print(f"Pruned STIX bundles to 500 newest (removed {len(bundles)-500} oldest).")
+          else:
+              print(f"STIX bundle count: {len(bundles)} (under 500 cap, no pruning needed).")
+          PYEOF
+          git add -f data/stix/CDB-APEX-*.json           2>/dev/null || true
+          # ─────────────────────────────────────────────────────────────────
+
           git add -f data/sync_marker.json               2>/dev/null || true
           git add -f api/latest.json api/status.json     2>/dev/null || true
           git add -f api/engines.json api/ai/            2>/dev/null || true
