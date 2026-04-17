@@ -741,7 +741,15 @@ class STIXExporter:
                 if isinstance(data, list):
                     manifest_entries = data
                 elif isinstance(data, dict):
-                    manifest_entries = data.get("entries", [])
+                    # v112.1 FIX: bootstrap writes "advisories" key, not "entries".
+                    # Using data.get("entries",[]) returned [] when manifest was a dict,
+                    # causing sentinel_blogger to overwrite the full manifest with a
+                    # single-entry list on each call. All previous enriched entries lost.
+                    for _key in ("advisories", "entries", "reports", "items"):
+                        _v = data.get(_key)
+                        if isinstance(_v, list):
+                            manifest_entries = _v
+                            break
             except Exception:
                 manifest_entries = []
 
