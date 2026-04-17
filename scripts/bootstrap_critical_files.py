@@ -229,17 +229,25 @@ def _write_manifest(entries: list, path: Path) -> None:
         rs = float(e.get("risk_score") or e.get("cvss_score") or 0)
         return (ts, rs)
     entries = sorted(entries, key=_sort_key, reverse=True)
-    critical = sum(1 for e in entries if e["severity"] == "CRITICAL")
-    high     = sum(1 for e in entries if e["severity"] == "HIGH")
-    avg_risk = round(sum(e["risk_score"] for e in entries) / len(entries), 2)
+    # v112.2 P0 FIX: Use .get() with fallback for all field accesses — UNION merge brings
+    # entries from old manifests that may use cvss_score, different severity labels, or
+    # have missing fields entirely. Bracket notation caused KeyError: 'risk_score' crash.
+    def _get_rs(e):
+        return float(e.get("risk_score") or e.get("cvss_score") or 0)
+    def _get_sev(e):
+        return (e.get("severity") or e.get("risk_level") or "MEDIUM").upper()
+    critical = sum(1 for e in entries if _get_sev(e) == "CRITICAL")
+    high     = sum(1 for e in entries if _get_sev(e) == "HIGH")
+    avg_risk = round(sum(_get_rs(e) for e in entries) / max(len(entries), 1), 2)
     manifest = {
         "version": VERSION, "platform": PLATFORM,
         "generated_at": now_iso(),
         "entry_count": len(entries),
+        "total_reports": len(entries),
         "summary": {
             "critical": critical, "high": high,
-            "medium": sum(1 for e in entries if e["severity"] == "MEDIUM"),
-            "low": sum(1 for e in entries if e["severity"] == "LOW"),
+            "medium": sum(1 for e in entries if _get_sev(e) == "MEDIUM"),
+            "low": sum(1 for e in entries if _get_sev(e) == "LOW"),
             "avg_risk_score": avg_risk,
         },
         "advisories": entries,
