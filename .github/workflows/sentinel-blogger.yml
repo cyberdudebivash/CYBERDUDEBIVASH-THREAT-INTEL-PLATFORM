@@ -46,7 +46,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "111.0.0"
+  PIPELINE_VERSION: "115.0.0"
 
 # Only ONE data-writing workflow at a time — prevents manifest corruption
 concurrency:
@@ -272,6 +272,23 @@ jobs:
           echo "Schema validation complete."
 
 # ═══════════════════════════════════════════════════════════════════════════
+# STAGE 3.6: HTML REPORT GENERATION
+# Generates one full Tactical Dossier per advisory at reports/YYYY/MM/<id>.html
+# These files MUST be generated BEFORE R2 upload and gh-pages deploy so that
+# report_url links in the dashboard resolve to real pages.
+# ═══════════════════════════════════════════════════════════════════════════
+      - name: "📄 Generate HTML Tactical Dossiers (report_url pages)"
+        continue-on-error: true
+        run: |
+          echo "=== SENTINEL APEX v115.0 — HTML Report Generation ==="
+          python3 scripts/generate_intel_reports.py \
+            --manifest data/stix/feed_manifest.json \
+            --limit 0
+          REPORT_COUNT=$(find reports -name '*.html' -not -name 'index.html' 2>/dev/null | wc -l || echo 0)
+          echo "Generated $REPORT_COUNT tactical dossier HTML files"
+          echo "REPORT_COUNT=$REPORT_COUNT" >> $GITHUB_ENV
+
+# ═══════════════════════════════════════════════════════════════════════════
 # STAGE 3.5: R2 UPLOAD — MANDATORY, OVERWRITE GUARANTEED
 # No continue-on-error. Pipeline fails if R2 upload fails.
 # ═══════════════════════════════════════════════════════════════════════════
@@ -336,6 +353,22 @@ jobs:
                 --content-type "application/json"
             done
             echo "OK: apex_v2/ uploaded"
+          fi
+
+          # UPLOAD 4a: Generated HTML reports (Tactical Dossiers)
+          # These are the files that report_url links point to.
+          # Upload to R2 so https://reports.cyberdudebivash.com/YYYY/MM/<id>.html resolves.
+          if [ -d "reports" ] && [ "$(find reports -name '*.html' | head -1)" ]; then
+            echo "Uploading HTML reports to R2..."
+            aws s3 sync reports/ \
+              s3://sentinel-apex-reports/reports/ \
+              --endpoint-url "$ENDPOINT" \
+              --content-type "text/html; charset=utf-8" \
+              --cache-control "public, max-age=300" \
+              --only-show-errors || echo "WARN: Report upload had errors (non-fatal)"
+            echo "OK: HTML reports uploaded to R2 (sentinel-apex-reports/reports/)"
+          else
+            echo "INFO: No reports/ directory or no HTML files — skipping report upload"
           fi
 
           # UPLOAD 4b: AI Intelligence data (MITRE heatmap, AI panels, analysis)
@@ -450,6 +483,9 @@ jobs:
           git add -f api/engines.json api/ai/            2>/dev/null || true
           git add    index.html sitemap.xml               2>/dev/null || true
           git add    .gitignore                           2>/dev/null || true
+          # Stage generated HTML reports so they are accessible via GitHub Pages
+          # gh-pages serves reports/YYYY/MM/<id>.html → matches report_url fields
+          git add -f reports/                             2>/dev/null || true
           git add -f data/status/status.json              2>/dev/null || true
           git add -f data/health/guardian_report.json    2>/dev/null || true
           git add -f data/health/apex_engine_report.json 2>/dev/null || true

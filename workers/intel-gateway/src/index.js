@@ -378,6 +378,22 @@ async function handlePreview(request, env, rid) {
         kev_present: item.kev_present || false,
         epss_score:  item.epss_score  || null,
         cvss_score:  item.cvss_score  || null,
+        // P0 FIX v113.0: report_url MUST be forwarded — dashboard "View Tactical Dossier"
+        // links DEPEND on this field. Without it the frontend falls back to source_url
+        // or blog_url (legacy), which is wrong. If report_url is missing derive it
+        // deterministically so the field is always populated.
+        report_url:  item.report_url  || (() => {
+          const id  = item.id || "unknown";
+          const ts  = item.timestamp || new Date().toISOString();
+          const dt  = new Date(ts);
+          const y   = dt.getUTCFullYear();
+          const m   = String(dt.getUTCMonth() + 1).padStart(2, "0");
+          return `/reports/${y}/${m}/${id}.html`;
+        })(),
+        source_url:  item.source_url  || null,
+        actor_tag:   item.actor_tag   || null,
+        mitre_tactics: Array.isArray(item.mitre_tactics) ? item.mitre_tactics
+                      : Array.isArray(item.ttps) ? item.ttps : [],
       };
     });
 
