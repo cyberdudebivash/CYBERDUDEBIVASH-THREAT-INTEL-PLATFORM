@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-16T22:23:56.365320+00:00",
+  "timestamp": "2026-04-17T04:36:22.139954+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -385,6 +385,274 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-f5v8-v6q3-q4h6",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Meridian: Multiple defense-in-depth gaps (collection/depth caps, telemetry, retry, fan-out)",
+      "description": "## Summary\n\nMeridian v2.1.0 (`Meridian.Mapping` and `Meridian.Mediator`) shipped with nine defense-in-depth gaps reachable through its public APIs. Two are HIGH severity \u2014 the advertised `DefaultMaxCollectionItems` and `DefaultMaxDepth` safety caps are silently bypassed on the `IMapper.Map(source, destination)` overload and anywhere `.UseDestinationValue()` is configured on a collection-typed property. Four are MEDIUM (constructor invariant bypass, OpenTelemetry stack-trace info disclosure, retry amplification, notification fan-out amplification). Three are LOW (exception message disclosure, dictionary duplicate-key echo, static mediator cache growth under closed-generic types).\n\nAll nine are patched in **v2.1.1**. Upgrade is a drop-in NuGet bump; see the v2.1.1 CHANGELOG for the four behavioural changes (constructor selection, OTel default, publisher fan-out cap, retry caps).\n\n## Severity Matrix\n\n| # | Severity | CWE | Finding | Fix |\n|---|---|---|---|---|\n| 1 | **HIGH** | CWE-770 | `",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-209",
+        "CWE-400",
+        "CWE-532",
+        "CWE-665",
+        "CWE-674",
+        "CWE-770",
+        "CWE-1325"
+      ],
+      "ecosystems": [
+        "nuget",
+        "nuget"
+      ],
+      "packages": [
+        "Meridian.Mapping",
+        "Meridian.Mediator"
+      ],
+      "published": "2026-04-16T22:50:37Z",
+      "updated": "2026-04-16T22:50:38Z",
+      "url": "https://github.com/advisories/GHSA-f5v8-v6q3-q4h6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/UmutKorkmaz/meridian/security/advisories/GHSA-f5v8-v6q3-q4h6",
+        "https://github.com/UmutKorkmaz/meridian/blob/main/CHANGELOG.md#211---2026-04-16",
+        "https://github.com/UmutKorkmaz/meridian/releases/tag/v2.1.1",
+        "https://github.com/advisories/GHSA-f5v8-v6q3-q4h6"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-gqqj-85qm-8qhf",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Paperclip: codex_local inherited ChatGPT/OpenAI-connected Gmail and was able to send real email",
+      "description": "### Summary\n\nA Paperclip-managed `codex_local` runtime was able to access and use a Gmail connector that I had connected in the ChatGPT/OpenAI apps UI, even though I had not explicitly connected Gmail inside Paperclip or separately inside Codex.\n\nIn my environment this enabled mailbox access and a real outbound email to be sent from my Gmail account. After I manually intervened to stop the workflow, follow-up retraction messages were also sent, confirming repeated outward write/send capability.\n\nThis appears to be a trust-boundary failure between Paperclip-managed Codex execution and inherited OpenAI app connectors, amplified by dangerous-by-default runtime settings.\n\n### Details\n\nSuccessful runtime calls include:\n\n- `mcp__codex_apps__gmail_get_profile`\n- `mcp__codex_apps__gmail_search_emails`\n- `mcp__codex_apps__gmail_send_email`\n\nThe connected Gmail profile resolved to my personal account.\n\nInside the Paperclip-managed `codex-home`, I also found cached OpenAI curated connector state ",
+      "cvss_score": 8.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "paperclipai"
+      ],
+      "published": "2026-04-16T22:47:40Z",
+      "updated": "2026-04-16T22:47:41Z",
+      "url": "https://github.com/advisories/GHSA-gqqj-85qm-8qhf",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/paperclipai/paperclip/security/advisories/GHSA-gqqj-85qm-8qhf",
+        "https://github.com/advisories/GHSA-gqqj-85qm-8qhf"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-xfqj-r5qw-8g4j",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Paperclip: Unauthenticated Access to Multiple API Endpoints in Authenticated Mode",
+      "description": "## Summary\n\nSeveral API endpoints in `authenticated` mode have no authentication at all. They respond to completely unauthenticated requests with sensitive data or allow state-changing operations. No account, no session, no API key needed.\n\nVerified against the latest version.\n\nDiscord: sagi03581\n\n## Steps to Reproduce\n\n### 1. Unauthenticated issue data access\n\n`GET /api/heartbeat-runs/:runId/issues` returns issue data for a heartbeat run with zero authentication. Every other endpoint in `server/src/routes/activity.ts` calls `assertCompanyAccess`, but this one was missed.\n\n```bash\ncurl -s http://<target>:3100/api/heartbeat-runs/00000000-0000-0000-0000-000000000001/issues\n# -> []  (HTTP 200, not 401 or 403)\n```\n\nIf an attacker obtains a valid run UUID (from logs, error messages, shared URLs, or by probing), they can read issue data without any credentials.\n\n### 2. Unauthenticated CLI auth challenge creation\n\n`POST /api/cli-auth/challenges` creates a CLI authentication challenge with no ",
+      "cvss_score": 8.3,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-306"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@paperclipai/server"
+      ],
+      "published": "2026-04-16T22:47:05Z",
+      "updated": "2026-04-16T22:47:05Z",
+      "url": "https://github.com/advisories/GHSA-xfqj-r5qw-8g4j",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/paperclipai/paperclip/security/advisories/GHSA-xfqj-r5qw-8g4j",
+        "https://github.com/advisories/GHSA-xfqj-r5qw-8g4j"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-w8hx-hqjv-vjcq",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Paperclip: Malicious skills able to exfiltrate and destroy all user data",
+      "description": "### Summary\nAn arbitrary code execution vulnerability in the workspace runtime service allows any agent to execute shell commands on the server, exposing all environment variables including API keys, JWT secrets, and database credentials.\n\n### Details\nA malicious skill can instruct the agent to exploit the **workspace runtime service** feature, which allows arbitrary shell command execution on the server.\n\n### Vulnerable Code Path\n\n1. Agent calls `PATCH /api/projects/{projectId}/workspaces/{workspaceId}` to set a malicious `runtimeConfig`\n2. Agent calls `POST /api/projects/{projectId}/workspaces/{workspaceId}/runtime-services/start`\n3. Server executes the command via `spawn()` in `server/src/services/workspace-runtime.ts`:\n\n```typescript\nconst shell = process.env.SHELL?.trim() || \"/bin/sh\";\nconst child = spawn(shell, [\"-lc\", command], { cwd: serviceCwd, env, ... });\n```\n\nThe `command` parameter comes directly from workspace config with no sanitization, allowing arbitrary code execution",
+      "cvss_score": 7.3,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-77"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@paperclipai/server"
+      ],
+      "published": "2026-04-16T22:46:52Z",
+      "updated": "2026-04-16T22:46:52Z",
+      "url": "https://github.com/advisories/GHSA-w8hx-hqjv-vjcq",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/paperclipai/paperclip/security/advisories/GHSA-w8hx-hqjv-vjcq",
+        "https://github.com/advisories/GHSA-w8hx-hqjv-vjcq"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-265w-rf2w-cjh4",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Paperclip: Privilege Escalation via Agent-Controlled workspaceStrategy.provisionCommand Leading to OS Command Execution",
+      "description": "### Summary\nPaperclip contains a privilege escalation vulnerability that allows an attacker with an Agent API key to execute arbitrary OS commands on the Paperclip server host.\nAn attacker with an agent credential can escalate privileges from the agent runtime to the Paperclip server host.\nThe vulnerability occurs because agents are allowed to update their own adapterConfig via the /agents/:id API endpoint.\nThe configuration field adapterConfig.workspaceStrategy.provisionCommand is later executed by the server runtime using:\n```\nspawn(\"/bin/sh\", [\"-c\", command])\n```\nAs a result, an attacker controlling an agent credential can inject arbitrary shell commands which are executed by the Paperclip server during workspace provisioning.\nThis breaks the intended trust boundary between agent runtime configuration and server host execution, allowing a compromised or malicious agent to escalate privileges and run commands on the host system.\nThis vulnerability allows remote code execution on the ",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-78"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@paperclipai/server"
+      ],
+      "published": "2026-04-16T22:45:26Z",
+      "updated": "2026-04-16T22:45:27Z",
+      "url": "https://github.com/advisories/GHSA-265w-rf2w-cjh4",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/paperclipai/paperclip/security/advisories/GHSA-265w-rf2w-cjh4",
+        "https://github.com/advisories/GHSA-265w-rf2w-cjh4"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-xr8f-h2gw-9xh6",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "OAuth 2.1 Provider: Unprivileged users can register OAuth clients",
+      "description": "### Summary\nAn authorization bypass in the OAuth provider allows any authenticated low-privilege user to create OAuth clients even when the deployment configures clientPrivileges to restrict client creation. The option contract explicitly includes a create action, but the create paths never invoke that callback, so applications that rely on clientPrivileges for RBAC can be silently misconfigured into allowing unauthorized client registration.\n\n### Details\nThe OAuth provider exposes a clientPrivileges authorization hook whose documented action set includes create:\nhttps://github.com/better-auth/better-auth/blob/c5066fe5d68babf2376cfc63d813de5542eca463/packages/oauth-provider/src/types/index.ts#L209-L214\nHowever, the two client-creation entry points for the [adminCreateOAuthClient](https://github.com/better-auth/better-auth/blob/c5066fe5d68babf2376cfc63d813de5542eca463/packages/oauth-provider/src/oauthClient/index.ts#L16) and the [createOAuthClient](https://github.com/better-auth/better-",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "@better-auth/oauth-provider",
+        "@better-auth/oauth-provider"
+      ],
+      "published": "2026-04-16T22:44:27Z",
+      "updated": "2026-04-16T22:44:28Z",
+      "url": "https://github.com/advisories/GHSA-xr8f-h2gw-9xh6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/better-auth/better-auth/security/advisories/GHSA-xr8f-h2gw-9xh6",
+        "https://github.com/advisories/GHSA-xr8f-h2gw-9xh6"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-29qv-4j9f-fjw5",
+      "cve_id": "CVE-2026-40897",
+      "severity": "HIGH",
+      "summary": "Unsafe object property setter in mathjs",
+      "description": "### Impact\nThis security vulnerability allowed executing arbitrary JavaScript via the expression parser of mathjs. You can be affected when you have an application where users can evaluate arbitrary expressions using the mathjs expression parser.\n\n### Patches\nThe issue was introduced in mathjs `v13.1.1`, and patched in mathjs `v15.2.0`.\n\n### Workarounds\nThere is no workaround without upgrading to `v15.2.0`.\n\n### References\nYou can find out more via the commit fixing this issue: https://github.com/josdejong/mathjs/commit/513ab2a0e01004af91b31aada68fae8a821326ad (part of PR https://github.com/josdejong/mathjs/pull/3656).",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-915"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "mathjs"
+      ],
+      "published": "2026-04-16T22:38:43Z",
+      "updated": "2026-04-16T22:38:44Z",
+      "url": "https://github.com/advisories/GHSA-29qv-4j9f-fjw5",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/josdejong/mathjs/security/advisories/GHSA-29qv-4j9f-fjw5",
+        "https://github.com/josdejong/mathjs/pull/3656",
+        "https://github.com/josdejong/mathjs/commit/513ab2a0e01004af91b31aada68fae8a821326ad",
+        "https://github.com/advisories/GHSA-29qv-4j9f-fjw5"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-45q2-gjvg-7973",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Angular: SSRF via protocol-relative and backslash URLs in Angular Platform-Server",
+      "description": "### Impact\n\nA [Server-Side Request Forgery (SSRF)](https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/SSRF) vulnerability exists in `@angular/platform-server` due to improper handling of URLs during Server-Side Rendering (SSR).\n\nWhen an attacker sends a request such as `GET /\\evil.com/ HTTP/1.1` the server engine (Express, etc.) passes the URL string to Angular\u2019s rendering functions.\n\nBecause the URL parser normalizes the backslash to a forward slash for HTTP/HTTPS schemes, the internal state of the application is hijacked to believe the current origin is `evil.com`. This misinterpretation tricks the application into treating the attacker\u2019s domain as the local origin. Consequently, any relative `HttpClient` requests or `PlatformLocation.hostname` references are redirected to the attacker controlled server, potentially exposing internal APIs or metadata services.\n\n**Affected APIs:**\n- `renderModule`\n- `renderApplication`\n- `CommonEngine` (from `@angular/ssr`)\n\n**Non-Affected ",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "npm",
+        "npm",
+        "npm",
+        "npm",
+        "npm"
+      ],
+      "packages": [
+        "@angular/platform-server",
+        "@angular/platform-server",
+        "@angular/platform-server",
+        "@angular/platform-server",
+        "@angular/platform-server"
+      ],
+      "published": "2026-04-16T22:36:01Z",
+      "updated": "2026-04-16T22:36:02Z",
+      "url": "https://github.com/advisories/GHSA-45q2-gjvg-7973",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/angular/angular/security/advisories/GHSA-45q2-gjvg-7973",
+        "https://github.com/angular/angular/pull/68194",
+        "https://github.com/advisories/GHSA-45q2-gjvg-7973"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-v9ww-2j6r-98q6",
+      "cve_id": "CVE-2026-33804",
+      "severity": "HIGH",
+      "summary": "@fastify/middie vulnerable to middleware bypass via deprecated ignoreDuplicateSlashes option",
+      "description": "### Impact\n\n`@fastify/middie` v9.3.1 and earlier does not read the deprecated (but still functional) top-level `ignoreDuplicateSlashes` option, only reading from `routerOptions`. This creates a normalization gap: Fastify's router normalizes duplicate slashes but middie does not, allowing middleware bypass via URLs with duplicate leading slashes (e.g., `//admin/secret`).\n\nThis only affects applications using the deprecated top-level configuration style (`fastify({ ignoreDuplicateSlashes: true })`). Applications using `routerOptions: { ignoreDuplicateSlashes: true }` are not affected.\n\nThis is distinct from [GHSA-8p85-9qpw-fwgw](https://github.com/fastify/middie/security/advisories/GHSA-8p85-9qpw-fwgw) (CVE-2026-2880), which was patched in v9.2.0.\n\n### Patches\n\nUpgrade to `@fastify/middie` >= 9.3.2.\n\n### Workarounds\n\nMigrate from deprecated top-level `ignoreDuplicateSlashes: true` to `routerOptions: { ignoreDuplicateSlashes: true }`.",
+      "cvss_score": 7.4,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-436"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@fastify/middie"
+      ],
+      "published": "2026-04-16T22:28:54Z",
+      "updated": "2026-04-16T22:28:56Z",
+      "url": "https://github.com/advisories/GHSA-v9ww-2j6r-98q6",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/fastify/middie/security/advisories/GHSA-v9ww-2j6r-98q6",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-33804",
+        "https://cna.openjsf.org/security-advisories.html",
+        "https://github.com/advisories/GHSA-v9ww-2j6r-98q6"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-f6hc-c5jr-878p",
       "cve_id": null,
       "severity": "HIGH",
@@ -553,263 +821,6 @@
         "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-2x8m-83vc-6wv4",
         "https://github.com/advisories/GHSA-2x8m-83vc-6wv4"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-xhmj-rg95-44hv",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Flowise: SSRF Protection Bypass via Unprotected Built-in HTTP Modules in Custom Function Sandbox",
-      "description": "### Summary\nA Server-Side Request Forgery (SSRF) protection bypass vulnerability exists in the Custom Function feature. While the application implements SSRF protection via HTTP_DENY_LIST for axios and node-fetch libraries, the built-in Node.js `http`, `https`, and `net` modules are allowed in the NodeVM sandbox without equivalent protection. This allows authenticated users to bypass SSRF controls and access internal network resources (e.g., cloud provider metadata services)\n\n### Details\nThe vulnerability exists in the sandbox configuration within `packages/components/src/utils.ts`\n\n**Vulnerable Code - Allowed Built-in Modules (Line 56):**\n```typescript\nexport const defaultAllowBuiltInDep = [\n    'assert', 'buffer', 'crypto', 'events', 'http', 'https', 'net', 'path', 'querystring', 'timers',\n    'url', 'zlib', 'os', 'stream', 'http2', 'punycode', 'perf_hooks', 'util', 'tls', 'string_decoder', 'dns', 'dgram'\n]\n```\n\n**SSRF Protection Implementation (Lines 254-261):**\n```typescript\n// Onl",
-      "cvss_score": 7.1,
-      "cvss_vector": "CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-284",
-        "CWE-918"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "flowise",
-        "flowise-components"
-      ],
-      "published": "2026-04-16T21:50:12Z",
-      "updated": "2026-04-16T21:50:12Z",
-      "url": "https://github.com/advisories/GHSA-xhmj-rg95-44hv",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-xhmj-rg95-44hv",
-        "https://github.com/advisories/GHSA-xhmj-rg95-44hv"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-rh7v-6w34-w2rr",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Flowise: File Upload Validation Bypass in createAttachment",
-      "description": "### Summary\nIn FlowiseAI, the Chatflow configuration file upload settings can be modified to allow the application/javascript MIME type. This lets an attacker upload .js files even though the frontend doesn\u2019t normally allow JavaScript uploads. This enables attackers to persistently store malicious Node.js web shells on the server, potentially leading to Remote Code Execution (RCE).\n\n### Details\nThis is a bypass of [GHSA\u201135g6\u2011rrw3\u2011v6xc](https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-35g6-rrw3-v6xc) (CVE\u20112025\u201161687). The Chatflow file upload settings do not properly validate MIME types. An attacker can add the `application/javascript` MIME type when updating a Chatflow, allowing .js files to be uploaded.\n\nJavaScript files are not listed as an option for file upload types within web user interface:\n<img width=\"1162\" height=\"440\" alt=\"Screenshot 2026-01-08 152306\" src=\"https://github.com/user-attachments/assets/f33f04af-877e-4aac-95a7-86d4684891de\" />\n\n\n\n### PoC\n#### shell.j",
-      "cvss_score": 7.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-434"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "flowise"
-      ],
-      "published": "2026-04-16T21:49:28Z",
-      "updated": "2026-04-16T21:49:32Z",
-      "url": "https://github.com/advisories/GHSA-rh7v-6w34-w2rr",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-rh7v-6w34-w2rr",
-        "https://github.com/advisories/GHSA-rh7v-6w34-w2rr"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-cvrr-qhgw-2mm6",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Flowise: Parameter Override Bypass Remote Command Execution",
-      "description": "### Summary\n\nFlowise is vulnerable to a critical unauthenticated remote command execution (RCE) vulnerability. It can be exploited via a parameter override bypass using the `FILE-STORAGE::` keyword combined with a `NODE_OPTIONS` environment variable injection. This allows for the execution of arbitrary system commands with root privileges within the containerized Flowise instance, requiring only a single HTTP request and no authentication or knowledge of the instance.\n\n### Details\n\nThe vulnerability is in a validation check within the `replaceInputsWithConfig` function within `packages/server/src/utils/index.ts`. The check for `FILE-STORAGE::` was intended to handle file-type inputs but has three issues:\n\n1. Uses\u00a0.includes()\u00a0instead of\u00a0.startsWith(): The check passes if\u00a0FILE-STORAGE::\u00a0appears ANYWHERE in the string, not just at the beginning. A remote user can embed it in a comment:\u00a0/* FILE-STORAGE:: */ { custom config }\n\n2. No parameter type validation: The check doesn't verify that t",
-      "cvss_score": 7.7,
-      "cvss_vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-20"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "flowise",
-        "flowise-components"
-      ],
-      "published": "2026-04-16T21:46:39Z",
-      "updated": "2026-04-16T21:46:42Z",
-      "url": "https://github.com/advisories/GHSA-cvrr-qhgw-2mm6",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-cvrr-qhgw-2mm6",
-        "https://github.com/advisories/GHSA-cvrr-qhgw-2mm6"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-4jpm-cgx2-8h37",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Flowise: Sensitive Data Leak in public-chatbotConfig ",
-      "description": "### Summary\n\n`/api/v1/public-chatbotConfig/:id `ep exposes sensitive data including API keys, HTTP authorization headers and internal configuration without any authentication. An attacker with knowledge just of a chatflow UUID can retrieve credentials stored in password type fields and HTTP headers, leading to credential theft and more.\n\n### Details\n\nKnowledge of chatflow UUID can be obtained from embedded chat widgets, referrer headers or logs and it's the only prerequest. \n\n`getSinglePublicChatbotConfig` function in `packages/server/src/services/chatflows/index.ts` returns the full **flowData** object without authorization check or data sanitization.\n\nThere is a comment as **\"Safe as public endpoint as chatbotConfig doesn't contain sensitive credential\"** but **flowData** does contain sensitive data such as:\n\n`type: 'password'` fields are stored in plaintext (unstructuredAPIKey in S3File node).\nHTTP Authorization headers in POST / GET Requests nodes.\nInternal API endpoints and webhoo",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-200",
-        "CWE-522",
-        "CWE-862"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "flowise"
-      ],
-      "published": "2026-04-16T21:44:49Z",
-      "updated": "2026-04-16T21:44:52Z",
-      "url": "https://github.com/advisories/GHSA-4jpm-cgx2-8h37",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-4jpm-cgx2-8h37",
-        "https://github.com/advisories/GHSA-4jpm-cgx2-8h37"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-48m6-ch88-55mj",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Flowise: Improper Mass Assignment in Account Registration Enables Unauthorized Organization Association",
-      "description": "### Summary\n\nAn improper mass assignment (JSON injection) vulnerability in the account registration endpoint of Flowise Cloud allows unauthenticated attackers to inject server-managed fields and nested objects during account creation. This enables client-controlled manipulation of ownership metadata, timestamps, organization association, and role mappings, breaking trust boundaries in a multi-tenant environment.\n\n### Details\n\nThe POST /api/v1/account/register endpoint is intended to accept a minimal payload to create a new user account (e.g., name, email, password). However, the backend fails to enforce a strict allowlist or DTO-based validation and instead blindly maps client-supplied JSON to internal domain models.\n\nAs a result, attackers can include additional nested objects and server-managed fields in the request body such as organization, organizationUser, workspace, workspaceUser, and metadata fields like createdBy, updatedBy, createdDate, and updatedDate. These fields are persi",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-20",
-        "CWE-639",
-        "CWE-915"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "flowise"
-      ],
-      "published": "2026-04-16T21:44:24Z",
-      "updated": "2026-04-16T21:44:27Z",
-      "url": "https://github.com/advisories/GHSA-48m6-ch88-55mj",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-48m6-ch88-55mj",
-        "https://github.com/advisories/GHSA-48m6-ch88-55mj"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-f228-chmx-v6j6",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Flowise: Remote code execution vulnerability in AirtableAgent.ts caused by lack of input verification when using `Pandas`.",
-      "description": "## Description\n\n### Summary\n\n\u201cAirtableAgent\u201d is an agent function provided by FlowiseAI that retrieves search results by accessing private datasets from airtable.com. \u201cAirtableAgent\u201d uses Python, along with `Pyodide` and `Pandas`, to get and return results.\n\nThe user\u2019s input is directly applied to the question parameter within the prompt template and it is reflected to the Python code without any sanitization.\n\n**The point is that an attacker can bypass the intended behavior of the LLM and trigger Remote Code Execution through a simple prompt injection.**\n\n### About Airtable\n\nThe `airtable.ts` function retrieves and processes user datasets stored on Airtable.com through its API.\n\n![pic1](https://drive.google.com/uc?id=1pKzk2leZ_w6Zb1rL3Rm0xkQr3ty1jom9)\n![pic2](https://drive.google.com/uc?id=1pConjaiW2eeWJpcHnx1LTp3_CYn846u8)\nThe usage of Airtable is as shown in the image above. After creating a Chatflow like above, you can ask data-related questions using prompts and receive answers.\n\n",
-      "cvss_score": 8.3,
-      "cvss_vector": "CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-94"
-      ],
-      "ecosystems": [
-        "npm",
-        "npm"
-      ],
-      "packages": [
-        "flowise",
-        "flowise-components"
-      ],
-      "published": "2026-04-16T21:43:57Z",
-      "updated": "2026-04-16T21:44:01Z",
-      "url": "https://github.com/advisories/GHSA-f228-chmx-v6j6",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/FlowiseAI/Flowise/security/advisories/GHSA-f228-chmx-v6j6",
-        "https://github.com/advisories/GHSA-f228-chmx-v6j6"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-rp42-5vxx-qpwr",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "basic-ftp vulnerable to denial of service via unbounded memory consumption in Client.list()",
-      "description": "### Summary\n`basic-ftp@5.2.2` is vulnerable to denial of service through unbounded memory growth while processing directory listings from a remote FTP server. A malicious or compromised server can send an extremely large or never-ending listing response to `Client.list()`, causing the client process to consume memory until it becomes unstable or crashes.\n\n### Details\nThe issue is in the package's default directory listing flow.\n\n`Client.list()` reaches `dist/Client.js`, where the full listing response is downloaded into a `StringWriter` before parsing:\n\nFile: `dist/Client.js:516-527`\n\n```js\nasync _requestListWithCommand(command) {\n    const buffer = new StringWriter_1.StringWriter();\n    await (0, transfer_1.downloadTo)(buffer, {\n        ftp: this.ftp,\n        tracker: this._progressTracker,\n        command,\n        remotePath: \"\",\n        type: \"list\"\n    });\n    const text = buffer.getText(this.ftp.encoding);\n    this.ftp.log(text);\n    return this.parseList(text);\n}\n```\n\nThe vulnera",
-      "cvss_score": 7.5,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-400",
-        "CWE-770"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "basic-ftp"
-      ],
-      "published": "2026-04-16T21:37:48Z",
-      "updated": "2026-04-16T21:37:51Z",
-      "url": "https://github.com/advisories/GHSA-rp42-5vxx-qpwr",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/patrickjuchli/basic-ftp/security/advisories/GHSA-rp42-5vxx-qpwr",
-        "https://github.com/advisories/GHSA-rp42-5vxx-qpwr"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-8wfp-579w-6r25",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Kyverno apiCall automatically forwards ServiceAccount token to external endpoints (credential leak)",
-      "description": "### Summary\nKyverno's apiCall service mode automatically attaches the admission controller's ServiceAccount (SA) token to outbound HTTP requests. This results in unintended credential exposure when requests are sent to external or attacker-controlled endpoints.\n\nThe behavior is insecure-by-default and not documented, enabling token exfiltration without requiring policy authors to explicitly opt in.\n\n---\n\n### Details\n\nKyverno's apiCall executor (`pkg/engine/apicall/executor.go`) reads the ServiceAccount token from:\n\n`/var/run/secrets/kubernetes.io/serviceaccount/token`\n\nand injects it into every HTTP request as:\n\n```\nAuthorization: Bearer <token>\n```\n\nThis occurs when no explicit `Authorization` header is defined in the policy.\n\n#### Root cause\n\n```go\nif req.Header.Get(\"Authorization\") == \"\" {\n    token := a.getToken()\n    if token != \"\" {\n        req.Header.Add(\"Authorization\", \"Bearer \"+token)\n    }\n}\n```\n\nThis logic introduces several issues:\n\n- **Implicit credential forwarding** to ",
-      "cvss_score": 7.7,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:N/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-200",
-        "CWE-522"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/kyverno/kyverno"
-      ],
-      "published": "2026-04-16T21:37:29Z",
-      "updated": "2026-04-16T21:37:31Z",
-      "url": "https://github.com/advisories/GHSA-8wfp-579w-6r25",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/kyverno/kyverno/security/advisories/GHSA-8wfp-579w-6r25",
-        "https://github.com/advisories/GHSA-8wfp-579w-6r25"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-f9g8-6ppc-pqq4",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Kyverno: ServiceAccount token leaked to external servers via apiCall service URL",
-      "description": "## Summary\n\nKyverno's apiCall feature in ClusterPolicy automatically attaches the admission controller's ServiceAccount token to outgoing HTTP requests. The service URL has no validation \u2014 it can point anywhere, including attacker-controlled servers. Since the admission controller SA has permissions to patch webhook configurations, a stolen token leads to full cluster compromise.\n\n## Affected version\n\nTested on Kyverno v1.17.1 (Helm chart default installation). Likely affects all versions with apiCall service support.\n\n## Details\n\nThere are two issues that combine into one attack chain.\n\nThe first is in `pkg/engine/apicall/executor.go` around line 138. The service URL from the policy spec goes straight into `http.NewRequestWithContext()`:\n\n```go\nreq, err := http.NewRequestWithContext(ctx, string(apiCall.Method), apiCall.Service.URL, data)\n```\n\nNo scheme check, no IP restriction, no allowlist. The policy validation webhook (`pkg/validation/policy/validate.go`) only looks at JMESPath syn",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-200",
-        "CWE-918"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "github.com/kyverno/kyverno"
-      ],
-      "published": "2026-04-16T21:36:20Z",
-      "updated": "2026-04-16T21:36:21Z",
-      "url": "https://github.com/advisories/GHSA-f9g8-6ppc-pqq4",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/kyverno/kyverno/security/advisories/GHSA-f9g8-6ppc-pqq4",
-        "https://github.com/advisories/GHSA-f9g8-6ppc-pqq4"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -857,7 +868,7 @@
         "count": 26
       }
     ],
-    "catalog_version": "2026-04-16T22:23:56.728067+00:00",
+    "catalog_version": "2026-04-17T04:36:22.296036+00:00",
     "source": "CISA KEV"
   }
 }
