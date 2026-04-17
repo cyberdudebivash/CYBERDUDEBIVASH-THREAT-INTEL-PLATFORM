@@ -773,42 +773,66 @@ class STIXExporter:
             logger.info(f"  [MANIFEST] Dedup guard: skipping duplicate: {title[:60]}")
             return
 
+        # v114.0 SCHEMA CONTRACT: every entry MUST carry id + report_url.
+        # id: prefer STIX identifier when it starts with "intel--", else derive.
+        import hashlib as _hashlib
+        _ts_now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        _intel_id = stix_id if (isinstance(stix_id, str) and stix_id.startswith("intel--")) else (
+            "intel--" + _hashlib.sha1(f"{title}::{_ts_now}".encode("utf-8")).hexdigest()[:24]
+        )
+        # report_url: always /reports/YYYY/MM/<id>.html (relative); physical HTML
+        # is produced later by scripts/generate_intel_reports.py. Never a blogspot URL.
+        _report_url = (report_url or "").strip()
+        if not _report_url or "blogspot" in _report_url.lower():
+            _yyyy = _ts_now[:4]; _mm = _ts_now[5:7]
+            _report_url = f"/reports/{_yyyy}/{_mm}/{_intel_id}.html"
+        # source_url: never a blogspot URL
+        _source_url = (source_url or "").strip()
+        if _source_url and "blogspot" in _source_url.lower():
+            _source_url = ""
+        # tags: from labels/mitre if provided in kwargs; default to mitre_tactics copy
+        _tags = list(mitre_tactics)[:8] if mitre_tactics else []
+
         entry = {
-            # v11.0 original fields (preserved)
+            # v114.0 SCHEMA CONTRACT (required)
+            "id":               _intel_id,
+            "stix_id":          _intel_id,
+            "bundle_id":        stix_id or _intel_id,
             "title":            title,
-            "stix_id":          stix_id,
-            "bundle_id":        stix_id,
+            "timestamp":        _ts_now,
             "risk_score":       float(risk_score),
-            # v113.0: blog_url removed — report_url is native delivery URL
-            "report_url":       report_url or source_url or "",
-            "source_url":       source_url or "",
-            "timestamp":        datetime.now(timezone.utc).isoformat(),
-            "generated_at":     datetime.now(timezone.utc).isoformat(),
             "severity":         severity,
+            "report_url":       _report_url,
+            "source_url":       _source_url,
+            "tlp":              (tlp_label or "TLP:CLEAR").upper(),
+            "tags":             _tags,
+            # v114.0 enrichment (preserved when populated)
+            "generated_at":     _ts_now,
             "confidence_score": float(confidence),
             "confidence":       float(confidence),
             "tlp_label":        tlp_label,
             "ioc_counts":       ioc_counts,
             "actor_tag":        actor_tag,
             "mitre_tactics":    mitre_tactics[:5] if mitre_tactics else [],
+            "ttps":             mitre_tactics[:5] if mitre_tactics else [],
             "feed_source":      feed_source,
             "indicator_count":  indicator_count,
             "stix_file":        stix_file,
-            # v17.0 fields (preserved)
             "cvss_score":       cvss_score,
             "epss_score":       epss_score,
             "kev_present":      kev_present,
             "status":           "active",
             "extended_metrics": extended_metrics or {},
             "nvd_url":          nvd_url,
-            # v22.0 new fields
             "supply_chain":     supply_chain,
             "stix_object_count":object_count,
             "stix_version":     "2.1",
-            "schema_version":   "v113.0",
-            # v113.0: always published — Blogger completely removed
+            "schema_version":   "v114.0",
+            # v114.0: always published — Blogger permanently disabled
             "published":        True,
         }
+        # v114.0: legacy blog_url field never emitted
+        entry.pop("blog_url", None)
 
         # v23.0: Inject compact APEX field (optional — zero regression on absence)
         if apex_data and isinstance(apex_data, dict):
