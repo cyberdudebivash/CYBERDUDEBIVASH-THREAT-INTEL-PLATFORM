@@ -696,61 +696,47 @@ jobs:
         continue-on-error: false
         run: |
           echo "=== SENTINEL APEX — MANIFEST INTEGRITY CHECK ==="
-          python3 - <<'PYEOF'
-import json, sys
-
-with open("data/stix/feed_manifest.json") as f:
-    d = json.load(f)
-
-items = d.get("advisories", d.get("reports", []))
-HARD_FAIL_STATUSES = {"write_error", "file_missing"}
-VALID_PREFIX       = "https://intel.cyberdudebivash.com"
-
-missing_url   = []
-hard_fail     = []
-stale_domain  = []
-
-for item in items:
-    sid = item.get("id","?")
-    vs  = item.get("validation_status","")
-    ru  = item.get("report_url","")
-
-    # Skip brand entries — intentionally have no report_url
-    if vs == "brand_skip":
-        continue
-
-    if vs in HARD_FAIL_STATUSES:
-        hard_fail.append(f"  HARD_FAIL [{vs}] {sid}")
-        continue
-
-    if not ru:
-        missing_url.append(f"  MISSING_URL {sid}")
-        continue
-
-    if "reports.cyberdudebivash.com" in ru:
-        stale_domain.append(f"  STALE_DOMAIN {sid} → {ru}")
-
-total = len(items)
-ok    = total - len(missing_url) - len(hard_fail) - len(stale_domain)
-print(f"Manifest entries : {total}")
-print(f"report_url ok    : {ok}")
-print(f"Missing URL      : {len(missing_url)}")
-print(f"Hard failures    : {len(hard_fail)}")
-print(f"Stale domain     : {len(stale_domain)}")
-
-if stale_domain:
-    print("STALE DOMAINS (will be rewritten by Worker, but fix at source):")
-    for s in stale_domain[:10]:
-        print(s)
-
-if hard_fail:
-    print("::error::MANIFEST INTEGRITY FAIL — write_error/file_missing entries detected:")
-    for h in hard_fail:
-        print(h)
-    sys.exit(1)
-
-print("MANIFEST INTEGRITY CHECK PASSED")
-PYEOF
+          python3 - << 'PYEOF'
+          import json, sys
+          with open("data/stix/feed_manifest.json") as f:
+              d = json.load(f)
+          items = d.get("advisories", d.get("reports", []))
+          HARD_FAIL_STATUSES = {"write_error", "file_missing"}
+          missing_url  = []
+          hard_fail    = []
+          stale_domain = []
+          for item in items:
+              sid = item.get("id", "?")
+              vs  = item.get("validation_status", "")
+              ru  = item.get("report_url", "")
+              if vs == "brand_skip":
+                  continue
+              if vs in HARD_FAIL_STATUSES:
+                  hard_fail.append(f"  HARD_FAIL [{vs}] {sid}")
+                  continue
+              if not ru:
+                  missing_url.append(f"  MISSING_URL {sid}")
+                  continue
+              if "reports.cyberdudebivash.com" in ru:
+                  stale_domain.append(f"  STALE_DOMAIN {sid}")
+          total = len(items)
+          ok = total - len(missing_url) - len(hard_fail) - len(stale_domain)
+          print(f"Manifest entries : {total}")
+          print(f"report_url ok    : {ok}")
+          print(f"Missing URL      : {len(missing_url)}")
+          print(f"Hard failures    : {len(hard_fail)}")
+          print(f"Stale domain     : {len(stale_domain)}")
+          if stale_domain:
+              print("STALE DOMAINS (will be rewritten by Worker at serve time):")
+              for s in stale_domain[:10]:
+                  print(s)
+          if hard_fail:
+              print("::error::MANIFEST INTEGRITY FAIL — write_error/file_missing entries:")
+              for h in hard_fail:
+                  print(h)
+              sys.exit(1)
+          print("MANIFEST INTEGRITY CHECK PASSED")
+          PYEOF
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STAGE 3.6b: REFRESH EMBEDDED_INTEL IN DASHBOARD
