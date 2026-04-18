@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-17T22:44:34.209654+00:00",
+  "timestamp": "2026-04-18T04:17:43.736277+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -385,6 +385,158 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-cjcx-jfp2-f7m2",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "pretalx vulnerable to stored cross-site scripting in organizer search typeahead",
+      "description": "The organiser search in the pretalx backend rendered submission titles, speaker display names, and user names/emails into the result dropdown using `innerHTML` string interpolation. Any user who controls one of those fields (which includes any registered user whose display name is looked up by an administrator) could include HTML or JavaScript that would execute in an organiser's browser when the organiser's search query matched the malicious record.\n\nTriggering the vulnerability required:\n\n1. An attacker-controlled field reachable by the search, which included any speaker's or submitter's display name in an event context (submitted a proposal) or any user at all for superusers.\n2. An organiser user with more than just review permissions or administrator user performing a typeahead search whose query matched the malicious record. An attacker can make matches likely by placing common substrings in the payload-bearing field.\n\nOnce triggered, the injected script executed in the context of",
+      "cvss_score": 8.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "pretalx"
+      ],
+      "published": "2026-04-18T01:11:38Z",
+      "updated": "2026-04-18T01:11:39Z",
+      "url": "https://github.com/advisories/GHSA-cjcx-jfp2-f7m2",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/pretalx/pretalx/security/advisories/GHSA-cjcx-jfp2-f7m2",
+        "https://github.com/advisories/GHSA-cjcx-jfp2-f7m2"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mjw2-v2hm-wj34",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "Dagster Vulnerable to SQL Injection via Dynamic Partition Keys in Database I/O Manager Integrations",
+      "description": "### Summary\n\nThe DuckDB, Snowflake, BigQuery, and DeltaLake I/O managers constructed SQL WHERE clauses by interpolating dynamic partition key values into queries without escaping. A user with the `Add Dynamic Partitions` permission could create a partition key that injects arbitrary SQL, which would execute against the target database backend under the I/O manager's credentials.\n\nOnly deployments that use dynamic partitions are affected. Pipelines using static or time-window partitions are not impacted.\n\n### Impact\n\n**Dagster OSS**: Any user with access to the Dagster API can create dynamic partition keys. Organizations should assess exposure based on who has API access in their deployment. Dagster is typically deployed in trusted environments where users who can manage partitions already have equivalent database access through other means. \n\n**Dagster+**: In most Dagster+ deployments using default permission sets, the `Add Dynamic Partitions` permission is granted to users with an Edi",
+      "cvss_score": 8.3,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:L",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "pip",
+        "pip",
+        "pip",
+        "pip",
+        "pip",
+        "pip"
+      ],
+      "packages": [
+        "dagster-duckdb",
+        "dagster-snowflake",
+        "dagster-gcp",
+        "dagster",
+        "dagster-deltalake",
+        "dagster-snowflake-polars"
+      ],
+      "published": "2026-04-18T01:07:59Z",
+      "updated": "2026-04-18T01:08:03Z",
+      "url": "https://github.com/advisories/GHSA-mjw2-v2hm-wj34",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/dagster-io/dagster/security/advisories/GHSA-mjw2-v2hm-wj34",
+        "https://gist.github.com/gibsondan/6d0c483f8499a8b1cd460cddc9fd8f72",
+        "https://github.com/advisories/GHSA-mjw2-v2hm-wj34"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-f58v-p6j9-24c2",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "YesWiki vulnerable to authenticated SQL Injection via id_fiche in EntryManager::formatDataBeforeSave()",
+      "description": "## Vulnerability Details\n\nYesWiki bazar module contains a SQL injection vulnerability in `tools/bazar/services/EntryManager.php` at line 704. The `$data['id_fiche']` value (sourced from `$_POST['id_fiche']`) is concatenated directly into a raw SQL query without any sanitization or parameterization.\n\n**Vulnerable Code (EntryManager.php:704):**\n```php\n$result = $this->dbService->loadSingle(\n    'SELECT MIN(time) as firsttime FROM ' . $this->dbService->prefixTable('pages') .\n    \"WHERE tag='\" . $data['id_fiche'] . \"'\"\n);\n```\n\n**Attack Path:**\n1. Attacker authenticates as any user (route requires `acl:{\"+\"}`)\n2. POST `/api/entries/{formId}` with `id_fiche=' OR SLEEP(3) OR '`\n3. `ApiController::createEntry()` checks `isEntry($_POST['id_fiche'])` \u2192 false (not existing entry) \u2192 calls `create()`\n4. `create()` \u2192 `formatDataBeforeSave()` \u2192 SQL injection at line 704\n\n**`dbService->loadSingle()` passes raw string to `mysqli_query()` with no escaping. The `escape()` method exists but is NOT called ",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-89"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "yeswiki/yeswiki"
+      ],
+      "published": "2026-04-18T01:00:30Z",
+      "updated": "2026-04-18T01:00:32Z",
+      "url": "https://github.com/advisories/GHSA-f58v-p6j9-24c2",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/YesWiki/yeswiki/security/advisories/GHSA-f58v-p6j9-24c2",
+        "https://github.com/advisories/GHSA-f58v-p6j9-24c2"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-qrr6-mg7r-m243",
+      "cve_id": null,
+      "severity": "HIGH",
+      "summary": "PHPUnit has Argument injection via newline in PHP INI values that are forwarded to child processes",
+      "description": "## Impact\n\nPHPUnit forwards PHP INI settings to child processes (used for isolated/PHPT test execution) as `-d name=value` command-line arguments without neutralizing INI metacharacters. Because PHP's INI parser interprets `\"` as a string delimiter, `;` as the start of a comment, and most importantly a newline as a directive separator, a value containing a newline is parsed by the child process as multiple INI directives.\n\nAn attacker able to influence a single INI value can therefore inject arbitrary additional directives into the child's configuration, including `auto_prepend_file`, `extension`, `disable_functions`, `open_basedir`, and others. Setting `auto_prepend_file` to an attacker-controlled path yields remote code execution in the child process.\n\nSources of INI values that participate in the attack:\n\n- `<ini name=\"\u2026\" value=\"\u2026\"/>` entries in `phpunit.xml` / `phpunit.xml.dist`\n- INI settings inherited from the host PHP runtime via `ini_get_all()`\n\n### Threat Model\n\nExploitation r",
+      "cvss_score": 7.8,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-88",
+        "CWE-93"
+      ],
+      "ecosystems": [
+        "composer",
+        "composer"
+      ],
+      "packages": [
+        "phpunit/phpunit",
+        "phpunit/phpunit"
+      ],
+      "published": "2026-04-18T00:59:28Z",
+      "updated": "2026-04-18T00:59:32Z",
+      "url": "https://github.com/advisories/GHSA-qrr6-mg7r-m243",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/sebastianbergmann/phpunit/security/advisories/GHSA-qrr6-mg7r-m243",
+        "https://github.com/sebastianbergmann/phpunit/pull/6592",
+        "https://github.com/advisories/GHSA-qrr6-mg7r-m243"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-xvj8-ph7x-65gf",
+      "cve_id": "CVE-2026-40880",
+      "severity": "HIGH",
+      "summary": "Zebra: Cached Mempool Verification Bypasses Consensus Rules for Ahead-of-Tip Blocks",
+      "description": "# CVE-2026-40880: Cached Mempool Verification Bypasses Consensus Rules for Ahead-of-Tip Blocks\n\n## Summary\n\nA logic error in Zebra's transaction verification cache could allow a malicious miner to induce a consensus split. By carefully submitting a transaction that is valid for height `H+1` but invalid for `H+2` and then mining that transaction in a block at height `H+2`, a miner could cause vulnerable Zebra nodes to accept an invalid block, leading to a consensus split from the rest of the Zcash network.\n\n## Severity\n\nHigh - This is a Consensus Vulnerability that could allow a malicious miner to induce network partitioning, service disruption, and potential double-spend attacks against affected nodes.\n\n## Affected Versions\n\nAll Zebra versions prior to version 4.3.1. (Some older versions are not affected but are no longer supported by the network)\n\n## Description\n\nThe vulnerability exists due to a performance optimization whose goal is to improve performance of transaction validation i",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-1025"
+      ],
+      "ecosystems": [
+        "rust",
+        "rust"
+      ],
+      "packages": [
+        "zebra-consensus",
+        "zebrad"
+      ],
+      "published": "2026-04-18T00:41:54Z",
+      "updated": "2026-04-18T00:41:56Z",
+      "url": "https://github.com/advisories/GHSA-xvj8-ph7x-65gf",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/ZcashFoundation/zebra/security/advisories/GHSA-xvj8-ph7x-65gf",
+        "https://github.com/advisories/GHSA-xvj8-ph7x-65gf"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-8q4h-8crm-5cvc",
       "cve_id": null,
       "severity": "HIGH",
@@ -682,149 +834,6 @@
         "https://github.com/openclaw/openclaw/pull/62662",
         "https://github.com/advisories/GHSA-7jp6-r74r-995q"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-736r-jwj6-4w23",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Sandboxed agents could escape exec routing via host=node override",
-      "description": "## Summary\n\nSandboxed agents could escape exec routing via host=node override.\n\n## Affected Packages / Versions\n\n- Package: `openclaw`\n- Ecosystem: npm\n- Affected versions: `>= 2026.4.5 < 2026.4.10`\n- Patched versions: `>= 2026.4.10`\n\n## Impact\n\nA sandboxed agent could request `host: \"node\"` and route exec to a remote node instead of the intended sandbox execution path, bypassing the sandbox routing boundary.\n\n## Technical Details\n\nThe fix blocks sandboxed exec escape to remote node targets and keeps routing aligned with the active sandbox policy.\n\n## Fix\n\nThe issue was fixed in #63880. The first stable tag containing the fix is `v2026.4.10`, and `openclaw@2026.4.14` includes the fix.\n\n## Fix Commit(s)\n\n- `dffad08529202edbf34e4808788e1182fe10f6a9`\n- PR: #63880\n\n## Release Process Note\n\nUsers should upgrade to `openclaw` 2026.4.10 or newer. The latest npm release, `2026.4.14`, already includes the fix.\n\n## Credits\n\nThanks to @zsxsoft, with sponsorship from @KeenSecurityLab and @qclawer ",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-863"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-17T22:14:56Z",
-      "updated": "2026-04-17T22:14:57Z",
-      "url": "https://github.com/advisories/GHSA-736r-jwj6-4w23",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-736r-jwj6-4w23",
-        "https://github.com/openclaw/openclaw/pull/63880",
-        "https://github.com/openclaw/openclaw/commit/dffad08529202edbf34e4808788e1182fe10f6a9",
-        "https://github.com/advisories/GHSA-736r-jwj6-4w23"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-939r-rj45-g2rj",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Workspace provider auth choices could auto-enable untrusted provider plugins",
-      "description": "## Summary\n\nWorkspace provider auth choices could auto-enable untrusted provider plugins.\n\n## Affected Packages / Versions\n\n- Package: `openclaw`\n- Ecosystem: npm\n- Affected versions: `< 2026.4.9`\n- Patched versions: `>= 2026.4.9`\n\n## Impact\n\nNon-interactive onboarding could select a provider auth choice shadowed by an untrusted workspace plugin, auto-enabling that plugin during auth setup.\n\n## Technical Details\n\nThe fix prefers trusted provider origins for auth choices and excludes untrusted workspace choices unless they are explicitly enabled.\n\n## Fix\n\nThe issue was fixed in #62368. The first stable tag containing the fix is `v2026.4.9`, and `openclaw@2026.4.14` includes the fix.\n\n## Fix Commit(s)\n\n- `2d97eae53e212ae26f3aebcd6a50ffc6877f770d`\n- PR: #62368\n\n## Release Process Note\n\nUsers should upgrade to `openclaw` 2026.4.9 or newer. The latest npm release, `2026.4.14`, already includes the fix.\n\n## Credits\n\nThanks to @zpbrent for reporting this issue.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-829"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-17T22:12:49Z",
-      "updated": "2026-04-17T22:12:50Z",
-      "url": "https://github.com/advisories/GHSA-939r-rj45-g2rj",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-939r-rj45-g2rj",
-        "https://github.com/openclaw/openclaw/pull/62368",
-        "https://github.com/openclaw/openclaw/commit/2d97eae53e212ae26f3aebcd6a50ffc6877f770d",
-        "https://github.com/advisories/GHSA-939r-rj45-g2rj"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-525j-hqq2-66r4",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Sandbox browser CDP relay could expose DevTools protocol on 0.0.0.0",
-      "description": "## Summary\n\nSandbox browser CDP relay could expose DevTools protocol on 0.0.0.0.\n\n## Affected Packages / Versions\n\n- Package: `openclaw`\n- Ecosystem: npm\n- Affected versions: `< 2026.4.10`\n- Patched versions: `>= 2026.4.10`\n\n## Impact\n\nThe sandbox browser CDP relay could bind too broadly, exposing Chrome DevTools Protocol access outside the intended local/sandbox source range.\n\n## Technical Details\n\nThe fix enforces CDP source-range restriction by default and avoids broad `0.0.0.0` exposure unless explicitly configured.\n\n## Fix\n\nThe issue was fixed in #61404. The first stable tag containing the fix is `v2026.4.10`, and `openclaw@2026.4.14` includes the fix.\n\n## Fix Commit(s)\n\n- `fbf11ebdb7110632f93926d0ac7b48f04cb44d77`\n- PR: #61404\n\n## Release Process Note\n\nUsers should upgrade to `openclaw` 2026.4.10 or newer. The latest npm release, `2026.4.14`, already includes the fix.\n\n## Credits\n\nThanks to @zsxsoft, with sponsorship from @KeenSecurityLab and @qclawer for reporting this issue.",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-284",
-        "CWE-1327"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-17T21:59:55Z",
-      "updated": "2026-04-17T21:59:56Z",
-      "url": "https://github.com/advisories/GHSA-525j-hqq2-66r4",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-525j-hqq2-66r4",
-        "https://github.com/openclaw/openclaw/pull/61404",
-        "https://github.com/openclaw/openclaw/commit/fbf11ebdb7110632f93926d0ac7b48f04cb44d77",
-        "https://github.com/advisories/GHSA-525j-hqq2-66r4"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-82qx-6vj7-p8m2",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Channel setup catalog lookups could include untrusted workspace plugin shadows",
-      "description": "## Summary\n\nChannel setup catalog lookups could include untrusted workspace plugin shadows.\n\n## Affected Packages / Versions\n\n- Package: `openclaw`\n- Ecosystem: npm\n- Affected versions: `< 2026.4.10`\n- Patched versions: `>= 2026.4.10`\n\n## Impact\n\nChannel setup could resolve a workspace plugin shadow before a bundled channel plugin, causing setup-time plugin loading without the intended trust gate.\n\n## Technical Details\n\nThe fix routes setup catalog lookups through trusted catalog paths and uses `excludeWorkspace: true` where setup should not include workspace shadows.\n\n## Fix\n\nThe issue was fixed in the advisory fix branch. The first stable tag containing the fix is `v2026.4.10`, and `openclaw@2026.4.14` includes the fix.\n\n## Fix Commit(s)\n\n- `1fede43b948df40ca8674511d4bd08d39f6c5837`\n- PR: private advisory fork\n\n## Release Process Note\n\nUsers should upgrade to `openclaw` 2026.4.10 or newer. The latest npm release, `2026.4.14`, already includes the fix.\n\n## Credits\n\nThanks to @zsxsoft,",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-862"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-17T21:58:46Z",
-      "updated": "2026-04-17T21:58:48Z",
-      "url": "https://github.com/advisories/GHSA-82qx-6vj7-p8m2",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-82qx-6vj7-p8m2",
-        "https://github.com/openclaw/openclaw/commit/1fede43b948df40ca8674511d4bd08d39f6c5837",
-        "https://github.com/advisories/GHSA-82qx-6vj7-p8m2"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-vfp4-8x56-j7c5",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Exec environment denylist missed high-risk interpreter startup variables",
-      "description": "## Summary\n\nExec environment denylist missed high-risk interpreter startup variables.\n\n## Affected Packages / Versions\n\n- Package: `openclaw`\n- Ecosystem: npm\n- Affected versions: `< 2026.4.10`\n- Patched versions: `>= 2026.4.10`\n\n## Impact\n\nThe exec environment policy missed interpreter startup variables such as `VIMINIT`, `EXINIT`, `LUA_INIT`, and `HOSTALIASES`, allowing operator-supplied environment overrides to influence downstream execution or network behavior.\n\n## Technical Details\n\nThe fix expands the host environment security policy denylist to cover these and related high-risk environment variables, with regression coverage.\n\n## Fix\n\nThe issue was fixed in #63277. The first stable tag containing the fix is `v2026.4.10`, and `openclaw@2026.4.14` includes the fix.\n\n## Fix Commit(s)\n\n- `2d126fc62343a7b6895351f96e4e1474bc358140`\n- PR: #63277\n\n## Release Process Note\n\nUsers should upgrade to `openclaw` 2026.4.10 or newer. The latest npm release, `2026.4.14`, already includes the fix",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-184"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-17T21:54:20Z",
-      "updated": "2026-04-17T21:54:21Z",
-      "url": "https://github.com/advisories/GHSA-vfp4-8x56-j7c5",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-vfp4-8x56-j7c5",
-        "https://github.com/advisories/GHSA-vfp4-8x56-j7c5"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -872,7 +881,7 @@
         "count": 26
       }
     ],
-    "catalog_version": "2026-04-17T22:44:34.394511+00:00",
+    "catalog_version": "2026-04-18T04:17:44.087042+00:00",
     "source": "CISA KEV"
   }
 }
