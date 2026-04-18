@@ -1,13 +1,13 @@
 {
-  "version": "118.0.0",
+  "version": "119.0.0",
   "codename": "APEX-ENTERPRISE",
   "released": "2026-04-18",
   "platform": "CYBERDUDEBIVASH SENTINEL APEX",
   "components": {
-    "dashboard": "118.0.0",
-    "worker": "118.0.0",
-    "pipeline": "118.0.0",
-    "reports": "118.0.0"
+    "dashboard": "119.0.0",
+    "worker": "119.0.0",
+    "pipeline": "119.0.0",
+    "reports": "119.0.0"
   },
   "endpoints": {
     "dashboard": "https://intel.cyberdudebivash.com",
@@ -25,6 +25,16 @@
     "secret_env": "CDB_JWT_SECRET",
     "note": "Exchange API key for JWT via /api/auth/token. Use JWT as Bearer token for all authenticated endpoints."
   },
+  "apex_ai": {
+    "version": "119.0.0",
+    "fields": ["predictive_risk", "ai_confidence", "actor_fingerprint", "kill_chain", "ttp_density"],
+    "tier_gating": {
+      "free": ["predictive_risk", "ai_confidence", "ttp_density", "soc_priority", "threat_level"],
+      "pro": ["all_fields"],
+      "enterprise": ["all_fields", "stix_bundle"]
+    },
+    "paywall_locked_free": ["actor_fingerprint_full", "kill_chain", "ai_summary", "behavioral_tags", "ioc_arrays", "stix_bundle"]
+  },
   "subscription_tiers": {
     "free": {
       "label": "FREE",
@@ -33,7 +43,9 @@
       "reports": "public",
       "stix": false,
       "alerts": false,
-      "jwt": true
+      "jwt": true,
+      "apex_ai": "partial",
+      "ioc_data": "count_only"
     },
     "pro": {
       "label": "PRO",
@@ -42,7 +54,9 @@
       "reports": "full",
       "stix": true,
       "alerts": true,
-      "jwt": true
+      "jwt": true,
+      "apex_ai": "full",
+      "ioc_data": "full_arrays"
     },
     "enterprise": {
       "label": "ENTERPRISE",
@@ -54,7 +68,10 @@
       "siem": true,
       "soar": true,
       "dedicated_sla": true,
-      "jwt": true
+      "jwt": true,
+      "apex_ai": "full",
+      "ioc_data": "full_arrays",
+      "stix_bundle_raw": true
     }
   }
 }

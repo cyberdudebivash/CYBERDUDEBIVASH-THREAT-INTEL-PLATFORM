@@ -60,7 +60,7 @@ MANIFEST_PATH    = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
 REPORTS_ROOT     = REPO_ROOT / "reports"
 VERSION_FILE     = REPO_ROOT / "version.json"
 R2_BUCKET        = "sentinel-apex-reports"
-PLATFORM_VERSION = "v118.0.0"
+PLATFORM_VERSION = "v119.0.0"
 DEFAULT_PREFIX   = "https://intel.cyberdudebivash.com"
 
 BRAND_KEYWORDS = (
