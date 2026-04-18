@@ -182,8 +182,9 @@ class ThreatScoringEngine:
 
     def _recency_score(self, published_date: str) -> float:
         """Exponential decay: full score if < 24h, decays to ~0.1 at 30 days."""
-        if not published_date:
-            return 0.3  # Unknown date gets moderate recency
+        # v116.3.0 FIX: guard against non-string types (bool True/False, int, None)
+        if not published_date or not isinstance(published_date, str):
+            return 0.3  # Unknown/invalid date gets moderate recency
         try:
             dt = datetime.fromisoformat(published_date.replace("Z", "+00:00"))
             now = datetime.now(timezone.utc)

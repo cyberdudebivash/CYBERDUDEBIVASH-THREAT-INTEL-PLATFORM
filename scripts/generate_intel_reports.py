@@ -33,11 +33,15 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO_ROOT       = Path(__file__).resolve().parent.parent
-MANIFEST_PATH   = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
-REPORTS_ROOT    = REPO_ROOT / "reports"
-R2_BUCKET       = "sentinel-apex-reports"
-PLATFORM_VERSION = "v115.0"
+REPO_ROOT        = Path(__file__).resolve().parent.parent
+MANIFEST_PATH    = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
+REPORTS_ROOT     = REPO_ROOT / "reports"
+R2_BUCKET        = "sentinel-apex-reports"
+PLATFORM_VERSION = "v116.3.0"
+
+# v116.3.0: Minimum words (title + description) required before a report is written.
+# Entries below this threshold are skeletal/empty and must not generate 404 dossiers.
+MIN_WORD_COUNT = 200
 
 BRAND_KEYWORDS = (
     "CYBERDUDEBIVASH\u00ae PRIVATE LIMITED",
@@ -408,7 +412,7 @@ def render_report(item: dict) -> str:
 <meta name='robots' content='index,follow'>
 <meta name='description' content='{_h(title)} — CYBERDUDEBIVASH SENTINEL APEX Tactical Dossier. Severity {_h(sev)}. Generated {_h(ts)}.'>
 <title>{_h(title)} · SENTINEL APEX Tactical Dossier</title>
-<link rel='canonical' href='https://reports.cyberdudebivash.com/{_h(intel_id)}.html'>
+<link rel='canonical' href='https://intel.cyberdudebivash.com/reports/{_h(item.get("id",""))}.html'>
 <style>{CSS}</style>
 </head><body>
 <div class='wrap'>
@@ -498,8 +502,8 @@ def main(argv=None) -> int:
     parser.add_argument("--manifest", default=str(MANIFEST_PATH),
                         help="Path to feed_manifest.json (default: data/stix/feed_manifest.json)")
     parser.add_argument("--upload-r2", action="store_true", help="Upload each report to Cloudflare R2.")
-    parser.add_argument("--public-prefix", default="https://reports.cyberdudebivash.com",
-                        help="Public URL prefix. Sets report_url = <prefix>/YYYY/MM/<id>.html in manifest.")
+    parser.add_argument("--public-prefix", default="https://intel.cyberdudebivash.com",
+                        help="Public URL prefix. Sets report_url = <prefix>/reports/YYYY/MM/<id>.html in manifest. Default: https://intel.cyberdudebivash.com (GitHub Pages CNAME).")
     parser.add_argument("--limit", type=int, default=0, help="Limit number of reports (0 = all)")
     args = parser.parse_args(argv)
 
@@ -530,38 +534,70 @@ def main(argv=None) -> int:
     written = 0
     uploaded = 0
     skipped_brand = 0
+    skipped_quality = 0
     for item in items:
         intel_id = item.get("id")
         if not intel_id:
             continue
+
         # Skip brand/placeholder entries — they must never appear in public reports
         _title = item.get("title") or ""
         if any(kw in _title for kw in BRAND_KEYWORDS):
             skipped_brand += 1
             continue
+
+        # v116.3.0 DATA QUALITY GATE: reject entries with < MIN_WORD_COUNT words
+        # (description + title combined). GitHub/vendor RSS feeds sometimes return
+        # empty or stub articles that produce useless 50-word dossiers.
+        _desc  = item.get("description") or ""
+        _words = len((_title + " " + _desc).split())
+        if _words < MIN_WORD_COUNT:
+            log(f"  SKIP (quality gate): {intel_id!r} — {_words} words < {MIN_WORD_COUNT} minimum")
+            # Mark entry as quality-failed so dashboard can show source_url instead
+            item["validation_status"] = "quality_fail"
+            item["report_url"] = item.get("source_url") or ""
+            skipped_quality += 1
+            continue
+
+        # Mark entry as validated
+        item["validation_status"] = "ok"
+
         path = rel_report_path(item)
         path.parent.mkdir(parents=True, exist_ok=True)
         html_text = render_report(item)
         tmp = path.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as fh:
-            fh.write(html_text)
-        os.replace(tmp, path)
+        try:
+            with open(tmp, "w", encoding="utf-8") as fh:
+                fh.write(html_text)
+            os.replace(tmp, path)
+        except Exception as e:
+            log(f"  ERROR writing {path}: {e}")
+            item["validation_status"] = "write_error"
+            item["report_url"] = item.get("source_url") or ""
+            continue
+
+        # v116.3.0 VALIDATION: only set report_url if file actually exists on disk
+        if not path.exists():
+            log(f"  WARN: {path} missing after write — falling back to source_url")
+            item["validation_status"] = "file_missing"
+            item["report_url"] = item.get("source_url") or ""
+            continue
+
         written += 1
 
         # Update manifest entry's report_url to absolute public URL if provided
         yyyy, mm = iso_path(item.get("timestamp", utc_now_iso()))
-        relative = f"/reports/{yyyy}/{mm}/{intel_id}.html"
         if args.public_prefix:
-            item["report_url"] = f"{args.public_prefix.rstrip('/')}/{yyyy}/{mm}/{intel_id}.html"
+            item["report_url"] = f"{args.public_prefix.rstrip('/')}/reports/{yyyy}/{mm}/{intel_id}.html"
         else:
-            item["report_url"] = relative
+            item["report_url"] = f"/reports/{yyyy}/{mm}/{intel_id}.html"
 
         if args.upload_r2 and endpoint:
             key = f"reports/{yyyy}/{mm}/{intel_id}.html"
             if r2_upload(path, key, endpoint):
                 uploaded += 1
 
-    log(f"Wrote {written} report files; uploaded={uploaded} to R2; brand_skipped={skipped_brand}")
+    log(f"Wrote {written} report files; uploaded={uploaded} to R2; brand_skipped={skipped_brand}; quality_skipped={skipped_quality}")
 
     # Persist manifest with updated report_url values
     save_manifest(data)

@@ -4963,10 +4963,24 @@
                                 <i class="fas fa-expand-alt"></i> DETAILS
                             </button>
                             ${(()=>{
-                                // v113.0: report_url is the native delivery URL (no Blogger)
-                                const dossierUrl = item.report_url || item.source_url || '';
-                                return dossierUrl
-                                    ? `<a href="${dossierUrl}" target="_blank" rel="noopener" class="card-link">View Tactical Dossier &#x2192;</a>`
+                                // v116.3.0: Smart dossier link with fallback chain
+                                // 1. report_url (HTML dossier) → 2. source_url → 3. inline modal
+                                // Also rewrite any stale reports.cyberdudebivash.com URLs (DNS NXDOMAIN)
+                                let rUrl = (item.report_url || '').replace(
+                                    'https://reports.cyberdudebivash.com',
+                                    'https://intel.cyberdudebivash.com'
+                                );
+                                const sUrl = item.source_url || '';
+                                const hasReport = rUrl && item.validation_status !== 'quality_fail' && item.validation_status !== 'write_error';
+                                const finalUrl = hasReport ? rUrl : sUrl;
+                                if (finalUrl) {
+                                    const label = hasReport ? 'View Tactical Dossier &#x2192;' : 'View Source &#x2192;';
+                                    return `<a href="${finalUrl}" target="_blank" rel="noopener" class="card-link">${label}</a>`;
+                                }
+                                // No URL at all — open inline dossier modal
+                                const eid = item.stix_id || item.id || '';
+                                return eid
+                                    ? `<button class="js-open-modal card-link" data-stix-id="${eid}" style="border:none;background:none;padding:0;cursor:pointer;">View Tactical Dossier &#x2192;</button>`
                                     : '';
                             })()}
                             ${item.gumroad_url ? `<a href="${item.gumroad_url}" target="_blank" rel="noopener" class="cta-gumroad" title="Get premium STIX bundle + IOC pack">\u26a1 PREMIUM</a>` : ''}
@@ -5374,7 +5388,15 @@
                 <div class="modal-section">
                     <div class="modal-section-title">Links & Resources</div>
                     <div style="display:flex;flex-direction:column;gap:10px;">
-                        ${(()=>{ const u=item.report_url||item.source_url||''; return u ? `<a href="${u}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);width:fit-content;"><i class="fas fa-external-link-alt"></i> View Full Tactical Dossier</a>` : ''; })()}
+                        ${(()=>{
+                            // v116.3.0: fallback chain + rewrite stale domain
+                            let ru = (item.report_url||'').replace('https://reports.cyberdudebivash.com','https://intel.cyberdudebivash.com');
+                            const su = item.source_url||'';
+                            const hasReport = ru && item.validation_status !== 'quality_fail' && item.validation_status !== 'write_error';
+                            const u = hasReport ? ru : su;
+                            const lbl = hasReport ? 'View Full Tactical Dossier' : 'View Source Article';
+                            return u ? `<a href="${u}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);width:fit-content;"><i class="fas fa-external-link-alt"></i> ${lbl}</a>` : '';
+                        })()}
                         ${item.nvd_url ? `<a href="${item.nvd_url}" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:11px;color:var(--blue);border-bottom:1px solid rgba(59,130,246,0.3);width:fit-content;"><i class="fas fa-database"></i> NVD Entry</a>` : ''}
                         ${item.stix_file ? `<span onclick="openStixPaywall()" style="font-family:var(--font-mono);font-size:11px;color:var(--purple);border-bottom:1px solid rgba(139,92,246,0.3);width:fit-content;cursor:pointer;" title="Pro subscribers only"><i class="fas fa-lock" style="font-size:9px;margin-right:4px;"></i> STIX Bundle (Subscribers Only)</span>` : ''}
                         ${item.gumroad_url ? `<a href="${item.gumroad_url}" target="_blank" rel="noopener" class="cta-premium-report"><i class="fas fa-star"></i> GET PREMIUM REPORT + IOC PACK</a>` : ''}
@@ -5382,7 +5404,7 @@
                 </div>
 
                 <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
-                    <a href="${item.report_url||item.source_url||'#'}" target="_blank" rel="noopener"
+                    <a href="${((r,s)=>{ const ru=(r||'').replace('https://reports.cyberdudebivash.com','https://intel.cyberdudebivash.com'); const hasR=ru&&item.validation_status!=='quality_fail'&&item.validation_status!=='write_error'; return hasR?ru:(s||'#'); })(item.report_url,item.source_url)}" target="_blank" rel="noopener"
                        style="padding:10px 20px;background:var(--accent);color:var(--bg);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;">
                         VIEW DOSSIER →
                     </a>

@@ -149,9 +149,18 @@ def normalise_entry(item: dict) -> dict | None:
 
     # -- report_url (required; derive if missing) --
     rep = out.get("report_url") or ""
-    if not rep or not isinstance(rep, str) or "blogspot" in rep.lower():
+    if not isinstance(rep, str):
+        rep = ""
+    # v116.3.0: Rewrite dead reports.cyberdudebivash.com (DNS NXDOMAIN) → intel domain
+    if "reports.cyberdudebivash.com" in rep:
+        rep = rep.replace("https://reports.cyberdudebivash.com", "https://intel.cyberdudebivash.com")
+    if not rep or "blogspot" in rep.lower():
         rep = derive_report_url(intel_id, timestamp)
     out["report_url"] = rep
+
+    # -- validation_status: preserve if set, default to 'pending' --
+    if not out.get("validation_status"):
+        out["validation_status"] = "pending"
 
     # -- blog_url: HARD REMOVE (legacy field) --
     out.pop("blog_url", None)
@@ -191,12 +200,14 @@ def validate_entry(entry: dict) -> list[str]:
             errors.append(f"enum:{f}={v}")
         elif f == "tags" and not isinstance(v, list):
             errors.append(f"wrong-type:{f}")
-    # report_url must be /reports/YYYY/MM/<id>.html OR non-empty absolute
+    # report_url must be /reports/YYYY/MM/<id>.html OR non-empty absolute (NOT reports.cyberdudebivash.com)
     rep = entry.get("report_url") or ""
     if not rep:
         errors.append("empty:report_url")
     if "blogspot" in rep.lower():
         errors.append("banned-host:report_url")
+    if "reports.cyberdudebivash.com" in rep:
+        errors.append("stale-domain:report_url")
     return errors
 
 

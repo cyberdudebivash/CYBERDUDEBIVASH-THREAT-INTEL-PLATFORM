@@ -414,11 +414,16 @@ async function handlePreview(request, env, rid) {
         kev_present: item.kev_present || false,
         epss_score:  item.epss_score  || null,
         cvss_score:  item.cvss_score  || null,
-        // P0 FIX v113.0: report_url MUST be forwarded — dashboard "View Tactical Dossier"
-        // links DEPEND on this field. Without it the frontend falls back to source_url
-        // or blog_url (legacy), which is wrong. If report_url is missing derive it
-        // deterministically so the field is always populated.
-        report_url:  item.report_url  || (() => {
+        // v116.3.0 FIX: report_url MUST resolve. Rewrite old broken reports.cyberdudebivash.com
+        // URLs (DNS NXDOMAIN) to intel.cyberdudebivash.com. Derive if missing.
+        report_url: (() => {
+          let u = item.report_url || "";
+          // Rewrite dead subdomain → working domain
+          if (u.includes("reports.cyberdudebivash.com")) {
+            u = u.replace("https://reports.cyberdudebivash.com", "https://intel.cyberdudebivash.com");
+          }
+          if (u) return u;
+          // Derive relative path deterministically
           const id  = item.id || "unknown";
           const ts  = item.timestamp || new Date().toISOString();
           const dt  = new Date(ts);
