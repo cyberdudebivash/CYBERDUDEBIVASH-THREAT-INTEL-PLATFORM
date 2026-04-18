@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v116.2.0
+// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v118.0.0
 // R2-ONLY ARCHITECTURE — Blogger dependency REMOVED
 // Data flow: GitHub Actions → Cloudflare R2 (private) → Worker → API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = {
-  GATEWAY_VERSION:   "117.0.0",  // v117.0.0: STIX export API, SIEM webhook, version endpoint, enterprise tiers
+  GATEWAY_VERSION:   "118.0.0",  // v118.0.0: JWT routes wired (/api/auth/token|validate), resolveAuth upgrade, zero-failure pipeline, tier badges
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v111.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -89,6 +89,172 @@ function getClientIP(request) {
 
 async function hashIP(ip) {
   return (await sha256hex("ip:" + ip)).slice(0, 16);
+}
+
+// ── v117.0.0: JWT Auth — HS256 via Web Crypto API ─────────────────────────────
+// Uses CDB_JWT_SECRET from Cloudflare secret (set via: npx wrangler secret put CDB_JWT_SECRET)
+// ZERO ephemeral fallback: if CDB_JWT_SECRET is missing, auth endpoints return 503.
+// Token format: standard JWT HS256 — header.payload.signature (base64url encoded)
+
+const JWT_ALG   = { name: "HMAC", hash: "SHA-256" };
+const JWT_TTL   = 60 * 60 * 24 * 30;   // 30 days default
+const JWT_SHORT = 60 * 60;              // 1 hour for admin tokens
+
+function b64urlEncode(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function b64urlDecode(str) {
+  const s = str.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = s.length % 4 ? "=".repeat(4 - s.length % 4) : "";
+  return Uint8Array.from(atob(s + pad), c => c.charCodeAt(0));
+}
+
+async function getJwtKey(secret) {
+  const enc = new TextEncoder().encode(secret);
+  return crypto.subtle.importKey("raw", enc, JWT_ALG, false, ["sign", "verify"]);
+}
+
+async function signJwt(payload, secret, ttlSeconds = JWT_TTL) {
+  if (!secret) throw new Error("CDB_JWT_SECRET not configured");
+  const now     = Math.floor(Date.now() / 1000);
+  const fullPay = { ...payload, iat: now, exp: now + ttlSeconds };
+  const header  = b64urlEncode(new TextEncoder().encode(JSON.stringify({ alg: "HS256", typ: "JWT" })));
+  const body    = b64urlEncode(new TextEncoder().encode(JSON.stringify(fullPay)));
+  const key     = await getJwtKey(secret);
+  const sigBuf  = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${header}.${body}`));
+  return `${header}.${body}.${b64urlEncode(sigBuf)}`;
+}
+
+async function verifyJwt(token, secret) {
+  if (!secret) return { valid: false, reason: "jwt_secret_not_configured" };
+  if (!token)  return { valid: false, reason: "token_missing" };
+  const parts = token.split(".");
+  if (parts.length !== 3) return { valid: false, reason: "token_malformed" };
+  const [header, body, sig] = parts;
+  try {
+    const key    = await getJwtKey(secret);
+    const valid  = await crypto.subtle.verify("HMAC", key,
+      b64urlDecode(sig), new TextEncoder().encode(`${header}.${body}`));
+    if (!valid) return { valid: false, reason: "signature_invalid" };
+    const payload = JSON.parse(new TextDecoder().decode(b64urlDecode(body)));
+    const now   = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) return { valid: false, reason: "token_expired", expired_at: payload.exp };
+    return { valid: true, payload };
+  } catch (e) {
+    return { valid: false, reason: "token_parse_error", detail: e.message };
+  }
+}
+
+// Extract JWT from Authorization: Bearer <token> header only (no query params for JWT)
+function extractJwt(request) {
+  const auth = request.headers.get("Authorization") || "";
+  if (auth.startsWith("Bearer ")) {
+    const t = auth.slice(7).trim();
+    // Detect JWT (3-part base64url) vs legacy API key (CDB-* prefix)
+    if (t.split(".").length === 3) return t;
+  }
+  return null;
+}
+
+// ── /api/auth/token — Issue JWT (POST, body: {api_key, tier}) ────────────────
+async function handleIssueToken(request, env, rid) {
+  if (!env?.CDB_JWT_SECRET) {
+    return jsonResponse({
+      error:      "auth_service_unavailable",
+      message:    "CDB_JWT_SECRET not configured. Set via: npx wrangler secret put CDB_JWT_SECRET",
+      request_id: rid,
+    }, 503);
+  }
+  let body;
+  try { body = await request.json(); }
+  catch { return jsonResponse({ error: "invalid_json", request_id: rid }, 400); }
+
+  const { api_key } = body;
+  if (!api_key) return jsonResponse({ error: "api_key_required", request_id: rid }, 400);
+
+  // Validate the API key first
+  const auth = await resolveApiKey({ headers: { get: h => h === "Authorization" ? `Bearer ${api_key}` : null } }, env);
+  if (!auth.valid) {
+    return jsonResponse({
+      error:      "api_key_invalid",
+      reason:     auth.reason,
+      message:    "Valid API key required to issue JWT.",
+      acquire_key: CONFIG.GET_KEY_URL,
+      request_id: rid,
+    }, 401);
+  }
+
+  const ttl = auth.tier === CONFIG.TIERS.ENTERPRISE ? JWT_TTL * 12 : JWT_TTL;
+  const token = await signJwt(
+    { sub: auth.key_id, tier: auth.tier, label: auth.label, key_id: auth.key_id },
+    env.CDB_JWT_SECRET,
+    ttl
+  );
+
+  await recordAnalytics(env, auth.key_id, "jwt_issue", auth.tier, 201);
+  return jsonResponse({
+    status:      "ok",
+    request_id:  rid,
+    token,
+    token_type:  "Bearer",
+    expires_in:  ttl,
+    tier:        auth.tier,
+    key_id:      auth.key_id,
+    issued_at:   new Date().toISOString(),
+    message:     "Store token securely. Use as: Authorization: Bearer <token>",
+    gateway:     `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  }, 201);
+}
+
+// ── /api/auth/validate — Validate JWT (GET/POST) ──────────────────────────────
+async function handleValidateToken(request, env, rid) {
+  if (!env?.CDB_JWT_SECRET) {
+    return jsonResponse({ error: "auth_service_unavailable", request_id: rid }, 503);
+  }
+  const token = extractJwt(request) || (await request.json().catch(() => ({}))).token;
+  const result = await verifyJwt(token, env.CDB_JWT_SECRET);
+  if (!result.valid) {
+    return jsonResponse({
+      valid:      false,
+      reason:     result.reason,
+      request_id: rid,
+    }, 401);
+  }
+  return jsonResponse({
+    valid:      true,
+    tier:       result.payload.tier,
+    key_id:     result.payload.key_id,
+    expires_at: new Date(result.payload.exp * 1000).toISOString(),
+    issued_at:  new Date(result.payload.iat * 1000).toISOString(),
+    request_id: rid,
+    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
+}
+
+// ── Unified auth resolver: supports both JWT and legacy API keys ──────────────
+// Priority: JWT (Bearer token with 3 parts) > Legacy API key (CDB-* / X-Api-Key)
+async function resolveAuth(request, env) {
+  // Try JWT first
+  const jwtToken = extractJwt(request);
+  if (jwtToken && env?.CDB_JWT_SECRET) {
+    const result = await verifyJwt(jwtToken, env.CDB_JWT_SECRET);
+    if (result.valid) {
+      return {
+        valid:      true,
+        tier:       result.payload.tier || CONFIG.TIERS.FREE,
+        key_id:     result.payload.key_id,
+        label:      result.payload.label,
+        auth_method: "jwt",
+      };
+    }
+    // JWT present but invalid — hard fail (no fallback to API key)
+    if (jwtToken) return { valid: false, reason: result.reason, auth_method: "jwt" };
+  }
+  // Fall through to legacy API key resolution
+  const legacy = await resolveApiKey(request, env);
+  return { ...legacy, auth_method: "api_key" };
 }
 
 // ── Rate Limiting — Sliding Window ────────────────────────────────────────────
@@ -1243,12 +1409,17 @@ export default {
     if (pathname.startsWith("/api/health"))            return handleHealth(request, env, rid);
     if (pathname.startsWith("/api/version"))           return handleVersion(request, env, rid);
     if (pathname.startsWith("/api/keys/validate"))     return handleValidateKey(request, env, rid);
+    // ── v117.0.0: JWT auth endpoints (public — exchanges API key for JWT) ────
+    if (pathname === "/api/auth/token" && method === "POST")
+      return handleIssueToken(request, env, rid);
+    if (pathname === "/api/auth/validate")
+      return handleValidateToken(request, env, rid);
     // AI endpoints — public (index/heatmap) or authenticated (analyze/respond/correlate)
     if (pathname.startsWith("/api/ai")) {
       const aiSub = pathname.slice("/api/ai".length);
       // Full AI analysis endpoints require authentication
       if (aiSub.startsWith("/analyze") || aiSub.startsWith("/respond") || aiSub.startsWith("/correlate")) {
-        const auth = await resolveApiKey(request, env);
+        const auth = await resolveAuth(request, env);
         if (!auth.valid) {
           return jsonResponse({
             error:       "api_key_required",
@@ -1278,8 +1449,9 @@ export default {
       }, 404);
     }
 
-    // ── ALL REMAINING ENDPOINTS: API KEY REQUIRED ─────────────────────────────
-    const auth = await resolveApiKey(request, env);
+    // ── ALL REMAINING ENDPOINTS: JWT OR API KEY REQUIRED ─────────────────────
+    // resolveAuth: JWT (3-part Bearer) takes priority → falls through to API key
+    const auth = await resolveAuth(request, env);
     if (!auth.valid) {
       if (auth.reason === "invalid_key" || auth.reason === "key_expired") {
         await trackAbuseAttempt(clientIP, env);
@@ -1287,9 +1459,10 @@ export default {
       return jsonResponse({
         error:       auth.reason === "key_required" ? "api_key_required" : "unauthorized",
         message:     auth.reason === "key_required"
-          ? "API key required. Use Authorization: Bearer <key> or X-Api-Key header."
-          : `API key rejected: ${auth.reason}`,
+          ? "API key or JWT required. Use Authorization: Bearer <token>. Get a key at " + CONFIG.GET_KEY_URL
+          : `Authentication rejected: ${auth.reason}`,
         reason:      auth.reason,
+        auth_hint:   "Issue a JWT via POST /api/auth/token with your API key",
         acquire_key: CONFIG.GET_KEY_URL,
         docs:        CONFIG.DOCS_URL,
         request_id:  rid,
@@ -1345,16 +1518,18 @@ export default {
         "GET  /api/keys/validate        (public)",
         "GET  /api/ai                   (public — AI index + MITRE heatmap)",
         "GET  /api/ai/heatmap           (public — MITRE ATT&CK heatmap)",
-        "GET  /api/ai/analyze           (requires API key — full threat analysis)",
-        "GET  /api/ai/respond           (requires API key — SOAR playbooks)",
-        "GET  /api/ai/correlate         (requires API key — actor correlation)",
-        "GET  /api/feed                 (requires API key)",
-        "GET  /api/feed/:id             (requires API key)",
-        "GET  /api/analytics            (requires API key)",
-        "GET  /api/stix/:id             (requires API key — STIX 2.1 export; full bundle on Pro+)",
-        "GET  /api/alerts               (requires API key Pro+ — KEV + high-risk alerts)",
-        "GET  /api/webhooks/siem        (requires API key Enterprise — list webhooks)",
-        "POST /api/webhooks/siem        (requires API key Enterprise — register SIEM webhook)",
+        "GET  /api/ai/analyze           (requires JWT/API key — full threat analysis)",
+        "GET  /api/ai/respond           (requires JWT/API key — SOAR playbooks)",
+        "GET  /api/ai/correlate         (requires JWT/API key — actor correlation)",
+        "POST /api/auth/token           (public — exchange API key for JWT; body: {api_key})",
+        "GET  /api/auth/validate        (public — validate JWT; Authorization: Bearer <token>)",
+        "GET  /api/feed                 (requires JWT or API key)",
+        "GET  /api/feed/:id             (requires JWT or API key)",
+        "GET  /api/analytics            (requires JWT or API key)",
+        "GET  /api/stix/:id             (requires JWT or API key — full bundle on Pro+)",
+        "GET  /api/alerts               (requires JWT or API key Pro+ — KEV + high-risk)",
+        "GET  /api/webhooks/siem        (requires JWT or API key Enterprise — list webhooks)",
+        "POST /api/webhooks/siem        (requires JWT or API key Enterprise — register SIEM)",
         "POST /api/admin/cache/bust     (requires X-Admin-Secret)",
         "POST /api/admin/keys/create    (requires X-Admin-Secret)",
       ],
