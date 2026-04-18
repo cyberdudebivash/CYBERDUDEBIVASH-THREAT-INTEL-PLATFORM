@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v119.0.0
+// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v120.0.0
 // R2-ONLY ARCHITECTURE — Blogger dependency REMOVED
 // Data flow: GitHub Actions → Cloudflare R2 (private) → Worker → API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = {
-  GATEWAY_VERSION:   "119.0.0",  // v119.0.0: computeApexAI (predictive_risk/ai_confidence/actor_fingerprint/kill_chain/ttp_density), tier-gated IOC+STIX paywall, apex_ai in preview+feed
+  GATEWAY_VERSION:   "120.0.0",  // v120.0.0: GOD-MODE — mandatory ai_summary, retry circuit breaker, urgency CTAs, full AI intelligence engine
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v111.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -380,6 +380,30 @@ function normaliseManifestData(data) {
   };
 }
 
+// ── v120.0.0: Retry circuit breaker — exponential backoff, 3 attempts ─────────
+// Prevents single transient failures from killing requests.
+// 4xx (client errors) are NOT retried — only 5xx / network errors.
+async function fetchWithRetry(url, opts, maxRetries = 3, baseDelayMs = 400) {
+  let lastErr;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const res = await fetch(url, opts);
+      // 4xx = hard client error, do not retry
+      if (res.status >= 400 && res.status < 500) return res;
+      if (res.ok) return res;
+      // 5xx = transient server error, retry after backoff
+      lastErr = new Error(`HTTP ${res.status}`);
+    } catch (e) {
+      lastErr = e;
+    }
+    if (attempt < maxRetries - 1) {
+      // Exponential backoff: 400ms, 800ms, 1600ms
+      await new Promise(r => setTimeout(r, baseDelayMs * Math.pow(2, attempt)));
+    }
+  }
+  throw lastErr || new Error("fetchWithRetry: all attempts exhausted");
+}
+
 async function fetchFromGitHub(path, env, bypassCache = false) {
   const url     = `https://raw.githubusercontent.com/${CONFIG.GITHUB_REPO}/${CONFIG.GITHUB_BRANCH}/${path}`;
   const headers = {
@@ -390,7 +414,8 @@ async function fetchFromGitHub(path, env, bypassCache = false) {
   const cfOpts  = bypassCache
     ? { cf: { cacheEverything: false, cacheTtl: 0 } }
     : { cf: { cacheEverything: true,  cacheTtl: 300 } };
-  const res = await fetch(url, { headers, ...cfOpts });
+  // v120.0.0: fetchWithRetry — 3 attempts with backoff for transient GitHub/CDN errors
+  const res = await fetchWithRetry(url, { headers, ...cfOpts });
   if (!res.ok) {
     const hint = res.status === 404 && !env?.GITHUB_TOKEN
       ? " (GITHUB_TOKEN not set — set via: npx wrangler secret put GITHUB_TOKEN)"
@@ -470,9 +495,10 @@ function getUpgradeCTA(tier) {
   };
 }
 
-// ── v119.0.0: computeApexAI — Derives APEX AI intelligence fields from item ────
-// Produces: predictive_risk, ai_confidence, actor_fingerprint, kill_chain, ttp_density
-// Tier-gated: free = summary only; premium/enterprise = full AI block
+// ── v120.0.0: computeApexAI — Full AI Intelligence Engine ─────────────────────
+// Produces: predictive_risk, ai_confidence, actor_fingerprint, kill_chain, ttp_density, ai_summary
+// v120.0.0 GOD-MODE: ai_summary is MANDATORY — teaser for free, full narrative for Pro/Enterprise
+// ai_summary NEVER null — generated dynamically from item data when apex.ai_summary absent
 // Safe: never throws — returns minimal object on any error
 
 function computeApexAI(item, tier) {
@@ -553,40 +579,62 @@ function computeApexAI(item, tier) {
       campaign_id:     existingApex.campaign_id   || "UNCLASSIFIED",
     };
 
+    // ── v120.0.0: ai_summary is MANDATORY — always generated, never null ─────────
+    // Free: intelligence teaser — whets appetite, drives upgrade
+    // Pro/Enterprise: full tactical narrative
+    const sevLabel   = severity === "CRITICAL" ? "CRITICAL-severity" : severity === "HIGH" ? "HIGH-severity" : severity.toLowerCase() + "-severity";
+    const threatType = (item.threat_type || item.type || "threat").toUpperCase();
+    const cveId      = item.cve_id || "";
+    const cveStr     = cveId ? ` ${cveId}` : "";
+    const srcLabel   = item.source ? ` via ${item.source}` : "";
+
+    // Full narrative (Pro/Enterprise)
+    const fullSummary = existingApex.ai_summary
+      || `${sevLabel.toUpperCase()}${cveStr} — ${threatType} campaign detected${srcLabel}. Actor ${actorTag} leveraging ${ttpCount} technique${ttpCount !== 1 ? "s" : ""} across ${primaryPhase} phase. ${iocCount} indicator${iocCount !== 1 ? "s" : ""} identified (IOC density ${ttpDensity}/10). Predictive risk ${parseFloat(predictiveRisk.toFixed(1))}/10 — AI confidence ${aiConfidence}%. Priority: ${base.soc_priority}. Immediate SOC action required.`;
+
+    // Teaser (Free) — enough to be credible, not enough to be actionable
+    const teaserSummary = `⚡ ${sevLabel.toUpperCase()} threat detected${cveStr}. ${iocCount} IOC${iocCount !== 1 ? "s" : ""} identified, ${ttpCount} MITRE technique${ttpCount !== 1 ? "s" : ""} mapped. Predictive risk: ${parseFloat(predictiveRisk.toFixed(1))}/10. [UPGRADE TO PRO FOR FULL AI ANALYSIS →]`;
+
     if (isFree) {
-      // Free: surface priority/risk/confidence but gate fingerprint, kill_chain, AI narrative
+      // Free: surface priority/risk/confidence but gate fingerprint, kill_chain, full narrative
       return {
         ...base,
-        actor_fingerprint: actorFP,          // partial only
-        kill_chain:        "PRO_REQUIRED",   // locked
+        actor_fingerprint:  actorFP,             // partial only (****-masked)
+        kill_chain:         "PRO_REQUIRED",       // locked
         kill_chain_primary: "PRO_REQUIRED",
-        ai_summary:        null,             // locked
-        recommended_action:"Upgrade to Pro for full SOC recommendations.",
-        behavioral_tags:   [],              // locked
+        ai_summary:         teaserSummary,        // v120.0.0: MANDATORY teaser — never null
+        recommended_action: "Upgrade to Pro for full SOC recommendations and actor attribution.",
+        behavioral_tags:    [],                   // locked
         paywall: {
-          locked_fields:   ["actor_fingerprint", "kill_chain", "ai_summary", "behavioral_tags"],
+          locked_fields:   ["actor_fingerprint_full", "kill_chain", "behavioral_tags", "recommended_action_full"],
           upgrade_url:     "https://cyberdudebivash.com/sentinel-premium",
-          message:         "Upgrade to Pro for full AI intelligence block.",
+          message:         `ACTIVE THREAT — ${iocCount} IOC${iocCount !== 1 ? "s" : ""} & full kill chain locked. Upgrade to Pro for complete intelligence.`,
+          urgency:         base.soc_priority === "P1" || base.soc_priority === "P2"
+            ? "⚠️ ACTIVE THREAT — Upgrade required for enterprise detection."
+            : "Enterprise detection unavailable on free tier.",
         },
       };
     }
 
-    // Pro / Enterprise: full AI block
+    // Pro / Enterprise: full AI intelligence block
     return {
       ...base,
       actor_fingerprint:  actorFP,
       kill_chain:         killChainPhases,
       kill_chain_primary: primaryPhase,
-      ai_summary:         existingApex.ai_summary         || null,
-      recommended_action: existingApex.recommended_action || "Review and monitor.",
+      ai_summary:         fullSummary,            // v120.0.0: always populated
+      recommended_action: existingApex.recommended_action
+        || `Investigate ${actorTag} TTPs (${primaryPhase}). Hunt ${iocCount} IOC${iocCount !== 1 ? "s" : ""} across endpoint and network telemetry. Priority: ${base.soc_priority}.`,
       behavioral_tags:    Array.isArray(existingApex.behavioral_tags) ? existingApex.behavioral_tags : [],
     };
   } catch (e) {
+    // v120.0.0: Even on error, ai_summary must not be null
     return {
       soc_priority:    "P4",
       predictive_risk: 0,
       ai_confidence:   0,
       ttp_density:     0,
+      ai_summary:      "Intelligence analysis temporarily unavailable. Retry or upgrade for priority processing.",
       error:           "apex_compute_failed",
     };
   }
@@ -632,6 +680,27 @@ function applyTierGate(item, tier) {
 
   // Inject computed apex_ai block
   gated.apex_ai = computeApexAI(item, tier);
+
+  // v120.0.0: Threat urgency CTA — injected for free tier on critical/high items
+  // Drives upgrade conversion at the moment of maximum perceived threat value
+  if (isFree) {
+    const sev = (item.severity || item.risk_level || "").toUpperCase();
+    const riskScore = typeof item.risk_score === "number" ? item.risk_score
+                    : typeof item.cvss_score  === "number" ? item.cvss_score : 0;
+    const isUrgent = sev === "CRITICAL" || sev === "HIGH" || riskScore >= 7;
+    if (isUrgent) {
+      gated.threat_urgency = {
+        active:          true,
+        message:         sev === "CRITICAL"
+          ? "⚠️ CRITICAL ACTIVE THREAT — Full intelligence, IOC array & actor attribution locked."
+          : "⚠️ HIGH-SEVERITY ACTIVE THREAT — Actor TTPs and kill chain analysis locked.",
+        tier_required:   "PRO",
+        upgrade_url:     "https://cyberdudebivash.com/sentinel-premium",
+        cta:             "Upgrade to Pro — Detect, Respond, Contain.",
+        enterprise_note: "Enterprise Detection Engine unavailable on free tier.",
+      };
+    }
+  }
 
   return gated;
 }
