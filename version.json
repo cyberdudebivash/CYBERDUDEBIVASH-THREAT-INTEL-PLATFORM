@@ -1,19 +1,29 @@
 {
-  "version": "117.0.0",
+  "version": "118.0.0",
   "codename": "APEX-ENTERPRISE",
   "released": "2026-04-18",
   "platform": "CYBERDUDEBIVASH SENTINEL APEX",
   "components": {
-    "dashboard": "117.0.0",
-    "worker": "117.0.0",
-    "pipeline": "117.0.0",
-    "reports": "117.0.0"
+    "dashboard": "118.0.0",
+    "worker": "118.0.0",
+    "pipeline": "118.0.0",
+    "reports": "118.0.0"
   },
   "endpoints": {
     "dashboard": "https://intel.cyberdudebivash.com",
     "api_base": "https://intel.cyberdudebivash.com/api",
     "reports_base": "https://intel.cyberdudebivash.com/reports",
-    "stix_api": "https://intel.cyberdudebivash.com/api/stix"
+    "stix_api": "https://intel.cyberdudebivash.com/api/stix",
+    "auth_token": "https://intel.cyberdudebivash.com/api/auth/token",
+    "auth_validate": "https://intel.cyberdudebivash.com/api/auth/validate"
+  },
+  "auth": {
+    "type": "JWT_HS256",
+    "token_endpoint": "POST /api/auth/token",
+    "validate_endpoint": "GET /api/auth/validate",
+    "token_ttl_days": 30,
+    "secret_env": "CDB_JWT_SECRET",
+    "note": "Exchange API key for JWT via /api/auth/token. Use JWT as Bearer token for all authenticated endpoints."
   },
   "subscription_tiers": {
     "free": {
@@ -22,7 +32,8 @@
       "feed_limit": 10,
       "reports": "public",
       "stix": false,
-      "alerts": false
+      "alerts": false,
+      "jwt": true
     },
     "pro": {
       "label": "PRO",
@@ -30,7 +41,8 @@
       "feed_limit": 500,
       "reports": "full",
       "stix": true,
-      "alerts": true
+      "alerts": true,
+      "jwt": true
     },
     "enterprise": {
       "label": "ENTERPRISE",
@@ -41,7 +53,8 @@
       "alerts": true,
       "siem": true,
       "soar": true,
-      "dedicated_sla": true
+      "dedicated_sla": true,
+      "jwt": true
     }
   }
 }

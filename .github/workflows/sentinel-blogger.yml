@@ -106,7 +106,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "117.0.0"
+  PIPELINE_VERSION: "118.0.0"
 
 # Only ONE data-writing workflow at a time — prevents manifest corruption
 concurrency:
@@ -659,7 +659,7 @@ jobs:
 # ═══════════════════════════════════════════════════════════════════════════
       - name: "📄 Generate HTML Tactical Dossiers (report_url pages)"
         run: |
-          echo "=== SENTINEL APEX v117.0.0 — HTML Report Generation ==="
+          echo "=== SENTINEL APEX v118.0.0 — HTML Report Generation ==="
           echo "::group::Report Generation"
           START_TS=$(date -u +%s)
 
@@ -686,6 +686,71 @@ jobs:
 
           echo "REPORT_COUNT=$REPORT_COUNT" >> $GITHUB_ENV
           echo "REPORT_ELAPSED=${ELAPSED}" >> $GITHUB_ENV
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STAGE 3.6a: MANIFEST INTEGRITY CHECK — ZERO SILENT FAILURES
+# Hard-validates every manifest entry has report_url + validation_status.
+# Pipeline FAILS if any entry has write_error or file_missing status.
+# ═══════════════════════════════════════════════════════════════════════════
+      - name: "🔒 Manifest Integrity Check — report_url + validation_status"
+        continue-on-error: false
+        run: |
+          echo "=== SENTINEL APEX — MANIFEST INTEGRITY CHECK ==="
+          python3 - <<'PYEOF'
+import json, sys
+
+with open("data/stix/feed_manifest.json") as f:
+    d = json.load(f)
+
+items = d.get("advisories", d.get("reports", []))
+HARD_FAIL_STATUSES = {"write_error", "file_missing"}
+VALID_PREFIX       = "https://intel.cyberdudebivash.com"
+
+missing_url   = []
+hard_fail     = []
+stale_domain  = []
+
+for item in items:
+    sid = item.get("id","?")
+    vs  = item.get("validation_status","")
+    ru  = item.get("report_url","")
+
+    # Skip brand entries — intentionally have no report_url
+    if vs == "brand_skip":
+        continue
+
+    if vs in HARD_FAIL_STATUSES:
+        hard_fail.append(f"  HARD_FAIL [{vs}] {sid}")
+        continue
+
+    if not ru:
+        missing_url.append(f"  MISSING_URL {sid}")
+        continue
+
+    if "reports.cyberdudebivash.com" in ru:
+        stale_domain.append(f"  STALE_DOMAIN {sid} → {ru}")
+
+total = len(items)
+ok    = total - len(missing_url) - len(hard_fail) - len(stale_domain)
+print(f"Manifest entries : {total}")
+print(f"report_url ok    : {ok}")
+print(f"Missing URL      : {len(missing_url)}")
+print(f"Hard failures    : {len(hard_fail)}")
+print(f"Stale domain     : {len(stale_domain)}")
+
+if stale_domain:
+    print("STALE DOMAINS (will be rewritten by Worker, but fix at source):")
+    for s in stale_domain[:10]:
+        print(s)
+
+if hard_fail:
+    print("::error::MANIFEST INTEGRITY FAIL — write_error/file_missing entries detected:")
+    for h in hard_fail:
+        print(h)
+    sys.exit(1)
+
+print("MANIFEST INTEGRITY CHECK PASSED")
+PYEOF
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STAGE 3.6b: REFRESH EMBEDDED_INTEL IN DASHBOARD
@@ -1062,7 +1127,7 @@ jobs:
       - name: "🔍 Verify Report URLs — HTTP 200 Check"
         continue-on-error: false
         run: |
-          echo "=== SENTINEL APEX v117.0.0 — REPORT URL VERIFICATION ==="
+          echo "=== SENTINEL APEX v118.0.0 — REPORT URL VERIFICATION ==="
           sleep 20  # Allow gh-pages propagation
 
           # Sample up to 5 report URLs from the manifest and verify HTTP 200
@@ -1086,7 +1151,12 @@ jobs:
           " 2>/dev/null || true)
 
           if [ -z "$SAMPLE_URLS" ]; then
-            echo "WARN: No absolute report URLs found for verification (reports may not be deployed yet)."
+            # If reports were generated this run but no valid URLs found → hard fail
+            if [ "${REPORT_COUNT:-0}" -gt 0 ]; then
+              echo "::error::REPORT_COUNT=$REPORT_COUNT but zero valid report_url fields found in manifest. report_url not being set correctly."
+              exit 1
+            fi
+            echo "WARN: No reports generated this run — skipping URL verification."
             VERIFY_SKIP=1
           else
             while IFS= read -r url; do
@@ -1120,7 +1190,7 @@ jobs:
       - name: "✅ E2E Pipeline Validation"
         continue-on-error: true
         run: |
-          echo "=== SENTINEL APEX v117.0.0 — E2E PIPELINE VALIDATION ==="
+          echo "=== SENTINEL APEX v118.0.0 — E2E PIPELINE VALIDATION ==="
 
           # Test 1: Worker health
           HEALTH=$(curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')

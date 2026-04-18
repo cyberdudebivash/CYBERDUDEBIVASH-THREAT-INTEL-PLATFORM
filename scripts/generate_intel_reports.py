@@ -60,7 +60,7 @@ MANIFEST_PATH    = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
 REPORTS_ROOT     = REPO_ROOT / "reports"
 VERSION_FILE     = REPO_ROOT / "version.json"
 R2_BUCKET        = "sentinel-apex-reports"
-PLATFORM_VERSION = "v117.0.0"
+PLATFORM_VERSION = "v118.0.0"
 DEFAULT_PREFIX   = "https://intel.cyberdudebivash.com"
 
 BRAND_KEYWORDS = (
@@ -428,10 +428,11 @@ def build_report_sections(item: dict) -> str:
         "<span class='sev-chip sev-CRITICAL'>KEV CONFIRMED</span>"
         if kev else ""
     )
+    _tlp_class = _sev_class("INFO")   # pre-computed — no backslash inside f-string
     sections.append(_section(1, "Classification &amp; Header",
         f"<div class='kv'>"
         f"<div class='kv-key'>STIX ID</div><div class='kv-val'><code>{_h(stix_id)}</code></div>"
-        f"<div class='kv-key'>TLP</div><div class='kv-val'><span class='sev-chip {_sev_class(\"INFO\")}'>{_h(tlp)}</span></div>"
+        f"<div class='kv-key'>TLP</div><div class='kv-val'><span class='sev-chip {_tlp_class}'>{_h(tlp)}</span></div>"
         f"<div class='kv-key'>Severity</div><div class='kv-val'><span class='sev-chip {_sev_class(sev)}'>{_h(sev)}</span> {kev_badge}</div>"
         f"<div class='kv-key'>Threat Type</div><div class='kv-val'>{_h(threat_type)}</div>"
         f"<div class='kv-key'>Feed Source</div><div class='kv-val'>{_h(feed)}</div>"
@@ -544,12 +545,14 @@ def build_report_sections(item: dict) -> str:
 
     # ── S8: CVSS / EPSS Deep Dive ──────────────────────────────────────────
     cvss_vec = item.get("cvss_vector") or "Not available"
+    # pre-computed — no backslash inside f-string (Python <3.12 restriction)
+    _kev_chip = "<span class='sev-chip sev-CRITICAL'>YES &mdash; ACTIVELY EXPLOITED</span>" if kev else "No"
     sections.append(_section(8, "CVSS &amp; EPSS Deep Dive",
         "<div class='kv'>"
         f"<div class='kv-key'>CVSS 3.1 Score</div><div class='kv-val'><strong>{_h(cvss) if cvss is not None else 'Pending'}</strong></div>"
         f"<div class='kv-key'>CVSS Vector</div><div class='kv-val'><code>{_h(cvss_vec)}</code></div>"
         f"<div class='kv-key'>EPSS Score</div><div class='kv-val'><strong>{_h(epss) if epss is not None else 'Pending'}{'%' if epss is not None else ''}</strong></div>"
-        f"<div class='kv-key'>KEV Listed</div><div class='kv-val'>{'<span class=\"sev-chip sev-CRITICAL\">YES — ACTIVELY EXPLOITED</span>' if kev else 'No'}</div>"
+        f"<div class='kv-key'>KEV Listed</div><div class='kv-val'>{_kev_chip}</div>"
         f"<div class='kv-key'>NVD Reference</div><div class='kv-val'>"
         + (f"<a href='{_h(nvd_url)}' target='_blank' rel='noopener' style='color:var(--accent2)'>{_h(nvd_url)}</a>" if nvd_url else "—")
         + "</div>"
