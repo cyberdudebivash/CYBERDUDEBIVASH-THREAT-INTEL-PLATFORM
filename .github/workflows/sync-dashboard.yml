@@ -1,25 +1,60 @@
 # =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v101 — DASHBOARD SYNC PIPELINE
-# Version    : v101.0.0 (PERMANENT PRODUCTION CONTRACT)
-# Rebuilt    : 2026-04-04 — ZERO failure mandate enforced
-# GUARANTEES :
-#   ✅ NEVER exits fatally on missing feed_manifest.json (bootstrap auto-heals)
-#   ✅ 0 non-fast-forward failures (fetch+rebase 4-attempt backoff)
-#   ✅ Idempotent — safe to run on empty or stale state
+# CYBERDUDEBIVASH® SENTINEL APEX v116.2.0 — DASHBOARD SYNC PIPELINE
+# ⛔ DISABLED AS OF v116.2.0 — ALL FUNCTIONALITY MERGED INTO sentinel-blogger
+# =============================================================================
+#
+# WHY THIS WORKFLOW IS DISABLED (v116.2.0 — 2026-04-18):
+#
+# This workflow caused the following P0 production issues:
+#
+#   1. MANIFEST DESTRUCTION (runs #744, #745, #748):
+#      The `--force-rebuild` step re-parsed only the CURRENT run's STIX bundles
+#      (e.g. 52 bundles → 9 entries), destroying the engine's authoritative
+#      2222-entry manifest. sentinel-blogger THEN uploaded this corrupted 9-entry
+#      manifest to R2, and the Worker served empty data to the dashboard.
+#
+#   2. RACE CONDITION / OVERWRITE:
+#      This workflow used the SAME concurrency group (`sentinel-data-writer`) as
+#      sentinel-blogger. It queued directly behind sentinel-blogger on completion,
+#      then overwrote `data/stix/feed_manifest.json` in git with the
+#      --force-rebuild output (often stale or small). This invalidated
+#      sentinel-blogger's authoritative commit every run.
+#
+#   3. STALE EMBEDDED_INTEL (run #748):
+#      This workflow injected EMBEDDED_INTEL from the --force-rebuild manifest
+#      (which was stale/smaller) into index.html, overwriting the fresh data
+#      that sentinel-blogger had just committed. Dashboard showed "60h ago".
+#
+#   4. DUPLICATE OPERATIONS:
+#      sentinel-blogger v116.2.0 now handles everything this workflow did:
+#        • EMBEDDED_INTEL injection (Step 17: update_embedded_intel.py)
+#        • R2 upload (Step 18: mandatory overwrite)
+#        • KV cache bust (Step 19)
+#        • git commit + gh-pages deploy (Steps 20-21)
+#      Running this workflow AFTER sentinel-blogger produced duplicate commits,
+#      extra push attempts, and non-fast-forward failures.
+#
+# HOW TO RE-ENABLE:
+#   Only re-enable this workflow after removing --force-rebuild and the
+#   `git add data/stix/feed_manifest.json` line. Add it to the
+#   `autonomous-guardian` concurrency group (NOT sentinel-data-writer).
+#   For emergency manual execution, use `workflow_dispatch` below.
+#
 # =============================================================================
 
-name: Dashboard Sync — EMBEDDED_INTEL Auto-Patcher v101.0
+name: "⛔ DISABLED — Dashboard Sync v101.0 (merged into sentinel-blogger v116.2)"
 
 on:
-  workflow_run:
-    workflows: ["sentinel-blogger"]
-    types: [completed]
-  schedule:
-    - cron: '20 */4 * * *'   # +20 min offset from sentinel-blogger (:00)
-  workflow_dispatch:
+  # ⛔ ALL AUTO-TRIGGERS DISABLED — sentinel-blogger v116.2 handles dashboard sync
+  # workflow_run:             ← DISABLED: caused overwrite race with sentinel-blogger
+  #   workflows: ["sentinel-blogger"]
+  #   types: [completed]
+  # schedule:                 ← DISABLED: caused --force-rebuild manifest destruction
+  #   - cron: '20 */4 * * *'
+  workflow_dispatch:          # ← MANUAL EMERGENCY USE ONLY
     inputs:
       force_patch:
-        description: 'Force patch even if unchanged'
+        description: 'Force EMBEDDED_INTEL patch (EMERGENCY USE ONLY — reads current git state)'
         type: boolean
         default: false
 
@@ -28,21 +63,32 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
-  group: sentinel-data-writer
+  # ⛔ CHANGED: was sentinel-data-writer (caused race with sentinel-blogger)
+  # Now uses isolated group — if manually triggered, won't conflict with main pipeline
+  group: sync-dashboard-manual
   cancel-in-progress: false
 
 jobs:
   sync-dashboard:
-    name: Sync Dashboard Intelligence Cache v101.0
+    name: "⛔ DISABLED — Emergency Manual EMBEDDED_INTEL Patch"
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    # ⛔ GATE: Only run on explicit manual dispatch with force_patch=true
     if: >-
-      github.event.workflow_run.conclusion == 'success' ||
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch'
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.force_patch == 'true'
 
     steps:
+      - name: "⚠️ Safety Warning"
+        run: |
+          echo "⚠️  EMERGENCY MANUAL SYNC — sync-dashboard is DISABLED in v116.2.0"
+          echo "    sentinel-blogger handles all dashboard sync automatically."
+          echo "    This manual run will ONLY patch EMBEDDED_INTEL from current git state."
+          echo "    It will NOT run --force-rebuild (manifest destruction risk)."
+          echo "    It will NOT commit data/stix/feed_manifest.json."
+
       - name: "Checkout Repository"
         uses: actions/checkout@v4.2.2
         with:
@@ -54,100 +100,50 @@ jobs:
         uses: actions/setup-python@v5.4.0
         with:
           python-version: '3.12'
-          cache: 'pip'
 
-      - name: "Install Dependencies"
-        run: pip install requests --quiet
-
-      - name: "Ensure Directories"
-        run: mkdir -p data/stix api data/status data/health
-
-      - name: "Bootstrap Critical Files (self-healing)"
+      - name: "Patch EMBEDDED_INTEL (emergency — NO --force-rebuild)"
         run: |
-          echo "=== Dashboard Sync v101 Pre-flight Bootstrap ==="
-          # --force-rebuild: MERGE existing committed manifest with any new STIX bundles
-          # ensuring entries from previous sentinel-blogger runs are never discarded
-          python3 scripts/bootstrap_critical_files.py --force-rebuild
-
-      - name: "Validate Data State"
-        run: |
-          python3 - << 'PYEOF'
-          import json, os
-          from datetime import datetime, timezone
-          manifest_path = "data/stix/feed_manifest.json"
-          if not os.path.exists(manifest_path):
-              skeleton = {"version":"101.0.0","entry_count":0,"advisories":[],
-                          "generated_at":datetime.now(timezone.utc).isoformat()}
-              with open(manifest_path,"w") as f:
-                  json.dump(skeleton,f)
-              print("WARN: skeleton manifest created")
-          try:
-              d = json.load(open(manifest_path))
-              items = d.get("advisories", d if isinstance(d,list) else [])
-              print(f"feed_manifest: {len(items)} entries | version: {d.get('version','legacy')}")
-          except Exception as e:
-              print(f"WARN: {e}")
-          PYEOF
-
-      - name: "Patch EMBEDDED_INTEL in index.html"
-        run: |
-          # MANDATORY: Dashboard sync must patch EMBEDDED_INTEL successfully.
-          # continue-on-error and || true REMOVED — if this fails the sync is corrupt.
-          python3 scripts/update_embedded_intel.py && echo "✅ sync-dashboard EMBEDDED_INTEL patch OK" || {
-            echo "❌ EMBEDDED_INTEL patch FAILED in sync-dashboard — aborting sync"
+          echo "=== Emergency EMBEDDED_INTEL patch from current data/stix/feed_manifest.json ==="
+          python3 -c "
+          import json
+          d = json.load(open('data/stix/feed_manifest.json'))
+          items = d.get('advisories', d if isinstance(d, list) else [])
+          print(f'Manifest: {len(items)} entries — proceeding with patch')
+          "
+          python3 scripts/update_embedded_intel.py && echo "✅ Emergency EMBEDDED_INTEL patch OK" || {
+            echo "❌ EMBEDDED_INTEL patch FAILED"
             exit 1
           }
-          # Run platform integrity guard as advisory (non-fatal on first run)
-          python3 scripts/platform_integrity_guard.py --mode=sync || echo "⚠️ Guard advisory — see output"
 
-      - name: "Validate — no conflict markers"
-        continue-on-error: true
-        run: |
-          if grep -q '<<<<<<<' index.html 2>/dev/null; then
-            echo "WARN: Conflict markers found — rolling back index.html"
-            git checkout HEAD -- index.html
-          fi
-
-      - name: "Safe Commit & Push v101"
+      - name: "Safe Commit & Push (index.html ONLY)"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --local user.email "dashboard@cyberdudebivash.com"
-          git config --local user.name  "CDB-Dashboard-Bot"
+          git config --local user.name  "CDB-Dashboard-Emergency-Bot"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
           git rebase --abort 2>/dev/null || true
-          git merge  --abort 2>/dev/null || true
+          git merge  --abort  2>/dev/null || true
           rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
-          git add    index.html                                    2>/dev/null || true
-          git add -f data/stix/feed_manifest.json                 2>/dev/null || true
-          git add -f api/feed.json api/latest.json api/status.json 2>/dev/null || true
-          git add -f data/sync_marker.json                        2>/dev/null || true
+          # ⛔ STRICTLY index.html ONLY — do NOT commit feed_manifest.json
+          git add index.html 2>/dev/null || true
+          # ⛔ BLOCKED: git add -f data/stix/feed_manifest.json ← manifest destruction risk
 
           if git diff --staged --quiet; then
             echo "No changes to commit."
             exit 0
           fi
 
-          CNT=$(python3 -c "import json; d=json.load(open('data/stix/feed_manifest.json')); print(len(d.get('advisories',d if isinstance(d,list) else [])))" 2>/dev/null || echo "N/A")
-          git commit -m "v101 Dashboard Sync — ${CNT} advisories @ $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+          git commit -m "⚠️ Emergency Dashboard Sync v116.2 — EMBEDDED_INTEL patch @ $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
 
           for i in 1 2 3 4; do
             git fetch origin main --quiet
-            git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null||true; git merge origin/main -X ours --no-edit --quiet||true; }
-            git push origin main && { echo "Push OK attempt $i/4"; break; }
-            WAIT=$((i*15)); echo "Retry in ${WAIT}s..."; sleep $WAIT
+            git rebase origin/main --quiet 2>/dev/null || {
+              git rebase --abort 2>/dev/null || true
+              git merge origin/main -X ours --no-edit --quiet || true
+            }
+            git push origin main && { echo "Push OK (attempt $i/4)"; break; }
+            sleep $((i * 15))
             [ $i -eq 4 ] && echo "Push deferred."
           done
-
-      - name: "Summary"
-        if: always()
-        run: |
-          python3 -c "
-          import json,os
-          try:
-            d=json.load(open('data/stix/feed_manifest.json'))
-            items=d.get('advisories',d if isinstance(d,list) else [])
-            print(f'Entries:{len(items)} | Version:{d.get(\"version\",\"legacy\")} | Status:SYNCED')
-          except Exception as e: print(f'Error:{e}')
-          " || true

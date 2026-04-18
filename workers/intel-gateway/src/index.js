@@ -1,14 +1,16 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v112.0
+// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v116.2.0
 // R2-ONLY ARCHITECTURE — Blogger dependency REMOVED
 // Data flow: GitHub Actions → Cloudflare R2 (private) → Worker → API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
 // Secrets: ADMIN_SECRET, GITHUB_TOKEN (set via: npx wrangler secret put)
 // v112.0: Added /api/ai endpoint family (AI panels, MITRE heatmap, risk engine)
+// v116.2.0: CRITICAL FIX — stix_id added to preview response (ANALYZE button fix);
+//            GATEWAY_VERSION unified with pipeline version across entire platform.
 // =============================================================================
 
 const CONFIG = {
-  GATEWAY_VERSION:   "112.1",  // v112.1: P0 FIX — sort preview by timestamp DESC + risk DESC
+  GATEWAY_VERSION:   "116.2.0",  // v116.2.0: unified platform version — stix_id in preview, ANALYZE button fix
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v111.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -186,6 +188,20 @@ function normaliseManifestData(data) {
   else if (Array.isArray(data.feed)     && data.feed.length > 0)      items = data.feed;
   else if (Array.isArray(data.data)     && data.data.length > 0)      items = data.data;
   if (!items || items.length === 0) return null;
+
+  // v116.2.0 FRESHNESS FIX: Inject processed_at fallback for items that don't have it yet.
+  // Items generated before this fix won't have processed_at — fall back to timestamp or
+  // generated_at so that the sort key is always populated across the full dataset.
+  // This is a READ-ONLY normalisation; it does NOT modify the stored manifest in R2.
+  const manifestGeneratedAt = data.generated_at || null;
+  items = items.map(item => {
+    if (item.processed_at) return item;  // already set — no change
+    return {
+      ...item,
+      processed_at: item.timestamp || item.generated_at || manifestGeneratedAt || null,
+    };
+  });
+
   return {
     reports:     items,
     generated_at: data.generated_at || new Date().toISOString(),
@@ -329,13 +345,24 @@ async function handlePreview(request, env, rid) {
       seenTitles.add(t);
       return true;
     });
-    // v112.1 P0 FIX: Sort by timestamp DESC (newest first), then risk_score DESC.
-    // Without this, preview returns the first 10 items in manifest file order,
-    // which are old bootstrap/historical entries with stale timestamps and low risk scores.
-    // pipeline writes oldest entries first → new entries appended at end → slice(0,10) = always stale.
+    // v116.2.0 FRESHNESS FIX: Sort by processed_at DESC (primary) → timestamp DESC (fallback)
+    // → risk_score DESC (tiebreak).
+    //
+    // WHY processed_at is PRIMARY:
+    //   RSS-sourced intel carries `published_at` dates from the original article
+    //   (e.g. a CVE advisory published 3 weeks ago). When `timestamp` is set from
+    //   `published_at`, newly generated intel APPEARS STALE even though it was just
+    //   processed. `processed_at` is always set to pipeline execution time (UTC-now)
+    //   so it is immune to source article date variations.
+    //
+    // SORT KEY helper — reads processed_at first, then timestamp as fallback
+    const getSortTs = item => {
+      const pa = item.processed_at || item.timestamp || item.generated_at || null;
+      return pa ? new Date(pa).getTime() : 0;
+    };
     cleanItems.sort((a, b) => {
-      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      const ta = getSortTs(a);
+      const tb = getSortTs(b);
       if (tb !== ta) return tb - ta;
       const ra = typeof a.risk_score === 'number' ? a.risk_score
                : typeof a.cvss_score === 'number' ? a.cvss_score : 0;
@@ -359,6 +386,10 @@ async function handlePreview(request, env, rid) {
       const description = enrich.length > 0 ? `${rawDesc} [${enrich.join(" | ")}]` : rawDesc;
       return {
         id:          item.id          || item.advisory_id || item.cve_id || "unknown",
+        // CRITICAL FIX v116.2.0: stix_id REQUIRED by dashboard ANALYZE button.
+        // Guard in frontend: `if (!stixId) return;` silently blocks ANALYZE for
+        // all preview items if this field is absent. Must mirror `id` resolution.
+        stix_id:     item.stix_id     || item.id          || item.advisory_id || item.cve_id || "unknown",
         title:       item.title       || item.name         || item.cve_id || "Untitled",
         severity:    item.severity    || item.risk_level   || "UNKNOWN",
         description,
@@ -372,7 +403,12 @@ async function handlePreview(request, env, rid) {
         ioc_count:   iocCount,
         ttp_count:   ttpCount,
         confidence:  item.confidence  || 0,
+        // v116.2.0 FRESHNESS: processed_at = pipeline generation time (primary freshness field).
+        // Falls back to timestamp/generated_at for items ingested before this fix.
+        // Dashboard LIVE 7D and sort-newest MUST read processed_at first.
+        processed_at: item.processed_at || item.timestamp || item.generated_at || null,
         timestamp:   item.timestamp   || null,
+        published_at: item.published_at || item.published || item.published_date || null,
         source:      item.source      || "SENTINEL-APEX",
         stix_bundle: item.stix_bundle || null,
         kev_present: item.kev_present || false,
@@ -480,6 +516,15 @@ async function handleFeed(request, env, auth, rid) {
         (r.cve_id || "").toLowerCase().includes(q)
       );
     }
+
+    // v116.2.0 FRESHNESS FIX: Sort full feed by processed_at DESC before pagination.
+    // Ensures authenticated /api/feed consumers always receive newest-generated intel first,
+    // regardless of the manifest file order or source article publication dates.
+    items.sort((a, b) => {
+      const ta = new Date(a.processed_at || a.timestamp || a.generated_at || 0).getTime();
+      const tb = new Date(b.processed_at || b.timestamp || b.generated_at || 0).getTime();
+      return tb - ta;
+    });
 
     const total      = items.length;
     const totalPages = Math.ceil(total / limit) || 1;
@@ -727,10 +772,10 @@ async function fetchAIData(env, r2Key, kvKey, ttlSeconds) {
         .slice(0, 25)
         .map(([technique, count]) => ({ technique, count }));
       const aiIndex = {
-        version:      "112.0",
+        version:      "116.2.0",
         generated_at: index.generated_at || new Date().toISOString(),
         platform:     "CYBERDUDEBIVASH SENTINEL APEX",
-        ai_engine:    "APEX-v112",
+        ai_engine:    "APEX-v116",
         status:       "OPERATIONAL",
         derived_from: "live_feed",
         summary: {

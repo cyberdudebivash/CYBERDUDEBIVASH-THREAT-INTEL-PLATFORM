@@ -198,6 +198,30 @@ def normalise_item(item: dict) -> dict:
     if not out.get("stix_id"):
         out["stix_id"] = out.get("id") or ""
 
+    # ── processed_at: v116.2.0 FRESHNESS FIX ────────────────────────────
+    # Primary freshness field — always pipeline generation time (UTC-now).
+    # Dashboard LIVE 7D filter and sort-newest read this field first.
+    # For existing items missing processed_at, fall back to timestamp/generated_at.
+    if not out.get("processed_at"):
+        out["processed_at"] = (
+            out.get("timestamp")
+            or out.get("generated_at")
+            or out.get("published")
+            or out.get("published_at")
+            or ""
+        )
+
+    # ── published_at: expose source article date separately ─────────────
+    # Keeps the original publication date visible without conflating it with
+    # processing time. Dashboard can display both if needed.
+    if not out.get("published_at"):
+        out["published_at"] = (
+            out.get("published")
+            or out.get("published_date")
+            or out.get("timestamp")
+            or ""
+        )
+
     # ── tags: normalise None/falsy to [] (prevents JS .map crash) ───────
     if not out.get("tags"):
         out["tags"] = []
@@ -624,11 +648,18 @@ def main():
         print(f"[INFO] Deduplication: {len(merged)} → {len(deduped)} items ({removed_dupes} duplicates removed)")
     merged = deduped
 
-    # Sort newest-first so dashboard always shows the freshest intel at the top
-    merged.sort(
-        key=lambda x: str(x.get("timestamp", x.get("published", x.get("created", "")))),
-        reverse=True,
-    )
+    # v116.2.0 FRESHNESS FIX: Sort by processed_at DESC (primary) → timestamp → published.
+    # processed_at = pipeline generation time → always reflects actual processing order.
+    # Using timestamp alone causes RSS-sourced intel with old published dates to sink
+    # below older but source-fresh articles, making newly generated intel appear stale.
+    def _freshness_key(x: dict) -> str:
+        for field in ("processed_at", "timestamp", "generated_at", "published", "created"):
+            v = x.get(field)
+            if v and isinstance(v, str) and len(v) >= 10:
+                return v
+        return "1970-01-01T00:00:00Z"
+
+    merged.sort(key=_freshness_key, reverse=True)
 
     kpis = compute_kpis(merged)
 

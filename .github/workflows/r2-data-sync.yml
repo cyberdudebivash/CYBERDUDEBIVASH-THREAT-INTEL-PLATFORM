@@ -1,14 +1,29 @@
-﻿name: R2 Intel Data Sync v109
+﻿name: "⛔ DISABLED — R2 Intel Data Sync v109 (merged into sentinel-blogger v116.2)"
 
-# Pushes generated intel data to Cloudflare R2 (private storage).
-# Data NEVER committed to GitHub — this is the security boundary.
-# Worker reads from R2, not GitHub raw URLs.
+# =============================================================================
+# ⛔ DISABLED AS OF v116.2.0 — 2026-04-18
+#
+# WHY DISABLED:
+#   sentinel-blogger v116.2.0 (Step 18) now handles R2 upload directly and
+#   mandatorily (no continue-on-error, pipeline fails if R2 upload fails).
+#   This workflow was:
+#     1. Running a SECOND R2 upload after sentinel-blogger already succeeded
+#     2. Risk: if sync-dashboard.yml ran first and corrupted git state,
+#        this workflow would read the corrupted manifest from git checkout
+#        and OVERWRITE R2 with stale/broken data
+#     3. Writing a different `_sync_meta.json` (version: "109.0") than
+#        sentinel-blogger (version: PIPELINE_VERSION), causing API confusion
+#
+# KEPT FOR: Emergency manual R2 resync (e.g. R2 bucket corrupted externally)
+#   Trigger: workflow_dispatch only
+# =============================================================================
 
 on:
-  workflow_run:
-    workflows: ["sentinel-blogger"]
-    types: [completed]
-  workflow_dispatch:
+  # ⛔ AUTO-TRIGGER DISABLED — sentinel-blogger v116.2 handles R2 upload
+  # workflow_run:             ← DISABLED: duplicate upload, overwrite risk
+  #   workflows: ["sentinel-blogger"]
+  #   types: [completed]
+  workflow_dispatch:          # ← MANUAL EMERGENCY USE ONLY
 
 permissions:
   contents: read   # read-only — never writes back to GitHub
@@ -18,7 +33,7 @@ env:
 
 jobs:
   sync-to-r2:
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
