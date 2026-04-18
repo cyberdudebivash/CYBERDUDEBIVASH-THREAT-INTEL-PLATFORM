@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v118.0.0
+// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v119.0.0
 // R2-ONLY ARCHITECTURE — Blogger dependency REMOVED
 // Data flow: GitHub Actions → Cloudflare R2 (private) → Worker → API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = {
-  GATEWAY_VERSION:   "118.0.0",  // v118.0.0: JWT routes wired (/api/auth/token|validate), resolveAuth upgrade, zero-failure pipeline, tier badges
+  GATEWAY_VERSION:   "119.0.0",  // v119.0.0: computeApexAI (predictive_risk/ai_confidence/actor_fingerprint/kill_chain/ttp_density), tier-gated IOC+STIX paywall, apex_ai in preview+feed
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v111.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -470,6 +470,172 @@ function getUpgradeCTA(tier) {
   };
 }
 
+// ── v119.0.0: computeApexAI — Derives APEX AI intelligence fields from item ────
+// Produces: predictive_risk, ai_confidence, actor_fingerprint, kill_chain, ttp_density
+// Tier-gated: free = summary only; premium/enterprise = full AI block
+// Safe: never throws — returns minimal object on any error
+
+function computeApexAI(item, tier) {
+  try {
+    const isFree  = !tier || tier === CONFIG.TIERS.FREE;
+    const isPro   = tier === CONFIG.TIERS.PREMIUM || tier === CONFIG.TIERS.ENTERPRISE;
+
+    // ── Core scores ────────────────────────────────────────────────────────────
+    const riskScore  = typeof item.risk_score  === "number" ? item.risk_score
+                     : typeof item.cvss_score  === "number" ? item.cvss_score : 0;
+    const epss       = typeof item.epss_score  === "number" ? item.epss_score : 0;
+    const confidence = typeof item.confidence  === "number" ? item.confidence
+                     : typeof item.confidence_score === "number" ? item.confidence_score : 0;
+    const kev        = item.kev_present === true ? 1.0 : 0.0;
+    const iocCount   = Array.isArray(item.iocs) ? item.iocs.length : (item.ioc_count || 0);
+    const ttpCount   = Array.isArray(item.ttps) ? item.ttps.length : (item.ttp_count || 0);
+
+    // ── predictive_risk (0–10): composite risk projection ──────────────────────
+    // Weights: CVSS 40%, EPSS 25%, KEV 20%, IOC density 15%
+    const iocDensityScore = Math.min(iocCount * 0.5, 2.0);
+    const predictiveRisk  = Math.min(10,
+      (riskScore * 0.4) + (epss * 0.025) + (kev * 2.0) + (iocDensityScore * 0.15 * 10)
+    );
+
+    // ── ai_confidence (0–100): evidence quality score ──────────────────────────
+    // Synthesises: base confidence + KEV bonus + STIX completeness + IOC density
+    const stixObjects  = typeof item.stix_object_count === "number" ? item.stix_object_count : 0;
+    const stixBonus    = Math.min(stixObjects * 1.5, 12);
+    const iocBonus     = Math.min(iocCount * 2, 15);
+    const kevBonus     = kev * 10;
+    const aiConfidence = Math.min(100, Math.round(confidence + stixBonus + iocBonus + kevBonus));
+
+    // ── actor_fingerprint: deterministic actor identity string ─────────────────
+    const actorTag = item.actor_tag || (item.apex && item.apex.campaign_id) || "UNC-UNKNOWN";
+    const severity = (item.severity || "UNKNOWN").toUpperCase();
+    const sevCode  = { CRITICAL: "C", HIGH: "H", MEDIUM: "M", LOW: "L" }[severity] || "U";
+    const actorFP  = isPro
+      ? `${actorTag}::${sevCode}::IOC-${iocCount}::TTP-${ttpCount}`
+      : `${actorTag.slice(0, 8)}****`; // partial for free tier
+
+    // ── kill_chain: primary phase derived from TTPs / kill_chain_phases ─────────
+    const rawKc    = Array.isArray(item.kill_chain_phases) ? item.kill_chain_phases : [];
+    const rawTtps  = Array.isArray(item.ttps) ? item.ttps
+                   : Array.isArray(item.mitre_tactics) ? item.mitre_tactics : [];
+    // Map common MITRE tactics to kill chain phases
+    const ttpToPhase = {
+      TA0001: "Initial Access", TA0002: "Execution", TA0003: "Persistence",
+      TA0004: "Privilege Escalation", TA0005: "Defense Evasion", TA0006: "Credential Access",
+      TA0007: "Discovery", TA0008: "Lateral Movement", TA0009: "Collection",
+      TA0010: "Exfiltration", TA0011: "Command and Control", TA0040: "Impact",
+    };
+    const derivedPhases = rawTtps.slice(0, 5).map(t => {
+      const ta = t.toUpperCase();
+      return ttpToPhase[ta] || (ta.startsWith("T1") ? "Execution" : "Unknown");
+    });
+    const killChainPhases = rawKc.length > 0 ? rawKc
+      : [...new Set(derivedPhases)].slice(0, 3);
+    const primaryPhase = killChainPhases[0] || "Unknown";
+
+    // ── ttp_density (0–10): attack sophistication density score ─────────────────
+    // Higher = more diverse techniques used (sophisticated actor)
+    const uniqueTtps  = new Set(rawTtps).size;
+    const ttpDensity  = Math.min(10, parseFloat((
+      (uniqueTtps * 0.8) + (iocCount * 0.3) + (riskScore * 0.2)
+    ).toFixed(2)));
+
+    // ── Existing apex block passthrough ───────────────────────────────────────
+    const existingApex = (item.apex && typeof item.apex === "object") ? item.apex : {};
+
+    // ── Tier-gated assembly ───────────────────────────────────────────────────
+    const base = {
+      soc_priority:    existingApex.priority      || (riskScore >= 9 ? "P1" : riskScore >= 7 ? "P2" : riskScore >= 5 ? "P3" : "P4"),
+      threat_level:    existingApex.threat_level  || (riskScore >= 9 ? "CRITICAL_SURGE" : riskScore >= 7 ? "HIGH_ALERT" : riskScore >= 5 ? "MODERATE" : "LOW"),
+      threat_category: existingApex.threat_category || "UNKNOWN",
+      predictive_risk: parseFloat(predictiveRisk.toFixed(2)),
+      ai_confidence:   aiConfidence,
+      ttp_density:     ttpDensity,
+      campaign_id:     existingApex.campaign_id   || "UNCLASSIFIED",
+    };
+
+    if (isFree) {
+      // Free: surface priority/risk/confidence but gate fingerprint, kill_chain, AI narrative
+      return {
+        ...base,
+        actor_fingerprint: actorFP,          // partial only
+        kill_chain:        "PRO_REQUIRED",   // locked
+        kill_chain_primary: "PRO_REQUIRED",
+        ai_summary:        null,             // locked
+        recommended_action:"Upgrade to Pro for full SOC recommendations.",
+        behavioral_tags:   [],              // locked
+        paywall: {
+          locked_fields:   ["actor_fingerprint", "kill_chain", "ai_summary", "behavioral_tags"],
+          upgrade_url:     "https://cyberdudebivash.com/sentinel-premium",
+          message:         "Upgrade to Pro for full AI intelligence block.",
+        },
+      };
+    }
+
+    // Pro / Enterprise: full AI block
+    return {
+      ...base,
+      actor_fingerprint:  actorFP,
+      kill_chain:         killChainPhases,
+      kill_chain_primary: primaryPhase,
+      ai_summary:         existingApex.ai_summary         || null,
+      recommended_action: existingApex.recommended_action || "Review and monitor.",
+      behavioral_tags:    Array.isArray(existingApex.behavioral_tags) ? existingApex.behavioral_tags : [],
+    };
+  } catch (e) {
+    return {
+      soc_priority:    "P4",
+      predictive_risk: 0,
+      ai_confidence:   0,
+      ttp_density:     0,
+      error:           "apex_compute_failed",
+    };
+  }
+}
+
+// ── v119.0.0: applyTierGate — enforces monetization on feed items ─────────────
+// Free tier: iocs = count only, stix_bundle = locked, apex_ai = partial
+// Premium: full iocs, STIX metadata, full apex_ai
+// Enterprise: everything including raw stix_bundle passthrough
+
+function applyTierGate(item, tier) {
+  const isFree = !tier || tier === CONFIG.TIERS.FREE;
+  const isEnt  = tier === CONFIG.TIERS.ENTERPRISE;
+
+  const gated = { ...item };
+
+  // IOC paywall: free tier strips raw IOC arrays, keeps count
+  if (isFree && Array.isArray(item.iocs) && item.iocs.length > 0) {
+    gated.iocs      = [];
+    gated.ioc_count = item.iocs.length;
+    gated.ioc_paywall = {
+      locked:      true,
+      count:       item.iocs.length,
+      upgrade_url: "https://cyberdudebivash.com/sentinel-premium",
+      message:     `${item.iocs.length} IOC(s) available on Pro tier.`,
+    };
+  }
+
+  // STIX bundle paywall: free/premium get metadata only, enterprise gets raw bundle
+  if (!isEnt) {
+    gated.stix_bundle = null;
+    if (item.stix_bundle) {
+      gated.stix_bundle_meta = {
+        locked:        true,
+        bundle_id:     item.bundle_id || item.stix_id,
+        stix_file:     item.stix_file || null,
+        object_count:  item.stix_object_count || 0,
+        upgrade_url:   "https://cyberdudebivash.com/sentinel-enterprise",
+        message:       "Full STIX 2.1 bundle export available on Enterprise tier.",
+      };
+    }
+  }
+
+  // Inject computed apex_ai block
+  gated.apex_ai = computeApexAI(item, tier);
+
+  return gated;
+}
+
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
 // ── PUBLIC: /api/preview — No API key required ────────────────────────────────
@@ -601,6 +767,35 @@ async function handlePreview(request, env, rid) {
         actor_tag:   item.actor_tag   || null,
         mitre_tactics: Array.isArray(item.mitre_tactics) ? item.mitre_tactics
                       : Array.isArray(item.ttps) ? item.ttps : [],
+        // v119.0.0: Free-tier IOC paywall — strip raw IOC arrays, surface count + CTA
+        iocs:       [],        // raw IOCs require Pro tier
+        ioc_count:  Array.isArray(item.iocs) ? item.iocs.length : (item.ioc_count || 0),
+        ioc_paywall: Array.isArray(item.iocs) && item.iocs.length > 0 ? {
+          locked:      true,
+          count:       item.iocs.length,
+          upgrade_url: "https://cyberdudebivash.com/sentinel-premium",
+          message:     `${item.iocs.length} IOC(s) unlocked on Pro tier.`,
+        } : null,
+        // v119.0.0: APEX AI block — always present in preview, fields tier-gated
+        apex_ai:    computeApexAI(item, CONFIG.TIERS.FREE),
+        // Legacy apex passthrough (partial) for backward compat with existing panels
+        apex: (() => {
+          const ap = item.apex;
+          if (!ap || typeof ap !== "object") return null;
+          // Free preview: surface non-sensitive apex fields only
+          return {
+            priority:     ap.priority     || "P4",
+            threat_level: ap.threat_level || "UNKNOWN",
+            threat_category: ap.threat_category || "UNKNOWN",
+            predictive_score: ap.predictive_score != null ? ap.predictive_score : 0,
+            campaign_id:  "PRO_REQUIRED",   // campaign ID is Pro+
+          };
+        })(),
+        validation_status: item.validation_status || null,
+        stix_object_count: item.stix_object_count || 0,
+        kev_present:  item.kev_present  || false,
+        epss_score:   item.epss_score   || null,
+        cvss_score:   item.cvss_score   || null,
       };
     });
 
@@ -647,13 +842,39 @@ async function handlePreview(request, env, rid) {
 // ── AUTHENTICATED: /api/feed ───────────────────────────────────────────────────
 async function handleFeed(request, env, auth, rid) {
   const url      = new URL(request.url);
-  const limit    = Math.min(
-    parseInt(url.searchParams.get("limit") || String(CONFIG.FEED_LIMITS[auth.tier])),
-    CONFIG.FEED_LIMITS[auth.tier]
-  );
-  const page     = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
-  const severity = url.searchParams.get("severity");
-  const search   = url.searchParams.get("q");
+
+  // v119.0.0: Input sanitization — prevent injection via query params
+  const ALLOWED_SEVERITY = new Set(["critical", "high", "medium", "low", "info", "unknown"]);
+  const rawLimit    = url.searchParams.get("limit") || "";
+  const rawPage     = url.searchParams.get("page")  || "";
+  const rawSeverity = url.searchParams.get("severity") || "";
+  const rawSearch   = url.searchParams.get("q") || "";
+
+  // Numeric params: coerce to safe integers; reject NaN/negative
+  const parsedLimit = parseInt(rawLimit) || CONFIG.FEED_LIMITS[auth.tier];
+  const parsedPage  = parseInt(rawPage)  || 1;
+  if (isNaN(parsedLimit) || parsedLimit < 1) {
+    return jsonResponse({ error: "invalid_param", message: "limit must be a positive integer.", request_id: rid }, 400);
+  }
+  if (isNaN(parsedPage) || parsedPage < 1) {
+    return jsonResponse({ error: "invalid_param", message: "page must be a positive integer.", request_id: rid }, 400);
+  }
+
+  // Severity: allow-list only
+  const severity = rawSeverity
+    ? (ALLOWED_SEVERITY.has(rawSeverity.toLowerCase()) ? rawSeverity.toLowerCase() : null)
+    : null;
+  if (rawSeverity && !severity) {
+    return jsonResponse({ error: "invalid_param", message: `Invalid severity. Allowed: ${[...ALLOWED_SEVERITY].join(", ")}`, request_id: rid }, 400);
+  }
+
+  // Search: max 128 chars, strip control chars
+  const search = rawSearch
+    ? rawSearch.replace(/[\x00-\x1F\x7F]/g, "").slice(0, 128).trim()
+    : null;
+
+  const limit = Math.min(parsedLimit, CONFIG.FEED_LIMITS[auth.tier]);
+  const page  = Math.max(1, parsedPage);
 
   try {
     const index = await fetchReportsIndex(env);
@@ -700,7 +921,9 @@ async function handleFeed(request, env, auth, rid) {
     const total      = items.length;
     const totalPages = Math.ceil(total / limit) || 1;
     const offset     = (page - 1) * limit;
-    const pageItems  = items.slice(offset, offset + limit);
+    // v119.0.0: Apply tier-gated monetization to each feed item
+    // Injects apex_ai block and enforces IOC/STIX paywall per tier
+    const pageItems  = items.slice(offset, offset + limit).map(it => applyTierGate(it, auth.tier));
 
     const resp = {
       status:     "ok",
