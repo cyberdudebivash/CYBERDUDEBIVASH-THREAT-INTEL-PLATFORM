@@ -799,6 +799,11 @@ class STIXExporter:
             "stix_id":          _intel_id,
             "bundle_id":        stix_id or _intel_id,
             "title":            title,
+            # v116.2.0 FRESHNESS FIX: processed_at = pipeline generation time (UTC-now).
+            # This is ALWAYS the current run timestamp — independent of the RSS article's
+            # publication date. Use as primary sort key so newly generated intel ALWAYS
+            # ranks above older items regardless of their source published_at date.
+            "processed_at":     _ts_now,
             "timestamp":        _ts_now,
             "risk_score":       float(risk_score),
             "severity":         severity,
@@ -856,8 +861,13 @@ class STIXExporter:
         # v75.0 FIX: Sort BEFORE trim. Original bug used [-500:] on an
         # unsorted list, silently evicting the newest entries. The correct
         # order is: deduplicate -> sort DESC -> slice [:500].
+        #
+        # v116.2.0 FRESHNESS FIX: processed_at is PRIMARY sort key.
+        # processed_at = pipeline generation time (always UTC-now when entry is created).
+        # This ensures newly generated intel ALWAYS appears at the top, regardless of
+        # source article's published_at date (which may be days/weeks old).
         def _ts_sort_key(e):
-            for f in ("published", "published_date", "generated_at", "timestamp"):
+            for f in ("processed_at", "timestamp", "generated_at", "published", "published_date"):
                 v = e.get(f)
                 if v and isinstance(v, str) and len(v) >= 10:
                     return v

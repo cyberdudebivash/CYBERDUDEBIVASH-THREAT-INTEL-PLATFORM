@@ -1,12 +1,16 @@
 # =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v101 — AUTONOMOUS GUARDIAN AGENT
-# Version: v101.0.0 — PERMANENT PRODUCTION CONTRACT
+# CYBERDUDEBIVASH® SENTINEL APEX v116.2.0 — AUTONOMOUS GUARDIAN AGENT
+# Version: v116.2.0 — unified platform version
+# NOTE: sync-dashboard.yml DISABLED in v116.2.0 — removed from workflow_run list.
+#       Guardian still triggers on sentinel-blogger completion + hourly schedule.
 # =============================================================================
 name: Autonomous Guardian Agent v101.0
 
 on:
   workflow_run:
-    workflows: ["sentinel-blogger", "Dashboard Sync — EMBEDDED_INTEL Auto-Patcher v101.0"]
+    # v116.2.0: sync-dashboard removed — it is DISABLED (merged into sentinel-blogger).
+    # Only sentinel-blogger triggers guardian post-run checks.
+    workflows: ["sentinel-blogger"]
     types: [completed]
   schedule:
     - cron: '30 * * * *'   # Hourly at :30 — catches ALL workflow failures
