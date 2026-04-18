@@ -1,16 +1,18 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v120.0.0
+// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v121.0.0
 // R2-ONLY ARCHITECTURE — Blogger dependency REMOVED
 // Data flow: GitHub Actions → Cloudflare R2 (private) → Worker → API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
-// Secrets: ADMIN_SECRET, GITHUB_TOKEN (set via: npx wrangler secret put)
-// v112.0: Added /api/ai endpoint family (AI panels, MITRE heatmap, risk engine)
-// v116.2.0: CRITICAL FIX — stix_id added to preview response (ANALYZE button fix);
-//            GATEWAY_VERSION unified with pipeline version across entire platform.
+// Secrets: ADMIN_SECRET, GITHUB_TOKEN, CDB_JWT_SECRET (npx wrangler secret put)
+// v112.0: Added /api/ai endpoint family
+// v116.2.0: stix_id fix; GATEWAY_VERSION unified
+// v120.0.0: GOD-MODE — mandatory ai_summary, retry circuit breaker, urgency CTAs
+// v121.0.0: FINAL HARDENING — structured logging, schema validation, JWT revocation,
+//           token refresh/revoke, usage caps, observability, API/feed consistency
 // =============================================================================
 
 const CONFIG = {
-  GATEWAY_VERSION:   "120.0.0",  // v120.0.0: GOD-MODE — mandatory ai_summary, retry circuit breaker, urgency CTAs, full AI intelligence engine
+  GATEWAY_VERSION:   "121.0.0",  // v121.0.0: FINAL HARDENING — zero-null schema, JWT revocation, observability
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v111.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -45,6 +47,41 @@ const CONFIG = {
 function generateReqId() {
   const bytes = crypto.getRandomValues(new Uint8Array(6));
   return "req_" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// ── v121.0.0: Structured Logger ───────────────────────────────────────────────
+// ALL log output is structured JSON — searchable in Cloudflare Workers Tail Logs.
+// Fields: ts, level, component, message + arbitrary meta spread.
+function slog(level, component, message, meta = {}) {
+  const entry = JSON.stringify({
+    ts:        new Date().toISOString(),
+    level,                // "INFO" | "WARN" | "ERROR"
+    component,            // "AUTH" | "FEED" | "APEX" | "ROUTER" | "R2" | etc.
+    msg:       message,
+    gateway:   CONFIG.GATEWAY_NAME + "/" + CONFIG.GATEWAY_VERSION,
+    ...meta,
+  });
+  if (level === "ERROR")     console.error(entry);
+  else if (level === "WARN") console.warn(entry);
+  else                       console.log(entry);
+}
+
+// ── v121.0.0: Error Tracking — persists to SECURITY_HUB_KV (7-day rolling) ───
+// Records error counts + up to 10 sample payloads per component per day.
+// Surfaced via GET /api/admin/observability.
+async function trackError(env, component, message, meta = {}) {
+  slog("ERROR", component, message, meta);
+  if (!env?.SECURITY_HUB_KV) return;
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    const key = `error:${component}:${day}`;
+    const rec = (await env.SECURITY_HUB_KV.get(key, { type: "json" })) || { count: 0, samples: [] };
+    rec.count++;
+    if (rec.samples.length < 10) {
+      rec.samples.push({ ts: new Date().toISOString(), msg: message, ...meta });
+    }
+    await env.SECURITY_HUB_KV.put(key, JSON.stringify(rec), { expirationTtl: 86400 * 7 });
+  } catch { /* non-critical — never let observability kill a request */ }
 }
 
 async function sha256hex(text) {
@@ -158,6 +195,27 @@ function extractJwt(request) {
   return null;
 }
 
+// ── v121.0.0: JWT Revocation Blocklist ───────────────────────────────────────
+// Revoked tokens are stored in SECURITY_HUB_KV with TTL = remaining token lifetime.
+// isTokenRevoked() is called in resolveAuth() before returning a valid JWT result.
+async function isTokenRevoked(token, env) {
+  if (!env?.SECURITY_HUB_KV || !token) return false;
+  try {
+    const tokenId = (await sha256hex(token)).slice(0, 16);
+    const v = await env.SECURITY_HUB_KV.get(`jwt_revoked:${tokenId}`);
+    return v !== null;
+  } catch { return false; }
+}
+
+async function revokeToken(token, expUnix, env) {
+  if (!env?.SECURITY_HUB_KV || !token) return;
+  try {
+    const tokenId = (await sha256hex(token)).slice(0, 16);
+    const ttl     = Math.max(60, expUnix - Math.floor(Date.now() / 1000));
+    await env.SECURITY_HUB_KV.put(`jwt_revoked:${tokenId}`, "1", { expirationTtl: ttl });
+  } catch { /* non-critical */ }
+}
+
 // ── /api/auth/token — Issue JWT (POST, body: {api_key, tier}) ────────────────
 async function handleIssueToken(request, env, rid) {
   if (!env?.CDB_JWT_SECRET) {
@@ -235,22 +293,27 @@ async function handleValidateToken(request, env, rid) {
 
 // ── Unified auth resolver: supports both JWT and legacy API keys ──────────────
 // Priority: JWT (Bearer token with 3 parts) > Legacy API key (CDB-* / X-Api-Key)
+// v121.0.0: Checks JWT revocation blocklist before accepting token.
 async function resolveAuth(request, env) {
   // Try JWT first
   const jwtToken = extractJwt(request);
   if (jwtToken && env?.CDB_JWT_SECRET) {
     const result = await verifyJwt(jwtToken, env.CDB_JWT_SECRET);
     if (result.valid) {
+      // v121.0.0: HARD check revocation blocklist — revoked tokens NEVER pass
+      if (await isTokenRevoked(jwtToken, env)) {
+        return { valid: false, reason: "token_revoked", auth_method: "jwt" };
+      }
       return {
-        valid:      true,
-        tier:       result.payload.tier || CONFIG.TIERS.FREE,
-        key_id:     result.payload.key_id,
-        label:      result.payload.label,
+        valid:       true,
+        tier:        result.payload.tier || CONFIG.TIERS.FREE,
+        key_id:      result.payload.key_id,
+        label:       result.payload.label,
         auth_method: "jwt",
       };
     }
     // JWT present but invalid — hard fail (no fallback to API key)
-    if (jwtToken) return { valid: false, reason: result.reason, auth_method: "jwt" };
+    return { valid: false, reason: result.reason, auth_method: "jwt" };
   }
   // Fall through to legacy API key resolution
   const legacy = await resolveApiKey(request, env);
@@ -280,20 +343,42 @@ async function slidingWindowCheck(prefix, id, limitPerMin, kv) {
 }
 
 // ── API Key Resolution ─────────────────────────────────────────────────────────
+// v121.0.0: Enforces usage_limit (monthly request cap) per key record.
+// usage_limit: 0 or absent = unlimited. Non-zero = monthly cap (YYYY-MM rolling).
 
 async function resolveApiKey(request, env) {
   const rawKey = extractApiKey(request);
   if (!rawKey) return { valid: false, reason: "key_required" };
   if (!env?.API_KEYS_KV) return { valid: false, reason: "auth_unavailable" };
   try {
-    const hash    = await sha256hex(rawKey);
-    const keyId   = hash.slice(0, 16);
-    const stored  = await env.API_KEYS_KV.get(`apikey:${keyId}`, { type: "json" });
+    const hash   = await sha256hex(rawKey);
+    const keyId  = hash.slice(0, 16);
+    const stored = await env.API_KEYS_KV.get(`apikey:${keyId}`, { type: "json" });
     if (!stored) return { valid: false, key_id: keyId, reason: "invalid_key" };
     if (stored.expires_at && new Date(stored.expires_at) < new Date())
       return { valid: false, key_id: keyId, reason: "key_expired" };
     if (stored.revoked)
       return { valid: false, key_id: keyId, reason: "key_revoked" };
+
+    // v121.0.0: Monthly usage cap enforcement
+    const usageLimit = typeof stored.usage_limit === "number" ? stored.usage_limit : 0;
+    if (usageLimit > 0) {
+      const month    = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+      const usageKey = `usage:${keyId}:${month}`;
+      const used     = parseInt(await env.API_KEYS_KV.get(usageKey) || "0");
+      if (used >= usageLimit) {
+        return {
+          valid:      false,
+          key_id:     keyId,
+          reason:     "usage_limit_exceeded",
+          usage:      { count: used, limit: usageLimit, period: month },
+          upgrade_url: "https://cyberdudebivash.com/sentinel-premium",
+        };
+      }
+      // Increment usage counter (fire-and-forget — never block the request)
+      env.API_KEYS_KV.put(usageKey, String(used + 1), { expirationTtl: 86400 * 35 }).catch(() => {});
+    }
+
     return {
       valid:      true,
       tier:       stored.tier || CONFIG.TIERS.FREE,
@@ -301,7 +386,10 @@ async function resolveApiKey(request, env) {
       label:      stored.label,
       created_at: stored.created_at,
     };
-  } catch { return { valid: false, reason: "auth_error" }; }
+  } catch (e) {
+    slog("ERROR", "AUTH", "resolveApiKey failed", { error: e.message });
+    return { valid: false, reason: "auth_error" };
+  }
 }
 
 // ── Abuse Tracking ────────────────────────────────────────────────────────────
@@ -355,18 +443,17 @@ function normaliseManifestData(data) {
   else if (Array.isArray(data.data)     && data.data.length > 0)      items = data.data;
   if (!items || items.length === 0) return null;
 
-  // v116.2.0 FRESHNESS FIX: Inject processed_at fallback for items that don't have it yet.
-  // Items generated before this fix won't have processed_at — fall back to timestamp or
-  // generated_at so that the sort key is always populated across the full dataset.
-  // This is a READ-ONLY normalisation; it does NOT modify the stored manifest in R2.
+  // v116.2.0 FRESHNESS FIX: Inject processed_at fallback
+  // v121.0.0: validateAndNormalizeItem() — guarantee no null fields across entire manifest
   const manifestGeneratedAt = data.generated_at || null;
   items = items.map(item => {
-    if (item.processed_at) return item;  // already set — no change
-    return {
-      ...item,
-      processed_at: item.timestamp || item.generated_at || manifestGeneratedAt || null,
-    };
-  });
+    // Inject processed_at before normalization so validator can use it
+    if (!item.processed_at) {
+      item = { ...item, processed_at: item.timestamp || item.generated_at || manifestGeneratedAt || null };
+    }
+    // v121.0.0: Full schema normalization — derives all missing fields, never null
+    return validateAndNormalizeItem(item) || item;
+  }).filter(Boolean);
 
   return {
     reports:     items,
@@ -447,7 +534,7 @@ async function fetchReportsIndex(env) {
           return norm;
         }
       }
-    } catch (e) { console.error("[R2]", e.message); }
+    } catch (e) { slog("WARN", "R2", "R2 fetch failed", { error: e.message }); }
   }
 
   // SOURCE 2: KV warm cache (avoids R2 egress on repeated requests)
@@ -705,6 +792,104 @@ function applyTierGate(item, tier) {
   return gated;
 }
 
+// ── v121.0.0: Schema Validator & Normalizer ───────────────────────────────────
+// HARD GUARANTEE: No null/undefined for any field that UI or API consumers depend on.
+// Called on every item before API responses and before applyTierGate.
+// ZERO tolerance: missing field → derive from existing data → guaranteed default.
+function validateAndNormalizeItem(item) {
+  if (!item || typeof item !== "object") return null;
+  const out = { ...item };
+
+  // ── risk_score: MUST be number 0–10 ──────────────────────────────────────────
+  if (typeof out.risk_score !== "number" || isNaN(out.risk_score)) {
+    out.risk_score = typeof out.cvss_score === "number" ? out.cvss_score : 0;
+  }
+  out.risk_score = Math.max(0, Math.min(10, out.risk_score));
+
+  // ── severity: derive from risk_score when missing/UNKNOWN ────────────────────
+  const rawSev = (out.severity || out.risk_level || "").toUpperCase().trim();
+  const VALID_SEV = new Set(["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]);
+  if (!VALID_SEV.has(rawSev)) {
+    out.severity = out.risk_score >= 9 ? "CRITICAL"
+                 : out.risk_score >= 7 ? "HIGH"
+                 : out.risk_score >= 4 ? "MEDIUM"
+                 : "LOW";
+  } else {
+    out.severity = rawSev;
+  }
+
+  // ── title: MUST be non-empty string ──────────────────────────────────────────
+  if (!out.title || typeof out.title !== "string" || !out.title.trim()) {
+    out.title = out.cve_id || out.advisory_id || out.id || "Untitled Advisory";
+  }
+
+  // ── id + stix_id: cross-populate ─────────────────────────────────────────────
+  if (!out.id)      out.id      = out.stix_id || out.cve_id || out.advisory_id || `advisory-${Date.now()}`;
+  if (!out.stix_id) out.stix_id = out.id;
+
+  // ── timestamps: guarantee processed_at and timestamp both set ────────────────
+  const firstTs = out.processed_at || out.timestamp || out.generated_at || out.published_at;
+  if (!out.processed_at) out.processed_at = firstTs || new Date().toISOString();
+  if (!out.timestamp)    out.timestamp    = out.processed_at;
+
+  // ── ioc_counts: derive from iocs array when object is absent/empty ───────────
+  // Frontend uses ioc_counts.ipv4, .domain, .sha256, .url, .email, .cve
+  if (!out.ioc_counts || Object.keys(out.ioc_counts).length === 0) {
+    if (Array.isArray(out.iocs) && out.iocs.length > 0) {
+      const counts = {};
+      for (const ioc of out.iocs) {
+        if (!ioc || typeof ioc !== "object") continue;
+        const t = (ioc.type || "unknown").toLowerCase().replace(/[^a-z0-9_]/g, "_");
+        counts[t] = (counts[t] || 0) + 1;
+      }
+      out.ioc_counts = counts;
+    } else {
+      out.ioc_counts = {};
+    }
+  }
+
+  // ── ioc_count scalar: sum of ioc_counts or length of iocs ────────────────────
+  if (typeof out.ioc_count !== "number") {
+    out.ioc_count = Array.isArray(out.iocs) ? out.iocs.length
+      : (out.ioc_counts ? Object.values(out.ioc_counts).reduce((a, b) => a + (b || 0), 0) : 0);
+  }
+
+  // ── confidence_score: 0–100 (normalise 0–1 fraction) ─────────────────────────
+  if (typeof out.confidence_score !== "number" || isNaN(out.confidence_score)) {
+    out.confidence_score = typeof out.confidence === "number" ? out.confidence : 50;
+  }
+  if (out.confidence_score > 0 && out.confidence_score <= 1) {
+    out.confidence_score = Math.round(out.confidence_score * 100);
+  }
+  out.confidence_score = Math.max(0, Math.min(100, Math.round(out.confidence_score)));
+
+  // ── actor_tag: must be non-null string ────────────────────────────────────────
+  if (!out.actor_tag || typeof out.actor_tag !== "string") out.actor_tag = "UNATTRIBUTED";
+
+  // ── feed_source ───────────────────────────────────────────────────────────────
+  if (!out.feed_source) out.feed_source = out.source || "SENTINEL-APEX";
+
+  // ── mitre_tactics: must be array ─────────────────────────────────────────────
+  if (!Array.isArray(out.mitre_tactics)) {
+    out.mitre_tactics = Array.isArray(out.ttps) ? out.ttps : [];
+  }
+
+  // ── iocs: must be array ───────────────────────────────────────────────────────
+  if (!Array.isArray(out.iocs)) out.iocs = [];
+
+  // ── ttps: must be array ───────────────────────────────────────────────────────
+  if (!Array.isArray(out.ttps)) out.ttps = [];
+
+  // ── boolean flags ─────────────────────────────────────────────────────────────
+  out.kev_present = out.kev_present === true;
+  out.exploit_available = out.exploit_available === true;
+  out.zero_day = out.zero_day === true;
+  out.supply_chain = out.supply_chain === true;
+  out.ransomware = out.ransomware === true;
+
+  return out;
+}
+
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
 // ── PUBLIC: /api/preview — No API key required ────────────────────────────────
@@ -896,7 +1081,7 @@ async function handlePreview(request, env, rid) {
       cached:      false,
     });
   } catch (err_) {
-    console.error("[handlePreview]", err_.message);
+    await trackError(env, "PREVIEW", "handlePreview failed", { error: err_.message });
     await recordAnalytics(env, null, "preview_error", "anon", 503);
     return jsonResponse({
       error:      "upstream_error",
@@ -1024,7 +1209,7 @@ async function handleFeed(request, env, auth, rid) {
     await recordAnalytics(env, auth.key_id, "feed", auth.tier, 200);
     return jsonResponse(resp);
   } catch (err_) {
-    console.error("[handleFeed]", err_.message);
+    await trackError(env, "FEED", "handleFeed failed", { error: err_.message, tier: auth.tier });
     await recordAnalytics(env, auth.key_id, "feed_error", auth.tier, 503);
     return jsonResponse({
       error:      "upstream_error",
@@ -1066,23 +1251,27 @@ async function handleReport(request, env, auth, rid, reportId) {
         gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
       }, 404);
     }
-    const ttl = (report.severity || "").toLowerCase() === "critical"
+    // v121.0.0: Normalize + apply tier gate — API /feed/:id MUST match /feed response
+    const normalized = validateAndNormalizeItem(report) || report;
+    const gated      = applyTierGate(normalized, auth.tier);
+
+    const ttl = (gated.severity || "").toUpperCase() === "CRITICAL"
       ? CONFIG.CACHE_TTL.CRITICAL
       : CONFIG.CACHE_TTL.REPORT;
     if (env?.RATE_LIMIT_KV) {
-      await env.RATE_LIMIT_KV.put(cacheKey, JSON.stringify(report), { expirationTtl: ttl })
-        .catch(() => {});
+      await env.RATE_LIMIT_KV.put(cacheKey, JSON.stringify(gated), { expirationTtl: ttl }).catch(() => {});
     }
     await recordAnalytics(env, auth.key_id, "report", auth.tier, 200);
     return jsonResponse({
       status:     "ok",
       request_id: rid,
       tier:       auth.tier,
-      data:       report,
+      data:       gated,
       cached:     false,
       gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
     });
-  } catch {
+  } catch (e) {
+    await trackError(env, "REPORT", "handleReport failed", { error: e.message, report_id: reportId });
     return jsonResponse({
       error:      "upstream_error",
       message:    "Unable to retrieve report.",
@@ -1207,7 +1396,7 @@ async function fetchAIData(env, r2Key, kvKey, ttlSeconds) {
           return { data, cached: false };
         }
       }
-    } catch (e) { console.error(`[R2-AI] ${r2Key}:`, e.message); }
+    } catch (e) { slog("WARN", "R2-AI", `R2 AI fetch failed: ${r2Key}`, { error: e.message }); }
   }
   // SOURCE 3: Derive AI data from the live feed (real-time fallback)
   // Build MITRE heatmap data from the feed manifest when R2 AI data is missing
@@ -1284,7 +1473,7 @@ async function fetchAIData(env, r2Key, kvKey, ttlSeconds) {
       }
       return { data: aiIndex, cached: false, derived: true };
     }
-  } catch (e) { console.error("[AI-FALLBACK]", e.message); }
+  } catch (e) { slog("WARN", "AI-FALLBACK", "Live feed AI derivation failed", { error: e.message }); }
   return null;
 }
 
@@ -1324,7 +1513,7 @@ async function handleAI(request, env, rid, subpath) {
       data:        result.data,
     });
   } catch (err_) {
-    console.error("[handleAI]", err_.message);
+    await trackError(env, "AI", "handleAI failed", { error: err_.message, subpath });
     return jsonResponse({
       error:      "ai_engine_error",
       message:    "AI endpoint error. Please try again.",
@@ -1654,14 +1843,191 @@ async function handleAlerts(request, env, auth, rid) {
   });
 }
 
+// ── v121.0.0: /api/auth/refresh — Renew JWT before expiry ─────────────────────
+// Valid JWT required. Issues fresh token, revokes the presented one.
+async function handleRefreshToken(request, env, rid) {
+  if (!env?.CDB_JWT_SECRET) {
+    return jsonResponse({ error: "auth_service_unavailable", request_id: rid }, 503);
+  }
+  const jwtToken = extractJwt(request);
+  if (!jwtToken) return jsonResponse({ error: "token_required", message: "Authorization: Bearer <token> required.", request_id: rid }, 400);
+  const result = await verifyJwt(jwtToken, env.CDB_JWT_SECRET);
+  if (!result.valid) {
+    return jsonResponse({ error: "token_invalid", reason: result.reason, request_id: rid }, 401);
+  }
+  if (await isTokenRevoked(jwtToken, env)) {
+    return jsonResponse({ error: "token_revoked", request_id: rid }, 401);
+  }
+  const { tier, key_id, label } = result.payload;
+  const ttl      = tier === CONFIG.TIERS.ENTERPRISE ? JWT_TTL * 12 : JWT_TTL;
+  const newToken = await signJwt({ sub: key_id, tier, label, key_id }, env.CDB_JWT_SECRET, ttl);
+  // Revoke old token immediately (rotating refresh)
+  await revokeToken(jwtToken, result.payload.exp, env);
+  await recordAnalytics(env, key_id, "jwt_refresh", tier, 200);
+  return jsonResponse({
+    status:      "ok",
+    request_id:  rid,
+    token:       newToken,
+    token_type:  "Bearer",
+    expires_in:  ttl,
+    tier,
+    key_id,
+    issued_at:   new Date().toISOString(),
+    message:     "Old token revoked. Store new token securely.",
+    gateway:     `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
+}
+
+// ── v121.0.0: /api/auth/revoke — Revoke JWT immediately ──────────────────────
+async function handleRevokeToken(request, env, rid) {
+  if (!env?.CDB_JWT_SECRET) {
+    return jsonResponse({ error: "auth_service_unavailable", request_id: rid }, 503);
+  }
+  const jwtToken = extractJwt(request);
+  if (!jwtToken) return jsonResponse({ error: "token_required", request_id: rid }, 400);
+  const result = await verifyJwt(jwtToken, env.CDB_JWT_SECRET);
+  // Allow revoke even if expired — still add to blocklist to be thorough
+  const expUnix = result.payload?.exp || Math.floor(Date.now() / 1000) + 3600;
+  await revokeToken(jwtToken, expUnix, env);
+  await recordAnalytics(env, result.payload?.key_id, "jwt_revoke", result.payload?.tier || "unknown", 200);
+  return jsonResponse({
+    status:      "ok",
+    message:     "Token revoked. It will no longer be accepted.",
+    request_id:  rid,
+    gateway:     `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
+}
+
+// ── v121.0.0: /api/admin/keys/list ───────────────────────────────────────────
+async function handleAdminListKeys(request, env, rid) {
+  if (!env?.API_KEYS_KV) return jsonResponse({ error: "kv_unavailable", request_id: rid }, 503);
+  const list    = await env.API_KEYS_KV.list({ prefix: "apikey:" });
+  const records = await Promise.all(
+    list.keys.map(k => env.API_KEYS_KV.get(k.name, { type: "json" }).catch(() => null))
+  );
+  const keys = records.filter(Boolean).map(r => ({
+    key_id:     r.key_id,
+    tier:       r.tier,
+    label:      r.label,
+    created_at: r.created_at,
+    expires_at: r.expires_at || null,
+    revoked:    r.revoked || false,
+    revoked_at: r.revoked_at || null,
+    usage_limit: r.usage_limit || 0,
+  }));
+  return jsonResponse({
+    status:     "ok",
+    count:      keys.length,
+    keys,
+    request_id: rid,
+    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
+}
+
+// ── v121.0.0: /api/admin/keys/revoke ─────────────────────────────────────────
+async function handleAdminRevokeKey(request, env, rid) {
+  if (!env?.API_KEYS_KV) return jsonResponse({ error: "kv_unavailable", request_id: rid }, 503);
+  let body;
+  try { body = await request.json(); }
+  catch { return jsonResponse({ error: "invalid_json", request_id: rid }, 400); }
+  const { key_id } = body;
+  if (!key_id) return jsonResponse({ error: "key_id_required", request_id: rid }, 400);
+  const record = await env.API_KEYS_KV.get(`apikey:${key_id}`, { type: "json" });
+  if (!record) return jsonResponse({ error: "not_found", key_id, request_id: rid }, 404);
+  record.revoked    = true;
+  record.revoked_at = new Date().toISOString();
+  await env.API_KEYS_KV.put(`apikey:${key_id}`, JSON.stringify(record));
+  slog("WARN", "ADMIN", "API key revoked", { key_id, tier: record.tier });
+  return jsonResponse({
+    success:    true,
+    key_id,
+    tier:       record.tier,
+    revoked_at: record.revoked_at,
+    message:    "Key immediately revoked. All requests with this key will be rejected.",
+    request_id: rid,
+    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
+}
+
+// ── v121.0.0: /api/admin/observability ───────────────────────────────────────
+// Surfaces error counts, analytics stats, and health snapshot for monitoring.
+async function handleAdminObservability(request, env, rid) {
+  const day  = new Date().toISOString().slice(0, 10);
+  const prev = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  // Collect analytics
+  const analyticsKeys = [
+    `analytics:day:${day}:feed`,      `analytics:day:${day}:feed_error`,
+    `analytics:day:${day}:preview`,   `analytics:day:${day}:preview_cached`,
+    `analytics:day:${day}:jwt_issue`, `analytics:day:${day}:jwt_refresh`,
+    `analytics:day:${day}:jwt_revoke`,`analytics:day:${day}:rate_limited`,
+    `analytics:day:${prev}:feed`,     `analytics:day:${prev}:feed_error`,
+  ];
+  const analyticsVals = env?.ANALYTICS_KV
+    ? await Promise.all(analyticsKeys.map(k => env.ANALYTICS_KV.get(k).catch(() => null)))
+    : analyticsKeys.map(() => null);
+  const a = Object.fromEntries(analyticsKeys.map((k, i) => [k.replace(`analytics:day:`, ""), parseInt(analyticsVals[i] || "0")]));
+
+  // Collect error records from SECURITY_HUB_KV
+  const errors = {};
+  if (env?.SECURITY_HUB_KV) {
+    try {
+      const errList = await env.SECURITY_HUB_KV.list({ prefix: `error:` });
+      await Promise.all(errList.keys.map(async k => {
+        const data = await env.SECURITY_HUB_KV.get(k.name, { type: "json" }).catch(() => null);
+        if (data) errors[k.name.replace("error:", "")] = data;
+      }));
+    } catch { /* non-critical */ }
+  }
+
+  // KV health
+  const kvHealth = {};
+  for (const [name, kv] of [["rate_limit", env?.RATE_LIMIT_KV], ["api_keys", env?.API_KEYS_KV], ["analytics", env?.ANALYTICS_KV], ["security_hub", env?.SECURITY_HUB_KV]]) {
+    if (!kv) { kvHealth[name] = "not_bound"; continue; }
+    try { await kv.put("health:obs", "1", { expirationTtl: 10 }); kvHealth[name] = "ok"; }
+    catch { kvHealth[name] = "error"; }
+  }
+
+  return jsonResponse({
+    status:      "ok",
+    request_id:  rid,
+    gateway:     `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+    timestamp:   new Date().toISOString(),
+    analytics: {
+      today:     {
+        date:              day,
+        feed_requests:     a[`${day}:feed`]           || 0,
+        feed_errors:       a[`${day}:feed_error`]     || 0,
+        preview_requests:  a[`${day}:preview`]        || 0,
+        preview_cached:    a[`${day}:preview_cached`] || 0,
+        jwt_issued:        a[`${day}:jwt_issue`]      || 0,
+        jwt_refreshed:     a[`${day}:jwt_refresh`]    || 0,
+        jwt_revoked:       a[`${day}:jwt_revoke`]     || 0,
+        rate_limited:      a[`${day}:rate_limited`]   || 0,
+      },
+      yesterday: {
+        date:          prev,
+        feed_requests: a[`${prev}:feed`]       || 0,
+        feed_errors:   a[`${prev}:feed_error`] || 0,
+      },
+    },
+    errors,
+    kv_health: kvHealth,
+    r2_bound:  !!env?.INTEL_R2,
+    jwt_configured: !!env?.CDB_JWT_SECRET,
+  });
+}
+
 // ── Main Router ────────────────────────────────────────────────────────────────
 
 export default {
   async fetch(request, env, ctx) {
-    const rid      = generateReqId();
-    const url      = new URL(request.url);
+    const rid       = generateReqId();
+    const reqStart  = Date.now();                 // v121.0.0: request duration tracking
+    const url       = new URL(request.url);
     const { pathname } = url;
-    const method   = request.method.toUpperCase();
+    const method    = request.method.toUpperCase();
+    slog("INFO", "ROUTER", `${method} ${pathname}`, { rid });
 
     // CORS preflight
     if (method === "OPTIONS") {
@@ -1701,11 +2067,11 @@ export default {
     if (pathname.startsWith("/api/health"))            return handleHealth(request, env, rid);
     if (pathname.startsWith("/api/version"))           return handleVersion(request, env, rid);
     if (pathname.startsWith("/api/keys/validate"))     return handleValidateKey(request, env, rid);
-    // ── v117.0.0: JWT auth endpoints (public — exchanges API key for JWT) ────
-    if (pathname === "/api/auth/token" && method === "POST")
-      return handleIssueToken(request, env, rid);
-    if (pathname === "/api/auth/validate")
-      return handleValidateToken(request, env, rid);
+    // ── v117.0.0 + v121.0.0: JWT auth endpoints ──────────────────────────────
+    if (pathname === "/api/auth/token"    && method === "POST") return handleIssueToken(request, env, rid);
+    if (pathname === "/api/auth/validate")                      return handleValidateToken(request, env, rid);
+    if (pathname === "/api/auth/refresh"  && method === "POST") return handleRefreshToken(request, env, rid);
+    if (pathname === "/api/auth/revoke"   && method === "POST") return handleRevokeToken(request, env, rid);
     // AI endpoints — public (index/heatmap) or authenticated (analyze/respond/correlate)
     if (pathname.startsWith("/api/ai")) {
       const aiSub = pathname.slice("/api/ai".length);
@@ -1725,18 +2091,27 @@ export default {
     }
 
     // ── Admin endpoints (X-Admin-Secret verified internally) ─────────────────
-    if (pathname.startsWith("/api/admin/cache/bust") && method === "POST")
-      return handleCacheBust(request, env, rid);
-    if (pathname.startsWith("/api/admin/keys/create") && method === "POST")
-      return handleAdminCreateKey(request, env, rid);
     if (pathname.startsWith("/api/admin")) {
+      // All /api/admin/* require X-Admin-Secret — verify once here
       if (!env?.ADMIN_SECRET || request.headers.get("X-Admin-Secret") !== env.ADMIN_SECRET) {
+        slog("WARN", "ADMIN", "Forbidden admin access attempt", { path: pathname, rid });
         return jsonResponse({ error: "forbidden", message: "Valid X-Admin-Secret required.", request_id: rid }, 403);
       }
+      if (pathname.startsWith("/api/admin/cache/bust")   && method === "POST") return handleCacheBust(request, env, rid);
+      if (pathname.startsWith("/api/admin/keys/create")  && method === "POST") return handleAdminCreateKey(request, env, rid);
+      if (pathname.startsWith("/api/admin/keys/revoke")  && method === "POST") return handleAdminRevokeKey(request, env, rid);
+      if (pathname.startsWith("/api/admin/keys/list")    && method === "GET")  return handleAdminListKeys(request, env, rid);
+      if (pathname.startsWith("/api/admin/observability")&& method === "GET")  return handleAdminObservability(request, env, rid);
       return jsonResponse({
         error:     "not_found",
         message:   "Admin endpoint not found.",
-        available: ["/api/admin/cache/bust", "/api/admin/keys/create"],
+        available: [
+          "POST /api/admin/cache/bust",
+          "POST /api/admin/keys/create",
+          "POST /api/admin/keys/revoke",
+          "GET  /api/admin/keys/list",
+          "GET  /api/admin/observability",
+        ],
         request_id: rid,
       }, 404);
     }
@@ -1767,15 +2142,17 @@ export default {
     if (!keyCheck.allowed) {
       await recordAnalytics(env, auth.key_id, "rate_limited", auth.tier, 429);
       return jsonResponse({
-        error:      "rate_limited",
-        message:    `Rate limit exceeded. ${auth.tier}: ${rateLimit} req/min.`,
-        limit:      keyCheck.limit,
+        error:       "rate_limited",
+        message:     `Rate limit exceeded. ${auth.tier}: ${rateLimit} req/min.`,
+        limit:       keyCheck.limit,
         retry_after: keyCheck.retryAfter,
         request_id:  rid,
+        response_ms: Date.now() - reqStart,
         upgrade:     getUpgradeCTA(auth.tier),
       }, 429, {
-        "Retry-After":       String(keyCheck.retryAfter || 60),
+        "Retry-After":           String(keyCheck.retryAfter || 60),
         "X-RateLimit-Remaining": "0",
+        "X-Response-Time":       String(Date.now() - reqStart) + "ms",
       });
     }
 
@@ -1800,33 +2177,40 @@ export default {
     if (pathname.startsWith("/api/webhooks/siem"))
       return handleSiemWebhook(request, env, auth, rid);
 
+    slog("WARN", "ROUTER", `404 ${pathname}`, { rid, method });
     return jsonResponse({
       error:   "not_found",
       message: `Endpoint '${pathname}' not found.`,
       available: [
-        "GET  /api/preview              (public — no key required)",
+        "GET  /api/preview              (public)",
         "GET  /api/health               (public)",
-        "GET  /api/version              (public — platform version + tier info)",
+        "GET  /api/version              (public)",
         "GET  /api/keys/validate        (public)",
         "GET  /api/ai                   (public — AI index + MITRE heatmap)",
-        "GET  /api/ai/heatmap           (public — MITRE ATT&CK heatmap)",
-        "GET  /api/ai/analyze           (requires JWT/API key — full threat analysis)",
-        "GET  /api/ai/respond           (requires JWT/API key — SOAR playbooks)",
-        "GET  /api/ai/correlate         (requires JWT/API key — actor correlation)",
-        "POST /api/auth/token           (public — exchange API key for JWT; body: {api_key})",
-        "GET  /api/auth/validate        (public — validate JWT; Authorization: Bearer <token>)",
-        "GET  /api/feed                 (requires JWT or API key)",
-        "GET  /api/feed/:id             (requires JWT or API key)",
-        "GET  /api/analytics            (requires JWT or API key)",
-        "GET  /api/stix/:id             (requires JWT or API key — full bundle on Pro+)",
-        "GET  /api/alerts               (requires JWT or API key Pro+ — KEV + high-risk)",
-        "GET  /api/webhooks/siem        (requires JWT or API key Enterprise — list webhooks)",
-        "POST /api/webhooks/siem        (requires JWT or API key Enterprise — register SIEM)",
+        "GET  /api/ai/heatmap           (public)",
+        "GET  /api/ai/analyze           (requires auth)",
+        "GET  /api/ai/respond           (requires auth)",
+        "GET  /api/ai/correlate         (requires auth)",
+        "POST /api/auth/token           (public — exchange API key for JWT)",
+        "GET  /api/auth/validate        (public — validate JWT)",
+        "POST /api/auth/refresh         (requires JWT — rotate token)",
+        "POST /api/auth/revoke          (requires JWT — revoke token)",
+        "GET  /api/feed                 (requires auth)",
+        "GET  /api/feed/:id             (requires auth)",
+        "GET  /api/analytics            (requires auth)",
+        "GET  /api/stix/:id             (requires auth — full bundle Pro+)",
+        "GET  /api/alerts               (requires auth Pro+)",
+        "GET  /api/webhooks/siem        (requires auth Enterprise)",
+        "POST /api/webhooks/siem        (requires auth Enterprise)",
         "POST /api/admin/cache/bust     (requires X-Admin-Secret)",
         "POST /api/admin/keys/create    (requires X-Admin-Secret)",
+        "POST /api/admin/keys/revoke    (requires X-Admin-Secret)",
+        "GET  /api/admin/keys/list      (requires X-Admin-Secret)",
+        "GET  /api/admin/observability  (requires X-Admin-Secret)",
       ],
       docs:       CONFIG.DOCS_URL,
       request_id: rid,
+      response_ms: Date.now() - reqStart,
       gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
     }, 404);
   },
