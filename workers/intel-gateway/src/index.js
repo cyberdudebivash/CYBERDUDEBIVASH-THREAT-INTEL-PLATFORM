@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v123.0.0
+// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v122.0.0
 // R2-ONLY ARCHITECTURE — Blogger dependency REMOVED
 // Data flow: GitHub Actions → Cloudflare R2 (private) → Worker → API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
@@ -14,13 +14,10 @@
 // v122.0.0: SAAS TRANSFORMATION — user auth (PBKDF2), API key CRUD, billing
 //           (Stripe/Razorpay webhooks), IOC extraction fallback (min 3),
 //           SIEM formatters (Splunk/Sentinel/QRadar), pricing page
-// v123.0.0: PRODUCTION HARDENING — replay attack prevention, last_used/usage_count
-//           tracking, IOC CSV/JSON export, usage metering API, Elastic SIEM,
-//           webhook retry+failure tracking, org/team system, frontend auth sync
 // =============================================================================
 
 const CONFIG = {
-  GATEWAY_VERSION:   "123.0.0",  // v123.0.0: PRODUCTION HARDENING — replay protect, metering, org, Elastic SIEM
+  GATEWAY_VERSION:   "122.0.0",  // v122.0.0: SAAS TRANSFORMATION — user auth, billing, IOC extraction, SIEM
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v111.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -731,24 +728,12 @@ async function resolveApiKey(request, env) {
       env.API_KEYS_KV.put(usageKey, String(used + 1), { expirationTtl: 86400 * 35 }).catch(() => {});
     }
 
-    // v123.0.0: Track last_used + lifetime usage_count (fire-and-forget — never block request)
-    const now = new Date().toISOString();
-    const updatedRecord = {
-      ...stored,
-      last_used:   now,
-      usage_count: (typeof stored.usage_count === "number" ? stored.usage_count : 0) + 1,
-    };
-    env.API_KEYS_KV.put(`apikey:${keyId}`, JSON.stringify(updatedRecord)).catch(() => {});
-
     return {
-      valid:       true,
-      tier:        stored.tier || CONFIG.TIERS.FREE,
-      key_id:      keyId,
-      label:       stored.label,
-      created_at:  stored.created_at,
-      user_id:     stored.user_id || null,
-      org_id:      stored.org_id  || null,
-      org_role:    stored.org_role || null,
+      valid:      true,
+      tier:       stored.tier || CONFIG.TIERS.FREE,
+      key_id:     keyId,
+      label:      stored.label,
+      created_at: stored.created_at,
     };
   } catch (e) {
     slog("ERROR", "AUTH", "resolveApiKey failed", { error: e.message });
@@ -2242,7 +2227,7 @@ async function handleSiemWebhook(request, env, auth, rid) {
     // v122.0.0: Support ?format=splunk|sentinel|qradar for SIEM export previews
     const fmt     = new URL(request.url).searchParams.get("format") || "json";
     const stored  = await env.SECURITY_HUB_KV.get(`webhook:${auth.key_id}`, { type: "json" });
-    const VALID_FORMATS = ["json", "splunk", "sentinel", "qradar", "elastic"];
+    const VALID_FORMATS = ["json", "splunk", "sentinel", "qradar"];
     return jsonResponse({
       status:          "ok",
       key_id:          auth.key_id,
@@ -2253,7 +2238,6 @@ async function handleSiemWebhook(request, env, auth, rid) {
         splunk:   "Splunk HEC JSON — POST to /services/collector/event",
         sentinel: "Azure Sentinel custom log (Log Analytics workspace)",
         qradar:   "IBM QRadar LEEF 2.0 syslog format",
-        elastic:  "Elastic Common Schema (ECS 8.x) — Kibana SIEM / Logstash",
         json:     "Raw SENTINEL-APEX JSON (default)",
       },
       request_id: rid,
@@ -2264,7 +2248,7 @@ async function handleSiemWebhook(request, env, auth, rid) {
     let body;
     try { body = await request.json(); }
     catch { return jsonResponse({ error: "invalid_json", request_id: rid }, 400); }
-    const VALID_SIEM_FORMATS = ["json", "splunk", "sentinel", "qradar", "elastic"];
+    const VALID_SIEM_FORMATS = ["json", "splunk", "sentinel", "qradar"];
     const { url: webhookUrl, format = "json", filter_severity = "HIGH", secret: whSecret } = body;
     if (!VALID_SIEM_FORMATS.includes(format)) {
       return jsonResponse({ error: "invalid_format", valid: VALID_SIEM_FORMATS, request_id: rid }, 400);
@@ -2521,347 +2505,6 @@ async function handleAdminObservability(request, env, rid) {
   });
 }
 
-// ── v123.0.0: GET /api/ioc/export — Pro+ IOC bulk export (CSV or JSON) ────────
-// Downloads all IOCs from a specific threat ID or all threats (paginated).
-// FREE tier: blocked. PRO+: JSON. ENTERPRISE: CSV + JSON + STIX IOC-only bundle.
-async function handleIocExport(request, env, auth, rid) {
-  const isPro  = auth.tier === CONFIG.TIERS.PREMIUM || auth.tier === CONFIG.TIERS.ENTERPRISE;
-  if (!isPro) {
-    return jsonResponse({
-      error:      "pro_required",
-      message:    "IOC export requires Pro tier or higher.",
-      upgrade:    getUpgradeCTA(auth.tier),
-      request_id: rid,
-    }, 403);
-  }
-
-  const url      = new URL(request.url);
-  const format   = (url.searchParams.get("format") || "json").toLowerCase();
-  const threatId = url.searchParams.get("threat_id") || null;
-  const limit    = Math.min(parseInt(url.searchParams.get("limit") || "500"), 2000);
-
-  if (!["json", "csv"].includes(format)) {
-    return jsonResponse({ error: "invalid_format", valid: ["json", "csv"], request_id: rid }, 400);
-  }
-
-  // Load feed data
-  const feedData = await loadFeedData(env);
-  if (!feedData?.reports?.length) {
-    return jsonResponse({ error: "no_data", message: "Feed data unavailable.", request_id: rid }, 503);
-  }
-
-  // Filter by threat_id if provided
-  const items = threatId
-    ? feedData.reports.filter(r => r.id === threatId || r.stix_id === threatId)
-    : feedData.reports.slice(0, limit);
-
-  // Collect all IOCs from matching items
-  const allIocs = [];
-  for (const item of items) {
-    if (!Array.isArray(item.iocs)) continue;
-    for (const ioc of item.iocs) {
-      if (!ioc || typeof ioc !== "object") continue;
-      allIocs.push({
-        threat_id:    item.id,
-        threat_title: item.title,
-        severity:     item.severity,
-        type:         ioc.type   || "unknown",
-        value:        ioc.value  || "",
-        confidence:   typeof ioc.confidence === "number" ? ioc.confidence : 0.7,
-        extracted:    ioc.extracted || false,
-        processed_at: item.processed_at || item.timestamp,
-      });
-    }
-  }
-
-  await recordAnalytics(env, auth.key_id, "ioc_export", auth.tier, 200);
-
-  if (format === "csv") {
-    const header = "threat_id,threat_title,severity,type,value,confidence,extracted,processed_at\n";
-    const rows   = allIocs.map(i =>
-      [i.threat_id, `"${(i.threat_title || "").replace(/"/g, '""')}"`, i.severity,
-       i.type, `"${(i.value || "").replace(/"/g, '""')}"`, i.confidence, i.extracted, i.processed_at]
-        .join(",")
-    ).join("\n");
-    return new Response(header + rows, {
-      status: 200,
-      headers: {
-        "Content-Type":        "text/csv",
-        "Content-Disposition": `attachment; filename="sentinel-apex-iocs-${new Date().toISOString().slice(0,10)}.csv"`,
-        "X-Gateway":           `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
-        "Cache-Control":       "no-cache, no-store",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  }
-
-  // JSON format (default)
-  return jsonResponse({
-    status:      "ok",
-    exported_at: new Date().toISOString(),
-    tier:        auth.tier,
-    count:       allIocs.length,
-    threat_filter: threatId || "all",
-    iocs:        allIocs,
-    request_id:  rid,
-    gateway:     `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
-  });
-}
-
-// ── v123.0.0: GET /api/usage — Per-key + per-user usage metering ──────────────
-// Returns current billing period usage, limits, and key-level breakdown.
-async function handleUsageStats(request, env, auth, rid) {
-  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
-
-  const userId = auth.user_id || auth.key_id;
-  const month  = new Date().toISOString().slice(0, 7);
-  const today  = new Date().toISOString().slice(0, 10);
-
-  // Current key's monthly usage
-  const keyMonthUsage = parseInt(await env.API_KEYS_KV.get(`usage:${auth.key_id}:${month}`).catch(() => "0") || "0");
-  const keyDayUsage   = parseInt(await env.ANALYTICS_KV?.get(`analytics:key:${auth.key_id}:${today}`).catch(() => "0") || "0");
-
-  // All keys for this user
-  const TIER_CAPS = { free: 1000, premium: 0, enterprise: 0 }; // 0 = unlimited
-  const limit     = TIER_CAPS[auth.tier] ?? 1000;
-  const keyList   = userId ? await env.API_KEYS_KV.list({ prefix: `userkey:${userId}:` }).catch(() => ({ keys: [] })) : { keys: [] };
-
-  const keyBreakdown = await Promise.all(keyList.keys.slice(0, 20).map(async k => {
-    const rec    = await env.API_KEYS_KV.get(k.name, { type: "json" }).catch(() => null);
-    if (!rec) return null;
-    const mUsage = parseInt(await env.API_KEYS_KV.get(`usage:${rec.key_id}:${month}`).catch(() => "0") || "0");
-    const dUsage = parseInt(await env.ANALYTICS_KV?.get(`analytics:key:${rec.key_id}:${today}`).catch(() => "0") || "0");
-    return {
-      key_id:            rec.key_id,
-      label:             rec.label,
-      tier:              rec.tier,
-      last_used:         rec.last_used || null,
-      lifetime_requests: rec.usage_count || 0,
-      this_month:        mUsage,
-      today:             dUsage,
-      monthly_limit:     rec.usage_limit === 0 ? "unlimited" : (rec.usage_limit || limit),
-      revoked:           rec.revoked || false,
-    };
-  }));
-
-  const totalThisMonth = keyBreakdown.filter(Boolean).reduce((s, k) => s + (k.this_month || 0), 0);
-
-  return jsonResponse({
-    status:     "ok",
-    user_id:    userId,
-    tier:       auth.tier,
-    period:     month,
-    current_key: {
-      key_id:      auth.key_id,
-      this_month:  keyMonthUsage,
-      today:       keyDayUsage,
-      monthly_limit: limit === 0 ? "unlimited" : limit,
-      pct_used:    limit > 0 ? Math.min(100, Math.round((keyMonthUsage / limit) * 100)) : 0,
-    },
-    all_keys: {
-      count:       keyBreakdown.filter(Boolean).length,
-      total_this_month: totalThisMonth,
-      breakdown:   keyBreakdown.filter(Boolean),
-    },
-    rate_limits: {
-      requests_per_min: CONFIG.RATE_LIMITS[auth.tier] || CONFIG.RATE_LIMITS.free,
-      feed_items:       CONFIG.FEED_LIMITS[auth.tier]  || CONFIG.FEED_LIMITS.free,
-    },
-    upgrade:    auth.tier !== CONFIG.TIERS.ENTERPRISE ? getUpgradeCTA(auth.tier) : null,
-    request_id: rid,
-    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
-  });
-}
-
-// ── v123.0.0: Organization / Team System ─────────────────────────────────────
-// Orgs allow multiple users to share an Enterprise subscription under one account.
-// Roles: owner (full control), admin (manage keys + members), analyst (read-only API).
-// Storage: org:<orgId> record + member:<userId>:orgs set + orgkey:<orgId>:<keyId>
-
-function generateOrgId() {
-  const bytes = crypto.getRandomValues(new Uint8Array(10));
-  return "org_" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
-// POST /api/org/create
-async function handleOrgCreate(request, env, rid, auth) {
-  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
-  if (auth.tier !== CONFIG.TIERS.ENTERPRISE) {
-    return jsonResponse({
-      error:      "enterprise_required",
-      message:    "Organizations require Enterprise tier.",
-      upgrade:    getUpgradeCTA(auth.tier),
-      request_id: rid,
-    }, 403);
-  }
-
-  let body = {};
-  try { body = await request.json(); } catch {}
-  const { name: orgName, description = "" } = body;
-  if (!orgName || typeof orgName !== "string" || !orgName.trim())
-    return jsonResponse({ error: "org_name_required", request_id: rid }, 400);
-
-  const userId = auth.user_id || auth.key_id;
-  const orgId  = generateOrgId();
-  const now    = new Date().toISOString();
-
-  const orgRecord = {
-    org_id:      orgId,
-    name:        orgName.trim().slice(0, 100),
-    description: String(description).slice(0, 500),
-    owner_id:    userId,
-    tier:        CONFIG.TIERS.ENTERPRISE,
-    created_at:  now,
-    member_count: 1,
-    members: [{ user_id: userId, role: "owner", joined_at: now }],
-    api_key_count: 0,
-  };
-
-  await Promise.all([
-    env.API_KEYS_KV.put(`org:${orgId}`, JSON.stringify(orgRecord)),
-    env.API_KEYS_KV.put(`member_org:${userId}:${orgId}`, JSON.stringify({ org_id: orgId, role: "owner", joined_at: now })),
-  ]);
-
-  slog("INFO", "ORG", "Organization created", { org_id: orgId, owner_id: userId });
-  return jsonResponse({
-    status:     "ok",
-    org_id:     orgId,
-    name:       orgRecord.name,
-    tier:       CONFIG.TIERS.ENTERPRISE,
-    owner_id:   userId,
-    created_at: now,
-    message:    "Organization created. Invite members via POST /api/org/invite.",
-    request_id: rid,
-    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
-  }, 201);
-}
-
-// GET /api/org
-async function handleOrgGet(request, env, rid, auth) {
-  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
-
-  const userId  = auth.user_id || auth.key_id;
-  // Find orgs this user belongs to
-  const orgList = await env.API_KEYS_KV.list({ prefix: `member_org:${userId}:` }).catch(() => ({ keys: [] }));
-  const orgs    = await Promise.all(orgList.keys.map(async k => {
-    const membership = await env.API_KEYS_KV.get(k.name, { type: "json" }).catch(() => null);
-    if (!membership) return null;
-    const orgRec = await env.API_KEYS_KV.get(`org:${membership.org_id}`, { type: "json" }).catch(() => null);
-    if (!orgRec) return null;
-    return {
-      org_id:        orgRec.org_id,
-      name:          orgRec.name,
-      tier:          orgRec.tier,
-      role:          membership.role,
-      member_count:  orgRec.member_count,
-      api_key_count: orgRec.api_key_count || 0,
-      created_at:    orgRec.created_at,
-      joined_at:     membership.joined_at,
-    };
-  }));
-
-  return jsonResponse({
-    status:     "ok",
-    user_id:    userId,
-    orgs:       orgs.filter(Boolean),
-    request_id: rid,
-    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
-  });
-}
-
-// POST /api/org/invite — Owner/admin invites a user by email
-async function handleOrgInvite(request, env, rid, auth) {
-  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
-
-  let body = {};
-  try { body = await request.json(); } catch {}
-  const { org_id, email, role = "analyst" } = body;
-
-  if (!org_id || !email)
-    return jsonResponse({ error: "org_id_and_email_required", request_id: rid }, 400);
-
-  const VALID_ROLES = ["owner", "admin", "analyst"];
-  if (!VALID_ROLES.includes(role))
-    return jsonResponse({ error: "invalid_role", valid: VALID_ROLES, request_id: rid }, 400);
-
-  const orgRecord = await env.API_KEYS_KV.get(`org:${org_id}`, { type: "json" }).catch(() => null);
-  if (!orgRecord) return jsonResponse({ error: "org_not_found", request_id: rid }, 404);
-
-  const inviterId = auth.user_id || auth.key_id;
-  const inviterMembership = orgRecord.members?.find(m => m.user_id === inviterId);
-  if (!inviterMembership || !["owner", "admin"].includes(inviterMembership.role)) {
-    return jsonResponse({ error: "insufficient_org_role", message: "Only owner or admin can invite members.", request_id: rid }, 403);
-  }
-
-  const emailNorm = email.toLowerCase().trim();
-  const emailHash = await sha256hex("email:" + emailNorm);
-  const targetUserId = await env.API_KEYS_KV.get(`email:${emailHash}`).catch(() => null);
-
-  if (!targetUserId)
-    return jsonResponse({ error: "user_not_found", message: "No account found with this email. User must sign up first.", request_id: rid }, 404);
-
-  const now = new Date().toISOString();
-  const alreadyMember = orgRecord.members?.some(m => m.user_id === targetUserId);
-  if (alreadyMember)
-    return jsonResponse({ error: "already_member", request_id: rid }, 409);
-
-  orgRecord.members = [...(orgRecord.members || []), { user_id: targetUserId, role, joined_at: now }];
-  orgRecord.member_count = orgRecord.members.length;
-
-  await Promise.all([
-    env.API_KEYS_KV.put(`org:${org_id}`, JSON.stringify(orgRecord)),
-    env.API_KEYS_KV.put(`member_org:${targetUserId}:${org_id}`, JSON.stringify({ org_id, role, joined_at: now })),
-  ]);
-
-  slog("INFO", "ORG", "Member invited", { org_id, target_user: targetUserId, role, invited_by: inviterId });
-  return jsonResponse({
-    status:     "ok",
-    org_id,
-    invited_user_id: targetUserId,
-    role,
-    joined_at:  now,
-    request_id: rid,
-    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
-  }, 201);
-}
-
-// GET /api/org/keys — List API keys registered under an org
-async function handleOrgListKeys(request, env, rid, auth) {
-  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
-
-  const url    = new URL(request.url);
-  const org_id = url.searchParams.get("org_id");
-  if (!org_id) return jsonResponse({ error: "org_id_required", request_id: rid }, 400);
-
-  const orgRecord = await env.API_KEYS_KV.get(`org:${org_id}`, { type: "json" }).catch(() => null);
-  if (!orgRecord) return jsonResponse({ error: "org_not_found", request_id: rid }, 404);
-
-  const userId  = auth.user_id || auth.key_id;
-  const isMember = orgRecord.members?.some(m => m.user_id === userId);
-  if (!isMember) return jsonResponse({ error: "not_org_member", request_id: rid }, 403);
-
-  const month   = new Date().toISOString().slice(0, 7);
-  const keyList = await env.API_KEYS_KV.list({ prefix: `orgkey:${org_id}:` }).catch(() => ({ keys: [] }));
-  const keys    = (await Promise.all(keyList.keys.map(async k => {
-    const rec   = await env.API_KEYS_KV.get(k.name, { type: "json" }).catch(() => null);
-    if (!rec) return null;
-    const usage = parseInt(await env.API_KEYS_KV.get(`usage:${rec.key_id}:${month}`).catch(() => "0") || "0");
-    return { key_id: rec.key_id, label: rec.label, tier: rec.tier, created_by: rec.created_by,
-             created_at: rec.created_at, revoked: rec.revoked || false, usage_this_month: usage };
-  }))).filter(Boolean);
-
-  return jsonResponse({
-    status:     "ok",
-    org_id,
-    org_name:   orgRecord.name,
-    tier:       orgRecord.tier,
-    count:      keys.length,
-    keys,
-    request_id: rid,
-    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
-  });
-}
-
 // ── v122.0.0: Stripe Webhook Signature Verification ──────────────────────────
 // Format: "t=<timestamp>,v1=<sig>" in Stripe-Signature header
 async function verifyStripeSignature(rawBody, sigHeader, webhookSecret) {
@@ -2905,35 +2548,9 @@ async function handleStripeWebhook(request, env, rid) {
     return jsonResponse({ error: "invalid_signature" }, 400);
   }
 
-  // v123.0.0: REPLAY ATTACK PREVENTION
-  // 1. Timestamp tolerance: reject events older than 5 minutes (Stripe standard)
-  // 2. Nonce dedup: event ID stored in SECURITY_HUB_KV for 10 minutes
-  const tPart = sigHeader.split(",").find(p => p.startsWith("t="));
-  if (tPart) {
-    const evtTs  = parseInt(tPart.slice(2));
-    const nowTs  = Math.floor(Date.now() / 1000);
-    const drift  = Math.abs(nowTs - evtTs);
-    if (drift > 300) { // 5-minute window
-      slog("WARN", "BILLING", `Stripe replay rejected — timestamp drift ${drift}s`, { rid });
-      return jsonResponse({ error: "replay_detected", detail: "Event timestamp outside tolerance window." }, 400);
-    }
-  }
-
   let event;
   try { event = JSON.parse(rawBody); }
   catch { return jsonResponse({ error: "invalid_json" }, 400); }
-
-  // Nonce dedup — event IDs are globally unique per Stripe account
-  if (env?.SECURITY_HUB_KV && event.id) {
-    const nonceKey = `stripe_nonce:${event.id}`;
-    const already  = await env.SECURITY_HUB_KV.get(nonceKey);
-    if (already) {
-      slog("WARN", "BILLING", `Stripe replay detected — duplicate event ${event.id}`, { rid });
-      return jsonResponse({ status: "ok", received: true, note: "duplicate_ignored" });
-    }
-    // Mark as seen for 10 minutes
-    env.SECURITY_HUB_KV.put(nonceKey, "1", { expirationTtl: 600 }).catch(() => {});
-  }
 
   slog("INFO", "BILLING", `Stripe event: ${event.type}`, { rid, event_id: event.id });
   const obj = event.data?.object || {};
@@ -3032,23 +2649,6 @@ async function handleRazorpayWebhook(request, env, rid) {
   let event;
   try { event = JSON.parse(rawBody); }
   catch { return jsonResponse({ error: "invalid_json" }, 400); }
-
-  // v123.0.0: Razorpay replay prevention — deduplicate by event.account_id + event.created_at
-  if (env?.SECURITY_HUB_KV && event.account_id && event.created_at) {
-    const rzNonceKey = `rz_nonce:${event.account_id}:${event.created_at}`;
-    const rzAlready  = await env.SECURITY_HUB_KV.get(rzNonceKey).catch(() => null);
-    if (rzAlready) {
-      slog("WARN", "BILLING", "Razorpay replay detected", { rid, created_at: event.created_at });
-      return jsonResponse({ status: "ok", received: true, note: "duplicate_ignored" });
-    }
-    // Timestamp tolerance: reject if older than 10 minutes
-    const rzDrift = Math.floor(Date.now() / 1000) - (event.created_at || 0);
-    if (rzDrift > 600) {
-      slog("WARN", "BILLING", `Razorpay replay — timestamp drift ${rzDrift}s`, { rid });
-      return jsonResponse({ error: "replay_detected", detail: "Event timestamp outside tolerance window." }, 400);
-    }
-    env.SECURITY_HUB_KV.put(rzNonceKey, "1", { expirationTtl: 900 }).catch(() => {});
-  }
 
   slog("INFO", "BILLING", `Razorpay event: ${event.event}`, { rid });
 
@@ -3182,120 +2782,6 @@ function formatQRadarLEEF(item) {
     `GatewayVersion=${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
   ].join("\t");
   return `LEEF:2.0|CYBERDUDEBIVASH|SENTINEL-APEX|${CONFIG.GATEWAY_VERSION}|ThreatIntel|\t${pairs}`;
-}
-
-// ── v123.0.0: Elastic Common Schema (ECS 8.x) / Elastic SIEM ─────────────────
-// Compatible with Elastic Security (Kibana SIEM), Logstash, Filebeat pipelines.
-function formatElasticEvent(item) {
-  const ts = item.processed_at || item.timestamp || new Date().toISOString();
-  const tlp = item.risk_score >= 8 ? "RED" : item.risk_score >= 5 ? "AMBER" : "GREEN";
-  return {
-    "@timestamp":    ts,
-    "ecs.version":   "8.11.0",
-    "event": {
-      kind:      "alert",
-      category:  ["threat"],
-      type:      ["indicator"],
-      severity:  item.risk_score || 0,
-      dataset:   "sentinel_apex.threat_intel",
-      module:    "sentinel_apex",
-      provider:  "CYBERDUDEBIVASH",
-      ingested:  new Date().toISOString(),
-    },
-    "threat": {
-      "indicator": {
-        confidence: String(item.confidence_score || 50),
-        provider:   "SENTINEL-APEX",
-        reference:  item.report_url || item.source_url || null,
-        "marking.tlp": tlp,
-      },
-      "tactic": { name: (item.mitre_tactics || []).slice(0, 3) },
-      "software": { name: item.actor_tag || "UNATTRIBUTED" },
-    },
-    "vulnerability": item.cve_id ? {
-      id:       item.cve_id,
-      score:    { base: item.cvss_score || item.risk_score || 0 },
-      severity: item.severity,
-    } : undefined,
-    "sentinel_apex": {
-      id:          item.id,
-      title:       item.title,
-      severity:    item.severity,
-      risk_score:  item.risk_score,
-      actor_tag:   item.actor_tag || "UNATTRIBUTED",
-      ioc_count:   item.ioc_count || 0,
-      kev_present: item.kev_present || false,
-      exploit:     item.exploit_available || false,
-      feed_source: item.feed_source || "SENTINEL-APEX",
-      gateway:     `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
-    },
-    "labels": {
-      sentinel_apex_version: CONFIG.GATEWAY_VERSION,
-      tier: "enterprise",
-    },
-  };
-}
-
-// ── v123.0.0: SIEM Webhook Delivery — 3-attempt retry + failure tracking ─────
-// Delivers formatted intel to a registered SIEM webhook URL.
-// Failures are counted and sampled in SECURITY_HUB_KV (7-day rolling window).
-// Optional HMAC-SHA256 signature header for consumer verification.
-async function deliverToSiemWebhook(webhookEntry, payload, env) {
-  const { id: whId, url: whUrl, format = "json", secret: whSecret } = webhookEntry;
-  const maxAttempts = 3;
-
-  let body;
-  let contentType = "application/json";
-  if      (format === "splunk")   { body = JSON.stringify(formatSplunkHEC(payload)); }
-  else if (format === "sentinel") { body = JSON.stringify(formatSentinelEvent(payload)); }
-  else if (format === "qradar")   { body = formatQRadarLEEF(payload); contentType = "text/plain"; }
-  else if (format === "elastic")  { body = JSON.stringify(formatElasticEvent(payload)); }
-  else                             { body = JSON.stringify(payload); }
-
-  const headers = {
-    "Content-Type":              contentType,
-    "X-Sentinel-Apex-Version":   CONFIG.GATEWAY_VERSION,
-    "X-Sentinel-Apex-Event":     payload.id || "unknown",
-    "X-Sentinel-Apex-Severity":  payload.severity || "UNKNOWN",
-  };
-
-  // Optional HMAC-SHA256 delivery signature so the consumer can verify authenticity
-  if (whSecret) {
-    try {
-      const key    = await crypto.subtle.importKey("raw", new TextEncoder().encode(whSecret),
-                       { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-      const sigBuf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body));
-      headers["X-Sentinel-Apex-Signature"] = Array.from(new Uint8Array(sigBuf))
-        .map(b => b.toString(16).padStart(2, "0")).join("");
-    } catch { /* signing non-critical — never block delivery */ }
-  }
-
-  let lastErr;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      const res = await fetch(whUrl, { method: "POST", headers, body });
-      if (res.status >= 200 && res.status < 300) {
-        slog("INFO", "SIEM", `Delivered to webhook ${whId}`, { format, status: res.status, attempt: attempt + 1 });
-        return { success: true, attempt: attempt + 1, status: res.status };
-      }
-      lastErr = new Error(`HTTP ${res.status}`);
-    } catch (e) { lastErr = e; }
-    if (attempt < maxAttempts - 1) {
-      await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt))); // 500ms, 1s, 2s
-    }
-  }
-
-  // Persist failure record for observability dashboard
-  if (env?.SECURITY_HUB_KV) {
-    const failKey = `wh_fail:${whId}:${new Date().toISOString().slice(0, 10)}`;
-    const rec     = await env.SECURITY_HUB_KV.get(failKey, { type: "json" }).catch(() => null) || { count: 0, samples: [] };
-    rec.count++;
-    if (rec.samples.length < 5) rec.samples.push({ ts: new Date().toISOString(), error: lastErr?.message });
-    env.SECURITY_HUB_KV.put(failKey, JSON.stringify(rec), { expirationTtl: 86400 * 7 }).catch(() => {});
-  }
-
-  slog("ERROR", "SIEM", `Webhook ${whId} failed after ${maxAttempts} attempts`, { error: lastErr?.message });
-  return { success: false, attempts: maxAttempts, error: lastErr?.message };
 }
 
 // ── Main Router ────────────────────────────────────────────────────────────────
@@ -3451,14 +2937,6 @@ export default {
       if (keyId) return handleUserDeleteKey(request, env, rid, auth, keyId);
     }
     if (pathname === "/api/billing/portal"   && method === "GET")    return handleBillingPortal(request, env, rid, auth);
-    // ── v123.0.0: Usage metering + IOC export ────────────────────────────────
-    if (pathname === "/api/usage"            && method === "GET")    return handleUsageStats(request, env, rid, auth);
-    if (pathname === "/api/ioc/export"       && method === "GET")    return handleIocExport(request, env, rid, auth);
-    // ── v123.0.0: Org / team routes ──────────────────────────────────────────
-    if (pathname === "/api/org/create"       && method === "POST")   return handleOrgCreate(request, env, rid, auth);
-    if (pathname === "/api/org"              && method === "GET")    return handleOrgGet(request, env, rid, auth);
-    if (pathname === "/api/org/invite"       && method === "POST")   return handleOrgInvite(request, env, rid, auth);
-    if (pathname === "/api/org/keys"         && method === "GET")    return handleOrgListKeys(request, env, rid, auth);
 
     // Authenticated route dispatch
     if (pathname === "/api/feed" && method === "GET")
@@ -3506,21 +2984,15 @@ export default {
         "GET  /api/keys                 (requires JWT — list your API keys)",
         "DELETE /api/keys/:id           (requires JWT — revoke API key)",
         "GET  /api/billing/portal       (requires JWT — subscription + upgrade links)",
-        "GET  /api/usage                (requires JWT — usage metering + key stats)",
-        "GET  /api/ioc/export           (requires JWT Pro+ — bulk IOC export CSV/JSON)",
-        "POST /api/org/create           (requires JWT Enterprise — create organization)",
-        "GET  /api/org                  (requires JWT — list your organizations)",
-        "POST /api/org/invite           (requires JWT — invite member to org)",
-        "GET  /api/org/keys             (requires JWT — list org API keys)",
-        "POST /webhooks/stripe          (public — Stripe webhook, sig-verified + replay-protected)",
-        "POST /webhooks/razorpay        (public — Razorpay webhook, sig-verified + replay-protected)",
+        "POST /webhooks/stripe          (public — Stripe webhook, sig-verified)",
+        "POST /webhooks/razorpay        (public — Razorpay webhook, sig-verified)",
         "GET  /api/feed                 (requires auth)",
         "GET  /api/feed/:id             (requires auth)",
         "GET  /api/analytics            (requires auth)",
         "GET  /api/stix/:id             (requires auth — full bundle Pro+)",
         "GET  /api/alerts               (requires auth Pro+)",
-        "GET  /api/webhooks/siem        (requires auth Enterprise — list + format info: splunk/sentinel/qradar/elastic/json)",
-        "POST /api/webhooks/siem        (requires auth Enterprise — register webhook with retry delivery)",
+        "GET  /api/webhooks/siem        (requires auth Enterprise — list + format info)",
+        "POST /api/webhooks/siem        (requires auth Enterprise — register webhook)",
         "POST /api/admin/cache/bust     (requires X-Admin-Secret)",
         "POST /api/admin/keys/create    (requires X-Admin-Secret)",
         "POST /api/admin/keys/revoke    (requires X-Admin-Secret)",
