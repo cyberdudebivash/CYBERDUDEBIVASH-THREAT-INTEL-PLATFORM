@@ -1,20 +1,31 @@
 # CYBERDUDEBIVASH® SENTINEL APEX — Revenue System Deployment v123.0.0
 
+## ⚠️ CRITICAL: ALL commands below must be run from the REPO ROOT directory
+## Repo root: C:\Users\Administrator\Desktop\CYBERDUDEBIVASH-SENTINEL-APEX\CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM
+## NOT from workers\ or workers\intel-gateway\ — always cd to repo root first.
+
+```cmd
+cd C:\Users\Administrator\Desktop\CYBERDUDEBIVASH-SENTINEL-APEX\CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM
+```
+
 ## STEP 1 — Provision KV + D1 namespaces
 
-```bash
-# Revenue CRM KV
+```cmd
+REM Run from REPO ROOT (not from workers\ subdirectory)
+
+REM Revenue CRM KV namespaces
 npx wrangler kv namespace create "REVENUE_CRM_KV"
 npx wrangler kv namespace create "EMAIL_QUEUE_KV"
 
-# D1 SQLite CRM database
-npx wrangler d1 create sentinel-crm
+REM D1 database (sentinel-crm already created — skip if exists)
+REM npx wrangler d1 create sentinel-crm
 
-# Apply CRM schema
-npx wrangler d1 execute sentinel-crm --file=revenue-crm/schema.sql
+REM Apply CRM schema — run from repo root with --remote flag
+npx wrangler d1 execute sentinel-crm --file=revenue-crm\schema.sql --remote
 ```
 
-Update wrangler.toml with the printed IDs.
+Copy the printed database_id into `workers\revenue-engine\wrangler.toml` replacing `REPLACE_WITH_D1_ID`.
+The D1 ID from your log: `76bd245d-3c30-4e7f-b33d-9f643c0c3fa5`
 
 ## STEP 2 — Set secrets
 
