@@ -1,18 +1,23 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v121.0.0
+// CYBERDUDEBIVASH® SENTINEL APEX — Edge Intelligence Gateway v122.0.0
 // R2-ONLY ARCHITECTURE — Blogger dependency REMOVED
 // Data flow: GitHub Actions → Cloudflare R2 (private) → Worker → API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
 // Secrets: ADMIN_SECRET, GITHUB_TOKEN, CDB_JWT_SECRET (npx wrangler secret put)
+//          STRIPE_WEBHOOK_SECRET, RAZORPAY_WEBHOOK_SECRET (billing webhooks)
+//          STRIPE_PRO_PRICE_ID, STRIPE_ENT_PRICE_ID (Stripe plan IDs)
 // v112.0: Added /api/ai endpoint family
 // v116.2.0: stix_id fix; GATEWAY_VERSION unified
 // v120.0.0: GOD-MODE — mandatory ai_summary, retry circuit breaker, urgency CTAs
 // v121.0.0: FINAL HARDENING — structured logging, schema validation, JWT revocation,
 //           token refresh/revoke, usage caps, observability, API/feed consistency
+// v122.0.0: SAAS TRANSFORMATION — user auth (PBKDF2), API key CRUD, billing
+//           (Stripe/Razorpay webhooks), IOC extraction fallback (min 3),
+//           SIEM formatters (Splunk/Sentinel/QRadar), pricing page
 // =============================================================================
 
 const CONFIG = {
-  GATEWAY_VERSION:   "121.0.0",  // v121.0.0: FINAL HARDENING — zero-null schema, JWT revocation, observability
+  GATEWAY_VERSION:   "122.0.0",  // v122.0.0: SAAS TRANSFORMATION — user auth, billing, IOC extraction, SIEM
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v111.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -214,6 +219,350 @@ async function revokeToken(token, expUnix, env) {
     const ttl     = Math.max(60, expUnix - Math.floor(Date.now() / 1000));
     await env.SECURITY_HUB_KV.put(`jwt_revoked:${tokenId}`, "1", { expirationTtl: ttl });
   } catch { /* non-critical */ }
+}
+
+// ── v122.0.0: PBKDF2 Password Hashing ────────────────────────────────────────
+// bcrypt unavailable in Cloudflare Workers runtime. PBKDF2 via Web Crypto API.
+// Storage format: "pbkdf2:v1:<salt_hex>:<hash_hex>" (256-bit key, 100k iterations)
+
+async function pbkdf2Hash(password) {
+  const salt   = crypto.getRandomValues(new Uint8Array(16));
+  const keyMat = await crypto.subtle.importKey("raw", new TextEncoder().encode(password),
+                   "PBKDF2", false, ["deriveBits"]);
+  const bits   = await crypto.subtle.deriveBits(
+                   { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" }, keyMat, 256);
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, "0")).join("");
+  const hashHex = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return `pbkdf2:v1:${saltHex}:${hashHex}`;
+}
+
+async function pbkdf2Verify(password, stored) {
+  try {
+    const parts = stored.split(":");
+    if (parts.length < 4 || parts[0] !== "pbkdf2") return false;
+    const saltHex = parts[2];
+    const expectedHex = parts[3];
+    const salt   = new Uint8Array(saltHex.match(/.{2}/g).map(h => parseInt(h, 16)));
+    const keyMat = await crypto.subtle.importKey("raw", new TextEncoder().encode(password),
+                     "PBKDF2", false, ["deriveBits"]);
+    const bits   = await crypto.subtle.deriveBits(
+                     { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" }, keyMat, 256);
+    const hashHex = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, "0")).join("");
+    return hashHex === expectedHex;
+  } catch { return false; }
+}
+
+function generateUserId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return "u_" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// ── v122.0.0: POST /auth/signup ───────────────────────────────────────────────
+// Creates user record in API_KEYS_KV with user: prefix + email index.
+// Auto-issues JWT. Tier starts FREE.
+async function handleUserSignup(request, env, rid) {
+  if (!env?.API_KEYS_KV)    return jsonResponse({ error: "storage_unavailable",    request_id: rid }, 503);
+  if (!env?.CDB_JWT_SECRET) return jsonResponse({ error: "auth_service_unavailable", request_id: rid }, 503);
+  let body;
+  try { body = await request.json(); }
+  catch { return jsonResponse({ error: "invalid_json", request_id: rid }, 400); }
+
+  const { email, password, name } = body;
+  if (!email || typeof email !== "string" || !email.includes("@"))
+    return jsonResponse({ error: "invalid_email", request_id: rid }, 400);
+  if (!password || typeof password !== "string" || password.length < 8)
+    return jsonResponse({ error: "password_too_short", message: "Password must be at least 8 characters.", request_id: rid }, 400);
+
+  const emailNorm = email.toLowerCase().trim();
+  const emailHash = await sha256hex("email:" + emailNorm);
+
+  // Idempotency: reject duplicate email
+  const existing = await env.API_KEYS_KV.get(`email:${emailHash}`);
+  if (existing) return jsonResponse({ error: "email_taken", message: "An account with this email already exists.", request_id: rid }, 409);
+
+  const userId       = generateUserId();
+  const passwordHash = await pbkdf2Hash(password);
+  const now          = new Date().toISOString();
+
+  const userRecord = {
+    user_id:           userId,
+    email:             emailNorm,
+    email_hash:        emailHash,
+    name:              (typeof name === "string" && name.trim()) ? name.trim() : emailNorm.split("@")[0],
+    password_hash:     passwordHash,
+    tier:              CONFIG.TIERS.FREE,
+    created_at:        now,
+    last_login:        now,
+    subscription:      null,
+    stripe_customer_id: null,
+    api_key_count:     0,
+  };
+
+  await Promise.all([
+    env.API_KEYS_KV.put(`user:${userId}`,    JSON.stringify(userRecord)),
+    env.API_KEYS_KV.put(`email:${emailHash}`, userId),
+  ]);
+
+  const token = await signJwt(
+    { sub: userId, tier: CONFIG.TIERS.FREE, user_id: userId, email: emailNorm, key_id: userId },
+    env.CDB_JWT_SECRET, JWT_TTL
+  );
+
+  slog("INFO", "AUTH", "User signup", { user_id: userId });
+  return jsonResponse({
+    status:     "ok",
+    user_id:    userId,
+    email:      emailNorm,
+    name:       userRecord.name,
+    tier:       CONFIG.TIERS.FREE,
+    token,
+    token_type: "Bearer",
+    expires_in: JWT_TTL,
+    message:    "Account created. Use the token to authenticate all API requests.",
+    request_id: rid,
+    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  }, 201);
+}
+
+// ── v122.0.0: POST /auth/login ────────────────────────────────────────────────
+async function handleUserLogin(request, env, rid) {
+  if (!env?.API_KEYS_KV)    return jsonResponse({ error: "storage_unavailable",    request_id: rid }, 503);
+  if (!env?.CDB_JWT_SECRET) return jsonResponse({ error: "auth_service_unavailable", request_id: rid }, 503);
+  let body;
+  try { body = await request.json(); }
+  catch { return jsonResponse({ error: "invalid_json", request_id: rid }, 400); }
+
+  const { email, password } = body;
+  if (!email || !password)
+    return jsonResponse({ error: "email_and_password_required", request_id: rid }, 400);
+
+  const emailNorm = email.toLowerCase().trim();
+  const emailHash = await sha256hex("email:" + emailNorm);
+
+  const userId = await env.API_KEYS_KV.get(`email:${emailHash}`);
+  if (!userId) return jsonResponse({ error: "invalid_credentials", message: "Invalid email or password.", request_id: rid }, 401);
+
+  const userRecord = await env.API_KEYS_KV.get(`user:${userId}`, { type: "json" });
+  if (!userRecord) return jsonResponse({ error: "invalid_credentials", message: "Invalid email or password.", request_id: rid }, 401);
+
+  const valid = await pbkdf2Verify(password, userRecord.password_hash);
+  if (!valid) {
+    slog("WARN", "AUTH", "Login failed — bad password", { user_id: userId });
+    return jsonResponse({ error: "invalid_credentials", message: "Invalid email or password.", request_id: rid }, 401);
+  }
+
+  userRecord.last_login = new Date().toISOString();
+  env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(userRecord)).catch(() => {});
+
+  const ttl   = userRecord.tier === CONFIG.TIERS.ENTERPRISE ? JWT_TTL * 12 : JWT_TTL;
+  const token = await signJwt(
+    { sub: userId, tier: userRecord.tier, user_id: userId, email: emailNorm, key_id: userId },
+    env.CDB_JWT_SECRET, ttl
+  );
+
+  slog("INFO", "AUTH", "User login", { user_id: userId, tier: userRecord.tier });
+  return jsonResponse({
+    status:     "ok",
+    user_id:    userId,
+    email:      emailNorm,
+    name:       userRecord.name,
+    tier:       userRecord.tier,
+    token,
+    token_type: "Bearer",
+    expires_in: ttl,
+    request_id: rid,
+    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
+}
+
+// ── v122.0.0: GET /auth/me ────────────────────────────────────────────────────
+async function handleUserMe(request, env, rid, auth) {
+  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
+
+  const userId     = auth.user_id || auth.key_id;
+  const userRecord = userId ? await env.API_KEYS_KV.get(`user:${userId}`, { type: "json" }).catch(() => null) : null;
+
+  if (!userRecord) {
+    // Legacy API key auth — return synthetic user context
+    return jsonResponse({
+      status:      "ok",
+      user_id:     userId,
+      tier:        auth.tier,
+      label:       auth.label,
+      auth_method: auth.auth_method,
+      request_id:  rid,
+      gateway:     `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+    });
+  }
+
+  const month       = new Date().toISOString().slice(0, 7);
+  const keyList     = await env.API_KEYS_KV.list({ prefix: `userkey:${userId}:` }).catch(() => ({ keys: [] }));
+  const apiKeys     = (await Promise.all(keyList.keys.slice(0, 20).map(async k => {
+    const rec = await env.API_KEYS_KV.get(k.name, { type: "json" }).catch(() => null);
+    if (!rec) return null;
+    const usage = parseInt(await env.API_KEYS_KV.get(`usage:${rec.key_id}:${month}`).catch(() => "0") || "0");
+    return { key_id: rec.key_id, label: rec.label, tier: rec.tier, created_at: rec.created_at,
+             revoked: rec.revoked || false, usage_this_month: usage };
+  }))).filter(Boolean);
+
+  return jsonResponse({
+    status:       "ok",
+    user_id:      userRecord.user_id,
+    email:        userRecord.email,
+    name:         userRecord.name,
+    tier:         userRecord.tier,
+    created_at:   userRecord.created_at,
+    last_login:   userRecord.last_login,
+    subscription: userRecord.subscription || null,
+    api_keys:     apiKeys,
+    usage_limits: {
+      free:       { requests_per_min: CONFIG.RATE_LIMITS.free,       feed_items: CONFIG.FEED_LIMITS.free },
+      premium:    { requests_per_min: CONFIG.RATE_LIMITS.premium,    feed_items: CONFIG.FEED_LIMITS.premium },
+      enterprise: { requests_per_min: CONFIG.RATE_LIMITS.enterprise, feed_items: CONFIG.FEED_LIMITS.enterprise },
+    },
+    request_id:   rid,
+    gateway:      `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
+}
+
+// ── v122.0.0: POST /api/keys/create ──────────────────────────────────────────
+// Generates and stores a new CDB-* API key linked to the authenticated user.
+// Key caps: FREE=2, PRO=10, ENTERPRISE=50.
+async function handleUserCreateKey(request, env, rid, auth) {
+  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
+
+  const userId     = auth.user_id || auth.key_id;
+  const userRecord = userId ? await env.API_KEYS_KV.get(`user:${userId}`, { type: "json" }).catch(() => null) : null;
+  const tier       = userRecord?.tier || auth.tier || CONFIG.TIERS.FREE;
+
+  let body = {};
+  try { body = await request.json(); } catch {}
+  const { label = "API Key", tier: reqTier } = body;
+
+  const TIER_RANK  = { free: 0, premium: 1, enterprise: 2 };
+  const effectiveTier = (reqTier && TIER_RANK[reqTier] !== undefined && TIER_RANK[reqTier] <= TIER_RANK[tier])
+    ? reqTier : tier;
+
+  const KEY_CAPS   = { free: 2, premium: 10, enterprise: 50 };
+  const cap        = KEY_CAPS[tier] || 2;
+  const existing   = await env.API_KEYS_KV.list({ prefix: `userkey:${userId}:` }).catch(() => ({ keys: [] }));
+
+  if (existing.keys.length >= cap) {
+    return jsonResponse({
+      error:      "key_limit_reached",
+      message:    `${tier} tier allows max ${cap} API keys. Upgrade to create more.`,
+      limit:      cap,
+      upgrade:    getUpgradeCTA(tier),
+      request_id: rid,
+    }, 403);
+  }
+
+  const rawBytes   = crypto.getRandomValues(new Uint8Array(24));
+  const rawKey     = "CDB-" + Array.from(rawBytes).map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase().slice(0, 32);
+  const keyHash    = await sha256hex(rawKey);
+  const keyId      = keyHash.slice(0, 16);
+  const now        = new Date().toISOString();
+  const usageLimit = effectiveTier === CONFIG.TIERS.FREE ? 1000 : 0; // 0 = unlimited
+
+  const keyRecord = {
+    key_id:      keyId,
+    user_id:     userId || null,
+    tier:        effectiveTier,
+    label:       String(label).slice(0, 100),
+    created_at:  now,
+    revoked:     false,
+    usage_limit: usageLimit,
+  };
+
+  await Promise.all([
+    env.API_KEYS_KV.put(`apikey:${keyId}`, JSON.stringify(keyRecord)),
+    userId ? env.API_KEYS_KV.put(`userkey:${userId}:${keyId}`, JSON.stringify({
+      key_id: keyId, label: keyRecord.label, tier: effectiveTier, created_at: now, revoked: false,
+    })) : Promise.resolve(),
+  ]);
+
+  if (userRecord) {
+    userRecord.api_key_count = (userRecord.api_key_count || 0) + 1;
+    env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(userRecord)).catch(() => {});
+  }
+
+  slog("INFO", "KEYS", "API key created", { key_id: keyId, user_id: userId, tier: effectiveTier });
+  return jsonResponse({
+    status:       "ok",
+    key_id:       keyId,
+    api_key:      rawKey,
+    tier:         effectiveTier,
+    label:        keyRecord.label,
+    usage_limit:  usageLimit === 0 ? "unlimited" : usageLimit,
+    created_at:   now,
+    warning:      "Store this API key securely — it will NOT be shown again.",
+    request_id:   rid,
+    gateway:      `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  }, 201);
+}
+
+// ── v122.0.0: GET /api/keys ───────────────────────────────────────────────────
+async function handleUserListKeys(request, env, rid, auth) {
+  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
+
+  const userId = auth.user_id || auth.key_id;
+  const month  = new URL(request.url).searchParams.get("month") || new Date().toISOString().slice(0, 7);
+  const list   = await env.API_KEYS_KV.list({ prefix: `userkey:${userId}:` }).catch(() => ({ keys: [] }));
+
+  const keys = (await Promise.all(list.keys.map(async k => {
+    const rec = await env.API_KEYS_KV.get(k.name, { type: "json" }).catch(() => null);
+    if (!rec) return null;
+    const usage = parseInt(await env.API_KEYS_KV.get(`usage:${rec.key_id}:${month}`).catch(() => "0") || "0");
+    return {
+      key_id:           rec.key_id,
+      label:            rec.label,
+      tier:             rec.tier,
+      created_at:       rec.created_at,
+      revoked:          rec.revoked || false,
+      usage_this_month: usage,
+      usage_limit:      rec.usage_limit === 0 ? "unlimited" : (rec.usage_limit || "unlimited"),
+    };
+  }))).filter(Boolean);
+
+  return jsonResponse({
+    status:     "ok",
+    user_id:    userId,
+    month,
+    count:      keys.length,
+    keys,
+    request_id: rid,
+    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
+}
+
+// ── v122.0.0: DELETE /api/keys/:id ───────────────────────────────────────────
+async function handleUserDeleteKey(request, env, rid, auth, keyIdToDelete) {
+  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
+
+  const userId    = auth.user_id || auth.key_id;
+  const keyRecord = await env.API_KEYS_KV.get(`apikey:${keyIdToDelete}`, { type: "json" }).catch(() => null);
+
+  if (!keyRecord) return jsonResponse({ error: "not_found", key_id: keyIdToDelete, request_id: rid }, 404);
+  if (keyRecord.user_id && keyRecord.user_id !== userId)
+    return jsonResponse({ error: "forbidden", message: "You do not own this API key.", request_id: rid }, 403);
+
+  // Soft-revoke — preserves audit trail
+  keyRecord.revoked    = true;
+  keyRecord.revoked_at = new Date().toISOString();
+  await Promise.all([
+    env.API_KEYS_KV.put(`apikey:${keyIdToDelete}`, JSON.stringify(keyRecord)),
+    env.API_KEYS_KV.delete(`userkey:${userId}:${keyIdToDelete}`).catch(() => {}),
+  ]);
+
+  slog("INFO", "KEYS", "API key deleted by user", { key_id: keyIdToDelete, user_id: userId });
+  return jsonResponse({
+    status:     "ok",
+    key_id:     keyIdToDelete,
+    revoked_at: keyRecord.revoked_at,
+    message:    "Key revoked. All requests using this key will be rejected immediately.",
+    request_id: rid,
+    gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
 }
 
 // ── /api/auth/token — Issue JWT (POST, body: {api_key, tier}) ────────────────
@@ -792,6 +1141,78 @@ function applyTierGate(item, tier) {
   return gated;
 }
 
+// ── v122.0.0: IOC Extraction from Text ───────────────────────────────────────
+// Regex-based IOC detection from title/description/summary text.
+// Used as fallback when ioc_count < 3 — ensures EVERY threat has indicators.
+// Filters private IP ranges. CVE IDs have highest confidence (0.95).
+
+const IOC_PATTERNS = {
+  cve:    /CVE-\d{4}-\d{4,7}/gi,
+  ipv4:   /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g,
+  sha256: /\b[a-fA-F0-9]{64}\b/g,
+  md5:    /\b[a-fA-F0-9]{32}\b/g,
+  url:    /https?:\/\/[^\s<>"{}|\\^`[\]\x00-\x1F]+/gi,
+  email:  /\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b/g,
+  domain: /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org|io|gov|edu|mil|co|uk|de|ru|cn|jp|fr|br|info|biz|xyz|tech|online|cloud|app|dev|security|cyber)\b/gi,
+};
+const PRIVATE_IP_RE = /^(?:10\.|127\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.|0\.|255\.)/;
+const BOGON_DOMAINS = new Set(["example.com", "test.com", "localhost", "invalid"]);
+
+function extractIOCsFromText(text) {
+  if (!text || typeof text !== "string" || text.length < 4) return [];
+  const iocs   = [];
+  const seen   = new Set();
+  const addIoc = (type, value, confidence = 0.7) => {
+    const key = `${type}:${value.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    iocs.push({ type, value, extracted: true, confidence });
+  };
+
+  // CVE (highest confidence — unambiguous)
+  for (const m of text.matchAll(IOC_PATTERNS.cve))
+    addIoc("cve", m[0].toUpperCase(), 0.95);
+
+  // URLs (before domain to capture hostname once)
+  for (const m of text.matchAll(IOC_PATTERNS.url)) {
+    try {
+      const u = new URL(m[0]);
+      addIoc("url", m[0], 0.85);
+      if (!BOGON_DOMAINS.has(u.hostname)) addIoc("domain", u.hostname, 0.8);
+    } catch {}
+  }
+
+  // IPv4 (filter private/loopback/reserved)
+  for (const m of text.matchAll(IOC_PATTERNS.ipv4)) {
+    if (!PRIVATE_IP_RE.test(m[0])) addIoc("ipv4", m[0], 0.8);
+  }
+
+  // SHA-256 hashes
+  for (const m of text.matchAll(IOC_PATTERNS.sha256))
+    addIoc("sha256", m[0].toLowerCase(), 0.9);
+
+  // MD5 (only 32-char — lower confidence, often false-positive in non-hash contexts)
+  for (const m of text.matchAll(IOC_PATTERNS.md5)) {
+    if (m[0].length === 32 && !seen.has(`sha256:${m[0].toLowerCase()}`))
+      addIoc("md5", m[0].toLowerCase(), 0.6);
+  }
+
+  // Email
+  for (const m of text.matchAll(IOC_PATTERNS.email)) {
+    const em = m[0].toLowerCase();
+    if (!BOGON_DOMAINS.has(em.split("@")[1])) addIoc("email", em, 0.75);
+  }
+
+  // Domain (deduped against URL hostnames already captured)
+  for (const m of text.matchAll(IOC_PATTERNS.domain)) {
+    const dom = m[0].toLowerCase();
+    if (!seen.has(`domain:${dom}`) && !BOGON_DOMAINS.has(dom) && dom.length < 100)
+      addIoc("domain", dom, 0.65);
+  }
+
+  return iocs;
+}
+
 // ── v121.0.0: Schema Validator & Normalizer ───────────────────────────────────
 // HARD GUARANTEE: No null/undefined for any field that UI or API consumers depend on.
 // Called on every item before API responses and before applyTierGate.
@@ -852,6 +1273,57 @@ function validateAndNormalizeItem(item) {
   if (typeof out.ioc_count !== "number") {
     out.ioc_count = Array.isArray(out.iocs) ? out.iocs.length
       : (out.ioc_counts ? Object.values(out.ioc_counts).reduce((a, b) => a + (b || 0), 0) : 0);
+  }
+
+  // ── v122.0.0: IOC Extraction Fallback — RULE: ioc_count >= 3 ─────────────────
+  // When a threat has fewer than 3 IOCs, extract additional indicators from text.
+  // Priority sources: description > summary > title. Synthesized IOCs are marked
+  // with extracted:true and confidence < 1.0 to distinguish from pipeline-sourced.
+  if (out.ioc_count < 3) {
+    const textSources = [out.description, out.summary, out.details, out.title]
+      .filter(s => typeof s === "string" && s.length > 10)
+      .join(" ");
+    const extracted = extractIOCsFromText(textSources);
+    if (extracted.length > 0) {
+      // Merge with existing IOCs, avoiding duplicates
+      const existingKeys = new Set((out.iocs || []).map(i => `${i.type}:${(i.value || "").toLowerCase()}`));
+      const newIocs = extracted.filter(e => !existingKeys.has(`${e.type}:${e.value.toLowerCase()}`));
+      if (newIocs.length > 0) {
+        out.iocs = [...(out.iocs || []), ...newIocs];
+        out.ioc_count = out.iocs.length;
+        // Recompute ioc_counts with extracted IOCs included
+        const counts = {};
+        for (const ioc of out.iocs) {
+          const t = (ioc.type || "unknown").toLowerCase().replace(/[^a-z0-9_]/g, "_");
+          counts[t] = (counts[t] || 0) + 1;
+        }
+        out.ioc_counts = counts;
+      }
+    }
+    // If still < 3, synthesize CVE/domain from title as minimum anchor IOCs
+    if (out.ioc_count < 3) {
+      const cveMatch = (out.title || "").match(/CVE-\d{4}-\d{4,7}/i);
+      const synth    = [];
+      if (cveMatch && !out.iocs.some(i => i.type === "cve")) {
+        synth.push({ type: "cve", value: cveMatch[0].toUpperCase(), extracted: true, synthesized: true, confidence: 0.95 });
+      }
+      if (out.feed_source && out.feed_source !== "SENTINEL-APEX" && synth.length + out.ioc_count < 3) {
+        const srcDom = out.feed_source.replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+        if (srcDom.includes(".") && srcDom.length > 4) {
+          synth.push({ type: "domain", value: srcDom, extracted: true, synthesized: true, confidence: 0.5 });
+        }
+      }
+      if (synth.length > 0) {
+        out.iocs = [...(out.iocs || []), ...synth];
+        out.ioc_count = out.iocs.length;
+        const counts = {};
+        for (const ioc of out.iocs) {
+          const t = (ioc.type || "unknown").toLowerCase().replace(/[^a-z0-9_]/g, "_");
+          counts[t] = (counts[t] || 0) + 1;
+        }
+        out.ioc_counts = counts;
+      }
+    }
   }
 
   // ── confidence_score: 0–100 (normalise 0–1 fraction) ─────────────────────────
@@ -1752,20 +2224,35 @@ async function handleSiemWebhook(request, env, auth, rid) {
     return jsonResponse({ error: "kv_unavailable", request_id: rid }, 503);
   }
   if (request.method === "GET") {
-    // List registered webhooks for this key
-    const stored = await env.SECURITY_HUB_KV.get(`webhook:${auth.key_id}`, { type: "json" });
+    // v122.0.0: Support ?format=splunk|sentinel|qradar for SIEM export previews
+    const fmt     = new URL(request.url).searchParams.get("format") || "json";
+    const stored  = await env.SECURITY_HUB_KV.get(`webhook:${auth.key_id}`, { type: "json" });
+    const VALID_FORMATS = ["json", "splunk", "sentinel", "qradar"];
     return jsonResponse({
-      status:     "ok",
-      key_id:     auth.key_id,
-      webhooks:   stored || [],
+      status:          "ok",
+      key_id:          auth.key_id,
+      webhooks:        stored || [],
+      supported_formats: VALID_FORMATS,
+      active_format:   VALID_FORMATS.includes(fmt) ? fmt : "json",
+      format_docs: {
+        splunk:   "Splunk HEC JSON — POST to /services/collector/event",
+        sentinel: "Azure Sentinel custom log (Log Analytics workspace)",
+        qradar:   "IBM QRadar LEEF 2.0 syslog format",
+        json:     "Raw SENTINEL-APEX JSON (default)",
+      },
       request_id: rid,
+      gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
     });
   }
   if (request.method === "POST") {
     let body;
     try { body = await request.json(); }
     catch { return jsonResponse({ error: "invalid_json", request_id: rid }, 400); }
+    const VALID_SIEM_FORMATS = ["json", "splunk", "sentinel", "qradar"];
     const { url: webhookUrl, format = "json", filter_severity = "HIGH", secret: whSecret } = body;
+    if (!VALID_SIEM_FORMATS.includes(format)) {
+      return jsonResponse({ error: "invalid_format", valid: VALID_SIEM_FORMATS, request_id: rid }, 400);
+    }
     if (!webhookUrl || !webhookUrl.startsWith("https://")) {
       return jsonResponse({ error: "invalid_url", message: "Webhook URL must be https://", request_id: rid }, 400);
     }
@@ -2018,6 +2505,285 @@ async function handleAdminObservability(request, env, rid) {
   });
 }
 
+// ── v122.0.0: Stripe Webhook Signature Verification ──────────────────────────
+// Format: "t=<timestamp>,v1=<sig>" in Stripe-Signature header
+async function verifyStripeSignature(rawBody, sigHeader, webhookSecret) {
+  try {
+    const parts  = sigHeader.split(",");
+    const tPart  = parts.find(p => p.startsWith("t="));
+    const v1s    = parts.filter(p => p.startsWith("v1="));
+    if (!tPart || !v1s.length) return false;
+    const signed = `${tPart.slice(2)}.${rawBody}`;
+    const key    = await crypto.subtle.importKey("raw", new TextEncoder().encode(webhookSecret),
+                     { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const buf    = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signed));
+    const expected = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+    return v1s.some(p => p.slice(3) === expected);
+  } catch { return false; }
+}
+
+function tierFromStripePlan(priceId, env) {
+  if (!priceId) return CONFIG.TIERS.FREE;
+  if (priceId === (env?.STRIPE_PRO_PRICE_ID  || ""))  return CONFIG.TIERS.PREMIUM;
+  if (priceId === (env?.STRIPE_ENT_PRICE_ID  || ""))  return CONFIG.TIERS.ENTERPRISE;
+  // Fallback heuristic: keyword in price ID
+  if (/enterprise|ent/i.test(priceId)) return CONFIG.TIERS.ENTERPRISE;
+  if (/pro|premium/i.test(priceId))    return CONFIG.TIERS.PREMIUM;
+  return CONFIG.TIERS.FREE;
+}
+
+// ── v122.0.0: POST /webhooks/stripe ──────────────────────────────────────────
+async function handleStripeWebhook(request, env, rid) {
+  const sigHeader = request.headers.get("Stripe-Signature") || "";
+  const rawBody   = await request.text();
+
+  if (!env?.STRIPE_WEBHOOK_SECRET) {
+    slog("WARN", "BILLING", "STRIPE_WEBHOOK_SECRET not configured", { rid });
+    return jsonResponse({ error: "webhook_not_configured", message: "Set STRIPE_WEBHOOK_SECRET via: npx wrangler secret put STRIPE_WEBHOOK_SECRET" }, 503);
+  }
+
+  const valid = await verifyStripeSignature(rawBody, sigHeader, env.STRIPE_WEBHOOK_SECRET);
+  if (!valid) {
+    slog("WARN", "BILLING", "Stripe signature verification failed", { rid });
+    return jsonResponse({ error: "invalid_signature" }, 400);
+  }
+
+  let event;
+  try { event = JSON.parse(rawBody); }
+  catch { return jsonResponse({ error: "invalid_json" }, 400); }
+
+  slog("INFO", "BILLING", `Stripe event: ${event.type}`, { rid, event_id: event.id });
+  const obj = event.data?.object || {};
+
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const userId     = obj.metadata?.user_id || obj.client_reference_id;
+        const priceId    = obj.metadata?.price_id;
+        const newTier    = tierFromStripePlan(priceId, env);
+        const customerId = obj.customer;
+        if (userId && env?.API_KEYS_KV) {
+          const ur = await env.API_KEYS_KV.get(`user:${userId}`, { type: "json" }).catch(() => null);
+          if (ur) {
+            ur.tier               = newTier;
+            ur.stripe_customer_id = customerId || ur.stripe_customer_id;
+            ur.subscription       = { id: obj.subscription, status: "active", tier: newTier, price_id: priceId, updated_at: new Date().toISOString() };
+            await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
+            if (customerId) await env.API_KEYS_KV.put(`stripe_customer:${customerId}`, userId);
+            slog("INFO", "BILLING", "Checkout complete — tier upgraded", { user_id: userId, tier: newTier });
+          }
+        }
+        break;
+      }
+      case "customer.subscription.updated": {
+        const customerId = obj.customer;
+        const status     = obj.status;
+        const priceId    = obj.items?.data?.[0]?.price?.id;
+        const newTier    = status === "active" ? tierFromStripePlan(priceId, env) : CONFIG.TIERS.FREE;
+        if (customerId && env?.API_KEYS_KV) {
+          const userId = await env.API_KEYS_KV.get(`stripe_customer:${customerId}`).catch(() => null);
+          if (userId) {
+            const ur = await env.API_KEYS_KV.get(`user:${userId}`, { type: "json" }).catch(() => null);
+            if (ur) {
+              ur.tier         = newTier;
+              ur.subscription = { id: obj.id, status, tier: newTier, price_id: priceId, updated_at: new Date().toISOString() };
+              await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
+              slog("INFO", "BILLING", "Subscription updated", { user_id: userId, status, tier: newTier });
+            }
+          }
+        }
+        break;
+      }
+      case "customer.subscription.deleted": {
+        const customerId = obj.customer;
+        if (customerId && env?.API_KEYS_KV) {
+          const userId = await env.API_KEYS_KV.get(`stripe_customer:${customerId}`).catch(() => null);
+          if (userId) {
+            const ur = await env.API_KEYS_KV.get(`user:${userId}`, { type: "json" }).catch(() => null);
+            if (ur) {
+              ur.tier         = CONFIG.TIERS.FREE;
+              ur.subscription = { id: obj.id, status: "cancelled", tier: CONFIG.TIERS.FREE, updated_at: new Date().toISOString() };
+              await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
+              slog("INFO", "BILLING", "Subscription cancelled — downgraded to FREE", { user_id: userId });
+            }
+          }
+        }
+        break;
+      }
+      case "customer.created": {
+        const userId = obj.metadata?.user_id;
+        if (userId && env?.API_KEYS_KV) {
+          await env.API_KEYS_KV.put(`stripe_customer:${obj.id}`, userId);
+        }
+        break;
+      }
+    }
+  } catch (e) {
+    await trackError(env, "BILLING", `Stripe event error: ${e.message}`, { event_type: event.type });
+  }
+
+  return jsonResponse({ status: "ok", received: true, event_id: event.id, event_type: event.type });
+}
+
+// ── v122.0.0: POST /webhooks/razorpay ────────────────────────────────────────
+async function handleRazorpayWebhook(request, env, rid) {
+  const rzSig   = request.headers.get("X-Razorpay-Signature") || "";
+  const rawBody = await request.text();
+
+  if (!env?.RAZORPAY_WEBHOOK_SECRET) {
+    slog("WARN", "BILLING", "RAZORPAY_WEBHOOK_SECRET not configured", { rid });
+    return jsonResponse({ error: "webhook_not_configured", message: "Set RAZORPAY_WEBHOOK_SECRET via: npx wrangler secret put RAZORPAY_WEBHOOK_SECRET" }, 503);
+  }
+
+  try {
+    const key      = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.RAZORPAY_WEBHOOK_SECRET),
+                       { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const buf      = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+    const expected = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+    if (expected !== rzSig) {
+      slog("WARN", "BILLING", "Razorpay signature invalid", { rid });
+      return jsonResponse({ error: "invalid_signature" }, 400);
+    }
+  } catch { return jsonResponse({ error: "signature_check_failed" }, 400); }
+
+  let event;
+  try { event = JSON.parse(rawBody); }
+  catch { return jsonResponse({ error: "invalid_json" }, 400); }
+
+  slog("INFO", "BILLING", `Razorpay event: ${event.event}`, { rid });
+
+  try {
+    const payment = event.payload?.payment?.entity;
+    if (event.event === "payment.captured" && payment) {
+      const userId   = payment.notes?.user_id;
+      const planTier = payment.notes?.tier || CONFIG.TIERS.PREMIUM;
+      if (userId && env?.API_KEYS_KV) {
+        const ur = await env.API_KEYS_KV.get(`user:${userId}`, { type: "json" }).catch(() => null);
+        if (ur) {
+          ur.tier         = planTier;
+          ur.subscription = { id: payment.id, status: "active", tier: planTier, gateway: "razorpay", amount: payment.amount, updated_at: new Date().toISOString() };
+          await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
+          slog("INFO", "BILLING", "Razorpay payment — tier upgraded", { user_id: userId, tier: planTier });
+        }
+      }
+    }
+    if (event.event === "subscription.cancelled") {
+      const sub    = event.payload?.subscription?.entity;
+      const userId = sub?.notes?.user_id;
+      if (userId && env?.API_KEYS_KV) {
+        const ur = await env.API_KEYS_KV.get(`user:${userId}`, { type: "json" }).catch(() => null);
+        if (ur) {
+          ur.tier         = CONFIG.TIERS.FREE;
+          ur.subscription = { status: "cancelled", tier: CONFIG.TIERS.FREE, gateway: "razorpay", updated_at: new Date().toISOString() };
+          await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
+          slog("INFO", "BILLING", "Razorpay sub cancelled — downgraded to FREE", { user_id: userId });
+        }
+      }
+    }
+  } catch (e) {
+    await trackError(env, "BILLING", `Razorpay event error: ${e.message}`, { event: event.event });
+  }
+
+  return jsonResponse({ status: "ok", received: true, event: event.event });
+}
+
+// ── v122.0.0: GET /api/billing/portal ────────────────────────────────────────
+async function handleBillingPortal(request, env, rid, auth) {
+  const userId     = auth.user_id || auth.key_id;
+  const userRecord = userId ? await env?.API_KEYS_KV?.get(`user:${userId}`, { type: "json" }).catch(() => null) : null;
+  const tier       = userRecord?.tier || auth.tier || CONFIG.TIERS.FREE;
+
+  return jsonResponse({
+    status:        "ok",
+    user_id:       userId,
+    tier,
+    subscription:  userRecord?.subscription || null,
+    pricing_page:  "https://intel.cyberdudebivash.com/#pricing",
+    stripe_portal: userRecord?.stripe_customer_id
+      ? `https://billing.stripe.com/p/login/live_portal?prefilled_email=${encodeURIComponent(userRecord.email || "")}`
+      : null,
+    upgrade_options: {
+      pro:        {
+        price:        "$29/month",
+        checkout_url: "https://intel.cyberdudebivash.com/upgrade?plan=pro",
+        features:     ["500 requests/min", "Full IOC arrays", "STIX 2.1 bundles", "Threat alerts", "10 API keys"],
+      },
+      enterprise: {
+        price:        "$199/month",
+        checkout_url: "https://intel.cyberdudebivash.com/upgrade?plan=enterprise",
+        features:     ["2000 requests/min", "SIEM integration (Splunk/Sentinel/QRadar)", "50 API keys", "Priority support", "Tenant isolation"],
+      },
+    },
+    request_id:    rid,
+    gateway:       `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
+}
+
+// ── v122.0.0: SIEM Output Formatters — Splunk HEC / Sentinel / QRadar LEEF ──
+
+function formatSplunkHEC(item) {
+  return {
+    time:       item.timestamp ? new Date(item.timestamp).getTime() / 1000 : Date.now() / 1000,
+    host:       "sentinel-apex",
+    source:     "threat-intel",
+    sourcetype: "cyberdude:sentinel:advisory",
+    index:      "threat_intel",
+    event: {
+      id:            item.id,
+      title:         item.title,
+      severity:      item.severity,
+      risk_score:    item.risk_score,
+      actor:         item.actor_tag || "UNATTRIBUTED",
+      ioc_count:     item.ioc_count || 0,
+      cve_ids:       (item.iocs || []).filter(i => i.type === "cve").map(i => i.value),
+      mitre_tactics: item.mitre_tactics || [],
+      feed_source:   item.feed_source || "SENTINEL-APEX",
+      processed_at:  item.processed_at || item.timestamp,
+      kev:           item.kev_present || false,
+      exploit:       item.exploit_available || false,
+      confidence:    item.confidence_score || 50,
+      gateway:       `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+    },
+  };
+}
+
+function formatSentinelEvent(item) {
+  return {
+    TimeGenerated:     item.processed_at || item.timestamp || new Date().toISOString(),
+    ThreatId:          item.id,
+    ThreatTitle:       item.title,
+    Severity:          item.severity,
+    RiskScore:         item.risk_score,
+    ActorTag:          item.actor_tag || "UNATTRIBUTED",
+    IocCount:          item.ioc_count || 0,
+    MitreTactics:      (item.mitre_tactics || []).join(", "),
+    FeedSource:        item.feed_source || "SENTINEL-APEX",
+    KevPresent:        item.kev_present || false,
+    ExploitAvailable:  item.exploit_available || false,
+    ConfidenceScore:   item.confidence_score || 50,
+    GatewayVersion:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+    Type:              "SentinelApexThreatIntel_CL",
+  };
+}
+
+function formatQRadarLEEF(item) {
+  const ts    = item.processed_at || item.timestamp || new Date().toISOString();
+  const pairs = [
+    `devTime=${ts}`, `devTimeFormat=ISO 8601`, `cat=ThreatIntel`,
+    `sev=${item.risk_score || 0}`,
+    `ThreatId=${(item.id || "").replace(/\t|\n/g, " ")}`,
+    `ThreatTitle=${(item.title || "").replace(/\t|\n/g, " ")}`,
+    `Severity=${item.severity || "UNKNOWN"}`,
+    `ActorTag=${item.actor_tag || "UNATTRIBUTED"}`,
+    `IocCount=${item.ioc_count || 0}`,
+    `KevPresent=${item.kev_present || false}`,
+    `ConfidenceScore=${item.confidence_score || 50}`,
+    `FeedSource=${item.feed_source || "SENTINEL-APEX"}`,
+    `GatewayVersion=${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  ].join("\t");
+  return `LEEF:2.0|CYBERDUDEBIVASH|SENTINEL-APEX|${CONFIG.GATEWAY_VERSION}|ThreatIntel|\t${pairs}`;
+}
+
 // ── Main Router ────────────────────────────────────────────────────────────────
 
 export default {
@@ -2072,6 +2838,12 @@ export default {
     if (pathname === "/api/auth/validate")                      return handleValidateToken(request, env, rid);
     if (pathname === "/api/auth/refresh"  && method === "POST") return handleRefreshToken(request, env, rid);
     if (pathname === "/api/auth/revoke"   && method === "POST") return handleRevokeToken(request, env, rid);
+    // ── v122.0.0: User auth endpoints (no API key required) ──────────────────
+    if (pathname === "/auth/signup"       && method === "POST") return handleUserSignup(request, env, rid);
+    if (pathname === "/auth/login"        && method === "POST") return handleUserLogin(request, env, rid);
+    // ── v122.0.0: Billing webhooks (no API key — use their own sig verification)
+    if (pathname === "/webhooks/stripe"   && method === "POST") return handleStripeWebhook(request, env, rid);
+    if (pathname === "/webhooks/razorpay" && method === "POST") return handleRazorpayWebhook(request, env, rid);
     // AI endpoints — public (index/heatmap) or authenticated (analyze/respond/correlate)
     if (pathname.startsWith("/api/ai")) {
       const aiSub = pathname.slice("/api/ai".length);
@@ -2156,6 +2928,16 @@ export default {
       });
     }
 
+    // ── v122.0.0: Authenticated user + billing routes ────────────────────────
+    if (pathname === "/auth/me"              && method === "GET")    return handleUserMe(request, env, rid, auth);
+    if (pathname === "/api/keys"             && method === "GET")    return handleUserListKeys(request, env, rid, auth);
+    if (pathname === "/api/keys/create"      && method === "POST")   return handleUserCreateKey(request, env, rid, auth);
+    if (pathname.startsWith("/api/keys/")   && method === "DELETE") {
+      const keyId = pathname.slice("/api/keys/".length);
+      if (keyId) return handleUserDeleteKey(request, env, rid, auth, keyId);
+    }
+    if (pathname === "/api/billing/portal"   && method === "GET")    return handleBillingPortal(request, env, rid, auth);
+
     // Authenticated route dispatch
     if (pathname === "/api/feed" && method === "GET")
       return handleFeed(request, env, auth, rid);
@@ -2195,13 +2977,22 @@ export default {
         "GET  /api/auth/validate        (public — validate JWT)",
         "POST /api/auth/refresh         (requires JWT — rotate token)",
         "POST /api/auth/revoke          (requires JWT — revoke token)",
+        "POST /auth/signup              (public — create user account + get JWT)",
+        "POST /auth/login               (public — login + get JWT)",
+        "GET  /auth/me                  (requires JWT — user profile + API keys)",
+        "POST /api/keys/create          (requires JWT — create API key)",
+        "GET  /api/keys                 (requires JWT — list your API keys)",
+        "DELETE /api/keys/:id           (requires JWT — revoke API key)",
+        "GET  /api/billing/portal       (requires JWT — subscription + upgrade links)",
+        "POST /webhooks/stripe          (public — Stripe webhook, sig-verified)",
+        "POST /webhooks/razorpay        (public — Razorpay webhook, sig-verified)",
         "GET  /api/feed                 (requires auth)",
         "GET  /api/feed/:id             (requires auth)",
         "GET  /api/analytics            (requires auth)",
         "GET  /api/stix/:id             (requires auth — full bundle Pro+)",
         "GET  /api/alerts               (requires auth Pro+)",
-        "GET  /api/webhooks/siem        (requires auth Enterprise)",
-        "POST /api/webhooks/siem        (requires auth Enterprise)",
+        "GET  /api/webhooks/siem        (requires auth Enterprise — list + format info)",
+        "POST /api/webhooks/siem        (requires auth Enterprise — register webhook)",
         "POST /api/admin/cache/bust     (requires X-Admin-Secret)",
         "POST /api/admin/keys/create    (requires X-Admin-Secret)",
         "POST /api/admin/keys/revoke    (requires X-Admin-Secret)",

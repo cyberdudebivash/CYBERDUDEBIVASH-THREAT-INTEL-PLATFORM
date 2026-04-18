@@ -4,7 +4,7 @@ compatibility_date = "2024-01-01"
 
 
 [vars]
-GATEWAY_VERSION = "121.0.0"
+GATEWAY_VERSION = "122.0.0"
 
 # ── KV Namespaces ──────────────────────────────────────────────────────────────
 # Deployed KV IDs — verified live on intel.cyberdudebivash.com (v121.0.0)
@@ -40,18 +40,24 @@ binding     = "INTEL_R2"
 bucket_name = "sentinel-apex-data"
 
 # ── Secrets (set via wrangler CLI — NEVER commit to source control) ───────────
-# npx wrangler secret put ADMIN_SECRET        → cache bust + admin key management
-# npx wrangler secret put GITHUB_TOKEN        → emergency GitHub fallback reads
-# npx wrangler secret put CDB_JWT_SECRET      → JWT HS256 signing key (REQUIRED for auth)
-#                                               Minimum 32 random characters. Generate:
-#                                               openssl rand -hex 32
+# npx wrangler secret put ADMIN_SECRET             → cache bust + admin key management
+# npx wrangler secret put GITHUB_TOKEN             → emergency GitHub fallback reads
+# npx wrangler secret put CDB_JWT_SECRET           → JWT HS256 signing key (REQUIRED for auth)
+#                                                    Minimum 32 random characters. Generate:
+#                                                    openssl rand -hex 32
+# npx wrangler secret put STRIPE_WEBHOOK_SECRET    → Stripe webhook endpoint secret
+#                                                    Get from: Stripe Dashboard → Webhooks → Signing secret
+# npx wrangler secret put RAZORPAY_WEBHOOK_SECRET  → Razorpay webhook secret
+#                                                    Get from: Razorpay Dashboard → Webhooks
+# npx wrangler secret put STRIPE_PRO_PRICE_ID      → Stripe Price ID for PRO plan ($29/mo)
+# npx wrangler secret put STRIPE_ENT_PRICE_ID      → Stripe Price ID for ENTERPRISE plan ($199/mo)
 # Verify configured: GET /api/health → checks.jwt_configured: true
 
 # ── Production environment ────────────────────────────────────────────────────
 [env.production]
 name = "sentinel-apex-gateway"
 [env.production.vars]
-GATEWAY_VERSION = "121.0.0"
+GATEWAY_VERSION = "122.0.0"
 
 [[env.production.kv_namespaces]]
 binding = "API_KEYS_KV"
