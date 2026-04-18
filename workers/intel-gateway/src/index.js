@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = {
-  GATEWAY_VERSION:   "116.2.0",  // v116.2.0: unified platform version — stix_id in preview, ANALYZE button fix
+  GATEWAY_VERSION:   "117.0.0",  // v117.0.0: STIX export API, SIEM webhook, version endpoint, enterprise tiers
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v111.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -948,6 +948,254 @@ async function handleAdminCreateKey(request, env, rid) {
   }, 201);
 }
 
+// ── v117.0.0: /api/version — platform version manifest ───────────────────────
+async function handleVersion(request, env, rid) {
+  return jsonResponse({
+    status:          "ok",
+    request_id:      rid,
+    version:         CONFIG.GATEWAY_VERSION,
+    platform:        CONFIG.GATEWAY_NAME,
+    gateway:         `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+    endpoints: {
+      dashboard:    "https://intel.cyberdudebivash.com",
+      api_base:     "https://intel.cyberdudebivash.com/api",
+      reports_base: "https://intel.cyberdudebivash.com/reports",
+      stix_api:     "https://intel.cyberdudebivash.com/api/stix",
+    },
+    subscription_tiers: {
+      free:       { api_rpm: 10,  feed_limit: 20,   stix: false, alerts: false },
+      premium:    { api_rpm: 500, feed_limit: 500,  stix: true,  alerts: true  },
+      enterprise: { api_rpm: 0,   feed_limit: 0,    stix: true,  alerts: true, siem: true, soar: true },
+    },
+    timestamp: new Date().toISOString(),
+  });
+}
+
+// ── v117.0.0: /api/stix/:id — STIX 2.1 export ────────────────────────────────
+// FREE tier: returns advisory metadata only
+// PRO/ENTERPRISE: returns full STIX 2.1 bundle with objects array
+async function handleStixExport(request, env, auth, rid, stixId) {
+  if (!stixId) {
+    return jsonResponse({ error: "stix_id_required", request_id: rid }, 400);
+  }
+
+  let index;
+  try {
+    index = await fetchReportsIndex(env);
+  } catch (err) {
+    return jsonResponse({ error: "feed_unavailable", message: err.message, request_id: rid }, 503);
+  }
+
+  const item = (index.reports || []).find(r =>
+    r.stix_id === stixId || r.id === stixId
+  );
+
+  if (!item) {
+    return jsonResponse({
+      error:      "not_found",
+      stix_id:    stixId,
+      message:    `Advisory '${stixId}' not found in current feed.`,
+      request_id: rid,
+    }, 404);
+  }
+
+  await recordAnalytics(env, auth?.key_id, "stix_export", auth?.tier || "anon", 200);
+
+  // Base object available to all tiers
+  const baseObj = {
+    type:       "indicator",
+    spec_version: "2.1",
+    id:         item.stix_id || item.id,
+    name:       item.title,
+    description: item.description || item.title,
+    created:    item.processed_at || item.timestamp || new Date().toISOString(),
+    modified:   item.processed_at || item.timestamp || new Date().toISOString(),
+    labels:     item.tags || [],
+    confidence: Math.round((item.risk_score || 0) * 10),
+    lang:       "en",
+    external_references: [
+      item.source_url ? { source_name: item.feed_source || "SENTINEL-APEX", url: item.source_url } : null,
+      item.nvd_url    ? { source_name: "NVD", url: item.nvd_url } : null,
+    ].filter(Boolean),
+  };
+
+  // PRO/ENTERPRISE: full STIX bundle
+  if (auth?.tier === CONFIG.TIERS.PREMIUM || auth?.tier === CONFIG.TIERS.ENTERPRISE) {
+    const bundle = {
+      type:         "bundle",
+      id:           `bundle--${(item.stix_id || item.id || "").replace("intel--","").replace("indicator--","")}`,
+      spec_version: "2.1",
+      objects: [
+        baseObj,
+        // Malware / threat-actor object if actor is known
+        item.actor_tag && item.actor_tag !== "UNATTRIBUTED" ? {
+          type:         "threat-actor",
+          spec_version: "2.1",
+          id:           `threat-actor--${await sha256hex(item.actor_tag).then(h => h.slice(0,32))}`,
+          name:         item.actor_tag,
+          created:      item.processed_at || item.timestamp || new Date().toISOString(),
+          modified:     item.processed_at || item.timestamp || new Date().toISOString(),
+          labels:       ["nation-state", "criminal", "hacker"].slice(0, 1),
+        } : null,
+        // IOC indicators
+        ...(item.iocs || []).slice(0, 50).map(ioc => {
+          if (!ioc || typeof ioc !== "object") return null;
+          return {
+            type:         "indicator",
+            spec_version: "2.1",
+            id:           `indicator--${Math.random().toString(36).slice(2)}`,
+            name:         ioc.value || ioc.indicator || "unknown",
+            pattern:      `[${ioc.type || "network-traffic"}:value = '${ioc.value || ""}']`,
+            pattern_type: "stix",
+            created:      new Date().toISOString(),
+            modified:     new Date().toISOString(),
+            valid_from:   new Date().toISOString(),
+            labels:       ["malicious-activity"],
+          };
+        }).filter(Boolean),
+      ].filter(Boolean),
+    };
+    return jsonResponse({
+      status:     "ok",
+      request_id: rid,
+      stix_id:    stixId,
+      tier:       auth.tier,
+      bundle,
+      report_url: item.report_url || null,
+      gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+    });
+  }
+
+  // FREE tier: metadata only + upgrade prompt
+  return jsonResponse({
+    status:     "ok",
+    request_id: rid,
+    stix_id:    stixId,
+    tier:       auth?.tier || "free",
+    advisory: {
+      id:          item.id,
+      title:       item.title,
+      severity:    item.severity,
+      risk_score:  item.risk_score,
+      processed_at: item.processed_at || item.timestamp,
+      report_url:  item.report_url || null,
+      source_url:  item.source_url || null,
+    },
+    stix_object:  baseObj,
+    full_bundle:  null,
+    upgrade:      getUpgradeCTA(auth?.tier || "free"),
+    message:      "Full STIX 2.1 bundle (indicators, TTPs, actor objects) available on Pro/Enterprise tier.",
+    gateway:      `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
+}
+
+// ── v117.0.0: /api/webhooks/siem — SIEM integration webhook ──────────────────
+// Enterprise tier: POST to register a SIEM webhook URL.
+// When new intel is processed, APEX will POST to registered endpoints.
+async function handleSiemWebhook(request, env, auth, rid) {
+  if (auth.tier !== CONFIG.TIERS.ENTERPRISE) {
+    return jsonResponse({
+      error:   "enterprise_required",
+      message: "SIEM webhook integration requires Enterprise tier.",
+      upgrade: getUpgradeCTA(auth.tier),
+      request_id: rid,
+    }, 403);
+  }
+  if (!env?.SECURITY_HUB_KV) {
+    return jsonResponse({ error: "kv_unavailable", request_id: rid }, 503);
+  }
+  if (request.method === "GET") {
+    // List registered webhooks for this key
+    const stored = await env.SECURITY_HUB_KV.get(`webhook:${auth.key_id}`, { type: "json" });
+    return jsonResponse({
+      status:     "ok",
+      key_id:     auth.key_id,
+      webhooks:   stored || [],
+      request_id: rid,
+    });
+  }
+  if (request.method === "POST") {
+    let body;
+    try { body = await request.json(); }
+    catch { return jsonResponse({ error: "invalid_json", request_id: rid }, 400); }
+    const { url: webhookUrl, format = "json", filter_severity = "HIGH", secret: whSecret } = body;
+    if (!webhookUrl || !webhookUrl.startsWith("https://")) {
+      return jsonResponse({ error: "invalid_url", message: "Webhook URL must be https://", request_id: rid }, 400);
+    }
+    const existing = await env.SECURITY_HUB_KV.get(`webhook:${auth.key_id}`, { type: "json" }) || [];
+    const entry = {
+      id:              `wh_${Date.now()}`,
+      url:             webhookUrl,
+      format,
+      filter_severity,
+      secret:          whSecret || null,
+      created_at:      new Date().toISOString(),
+      active:          true,
+    };
+    existing.push(entry);
+    await env.SECURITY_HUB_KV.put(`webhook:${auth.key_id}`, JSON.stringify(existing), { expirationTtl: 86400 * 365 });
+    return jsonResponse({
+      success:    true,
+      webhook_id: entry.id,
+      message:    "Webhook registered. APEX will POST new intel to this endpoint.",
+      request_id: rid,
+    }, 201);
+  }
+  if (request.method === "DELETE") {
+    await env.SECURITY_HUB_KV.delete(`webhook:${auth.key_id}`);
+    return jsonResponse({ success: true, message: "All webhooks removed.", request_id: rid });
+  }
+  return jsonResponse({ error: "method_not_allowed", request_id: rid }, 405);
+}
+
+// ── v117.0.0: /api/alerts — threat alerts for Pro+ ───────────────────────────
+async function handleAlerts(request, env, auth, rid) {
+  if (auth.tier === CONFIG.TIERS.FREE) {
+    return jsonResponse({
+      error:   "pro_required",
+      message: "Threat alerts require Pro or Enterprise tier.",
+      upgrade: getUpgradeCTA(auth.tier),
+      request_id: rid,
+    }, 403);
+  }
+  let index;
+  try {
+    index = await fetchReportsIndex(env);
+  } catch (err) {
+    return jsonResponse({ error: "feed_unavailable", request_id: rid }, 503);
+  }
+  const url    = new URL(request.url);
+  const minRisk = parseFloat(url.searchParams.get("min_risk") || "7");
+  const limit   = Math.min(parseInt(url.searchParams.get("limit") || "20"), 100);
+
+  const alerts = (index.reports || [])
+    .filter(r => (r.risk_score || 0) >= minRisk || r.kev_present)
+    .sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0))
+    .slice(0, limit)
+    .map(r => ({
+      id:          r.id,
+      title:       r.title,
+      severity:    r.severity,
+      risk_score:  r.risk_score,
+      kev_present: r.kev_present || false,
+      report_url:  r.report_url || null,
+      source_url:  r.source_url || null,
+      processed_at: r.processed_at || r.timestamp,
+      stix_id:     r.stix_id || r.id,
+    }));
+
+  await recordAnalytics(env, auth.key_id, "alerts", auth.tier, 200);
+  return jsonResponse({
+    status:      "ok",
+    request_id:  rid,
+    tier:        auth.tier,
+    alert_count: alerts.length,
+    filter:      { min_risk: minRisk, kev_included: true },
+    alerts,
+    gateway:     `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+  });
+}
+
 // ── Main Router ────────────────────────────────────────────────────────────────
 
 export default {
@@ -993,6 +1241,7 @@ export default {
     // ── Public endpoints (no API key required) ────────────────────────────────
     if (pathname.startsWith("/api/preview"))          return handlePreview(request, env, rid);
     if (pathname.startsWith("/api/health"))            return handleHealth(request, env, rid);
+    if (pathname.startsWith("/api/version"))           return handleVersion(request, env, rid);
     if (pathname.startsWith("/api/keys/validate"))     return handleValidateKey(request, env, rid);
     // AI endpoints — public (index/heatmap) or authenticated (analyze/respond/correlate)
     if (pathname.startsWith("/api/ai")) {
@@ -1074,6 +1323,17 @@ export default {
     }
     if (pathname.startsWith("/api/analytics") && method === "GET")
       return handleAnalytics(request, env, auth, rid);
+    // v117.0.0: STIX export
+    if (pathname.startsWith("/api/stix/")) {
+      const stixId = decodeURIComponent(pathname.slice("/api/stix/".length));
+      return handleStixExport(request, env, auth, rid, stixId);
+    }
+    // v117.0.0: Threat alerts (Pro+)
+    if (pathname.startsWith("/api/alerts") && method === "GET")
+      return handleAlerts(request, env, auth, rid);
+    // v117.0.0: SIEM webhook (Enterprise)
+    if (pathname.startsWith("/api/webhooks/siem"))
+      return handleSiemWebhook(request, env, auth, rid);
 
     return jsonResponse({
       error:   "not_found",
@@ -1081,6 +1341,7 @@ export default {
       available: [
         "GET  /api/preview              (public — no key required)",
         "GET  /api/health               (public)",
+        "GET  /api/version              (public — platform version + tier info)",
         "GET  /api/keys/validate        (public)",
         "GET  /api/ai                   (public — AI index + MITRE heatmap)",
         "GET  /api/ai/heatmap           (public — MITRE ATT&CK heatmap)",
@@ -1090,6 +1351,10 @@ export default {
         "GET  /api/feed                 (requires API key)",
         "GET  /api/feed/:id             (requires API key)",
         "GET  /api/analytics            (requires API key)",
+        "GET  /api/stix/:id             (requires API key — STIX 2.1 export; full bundle on Pro+)",
+        "GET  /api/alerts               (requires API key Pro+ — KEV + high-risk alerts)",
+        "GET  /api/webhooks/siem        (requires API key Enterprise — list webhooks)",
+        "POST /api/webhooks/siem        (requires API key Enterprise — register SIEM webhook)",
         "POST /api/admin/cache/bust     (requires X-Admin-Secret)",
         "POST /api/admin/keys/create    (requires X-Admin-Secret)",
       ],
