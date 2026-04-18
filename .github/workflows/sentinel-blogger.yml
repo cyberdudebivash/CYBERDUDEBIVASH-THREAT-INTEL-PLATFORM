@@ -106,7 +106,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "118.0.0"
+  PIPELINE_VERSION: "119.0.0"
 
 # Only ONE data-writing workflow at a time — prevents manifest corruption
 concurrency:
@@ -645,10 +645,19 @@ jobs:
         run: |
           python3 scripts/clean_feed_manifest.py || echo "Cleanup skipped (non-critical)"
 
-      - name: "🔍 Schema Validation — Validate intel before R2 upload"
-        continue-on-error: true  # v112.0: Non-blocking — log warnings, NEVER block R2 upload
+      - name: "🔍 Schema Validation — Hard gate (v119.0.0)"
+        continue-on-error: false
         run: |
-          python3 scripts/validate_intel_schema.py || echo "WARN: Schema validation reported issues (non-fatal, R2 upload will proceed)"
+          echo "=== SENTINEL APEX v119.0.0 — SCHEMA VALIDATION HARD GATE ==="
+          # Run schema validator; capture exit code
+          python3 scripts/validate_intel_schema.py
+          SCHEMA_RC=$?
+          if [ $SCHEMA_RC -ne 0 ]; then
+            echo "::error::Schema validation FAILED (exit $SCHEMA_RC). Malformed data must not reach R2 or gh-pages."
+            echo "::error::Fix manifest data and re-run pipeline."
+            exit 1
+          fi
+          echo "SCHEMA VALIDATION PASSED — data is structurally sound."
           echo "Schema validation complete."
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -659,7 +668,7 @@ jobs:
 # ═══════════════════════════════════════════════════════════════════════════
       - name: "📄 Generate HTML Tactical Dossiers (report_url pages)"
         run: |
-          echo "=== SENTINEL APEX v118.0.0 — HTML Report Generation ==="
+          echo "=== SENTINEL APEX v119.0.0 — HTML Report Generation ==="
           echo "::group::Report Generation"
           START_TS=$(date -u +%s)
 
@@ -1116,7 +1125,7 @@ jobs:
       - name: "🗂 Verify Report Files — Local Existence Check (Hard Gate)"
         continue-on-error: false
         run: |
-          echo "=== SENTINEL APEX v118.0.0 — LOCAL REPORT FILE VERIFICATION ==="
+          echo "=== SENTINEL APEX v119.0.0 — LOCAL REPORT FILE VERIFICATION ==="
 
           LOCAL_FAIL=0
           LOCAL_PASS=0
@@ -1181,7 +1190,7 @@ jobs:
       - name: "🌐 Smoke Test Report URLs — HTTP 200 (Informational)"
         continue-on-error: true
         run: |
-          echo "=== SENTINEL APEX v118.0.0 — HTTP SMOKE TEST (informational, non-blocking) ==="
+          echo "=== SENTINEL APEX v119.0.0 — HTTP SMOKE TEST (informational, non-blocking) ==="
           echo "NOTE: GitHub Pages CDN propagation for large deployments takes 2-5 min."
           echo "      This step is SOFT (continue-on-error: true) — pipeline will not fail here."
           echo "      Hard file-existence check already passed in STAGE 5.5a."
@@ -1250,7 +1259,7 @@ jobs:
       - name: "✅ E2E Pipeline Validation"
         continue-on-error: true
         run: |
-          echo "=== SENTINEL APEX v118.0.0 — E2E PIPELINE VALIDATION ==="
+          echo "=== SENTINEL APEX v119.0.0 — E2E PIPELINE VALIDATION ==="
 
           # Test 1: Worker health
           HEALTH=$(curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
