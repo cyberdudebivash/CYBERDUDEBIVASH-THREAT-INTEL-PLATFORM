@@ -521,7 +521,6 @@ jobs:
 # report_url links in the dashboard resolve to real pages.
 # ═══════════════════════════════════════════════════════════════════════════
       - name: "📄 Generate HTML Tactical Dossiers (report_url pages)"
-        continue-on-error: true
         run: |
           echo "=== SENTINEL APEX v115.0 — HTML Report Generation ==="
           python3 scripts/generate_intel_reports.py \
@@ -529,6 +528,10 @@ jobs:
             --limit 0
           REPORT_COUNT=$(find reports -name '*.html' -not -name 'index.html' 2>/dev/null | wc -l || echo 0)
           echo "Generated $REPORT_COUNT tactical dossier HTML files"
+          if [ "$REPORT_COUNT" -eq 0 ]; then
+            echo "ERROR: No HTML tactical dossiers were generated. Failing pipeline."
+            exit 1
+          fi
           echo "REPORT_COUNT=$REPORT_COUNT" >> $GITHUB_ENV
 
 # ═══════════════════════════════════════════════════════════════════════════

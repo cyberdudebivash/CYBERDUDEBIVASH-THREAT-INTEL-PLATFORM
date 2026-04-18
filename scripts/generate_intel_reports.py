@@ -493,12 +493,19 @@ def r2_upload(local_path: Path, key: str, endpoint: str) -> bool:
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 def main(argv=None) -> int:
+    global MANIFEST_PATH
     parser = argparse.ArgumentParser(description=f"SENTINEL APEX intel report generator {PLATFORM_VERSION}")
+    parser.add_argument("--manifest", default=str(MANIFEST_PATH),
+                        help="Path to feed_manifest.json (default: data/stix/feed_manifest.json)")
     parser.add_argument("--upload-r2", action="store_true", help="Upload each report to Cloudflare R2.")
     parser.add_argument("--public-prefix", default="https://reports.cyberdudebivash.com",
                         help="Public URL prefix. Sets report_url = <prefix>/YYYY/MM/<id>.html in manifest.")
     parser.add_argument("--limit", type=int, default=0, help="Limit number of reports (0 = all)")
     args = parser.parse_args(argv)
+
+    # Override module-level MANIFEST_PATH if --manifest was supplied
+    MANIFEST_PATH = Path(args.manifest)
+    log(f"Manifest path: {MANIFEST_PATH}")
 
     endpoint = None
     if args.upload_r2:
