@@ -106,7 +106,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "116.2.0"
+  PIPELINE_VERSION: "117.0.0"
 
 # Only ONE data-writing workflow at a time — prevents manifest corruption
 concurrency:
@@ -659,22 +659,33 @@ jobs:
 # ═══════════════════════════════════════════════════════════════════════════
       - name: "📄 Generate HTML Tactical Dossiers (report_url pages)"
         run: |
-          echo "=== SENTINEL APEX v116.3.0 — HTML Report Generation ==="
-          # v116.3.0: Pass --public-prefix so report_url = https://intel.cyberdudebivash.com/reports/...
-          # This is the GitHub Pages CNAME domain — reports are always accessible here.
-          # Old entries with https://reports.cyberdudebivash.com (DNS NXDOMAIN) are
-          # rewritten by the Worker AND overwritten here on next manifest save.
+          echo "=== SENTINEL APEX v117.0.0 — HTML Report Generation ==="
+          echo "::group::Report Generation"
+          START_TS=$(date -u +%s)
+
+          # v117.0.0: Zero-skip policy — every intel entry generates a 16-section report.
+          # --fail-on-zero: pipeline fails if 0 reports generated (prevents broken dashboard).
+          # --public-prefix: report_url always absolute to intel.cyberdudebivash.com.
           python3 scripts/generate_intel_reports.py \
             --manifest data/stix/feed_manifest.json \
             --public-prefix https://intel.cyberdudebivash.com \
+            --fail-on-zero \
             --limit 0
+
           REPORT_COUNT=$(find reports -name '*.html' -not -name 'index.html' 2>/dev/null | wc -l || echo 0)
-          echo "Generated $REPORT_COUNT tactical dossier HTML files"
-          if [ "$REPORT_COUNT" -eq 0 ]; then
-            echo "WARN: No HTML tactical dossiers generated (all entries may have failed quality gate)."
-            echo "Pipeline continues — entries will use source_url fallback on dashboard."
-          fi
+          END_TS=$(date -u +%s)
+          ELAPSED=$((END_TS - START_TS))
+          echo "::endgroup::"
+
+          echo "┌─────────────────────────────────────────────┐"
+          echo "│ REPORT GENERATION COMPLETE                  │"
+          echo "│ Reports written : $REPORT_COUNT"
+          echo "│ Elapsed         : ${ELAPSED}s"
+          echo "│ Public prefix   : https://intel.cyberdudebivash.com"
+          echo "└─────────────────────────────────────────────┘"
+
           echo "REPORT_COUNT=$REPORT_COUNT" >> $GITHUB_ENV
+          echo "REPORT_ELAPSED=${ELAPSED}" >> $GITHUB_ENV
 
 # ═══════════════════════════════════════════════════════════════════════════
 # STAGE 3.6b: REFRESH EMBEDDED_INTEL IN DASHBOARD
@@ -1044,13 +1055,72 @@ jobs:
           clean: false
 
 # ═══════════════════════════════════════════════════════════════════════════
+# STAGE 5.5: REPORT DEPLOYMENT VERIFICATION (v117.0.0)
+# Verify sampled report URLs return HTTP 200 after gh-pages deploy.
+# Pipeline FAILS if verification fails — zero broken links policy.
+# ═══════════════════════════════════════════════════════════════════════════
+      - name: "🔍 Verify Report URLs — HTTP 200 Check"
+        continue-on-error: false
+        run: |
+          echo "=== SENTINEL APEX v117.0.0 — REPORT URL VERIFICATION ==="
+          sleep 20  # Allow gh-pages propagation
+
+          # Sample up to 5 report URLs from the manifest and verify HTTP 200
+          VERIFY_FAIL=0
+          VERIFY_PASS=0
+          VERIFY_SKIP=0
+
+          SAMPLE_URLS=$(python3 -c "
+          import json, random, sys
+          try:
+              with open('data/stix/feed_manifest.json') as f:
+                  d = json.load(f)
+              items = d.get('advisories', d.get('reports', []))
+              # Filter items with valid absolute report_url
+              valid = [i for i in items if i.get('report_url','').startswith('https://intel.cyberdudebivash.com/reports/')]
+              sample = random.sample(valid, min(5, len(valid)))
+              for i in sample:
+                  print(i['report_url'])
+          except Exception as e:
+              print(f'SKIP:{e}', file=sys.stderr)
+          " 2>/dev/null || true)
+
+          if [ -z "$SAMPLE_URLS" ]; then
+            echo "WARN: No absolute report URLs found for verification (reports may not be deployed yet)."
+            VERIFY_SKIP=1
+          else
+            while IFS= read -r url; do
+              [ -z "$url" ] && continue
+              HTTP_CODE=$(curl -s --max-time 15 -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || echo "000")
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "  PASS HTTP $HTTP_CODE — $url"
+                VERIFY_PASS=$((VERIFY_PASS + 1))
+              else
+                echo "  FAIL HTTP $HTTP_CODE — $url"
+                VERIFY_FAIL=$((VERIFY_FAIL + 1))
+              fi
+            done <<< "$SAMPLE_URLS"
+          fi
+
+          echo ""
+          echo "┌─────────────────────────────────────────────┐"
+          echo "│ REPORT URL VERIFICATION RESULTS             │"
+          echo "│ PASS: $VERIFY_PASS  FAIL: $VERIFY_FAIL  SKIP: $VERIFY_SKIP"
+          echo "└─────────────────────────────────────────────┘"
+
+          if [ "$VERIFY_FAIL" -gt 0 ]; then
+            echo "::error::$VERIFY_FAIL report URL(s) returned non-200. Pipeline failing — zero broken links policy."
+            exit 1
+          fi
+          echo "REPORT_VERIFY_PASS=$VERIFY_PASS" >> $GITHUB_ENV
+
+# ═══════════════════════════════════════════════════════════════════════════
 # STAGE 6: E2E PIPELINE VALIDATION
 # ═══════════════════════════════════════════════════════════════════════════
       - name: "✅ E2E Pipeline Validation"
         continue-on-error: true
         run: |
-          echo "=== SENTINEL APEX v111.0 — E2E PIPELINE VALIDATION ==="
-          sleep 10  # Allow KV cache to propagate
+          echo "=== SENTINEL APEX v117.0.0 — E2E PIPELINE VALIDATION ==="
 
           # Test 1: Worker health
           HEALTH=$(curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
@@ -1058,20 +1128,28 @@ jobs:
           GATEWAY=$(echo "$HEALTH" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('gateway','unknown'))" 2>/dev/null || echo "error")
           echo "[Health] Gateway: $GATEWAY | R2: $R2_STATUS"
 
-          # Test 2: Preview endpoint (public, no auth)
+          # Test 2: Version endpoint
+          VERSION=$(curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/version" 2>/dev/null || echo '{}')
+          VER=$(echo "$VERSION" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('version','unknown'))" 2>/dev/null || echo "error")
+          echo "[Version] Platform version: $VER"
+
+          # Test 3: Preview endpoint (public, no auth)
           PREVIEW=$(curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null || echo '{}')
           TOTAL=$(echo "$PREVIEW" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('preview',{}).get('total_in_feed',0))" 2>/dev/null || echo 0)
           ITEMS=$(echo "$PREVIEW" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('preview',{}).get('items',[])))" 2>/dev/null || echo 0)
           echo "[Preview] $ITEMS preview items | $TOTAL total in feed"
 
-          # Test 3: Auth enforcement
+          # Test 4: Auth enforcement
           FEED_RESP=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "https://intel.cyberdudebivash.com/api/feed" 2>/dev/null || echo "000")
           echo "[Auth] /api/feed (no key) → HTTP $FEED_RESP (expect 401)"
 
-          # Summary
-          echo "=== R2_UPLOAD_COUNT=${{ env.R2_UPLOAD_COUNT }} | STIX_NEW=${{ env.STIX_NEW_BUNDLES }} ==="
+          # Test 5: STIX endpoint reachability
+          STIX_RESP=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "https://intel.cyberdudebivash.com/api/stix/test" 2>/dev/null || echo "000")
+          echo "[STIX] /api/stix/test (no key) → HTTP $STIX_RESP (expect 401)"
+
+          echo "=== REPORT_COUNT=${{ env.REPORT_COUNT }} | VERIFY_PASS=${{ env.REPORT_VERIFY_PASS }} ==="
           if [ "$R2_STATUS" = "ok" ] && [ "$TOTAL" -gt "10" ] && [ "$FEED_RESP" = "401" ]; then
-            echo "=== VALIDATION PASSED: Pipeline fully operational ==="
+            echo "=== VALIDATION PASSED: Pipeline v117.0.0 fully operational ==="
           else
             echo "=== VALIDATION WARNING: R2=$R2_STATUS TOTAL=$TOTAL FEED_HTTP=$FEED_RESP ==="
           fi
