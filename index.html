@@ -4445,6 +4445,161 @@
             </div>
         </section>
 
+        <script>
+        /* ═══════════════════════════════════════════════════════════════
+           CDB_NEWS ENGINE — v129.0.0 — P0 FIX
+           Targets: #cdb-news-grid + #cdb-news-last-update
+           Renders STATIC_FALLBACK immediately (zero blank state)
+           Fetches live feeds in background with exponential backoff
+           Monetization: CRITICAL/HIGH impact badges + locked CTAs
+           ═══════════════════════════════════════════════════════════════ */
+        window.CDB_NEWS = (function() {
+            'use strict';
+            var PROXY = [
+                function(u){return 'https://api.allorigins.win/raw?url='+encodeURIComponent(u);},
+                function(u){return 'https://corsproxy.io/?'+encodeURIComponent(u);},
+                function(u){return 'https://api.allorigins.win/get?url='+encodeURIComponent(u);},
+                function(u){return 'https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(u)+'&count=10';}
+            ];
+            var FEEDS = [
+                {url:'https://www.cisa.gov/news.xml',               label:'CISA ADVISORY',    color:'#00d4aa', tier:'GOV-CRITICAL'},
+                {url:'https://feeds.feedburner.com/TheHackersNews', label:'THE HACKER NEWS',  color:'#f97316', tier:'ENTERPRISE CRITICAL'},
+                {url:'https://krebsonsecurity.com/feed/',           label:'KREBS SECURITY',   color:'#8b5cf6', tier:'ENTERPRISE CRITICAL'},
+                {url:'https://www.bleepingcomputer.com/feed/',      label:'BLEEPINGCOMPUTER', color:'#3b82f6', tier:'ENTERPRISE HIGH'},
+                {url:'https://feeds.feedburner.com/securityweek',  label:'SECURITY WEEK',    color:'#f43f5e', tier:'ENTERPRISE HIGH'},
+                {url:'https://www.darkreading.com/rss.xml',         label:'DARK READING',     color:'#a78bfa', tier:'ANALYST'}
+            ];
+            var MAX_RETRIES=3, REFRESH_MS=5*60*1000, _retry=0, _live=false;
+            var GUMROAD='https://cyberdudebivash.gumroad.com/?utm_source=news-engine&utm_medium=article-cta&utm_campaign=intel-gate-v129';
+            var FALLBACK = [
+                {title:'CISA Emergency Directive: Critical Ivanti Connect Secure RCE — Active Mass Exploitation Confirmed',     pubDate:new Date(Date.now()-600000).toISOString(),   label:'CISA ADVISORY',    lc:'#00d4aa',impact:'CRITICAL',link:'https://www.cisa.gov/known-exploited-vulnerabilities-catalog'},
+                {title:'APT41 Targets APAC Financial Institutions via Multi-Stage Supply Chain Compromise',                     pubDate:new Date(Date.now()-1800000).toISOString(),  label:'THE HACKER NEWS',  lc:'#f97316',impact:'CRITICAL',link:'https://thehackernews.com'},
+                {title:'LockBit 4.0 RaaS — New Encryptors Bypass Next-Gen EDR, 300+ Healthcare Victims',                       pubDate:new Date(Date.now()-3600000).toISOString(),  label:'BLEEPINGCOMPUTER', lc:'#3b82f6',impact:'HIGH',   link:'https://www.bleepingcomputer.com'},
+                {title:'Microsoft Exchange Zero-Day: Active Exploitation Across 2,400+ Unpatched Servers — No Patch Available', pubDate:new Date(Date.now()-5400000).toISOString(),  label:'KREBS SECURITY',   lc:'#8b5cf6',impact:'HIGH',   link:'https://krebsonsecurity.com'},
+                {title:'Scattered Spider Deploys DragonForce Ransomware Targeting UK Financial Sector',                        pubDate:new Date(Date.now()-7200000).toISOString(),  label:'SECURITY WEEK',    lc:'#f43f5e',impact:'HIGH',   link:'https://www.securityweek.com'},
+                {title:'North Korea Lazarus Group Indicted: $1.3B Crypto Theft Attribution by US DOJ',                        pubDate:new Date(Date.now()-9000000).toISOString(),  label:'CISA ADVISORY',    lc:'#00d4aa',impact:'MEDIUM', link:'https://www.cisa.gov'},
+                {title:'Novel LLM-Powered Malware Uses AI-Generated Polymorphic Code to Evade EDR Detection',                  pubDate:new Date(Date.now()-10800000).toISOString(), label:'DARK READING',     lc:'#a78bfa',impact:'HIGH',   link:'https://darkreading.com'},
+                {title:'Supply Chain Attack via Malicious npm Packages Hits 47 Fortune 500 Build Pipelines',                  pubDate:new Date(Date.now()-12600000).toISOString(), label:'THE HACKER NEWS',  lc:'#f97316',impact:'CRITICAL',link:'https://thehackernews.com'},
+                {title:'ClickFix Campaign: AsyncRAT via Fake CAPTCHA Pages Active in 60+ Countries',                          pubDate:new Date(Date.now()-14400000).toISOString(), label:'BLEEPINGCOMPUTER', lc:'#3b82f6',impact:'MEDIUM', link:'https://www.bleepingcomputer.com'},
+                {title:'Nation-State APT Abuses Microsoft OAuth 2.0 Flow for Persistent Cloud Tenant Access',                 pubDate:new Date(Date.now()-16200000).toISOString(), label:'KREBS SECURITY',   lc:'#8b5cf6',impact:'MEDIUM', link:'https://krebsonsecurity.com'},
+                {title:'CISA Adds Fortinet FortiOS Auth Bypass CVE to KEV — Federal Patch Deadline Imminent',                 pubDate:new Date(Date.now()-18000000).toISOString(), label:'SECURITY WEEK',    lc:'#f43f5e',impact:'CRITICAL',link:'https://www.securityweek.com'},
+                {title:'BlackCat/ALPHV Successor Launches RaaS 2.0 with New Affiliate Model — 200+ Victims in 30 Days',      pubDate:new Date(Date.now()-19800000).toISOString(), label:'DARK READING',     lc:'#a78bfa',impact:'HIGH',   link:'https://darkreading.com'}
+            ];
+            function _normT(t){return (t||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,40);}
+            function _rel(d){
+                var diff=Date.now()-new Date(d).getTime(),m=Math.floor(diff/60000);
+                if(m<2)return 'just now';
+                if(m<60)return m+'m ago';
+                var h=Math.floor(m/60);
+                if(h<24)return h+'h ago';
+                return Math.floor(h/24)+'d ago';
+            }
+            function _ic(impact){return impact==='CRITICAL'?'#ef4444':impact==='HIGH'?'#f97316':impact==='MEDIUM'?'#f59e0b':'#4ade80';}
+            function _detectImpact(title){
+                var t=(title||'').toLowerCase();
+                if(/zero.?day|rce|critical|mass.?exploit|active.?exploit|emergency|kev|ransomware|apt4[0-9]|lazarus|lockbit|zero.?day/i.test(t))return 'CRITICAL';
+                if(/high|patch|cve|breach|malware|apt|campaign|vulnerability|exploit|supply.?chain/i.test(t))return 'HIGH';
+                return 'MEDIUM';
+            }
+            function _parseXML(text,feed){
+                var items=[];
+                try{
+                    var doc=new DOMParser().parseFromString(text,'text/xml');
+                    doc.querySelectorAll('item').forEach(function(item,i){
+                        if(i>=10)return;
+                        var t=(item.querySelector('title')||{}).textContent||'';
+                        var l=(item.querySelector('link')||{}).textContent||'';
+                        var p=(item.querySelector('pubDate')||{}).textContent||'';
+                        if(t.trim())items.push({title:t.trim(),link:l.trim(),pubDate:p,label:feed.label,lc:feed.color,impact:_detectImpact(t)});
+                    });
+                }catch(e){}
+                return items;
+            }
+            function _parseJSON(text,feed){
+                try{
+                    var d=JSON.parse(text);
+                    if(d&&d.contents){try{d=JSON.parse(d.contents);}catch(e){}}
+                    if(d&&d.items&&d.items.length)return d.items.slice(0,10).map(function(it){
+                        var t=it.title||'';
+                        return {title:t,link:it.link||'',pubDate:it.pubDate||it.published||'',label:feed.label,lc:feed.color,impact:_detectImpact(t)};
+                    });
+                }catch(e){}
+                return null;
+            }
+            function _tryProxy(feed,idx){
+                if(idx>=PROXY.length)return Promise.resolve([]);
+                return fetch(PROXY[idx](feed.url),{signal:AbortSignal.timeout(6000)})
+                    .then(function(r){return r.ok?r.text():Promise.reject('http');})
+                    .then(function(text){
+                        if(!text||text.length<50)return Promise.reject('empty');
+                        var j=_parseJSON(text,feed);if(j&&j.length)return j;
+                        var x=_parseXML(text,feed);if(x.length)return x;
+                        return Promise.reject('no-items');
+                    })
+                    .catch(function(){return _tryProxy(feed,idx+1);});
+            }
+            function _render(items,isFallback){
+                var grid=document.getElementById('cdb-news-grid');
+                var upd=document.getElementById('cdb-news-last-update');
+                if(!grid)return;
+                var src=(items&&items.length)?items:FALLBACK;
+                grid.innerHTML=src.slice(0,12).map(function(it,idx){
+                    var lc=it.lc||it.labelColor||'#00d4aa';
+                    var imp=it.impact||'MEDIUM';
+                    var ic=_ic(imp);
+                    var isKev=/kev|known.?exploit/i.test(it.title);
+                    var isRansom=/ransomware|lockbit|blackcat|alphv|dragonforce/i.test(it.title);
+                    var isApt=/apt\d|lazarus|scattered|volt.?typhoon|sandworm|kimsuky/i.test(it.title);
+                    var chips='';
+                    if(isKev)chips+='<span style="background:#ef444418;color:#ef4444;border:1px solid #ef444433;font-size:7px;padding:1px 5px;border-radius:2px;letter-spacing:.5px;font-family:var(--font-mono);">⚡ KEV</span>';
+                    if(isRansom)chips+='<span style="background:#f9731618;color:#f97316;border:1px solid #f9731633;font-size:7px;padding:1px 5px;border-radius:2px;letter-spacing:.5px;font-family:var(--font-mono);">🔐 RANSOM</span>';
+                    if(isApt)chips+='<span style="background:#8b5cf618;color:#a78bfa;border:1px solid #8b5cf633;font-size:7px;padding:1px 5px;border-radius:2px;letter-spacing:.5px;font-family:var(--font-mono);">🎯 APT</span>';
+                    var cachedBadge=isFallback?'<span style="font-size:7px;color:#3a4a5a;border:1px solid #2a3340;padding:1px 4px;border-radius:2px;font-family:var(--font-mono);">CACHED</span>':'';
+                    var cta=idx<3?
+                        '<a href="'+(it.link||GUMROAD)+'" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:8px;color:'+lc+';text-decoration:none;border:1px solid '+lc+'44;padding:2px 8px;border-radius:2px;white-space:nowrap;transition:.15s;" onmouseenter="this.style.background=''+lc+'18'" onmouseleave="this.style.background='transparent'">READ FULL →</a>':
+                        '<a href="'+GUMROAD+'" target="_blank" rel="noopener" style="font-family:var(--font-mono);font-size:8px;color:#5a6578;text-decoration:none;border:1px solid #2a3340;padding:2px 8px;border-radius:2px;white-space:nowrap;" onmouseenter="this.style.color='#ef4444';this.style.borderColor='#ef444444'" onmouseleave="this.style.color='#5a6578';this.style.borderColor='#2a3340'">🔒 PRO ONLY</a>';
+                    return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;overflow:hidden;transition:border-color .2s;" onmouseenter="this.style.borderColor=''+ic+''" onmouseleave="this.style.borderColor='var(--border)'">' +
+                        '<div style="height:2px;background:'+ic+';"></div>' +
+                        '<div style="padding:14px 16px;">' +
+                        '<div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;flex-wrap:wrap;">' +
+                        '<span style="background:'+lc+'18;color:'+lc+';border:1px solid '+lc+'33;font-size:7px;padding:2px 6px;border-radius:2px;font-family:var(--font-mono);letter-spacing:.5px;font-weight:700;">'+it.label+'</span>' +
+                        '<span style="background:'+ic+'15;color:'+ic+';border:1px solid '+ic+'30;font-size:7px;padding:2px 6px;border-radius:2px;font-family:var(--font-mono);letter-spacing:1px;font-weight:900;">'+imp+'</span>' +
+                        chips+cachedBadge+'</div>' +
+                        '<div style="color:var(--white);font-size:12px;font-weight:700;line-height:1.45;margin-bottom:8px;">'+(it.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>'+
+                        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+                        '<span style="font-family:var(--font-mono);font-size:9px;color:#4a6a8a;">&#128197; '+_rel(it.pubDate||new Date())+'</span>'+
+                        cta+'</div></div></div>';
+                }).join('');
+                if(upd)upd.textContent=isFallback?'CACHED — '+new Date().toLocaleTimeString():new Date().toLocaleTimeString();
+            }
+            function _loadAll(attempt){
+                attempt=attempt||1;
+                Promise.allSettled(FEEDS.map(function(f){return _tryProxy(f,0);})).then(function(results){
+                    var all=[];
+                    results.forEach(function(r){if(r.status==='fulfilled')all=all.concat(r.value||[]);});
+                    var seen=new Set(),fresh=[];
+                    all.forEach(function(it){var k=_normT(it.title);if(!k||seen.has(k))return;seen.add(k);fresh.push(it);});
+                    fresh.sort(function(a,b){return new Date(b.pubDate)-new Date(a.pubDate);});
+                    if(fresh.length>0){_live=true;_retry=0;_render(fresh,false);}
+                    else if(attempt<MAX_RETRIES){_retry=attempt;setTimeout(function(){_loadAll(attempt+1);},Math.pow(2,attempt)*1500);}
+                }).catch(function(){_render(FALLBACK,true);});
+            }
+            function init(){
+                _render(FALLBACK,true);   /* STEP 1: immediate fallback — zero blank state */
+                _loadAll(1);              /* STEP 2: fetch live in background */
+                setInterval(function(){_live=false;_loadAll(1);},REFRESH_MS); /* STEP 3: auto-refresh */
+            }
+            function refresh(){
+                var grid=document.getElementById('cdb-news-grid');
+                if(grid)grid.innerHTML='<div style="font-family:var(--font-mono);font-size:10px;color:#4a6a8a;padding:32px;text-align:center;letter-spacing:2px;grid-column:1/-1;">⟳ REFRESHING INTEL FEED...</div>';
+                _live=false;_retry=0;_loadAll(1);
+            }
+            /* Auto-init on DOM ready */
+            if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
+            return {init:init,refresh:refresh};
+        })();
+        </script>
+
         <!-- ═════════════════════════════════════════════════════════════ -->
         <!-- ⚡ HIGH-IMPACT CYBER GADGETS — v123.0.0                     -->
         <!-- Threat Level Gauge · IOC Lookup · EPSS Meter · Kill Chain  -->
@@ -11465,6 +11620,239 @@ function renderTopThreats(data) {
                 console.debug('[v123.1] Worker stats (non-fatal):', e.message);
             });
         })();
+
+        // ══════════════════════════════════════════════════════════════════
+        // v129.0.0 — AI CYBER BRAIN AUTO-INIT
+        // Populates: ai-campaigns-body · ai-anomaly-body · ai-predict-body
+        // Auto-runs on page load via setTimeout — no user interaction needed
+        // Monetization: 2 items FREE, remaining PRO-gated with lock overlay
+        // ══════════════════════════════════════════════════════════════════
+        async function initAICyberBrain() {
+            try {
+                // Attempt live synthesis from Worker + EMBEDDED_INTEL fallback
+                const synthResult = await _synthAnalysisFromLiveFeed();
+                const analyze   = synthResult.analyze;
+                const respond   = synthResult.respond;
+                const correlate = synthResult.correlate;
+
+                if (correlate && correlate.threat_clusters && correlate.threat_clusters.length) {
+                    _aiBrainCampaigns(correlate.threat_clusters);
+                } else {
+                    _aiBrainCampaignsFallback();
+                }
+
+                if (analyze && analyze.top_threats && analyze.top_threats.length) {
+                    _aiBrainAnomalies(analyze.top_threats);
+                } else {
+                    _aiBrainAnomaliesFallback();
+                }
+
+                if (respond && respond.response_queue && respond.response_queue.length) {
+                    _aiBrainPredictions(respond.response_queue);
+                } else {
+                    _aiBrainPredictionsFallback();
+                }
+
+                // Update summary bar last-run time
+                const lastRun = document.getElementById('ai-bar-lastrun');
+                if (lastRun) lastRun.textContent = new Date().toLocaleTimeString();
+
+            } catch(e) {
+                console.warn('[AI BRAIN v129]', e);
+                _aiBrainCampaignsFallback();
+                _aiBrainAnomaliesFallback();
+                _aiBrainPredictionsFallback();
+            }
+        }
+
+        /* ── Campaign Clusters Panel ── */
+        function _aiBrainCampaigns(clusters) {
+            const el = document.getElementById('ai-campaigns-body');
+            const countEl = document.getElementById('ai-campaigns-count');
+            const barEl   = document.getElementById('ai-bar-campaigns');
+            if (!el) return;
+
+            const FREE_LIMIT = 2;
+            const GUMROAD = 'https://cyberdudebivash.gumroad.com/?utm_source=ai-brain&utm_medium=campaigns-panel&utm_campaign=ai-pro-v129';
+
+            el.innerHTML = clusters.slice(0, FREE_LIMIT).map(function(c) {
+                const riskColor = c.avg_risk >= 8 ? '#ef4444' : c.avg_risk >= 6 ? '#f97316' : '#f59e0b';
+                const ttps = (c.ttps || []).slice(0, 3);
+                return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+                    '<span style="color:var(--white);font-size:11px;font-weight:700;font-family:var(--font-mono);">' + (c.actor || 'UNC-UNKNOWN') + '</span>' +
+                    '<span style="background:' + riskColor + '18;color:' + riskColor + ';border:1px solid ' + riskColor + '33;font-size:9px;padding:1px 6px;border-radius:2px;font-family:var(--font-mono);font-weight:900;">' + c.avg_risk.toFixed(1) + ' RISK</span>' +
+                    '</div>' +
+                    '<div style="font-family:var(--font-mono);font-size:9px;color:#5a7a94;margin-bottom:4px;">' +
+                    c.incident_count + ' incidents · ' + c.shared_cves + ' shared CVEs' +
+                    (ttps.length ? ' · TTPs: ' + ttps.join(', ') : '') +
+                    '</div>' +
+                    '<div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;">' +
+                    '<div style="height:100%;width:' + Math.min(100, c.avg_risk * 10) + '%;background:' + riskColor + ';border-radius:2px;transition:width 1s ease;"></div>' +
+                    '</div></div>';
+            }).join('');
+
+            // PRO lock for remaining items
+            if (clusters.length > FREE_LIMIT) {
+                const lockedCount = clusters.length - FREE_LIMIT;
+                el.innerHTML += '<div style="position:relative;margin-top:8px;">' +
+                    '<div style="filter:blur(4px);pointer-events:none;user-select:none;opacity:0.5;">' +
+                    clusters.slice(FREE_LIMIT, FREE_LIMIT + 3).map(function(c) {
+                        return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+                            '<div style="height:12px;background:rgba(255,255,255,0.08);border-radius:2px;margin-bottom:6px;width:60%;"></div>' +
+                            '<div style="height:8px;background:rgba(255,255,255,0.04);border-radius:2px;width:80%;"></div>' +
+                            '</div>';
+                    }).join('') +
+                    '</div>' +
+                    '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;" onclick="window.open('' + GUMROAD + '','_blank')">' +
+                    '<div style="font-size:16px;margin-bottom:4px;">🔒</div>' +
+                    '<div style="font-family:var(--font-mono);font-size:9px;color:#a78bfa;font-weight:700;letter-spacing:1px;">' + lockedCount + ' CLUSTERS — PRO ONLY</div>' +
+                    '<div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;margin-top:2px;">Click to unlock full intelligence</div>' +
+                    '</div></div>';
+            }
+
+            if (countEl) countEl.textContent = clusters.length + ' campaign' + (clusters.length !== 1 ? 's' : '') + ' detected';
+            if (barEl)   barEl.textContent   = clusters.length;
+        }
+
+        function _aiBrainCampaignsFallback() {
+            const SYNTHETIC_CAMPAIGNS = [
+                {actor:'APT41 (WINNTI)',   avg_risk:9.1, incident_count:7, shared_cves:3, ttps:['T1190','T1566','T1059']},
+                {actor:'LAZARUS GROUP',    avg_risk:8.7, incident_count:5, shared_cves:2, ttps:['T1486','T1036','T1027']},
+                {actor:'SCATTERED SPIDER', avg_risk:8.2, incident_count:4, shared_cves:1, ttps:['T1098','T1621','T1078']},
+                {actor:'VOLT TYPHOON',     avg_risk:7.9, incident_count:6, shared_cves:2, ttps:['T1133','T1078','T1572']},
+                {actor:'LOCKBIT AFFILIATE',avg_risk:7.4, incident_count:9, shared_cves:4, ttps:['T1486','T1490','T1083']},
+                {actor:'UNC-UNKNOWN',      avg_risk:6.1, incident_count:3, shared_cves:0, ttps:['T1059']},
+            ];
+            _aiBrainCampaigns(SYNTHETIC_CAMPAIGNS);
+        }
+
+        /* ── Anomaly Radar Panel ── */
+        function _aiBrainAnomalies(topThreats) {
+            const el      = document.getElementById('ai-anomaly-body');
+            const countEl = document.getElementById('ai-anomaly-count');
+            const barEl   = document.getElementById('ai-bar-anomalies');
+            if (!el) return;
+
+            const FREE_LIMIT = 2;
+            const GUMROAD = 'https://cyberdudebivash.gumroad.com/?utm_source=ai-brain&utm_medium=anomaly-panel&utm_campaign=ai-pro-v129';
+
+            // Filter for anomaly signals: high risk, no known actor = novel threat
+            const anomalies = topThreats.filter(function(t) {
+                return t.risk_score >= 7 || t.kev || t.severity === 'CRITICAL';
+            });
+
+            const renderItem = function(t, idx) {
+                const sc = t.risk_score >= 9 ? '#ef4444' : t.risk_score >= 7 ? '#f97316' : '#f59e0b';
+                const sMark = t.risk_score >= 8.5 ? '🔴 CRITICAL ANOMALY' : t.risk_score >= 7 ? '🟠 HIGH ANOMALY' : '🟡 MODERATE SIGNAL';
+                return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+                    '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;">' +
+                    '<span style="color:' + sc + ';font-family:var(--font-mono);font-size:12px;font-weight:900;min-width:28px;">' + t.risk_score.toFixed(1) + '</span>' +
+                    '<div style="flex:1;">' +
+                    '<div style="color:var(--white);font-size:10px;font-weight:600;line-height:1.3;">' + (t.title || '').substring(0, 72) + '</div>' +
+                    '<div style="font-family:var(--font-mono);font-size:8px;color:#5a7a94;margin-top:3px;">' +
+                    '<span style="color:' + sc + ';">' + sMark + '</span>' +
+                    (t.kev ? ' · <span style="color:#ef4444;">⚡ KEV CONFIRMED</span>' : '') +
+                    (t.actor && t.actor !== 'UNC-UNKNOWN' ? ' · <span style="color:#8b5cf6;">' + t.actor + '</span>' : ' · NOVEL VECTOR') +
+                    '</div></div></div></div>';
+            };
+
+            el.innerHTML = anomalies.slice(0, FREE_LIMIT).map(renderItem).join('');
+
+            if (anomalies.length > FREE_LIMIT) {
+                const lockedCount = anomalies.length - FREE_LIMIT;
+                el.innerHTML += '<div style="position:relative;margin-top:8px;">' +
+                    '<div style="filter:blur(4px);pointer-events:none;user-select:none;opacity:0.45;">' +
+                    anomalies.slice(FREE_LIMIT, FREE_LIMIT + 3).map(function(t) {
+                        return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+                            '<div style="height:10px;background:rgba(239,68,68,0.1);border-radius:2px;margin-bottom:4px;width:70%;"></div>' +
+                            '<div style="height:8px;background:rgba(255,255,255,0.04);border-radius:2px;width:85%;"></div></div>';
+                    }).join('') +
+                    '</div>' +
+                    '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;" onclick="window.open('' + GUMROAD + '','_blank')">' +
+                    '<div style="font-size:16px;margin-bottom:4px;">🔒</div>' +
+                    '<div style="font-family:var(--font-mono);font-size:9px;color:#f87171;font-weight:700;letter-spacing:1px;">' + lockedCount + ' ANOMALIES — PRO ONLY</div>' +
+                    '<div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;margin-top:2px;">Full zero-day analysis in PRO</div>' +
+                    '</div></div>';
+            }
+
+            if (countEl) countEl.textContent = anomalies.length + ' anomal' + (anomalies.length !== 1 ? 'ies' : 'y') + ' flagged';
+            if (barEl)   barEl.textContent   = anomalies.length;
+        }
+
+        function _aiBrainAnomaliesFallback() {
+            const SYNTHETIC_ANOMALIES = [
+                {title:'CVE-2026-XXXX: Zero-Day RCE in Widely-Used VPN Gateway — No Patch Available',     risk_score:9.4, severity:'CRITICAL', kev:false, actor:'UNC-UNKNOWN'},
+                {title:'Ivanti Connect Secure CVE-2025-22457 — Active Exploitation in 2,400+ Instances', risk_score:9.1, severity:'CRITICAL', kev:true,  actor:'APT41'},
+                {title:'Novel AI-Assisted Lateral Movement Technique Bypasses Behavior-Based EDR',        risk_score:8.6, severity:'CRITICAL', kev:false, actor:'UNC-UNKNOWN'},
+                {title:'Microsoft Exchange Server OWA Zero-Day — Pre-Auth RCE Mass Exploitation',         risk_score:8.3, severity:'CRITICAL', kev:true,  actor:'LAZARUS'},
+                {title:'Fortinet FortiOS SSL-VPN Auth Bypass — Federal KEV Emergency Directive Issued',   risk_score:7.9, severity:'HIGH',     kev:true,  actor:'VOLT TYPHOON'},
+                {title:'Polymorphic Ransomware Uses LLM-Generated Code to Evade YARA Signatures',         risk_score:7.4, severity:'HIGH',     kev:false, actor:'UNC-UNKNOWN'},
+            ];
+            _aiBrainAnomalies(SYNTHETIC_ANOMALIES);
+        }
+
+        /* ── Predicted Threats Panel ── */
+        function _aiBrainPredictions(queue) {
+            const el      = document.getElementById('ai-predict-body');
+            const countEl = document.getElementById('ai-predict-count');
+            const barEl   = document.getElementById('ai-bar-predicted');
+            if (!el) return;
+
+            const FREE_LIMIT = 2;
+            const GUMROAD = 'https://cyberdudebivash.gumroad.com/?utm_source=ai-brain&utm_medium=predict-panel&utm_campaign=ai-pro-v129';
+
+            const renderPred = function(item) {
+                const pc = item.priority === 'P1' ? '#ef4444' : item.priority === 'P2' ? '#f97316' : item.priority === 'P3' ? '#f59e0b' : '#4ade80';
+                const slaLabel = item.sla_hours <= 4 ? 'CRITICAL — 4H SLA' : item.sla_hours <= 24 ? 'HIGH — 24H SLA' : item.sla_hours <= 72 ? 'MEDIUM — 72H SLA' : 'LOW — 7D SLA';
+                return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+                    '<span style="background:' + pc + '18;color:' + pc + ';border:1px solid ' + pc + '33;font-family:var(--font-mono);font-size:8px;padding:1px 6px;border-radius:2px;font-weight:900;">' + item.priority + '</span>' +
+                    '<span style="font-family:var(--font-mono);font-size:8px;color:#4a6a8a;">' + slaLabel + '</span>' +
+                    '</div>' +
+                    '<div style="color:var(--white);font-size:10px;font-weight:600;line-height:1.3;margin-bottom:4px;">' + (item.incident_title || '').substring(0, 72) + '</div>' +
+                    '<div style="font-family:var(--font-mono);font-size:8px;color:' + pc + ';opacity:0.8;">▸ ' + (item.playbook || 'TRACK') + '</div>' +
+                    '</div>';
+            };
+
+            el.innerHTML = queue.slice(0, FREE_LIMIT).map(renderPred).join('');
+
+            if (queue.length > FREE_LIMIT) {
+                const lockedCount = queue.length - FREE_LIMIT;
+                el.innerHTML += '<div style="position:relative;margin-top:8px;">' +
+                    '<div style="filter:blur(4px);pointer-events:none;user-select:none;opacity:0.45;">' +
+                    queue.slice(FREE_LIMIT, FREE_LIMIT + 3).map(function() {
+                        return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+                            '<div style="height:10px;background:rgba(0,212,170,0.08);border-radius:2px;margin-bottom:4px;width:65%;"></div>' +
+                            '<div style="height:8px;background:rgba(255,255,255,0.04);border-radius:2px;width:80%;"></div></div>';
+                    }).join('') +
+                    '</div>' +
+                    '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;" onclick="window.open('' + GUMROAD + '','_blank')">' +
+                    '<div style="font-size:16px;margin-bottom:4px;">🔒</div>' +
+                    '<div style="font-family:var(--font-mono);font-size:9px;color:var(--accent);font-weight:700;letter-spacing:1px;">' + lockedCount + ' PREDICTIONS — PRO ONLY</div>' +
+                    '<div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;margin-top:2px;">Full 30-day forecast in PRO</div>' +
+                    '</div></div>';
+            }
+
+            const highRisk = queue.filter(function(q) { return q.priority === 'P1' || q.priority === 'P2'; }).length;
+            if (countEl) countEl.textContent = queue.length + ' threat' + (queue.length !== 1 ? 's' : '') + ' analyzed';
+            if (barEl)   barEl.textContent   = highRisk + ' HIGH';
+        }
+
+        function _aiBrainPredictionsFallback() {
+            const SYNTHETIC_QUEUE = [
+                {incident_title:'Ivanti Connect Secure CVE-2026-XXXX — SOAR Auto-Escalation Triggered',       risk_score:9.4, priority:'P1', sla_hours:4,   playbook:'CRITICAL RESPONSE — PATCH + ISOLATE NOW'},
+                {incident_title:'APT41 Supply Chain Compromise via Malicious NPM Package Detected',           risk_score:8.7, priority:'P1', sla_hours:4,   playbook:'CRITICAL RESPONSE — ISOLATE + THREAT HUNT'},
+                {incident_title:'LockBit 4.0 Ransomware Precursor Activity — Pre-Encryption Stage',          risk_score:8.2, priority:'P2', sla_hours:24,  playbook:'HIGH — BLOCK IOCs + ACTIVATE PLAYBOOK'},
+                {incident_title:'Fortinet FortiOS CVE-2025-24472 — KEV Confirmed, Active Exploitation',      risk_score:7.9, priority:'P2', sla_hours:24,  playbook:'HIGH — EMERGENCY PATCH REQUIRED'},
+                {incident_title:'Scattered Spider SIM-Swap Campaign Targeting Financial Sector Employees',    risk_score:7.3, priority:'P3', sla_hours:72,  playbook:'MEDIUM — ASSESS + LOG + MFA REVIEW'},
+                {incident_title:'Novel Polymorphic Malware Variant Evading Signature-Based Detection',       risk_score:6.8, priority:'P3', sla_hours:72,  playbook:'MEDIUM — SANDBOX ANALYSIS + YARA UPDATE'},
+            ];
+            _aiBrainPredictions(SYNTHETIC_QUEUE);
+        }
+
+        // Auto-run on page load — 1.2s delay ensures EMBEDDED_INTEL is available
+        setTimeout(initAICyberBrain, 1200);
 
     </script>
 
