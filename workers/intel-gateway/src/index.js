@@ -16,8 +16,32 @@
 //           SIEM formatters (Splunk/Sentinel/QRadar), pricing page
 // =============================================================================
 
+// ── v123.0.0: Extension modules ───────────────────────────────────────────────
+import {
+  handleSearch,
+  handleActors,
+  handleCVEs,
+  handleMISPExport,
+  handleCSVExport,
+  handleCorrelate,
+  enforceScopeMiddleware,
+  fingerprintRequest,
+  buildScopeSet,
+  detectAbuse,
+  trackAuthFailure,
+  handleAbuseReport,
+  pushWebhookNotifications,
+  SCOPE_DEFINITIONS,
+  TIER_DEFAULT_SCOPES,
+} from "./api-extensions.js";
+
+import {
+  enforceTierGate,
+  REVENUE_CONFIG,
+} from "./revenue-enforcement.js";
+
 const CONFIG = {
-  GATEWAY_VERSION:   "122.0.0",  // v122.0.0: SAAS TRANSFORMATION — user auth, billing, IOC extraction, SIEM
+  GATEWAY_VERSION:   "123.0.0",  // v123.0.0: FULL INTEGRATION — all 10 systems wired: search/actors/CVEs/MISP/CSV/correlate/scopes/abuse/webhooks/dashboard
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v111.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -653,11 +677,23 @@ async function resolveAuth(request, env) {
       if (await isTokenRevoked(jwtToken, env)) {
         return { valid: false, reason: "token_revoked", auth_method: "jwt" };
       }
+      // v123.1: Live tier resolution — JWT tier can be stale if user paid after token issue.
+      // Read authoritative tier from KV user record; fall back to JWT claim.
+      // This makes Stripe payment tier upgrades instant — no JWT refresh required.
+      const jwtUserId = result.payload.user_id || result.payload.sub || result.payload.key_id;
+      let liveTier    = result.payload.tier || CONFIG.TIERS.FREE;
+      if (jwtUserId && env?.API_KEYS_KV) {
+        const liveUser = await env.API_KEYS_KV.get(`user:${jwtUserId}`, { type: "json" }).catch(() => null);
+        if (liveUser?.tier) liveTier = liveUser.tier;
+      }
       return {
         valid:       true,
-        tier:        result.payload.tier || CONFIG.TIERS.FREE,
-        key_id:      result.payload.key_id,
+        tier:        liveTier,
+        key_id:      result.payload.key_id || jwtUserId,
         label:       result.payload.label,
+        user_id:     jwtUserId,
+        email:       result.payload.email,
+        scopes:      buildScopeSet(liveTier, result.payload.scopes || null),
         auth_method: "jwt",
       };
     }
@@ -728,12 +764,14 @@ async function resolveApiKey(request, env) {
       env.API_KEYS_KV.put(usageKey, String(used + 1), { expirationTtl: 86400 * 35 }).catch(() => {});
     }
 
+    const keyTier = stored.tier || CONFIG.TIERS.FREE;
     return {
       valid:      true,
-      tier:       stored.tier || CONFIG.TIERS.FREE,
+      tier:       keyTier,
       key_id:     keyId,
       label:      stored.label,
       created_at: stored.created_at,
+      scopes:     buildScopeSet(keyTier, stored.scopes || null),
     };
   } catch (e) {
     slog("ERROR", "AUTH", "resolveApiKey failed", { error: e.message });
@@ -2283,6 +2321,231 @@ async function handleSiemWebhook(request, env, auth, rid) {
 }
 
 // ── v117.0.0: /api/alerts — threat alerts for Pro+ ───────────────────────────
+// ── v123.1: GET /api/account/usage — per-key usage analytics ─────────────────
+// Returns daily/monthly request counts per key, endpoint breakdown, quota remaining.
+// Requires auth (JWT or API key). Returns data scoped to the authenticated user/key.
+async function handleAccountUsage(request, env, rid, auth) {
+  if (!env?.API_KEYS_KV || !env?.ANALYTICS_KV) {
+    return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
+  }
+  const userId = auth.user_id || auth.key_id;
+  const today  = new Date().toISOString().slice(0, 10);
+  const month  = new Date().toISOString().slice(0, 7);
+
+  try {
+    // Collect per-key usage from ANALYTICS_KV
+    const keyList = userId
+      ? await env.API_KEYS_KV.list({ prefix: `userkey:${userId}:` }).catch(() => ({ keys: [] }))
+      : { keys: [] };
+
+    // Build per-key breakdown
+    const keyUsage = await Promise.all(
+      keyList.keys.slice(0, 20).map(async (kvKey) => {
+        const rec = await env.API_KEYS_KV.get(kvKey.name, { type: "json" }).catch(() => null);
+        if (!rec || rec.revoked) return null;
+        const monthlyCount = parseInt(await env.API_KEYS_KV.get(`usage:${rec.key_id}:${month}`).catch(() => "0") || "0");
+        const dailyCount   = parseInt(await env.API_KEYS_KV.get(`usage:${rec.key_id}:daily:${today}`).catch(() => "0") || "0");
+        const tier         = rec.tier || CONFIG.TIERS.FREE;
+        const dailyLimit   = CONFIG.RATE_LIMITS[tier] * 60 * 24; // approx daily cap
+        const monthlyLimit = { free: 3000, premium: 150000, enterprise: -1 }[tier] || 3000;
+        return {
+          key_id:         rec.key_id,
+          label:          rec.label || "Unnamed Key",
+          tier,
+          requests_today: dailyCount,
+          requests_month: monthlyCount,
+          daily_limit:    dailyLimit,
+          monthly_limit:  monthlyLimit < 0 ? "unlimited" : monthlyLimit,
+          quota_used_pct: monthlyLimit > 0 ? parseFloat(((monthlyCount / monthlyLimit) * 100).toFixed(1)) : 0,
+          created_at:     rec.created_at,
+        };
+      })
+    );
+
+    // Single-key context: analytics fingerprint for current key
+    const fpKey    = `fingerprint:${today}:${auth.key_id || "anon"}`;
+    const fpRecord = await env.ANALYTICS_KV.get(fpKey, { type: "json" }).catch(() => null);
+    const endpointBreakdown = {};
+    if (fpRecord?.calls) {
+      for (const call of fpRecord.calls) {
+        endpointBreakdown[call.path] = (endpointBreakdown[call.path] || 0) + 1;
+      }
+    }
+
+    const filtered = keyUsage.filter(Boolean);
+    const totalMonth = filtered.reduce((s, k) => s + k.requests_month, 0);
+    const tier = auth.tier || CONFIG.TIERS.FREE;
+
+    const usageResponse = {
+      status:         "ok",
+      user_id:        userId,
+      tier,
+      period: {
+        today,
+        month,
+        month_label: new Date().toLocaleString("en-US", { month: "long", year: "numeric" }),
+      },
+      summary: {
+        total_requests_today: fpRecord?.count || 0,
+        total_requests_month: totalMonth,
+        active_keys:          filtered.filter(k => !k.revoked).length,
+        endpoint_hits_today:  endpointBreakdown,
+      },
+      keys:          filtered,
+      limits: {
+        rate_per_min:  CONFIG.RATE_LIMITS[tier] || CONFIG.RATE_LIMITS.free,
+        feed_items:    CONFIG.FEED_LIMITS[tier]  || CONFIG.FEED_LIMITS.free,
+        scopes:        auth.scopes || buildScopeSet(tier, null),
+      },
+      upgrade:        tier !== CONFIG.TIERS.ENTERPRISE ? {
+        message: `Upgrade to unlock higher limits and more scopes.`,
+        url:     `https://intel.cyberdudebivash.com/upgrade?plan=${tier === "free" ? "pro" : "enterprise"}`,
+      } : null,
+      request_id:    rid,
+    };
+
+    // Increment daily usage counter for this key (fire-and-forget)
+    if (auth.key_id) {
+      const dailyUKey = `usage:${auth.key_id}:daily:${today}`;
+      env.API_KEYS_KV.get(dailyUKey).then(v =>
+        env.API_KEYS_KV.put(dailyUKey, String((parseInt(v || "0") + 1)), { expirationTtl: 86400 * 2 })
+      ).catch(() => {});
+    }
+
+    return jsonResponse(usageResponse);
+  } catch (e) {
+    return jsonResponse({ error: "usage_unavailable", message: e.message, request_id: rid }, 503);
+  }
+}
+
+// ── v123.0.0: GET /api/platform/stats — real-data dashboard metrics ──────────
+// Replaces all static dashboard hardcoded numbers.
+// Sources: R2 feed manifest + KV analytics. Public (no auth required for summary).
+async function handlePlatformStats(request, env, rid) {
+  try {
+    // Try KV cache (60s TTL)
+    const cacheKey = "platform:stats:v123";
+    if (env?.ANALYTICS_KV) {
+      const cached = await env.ANALYTICS_KV.get(cacheKey, { type: "json" }).catch(() => null);
+      if (cached) return jsonResponse({ ...cached, cached: true, request_id: rid });
+    }
+
+    // Fetch live feed index from R2
+    let manifest = null;
+    if (env?.INTEL_R2) {
+      const obj = await env.INTEL_R2.get("feed_manifest.json").catch(() => null);
+      if (obj) {
+        const text = await obj.text().catch(() => "{}");
+        try { manifest = JSON.parse(text); } catch { manifest = null; }
+      }
+    }
+    // Fallback to SECURITY_HUB_KV cache
+    if (!manifest && env?.SECURITY_HUB_KV) {
+      manifest = await env.SECURITY_HUB_KV.get("idx:reports", { type: "json" }).catch(() => null);
+    }
+
+    const reports = manifest?.reports || [];
+    const now = new Date().toISOString();
+
+    // ── Aggregate live metrics ────────────────────────────────────────────────
+    let ioc_count = 0;
+    let actor_set = new Set();
+    let cve_set   = new Set();
+    const sev_dist = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
+    const threat_types = {};
+    let kev_count = 0;
+    let last_updated = "";
+    let highest_risk = 0;
+    let exploit_active = 0;
+
+    for (const r of reports) {
+      // Severity distribution
+      const sev = (r.severity || "unknown").toLowerCase();
+      sev_dist[sev] = (sev_dist[sev] || 0) + 1;
+
+      // IOC count
+      if (Array.isArray(r.iocs)) ioc_count += r.iocs.length;
+
+      // Unique actors
+      if (r.actor_tag && r.actor_tag !== "UNATTRIBUTED") actor_set.add(r.actor_tag);
+
+      // Unique CVEs
+      if (r.cve_id) cve_set.add(r.cve_id.toUpperCase());
+      if (Array.isArray(r.iocs)) {
+        r.iocs.filter(i => i.type === "cve").forEach(i => cve_set.add(i.value.toUpperCase()));
+      }
+
+      // KEV
+      if (r.kev_present === true) kev_count++;
+
+      // Threat types
+      if (r.threat_type) threat_types[r.threat_type] = (threat_types[r.threat_type] || 0) + 1;
+
+      // Recency
+      const ts = r.processed_at || r.timestamp || "";
+      if (ts > last_updated) last_updated = ts;
+
+      // Highest risk score
+      if ((r.risk_score || 0) > highest_risk) highest_risk = r.risk_score;
+
+      // Active exploitation
+      const maturity = r.exploit_maturity || "";
+      if (maturity === "active" || (r.kev_present === true)) exploit_active++;
+    }
+
+    // Top 5 threat types
+    const top_threat_types = Object.entries(threat_types)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([type, count]) => ({ type, count }));
+
+    // KV analytics: total API calls (today)
+    let api_calls_today = 0;
+    if (env?.ANALYTICS_KV) {
+      const today = now.slice(0, 10);
+      const meta  = await env.ANALYTICS_KV.get(`meta:calls:${today}`).catch(() => null);
+      if (meta) api_calls_today = parseInt(meta) || 0;
+    }
+
+    const stats = {
+      status:             "ok",
+      generated_at:       now,
+      platform:           `${CONFIG.GATEWAY_NAME} v${CONFIG.GATEWAY_VERSION}`,
+      intel: {
+        total_reports:    reports.length,
+        ioc_count,
+        unique_actors:    actor_set.size,
+        unique_cves:      cve_set.size,
+        kev_count,
+        exploit_active,
+        highest_risk_score: parseFloat((highest_risk || 0).toFixed(1)),
+        last_updated:     last_updated || now,
+        severity_distribution: sev_dist,
+        top_threat_types,
+      },
+      api: {
+        calls_today:      api_calls_today,
+        gateway_version:  CONFIG.GATEWAY_VERSION,
+        plans_available:  ["free", "pro", "enterprise"],
+        pricing: {
+          pro_monthly_usd:        29,
+          enterprise_monthly_usd: 199,
+        },
+      },
+    };
+
+    // Cache for 60 seconds
+    if (env?.ANALYTICS_KV) {
+      env.ANALYTICS_KV.put(cacheKey, JSON.stringify(stats), { expirationTtl: 60 }).catch(() => {});
+    }
+
+    return jsonResponse({ ...stats, cached: false, request_id: rid });
+  } catch (e) {
+    await trackError(env, "STATS", "handlePlatformStats failed", { error: e.message });
+    return jsonResponse({ error: "stats_unavailable", message: e.message, request_id: rid }, 503);
+  }
+}
+
 async function handleAlerts(request, env, auth, rid) {
   if (auth.tier === CONFIG.TIERS.FREE) {
     return jsonResponse({
@@ -2532,6 +2795,40 @@ function tierFromStripePlan(priceId, env) {
   return CONFIG.TIERS.FREE;
 }
 
+// ── v123.1: cascadeUserTierToKeys — propagate tier change to all user-owned keys ──
+// Called on payment success / subscription update / cancellation.
+// Updates both userkey: index records and apikey: lookup records.
+// Fire-and-forget safe — never throws, errors are logged only.
+async function cascadeUserTierToKeys(userId, newTier, env) {
+  if (!env?.API_KEYS_KV || !userId) return;
+  try {
+    const list = await env.API_KEYS_KV.list({ prefix: `userkey:${userId}:` }).catch(() => ({ keys: [] }));
+    if (!list?.keys?.length) return;
+    await Promise.all(list.keys.map(async (kvKey) => {
+      try {
+        const rec = await env.API_KEYS_KV.get(kvKey.name, { type: "json" }).catch(() => null);
+        if (!rec || rec.revoked) return;
+        // Update userkey: record
+        rec.tier = newTier;
+        rec.tier_updated_at = new Date().toISOString();
+        await env.API_KEYS_KV.put(kvKey.name, JSON.stringify(rec));
+        // Update apikey: lookup record (used in resolveApiKey)
+        if (rec.key_id) {
+          const apiRec = await env.API_KEYS_KV.get(`apikey:${rec.key_id}`, { type: "json" }).catch(() => null);
+          if (apiRec) {
+            apiRec.tier = newTier;
+            apiRec.tier_updated_at = new Date().toISOString();
+            await env.API_KEYS_KV.put(`apikey:${rec.key_id}`, JSON.stringify(apiRec));
+          }
+        }
+      } catch { /* non-fatal — key update failure never blocks webhook */ }
+    }));
+    slog("INFO", "BILLING", `Tier cascade complete`, { user_id: userId, tier: newTier, keys: list.keys.length });
+  } catch (e) {
+    slog("WARN", "BILLING", `cascadeUserTierToKeys failed (non-fatal)`, { error: e.message });
+  }
+}
+
 // ── v122.0.0: POST /webhooks/stripe ──────────────────────────────────────────
 async function handleStripeWebhook(request, env, rid) {
   const sigHeader = request.headers.get("Stripe-Signature") || "";
@@ -2559,7 +2856,7 @@ async function handleStripeWebhook(request, env, rid) {
     switch (event.type) {
       case "checkout.session.completed": {
         const userId     = obj.metadata?.user_id || obj.client_reference_id;
-        const priceId    = obj.metadata?.price_id;
+        const priceId    = obj.metadata?.price_id || obj.metadata?.price;
         const newTier    = tierFromStripePlan(priceId, env);
         const customerId = obj.customer;
         if (userId && env?.API_KEYS_KV) {
@@ -2570,7 +2867,9 @@ async function handleStripeWebhook(request, env, rid) {
             ur.subscription       = { id: obj.subscription, status: "active", tier: newTier, price_id: priceId, updated_at: new Date().toISOString() };
             await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
             if (customerId) await env.API_KEYS_KV.put(`stripe_customer:${customerId}`, userId);
-            slog("INFO", "BILLING", "Checkout complete — tier upgraded", { user_id: userId, tier: newTier });
+            // v123.1: CASCADE — upgrade all user-owned API keys to new tier immediately
+            await cascadeUserTierToKeys(userId, newTier, env);
+            slog("INFO", "BILLING", "Checkout complete — tier upgraded + keys cascaded", { user_id: userId, tier: newTier });
           }
         }
         break;
@@ -2588,7 +2887,9 @@ async function handleStripeWebhook(request, env, rid) {
               ur.tier         = newTier;
               ur.subscription = { id: obj.id, status, tier: newTier, price_id: priceId, updated_at: new Date().toISOString() };
               await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
-              slog("INFO", "BILLING", "Subscription updated", { user_id: userId, status, tier: newTier });
+              // v123.1: CASCADE tier change to all owned keys
+              await cascadeUserTierToKeys(userId, newTier, env);
+              slog("INFO", "BILLING", "Subscription updated + keys cascaded", { user_id: userId, status, tier: newTier });
             }
           }
         }
@@ -2663,7 +2964,8 @@ async function handleRazorpayWebhook(request, env, rid) {
           ur.tier         = planTier;
           ur.subscription = { id: payment.id, status: "active", tier: planTier, gateway: "razorpay", amount: payment.amount, updated_at: new Date().toISOString() };
           await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
-          slog("INFO", "BILLING", "Razorpay payment — tier upgraded", { user_id: userId, tier: planTier });
+          await cascadeUserTierToKeys(userId, planTier, env); // v123.1: cascade to all owned keys
+          slog("INFO", "BILLING", "Razorpay payment — tier upgraded + keys cascaded", { user_id: userId, tier: planTier });
         }
       }
     }
@@ -2808,8 +3110,10 @@ export default {
       });
     }
 
-    // IP rate limiting + abuse check (all endpoints)
+    // IP rate limiting + multi-layer abuse check (all endpoints)
     const clientIP = getClientIP(request);
+
+    // Layer 1: Legacy IP ban (RATE_LIMIT_KV — daily abuse counter)
     if (await isIPBanned(clientIP, env)) {
       return jsonResponse({
         error:      "ip_banned",
@@ -2817,6 +3121,12 @@ export default {
         request_id: rid,
       }, 429);
     }
+
+    // Layer 2: Enhanced abuse detection (SECURITY_HUB_KV — per-minute rate, scanner UA, auth brute force)
+    const abuseBlock = await detectAbuse(request, env, rid);
+    if (abuseBlock) return abuseBlock;
+
+    // Layer 3: Sliding-window IP rate limit
     const ipHash  = await hashIP(clientIP);
     const ipCheck = await slidingWindowCheck("ip", ipHash, CONFIG.IP_RATE_LIMIT, env?.RATE_LIMIT_KV);
     if (!ipCheck.allowed) {
@@ -2833,6 +3143,8 @@ export default {
     if (pathname.startsWith("/api/health"))            return handleHealth(request, env, rid);
     if (pathname.startsWith("/api/version"))           return handleVersion(request, env, rid);
     if (pathname.startsWith("/api/keys/validate"))     return handleValidateKey(request, env, rid);
+    // v123.0.0: Live dashboard metrics — public, no auth required
+    if (pathname === "/api/platform/stats" && method === "GET") return handlePlatformStats(request, env, rid);
     // ── v117.0.0 + v121.0.0: JWT auth endpoints ──────────────────────────────
     if (pathname === "/api/auth/token"    && method === "POST") return handleIssueToken(request, env, rid);
     if (pathname === "/api/auth/validate")                      return handleValidateToken(request, env, rid);
@@ -2874,6 +3186,8 @@ export default {
       if (pathname.startsWith("/api/admin/keys/revoke")  && method === "POST") return handleAdminRevokeKey(request, env, rid);
       if (pathname.startsWith("/api/admin/keys/list")    && method === "GET")  return handleAdminListKeys(request, env, rid);
       if (pathname.startsWith("/api/admin/observability")&& method === "GET")  return handleAdminObservability(request, env, rid);
+      // v123.0.0: Abuse event log — scanner activity, IP bans, auth brute force
+      if (pathname.startsWith("/api/admin/abuse")        && method === "GET")  return handleAbuseReport(request, env, rid);
       return jsonResponse({
         error:     "not_found",
         message:   "Admin endpoint not found.",
@@ -2894,6 +3208,8 @@ export default {
     if (!auth.valid) {
       if (auth.reason === "invalid_key" || auth.reason === "key_expired") {
         await trackAbuseAttempt(clientIP, env);
+        // v123.0.0: Track auth failure for brute-force detection in SECURITY_HUB_KV
+        trackAuthFailure(env, clientIP).catch(() => {});
       }
       return jsonResponse({
         error:       auth.reason === "key_required" ? "api_key_required" : "unauthorized",
@@ -2928,6 +3244,9 @@ export default {
       });
     }
 
+    // v123.0.0: Request fingerprinting — async, fire-and-forget for analytics (never blocks)
+    fingerprintRequest(request, env, auth, rid).catch(() => {});
+
     // ── v122.0.0: Authenticated user + billing routes ────────────────────────
     if (pathname === "/auth/me"              && method === "GET")    return handleUserMe(request, env, rid, auth);
     if (pathname === "/api/keys"             && method === "GET")    return handleUserListKeys(request, env, rid, auth);
@@ -2937,6 +3256,8 @@ export default {
       if (keyId) return handleUserDeleteKey(request, env, rid, auth, keyId);
     }
     if (pathname === "/api/billing/portal"   && method === "GET")    return handleBillingPortal(request, env, rid, auth);
+    // v123.1: Self-service usage analytics
+    if (pathname === "/api/account/usage"    && method === "GET")    return handleAccountUsage(request, env, rid, auth);
 
     // Authenticated route dispatch
     if (pathname === "/api/feed" && method === "GET")
@@ -2959,50 +3280,162 @@ export default {
     if (pathname.startsWith("/api/webhooks/siem"))
       return handleSiemWebhook(request, env, auth, rid);
 
+    // ── v123.0.0: NEW ENDPOINTS — Full CTI API surface ────────────────────────
+
+    // GET /api/search — full-text + field search across feed (scope: read:intel)
+    if (pathname === "/api/search" && method === "GET")
+      return handleSearch(request, env, auth, rid);
+
+    // GET /api/actors[?actor_id=&limit=&since=] — threat actor profiles (scope: read:actors)
+    if (pathname === "/api/actors" && method === "GET")
+      return handleActors(request, env, auth, rid);
+
+    // GET /api/cves[?cve_id=&severity=&kev_only=&min_epss=&limit=&page=] (scope: read:cves)
+    if (pathname === "/api/cves" && method === "GET")
+      return handleCVEs(request, env, auth, rid);
+
+    // GET /api/export/misp[?report_id=&since=&limit=] — MISP JSON export (scope: export:misp, Enterprise only)
+    if (pathname === "/api/export/misp" && method === "GET")
+      return handleMISPExport(request, env, auth, rid);
+
+    // GET /api/export/csv[?since=&types=&limit=] — IOC bulk CSV export (scope: export:csv, Pro+)
+    if (pathname === "/api/export/csv" && method === "GET")
+      return handleCSVExport(request, env, auth, rid);
+
+    // POST /api/intel/correlate — IOC correlation against full feed (scope: read:intel)
+    if (pathname === "/api/intel/correlate" && method === "POST")
+      return handleCorrelate(request, env, auth, rid);
+
+    // GET /api/platform/stats — live feed stats for dashboard (public — no auth required)
+    // (also accessible without auth for dashboard widgets — handled below)
+
     slog("WARN", "ROUTER", `404 ${pathname}`, { rid, method });
     return jsonResponse({
       error:   "not_found",
       message: `Endpoint '${pathname}' not found.`,
       available: [
-        "GET  /api/preview              (public)",
+        // ── Public ──────────────────────────────────────────────────────────────
+        "GET  /api/preview              (public — free preview feed)",
         "GET  /api/health               (public)",
         "GET  /api/version              (public)",
         "GET  /api/keys/validate        (public)",
+        "GET  /api/platform/stats       (public — live dashboard metrics)",
         "GET  /api/ai                   (public — AI index + MITRE heatmap)",
         "GET  /api/ai/heatmap           (public)",
-        "GET  /api/ai/analyze           (requires auth)",
-        "GET  /api/ai/respond           (requires auth)",
-        "GET  /api/ai/correlate         (requires auth)",
+        // ── Auth endpoints ──────────────────────────────────────────────────────
         "POST /api/auth/token           (public — exchange API key for JWT)",
         "GET  /api/auth/validate        (public — validate JWT)",
         "POST /api/auth/refresh         (requires JWT — rotate token)",
         "POST /api/auth/revoke          (requires JWT — revoke token)",
         "POST /auth/signup              (public — create user account + get JWT)",
         "POST /auth/login               (public — login + get JWT)",
+        // ── Billing webhooks ────────────────────────────────────────────────────
+        "POST /webhooks/stripe          (public — Stripe webhook, sig-verified)",
+        "POST /webhooks/razorpay        (public — Razorpay webhook, sig-verified)",
+        // ── Authenticated (Free+) ───────────────────────────────────────────────
         "GET  /auth/me                  (requires JWT — user profile + API keys)",
         "POST /api/keys/create          (requires JWT — create API key)",
         "GET  /api/keys                 (requires JWT — list your API keys)",
         "DELETE /api/keys/:id           (requires JWT — revoke API key)",
         "GET  /api/billing/portal       (requires JWT — subscription + upgrade links)",
-        "POST /webhooks/stripe          (public — Stripe webhook, sig-verified)",
-        "POST /webhooks/razorpay        (public — Razorpay webhook, sig-verified)",
-        "GET  /api/feed                 (requires auth)",
-        "GET  /api/feed/:id             (requires auth)",
-        "GET  /api/analytics            (requires auth)",
-        "GET  /api/stix/:id             (requires auth — full bundle Pro+)",
-        "GET  /api/alerts               (requires auth Pro+)",
+        // ── Intel feed ──────────────────────────────────────────────────────────
+        "GET  /api/feed                 (requires auth — full intel feed)",
+        "GET  /api/feed/:id             (requires auth — single report)",
+        "GET  /api/analytics            (requires auth — usage analytics)",
+        // ── AI endpoints ────────────────────────────────────────────────────────
+        "GET  /api/ai/analyze           (requires auth)",
+        "GET  /api/ai/respond           (requires auth)",
+        "GET  /api/ai/correlate         (requires auth)",
+        // ── v123.0.0: NEW CTI API surface ──────────────────────────────────────
+        "GET  /api/search               (requires auth — full-text + field search | scope: read:intel)",
+        "GET  /api/actors               (requires auth — threat actor profiles | scope: read:actors)",
+        "GET  /api/cves                 (requires auth — CVE deep-dive CVSS+EPSS+KEV | scope: read:cves)",
+        "POST /api/intel/correlate      (requires auth — IOC correlation | scope: read:intel)",
+        "GET  /api/stix/:id             (requires auth — STIX 2.1 bundle | scope: read:stix)",
+        "GET  /api/alerts               (requires auth Pro+ — threat alerts)",
+        // ── Export endpoints ────────────────────────────────────────────────────
+        "GET  /api/export/csv           (requires auth Pro+ — IOC bulk CSV | scope: export:csv)",
+        "GET  /api/export/misp          (requires auth Enterprise — MISP JSON | scope: export:misp)",
+        // ── Enterprise ──────────────────────────────────────────────────────────
         "GET  /api/webhooks/siem        (requires auth Enterprise — list + format info)",
-        "POST /api/webhooks/siem        (requires auth Enterprise — register webhook)",
+        "POST /api/webhooks/siem        (requires auth Enterprise — register SIEM webhook)",
+        // ── Admin ───────────────────────────────────────────────────────────────
         "POST /api/admin/cache/bust     (requires X-Admin-Secret)",
         "POST /api/admin/keys/create    (requires X-Admin-Secret)",
         "POST /api/admin/keys/revoke    (requires X-Admin-Secret)",
         "GET  /api/admin/keys/list      (requires X-Admin-Secret)",
         "GET  /api/admin/observability  (requires X-Admin-Secret)",
+        "GET  /api/admin/abuse          (requires X-Admin-Secret — abuse event log)",
       ],
       docs:       CONFIG.DOCS_URL,
       request_id: rid,
       response_ms: Date.now() - reqStart,
       gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
     }, 404);
+  },
+
+  // ── v123.0.0: Scheduled Cron Handler ─────────────────────────────────────
+  // Trigger: configure in wrangler.toml → [triggers] crons = ["*/15 * * * *"]
+  // On each cron tick:
+  //   1. Fetch latest R2 feed manifest
+  //   2. Identify reports processed in the last cron interval
+  //   3. Push high-severity threats to all registered Enterprise SIEM webhooks
+  //   4. Invalidate platform stats cache so next /api/platform/stats call is fresh
+  async scheduled(event, env, ctx) {
+    const rid = generateReqId();
+    slog("INFO", "CRON", `Scheduled tick: ${event.cron || "manual"}`, { rid });
+
+    ctx.waitUntil((async () => {
+      try {
+        // ── Step 1: Fetch feed manifest from R2 ────────────────────────────
+        let manifest = null;
+        if (env?.INTEL_R2) {
+          const obj = await env.INTEL_R2.get("feed_manifest.json").catch(() => null);
+          if (obj) {
+            try { manifest = JSON.parse(await obj.text()); } catch { manifest = null; }
+          }
+        }
+
+        const reports = manifest?.reports || [];
+        if (!reports.length) {
+          slog("WARN", "CRON", "No reports in feed manifest — skipping webhook push", { rid });
+          return;
+        }
+
+        // ── Step 2: Identify recently published items (last 30 min) ────────
+        const cutoff  = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        const newItems = reports.filter(r => {
+          const ts = r.processed_at || r.timestamp || "";
+          return ts >= cutoff;
+        });
+
+        slog("INFO", "CRON", `Feed: ${reports.length} total, ${newItems.length} new since ${cutoff}`, { rid });
+
+        // ── Step 3: Push to SIEM webhooks (Enterprise tier) ─────────────────
+        if (newItems.length > 0) {
+          const pushResult = await pushWebhookNotifications(env, newItems);
+          slog("INFO", "CRON", "Webhook push complete", { rid, ...pushResult });
+        }
+
+        // ── Step 4: Invalidate platform stats cache ──────────────────────────
+        if (env?.ANALYTICS_KV) {
+          await env.ANALYTICS_KV.delete("platform:stats:v123").catch(() => {});
+          slog("INFO", "CRON", "Platform stats cache invalidated", { rid });
+        }
+
+        // ── Step 5: Rebuild KV index cache for fast search/actors/CVEs queries
+        if (env?.SECURITY_HUB_KV && manifest) {
+          await env.SECURITY_HUB_KV.put(
+            "idx:reports",
+            JSON.stringify(manifest),
+            { expirationTtl: 1800 }  // 30 min TTL — refreshed by cron
+          ).catch(() => {});
+          slog("INFO", "CRON", "KV report index refreshed", { rid, count: reports.length });
+        }
+
+      } catch (e) {
+        await trackError(env, "CRON", "Scheduled handler failed", { error: e.message, rid });
+      }
+    })());
   },
 };

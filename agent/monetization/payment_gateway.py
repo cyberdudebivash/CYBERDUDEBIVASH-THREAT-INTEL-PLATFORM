@@ -82,10 +82,16 @@ def _append_event(event: Dict) -> None:
 
 # ── STRIPE ─────────────────────────────────────────────────────────────────────
 
-def create_stripe_checkout_session(tier: str, customer_email: str,
-                                   customer_name: str = "") -> Dict:
+def create_stripe_checkout_session(
+    tier: str,
+    customer_email: str,
+    customer_name: str = "",
+    customer_user_id: str = "",      # v123.0 — inject for tier cascade on payment
+) -> Dict:
     """
     Create Stripe checkout session for subscription.
+    customer_user_id must be passed so the webhook can cascade tier to all
+    user-owned API keys without requiring a fresh JWT (resolveAuth live KV lookup).
     Returns {"url": checkout_url, "session_id": sid} or {"error": ...}
     """
     if not STRIPE_SECRET_KEY:
@@ -99,19 +105,24 @@ def create_stripe_checkout_session(tier: str, customer_email: str,
     try:
         import stripe
         stripe.api_key = STRIPE_SECRET_KEY
+        metadata: Dict[str, str] = {
+            "tier":          tier,
+            "customer_name": customer_name,
+            "platform":      "CYBERDUDEBIVASH-SENTINEL-APEX",
+        }
+        if customer_user_id:
+            # Required for cascadeUserTierToKeys in Cloudflare Worker webhook handler
+            metadata["user_id"] = customer_user_id
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
             customer_email=customer_email or None,
-            metadata={
-                "tier": tier, "customer_name": customer_name,
-                "platform": "CYBERDUDEBIVASH-SENTINEL-APEX",
-            },
+            metadata=metadata,
             success_url=SUCCESS_URL + "&session_id={CHECKOUT_SESSION_ID}",
             cancel_url=CANCEL_URL,
         )
-        logger.info(f"[PAYMENT-GW] Stripe checkout created: {tier} for {customer_email}")
+        logger.info(f"[PAYMENT-GW] Stripe checkout created: {tier} for {customer_email} user_id={customer_user_id or 'anonymous'}")
         return {"url": session.url, "session_id": session.id, "provider": "stripe"}
     except Exception as e:
         logger.warning(f"[PAYMENT-GW] Stripe checkout error: {e}")
@@ -137,14 +148,31 @@ def handle_stripe_webhook(payload: bytes, sig_header: str) -> Tuple[bool, str]:
 
     try:
         if etype in ("checkout.session.completed", "customer.subscription.created"):
-            meta  = data.get("metadata", {})
-            tier  = meta.get("tier", "pro")
-            email = data.get("customer_email") or data.get("customer_details", {}).get("email","")
-            name  = meta.get("customer_name", email)
-            sub_id= data.get("subscription") or data.get("id","")
+            meta    = data.get("metadata", {})
+            tier    = meta.get("tier", "pro")
+            email   = data.get("customer_email") or data.get("customer_details", {}).get("email","")
+            name    = meta.get("customer_name", email)
+            sub_id  = data.get("subscription") or data.get("id","")
+            # v123.0 — extract user_id injected at checkout creation time
+            user_id = meta.get("user_id", "")
             if email and tier in ("pro","enterprise","mssp"):
                 _provision_subscriber(tier=tier, name=name, email=email,
-                                      stripe_sub_id=sub_id, provider="stripe")
+                                      stripe_sub_id=sub_id, provider="stripe",
+                                      user_id=user_id)
+
+        elif etype == "customer.subscription.updated":
+            # Handle plan change (upgrade / downgrade) — remap price ID to tier
+            sub_id   = data.get("id","")
+            items    = data.get("items", {}).get("data", [])
+            new_tier = None
+            for it in items:
+                price_id = it.get("price", {}).get("id","")
+                if price_id in TIER_FROM_STRIPE_PRICE:
+                    new_tier = TIER_FROM_STRIPE_PRICE[price_id]
+                    break
+            if sub_id and new_tier:
+                _update_tier_by_stripe_sub_id(sub_id, new_tier)
+                logger.info(f"[PAYMENT-GW] Subscription updated sub={sub_id} new_tier={new_tier}")
 
         elif etype in ("customer.subscription.deleted", "invoice.payment_failed"):
             sub_id = data.get("id","")
@@ -233,16 +261,34 @@ def handle_razorpay_webhook(payload: bytes, sig_header: str) -> Tuple[bool, str]
 # ── Provisioning helpers ──────────────────────────────────────────────────────
 
 def _provision_subscriber(tier: str, name: str, email: str,
-                           stripe_sub_id: str, provider: str) -> str:
-    """Generate API key + send welcome email on successful payment."""
-    from agent.monetization.api_key_manager import generate_key
+                           stripe_sub_id: str, provider: str,
+                           user_id: str = "") -> str:
+    """
+    Generate API key + update user tier record + send welcome email.
+
+    user_id — if provided, stamps the generated key with user_id so the
+    Cloudflare Worker cascadeUserTierToKeys can resolve all keys for this user
+    when the next JWT auth arrives (live KV lookup in resolveAuth).
+    """
+    from agent.monetization.api_key_manager import generate_key, _load, _save
     api_key = generate_key(tier=tier, name=name, email=email,
                             stripe_sub_id=stripe_sub_id,
                             notes=f"auto-provisioned via {provider}")
-    logger.info(f"[PAYMENT-GW] Provisioned {tier} key for {email} via {provider}")
+
+    # v123.0 — stamp user_id on the key record so Cloudflare cascade can resolve
+    if user_id:
+        try:
+            keys = _load()
+            if api_key in keys:
+                keys[api_key]["user_id"] = user_id
+                _save(keys)
+        except Exception as e:
+            logger.warning(f"[PAYMENT-GW] Could not stamp user_id on key: {e}")
+
+    logger.info(f"[PAYMENT-GW] Provisioned {tier} key for {email} via {provider} user_id={user_id or 'unknown'}")
     _send_welcome_email(email=email, name=name, tier=tier, api_key=api_key)
     _append_event({"type": "key_provisioned", "tier": tier,
-                   "email": email, "provider": provider})
+                   "email": email, "provider": provider, "user_id": user_id})
     return api_key
 
 
@@ -254,6 +300,28 @@ def _revoke_by_stripe_sub_id(sub_id: str, reason: str) -> None:
         if v.get("stripe_sub_id") == sub_id and v.get("status") == "active":
             revoke_key(k, reason=reason)
             logger.info(f"[PAYMENT-GW] Revoked key for sub {sub_id} ({reason})")
+
+
+def _update_tier_by_stripe_sub_id(sub_id: str, new_tier: str) -> None:
+    """
+    Update tier on all keys associated with a Stripe subscription ID.
+    Called when customer.subscription.updated fires (plan change).
+    """
+    from agent.monetization.api_key_manager import _load, _save
+    try:
+        keys     = _load()
+        changed  = 0
+        now_iso  = datetime.now(timezone.utc).isoformat()
+        for k, v in keys.items():
+            if v.get("stripe_sub_id") == sub_id and v.get("status") == "active":
+                v["tier"]             = new_tier
+                v["tier_updated_at"]  = now_iso
+                changed += 1
+        if changed:
+            _save(keys)
+            logger.info(f"[PAYMENT-GW] Updated {changed} key(s) to tier={new_tier} for sub={sub_id}")
+    except Exception as e:
+        logger.error(f"[PAYMENT-GW] _update_tier_by_stripe_sub_id error: {e}")
 
 
 def _send_welcome_email(email: str, name: str, tier: str, api_key: str) -> None:
@@ -271,7 +339,8 @@ def _send_welcome_email(email: str, name: str, tier: str, api_key: str) -> None:
             "enterprise": "500 advisories/req, 10000 req/hr",
             "mssp": "Unlimited",
         }
-        api_base  = "https://cyberdudebivash-threat-intel-platform-production.up.railway.app"
+        # v123.0 — Worker is the live API endpoint (Railway decommissioned)
+        api_base  = "https://intel.cyberdudebivash.com"
         price_str = "$" + str(price_map.get(tier, 0)) + "/mo"
         body = (
             "Welcome to CYBERDUDEBIVASH\u00ae Sentinel APEX \u2014 " + tier.title() + " Plan!\n\n"
