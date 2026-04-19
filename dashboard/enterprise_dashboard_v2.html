@@ -275,7 +275,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
       <div style="font-weight:700;color:var(--text);margin-bottom:4px;">Pipeline Status</div>
       <div>⚡ Runs every 6 hours</div>
       <div>🔄 <span style="color:var(--green);">LIVE</span></div>
-      <div>🛡️ Sentinel APEX v21.0</div>
+      <div>🛡️ Sentinel APEX v124.0.0</div>
     </div>
   </div>
 </div>
@@ -394,13 +394,12 @@ let ALL_DATA = [];
 let FILTERED  = [];
 let CURRENT_FILTER = 'all';
 
-// v100.0: Dynamic origin (works when served from Railway) + explicit Railway URL
-const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? window.location.origin
-  : 'https://cyberdudebivash-threat-intel-platform-production.up.railway.app';
-const API_FEED  = `${API_BASE}/api/v1/intel/feed?limit=500`;
-const API_STATS = `${API_BASE}/api/v1/stats`;
-const FEED_FALLBACK = `${API_BASE}/api/feed.json`;  // compat route fallback
+// v124.0.0: Cloudflare Worker Edge API as primary (always live)
+// Railway API retired — replaced with intel.cyberdudebivash.com Worker
+const CF_WORKER = 'https://intel.cyberdudebivash.com';
+const API_FEED  = `${CF_WORKER}/api/preview`;
+const API_INTEL = `${CF_WORKER}/api/intelligence`;
+const API_BASE  = CF_WORKER;  // compat reference
 
 const SEV_COLOR = {
   CRITICAL: 'var(--red)', HIGH: 'var(--orange)',
@@ -412,28 +411,51 @@ const TLP_COLOR = {
 };
 
 async function loadData() {
+  // PRIMARY: Cloudflare Worker /api/preview (public, no auth required)
   try {
-    // Try live Railway API first
-    const r = await fetch(API_FEED);
+    const r = await fetch(API_FEED, { headers: { 'Accept': 'application/json' } });
     if (r.ok) {
       const d = await r.json();
-      ALL_DATA = d.data || [];
-      console.log(`[API] Loaded ${ALL_DATA.length} advisories from Railway API`);
+      const items = d.items || d.entries || d.data || (Array.isArray(d) ? d : []);
+      if (items.length > 0) {
+        ALL_DATA = items;
+        console.log(`[CF-WORKER] Loaded ${ALL_DATA.length} advisories from Cloudflare Edge API`);
+      } else {
+        throw new Error('Empty response from Worker API');
+      }
     } else {
-      throw new Error(`API returned ${r.status}`);
+      throw new Error(`Worker API returned ${r.status}`);
     }
   } catch(e) {
-    console.warn(`[API] Railway API unavailable (${e.message}), using static fallback`);
+    console.warn(`[CF-WORKER] Primary API unavailable (${e.message}), falling back to static sources`);
+    // FALLBACK 1: /api/intelligence endpoint (alternate Worker route)
     try {
-      const r2 = await fetch(FEED_FALLBACK);
-      const d2 = await r2.json();
-      ALL_DATA = d2.data || [];
-      console.log(`[FALLBACK] Loaded ${ALL_DATA.length} advisories from static feed`);
+      const r2 = await fetch(`${CF_WORKER}/api/intelligence`, { headers: { 'Accept': 'application/json' } });
+      if (r2.ok) {
+        const d2 = await r2.json();
+        const items = d2.items || d2.entries || d2.data || [];
+        if (items.length > 0) { ALL_DATA = items; console.log(`[CF-WORKER] Loaded from /api/intelligence`); }
+        else throw new Error('Empty');
+      } else throw new Error(`${r2.status}`);
     } catch(e2) {
+      // FALLBACK 2: GitHub raw manifest
       try {
-        const r3 = await fetch('../data/stix/feed_manifest.json');
-        ALL_DATA = await r3.json();
-      } catch(e3) { ALL_DATA = []; }
+        const r3 = await fetch('https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json');
+        if (r3.ok) {
+          const d3 = await r3.json();
+          ALL_DATA = Array.isArray(d3) ? d3 : (d3.items || d3.entries || []);
+          console.log(`[FALLBACK-GH] Loaded ${ALL_DATA.length} advisories from GitHub raw`);
+        } else throw new Error(`${r3.status}`);
+      } catch(e3) {
+        // FALLBACK 3: Local static file
+        try {
+          const r4 = await fetch('../data/stix/feed_manifest.json');
+          if (r4.ok) {
+            const d4 = await r4.json();
+            ALL_DATA = Array.isArray(d4) ? d4 : (d4.items || d4.entries || []);
+          }
+        } catch(e4) { ALL_DATA = []; }
+      }
     }
   }
   computeMetrics();
@@ -453,7 +475,14 @@ function computeMetrics() {
   const avgRisk = (d.reduce((a,i)=>a+(i.risk_score||0),0)/d.length).toFixed(1);
   const avgCvss = (d.filter(i=>i.cvss_score>0).reduce((a,i)=>a+(i.cvss_score||0),0)/Math.max(d.filter(i=>i.cvss_score>0).length,1)).toFixed(1);
   let iocs = 0;
-  d.forEach(i => { const c=i.ioc_counts; if(c&&typeof c==='object') iocs+=Object.values(c).reduce((a,v)=>a+(typeof v==='number'?v:0),0); });
+  d.forEach(i => {
+    // Prefer ioc_count (pre-computed, accurate even when array lists are gated)
+    if (typeof i.ioc_count === 'number' && i.ioc_count > 0) { iocs += i.ioc_count; return; }
+    const c = i.ioc_counts;
+    if (c && typeof c === 'object' && !c.locked) {
+      iocs += Object.values(c).reduce((a,v) => a + (typeof v === 'number' ? v : 0), 0);
+    }
+  });
 
   // Topbar
   setText('t-critical', crit);
