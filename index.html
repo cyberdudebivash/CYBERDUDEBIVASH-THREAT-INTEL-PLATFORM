@@ -3418,8 +3418,179 @@
         .cdb-gadget-upgrade-btn:hover { box-shadow: 0 0 28px rgba(245,158,11,0.7); transform: scale(1.04); }
 
         </style>
+    <style>
+    /* ═══════════════════════════════════════════════════════════════
+       v128.0.0 — REVENUE ACTIVATION: PSYCHOLOGICAL TRIGGER SYSTEM
+       Lock icons · Glow CTAs · Warning pulses · Conversion UI
+       ═══════════════════════════════════════════════════════════════ */
+
+    /* Global CTA glow pulse — used on all upgrade buttons */
+    @keyframes cdb-cta-glow {
+        0%,100% { box-shadow: 0 0 12px rgba(0,212,170,0.3), 0 2px 8px rgba(0,0,0,0.4); }
+        50%      { box-shadow: 0 0 28px rgba(0,212,170,0.6), 0 4px 16px rgba(0,212,170,0.2); }
+    }
+    @keyframes cdb-cta-glow-red {
+        0%,100% { box-shadow: 0 0 12px rgba(220,38,38,0.35), 0 2px 8px rgba(0,0,0,0.4); }
+        50%      { box-shadow: 0 0 28px rgba(220,38,38,0.65), 0 4px 20px rgba(220,38,38,0.25); }
+    }
+    @keyframes cdb-lock-shimmer {
+        0%   { background-position: -200% center; }
+        100% { background-position: 200% center; }
+    }
+    @keyframes cdb-urgency-flash {
+        0%,100% { opacity: 1; }
+        40%     { opacity: 0.6; }
+    }
+
+    /* Lock icon universal style */
+    .cdb-lock-icon {
+        display: inline-flex; align-items: center; gap: 4px;
+        color: #5a6578; font-family: var(--font-mono); font-size: 8px;
+        letter-spacing: 1px;
+    }
+    .cdb-lock-icon::before { content: '🔒'; font-size: 10px; }
+
+    /* Glow CTA button — apply to any upgrade anchor */
+    .cdb-cta-upgrade {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-family: var(--font-mono); font-size: 10px; font-weight: 900;
+        letter-spacing: 1.5px; color: #020205;
+        background: linear-gradient(135deg,#00d4aa,#00b894);
+        padding: 10px 22px; border-radius: 4px; text-decoration: none;
+        animation: cdb-cta-glow 2.5s ease-in-out infinite;
+        transition: transform 0.2s;
+        white-space: nowrap;
+    }
+    .cdb-cta-upgrade:hover { transform: translateY(-3px); }
+
+    .cdb-cta-danger {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-family: var(--font-mono); font-size: 10px; font-weight: 900;
+        letter-spacing: 1.5px; color: #fff;
+        background: linear-gradient(135deg,#dc2626,#b91c1c);
+        padding: 10px 22px; border-radius: 4px; text-decoration: none;
+        animation: cdb-cta-glow-red 2s ease-in-out infinite;
+        transition: transform 0.2s;
+        white-space: nowrap;
+    }
+    .cdb-cta-danger:hover { transform: translateY(-3px); }
+
+    /* Locked data overlay shimmer */
+    .cdb-locked-shimmer {
+        background: linear-gradient(90deg, rgba(90,101,120,0.15) 0%, rgba(90,101,120,0.05) 50%, rgba(90,101,120,0.15) 100%);
+        background-size: 200% auto;
+        animation: cdb-lock-shimmer 2.5s linear infinite;
+        border-radius: 3px; padding: 2px 8px;
+        color: #3a4a5a; font-family: var(--font-mono); font-size: 9px;
+        letter-spacing: 1px;
+    }
+
+    /* Urgency warning chip */
+    .cdb-urgency-chip {
+        display: inline-flex; align-items: center; gap: 5px;
+        background: rgba(220,38,38,0.1); color: #f87171;
+        border: 1px solid rgba(220,38,38,0.3);
+        padding: 2px 8px; border-radius: 3px;
+        font-family: var(--font-mono); font-size: 8px; font-weight: 800;
+        letter-spacing: 0.5px;
+        animation: cdb-urgency-flash 2s ease-in-out infinite;
+    }
+
+    /* Card-level conversion trigger block */
+    .cdb-card-convert {
+        margin-top: 8px; padding: 10px 14px;
+        background: linear-gradient(135deg,rgba(0,212,170,0.05),rgba(139,92,246,0.04));
+        border: 1px solid rgba(0,212,170,0.18);
+        border-radius: 5px;
+    }
+
+    /* Trust authority stat number */
+    .cdb-trust-stat {
+        font-family: var(--font-mono); font-size: 9px;
+        color: var(--text-muted); display: flex; align-items: center;
+        gap: 6px; padding: 3px 10px;
+        background: rgba(0,212,170,0.04); border: 1px solid rgba(0,212,170,0.12);
+        border-radius: 3px; letter-spacing: 1px;
+    }
+    .cdb-trust-stat::before { content: '✓'; color: var(--accent); font-weight: 900; }
+
+    /* Override pricing section PRO card highlight */
+    #pricing [style*="border-top:3px solid var(--accent)"] {
+        animation: cdb-cta-glow 3s ease-in-out infinite;
+    }
+    </style>
 </head>
 <body>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- 🚨 GLOBAL REVENUE ALERT BAR v128.0 — Sticky conversion trigger        -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="cdb-revenue-bar" style="
+        position:sticky;top:0;z-index:9999;
+        background:linear-gradient(90deg,rgba(10,4,4,0.97) 0%,rgba(28,6,6,0.98) 40%,rgba(10,4,4,0.97) 100%);
+        border-bottom:2px solid rgba(220,38,38,0.6);
+        padding:9px 20px;
+        display:flex;align-items:center;justify-content:space-between;
+        flex-wrap:wrap;gap:10px;
+        box-shadow:0 4px 30px rgba(220,38,38,0.2),0 0 60px rgba(220,38,38,0.04);
+        font-family:'JetBrains Mono',monospace;
+    ">
+        <!-- Left: live threat pulse -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:6px;">
+                <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#dc2626;box-shadow:0 0 12px rgba(220,38,38,0.9);animation:kev-pulse 1.2s ease-in-out infinite;flex-shrink:0;"></span>
+                <span style="font-size:9px;font-weight:900;color:#f87171;letter-spacing:2px;text-transform:uppercase;">LIVE THREAT DETECTION ACTIVE</span>
+            </div>
+            <span style="font-size:8px;color:#6b7280;letter-spacing:1px;">|</span>
+            <span style="font-size:9px;color:#dc2626;font-weight:800;letter-spacing:1px;" id="cdb-bar-threat-count">⚠ Active threats being tracked</span>
+            <span style="font-size:9px;color:#5a6578;letter-spacing:1px;font-style:italic;">— Full intelligence locked for free users</span>
+        </div>
+        <!-- Right: CTA buttons -->
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <a href="https://cyberdudebivash.gumroad.com/?utm_source=sticky-bar&utm_medium=api-key&utm_campaign=revenue-bar"
+               target="_blank"
+               style="font-size:9px;font-weight:900;letter-spacing:1.5px;color:#020205;
+                      background:linear-gradient(135deg,#00d4aa,#00b894);
+                      padding:7px 16px;border-radius:4px;text-decoration:none;white-space:nowrap;
+                      box-shadow:0 0 16px rgba(0,212,170,0.4);
+                      transition:box-shadow 0.2s;"
+               onmouseover="this.style.boxShadow='0 0 28px rgba(0,212,170,0.7)'"
+               onmouseout="this.style.boxShadow='0 0 16px rgba(0,212,170,0.4)'">
+                ⚡ GET API KEY
+            </a>
+            <a href="https://cyberdudebivash.gumroad.com/?utm_source=sticky-bar&utm_medium=upgrade&utm_campaign=revenue-bar"
+               target="_blank"
+               style="font-size:9px;font-weight:900;letter-spacing:1.5px;color:#fff;
+                      background:linear-gradient(135deg,#dc2626,#b91c1c);
+                      padding:7px 16px;border-radius:4px;text-decoration:none;white-space:nowrap;
+                      box-shadow:0 0 16px rgba(220,38,38,0.5);
+                      transition:box-shadow 0.2s;"
+               onmouseover="this.style.boxShadow='0 0 28px rgba(220,38,38,0.8)'"
+               onmouseout="this.style.boxShadow='0 0 16px rgba(220,38,38,0.5)'">
+                🔓 UPGRADE NOW
+            </a>
+            <button onclick="document.getElementById('cdb-revenue-bar').style.display='none'"
+                    style="background:none;border:none;color:#3a4a5a;cursor:pointer;font-size:14px;padding:2px 6px;line-height:1;"
+                    title="Dismiss">✕</button>
+        </div>
+    </div>
+    <script>
+    /* Update bar with live threat count from manifest data */
+    (function(){
+        function _updateBar(){
+            try {
+                var el = document.getElementById('cdb-bar-threat-count');
+                if (!el) return;
+                var count = (typeof manifestData !== 'undefined' && manifestData.length)
+                    ? manifestData.filter(function(d){ return (Date.now()-new Date(d.timestamp||0).getTime())<86400000; }).length
+                    : 0;
+                if (count > 0) el.textContent = '⚠ ' + count + ' active threats in last 24h — full intelligence locked';
+            } catch(e){}
+        }
+        setTimeout(_updateBar, 3000);
+        setInterval(_updateBar, 30000);
+    })();
+    </script>
 
     <!-- ═══ GLOBAL OVERLAYS v73.0 ═══ -->
     <div id="toast-container"></div>
@@ -4129,6 +4300,25 @@
             <div id="lcn-error" style="display:none;text-align:center;padding:20px;font-family:var(--font-mono);font-size:10px;color:#f43f5e;letter-spacing:1px;">
                 ⚠ Live news temporarily unavailable — feed will retry automatically
             </div>
+
+            <!-- News section conversion CTA -->
+            <div style="margin-top:28px;padding:20px 24px;background:linear-gradient(135deg,rgba(244,63,94,0.07),rgba(139,92,246,0.06));border:1px solid rgba(244,63,94,0.25);border-radius:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
+                <div>
+                    <div style="font-family:var(--font-mono);font-size:9px;color:#f43f5e;letter-spacing:3px;font-weight:800;margin-bottom:5px;">🔒 ACTIONABLE INTELLIGENCE LOCKED</div>
+                    <div style="font-size:15px;font-weight:700;color:var(--white);margin-bottom:4px;">Get actionable intelligence from every threat</div>
+                    <div style="font-family:var(--font-mono);font-size:9px;color:#5a6578;">PRO unlocks: Full breakdown · IOC mapping · STIX export · Remediation steps</div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <a href="https://cyberdudebivash.gumroad.com/?utm_source=news-cta&utm_medium=actionable-intel&utm_campaign=news-conversion" target="_blank"
+                       style="font-family:var(--font-mono);font-size:10px;font-weight:900;letter-spacing:1.5px;color:#020205;background:linear-gradient(135deg,#f43f5e,#dc2626);padding:10px 22px;border-radius:4px;text-decoration:none;white-space:nowrap;box-shadow:0 0 18px rgba(244,63,94,0.4);">
+                        🔓 GET FULL INTEL →
+                    </a>
+                    <a href="https://cyberdudebivash.gumroad.com/?utm_source=news-cta&utm_medium=api-access&utm_campaign=news-conversion" target="_blank"
+                       style="font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:1px;color:#a78bfa;border:1px solid rgba(139,92,246,0.4);padding:9px 16px;border-radius:4px;text-decoration:none;white-space:nowrap;background:rgba(139,92,246,0.06);">
+                        ⚡ API ACCESS
+                    </a>
+                </div>
+            </div>
         </section>
 
         <style>
@@ -4267,15 +4457,50 @@
                 }
                 /* Always render something — never show blank grid */
                 var src = (items && items.length) ? items : STATIC_FALLBACK;
-                grid.innerHTML = src.slice(0,18).map(function(it) {
+                grid.innerHTML = src.slice(0,18).map(function(it,idx) {
                     var lc = it.labelColor || '#00d4aa';
                     var badge=it.label?'<span class="lcn-badge" style="background:'+lc+'22;color:'+lc+';border:1px solid '+lc+'44;">'+it.label+'</span>':'';
                     var cacheMark=it.cached?'<span style="font-family:var(--font-mono);font-size:7px;color:#5a6578;padding:1px 5px;border:1px solid #2a3340;border-radius:2px;margin-left:4px;vertical-align:middle;">CACHED</span>':'';
-                    return '<a class="lcn-card" href="'+(it.link||'#')+'" target="_blank" rel="noopener noreferrer">'+
-                        '<div>'+badge+cacheMark+'</div>'+
+                    /* Impact classification based on source + index position */
+                    var impactLevel = idx<3?'CRITICAL':idx<7?'HIGH':'MEDIUM';
+                    var impactCol   = idx<3?'#dc2626':idx<7?'#ea580c':'#d97706';
+                    var impactBg    = idx<3?'rgba(220,38,38,0.1)':idx<7?'rgba(234,88,12,0.1)':'rgba(217,119,6,0.08)';
+                    var relevance   = (it.label==='CISA ADVISORY')?'GOV-CRITICAL':
+                                      (it.label==='KREBS SECURITY')?'ENTERPRISE CRITICAL':
+                                      (it.label==='BLEEPINGCOMPUTER')?'ENTERPRISE CRITICAL':'ENTERPRISE HIGH';
+                    /* Title keyword detection for urgency */
+                    var titleL = (it.title||'').toLowerCase();
+                    var isKev  = titleL.indexOf('kev')>=0||titleL.indexOf('critical')>=0;
+                    var isRansom=titleL.indexOf('ransomware')>=0||titleL.indexOf('lockbit')>=0||titleL.indexOf('blackcat')>=0;
+                    var isApt  = titleL.indexOf('apt')>=0||titleL.indexOf('lazarus')>=0||titleL.indexOf('scatter')>=0||titleL.indexOf('nation')>=0;
+                    return '<a class="lcn-card" href="'+(it.link||'#')+'" target="_blank" rel="noopener noreferrer" style="display:block;">'+
+                        /* Header strip */
+                        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:5px;">'+
+                            '<div style="display:flex;align-items:center;gap:5px;">'+badge+cacheMark+'</div>'+
+                            '<div style="display:flex;align-items:center;gap:5px;">'+
+                                '<span style="background:'+impactBg+';color:'+impactCol+';border:1px solid '+impactCol+'44;padding:1px 7px;border-radius:3px;font-family:var(--font-mono);font-size:7.5px;font-weight:800;letter-spacing:.5px;">'+impactLevel+'</span>'+
+                            '</div>'+
+                        '</div>'+
                         '<div class="lcn-source">'+(it.label||'CYBER INTEL')+'</div>'+
                         '<div class="lcn-title">'+(it.title||'Untitled').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>'+
-                        '<div class="lcn-date">&#128197; '+(it.cached?'Last updated '+_relTime(it.pubDate):_relTime(it.pubDate))+'</div>'+
+                        /* Impact + relevance meta */
+                        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0;">'+
+                            '<span style="font-family:var(--font-mono);font-size:7.5px;color:'+impactCol+';font-weight:700;">&#9650; IMPACT: '+impactLevel+'</span>'+
+                            '<span style="font-family:var(--font-mono);font-size:7.5px;color:#5a6578;">&#183;</span>'+
+                            '<span style="font-family:var(--font-mono);font-size:7.5px;color:#7a8fa8;font-weight:700;">RELEVANCE: '+relevance+'</span>'+
+                            (isKev?'<span style="background:rgba(220,38,38,0.1);color:#f87171;border:1px solid rgba(220,38,38,0.25);padding:1px 6px;border-radius:3px;font-family:var(--font-mono);font-size:7px;font-weight:800;">&#9889; KEV</span>':'')+
+                            (isRansom?'<span style="background:rgba(234,88,12,0.1);color:#fb923c;border:1px solid rgba(234,88,12,0.2);padding:1px 6px;border-radius:3px;font-family:var(--font-mono);font-size:7px;font-weight:800;">&#9760; RANSOMWARE</span>':'')+
+                            (isApt?'<span style="background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);padding:1px 6px;border-radius:3px;font-family:var(--font-mono);font-size:7px;font-weight:800;">&#127988; APT</span>':'')+
+                        '</div>'+
+                        /* Free summary + locked detail prompt */
+                        '<div style="font-family:var(--font-mono);font-size:8.5px;color:#5a6578;border-top:1px solid rgba(255,255,255,0.04);padding-top:7px;margin-top:4px;display:flex;align-items:center;justify-content:space-between;gap:8px;">'+
+                            '<span style="display:flex;align-items:center;gap:5px;">'+
+                                '<span style="color:#5a6578;">&#128198; '+(it.cached?'Last updated '+_relTime(it.pubDate):_relTime(it.pubDate))+'</span>'+
+                            '</span>'+
+                            '<span style="background:rgba(0,212,170,0.08);color:#00d4aa;border:1px solid rgba(0,212,170,0.2);padding:2px 8px;border-radius:3px;font-size:7.5px;font-weight:800;flex-shrink:0;">'+
+                                '&#128274; Get Full Intel &#x2192;'+
+                            '</span>'+
+                        '</div>'+
                         '</a>';
                 }).join('');
                 var upd=document.getElementById('lcn-last-update');
@@ -5155,9 +5380,35 @@
 
         <!-- PRICING / TIERS SECTION -->
         <!-- ── v122.0.0: SAAS API PRICING TIERS ─────────────────────────────── -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- 💰 PRICING CONVERSION URGENCY BLOCK v128.0                       -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <div style="margin:0 0 0;padding:28px 24px;background:linear-gradient(135deg,rgba(220,38,38,0.09),rgba(139,92,246,0.07));border-top:2px solid rgba(220,38,38,0.4);border-bottom:1px solid rgba(220,38,38,0.2);">
+            <div style="max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+                <div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#dc2626;box-shadow:0 0 10px rgba(220,38,38,0.8);animation:kev-pulse 1.4s infinite;"></span>
+                        <span style="font-family:var(--font-mono);font-size:9px;font-weight:900;color:#dc2626;letter-spacing:2px;text-transform:uppercase;">YOU ARE SEEING LIMITED INTELLIGENCE</span>
+                    </div>
+                    <div style="font-size:18px;font-weight:800;color:var(--white);margin-bottom:6px;">Your free tier is missing <span style="color:#dc2626;">critical threat data</span> right now.</div>
+                    <div style="font-family:var(--font-mono);font-size:9px;color:#5a6578;display:flex;gap:14px;flex-wrap:wrap;">
+                        <span>🔒 Full IOC lists locked</span>
+                        <span>🔒 Actor attribution locked</span>
+                        <span>🔒 STIX export locked</span>
+                        <span>🔒 AI dossiers locked</span>
+                        <span>🔒 7 of 10 threats locked</span>
+                    </div>
+                </div>
+                <a href="https://cyberdudebivash.gumroad.com/?utm_source=pricing-urgency&utm_medium=upgrade&utm_campaign=conversion" target="_blank"
+                   style="font-family:var(--font-mono);font-size:12px;font-weight:900;letter-spacing:2px;color:#020205;background:linear-gradient(135deg,#dc2626,#b91c1c);padding:14px 32px;border-radius:4px;text-decoration:none;white-space:nowrap;box-shadow:0 0 24px rgba(220,38,38,0.5),0 4px 16px rgba(0,0,0,0.3);animation:kev-pulse 2s infinite;">
+                    ⚡ UPGRADE NOW →
+                </a>
+            </div>
+        </div>
+
         <section id="pricing" style="padding:60px 0;border-top:1px solid var(--border);">
             <div style="text-align:center;margin-bottom:48px;">
-                <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:4px;text-transform:uppercase;margin:0 0 12px 0;">API ACCESS TIERS — v122.0.0</p>
+                <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:4px;text-transform:uppercase;margin:0 0 12px 0;">💰 PRICING PLANS — CHOOSE YOUR TIER</p>
                 <h2 style="color:var(--white);font-size:32px;font-weight:900;letter-spacing:-1.5px;margin:0 0 12px 0;">Intelligence For Every Mission</h2>
                 <p style="color:var(--text-muted);font-size:14px;max-width:560px;margin:0 auto 20px;">From free threat feeds to enterprise SIEM integration — SENTINEL APEX API tiers designed for every security program.</p>
                 <div style="display:inline-flex;gap:10px;flex-wrap:wrap;justify-content:center;">
@@ -5628,13 +5879,69 @@ GET  /api/billing/portal  → Subscription status</code>
         </section>
 
         <!-- ═══ SENTINEL APEX FOOTER v123.0 — BRAND DOMINANCE ═══ -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- 🛡 TRUST + AUTHORITY CONVERSION BLOCK v128.0                     -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <div style="padding:48px 24px;background:linear-gradient(135deg,rgba(0,212,170,0.03),rgba(10,15,28,0.99));border-top:1px solid rgba(0,212,170,0.12);border-bottom:1px solid rgba(0,212,170,0.08);">
+            <div style="max-width:1100px;margin:0 auto;">
+                <!-- Authority header -->
+                <div style="text-align:center;margin-bottom:32px;">
+                    <p style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:5px;text-transform:uppercase;margin:0 0 8px 0;">🛡 TRUSTED INTELLIGENCE AUTHORITY</p>
+                    <h2 style="color:var(--white);font-size:24px;font-weight:900;letter-spacing:-0.5px;margin:0 0 6px 0;">Real-Time Threat Intelligence Engine</h2>
+                    <p style="font-family:var(--font-mono);font-size:10px;color:#5a6578;">Powered by CYBERDUDEBIVASH &nbsp;·&nbsp; Enterprise-Grade Intelligence &nbsp;·&nbsp; SOC-Ready Data</p>
+                </div>
+                <!-- Trust stat cards -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:32px;">
+                    <div style="background:var(--bg-card);border:1px solid rgba(0,212,170,0.2);border-top:2px solid var(--accent);padding:18px;text-align:center;">
+                        <div style="font-size:28px;font-weight:900;color:#fff;font-family:var(--font-mono);text-shadow:0 0 14px rgba(0,212,170,0.4);">50+</div>
+                        <div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;letter-spacing:2px;margin-top:4px;">INTEL SOURCES</div>
+                    </div>
+                    <div style="background:var(--bg-card);border:1px solid rgba(220,38,38,0.2);border-top:2px solid #dc2626;padding:18px;text-align:center;">
+                        <div style="font-size:28px;font-weight:900;color:#fff;font-family:var(--font-mono);text-shadow:0 0 14px rgba(220,38,38,0.4);">15m</div>
+                        <div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;letter-spacing:2px;margin-top:4px;">FEED REFRESH</div>
+                    </div>
+                    <div style="background:var(--bg-card);border:1px solid rgba(139,92,246,0.2);border-top:2px solid #8b5cf6;padding:18px;text-align:center;">
+                        <div style="font-size:28px;font-weight:900;color:#fff;font-family:var(--font-mono);text-shadow:0 0 14px rgba(139,92,246,0.4);">STIX</div>
+                        <div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;letter-spacing:2px;margin-top:4px;">2.1 COMPLIANT</div>
+                    </div>
+                    <div style="background:var(--bg-card);border:1px solid rgba(59,130,246,0.2);border-top:2px solid #3b82f6;padding:18px;text-align:center;">
+                        <div style="font-size:28px;font-weight:900;color:#fff;font-family:var(--font-mono);text-shadow:0 0 14px rgba(59,130,246,0.4);">AI</div>
+                        <div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;letter-spacing:2px;margin-top:4px;">POWERED ENGINE</div>
+                    </div>
+                    <div style="background:var(--bg-card);border:1px solid rgba(245,158,11,0.2);border-top:2px solid #f59e0b;padding:18px;text-align:center;">
+                        <div style="font-size:28px;font-weight:900;color:#fff;font-family:var(--font-mono);text-shadow:0 0 14px rgba(245,158,11,0.4);">24/7</div>
+                        <div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;letter-spacing:2px;margin-top:4px;">LIVE MONITORING</div>
+                    </div>
+                    <div style="background:var(--bg-card);border:1px solid rgba(16,185,129,0.2);border-top:2px solid #10b981;padding:18px;text-align:center;">
+                        <div style="font-size:28px;font-weight:900;color:#fff;font-family:var(--font-mono);text-shadow:0 0 14px rgba(16,185,129,0.4);">SOC</div>
+                        <div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;letter-spacing:2px;margin-top:4px;">ENTERPRISE READY</div>
+                    </div>
+                </div>
+                <!-- Final conversion CTA -->
+                <div style="text-align:center;padding:28px;background:linear-gradient(135deg,rgba(0,212,170,0.07),rgba(139,92,246,0.06));border:1px solid rgba(0,212,170,0.22);border-radius:6px;">
+                    <div style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:3px;margin-bottom:10px;">UPGRADE TO UNLOCK FULL INTELLIGENCE</div>
+                    <div style="font-size:20px;font-weight:900;color:var(--white);margin-bottom:16px;">Join 500+ SOC Teams Using SENTINEL APEX PRO</div>
+                    <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+                        <a href="https://cyberdudebivash.gumroad.com/?utm_source=trust-block&utm_medium=upgrade-pro&utm_campaign=conversion-final" target="_blank"
+                           style="font-family:var(--font-mono);font-size:12px;font-weight:900;letter-spacing:2px;color:#020205;background:linear-gradient(135deg,#00d4aa,#00b894);padding:14px 32px;border-radius:4px;text-decoration:none;box-shadow:0 0 24px rgba(0,212,170,0.45);">
+                            🔓 UPGRADE TO PRO →
+                        </a>
+                        <a href="https://cyberdudebivash.gumroad.com/?utm_source=trust-block&utm_medium=api-key&utm_campaign=conversion-final" target="_blank"
+                           style="font-family:var(--font-mono);font-size:12px;font-weight:900;letter-spacing:2px;color:#fff;background:linear-gradient(135deg,#dc2626,#b91c1c);padding:14px 32px;border-radius:4px;text-decoration:none;box-shadow:0 0 24px rgba(220,38,38,0.4);">
+                            ⚡ GET API KEY →
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <footer style="border-top:2px solid rgba(0,212,170,0.25);padding:36px 24px 28px;text-align:center;background:linear-gradient(180deg,var(--bg) 0%,rgba(0,212,170,0.03) 100%);">
             <div style="max-width:1100px;margin:0 auto;">
                 <!-- Brand identity block -->
                 <div style="margin-bottom:20px;">
                     <div style="font-family:var(--font-mono);font-size:13px;font-weight:900;letter-spacing:4px;color:var(--white);text-transform:uppercase;margin-bottom:4px;text-shadow:0 0 20px rgba(0,212,170,0.3);">
                         CYBERDUDEBIVASH<span style="color:var(--accent);">®</span> SENTINEL APEX
-                        <span id="footer-version" style="color:var(--accent);font-size:11px;letter-spacing:2px;">V123.0.0</span>
+                        <span id="footer-version" style="color:var(--accent);font-size:11px;letter-spacing:2px;">V128.0.0</span>
                     </div>
                     <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:3px;text-transform:uppercase;">
                         AI-POWERED GLOBAL CYBERSECURITY INTELLIGENCE PLATFORM &nbsp;·&nbsp; ENTERPRISE-GRADE &nbsp;·&nbsp; SOC-READY
@@ -7150,6 +7457,64 @@ GET  /api/billing/portal  → Subscription status</code>
                         } catch(e) { return ''; }
                     })()}
                     ${item.epss_score != null ? `<div class="epss-bar-wrap"><span class="epss-bar-label">EPSS RISK</span><div class="epss-bar-track"><div class="epss-bar-fill" style="width:${Math.min(item.epss_score,100)}%;background:${item.epss_score>=50?'#ff3b3b':item.epss_score>=10?'#ff8c00':item.epss_score>=1?'#f59e0b':'var(--accent)'};"></div></div><span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">${item.epss_score}%</span></div>` : ''}
+                    ${(function(){
+                        /* ── PHASE 1: CONVERSION TRIGGER BLOCK — per-card ── */
+                        const _isRecent = item.timestamp && (Date.now() - new Date(item.timestamp).getTime()) < 86400000;
+                        const _isExploit = item.kev_present || (item.epss_score != null && item.epss_score >= 30);
+                        const _hasCampaign = item.apex_ai && item.apex_ai.campaign_id && item.apex_ai.campaign_id !== 'PRO_REQUIRED' && item.apex_ai.campaign_id !== '—';
+                        const _iocTotal = item.ioc_count || (item.ioc_counts ? Object.values(item.ioc_counts).reduce((a,b)=>a+b,0) : 0);
+                        const _conf = (item.confidence_score != null && item.confidence_score > 0)
+                            ? Math.round(item.confidence_score <= 1 ? item.confidence_score*100 : item.confidence_score)
+                            : (sev==='CRITICAL'?85:sev==='HIGH'?72:60);
+                        const _confLabel = _conf>=80?'HIGH':_conf>=60?'MODERATE':'LOW';
+                        const _confCol   = _conf>=80?'#00d4aa':_conf>=60?'#3b82f6':'#f59e0b';
+
+                        /* Authority signals strip */
+                        const signals = [];
+                        if (_isRecent)   signals.push('<span style="background:rgba(220,38,38,0.1);color:#f87171;border:1px solid rgba(220,38,38,0.25);padding:2px 7px;border-radius:3px;font-size:8px;font-weight:800;letter-spacing:.5px;">⏱ SEEN LAST 24H</span>');
+                        if (_isExploit)  signals.push('<span style="background:rgba(234,88,12,0.1);color:#fb923c;border:1px solid rgba(234,88,12,0.25);padding:2px 7px;border-radius:3px;font-size:8px;font-weight:800;letter-spacing:.5px;">⚡ ACTIVELY EXPLOITED</span>');
+                        if (_hasCampaign)signals.push('<span style="background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);padding:2px 7px;border-radius:3px;font-size:8px;font-weight:700;letter-spacing:.5px;">📡 CAMPAIGN SIGNAL</span>');
+
+                        const signalHtml = signals.length ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">${signals.join('')}</div>` : '';
+
+                        /* AI authority box */
+                        const aiBox = `<div style="padding:8px 12px;background:linear-gradient(135deg,rgba(0,212,170,0.04),rgba(59,130,246,0.03));border:1px solid rgba(0,212,170,0.14);border-radius:4px;margin-bottom:8px;">
+                            <div style="font-family:var(--font-mono);font-size:7.5px;color:#3a5a6a;letter-spacing:2px;margin-bottom:5px;">🧠 AI AUTHORITY</div>
+                            <div style="display:flex;gap:14px;flex-wrap:wrap;">
+                                <div><div style="font-family:var(--font-mono);font-size:7px;color:#4a6578;letter-spacing:1px;">THREAT CONFIDENCE</div><div style="font-family:var(--font-mono);font-size:10px;font-weight:900;color:${_confCol};">${_confLabel}</div></div>
+                                <div><div style="font-family:var(--font-mono);font-size:7px;color:#4a6578;letter-spacing:1px;">EXPLOITATION</div><div style="font-family:var(--font-mono);font-size:10px;font-weight:900;color:${_isExploit?'#f87171':'#5a6578'};">${_isExploit?'ACTIVE LIKELY':'MONITORING'}</div></div>
+                                <div><div style="font-family:var(--font-mono);font-size:7px;color:#4a6578;letter-spacing:1px;">CAMPAIGN SIGNAL</div><div style="font-family:var(--font-mono);font-size:10px;font-weight:900;color:${_hasCampaign?'#a78bfa':'#5a6578'};">${_hasCampaign?'DETECTED':'NONE'}</div></div>
+                            </div>
+                        </div>`;
+
+                        /* Locked value signal */
+                        const iocLock = _iocTotal > 0
+                            ? `<div style="padding:7px 12px;background:rgba(220,38,38,0.05);border:1px solid rgba(220,38,38,0.2);border-radius:4px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                                <div>
+                                    <span style="font-family:var(--font-mono);font-size:8.5px;color:#f87171;font-weight:800;">⚠ ${_iocTotal} INDICATOR${_iocTotal>1?'S':''} DETECTED</span>
+                                    <div style="font-family:var(--font-mono);font-size:8px;color:#5a6578;margin-top:2px;">🔒 Full IOC + STIX bundle available in PRO</div>
+                                </div>
+                                <a href="https://cyberdudebivash.gumroad.com/?utm_source=card-ioc&utm_medium=lock-signal&utm_campaign=ioc-unlock" target="_blank" style="font-family:var(--font-mono);font-size:8px;font-weight:800;color:#fff;background:linear-gradient(135deg,#dc2626,#b91c1c);padding:5px 12px;border-radius:3px;text-decoration:none;white-space:nowrap;box-shadow:0 0 10px rgba(220,38,38,0.35);">🔓 UNLOCK</a>
+                              </div>`
+                            : '';
+
+                        /* Per-card main CTA */
+                        const cardCta = `<a href="https://cyberdudebivash.gumroad.com/?utm_source=card-cta&utm_medium=unlock-btn&utm_campaign=card-conversion-${sev.toLowerCase()}" target="_blank"
+                            style="display:flex;align-items:center;justify-content:center;gap:8px;
+                                   width:100%;padding:9px 0;margin-bottom:2px;
+                                   background:linear-gradient(135deg,rgba(0,212,170,0.12),rgba(139,92,246,0.1));
+                                   border:1px solid rgba(0,212,170,0.3);border-radius:4px;
+                                   font-family:var(--font-mono);font-size:10px;font-weight:900;color:#00d4aa;
+                                   letter-spacing:1.5px;text-decoration:none;
+                                   box-shadow:0 0 12px rgba(0,212,170,0.08);
+                                   transition:all 0.25s;"
+                            onmouseover="this.style.background='linear-gradient(135deg,rgba(0,212,170,0.22),rgba(139,92,246,0.18))';this.style.boxShadow='0 0 24px rgba(0,212,170,0.2)'"
+                            onmouseout="this.style.background='linear-gradient(135deg,rgba(0,212,170,0.12),rgba(139,92,246,0.1))';this.style.boxShadow='0 0 12px rgba(0,212,170,0.08)'">
+                            🔓 Unlock Full Intelligence
+                        </a>`;
+
+                        return signalHtml + aiBox + iocLock + cardCta;
+                    })()}
                     <div class="card-copy-strip">
                         ${cves.map(cve => `<span class="copy-chip" onclick="copyToClipboard('${cve}',this)"><i class="fas fa-copy"></i>${cve}</span>`).join('')}
                     </div>
