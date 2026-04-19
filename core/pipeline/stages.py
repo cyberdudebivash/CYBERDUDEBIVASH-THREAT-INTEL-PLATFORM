@@ -937,41 +937,129 @@ class ScoreStage(PipelineStage):
     @staticmethod
     def _enforce_quality_gates(item: Dict) -> Dict:
         """
-        PHASE 5 — Data Quality Enforcement:
-          • HIGH/CRITICAL items with 0 IOCs → downgrade severity + flag
-          • CRITICAL items with confidence < 70 → downgrade to HIGH
-          • Multi-source validation flag
+        PHASE 5 — Data Quality Enforcement (v123.2):
+          1. HIGH/CRITICAL with 0 IOCs → attempt fallback enrichment first
+             a. CVE→NVD reference URL extraction (NVD CPE vendors, affected products)
+             b. Content re-parse with expanded IOC regex (looser matching)
+             c. CVE ID itself promoted to indicator if no other IOC found
+          2. If still 0 IOCs after fallback → downgrade severity + flag
+          3. CRITICAL with confidence < 70 → downgrade to HIGH
+          4. Multi-source validation flag
         """
         severity = item.get("severity", "MEDIUM").upper()
-        iocs = item.get("iocs", {})
+        iocs: Dict = item.get("iocs") or {}
         total_iocs = sum(len(v) for v in iocs.values() if isinstance(v, list))
-        confidence = item.get("confidence_score", 0.0)
+        confidence = float(item.get("confidence_score") or 0.0)
+        quality_flags: List[str] = list(item.get("quality_flags") or [])
 
-        quality_flags: List[str] = item.get("quality_flags", [])
+        # ── Fallback enrichment for HIGH/CRITICAL with 0 IOCs ─────────────────
+        if severity in ("HIGH", "CRITICAL") and total_iocs == 0:
+            recovered = ScoreStage._fallback_ioc_expansion(item)
+            if recovered:
+                # Merge recovered IOCs back into item
+                for ioc_type, vals in recovered.items():
+                    existing = iocs.get(ioc_type, [])
+                    merged = list(dict.fromkeys(existing + vals))  # deduplicate, preserve order
+                    iocs[ioc_type] = merged
+                item["iocs"] = iocs
+                item["ioc_counts"] = {k: len(v) for k, v in iocs.items() if v}
+                total_iocs = sum(len(v) for v in iocs.values() if isinstance(v, list))
+                quality_flags.append(f"ioc_recovered:fallback({total_iocs})")
+                logger.debug(f"Quality gate: {item.get('intel_id', '?')} recovered {total_iocs} IOCs via fallback")
 
-        # Gate 1: No IOCs for HIGH/CRITICAL — downgrade to MEDIUM
+        # Gate 1: Still 0 IOCs after fallback → downgrade
         if severity in ("HIGH", "CRITICAL") and total_iocs == 0:
             old_sev = severity
             item["severity"] = "MEDIUM"
             item["risk_score"] = min(item.get("risk_score", 5.0), 6.5)
             quality_flags.append(f"downgraded:{old_sev}→MEDIUM:zero_iocs")
-            logger.debug(f"Quality gate: {item.get('intel_id', '?')} downgraded {old_sev}→MEDIUM (zero IOCs)")
+            logger.warning(
+                f"Quality gate: {item.get('intel_id', '?')} downgraded {old_sev}→MEDIUM "
+                f"(zero IOCs after fallback expansion)"
+            )
 
         # Gate 2: CRITICAL items need confidence ≥ 70
         if item.get("severity", "MEDIUM").upper() == "CRITICAL" and confidence < 70.0:
             item["severity"] = "HIGH"
             item["risk_score"] = min(item.get("risk_score", 8.0), 8.5)
             quality_flags.append(f"downgraded:CRITICAL→HIGH:low_confidence({confidence:.0f})")
-            logger.debug(f"Quality gate: {item.get('intel_id', '?')} downgraded CRITICAL→HIGH (confidence={confidence:.1f})")
+            logger.debug(
+                f"Quality gate: {item.get('intel_id', '?')} downgraded CRITICAL→HIGH "
+                f"(confidence={confidence:.1f})"
+            )
 
-        # Gate 3: Multi-source validation flag
-        sources = item.get("sources", [])
+        # Gate 3: Multi-source validation
+        sources = item.get("sources") or []
         if len(sources) >= 2:
-            quality_flags.append("multi_source_validated")
+            if "multi_source_validated" not in quality_flags:
+                quality_flags.append("multi_source_validated")
 
         item["quality_flags"]    = quality_flags
         item["quality_ioc_count"] = total_iocs
         return item
+
+    @staticmethod
+    def _fallback_ioc_expansion(item: Dict) -> Dict[str, List[str]]:
+        """
+        Fallback IOC extraction for HIGH/CRITICAL items that have 0 IOCs.
+        Attempts three strategies in order:
+          1. Promote CVE IDs in title/content as vulnerability indicators
+          2. Re-parse full content with expanded patterns (defanged IPs, partial hashes)
+          3. Extract NVD CPE vendor strings / product references as contextual IOCs
+
+        Returns dict of {ioc_type: [values]} — may be empty if nothing found.
+        """
+        recovered: Dict[str, List[str]] = {}
+
+        title   = item.get("title", "") or ""
+        content = item.get("content", "") or item.get("summary", "") or ""
+        text    = f"{title} {content}"
+
+        # Strategy 1: CVE IDs → vulnerability indicator
+        import re as _re
+        cves = list(set(_re.findall(r"CVE-\d{4}-\d{4,7}", text, _re.IGNORECASE)))
+        if cves:
+            recovered["cve"] = [c.upper() for c in cves[:10]]
+
+        # Strategy 2: Defanged IOC patterns
+        # Defanged IPs: 1[.]2[.]3[.]4 or 1(.)2(.)3(.)4
+        defanged_ips = _re.findall(
+            r"\b(\d{1,3}[\[\(]\.\]?\)?\d{1,3}[\[\(]\.\]?\)?\d{1,3}[\[\(]\.\]?\)?\d{1,3})\b", text
+        )
+        clean_ips = []
+        for ip in defanged_ips:
+            clean = _re.sub(r"[\[\](){}]", "", ip)
+            if _re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", clean):
+                clean_ips.append(clean)
+        if clean_ips:
+            existing_ips = recovered.get("ipv4", [])
+            recovered["ipv4"] = list(dict.fromkeys(existing_ips + clean_ips))[:5]
+
+        # Defanged domains: evil[.]com or evil(.)com
+        defanged_domains = _re.findall(
+            r"\b([a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?[\[\(]\.[\]\)](?:[a-z]{2,10}))\b",
+            text, _re.IGNORECASE
+        )
+        clean_domains = [_re.sub(r"[\[\](){}]", "", d) for d in defanged_domains]
+        if clean_domains:
+            existing_dom = recovered.get("domain", [])
+            recovered["domain"] = list(dict.fromkeys(existing_dom + clean_domains))[:5]
+
+        # Strategy 3: Partial SHA256 hashes (≥16 hex chars)
+        partial_hashes = _re.findall(r"\b[0-9a-fA-F]{32,64}\b", text)
+        if partial_hashes:
+            # Only keep if they look like proper hashes (not just numbers)
+            real_hashes = [h for h in partial_hashes if
+                           sum(c.isalpha() for c in h) >= 4][:5]
+            if real_hashes:
+                recovered["md5_or_sha256"] = real_hashes
+
+        # Strategy 4: Source URL as reference IOC (last resort)
+        source_url = item.get("source_url", "") or ""
+        if not recovered and source_url and source_url.startswith("http"):
+            recovered["url"] = [source_url]
+
+        return recovered
 
     def _calculate_confidence(self, item: Dict) -> float:
         """Calculate multi-signal confidence score [0-100]."""

@@ -1,7 +1,16 @@
 # =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX — Worker Auto-Deploy
-# Deploys the Cloudflare Worker whenever src/index.js or wrangler.toml changes.
+# CYBERDUDEBIVASH® SENTINEL APEX — Worker Auto-Deploy v123.2
+# Deploys the Cloudflare Worker whenever src/** or wrangler.toml changes.
 # Secrets required: CF_API_TOKEN, CF_ACCOUNT_ID
+# Runtime secret (set once via wrangler CLI): CDB_JWT_SECRET
+#
+# JWT SECRET POLICY:
+#   • CDB_JWT_SECRET is a Cloudflare Worker runtime secret (not a GH Actions secret)
+#   • Set it ONCE via: npx wrangler secret put CDB_JWT_SECRET
+#   • Generate value: openssl rand -hex 32
+#   • This workflow validates it is configured AFTER deployment
+#   • Deployment FAILS (exit 1) if CDB_JWT_SECRET is missing post-deploy
+#   • NEVER hardcode or fallback-generate the secret — it must be explicit
 # =============================================================================
 
 name: deploy-worker
@@ -28,7 +37,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
 
     steps:
       - name: "🔧 Checkout repository"
@@ -56,6 +65,25 @@ jobs:
           assert nulls == 0, 'FATAL: null bytes in Worker source!'
           print('OK: Worker source is clean')
           "
+          # Verify no hardcoded/fallback JWT secrets in source
+          python3 -c "
+          import re, sys
+          src = open('workers/intel-gateway/src/index.js').read()
+          # Patterns that would indicate a hardcoded or fallback-generated secret
+          bad_patterns = [
+              r'CDB_JWT_SECRET.*\|\|.*[\"\']{1}[a-zA-Z0-9]{8,}',  # fallback string literal
+              r'generateSecret\(\)',
+              r'Math\.random.*secret',
+          ]
+          found = []
+          for pat in bad_patterns:
+              if re.search(pat, src):
+                  found.append(pat)
+          if found:
+              print('FATAL: Hardcoded/ephemeral JWT secret patterns found:', found)
+              sys.exit(1)
+          print('OK: No hardcoded JWT secret patterns found')
+          "
 
       - name: "🚀 Deploy Worker to Cloudflare"
         env:
@@ -67,29 +95,34 @@ jobs:
 
       - name: "🔍 Validate live deployment + JWT secret"
         run: |
-          echo "Waiting 10s for propagation..."
-          sleep 10
-          HEALTH=$(curl -s "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
+          echo "Waiting 12s for global propagation..."
+          sleep 12
+          HEALTH=$(curl -sf "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
           GATEWAY=$(echo "$HEALTH" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('gateway','unknown'))" 2>/dev/null || echo "error")
           echo "Live gateway: $GATEWAY"
           PREVIEW=$(curl -s "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print('items:', d.get('preview',{}).get('total_in_feed',0))" 2>/dev/null || echo "error")
           echo "Preview endpoint: $PREVIEW"
 
-          # v123.1: Validate CDB_JWT_SECRET is configured in Cloudflare Worker
-          # The secret must be set via: npx wrangler secret put CDB_JWT_SECRET
-          # /api/health returns {"checks":{"jwt_configured":true}} when the secret is present
-          JWT_OK=$(echo "$HEALTH" | python3 -c "
-          import json,sys
+          # HARD FAIL if CDB_JWT_SECRET is not configured in the live Worker
+          # /api/health returns {"checks":{"jwt_configured":true}} when configured
+          echo "$HEALTH" | python3 -c "
+          import json, sys
           d = json.load(sys.stdin)
           checks = d.get('checks', {})
-          jwt_ok = checks.get('jwt_configured', False)
-          print('jwt_configured:', jwt_ok)
-          if not jwt_ok:
-              print('WARNING: CDB_JWT_SECRET not configured in Cloudflare Worker secrets.')
-              print('Fix: npx wrangler secret put CDB_JWT_SECRET')
-              print('     openssl rand -hex 32  (to generate a secure value)')
-              # Exit 1 only on explicit False (not missing checks key — old gateway)
-              if jwt_ok is False:
-                  sys.exit(1)
-          " 2>/dev/null || echo "jwt_check_skipped")
-          echo "$JWT_OK"
+          jwt_ok = checks.get('jwt_configured', None)
+          print(f'jwt_configured: {jwt_ok}')
+          if jwt_ok is False:
+              print('')
+              print('FATAL: CDB_JWT_SECRET is NOT configured in the Cloudflare Worker.')
+              print('Auth endpoints will return 503 and tokens will not persist.')
+              print('')
+              print('Fix:')
+              print('  openssl rand -hex 32')
+              print('  npx wrangler secret put CDB_JWT_SECRET')
+              print('  (paste the generated value when prompted)')
+              sys.exit(1)
+          elif jwt_ok is True:
+              print('OK: CDB_JWT_SECRET is configured — tokens will persist across deployments')
+          else:
+              print('NOTE: Could not verify jwt_configured (health endpoint may be outdated)')
+          " 2>&1
