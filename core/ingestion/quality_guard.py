@@ -198,10 +198,16 @@ class QualityGuard:
         min_words: int = MIN_WORD_COUNT,
         min_confidence: int = 20,
         enforce_min_words: bool = True,
+        enforce_ioc_gate: bool = True,
+        ioc_gate_downgrade: bool = True,
     ):
         self.min_words          = min_words
         self.min_confidence     = min_confidence
         self.enforce_min_words  = enforce_min_words
+        # IOC severity gate: HIGH/CRITICAL advisories with 0 IOCs must be
+        # downgraded (ioc_gate_downgrade=True) or blocked (False)
+        self.enforce_ioc_gate   = enforce_ioc_gate
+        self.ioc_gate_downgrade = ioc_gate_downgrade
 
     # ─── Public API ─────────────────────────────────────────────────────────
 
@@ -243,8 +249,56 @@ class QualityGuard:
 
         # ── 5. IOC density calculation ───────────────────────────────────────
         iocs       = item.get("iocs") or []
-        ioc_count  = len(iocs) if isinstance(iocs, list) else 0
+        # Support both list format and dict-of-arrays format
+        if isinstance(iocs, dict):
+            ioc_count = sum(
+                len(v) if isinstance(v, list) else (1 if v else 0)
+                for v in iocs.values()
+                if not isinstance(v, bool)
+            )
+        elif isinstance(iocs, list):
+            ioc_count = len(iocs)
+        else:
+            ioc_count = 0
+        # Also check ioc_count field if already computed by IOC engine
+        pre_computed = item.get("ioc_count")
+        if isinstance(pre_computed, int) and pre_computed > ioc_count:
+            ioc_count = pre_computed
         flags.append(f"ioc_count:{ioc_count}")
+
+        # ── 5b. MANDATORY IOC–SEVERITY GATE (v124.0) ────────────────────────
+        # Rule: NO advisory with severity ≥ HIGH may be published with 0 IOCs.
+        # Action A (default): downgrade severity to MEDIUM
+        # Action B (strict):  block publication entirely
+        severity_raw = (item.get("severity") or item.get("risk_level") or "").upper()
+        HIGH_SEV_LEVELS = {"HIGH", "CRITICAL", "CRITICAL-RISK", "HIGH-RISK"}
+        if self.enforce_ioc_gate and severity_raw in HIGH_SEV_LEVELS and ioc_count == 0:
+            if self.ioc_gate_downgrade:
+                # Downgrade: preserve advisory but reduce severity
+                logger.warning(
+                    "[IOC-GATE] DOWNGRADE severity=%s → MEDIUM for '%s' (0 IOCs)",
+                    severity_raw, title[:80]
+                )
+                flags.append(f"ioc_gate:downgraded_from_{severity_raw}")
+                # Will mutate enriched dict below — store original for audit
+                item = dict(item)
+                item["original_severity"] = severity_raw
+                item["severity"]          = "MEDIUM"
+                item["ioc_gate_triggered"] = True
+                severity_raw = "MEDIUM"
+            else:
+                # Block: reject publication
+                logger.error(
+                    "[IOC-GATE] BLOCKED severity=%s advisory '%s' — 0 IOCs violates quality gate",
+                    severity_raw, title[:80]
+                )
+                return QualityResult(
+                    accepted=False, item=item,
+                    reject_reason=f"ioc_gate:blocked_{severity_raw}_0_iocs",
+                    word_count=words,
+                    source_trust=source_trust,
+                    exploit_maturity=maturity,
+                )
 
         # ── 6. Composite confidence score ────────────────────────────────────
         confidence = self._compute_confidence(
