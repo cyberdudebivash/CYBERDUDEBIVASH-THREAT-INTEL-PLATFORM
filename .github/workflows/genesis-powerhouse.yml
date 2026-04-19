@@ -26,6 +26,9 @@ jobs:
       - run: pip install -r requirements.txt
       - run: mkdir -p data/genesis data/nexus data/cortex data/quantum data/sovereign
       - name: Execute GENESIS 12-Engine Cycle
+        env:
+          CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
+          PYTHONPATH: ${{ github.workspace }}
         run: python -m agent.v43_genesis.genesis_engine
       - name: Validate
         run: python -m pytest tests/test_v43_genesis.py -v --tb=short 2>&1 | tail -15

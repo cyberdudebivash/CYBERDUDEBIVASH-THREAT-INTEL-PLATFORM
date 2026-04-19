@@ -223,10 +223,23 @@ jobs:
             chmod 600 secrets/cdb_sovereign.pem
           fi
 
+      - name: "🔐 Validate JWT Secret (pre-engine)"
+        run: |
+          if [ -z "${{ secrets.CDB_JWT_SECRET }}" ]; then
+            echo "❌ FATAL: CDB_JWT_SECRET secret is not set in GitHub Actions."
+            echo "   Fix: Repository Settings → Secrets → Actions → New repository secret"
+            echo "   Name: CDB_JWT_SECRET"
+            echo "   Value: $(openssl rand -hex 32)  ← generate a new one"
+            exit 1
+          fi
+          echo "✅ CDB_JWT_SECRET is configured"
+
       - name: "📡 Run Sentinel Intelligence Engine v111.0 (R2-only)"
         continue-on-error: true
         env:
-          # Intel sources
+          # ── Auth secret — REQUIRED, no ephemeral fallback ─────────────
+          CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
+          # ── Intel sources ─────────────────────────────────────────────
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

@@ -2935,6 +2935,236 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* ══════════════════════════════════════════════════════════════
+           PREMIUM UI UPGRADE — Text Contrast · Button Glow · Shimmer
+           v123.0.0
+           ══════════════════════════════════════════════════════════════ */
+
+        /* — Enhanced text contrast — */
+        .intel-card .card-title { color: #dde6f0 !important; font-weight: 700; }
+        .intel-card .apex-v { color: #c8d8e8; }
+        .intel-card .apex-k { color: #7a8fa8; }
+        .section-heading { color: #e8edf4 !important; }
+        body { color: #c8d1dc; }
+
+        /* — Loading shimmer — */
+        @keyframes cdb-shimmer {
+            0%   { background-position: -600px 0; }
+            100% { background-position: 600px 0; }
+        }
+        .cdb-shimmer-line {
+            height: 12px; border-radius: 4px;
+            background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(0,212,170,0.07) 50%, rgba(255,255,255,0.03) 75%);
+            background-size: 600px 100%;
+            animation: cdb-shimmer 1.6s ease-in-out infinite;
+        }
+        .loading-state .loading-spinner + div { opacity: 0.75; }
+
+        /* — Button glow system — */
+        .cdb-btn-primary {
+            background: linear-gradient(135deg, #00d4aa 0%, #00b890 100%);
+            color: #020205; font-weight: 800; border: none;
+            padding: 10px 22px; border-radius: 4px; cursor: pointer;
+            font-family: var(--font-mono); letter-spacing: 1.2px; font-size: 11px;
+            text-transform: uppercase;
+            box-shadow: 0 0 0 rgba(0,212,170,0);
+            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+            position: relative; overflow: hidden;
+        }
+        .cdb-btn-primary::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent);
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .cdb-btn-primary:hover {
+            box-shadow: 0 0 22px rgba(0,212,170,0.55), 0 4px 16px rgba(0,212,170,0.28);
+            transform: translateY(-1px);
+        }
+        .cdb-btn-primary:hover::after { opacity: 1; }
+        .cdb-btn-primary:active { transform: translateY(0); box-shadow: 0 0 10px rgba(0,212,170,0.3); }
+
+        .cdb-btn-danger {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: #fff; font-weight: 800; border: 1px solid rgba(220,38,38,0.6);
+            padding: 10px 22px; border-radius: 4px; cursor: pointer;
+            font-family: var(--font-mono); letter-spacing: 1.2px; font-size: 11px;
+            text-transform: uppercase;
+            box-shadow: 0 0 0 rgba(220,38,38,0);
+            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+        }
+        .cdb-btn-danger:hover {
+            box-shadow: 0 0 28px rgba(220,38,38,0.6), 0 4px 18px rgba(220,38,38,0.32);
+            transform: translateY(-1px);
+            border-color: rgba(220,38,38,0.9);
+        }
+
+        /* — Fade-in for newly rendered content — */
+        @keyframes cdb-fade-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .cdb-fade-in { animation: cdb-fade-in 0.35s ease-out forwards; }
+
+        /* — Severity glow via data-severity attr (applied by applySeverityGlow) — */
+        .intel-card[data-severity="CRITICAL"] {
+            border-left-color: var(--critical) !important;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.55), -4px 0 14px rgba(220,38,38,0.22);
+        }
+        .intel-card[data-severity="HIGH"] {
+            border-left-color: var(--high) !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5), -3px 0 12px rgba(234,88,12,0.18);
+        }
+        .intel-card[data-severity="MEDIUM"] {
+            border-left-color: var(--medium) !important;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.45), -2px 0 8px rgba(217,119,6,0.12);
+        }
+
+        /* — Dynamic CTA banner — */
+        #cdb-threat-cta-bar {
+            display: none; /* shown by JS when CRITICAL/HIGH items detected */
+            padding: 10px 18px;
+            background: linear-gradient(90deg, rgba(220,38,38,0.18) 0%, rgba(220,38,38,0.06) 100%);
+            border: 1px solid rgba(220,38,38,0.4);
+            border-radius: 4px; margin-bottom: 14px;
+            font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px;
+            color: #ff8787;
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            animation: cdb-fade-in 0.4s ease-out;
+        }
+        #cdb-threat-cta-bar.hidden { display: none !important; }
+        .cdb-cta-pulse {
+            display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+            background: #dc2626;
+            box-shadow: 0 0 0 0 rgba(220,38,38,0.7);
+            animation: cdb-cta-pulse-ring 1.5s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes cdb-cta-pulse-ring {
+            0%   { box-shadow: 0 0 0 0 rgba(220,38,38,0.7); }
+            60%  { box-shadow: 0 0 0 6px rgba(220,38,38,0); }
+            100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           GLOBAL CYBER NEWS ENGINE — Live Feed Section
+           ══════════════════════════════════════════════════════════════ */
+        #cdb-news-engine {
+            padding: 32px 0;
+            border-top: 1px solid rgba(0,212,170,0.15);
+            margin-top: 4px;
+        }
+        .cdb-news-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 18px; flex-wrap: wrap; gap: 10px;
+        }
+        .cdb-news-title {
+            font-family: var(--font-mono); font-size: 11px; letter-spacing: 4px;
+            text-transform: uppercase; color: #00ffc6;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .cdb-news-live-dot {
+            display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+            background: #00ffc6;
+            box-shadow: 0 0 8px rgba(0,255,198,0.8);
+            animation: cdb-news-live 2s ease-in-out infinite;
+        }
+        @keyframes cdb-news-live {
+            0%,100% { box-shadow: 0 0 6px rgba(0,255,198,0.6); opacity: 1; }
+            50%      { box-shadow: 0 0 14px rgba(0,255,198,0.9); opacity: 0.85; }
+        }
+        .cdb-news-meta {
+            font-family: var(--font-mono); font-size: 9px; color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+        .cdb-news-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 12px;
+        }
+        .cdb-news-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-left: 3px solid rgba(0,212,170,0.4);
+            border-radius: 4px;
+            padding: 14px 16px;
+            cursor: pointer;
+            transition: all 0.22s cubic-bezier(0.4,0,0.2,1);
+            position: relative; overflow: hidden;
+        }
+        .cdb-news-card::before {
+            content: ''; position: absolute; top: 0; left: -60%; width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,212,170,0.04), transparent);
+            transition: left 0.5s ease;
+        }
+        .cdb-news-card:hover {
+            border-color: rgba(0,212,170,0.45);
+            border-left-color: var(--accent);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.5), -3px 0 12px rgba(0,212,170,0.12);
+            transform: translateY(-2px);
+        }
+        .cdb-news-card:hover::before { left: 160%; }
+        .cdb-news-card-source {
+            font-family: var(--font-mono); font-size: 8px; color: #00c2a0;
+            letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .cdb-news-card-title {
+            font-size: 12px; font-weight: 700; color: #dde6f0;
+            line-height: 1.4; margin-bottom: 8px;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .cdb-news-card-desc {
+            font-size: 10.5px; color: var(--text-muted); line-height: 1.5;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden; margin-bottom: 10px;
+        }
+        .cdb-news-card-footer {
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .cdb-news-card-time {
+            font-family: var(--font-mono); font-size: 8px; color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+        .cdb-news-lock-btn {
+            font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px;
+            color: #f59e0b; border: 1px solid rgba(245,158,11,0.4);
+            background: rgba(245,158,11,0.06); padding: 3px 8px; border-radius: 2px;
+            text-transform: uppercase; cursor: pointer;
+            transition: all 0.18s;
+        }
+        .cdb-news-lock-btn:hover {
+            background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.7);
+            box-shadow: 0 0 12px rgba(245,158,11,0.25);
+        }
+        .cdb-news-authority-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-family: var(--font-mono); font-size: 8px; letter-spacing: 1.5px;
+            color: #00c2a0; text-transform: uppercase;
+            border: 1px solid rgba(0,194,160,0.3); padding: 2px 8px; border-radius: 2px;
+            background: rgba(0,212,170,0.05);
+        }
+        .cdb-news-empty {
+            grid-column: 1 / -1; text-align: center;
+            font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
+            letter-spacing: 2px; padding: 32px 0;
+        }
+        .cdb-news-refresh-btn {
+            font-family: var(--font-mono); font-size: 9px; letter-spacing: 1.5px;
+            color: var(--text-muted); border: 1px solid var(--border);
+            background: none; padding: 5px 12px; border-radius: 3px;
+            text-transform: uppercase; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .cdb-news-refresh-btn:hover {
+            color: var(--accent); border-color: rgba(0,212,170,0.4);
+        }
+        .cdb-news-verified {
+            font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px;
+            color: var(--accent); border: 1px solid rgba(0,212,170,0.25);
+            background: rgba(0,212,170,0.04); padding: 2px 7px; border-radius: 2px;
+        }
+
         </style>
 </head>
 <body>
@@ -3447,6 +3677,22 @@
 
         <!-- LIVE TAB (default — wraps existing threat-grid) -->
         <div class="cdb-tab-panel active" id="cdb-panel-live">
+        <!-- ═══ ACTIVE THREAT CTA BAR (shown dynamically by JS) ═══ -->
+        <div id="cdb-threat-cta-bar" class="hidden">
+            <span class="cdb-cta-pulse"></span>
+            <span id="cdb-cta-text" style="flex:1;">🚨 ACTIVE THREAT DETECTED — Full intelligence locked</span>
+            <a href="https://cyberdudebivash.gumroad.com/?utm_source=intel-dashboard&utm_medium=cta-bar&utm_campaign=threat-detected"
+               target="_blank"
+               style="white-space:nowrap;font-family:var(--font-mono);font-size:9px;letter-spacing:1.5px;
+                      color:#020205;background:linear-gradient(135deg,#dc2626,#b91c1c);
+                      padding:5px 14px;border-radius:3px;font-weight:800;text-decoration:none;
+                      box-shadow:0 0 14px rgba(220,38,38,0.5);transition:all 0.2s;
+                      text-transform:uppercase;" onmouseover="this.style.boxShadow='0 0 28px rgba(220,38,38,0.8)'"
+               onmouseout="this.style.boxShadow='0 0 14px rgba(220,38,38,0.5)'">
+                GET API KEY — 30 SECONDS →
+            </a>
+        </div>
+
         <!-- ═══ THREAT GRID ═══ -->
         <div id="threat-grid">
             <div class="loading-state">
@@ -3553,6 +3799,52 @@
                 </div>
                 <div style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">
                     Last AI run: <span id="ai-bar-lastrun" style="color:var(--text);">—</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- 🌍 CYBERDUDEBIVASH GLOBAL CYBER NEWS ENGINE — LIVE        -->
+        <!-- Real-time aggregation from THN · Krebs · BleepingComputer -->
+        <!-- Auto-refresh · Monetization gate for full details          -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <section id="cdb-news-engine">
+            <div class="cdb-news-header">
+                <div class="cdb-news-title">
+                    <span class="cdb-news-live-dot"></span>
+                    🌍 CYBERDUDEBIVASH GLOBAL CYBER INTEL — LIVE
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span class="cdb-news-authority-badge">
+                        ✓ VERIFIED BY CYBERDUDEBIVASH AUTHORITY
+                    </span>
+                    <button class="cdb-news-refresh-btn" onclick="CDB_NEWS.refresh()">⟳ REFRESH</button>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+                <div class="cdb-news-meta">
+                    SOURCES: THN · KREBS ON SECURITY · BLEEPINGCOMPUTER · DARK READING · SECURITYWEEK
+                    &nbsp;·&nbsp; AUTO-REFRESH: 5 MIN
+                    &nbsp;·&nbsp; LAST UPDATE: <span id="cdb-news-last-update">—</span>
+                </div>
+                <span class="cdb-news-verified">✓ STIX CROSS-REFERENCED</span>
+            </div>
+            <div id="cdb-news-grid" class="cdb-news-grid">
+                <!-- shimmer placeholders -->
+                <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:16px;">
+                    <div class="cdb-shimmer-line" style="width:40%;margin-bottom:10px;"></div>
+                    <div class="cdb-shimmer-line" style="width:90%;margin-bottom:6px;"></div>
+                    <div class="cdb-shimmer-line" style="width:70%;"></div>
+                </div>
+                <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:16px;">
+                    <div class="cdb-shimmer-line" style="width:35%;margin-bottom:10px;"></div>
+                    <div class="cdb-shimmer-line" style="width:85%;margin-bottom:6px;"></div>
+                    <div class="cdb-shimmer-line" style="width:60%;"></div>
+                </div>
+                <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:16px;">
+                    <div class="cdb-shimmer-line" style="width:45%;margin-bottom:10px;"></div>
+                    <div class="cdb-shimmer-line" style="width:88%;margin-bottom:6px;"></div>
+                    <div class="cdb-shimmer-line" style="width:65%;"></div>
                 </div>
             </div>
         </section>
@@ -5714,7 +6006,7 @@ GET  /api/billing/portal  → Subscription status</code>
                 const _xid = 'cdbx' + (item.stix_id||item.id||'').replace(/[^a-zA-Z0-9]/g,'').slice(0,12) + Math.random().toString(36).slice(2,5);
 
                 return `
-                <div class="intel-card sev-${sev.toLowerCase()}${_threatActive}" data-severity="${sev}" data-score="${item.risk_score}" data-time="${item.processed_at || item.timestamp || ''}" data-idx="${manifestData.indexOf ? manifestData.indexOf(item) : ''}">
+                <div class="intel-card sev-${sev.toLowerCase()}${_threatActive} cdb-fade-in" data-severity="${sev}" data-score="${item.risk_score}" data-time="${item.processed_at || item.timestamp || ''}" data-idx="${manifestData.indexOf ? manifestData.indexOf(item) : ''}">
                     <div class="card-meta">
                         <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
                         <span class="badge badge-tlp" style="background:${tlpColor}22;color:${tlpColor};cursor:help;" title="${getTlpDescription(tlp)}">${tlp}</span>
@@ -10669,7 +10961,234 @@ function renderTopThreats(data) {
             }
         });
     })();
+
+    /* ═══════════════════════════════════════════════════════════════════
+       🚨 DYNAMIC THREAT CTA BAR — shows when CRITICAL/HIGH feeds load
+       ═══════════════════════════════════════════════════════════════════ */
+    (function CDB_CTA_BAR() {
+        function maybeShowCTABar(items) {
+            if (!items || !items.length) return;
+            const bar = document.getElementById('cdb-threat-cta-bar');
+            const txt = document.getElementById('cdb-cta-text');
+            if (!bar) return;
+            const critCount = items.filter(function(i) {
+                const s = (i.severity || '').toUpperCase();
+                return s === 'CRITICAL';
+            }).length;
+            const highCount = items.filter(function(i) {
+                const s = (i.severity || '').toUpperCase();
+                return s === 'HIGH';
+            }).length;
+            if (critCount > 0 || highCount > 3) {
+                const msg = critCount > 0
+                    ? '🚨 ' + critCount + ' CRITICAL THREAT' + (critCount > 1 ? 'S' : '') + ' ACTIVE — Full intelligence locked → '
+                    : '⚠️ ' + highCount + ' HIGH SEVERITY THREATS DETECTED — Full intelligence locked → ';
+                if (txt) txt.textContent = msg;
+                bar.classList.remove('hidden');
+            }
+        }
+        // Hook into existing renderCards if available
+        var _origRenderCards = window.renderCards;
+        if (typeof _origRenderCards === 'function') {
+            window.renderCards = function(data) {
+                _origRenderCards.apply(this, arguments);
+                maybeShowCTABar(data);
+            };
+        }
+        // Fallback: observe threat-grid for content
+        document.addEventListener('DOMContentLoaded', function() {
+            var grid = document.getElementById('threat-grid');
+            if (grid && window.MutationObserver) {
+                var obs = new MutationObserver(function() {
+                    var cards = grid.querySelectorAll('.intel-card.sev-critical, .intel-card.sev-high');
+                    if (cards.length > 0) {
+                        var bar = document.getElementById('cdb-threat-cta-bar');
+                        var txt = document.getElementById('cdb-cta-text');
+                        var criticals = grid.querySelectorAll('.intel-card.sev-critical').length;
+                        var highs = grid.querySelectorAll('.intel-card.sev-high').length;
+                        if (criticals > 0 || highs > 3) {
+                            var msg = criticals > 0
+                                ? '🚨 ' + criticals + ' CRITICAL THREAT' + (criticals > 1 ? 'S' : '') + ' ACTIVE — Full intelligence locked → '
+                                : '⚠️ ' + highs + ' HIGH SEVERITY THREATS DETECTED — Full intelligence locked → ';
+                            if (txt) txt.textContent = msg;
+                            if (bar) bar.classList.remove('hidden');
+                        }
+                    }
+                });
+                obs.observe(grid, { childList: true });
+            }
+        });
+    })();
+
+    /* ═══════════════════════════════════════════════════════════════════
+       🌍 CYBERDUDEBIVASH GLOBAL CYBER NEWS ENGINE — LIVE
+       RSS aggregation: THN · Krebs · BleepingComputer · Dark Reading
+       Monetization gate: preview only, full details require API key
+       Auto-refresh: 5 minutes
+       ═══════════════════════════════════════════════════════════════════ */
+    var CDB_NEWS = (function() {
+        var SOURCES = [
+            { id: 'thn',   label: 'THE HACKER NEWS',     url: 'https://feeds.feedburner.com/TheHackersNews', color: '#ef4444' },
+            { id: 'bc',    label: 'BLEEPINGCOMPUTER',     url: 'https://www.bleepingcomputer.com/feed/',      color: '#f59e0b' },
+            { id: 'dark',  label: 'DARK READING',         url: 'https://www.darkreading.com/rss/all.xml',    color: '#8b5cf6' },
+            { id: 'sw',    label: 'SECURITYWEEK',         url: 'https://feeds.feedburner.com/Securityweek',  color: '#3b82f6' },
+            { id: 'krebs', label: 'KREBS ON SECURITY',    url: 'https://krebsonsecurity.com/feed/',          color: '#00d4aa' },
+        ];
+        // CORS proxy — public, free tier
+        var CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
+        var _cache = [];
+        var _seenTitles = new Set();
+        var _lastUpdate = null;
+        var _refreshTimer = null;
+        var REFRESH_INTERVAL = 5 * 60 * 1000; // 5 min
+
+        function _timeSince(dateStr) {
+            try {
+                var d = new Date(dateStr);
+                var now = Date.now();
+                var diff = Math.floor((now - d.getTime()) / 1000);
+                if (diff < 60) return diff + 's ago';
+                if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+                if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+                return Math.floor(diff/86400) + 'd ago';
+            } catch(e) { return ''; }
+        }
+
+        function _parseRSS(xml, source) {
+            var items = [];
+            try {
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(xml, 'text/xml');
+                var entries = doc.querySelectorAll('item');
+                entries.forEach(function(item, idx) {
+                    if (idx > 5) return; // max 6 per source
+                    var title = (item.querySelector('title') || {}).textContent || '';
+                    var desc = (item.querySelector('description') || {}).textContent || '';
+                    var link = (item.querySelector('link') || {}).textContent || '';
+                    var pubDate = (item.querySelector('pubDate') || {}).textContent || '';
+                    // Strip HTML from desc
+                    desc = desc.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().substring(0, 200);
+                    var titleKey = title.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 60);
+                    if (title && !_seenTitles.has(titleKey)) {
+                        _seenTitles.add(titleKey);
+                        items.push({ title: title, desc: desc, link: link, pubDate: pubDate, source: source });
+                    }
+                });
+            } catch(e) {}
+            return items;
+        }
+
+        function _fetchSource(source) {
+            return fetch(CORS_PROXY + encodeURIComponent(source.url), { mode: 'cors' })
+                .then(function(r) { return r.text(); })
+                .then(function(xml) { return _parseRSS(xml, source); })
+                .catch(function() { return []; });
+        }
+
+        function _render(items) {
+            var grid = document.getElementById('cdb-news-grid');
+            var updEl = document.getElementById('cdb-news-last-update');
+            if (!grid) return;
+            if (updEl) updEl.textContent = new Date().toLocaleTimeString();
+
+            if (!items || !items.length) {
+                grid.innerHTML = '<div class="cdb-news-empty">⚡ FETCHING LIVE INTEL FEEDS... CONNECTING TO GLOBAL SOURCES</div>';
+                return;
+            }
+
+            // Sort by date desc
+            items.sort(function(a, b) {
+                try { return new Date(b.pubDate) - new Date(a.pubDate); } catch(e) { return 0; }
+            });
+
+            var HTML = items.map(function(item) {
+                var srcColor = item.source.color || '#00d4aa';
+                var ts = item.pubDate ? _timeSince(item.pubDate) : '';
+                // Paywall: show title + first 100 chars of desc free, rest locked
+                var descPreview = item.desc ? item.desc.substring(0, 100) + (item.desc.length > 100 ? '…' : '') : '';
+                return '<div class="cdb-news-card cdb-fade-in" onclick="CDB_NEWS.openGate(\'' + encodeURIComponent(item.link) + '\')">' +
+                    '<div class="cdb-news-card-source">' +
+                        '<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:' + srcColor + ';flex-shrink:0;"></span>' +
+                        item.source.label +
+                    '</div>' +
+                    '<div class="cdb-news-card-title">' + _escHtml(item.title) + '</div>' +
+                    '<div class="cdb-news-card-desc">' + _escHtml(descPreview) + '</div>' +
+                    '<div class="cdb-news-card-footer">' +
+                        '<span class="cdb-news-card-time">' + ts + '</span>' +
+                        '<span class="cdb-news-lock-btn">🔒 FULL BRIEF →</span>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            grid.innerHTML = HTML;
+        }
+
+        function _escHtml(s) {
+            return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function openGate(encodedUrl) {
+            // Revenue gate: redirect to API subscribe page
+            var url = decodeURIComponent(encodedUrl);
+            // Show upgrade modal briefly, then redirect
+            var toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;' +
+                'background:linear-gradient(135deg,#1a0a00,#2a1200);' +
+                'border:1px solid rgba(245,158,11,0.5);border-radius:6px;' +
+                'padding:16px 20px;max-width:320px;font-family:var(--font-mono);' +
+                'box-shadow:0 8px 32px rgba(0,0,0,0.8),0 0 24px rgba(245,158,11,0.2);' +
+                'animation:cdb-fade-in 0.3s ease-out;';
+            toast.innerHTML = '<div style="font-size:10px;letter-spacing:2px;color:#f59e0b;margin-bottom:8px;">🔒 PREMIUM INTEL LOCKED</div>' +
+                '<div style="font-size:11px;color:#dde6f0;line-height:1.5;margin-bottom:12px;">Full article + AI cross-reference analysis requires API access.</div>' +
+                '<div style="display:flex;gap:8px;">' +
+                    '<a href="https://cyberdudebivash.gumroad.com/?utm_source=news-engine&utm_medium=lock-gate&utm_campaign=full-brief" ' +
+                       'target="_blank" style="flex:1;text-align:center;background:linear-gradient(135deg,#f59e0b,#d97706);' +
+                       'color:#020205;font-weight:800;font-size:9px;letter-spacing:1px;padding:7px 10px;border-radius:3px;' +
+                       'text-decoration:none;text-transform:uppercase;">GET API KEY</a>' +
+                    '<button onclick="this.parentElement.parentElement.remove()" ' +
+                       'style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#7a8fa8;' +
+                       'font-family:var(--font-mono);font-size:9px;padding:7px 10px;border-radius:3px;cursor:pointer;">✕</button>' +
+                '</div>';
+            document.body.appendChild(toast);
+            setTimeout(function() { if (toast.parentNode) toast.remove(); }, 8000);
+        }
+
+        function refresh() {
+            _seenTitles.clear();
+            var grid = document.getElementById('cdb-news-grid');
+            if (grid) {
+                grid.innerHTML = ['',1,2].map(function() {
+                    return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:16px;">' +
+                        '<div class="cdb-shimmer-line" style="width:40%;margin-bottom:10px;"></div>' +
+                        '<div class="cdb-shimmer-line" style="width:85%;margin-bottom:6px;"></div>' +
+                        '<div class="cdb-shimmer-line" style="width:65%;"></div></div>';
+                }).join('');
+            }
+            var promises = SOURCES.map(_fetchSource);
+            Promise.all(promises).then(function(results) {
+                var all = [];
+                results.forEach(function(r) { all = all.concat(r); });
+                _cache = all;
+                _lastUpdate = new Date();
+                _render(all);
+            }).catch(function() {
+                _render([]);
+            });
+        }
+
+        // Auto-refresh
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial load after a short delay so page renders first
+            setTimeout(refresh, 1500);
+            _refreshTimer = setInterval(refresh, REFRESH_INTERVAL);
+        });
+
+        return { refresh: refresh, openGate: openGate };
+    })();
+
     </script>
 
 </body>
 </html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            

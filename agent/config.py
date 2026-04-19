@@ -386,17 +386,21 @@ API_RATE_LIMIT_ENTERPRISE = int(os.environ.get('API_RATE_LIMIT_ENTERPRISE', '100
 API_RATE_WINDOW_SECONDS   = 60
 
 # -- API Authentication --------------------------------------------------------
-# SEC01_PATCHED_v48 - Hardcoded JWT secret removed
-_jwt_from_env = os.environ.get('CDB_JWT_SECRET', '')
+# SEC01_PATCHED_v123.2 — ZERO ephemeral fallback policy
+# CDB_JWT_SECRET MUST be set as a GitHub Actions / environment secret.
+# Generate once: openssl rand -hex 32
+# Set in GitHub: Settings → Secrets → ACTIONS → CDB_JWT_SECRET
+_jwt_from_env = os.environ.get('CDB_JWT_SECRET', '').strip()
 if not _jwt_from_env:
-    import secrets as _sec_secrets
+    import sys as _sys
     import logging as _sec_logging
-    _sec_logging.getLogger("CDB-SECURITY").warning(
-        "CDB_JWT_SECRET not set. Using ephemeral random secret. "
-        "Tokens will NOT persist across restarts. "
-        "Set CDB_JWT_SECRET environment variable for production."
+    _sec_logging.getLogger("CDB-SECURITY").critical(
+        "FATAL: CDB_JWT_SECRET is not set. "
+        "Tokens cannot be issued or validated. "
+        "Set CDB_JWT_SECRET as a GitHub Actions secret. "
+        "Generate: openssl rand -hex 32"
     )
-    _jwt_from_env = _sec_secrets.token_urlsafe(64)
+    _sys.exit(1)
 CDB_JWT_SECRET = _jwt_from_env
 CDB_STANDARD_API_KEYS   = set(filter(None, os.environ.get('CDB_STANDARD_KEYS', '').split(',')))
 CDB_PREMIUM_API_KEYS    = set(filter(None, os.environ.get('CDB_PREMIUM_KEYS',   '').split(',')))
