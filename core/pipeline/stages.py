@@ -150,34 +150,81 @@ class IngestStage(PipelineStage):
         return ctx
 
     def _collect_feeds(self) -> List[Dict]:
-        """Collect intelligence from configured RSS feeds."""
-        items = []
+        """Collect intelligence from RSS feeds + Malware Pipeline."""
+        items: List[Dict] = []
+
+        # ── RSS feeds ─────────────────────────────────────────────────────────
         try:
             from agent.config import RSS_FEEDS, MAX_ENTRIES_PER_FEED, SOURCE_FETCH_TIMEOUT
             import feedparser
+            for feed_url in RSS_FEEDS:
+                try:
+                    feed = feedparser.parse(feed_url, timeout=SOURCE_FETCH_TIMEOUT)
+                    for entry in feed.entries[:MAX_ENTRIES_PER_FEED]:
+                        items.append({
+                            "title":      getattr(entry, "title", ""),
+                            "content":    getattr(entry, "summary", ""),
+                            "source_url": getattr(entry, "link", ""),
+                            "feed_source": feed_url,
+                            "published":  getattr(entry, "published", ""),
+                            "raw_entry": {
+                                "title": getattr(entry, "title", ""),
+                                "link":  getattr(entry, "link", ""),
+                            },
+                        })
+                except Exception as e:
+                    logger.debug(f"[ingest] Feed failed {feed_url[:50]}: {e}")
         except ImportError:
             logger.warning("[ingest] feedparser or agent.config not available")
-            return items
 
-        for feed_url in RSS_FEEDS:
-            try:
-                feed = feedparser.parse(feed_url, timeout=SOURCE_FETCH_TIMEOUT)
-                for entry in feed.entries[:MAX_ENTRIES_PER_FEED]:
-                    items.append({
-                        "title": getattr(entry, "title", ""),
-                        "content": getattr(entry, "summary", ""),
-                        "source_url": getattr(entry, "link", ""),
-                        "feed_source": feed_url,
-                        "published": getattr(entry, "published", ""),
-                        "raw_entry": {
-                            "title": getattr(entry, "title", ""),
-                            "link": getattr(entry, "link", ""),
-                        },
-                    })
-            except Exception as e:
-                logger.debug(f"[ingest] Feed failed {feed_url[:50]}: {e}")
+        # ── PHASE 3: Malware Pipeline ingestion ──────────────────────────────
+        malware_items = self._collect_malware_samples()
+        items.extend(malware_items)
+        if malware_items:
+            logger.info(f"[ingest] Malware pipeline contributed {len(malware_items)} samples")
 
         return items
+
+    def _collect_malware_samples(self) -> List[Dict]:
+        """
+        Fetch recent malware samples from MalwareBazaar via MalwarePipeline,
+        convert to IntelItems, and return for downstream processing.
+        """
+        results: List[Dict] = []
+        try:
+            from core.malware.malware_pipeline import get_pipeline
+            mp = get_pipeline()
+            samples = mp.fetch_recent_samples(limit=25)
+            for sample in samples:
+                intel_item = mp.to_intel_item(sample)
+                # Normalise to pipeline schema
+                iocs_flat = {
+                    "sha256":  [sample.sha256] if sample.sha256 else [],
+                    "sha1":    [sample.sha1]   if sample.sha1   else [],
+                    "md5":     [sample.md5]    if sample.md5    else [],
+                    "ipv4":    sample.iocs.get("ips", []),
+                    "domain":  sample.iocs.get("domains", []),
+                    "url":     sample.iocs.get("urls", []),
+                }
+                results.append({
+                    "type":        "malware",
+                    "title":       f"Malware Sample — {sample.family} [{sample.verdict.upper()}] {(sample.sha256 or sample.md5 or 'unknown')[:16]}",
+                    "content":     f"Family: {sample.family}. File type: {sample.file_type}. Tags: {', '.join(sample.tags[:5])}. TTPs: {', '.join(sample.mitre_ttps[:5])}.",
+                    "source_url":  f"https://bazaar.abuse.ch/sample/{sample.sha256}/",
+                    "feed_source": "malwarebazaar",
+                    "published":   sample.first_seen,
+                    "iocs":        iocs_flat,
+                    "mitre_tactics": sample.mitre_ttps,
+                    "verdict":     sample.verdict,
+                    "family":      sample.family,
+                    "sources":     sample.sources,
+                    "confidence_score": float(sample.confidence),
+                    "yara_hits":   sample.yara_hits,
+                    "malware_intel": intel_item,
+                })
+        except Exception as exc:
+            logger.warning(f"[ingest] Malware pipeline collection failed: {exc}")
+        return results
 
 
 # ═══════════════════════════════════════════════════════════
@@ -486,74 +533,256 @@ class EnrichStage(PipelineStage):
 
 
 # ═══════════════════════════════════════════════════════════
-# STAGE 4: CORRELATE
+# STAGE 4: CORRELATE  (v123.0.0 — AI CYBER BRAIN ACTIVE)
 # ═══════════════════════════════════════════════════════════
 
 class CorrelateStage(PipelineStage):
     """
-    AI-driven correlation: campaign detection, IOC clustering, CVE linking.
-    Wraps the AI Intelligence Engine.
+    AI-driven correlation using the full AI Cyber Brain stack:
+      1. CampaignClusterer  — DBSCAN groups items into named campaigns
+      2. AnomalyDetector    — Isolation Forest flags novel/unknown threats
+      3. Intelligence Graph — IOC ↔ actor ↔ campaign relationship mapping
+      4. Legacy ai_engine   — backwards-compatible IOC clustering + CVE linking
+
+    Each item is enriched with:
+      campaign_id, campaign_name, is_anomaly, anomaly_type, anomaly_score,
+      zero_day_probability, novelty_score, graph_node_ids
     """
 
     name = "correlate"
 
-    def execute(self, ctx: PipelineContext) -> PipelineContext:
-        logger.info(f"[{self.name}] Correlating {len(ctx.items)} items")
+    # ── Baseline training (fit anomaly detector once per process) ──────────────
+    _anomaly_baseline_fitted: bool = False
+    _anomaly_baseline_lock: "threading.RLock | None" = None
 
+    def execute(self, ctx: PipelineContext) -> PipelineContext:
+        import threading as _threading
+        if CorrelateStage._anomaly_baseline_lock is None:
+            CorrelateStage._anomaly_baseline_lock = _threading.RLock()
+
+        logger.info(f"[{self.name}] Correlating {len(ctx.items)} items — AI Cyber Brain ACTIVE")
+
+        # ── 1. Load AI singletons ─────────────────────────────────────────────
+        anomaly_detector = None
+        campaign_clusterer = None
+        try:
+            from core.ai import get_anomaly_detector, get_campaign_clusterer
+            anomaly_detector   = get_anomaly_detector()
+            campaign_clusterer = get_campaign_clusterer()
+        except Exception as exc:
+            logger.warning(f"[{self.name}] AI module load failed: {exc}")
+
+        # ── 2. Fit anomaly detector baseline on first run ─────────────────────
+        if anomaly_detector and not CorrelateStage._anomaly_baseline_fitted and len(ctx.items) >= 5:
+            with CorrelateStage._anomaly_baseline_lock:
+                if not CorrelateStage._anomaly_baseline_fitted:
+                    try:
+                        anomaly_detector.fit(ctx.items)
+                        CorrelateStage._anomaly_baseline_fitted = True
+                        logger.info(f"[{self.name}] AnomalyDetector fitted on {len(ctx.items)} baseline items")
+                    except Exception as exc:
+                        logger.warning(f"[{self.name}] AnomalyDetector fit failed: {exc}")
+
+        # ── 3. Campaign clustering ────────────────────────────────────────────
+        campaigns_output: List[Dict] = []
+        if campaign_clusterer and ctx.items:
+            try:
+                # Build lightweight item proxy for clusterer (include all enrichment fields)
+                cluster_items = []
+                for item in ctx.items:
+                    proxy = {
+                        "id": item.get("intel_id", item.get("title", "")[:40]),
+                        "title": item.get("title", ""),
+                        "ttps": item.get("mitre_tactics", item.get("ttps", [])),
+                        "iocs": self._flatten_iocs(item.get("iocs", {})),
+                        "actor": item.get("actor_tag", item.get("actor", "unknown")),
+                        "sector": item.get("sector", "unknown"),
+                        "severity": item.get("severity", "medium"),
+                        "cvss_score": item.get("cvss_score") or 0.0,
+                        "epss_score": item.get("epss_score") or 0.0,
+                        "kev": item.get("kev_present", False),
+                        "disclosure_date": item.get("timestamp", item.get("published", "")),
+                        "description": item.get("content", "")[:200],
+                        "tags": item.get("tags", []),
+                    }
+                    cluster_items.append(proxy)
+
+                raw_campaigns = campaign_clusterer.cluster(cluster_items)
+                campaigns_output = self._build_campaign_metadata(raw_campaigns, ctx.items)
+
+                # Attach campaign_id + campaign_name back to items
+                for camp in raw_campaigns:
+                    camp_id   = camp.get("campaign_id", "")
+                    camp_name = camp.get("campaign_name", "")
+                    is_singleton = camp.get("is_singleton", False)
+                    if is_singleton:
+                        continue
+                    for member in camp.get("items", []):
+                        member_id = member.get("id", "")
+                        for item in ctx.items:
+                            if item.get("intel_id", "") == member_id or item.get("title", "")[:40] == member_id:
+                                item["campaign_id"]   = camp_id
+                                item["campaign_name"] = camp_name
+                                break
+
+                logger.info(f"[{self.name}] Campaigns detected: {len([c for c in raw_campaigns if not c.get('is_singleton')])}")
+            except Exception as exc:
+                logger.warning(f"[{self.name}] Campaign clustering failed: {exc}")
+
+        # ── 4. Anomaly detection per item ─────────────────────────────────────
+        anomaly_items: List[Dict] = []
+        if anomaly_detector:
+            try:
+                for item in ctx.items:
+                    proxy = self._item_to_anomaly_proxy(item)
+                    anomaly_result = anomaly_detector.detect(proxy)
+                    zd_result      = anomaly_detector.detect_zero_day_indicators(proxy)
+                    novelty        = anomaly_detector.get_novelty_score(proxy)
+
+                    item["is_anomaly"]            = anomaly_result["is_anomaly"]
+                    item["anomaly_score"]         = anomaly_result["anomaly_score"]
+                    item["anomaly_type"]          = anomaly_result["anomaly_type"]
+                    item["anomaly_explanation"]   = anomaly_result["explanation"]
+                    item["novelty_score"]         = novelty
+                    item["zero_day_probability"]  = zd_result["zero_day_probability"]
+                    item["zero_day_indicators"]   = zd_result["indicators"]
+
+                    if anomaly_result["is_anomaly"]:
+                        anomaly_items.append({
+                            "intel_id":    item.get("intel_id", ""),
+                            "title":       item.get("title", "")[:80],
+                            "anomaly_type": anomaly_result["anomaly_type"],
+                            "anomaly_score": anomaly_result["anomaly_score"],
+                            "zero_day_probability": zd_result["zero_day_probability"],
+                        })
+
+                # Temporal spike detection
+                temporal = anomaly_detector.detect_temporal_anomaly(ctx.items)
+                ctx.metadata["temporal_anomaly"] = temporal
+
+                logger.info(f"[{self.name}] Anomalies flagged: {len(anomaly_items)}/{len(ctx.items)}")
+            except Exception as exc:
+                logger.warning(f"[{self.name}] Anomaly detection failed: {exc}")
+
+        # ── 5. Intelligence Graph enrichment ─────────────────────────────────
+        try:
+            from core.intelligence.enrichment_graph import graph as intel_graph
+            for item in ctx.items:
+                ioc_flat = self._flatten_iocs(item.get("iocs", {}))
+                node_ids = []
+                for ioc_val in ioc_flat[:10]:   # limit to 10 IOCs per item for perf
+                    try:
+                        nid = intel_graph.add_ioc(
+                            ioc_val,
+                            source=item.get("feed_source", "pipeline"),
+                            confidence=int(item.get("confidence_score", 50)),
+                        )
+                        node_ids.append(nid)
+                    except Exception:
+                        pass
+                if node_ids:
+                    item["graph_node_ids"] = node_ids
+        except Exception as exc:
+            logger.debug(f"[{self.name}] Graph enrichment skipped: {exc}")
+
+        # ── 6. Legacy ai_engine (backwards compat) ────────────────────────────
         try:
             from core.ai_engine import ai_engine
             analysis = ai_engine.analyze(ctx.items)
+            ctx.metadata.setdefault("ioc_clusters",     analysis.get("ioc_clusters", []))
+            ctx.metadata.setdefault("cve_correlations", analysis.get("cve_correlations", []))
+            ctx.metadata.setdefault("ai_analysis",      analysis.get("summary", {}))
+        except Exception as exc:
+            logger.debug(f"[{self.name}] Legacy ai_engine skipped: {exc}")
 
-            # Attach campaign IDs to items
-            for campaign in analysis.get("campaigns", []):
-                for member_title in campaign.get("member_titles", []):
-                    for item in ctx.items:
-                        if item.get("title") == member_title:
-                            item["campaign_id"] = campaign["campaign_id"]
-                            item["campaign_name"] = campaign["name"]
-
-            # Attach cluster IDs
-            for cluster in analysis.get("ioc_clusters", []):
-                for source_id in cluster.get("source_intel", []):
-                    for item in ctx.items:
-                        if item.get("intel_id") == source_id or item.get("title") == source_id:
-                            item["cluster_id"] = cluster["cluster_id"]
-
-            ctx.metadata["ai_analysis"] = analysis.get("summary", {})
-            ctx.metadata["campaigns"] = analysis.get("campaigns", [])
-            ctx.metadata["ioc_clusters"] = analysis.get("ioc_clusters", [])
-            ctx.metadata["cve_correlations"] = analysis.get("cve_correlations", [])
-            ctx.metadata["anomalies"] = analysis.get("anomalies", [])
-            ctx.metrics["correlated"] = len(ctx.items)
-
-        except Exception as e:
-            logger.warning(f"[{self.name}] AI correlation failed (non-fatal): {e}")
-            ctx.metrics["correlated"] = len(ctx.items)
-
+        # ── Persist to context ────────────────────────────────────────────────
+        ctx.metadata["campaigns"]     = campaigns_output
+        ctx.metadata["anomalies"]     = anomaly_items
+        ctx.metrics["correlated"]     = len(ctx.items)
         ctx.mark_stage_complete(self.name)
 
         self._emit_event("intel.correlated", {
-            "run_id": ctx.run_id,
-            "campaigns": len(ctx.metadata.get("campaigns", [])),
+            "run_id":    ctx.run_id,
+            "campaigns": len(campaigns_output),
+            "anomalies": len(anomaly_items),
         })
 
         return ctx
 
+    # ── Helpers ───────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _flatten_iocs(iocs: Dict) -> List[str]:
+        """Flatten iocs dict into a flat list of values."""
+        flat = []
+        for values in iocs.values():
+            if isinstance(values, list):
+                flat.extend(str(v) for v in values if v)
+        return flat
+
+    @staticmethod
+    def _item_to_anomaly_proxy(item: Dict) -> Dict:
+        """Translate a pipeline item dict to the anomaly detector's expected schema."""
+        iocs = CorrelateStage._flatten_iocs(item.get("iocs", {}))
+        ttps = item.get("mitre_tactics", item.get("ttps", []))
+        return {
+            "id":              item.get("intel_id", item.get("title", "")[:40]),
+            "cvss_score":      item.get("cvss_score") or 0.0,
+            "epss_score":      item.get("epss_score") or 0.0,
+            "kev":             item.get("kev_present", False),
+            "ttps":            ttps if isinstance(ttps, list) else [],
+            "iocs":            iocs,
+            "exploit_maturity": item.get("exploit_maturity", ""),
+            "source":          item.get("feed_source", "unknown"),
+            "sector":          item.get("sector", "unknown"),
+            "severity":        item.get("severity", "medium"),
+            "actor":           item.get("actor_tag", "unknown"),
+            "disclosure_date": item.get("timestamp", item.get("published", "")),
+            "vulnerability_id": (item.get("iocs", {}).get("cve") or [""])[0],
+        }
+
+    @staticmethod
+    def _build_campaign_metadata(raw_campaigns: List[Dict], items: List[Dict]) -> List[Dict]:
+        """Convert raw CampaignClusterer output to API-ready metadata dicts."""
+        out = []
+        for camp in raw_campaigns:
+            if camp.get("is_singleton"):
+                continue
+            out.append({
+                "campaign_id":       camp.get("campaign_id", ""),
+                "campaign_name":     camp.get("campaign_name", ""),
+                "item_count":        camp.get("item_count", 0),
+                "threat_level":      camp.get("threat_level", "medium"),
+                "confidence":        camp.get("confidence", 0.0),
+                "actor_hypothesis":  camp.get("actor_hypothesis", "unknown"),
+                "primary_sector":    camp.get("primary_sector", "unknown"),
+                "common_ttps":       camp.get("common_ttps", [])[:10],
+                "shared_iocs":       camp.get("shared_iocs", [])[:10],
+                "start_date":        camp.get("start_date"),
+                "end_date":          camp.get("end_date"),
+                "member_titles":     [m.get("title", "")[:80] for m in camp.get("items", [])[:20]],
+            })
+        return out
+
 
 # ═══════════════════════════════════════════════════════════
-# STAGE 5: SCORE
+# STAGE 5: SCORE  (v123.0.0 — ThreatPredictor ACTIVE)
 # ═══════════════════════════════════════════════════════════
 
 class ScoreStage(PipelineStage):
     """
-    Dynamic risk scoring with AI enhancement.
-    Wraps existing RiskScoringEngine + detection engine.
+    Dynamic risk scoring with full AI enhancement:
+      1. RiskScoringEngine    — multi-factor base score
+      2. ThreatPredictor      — GBM predicted_severity + 30-day exploitation prob
+      3. Anomaly boost        — anomaly_score modifier on risk
+      4. DetectionEngine      — rule-based CRITICAL boosts
+      5. Data Quality Gates   — no 0-IOC high-sev, CRITICAL confidence ≥ 70
     """
 
     name = "score"
 
     def execute(self, ctx: PipelineContext) -> PipelineContext:
-        logger.info(f"[{self.name}] Scoring {len(ctx.items)} items")
+        logger.info(f"[{self.name}] Scoring {len(ctx.items)} items — ThreatPredictor ACTIVE")
 
         # Load scoring engine
         try:
@@ -568,16 +797,24 @@ class ScoreStage(PipelineStage):
         except ImportError:
             det_engine = None
 
-        # Load AI engine for quick scoring
+        # Load AI engine for quick scoring (legacy)
         try:
             from core.ai_engine import ai_engine
         except ImportError:
             ai_engine = None
 
+        # Load ThreatPredictor singleton
+        threat_predictor = None
+        try:
+            from core.ai import get_threat_predictor
+            threat_predictor = get_threat_predictor()
+        except Exception as exc:
+            logger.debug(f"[{self.name}] ThreatPredictor unavailable: {exc}")
+
         total_detections = 0
 
         for item in ctx.items:
-            # Base risk scoring
+            # ── Base risk scoring ─────────────────────────────────────────────
             if scorer:
                 risk_score = scorer.calculate_risk_score(
                     iocs=item.get("iocs", {}),
@@ -610,48 +847,134 @@ class ScoreStage(PipelineStage):
                 item.setdefault("severity", "MEDIUM")
                 item.setdefault("tlp_label", "TLP:GREEN")
 
-            # AI-enhanced scoring
+            # ── ThreatPredictor (GBM) — predicted_severity + 30d prob ───────
+            if threat_predictor:
+                try:
+                    proxy = {
+                        "cvss_score":      item.get("cvss_score") or 0.0,
+                        "epss_score":      item.get("epss_score") or 0.0,
+                        "kev":             item.get("kev_present", False),
+                        "ttps":            item.get("mitre_tactics", []),
+                        "iocs":            CorrelateStage._flatten_iocs(item.get("iocs", {})),
+                        "exploit_maturity": item.get("exploit_maturity", ""),
+                        "source":          item.get("feed_source", "unknown"),
+                        "sector":          item.get("sector", "unknown"),
+                        "actor":           item.get("actor_tag", "unknown"),
+                        "disclosure_date": item.get("timestamp", item.get("published", "")),
+                    }
+                    pred = threat_predictor.predict(proxy)
+                    item["predicted_severity"]         = pred["predicted_severity"]
+                    item["prediction_confidence"]      = pred["confidence"]
+                    item["risk_trajectory"]            = pred["risk_trajectory"]
+                    item["exploitation_30d_prob"]      = pred["next_30d_exploitation_probability"]
+                    item["top_risk_factors"]           = pred["feature_contributions"]
+
+                    # Boost risk score if predictor says critical and trajectory escalating
+                    if pred["severity_label_int"] >= 3 and pred["risk_trajectory"] in ("escalating", "rapidly_escalating"):
+                        item["risk_score"] = min(10.0, item.get("risk_score", 3.0) + 1.5)
+                    elif pred["severity_label_int"] >= 2 and pred["risk_trajectory"] == "rapidly_escalating":
+                        item["risk_score"] = min(10.0, item.get("risk_score", 3.0) + 0.8)
+
+                except Exception as exc:
+                    logger.debug(f"[{self.name}] ThreatPredictor item failed: {exc}")
+
+            # ── Anomaly risk boost ─────────────────────────────────────────────
+            if item.get("is_anomaly"):
+                anomaly_score = item.get("anomaly_score", 0.0)
+                zd_prob = item.get("zero_day_probability", 0.0)
+                # Anomalous items get risk boosted proportionally to zero-day probability
+                boost = min(2.0, zd_prob * 2.5 + abs(anomaly_score) * 0.5)
+                item["risk_score"] = min(10.0, item.get("risk_score", 3.0) + boost)
+
+            # ── Legacy AI engine quick score ──────────────────────────────────
             if ai_engine:
-                ai_signals = ai_engine.quick_score(item)
-                modifier = ai_signals.get("ai_risk_modifier", 0)
-                if modifier > 0:
-                    item["risk_score"] = min(10.0, item["risk_score"] + modifier)
-                    item["ai_analysis"] = ai_signals
+                try:
+                    ai_signals = ai_engine.quick_score(item)
+                    modifier = ai_signals.get("ai_risk_modifier", 0)
+                    if modifier > 0:
+                        item["risk_score"] = min(10.0, item.get("risk_score", 3.0) + modifier)
+                        item["ai_analysis"] = ai_signals
+                except Exception:
+                    pass
 
-            # Detection engine
+            # ── Detection engine ──────────────────────────────────────────────
             if det_engine:
-                detections = det_engine.run_detections(item)
-                if detections:
-                    item["detections"] = detections
-                    total_detections += len(detections)
-                    # Boost risk for high-confidence detections
-                    critical_detections = [d for d in detections if d.get("severity") == "CRITICAL"]
-                    if critical_detections:
-                        item["risk_score"] = min(10.0, item["risk_score"] + 1.0)
+                try:
+                    detections = det_engine.run_detections(item)
+                    if detections:
+                        item["detections"] = detections
+                        total_detections += len(detections)
+                        critical_detections = [d for d in detections if d.get("severity") == "CRITICAL"]
+                        if critical_detections:
+                            item["risk_score"] = min(10.0, item.get("risk_score", 3.0) + 1.0)
+                except Exception:
+                    pass
 
-            # Recalculate severity after all adjustments
+            # ── Recalculate severity after all adjustments ────────────────────
             if scorer:
                 item["severity"] = scorer.get_severity_label(item["risk_score"])
                 item["tlp_label"] = scorer.get_tlp_label(item["risk_score"])["label"]
 
-            # Confidence score
+            # ── Confidence score ──────────────────────────────────────────────
             item["confidence_score"] = self._calculate_confidence(item)
+
+            # ── PHASE 5: Data Quality Gates ───────────────────────────────────
+            item = self._enforce_quality_gates(item)
 
         ctx.metrics["scored"] = len(ctx.items)
         ctx.metrics["detections"] = total_detections
         ctx.mark_stage_complete(self.name)
 
         self._emit_event("intel.scored", {
-            "run_id": ctx.run_id,
-            "scored": len(ctx.items),
+            "run_id":    ctx.run_id,
+            "scored":    len(ctx.items),
             "detections": total_detections,
         })
 
         logger.info(f"[{self.name}] {len(ctx.items)} items scored, {total_detections} detections")
         return ctx
 
+    @staticmethod
+    def _enforce_quality_gates(item: Dict) -> Dict:
+        """
+        PHASE 5 — Data Quality Enforcement:
+          • HIGH/CRITICAL items with 0 IOCs → downgrade severity + flag
+          • CRITICAL items with confidence < 70 → downgrade to HIGH
+          • Multi-source validation flag
+        """
+        severity = item.get("severity", "MEDIUM").upper()
+        iocs = item.get("iocs", {})
+        total_iocs = sum(len(v) for v in iocs.values() if isinstance(v, list))
+        confidence = item.get("confidence_score", 0.0)
+
+        quality_flags: List[str] = item.get("quality_flags", [])
+
+        # Gate 1: No IOCs for HIGH/CRITICAL — downgrade to MEDIUM
+        if severity in ("HIGH", "CRITICAL") and total_iocs == 0:
+            old_sev = severity
+            item["severity"] = "MEDIUM"
+            item["risk_score"] = min(item.get("risk_score", 5.0), 6.5)
+            quality_flags.append(f"downgraded:{old_sev}→MEDIUM:zero_iocs")
+            logger.debug(f"Quality gate: {item.get('intel_id', '?')} downgraded {old_sev}→MEDIUM (zero IOCs)")
+
+        # Gate 2: CRITICAL items need confidence ≥ 70
+        if item.get("severity", "MEDIUM").upper() == "CRITICAL" and confidence < 70.0:
+            item["severity"] = "HIGH"
+            item["risk_score"] = min(item.get("risk_score", 8.0), 8.5)
+            quality_flags.append(f"downgraded:CRITICAL→HIGH:low_confidence({confidence:.0f})")
+            logger.debug(f"Quality gate: {item.get('intel_id', '?')} downgraded CRITICAL→HIGH (confidence={confidence:.1f})")
+
+        # Gate 3: Multi-source validation flag
+        sources = item.get("sources", [])
+        if len(sources) >= 2:
+            quality_flags.append("multi_source_validated")
+
+        item["quality_flags"]    = quality_flags
+        item["quality_ioc_count"] = total_iocs
+        return item
+
     def _calculate_confidence(self, item: Dict) -> float:
-        """Calculate confidence score based on available signals."""
+        """Calculate multi-signal confidence score [0-100]."""
         confidence = 20.0
         if item.get("cvss_score"):
             confidence += 15
@@ -661,16 +984,25 @@ class ScoreStage(PipelineStage):
             confidence += 20
         iocs = item.get("iocs", {})
         ioc_types = sum(1 for v in iocs.values() if v)
-        confidence += min(30, ioc_types * 5)
+        confidence += min(20, ioc_types * 5)
         if item.get("mitre_tactics"):
-            confidence += 10
+            confidence += 8
         actor = item.get("actor_tag", "")
         if actor and not actor.startswith("UNC-"):
             confidence += 10
         if item.get("risk_score", 0) >= 7.0:
-            confidence += 10
+            confidence += 8
         if item.get("detections"):
             confidence += 8
+        # Boost for predictor high confidence
+        pred_conf = item.get("prediction_confidence", 0.0)
+        if pred_conf >= 0.80:
+            confidence += 10
+        elif pred_conf >= 0.60:
+            confidence += 5
+        # Boost for multi-source malware
+        if item.get("type") == "malware" and len(item.get("sources", [])) >= 2:
+            confidence += 15
         return min(100.0, confidence)
 
 
@@ -735,24 +1067,40 @@ class StoreStage(PipelineStage):
                     )
                     item["stix_id"] = stix_id
 
-                # Store to hardened manifest
+                # Store to hardened manifest (v123 — AI fields included)
                 if manifest_manager:
                     manifest_manager.append_entry({
-                        "title": item.get("title", ""),
-                        "stix_id": stix_id,
-                        "risk_score": item.get("risk_score", 0),
-                        "timestamp": item.get("timestamp", datetime.now(timezone.utc).isoformat()),
-                        "severity": item.get("severity", "MEDIUM"),
-                        "source_url": item.get("source_url", ""),
-                        "confidence_score": item.get("confidence_score", 0),
-                        "tlp_label": item.get("tlp_label", "TLP:CLEAR"),
-                        "ioc_counts": item.get("ioc_counts", {}),
-                        "actor_tag": item.get("actor_tag", "UNC-CDB-99"),
-                        "mitre_tactics": item.get("mitre_tactics", []),
-                        "feed_source": item.get("feed_source", ""),
-                        "cvss_score": item.get("cvss_score"),
-                        "epss_score": item.get("epss_score"),
-                        "kev_present": item.get("kev_present", False),
+                        "title":              item.get("title", ""),
+                        "stix_id":            stix_id,
+                        "risk_score":         item.get("risk_score", 0),
+                        "timestamp":          item.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                        "severity":           item.get("severity", "MEDIUM"),
+                        "source_url":         item.get("source_url", ""),
+                        "confidence_score":   item.get("confidence_score", 0),
+                        "tlp_label":          item.get("tlp_label", "TLP:CLEAR"),
+                        "ioc_counts":         item.get("ioc_counts", {}),
+                        "actor_tag":          item.get("actor_tag", "UNC-CDB-99"),
+                        "mitre_tactics":      item.get("mitre_tactics", []),
+                        "feed_source":        item.get("feed_source", ""),
+                        "cvss_score":         item.get("cvss_score"),
+                        "epss_score":         item.get("epss_score"),
+                        "kev_present":        item.get("kev_present", False),
+                        # AI Cyber Brain outputs
+                        "is_anomaly":         item.get("is_anomaly", False),
+                        "anomaly_type":       item.get("anomaly_type", "normal"),
+                        "anomaly_score":      item.get("anomaly_score", 0.0),
+                        "zero_day_probability": item.get("zero_day_probability", 0.0),
+                        "novelty_score":      item.get("novelty_score", 0.0),
+                        "predicted_severity": item.get("predicted_severity", ""),
+                        "exploitation_30d_prob": item.get("exploitation_30d_prob", 0.0),
+                        "risk_trajectory":    item.get("risk_trajectory", "stable"),
+                        "campaign_id":        item.get("campaign_id", ""),
+                        "campaign_name":      item.get("campaign_name", ""),
+                        "quality_flags":      item.get("quality_flags", []),
+                        # Malware-specific
+                        "type":               item.get("type", "intel"),
+                        "family":             item.get("family", ""),
+                        "verdict":            item.get("verdict", ""),
                     }, caller="orchestrator")
 
                 # Store to database
@@ -851,4 +1199,165 @@ class PublishStage(PipelineStage):
         })
 
         logger.info(f"[{self.name}] {published_count} items published")
+        return ctx
+
+
+# ═══════════════════════════════════════════════════════════
+# STAGE 8: R2 AI EXPORT
+# ═══════════════════════════════════════════════════════════
+
+class R2AIExportStage(PipelineStage):
+    """
+    Exports AI analysis outputs (campaigns, anomalies, intel graph) to
+    Cloudflare R2 after each pipeline run so the Worker can serve them.
+
+    R2 paths:
+      data/ai/campaigns.json   — DBSCAN campaign clusters
+      data/ai/anomalies.json   — Isolation Forest anomaly items
+      data/ai/intel_graph.json — IOC enrichment graph snapshot
+
+    Requires env vars:
+      R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME
+      (or boto3-compatible S3 endpoint via CF R2 S3 API)
+    """
+
+    name = "r2_ai_export"
+
+    def execute(self, ctx: PipelineContext) -> PipelineContext:
+        logger.info(f"[{self.name}] Exporting AI outputs to R2")
+
+        try:
+            import boto3
+            from botocore.config import Config as BotoCfg
+
+            account_id   = os.getenv("R2_ACCOUNT_ID", "")
+            access_key   = os.getenv("R2_ACCESS_KEY_ID", "")
+            secret_key   = os.getenv("R2_SECRET_ACCESS_KEY", "")
+            bucket       = os.getenv("R2_BUCKET_NAME", "sentinel-apex-intel")
+
+            if not (account_id and access_key and secret_key):
+                logger.warning(f"[{self.name}] R2 credentials missing — skipping AI export")
+                ctx.mark_stage_complete(self.name)
+                return ctx
+
+            r2 = boto3.client(
+                "s3",
+                endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                config=BotoCfg(signature_version="s3v4"),
+                region_name="auto",
+            )
+
+            exported = []
+
+            # ── Export campaigns ──────────────────────────────────────────────
+            campaigns = ctx.metadata.get("campaigns", [])
+            if campaigns:
+                payload = json.dumps({
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "run_id":       ctx.run_id,
+                    "campaigns":    campaigns,
+                    "total":        len(campaigns),
+                }, default=str)
+                r2.put_object(
+                    Bucket=bucket, Key="data/ai/campaigns.json",
+                    Body=payload.encode(),
+                    ContentType="application/json",
+                )
+                exported.append(f"campaigns({len(campaigns)})")
+
+            # ── Export anomalies ──────────────────────────────────────────────
+            anomalies = [
+                {
+                    "id":                  item.get("intel_id", ""),
+                    "title":               item.get("title", ""),
+                    "is_anomaly":          item.get("is_anomaly", False),
+                    "anomaly_type":        item.get("anomaly_type", "normal"),
+                    "anomaly_score":       item.get("anomaly_score", 0.0),
+                    "zero_day_probability": item.get("zero_day_probability", 0.0),
+                    "novelty_score":       item.get("novelty_score", 0.0),
+                    "severity":            item.get("severity", ""),
+                    "risk_score":          item.get("risk_score", 0.0),
+                    "actor_tag":           item.get("actor_tag", ""),
+                    "timestamp":           item.get("timestamp", ""),
+                    "quality_flags":       item.get("quality_flags", []),
+                    "zero_day_indicators": item.get("zero_day_indicators", []),
+                }
+                for item in ctx.items if item.get("is_anomaly")
+            ]
+            if anomalies:
+                payload = json.dumps({
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "run_id":       ctx.run_id,
+                    "anomalies":    anomalies,
+                    "total":        len(anomalies),
+                }, default=str)
+                r2.put_object(
+                    Bucket=bucket, Key="data/ai/anomalies.json",
+                    Body=payload.encode(),
+                    ContentType="application/json",
+                )
+                exported.append(f"anomalies({len(anomalies)})")
+
+            # ── Export intel graph snapshot ───────────────────────────────────
+            try:
+                from core.intelligence.enrichment_graph import graph as intel_graph
+                graph_data = intel_graph.export_snapshot() if hasattr(intel_graph, "export_snapshot") else None
+                if not graph_data:
+                    # Build minimal snapshot from graph's internal state
+                    nodes = []
+                    edges = []
+                    if hasattr(intel_graph, "_graph"):
+                        g = intel_graph._graph
+                        for nid in g.nodes:
+                            nd = g.nodes[nid]
+                            nodes.append({
+                                "id":           nid,
+                                "type":         nd.get("ioc_type", "unknown"),
+                                "value":        nd.get("ioc_value", nid),
+                                "confidence":   nd.get("confidence", 0.0),
+                                "source":       nd.get("source", ""),
+                                "authority":    nd.get("authority_score", 0.0),
+                                "threat_level": nd.get("threat_level", "unknown"),
+                            })
+                        for src, dst, edata in g.edges(data=True):
+                            edges.append({
+                                "source": src, "target": dst,
+                                "relation": edata.get("relation", "related_to"),
+                                "weight":   edata.get("weight", 1.0),
+                            })
+                    graph_data = {
+                        "nodes": nodes,
+                        "edges": edges,
+                        "node_count": len(nodes),
+                        "edge_count":  len(edges),
+                    }
+                payload = json.dumps({
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "run_id":       ctx.run_id,
+                    **graph_data,
+                }, default=str)
+                r2.put_object(
+                    Bucket=bucket, Key="data/ai/intel_graph.json",
+                    Body=payload.encode(),
+                    ContentType="application/json",
+                )
+                exported.append(f"intel_graph({graph_data.get('node_count', 0)} nodes)")
+            except Exception as ge:
+                logger.warning(f"[{self.name}] Graph export skipped: {ge}")
+
+            if exported:
+                logger.info(f"[{self.name}] R2 AI exports: {', '.join(exported)}")
+            else:
+                logger.info(f"[{self.name}] No AI outputs to export this run")
+
+        except ImportError:
+            logger.warning(f"[{self.name}] boto3 not available — skipping R2 AI export")
+        except Exception as e:
+            logger.error(f"[{self.name}] R2 export error: {e}", exc_info=True)
+            ctx.add_error(self.name, str(e), "r2_ai_export")
+
+        ctx.mark_stage_complete(self.name)
+        self._emit_event("ai.exported_to_r2", {"run_id": ctx.run_id})
         return ctx

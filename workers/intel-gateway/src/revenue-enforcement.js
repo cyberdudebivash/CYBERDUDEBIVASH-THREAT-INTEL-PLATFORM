@@ -140,6 +140,74 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
+    // ── v123.0.0: AI Intelligence gates ──────────────────────────────────────
+
+    // AI Threat Prediction — Free: BLOCKED, Pro+: ALLOWED (ENTERPRISE gets stored predictions)
+    case "ai_predict":
+      if (isFree) return {
+        allowed: false,
+        resource,
+        reason:  "pro_required",
+        message: "AI threat prediction (CVSS+EPSS+KEV+TTP scoring) requires Pro or Enterprise.",
+        upgrade: buildUpgradeTrigger("ai_predict", t),
+      };
+      return { allowed: true };
+
+    // Campaign Clustering — Free: BLOCKED, Pro+: ALLOWED (Enterprise gets full member details)
+    case "ai_campaigns":
+      if (isFree) return {
+        allowed: false,
+        resource,
+        reason:  "pro_required",
+        message: "DBSCAN campaign intelligence requires Pro or Enterprise.",
+        upgrade: buildUpgradeTrigger("ai_campaigns", t),
+      };
+      return { allowed: true };
+
+    // Anomaly Detection — Free: BLOCKED, Pro+: ALLOWED (Enterprise gets zero-day indicators)
+    case "ai_anomalies":
+      if (isFree) return {
+        allowed: false,
+        resource,
+        reason:  "pro_required",
+        message: "Isolation Forest anomaly detection + zero-day candidate flagging requires Pro or Enterprise.",
+        upgrade: buildUpgradeTrigger("ai_anomalies", t),
+      };
+      return { allowed: true };
+
+    // Intelligence Graph — Free: BLOCKED, Pro: summary only, Enterprise: full graph
+    case "intel_graph":
+      if (isFree) return {
+        allowed: false,
+        resource,
+        reason:  "pro_required",
+        message: "IOC intelligence graph access requires Pro or Enterprise.",
+        upgrade: buildUpgradeTrigger("intel_graph", t),
+      };
+      return { allowed: true };
+
+    // Intelligence Graph — full node list (Enterprise only)
+    case "intel_graph_full":
+      if (!isEnt) return {
+        allowed: false,
+        resource,
+        reason:  "enterprise_only",
+        message: "Full IOC graph (all nodes + attribution edges) is Enterprise-exclusive.",
+        upgrade: buildUpgradeTrigger("intel_graph_full", t),
+      };
+      return { allowed: true };
+
+    // Intelligence Relations (BFS traversal) — Free: BLOCKED, Pro: depth≤1 + 5 results, Enterprise: full
+    case "intel_relations":
+      if (isFree) return {
+        allowed: false,
+        resource,
+        reason:  "pro_required",
+        message: "IOC relationship traversal + actor attribution requires Pro or Enterprise.",
+        upgrade: buildUpgradeTrigger("intel_relations", t),
+      };
+      return { allowed: true };
+
     default:
       return { allowed: true };
   }

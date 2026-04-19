@@ -101,7 +101,7 @@ class SentinelOrchestrator:
     """
 
     PIPELINE_STAGES = [
-        "ingest", "normalize", "enrich", "correlate", "score", "store", "publish"
+        "ingest", "normalize", "enrich", "correlate", "score", "store", "publish", "r2_ai_export"
     ]
 
     def __init__(self):
@@ -144,6 +144,7 @@ class SentinelOrchestrator:
             PipelineContext, IngestStage, NormalizeStage, EnrichStage,
             CorrelateStage, ScoreStage, StoreStage, PublishStage,
         )
+        from core.pipeline.stages import R2AIExportStage
 
         # Build context
         ctx = PipelineContext(run_id=run_id)
@@ -152,13 +153,14 @@ class SentinelOrchestrator:
 
         # Stage registry
         stage_map = {
-            "ingest": IngestStage(),
-            "normalize": NormalizeStage(),
-            "enrich": EnrichStage(),
-            "correlate": CorrelateStage(),
-            "score": ScoreStage(),
-            "store": StoreStage(),
-            "publish": PublishStage(),
+            "ingest":        IngestStage(),
+            "normalize":     NormalizeStage(),
+            "enrich":        EnrichStage(),
+            "correlate":     CorrelateStage(),
+            "score":         ScoreStage(),
+            "store":         StoreStage(),
+            "publish":       PublishStage(),
+            "r2_ai_export":  R2AIExportStage(),
         }
 
         # Emit pipeline start event

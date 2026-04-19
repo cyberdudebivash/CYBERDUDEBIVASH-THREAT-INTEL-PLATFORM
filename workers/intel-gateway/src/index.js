@@ -33,6 +33,12 @@ import {
   pushWebhookNotifications,
   SCOPE_DEFINITIONS,
   TIER_DEFAULT_SCOPES,
+  // v123.0.0 — AI Intelligence Endpoints
+  handlePredict,
+  handleCampaigns,
+  handleAnomalies,
+  handleIntelGraph,
+  handleIntelRelations,
 } from "./api-extensions.js";
 
 import {
@@ -3306,6 +3312,27 @@ export default {
     if (pathname === "/api/intel/correlate" && method === "POST")
       return handleCorrelate(request, env, auth, rid);
 
+    // ── v123.0.0: AI Intelligence Endpoints ─────────────────────────────────
+    // GET|POST /api/predict — AI threat prediction (Pro+)
+    if (pathname === "/api/predict" && (method === "GET" || method === "POST"))
+      return handlePredict(request, env, auth, rid);
+
+    // GET /api/campaigns — detected threat campaigns (Pro+)
+    if (pathname === "/api/campaigns" && method === "GET")
+      return handleCampaigns(request, env, auth, rid);
+
+    // GET /api/anomalies — zero-day + anomalous threat feed (Pro+)
+    if (pathname === "/api/anomalies" && method === "GET")
+      return handleAnomalies(request, env, auth, rid);
+
+    // GET /api/intelligence/graph — IOC relationship graph (Pro=summary, Enterprise=full)
+    if (pathname === "/api/intelligence/graph" && method === "GET")
+      return handleIntelGraph(request, env, auth, rid);
+
+    // GET /api/intelligence/relations — BFS IOC relations (Pro=limited, Enterprise=full)
+    if (pathname === "/api/intelligence/relations" && method === "GET")
+      return handleIntelRelations(request, env, auth, rid);
+
     // GET /api/platform/stats — live feed stats for dashboard (public — no auth required)
     // (also accessible without auth for dashboard widgets — handled below)
 
@@ -3356,6 +3383,12 @@ export default {
         // ── Export endpoints ────────────────────────────────────────────────────
         "GET  /api/export/csv           (requires auth Pro+ — IOC bulk CSV | scope: export:csv)",
         "GET  /api/export/misp          (requires auth Enterprise — MISP JSON | scope: export:misp)",
+        // ── v123.0.0: AI Intelligence (Phase 2+4) ──────────────────────────────
+        "GET|POST /api/predict          (Pro+ — AI threat prediction | CVSS+EPSS+KEV+TTP scoring)",
+        "GET  /api/campaigns            (Pro+ — detected threat campaigns | DBSCAN-clustered)",
+        "GET  /api/anomalies            (Pro+ — zero-day candidates + anomalous threats | Isolation Forest)",
+        "GET  /api/intelligence/graph   (Pro=summary, Enterprise=full IOC graph | PageRank authority scores)",
+        "GET  /api/intelligence/relations (Pro+ — IOC relationship BFS traversal | actor attribution)",
         // ── Enterprise ──────────────────────────────────────────────────────────
         "GET  /api/webhooks/siem        (requires auth Enterprise — list + format info)",
         "POST /api/webhooks/siem        (requires auth Enterprise — register SIEM webhook)",
