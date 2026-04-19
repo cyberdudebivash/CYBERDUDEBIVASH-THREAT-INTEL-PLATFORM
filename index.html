@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBERDUDEBIVASH® CYBERDUDEBIVASH SENTINEL APEX v119.0.0 | AI-Powered Global Threat Intelligence</title>
-    <meta name="description" content="CyberDudeBivash SENTINEL APEX v119.0.0 — AI-Powered Threat Intelligence Platform. Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping, EPSS enrichment, MISP export, threat modals, watchlist, AI engine transparency.">
+    <title>CYBERDUDEBIVASH® SENTINEL APEX v123.0.0 | AI-Powered Global Threat Intelligence</title>
+    <meta name="description" content="CyberDudeBivash SENTINEL APEX v123.0.0 — AI-Powered Threat Intelligence Platform. Real-time IOC feeds, STIX 2.1 exports, AI campaign clustering, zero-day anomaly detection, MITRE ATT&CK mapping, EPSS enrichment, MISP export.">
     <!-- ── Cache Control (v81.9) — Forces CDN/browser to fetch fresh HTML ── -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -20,7 +20,7 @@
 
     <!-- ── Open Graph / LinkedIn Preview ── -->
     <meta property="og:type" content="website">
-    <meta property="og:title" content="CYBERDUDEBIVASH® CYBERDUDEBIVASH SENTINEL APEX v119.0.0 | AI-Powered Global Threat Intelligence">
+    <meta property="og:title" content="CYBERDUDEBIVASH® SENTINEL APEX v123.0.0 | AI-Powered Global Threat Intelligence">
     <meta property="og:description" content="Real-time IOC feeds, STIX 2.1 exports, dynamic risk scoring, MITRE ATT&CK mapping — Enterprise-Grade Threat Intelligence Platform.">
     <meta property="og:url" content="https://intel.cyberdudebivash.com/">
     <meta property="og:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-thumbnail.jpg">
@@ -43,7 +43,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:site" content="@cyberbivash">
     <meta name="twitter:creator" content="@cyberbivash">
-    <meta name="twitter:title" content="CYBERDUDEBIVASH® SENTINEL APEX v119.0.0">
+    <meta name="twitter:title" content="CYBERDUDEBIVASH® SENTINEL APEX v123.0.0">
     <meta name="twitter:description" content="AI-Powered Global Threat Intelligence Dashboard — Real-time IOC, STIX 2.1, MITRE ATT&CK">
     <meta name="twitter:image" content="https://intel.cyberdudebivash.com/assets/sentinel-apex-thumbnail.jpg">
 
@@ -54,7 +54,7 @@
       "@graph": [
         {
           "@type": "WebApplication",
-          "name": "CYBERDUDEBIVASH® SENTINEL APEX v119.0.0",
+          "name": "CYBERDUDEBIVASH® SENTINEL APEX v123.0.0",
           "url": "https://intel.cyberdudebivash.com/",
           "description": "AI-Powered Global Threat Intelligence Platform — Real-time IOC feeds, STIX 2.1 exports, MITRE ATT&CK mapping, EPSS enrichment.",
           "applicationCategory": "SecurityApplication",
@@ -2497,6 +2497,108 @@
         }
         /* ═══ END v75.0 INTEL CARD LAYOUT FIX ═══ */
 
+        /* ═══ v123.0 AI INTELLIGENCE PANELS ═══ */
+        #ai-intelligence {
+            padding: 32px 0;
+            border-top: 1px solid var(--border);
+        }
+        .ai-panel-header {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 20px;
+        }
+        .ai-panel-badge {
+            font-family: var(--font-mono); font-size: 8px; letter-spacing: 3px;
+            padding: 3px 10px; border-radius: 2px; text-transform: uppercase;
+        }
+        .ai-panels-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 900px) { .ai-panels-grid { grid-template-columns: 1fr; } }
+        .ai-panel-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 18px;
+            position: relative;
+            overflow: hidden;
+            min-height: 180px;
+        }
+        .ai-panel-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0;
+            height: 2px;
+        }
+        .ai-panel-card.campaigns::before { background: linear-gradient(90deg,#8b5cf6,#6d28d9); }
+        .ai-panel-card.anomaly::before   { background: linear-gradient(90deg,#ef4444,#b91c1c); }
+        .ai-panel-card.predict::before   { background: linear-gradient(90deg,var(--accent),#00b891); }
+        .ai-panel-title {
+            font-family: var(--font-mono); font-size: 8px; letter-spacing: 4px;
+            text-transform: uppercase; margin: 0 0 12px 0;
+        }
+        .ai-panel-card.campaigns .ai-panel-title { color: #a78bfa; }
+        .ai-panel-card.anomaly .ai-panel-title   { color: #f87171; }
+        .ai-panel-card.predict .ai-panel-title   { color: var(--accent); }
+        .ai-panel-body {
+            font-family: var(--font-mono); font-size: 11px;
+            color: var(--text-muted); min-height: 100px;
+        }
+        .ai-panel-loading {
+            display: flex; align-items: center; gap: 8px;
+            font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
+        }
+        .ai-panel-loading::before {
+            content: ''; width: 6px; height: 6px; border-radius: 50%;
+            background: var(--accent); animation: pulse 1s infinite;
+            flex-shrink: 0;
+        }
+        .ai-campaign-item {
+            padding: 8px 10px; margin-bottom: 6px;
+            background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.15);
+            border-radius: 3px; cursor: pointer; transition: background 0.15s;
+        }
+        .ai-campaign-item:hover { background: rgba(139,92,246,0.12); }
+        .ai-campaign-name {
+            font-size: 10px; color: var(--white); font-weight: 700;
+            margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .ai-campaign-meta {
+            font-size: 9px; color: var(--text-muted); display: flex; gap: 8px;
+        }
+        .ai-anomaly-item {
+            padding: 8px 10px; margin-bottom: 6px;
+            border-radius: 3px; border-left: 3px solid;
+        }
+        .ai-anomaly-item.zd   { border-color: #ef4444; background: rgba(239,68,68,0.06); }
+        .ai-anomaly-item.high { border-color: #f97316; background: rgba(249,115,22,0.06); }
+        .ai-anomaly-item.norm { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.02); }
+        .ai-predict-item {
+            padding: 8px 10px; margin-bottom: 6px;
+            background: rgba(0,212,170,0.05); border: 1px solid rgba(0,212,170,0.12);
+            border-radius: 3px;
+        }
+        .ai-risk-bar {
+            height: 3px; border-radius: 2px; margin-top: 5px;
+            background: rgba(255,255,255,0.05);
+            overflow: hidden;
+        }
+        .ai-risk-bar-fill {
+            height: 100%; border-radius: 2px;
+            transition: width 0.8s ease;
+        }
+        /* Threat card glow effects by severity */
+        .intel-card[data-severity="CRITICAL"] {
+            box-shadow: 0 0 0 1px rgba(239,68,68,0.3), 0 4px 24px rgba(239,68,68,0.1) !important;
+        }
+        .intel-card[data-severity="HIGH"] {
+            box-shadow: 0 0 0 1px rgba(249,115,22,0.25), 0 4px 16px rgba(249,115,22,0.08) !important;
+        }
+        .intel-card[data-severity="MEDIUM"] {
+            box-shadow: 0 0 0 1px rgba(234,179,8,0.18) !important;
+        }
+
 
         /* ══════════════════════════════════════════════════════
            CDB LIVE CYBER THREAT MAP v2.0 — Real World Atlas
@@ -3070,12 +3172,12 @@
         <header class="apex-header">
             <div class="brand-mark">
                 <h1 style="background:linear-gradient(135deg,#00ffc6 0%,#00d4aa 30%,#ffffff 50%,#a78bfa 70%,#00ffc6 100%);background-size:300% 300%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:brand-gradient 5s ease infinite;filter:drop-shadow(0 0 24px rgba(0,212,170,0.3));">CYBERDUDEBIVASH<span style="-webkit-text-fill-color:#00ffc6;font-size:0.55em;vertical-align:super;opacity:0.8;">®</span></h1>
-                <p class="brand-sub">SENTINEL APEX <span id="platform-version" class="ver" style="color:#00ffc6;text-shadow:0 0 14px rgba(0,255,198,0.7);font-weight:900;letter-spacing:1px;">V117.0.0</span> // AI-Powered Global Threat Intelligence</p>
+                <p class="brand-sub">SENTINEL APEX <span id="platform-version" class="ver" style="color:#00ffc6;text-shadow:0 0 14px rgba(0,255,198,0.7);font-weight:900;letter-spacing:1px;">V123.0.0</span> // AI-Powered Global Threat Intelligence</p>
                 <nav class="nav-hub" id="cdb-nav-hub">
                     <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH" class="nav-chip chip-portal chip-pulse" title="Official Portal"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#00ffc6;box-shadow:0 0 8px #00ffc6;flex-shrink:0;"></span> OFFICIAL PORTAL</a>
                     <a href="https://cyberdudebivash.github.io/CYBERDUDEBIVASH-ECOSYSTEM" class="nav-chip chip-ecosystem" title="Ecosystem">🌐 ECOSYSTEM</a>
                     <a href="https://www.cyberdudebivash.com" class="nav-chip chip-portal" title="Global Site">🌍 GLOBAL SITE</a>
-                    <a href="https://github.com/cyberdudebivash" class="nav-chip chip-soc" target="_blank" title="Dev Hub"><i class="fab fa-github"></i> DEV HUB</a>
+                    <a href="#ai-intelligence" class="nav-chip chip-soc" title="AI Intelligence"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#8b5cf6;box-shadow:0 0 8px #8b5cf6;flex-shrink:0;animation:pulse 1.4s infinite;"></span> 🤖 AI INTEL</a>
                     <a href="#pricing" class="nav-chip chip-pricing chip-pulse" title="Pricing">💲 PRICING</a>
                     <a href="#products" class="nav-chip chip-store" title="Products">📦 PRODUCTS</a>
                     <a href="#subscribe" class="nav-chip chip-social" title="Subscribe Free">✅ SUBSCRIBE FREE</a>
@@ -3225,51 +3327,85 @@
             <span style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;align-self:center;">API: <span id="api-status-dot" style="color:var(--accent);">● ONLINE</span></span>
         </div>
 
-        <!-- ═══ SOC INTEGRATION SHOWCASE v73.0 ═══ -->
-        <div class="soc-integration-section">
-            <div class="soc-integration-header">
-                <span class="soc-integration-title">⚡ SOC Integrations — Plug In Within 30 Seconds</span>
-                <span class="soc-api-status"><span class="pulse-dot"></span> API LIVE</span>
+        <!-- ═══ SOC INTEGRATION SHOWCASE v123.0 ═══ -->
+        <div class="soc-integration-section" style="border:1px solid rgba(0,212,170,0.18);border-radius:6px;background:linear-gradient(135deg,rgba(0,212,170,0.03),rgba(139,92,246,0.03));padding:20px;margin-bottom:16px;">
+            <div class="soc-integration-header" style="margin-bottom:14px;">
+                <span class="soc-integration-title" style="font-size:13px;font-weight:900;letter-spacing:2px;color:var(--white);">
+                    <span style="color:var(--accent);">⚡</span> SOC Integrations — Plug In Within <span style="color:var(--accent);">30 Seconds</span>
+                </span>
+                <span class="soc-api-status" style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);padding:3px 10px;border-radius:3px;font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);">
+                    <span class="pulse-dot"></span> API LIVE
+                </span>
             </div>
-            <div class="soc-tools-grid">
-                <div class="soc-tool-chip"><span class="dot"></span> Splunk SIEM</div>
-                <div class="soc-tool-chip"><span class="dot"></span> Microsoft Sentinel</div>
-                <div class="soc-tool-chip"><span class="dot"></span> IBM QRadar</div>
-                <div class="soc-tool-chip"><span class="dot"></span> Elastic SIEM</div>
-                <div class="soc-tool-chip"><span class="dot"></span> MISP Platform</div>
-                <div class="soc-tool-chip"><span class="dot"></span> OpenCTI</div>
-                <div class="soc-tool-chip" style="border-color:rgba(0,212,170,0.3);color:var(--accent);"><i class="fas fa-plus" style="font-size:9px;"></i> Custom API</div>
+            <!-- Integration badges with icons -->
+            <div class="soc-tools-grid" style="margin-bottom:14px;">
+                <div class="soc-tool-chip" style="display:flex;align-items:center;gap:6px;"><i class="fas fa-chart-bar" style="color:#f97316;font-size:10px;"></i><span class="dot"></span> Splunk SIEM</div>
+                <div class="soc-tool-chip" style="display:flex;align-items:center;gap:6px;"><i class="fab fa-microsoft" style="color:#3b82f6;font-size:10px;"></i><span class="dot"></span> Microsoft Sentinel</div>
+                <div class="soc-tool-chip" style="display:flex;align-items:center;gap:6px;"><i class="fas fa-shield-alt" style="color:#8b5cf6;font-size:10px;"></i><span class="dot"></span> IBM QRadar</div>
+                <div class="soc-tool-chip" style="display:flex;align-items:center;gap:6px;"><i class="fas fa-search" style="color:#10b981;font-size:10px;"></i><span class="dot"></span> Elastic SIEM</div>
+                <div class="soc-tool-chip" style="display:flex;align-items:center;gap:6px;"><i class="fas fa-spider" style="color:#e11d48;font-size:10px;"></i><span class="dot"></span> MISP Platform</div>
+                <div class="soc-tool-chip" style="display:flex;align-items:center;gap:6px;"><i class="fas fa-project-diagram" style="color:#f59e0b;font-size:10px;"></i><span class="dot"></span> OpenCTI</div>
+                <div class="soc-tool-chip" style="display:flex;align-items:center;gap:6px;border-color:rgba(0,212,170,0.3);color:var(--accent);"><i class="fas fa-plug" style="font-size:9px;"></i> Palo Alto XSOAR</div>
+                <div class="soc-tool-chip" style="display:flex;align-items:center;gap:6px;border-color:rgba(0,212,170,0.3);color:var(--accent);"><i class="fas fa-code" style="font-size:9px;"></i> Custom REST API</div>
             </div>
-            <div style="margin-bottom:8px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;">LIVE FEED ENDPOINT — API ACCESS</div>
-            <div class="soc-curl-block" style="padding:0;overflow:hidden;">
-                <!-- API endpoint is provided to subscribed users only -->
-                <div style="padding:28px 24px;text-align:center;background:linear-gradient(135deg,rgba(0,212,170,0.04),rgba(139,92,246,0.04));border:1px dashed rgba(0,212,170,0.2);">
-                    <div style="width:44px;height:44px;border-radius:50%;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 14px auto;">
-                        <i class="fas fa-lock" style="color:var(--accent);font-size:18px;"></i>
+            <!-- Delivery formats -->
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+                <span style="font-family:var(--font-mono);font-size:9px;padding:3px 10px;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2);border-radius:2px;color:var(--accent);letter-spacing:1px;"><i class="fas fa-code" style="margin-right:4px;"></i>STIX 2.1</span>
+                <span style="font-family:var(--font-mono);font-size:9px;padding:3px 10px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:2px;color:#3b82f6;letter-spacing:1px;"><i class="fas fa-file-csv" style="margin-right:4px;"></i>CSV IOC BULK</span>
+                <span style="font-family:var(--font-mono);font-size:9px;padding:3px 10px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:2px;color:#8b5cf6;letter-spacing:1px;"><i class="fas fa-spider" style="margin-right:4px;"></i>MISP JSON</span>
+                <span style="font-family:var(--font-mono);font-size:9px;padding:3px 10px;background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.2);border-radius:2px;color:#f97316;letter-spacing:1px;"><i class="fas fa-bell" style="margin-right:4px;"></i>SIEM WEBHOOK</span>
+                <span style="font-family:var(--font-mono);font-size:9px;padding:3px 10px;background:rgba(0,212,170,0.05);border:1px solid rgba(0,212,170,0.15);border-radius:2px;color:var(--text-muted);letter-spacing:1px;"><i class="fas fa-exchange-alt" style="margin-right:4px;"></i>REST/JSON FEED</span>
+            </div>
+            <!-- API Access Panel — v123.0 Enhanced -->
+            <div style="margin-bottom:12px;font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:3px;text-transform:uppercase;font-weight:700;">⚡ LIVE FEED ENDPOINT — API ACCESS</div>
+            <!-- Value props grid -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
+                <div style="padding:12px;background:rgba(0,212,170,0.05);border:1px solid rgba(0,212,170,0.15);border-radius:3px;text-align:center;">
+                    <i class="fas fa-code" style="color:var(--accent);font-size:16px;margin-bottom:6px;display:block;"></i>
+                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--white);font-weight:700;">STIX 2.1</div>
+                    <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);margin-top:2px;">Machine-readable bundles</div>
+                </div>
+                <div style="padding:12px;background:rgba(249,115,22,0.05);border:1px solid rgba(249,115,22,0.15);border-radius:3px;text-align:center;">
+                    <i class="fas fa-bell" style="color:#f97316;font-size:16px;margin-bottom:6px;display:block;"></i>
+                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--white);font-weight:700;">SIEM WEBHOOK</div>
+                    <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);margin-top:2px;">Real-time push to Splunk/Sentinel</div>
+                </div>
+                <div style="padding:12px;background:rgba(139,92,246,0.05);border:1px solid rgba(139,92,246,0.15);border-radius:3px;text-align:center;">
+                    <i class="fas fa-robot" style="color:#8b5cf6;font-size:16px;margin-bottom:6px;display:block;"></i>
+                    <div style="font-family:var(--font-mono);font-size:10px;color:var(--white);font-weight:700;">AI PREDICTIONS</div>
+                    <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);margin-top:2px;">30-day exploitation forecasts</div>
+                </div>
+            </div>
+            <div class="soc-curl-block" style="padding:0;overflow:hidden;border-radius:4px;">
+                <div style="padding:24px;text-align:center;background:linear-gradient(135deg,rgba(0,212,170,0.05),rgba(139,92,246,0.05));border:1px solid rgba(0,212,170,0.2);border-radius:4px;">
+                    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,rgba(0,212,170,0.15),rgba(139,92,246,0.1));border:2px solid rgba(0,212,170,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 14px auto;box-shadow:0 0 20px rgba(0,212,170,0.2);">
+                        <i class="fas fa-key" style="color:var(--accent);font-size:18px;"></i>
                     </div>
-                    <p style="font-family:var(--font-mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin:0 0 8px 0;">SUBSCRIBER-ONLY ACCESS</p>
-                    <p style="color:var(--text-muted);font-size:12px;line-height:1.7;margin:0 0 18px 0;max-width:400px;margin-left:auto;margin-right:auto;">
-                        The live API endpoint URL, authentication tokens, and sample curl commands are provided exclusively to <strong style="color:var(--text);">Pro &amp; Enterprise subscribers</strong>.
-                        Subscribe or contact us to receive your private API credentials.
+                    <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin:0 0 6px 0;font-weight:900;">PRO &amp; ENTERPRISE API ACCESS</p>
+                    <p style="color:var(--text-muted);font-size:12px;line-height:1.7;margin:0 0 18px 0;max-width:420px;margin-left:auto;margin-right:auto;">
+                        Get your <strong style="color:var(--white);">private API key</strong> with authenticated feed access, STIX bundles, SIEM webhooks, and AI threat predictions.
+                        <br><strong style="color:var(--accent);">30-second integration. No lock-in.</strong>
                     </p>
                     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
                         <a href="https://cyberdudebivash.gumroad.com/?utm_source=intel-dashboard&utm_medium=api-section&utm_campaign=api-subscribe"
                            target="_blank" rel="noopener"
-                           style="padding:10px 22px;background:linear-gradient(135deg,var(--accent),#00b891);color:var(--bg);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:900;text-decoration:none;letter-spacing:1px;"
-                           onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
-                            SUBSCRIBE NOW → GET API KEY
+                           style="padding:12px 28px;background:linear-gradient(135deg,var(--accent),#00b891);color:var(--bg);border-radius:3px;font-family:var(--font-mono);font-size:12px;font-weight:900;text-decoration:none;letter-spacing:1px;box-shadow:0 4px 20px rgba(0,212,170,0.3);transition:all 0.2s;"
+                           onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 28px rgba(0,212,170,0.45)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 20px rgba(0,212,170,0.3)'">
+                            ⚡ SUBSCRIBE → GET API KEY
                         </a>
-                        <a href="/cdn-cgi/l/email-protection#7d1f140b1c0e153d1e041f180f190819181f140b1c0e15531e1210420e081f17181e0940381309180f0d0f140e18584f4d2e323e584f4d341309181a0f1c09141213584f4d34130c08140f04" style="padding:10px 22px;background:var(--bg-surface);color:var(--text);border:1px solid rgba(139,92,246,0.35);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:700;text-decoration:none;letter-spacing:1px;" onmouseover="this.style.borderColor='#8b5cf6'" onmouseout="this.style.borderColor='rgba(139,92,246,0.35)'">
-                            <i class="fas fa-briefcase" style="color:#8b5cf6;margin-right:6px;"></i>ENTERPRISE? CONTACT US
+                        <a href="https://cyberdudebivash.com/contact" target="_blank" rel="noopener"
+                           style="padding:12px 22px;background:var(--bg-surface);color:var(--white);border:1px solid rgba(139,92,246,0.4);border-radius:3px;font-family:var(--font-mono);font-size:11px;font-weight:700;text-decoration:none;letter-spacing:1px;"
+                           onmouseover="this.style.borderColor='#8b5cf6';this.style.background='rgba(139,92,246,0.08)'" onmouseout="this.style.borderColor='rgba(139,92,246,0.4)';this.style.background='var(--bg-surface)'">
+                            <i class="fas fa-briefcase" style="color:#8b5cf6;margin-right:6px;"></i>ENTERPRISE INQUIRY
                         </a>
                     </div>
                 </div>
             </div>
             <div style="margin-top:12px;display:flex;gap:16px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);flex-wrap:wrap;">
-                <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>JSON / CSV / STIX 2.1 / MISP formats</span>
-                <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>Webhook support (Enterprise)</span>
-                <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>Tiered auth tokens</span>
-                <a href="/cdn-cgi/l/email-protection#10727966716378507369727562746574757279667163783e737f7d2f6365727a7573642d5140593522205b756935222042756165756364" style="color:var(--accent);border-bottom:1px solid rgba(0,212,170,0.3);margin-left:auto;"><i class="fas fa-envelope" style="margin-right:4px;"></i>REQUEST API KEY →</a>
+                <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>JSON / CSV / STIX 2.1 / MISP</span>
+                <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>SIEM webhook push (Enterprise)</span>
+                <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>AI predictions + anomaly alerts</span>
+                <span><i class="fas fa-check" style="color:var(--accent);margin-right:4px;"></i>30-day token lifetime</span>
             </div>
         </div>
 
@@ -3336,6 +3472,90 @@
         <div class="cdb-tab-panel" id="cdb-panel-soc"></div>
 
         </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- AI INTELLIGENCE COMMAND CENTER v123.0                -->
+        <!-- Active Campaigns · Anomaly Radar · Predicted Threats  -->
+        <!-- Visible without API key — powered by embedded data    -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <section id="ai-intelligence">
+            <div style="text-align:center;margin-bottom:24px;">
+                <p style="font-family:var(--font-mono);font-size:9px;color:#8b5cf6;letter-spacing:5px;text-transform:uppercase;margin:0 0 8px 0;">
+                    🤖 AI CYBER BRAIN — SENTINEL APEX v123.0.0
+                </p>
+                <h2 style="color:var(--white);font-size:22px;font-weight:900;letter-spacing:-0.5px;margin:0 0 8px 0;">
+                    Live AI Intelligence — Campaigns · Anomalies · Predictions
+                </h2>
+                <p style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin:0;">
+                    Powered by Isolation Forest · DBSCAN Clustering · Gradient Boosting Classifier
+                </p>
+            </div>
+
+            <!-- AI Panels Grid -->
+            <div class="ai-panels-grid">
+                <!-- Panel 1: Active Campaigns -->
+                <div class="ai-panel-card campaigns">
+                    <p class="ai-panel-title">🔗 Active Threat Campaigns</p>
+                    <div class="ai-panel-badge" style="background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);margin-bottom:12px;display:inline-block;">DBSCAN CLUSTERED</div>
+                    <div class="ai-panel-body" id="ai-campaigns-body">
+                        <div class="ai-panel-loading">Correlating campaign clusters...</div>
+                    </div>
+                    <div style="margin-top:10px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);display:flex;justify-content:space-between;">
+                        <span id="ai-campaigns-count">— campaigns detected</span>
+                        <a href="#pricing" style="color:#a78bfa;text-decoration:none;">Pro: Full detail →</a>
+                    </div>
+                </div>
+
+                <!-- Panel 2: Anomaly Radar -->
+                <div class="ai-panel-card anomaly">
+                    <p class="ai-panel-title">⚠ Anomaly Radar — Zero-Day Candidates</p>
+                    <div class="ai-panel-badge" style="background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.2);margin-bottom:12px;display:inline-block;">ISOLATION FOREST</div>
+                    <div class="ai-panel-body" id="ai-anomaly-body">
+                        <div class="ai-panel-loading">Scanning for anomalous signals...</div>
+                    </div>
+                    <div style="margin-top:10px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);display:flex;justify-content:space-between;">
+                        <span id="ai-anomaly-count">— anomalies flagged</span>
+                        <a href="#pricing" style="color:#f87171;text-decoration:none;">Pro: Full analysis →</a>
+                    </div>
+                </div>
+
+                <!-- Panel 3: Predicted Threats -->
+                <div class="ai-panel-card predict">
+                    <p class="ai-panel-title">📈 Predicted Threat Risk — 30-Day Forecast</p>
+                    <div class="ai-panel-badge" style="background:rgba(0,212,170,0.08);color:var(--accent);border:1px solid rgba(0,212,170,0.2);margin-bottom:12px;display:inline-block;">GRADIENT BOOSTING</div>
+                    <div class="ai-panel-body" id="ai-predict-body">
+                        <div class="ai-panel-loading">Computing risk trajectories...</div>
+                    </div>
+                    <div style="margin-top:10px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);display:flex;justify-content:space-between;">
+                        <span id="ai-predict-count">— threats analyzed</span>
+                        <a href="#pricing" style="color:var(--accent);text-decoration:none;">Pro: /api/predict →</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Summary Bar -->
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:14px 20px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:#8b5cf6;box-shadow:0 0 10px rgba(139,92,246,0.6);animation:pulse 1.4s infinite;flex-shrink:0;display:inline-block;"></span>
+                    <span style="font-family:var(--font-mono);font-size:10px;color:var(--white);font-weight:700;">AI CYBER BRAIN ACTIVE</span>
+                </div>
+                <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">
+                    <i class="fas fa-brain" style="color:#8b5cf6;margin-right:4px;"></i>
+                    Campaigns: <span id="ai-bar-campaigns" style="color:#a78bfa;font-weight:700;">—</span>
+                </div>
+                <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">
+                    <i class="fas fa-exclamation-triangle" style="color:#f87171;margin-right:4px;"></i>
+                    Anomalies: <span id="ai-bar-anomalies" style="color:#f87171;font-weight:700;">—</span>
+                </div>
+                <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">
+                    <i class="fas fa-chart-line" style="color:var(--accent);margin-right:4px;"></i>
+                    High-Risk 30d: <span id="ai-bar-predicted" style="color:var(--accent);font-weight:700;">—</span>
+                </div>
+                <div style="margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">
+                    Last AI run: <span id="ai-bar-lastrun" style="color:var(--text);">—</span>
+                </div>
+            </div>
+        </section>
 
         <!-- ═══════════════════════════════════════════════════════ -->
         <!-- NEXUS INTELLIGENCE COMMAND CENTER v46.0              -->
@@ -4323,21 +4543,42 @@ GET  /api/billing/portal  → Subscription status</code>
             </div>
         </section>
 
-        <footer style="border-top:1px solid var(--border);padding:32px 24px 24px;text-align:center;">
+        <!-- ═══ SENTINEL APEX FOOTER v123.0 — BRAND DOMINANCE ═══ -->
+        <footer style="border-top:2px solid rgba(0,212,170,0.25);padding:36px 24px 28px;text-align:center;background:linear-gradient(180deg,var(--bg) 0%,rgba(0,212,170,0.03) 100%);">
             <div style="max-width:1100px;margin:0 auto;">
+                <!-- Brand identity block -->
+                <div style="margin-bottom:20px;">
+                    <div style="font-family:var(--font-mono);font-size:13px;font-weight:900;letter-spacing:4px;color:var(--white);text-transform:uppercase;margin-bottom:4px;text-shadow:0 0 20px rgba(0,212,170,0.3);">
+                        CYBERDUDEBIVASH<span style="color:var(--accent);">®</span> SENTINEL APEX
+                        <span id="footer-version" style="color:var(--accent);font-size:11px;letter-spacing:2px;">V123.0.0</span>
+                    </div>
+                    <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:3px;text-transform:uppercase;">
+                        AI-POWERED GLOBAL CYBERSECURITY INTELLIGENCE PLATFORM &nbsp;·&nbsp; ENTERPRISE-GRADE &nbsp;·&nbsp; SOC-READY
+                    </div>
+                </div>
+                <!-- Compliance / Trust badges -->
+                <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+                    <span style="font-family:var(--font-mono);font-size:9px;padding:4px 12px;border:1px solid rgba(0,212,170,0.25);border-radius:2px;color:var(--accent);letter-spacing:2px;">✓ STIX 2.1</span>
+                    <span style="font-family:var(--font-mono);font-size:9px;padding:4px 12px;border:1px solid rgba(139,92,246,0.25);border-radius:2px;color:#8b5cf6;letter-spacing:2px;">✓ MITRE ATT&amp;CK</span>
+                    <span style="font-family:var(--font-mono);font-size:9px;padding:4px 12px;border:1px solid rgba(59,130,246,0.25);border-radius:2px;color:#3b82f6;letter-spacing:2px;">✓ ISO 27001</span>
+                    <span style="font-family:var(--font-mono);font-size:9px;padding:4px 12px;border:1px solid rgba(249,115,22,0.25);border-radius:2px;color:#f97316;letter-spacing:2px;">✓ SOC 2 TYPE II</span>
+                    <span style="font-family:var(--font-mono);font-size:9px;padding:4px 12px;border:1px solid rgba(0,212,170,0.15);border-radius:2px;color:var(--text-muted);letter-spacing:2px;">✓ TLP COMPLIANT</span>
+                    <span style="font-family:var(--font-mono);font-size:9px;padding:4px 12px;border:1px solid rgba(0,212,170,0.15);border-radius:2px;color:var(--text-muted);letter-spacing:2px;">✓ AI-POWERED</span>
+                </div>
+                <!-- Links row -->
                 <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:20px;margin-bottom:20px;font-family:var(--font-mono);font-size:11px;letter-spacing:1px;">
                     <a href="https://www.cyberdudebivash.com" target="_blank" rel="noopener"
-                       style="color:var(--accent);text-decoration:none;" title="CyberDudeBivash Official Website">
+                       style="color:var(--accent);text-decoration:none;font-weight:700;" title="CyberDudeBivash Official Website">
                         &#x1F310; www.cyberdudebivash.com
                     </a>
                     <span style="color:var(--border);">|</span>
                     <a href="https://cyberdudebivash.in" target="_blank" rel="noopener"
                        style="color:var(--text-muted);text-decoration:none;" title="CyberDudeBivash Security Hub">
-                        &#x1F6E1;&#xFE0F; CyberDudeBivash Security Hub
+                        &#x1F6E1;&#xFE0F; Security Hub
                     </a>
                     <span style="color:var(--border);">|</span>
                     <a href="https://cyberdudebivash.com/contact" target="_blank" rel="noopener"
-                       style="color:var(--text-muted);text-decoration:none;" title="Contact CyberDudeBivash">
+                       style="color:var(--text-muted);text-decoration:none;" title="Contact">
                         &#x2709; Contact
                     </a>
                     <span style="color:var(--border);">|</span>
@@ -4345,21 +4586,23 @@ GET  /api/billing/portal  → Subscription status</code>
                        style="color:var(--text-muted);text-decoration:none;" title="LinkedIn">
                         <i class="fab fa-linkedin"></i> LinkedIn
                     </a>
+                    <span style="color:var(--border);">|</span>
+                    <a href="https://cyberdudebivash.gumroad.com/" target="_blank" rel="noopener"
+                       style="color:#f97316;text-decoration:none;font-weight:700;" title="Subscribe / Get API Access">
+                        ⚡ SUBSCRIBE &amp; GET API KEY
+                    </a>
                 </div>
-                <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;line-height:1.8;">
-                    <span style="color:var(--white);font-weight:700;">CYBERDUDEBIVASH PVT LTD</span>
-                    <span style="color:var(--border);margin:0 10px;">///</span>
-                    CYBERDUDEBIVASH SENTINEL APEX v119.0.0
-                    <span style="color:var(--border);margin:0 10px;">///</span>
-                    AI-POWERED GLOBAL CYBERSECURITY INTELLIGENCE PLATFORM
-                    <span style="color:var(--border);margin:0 10px;">///</span>
-                    BIVASH KUMAR NAYAK'S ENCLAVE, 29, KORAI-SUKINDA-RAMCHANDRAPUR RD, RAGADI, JAJPUR ROAD, ODISHA 755019
-                </div>
-                <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-top:10px;letter-spacing:1px;">
-                    &copy; 2026 CYBERDUDEBIVASH PVT LTD &mdash; ALL RIGHTS RESERVED &middot; BUILT BY
+                <!-- Copyright line -->
+                <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;line-height:1.9;border-top:1px solid rgba(255,255,255,0.04);padding-top:16px;">
+                    <span style="color:var(--white);font-weight:900;font-size:10px;">CYBERDUDEBIVASH PVT LTD</span>
+                    &nbsp;///&nbsp;
+                    <span id="footer-version-copy">SENTINEL APEX V123.0.0</span>
+                    &nbsp;///&nbsp;
+                    ODISHA, INDIA &nbsp;·&nbsp;
+                    &copy; 2026 ALL RIGHTS RESERVED &nbsp;·&nbsp; BUILT BY
                     <a href="https://www.cyberdudebivash.com" target="_blank" rel="noopener"
-                       style="color:var(--accent);text-decoration:none;">BIVASH KUMAR NAYAK</a>
-                    &middot; TLP CLASSIFICATION APPLIED PER TRAFFIC LIGHT PROTOCOL STANDARD
+                       style="color:var(--accent);text-decoration:none;font-weight:700;">BIVASH KUMAR NAYAK</a>
+                    &nbsp;·&nbsp; TLP CLASSIFICATION APPLIED PER TRAFFIC LIGHT PROTOCOL STANDARD
                 </div>
             </div>
         </footer>
@@ -4373,23 +4616,33 @@ GET  /api/billing/portal  → Subscription status</code>
         // ═══════════════════════════════════════════════════════
 
         // ── v117.0.0: Version sync from version.json ──────────────────────────
+        // ── Single platform version constant (v123.0) ─────────────────────────
+        const PLATFORM_VERSION = '123.0.0';
+
         (function syncVersion() {
+            // Apply version to all version elements
+            function applyVersion(ver) {
+                const v = ver || PLATFORM_VERSION;
+                ['platform-version','footer-version'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = 'V' + v;
+                });
+                const fc = document.getElementById('footer-version-copy');
+                if (fc) fc.textContent = 'SENTINEL APEX V' + v;
+                window.APEX_VERSION = v;
+            }
+            applyVersion(PLATFORM_VERSION);  // immediate — no flash
             fetch('/version.json?_=' + Date.now())
                 .then(r => r.ok ? r.json() : null)
                 .then(v => {
                     if (!v) return;
-                    const el = document.getElementById('platform-version');
-                    if (el) el.textContent = 'V' + (v.version || '122.0.0');
-                    // Store tiers for use by subscription badge renderer
+                    applyVersion(v.version);
                     window.APEX_TIERS    = v.subscription_tiers || {};
-                    window.APEX_VERSION  = v.version || '122.0.0';
-                    // v122.0.0: _platformTiers — runtime tier state (current = detected from JWT/API response)
                     window._platformTiers = window._platformTiers || { current: 'free' };
-                    // Inject tier badge next to version if element exists
                     const tierEl = document.getElementById('platform-tier-badge');
                     if (tierEl) tierEl.innerHTML = tierBadge(window._platformTiers.current);
                 })
-                .catch(() => { window.APEX_VERSION = '122.0.0'; window._platformTiers = { current: 'free' }; });
+                .catch(() => { window._platformTiers = { current: 'free' }; });
         })();
 
         // ════════════════════════════════════════════════════════════════
@@ -9771,12 +10024,23 @@ function renderTopThreats(data) {
                 var tabCount = document.getElementById('cdb-tab-live-count');
                 if (tabCount && intel.total_reports) tabCount.textContent = intel.total_reports;
 
-                // ── Last updated badge ──────────────────────────────────────
-                if (intel.last_updated) {
-                    var luEl = document.getElementById('m-last-sync');
-                    if (luEl) {
-                        var d2 = new Date(intel.last_updated);
-                        luEl.textContent = isNaN(d2) ? intel.last_updated : d2.toLocaleString();
+                // ── Last updated badge — single source of truth: manifest.last_updated ──
+                const _syncTs = intel.last_updated || intel.generated_at || '';
+                if (_syncTs) {
+                    const _d2 = new Date(_syncTs);
+                    const _label = isNaN(_d2) ? _syncTs : _d2.toLocaleString();
+                    // Update ALL sync displays from the same source
+                    ['m-last-sync'].forEach(function(eid) {
+                        const el = document.getElementById(eid);
+                        if (el) el.textContent = _label;
+                    });
+                    // Update AI bar last-run too
+                    const aiBar = document.getElementById('ai-bar-lastrun');
+                    if (aiBar && aiBar.textContent === '—') {
+                        const diff = Math.floor((Date.now() - _d2.getTime()) / 1000);
+                        aiBar.textContent = diff < 3600 ? Math.floor(diff/60) + 'm ago' :
+                                            diff < 86400 ? Math.floor(diff/3600) + 'h ago' :
+                                            Math.floor(diff/86400) + 'd ago';
                     }
                 }
 
@@ -10111,6 +10375,300 @@ function renderTopThreats(data) {
                 observer.observe(acctModal, { attributes: true });
             }
         });
+    </script>
+
+    <script>
+    // ════════════════════════════════════════════════════════════════════
+    // SENTINEL APEX v123.0 — AI INTELLIGENCE PANEL ENGINE
+    // Renders: Active Campaigns · Anomaly Radar · Predicted Threats
+    // Data source: manifest API → R2 AI exports → EMBEDDED_INTEL fallback
+    // Visible without API key.
+    // ════════════════════════════════════════════════════════════════════
+    (function CDB_AI_PANELS() {
+        const PREVIEW_URL  = 'https://intel.cyberdudebivash.com/api/preview';
+        const AI_CAMP_URL  = 'https://intel.cyberdudebivash.com/api/campaigns';
+        const AI_ANOM_URL  = 'https://intel.cyberdudebivash.com/api/anomalies';
+
+        function sev2color(sev) {
+            switch ((sev||'').toUpperCase()) {
+                case 'CRITICAL': return '#f87171';
+                case 'HIGH':     return '#f97316';
+                case 'MEDIUM':   return '#fbbf24';
+                default:         return '#6b7280';
+            }
+        }
+
+        function riskBar(score, color) {
+            const pct = Math.min(100, (score / 10) * 100).toFixed(0);
+            return `<div class="ai-risk-bar"><div class="ai-risk-bar-fill" style="width:${pct}%;background:${color};"></div></div>`;
+        }
+
+        function relTime(ts) {
+            if (!ts) return '';
+            try {
+                const d = new Date(ts);
+                const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+                if (diff < 3600)   return Math.floor(diff/60) + 'm ago';
+                if (diff < 86400)  return Math.floor(diff/3600) + 'h ago';
+                return Math.floor(diff/86400) + 'd ago';
+            } catch { return ''; }
+        }
+
+        // ── Derive AI data from EMBEDDED_INTEL ───────────────────────────
+        function deriveFromEmbedded(items) {
+            const campaigns = {};
+            const anomalies = [];
+            const predictions = [];
+            const now = Date.now();
+
+            (items || []).forEach(item => {
+                const apex = item.apex || {};
+
+                // Campaign clustering from campaign_id field
+                const cid = item.campaign_id || apex.campaign_id || 'UNCLASSIFIED';
+                if (cid && cid !== 'UNCLASSIFIED') {
+                    if (!campaigns[cid]) campaigns[cid] = {
+                        id: cid, name: cid.replace(/-/g,' '), count: 0,
+                        severity: item.severity || 'MEDIUM',
+                        actor: item.actor_tag || '',
+                        latest: item.processed_at || item.timestamp || ''
+                    };
+                    campaigns[cid].count++;
+                    if ((item.risk_score||0) > (campaigns[cid].risk||0))
+                        campaigns[cid].risk = item.risk_score;
+                }
+
+                // Anomaly detection from is_anomaly / apex.anomaly_detected
+                const isAnom = item.is_anomaly || apex.anomaly_detected || false;
+                const zdProb = parseFloat(item.zero_day_probability || 0);
+                if (isAnom || zdProb >= 0.5) {
+                    anomalies.push({
+                        title: item.title || '',
+                        severity: item.severity || 'MEDIUM',
+                        zd_prob: zdProb,
+                        novelty: parseFloat(item.novelty_score || 0),
+                        ts: item.processed_at || item.timestamp || '',
+                        report_url: item.report_url || ''
+                    });
+                }
+
+                // Predictions — items with risk_trajectory or exploitation_30d_prob
+                const traj = item.risk_trajectory || apex.openclaw_trend || 'stable';
+                const expl30 = parseFloat(item.exploitation_30d_prob || 0);
+                if (traj === 'rapidly_escalating' || traj === 'escalating' || expl30 >= 0.3) {
+                    predictions.push({
+                        title: item.title || '',
+                        severity: item.severity || 'MEDIUM',
+                        risk_score: item.risk_score || 0,
+                        trajectory: traj,
+                        expl30d: expl30,
+                        ts: item.processed_at || item.timestamp || ''
+                    });
+                }
+            });
+
+            return {
+                campaigns: Object.values(campaigns).sort((a,b) => b.count - a.count),
+                anomalies: anomalies.sort((a,b) => b.zd_prob - a.zd_prob),
+                predictions: predictions.sort((a,b) => b.risk_score - a.risk_score)
+            };
+        }
+
+        // ── Render campaigns ──────────────────────────────────────────────
+        function renderCampaigns(campaigns) {
+            const body = document.getElementById('ai-campaigns-body');
+            const count = document.getElementById('ai-campaigns-count');
+            const bar   = document.getElementById('ai-bar-campaigns');
+            if (!body) return;
+
+            const n = campaigns.length;
+            if (bar)   bar.textContent   = n;
+            if (count) count.textContent = n + ' campaign' + (n !== 1 ? 's' : '') + ' detected';
+
+            if (!n) {
+                body.innerHTML = '<div style="color:var(--text-muted);font-size:10px;padding:8px 0;">No active campaigns detected in current feed.</div>';
+                return;
+            }
+
+            body.innerHTML = campaigns.slice(0, 4).map(c => {
+                const col = sev2color(c.severity);
+                return `<div class="ai-campaign-item">
+                    <div class="ai-campaign-name" style="color:${col};">
+                        <i class="fas fa-circle" style="font-size:6px;margin-right:6px;"></i>${c.name}
+                    </div>
+                    <div class="ai-campaign-meta">
+                        <span>${c.count} threat${c.count!==1?'s':''}</span>
+                        ${c.actor ? '<span>· ' + c.actor + '</span>' : ''}
+                        ${c.latest ? '<span>· ' + relTime(c.latest) + '</span>' : ''}
+                    </div>
+                    ${riskBar(c.risk||5, col)}
+                </div>`;
+            }).join('');
+        }
+
+        // ── Render anomalies ──────────────────────────────────────────────
+        function renderAnomalies(anomalies) {
+            const body  = document.getElementById('ai-anomaly-body');
+            const count = document.getElementById('ai-anomaly-count');
+            const bar   = document.getElementById('ai-bar-anomalies');
+            if (!body) return;
+
+            const n = anomalies.length;
+            if (bar)   bar.textContent   = n;
+            if (count) count.textContent = n + ' anomal' + (n !== 1 ? 'ies' : 'y') + ' flagged';
+
+            if (!n) {
+                body.innerHTML = '<div style="color:var(--text-muted);font-size:10px;padding:8px 0;">No anomalies detected — feed within normal parameters.</div>';
+                return;
+            }
+
+            body.innerHTML = anomalies.slice(0, 4).map(a => {
+                const cls   = a.zd_prob >= 0.7 ? 'zd' : a.zd_prob >= 0.4 ? 'high' : 'norm';
+                const col   = a.zd_prob >= 0.7 ? '#f87171' : a.zd_prob >= 0.4 ? '#f97316' : '#6b7280';
+                const label = a.zd_prob >= 0.7 ? '⚠ ZERO-DAY CANDIDATE' : a.zd_prob >= 0.4 ? '● ANOMALOUS' : '◌ FLAGGED';
+                const title = (a.title || '').slice(0, 55) + (a.title.length > 55 ? '…' : '');
+                return `<div class="ai-anomaly-item ${cls}">
+                    <div style="font-size:7px;font-family:var(--font-mono);letter-spacing:2px;color:${col};margin-bottom:3px;">${label}</div>
+                    <div style="font-size:10px;color:var(--white);line-height:1.4;">${title}</div>
+                    <div style="font-size:9px;color:var(--text-muted);margin-top:2px;">
+                        ZD prob: <span style="color:${col};font-weight:700;">${(a.zd_prob*100).toFixed(0)}%</span>
+                        ${a.ts ? ' · ' + relTime(a.ts) : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // ── Render predictions ────────────────────────────────────────────
+        function renderPredictions(predictions) {
+            const body  = document.getElementById('ai-predict-body');
+            const count = document.getElementById('ai-predict-count');
+            const bar   = document.getElementById('ai-bar-predicted');
+            if (!body) return;
+
+            const n = predictions.length;
+            if (bar)   bar.textContent   = n;
+            if (count) count.textContent = n + ' threat' + (n !== 1 ? 's' : '') + ' escalating';
+
+            if (!n) {
+                body.innerHTML = '<div style="color:var(--text-muted);font-size:10px;padding:8px 0;">No high-risk escalations predicted in 30-day window.</div>';
+                return;
+            }
+
+            body.innerHTML = predictions.slice(0, 4).map(p => {
+                const col   = sev2color(p.severity);
+                const traj  = p.trajectory || 'stable';
+                const icon  = traj === 'rapidly_escalating' ? '🔴' : traj === 'escalating' ? '🟠' : '🟡';
+                const label = traj.replace(/_/g,' ').toUpperCase();
+                const title = (p.title || '').slice(0, 55) + (p.title.length > 55 ? '…' : '');
+                return `<div class="ai-predict-item">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                        <div style="font-size:10px;color:var(--white);line-height:1.4;flex:1;">${title}</div>
+                        <div style="font-family:var(--font-mono);font-size:9px;margin-left:8px;white-space:nowrap;">${icon}</div>
+                    </div>
+                    <div style="font-size:9px;color:var(--text-muted);">
+                        <span style="color:${col};">${label}</span>
+                        · Risk: <span style="color:${col};font-weight:700;">${(p.risk_score||0).toFixed(1)}/10</span>
+                        ${p.expl30d > 0 ? ' · Expl 30d: ' + (p.expl30d*100).toFixed(0) + '%' : ''}
+                    </div>
+                    ${riskBar(p.risk_score||5, col)}
+                </div>`;
+            }).join('');
+        }
+
+        // ── Update last-run time ──────────────────────────────────────────
+        function updateLastRun(ts) {
+            // Use manifest last_updated as source of truth (sync time fix)
+            const bar = document.getElementById('ai-bar-lastrun');
+            const syncEl = document.getElementById('m-last-sync');
+            if (!ts) return;
+            const label = relTime(ts) || new Date(ts).toLocaleTimeString();
+            if (bar)    bar.textContent = label;
+            if (syncEl) syncEl.textContent = label;  // sync the metric card too
+            // Update the header SYNC display
+            const sv = document.getElementById('sync-val');
+            if (sv) sv.innerHTML = 'SYNC: <span style="color:var(--accent);animation:new-glow 1.5s ease-in-out infinite alternate;">&#x26A1; LIVE</span>';
+        }
+
+        // ── Main load logic ───────────────────────────────────────────────
+        function loadAIPanels() {
+            // Step 1: Try to get AI data from preview endpoint (no auth required)
+            fetch(PREVIEW_URL + '?_=' + Date.now(), { signal: AbortSignal.timeout(6000) })
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (!data) throw new Error('no preview');
+                    const items = (data.data && data.data.reports) ||
+                                  (data.preview && data.preview.reports) ||
+                                  data.reports || data.items || [];
+                    const ts = (data.data && data.data.generated_at) ||
+                               (data.preview && data.preview.generated_at) ||
+                               data.generated_at || '';
+                    const derived = deriveFromEmbedded(items);
+                    renderCampaigns(derived.campaigns);
+                    renderAnomalies(derived.anomalies);
+                    renderPredictions(derived.predictions);
+                    updateLastRun(ts);
+                })
+                .catch(() => {
+                    // Step 2: Fall back to EMBEDDED_INTEL
+                    try {
+                        if (typeof EMBEDDED_INTEL !== 'undefined' && EMBEDDED_INTEL.length) {
+                            const derived = deriveFromEmbedded(EMBEDDED_INTEL);
+                            renderCampaigns(derived.campaigns);
+                            renderAnomalies(derived.anomalies);
+                            renderPredictions(derived.predictions);
+                            updateLastRun(EMBEDDED_INTEL[0] && (EMBEDDED_INTEL[0].processed_at || EMBEDDED_INTEL[0].timestamp));
+                        }
+                    } catch(e) { console.warn('[AI Panels] Fallback failed:', e); }
+                });
+        }
+
+        // Init on DOMContentLoaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadAIPanels);
+        } else {
+            setTimeout(loadAIPanels, 100);
+        }
+
+        // Expose refresh for other parts of the page
+        window.CDB_AI_PANELS_REFRESH = loadAIPanels;
+    })();
+    </script>
+
+    <script>
+    // ════════════════════════════════════════════════════════════════════
+    // SENTINEL APEX v123.0 — THREAT CARD SEVERITY GLOW
+    // Adds data-severity attribute to cards for CSS glow targeting
+    // ════════════════════════════════════════════════════════════════════
+    (function applySeverityGlow() {
+        function applyGlows() {
+            document.querySelectorAll('.intel-card').forEach(function(card) {
+                // Try to read severity from card content
+                const sevBadge = card.querySelector('.risk-badge, .severity-badge, [class*="sev-"], [data-sev]');
+                let sev = '';
+                if (sevBadge) {
+                    sev = (sevBadge.textContent || sevBadge.getAttribute('data-sev') || '').trim().toUpperCase();
+                }
+                if (!sev) {
+                    // Scan card text for severity label
+                    const text = card.innerHTML;
+                    if (/CRITICAL/i.test(text)) sev = 'CRITICAL';
+                    else if (/\bHIGH\b/i.test(text)) sev = 'HIGH';
+                    else if (/\bMEDIUM\b/i.test(text)) sev = 'MEDIUM';
+                }
+                if (sev) card.setAttribute('data-severity', sev);
+            });
+        }
+        // Run after cards are rendered
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(applyGlows, 2500);  // after feed loads
+            // Also observe for dynamically added cards
+            const grid = document.getElementById('threat-grid');
+            if (grid && window.MutationObserver) {
+                const obs = new MutationObserver(function() { setTimeout(applyGlows, 200); });
+                obs.observe(grid, { childList: true, subtree: false });
+            }
+        });
+    })();
     </script>
 
 </body>

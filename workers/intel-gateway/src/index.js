@@ -163,6 +163,40 @@ async function hashIP(ip) {
   return (await sha256hex("ip:" + ip)).slice(0, 16);
 }
 
+// ── v123.2: Feed Deduplication — stix_id + title-hash ────────────────────────
+// Removes duplicates from manifest items before serving to clients.
+// Dedup key priority: stix_id (most stable) → normalised title hash
+// Also strips known brand/identity entries that leaked into the feed.
+const BRAND_NOISE = [
+  "CYBERDUDEBIVASH® PRIVATE LIMITED",
+  "OFFICIAL WORKPLACE",
+  "GST & PAN VERIFIED",
+];
+
+function _titleHash(title) {
+  // Normalise: lowercase, remove punctuation/whitespace bursts
+  return (title || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function deduplicateFeedItems(items) {
+  const seenStix  = new Set();
+  const seenTitle = new Set();
+  return items.filter(item => {
+    const t = (item.title || "").trim();
+    if (!t) return false;
+    if (BRAND_NOISE.some(n => t.includes(n))) return false;
+    // stix_id dedup
+    const sid = item.stix_id || item.id || "";
+    if (sid && seenStix.has(sid)) return false;
+    if (sid) seenStix.add(sid);
+    // title-hash dedup
+    const th = _titleHash(t);
+    if (seenTitle.has(th)) return false;
+    seenTitle.add(th);
+    return true;
+  });
+}
+
 // ── v117.0.0: JWT Auth — HS256 via Web Crypto API ─────────────────────────────
 // Uses CDB_JWT_SECRET from Cloudflare secret (set via: npx wrangler secret put CDB_JWT_SECRET)
 // ZERO ephemeral fallback: if CDB_JWT_SECRET is missing, auth endpoints return 503.
@@ -1433,20 +1467,8 @@ async function handlePreview(request, env, rid) {
 
   try {
     const index     = await fetchReportsIndex(env);
-    // Filter: remove brand/identity entries and deduplicate by title
-    const seenTitles = new Set();
-    const cleanItems = index.reports.filter(item => {
-      const t = (item.title || "").trim();
-      if (!t) return false;
-      // Remove company branding entries that got into the feed
-      if (t.includes("CYBERDUDEBIVASH® PRIVATE LIMITED") ||
-          t.includes("OFFICIAL WORKPLACE") ||
-          t.includes("GST & PAN VERIFIED")) return false;
-      // Deduplicate by title
-      if (seenTitles.has(t)) return false;
-      seenTitles.add(t);
-      return true;
-    });
+    // Filter: remove brand/identity entries + deduplicate by stix_id + title-hash
+    const cleanItems = deduplicateFeedItems(index.reports);
     // v116.2.0 FRESHNESS FIX: Sort by processed_at DESC (primary) → timestamp DESC (fallback)
     // → risk_score DESC (tiebreak).
     //
@@ -1648,20 +1670,12 @@ async function handleFeed(request, env, auth, rid) {
 
   try {
     const index = await fetchReportsIndex(env);
-    // Deduplicate and filter brand entries from the full feed
-    const seenFeed = new Set();
-    let items = index.reports.filter(item => {
-      const t = (item.title || "").trim();
-      if (!t) return false;
-      if (t.includes("CYBERDUDEBIVASH® PRIVATE LIMITED") ||
-          t.includes("OFFICIAL WORKPLACE") ||
-          t.includes("GST & PAN VERIFIED")) return false;
-      if (seenFeed.has(t)) return false;
-      seenFeed.add(t);
+    // Deduplicate by stix_id + title-hash + strip brand noise
+    let items = deduplicateFeedItems(index.reports).map(item => {
       // Enrich description
-      const raw = (item.description || "").replace(/^Tactical cluster:\s*/i, "").trim() || t;
+      const raw = (item.description || "").replace(/^Tactical cluster:\s*/i, "").trim() || (item.title || "");
       item.description = raw;
-      return true;
+      return item;
     });
 
     if (severity) {
