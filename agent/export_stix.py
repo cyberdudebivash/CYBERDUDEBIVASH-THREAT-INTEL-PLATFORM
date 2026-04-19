@@ -143,6 +143,10 @@ class STIXExporter:
         cwe_ids: Optional[List[str]] = None,
         # v23.0 additions — APEX AI enrichment (fully optional, zero regression)
         apex_data: Optional[Dict] = None,
+        # v124.0: IOC engine outputs (passed from pipeline item)
+        ioc_confidence: float = 0.0,
+        ioc_threat_level: str = "NONE",
+        ioc_extraction_meta: Optional[Dict] = None,
     ) -> str:
         """
         Create a comprehensive STIX 2.1 bundle with:
@@ -334,7 +338,7 @@ class STIXExporter:
             }))
 
         # v23.1 FIX: Windows registry key persistence indicators
-        for reg_key in (iocs.get('registry') or [])[:10]:
+        for reg_key in (iocs.get('registry') or iocs.get('registry_key') or [])[:10]:
             safe_reg = reg_key.replace("'", "\\'").replace("\\", "\\\\")
             ind_id = f"indicator--{uuid.uuid4()}"
             indicator_ids.append(ind_id)
@@ -351,6 +355,155 @@ class STIXExporter:
                 "indicator_types": ["malicious-activity", "compromised"],
                 "confidence":   int(confidence),
             }))
+
+        # v124.0: Email address indicators (phishing/spearphishing attribution)
+        for email_addr in (iocs.get('email') or iocs.get('emails') or [])[:10]:
+            safe_email = email_addr.replace("'", "\\'")
+            ind_id = f"indicator--{uuid.uuid4()}"
+            indicator_ids.append(ind_id)
+            objects.append(_mark({
+                "type":         "indicator",
+                "spec_version": "2.1",
+                "id":           ind_id,
+                "name":         f"Threat Actor Email: {email_addr}",
+                "pattern":      f"[email-message:from_ref.value = '{safe_email}']",
+                "pattern_type": "stix",
+                "valid_from":   timestamp,
+                "created":      timestamp,
+                "modified":     timestamp,
+                "indicator_types": ["malicious-activity", "attribution"],
+                "confidence":   int(confidence),
+            }))
+
+        # v124.0: File path indicators (malware drop locations)
+        for fpath in (iocs.get('file_path') or [])[:10]:
+            safe_path = fpath.replace("'", "\\'")
+            ind_id = f"indicator--{uuid.uuid4()}"
+            indicator_ids.append(ind_id)
+            objects.append(_mark({
+                "type":         "indicator",
+                "spec_version": "2.1",
+                "id":           ind_id,
+                "name":         f"Malicious File Path: {fpath[:80]}",
+                "pattern":      f"[file:parent_directory_ref.path = '{safe_path}']",
+                "pattern_type": "stix",
+                "valid_from":   timestamp,
+                "created":      timestamp,
+                "modified":     timestamp,
+                "indicator_types": ["malicious-activity"],
+                "confidence":   int(confidence),
+            }))
+
+        # v124.0: Mutex name indicators (process injection / RAT persistence)
+        for mutex_name in (iocs.get('mutex') or [])[:5]:
+            safe_mutex = mutex_name.replace("'", "\\'")
+            ind_id = f"indicator--{uuid.uuid4()}"
+            indicator_ids.append(ind_id)
+            objects.append(_mark({
+                "type":         "indicator",
+                "spec_version": "2.1",
+                "id":           ind_id,
+                "name":         f"Malicious Mutex: {mutex_name[:60]}",
+                "pattern":      f"[process:opened_connections[*].dst_port > 0 AND process:name = '{safe_mutex}']",
+                "pattern_type": "stix",
+                "valid_from":   timestamp,
+                "created":      timestamp,
+                "modified":     timestamp,
+                "indicator_types": ["malicious-activity"],
+                "confidence":   int(confidence),
+            }))
+
+        # v124.0: Malware family → STIX Malware objects (linked to intrusion-set)
+        malware_ids = []
+        for mw_family in (iocs.get('malware_family') or [])[:5]:
+            mw_id = f"malware--{uuid.uuid4()}"
+            malware_ids.append(mw_id)
+            objects.append(_mark({
+                "type":              "malware",
+                "spec_version":      "2.1",
+                "id":                mw_id,
+                "name":              mw_family,
+                "malware_types":     ["trojan", "ransomware", "backdoor"],
+                "is_family":         True,
+                "created":           timestamp,
+                "modified":          timestamp,
+                "confidence":        int(confidence),
+            }))
+            objects.append(_mark({
+                "type":              "relationship",
+                "spec_version":      "2.1",
+                "id":                f"relationship--{uuid.uuid4()}",
+                "relationship_type": "uses",
+                "source_ref":        intrusion_set_id,
+                "target_ref":        mw_id,
+                "created":           timestamp,
+                "modified":          timestamp,
+            }))
+
+        # v124.0: Threat actor references → STIX Threat Actor objects
+        ta_ids = []
+        for ta_name in (iocs.get('threat_actor') or [])[:3]:
+            ta_id = f"threat-actor--{uuid.uuid4()}"
+            ta_ids.append(ta_id)
+            objects.append(_mark({
+                "type":              "threat-actor",
+                "spec_version":      "2.1",
+                "id":                ta_id,
+                "name":              ta_name,
+                "threat_actor_types":["nation-state", "crime-syndicate"],
+                "sophistication":    "advanced",
+                "resource_level":    "government",
+                "created":           timestamp,
+                "modified":          timestamp,
+            }))
+            objects.append(_mark({
+                "type":              "relationship",
+                "spec_version":      "2.1",
+                "id":                f"relationship--{uuid.uuid4()}",
+                "relationship_type": "attributed-to",
+                "source_ref":        intrusion_set_id,
+                "target_ref":        ta_id,
+                "created":           timestamp,
+                "modified":          timestamp,
+            }))
+
+        # v124.0: CVE IOCs → STIX Vulnerability objects (from iocs dict, not just title)
+        cve_from_iocs = (iocs.get('cve') or iocs.get('cves') or [])[:5]
+        for cve_ioc in cve_from_iocs:
+            cve_upper = cve_ioc.upper()
+            # Only add if not already found in title/metadata text scan below
+            if cve_upper not in [c.upper() for c in _re.compile(r'CVE-\d{4}-\d{4,}', _re.IGNORECASE).findall(title_text + " " + meta_text)]:
+                vuln_id = f"vulnerability--{uuid.uuid4()}"
+                vuln_obj = _mark({
+                    "type":         "vulnerability",
+                    "spec_version": "2.1",
+                    "id":           vuln_id,
+                    "name":         cve_upper,
+                    "created":      timestamp,
+                    "modified":     timestamp,
+                    "external_references": [{
+                        "source_name": "cve",
+                        "external_id": cve_upper,
+                        "url": f"https://nvd.nist.gov/vuln/detail/{cve_upper}"
+                    }],
+                })
+                if cvss_score is not None:
+                    vuln_obj["x_cdb_cvss_score"] = cvss_score
+                if epss_score is not None:
+                    vuln_obj["x_cdb_epss_score"] = epss_score
+                if kev_present:
+                    vuln_obj["x_cdb_kev_confirmed"] = True
+                objects.append(vuln_obj)
+                objects.append(_mark({
+                    "type":              "relationship",
+                    "spec_version":      "2.1",
+                    "id":                f"relationship--{uuid.uuid4()}",
+                    "relationship_type": "exploits",
+                    "source_ref":        intrusion_set_id,
+                    "target_ref":        vuln_id,
+                    "created":           timestamp,
+                    "modified":          timestamp,
+                }))
 
         # -- Relationships: Indicator -> Intrusion Set --
         for ind_id in indicator_ids:
@@ -562,7 +715,10 @@ class STIXExporter:
             nvd_url=nvd_url,
             supply_chain=supply_chain,
             object_count=len(objects),
-            apex_data=apex_data,   # v23.0: pass through to manifest
+            apex_data=apex_data,         # v23.0: pass through to manifest
+            ioc_confidence=ioc_confidence,
+            ioc_threat_level=ioc_threat_level,
+            ioc_extraction_meta=ioc_extraction_meta or {},
         )
 
         return bundle_id
@@ -675,16 +831,34 @@ class STIXExporter:
         if not objects:
             warnings.append("Bundle contains no objects")
 
-        has_identity  = any(o.get("type") == "identity" for o in objects)
-        has_marking   = any(o.get("type") == "marking-definition" for o in objects)
-        has_indicator = any(o.get("type") == "indicator" for o in objects)
+        has_identity    = any(o.get("type") == "identity" for o in objects)
+        has_marking     = any(o.get("type") == "marking-definition" for o in objects)
+        has_indicator   = any(o.get("type") == "indicator" for o in objects)
+        has_malware     = any(o.get("type") == "malware" for o in objects)
+        has_threat_act  = any(o.get("type") == "threat-actor" for o in objects)
+        has_vuln        = any(o.get("type") == "vulnerability" for o in objects)
+        has_intrusion   = any(o.get("type") == "intrusion-set" for o in objects)
+        indicator_count = sum(1 for o in objects if o.get("type") == "indicator")
 
         if not has_identity:
             warnings.append("No identity object found (recommended per STIX 2.1)")
         if not has_marking:
             warnings.append("No marking-definition found (TLP not set)")
-        if not has_indicator:
-            warnings.append("No indicator objects found")
+
+        # v124.0 ENFORCEMENT: Bundles for valid threats MUST contain indicators.
+        # If intrusion-set is present but 0 indicators → this is a quality failure.
+        if has_intrusion and not has_indicator and not has_malware and not has_vuln:
+            errors.append(
+                "ENFORCEMENT VIOLATION: Intrusion-set present but ZERO indicator/malware/vulnerability "
+                "objects found. Pipeline quality gate: HIGH/CRITICAL threats require ≥1 IOC indicator. "
+                "Check NormalizeStage IOC extraction and ScoreStage fallback enrichment."
+            )
+        elif not has_indicator:
+            warnings.append(
+                f"No indicator objects found. Bundle has: "
+                f"malware={has_malware}, vulnerability={has_vuln}, threat-actor={has_threat_act}. "
+                "For STIX consumers, indicator objects are required for automated detection rules."
+            )
 
         # Check all objects have spec_version
         for i, obj in enumerate(objects):
@@ -734,7 +908,10 @@ class STIXExporter:
                          nvd_url=None, extended_metrics=None,
                          supply_chain=False, object_count=0,
                          # v23.0: APEX enrichment (optional, backward compat)
-                         apex_data=None):
+                         apex_data=None,
+                         # v124.0: IOC engine outputs
+                         ioc_confidence=0.0, ioc_threat_level="NONE",
+                         ioc_extraction_meta=None):
         """Update manifest - backward-compatible + v22.0 new fields."""
         manifest_entries = []
         if os.path.exists(self.manifest_path):
@@ -832,9 +1009,14 @@ class STIXExporter:
             "supply_chain":     supply_chain,
             "stix_object_count":object_count,
             "stix_version":     "2.1",
-            "schema_version":   "v114.0",
+            "schema_version":   "v124.0",
             # v114.0: always published — Blogger permanently disabled
             "published":        True,
+            # v124.0: IOC engine enrichment fields — consumed by API + UI
+            "ioc_count":         sum(ioc_counts.values()) if ioc_counts else 0,
+            "ioc_confidence":    round(float(ioc_confidence or 0.0), 1),
+            "ioc_threat_level":  ioc_threat_level or "NONE",
+            "ioc_extraction_meta": ioc_extraction_meta or {},
         }
         # v114.0: legacy blog_url field never emitted
         entry.pop("blog_url", None)

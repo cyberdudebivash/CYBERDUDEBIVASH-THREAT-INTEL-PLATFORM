@@ -142,6 +142,28 @@ export function enforceTierGate(resource, tier) {
 
     // ── v123.0.0: AI Intelligence gates ──────────────────────────────────────
 
+    // IOC Confidence Detail — Free: summary only, Pro+: full extraction meta
+    case "ioc_confidence_detail":
+      if (isFree) return {
+        allowed: false,
+        resource,
+        reason:  "pro_required",
+        message: "Full IOC extraction metadata (per-type confidence, enrichment priority, layer breakdown) requires Pro or Enterprise.",
+        upgrade: buildUpgradeTrigger("ioc_confidence_detail", t),
+      };
+      return { allowed: true };
+
+    // Full STIX Export with all IOC indicator objects — Enterprise only
+    case "stix_export_full":
+      if (!isEnt) return {
+        allowed: false,
+        resource,
+        reason:  "enterprise_only",
+        message: "Full STIX 2.1 export with all indicator, malware, threat-actor, and relationship objects is Enterprise-exclusive.",
+        upgrade: buildUpgradeTrigger("stix_export_full", t),
+      };
+      return { allowed: true };
+
     // AI Threat Prediction — Free: BLOCKED, Pro+: ALLOWED (ENTERPRISE gets stored predictions)
     case "ai_predict":
       if (isFree) return {

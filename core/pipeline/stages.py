@@ -285,9 +285,36 @@ class NormalizeStage(PipelineStage):
                 dedup_count += 1
                 continue
 
-            # Extract IOCs
-            text = f"{title} {item.get('content', '')}"
-            iocs = self._extract_iocs(text)
+            # Extract IOCs — enterprise engine (5-layer) with legacy fallback
+            text = f"{title} {item.get('content', '')} {item.get('summary', '')}"
+            iocs = self._extract_iocs(text, item)
+
+            # Compute IOC confidence + threat level via IOC engine meta
+            ioc_confidence = 0.0
+            ioc_threat_level = "NONE"
+            ioc_extraction_meta: Dict = {}
+            try:
+                from core.intelligence.ioc_engine import classify_iocs
+                classification = classify_iocs(iocs)
+                ioc_confidence = classification.get("confidence_score", 0.0)
+                ioc_threat_level = classification.get("threat_level", "NONE")
+                ioc_extraction_meta = {
+                    "total_count":      classification.get("total_count", 0),
+                    "confidence_score": ioc_confidence,
+                    "threat_level":     ioc_threat_level,
+                    "primary_types":    classification.get("primary_types", []),
+                    "enrichment_priority": classification.get("enrichment_priority", "STANDARD"),
+                }
+            except Exception:
+                pass
+
+            # Carry forward pre-existing IOCs from ingest stage (e.g., malware pipeline)
+            existing_iocs = item.get("iocs") or {}
+            if existing_iocs and isinstance(existing_iocs, dict):
+                for k, v in existing_iocs.items():
+                    if isinstance(v, list) and v:
+                        existing = iocs.get(k, [])
+                        iocs[k] = list(dict.fromkeys(existing + v))[:20]
 
             # Normalize structure
             normalized.append({
@@ -297,9 +324,21 @@ class NormalizeStage(PipelineStage):
                 "feed_source": item.get("feed_source", ""),
                 "published": item.get("published", ""),
                 "iocs": iocs,
-                "ioc_counts": {k: len(v) for k, v in iocs.items()},
+                "ioc_counts": {k: len(v) for k, v in iocs.items() if v},
+                # IOC engine outputs — consumed by ScoreStage, StoreStage, API, UI
+                "ioc_confidence":      ioc_confidence,
+                "ioc_threat_level":    ioc_threat_level,
+                "ioc_extraction_meta": ioc_extraction_meta,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "intel_id": hashlib.sha256(f"{title}|{source_url}".lower().encode()).hexdigest()[:16],
+                # Carry forward malware-specific fields from ingest
+                "type":       item.get("type", "intel"),
+                "family":     item.get("family", ""),
+                "verdict":    item.get("verdict", ""),
+                "yara_hits":  item.get("yara_hits", []),
+                "sources":    item.get("sources", []),
+                "mitre_tactics": item.get("mitre_tactics", []),
+                "actor_tag":  item.get("actor_tag", ""),
             })
 
             # Mark as processed
@@ -320,20 +359,37 @@ class NormalizeStage(PipelineStage):
         logger.info(f"[{self.name}] {len(normalized)} unique items ({dedup_count} duplicates)")
         return ctx
 
-    def _extract_iocs(self, text: str) -> Dict[str, List[str]]:
-        """Extract IOCs from text content."""
+    def _extract_iocs(self, text: str, item: Optional[Dict] = None) -> Dict[str, List[str]]:
+        """
+        Enterprise-grade IOC extraction via IOCEngine (5-layer extraction).
+        Falls back to legacy regex if IOC engine unavailable.
+        Returns flat ioc dict: {type: [values]} — compatible with pipeline schema.
+        """
+        # ── LAYER 1: Enterprise IOC Engine (primary) ──────────────────────────
+        try:
+            from core.intelligence.ioc_engine import get_ioc_engine
+            engine = get_ioc_engine()
+            result = engine.extract(text, item)
+            # Remove _meta key from ioc dict (meta is extracted separately)
+            meta = result.pop("_meta", {})
+            # Filter out empty lists
+            iocs = {k: v for k, v in result.items() if isinstance(v, list) and v}
+            return iocs
+        except Exception as _exc:
+            logger.debug(f"[normalize] IOC engine unavailable, using legacy regex: {_exc}")
+
+        # ── FALLBACK: Legacy regex patterns ───────────────────────────────────
         iocs = {}
         for ioc_type, pattern in self.IOC_PATTERNS.items():
             matches = list(set(pattern.findall(text)))
             if matches:
-                # Filter false positives
                 filtered = self._filter_iocs(ioc_type, matches)
                 if filtered:
                     iocs[ioc_type] = filtered[:20]
         return iocs
 
     def _filter_iocs(self, ioc_type: str, values: List[str]) -> List[str]:
-        """Remove known false positive IOCs."""
+        """Remove known false positive IOCs (legacy fallback path)."""
         try:
             from agent.config import (
                 PRIVATE_IP_RANGES, WELL_KNOWN_IPS,
@@ -1015,6 +1071,21 @@ class ScoreStage(PipelineStage):
         content = item.get("content", "") or item.get("summary", "") or ""
         text    = f"{title} {content}"
 
+        # Strategy 0: Re-run enterprise IOC engine (highest priority fallback)
+        try:
+            from core.intelligence.ioc_engine import extract_all
+            engine_result = extract_all(text, item)
+            engine_result.pop("_meta", None)
+            engine_iocs = {k: v for k, v in engine_result.items() if isinstance(v, list) and v}
+            if engine_iocs:
+                logger.debug(
+                    f"Fallback strategy 0 (IOC engine) recovered "
+                    f"{sum(len(v) for v in engine_iocs.values())} IOCs"
+                )
+                return engine_iocs
+        except Exception as _exc:
+            logger.debug(f"Fallback strategy 0 (IOC engine) failed: {_exc}")
+
         # Strategy 1: CVE IDs → vulnerability indicator
         import re as _re
         cves = list(set(_re.findall(r"CVE-\d{4}-\d{4,7}", text, _re.IGNORECASE)))
@@ -1152,6 +1223,10 @@ class StoreStage(PipelineStage):
                         cvss_score=item.get("cvss_score"),
                         kev_present=item.get("kev_present", False),
                         nvd_url=item.get("nvd_url"),
+                        # v124.0: IOC engine enrichment fields
+                        ioc_confidence=item.get("ioc_confidence", 0.0),
+                        ioc_threat_level=item.get("ioc_threat_level", "NONE"),
+                        ioc_extraction_meta=item.get("ioc_extraction_meta", {}),
                     )
                     item["stix_id"] = stix_id
 
