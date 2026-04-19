@@ -163,6 +163,14 @@ class STIXExporter:
         marking_id       = _tlp_marking_id(tlp_label)
         common_markings  = [marking_id]
 
+        # ── Hoist title_text / meta_text early (v124.1 crash fix) ────────────
+        # These are used in CVE-from-iocs dedup block (below) AND in the
+        # v17.0 CVE scan block further down. Initialize here so neither block
+        # raises UnboundLocalError regardless of execution order.
+        cve_pattern    = _re.compile(r'CVE-\d{4}-\d{4,}', _re.IGNORECASE)
+        title_text     = (title or "").strip()
+        meta_text      = str(metadata or {})
+
         # Bundle always starts with: identity + TLP marking def
         objects = [
             CDB_IDENTITY,
@@ -556,9 +564,10 @@ class STIXExporter:
                 }))
 
         # -- v17.0: CVE Vulnerability Objects --
-        cve_pattern    = _re.compile(r'CVE-\d{4}-\d{4,}', _re.IGNORECASE)
-        title_text     = title or ""
-        meta_text      = str(metadata or {})
+        # NOTE: cve_pattern, title_text, meta_text already initialized at top of create_bundle()
+        # Re-assignment here is safe and idempotent (values identical, no UnboundLocalError).
+        title_text     = title_text or (title or "")
+        meta_text      = meta_text or str(metadata or {})
         cve_ids_found  = list(set(cve_pattern.findall(title_text + " " + meta_text)))
 
         vulnerability_ids = []

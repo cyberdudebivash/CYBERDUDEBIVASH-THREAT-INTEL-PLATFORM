@@ -13,15 +13,15 @@ Usage:
 # VERSION DEFINITION — EDIT ONLY HERE
 # ══════════════════════════════════════════════════════════════════════════════
 
-VERSION = "47.0.0"
-CODENAME = "COMMAND CENTER"
-RELEASE_DATE = "2026-03"
+VERSION = "124.0.0"
+CODENAME = "GLOBAL DOMINATION"
+RELEASE_DATE = "2026-04"
 RELEASE_TYPE = "enterprise"
 
 # Derived values
 VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH = [int(x) for x in VERSION.split(".")]
 VERSION_SHORT = f"v{VERSION_MAJOR}.{VERSION_MINOR}"
-VERSION_DISPLAY = f"v{VERSION} ULTRA"
+VERSION_DISPLAY = f"v{VERSION}"
 VERSION_FULL = f"SENTINEL APEX {VERSION_DISPLAY}"
 
 VERSION_INFO = {
@@ -30,20 +30,26 @@ VERSION_INFO = {
     "release_date": RELEASE_DATE,
     "display": VERSION_DISPLAY,
     "full": VERSION_FULL,
+    "schema_version": "v124.0",
+    "api_version": "v1",
+    "stix_version": "2.1",
+    "ioc_engine_version": "5.0",
+    "platform": "CYBERDUDEBIVASH® SENTINEL APEX",
 }
 
 # Version history for compatibility checks
 VERSION_HISTORY = [
-    {"version": "47.0.0", "codename": "COMMAND CENTER", "type": "enterprise", "date": "2026-03"},
-    {"version": "46.0.0", "codename": "VANGUARD", "type": "enterprise", "date": "2026-03"},
-    {"version": "45.0.0", "codename": "BUG HUNTER", "type": "enterprise", "date": "2026-03"},
-    {"version": "39.0.0", "codename": "NEXUS INTELLIGENCE", "type": "enterprise", "date": "2026-03"},
-    {"version": "29.0.0", "codename": "APEX SCALE", "type": "enterprise", "date": "2026-03"},
-    {"version": "28.0.0", "codename": "FORTRESS", "type": "hardening", "date": "2026-03"},
-    {"version": "27.0.0", "codename": "ENTERPRISE", "type": "feature", "date": "2026-02"},
-    {"version": "26.0.0", "codename": "SYNC FIX", "type": "bugfix", "date": "2026-02"},
-    {"version": "25.0.0", "codename": "CTEM", "type": "feature", "date": "2026-02"},
-    {"version": "24.0.0", "codename": "ULTRA", "type": "feature", "date": "2026-01"},
+    {"version": "124.0.0", "codename": "GLOBAL DOMINATION", "type": "enterprise", "date": "2026-04"},
+    {"version": "47.0.0",  "codename": "COMMAND CENTER",     "type": "enterprise", "date": "2026-03"},
+    {"version": "46.0.0",  "codename": "VANGUARD",           "type": "enterprise", "date": "2026-03"},
+    {"version": "45.0.0",  "codename": "BUG HUNTER",         "type": "enterprise", "date": "2026-03"},
+    {"version": "39.0.0",  "codename": "NEXUS INTELLIGENCE",  "type": "enterprise", "date": "2026-03"},
+    {"version": "29.0.0",  "codename": "APEX SCALE",         "type": "enterprise", "date": "2026-03"},
+    {"version": "28.0.0",  "codename": "FORTRESS",           "type": "hardening",  "date": "2026-03"},
+    {"version": "27.0.0",  "codename": "ENTERPRISE",         "type": "feature",    "date": "2026-02"},
+    {"version": "26.0.0",  "codename": "SYNC FIX",           "type": "bugfix",     "date": "2026-02"},
+    {"version": "25.0.0",  "codename": "CTEM",               "type": "feature",    "date": "2026-02"},
+    {"version": "24.0.0",  "codename": "ULTRA",              "type": "feature",    "date": "2026-01"},
 ]
 
 
