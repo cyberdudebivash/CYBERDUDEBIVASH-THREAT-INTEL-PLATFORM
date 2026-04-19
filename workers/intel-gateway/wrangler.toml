@@ -2,9 +2,13 @@ name              = "sentinel-apex-gateway"
 main              = "src/index.js"
 compatibility_date = "2024-01-01"
 
+# v123.0.0: Cron trigger for scheduled webhook push + cache refresh
+# Fires every 15 minutes — matches typical CTI pipeline run cadence
+[triggers]
+crons = ["*/15 * * * *"]
 
 [vars]
-GATEWAY_VERSION = "122.0.0"
+GATEWAY_VERSION = "123.0.0"
 
 # ── KV Namespaces ──────────────────────────────────────────────────────────────
 # Deployed KV IDs — verified live on intel.cyberdudebivash.com (v121.0.0)
@@ -57,7 +61,7 @@ bucket_name = "sentinel-apex-data"
 [env.production]
 name = "sentinel-apex-gateway"
 [env.production.vars]
-GATEWAY_VERSION = "122.0.0"
+GATEWAY_VERSION = "123.0.0"
 
 [[env.production.kv_namespaces]]
 binding = "API_KEYS_KV"

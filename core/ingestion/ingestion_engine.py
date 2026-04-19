@@ -1,28 +1,31 @@
 """
-core/ingestion/ingestion_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+core/ingestion/ingestion_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v123.0
 Main ingestion orchestrator for all threat intelligence sources.
 
 Architecture:
-  ┌──────────────┐     ┌──────────────────┐     ┌─────────────────┐
-  │  Source Pool │────▶│  Ingestion Queue │────▶│  Worker Pool    │
-  │  NVD / KEV  │     │ (Redis Streams / │     │  Dedup → Norm  │
-  │  MB / AIDB  │     │  In-memory Q)    │     │  → Storage      │
-  └──────────────┘     └──────────────────┘     └─────────────────┘
+  ┌──────────────┐     ┌──────────────────┐     ┌─────────────────────────────┐
+  │  Source Pool │────▶│  Ingestion Queue │────▶│  Worker Pool                │
+  │  NVD / KEV  │     │ (Redis Streams / │     │  Dedup → Norm → QualityGate │
+  │  MB / AIDB  │     │  In-memory Q)    │     │  → Enrich → Storage         │
+  └──────────────┘     └──────────────────┘     └─────────────────────────────┘
 
 Components:
   - IngestionQueue: Redis Streams primary, in-memory deque fallback
   - SourceScheduler: Priority-based fetch schedule per source (cron-like)
   - WorkerPool: Thread-based consumer of the queue
   - IngestionEngine: Top-level orchestrator with health + metrics APIs
+  - QualityGuard: Content quality gate — source trust, exploit maturity, confidence
   - FastAPI router: /api/v1/ingestion/* — status, trigger, metrics, queue
 
 Security:
   - Source errors are isolated: one failing source doesn't cascade
   - Queue backpressure: drops items when queue reaches max_depth
   - Rate limiting enforced per-source at BaseSource layer
+  - Quality gate rejects low-signal items before storage (min 300 words)
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import os
@@ -41,6 +44,7 @@ from .sources.malwarebazaar_source import MalwareBazaarSource
 from .sources.abuseipdb_source import AbuseIPDBSource
 from .deduplicator import Deduplicator
 from .normalizer import Normalizer, IntelItem
+from .quality_guard import QualityGuard
 
 logger = logging.getLogger("sentinel.ingestion.engine")
 
@@ -233,27 +237,34 @@ class IngestionQueue:
 
 @dataclass
 class IngestionMetrics:
-    total_fetched:      int = 0
-    total_enqueued:     int = 0
-    total_deduplicated: int = 0
-    total_normalized:   int = 0
-    total_stored:       int = 0
-    total_errors:       int = 0
-    source_metrics:     Dict[str, Dict[str, Any]] = field(default_factory=lambda: defaultdict(dict))
-    start_time:         float = field(default_factory=time.time)
+    total_fetched:          int = 0
+    total_enqueued:         int = 0
+    total_deduplicated:     int = 0
+    total_normalized:       int = 0
+    total_quality_rejected: int = 0   # v123.0 — items failing quality gate
+    total_stored:           int = 0
+    total_errors:           int = 0
+    source_metrics:         Dict[str, Dict[str, Any]] = field(default_factory=lambda: defaultdict(dict))
+    start_time:             float = field(default_factory=time.time)
 
     def to_dict(self) -> Dict[str, Any]:
-        uptime = time.time() - self.start_time
+        uptime  = time.time() - self.start_time
+        norm    = self.total_normalized or 1   # avoid div/0
+        pass_rate = round(
+            (self.total_stored / norm) * 100, 1
+        ) if self.total_normalized else 0.0
         return {
-            "total_fetched":      self.total_fetched,
-            "total_enqueued":     self.total_enqueued,
-            "total_deduplicated": self.total_deduplicated,
-            "total_normalized":   self.total_normalized,
-            "total_stored":       self.total_stored,
-            "total_errors":       self.total_errors,
-            "throughput_per_min": round(self.total_normalized / (uptime / 60), 2) if uptime > 0 else 0,
-            "uptime_s":           round(uptime, 1),
-            "source_metrics":     dict(self.source_metrics),
+            "total_fetched":          self.total_fetched,
+            "total_enqueued":         self.total_enqueued,
+            "total_deduplicated":     self.total_deduplicated,
+            "total_normalized":       self.total_normalized,
+            "total_quality_rejected": self.total_quality_rejected,
+            "total_stored":           self.total_stored,
+            "total_errors":           self.total_errors,
+            "quality_pass_rate_pct":  pass_rate,
+            "throughput_per_min":     round(self.total_stored / (uptime / 60), 2) if uptime > 0 else 0,
+            "uptime_s":               round(uptime, 1),
+            "source_metrics":         dict(self.source_metrics),
         }
 
 
@@ -287,6 +298,20 @@ class IngestionEngine:
         )
         self._normalizer = Normalizer()
         self._metrics    = IngestionMetrics()
+
+        # v123.0 — Quality gate (source trust, exploit maturity, confidence)
+        qg_cfg = self._config.get("quality_guard", {})
+        self._quality_guard = QualityGuard(
+            min_words=qg_cfg.get("min_words", 300),
+            min_confidence=qg_cfg.get("min_confidence", 20),
+            enforce_min_words=qg_cfg.get("enforce_min_words", True),
+        )
+        logger.info(
+            "quality_guard_initialized min_words=%d min_confidence=%d enforce=%s",
+            self._quality_guard.min_words,
+            self._quality_guard.min_confidence,
+            self._quality_guard.enforce_min_words,
+        )
 
         # Downstream storage callback — injected by orchestrator
         self._on_intel_item: Optional[Callable[[IntelItem], None]] = None
@@ -387,9 +412,16 @@ class IngestionEngine:
                 }
                 for sid, sch in self._schedules.items()
             },
-            "queue":      self._queue.stats(),
-            "dedup":      self._deduplicator.stats(),
-            "metrics":    self._metrics.to_dict(),
+            "queue":        self._queue.stats(),
+            "dedup":        self._deduplicator.stats(),
+            "metrics":      self._metrics.to_dict(),
+            "quality_guard": {
+                "min_words":        self._quality_guard.min_words,
+                "min_confidence":   self._quality_guard.min_confidence,
+                "enforce_min_words": self._quality_guard.enforce_min_words,
+                "total_rejected":   self._metrics.total_quality_rejected,
+                "pass_rate_pct":    self._metrics.to_dict()["quality_pass_rate_pct"],
+            },
         }
 
     # ── Background loops ──────────────────────────────────────────────────────
@@ -491,7 +523,7 @@ class IngestionEngine:
         return enqueued
 
     def _process_item(self, item: RawIntelItem) -> None:
-        """Dedup → normalize → store pipeline for a single item."""
+        """Dedup → normalize → quality gate → store pipeline for a single item."""
         # Level 1: deduplication
         if self._deduplicator.is_duplicate(item):
             self._metrics.total_deduplicated += 1
@@ -505,7 +537,52 @@ class IngestionEngine:
 
         self._metrics.total_normalized += 1
 
-        # Level 3: downstream delivery
+        # Level 3: quality gate — source trust, exploit maturity, confidence
+        # Convert IntelItem dataclass → dict for QualityGuard evaluation.
+        # iocs is a dict-of-lists in IntelItem; guard expects a list for density
+        # counting, so we flatten to a single count-representative list.
+        try:
+            item_dict = dataclasses.asdict(normalized)
+            # Expose source_url for trust scoring (stored in extra by sources)
+            item_dict["source_url"] = (
+                normalized.extra.get("source_url")
+                or normalized.extra.get("url")
+                or normalized.extra.get("feed_source")
+                or normalized.source_id
+            )
+            # Flatten ioc dict to list of indicator values for density scoring
+            ioc_values: List[str] = []
+            for ioc_list in (normalized.iocs or {}).values():
+                if isinstance(ioc_list, list):
+                    ioc_values.extend(ioc_list)
+                elif ioc_list:
+                    ioc_values.append(str(ioc_list))
+            item_dict["iocs"] = ioc_values
+
+            qr = self._quality_guard.evaluate(item_dict)
+            if not qr.accepted:
+                self._metrics.total_quality_rejected += 1
+                logger.debug(
+                    "quality_rejected intel_id=%s reason=%s words=%d score=%d",
+                    normalized.intel_id, qr.reject_reason,
+                    qr.word_count, qr.confidence_score,
+                )
+                return
+
+            # Enrich IntelItem with quality guard outputs (stored in extra)
+            normalized.extra.update({
+                "confidence_score":   qr.confidence_score,
+                "exploit_maturity":   qr.exploit_maturity,
+                "source_trust":       qr.source_trust,
+                "sectors_targeted":   qr.sectors_targeted,
+                "quality_flags":      qr.quality_flags,
+            })
+
+        except Exception as exc:
+            # Quality gate errors are non-fatal — item passes through unblocked
+            logger.warning("quality_guard_error intel_id=%s err=%s", normalized.intel_id, exc)
+
+        # Level 4: downstream delivery
         if self._on_intel_item:
             try:
                 self._on_intel_item(normalized)
