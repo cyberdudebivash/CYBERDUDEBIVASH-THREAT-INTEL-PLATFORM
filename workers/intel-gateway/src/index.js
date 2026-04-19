@@ -1165,15 +1165,22 @@ function applyTierGate(item, tier) {
 
   const gated = { ...item };
 
-  // IOC paywall: free tier strips raw IOC arrays, keeps count
+  // IOC paywall: free tier strips raw IOC arrays, keeps count + confidence
   if (isFree && Array.isArray(item.iocs) && item.iocs.length > 0) {
     gated.iocs      = [];
     gated.ioc_count = item.iocs.length;
+    // v124.0: Always expose ioc_confidence + ioc_threat_level (not paywalled)
+    // These are summary signals — the full IOC list is locked behind Pro
+    gated.ioc_confidence   = item.ioc_confidence   || 0;
+    gated.ioc_threat_level = item.ioc_threat_level || "NONE";
     gated.ioc_paywall = {
-      locked:      true,
-      count:       item.iocs.length,
-      upgrade_url: "https://cyberdudebivash.com/sentinel-premium",
-      message:     `${item.iocs.length} IOC(s) available on Pro tier.`,
+      locked:            true,
+      count:             item.iocs.length,
+      confidence:        item.ioc_confidence || 0,
+      threat_level:      item.ioc_threat_level || "NONE",
+      primary_types:     (item.ioc_extraction_meta && item.ioc_extraction_meta.primary_types) || [],
+      upgrade_url:       "https://cyberdudebivash.com/sentinel-premium",
+      message:           `${item.iocs.length} IOC(s) at ${item.ioc_confidence || 0}% confidence — unlock with Pro tier.`,
     };
   }
 
@@ -1437,6 +1444,53 @@ function validateAndNormalizeItem(item) {
   out.supply_chain = out.supply_chain === true;
   out.ransomware = out.ransomware === true;
 
+  // ── v124.0: IOC Engine enrichment fields — pass through from pipeline ─────────
+  // ioc_confidence: float 0–100 — confidence score from multi-layer IOC extraction
+  if (typeof out.ioc_confidence !== "number" || isNaN(out.ioc_confidence)) {
+    // Derive from ioc_count: rough approximation when not set by pipeline
+    out.ioc_confidence = out.ioc_count >= 10 ? 92.0
+                       : out.ioc_count >= 5  ? 82.0
+                       : out.ioc_count >= 2  ? 70.0
+                       : out.ioc_count >= 1  ? 55.0
+                       : 0.0;
+  }
+  out.ioc_confidence = Math.max(0, Math.min(100, out.ioc_confidence));
+
+  // ioc_threat_level: IOC-based threat classification (independent of severity)
+  const VALID_IOC_LEVELS = new Set(["NONE","LOW","MEDIUM","HIGH","CRITICAL"]);
+  if (!VALID_IOC_LEVELS.has((out.ioc_threat_level || "").toUpperCase())) {
+    out.ioc_threat_level = out.ioc_count >= 10 ? "CRITICAL"
+                         : out.ioc_count >= 5  ? "HIGH"
+                         : out.ioc_count >= 2  ? "MEDIUM"
+                         : out.ioc_count >= 1  ? "LOW"
+                         : "NONE";
+  } else {
+    out.ioc_threat_level = out.ioc_threat_level.toUpperCase();
+  }
+
+  // ioc_extraction_meta: pass-through metadata dict from pipeline
+  if (!out.ioc_extraction_meta || typeof out.ioc_extraction_meta !== "object") {
+    out.ioc_extraction_meta = {};
+  }
+
+  return out;
+}
+
+// ── v124.0: applyIocMetaTierGate — strips extraction_meta from free tier ─────
+// ioc_confidence and ioc_threat_level are always visible (summary signals)
+// ioc_extraction_meta (layer breakdown, enrichment priority) requires Pro+
+function applyIocMetaTierGate(item, tier) {
+  const isFree = !tier || tier === CONFIG.TIERS.FREE;
+  if (!isFree) return item;  // Pro/Enterprise: full pass-through
+  const out = { ...item };
+  // Strip full extraction meta — keep only summary signals
+  if (out.ioc_extraction_meta && Object.keys(out.ioc_extraction_meta).length > 0) {
+    out.ioc_extraction_meta = {
+      locked:      true,
+      upgrade_url: "https://cyberdudebivash.com/sentinel-premium",
+      message:     "IOC extraction layer breakdown requires Pro tier.",
+    };
+  }
   return out;
 }
 
@@ -1561,12 +1615,18 @@ async function handlePreview(request, env, rid) {
                       : Array.isArray(item.ttps) ? item.ttps : [],
         // v119.0.0: Free-tier IOC paywall — strip raw IOC arrays, surface count + CTA
         iocs:       [],        // raw IOCs require Pro tier
-        ioc_count:  Array.isArray(item.iocs) ? item.iocs.length : (item.ioc_count || 0),
+        ioc_count:         Array.isArray(item.iocs) ? item.iocs.length : (item.ioc_count || 0),
+        // v124.0: Always expose confidence + threat_level in public preview
+        ioc_confidence:    typeof item.ioc_confidence === "number" ? item.ioc_confidence : 0,
+        ioc_threat_level:  item.ioc_threat_level || "NONE",
         ioc_paywall: Array.isArray(item.iocs) && item.iocs.length > 0 ? {
-          locked:      true,
-          count:       item.iocs.length,
-          upgrade_url: "https://cyberdudebivash.com/sentinel-premium",
-          message:     `${item.iocs.length} IOC(s) unlocked on Pro tier.`,
+          locked:            true,
+          count:             item.iocs.length,
+          confidence:        typeof item.ioc_confidence === "number" ? item.ioc_confidence : 0,
+          threat_level:      item.ioc_threat_level || "NONE",
+          primary_types:     (item.ioc_extraction_meta && item.ioc_extraction_meta.primary_types) || [],
+          upgrade_url:       "https://cyberdudebivash.com/sentinel-premium",
+          message:           `${Array.isArray(item.iocs) ? item.iocs.length : (item.ioc_count || 0)} IOC(s) at ${typeof item.ioc_confidence === "number" ? item.ioc_confidence.toFixed(1) : 0}% confidence — unlock with Pro tier.`,
         } : null,
         // v119.0.0: APEX AI block — always present in preview, fields tier-gated
         apex_ai:    computeApexAI(item, CONFIG.TIERS.FREE),
@@ -1707,7 +1767,9 @@ async function handleFeed(request, env, auth, rid) {
     const offset     = (page - 1) * limit;
     // v119.0.0: Apply tier-gated monetization to each feed item
     // Injects apex_ai block and enforces IOC/STIX paywall per tier
-    const pageItems  = items.slice(offset, offset + limit).map(it => applyTierGate(it, auth.tier));
+    const pageItems  = items.slice(offset, offset + limit)
+      .map(it => applyTierGate(it, auth.tier))
+      .map(it => applyIocMetaTierGate(it, auth.tier));
 
     const resp = {
       status:     "ok",
@@ -1783,7 +1845,7 @@ async function handleReport(request, env, auth, rid, reportId) {
     }
     // v121.0.0: Normalize + apply tier gate — API /feed/:id MUST match /feed response
     const normalized = validateAndNormalizeItem(report) || report;
-    const gated      = applyTierGate(normalized, auth.tier);
+    const gated      = applyIocMetaTierGate(applyTierGate(normalized, auth.tier), auth.tier);
 
     const ttl = (gated.severity || "").toUpperCase() === "CRITICAL"
       ? CONFIG.CACHE_TTL.CRITICAL

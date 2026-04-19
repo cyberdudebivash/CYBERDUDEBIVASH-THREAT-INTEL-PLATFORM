@@ -6039,18 +6039,45 @@ GET  /api/billing/portal  → Subscription status</code>
                 const isNewEntry = isNew(item.timestamp);
                 const cves = extractCVEs(item.title);
 
-                // IOC chips
+                // IOC chips + confidence bar (v124.0)
                 let iocChips = '';
+                const _iocCount     = item.ioc_count || (item.ioc_counts ? Object.values(item.ioc_counts).reduce((a,b)=>a+b,0) : 0);
+                const _iocConf      = typeof item.ioc_confidence === 'number' ? item.ioc_confidence : 0;
+                const _iocLevel     = (item.ioc_threat_level || 'NONE').toUpperCase();
+                const _iocLevelColor = _iocLevel === 'CRITICAL' ? '#ff4444'
+                                    : _iocLevel === 'HIGH'     ? '#ff7700'
+                                    : _iocLevel === 'MEDIUM'   ? '#ffcc00'
+                                    : _iocLevel === 'LOW'      ? '#00d4aa'
+                                    : '#555';
+
                 if (item.ioc_counts) {
                     const counts = item.ioc_counts;
                     const chips = [];
-                    if (counts.ipv4) chips.push(`${counts.ipv4} IPs`);
-                    if (counts.domain) chips.push(`${counts.domain} Domains`);
-                    if (counts.sha256) chips.push(`${counts.sha256} Hashes`);
-                    if (counts.url) chips.push(`${counts.url} URLs`);
-                    if (counts.cve) chips.push(`${counts.cve} CVEs`);
+                    if (counts.ipv4 || counts.ips)    chips.push(`${counts.ipv4||counts.ips} IPs`);
+                    if (counts.domain)                chips.push(`${counts.domain} Domains`);
+                    if (counts.sha256)                chips.push(`${counts.sha256} Hashes`);
+                    if (counts.sha1)                  chips.push(`${counts.sha1} SHA1`);
+                    if (counts.md5)                   chips.push(`${counts.md5} MD5`);
+                    if (counts.url)                   chips.push(`${counts.url} URLs`);
+                    if (counts.cve)                   chips.push(`${counts.cve} CVEs`);
+                    if (counts.email)                 chips.push(`${counts.email} Emails`);
+                    if (counts.malware_family)        chips.push(`${counts.malware_family} Malware`);
                     iocChips = chips.map(c => `<span class="ioc-chip">${c}</span>`).join('');
                 }
+
+                // v124.0: IOC count badge + confidence bar
+                const iocIndicatorBadge = _iocCount > 0
+                    ? `<span class="ioc-indicator-badge" style="background:${_iocLevelColor}22;border:1px solid ${_iocLevelColor};color:${_iocLevelColor};border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:0.5px;margin-right:5px;">⬡ ${_iocCount} INDICATOR${_iocCount>1?'S':''} DETECTED</span>`
+                    : '';
+                const iocConfidenceBar = _iocCount > 0
+                    ? `<div class="ioc-confidence-wrap" style="display:flex;align-items:center;gap:6px;margin-top:3px;margin-bottom:2px;">
+                           <span style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:0.5px;min-width:68px;">IOC Confidence</span>
+                           <div style="flex:1;height:4px;background:#1a1a2e;border-radius:2px;overflow:hidden;max-width:120px;">
+                               <div style="height:100%;width:${_iocConf.toFixed(0)}%;background:linear-gradient(90deg,${_iocLevelColor},${_iocLevelColor}aa);border-radius:2px;transition:width 0.4s;"></div>
+                           </div>
+                           <span style="font-size:9px;color:${_iocLevelColor};font-weight:700;min-width:32px;">${_iocConf.toFixed(0)}%</span>
+                       </div>`
+                    : '';
 
                 // MITRE technique badges (v21.0)
                 let mitreHtml = '';
@@ -6451,7 +6478,9 @@ GET  /api/billing/portal  → Subscription status</code>
                             <span class="cdb-rlabel" style="color:${_ringSevColor}">${_ringLabel}</span>
                         </div>
                         <div class="cdb-data-col">
+                            ${iocIndicatorBadge}
                             ${iocChips ? `<div class="card-ioc-strip">${iocChips}</div>` : ''}
+                            ${iocConfidenceBar}
                             ${mitreHtml}
                             <div class="cdb-signals">${_sigs.join('')}</div>
                         </div>
