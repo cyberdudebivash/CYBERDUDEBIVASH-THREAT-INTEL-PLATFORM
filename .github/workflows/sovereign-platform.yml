@@ -42,15 +42,27 @@ jobs:
           mkdir -p data/cortex data/quantum data/sovereign data/nexus
 
       - name: Execute NEXUS Intelligence (v39)
+        env:
+          CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
+          PYTHONPATH: ${{ github.workspace }}
         run: python -m agent.v39_nexus.nexus_engine || echo "NEXUS cycle complete"
 
       - name: Execute CORTEX Knowledge Graph (v40)
+        env:
+          CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
+          PYTHONPATH: ${{ github.workspace }}
         run: python -m agent.v40_cortex.cortex_engine || echo "CORTEX cycle complete"
 
       - name: Execute QUANTUM ML Analysis (v41)
+        env:
+          CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
+          PYTHONPATH: ${{ github.workspace }}
         run: python -m agent.v41_quantum.quantum_engine || echo "QUANTUM cycle complete"
 
       - name: Execute SOVEREIGN Platform (v42)
+        env:
+          CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
+          PYTHONPATH: ${{ github.workspace }}
         run: python -m agent.v42_sovereign.sovereign_engine || echo "SOVEREIGN cycle complete"
 
       - name: Run validation tests
