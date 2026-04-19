@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBERDUDEBIVASH SENTINEL APEX Enterprise Dashboard v73.0</title>
+    <title>CYBERDUDEBIVASH SENTINEL APEX Enterprise Dashboard v124.0.0</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -476,7 +476,7 @@
     <header class="topbar">
         <div class="topbar-brand">
             <span class="logo-text">CYBERDUDEBIVASH SENTINEL APEX</span>
-            <span class="version-badge">ENTERPRISE v73.0</span>
+            <span class="version-badge">ENTERPRISE v124.0.0</span>
         </div>
         <nav class="topbar-nav">
             <button class="active" onclick="showPanel('intelligence')">Intelligence</button>
@@ -697,30 +697,46 @@
 
     // ---- Data Loading ----
     async function loadManifest() {
-        const sources = [
-            '../data/stix/feed_manifest.json', '/data/stix/feed_manifest.json',
-            '../data/feed_manifest.json', '/feed_manifest.json', '../feed_manifest.json',
-        ];
-
-        for (const src of sources) {
+        // PRIMARY: Cloudflare Worker Edge API (always live, no auth required for preview)
+        if (STATE.manifest.length === 0) {
             try {
-                const resp = await fetch(src);
-                if (resp.ok) {
-                    let data = await resp.json();
-                    STATE.manifest = Array.isArray(data) ? data : (data.entries || []);
-                    break;
+                const apiResp = await fetch('https://intel.cyberdudebivash.com/api/preview', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (apiResp.ok) {
+                    const apiData = await apiResp.json();
+                    const items = apiData.items || apiData.entries || apiData.data || (Array.isArray(apiData) ? apiData : []);
+                    if (items.length > 0) STATE.manifest = items;
                 }
-            } catch(e) { continue; }
+            } catch(e) { /* fall through to static sources */ }
         }
 
-        // Try embedded data
+        // SECONDARY: Static JSON paths (local / CDN)
+        if (STATE.manifest.length === 0) {
+            const sources = [
+                '../data/stix/feed_manifest.json', '/data/stix/feed_manifest.json',
+                '../data/feed_manifest.json', '/feed_manifest.json', '../feed_manifest.json',
+            ];
+            for (const src of sources) {
+                try {
+                    const resp = await fetch(src);
+                    if (resp.ok) {
+                        let data = await resp.json();
+                        STATE.manifest = Array.isArray(data) ? data : (data.entries || data.items || []);
+                        if (STATE.manifest.length > 0) break;
+                    }
+                } catch(e) { continue; }
+            }
+        }
+
+        // TERTIARY: Embedded / bundled data
         if (STATE.manifest.length === 0 && typeof EMBEDDED_INTEL !== 'undefined') {
             STATE.manifest = EMBEDDED_INTEL;
         }
         if (STATE.manifest.length === 0 && typeof RAW_MANIFEST !== 'undefined') {
             STATE.manifest = RAW_MANIFEST;
         }
-        // Fallback: GitHub raw
+        // FINAL FALLBACK: GitHub raw manifest
         if (STATE.manifest.length === 0) {
             try {
                 const ghR = await fetch('https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json');
@@ -748,10 +764,22 @@
         const actors = new Set(m.map(e => e.actor_tag).filter(a => a && a !== 'Unknown'));
         let totalIOCs = 0;
         m.forEach(e => {
-            const iocs = e.ioc_counts || e.iocs || {};
-            Object.values(iocs).forEach(v => {
-                totalIOCs += Array.isArray(v) ? v.length : (typeof v === 'number' ? v : 0);
-            });
+            // Prefer ioc_count (pre-computed, always accurate even when arrays are gated)
+            if (typeof e.ioc_count === 'number' && e.ioc_count > 0) {
+                totalIOCs += e.ioc_count;
+                return;
+            }
+            // Fallback: sum ioc_counts breakdown object
+            const counts = e.ioc_counts || {};
+            const countSum = Object.values(counts).reduce((s, v) => s + (typeof v === 'number' ? v : 0), 0);
+            if (countSum > 0) { totalIOCs += countSum; return; }
+            // Last resort: iterate nested arrays if not locked/gated
+            const iocs = e.iocs || {};
+            if (!iocs.locked) {
+                Object.values(iocs).forEach(v => {
+                    totalIOCs += Array.isArray(v) ? v.length : (typeof v === 'number' ? v : 0);
+                });
+            }
         });
 
         document.getElementById('metricTotal').textContent = total;
@@ -1053,7 +1081,7 @@
             const mockResponse = {
                 status: 'success',
                 platform: 'CYBERDUDEBIVASH CYBERDUDEBIVASH SENTINEL APEX',
-                version: 'v73.0',
+                version: 'v124.0.0',
                 timestamp: new Date().toISOString(),
                 data: {
                     note: 'API server running on port 8900',
