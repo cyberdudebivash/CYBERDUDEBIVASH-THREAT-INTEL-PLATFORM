@@ -101,6 +101,10 @@ MANIFEST_FALLBACKS: Dict[str, Any] = {
         "build": "v131.1.0",
         "_regenerated_by": "sanitize_repo.py",
     },
+    # Root feed.json -- must always be a valid JSON array (never YAML content)
+    "feed.json": [],
+    # API feed -- always a valid JSON array; real data written by api_layer_v101.py
+    "api/feed.json": [],
 }
 
 # SECURITY_HUB_KV log path
@@ -196,12 +200,15 @@ def auto_heal_json(text: str) -> Tuple[Optional[str], str]:
     return None, "unrecoverable"
 
 
-def get_fallback_structure(rel_path: str) -> Optional[dict]:
+def get_fallback_structure(rel_path: str) -> Any:
     """Return minimal valid JSON fallback for known critical files."""
     # Normalise path separators for lookup
     norm = rel_path.replace("\\", "/")
     fallback = MANIFEST_FALLBACKS.get(norm)
-    if fallback:
+    if fallback is not None:
+        # List fallbacks (e.g. feed.json) returned as-is -- [] is valid JSON
+        if isinstance(fallback, list):
+            return list(fallback)
         result = dict(fallback)
         result["generated_at"] = datetime.now(timezone.utc).isoformat()
         return result
