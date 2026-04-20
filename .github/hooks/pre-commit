@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""
+.github/hooks/pre-commit
+CYBERDUDEBIVASH(R) SENTINEL APEX v131.0.0 — Git Pre-Commit BOM Guard
+=====================================================================
+Blocks commits that introduce UTF-8 BOM into tracked files.
+
+Installation (one-time, per developer):
+  git config core.hooksPath .github/hooks
+  chmod +x .github/hooks/pre-commit
+
+What it checks:
+  - All staged files (added or modified)
+  - Text extensions: .json .yml .yaml .toml .py .js .html .md
+
+Exit codes:
+  0 = clean, commit proceeds
+  1 = BOM found, commit blocked with clear error message
+"""
+import subprocess
+import sys
+
+BOM = b"\xef\xbb\xbf"
+TEXT_EXTENSIONS = {
+    ".json", ".yml", ".yaml", ".toml",
+    ".py", ".js", ".ts", ".jsx", ".tsx",
+    ".html", ".htm", ".css", ".md", ".txt",
+}
+
+def get_staged_files():
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
+        capture_output=True, text=True
+    )
+    return [f.strip() for f in result.stdout.splitlines() if f.strip()]
+
+def get_staged_content(filepath):
+    result = subprocess.run(
+        ["git", "show", f":{filepath}"],
+        capture_output=True
+    )
+    return result.stdout if result.returncode == 0 else b""
+
+def main():
+    import pathlib
+    staged = get_staged_files()
+    bom_files = []
+
+    for f in staged:
+        ext = pathlib.Path(f).suffix.lower()
+        if ext not in TEXT_EXTENSIONS:
+            continue
+        content = get_staged_content(f)
+        if content.startswith(BOM):
+            bom_files.append(f)
+
+    if bom_files:
+        print("\n" + "=" * 60)
+        print("SENTINEL APEX — PRE-COMMIT BOM GUARD: COMMIT BLOCKED")
+        print("=" * 60)
+        print("\nThe following files contain UTF-8 BOM (\\xef\\xbb\\xbf):")
+        for f in bom_files:
+            print(f"  [BOM] {f}")
+        print("\nFix: python3 scripts/sanitize_encoding.py --fix")
+        print("Then: git add <files> && git commit")
+        print("=" * 60 + "\n")
+        sys.exit(1)
+
+    print(f"[pre-commit] BOM check passed ({len(staged)} staged files clean)")
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()

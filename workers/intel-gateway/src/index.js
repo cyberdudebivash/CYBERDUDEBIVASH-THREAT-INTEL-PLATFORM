@@ -1,4 +1,4 @@
-﻿// =============================================================================
+// =============================================================================
 // CYBERDUDEBIVASHÂ® SENTINEL APEX â€” Edge Intelligence Gateway v122.0.0
 // R2-ONLY ARCHITECTURE â€” Blogger dependency REMOVED
 // Data flow: GitHub Actions â†’ Cloudflare R2 (private) â†’ Worker â†’ API clients

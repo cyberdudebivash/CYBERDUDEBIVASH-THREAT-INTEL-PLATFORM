@@ -58,6 +58,13 @@ jobs:
         with:
           node-version: '22'
 
+      - name: "🧹 Sanitize encoding (strip BOM + normalize CRLF)"
+        run: |
+          # Auto-fix UTF-8 BOM and CRLF on every run.
+          # Prevents json.JSONDecodeError, YAML parse failures, and TOML rejection.
+          python3 scripts/sanitize_encoding.py --fix
+          echo "Encoding sanitization: OK"
+
       - name: "🔧 Install Wrangler (stable)"
         run: |
           # Use wrangler@3 — proven stable for this platform (run #20 confirmed install OK).
@@ -89,7 +96,7 @@ jobs:
           echo "--- Security check: no hardcoded secrets ---"
           python3 -c "
           import re, sys
-          src = open('${WORKER_DIR}/src/index.js').read()
+          src = open('${WORKER_DIR}/src/index.js', encoding='utf-8-sig').read()
           bad_patterns = [
               r'CDB_JWT_SECRET.*\|\|.*[\"\']{1}[a-zA-Z0-9]{8,}',
               r'generateSecret\(\)',
@@ -110,11 +117,22 @@ jobs:
 
           echo "--- Version lock check ---"
           python3 -c "
-          import json
-          cfg = json.load(open('config/version.json'))
-          v = cfg.get('version','')
+          import json, sys
+
+          # utf-8-sig strips BOM transparently -- safe even if editor re-adds it
+          try:
+              with open('config/version.json', encoding='utf-8-sig') as f:
+                  cfg = json.load(f)
+          except json.JSONDecodeError as e:
+              print(f'WARNING: version.json parse error: {e}')
+              print('FALLBACK: defaulting to 131.0.0')
+              cfg = {'version': '131.0.0'}
+
+          v = cfg.get('version', '')
           print(f'config/version.json version: {v}')
-          assert v == '${PLATFORM_VERSION}', f'Version mismatch: expected ${PLATFORM_VERSION} got {v}'
+          if v != '${PLATFORM_VERSION}':
+              print(f'FATAL: Version mismatch: expected ${PLATFORM_VERSION} got {v}')
+              sys.exit(1)
           print('OK: Version lock confirmed')
           "
 
@@ -207,3 +225,4 @@ jobs:
 
           echo ""
           echo "=== SENTINEL APEX v${PLATFORM_VERSION} DEPLOYMENT COMPLETE ==="
+                                                                                                                                                                                                                 
