@@ -75,17 +75,60 @@ def scan_repo(root: pathlib.Path) -> list[pathlib.Path]:
 
 
 def needs_fix(data: bytes) -> tuple[bool, bool]:
-    """Return (has_bom, has_crlf)."""
-    has_bom  = data.startswith(BOM)
-    has_crlf = b"\r\n" in data
-    return has_bom, has_crlf
+    """Return (has_bom, has_issues). has_issues covers CRLF, null bytes, control chars."""
+    has_bom    = data.startswith(BOM)
+    has_crlf   = b"\r\n" in data
+    has_nulls  = b"\x00" in data
+    try:
+        text = data.decode("utf-8", errors="replace")
+        has_ctrl = has_control_chars(text)
+    except Exception:
+        has_ctrl = False
+    return has_bom, (has_crlf or has_nulls or has_ctrl)
+
+
+def has_control_chars(text: str) -> bool:
+    """Return True if text contains YAML/JSON-disallowed control characters."""
+    for ch in text:
+        cp = ord(ch)
+        # Allow: tab, LF, CR, printable ASCII, NEL, high Unicode
+        if not (cp == 0x09 or cp == 0x0A or cp == 0x0D or
+                (0x20 <= cp <= 0x7E) or cp == 0x85 or
+                (0xA0 <= cp <= 0xD7FF) or
+                (0xE000 <= cp <= 0xFFFD) or
+                (0x10000 <= cp <= 0x10FFFF)):
+            return True
+    return False
+
+
+def strip_control_chars(text: str) -> str:
+    """Remove YAML/JSON-disallowed control characters (e.g. U+0090 DCS)."""
+    result = []
+    for ch in text:
+        cp = ord(ch)
+        if (cp == 0x09 or cp == 0x0A or cp == 0x0D or
+                (0x20 <= cp <= 0x7E) or cp == 0x85 or
+                (0xA0 <= cp <= 0xD7FF) or
+                (0xE000 <= cp <= 0xFFFD) or
+                (0x10000 <= cp <= 0x10FFFF)):
+            result.append(ch)
+    return "".join(result)
 
 
 def sanitize(data: bytes) -> bytes:
-    """Strip BOM and normalize CRLF -> LF."""
+    """Strip BOM, null bytes, control chars and normalize CRLF -> LF."""
     if data.startswith(BOM):
         data = data[3:]
+    # Strip null bytes (padding artifact from some write tools)
+    data = data.replace(b"\x00", b"")
     data = data.replace(b"\r\n", b"\n")
+    # Strip YAML/JSON-disallowed control characters (e.g. U+0090 DCS → \xc2\x90 in UTF-8)
+    try:
+        text = data.decode("utf-8", errors="replace")
+        if has_control_chars(text):
+            data = strip_control_chars(text).encode("utf-8")
+    except Exception:
+        pass
     return data
 
 
