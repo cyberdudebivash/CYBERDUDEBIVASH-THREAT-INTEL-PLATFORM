@@ -82,7 +82,7 @@ function injectVersionHeaders(response, config) {
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "131.0.0"  // v131.0.0: SENTINEL APEX Revenue Engine — version lock, IOC confidence, payment gateway,  // v125.0.0: FINAL HARDENING â€” injection-pattern blocking, IOC consistency gate, paid-tier STIX validation, X-RateLimit headers, signup field sanitization
+  GATEWAY_VERSION:   "131.0.0",  // v131.0.0 SENTINEL APEX Revenue Engine
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v111.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -3915,4 +3915,5 @@ export default {
     })());
   },
 };
+
 
