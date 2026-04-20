@@ -41,6 +41,17 @@ SKIP_DIRS = {
     ".tox", "dist", "build", ".mypy_cache", ".pytest_cache",
 }
 
+# Extra dirs skipped for YAML parse validation only.
+# These contain generated / third-party YAML (Sigma rules, enrichment archives)
+# that use non-standard extensions (Sigma |modifier syntax) or multi-vendor formats
+# not guaranteed to be standard-YAML-safe.  We validate pipeline YAML only.
+YAML_PARSE_SKIP_DIRS = SKIP_DIRS | {
+    "data",          # generated: sigma_rules.yml, archives, enrichment JSON/YAML
+    "threat",        # generated threat-intel YAML/HTML
+    "reports",       # generated HTML report artifacts
+    "stix",          # STIX bundle files
+}
+
 CRITICAL_JSON_FILES = [
     "data/stix/feed_manifest.json",
     "data/feed_manifest.json",
@@ -115,35 +126,57 @@ def check_encoding() -> CheckResult:
 # ---------------------------------------------------------------------------
 
 def check_yaml() -> CheckResult:
-    """Attempt to parse all .yml/.yaml files with PyYAML if available."""
+    """Attempt to parse all .yml/.yaml files with PyYAML if available.
+
+    Scope:
+    - Only pipeline/config YAML is validated (GitHub Actions, k8s, project config).
+    - Generated/third-party dirs (data/, threat/, etc.) are excluded via
+      YAML_PARSE_SKIP_DIRS -- Sigma rules and enrichment archives use
+      non-standard YAML extensions (|modifier syntax) not safe-loadable.
+    - Multi-document YAML (--- separated, e.g. k8s manifests) is handled by
+      yaml.safe_load_all() which validates every document in the stream.
+    """
     try:
         import yaml  # type: ignore
     except ImportError:
         return CheckResult("yaml_parse", True, "PyYAML not installed -- skipping YAML parse check.")
 
     errors: list[str] = []
+    scanned = 0
+
     for dirpath, dirnames, filenames in os.walk(REPO_ROOT):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        # Prune traversal using the extended YAML-specific skip list
+        dirnames[:] = [d for d in dirnames if d not in YAML_PARSE_SKIP_DIRS]
         for fname in filenames:
             p = pathlib.Path(dirpath) / fname
             if p.suffix.lower() not in {".yml", ".yaml"}:
                 continue
             try:
-                # Read bytes first to handle any encoding issues gracefully
+                # Read raw bytes first -- handles any encoding edge cases
                 raw = p.read_bytes()
+                if not raw.strip():
+                    # Empty file -- skip, not an error
+                    continue
                 text = raw.decode("utf-8", errors="replace")
-                yaml.safe_load(text)
+                # safe_load_all() handles single-doc AND multi-doc (---) YAML.
+                # We drain the generator to validate every document in the stream.
+                docs = list(yaml.safe_load_all(text))
+                scanned += 1
+                rel = p.relative_to(REPO_ROOT)
+                log.debug("[yaml_valid] OK (%d doc(s)): %s", len(docs), rel)
             except yaml.YAMLError as e:
                 rel = p.relative_to(REPO_ROOT)
-                errors.append(f"{rel}: {str(e)[:80]}")
+                errors.append(f"{rel}: {str(e)[:120]}")
             except Exception:
-                # Encoding/IO errors are non-fatal for this check
+                # IO/encoding errors are non-fatal for YAML parse check
                 pass
 
     if errors:
         return CheckResult("yaml_parse", False,
-                           f"{len(errors)} YAML error(s): " + "; ".join(errors[:3]))
-    return CheckResult("yaml_parse", True, "All YAML files parse cleanly.")
+                           f"{len(errors)} YAML error(s) in {scanned} file(s) scanned: " +
+                           "; ".join(errors[:3]))
+    return CheckResult("yaml_parse", True,
+                       f"All {scanned} pipeline YAML file(s) parse cleanly (multi-doc aware).")
 
 
 # ---------------------------------------------------------------------------
