@@ -61,7 +61,7 @@ except ImportError:
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 # ─── Version loader (reads from config/version.json — single source of truth) ───
 def _load_platform_version() -> str:
@@ -1413,10 +1413,45 @@ def load_manifest() -> dict:
 
 
 def save_manifest(data: dict) -> None:
+    """
+    v132: Hardened manifest save — FileLock (120s) + 5-attempt retry + JSON verify.
+    Falls back to direct write if atomic replace fails.
+    """
+    try:
+        from scripts.safe_io import atomic_json_write, acquire_lock, retry_write, _store_write_failure
+        def _do_save() -> None:
+            atomic_json_write(MANIFEST_PATH, data, indent=2, ensure_ascii=False, verify=True, locked=True)
+        retry_write(
+            _do_save,
+            attempts=5,
+            base_delay=0.5,
+            path=MANIFEST_PATH,
+            payload=data,
+        )
+        return
+    except ImportError:
+        pass  # safe_io not available, fall through to legacy path
+    except Exception as e:
+        log(f"save_manifest: retry_write failed ({e}) — attempting legacy save", "warning")
+    # Legacy fallback (no lock, no retry — last resort)
     tmp = MANIFEST_PATH.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=2, ensure_ascii=False, default=str)
-    os.replace(tmp, MANIFEST_PATH)
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2, ensure_ascii=False, default=str)
+        if not tmp.exists():
+            raise OSError(f"tmp vanished before replace: {tmp}")
+        os.replace(tmp, MANIFEST_PATH)
+    except Exception as fallback_err:
+        log(f"save_manifest: LEGACY FALLBACK FAILED: {fallback_err}", "error")
+        # Last resort: direct write to avoid total data loss
+        try:
+            MANIFEST_PATH.write_text(
+                json.dumps(data, indent=2, ensure_ascii=False, default=str),
+                encoding="utf-8",
+            )
+        except Exception as direct_err:
+            log(f"save_manifest: DIRECT WRITE FAILED: {direct_err}", "error")
+            raise
 
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1487,17 +1522,72 @@ def main(argv=None) -> int:
         path = rel_report_path(item)
         path.parent.mkdir(parents=True, exist_ok=True)
 
+        # ── RENDER PHASE (separate from write — never tag render failures as write_error) ──
+        html_text: Optional[str] = None
         try:
             html_text = render_report(item, args.public_prefix)
-            tmp = path.with_suffix(".tmp")
+        except Exception as render_exc:
+            log(f"RENDER ERROR [{intel_id}]: {type(render_exc).__name__}: {render_exc}", "error")
+            item["validation_status"] = "render_error"
+            item["report_url"] = item.get("source_url") or ""
+            errors += 1
+            # Store in fail-safe buffer for post-mortem analysis
+            try:
+                from scripts.safe_io import _store_write_failure
+                _store_write_failure(path, render_exc, payload=item)
+            except Exception:
+                pass
+            continue
+
+        # ── WRITE PHASE (retry with backoff — genuine I/O failures) ──
+        def _write_report_atomic(html: str, dest: Path) -> None:
+            tmp = dest.with_suffix(".tmp")
             with open(tmp, "w", encoding="utf-8") as fh:
-                fh.write(html_text)
-            os.replace(tmp, path)
-        except Exception as e:
-            log(f"WRITE ERROR [{intel_id}]: {e}", "error")
+                fh.write(html)
+            # Safety: verify tmp exists before replace
+            if not tmp.exists():
+                raise OSError(f"tmp vanished before replace: {tmp}")
+            try:
+                os.replace(tmp, dest)
+            except OSError as replace_err:
+                log(f"os.replace failed for {dest.name}: {replace_err} — falling back to direct write", "warning")
+                dest.write_text(html, encoding="utf-8")
+                try:
+                    tmp.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+        write_succeeded = False
+        write_exc_final: Optional[Exception] = None
+        _attempts = 5
+        _base_delay = 0.5
+        for _attempt in range(_attempts):
+            try:
+                _write_report_atomic(html_text, path)
+                write_succeeded = True
+                break
+            except Exception as write_exc:
+                write_exc_final = write_exc
+                _delay = _base_delay * (_attempt + 1)
+                log(
+                    f"WRITE RETRY [{intel_id}] attempt {_attempt + 1}/{_attempts}: "
+                    f"{type(write_exc).__name__}: {write_exc} (retry in {_delay:.1f}s)",
+                    "warning",
+                )
+                import time as _time
+                _time.sleep(_delay)
+
+        if not write_succeeded:
+            log(f"WRITE HARD FAIL [{intel_id}]: all {_attempts} attempts failed: {write_exc_final}", "error")
             item["validation_status"] = "write_error"
             item["report_url"] = item.get("source_url") or ""
             errors += 1
+            # Fail-safe buffer — preserve HTML payload
+            try:
+                from scripts.safe_io import _store_write_failure
+                _store_write_failure(path, write_exc_final, payload={"html_len": len(html_text), "id": intel_id})
+            except Exception:
+                pass
             continue
 
         # Validate file on disk

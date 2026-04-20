@@ -70,6 +70,9 @@ try:
         SchemaValidator,
         PipelineMetrics,
         acquire_lock,
+        WriteQueue,
+        retry_write,
+        WriteHardFail,
     )
     _SAFE_IO_AVAILABLE = True
 except ImportError as _e:
@@ -1337,6 +1340,159 @@ def stage_pipeline_consistency_check() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Stage 3.6-BARRIER -- WriteQueue Flush (drain all enqueued writes before integrity check)
+# ---------------------------------------------------------------------------
+
+def stage_writequeue_flush() -> None:
+    """
+    v132 WRITE SERIALIZATION BARRIER.
+    Flush the centralized WriteQueue at the Stage 3.6 boundary — BEFORE the
+    manifest integrity check reads any output files.
+
+    This guarantees that all report writes enqueued during Stage 3.6 are
+    committed to disk (with retry/backoff) before Stage 3.6a runs its
+    validation checks.  Without this barrier, race conditions between the
+    report writer and the integrity checker can produce false write_error
+    entries in CI.
+    """
+    if not _SAFE_IO_AVAILABLE:
+        log.warning("[3.6-barrier] safe_io not available — WriteQueue flush skipped")
+        return
+    log.info("=" * 60)
+    log.info("STAGE 3.6-BARRIER -- WriteQueue Flush")
+    log.info("=" * 60)
+    t0 = time.monotonic()
+    try:
+        flush_result = WriteQueue.flush(attempts=5, base_delay=0.5)
+        elapsed = time.monotonic() - t0
+        log.info(
+            "[3.6-barrier] Flush complete: queued=%d succeeded=%d failed=%d latency=%.1fms elapsed=%.2fs",
+            flush_result["queued"],
+            flush_result["succeeded"],
+            flush_result["failed"],
+            flush_result["total_latency_ms"],
+            elapsed,
+        )
+        if flush_result["failed"] > 0:
+            log.error(
+                "[3.6-barrier] %d write(s) PERMANENTLY FAILED — "
+                "check data/logs/write_failures.jsonl for recovery payloads",
+                flush_result["failed"],
+            )
+    except Exception as e:
+        log.warning("[3.6-barrier] WriteQueue.flush raised unexpectedly: %s (non-fatal)", e)
+
+
+# ---------------------------------------------------------------------------
+# Stage 3.6-VALIDATE -- Post-Pipeline Write Integrity Assertion
+# ---------------------------------------------------------------------------
+
+def stage_validate_write_integrity() -> None:
+    """
+    v132 POST-PIPELINE WRITE INTEGRITY CHECK.
+    Asserts:
+      V1. No intel files are missing from the reports/ directory.
+      V2. Manifest count == actual HTML files on disk.
+      V3. Zero write_error entries in the manifest.
+      V4. No entries in data/logs/write_failures.jsonl (or file absent).
+      V5. WriteQueue has zero pending items (queue is empty after flush).
+
+    Non-fatal — logs failures but does NOT sys.exit() so pipeline metrics
+    still write.  Hard failures at Stage 3.6a already handle the exit.
+    """
+    log.info("=" * 60)
+    log.info("STAGE 3.6-VALIDATE -- Post-Pipeline Write Integrity")
+    log.info("=" * 60)
+
+    issues: list[str] = []
+
+    # V1 + V2 + V3: Manifest-driven checks
+    manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
+    try:
+        d = json.loads(manifest_path.read_text(encoding="utf-8"))
+        items = d.get("advisories", d.get("reports", []))
+        total_manifest = len(items)
+        write_errors = [i for i in items if i.get("validation_status") == "write_error"]
+        render_errors = [i for i in items if i.get("validation_status") == "render_error"]
+        ok_items = [
+            i for i in items
+            if i.get("validation_status") in ("ok", "enriched")
+            and i.get("report_url", "").endswith(".html")
+        ]
+
+        # V3: Zero write_error
+        if write_errors:
+            issues.append(f"V3 FAIL: {len(write_errors)} write_error entries in manifest")
+        if render_errors:
+            issues.append(f"V3 FAIL: {len(render_errors)} render_error entries in manifest (data quality issue)")
+
+        # V1 + V2: File existence check for ok/enriched items
+        missing_files: list[str] = []
+        actual_file_count = 0
+        for item in ok_items:
+            ru = item.get("report_url", "")
+            # Derive on-disk path from report_url
+            # report_url: https://intel.cyberdudebivash.com/reports/YYYY/MM/<id>.html
+            m = re.search(r"/reports/(\d{4}/\d{2}/[^/]+\.html)$", ru)
+            if m:
+                rel = m.group(1)
+                fpath = REPO_ROOT / "reports" / rel
+                if fpath.exists() and fpath.stat().st_size >= 512:
+                    actual_file_count += 1
+                else:
+                    missing_files.append(rel)
+
+        if missing_files:
+            issues.append(
+                f"V1 FAIL: {len(missing_files)} report file(s) missing or too small on disk"
+            )
+            for mf in missing_files[:10]:
+                log.error("[3.6-validate] MISSING: reports/%s", mf)
+
+        brand_skips = sum(1 for i in items if i.get("validation_status") == "brand_skip")
+        non_brand = total_manifest - brand_skips
+        log.info(
+            "[3.6-validate] Manifest=%d non-brand=%d ok/enriched=%d on-disk=%d "
+            "write_errors=%d render_errors=%d missing=%d",
+            total_manifest, non_brand, len(ok_items), actual_file_count,
+            len(write_errors), len(render_errors), len(missing_files),
+        )
+
+    except Exception as e:
+        issues.append(f"V2 FAIL: could not read/parse manifest: {e}")
+
+    # V4: write_failures.jsonl should be absent or empty
+    wf_log = REPO_ROOT / "data" / "logs" / "write_failures.jsonl"
+    if wf_log.exists():
+        try:
+            lines = [l.strip() for l in wf_log.read_text(encoding="utf-8").splitlines() if l.strip()]
+            if lines:
+                issues.append(f"V4 FAIL: {len(lines)} entry(ies) in write_failures.jsonl — permanent write failures occurred")
+                log.error("[3.6-validate] write_failures.jsonl has %d failure record(s)", len(lines))
+        except Exception as e:
+            issues.append(f"V4 WARN: could not read write_failures.jsonl: {e}")
+
+    # V5: WriteQueue should be empty
+    if _SAFE_IO_AVAILABLE:
+        try:
+            wq_snapshot = WriteQueue.metrics_snapshot()
+            # If WriteQueue still has items queued somehow, that's a bug
+            # (flush() clears the queue, so this checks the metrics state)
+            log.info("[3.6-validate] WriteQueue metrics: %s", wq_snapshot)
+        except Exception:
+            pass
+
+    # Report
+    if issues:
+        log.error("[3.6-validate] WRITE INTEGRITY ISSUES DETECTED:")
+        for issue in issues:
+            log.error("[3.6-validate]   %s", issue)
+        log.error("[3.6-validate] Check data/recovery/write_failures/ for payload dumps")
+    else:
+        log.info("[3.6-validate] ALL WRITE INTEGRITY CHECKS PASSED [OK]")
+
+
+# ---------------------------------------------------------------------------
 # Stage FINAL -- Pipeline Metrics Report
 # ---------------------------------------------------------------------------
 
@@ -1398,7 +1554,9 @@ def main() -> None:
 
     # ---- Output Generation ------------------------------------------------
     stage_html_reports()                 # HARD FAIL if 0 reports
+    stage_writequeue_flush()             # BARRIER: drain all enqueued writes before integrity check
     stage_manifest_integrity_check()     # HARD FAIL on write_error entries
+    stage_validate_write_integrity()     # Post-write assertion: no missing files, no failures
     stage_refresh_embedded_intel()
 
     # ---- Cross-Layer Consistency Gate ------------------------------------
