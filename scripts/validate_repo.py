@@ -306,12 +306,152 @@ def check_workflow_clean() -> CheckResult:
 
 
 # ---------------------------------------------------------------------------
+# Check 6: Intel object schema + ioc_count integrity
+# ---------------------------------------------------------------------------
+
+# Minimum required string fields for an intel advisory
+_INTEL_REQUIRED = ("title", "source")
+# Fields whose 'published' key must never be a boolean (P0 regression guard)
+_VALID_SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN", ""}
+
+
+def _validate_single_intel(obj: dict, idx: int) -> list[str]:
+    """Return list of schema error strings for one intel object."""
+    errs: list[str] = []
+    if not isinstance(obj, dict):
+        errs.append(f"[{idx}] Not a dict: {type(obj).__name__}")
+        return errs
+    # Required fields
+    for field in _INTEL_REQUIRED:
+        val = obj.get(field)
+        if not val or not isinstance(val, str):
+            errs.append(f"[{idx}] Missing/empty required string field '{field}'")
+    # published must NOT be a boolean
+    pub = obj.get("published")
+    if isinstance(pub, bool):
+        errs.append(
+            f"[{idx}] 'published' is boolean ({pub}) -- must be ISO-8601 string "
+            "(root cause of run #793 AttributeError)"
+        )
+    # ioc_count integrity
+    iocs = obj.get("iocs")
+    ioc_count = obj.get("ioc_count")
+    if isinstance(iocs, list) and isinstance(ioc_count, int):
+        if ioc_count != len(iocs):
+            errs.append(
+                f"[{idx}] ioc_count mismatch: declared={ioc_count}, actual={len(iocs)}"
+            )
+    # severity
+    sev = obj.get("severity", "")
+    if sev and sev not in _VALID_SEVERITIES:
+        errs.append(f"[{idx}] Invalid severity '{sev}'")
+    # risk_score range
+    rs = obj.get("risk_score")
+    if rs is not None:
+        try:
+            rsf = float(rs)
+            if not 0.0 <= rsf <= 10.0:
+                errs.append(f"[{idx}] risk_score {rs} out of range [0,10]")
+        except (TypeError, ValueError):
+            errs.append(f"[{idx}] risk_score '{rs}' is not numeric")
+    return errs
+
+
+def check_intel_schema() -> CheckResult:
+    """
+    Check 6: Validate intel advisory objects in the canonical manifest.
+    Single Source of Truth: data/stix/feed_manifest.json
+
+    Enforces:
+      - Required fields present + correct type (title, source)
+      - published is a string (NEVER boolean -- P0 guard)
+      - ioc_count == len(iocs) when both present
+      - severity is a recognised value
+      - risk_score in [0, 10]
+
+    Hard FAIL conditions:
+      - published is boolean in ANY object
+      - ioc_count mismatch in more than 5% of objects
+
+    All other schema issues: logged, not failed (to avoid blocking CI on
+    enrichment-side data variations).
+    """
+    manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
+    if not manifest_path.exists():
+        return CheckResult("intel_schema", True,
+                           "data/stix/feed_manifest.json not found (runtime-generated -- skipped).")
+
+    try:
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        return CheckResult("intel_schema", False,
+                           f"Cannot parse feed_manifest.json: {e}")
+
+    if isinstance(raw, list):
+        items = raw
+    elif isinstance(raw, dict):
+        items = raw.get("advisories") or raw.get("reports") or raw.get("items") or []
+    else:
+        return CheckResult("intel_schema", False,
+                           f"Unexpected manifest root type: {type(raw).__name__}")
+
+    if not items:
+        return CheckResult("intel_schema", True,
+                           "Manifest has 0 items -- schema check skipped.")
+
+    all_errors: list[str] = []
+    boolean_published_count = 0
+    ioc_mismatch_count = 0
+
+    for i, obj in enumerate(items):
+        errs = _validate_single_intel(obj, i)
+        for e in errs:
+            if "published" in e and "boolean" in e:
+                boolean_published_count += 1
+            if "ioc_count mismatch" in e:
+                ioc_mismatch_count += 1
+        all_errors.extend(errs)
+
+    total = len(items)
+    ioc_mismatch_rate = ioc_mismatch_count / total if total else 0.0
+
+    # Hard fail conditions
+    hard_fails: list[str] = []
+    if boolean_published_count > 0:
+        hard_fails.append(
+            f"{boolean_published_count} object(s) have boolean 'published' field (P0 regression)"
+        )
+    if ioc_mismatch_rate > 0.05:
+        hard_fails.append(
+            f"ioc_count mismatch rate {ioc_mismatch_rate:.1%} > 5% threshold "
+            f"({ioc_mismatch_count}/{total} items)"
+        )
+
+    if hard_fails:
+        return CheckResult("intel_schema", False,
+                           f"Schema HARD FAIL: " + "; ".join(hard_fails))
+
+    if all_errors:
+        # Soft issues: log but pass
+        log.warning("[intel_schema] %d soft issue(s) in %d items (not blocking):",
+                    len(all_errors), total)
+        for e in all_errors[:5]:
+            log.warning("[intel_schema]   %s", e)
+        return CheckResult("intel_schema", True,
+                           f"{total} items validated | {len(all_errors)} soft issue(s) "
+                           f"(no boolean published, ioc_count ok)")
+
+    return CheckResult("intel_schema", True,
+                       f"All {total} intel objects pass schema validation.")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def main() -> None:
     log.info("=" * 60)
-    log.info("SENTINEL APEX -- Repository Validator v131.2.0")
+    log.info("SENTINEL APEX -- Repository Validator v131.3.0")
     log.info("=" * 60)
 
     os.chdir(REPO_ROOT)
@@ -322,6 +462,7 @@ def main() -> None:
         check_python_syntax,
         check_json,
         check_workflow_clean,
+        check_intel_schema,   # Check 6: intel object schema + ioc_count integrity
     ]
 
     results: list[CheckResult] = []
@@ -345,7 +486,7 @@ def main() -> None:
         log.error("VALIDATION FAILED -- %d check(s) did not pass.", failed)
         sys.exit(1)
 
-    log.info("ALL CHECKS PASSED -- repository is production-ready.")
+    log.info("ALL CHECKS PASSED -- repository is production-ready. [v131.3.0]")
     sys.exit(0)
 
 
