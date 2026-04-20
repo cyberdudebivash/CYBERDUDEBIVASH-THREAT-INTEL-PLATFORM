@@ -44,7 +44,32 @@ import {
 import {
   enforceTierGate,
   REVENUE_CONFIG,
+  handleLeadCapture,
+  handleTrialIssuance,
+  handleRevenueAnalytics,
+  applyTierGateV2,
+  buildUsageLimitResponse,
+  trackRevenueEvent,
 } from "./revenue-enforcement.js";
+
+// v130.0.0: Usage Metering Engine
+import {
+  slugifyEndpoint,
+  calculateCostPerCall,
+  trackApiUsage,
+  getUsageSummary,
+  getEndpointStats,
+  getTierDistribution,
+  analyzeUsagePatterns,
+} from "./usage-meter.js";
+
+// v130.0.0: Credit / Token System
+import {
+  checkCredits,
+  buildCreditHeaders,
+  buildBillingStatus,
+  getCreditExhaustionStats,
+} from "./credit-system.js";
 
 const CONFIG = {
   GATEWAY_VERSION:   "125.0.0",  // v125.0.0: FINAL HARDENING — injection-pattern blocking, IOC consistency gate, paid-tier STIX validation, X-RateLimit headers, signup field sanitization
@@ -3433,6 +3458,36 @@ function applySecurityHeaders(response, rlHeaders = {}) {
   return new Response(response.body, { status: response.status, headers });
 }
 
+// v130.0.0: Revenue Dashboard Handler
+async function handleRevenueDashboard(request, env, rid) {
+  const adminSecret = request.headers.get("X-Admin-Secret");
+  if (!env?.ADMIN_SECRET || adminSecret !== env.ADMIN_SECRET) {
+    return new Response(JSON.stringify({ error: "unauthorized", request_id: rid }, null, 2), {
+      status: 401,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-cache", "Access-Control-Allow-Origin": "*" },
+    });
+  }
+  const date = new URL(request.url).searchParams.get("date") || new Date().toISOString().slice(0, 10);
+  const [revenueResp, epStats, tierDist, exhaustStats] = await Promise.allSettled([
+    handleRevenueAnalytics(request, env, rid),
+    getEndpointStats(env, date),
+    getTierDistribution(env, date),
+    getCreditExhaustionStats(env, date),
+  ]);
+  let revenueData = {};
+  try { if (revenueResp.status === "fulfilled") revenueData = await revenueResp.value.json(); } catch {}
+  return new Response(JSON.stringify({
+    version: "v130.0.0", date,
+    revenue: revenueData,
+    endpoint_stats:     epStats.status     === "fulfilled" ? epStats.value     : [],
+    tier_distribution:  tierDist.status    === "fulfilled" ? tierDist.value    : {},
+    credit_exhaustions: exhaustStats.status === "fulfilled" ? exhaustStats.value : { exhaustions_today: 0 },
+    pricing: { free: { monthly_usd: 0 }, pro: { monthly_usd: 29 }, enterprise: { monthly_usd: 199 } },
+    upgrade_urls: { free_to_pro: "https://intel.cyberdudebivash.com/upgrade?plan=pro", trial: "https://intel.cyberdudebivash.com/trial" },
+    request_id: rid, generated_at: new Date().toISOString(),
+  }, null, 2), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-cache, no-store", "Access-Control-Allow-Origin": "*" } });
+}
+
 // ── Main Router ────────────────────────────────────────────────────────────────
 
 export default {
@@ -3605,9 +3660,23 @@ export default {
     // v123.0.0: Request fingerprinting — async, fire-and-forget for analytics (never blocks)
     fingerprintRequest(request, env, auth, rid).catch(() => {});
 
+    // ── v130.0.0: CREDIT GATE ── usage-based billing enforcement ───────────────────
+    const _epSlug  = slugifyEndpoint(pathname);
+    const _epCost  = calculateCostPerCall(_epSlug, auth.tier);
+    const _credits = await checkCredits(env, auth.user_id || auth.key_id, auth.tier, _epCost, rid);
+    if (!_credits.allowed) {
+      trackRevenueEvent(env, "credit_exhausted", { key_id: auth.key_id, tier: auth.tier, endpoint: _epSlug }).catch(() => {});
+      return _credits.response402;
+    }
+    ctx.waitUntil(trackApiUsage(env, auth.user_id || auth.key_id, _epSlug, auth.tier, _epCost));
+    analyzeUsagePatterns(env, auth.user_id || auth.key_id, auth.tier,
+      _credits.status?.credits_remaining ?? 0, _credits.status?.credit_limit ?? 100).catch(() => {});
+
     // ── v125.0: All authenticated responses wrapped with X-RateLimit + security headers ──
     const _rl = _rlHeaders;  // captured above after rate-limit check
     const withRL = (resp) => applySecurityHeaders(resp, _rl);
+    // v130.0.0: merge credit billing headers into every authenticated response
+    Object.assign(_rlHeaders, buildCreditHeaders(_credits.status, _credits.status?.credits_used));
 
     // ── v122.0.0: Authenticated user + billing routes ────────────────────────
     if (pathname === "/auth/me"              && method === "GET")    return withRL(await handleUserMe(request, env, rid, auth));
@@ -3691,6 +3760,14 @@ export default {
 
     // GET /api/platform/stats — live feed stats for dashboard (public — no auth required)
     // (also accessible without auth for dashboard widgets — handled below)
+
+    // v130.0.0: Revenue API Endpoints
+    if (pathname.startsWith("/api/revenue") && method === "GET")
+      return withRL(await handleRevenueDashboard(request, env, rid));
+    if (pathname === "/api/leads/capture" && method === "POST")
+      return handleLeadCapture(request, env, rid);
+    if (pathname === "/api/leads/trial" && method === "POST")
+      return handleTrialIssuance(request, env, rid);
 
     slog("WARN", "ROUTER", `404 ${pathname}`, { rid, method });
     return jsonResponse({
