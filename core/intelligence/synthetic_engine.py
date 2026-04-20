@@ -287,10 +287,14 @@ def _build_siem_queries(ioc_list: List[Dict]) -> Dict[str, str]:
     elastic_d = " OR ".join(f'dns.question.name:"{d}"' for d in domains) if domains else 'dns.question.name:"c2.example.com"'
     elastic_i = " OR ".join(f'destination.ip:"{ip}"' for ip in ips) if ips else 'destination.ip:"185.220.101.1"'
 
+    # Pre-compute KQL values — avoids backslashes inside f-string expressions (Python 3.10 compat)
+    _kql_domains = ','.join(repr(d) for d in domains[:2]) if domains else '"c2.example.com"'
+    _kql_ips     = ','.join(repr(ip) for ip in ips[:2])   if ips     else '"185.220.101.1"'
+
     return {
         "splunk": f"index=* sourcetype=proxy ({splunk_d}) OR ({splunk_i}) OR ({splunk_h}) | stats count by src_ip dest user | where count > 5",
         "elastic": f"({elastic_d}) OR ({elastic_i}) | by host destination.ip",
-        "kql":     f"DeviceNetworkEvents | where RemoteUrl has_any ({','.join(repr(d) for d in domains[:2]) if domains else '\"c2.example.com\"'}) or RemoteIP has_any ({','.join(repr(ip) for ip in ips[:2]) if ips else '\"185.220.101.1\"'})",
+        "kql":     f"DeviceNetworkEvents | where RemoteUrl has_any ({_kql_domains}) or RemoteIP has_any ({_kql_ips})",
     }
 
 

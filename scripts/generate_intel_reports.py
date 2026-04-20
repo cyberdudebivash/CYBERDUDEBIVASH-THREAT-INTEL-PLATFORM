@@ -110,6 +110,13 @@ class _VersionFilter(logging.Filter):
         return True
 
 _log.addFilter(_VersionFilter())
+# Apply filter to ALL root-logger handlers so every logger in this process
+# (including CDB-IOC-ENFORCER, CDB-*, etc.) has record.version set before
+# the %(version)s formatter is applied.  Without this, any child logger that
+# propagates to root crashes with KeyError: 'version'.
+_version_filter_instance = _VersionFilter()
+for _root_handler in logging.root.handlers:
+    _root_handler.addFilter(_version_filter_instance)
 
 
 def log(msg: str, level: str = "info") -> None:
