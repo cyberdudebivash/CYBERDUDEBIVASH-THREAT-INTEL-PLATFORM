@@ -57,7 +57,8 @@ try:
 except ImportError:
     _IOC_ENFORCE_AVAILABLE = False
     _ioc_enforcer = None
-    _ioc_confidence = Noneimport time
+    _ioc_confidence = None
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any

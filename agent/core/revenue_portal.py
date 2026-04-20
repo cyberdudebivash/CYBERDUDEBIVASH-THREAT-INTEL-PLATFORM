@@ -41,7 +41,7 @@ class SovereignRevenueDashboard:
             return {"status": "ERROR"}
 
     def correlate_market_demand(self):
-Correlates EPSS probability with current manifest items."""
+        """Correlates EPSS probability with current manifest items."""
         if not os.path.exists(self.manifest_path):
             return []
 
