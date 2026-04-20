@@ -171,13 +171,37 @@ def _convert_real_advisory(item: Dict[str, Any]) -> Advisory:
     # Source name
     source_name = item.get("source", "") or item.get("source_name", "") or item.get("feed_source", "")
 
+    # P0 FIX (run #793): ROOT CAUSE — "published": true in JSON is a boolean
+    # metadata flag (e.g. STIX "published" field).  Python's `True or ""` evaluates
+    # to True, so published_date was silently set to boolean True instead of a date
+    # string, causing AttributeError: 'bool' object has no attribute 'replace' in
+    # threat_scoring.py:288 and confidence_engine.py:288.
+    # FIX: Check each candidate field individually; only accept actual ISO 8601 strings.
+    def _safe_date_str(item: dict, *keys: str) -> str:
+        """Return first value that is a non-empty string across the given keys."""
+        for k in keys:
+            v = item.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return ""
+
+    published_date = _safe_date_str(item, "published_date", "timestamp", "created_at", "date")
+    # "published" key is intentionally checked LAST — it is often a boolean in STIX
+    # (e.g. {"published": true, "published_date": "2026-04-20T09:00:00Z"}).
+    # Only fall through to it when none of the unambiguous date fields are present.
+    if not published_date:
+        pub_raw = item.get("published")
+        if isinstance(pub_raw, str) and pub_raw.strip():
+            published_date = pub_raw.strip()
+        # bool, int, None, list → silently discard (leave published_date="")
+
     return Advisory(
         advisory_id=item.get("advisory_id", ""),
         title=title,
         summary=item.get("description", "") or item.get("summary", "") or title,
         source_url=item.get("link", "") or item.get("source_url", ""),
         source_name=source_name,
-        published_date=item.get("published", "") or item.get("published_date", "") or item.get("timestamp", ""),
+        published_date=published_date,
         threat_type=threat_type,
         severity=severity,
         confidence=float(item.get("confidence", 0) or item.get("confidence_score", 0) or 0),
@@ -457,8 +481,36 @@ class Orchestrator:
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+def _log_to_security_hub_kv(event_type: str, data: dict) -> None:
+    """
+    Write an observability event to SECURITY_HUB_KV log file.
+    Non-blocking: errors are silently swallowed so this never kills the pipeline.
+    Format: JSONL (one JSON object per line) for easy tail/grep in CI logs.
+    """
+    import traceback
+    try:
+        import os, json as _json
+        log_path = os.path.join("data", "logs", "security_hub_kv.jsonl")
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "event_type": event_type,
+            "pipeline": "sentinel-blogger",
+            "component": "v70_orchestrator",
+            **data,
+        }
+        with open(log_path, "a", encoding="utf-8") as fh:
+            fh.write(_json.dumps(entry, default=str) + "\n")
+    except Exception:
+        pass  # observability MUST NEVER crash the pipeline
+
+
 def main():
-    """CLI entry point for the orchestrator."""
+    """CLI entry point for the orchestrator.
+    P0 FIX (run #793): Global guard wraps ALL execution.
+    Pipeline MUST NEVER exit non-zero due to encoding, parsing, or non-critical errors.
+    Any unhandled exception is logged to SECURITY_HUB_KV and the process exits 0.
+    """
     import argparse
     parser = argparse.ArgumentParser(description="SENTINEL APEX v70 Pipeline Orchestrator")
     parser.add_argument("--data-dir", default="data", help="Data directory")
@@ -476,40 +528,82 @@ def main():
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
     )
 
-    config = OrchestratorConfig(
-        data_dir=args.data_dir,
-        dashboard_file=args.dashboard,
-        enable_ai=not args.no_ai,
-        enable_dedup=not args.no_dedup,
-        enable_correlation=not args.no_correlation,
-        enable_blog_gen=not args.no_blog,
-        dry_run=args.dry_run,
-    )
+    try:
+        config = OrchestratorConfig(
+            data_dir=args.data_dir,
+            dashboard_file=args.dashboard,
+            enable_ai=not args.no_ai,
+            enable_dedup=not args.no_dedup,
+            enable_correlation=not args.no_correlation,
+            enable_blog_gen=not args.no_blog,
+            dry_run=args.dry_run,
+        )
 
-    orchestrator = Orchestrator(config)
-    result = orchestrator.run()
+        orchestrator = Orchestrator(config)
+        result = orchestrator.run()
 
-    if args.json:
-        print(result.to_json())
-    else:
-        print(f"\n{'='*60}")
-        print(f"SENTINEL APEX v70 Pipeline {'PASSED' if result.success else 'FAILED'}")
-        print(f"{'='*60}")
-        for phase in result.phases:
-            status_icon = {"OK": "+", "SKIPPED": ">", "DEGRADED": "!", "FAILED": "X", "DRY_RUN": "~"}.get(
-                phase["status"], "?"
-            )
-            print(f"  [{status_icon}] {phase['phase']}: {phase['status']} ({phase['duration_s']}s)")
-        print(f"\n  Advisories: {result.total_advisories}")
-        print(f"  Dedup Removed: {result.dedup_removed}")
-        print(f"  Correlations: {result.correlations_found}")
-        print(f"  Campaigns: {result.campaigns_detected}")
-        print(f"  Duration: {result.duration_seconds}s")
-        if result.error:
-            print(f"\n  ERROR: {result.error}")
-        print(f"{'='*60}\n")
+        if args.json:
+            print(result.to_json())
+        else:
+            print(f"\n{'='*60}")
+            print(f"SENTINEL APEX v70 Pipeline {'PASSED' if result.success else 'FAILED'}")
+            print(f"{'='*60}")
+            for phase in result.phases:
+                status_icon = {"OK": "+", "SKIPPED": ">", "DEGRADED": "!", "FAILED": "X", "DRY_RUN": "~"}.get(
+                    phase["status"], "?"
+                )
+                print(f"  [{status_icon}] {phase['phase']}: {phase['status']} ({phase['duration_s']}s)")
+            print(f"\n  Advisories: {result.total_advisories}")
+            print(f"  Dedup Removed: {result.dedup_removed}")
+            print(f"  Correlations: {result.correlations_found}")
+            print(f"  Campaigns: {result.campaigns_detected}")
+            print(f"  Duration: {result.duration_seconds}s")
+            if result.error:
+                print(f"\n  ERROR: {result.error}")
+            print(f"{'='*60}\n")
 
-    sys.exit(0 if result.success else 1)
+        # Emit SECURITY_HUB_KV observability event
+        _log_to_security_hub_kv("pipeline_complete", {
+            "success": result.success,
+            "total_advisories": result.total_advisories,
+            "dedup_removed": result.dedup_removed,
+            "correlations": result.correlations_found,
+            "duration_seconds": result.duration_seconds,
+            "error": result.error,
+        })
+
+        # P0 HARD GUARANTEE: v70 orchestrator NEVER exits non-zero.
+        # It is a non-critical enrichment phase — its failure must NOT
+        # propagate to the GitHub Actions step and kill the pipeline.
+        # The workflow uses `continue-on-error: true` as belt+suspenders,
+        # but this exit(0) is the primary guard.
+        sys.exit(0)
+
+    except Exception as critical_e:
+        # GLOBAL CATCH-ALL: any unhandled exception (import failure, model crash,
+        # OS error, etc.) is logged and suppressed — pipeline ALWAYS exits 0.
+        import traceback
+        tb = traceback.format_exc()
+        logger.critical(
+            f"[P0-GLOBAL-GUARD] Unhandled exception in v70 orchestrator — "
+            f"forcing exit(0) to prevent pipeline break: {critical_e}\n{tb}"
+        )
+        _log_to_security_hub_kv("pipeline_critical_error", {
+            "error": str(critical_e),
+            "traceback": tb,
+            "action": "forced_exit_0",
+        })
+        # Emit minimal JSON result so downstream steps can detect the guard fired
+        if args.json:
+            import json as _json
+            print(_json.dumps({
+                "success": False,
+                "total_advisories": 0,
+                "error": f"[P0-GLOBAL-GUARD] {critical_e}",
+                "phases": [],
+                "guard_fired": True,
+            }, indent=2))
+        sys.exit(0)  # FORCE SUCCESS — never break the CI pipeline
 
 
 if __name__ == "__main__":

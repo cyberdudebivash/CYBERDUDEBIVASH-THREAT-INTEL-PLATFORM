@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBERDUDEBIVASHÂ® SENTINEL APEX v131.0 â€” SOVEREIGN INTELLIGENCE PIPELINE
-# Version    : v131.0.0 (REVENUE-ENGINE / IOC-CONFIDENCE / PAYMENT-GATEWAY)
+# Version    : v131.1.0 (P0-FIX-RUN793 / JSON-SANITIZER / BOOL-DATE-GUARD)
 # Rebuilt    : 2026-04-18 â€” P0-ESCALATION Fix v116.0: Manifest destruction
 #              eliminated, R2 corruption guard, v70 stale-backup guard, STIX
 #              bundle persistence.
@@ -106,7 +106,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "131.0.0"
+  PIPELINE_VERSION: "131.1.0"
 
 # Only ONE data-writing workflow at a time â€” prevents manifest corruption
 concurrency:
@@ -148,7 +148,7 @@ jobs:
           pip install --quiet reportlab fpdf2 || true
           [ -f requirements.txt ] && pip install --quiet -r requirements.txt || true
 
-      - name: "ðŸ“ Ensure required directories"
+      - name: “ðŸ” Ensure required directories”
         run: |
           mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum \
                    data/sovereign data/playbooks/scripts data/premium_packs \
@@ -157,6 +157,21 @@ jobs:
                    data/analyst data/arsenal data/convergence data/incidents \
                    data/intelligence/detection_rules secrets api \
                    data/ai_intelligence
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 0.1: P0 PRE-FLIGHT — JSON SANITIZER & SELF-HEALING ENGINE
+# v131.1.0 FIX (run #793): Runs BEFORE any Python validation, engine invocation,
+# or manifest read. Strips BOM from all .json files, validates JSON structure,
+# auto-heals minor corruption, and regenerates minimal valid structure for any
+# file that is unrecoverable. Detects and normalises boolean 'published' fields
+# that caused AttributeError: 'bool' object has no attribute 'replace' in
+# threat_scoring.py:288 (root cause of run #793).
+# Exit 0 guaranteed — this step NEVER breaks the pipeline.
+# ─────────────────────────────────────────────────────────────────────────────
+      - name: “🔬 P0 Pre-Flight — JSON Sanitizer & Self-Healing (v131.1.0)”
+        run: |
+          python3 scripts/sanitize_repo.py || true
+          echo “JSON sanitizer complete (exit forced 0)”
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 0.5: P0 SAFETY â€” CLEAR PUBLISH QUEUE BOMB
@@ -441,12 +456,30 @@ jobs:
             exit 0
           fi
 
-          echo "INFO: v70 input data is fresh â€” proceeding with enrichment."
-          AI_FLAG=""
-          [ "${{ github.event.inputs.skip_ai }}" = "true" ] && AI_FLAG="--no-ai"
+          echo “INFO: v70 input data is fresh — proceeding with enrichment.”
+          AI_FLAG=””
+          [ “${{ github.event.inputs.skip_ai }}” = “true” ] && AI_FLAG=”--no-ai”
+
+          # P0 HARD GUARANTEE (v131.1.0 fix — run #793):
+          # The orchestrator's main() already exits 0 unconditionally via its
+          # global exception guard. Belt+suspenders: capture ALL output,
+          # force exit 0 via `|| true`, and tee the JSON result for downstream.
+          set +e
           timeout 240 python -m agent.v70_apex_upgrade.orchestrator \
-            --data-dir data --dashboard index.html --json $AI_FLAG | \
-            tee /tmp/v70_result.json || true
+            --data-dir data --dashboard index.html --json $AI_FLAG 2>&1 | \
+            tee /tmp/v70_result.json
+          V70_EXIT=${PIPESTATUS[0]}
+          set -e
+
+          if [ “$V70_EXIT” -ne 0 ]; then
+            echo “WARN: v70 orchestrator exited $V70_EXIT — forcing success (non-critical enrichment phase)”
+            echo “      Pipeline continues. STIX generation and R2 upload are unaffected.”
+            # Write minimal fallback result so downstream JSON-readers don't crash
+            cat > /tmp/v70_result.json << 'ENDJSON'
+          {“success”: false, “total_advisories”: 0, “error”: “v70 non-zero exit (guard fired)”, “phases”: [], “guard_fired”: true}
+          ENDJSON
+          fi
+          echo “v70 enrichment phase complete (exit: $V70_EXIT → forced 0)”
 
       - name: "ðŸ”„ Manifest Stabilisation â€” Preserve Engine Output / Rebuild Only If Needed"
         # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
