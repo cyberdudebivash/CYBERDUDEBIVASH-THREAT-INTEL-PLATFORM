@@ -13,8 +13,8 @@
 #   • NEVER hardcode or fallback-generate the secret — it must be explicit
 #
 # STABILITY GUARANTEES (v131.0.0):
-#   • JS syntax validated BEFORE any deploy attempt
-#   • Wrangler v4 (stable, non-deprecated)
+#   • JS syntax validated BEFORE any deploy attempt (node --check)
+#   • Wrangler v3 (proven stable — v4 has breaking TOML/env changes)
 #   • Deploy retried once on transient failure
 #   • Health check is informational-only (never blocks deploy success)
 #   • Version header verified post-deploy
@@ -58,9 +58,11 @@ jobs:
         with:
           node-version: '22'
 
-      - name: "🔧 Install Wrangler v4 (stable)"
+      - name: "🔧 Install Wrangler (stable)"
         run: |
-          npm install -g wrangler@4
+          # Use wrangler@3 — proven stable for this platform (run #20 confirmed install OK).
+          # wrangler@4 introduced breaking changes in TOML parsing and --env flag handling.
+          npm install -g wrangler@3
           wrangler --version
           echo "Wrangler installation: OK"
 
