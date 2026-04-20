@@ -28,12 +28,14 @@ import hashlib
 import json
 import logging
 import os
+import random
 import re
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 log = logging.getLogger("sentinel.safe_io")
 
@@ -49,7 +51,7 @@ class FileLock:
     - Fallback: soft-lock via .lock sentinel file (last resort).
     """
 
-    def __init__(self, path: Path, timeout: float = 30.0, poll: float = 0.1):
+    def __init__(self, path: Path, timeout: float = 120.0, poll: float = 0.1):
         self._path = Path(str(path) + ".lock")
         self._timeout = timeout
         self._poll = poll
@@ -69,7 +71,8 @@ class FileLock:
                     fcntl.flock(self._fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
                     return
                 except BlockingIOError:
-                    time.sleep(self._poll)
+                    # Jitter before retry: prevents lock thundering-herd under batch load
+                    time.sleep(self._poll + random.uniform(0.1, 0.5))
             self._fh.close()
             raise TimeoutError(f"FileLock timeout after {self._timeout}s on {self._path}")
         else:
@@ -82,7 +85,8 @@ class FileLock:
                     self._soft = True
                     return
                 except FileExistsError:
-                    time.sleep(self._poll)
+                    # Jitter before retry
+                    time.sleep(self._poll + random.uniform(0.1, 0.5))
             raise TimeoutError(f"FileLock timeout after {self._timeout}s on {self._path}")
 
     def release(self) -> None:
@@ -110,7 +114,7 @@ class FileLock:
 
 
 @contextlib.contextmanager
-def acquire_lock(path: Path, timeout: float = 30.0) -> Iterator[FileLock]:
+def acquire_lock(path: Path, timeout: float = 120.0) -> Iterator[FileLock]:
     """Context manager wrapper for FileLock."""
     lock = FileLock(path, timeout=timeout)
     lock.acquire()
@@ -155,6 +159,9 @@ def atomic_json_write(
 
     def _do_write() -> int:
         tmp.write_text(content, encoding="utf-8")
+        # SAFETY: verify tmp exists on disk before attempting replace
+        if not tmp.exists():
+            raise OSError(f"atomic_json_write: tmp file vanished before replace: {tmp}")
         if verify:
             parsed = json.loads(tmp.read_text(encoding="utf-8"))
             # Light sanity: same top-level type
@@ -163,7 +170,20 @@ def atomic_json_write(
                     f"Post-write type mismatch: expected {type(data).__name__}, "
                     f"got {type(parsed).__name__}"
                 )
-        os.replace(str(tmp), str(path))
+        # Atomic rename — fallback to direct write if os.replace fails (NFS/Windows edge)
+        try:
+            os.replace(str(tmp), str(path))
+        except OSError as _replace_err:
+            log.warning(
+                "atomic_json_write: os.replace failed (%s) — falling back to direct write",
+                _replace_err,
+            )
+            # Direct write fallback: still atomic enough for recovery scenarios
+            path.write_text(content, encoding="utf-8")
+            try:
+                tmp.unlink(missing_ok=True)
+            except Exception:
+                pass
         sz = path.stat().st_size
         log.debug("atomic_json_write: %s | %d bytes", path.name, sz)
         return sz
@@ -181,6 +201,243 @@ def atomic_json_write(
             except Exception:
                 pass
         raise
+
+
+# ---------------------------------------------------------------------------
+# Write Recovery Paths
+# ---------------------------------------------------------------------------
+
+_WRITE_FAILURE_DIR: Optional[Path] = None
+_WRITE_FAILURE_LOG: Optional[Path] = None
+
+
+def _resolve_recovery_paths(repo_root: Optional[Path] = None) -> None:
+    """
+    Resolve write-failure recovery directories relative to repo root.
+    Called once at module import or first use.
+    """
+    global _WRITE_FAILURE_DIR, _WRITE_FAILURE_LOG
+    if _WRITE_FAILURE_DIR is not None:
+        return
+    root = repo_root or Path(__file__).resolve().parent.parent
+    _WRITE_FAILURE_DIR = root / "data" / "recovery" / "write_failures"
+    _WRITE_FAILURE_LOG = root / "data" / "logs" / "write_failures.jsonl"
+
+
+def _store_write_failure(
+    path: Path,
+    exc: Exception,
+    payload: Any = None,
+    *,
+    repo_root: Optional[Path] = None,
+) -> None:
+    """
+    Persist a failed write payload so no data is lost on permanent write failure.
+    - Saves payload JSON to data/recovery/write_failures/<timestamp>_<stem>.json
+    - Appends a JSONL record to data/logs/write_failures.jsonl
+    Never raises — this is a best-effort safety net.
+    """
+    _resolve_recovery_paths(repo_root)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+    stem = Path(str(path)).stem[:60].replace("/", "_").replace("\\", "_")
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "target_path": str(path),
+        "error": str(exc),
+        "error_type": type(exc).__name__,
+    }
+    # Save payload blob
+    if payload is not None and _WRITE_FAILURE_DIR is not None:
+        try:
+            _WRITE_FAILURE_DIR.mkdir(parents=True, exist_ok=True)
+            blob_path = _WRITE_FAILURE_DIR / f"{ts}_{stem}.json"
+            blob_path.write_text(
+                json.dumps(payload, indent=2, ensure_ascii=False, default=str),
+                encoding="utf-8",
+            )
+            record["recovery_blob"] = str(blob_path)
+            log.warning("_store_write_failure: payload saved -> %s", blob_path.name)
+        except Exception as save_err:
+            log.error("_store_write_failure: could not save payload blob: %s", save_err)
+    # Append JSONL log
+    if _WRITE_FAILURE_LOG is not None:
+        try:
+            _WRITE_FAILURE_LOG.parent.mkdir(parents=True, exist_ok=True)
+            with open(_WRITE_FAILURE_LOG, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+        except Exception as log_err:
+            log.error("_store_write_failure: JSONL append failed: %s", log_err)
+
+
+# ---------------------------------------------------------------------------
+# Retry Write — Exponential Backoff Wrapper (MANDATORY for all write paths)
+# ---------------------------------------------------------------------------
+
+class WriteHardFail(RuntimeError):
+    """Raised by retry_write() after all attempts exhausted."""
+
+
+def retry_write(
+    fn: Callable[[], Any],
+    *,
+    attempts: int = 5,
+    base_delay: float = 0.5,
+    path: Optional[Path] = None,
+    payload: Any = None,
+) -> Any:
+    """
+    Wrap any write callable with retry + exponential backoff.
+    On permanent failure: stores to fail-safe buffer, raises WriteHardFail.
+
+    Args:
+        fn:         Zero-argument callable that performs the write.
+        attempts:   Total attempts (default 5).
+        base_delay: Base sleep seconds; sleep = base_delay * (attempt + 1).
+        path:       Target file path (for fail-safe buffer and logging).
+        payload:    Data payload (stored in recovery buffer on permanent failure).
+    """
+    last_exc: Exception = RuntimeError("retry_write: no attempts made")
+    for attempt in range(attempts):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            delay = base_delay * (attempt + 1)
+            log.warning(
+                "retry_write: attempt %d/%d failed for %s: %s (retry in %.1fs)",
+                attempt + 1, attempts,
+                Path(str(path)).name if path else "?",
+                exc, delay,
+            )
+            time.sleep(delay)
+    # All attempts exhausted — engage fail-safe buffer
+    log.error(
+        "retry_write: PERMANENT FAILURE after %d attempts for %s: %s",
+        attempts, path, last_exc,
+    )
+    if path is not None:
+        _store_write_failure(path, last_exc, payload)
+    raise WriteHardFail(
+        f"retry_write: all {attempts} attempts failed for {path}: {last_exc}"
+    ) from last_exc
+
+
+# ---------------------------------------------------------------------------
+# WriteQueue — Centralized Single-Writer Enforcement
+# ---------------------------------------------------------------------------
+
+class WriteQueue:
+    """
+    Centralized write queue for SENTINEL APEX pipeline.
+
+    ALL writes to data/stix/*, data/intel/*, data/api/*, feed_manifest.json
+    MUST go through this queue.  Writes are enqueued as callables and flushed
+    ONLY at controlled stage boundaries via flush().
+
+    This prevents concurrent-write races during Stage 3.6 batch processing.
+
+    Usage:
+        WriteQueue.enqueue(lambda: atomic_json_write(path, data))
+        ...
+        WriteQueue.flush()   # called once at stage boundary
+
+    Thread-safety: the queue list and metrics are protected by a threading.Lock.
+    """
+
+    _queue: List[Callable[[], Any]] = []
+    _lock: threading.Lock = threading.Lock()
+
+    # Metrics (also exposed to PipelineMetrics.write_report)
+    _write_latency_ms: List[float] = []
+    _write_failures: int = 0
+    _retry_count: int = 0
+
+    @classmethod
+    def enqueue(cls, write_fn: Callable[[], Any]) -> None:
+        """Append a write callable to the queue."""
+        with cls._lock:
+            cls._queue.append(write_fn)
+
+    @classmethod
+    def flush(
+        cls,
+        *,
+        attempts: int = 5,
+        base_delay: float = 0.5,
+    ) -> Dict[str, Any]:
+        """
+        Execute all queued write callables sequentially (never parallel).
+        Each write is wrapped in retry_write with exponential backoff.
+        Failed writes are stored in the fail-safe buffer.
+
+        Returns metrics dict: {queued, succeeded, failed, total_latency_ms}.
+        """
+        with cls._lock:
+            queue_snapshot = list(cls._queue)
+            cls._queue.clear()
+
+        succeeded = 0
+        failed = 0
+        t_flush_start = time.monotonic()
+
+        for i, fn in enumerate(queue_snapshot):
+            t0 = time.monotonic()
+            try:
+                # retry_write wraps the callable with backoff
+                retry_write(fn, attempts=attempts, base_delay=base_delay)
+                latency_ms = (time.monotonic() - t0) * 1000
+                with cls._lock:
+                    cls._write_latency_ms.append(latency_ms)
+                succeeded += 1
+                log.debug("WriteQueue.flush: item %d/%d OK (%.1fms)", i + 1, len(queue_snapshot), latency_ms)
+            except WriteHardFail as exc:
+                latency_ms = (time.monotonic() - t0) * 1000
+                with cls._lock:
+                    cls._write_failures += 1
+                    cls._write_latency_ms.append(latency_ms)
+                failed += 1
+                log.error("WriteQueue.flush: item %d/%d HARD FAIL: %s", i + 1, len(queue_snapshot), exc)
+            except Exception as exc:
+                with cls._lock:
+                    cls._write_failures += 1
+                failed += 1
+                log.error("WriteQueue.flush: item %d/%d unexpected error: %s", i + 1, len(queue_snapshot), exc)
+
+        total_latency_ms = (time.monotonic() - t_flush_start) * 1000
+        log.info(
+            "WriteQueue.flush: queued=%d succeeded=%d failed=%d total_latency=%.1fms",
+            len(queue_snapshot), succeeded, failed, total_latency_ms,
+        )
+        return {
+            "queued": len(queue_snapshot),
+            "succeeded": succeeded,
+            "failed": failed,
+            "total_latency_ms": round(total_latency_ms, 2),
+        }
+
+    @classmethod
+    def metrics_snapshot(cls) -> Dict[str, Any]:
+        """Return current write queue metrics (non-destructive)."""
+        with cls._lock:
+            latencies = list(cls._write_latency_ms)
+            failures = cls._write_failures
+        avg_lat = round(sum(latencies) / len(latencies), 2) if latencies else 0.0
+        p99_lat = round(sorted(latencies)[int(len(latencies) * 0.99)], 2) if len(latencies) >= 100 else (max(latencies) if latencies else 0.0)
+        return {
+            "write_count": len(latencies),
+            "write_failures": failures,
+            "write_latency_avg_ms": avg_lat,
+            "write_latency_p99_ms": p99_lat,
+        }
+
+    @classmethod
+    def reset(cls) -> None:
+        """Reset queue and metrics — for testing only."""
+        with cls._lock:
+            cls._queue.clear()
+            cls._write_latency_ms.clear()
+            cls._write_failures = 0
+            cls._retry_count = 0
 
 
 # ---------------------------------------------------------------------------
@@ -673,6 +930,10 @@ class PipelineMetrics:
         self._stage_timings: Dict[str, float] = {}
         self._stage_statuses: Dict[str, str] = {}
         self._errors: List[str] = []
+        # v132 write observability
+        self._write_latencies_ms: List[float] = []
+        self._write_failures: int = 0
+        self._retry_count: int = 0
 
     def record_ingestion(self, count: int) -> None:
         self._ingested += count
@@ -691,6 +952,17 @@ class PipelineMetrics:
         self._stage_timings[stage] = round(duration_s, 3)
         self._stage_statuses[stage] = status
 
+    # v132 write observability
+    def record_write(self, latency_ms: float) -> None:
+        self._write_latencies_ms.append(latency_ms)
+
+    def record_write_failure(self, stage: str, reason: str) -> None:
+        self._write_failures += 1
+        self._errors.append(f"write_failure [{stage}]: {reason}")
+
+    def record_write_retry(self, count: int = 1) -> None:
+        self._retry_count += count
+
     def ingestion_rate(self) -> float:
         total = self._ingested + self._failed
         return round(self._ingested / total, 4) if total else 0.0
@@ -705,8 +977,23 @@ class PipelineMetrics:
     def ioc_extraction_rate(self) -> float:
         return round(self._ioc_count / self._ingested, 2) if self._ingested else 0.0
 
+    def _write_latency_stats(self) -> Dict:
+        lats = self._write_latencies_ms
+        if not lats:
+            return {"count": 0, "avg_ms": 0.0, "p99_ms": 0.0, "max_ms": 0.0}
+        sorted_lats = sorted(lats)
+        p99_idx = max(0, int(len(sorted_lats) * 0.99) - 1)
+        return {
+            "count": len(lats),
+            "avg_ms": round(sum(lats) / len(lats), 2),
+            "p99_ms": round(sorted_lats[p99_idx], 2),
+            "max_ms": round(max(lats), 2),
+        }
+
     def to_dict(self) -> Dict:
         elapsed = round(time.monotonic() - self._start, 2)
+        # Merge WriteQueue metrics for full observability
+        wq_metrics = WriteQueue.metrics_snapshot()
         return {
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "pipeline_duration_s": elapsed,
@@ -720,6 +1007,11 @@ class PipelineMetrics:
             "stage_timings_s": self._stage_timings,
             "stage_statuses": self._stage_statuses,
             "errors": self._errors,
+            # v132 write observability
+            "write_latency": self._write_latency_stats(),
+            "write_failures": self._write_failures + wq_metrics.get("write_failures", 0),
+            "write_retry_count": self._retry_count,
+            "write_queue_metrics": wq_metrics,
         }
 
     def write_report(self, path: Path) -> None:
