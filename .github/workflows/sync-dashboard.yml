@@ -46,12 +46,12 @@ name: "â›” DISABLED â€” Dashboard Sync v101.0 (merged into sentinel-bl
 
 on:
   # â›” ALL AUTO-TRIGGERS DISABLED â€” sentinel-blogger v116.2 handles dashboard sync
-  # workflow_run:             â† DISABLED: caused overwrite race with sentinel-blogger
+  # workflow_run:             â† DISABLED: caused overwrite race with sentinel-blogger
   #   workflows: ["sentinel-blogger"]
   #   types: [completed]
-  # schedule:                 â† DISABLED: caused --force-rebuild manifest destruction
+  # schedule:                 â† DISABLED: caused --force-rebuild manifest destruction
   #   - cron: '20 */4 * * *'
-  workflow_dispatch:          # â† MANUAL EMERGENCY USE ONLY
+  workflow_dispatch:          # â† MANUAL EMERGENCY USE ONLY
     inputs:
       force_patch:
         description: 'Force EMBEDDED_INTEL patch (EMERGENCY USE ONLY â€” reads current git state)'
@@ -81,9 +81,9 @@ jobs:
       github.event.inputs.force_patch == 'true'
 
     steps:
-      - name: "âš ï¸ Safety Warning"
+      - name: "âš ï¸ Safety Warning"
         run: |
-          echo "âš ï¸  EMERGENCY MANUAL SYNC â€” sync-dashboard is DISABLED in v116.2.0"
+          echo "âš ï¸  EMERGENCY MANUAL SYNC â€” sync-dashboard is DISABLED in v116.2.0"
           echo "    sentinel-blogger handles all dashboard sync automatically."
           echo "    This manual run will ONLY patch EMBEDDED_INTEL from current git state."
           echo "    It will NOT run --force-rebuild (manifest destruction risk)."
@@ -111,7 +111,7 @@ jobs:
           print(f'Manifest: {len(items)} entries â€” proceeding with patch')
           "
           python3 scripts/update_embedded_intel.py && echo "âœ… Emergency EMBEDDED_INTEL patch OK" || {
-            echo "âŒ EMBEDDED_INTEL patch FAILED"
+            echo "âŒ EMBEDDED_INTEL patch FAILED"
             exit 1
           }
 
@@ -128,14 +128,14 @@ jobs:
 
           # â›” STRICTLY index.html ONLY â€” do NOT commit feed_manifest.json
           git add index.html 2>/dev/null || true
-          # â›” BLOCKED: git add -f data/stix/feed_manifest.json â† manifest destruction risk
+          # â›” BLOCKED: git add -f data/stix/feed_manifest.json â† manifest destruction risk
 
           if git diff --staged --quiet; then
             echo "No changes to commit."
             exit 0
           fi
 
-          git commit -m "âš ï¸ Emergency Dashboard Sync v116.2 â€” EMBEDDED_INTEL patch @ $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+          git commit -m "âš ï¸ Emergency Dashboard Sync v116.2 â€” EMBEDDED_INTEL patch @ $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
 
           for i in 1 2 3 4; do
             git fetch origin main --quiet
