@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v111.0 — P0 RECOVERY DEPLOYMENT SCRIPT
+# CYBERDUDEBIVASH(R) SENTINEL APEX v111.0  -  P0 RECOVERY DEPLOYMENT SCRIPT
 # =============================================================================
 # This script deploys ALL P0 fixes. Run once from repo root to restore
 # 100% platform functionality.
@@ -21,7 +21,7 @@
 
 set -e
 echo "============================================================"
-echo "SENTINEL APEX v111.0 — P0 RECOVERY DEPLOYMENT"
+echo "SENTINEL APEX v111.0  -  P0 RECOVERY DEPLOYMENT"
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "============================================================"
 
@@ -51,7 +51,7 @@ empty = {"queue": [], "version": "111.0",
          "reason": "P0_FIX_v111_QUEUE_BOMB_NEUTRALISED"}
 with open(queue_path, "w") as f:
     json.dump(empty, f, indent=2)
-print(f"  ✅ Queue cleared: {old_count} stale Blogger entries removed")
+print(f"  [OK] Queue cleared: {old_count} stale Blogger entries removed")
 PYEOF
 
 # STEP 3: Validate fixed files exist
@@ -67,9 +67,9 @@ FILES_TO_CHECK=(
 )
 for f in "${FILES_TO_CHECK[@]}"; do
   if [ -f "$f" ]; then
-    echo "  ✅ $f"
+    echo "  [OK] $f"
   else
-    echo "  ❌ MISSING: $f"
+    echo "  [FAIL] MISSING: $f"
   fi
 done
 
@@ -77,26 +77,26 @@ done
 echo ""
 echo "[3/8] Verifying Blogger is fully removed from sentinel_blogger.py..."
 if grep -q "from agent.blogger_auth import" agent/sentinel_blogger.py 2>/dev/null; then
-  echo "  ❌ ERROR: blogger_auth import still present in sentinel_blogger.py"
+  echo "  [FAIL] ERROR: blogger_auth import still present in sentinel_blogger.py"
   exit 1
 else
-  echo "  ✅ blogger_auth import: REMOVED"
+  echo "  [OK] blogger_auth import: REMOVED"
 fi
 if grep -q "resilient_publish\|publish_with_retry\|save_to_pending_queue" agent/sentinel_blogger.py 2>/dev/null; then
-  echo "  ❌ ERROR: Blogger publish functions still present"
+  echo "  [FAIL] ERROR: Blogger publish functions still present"
   exit 1
 else
-  echo "  ✅ Blogger publish functions: REMOVED"
+  echo "  [OK] Blogger publish functions: REMOVED"
 fi
 
 # STEP 5: Verify bootstrap skip logic is removed
 echo ""
 echo "[4/8] Verifying bootstrap skip-logic is removed..."
 if grep -q "skipping rebuild" scripts/bootstrap_critical_files.py 2>/dev/null; then
-  echo "  ❌ ERROR: Old skip-rebuild logic still present in bootstrap"
+  echo "  [FAIL] ERROR: Old skip-rebuild logic still present in bootstrap"
   exit 1
 else
-  echo "  ✅ Bootstrap skip-logic: REMOVED"
+  echo "  [OK] Bootstrap skip-logic: REMOVED"
 fi
 
 # STEP 6: Verify EMBEDDED_INTEL is empty
@@ -113,18 +113,18 @@ else:
     print(-1)
 " 2>/dev/null)
 if [ "$EMBEDDED_COUNT" -le "5" ]; then
-  echo "  ✅ EMBEDDED_INTEL: EMPTY (brand contamination purged)"
+  echo "  [OK] EMBEDDED_INTEL: EMPTY (brand contamination purged)"
 else
-  echo "  ⚠️  WARNING: EMBEDDED_INTEL still has $EMBEDDED_COUNT chars — check index.html"
+  echo "    WARNING: EMBEDDED_INTEL still has $EMBEDDED_COUNT chars  -  check index.html"
 fi
 
 # STEP 7: Verify Worker version updated
 echo ""
 echo "[6/8] Verifying Worker cache TTL fix..."
 if grep -q '"111.0"' workers/intel-gateway/src/index.js 2>/dev/null; then
-  echo "  ✅ Worker version: v111.0"
+  echo "  [OK] Worker version: v111.0"
 else
-  echo "  ⚠️  WARNING: Worker may not have v111.0 — check manually"
+  echo "    WARNING: Worker may not have v111.0  -  check manually"
 fi
 
 # STEP 8: Git commit all fixes
@@ -143,14 +143,14 @@ git add    index.html
 git add -f data/ai_intelligence/ai_index.json 2>/dev/null || true
 
 if git diff --staged --quiet; then
-  echo "  ℹ️  No staged changes (already committed or clean)"
+  echo "    No staged changes (already committed or clean)"
 else
-  git commit -m "🚨 P0 FIX v111.0 — Blogger queue bomb neutralised, R2-native architecture restored
+  git commit -m " P0 FIX v111.0  -  Blogger queue bomb neutralised, R2-native architecture restored
 
 FIXES:
 - [P0] Blogger publish_queue cleared (was accumulating thousands of entries)
 - [P0] sentinel_blogger.py: blogger_auth import REMOVED, resilient_publish REPLACED with direct STIX write
-- [P0] bootstrap: skip-if->=50 logic REMOVED — always merges new STIX entries
+- [P0] bootstrap: skip-if->=50 logic REMOVED  -  always merges new STIX entries
 - [P0] _load_manifest: 'entries' key BUG FIXED to 'advisories'
 - [P0] multi-source-intel.yml: stops committing feed_manifest.json to git
 - [P0] Worker: cache TTL reduced to 60/90s, MITRE/TTP data included in preview
@@ -158,10 +158,10 @@ FIXES:
 - [P0] Failure guard: pipeline fails if manifest has <10 entries
 - [P0] R2 upload: Cache-Control: no-cache headers added
 
-Architecture: Intel Engine → STIX Bundles → bootstrap --force-rebuild → R2 Upload → Worker → Dashboard
+Architecture: Intel Engine -> STIX Bundles -> bootstrap --force-rebuild -> R2 Upload -> Worker -> Dashboard
 
 Co-Authored-By: CYBERDUDEBIVASH Sentinel APEX <sentinel@cyberdudebivash.com>"
-  echo "  ✅ Committed P0 fixes"
+  echo "  [OK] Committed P0 fixes"
 fi
 
 # STEP 9: Deploy Cloudflare Worker
@@ -169,13 +169,13 @@ echo ""
 echo "[8/8] Deploy Cloudflare Worker (manual step required)..."
 echo ""
 echo "  Run the following to deploy the fixed Worker:"
-echo "  ─────────────────────────────────────────────"
+echo "  ---------------------------------------------"
 echo "  cd workers/intel-gateway"
 echo "  npx wrangler deploy --env production"
-echo "  ─────────────────────────────────────────────"
+echo "  ---------------------------------------------"
 echo ""
 echo "  Or trigger via GitHub Actions:"
-echo "  Actions → deploy-worker → Run workflow"
+echo "  Actions -> deploy-worker -> Run workflow"
 echo ""
 
 echo "============================================================"
@@ -184,16 +184,16 @@ echo ""
 echo "NEXT STEPS:"
 echo "  1. git push origin main"
 echo "  2. Deploy Cloudflare Worker (see above)"
-echo "  3. GitHub Actions → sentinel-blogger → Run workflow"
-echo "  4. Wait 2 min → check https://intel.cyberdudebivash.com/api/health"
-echo "  5. Wait 5 min → verify dashboard updates at intel.cyberdudebivash.com"
+echo "  3. GitHub Actions -> sentinel-blogger -> Run workflow"
+echo "  4. Wait 2 min -> check https://intel.cyberdudebivash.com/api/health"
+echo "  5. Wait 5 min -> verify dashboard updates at intel.cyberdudebivash.com"
 echo ""
 echo "VALIDATION CHECKLIST:"
-echo "  □ /api/health → r2_intel: ok"
-echo "  □ /api/preview → total_in_feed > 100"
-echo "  □ Dashboard shows fresh intel (not brand garbage)"
-echo "  □ Last Sync timestamp updates"
-echo "  □ MITRE ATT&CK heatmap populated"
-echo "  □ AI panels visible"
-echo "  □ Workflow runtime < 25 min (queue bomb gone)"
+echo "   /api/health -> r2_intel: ok"
+echo "   /api/preview -> total_in_feed > 100"
+echo "   Dashboard shows fresh intel (not brand garbage)"
+echo "   Last Sync timestamp updates"
+echo "   MITRE ATT&CK heatmap populated"
+echo "   AI panels visible"
+echo "   Workflow runtime < 25 min (queue bomb gone)"
 echo "============================================================"

@@ -1,5 +1,5 @@
 # =====================================================================
-# SENTINEL APEX — Bug Hunter Recon Workflow v49.0
+# SENTINEL APEX  -  Bug Hunter Recon Workflow v49.0
 # ADDITIVE: Does NOT modify any existing workflows
 # Writes ONLY to data/bughunter/ directory
 # =====================================================================
@@ -63,8 +63,8 @@ jobs:
         run: |
           # v55.2 FIX: Use v54 resilient scanner (3-tier subdomain fallback)
           # ROOT CAUSE: v49 scanner has ZERO fallback when crt.sh is down/rate-limited
-          # → all 12 engine metrics return 0 → dashboard shows all zeros
-          # v54 adds: Tier 1 crt.sh → Tier 2 DNS brute → Tier 3 known CDB subdomains (always)
+          # -> all 12 engine metrics return 0 -> dashboard shows all zeros
+          # v54 adds: Tier 1 crt.sh -> Tier 2 DNS brute -> Tier 3 known CDB subdomains (always)
           V54_OK=0
           if [ -f "agent/v54_bughunter_resilience/resilient_scanner.py" ]; then
             echo "Attempting v54 RESILIENT scanner (3-tier fallback)..."
@@ -73,7 +73,7 @@ jobs:
               --timeout 15 2>&1 && V54_OK=1 || echo "v54 scanner exited with error"
           fi
           if [ "$V54_OK" = "0" ]; then
-            echo "v54 failed or not found — falling back to v49"
+            echo "v54 failed or not found  -  falling back to v49"
             python -m agent.v49_bughunter_fix.run_bughunter \
               --domain "${{ github.event.inputs.target_domain || 'cyberdudebivash.com' }}" \
               --timeout 15 2>&1 || echo "v49 fallback also failed"
@@ -87,7 +87,7 @@ jobs:
               with open('data/bughunter/bughunter_output.json') as f:
                   data = json.load(f)
               m = data.get('metrics', {})
-              print('✅ Bug Hunter Output Validation')
+              print('[OK] Bug Hunter Output Validation')
               print(f'   Subdomains:  {m.get(\"subdomains\", 0)}')
               print(f'   Live Hosts:  {m.get(\"live_hosts\", 0)}')
               print(f'   Endpoints:   {m.get(\"api_endpoints\", 0)}')
@@ -99,9 +99,9 @@ jobs:
               has_data = any(m.get(k, 0) > 0 for k in ['subdomains','live_hosts','total_findings'])
               print(f'   Data Active: {\"YES\" if has_data else \"NO\"}')
               if not has_data:
-                  print('   ⚠️  Zero metrics — crt.sh may be rate-limited. Will retry next cycle.')
+                  print('     Zero metrics  -  crt.sh may be rate-limited. Will retry next cycle.')
           except Exception as e:
-              print(f'⚠️ Validation error: {e}')
+              print(f' Validation error: {e}')
               sys.exit(0)
           "
 
@@ -120,7 +120,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "🐛 BUG HUNTER v49.0: Recon scan $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git commit -m " BUG HUNTER v49.0: Recon scan $(date -u +%Y-%m-%dT%H:%M:%SZ)"
                         git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
             rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
             for i in 1 2 3 4; do

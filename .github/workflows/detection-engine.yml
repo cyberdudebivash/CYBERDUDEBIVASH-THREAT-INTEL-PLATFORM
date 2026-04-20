@@ -1,8 +1,8 @@
-# CYBERDUDEBIVASH SENTINEL APEX — Detection Engine Pipeline
+# CYBERDUDEBIVASH SENTINEL APEX  -  Detection Engine Pipeline
 # Auto-generates Sigma/YARA/Suricata rules from live intelligence
 # Runs every 12 hours + manual dispatch
 
-name: 🛡️ Detection Engine — Rule Generation
+name:  Detection Engine  -  Rule Generation
 
 on:
   schedule:
@@ -24,24 +24,24 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: 📥 Checkout Repository
+      - name:  Checkout Repository
         uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 1
 
-      - name: 🐍 Setup Python
+      - name:  Setup Python
         uses: actions/setup-python@v5.4.0
         with:
           python-version: '3.12'
 
-      - name: 🛡️ Run Detection Engine
+      - name:  Run Detection Engine
         env:
           CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
           python -m agent.v51_detection_engine.engine
 
-      - name: 📊 Validate Rules
+      - name:  Validate Rules
         run: |
           echo "=== Detection Rule Output ==="
           python3 -c "
@@ -57,10 +57,10 @@ jobs:
               print(f\"Total:    {rules.get('total', 0)} rules\")
               print(f\"IOCs:     {d.get('ioc_count', 0)}\")
           else:
-              print('No manifest found — IOC data may be empty')
+              print('No manifest found  -  IOC data may be empty')
           "
 
-      - name: 💾 Commit Rules
+      - name:  Commit Rules
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -71,7 +71,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No new rules to commit"
           else
-            git commit -m "🛡️ Detection Engine — auto-generated rules $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git commit -m " Detection Engine  -  auto-generated rules $(date -u +%Y-%m-%dT%H:%M:%SZ)"
                         git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
             rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
             for i in 1 2 3 4; do

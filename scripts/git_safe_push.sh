@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v101 — SAFE GIT PUSH UTILITY
+# CYBERDUDEBIVASH(R) SENTINEL APEX v101  -  SAFE GIT PUSH UTILITY
 # Purpose: Permanent elimination of non-fast-forward push failures
-# Strategy: fetch → rebase → push with 4-attempt exponential backoff
+# Strategy: fetch -> rebase -> push with 4-attempt exponential backoff
 # Usage:    source scripts/git_safe_push.sh && safe_git_push [commit_msg] [files...]
 # =============================================================================
 set -euo pipefail
@@ -16,28 +16,28 @@ safe_git_push() {
   shift || true
   local files=("$@")
 
-  # ── 1. Abort any lingering rebase/merge state ───────────────────────────
+  # -- 1. Abort any lingering rebase/merge state ---------------------------
   git rebase --abort 2>/dev/null || true
   git merge  --abort 2>/dev/null || true
   rm -f .git/MERGE_HEAD .git/CHERRY_PICK_HEAD .git/REVERT_HEAD 2>/dev/null || true
 
-  # ── 2. Stage requested files (force-add to bypass .gitignore on data/) ──
+  # -- 2. Stage requested files (force-add to bypass .gitignore on data/) --
   if [ "${#files[@]}" -gt 0 ]; then
     for pattern in "${files[@]}"; do
       git add -f "$pattern" 2>/dev/null || true
     done
   fi
 
-  # ── 3. Only proceed if staged changes exist ─────────────────────────────
+  # -- 3. Only proceed if staged changes exist -----------------------------
   if git diff --staged --quiet; then
-    echo "[safe_push] No staged changes — nothing to commit."
+    echo "[safe_push] No staged changes  -  nothing to commit."
     return 0
   fi
 
-  # ── 4. Commit ────────────────────────────────────────────────────────────
+  # -- 4. Commit ------------------------------------------------------------
   git commit -m "$commit_msg"
 
-  # ── 5. Push with 4-attempt fetch+rebase backoff ─────────────────────────
+  # -- 5. Push with 4-attempt fetch+rebase backoff -------------------------
   local max_attempts=4
   local attempt=0
   local pushed=false
@@ -52,7 +52,7 @@ safe_git_push() {
     if git rebase origin/main --quiet; then
       : # rebase OK
     else
-      echo "[safe_push] Rebase conflict on attempt $attempt — using ours strategy"
+      echo "[safe_push] Rebase conflict on attempt $attempt  -  using ours strategy"
       git rebase --abort 2>/dev/null || true
       # Fallback: merge with ours preference
       git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true
@@ -66,12 +66,12 @@ safe_git_push() {
     fi
 
     local backoff=$((attempt * 15))
-    echo "[safe_push] Push attempt $attempt/$max_attempts failed — retrying in ${backoff}s..."
+    echo "[safe_push] Push attempt $attempt/$max_attempts failed  -  retrying in ${backoff}s..."
     sleep "$backoff"
   done
 
   if [ "$pushed" = false ]; then
-    echo "[safe_push] WARN: All $max_attempts push attempts failed — state committed locally."
+    echo "[safe_push] WARN: All $max_attempts push attempts failed  -  state committed locally."
     return 1
   fi
 }

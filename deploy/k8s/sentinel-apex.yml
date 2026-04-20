@@ -1,17 +1,17 @@
-# ══════════════════════════════════════════════════════════════════════════════
-# CYBERDUDEBIVASH® SENTINEL APEX v29.0 — Kubernetes Deployment
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
+# CYBERDUDEBIVASH(R) SENTINEL APEX v29.0  -  Kubernetes Deployment
+# ==============================================================================
 # Production Kubernetes manifests for cloud-native deployment
 #
 # Usage:
 #   kubectl apply -f k8s/namespace.yml
 #   kubectl apply -f k8s/
 #
-# © 2026 CyberDudeBivash Pvt. Ltd.
-# ══════════════════════════════════════════════════════════════════════════════
+# (C) 2026 CyberDudeBivash Pvt. Ltd.
+# ==============================================================================
 
 ---
-# ─── NAMESPACE ────────────────────────────────────────────────────────────────
+# --- NAMESPACE ----------------------------------------------------------------
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -21,7 +21,7 @@ metadata:
     app.kubernetes.io/version: "29.0.0"
 
 ---
-# ─── CONFIGMAP ────────────────────────────────────────────────────────────────
+# --- CONFIGMAP ----------------------------------------------------------------
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -37,7 +37,7 @@ data:
   LOG_LEVEL: "INFO"
 
 ---
-# ─── SECRETS ──────────────────────────────────────────────────────────────────
+# --- SECRETS ------------------------------------------------------------------
 apiVersion: v1
 kind: Secret
 metadata:
@@ -51,7 +51,7 @@ stringData:
   NEO4J_PASSWORD: "sentinel"
 
 ---
-# ─── API DEPLOYMENT ───────────────────────────────────────────────────────────
+# --- API DEPLOYMENT -----------------------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -123,7 +123,7 @@ spec:
             claimName: sentinel-data-pvc
 
 ---
-# ─── WORKER DEPLOYMENT ────────────────────────────────────────────────────────
+# --- WORKER DEPLOYMENT --------------------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -159,7 +159,7 @@ spec:
               memory: "1Gi"
 
 ---
-# ─── API SERVICE ──────────────────────────────────────────────────────────────
+# --- API SERVICE --------------------------------------------------------------
 apiVersion: v1
 kind: Service
 metadata:
@@ -178,7 +178,7 @@ spec:
     app: sentinel-api
 
 ---
-# ─── INGRESS ──────────────────────────────────────────────────────────────────
+# --- INGRESS ------------------------------------------------------------------
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -207,7 +207,7 @@ spec:
                   number: 80
 
 ---
-# ─── HORIZONTAL POD AUTOSCALER ────────────────────────────────────────────────
+# --- HORIZONTAL POD AUTOSCALER ------------------------------------------------
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -235,7 +235,7 @@ spec:
           averageUtilization: 80
 
 ---
-# ─── PERSISTENT VOLUME CLAIM ──────────────────────────────────────────────────
+# --- PERSISTENT VOLUME CLAIM --------------------------------------------------
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -250,7 +250,7 @@ spec:
       storage: 10Gi
 
 ---
-# ─── REDIS DEPLOYMENT ─────────────────────────────────────────────────────────
+# --- REDIS DEPLOYMENT ---------------------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -313,7 +313,7 @@ spec:
       storage: 5Gi
 
 ---
-# ─── NETWORK POLICY ───────────────────────────────────────────────────────────
+# --- NETWORK POLICY -----------------------------------------------------------
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -343,7 +343,7 @@ spec:
           port: 53
 
 ---
-# ─── POD DISRUPTION BUDGET ────────────────────────────────────────────────────
+# --- POD DISRUPTION BUDGET ----------------------------------------------------
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

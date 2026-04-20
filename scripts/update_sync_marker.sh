@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# ═══════════════════════════════════════════════════════════
-# SENTINEL APEX v72.0 — Sync Marker Updater
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
+# SENTINEL APEX v72.0  -  Sync Marker Updater
+# ===========================================================
 # Updates data/sync_marker.json with current UTC timestamp
 # after every successful pipeline run.
 #
 # Called by sentinel-blogger.yml post-commit step.
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
 
 set -euo pipefail
 
@@ -19,7 +19,7 @@ NOW_ISO=$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")
 echo "=== v72.0 Sync Marker Update ==="
 echo "  Timestamp: ${NOW_ISO}"
 
-# ─── Update sync_marker.json ───
+# --- Update sync_marker.json ---
 mkdir -p "$(dirname "${SYNC_MARKER}")"
 cat > "${SYNC_MARKER}" << MARKER_EOF
 {
@@ -30,7 +30,7 @@ cat > "${SYNC_MARKER}" << MARKER_EOF
 MARKER_EOF
 echo "  sync_marker.json: UPDATED"
 
-# ─── Update status.json ───
+# --- Update status.json ---
 mkdir -p "$(dirname "${STATUS_JSON}")"
 if [ -f "${STATUS_JSON}" ]; then
     python3 -c "

@@ -2,7 +2,7 @@ name: CDB Weekly Analyst Briefing
 
 on:
   schedule:
-    - cron: '0 8 * * 1'   # Every Monday at 8am UTC — Weekly briefing
+    - cron: '0 8 * * 1'   # Every Monday at 8am UTC  -  Weekly briefing
   workflow_dispatch:
     inputs:
       week_override:
@@ -158,7 +158,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No weekly briefing changes."
           else
-            git commit -m "📊 Weekly Threat Briefing: $(date -u +'%Y-W%V') [skip ci]"
+            git commit -m " Weekly Threat Briefing: $(date -u +'%Y-W%V') [skip ci]"
             for i in {1..3}; do
               git pull origin main --no-rebase --no-edit -X ours && git push origin main && break || sleep 15
             done

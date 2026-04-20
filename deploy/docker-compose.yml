@@ -1,6 +1,6 @@
-# ══════════════════════════════════════════════════════════════════════════════
-# CYBERDUDEBIVASH® SENTINEL APEX v29.0 — Docker Compose
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
+# CYBERDUDEBIVASH(R) SENTINEL APEX v29.0  -  Docker Compose
+# ==============================================================================
 # Production-ready multi-container deployment
 #
 # Usage:
@@ -15,13 +15,13 @@
 #   - prometheus: Metrics collection
 #   - grafana: Metrics visualization
 #
-# © 2026 CyberDudeBivash Pvt. Ltd.
-# ══════════════════════════════════════════════════════════════════════════════
+# (C) 2026 CyberDudeBivash Pvt. Ltd.
+# ==============================================================================
 
 version: '3.8'
 
 services:
-  # ─── API SERVER ─────────────────────────────────────────────────────────────
+  # --- API SERVER -------------------------------------------------------------
   api:
     build:
       context: .
@@ -63,7 +63,7 @@ services:
       - "traefik.http.routers.api.rule=Host(`intel.cyberdudebivash.com`)"
       - "traefik.http.services.api.loadbalancer.server.port=8000"
 
-  # ─── WORKER (BACKGROUND TASKS) ──────────────────────────────────────────────
+  # --- WORKER (BACKGROUND TASKS) ----------------------------------------------
   worker:
     build:
       context: .
@@ -86,7 +86,7 @@ services:
     networks:
       - sentinel-net
 
-  # ─── REDIS (MESSAGE BROKER + CACHE) ─────────────────────────────────────────
+  # --- REDIS (MESSAGE BROKER + CACHE) -----------------------------------------
   redis:
     image: redis:7-alpine
     container_name: sentinel-redis
@@ -104,7 +104,7 @@ services:
     networks:
       - sentinel-net
 
-  # ─── POSTGRESQL (DATA PERSISTENCE) ──────────────────────────────────────────
+  # --- POSTGRESQL (DATA PERSISTENCE) ------------------------------------------
   postgres:
     image: postgres:15-alpine
     container_name: sentinel-postgres
@@ -126,7 +126,7 @@ services:
     networks:
       - sentinel-net
 
-  # ─── NEO4J (GRAPH DATABASE) ─────────────────────────────────────────────────
+  # --- NEO4J (GRAPH DATABASE) -------------------------------------------------
   neo4j:
     image: neo4j:5-community
     container_name: sentinel-neo4j
@@ -152,7 +152,7 @@ services:
     profiles:
       - full
 
-  # ─── PROMETHEUS (METRICS) ───────────────────────────────────────────────────
+  # --- PROMETHEUS (METRICS) ---------------------------------------------------
   prometheus:
     image: prom/prometheus:latest
     container_name: sentinel-prometheus
@@ -171,7 +171,7 @@ services:
     profiles:
       - monitoring
 
-  # ─── GRAFANA (VISUALIZATION) ────────────────────────────────────────────────
+  # --- GRAFANA (VISUALIZATION) ------------------------------------------------
   grafana:
     image: grafana/grafana:latest
     container_name: sentinel-grafana
@@ -191,7 +191,7 @@ services:
     profiles:
       - monitoring
 
-# ─── VOLUMES ──────────────────────────────────────────────────────────────────
+# --- VOLUMES ------------------------------------------------------------------
 volumes:
   redis-data:
   postgres-data:
@@ -200,7 +200,7 @@ volumes:
   prometheus-data:
   grafana-data:
 
-# ─── NETWORKS ─────────────────────────────────────────────────────────────────
+# --- NETWORKS -----------------------------------------------------------------
 networks:
   sentinel-net:
     driver: bridge
