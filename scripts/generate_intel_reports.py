@@ -791,7 +791,8 @@ def build_report_sections(item: dict) -> str:
             result = _ioc_enforcer.enforce(item)
             if not result.blocked:
                 iocs = result.item.get("iocs", iocs)
-                log(f"IOC fallback: {result.fallback_added} IOCs generated for {item.get(\"id\",\"?\")[:16]} [{severity_val}]", "warning")
+                _item_id = item.get('id', '?')
+                log(f"IOC fallback: {result.fallback_added} IOCs generated for {_item_id[:16]} [{severity_val}]", "warning")
             else:
                 log(f"IOC BLOCK: {result.reason}", "error")
 
