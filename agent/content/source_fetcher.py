@@ -197,14 +197,28 @@ class SourceFetcher:
         r'newsletter', r'subscribe', r'signup',
     ]
 
+    # ── Content quality thresholds (v78.0) ──────────────────────────────
+    # Minimum word count for an article to be considered substantive enough
+    # to generate a quality intel report from.
+    CONTENT_MIN_WORDS = 300       # Hard minimum: below this triggers retry
+    CONTENT_SOFT_REJECT_WORDS = 80  # Below this after all fallbacks: reject entirely
+    CONTENT_RETRY_ATTEMPTS = 2    # Number of UA-rotation retries before fallback
+
     def fetch_article(self, url: str, timeout: int = 15) -> Dict:
         """
         Fetch and parse a source article URL.
         Returns dict with: full_text, paragraphs (list), word_count, fetch_status
 
+        v78.0 CONTENT QUALITY GATE:
+          - Minimum 300-word threshold enforced before accepting content.
+          - If first fetch < 300 words: retry with different User-Agent (up to 2x).
+          - After retry exhaustion: attempt NVD enrichment fallback for CVE URLs.
+          - If all fallbacks yield < 80 words: reject with fetch_status='rejected_thin'.
+          - Ensures weak partial fetches (20-80 word fragments) never reach the
+            extraction/scoring engine and cause degraded IOC/confidence outputs.
+
         v75.1: If the source returns 0 words AND the URL contains a CVE ID,
-        automatically falls back to NVD enrichment for that CVE - guaranteeing
-        that reports always have substantive content regardless of source blocking.
+        automatically falls back to NVD enrichment for that CVE.
         """
         result = {
             "full_text": "",
@@ -226,87 +240,142 @@ class SourceFetcher:
         cve_match = re.search(r'(CVE-\d{4}-\d{4,})', url, re.IGNORECASE)
         cve_id_from_url = cve_match.group(1).upper() if cve_match else None
 
-        # Skip slow HTTP fetch for known blocked CVE sources - go straight to NVD
-        if not is_cve_source:
+        def _single_fetch_attempt() -> Dict:
+            """Perform one fetch attempt. Returns partial result dict."""
+            _r = {"full_text": "", "paragraphs": [], "word_count": 0, "fetch_status": "failed"}
             try:
-                # v75.2: Use rotated headers (random UA + optional Referer)
                 _req_headers = self._get_rotated_headers()
                 resp = requests.get(
                     url, headers=_req_headers, timeout=timeout,
                     allow_redirects=True, verify=True
                 )
                 if resp.status_code == 200:
-                    # v77.2 FIX: Validate content-type BEFORE processing.
-                    # Reject non-HTML responses (PDFs, binary, JSON feeds etc.)
-                    # which would produce garbage when parsed as HTML text.
                     content_type = resp.headers.get('Content-Type', '').lower()
                     if not any(t in content_type for t in ('text/html', 'text/plain', 'application/xhtml')):
                         logger.warning(f"Source fetch skipped (non-HTML content-type: {content_type[:40]}): {url[:60]}")
-                    else:
-                        html = resp.text
-                        # v77.2 FIX: Binary garbage detection gate.
-                        # If more than 5% of characters are non-printable/non-ASCII,
-                        # the response is compressed binary (Brotli etc.) misread as text.
-                        # Reject it entirely rather than injecting garbage into reports.
-                        if html:
-                            sample = html[:2000]
-                            non_printable = sum(1 for c in sample if ord(c) < 32 and c not in '\n\r\t')
-                            high_ascii = sum(1 for c in sample if 127 <= ord(c) <= 159)
-                            # v77.2: Brotli-as-Latin-1 garbage detection (calibrated threshold)
-                            # Real English: <1% junk chars. Brotli garbage: 15-25%.
-                            # Threshold 12% gives 10x safety margin — no false positives on CVE text.
-                            JUNK_CHARS = set('`][|~;{}\\^@#&*!?><')
-                            junk_count = sum(1 for c in sample if c in JUNK_CHARS)
-                            garbage_ratio = (non_printable + high_ascii) / max(len(sample), 1)
-                            junk_ratio = junk_count / max(len(sample), 1)
-                            if garbage_ratio > 0.05 or junk_ratio > 0.12:
-                                logger.warning(
-                                    f"Source fetch rejected (garbage detected: "
-                                    f"binary={garbage_ratio:.2%} junk={junk_ratio:.2%}): {url[:60]}"
-                                )
-                            else:
-                                article_html = self._extract_article_region(html)
-                                text = self._extract_text(article_html if article_html else html)
-                                paragraphs = [p.strip() for p in text.split('\n')
-                                             if len(p.strip()) > 40 and not self._is_boilerplate(p)]
-                                # v77.2: Per-paragraph junk filter (same calibrated threshold)
-                                JUNK_P = set('`][|~;{}\\^@#&*!?><')
-                                clean_paragraphs = []
-                                for p in paragraphs:
-                                    p_junk = sum(1 for c in p if c in JUNK_P)
-                                    p_ratio = p_junk / max(len(p), 1)
-                                    word_chars = sum(1 for c in p if c.isalnum() or c in ' .,;:!?\'"-()')
-                                    wc_ratio = word_chars / max(len(p), 1)
-                                    if p_ratio < 0.12 and wc_ratio >= 0.60:
-                                        clean_paragraphs.append(p)
-                                result["full_text"] = '\n'.join(clean_paragraphs)
-                                result["paragraphs"] = clean_paragraphs
-                                result["word_count"] = sum(len(p.split()) for p in clean_paragraphs)
-                                result["fetch_status"] = "success"
-                                logger.info(f"Source fetched: {len(clean_paragraphs)} paragraphs, "
-                                           f"{result['word_count']} words from {url[:60]}")
-                        else:
-                            logger.warning(f"Source fetch returned empty body: {url[:60]}")
+                        return _r
+                    html = resp.text
+                    if not html:
+                        logger.warning(f"Source fetch returned empty body: {url[:60]}")
+                        return _r
+                    # Binary garbage detection gate (v77.2)
+                    sample = html[:2000]
+                    non_printable = sum(1 for c in sample if ord(c) < 32 and c not in '\n\r\t')
+                    high_ascii    = sum(1 for c in sample if 127 <= ord(c) <= 159)
+                    JUNK_CHARS    = set('`][|~;{}\\^@#&*!?><')
+                    junk_count    = sum(1 for c in sample if c in JUNK_CHARS)
+                    garbage_ratio = (non_printable + high_ascii) / max(len(sample), 1)
+                    junk_ratio    = junk_count / max(len(sample), 1)
+                    if garbage_ratio > 0.05 or junk_ratio > 0.12:
+                        logger.warning(
+                            f"Source fetch rejected (garbage: binary={garbage_ratio:.2%} "
+                            f"junk={junk_ratio:.2%}): {url[:60]}"
+                        )
+                        return _r
+                    article_html    = self._extract_article_region(html)
+                    text            = self._extract_text(article_html if article_html else html)
+                    paragraphs      = [p.strip() for p in text.split('\n')
+                                       if len(p.strip()) > 40 and not self._is_boilerplate(p)]
+                    JUNK_P = set('`][|~;{}\\^@#&*!?><')
+                    clean_paragraphs = []
+                    for p in paragraphs:
+                        p_junk    = sum(1 for c in p if c in JUNK_P)
+                        p_ratio   = p_junk / max(len(p), 1)
+                        word_chars = sum(1 for c in p if c.isalnum() or c in ' .,;:!?\'"-()')
+                        wc_ratio  = word_chars / max(len(p), 1)
+                        if p_ratio < 0.12 and wc_ratio >= 0.60:
+                            clean_paragraphs.append(p)
+                    _r["full_text"]  = '\n'.join(clean_paragraphs)
+                    _r["paragraphs"] = clean_paragraphs
+                    _r["word_count"] = sum(len(p.split()) for p in clean_paragraphs)
+                    _r["fetch_status"] = "success"
+                elif resp.status_code in (403, 429, 503):
+                    _r["fetch_status"] = f"blocked_{resp.status_code}"
+                    logger.warning(f"Source fetch HTTP {resp.status_code} (blocked): {url[:60]}")
                 else:
-                    logger.warning(f"Source fetch HTTP {resp.status_code}: {url}")
+                    logger.warning(f"Source fetch HTTP {resp.status_code}: {url[:60]}")
             except requests.Timeout:
-                logger.warning(f"Source fetch timeout: {url}")
+                logger.warning(f"Source fetch timeout: {url[:60]}")
+                _r["fetch_status"] = "timeout"
             except requests.RequestException as e:
                 logger.warning(f"Source fetch network error: {e}")
+                _r["fetch_status"] = "network_error"
             except Exception as e:
                 logger.warning(f"Source fetch error: {e}")
+            return _r
 
-        # v75.1 FALLBACK: If we got 0 words and have a CVE ID, enrich from NVD
-        if result["word_count"] == 0 and cve_id_from_url:
-            logger.info(f"[v75.1] Source returned 0 words - fetching NVD enrichment for {cve_id_from_url}")
+        # Skip slow HTTP fetch for known blocked CVE sources - go straight to NVD
+        if not is_cve_source:
+            # v78.0: Attempt fetch with retry on thin content
+            for attempt in range(1, self.CONTENT_RETRY_ATTEMPTS + 1):
+                attempt_result = _single_fetch_attempt()
+                wc = attempt_result.get("word_count", 0)
+
+                if wc >= self.CONTENT_MIN_WORDS:
+                    # Quality gate passed
+                    result.update(attempt_result)
+                    logger.info(
+                        f"Source fetched (attempt {attempt}): "
+                        f"{wc} words >= {self.CONTENT_MIN_WORDS} threshold from {url[:60]}"
+                    )
+                    break
+                elif wc > 0:
+                    logger.warning(
+                        f"Source fetch thin content (attempt {attempt}/{self.CONTENT_RETRY_ATTEMPTS}): "
+                        f"{wc} words < {self.CONTENT_MIN_WORDS} threshold from {url[:60]}"
+                    )
+                    if attempt < self.CONTENT_RETRY_ATTEMPTS:
+                        # Retry with a different UA — some sites serve more to certain browsers
+                        logger.info(f"Retrying with different UA (attempt {attempt + 1})...")
+                        continue
+                    else:
+                        # Exhausted retries: accept thin result as best-effort
+                        result.update(attempt_result)
+                        result["fetch_status"] = "thin_content"
+                        break
+                else:
+                    # 0 words — network failure or complete block
+                    result.update(attempt_result)
+                    break
+
+        # v78.0 + v75.1: NVD enrichment fallback
+        # Triggered when: word_count < CONTENT_MIN_WORDS AND we have a CVE ID
+        if result["word_count"] < self.CONTENT_MIN_WORDS and cve_id_from_url:
+            logger.info(
+                f"[v78.0] Content below threshold ({result['word_count']} words) — "
+                f"fetching NVD enrichment for {cve_id_from_url}"
+            )
             nvd_text = _fetch_nvd_summary(cve_id_from_url)
             if nvd_text:
-                paragraphs = [s.strip() for s in re.split(r'(?<=[.!?])\s+', nvd_text) if len(s.strip()) > 20]
-                result["full_text"] = nvd_text
-                result["paragraphs"] = paragraphs
-                result["word_count"] = len(nvd_text.split())
+                nvd_word_count = len(nvd_text.split())
+                nvd_paragraphs = [s.strip() for s in re.split(r'(?<=[.!?])\s+', nvd_text)
+                                   if len(s.strip()) > 20]
+                # Merge NVD enrichment with any partial fetch content
+                if result["full_text"]:
+                    merged_text = result["full_text"] + "\n\n" + nvd_text
+                    merged_paras = result["paragraphs"] + nvd_paragraphs
+                else:
+                    merged_text  = nvd_text
+                    merged_paras = nvd_paragraphs
+                result["full_text"]    = merged_text
+                result["paragraphs"]   = merged_paras
+                result["word_count"]   = len(merged_text.split())
                 result["fetch_status"] = "nvd_enriched"
-                logger.info(f"[v75.1] NVD enrichment: {result['word_count']} words for {cve_id_from_url}")
+                logger.info(
+                    f"[v78.0] NVD enrichment applied: {result['word_count']} words "
+                    f"(was {result['word_count'] - nvd_word_count}) for {cve_id_from_url}"
+                )
+
+        # v78.0 HARD REJECTION: If after all fallbacks we still have < SOFT_REJECT threshold,
+        # mark as rejected so the pipeline can filter out garbage intel.
+        if result["word_count"] < self.CONTENT_SOFT_REJECT_WORDS and result["fetch_status"] not in (
+            "nvd_enriched", "success"
+        ):
+            logger.warning(
+                f"[v78.0] REJECT thin content: {result['word_count']} words "
+                f"< {self.CONTENT_SOFT_REJECT_WORDS} minimum after all fallbacks: {url[:60]}"
+            )
+            result["fetch_status"] = "rejected_thin"
 
         return result
 

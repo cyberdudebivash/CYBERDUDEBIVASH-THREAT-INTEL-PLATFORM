@@ -447,9 +447,22 @@ def extract_iocs(text: str) -> List[str]:
     Extract IOCs from free text using regex patterns.
     Filters out loopback/RFC1918/known-false-positive patterns.
     Returns deduplicated list.
+
+    v131.3: Delegates to agent.ioc_engine when available for full IOC coverage.
+    Falls back to legacy regex extraction if engine import fails.
     """
     if not text:
         return []
+    # Prefer the production IOC engine (comprehensive extraction + FP filtering)
+    try:
+        from agent.ioc_engine import extract_iocs as _engine_extract
+        result = _engine_extract(text)
+        return result.flat_iocs
+    except ImportError:
+        pass
+    except Exception as _e:
+        log.warning("IOC engine fallback to legacy regex: %s", _e)
+    # Legacy fallback
     found: set[str] = set()
     for pat in _IOC_PATTERNS:
         for match in pat.finditer(text):
@@ -461,11 +474,29 @@ def extract_iocs(text: str) -> List[str]:
 
 def enrich_ioc_count(obj: Dict) -> Dict:
     """
-    Ensure ioc_count == len(iocs). If iocs is missing but title/description
-    have IOC-like content, extract them. Mutates a copy and returns it.
+    Enforce ioc_count == len(iocs) with full IOC engine integration.
+
+    v131.3 UPGRADE:
+      - Uses agent.ioc_engine.enforce_ioc_integrity() for comprehensive enforcement.
+      - Fixes P0: ioc_count > 0 but iocs = [] (re-extracts from text fields).
+      - Fixes: ioc_confidence always 0 (recomputes from IOC count + type distribution).
+      - Fixes: ioc_threat_level always NONE (maps from confidence).
+      - All mutations on a shallow copy — original never modified.
     """
     obj = dict(obj)
+    # Prefer the production IOC engine for full enforcement
+    try:
+        from agent.ioc_engine import enforce_ioc_integrity as _enforce
+        return _enforce(obj)
+    except ImportError:
+        pass
+    except Exception as _e:
+        log.warning("IOC engine enforce failed, using legacy fix: %s", _e)
+
+    # Legacy fallback — basic ioc_count == len(iocs) fix
     iocs = obj.get("iocs")
+    ioc_count = obj.get("ioc_count", 0)
+
     if not isinstance(iocs, list):
         # Try to extract from text fields
         text = " ".join([
@@ -477,10 +508,40 @@ def enrich_ioc_count(obj: Dict) -> Dict:
         if iocs:
             obj["iocs"] = iocs
             log.debug("enrich_ioc_count: extracted %d IOCs from text", len(iocs))
+    elif ioc_count > 0 and len(iocs) == 0:
+        # P0 integrity violation: ioc_count > 0 but iocs empty
+        text = " ".join([
+            str(obj.get("title", "")),
+            str(obj.get("description", "")),
+            str(obj.get("summary", "")),
+        ])
+        iocs = extract_iocs(text)
+        if iocs:
+            obj["iocs"] = iocs
+            log.warning(
+                "enrich_ioc_count: P0 fix — ioc_count=%d but iocs=[]; extracted %d from text",
+                ioc_count, len(iocs)
+            )
+
     # Remove empty strings
     iocs = [i for i in (iocs or []) if i and str(i).strip()]
     obj["iocs"] = iocs
     obj["ioc_count"] = len(iocs)
+
+    # Fix ioc_confidence if it's 0 but we have iocs
+    if iocs and float(obj.get("ioc_confidence", 0.0)) == 0.0:
+        obj["ioc_confidence"] = round(min(len(iocs) * 5.0, 100.0), 2)
+
+    # Fix ioc_threat_level if NONE but confidence > 0
+    if float(obj.get("ioc_confidence", 0.0)) > 0 and obj.get("ioc_threat_level") == "NONE":
+        conf = float(obj.get("ioc_confidence", 0.0))
+        if conf >= 60:
+            obj["ioc_threat_level"] = "HIGH"
+        elif conf >= 35:
+            obj["ioc_threat_level"] = "MEDIUM"
+        else:
+            obj["ioc_threat_level"] = "LOW"
+
     return obj
 
 
@@ -488,35 +549,107 @@ def enrich_ioc_count(obj: Dict) -> Dict:
 # Dedup Engine
 # ---------------------------------------------------------------------------
 
-def _dedup_key(obj: Dict) -> str:
-    """Compute SHA-256 dedup key from normalised (title, source, published)."""
-    title = str(obj.get("title", "")).strip().lower()
-    source = str(obj.get("source", "")).strip().lower()
-    # Use published OR timestamp, whichever is present
-    pub = str(obj.get("published") or obj.get("timestamp") or "").strip()[:10]  # date only
+def _dedup_key_primary(obj: Dict) -> str:
+    """
+    Primary dedup key: SHA-256 of normalised (title + source + published-date).
+    Catches exact republish from same feed.
+    """
+    title  = re.sub(r"\s+", " ", str(obj.get("title", "")).strip().lower())
+    source = str(obj.get("source", "") or obj.get("feed_source", "")).strip().lower()
+    pub    = str(obj.get("published") or obj.get("timestamp") or
+                 obj.get("processed_at") or "").strip()[:10]  # date only
     raw = f"{title}|{source}|{pub}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _dedup_key_title_only(obj: Dict) -> str:
+    """
+    Secondary dedup key: SHA-256 of normalised title only.
+    Catches cross-feed duplicates (same story, different source URL).
+    Only applied for non-generic titles (>= 5 meaningful words).
+    """
+    title = re.sub(r"[^\w\s]", "", str(obj.get("title", "")).strip().lower())
+    title = re.sub(r"\s+", " ", title).strip()
+    return hashlib.sha256(title.encode("utf-8")).hexdigest()
+
+
+_GENERIC_TITLE_PREFIXES = frozenset({
+    "cisa adds", "security advisory", "advisory update", "vulnerability advisory",
+    "patch tuesday", "monthly security update", "security bulletin",
+    "security update", "product security advisory", "weekly threat roundup",
+    "weekly security roundup", "threat intelligence report",
+})
+
+
+def _is_generic_title(title: str) -> bool:
+    """Return True if title is a known generic vendor template that reuses the same wording."""
+    t = title.strip().lower()
+    for prefix in _GENERIC_TITLE_PREFIXES:
+        if t.startswith(prefix) or prefix in t:
+            return True
+    # Too few meaningful words
+    _stopwords = frozenset({"the", "a", "an", "and", "or", "but", "in", "on", "at", "to",
+                            "for", "of", "with", "by", "from", "is", "are", "was", "new",
+                            "update", "adds", "one", "its", "it", "this", "that"})
+    words = re.sub(r"[^\w\s]", "", t).split()
+    meaningful = [w for w in words if w not in _stopwords and len(w) > 2]
+    return len(meaningful) < 5
+
+
 def dedup_items(items: List[Dict]) -> Tuple[List[Dict], int]:
     """
-    Deduplicate intel items using hash(title + source + published-date).
-    Preserves the FIRST occurrence (chronological order maintained).
-    Returns (deduped_list, removed_count).
+    v131.3 GLOBAL DEDUP ENGINE — three-layer deduplication.
+
+    Layer 1: SHA-256(title + source + published-date)  — exact republish
+    Layer 2: SHA-256(normalized-title-only)            — cross-feed duplicate
+             (skipped for generic titles per KNOWN_GENERIC_TITLE_PATTERNS)
+    Layer 3: SHA-256(bundle_id)                        — STIX bundle ID dedup
+             (handles cases where title changed but same intel was re-emitted)
+
+    Preserves FIRST occurrence. Returns (deduped_list, removed_count).
     """
-    seen: set[str] = set()
-    result: List[Dict] = []
-    removed = 0
+    seen_primary:    set[str] = set()
+    seen_title_only: set[str] = set()
+    seen_bundle_ids: set[str] = set()
+    result:  List[Dict] = []
+    removed: int = 0
+
     for obj in items:
-        key = _dedup_key(obj)
-        if key in seen:
+        title = str(obj.get("title", ""))
+
+        # Layer 1: primary key
+        k1 = _dedup_key_primary(obj)
+        if k1 in seen_primary:
             removed += 1
-            log.debug("dedup: duplicate removed — %s", str(obj.get("title", ""))[:60])
-        else:
-            seen.add(key)
-            result.append(obj)
+            log.debug("dedup-L1: duplicate removed — %s", title[:60])
+            continue
+
+        # Layer 2: title-only (cross-feed) — skip for generic titles
+        if not _is_generic_title(title):
+            k2 = _dedup_key_title_only(obj)
+            if k2 in seen_title_only:
+                removed += 1
+                log.info("dedup-L2 (cross-feed): duplicate removed — %s", title[:60])
+                continue
+
+        # Layer 3: bundle_id dedup (prevents STIX re-emit)
+        bid = str(obj.get("bundle_id") or obj.get("stix_id") or "")
+        if bid and bid.startswith("bundle--") and bid in seen_bundle_ids:
+            removed += 1
+            log.info("dedup-L3 (bundle_id): duplicate removed — %s", title[:60])
+            continue
+
+        # Passed all layers — mark as seen
+        seen_primary.add(k1)
+        if not _is_generic_title(title):
+            seen_title_only.add(_dedup_key_title_only(obj))
+        if bid:
+            seen_bundle_ids.add(bid)
+        result.append(obj)
+
     if removed:
-        log.info("DedupEngine: removed %d duplicate(s), %d unique remain", removed, len(result))
+        log.info("GlobalDedupEngine: removed %d duplicate(s) across 3 layers, %d unique remain",
+                 removed, len(result))
     return result, removed
 
 

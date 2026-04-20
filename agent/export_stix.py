@@ -699,6 +699,57 @@ class STIXExporter:
         # v113.0: blog_url completely removed — report_url = source_url (native delivery)
         source_url = (metadata or {}).get('source_url', '') or (metadata or {}).get('blog_url', '')
         report_url = source_url  # native report URL; equals source until /reports/ hosting is live
+
+        # v125.0 P0 FIX: Run IOC engine to compute correct ioc_confidence and flat iocs list.
+        # Previously ioc_confidence was always 0 because it defaulted to 0.0 at call site,
+        # and no computation happened before passing it to create_bundle.
+        # Also: ioc_counts was a dict of {type: int} but never included the actual IOC values
+        # in the manifest entry — causing ioc_count > 0 with iocs = [].
+        _ioc_engine_result = None
+        try:
+            from agent.ioc_engine import extract_iocs as _extract_iocs_engine
+            _title_text_for_ioc = (title or "")
+            _meta_text_for_ioc  = str(metadata or {})
+            _ioc_engine_result = _extract_iocs_engine(
+                _title_text_for_ioc + " " + _meta_text_for_ioc,
+                existing_iocs_by_type=iocs or {},
+            )
+            # Use engine-computed values (always more accurate than caller-provided defaults)
+            _effective_ioc_confidence  = _ioc_engine_result.ioc_confidence
+            _effective_ioc_threat_level = _ioc_engine_result.threat_level
+            _effective_flat_iocs       = _ioc_engine_result.flat_iocs
+            _effective_iocs_by_type    = _ioc_engine_result.iocs_by_type
+        except Exception as _ioc_e:
+            logger.warning("IOC engine failed (using caller values): %s", _ioc_e)
+            # Fallback: build flat list from the structured iocs dict
+            _effective_flat_iocs = []
+            _seen_flat = set()
+            for _ioc_type, _ioc_vals in (iocs or {}).items():
+                for _v in (_ioc_vals or []):
+                    if _v and str(_v).strip() not in _seen_flat:
+                        _effective_flat_iocs.append(str(_v).strip())
+                        _seen_flat.add(str(_v).strip())
+            _effective_ioc_confidence   = ioc_confidence if ioc_confidence > 0 else (
+                max(len(_effective_flat_iocs) * 2.0, 0.0)
+            )
+            _effective_ioc_threat_level = ioc_threat_level if ioc_threat_level != "NONE" else (
+                "LOW" if _effective_flat_iocs else "NONE"
+            )
+            _effective_iocs_by_type     = iocs or {}
+
+        # Integrity guard: ioc_count MUST equal len(flat_iocs)
+        _effective_ioc_count = len(_effective_flat_iocs)
+
+        # v125.0: STIX bundle URL — construct from stix_file (filename → CDN URL)
+        # This ensures API layer always has a non-null stix_bundle_url when a bundle exists.
+        _stix_bundle_url = ""
+        if stix_filename:
+            _cdn_base = os.environ.get(
+                "STIX_CDN_BASE",
+                "https://intel.cyberdudebivash.com/data/stix"
+            )
+            _stix_bundle_url = f"{_cdn_base}/{stix_filename}"
+
         self._update_manifest(
             title=title,
             stix_id=bundle_id,
@@ -718,6 +769,7 @@ class STIXExporter:
             feed_source=feed_source,
             indicator_count=len(indicator_ids),
             stix_file=stix_filename,
+            stix_bundle_url=_stix_bundle_url,  # v125.0: full URL, never null when bundle exists
             epss_score=epss_score,
             cvss_score=cvss_score,
             kev_present=kev_present,
@@ -725,9 +777,13 @@ class STIXExporter:
             supply_chain=supply_chain,
             object_count=len(objects),
             apex_data=apex_data,         # v23.0: pass through to manifest
-            ioc_confidence=ioc_confidence,
-            ioc_threat_level=ioc_threat_level,
+            # v125.0: IOC engine-computed values (always consistent)
+            ioc_confidence=_effective_ioc_confidence,
+            ioc_threat_level=_effective_ioc_threat_level,
             ioc_extraction_meta=ioc_extraction_meta or {},
+            # v125.0 P0 FIX: actual IOC flat list (guarantees ioc_count == len(iocs))
+            iocs_flat=_effective_flat_iocs,
+            iocs_by_type=_effective_iocs_by_type,
         )
 
         return bundle_id
@@ -920,8 +976,11 @@ class STIXExporter:
                          apex_data=None,
                          # v124.0: IOC engine outputs
                          ioc_confidence=0.0, ioc_threat_level="NONE",
-                         ioc_extraction_meta=None):
-        """Update manifest - backward-compatible + v22.0 new fields."""
+                         ioc_extraction_meta=None,
+                         # v125.0 P0 FIX: actual IOC data (ioc_count == len(iocs) guaranteed)
+                         iocs_flat=None, iocs_by_type=None,
+                         stix_bundle_url=""):
+        """Update manifest - backward-compatible + v125.0 IOC integrity fields."""
         manifest_entries = []
         if os.path.exists(self.manifest_path):
             try:
@@ -1021,11 +1080,20 @@ class STIXExporter:
             "schema_version":   "v124.0",
             # v114.0: always published — Blogger permanently disabled
             "published":        True,
-            # v124.0: IOC engine enrichment fields — consumed by API + UI
-            "ioc_count":         sum(ioc_counts.values()) if ioc_counts else 0,
-            "ioc_confidence":    round(float(ioc_confidence or 0.0), 1),
+            # v125.0 P0 FIX: actual IOC flat list — ioc_count ALWAYS == len(iocs)
+            # iocs_flat is the authoritative flat list computed by the IOC engine.
+            # ioc_count is derived from it (never from ioc_counts dict which was
+            # the source of the count > 0 / empty list desync bug).
+            "iocs":              iocs_flat if isinstance(iocs_flat, list) else [],
+            "iocs_by_type":      iocs_by_type if isinstance(iocs_by_type, dict) else {},
+            "ioc_count":         len(iocs_flat) if isinstance(iocs_flat, list) else (
+                                     sum(ioc_counts.values()) if ioc_counts else 0
+                                 ),
+            "ioc_confidence":    round(float(ioc_confidence or 0.0), 2),
             "ioc_threat_level":  ioc_threat_level or "NONE",
             "ioc_extraction_meta": ioc_extraction_meta or {},
+            # v125.0: STIX bundle URL (never null when stix_file is set)
+            "stix_bundle_url":   stix_bundle_url or "",
         }
         # v114.0: legacy blog_url field never emitted
         entry.pop("blog_url", None)
