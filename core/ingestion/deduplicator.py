@@ -1,5 +1,5 @@
-"""
-core/ingestion/deduplicator.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+﻿"""
+core/ingestion/deduplicator.py â€” CYBERDUDEBIVASHÂ® SENTINEL APEX v131.0
 Content-addressed deduplication engine for the ingestion pipeline.
 
 Design:
@@ -56,9 +56,9 @@ class DedupStats:
 class Deduplicator:
     """
     Two-level deduplication:
-      Level 1 — content_hash (SHA-256 of raw_data): exact duplicate
-      Level 2 — semantic_key (source_id + raw_id): same logical entity updated
-                  If semantic key matches but content_hash differs → accept (updated entity)
+      Level 1 â€” content_hash (SHA-256 of raw_data): exact duplicate
+      Level 2 â€” semantic_key (source_id + raw_id): same logical entity updated
+                  If semantic key matches but content_hash differs â†’ accept (updated entity)
     """
 
     def __init__(
@@ -72,15 +72,15 @@ class Deduplicator:
         self._max_entries  = max_entries
         self._lock         = threading.Lock()
 
-        # content_hash → expiry_ts
+        # content_hash â†’ expiry_ts
         self._hash_cache: OrderedDict[str, float] = OrderedDict()
-        # semantic_key → (content_hash, expiry_ts)
+        # semantic_key â†’ (content_hash, expiry_ts)
         self._semantic_cache: Dict[str, Tuple[str, float]] = {}
 
         self._stats = DedupStats()
         self._load_persisted()
 
-    # ── Public API ────────────────────────────────────────────────────────────
+    # â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def is_duplicate(self, item: RawIntelItem) -> bool:
         """
@@ -92,7 +92,7 @@ class Deduplicator:
             self._evict_expired()
 
             content_hash  = item.content_hash
-            semantic_key  = self._make_semantic_key(item)
+            semantic_key  = Deduplicator._semantic_key(item)
             now           = time.time()
             expiry        = now + self._ttl_s
 
@@ -101,7 +101,7 @@ class Deduplicator:
                 self._stats.total_rejected += 1
                 return True
 
-            # Level 2: same entity, different content (update) → accept but refresh
+            # Level 2: same entity, different content (update) â†’ accept but refresh
             existing = self._semantic_cache.get(semantic_key)
             if existing:
                 existing_hash, _ = existing
@@ -166,7 +166,7 @@ class Deduplicator:
         except Exception as exc:
             logger.warning("deduplicator_persist_failed err=%s", exc)
 
-    # ── Internals ─────────────────────────────────────────────────────────────
+    # â”€â”€ Internals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def _evict_expired(self) -> None:
         """Remove expired entries. Called under lock."""
@@ -210,6 +210,33 @@ class Deduplicator:
             logger.info("dedup_loaded loaded=%d skipped=%d", loaded, skipped)
         except Exception as exc:
             logger.warning("dedup_load_failed err=%s", exc)
+    @staticmethod
+    def advisory_fingerprint(advisory: dict) -> str:
+        """
+        Compute hash(title + source) for manifest-level dedup of advisories.
+        Used in dashboard render and manifest build to eliminate duplicate intel.
+        """
+        title  = str(advisory.get("title", advisory.get("name", ""))).strip().lower()
+        source = str(advisory.get("source", advisory.get("source_url", ""))).strip().lower()
+        raw    = f"{title}||{source}"
+        return hashlib.sha256(raw.encode()).hexdigest()
+
+    @staticmethod
+    def deduplicate_advisories(advisories: list) -> list:
+        """
+        Deduplicate a list of advisory dicts using hash(title+source).
+        Preserves first occurrence. Returns deduped list + removed count.
+        """
+        seen: dict = {}
+        deduped = []
+        for adv in advisories:
+            fp = Deduplicator.advisory_fingerprint(adv)
+            if fp not in seen:
+                seen[fp] = True
+                adv["_dedup_hash"] = fp
+                deduped.append(adv)
+        return deduped
+
 
     @staticmethod
     def _semantic_key(item: "RawIntelItem") -> str:  # type: ignore[name-defined]
@@ -220,3 +247,4 @@ class Deduplicator:
             <source_id>:<raw_id>
         """
         return f"{item.source_id}:{item.raw_id}"
+

@@ -1,14 +1,14 @@
-"""
-CYBERDUDEBIVASH® SENTINEL APEX — Intelligence Quality Guard v1.0
+﻿"""
+CYBERDUDEBIVASHÂ® SENTINEL APEX â€” Intelligence Quality Guard v1.0
 ================================================================
 Production-grade quality gate for the CTI ingestion pipeline.
 
 Systems implemented:
-  1. Content Quality Gate    — min 300-word threshold, low-signal rejection
-  2. Source Trust Scoring    — domain reputation weighting table + multiplier
-  3. Exploit Maturity Engine — PoC / weaponized / active / theoretical
-  4. Confidence Score Boost  — IOC density + source weight + exploit state
-  5. Asset Targeting Extractor — sector/asset extraction from content
+  1. Content Quality Gate    â€” min 300-word threshold, low-signal rejection
+  2. Source Trust Scoring    â€” domain reputation weighting table + multiplier
+  3. Exploit Maturity Engine â€” PoC / weaponized / active / theoretical
+  4. Confidence Score Boost  â€” IOC density + source weight + exploit state
+  5. Asset Targeting Extractor â€” sector/asset extraction from content
 
 Integration:
   from core.ingestion.quality_guard import QualityGuard
@@ -28,30 +28,30 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("CDB-QUALITY-GUARD")
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # CONSTANTS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-MIN_WORD_COUNT        = 300    # Hard floor — items below this are rejected
+MIN_WORD_COUNT        = 300    # Hard floor â€” items below this are rejected
 MIN_TITLE_CHARS       = 15     # Title too short = noise
-MIN_IOC_DENSITY_BONUS = 3      # ≥3 IOCs → confidence boost applied
+MIN_IOC_DENSITY_BONUS = 3      # â‰¥3 IOCs â†’ confidence boost applied
 MAX_CONFIDENCE        = 100
 BASE_CONFIDENCE       = 50
 
-# Exploit maturity levels — ordered by severity
+# Exploit maturity levels â€” ordered by severity
 MATURITY_ACTIVE      = "active"
 MATURITY_WEAPONIZED  = "weaponized"
 MATURITY_POC         = "poc"
 MATURITY_THEORETICAL = "theoretical"
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # SOURCE TRUST REGISTRY
-# Domain-level reputation weights (0.0 – 1.0)
+# Domain-level reputation weights (0.0 â€“ 1.0)
 # 1.0 = authoritative primary source (CISA, NVD, vendor advisories)
 # 0.8 = tier-1 threat intelligence feeds
 # 0.6 = credible secondary sources (news, research blogs)
 # 0.4 = low-signal / aggregator sources
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 SOURCE_TRUST_TABLE: Dict[str, float] = {
     # Government / authoritative
     "cisa.gov":                   1.0,
@@ -114,7 +114,7 @@ SOURCE_TRUST_TABLE: Dict[str, float] = {
     "blackhat.com":               0.80,
     "defcon.org":                 0.78,
 
-    # Low trust — aggregators / content farms
+    # Low trust â€” aggregators / content farms
     "feedburner.com":             0.40,
     "feedspot.com":               0.40,
     "alltop.com":                 0.35,
@@ -126,9 +126,9 @@ MEDIUM_TRUST_SIGNALS  = ["security", "threat", "intel", "research", "vulnerabili
 LOW_TRUST_SIGNALS     = ["blog", "news", "daily", "weekly", "roundup", "digest"]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # EXPLOIT MATURITY SIGNAL PATTERNS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _ACTIVE_SIGNALS: List[str] = [
     "actively exploit", "in the wild", "zero-day", "0-day", "0day",
     "ransomware", "ransomware group", "nation.state", "nation state",
@@ -149,9 +149,9 @@ _POC_SIGNALS: List[str] = [
     "privilege escalation", "auth bypass", "memory corruption",
 ]
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # SECTOR / ASSET TARGETING PATTERNS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 SECTOR_PATTERNS: Dict[str, List[str]] = {
     "financial":       ["bank", "fintech", "payment", "swift", "atm", "financial", "brokerage", "crypto exchange"],
     "healthcare":      ["hospital", "healthcare", "medical", "ehr", "patient", "pharma", "biotech"],
@@ -165,9 +165,9 @@ SECTOR_PATTERNS: Dict[str, List[str]] = {
 }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # DATA CLASSES
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @dataclass
 class QualityResult:
@@ -182,14 +182,14 @@ class QualityResult:
     quality_flags:    List[str]     = field(default_factory=list)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # QUALITY GUARD ENGINE
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class QualityGuard:
     """
     Single-pass quality evaluator for raw CTI items.
-    Call evaluate(item) → QualityResult.
+    Call evaluate(item) â†’ QualityResult.
     Thread-safe (stateless evaluation).
     """
 
@@ -217,7 +217,7 @@ class QualityGuard:
         self._seen_fingerprints: dict = {}
         self._seen_titles: dict = {}
 
-    # ── v131: Dedup fingerprinting ─────────────────────────────────────────────
+    # â”€â”€ v131: Dedup fingerprinting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     @staticmethod
     def _fingerprint(item: Dict[str, Any]) -> str:
         """SHA-256 fingerprint of (title+cve+actor) normalized to lowercase."""
@@ -230,34 +230,34 @@ class QualityGuard:
 
     @staticmethod
     def _title_similarity(a: str, b: str) -> float:
-        """Jaccard similarity of word sets (0.0–1.0). Fast, no deps."""
+        """Jaccard similarity of word sets (0.0â€“1.0). Fast, no deps."""
         wa = set(a.lower().split())
         wb = set(b.lower().split())
         if not wa or not wb:
             return 0.0
         return len(wa & wb) / len(wa | wb)
 
-    # ── Low-value title patterns (v131) ───────────────────────────────────────
+    # â”€â”€ Low-value title patterns (v131) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     _LOW_VALUE_PATTERNS = [
         r"^(test|demo|sample|placeholder|lorem|ipsum)",
         r"^\[?\s*(untitled|no title|n/a|none)\s*\]?$",
         r"^cdb-\w{3}-\d+ campaign$",  # generic synthetic campaign names
     ]
 
-    # ─── Public API ─────────────────────────────────────────────────────────
+    # â”€â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     def evaluate(self, item: Dict[str, Any]) -> QualityResult:
         """
         Evaluate a raw CTI item for quality and enrich it.
-        Returns QualityResult — check .accepted before using .item.
+        Returns QualityResult â€” check .accepted before using .item.
         """
         flags: List[str] = []
 
-        # ── 1. Extract text content ──────────────────────────────────────────
+        # â”€â”€ 1. Extract text content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         text  = self._full_text(item)
         words = _word_count(text)
 
-        # ── 2. Content quality gate ──────────────────────────────────────────
+        # â”€â”€ 2. Content quality gate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         title = (item.get("title") or "").strip()
         if len(title) < MIN_TITLE_CHARS:
             return QualityResult(
@@ -273,16 +273,16 @@ class QualityGuard:
                 word_count=words,
             )
 
-        # ── 3. Source trust score ────────────────────────────────────────────
+        # â”€â”€ 3. Source trust score â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         source_url   = item.get("source_url") or item.get("url") or item.get("feed_source") or ""
         source_trust = self._score_source(source_url)
         flags.append(f"source_trust:{source_trust:.2f}")
 
-        # ── 4. Exploit maturity classification ──────────────────────────────
+        # â”€â”€ 4. Exploit maturity classification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         maturity = self._classify_exploit_maturity(text, item)
         flags.append(f"exploit_maturity:{maturity}")
 
-        # ── 5. IOC density calculation ───────────────────────────────────────
+        # â”€â”€ 5. IOC density calculation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         iocs       = item.get("iocs") or []
         # Support both list format and dict-of-arrays format
         if isinstance(iocs, dict):
@@ -301,8 +301,8 @@ class QualityGuard:
             ioc_count = pre_computed
         flags.append(f"ioc_count:{ioc_count}")
 
-        # ── 5b. MANDATORY IOC–SEVERITY GATE (v124.0) ────────────────────────
-        # Rule: NO advisory with severity ≥ HIGH may be published with 0 IOCs.
+        # â”€â”€ 5b. MANDATORY IOCâ€“SEVERITY GATE (v124.0) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # Rule: NO advisory with severity â‰¥ HIGH may be published with 0 IOCs.
         # Action A (default): downgrade severity to MEDIUM
         # Action B (strict):  block publication entirely
         severity_raw = (item.get("severity") or item.get("risk_level") or "").upper()
@@ -311,11 +311,11 @@ class QualityGuard:
             if self.ioc_gate_downgrade:
                 # Downgrade: preserve advisory but reduce severity
                 logger.warning(
-                    "[IOC-GATE] DOWNGRADE severity=%s → MEDIUM for '%s' (0 IOCs)",
+                    "[IOC-GATE] DOWNGRADE severity=%s â†’ MEDIUM for '%s' (0 IOCs)",
                     severity_raw, title[:80]
                 )
                 flags.append(f"ioc_gate:downgraded_from_{severity_raw}")
-                # Will mutate enriched dict below — store original for audit
+                # Will mutate enriched dict below â€” store original for audit
                 item = dict(item)
                 item["original_severity"] = severity_raw
                 item["severity"]          = "MEDIUM"
@@ -324,7 +324,7 @@ class QualityGuard:
             else:
                 # Block: reject publication
                 logger.error(
-                    "[IOC-GATE] BLOCKED severity=%s advisory '%s' — 0 IOCs violates quality gate",
+                    "[IOC-GATE] BLOCKED severity=%s advisory '%s' â€” 0 IOCs violates quality gate",
                     severity_raw, title[:80]
                 )
                 return QualityResult(
@@ -335,7 +335,7 @@ class QualityGuard:
                     exploit_maturity=maturity,
                 )
 
-        # ── 5c. v131: Low-value title pattern rejection ──────────────────────
+        # â”€â”€ 5c. v131: Low-value title pattern rejection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         import re as _re
         for pat in self._LOW_VALUE_PATTERNS:
             if _re.search(pat, title, _re.IGNORECASE):
@@ -346,7 +346,7 @@ class QualityGuard:
                     word_count=words,
                 )
 
-        # ── 5d. v131: MITRE ATT&CK technique gate ────────────────────────────
+        # â”€â”€ 5d. v131: MITRE ATT&CK technique gate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if self.enforce_mitre_gate:
             mitre = (
                 item.get("mitre_techniques") or
@@ -369,7 +369,7 @@ class QualityGuard:
                     item["mitre_gate_warning"] = True
                     item["mitre_count"] = mitre_count
 
-        # ── 5e. v131: Duplicate fingerprint detection ─────────────────────────
+        # â”€â”€ 5e. v131: Duplicate fingerprint detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if self.enforce_dedup:
             fp = self._fingerprint(item)
             if fp in self._seen_fingerprints:
@@ -399,18 +399,18 @@ class QualityGuard:
             self._seen_titles[title]        = fp
             flags.append("dedup:unique")
 
-        # ── 6. Composite confidence score ────────────────────────────────────
+        # â”€â”€ 6. Composite confidence score â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         confidence = self._compute_confidence(
             item, words, source_trust, maturity, ioc_count
         )
         flags.append(f"confidence:{confidence}")
 
-        # ── 7. Asset/sector targeting extraction ─────────────────────────────
+        # â”€â”€ 7. Asset/sector targeting extraction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         sectors = self._extract_sectors(text)
         if sectors:
             flags.append(f"sectors:{','.join(sectors)}")
 
-        # ── 8. Reject low-confidence items ───────────────────────────────────
+        # â”€â”€ 8. Reject low-confidence items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if confidence < self.min_confidence:
             return QualityResult(
                 accepted=False, item=item,
@@ -421,7 +421,7 @@ class QualityGuard:
                 confidence_score=confidence,
             )
 
-        # ── 9. Enrich item in-place ──────────────────────────────────────────
+        # â”€â”€ 9. Enrich item in-place â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         enriched = dict(item)
         enriched["confidence_score"]   = confidence
         enriched["exploit_maturity"]   = maturity
@@ -457,14 +457,14 @@ class QualityGuard:
                 accepted.append(result.item)
             else:
                 rejected += 1
-                logger.debug("[QUALITY-GUARD] REJECTED %s — %s",
+                logger.debug("[QUALITY-GUARD] REJECTED %s â€” %s",
                              (item.get("title") or "")[:60], result.reject_reason)
         logger.info("[QUALITY-GUARD] Batch: %d accepted, %d rejected (%.0f%% pass rate)",
                     len(accepted), rejected,
                     100 * len(accepted) / max(1, len(items)))
         return accepted, rejected
 
-    # ─── Private helpers ─────────────────────────────────────────────────────
+    # â”€â”€â”€ Private helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @staticmethod
     def _full_text(item: Dict[str, Any]) -> str:
@@ -481,11 +481,11 @@ class QualityGuard:
     @staticmethod
     def _score_source(source_url: str) -> float:
         """
-        Return trust score [0.0–1.0] for a source URL.
+        Return trust score [0.0â€“1.0] for a source URL.
         Checks exact domain table, then substring heuristics.
         """
         if not source_url:
-            return 0.5   # unknown — neutral
+            return 0.5   # unknown â€” neutral
 
         url_lower = source_url.lower()
 
@@ -505,7 +505,7 @@ class QualityGuard:
             if kw in url_lower:
                 return 0.45
 
-        return 0.55   # unknown domain — slightly below neutral
+        return 0.55   # unknown domain â€” slightly below neutral
 
     @staticmethod
     def _classify_exploit_maturity(text: str, item: Dict[str, Any]) -> str:
@@ -522,7 +522,7 @@ class QualityGuard:
         if item.get("kev_present") is True:
             return MATURITY_ACTIVE
 
-        # Signal scan (ordered by severity — highest wins)
+        # Signal scan (ordered by severity â€” highest wins)
         for sig in _ACTIVE_SIGNALS:
             if sig in text:
                 return MATURITY_ACTIVE
@@ -544,10 +544,10 @@ class QualityGuard:
         ioc_count: int,
     ) -> int:
         """
-        Composite confidence score [0–100].
+        Composite confidence score [0â€“100].
 
         Base: 50
-        + Source trust multiplier (×0.25 of base max)
+        + Source trust multiplier (Ã—0.25 of base max)
         + Content richness (word count tier)
         + IOC density bonus
         + Exploit maturity bonus
@@ -556,10 +556,10 @@ class QualityGuard:
         """
         score = BASE_CONFIDENCE
 
-        # Source trust contribution: 0–20 points
-        score += int((source_trust - 0.5) * 40)   # 0.5 → 0pts, 1.0 → +20pts, 0.0 → -20pts
+        # Source trust contribution: 0â€“20 points
+        score += int((source_trust - 0.5) * 40)   # 0.5 â†’ 0pts, 1.0 â†’ +20pts, 0.0 â†’ -20pts
 
-        # Content richness: 0–10 points
+        # Content richness: 0â€“10 points
         if word_count >= 1000:
             score += 10
         elif word_count >= 600:
@@ -567,7 +567,7 @@ class QualityGuard:
         elif word_count >= 300:
             score += 4
 
-        # IOC density bonus: 0–8 points
+        # IOC density bonus: 0â€“8 points
         if ioc_count >= 10:
             score += 8
         elif ioc_count >= MIN_IOC_DENSITY_BONUS:
@@ -621,9 +621,9 @@ class QualityGuard:
         return found
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # MODULE-LEVEL HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _word_count(text: str) -> int:
     """Fast word count via whitespace split."""
@@ -631,18 +631,18 @@ def _word_count(text: str) -> int:
 
 
 def score_source_trust(source_url: str) -> float:
-    """Module-level helper — score a source URL without instantiating QualityGuard."""
+    """Module-level helper â€” score a source URL without instantiating QualityGuard."""
     return QualityGuard._score_source(source_url)
 
 
 def classify_exploit_maturity(text: str, item: Optional[Dict[str, Any]] = None) -> str:
-    """Module-level helper — classify exploit maturity from text."""
+    """Module-level helper â€” classify exploit maturity from text."""
     return QualityGuard._classify_exploit_maturity(text, item or {})
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # CLI DIAGNOSTIC
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if __name__ == "__main__":
     import json
     import sys
@@ -691,3 +691,4 @@ if __name__ == "__main__":
             for i in passed
         ],
     }, indent=2, default=str))
+

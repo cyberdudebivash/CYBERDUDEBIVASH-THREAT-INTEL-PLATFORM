@@ -1,9 +1,9 @@
-# =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v101 — MULTI-SOURCE INTELLIGENCE ENRICHMENT
-# Version: v101.0.0 — PERMANENT PRODUCTION CONTRACT
+﻿# =============================================================================
+# CYBERDUDEBIVASHÂ® SENTINEL APEX v131.0 â€” MULTI-SOURCE INTELLIGENCE ENRICHMENT
+# Version: v101.0.0 â€” PERMANENT PRODUCTION CONTRACT
 # Race condition FIX: Cron changed from '0 */4 * * *' (same as sentinel-blogger)
-#                     to '45 1,5,9,13,17,21 * * *' — 45 min past odd hours
-#                     (sentinel-blogger runs at 0,4,8,12,16,20 → no overlap)
+#                     to '45 1,5,9,13,17,21 * * *' â€” 45 min past odd hours
+#                     (sentinel-blogger runs at 0,4,8,12,16,20 â†’ no overlap)
 # =============================================================================
 name: CDB Multi-Source Intelligence Enrichment v101
 
@@ -93,7 +93,7 @@ jobs:
           git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
           rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
-          # P0 FIX v111.0: DO NOT commit feed_manifest.json to git.
+          # P0 FIX v131.0: DO NOT commit feed_manifest.json to git.
           # The manifest is R2-only data (gitignored). Committing it here caused
           # the bootstrap to recycle stale manifest every run (skip if >= 50 entries).
           # Only commit the enrichment batch metadata (non-intel).
@@ -111,3 +111,4 @@ jobs:
             git push origin main && break
             sleep $((i*15)); [ $i -eq 4 ] && echo "Push deferred."
           done
+
