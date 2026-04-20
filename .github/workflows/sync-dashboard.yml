@@ -42,7 +42,7 @@
 #
 # =============================================================================
 
-name: "" DISABLED " Dashboard Sync v101.0 (merged into sentinel-blogger v116.2)"
+name: "DISABLED - Dashboard Sync v101.0 (merged into sentinel-blogger v116.2)"
 
 on:
   # " ALL AUTO-TRIGGERS DISABLED " sentinel-blogger v116.2 handles dashboard sync
@@ -72,7 +72,7 @@ concurrency:
 
 jobs:
   sync-dashboard:
-    name: "" DISABLED " Emergency Manual EMBEDDED_INTEL Patch"
+    name: "DISABLED - Emergency Manual EMBEDDED_INTEL Patch"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # " GATE: Only run on explicit manual dispatch with force_patch=true
@@ -83,7 +83,7 @@ jobs:
     steps:
       - name: "  Safety Warning"
         run: |
-          echo "   EMERGENCY MANUAL SYNC " sync-dashboard is DISABLED in v116.2.0"
+          echo "EMERGENCY MANUAL SYNC - sync-dashboard is DISABLED in v116.2.0"
           echo "    sentinel-blogger handles all dashboard sync automatically."
           echo "    This manual run will ONLY patch EMBEDDED_INTEL from current git state."
           echo "    It will NOT run --force-rebuild (manifest destruction risk)."
@@ -101,14 +101,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: "Patch EMBEDDED_INTEL (emergency " NO --force-rebuild)"
+      - name: "Patch EMBEDDED_INTEL (emergency - NO --force-rebuild)"
         run: |
           echo "=== Emergency EMBEDDED_INTEL patch from current data/stix/feed_manifest.json ==="
           python3 -c "
           import json
           d = json.load(open('data/stix/feed_manifest.json'))
           items = d.get('advisories', d if isinstance(d, list) else [])
-          print(f'Manifest: {len(items)} entries " proceeding with patch')
+          print(f'Manifest: {len(items)} entries - proceeding with patch')
           "
           python3 scripts/update_embedded_intel.py && echo "... Emergency EMBEDDED_INTEL patch OK" || {
             echo " EMBEDDED_INTEL patch FAILED"
@@ -135,7 +135,7 @@ jobs:
             exit 0
           fi
 
-          git commit -m "  Emergency Dashboard Sync v116.2 " EMBEDDED_INTEL patch @ $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+          git commit -m "Emergency Dashboard Sync v116.2 - EMBEDDED_INTEL patch @ $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
 
           for i in 1 2 3 4; do
             git fetch origin main --quiet

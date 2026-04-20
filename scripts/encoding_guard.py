@@ -100,15 +100,19 @@ MOJIBAKE_BYTES: list[tuple[bytes, bytes]] = [
 
 # Unicode codepoint -> ASCII string replacements (applied after decoding)
 UNICODE_CHAR_MAP: dict[int, str] = {
-    # Smart quotes
-    0x201C: '"',   # left double quotation mark
-    0x201D: '"',   # right double quotation mark
-    0x2018: "'",   # left single quotation mark
-    0x2019: "'",   # right single quotation mark
+    # Smart quotes -- mapped to HYPHEN not quote characters.
+    # Replacing U+201C/201D with ASCII " is UNSAFE: if the smart quote appears
+    # inside an already double-quoted YAML string or bash echo, the substituted "
+    # terminates the outer quote and breaks syntax.  Using ' - ' is safe in all
+    # contexts (comment, name field, string value, shell argument).
+    0x201C: ' - ', # left double quotation mark  (was '"' -- broke YAML strings)
+    0x201D: '',    # right double quotation mark  (drop trailing)
+    0x2018: "'",   # left single quotation mark   (safe: apostrophe)
+    0x2019: "'",   # right single quotation mark  (safe: apostrophe)
     0x201A: "'",   # single low-9 quotation mark
-    0x201E: '"',   # double low-9 quotation mark
+    0x201E: ' - ', # double low-9 quotation mark
     0x2032: "'",   # prime
-    0x2033: '"',   # double prime
+    0x2033: '',    # double prime (drop)
     # Dashes
     0x2014: ' - ', # em dash
     0x2013: '-',   # en dash
