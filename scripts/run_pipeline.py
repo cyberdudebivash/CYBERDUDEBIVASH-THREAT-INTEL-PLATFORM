@@ -56,6 +56,28 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# SafeIO foundation -- atomic writes, dedup, schema validation, metrics
+try:
+    _SCRIPTS = Path(__file__).resolve().parent
+    if str(_SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(_SCRIPTS))
+    from safe_io import (
+        atomic_json_write,
+        safe_json_load,
+        safe_json_dump,
+        dedup_items,
+        enrich_ioc_count,
+        SchemaValidator,
+        PipelineMetrics,
+        acquire_lock,
+    )
+    _SAFE_IO_AVAILABLE = True
+except ImportError as _e:
+    _SAFE_IO_AVAILABLE = False
+    logging.getLogger("sentinel.pipeline").warning(
+        "safe_io not available (%s) — falling back to legacy I/O", _e
+    )
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -77,6 +99,9 @@ MIN_ENGINE_ENTRIES = 50      # engine manifest minimum before --force-rebuild
 MAX_STIX_BUNDLES = 500       # cap on persisted STIX bundle files
 
 GITHUB_ENV = os.environ.get("GITHUB_ENV", "/dev/null")
+
+# Global metrics collector — instantiated at pipeline start
+METRICS: "PipelineMetrics | None" = None
 
 VALID_THREAT_TYPES = {
     "vulnerability", "malware", "campaign", "intrusion-set",
@@ -935,6 +960,135 @@ def stage_prune_stix_bundles() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Stage 3.2 -- Dedup + IOC Enrichment (SafeIO-powered)
+# ---------------------------------------------------------------------------
+
+def stage_dedup_and_enrich() -> None:
+    """
+    v131.3.0 Production Hardening:
+    1. Load manifest from Single Source of Truth (data/stix/feed_manifest.json)
+    2. Run SHA-256 dedup on (title, source, published-date) key
+    3. Enforce ioc_count == len(iocs) on every item (enrich where missing)
+    4. Strip empty IOC artifacts
+    5. Run SchemaValidator (lenient mode: fix and keep, log errors)
+    6. Write back atomically with FileLock
+    7. Feed metrics to PipelineMetrics
+    """
+    log.info("=" * 60)
+    log.info("STAGE 3.2 -- Dedup + IOC Enrichment + Schema Fix")
+    log.info("=" * 60)
+
+    if not _SAFE_IO_AVAILABLE:
+        log.warning("[3.2] safe_io not available -- skipping dedup/enrich stage.")
+        return
+
+    manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
+    t0 = time.monotonic()
+
+    try:
+        # Load manifest (safe, never raises)
+        raw = safe_json_load(manifest_path, default={})
+        if isinstance(raw, list):
+            items = raw
+            envelope = None
+        elif isinstance(raw, dict):
+            items = raw.get("advisories") or raw.get("reports") or raw.get("items") or []
+            envelope = raw
+        else:
+            log.warning("[3.2] Unexpected manifest type %s -- skipping.", type(raw).__name__)
+            return
+
+        original_count = len(items)
+        if original_count == 0:
+            log.warning("[3.2] Manifest has 0 items -- nothing to dedup/enrich.")
+            return
+
+        # Step 1: Dedup
+        items, removed = dedup_items(items)
+        if METRICS:
+            METRICS.record_duplicates(removed)
+
+        # Step 2: IOC count enforcement + extraction
+        total_iocs = 0
+        enriched_items = []
+        for obj in items:
+            obj = enrich_ioc_count(obj)
+            total_iocs += obj.get("ioc_count", 0)
+            enriched_items.append(obj)
+        items = enriched_items
+        if METRICS:
+            METRICS.record_iocs(total_iocs)
+
+        # Step 3: Schema validation (lenient mode -- fix + keep)
+        validator = SchemaValidator(strict=False)
+        items, schema_errors = validator.validate_manifest(items)
+        if schema_errors:
+            log.warning("[3.2] SchemaValidator found %d issue(s) (auto-fixed):", len(schema_errors))
+            for err in schema_errors[:10]:
+                log.warning("[3.2]   %s", err)
+            if METRICS:
+                for err in schema_errors:
+                    METRICS.record_failure("3.2.schema", err[:120])
+
+        # Step 4: Write back atomically with FileLock
+        if envelope and isinstance(envelope, dict):
+            envelope["advisories"] = items
+            envelope["entry_count"] = len(items)
+            envelope["total_reports"] = len(items)
+            envelope["deduped_at"] = utc_now()
+            payload = envelope
+        else:
+            payload = {
+                "version":       "v114.0",
+                "schema_version": "v114.0",
+                "platform":      "SENTINEL-APEX",
+                "generated_at":  utc_now(),
+                "deduped_at":    utc_now(),
+                "entry_count":   len(items),
+                "total_reports": len(items),
+                "sort_order":    "timestamp DESC, risk_score DESC",
+                "advisories":    items,
+            }
+
+        atomic_json_write(manifest_path, payload, locked=True)
+
+        elapsed = time.monotonic() - t0
+        log.info(
+            "[3.2] COMPLETE: %d -> %d items | dupes removed=%d | total_iocs=%d | "
+            "schema_issues=%d | %.2fs",
+            original_count, len(items), removed, total_iocs, len(schema_errors), elapsed,
+        )
+        if METRICS:
+            METRICS.record_stage("3.2.dedup_enrich", elapsed, "ok")
+            METRICS.record_ingestion(len(items))
+
+    except Exception as e:
+        elapsed = time.monotonic() - t0
+        log.error("[3.2] Dedup/Enrich failed (non-fatal): %s", e)
+        if METRICS:
+            METRICS.record_failure("3.2", str(e))
+            METRICS.record_stage("3.2.dedup_enrich", elapsed, "error")
+
+
+# ---------------------------------------------------------------------------
+# Stage FINAL -- Pipeline Metrics Report
+# ---------------------------------------------------------------------------
+
+def stage_write_metrics() -> None:
+    """Write pipeline metrics JSON report for observability."""
+    if not _SAFE_IO_AVAILABLE or METRICS is None:
+        return
+    try:
+        metrics_dir = REPO_ROOT / "data" / "logs"
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+        metrics_path = metrics_dir / "pipeline_metrics.json"
+        METRICS.write_report(metrics_path)
+        METRICS.log_summary()
+    except Exception as e:
+        log.warning("[metrics] Failed to write metrics report: %s", e)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -942,12 +1096,18 @@ def main() -> None:
     log.info("=" * 70)
     log.info("SENTINEL APEX v%s -- Master Pipeline Orchestrator", PIPELINE_VERSION)
     log.info("Run at: %s", utc_now())
+    log.info("SafeIO: %s", "ENABLED" if _SAFE_IO_AVAILABLE else "DISABLED (fallback mode)")
     log.info("=" * 70)
 
     # Change to repo root so all relative paths work correctly
     os.chdir(REPO_ROOT)
 
     t_total = time.monotonic()
+
+    # Initialise global metrics collector
+    global METRICS
+    if _SAFE_IO_AVAILABLE:
+        METRICS = PipelineMetrics()
 
     # ---- Pre-flight -------------------------------------------------------
     stage_feed_guard()                   # FIRST: guarantee feed.json always valid JSON
@@ -968,6 +1128,7 @@ def main() -> None:
     stage_freshness_gate()               # HARD FAIL if < MIN entries
     stage_schema_validation()            # HARD FAIL if schema invalid
     stage_manifest_cleanup()
+    stage_dedup_and_enrich()             # SafeIO: dedup + ioc_count fix + schema auto-fix
 
     # ---- Output Generation ------------------------------------------------
     stage_html_reports()                 # HARD FAIL if 0 reports
@@ -976,6 +1137,9 @@ def main() -> None:
 
     # ---- Housekeeping -----------------------------------------------------
     stage_prune_stix_bundles()
+
+    # ---- Observability ----------------------------------------------------
+    stage_write_metrics()                # Write pipeline_metrics.json
 
     elapsed = time.monotonic() - t_total
     log.info("=" * 70)

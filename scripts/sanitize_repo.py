@@ -47,6 +47,16 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+# SafeIO -- optional import; falls back to legacy I/O if not available
+try:
+    _SELF_DIR = pathlib.Path(__file__).resolve().parent
+    if str(_SELF_DIR) not in sys.path:
+        sys.path.insert(0, str(_SELF_DIR))
+    from safe_io import atomic_json_write as _atomic_write_json
+    _SAFE_IO_AVAILABLE = True
+except ImportError:
+    _SAFE_IO_AVAILABLE = False
+
 # ── Logging ─────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -235,35 +245,49 @@ def audit_json_structure(obj: Any, rel_path: str) -> List[str]:
                 items = obj[key]
                 break
 
-    bool_date_count = 0
+    bool_pub_count = 0
+    ioc_mismatch_count = 0
     fixed_count = 0
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
     for item in items:
         if not isinstance(item, dict):
             continue
-        # Detect boolean published_date
+
+        # ── Fix #1: boolean 'published' → ISO-8601 string (P0 guard, run #793) ──
         pub = item.get("published")
         if isinstance(pub, bool):
-            bool_date_count += 1
-            # Promote the unambiguous date fields if available
+            bool_pub_count += 1
+            # Prefer an existing string date from adjacent fields
             real_date = (
                 item.get("published_date") or
                 item.get("timestamp") or
                 item.get("created_at") or
                 item.get("date") or
-                ""
+                now_iso
             )
-            if isinstance(real_date, str) and real_date.strip():
-                item["published_date"] = real_date.strip()
-            else:
-                # Remove the boolean to prevent downstream crash
-                # leave published_date as empty string
-                item.setdefault("published_date", "")
+            real_date = real_date if isinstance(real_date, str) and real_date.strip() else now_iso
+            # CRITICAL: overwrite the boolean with the ISO string
+            item["published"] = real_date.strip()
+            item.setdefault("published_date", real_date.strip())
             fixed_count += 1
 
-    if bool_date_count:
+        # ── Fix #2: ioc_count integrity ──
+        iocs = item.get("iocs")
+        ioc_count = item.get("ioc_count")
+        if isinstance(iocs, list) and ioc_count is not None:
+            if ioc_count != len(iocs):
+                item["ioc_count"] = len(iocs)
+                ioc_mismatch_count += 1
+
+    if bool_pub_count:
         warnings.append(
-            f"FIXED {fixed_count}/{bool_date_count} advisory entries with boolean 'published' field "
-            f"(root cause: run #793 — P0 fix applied)"
+            f"FIXED {fixed_count}/{bool_pub_count} advisory entries: boolean 'published' "
+            f"-> ISO-8601 string (root cause: run #793 — P0 fix applied)"
+        )
+    if ioc_mismatch_count:
+        warnings.append(
+            f"FIXED {ioc_mismatch_count} advisory entries: ioc_count corrected to match len(iocs)"
         )
 
     return warnings
@@ -366,15 +390,27 @@ def process_json_file(
             except Exception as e:
                 events.append(SanitizeEvent(rel, "SERIALIZE_ERROR", str(e), "ERROR"))
 
-    # ── Write back if changed ──
+    # ── Write back if changed (atomic: temp-file + os.replace) ──
     if modified and not dry_run:
         try:
-            tmp = path.with_suffix(".sanitize_tmp")
-            tmp.write_bytes(clean_bytes)
-            os.replace(tmp, path)
+            if _SAFE_IO_AVAILABLE and obj is not None:
+                # Use SafeIO atomic writer with post-write verification
+                _atomic_write_json(path, obj, locked=False)
+            else:
+                # Legacy fallback: raw bytes temp-file + replace
+                tmp = path.with_suffix(".sanitize_tmp")
+                tmp.write_bytes(clean_bytes)
+                os.replace(tmp, path)
         except OSError as e:
             events.append(SanitizeEvent(rel, "WRITE_ERROR", str(e), "ERROR"))
             return False
+        except Exception as e:
+            events.append(SanitizeEvent(rel, "WRITE_ERROR", f"atomic write failed: {e}", "ERROR"))
+            # Last-resort: raw write
+            try:
+                path.write_bytes(clean_bytes)
+            except Exception:
+                return False
 
     return modified
 
