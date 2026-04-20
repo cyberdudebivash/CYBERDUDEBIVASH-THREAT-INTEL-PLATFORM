@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 ===============================================================================
 CYBERDUDEBIVASH SENTINEL APEX v123.0.0 â€” ENTERPRISE INTEL REPORT GENERATOR

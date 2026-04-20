@@ -1,4 +1,4 @@
-﻿"""
+"""
 CYBERDUDEBIVASHÂ® SENTINEL APEX â€” Intelligence Quality Guard v1.0
 ================================================================
 Production-grade quality gate for the CTI ingestion pipeline.

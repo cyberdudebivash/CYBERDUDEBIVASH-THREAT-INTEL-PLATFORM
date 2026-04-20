@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 SENTINEL APEX v131.0 â€” ONE-TIME MANIFEST REBUILD
 =================================================
