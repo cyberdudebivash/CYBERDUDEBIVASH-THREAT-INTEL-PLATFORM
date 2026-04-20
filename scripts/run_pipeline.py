@@ -167,6 +167,48 @@ def count_manifest(path: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Stage 0.0 -- Python Syntax Guard (runs FIRST, before anything else)
+# ---------------------------------------------------------------------------
+
+def stage_syntax_guard() -> None:
+    """
+    Run python_syntax_guard.py to catch SyntaxErrors in any .py file
+    BEFORE the pipeline executes.  On failure: log the error and skip
+    the faulty module — do NOT crash the entire pipeline.
+    """
+    log.info("=" * 60)
+    log.info("STAGE 0.0 -- Python Syntax Guard pre-flight check")
+    log.info("=" * 60)
+    guard_script = REPO_ROOT / "scripts" / "python_syntax_guard.py"
+    if not guard_script.exists():
+        log.warning("[0.0] python_syntax_guard.py not found — skipping pre-flight.")
+        return
+    try:
+        result = subprocess.run(
+            [sys.executable, str(guard_script)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        for line in result.stdout.splitlines():
+            log.info("[0.0] %s", line)
+        for line in result.stderr.splitlines():
+            log.warning("[0.0] %s", line)
+        if result.returncode == 0:
+            log.info("[0.0] Syntax Guard PASSED — all Python files are syntax-clean.")
+        else:
+            log.error(
+                "[0.0] Syntax Guard reported errors (see above). "
+                "Faulty modules will be skipped. Pipeline continues."
+            )
+    except subprocess.TimeoutExpired:
+        log.warning("[0.0] Syntax Guard timed out (non-fatal, pipeline continues).")
+    except Exception as e:
+        log.warning("[0.0] Syntax Guard could not run: %s (non-fatal)", e)
+
+
+# ---------------------------------------------------------------------------
 # Stage 0.5 -- Purge Blogger Publish Queue
 # ---------------------------------------------------------------------------
 
@@ -848,6 +890,7 @@ def main() -> None:
     t_total = time.monotonic()
 
     # ---- Pre-flight -------------------------------------------------------
+    stage_syntax_guard()                 # FIRST: catch SyntaxErrors before execution
     stage_purge_publish_queue()
     stage_bootstrap()
     stage_validate_bootstrap()
