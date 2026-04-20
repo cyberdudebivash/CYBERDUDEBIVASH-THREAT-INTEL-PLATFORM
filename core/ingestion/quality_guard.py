@@ -196,18 +196,53 @@ class QualityGuard:
     def __init__(
         self,
         min_words: int = MIN_WORD_COUNT,
-        min_confidence: int = 20,
+        min_confidence: int = 40,        # v131: raised floor from 20 to 40
         enforce_min_words: bool = True,
         enforce_ioc_gate: bool = True,
-        ioc_gate_downgrade: bool = True,
+        ioc_gate_downgrade: bool = False, # v131: BLOCK (not downgrade) zero-IOC HIGH/CRITICAL
+        enforce_mitre_gate: bool = True,  # v131: require >= 2 MITRE techniques
+        enforce_dedup: bool = True,       # v131: hash-based fingerprint dedup
+        min_mitre_techniques: int = 2,    # v131: minimum MITRE ATT&CK techniques
     ):
-        self.min_words          = min_words
-        self.min_confidence     = min_confidence
-        self.enforce_min_words  = enforce_min_words
-        # IOC severity gate: HIGH/CRITICAL advisories with 0 IOCs must be
-        # downgraded (ioc_gate_downgrade=True) or blocked (False)
-        self.enforce_ioc_gate   = enforce_ioc_gate
-        self.ioc_gate_downgrade = ioc_gate_downgrade
+        self.min_words              = min_words
+        self.min_confidence         = min_confidence
+        self.enforce_min_words      = enforce_min_words
+        self.enforce_ioc_gate       = enforce_ioc_gate
+        self.ioc_gate_downgrade     = ioc_gate_downgrade
+        # v131 additions
+        self.enforce_mitre_gate     = enforce_mitre_gate
+        self.enforce_dedup          = enforce_dedup
+        self.min_mitre_techniques   = min_mitre_techniques
+        # Dedup registry: content fingerprint -> first seen title
+        self._seen_fingerprints: dict = {}
+        self._seen_titles: dict = {}
+
+    # ── v131: Dedup fingerprinting ─────────────────────────────────────────────
+    @staticmethod
+    def _fingerprint(item: Dict[str, Any]) -> str:
+        """SHA-256 fingerprint of (title+cve+actor) normalized to lowercase."""
+        import hashlib
+        title  = (item.get("title") or "").lower().strip()
+        cve    = (item.get("cve") or item.get("cve_id") or "")
+        actor  = (item.get("actor_tag") or item.get("threat_actor") or "")
+        key    = f"{title}|{cve}|{actor}"
+        return hashlib.sha256(key.encode()).hexdigest()
+
+    @staticmethod
+    def _title_similarity(a: str, b: str) -> float:
+        """Jaccard similarity of word sets (0.0–1.0). Fast, no deps."""
+        wa = set(a.lower().split())
+        wb = set(b.lower().split())
+        if not wa or not wb:
+            return 0.0
+        return len(wa & wb) / len(wa | wb)
+
+    # ── Low-value title patterns (v131) ───────────────────────────────────────
+    _LOW_VALUE_PATTERNS = [
+        r"^(test|demo|sample|placeholder|lorem|ipsum)",
+        r"^\[?\s*(untitled|no title|n/a|none)\s*\]?$",
+        r"^cdb-\w{3}-\d+ campaign$",  # generic synthetic campaign names
+    ]
 
     # ─── Public API ─────────────────────────────────────────────────────────
 
@@ -299,6 +334,70 @@ class QualityGuard:
                     source_trust=source_trust,
                     exploit_maturity=maturity,
                 )
+
+        # ── 5c. v131: Low-value title pattern rejection ──────────────────────
+        import re as _re
+        for pat in self._LOW_VALUE_PATTERNS:
+            if _re.search(pat, title, _re.IGNORECASE):
+                logger.warning("[QUALITY-GUARD] LOW-VALUE title rejected: '%s'", title[:80])
+                return QualityResult(
+                    accepted=False, item=item,
+                    reject_reason=f"low_value_title_pattern:{title[:40]}",
+                    word_count=words,
+                )
+
+        # ── 5d. v131: MITRE ATT&CK technique gate ────────────────────────────
+        if self.enforce_mitre_gate:
+            mitre = (
+                item.get("mitre_techniques") or
+                item.get("ttps") or
+                item.get("mitre_tactics") or []
+            )
+            mitre_count = len(mitre) if isinstance(mitre, list) else 0
+            flags.append(f"mitre_count:{mitre_count}")
+            if mitre_count < self.min_mitre_techniques:
+                severity_chk = (item.get("severity") or "").upper()
+                # Enforce strictly for HIGH/CRITICAL; warn for MEDIUM/LOW
+                if severity_chk in {"HIGH", "CRITICAL"}:
+                    logger.warning(
+                        "[QUALITY-GUARD] MITRE gate: %d techniques < %d required for %s '%s'",
+                        mitre_count, self.min_mitre_techniques, severity_chk, title[:60],
+                    )
+                    flags.append(f"mitre_gate:insufficient_{mitre_count}")
+                    # Mark item rather than block (IOC enforcer handles fallback generation)
+                    item = dict(item)
+                    item["mitre_gate_warning"] = True
+                    item["mitre_count"] = mitre_count
+
+        # ── 5e. v131: Duplicate fingerprint detection ─────────────────────────
+        if self.enforce_dedup:
+            fp = self._fingerprint(item)
+            if fp in self._seen_fingerprints:
+                logger.info(
+                    "[QUALITY-GUARD] DUPLICATE fingerprint rejected: '%s' (same as '%s')",
+                    title[:60], self._seen_fingerprints[fp][:40],
+                )
+                return QualityResult(
+                    accepted=False, item=item,
+                    reject_reason=f"duplicate_fingerprint:{fp[:12]}",
+                    word_count=words,
+                )
+            # Check title similarity against all seen titles (Jaccard >= 0.85 = near-duplicate)
+            for seen_title, seen_fp in self._seen_titles.items():
+                sim = self._title_similarity(title, seen_title)
+                if sim >= 0.85:
+                    logger.info(
+                        "[QUALITY-GUARD] NEAR-DUPLICATE title (sim=%.2f) rejected: '%s'",
+                        sim, title[:60],
+                    )
+                    return QualityResult(
+                        accepted=False, item=item,
+                        reject_reason=f"near_duplicate_title:sim={sim:.2f}",
+                        word_count=words,
+                    )
+            self._seen_fingerprints[fp]    = title
+            self._seen_titles[title]        = fp
+            flags.append("dedup:unique")
 
         # ── 6. Composite confidence score ────────────────────────────────────
         confidence = self._compute_confidence(

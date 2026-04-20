@@ -694,6 +694,14 @@ jobs:
             --fail-on-zero \
             --limit 0
 
+          # ── v131.0: P0 Intelligence Upgrade Orchestrator ─────────────────
+          # Runs AFTER report generation so report_enhancer can find HTML files.
+          # Steps: IOC enforcement, dedup, synthetic fallback, API integrity,
+          #        enterprise report enhancement, PDF generation, revenue optimizer,
+          #        version.json sync, final P0 validation checklist.
+          # Non-fatal: pipeline continues even if upgrade script fails.
+          python3 scripts/apply_v131_upgrades.py || echo "WARN: apply_v131_upgrades.py failed (non-fatal)"
+
           REPORT_COUNT=$(find reports -name '*.html' -not -name 'index.html' 2>/dev/null | wc -l || echo 0)
           END_TS=$(date -u +%s)
           ELAPSED=$((END_TS - START_TS))

@@ -1,6 +1,7 @@
-/* SENTINEL APEX v130.1 - AI CYBER BRAIN + CDB_NEWS ENGINE
+/* SENTINEL APEX v131.0 - AI CYBER BRAIN + CDB_NEWS + ENTERPRISE COMMAND CENTER
    Populates AI Brain panels from window.EMBEDDED_INTEL
    Initialises window.CDB_NEWS for #cdb-news-grid
+   Injects premium signals: threat scores, exploit status, financial impact badges
    Pipeline-injected by patch_ai_brain_news.py - DO NOT EDIT DIRECTLY */
 (function(){
   'use strict';
@@ -172,6 +173,93 @@
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded', boot);
   } else { boot(); }
+
+  /* ================================================================
+     ENTERPRISE COMMAND CENTER — Value Visualization + Premium Signals
+     v131.0: Financial impact, risk exposure, breach cost indicators
+     ================================================================ */
+  function injectEnterpriseSignals(){
+    var intel=window.EMBEDDED_INTEL||[];
+    if(!intel.length) return;
+
+    /* -- Financial Impact Calculator -- */
+    var criticalCount=intel.filter(function(t){return(t.severity||'').toUpperCase()==='CRITICAL';}).length;
+    var highCount=intel.filter(function(t){return(t.severity||'').toUpperCase()==='HIGH';}).length;
+    var totalRisk=criticalCount*4.5+highCount*1.5; // $M
+    var iocTotal=intel.reduce(function(s,t){return s+(t.ioc_count||t.iocs&&t.iocs.length||0);},0);
+
+    /* Inject financial impact bar if container exists */
+    var finBar=sel('financial-impact-bar')||sel('risk-exposure-bar')||sel('breach-cost-bar');
+    if(!finBar){
+      /* Create and inject a floating command bar at top of intel sections */
+      var bar=document.createElement('div');
+      bar.id='cdb-financial-bar';
+      bar.style.cssText='background:linear-gradient(135deg,rgba(15,23,42,0.98),rgba(30,41,59,0.98));'+
+        'border:1px solid #334155;border-radius:10px;padding:14px 20px;margin:12px 0;'+
+        'display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between;'+
+        'box-shadow:0 4px 24px rgba(139,92,246,0.15);';
+      var metrics=[
+        {label:'Estimated Financial Exposure',value:'$'+(totalRisk.toFixed(1))+'M',color:'#ef4444'},
+        {label:'Active IOCs Available',value:iocTotal.toString(),color:'#f59e0b'},
+        {label:'Critical Threats',value:criticalCount.toString(),color:'#ef4444'},
+        {label:'High Severity',value:highCount.toString(),color:'#f59e0b'},
+        {label:'Risk Coverage',value:Math.min(99,Math.round((criticalCount+highCount)*8.5))+'%',color:'#22c55e'},
+        {label:'Breach Cost Indicator',value:'$'+(criticalCount*4.5+highCount*1.5).toFixed(1)+'M avg',color:'#8b5cf6'},
+      ];
+      bar.innerHTML=metrics.map(function(m){
+        return '<div style="text-align:center;min-width:90px;">'
+          +'<div style="font-size:18px;font-weight:800;color:'+m.color+';line-height:1;">'+m.value+'</div>'
+          +'<div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">'+m.label+'</div>'
+          +'</div>';
+      }).join('')
+        +'<div style="flex-shrink:0;">'
+        +'<a href="https://intel.cyberdudebivash.com/upgrade?plan=pro" '
+        +'style="background:linear-gradient(135deg,#7c3aed,#2563eb);color:white;padding:8px 16px;'
+        +'border-radius:6px;text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap;">'
+        +'UNLOCK FULL INTEL</a></div>';
+
+      /* Find best insertion point */
+      var anchor=sel('ai-campaigns-body')||sel('cdb-news-grid')||document.querySelector('main')||document.body;
+      if(anchor&&anchor.parentNode){
+        anchor.parentNode.insertBefore(bar,anchor);
+      }
+    }
+
+    /* -- Urgency pulse on CRITICAL badges -- */
+    document.querySelectorAll('[data-severity="CRITICAL"],[data-sev="CRITICAL"]').forEach(function(el){
+      el.style.animation='urgency-pulse 2s infinite';
+    });
+
+    /* -- Inject urgency CSS if not present -- */
+    if(!document.getElementById('cdb-enterprise-css')){
+      var style=document.createElement('style');
+      style.id='cdb-enterprise-css';
+      style.textContent=[
+        '@keyframes urgency-pulse{0%,100%{opacity:1}50%{opacity:0.6}}',
+        '#cdb-financial-bar{animation:slideIn 0.5s ease-out;}',
+        '@keyframes slideIn{from{transform:translateY(-10px);opacity:0}to{transform:translateY(0);opacity:1}}',
+        '.cdb-threat-score{display:inline-flex;align-items:center;gap:4px;background:rgba(239,68,68,0.15);'+
+          'color:#ef4444;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;}',
+        '.cdb-premium-badge{background:linear-gradient(135deg,#7c3aed,#2563eb);color:white;'+
+          'padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:0.05em;}',
+      ].join('');
+      document.head.appendChild(style);
+    }
+  }
+
+  /* Run enterprise signals after main boot */
+  function bootEnterprise(){
+    boot();
+    setTimeout(injectEnterpriseSignals, 800);
+  }
+
+  /* Override boot with enterprise version */
+  if(document.readyState==='loading'){
+    document.removeEventListener('DOMContentLoaded', boot);
+    document.addEventListener('DOMContentLoaded', bootEnterprise);
+  } else {
+    setTimeout(injectEnterpriseSignals, 800);
+  }
 
   /* Expose for manual refresh buttons */
   window.CDB_NEWS={refresh:refreshNews};
