@@ -265,8 +265,8 @@ def sanitize_yaml(data: bytes) -> bytes:
         data = data[3:]
     # 2. Apply mojibake byte substitutions (before decoding)
     data = apply_mojibake_bytes(data)
-    # 3. Strip null bytes
-    data = data.replace(b"\x00", b"")
+    # 3. Replace null bytes with newlines (stripping merges adjacent lines)
+    data = data.replace(b"\x00", b"\n")
     # 4. Normalize CRLF -> LF
     data = data.replace(b"\r\n", b"\n")
     data = data.replace(b"\r", b"\n")
@@ -281,10 +281,15 @@ def sanitize_yaml(data: bytes) -> bytes:
 
 
 def sanitize_safe(data: bytes) -> bytes:
-    """Minimal sanitize for Python/JSON/etc: BOM + CRLF + nulls only."""
+    """Minimal sanitize for Python/JSON/etc: BOM + CRLF + nulls only.
+    NOTE: null bytes are replaced with newlines (not stripped).
+    Stripping null bytes can merge adjacent lines into invalid syntax
+    (e.g. '_ioc_confidence = None\x00import time' -> '_ioc_confidence = Noneimport time').
+    Replacing with newline preserves statement boundaries safely.
+    """
     if data.startswith(BOM):
         data = data[3:]
-    data = data.replace(b"\x00", b"")
+    data = data.replace(b"\x00", b"\n")   # null byte -> newline (preserves line boundaries)
     data = data.replace(b"\r\n", b"\n")
     data = data.replace(b"\r", b"\n")
     return data

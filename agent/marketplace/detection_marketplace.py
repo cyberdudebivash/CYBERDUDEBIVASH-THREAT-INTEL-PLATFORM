@@ -303,7 +303,7 @@ class DetectionMarketplace:
             "rating":       pack.get("rating", 0.0),
             "reviews":      pack.get("reviews", 0),
             "available":    True,
-            "gumroad_url":  f"https://tools.cyberdudebivash.com/'pack_id']}",
+            "gumroad_url":  f"https://tools.cyberdudebivash.com/{pack['pack_id']}",
         } for pack in self.BUILT_IN_PACKS]
 
         self.save_catalog(catalog)
