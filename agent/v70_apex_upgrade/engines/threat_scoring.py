@@ -195,29 +195,50 @@ class ThreatScoringEngine:
             return 0.3
 
     def score_batch(self, advisories: List[Advisory]) -> List[Advisory]:
-        """Score all advisories in batch. Updates each advisory in-place."""
+        """Score all advisories in batch. Updates each advisory in-place.
+        P0 FIX (run #793): Per-advisory isolation — a single malformed advisory
+        (boolean date, None CVE list, etc.) cannot abort the entire scoring batch.
+        """
+        errors = 0
         for adv in advisories:
-            adv.threat_score = self.score_advisory(adv)
-            # Derive severity from score
-            if adv.threat_score >= 80:
+            try:
+                adv.threat_score = self.score_advisory(adv)
+            except Exception as e:
+                errors += 1
+                adv.threat_score = 10.0  # floor score — advisory survives
+                if errors <= 5:
+                    logger.warning(
+                        f"[P0-GUARD] Threat scoring failed for advisory "
+                        f"'{getattr(adv, 'advisory_id', '?')}': {e}"
+                    )
+
+            # Derive severity from score (safe regardless of how score was set)
+            score = getattr(adv, 'threat_score', 0.0) or 0.0
+            if score >= 80:
                 adv.severity = Severity.CRITICAL
                 adv.risk_level = "CRITICAL"
-            elif adv.threat_score >= 60:
+            elif score >= 60:
                 adv.severity = Severity.HIGH
                 adv.risk_level = "HIGH"
-            elif adv.threat_score >= 35:
+            elif score >= 35:
                 adv.severity = Severity.MEDIUM
                 adv.risk_level = "MEDIUM"
-            elif adv.threat_score >= 15:
+            elif score >= 15:
                 adv.severity = Severity.LOW
                 adv.risk_level = "LOW"
             else:
                 adv.severity = Severity.INFO
                 adv.risk_level = "INFO"
 
+        if errors:
+            logger.warning(
+                f"[P0-GUARD] Threat scoring batch completed with {errors} advisory-level "
+                f"errors (floor score applied). Pipeline continues."
+            )
         logger.info(
             f"Scoring complete: {self._stats['scored']} advisories scored, "
-            f"{self._stats['enriched_from_cve']} CVE enrichments applied"
+            f"{self._stats['enriched_from_cve']} CVE enrichments applied, "
+            f"{errors} errors (floor-scored)"
         )
         return advisories
 
@@ -283,9 +304,14 @@ class ConfidenceEngine:
         signals["cross_reference"] = min((related + corr_keys) / 10.0, 1.0)
 
         # 5. Temporal validity - recent data is more trustworthy
+        # P0 FIX (run #793): advisory.published_date may be boolean True/False
+        # (from JSON "published": true field mapping) or int/None.
+        # MUST guard with isinstance(str) before calling .replace() to prevent
+        # AttributeError: 'bool' object has no attribute 'replace'
         try:
-            if advisory.published_date:
-                dt = datetime.fromisoformat(advisory.published_date.replace("Z", "+00:00"))
+            pub_date = advisory.published_date
+            if pub_date and isinstance(pub_date, str):
+                dt = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
                 days_old = (datetime.now(timezone.utc) - dt).days
                 if days_old <= 1:
                     signals["temporal_validity"] = 1.0
@@ -298,8 +324,9 @@ class ConfidenceEngine:
                 else:
                     signals["temporal_validity"] = 0.3
             else:
+                # boolean True/False, int, None, or empty string → neutral score
                 signals["temporal_validity"] = 0.3
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, AttributeError):
             signals["temporal_validity"] = 0.3
 
         # 6. Data completeness - how much of the advisory is filled in
@@ -330,11 +357,35 @@ class ConfidenceEngine:
         return min(confidence, 100.0)
 
     def score_batch(self, advisories: List[Advisory]) -> List[Advisory]:
-        """Compute confidence for all advisories in batch."""
+        """Compute confidence for all advisories in batch.
+        P0 FIX (run #793): Per-advisory try/except isolation so a single
+        malformed advisory (boolean dates, None fields, etc.) cannot abort
+        the entire batch. Failures are logged and advisory gets floor score.
+        """
+        from ..core.models import ConfidenceLevel
+        errors = 0
         for adv in advisories:
-            adv.confidence = self.compute_confidence(adv)
-            from ..core.models import ConfidenceLevel
-            adv.confidence_level = ConfidenceLevel.from_score(adv.confidence)
+            try:
+                adv.confidence = self.compute_confidence(adv)
+                adv.confidence_level = ConfidenceLevel.from_score(adv.confidence)
+            except Exception as e:
+                errors += 1
+                adv.confidence = 5.0  # floor — advisory is not discarded
+                try:
+                    adv.confidence_level = ConfidenceLevel.from_score(5.0)
+                except Exception:
+                    pass
+                if errors <= 5:  # log first 5 to avoid log spam
+                    logger.warning(
+                        f"[P0-GUARD] Confidence scoring failed for advisory "
+                        f"'{getattr(adv, 'advisory_id', '?')}' "
+                        f"(published_date={getattr(adv, 'published_date', '?')!r}): {e}"
+                    )
 
-        logger.info(f"Confidence scoring complete: {len(advisories)} advisories")
+        if errors:
+            logger.warning(
+                f"[P0-GUARD] Confidence batch completed with {errors} advisory-level "
+                f"errors (floor score applied). Pipeline continues."
+            )
+        logger.info(f"Confidence scoring complete: {len(advisories)} advisories ({errors} errors)")
         return advisories
