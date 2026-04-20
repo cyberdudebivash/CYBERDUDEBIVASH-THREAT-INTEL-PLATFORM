@@ -1,4 +1,4 @@
-﻿name: CDB Sentinel APEX â€” Precognition Engine v34.0
+﻿name: CDB Sentinel APEX -- Precognition Engine v131.0
 
 on:
   schedule:
@@ -46,10 +46,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install requests feedparser
+          pip install requests feedparser --quiet
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Run Precognition Engine
+        continue-on-error: true
         env:
           CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
           MANIFEST_PATH: data/stix/feed_manifest.json
@@ -79,4 +80,5 @@ jobs:
             git pull --rebase origin main || true
             git push origin main
           fi
+
 

@@ -1,17 +1,17 @@
-name              = "sentinel-apex-gateway"
+﻿name              = "sentinel-apex-gateway"
 main              = "src/index.js"
 compatibility_date = "2024-01-01"
 
-# v123.0.0: Cron trigger for scheduled webhook push + cache refresh
-# Fires every 15 minutes — matches typical CTI pipeline run cadence
+# v131.0.0: Cron trigger for scheduled webhook push + cache refresh
+# Fires every 15 minutes â€” matches typical CTI pipeline run cadence
 [triggers]
 crons = ["*/15 * * * *"]
 
 [vars]
-GATEWAY_VERSION = "123.0.0"
+GATEWAY_VERSION = "131.0.0"
 
-# ── KV Namespaces ──────────────────────────────────────────────────────────────
-# Deployed KV IDs — verified live on intel.cyberdudebivash.com (v121.0.0)
+# â”€â”€ KV Namespaces â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Deployed KV IDs â€” verified live on intel.cyberdudebivash.com (v121.0.0)
 # To add new namespace: npx wrangler kv namespace create "<NAME>"
 
 [[kv_namespaces]]
@@ -27,7 +27,7 @@ binding = "ANALYTICS_KV"
 id      = "baa66e510f7247d4b268af943bfb7213"
 
 [[kv_namespaces]]
-# v121.0.0: SECURITY_HUB_KV — used for:
+# v121.0.0: SECURITY_HUB_KV â€” used for:
 #   1. JWT revocation blocklist  (jwt_revoked:<hash> keys)
 #   2. Structured error tracking (error:<component>:<date> keys, 7-day TTL)
 #   3. SIEM webhook registrations (webhook:<key_id> keys)
@@ -35,33 +35,33 @@ id      = "baa66e510f7247d4b268af943bfb7213"
 binding = "SECURITY_HUB_KV"
 id      = "95faae90943f43afa26d552b8385d339"
 
-# ── R2 Bucket ─────────────────────────────────────────────────────────────────
-# Primary intel storage — private, never public
+# â”€â”€ R2 Bucket â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Primary intel storage â€” private, never public
 # Create: npx wrangler r2 bucket create sentinel-apex-data
 
 [[r2_buckets]]
 binding     = "INTEL_R2"
 bucket_name = "sentinel-apex-data"
 
-# ── Secrets (set via wrangler CLI — NEVER commit to source control) ───────────
-# npx wrangler secret put ADMIN_SECRET             → cache bust + admin key management
-# npx wrangler secret put GITHUB_TOKEN             → emergency GitHub fallback reads
-# npx wrangler secret put CDB_JWT_SECRET           → JWT HS256 signing key (REQUIRED for auth)
+# â”€â”€ Secrets (set via wrangler CLI â€” NEVER commit to source control) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# npx wrangler secret put ADMIN_SECRET             â†’ cache bust + admin key management
+# npx wrangler secret put GITHUB_TOKEN             â†’ emergency GitHub fallback reads
+# npx wrangler secret put CDB_JWT_SECRET           â†’ JWT HS256 signing key (REQUIRED for auth)
 #                                                    Minimum 32 random characters. Generate:
 #                                                    openssl rand -hex 32
-# npx wrangler secret put STRIPE_WEBHOOK_SECRET    → Stripe webhook endpoint secret
-#                                                    Get from: Stripe Dashboard → Webhooks → Signing secret
-# npx wrangler secret put RAZORPAY_WEBHOOK_SECRET  → Razorpay webhook secret
-#                                                    Get from: Razorpay Dashboard → Webhooks
-# npx wrangler secret put STRIPE_PRO_PRICE_ID      → Stripe Price ID for PRO plan ($29/mo)
-# npx wrangler secret put STRIPE_ENT_PRICE_ID      → Stripe Price ID for ENTERPRISE plan ($199/mo)
-# Verify configured: GET /api/health → checks.jwt_configured: true
+# npx wrangler secret put STRIPE_WEBHOOK_SECRET    â†’ Stripe webhook endpoint secret
+#                                                    Get from: Stripe Dashboard â†’ Webhooks â†’ Signing secret
+# npx wrangler secret put RAZORPAY_WEBHOOK_SECRET  â†’ Razorpay webhook secret
+#                                                    Get from: Razorpay Dashboard â†’ Webhooks
+# npx wrangler secret put STRIPE_PRO_PRICE_ID      â†’ Stripe Price ID for PRO plan ($29/mo)
+# npx wrangler secret put STRIPE_ENT_PRICE_ID      â†’ Stripe Price ID for ENTERPRISE plan ($199/mo)
+# Verify configured: GET /api/health â†’ checks.jwt_configured: true
 
-# ── Production environment ────────────────────────────────────────────────────
+# â”€â”€ Production environment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 [env.production]
 name = "sentinel-apex-gateway"
 [env.production.vars]
-GATEWAY_VERSION = "123.0.0"
+GATEWAY_VERSION = "131.0.0"
 
 [[env.production.kv_namespaces]]
 binding = "API_KEYS_KV"
@@ -82,3 +82,4 @@ id      = "95faae90943f43afa26d552b8385d339"
 [[env.production.r2_buckets]]
 binding     = "INTEL_R2"
 bucket_name = "sentinel-apex-data"
+
