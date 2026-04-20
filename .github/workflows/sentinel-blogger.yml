@@ -795,6 +795,13 @@ jobs:
             echo "WARN: update_embedded_intel.py failed (non-fatal — Worker API is authoritative)"
           fi
 
+          # ── v130.1: AI Brain panels + CDB_NEWS engine injection (idempotent) ──
+          # patch_ai_brain_news.py reads scripts/ai_brain_patch.js and injects
+          # the self-contained JS block before </body> in index.html every run.
+          # Idempotent: strips and re-injects on each pipeline execution so the
+          # fix survives the v70 orchestrator re-generating HTML sections.
+          python3 scripts/patch_ai_brain_news.py || echo "WARN: patch_ai_brain_news.py failed (non-fatal)"
+
           # ── Version-sync: keep dashboard title aligned with pipeline version ──
           # Replaces any SENTINEL APEX vX.Y.Z in index.html with the current
           # PIPELINE_VERSION so dashboard, API, and workflow always show the same
