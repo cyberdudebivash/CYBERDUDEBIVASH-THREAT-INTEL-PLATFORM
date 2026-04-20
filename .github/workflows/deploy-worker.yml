@@ -1,23 +1,23 @@
 # =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v131.0.0 — Worker Auto-Deploy
+# CYBERDUDEBIVASH(R) SENTINEL APEX v131.0.0  -  Worker Auto-Deploy
 # =============================================================================
 # Deploys the Cloudflare Worker whenever src/** or wrangler.toml changes.
 # Secrets required: CF_API_TOKEN, CF_ACCOUNT_ID
 # Runtime secret (set once via wrangler CLI): CDB_JWT_SECRET
 #
 # JWT SECRET POLICY:
-#   • CDB_JWT_SECRET is a Cloudflare Worker runtime secret (not a GH Actions secret)
-#   • Set it ONCE via: npx wrangler secret put CDB_JWT_SECRET
-#   • Generate value: openssl rand -hex 32
-#   • This workflow validates it is configured AFTER deployment
-#   • NEVER hardcode or fallback-generate the secret — it must be explicit
+#   * CDB_JWT_SECRET is a Cloudflare Worker runtime secret (not a GH Actions secret)
+#   * Set it ONCE via: npx wrangler secret put CDB_JWT_SECRET
+#   * Generate value: openssl rand -hex 32
+#   * This workflow validates it is configured AFTER deployment
+#   * NEVER hardcode or fallback-generate the secret  -  it must be explicit
 #
 # STABILITY GUARANTEES (v131.0.0):
-#   • JS syntax validated BEFORE any deploy attempt (node --check)
-#   • Wrangler v3 (proven stable — v4 has breaking TOML/env changes)
-#   • Deploy retried once on transient failure
-#   • Health check is informational-only (never blocks deploy success)
-#   • Version header verified post-deploy
+#   * JS syntax validated BEFORE any deploy attempt (node --check)
+#   * Wrangler v3 (proven stable  -  v4 has breaking TOML/env changes)
+#   * Deploy retried once on transient failure
+#   * Health check is informational-only (never blocks deploy success)
+#   * Version header verified post-deploy
 # =============================================================================
 
 name: deploy-worker
@@ -50,32 +50,32 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: "📦 Checkout repository"
+      - name: " Checkout repository"
         uses: actions/checkout@v4
 
-      - name: "⚙️ Setup Node.js 22"
+      - name: " Setup Node.js 22"
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: "🧹 Sanitize encoding (strip BOM + normalize CRLF)"
+      - name: " Sanitize encoding (strip BOM + normalize CRLF)"
         run: |
           # Auto-fix UTF-8 BOM and CRLF on every run.
           # Prevents json.JSONDecodeError, YAML parse failures, and TOML rejection.
           python3 scripts/sanitize_encoding.py --fix
           echo "Encoding sanitization: OK"
 
-      - name: "🔧 Install Wrangler (stable)"
+      - name: " Install Wrangler (stable)"
         run: |
-          # Use wrangler@3 — proven stable for this platform (run #20 confirmed install OK).
+          # Use wrangler@3  -  proven stable for this platform (run #20 confirmed install OK).
           # wrangler@4 introduced breaking changes in TOML parsing and --env flag handling.
           npm install -g wrangler@3
           wrangler --version
           echo "Wrangler installation: OK"
 
-      - name: "🔍 Pre-flight: Validate Worker source"
+      - name: " Pre-flight: Validate Worker source"
         run: |
-          echo "=== SENTINEL APEX v${PLATFORM_VERSION} — WORKER PRE-FLIGHT ==="
+          echo "=== SENTINEL APEX v${PLATFORM_VERSION}  -  WORKER PRE-FLIGHT ==="
           echo ""
           echo "--- Source files ---"
           ls -la ${WORKER_DIR}/src/
@@ -111,7 +111,7 @@ jobs:
 
           echo "--- JavaScript syntax validation ---"
           node --check ${WORKER_DIR}/src/index.js && echo "OK: index.js syntax valid" || {
-            echo "FATAL: index.js has syntax errors — aborting deploy"
+            echo "FATAL: index.js has syntax errors  -  aborting deploy"
             exit 1
           }
 
@@ -138,7 +138,7 @@ jobs:
 
           echo "=== PRE-FLIGHT PASSED ==="
 
-      - name: "🚀 Deploy Worker to Cloudflare (with retry)"
+      - name: " Deploy Worker to Cloudflare (with retry)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
@@ -153,7 +153,7 @@ jobs:
             exit 0
           fi
 
-          echo "Production env deploy failed — retrying without env flag..."
+          echo "Production env deploy failed  -  retrying without env flag..."
           sleep 5
 
           # Attempt 2: deploy without env (fallback)
@@ -165,7 +165,7 @@ jobs:
           echo "FATAL: Both deploy attempts failed"
           exit 1
 
-      - name: "✅ Post-deploy validation (informational)"
+      - name: "[OK] Post-deploy validation (informational)"
         continue-on-error: true
         run: |
           echo "=== Post-deploy health check ==="
@@ -180,7 +180,7 @@ jobs:
           try:
               d = json.loads('''${HEALTH}''')
           except Exception:
-              print('NOTE: Could not parse health response — worker may still be propagating')
+              print('NOTE: Could not parse health response  -  worker may still be propagating')
               sys.exit(0)
 
           gateway = d.get('gateway', 'unknown')
@@ -204,10 +204,10 @@ jobs:
           else:
               print('NOTE: jwt_configured status unknown (health endpoint may be outdated)')
 
-          # This step is informational — never fail the workflow based on health check
+          # This step is informational  -  never fail the workflow based on health check
           print('')
           print('Post-deploy validation complete (informational)')
-          " 2>&1 || echo "Health check skipped — worker still propagating"
+          " 2>&1 || echo "Health check skipped  -  worker still propagating"
 
           # Verify version header
           VERSION_HEADER=$(curl -sI --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null | grep -i "x-sentinel-version" || echo "header-not-yet-visible")

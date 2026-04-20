@@ -1,4 +1,4 @@
-name: CDB Sentinel APEX — Convergence v37.0
+name: CDB Sentinel APEX  -  Convergence v37.0
 
 on:
   schedule:
@@ -45,7 +45,7 @@ jobs:
           git add -f data/convergence/ 2>/dev/null || true
           git diff --cached --quiet && echo "No changes" || {
             RULES=$(python3 -c "import json; d=json.load(open('data/convergence/convergence_report.json')); print(d['integration_stats']['detection_rules'])" 2>/dev/null || echo "0")
-            git commit -m "🔗 CONVERGENCE v37.0 — ZDH Integration | ${RULES} detection rules"
+            git commit -m " CONVERGENCE v37.0  -  ZDH Integration | ${RULES} detection rules"
             git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
             rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
             for i in 1 2 3 4; do

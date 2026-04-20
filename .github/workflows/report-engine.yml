@@ -1,8 +1,8 @@
-# CYBERDUDEBIVASH SENTINEL APEX — Premium Report Engine
+# CYBERDUDEBIVASH SENTINEL APEX  -  Premium Report Engine
 # Auto-generates weekly executive threat intelligence reports
 # Runs every Monday at 06:00 UTC + manual dispatch
 
-name: 📊 Premium Report Engine — Weekly Briefing
+name:  Premium Report Engine  -  Weekly Briefing
 
 on:
   schedule:
@@ -39,17 +39,17 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: 📥 Checkout Repository
+      - name:  Checkout Repository
         uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 1
 
-      - name: 🐍 Setup Python
+      - name:  Setup Python
         uses: actions/setup-python@v5.4.0
         with:
           python-version: '3.12'
 
-      - name: 📊 Generate Report
+      - name:  Generate Report
         env:
           CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
           PYTHONPATH: ${{ github.workspace }}
@@ -58,7 +58,7 @@ jobs:
             --type ${{ github.event.inputs.report_type || 'weekly' }} \
             --days ${{ github.event.inputs.days || '7' }}
 
-      - name: 💾 Commit Report
+      - name:  Commit Report
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -69,7 +69,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No reports to commit"
           else
-            git commit -m "📊 Weekly intelligence report — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git commit -m " Weekly intelligence report  -  $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             git pull --rebase origin main || true
             git push origin main
           fi

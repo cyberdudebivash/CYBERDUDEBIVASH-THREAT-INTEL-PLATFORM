@@ -1,9 +1,9 @@
 #!/bin/bash
-# SENTINEL APEX v28.0 FORTRESS — Deployment Script
+# SENTINEL APEX v28.0 FORTRESS  -  Deployment Script
 # =================================================
 # Run this in your repository root
 
-echo "🛡️ SENTINEL APEX v28.0 FORTRESS — Applying Updates"
+echo " SENTINEL APEX v28.0 FORTRESS  -  Applying Updates"
 echo "=================================================="
 
 # Backup current files
@@ -37,7 +37,7 @@ git rm --cached data/audit_log.json data/telemetry_log.json data/revenue_log.jso
 git rm --cached data/blogger_processed.json data/sync_marker.json 2>/dev/null || true
 
 echo ""
-echo "✅ v28.0 FORTRESS applied!"
+echo "[OK] v28.0 FORTRESS applied!"
 echo ""
 echo "Next steps:"
 echo "  git add -A"

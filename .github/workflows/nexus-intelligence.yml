@@ -67,11 +67,11 @@ jobs:
               chains = len(data.get('attack_chains', []))
               rules = data.get('detection_pack', {}).get('stats', {}).get('total_rules', 0)
               exposure = data.get('exposure', {}).get('overall_score', 0)
-              print(f'✅ NEXUS Validation Passed')
+              print(f'[OK] NEXUS Validation Passed')
               print(f'   Hunts: {hunts} | Campaigns: {campaigns} | Chains: {chains}')
               print(f'   Rules: {rules} | Exposure: {exposure}/10')
           except Exception as e:
-              print(f'⚠️ NEXUS output validation: {e}')
+              print(f' NEXUS output validation: {e}')
               sys.exit(0)  # Non-blocking
           "
 
@@ -83,6 +83,6 @@ jobs:
           git config user.email "nexus@cyberdudebivash.com"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
           git add data/nexus/ -f
-          git diff --cached --quiet || git commit -m "🧠 NEXUS v39.0: Intelligence cycle $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git diff --cached --quiet || git commit -m " NEXUS v39.0: Intelligence cycle $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git pull --rebase origin main || true
-          git push origin main || echo "Push failed — will retry next cycle"
+          git push origin main || echo "Push failed  -  will retry next cycle"

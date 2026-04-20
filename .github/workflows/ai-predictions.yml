@@ -94,7 +94,7 @@ jobs:
               with open(output_path, "w") as f:
                   json.dump(output, f, indent=2)
 
-              print(f"\n✅ AI Predictions Complete:")
+              print(f"\n[OK] AI Predictions Complete:")
               print(f"   Entries scored: {output['entries_scored']}")
               print(f"   Critical threats: {summary['critical_threat_count']}")
               print(f"   Avg exploit prob: {summary['avg_exploit_probability']}%")
@@ -121,7 +121,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No AI prediction changes."
           else
-            git commit -m "🤖 AI Predictions: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+            git commit -m " AI Predictions: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
             git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
             for i in 1 2 3 4; do
               git fetch origin main --quiet
