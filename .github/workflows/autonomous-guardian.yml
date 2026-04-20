@@ -1,19 +1,19 @@
-# =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v116.2.0 — AUTONOMOUS GUARDIAN AGENT
-# Version: v116.2.0 — unified platform version
-# NOTE: sync-dashboard.yml DISABLED in v116.2.0 — removed from workflow_run list.
+﻿# =============================================================================
+# CYBERDUDEBIVASHÂ® SENTINEL APEX v131.0.0 â€” AUTONOMOUS GUARDIAN AGENT
+# Version: v116.2.0 â€” unified platform version
+# NOTE: sync-dashboard.yml DISABLED in v116.2.0 â€” removed from workflow_run list.
 #       Guardian still triggers on sentinel-blogger completion + hourly schedule.
 # =============================================================================
 name: Autonomous Guardian Agent v101.0
 
 on:
   workflow_run:
-    # v116.2.0: sync-dashboard removed — it is DISABLED (merged into sentinel-blogger).
+    # v116.2.0: sync-dashboard removed â€” it is DISABLED (merged into sentinel-blogger).
     # Only sentinel-blogger triggers guardian post-run checks.
     workflows: ["sentinel-blogger"]
     types: [completed]
   schedule:
-    - cron: '30 * * * *'   # Hourly at :30 — catches ALL workflow failures
+    - cron: '30 * * * *'   # Hourly at :30 â€” catches ALL workflow failures
   workflow_dispatch:
     inputs:
       lookback_hours:
@@ -82,7 +82,7 @@ jobs:
           rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
           git add -f data/health/ 2>/dev/null || true
-          # STRICT: do NOT stage feed_manifest.json — sentinel-blogger owns it
+          # STRICT: do NOT stage feed_manifest.json â€” sentinel-blogger owns it
           git restore --staged data/stix/feed_manifest.json 2>/dev/null || true
 
           if git diff --staged --quiet; then
@@ -106,3 +106,4 @@ jobs:
           [ -f data/health/guardian_report.json ] && \
             python3 -c "import json; d=json.load(open('data/health/guardian_report.json')); print(f'Guardian: {d.get(\"status\",\"N/A\")} | Failures: {d.get(\"failures_detected\",0)} | Fixes: {d.get(\"fixes_applied\",0)}')" || \
             echo "No guardian report."
+

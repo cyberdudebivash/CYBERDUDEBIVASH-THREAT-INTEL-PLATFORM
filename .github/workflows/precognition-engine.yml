@@ -1,4 +1,4 @@
-name: CDB Sentinel APEX — Precognition Engine v34.0
+﻿name: CDB Sentinel APEX â€” Precognition Engine v34.0
 
 on:
   schedule:
@@ -56,10 +56,10 @@ jobs:
           PREDICTIVE_DIR: data/predictive
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          echo "═══════════════════════════════════════════════════"
-          echo "SENTINEL APEX v34.0 — PRECOGNITION ENGINE"
+          echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
+          echo "SENTINEL APEX v131.0 â€” PRECOGNITION ENGINE"
           echo "Predictive Threat Intelligence Pipeline"
-          echo "═══════════════════════════════════════════════════"
+          echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
           python -m agent.v34_predictive.predictive_orchestrator
 
       - name: Commit predictive outputs
@@ -75,7 +75,8 @@ jobs:
           else
             WARNING_COUNT=$(python3 -c "import json; d=json.load(open('data/predictive/precognition_report.json')); print(d.get('pipeline_stats',{}).get('early_warnings_issued',0))" 2>/dev/null || echo "0")
             WAVE_COUNT=$(python3 -c "import json; d=json.load(open('data/predictive/precognition_report.json')); print(d.get('pipeline_stats',{}).get('attack_waves_detected',0))" 2>/dev/null || echo "0")
-            git commit -m "🔮 PRECOGNITION v34.0 — ${WARNING_COUNT} warnings | ${WAVE_COUNT} attack waves detected"
+            git commit -m "ðŸ”® PRECOGNITION v34.0 â€” ${WARNING_COUNT} warnings | ${WAVE_COUNT} attack waves detected"
             git pull --rebase origin main || true
             git push origin main
           fi
+

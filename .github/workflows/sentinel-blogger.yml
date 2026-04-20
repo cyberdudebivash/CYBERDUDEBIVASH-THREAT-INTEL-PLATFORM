@@ -1,81 +1,81 @@
-# =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v116.0 — SOVEREIGN INTELLIGENCE PIPELINE
+﻿# =============================================================================
+# CYBERDUDEBIVASHÂ® SENTINEL APEX v131.0 â€” SOVEREIGN INTELLIGENCE PIPELINE
 # Version    : v116.2.0 (R2-NATIVE / BLOGGER-FREE / P0-FIXED / MANIFEST-STABLE / FRESH-EMBEDDED)
-# Rebuilt    : 2026-04-18 — P0-ESCALATION Fix v116.0: Manifest destruction
+# Rebuilt    : 2026-04-18 â€” P0-ESCALATION Fix v116.0: Manifest destruction
 #              eliminated, R2 corruption guard, v70 stale-backup guard, STIX
 #              bundle persistence.
 #              v116.1 patch: Engine LIST-format manifest now correctly detected
 #              and normalised to DICT envelope before downstream steps run.
 # Author     : CYBERDUDEBIVASH Pvt. Ltd.
 # =============================================================================
-# ARCHITECTURE (v116.0 — canonical):
-#   Intel Engine → writes data/stix/feed_manifest.json (authoritative)
-#       → Manifest Stabilisation (preserve if valid, --force-rebuild only fallback)
-#       → Freshness Gate (blocks if < 10 entries — GATES R2 upload)
-#       → Schema Validation (non-blocking)
-#       → R2 Upload (if: SUCCESS only — never uploads on gate failure)
-#       → Worker KV Cache Bust → Dashboard
+# ARCHITECTURE (v116.0 â€” canonical):
+#   Intel Engine â†’ writes data/stix/feed_manifest.json (authoritative)
+#       â†’ Manifest Stabilisation (preserve if valid, --force-rebuild only fallback)
+#       â†’ Freshness Gate (blocks if < 10 entries â€” GATES R2 upload)
+#       â†’ Schema Validation (non-blocking)
+#       â†’ R2 Upload (if: SUCCESS only â€” never uploads on gate failure)
+#       â†’ Worker KV Cache Bust â†’ Dashboard
 # =============================================================================
-# P0 FIXES (v111.0 — 2026-04-16):
-#   ✅ Blogger import and publish queue REMOVED from sentinel_blogger.py
-#   ✅ publish_queue.json cleared (queue bomb neutralised)
-#   ✅ bootstrap skip-if->=50 logic REMOVED — always merges new STIX entries
-#   ✅ _load_manifest "entries" key bug FIXED to "advisories"
-#   ✅ Pipeline FAILS if no new intel generated (failure guard added)
-#   ✅ R2 upload is MANDATORY step (no continue-on-error)
-#   ✅ Worker KV cache bust always executed
-#   ✅ EMBEDDED_INTEL purged from dashboard
+# P0 FIXES (v131.0 â€” 2026-04-16):
+#   âœ… Blogger import and publish queue REMOVED from sentinel_blogger.py
+#   âœ… publish_queue.json cleared (queue bomb neutralised)
+#   âœ… bootstrap skip-if->=50 logic REMOVED â€” always merges new STIX entries
+#   âœ… _load_manifest "entries" key bug FIXED to "advisories"
+#   âœ… Pipeline FAILS if no new intel generated (failure guard added)
+#   âœ… R2 upload is MANDATORY step (no continue-on-error)
+#   âœ… Worker KV cache bust always executed
+#   âœ… EMBEDDED_INTEL purged from dashboard
 # =============================================================================
-# P0-ESCALATION FIXES (v116.0 — 2026-04-18 — root cause: run #744 failure):
-#   ✅ FIX-1: --force-rebuild REPLACED with smart conditional (Manifest
+# P0-ESCALATION FIXES (v116.0 â€” 2026-04-18 â€” root cause: run #744 failure):
+#   âœ… FIX-1: --force-rebuild REPLACED with smart conditional (Manifest
 #             Stabilisation). Engine manifest preserved when >= 50 entries.
 #             --force-rebuild is now FALLBACK ONLY (engine manifest absent/tiny).
 #             Root cause: unconditional --force-rebuild was re-parsing only
-#             current run's STIX bundles (52) → 9 entries, destroying the
+#             current run's STIX bundles (52) â†’ 9 entries, destroying the
 #             engine's authoritative 2222-entry manifest.
-#   ✅ FIX-2: R2 upload if:always() REMOVED. R2 upload now only runs when
+#   âœ… FIX-2: R2 upload if:always() REMOVED. R2 upload now only runs when
 #             Freshness Gate PASSED (default if:success() behaviour).
 #             Root cause: R2 was being overwritten with corrupt 9-entry
 #             manifest after every Freshness Gate failure.
-#   ✅ FIX-3: v70 orchestrator stale-backup guard added. v70 skipped if
+#   âœ… FIX-3: v70 orchestrator stale-backup guard added. v70 skipped if
 #             all available manifest inputs are older than 48h.
 #             Root cause: v70 fell back to manifest_20260326T055548.json
 #             (3 weeks old), polluting the pipeline with stale data.
-#   ✅ FIX-4: STIX bundles (data/stix/CDB-APEX-*.json) now committed to git,
-#             capped at 500 newest (≈1-2 MB). --force-rebuild fallback path
+#   âœ… FIX-4: STIX bundles (data/stix/CDB-APEX-*.json) now committed to git,
+#             capped at 500 newest (â‰ˆ1-2 MB). --force-rebuild fallback path
 #             now has cumulative bundle history across runs instead of only
 #             seeing the current run's bundles.
 # =============================================================================
-# v116.1 PATCH (2026-04-18 — root cause: run #745 failure):
-#   ✅ FIX-5: Manifest Stabilisation now handles JSON LIST format from engine.
+# v116.1 PATCH (2026-04-18 â€” root cause: run #745 failure):
+#   âœ… FIX-5: Manifest Stabilisation now handles JSON LIST format from engine.
 #             sentinel_blogger writes data/stix/feed_manifest.json as a raw
 #             JSON array [...] not {"advisories":[...]}.  Previous fix called
-#             d.get() on the list → AttributeError → engine_count=0 → fell
-#             back to --force-rebuild → 9 entries → Freshness Gate failed.
+#             d.get() on the list â†’ AttributeError â†’ engine_count=0 â†’ fell
+#             back to --force-rebuild â†’ 9 entries â†’ Freshness Gate failed.
 #             Fix: detect list vs dict, if list with >= 50 entries normalise
 #             to DICT envelope in-place, then run clean_feed_manifest.py.
-#   ✅ FIX-6: Freshness Gate hardened to handle LIST format as safety net.
+#   âœ… FIX-6: Freshness Gate hardened to handle LIST format as safety net.
 #             If list reaches gate, counts items correctly instead of crashing.
 # =============================================================================
-# v116.2 PATCH (2026-04-18 — root cause: run #748 dashboard staleness):
-#   ✅ FIX-7: Pre-v70 manifest sync added. data/feed_manifest.json was written
+# v116.2 PATCH (2026-04-18 â€” root cause: run #748 dashboard staleness):
+#   âœ… FIX-7: Pre-v70 manifest sync added. data/feed_manifest.json was written
 #             by v101.0.0 with 2463 items but MISSING 'schema_version' key.
-#             v70's validate_manifest() requires schema_version → rejected →
+#             v70's validate_manifest() requires schema_version â†’ rejected â†’
 #             fell back to manifest_20260326T055548.json (3-week-old stale
-#             backup, 497 items) → v70 processed stale data every run.
+#             backup, 497 items) â†’ v70 processed stale data every run.
 #             Fix: New "Pre-v70 Manifest Sync" step copies authoritative
-#             data/stix/feed_manifest.json → data/feed_manifest.json with
+#             data/stix/feed_manifest.json â†’ data/feed_manifest.json with
 #             schema_version="v70.0" added. v70 now loads fresh 2000+ items.
 #             Also deletes v70 backups older than 7 days (prevents future
 #             fallback to stale data across pipeline restarts).
-#   ✅ FIX-8: data/feed_manifest.json now committed to git in Git Sync step.
+#   âœ… FIX-8: data/feed_manifest.json now committed to git in Git Sync step.
 #             Ensures next run starts with a valid (schema_version-bearing)
 #             file so the pre-v70 sync has a correct baseline even if the
 #             authoritative stix manifest is temporarily unavailable.
-#   ✅ FIX-9: EMBEDDED_INTEL in index.html now refreshed on every run.
+#   âœ… FIX-9: EMBEDDED_INTEL in index.html now refreshed on every run.
 #             update_embedded_intel.py runs after HTML report generation.
 #             Previously EMBEDDED_INTEL was never updated after v111.0 purge
-#             — it retained April 16 data baked from a previous run. Dashboard
+#             â€” it retained April 16 data baked from a previous run. Dashboard
 #             now receives fresh intel baked in for instant rendering, and
 #             the LIVE 7D counter reflects current intel from the pipeline run.
 # =============================================================================
@@ -108,7 +108,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   PIPELINE_VERSION: "119.0.0"
 
-# Only ONE data-writing workflow at a time — prevents manifest corruption
+# Only ONE data-writing workflow at a time â€” prevents manifest corruption
 concurrency:
   group: sentinel-data-writer
   cancel-in-progress: false
@@ -120,35 +120,35 @@ jobs:
 
     steps:
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 0: CHECKOUT & ENVIRONMENT SETUP
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🔧 Checkout repository"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ”§ Checkout repository"
         uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "🐍 Setup Python 3.12"
+      - name: "ðŸ Setup Python 3.12"
         uses: actions/setup-python@v5.4.0
         with:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: "📦 Install pipeline dependencies"
+      - name: "ðŸ“¦ Install pipeline dependencies"
         run: |
           python -m pip install --upgrade pip --quiet
           # Core intelligence pipeline deps
           pip install --quiet requests feedparser beautifulsoup4 pydantic \
             python-dotenv psutil cryptography pyjwt
           # NOTE: google-api-python-client and google-auth-oauthlib are NOT
-          # installed — Blogger is permanently disabled in v111.0.
+          # installed â€” Blogger is permanently disabled in v111.0.
           # Any remaining import of blogger_auth will degrade gracefully.
           pip install --quiet reportlab fpdf2 || true
           [ -f requirements.txt ] && pip install --quiet -r requirements.txt || true
 
-      - name: "📁 Ensure required directories"
+      - name: "ðŸ“ Ensure required directories"
         run: |
           mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum \
                    data/sovereign data/playbooks/scripts data/premium_packs \
@@ -158,11 +158,11 @@ jobs:
                    data/intelligence/detection_rules secrets api \
                    data/ai_intelligence
 
-# ═══════════════════════════════════════════════════════════════════════════
-# STAGE 0.5: P0 SAFETY — CLEAR PUBLISH QUEUE BOMB
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# STAGE 0.5: P0 SAFETY â€” CLEAR PUBLISH QUEUE BOMB
 # Ensures the queue does not consume the runner timeout on retry.
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🧹 P0 Safety — Purge Blogger publish queue"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ§¹ P0 Safety â€” Purge Blogger publish queue"
         run: |
           python3 - << 'PYEOF'
           import json, os
@@ -186,21 +186,21 @@ jobs:
           print("[P0] publish_queue.json cleared.")
           PYEOF
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 1: SELF-HEALING BOOTSTRAP
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🛡️ Bootstrap — Ensure critical files exist"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ›¡ï¸ Bootstrap â€” Ensure critical files exist"
         run: |
           python3 scripts/bootstrap_critical_files.py
           echo "Bootstrap complete."
 
-      - name: "✅ Validate bootstrap output"
+      - name: "âœ… Validate bootstrap output"
         run: |
           python3 - << 'PYEOF'
           import json, sys, os
           manifest = "data/stix/feed_manifest.json"
           if not os.path.exists(manifest):
-              print(f"WARNING: {manifest} missing after bootstrap — will be created by engine")
+              print(f"WARNING: {manifest} missing after bootstrap â€” will be created by engine")
           else:
               try:
                   d = json.load(open(manifest))
@@ -211,11 +211,11 @@ jobs:
           print("Bootstrap validation COMPLETE")
           PYEOF
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 2: INTEL GENERATION
 # R2 is the ONLY output channel. Blogger PERMANENTLY DISABLED.
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🔑 Inject Sovereign Key (optional)"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ”‘ Inject Sovereign Key (optional)"
         continue-on-error: true
         run: |
           if [ -n "${{ secrets.CDB_SOVEREIGN_KEY }}" ]; then
@@ -223,31 +223,31 @@ jobs:
             chmod 600 secrets/cdb_sovereign.pem
           fi
 
-      - name: "🔐 Validate JWT Secret (pre-engine)"
+      - name: "ðŸ” Validate JWT Secret (pre-engine)"
         run: |
           if [ -z "${{ secrets.CDB_JWT_SECRET }}" ]; then
-            echo "❌ FATAL: CDB_JWT_SECRET secret is not set in GitHub Actions."
-            echo "   Fix: Repository Settings → Secrets → Actions → New repository secret"
+            echo "âŒ FATAL: CDB_JWT_SECRET secret is not set in GitHub Actions."
+            echo "   Fix: Repository Settings â†’ Secrets â†’ Actions â†’ New repository secret"
             echo "   Name: CDB_JWT_SECRET"
-            echo "   Value: $(openssl rand -hex 32)  ← generate a new one"
+            echo "   Value: $(openssl rand -hex 32)  â† generate a new one"
             exit 1
           fi
-          echo "✅ CDB_JWT_SECRET is configured"
+          echo "âœ… CDB_JWT_SECRET is configured"
 
-      - name: "📡 Run Sentinel Intelligence Engine v111.0 (R2-only)"
+      - name: "ðŸ“¡ Run Sentinel Intelligence Engine v111.0 (R2-only)"
         continue-on-error: true
         env:
-          # ── Auth secret — REQUIRED, no ephemeral fallback ─────────────
+          # â”€â”€ Auth secret â€” REQUIRED, no ephemeral fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
-          # ── Intel sources ─────────────────────────────────────────────
+          # â”€â”€ Intel sources â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PYTHONPATH: ${{ github.workspace }}
-          # BLOG_ID intentionally NOT set — Blogger permanently disabled v111.0
+          # BLOG_ID intentionally NOT set â€” Blogger permanently disabled v111.0
         run: |
-          echo "=== SENTINEL APEX v111.0 — R2-NATIVE INTEL ENGINE ==="
+          echo "=== SENTINEL APEX v131.0 â€” R2-NATIVE INTEL ENGINE ==="
           # Count STIX bundles BEFORE run
           STIX_BEFORE=$(ls data/stix/CDB-APEX-*.json 2>/dev/null | wc -l || echo 0)
           echo "STIX bundles before run: $STIX_BEFORE"
@@ -258,19 +258,19 @@ jobs:
           set -e
           echo "Engine exited: $EXIT_CODE"
 
-          # Count STIX bundles AFTER run — measure new intel
+          # Count STIX bundles AFTER run â€” measure new intel
           STIX_AFTER=$(ls data/stix/CDB-APEX-*.json 2>/dev/null | wc -l || echo 0)
           NEW_BUNDLES=$((STIX_AFTER - STIX_BEFORE))
           echo "STIX bundles after run: $STIX_AFTER (NEW: $NEW_BUNDLES)"
           echo "STIX_NEW_BUNDLES=$NEW_BUNDLES" >> $GITHUB_ENV
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 1.5: PRE-v70 MANIFEST SYNC
 # ROOT CAUSE FIX (run #748): v70's schema_validator rejects data/feed_manifest.json
 #   because it was written by v101.0.0 without the required 'schema_version' key.
 #   v70 then falls back to data/.manifest_backups/manifest_20260326T055548.json
 #   (3-week-old stale backup), processes 497 stale items, and overwrites
-#   data/feed_manifest.json with stale data — wasting 5-10 seconds of the run.
+#   data/feed_manifest.json with stale data â€” wasting 5-10 seconds of the run.
 #
 # FIX: Before v70 runs, write a v70-schema-compliant version of the
 #   authoritative manifest (data/stix/feed_manifest.json) to data/feed_manifest.json.
@@ -279,8 +279,8 @@ jobs:
 #
 # ALSO: Delete stale backups older than 7 days from data/.manifest_backups/
 #   so v70 cannot fall back to weeks-old data on future runs.
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🔗 Pre-v70 Manifest Sync — Feed fresh data to v70 orchestrator"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ”— Pre-v70 Manifest Sync â€” Feed fresh data to v70 orchestrator"
         run: |
           python3 - << 'PYEOF'
           import json, os, sys
@@ -293,15 +293,15 @@ jobs:
 
           utc_now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
-          # ── 1. Read authoritative manifest ──────────────────────────────
+          # â”€â”€ 1. Read authoritative manifest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           if not SRC.exists():
-              print(f"PRE-V70: {SRC} does not exist — nothing to sync. v70 will use existing feed_manifest.json.")
+              print(f"PRE-V70: {SRC} does not exist â€” nothing to sync. v70 will use existing feed_manifest.json.")
               sys.exit(0)
 
           try:
               raw = json.loads(SRC.read_text(encoding="utf-8"))
           except Exception as e:
-              print(f"PRE-V70: Cannot read {SRC}: {e} — skipping sync.")
+              print(f"PRE-V70: Cannot read {SRC}: {e} â€” skipping sync.")
               sys.exit(0)
 
           # Handle both LIST and DICT formats (engine may write either)
@@ -313,10 +313,10 @@ jobs:
               items = []
 
           if len(items) < 10:
-              print(f"PRE-V70: Only {len(items)} items in {SRC} — skipping sync (manifest too small).")
+              print(f"PRE-V70: Only {len(items)} items in {SRC} â€” skipping sync (manifest too small).")
               sys.exit(0)
 
-          # ── 2. Sanitise items for v70 schema compliance ────────────────
+          # â”€â”€ 2. Sanitise items for v70 schema compliance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           #   v70's validate_advisory() rejects threat_type values not in:
           #     {vulnerability, malware, campaign, intrusion-set, tool,
           #      attack-pattern, indicator, threat-report}
@@ -336,9 +336,9 @@ jobs:
                   item["threat_type"] = ""   # clear invalid; v70 re-classifies
                   sanitised += 1
           if sanitised:
-              print(f"PRE-V70: Sanitised {sanitised} invalid threat_type values → '' (v70 will reclassify)")
+              print(f"PRE-V70: Sanitised {sanitised} invalid threat_type values â†’ '' (v70 will reclassify)")
 
-          # ── 3. Write v70-schema-compliant manifest to data/feed_manifest.json ──
+          # â”€â”€ 3. Write v70-schema-compliant manifest to data/feed_manifest.json â”€â”€
           #   v70 requires: version, schema_version, generated_at, advisories
           #   (REQUIRED_MANIFEST_KEYS in agent/v70_apex_upgrade/core/schema_validator.py)
           payload = {
@@ -357,9 +357,9 @@ jobs:
           tmp = DST.with_suffix(".tmp")
           tmp.write_text(json.dumps(payload, ensure_ascii=False, default=str), encoding="utf-8")
           os.replace(tmp, DST)
-          print(f"PRE-V70: Synced {len(items)} items from {SRC} → {DST} (schema_version=v70.0)")
+          print(f"PRE-V70: Synced {len(items)} items from {SRC} â†’ {DST} (schema_version=v70.0)")
 
-          # ── 4. Delete stale backups older than 7 days ───────────────────
+          # â”€â”€ 4. Delete stale backups older than 7 days â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           if BKUP.is_dir():
               import time
               cutoff = time.time() - 7 * 86400   # 7 days ago
@@ -379,7 +379,7 @@ jobs:
                   print(f"PRE-V70: No backups older than 7 days in {BKUP}")
           PYEOF
 
-      - name: "🧠 v70 Intelligence Orchestrator (enrichment)"
+      - name: "ðŸ§  v70 Intelligence Orchestrator (enrichment)"
         continue-on-error: true
         timeout-minutes: 5
         env:
@@ -387,7 +387,7 @@ jobs:
           TOKENIZERS_PARALLELISM: "false"
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          # ─────────────────────────────────────────────────────────────────
+          # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           # ROOT CAUSE FIX (run #744 v70 stale-backup regression):
           #   v70 fell back to manifest_20260326T055548.json (3 weeks old) and
           #   wrote 497 stale entries to data/feed_manifest.json.  While this
@@ -400,9 +400,9 @@ jobs:
           #   skip v70 entirely.  v70 only runs when it has fresh data to
           #   enrich.  This prevents 3-week-old backup data from entering the
           #   pipeline on every timeout/fresh-run scenario.
-          # ─────────────────────────────────────────────────────────────────
+          # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           if [ ! -d agent/v70_apex_upgrade ]; then
-            echo "INFO: agent/v70_apex_upgrade not found — skipping."
+            echo "INFO: agent/v70_apex_upgrade not found â€” skipping."
             exit 0
           fi
 
@@ -427,7 +427,7 @@ jobs:
               print("SKIP")  # No manifest files at all
           elif newest_age > MAX_AGE_SECONDS:
               hours = newest_age / 3600
-              print(f"SKIP")  # Newest file is {hours:.1f}h old — stale
+              print(f"SKIP")  # Newest file is {hours:.1f}h old â€” stale
           else:
               hours = newest_age / 3600
               print(f"RUN")
@@ -441,19 +441,19 @@ jobs:
             exit 0
           fi
 
-          echo "INFO: v70 input data is fresh — proceeding with enrichment."
+          echo "INFO: v70 input data is fresh â€” proceeding with enrichment."
           AI_FLAG=""
           [ "${{ github.event.inputs.skip_ai }}" = "true" ] && AI_FLAG="--no-ai"
           timeout 240 python -m agent.v70_apex_upgrade.orchestrator \
             --data-dir data --dashboard index.html --json $AI_FLAG | \
             tee /tmp/v70_result.json || true
 
-      - name: "🔄 Manifest Stabilisation — Preserve Engine Output / Rebuild Only If Needed"
-        # ─────────────────────────────────────────────────────────────────────
+      - name: "ðŸ”„ Manifest Stabilisation â€” Preserve Engine Output / Rebuild Only If Needed"
+        # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         # ROOT CAUSE FIX (run #744 + run #745 regression):
         #
         #   Run #744: --force-rebuild was unconditional. It re-parsed only the
-        #     current run's 52 STIX bundles → 9 entries, destroying the engine's
+        #     current run's 52 STIX bundles â†’ 9 entries, destroying the engine's
         #     2222-entry manifest.
         #
         #   Run #745 (new root cause discovered): The engine (sentinel_blogger)
@@ -469,15 +469,15 @@ jobs:
         # FIX LOGIC (v116.1):
         #   1. Read data/stix/feed_manifest.json.
         #   2. Handle BOTH formats produced by the engine:
-        #        LIST  [...]               → raw engine output
-        #        DICT  {"advisories":[..]} → bootstrap / cleaner output
+        #        LIST  [...]               â†’ raw engine output
+        #        DICT  {"advisories":[..]} â†’ bootstrap / cleaner output
         #   3. If entry count >= MIN_ENGINE (50), the manifest is authoritative.
         #      If it is in LIST format, normalize it to DICT envelope in-place
         #      before any downstream step reads it.
         #   4. Run clean_feed_manifest.py (non-blocking) to normalise fields.
         #   5. Only fall back to --force-rebuild when manifest is absent or
         #      has < MIN_ENGINE entries (true engine failure).
-        # ─────────────────────────────────────────────────────────────────────
+        # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         run: |
           python3 - << 'PYEOF'
           import json, os, subprocess, sys
@@ -490,7 +490,7 @@ jobs:
           def utc_now():
               return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
-          # ── Step 1: Read manifest, handle LIST and DICT formats ───────────
+          # â”€â”€ Step 1: Read manifest, handle LIST and DICT formats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           engine_count   = 0
           engine_items   = []
           manifest_fmt   = "absent"
@@ -500,7 +500,7 @@ jobs:
                   raw = json.load(open(MANIFEST, "r", encoding="utf-8"))
 
                   if isinstance(raw, list):
-                      # Engine wrote raw JSON array — this is the run #745 root cause.
+                      # Engine wrote raw JSON array â€” this is the run #745 root cause.
                       engine_items = raw
                       engine_count = len(raw)
                       manifest_fmt = "list"
@@ -526,16 +526,16 @@ jobs:
           print(f"Engine manifest: {engine_count} entries (fmt={manifest_fmt}) | "
                 f"STIX bundles on disk: {stix_bundles}", flush=True)
 
-          # ── Step 2: Preserve or fall back ────────────────────────────────
+          # â”€â”€ Step 2: Preserve or fall back â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           if engine_count >= MIN_ENGINE:
-              print(f"✅ Engine manifest is valid ({engine_count} >= {MIN_ENGINE}). "
+              print(f"âœ… Engine manifest is valid ({engine_count} >= {MIN_ENGINE}). "
                     f"--force-rebuild SKIPPED.", flush=True)
 
               # If engine wrote LIST format, normalise to DICT envelope so every
               # downstream step (Freshness Gate, clean_feed_manifest, R2 upload,
               # Worker) can read it with d.get("advisories", []).
               if manifest_fmt == "list":
-                  print(f"   Normalising LIST→DICT envelope ({engine_count} entries)...", flush=True)
+                  print(f"   Normalising LISTâ†’DICT envelope ({engine_count} entries)...", flush=True)
                   payload = {
                       "version":        "v114.0",
                       "platform":       "SENTINEL-APEX",
@@ -552,10 +552,10 @@ jobs:
                   with open(tmp, "w", encoding="utf-8") as fh:
                       json.dump(payload, fh, indent=2, ensure_ascii=False, default=str)
                   os.replace(tmp, MANIFEST)
-                  print(f"   ✅ Normalised: {engine_count} entries in DICT format written.", flush=True)
+                  print(f"   âœ… Normalised: {engine_count} entries in DICT format written.", flush=True)
 
               # Run cleaner: normalise fields, strip brand/blog, dedup.
-              # Non-blocking — if cleaner fails the normalised manifest is kept.
+              # Non-blocking â€” if cleaner fails the normalised manifest is kept.
               print("   Running clean_feed_manifest.py...", flush=True)
               r = subprocess.run(
                   ["python3", "scripts/clean_feed_manifest.py"],
@@ -566,10 +566,10 @@ jobs:
               if r.returncode != 0:
                   print(f"   WARN: clean_feed_manifest exited {r.returncode}: "
                         f"{r.stderr.strip()}", flush=True)
-                  print("   Non-blocking — normalised engine manifest retained as-is.", flush=True)
+                  print("   Non-blocking â€” normalised engine manifest retained as-is.", flush=True)
 
           else:
-              print(f"⚠️  Engine manifest too small ({engine_count} < {MIN_ENGINE}). "
+              print(f"âš ï¸  Engine manifest too small ({engine_count} < {MIN_ENGINE}). "
                     f"Falling back to --force-rebuild from {stix_bundles} STIX bundles.", flush=True)
               r = subprocess.run(
                   ["python3", "scripts/bootstrap_critical_files.py", "--force-rebuild"],
@@ -577,7 +577,7 @@ jobs:
               )
               print(f"   --force-rebuild exit code: {r.returncode}", flush=True)
 
-          # ── Step 3: Report final state ────────────────────────────────────
+          # â”€â”€ Step 3: Report final state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           final_count = 0
           for path in ("data/stix/feed_manifest.json", "data/feed_manifest.json"):
               if os.path.exists(path):
@@ -585,7 +585,7 @@ jobs:
                       d = json.load(open(path))
                       if isinstance(d, list):
                           cnt = len(d)
-                          print(f"  {path}: {cnt} entries (LIST format — not yet normalised)", flush=True)
+                          print(f"  {path}: {cnt} entries (LIST format â€” not yet normalised)", flush=True)
                       elif isinstance(d, dict):
                           items = d.get("advisories", d.get("reports", []))
                           cnt = len(items)
@@ -596,7 +596,7 @@ jobs:
                       if path == "data/stix/feed_manifest.json":
                           final_count = cnt
                   except Exception as e:
-                      print(f"  {path}: ERROR reading — {e}", flush=True)
+                      print(f"  {path}: ERROR reading â€” {e}", flush=True)
 
           print(f"MANIFEST_FINAL_COUNT={final_count}", flush=True)
           env_file = os.environ.get("GITHUB_ENV", "/dev/null")
@@ -604,17 +604,17 @@ jobs:
               fh.write(f"MANIFEST_FINAL_COUNT={final_count}\n")
           PYEOF
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 2.5: INTEL FRESHNESS GATE
 # Fails the pipeline if the manifest has NO entries (hard stop).
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🔒 Intel Freshness Gate — Fail if manifest empty"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ”’ Intel Freshness Gate â€” Fail if manifest empty"
         run: |
           python3 - << 'PYEOF'
           import json, sys, os
 
           manifest   = "data/stix/feed_manifest.json"
-          MIN_ENTRIES = 10  # Absolute minimum — fail hard if below this
+          MIN_ENTRIES = 10  # Absolute minimum â€” fail hard if below this
 
           if not os.path.exists(manifest):
               print(f"FATAL: {manifest} missing after stabilisation step.")
@@ -627,7 +627,7 @@ jobs:
               # but this is a safety net for any future format changes.
               if isinstance(d, list):
                   count = len(d)
-                  print(f"WARNING: Manifest is still in LIST format at gate — "
+                  print(f"WARNING: Manifest is still in LIST format at gate â€” "
                         f"normalisation step may have been skipped. Count={count}.")
               elif isinstance(d, dict):
                   items = d.get("advisories", d.get("reports", d.get("items", [])))
@@ -647,21 +647,21 @@ jobs:
               print("  3. clean_feed_manifest.py exit code")
               sys.exit(1)
 
-          print(f"✅ FRESHNESS GATE PASSED: {count} entries in manifest.")
+          print(f"âœ… FRESHNESS GATE PASSED: {count} entries in manifest.")
           PYEOF
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 3: SCHEMA VALIDATION
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🧹 Manifest Cleanup — Remove brand entries + deduplicate"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ§¹ Manifest Cleanup â€” Remove brand entries + deduplicate"
         continue-on-error: true
         run: |
           python3 scripts/clean_feed_manifest.py || echo "Cleanup skipped (non-critical)"
 
-      - name: "🔍 Schema Validation — Hard gate (v119.0.0)"
+      - name: "ðŸ” Schema Validation â€” Hard gate (v119.0.0)"
         continue-on-error: false
         run: |
-          echo "=== SENTINEL APEX v119.0.0 — SCHEMA VALIDATION HARD GATE ==="
+          echo "=== SENTINEL APEX v131.0.0 â€” SCHEMA VALIDATION HARD GATE ==="
           # Run schema validator; capture exit code
           python3 scripts/validate_intel_schema.py
           SCHEMA_RC=$?
@@ -670,22 +670,22 @@ jobs:
             echo "::error::Fix manifest data and re-run pipeline."
             exit 1
           fi
-          echo "SCHEMA VALIDATION PASSED — data is structurally sound."
+          echo "SCHEMA VALIDATION PASSED â€” data is structurally sound."
           echo "Schema validation complete."
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 3.6: HTML REPORT GENERATION
 # Generates one full Tactical Dossier per advisory at reports/YYYY/MM/<id>.html
 # These files MUST be generated BEFORE R2 upload and gh-pages deploy so that
 # report_url links in the dashboard resolve to real pages.
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "📄 Generate HTML Tactical Dossiers (report_url pages)"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ“„ Generate HTML Tactical Dossiers (report_url pages)"
         run: |
-          echo "=== SENTINEL APEX v119.0.0 — HTML Report Generation ==="
+          echo "=== SENTINEL APEX v131.0.0 â€” HTML Report Generation ==="
           echo "::group::Report Generation"
           START_TS=$(date -u +%s)
 
-          # v117.0.0: Zero-skip policy — every intel entry generates a 16-section report.
+          # v117.0.0: Zero-skip policy â€” every intel entry generates a 16-section report.
           # --fail-on-zero: pipeline fails if 0 reports generated (prevents broken dashboard).
           # --public-prefix: report_url always absolute to intel.cyberdudebivash.com.
           python3 scripts/generate_intel_reports.py \
@@ -694,7 +694,7 @@ jobs:
             --fail-on-zero \
             --limit 0
 
-          # ── v131.0: P0 Intelligence Upgrade Orchestrator ─────────────────
+          # â”€â”€ v131.0: P0 Intelligence Upgrade Orchestrator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           # Runs AFTER report generation so report_enhancer can find HTML files.
           # Steps: IOC enforcement, dedup, synthetic fallback, API integrity,
           #        enterprise report enhancement, PDF generation, revenue optimizer,
@@ -707,25 +707,25 @@ jobs:
           ELAPSED=$((END_TS - START_TS))
           echo "::endgroup::"
 
-          echo "┌─────────────────────────────────────────────┐"
-          echo "│ REPORT GENERATION COMPLETE                  │"
-          echo "│ Reports written : $REPORT_COUNT"
-          echo "│ Elapsed         : ${ELAPSED}s"
-          echo "│ Public prefix   : https://intel.cyberdudebivash.com"
-          echo "└─────────────────────────────────────────────┘"
+          echo "â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”"
+          echo "â”‚ REPORT GENERATION COMPLETE                  â”‚"
+          echo "â”‚ Reports written : $REPORT_COUNT"
+          echo "â”‚ Elapsed         : ${ELAPSED}s"
+          echo "â”‚ Public prefix   : https://intel.cyberdudebivash.com"
+          echo "â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜"
 
           echo "REPORT_COUNT=$REPORT_COUNT" >> $GITHUB_ENV
           echo "REPORT_ELAPSED=${ELAPSED}" >> $GITHUB_ENV
 
-# ═══════════════════════════════════════════════════════════════════════════
-# STAGE 3.6a: MANIFEST INTEGRITY CHECK — ZERO SILENT FAILURES
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# STAGE 3.6a: MANIFEST INTEGRITY CHECK â€” ZERO SILENT FAILURES
 # Hard-validates every manifest entry has report_url + validation_status.
 # Pipeline FAILS if any entry has write_error or file_missing status.
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🔒 Manifest Integrity Check — report_url + validation_status"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ”’ Manifest Integrity Check â€” report_url + validation_status"
         continue-on-error: false
         run: |
-          echo "=== SENTINEL APEX — MANIFEST INTEGRITY CHECK ==="
+          echo "=== SENTINEL APEX â€” MANIFEST INTEGRITY CHECK ==="
           python3 - << 'PYEOF'
           import json, sys
           with open("data/stix/feed_manifest.json") as f:
@@ -761,21 +761,21 @@ jobs:
               for s in stale_domain[:10]:
                   print(s)
           if hard_fail:
-              print("::error::MANIFEST INTEGRITY FAIL — write_error/file_missing entries:")
+              print("::error::MANIFEST INTEGRITY FAIL â€” write_error/file_missing entries:")
               for h in hard_fail:
                   print(h)
               sys.exit(1)
           print("MANIFEST INTEGRITY CHECK PASSED")
           PYEOF
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 3.6b: REFRESH EMBEDDED_INTEL IN DASHBOARD
 # ROOT CAUSE FIX (run #748 dashboard staleness):
 #   index.html was committed with EMBEDDED_INTEL baked in from a PREVIOUS run
 #   (2170 items, most recent timestamp April 16). No workflow step was
 #   updating EMBEDDED_INTEL after each run. The dashboard would render the
 #   stale EMBEDDED_INTEL on load, and the FRESHEST-WINS logic would compare
-#   it against the Worker API data — if API data was the same age or older,
+#   it against the Worker API data â€” if API data was the same age or older,
 #   the dashboard would stay on the stale EMBEDDED_INTEL view.
 #
 # FIX: Run scripts/update_embedded_intel.py after HTML report generation
@@ -784,9 +784,9 @@ jobs:
 #   This bakes the latest N items into the dashboard HTML so users get
 #   instant fresh data on load, and the LIVE 7D counter reflects current
 #   intel.  The script also strips brand entries and normalises all fields.
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "💉 Refresh EMBEDDED_INTEL + version-sync in dashboard"
-        continue-on-error: true   # Non-blocking — Worker API is authoritative fallback
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ’‰ Refresh EMBEDDED_INTEL + version-sync in dashboard"
+        continue-on-error: true   # Non-blocking â€” Worker API is authoritative fallback
         run: |
           echo "=== EMBEDDED_INTEL refresh from data/stix/feed_manifest.json ==="
           ITEM_COUNT=$(python3 -c "
@@ -795,22 +795,22 @@ jobs:
           items = d.get('advisories', d.get('reports', d if isinstance(d, list) else []))
           print(len(items))
           " 2>/dev/null || echo 0)
-          echo "Manifest has $ITEM_COUNT items — injecting into index.html..."
+          echo "Manifest has $ITEM_COUNT items â€” injecting into index.html..."
           python3 scripts/update_embedded_intel.py
           if [ $? -eq 0 ]; then
             echo "OK: EMBEDDED_INTEL refreshed in index.html ($ITEM_COUNT items)"
           else
-            echo "WARN: update_embedded_intel.py failed (non-fatal — Worker API is authoritative)"
+            echo "WARN: update_embedded_intel.py failed (non-fatal â€” Worker API is authoritative)"
           fi
 
-          # ── v130.1: AI Brain panels + CDB_NEWS engine injection (idempotent) ──
+          # â”€â”€ v130.1: AI Brain panels + CDB_NEWS engine injection (idempotent) â”€â”€
           # patch_ai_brain_news.py reads scripts/ai_brain_patch.js and injects
           # the self-contained JS block before </body> in index.html every run.
           # Idempotent: strips and re-injects on each pipeline execution so the
           # fix survives the v70 orchestrator re-generating HTML sections.
           python3 scripts/patch_ai_brain_news.py || echo "WARN: patch_ai_brain_news.py failed (non-fatal)"
 
-          # ── Version-sync: keep dashboard title aligned with pipeline version ──
+          # â”€â”€ Version-sync: keep dashboard title aligned with pipeline version â”€â”€
           # Replaces any SENTINEL APEX vX.Y.Z in index.html with the current
           # PIPELINE_VERSION so dashboard, API, and workflow always show the same
           # canonical version.  Non-destructive: only touches the version string.
@@ -821,7 +821,7 @@ jobs:
           NEW_TAG = f"SENTINEL APEX v{PIPELINE_VERSION}"
           html_path = Path("index.html")
           if not html_path.exists():
-              print("WARN: index.html not found — version sync skipped")
+              print("WARN: index.html not found â€” version sync skipped")
           else:
               content = html_path.read_text(encoding="utf-8", errors="replace")
               # Replace versioned SENTINEL APEX strings (e.g. v110.1, v116.2.0)
@@ -839,25 +839,25 @@ jobs:
                   print(f"Version-sync: dashboard already at {NEW_TAG}")
           PYEOF
 
-# ═══════════════════════════════════════════════════════════════════════════
-# STAGE 3.5: R2 UPLOAD — MANDATORY, OVERWRITE GUARANTEED
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# STAGE 3.5: R2 UPLOAD â€” MANDATORY, OVERWRITE GUARANTEED
 # No continue-on-error. Pipeline fails if R2 upload fails.
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "☁️ Upload Intel to Cloudflare R2 (MANDATORY OVERWRITE)"
-        # ─────────────────────────────────────────────────────────────────────
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "â˜ï¸ Upload Intel to Cloudflare R2 (MANDATORY OVERWRITE)"
+        # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         # ROOT CAUSE FIX (run #744 R2 corruption):
         #   The previous if:always() caused R2 upload to run even after the
         #   Freshness Gate failed (manifest had only 9 entries).  This uploaded
         #   the 9-entry manifest to R2 and corrupted the live system.
         #
         # FIX: Remove if:always().  Default GitHub Actions behaviour is
-        #   if:success() — this step ONLY runs when ALL prior required steps
+        #   if:success() â€” this step ONLY runs when ALL prior required steps
         #   (including the Freshness Gate) passed.  If Freshness Gate exits 1,
-        #   this step is skipped → R2 is never overwritten with corrupt data.
+        #   this step is skipped â†’ R2 is never overwritten with corrupt data.
         #
         # The KV cache bust step below retains if:always() because busting a
         # cache is always safe and causes no data corruption.
-        # ─────────────────────────────────────────────────────────────────────
+        # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
@@ -865,7 +865,7 @@ jobs:
         run: |
           if [ -z "$CF_ACCOUNT_ID" ] || [ -z "$AWS_ACCESS_KEY_ID" ]; then
             echo "ERROR: CF_ACCOUNT_ID or CF_R2_ACCESS_KEY_ID not set."
-            echo "Add secrets per SETUP_GITHUB_SECRETS.md — R2 upload is MANDATORY."
+            echo "Add secrets per SETUP_GITHUB_SECRETS.md â€” R2 upload is MANDATORY."
             exit 1
           fi
 
@@ -932,7 +932,7 @@ jobs:
               --only-show-errors || echo "WARN: Report upload had errors (non-fatal)"
             echo "OK: HTML reports uploaded to R2 (sentinel-apex-reports/reports/)"
           else
-            echo "INFO: No reports/ directory or no HTML files — skipping report upload"
+            echo "INFO: No reports/ directory or no HTML files â€” skipping report upload"
           fi
 
           # UPLOAD 4b: AI Intelligence data (MITRE heatmap, AI panels, analysis)
@@ -974,7 +974,7 @@ jobs:
               "source":          "sentinel-blogger",
               "pipeline_version":"${{ env.PIPELINE_VERSION }}",
               "run_id":          "${{ github.run_id }}",
-              "p0_fix":          "v111.0 — blogger_removed, queue_cleared"
+              "p0_fix":          "v111.0 â€” blogger_removed, queue_cleared"
           }
           with open("/tmp/sync_meta.json", "w") as fh:
               json.dump(meta, fh, indent=2)
@@ -987,12 +987,12 @@ jobs:
           echo "OK: Sync metadata written ($ITEM_COUNT advisories synced to R2)"
           echo "R2_UPLOAD_COUNT=$ITEM_COUNT" >> $GITHUB_ENV
 
-      - name: "🔄 Bust Worker KV Cache (MANDATORY)"
+      - name: "ðŸ”„ Bust Worker KV Cache (MANDATORY)"
         if: always()  # v112.0: ALWAYS bust cache, even if R2 upload had issues
         run: |
           # Always attempt cache bust. Non-fatal if secret not set.
           if [ -z "${{ secrets.WORKER_ADMIN_SECRET }}" ]; then
-            echo "INFO: WORKER_ADMIN_SECRET not set — KV cache will expire naturally (3 min TTL)"
+            echo "INFO: WORKER_ADMIN_SECRET not set â€” KV cache will expire naturally (3 min TTL)"
             echo "ACTION REQUIRED: Set WORKER_ADMIN_SECRET secret for instant cache invalidation."
             exit 0
           fi
@@ -1001,32 +1001,32 @@ jobs:
           HTTP=$(curl -s -o /tmp/bust_resp.json -w "%{http_code}" \
             -X POST "https://intel.cyberdudebivash.com/api/admin/cache/bust?key=idx:reports" \
             -H "X-Admin-Secret: ${{ secrets.WORKER_ADMIN_SECRET }}")
-          echo "Cache bust idx:reports → HTTP $HTTP"
+          echo "Cache bust idx:reports â†’ HTTP $HTTP"
           cat /tmp/bust_resp.json || true
 
           # Bust preview cache
           HTTP2=$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST "https://intel.cyberdudebivash.com/api/admin/cache/bust?key=idx:preview" \
             -H "X-Admin-Secret: ${{ secrets.WORKER_ADMIN_SECRET }}")
-          echo "Cache bust idx:preview → HTTP $HTTP2"
+          echo "Cache bust idx:preview â†’ HTTP $HTTP2"
 
           # Bust AI cache keys
           for AI_KEY in "ai:index" "ai:analyze" "ai:respond" "ai:correlate"; do
             HTTP_AI=$(curl -s -o /dev/null -w "%{http_code}" \
               -X POST "https://intel.cyberdudebivash.com/api/admin/cache/bust?key=${AI_KEY}" \
               -H "X-Admin-Secret: ${{ secrets.WORKER_ADMIN_SECRET }}")
-            echo "Cache bust ${AI_KEY} → HTTP $HTTP_AI"
+            echo "Cache bust ${AI_KEY} â†’ HTTP $HTTP_AI"
           done
 
           [ "$HTTP" = "200" ] && echo "OK: Worker KV cache busted" || \
             echo "INFO: Cache bust HTTP $HTTP (non-fatal)"
 
-# ═══════════════════════════════════════════════════════════════════════════
-# STAGE 4: GIT SYNC — Non-sensitive metadata only
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# STAGE 4: GIT SYNC â€” Non-sensitive metadata only
 # Intel data (feed_manifest.json) is R2-only. NOT committed to GitHub.
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🔒 Git Sync — Commit non-sensitive metadata"
-        if: always()  # v112.0: ALWAYS sync metadata — persists run state regardless of upstream failures
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ”’ Git Sync â€” Commit non-sensitive metadata"
+        if: always()  # v112.0: ALWAYS sync metadata â€” persists run state regardless of upstream failures
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -1041,9 +1041,9 @@ jobs:
           rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
           # Stage NON-SENSITIVE files only
-          # CRITICAL: feed_manifest.json, api/feed.json → R2 ONLY (never to GitHub)
+          # CRITICAL: feed_manifest.json, api/feed.json â†’ R2 ONLY (never to GitHub)
 
-          # ── FIX: Persist STIX bundles across runs ──────────────────────────
+          # â”€â”€ FIX: Persist STIX bundles across runs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           # ROOT CAUSE (run #744): STIX bundles were not in git, so every run
           # started with 0 bundles.  --force-rebuild's fallback path could only
           # see the current run's bundles (52), producing only 9 valid entries.
@@ -1052,14 +1052,14 @@ jobs:
           # ever absent or undersized.
           #
           # Bundles are capped at the 500 newest files to prevent repo bloat.
-          # Each bundle is ~2-4 KB so 500 bundles ≈ 1-2 MB — acceptable.
+          # Each bundle is ~2-4 KB so 500 bundles â‰ˆ 1-2 MB â€” acceptable.
           python3 - << 'PYEOF'
           import os, glob, json
           from pathlib import Path
           bundles = sorted(Path("data/stix").glob("CDB-APEX-*.json"),
                            key=lambda p: p.stat().st_mtime, reverse=True)
           if len(bundles) > 500:
-              # Remove oldest bundles from disk before staging — keeps repo lean
+              # Remove oldest bundles from disk before staging â€” keeps repo lean
               for old in bundles[500:]:
                   try:
                       old.unlink()
@@ -1070,7 +1070,7 @@ jobs:
               print(f"STIX bundle count: {len(bundles)} (under 500 cap, no pruning needed).")
           PYEOF
           git add -f data/stix/CDB-APEX-*.json           2>/dev/null || true
-          # ─────────────────────────────────────────────────────────────────
+          # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
           git add -f data/sync_marker.json               2>/dev/null || true
           git add -f api/latest.json api/status.json     2>/dev/null || true
@@ -1078,7 +1078,7 @@ jobs:
           git add    index.html sitemap.xml               2>/dev/null || true
           git add    .gitignore                           2>/dev/null || true
           # Stage generated HTML reports so they are accessible via GitHub Pages
-          # gh-pages serves reports/YYYY/MM/<id>.html → matches report_url fields
+          # gh-pages serves reports/YYYY/MM/<id>.html â†’ matches report_url fields
           git add -f reports/                             2>/dev/null || true
           git add -f data/status/status.json              2>/dev/null || true
           git add -f data/health/guardian_report.json    2>/dev/null || true
@@ -1111,7 +1111,7 @@ jobs:
               print(len(items))
           except: print('N/A')
             " 2>/dev/null || echo "N/A")
-            git commit -m "🌐 SENTINEL APEX v${PIPELINE_VERSION} — ${ENTRY_COUNT} advisories @ $(date -u +'%Y-%m-%dT%H:%M:%SZ') [P0-FIXED] [skip ci]"
+            git commit -m "ðŸŒ SENTINEL APEX v${PIPELINE_VERSION} â€” ${ENTRY_COUNT} advisories @ $(date -u +'%Y-%m-%dT%H:%M:%SZ') [P0-FIXED] [skip ci]"
           fi
 
           # 4-attempt push with merge recovery
@@ -1129,31 +1129,31 @@ jobs:
               break
             fi
             sleep $((i * 15))
-            [ $i -eq 4 ] && echo "WARN: All push attempts exhausted — syncs next run"
+            [ $i -eq 4 ] && echo "WARN: All push attempts exhausted â€” syncs next run"
           done
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 5: GITHUB PAGES DEPLOY
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🚀 Deploy to GitHub Pages"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸš€ Deploy to GitHub Pages"
         uses: JamesIves/github-pages-deploy-action@v4.7.3
         with:
           branch: gh-pages
           folder: .
           clean: false
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 5.5: REPORT DEPLOYMENT VERIFICATION (v118.0.0)
 # Two-gate approach:
-#   5.5a — LOCAL file-existence check (HARD gate, no CDN dependency)
-#   5.5b — HTTP smoke test (SOFT / informational, CDN propagation-tolerant)
+#   5.5a â€” LOCAL file-existence check (HARD gate, no CDN dependency)
+#   5.5b â€” HTTP smoke test (SOFT / informational, CDN propagation-tolerant)
 # Root cause of run #755: sleep 20 was insufficient for gh-pages CDN to
 # propagate 2543 new HTML files. Local check is the reliable gate.
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "🗂 Verify Report Files — Local Existence Check (Hard Gate)"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "ðŸ—‚ Verify Report Files â€” Local Existence Check (Hard Gate)"
         continue-on-error: false
         run: |
-          echo "=== SENTINEL APEX v119.0.0 — LOCAL REPORT FILE VERIFICATION ==="
+          echo "=== SENTINEL APEX v131.0.0 â€” LOCAL REPORT FILE VERIFICATION ==="
 
           LOCAL_FAIL=0
           LOCAL_PASS=0
@@ -1175,10 +1175,10 @@ jobs:
 
           if [ -z "$SAMPLE_URLS" ]; then
             if [ "${REPORT_COUNT:-0}" -gt 0 ]; then
-              echo "::error::REPORT_COUNT=$REPORT_COUNT but zero valid report_url fields found in manifest — report_url not being set correctly."
+              echo "::error::REPORT_COUNT=$REPORT_COUNT but zero valid report_url fields found in manifest â€” report_url not being set correctly."
               exit 1
             fi
-            echo "WARN: No reports generated this run — skipping local file verification."
+            echo "WARN: No reports generated this run â€” skipping local file verification."
             LOCAL_SKIP=1
           else
             BASE_URL="https://intel.cyberdudebivash.com"
@@ -1189,38 +1189,38 @@ jobs:
               if [ -f "$LOCAL_PATH" ]; then
                 FILE_SIZE=$(wc -c < "$LOCAL_PATH" 2>/dev/null || echo 0)
                 if [ "$FILE_SIZE" -gt 512 ]; then
-                  echo "  PASS LOCAL OK (${FILE_SIZE}B) — $LOCAL_PATH"
+                  echo "  PASS LOCAL OK (${FILE_SIZE}B) â€” $LOCAL_PATH"
                   LOCAL_PASS=$((LOCAL_PASS + 1))
                 else
-                  echo "  FAIL LOCAL EMPTY/TINY (${FILE_SIZE}B) — $LOCAL_PATH"
+                  echo "  FAIL LOCAL EMPTY/TINY (${FILE_SIZE}B) â€” $LOCAL_PATH"
                   LOCAL_FAIL=$((LOCAL_FAIL + 1))
                 fi
               else
-                echo "  FAIL LOCAL MISSING — $LOCAL_PATH"
+                echo "  FAIL LOCAL MISSING â€” $LOCAL_PATH"
                 LOCAL_FAIL=$((LOCAL_FAIL + 1))
               fi
             done <<< "$SAMPLE_URLS"
           fi
 
           echo ""
-          echo "┌─────────────────────────────────────────────┐"
-          echo "│ LOCAL FILE VERIFICATION RESULTS             │"
-          echo "│ PASS: $LOCAL_PASS  FAIL: $LOCAL_FAIL  SKIP: $LOCAL_SKIP"
-          echo "└─────────────────────────────────────────────┘"
+          echo "â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”"
+          echo "â”‚ LOCAL FILE VERIFICATION RESULTS             â”‚"
+          echo "â”‚ PASS: $LOCAL_PASS  FAIL: $LOCAL_FAIL  SKIP: $LOCAL_SKIP"
+          echo "â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜"
 
           if [ "$LOCAL_FAIL" -gt 0 ]; then
             echo "::error::$LOCAL_FAIL report file(s) missing or empty on disk after generation. Reports not written correctly."
             exit 1
           fi
           echo "REPORT_LOCAL_VERIFY_PASS=$LOCAL_PASS" >> $GITHUB_ENV
-          echo "LOCAL FILE VERIFICATION PASSED — files confirmed on disk."
+          echo "LOCAL FILE VERIFICATION PASSED â€” files confirmed on disk."
 
-      - name: "🌐 Smoke Test Report URLs — HTTP 200 (Informational)"
+      - name: "ðŸŒ Smoke Test Report URLs â€” HTTP 200 (Informational)"
         continue-on-error: true
         run: |
-          echo "=== SENTINEL APEX v119.0.0 — HTTP SMOKE TEST (informational, non-blocking) ==="
+          echo "=== SENTINEL APEX v131.0.0 â€” HTTP SMOKE TEST (informational, non-blocking) ==="
           echo "NOTE: GitHub Pages CDN propagation for large deployments takes 2-5 min."
-          echo "      This step is SOFT (continue-on-error: true) — pipeline will not fail here."
+          echo "      This step is SOFT (continue-on-error: true) â€” pipeline will not fail here."
           echo "      Hard file-existence check already passed in STAGE 5.5a."
 
           sleep 120  # Allow gh-pages CDN to propagate new/updated HTML files
@@ -1244,7 +1244,7 @@ jobs:
           " 2>/dev/null || true)
 
           if [ -z "$SAMPLE_URLS" ]; then
-            echo "WARN: No reports to HTTP-check — skipping smoke test."
+            echo "WARN: No reports to HTTP-check â€” skipping smoke test."
             SMOKE_SKIP=1
           else
             while IFS= read -r url; do
@@ -1256,38 +1256,38 @@ jobs:
                 if [ "$HTTP_CODE" = "200" ]; then
                   break
                 fi
-                [ $attempt -lt 3 ] && echo "  RETRY $attempt/3 (HTTP $HTTP_CODE) — $url" && sleep 30
+                [ $attempt -lt 3 ] && echo "  RETRY $attempt/3 (HTTP $HTTP_CODE) â€” $url" && sleep 30
               done
               if [ "$HTTP_CODE" = "200" ]; then
-                echo "  PASS HTTP $HTTP_CODE — $url"
+                echo "  PASS HTTP $HTTP_CODE â€” $url"
                 SMOKE_PASS=$((SMOKE_PASS + 1))
               else
-                echo "  WARN HTTP $HTTP_CODE — $url (CDN may still be propagating)"
+                echo "  WARN HTTP $HTTP_CODE â€” $url (CDN may still be propagating)"
                 SMOKE_FAIL=$((SMOKE_FAIL + 1))
               fi
             done <<< "$SAMPLE_URLS"
           fi
 
           echo ""
-          echo "┌─────────────────────────────────────────────┐"
-          echo "│ HTTP SMOKE TEST RESULTS (informational)     │"
-          echo "│ PASS: $SMOKE_PASS  WARN: $SMOKE_FAIL  SKIP: $SMOKE_SKIP"
-          echo "└─────────────────────────────────────────────┘"
+          echo "â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”"
+          echo "â”‚ HTTP SMOKE TEST RESULTS (informational)     â”‚"
+          echo "â”‚ PASS: $SMOKE_PASS  WARN: $SMOKE_FAIL  SKIP: $SMOKE_SKIP"
+          echo "â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜"
 
           if [ "$SMOKE_FAIL" -gt 0 ]; then
-            echo "::warning::$SMOKE_FAIL URL(s) not yet HTTP 200 — CDN propagation may still be in progress. Files confirmed on disk in STAGE 5.5a."
+            echo "::warning::$SMOKE_FAIL URL(s) not yet HTTP 200 â€” CDN propagation may still be in progress. Files confirmed on disk in STAGE 5.5a."
           else
-            echo "HTTP SMOKE TEST PASSED — all sampled URLs returning 200."
+            echo "HTTP SMOKE TEST PASSED â€” all sampled URLs returning 200."
           fi
           echo "REPORT_VERIFY_PASS=$SMOKE_PASS" >> $GITHUB_ENV
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # STAGE 6: E2E PIPELINE VALIDATION
-# ═══════════════════════════════════════════════════════════════════════════
-      - name: "✅ E2E Pipeline Validation"
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      - name: "âœ… E2E Pipeline Validation"
         continue-on-error: true
         run: |
-          echo "=== SENTINEL APEX v119.0.0 — E2E PIPELINE VALIDATION ==="
+          echo "=== SENTINEL APEX v131.0.0 â€” E2E PIPELINE VALIDATION ==="
 
           # Test 1: Worker health
           HEALTH=$(curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
@@ -1308,11 +1308,11 @@ jobs:
 
           # Test 4: Auth enforcement
           FEED_RESP=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "https://intel.cyberdudebivash.com/api/feed" 2>/dev/null || echo "000")
-          echo "[Auth] /api/feed (no key) → HTTP $FEED_RESP (expect 401)"
+          echo "[Auth] /api/feed (no key) â†’ HTTP $FEED_RESP (expect 401)"
 
           # Test 5: STIX endpoint reachability
           STIX_RESP=$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "https://intel.cyberdudebivash.com/api/stix/test" 2>/dev/null || echo "000")
-          echo "[STIX] /api/stix/test (no key) → HTTP $STIX_RESP (expect 401)"
+          echo "[STIX] /api/stix/test (no key) â†’ HTTP $STIX_RESP (expect 401)"
 
           echo "=== REPORT_COUNT=${{ env.REPORT_COUNT }} | VERIFY_PASS=${{ env.REPORT_VERIFY_PASS }} ==="
           if [ "$R2_STATUS" = "ok" ] && [ "$TOTAL" -gt "10" ] && [ "$FEED_RESP" = "401" ]; then
@@ -1321,9 +1321,10 @@ jobs:
             echo "=== VALIDATION WARNING: R2=$R2_STATUS TOTAL=$TOTAL FEED_HTTP=$FEED_RESP ==="
           fi
 
-      - name: "🔧 Post-pipeline extras"
+      - name: "ðŸ”§ Post-pipeline extras"
         continue-on-error: true
         run: |
           python agent/v48_pipeline_hardening/pipeline_hardener.py || true
           python agent/quality_gate_audit.py || true
           python3 scripts/generate_ai_endpoints.py || true
+

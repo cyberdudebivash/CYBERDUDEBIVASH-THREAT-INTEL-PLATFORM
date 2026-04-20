@@ -1,15 +1,15 @@
-# =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v116.2.0 — DASHBOARD SYNC PIPELINE
-# ⛔ DISABLED AS OF v116.2.0 — ALL FUNCTIONALITY MERGED INTO sentinel-blogger
+﻿# =============================================================================
+# CYBERDUDEBIVASHÂ® SENTINEL APEX v131.0.0 â€” DASHBOARD SYNC PIPELINE
+# â›” DISABLED AS OF v116.2.0 â€” ALL FUNCTIONALITY MERGED INTO sentinel-blogger
 # =============================================================================
 #
-# WHY THIS WORKFLOW IS DISABLED (v116.2.0 — 2026-04-18):
+# WHY THIS WORKFLOW IS DISABLED (v116.2.0 â€” 2026-04-18):
 #
 # This workflow caused the following P0 production issues:
 #
 #   1. MANIFEST DESTRUCTION (runs #744, #745, #748):
 #      The `--force-rebuild` step re-parsed only the CURRENT run's STIX bundles
-#      (e.g. 52 bundles → 9 entries), destroying the engine's authoritative
+#      (e.g. 52 bundles â†’ 9 entries), destroying the engine's authoritative
 #      2222-entry manifest. sentinel-blogger THEN uploaded this corrupted 9-entry
 #      manifest to R2, and the Worker served empty data to the dashboard.
 #
@@ -27,10 +27,10 @@
 #
 #   4. DUPLICATE OPERATIONS:
 #      sentinel-blogger v116.2.0 now handles everything this workflow did:
-#        • EMBEDDED_INTEL injection (Step 17: update_embedded_intel.py)
-#        • R2 upload (Step 18: mandatory overwrite)
-#        • KV cache bust (Step 19)
-#        • git commit + gh-pages deploy (Steps 20-21)
+#        â€¢ EMBEDDED_INTEL injection (Step 17: update_embedded_intel.py)
+#        â€¢ R2 upload (Step 18: mandatory overwrite)
+#        â€¢ KV cache bust (Step 19)
+#        â€¢ git commit + gh-pages deploy (Steps 20-21)
 #      Running this workflow AFTER sentinel-blogger produced duplicate commits,
 #      extra push attempts, and non-fast-forward failures.
 #
@@ -42,19 +42,19 @@
 #
 # =============================================================================
 
-name: "⛔ DISABLED — Dashboard Sync v101.0 (merged into sentinel-blogger v116.2)"
+name: "â›” DISABLED â€” Dashboard Sync v101.0 (merged into sentinel-blogger v116.2)"
 
 on:
-  # ⛔ ALL AUTO-TRIGGERS DISABLED — sentinel-blogger v116.2 handles dashboard sync
-  # workflow_run:             ← DISABLED: caused overwrite race with sentinel-blogger
+  # â›” ALL AUTO-TRIGGERS DISABLED â€” sentinel-blogger v116.2 handles dashboard sync
+  # workflow_run:             â† DISABLED: caused overwrite race with sentinel-blogger
   #   workflows: ["sentinel-blogger"]
   #   types: [completed]
-  # schedule:                 ← DISABLED: caused --force-rebuild manifest destruction
+  # schedule:                 â† DISABLED: caused --force-rebuild manifest destruction
   #   - cron: '20 */4 * * *'
-  workflow_dispatch:          # ← MANUAL EMERGENCY USE ONLY
+  workflow_dispatch:          # â† MANUAL EMERGENCY USE ONLY
     inputs:
       force_patch:
-        description: 'Force EMBEDDED_INTEL patch (EMERGENCY USE ONLY — reads current git state)'
+        description: 'Force EMBEDDED_INTEL patch (EMERGENCY USE ONLY â€” reads current git state)'
         type: boolean
         default: false
 
@@ -65,25 +65,25 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 concurrency:
-  # ⛔ CHANGED: was sentinel-data-writer (caused race with sentinel-blogger)
-  # Now uses isolated group — if manually triggered, won't conflict with main pipeline
+  # â›” CHANGED: was sentinel-data-writer (caused race with sentinel-blogger)
+  # Now uses isolated group â€” if manually triggered, won't conflict with main pipeline
   group: sync-dashboard-manual
   cancel-in-progress: false
 
 jobs:
   sync-dashboard:
-    name: "⛔ DISABLED — Emergency Manual EMBEDDED_INTEL Patch"
+    name: "â›” DISABLED â€” Emergency Manual EMBEDDED_INTEL Patch"
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # ⛔ GATE: Only run on explicit manual dispatch with force_patch=true
+    # â›” GATE: Only run on explicit manual dispatch with force_patch=true
     if: >-
       github.event_name == 'workflow_dispatch' &&
       github.event.inputs.force_patch == 'true'
 
     steps:
-      - name: "⚠️ Safety Warning"
+      - name: "âš ï¸ Safety Warning"
         run: |
-          echo "⚠️  EMERGENCY MANUAL SYNC — sync-dashboard is DISABLED in v116.2.0"
+          echo "âš ï¸  EMERGENCY MANUAL SYNC â€” sync-dashboard is DISABLED in v116.2.0"
           echo "    sentinel-blogger handles all dashboard sync automatically."
           echo "    This manual run will ONLY patch EMBEDDED_INTEL from current git state."
           echo "    It will NOT run --force-rebuild (manifest destruction risk)."
@@ -101,17 +101,17 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: "Patch EMBEDDED_INTEL (emergency — NO --force-rebuild)"
+      - name: "Patch EMBEDDED_INTEL (emergency â€” NO --force-rebuild)"
         run: |
           echo "=== Emergency EMBEDDED_INTEL patch from current data/stix/feed_manifest.json ==="
           python3 -c "
           import json
           d = json.load(open('data/stix/feed_manifest.json'))
           items = d.get('advisories', d if isinstance(d, list) else [])
-          print(f'Manifest: {len(items)} entries — proceeding with patch')
+          print(f'Manifest: {len(items)} entries â€” proceeding with patch')
           "
-          python3 scripts/update_embedded_intel.py && echo "✅ Emergency EMBEDDED_INTEL patch OK" || {
-            echo "❌ EMBEDDED_INTEL patch FAILED"
+          python3 scripts/update_embedded_intel.py && echo "âœ… Emergency EMBEDDED_INTEL patch OK" || {
+            echo "âŒ EMBEDDED_INTEL patch FAILED"
             exit 1
           }
 
@@ -126,16 +126,16 @@ jobs:
           git merge  --abort  2>/dev/null || true
           rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
-          # ⛔ STRICTLY index.html ONLY — do NOT commit feed_manifest.json
+          # â›” STRICTLY index.html ONLY â€” do NOT commit feed_manifest.json
           git add index.html 2>/dev/null || true
-          # ⛔ BLOCKED: git add -f data/stix/feed_manifest.json ← manifest destruction risk
+          # â›” BLOCKED: git add -f data/stix/feed_manifest.json â† manifest destruction risk
 
           if git diff --staged --quiet; then
             echo "No changes to commit."
             exit 0
           fi
 
-          git commit -m "⚠️ Emergency Dashboard Sync v116.2 — EMBEDDED_INTEL patch @ $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+          git commit -m "âš ï¸ Emergency Dashboard Sync v116.2 â€” EMBEDDED_INTEL patch @ $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
 
           for i in 1 2 3 4; do
             git fetch origin main --quiet
@@ -147,3 +147,4 @@ jobs:
             sleep $((i * 15))
             [ $i -eq 4 ] && echo "Push deferred."
           done
+
