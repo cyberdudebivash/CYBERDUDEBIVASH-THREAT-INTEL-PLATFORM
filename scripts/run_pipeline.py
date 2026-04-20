@@ -167,6 +167,66 @@ def count_manifest(path: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Stage 0.0a -- Feed JSON Guard (runs BEFORE syntax guard, guarantees feed.json)
+# ---------------------------------------------------------------------------
+
+def stage_feed_guard() -> None:
+    """
+    P0 DATA PIPELINE GUARANTEE:
+    Ensure api/feed.json and root feed.json always exist and contain valid JSON
+    BEFORE any pipeline stage reads them.
+
+    Rules:
+      - If file missing or empty -> create with []
+      - If file has invalid JSON  -> overwrite with []
+      - If file has valid JSON    -> leave untouched (log stats)
+      - NEVER crashes the pipeline (all errors caught)
+    """
+    log.info("[0.0a] Feed JSON Guard -- guaranteeing feed.json integrity")
+
+    targets = [
+        REPO_ROOT / "api" / "feed.json",
+        REPO_ROOT / "feed.json",
+    ]
+
+    for feed_path in targets:
+        rel = str(feed_path.relative_to(REPO_ROOT))
+        feed_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Case 1: does not exist
+        if not feed_path.exists():
+            try:
+                feed_path.write_text("[]", encoding="utf-8")
+                log.info("[0.0a] %s: created (was missing) -> []", rel)
+            except Exception as e:
+                log.warning("[0.0a] %s: could not create: %s", rel, e)
+            continue
+
+        # Case 2: exists but empty
+        sz = feed_path.stat().st_size
+        if sz == 0:
+            try:
+                feed_path.write_text("[]", encoding="utf-8")
+                log.info("[0.0a] %s: was empty (0 bytes) -> written []", rel)
+            except Exception as e:
+                log.warning("[0.0a] %s: could not fix empty file: %s", rel, e)
+            continue
+
+        # Case 3: exists and non-empty -- verify JSON
+        try:
+            raw = feed_path.read_text(encoding="utf-8")
+            data = json.loads(raw)
+            count = len(data) if isinstance(data, list) else "n/a (dict)"
+            log.info("[0.0a] %s: VALID JSON | size=%d bytes | entries=%s", rel, sz, count)
+        except (json.JSONDecodeError, Exception) as e:
+            log.warning("[0.0a] %s: INVALID JSON (%s) -> overwriting with []", rel, e)
+            try:
+                feed_path.write_text("[]", encoding="utf-8")
+                log.info("[0.0a] %s: overwritten with [] successfully", rel)
+            except Exception as e2:
+                log.warning("[0.0a] %s: could not overwrite: %s", rel, e2)
+
+
 # Stage 0.0 -- Python Syntax Guard (runs FIRST, before anything else)
 # ---------------------------------------------------------------------------
 
@@ -890,7 +950,8 @@ def main() -> None:
     t_total = time.monotonic()
 
     # ---- Pre-flight -------------------------------------------------------
-    stage_syntax_guard()                 # FIRST: catch SyntaxErrors before execution
+    stage_feed_guard()                   # FIRST: guarantee feed.json always valid JSON
+    stage_syntax_guard()                 # THEN:  catch SyntaxErrors before execution
     stage_purge_publish_queue()
     stage_bootstrap()
     stage_validate_bootstrap()

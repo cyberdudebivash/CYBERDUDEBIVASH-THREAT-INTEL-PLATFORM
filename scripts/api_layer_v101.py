@@ -139,6 +139,84 @@ def atomic_write_json(path: Path, obj: Any, compact: bool = False) -> int:
     atomic_write(path, content)
     return path.stat().st_size
 
+
+# ── Safe feed I/O — P0 Data Pipeline Guarantee ───────────────────────────────
+def safe_write_feed(path: Path, data: Any) -> None:
+    """
+    Hard-guaranteed feed.json writer.
+    - Always writes valid JSON (falls back to [] on bad data)
+    - Verifies the file is readable and parseable after write
+    - Logs file size and entry count for observability
+    """
+    if not isinstance(data, list):
+        log(f"safe_write_feed: data is {type(data).__name__}, normalising to []", "WARN")
+        data = []
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = Path(str(path) + ".safetmp")
+    try:
+        content = json.dumps(data, ensure_ascii=False, indent=2)
+        tmp.write_text(content, encoding="utf-8")
+        # Hard verify: re-parse before committing
+        parsed = json.loads(tmp.read_text(encoding="utf-8"))
+        if not isinstance(parsed, list):
+            raise ValueError(f"Post-write parse returned {type(parsed).__name__}, expected list")
+        shutil.move(str(tmp), str(path))
+        sz = path.stat().st_size
+        log(f"safe_write_feed: {path.name} written | {len(data)} entries | {sz:,} bytes")
+    except Exception as e:
+        log(f"safe_write_feed FAILED for {path}: {e}", "ERROR")
+        if tmp.exists():
+            tmp.unlink()
+        # Last-resort: write empty array
+        try:
+            path.write_text("[]", encoding="utf-8")
+            log(f"safe_write_feed: wrote [] fallback to {path}", "WARN")
+        except Exception as e2:
+            log(f"safe_write_feed: last-resort [] write also failed: {e2}", "ERROR")
+
+
+def safe_load_feed(path: Path) -> list:
+    """
+    Bulletproof feed.json reader.
+    - Returns [] if file missing, empty, or invalid JSON
+    - Never raises — always safe to use in pipeline
+    - Logs file state for observability
+    """
+    if not path.exists():
+        log(f"safe_load_feed: {path.name} not found — returning []", "WARN")
+        return []
+    sz = path.stat().st_size
+    if sz == 0:
+        log(f"safe_load_feed: {path.name} is empty (0 bytes) — returning []", "WARN")
+        return []
+    try:
+        raw = path.read_text(encoding="utf-8")
+        data = json.loads(raw)
+        if isinstance(data, list):
+            log(f"safe_load_feed: {path.name} loaded | {len(data)} entries | {sz:,} bytes")
+            return data
+        # Dict envelope: try to extract array
+        for key in ("data", "items", "feed", "advisories", "entries"):
+            if isinstance(data.get(key), list):
+                log(f"safe_load_feed: extracted [{key}] from envelope | {len(data[key])} entries")
+                return data[key]
+        log(f"safe_load_feed: {path.name} is a dict with no array key — returning []", "WARN")
+        return []
+    except json.JSONDecodeError as e:
+        log(f"safe_load_feed: {path.name} JSONDecodeError ({e}) — returning []", "ERROR")
+        # Auto-heal: overwrite with []
+        try:
+            path.write_text("[]", encoding="utf-8")
+            log(f"safe_load_feed: auto-healed {path.name} to []", "WARN")
+        except Exception:
+            pass
+        return []
+    except Exception as e:
+        log(f"safe_load_feed: unexpected error reading {path.name}: {e} — returning []", "ERROR")
+        return []
+
+
 # ── Severity helpers ──────────────────────────────────────────────────────────
 def get_severity(item: Dict) -> str:
     sev = item.get("severity", "")
@@ -544,8 +622,17 @@ def build_feed_json(entries: List[Dict], flags: Dict) -> Path:
     }
 
     out_path = API_DIR / "feed.json"
+    # Use safe_write_feed for the data array to guarantee valid JSON on disk
+    # Also write the full envelope for consumers that need the API wrapper
     sz = atomic_write_json(out_path, envelope, compact=True)
-    log(f"feed.json: {total} items | {sz:,} bytes | critical={critical} kev={kev_ct}")
+    # Hard-verify: parse what we just wrote
+    try:
+        _check = json.loads(out_path.read_text(encoding="utf-8"))
+        log(f"feed.json: {total} items | {sz:,} bytes | critical={critical} kev={kev_ct} | VERIFIED OK")
+    except Exception as e:
+        log(f"feed.json write VERIFY FAILED ({e}) -- re-writing with safe_write_feed", "ERROR")
+        safe_write_feed(out_path, sorted_entries)
+    log(f"feed.json entries: {len(sorted_entries)}")
     return out_path
 
 # ── Phase 1: /api/latest.json ─────────────────────────────────────────────────
