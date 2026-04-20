@@ -339,8 +339,12 @@ class MitigationScriptGenerator:
             # SIEM query (Splunk SPL)
             if ips or domains:
                 parts = []
-                if ips: parts.append(f'(dest_ip IN ({",".join(f"\"{ip}\"" for ip in ips[:10])}))')
-                if domains: parts.append(f'(query IN ({",".join(f"\"{d}\"" for d in domains[:10])}))')
+                if ips:
+                    _ips_q = ",".join('"' + ip + '"' for ip in ips[:10])
+                    parts.append(f'(dest_ip IN ({_ips_q}))')
+                if domains:
+                    _doms_q = ",".join('"' + d + '"' for d in domains[:10])
+                    parts.append(f'(query IN ({_doms_q}))')
                 spl = f'index=* ({" OR ".join(parts)}) | stats count by src_ip, dest_ip, action | sort -count'
                 pack["scripts"].append({"type": "siem_splunk_spl", "content": f"| CDB APEX v37.0 Threat Hunt Query\n{spl}"})
 
@@ -432,8 +436,12 @@ class DetectionRuleGenerator:
 
             # KQL
             kql_parts = []
-            if ips: kql_parts.append(f'DeviceNetworkEvents | where RemoteIP in ({", ".join(f"\"{ip}\"" for ip in ips[:10])})')
-            if domains: kql_parts.append(f'DeviceNetworkEvents | where RemoteUrl has_any ({", ".join(f"\"{d}\"" for d in domains[:10])})')
+            if ips:
+                _kql_ips2 = ", ".join('"' + ip + '"' for ip in ips[:10])
+                kql_parts.append(f'DeviceNetworkEvents | where RemoteIP in ({_kql_ips2})')
+            if domains:
+                _kql_doms2 = ", ".join('"' + d + '"' for d in domains[:10])
+                kql_parts.append(f'DeviceNetworkEvents | where RemoteUrl has_any ({_kql_doms2})')
             if kql_parts: rules["rules"]["kql"] = "\n// OR\n".join(kql_parts)
 
             rule_count = sum(1 if isinstance(v, str) else len(v) for v in rules["rules"].values())

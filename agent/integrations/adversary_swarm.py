@@ -10,7 +10,7 @@ real malicious payload.
 
 What the generated scripts DO:
   ? Create temp files with IOC-derived names and metadata
-  ? Write safe canary registry keys (HKCU\Software\CDB-SWARM-TEST-*)
+  ? Write safe canary registry keys (HKCU\\Software\\CDB-SWARM-TEST-*)
   ? Attempt DNS resolution of IOC domains (non-destructive probe)
   ? Simulate network connection attempts (TCP connect-only, no data send)
   ? Write safe file content that matches known IOC patterns

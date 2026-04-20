@@ -1066,6 +1066,22 @@ class CVEReportEngine:
                     <td style="{s['td']};font-size:13px;">{interp.get(field, 'N/A')}</td>
                 </tr>"""
 
+        # Pre-compute nested HTML block — avoids same-quote nested f-strings (Python 3.10 compat)
+        _cwe_context_divs = ""
+        for cwe, info in zip(cwes, cwe_info_list):
+            _owasp_p = (
+                '<p style="' + s['p_muted'] + 'margin:8px 0 0;"><b>OWASP Category:</b> '
+                + info.get("owasp", "N/A") + '</p>'
+            ) if info.get("owasp") else ""
+            _cwe_context_divs += (
+                f'\n        <div style="{s["card"]}">'
+                f'\n            <h3 style="color:{self.C.get("white","#fff")};font-size:14px;margin:0 0 10px;">'
+                f'{cwe} - Technical Context</h3>'
+                f'\n            <p style="{s["p"]}margin:0;">{info["description"]}</p>'
+                f'\n            {_owasp_p}'
+                f'\n        </div>'
+            )
+
         return f"""
         <h2 style="{s['h2']}">2. VULNERABILITY OVERVIEW</h2>
 
@@ -1089,12 +1105,7 @@ class CVEReportEngine:
             </table>
         </div>
 
-        {''.join([f"""
-        <div style="{s['card']}">
-            <h3 style="color:{self.C.get('white','#fff')};font-size:14px;margin:0 0 10px;">{cwe} - Technical Context</h3>
-            <p style="{s['p']}margin:0;">{info['description']}</p>
-            {'<p style="' + s['p_muted'] + 'margin:8px 0 0;"><b>OWASP Category:</b> ' + info.get("owasp","N/A") + '</p>' if info.get("owasp") else ""}
-        </div>""" for cwe, info in zip(cwes, cwe_info_list)])}
+        {_cwe_context_divs}
 """
 
     def _section_3_verified_technical_details(self, facts: CVEFacts) -> str:

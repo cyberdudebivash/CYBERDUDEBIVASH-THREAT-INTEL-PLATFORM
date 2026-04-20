@@ -146,21 +146,28 @@ def build_ioc_table_section(item: Dict) -> str:
     if not iocs:
         iocs = [{"type": "—", "value": "No IOCs in current data feed", "confidence": 0}]
 
-    rows = "".join(
-        f'<tr style="border-bottom:1px solid #334155;">'
-        f'<td style="padding:8px 12px;color:{C_PUR};font-size:10px;font-weight:700;white-space:nowrap;">'
-        f'{str(i.get("type","?")).upper()}</td>'
-        f'<td style="padding:8px 12px;color:{C_TEXT};font-family:monospace;font-size:11px;word-break:break-all;">'
-        f'{str(i.get("value","?"))}</td>'
-        f'<td style="padding:8px 12px;color:{"#22c55e" if int(i.get("confidence",0))>=80 else C_ORG};'
-        f'font-size:11px;font-weight:700;text-align:center;">{i.get("confidence","?")}%</td>'
-        f'<td style="padding:8px 12px;color:{C_MUTED};font-size:10px;">{i.get("context","C2")}</td>'
-        f'<td style="padding:8px 12px;font-size:10px;">'
-        f'{"<span style=\"color:#ef4444;font-weight:700;\">⚠ GENERATED</span>" if i.get("generated") else "<span style=\"color:#22c55e;\">OBSERVED</span>"}'
-        f'</td>'
-        f'</tr>'
-        for i in (iocs if isinstance(iocs, list) else [])
-    )
+    # Pre-defined spans avoid backslashes inside f-string expressions (Python 3.10 compat)
+    _SPAN_GENERATED = '<span style="color:#ef4444;font-weight:700;">&#9888; GENERATED</span>'
+    _SPAN_OBSERVED  = '<span style="color:#22c55e;">OBSERVED</span>'
+
+    def _ioc_row(i: Dict) -> str:
+        conf     = int(i.get("confidence", 0))
+        col      = "#22c55e" if conf >= 80 else C_ORG
+        status   = _SPAN_GENERATED if i.get("generated") else _SPAN_OBSERVED
+        return (
+            f'<tr style="border-bottom:1px solid #334155;">'
+            f'<td style="padding:8px 12px;color:{C_PUR};font-size:10px;font-weight:700;white-space:nowrap;">'
+            f'{str(i.get("type","?")).upper()}</td>'
+            f'<td style="padding:8px 12px;color:{C_TEXT};font-family:monospace;font-size:11px;word-break:break-all;">'
+            f'{str(i.get("value","?"))}</td>'
+            f'<td style="padding:8px 12px;color:{col};'
+            f'font-size:11px;font-weight:700;text-align:center;">{i.get("confidence","?")}%</td>'
+            f'<td style="padding:8px 12px;color:{C_MUTED};font-size:10px;">{i.get("context","C2")}</td>'
+            f'<td style="padding:8px 12px;font-size:10px;">{status}</td>'
+            f'</tr>'
+        )
+
+    rows = "".join(_ioc_row(i) for i in (iocs if isinstance(iocs, list) else []))
     content = (
         f'<div style="overflow-x:auto;">'
         f'<table style="width:100%;border-collapse:collapse;">'

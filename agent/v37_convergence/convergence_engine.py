@@ -128,8 +128,12 @@ class DetectionRulesRepository:
                 # KQL
                 if ips or domains:
                     kql_parts = []
-                    if ips: kql_parts.append(f'DeviceNetworkEvents | where RemoteIP in ({", ".join(f"\"{ip}\"" for ip in ips[:10])})')
-                    if domains: kql_parts.append(f'DeviceNetworkEvents | where RemoteUrl has_any ({", ".join(f"\"{d}\"" for d in domains[:10])})')
+                    if ips:
+                        _ips_kql = ", ".join('"' + ip + '"' for ip in ips[:10])
+                        kql_parts.append(f'DeviceNetworkEvents | where RemoteIP in ({_ips_kql})')
+                    if domains:
+                        _doms_kql = ", ".join('"' + d + '"' for d in domains[:10])
+                        kql_parts.append(f'DeviceNetworkEvents | where RemoteUrl has_any ({_doms_kql})')
                     rules_db["kql"].append({"source": "v37_convergence", "stix": sf, "content": "\n// OR\n".join(kql_parts)})
 
             except: pass
@@ -190,8 +194,12 @@ class MitigationScriptLibrary:
             # Splunk SPL
             if ips or domains:
                 parts = []
-                if ips: parts.append(f'dest_ip IN ({",".join(f"\"{ip}\"" for ip in ips[:10])})')
-                if domains: parts.append(f'query IN ({",".join(f"\"{d}\"" for d in domains[:10])})')
+                if ips:
+                    _spl_ips = ",".join('"' + ip + '"' for ip in ips[:10])
+                    parts.append(f'dest_ip IN ({_spl_ips})')
+                if domains:
+                    _spl_doms = ",".join('"' + d + '"' for d in domains[:10])
+                    parts.append(f'query IN ({_spl_doms})')
                 scripts["splunk_spl"].append({"threat": title,
                     "content": f'index=* ({" OR ".join(parts)}) | stats count by src_ip, dest_ip | sort -count'})
 

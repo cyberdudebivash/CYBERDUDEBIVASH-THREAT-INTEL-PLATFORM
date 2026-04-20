@@ -98,7 +98,7 @@ MITRE_TO_KQL: Dict[str, str] = {
     "T1566": 'EmailAttachmentInfo | where FileType in~ ("exe","bat","ps1","vbs","js","docm","xlsm","hta","lnk") | join kind=inner EmailEvents on NetworkMessageId | project TimeGenerated, SenderFromAddress, RecipientEmailAddress, FileName, FileType',
     "T1190": 'W3CIISLog | where scStatus in ("500","502","503") | where not(ipaddress(cIP) in (trusted_ranges)) | summarize count() by csUriStem, cIP | where count_ > 10',
     "T1203": 'DeviceProcessEvents | where InitiatingProcessFileName in~ ("winword.exe","excel.exe","powerpnt.exe","acrord32.exe") | where FileName in~ ("cmd.exe","powershell.exe","wscript.exe","mshta.exe","regsvr32.exe") | project TimeGenerated, DeviceName, AccountName, InitiatingProcessFileName, FileName, ProcessCommandLine',
-    "T1486": 'DeviceFileEvents | where FileName matches regex @"\.(encrypted|locked|crypto|crypt)$" | summarize FileCount=count() by DeviceName, bin(TimeGenerated, 5m) | where FileCount > 20',
+    "T1486": 'DeviceFileEvents | where FileName matches regex @"\\.(encrypted|locked|crypto|crypt)$" | summarize FileCount=count() by DeviceName, bin(TimeGenerated, 5m) | where FileCount > 20',
     "T1496": 'DeviceProcessEvents | where ProcessCommandLine has_any ("stratum+tcp","pool.minexmr","moneropool","xmr.pool") | project TimeGenerated, DeviceName, AccountName, ProcessCommandLine',
     "T1071": 'CommonSecurityLog | where DeviceAction == "allow" | where DestinationPort in (443,80,8080,8443) | summarize TotalBytes=sum(SentBytes) by SourceIP, DestinationIP | where TotalBytes > 100000000',
     "T1136": 'SecurityEvent | where EventID == 4720 | project TimeGenerated, Computer, SubjectAccount, TargetUserName, TargetDomainName',
