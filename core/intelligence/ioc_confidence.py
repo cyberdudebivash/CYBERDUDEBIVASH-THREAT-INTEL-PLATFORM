@@ -66,6 +66,25 @@ class IOCConfidenceEngine:
     }
 
     def score(self, ioc: Dict[str, Any]) -> Dict[str, Any]:
+        # v131.1 P0 FIX: legacy manifest entries store IOCs as plain strings.
+        # dict("domain.com") raises ValueError — normalise to dict first.
+        if isinstance(ioc, str):
+            raw_val = ioc.strip()
+            # Infer type from value pattern to preserve maximum signal
+            ioc_type = "indicator"
+            if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", raw_val):
+                ioc_type = "ipv4"
+            elif re.match(r"^[a-f0-9]{64}$", raw_val, re.IGNORECASE):
+                ioc_type = "sha256"
+            elif re.match(r"^[a-f0-9]{40}$", raw_val, re.IGNORECASE):
+                ioc_type = "sha1"
+            elif re.match(r"^[a-f0-9]{32}$", raw_val, re.IGNORECASE):
+                ioc_type = "md5"
+            elif re.match(r"^https?://", raw_val):
+                ioc_type = "url"
+            elif re.match(r"^[A-Za-z0-9]([A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(\.[A-Za-z]{2,})+$", raw_val):
+                ioc_type = "domain"
+            ioc = {"type": ioc_type, "value": raw_val}
         ioc = dict(ioc)
         ioc_type     = (ioc.get("type") or "unknown").lower()
         source       = self._resolve_source(ioc)
@@ -136,9 +155,12 @@ class IOCConfidenceEngine:
     def ensure_minimum_confidence(self, iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         result = []
         for ioc in iocs:
-            if "confidence" not in ioc:
+            # v131.1 P0 FIX: normalise string IOCs before any dict operations
+            if isinstance(ioc, str):
                 ioc = self.score(ioc)
-            elif float(ioc["confidence"]) < MIN_CONFIDENCE:
+            elif "confidence" not in ioc:
+                ioc = self.score(ioc)
+            elif float(ioc.get("confidence", 0)) < MIN_CONFIDENCE:
                 ioc = dict(ioc)
                 ioc["confidence"] = MIN_CONFIDENCE
                 ioc["confidence_floored"] = True
