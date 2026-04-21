@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-orchestrator.py — CYBERDUDEBIVASH® SENTINEL APEX v47.0 (COMMAND CENTER)
+orchestrator.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0 (COMMAND CENTER)
 ════════════════════════════════════════════════════════════════════════════
 CENTRAL ORCHESTRATOR — Single Source of Truth.
 
@@ -313,7 +313,7 @@ class SentinelOrchestrator:
         data = {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "platform": "CYBERDUDEBIVASH SENTINEL APEX",
-            "version": "v47.0 COMMAND CENTER",
+            "version": "v134.0 COMMAND CENTER",
         }
 
         # Manifest stats
@@ -442,7 +442,7 @@ def main():
     )
 
     parser = argparse.ArgumentParser(
-        description="CYBERDUDEBIVASH® SENTINEL APEX — Central Orchestrator v47.0"
+        description="CYBERDUDEBIVASH® SENTINEL APEX — Central Orchestrator v134.0"
     )
     parser.add_argument("--status", action="store_true", help="Show system status")
     parser.add_argument("--stats", action="store_true", help="Show dashboard stats")

@@ -17,7 +17,7 @@ Response:
     "pipeline_state":       { ... },
     "uptime_info":          { ... },
     "timestamp":            ISO-8601,
-    "version":              "v133.0",
+    "version":              "v134.0",
   }
 
 Data sources (priority order):
@@ -292,7 +292,7 @@ def get_platform_health() -> Dict[str, Any]:
             "write_queue_depth": -1,
             "error":             "health_check_error",
             "timestamp":         now,
-            "version":           "v133.0",
+            "version":           "v134.0",
         }, 200  # Return 200 with UNKNOWN rather than 500 — fail open
 
 

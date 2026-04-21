@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ===============================================================================
-CYBERDUDEBIVASH SENTINEL APEX v114.0 — CANONICAL MANIFEST SHAPER
+CYBERDUDEBIVASH SENTINEL APEX v134.0 — CANONICAL MANIFEST SHAPER
 ===============================================================================
 Final-stage manifest cleaner. Runs AFTER bootstrap --force-rebuild and BEFORE
 Pipeline Hardener + R2 upload.
@@ -42,7 +42,7 @@ from pathlib import Path
 
 REPO_ROOT      = Path(__file__).resolve().parent.parent
 MANIFEST_PATH  = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
-PLATFORM_VERSION = "v114.0"
+PLATFORM_VERSION = "v134.0"
 
 BRAND_KEYWORDS = (
     "CYBERDUDEBIVASH\u00ae PRIVATE LIMITED",
@@ -151,7 +151,7 @@ def normalise_entry(item: dict) -> dict | None:
     rep = out.get("report_url") or ""
     if not isinstance(rep, str):
         rep = ""
-    # v116.3.0: Rewrite dead reports.cyberdudebivash.com (DNS NXDOMAIN) → intel domain
+    # v134.0.0: Rewrite dead reports.cyberdudebivash.com (DNS NXDOMAIN) → intel domain
     if "reports.cyberdudebivash.com" in rep:
         rep = rep.replace("https://reports.cyberdudebivash.com", "https://intel.cyberdudebivash.com")
     if not rep or "blogspot" in rep.lower():

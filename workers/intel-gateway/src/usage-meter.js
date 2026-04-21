@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Usage Meter Engine v130.0.0
+// CYBERDUDEBIVASH® SENTINEL APEX — Usage Meter Engine v134.0.0
 // Phase 1: Per-endpoint API usage tracking · Cost calculation · Peak detection
 // Storage: ANALYTICS_KV  (existing binding — no new infra required)
 // KV keys:

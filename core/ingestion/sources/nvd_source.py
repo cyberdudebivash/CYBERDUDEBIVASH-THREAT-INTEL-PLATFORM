@@ -1,5 +1,5 @@
 """
-core/ingestion/sources/nvd_source.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+core/ingestion/sources/nvd_source.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 NVD CVE API v2.0 source adapter.
 
 Capabilities:

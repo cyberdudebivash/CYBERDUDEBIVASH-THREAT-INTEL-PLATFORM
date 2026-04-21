@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 core/intelligence/ioc_enforcer.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.0 -- IOC HARD ENFORCEMENT ENGINE
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0 -- IOC HARD ENFORCEMENT ENGINE
 =======================================================================
 P0 ENFORCEMENT RULES:
   - HIGH/CRITICAL intel MUST have ioc_count >= 3

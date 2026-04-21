@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 ===============================================================================
-CYBERDUDEBIVASH SENTINEL APEX v123.0.0 â€” ENTERPRISE INTEL REPORT GENERATOR
+CYBERDUDEBIVASH SENTINEL APEX v134.0.0 – ENTERPRISE INTEL REPORT GENERATOR
 ===============================================================================
 Produces one 16-section enterprise HTML Tactical Dossier per advisory.
-Every processed intel entry MUST produce a report â€” no entry is skipped.
+Every processed intel entry MUST produce a report – no entry is skipped.
 
 Report layout (16 sections):
   1.  Classification Header & TLP Banner
@@ -37,6 +37,10 @@ Zero-skip policy:
 """
 from __future__ import annotations
 
+import sys
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 import argparse
 import hashlib
 import html
@@ -46,8 +50,7 @@ import os
 import re
 import shutil
 import subprocess
-import sys
-# P0 v131.0: IOC enforcement imports
+# P0 v134.0: IOC enforcement imports
 try:
     from core.intelligence.ioc_enforcer import IOCEnforcer as _IOCEnforcer
     from core.intelligence.ioc_confidence import IOCConfidenceEngine as _IOCConfEngine
@@ -63,7 +66,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-# v132: Global schema enforcement — enforce_schema() applied at every write boundary
+# v134: Global schema enforcement — enforce_schema() applied at every write boundary
 _ENFORCE_SCHEMA_AVAILABLE = False
 _enforce_schema = None
 try:
@@ -87,8 +90,14 @@ def _safe_enforce_schema(item: dict) -> dict:
     if _ENFORCE_SCHEMA_AVAILABLE and _enforce_schema is not None:
         try:
             return _enforce_schema(item)
-        except Exception:
-            pass
+        except Exception as _schema_exc:
+            # v134.1 HARDENING: log schema enforcement failure — never silent
+            _log.warning(
+                "SCHEMA ENFORCE WARN [%s]: %s: %s — applying inline fallback",
+                item.get("id", "UNKNOWN"),
+                type(_schema_exc).__name__,
+                _schema_exc,
+            )
     # Inline fallback: fix the critical P0 regression (published=bool → ISO string)
     item = dict(item)
     if isinstance(item.get("published"), bool):
@@ -113,14 +122,14 @@ def _load_platform_version() -> str:
         if vf.exists():
             import json as _json
             data = _json.loads(vf.read_text(encoding="utf-8"))
-            return "v" + data.get("version", "131.0.0")
+            return "v" + data.get("platform", data.get("version", "134.0.0"))
     except Exception:
         pass
-    return "v131.0.0"
+    return "v134.0.0"
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # Configuration
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 REPO_ROOT        = Path(__file__).resolve().parent.parent
 MANIFEST_PATH    = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
 REPORTS_ROOT     = REPO_ROOT / "reports"
@@ -136,9 +145,9 @@ BRAND_KEYWORDS = (
     "GLOBAL CYBERSECURITY AUTHORITY",
 )
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # Structured logging
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] [REPORTS %(version)s] %(levelname)s %(message)s",
@@ -169,9 +178,9 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# CSS â€” Enterprise dark theme (inline, zero CDN dependency)
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
+# CSS – Enterprise dark theme (inline, zero CDN dependency)
+# ─────────────────────────────────────────────────────────────────────────────
 CSS = """
 :root{
   --bg:#060d19;--panel:#0b1425;--panel2:#0f1a2e;--border:#162035;
@@ -412,16 +421,34 @@ footer a{color:var(--accent);text-decoration:none}
 """
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # Helpers
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
+# v134: Every free-text field is sanitized through the encoding repair
+# layer BEFORE HTML-escape. Guarantees no mojibake ever reaches disk.
+try:
+    import sys as _sys_enc
+    _core_dir = str(Path(__file__).resolve().parent.parent)
+    if _core_dir not in _sys_enc.path:
+        _sys_enc.path.insert(0, _core_dir)
+    from core.utils.encoding_utils import sanitize_field as _sanitize_field
+except Exception:  # pragma: no cover
+    def _sanitize_field(x):  # type: ignore[no-redef]
+        return x
+
+
 def _h(s: Any) -> str:
-    return html.escape(str(s or ""), quote=True)
+    """HTML-escape after mojibake repair. Every string that reaches HTML
+    passes through this single chokepoint — the v134 encoding guarantee."""
+    if s is None:
+        return ""
+    s = _sanitize_field(s) if isinstance(s, str) else s
+    return html.escape(str(s), quote=True)
 
 
 def _fmt_ts(ts: str) -> str:
     if not ts or not isinstance(ts, str):
-        return "â€”"
+        return "–"
     try:
         dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d %H:%M UTC")
@@ -454,11 +481,11 @@ def _render_iocs(iocs: list) -> str:
     for ioc in iocs[:100]:
         if isinstance(ioc, dict):
             itype = ioc.get("type") or "raw"
-            ival  = ioc.get("value") or ioc.get("indicator") or "â€”"
-            conf  = ioc.get("confidence") or "â€”"
-            ctx   = ioc.get("context") or ioc.get("description") or "â€”"
+            ival  = ioc.get("value") or ioc.get("indicator") or "–"
+            conf  = ioc.get("confidence") or "–"
+            ctx   = ioc.get("context") or ioc.get("description") or "–"
         else:
-            itype, ival, conf, ctx = "raw", str(ioc), "â€”", "â€”"
+            itype, ival, conf, ctx = "raw", str(ioc), "–", "–"
         rows.append(
             f"<tr><td>{_h(itype)}</td>"
             f"<td class='ioc-val'><code>{_h(ival)}</code></td>"
@@ -478,11 +505,11 @@ def _render_ttps(ttps: list) -> str:
     rows = []
     for t in ttps[:30]:
         if isinstance(t, str):
-            rows.append(f"<tr><td><code>{_h(t)}</code></td><td>â€”</td><td>â€”</td></tr>")
+            rows.append(f"<tr><td><code>{_h(t)}</code></td><td>–</td><td>–</td></tr>")
         elif isinstance(t, dict):
             tid  = t.get("technique_id") or t.get("id") or "T?"
-            nm   = t.get("name") or t.get("technique") or "â€”"
-            tac  = t.get("tactic") or "â€”"
+            nm   = t.get("name") or t.get("technique") or "–"
+            tac  = t.get("tactic") or "–"
             rows.append(f"<tr><td><code>{_h(tid)}</code></td><td>{_h(nm)}</td><td>{_h(tac)}</td></tr>")
     return (
         "<table><thead><tr><th>Technique ID</th><th>Name</th><th>Tactic</th></tr></thead>"
@@ -502,22 +529,22 @@ def _score_row(label: str, val: float, max_val: float = 10.0) -> str:
     )
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # Premium Enterprise Helper Functions
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 
 # IBM Cost of a Data Breach 2024 / Ponemon Institute sector benchmarks
 _BREACH_COSTS: list[tuple[str, str, str, str]] = [
     # (sector, avg_cost_usd, avg_days_to_contain, risk_multiplier)
-    ("Healthcare",           "$9.77M",  "236 days", "3.4Ã—"),
-    ("Financial Services",   "$6.08M",  "175 days", "2.1Ã—"),
-    ("Energy & Utilities",   "$5.29M",  "189 days", "1.8Ã—"),
-    ("Technology",           "$4.97M",  "204 days", "1.7Ã—"),
-    ("Industrial / ICS",     "$4.65M",  "210 days", "1.6Ã—"),
-    ("Education",            "$3.99M",  "242 days", "1.4Ã—"),
-    ("Retail & eCommerce",   "$3.48M",  "198 days", "1.2Ã—"),
-    ("Government / Public",  "$2.60M",  "261 days", "0.9Ã—"),
-    ("Cross-Sector Average", "$4.88M",  "204 days", "1.0Ã—"),
+    ("Healthcare",           "$9.77M",  "236 days", "3.4×"),
+    ("Financial Services",   "$6.08M",  "175 days", "2.1×"),
+    ("Energy & Utilities",   "$5.29M",  "189 days", "1.8×"),
+    ("Technology",           "$4.97M",  "204 days", "1.7×"),
+    ("Industrial / ICS",     "$4.65M",  "210 days", "1.6×"),
+    ("Education",            "$3.99M",  "242 days", "1.4×"),
+    ("Retail & eCommerce",   "$3.48M",  "198 days", "1.2×"),
+    ("Government / Public",  "$2.60M",  "261 days", "0.9×"),
+    ("Cross-Sector Average", "$4.88M",  "204 days", "1.0×"),
 ]
 
 
@@ -543,11 +570,11 @@ def _render_financial_impact(sev: str, risk: float, sectors: list) -> str:
     return (
         "<p>Breach cost projections derived from <strong>IBM Cost of a Data Breach Report 2024</strong> "
         "and <strong>Ponemon Institute benchmarks</strong>, adjusted for observed severity and exploit maturity. "
-        "Figures represent industry median for organisations of 1,000â€“10,000 employees.</p>"
+        "Figures represent industry median for organisations of 1,000—10,000 employees.</p>"
         "<table class='fin-table'>"
         "<thead><tr><th>Sector</th><th>Avg Breach Cost</th><th>Avg Contain Time</th><th>Risk Multiplier</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table>"
-        "<h3 style='margin-top:20px'>FAIR Model Exposure Estimate â€” This Advisory</h3>"
+        "<h3 style='margin-top:20px'>FAIR Model Exposure Estimate – This Advisory</h3>"
         "<div class='kv'>"
         f"<div class='kv-key'>Risk Input</div><div class='kv-val'>{risk}/10 composite APEX score</div>"
         f"<div class='kv-key'>Loss Range (Low)</div><div class='kv-val'><strong style='color:var(--low)'>{_h(fair_low)}</strong></div>"
@@ -595,7 +622,7 @@ author: CYBERDUDEBIVASH SENTINEL APEX
 date: {datetime.now(timezone.utc).strftime('%Y/%m/%d')}
 tags:
 {ttp_comment}
-  # Source: APEX advisory â€” replace with confirmed technique IDs
+  # Source: APEX advisory – replace with confirmed technique IDs
 logsource:
   category: process_creation
   product: windows
@@ -660,7 +687,7 @@ def _render_hunt_queries(title: str, ttps: list, iocs: list) -> str:
     ioc_kql_list = ", ".join(f'"{v}"' for v in ioc_vals) or '"<replace-with-ioc>"'
     ioc_spl_list = " OR ".join(f'"{v}"' for v in ioc_vals) or '"<replace-with-ioc>"'
 
-    kql = f"""// KQL â€” Microsoft Sentinel / Defender XDR
+    kql = f"""// KQL – Microsoft Sentinel / Defender XDR
 // APEX Advisory Hunt: {_h(title[:60])}
 // Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')}
 
@@ -682,7 +709,7 @@ DeviceProcessEvents
 | where count_ > 3
 | order by count_ desc;"""
 
-    spl = f"""| SPL â€” Splunk Enterprise Security
+    spl = f"""| SPL – Splunk Enterprise Security
 | APEX Advisory Hunt: {_h(title[:60])}
 | Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')}
 
@@ -707,21 +734,21 @@ def _render_regulatory_matrix(sev: str, kev: bool, sectors: list) -> str:
     regs = [
         {
             "name": "GDPR",
-            "trigger": f"{'Mandatory' if sev in ('CRITICAL','HIGH') else 'Conditional'} â€” personal data at risk",
+            "trigger": f"{'Mandatory' if sev in ('CRITICAL','HIGH') else 'Conditional'} – personal data at risk",
             "deadline": "72-hour notification to supervisory authority",
-            "penalty": "Up to â‚¬20M or 4% global turnover",
+            "penalty": "Up to €20M or 4% global turnover",
             "active": True,
         },
         {
             "name": "DPDP ACT (India)",
-            "trigger": f"{'High-priority' if sev in ('CRITICAL','HIGH') else 'Standard'} â€” Indian resident data",
+            "trigger": f"{'High-priority' if sev in ('CRITICAL','HIGH') else 'Standard'} – Indian resident data",
             "deadline": "72 hours to Data Protection Board",
-            "penalty": "Up to â‚¹250 crore (~$30M)",
+            "penalty": "Up to ₹250 crore (~$30M)",
             "active": True,
         },
         {
             "name": "HIPAA",
-            "trigger": "PHI breach â€” 500+ records triggers HHS notification",
+            "trigger": "PHI breach – 500+ records triggers HHS notification",
             "deadline": "60 days post-discovery; media notification if 500+ in state",
             "penalty": "Up to $1.9M per violation category per year",
             "active": any("health" in str(s).lower() for s in (sectors or [])),
@@ -730,19 +757,19 @@ def _render_regulatory_matrix(sev: str, kev: bool, sectors: list) -> str:
             "name": "PCI-DSS v4",
             "trigger": "Cardholder data environment (CDE) in scope",
             "deadline": "Immediate card scheme notification; forensic investigation mandatory",
-            "penalty": "$5Kâ€“$100K/month until compliant; card acceptance revocation",
+            "penalty": "$5K—$100K/month until compliant; card acceptance revocation",
             "active": any("fin" in str(s).lower() or "retail" in str(s).lower() for s in (sectors or [])),
         },
         {
             "name": "NIS2 (EU)",
             "trigger": f"{'Significant impact on essential services' if sev in ('CRITICAL','HIGH') else 'Standard incident'} classification",
             "deadline": "Early warning: 24h; Notification: 72h; Final report: 1 month",
-            "penalty": "Essential entities: up to â‚¬10M or 2% global turnover",
+            "penalty": "Essential entities: up to €10M or 2% global turnover",
             "active": True,
         },
         {
             "name": "SEC Cybersecurity Rules",
-            "trigger": "Material incident â€” publicly traded entities",
+            "trigger": "Material incident – publicly traded entities",
             "deadline": "Form 8-K filing within 4 business days of materiality determination",
             "penalty": "Enforcement action; restatement risk",
             "active": False,
@@ -763,13 +790,13 @@ def _render_regulatory_matrix(sev: str, kev: bool, sectors: list) -> str:
         )
     kev_note = (
         "<div class='callout critical'><strong>KEV CONFIRMED:</strong> CISA KEV listing creates mandatory remediation "
-        "timelines for US Federal civilian agencies (FCEB) â€” 3â€“14 days depending on severity. "
+        "timelines for US Federal civilian agencies (FCEB) – 3—14 days depending on severity. "
         "US critical infrastructure operators should treat as equivalent obligation.</div>"
         if kev else ""
     )
     return (
         "<p>Regulatory obligations triggered by this advisory depend on your sector, data classification, "
-        "and jurisdiction. APEX compliance mapping covers the frameworks below â€” engage your DPO/GC immediately "
+        "and jurisdiction. APEX compliance mapping covers the frameworks below – engage your DPO/GC immediately "
         "on any <strong>CRITICAL</strong> or <strong>HIGH</strong> advisory with personal data in scope.</p>"
         f"<div class='reg-matrix'>{''.join(cards)}</div>"
         f"{kev_note}"
@@ -777,7 +804,7 @@ def _render_regulatory_matrix(sev: str, kev: bool, sectors: list) -> str:
 
 
 def _compute_bis(risk: float, cvss: Any, epss: Any, kev: bool, ioc_count: int, ttp_count: int) -> dict:
-    """Compute Business Impact Score (BIS/10) â€” FAIR-aligned composite metric."""
+    """Compute Business Impact Score (BIS/10) – FAIR-aligned composite metric."""
     base  = float(risk or 0) * 0.35
     c_v   = (float(cvss or 0) / 10.0) * 2.5
     e_v   = min(float(epss or 0) / 100.0, 1.0) * 2.0
@@ -798,9 +825,9 @@ def _compute_bis(risk: float, cvss: Any, epss: Any, kev: bool, ioc_count: int, t
     return {"score": bis, "label": label, "color": color}
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # 16-Section Report Builder (+ 4 Premium Enterprise Sections)
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 def _section(num: int, title: str, body: str) -> str:
     return (
         f"<div class='section' id='s{num}'>"
@@ -825,7 +852,7 @@ def build_report_sections(item: dict) -> str:
     risk        = float(item.get("risk_score") or 0)
     ttps        = item.get("ttps") or item.get("mitre_tactics") or []
     iocs        = item.get("iocs") or []
-    # P0 FIX v131.0: IOC enforcement + confidence scoring pipeline
+    # P0 FIX v134.0: IOC enforcement + confidence scoring pipeline
     iocs = list(iocs)  # ensure list
 
     # Step 1: Score IOC confidence (no IOC ships at 0%)
@@ -852,7 +879,7 @@ def build_report_sections(item: dict) -> str:
     item["indicator_count"]  = ioc_count
     item["iocs"]             = iocs
     tags        = item.get("tags") or []
-    stix_id     = item.get("stix_id") or item.get("id") or "â€”"
+    stix_id     = item.get("stix_id") or item.get("id") or "–"
     tlp         = item.get("tlp") or "TLP:CLEAR"
     source_url  = item.get("source_url") or ""
     campaign    = item.get("campaign_id") or "UNCLASSIFIED"
@@ -863,12 +890,12 @@ def build_report_sections(item: dict) -> str:
 
     sections = []
 
-    # â”€â”€ S1: Classification Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S1: Classification Header ──────────────────────────────────────────
     kev_badge = (
         "<span class='sev-chip sev-CRITICAL'>KEV CONFIRMED</span>"
         if kev else ""
     )
-    _tlp_class = _sev_class("INFO")   # pre-computed â€” no backslash inside f-string
+    _tlp_class = _sev_class("INFO")   # pre-computed – no backslash inside f-string
     sections.append(_section(1, "Classification &amp; Header",
         f"<div class='kv'>"
         f"<div class='kv-key'>STIX ID</div><div class='kv-val'><code>{_h(stix_id)}</code></div>"
@@ -882,9 +909,9 @@ def build_report_sections(item: dict) -> str:
         f"</div>"
     ))
 
-    # â”€â”€ S2: Executive Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S2: Executive Summary ──────────────────────────────────────────────
     kev_txt = (
-        "Active exploitation confirmed via CISA KEV catalogue â€” treat as IMMINENT threat."
+        "Active exploitation confirmed via CISA KEV catalogue – treat as IMMINENT threat."
         if kev else
         "No confirmed active exploitation in CISA KEV catalogue at time of analysis."
     )
@@ -905,7 +932,7 @@ def build_report_sections(item: dict) -> str:
         f"</div>"
     ))
 
-    # â”€â”€ S3: Threat Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S3: Threat Profile ─────────────────────────────────────────────────
     sections.append(_section(3, "Threat Profile &amp; Metadata",
         f"<div class='kv'>"
         f"<div class='kv-key'>Title</div><div class='kv-val'>{_h(title)}</div>"
@@ -913,10 +940,10 @@ def build_report_sections(item: dict) -> str:
         f"<div class='kv-key'>Actor Cluster</div><div class='kv-val'>{_h(actor)}</div>"
         f"<div class='kv-key'>Campaign</div><div class='kv-val'>{_h(campaign)}</div>"
         f"<div class='kv-key'>TLP Label</div><div class='kv-val'>{_h(tlp)}</div>"
-        f"<div class='kv-key'>STIX Bundle</div><div class='kv-val'><code>{_h(item.get('stix_file','data/stix/â€”'))}</code></div>"
+        f"<div class='kv-key'>STIX Bundle</div><div class='kv-val'><code>{_h(item.get('stix_file','data/stix/–'))}</code></div>"
         f"<div class='kv-key'>Feed Source</div><div class='kv-val'>{_h(feed)}</div>"
         f"<div class='kv-key'>Source URL</div><div class='kv-val'>"
-        + (f"<a href='{_h(source_url)}' target='_blank' rel='noopener' style='color:var(--accent2)'>{_h(source_url[:80])}{'â€¦' if len(source_url)>80 else ''}</a>" if source_url else "â€”")
+        + (f"<a href='{_h(source_url)}' target='_blank' rel='noopener' style='color:var(--accent2)'>{_h(source_url[:80])}{'…' if len(source_url)>80 else ''}</a>" if source_url else "–")
         + f"</div>"
         f"<div class='kv-key'>Processed</div><div class='kv-val'>{_h(ts)}</div>"
         f"<div class='kv-key'>IOC Count</div><div class='kv-val'>{ioc_count}</div>"
@@ -924,7 +951,7 @@ def build_report_sections(item: dict) -> str:
         f"</div>"
     ))
 
-    # â”€â”€ S4: Risk Score Breakdown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S4: Risk Score Breakdown ───────────────────────────────────────────
     cvss_v = float(cvss) if cvss is not None else 0.0
     epss_v = float(epss) if epss is not None else 0.0
     kev_score = 10.0 if kev else 0.0
@@ -937,14 +964,14 @@ def build_report_sections(item: dict) -> str:
         + _score_row("KEV Exploitation", kev_score, 10)
         + _score_row("TTP Coverage", min(len(ttps), 10), 10)
         + f"<div class='callout{'  critical' if risk >= 8 else ''}'>"
-        f"<strong>Composite Score {risk}/10</strong> â€” "
+        f"<strong>Composite Score {risk}/10</strong> – "
         + ("IMMINENT. Patch within 24 hours." if risk >= 9 else
            "HIGH PRIORITY. Patch within 72 hours." if risk >= 7 else
            "STANDARD. Patch within standard window.")
         + "</div>"
     ))
 
-    # â”€â”€ S5: Technical Analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S5: Technical Analysis ─────────────────────────────────────────────
     delivery = item.get("delivery_vector") or "Multi-stage; refer to IOC section for observed infrastructure."
     priv_req = item.get("privilege_required") or "unprivileged user"
     sections.append(_section(5, "Technical Analysis",
@@ -957,17 +984,17 @@ def build_report_sections(item: dict) -> str:
         f"<li><strong>Privilege context:</strong> Exploit path requires {_h(priv_req)} privileges.</li>"
         f"<li><strong>Network footprint:</strong> {ioc_count} distinct indicators "
         "of compromise recorded at analysis time.</li>"
-        f"<li><strong>KEV status:</strong> {'Actively exploited â€” CISA KEV confirmed.' if kev else 'Not presently on CISA KEV.'}</li>"
+        f"<li><strong>KEV status:</strong> {'Actively exploited – CISA KEV confirmed.' if kev else 'Not presently on CISA KEV.'}</li>"
         f"<li><strong>Threat actor:</strong> Activity attributed to cluster "
         f"<strong>{_h(actor)}</strong>.</li>"
         "</ul>"
         "<p>Defenders should correlate the IOC table (Section 7) against 30-day "
         "SIEM retention, proxy logs, EDR process telemetry, and authentication "
-        "events. Absence of a match does not rule out compromise â€” this advisory "
+        "events. Absence of a match does not rule out compromise – this advisory "
         "has been associated with re-generated C2 infrastructure and DGA campaigns.</p>"
     ))
 
-    # â”€â”€ S6: MITRE ATT&CK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S6: MITRE ATT&CK ──────────────────────────────────────────────────
     sections.append(_section(6, "MITRE ATT&amp;CK Mapping",
         "<p>The following ATT&amp;CK v15 techniques have been mapped with HIGH confidence. "
         "Enterprise subscribers receive a Navigator layer (.json) for direct overlay "
@@ -975,7 +1002,7 @@ def build_report_sections(item: dict) -> str:
         + _render_ttps(ttps)
     ))
 
-    # â”€â”€ S7: IOC Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S7: IOC Table ─────────────────────────────────────────────────────
     sections.append(_section(7, "Indicators of Compromise",
         "<p>Hunt these indicators across SIEM, EDR, DNS, proxy, and firewall "
         "telemetry. APEX delivers IOCs in STIX 2.1, MISP, Sigma, and YARA "
@@ -983,9 +1010,9 @@ def build_report_sections(item: dict) -> str:
         + _render_iocs(iocs)
     ))
 
-    # â”€â”€ S8: CVSS / EPSS Deep Dive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S8: CVSS / EPSS Deep Dive ──────────────────────────────────────────
     cvss_vec = item.get("cvss_vector") or "Not available"
-    # pre-computed â€” no backslash inside f-string (Python <3.12 restriction)
+    # pre-computed – no backslash inside f-string (Python <3.12 restriction)
     _kev_chip = "<span class='sev-chip sev-CRITICAL'>YES &mdash; ACTIVELY EXPLOITED</span>" if kev else "No"
     sections.append(_section(8, "CVSS &amp; EPSS Deep Dive",
         "<div class='kv'>"
@@ -994,16 +1021,16 @@ def build_report_sections(item: dict) -> str:
         f"<div class='kv-key'>EPSS Score</div><div class='kv-val'><strong>{_h(epss) if epss is not None else 'Pending'}{'%' if epss is not None else ''}</strong></div>"
         f"<div class='kv-key'>KEV Listed</div><div class='kv-val'>{_kev_chip}</div>"
         f"<div class='kv-key'>NVD Reference</div><div class='kv-val'>"
-        + (f"<a href='{_h(nvd_url)}' target='_blank' rel='noopener' style='color:var(--accent2)'>{_h(nvd_url)}</a>" if nvd_url else "â€”")
+        + (f"<a href='{_h(nvd_url)}' target='_blank' rel='noopener' style='color:var(--accent2)'>{_h(nvd_url)}</a>" if nvd_url else "–")
         + "</div>"
         "</div>"
         "<p style='margin-top:14px'>CVSS measures inherent severity. EPSS models real-world exploitation "
         "probability. Combined with KEV catalogue status, these signals drive "
         "APEX's composite risk score. EPSS &gt;10% combined with KEV listing "
-        "triggers APEX's IMMINENT classification â€” immediate patching required.</p>"
+        "triggers APEX's IMMINENT classification – immediate patching required.</p>"
     ))
 
-    # â”€â”€ S9: Kill Chain Analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S9: Kill Chain Analysis ────────────────────────────────────────────
     default_kc = ["Reconnaissance", "Weaponisation", "Delivery",
                   "Exploitation", "Installation", "C2", "Actions on Objectives"]
     phases = kc_phases if kc_phases else default_kc[:4]
@@ -1028,10 +1055,10 @@ def build_report_sections(item: dict) -> str:
         )
     sections.append(_section(9, "Kill Chain Phase Analysis", kc_html))
 
-    # â”€â”€ S10: Detection & Response Playbook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S10: Detection & Response Playbook ────────────────────────────────
     sections.append(_section(10, "Detection &amp; Response Playbook",
         "<div class='playbook-phase'>"
-        "<div class='playbook-label'>Immediate (0â€“4 hours)</div>"
+        "<div class='playbook-label'>Immediate (0—4 hours)</div>"
         "<div class='playbook-steps'>"
         "<div class='step'><p>Triage advisory against asset inventory. Identify affected versions and exposure classes.</p></div>"
         "<div class='step'><p>Deploy APEX Sigma &amp; YARA rule packs into your SIEM and EDR estate.</p></div>"
@@ -1039,14 +1066,14 @@ def build_report_sections(item: dict) -> str:
         "<div class='step'><p>Isolate hosts exhibiting observed behavioural signatures pending forensic review.</p></div>"
         "</div></div>"
         "<div class='playbook-phase'>"
-        "<div class='playbook-label'>Short-term (4â€“24 hours)</div>"
+        "<div class='playbook-label'>Short-term (4—24 hours)</div>"
         "<div class='playbook-steps'>"
         "<div class='step'><p>Apply vendor patch or configuration workaround per remediation guidance (Section 16).</p></div>"
         "<div class='step'><p>Run 30-day retro-hunt across all telemetry using APEX hunt queries (hunt.hql / hunt.kql).</p></div>"
         "<div class='step'><p>Review third-party and supply-chain exposure; confirm upstream providers are patched.</p></div>"
         "</div></div>"
         "<div class='playbook-phase'>"
-        "<div class='playbook-label'>Medium-term (1â€“7 days)</div>"
+        "<div class='playbook-label'>Medium-term (1—7 days)</div>"
         "<div class='playbook-steps'>"
         "<div class='step'><p>Validate detection coverage across ATT&amp;CK techniques (Section 6).</p></div>"
         "<div class='step'><p>Perform tabletop exercise covering this threat type with IR team and CISO.</p></div>"
@@ -1054,10 +1081,10 @@ def build_report_sections(item: dict) -> str:
         "</div></div>"
     ))
 
-    # â”€â”€ S11: Threat Actor Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S11: Threat Actor Profile ──────────────────────────────────────────
     sections.append(_section(11, "Threat Actor Profile",
         f"<div class='actor-card'>"
-        f"<div class='actor-icon'>âš”</div>"
+        f"<div class='actor-icon'>⚔</div>"
         f"<div class='actor-body'>"
         f"<h3>{_h(actor)}</h3>"
         f"<p>Tracking cluster: <code>{_h(actor)}</code> &nbsp;|&nbsp; "
@@ -1072,8 +1099,8 @@ def build_report_sections(item: dict) -> str:
         "when this cluster shows new activity.</div>"
     ))
 
-    # â”€â”€ S12: Campaign Intelligence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    ai_conf = item.get("ai_confidence") or item.get("confidence") or "â€”"
+    # ── S12: Campaign Intelligence ─────────────────────────────────────────
+    ai_conf = item.get("ai_confidence") or item.get("confidence") or "–"
     sections.append(_section(12, "Campaign Intelligence",
         "<div class='kv'>"
         f"<div class='kv-key'>Campaign ID</div><div class='kv-val'><code>{_h(campaign)}</code></div>"
@@ -1089,7 +1116,7 @@ def build_report_sections(item: dict) -> str:
         "available in the enterprise delivery pack.</p>"
     ))
 
-    # â”€â”€ S13: Affected Systems â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S13: Affected Systems ──────────────────────────────────────────────
     if affected:
         aff_list = "".join(f"<li><code>{_h(a)}</code></li>" for a in (affected if isinstance(affected, list) else [affected]))
         aff_html = f"<ul>{aff_list}</ul>"
@@ -1103,7 +1130,7 @@ def build_report_sections(item: dict) -> str:
         "where applicable.</div>"
     ))
 
-    # â”€â”€ S14: Strategic Implications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S14: Strategic Implications ────────────────────────────────────────
     reg_note = (
         "For organisations in regulated sectors (financial services, healthcare, energy, "
         "public sector) this advisory may trigger mandatory incident reporting obligations "
@@ -1125,7 +1152,7 @@ def build_report_sections(item: dict) -> str:
         "</ul>"
     ))
 
-    # â”€â”€ S15: APEX AI Analyst Insight â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S15: APEX AI Analyst Insight ──────────────────────────────────────
     sections.append(_section(15, "APEX AI Analyst Insight",
         "<p>APEX's autonomous AI analyst layer has correlated this advisory against "
         "12 months of threat intelligence, actor infrastructure history, and global telemetry. "
@@ -1140,14 +1167,14 @@ def build_report_sections(item: dict) -> str:
         "</div>"
         "<div class='premium-lock' style='margin-top:16px'>"
         "<div class='lock-icon'>ðŸ”’</div>"
-        "<div class='lock-title'>Full AI Analyst Narrative â€” Enterprise Tier</div>"
+        "<div class='lock-title'>Full AI Analyst Narrative – Enterprise Tier</div>"
         "<div class='lock-sub'>Includes predictive threat modelling, infrastructure pivot analysis, "
         "autonomous response recommendations, and SOAR playbook export.</div>"
         "<a class='cta cta-enterprise' href='https://cyberdudebivash.com/sentinel-enterprise'>Unlock Enterprise</a>"
         "</div>"
     ))
 
-    # â”€â”€ S16: References & Enterprise CTA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S16: References & Enterprise CTA ──────────────────────────────────
     refs = []
     if source_url:
         refs.append(f"<li>Primary source: <a href='{_h(source_url)}' target='_blank' rel='noopener' style='color:var(--accent2)'>{_h(source_url)}</a></li>")
@@ -1171,11 +1198,11 @@ def build_report_sections(item: dict) -> str:
         "Sigma &amp; YARA rule packs, MITRE Navigator layer, hunt queries (KQL/SPL/EQL), "
         "AI analyst narrative, actor tracker continuation, SOAR playbook export, and "
         "dedicated SOC uplift SLA. <a href='https://cyberdudebivash.com/sentinel-enterprise' "
-        "style='color:var(--accent)'>Contact enterprise sales â†’</a>"
+        "style='color:var(--accent)'>Contact enterprise sales →</a>"
         "</div>"
     ))
 
-    # â”€â”€ S17: Financial Impact Quantification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S17: Financial Impact Quantification ──────────────────────────────
     sectors_tagged = [t for t in tags if any(
         k in str(t).lower() for k in ["health","finance","energy","tech","gov","retail","edu","ics"]
     )]
@@ -1183,7 +1210,7 @@ def build_report_sections(item: dict) -> str:
         _render_financial_impact(sev, risk, sectors_tagged)
     ))
 
-    # â”€â”€ S18: Detection Engineering Pack â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S18: Detection Engineering Pack ───────────────────────────────────
     sigma_rule = _render_sigma_rule(title, ttps, iocs)
     yara_rule  = _render_yara_rule(title, iocs, actor)
     kql_q, spl_q = _render_hunt_queries(title, ttps, iocs)
@@ -1197,8 +1224,8 @@ def build_report_sections(item: dict) -> str:
         # Sigma
         "<div class='rule-block'>"
         "<div class='rule-header'>"
-        "<span class='rule-badge rule-sigma'>SIGMA â€” SIEM/EDR Universal</span>"
-        "<span class='copy-hint'>Compatible: Splunk Â· Elastic Â· QRadar Â· Sentinel Â· Chronicle</span>"
+        "<span class='rule-badge rule-sigma'>SIGMA – SIEM/EDR Universal</span>"
+        "<span class='copy-hint'>Compatible: Splunk · Elastic · QRadar · Sentinel · Chronicle</span>"
         "</div>"
         f"<pre>{_h(sigma_rule)}</pre>"
         "</div>"
@@ -1206,8 +1233,8 @@ def build_report_sections(item: dict) -> str:
         # YARA
         "<div class='rule-block'>"
         "<div class='rule-header'>"
-        "<span class='rule-badge rule-yara'>YARA â€” Memory &amp; File Scanning</span>"
-        "<span class='copy-hint'>Deploy via: CrowdStrike Â· Carbon Black Â· Velociraptor Â· CAPE</span>"
+        "<span class='rule-badge rule-yara'>YARA – Memory &amp; File Scanning</span>"
+        "<span class='copy-hint'>Deploy via: CrowdStrike · Carbon Black · Velociraptor · CAPE</span>"
         "</div>"
         f"<pre>{_h(yara_rule)}</pre>"
         "</div>"
@@ -1215,7 +1242,7 @@ def build_report_sections(item: dict) -> str:
         # KQL
         "<div class='rule-block'>"
         "<div class='rule-header'>"
-        "<span class='rule-badge rule-kql'>KQL â€” Microsoft Sentinel / Defender XDR</span>"
+        "<span class='rule-badge rule-kql'>KQL – Microsoft Sentinel / Defender XDR</span>"
         "<span class='copy-hint'>Retro-hunt: last 30 days</span>"
         "</div>"
         f"<pre>{_h(kql_q)}</pre>"
@@ -1224,7 +1251,7 @@ def build_report_sections(item: dict) -> str:
         # SPL
         "<div class='rule-block'>"
         "<div class='rule-header'>"
-        "<span class='rule-badge rule-spl'>SPL â€” Splunk Enterprise Security</span>"
+        "<span class='rule-badge rule-spl'>SPL – Splunk Enterprise Security</span>"
         "<span class='copy-hint'>ES correlation search ready</span>"
         "</div>"
         f"<pre>{_h(spl_q)}</pre>"
@@ -1235,12 +1262,12 @@ def build_report_sections(item: dict) -> str:
         "<a href='https://intel.cyberdudebivash.com/api/stix/" + _h(stix_id) + "' style='color:var(--accent)'>APEX Enterprise API</a>.</div>"
     ))
 
-    # â”€â”€ S19: Regulatory Compliance Impact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S19: Regulatory Compliance Impact ─────────────────────────────────
     sections.append(_section(19, "Regulatory Compliance Impact",
         _render_regulatory_matrix(sev, kev, sectors_tagged)
     ))
 
-    # â”€â”€ S20: Business Impact Score & MITRE Navigator Layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── S20: Business Impact Score & MITRE Navigator Layer ─────────────
     bis = _compute_bis(risk, cvss, epss, kev, ioc_count, len(ttps))
     bis_score  = bis["score"]
     bis_label  = bis["label"]
@@ -1257,10 +1284,10 @@ def build_report_sections(item: dict) -> str:
                 nav_techniques.append({"techniqueID": tid, "color": "#ff3b3b", "comment": f"Mapped by APEX: {title[:60]}", "enabled": True})
 
     nav_layer = json.dumps({
-        "name": f"APEX â€” {title[:60]}",
+        "name": f"APEX – {title[:60]}",
         "versions": {"attack": "15", "navigator": "4.9", "layer": "4.5"},
         "domain": "enterprise-attack",
-        "description": f"CYBERDUDEBIVASH SENTINEL APEX {PLATFORM_VERSION} â€” {title[:80]}",
+        "description": f"CYBERDUDEBIVASH SENTINEL APEX {PLATFORM_VERSION} – {title[:80]}",
         "techniques": nav_techniques,
         "gradient": {"colors": ["#ffffff","#ff3b3b"], "minValue": 0, "maxValue": 1},
         "legendItems": [{"label": "APEX Mapped Technique", "color": "#ff3b3b"}],
@@ -1296,10 +1323,10 @@ def build_report_sections(item: dict) -> str:
         "existing detection coverage matrix. Identifies gaps and maps directly into ATT&amp;CK Workbench.</p>"
         + (
             f"<a class='nav-download' href='{_h(nav_href)}' download='APEX_{_h(stix_id[:16])}_navigator.json'>"
-            "â¬‡ Download Navigator Layer (.json)"
+            "⬇ Download Navigator Layer (.json)"
             "</a>"
             if nav_techniques else
-            "<div class='callout'>No TTPs mapped â€” Navigator layer requires confirmed technique IDs. "
+            "<div class='callout'>No TTPs mapped – Navigator layer requires confirmed technique IDs. "
             "Enterprise tier auto-maps via APEX AI inference engine.</div>"
         )
         + "<div class='callout' style='margin-top:16px'>"
@@ -1311,9 +1338,9 @@ def build_report_sections(item: dict) -> str:
     return "\n".join(sections)
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # Full HTML document
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 def render_report(item: dict, public_prefix: str) -> str:
     # RENDER LAYER SAFETY: all field access uses str() — never assume data types
     title    = str(item.get("title") or "Untitled Advisory")
@@ -1347,22 +1374,23 @@ def render_report(item: dict, public_prefix: str) -> str:
 <html lang='en'>
 <head>
 <meta charset='utf-8'>
+<meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
 <meta name='viewport' content='width=device-width,initial-scale=1'>
 <meta name='robots' content='index,follow'>
-<meta name='description' content='{_h(title)} â€” Severity {_h(sev)} â€” CYBERDUDEBIVASH SENTINEL APEX Tactical Dossier. Risk {risk}/10. Generated {_h(ts)}.'>
-<meta property='og:title' content='{_h(title)} Â· SENTINEL APEX Tactical Dossier'>
-<meta property='og:description' content='Severity {_h(sev)} Â· Risk {risk}/10 Â· CYBERDUDEBIVASH SENTINEL APEX'>
+<meta name='description' content='{_h(title)} – Severity {_h(sev)} – CYBERDUDEBIVASH SENTINEL APEX Tactical Dossier. Risk {risk}/10. Generated {_h(ts)}.'>
+<meta property='og:title' content='{_h(title)} · SENTINEL APEX Tactical Dossier'>
+<meta property='og:description' content='Severity {_h(sev)} · Risk {risk}/10 · CYBERDUDEBIVASH SENTINEL APEX'>
 <meta property='og:type' content='article'>
-<title>{_h(title)} Â· SENTINEL APEX Tactical Dossier</title>
+<title>{_h(title)} · SENTINEL APEX Tactical Dossier</title>
 <link rel='canonical' href='{_h(report_url)}'>
 <style>{CSS}</style>
 </head>
 <body>
 <div class='tlp-banner tlp-{_h(tlp.replace(":","").replace("TLP","").strip() or "CLEAR")}'>
-  TLP: {_h(item.get('tlp','TLP:CLEAR'))} &nbsp;Â·&nbsp; CYBERDUDEBIVASH SENTINEL APEX TACTICAL DOSSIER &nbsp;Â·&nbsp; {PLATFORM_VERSION}
+  TLP: {_h(item.get('tlp','TLP:CLEAR'))} &nbsp;·&nbsp; CYBERDUDEBIVASH SENTINEL APEX TACTICAL DOSSIER &nbsp;·&nbsp; {PLATFORM_VERSION}
 </div>
 <nav class='top-nav'>
-  <div class='nav-brand'>CYBERDUDEBIVASH Â· SENTINEL APEX</div>
+  <div class='nav-brand'>CYBERDUDEBIVASH · SENTINEL APEX</div>
   <div class='nav-links'>
     <a href='https://intel.cyberdudebivash.com'>Platform</a>
     <a href='https://intel.cyberdudebivash.com/api/feed'>Live Feed</a>
@@ -1376,14 +1404,14 @@ def render_report(item: dict, public_prefix: str) -> str:
     <span class='cls-chip cls-TLP'>{_h(item.get('tlp','TLP:CLEAR'))}</span>
     <span>TACTICAL DOSSIER</span>
   </div>
-  <div class='dossier-id'>INTEL ID: {_h(intel_id)} &nbsp;Â·&nbsp; PROCESSED: {_h(ts)}</div>
+  <div class='dossier-id'>INTEL ID: {_h(intel_id)} &nbsp;·&nbsp; PROCESSED: {_h(ts)}</div>
   <h1 class='dossier-title'>{_h(title)}</h1>
   <div class='meta-strip'>
     <span>Severity: <strong><span class='sev-chip {_sev_class(sev)}'>{_h(sev)}</span></strong></span>
     <span>Risk: <strong>{risk}/10</strong></span>
     <span>Platform: <strong>SENTINEL APEX {PLATFORM_VERSION}</strong></span>
     <span>Processed: <strong>{_h(ts)}</strong></span>
-    <span>ID: <code>{_h(intel_id[:24])}{'â€¦' if len(intel_id)>24 else ''}</code></span>
+    <span>ID: <code>{_h(intel_id[:24])}{'…' if len(intel_id)>24 else ''}</code></span>
   </div>
   <div class='tag-strip'>{_render_tags(tags)}</div>
 </header>
@@ -1401,17 +1429,17 @@ def render_report(item: dict, public_prefix: str) -> str:
 </div>
 
 <footer class='dossier-ftr'>
-  <span>Â© {datetime.now(timezone.utc).year} CYBERDUDEBIVASH Pvt. Ltd. â€” SENTINEL APEX {PLATFORM_VERSION}</span>
-  <span><a href='https://intel.cyberdudebivash.com'>intel.cyberdudebivash.com</a> Â· <a href='https://cyberdudebivash.in'>cyberdudebivash.in</a></span>
+  <span>© {datetime.now(timezone.utc).year} CYBERDUDEBIVASH Pvt. Ltd. – SENTINEL APEX {PLATFORM_VERSION}</span>
+  <span><a href='https://intel.cyberdudebivash.com'>intel.cyberdudebivash.com</a> · <a href='https://cyberdudebivash.in'>cyberdudebivash.in</a></span>
 </footer>
 </div>
 </body>
 </html>"""
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # Path helpers
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 def iso_path(ts: str) -> tuple[str, str]:
     try:
         dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
@@ -1427,12 +1455,12 @@ def rel_report_path(item: dict) -> Path:
     return REPORTS_ROOT / yyyy / mm / f"{item['id']}.html"
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # R2 upload
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 def r2_upload(local_path: Path, key: str, endpoint: str) -> bool:
     if not shutil.which("aws"):
-        log("aws CLI not available â€” skipping R2 upload", "warning")
+        log("aws CLI not available – skipping R2 upload", "warning")
         return False
     try:
         subprocess.run(
@@ -1450,9 +1478,9 @@ def r2_upload(local_path: Path, key: str, endpoint: str) -> bool:
         return False
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # Manifest I/O
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 def load_manifest() -> dict:
     with open(MANIFEST_PATH, "r", encoding="utf-8") as fh:
         return json.load(fh)
@@ -1460,7 +1488,7 @@ def load_manifest() -> dict:
 
 def save_manifest(data: dict) -> None:
     """
-    v132: Hardened manifest save — FileLock (120s) + 5-attempt retry + JSON verify.
+    v134: Hardened manifest save — FileLock (120s) + 5-attempt retry + JSON verify.
     Falls back to direct write if atomic replace fails.
     """
     try:
@@ -1500,9 +1528,9 @@ def save_manifest(data: dict) -> None:
             raise
 
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 # Main
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─────────────────────────────────────────────────────────────────────────────
 def main(argv=None) -> int:
     global MANIFEST_PATH
 
@@ -1517,13 +1545,13 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     MANIFEST_PATH = Path(args.manifest)
-    log(f"Starting {PLATFORM_VERSION} â€” manifest: {MANIFEST_PATH}")
+    log(f"Starting {PLATFORM_VERSION} – manifest: {MANIFEST_PATH}")
 
     endpoint = None
     if args.upload_r2:
         acct = os.environ.get("CF_ACCOUNT_ID", "")
         if not acct:
-            log("CF_ACCOUNT_ID not set â€” R2 upload disabled", "warning")
+            log("CF_ACCOUNT_ID not set – R2 upload disabled", "warning")
             args.upload_r2 = False
         else:
             endpoint = f"https://{acct}.r2.cloudflarestorage.com"
@@ -1537,7 +1565,7 @@ def main(argv=None) -> int:
     if args.limit:
         items = items[:args.limit]
 
-    log(f"Processing {len(items)} entries â€” upload_r2={args.upload_r2} prefix={args.public_prefix}")
+    log(f"Processing {len(items)} entries – upload_r2={args.upload_r2} prefix={args.public_prefix}")
 
     written = 0
     uploaded = 0
@@ -1548,7 +1576,7 @@ def main(argv=None) -> int:
     for item in items:
         intel_id = item.get("id")
         if not intel_id:
-            log(f"SKIP: entry missing id field â€” {item.get('title','?')[:60]}", "warning")
+            log(f"SKIP: entry missing id field – {item.get('title','?')[:60]}", "warning")
             continue
 
         _title = item.get("title") or ""
@@ -1559,8 +1587,8 @@ def main(argv=None) -> int:
             item["validation_status"] = "brand_skip"
             continue
 
-        # â”€â”€ Zero-skip policy: generate report for EVERY real entry â”€â”€
-        # Short entries get an enriched template â€” no blanket skip
+        # ── Zero-skip policy: generate report for EVERY real entry ──
+        # Short entries get an enriched template – no blanket skip
         _desc  = item.get("description") or ""
         _words = len((_title + " " + _desc).split())
         is_enriched = _words < 50  # flag thin content but still generate
@@ -1584,8 +1612,9 @@ def main(argv=None) -> int:
             try:
                 from scripts.safe_io import _store_write_failure
                 _store_write_failure(path, render_exc, payload=item)
-            except Exception:
-                pass
+            except Exception as _rbuf_exc:
+                # v134.1: log — diagnostics path must not silently swallow errors
+                _log.debug("RENDER FAIL BUFFER [%s]: could not store render failure: %s", intel_id, _rbuf_exc)
             continue
 
         # ── WRITE PHASE (retry with backoff — genuine I/O failures) ──
@@ -1635,32 +1664,61 @@ def main(argv=None) -> int:
             try:
                 from scripts.safe_io import _store_write_failure
                 _store_write_failure(path, write_exc_final, payload={"html_len": len(html_text), "id": intel_id})
-            except Exception:
-                pass
+            except Exception as _buf_exc:
+                # v134.1: log secondary failure — diagnostics path must not silently swallow errors
+                _log.debug("WRITE FAIL BUFFER [%s]: could not store write failure: %s", intel_id, _buf_exc)
             continue
 
-        # Validate file on disk
-        if not path.exists() or path.stat().st_size < 512:
-            log(f"VALIDATE FAIL [{intel_id}]: file missing or too small", "error")
-            item["validation_status"] = "file_missing"
+        # ── FAIL-FAST VALIDATION (v134.1 HARDENING) ──────────────────────────
+        # RULE: Report MUST exist on disk with valid size and valid HTML header.
+        # Any failure here is a HARD STOP for this entry — logged + errors counted.
+        _MIN_REPORT_BYTES = 1024  # 1 KB minimum (raised from 512 per v134.1)
+        _HTML_SIGS = (b"<!doctype html", b"<!DOCTYPE html", b"<html")
+        _file_valid = False
+        if not path.exists():
+            log(f"VALIDATE FAIL [{intel_id}]: report file does not exist on disk: {path}", "error")
+        elif path.stat().st_size < _MIN_REPORT_BYTES:
+            log(
+                f"VALIDATE FAIL [{intel_id}]: report too small "
+                f"({path.stat().st_size} bytes < {_MIN_REPORT_BYTES} minimum): {path}",
+                "error",
+            )
+        else:
+            # Check first 64 bytes for valid HTML signature
+            try:
+                with open(path, "rb") as _fh:
+                    _head = _fh.read(64).lower()
+                if not any(_head.startswith(sig.lower()) for sig in _HTML_SIGS):
+                    log(
+                        f"VALIDATE FAIL [{intel_id}]: report does not begin with valid HTML "
+                        f"(got: {_head[:32]!r}): {path}",
+                        "error",
+                    )
+                else:
+                    _file_valid = True
+            except OSError as _vex:
+                log(f"VALIDATE FAIL [{intel_id}]: cannot read report for validation: {_vex}", "error")
+
+        if not _file_valid:
+            item["validation_status"] = "file_invalid"
             item["report_url"] = item.get("source_url") or ""
             errors += 1
             continue
 
-        # Set report_url â€” always absolute, always distinct from source_url
+        # Set report_url – always absolute, always distinct from source_url
         yyyy, mm = iso_path(item.get("processed_at") or item.get("timestamp") or utc_now_iso())
         report_url = f"{args.public_prefix.rstrip('/')}/reports/{yyyy}/{mm}/{intel_id}.html"
 
         # Safety check: report_url must differ from source_url
         if report_url == item.get("source_url", ""):
-            log(f"WARN [{intel_id}]: report_url == source_url â€” appending ?apex=1", "warning")
+            log(f"WARN [{intel_id}]: report_url == source_url – appending ?apex=1", "warning")
             report_url += "?apex=1"
 
         item["report_url"]        = report_url
         item["validation_status"] = "enriched" if is_enriched else "ok"
         written += 1
 
-        log(f"  OK [{item['validation_status']}] {intel_id} â†’ {report_url}")
+        log(f"  OK [{item['validation_status']}] {intel_id} → {report_url}")
 
         if args.upload_r2 and endpoint:
             key = f"reports/{yyyy}/{mm}/{intel_id}.html"
@@ -1675,6 +1733,27 @@ def main(argv=None) -> int:
 
     if errors > 0:
         log(f"WARNING: {errors} entries failed report generation", "warning")
+
+    # ── REPORT EXISTENCE GUARANTEE (v134.1 HARDENING) ────────────────────────
+    # Before manifest write: verify every successfully-written report exists on disk.
+    # Any missing file = HARD FAIL — manifest write is BLOCKED.
+    _existence_failures: list[str] = []
+    for _entry in data.get("advisories", data if isinstance(data, list) else []):
+        _vs = _entry.get("validation_status", "")
+        if _vs in ("ok", "enriched", "valid"):
+            _rrel = _entry.get("internal_report_url") or _entry.get("report_url", "")
+            if _rrel and _rrel.startswith("/"):
+                _rpath = REPO_ROOT / _rrel.lstrip("/")
+                if not _rpath.exists():
+                    _existence_failures.append(f"{_entry.get('id', '?')} → {_rpath}")
+    if _existence_failures:
+        log(
+            f"HARD FAIL — pre-manifest report existence check: "
+            f"{len(_existence_failures)} report(s) missing from disk. "
+            f"Manifest write BLOCKED. Missing: {_existence_failures[:5]}",
+            "error",
+        )
+        return 1
 
     # Persist manifest with all report_url + validation_status updates
     save_manifest(data)

@@ -2,7 +2,7 @@
 """
 CYBERDUDEBIVASH® SENTINEL APEX — Intel Feed Schema Validation Gate
 ====================================================================
-Version     : v110.0
+Version     : v134.0
 Purpose     : Validate data/stix/feed_manifest.json before R2 upload.
               Enforces the strict schema contract between the intel generation
               pipeline and the Cloudflare Worker / dashboard consumers.
@@ -28,7 +28,7 @@ Usage:
   --strict    : exit 1 on ANY warning (CI hard-gate mode)
   --manifest  : path to manifest (default: data/stix/feed_manifest.json)
   --min-count : minimum advisory count required (default: 50)
-  NOTE: Default lowered from 100→50 in v111.1 (P0 fix). On fresh checkout with
+  NOTE: Default lowered from 100→50 in v134.0 (P0 fix). On fresh checkout with
   bootstrap loading from validated_manifest.json (2463 entries), this is moot.
   The real guard is the Freshness Gate in sentinel-blogger.yml (min 10 entries).
 """
@@ -181,7 +181,7 @@ def validate_advisories(advisories: Any, path: str, min_count: int) -> None:
         )
         return
 
-    # v133.0 PHASE 4 VALIDATION FIX: tiered count enforcement.
+    # v134.0 PHASE 4 VALIDATION FIX: tiered count enforcement.
     # HARD FAIL only when count < 10 (platform cannot serve meaningful intel).
     # WARN when count >= 10 but < min_count (degraded but still functional).
     # This prevents cascade failures when the pipeline produces fewer advisories
@@ -349,7 +349,7 @@ def validate_advisories(advisories: Any, path: str, min_count: int) -> None:
 def check_blogger_remnants(data: Dict, path: str) -> None:
     """
     Warn if Blogger-era legacy fields are still present in advisories.
-    These are benign but indicate the purge in v110 is incomplete.
+    These are benign but indicate the purge in v134 is incomplete.
     """
     advisories = data.get("advisories", [])
     if not isinstance(advisories, list) or not advisories:
@@ -365,7 +365,7 @@ def check_blogger_remnants(data: Dict, path: str) -> None:
     if found:
         warn(
             f"[{path}] Blogger legacy fields still present: {sorted(found)} "
-            f"— harmless but should be purged in next regeneration cycle (v110 cleanup)"
+            f"— harmless but should be purged in next regeneration cycle (v134 cleanup)"
         )
 
 
@@ -395,7 +395,7 @@ def check_file_properties(manifest_path: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX v110 — Intel Feed Schema Validation Gate",
+        description="SENTINEL APEX v134 — Intel Feed Schema Validation Gate",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -415,12 +415,12 @@ def main() -> int:
         type=int,
         default=50,
         metavar="N",
-        help="Minimum advisory count required (default: 50, P0 fix v111.1)",
+        help="Minimum advisory count required (default: 50, P0 fix v134.0)",
     )
     args = parser.parse_args()
 
     print("=" * 68)
-    print("SENTINEL APEX v110 — Intel Feed Schema Validation Gate")
+    print("SENTINEL APEX v134 — Intel Feed Schema Validation Gate")
     print("=" * 68)
     print(f"  Manifest  : {args.manifest}")
     print(f"  Min-count : {args.min_count}")

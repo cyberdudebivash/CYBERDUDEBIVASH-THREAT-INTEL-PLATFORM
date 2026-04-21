@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/bust_kv_cache.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.2.0 -- Worker KV Cache Bust
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Worker KV Cache Bust
 =================================================================
 P0 FIX: Replaces the inline curl/bash block in sentinel-blogger.yml.
 Zero inline shell in YAML.

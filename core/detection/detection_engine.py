@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-detection_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v47.0 (COMMAND CENTER)
+detection_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0 (COMMAND CENTER)
 ════════════════════════════════════════════════════════════════════════════════
 Unified Detection Engine: Sigma rules, YARA scanning, IOC matching.
 

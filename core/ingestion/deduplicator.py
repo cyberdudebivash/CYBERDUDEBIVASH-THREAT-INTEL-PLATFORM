@@ -1,5 +1,5 @@
 """
-core/ingestion/deduplicator.py â€” CYBERDUDEBIVASHÂ® SENTINEL APEX v131.0
+core/ingestion/deduplicator.py – CYBERDUDEBIVASH® SENTINEL APEX v134.0
 Content-addressed deduplication engine for the ingestion pipeline.
 
 Design:
@@ -56,9 +56,9 @@ class DedupStats:
 class Deduplicator:
     """
     Two-level deduplication:
-      Level 1 â€” content_hash (SHA-256 of raw_data): exact duplicate
-      Level 2 â€” semantic_key (source_id + raw_id): same logical entity updated
-                  If semantic key matches but content_hash differs â†’ accept (updated entity)
+      Level 1 – content_hash (SHA-256 of raw_data): exact duplicate
+      Level 2 – semantic_key (source_id + raw_id): same logical entity updated
+                  If semantic key matches but content_hash differs → accept (updated entity)
     """
 
     def __init__(
@@ -72,15 +72,15 @@ class Deduplicator:
         self._max_entries  = max_entries
         self._lock         = threading.Lock()
 
-        # content_hash â†’ expiry_ts
+        # content_hash → expiry_ts
         self._hash_cache: OrderedDict[str, float] = OrderedDict()
-        # semantic_key â†’ (content_hash, expiry_ts)
+        # semantic_key → (content_hash, expiry_ts)
         self._semantic_cache: Dict[str, Tuple[str, float]] = {}
 
         self._stats = DedupStats()
         self._load_persisted()
 
-    # â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Public API ────────────────────────────────────────────────────────────
 
     def is_duplicate(self, item: RawIntelItem) -> bool:
         """
@@ -101,7 +101,7 @@ class Deduplicator:
                 self._stats.total_rejected += 1
                 return True
 
-            # Level 2: same entity, different content (update) â†’ accept but refresh
+            # Level 2: same entity, different content (update) → accept but refresh
             existing = self._semantic_cache.get(semantic_key)
             if existing:
                 existing_hash, _ = existing
@@ -166,7 +166,7 @@ class Deduplicator:
         except Exception as exc:
             logger.warning("deduplicator_persist_failed err=%s", exc)
 
-    # â”€â”€ Internals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Internals ─────────────────────────────────────────────────────────────
 
     def _evict_expired(self) -> None:
         """Remove expired entries. Called under lock."""

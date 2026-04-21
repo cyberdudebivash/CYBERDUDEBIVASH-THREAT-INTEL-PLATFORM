@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX v123.0.0
+CYBERDUDEBIVASH SENTINEL APEX v134.0.0
 IOC Enrichment Graph Engine
 
 Production-grade threat intelligence graph engine providing:
@@ -1653,7 +1653,7 @@ class IOCEnrichmentGraph:
             "sources_active": active_sources,
             "requests_available": _REQUESTS_AVAILABLE,
             "graph_path": self._graph_path,
-            "platform": "CYBERDUDEBIVASH SENTINEL APEX v123.0.0",
+            "platform": "CYBERDUDEBIVASH SENTINEL APEX v134.0.0",
         }
 
 

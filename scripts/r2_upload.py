@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/r2_upload.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.2.0 -- Cloudflare R2 Upload Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Cloudflare R2 Upload Engine
 =========================================================================
 P0 FIX: Replaces the inline PYEOF/unquoted-heredoc R2 upload block from
 sentinel-blogger.yml.  Zero inline Python in YAML.
@@ -233,7 +233,7 @@ def main() -> None:
         "source":           "sentinel-blogger",
         "pipeline_version": PIPELINE_VERSION,
         "run_id":           os.environ.get("GITHUB_RUN_ID", "local"),
-        "p0_fix":           "v131.2.0 -- inline_python_removed, encoding_guard_enforced",
+        "p0_fix":           "v134.0.0 -- inline_python_removed, encoding_guard_enforced",
     }
     sync_meta_path = "/tmp/sync_meta.json"
     with open(sync_meta_path, "w", encoding="utf-8") as fh:

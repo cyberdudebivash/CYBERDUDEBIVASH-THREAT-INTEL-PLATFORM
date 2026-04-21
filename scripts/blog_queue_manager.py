@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v101.1 — Async Blog Queue Manager
+SENTINEL APEX v134.0 — Async Blog Queue Manager
 ════════════════════════════════════════════════
 ARCHITECTURE: ADDITIVE ONLY. Feature-flagged (ENABLE_BLOG_QUEUE).
 Does NOT touch sentinel_blogger.py or existing publish logic.

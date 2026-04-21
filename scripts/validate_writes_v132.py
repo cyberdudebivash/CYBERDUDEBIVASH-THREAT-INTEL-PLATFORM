@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 scripts/validate_writes_v132.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v132.0.0 -- Post-Pipeline Write Integrity Suite
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Post-Pipeline Write Integrity Suite
 =================================================================================
-27-check validation suite for v132 write hardening guarantees.
+27-check validation suite for v134 write hardening guarantees.
 
 Verifies:
   Group W  (Write Infrastructure)  -- WriteQueue, retry_write, FileLock
@@ -134,7 +134,7 @@ def test_w_group() -> None:
         f"attempts={len(attempt_log)}",
     )
 
-    # W6: retry_write v132.2 — soft-fails by default; raises WriteHardFail only when
+    # W6: retry_write v134.0 — soft-fails by default; raises WriteHardFail only when
     #     raise_on_exhaustion=True (legacy / test-suite compatibility mode)
     from safe_io import WRITE_SOFT_FAIL
     always_fail_calls = []
@@ -401,7 +401,7 @@ def test_d_group() -> None:
         print(f"    {_c('TINY', 'yellow')}: {tf.relative_to(REPO_ROOT)} ({tf.stat().st_size}B)")
 
     # D5: write_failures.jsonl absent or empty (no pipeline-level permanent failures)
-    # v132.2: test-suite writes from W/F/P/WP groups may create entries — clear them first.
+    # v134.0: test-suite writes from W/F/P/WP groups may create entries — clear them first.
     # Sandbox restriction: unlink() raises PermissionError on mounted fs; use truncate instead.
     wf_log = REPO_ROOT / "data" / "logs" / "write_failures.jsonl"
     _cleared_d5 = False
@@ -492,7 +492,7 @@ def test_x_group() -> None:
         att_default = sig.parameters.get("attempts")
         delay_default = sig.parameters.get("base_delay")
         check(
-            "X4: retry_write defaults: attempts=10, base_delay=0.1 (v132.2 upgrade)",
+            "X4: retry_write defaults: attempts=10, base_delay=0.1 (v134.0 upgrade)",
             (att_default is not None and att_default.default == 10) and
             (delay_default is not None and abs(delay_default.default - 0.1) < 1e-9),
             f"attempts={att_default.default if att_default else '?'} "
@@ -666,7 +666,7 @@ def test_write_pipeline_stability() -> None:
     )
 
     # P2: WriteQueue.flush() reports correct failed count
-    # Callables must return True (not None) to count as succeeded — v132.2 sentinel design
+    # Callables must return True (not None) to count as succeeded — v134.0 sentinel design
     WriteQueue.reset()
     WriteQueue.enqueue(lambda: True)           # succeeds — returns True
     WriteQueue.enqueue(lambda: 1/0)           # fails (ZeroDivisionError)
@@ -724,7 +724,7 @@ def test_write_pipeline_stability() -> None:
         except Exception:
             pass
 
-    # P5: Pipeline write metrics include render_failures + schema_violations (v132 fields)
+    # P5: Pipeline write metrics include render_failures + schema_violations (v134 fields)
     try:
         from safe_io import PipelineMetrics
         pm = PipelineMetrics()
@@ -941,11 +941,11 @@ def test_no_partial_writes() -> None:
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# WP-group: v132.2 Write Pressure Hardening Tests
+# WP-group: v134.0 Write Pressure Hardening Tests
 # ---------------------------------------------------------------------------
 
 def test_write_pressure_hardening() -> None:
-    section("WP-GROUP: v132.2 Write Pressure Hardening")
+    section("WP-GROUP: v134.0 Write Pressure Hardening")
 
     try:
         from safe_io import (
@@ -954,10 +954,10 @@ def test_write_pressure_hardening() -> None:
             _WRITE_SEMAPHORE,
         )
     except ImportError as e:
-        check("WP0: safe_io v132.2 imports (constants + semaphore)", False, str(e))
+        check("WP0: safe_io v134.0 imports (constants + semaphore)", False, str(e))
         return
 
-    # WP1: Module-level constants have correct v132.2 values
+    # WP1: Module-level constants have correct v134.0 values
     check(
         "WP1: MAX_CONCURRENT_WRITES == 3",
         MAX_CONCURRENT_WRITES == 3,
@@ -1108,7 +1108,7 @@ def test_write_pressure_hardening() -> None:
 
 def main(argv: Optional[List[str]] = None) -> int:
     print(_c("\n" + "=" * 60, "bold"))
-    print(_c("  SENTINEL APEX v132.2.0 -- Write Integrity Validation Suite", "bold"))
+    print(_c("  SENTINEL APEX v134.0.0 -- Write Integrity Validation Suite", "bold"))
     print(_c("=" * 60, "bold"))
 
     test_w_group()
@@ -1117,13 +1117,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     test_d_group()
     test_x_group()
 
-    # v132.1 Regression Lock Tests
+    # v134.0 Regression Lock Tests
     test_schema_integrity()
     test_write_pipeline_stability()
     test_manifest_consistency()
     test_no_partial_writes()
 
-    # v132.2 Write Pressure Hardening Tests
+    # v134.0 Write Pressure Hardening Tests
     test_write_pressure_hardening()
 
     # Summary

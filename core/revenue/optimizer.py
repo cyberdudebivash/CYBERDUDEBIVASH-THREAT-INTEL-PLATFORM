@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 core/revenue/optimizer.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.0 -- REVENUE INTELLIGENCE OPTIMIZER
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0 -- REVENUE INTELLIGENCE OPTIMIZER
 ==========================================================================
 Analyzes platform usage, detects high-demand intel, adjusts paywall
 triggers and pricing pressure for maximum conversion.
@@ -191,7 +191,7 @@ class RevenueOptimizer:
         high_demand = self.detect_high_demand_intel()
         signals    = self.adjust_pricing_pressure()
         return {
-            "version":           "v131.0",
+            "version":           "v134.0",
             "generated_at":      datetime.now(timezone.utc).isoformat().replace("+00:00","Z"),
             "usage_analysis":    usage,
             "high_demand_intel": high_demand[:10],
@@ -226,7 +226,7 @@ if __name__ == "__main__":
     report    = optimizer.get_conversion_report()
     rev       = report["usage_analysis"]["revenue"]
     hd        = report["high_demand_intel"]
-    print(f"\nREVENUE INTELLIGENCE v131")
+    print(f"\nREVENUE INTELLIGENCE v134")
     print(f"  Current MRR:    ${rev['mrr_current_usd']:,.0f}/mo")
     print(f"  Potential MRR:  ${rev['mrr_potential_usd']:,.0f}/mo")
     print(f"  Conversion:     {rev['conversion_rate_pct']:.1f}%")

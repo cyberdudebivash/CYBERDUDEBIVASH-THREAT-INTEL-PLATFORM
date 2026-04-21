@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v101.1 — Safe API Layer Generator
+SENTINEL APEX v134.0 — Safe API Layer Generator
 ════════════════════════════════════════════════
 ARCHITECTURE: ADDITIVE ONLY. Does NOT touch existing manifest or dashboard logic.
 Reads the authoritative feed_manifest.json → writes static API files to /api/.
@@ -35,7 +35,7 @@ _THIS  = Path(__file__).resolve()
 REPO   = _THIS.parent.parent
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-# v102.0: validated_manifest.json is the new source-of-truth when DASHBOARD_FILTERING=true.
+# v134.0: validated_manifest.json is the new source-of-truth when DASHBOARD_FILTERING=true.
 # Falls back to feed_manifest.json for zero-regression when gate hasn't run yet.
 VALIDATED_MANIFEST = REPO / "data" / "validated_manifest.json"
 MANIFEST_CANDIDATES = [
@@ -50,7 +50,7 @@ EXPORTS_DIR        = API_DIR / "exports"
 # ── Logging ──────────────────────────────────────────────────────────────────
 def log(msg: str, level: str = "INFO") -> None:
     ts = datetime.now(timezone.utc).strftime("%H:%M:%S")
-    print(f"[{ts}] [API-v101] [{level}] {msg}", flush=True)
+    print(f"[{ts}] [API-v134] [{level}] {msg}", flush=True)
 
 # ── Feature flags ─────────────────────────────────────────────────────────────
 def load_flags() -> Dict[str, Any]:
@@ -61,7 +61,7 @@ def load_flags() -> Dict[str, Any]:
         "EXPORT_FORMATS": ["json", "csv", "stix", "misp"],
         "ENABLE_ROLLING_WINDOW": True,
         "ROLLING_WINDOW_SIZE": 2000,
-        # v102.0 pipeline integrity flags
+        # v134.0 pipeline integrity flags
         "ENABLE_VALIDATION_GATE": True,
         "STRICT_VALIDATION": False,
         "QUEUE_AUTHORITATIVE": True,
@@ -95,7 +95,7 @@ def _parse_manifest_file(path: Path) -> List[Dict]:
 
 def load_manifest() -> List[Dict]:
     """
-    v102.0: When DASHBOARD_FILTERING=true AND validated_manifest.json exists,
+    v134.0: When DASHBOARD_FILTERING=true AND validated_manifest.json exists,
     read from validated_manifest.json (output of intel_validation_gate.py).
     This guarantees only published items reach the API layer.
     Falls back to feed_manifest.json for zero-regression if gate hasn't run yet.
@@ -103,9 +103,9 @@ def load_manifest() -> List[Dict]:
     if FLAGS.get("DASHBOARD_FILTERING", True) and VALIDATED_MANIFEST.exists():
         entries = _parse_manifest_file(VALIDATED_MANIFEST)
         if entries:
-            log(f"[v102] Manifest loaded from validated_manifest.json: {len(entries)} entries (published only)")
+            log(f"[v134] Manifest loaded from validated_manifest.json: {len(entries)} entries (published only)")
             return entries
-        log("[v102] validated_manifest.json empty or invalid — falling back to feed_manifest.json", "WARN")
+        log("[v134] validated_manifest.json empty or invalid — falling back to feed_manifest.json", "WARN")
 
     # Fallback: original manifest candidates (zero-regression)
     for path in MANIFEST_CANDIDATES:
@@ -544,7 +544,7 @@ def build_feed_json(entries: List[Dict], flags: Dict) -> Path:
             entries = entries[:window]
             log(f"Rolling window applied: {window} entries")
 
-    # ── v102.0 SCHEMA NORMALIZATION ───────────────────────────────────────────────
+    # ── v134.0 SCHEMA NORMALIZATION ───────────────────────────────────────────────
     # v74 manifest enricher writes items with STIX object 'id' instead of 'stix_id'.
     # Normalize here so ALL api/feed.json consumers receive 'stix_id' unconditionally.
     for entry in entries:
@@ -810,7 +810,7 @@ def build_stix_export(entries: List[Dict]) -> Path:
         "created": ts_now,
         "objects": objects,
         "_meta": {
-            "generated_by": "CYBERDUDEBIVASH SENTINEL APEX v101.1",
+            "generated_by": "CYBERDUDEBIVASH SENTINEL APEX v134.0",
             "count": len(objects),
         }
     }
@@ -869,7 +869,7 @@ def build_misp_export(entries: List[Dict]) -> Path:
 # ── Main entrypoint ───────────────────────────────────────────────────────────
 def main() -> int:
     log("═" * 60)
-    log("SENTINEL APEX v101.1 — Safe API Layer Generator")
+    log("SENTINEL APEX v134.0 — Safe API Layer Generator")
     log("═" * 60)
 
     flags = load_flags()

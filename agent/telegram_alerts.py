@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-telegram_alerts.py — SENTINEL APEX v102 Real-Time Alert Engine
+telegram_alerts.py — SENTINEL APEX v134 Real-Time Alert Engine
 ==============================================================
 Delivers instant threat notifications to Telegram.
 Non-blocking, fault-tolerant, never crashes the pipeline.
@@ -9,7 +9,7 @@ Channel : https://t.me/cyberdudebivashSentinelApex
 Activation: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID in GitHub Secrets ✅ ACTIVE
 Thresholds : HIGH (>=7.0) and CRITICAL (>=9.0) threats only.
 
-v102 Changes (P0-1 ROOT CAUSE FIX):
+v134 Changes (P0-1 ROOT CAUSE FIX):
   - 3-attempt exponential-backoff retry for guaranteed delivery
   - Delivery confirmation log with message_id tracking
   - Rate-limit aware (429 → retry-after respect, up to 30s)
@@ -155,7 +155,7 @@ def send_threat_alert(
     Send a threat alert to Telegram with retry guarantee.
     Returns True on confirmed delivery. NEVER raises.
 
-    v102: severity, priority, detect, mitigation added for richer SOC alerts.
+    v134: severity, priority, detect, mitigation added for richer SOC alerts.
     """
     if not _is_configured():
         _delivery_log["skipped"] += 1

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/sanitize_encoding.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.0.0 — Platform Encoding Sanitizer
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 — Platform Encoding Sanitizer
 =========================================================================
 Permanently eliminates UTF-8 BOM and CRLF line endings from all source,
 config, and workflow files in the repository.
@@ -219,7 +219,7 @@ def main() -> None:
     args = parser.parse_args()
 
     print("=" * 70)
-    print(f"SENTINEL APEX — Encoding Sanitizer v131.0.0")
+    print(f"SENTINEL APEX — Encoding Sanitizer v134.0.0")
     print(f"Root   : {args.root}")
     print(f"Mode   : {'FIX' if args.fix else 'DRY-RUN'}")
     print(f"Strict : {args.strict}")

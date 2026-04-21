@@ -86,7 +86,7 @@ def create_stripe_checkout_session(
     tier: str,
     customer_email: str,
     customer_name: str = "",
-    customer_user_id: str = "",      # v123.0 — inject for tier cascade on payment
+    customer_user_id: str = "",      # v134.0 — inject for tier cascade on payment
 ) -> Dict:
     """
     Create Stripe checkout session for subscription.
@@ -153,7 +153,7 @@ def handle_stripe_webhook(payload: bytes, sig_header: str) -> Tuple[bool, str]:
             email   = data.get("customer_email") or data.get("customer_details", {}).get("email","")
             name    = meta.get("customer_name", email)
             sub_id  = data.get("subscription") or data.get("id","")
-            # v123.0 — extract user_id injected at checkout creation time
+            # v134.0 — extract user_id injected at checkout creation time
             user_id = meta.get("user_id", "")
             if email and tier in ("pro","enterprise","mssp"):
                 _provision_subscriber(tier=tier, name=name, email=email,
@@ -275,7 +275,7 @@ def _provision_subscriber(tier: str, name: str, email: str,
                             stripe_sub_id=stripe_sub_id,
                             notes=f"auto-provisioned via {provider}")
 
-    # v123.0 — stamp user_id on the key record so Cloudflare cascade can resolve
+    # v134.0 — stamp user_id on the key record so Cloudflare cascade can resolve
     if user_id:
         try:
             keys = _load()
@@ -339,7 +339,7 @@ def _send_welcome_email(email: str, name: str, tier: str, api_key: str) -> None:
             "enterprise": "500 advisories/req, 10000 req/hr",
             "mssp": "Unlimited",
         }
-        # v123.0 — Worker is the live API endpoint (Railway decommissioned)
+        # v134.0 — Worker is the live API endpoint (Railway decommissioned)
         api_base  = "https://intel.cyberdudebivash.com"
         price_str = "$" + str(price_map.get(tier, 0)) + "/mo"
         body = (

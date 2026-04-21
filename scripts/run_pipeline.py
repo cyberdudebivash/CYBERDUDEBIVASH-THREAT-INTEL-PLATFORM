@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/run_pipeline.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.2.0 -- Master Pipeline Orchestrator
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Master Pipeline Orchestrator
 ==========================================================================
 P0 ARCHITECTURAL FIX: Replaces ALL inline PYEOF/PYEOF heredoc blocks from
 sentinel-blogger.yml.  The YAML now calls ONLY this script (plus dedicated
@@ -404,7 +404,7 @@ def stage_validate_jwt_secret() -> None:
 
 def stage_run_intel_engine() -> None:
     log.info("=" * 60)
-    log.info("STAGE 2 -- Sentinel Intelligence Engine v111.0 (R2-only)")
+    log.info("STAGE 2 -- Sentinel Intelligence Engine v134.0 (R2-only)")
     log.info("=" * 60)
 
     stix_dir = REPO_ROOT / "data" / "stix"
@@ -474,7 +474,7 @@ def stage_pre_v70_manifest_sync() -> None:
         # Write v70-schema-compliant manifest
         gen_at = raw.get("generated_at", utc_now()) if isinstance(raw, dict) else utc_now()
         payload = {
-            "version":        raw.get("version", "v114.0") if isinstance(raw, dict) else "v114.0",
+            "version":        raw.get("version", "v134.0") if isinstance(raw, dict) else "v134.0",
             "schema_version": "v70.0",
             "platform":       "SENTINEL-APEX",
             "generated_at":   gen_at,
@@ -624,13 +624,13 @@ def stage_manifest_stabilisation() -> None:
             if manifest_fmt == "list":
                 log.info("[2.2] Normalising LIST -> DICT envelope (%d entries)...", engine_count)
                 payload = {
-                    "version":           "v114.0",
+                    "version":           "v134.0",
                     "platform":          "SENTINEL-APEX",
                     "generated_at":      utc_now(),
                     "normalised_at":     utc_now(),
                     "total_reports":     engine_count,
                     "entry_count":       engine_count,
-                    "schema_version":    "v114.0",
+                    "schema_version":    "v134.0",
                     "sort_order":        "timestamp DESC, risk_score DESC",
                     "source_of_truth":   "agent.sentinel_blogger (normalised by pipeline)",
                     "advisories":        engine_items,
@@ -770,7 +770,7 @@ def stage_manifest_cleanup() -> None:
 
 def stage_enforce_schema() -> None:
     """
-    v132 GLOBAL SCHEMA ENFORCEMENT STAGE.
+    v134 GLOBAL SCHEMA ENFORCEMENT STAGE.
 
     Applies enforce_schema() to EVERY entry in feed_manifest.json before
     any output is generated (reports, API feed, STIX bundles).
@@ -861,7 +861,7 @@ def stage_html_reports() -> None:
     log.info("=" * 60)
     t_start = time.monotonic()
 
-    # v117.0.0: Zero-skip policy -- every intel entry generates a 16-section report.
+    # v134.0.0: Zero-skip policy -- every intel entry generates a 16-section report.
     r = run_script(
         [
             sys.executable, "scripts/generate_intel_reports.py",
@@ -878,7 +878,7 @@ def stage_html_reports() -> None:
         log.error("[3.6] HTML report generation FAILED (exit %d).", r.returncode)
         sys.exit(1)
 
-    # v131 upgrades: IOC enforcement, dedup, synthetic fallback, PDF, revenue
+    # v134 upgrades: IOC enforcement, dedup, synthetic fallback, PDF, revenue
     run_script(
         [sys.executable, "scripts/apply_v131_upgrades.py"],
         stage="3.6.v131_upgrades",
@@ -905,13 +905,13 @@ def stage_html_reports() -> None:
 
 # ---------------------------------------------------------------------------
 # Stage 3.6a -- Manifest Integrity Check
-# v132.2: write_error/file_missing → SOFT FAIL (recovery guaranteed, pipeline continues)
+# v134.0: write_error/file_missing → SOFT FAIL (recovery guaranteed, pipeline continues)
 # HARD FAIL only on: manifest JSON corrupt, schema invalid
 # ---------------------------------------------------------------------------
 
 def stage_manifest_integrity_check() -> None:
     log.info("=" * 60)
-    log.info("STAGE 3.6a -- Manifest Integrity Check [v132.2 SOFT-FAIL mode]")
+    log.info("STAGE 3.6a -- Manifest Integrity Check [v134.0 SOFT-FAIL mode]")
     log.info("=" * 60)
     try:
         manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
@@ -924,7 +924,7 @@ def stage_manifest_integrity_check() -> None:
 
         items = d.get("advisories", d.get("reports", []))
 
-        # v132.2: write_error/file_missing → SOFT FAIL (data is in recovery buffer)
+        # v134.0: write_error/file_missing → SOFT FAIL (data is in recovery buffer)
         # These are write-pressure failures, NOT data corruption.
         SOFT_FAIL_STATUSES = {"write_error", "file_missing"}
         missing_url: list[str] = []
@@ -1129,14 +1129,14 @@ def stage_system_health_gate() -> None:
 
 # ---------------------------------------------------------------------------
 # Stage 1-3a -- Recovery Replay (drain write backlog BEFORE validation gate)
-# v133.0: MANDATORY pre-validation step. Ensures write_failures.jsonl and
+# v134.0: MANDATORY pre-validation step. Ensures write_failures.jsonl and
 # recovery blobs are fully drained so check_no_write_failures() in
 # validate_repo.py sees an empty recovery dir (not a stale audit log).
 # ---------------------------------------------------------------------------
 
 def stage_recovery_replay() -> None:
     """
-    v133 RECOVERY REPLAY GATE — runs before stage_validate_repo().
+    v134 RECOVERY REPLAY GATE — runs before stage_validate_repo().
 
     Drains data/recovery/write_failures/ blobs via RecoveryReplayEngine.
     Enforces backlog thresholds:
@@ -1251,7 +1251,7 @@ def stage_recovery_replay() -> None:
 
 def stage_validate_repo() -> None:
     """
-    v132 HARD SCHEMA VALIDATION GATE.
+    v134 HARD SCHEMA VALIDATION GATE.
     Runs scripts/validate_repo.py as a subprocess.
 
     HARD STOP if:
@@ -1322,7 +1322,7 @@ def stage_prune_stix_bundles() -> None:
 
 def stage_dedup_and_enrich() -> None:
     """
-    v131.3.0 Production Hardening:
+    v134.0.0 Production Hardening:
     1. Load manifest from Single Source of Truth (data/stix/feed_manifest.json)
     2. Run SHA-256 dedup on (title, source, published-date) key
     3. Enforce ioc_count == len(iocs) on every item (enrich where missing)
@@ -1396,8 +1396,8 @@ def stage_dedup_and_enrich() -> None:
             payload = envelope
         else:
             payload = {
-                "version":       "v114.0",
-                "schema_version": "v114.0",
+                "version":       "v134.0",
+                "schema_version": "v134.0",
                 "platform":      "SENTINEL-APEX",
                 "generated_at":  utc_now(),
                 "deduped_at":    utc_now(),
@@ -1433,7 +1433,7 @@ def stage_dedup_and_enrich() -> None:
 
 def stage_pipeline_consistency_check() -> None:
     """
-    v131.3.0 SENTINEL APEX CONSISTENCY GATE
+    v134.0.0 SENTINEL APEX CONSISTENCY GATE
     =========================================
     Validates data integrity across ALL layers AFTER all processing is complete.
     This is the final enforcement gate before data reaches the API and reports.
@@ -1656,8 +1656,8 @@ def stage_pipeline_consistency_check() -> None:
                 payload = envelope
             else:
                 payload = {
-                    "version":       "v114.0",
-                    "schema_version": "v114.0",
+                    "version":       "v134.0",
+                    "schema_version": "v134.0",
                     "platform":      "SENTINEL-APEX",
                     "generated_at":  utc_now(),
                     "consistency_checked_at": utc_now(),
@@ -1699,7 +1699,7 @@ def stage_pipeline_consistency_check() -> None:
 
 def stage_writequeue_flush() -> None:
     """
-    v132 WRITE SERIALIZATION BARRIER.
+    v134 WRITE SERIALIZATION BARRIER.
     Flush the centralized WriteQueue at the Stage 3.6 boundary — BEFORE the
     manifest integrity check reads any output files.
 
@@ -1717,7 +1717,7 @@ def stage_writequeue_flush() -> None:
     log.info("=" * 60)
     t0 = time.monotonic()
     try:
-        # v132.2: 10 attempts, exponential backoff from 0.1s, semaphore=3, delay=50ms
+        # v134.0: 10 attempts, exponential backoff from 0.1s, semaphore=3, delay=50ms
         flush_result = WriteQueue.flush(attempts=10, base_delay=0.1)
         elapsed = time.monotonic() - t0
         log.info(
@@ -1731,7 +1731,7 @@ def stage_writequeue_flush() -> None:
             elapsed,
         )
         if flush_result["failed"] > 0:
-            # v132.2: SOFT FAIL — recovery buffer populated, pipeline continues
+            # v134.0: SOFT FAIL — recovery buffer populated, pipeline continues
             log.warning(
                 "[3.6-barrier] %d write(s) stored to recovery buffer — "
                 "data/recovery/write_failures/ | data/logs/write_failures.jsonl | "
@@ -1750,7 +1750,7 @@ def stage_writequeue_flush() -> None:
 
 def stage_validate_write_integrity() -> None:
     """
-    v132 POST-PIPELINE WRITE INTEGRITY CHECK.
+    v134 POST-PIPELINE WRITE INTEGRITY CHECK.
     Asserts:
       V1. No intel files are missing from the reports/ directory.
       V2. Manifest count == actual HTML files on disk.
@@ -1843,7 +1843,7 @@ def stage_validate_write_integrity() -> None:
         except Exception:
             pass
 
-    # v132.2 SOFT-FAIL POLICY:
+    # v134.0 SOFT-FAIL POLICY:
     # - V1 (missing files): SOFT FAIL — payloads in recovery, retry next run
     # - V3 (write_error/render_error): SOFT FAIL — write pressure, not corruption
     # - V4 (write_failures.jsonl entries): SOFT FAIL — recovery buffer populated
@@ -1959,7 +1959,7 @@ def main() -> None:
 
     # ---- Cross-Layer Consistency Gate ------------------------------------
     stage_pipeline_consistency_check()   # Enforce ioc/stix/dedup/scoring integrity
-    stage_recovery_replay()              # v133: drain write backlog before validation gate
+    stage_recovery_replay()              # v134: drain write backlog before validation gate
     stage_validate_repo()                # HARD FAIL: schema hard validation (no auto-heal)
 
     # ---- Housekeeping -----------------------------------------------------

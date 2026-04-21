@@ -1,5 +1,5 @@
 """
-core/billing/usage_meter.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+core/billing/usage_meter.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 Atomic, thread-safe usage metering for API tier enforcement.
 
 Design:

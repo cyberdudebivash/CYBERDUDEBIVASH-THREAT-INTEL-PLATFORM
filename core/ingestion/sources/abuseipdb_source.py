@@ -1,5 +1,5 @@
 """
-core/ingestion/sources/abuseipdb_source.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+core/ingestion/sources/abuseipdb_source.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 AbuseIPDB API v2 source adapter.
 
 Capabilities:

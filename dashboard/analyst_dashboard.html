@@ -851,7 +851,7 @@
 // ── Configuration ─────────────────────────────────────────────────
 const CONFIG = {
   apiBase:   window.location.origin,
-  // v100.0: Live API endpoints (primary) + static file fallbacks
+  // v134.0: Live API endpoints (primary) + static file fallbacks
   feedPath:  '/api/v1/intel/feed?limit=200',
   latestPath:'/api/v1/intel/latest?n=50',
   // Legacy static fallbacks (served by /api/feed.json compat route)
@@ -979,7 +979,7 @@ async function loadFeed() {
   showLoader(true);
 
   try {
-    // v100.0: Primary = live API (/api/v1/intel/feed), fallbacks = compat routes
+    // v134.0: Primary = live API (/api/v1/intel/feed), fallbacks = compat routes
     let data = await fetchWithFallback(
       CONFIG.feedPath,
       CONFIG.latestPath,
@@ -1550,7 +1550,7 @@ function updateRulesSummary(item) {
 // ── Platform Stats ────────────────────────────────────────────────
 async function loadPlatformStats() {
   const container = document.getElementById('platform-stats');
-  // v100.0: Pull live stats from API; fall back to client-side computation
+  // v134.0: Pull live stats from API; fall back to client-side computation
   let apiStats = null;
   try {
     const headers = state.apiKey ? { 'X-API-Key': state.apiKey } : {};
@@ -1564,7 +1564,7 @@ async function loadPlatformStats() {
     'Critical':         m.critical_count   || state.items.filter(i => i.severity === 'CRITICAL').length || '—',
     'KEV Tagged':       m.kev_tagged       || state.items.filter(i => i.kev_status).length || '—',
     'Avg Risk Score':   m.avg_risk_score   || (state.items.length ? (state.items.reduce((s,i) => s+i.risk_score, 0)/state.items.length).toFixed(1) : '—'),
-    'API Version':      (apiStats && apiStats.platform_version) || 'v100.0',
+    'API Version':      (apiStats && apiStats.platform_version) || 'v134.0',
     'STIX Version':     '2.1',
   };
 

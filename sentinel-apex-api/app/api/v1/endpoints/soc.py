@@ -1,5 +1,5 @@
 """
-SENTINEL APEX — SOC & Threat Hunting API Endpoints v47.0
+SENTINEL APEX — SOC & Threat Hunting API Endpoints v134.0
 ═══════════════════════════════════════════════════════════
 Advanced SOC operations, threat hunting, and AI intelligence endpoints.
 

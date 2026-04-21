@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CYBERDUDEBIVASH SENTINEL APEX v101.0 — Hardened EMBEDDED_INTEL Updater
+CYBERDUDEBIVASH SENTINEL APEX v134.0 — Hardened EMBEDDED_INTEL Updater
 =======================================================================
 Surgically replaces ONLY the EMBEDDED_INTEL data array in index.html.
 Everything else — functions, CSS, HTML, comments — is preserved byte-for-byte.
@@ -46,7 +46,7 @@ ENRICHED_MANIFEST = REPO_ROOT / "data" / "v46_ultraintel" / "enriched_manifest.j
 ENRICHMENT_KEYS = [
     "actor_profile", "sector_tags", "exploit_status",
     "cwe_classification", "intel_quality",
-    # v101 AI fields from v70 orchestrator
+    # v134 AI fields from v70 orchestrator
     "mitre_tactics", "cvss_score", "epss_score", "kev_present",
     "kev_date", "attribution", "campaign_id", "ai_risk_score",
     "ai_confidence", "executive_summary", "kill_chain_narrative",
@@ -59,7 +59,7 @@ ENRICHMENT_KEYS = [
 MIN_ITEMS = 5
 
 # Platform version exposed to dashboard
-PLATFORM_VERSION = "v101.0"
+PLATFORM_VERSION = "v134.0"
 
 
 # ── Item Field Normaliser ─────────────────────────────────────────────────
@@ -117,7 +117,7 @@ def _derive_exploit_tier(item: dict) -> str:
 
 def _build_report_url(item: dict) -> str:
     """
-    v113.0: Construct native report_url — NO Blogger fallbacks.
+    v134.0: Construct native report_url — NO Blogger fallbacks.
     Priority: explicit report_url → source_url → empty string (hides button).
     """
     if item.get("report_url"):
@@ -198,7 +198,7 @@ def normalise_item(item: dict) -> dict:
     if not out.get("stix_id"):
         out["stix_id"] = out.get("id") or ""
 
-    # ── processed_at: v116.2.0 FRESHNESS FIX ────────────────────────────
+    # ── processed_at: v134.0.0 FRESHNESS FIX ────────────────────────────
     # Primary freshness field — always pipeline generation time (UTC-now).
     # Dashboard LIVE 7D filter and sort-newest read this field first.
     # For existing items missing processed_at, fall back to timestamp/generated_at.
@@ -250,7 +250,7 @@ def normalise_item(item: dict) -> dict:
     if not out.get("exploit_tier"):
         out["exploit_tier"] = _derive_exploit_tier(out)
 
-    # ── report_url: enables "View Tactical Dossier" link (v113.0 — no Blogger) ──
+    # ── report_url: enables "View Tactical Dossier" link (v134.0 — no Blogger) ──
     out["report_url"] = _build_report_url(out)
     out.pop("blog_url", None)  # hard-remove legacy field
 
@@ -412,13 +412,18 @@ def find_embedded_intel_boundaries(html: str) -> tuple:
     Everything before array_start and after array_end is UNTOUCHED.
     """
     # Step 1: Find the declaration
-    marker = "const EMBEDDED_INTEL = ["
+    # v134.1: support both legacy 'const' (old) and 'window.' (new global binding)
+    marker = "window.EMBEDDED_INTEL = ["
     pos = html.find(marker)
+    if pos == -1:
+        # fallback: legacy 'const' declaration (pre-v134.1 index.html)
+        marker = "const EMBEDDED_INTEL = ["
+        pos = html.find(marker)
     if pos == -1:
         return -1, -1
 
     # Step 2: array_start is the '[' position
-    array_start = pos + len("const EMBEDDED_INTEL = ")
+    array_start = pos + len(marker.split("[")[0])
     if array_start >= len(html) or html[array_start] != '[':
         return -1, -1
 
@@ -648,7 +653,7 @@ def main():
         print(f"[INFO] Deduplication: {len(merged)} → {len(deduped)} items ({removed_dupes} duplicates removed)")
     merged = deduped
 
-    # v116.2.0 FRESHNESS FIX: Sort by processed_at DESC (primary) → timestamp → published.
+    # v134.0.0 FRESHNESS FIX: Sort by processed_at DESC (primary) → timestamp → published.
     # processed_at = pipeline generation time → always reflects actual processing order.
     # Using timestamp alone causes RSS-sourced intel with old published dates to sink
     # below older but source-fresh articles, making newly generated intel appear stale.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-manifest_manager.py — CYBERDUDEBIVASH® SENTINEL APEX v47.0 (COMMAND CENTER)
+manifest_manager.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0 (COMMAND CENTER)
 ═══════════════════════════════════════════════════════════════════════════════
 Hardened Manifest System: Single Source of Truth for Intelligence Data.
 
@@ -39,7 +39,7 @@ MANIFEST_FILE = "feed_manifest.json"
 BACKUP_DIR = "data/manifest_backups"
 AUDIT_LOG = "data/manifest_audit.json"
 MAX_ENTRIES = 500
-SCHEMA_VERSION = "v47.0"
+SCHEMA_VERSION = "v134.0"
 
 
 # ═══════════════════════════════════════════════════════════

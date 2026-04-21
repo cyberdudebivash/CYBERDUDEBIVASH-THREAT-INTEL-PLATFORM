@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-campaign_clusterer.py — CYBERDUDEBIVASH® SENTINEL APEX v123.0.0
+campaign_clusterer.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0.0
 ════════════════════════════════════════════════════════════════════════════════
 Campaign Grouping Engine
 
@@ -520,7 +520,7 @@ class CampaignClusterer:
         with self._lock:
             return {
                 "module": "CampaignClusterer",
-                "version": "v123.0.0",
+                "version": "v134.0.0",
                 "algorithm": "DBSCAN",
                 "dbscan_eps": DBSCAN_EPS,
                 "dbscan_min_samples": DBSCAN_MIN_SAMPLES,

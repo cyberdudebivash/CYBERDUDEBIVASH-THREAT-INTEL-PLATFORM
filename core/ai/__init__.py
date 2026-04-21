@@ -1,5 +1,5 @@
 """
-core/ai — CYBERDUDEBIVASH® SENTINEL APEX v123.0.0
+core/ai — CYBERDUDEBIVASH® SENTINEL APEX v134.0.0
 ═══════════════════════════════════════════════════════════════════════════════
 AI CYBER BRAIN — Full Module Registry
 

@@ -1,5 +1,5 @@
 """
-api/onboarding.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+api/onboarding.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 Developer onboarding API — getting-started flow, interactive docs, SDK quickstart.
 
 Endpoints:

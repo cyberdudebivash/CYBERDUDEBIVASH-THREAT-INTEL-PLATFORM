@@ -1,4 +1,4 @@
-/* SENTINEL APEX v131.0 - AI CYBER BRAIN + CDB_NEWS + ENTERPRISE COMMAND CENTER
+/* SENTINEL APEX v134.0 - AI CYBER BRAIN + CDB_NEWS + ENTERPRISE COMMAND CENTER
    Populates AI Brain panels from window.EMBEDDED_INTEL
    Initialises window.CDB_NEWS for #cdb-news-grid
    Injects premium signals: threat scores, exploit status, financial impact badges
@@ -176,7 +176,7 @@
 
   /* ================================================================
      ENTERPRISE COMMAND CENTER — Value Visualization + Premium Signals
-     v131.0: Financial impact, risk exposure, breach cost indicators
+     v134.0: Financial impact, risk exposure, breach cost indicators
      ================================================================ */
   function injectEnterpriseSignals(){
     var intel=window.EMBEDDED_INTEL||[];

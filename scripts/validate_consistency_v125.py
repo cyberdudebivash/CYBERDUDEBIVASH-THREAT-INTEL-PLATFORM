@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 scripts/validate_consistency_v125.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v125.0 — Cross-Layer Consistency Validator
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0 — Cross-Layer Consistency Validator
 =============================================================================
-Validates ALL 7 architectural guarantees introduced in v125.0:
+Validates ALL 7 architectural guarantees introduced in v134.0:
 
   V1. IOC engine: ioc_count == len(flat_iocs) (invariant)
   V2. IOC engine: ioc_confidence > 0 when IOCs exist
@@ -303,7 +303,7 @@ print("════════════════════════�
 try:
     from agent.export_stix import STIXExporter
 
-    # Verify STIXExporter._update_manifest signature accepts new v125 params
+    # Verify STIXExporter._update_manifest signature accepts new v134 params
     import inspect
     sig = inspect.signature(STIXExporter._update_manifest)
     params = sig.parameters

@@ -1,5 +1,5 @@
 """
-core/ingestion — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+core/ingestion — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 Threat Intelligence Ingestion Pipeline
 
 Sources: NVD CVE API v2 | CISA KEV | MalwareBazaar | AbuseIPDB

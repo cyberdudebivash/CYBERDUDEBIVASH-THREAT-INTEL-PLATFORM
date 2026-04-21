@@ -1,5 +1,5 @@
 """
-sentinel_sdk — CYBERDUDEBIVASH® Sentinel APEX Python SDK v100.0
+sentinel_sdk — CYBERDUDEBIVASH® Sentinel APEX Python SDK v134.0
 ================================================================
 Official Python client for the Sentinel APEX Threat Intelligence API.
 

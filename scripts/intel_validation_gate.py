@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v103.0 — Intel Validation Gate
+SENTINEL APEX v134.0 — Intel Validation Gate
 ═════════════════════════════════════════════
 ARCHITECTURE: ADDITIVE ONLY. Does NOT touch feed_manifest.json.
 Reads the authoritative manifest + queue files → writes validated_manifest.json.
@@ -10,25 +10,25 @@ Pipeline position: ENRICH → VALIDATE (this script) → APEX-ENGINE → BLOG �
 Responsibilities:
   1. Load all pending/failed items from queue files (exclusion set).
   2. Tag every manifest item as status="published" or status="pending".
-  3. [v103] Run APEX validation checks: evidence, confidence, SOC context (gate-controlled).
+  3. [v134] Run APEX validation checks: evidence, confidence, SOC context (gate-controlled).
   4. Write data/validated_manifest.json  — source of truth for dashboard + API.
   5. Write data/health/validation_report.json  — observability + audit trail.
 
-Feature-flag controlled (v102 flags — unchanged):
+Feature-flag controlled (v134 flags — unchanged):
   ENABLE_VALIDATION_GATE   — master switch (default: true)
   STRICT_VALIDATION        — reject items with missing content threshold (default: false)
   QUEUE_AUTHORITATIVE      — exclude pending items from validated manifest (default: true)
   DASHBOARD_FILTERING      — sets 'dashboard_visible' field on each item (default: true)
   MIN_CONTENT_THRESHOLD    — min description char length for STRICT mode (default: 50)
 
-Feature-flag controlled (v103 APEX v1 additions — all default False for zero-regression):
+Feature-flag controlled (v134 APEX v1 additions — all default False for zero-regression):
   ENABLE_APEX_VALIDATION          — master switch for APEX v1 validation checks (default: false)
   APEX_REQUIRE_EVIDENCE_GATE      — reject items with LOW evidence reliability (default: false)
   APEX_REQUIRE_CONFIDENCE_GATE    — reject items with LOW detection confidence (default: false)
   APEX_REQUIRE_SOC_GATE           — reject items missing SOC context block (default: false)
   APEX_MIN_EVIDENCE_SCORE         — minimum raw evidence confidence score (default: 0)
 
-Feature-flag controlled (v104 APEX v2 additions — all default False for zero-regression):
+Feature-flag controlled (v134 APEX v2 additions — all default False for zero-regression):
   APEX_V2_REQUIRE_PRIORITY_GATE   — reject items missing threat_priority block (default: false)
   APEX_V2_REQUIRE_TIMELINE_GATE   — reject items missing threat_timeline block (default: false)
   APEX_V2_REQUIRE_FEEDBACK_GATE   — reject items with LOW intelligence_maturity (default: false)
@@ -38,7 +38,7 @@ Feature-flag controlled (v104 APEX v2 additions — all default False for zero-r
 Zero-regression guarantee:
   If BOTH queue files are empty/missing → all items receive status="published".
   If QUEUE_AUTHORITATIVE=false → all items pass regardless of queue membership.
-  All v103 APEX checks default to False — no behavior change on existing deployments.
+  All v134 APEX checks default to False — no behavior change on existing deployments.
 
 Outputs:
   data/validated_manifest.json       — filtered manifest (published items only when QUEUE_AUTHORITATIVE=true)
@@ -80,19 +80,19 @@ def log(msg: str, level: str = "INFO") -> None:
 # ── Feature flags ─────────────────────────────────────────────────────────────
 def load_flags() -> Dict[str, Any]:
     defaults: Dict[str, Any] = {
-        # v102 flags (unchanged)
+        # v134 flags (unchanged)
         "ENABLE_VALIDATION_GATE":  True,
         "STRICT_VALIDATION":       False,
         "QUEUE_AUTHORITATIVE":     True,
         "DASHBOARD_FILTERING":     True,
         "MIN_CONTENT_THRESHOLD":   50,
-        # v103 APEX v1 validation flags (all default False — zero-regression guarantee)
+        # v134 APEX v1 validation flags (all default False — zero-regression guarantee)
         "ENABLE_APEX_VALIDATION":       False,
         "APEX_REQUIRE_EVIDENCE_GATE":   False,
         "APEX_REQUIRE_CONFIDENCE_GATE": False,
         "APEX_REQUIRE_SOC_GATE":        False,
         "APEX_MIN_EVIDENCE_SCORE":      0,
-        # v104 APEX v2 Evolution Engine validation flags (all default False — zero-regression guarantee)
+        # v134 APEX v2 Evolution Engine validation flags (all default False — zero-regression guarantee)
         "APEX_V2_REQUIRE_PRIORITY_GATE":  False,
         "APEX_V2_REQUIRE_TIMELINE_GATE":  False,
         "APEX_V2_REQUIRE_FEEDBACK_GATE":  False,
@@ -235,8 +235,8 @@ def classify_manifest(
 ) -> tuple[List[Dict], List[Dict], List[Dict]]:
     """
     Tag each entry with 'status', 'validation_reason', 'dashboard_visible'.
-    v103: Also applies APEX v1 validation tagging (additive — never blocks unless flag enabled).
-    v104: Also applies APEX v2 Evolution tagging (additive — never blocks unless v2 flags enabled).
+    v134: Also applies APEX v1 validation tagging (additive — never blocks unless flag enabled).
+    v134: Also applies APEX v2 Evolution tagging (additive — never blocks unless v2 flags enabled).
     Returns (published, pending, invalid) lists.
     """
     published: List[Dict] = []
@@ -254,7 +254,7 @@ def classify_manifest(
     )
 
     for item in entries:
-        # ── Step 1: structural validity (v102 — unchanged) ───────────────────
+        # ── Step 1: structural validity (v134 — unchanged) ───────────────────
         valid, reason = is_valid_intel(item, flags)
         if not valid:
             item["status"]            = "invalid"
@@ -263,7 +263,7 @@ def classify_manifest(
             invalid.append(item)
             continue
 
-        # ── Step 2: queue exclusion check (v102 — unchanged) ─────────────────
+        # ── Step 2: queue exclusion check (v134 — unchanged) ─────────────────
         item_fps = _item_fingerprints(item)
         in_queue = bool(item_fps & exclusions)
 
@@ -274,7 +274,7 @@ def classify_manifest(
             pending.append(item)
             continue
 
-        # ── Step 3: APEX v1 intelligence quality gate (v103 — additive) ──────
+        # ── Step 3: APEX v1 intelligence quality gate (v134 — additive) ──────
         # Only rejects items when ENABLE_APEX_VALIDATION=true AND specific gates enabled.
         # Default behavior: always passes, just tags the item.
         apex_tag_item(item)  # Always tag — never blocks
@@ -287,7 +287,7 @@ def classify_manifest(
                 invalid.append(item)
                 continue
 
-        # ── Step 4: APEX v2 Evolution quality gate (v104 — additive) ─────────
+        # ── Step 4: APEX v2 Evolution quality gate (v134 — additive) ─────────
         # Only rejects items when APEX_V2_REQUIRE_* flags are explicitly enabled.
         # Default behavior: always passes, just tags the item with v2 status.
         apex_v2_tag_item(item)  # Always tag — never blocks
@@ -308,10 +308,10 @@ def classify_manifest(
     return published, pending, invalid
 
 
-# ── v103 APEX Validation (ADDITIVE — only runs when ENABLE_APEX_VALIDATION=true) ────
+# ── v134 APEX Validation (ADDITIVE — only runs when ENABLE_APEX_VALIDATION=true) ────
 def apex_validate_item(item: Dict, flags: Dict) -> tuple[bool, str]:
     """
-    v103 APEX intelligence quality gate.
+    v134 APEX intelligence quality gate.
     Returns (passes: bool, reason: str).
     Only enforced when the specific APEX_REQUIRE_* flag is True.
     Each check is independent — a single failing check produces a specific reason code.
@@ -353,7 +353,7 @@ def apex_validate_item(item: Dict, flags: Dict) -> tuple[bool, str]:
     return True, "apex_ok"
 
 
-# ── v103 APEX enrichment tagger (ADDITIVE — safe to call even without apex enrichment) ──
+# ── v134 APEX enrichment tagger (ADDITIVE — safe to call even without apex enrichment) ──
 def apex_tag_item(item: Dict) -> Dict:
     """
     Tag an item with apex_validation_status based on the presence of APEX enrichment fields.
@@ -389,12 +389,12 @@ def apex_tag_item(item: Dict) -> Dict:
     return item
 
 
-# ── v104 APEX v2 Validation (ADDITIVE — only runs when APEX_V2_REQUIRE_* flags true) ───
+# ── v134 APEX v2 Validation (ADDITIVE — only runs when APEX_V2_REQUIRE_* flags true) ───
 _VALID_LIFECYCLE_STAGES = {"EMERGING", "ACTIVE", "PEAK", "DECLINING", "HISTORICAL"}
 
 def apex_v2_validate_item(item: Dict, flags: Dict) -> tuple:
     """
-    v104 APEX v2 Evolution Engine quality gate.
+    v134 APEX v2 Evolution Engine quality gate.
     Returns (passes: bool, reason: str).
 
     Only enforced when the specific APEX_V2_REQUIRE_* flag is True.
@@ -520,13 +520,13 @@ def main() -> int:
     sz = atomic_write_json(VALIDATED_MANIFEST, output_entries)
     log(f"Wrote validated_manifest.json: {len(output_entries)} items | {sz:,} bytes")
 
-    # ── v103: APEX v1 enrichment quality stats (additive — always computed) ──
+    # ── v134: APEX v1 enrichment quality stats (additive — always computed) ──
     apex_god_level = sum(1 for e in published if e.get("apex_validation_status") == "GOD_LEVEL")
     apex_enriched  = sum(1 for e in published if e.get("apex_validation_status") == "ENRICHED")
     apex_partial   = sum(1 for e in published if e.get("apex_validation_status") == "PARTIAL")
     apex_unenriched= sum(1 for e in published if e.get("apex_validation_status") == "UNENRICHED")
 
-    # ── v104: APEX v2 Evolution Engine quality stats (additive — always computed) ──
+    # ── v134: APEX v2 Evolution Engine quality stats (additive — always computed) ──
     v2_priority_intel = sum(1 for e in published if e.get("apex_v2_validation_status") == "PRIORITY_INTEL")
     v2_temporal_intel = sum(1 for e in published if e.get("apex_v2_validation_status") == "TEMPORAL_INTEL")
     v2_priority_only  = sum(1 for e in published if e.get("apex_v2_validation_status") == "PRIORITY_ONLY")
@@ -543,12 +543,12 @@ def main() -> int:
             "QUEUE_AUTHORITATIVE":    flags.get("QUEUE_AUTHORITATIVE"),
             "DASHBOARD_FILTERING":    flags.get("DASHBOARD_FILTERING"),
             "MIN_CONTENT_THRESHOLD":  flags.get("MIN_CONTENT_THRESHOLD"),
-            # v103 APEX v1 flags
+            # v134 APEX v1 flags
             "ENABLE_APEX_VALIDATION":       flags.get("ENABLE_APEX_VALIDATION"),
             "APEX_REQUIRE_EVIDENCE_GATE":   flags.get("APEX_REQUIRE_EVIDENCE_GATE"),
             "APEX_REQUIRE_CONFIDENCE_GATE": flags.get("APEX_REQUIRE_CONFIDENCE_GATE"),
             "APEX_REQUIRE_SOC_GATE":        flags.get("APEX_REQUIRE_SOC_GATE"),
-            # v104 APEX v2 flags
+            # v134 APEX v2 flags
             "APEX_V2_REQUIRE_PRIORITY_GATE": flags.get("APEX_V2_REQUIRE_PRIORITY_GATE"),
             "APEX_V2_REQUIRE_TIMELINE_GATE": flags.get("APEX_V2_REQUIRE_TIMELINE_GATE"),
             "APEX_V2_REQUIRE_FEEDBACK_GATE": flags.get("APEX_V2_REQUIRE_FEEDBACK_GATE"),
@@ -563,7 +563,7 @@ def main() -> int:
             "pass_rate_pct": round(pub_ct / total * 100, 2) if total else 0.0,
             "queue_files_checked": [str(q) for q in QUEUE_FILES if q.exists()],
         },
-        # v103: APEX v1 enrichment quality breakdown (additive — no gate impact by default)
+        # v134: APEX v1 enrichment quality breakdown (additive — no gate impact by default)
         "apex_quality_summary": {
             "god_level_enriched":  apex_god_level,
             "enriched":            apex_enriched,
@@ -572,7 +572,7 @@ def main() -> int:
             "enrichment_rate_pct": round((apex_god_level + apex_enriched) / max(pub_ct, 1) * 100, 1),
             "apex_gate_active":    flags.get("ENABLE_APEX_VALIDATION", False),
         },
-        # v104: APEX v2 Evolution Engine quality breakdown (additive — no gate impact by default)
+        # v134: APEX v2 Evolution Engine quality breakdown (additive — no gate impact by default)
         "apex_v2_quality_summary": {
             "priority_intel":     v2_priority_intel,
             "temporal_intel":     v2_temporal_intel,

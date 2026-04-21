@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/validate_env.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.2.0 -- Environment Validator
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Environment Validator
 ===================================================================
 Validates that all required environment variables and secrets are present
 before the pipeline begins expensive operations.

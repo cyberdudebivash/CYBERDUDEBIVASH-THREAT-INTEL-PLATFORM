@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ioc_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v123.0.0
+ioc_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0.0
 ═══════════════════════════════════════════════════════════════════════
 Enterprise-Grade IOC Extraction Engine
 

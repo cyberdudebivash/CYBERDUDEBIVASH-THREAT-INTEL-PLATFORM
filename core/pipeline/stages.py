@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-stages.py — CYBERDUDEBIVASH® SENTINEL APEX v47.0 (COMMAND CENTER)
+stages.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0 (COMMAND CENTER)
 ════════════════════════════════════════════════════════════════════
 Pipeline Stages: Strict execution order enforcement.
 
@@ -589,7 +589,7 @@ class EnrichStage(PipelineStage):
 
 
 # ═══════════════════════════════════════════════════════════
-# STAGE 4: CORRELATE  (v123.0.0 — AI CYBER BRAIN ACTIVE)
+# STAGE 4: CORRELATE  (v134.0.0 — AI CYBER BRAIN ACTIVE)
 # ═══════════════════════════════════════════════════════════
 
 class CorrelateStage(PipelineStage):
@@ -822,7 +822,7 @@ class CorrelateStage(PipelineStage):
 
 
 # ═══════════════════════════════════════════════════════════
-# STAGE 5: SCORE  (v123.0.0 — ThreatPredictor ACTIVE)
+# STAGE 5: SCORE  (v134.0.0 — ThreatPredictor ACTIVE)
 # ═══════════════════════════════════════════════════════════
 
 class ScoreStage(PipelineStage):
@@ -993,7 +993,7 @@ class ScoreStage(PipelineStage):
     @staticmethod
     def _enforce_quality_gates(item: Dict) -> Dict:
         """
-        PHASE 5 — Data Quality Enforcement (v123.2):
+        PHASE 5 — Data Quality Enforcement (v134.0):
           1. HIGH/CRITICAL with 0 IOCs → attempt fallback enrichment first
              a. CVE→NVD reference URL extraction (NVD CPE vendors, affected products)
              b. Content re-parse with expanded IOC regex (looser matching)
@@ -1223,14 +1223,14 @@ class StoreStage(PipelineStage):
                         cvss_score=item.get("cvss_score"),
                         kev_present=item.get("kev_present", False),
                         nvd_url=item.get("nvd_url"),
-                        # v124.0: IOC engine enrichment fields
+                        # v134.0: IOC engine enrichment fields
                         ioc_confidence=item.get("ioc_confidence", 0.0),
                         ioc_threat_level=item.get("ioc_threat_level", "NONE"),
                         ioc_extraction_meta=item.get("ioc_extraction_meta", {}),
                     )
                     item["stix_id"] = stix_id
 
-                # Store to hardened manifest (v123 — AI fields included)
+                # Store to hardened manifest (v134 — AI fields included)
                 if manifest_manager:
                     manifest_manager.append_entry({
                         "title":              item.get("title", ""),

@@ -1,5 +1,5 @@
 """
-tests/chaos/chaos_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+tests/chaos/chaos_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 Chaos engineering framework for resilience validation.
 
 Failure injection modes:

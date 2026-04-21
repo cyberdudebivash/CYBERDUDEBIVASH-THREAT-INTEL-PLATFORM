@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_ai_endpoints.py — SENTINEL APEX v104 AI Execution Layer
+generate_ai_endpoints.py — SENTINEL APEX v134 AI Execution Layer
 =================================================================
 Generates three static AI API endpoints from api/feed.json:
 
@@ -13,7 +13,7 @@ and fetched by the "ANALYZE LIVE" button in index.html. The AI layer reads real
 enriched fields from the APEX AI pipeline (risk_score, kev, detect, analyze,
 respond, mitigation, priority written by api_layer_v101.py).
 
-v104 APEX Upgrade: All three endpoints now include structured fields for:
+v134 APEX Upgrade: All three endpoints now include structured fields for:
   - evidence: reliability score, KEV verification, exploit status, source validation
   - confidence: detection confidence, detection strength, false positive risk
   - detection_metadata: deployment complexity, SIEM readiness, composite score
@@ -44,7 +44,7 @@ log = logging.getLogger("AI-ENDPOINTS")
 
 ROOT               = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FEED_PATH          = os.path.join(ROOT, "api", "feed.json")
-# v104: Also consume APEX enriched manifest if available (fallback to feed.json)
+# v134: Also consume APEX enriched manifest if available (fallback to feed.json)
 APEX_ENRICHED_PATH = os.path.join(ROOT, "data", "apex_enriched_manifest.json")
 APEX_REPORT_PATH   = os.path.join(ROOT, "data", "apex_intelligence_report.json")
 OUT_DIR            = os.path.join(ROOT, "api", "ai")
@@ -72,7 +72,7 @@ def _safe_write(filename: str, obj: Any) -> bool:
 
 
 def _load_feed() -> List[Dict]:
-    # v104: Prefer APEX enriched manifest (has evidence/confidence/executive fields)
+    # v134: Prefer APEX enriched manifest (has evidence/confidence/executive fields)
     # Fallback to api/feed.json for backward compatibility
     for path, label in [(APEX_ENRICHED_PATH, "apex_enriched_manifest"),
                         (FEED_PATH, "api/feed.json")]:
@@ -136,7 +136,7 @@ PRIORITY_COLORS = {"P1": "#ef4444", "P2": "#f97316", "P3": "#fbbf24", "P4": "#4a
 PRIORITY_LABELS = {"P1": "IMMEDIATE", "P2": "HIGH",   "P3": "MEDIUM", "P4": "LOW"}
 
 
-# ── v104 APEX field extractors ────────────────────────────────────────────────
+# ── v134 APEX field extractors ────────────────────────────────────────────────
 
 def _apex_evidence(item: Dict) -> Dict:
     """Extract APEX evidence_validation block; return minimal stub if absent."""
@@ -360,7 +360,7 @@ def build_analyze(items: List[Dict]) -> Dict:
         # ISSUE 2 FIX: use compute_priority() — SINGLE SOURCE OF TRUTH
         pri = compute_priority(item)
         r   = float(item.get("risk_score") or 0)
-        # v104: Include APEX evidence, confidence, executive, revenue fields
+        # v134: Include APEX evidence, confidence, executive, revenue fields
         ev_block  = _apex_evidence(item)
         det_block = _apex_confidence(item)
         ex_block  = _apex_executive(item)
@@ -379,7 +379,7 @@ def build_analyze(items: List[Dict]) -> Dict:
             "priority": pri,  # SSOT — computed, not read from stored field
             "source": item.get("feed_name") or item.get("source") or "",
             "date": item.get("date_published") or item.get("_isoDate") or NOW_ISO,
-            # v104 APEX fields
+            # v134 APEX fields
             "evidence":            ev_block,
             "detection_confidence": det_block,
             "executive_summary":   ex_block,
@@ -425,7 +425,7 @@ def build_analyze(items: List[Dict]) -> Dict:
         sum(item.get("risk_score") or 0 for item in items) / max(len(items), 1), 2
     )
 
-    # v104: APEX aggregate evidence and detection quality stats
+    # v134: APEX aggregate evidence and detection quality stats
     apex_items = [i for i in items if i.get("_apex_enriched")]
     ev_high   = sum(1 for i in apex_items if i.get("evidence_validation", {}).get("reliability_score") == "HIGH")
     ev_med    = sum(1 for i in apex_items if i.get("evidence_validation", {}).get("reliability_score") == "MEDIUM")
@@ -433,7 +433,7 @@ def build_analyze(items: List[Dict]) -> Dict:
     det_strong= sum(1 for i in apex_items if i.get("detection_confidence", {}).get("detection_strength") == "STRONG")
     crit_exec = sum(1 for i in apex_items if i.get("executive_summary", {}).get("risk_level") == "CRITICAL")
 
-    # v104: Revenue productization aggregate
+    # v134: Revenue productization aggregate
     tier_counts: dict = {}
     for i in apex_items:
         t = i.get("revenue_metadata", {}).get("pricing_tier", "STANDARD")
@@ -443,7 +443,7 @@ def build_analyze(items: List[Dict]) -> Dict:
         "endpoint": "ai/analyze",
         "version": "104.0",
         "generated_at": NOW_ISO,
-        "model": "SENTINEL-APEX-AI-v104",
+        "model": "SENTINEL-APEX-AI-v134",
         "status": "LIVE",
         "summary": {
             "total_analyzed": len(items),
@@ -474,13 +474,13 @@ def build_analyze(items: List[Dict]) -> Dict:
                 "cves": _cves(i)[:3],
                 "actor": _actor(i),
                 "date": i.get("date_published") or NOW_ISO,
-                # v104: include evidence + executive for KEV items
+                # v134: include evidence + executive for KEV items
                 "evidence":          _apex_evidence(i),
                 "executive_summary": _apex_executive(i),
             }
             for i in kev[:20]
         ],
-        # v104: APEX evidence authority summary
+        # v134: APEX evidence authority summary
         "evidence_authority_summary": {
             "apex_enriched_count":    len(apex_items),
             "high_reliability_count": ev_high,
@@ -488,7 +488,7 @@ def build_analyze(items: List[Dict]) -> Dict:
             "low_reliability_count":  len(apex_items) - ev_high - ev_med,
             "intelligence_quality_pct": round((ev_high * 3 + ev_med * 1.5) / max(len(apex_items) * 3, 1) * 100, 1),
         },
-        # v104: APEX detection quality summary
+        # v134: APEX detection quality summary
         "detection_quality_summary": {
             "high_confidence_count": det_high,
             "strong_detection_count": det_strong,
@@ -496,7 +496,7 @@ def build_analyze(items: List[Dict]) -> Dict:
             "production_ready_pct": round((det_high) / max(len(apex_items), 1) * 100, 1),
             "siem_deployment_status": "PRODUCTION" if det_high > 0 else "REVIEW",
         },
-        # v104: Revenue productization summary
+        # v134: Revenue productization summary
         "revenue_productization": {
             "enterprise_critical": tier_counts.get("ENTERPRISE_CRITICAL", 0),
             "enterprise_high":     tier_counts.get("ENTERPRISE_HIGH", 0),
@@ -557,7 +557,7 @@ def build_respond(items: List[Dict]) -> Dict:
         seen.add(title)
         # SSoT: compute_priority is the single authoritative source for priority
         pri = compute_priority(item)
-        # v104: include APEX evidence + executive in response queue items
+        # v134: include APEX evidence + executive in response queue items
         ev_block = _apex_evidence(item)
         ex_block = _apex_executive(item)
         queue.append({
@@ -576,7 +576,7 @@ def build_respond(items: List[Dict]) -> Dict:
         "endpoint":      "ai/respond",
         "version":       "104.0",
         "generated_at":  NOW_ISO,
-        "model":         "SENTINEL-APEX-RESPOND-v104",
+        "model":         "SENTINEL-APEX-RESPOND-v134",
         "status":        "LIVE",
         "summary": {
             "total_queued":   len(queue),
@@ -704,7 +704,7 @@ def build_ai_index(items: List[Dict]) -> Dict:
         "version":       "112.0",
         "generated_at":  now_iso_local,
         "platform":      "CYBERDUDEBIVASH SENTINEL APEX",
-        "ai_engine":     "APEX-v112",
+        "ai_engine":     "APEX-v134",
         "status":        "OPERATIONAL",
         "summary": {
             "total_advisories":     total,
@@ -775,16 +775,16 @@ def main() -> int:
     os.makedirs("data/ai_intelligence", exist_ok=True)
     os.makedirs("api/apex_v2", exist_ok=True)
 
-    # v112.0: Added ai_index.json for Worker /api/ai endpoint and MITRE heatmap
+    # v134.0: Added ai_index.json for Worker /api/ai endpoint and MITRE heatmap
     ai_index = build_ai_index(items)
 
-    # v110.1 FIX: use bare filenames — OUT_DIR already includes api/ai path
+    # v134.0 FIX: use bare filenames — OUT_DIR already includes api/ai path
     # Bug was: ("api/ai/analyze.json") → ROOT/api/ai/api/ai/analyze.json (double-nested)
     # Fix:     ("analyze.json")        → ROOT/api/ai/analyze.json (correct)
     endpoints = [
         ("analyze.json",   build_analyze(items)),
         ("respond.json",   build_respond(items)),
-        ("ai_index.json",  ai_index),   # v112.0: master AI index for Worker
+        ("ai_index.json",  ai_index),   # v134.0: master AI index for Worker
     ]
 
     # Load and write APEX report if available
@@ -802,7 +802,7 @@ def main() -> int:
         except Exception as e:
             print(f"[WARN] {out_path} write failed: {e}")
 
-    # v112.0: Also write ai_index.json to data/ai_intelligence/ for R2 upload
+    # v134.0: Also write ai_index.json to data/ai_intelligence/ for R2 upload
     ai_index_path = os.path.join(ROOT, "data", "ai_intelligence", "ai_index.json")
     try:
         import tempfile
