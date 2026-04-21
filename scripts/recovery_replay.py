@@ -220,6 +220,32 @@ class RecoveryReplayEngine:
         except Exception as e:
             log.warning("replay: could not delete blob %s: %s", rec.path.name, e)
 
+    def _truncate_write_failures_log(self) -> None:
+        """Truncate data/logs/write_failures.jsonl after confirmed full drain.
+
+        Called ONLY when:
+          - RECOVERY_DIR has zero blobs remaining after this replay run, AND
+          - No permanent failures occurred in this run (failed_permanent == 0), AND
+          - Not in dry-run mode.
+
+        Rationale: write_failures.jsonl is an audit log that accumulates over time.
+        validate_repo.py check_no_write_failures() now checks the recovery blob
+        directory (not this log), so truncating here is safe and ensures the
+        audit log does not grow unbounded across pipeline runs.
+        """
+        wf_log = REPO_ROOT / "data" / "logs" / "write_failures.jsonl"
+        if not wf_log.exists():
+            log.debug("_truncate_write_failures_log: file absent — nothing to truncate")
+            return
+        try:
+            wf_log.write_text("", encoding="utf-8")
+            log.info(
+                "_truncate_write_failures_log: write_failures.jsonl truncated — "
+                "recovery drain confirmed complete. Audit log reset."
+            )
+        except Exception as e:
+            log.warning("_truncate_write_failures_log: could not truncate: %s (non-fatal)", e)
+
     def _update_blob_attempt(self, rec: ReplayRecord) -> None:
         """Increment _recovery_attempt counter in blob for audit trail."""
         try:
@@ -292,6 +318,16 @@ class RecoveryReplayEngine:
             self.stats["succeeded"], self.stats["failed_permanent"],
         )
         log.info("=" * 60)
+
+        # --- Post-drain: truncate write_failures.jsonl if fully resolved ------
+        # Only when: not dry-run AND no permanent failures AND zero blobs remain
+        if not self.dry_run and self.stats["failed_permanent"] == 0:
+            remaining = len(list(RECOVERY_DIR.glob("*.json"))) if RECOVERY_DIR.exists() else 0
+            if remaining == 0 and self.stats["succeeded"] > 0:
+                self._truncate_write_failures_log()
+            elif remaining == 0 and self.stats["scanned"] == 0:
+                log.debug("RecoveryReplayEngine: nothing to replay — write_failures.jsonl left as-is")
+
         return self.stats
 
 
