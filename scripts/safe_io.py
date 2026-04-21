@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/safe_io.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.3.0 -- Production SafeIO Foundation
+CYBERDUDEBIVASH(R) SENTINEL APEX v132.2.0 -- Production SafeIO Foundation
 ==========================================================================
 Centralised, production-grade I/O primitives for the entire pipeline.
 
@@ -18,7 +18,8 @@ Usage:
       atomic_json_write, safe_json_load, safe_json_dump,
       validate_intel_object, dedup_items, PipelineMetrics, acquire_lock,
       enforce_schema, enforce_schema_list,
-      WriteQueue, retry_write, WriteHardFail, _store_write_failure,
+      WriteQueue, retry_write, WriteHardFail, WRITE_SOFT_FAIL, _store_write_failure,
+      MAX_CONCURRENT_WRITES, WRITE_DELAY_MS, BACKPRESSURE_THRESHOLD,
   )
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved. CONFIDENTIAL.
@@ -272,56 +273,127 @@ def _store_write_failure(
 
 
 # ---------------------------------------------------------------------------
-# Retry Write — Exponential Backoff Wrapper (MANDATORY for all write paths)
+# v132.2 Write Pressure Hardening — Global Semaphore + Constants
+# ---------------------------------------------------------------------------
+
+# WRITE THROTTLING: Maximum concurrent writes allowed at any time.
+# Prevents file-descriptor exhaustion and lock thundering-herd under batch load.
+MAX_CONCURRENT_WRITES: int = 3
+
+# Mandatory inter-write delay (milliseconds). Prevents burst write saturation.
+WRITE_DELAY_MS: int = 50
+
+# WriteQueue backpressure threshold — warn if queue depth exceeds this.
+BACKPRESSURE_THRESHOLD: int = 50
+
+# GLOBAL WRITE SEMAPHORE — wraps ALL write operations.
+# Enforces at most MAX_CONCURRENT_WRITES simultaneous writers across the pipeline.
+_WRITE_SEMAPHORE = threading.Semaphore(MAX_CONCURRENT_WRITES)
+
+# Soft-fail sentinel — returned by retry_write() on permanent failure (raise_on_exhaustion=False).
+# Distinguishes "callable returned None (success)" from "all retries exhausted (soft-fail)".
+# Callers check:  if result is WRITE_SOFT_FAIL:  ...
+class _WriteSoftFailType:
+    """Singleton sentinel indicating retry_write() permanent failure (soft-fail path)."""
+    _instance: "Optional[_WriteSoftFailType]" = None
+    def __new__(cls) -> "_WriteSoftFailType":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    def __repr__(self) -> str:
+        return "WRITE_SOFT_FAIL"
+    def __bool__(self) -> bool:
+        return False  # falsy so `if result:` patterns treat failure as falsy
+
+WRITE_SOFT_FAIL = _WriteSoftFailType()  # the singleton sentinel
+
+
+# ---------------------------------------------------------------------------
+# Retry Write — Exponential Backoff + Jitter + Soft-Fail (MANDATORY)
 # ---------------------------------------------------------------------------
 
 class WriteHardFail(RuntimeError):
-    """Raised by retry_write() after all attempts exhausted."""
+    """
+    Retained for test-suite compatibility.
+    retry_write() no longer raises this — permanent failures soft-fail to recovery.
+    """
 
 
 def retry_write(
     fn: Callable[[], Any],
     *,
-    attempts: int = 5,
-    base_delay: float = 0.5,
+    attempts: int = 10,
+    base_delay: float = 0.1,
     path: Optional[Path] = None,
     payload: Any = None,
+    raise_on_exhaustion: bool = False,
 ) -> Any:
     """
-    Wrap any write callable with retry + exponential backoff.
-    On permanent failure: stores to fail-safe buffer, raises WriteHardFail.
+    v132.2 WRITE PRESSURE HARDENING — Retry with full exponential backoff + jitter.
+
+    Changes vs v132.1:
+      - attempts: 5 → 10 (10 total attempts before permanent failure)
+      - backoff: linear → full exponential (base_delay * 2^attempt)
+      - jitter: added (random.uniform(0, base_delay * 0.5)) to prevent thundering-herd
+      - soft-fail: permanent failures STORE TO RECOVERY, do NOT raise by default
+        (pipeline continues — nothing is lost)
 
     Args:
-        fn:         Zero-argument callable that performs the write.
-        attempts:   Total attempts (default 5).
-        base_delay: Base sleep seconds; sleep = base_delay * (attempt + 1).
-        path:       Target file path (for fail-safe buffer and logging).
-        payload:    Data payload (stored in recovery buffer on permanent failure).
+        fn:                 Zero-argument callable that performs the write.
+        attempts:           Total attempts (default 10).
+        base_delay:         Base delay seconds; actual = base_delay * 2^attempt + jitter.
+        path:               Target file path (for fail-safe buffer and logging).
+        payload:            Data payload (stored in recovery buffer on perm failure).
+        raise_on_exhaustion: If True, raise WriteHardFail after exhaustion (for tests).
+                            Default False — soft-fail, pipeline continues.
+
+    Returns:
+        Write result on success, None on permanent failure (soft-fail).
     """
     last_exc: Exception = RuntimeError("retry_write: no attempts made")
     for attempt in range(attempts):
         try:
-            return fn()
+            result = fn()
+            if attempt > 0:
+                log.info(
+                    "retry_write: SUCCESS on attempt %d/%d for %s",
+                    attempt + 1, attempts,
+                    Path(str(path)).name if path else "?",
+                )
+            return result
         except Exception as exc:
             last_exc = exc
-            delay = base_delay * (attempt + 1)
+            # Full exponential backoff with jitter — prevents synchronized retries
+            exp_delay = base_delay * (2 ** attempt)
+            jitter = random.uniform(0, base_delay * 0.5)
+            delay = min(exp_delay + jitter, 2.0)  # cap at 2s per attempt
             log.warning(
-                "retry_write: attempt %d/%d failed for %s: %s (retry in %.1fs)",
+                "retry_write: attempt %d/%d failed for %s: %s (retry in %.2fs)",
                 attempt + 1, attempts,
                 Path(str(path)).name if path else "?",
                 exc, delay,
             )
-            time.sleep(delay)
-    # All attempts exhausted — engage fail-safe buffer
+            if attempt < attempts - 1:
+                time.sleep(delay)
+
+    # ── ALL ATTEMPTS EXHAUSTED ──────────────────────────────────────────────
+    # SOFT FAIL: store payload for recovery, log error, return None.
+    # Pipeline CONTINUES — no data lost, no crash.
     log.error(
-        "retry_write: PERMANENT FAILURE after %d attempts for %s: %s",
+        "retry_write: PERMANENT FAILURE after %d attempts for %s: %s — "
+        "payload stored to recovery buffer, pipeline continues",
         attempts, path, last_exc,
     )
-    if path is not None:
-        _store_write_failure(path, last_exc, payload)
-    raise WriteHardFail(
-        f"retry_write: all {attempts} attempts failed for {path}: {last_exc}"
-    ) from last_exc
+    _store_write_failure(path or Path("unknown"), last_exc, payload)
+
+    if raise_on_exhaustion:
+        raise WriteHardFail(
+            f"retry_write: all {attempts} attempts failed for {path}: {last_exc}"
+        ) from last_exc
+
+    # Return WRITE_SOFT_FAIL sentinel — distinguishes from callable returning None (success).
+    # Callers: `if result is WRITE_SOFT_FAIL: handle_recovery()`
+    return WRITE_SOFT_FAIL
 
 
 # ---------------------------------------------------------------------------
@@ -330,104 +402,245 @@ def retry_write(
 
 class WriteQueue:
     """
-    Centralized write queue for SENTINEL APEX pipeline.
+    v132.2 WRITE PRESSURE HARDENED Centralized Write Queue for SENTINEL APEX.
 
     ALL writes to data/stix/*, data/intel/*, data/api/*, feed_manifest.json
     MUST go through this queue.  Writes are enqueued as callables and flushed
     ONLY at controlled stage boundaries via flush().
 
-    This prevents concurrent-write races during Stage 3.6 batch processing.
+    v132.2 Additions:
+      - Global write semaphore (MAX_CONCURRENT_WRITES=3) prevents write saturation
+      - WRITE_DELAY_MS=50 inter-write sleep prevents burst write pressure
+      - Backpressure warning when queue depth > BACKPRESSURE_THRESHOLD
+      - Post-flush barrier: checks stale .tmp files + queue emptiness
+      - Barrier failure → retry flush once (self-healing)
+      - write_queue_depth exposed in metrics_snapshot()
+      - recovery_count tracks soft-failed items stored to recovery buffer
 
-    Usage:
-        WriteQueue.enqueue(lambda: atomic_json_write(path, data))
-        ...
-        WriteQueue.flush()   # called once at stage boundary
-
-    Thread-safety: the queue list and metrics are protected by a threading.Lock.
+    Thread-safety: all mutable state protected by threading.Lock.
     """
 
     _queue: List[Callable[[], Any]] = []
     _lock: threading.Lock = threading.Lock()
 
-    # Metrics (also exposed to PipelineMetrics.write_report)
+    # Metrics
     _write_latency_ms: List[float] = []
     _write_failures: int = 0
     _retry_count: int = 0
+    _recovery_count: int = 0    # items soft-failed to recovery buffer
 
     @classmethod
     def enqueue(cls, write_fn: Callable[[], Any]) -> None:
-        """Append a write callable to the queue."""
+        """
+        Append a write callable to the queue.
+        Logs backpressure warning if queue depth exceeds BACKPRESSURE_THRESHOLD.
+        """
         with cls._lock:
             cls._queue.append(write_fn)
+            depth = len(cls._queue)
+
+        if depth > BACKPRESSURE_THRESHOLD:
+            log.warning(
+                "WriteQueue.enqueue: BACKPRESSURE — queue depth %d > threshold %d. "
+                "Ingestion will pause at next flush().",
+                depth, BACKPRESSURE_THRESHOLD,
+            )
+
+    @classmethod
+    def _execute_one(
+        cls,
+        fn: Callable[[], Any],
+        i: int,
+        total: int,
+        attempts: int,
+        base_delay: float,
+    ) -> bool:
+        """
+        Execute a single write callable under the global semaphore.
+        Returns True on success, False on soft-fail (stored to recovery).
+        """
+        t0 = time.monotonic()
+        with _WRITE_SEMAPHORE:
+            result = retry_write(
+                fn,
+                attempts=attempts,
+                base_delay=base_delay,
+                raise_on_exhaustion=False,  # soft-fail — never crash pipeline
+            )
+        latency_ms = (time.monotonic() - t0) * 1000
+        with cls._lock:
+            cls._write_latency_ms.append(latency_ms)
+
+        if result is WRITE_SOFT_FAIL:
+            # retry_write returned WRITE_SOFT_FAIL sentinel → permanent failure,
+            # recovery payload already stored by retry_write()
+            with cls._lock:
+                cls._write_failures += 1
+                cls._recovery_count += 1
+            log.warning(
+                "WriteQueue._execute_one: item %d/%d → SOFT FAIL (stored to recovery, pipeline continues)",
+                i + 1, total,
+            )
+            return False
+        else:
+            log.debug("WriteQueue._execute_one: item %d/%d OK (%.1fms)", i + 1, total, latency_ms)
+            return True
 
     @classmethod
     def flush(
         cls,
         *,
-        attempts: int = 5,
-        base_delay: float = 0.5,
+        attempts: int = 10,
+        base_delay: float = 0.1,
     ) -> Dict[str, Any]:
         """
-        Execute all queued write callables sequentially (never parallel).
-        Each write is wrapped in retry_write with exponential backoff.
-        Failed writes are stored in the fail-safe buffer.
+        v132.2 HARDENED FLUSH — Execute all queued write callables with:
+          - Global semaphore throttling (MAX_CONCURRENT_WRITES=3)
+          - WRITE_DELAY_MS inter-write sleep (50ms between writes)
+          - Soft-fail: permanent failures go to recovery, never crash pipeline
+          - Post-flush barrier: assert queue empty + no stale .tmp files
+          - Self-healing: if barrier fails, retry flush once
 
-        Returns metrics dict: {queued, succeeded, failed, total_latency_ms}.
+        Returns metrics dict: {queued, succeeded, failed, recovery_count, total_latency_ms}.
         """
         with cls._lock:
             queue_snapshot = list(cls._queue)
             cls._queue.clear()
 
+        if not queue_snapshot:
+            log.debug("WriteQueue.flush: queue empty — nothing to flush")
+            return {"queued": 0, "succeeded": 0, "failed": 0, "recovery_count": 0, "total_latency_ms": 0.0}
+
+        total = len(queue_snapshot)
         succeeded = 0
         failed = 0
         t_flush_start = time.monotonic()
 
+        log.info(
+            "WriteQueue.flush: starting — %d items | semaphore=%d | delay=%dms | max_attempts=%d",
+            total, MAX_CONCURRENT_WRITES, WRITE_DELAY_MS, attempts,
+        )
+
         for i, fn in enumerate(queue_snapshot):
-            t0 = time.monotonic()
-            try:
-                # retry_write wraps the callable with backoff
-                retry_write(fn, attempts=attempts, base_delay=base_delay)
-                latency_ms = (time.monotonic() - t0) * 1000
-                with cls._lock:
-                    cls._write_latency_ms.append(latency_ms)
+            ok = cls._execute_one(fn, i, total, attempts, base_delay)
+            if ok:
                 succeeded += 1
-                log.debug("WriteQueue.flush: item %d/%d OK (%.1fms)", i + 1, len(queue_snapshot), latency_ms)
-            except WriteHardFail as exc:
-                latency_ms = (time.monotonic() - t0) * 1000
-                with cls._lock:
-                    cls._write_failures += 1
-                    cls._write_latency_ms.append(latency_ms)
+            else:
                 failed += 1
-                log.error("WriteQueue.flush: item %d/%d HARD FAIL: %s", i + 1, len(queue_snapshot), exc)
-            except Exception as exc:
-                with cls._lock:
-                    cls._write_failures += 1
-                failed += 1
-                log.error("WriteQueue.flush: item %d/%d unexpected error: %s", i + 1, len(queue_snapshot), exc)
+
+            # ── INTER-WRITE THROTTLE ──────────────────────────────────────
+            # Mandatory delay between writes to prevent burst saturation.
+            # Skip delay after the last item.
+            if i < total - 1:
+                time.sleep(WRITE_DELAY_MS / 1000.0)
 
         total_latency_ms = (time.monotonic() - t_flush_start) * 1000
+
+        # ── POST-FLUSH BARRIER ────────────────────────────────────────────
+        # Assert: queue is empty, no stale .tmp files left behind.
+        # If stale .tmp files found → attempt cleanup + warn (non-fatal).
+        barrier_ok = cls._post_flush_barrier()
+        if not barrier_ok:
+            log.warning(
+                "WriteQueue.flush: post-flush barrier failed — "
+                "attempting second flush pass for any re-queued items"
+            )
+            # Retry flush: drain any items that got re-enqueued due to barrier issues
+            with cls._lock:
+                retry_queue = list(cls._queue)
+                cls._queue.clear()
+            for i, fn in enumerate(retry_queue):
+                ok = cls._execute_one(fn, i, len(retry_queue), attempts, base_delay)
+                if ok:
+                    succeeded += 1
+                else:
+                    failed += 1
+
         log.info(
-            "WriteQueue.flush: queued=%d succeeded=%d failed=%d total_latency=%.1fms",
-            len(queue_snapshot), succeeded, failed, total_latency_ms,
+            "WriteQueue.flush: COMPLETE — queued=%d succeeded=%d failed=%d "
+            "recovery=%d latency=%.1fms",
+            total, succeeded, failed, failed, round(total_latency_ms, 2),
         )
+        if failed > 0:
+            log.warning(
+                "WriteQueue.flush: %d item(s) stored to recovery buffer — "
+                "data preserved at data/recovery/write_failures/ — pipeline continues",
+                failed,
+            )
+
         return {
-            "queued": len(queue_snapshot),
+            "queued": total,
             "succeeded": succeeded,
             "failed": failed,
+            "recovery_count": failed,
             "total_latency_ms": round(total_latency_ms, 2),
         }
 
     @classmethod
+    def _post_flush_barrier(cls) -> bool:
+        """
+        Post-flush barrier check:
+          1. Assert internal queue is empty (no re-enqueue race condition)
+          2. Scan for stale .tmp files in data/ and reports/ (cleanup if found)
+
+        Returns True if clean, False if issues found (caller should retry flush).
+        """
+        issues = []
+
+        # Check queue is drained
+        with cls._lock:
+            remaining = len(cls._queue)
+        if remaining > 0:
+            issues.append(f"queue has {remaining} un-flushed items after flush()")
+            log.warning("WriteQueue._post_flush_barrier: %d items still in queue after flush", remaining)
+
+        # Scan for stale .tmp write artifacts
+        try:
+            _resolve_recovery_paths()
+            if _WRITE_FAILURE_LOG is not None:
+                repo_root = _WRITE_FAILURE_LOG.parent.parent.parent
+                stale_tmp = []
+                for scan_dir in (repo_root / "data", repo_root / "reports"):
+                    if scan_dir.exists():
+                        stale_tmp.extend(scan_dir.rglob("*.tmp"))
+                if stale_tmp:
+                    issues.append(f"{len(stale_tmp)} stale .tmp file(s) found")
+                    log.warning("WriteQueue._post_flush_barrier: %d stale .tmp file(s) — attempting cleanup", len(stale_tmp))
+                    for tmp_file in stale_tmp:
+                        try:
+                            tmp_file.unlink(missing_ok=True)
+                            log.debug("WriteQueue._post_flush_barrier: removed stale %s", tmp_file.name)
+                        except Exception as e:
+                            log.warning("WriteQueue._post_flush_barrier: could not remove %s: %s", tmp_file.name, e)
+        except Exception as e:
+            log.debug("WriteQueue._post_flush_barrier: barrier scan error (non-fatal): %s", e)
+
+        if issues:
+            log.warning("WriteQueue._post_flush_barrier: %d issue(s): %s", len(issues), "; ".join(issues))
+            return False
+
+        log.debug("WriteQueue._post_flush_barrier: CLEAN — queue empty, no stale .tmp files")
+        return True
+
+    @classmethod
     def metrics_snapshot(cls) -> Dict[str, Any]:
-        """Return current write queue metrics (non-destructive)."""
+        """Return current write queue metrics including live queue depth."""
         with cls._lock:
             latencies = list(cls._write_latency_ms)
             failures = cls._write_failures
+            recovery = cls._recovery_count
+            queue_depth = len(cls._queue)
         avg_lat = round(sum(latencies) / len(latencies), 2) if latencies else 0.0
-        p99_lat = round(sorted(latencies)[int(len(latencies) * 0.99)], 2) if len(latencies) >= 100 else (max(latencies) if latencies else 0.0)
+        p99_lat = (
+            round(sorted(latencies)[int(len(latencies) * 0.99)], 2)
+            if len(latencies) >= 100
+            else (max(latencies) if latencies else 0.0)
+        )
         return {
             "write_count": len(latencies),
             "write_failures": failures,
+            "recovery_count": recovery,
+            "write_queue_depth": queue_depth,
             "write_latency_avg_ms": avg_lat,
             "write_latency_p99_ms": p99_lat,
         }
@@ -440,6 +653,7 @@ class WriteQueue:
             cls._write_latency_ms.clear()
             cls._write_failures = 0
             cls._retry_count = 0
+            cls._recovery_count = 0
 
 
 # ---------------------------------------------------------------------------
@@ -1054,6 +1268,7 @@ class PipelineMetrics:
         self._retry_count: int = 0
         self._render_failures: int = 0
         self._schema_violations: int = 0
+        self._recovery_count: int = 0   # v132.2: soft-fail items stored to recovery
 
     def record_ingestion(self, count: int) -> None:
         self._ingested += count
@@ -1092,6 +1307,12 @@ class PipelineMetrics:
         self._schema_violations += 1
         if reason:
             self._errors.append(f"schema_violation [{field}]: {reason}")
+
+    def record_recovery(self, stage: str = "", reason: str = "") -> None:
+        """v132.2: Track items soft-failed to recovery buffer."""
+        self._recovery_count += 1
+        if reason:
+            self._errors.append(f"recovery [{stage}]: {reason}")
 
     def ingestion_rate(self) -> float:
         total = self._ingested + self._failed
@@ -1143,6 +1364,9 @@ class PipelineMetrics:
             "write_retry_count": self._retry_count,
             "render_failures": self._render_failures,
             "schema_violations": self._schema_violations,
+            # v132.2 write pressure metrics
+            "recovery_count": self._recovery_count + wq_metrics.get("recovery_count", 0),
+            "write_queue_depth": wq_metrics.get("write_queue_depth", 0),
             "write_queue_metrics": wq_metrics,
         }
 

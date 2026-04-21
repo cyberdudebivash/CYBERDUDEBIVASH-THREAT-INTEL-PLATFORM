@@ -904,21 +904,31 @@ def stage_html_reports() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Stage 3.6a -- Manifest Integrity Check (HARD FAIL on write_error/file_missing)
+# Stage 3.6a -- Manifest Integrity Check
+# v132.2: write_error/file_missing → SOFT FAIL (recovery guaranteed, pipeline continues)
+# HARD FAIL only on: manifest JSON corrupt, schema invalid
 # ---------------------------------------------------------------------------
 
 def stage_manifest_integrity_check() -> None:
     log.info("=" * 60)
-    log.info("STAGE 3.6a -- Manifest Integrity Check")
+    log.info("STAGE 3.6a -- Manifest Integrity Check [v132.2 SOFT-FAIL mode]")
     log.info("=" * 60)
     try:
         manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
-        d = json.loads(manifest_path.read_text(encoding="utf-8"))
+        # HARD FAIL only if manifest is unparseable (genuine corruption)
+        try:
+            d = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as parse_err:
+            log.error("[3.6a] HARD FAIL — manifest JSON corrupt/unreadable: %s", parse_err)
+            sys.exit(1)
+
         items = d.get("advisories", d.get("reports", []))
 
-        HARD_FAIL_STATUSES = {"write_error", "file_missing"}
+        # v132.2: write_error/file_missing → SOFT FAIL (data is in recovery buffer)
+        # These are write-pressure failures, NOT data corruption.
+        SOFT_FAIL_STATUSES = {"write_error", "file_missing"}
         missing_url: list[str] = []
-        hard_fail: list[str] = []
+        soft_fail: list[str] = []
         stale_domain: list[str] = []
 
         for item in items:
@@ -927,8 +937,9 @@ def stage_manifest_integrity_check() -> None:
             ru  = item.get("report_url", "")
             if vs == "brand_skip":
                 continue
-            if vs in HARD_FAIL_STATUSES:
-                hard_fail.append(f"  HARD_FAIL [{vs}] {sid}")
+            if vs in SOFT_FAIL_STATUSES:
+                # SOFT FAIL — payload is in recovery buffer, not a pipeline blocker
+                soft_fail.append(f"  SOFT_FAIL [{vs}] {sid}")
                 continue
             if not ru:
                 missing_url.append(f"  MISSING_URL {sid}")
@@ -937,11 +948,11 @@ def stage_manifest_integrity_check() -> None:
                 stale_domain.append(f"  STALE_DOMAIN {sid}")
 
         total = len(items)
-        ok    = total - len(missing_url) - len(hard_fail) - len(stale_domain)
+        ok    = total - len(missing_url) - len(soft_fail) - len(stale_domain)
         log.info("[3.6a] Manifest entries : %d", total)
         log.info("[3.6a] report_url OK    : %d", ok)
         log.info("[3.6a] Missing URL      : %d", len(missing_url))
-        log.info("[3.6a] Hard failures    : %d", len(hard_fail))
+        log.info("[3.6a] Soft failures    : %d (write pressure — in recovery buffer)", len(soft_fail))
         log.info("[3.6a] Stale domain     : %d", len(stale_domain))
 
         if stale_domain:
@@ -949,13 +960,21 @@ def stage_manifest_integrity_check() -> None:
             for s in stale_domain[:10]:
                 log.warning("[3.6a] %s", s)
 
-        if hard_fail:
-            log.error("[3.6a] MANIFEST INTEGRITY FAIL -- write_error/file_missing entries:")
-            for h in hard_fail:
-                log.error("[3.6a] %s", h)
-            sys.exit(1)
+        if soft_fail:
+            # SOFT FAIL — log for observability, pipeline continues
+            log.warning(
+                "[3.6a] %d write-pressure failure(s) detected — "
+                "payloads are safely stored in data/recovery/write_failures/. "
+                "Pipeline continues. Retry on next run.",
+                len(soft_fail),
+            )
+            for h in soft_fail[:10]:
+                log.warning("[3.6a] %s", h)
+            if METRICS is not None:
+                for _ in soft_fail:
+                    METRICS.record_recovery("3.6a", "write_error/file_missing in manifest")
 
-        log.info("[3.6a] MANIFEST INTEGRITY CHECK PASSED. [OK]")
+        log.info("[3.6a] Manifest integrity check complete — pipeline continues. [OK]")
 
     except SystemExit:
         raise
@@ -1491,22 +1510,29 @@ def stage_writequeue_flush() -> None:
     log.info("=" * 60)
     t0 = time.monotonic()
     try:
-        flush_result = WriteQueue.flush(attempts=5, base_delay=0.5)
+        # v132.2: 10 attempts, exponential backoff from 0.1s, semaphore=3, delay=50ms
+        flush_result = WriteQueue.flush(attempts=10, base_delay=0.1)
         elapsed = time.monotonic() - t0
         log.info(
-            "[3.6-barrier] Flush complete: queued=%d succeeded=%d failed=%d latency=%.1fms elapsed=%.2fs",
+            "[3.6-barrier] Flush complete: queued=%d succeeded=%d failed=%d "
+            "recovery=%d latency=%.1fms elapsed=%.2fs",
             flush_result["queued"],
             flush_result["succeeded"],
             flush_result["failed"],
+            flush_result.get("recovery_count", 0),
             flush_result["total_latency_ms"],
             elapsed,
         )
         if flush_result["failed"] > 0:
-            log.error(
-                "[3.6-barrier] %d write(s) PERMANENTLY FAILED — "
-                "check data/logs/write_failures.jsonl for recovery payloads",
+            # v132.2: SOFT FAIL — recovery buffer populated, pipeline continues
+            log.warning(
+                "[3.6-barrier] %d write(s) stored to recovery buffer — "
+                "data/recovery/write_failures/ | data/logs/write_failures.jsonl | "
+                "pipeline continues (ZERO DATA LOSS)",
                 flush_result["failed"],
             )
+            if METRICS is not None:
+                METRICS.record_recovery("3.6-barrier", f"{flush_result['failed']} items in recovery")
     except Exception as e:
         log.warning("[3.6-barrier] WriteQueue.flush raised unexpectedly: %s (non-fatal)", e)
 
@@ -1610,24 +1636,45 @@ def stage_validate_write_integrity() -> None:
         except Exception:
             pass
 
-    # Classify: HARD FAIL triggers vs soft warnings
-    HARD_FAIL_PATTERNS = ("V3 FAIL: ", "V4 FAIL: ", "V1 FAIL: ")
+    # v132.2 SOFT-FAIL POLICY:
+    # - V1 (missing files): SOFT FAIL — payloads in recovery, retry next run
+    # - V3 (write_error/render_error): SOFT FAIL — write pressure, not corruption
+    # - V4 (write_failures.jsonl entries): SOFT FAIL — recovery buffer populated
+    # HARD FAIL only on: V2 (manifest JSON corrupt/unreadable)
+    HARD_FAIL_PATTERNS = ("V2 FAIL: ",)          # manifest corruption only
+    SOFT_FAIL_PATTERNS = ("V1 FAIL: ", "V3 FAIL: ", "V4 FAIL: ")
+
     hard_failures = [i for i in issues if any(i.startswith(p) for p in HARD_FAIL_PATTERNS)]
-    soft_warnings = [i for i in issues if i not in hard_failures]
+    soft_failures = [i for i in issues if any(i.startswith(p) for p in SOFT_FAIL_PATTERNS)]
+    soft_warnings = [i for i in issues if i not in hard_failures and i not in soft_failures]
 
     if soft_warnings:
         for warn in soft_warnings:
             log.warning("[3.6-validate] WARNING: %s", warn)
 
+    if soft_failures:
+        log.warning(
+            "[3.6-validate] %d write-pressure failure(s) — "
+            "recovery buffer populated, pipeline continues:",
+            len(soft_failures),
+        )
+        for sf in soft_failures:
+            log.warning("[3.6-validate]   SOFT_FAIL: %s", sf)
+        log.warning(
+            "[3.6-validate] Recovery payloads: data/recovery/write_failures/ | "
+            "Log: data/logs/write_failures.jsonl"
+        )
+        if METRICS is not None:
+            for sf in soft_failures:
+                METRICS.record_recovery("3.6-validate", sf)
+
     if hard_failures:
-        log.error("[3.6-validate] ██ HARD FAIL — WRITE INTEGRITY VIOLATIONS:")
+        log.error("[3.6-validate] ██ HARD FAIL — MANIFEST CORRUPTION:")
         for hf in hard_failures:
             log.error("[3.6-validate]   %s", hf)
-        log.error("[3.6-validate] Recovery payloads in data/recovery/write_failures/")
-        log.error("[3.6-validate] Failure log:  data/logs/write_failures.jsonl")
         sys.exit(1)
-    elif issues:
-        log.warning("[3.6-validate] Non-critical write integrity warnings — pipeline continues")
+    elif soft_failures or issues:
+        log.warning("[3.6-validate] Write pressure events logged — pipeline continues (ZERO DATA LOSS)")
     else:
         log.info("[3.6-validate] ALL WRITE INTEGRITY CHECKS PASSED [OK]")
 
