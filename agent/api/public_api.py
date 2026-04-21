@@ -184,17 +184,40 @@ class PublicAPIHandler:
         return None
 
     def _strip_for_public(self, entry: Dict) -> Dict:
-        """Remove sensitive/premium fields for public API response."""
+        """Remove sensitive/premium fields for public API response.
+        v23.0 P0 FIX: expose internal_report_url, report_url, id, stix_id,
+        stix_bundle_url so the dashboard can render the Tactical Dossier link
+        without falling back to external source_url.
+        """
         PUBLIC_FIELDS = {
-            "bundle_id", "title", "risk_score", "severity", "tlp_label",
-            "generated_at", "source_url", "mitre_tactics", "actor_tag",
-            "status", "confidence",
+            "id", "stix_id", "bundle_id", "title", "risk_score", "severity",
+            "tlp_label", "generated_at", "source_url", "mitre_tactics",
+            "actor_tag", "status", "confidence",
             # v22.0: safe additions
             "kev_present", "feed_source",
+            # v23.0 P0 FIX: internal report routing fields (never external leak)
+            "report_url", "internal_report_url", "stix_bundle_url",
+            "validation_status", "processed_at", "timestamp",
         }
-        return {k: v for k, v in entry.items() if k in PUBLIC_FIELDS}
+        stripped = {k: v for k, v in entry.items() if k in PUBLIC_FIELDS}
+
+        # P0 SAFETY: ensure report_url is always the INTERNAL path.
+        # If report_url is an external URL (not cyberdudebivash domain),
+        # override with internal_report_url or construct the canonical path.
+        ru = stripped.get("report_url", "")
+        iru = stripped.get("internal_report_url", "")
+        if ru and ru.startswith("http") and "cyberdudebivash" not in ru:
+            # External URL leaked into report_url — redirect to internal
+            stripped["report_url"] = iru or ru
+        # Backfill internal_report_url if missing
+        if not iru and ru:
+            stripped["internal_report_url"] = ru
+
+        return stripped
 
     def _load_manifest_entries(self) -> List[Dict]:
+        """v23.0 P0 FIX: support both 'advisories' key (current schema) and
+        legacy 'entries' key so the API never silently returns empty list."""
         if not os.path.exists(MANIFEST_PATH):
             return []
         try:
@@ -202,7 +225,8 @@ class PublicAPIHandler:
                 manifest = json.load(f)
             if isinstance(manifest, list):
                 return manifest
-            return manifest.get("entries", [])
+            # v132 schema uses "advisories"; legacy used "entries"
+            return manifest.get("advisories", manifest.get("entries", []))
         except Exception as e:
             logger.warning(f"Public API manifest load failed: {e}")
             return []
