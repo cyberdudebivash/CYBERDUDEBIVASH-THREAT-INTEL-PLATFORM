@@ -38,7 +38,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   WORKER_DIR: workers/intel-gateway
-  PLATFORM_VERSION: "131.0.0"
+  PLATFORM_VERSION: "134.0.0"
 
 concurrency:
   group: worker-deploy
@@ -124,16 +124,24 @@ jobs:
               with open('config/version.json', encoding='utf-8-sig') as f:
                   cfg = json.load(f)
           except json.JSONDecodeError as e:
-              print(f'WARNING: version.json parse error: {e}')
-              print('FALLBACK: defaulting to 131.0.0')
-              cfg = {'version': '131.0.0'}
+              print(f'FATAL: version.json parse error: {e}')
+              sys.exit(1)
 
           v = cfg.get('version', '')
-          print(f'config/version.json version: {v}')
-          if v != '${PLATFORM_VERSION}':
-              print(f'FATAL: Version mismatch: expected ${PLATFORM_VERSION} got {v}')
+          if not v:
+              print('FATAL: version.json missing \"version\" key')
               sys.exit(1)
-          print('OK: Version lock confirmed')
+
+          # PLATFORM_VERSION env var must match version.json (SSOT).
+          # If they diverge, the workflow env var is stale -- update it.
+          expected = '${PLATFORM_VERSION}'
+          print(f'config/version.json version : {v}')
+          print(f'workflow PLATFORM_VERSION   : {expected}')
+          if v != expected:
+              print(f'FATAL: Version mismatch: workflow PLATFORM_VERSION={expected} but config/version.json={v}')
+              print('FIX : Update PLATFORM_VERSION in deploy-worker.yml env block to match config/version.json')
+              sys.exit(1)
+          print('OK: Version lock confirmed — ' + v)
           "
 
           echo "=== PRE-FLIGHT PASSED ==="
