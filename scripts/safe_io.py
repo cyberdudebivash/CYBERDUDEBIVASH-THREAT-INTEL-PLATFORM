@@ -1055,10 +1055,17 @@ def enforce_schema(entry: Dict) -> Dict:
             entry[field] = str(val)
 
     # 2. Normalise severity to uppercase known set
+    # VALID set mirrors validate_repo._VALID_SEVERITIES — must stay in sync.
+    # 'INFO' is NOT a valid platform severity (it is a log level, not a threat level).
+    # Any entry with severity='INFO' (common fallback from legacy code) is normalised
+    # to 'UNKNOWN' here so it never reaches the schema validation gate as invalid.
+    _SEV_REMAP = {"INFO": "UNKNOWN"}  # map non-standard → nearest valid equivalent
+    _SEV_VALID = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN", ""}
     sev = entry.get("severity")
     if sev is not None:
         sev_str = str(sev).upper().strip()
-        if sev_str not in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN", "INFO", ""):
+        sev_str = _SEV_REMAP.get(sev_str, sev_str)  # apply remap first
+        if sev_str not in _SEV_VALID:
             sev_str = "UNKNOWN"
         entry["severity"] = sev_str
 
