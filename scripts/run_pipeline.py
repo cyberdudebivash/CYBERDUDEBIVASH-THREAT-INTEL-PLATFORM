@@ -1876,6 +1876,15 @@ def main() -> None:
     # ---- Observability ----------------------------------------------------
     stage_write_metrics()                # Write pipeline_metrics.json
 
+    # ---- Static health snapshot (pre-bake for GitHub Pages /api/health.json)
+    try:
+        from api.health import write_static_health_json
+        _health_out = REPO_ROOT / "api" / "health.json"
+        write_static_health_json(_health_out)
+        log.info("Health snapshot written → api/health.json")
+    except Exception as _he:
+        log.warning("Health snapshot skipped (non-critical): %s", _he)
+
     elapsed = time.monotonic() - t_total
     log.info("=" * 70)
     log.info("PIPELINE COMPLETE in %.1fs | Version: %s | %s",

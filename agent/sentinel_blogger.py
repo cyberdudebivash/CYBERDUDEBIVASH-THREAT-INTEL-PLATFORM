@@ -573,6 +573,55 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     except Exception:
         pass
 
+    # -- STEP 7e: Phase 6 HARD QUALITY GATE (v133.0) -------------------------
+    # POLICY: NO WEAK INTEL — hard reject based on post-enrichment metrics.
+    # Exemptions: CVE entries and KEV entries bypass word/IOC/confidence floors
+    # because CVE advisories may be structurally lean but high-signal.
+    #
+    # Rule 1 (WORD FLOOR):  non-CVE non-KEV entries < 150 words → REJECT
+    # Rule 2 (IOC FLOOR):   non-CVE non-KEV entries with 0 IOCs  → REJECT
+    # Rule 3 (CONF FLOOR):  non-CVE non-KEV entries confidence < 4.5 → REJECT
+    _pq_has_cve    = bool(extracted_iocs.get("cve")) or bool(
+        re.search(r"\bCVE-\d{4}-\d+\b", headline, re.I)
+    )
+    _pq_has_kev    = kev_present
+    _pq_word_count = len(enriched_content.split())
+    _pq_total_iocs = sum(ioc_counts.values())
+    _PQ_WORD_FLOOR = 150
+    _PQ_CONF_FLOOR = 4.5
+
+    if not (_pq_has_cve or _pq_has_kev):
+        if _pq_word_count < _PQ_WORD_FLOOR:
+            logger.warning(
+                f"  [HARD-GATE] REJECT '{headline[:60]}': "
+                f"insufficient content ({_pq_word_count} words < {_PQ_WORD_FLOOR} floor, "
+                f"no CVE/KEV exemption)"
+            )
+            dedup_engine.mark_processed(headline, entry.get("link", ""))
+            return False
+
+        if _pq_total_iocs == 0:
+            logger.warning(
+                f"  [HARD-GATE] REJECT '{headline[:60]}': "
+                f"zero IOCs extracted (no CVE/KEV exemption)"
+            )
+            dedup_engine.mark_processed(headline, entry.get("link", ""))
+            return False
+
+        if confidence < _PQ_CONF_FLOOR:
+            logger.warning(
+                f"  [HARD-GATE] REJECT '{headline[:60]}': "
+                f"confidence {confidence:.1f} < {_PQ_CONF_FLOOR} floor "
+                f"(no CVE/KEV exemption)"
+            )
+            dedup_engine.mark_processed(headline, entry.get("link", ""))
+            return False
+
+    logger.info(
+        f"  [HARD-GATE] PASS — words={_pq_word_count} iocs={_pq_total_iocs} "
+        f"conf={confidence:.1f} cve={_pq_has_cve} kev={_pq_has_kev}"
+    )
+
     # -- STEP 8: Premium report generation -----------------------------------
     logger.info("  -> Generating PREMIUM 16-section report...")
     try:
