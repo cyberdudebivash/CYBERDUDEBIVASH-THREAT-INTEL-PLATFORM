@@ -73,6 +73,8 @@ try:
         WriteQueue,
         retry_write,
         WriteHardFail,
+        enforce_schema,
+        enforce_schema_list,
     )
     _SAFE_IO_AVAILABLE = True
 except ImportError as _e:
@@ -763,6 +765,93 @@ def stage_manifest_cleanup() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Stage 3.5 -- Global Schema Enforcement (MANDATORY write-boundary gate)
+# ---------------------------------------------------------------------------
+
+def stage_enforce_schema() -> None:
+    """
+    v132 GLOBAL SCHEMA ENFORCEMENT STAGE.
+
+    Applies enforce_schema() to EVERY entry in feed_manifest.json before
+    any output is generated (reports, API feed, STIX bundles).
+
+    Guarantees at write boundary:
+      - published: bool → ISO-8601 string (P0 regression — run #805)
+      - severity: any → uppercase normalised string
+      - ioc_count == len(iocs) — hard invariant
+      - All string fields are strings (never bool/int/None)
+      - All list fields are lists (never None)
+      - risk_score in [0, 10]
+
+    Writes corrected manifest atomically. Non-fatal if safe_io unavailable.
+    """
+    if not _SAFE_IO_AVAILABLE:
+        log.warning("[3.5] safe_io not available — schema enforcement skipped (RISK)")
+        return
+
+    log.info("=" * 60)
+    log.info("STAGE 3.5 -- Global Schema Enforcement")
+    log.info("=" * 60)
+    t0 = time.monotonic()
+
+    manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
+    if not manifest_path.exists():
+        log.warning("[3.5] Manifest not found — schema enforcement skipped")
+        return
+
+    try:
+        d = json.loads(manifest_path.read_text(encoding="utf-8"))
+        key = "advisories" if "advisories" in d else ("reports" if "reports" in d else None)
+        if key is None:
+            log.warning("[3.5] Manifest has no 'advisories'/'reports' key — skipping")
+            return
+
+        items_before = d[key]
+        total = len(items_before)
+
+        violations_found = 0
+        items_after = []
+        for i, item in enumerate(items_before):
+            # Track violations before enforcement
+            had_pub_bool = isinstance(item.get("published"), bool)
+            had_sev_bool = isinstance(item.get("severity"), bool)
+            had_ioc_mismatch = (
+                isinstance(item.get("iocs"), list) and
+                item.get("ioc_count") != len(item.get("iocs", []))
+            )
+            enforced = enforce_schema(item)
+            if had_pub_bool or had_sev_bool or had_ioc_mismatch:
+                violations_found += 1
+                log.warning(
+                    "[3.5] Schema violation corrected [%s]: pub_bool=%s sev_bool=%s ioc_mismatch=%s",
+                    item.get("id", f"idx_{i}")[:32], had_pub_bool, had_sev_bool, had_ioc_mismatch,
+                )
+                if METRICS:
+                    METRICS.record_schema_violation(
+                        field="published" if had_pub_bool else "ioc_count",
+                        reason=f"idx={i} id={item.get('id','?')[:16]}",
+                    )
+            items_after.append(enforced)
+
+        d[key] = items_after
+
+        # Atomic write — through WriteQueue for serialization guarantee
+        WriteQueue.enqueue(lambda _d=d, _p=manifest_path: atomic_json_write(_p, _d, locked=True))
+        WriteQueue.flush(attempts=5, base_delay=0.5)
+
+        elapsed = time.monotonic() - t0
+        log.info(
+            "[3.5] Schema enforcement complete: %d entries processed, %d violations corrected, %.2fs",
+            total, violations_found, elapsed,
+        )
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        log.warning("[3.5] Schema enforcement failed (non-fatal): %s", e)
+
+
+# ---------------------------------------------------------------------------
 # Stage 3.6 -- HTML Report Generation
 # ---------------------------------------------------------------------------
 
@@ -931,6 +1020,45 @@ def _version_sync() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Stage REPO-VALIDATE -- Hard Schema Validation Gate (no auto-heal)
+# ---------------------------------------------------------------------------
+
+def stage_validate_repo() -> None:
+    """
+    v132 HARD SCHEMA VALIDATION GATE.
+    Runs scripts/validate_repo.py as a subprocess.
+
+    HARD STOP if:
+      - published is not a string in any manifest entry
+      - ioc_count != len(iocs) in any manifest entry
+      - required fields (title, source) missing
+
+    This is enforcement, NOT correction. enforce_schema() already ran in
+    stage_enforce_schema() to fix all issues.  If violations still remain
+    at this point, it means a write race or upstream data corruption occurred.
+
+    Exit 0 from validate_repo.py → continue.
+    Exit 1 from validate_repo.py → HARD FAIL (sys.exit(1)).
+    """
+    log.info("=" * 60)
+    log.info("STAGE REPO-VALIDATE -- Hard Schema Validation Gate")
+    log.info("=" * 60)
+    validate_script = REPO_ROOT / "scripts" / "validate_repo.py"
+    if not validate_script.exists():
+        log.warning("[repo-validate] validate_repo.py not found — skipping (RISK)")
+        return
+    r = run_script(
+        [sys.executable, str(validate_script)],
+        stage="repo-validate",
+        allow_fail=False,
+        timeout=120,
+    )
+    if r.returncode != 0:
+        log.error("[repo-validate] HARD SCHEMA VALIDATION FAILED — pipeline aborted")
+        sys.exit(1)
+    log.info("[repo-validate] Schema validation passed [OK]")
+
+
 # Stage 3.6c -- Prune STIX Bundles
 # ---------------------------------------------------------------------------
 
@@ -1482,12 +1610,24 @@ def stage_validate_write_integrity() -> None:
         except Exception:
             pass
 
-    # Report
-    if issues:
-        log.error("[3.6-validate] WRITE INTEGRITY ISSUES DETECTED:")
-        for issue in issues:
-            log.error("[3.6-validate]   %s", issue)
-        log.error("[3.6-validate] Check data/recovery/write_failures/ for payload dumps")
+    # Classify: HARD FAIL triggers vs soft warnings
+    HARD_FAIL_PATTERNS = ("V3 FAIL: ", "V4 FAIL: ", "V1 FAIL: ")
+    hard_failures = [i for i in issues if any(i.startswith(p) for p in HARD_FAIL_PATTERNS)]
+    soft_warnings = [i for i in issues if i not in hard_failures]
+
+    if soft_warnings:
+        for warn in soft_warnings:
+            log.warning("[3.6-validate] WARNING: %s", warn)
+
+    if hard_failures:
+        log.error("[3.6-validate] ██ HARD FAIL — WRITE INTEGRITY VIOLATIONS:")
+        for hf in hard_failures:
+            log.error("[3.6-validate]   %s", hf)
+        log.error("[3.6-validate] Recovery payloads in data/recovery/write_failures/")
+        log.error("[3.6-validate] Failure log:  data/logs/write_failures.jsonl")
+        sys.exit(1)
+    elif issues:
+        log.warning("[3.6-validate] Non-critical write integrity warnings — pipeline continues")
     else:
         log.info("[3.6-validate] ALL WRITE INTEGRITY CHECKS PASSED [OK]")
 
@@ -1551,6 +1691,7 @@ def main() -> None:
     stage_schema_validation()            # HARD FAIL if schema invalid
     stage_manifest_cleanup()
     stage_dedup_and_enrich()             # SafeIO: dedup + ioc_count fix + schema auto-fix
+    stage_enforce_schema()               # MANDATORY: schema enforcement at write boundary
 
     # ---- Output Generation ------------------------------------------------
     stage_html_reports()                 # HARD FAIL if 0 reports
@@ -1561,6 +1702,7 @@ def main() -> None:
 
     # ---- Cross-Layer Consistency Gate ------------------------------------
     stage_pipeline_consistency_check()   # Enforce ioc/stix/dedup/scoring integrity
+    stage_validate_repo()                # HARD FAIL: schema hard validation (no auto-heal)
 
     # ---- Housekeeping -----------------------------------------------------
     stage_prune_stix_bundles()

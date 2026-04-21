@@ -498,6 +498,419 @@ def test_x_group() -> None:
 
 
 # ---------------------------------------------------------------------------
+# S-group: Schema Integrity Regression Lock Tests
+# ---------------------------------------------------------------------------
+
+def test_schema_integrity() -> None:
+    section("S-GROUP: Schema Integrity Regression Lock Tests")
+
+    try:
+        from safe_io import enforce_schema, enforce_schema_list
+    except ImportError as e:
+        check("S0: enforce_schema importable", False, str(e))
+        return
+
+    # S1: enforce_schema fixes published=True boolean
+    entry = {"title": "Test", "source": "feed", "published": True, "iocs": [], "ioc_count": 0}
+    result = enforce_schema(entry)
+    check(
+        "S1: enforce_schema converts published=True(bool) to ISO string",
+        isinstance(result.get("published"), str) and not isinstance(result.get("published"), bool),
+        f"got: {repr(result.get('published'))[:40]}",
+    )
+
+    # S2: enforce_schema fixes published=False boolean
+    entry2 = {"title": "T", "source": "s", "published": False}
+    r2 = enforce_schema(entry2)
+    check(
+        "S2: enforce_schema converts published=False(bool) to ISO string",
+        isinstance(r2.get("published"), str),
+        f"got: {repr(r2.get('published'))[:40]}",
+    )
+
+    # S3: enforce_schema fixes severity boolean → str (prevents .upper() AttributeError)
+    entry3 = {"title": "T", "source": "s", "severity": True}
+    r3 = enforce_schema(entry3)
+    check(
+        "S3: enforce_schema coerces severity=True(bool) to string",
+        isinstance(r3.get("severity"), str),
+        f"got: {repr(r3.get('severity'))[:20]}",
+    )
+
+    # S4: enforce_schema enforces ioc_count == len(iocs)
+    entry4 = {"title": "T", "source": "s", "iocs": ["1.2.3.4", "5.6.7.8"], "ioc_count": 99}
+    r4 = enforce_schema(entry4)
+    check(
+        "S4: enforce_schema sets ioc_count = len(iocs)",
+        r4.get("ioc_count") == 2,
+        f"ioc_count={r4.get('ioc_count')} len(iocs)={len(r4.get('iocs', []))}",
+    )
+
+    # S5: enforce_schema clamps risk_score to [0, 10]
+    entry5 = {"title": "T", "source": "s", "risk_score": 15.7}
+    r5 = enforce_schema(entry5)
+    check(
+        "S5: enforce_schema clamps risk_score > 10 to 10.0",
+        r5.get("risk_score") == 10.0,
+        f"got: {r5.get('risk_score')}",
+    )
+
+    # S6: enforce_schema sets missing required fields to UNKNOWN_*
+    entry6 = {"title": "", "source": None}
+    r6 = enforce_schema(entry6)
+    check(
+        "S6: enforce_schema fills missing required fields with UNKNOWN_*",
+        r6.get("title", "").startswith("UNKNOWN_") and r6.get("source", "").startswith("UNKNOWN_"),
+        f"title={repr(r6.get('title'))} source={repr(r6.get('source'))}",
+    )
+
+    # S7: enforce_schema converts None iocs → empty list
+    entry7 = {"title": "T", "source": "s", "iocs": None}
+    r7 = enforce_schema(entry7)
+    check(
+        "S7: enforce_schema converts iocs=None to []",
+        r7.get("iocs") == [] and r7.get("ioc_count") == 0,
+        f"iocs={r7.get('iocs')} ioc_count={r7.get('ioc_count')}",
+    )
+
+    # S8: enforce_schema does not mutate original (shallow copy)
+    original = {"title": "Original", "source": "feed", "published": True}
+    _ = enforce_schema(original)
+    check(
+        "S8: enforce_schema does not mutate the original dict",
+        original.get("published") is True,
+        f"original['published']={repr(original.get('published'))}",
+    )
+
+    # S9: enforce_schema_list applies to all entries
+    lst = [
+        {"title": "A", "source": "s", "published": True},
+        {"title": "B", "source": "s", "severity": False, "iocs": ["x"], "ioc_count": 0},
+    ]
+    results = enforce_schema_list(lst)
+    check(
+        "S9: enforce_schema_list fixes all entries (published, severity, ioc_count)",
+        all(isinstance(r.get("published"), str) for r in results) and
+        results[1].get("ioc_count") == 1,
+        f"published_types={[type(r.get('published')).__name__ for r in results]}",
+    )
+
+    # S10: enforce_schema idempotent — running twice gives same result
+    clean = {"title": "Test", "source": "feed", "published": "2026-01-01T00:00:00",
+             "iocs": ["1.1.1.1"], "ioc_count": 1, "severity": "HIGH", "risk_score": 7.5}
+    once = enforce_schema(clean)
+    twice = enforce_schema(once)
+    check(
+        "S10: enforce_schema is idempotent (same result on double application)",
+        once == twice,
+        f"once={json.dumps(once, default=str)[:60]}",
+    )
+
+
+# ---------------------------------------------------------------------------
+# P-group: Write Pipeline Stability Tests
+# ---------------------------------------------------------------------------
+
+def test_write_pipeline_stability() -> None:
+    section("P-GROUP: Write Pipeline Stability Tests")
+
+    try:
+        from safe_io import WriteQueue, retry_write, WriteHardFail, atomic_json_write
+    except ImportError as e:
+        check("P0: safe_io imports for pipeline tests", False, str(e))
+        return
+
+    # P1: WriteQueue maintains order under concurrent enqueues (thread-safety)
+    import threading
+    WriteQueue.reset()
+    order = []
+    lock = threading.Lock()
+    def _enqueue_threaded(val):
+        WriteQueue.enqueue(lambda v=val: order.append(v))
+
+    threads = [threading.Thread(target=_enqueue_threaded, args=(i,)) for i in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    result = WriteQueue.flush(attempts=1, base_delay=0.01)
+    check(
+        "P1: WriteQueue is thread-safe (all 10 concurrent enqueues processed)",
+        result["queued"] == 10 and result["succeeded"] == 10,
+        f"queued={result['queued']} succeeded={result['succeeded']}",
+    )
+
+    # P2: WriteQueue.flush() reports correct failed count
+    WriteQueue.reset()
+    WriteQueue.enqueue(lambda: None)           # succeeds
+    WriteQueue.enqueue(lambda: 1/0)            # fails (ZeroDivisionError)
+    WriteQueue.enqueue(lambda: None)           # succeeds
+    result2 = WriteQueue.flush(attempts=2, base_delay=0.01)
+    check(
+        "P2: WriteQueue.flush() correctly counts failed items",
+        result2["queued"] == 3 and result2["succeeded"] == 2 and result2["failed"] == 1,
+        f"queued={result2['queued']} ok={result2['succeeded']} fail={result2['failed']}",
+    )
+
+    # P3: atomic_json_write + retry_write integration (round-trip)
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
+        tp = Path(tf.name)
+    try:
+        payload = {"schema_v": 132, "items": [1, 2, 3], "stable": True}
+        retry_write(
+            lambda: atomic_json_write(tp, payload, locked=False),
+            attempts=3, base_delay=0.01,
+        )
+        loaded = json.loads(tp.read_text(encoding="utf-8"))
+        check(
+            "P3: retry_write + atomic_json_write round-trip preserves data",
+            loaded == payload,
+            f"loaded={loaded}",
+        )
+    finally:
+        try:
+            tp.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    # P4: No partial writes — atomic_json_write never leaves partial content
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf2:
+        tp2 = Path(tf2.name)
+    # Pre-write known content
+    tp2.write_text('{"original": true}', encoding="utf-8")
+    original_content = tp2.read_text(encoding="utf-8")
+    try:
+        # Attempt to write non-serializable data — should fail, original preserved
+        try:
+            atomic_json_write(tp2, object(), locked=False)  # object() not JSON-serializable
+        except Exception:
+            pass
+        after_content = tp2.read_text(encoding="utf-8")
+        check(
+            "P4: atomic_json_write leaves original file intact on serialization failure",
+            after_content == original_content,
+            f"original={original_content[:30]} after={after_content[:30]}",
+        )
+    finally:
+        try:
+            tp2.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    # P5: Pipeline write metrics include render_failures + schema_violations (v132 fields)
+    try:
+        from safe_io import PipelineMetrics
+        pm = PipelineMetrics()
+        pm.record_render_failure("stage_3.6", "test render error")
+        pm.record_schema_violation("published", "was bool")
+        d = pm.to_dict()
+        check(
+            "P5: PipelineMetrics tracks render_failures and schema_violations",
+            d.get("render_failures") == 1 and d.get("schema_violations") == 1,
+            f"render_failures={d.get('render_failures')} schema_violations={d.get('schema_violations')}",
+        )
+    except Exception as e:
+        check("P5: PipelineMetrics render/schema metrics", False, str(e))
+
+
+# ---------------------------------------------------------------------------
+# C-group: Manifest Consistency Tests
+# ---------------------------------------------------------------------------
+
+def test_manifest_consistency() -> None:
+    section("C-GROUP: Manifest Consistency Tests")
+
+    try:
+        from safe_io import enforce_schema
+    except ImportError as e:
+        check("C0: enforce_schema importable", False, str(e))
+        return
+
+    # C1: A manifest with published=bool fields, after enforce_schema_list, has zero bool published
+    sample_manifest = [
+        {"id": "i1", "title": "T1", "source": "s", "published": True,  "iocs": [], "ioc_count": 0},
+        {"id": "i2", "title": "T2", "source": "s", "published": False, "iocs": [], "ioc_count": 0},
+        {"id": "i3", "title": "T3", "source": "s", "published": "2026-01-01T00:00:00Z", "iocs": [], "ioc_count": 0},
+    ]
+    from safe_io import enforce_schema_list
+    cleaned = enforce_schema_list(sample_manifest)
+    bool_published = [i for i in cleaned if isinstance(i.get("published"), bool)]
+    check(
+        "C1: enforce_schema_list eliminates all boolean published fields",
+        len(bool_published) == 0,
+        f"bool_published_remaining={len(bool_published)}",
+    )
+
+    # C2: After enforce_schema_list, all ioc_count values equal len(iocs)
+    sample_mismatched = [
+        {"id": "j1", "title": "T1", "source": "s", "iocs": ["a", "b", "c"], "ioc_count": 99},
+        {"id": "j2", "title": "T2", "source": "s", "iocs": [], "ioc_count": 5},
+    ]
+    cleaned2 = enforce_schema_list(sample_mismatched)
+    mismatches = [i for i in cleaned2 if i.get("ioc_count") != len(i.get("iocs", []))]
+    check(
+        "C2: enforce_schema_list fixes all ioc_count mismatches",
+        len(mismatches) == 0,
+        f"mismatches_remaining={len(mismatches)}",
+    )
+
+    # C3: enforce_schema + validate_repo agree on cleanliness (no false positives)
+    valid_entry = {
+        "id": "v1", "title": "Valid Title", "source": "valid-feed",
+        "published": "2026-04-21T12:00:00Z",
+        "severity": "HIGH", "risk_score": 7.5,
+        "iocs": ["192.168.0.1"], "ioc_count": 1,
+    }
+    enforced = enforce_schema(valid_entry)
+    # Manually check all invariants
+    schema_clean = (
+        isinstance(enforced.get("published"), str) and
+        not isinstance(enforced.get("published"), bool) and
+        enforced.get("ioc_count") == len(enforced.get("iocs", [])) and
+        isinstance(enforced.get("title"), str) and enforced.get("title") and
+        isinstance(enforced.get("source"), str) and enforced.get("source")
+    )
+    check(
+        "C3: valid entry passes enforce_schema without changes to valid fields",
+        schema_clean and enforced.get("title") == "Valid Title",
+        f"title={enforced.get('title')} ioc_count={enforced.get('ioc_count')}",
+    )
+
+    # C4: The existing manifest (on disk) has no boolean published after any pipeline run
+    manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
+    if manifest_path.exists():
+        try:
+            raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+            items = raw.get("advisories", raw.get("reports", []))
+            bool_pub_disk = [
+                i for i in items
+                if isinstance(i.get("published"), bool)
+            ]
+            check(
+                "C4: on-disk manifest has zero boolean published fields",
+                len(bool_pub_disk) == 0,
+                f"bool_published={len(bool_pub_disk)}/{len(items)}",
+            )
+        except Exception as e:
+            check("C4: on-disk manifest readable for bool-published check", False, str(e))
+    else:
+        check("C4: manifest boolean published check", True, "manifest not yet generated (pre-pipeline — OK)")
+
+
+# ---------------------------------------------------------------------------
+# NP-group: No Partial Writes Tests
+# ---------------------------------------------------------------------------
+
+def test_no_partial_writes() -> None:
+    section("NP-GROUP: No Partial Writes Tests")
+
+    import tempfile
+
+    try:
+        from safe_io import atomic_json_write
+    except ImportError as e:
+        check("NP0: atomic_json_write importable", False, str(e))
+        return
+
+    # NP1: No .tmp files left after successful write
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
+        tp = Path(tf.name)
+    try:
+        atomic_json_write(tp, {"test": 1}, locked=False)
+        tmp_file = tp.with_suffix(tp.suffix + ".tmp")
+        check(
+            "NP1: no .tmp file left after successful atomic_json_write",
+            not tmp_file.exists(),
+            f"tmp_exists={tmp_file.exists()}",
+        )
+    finally:
+        try:
+            tp.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    # NP2: No .tmp files left after failed write (serialization error)
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf2:
+        tp2 = Path(tf2.name)
+    try:
+        try:
+            atomic_json_write(tp2, object(), locked=False)  # will fail
+        except Exception:
+            pass
+        tmp_file2 = tp2.with_suffix(tp2.suffix + ".tmp")
+        check(
+            "NP2: no .tmp file left after failed atomic_json_write (serialization error)",
+            not tmp_file2.exists(),
+            f"tmp_exists={tmp_file2.exists()}",
+        )
+    finally:
+        try:
+            tp2.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    # NP3: Written JSON is always valid and matches input
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf3:
+        tp3 = Path(tf3.name)
+    try:
+        data = {"items": list(range(100)), "name": "sentinel", "nested": {"deep": True}}
+        atomic_json_write(tp3, data, locked=False, verify=True)
+        loaded = json.loads(tp3.read_text(encoding="utf-8"))
+        check(
+            "NP3: atomic_json_write produces valid JSON matching input (100-item list)",
+            loaded == data,
+        )
+    finally:
+        try:
+            tp3.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    # NP4: Concurrent writes to different files — no cross-contamination
+    import threading
+    files_and_data = []
+    for i in range(5):
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf4:
+            files_and_data.append((Path(tf4.name), {"writer": i, "val": i * 100}))
+
+    errors_np4 = []
+    def _concurrent_write(path, payload):
+        try:
+            atomic_json_write(path, payload, locked=False)
+        except Exception as e:
+            errors_np4.append(str(e))
+
+    threads4 = [
+        threading.Thread(target=_concurrent_write, args=(p, d))
+        for p, d in files_and_data
+    ]
+    for t in threads4:
+        t.start()
+    for t in threads4:
+        t.join()
+
+    correct = 0
+    for path, expected in files_and_data:
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if loaded == expected:
+                correct += 1
+        except Exception:
+            pass
+        try:
+            path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    check(
+        "NP4: concurrent atomic_json_write to distinct files produces no cross-contamination",
+        correct == 5 and len(errors_np4) == 0,
+        f"correct={correct}/5 errors={errors_np4}",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
 
@@ -511,6 +924,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     test_m_group()
     test_d_group()
     test_x_group()
+
+    # v132.1 Regression Lock Tests
+    test_schema_integrity()
+    test_write_pipeline_stability()
+    test_manifest_consistency()
+    test_no_partial_writes()
 
     # Summary
     total  = len(_RESULTS)
