@@ -1046,52 +1046,132 @@ class STIXExporter:
         # tags: from labels/mitre if provided in kwargs; default to mitre_tactics copy
         _tags = list(mitre_tactics)[:8] if mitre_tactics else []
 
-        # v133.0 PHASE 3 — INLINE REPORT GENERATION (safe failure)
-        # Generate the physical HTML dossier BEFORE writing the manifest entry.
-        # Guarantees that report_url always points to a file that exists on disk.
-        # If generation fails: LOG the error, CONTINUE — never abort the pipeline.
-        _report_gen_ok = False
+        # v134.0 P0 FIX — INLINE REPORT GENERATION (HARD FAIL)
+        # Root cause of previous failure: 'metadata' and '_effective_flat_iocs'
+        # were referenced but are NOT in scope inside _update_manifest() —
+        # they belong to create_bundle(). Fixed by using only _update_manifest()
+        # parameters: iocs_flat, mitre_tactics, feed_source, etc.
+        #
+        # Architecture: this block generates the physical HTML dossier BEFORE
+        # the manifest entry is written. If generation fails for ANY reason,
+        # RuntimeError is raised and the pipeline STOPS. There is NO silent
+        # failure, NO fallback continuation, NO partial publish.
+        #
+        # Every advisory MUST have a valid HTML report file on disk. Non-negotiable.
+        import sys as _rg_sys, os as _rg_os
+        _rg_scripts_dir = _rg_os.path.normpath(
+            _rg_os.path.join(_rg_os.path.dirname(__file__), "..", "scripts")
+        )
+        if _rg_scripts_dir not in _rg_sys.path:
+            _rg_sys.path.insert(0, _rg_scripts_dir)
+
         try:
-            import sys as _sys, os as _os
-            _scripts_dir = _os.path.join(_os.path.dirname(__file__), "..", "scripts")
-            _scripts_dir = _os.path.normpath(_scripts_dir)
-            if _scripts_dir not in _sys.path:
-                _sys.path.insert(0, _scripts_dir)
             from report_generator import generate_report as _gen_report
-            _report_entry_preview = {
-                "id":               _intel_id,
-                "stix_id":          _intel_id,
-                "title":            title,
-                "severity":         severity,
-                "risk_score":       float(risk_score),
-                "description":      (metadata or {}).get("description", ""),
-                "tlp":              (tlp_label or "TLP:CLEAR").upper(),
-                "actor_tag":        actor_tag,
-                "mitre_tactics":    mitre_tactics[:5] if mitre_tactics else [],
-                "confidence":       float(confidence),
-                "feed_source":      feed_source,
-                "source_url":       _source_url,
-                "iocs":             _effective_flat_iocs if isinstance(_effective_flat_iocs, list) else [],
-                "stix_bundle_url":  stix_bundle_url or "",
-                "stix_bundle":      stix_bundle_url or stix_file or "",
-                "processed_at":     _ts_now,
-                "timestamp":        _ts_now,
-                "internal_report_url": _report_url,
-                "report_url":       _report_url,
-                "cvss_score":       cvss_score,
-                "epss_score":       epss_score,
-                "kev_present":      kev_present,
-            }
-            _report_gen_ok, _report_gen_result = _gen_report(
-                _report_entry_preview,
+        except ImportError as _rg_imp_err:
+            raise RuntimeError(
+                f"P0: cannot import report_generator for entry '{_intel_id}': "
+                f"{_rg_imp_err!r}. "
+                "Ensure scripts/report_generator.py is present and syntax-clean. "
+                "Pipeline stopped — every advisory MUST have a valid HTML report."
+            ) from _rg_imp_err
+
+        # Build entry preview using ONLY parameters available in _update_manifest().
+        # 'metadata' and '_effective_flat_iocs' are NOT in scope here —
+        # use 'iocs_flat' (the parameter name) and construct description inline.
+        _rg_iocs = iocs_flat if isinstance(iocs_flat, list) else []
+        _rg_ttp_count = len(mitre_tactics) if mitre_tactics else 0
+        _rg_description = (
+            f"{title} "
+            f"[{len(_rg_iocs)} IOC(s) | {_rg_ttp_count} TTP(s) | Source: {feed_source or 'SENTINEL-APEX'}]"
+        )
+
+        _report_entry_for_gen = {
+            "id":                  _intel_id,
+            "stix_id":             _intel_id,
+            "title":               title,
+            "severity":            severity,
+            "risk_score":          float(risk_score),
+            "description":         _rg_description,
+            "tlp":                 (tlp_label or "TLP:CLEAR").upper(),
+            "actor_tag":           actor_tag or "UNC",
+            "mitre_tactics":       list(mitre_tactics[:5]) if mitre_tactics else [],
+            "confidence":          float(confidence),
+            "confidence_score":    float(confidence),
+            "feed_source":         feed_source or "SENTINEL-APEX",
+            "source_url":          _source_url,
+            "iocs":                _rg_iocs,
+            "ioc_count":           len(_rg_iocs),
+            "stix_bundle_url":     stix_bundle_url or "",
+            "stix_bundle":         stix_bundle_url or stix_file or "",
+            "stix_file":           stix_file or "",
+            "processed_at":        _ts_now,
+            "timestamp":           _ts_now,
+            "internal_report_url": _report_url,
+            "report_url":          _report_url,
+            "cvss_score":          cvss_score,
+            "epss_score":          epss_score,
+            "kev_present":         kev_present,
+        }
+
+        try:
+            _rg_ok, _rg_result = _gen_report(
+                _report_entry_for_gen,
                 stix_file or None,
             )
-            if _report_gen_ok:
-                logger.info("[REPORT] Generated: %s", _report_gen_result)
-            else:
-                logger.warning("[REPORT] Failed (continuing): %s", _report_gen_result)
-        except Exception as _rgen_exc:
-            logger.warning("[REPORT] report_generator unavailable (continuing): %s", _rgen_exc)
+        except Exception as _rg_call_err:
+            raise RuntimeError(
+                f"P0: report_generator.generate_report() raised exception for "
+                f"'{_intel_id}': {_rg_call_err!r}. "
+                "Pipeline stopped — fix report_generator.py."
+            ) from _rg_call_err
+
+        # HARD FAIL: generation function reported failure
+        if not _rg_ok:
+            raise RuntimeError(
+                f"P0: report generation returned failure for entry '{_intel_id}': "
+                f"{_rg_result}. "
+                "Pipeline stopped — every advisory MUST have a valid HTML report."
+            )
+
+        # HARD FAIL: verify physical file existence
+        _rg_file_path = _rg_result
+        if not _rg_os.path.exists(_rg_file_path):
+            raise RuntimeError(
+                f"P0: report file does not exist after generation: '{_rg_file_path}'. "
+                f"Entry: '{_intel_id}'. Pipeline stopped."
+            )
+
+        # HARD FAIL: verify non-empty file
+        _rg_file_size = _rg_os.path.getsize(_rg_file_path)
+        if _rg_file_size < 500:
+            raise RuntimeError(
+                f"P0: report file is too small ({_rg_file_size} bytes) — likely "
+                f"truncated or corrupted: '{_rg_file_path}'. "
+                f"Entry: '{_intel_id}'. Pipeline stopped."
+            )
+
+        # HARD FAIL: verify valid HTML structure
+        try:
+            with open(_rg_file_path, "r", encoding="utf-8", errors="replace") as _rg_f:
+                _rg_head = _rg_f.read(512)
+        except Exception as _rg_read_err:
+            raise RuntimeError(
+                f"P0: cannot read report file '{_rg_file_path}': {_rg_read_err!r}. "
+                f"Entry: '{_intel_id}'. Pipeline stopped."
+            ) from _rg_read_err
+
+        _rg_head_lower = _rg_head.lower()
+        if "<!doctype html" not in _rg_head_lower and "<html" not in _rg_head_lower:
+            raise RuntimeError(
+                f"P0: report file '{_rg_file_path}' does not start with valid HTML "
+                f"(got: {_rg_head[:80]!r}). "
+                f"Entry: '{_intel_id}'. Pipeline stopped — file may be JSON or corrupted."
+            )
+
+        logger.info(
+            "[REPORT] ✔ Generated and verified: %s (%d bytes) → %s",
+            _intel_id, _rg_file_size, _rg_file_path
+        )
 
         entry = {
             # v114.0 SCHEMA CONTRACT (required)
