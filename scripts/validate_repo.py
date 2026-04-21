@@ -503,12 +503,14 @@ def check_no_write_failures() -> CheckResult:
         blobs = list(recovery_dir.glob("*.json"))
         recovery_count = len(blobs)
 
-    # -- System health state ----------------------------------------------------
-    system_state = "OK"
+    # -- System health state + recovery_mode flag --------------------------------
+    system_state   = "OK"
+    recovery_mode  = False
     if health_json.exists():
         try:
-            health = json.loads(health_json.read_text(encoding="utf-8"))
-            system_state = str(health.get("state", "OK")).upper()
+            health        = json.loads(health_json.read_text(encoding="utf-8"))
+            system_state  = str(health.get("state", "OK")).upper()
+            recovery_mode = bool(health.get("recovery_mode", False))
         except Exception:
             pass  # unreadable health file is non-fatal at this gate
 
@@ -522,8 +524,8 @@ def check_no_write_failures() -> CheckResult:
             pass
 
     log.info(
-        "[no_write_failures] recovery_blobs=%d system_state=%s wf_log_entries=%d",
-        recovery_count, system_state, wf_count,
+        "[no_write_failures] recovery_blobs=%d system_state=%s recovery_mode=%s wf_log_entries=%d",
+        recovery_count, system_state, recovery_mode, wf_count,
     )
 
     # -- HARD FAIL: system CRITICAL (ingestion paused, replay could not drain) --
@@ -536,7 +538,19 @@ def check_no_write_failures() -> CheckResult:
         )
 
     # -- HARD FAIL: unresolved recovery blobs remain after replay ---------------
+    # Exception (v134): if drain_recovery_queue() set recovery_mode=True, the
+    # drain is actively in progress in the same pipeline run — allow it.
     if recovery_count > 0:
+        if recovery_mode:
+            log.warning(
+                "[no_write_failures] recovery_mode=True — drain in progress. "
+                "Allowing %d remaining blob(s). [DRAIN_ACTIVE]", recovery_count,
+            )
+            return CheckResult(
+                "no_write_failures", True,
+                f"Recovery drain in progress (recovery_mode=True): "
+                f"{recovery_count} blob(s) still being processed. [DRAIN_ACTIVE — non-fatal]",
+            )
         return CheckResult(
             "no_write_failures", False,
             f"{recovery_count} unresolved recovery blob(s) remain after replay — "

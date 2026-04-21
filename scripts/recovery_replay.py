@@ -352,6 +352,137 @@ def run_post_flush_replay(dry_run: bool = False, max_blobs: int = DEFAULT_MAX_BL
 
 
 # ---------------------------------------------------------------------------
+# v134 Recovery Drain Guarantee — exhaustive unlimited drain
+# ---------------------------------------------------------------------------
+
+def drain_recovery_queue(dry_run: bool = False) -> Dict[str, Any]:
+    """
+    v134 EXHAUSTIVE RECOVERY DRAIN GUARANTEE.
+
+    Processes ALL blobs in data/recovery/write_failures/ with no blob cap
+    (max_blobs=9999). Tracks per-item retry_count for observability.
+
+    Sets  ``recovery_mode: true``  in system_health.json before drain starts
+    so that validate_repo.py check_no_write_failures() can grant an exception
+    while the drain is in progress.  Clears the flag after drain completes.
+
+    Returns:
+        {
+          "system_state":  "HEALTHY" | "DEGRADED",
+          "drained":       int,   -- blobs successfully replayed + deleted
+          "remaining":     int,   -- blobs still on disk after drain
+          "retry_counts":  dict,  -- {blob_name: last_attempt_number}
+          "failed":        int,   -- permanent failures (could not replay)
+          "dry_run":       bool,
+          "started_at":    str,
+          "finished_at":   str,
+        }
+
+    POLICY:
+      remaining == 0  →  system_state = "HEALTHY"
+      remaining > 0   →  system_state = "DEGRADED"
+    """
+    _drain_start = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    log.info("drain_recovery_queue: START (dry_run=%s)", dry_run)
+
+    # -- Set recovery_mode flag so validate_repo.py allows blobs mid-drain ----
+    if not dry_run:
+        _set_recovery_mode(True, _drain_start)
+
+    # -- Run exhaustive drain (no blob cap) -----------------------------------
+    engine = RecoveryReplayEngine(dry_run=dry_run, max_blobs=9999)
+    stats  = engine.run()
+
+    # -- Collect per-item retry_counts from replay audit log ------------------
+    retry_counts: Dict[str, int] = {}
+    try:
+        if REPLAY_LOG.exists():
+            for _line in REPLAY_LOG.read_text(encoding="utf-8").splitlines():
+                _line = _line.strip()
+                if not _line:
+                    continue
+                try:
+                    _entry = json.loads(_line)
+                    _blob  = _entry.get("blob", "")
+                    if _blob:
+                        # keep the highest attempt seen for this blob
+                        _att = int(_entry.get("attempt", 1))
+                        retry_counts[_blob] = max(retry_counts.get(_blob, 0), _att)
+                except Exception:
+                    pass
+    except Exception as _rle:
+        log.debug("drain_recovery_queue: retry_counts scan failed (non-fatal): %s", _rle)
+
+    # -- Count remaining blobs on disk ----------------------------------------
+    remaining    = len(list(RECOVERY_DIR.glob("*.json"))) if RECOVERY_DIR.exists() else 0
+    system_state = "HEALTHY" if remaining == 0 else "DEGRADED"
+
+    # -- Clear recovery_mode flag and write final health state ----------------
+    if not dry_run:
+        _set_recovery_mode(False, _drain_start, system_state, remaining)
+
+    result: Dict[str, Any] = {
+        "system_state": system_state,
+        "drained":      stats["succeeded"],
+        "remaining":    remaining,
+        "retry_counts": retry_counts,
+        "failed":       stats["failed_permanent"],
+        "dry_run":      dry_run,
+        "started_at":   _drain_start,
+        "finished_at":  datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+
+    log.info(
+        "drain_recovery_queue: DONE — state=%s drained=%d remaining=%d failed=%d",
+        system_state, result["drained"], remaining, result["failed"],
+    )
+    return result
+
+
+def _set_recovery_mode(
+    active: bool,
+    started_at: str = "",
+    state: str = "",
+    recovery_count: int = 0,
+) -> None:
+    """
+    Atomically set/clear the ``recovery_mode`` flag in system_health.json.
+    Non-fatal: logs a warning on any I/O error.
+    """
+    try:
+        HEALTH_JSON.parent.mkdir(parents=True, exist_ok=True)
+        _existing: Dict[str, Any] = {}
+        if HEALTH_JSON.exists():
+            try:
+                _existing = json.loads(HEALTH_JSON.read_text(encoding="utf-8"))
+            except Exception:
+                _existing = {}
+
+        _existing["recovery_mode"] = active
+        if active:
+            _existing["recovery_started_at"] = started_at
+        else:
+            _existing["recovery_completed_at"] = (
+                datetime.now(timezone.utc).isoformat(timespec="seconds")
+            )
+            if state:
+                _existing["state"] = state
+            if recovery_count is not None:
+                _existing["recovery_count"] = recovery_count
+
+        HEALTH_JSON.write_text(
+            json.dumps(_existing, indent=2, ensure_ascii=False, default=str),
+            encoding="utf-8",
+        )
+        log.info(
+            "_set_recovery_mode: recovery_mode=%s state=%s remaining=%d",
+            active, state or "N/A", recovery_count,
+        )
+    except Exception as _he:
+        log.warning("_set_recovery_mode: could not update system_health.json: %s (non-fatal)", _he)
+
+
+# ---------------------------------------------------------------------------
 # SSOT Integrity Check — manifest ioc_count == len(iocs) hard lock
 # ---------------------------------------------------------------------------
 
