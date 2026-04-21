@@ -192,6 +192,15 @@ jobs:
         run: python3 scripts/run_pipeline.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.2: REPORT GENERATOR — INTERNAL DOSSIER HARDENING (v133.0)
+      # Ensures every advisory in the manifest has a physical HTML report.
+      # Skips entries that already have an up-to-date report (idempotent).
+      # Exit 0 guaranteed — failures are logged, never kill the pipeline.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.2 - Generate Internal HTML Reports (report_generator)"
+        run: python3 scripts/report_generator.py --manifest data/stix/feed_manifest.json || true
+
+      # -----------------------------------------------------------------------
       # STAGE 3.5: R2 UPLOAD -- MANDATORY, NO CONTINUE-ON-ERROR
       # Uploads feed_manifest, enriched manifests, HTML reports, AI data,
       # and sync metadata to Cloudflare R2.

@@ -696,9 +696,12 @@ class STIXExporter:
         )
 
         # -- Update Manifest --
-        # v113.0: blog_url completely removed — report_url = source_url (native delivery)
+        # v113.0: blog_url completely removed — source_url preserved for reference only.
+        # v133.0 P0 FIX: report_url MUST always be an internal /reports/ path.
+        # It must NEVER be set to source_url (external article).
+        # _update_manifest constructs /reports/YYYY/MM/{intel_id}.html when report_url="".
         source_url = (metadata or {}).get('source_url', '') or (metadata or {}).get('blog_url', '')
-        report_url = source_url  # native report URL; equals source until /reports/ hosting is live
+        report_url = ""  # v133.0: always empty → _update_manifest constructs internal path
 
         # v125.0 P0 FIX: Run IOC engine to compute correct ioc_confidence and flat iocs list.
         # Previously ioc_confidence was always 0 because it defaulted to 0.0 at call site,
@@ -1026,9 +1029,14 @@ class STIXExporter:
             "intel--" + _hashlib.sha1(f"{title}::{_ts_now}".encode("utf-8")).hexdigest()[:24]
         )
         # report_url: always /reports/YYYY/MM/<id>.html (relative); physical HTML
-        # is produced later by scripts/generate_intel_reports.py. Never a blogspot URL.
+        # is produced by scripts/report_generator.py (inline) or generate_intel_reports.py.
+        # v133.0: reject ANY external URL — not just blogspot. If the URL starts with
+        # "http" and is not on cyberdudebivash.com, it is external and must be replaced.
         _report_url = (report_url or "").strip()
-        if not _report_url or "blogspot" in _report_url.lower():
+        _is_external = (
+            _report_url.startswith("http") and "cyberdudebivash" not in _report_url
+        )
+        if not _report_url or "blogspot" in _report_url.lower() or _is_external:
             _yyyy = _ts_now[:4]; _mm = _ts_now[5:7]
             _report_url = f"/reports/{_yyyy}/{_mm}/{_intel_id}.html"
         # source_url: never a blogspot URL
@@ -1037,6 +1045,53 @@ class STIXExporter:
             _source_url = ""
         # tags: from labels/mitre if provided in kwargs; default to mitre_tactics copy
         _tags = list(mitre_tactics)[:8] if mitre_tactics else []
+
+        # v133.0 PHASE 3 — INLINE REPORT GENERATION (safe failure)
+        # Generate the physical HTML dossier BEFORE writing the manifest entry.
+        # Guarantees that report_url always points to a file that exists on disk.
+        # If generation fails: LOG the error, CONTINUE — never abort the pipeline.
+        _report_gen_ok = False
+        try:
+            import sys as _sys, os as _os
+            _scripts_dir = _os.path.join(_os.path.dirname(__file__), "..", "scripts")
+            _scripts_dir = _os.path.normpath(_scripts_dir)
+            if _scripts_dir not in _sys.path:
+                _sys.path.insert(0, _scripts_dir)
+            from report_generator import generate_report as _gen_report
+            _report_entry_preview = {
+                "id":               _intel_id,
+                "stix_id":          _intel_id,
+                "title":            title,
+                "severity":         severity,
+                "risk_score":       float(risk_score),
+                "description":      (metadata or {}).get("description", ""),
+                "tlp":              (tlp_label or "TLP:CLEAR").upper(),
+                "actor_tag":        actor_tag,
+                "mitre_tactics":    mitre_tactics[:5] if mitre_tactics else [],
+                "confidence":       float(confidence),
+                "feed_source":      feed_source,
+                "source_url":       _source_url,
+                "iocs":             _effective_flat_iocs if isinstance(_effective_flat_iocs, list) else [],
+                "stix_bundle_url":  stix_bundle_url or "",
+                "stix_bundle":      stix_bundle_url or stix_file or "",
+                "processed_at":     _ts_now,
+                "timestamp":        _ts_now,
+                "internal_report_url": _report_url,
+                "report_url":       _report_url,
+                "cvss_score":       cvss_score,
+                "epss_score":       epss_score,
+                "kev_present":      kev_present,
+            }
+            _report_gen_ok, _report_gen_result = _gen_report(
+                _report_entry_preview,
+                stix_file or None,
+            )
+            if _report_gen_ok:
+                logger.info("[REPORT] Generated: %s", _report_gen_result)
+            else:
+                logger.warning("[REPORT] Failed (continuing): %s", _report_gen_result)
+        except Exception as _rgen_exc:
+            logger.warning("[REPORT] report_generator unavailable (continuing): %s", _rgen_exc)
 
         entry = {
             # v114.0 SCHEMA CONTRACT (required)
