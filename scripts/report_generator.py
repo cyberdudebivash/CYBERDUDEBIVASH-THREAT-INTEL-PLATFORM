@@ -428,8 +428,19 @@ def generate_reports_from_manifest(
             expected_path = Path(reports_base) / yyyy / mm / f"{intel_id}.html"
 
         if skip_existing and expected_path.exists() and expected_path.stat().st_size > 500:
-            results["skipped"] += 1
-            continue
+            # v134.1 P0 FIX: Verify the file is actually valid HTML, not a JSON stub.
+            # Prior pipeline runs may have written manifest-entry JSON to the .html path.
+            # If the file starts with '{' (JSON) or lacks an HTML doctype signature,
+            # fall through and regenerate it — do NOT skip.
+            try:
+                _head = expected_path.read_text(encoding="utf-8", errors="replace")[:512].lower()
+                _is_html = any(sig in _head for sig in ("<!doctype html", "<html"))
+            except Exception:
+                _is_html = False
+            if _is_html:
+                results["skipped"] += 1
+                continue
+            # File exists but is not valid HTML — will regenerate
 
         stix_bundle = entry.get("stix_bundle") or entry.get("stix_file") or None
         ok, path_or_err = generate_report(entry, stix_bundle, reports_base)

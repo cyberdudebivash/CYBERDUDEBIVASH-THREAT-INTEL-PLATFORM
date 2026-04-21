@@ -150,7 +150,10 @@ def build_ioc_table_section(item: Dict) -> str:
     _SPAN_GENERATED = '<span style="color:#ef4444;font-weight:700;">&#9888; GENERATED</span>'
     _SPAN_OBSERVED  = '<span style="color:#22c55e;">OBSERVED</span>'
 
-    def _ioc_row(i: Dict) -> str:
+    def _ioc_row(i) -> str:
+        # v131.1 P0 FIX: normalise legacy string-format IOCs to dict before .get() calls
+        if isinstance(i, str):
+            i = {"type": "indicator", "value": i, "confidence": 50, "context": "legacy", "generated": False}
         conf     = int(i.get("confidence", 0))
         col      = "#22c55e" if conf >= 80 else C_ORG
         status   = _SPAN_GENERATED if i.get("generated") else _SPAN_OBSERVED
@@ -179,8 +182,8 @@ def build_ioc_table_section(item: Dict) -> str:
         f'<th style="text-align:left;padding:8px 12px;color:{C_MUTED};font-size:10px;">SOURCE</th>'
         f'</tr></thead><tbody>{rows}</tbody></table></div>'
         f'<div style="margin-top:10px;color:{C_MUTED};font-size:10px;">Total IOCs: <strong style="color:{C_TEXT};">{len(iocs)}</strong> | '
-        f'Generated: {sum(1 for i in iocs if i.get("generated"))} | '
-        f'Observed: {sum(1 for i in iocs if not i.get("generated"))}</div>'
+        f'Generated: {sum(1 for i in iocs if isinstance(i, dict) and i.get("generated"))} | '
+        f'Observed: {sum(1 for i in iocs if isinstance(i, str) or (isinstance(i, dict) and not i.get("generated")))}</div>'
     )
     return _card("INDICATORS OF COMPROMISE — FULL TABLE", content, icon="🔍")
 
