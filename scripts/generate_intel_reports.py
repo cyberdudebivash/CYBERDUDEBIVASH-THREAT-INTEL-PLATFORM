@@ -842,7 +842,7 @@ def build_report_sections(item: dict) -> str:
     # RENDER LAYER SAFETY: NEVER assume data types — all fields coerced before use
     title       = str(item.get("title") or "Untitled Advisory")
     desc        = str(item.get("description") or title)
-    sev         = str(item.get("severity") or "INFO").upper()
+    sev         = str(item.get("severity") or "UNKNOWN").upper()
     actor       = str(item.get("actor_tag") or item.get("primary_actor") or "UNATTRIBUTED")
     threat_type = str(item.get("threat_type") or "General Cyber Threat")
     feed        = str(item.get("feed_source") or item.get("source") or "SENTINEL-APEX")
@@ -1344,7 +1344,7 @@ def build_report_sections(item: dict) -> str:
 def render_report(item: dict, public_prefix: str) -> str:
     # RENDER LAYER SAFETY: all field access uses str() — never assume data types
     title    = str(item.get("title") or "Untitled Advisory")
-    sev      = str(item.get("severity") or "INFO").upper()
+    sev      = str(item.get("severity") or "UNKNOWN").upper()
     # published: explicitly cast to str — P0 regression guard (run #805: published=True bool)
     published = str(item.get("published") or "")
     ts       = _fmt_ts(str(item.get("processed_at") or item.get("timestamp") or ""))

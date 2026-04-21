@@ -13,7 +13,7 @@ Schema contract (feed_manifest.json):
   TOP-LEVEL (recommended): version, platform, generated_at, entry_count
   PER ADVISORY (required): id, title
   PER ADVISORY (recommended): severity, risk_score, timestamp, source
-  severity values   : CRITICAL | HIGH | MEDIUM | LOW | INFO | UNKNOWN
+  severity values   : CRITICAL | HIGH | MEDIUM | LOW | UNKNOWN
   risk_score        : numeric float 0.0–10.0
   No duplicate IDs
   entry_count must match len(advisories)
@@ -42,7 +42,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 # ─── Schema Constants ─────────────────────────────────────────────────────────
 
-VALID_SEVERITIES      = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO", "UNKNOWN"}
+VALID_SEVERITIES      = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"}
+# NOTE: 'INFO' is intentionally excluded — it is a log level, not a threat severity.
+# enforce_schema() in safe_io.py maps INFO -> UNKNOWN before any gate runs.
 REQUIRED_TOP_FIELDS   = {"advisories"}
 RECOMMENDED_TOP_FIELDS = {"version", "platform", "generated_at", "entry_count"}
 REQUIRED_ADV_FIELDS   = {"id", "title"}
