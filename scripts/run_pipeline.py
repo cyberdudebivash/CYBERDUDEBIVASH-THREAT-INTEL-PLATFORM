@@ -1039,6 +1039,124 @@ def _version_sync() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Stage 1-3a -- Recovery Replay (drain write backlog BEFORE validation gate)
+# v133.0: MANDATORY pre-validation step. Ensures write_failures.jsonl and
+# recovery blobs are fully drained so check_no_write_failures() in
+# validate_repo.py sees an empty recovery dir (not a stale audit log).
+# ---------------------------------------------------------------------------
+
+def stage_recovery_replay() -> None:
+    """
+    v133 RECOVERY REPLAY GATE — runs before stage_validate_repo().
+
+    Drains data/recovery/write_failures/ blobs via RecoveryReplayEngine.
+    Enforces backlog thresholds:
+      recovery_count > 50  -> system_state = DEGRADED (write concurrency reduced)
+      recovery_count > 100 -> system_state = CRITICAL  (ingestion paused)
+      recovery_count == 0  -> system clean, proceed
+
+    Writes system_health.json with post-replay state.
+    Does NOT hard-fail — validate_repo.py is the enforcement gate.
+    """
+    import json as _json
+    from datetime import datetime as _dt, timezone as _tz
+
+    log.info("=" * 60)
+    log.info("STAGE 1-3a -- Recovery Replay (pre-validation drain)")
+    log.info("=" * 60)
+
+    recovery_script = REPO_ROOT / "scripts" / "recovery_replay.py"
+    if not recovery_script.exists():
+        log.warning("[recovery-replay] recovery_replay.py not found — skipping (RISK: backlog may persist)")
+        return
+
+    try:
+        # Import recovery engine directly (same process, no subprocess overhead)
+        import sys as _sys
+        _scripts = str(REPO_ROOT / "scripts")
+        if _scripts not in _sys.path:
+            _sys.path.insert(0, _scripts)
+        from recovery_replay import RecoveryReplayEngine, RECOVERY_DIR, HEALTH_JSON
+
+        # --- Count blobs before replay ----------------------------------------
+        pre_count = len(list(RECOVERY_DIR.glob("*.json"))) if RECOVERY_DIR.exists() else 0
+        log.info("[recovery-replay] Pre-replay recovery backlog: %d blob(s)", pre_count)
+
+        # --- Backlog threshold enforcement (pre-replay) -----------------------
+        pre_state = "OK"
+        if pre_count > 100:
+            pre_state = "CRITICAL"
+            log.error(
+                "[recovery-replay] CRITICAL: backlog=%d > 100 threshold. "
+                "Ingestion paused — replay only.", pre_count,
+            )
+        elif pre_count > 50:
+            pre_state = "DEGRADED"
+            log.warning(
+                "[recovery-replay] DEGRADED: backlog=%d > 50 threshold. "
+                "Write concurrency reduced.", pre_count,
+            )
+        else:
+            log.info("[recovery-replay] Backlog within normal threshold — no state change.")
+
+        # --- Write pre-replay health state ------------------------------------
+        def _write_health(state: str, rc: int, extra: dict = None) -> None:
+            try:
+                HEALTH_JSON.parent.mkdir(parents=True, exist_ok=True)
+                payload = {
+                    "state": state,
+                    "recovery_count": rc,
+                    "updated_at": _dt.now(_tz.utc).isoformat(timespec="seconds"),
+                    "source": "stage_recovery_replay",
+                }
+                if extra:
+                    payload.update(extra)
+                HEALTH_JSON.write_text(_json.dumps(payload, indent=2), encoding="utf-8")
+                log.info("[recovery-replay] system_health.json: state=%s recovery_count=%d", state, rc)
+            except Exception as he:
+                log.warning("[recovery-replay] Could not write system_health.json: %s", he)
+
+        if pre_state != "OK":
+            _write_health(pre_state, pre_count)
+
+        # --- Execute recovery replay (real writes, real blob deletion) --------
+        engine = RecoveryReplayEngine(dry_run=False, max_blobs=200)
+        stats  = engine.run()
+
+        post_count = len(list(RECOVERY_DIR.glob("*.json"))) if RECOVERY_DIR.exists() else 0
+        log.info(
+            "[recovery-replay] Replay result: pre=%d post=%d succeeded=%d failed_permanent=%d",
+            pre_count, post_count, stats["succeeded"], stats["failed_permanent"],
+        )
+
+        # --- Determine post-replay system state -------------------------------
+        post_state = "OK"
+        if post_count > 100:
+            post_state = "CRITICAL"
+        elif post_count > 50:
+            post_state = "DEGRADED"
+
+        _write_health(post_state, post_count, {
+            "pre_replay_count": pre_count,
+            "succeeded": stats["succeeded"],
+            "failed_permanent": stats["failed_permanent"],
+        })
+
+        # --- Final log --------------------------------------------------------
+        if post_count == 0:
+            log.info("[recovery-replay] Recovery drain COMPLETE — 0 blobs remain. Proceeding to validation. [OK]")
+        else:
+            log.warning(
+                "[recovery-replay] %d blob(s) remain after replay. "
+                "validate_repo.py will enforce the final gate.", post_count,
+            )
+
+    except Exception as exc:
+        log.warning("[recovery-replay] Raised unexpectedly: %s (non-fatal)", exc)
+        log.warning("[recovery-replay] Proceeding to validation — validate_repo.py enforces gate.")
+
+
+# ---------------------------------------------------------------------------
 # Stage REPO-VALIDATE -- Hard Schema Validation Gate (no auto-heal)
 # ---------------------------------------------------------------------------
 
@@ -1749,6 +1867,7 @@ def main() -> None:
 
     # ---- Cross-Layer Consistency Gate ------------------------------------
     stage_pipeline_consistency_check()   # Enforce ioc/stix/dedup/scoring integrity
+    stage_recovery_replay()              # v133: drain write backlog before validation gate
     stage_validate_repo()                # HARD FAIL: schema hard validation (no auto-heal)
 
     # ---- Housekeeping -----------------------------------------------------

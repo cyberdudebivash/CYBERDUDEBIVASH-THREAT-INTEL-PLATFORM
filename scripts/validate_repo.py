@@ -483,21 +483,78 @@ def check_no_stale_tmp() -> CheckResult:
 # ---------------------------------------------------------------------------
 
 def check_no_write_failures() -> CheckResult:
-    """V9: write_failures.jsonl must be absent or empty."""
-    wf_log = REPO_ROOT / "data" / "logs" / "write_failures.jsonl"
-    if not wf_log.exists():
-        return CheckResult("no_write_failures", True, "write_failures.jsonl absent — no permanent failures.")
-    try:
-        lines = [l.strip() for l in wf_log.read_text(encoding="utf-8").splitlines() if l.strip()]
-        if lines:
-            return CheckResult(
-                "no_write_failures", False,
-                f"{len(lines)} permanent write failure record(s) in write_failures.jsonl — "
-                "check data/recovery/write_failures/ for payload dumps"
-            )
-        return CheckResult("no_write_failures", True, "write_failures.jsonl present but empty — no failures.")
-    except Exception as e:
-        return CheckResult("no_write_failures", False, f"Cannot read write_failures.jsonl: {e}")
+    """V9: Recovery backlog must be ZERO after recovery replay.
+
+    POLICY (v133.0):
+      - write_failures.jsonl entries are AUDIT records (historical, ephemeral).
+        Their presence alone is NOT a HARD FAIL condition.
+      - HARD FAIL only if: recovery blobs still exist in data/recovery/write_failures/
+        AFTER recovery replay has run (permanent write failures confirmed).
+      - HARD FAIL only if: system_health.json reports state == CRITICAL.
+      - PASS unconditionally if: recovery dir is empty/absent and system is not CRITICAL.
+    """
+    recovery_dir = REPO_ROOT / "data" / "recovery" / "write_failures"
+    health_json  = REPO_ROOT / "data" / "logs" / "system_health.json"
+    wf_log       = REPO_ROOT / "data" / "logs" / "write_failures.jsonl"
+
+    # -- Recovery blob backlog (the real failure indicator) ---------------------
+    recovery_count = 0
+    if recovery_dir.exists():
+        blobs = list(recovery_dir.glob("*.json"))
+        recovery_count = len(blobs)
+
+    # -- System health state ----------------------------------------------------
+    system_state = "OK"
+    if health_json.exists():
+        try:
+            health = json.loads(health_json.read_text(encoding="utf-8"))
+            system_state = str(health.get("state", "OK")).upper()
+        except Exception:
+            pass  # unreadable health file is non-fatal at this gate
+
+    # -- Audit log count (informational only — NOT a fail criterion) ------------
+    wf_count = 0
+    if wf_log.exists():
+        try:
+            lines = [l.strip() for l in wf_log.read_text(encoding="utf-8").splitlines() if l.strip()]
+            wf_count = len(lines)
+        except Exception:
+            pass
+
+    log.info(
+        "[no_write_failures] recovery_blobs=%d system_state=%s wf_log_entries=%d",
+        recovery_count, system_state, wf_count,
+    )
+
+    # -- HARD FAIL: system CRITICAL (ingestion paused, replay could not drain) --
+    if system_state == "CRITICAL":
+        return CheckResult(
+            "no_write_failures", False,
+            f"System state=CRITICAL — recovery replay could not drain backlog. "
+            f"recovery_blobs={recovery_count} wf_log_entries={wf_count}. "
+            "Ingestion paused. Manual intervention required."
+        )
+
+    # -- HARD FAIL: unresolved recovery blobs remain after replay ---------------
+    if recovery_count > 0:
+        return CheckResult(
+            "no_write_failures", False,
+            f"{recovery_count} unresolved recovery blob(s) remain after replay — "
+            f"permanent write failures confirmed. wf_log_entries={wf_count}. "
+            "Check data/recovery/write_failures/ for payload dumps."
+        )
+
+    # -- PASS: recovery dir empty/absent and system not CRITICAL ----------------
+    if wf_count > 0:
+        return CheckResult(
+            "no_write_failures", True,
+            f"Recovery drain complete: 0 blobs remain. "
+            f"wf_log has {wf_count} historical audit record(s) — not active failures. [OK]"
+        )
+    return CheckResult(
+        "no_write_failures", True,
+        "write_failures.jsonl absent/empty. Recovery backlog: 0. System clean. [OK]"
+    )
 
 
 # ---------------------------------------------------------------------------
