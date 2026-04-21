@@ -143,18 +143,28 @@ def _compute_health_score(
     wf_log_count: int,
     write_queue_depth: int,
     state: str,
+    retry_count: int = 0,
 ) -> float:
     """
     Compute health score 0-100.
-    100 = fully healthy, 0 = critical failure.
+
+    Formula (v134):
+        score = 100
+              - (recovery_blobs    * 2.0)   # same weight as write failures
+              - (retry_count       * 0.5)   # retries indicate write pressure
+              - (write_queue_depth * 1.0)   # queue depth penalised 1:1
+        Clamped to [0.0, 100.0].
+
+    Note: state-based penalty removed — the formula components already drive
+    the score down naturally when the system is DEGRADED/CRITICAL.
+    100 = fully healthy. 0 = critical failure / maximum backlog.
     """
-    score = 100.0
-    if state == "CRITICAL":
-        score -= 60
-    elif state == "DEGRADED":
-        score -= 30
-    score -= min(recovery_blobs * 2, 30)
-    score -= min(write_queue_depth * 0.5, 10)
+    score = (
+        100.0
+        - (recovery_blobs    * 2.0)
+        - (retry_count       * 0.5)
+        - (write_queue_depth * 1.0)
+    )
     return max(0.0, min(100.0, round(score, 1)))
 
 
@@ -196,23 +206,32 @@ def get_platform_health() -> Dict[str, Any]:
         elif health_json:
             write_queue_depth = 0  # not tracked in health_json
 
-        # -- Health score ------------------------------------------------------
-        health_score = _compute_health_score(recovery_blobs, wf_log_count, write_queue_depth, state)
+        # -- Retry count from safe_io metrics (for health score) ---------------
+        retry_count = 0
+        if safe_io_metrics and safe_io_metrics.get("shm_state"):
+            retry_count = int(safe_io_metrics["shm_state"].get("write_retry_count", 0))
+
+        # -- Health score (v134 formula) ---------------------------------------
+        health_score = _compute_health_score(
+            recovery_blobs, wf_log_count, write_queue_depth, state, retry_count
+        )
 
         # -- HTTP status (200 = healthy/degraded, 503 = critical) --------------
         http_status = 503 if state == "CRITICAL" else 200
 
         # -- Build response ----------------------------------------------------
         response: Dict[str, Any] = {
-            "status":            state,
-            "health_score":      health_score,
-            "system_state":      state,
+            "status":              state,
+            "health_score":        health_score,
+            "system_state":        state,
             "recovery_queue_size": recovery_blobs,
-            "write_queue_depth": write_queue_depth,
-            "write_failures_log": wf_log_count,
-            "timestamp":         now,
-            "version":           "v133.0",
-            "platform":          "CYBERDUDEBIVASH SENTINEL APEX",
+            "backlog_size":        recovery_blobs,      # v134: explicit alias
+            "write_queue_depth":   write_queue_depth,
+            "retry_count":         retry_count,         # v134: visible in metrics
+            "write_failures_log":  wf_log_count,
+            "timestamp":           now,
+            "version":             "v134.0",
+            "platform":            "CYBERDUDEBIVASH SENTINEL APEX",
         }
 
         # -- Safe IO live metrics (if available) --------------------------------

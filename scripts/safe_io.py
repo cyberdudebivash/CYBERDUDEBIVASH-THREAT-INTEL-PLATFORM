@@ -330,10 +330,12 @@ CRITICAL_DEGRADED_RUNS: int = 3         # consecutive DEGRADED runs before CRITI
 THROTTLE_MAX_CONCURRENT_WRITES: int = 1    # reduce from 3 → 1
 THROTTLE_WRITE_DELAY_MS: int = 200         # increase from 50ms → 200ms
 
-# Health score formula weights: health = 100 - (failures*2) - (retries*0.5) - queue_depth
+# Health score formula weights (v134):
+#   health = 100 - (write_failures*2) - (retries*0.5) - (queue_depth*1) - (recovery_count*2)
 HEALTH_SCORE_WRITE_FAILURE_PENALTY: float = 2.0
 HEALTH_SCORE_RETRY_PENALTY: float = 0.5
 HEALTH_SCORE_QUEUE_DEPTH_PENALTY: float = 1.0
+HEALTH_SCORE_RECOVERY_PENALTY: float = 2.0   # v134: recovery_count penalised same as write failures
 
 # ---------------------------------------------------------------------------
 # v132.3 Dynamic Throttle Globals — mutated at runtime by SystemHealthMonitor
@@ -1688,10 +1690,10 @@ class SystemHealthMonitor:
         retry  = self._run_retry_count
         score  = (
             100.0
-            - (wf    * HEALTH_SCORE_WRITE_FAILURE_PENALTY)
-            - (retry * HEALTH_SCORE_RETRY_PENALTY)
-            - (qd    * HEALTH_SCORE_QUEUE_DEPTH_PENALTY)
-            - (rc    * 0.3)  # recovery items also penalise score
+            - (wf    * HEALTH_SCORE_WRITE_FAILURE_PENALTY)   # 2.0 per failure
+            - (retry * HEALTH_SCORE_RETRY_PENALTY)            # 0.5 per retry
+            - (qd    * HEALTH_SCORE_QUEUE_DEPTH_PENALTY)      # 1.0 per queued item
+            - (rc    * HEALTH_SCORE_RECOVERY_PENALTY)         # 2.0 per recovery blob (v134)
         )
         return round(max(0.0, min(100.0, score)), 2)
 

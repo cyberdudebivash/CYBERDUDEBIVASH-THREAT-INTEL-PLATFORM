@@ -1039,6 +1039,95 @@ def _version_sync() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Stage 0.PRE — v134 System Health Gate (runs BEFORE all ingestion stages)
+# ---------------------------------------------------------------------------
+
+def stage_system_health_gate() -> None:
+    """
+    v134 PRE-INGESTION SYSTEM HEALTH GATE.
+
+    Reads data/logs/system_health.json written by the PREVIOUS pipeline run.
+    Enforces autonomic stability before any new data ingestion starts.
+
+    CRITICAL  → HARD FAIL (sys.exit(1)). Pipeline blocked.
+                Log: CRITICAL: System unstable — recovery backlog unresolved.
+                Action: operator must run scripts/recovery_replay.py --execute manually.
+
+    DEGRADED  → [SAFE_MODE] skip ingestion. Run exhaustive recovery drain.
+                If drain succeeds (remaining == 0): update state → HEALTHY, continue.
+                If drain fails (remaining > 0):     HARD FAIL (sys.exit(1)).
+
+    HEALTHY   → proceed normally.
+    """
+    import json as _json
+
+    log.info("==" * 35)
+    log.info("STAGE 0.PRE -- v134 System Health Gate")
+    log.info("==" * 35)
+
+    health_path = REPO_ROOT / "data" / "logs" / "system_health.json"
+
+    if not health_path.exists():
+        log.info("[health-gate] system_health.json absent — first run or clean slate. HEALTHY.")
+        return
+
+    try:
+        _doc     = _json.loads(health_path.read_text(encoding="utf-8"))
+        state    = str(_doc.get("state", "HEALTHY")).upper()
+        rec_cnt  = int(_doc.get("recovery_count", 0))
+    except Exception as _e:
+        log.warning("[health-gate] Could not read system_health.json: %s — assuming HEALTHY", _e)
+        return
+
+    log.info("[health-gate] Loaded system_state=%s recovery_count=%d", state, rec_cnt)
+
+    # ── CRITICAL: hard block ────────────────────────────────────────────────
+    if state == "CRITICAL":
+        log.critical(
+            "[health-gate] ████ CRITICAL: System unstable — recovery backlog unresolved. "
+            "Pipeline BLOCKED. Operator action required: "
+            "run  scripts/recovery_replay.py --execute  to drain recovery backlog. "
+            "recovery_count=%d", rec_cnt,
+        )
+        sys.exit(1)
+
+    # ── DEGRADED: SAFE_MODE — drain first, continue only if fully cleared ──
+    if state == "DEGRADED":
+        log.warning(
+            "[SAFE_MODE] Pipeline paused — draining backlog "
+            "(state=DEGRADED recovery_count=%d). Ingestion SKIPPED. "
+            "Running exhaustive recovery drain.", rec_cnt,
+        )
+        try:
+            _scripts = str(REPO_ROOT / "scripts")
+            if _scripts not in sys.path:
+                sys.path.insert(0, _scripts)
+            from recovery_replay import drain_recovery_queue as _drain
+            _result = _drain(dry_run=False)
+            log.info(
+                "[SAFE_MODE] Recovery drain complete: state=%s drained=%d "
+                "remaining=%d failed=%d",
+                _result["system_state"], _result["drained"],
+                _result["remaining"],    _result["failed"],
+            )
+            if _result["remaining"] > 0:
+                log.critical(
+                    "[SAFE_MODE] ████ %d blob(s) could not be drained after exhaustive replay. "
+                    "HARD FAIL — manual intervention required.", _result["remaining"],
+                )
+                sys.exit(1)
+            log.info("[SAFE_MODE] Recovery drain COMPLETE — state → HEALTHY. Resuming pipeline.")
+        except SystemExit:
+            raise
+        except Exception as _exc:
+            log.critical("[SAFE_MODE] drain_recovery_queue raised unexpectedly: %s — HARD FAIL", _exc)
+            sys.exit(1)
+
+    # ── HEALTHY or post-drain HEALTHY: proceed ──────────────────────────────
+    log.info("[health-gate] System HEALTHY — proceeding with pipeline.")
+
+
+# ---------------------------------------------------------------------------
 # Stage 1-3a -- Recovery Replay (drain write backlog BEFORE validation gate)
 # v133.0: MANDATORY pre-validation step. Ensures write_failures.jsonl and
 # recovery blobs are fully drained so check_no_write_failures() in
@@ -1844,6 +1933,9 @@ def main() -> None:
     stage_validate_bootstrap()
     stage_inject_sovereign_key()
     stage_validate_jwt_secret()          # HARD FAIL if JWT missing
+
+    # ---- v134 System Health Gate (pre-ingestion CRITICAL/DEGRADED guard) ----
+    stage_system_health_gate()           # CRITICAL: exit 1 | DEGRADED: drain-first then continue
 
     # ---- Intel Generation -------------------------------------------------
     stage_run_intel_engine()
