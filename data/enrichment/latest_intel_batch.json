@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-21T15:01:28.051024+00:00",
+  "timestamp": "2026-04-21T18:44:23.029998+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -63,7 +63,7 @@
       "shortDescription": "PaperCut NG/MF contains an improper authentication vulnerability that could allow remote attackers to bypass authentication on affected installations via the SecurityRequestFilter class.",
       "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
       "dueDate": "2026-05-04",
-      "knownRansomwareCampaignUse": "Unknown",
+      "knownRansomwareCampaignUse": "Known",
       "notes": "https://www.papercut.com/kb/Main/PO-1216-and-PO-1219 ; https://nvd.nist.gov/vuln/detail/CVE-2023-27351",
       "cwes": [
         "CWE-287"
@@ -123,7 +123,7 @@
       "shortDescription": "JetBrains TeamCity contains a relative path traversal vulnerability that could allow limited admin actions to be performed.",
       "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
       "dueDate": "2026-05-04",
-      "knownRansomwareCampaignUse": "Unknown",
+      "knownRansomwareCampaignUse": "Known",
       "notes": "https://www.jetbrains.com/privacy-security/issues-fixed/ ; https://blog.jetbrains.com/teamcity/2024/03/additional-critical-security-issues-affecting-teamcity-on-premises-cve-2024-27198-and-cve-2024-27199-update-to-2023-11-4-now/ ; https://nvd.nist.gov/vuln/detail/CVE-2024-27199",
       "cwes": [
         "CWE-23"
@@ -371,6 +371,228 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-2gw9-c2r2-f5qf",
+      "cve_id": "CVE-2026-39386",
+      "severity": "HIGH",
+      "summary": "Neko has a Self-service Privilege Escalation for Authenticated Users",
+      "description": "### Impact\n\nAny authenticated user can immediately obtain full administrative control of the entire Neko instance (member management, room settings, broadcast control, session termination, etc.). This results in a complete compromise of the instance.\n\n### Patches\n\nThe vulnerability has been patched in the following releases:\n\n- [v3.0.11](https://github.com/m1k1o/neko/releases/tag/v3.0.11) (backport release)\n- [v3.1.2](https://github.com/m1k1o/neko/releases/tag/v3.1.2) (latest stable release)\n\nUsers should upgrade to [v3.0.11](https://github.com/m1k1o/neko/releases/tag/v3.0.11) or later (for the 3.0 branch) or [v3.1.2](https://github.com/m1k1o/neko/releases/tag/v3.1.2) or later.\n\n### Workarounds\n\nIf upgrading is not immediately possible, the following mitigations can reduce risk:\n\n- Restrict access to trusted users only (avoid granting accounts to untrusted parties)\n- Run the instance only when needed; avoid leaving it continuously exposed\n- Disable or restrict access to the `/api/profi",
+      "cvss_score": 8.8,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-20",
+        "CWE-269",
+        "CWE-284",
+        "CWE-639",
+        "CWE-862"
+      ],
+      "ecosystems": [
+        "go",
+        "go"
+      ],
+      "packages": [
+        "github.com/m1k1o/neko/server",
+        "github.com/m1k1o/neko/server"
+      ],
+      "published": "2026-04-21T17:24:42Z",
+      "updated": "2026-04-21T17:24:43Z",
+      "url": "https://github.com/advisories/GHSA-2gw9-c2r2-f5qf",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/m1k1o/neko/security/advisories/GHSA-2gw9-c2r2-f5qf",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39386",
+        "https://github.com/m1k1o/neko/commit/6b561feb9016badea99ae7305091c0ff55e1d114",
+        "https://github.com/m1k1o/neko/commit/c54bcf1ee211e28104a2bb6db59583a39c4a4d6e",
+        "https://github.com/m1k1o/neko/releases/tag/v3.0.11",
+        "https://github.com/m1k1o/neko/releases/tag/v3.1.2",
+        "https://github.com/advisories/GHSA-2gw9-c2r2-f5qf"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-7gcj-phff-2884",
+      "cve_id": "CVE-2026-39320",
+      "severity": "HIGH",
+      "summary": "Signal K Server has an Unauthenticated Regular Expression Denial of Service (ReDoS) via WebSocket Subscription Paths",
+      "description": "## Summary\nThe SignalK server is vulnerable to an unauthenticated Regular Expression Denial of Service (ReDoS) attack within its WebSocket subscription handling logic. By injecting unescaped regex metacharacters into the `context` parameter of a stream subscription, an attacker can force the server's Node.js event loop into a catastrophic backtracking loop when evaluating long string identifiers (like the server's self UUID). This results in a total Denial of Service (DoS) where the server CPU spikes to 100% and becomes completely unresponsive to further API or socket requests.\n\n## Description\nThe vulnerability stems from flawed string-to-regex conversion in `signalk-server/src/subscriptionmanager.ts`. The `contextMatcher()` and `pathMatcher()` functions convert wildcard strings (e.g., `*`) into regular expressions to match incoming data against client subscriptions.\n\nWhile the code attempts to escape `.` and `*` characters, it fails to escape other dangerous regular expression metacha",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-400",
+        "CWE-1333"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "signalk-server"
+      ],
+      "published": "2026-04-21T17:17:00Z",
+      "updated": "2026-04-21T17:17:02Z",
+      "url": "https://github.com/advisories/GHSA-7gcj-phff-2884",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/SignalK/signalk-server/security/advisories/GHSA-7gcj-phff-2884",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39320",
+        "https://github.com/SignalK/signalk-server/pull/2568",
+        "https://github.com/SignalK/signalk-server/commit/215d81eb700d5419c3396a0fbf23f2e246dfac2d",
+        "https://github.com/SignalK/signalk-server/releases/tag/v2.25.0",
+        "https://github.com/advisories/GHSA-7gcj-phff-2884"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-g5pq-48mj-jvw8",
+      "cve_id": "CVE-2026-35587",
+      "severity": "HIGH",
+      "summary": "Glances has SSRF in IP Plugin via public_api leading to credential leakage",
+      "description": "### Summary\nA Server-Side Request Forgery (SSRF) vulnerability exists in the Glances IP plugin due to improper validation of the public_api configuration parameter. The value of public_api is used directly in outbound HTTP requests without any scheme restriction or hostname/IP validation.\n\nAn attacker who can modify the Glances configuration can force the application to send requests to arbitrary internal or external endpoints. Additionally, when public_username and public_password are set, Glances automatically includes these credentials in the Authorization: Basic header, resulting in credential leakage to attacker-controlled servers.\n\nThis vulnerability can be exploited to:\n\nAccess internal network services (e.g., 127.0.0.1, 192.168.x.x)\nRetrieve sensitive data from cloud metadata endpoints (e.g., 169.254.169.254)\nExfiltrate credentials via outbound HTTP requests\n\nThe issue arises because public_api is passed directly to the HTTP client (urlopen_auth) without validation, allowing un",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "glances"
+      ],
+      "published": "2026-04-21T15:17:52Z",
+      "updated": "2026-04-21T15:17:54Z",
+      "url": "https://github.com/advisories/GHSA-g5pq-48mj-jvw8",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nicolargo/glances/security/advisories/GHSA-g5pq-48mj-jvw8",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-35587",
+        "https://github.com/nicolargo/glances/commit/d6808be66728956477cc4b544bab1acd71ac65fb",
+        "https://github.com/nicolargo/glances/releases/tag/v4.5.4",
+        "https://github.com/advisories/GHSA-g5pq-48mj-jvw8"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-m6rx-7pvw-2f73",
+      "cve_id": "CVE-2026-35570",
+      "severity": "HIGH",
+      "summary": "OpenClaude: Sandbox Bypass via Early-Exit Logic Flaw Allows Path Traversal ",
+      "description": "A logic flaw exists in `bashToolHasPermission()` inside `src/tools/BashTool/bashPermissions.ts`. When the sandbox auto-allow feature is active and no explicit deny rule is configured, the function returns an `allow` result immediately \u2014 before the path constraint filter (`checkPathConstraints`) is ever evaluated. This allows commands containing path traversal sequences (e.g., `../../../../../etc/passwd`) to bypass directory restrictions entirely.\n\n## Affected Component\n\n- **File:** `src/tools/BashTool/bashPermissions.ts`\n- **Function:** `bashToolHasPermission`\n- **Location:** ~line 1445 (sandbox auto-allow block)\n\n## Vulnerable Code Flow\n\n```\nbashToolHasPermission()\n    \u2502\n    \u251c\u2500 [~1445] Sandbox auto-allow block\n    \u2502       \u2514\u2500 No deny rule found \u2192 return ALLOW  \u26a0\ufe0f Early exit\n    \u2502\n    \u2514\u2500 [~1644] checkPathConstraints()             \u274c Never reached\n```\n\nThe sandbox block was designed to skip interactive permission prompts in sandboxed environments. However, it unintentionally also skips th",
+      "cvss_score": 8.4,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22",
+        "CWE-284"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@gitlawb/openclaude"
+      ],
+      "published": "2026-04-21T15:16:16Z",
+      "updated": "2026-04-21T15:16:17Z",
+      "url": "https://github.com/advisories/GHSA-m6rx-7pvw-2f73",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/Gitlawb/openclaude/security/advisories/GHSA-m6rx-7pvw-2f73",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-35570",
+        "https://github.com/Gitlawb/openclaude/commit/7002cb302b78ea2a19da3f26226de24e2903fa1d",
+        "https://github.com/advisories/GHSA-m6rx-7pvw-2f73"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-gfc2-9qmw-w7vh",
+      "cve_id": "CVE-2026-34839",
+      "severity": "HIGH",
+      "summary": "Glances: Cross-Origin Information Disclosure via Unauthenticated REST API (/api/4) due to Permissive CORS",
+      "description": "### Summary\nThe Glances web server exposes a REST API (`/api/4/*`) that is accessible without authentication and allows cross-origin requests from any origin due to a permissive CORS policy (`Access-Control-Allow-Origin: *`).\n\nThis allows a malicious website to read sensitive system information from a running Glances instance in the victim\u2019s browser, leading to cross-origin data exfiltration.\n\nWhile a previous advisory exists for XML-RPC CORS issues, this report demonstrates that the REST API (`/api/4/*`) is also affected and exposes significantly more sensitive data.\n\n### Details\nWhen Glances is started in web mode (e.g., `glances -w -B 0.0.0.0`), it exposes a REST API endpoint at:\nhttp://<host>:61208/api/4/all\nThe server responds with:\nAccess-Control-Allow-Origin: *\n\nThis allows any origin to perform cross-origin requests and read responses.\n\nThe `/api/4/all` endpoint returns extensive system information, including:\n- Process list (`processlist`)\n- System details (hostname, OS, CPU i",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-200",
+        "CWE-306",
+        "CWE-942"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "Glances"
+      ],
+      "published": "2026-04-21T15:14:40Z",
+      "updated": "2026-04-21T15:14:41Z",
+      "url": "https://github.com/advisories/GHSA-gfc2-9qmw-w7vh",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/nicolargo/glances/security/advisories/GHSA-gfc2-9qmw-w7vh",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-34839",
+        "https://github.com/nicolargo/glances/commit/fdfb977b1d91b5e410bc06c4e19f8bedb0005ce9",
+        "https://github.com/advisories/GHSA-gfc2-9qmw-w7vh"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-78mf-482w-62qj",
+      "cve_id": "CVE-2026-34403",
+      "severity": "HIGH",
+      "summary": "Nginx-UI: Cross-Site WebSocket Hijacking (CSWSH) via missing origin validation on all WebSocket endpoints",
+      "description": "## Summary\n\nAll WebSocket endpoints in nginx-ui use a gorilla/websocket Upgrader with CheckOrigin unconditionally returning true, allowing Cross-Site WebSocket Hijacking (CSWSH). Combined with the fact that authentication tokens are stored in browser cookies (set via JavaScript without HttpOnly or explicit SameSite attributes), a malicious webpage can establish authenticated WebSocket connections to the nginx-ui instance when a logged-in administrator visits the attacker-controlled page.\n\n## Details\n\n### Vulnerable Code Pattern\n\nEvery WebSocket endpoint in the codebase uses the same unsafe upgrader configuration:\n\n```go\n// Found in: api/terminal/pty.go, api/analytic/analytic.go, api/event/websocket.go,\n// api/nginx_log/websocket.go, api/upstream/upstream.go, api/cluster/websocket.go,\n// api/nginx/websocket.go, api/certificate/revoke.go, api/sites/websocket.go,\n// api/llm/llm.go, api/llm/code_completion.go, api/system/upgrade.go\nvar upgrader = websocket.Upgrader{\n    CheckOrigin: func(r",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-352",
+        "CWE-1385"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/0xJacky/Nginx-UI"
+      ],
+      "published": "2026-04-21T15:13:01Z",
+      "updated": "2026-04-21T15:13:04Z",
+      "url": "https://github.com/advisories/GHSA-78mf-482w-62qj",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/0xJacky/nginx-ui/security/advisories/GHSA-78mf-482w-62qj",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-34403",
+        "https://github.com/0xJacky/nginx-ui/releases/tag/v2.3.5",
+        "https://github.com/advisories/GHSA-78mf-482w-62qj"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-6w67-hwm5-92mq",
+      "cve_id": "CVE-2026-33626",
+      "severity": "HIGH",
+      "summary": "LMDeploy has Server-Side Request Forgery (SSRF) via Vision-Language Image Loading",
+      "description": "## Summary\n\nA Server-Side Request Forgery (SSRF) vulnerability exists in LMDeploy's vision-language module. The `load_image()` function in `lmdeploy/vl/utils.py` fetches arbitrary URLs without validating internal/private IP addresses, allowing attackers to access cloud metadata services, internal networks, and sensitive resources.\n\n## Affected Versions\n\n- **Tested on:** main branch (2026-02-04)\n- **Affected:** All versions prior to 0.12.3\n\n## Vulnerable Code\n\n**File:** `lmdeploy/vl/utils.py` (lines 64-67)\n```python\ndef load_image(image_url: Union[str, Image.Image]) -> Image.Image:\n    # ...\n    if image_url.startswith('http'):\n        response = requests.get(image_url, headers=headers, timeout=FETCH_TIMEOUT)\n        # NO VALIDATION OF URL/IP BEFORE REQUEST\n```\n\n**Also affected:** `encode_image_base64()` function (lines 26-29)\n\n## Root Cause\n\n1. No validation of URLs before fetching\n2. No blocklist for internal IPs (127.0.0.1, 169.254.x.x, 10.x.x.x, 192.168.x.x)\n3. Server binds to `0.0.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-918"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "lmdeploy"
+      ],
+      "published": "2026-04-21T15:04:13Z",
+      "updated": "2026-04-21T15:04:13Z",
+      "url": "https://github.com/advisories/GHSA-6w67-hwm5-92mq",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/InternLM/lmdeploy/security/advisories/GHSA-6w67-hwm5-92mq",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-33626",
+        "https://github.com/InternLM/lmdeploy/pull/4447",
+        "https://github.com/InternLM/lmdeploy/commit/71d64a339edb901e9005358e0633fbbab367d626",
+        "https://github.com/InternLM/lmdeploy/releases/tag/v0.12.3",
+        "https://github.com/advisories/GHSA-6w67-hwm5-92mq"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-x234-x5vq-cc2v",
       "cve_id": "CVE-2026-33031",
       "severity": "HIGH",
@@ -608,220 +830,6 @@
         "https://github.com/Studio-42/elFinder/security/advisories/GHSA-8q4h-8crm-5cvc",
         "https://github.com/advisories/GHSA-8q4h-8crm-5cvc"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-mr34-9552-qr95",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Webchat media embedding enforces local-root containment for tool-result files",
-      "description": "## Summary\n\nWebchat tool-result media normalization could pass local and UNC-style file paths into the host-side media embedding path without applying the configured local-root containment policy.\n\n## Impact\n\nA crafted tool-result media reference could cause the host to attempt local file reads or Windows UNC/network path access while preparing webchat media blocks. This could disclose allowed host files or trigger network credential exposure on affected Windows deployments. Severity remains medium because exploitation depends on a tool-result media path reaching the webchat embedding path, but the sink is a host-side file read before the user sees the rendered result.\n\n## Affected versions\n\n- Affected: `>= 2026.4.7, < 2026.4.15`\n- Patched: `2026.4.15`\n\n## Fix\n\nOpenClaw `2026.4.15` hardens the webchat media path and the shared media resolver. Remote-host `file://` URLs and Windows network paths are rejected before filesystem access, and audio embedding now enforces configured `localRoo",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22",
-        "CWE-73"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-17T22:33:09Z",
-      "updated": "2026-04-17T22:33:09Z",
-      "url": "https://github.com/advisories/GHSA-mr34-9552-qr95",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-mr34-9552-qr95",
-        "https://github.com/openclaw/openclaw/pull/67293",
-        "https://github.com/openclaw/openclaw/pull/67298",
-        "https://github.com/openclaw/openclaw/pull/67303",
-        "https://github.com/openclaw/openclaw/commit/1470de5d3e0970856d86cd99336bb8ada3fe87da",
-        "https://github.com/openclaw/openclaw/commit/52ef42302ead9e183e6c8810e0a04ee4ef8ae9fc",
-        "https://github.com/openclaw/openclaw/commit/6e58f1f9f54bca1fea1268ec0ee4c01a2af03dde",
-        "https://github.com/advisories/GHSA-mr34-9552-qr95"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-2gvc-4f3c-2855",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Matrix room control-command authorization no longer trusts DM pairing-store entries",
-      "description": "## Summary\n\nMatrix room control-command authorization used the effective allowlist for room traffic, which included sender IDs learned from the Matrix DM pairing store. A sender who was allowed only for a Matrix DM could therefore authorize room control commands when they also posted in a bot room.\n\n## Impact\n\nThis bypass let a DM-paired Matrix sender cross the DM/room authorization boundary and run Matrix room control commands without being present in the configured room allowlist, room membership list, or group allowlist. The issue required a sender already present in the pairing store and able to send to the target Matrix room. Severity remains high because room control commands can drive privileged OpenClaw behavior depending on the deployment's command and tool policy.\n\n## Affected versions\n\n- Affected: `> 2026.3.28, < 2026.4.15`\n- Patched: `2026.4.15`\n\n## Fix\n\nOpenClaw `2026.4.15` fixes the authorization boundary. Room control-command authorizers now use only configured sender ID",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-863"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-17T22:32:29Z",
-      "updated": "2026-04-17T22:32:29Z",
-      "url": "https://github.com/advisories/GHSA-2gvc-4f3c-2855",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-2gvc-4f3c-2855",
-        "https://github.com/openclaw/openclaw/pull/67294",
-        "https://github.com/openclaw/openclaw/pull/67325",
-        "https://github.com/openclaw/openclaw/commit/2bfd808a83116bd888e3e2633a61473fa2ed81b6",
-        "https://github.com/openclaw/openclaw/commit/f8705f512b09043df02b5da372c33374734bd921",
-        "https://github.com/advisories/GHSA-2gvc-4f3c-2855"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-xmxx-7p24-h892",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Gateway HTTP endpoints re-resolve bearer auth after SecretRef rotation",
-      "description": "## Summary\n\nGateway HTTP and WebSocket handlers captured the resolved bearer-auth configuration when the server started. After a SecretRef rotation, the already-running gateway could continue accepting the old bearer token until restart.\n\n## Impact\n\nA bearer token that should have been revoked by SecretRef rotation could remain valid on the gateway HTTP and upgrade surfaces for the lifetime of the process. Severity remains high because the old token could continue to authorize gateway requests after operators believed it was rotated out.\n\n## Affected versions\n\n- Affected: `< 2026.4.15`\n- Patched: `2026.4.15`\n\n## Fix\n\nOpenClaw `2026.4.15` resolves active gateway auth from the runtime secret snapshot per request and per upgrade instead of using a stale startup-time value.\n\nVerified in `v2026.4.15`:\n\n- `src/gateway/server.impl.ts` exposes `getResolvedAuth()` backed by the current runtime secret snapshot.\n- `src/gateway/server-http.ts` calls `getResolvedAuth()` for each HTTP request and We",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-324"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-17T22:32:02Z",
-      "updated": "2026-04-17T22:32:04Z",
-      "url": "https://github.com/advisories/GHSA-xmxx-7p24-h892",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-xmxx-7p24-h892",
-        "https://github.com/openclaw/openclaw/pull/66651",
-        "https://github.com/openclaw/openclaw/commit/acd4e0a32f12e1ad85f3130f63b42443ce90f094",
-        "https://github.com/advisories/GHSA-xmxx-7p24-h892"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-rg3h-x3jw-7jm5",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "PraisonAI: SQL Injection via unvalidated `table_prefix` in 9 conversation store backends (incomplete fix for CVE-2026-40315)",
-      "description": "The fix for [CVE-2026-40315](https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-x783-xp3g-mqhp) added input validation to `SQLiteConversationStore` only. Nine sibling backends \u2014 MySQL, PostgreSQL, async SQLite/MySQL/PostgreSQL, Turso, SingleStore, Supabase, SurrealDB \u2014 pass `table_prefix` straight into f-string SQL. Same root cause, same code pattern, same exploitation. 52 unvalidated injection points across the codebase.\n\n`postgres.py` additionally accepts an unvalidated `schema` parameter used directly in DDL.\n\n### Severity\n\n**High** \u2014 CWE-89 (SQL Injection)\n\nCVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N \u2014 **8.1**\n\nExploitable in any deployment where `table_prefix` is derived from external input (multi-tenant setups, API-driven configuration, user-modifiable config files). Default config (`\"praison_\"`) is not affected.\n\n### Details\n\nThe [CVE-2026-40315 fix](https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-x783-xp3g-mqhp) added this guard to `sqlite.",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-89"
-      ],
-      "ecosystems": [
-        "pip",
-        "pip"
-      ],
-      "packages": [
-        "praisonai",
-        "praisonaiagents"
-      ],
-      "published": "2026-04-17T22:24:19Z",
-      "updated": "2026-04-17T22:24:24Z",
-      "url": "https://github.com/advisories/GHSA-rg3h-x3jw-7jm5",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-rg3h-x3jw-7jm5",
-        "https://github.com/advisories/GHSA-rg3h-x3jw-7jm5"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-8gmg-3w2q-65f4",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenTelemetry eBPF Instrumentation: Privileged Java agent injection allows arbitrary host file overwrite via untrusted TMPDIR",
-      "description": "### Summary\n\nA flaw in the Java agent injection path allows a local attacker controlling a Java workload to overwrite arbitrary host files when Java injection is enabled and OBI is running with elevated privileges. The injector trusted `TMPDIR` from the target process and used unsafe file creation semantics, enabling both filesystem boundary escape and symlink-based file clobbering.\n\n### Remediation\n\nUpgrade to https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation/releases/tag/v0.8.0.\n\n### Details\n\nThe issue is in the Java agent staging logic in `pkg/internal/java/java_inject.go`.\n\nThe injector reads `TMPDIR` from the target process environment in `findTempDir(...)` and validates it with `dirOK(...)`. In the vulnerable implementation, `dirOK(...)` used `filepath.Join(root, dir)`, where `root` is `/proc/<pid>/root`. If `dir` is an absolute path, `filepath.Join` discards `root`, so values such as `/etc` or `/proc/1/root/etc` are resolved on the host instead of within the t",
-      "cvss_score": 8.4,
-      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:C/C:N/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22",
-        "CWE-59"
-      ],
-      "ecosystems": [
-        "go"
-      ],
-      "packages": [
-        "go.opentelemetry.io/obi"
-      ],
-      "published": "2026-04-17T22:21:41Z",
-      "updated": "2026-04-17T22:21:43Z",
-      "url": "https://github.com/advisories/GHSA-8gmg-3w2q-65f4",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation/security/advisories/GHSA-8gmg-3w2q-65f4",
-        "https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation/releases/tag/v0.8.0",
-        "https://github.com/advisories/GHSA-8gmg-3w2q-65f4"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-85gx-3qv6-4463",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Dapr: Service Invocation path traversal ACL bypass",
-      "description": "### Summary\n\nA vulnerability has been found in Dapr that allows bypassing access control policies for service invocation using reserved URL characters and path traversal sequences in method paths. The ACL normalized the method path independently from the dispatch layer, so the ACL evaluated one path while the target application received a different one.\n\nUsers who have configured access control policies for service invocation are strongly encouraged to upgrade Dapr to the respective patch version `1.17.5`, `1.16.14`, and `1.15.14`.\n\n### Impact\n\nThis vulnerability impacts Dapr users who have configured access control policies for service invocation. An attacker who can reach the Dapr HTTP or gRPC API could:\n\n- Use encoded path traversal (ex: `admin%2F..%2Fpublic`) to reach an allowed path while the method started from a denied prefix.\n- Use encoded fragment (`%23`) or query (`%3F`) characters to cause the ACL to evaluate a different path than what was delivered to the target application",
-      "cvss_score": 8.1,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22",
-        "CWE-284"
-      ],
-      "ecosystems": [
-        "go",
-        "go",
-        "go"
-      ],
-      "packages": [
-        "github.com/dapr/dapr",
-        "github.com/dapr/dapr",
-        "github.com/dapr/dapr"
-      ],
-      "published": "2026-04-17T22:20:40Z",
-      "updated": "2026-04-17T22:20:43Z",
-      "url": "https://github.com/advisories/GHSA-85gx-3qv6-4463",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/dapr/dapr/security/advisories/GHSA-85gx-3qv6-4463",
-        "https://github.com/dapr/dapr/pull/9589",
-        "https://github.com/advisories/GHSA-85gx-3qv6-4463"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-66r7-m7xm-v49h",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: QQBot media tags could read arbitrary local files through reply text",
-      "description": "## Summary\n\nQQBot media tags could read arbitrary local files through reply text.\n\n## Affected Packages / Versions\n\n- Package: `openclaw`\n- Ecosystem: npm\n- Affected versions: `< 2026.4.10`\n- Patched versions: `>= 2026.4.10`\n\n## Impact\n\nQQBot outbound media tags in AI reply text could reference host-local paths outside the intended media storage boundary, allowing local file disclosure through outbound media handling.\n\n## Technical Details\n\nThe fix enforces the media storage boundary for all outbound QQBot local file paths.\n\n## Fix\n\nThe issue was fixed in #63271. The first stable tag containing the fix is `v2026.4.10`, and `openclaw@2026.4.14` includes the fix.\n\n## Fix Commit(s)\n\n- `604777e4414cc3b2ff8861f18f4fb04374c702c6`\n- PR: #63271\n\n## Release Process Note\n\nUsers should upgrade to `openclaw` 2026.4.10 or newer. The latest npm release, `2026.4.14`, already includes the fix.\n\n## Credits\n\nThanks to @feiyang666 of Tencent zhuque Lab (https://github.com/Tencent/AI-Infra-Guard) for repo",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-22"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-17T22:17:05Z",
-      "updated": "2026-04-17T22:17:08Z",
-      "url": "https://github.com/advisories/GHSA-66r7-m7xm-v49h",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-66r7-m7xm-v49h",
-        "https://github.com/openclaw/openclaw/pull/63271",
-        "https://github.com/openclaw/openclaw/commit/604777e4414cc3b2ff8861f18f4fb04374c702c6",
-        "https://github.com/advisories/GHSA-66r7-m7xm-v49h"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -869,7 +877,7 @@
         "count": 26
       }
     ],
-    "catalog_version": "2026-04-21T15:01:28.343320+00:00",
+    "catalog_version": "2026-04-21T18:44:23.268633+00:00",
     "source": "CISA KEV"
   }
 }
