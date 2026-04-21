@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-21T18:44:23.029998+00:00",
+  "timestamp": "2026-04-21T22:25:26.200169+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -371,6 +371,150 @@
   ],
   "github_advisories": [
     {
+      "ghsa_id": "GHSA-vfmq-68hx-4jfw",
+      "cve_id": "CVE-2026-41066",
+      "severity": "HIGH",
+      "summary": "lxml: Default configuration of iterparse() and ETCompatXMLParser() allows XXE to local files",
+      "description": "### Impact\nUsing either of the two parsers in the default configuration (with `resolve_entities=True`) allows untrusted XML input to read local files.\n\n### Patches\nlxml 6.1.0 changes the default to `resolve_entities='internal'`, thus disallowing local file access by default.\n\n### Workarounds\nSetting the `resolve_entities` option explicitly to `resolve_entities='internal'` or `resolve_entities=False` disables the local file access.\n\n### Resources\nOriginal report: https://bugs.launchpad.net/lxml/+bug/2146291\n\nThe default option was changed to `resolve_entities='internal'` for the normal XML and HTML parsers in lxml 5.0. The default was not changed for `iterparse()` and `ETCompatXMLParser()` at the time. lxml 6.1 makes the safe option the default for all parsers.",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-611"
+      ],
+      "ecosystems": [
+        "pip"
+      ],
+      "packages": [
+        "lxml"
+      ],
+      "published": "2026-04-21T20:38:44Z",
+      "updated": "2026-04-21T20:38:47Z",
+      "url": "https://github.com/advisories/GHSA-vfmq-68hx-4jfw",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/lxml/lxml/security/advisories/GHSA-vfmq-68hx-4jfw",
+        "https://bugs.launchpad.net/lxml/+bug/2146291",
+        "https://github.com/lxml/lxml/releases/tag/lxml-6.1.0",
+        "https://github.com/advisories/GHSA-vfmq-68hx-4jfw"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-94jr-7pqp-xhcq",
+      "cve_id": "CVE-2026-40938",
+      "severity": "HIGH",
+      "summary": "Tekton Pipeline: Git Resolver Unsanitized Revision Parameter Enables git Argument Injection Leading to RCE",
+      "description": "## Summary\n\nThe git resolver's `revision` parameter is passed directly as a positional argument to `git fetch` without any validation that it does not begin with a `-` character. Because git parses flags from mixed positional arguments, an attacker can inject arbitrary `git fetch` flags such as `--upload-pack=<binary>`. Combined with the `validateRepoURL` function explicitly permitting URLs that begin with `/` (local filesystem paths), a tenant who can submit `ResolutionRequest` objects can chain these two behaviors to execute an arbitrary binary on the resolver pod. The `tekton-pipelines-resolvers` ServiceAccount holds cluster-wide `get/list/watch` on all Secrets, so code execution on the resolver pod enables full cluster-wide secret exfiltration.\n\n## Details\n\n### Root Cause 1 \u2014 Unvalidated `revision` parameter passed to `git fetch`\n\n`pkg/resolution/resolver/git/repository.go:85`:\n\n```go\n// pkg/resolution/resolver/git/repository.go lines 84-96\n// 'revision' is the raw user-supplied st",
+      "cvss_score": 7.5,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-88"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/tektoncd/pipeline"
+      ],
+      "published": "2026-04-21T20:28:36Z",
+      "updated": "2026-04-21T20:28:37Z",
+      "url": "https://github.com/advisories/GHSA-94jr-7pqp-xhcq",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/tektoncd/pipeline/security/advisories/GHSA-94jr-7pqp-xhcq",
+        "https://github.com/tektoncd/pipeline/releases/tag/v1.11.1",
+        "https://github.com/advisories/GHSA-94jr-7pqp-xhcq"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-3j5q-7q7h-2hhv",
+      "cve_id": "CVE-2026-40488",
+      "severity": "HIGH",
+      "summary": "OpenMage LTS: Customer File Upload Extension Blocklist Bypass \u2192 Remote Code Execution",
+      "description": "The product custom option file upload in OpenMage LTS uses an incomplete blocklist (`forbidden_extensions = php,exe`) to prevent dangerous file uploads. This blocklist can be trivially bypassed by using alternative PHP-executable extensions such as `.phtml`, `.phar`, `.php3`, `.php4`, `.php5`, `.php7`, and `.pht`. Files are stored in the publicly accessible `media/custom_options/quote/` directory, which lacks server-side execution restrictions for some configurations, enabling Remote Code Execution if this directory is not explicitly denied script execution.\n\n## Affected Version\n\n- **Project:** OpenMage/magento-lts\n- **Vulnerable File:** `https://github.com/OpenMage/magento-lts/blob/main/app/code/core/Mage/Catalog/Model/Product/Option/Type/File.php`\n- **Vulnerable Lines:** 230-237 (`_validateUploadedFile()`)\n- **Configuration:** `app/code/core/Mage/Catalog/etc/config.xml:824`\n\n## Root Cause\n\nThe file upload handler uses `Zend_File_Transfer_Adapter_Http` directly with `ExcludeExtension`",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-434"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "openmage/magento-lts"
+      ],
+      "published": "2026-04-21T18:53:13Z",
+      "updated": "2026-04-21T18:53:16Z",
+      "url": "https://github.com/advisories/GHSA-3j5q-7q7h-2hhv",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/OpenMage/magento-lts/security/advisories/GHSA-3j5q-7q7h-2hhv",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-40488",
+        "https://github.com/advisories/GHSA-3j5q-7q7h-2hhv"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-wjxp-xrpv-xpff",
+      "cve_id": "CVE-2026-40161",
+      "severity": "HIGH",
+      "summary": "Tekton Pipelines: Git resolver API mode leaks system-configured API token to user-controlled serverURL",
+      "description": "### Summary\n\nThe Tekton Pipelines git resolver in API mode sends the system-configured Git API token to a user-controlled `serverURL` when the user omits the `token` parameter. A tenant with TaskRun or PipelineRun create permission can exfiltrate the shared API token (GitHub PAT, GitLab token, etc.) by pointing `serverURL` to an attacker-controlled endpoint.\n\n### Details\n\nThe git resolver's `ResolveAPIGit()` function in `pkg/resolution/resolver/git/resolver.go` constructs an SCM client using the user-supplied `serverURL` and a token obtained via `getAPIToken()`.\n\nWhen the user provides `serverURL` but omits the `token` parameter:\n\n1. `getSCMTypeAndServerURL()` reads `serverURL` directly from user params (`params[ServerURLParam]`) with no validation against the system-configured URL.\n\n2. `secretRef` is set to `nil` because the user did not provide a token parameter.\n\n3. `getAPIToken(ctx, nil, APISecretNameKey)` is called. It detects `apiSecret == nil`, creates a new `secretCacheKey`, an",
+      "cvss_score": 7.7,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:N/A:N",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-201"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/tektoncd/pipeline"
+      ],
+      "published": "2026-04-21T18:52:18Z",
+      "updated": "2026-04-21T18:52:21Z",
+      "url": "https://github.com/advisories/GHSA-wjxp-xrpv-xpff",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/tektoncd/pipeline/security/advisories/GHSA-wjxp-xrpv-xpff",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-40161",
+        "https://github.com/tektoncd/pipeline/issues/9608",
+        "https://github.com/tektoncd/pipeline/issues/9609",
+        "https://github.com/advisories/GHSA-wjxp-xrpv-xpff"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-vp62-r36r-9xqp",
+      "cve_id": "CVE-2026-39861",
+      "severity": "HIGH",
+      "summary": "Claude Code: Sandbox Escape via Symlink Following Allows Arbitrary File Write Outside Workspace",
+      "description": "Claude Code's sandbox did not prevent sandboxed processes from creating symlinks pointing to locations outside the workspace. When Claude Code subsequently wrote to a path within such a symlink, its unsandboxed process followed the symlink and wrote to the target location outside the workspace without prompting the user for confirmation. This allowed a sandbox escape where neither the sandboxed command nor the unsandboxed app could independently write outside the workspace, but their combination could write to arbitrary locations, potentially leading to code execution outside the sandbox. Reliably exploiting this required the ability to add untrusted content into a Claude Code context window to trigger sandboxed code execution via prompt injection.\n\nUsers on standard Claude Code auto-update have received this fix automatically. Users performing manual updates are advised to update to the latest version.\n\nClaude Code thanks hackerone.com/philts for reporting this issue.",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-22",
+        "CWE-61"
+      ],
+      "ecosystems": [
+        "npm"
+      ],
+      "packages": [
+        "@anthropic-ai/claude-code"
+      ],
+      "published": "2026-04-21T18:51:21Z",
+      "updated": "2026-04-21T18:51:22Z",
+      "url": "https://github.com/advisories/GHSA-vp62-r36r-9xqp",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/anthropics/claude-code/security/advisories/GHSA-vp62-r36r-9xqp",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-39861",
+        "https://github.com/advisories/GHSA-vp62-r36r-9xqp"
+      ]
+    },
+    {
       "ghsa_id": "GHSA-2gw9-c2r2-f5qf",
       "cve_id": "CVE-2026-39386",
       "severity": "HIGH",
@@ -678,158 +822,6 @@
         "https://github.com/pretalx/pretalx/security/advisories/GHSA-cjcx-jfp2-f7m2",
         "https://github.com/advisories/GHSA-cjcx-jfp2-f7m2"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-mjw2-v2hm-wj34",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "Dagster Vulnerable to SQL Injection via Dynamic Partition Keys in Database I/O Manager Integrations",
-      "description": "### Summary\n\nThe DuckDB, Snowflake, BigQuery, and DeltaLake I/O managers constructed SQL WHERE clauses by interpolating dynamic partition key values into queries without escaping. A user with the `Add Dynamic Partitions` permission could create a partition key that injects arbitrary SQL, which would execute against the target database backend under the I/O manager's credentials.\n\nOnly deployments that use dynamic partitions are affected. Pipelines using static or time-window partitions are not impacted.\n\n### Impact\n\n**Dagster OSS**: Any user with access to the Dagster API can create dynamic partition keys. Organizations should assess exposure based on who has API access in their deployment. Dagster is typically deployed in trusted environments where users who can manage partitions already have equivalent database access through other means. \n\n**Dagster+**: In most Dagster+ deployments using default permission sets, the `Add Dynamic Partitions` permission is granted to users with an Edi",
-      "cvss_score": 8.3,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:L",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-89"
-      ],
-      "ecosystems": [
-        "pip",
-        "pip",
-        "pip",
-        "pip",
-        "pip",
-        "pip"
-      ],
-      "packages": [
-        "dagster-duckdb",
-        "dagster-snowflake",
-        "dagster-gcp",
-        "dagster",
-        "dagster-deltalake",
-        "dagster-snowflake-polars"
-      ],
-      "published": "2026-04-18T01:07:59Z",
-      "updated": "2026-04-18T01:08:03Z",
-      "url": "https://github.com/advisories/GHSA-mjw2-v2hm-wj34",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/dagster-io/dagster/security/advisories/GHSA-mjw2-v2hm-wj34",
-        "https://gist.github.com/gibsondan/6d0c483f8499a8b1cd460cddc9fd8f72",
-        "https://github.com/advisories/GHSA-mjw2-v2hm-wj34"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-f58v-p6j9-24c2",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "YesWiki vulnerable to authenticated SQL Injection via id_fiche in EntryManager::formatDataBeforeSave()",
-      "description": "## Vulnerability Details\n\nYesWiki bazar module contains a SQL injection vulnerability in `tools/bazar/services/EntryManager.php` at line 704. The `$data['id_fiche']` value (sourced from `$_POST['id_fiche']`) is concatenated directly into a raw SQL query without any sanitization or parameterization.\n\n**Vulnerable Code (EntryManager.php:704):**\n```php\n$result = $this->dbService->loadSingle(\n    'SELECT MIN(time) as firsttime FROM ' . $this->dbService->prefixTable('pages') .\n    \"WHERE tag='\" . $data['id_fiche'] . \"'\"\n);\n```\n\n**Attack Path:**\n1. Attacker authenticates as any user (route requires `acl:{\"+\"}`)\n2. POST `/api/entries/{formId}` with `id_fiche=' OR SLEEP(3) OR '`\n3. `ApiController::createEntry()` checks `isEntry($_POST['id_fiche'])` \u2192 false (not existing entry) \u2192 calls `create()`\n4. `create()` \u2192 `formatDataBeforeSave()` \u2192 SQL injection at line 704\n\n**`dbService->loadSingle()` passes raw string to `mysqli_query()` with no escaping. The `escape()` method exists but is NOT called ",
-      "cvss_score": 8.8,
-      "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-89"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "yeswiki/yeswiki"
-      ],
-      "published": "2026-04-18T01:00:30Z",
-      "updated": "2026-04-18T01:00:32Z",
-      "url": "https://github.com/advisories/GHSA-f58v-p6j9-24c2",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/YesWiki/yeswiki/security/advisories/GHSA-f58v-p6j9-24c2",
-        "https://github.com/advisories/GHSA-f58v-p6j9-24c2"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-qrr6-mg7r-m243",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "PHPUnit has Argument injection via newline in PHP INI values that are forwarded to child processes",
-      "description": "## Impact\n\nPHPUnit forwards PHP INI settings to child processes (used for isolated/PHPT test execution) as `-d name=value` command-line arguments without neutralizing INI metacharacters. Because PHP's INI parser interprets `\"` as a string delimiter, `;` as the start of a comment, and most importantly a newline as a directive separator, a value containing a newline is parsed by the child process as multiple INI directives.\n\nAn attacker able to influence a single INI value can therefore inject arbitrary additional directives into the child's configuration, including `auto_prepend_file`, `extension`, `disable_functions`, `open_basedir`, and others. Setting `auto_prepend_file` to an attacker-controlled path yields remote code execution in the child process.\n\nSources of INI values that participate in the attack:\n\n- `<ini name=\"\u2026\" value=\"\u2026\"/>` entries in `phpunit.xml` / `phpunit.xml.dist`\n- INI settings inherited from the host PHP runtime via `ini_get_all()`\n\n### Threat Model\n\nExploitation r",
-      "cvss_score": 7.8,
-      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-88",
-        "CWE-93"
-      ],
-      "ecosystems": [
-        "composer",
-        "composer"
-      ],
-      "packages": [
-        "phpunit/phpunit",
-        "phpunit/phpunit"
-      ],
-      "published": "2026-04-18T00:59:28Z",
-      "updated": "2026-04-20T18:58:43Z",
-      "url": "https://github.com/advisories/GHSA-qrr6-mg7r-m243",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/sebastianbergmann/phpunit/security/advisories/GHSA-qrr6-mg7r-m243",
-        "https://github.com/sebastianbergmann/phpunit/pull/6592",
-        "https://github.com/advisories/GHSA-qrr6-mg7r-m243"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-xvj8-ph7x-65gf",
-      "cve_id": "CVE-2026-40880",
-      "severity": "HIGH",
-      "summary": "Zebra: Cached Mempool Verification Bypasses Consensus Rules for Ahead-of-Tip Blocks",
-      "description": "# CVE-2026-40880: Cached Mempool Verification Bypasses Consensus Rules for Ahead-of-Tip Blocks\n\n## Summary\n\nA logic error in Zebra's transaction verification cache could allow a malicious miner to induce a consensus split. By carefully submitting a transaction that is valid for height `H+1` but invalid for `H+2` and then mining that transaction in a block at height `H+2`, a miner could cause vulnerable Zebra nodes to accept an invalid block, leading to a consensus split from the rest of the Zcash network.\n\n## Severity\n\nHigh - This is a Consensus Vulnerability that could allow a malicious miner to induce network partitioning, service disruption, and potential double-spend attacks against affected nodes.\n\n## Affected Versions\n\nAll Zebra versions prior to version 4.3.1. (Some older versions are not affected but are no longer supported by the network)\n\n## Description\n\nThe vulnerability exists due to a performance optimization whose goal is to improve performance of transaction validation i",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-1025"
-      ],
-      "ecosystems": [
-        "rust",
-        "rust"
-      ],
-      "packages": [
-        "zebra-consensus",
-        "zebrad"
-      ],
-      "published": "2026-04-18T00:41:54Z",
-      "updated": "2026-04-18T00:41:56Z",
-      "url": "https://github.com/advisories/GHSA-xvj8-ph7x-65gf",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/ZcashFoundation/zebra/security/advisories/GHSA-xvj8-ph7x-65gf",
-        "https://github.com/advisories/GHSA-xvj8-ph7x-65gf"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-8q4h-8crm-5cvc",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "elFinder: Command injection in resize background color parameter when using ImageMagick CLI",
-      "description": "### Severity\n**High**  \n`bg` can be injected into shell command construction, leading to possible RCE in affected configurations.\n\n### Summary\n\nelFinder contains a command injection vulnerability in the `resize` command.\n\nThe `bg` (background color) parameter is accepted from user input and passed through image resize/rotate processing. In configurations that use the ImageMagick CLI backend, this value is incorporated into shell command strings without sufficient escaping. An attacker able to invoke the `resize` command with a crafted `bg` value may achieve arbitrary command execution as the web server process user.\n\nThis issue affects configurations where:\n- the `resize` command is enabled,\n- image processing uses the ImageMagick CLI backend, and\n- the vulnerable code paths are reachable.\n\n\n### Impact\n\nAn attacker may execute arbitrary OS commands with the privileges of the web server process.\n\nImpact depends on server configuration, enabled commands, backend image library selection, ",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-78"
-      ],
-      "ecosystems": [
-        "composer"
-      ],
-      "packages": [
-        "studio-42/elfinder"
-      ],
-      "published": "2026-04-17T22:33:51Z",
-      "updated": "2026-04-17T22:33:55Z",
-      "url": "https://github.com/advisories/GHSA-8q4h-8crm-5cvc",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/Studio-42/elFinder/security/advisories/GHSA-8q4h-8crm-5cvc",
-        "https://github.com/advisories/GHSA-8q4h-8crm-5cvc"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -877,7 +869,7 @@
         "count": 26
       }
     ],
-    "catalog_version": "2026-04-21T18:44:23.268633+00:00",
+    "catalog_version": "2026-04-21T22:25:26.474886+00:00",
     "source": "CISA KEV"
   }
 }
