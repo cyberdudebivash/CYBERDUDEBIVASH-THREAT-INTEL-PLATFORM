@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-21T10:51:58.057313+00:00",
+  "timestamp": "2026-04-21T15:01:28.051024+00:00",
   "sources_polled": [
     "cisa-kev",
     "ransomware.live",
@@ -18,7 +18,7 @@
       "requiredAction": "Please adhere to CISA\u2019s guidelines to assess exposure and mitigate risks associated with Cisco SD-WAN devices as outlines in CISA\u2019s Emergency Directive 26-03 (URL listed below in Notes) and CISA\u2019s \u201cHunt & Hardening Guidance for Cisco SD-WAN Devices (URL listed below in Notes). Adhere to the applicable BOD 22-01 guidance for cloud services or discontinue use of the product if mitigations are not available.",
       "dueDate": "2026-04-23",
       "knownRansomwareCampaignUse": "Unknown",
-      "notes": "CISA Mitigation Instructions: https://www.cisa.gov/news-events/directives/ed-26-03-mitigate-vulnerabilities-cisco-sd-wan-systems ; https://www.cisa.gov/news-events/directives/supplemental-direction-ed-26-03-hunt-and-hardening-guidance-cisco-sd-wan-systems ; https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-sdwan-authbp-qwCX8D4v ; https://nvd.nist.gov/vuln/detail/ CVE-2026-20122",
+      "notes": "CISA Mitigation Instructions: https://www.cisa.gov/news-events/directives/ed-26-03-mitigate-vulnerabilities-cisco-sd-wan-systems ; https://www.cisa.gov/news-events/directives/supplemental-direction-ed-26-03-hunt-and-hardening-guidance-cisco-sd-wan-systems ; https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-sdwan-authbp-qwCX8D4v ; https://nvd.nist.gov/vuln/detail/CVE-2026-20122",
       "cwes": [
         "CWE-648"
       ]
@@ -124,7 +124,7 @@
       "requiredAction": "Apply mitigations per vendor instructions, follow applicable BOD 22-01 guidance for cloud services, or discontinue use of the product if mitigations are unavailable.",
       "dueDate": "2026-05-04",
       "knownRansomwareCampaignUse": "Unknown",
-      "notes": "https://www.jetbrains.com/privacy-security/issues-fixed/ ; https://nvd.nist.gov/vuln/detail/CVE-2024-27199",
+      "notes": "https://www.jetbrains.com/privacy-security/issues-fixed/ ; https://blog.jetbrains.com/teamcity/2024/03/additional-critical-security-issues-affecting-teamcity-on-premises-cve-2024-27198-and-cve-2024-27199-update-to-2023-11-4-now/ ; https://nvd.nist.gov/vuln/detail/CVE-2024-27199",
       "cwes": [
         "CWE-23"
       ]
@@ -370,6 +370,66 @@
     }
   ],
   "github_advisories": [
+    {
+      "ghsa_id": "GHSA-x234-x5vq-cc2v",
+      "cve_id": "CVE-2026-33031",
+      "severity": "HIGH",
+      "summary": "Nginx-UI: Disabled users retain full API access through previously issued bearer tokens",
+      "description": "### Summary\n\nA user who was disabled by an administrator can use previously issued API tokens for up to the token lifetime. In practice, disabling a compromised account does not actually terminate that user\u2019s access, so an attacker who already stole a JWT can continue reading and modifying protected resources after the account is marked disabled.\n\nSince tokens can be used to create new accounts, it is possible the disabled user to maintain the privilege.\n\n### Details\n\nThe application exposes an account-level disable control through the users management API. Login process correctly enforces that control:\nhttps://github.com/0xJacky/nginx-ui/blob/6ec542fd97abf2c5950f374f78a32938ad0030e6/internal/user/login.go#L29-L31\n\nHowever, token-based authentication does not enforce the same check (This code validates token structure and expiry, but returns that user object without checking `user.Status`.):\nhttps://github.com/0xJacky/nginx-ui/blob/6ec542fd97abf2c5950f374f78a32938ad0030e6/internal/user",
+      "cvss_score": null,
+      "cvss_vector": null,
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-284",
+        "CWE-863"
+      ],
+      "ecosystems": [
+        "go"
+      ],
+      "packages": [
+        "github.com/0xJacky/Nginx-UI"
+      ],
+      "published": "2026-04-21T15:00:44Z",
+      "updated": "2026-04-21T15:01:12Z",
+      "url": "https://github.com/advisories/GHSA-x234-x5vq-cc2v",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/0xJacky/nginx-ui/security/advisories/GHSA-x234-x5vq-cc2v",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-33031",
+        "https://github.com/0xJacky/nginx-ui/commit/7b66578adb47bbec839b621a4666495249379174",
+        "https://github.com/0xJacky/nginx-ui/releases/tag/v2.3.4",
+        "https://github.com/advisories/GHSA-x234-x5vq-cc2v"
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-fg79-cr9c-7369",
+      "cve_id": "CVE-2026-25524",
+      "severity": "HIGH",
+      "summary": "OpenMage LTS: Phar Deserialization leads to Remote Code Execution",
+      "description": "PHP functions such as `getimagesize()`, `file_exists()`, and `is_readable()` can trigger deserialization when processing `phar://` stream wrapper paths. OpenMage LTS uses these functions with potentially controllable file paths during image validation and media handling. An attacker who can upload a malicious phar file (disguised as an image) and trigger one of these functions with a `phar://` path can achieve arbitrary code execution.\n\n| Metric                   | Value     | Justification                                    |\n| ------------------------ | --------- | ------------------------------------------------ |\n| Attack Vector (AV)       | Network   | Exploitable via file upload and web requests     |\n| Attack Complexity (AC)   | High      | Requires file upload + triggering phar:// access |\n| Privileges Required (PR) | None      | Some upload vectors don't require authentication |\n| User Interaction (UI)    | None      | Exploitation is automatic once triggered         |\n| Scope",
+      "cvss_score": 8.1,
+      "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "epss_score": null,
+      "cwe_ids": [
+        "CWE-502"
+      ],
+      "ecosystems": [
+        "composer"
+      ],
+      "packages": [
+        "openmage/magento-lts"
+      ],
+      "published": "2026-04-21T14:32:48Z",
+      "updated": "2026-04-21T14:32:50Z",
+      "url": "https://github.com/advisories/GHSA-fg79-cr9c-7369",
+      "source": "github-advisory",
+      "poc_urls": [
+        "https://github.com/OpenMage/magento-lts/security/advisories/GHSA-fg79-cr9c-7369",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-25524",
+        "https://github.com/OpenMage/magento-lts/releases/tag/v20.17.0",
+        "https://github.com/advisories/GHSA-fg79-cr9c-7369"
+      ]
+    },
     {
       "ghsa_id": "GHSA-cjcx-jfp2-f7m2",
       "cve_id": null,
@@ -762,64 +822,6 @@
         "https://github.com/openclaw/openclaw/commit/604777e4414cc3b2ff8861f18f4fb04374c702c6",
         "https://github.com/advisories/GHSA-66r7-m7xm-v49h"
       ]
-    },
-    {
-      "ghsa_id": "GHSA-2cq5-mf3v-mx44",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: busybox and toybox applet execution weakened exec approval binding",
-      "description": "## Summary\n\nbusybox and toybox applet execution weakened exec approval binding.\n\n## Affected Packages / Versions\n\n- Package: `openclaw`\n- Ecosystem: npm\n- Affected versions: `>= 2026.2.23 < 2026.4.12`\n- Patched versions: `>= 2026.4.12`\n\n## Impact\n\nOpaque multi-call binaries such as `busybox` and `toybox` could obscure which applet or script-like behavior would actually run, weakening exec approval binding and risk classification.\n\n## Technical Details\n\nThe fix treats `busybox` and `toybox` as opaque mutable script runners and fails closed rather than binding unsafe applet invocations.\n\n## Fix\n\nThe issue was fixed in #65713. The first stable tag containing the fix is `v2026.4.12`, and `openclaw@2026.4.14` includes the fix.\n\n## Fix Commit(s)\n\n- `666f48d9b882a8a1415ca53f9567c72499d850c9`\n- PR: #65713\n\n## Release Process Note\n\nUsers should upgrade to `openclaw` 2026.4.12 or newer. The latest npm release, `2026.4.14`, already includes the fix.\n\n## Credits\n\nThanks to @decsecre583 for reporti",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-863"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-17T22:16:04Z",
-      "updated": "2026-04-19T15:30:37Z",
-      "url": "https://github.com/advisories/GHSA-2cq5-mf3v-mx44",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-2cq5-mf3v-mx44",
-        "https://github.com/openclaw/openclaw/pull/65713",
-        "https://github.com/openclaw/openclaw/commit/666f48d9b882a8a1415ca53f9567c72499d850c9",
-        "https://github.com/advisories/GHSA-2cq5-mf3v-mx44"
-      ]
-    },
-    {
-      "ghsa_id": "GHSA-7jp6-r74r-995q",
-      "cve_id": null,
-      "severity": "HIGH",
-      "summary": "OpenClaw: Matrix profile config persistence was reachable from operator.write message tools",
-      "description": "## Summary\n\nMatrix profile config persistence was reachable from operator.write message tools.\n\n## Affected Packages / Versions\n\n- Package: `openclaw`\n- Ecosystem: npm\n- Affected versions: `< 2026.4.10`\n- Patched versions: `>= 2026.4.10`\n\n## Impact\n\nGateway `operator.write` message-tool paths could reach Matrix profile persistence that should have required admin-level authority.\n\n## Technical Details\n\nThe fix gates Matrix profile updates for non-owner message-tool runs and prevents write-scoped callers from mutating persistent profile config.\n\n## Fix\n\nThe issue was fixed in #62662. The first stable tag containing the fix is `v2026.4.10`, and `openclaw@2026.4.14` includes the fix.\n\n## Fix Commit(s)\n\n- `fe0f686c9228fffcec6de4011da45e69a6e23e54`\n- PR: #62662\n\n## Release Process Note\n\nUsers should upgrade to `openclaw` 2026.4.10 or newer. The latest npm release, `2026.4.14`, already includes the fix.\n\n## Credits\n\nThanks to @zpbrent and @zsxsoft, with sponsorship from @KeenSecurityLab and @",
-      "cvss_score": null,
-      "cvss_vector": null,
-      "epss_score": null,
-      "cwe_ids": [
-        "CWE-266",
-        "CWE-863"
-      ],
-      "ecosystems": [
-        "npm"
-      ],
-      "packages": [
-        "openclaw"
-      ],
-      "published": "2026-04-17T22:15:27Z",
-      "updated": "2026-04-17T22:15:28Z",
-      "url": "https://github.com/advisories/GHSA-7jp6-r74r-995q",
-      "source": "github-advisory",
-      "poc_urls": [
-        "https://github.com/openclaw/openclaw/security/advisories/GHSA-7jp6-r74r-995q",
-        "https://github.com/openclaw/openclaw/pull/62662",
-        "https://github.com/advisories/GHSA-7jp6-r74r-995q"
-      ]
     }
   ],
   "urlhaus_iocs": [],
@@ -867,7 +869,7 @@
         "count": 26
       }
     ],
-    "catalog_version": "2026-04-21T10:51:58.318092+00:00",
+    "catalog_version": "2026-04-21T15:01:28.343320+00:00",
     "source": "CISA KEV"
   }
 }
