@@ -1094,6 +1094,14 @@ class STIXExporter:
             "ioc_extraction_meta": ioc_extraction_meta or {},
             # v125.0: STIX bundle URL (never null when stix_file is set)
             "stix_bundle_url":   stix_bundle_url or "",
+            # v133.0 P0 FIX: internal_report_url — always the canonical internal
+            # HTML dossier path. Dashboard MUST use this over report_url or
+            # source_url. report_url is also forced to the same internal path so
+            # both fields are consistent.
+            "internal_report_url": _report_url,
+            # v133.0: stix_bundle mirrors stix_bundle_url for API consumers that
+            # check the shorter field name.
+            "stix_bundle":       stix_bundle_url or stix_file or "",
         }
         # v114.0: legacy blog_url field never emitted
         entry.pop("blog_url", None)
@@ -1114,6 +1122,24 @@ class STIXExporter:
                 }
             except Exception:
                 pass  # Never block manifest write on apex error
+
+        # v133.0 P0 PIPELINE FAILSAFE: internal_report_url MUST be set before
+        # this entry enters the manifest. Hard fail prevents silent regression
+        # where the dashboard would fall back to external source links.
+        if not entry.get("internal_report_url"):
+            raise RuntimeError(
+                f"P0: missing internal_report_url for entry '{entry.get('id', '?')}'. "
+                "Pipeline must produce a /reports/... path before writing manifest."
+            )
+        # P0 REGRESSION GUARD: report_url must never be an external URL that is
+        # not the cyberdudebivash domain.
+        _ru_check = entry.get("report_url", "")
+        if _ru_check.startswith("http") and "cyberdudebivash" not in _ru_check:
+            raise RuntimeError(
+                f"P0 REGRESSION: external report_url detected for "
+                f"'{entry.get('id', '?')}': {_ru_check!r}. "
+                "Set report_url to internal path (/reports/...)."
+            )
 
         manifest_entries.append(entry)
 

@@ -6075,7 +6075,7 @@ GET  /api/billing/portal  → Subscription status</code>
                     <div class="watchlist-item-meta">
                         <span class="badge badge-${sev.toLowerCase()}">${sev}</span>
                         <span style="font-family:var(--font-mono);font-size:9px;color:${sevColor};">RISK ${item.risk_score}/10</span>
-                        ${(()=>{ const ru=(item.report_url||'').replace('https://reports.cyberdudebivash.com','https://intel.cyberdudebivash.com'); const hasR=ru&&item.validation_status!=='quality_fail'&&item.validation_status!=='write_error'; const u=hasR?ru:(item.source_url||''); return u?`<a href="${u}" target="_blank" style="font-family:var(--font-mono);font-size:9px;color:var(--accent);">${hasR?'DOSSIER →':'SOURCE →'}</a>`:''; })()}
+                        ${(()=>{ const _wiru=item.internal_report_url||''; const _wru=(item.report_url||'').replace('https://reports.cyberdudebivash.com','https://intel.cyberdudebivash.com'); const _wruInt=_wru&&(_wru.startsWith('/reports/')||_wru.includes('intel.cyberdudebivash.com')||_wru.includes('cyberdudebivash.com/reports')); const _weid=item.stix_id||item.id||''; const _wInternal=_wiru||(_wruInt?_wru:'')||(_weid?`/reports/${_weid}.html`:''); const _wVsFail=item.validation_status==='quality_fail'||item.validation_status==='write_error'; const hasR=!!_wInternal&&!_wVsFail; const u=hasR?_wInternal:(item.source_url||''); return u?`<a href="${u}" target="_blank" style="font-family:var(--font-mono);font-size:9px;color:var(--accent);">${hasR?'DOSSIER →':'SOURCE →'}</a>`:''; })()}
                         <button class="watchlist-remove" onclick="removeFromWatchlist('${item.stix_id}')">REMOVE</button>
                     </div>
                 </div>`;
@@ -7163,25 +7163,45 @@ GET  /api/billing/portal  → Subscription status</code>
                                 <i class="fas fa-expand-alt"></i> DETAILS
                             </button>
                             ${(()=>{
-                                // v116.3.0: Smart dossier link with fallback chain
-                                // 1. report_url (HTML dossier) → 2. source_url → 3. inline modal
-                                // Also rewrite any stale reports.cyberdudebivash.com URLs (DNS NXDOMAIN)
-                                let rUrl = (item.report_url || '').replace(
-                                    'https://reports.cyberdudebivash.com',
-                                    'https://intel.cyberdudebivash.com'
+                                // v133.0 P0 FIX: Smart dossier link — INTERNAL URL PRIORITY CHAIN
+                                // Priority: internal_report_url → report_url (if internal) → /reports/{stix_id}.html → source_url (last resort only)
+                                // NEVER opens an external source as "Tactical Dossier".
+                                const _eid = item.stix_id || item.id || '';
+                                const _sUrl = item.source_url || '';
+                                const _vs = item.validation_status || '';
+                                const _isFail = _vs === 'quality_fail' || _vs === 'write_error';
+
+                                // Build internal URL — prefer internal_report_url, then report_url if it is internal
+                                let _iru = (item.internal_report_url || '').trim();
+                                let _ru = (item.report_url || '').trim()
+                                    .replace('https://reports.cyberdudebivash.com', 'https://intel.cyberdudebivash.com');
+
+                                // report_url is "internal" if it is a relative /reports/ path OR an intel.cyberdudebivash.com URL
+                                const _ruIsInternal = _ru && (
+                                    _ru.startsWith('/reports/') ||
+                                    _ru.includes('intel.cyberdudebivash.com') ||
+                                    _ru.includes('cyberdudebivash.com/reports')
                                 );
-                                const sUrl = item.source_url || '';
-                                const hasReport = rUrl && item.validation_status !== 'quality_fail' && item.validation_status !== 'write_error';
-                                const finalUrl = hasReport ? rUrl : sUrl;
-                                if (finalUrl) {
-                                    const label = hasReport ? 'View Tactical Dossier &#x2192;' : 'View Source &#x2192;';
-                                    return `<a href="${finalUrl}" target="_blank" rel="noopener" class="card-link">${label}</a>`;
+
+                                // Canonical internal URL: prefer explicit internal_report_url field
+                                const _internalUrl = _iru
+                                    || (_ruIsInternal ? _ru : '')
+                                    || (_eid ? `/reports/${_eid}.html` : '');
+
+                                const _hasInternal = !!_internalUrl && !_isFail;
+
+                                if (_hasInternal) {
+                                    return `<a href="${_internalUrl}" target="_blank" rel="noopener" class="card-link">View Tactical Dossier &#x2192;</a>`;
                                 }
-                                // No URL at all — open inline dossier modal
-                                const eid = item.stix_id || item.id || '';
-                                return eid
-                                    ? `<button class="js-open-modal card-link" data-stix-id="${eid}" style="border:none;background:none;padding:0;cursor:pointer;">View Tactical Dossier &#x2192;</button>`
-                                    : '';
+                                // Fallback 1: inline modal (never shows external as "dossier")
+                                if (_eid) {
+                                    return `<button class="js-open-modal card-link" data-stix-id="${_eid}" style="border:none;background:none;padding:0;cursor:pointer;">View Tactical Dossier &#x2192;</button>`;
+                                }
+                                // Fallback 2: source URL — labelled as SOURCE, never as Dossier
+                                if (_sUrl) {
+                                    return `<a href="${_sUrl}" target="_blank" rel="noopener" class="card-link">View Source &#x2192;</a>`;
+                                }
+                                return '';
                             })()}
                             ${item.gumroad_url ? `<a href="${item.gumroad_url}" target="_blank" rel="noopener" class="cta-gumroad" title="Get premium STIX bundle + IOC pack">\u26a1 PREMIUM</a>` : ''}
                         </div>

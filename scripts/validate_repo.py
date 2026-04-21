@@ -380,13 +380,36 @@ def _validate_single_intel(obj: dict, idx: int) -> list[str]:
         except (TypeError, ValueError):
             errs.append(f"[{idx}/{sid}] V6: risk_score='{rs}' is not numeric")
 
-    # V10: processed entries must have valid https report_url
+    # V10: processed entries must have valid report_url — INTERNAL path required.
+    # v133.0 P0 FIX: accept both:
+    #   a) relative /reports/... paths (canonical internal format)
+    #   b) https://intel.cyberdudebivash.com/reports/... (CDN-hosted)
+    # REJECT: any external URL that is not on cyberdudebivash.com domain.
     if vs in ("ok", "enriched"):
         ru = obj.get("report_url", "")
-        if not ru or not ru.startswith("https://"):
+        _ru_is_internal_relative = ru and ru.startswith("/reports/")
+        _ru_is_internal_absolute = (
+            ru and ru.startswith("https://") and "cyberdudebivash" in ru
+        )
+        _ru_valid = _ru_is_internal_relative or _ru_is_internal_absolute
+        if not ru:
             errs.append(
-                f"[{idx}/{sid}] V10: validation_status='{vs}' but report_url is missing/invalid: {repr(ru)[:60]}"
+                f"[{idx}/{sid}] V10: validation_status='{vs}' but report_url is empty"
             )
+        elif not _ru_valid:
+            errs.append(
+                f"[{idx}/{sid}] V10: validation_status='{vs}' but report_url is external "
+                f"(P0 REGRESSION — must be /reports/... or intel.cyberdudebivash.com): {repr(ru)[:80]}"
+            )
+
+    # V11 P0 REGRESSION GUARD: report_url must NEVER be an external non-cyberdudebivash URL
+    # regardless of validation_status. This catches silent regressions early.
+    _ru_any = obj.get("report_url", "")
+    if _ru_any and _ru_any.startswith("http") and "cyberdudebivash" not in _ru_any:
+        errs.append(
+            f"[{idx}/{sid}] V11 P0 REGRESSION: report_url is external (non-cyberdudebivash): "
+            f"{repr(_ru_any)[:80]}. Pipeline must assign /reports/... path."
+        )
 
     return errs
 
