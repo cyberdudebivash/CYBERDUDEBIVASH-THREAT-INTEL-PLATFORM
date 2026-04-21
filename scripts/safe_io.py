@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
 scripts/safe_io.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v132.2.0 -- Production SafeIO Foundation
+CYBERDUDEBIVASH(R) SENTINEL APEX v132.3.0 -- Production SafeIO Foundation
 ==========================================================================
 Centralised, production-grade I/O primitives for the entire pipeline.
 
 Provides:
-  AtomicWriter    -- write-temp-then-rename, post-write verify, never partial
-  FileLock        -- cross-platform exclusive file lock (fcntl/msvcrt/softlock)
-  SafeJSONIO      -- load/dump wrappers that never raise, with auto-heal
-  SchemaValidator -- strict schema gate for intel objects + ioc_count integrity
-  DedupEngine     -- SHA-256 dedup on (title, source, published) normalised key
-  PipelineMetrics -- ingestion / failure / IOC rate collector + JSON reporter
+  AtomicWriter         -- write-temp-then-rename, post-write verify, never partial
+  FileLock             -- cross-platform exclusive file lock (fcntl/msvcrt/softlock)
+  SafeJSONIO           -- load/dump wrappers that never raise, with auto-heal
+  SchemaValidator      -- strict schema gate for intel objects + ioc_count integrity
+  DedupEngine          -- SHA-256 dedup on (title, source, published) normalised key
+  PipelineMetrics      -- ingestion / failure / IOC rate collector + JSON reporter
+  SystemHealthMonitor  -- autonomic health state machine: HEALTHY/DEGRADED/CRITICAL
+                          auto-throttle, health score, persistent state, API export
 
 Usage:
   from scripts.safe_io import (
@@ -20,6 +22,11 @@ Usage:
       enforce_schema, enforce_schema_list,
       WriteQueue, retry_write, WriteHardFail, WRITE_SOFT_FAIL, _store_write_failure,
       MAX_CONCURRENT_WRITES, WRITE_DELAY_MS, BACKPRESSURE_THRESHOLD,
+      SystemHealthMonitor,
+      SYSTEM_STATE_HEALTHY, SYSTEM_STATE_DEGRADED, SYSTEM_STATE_CRITICAL,
+      DEGRADED_QUEUE_THRESHOLD, DEGRADED_RECOVERY_THRESHOLD,
+      CRITICAL_RECOVERY_THRESHOLD, CRITICAL_DEGRADED_RUNS,
+      THROTTLE_MAX_CONCURRENT_WRITES, THROTTLE_WRITE_DELAY_MS,
   )
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved. CONFIDENTIAL.
@@ -249,13 +256,25 @@ def _store_write_failure(
         "error": str(exc),
         "error_type": type(exc).__name__,
     }
-    # Save payload blob
-    if payload is not None and _WRITE_FAILURE_DIR is not None:
+    # Save payload blob — embed recovery metadata for ReplayEngine
+    if _WRITE_FAILURE_DIR is not None:
         try:
             _WRITE_FAILURE_DIR.mkdir(parents=True, exist_ok=True)
             blob_path = _WRITE_FAILURE_DIR / f"{ts}_{stem}.json"
+            # Build blob: recovery metadata keys + flattened payload (for ReplayEngine)
+            blob: Dict[str, Any] = {
+                "_recovery_target": str(path),     # target path for replay
+                "_recovery_error": str(exc),
+                "_recovery_timestamp": record["timestamp"],
+                "_recovery_attempt": 0,             # incremented by ReplayEngine on each retry
+            }
+            if isinstance(payload, dict):
+                # Merge payload into blob (metadata keys take precedence)
+                blob = {**payload, **blob}
+            elif payload is not None:
+                blob["_payload_data"] = payload     # non-dict payload stored under _payload_data
             blob_path.write_text(
-                json.dumps(payload, indent=2, ensure_ascii=False, default=str),
+                json.dumps(blob, indent=2, ensure_ascii=False, default=str),
                 encoding="utf-8",
             )
             record["recovery_blob"] = str(blob_path)
@@ -289,6 +308,82 @@ BACKPRESSURE_THRESHOLD: int = 50
 # GLOBAL WRITE SEMAPHORE — wraps ALL write operations.
 # Enforces at most MAX_CONCURRENT_WRITES simultaneous writers across the pipeline.
 _WRITE_SEMAPHORE = threading.Semaphore(MAX_CONCURRENT_WRITES)
+
+# ---------------------------------------------------------------------------
+# v132.3 Autonomic Layer — System State Constants + Thresholds
+# ---------------------------------------------------------------------------
+
+# System health states (ordered: HEALTHY < DEGRADED < CRITICAL)
+SYSTEM_STATE_HEALTHY  = "HEALTHY"
+SYSTEM_STATE_DEGRADED = "DEGRADED"
+SYSTEM_STATE_CRITICAL = "CRITICAL"
+
+# Backpressure thresholds that trigger DEGRADED state
+DEGRADED_QUEUE_THRESHOLD: int = BACKPRESSURE_THRESHOLD  # 50 — queue_depth triggers DEGRADED
+DEGRADED_RECOVERY_THRESHOLD: int = 20                   # recovery_count triggers DEGRADED
+
+# Escalation thresholds that trigger CRITICAL state
+CRITICAL_RECOVERY_THRESHOLD: int = 100  # recovery_count triggers CRITICAL
+CRITICAL_DEGRADED_RUNS: int = 3         # consecutive DEGRADED runs before CRITICAL
+
+# Throttle values applied automatically when system enters DEGRADED state
+THROTTLE_MAX_CONCURRENT_WRITES: int = 1    # reduce from 3 → 1
+THROTTLE_WRITE_DELAY_MS: int = 200         # increase from 50ms → 200ms
+
+# Health score formula weights: health = 100 - (failures*2) - (retries*0.5) - queue_depth
+HEALTH_SCORE_WRITE_FAILURE_PENALTY: float = 2.0
+HEALTH_SCORE_RETRY_PENALTY: float = 0.5
+HEALTH_SCORE_QUEUE_DEPTH_PENALTY: float = 1.0
+
+# ---------------------------------------------------------------------------
+# v132.3 Dynamic Throttle Globals — mutated at runtime by SystemHealthMonitor
+# ---------------------------------------------------------------------------
+
+# NOTE: These are runtime-mutable. _apply_throttle() / _restore_throttle() modify
+# them and replace _WRITE_SEMAPHORE to enforce new concurrency limits immediately.
+_current_max_concurrent_writes: int = MAX_CONCURRENT_WRITES
+_current_write_delay_ms: int = WRITE_DELAY_MS
+_throttle_active: bool = False
+_SEMAPHORE_LOCK: threading.Lock = threading.Lock()
+
+
+def _apply_throttle() -> bool:
+    """
+    Apply write throttle: MAX_CONCURRENT_WRITES → 1, WRITE_DELAY_MS → 200ms.
+    Replaces global _WRITE_SEMAPHORE with a new Semaphore(1).
+    Thread-safe. Returns True if throttle was newly applied (False if already active).
+    """
+    global _WRITE_SEMAPHORE, _current_max_concurrent_writes, _current_write_delay_ms, _throttle_active
+    with _SEMAPHORE_LOCK:
+        if _throttle_active:
+            return False
+        _current_max_concurrent_writes = THROTTLE_MAX_CONCURRENT_WRITES
+        _current_write_delay_ms = THROTTLE_WRITE_DELAY_MS
+        _WRITE_SEMAPHORE = threading.Semaphore(THROTTLE_MAX_CONCURRENT_WRITES)
+        _throttle_active = True
+    log.critical(
+        "_apply_throttle: DEGRADED MODE — concurrent writes capped at %d, delay=%dms",
+        THROTTLE_MAX_CONCURRENT_WRITES, THROTTLE_WRITE_DELAY_MS,
+    )
+    return True
+
+
+def _restore_throttle() -> bool:
+    """
+    Restore normal write throughput: MAX_CONCURRENT_WRITES=3, WRITE_DELAY_MS=50ms.
+    Thread-safe. Returns True if throttle was restored (False if already normal).
+    """
+    global _WRITE_SEMAPHORE, _current_max_concurrent_writes, _current_write_delay_ms, _throttle_active
+    with _SEMAPHORE_LOCK:
+        if not _throttle_active:
+            return False
+        _current_max_concurrent_writes = MAX_CONCURRENT_WRITES
+        _current_write_delay_ms = WRITE_DELAY_MS
+        _WRITE_SEMAPHORE = threading.Semaphore(MAX_CONCURRENT_WRITES)
+        _throttle_active = False
+    log.info("_restore_throttle: NORMAL MODE restored — concurrent writes=%d, delay=%dms",
+             MAX_CONCURRENT_WRITES, WRITE_DELAY_MS)
+    return True
 
 # Soft-fail sentinel — returned by retry_write() on permanent failure (raise_on_exhaustion=False).
 # Distinguishes "callable returned None (success)" from "all retries exhausted (soft-fail)".
@@ -517,8 +612,9 @@ class WriteQueue:
         t_flush_start = time.monotonic()
 
         log.info(
-            "WriteQueue.flush: starting — %d items | semaphore=%d | delay=%dms | max_attempts=%d",
-            total, MAX_CONCURRENT_WRITES, WRITE_DELAY_MS, attempts,
+            "WriteQueue.flush: starting — %d items | semaphore=%d | delay=%dms | max_attempts=%d%s",
+            total, _current_max_concurrent_writes, _current_write_delay_ms, attempts,
+            " [THROTTLED]" if _throttle_active else "",
         )
 
         for i, fn in enumerate(queue_snapshot):
@@ -530,9 +626,10 @@ class WriteQueue:
 
             # ── INTER-WRITE THROTTLE ──────────────────────────────────────
             # Mandatory delay between writes to prevent burst saturation.
+            # Uses _current_write_delay_ms which is dynamically increased when DEGRADED.
             # Skip delay after the last item.
             if i < total - 1:
-                time.sleep(WRITE_DELAY_MS / 1000.0)
+                time.sleep(_current_write_delay_ms / 1000.0)
 
         total_latency_ms = (time.monotonic() - t_flush_start) * 1000
 
@@ -1395,3 +1492,343 @@ class PipelineMetrics:
             for e in d["errors"][:5]:
                 log.warning("    - %s", e)
         log.info("=" * 60)
+
+
+# ---------------------------------------------------------------------------
+# v132.3 Autonomic Stability Layer — SystemHealthMonitor
+# ---------------------------------------------------------------------------
+
+class SystemCriticalError(RuntimeError):
+    """
+    Raised when the pipeline enters CRITICAL state and all recovery attempts
+    are exhausted. Signals that the pipeline MUST halt immediately.
+    """
+
+
+class SystemHealthMonitor:
+    """
+    v132.3 AUTONOMIC STABILITY LAYER — Health State Machine.
+
+    States (ordered): HEALTHY → DEGRADED → CRITICAL
+
+    Transition rules (evaluated on every tick()):
+      DEGRADED  if: write_queue_depth > DEGRADED_QUEUE_THRESHOLD  (50)
+                    OR recovery_count  > DEGRADED_RECOVERY_THRESHOLD (20)
+      CRITICAL  if: recovery_count > CRITICAL_RECOVERY_THRESHOLD (100)
+                    OR consecutive_degraded_runs >= CRITICAL_DEGRADED_RUNS (3)
+
+    Auto-throttle (applied when transitioning to DEGRADED):
+      MAX_CONCURRENT_WRITES → THROTTLE_MAX_CONCURRENT_WRITES (1)
+      WRITE_DELAY_MS        → THROTTLE_WRITE_DELAY_MS        (200ms)
+      ingestion             → paused
+
+    Restore (applied when returning to HEALTHY):
+      MAX_CONCURRENT_WRITES → MAX_CONCURRENT_WRITES (3)
+      WRITE_DELAY_MS        → WRITE_DELAY_MS        (50ms)
+
+    Hard guard:
+      DEGRADED for CRITICAL_DEGRADED_RUNS consecutive runs
+      → raise SystemCriticalError (pipeline INTENTIONAL FAIL)
+
+    Health score:
+      health_score = 100
+                   - (write_failures * HEALTH_SCORE_WRITE_FAILURE_PENALTY)   [2.0]
+                   - (retry_count    * HEALTH_SCORE_RETRY_PENALTY)            [0.5]
+                   - (queue_depth    * HEALTH_SCORE_QUEUE_DEPTH_PENALTY)      [1.0]
+      Clamped to [0.0, 100.0].
+
+    Persistence: data/logs/system_health.json  (atomic write)
+    Thread-safety: all state mutations are lock-protected.
+
+    Usage:
+        from scripts.safe_io import health_monitor
+        health_monitor.tick()           # evaluate state, apply throttle
+        health_monitor.get_state()      # returns dict for /api/health
+        health_monitor.assert_healthy() # raises SystemCriticalError if CRITICAL
+    """
+
+    def __init__(self, repo_root: Optional[Path] = None) -> None:
+        self._lock = threading.Lock()
+        self._root = repo_root or Path(__file__).resolve().parent.parent
+        self._health_path = self._root / "data" / "logs" / "system_health.json"
+
+        # Runtime state
+        self._state: str = SYSTEM_STATE_HEALTHY
+        self._consecutive_degraded_runs: int = 0
+        self._ingestion_paused: bool = False
+        self._last_tick_ts: str = ""
+
+        # Cumulative counters (reset per pipeline run via reset_counters())
+        self._run_write_failures: int = 0
+        self._run_retry_count: int = 0
+        self._run_recovery_count: int = 0
+
+        # Historical event log (capped at 100 entries)
+        self._events: List[Dict[str, Any]] = []
+
+        log.info("SystemHealthMonitor: initialised (state=%s)", SYSTEM_STATE_HEALTHY)
+
+    # ── Public interface ──────────────────────────────────────────────────────
+
+    def tick(self) -> str:
+        """
+        Evaluate current system state from live WriteQueue metrics.
+        Applies/restores throttle as required.
+        Persists state to data/logs/system_health.json.
+        Returns new state string: HEALTHY | DEGRADED | CRITICAL.
+        Raises SystemCriticalError if CRITICAL and pipeline must halt.
+        """
+        with self._lock:
+            snap = WriteQueue.metrics_snapshot()
+            queue_depth    = snap.get("write_queue_depth", 0)
+            recovery_count = snap.get("recovery_count", 0)
+            write_failures = snap.get("write_failures", 0)
+            retry_count    = self._run_retry_count
+
+            # ── State transition logic ─────────────────────────────────────
+            new_state = self._evaluate_state(queue_depth, recovery_count)
+
+            if new_state == SYSTEM_STATE_CRITICAL:
+                # CRITICAL: block ingestion, enforce slow mode, allow only recovery replay
+                self._ingestion_paused = True
+                if not self._is_throttle_active():
+                    _apply_throttle()
+                self._record_event("STATE_TRANSITION", {
+                    "from": self._state,
+                    "to": SYSTEM_STATE_CRITICAL,
+                    "queue_depth": queue_depth,
+                    "recovery_count": recovery_count,
+                })
+                self._state = SYSTEM_STATE_CRITICAL
+                log.critical(
+                    "SystemHealthMonitor: CRITICAL — ingestion BLOCKED, "
+                    "recovery replay only | queue=%d recovery=%d degraded_runs=%d",
+                    queue_depth, recovery_count, self._consecutive_degraded_runs,
+                )
+                self._persist()
+                raise SystemCriticalError(
+                    f"SENTINEL APEX entered CRITICAL state: "
+                    f"recovery_count={recovery_count} "
+                    f"degraded_runs={self._consecutive_degraded_runs}. "
+                    f"Pipeline intentionally halted. "
+                    f"Run scripts/recovery_replay.py to drain recovery backlog."
+                )
+
+            elif new_state == SYSTEM_STATE_DEGRADED:
+                self._consecutive_degraded_runs += 1
+                self._ingestion_paused = True
+
+                if not self._is_throttle_active():
+                    _apply_throttle()
+                    self._record_event("THROTTLE_APPLIED", {
+                        "queue_depth": queue_depth,
+                        "recovery_count": recovery_count,
+                        "consecutive_degraded_runs": self._consecutive_degraded_runs,
+                    })
+
+                # Hard guard: 3 consecutive DEGRADED runs → FAIL
+                if self._consecutive_degraded_runs >= CRITICAL_DEGRADED_RUNS:
+                    self._state = SYSTEM_STATE_CRITICAL
+                    self._persist()
+                    raise SystemCriticalError(
+                        f"SENTINEL APEX DEGRADED for "
+                        f"{self._consecutive_degraded_runs} consecutive runs "
+                        f"(threshold={CRITICAL_DEGRADED_RUNS}). "
+                        f"Pipeline intentionally halted — run recovery_replay.py."
+                    )
+
+                if self._state != SYSTEM_STATE_DEGRADED:
+                    self._record_event("STATE_TRANSITION", {
+                        "from": self._state, "to": SYSTEM_STATE_DEGRADED,
+                        "queue_depth": queue_depth, "recovery_count": recovery_count,
+                    })
+                self._state = SYSTEM_STATE_DEGRADED
+                log.warning(
+                    "SystemHealthMonitor: DEGRADED (run %d/%d) — "
+                    "throttle active, ingestion paused | queue=%d recovery=%d",
+                    self._consecutive_degraded_runs, CRITICAL_DEGRADED_RUNS,
+                    queue_depth, recovery_count,
+                )
+
+            else:
+                # HEALTHY — restore throttle if it was active
+                if self._is_throttle_active():
+                    _restore_throttle()
+                    self._record_event("THROTTLE_RESTORED", {
+                        "queue_depth": queue_depth,
+                        "recovery_count": recovery_count,
+                    })
+                if self._state != SYSTEM_STATE_HEALTHY:
+                    self._record_event("STATE_TRANSITION", {
+                        "from": self._state, "to": SYSTEM_STATE_HEALTHY,
+                        "queue_depth": queue_depth,
+                    })
+                self._consecutive_degraded_runs = 0
+                self._ingestion_paused = False
+                self._state = SYSTEM_STATE_HEALTHY
+                log.info(
+                    "SystemHealthMonitor: HEALTHY | queue=%d recovery=%d",
+                    queue_depth, recovery_count,
+                )
+
+            self._last_tick_ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            self._persist()
+            return self._state
+
+    def health_score(self) -> float:
+        """
+        Compute health score from live WriteQueue metrics.
+        Formula: 100 - (failures*2) - (retries*0.5) - queue_depth
+        Clamped to [0.0, 100.0].
+        """
+        snap   = WriteQueue.metrics_snapshot()
+        wf     = snap.get("write_failures", 0)
+        qd     = snap.get("write_queue_depth", 0)
+        rc     = snap.get("recovery_count", 0)
+        retry  = self._run_retry_count
+        score  = (
+            100.0
+            - (wf    * HEALTH_SCORE_WRITE_FAILURE_PENALTY)
+            - (retry * HEALTH_SCORE_RETRY_PENALTY)
+            - (qd    * HEALTH_SCORE_QUEUE_DEPTH_PENALTY)
+            - (rc    * 0.3)  # recovery items also penalise score
+        )
+        return round(max(0.0, min(100.0, score)), 2)
+
+    def get_state(self) -> Dict[str, Any]:
+        """
+        Return complete health state dict for GET /api/health.
+        Thread-safe. Never raises.
+        """
+        try:
+            snap = WriteQueue.metrics_snapshot()
+            with self._lock:
+                return {
+                    "platform": "CYBERDUDEBIVASH® SENTINEL APEX",
+                    "version": "v132.3.0",
+                    "state": self._state,
+                    "health_score": self.health_score(),
+                    "ingestion_paused": self._ingestion_paused,
+                    "consecutive_degraded_runs": self._consecutive_degraded_runs,
+                    "throttle_active": self._is_throttle_active(),
+                    "current_max_concurrent_writes": _current_max_concurrent_writes,
+                    "current_write_delay_ms": _current_write_delay_ms,
+                    "write_queue_depth": snap.get("write_queue_depth", 0),
+                    "write_failures": snap.get("write_failures", 0),
+                    "recovery_count": snap.get("recovery_count", 0),
+                    "write_count": snap.get("write_count", 0),
+                    "write_latency_avg_ms": snap.get("write_latency_avg_ms", 0.0),
+                    "thresholds": {
+                        "degraded_queue_threshold": DEGRADED_QUEUE_THRESHOLD,
+                        "degraded_recovery_threshold": DEGRADED_RECOVERY_THRESHOLD,
+                        "critical_recovery_threshold": CRITICAL_RECOVERY_THRESHOLD,
+                        "critical_degraded_runs": CRITICAL_DEGRADED_RUNS,
+                    },
+                    "last_tick": self._last_tick_ts,
+                    "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    "recent_events": list(self._events[-10:]),
+                }
+        except Exception as e:
+            return {
+                "state": SYSTEM_STATE_HEALTHY,
+                "health_score": 100.0,
+                "error": str(e),
+                "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            }
+
+    def assert_healthy(self) -> None:
+        """
+        Assert system is not CRITICAL. Raises SystemCriticalError if CRITICAL.
+        Call at pipeline ingestion gate to block new work when degraded.
+        """
+        with self._lock:
+            if self._state == SYSTEM_STATE_CRITICAL:
+                raise SystemCriticalError(
+                    f"Pipeline blocked: system is CRITICAL "
+                    f"(consecutive_degraded_runs={self._consecutive_degraded_runs}). "
+                    f"Run scripts/recovery_replay.py to clear recovery backlog."
+                )
+            if self._ingestion_paused and self._state == SYSTEM_STATE_DEGRADED:
+                log.warning(
+                    "SystemHealthMonitor.assert_healthy: DEGRADED — "
+                    "ingestion paused; new work will be throttled."
+                )
+
+    def reset_run_counters(self) -> None:
+        """Reset per-pipeline-run counters. Call at start of each pipeline run."""
+        with self._lock:
+            self._run_write_failures = 0
+            self._run_retry_count = 0
+            self._run_recovery_count = 0
+
+    def record_retry(self, count: int = 1) -> None:
+        """Record write retries from the pipeline."""
+        with self._lock:
+            self._run_retry_count += count
+
+    # ── Internal helpers ──────────────────────────────────────────────────────
+
+    def _evaluate_state(self, queue_depth: int, recovery_count: int) -> str:
+        """Pure state evaluation — no side effects."""
+        if (recovery_count > CRITICAL_RECOVERY_THRESHOLD
+                or self._consecutive_degraded_runs >= CRITICAL_DEGRADED_RUNS):
+            return SYSTEM_STATE_CRITICAL
+        if (queue_depth > DEGRADED_QUEUE_THRESHOLD
+                or recovery_count > DEGRADED_RECOVERY_THRESHOLD):
+            return SYSTEM_STATE_DEGRADED
+        return SYSTEM_STATE_HEALTHY
+
+    @staticmethod
+    def _is_throttle_active() -> bool:
+        return _throttle_active
+
+    def _record_event(self, event_type: str, details: Dict[str, Any]) -> None:
+        """Append a structured event to the rolling event log (max 100 entries)."""
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "event": event_type,
+            **details,
+        }
+        self._events.append(entry)
+        if len(self._events) > 100:
+            self._events = self._events[-100:]
+
+    def _persist(self) -> None:
+        """
+        Atomically persist health state to data/logs/system_health.json.
+        Never raises — persistence failure is non-fatal.
+        """
+        try:
+            state_doc = self.get_state()
+            self._health_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self._health_path.with_suffix(".json.tmp")
+            tmp.write_text(
+                json.dumps(state_doc, indent=2, ensure_ascii=False, default=str),
+                encoding="utf-8",
+            )
+            try:
+                os.replace(str(tmp), str(self._health_path))
+            except OSError:
+                self._health_path.write_text(
+                    json.dumps(state_doc, indent=2, ensure_ascii=False, default=str),
+                    encoding="utf-8",
+                )
+                try:
+                    tmp.unlink(missing_ok=True)
+                except Exception:
+                    pass
+            log.debug("SystemHealthMonitor: persisted state=%s score=%.1f",
+                      self._state, state_doc.get("health_score", 0))
+        except Exception as persist_err:
+            log.warning("SystemHealthMonitor: persist failed (non-fatal): %s", persist_err)
+
+
+# ---------------------------------------------------------------------------
+# Module-level SystemHealthMonitor singleton
+# ---------------------------------------------------------------------------
+# Import-safe: zero I/O at instantiation. Thread-safe singleton.
+# Usage:
+#   from scripts.safe_io import health_monitor
+#   health_monitor.tick()
+#   state = health_monitor.get_state()
+health_monitor = SystemHealthMonitor()
