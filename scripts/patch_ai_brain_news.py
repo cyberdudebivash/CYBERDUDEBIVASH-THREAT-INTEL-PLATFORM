@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v130.1.0 - AI Brain + CDB_NEWS Permanent Patcher
+SENTINEL APEX v134.0.0 - AI Brain + CDB_NEWS Permanent Patcher
 Reads ai_brain_patch.js and injects it into index.html before </body>.
 IDEMPOTENT - safe to call on every pipeline run.
 Called by sentinel-blogger.yml AFTER update_embedded_intel.py
@@ -11,8 +11,8 @@ SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 REPO    = os.path.dirname(SCRIPTS)
 INDEX   = os.path.join(REPO, "index.html")
 JS_TPL  = os.path.join(SCRIPTS, "ai_brain_patch.js")
-MARKER  = "<!-- CDB-AI-BRAIN-INIT-v130 -->"
-ENDMRK  = "<!-- /CDB-AI-BRAIN-INIT-v130 -->"
+MARKER  = "<!-- CDB-AI-BRAIN-INIT-v134 -->"
+ENDMRK  = "<!-- /CDB-AI-BRAIN-INIT-v134 -->"
 
 # ── Validate inputs ────────────────────────────────────────────────────────────
 if not os.path.exists(INDEX):

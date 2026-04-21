@@ -225,7 +225,7 @@ class PublicAPIHandler:
                 manifest = json.load(f)
             if isinstance(manifest, list):
                 return manifest
-            # v132 schema uses "advisories"; legacy used "entries"
+            # v134 schema uses "advisories"; legacy used "entries"
             return manifest.get("advisories", manifest.get("entries", []))
         except Exception as e:
             logger.warning(f"Public API manifest load failed: {e}")

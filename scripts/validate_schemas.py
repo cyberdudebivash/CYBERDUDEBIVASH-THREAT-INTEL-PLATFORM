@@ -2,7 +2,7 @@
 """
 CYBERDUDEBIVASH® SENTINEL APEX — Schema Validation + Regression Guard
 =======================================================================
-Version     : v103.0
+Version     : v134.0
 Purpose     : Validate api/engines.json and api/ai/*.json schemas before
               deploy. Enforces data contracts so frontend/backend never
               diverge. Exits non-zero if any critical contract is violated.
@@ -348,13 +348,13 @@ def validate_priority_consistency() -> None:
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="SENTINEL APEX Schema Validator v103")
+    parser = argparse.ArgumentParser(description="SENTINEL APEX Schema Validator v134")
     parser.add_argument("--strict", action="store_true",
                         help="Exit 1 on ANY warning (CI pre-deploy mode)")
     args = parser.parse_args()
 
     print("=" * 66)
-    print("SENTINEL APEX v103 — Schema Validation + Regression Guard")
+    print("SENTINEL APEX v134 — Schema Validation + Regression Guard")
     print("=" * 66)
 
     validate_engines()

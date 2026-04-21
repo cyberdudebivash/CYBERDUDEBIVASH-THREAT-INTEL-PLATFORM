@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 core/intelligence/synthetic_engine.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.0 -- SYNTHETIC INTEL ENGINE
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0 -- SYNTHETIC INTEL ENGINE
 ==================================================================
 Guarantees EVERY pipeline run produces fresh, high-value intelligence.
 
@@ -401,7 +401,7 @@ def generate_synthetic_intel(
             "status":           "active",
             "published":        True,
             "synthetic":        True,
-            "schema_version":   "v131.0",
+            "schema_version":   "v134.0",
             "generated_at":     now.isoformat().replace("+00:00", "Z"),
         }
         items.append(item)

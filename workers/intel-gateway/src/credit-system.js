@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Credit System v130.0.0
+// CYBERDUDEBIVASH® SENTINEL APEX — Credit System v134.0.0
 // Phase 2: Token/Credit model — balance management, tier enforcement, billing
 // Phase 3: Billing engine — 402 on exhaustion, blocking gate, billing_status
 // Phase 9: Security — no negative credits, no bypass, all paths gated

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-cache.py — CYBERDUDEBIVASH® SENTINEL APEX v47.0 (COMMAND CENTER)
+cache.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0 (COMMAND CENTER)
 ═══════════════════════════════════════════════════════════════════
 Redis Cache Engine with in-memory LRU fallback.
 

@@ -2,7 +2,7 @@
 """
 CYBERDUDEBIVASH® SENTINEL APEX — Internal Report Generator
 ===========================================================
-Version : v133.0
+Version : v134.0
 Purpose : Generate a self-contained HTML Tactical Dossier for every intel entry
           BEFORE the manifest entry is written. This ensures report_url always
           points to a physical file that exists on disk.
@@ -23,11 +23,14 @@ Standalone usage:
 """
 from __future__ import annotations
 
+import sys
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 import html as _html
 import json
 import logging
 import os
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -238,6 +241,7 @@ def _build_html(
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>{title} — {PLATFORM_NAME}</title>
   <meta name="description" content="Threat intelligence dossier: {title}"/>
@@ -428,7 +432,7 @@ def generate_reports_from_manifest(
             expected_path = Path(reports_base) / yyyy / mm / f"{intel_id}.html"
 
         if skip_existing and expected_path.exists() and expected_path.stat().st_size > 500:
-            # v134.1 P0 FIX: Verify the file is actually valid HTML, not a JSON stub.
+            # v134.0 P0 FIX: Verify the file is actually valid HTML, not a JSON stub.
             # Prior pipeline runs may have written manifest-entry JSON to the .html path.
             # If the file starts with '{' (JSON) or lacks an HTML doctype signature,
             # fall through and regenerate it — do NOT skip.

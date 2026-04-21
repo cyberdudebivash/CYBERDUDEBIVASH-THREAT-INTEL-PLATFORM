@@ -1,5 +1,5 @@
 """
-core/ingestion/ingestion_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v123.0
+core/ingestion/ingestion_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 Main ingestion orchestrator for all threat intelligence sources.
 
 Architecture:
@@ -241,7 +241,7 @@ class IngestionMetrics:
     total_enqueued:         int = 0
     total_deduplicated:     int = 0
     total_normalized:       int = 0
-    total_quality_rejected: int = 0   # v123.0 — items failing quality gate
+    total_quality_rejected: int = 0   # v134.0 — items failing quality gate
     total_stored:           int = 0
     total_errors:           int = 0
     source_metrics:         Dict[str, Dict[str, Any]] = field(default_factory=lambda: defaultdict(dict))
@@ -299,7 +299,7 @@ class IngestionEngine:
         self._normalizer = Normalizer()
         self._metrics    = IngestionMetrics()
 
-        # v123.0 — Quality gate (source trust, exploit maturity, confidence)
+        # v134.0 — Quality gate (source trust, exploit maturity, confidence)
         qg_cfg = self._config.get("quality_guard", {})
         self._quality_guard = QualityGuard(
             min_words=qg_cfg.get("min_words", 300),

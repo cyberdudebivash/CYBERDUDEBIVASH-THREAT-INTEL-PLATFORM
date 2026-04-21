@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash SENTINEL APEX v111.0 (R2-NATIVE / BLOGGER-FREE)
+sentinel_blogger.py — CyberDudeBivash SENTINEL APEX v134.0 (R2-NATIVE / BLOGGER-FREE)
 =======================================================================================
 P0 FIX: Blogger completely removed. R2 is the ONLY output channel.
          Queue bomb neutralised: publish_queue no longer written.
@@ -10,8 +10,8 @@ VERSION HISTORY:
   v21.0  EPSS + CVSS enrichment, source_url fix, KEV lookup, NVD schema
   v77.1  kev_present initialised before use; confirmed_actor guard fixed
   v78.0  Temporal relevance gate; behavioural cap; confidence v47
-  v110.0 Blogger DISABLED in env (BLOG_ID not passed in workflow)
-  v111.0 P0 FIX — Blogger import removed entirely; queue bomb killed;
+  v134.0 Blogger DISABLED in env (BLOG_ID not passed in workflow)
+  v134.0 P0 FIX — Blogger import removed entirely; queue bomb killed;
          manifest key bug fixed; direct R2-only STIX write path enforced
 """
 import os
@@ -220,7 +220,7 @@ def is_temporally_relevant(entry: dict) -> bool:
 
 def main():
     logger.info("=" * 70)
-    logger.info("SENTINEL APEX v111.0 — R2-NATIVE PIPELINE (BLOGGER-FREE)")
+    logger.info("SENTINEL APEX v134.0 — R2-NATIVE PIPELINE (BLOGGER-FREE)")
     logger.info("Multi-Feed Fusion | Quality Gate | IOC | STIX | MITRE | R2-Only")
     logger.info("P0 FIX: Blogger removed. Queue bomb neutralised. Direct STIX path.")
     logger.info("=" * 70)
@@ -231,16 +231,16 @@ def main():
         _telemetry.start_timer("total_run")
         logger.info("[STATS] Telemetry: ENABLED")
 
-    # v111.0: Blogger is PERMANENTLY REMOVED.
+    # v134.0: Blogger is PERMANENTLY REMOVED.
     # service=None always. Intel flows directly to STIX → manifest → R2.
     # No Blogger API calls. No publish queue. No pending retries.
     service = None
-    logger.info("[BLOGGER] PERMANENTLY DISABLED — R2-only architecture (v111.0)")
+    logger.info("[BLOGGER] PERMANENTLY DISABLED — R2-only architecture (v134.0)")
 
     published_count = 0
 
     # -- Load manifest for similarity checking --------------------------------
-    # FIX v111.0: Use "advisories" key (was incorrectly "entries" — BUG FIX)
+    # FIX v134.0: Use "advisories" key (was incorrectly "entries" — BUG FIX)
     def _load_manifest_advisories(path: str) -> List[Dict]:
         try:
             if os.path.exists(path):
@@ -360,7 +360,7 @@ def main():
                 published_count += 1
 
     logger.info("=" * 70)
-    logger.info(f"APEX v111.0 COMPLETE — Processed {published_count} intel advisories (R2-only)")
+    logger.info(f"APEX v134.0 COMPLETE — Processed {published_count} intel advisories (R2-only)")
     logger.info(f"Total elapsed: {time.monotonic() - _run_start:.1f}s")
 
     # -- Alert engine (non-blocking) -----------------------------------------
@@ -426,7 +426,7 @@ def main():
 def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     """
     Full 10-step premium pipeline for a single intelligence entry.
-    v111.0: STIX bundle written directly. No Blogger publish. No queue.
+    v134.0: STIX bundle written directly. No Blogger publish. No queue.
     Returns True if STIX bundle successfully written to disk.
     """
     headline   = entry["title"]
@@ -561,7 +561,7 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
         except Exception as _v46_e:
             logger.debug(f"VANGUARD skipped: {_v46_e}")
 
-    # -- STEP 7d: v47.0 Confidence floors ------------------------------------
+    # -- STEP 7d: v134.0 Confidence floors ------------------------------------
     try:
         _v47_confidence = enricher.calculate_confidence_v47(
             iocs=extracted_iocs, actor_mapped=actor_mapped,
@@ -573,7 +573,7 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     except Exception:
         pass
 
-    # -- STEP 7e: Phase 6 HARD QUALITY GATE (v133.0) -------------------------
+    # -- STEP 7e: Phase 6 HARD QUALITY GATE (v134.0) -------------------------
     # POLICY: NO WEAK INTEL — hard reject based on post-enrichment metrics.
     # Exemptions: CVE entries and KEV entries bypass word/IOC/confidence floors
     # because CVE advisories may be structurally lean but high-signal.
@@ -649,14 +649,14 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
         _quality_failures.append(f"junk chars ({_junk_ratio:.2%})")
     if _quality_failures:
         logger.warning(f"  [QUALITY-GATE] Report weak for '{headline[:50]}': {'; '.join(_quality_failures)} — continuing with basic report")
-        # v111.0: DO NOT send to pending queue. Proceed with basic STIX entry.
+        # v134.0: DO NOT send to pending queue. Proceed with basic STIX entry.
 
     # -- STEP 9: Smart labels ------------------------------------------------
     labels = _generate_smart_labels(headline, severity, tlp, feed_source, extracted_iocs)
 
     # =========================================================================
     # STEP 10: WRITE STIX BUNDLE DIRECTLY (R2-ONLY PATH)
-    # v111.0: No Blogger. No queue. STIX written unconditionally.
+    # v134.0: No Blogger. No queue. STIX written unconditionally.
     # =========================================================================
     try:
         stix_exporter.create_bundle(

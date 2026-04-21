@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/sanitize_repo.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.1.0 — Production JSON Sanitizer & Self-Healing Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 — Production JSON Sanitizer & Self-Healing Engine
 ============================================================================================
 Runs as the FIRST step in sentinel-blogger.yml and deploy-worker.yml (after checkout,
 before ANY Python or validation step).
@@ -77,7 +77,7 @@ SKIP_DIRS = {
 # Files that have known minimal fallback structures when unrecoverable
 MANIFEST_FALLBACKS: Dict[str, Any] = {
     "data/stix/feed_manifest.json": {
-        "version": "v114.0",
+        "version": "v134.0",
         "schema_version": "v70.0",
         "platform": "SENTINEL-APEX",
         "generated_at": "",  # filled at runtime
@@ -89,7 +89,7 @@ MANIFEST_FALLBACKS: Dict[str, Any] = {
         "_reason": "JSON corruption detected and auto-healed",
     },
     "data/feed_manifest.json": {
-        "version": "v114.0",
+        "version": "v134.0",
         "schema_version": "v70.0",
         "platform": "SENTINEL-APEX",
         "generated_at": "",
@@ -108,7 +108,7 @@ MANIFEST_FALLBACKS: Dict[str, Any] = {
     "config/version.json": {
         "version": "131.0.0",
         "platform": "SENTINEL-APEX",
-        "build": "v131.1.0",
+        "build": "v134.0.0",
         "_regenerated_by": "sanitize_repo.py",
     },
     # Root feed.json -- must always be a valid JSON array (never YAML content)
@@ -441,7 +441,7 @@ def write_security_hub_kv(events: List[SanitizeEvent], log_path: pathlib.Path) -
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX — JSON Sanitizer & Self-Healing Engine v131.1.0"
+        description="SENTINEL APEX — JSON Sanitizer & Self-Healing Engine v134.0.0"
     )
     parser.add_argument("--dry-run", action="store_true", help="Report only, no writes")
     parser.add_argument("--json", dest="json_output", action="store_true",
@@ -454,7 +454,7 @@ def main() -> None:
     t_start = time.monotonic()
 
     print("=" * 72)
-    print("SENTINEL APEX — JSON Sanitizer & Self-Healing Engine v131.1.0")
+    print("SENTINEL APEX — JSON Sanitizer & Self-Healing Engine v134.0.0")
     print(f"Root   : {root}")
     print(f"Mode   : {'DRY-RUN (no writes)' if args.dry_run else 'FIX (auto-heal enabled)'}")
     print("=" * 72)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-anomaly_detector.py — CYBERDUDEBIVASH® SENTINEL APEX v123.0.0
+anomaly_detector.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0.0
 ════════════════════════════════════════════════════════════════════════════════
 Unknown Threat Detection Engine
 
@@ -622,7 +622,7 @@ class AnomalyDetector:
                 }
             return {
                 "module": "AnomalyDetector",
-                "version": "v123.0.0",
+                "version": "v134.0.0",
                 "algorithm": "IsolationForest + StatisticalOutlier",
                 "fitted": self._fitted,
                 "baseline_size": self._baseline_size,

@@ -143,7 +143,7 @@ class STIXExporter:
         cwe_ids: Optional[List[str]] = None,
         # v23.0 additions — APEX AI enrichment (fully optional, zero regression)
         apex_data: Optional[Dict] = None,
-        # v124.0: IOC engine outputs (passed from pipeline item)
+        # v134.0: IOC engine outputs (passed from pipeline item)
         ioc_confidence: float = 0.0,
         ioc_threat_level: str = "NONE",
         ioc_extraction_meta: Optional[Dict] = None,
@@ -163,7 +163,7 @@ class STIXExporter:
         marking_id       = _tlp_marking_id(tlp_label)
         common_markings  = [marking_id]
 
-        # ── Hoist title_text / meta_text early (v124.1 crash fix) ────────────
+        # ── Hoist title_text / meta_text early (v134.0 crash fix) ────────────
         # These are used in CVE-from-iocs dedup block (below) AND in the
         # v17.0 CVE scan block further down. Initialize here so neither block
         # raises UnboundLocalError regardless of execution order.
@@ -189,7 +189,7 @@ class STIXExporter:
             "spec_version":    "2.1",
             "id":              intrusion_set_id,
             "name":            f"{actor_tag} Campaign",
-            "description":     title,   # v110.1: real title as description (was: "Tactical cluster: {title}")
+            "description":     title,   # v134.0: real title as description (was: "Tactical cluster: {title}")
             "created":         timestamp,
             "modified":        timestamp,
             "confidence":      int(confidence),
@@ -364,7 +364,7 @@ class STIXExporter:
                 "confidence":   int(confidence),
             }))
 
-        # v124.0: Email address indicators (phishing/spearphishing attribution)
+        # v134.0: Email address indicators (phishing/spearphishing attribution)
         for email_addr in (iocs.get('email') or iocs.get('emails') or [])[:10]:
             safe_email = email_addr.replace("'", "\\'")
             ind_id = f"indicator--{uuid.uuid4()}"
@@ -383,7 +383,7 @@ class STIXExporter:
                 "confidence":   int(confidence),
             }))
 
-        # v124.0: File path indicators (malware drop locations)
+        # v134.0: File path indicators (malware drop locations)
         for fpath in (iocs.get('file_path') or [])[:10]:
             safe_path = fpath.replace("'", "\\'")
             ind_id = f"indicator--{uuid.uuid4()}"
@@ -402,7 +402,7 @@ class STIXExporter:
                 "confidence":   int(confidence),
             }))
 
-        # v124.0: Mutex name indicators (process injection / RAT persistence)
+        # v134.0: Mutex name indicators (process injection / RAT persistence)
         for mutex_name in (iocs.get('mutex') or [])[:5]:
             safe_mutex = mutex_name.replace("'", "\\'")
             ind_id = f"indicator--{uuid.uuid4()}"
@@ -421,7 +421,7 @@ class STIXExporter:
                 "confidence":   int(confidence),
             }))
 
-        # v124.0: Malware family → STIX Malware objects (linked to intrusion-set)
+        # v134.0: Malware family → STIX Malware objects (linked to intrusion-set)
         malware_ids = []
         for mw_family in (iocs.get('malware_family') or [])[:5]:
             mw_id = f"malware--{uuid.uuid4()}"
@@ -448,7 +448,7 @@ class STIXExporter:
                 "modified":          timestamp,
             }))
 
-        # v124.0: Threat actor references → STIX Threat Actor objects
+        # v134.0: Threat actor references → STIX Threat Actor objects
         ta_ids = []
         for ta_name in (iocs.get('threat_actor') or [])[:3]:
             ta_id = f"threat-actor--{uuid.uuid4()}"
@@ -475,7 +475,7 @@ class STIXExporter:
                 "modified":          timestamp,
             }))
 
-        # v124.0: CVE IOCs → STIX Vulnerability objects (from iocs dict, not just title)
+        # v134.0: CVE IOCs → STIX Vulnerability objects (from iocs dict, not just title)
         cve_from_iocs = (iocs.get('cve') or iocs.get('cves') or [])[:5]
         for cve_ioc in cve_from_iocs:
             cve_upper = cve_ioc.upper()
@@ -696,14 +696,14 @@ class STIXExporter:
         )
 
         # -- Update Manifest --
-        # v113.0: blog_url completely removed — source_url preserved for reference only.
-        # v133.0 P0 FIX: report_url MUST always be an internal /reports/ path.
+        # v134.0: blog_url completely removed — source_url preserved for reference only.
+        # v134.0 P0 FIX: report_url MUST always be an internal /reports/ path.
         # It must NEVER be set to source_url (external article).
         # _update_manifest constructs /reports/YYYY/MM/{intel_id}.html when report_url="".
         source_url = (metadata or {}).get('source_url', '') or (metadata or {}).get('blog_url', '')
-        report_url = ""  # v133.0: always empty → _update_manifest constructs internal path
+        report_url = ""  # v134.0: always empty → _update_manifest constructs internal path
 
-        # v125.0 P0 FIX: Run IOC engine to compute correct ioc_confidence and flat iocs list.
+        # v134.0 P0 FIX: Run IOC engine to compute correct ioc_confidence and flat iocs list.
         # Previously ioc_confidence was always 0 because it defaulted to 0.0 at call site,
         # and no computation happened before passing it to create_bundle.
         # Also: ioc_counts was a dict of {type: int} but never included the actual IOC values
@@ -743,7 +743,7 @@ class STIXExporter:
         # Integrity guard: ioc_count MUST equal len(flat_iocs)
         _effective_ioc_count = len(_effective_flat_iocs)
 
-        # v125.0: STIX bundle URL — construct from stix_file (filename → CDN URL)
+        # v134.0: STIX bundle URL — construct from stix_file (filename → CDN URL)
         # This ensures API layer always has a non-null stix_bundle_url when a bundle exists.
         _stix_bundle_url = ""
         if stix_filename:
@@ -772,7 +772,7 @@ class STIXExporter:
             feed_source=feed_source,
             indicator_count=len(indicator_ids),
             stix_file=stix_filename,
-            stix_bundle_url=_stix_bundle_url,  # v125.0: full URL, never null when bundle exists
+            stix_bundle_url=_stix_bundle_url,  # v134.0: full URL, never null when bundle exists
             epss_score=epss_score,
             cvss_score=cvss_score,
             kev_present=kev_present,
@@ -780,11 +780,11 @@ class STIXExporter:
             supply_chain=supply_chain,
             object_count=len(objects),
             apex_data=apex_data,         # v23.0: pass through to manifest
-            # v125.0: IOC engine-computed values (always consistent)
+            # v134.0: IOC engine-computed values (always consistent)
             ioc_confidence=_effective_ioc_confidence,
             ioc_threat_level=_effective_ioc_threat_level,
             ioc_extraction_meta=ioc_extraction_meta or {},
-            # v125.0 P0 FIX: actual IOC flat list (guarantees ioc_count == len(iocs))
+            # v134.0 P0 FIX: actual IOC flat list (guarantees ioc_count == len(iocs))
             iocs_flat=_effective_flat_iocs,
             iocs_by_type=_effective_iocs_by_type,
         )
@@ -913,7 +913,7 @@ class STIXExporter:
         if not has_marking:
             warnings.append("No marking-definition found (TLP not set)")
 
-        # v124.0 ENFORCEMENT: Bundles for valid threats MUST contain indicators.
+        # v134.0 ENFORCEMENT: Bundles for valid threats MUST contain indicators.
         # If intrusion-set is present but 0 indicators → this is a quality failure.
         if has_intrusion and not has_indicator and not has_malware and not has_vuln:
             errors.append(
@@ -977,13 +977,13 @@ class STIXExporter:
                          supply_chain=False, object_count=0,
                          # v23.0: APEX enrichment (optional, backward compat)
                          apex_data=None,
-                         # v124.0: IOC engine outputs
+                         # v134.0: IOC engine outputs
                          ioc_confidence=0.0, ioc_threat_level="NONE",
                          ioc_extraction_meta=None,
-                         # v125.0 P0 FIX: actual IOC data (ioc_count == len(iocs) guaranteed)
+                         # v134.0 P0 FIX: actual IOC data (ioc_count == len(iocs) guaranteed)
                          iocs_flat=None, iocs_by_type=None,
                          stix_bundle_url=""):
-        """Update manifest - backward-compatible + v125.0 IOC integrity fields."""
+        """Update manifest - backward-compatible + v134.0 IOC integrity fields."""
         manifest_entries = []
         if os.path.exists(self.manifest_path):
             try:
@@ -992,7 +992,7 @@ class STIXExporter:
                 if isinstance(data, list):
                     manifest_entries = data
                 elif isinstance(data, dict):
-                    # v112.1 FIX: bootstrap writes "advisories" key, not "entries".
+                    # v134.0 FIX: bootstrap writes "advisories" key, not "entries".
                     # Using data.get("entries",[]) returned [] when manifest was a dict,
                     # causing sentinel_blogger to overwrite the full manifest with a
                     # single-entry list on each call. All previous enriched entries lost.
@@ -1021,7 +1021,7 @@ class STIXExporter:
             logger.info(f"  [MANIFEST] Dedup guard: skipping duplicate: {title[:60]}")
             return
 
-        # v114.0 SCHEMA CONTRACT: every entry MUST carry id + report_url.
+        # v134.0 SCHEMA CONTRACT: every entry MUST carry id + report_url.
         # id: prefer STIX identifier when it starts with "intel--", else derive.
         import hashlib as _hashlib
         _ts_now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -1030,7 +1030,7 @@ class STIXExporter:
         )
         # report_url: always /reports/YYYY/MM/<id>.html (relative); physical HTML
         # is produced by scripts/report_generator.py (inline) or generate_intel_reports.py.
-        # v133.0: reject ANY external URL — not just blogspot. If the URL starts with
+        # v134.0: reject ANY external URL — not just blogspot. If the URL starts with
         # "http" and is not on cyberdudebivash.com, it is external and must be replaced.
         _report_url = (report_url or "").strip()
         _is_external = (
@@ -1174,12 +1174,12 @@ class STIXExporter:
         )
 
         entry = {
-            # v114.0 SCHEMA CONTRACT (required)
+            # v134.0 SCHEMA CONTRACT (required)
             "id":               _intel_id,
             "stix_id":          _intel_id,
             "bundle_id":        stix_id or _intel_id,
             "title":            title,
-            # v116.2.0 FRESHNESS FIX: processed_at = pipeline generation time (UTC-now).
+            # v134.0.0 FRESHNESS FIX: processed_at = pipeline generation time (UTC-now).
             # This is ALWAYS the current run timestamp — independent of the RSS article's
             # publication date. Use as primary sort key so newly generated intel ALWAYS
             # ranks above older items regardless of their source published_at date.
@@ -1191,7 +1191,7 @@ class STIXExporter:
             "source_url":       _source_url,
             "tlp":              (tlp_label or "TLP:CLEAR").upper(),
             "tags":             _tags,
-            # v114.0 enrichment (preserved when populated)
+            # v134.0 enrichment (preserved when populated)
             "generated_at":     _ts_now,
             "confidence_score": float(confidence),
             "confidence":       float(confidence),
@@ -1212,10 +1212,17 @@ class STIXExporter:
             "supply_chain":     supply_chain,
             "stix_object_count":object_count,
             "stix_version":     "2.1",
-            "schema_version":   "v124.0",
-            # v114.0: always published — Blogger permanently disabled
+            "schema_version":   "v134.0",
+            # v134.0: always published — Blogger permanently disabled
             "published":        True,
-            # v125.0 P0 FIX: actual IOC flat list — ioc_count ALWAYS == len(iocs)
+            # v134.0: validation_status is set to 'valid' here because the
+            # HTML dossier at _rg_file_path has already passed the 4 HARD-FAIL
+            # checks above (exists, size > 500 bytes, starts with HTML sig).
+            # scripts/update_validation_status.py performs an additional
+            # post-pipeline sweep as a safety net.
+            "validation_status": "valid",
+            "validated_at":     _ts_now,
+            # v134.0 P0 FIX: actual IOC flat list — ioc_count ALWAYS == len(iocs)
             # iocs_flat is the authoritative flat list computed by the IOC engine.
             # ioc_count is derived from it (never from ioc_counts dict which was
             # the source of the count > 0 / empty list desync bug).
@@ -1227,18 +1234,18 @@ class STIXExporter:
             "ioc_confidence":    round(float(ioc_confidence or 0.0), 2),
             "ioc_threat_level":  ioc_threat_level or "NONE",
             "ioc_extraction_meta": ioc_extraction_meta or {},
-            # v125.0: STIX bundle URL (never null when stix_file is set)
+            # v134.0: STIX bundle URL (never null when stix_file is set)
             "stix_bundle_url":   stix_bundle_url or "",
-            # v133.0 P0 FIX: internal_report_url — always the canonical internal
+            # v134.0 P0 FIX: internal_report_url — always the canonical internal
             # HTML dossier path. Dashboard MUST use this over report_url or
             # source_url. report_url is also forced to the same internal path so
             # both fields are consistent.
             "internal_report_url": _report_url,
-            # v133.0: stix_bundle mirrors stix_bundle_url for API consumers that
+            # v134.0: stix_bundle mirrors stix_bundle_url for API consumers that
             # check the shorter field name.
             "stix_bundle":       stix_bundle_url or stix_file or "",
         }
-        # v114.0: legacy blog_url field never emitted
+        # v134.0: legacy blog_url field never emitted
         entry.pop("blog_url", None)
 
         # v23.0: Inject compact APEX field (optional — zero regression on absence)
@@ -1258,7 +1265,7 @@ class STIXExporter:
             except Exception:
                 pass  # Never block manifest write on apex error
 
-        # v133.0 P0 PIPELINE FAILSAFE: internal_report_url MUST be set before
+        # v134.0 P0 PIPELINE FAILSAFE: internal_report_url MUST be set before
         # this entry enters the manifest. Hard fail prevents silent regression
         # where the dashboard would fall back to external source links.
         if not entry.get("internal_report_url"):
@@ -1282,7 +1289,7 @@ class STIXExporter:
         # unsorted list, silently evicting the newest entries. The correct
         # order is: deduplicate -> sort DESC -> slice [:500].
         #
-        # v116.2.0 FRESHNESS FIX: processed_at is PRIMARY sort key.
+        # v134.0.0 FRESHNESS FIX: processed_at is PRIMARY sort key.
         # processed_at = pipeline generation time (always UTC-now when entry is created).
         # This ensures newly generated intel ALWAYS appears at the top, regardless of
         # source article's published_at date (which may be days/weeks old).

@@ -1,5 +1,5 @@
 """
-core/billing — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+core/billing — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 Subscription lifecycle state machine + atomic usage metering.
 """
 from .subscription import SubscriptionStateMachine, SubscriptionState, SubscriptionEvent

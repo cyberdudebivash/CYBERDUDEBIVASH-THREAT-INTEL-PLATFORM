@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ===============================================================================
-CYBERDUDEBIVASH SENTINEL APEX v114.0 — SOVEREIGN BOOTSTRAP
+CYBERDUDEBIVASH SENTINEL APEX v134.0 — SOVEREIGN BOOTSTRAP
 ===============================================================================
 Single-source-of-truth bootstrap. Rebuilds data/stix/feed_manifest.json from
 ONE source only: the live STIX bundles in data/stix/CDB-APEX-*.json produced
@@ -23,7 +23,7 @@ Every entry emitted by this bootstrap SATISFIES THE SCHEMA CONTRACT:
     tlp          : TLP marking
     tags         : list[str]
 
-v114.0 changes vs v113.x:
+v134.0 changes vs v134.x:
   * Removed stale manifest UNION (root cause of 2-day-old intel regression)
   * Removed pre_run snapshot loader
   * Removed apex_enriched / apex_v2 / validated_manifest ingress
@@ -51,7 +51,7 @@ REPO_ROOT       = Path(__file__).resolve().parent.parent
 STIX_DIR        = REPO_ROOT / "data" / "stix"
 MANIFEST_PATH   = STIX_DIR / "feed_manifest.json"
 REPORTS_ROOT    = REPO_ROOT / "reports"
-PLATFORM_VERSION= "v114.0"
+PLATFORM_VERSION= "v134.0"
 MAX_MANIFEST_ENTRIES = 500
 
 BRAND_KEYWORDS = (

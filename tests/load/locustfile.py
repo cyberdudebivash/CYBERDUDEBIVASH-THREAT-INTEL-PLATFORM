@@ -1,5 +1,5 @@
 """
-tests/load/locustfile.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+tests/load/locustfile.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 Locust load test suite for production API endpoints.
 
 Test scenarios:

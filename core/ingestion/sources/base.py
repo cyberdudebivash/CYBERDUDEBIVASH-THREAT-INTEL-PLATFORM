@@ -1,5 +1,5 @@
 """
-core/ingestion/sources/base.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+core/ingestion/sources/base.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 Abstract base class for all threat intelligence ingestion sources.
 
 Contract:

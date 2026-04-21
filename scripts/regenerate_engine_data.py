@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-regenerate_engine_data.py — SENTINEL APEX v102 Engine Data Regenerator
+regenerate_engine_data.py — SENTINEL APEX v134 Engine Data Regenerator
 =======================================================================
 P0-7 / P0-8 / P0-9 / P0-10 ROOT CAUSE FIX
 
@@ -1001,7 +1001,7 @@ def generate_engines_api(genesis: Dict, nexus: Dict, items: List[Dict]) -> Dict:
 
 def main():
     log.info("=" * 60)
-    log.info("ENGINE DATA REGENERATOR — SENTINEL APEX v103")
+    log.info("ENGINE DATA REGENERATOR — SENTINEL APEX v134")
     log.info(f"Timestamp: {NOW_ISO}")
     log.info("=" * 60)
 

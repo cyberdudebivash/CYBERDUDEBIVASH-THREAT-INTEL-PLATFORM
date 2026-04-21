@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 core/revenue/payment_gateway.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.0 -- ENTERPRISE PAYMENT GATEWAY
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0 -- ENTERPRISE PAYMENT GATEWAY
 =======================================================================
 Dual-provider payment processing: Razorpay (India) + Stripe (Global)
 
@@ -212,7 +212,7 @@ class StripeGateway:
             for k, v in metadata.items():
                 data[f"metadata[{k}]"] = str(v)
         data["metadata[product]"]  = product.value
-        data["metadata[platform]"] = "SENTINEL-APEX-v131"
+        data["metadata[platform]"] = "SENTINEL-APEX-v134"
 
         result = self._api_call("POST", "/payment_intents", data)
         logger.info("Stripe PaymentIntent created: %s amount=$%.2f", result.get("id"), amount_usd)
@@ -235,7 +235,7 @@ class StripeGateway:
             "mode":        "subscription" if is_subscription else "payment",
             "line_items[0][quantity]": "1",
             "metadata[product]":  product.value,
-            "metadata[platform]": "SENTINEL-APEX-v131",
+            "metadata[platform]": "SENTINEL-APEX-v134",
         }
 
         if is_subscription:
@@ -328,7 +328,7 @@ class RazorpayGateway:
             "amount":   amount_inr,
             "currency": "INR",
             "receipt":  receipt_id or f"receipt_{secrets.token_hex(8)}",
-            "notes":    notes or {"product": product.value, "platform": "SENTINEL-APEX-v131"},
+            "notes":    notes or {"product": product.value, "platform": "SENTINEL-APEX-v134"},
         }
         result = self._api_call("POST", "/orders", data)
         logger.info("Razorpay order created: %s amount=INR%.2f (~$%.2f)",
@@ -625,7 +625,7 @@ class PaymentGateway:
     def get_pricing_page(self) -> Dict[str, Any]:
         """Return pricing data for the frontend dashboard."""
         return {
-            "version": "v131.0.0",
+            "version": "v134.0.0",
             "currency": "USD",
             "plans": [
                 {

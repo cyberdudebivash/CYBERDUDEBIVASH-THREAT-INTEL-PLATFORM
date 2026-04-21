@@ -1,5 +1,5 @@
 """
-core/ingestion/sources — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+core/ingestion/sources — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 Source adapters for threat intelligence ingestion pipeline.
 """
 from .base import (

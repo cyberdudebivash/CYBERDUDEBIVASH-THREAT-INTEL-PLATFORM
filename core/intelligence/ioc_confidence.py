@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 core/intelligence/ioc_confidence.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.0 -- IOC CONFIDENCE SCORING ENGINE
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0 -- IOC CONFIDENCE SCORING ENGINE
 =========================================================================
 Weighted confidence score (0-100%) per IOC.
 
@@ -66,7 +66,7 @@ class IOCConfidenceEngine:
     }
 
     def score(self, ioc: Dict[str, Any]) -> Dict[str, Any]:
-        # v131.1 P0 FIX: legacy manifest entries store IOCs as plain strings.
+        # v134.0 P0 FIX: legacy manifest entries store IOCs as plain strings.
         # dict("domain.com") raises ValueError — normalise to dict first.
         if isinstance(ioc, str):
             raw_val = ioc.strip()
@@ -155,7 +155,7 @@ class IOCConfidenceEngine:
     def ensure_minimum_confidence(self, iocs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         result = []
         for ioc in iocs:
-            # v131.1 P0 FIX: normalise string IOCs before any dict operations
+            # v134.0 P0 FIX: normalise string IOCs before any dict operations
             if isinstance(ioc, str):
                 ioc = self.score(ioc)
             elif "confidence" not in ioc:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/recovery_replay.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v132.3.0 — Recovery Replay Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 — Recovery Replay Engine
 ===================================================================
 Scans data/recovery/write_failures/, retries failed writes with
 exponential backoff, deletes blobs on success.
@@ -619,7 +619,7 @@ def assert_pipeline_write_guarantee(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="SENTINEL APEX v132.3 Recovery Replay Engine",
+        description="SENTINEL APEX v134.0 Recovery Replay Engine",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

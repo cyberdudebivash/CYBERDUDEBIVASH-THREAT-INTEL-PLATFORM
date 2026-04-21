@@ -1,5 +1,5 @@
 """
-core/ingestion/normalizer.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+core/ingestion/normalizer.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 Schema normalizer: maps heterogeneous RawIntelItem → unified IntelItem.
 
 Unified schema (IntelItem) is the canonical format consumed by:

@@ -1,5 +1,5 @@
 """
-SENTINEL APEX Core Module v47.0 — COMMAND CENTER
+SENTINEL APEX Core Module v134.0 — COMMAND CENTER
 ═══════════════════════════════════════════════════
 Centralized AI-driven cybersecurity intelligence platform.
 

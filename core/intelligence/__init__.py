@@ -1,5 +1,5 @@
 """
-CYBERDUDEBIVASH SENTINEL APEX v123.0.0
+CYBERDUDEBIVASH SENTINEL APEX v134.0.0
 Core Intelligence Package
 
 Provides the IOC Enrichment Graph Engine for multi-source threat intelligence

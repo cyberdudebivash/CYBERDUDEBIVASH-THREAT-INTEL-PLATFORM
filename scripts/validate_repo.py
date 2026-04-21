@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/validate_repo.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v132.0.0 -- Repository Validator
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Repository Validator
 ==================================================================
 HARD SCHEMA VALIDATION GATE — NO AUTO-HEAL.
 FINAL VALIDATION GATE -- runs after all other pipeline steps.
@@ -318,7 +318,7 @@ _VALID_SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN", ""}
 
 def _validate_single_intel(obj: dict, idx: int) -> list[str]:
     """
-    v132: STRICT hard validation — returns violation strings.
+    v134: STRICT hard validation — returns violation strings.
     All violations are HARD FAIL conditions (zero tolerance).
     NO auto-heal in this function — enforcement only.
     """
@@ -359,7 +359,7 @@ def _validate_single_intel(obj: dict, idx: int) -> list[str]:
         elif str(sev).upper() not in _VALID_SEVERITIES:
             errs.append(f"[{idx}/{sid}] V5: severity '{sev}' not in {_VALID_SEVERITIES}")
 
-    # ioc_count integrity — zero tolerance (v132: was 5% tolerance, now 0%)
+    # ioc_count integrity — zero tolerance (v134: was 5% tolerance, now 0%)
     iocs = obj.get("iocs")
     ioc_count = obj.get("ioc_count")
     if iocs is not None:
@@ -381,7 +381,7 @@ def _validate_single_intel(obj: dict, idx: int) -> list[str]:
             errs.append(f"[{idx}/{sid}] V6: risk_score='{rs}' is not numeric")
 
     # V10: processed entries must have valid report_url — INTERNAL path required.
-    # v133.0 P0 FIX: accept both:
+    # v134.0 P0 FIX: accept both:
     #   a) relative /reports/... paths (canonical internal format)
     #   b) https://intel.cyberdudebivash.com/reports/... (CDN-hosted)
     # REJECT: any external URL that is not on cyberdudebivash.com domain.
@@ -416,7 +416,7 @@ def _validate_single_intel(obj: dict, idx: int) -> list[str]:
 
 def check_intel_schema() -> CheckResult:
     """
-    v132 Check 6: HARD schema validation gate — zero tolerance.
+    v134 Check 6: HARD schema validation gate — zero tolerance.
 
     Enforces ALL 10 invariants with ZERO tolerance:
       V1. published is string (never bool) — P0 regression guard
@@ -482,7 +482,7 @@ def check_intel_schema() -> CheckResult:
 
 
 # ---------------------------------------------------------------------------
-# Check 7: No stale .tmp files (v132)
+# Check 7: No stale .tmp files (v134)
 # ---------------------------------------------------------------------------
 
 def check_no_stale_tmp() -> CheckResult:
@@ -502,13 +502,13 @@ def check_no_stale_tmp() -> CheckResult:
 
 
 # ---------------------------------------------------------------------------
-# Check 8: write_failures.jsonl absent or empty (v132)
+# Check 8: write_failures.jsonl absent or empty (v134)
 # ---------------------------------------------------------------------------
 
 def check_no_write_failures() -> CheckResult:
     """V9: Recovery backlog must be ZERO after recovery replay.
 
-    POLICY (v133.0):
+    POLICY (v134.0):
       - write_failures.jsonl entries are AUDIT records (historical, ephemeral).
         Their presence alone is NOT a HARD FAIL condition.
       - HARD FAIL only if: recovery blobs still exist in data/recovery/write_failures/
@@ -600,7 +600,7 @@ def check_no_write_failures() -> CheckResult:
 
 def main() -> None:
     log.info("=" * 60)
-    log.info("SENTINEL APEX -- Repository Validator v131.3.0")
+    log.info("SENTINEL APEX -- Repository Validator v134.0.0")
     log.info("=" * 60)
 
     os.chdir(REPO_ROOT)
@@ -611,9 +611,9 @@ def main() -> None:
         check_python_syntax,
         check_json,
         check_workflow_clean,
-        check_intel_schema,       # v132 Check 6: HARD schema gate (zero tolerance)
-        check_no_stale_tmp,       # v132 Check 7: no abandoned .tmp files
-        check_no_write_failures,  # v132 Check 8: write_failures.jsonl absent/empty
+        check_intel_schema,       # v134 Check 6: HARD schema gate (zero tolerance)
+        check_no_stale_tmp,       # v134 Check 7: no abandoned .tmp files
+        check_no_write_failures,  # v134 Check 8: write_failures.jsonl absent/empty
     ]
 
     results: list[CheckResult] = []
@@ -637,7 +637,7 @@ def main() -> None:
         log.error("VALIDATION FAILED -- %d check(s) did not pass.", failed)
         sys.exit(1)
 
-    log.info("ALL CHECKS PASSED -- repository is production-ready. [v132.0.0]")
+    log.info("ALL CHECKS PASSED -- repository is production-ready. [v134.0.0]")
     sys.exit(0)
 
 

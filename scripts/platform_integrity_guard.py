@@ -3,7 +3,7 @@
 ================================================================================
 CYBERDUDEBIVASH® SENTINEL APEX — PLATFORM INTEGRITY GUARD
 ================================================================================
-Version    : v101.0.0
+Version    : v134.0.0
 Author     : CYBERDUDEBIVASH Pvt. Ltd.
 Purpose    : Permanent safety layer — protects the platform from:
                • Accidental corruption of index.html / EMBEDDED_INTEL
@@ -53,7 +53,7 @@ FEED_MANIFEST   = ROOT / "data" / "feed_manifest.json"
 UPDATE_SCRIPT   = ROOT / "scripts" / "update_embedded_intel.py"
 BOOTSTRAP_SCRIPT = ROOT / "scripts" / "bootstrap_critical_files.py"
 
-PLATFORM_VERSION = "v101.0"
+PLATFORM_VERSION = "v134.0"
 
 # Minimum acceptable advisory count — below this is a regression
 MIN_MANIFEST_ENTRIES = 50
@@ -558,7 +558,7 @@ def check_manifest_json_valid() -> list[CheckResult]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# v101.1 ENHANCED CHECKS — API Consistency + Queue Health + Feature Flags
+# v134.0 ENHANCED CHECKS — API Consistency + Queue Health + Feature Flags
 # ADDITIVE ONLY — existing checks unchanged.
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -750,7 +750,7 @@ ALL_CHECKS = [
     check_version_string,
     check_embedded_intel_sync,
     check_embedded_item_fields,
-    # v101.1 enhanced checks
+    # v134.0 enhanced checks
     check_api_consistency,
     check_queue_health,
     check_feature_flags,
@@ -869,7 +869,7 @@ def run_guard(mode: str = "full", strict: bool = False) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="CYBERDUDEBIVASH® Platform Integrity Guard v101.0"
+        description="CYBERDUDEBIVASH® Platform Integrity Guard v134.0"
     )
     parser.add_argument(
         "--mode",

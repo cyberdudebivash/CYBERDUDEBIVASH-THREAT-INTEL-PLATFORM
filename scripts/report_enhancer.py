@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/report_enhancer.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.0 -- ENTERPRISE REPORT ENHANCEMENT ENGINE
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0 -- ENTERPRISE REPORT ENHANCEMENT ENGINE
 =================================================================================
 Post-processes existing HTML reports to transform them into
 enterprise-grade sellable intelligence products ($50-$100+ per report).
@@ -31,11 +31,14 @@ Called by sentinel-blogger.yml after generate_intel_reports.py.
 """
 from __future__ import annotations
 
+import sys
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 import json
 import logging
 import os
 import re
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -151,7 +154,7 @@ def build_ioc_table_section(item: Dict) -> str:
     _SPAN_OBSERVED  = '<span style="color:#22c55e;">OBSERVED</span>'
 
     def _ioc_row(i) -> str:
-        # v131.1 P0 FIX: normalise legacy string-format IOCs to dict before .get() calls
+        # v134.0 P0 FIX: normalise legacy string-format IOCs to dict before .get() calls
         if isinstance(i, str):
             i = {"type": "indicator", "value": i, "confidence": 50, "context": "legacy", "generated": False}
         conf     = int(i.get("confidence", 0))
@@ -201,7 +204,7 @@ def build_detection_rules_section(item: Dict) -> str:
         sigma = f"""title: CDB-APEX {item_id} - {actor} IOC Detection
 status: stable
 description: Detects IOCs associated with {actor} campaign
-author: CYBERDUDEBIVASH(R) SENTINEL APEX v131
+author: CYBERDUDEBIVASH(R) SENTINEL APEX v134
 date: {datetime.now(timezone.utc).strftime('%Y/%m/%d')}
 tags:
     - attack.command_and_control
@@ -412,7 +415,7 @@ def build_premium_intel_cards_css() -> str:
     """Enhanced CSS injected into every report for premium UI."""
     return """
 <style>
-/* SENTINEL APEX v131 — Enterprise Report Enhancement Styles */
+/* SENTINEL APEX v134 — Enterprise Report Enhancement Styles */
 .enh-card { transition: transform 0.2s, box-shadow 0.2s; }
 .enh-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(139,92,246,0.15); }
 .threat-score-badge {
@@ -522,8 +525,8 @@ def build_threat_score_widget(item: Dict) -> str:
 # HTML ENHANCEMENT ENGINE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-ENHANCE_MARKER  = "<!-- CDB-ENHANCED-v131 -->"
-ENHANCE_ENDMRK  = "<!-- /CDB-ENHANCED-v131 -->"
+ENHANCE_MARKER  = "<!-- CDB-ENHANCED-v134 -->"
+ENHANCE_ENDMRK  = "<!-- /CDB-ENHANCED-v134 -->"
 
 def enhance_report_html(html: str, item: Dict, tier: str = "free") -> str:
     """
@@ -610,9 +613,10 @@ def generate_pdf_report(item: Dict, html_content: str, out_path: Path) -> bool:
     sev_col  = SEV_COLORS.get(severity, C_ORG)
 
     pdf_html = f"""<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>{title} — PDF Report</title>
 <style>
 @media print {{ @page {{ margin: 1.5cm; size: A4; }} body {{ print-color-adjust: exact; }} }}
@@ -707,7 +711,7 @@ def run_enhancement(manifest_path: Path = MANIFEST_PATH, tier: str = "free") -> 
 
 if __name__ == "__main__":
     stats = run_enhancement()
-    print(f"\nREPORT ENHANCEMENT v131 COMPLETE")
+    print(f"\nREPORT ENHANCEMENT v134 COMPLETE")
     print(f"  Enhanced: {stats.get('enhanced',0)}/{stats.get('total',0)}")
     print(f"  PDFs:     {stats.get('pdfs',0)}")
     print(f"  Errors:   {stats.get('errors',0)}")

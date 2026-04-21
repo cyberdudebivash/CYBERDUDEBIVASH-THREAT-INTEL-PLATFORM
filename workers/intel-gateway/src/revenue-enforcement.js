@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Revenue Enforcement Engine v123.0.0
+// CYBERDUDEBIVASH® SENTINEL APEX — Revenue Enforcement Engine v134.0.0
 // Phase 1: Tier gates · Usage billing · Upgrade triggers · Lead capture
 // Phase 2: Trial issuance · Email capture · Conversion hooks
 // Import this file into index.js and wire into the request pipeline.
@@ -140,7 +140,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // ── v123.0.0: AI Intelligence gates ──────────────────────────────────────
+    // ── v134.0.0: AI Intelligence gates ──────────────────────────────────────
 
     // IOC Confidence Detail — Free: summary only, Pro+: full extraction meta
     case "ioc_confidence_detail":

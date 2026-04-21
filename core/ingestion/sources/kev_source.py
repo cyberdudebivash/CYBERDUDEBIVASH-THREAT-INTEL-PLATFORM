@@ -1,5 +1,5 @@
 """
-core/ingestion/sources/kev_source.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+core/ingestion/sources/kev_source.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 CISA Known Exploited Vulnerabilities (KEV) catalog source adapter.
 
 Capabilities:

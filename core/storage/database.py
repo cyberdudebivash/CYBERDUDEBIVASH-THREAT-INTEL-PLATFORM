@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-database.py — CYBERDUDEBIVASH® SENTINEL APEX v47.0 (COMMAND CENTER)
+database.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0 (COMMAND CENTER)
 ═══════════════════════════════════════════════════════════════════════
 Unified Database Engine: PostgreSQL (production) + SQLite (development).
 

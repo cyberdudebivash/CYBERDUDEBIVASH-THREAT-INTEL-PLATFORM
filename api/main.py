@@ -63,7 +63,7 @@ FEED_PATH    = BASE_DIR / "api" / "feed.json"
 LATEST_PATH  = BASE_DIR / "api" / "latest.json"
 MANIFEST_PATH= BASE_DIR / "data" / "stix" / "feed_manifest.json"
 MRR_PATH     = BASE_DIR / "data" / "sovereign" / "mrr_report.json"
-VERSION      = "v100.0"
+VERSION      = "v134.0"
 PLATFORM     = "CYBERDUDEBIVASH® Sentinel APEX"
 DASHBOARD    = "https://intel.cyberdudebivash.com"
 STORE_URL    = "https://tools.cyberdudebivash.com/"
@@ -485,7 +485,7 @@ async def health_check():
         }
     )
 
-# ── GET /api/health — Autonomic Health Endpoint (v132.3) ─────────────────
+# ── GET /api/health — Autonomic Health Endpoint (v134.0) ─────────────────
 # Returns live health score, system state (HEALTHY/DEGRADED/CRITICAL),
 # WriteQueue depth, recovery backlog count, throttle status, and thresholds.
 # Used by monitoring, alerting systems, and the pipeline health gate.
@@ -500,10 +500,10 @@ try:
 except Exception as _shm_err:
     logger.warning(f"[API] SystemHealthMonitor unavailable: {_shm_err}")
 
-@app.get("/api/health", tags=["Platform"], summary="Autonomic system health (v132.3)")
+@app.get("/api/health", tags=["Platform"], summary="Autonomic system health (v134.0)")
 async def get_system_health():
     """
-    v132.3 Autonomic Health Endpoint.
+    v134.0 Autonomic Health Endpoint.
 
     Returns the live system health state from SystemHealthMonitor:
       - state: HEALTHY | DEGRADED | CRITICAL

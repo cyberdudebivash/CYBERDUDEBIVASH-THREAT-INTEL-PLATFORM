@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CYBERDUDEBIVASH SENTINEL APEX v103.0 — APEX Intelligence Engine
+CYBERDUDEBIVASH SENTINEL APEX v134.0 — APEX Intelligence Engine
 ================================================================
 GOD-LEVEL INTELLIGENCE ENRICHMENT PIPELINE
 
@@ -678,7 +678,7 @@ def module_analyst_intelligence(item: Dict) -> Dict:
         "soc_failure_points":     profile["soc_failure_points"],
         "strategic_risk":         profile["strategic_risk"],
         "analyst_context_note":   context_note,
-        "analyst_engine":         "SENTINEL-APEX-ANALYST-v103",
+        "analyst_engine":         "SENTINEL-APEX-ANALYST-v134",
     }
 
 
@@ -765,7 +765,7 @@ def module_soc_deployment_context(item: Dict) -> Dict:
         "tuning_recommendations": tuning,
         "deployment_steps":      deployment_steps,
         "estimated_deployment_time_minutes": 15,
-        "soc_context_engine":    "SENTINEL-APEX-SOC-v103",
+        "soc_context_engine":    "SENTINEL-APEX-SOC-v134",
     }
 
 
@@ -855,7 +855,7 @@ def module_detection_confidence(item: Dict, evidence: Dict) -> Dict:
         "scoring_rationale":     " | ".join(rationale_parts),
         "composite_score":       min(raw_score, 100),
         "siem_readiness":        "PRODUCTION" if confidence in ("HIGH", "MEDIUM") else "REVIEW",
-        "detection_engine":      "SENTINEL-APEX-DETECT-v103",
+        "detection_engine":      "SENTINEL-APEX-DETECT-v134",
     }
 
 
@@ -950,7 +950,7 @@ def module_revenue_productization(item: Dict) -> Dict:
         "api_product_mapping":   api_product,
         "enterprise_use_cases":  use_cases,
         "marketplace_listing":   marketplace_listing,
-        "revenue_engine":        "SENTINEL-APEX-REVENUE-v103",
+        "revenue_engine":        "SENTINEL-APEX-REVENUE-v134",
     }
 
 
@@ -1053,7 +1053,7 @@ def module_executive_decision(item: Dict, evidence: Dict) -> Dict:
         "decision_statement": decision,
         "time_to_exploit":    tte,
         "patch_priority_sla": "24 hours" if risk_level == "CRITICAL" else "72 hours",
-        "executive_engine":   "SENTINEL-APEX-EXEC-v103",
+        "executive_engine":   "SENTINEL-APEX-EXEC-v134",
     }
 
 
@@ -1113,7 +1113,7 @@ def module_compliance_legal(item: Dict, exec_decision: Dict) -> Dict:
         "google_safe":         True,
         "copyright_safe":      True,
         "original_analysis":   True,
-        "compliance_engine":   "SENTINEL-APEX-COMPLIANCE-v103",
+        "compliance_engine":   "SENTINEL-APEX-COMPLIANCE-v134",
     }
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-intelligence_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v47.0 (COMMAND CENTER)
+intelligence_engine.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0 (COMMAND CENTER)
 ════════════════════════════════════════════════════════════════════════════════
 AI-Powered Intelligence Engine: Real threat analysis, not static scoring.
 

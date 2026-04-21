@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/safe_git_commit.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.2.0 -- Safe Git Commit & Push
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Safe Git Commit & Push
 ====================================================================
 P0 FIX: Replaces the inline Python + git bash block in sentinel-blogger.yml.
 Zero inline Python in YAML.

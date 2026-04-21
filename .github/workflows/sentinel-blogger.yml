@@ -1,6 +1,6 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v131.2.0 - SOVEREIGN INTELLIGENCE PIPELINE
-# Version    : v131.2.0 (P0-ARCHITECTURAL-FIX / ZERO-INLINE-PYTHON)
+# CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 - SOVEREIGN INTELLIGENCE PIPELINE
+# Version    : v134.0.0 (P0-ARCHITECTURAL-FIX / ZERO-INLINE-PYTHON)
 # Rebuilt    : 2026-04-20 - P0 PERMANENT FIX:
 #              RULE 1:  Zero inline Python in YAML (all here-doc blocks removed)
 #              RULE 2:  All logic in dedicated scripts/ only
@@ -15,7 +15,7 @@
 #                       clean and simple.
 # Author     : CYBERDUDEBIVASH Pvt. Ltd.
 # =============================================================================
-# ARCHITECTURE (v131.2.0 - canonical):
+# ARCHITECTURE (v134.0.0 - canonical):
 #
 #   encoding_guard.py  (Stage 0)    - strip BOM, CRLF, smart quotes, mojibake
 #   sanitize_repo.py   (Stage 0.1)  - JSON self-healing engine
@@ -45,12 +45,12 @@
 #
 # =============================================================================
 # P0 FIXES HISTORY:
-#   v131.0: Blogger removed, queue bomb neutralised, bootstrap fixed
-#   v116.0: Manifest Stabilisation, R2 upload guard, stale-backup guard
-#   v116.1: LIST format manifest normalisation
-#   v116.2: Pre-v70 manifest sync, schema_version added, EMBEDDED_INTEL refresh
-#   v131.1: JSON sanitizer, bool published_date guard (run #793)
-#   v131.2: ARCHITECTURAL FIX - all inline Python moved to scripts/
+#   v134.0: Blogger removed, queue bomb neutralised, bootstrap fixed
+#   v134.0: Manifest Stabilisation, R2 upload guard, stale-backup guard
+#   v134.0: LIST format manifest normalisation
+#   v134.0: Pre-v70 manifest sync, schema_version added, EMBEDDED_INTEL refresh
+#   v134.0: JSON sanitizer, bool published_date guard (run #793)
+#   v134.0: ARCHITECTURAL FIX - all inline Python moved to scripts/
 #           encoding_guard.py enforces pure ASCII in YAML/shell
 #           validate_repo.py is final gate ensuring no regression
 # =============================================================================
@@ -202,6 +202,14 @@ jobs:
         run: python3 scripts/report_generator.py --manifest data/stix/feed_manifest.json
 
       # -----------------------------------------------------------------------
+      # STAGE 3.2.5: ENCODING REMEDIATION PASS
+      # Repairs mojibake and double-encoding artefacts in all existing HTML
+      # report files. Idempotent — no-op once all reports are clean.
+      # -----------------------------------------------------------------------
+      - name: Stage 3.2.5 — Encoding Remediation Pass
+        run: python3 scripts/fix_report_encoding.py || true
+
+      # -----------------------------------------------------------------------
       # STAGE 3.3: REPORT VALIDATION GATE (P0 — HARD FAIL)
       # Verifies every advisory has a physical HTML file on disk:
       #   - file exists, size >= 500 bytes, starts with valid HTML
@@ -210,6 +218,15 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "STAGE 3.3 - Report Validation Gate (HARD FAIL)"
         run: python3 scripts/validate_reports.py --manifest data/stix/feed_manifest.json
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.3.5: RESOLVE validation_status (pending -> valid)
+      # Safety-net post-processor. For every advisory whose HTML file passed
+      # Stage 3.3, flip validation_status to "valid" and stamp validated_at.
+      # Idempotent, never blocks pipeline.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.3.5 - Update validation_status"
+        run: python3 scripts/update_validation_status.py || true
 
       # -----------------------------------------------------------------------
       # STAGE 3.5: R2 UPLOAD -- MANDATORY, NO CONTINUE-ON-ERROR

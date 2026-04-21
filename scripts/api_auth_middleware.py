@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v101.1 — API Authentication Middleware
+SENTINEL APEX v134.0 — API Authentication Middleware
 ═════════════════════════════════════════════════════
 ARCHITECTURE: ADDITIVE ONLY. Feature-flagged. Default: DISABLED.
 This module provides API key management for future monetization.

@@ -1,9 +1,9 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v131.0.0 " DASHBOARD SYNC PIPELINE
-# " DISABLED AS OF v116.2.0 " ALL FUNCTIONALITY MERGED INTO sentinel-blogger
+# CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 " DASHBOARD SYNC PIPELINE
+# " DISABLED AS OF v134.0.0 " ALL FUNCTIONALITY MERGED INTO sentinel-blogger
 # =============================================================================
 #
-# WHY THIS WORKFLOW IS DISABLED (v116.2.0 " 2026-04-18):
+# WHY THIS WORKFLOW IS DISABLED (v134.0.0 " 2026-04-18):
 #
 # This workflow caused the following P0 production issues:
 #
@@ -26,7 +26,7 @@
 #      that sentinel-blogger had just committed. Dashboard showed "60h ago".
 #
 #   4. DUPLICATE OPERATIONS:
-#      sentinel-blogger v116.2.0 now handles everything this workflow did:
+#      sentinel-blogger v134.0.0 now handles everything this workflow did:
 #         EMBEDDED_INTEL injection (Step 17: update_embedded_intel.py)
 #         R2 upload (Step 18: mandatory overwrite)
 #         KV cache bust (Step 19)
@@ -42,10 +42,10 @@
 #
 # =============================================================================
 
-name: "DISABLED - Dashboard Sync v101.0 (merged into sentinel-blogger v116.2)"
+name: "DISABLED - Dashboard Sync v134.0 (merged into sentinel-blogger v134.0)"
 
 on:
-  # " ALL AUTO-TRIGGERS DISABLED " sentinel-blogger v116.2 handles dashboard sync
+  # " ALL AUTO-TRIGGERS DISABLED " sentinel-blogger v134.0 handles dashboard sync
   # workflow_run:              DISABLED: caused overwrite race with sentinel-blogger
   #   workflows: ["sentinel-blogger"]
   #   types: [completed]
@@ -83,7 +83,7 @@ jobs:
     steps:
       - name: "  Safety Warning"
         run: |
-          echo "EMERGENCY MANUAL SYNC - sync-dashboard is DISABLED in v116.2.0"
+          echo "EMERGENCY MANUAL SYNC - sync-dashboard is DISABLED in v134.0.0"
           echo "    sentinel-blogger handles all dashboard sync automatically."
           echo "    This manual run will ONLY patch EMBEDDED_INTEL from current git state."
           echo "    It will NOT run --force-rebuild (manifest destruction risk)."
@@ -135,7 +135,7 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Emergency Dashboard Sync v116.2 - EMBEDDED_INTEL patch @ $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+          git commit -m "Emergency Dashboard Sync v134.0 - EMBEDDED_INTEL patch @ $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
 
           for i in 1 2 3 4; do
             git fetch origin main --quiet

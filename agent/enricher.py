@@ -218,7 +218,7 @@ class IntelligenceEnricher:
         cvss_score: float = 0.0,
     ) -> float:
         """
-        v47.0: KEV-aware, severity-weighted confidence scoring.
+        v134.0: KEV-aware, severity-weighted confidence scoring.
 
         Improvements over v11.0:
           - KEV floor: KEV-confirmed advisories can never score below 70%
@@ -234,7 +234,7 @@ class IntelligenceEnricher:
         # --- Base IOC richness score (same as v11.0) ---
         base_score = self.calculate_confidence(iocs, actor_mapped)
 
-        # --- v47.0: EPSS tier bonuses ---
+        # --- v134.0: EPSS tier bonuses ---
         epss = epss_score or 0.0
         if epss >= 90.0:
             base_score = min(base_score + 20.0, 100.0)
@@ -243,7 +243,7 @@ class IntelligenceEnricher:
         elif epss >= 40.0:
             base_score = min(base_score + 6.0, 100.0)
 
-        # --- v47.0: CVSS severity bonus ---
+        # --- v134.0: CVSS severity bonus ---
         cvss = cvss_score or 0.0
         if cvss >= 9.5:
             base_score = min(base_score + 15.0, 100.0)
@@ -252,26 +252,26 @@ class IntelligenceEnricher:
         elif cvss >= 7.0:
             base_score = min(base_score + 5.0, 100.0)
 
-        # --- v47.0: CVSS 9+ AND EPSS 70%+ critical floor ---
+        # --- v134.0: CVSS 9+ AND EPSS 70%+ critical floor ---
         if cvss >= 9.0 and epss >= 70.0:
             if base_score < 80.0:
                 logger.info(
-                    f"[v47.0] Critical floor applied (CVSS={cvss}/EPSS={epss:.1f}%): "
+                    f"[v134.0] Critical floor applied (CVSS={cvss}/EPSS={epss:.1f}%): "
                     f"{base_score:.1f}% -> 80.0%"
                 )
                 base_score = 80.0
 
-        # --- v47.0: KEV floor — ground truth of active exploitation ---
+        # --- v134.0: KEV floor — ground truth of active exploitation ---
         if kev_present:
             if base_score < 70.0:
                 logger.info(
-                    f"[v47.0] KEV floor applied: {base_score:.1f}% -> 70.0%"
+                    f"[v134.0] KEV floor applied: {base_score:.1f}% -> 70.0%"
                 )
                 base_score = 70.0
             # KEV + EPSS > 70 → confirmed active exploitation → 85% floor
             if epss >= 70.0 and base_score < 85.0:
                 logger.info(
-                    f"[v47.0] KEV+EPSS exploitation floor: {base_score:.1f}% -> 85.0%"
+                    f"[v134.0] KEV+EPSS exploitation floor: {base_score:.1f}% -> 85.0%"
                 )
                 base_score = 85.0
 

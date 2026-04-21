@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-threat_predictor.py — CYBERDUDEBIVASH® SENTINEL APEX v123.0.0
+threat_predictor.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0.0
 ════════════════════════════════════════════════════════════════════════════════
 ML Threat Prediction Engine
 
@@ -611,7 +611,7 @@ class ThreatPredictor:
                       for i in range(len(FEATURE_NAMES))}
             return {
                 "module": "ThreatPredictor",
-                "version": "v123.0.0",
+                "version": "v134.0.0",
                 "trained": self._trained,
                 "training_samples": self._training_samples,
                 "cv_accuracy": self._accuracy,

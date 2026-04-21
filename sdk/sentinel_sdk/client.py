@@ -1,5 +1,5 @@
 """
-sdk/sentinel_sdk/client.py — CYBERDUDEBIVASH® Sentinel APEX Python SDK v100.0
+sdk/sentinel_sdk/client.py — CYBERDUDEBIVASH® Sentinel APEX Python SDK v134.0
 Production-grade synchronous API client.
 
 Features:

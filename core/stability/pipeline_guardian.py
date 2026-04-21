@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-core/stability/pipeline_guardian.py — CYBERDUDEBIVASH® SENTINEL APEX v100.0
+core/stability/pipeline_guardian.py — CYBERDUDEBIVASH® SENTINEL APEX v134.0
 =============================================================================
 PIPELINE STABILITY & SYNCHRONIZATION ENGINE
 
@@ -19,7 +19,7 @@ Design constraints:
   - Thread-safe singleton
 
 Author: CYBERDUDEBIVASH® SENTINEL APEX
-Version: v100.0
+Version: v134.0
 """
 from __future__ import annotations
 
@@ -499,7 +499,7 @@ try:
         a     = state.apex or ApexState()
         payload = {
             "platform":          "CYBERDUDEBIVASH® Sentinel APEX",
-            "version":           "v100.0",
+            "version":           "v134.0",
             "apex_mode":         a.mode,
             "apex_enabled":      a.enabled,
             "sync_status":       state.status,

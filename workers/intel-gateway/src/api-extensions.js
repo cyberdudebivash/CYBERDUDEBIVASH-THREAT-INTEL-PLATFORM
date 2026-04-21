@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — API Extensions v123.2.0
+// CYBERDUDEBIVASH® SENTINEL APEX — API Extensions v134.0.0
 // Missing endpoints: /api/search · /api/actors · /api/cves · /api/export/misp
 // Scopes system: read:intel · read:stix · export:misp · read:actors · admin:keys
 // Abuse detection · Request fingerprinting · Advanced filtering
@@ -39,7 +39,7 @@ export const SCOPE_DEFINITIONS = {
   "export:stix:full":   { tier: "enterprise",  desc: "Raw STIX bundle download"                             },
   "admin:webhooks":     { tier: "enterprise",  desc: "SIEM webhook management"                              },
   "admin:keys":         { tier: "enterprise",  desc: "Sub-key issuance for team"                            },
-  // ── v123.0.0: AI Intelligence scopes ─────────────────────────────────────────
+  // ── v134.0.0: AI Intelligence scopes ─────────────────────────────────────────
   "read:ai:predict":    { tier: "premium",     desc: "AI threat prediction — CVSS+EPSS+KEV+TTP scoring"     },
   "read:ai:campaigns":  { tier: "premium",     desc: "DBSCAN campaign clustering — grouped threat actors"   },
   "read:ai:anomalies":  { tier: "premium",     desc: "Isolation Forest anomaly detection + zero-day flags"  },
@@ -613,7 +613,7 @@ async function buildMISPEvent(item, idx) {
       Attribute:     attributes,
       Tag: [
         { name: `sentinel-apex:severity="${severity}"`, colour: severityColor(severity) },
-        { name: `sentinel-apex:source="SENTINEL APEX v123"`, colour: "#0099cc" },
+        { name: `sentinel-apex:source="SENTINEL APEX v134"`, colour: "#0099cc" },
         ...(item.cve_id ? [{ name: `cve:${item.cve_id}`, colour: "#ff4444" }] : []),
         ...(item.kev_present ? [{ name: "cisa:kev", colour: "#ff8c00" }] : []),
         ...(item.actor_tag && item.actor_tag !== "UNATTRIBUTED" ? [{ name: `threat-actor:${item.actor_tag}`, colour: "#9932cc" }] : []),
@@ -1133,7 +1133,7 @@ function extJson(body, status = 200) {
 
 // =============================================================================
 // ██████████████████████████████████████████████████████████████████████████████
-// AI INTELLIGENCE ENDPOINTS  v123.0.0
+// AI INTELLIGENCE ENDPOINTS  v134.0.0
 // PHASE 2+4: /api/predict · /api/campaigns · /api/anomalies
 //            /api/intelligence/graph · /api/intelligence/relations
 // ██████████████████████████████████████████████████████████████████████████████

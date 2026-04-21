@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/encoding_guard.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.2.0 -- Encoding Guard (P0 Permanent Fix)
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Encoding Guard (P0 Permanent Fix)
 ================================================================================
 MANDATORY FIRST STEP in every pipeline run.
 
@@ -408,7 +408,7 @@ def main() -> None:
     args = parser.parse_args()
 
     print("=" * 70)
-    print("SENTINEL APEX -- Encoding Guard v131.2.0")
+    print("SENTINEL APEX -- Encoding Guard v134.0.0")
     print(f"Root   : {args.root}")
     print(f"Mode   : {'FIX' if args.fix else 'DRY-RUN'}")
     print(f"Strict : {args.strict}")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/safe_io.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v132.3.0 -- Production SafeIO Foundation
+CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Production SafeIO Foundation
 ==========================================================================
 Centralised, production-grade I/O primitives for the entire pipeline.
 
@@ -292,7 +292,7 @@ def _store_write_failure(
 
 
 # ---------------------------------------------------------------------------
-# v132.2 Write Pressure Hardening — Global Semaphore + Constants
+# v134.0 Write Pressure Hardening — Global Semaphore + Constants
 # ---------------------------------------------------------------------------
 
 # WRITE THROTTLING: Maximum concurrent writes allowed at any time.
@@ -310,7 +310,7 @@ BACKPRESSURE_THRESHOLD: int = 50
 _WRITE_SEMAPHORE = threading.Semaphore(MAX_CONCURRENT_WRITES)
 
 # ---------------------------------------------------------------------------
-# v132.3 Autonomic Layer — System State Constants + Thresholds
+# v134.0 Autonomic Layer — System State Constants + Thresholds
 # ---------------------------------------------------------------------------
 
 # System health states (ordered: HEALTHY < DEGRADED < CRITICAL)
@@ -338,7 +338,7 @@ HEALTH_SCORE_QUEUE_DEPTH_PENALTY: float = 1.0
 HEALTH_SCORE_RECOVERY_PENALTY: float = 2.0   # v134: recovery_count penalised same as write failures
 
 # ---------------------------------------------------------------------------
-# v132.3 Dynamic Throttle Globals — mutated at runtime by SystemHealthMonitor
+# v134.0 Dynamic Throttle Globals — mutated at runtime by SystemHealthMonitor
 # ---------------------------------------------------------------------------
 
 # NOTE: These are runtime-mutable. _apply_throttle() / _restore_throttle() modify
@@ -426,9 +426,9 @@ def retry_write(
     raise_on_exhaustion: bool = False,
 ) -> Any:
     """
-    v132.2 WRITE PRESSURE HARDENING — Retry with full exponential backoff + jitter.
+    v134.0 WRITE PRESSURE HARDENING — Retry with full exponential backoff + jitter.
 
-    Changes vs v132.1:
+    Changes vs v134.0:
       - attempts: 5 → 10 (10 total attempts before permanent failure)
       - backoff: linear → full exponential (base_delay * 2^attempt)
       - jitter: added (random.uniform(0, base_delay * 0.5)) to prevent thundering-herd
@@ -499,13 +499,13 @@ def retry_write(
 
 class WriteQueue:
     """
-    v132.2 WRITE PRESSURE HARDENED Centralized Write Queue for SENTINEL APEX.
+    v134.0 WRITE PRESSURE HARDENED Centralized Write Queue for SENTINEL APEX.
 
     ALL writes to data/stix/*, data/intel/*, data/api/*, feed_manifest.json
     MUST go through this queue.  Writes are enqueued as callables and flushed
     ONLY at controlled stage boundaries via flush().
 
-    v132.2 Additions:
+    v134.0 Additions:
       - Global write semaphore (MAX_CONCURRENT_WRITES=3) prevents write saturation
       - WRITE_DELAY_MS=50 inter-write sleep prevents burst write pressure
       - Backpressure warning when queue depth > BACKPRESSURE_THRESHOLD
@@ -591,7 +591,7 @@ class WriteQueue:
         base_delay: float = 0.1,
     ) -> Dict[str, Any]:
         """
-        v132.2 HARDENED FLUSH — Execute all queued write callables with:
+        v134.0 HARDENED FLUSH — Execute all queued write callables with:
           - Global semaphore throttling (MAX_CONCURRENT_WRITES=3)
           - WRITE_DELAY_MS inter-write sleep (50ms between writes)
           - Soft-fail: permanent failures go to recovery, never crash pipeline
@@ -1136,7 +1136,7 @@ def extract_iocs(text: str) -> List[str]:
     Filters out loopback/RFC1918/known-false-positive patterns.
     Returns deduplicated list.
 
-    v131.3: Delegates to agent.ioc_engine when available for full IOC coverage.
+    v134.0: Delegates to agent.ioc_engine when available for full IOC coverage.
     Falls back to legacy regex extraction if engine import fails.
     """
     if not text:
@@ -1164,7 +1164,7 @@ def enrich_ioc_count(obj: Dict) -> Dict:
     """
     Enforce ioc_count == len(iocs) with full IOC engine integration.
 
-    v131.3 UPGRADE:
+    v134.0 UPGRADE:
       - Uses agent.ioc_engine.enforce_ioc_integrity() for comprehensive enforcement.
       - Fixes P0: ioc_count > 0 but iocs = [] (re-extracts from text fields).
       - Fixes: ioc_confidence always 0 (recomputes from IOC count + type distribution).
@@ -1286,7 +1286,7 @@ def _is_generic_title(title: str) -> bool:
 
 def dedup_items(items: List[Dict]) -> Tuple[List[Dict], int]:
     """
-    v131.3 GLOBAL DEDUP ENGINE — three-layer deduplication.
+    v134.0 GLOBAL DEDUP ENGINE — three-layer deduplication.
 
     Layer 1: SHA-256(title + source + published-date)  — exact republish
     Layer 2: SHA-256(normalized-title-only)            — cross-feed duplicate
@@ -1361,13 +1361,13 @@ class PipelineMetrics:
         self._stage_timings: Dict[str, float] = {}
         self._stage_statuses: Dict[str, str] = {}
         self._errors: List[str] = []
-        # v132 write observability
+        # v134 write observability
         self._write_latencies_ms: List[float] = []
         self._write_failures: int = 0
         self._retry_count: int = 0
         self._render_failures: int = 0
         self._schema_violations: int = 0
-        self._recovery_count: int = 0   # v132.2: soft-fail items stored to recovery
+        self._recovery_count: int = 0   # v134.0: soft-fail items stored to recovery
 
     def record_ingestion(self, count: int) -> None:
         self._ingested += count
@@ -1386,7 +1386,7 @@ class PipelineMetrics:
         self._stage_timings[stage] = round(duration_s, 3)
         self._stage_statuses[stage] = status
 
-    # v132 write observability
+    # v134 write observability
     def record_write(self, latency_ms: float) -> None:
         self._write_latencies_ms.append(latency_ms)
 
@@ -1408,7 +1408,7 @@ class PipelineMetrics:
             self._errors.append(f"schema_violation [{field}]: {reason}")
 
     def record_recovery(self, stage: str = "", reason: str = "") -> None:
-        """v132.2: Track items soft-failed to recovery buffer."""
+        """v134.0: Track items soft-failed to recovery buffer."""
         self._recovery_count += 1
         if reason:
             self._errors.append(f"recovery [{stage}]: {reason}")
@@ -1457,13 +1457,13 @@ class PipelineMetrics:
             "stage_timings_s": self._stage_timings,
             "stage_statuses": self._stage_statuses,
             "errors": self._errors,
-            # v132 write + render observability
+            # v134 write + render observability
             "write_latency": self._write_latency_stats(),
             "write_failures": self._write_failures + wq_metrics.get("write_failures", 0),
             "write_retry_count": self._retry_count,
             "render_failures": self._render_failures,
             "schema_violations": self._schema_violations,
-            # v132.2 write pressure metrics
+            # v134.0 write pressure metrics
             "recovery_count": self._recovery_count + wq_metrics.get("recovery_count", 0),
             "write_queue_depth": wq_metrics.get("write_queue_depth", 0),
             "write_queue_metrics": wq_metrics,
@@ -1497,7 +1497,7 @@ class PipelineMetrics:
 
 
 # ---------------------------------------------------------------------------
-# v132.3 Autonomic Stability Layer — SystemHealthMonitor
+# v134.0 Autonomic Stability Layer — SystemHealthMonitor
 # ---------------------------------------------------------------------------
 
 class SystemCriticalError(RuntimeError):
@@ -1509,7 +1509,7 @@ class SystemCriticalError(RuntimeError):
 
 class SystemHealthMonitor:
     """
-    v132.3 AUTONOMIC STABILITY LAYER — Health State Machine.
+    v134.0 AUTONOMIC STABILITY LAYER — Health State Machine.
 
     States (ordered): HEALTHY → DEGRADED → CRITICAL
 
@@ -1707,7 +1707,7 @@ class SystemHealthMonitor:
             with self._lock:
                 return {
                     "platform": "CYBERDUDEBIVASH® SENTINEL APEX",
-                    "version": "v132.3.0",
+                    "version": "v134.0.0",
                     "state": self._state,
                     "health_score": self.health_score(),
                     "ingestion_paused": self._ingestion_paused,
