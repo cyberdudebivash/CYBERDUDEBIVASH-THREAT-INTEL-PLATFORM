@@ -17,6 +17,8 @@ Usage:
   from scripts.safe_io import (
       atomic_json_write, safe_json_load, safe_json_dump,
       validate_intel_object, dedup_items, PipelineMetrics, acquire_lock,
+      enforce_schema, enforce_schema_list,
+      WriteQueue, retry_write, WriteHardFail, _store_write_failure,
   )
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved. CONFIDENTIAL.
@@ -679,6 +681,122 @@ def validate_intel_object(obj: Dict, idx: int = 0, strict: bool = True) -> List[
 
 
 # ---------------------------------------------------------------------------
+# Global Schema Enforcement (Write Boundary — MANDATORY before every write)
+# ---------------------------------------------------------------------------
+
+# All string fields that must NEVER be boolean or non-string types
+_STRING_FIELDS: Tuple[str, ...] = (
+    "title", "source", "description", "summary", "severity",
+    "published", "timestamp", "processed_at", "stix_id",
+    "threat_type", "actor_tag", "primary_actor", "campaign_id",
+    "tlp", "feed_source", "nvd_url", "source_url",
+)
+
+# Fields that must be list type
+_LIST_FIELDS: Tuple[str, ...] = (
+    "iocs", "cve_ids", "tags", "ttps", "mitre_tactics",
+    "affected_products", "kill_chain_phases",
+)
+
+# Required fields (must be present and non-empty string)
+_REQUIRED_FIELDS: Tuple[str, ...] = ("title", "source")
+
+
+def enforce_schema(entry: Dict) -> Dict:
+    """
+    GLOBAL SCHEMA ENFORCEMENT — called at EVERY write boundary.
+
+    Guarantees:
+      1. published: bool → ISO-8601 string (P0 regression fix — run #805)
+      2. ioc_count == len(iocs) always (hard invariant)
+      3. All string fields are str type (never bool/int/None)
+      4. All list fields are list type (never None)
+      5. risk_score clamped to [0, 10]
+      6. severity normalised to uppercase known value
+      7. required fields (title, source) always non-empty string
+
+    Returns a shallow copy — original is never mutated.
+    Safe to call on every entry unconditionally.
+    """
+    entry = dict(entry)  # shallow copy — never mutate originals
+
+    # 1. Fix boolean/non-string fields → coerce to string
+    _utc_now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    for field in _STRING_FIELDS:
+        val = entry.get(field)
+        if isinstance(val, bool):
+            # Boolean fields: published=True/False is the documented P0 regression
+            if field == "published":
+                entry[field] = _utc_now  # replace with current ISO timestamp
+                log.warning("enforce_schema: 'published' was bool(%s) — replaced with ISO timestamp", val)
+            else:
+                # Other bool fields: stringify to avoid AttributeError on .upper()/.lower() etc.
+                entry[field] = str(val)
+                log.warning("enforce_schema: '%s' was bool(%s) — coerced to str", field, val)
+        elif val is None:
+            # published must always be a valid ISO string — supply UTC now if absent/None
+            if field == "published":
+                entry[field] = _utc_now
+            # All other optional string fields: leave absent rather than inject empty strings
+        elif not isinstance(val, str):
+            entry[field] = str(val)
+
+    # 2. Normalise severity to uppercase known set
+    sev = entry.get("severity")
+    if sev is not None:
+        sev_str = str(sev).upper().strip()
+        if sev_str not in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN", "INFO", ""):
+            sev_str = "UNKNOWN"
+        entry["severity"] = sev_str
+
+    # 3. Ensure list fields are actually lists
+    for field in _LIST_FIELDS:
+        val = entry.get(field)
+        if val is None:
+            entry[field] = []
+        elif not isinstance(val, list):
+            # Wrap scalars in list, discard non-iterable garbage
+            try:
+                entry[field] = list(val)
+            except TypeError:
+                entry[field] = []
+
+    # 4. ioc_count == len(iocs) — hard invariant
+    iocs = entry.get("iocs", [])
+    if not isinstance(iocs, list):
+        iocs = []
+        entry["iocs"] = iocs
+    ioc_count = len(iocs)
+    if entry.get("ioc_count") != ioc_count:
+        log.debug(
+            "enforce_schema: ioc_count mismatch corrected (%s → %d)",
+            entry.get("ioc_count"), ioc_count,
+        )
+    entry["ioc_count"] = ioc_count
+
+    # 5. Clamp risk_score to [0, 10]
+    rs = entry.get("risk_score")
+    if rs is not None:
+        try:
+            entry["risk_score"] = round(max(0.0, min(10.0, float(rs))), 2)
+        except (TypeError, ValueError):
+            entry["risk_score"] = 5.0
+
+    # 6. Required fields — ensure non-empty string
+    for field in _REQUIRED_FIELDS:
+        val = entry.get(field)
+        if not val or not str(val).strip():
+            entry[field] = f"UNKNOWN_{field.upper()}"
+
+    return entry
+
+
+def enforce_schema_list(items: List[Dict]) -> List[Dict]:
+    """Apply enforce_schema() to every item in a list. Returns new list."""
+    return [enforce_schema(item) for item in items]
+
+
+# ---------------------------------------------------------------------------
 # IOC Quality Engine
 # ---------------------------------------------------------------------------
 
@@ -934,6 +1052,8 @@ class PipelineMetrics:
         self._write_latencies_ms: List[float] = []
         self._write_failures: int = 0
         self._retry_count: int = 0
+        self._render_failures: int = 0
+        self._schema_violations: int = 0
 
     def record_ingestion(self, count: int) -> None:
         self._ingested += count
@@ -962,6 +1082,16 @@ class PipelineMetrics:
 
     def record_write_retry(self, count: int = 1) -> None:
         self._retry_count += count
+
+    def record_render_failure(self, stage: str = "", reason: str = "") -> None:
+        self._render_failures += 1
+        if reason:
+            self._errors.append(f"render_failure [{stage}]: {reason}")
+
+    def record_schema_violation(self, field: str = "", reason: str = "") -> None:
+        self._schema_violations += 1
+        if reason:
+            self._errors.append(f"schema_violation [{field}]: {reason}")
 
     def ingestion_rate(self) -> float:
         total = self._ingested + self._failed
@@ -1007,10 +1137,12 @@ class PipelineMetrics:
             "stage_timings_s": self._stage_timings,
             "stage_statuses": self._stage_statuses,
             "errors": self._errors,
-            # v132 write observability
+            # v132 write + render observability
             "write_latency": self._write_latency_stats(),
             "write_failures": self._write_failures + wq_metrics.get("write_failures", 0),
             "write_retry_count": self._retry_count,
+            "render_failures": self._render_failures,
+            "schema_violations": self._schema_violations,
             "write_queue_metrics": wq_metrics,
         }
 

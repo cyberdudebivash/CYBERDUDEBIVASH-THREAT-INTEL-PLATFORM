@@ -61,7 +61,49 @@ except ImportError:
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Dict, List, Optional
+
+# v132: Global schema enforcement — enforce_schema() applied at every write boundary
+_ENFORCE_SCHEMA_AVAILABLE = False
+_enforce_schema = None
+try:
+    import sys as _sys
+    _scripts_dir = str(Path(__file__).resolve().parent)
+    if _scripts_dir not in _sys.path:
+        _sys.path.insert(0, _scripts_dir)
+    from safe_io import enforce_schema as _enforce_schema_fn
+    _enforce_schema = _enforce_schema_fn
+    _ENFORCE_SCHEMA_AVAILABLE = True
+except ImportError:
+    pass
+
+
+def _safe_enforce_schema(item: dict) -> dict:
+    """
+    Apply global schema enforcement at the write boundary.
+    If safe_io is unavailable, falls back to inline critical fixes only.
+    Never raises — returns corrected copy.
+    """
+    if _ENFORCE_SCHEMA_AVAILABLE and _enforce_schema is not None:
+        try:
+            return _enforce_schema(item)
+        except Exception:
+            pass
+    # Inline fallback: fix the critical P0 regression (published=bool → ISO string)
+    item = dict(item)
+    if isinstance(item.get("published"), bool):
+        item["published"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # Coerce severity to string (prevents AttributeError on .upper() in render)
+    for _f in ("severity", "threat_type", "actor_tag", "tlp", "feed_source"):
+        v = item.get(_f)
+        if v is not None and not isinstance(v, str):
+            item[_f] = str(v)
+    # ioc_count == len(iocs) invariant
+    iocs = item.get("iocs")
+    if isinstance(iocs, list):
+        item["ioc_count"] = len(iocs)
+    return item
+
 
 # ─── Version loader (reads from config/version.json — single source of truth) ───
 def _load_platform_version() -> str:
@@ -770,15 +812,16 @@ def _section(num: int, title: str, body: str) -> str:
 
 
 def build_report_sections(item: dict) -> str:
-    title       = item.get("title") or "Untitled Advisory"
-    desc        = item.get("description") or title
-    sev         = (item.get("severity") or "INFO").upper()
-    actor       = item.get("actor_tag") or item.get("primary_actor") or "UNATTRIBUTED"
-    threat_type = item.get("threat_type") or "General Cyber Threat"
-    feed        = item.get("feed_source") or item.get("source") or "SENTINEL-APEX"
+    # RENDER LAYER SAFETY: NEVER assume data types — all fields coerced before use
+    title       = str(item.get("title") or "Untitled Advisory")
+    desc        = str(item.get("description") or title)
+    sev         = str(item.get("severity") or "INFO").upper()
+    actor       = str(item.get("actor_tag") or item.get("primary_actor") or "UNATTRIBUTED")
+    threat_type = str(item.get("threat_type") or "General Cyber Threat")
+    feed        = str(item.get("feed_source") or item.get("source") or "SENTINEL-APEX")
     cvss        = item.get("cvss_score")
     epss        = item.get("epss_score")
-    kev         = item.get("kev_present", False)
+    kev         = bool(item.get("kev_present", False))
     risk        = float(item.get("risk_score") or 0)
     ttps        = item.get("ttps") or item.get("mitre_tactics") or []
     iocs        = item.get("iocs") or []
@@ -1272,11 +1315,14 @@ def build_report_sections(item: dict) -> str:
 # Full HTML document
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def render_report(item: dict, public_prefix: str) -> str:
-    title    = item.get("title") or "Untitled Advisory"
-    sev      = (item.get("severity") or "INFO").upper()
-    ts       = _fmt_ts(item.get("processed_at") or item.get("timestamp") or "")
-    intel_id = item.get("id") or "intel--unknown"
-    tlp      = (item.get("tlp") or "TLP:CLEAR").replace(":", "-")
+    # RENDER LAYER SAFETY: all field access uses str() — never assume data types
+    title    = str(item.get("title") or "Untitled Advisory")
+    sev      = str(item.get("severity") or "INFO").upper()
+    # published: explicitly cast to str — P0 regression guard (run #805: published=True bool)
+    published = str(item.get("published") or "")
+    ts       = _fmt_ts(str(item.get("processed_at") or item.get("timestamp") or ""))
+    intel_id = str(item.get("id") or "intel--unknown")
+    tlp      = str(item.get("tlp") or "TLP:CLEAR").replace(":", "-")
     risk     = item.get("risk_score") or 0
     tags     = item.get("tags") or []
     report_url = f"{public_prefix.rstrip('/')}/reports/{intel_id}.html"
@@ -1518,6 +1564,9 @@ def main(argv=None) -> int:
         _desc  = item.get("description") or ""
         _words = len((_title + " " + _desc).split())
         is_enriched = _words < 50  # flag thin content but still generate
+
+        # ── SCHEMA ENFORCEMENT (MANDATORY — at write boundary, before render) ──
+        item = _safe_enforce_schema(item)
 
         path = rel_report_path(item)
         path.parent.mkdir(parents=True, exist_ok=True)

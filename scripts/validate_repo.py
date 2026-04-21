@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 scripts/validate_repo.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v131.2.0 -- Repository Validator
+CYBERDUDEBIVASH(R) SENTINEL APEX v132.0.0 -- Repository Validator
 ==================================================================
+HARD SCHEMA VALIDATION GATE — NO AUTO-HEAL.
 FINAL VALIDATION GATE -- runs after all other pipeline steps.
 
 Checks:
@@ -316,65 +317,97 @@ _VALID_SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN", ""}
 
 
 def _validate_single_intel(obj: dict, idx: int) -> list[str]:
-    """Return list of schema error strings for one intel object."""
+    """
+    v132: STRICT hard validation — returns violation strings.
+    All violations are HARD FAIL conditions (zero tolerance).
+    NO auto-heal in this function — enforcement only.
+    """
     errs: list[str] = []
     if not isinstance(obj, dict):
         errs.append(f"[{idx}] Not a dict: {type(obj).__name__}")
         return errs
-    # Required fields
+
+    sid = obj.get("id", f"idx_{idx}")
+    vs  = obj.get("validation_status")
+
+    # Required fields: title and source must be non-empty strings
     for field in _INTEL_REQUIRED:
         val = obj.get(field)
-        if not val or not isinstance(val, str):
-            errs.append(f"[{idx}] Missing/empty required string field '{field}'")
-    # published must NOT be a boolean
+        if not val or not isinstance(val, str) or not val.strip():
+            errs.append(f"[{idx}/{sid}] V3/V4: Missing/empty required string field '{field}' (got: {repr(val)[:40]})")
+
+    # published must NOT be a boolean (P0 regression — run #805)
     pub = obj.get("published")
     if isinstance(pub, bool):
         errs.append(
-            f"[{idx}] 'published' is boolean ({pub}) -- must be ISO-8601 string "
-            "(root cause of run #793 AttributeError)"
+            f"[{idx}/{sid}] V1: 'published' is bool({pub}) — MUST be ISO-8601 string. "
+            "Root cause of AttributeError in render_report(). "
+            "enforce_schema() should have corrected this before this gate runs."
         )
-    # ioc_count integrity
+    elif pub is not None and not isinstance(pub, str):
+        errs.append(
+            f"[{idx}/{sid}] V1: 'published' has type {type(pub).__name__} — must be str"
+        )
+
+    # severity must be string, not bool, and in known set
+    sev = obj.get("severity")
+    if sev is not None:
+        if isinstance(sev, bool):
+            errs.append(f"[{idx}/{sid}] V5: severity is bool({sev}) — must be string")
+        elif not isinstance(sev, str):
+            errs.append(f"[{idx}/{sid}] V5: severity is {type(sev).__name__} — must be str")
+        elif str(sev).upper() not in _VALID_SEVERITIES:
+            errs.append(f"[{idx}/{sid}] V5: severity '{sev}' not in {_VALID_SEVERITIES}")
+
+    # ioc_count integrity — zero tolerance (v132: was 5% tolerance, now 0%)
     iocs = obj.get("iocs")
     ioc_count = obj.get("ioc_count")
-    if isinstance(iocs, list) and isinstance(ioc_count, int):
-        if ioc_count != len(iocs):
+    if iocs is not None:
+        if not isinstance(iocs, list):
+            errs.append(f"[{idx}/{sid}] V7: iocs is {type(iocs).__name__} — must be list")
+        elif isinstance(ioc_count, int) and ioc_count != len(iocs):
             errs.append(
-                f"[{idx}] ioc_count mismatch: declared={ioc_count}, actual={len(iocs)}"
+                f"[{idx}/{sid}] V2: ioc_count={ioc_count} != len(iocs)={len(iocs)} — P0 invariant violation"
             )
-    # severity
-    sev = obj.get("severity", "")
-    if sev and sev not in _VALID_SEVERITIES:
-        errs.append(f"[{idx}] Invalid severity '{sev}'")
+
     # risk_score range
     rs = obj.get("risk_score")
     if rs is not None:
         try:
             rsf = float(rs)
             if not 0.0 <= rsf <= 10.0:
-                errs.append(f"[{idx}] risk_score {rs} out of range [0,10]")
+                errs.append(f"[{idx}/{sid}] V6: risk_score={rs} out of [0, 10]")
         except (TypeError, ValueError):
-            errs.append(f"[{idx}] risk_score '{rs}' is not numeric")
+            errs.append(f"[{idx}/{sid}] V6: risk_score='{rs}' is not numeric")
+
+    # V10: processed entries must have valid https report_url
+    if vs in ("ok", "enriched"):
+        ru = obj.get("report_url", "")
+        if not ru or not ru.startswith("https://"):
+            errs.append(
+                f"[{idx}/{sid}] V10: validation_status='{vs}' but report_url is missing/invalid: {repr(ru)[:60]}"
+            )
+
     return errs
 
 
 def check_intel_schema() -> CheckResult:
     """
-    Check 6: Validate intel advisory objects in the canonical manifest.
-    Single Source of Truth: data/stix/feed_manifest.json
+    v132 Check 6: HARD schema validation gate — zero tolerance.
 
-    Enforces:
-      - Required fields present + correct type (title, source)
-      - published is a string (NEVER boolean -- P0 guard)
-      - ioc_count == len(iocs) when both present
-      - severity is a recognised value
-      - risk_score in [0, 10]
+    Enforces ALL 10 invariants with ZERO tolerance:
+      V1. published is string (never bool) — P0 regression guard
+      V2. ioc_count == len(iocs) exactly (0% tolerance, up from 5%)
+      V3. title is non-empty string
+      V4. source is non-empty string
+      V5. severity is string in known set (if present)
+      V6. risk_score in [0, 10] (if present)
+      V7. iocs is list (if present)
+      V10. processed entries have valid https report_url
 
-    Hard FAIL conditions:
-      - published is boolean in ANY object
-      - ioc_count mismatch in more than 5% of objects
-
-    All other schema issues: logged, not failed (to avoid blocking CI on
-    enrichment-side data variations).
+    NO soft-pass for any violation. Every violation = HARD FAIL.
+    enforce_schema() already ran in stage_enforce_schema — if violations
+    still exist here, it is a write race or upstream data corruption.
     """
     manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
     if not manifest_path.exists():
@@ -384,8 +417,7 @@ def check_intel_schema() -> CheckResult:
     try:
         raw = json.loads(manifest_path.read_text(encoding="utf-8"))
     except Exception as e:
-        return CheckResult("intel_schema", False,
-                           f"Cannot parse feed_manifest.json: {e}")
+        return CheckResult("intel_schema", False, f"Cannot parse feed_manifest.json: {e}")
 
     if isinstance(raw, list):
         items = raw
@@ -396,53 +428,76 @@ def check_intel_schema() -> CheckResult:
                            f"Unexpected manifest root type: {type(raw).__name__}")
 
     if not items:
-        return CheckResult("intel_schema", True,
-                           "Manifest has 0 items -- schema check skipped.")
+        return CheckResult("intel_schema", True, "Manifest has 0 items -- schema check skipped.")
 
-    all_errors: list[str] = []
-    boolean_published_count = 0
-    ioc_mismatch_count = 0
+    all_violations: list[str] = []
+    brand_skip = 0
 
     for i, obj in enumerate(items):
+        if isinstance(obj, dict) and obj.get("validation_status") == "brand_skip":
+            brand_skip += 1
+            continue
         errs = _validate_single_intel(obj, i)
-        for e in errs:
-            if "published" in e and "boolean" in e:
-                boolean_published_count += 1
-            if "ioc_count mismatch" in e:
-                ioc_mismatch_count += 1
-        all_errors.extend(errs)
+        all_violations.extend(errs)
 
     total = len(items)
-    ioc_mismatch_rate = ioc_mismatch_count / total if total else 0.0
+    non_brand = total - brand_skip
 
-    # Hard fail conditions
-    hard_fails: list[str] = []
-    if boolean_published_count > 0:
-        hard_fails.append(
-            f"{boolean_published_count} object(s) have boolean 'published' field (P0 regression)"
-        )
-    if ioc_mismatch_rate > 0.05:
-        hard_fails.append(
-            f"ioc_count mismatch rate {ioc_mismatch_rate:.1%} > 5% threshold "
-            f"({ioc_mismatch_count}/{total} items)"
+    if all_violations:
+        for v in all_violations[:20]:
+            log.error("[intel_schema] VIOLATION: %s", v)
+        return CheckResult(
+            "intel_schema", False,
+            f"HARD FAIL: {len(all_violations)} schema violation(s) in {non_brand} entries "
+            f"(brand_skip={brand_skip}). enforce_schema() must be called before this gate."
         )
 
-    if hard_fails:
-        return CheckResult("intel_schema", False,
-                           f"Schema HARD FAIL: " + "; ".join(hard_fails))
+    return CheckResult(
+        "intel_schema", True,
+        f"All {non_brand} non-brand intel objects satisfy all 10 schema invariants."
+    )
 
-    if all_errors:
-        # Soft issues: log but pass
-        log.warning("[intel_schema] %d soft issue(s) in %d items (not blocking):",
-                    len(all_errors), total)
-        for e in all_errors[:5]:
-            log.warning("[intel_schema]   %s", e)
-        return CheckResult("intel_schema", True,
-                           f"{total} items validated | {len(all_errors)} soft issue(s) "
-                           f"(no boolean published, ioc_count ok)")
 
-    return CheckResult("intel_schema", True,
-                       f"All {total} intel objects pass schema validation.")
+# ---------------------------------------------------------------------------
+# Check 7: No stale .tmp files (v132)
+# ---------------------------------------------------------------------------
+
+def check_no_stale_tmp() -> CheckResult:
+    """V8: No abandoned .tmp write files in data/ or reports/."""
+    stale: list[str] = []
+    for search_dir in [REPO_ROOT / "data", REPO_ROOT / "reports"]:
+        if not search_dir.is_dir():
+            continue
+        for tmp_file in search_dir.rglob("*.tmp"):
+            stale.append(str(tmp_file.relative_to(REPO_ROOT)))
+    if stale:
+        return CheckResult(
+            "no_stale_tmp", False,
+            f"{len(stale)} stale .tmp file(s) found: {'; '.join(stale[:5])}"
+        )
+    return CheckResult("no_stale_tmp", True, "No stale .tmp files found.")
+
+
+# ---------------------------------------------------------------------------
+# Check 8: write_failures.jsonl absent or empty (v132)
+# ---------------------------------------------------------------------------
+
+def check_no_write_failures() -> CheckResult:
+    """V9: write_failures.jsonl must be absent or empty."""
+    wf_log = REPO_ROOT / "data" / "logs" / "write_failures.jsonl"
+    if not wf_log.exists():
+        return CheckResult("no_write_failures", True, "write_failures.jsonl absent — no permanent failures.")
+    try:
+        lines = [l.strip() for l in wf_log.read_text(encoding="utf-8").splitlines() if l.strip()]
+        if lines:
+            return CheckResult(
+                "no_write_failures", False,
+                f"{len(lines)} permanent write failure record(s) in write_failures.jsonl — "
+                "check data/recovery/write_failures/ for payload dumps"
+            )
+        return CheckResult("no_write_failures", True, "write_failures.jsonl present but empty — no failures.")
+    except Exception as e:
+        return CheckResult("no_write_failures", False, f"Cannot read write_failures.jsonl: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -462,7 +517,9 @@ def main() -> None:
         check_python_syntax,
         check_json,
         check_workflow_clean,
-        check_intel_schema,   # Check 6: intel object schema + ioc_count integrity
+        check_intel_schema,       # v132 Check 6: HARD schema gate (zero tolerance)
+        check_no_stale_tmp,       # v132 Check 7: no abandoned .tmp files
+        check_no_write_failures,  # v132 Check 8: write_failures.jsonl absent/empty
     ]
 
     results: list[CheckResult] = []
@@ -486,7 +543,7 @@ def main() -> None:
         log.error("VALIDATION FAILED -- %d check(s) did not pass.", failed)
         sys.exit(1)
 
-    log.info("ALL CHECKS PASSED -- repository is production-ready. [v131.3.0]")
+    log.info("ALL CHECKS PASSED -- repository is production-ready. [v132.0.0]")
     sys.exit(0)
 
 
