@@ -21,6 +21,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
   group: precognition-engine
   cancel-in-progress: false
@@ -58,7 +59,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "***************************************************"
-          echo "SENTINEL APEX v134.0 " PRECOGNITION ENGINE"
+          echo "SENTINEL APEX v134.0 -- PRECOGNITION ENGINE"
           echo "Predictive Threat Intelligence Pipeline"
           echo "***************************************************"
           python -m agent.v34_predictive.predictive_orchestrator
@@ -67,18 +68,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "CDB-GOC-Precognition"
-          git config user.email "goc@cyberdudebivash.com"
+          git config user.name "CYBERDUDEBIVASH"
+          git config user.email "bivash@cyberdudebivash.com"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
           git add -f data/predictive/ 2>/dev/null || true
           if git diff --cached --quiet; then
-            echo "No predictive changes to commit"
+            echo "No predictive changes to commit -- skipping"
           else
-            WARNING_COUNT=$(python3 -c "import json; d=json.load(open('data/predictive/precognition_report.json')); print(d.get('pipeline_stats',{}).get('early_warnings_issued',0))" 2>/dev/null || echo "0")
-            WAVE_COUNT=$(python3 -c "import json; d=json.load(open('data/predictive/precognition_report.json')); print(d.get('pipeline_stats',{}).get('attack_waves_detected',0))" 2>/dev/null || echo "0")
-            git commit -m ""(R) PRECOGNITION v34.0 " ${WARNING_COUNT} warnings | ${WAVE_COUNT} attack waves detected"
+            REPORT="data/predictive/precognition_report.json"
+            WARNING_COUNT=$(python3 -c "import json,os; d=json.load(open('${REPORT}')) if os.path.exists('${REPORT}') else {}; print(d.get('pipeline_stats',{}).get('early_warnings_issued',0))" 2>/dev/null || echo "0")
+            WAVE_COUNT=$(python3 -c "import json,os; d=json.load(open('${REPORT}')) if os.path.exists('${REPORT}') else {}; print(d.get('pipeline_stats',{}).get('attack_waves_detected',0))" 2>/dev/null || echo "0")
+            git commit -m "PRECOGNITION v34.0 -- ${WARNING_COUNT} warnings | ${WAVE_COUNT} attack waves detected"
             git pull --rebase origin main || true
-            git push origin main
+            git push origin main || (sleep 5 && git pull --rebase origin main && git push origin main)
           fi
-
-

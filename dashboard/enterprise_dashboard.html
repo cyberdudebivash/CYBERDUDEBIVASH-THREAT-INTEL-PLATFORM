@@ -695,6 +695,12 @@
         event.target.classList.add('active');
     }
 
+    // v134.1.0 FIX: Universal manifest parser — handles all key variants including canonical 'advisories'
+    function parseManifest(d) {
+        if (Array.isArray(d)) return d;
+        return d.advisories || d.items || d.entries || d.data || d.reports || [];
+    }
+
     // ---- Data Loading ----
     async function loadManifest() {
         // PRIMARY: Cloudflare Worker Edge API (always live, no auth required for preview)
@@ -705,25 +711,26 @@
                 });
                 if (apiResp.ok) {
                     const apiData = await apiResp.json();
-                    const items = apiData.items || apiData.entries || apiData.data || (Array.isArray(apiData) ? apiData : []);
+                    const items = parseManifest(apiData);
                     if (items.length > 0) STATE.manifest = items;
                 }
             } catch(e) { /* fall through to static sources */ }
         }
 
-        // SECONDARY: Static JSON paths (local / CDN)
+        // SECONDARY: Static JSON paths (local / CDN) — canonical key is 'advisories'
         if (STATE.manifest.length === 0) {
             const sources = [
                 '../data/stix/feed_manifest.json', '/data/stix/feed_manifest.json',
                 '../data/feed_manifest.json', '/feed_manifest.json', '../feed_manifest.json',
+                '../data/apex_enriched_manifest.json', '/data/apex_enriched_manifest.json',
             ];
             for (const src of sources) {
                 try {
                     const resp = await fetch(src);
                     if (resp.ok) {
                         let data = await resp.json();
-                        STATE.manifest = Array.isArray(data) ? data : (data.entries || data.items || []);
-                        if (STATE.manifest.length > 0) break;
+                        const parsed = parseManifest(data);
+                        if (parsed.length > 0) { STATE.manifest = parsed; break; }
                     }
                 } catch(e) { continue; }
             }
@@ -731,17 +738,17 @@
 
         // TERTIARY: Embedded / bundled data
         if (STATE.manifest.length === 0 && typeof EMBEDDED_INTEL !== 'undefined') {
-            STATE.manifest = EMBEDDED_INTEL;
+            STATE.manifest = parseManifest(EMBEDDED_INTEL);
         }
         if (STATE.manifest.length === 0 && typeof RAW_MANIFEST !== 'undefined') {
-            STATE.manifest = RAW_MANIFEST;
+            STATE.manifest = parseManifest(RAW_MANIFEST);
         }
-        // FINAL FALLBACK: GitHub raw manifest
+        // FINAL FALLBACK: GitHub raw manifest (canonical — uses advisories key)
         if (STATE.manifest.length === 0) {
             try {
                 const ghR = await fetch('https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json');
-                if (ghR.ok) { let d = await ghR.json(); STATE.manifest = Array.isArray(d) ? d : (d.items || d.entries || []); }
-            } catch(e) {}
+                if (ghR.ok) { let d = await ghR.json(); STATE.manifest = parseManifest(d); }
+            } catch(e) { console.error('[SENTINEL APEX] All sources failed — dashboard in degraded state'); }
         }
 
         STATE.filtered = [...STATE.manifest];
