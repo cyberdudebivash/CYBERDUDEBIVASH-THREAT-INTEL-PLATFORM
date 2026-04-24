@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBERDUDEBIVASH SENTINEL APEX Enterprise Dashboard v134.0.0</title>
+    <title>CYBERDUDEBIVASH SENTINEL APEX Enterprise Dashboard v131.2.0</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -476,7 +476,7 @@
     <header class="topbar">
         <div class="topbar-brand">
             <span class="logo-text">CYBERDUDEBIVASH SENTINEL APEX</span>
-            <span class="version-badge">ENTERPRISE v134.0.0</span>
+            <span class="version-badge">ENTERPRISE v131.2.0</span>
         </div>
         <nav class="topbar-nav">
             <button class="active" onclick="showPanel('intelligence')">Intelligence</button>
@@ -659,8 +659,11 @@
     </main>
 
     <footer class="footer">
-        &copy; 2026 CyberDudeBivash Pvt. Ltd. &mdash; CYBERDUDEBIVASH SENTINEL APEX Enterprise Intelligence Platform<br>
+        &copy; 2026 <strong>CYBERDUDEBIVASH PRIVATE LIMITED</strong> &mdash; CYBERDUDEBIVASH SENTINEL APEX v131.2.0 Enterprise Intelligence Platform<br>
+        <span style="font-size:0.8em;opacity:0.7;">29, Korai-Sukinda-Ramchandrapur Rd, Ragadi, JAJPUR ROAD, Odisha 755019, India &nbsp;|&nbsp; GST: 21ARKPN8270G1ZP</span><br>
         <a href="https://intel.cyberdudebivash.com" style="color:var(--accent);text-decoration:none;">intel.cyberdudebivash.com</a>
+        &nbsp;|&nbsp;
+        <a href="https://blog.cyberdudebivash.in/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">&#x1F4DD; Blog: blog.cyberdudebivash.in</a>
     </footer>
 
     <script>
@@ -695,15 +698,78 @@
         event.target.classList.add('active');
     }
 
-    // v134.1.0 FIX: Universal manifest parser — handles all key variants including canonical 'advisories'
+    // v131.2.0: Universal manifest parser — handles all key variants including canonical 'advisories'
     function parseManifest(d) {
         if (Array.isArray(d)) return d;
         return d.advisories || d.items || d.entries || d.data || d.reports || [];
     }
 
+    // v131.2.0: Actor resolution — maps title/description keywords to real verified threat actors
+    const ACTOR_MAP = [
+        ['APT28','APT28'],['Fancy Bear','APT28'],['Sofacy','APT28'],['Strontium','APT28'],
+        ['APT29','APT29'],['Cozy Bear','APT29'],['Midnight Blizzard','APT29'],['Nobelium','APT29'],
+        ['APT41','APT41'],['Double Dragon','APT41'],['Winnti','APT41'],
+        ['Lazarus','Lazarus Group'],['Hidden Cobra','Lazarus Group'],['ZINC','Lazarus Group'],
+        ['LockBit','LockBit'],['LockBit 3','LockBit'],['LockBit 4','LockBit'],
+        ['REvil','REvil/Sodinokibi'],['GandCrab','REvil/Sodinokibi'],
+        ['Cl0p','Cl0p/TA505'],['TA505','Cl0p/TA505'],['FIN11','Cl0p/TA505'],
+        ['Volt Typhoon','Volt Typhoon'],['Bronze Silhouette','Volt Typhoon'],
+        ['Salt Typhoon','Salt Typhoon'],['Earth Estries','Salt Typhoon'],
+        ['Scattered Spider','Scattered Spider'],['Octo Tempest','Scattered Spider'],['UNC3944','Scattered Spider'],
+        ['ALPHV','ALPHV/BlackCat'],['BlackCat','ALPHV/BlackCat'],['Noberus','ALPHV/BlackCat'],
+        ['Silver Dragon','Silver Dragon'],
+        ['Iranian','Iran-Linked APT'],['Iran-link','Iran-Linked APT'],['Charming Kitten','Iran-Linked APT'],
+        ['Handala','Handala Hack'],
+        ['North Korea','Lazarus Group'],['DPRK','Lazarus Group'],['Kimsuky','Kimsuky'],
+        ['Sandworm','Sandworm'],['Voodoo Bear','Sandworm'],
+        ['FIN7','FIN7'],['Carbanak','FIN7'],
+        ['Qilin','Qilin Ransomware'],['Akira','Akira Ransomware'],
+        ['Play Ransomware','Play Ransomware'],['Black Basta','Black Basta'],
+        ['Rhysida','Rhysida Ransomware'],
+        ['Supply Chain','Supply Chain Actor'],
+    ];
+
+    function resolveActor(entry) {
+        // Use existing actor_tag if it's real (not null, not UNC-UNKNOWN, not UNC-CDB)
+        const existing = entry.actor_tag || '';
+        if (existing && !['UNC-UNKNOWN','UNC-CDB','Unknown',''].includes(existing)) return existing;
+        // Scan title + description for known actor keywords
+        const haystack = ((entry.title || '') + ' ' + (entry.description || '')).toLowerCase();
+        for (const [kw, actor] of ACTOR_MAP) {
+            if (haystack.includes(kw.toLowerCase())) return actor;
+        }
+        // Infer from threat_type
+        const tt = (entry.threat_type || '').toLowerCase();
+        if (tt.includes('ransomware')) return 'Ransomware Actor';
+        if (tt.includes('apt') || tt.includes('nation')) return 'Nation-State APT';
+        if (tt.includes('supply chain')) return 'Supply Chain Actor';
+        return 'Unattributed';
+    }
+
     // ---- Data Loading ----
     async function loadManifest() {
-        // PRIMARY: Cloudflare Worker Edge API (always live, no auth required for preview)
+        // PRIMARY: apex_enriched_manifest (2000+ advisories, always available locally)
+        if (STATE.manifest.length === 0) {
+            const localSources = [
+                '../data/apex_enriched_manifest.json',
+                '../data/stix/feed_manifest.json',
+                '../data/apex_v2_manifest.json',
+                'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/apex_enriched_manifest.json',
+                'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json',
+            ];
+            for (const src of localSources) {
+                try {
+                    const resp = await fetch(src);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        const parsed = parseManifest(data);
+                        if (parsed.length > 0) { STATE.manifest = parsed; console.log(`[ENTERPRISE] Loaded ${parsed.length} from ${src}`); break; }
+                    }
+                } catch(e) { continue; }
+            }
+        }
+
+        // SECONDARY: Cloudflare Worker Edge API
         if (STATE.manifest.length === 0) {
             try {
                 const apiResp = await fetch('https://intel.cyberdudebivash.com/api/preview', {
@@ -714,42 +780,19 @@
                     const items = parseManifest(apiData);
                     if (items.length > 0) STATE.manifest = items;
                 }
-            } catch(e) { /* fall through to static sources */ }
-        }
-
-        // SECONDARY: Static JSON paths (local / CDN) — canonical key is 'advisories'
-        if (STATE.manifest.length === 0) {
-            const sources = [
-                '../data/stix/feed_manifest.json', '/data/stix/feed_manifest.json',
-                '../data/feed_manifest.json', '/feed_manifest.json', '../feed_manifest.json',
-                '../data/apex_enriched_manifest.json', '/data/apex_enriched_manifest.json',
-            ];
-            for (const src of sources) {
-                try {
-                    const resp = await fetch(src);
-                    if (resp.ok) {
-                        let data = await resp.json();
-                        const parsed = parseManifest(data);
-                        if (parsed.length > 0) { STATE.manifest = parsed; break; }
-                    }
-                } catch(e) { continue; }
-            }
+            } catch(e) { /* fall through */ }
         }
 
         // TERTIARY: Embedded / bundled data
         if (STATE.manifest.length === 0 && typeof EMBEDDED_INTEL !== 'undefined') {
             STATE.manifest = parseManifest(EMBEDDED_INTEL);
         }
-        if (STATE.manifest.length === 0 && typeof RAW_MANIFEST !== 'undefined') {
-            STATE.manifest = parseManifest(RAW_MANIFEST);
-        }
-        // FINAL FALLBACK: GitHub raw manifest (canonical — uses advisories key)
-        if (STATE.manifest.length === 0) {
-            try {
-                const ghR = await fetch('https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json');
-                if (ghR.ok) { let d = await ghR.json(); STATE.manifest = parseManifest(d); }
-            } catch(e) { console.error('[SENTINEL APEX] All sources failed — dashboard in degraded state'); }
-        }
+
+        // Apply actor resolution to all entries
+        STATE.manifest = STATE.manifest.map(e => ({ ...e, actor_tag: resolveActor(e) }));
+
+        // Sort by timestamp descending — always show latest intel first
+        STATE.manifest.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
 
         STATE.filtered = [...STATE.manifest];
         updateMetrics();
@@ -1098,45 +1141,4 @@
                 },
             };
             pre.textContent = JSON.stringify(mockResponse, null, 2);
-        }, 500);
-    }
-
-    // ---- Utilities ----
-    function escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
-
-    // ---- Initialize ----
-    loadManifest();
-    </script>
-<script id="apex-revenue-v134">
-const APEX_VER="v134.0.0",APEX_TIER=window.APEX_USER_TIER||"free",UPGRADE_URL="https://intel.cyberdudebivash.com/upgrade",CHECKOUT="https://intel.cyberdudebivash.com/checkout";
-const IMPACT={CRITICAL:"$500K-$2M",HIGH:"$100K-$1M",MEDIUM:"$25K-$250K",LOW:"$5K-$50K"};
-function apexShowCTAs(item){
-  const sev=(item.severity||"").toUpperCase(),id=item.id||"";
-  const b=document.getElementById("apex-panel");
-  if(!b){const p=document.createElement("div");p.id="apex-panel";p.style.cssText="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;align-items:flex-end;";
-  const btns=[
-    {id:"btn-rpt",text:"🔐 Buy Full Report — $99",cls:"linear-gradient(135deg,#7c3aed,#2563eb)",url:`${CHECKOUT}?product=report_enterprise&report_id=${id}`},
-    {id:"btn-ioc",text:"🔓 Unlock IOCs — $49",   cls:"linear-gradient(135deg,#d97706,#b45309)",url:`${CHECKOUT}?product=report_basic&report_id=${id}`},
-    {id:"btn-pdf",text:"📄 Download PDF",          cls:"linear-gradient(135deg,#059669,#047857)",url:`/reports/${id}/report.pdf`},
-    {id:"btn-upg",text:"⚡ Upgrade to PRO — $49/mo",cls:"linear-gradient(135deg,#dc2626,#b91c1c)",url:UPGRADE_URL}
-  ];
-  btns.forEach(b=>{const a=document.createElement("a");a.id=b.id;a.href=b.url;a.target="_blank";
-    a.style.cssText=`display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:8px;font-size:13px;font-weight:700;color:#fff;text-decoration:none;background:${b.cls};box-shadow:0 4px 24px rgba(0,0,0,.5);`;
-    a.textContent=b.text;p.appendChild(a);});
-  document.body.appendChild(p);}
-  // Impact banner
-  let imp=document.getElementById("apex-imp");
-  if(!imp){imp=document.createElement("div");imp.id="apex-imp";imp.style.cssText="background:linear-gradient(135deg,rgba(220,38,38,.12),rgba(124,58,237,.12));border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:14px 20px;margin:16px;font-family:monospace;";document.body.insertBefore(imp,document.body.firstChild);}
-  imp.innerHTML=`<div style="font-size:10px;font-weight:800;color:#f43f5e;letter-spacing:.1em;text-transform:uppercase;">⚡ FINANCIAL EXPOSURE</div><div style="font-size:20px;font-weight:800;color:#fff;margin:4px 0;">${IMPACT[sev]||IMPACT.HIGH}</div><div style="font-size:11px;color:#94a3b8;">Estimated breach cost — <strong style="color:#f43f5e;">Severity: ${sev}</strong> | Sector: ${item.target_sector||"Enterprise"}</div>`;
-  imp.style.display="block";
-}
-window.APEX_REVENUE={showCTAs:apexShowCTAs,VERSION:APEX_VER};
-</script>
-</body>
-</html>
-
-
+        }, 50
