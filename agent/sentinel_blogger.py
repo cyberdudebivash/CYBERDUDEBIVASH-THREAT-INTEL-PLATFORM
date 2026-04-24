@@ -429,6 +429,29 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     v134.0: STIX bundle written directly. No Blogger publish. No queue.
     Returns True if STIX bundle successfully written to disk.
     """
+    # -------------------------------------------------------------------------
+    # SCHEMA CONTRACT ENFORCEMENT — v134.2
+    # Hard type check: entry MUST be a dict. Lists, tuples, and any non-dict
+    # type are a schema contract violation and must be rejected explicitly.
+    # This is NOT try/except masking — it is an explicit type gate that logs
+    # a hard ERROR so the upstream data corruption is visible and traceable.
+    # -------------------------------------------------------------------------
+    if not isinstance(entry, dict):
+        logger.error(
+            "[SCHEMA-REJECT] process_entry received %s instead of dict — "
+            "schema contract violation. Entry discarded. Upstream bug: "
+            "check feed parsing / STIX reconstruction / dedup pipeline.",
+            type(entry).__name__,
+        )
+        return False
+
+    # Defaults for required fields — if missing, set sentinel values so
+    # subsequent code never KeyErrors on 'title' or 'link'.
+    entry.setdefault("title", "UNKNOWN_TITLE")
+    entry.setdefault("link", "")
+    entry.setdefault("summary", "")
+    entry.setdefault("content", "")
+
     headline   = entry["title"]
     source_url = entry.get("link", "")
 
@@ -590,12 +613,16 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     _PQ_WORD_FLOOR = 150
     _PQ_CONF_FLOOR = 4.5
 
-    # v134.1 P0 FIX: Extended exemption set — IOC>0, MITRE>0, known actor bypass
+    # v134.2 P0 ROOT FIX: isinstance MUST be checked before .get() — map_threat()
+    # returns a list[], never a dict. Calling .get() on a list crashes every entry.
+    # Order: list check first (fast path), dict check second (future-proof).
     _pq_has_iocs   = _pq_total_iocs > 0
-    _pq_has_mitre  = bool(mitre_data and (
-        mitre_data.get("tactics") or mitre_data.get("techniques") or
+    _pq_has_mitre  = (
         (isinstance(mitre_data, list) and len(mitre_data) > 0)
-    ))
+        or (isinstance(mitre_data, dict) and bool(
+            mitre_data.get("tactics") or mitre_data.get("techniques")
+        ))
+    )
     _pq_known_actor = bool(actor_data and not actor_data.get("tracking_id", "").startswith("UNC-"))
     _pq_exempt = _pq_has_cve or _pq_has_kev or _pq_has_iocs or _pq_has_mitre or _pq_known_actor
 

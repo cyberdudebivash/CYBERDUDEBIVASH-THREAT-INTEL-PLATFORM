@@ -39,7 +39,7 @@ Environment variables consumed (set at job level in workflow):
   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID -- optional: alerts
   SKIP_AI            -- "true" to skip AI enrichment
   FORCE_FULL_SYNC    -- "true" to force full sync
-  PIPELINE_VERSION   -- version string (default: 131.2.0)
+  PIPELINE_VERSION   -- version string (default: 134.0.0)
   PYTHONPATH         -- set to github.workspace by workflow
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved. CONFIDENTIAL.
@@ -98,7 +98,7 @@ log = logging.getLogger("sentinel.pipeline")
 # Constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "131.2.0")
+PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "134.0.0")
 MIN_FRESHNESS_ENTRIES = 10   # absolute hard-fail threshold
 MIN_ENGINE_ENTRIES = 50      # engine manifest minimum before --force-rebuild
 MAX_STIX_BUNDLES = 500       # cap on persisted STIX bundle files
