@@ -459,18 +459,29 @@ function resolveActor(entry) {
 }
 
 async function loadData() {
-  // PRIMARY: Local apex_enriched_manifest (2000+ advisories, always available)
+  // v136.0 FIX: prioritise fast, sub-1MB sources to prevent stalling on 20MB apex_enriched_manifest.
+  // apex_enriched_manifest (20MB) is moved LAST — used only when all small sources fail.
   const sources = [
-    '../data/apex_enriched_manifest.json',
-    '../data/stix/feed_manifest.json',
-    '../data/apex_v2_manifest.json',
-    'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/apex_enriched_manifest.json',
+    '../api/feed.json',                 // 310 items, ~500KB, same-domain, fastest
+    '../data/stix/feed_manifest.json',  // 100 items, 582KB
+    `${CF_WORKER}/api/preview`,         // CF Worker fallback
     'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json',
-    `${CF_WORKER}/api/preview`,
+    '../data/apex_enriched_manifest.json',  // 2000 items, 20MB — last resort
   ];
+  // v136.0: fetch with 8s timeout to prevent stalling on large files
+  const fetchWithTimeout = async (url, ms=8000) => {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const r = await fetch(url, { signal: ctrl.signal, headers: { 'Accept': 'application/json' } });
+      clearTimeout(tid);
+      return r;
+    } catch(e) { clearTimeout(tid); throw e; }
+  };
   for (const src of sources) {
     try {
-      const r = await fetch(src, { headers: { 'Accept': 'application/json' } });
+      const timeout = src.includes('apex_enriched_manifest') ? 20000 : 8000;
+      const r = await fetchWithTimeout(src, timeout);
       if (!r.ok) continue;
       const d = await r.json();
       const items = parseManifest(d);
@@ -479,7 +490,7 @@ async function loadData() {
         console.log(`[SOC-v2] Loaded ${ALL_DATA.length} advisories from ${src}`);
         break;
       }
-    } catch(e) { continue; }
+    } catch(e) { console.warn('[SOC-v2] Source failed:', src.substring(0,60), e.message); continue; }
   }
 
   if (ALL_DATA.length === 0) {
@@ -500,8 +511,9 @@ async function loadData() {
 function computeMetrics() {
   const d = ALL_DATA;
   if (!d.length) return;
-  const crit    = d.filter(i=>i.severity==='CRITICAL').length;
-  const high    = d.filter(i=>i.severity==='HIGH').length;
+  // v136.0 FIX: dual-condition severity — trust risk_score as primary signal
+  const crit    = d.filter(i=>parseFloat(i.risk_score||0)>=9.0||i.severity==='CRITICAL').length;
+  const high    = d.filter(i=>{ const s=parseFloat(i.risk_score||0); return (s>=7.0&&s<9.0)||(i.severity==='HIGH'&&s<9.0); }).length;
   const kev     = d.filter(i=>i.kev_present).length;
   const sc      = d.filter(i=>i.supply_chain).length;
   const ransom  = d.filter(i=>(i.threat_type||'').toLowerCase().includes('ransom')).length;
@@ -565,8 +577,9 @@ function applyFilter(f) {
     ransomware: 'Ransomware Campaigns',
     apt: 'APT & Nation-State Activity',
   };
-  if (f === 'CRITICAL') data = ALL_DATA.filter(i=>i.severity==='CRITICAL');
-  else if (f === 'HIGH') data = ALL_DATA.filter(i=>i.severity==='HIGH');
+  // v136.0 FIX: dual-condition severity matching
+  if (f === 'CRITICAL') data = ALL_DATA.filter(i=>parseFloat(i.risk_score||0)>=9.0||i.severity==='CRITICAL');
+  else if (f === 'HIGH') data = ALL_DATA.filter(i=>{ const s=parseFloat(i.risk_score||0); return (s>=7.0&&s<9.0)||(i.severity==='HIGH'&&s<9.0); });
   else if (f === 'kev') data = ALL_DATA.filter(i=>i.kev_present);
   else if (f === 'supply_chain') data = ALL_DATA.filter(i=>i.supply_chain);
   else if (f === 'ransomware') data = ALL_DATA.filter(i=>(i.threat_type||'').toLowerCase().includes('ransom'));
