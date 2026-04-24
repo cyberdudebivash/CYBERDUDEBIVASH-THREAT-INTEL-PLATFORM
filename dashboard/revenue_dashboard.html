@@ -508,5 +508,74 @@ function renderAddons() {
 
 loadLiveData();
 </script>
+
+    <!-- P0 FIX v134.0: Shared ACTOR_MAP + resolveActor + live feed loader -->
+    <script>
+    (function() {
+        var ACTOR_PATTERNS = [
+            ['apt28|fancy bear|strontium|forest blizzard', 'APT28 (Fancy Bear)'],
+            ['apt29|cozy bear|nobelium|midnight blizzard|solarwinds', 'APT29 (Cozy Bear)'],
+            ['apt41|double dragon|winnti|shadowpad', 'APT41 (Double Dragon)'],
+            ['lazarus|hidden cobra|north korea|dprk|mach-o man', 'Lazarus Group'],
+            ['lockbit|lock bit', 'LockBit'],
+            ['blackcat|alphv|noberus', 'BlackCat/ALPHV'],
+            ['akira ransomware|akira group', 'Akira'],
+            ['medusa ransomware|medusalocker', 'Medusa'],
+            ['sandworm|voodoo bear|industroyer', 'Sandworm'],
+            ['scattered spider|octo tempest', 'Scattered Spider'],
+            ['cl0p|clop|ta505|moveit', 'Cl0p (TA505)'],
+            ['blobphish|remcos|phantompulse', 'Phishing Actor'],
+            ['ransomware|ransom', 'Ransomware Actor'],
+            ['cdb-fin-09', 'Lazarus Group'], ['cdb-ran-01', 'LockBit'],
+            ['cdb-ran-02', 'BlackCat/ALPHV'], ['cdb-apt-28', 'APT28 (Fancy Bear)'],
+            ['cdb-apt-29', 'APT29 (Cozy Bear)'], ['cdb-phi-gen', 'Phishing Actor'],
+            ['cdb-ran-gen', 'Ransomware Actor'], ['cdb-cve-gen', 'CVE Exploit Actor'],
+            ['cdb-apt-gen', 'Nation-State APT'], ['cdb-mob-01', 'Triada Consortium'],
+        ];
+        window.resolveActorTag = function(tag, title) {
+            var text = ((tag||'') + ' ' + (title||'')).toLowerCase();
+            for (var i=0; i<ACTOR_PATTERNS.length; i++) {
+                var pats = ACTOR_PATTERNS[i][0].split('|');
+                for (var j=0; j<pats.length; j++) {
+                    if (text.indexOf(pats[j]) !== -1) return ACTOR_PATTERNS[i][1];
+                }
+            }
+            if (tag && tag !== 'UNC-UNKNOWN' && tag !== 'UNC-CDB-99' && tag !== '')
+                return tag.replace('CDB-','').replace(/-\d+$/,'');
+            return 'Unattributed';
+        };
+
+        // Live feed loader — tries feed.json then api/feed.json
+        window.loadLiveFeed = function(callback) {
+            var FEED_URLS = [
+                '../feed.json?t=' + Date.now(),
+                '../api/feed.json?t=' + Date.now(),
+                'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/feed.json',
+            ];
+            var idx = 0;
+            function tryNext() {
+                if (idx >= FEED_URLS.length) { callback(null, []); return; }
+                var url = FEED_URLS[idx++];
+                var ctrl = new AbortController();
+                var tid = setTimeout(function(){ctrl.abort();}, 5000);
+                fetch(url, {cache:'no-store', signal:ctrl.signal})
+                    .then(function(r){ clearTimeout(tid); if(!r.ok) throw new Error(r.status); return r.json(); })
+                    .then(function(data){
+                        var items = Array.isArray(data) ? data
+                            : (data.items || data.advisories || data.entries || []);
+                        if (!items.length) throw new Error('empty');
+                        items = items.map(function(e){
+                            e.actor_tag = window.resolveActorTag(e.actor_tag, e.title);
+                            return e;
+                        });
+                        callback(null, items);
+                    })
+                    .catch(function(){ tryNext(); });
+            }
+            tryNext();
+        };
+    })();
+    </script>
+
 </body>
 </html>

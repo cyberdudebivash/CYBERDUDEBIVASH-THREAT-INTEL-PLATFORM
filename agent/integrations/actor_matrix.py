@@ -92,6 +92,54 @@ class ActorMatrix:
                              "mfa bypass", "mfa codes"],
             },
             # v15.0: Mobile malware actor clusters
+            "CDB-APT-43": {
+                "alias": ["Kimsuky", "Thallium", "Black Banshee", "APT43"],
+                "origin": "North Korea",
+                "motivation": "Espionage / crypto funding",
+                "tooling": ["BabyShark", "AppleSeed", "PebbleDash"],
+                "keywords": ["kimsuky", "thallium", "black banshee", "apt43", "north korea espionage"],
+                "tracking_id": "CDB-APT-43",
+            },
+            "CDB-RAN-03": {
+                "alias": ["Akira", "Akira Ransomware"],
+                "origin": "Unknown",
+                "motivation": "Financial",
+                "tooling": ["Akira encryptor", "AnyDesk", "WinSCP"],
+                "keywords": ["akira ransomware", "akira group"],
+                "tracking_id": "CDB-RAN-03",
+            },
+            "CDB-RAN-04": {
+                "alias": ["Medusa", "MedusaLocker", "Medusa Ransomware"],
+                "origin": "Unknown",
+                "motivation": "Financial",
+                "tooling": ["Medusa encryptor"],
+                "keywords": ["medusa ransomware", "medusalocker", "medusa group"],
+                "tracking_id": "CDB-RAN-04",
+            },
+            "CDB-RAN-05": {
+                "alias": ["Qilin", "Agenda Ransomware"],
+                "origin": "Unknown",
+                "motivation": "Financial",
+                "tooling": ["Qilin encryptor", "Agenda"],
+                "keywords": ["qilin", "agenda ransomware"],
+                "tracking_id": "CDB-RAN-05",
+            },
+            "CDB-RAN-06": {
+                "alias": ["REvil", "Sodinokibi", "GOLD SOUTHFIELD"],
+                "origin": "Russia",
+                "motivation": "Financial",
+                "tooling": ["REvil/Sodinokibi"],
+                "keywords": ["revil", "sodinokibi", "gold southfield"],
+                "tracking_id": "CDB-RAN-06",
+            },
+            "CDB-APT-40": {
+                "alias": ["APT40", "TEMP.Periscope", "Kryptonite Panda"],
+                "origin": "China",
+                "motivation": "Espionage",
+                "tooling": ["ScanBox", "AIRBREAK"],
+                "keywords": ["apt40", "temp.periscope", "kryptonite panda", "bronze mohawk"],
+                "tracking_id": "CDB-APT-40",
+            },
             "CDB-MOB-01": {
                 "alias": ["Triada", "KeenAdu", "BADBOX", "Lemon Group"],
                 "origin": "China / Southeast Asia",
@@ -274,7 +322,37 @@ class ActorMatrix:
                 "profile": best_match[1],
             }
 
-        # Default for unknown clusters
+        # v134.1 P0 FIX: Threat-category fallback before true UNC-UNKNOWN
+        # Assign campaign cluster IDs based on broad threat-type keywords
+        _CATEGORY_MAP = [
+            ("CDB-RAN-GEN", ["ransomware", "ransom", "locker", "encryptor", "extortion", "double extortion"]),
+            ("CDB-PHI-GEN", ["phishing", "spear-phish", "credential harvest", "blobphish", "smishing", "vishing"]),
+            ("CDB-RAT-GEN", ["remote access trojan", " rat ", "remcos", "njrat", "asyncrat", "quasar rat", "xworm", "agent tesla"]),
+            ("CDB-APT-GEN", ["apt", "nation-state", "state-sponsored", "advanced persistent"]),
+            ("CDB-SUP-GEN", ["supply chain", "typosquat", "dependency confusion", "malicious package", "npm package", "pypi"]),
+            ("CDB-CVE-GEN", ["cve-", "zero-day", "0-day", "exploit", "rce", "lfi", "sqli", "ssrf", "xxe"]),
+            ("CDB-MAL-GEN", ["malware", "backdoor", "rootkit", "bootkit", "stealer", "infostealer", "spyware", "wiper"]),
+            ("CDB-BOT-GEN", ["botnet", "ddos", "distributed denial", "mirai", "qakbot", "emotet"]),
+            ("CDB-CRY-GEN", ["cryptojack", "cryptominer", "xmrig", "monero mining", "coin miner"]),
+            ("CDB-MOB-GEN", ["android malware", "ios malware", "mobile threat", "banking trojan"]),
+        ]
+        corpus_lower_cat = corpus.lower()
+        for cat_id, cat_keywords in _CATEGORY_MAP:
+            for kw in cat_keywords:
+                if kw in corpus_lower_cat:
+                    return {
+                        "tracking_id": cat_id,
+                        "profile": {
+                            "alias": [cat_id.replace("CDB-", "").replace("-GEN", " (Generic)")],
+                            "origin": "Threat Category Classification",
+                            "motivation": "Varied",
+                            "tooling": ["See technical analysis"],
+                            "confidence_score": "Category match",
+                            "_is_category": True,
+                        }
+                    }
+
+        # True unknown — no keywords, no category match
         return {
             "tracking_id": "UNC-UNKNOWN",
             "profile": {
