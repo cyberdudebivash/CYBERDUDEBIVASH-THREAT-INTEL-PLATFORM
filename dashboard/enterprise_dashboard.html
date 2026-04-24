@@ -748,24 +748,39 @@
 
     // ---- Data Loading ----
     async function loadManifest() {
-        // PRIMARY: apex_enriched_manifest (2000+ advisories, always available locally)
+        // v137 FIX: fast same-domain sources first; apex_enriched (20MB) moved to last resort
+        // Added per-source fetch timeout to prevent stalling on large files
+        function fetchWithTimeout(url, ms) {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), ms);
+            return fetch(url, { signal: ctrl.signal, headers: { 'Cache-Control': 'no-cache' } })
+                .finally(() => clearTimeout(tid));
+        }
+
         if (STATE.manifest.length === 0) {
-            const localSources = [
-                '../data/apex_enriched_manifest.json',
-                '../data/stix/feed_manifest.json',
-                '../data/apex_v2_manifest.json',
-                'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/apex_enriched_manifest.json',
-                'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json',
+            const SOURCES = [
+                // fast same-domain feeds — plain array & dict, 310 items, 2 CRITICAL each
+                { url: '../feed.json',                     timeout: 6000 },
+                { url: '../api/feed.json',                 timeout: 8000 },
+                { url: '../data/stix/feed_manifest.json',  timeout: 8000 },
+                // remote fallback
+                { url: 'https://raw.githubusercontent.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/main/data/stix/feed_manifest.json', timeout: 10000 },
+                // last resort — 20MB, long timeout
+                { url: '../data/apex_enriched_manifest.json', timeout: 20000 },
             ];
-            for (const src of localSources) {
+            for (const { url, timeout } of SOURCES) {
                 try {
-                    const resp = await fetch(src);
+                    const resp = await fetchWithTimeout(url, timeout);
                     if (resp.ok) {
                         const data = await resp.json();
                         const parsed = parseManifest(data);
-                        if (parsed.length > 0) { STATE.manifest = parsed; console.log(`[ENTERPRISE] Loaded ${parsed.length} from ${src}`); break; }
+                        if (parsed.length > 0) {
+                            STATE.manifest = parsed;
+                            console.log(`[ENTERPRISE v137] Loaded ${parsed.length} items from ${url}`);
+                            break;
+                        }
                     }
-                } catch(e) { continue; }
+                } catch(e) { console.warn(`[ENTERPRISE v137] ${url} failed: ${e.message}`); continue; }
             }
         }
 
@@ -807,7 +822,7 @@
     function updateMetrics() {
         const m = STATE.manifest;
         const total = m.length;
-        const critical = m.filter(e => (e.risk_score || 0) >= 8).length;
+        const critical = m.filter(e => parseFloat(e.risk_score||0)>=9.0||String(e.severity||'').toUpperCase()==='CRITICAL').length;
         const high = m.filter(e => (e.risk_score || 0) >= 6 && (e.risk_score || 0) < 8).length;
         const avgRisk = total > 0 ? (m.reduce((s, e) => s + (e.risk_score || 0), 0) / total).toFixed(1) : '0';
 

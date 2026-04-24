@@ -712,6 +712,64 @@ def main():
 
     merged.sort(key=_freshness_key, reverse=True)
 
+    # ── v137 FIX: Inject CRITICAL/KEV items from api/feed.json ──────────
+    # ROOT CAUSE: update_embedded_intel.py runs mid-pipeline before CRITICAL
+    # items are written to data/stix/feed_manifest.json. api/feed.json (built
+    # by an earlier pipeline stage from the previous run) already has all
+    # CRITICAL items with risk_score >= 9.0. Without this injection, EMBEDDED_INTEL
+    # contains 0 CRITICAL items → dashboard metric cards always show Critical=0.
+    _API_FEED_PATH = REPO_ROOT / "api" / "feed.json"
+    if _API_FEED_PATH.exists():
+        try:
+            with open(_API_FEED_PATH, encoding="utf-8") as _af_fp:
+                _af_raw = json.load(_af_fp)
+            _api_all = _af_raw.get("items", []) if isinstance(_af_raw, dict) else _af_raw
+            _api_critical = [
+                x for x in _api_all
+                if float(x.get("risk_score") or 0) >= 9.0
+                or str(x.get("severity", "")).upper() == "CRITICAL"
+                or bool(x.get("kev_present"))
+            ]
+            if _api_critical:
+                _existing_keys: set = {
+                    (x.get("stix_id") or x.get("id") or x.get("title", ""))[:120]
+                    for x in merged
+                }
+                _injected: list = []
+                for _raw_item in _api_critical:
+                    _ikey = (_raw_item.get("id") or _raw_item.get("stix_id") or _raw_item.get("title", ""))[:120]
+                    if _ikey and _ikey not in _existing_keys:
+                        _injected.append(normalise_item(_raw_item))
+                        _existing_keys.add(_ikey)
+                # Prepend injected CRITICAL items so they are always in EMBEDDED_INTEL
+                merged = _injected + merged
+                print(f"[v137] Injected {len(_injected)} CRITICAL/KEV items from api/feed.json")
+            else:
+                print("[v137] api/feed.json: no CRITICAL/KEV items found")
+        except Exception as _inj_err:
+            print(f"[v137] api/feed.json injection skipped ({_inj_err})")
+    else:
+        print("[v137] api/feed.json not found — CRITICAL injection skipped")
+
+    # ── v137 FIX: Pin CRITICAL+KEV items first in EMBEDDED_INTEL ─────────
+    # Guarantees Critical/KEV metric card counts are correct from initial page
+    # load — regardless of where freshness-sort would otherwise place these items.
+    def _is_priority_item(x: dict) -> bool:
+        return (
+            float(x.get("risk_score") or 0) >= 9.0
+            or str(x.get("severity", "")).upper() == "CRITICAL"
+            or bool(x.get("kev_present"))
+        )
+
+    _priority_bucket  = [x for x in merged if _is_priority_item(x)]
+    _standard_bucket  = [x for x in merged if not _is_priority_item(x)]
+    merged = _priority_bucket + _standard_bucket
+    print(
+        f"[v137] EMBEDDED_INTEL layout: "
+        f"{len(_priority_bucket)} CRITICAL/KEV pinned first | "
+        f"{len(_standard_bucket)} standard items follow"
+    )
+
     kpis = compute_kpis(merged)
 
     print(
@@ -726,7 +784,7 @@ def main():
         print("[SUCCESS] index.html EMBEDDED_INTEL patched ✓")
         print("[SUCCESS] All surrounding code preserved ✓")
     else:
-        print("[ERROR] Patch failed — original file restored")
+        print("[ERROR] Patch failed - original file restored")
         sys.exit(1)
 
     print("=" * 60)
