@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBERDUDEBIVASH SENTINEL APEX Enterprise Dashboard v131.2.0</title>
+    <title>CYBERDUDEBIVASH SENTINEL APEX Enterprise Dashboard v134.0.0</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -476,7 +476,7 @@
     <header class="topbar">
         <div class="topbar-brand">
             <span class="logo-text">CYBERDUDEBIVASH SENTINEL APEX</span>
-            <span class="version-badge">ENTERPRISE v131.2.0</span>
+            <span class="version-badge">ENTERPRISE v134.0.0</span>
         </div>
         <nav class="topbar-nav">
             <button class="active" onclick="showPanel('intelligence')">Intelligence</button>
@@ -659,7 +659,7 @@
     </main>
 
     <footer class="footer">
-        &copy; 2026 <strong>CYBERDUDEBIVASH PRIVATE LIMITED</strong> &mdash; CYBERDUDEBIVASH SENTINEL APEX v131.2.0 Enterprise Intelligence Platform<br>
+        &copy; 2026 <strong>CYBERDUDEBIVASH PRIVATE LIMITED</strong> &mdash; CYBERDUDEBIVASH SENTINEL APEX v134.0.0 Enterprise Intelligence Platform<br>
         <span style="font-size:0.8em;opacity:0.7;">29, Korai-Sukinda-Ramchandrapur Rd, Ragadi, JAJPUR ROAD, Odisha 755019, India &nbsp;|&nbsp; GST: 21ARKPN8270G1ZP</span><br>
         <a href="https://intel.cyberdudebivash.com" style="color:var(--accent);text-decoration:none;">intel.cyberdudebivash.com</a>
         &nbsp;|&nbsp;
@@ -698,13 +698,13 @@
         event.target.classList.add('active');
     }
 
-    // v131.2.0: Universal manifest parser — handles all key variants including canonical 'advisories'
+    // v134.0.0: Universal manifest parser — handles all key variants including canonical 'advisories'
     function parseManifest(d) {
         if (Array.isArray(d)) return d;
         return d.advisories || d.items || d.entries || d.data || d.reports || [];
     }
 
-    // v131.2.0: Actor resolution — maps title/description keywords to real verified threat actors
+    // v134.0.0: Actor resolution — maps title/description keywords to real verified threat actors
     const ACTOR_MAP = [
         ['APT28','APT28'],['Fancy Bear','APT28'],['Sofacy','APT28'],['Strontium','APT28'],
         ['APT29','APT29'],['Cozy Bear','APT29'],['Midnight Blizzard','APT29'],['Nobelium','APT29'],
@@ -1077,7 +1077,7 @@
                     const existing = STATE.alerts.find(a => a.advisory === m.title && a.watchlist === wl.name);
                     if (!existing) {
                         STATE.alerts.unshift({
-                            id: Date.now() + Math.random(),
+                            id: Date.now() + (function(s){var h=0;for(var i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return Math.abs(h%1000)/1000;})(document.title + Date.now()),
                             watchlist: wl.name,
                             advisory: m.title,
                             risk_score: m.risk_score,

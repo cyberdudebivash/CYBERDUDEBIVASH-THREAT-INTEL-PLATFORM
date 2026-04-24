@@ -590,20 +590,21 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     _PQ_WORD_FLOOR = 150
     _PQ_CONF_FLOOR = 4.5
 
-    if not (_pq_has_cve or _pq_has_kev):
+    # v134.1 P0 FIX: Extended exemption set — IOC>0, MITRE>0, known actor bypass
+    _pq_has_iocs   = _pq_total_iocs > 0
+    _pq_has_mitre  = bool(mitre_data and (
+        mitre_data.get("tactics") or mitre_data.get("techniques") or
+        (isinstance(mitre_data, list) and len(mitre_data) > 0)
+    ))
+    _pq_known_actor = bool(actor_data and not actor_data.get("tracking_id", "").startswith("UNC-"))
+    _pq_exempt = _pq_has_cve or _pq_has_kev or _pq_has_iocs or _pq_has_mitre or _pq_known_actor
+
+    if not _pq_exempt:
         if _pq_word_count < _PQ_WORD_FLOOR:
             logger.warning(
                 f"  [HARD-GATE] REJECT '{headline[:60]}': "
                 f"insufficient content ({_pq_word_count} words < {_PQ_WORD_FLOOR} floor, "
-                f"no CVE/KEV exemption)"
-            )
-            dedup_engine.mark_processed(headline, entry.get("link", ""))
-            return False
-
-        if _pq_total_iocs == 0:
-            logger.warning(
-                f"  [HARD-GATE] REJECT '{headline[:60]}': "
-                f"zero IOCs extracted (no CVE/KEV exemption)"
+                f"no CVE/KEV/IOC/MITRE/actor exemption)"
             )
             dedup_engine.mark_processed(headline, entry.get("link", ""))
             return False
@@ -612,10 +613,18 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
             logger.warning(
                 f"  [HARD-GATE] REJECT '{headline[:60]}': "
                 f"confidence {confidence:.1f} < {_PQ_CONF_FLOOR} floor "
-                f"(no CVE/KEV exemption)"
+                f"(no exemption)"
             )
             dedup_engine.mark_processed(headline, entry.get("link", ""))
             return False
+    elif _pq_word_count < 30:
+        # Absolute minimum — even exempt entries need some content
+        logger.warning(
+            f"  [HARD-GATE] REJECT '{headline[:60]}': "
+            f"absolute minimum content floor ({_pq_word_count} words < 30)"
+        )
+        dedup_engine.mark_processed(headline, entry.get("link", ""))
+        return False
 
     logger.info(
         f"  [HARD-GATE] PASS — words={_pq_word_count} iocs={_pq_total_iocs} "
