@@ -567,12 +567,58 @@ def patch_index_html(merged: list) -> bool:
         os.remove(backup_path)
         return False
 
-    # ── All checks passed — write the patched file ──
-    with open(INDEX_HTML, "w", encoding="utf-8") as f:
-        f.write(patched_html)
+    # ── All checks passed — ATOMIC WRITE with TRUNCATION GUARD (RC-6) ──
+    _MIN_LINES_GUARD = 12000
+    _orig_lc = original_html.count("\n")
+    _new_lc  = patched_html.count("\n")
+
+    if _new_lc < _MIN_LINES_GUARD:
+        print(f"[TRUNCATION GUARD] BLOCKED: {_new_lc} lines < {_MIN_LINES_GUARD} min. Original preserved.")
+        shutil.copy2(backup_path, INDEX_HTML)
+        os.remove(backup_path)
+        return False
+
+    if _new_lc < _orig_lc * 0.95:
+        print(f"[TRUNCATION GUARD] BLOCKED: {_new_lc} lines < 95% of orig {_orig_lc}. Original preserved.")
+        shutil.copy2(backup_path, INDEX_HTML)
+        os.remove(backup_path)
+        return False
+
+    if "</body>" not in patched_html or "</html>" not in patched_html:
+        print("[TRUNCATION GUARD] BLOCKED: missing </body> or </html>. Original preserved.")
+        shutil.copy2(backup_path, INDEX_HTML)
+        os.remove(backup_path)
+        return False
+
+    # Atomic write: temp file -> fsync -> os.replace (crash-safe)
+    import tempfile as _tf
+    fd, tmp_path = _tf.mkstemp(dir=str(INDEX_HTML.parent), suffix=".html.tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as _f:
+            _f.write(patched_html)
+        # Post-write read-back verification
+        with open(tmp_path, encoding="utf-8") as _fv:
+            _verified = _fv.read()
+        if "</html>" not in _verified or len(_verified) < len(patched_html) * 0.99:
+            os.unlink(tmp_path)
+            print("[TRUNCATION GUARD] BLOCKED: write-verify failed. Original preserved.")
+            shutil.copy2(backup_path, INDEX_HTML)
+            os.remove(backup_path)
+            return False
+        os.replace(tmp_path, INDEX_HTML)
+        print(f"[TRUNCATION GUARD] PASSED: {_new_lc} lines written (was {_orig_lc})")
+    except Exception as _ex:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        shutil.copy2(backup_path, INDEX_HTML)
+        print(f"[TRUNCATION GUARD] ERROR: {_ex}. Original restored.")
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        return False
 
     # Clean up backup
-    os.remove(backup_path)
+    if os.path.exists(backup_path):
+        os.remove(backup_path)
 
     delta = len(patched_html) - original_size
     print(f"[OK] Check 1: Surrounding code fingerprint — UNCHANGED")
