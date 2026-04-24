@@ -5678,7 +5678,7 @@ GET  /api/billing/portal  → Subscription status</code>
                 </div>
                 <!-- Copyright line -->
                 <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;line-height:1.9;border-top:1px solid rgba(255,255,255,0.04);padding-top:16px;">
-                    <span style="color:var(--white);font-weight:900;font-size:10px;">CYBERDUDEBIVASH PVT LTD</span>
+                    <span style="color:var(--white);font-weight:900;font-size:10px;">CYBERDUDEBIVASH PRIVATE LIMITED</span>
                     &nbsp;///&nbsp;
                     <span id="footer-version-copy">SENTINEL APEX v134.0.0</span>
                     &nbsp;///&nbsp;
@@ -5687,6 +5687,11 @@ GET  /api/billing/portal  → Subscription status</code>
                     <a href="https://www.cyberdudebivash.com" target="_blank" rel="noopener"
                        style="color:var(--accent);text-decoration:none;font-weight:700;">BIVASH KUMAR NAYAK</a>
                     &nbsp;·&nbsp; TLP CLASSIFICATION APPLIED PER TRAFFIC LIGHT PROTOCOL STANDARD
+                    <br>
+                    <span style="color:rgba(0,212,170,0.7);font-size:8px;letter-spacing:1.5px;">
+                        GSTIN: 21ARKPN8270G1ZP &nbsp;·&nbsp;
+                        29, Korai-Sukinda-Ramchandrapur Rd, Ragadi, JAJPUR ROAD, Odisha 755019, INDIA
+                    </span>
                 </div>
             </div>
         </footer>
@@ -7214,10 +7219,13 @@ GET  /api/billing/portal  → Subscription status</code>
         // ── Compute Metrics ──
         function computeMetrics(data) {
             const total = data.length;
-            const critical = data.filter(d => getSeverity(d.risk_score, d) === 'CRITICAL').length;
-            const high = data.filter(d => getSeverity(d.risk_score, d) === 'HIGH').length;
-            const medium = data.filter(d => getSeverity(d.risk_score, d) === 'MEDIUM').length;
-            const low = data.filter(d => getSeverity(d.risk_score, d) === 'LOW').length;
+            // v136.0 FIX: Dual-condition severity detection — trust risk_score as primary signal,
+            // also accept severity field. getSeverity() was returning item.severity first which
+            // caused incorrect counts when backend labeled items differently from score thresholds.
+            const critical = data.filter(d => parseFloat(d.risk_score||0) >= 9.0 || d.severity === 'CRITICAL').length;
+            const high = data.filter(d => { const s=parseFloat(d.risk_score||0); return (s>=7.0&&s<9.0)||(d.severity==='HIGH'&&s<9.0); }).length;
+            const medium = data.filter(d => { const s=parseFloat(d.risk_score||0); return (s>=4.0&&s<7.0)||(d.severity==='MEDIUM'&&s<7.0); }).length;
+            const low = data.filter(d => { const s=parseFloat(d.risk_score||0); return s<4.0&&d.severity!=='CRITICAL'&&d.severity!=='HIGH'&&d.severity!=='MEDIUM'; }).length;
             const kev = data.filter(d => d.kev_present).length;
             const avgRisk = total ? (data.reduce((s, d) => s + d.risk_score, 0) / total).toFixed(1) : '—';
             let totalIOCs = 0;
@@ -8488,8 +8496,10 @@ function renderTopThreats(data) {
             // ARCHITECTURE: Worker(/api/preview) → api/feed.json → raw fallbacks → EMBEDDED_INTEL
             var WORKER_PREVIEW_URL = 'https://intel.cyberdudebivash.com/api/preview';
             var MANIFEST_URLS = [
-                WORKER_PREVIEW_URL,
+                // v136.0 FIX: api/feed.json FIRST — same-domain, full 310-item dataset, accurate Critical/KEV counts
+                // Worker preview only returns ~10 items (none CRITICAL) → caused Critical=0 bug
                 'api/feed.json?t=' + Date.now(),
+                WORKER_PREVIEW_URL,
                 RAW_MANIFEST + cb,
                 RAW_MANIFEST,
             ];
@@ -9653,8 +9663,9 @@ function renderTopThreats(data) {
 
             // ── Exposure Score ──
             const scores = data.map(d => d.risk_score || 0);
-            const critical = data.filter(d => (d.risk_score||0) >= 9).length;
-            const high = data.filter(d => (d.risk_score||0) >= 7 && (d.risk_score||0) < 9).length;
+            // v136.0 FIX: dual-condition — risk_score >= 9 OR severity field = CRITICAL
+            const critical = data.filter(d => parseFloat(d.risk_score||0) >= 9.0 || d.severity === 'CRITICAL').length;
+            const high = data.filter(d => { const s=parseFloat(d.risk_score||0); return (s>=7&&s<9)||(d.severity==='HIGH'&&s<9); }).length;
             const kevCount = data.filter(d => d.kev_present).length;
             const avgRisk = scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : 0;
             const velocity = Math.min(10, data.length / 7 * 1.5);
@@ -10860,6 +10871,9 @@ function renderTopThreats(data) {
                 // Route each engine output to its renderer — individual error boundaries
                 const route = (name, fn) => { try { if (results[name]) fn(results[name]); } catch(e) { console.warn('[APEX ENGINE] Render error:', name, e); } };
                 route('nexus',     renderNexusEngine);
+                // v136.0 FIX: Re-run renderNexusIntelligence AFTER renderNexusEngine so computed
+                // intelligence values always take precedence over potentially stale engine JSON.
+                try { if (manifestData && manifestData.length) renderNexusIntelligence(manifestData); } catch(e) { console.warn('[NEXUS] Post-engine re-render:', e); }
                 route('genesis',   renderGenesisEngine);
                 route('cortex',    renderCortexEngine);
                 route('quantum',   renderQuantumEngine);
