@@ -8496,8 +8496,10 @@ function renderTopThreats(data) {
             // ARCHITECTURE: Worker(/api/preview) → api/feed.json → raw fallbacks → EMBEDDED_INTEL
             var WORKER_PREVIEW_URL = 'https://intel.cyberdudebivash.com/api/preview';
             var MANIFEST_URLS = [
-                // v136.0 FIX: api/feed.json FIRST — same-domain, full 310-item dataset, accurate Critical/KEV counts
-                // Worker preview only returns ~10 items (none CRITICAL) → caused Critical=0 bug
+                // v137 FIX: feed.json FIRST — plain array 348KB (vs api/feed.json dict 937KB)
+                // api/feed.json was timing out in 8s → fell to Worker (no CRITICAL) → Critical=0 bug
+                // feed.json = same 310 items + 2 CRITICAL, same-domain, ~3x faster parse
+                'feed.json?t=' + Date.now(),
                 'api/feed.json?t=' + Date.now(),
                 WORKER_PREVIEW_URL,
                 RAW_MANIFEST + cb,
@@ -8522,7 +8524,7 @@ function renderTopThreats(data) {
             for (var mIdx = 0; mIdx < MANIFEST_URLS.length; mIdx++) {
                 var manifestUrl = MANIFEST_URLS[mIdx];
                 // isApiSource: same-domain /api/feed.json is authoritative — bypass staleness gates
-                var isApiSource = manifestUrl.startsWith('api/feed.json') || manifestUrl.startsWith('https://intel.cyberdudebivash.com/api/');
+                var isApiSource = manifestUrl.startsWith('feed.json') || manifestUrl.startsWith('api/feed.json') || manifestUrl.startsWith('https://intel.cyberdudebivash.com/api/');
                 try {
                     var ctrl = new AbortController();
                     var tid  = setTimeout(function(){ ctrl.abort(); }, 8000);
