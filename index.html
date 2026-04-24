@@ -7224,6 +7224,9 @@ GET  /api/billing/portal  → Subscription status</code>
             data.forEach(d => {
                 if (d.ioc_counts) {
                     totalIOCs += Object.values(d.ioc_counts).reduce((a, b) => a + b, 0);
+                } else if (d.ioc_count) {
+                    // v135.0 FIX: api/feed.json uses ioc_count (singular integer)
+                    totalIOCs += d.ioc_count;
                 } else if (d.indicator_count) {
                     totalIOCs += d.indicator_count;
                 } else if (d.iocs && Array.isArray(d.iocs) && d.iocs.length) {
@@ -8174,6 +8177,15 @@ function renderTopThreats(data) {
         const prC = prioColor(pr);
         const isTop3 = idx < 3;
         const iocCount = item.ioc_count || (item.ioc_counts ? Object.values(item.ioc_counts).reduce((a,b)=>a+b,0) : 0);
+        // v135.0: Build internal intel report URL — reports/{year}/{month}/{stix_id}.html
+        const _its = item.processed_at || item.timestamp || '';
+        const _iDate = _its ? new Date(_its) : null;
+        const _iyr = _iDate ? _iDate.getFullYear() : '';
+        const _imo = _iDate ? String(_iDate.getMonth()+1).padStart(2,'0') : '';
+        const _isid = item.stix_id || item.id || '';
+        const intelUrl = (_isid && _iyr && _imo)
+            ? 'reports/' + _iyr + '/' + _imo + '/' + _isid + '.html'
+            : (item.source_url || 'https://intel.cyberdudebivash.com');
 
         // Severity heatmap bar width
         const barW = Math.min(sc * 10, 100);
@@ -8243,7 +8255,7 @@ function renderTopThreats(data) {
             '<div style="padding:6px 14px 10px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.04);margin-top:2px;">'+
                 '<span style="font-family:var(--font-mono);font-size:8px;color:'+(kev||epss>=50?'#dc2626':pr==='P1'?'#ea580c':'#5a6578')+';font-weight:800;letter-spacing:1px;">'+(kev||epss>=50?'&#9888; IMMEDIATE ACTION':pr==='P1'?'&#9888; PATCH NOW':pr==='P2'?'INVESTIGATE':'MONITOR')+'</span>'+
                 (idx<3?
-                    '<a href="https://cyberdudebivash.gumroad.com/?utm_source=top10&utm_medium=full-intel&utm_campaign=top-threat-'+idx+'" target="_blank" style="font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:1px;color:#020205;background:linear-gradient(135deg,'+sv.c+','+sv.c+'cc);padding:5px 12px;border-radius:3px;text-decoration:none;white-space:nowrap;box-shadow:0 0 10px '+sv.glow+';">FULL INTEL &#8594;</a>':
+                    '<a href="'+intelUrl+'" target="_blank" style="font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:1px;color:#020205;background:linear-gradient(135deg,'+sv.c+','+sv.c+'cc);padding:5px 12px;border-radius:3px;text-decoration:none;white-space:nowrap;box-shadow:0 0 10px '+sv.glow+';">FULL INTEL &#8594;</a>':
                     '<a href="https://cyberdudebivash.gumroad.com/?utm_source=top10&utm_medium=full-intel&utm_campaign=top-threat-'+idx+'" target="_blank" style="font-family:var(--font-mono);font-size:9px;color:#5a6578;text-decoration:none;border:1px solid #2a3340;padding:4px 10px;border-radius:3px;">&#128274; PRO ACCESS</a>'
                 )+
             '</div>'+
@@ -8299,7 +8311,7 @@ function renderTopThreats(data) {
         // TOP 3 — fully visible
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:16px;">' +
             top.slice(0,3).map(function(item,idx){
-                var sc=parseFloat(item.risk_score)||0,sv=sevInfo(sc),cve=(item.title||'').match(/CVE-\d{4}-\d{4,}/i),tacs=(item.mitre_tactics||[]).slice(0,3),actor=(item.actor_tag&&item.actor_tag!=='UNC-CDB-99'&&item.actor_tag!=='UNC-UNKNOWN')?item.actor_tag:null,kev=item.kev_present,epss=parseFloat(item.epss_score)||0,cvss=parseFloat(item.cvss_score)||0,pr=prio(item),prC=prioColor(pr),iocCount=item.ioc_count||(item.ioc_counts?Object.values(item.ioc_counts).reduce(function(a,b){return a+b;},0):0),barW=Math.min(sc*10,100),kcPhase=(item.mitre_tactics&&item.mitre_tactics.length)?(item.mitre_tactics[0]||'').toUpperCase().split('.')[0]:'';
+                var sc=parseFloat(item.risk_score)||0,sv=sevInfo(sc),cve=(item.title||'').match(/CVE-\d{4}-\d{4,}/i),tacs=(item.mitre_tactics||[]).slice(0,3),actor=(item.actor_tag&&item.actor_tag!=='UNC-CDB-99'&&item.actor_tag!=='UNC-UNKNOWN')?item.actor_tag:null,kev=item.kev_present,epss=parseFloat(item.epss_score)||0,cvss=parseFloat(item.cvss_score)||0,pr=prio(item),prC=prioColor(pr),iocCount=item.ioc_count||(item.ioc_counts?Object.values(item.ioc_counts).reduce(function(a,b){return a+b;},0):0),barW=Math.min(sc*10,100),kcPhase=(item.mitre_tactics&&item.mitre_tactics.length)?(item.mitre_tactics[0]||'').toUpperCase().split('.')[0]:'',_its2=item.processed_at||item.timestamp||'',_iD2=_its2?new Date(_its2):null,_iyr2=_iD2?_iD2.getFullYear():'',_imo2=_iD2?String(_iD2.getMonth()+1).padStart(2,'0'):'',_sid2=item.stix_id||item.id||'',intelUrl2=(_sid2&&_iyr2&&_imo2)?'reports/'+_iyr2+'/'+_imo2+'/'+_sid2+'.html':(item.source_url||'https://intel.cyberdudebivash.com');
                 return '<div style="position:relative;background:linear-gradient(135deg,var(--bg-card) 0%,rgba(220,38,38,0.03) 100%);border:1px solid '+sv.c+'44;overflow:hidden;transition:all 0.25s;border-radius:4px;box-shadow:0 0 16px '+sv.glow+';" onmouseover="this.style.borderColor=\''+sv.c+'66\';this.style.transform=\'translateY(-3px)\';this.style.boxShadow=\'0 8px 32px '+sv.glow+'\'" onmouseout="this.style.borderColor=\''+sv.c+'44\';this.style.transform=\'none\';this.style.boxShadow=\'0 0 16px '+sv.glow+'\'">'+
                 '<div style="height:3px;background:linear-gradient(90deg,'+sv.c+' '+barW+'%,rgba(255,255,255,0.04) '+barW+'%);"></div>'+
                 '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;">'+
@@ -8328,7 +8340,7 @@ function renderTopThreats(data) {
                 '</div>'+
                 '<div style="padding:6px 14px 10px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.04);margin-top:2px;">'+
                     '<span style="font-family:var(--font-mono);font-size:8px;color:'+(kev||epss>=50?'#dc2626':pr==='P1'?'#ea580c':'#5a6578')+';font-weight:800;letter-spacing:1px;">'+(kev||epss>=50?'&#9888; IMMEDIATE ACTION':pr==='P1'?'&#9888; PATCH NOW':pr==='P2'?'INVESTIGATE':'MONITOR')+'</span>'+
-                    '<a href="https://cyberdudebivash.gumroad.com/?utm_source=top10&utm_medium=full-intel&utm_campaign=top-threat-'+idx+'" target="_blank" style="font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:1px;color:#020205;background:linear-gradient(135deg,'+sv.c+','+sv.c+'cc);padding:5px 12px;border-radius:3px;text-decoration:none;white-space:nowrap;box-shadow:0 0 10px '+sv.glow+';">FULL INTEL &#8594;</a>'+
+                    '<a href="'+intelUrl2+'" target="_blank" style="font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:1px;color:#020205;background:linear-gradient(135deg,'+sv.c+','+sv.c+'cc);padding:5px 12px;border-radius:3px;text-decoration:none;white-space:nowrap;box-shadow:0 0 10px '+sv.glow+';">FULL INTEL &#8594;</a>'+
                 '</div>'+
                 '</div>';
             }).join('') +
