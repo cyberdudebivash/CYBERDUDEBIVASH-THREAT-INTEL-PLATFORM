@@ -77,12 +77,12 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "Revenue-Engine");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v134");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v140");
   return new Response(response.body, { status: response.status, headers });
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "134.0.0",  // v134.0.0 SENTINEL APEX Revenue Engine
+  GATEWAY_VERSION:   "140.0.0",  // v140.0.0 SENTINEL APEX Production Platform
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
