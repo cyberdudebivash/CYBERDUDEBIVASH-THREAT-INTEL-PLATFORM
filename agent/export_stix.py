@@ -966,6 +966,40 @@ class STIXExporter:
 
     # -- Manifest Update (preserved + v22.0 fields) --------------
 
+
+    # ── FIX-05: threat_type classification (v140.0) ──────────────────────────
+    # Replaces the Worker's "General" fallback with real category at write-time.
+    # This ensures every manifest entry carries a meaningful threat_type that
+    # survives through api/feed.json without the Worker needing to guess.
+    @staticmethod
+    def _classify_threat_type(title: str, tags=None) -> str:
+        t = (title or "").lower()
+        tg = " ".join(tags or []).lower()
+        combined = t + " " + tg
+        rules = [
+            (["ransomware","ransom","lockbit","blackcat","clop","akira","revil","ryuk"],  "Ransomware"),
+            (["apt","advanced persistent","nation.state","lazarus","volt typhoon","fancy bear",
+              "cozy bear","turla","equation group","kimsuky","sandworm"],                 "APT"),
+            (["cve-","vulnerability","rce","remote code","exploit","patch","zero.day","0day",
+              "buffer overflow","privilege escalation","heap spray","use.after.free"],    "Vulnerability"),
+            (["supply chain","solarwinds","xz utils","polyfill","npm package",
+              "pypi","dependency","open source compromise"],                              "Supply Chain"),
+            (["phishing","spear.phish","credential harvest","business email","bec"],      "Phishing"),
+            (["malware","trojan","backdoor","rat ","stealer","infostealer","keylogger",
+              "botnet","loader","dropper","wiper","rootkit"],                             "Malware"),
+            (["data breach","data leak","exfiltrat","stolen data","dump","database exposed"], "Data Breach"),
+            (["ddos","denial of service","botnet flood","amplification attack"],         "DDoS"),
+            (["cryptojack","cryptominer","mining","coin miner"],                         "Cryptojacking"),
+            (["ics","scada","industrial","ot security","operational technology"],        "ICS/OT"),
+            (["cloud","aws","azure","gcp","s3 bucket","misconfigured","kubernetes"],     "Cloud Security"),
+            (["mobile","android","ios","iphone","app store","apk"],                      "Mobile"),
+        ]
+        for keywords, threat_type in rules:
+            for kw in keywords:
+                if kw in combined:
+                    return threat_type
+        return "Threat Intel"
+
     def _update_manifest(self, title, stix_id, risk_score, blog_url,
                          severity, confidence, tlp_label, ioc_counts,
                          actor_tag, mitre_tactics, feed_source,
@@ -1045,6 +1079,8 @@ class STIXExporter:
             _source_url = ""
         # tags: from labels/mitre if provided in kwargs; default to mitre_tactics copy
         _tags = list(mitre_tactics)[:8] if mitre_tactics else []
+        # FIX-05: classify threat_type at write-time — prevents Worker "General" fallback
+        _threat_type = self._classify_threat_type(title, _tags)
 
         # v134.0 P0 FIX — INLINE REPORT GENERATION (HARD FAIL)
         # Root cause of previous failure: 'metadata' and '_effective_flat_iocs'
@@ -1098,6 +1134,8 @@ class STIXExporter:
             "confidence":          float(confidence),
             "confidence_score":    float(confidence),
             "feed_source":         feed_source or "SENTINEL-APEX",
+            "source":              feed_source or "SENTINEL-APEX",
+            "threat_type":         _threat_type,
             "source_url":          _source_url,
             "iocs":                _rg_iocs,
             "ioc_count":           len(_rg_iocs),
@@ -1201,6 +1239,8 @@ class STIXExporter:
             "mitre_tactics":    mitre_tactics[:5] if mitre_tactics else [],
             "ttps":             mitre_tactics[:5] if mitre_tactics else [],
             "feed_source":      feed_source,
+            "source":           feed_source or "SENTINEL-APEX",
+            "threat_type":      _threat_type,
             "indicator_count":  indicator_count,
             "stix_file":        stix_file,
             "cvss_score":       cvss_score,
