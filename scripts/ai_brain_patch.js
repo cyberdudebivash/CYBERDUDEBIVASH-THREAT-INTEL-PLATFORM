@@ -213,7 +213,7 @@
           +'</div>';
       }).join('')
         +'<div style="flex-shrink:0;">'
-        +'<a href="https://intel.cyberdudebivash.com/upgrade?plan=pro" '
+        +'<a href="/get-api-key.html?plan=pro" '
         +'style="background:linear-gradient(135deg,#7c3aed,#2563eb);color:white;padding:8px 16px;'
         +'border-radius:6px;text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap;">'
         +'UNLOCK FULL INTEL</a></div>';

@@ -595,7 +595,7 @@ async def verify_api_key(request: Request, x_api_key: str = Header(..., alias="X
                 "error": "Rate limit exceeded",
                 "tier": tier,
                 "limit_per_hour": limits["requests_per_hour"],
-                "upgrade_url": "https://cyberdudebivash.com/pricing",
+                "upgrade_url": "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro",
             },
         )
 
@@ -704,7 +704,7 @@ async def threat_actors(
     if not tier_limits.get("actor_full_profile") and name:
         raise HTTPException(
             status_code=403,
-            detail={"error": "Full actor profiles require PRO tier", "upgrade_url": "https://cyberdudebivash.com/pricing"},
+            detail={"error": "Full actor profiles require PRO tier", "upgrade_url": "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro"},
         )
     results = intel_loader.get_threat_actors(name, min(limit, tier_limits["max_results"]))
     return _response(results, meta={"tier": request.state.tier})
@@ -720,7 +720,7 @@ async def campaigns(
     if not tier_limits.get("campaign_access"):
         raise HTTPException(
             status_code=403,
-            detail={"error": "Campaign intelligence requires PRO tier", "upgrade_url": "https://cyberdudebivash.com/pricing"},
+            detail={"error": "Campaign intelligence requires PRO tier", "upgrade_url": "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro"},
         )
     results = intel_loader.get_campaigns(min(limit, tier_limits["max_results"]))
     return _response(results, meta={"tier": request.state.tier})
@@ -732,7 +732,7 @@ async def generate_detection_rules(req: DetectionRuleRequest, request: Request, 
     if not tier_limits.get("detection_rules"):
         raise HTTPException(
             status_code=403,
-            detail={"error": "Detection rule generation requires PRO tier", "upgrade_url": "https://cyberdudebivash.com/pricing"},
+            detail={"error": "Detection rule generation requires PRO tier", "upgrade_url": "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro"},
         )
 
     from .detection_rule_gen import DetectionRuleGenerator
@@ -747,7 +747,7 @@ async def stix_bundle(request: Request, auth=Depends(verify_api_key)):
     if not tier_limits.get("stix_export"):
         raise HTTPException(
             status_code=403,
-            detail={"error": "STIX export requires PRO tier", "upgrade_url": "https://cyberdudebivash.com/pricing"},
+            detail={"error": "STIX export requires PRO tier", "upgrade_url": "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro"},
         )
     bundles = intel_loader.get_stix_bundles()
     return _response({"bundles": bundles, "count": len(bundles)}, meta={"tier": request.state.tier})

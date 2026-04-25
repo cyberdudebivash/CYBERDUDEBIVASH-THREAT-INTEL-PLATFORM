@@ -675,7 +675,7 @@ class ExecutiveRiskEngine:
             "action": "Deploy continuous CDB SENTINEL APEX monitoring",
             "impact": f"95% risk mitigation = ${total_ale * 0.95:,.0f} protected value",
             "compliance": "Demonstrates due diligence across all frameworks",
-            "upgrade_url": "https://intel.cyberdudebivash.com/pricing",
+            "upgrade_url": "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro",
         })
 
         return recs

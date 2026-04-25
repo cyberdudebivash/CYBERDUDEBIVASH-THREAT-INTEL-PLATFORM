@@ -46,7 +46,7 @@ def build_apex_ai(item):
         'behavioral_tags': [],
         'paywall': {
             'locked_fields': ['actor_fingerprint_full','kill_chain','behavioral_tags','recommended_action_full','stix_bundle'],
-            'upgrade_url': 'https://cyberdudebivash.com/sentinel-premium',
+            'upgrade_url': 'https://intel.cyberdudebivash.com/get-api-key.html?plan=pro',
             'message': f'{ct} THREAT — {iocs} IOCs locked. Upgrade to Pro.',
             'urgency': urg[pri],
         }
@@ -69,7 +69,7 @@ def fix_api_feed():
         if not it.get('validation_status'): it['validation_status'] = 'valid'
         if not it.get('ioc_paywall'):
             n = int(it.get('ioc_count') or 0); c = float(it.get('confidence') or 17)
-            it['ioc_paywall'] = {'locked':True,'count':n,'confidence':round(c,1),'upgrade_url':'https://cyberdudebivash.com/sentinel-premium','message':f'{n} IOCs at {c:.1f}% — unlock with Pro.'}
+            it['ioc_paywall'] = {'locked':True,'count':n,'confidence':round(c,1),'upgrade_url':'https://intel.cyberdudebivash.com/get-api-key.html?plan=pro','message':f'{n} IOCs at {c:.1f}% — unlock with Pro.'}
         enriched.append(it)
     out = {'status':'ok','gateway':f'SENTINEL-APEX/{NEW_VERSION}','version':NEW_VERSION,
            'schema_version':f'v{NEW_VERSION.split(".")[0]}.0','generated_at':NOW_UTC,

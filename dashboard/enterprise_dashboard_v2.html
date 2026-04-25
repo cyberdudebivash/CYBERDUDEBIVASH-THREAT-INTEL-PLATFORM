@@ -275,7 +275,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
       <div style="font-weight:700;color:var(--text);margin-bottom:4px;">Pipeline Status</div>
       <div>⚡ Runs every 6 hours</div>
       <div>🔄 <span style="color:var(--green);">LIVE</span></div>
-      <div>🛡️ Sentinel APEX v134.0.0</div>
+      <div>🛡️ Sentinel APEX v140.0.0</div>
     </div>
   </div>
 </div>
@@ -389,7 +389,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 </div>
 
 <div style="background:var(--bg2);border-top:1px solid var(--border);padding:10px 24px;text-align:center;font-family:var(--font-mono);font-size:9px;color:var(--muted);">
-  <strong style="color:var(--text);">CYBERDUDEBIVASH PRIVATE LIMITED</strong> &nbsp;///&nbsp; SENTINEL APEX v134.0.0 &nbsp;///&nbsp;
+  <strong style="color:var(--text);">CYBERDUDEBIVASH PRIVATE LIMITED</strong> &nbsp;///&nbsp; SENTINEL APEX v140.0.0 &nbsp;///&nbsp;
   29, Korai-Sukinda-Ramchandrapur Rd, Ragadi, JAJPUR ROAD, Odisha 755019 &nbsp;|&nbsp; GST: 21ARKPN8270G1ZP &nbsp;|&nbsp;
   <a href="https://blog.cyberdudebivash.in/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">📝 blog.cyberdudebivash.in</a>
   &nbsp;|&nbsp; &copy; 2026 All Rights Reserved
@@ -401,7 +401,7 @@ let ALL_DATA = [];
 let FILTERED  = [];
 let CURRENT_FILTER = 'all';
 
-// v134.0.0: SENTINEL APEX SOC v2 Data Engine
+// v140.0.0: SENTINEL APEX SOC v2 Data Engine
 const CF_WORKER = 'https://intel.cyberdudebivash.com';
 const PLATFORM_VER = 'v134.0.0';
 
@@ -688,25 +688,119 @@ function renderTable(data) {
   }).join('');
 }
 
+// v140.0.0: APEX AI Intelligence renderFeed — full field parity with main dashboard
+// Renders apex_ai: soc_priority, threat_level, predictive_risk, ai_confidence,
+// threat_confidence_tier/label, kill_chain, actor_fingerprint, paywall, ai_summary
 function renderFeed(data) {
   const panel = document.getElementById('feed-panel');
   if (!panel) return;
-  panel.innerHTML = data.map(i => {
-    const risk   = (i.risk_score||0).toFixed(1);
-    const riskClr= risk>=9?'var(--red)':risk>=7?'var(--orange)':risk>=4?'var(--accent3)':'var(--muted)';
-    const age    = i.timestamp ? timeSince(i.timestamp) : '';
-    return '<div class="feed-item" onclick="window.open(\'' + (i.blog_url||i.report_url||'#').replace(/'/g,'') + '\',\'_blank\')">' +
-      '<div class="feed-title">' + (i.title||'').substring(0,80) + ((i.title||'').length>80?'…':'') + '</div>' +
-      '<div class="feed-meta">' +
-        '<span class="feed-tag" style="background:' + (SEV_COLOR[i.severity]||'rgba(107,122,153,.12)') + ';color:' + (i.severity==='CRITICAL'?'var(--red)':i.severity==='HIGH'?'var(--orange)':i.severity==='MEDIUM'?'var(--accent3)':'var(--muted)') + ';">' + (i.severity||'?') + '</span>' +
-        (i.kev_present ? '<span class="feed-tag" style="background:rgba(255,71,87,.12);color:var(--red);">KEV</span>' : '') +
-        '<span class="feed-tag" style="background:rgba(255,255,255,.05);color:var(--muted);">' + (i.actor_tag||'—') + '</span>' +
-        '<span class="risk-score" style="color:' + riskClr + ';">' + risk + '/10</span>' +
-        (age ? '<span style="font-size:9px;color:var(--muted);margin-left:4px;">' + age + '</span>' : '') +
+
+  const _TIER_COLORS = { VERIFIED:'#00d4aa', HIGH:'#3b82f6', MODERATE:'#f59e0b', LOW:'#ef4444' };
+
+  panel.innerHTML = data.map(function(i) {
+    const risk    = (i.risk_score||0).toFixed(1);
+    const riskClr = risk>=9?'var(--red)':risk>=7?'var(--orange)':risk>=4?'var(--accent3)':'var(--muted)';
+    const age     = i.timestamp ? timeSince(i.timestamp) : '';
+    const ai      = i.apex_ai || {};
+
+    // ── SOC Priority ──────────────────────────────────────────────
+    const prio      = ai.soc_priority || 'P4';
+    const prioColor = prio==='P1'?'var(--red)':prio==='P2'?'var(--orange)':prio==='P3'?'#f59e0b':'#4ade80';
+
+    // ── Threat Level ──────────────────────────────────────────────
+    const tlvl      = ai.threat_level || '';
+    const tlvlColor = tlvl==='CRITICAL_SURGE'?'var(--red)':tlvl==='HIGH_ALERT'?'var(--orange)':'var(--muted)';
+
+    // ── Predictive Risk / AI Confidence ───────────────────────────
+    const predRisk  = ai.predictive_risk != null ? parseFloat(ai.predictive_risk).toFixed(1) : null;
+    const aiConf    = ai.ai_confidence   != null ? ai.ai_confidence : null;
+
+    // ── Confidence Tier + Label ───────────────────────────────────
+    const confTier  = ai.threat_confidence_tier  || null;
+    const confLabel = ai.threat_confidence_label || null;
+    const confColor = _TIER_COLORS[confTier] || '#6b7280';
+
+    // ── Kill Chain ────────────────────────────────────────────────
+    const kc       = ai.kill_chain;
+    const kcLocked = kc === 'PRO_REQUIRED';
+    const kcPhases = Array.isArray(kc) ? kc.slice(0,2) : [];
+
+    // ── Actor Fingerprint ─────────────────────────────────────────
+    const actorFP  = ai.actor_fingerprint || i.actor_tag || '\u2014';
+    const fpLocked = actorFP && actorFP.includes('****');
+
+    // ── Paywall / Urgency ─────────────────────────────────────────
+    const pw      = ai.paywall;
+    const urgency = pw && pw.urgency ? pw.urgency : '';
+    const upUrl   = pw && pw.upgrade_url
+        ? pw.upgrade_url.replace('https://cyberdudebivash.com/sentinel-premium','/get-api-key.html?plan=pro')
+                        .replace('https://intel.cyberdudebivash.com/upgrade','/get-api-key.html?plan=pro')
+        : '/get-api-key.html?plan=pro';
+
+    // ── AI Summary ────────────────────────────────────────────────
+    const sumFull  = ai.ai_summary || '';
+    const summary  = sumFull.substring(0, 180);
+    const hasApex  = !!(ai.soc_priority || ai.threat_level || ai.predictive_risk);
+
+    const reportUrl = (i.internal_report_url || i.report_url || i.blog_url || '#').replace(/'/g,'');
+
+    return (
+      '<div class="feed-item" style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+
+      // ── Title row + priority badge ────────────────────────────
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px;">' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div class="feed-title" style="font-size:11px;font-weight:700;line-height:1.4;color:var(--text);cursor:pointer;" ' +
+               'onclick="window.open(\'' + reportUrl + '\',\'_blank\')">' +
+               (i.title||'').substring(0,100) + ((i.title||'').length>100?'\u2026':'') +
+          '</div>' +
+        '</div>' +
+        (hasApex ? '<span style="font-family:var(--font-mono,monospace);font-size:8px;color:' + prioColor + ';border:1px solid ' + prioColor + '55;padding:2px 6px;border-radius:2px;font-weight:900;white-space:nowrap;flex-shrink:0;">' + prio + '</span>' : '') +
       '</div>' +
-    '</div>';
+
+      // ── Meta chips ────────────────────────────────────────────
+      '<div class="feed-meta" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:' + (hasApex?'7':'0') + 'px;">' +
+        '<span class="feed-tag" style="background:' + (SEV_COLOR[i.severity]||'rgba(107,122,153,.12)') + ';color:' + (i.severity==='CRITICAL'?'var(--red)':i.severity==='HIGH'?'var(--orange)':i.severity==='MEDIUM'?'#f59e0b':'var(--muted)') + ';">' + (i.severity||'?') + '</span>' +
+        (i.kev_present ? '<span class="feed-tag" style="background:rgba(255,71,87,.12);color:var(--red);">\u26a1 KEV</span>' : '') +
+        (tlvl ? '<span class="feed-tag" style="background:' + tlvlColor + '18;color:' + tlvlColor + ';font-size:8px;">' + tlvl.replace(/_/g,' ') + '</span>' : '') +
+        (predRisk ? '<span class="feed-tag" style="background:rgba(255,255,255,0.04);color:' + (predRisk>=7?'var(--red)':predRisk>=5?'var(--orange)':'var(--accent3)') + ';">RISK ' + predRisk + '/10</span>' : '<span class="risk-score" style="color:' + riskClr + ';">' + risk + '/10</span>') +
+        (confTier ? '<span class="feed-tag" style="background:' + confColor + '18;color:' + confColor + ';font-weight:900;">' + confTier + '</span>' : '') +
+        (kcLocked ? '<span class="feed-tag" style="color:var(--muted);">\uD83D\uDD12 KC: PRO</span>' : kcPhases.map(function(p){return '<span class="feed-tag" style="color:var(--accent3);">\u2B21 '+p+'</span>';}).join('')) +
+        (age ? '<span style="font-size:9px;color:var(--muted);margin-left:auto;">' + age + '</span>' : '') +
+      '</div>' +
+
+      // ── APEX AI Intelligence block (only when apex_ai present) ─
+      (hasApex ? (
+        // Confidence label — "✓ VERIFIED — Multi-source corroboration confirmed"
+        (confLabel ? '<div style="font-family:var(--font-mono,monospace);font-size:8px;color:' + confColor + ';padding:3px 7px;background:' + confColor + '11;border-left:2px solid ' + confColor + ';border-radius:2px;margin-bottom:5px;">' + confLabel + '</div>' : '') +
+
+        // Actor fingerprint + AI confidence
+        '<div style="display:flex;gap:12px;font-family:var(--font-mono,monospace);font-size:8.5px;color:var(--muted);margin-bottom:5px;">' +
+          '<span>ACTOR</span>' +
+          '<span style="color:' + (fpLocked?'var(--muted)':'#67e8f9') + ';">' + actorFP + '</span>' +
+          (aiConf!=null ? '<span style="margin-left:auto;">AI CONF <span style="color:' + confColor + ';font-weight:900;">' + aiConf + '%</span></span>' : '') +
+        '</div>' +
+
+        // AI summary (up to 180 chars)
+        (summary ? '<div style="font-size:10px;color:var(--muted);line-height:1.45;margin-bottom:5px;">' + summary + (sumFull.length > 180 ? '\u2026' : '') + '</div>' : '') +
+
+        // Urgency banner + upgrade CTA
+        (urgency ? '<div style="font-family:var(--font-mono,monospace);font-size:8px;color:var(--orange);background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.2);padding:4px 8px;border-radius:3px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">' +
+          '<span>' + urgency + '</span>' +
+          '<a href="' + upUrl + '" target="_blank" style="color:var(--orange);font-weight:900;text-decoration:none;margin-left:10px;white-space:nowrap;">UPGRADE \u2192</a>' +
+        '</div>' : '') +
+
+        // View dossier link
+        '<div style="text-align:right;margin-top:2px;">' +
+          '<a href="' + reportUrl + '" target="_blank" style="font-family:var(--font-mono,monospace);font-size:9px;color:var(--accent3);text-decoration:none;">View Tactical Dossier \u2192</a>' +
+        '</div>'
+      ) : '') +
+
+    '</div>'
+    );
   }).join('');
 }
+
 
 // ── v138 FIX: loadData() was defined but NEVER CALLED — root cause of SOC V2 empty forever
 // timeSince was called in renderFeed but not defined — caused silent ReferenceError

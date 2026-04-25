@@ -933,7 +933,7 @@ async function resolveApiKey(request, env) {
           key_id:     keyId,
           reason:     "usage_limit_exceeded",
           usage:      { count: used, limit: usageLimit, period: month },
-          upgrade_url: "https://cyberdudebivash.com/sentinel-premium",
+          upgrade_url: "/get-api-key.html?plan=pro",
         };
       }
       // Increment usage counter (fire-and-forget – never block the request)
@@ -1135,12 +1135,12 @@ function getUpgradeCTA(tier) {
   if (tier === CONFIG.TIERS.PREMIUM) {
     return {
       message:     "Upgrade to Enterprise for unlimited access + dedicated SLA",
-      upgrade_url: "https://cyberdudebivash.com/sentinel-enterprise",
+      upgrade_url: "/get-api-key.html?plan=enterprise",
     };
   }
   return {
     message:     `Free tier: ${CONFIG.FEED_LIMITS.free} items/req. Upgrade to Premium for ${CONFIG.FEED_LIMITS.premium}+.`,
-    upgrade_url: "https://cyberdudebivash.com/sentinel-premium",
+    upgrade_url: "/get-api-key.html?plan=pro",
     benefits:    ["500 items/req", "500 req/min", "Priority support", "Full CVE/IOC/TTP data"],
   };
 }
@@ -1314,7 +1314,7 @@ function computeApexAI(item, tier) {
         behavioral_tags:    [],
         paywall: {
           locked_fields: ["actor_fingerprint_full","kill_chain","behavioral_tags","recommended_action_full","stix_bundle"],
-          upgrade_url:   "https://cyberdudebivash.com/sentinel-premium",
+          upgrade_url:   "/get-api-key.html?plan=pro",
           message:       `${confidenceTier} THREAT – ${iocCount} IOC${iocCount !== 1 ? "s" : ""} & full actor attribution locked. Upgrade to Pro for complete intelligence.`,
           urgency:       socPriority === "P1" || socPriority === "P2"
             ? `âš ï¸ ACTIVE ${sevLabel} THREAT [${socPriority}] – Enterprise IR response required.`
@@ -1371,7 +1371,7 @@ function applyTierGate(item, tier) {
       confidence:        item.ioc_confidence || 0,
       threat_level:      item.ioc_threat_level || "NONE",
       primary_types:     (item.ioc_extraction_meta && item.ioc_extraction_meta.primary_types) || [],
-      upgrade_url:       "https://cyberdudebivash.com/sentinel-premium",
+      upgrade_url:       "/get-api-key.html?plan=pro",
       message:           `${item.iocs.length} IOC(s) at ${item.ioc_confidence || 0}% confidence – unlock with Pro tier.`,
     };
   }
@@ -1385,7 +1385,7 @@ function applyTierGate(item, tier) {
         bundle_id:     item.bundle_id || item.stix_id,
         stix_file:     item.stix_file || null,
         object_count:  item.stix_object_count || 0,
-        upgrade_url:   "https://cyberdudebivash.com/sentinel-enterprise",
+        upgrade_url:   "/get-api-key.html?plan=enterprise",
         message:       "Full STIX 2.1 bundle export available on Enterprise tier.",
       };
     }
@@ -1440,7 +1440,7 @@ function applyTierGate(item, tier) {
           ? "âš ï¸ CRITICAL ACTIVE THREAT – Full intelligence, IOC array & actor attribution locked."
           : "âš ï¸ HIGH-SEVERITY ACTIVE THREAT – Actor TTPs and kill chain analysis locked.",
         tier_required:   "PRO",
-        upgrade_url:     "https://cyberdudebivash.com/sentinel-premium",
+        upgrade_url:     "/get-api-key.html?plan=pro",
         cta:             "Upgrade to Pro – Detect, Respond, Contain.",
         enterprise_note: "Enterprise Detection Engine unavailable on free tier.",
       };
@@ -1711,7 +1711,7 @@ function applyIocMetaTierGate(item, tier) {
   if (out.ioc_extraction_meta && Object.keys(out.ioc_extraction_meta).length > 0) {
     out.ioc_extraction_meta = {
       locked:      true,
-      upgrade_url: "https://cyberdudebivash.com/sentinel-premium",
+      upgrade_url: "/get-api-key.html?plan=pro",
       message:     "IOC extraction layer breakdown requires Pro tier.",
     };
   }
@@ -1849,7 +1849,7 @@ async function handlePreview(request, env, rid) {
           confidence:        typeof item.ioc_confidence === "number" ? item.ioc_confidence : 0,
           threat_level:      item.ioc_threat_level || "NONE",
           primary_types:     (item.ioc_extraction_meta && item.ioc_extraction_meta.primary_types) || [],
-          upgrade_url:       "https://cyberdudebivash.com/sentinel-premium",
+          upgrade_url:       "/get-api-key.html?plan=pro",
           message:           `${Array.isArray(item.iocs) ? item.iocs.length : (item.ioc_count || 0)} IOC(s) at ${typeof item.ioc_confidence === "number" ? item.ioc_confidence.toFixed(1) : 0}% confidence – unlock with Pro tier.`,
         } : null,
         // v134.0.0: APEX AI block – always present in preview, fields tier-gated
@@ -2725,7 +2725,7 @@ async function handleAccountUsage(request, env, rid, auth) {
       },
       upgrade:        tier !== CONFIG.TIERS.ENTERPRISE ? {
         message: `Upgrade to unlock higher limits and more scopes.`,
-        url:     `https://intel.cyberdudebivash.com/upgrade?plan=${tier === "free" ? "pro" : "enterprise"}`,
+        url:     `/get-api-key.html?plan=${tier === "free" ? "pro" : "enterprise"}`,
       } : null,
       request_id:    rid,
     };
@@ -3370,12 +3370,12 @@ async function handleBillingPortal(request, env, rid, auth) {
     upgrade_options: {
       pro:        {
         price:        "$29/month",
-        checkout_url: "https://intel.cyberdudebivash.com/upgrade?plan=pro",
+        checkout_url: "/get-api-key.html?plan=pro",
         features:     ["500 requests/min", "Full IOC arrays", "STIX 2.1 bundles", "Threat alerts", "10 API keys"],
       },
       enterprise: {
         price:        "$199/month",
-        checkout_url: "https://intel.cyberdudebivash.com/upgrade?plan=enterprise",
+        checkout_url: "/get-api-key.html?plan=enterprise",
         features:     ["2000 requests/min", "SIEM integration (Splunk/Sentinel/QRadar)", "50 API keys", "Priority support", "Tenant isolation"],
       },
     },
@@ -3493,7 +3493,7 @@ async function handleRevenueDashboard(request, env, rid) {
     tier_distribution:  tierDist.status    === "fulfilled" ? tierDist.value    : {},
     credit_exhaustions: exhaustStats.status === "fulfilled" ? exhaustStats.value : { exhaustions_today: 0 },
     pricing: { free: { monthly_usd: 0 }, pro: { monthly_usd: 29 }, enterprise: { monthly_usd: 199 } },
-    upgrade_urls: { free_to_pro: "https://intel.cyberdudebivash.com/upgrade?plan=pro", trial: "https://intel.cyberdudebivash.com/trial" },
+    upgrade_urls: { free_to_pro: "/get-api-key.html?plan=pro", trial: "/get-api-key.html?plan=enterprise&trial=true" },
     request_id: rid, generated_at: new Date().toISOString(),
   }, null, 2), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-cache, no-store", "Access-Control-Allow-Origin": "*" } });
 }
@@ -3914,6 +3914,3 @@ export default {
       }
     })());
   },
-};
-
-

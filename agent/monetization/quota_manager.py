@@ -251,7 +251,7 @@ class PulseWaveBuffer:
             "delivery_mode": "PULSE_WAVE",
             "next_wave_sec": self._time_to_next_wave(org_id),
             "queued_items": len(self._buffer.get(org_id, [])),
-            "upgrade_url": "https://intel.cyberdudebivash.com/pricing",
+            "upgrade_url": "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro",
             "message": "Free tier uses batched Pulse Wave delivery. "
                        "Upgrade to PRO for real-time access.",
         }
@@ -431,7 +431,7 @@ class QuotaEngine:
             },
             "pulse_wave_queue": self._pulse_wave.get_queue_depth(org_id),
             "shard_dedicated": config.get("shard_dedicated", False),
-            "upgrade_url": "https://intel.cyberdudebivash.com/pricing",
+            "upgrade_url": "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro",
         }
 
     def admin_reset(self, org_id: str, metric: str = "all"):
@@ -519,7 +519,7 @@ class QuotaEngine:
                     "limit": monthly_limit,
                     "used": monthly_used,
                     "remaining": 0,
-                    "upgrade_url": "https://intel.cyberdudebivash.com/pricing",
+                    "upgrade_url": "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro",
                 }
             remaining = max(0, monthly_limit - monthly_used)
         else:
@@ -633,7 +633,7 @@ class QuotaMiddleware:
                 "tier": result.get("tier", "FREE"),
                 "delivery_mode": result.get("delivery_mode", "PULSE_WAVE"),
                 "retry_after": result.get("retry_after_sec", 60),
-                "upgrade_url": "https://intel.cyberdudebivash.com/pricing",
+                "upgrade_url": "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro",
             }).encode()
 
             await send({
