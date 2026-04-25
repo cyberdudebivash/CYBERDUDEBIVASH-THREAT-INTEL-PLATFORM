@@ -98,7 +98,7 @@ log = logging.getLogger("sentinel.pipeline")
 # Constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "134.0.0")
+PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "141.0.0")
 MIN_FRESHNESS_ENTRIES = 10   # absolute hard-fail threshold
 MIN_ENGINE_ENTRIES = 50      # engine manifest minimum before --force-rebuild
 MAX_STIX_BUNDLES = 500       # cap on persisted STIX bundle files
