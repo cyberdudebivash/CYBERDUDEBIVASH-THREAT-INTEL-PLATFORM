@@ -664,7 +664,7 @@ function renderFeed(data) {
     const risk   = (i.risk_score||0).toFixed(1);
     const riskClr= risk>=9?'var(--red)':risk>=7?'var(--orange)':risk>=4?'var(--accent3)':'var(--muted)';
     const age    = i.timestamp ? timeSince(i.timestamp) : '';
-    return '<div class="feed-item" onclick="window.open(' + "'" + (i.blog_url||i.report_url||'#') + "'" + ','_blank')'>' +
+    return '<div class="feed-item" onclick="window.open(\'' + (i.blog_url||i.report_url||'#').replace(/'/g,'') + '\',\'_blank\')">' +
       '<div class="feed-title">' + (i.title||'').substring(0,80) + ((i.title||'').length>80?'…':'') + '</div>' +
       '<div class="feed-meta">' +
         '<span class="feed-tag" style="background:' + (SEV_COLOR[i.severity]||'rgba(107,122,153,.12)') + ';color:' + (i.severity==='CRITICAL'?'var(--red)':i.severity==='HIGH'?'var(--orange)':i.severity==='MEDIUM'?'var(--accent3)':'var(--muted)') + ';">' + (i.severity||'?') + '</span>' +

@@ -8476,16 +8476,31 @@ function renderTopThreats(data) {
         // When feed.json wins the race, all intel cards lose their APEX AI panel.
         // FIX: after any data load, enrich items missing apex_ai from EMBEDDED_INTEL (by stix_id/id).
         function _mergeApexAI(entries) {
+            // v139 FIX: dual-key lookup — ID-based first, title-based fallback.
+            // Root cause: feed.json items use timestamp IDs ("intel--1777025479") while
+            // EMBEDDED_INTEL uses UUID-hash IDs ("intel--96f0...") — ID matching always
+            // fails cross-source → 0 apex_ai injected → APEX panels disappear on main dash.
             if (!window.EMBEDDED_INTEL || !window.EMBEDDED_INTEL.length) return entries;
-            var apexMap = {};
+            var apexMap   = {};  // stix_id/id → apex_ai
+            var titleMap  = {};  // normalised title → apex_ai (cross-source fallback)
             window.EMBEDDED_INTEL.forEach(function(e) {
                 var k = e.stix_id || e.id;
                 if (k && e.apex_ai) apexMap[k] = e.apex_ai;
+                if (e.title && e.apex_ai) {
+                    var tk = e.title.toLowerCase().replace(/\s+/g,' ').trim().substring(0, 80);
+                    titleMap[tk] = e.apex_ai;
+                }
             });
             return entries.map(function(e) {
                 if (e.apex_ai) return e;
+                // 1. Try exact ID match
                 var k = e.stix_id || e.id;
-                if (k && apexMap[k]) { var m = {}; Object.assign(m, e); m.apex_ai = apexMap[k]; return m; }
+                if (k && apexMap[k]) { return Object.assign({}, e, { apex_ai: apexMap[k] }); }
+                // 2. Title-based fallback — works when ID formats differ across sources
+                if (e.title) {
+                    var tk = e.title.toLowerCase().replace(/\s+/g,' ').trim().substring(0, 80);
+                    if (titleMap[tk]) { return Object.assign({}, e, { apex_ai: titleMap[tk] }); }
+                }
                 return e;
             });
         }
@@ -12366,52 +12381,4 @@ function renderTopThreats(data) {
         +'UNLOCK FULL INTEL</a></div>';
 
       /* Find best insertion point */
-      var anchor=sel('ai-campaigns-body')||sel('cdb-news-grid')||document.querySelector('main')||document.body;
-      if(anchor&&anchor.parentNode){
-        anchor.parentNode.insertBefore(bar,anchor);
-      }
-    }
-
-    /* -- Urgency pulse on CRITICAL badges -- */
-    document.querySelectorAll('[data-severity="CRITICAL"],[data-sev="CRITICAL"]').forEach(function(el){
-      el.style.animation='urgency-pulse 2s infinite';
-    });
-
-    /* -- Inject urgency CSS if not present -- */
-    if(!document.getElementById('cdb-enterprise-css')){
-      var style=document.createElement('style');
-      style.id='cdb-enterprise-css';
-      style.textContent=[
-        '@keyframes urgency-pulse{0%,100%{opacity:1}50%{opacity:0.6}}',
-        '#cdb-financial-bar{animation:slideIn 0.5s ease-out;}',
-        '@keyframes slideIn{from{transform:translateY(-10px);opacity:0}to{transform:translateY(0);opacity:1}}',
-        '.cdb-threat-score{display:inline-flex;align-items:center;gap:4px;background:rgba(239,68,68,0.15);'+
-          'color:#ef4444;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;}',
-        '.cdb-premium-badge{background:linear-gradient(135deg,#7c3aed,#2563eb);color:white;'+
-          'padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:0.05em;}',
-      ].join('');
-      document.head.appendChild(style);
-    }
-  }
-
-  /* Run enterprise signals after main boot */
-  function bootEnterprise(){
-    boot();
-    setTimeout(injectEnterpriseSignals, 800);
-  }
-
-  /* Override boot with enterprise version */
-  if(document.readyState==='loading'){
-    document.removeEventListener('DOMContentLoaded', boot);
-    document.addEventListener('DOMContentLoaded', bootEnterprise);
-  } else {
-    setTimeout(injectEnterpriseSignals, 800);
-  }
-
-  /* Expose for manual refresh buttons */
-  window.CDB_NEWS={refresh:refreshNews};
-})();
-</script>
-<!-- /CDB-AI-BRAIN-INIT-v134 -->
-</body>
-</html>
+      var anchor=sel('ai-campaigns-body')||s
