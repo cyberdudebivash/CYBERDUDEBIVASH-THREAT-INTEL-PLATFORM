@@ -527,8 +527,8 @@ def patch_index_html(merged: list) -> bool:
         if before_fingerprint != after_fingerprint:
             errors.append("Code outside EMBEDDED_INTEL was modified (fingerprint mismatch)")
 
-    # Check 2: Exactly ONE EMBEDDED_INTEL declaration
-    ei_count = patched_html.count("const EMBEDDED_INTEL")
+    # Check 2: Exactly ONE EMBEDDED_INTEL declaration (supports both window. and const forms)
+    ei_count = patched_html.count("window.EMBEDDED_INTEL = [") + patched_html.count("const EMBEDDED_INTEL = [")
     if ei_count != 1:
         errors.append(f"{ei_count} EMBEDDED_INTEL declarations (expected 1)")
 
