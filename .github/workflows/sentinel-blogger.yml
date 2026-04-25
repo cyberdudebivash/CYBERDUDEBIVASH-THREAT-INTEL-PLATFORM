@@ -81,7 +81,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "140.0.0"
+  PIPELINE_VERSION: "141.0.0"
 
 # Only ONE data-writing workflow at a time - prevents manifest corruption
 concurrency:
@@ -273,3 +273,13 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "STAGE 5.5 - Final Repository Validation Gate"
         run: python3 scripts/validate_repo.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 6: TELEGRAM FAILURE ALERT (v141.0 — always runs, zero-exit)
+      # Fires ONLY on job failure so ops team is notified immediately.
+      # Never blocks the pipeline - exits 0 regardless of delivery status.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 6 - Telegram Failure Alert"
+        if: failure()
+        run: python3 scripts/pipeline_alert.py --status failure --message "Workflow step failed. Check GitHub Actions log for root cause."
+        continue-on-error: true

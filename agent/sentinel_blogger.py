@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-sentinel_blogger.py — CyberDudeBivash SENTINEL APEX v134.0 (R2-NATIVE / BLOGGER-FREE)
+sentinel_blogger.py — CyberDudeBivash SENTINEL APEX v141.0 (R2-NATIVE / BLOGGER-FREE)
 =======================================================================================
 P0 FIX: Blogger completely removed. R2 is the ONLY output channel.
          Queue bomb neutralised: publish_queue no longer written.
@@ -13,6 +13,8 @@ VERSION HISTORY:
   v134.0 Blogger DISABLED in env (BLOG_ID not passed in workflow)
   v134.0 P0 FIX — Blogger import removed entirely; queue bomb killed;
          manifest key bug fixed; direct R2-only STIX write path enforced
+  v141.0 FIX-01 — FEED_SOURCE_MAP: resolve feed URLs to human-readable
+         source names; eliminates UNKNOWN_SOURCE / truncated-URL in manifest
 """
 import os
 import re
@@ -41,6 +43,98 @@ from agent.config import (
     PREDICTIVE_ENABLED,
     CAMPAIGN_TRACKER_ENABLED,
 )
+
+# ==============================================================================
+# FIX-01 v141.0 — FEED SOURCE NAME RESOLVER
+# Root cause fix for source: "UNKNOWN_SOURCE" / truncated URL on ALL manifest
+# entries. Maps feed URL substrings → human-readable publication names that
+# are displayed in the SOC dashboard and API responses.
+# ==============================================================================
+_FEED_SOURCE_MAP = {
+    # Tier 1 — Breaking News
+    'feedburner.com/TheHackersNews':  'The Hacker News',
+    'thehackernews':                  'The Hacker News',
+    'krebsonsecurity':                'KrebsOnSecurity',
+    'cybersecuritynews':              'CyberSecurity News',
+    'therecord.media':                'The Record',
+    'cyberscoop':                     'CyberScoop',
+    'securityaffairs':                'Security Affairs',
+    'darkreading':                    'Dark Reading',
+    'securitymagazine':               'Security Magazine',
+    'bleepingcomputer':               'BleepingComputer',
+    # Tier 2 — Government / CERT
+    'cisa.gov':                       'CISA',
+    'us-cert.gov':                    'US-CERT',
+    'cert.ssi.gouv.fr':               'ANSSI France',
+    'ncsc.gov.uk':                    'NCSC UK',
+    'cyber.gov.au':                   'ACSC Australia',
+    'jpcert':                         'JPCERT/CC',
+    'ncsc.nl':                        'NCSC Netherlands',
+    # Tier 3 — CVE / Vulnerability
+    'cvefeed.io':                     'CVE Feed',
+    'vulners.com':                    'Vulners',
+    'zerodayinitiative':              'Zero Day Initiative',
+    'nvd.nist.gov':                   'NVD / NIST',
+    # Tier 4 — Vendor Threat Research
+    'sentinelone':                    'SentinelOne',
+    'unit42.paloaltonetworks':        'Palo Alto Unit 42',
+    'securelist':                     'Kaspersky SecureList',
+    'crowdstrike':                    'CrowdStrike',
+    'mandiant':                       'Mandiant',
+    'microsoft.com/on-the-issues':    'Microsoft Security',
+    'checkpoint':                     'Check Point Research',
+    'sophos':                         'Sophos X-Ops',
+    'securityintelligence':           'IBM Security Intelligence',
+    'redcanary':                      'Red Canary',
+    'elastic.co/security-labs':       'Elastic Security Labs',
+    'nccgroup':                       'NCC Group Research',
+    'rapid7':                         'Rapid7',
+    'wordfence':                      'Wordfence',
+    'welivesecurity':                 'ESET WeLiveSecurity',
+    'feedburner.com/eset':            'ESET Research',
+    'malwarebytes':                   'Malwarebytes',
+    'huntress':                       'Huntress Labs',
+    'any.run':                        'ANY.RUN',
+    # Tier 5 — Deep Web / Research
+    'seclists.org/rss/fulldisclosure': 'Full Disclosure',
+    'seclists.org/rss/oss-sec':       'OSS-Security',
+    'seclists':                       'SecLists',
+    'portswigger':                    'PortSwigger Research',
+    'googleprojectzero':              'Google Project Zero',
+    'github.blog':                    'GitHub Security',
+    'blog.cloudflare':                'Cloudflare Security',
+    # Tier 6 — Cloud / Infra
+    'aws.amazon.com/blogs/security':  'AWS Security Blog',
+    'grahamcluley':                   'Graham Cluley',
+    'helpnetsecurity':                'Help Net Security',
+    'threatpost':                     'Threatpost',
+    'recordedfuture':                 'Recorded Future',
+    'isc.sans.edu':                   'SANS ISC',
+    # CDB Own Feed
+    'cyberdudebivash':                'CyberDudeBivash Intel',
+}
+
+
+def _resolve_feed_source_name(feed_url: str) -> str:
+    """
+    FIX-01: Resolve a feed URL to a human-readable publication name.
+    Falls back to domain extraction if no map key matches.
+    Never returns a truncated URL or empty string.
+    """
+    if not feed_url:
+        return 'External Feed'
+    url_lower = feed_url.lower()
+    for key, name in _FEED_SOURCE_MAP.items():
+        if key.lower() in url_lower:
+            return name
+    # Domain extraction fallback — always returns something meaningful
+    try:
+        import urllib.parse as _up
+        parsed = _up.urlparse(feed_url)
+        domain = (parsed.netloc or parsed.path).replace('www.', '').split('/')[0]
+        return domain or 'External Feed'
+    except Exception:
+        return 'External Feed'
 
 # -- Optional module imports - all wrapped, degrade gracefully ----------------
 
@@ -301,7 +395,7 @@ def main():
                 logger.debug(f"  Quality gate error (non-critical): {_qe}")
 
         try:
-            result = process_entry(entry, feed_source="CDB-NEWS")
+            result = process_entry(entry, feed_source="CyberDudeBivash Intel")
         except Exception as _pe:
             logger.error(f"  [CRASH-GUARD] process_entry failed for '{entry['title'][:60]}': {_pe}")
             result = False
@@ -352,7 +446,7 @@ def main():
                     logger.debug(f"  Quality gate error (non-critical): {_qe}")
 
             try:
-                result = process_entry(entry, feed_source=feed_url[:30])
+                result = process_entry(entry, feed_source=_resolve_feed_source_name(feed_url))
             except Exception as _pe:
                 logger.error(f"  [CRASH-GUARD] process_entry failed for '{entry['title'][:60]}': {_pe}")
                 result = False
