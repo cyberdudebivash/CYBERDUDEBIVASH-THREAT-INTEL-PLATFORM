@@ -3895,7 +3895,7 @@ export default {
 
         // ── Step 4: Invalidate platform stats cache ──────────────────────────
         if (env?.ANALYTICS_KV) {
-          await env.ANALYTICS_KV.delete("platform:stats:v134").catch(() => {});
+          await env.ANALYTICS_KV.delete("platform:stats:v140").catch(() => {});
           slog("INFO", "CRON", "Platform stats cache invalidated", { rid });
         }
 
@@ -3914,3 +3914,4 @@ export default {
       }
     })());
   },
+};
