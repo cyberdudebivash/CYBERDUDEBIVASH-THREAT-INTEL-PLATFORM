@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX – Edge Intelligence Gateway v134.0.0
+// CYBERDUDEBIVASH® SENTINEL APEX – Edge Intelligence Gateway v141.0.0
 // R2-ONLY ARCHITECTURE – Blogger dependency REMOVED
 // Data flow: GitHub Actions → Cloudflare R2 (private) → Worker → API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
@@ -77,12 +77,12 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "Revenue-Engine");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v140");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v141");
   return new Response(response.body, { status: response.status, headers });
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "140.0.0",  // v140.0.0 SENTINEL APEX Production Platform
+  GATEWAY_VERSION:   "141.0.0",  // v141.0.0 SENTINEL APEX Production Platform
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
