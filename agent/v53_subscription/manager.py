@@ -469,7 +469,7 @@ class SubscriptionManager:
             "limit": limit,
             "remaining": max(0, limit - current),
             "tier": tier,
-            "upgrade_url": "https://cyberdudebivash.com/pricing",
+            "upgrade_url": "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro",
         }
 
     def get_usage_stats(self, org_id: str) -> Dict:

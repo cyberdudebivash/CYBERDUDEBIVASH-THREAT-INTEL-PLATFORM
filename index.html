@@ -6980,8 +6980,8 @@ GET  /api/billing/portal  → Subscription status</code>
                         } catch(e) { return ''; }
                     })()}
                     ${(function(){
-                        // v122.0.0 GOD-MODE APEX AI Intelligence Panel
-                        // — apex_ai: mandatory ai_summary, tier-gated fields, urgency CTAs
+                        // v140.0.0 GOD-MODE APEX AI Intelligence Panel
+                        // — apex_ai: FULL DISPLAY — expanded by default, all fields surfaced, paywall-aware
                         // — expandable/collapsible panel (toggle on header click)
                         // — hover tooltips on all metrics
                         // — urgency banner for critical/high free-tier items
@@ -7045,11 +7045,14 @@ GET  /api/billing/portal  → Subscription status</code>
                             const paywallHtml = paywall ? `
                                 <div class="apex-lock-cta">
                                     🔒 ${_cdbEsc(paywall.message)}
-                                    <a href="${paywall.upgrade_url}" target="_blank">UPGRADE →</a>
+                                    <a href="${(paywall.upgrade_url||'').replace('https://cyberdudebivash.com/sentinel-premium','/get-api-key.html?plan=pro').replace('https://intel.cyberdudebivash.com/upgrade','/get-api-key.html?plan=pro') || '/get-api-key.html?plan=pro'}" target="_blank">UPGRADE →</a>
                                 </div>` : '';
 
-                            // ── v122.0.0: Urgency banner (critical/high free-tier) ─
-                            const urgency     = item.threat_urgency;
+                            // ── v140.0: Urgency banner — reads apex_ai.paywall.urgency (primary)
+                            //           falls back to item.threat_urgency for legacy API compat
+                            const urgency = (ai.paywall && ai.paywall.urgency)
+                                ? { message: ai.paywall.urgency, upgrade_url: '/get-api-key.html?plan=pro' }
+                                : item.threat_urgency;
                             const urgencyHtml = urgency ? `
                                 <div class="apex-urgency-banner">
                                     ${_cdbEsc(urgency.message)}
@@ -7074,16 +7077,18 @@ GET  /api/billing/portal  → Subscription status</code>
 
                             return `<div class="apex-panel" id="${_apxId}">
                                 ${urgencyHtml}
-                                <button class="apex-toggle" onclick="(function(el){var b=document.getElementById('${_apxId}-body');var open=b.classList.toggle('expanded');b.classList.toggle('collapsed',!open);el.closest('.apex-panel').classList.toggle('open',open);})(this)" aria-expanded="false">
-                                    <span style="display:flex;align-items:center;gap:8px;">
-                                        <span class="apex-badge">⬡ APEX AI v122</span>
+                                <button class="apex-toggle" onclick="(function(el){var b=document.getElementById('${_apxId}-body');var open=b.classList.toggle('expanded');b.classList.toggle('collapsed',!open);var ae=el.getAttribute('aria-expanded')==='true';el.setAttribute('aria-expanded',String(!ae));el.closest('.apex-panel').classList.toggle('open',open);})(this)" aria-expanded="true">
+                                    <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                        <span class="apex-badge">⬡ APEX AI v140</span>
                                         <span style="color:var(--text-muted);font-size:7.5px;letter-spacing:0.5px;">INTELLIGENCE ENGINE</span>
-                                        <span class="apex-v ${prioClass}" style="color:${prioColor};font-size:8.5px;">${prio}</span>
+                                        <span class="apex-v ${prioClass}" style="color:${prioColor};font-size:8.5px;font-weight:900;">${prio}</span>
+                                        <span style="font-size:8px;color:${tlvlColor};letter-spacing:0.5px;">${tlvl.replace(/_/g,' ')}</span>
                                         <span style="font-size:8px;color:${parseFloat(predRisk)>=7?'var(--critical)':parseFloat(predRisk)>=5?'var(--high)':'var(--accent)'};">RISK ${predRisk}/10</span>
+                                        ${confTier ? `<span style="font-size:7px;color:${confTierColor};border:1px solid ${confTierColor}55;padding:1px 5px;border-radius:2px;font-weight:900;">${confTier}</span>` : ''}
                                     </span>
                                     <span class="apex-toggle-chev">▼</span>
                                 </button>
-                                <div class="apex-panel-body collapsed" id="${_apxId}-body">
+                                <div class="apex-panel-body expanded" id="${_apxId}-body">
                                     <div class="apex-row" style="margin-top:8px;">
                                         <div class="apex-kv" data-tip="SOC triage priority: P1=immediate, P2=urgent, P3=standard, P4=low">
                                             <span class="apex-k">SOC PRIORITY</span>
@@ -7121,6 +7126,7 @@ GET  /api/billing/portal  → Subscription status</code>
                                         <div style="margin-top:3px;">${kcHtml}</div>
                                     </div>
                                     ${confBar}
+                                    ${confLabel ? `<div class="apex-conf-label" style="margin-top:5px;font-family:var(--font-mono);font-size:8.5px;letter-spacing:0.8px;color:${confTierColor};padding:4px 8px;background:${confTierColor}11;border-left:2px solid ${confTierColor};border-radius:2px;">${_cdbEsc(confLabel)}</div>` : ''}
                                     ${tagsHtml ? `<div class="apex-tags" style="margin-top:6px;">${tagsHtml}</div>` : ''}
                                     ${showAction ? `<div class="apex-action">→ ${_cdbEsc(action)}</div>` : ''}
                                     ${summaryHtml}

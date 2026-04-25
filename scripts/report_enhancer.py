@@ -64,7 +64,7 @@ C_MUTED = "#94a3b8"
 
 SEV_COLORS = {"CRITICAL": C_RED, "HIGH": C_ORG, "MEDIUM": C_PUR, "LOW": C_BLU}
 
-UPGRADE_URL = "https://intel.cyberdudebivash.com/upgrade"
+UPGRADE_URL = "https://intel.cyberdudebivash.com/get-api-key.html?plan=pro"
 TRIAL_URL   = "https://intel.cyberdudebivash.com/trial"
 
 
