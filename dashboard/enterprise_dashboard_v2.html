@@ -458,6 +458,17 @@ function resolveActor(entry) {
   return 'Unattributed';
 }
 
+// v138 FIX: timeSince was used but not defined — caused ReferenceError that silently
+// aborted renderFeed() and left the feed panel blank even after data loaded.
+function timeSince(ts) {
+  if (!ts) return '';
+  const sec = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (sec < 60) return sec + 's ago';
+  if (sec < 3600) return Math.floor(sec/60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec/3600) + 'h ago';
+  return Math.floor(sec/86400) + 'd ago';
+}
+
 async function loadData() {
   // v136.0 FIX: prioritise fast, sub-1MB sources to prevent stalling on 20MB apex_enriched_manifest.
   // apex_enriched_manifest (20MB) is moved LAST — used only when all small sources fail.
@@ -653,7 +664,33 @@ function renderFeed(data) {
     const risk   = (i.risk_score||0).toFixed(1);
     const riskClr= risk>=9?'var(--red)':risk>=7?'var(--orange)':risk>=4?'var(--accent3)':'var(--muted)';
     const age    = i.timestamp ? timeSince(i.timestamp) : '';
-    return `<div class="feed-item" onclick="window.open('${i.blog_url||'#'}','_blank')">
-      <div class="feed-title">${(i.title||'').substring(0,80)}${(i.title||'').length>80?'…':''}</div>
-      <div class="feed-meta">
-        <span cl
+    return '<div class="feed-item" onclick="window.open(' + "'" + (i.blog_url||i.report_url||'#') + "'" + ','_blank')'>' +
+      '<div class="feed-title">' + (i.title||'').substring(0,80) + ((i.title||'').length>80?'…':'') + '</div>' +
+      '<div class="feed-meta">' +
+        '<span class="feed-tag" style="background:' + (SEV_COLOR[i.severity]||'rgba(107,122,153,.12)') + ';color:' + (i.severity==='CRITICAL'?'var(--red)':i.severity==='HIGH'?'var(--orange)':i.severity==='MEDIUM'?'var(--accent3)':'var(--muted)') + ';">' + (i.severity||'?') + '</span>' +
+        (i.kev_present ? '<span class="feed-tag" style="background:rgba(255,71,87,.12);color:var(--red);">KEV</span>' : '') +
+        '<span class="feed-tag" style="background:rgba(255,255,255,.05);color:var(--muted);">' + (i.actor_tag||'—') + '</span>' +
+        '<span class="risk-score" style="color:' + riskClr + ';">' + risk + '/10</span>' +
+        (age ? '<span style="font-size:9px;color:var(--muted);margin-left:4px;">' + age + '</span>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ── v138 FIX: loadData() was defined but NEVER CALLED — root cause of SOC V2 empty forever
+// timeSince was called in renderFeed but not defined — caused silent ReferenceError
+document.addEventListener('DOMContentLoaded', function() {
+  loadData().then(function() {
+    var ssTotal = document.getElementById('ss-total');
+    var ssSync  = document.getElementById('ss-sync');
+    if (ssTotal && ALL_DATA.length) ssTotal.textContent = ALL_DATA.length + ' advisories';
+    if (ssSync) ssSync.textContent = new Date().toLocaleTimeString();
+  }).catch(function(e) {
+    console.error('[SOC-v2] loadData failed:', e);
+    var tbody = document.getElementById('threat-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted);">Intelligence feed unavailable</td></tr>';
+  });
+});
+</script>
+</body>
+</html>
