@@ -1170,7 +1170,7 @@ def build_report_sections(item: dict) -> str:
         "<div class='lock-title'>Full AI Analyst Narrative – Enterprise Tier</div>"
         "<div class='lock-sub'>Includes predictive threat modelling, infrastructure pivot analysis, "
         "autonomous response recommendations, and SOAR playbook export.</div>"
-        "<a class='cta cta-enterprise' href='https://cyberdudebivash.com/sentinel-enterprise'>Unlock Enterprise</a>"
+        "<a class='cta cta-enterprise' href='https://intel.cyberdudebivash.com/get-api-key.html?plan=enterprise'>Unlock Enterprise</a>"
         "</div>"
     ))
 
@@ -1190,14 +1190,14 @@ def build_report_sections(item: dict) -> str:
         "<ul>" + "".join(refs) + "</ul>"
         "<div class='cta-row'>"
         "<a class='cta cta-primary' href='https://intel.cyberdudebivash.com'>â† Back to Platform</a>"
-        "<a class='cta cta-secondary' href='https://cyberdudebivash.com/sentinel-premium'>Upgrade to Premium</a>"
-        "<a class='cta cta-enterprise' href='https://cyberdudebivash.com/sentinel-enterprise'>Enterprise Access</a>"
+        "<a class='cta cta-secondary' href='https://intel.cyberdudebivash.com/get-api-key.html?plan=pro'>Upgrade to Premium</a>"
+        "<a class='cta cta-enterprise' href='https://intel.cyberdudebivash.com/get-api-key.html?plan=enterprise'>Enterprise Access</a>"
         "</div>"
         "<div class='callout' style='margin-top:20px'>"
         "<strong>Enterprise Delivery Pack</strong> includes: full IOC/TTP/STIX 2.1 bundles, "
         "Sigma &amp; YARA rule packs, MITRE Navigator layer, hunt queries (KQL/SPL/EQL), "
         "AI analyst narrative, actor tracker continuation, SOAR playbook export, and "
-        "dedicated SOC uplift SLA. <a href='https://cyberdudebivash.com/sentinel-enterprise' "
+        "dedicated SOC uplift SLA. <a href='https://intel.cyberdudebivash.com/get-api-key.html?plan=enterprise' "
         "style='color:var(--accent)'>Contact enterprise sales →</a>"
         "</div>"
     ))
@@ -1394,7 +1394,7 @@ def render_report(item: dict, public_prefix: str) -> str:
   <div class='nav-links'>
     <a href='https://intel.cyberdudebivash.com'>Platform</a>
     <a href='https://intel.cyberdudebivash.com/api/feed'>Live Feed</a>
-    <a href='https://cyberdudebivash.com/sentinel-enterprise'>Enterprise</a>
+    <a href='https://intel.cyberdudebivash.com/get-api-key.html?plan=enterprise'>Enterprise</a>
   </div>
 </nav>
 <div class='wrap'>
