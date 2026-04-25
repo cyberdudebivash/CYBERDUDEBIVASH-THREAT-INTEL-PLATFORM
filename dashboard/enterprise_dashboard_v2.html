@@ -515,9 +515,39 @@ async function loadData() {
   // Sort by timestamp descending — always latest first
   ALL_DATA.sort((a, b) => new Date(b.timestamp||0) - new Date(a.timestamp||0));
 
+  // FIX-03: deduplicate at render-time (3-layer: id → title → source+title)
+  ALL_DATA = _deduplicateSOC(ALL_DATA);
+
   computeMetrics();
   applyFilter(CURRENT_FILTER);
   renderFeed(ALL_DATA.slice(0, 30));
+}
+
+
+// FIX-03: 3-layer dedup for SOC V2 dashboard — mirrors index.html deduplicateIntel logic
+function _normTitleSOC(t) {
+  if (!t) return '';
+  var stop = new Set(['a','an','the','in','on','at','for','of','and','or','to','via','by','with','from']);
+  return t.toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/)
+    .filter(function(w){return w && !stop.has(w);}).slice(0,12).sort().join('|');
+}
+function _deduplicateSOC(data) {
+  if (!Array.isArray(data)) return data;
+  var seenIds = {}, seenTitles = {}, seenContent = {}, unique = [];
+  for (var i = 0; i < data.length; i++) {
+    var item = data[i];
+    var idKey = item.stix_id || item.id || item.cve_id;
+    if (idKey) { if (seenIds[idKey]) continue; seenIds[idKey] = 1; }
+    if (item.title) {
+      var nk = _normTitleSOC(item.title);
+      if (nk && nk.length > 8) { if (seenTitles[nk]) continue; seenTitles[nk] = 1; }
+    }
+    var src = ((item.source||item.feed_source||'')).toLowerCase().replace(/[^a-z0-9]/g,'');
+    var ck  = src + '::' + _normTitleSOC(item.title||'') + '::' + (item.cve_id||'').toUpperCase();
+    if (ck && ck.length > 5) { if (seenContent[ck]) continue; seenContent[ck] = 1; }
+    unique.push(item);
+  }
+  return unique;
 }
 
 function computeMetrics() {
@@ -632,7 +662,8 @@ function renderTable(data) {
     const tlpClr = TLP_COLOR[i.tlp_label]||'var(--muted)';
     const riskW  = Math.min((risk/10)*100,100);
     const riskClr= risk>=9?'var(--red)':risk>=7?'var(--orange)':risk>=4?'var(--accent3)':'var(--muted)';
-    return `<tr onclick="window.open('${i.blog_url}','_blank')">
+    const _clickUrl = (i.report_url||i.internal_report_url||i.source_url||'').replace(/'/g,'%27') || '#';
+    return `<tr onclick="window.open('${_clickUrl}','_blank')" style="cursor:pointer;">
       <td style="max-width:280px;">
         <div style="font-size:11px;font-weight:600;color:var(--text);line-height:1.3;
           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
