@@ -489,12 +489,19 @@ function selectPlan(plan) {
   eGroup.style.display = plan === 'enterprise' ? 'block' : 'none';
 }
 
-// Read URL param on load
+// Read URL params on load — pre-fill plan + email if passed from subscribe form
 (function() {
   var params = new URLSearchParams(window.location.search);
   var plan = params.get('plan') || 'community';
   if (!PLAN_META[plan]) plan = 'community';
   selectPlan(plan);
+
+  // Pre-fill email if passed (e.g. from subscribe form redirect)
+  var emailParam = params.get('email');
+  if (emailParam) {
+    var emailField = document.getElementById('email');
+    if (emailField) emailField.value = decodeURIComponent(emailParam);
+  }
 })();
 
 // ── Form Submission ─────────────────────────────────────────────────────────
