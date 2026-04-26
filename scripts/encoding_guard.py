@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/encoding_guard.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Encoding Guard (P0 Permanent Fix)
+CYBERDUDEBIVASH(R) SENTINEL APEX v141.0.0 -- Encoding Guard (P0 Permanent Fix)
 ================================================================================
 MANDATORY FIRST STEP in every pipeline run.
 
@@ -19,6 +19,10 @@ Responsibilities:
         'invalid byte sequence' crashes in downstream tools.
   5.  Python / Bash / TOML / config files: BOM + CRLF + null only
       (content-safe; do NOT corrupt string literals).
+  5b. Cloudflare Worker JS source files (workers/*/src/*.js): full ASCII
+      enforcement like YAML -- esbuild rejects ANY non-ASCII character with
+      "Unexpected <char>" build error. These paths are listed in
+      WORKER_ASCII_DIRS below and override the SAFE_EXTENSIONS treatment.
   6.  Exit 0 ALWAYS -- this script must never break the pipeline.
 
 Usage:
@@ -58,6 +62,22 @@ SKIP_DIRS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv",
     ".tox", "dist", "build", ".mypy_cache", ".pytest_cache",
     ".next", ".turbo", "coverage",
+}
+
+# ---------------------------------------------------------------------------
+# Directories where JS/TS files need FULL ASCII enforcement (like YAML).
+# esbuild compiles Cloudflare Worker source and rejects any non-ASCII byte,
+# producing: ERROR: Unexpected "<char>" at src/index.js:<line>
+# Any workers/*/src/ directory must be listed here.
+# ---------------------------------------------------------------------------
+WORKER_ASCII_DIRS: set[str] = {
+    "workers/intel-gateway/src",
+    "workers/intel-gateway/src",  # deduplicated by set
+}
+
+# Normalised forward-slash relative paths for cross-platform matching
+_WORKER_ASCII_DIRS_NORM: set[str] = {
+    d.replace("\\", "/").rstrip("/") for d in WORKER_ASCII_DIRS
 }
 
 BOM = b"\xef\xbb\xbf"
@@ -318,6 +338,25 @@ def needs_sanitize_safe(data: bytes) -> bool:
     return False
 
 
+def _is_worker_ascii_file(path: pathlib.Path, root: pathlib.Path) -> bool:
+    """
+    Return True if this file lives inside a Worker source directory that
+    requires full ASCII enforcement (esbuild cannot handle non-ASCII).
+    Only applies to .js and .ts files -- the esbuild-compiled extensions.
+    """
+    if path.suffix.lower() not in {".js", ".ts", ".jsx", ".tsx"}:
+        return False
+    try:
+        rel = path.relative_to(root).as_posix()
+    except ValueError:
+        return False
+    for worker_dir in _WORKER_ASCII_DIRS_NORM:
+        # Check if the file is directly inside this dir (any depth)
+        if rel.startswith(worker_dir + "/"):
+            return True
+    return False
+
+
 def scan_repo(root: pathlib.Path) -> list[pathlib.Path]:
     """Return all target text files, skipping ignored dirs."""
     result = []
@@ -343,8 +382,10 @@ def run(root: pathlib.Path, fix: bool, strict: bool) -> int:
 
         ext = f.suffix.lower()
         is_yaml = ext in YAML_EXTENSIONS
+        # Worker JS/TS files require full ASCII enforcement (esbuild constraint)
+        is_worker_ascii = _is_worker_ascii_file(f, root)
 
-        if is_yaml:
+        if is_yaml or is_worker_ascii:
             needs_fix = needs_sanitize_yaml(data)
         else:
             needs_fix = needs_sanitize_safe(data)
@@ -356,7 +397,7 @@ def run(root: pathlib.Path, fix: bool, strict: bool) -> int:
         rel = f.relative_to(root)
 
         if fix:
-            if is_yaml:
+            if is_yaml or is_worker_ascii:
                 clean = sanitize_yaml(data)
             else:
                 clean = sanitize_safe(data)
@@ -373,7 +414,8 @@ def run(root: pathlib.Path, fix: bool, strict: bool) -> int:
         print(f"Fixed   : {len(dirty)} files")
         remaining = [f for f in dirty
                      if (needs_sanitize_yaml(f.read_bytes())
-                         if f.suffix.lower() in YAML_EXTENSIONS
+                         if (f.suffix.lower() in YAML_EXTENSIONS
+                             or _is_worker_ascii_file(f, root))
                          else needs_sanitize_safe(f.read_bytes()))]
         if remaining:
             print(f"ERROR: {len(remaining)} files still need fixes:")
@@ -408,9 +450,9 @@ def main() -> None:
     args = parser.parse_args()
 
     print("=" * 70)
-    print("SENTINEL APEX -- Encoding Guard v134.0.0")
+    print("SENTINEL APEX -- Encoding Guard v141.0.0")
     print(f"Root   : {args.root}")
-    print(f"Mode   : {'FIX' if args.fix else 'DRY-RUN'}")
+    print(f"Mode   : {chr(39)}FIX{chr(39)} if args.fix else {chr(39)}DRY-RUN{chr(39)}")
     print(f"Strict : {args.strict}")
     print("=" * 70)
 
