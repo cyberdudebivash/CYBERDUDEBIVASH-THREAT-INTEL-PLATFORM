@@ -1268,9 +1268,21 @@ class STIXExporter:
             # the source of the count > 0 / empty list desync bug).
             "iocs":              iocs_flat if isinstance(iocs_flat, list) else [],
             "iocs_by_type":      iocs_by_type if isinstance(iocs_by_type, dict) else {},
-            "ioc_count":         len(iocs_flat) if isinstance(iocs_flat, list) else (
-                                     sum(ioc_counts.values()) if ioc_counts else 0
-                                 ),
+            # IOC count priority chain (FIX: eliminates 25+ Stage 3.2 mismatch warnings):
+            #   1. len(iocs_flat) when flat list is non-empty  → authoritative IOC engine result
+            #   2. sum(ioc_counts.values())  when iocs_flat=[] → type-bucketed counts still valid
+            #      (IOC engine may return empty flat list if it fails but type-counts persisted)
+            #   3. indicator_count → STIX bundle indicator objects created (hard floor)
+            #   4. 0 → genuinely no IOCs
+            "ioc_count":         (
+                len(iocs_flat)
+                if isinstance(iocs_flat, list) and iocs_flat
+                else (
+                    sum(ioc_counts.values())
+                    if ioc_counts and sum(ioc_counts.values()) > 0
+                    else (indicator_count or 0)
+                )
+            ),
             "ioc_confidence":    round(float(ioc_confidence or 0.0), 2),
             "ioc_threat_level":  ioc_threat_level or "NONE",
             "ioc_extraction_meta": ioc_extraction_meta or {},

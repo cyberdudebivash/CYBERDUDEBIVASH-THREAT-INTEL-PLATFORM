@@ -123,15 +123,39 @@ class SentinelTelemetry:
 
     # -- Run Finalization ------------------------------------
 
-    def finalize_run(self, total_elapsed: float, status: str = "success"):
+    def finalize_run(
+        self,
+        total_elapsed: float,
+        status: str = "success",
+        published_count: Optional[int] = None,
+        processed_count: Optional[int] = None,
+        deduped_count: Optional[int] = None,
+    ):
         """
         Finalize current run metrics, compute summaries, persist to log.
         Call this at the very end of sentinel_blogger.py main().
+
+        Args:
+            total_elapsed:   Wall-clock seconds for the full run.
+            status:          'success' | 'partial' | 'error'
+            published_count: Override items_published counter (pass sentinel_blogger's
+                             published_count directly — avoids relying on record_publish
+                             being called per-item which was causing Published:0 bug).
+            processed_count: Override items_processed counter.
+            deduped_count:   Override items_deduplicated counter.
         """
         run = self._current_run
         run["total_run_time"] = round(total_elapsed, 2)
         run["completed_at"] = datetime.now(timezone.utc).isoformat()
         run["run_status"] = status
+
+        # Allow pipeline to inject final authoritative counters (FIX: Published:0 bug)
+        if published_count is not None:
+            run["items_published"] = int(published_count)
+        if processed_count is not None:
+            run["items_processed"] = int(processed_count)
+        if deduped_count is not None:
+            run["items_deduplicated"] = int(deduped_count)
 
         # Compute averages
         if run["cve_process_times"]:

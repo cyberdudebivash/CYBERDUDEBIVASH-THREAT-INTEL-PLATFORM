@@ -37,7 +37,7 @@ import json
 import os
 import sys
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 # ─── Schema Constants ─────────────────────────────────────────────────────────
@@ -140,7 +140,7 @@ def validate_top_level(data: Dict, path: str) -> None:
         if ts is None:
             warn(f"[{path}] Cannot parse generated_at: '{generated_at}'")
         else:
-            age_h = (datetime.utcnow() - ts).total_seconds() / 3600
+            age_h = (datetime.now(timezone.utc) - ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else datetime.now(timezone.utc) - ts).total_seconds() / 3600
             if age_h > 8:
                 warn(
                     f"[{path}] Manifest is {age_h:.1f}h old (generated_at={generated_at[:19]}) "
@@ -217,7 +217,7 @@ def validate_advisories(advisories: Any, path: str, min_count: int) -> None:
     future_timestamps   = 0
     missing_source      = 0
     non_object_count    = 0
-    now                 = datetime.utcnow()
+    now                 = datetime.now(timezone.utc)
 
     for i, adv in enumerate(advisories):
         if not isinstance(adv, dict):
@@ -277,7 +277,7 @@ def validate_advisories(advisories: Any, path: str, min_count: int) -> None:
             missing_timestamp += 1
         else:
             ts = _parse_ts(str(ts_raw))
-            if ts is not None and ts > now:
+            if ts is not None and ts.replace(tzinfo=timezone.utc) > now:
                 future_timestamps += 1
 
         # Source
@@ -298,7 +298,7 @@ def validate_advisories(advisories: Any, path: str, min_count: int) -> None:
     if unknown_severities:
         warn(
             f"[{path}] Unrecognized severity values: {unknown_severities[:8]} "
-            f"— normalize to CRITICAL/HIGH/MEDIUM/LOW/INFO"
+            f"— normalize to CRITICAL/HIGH/MEDIUM/LOW/UNKNOWN (INFO maps to UNKNOWN via enforce_schema)"
         )
 
     # ── Quality warnings (threshold: >50% missing = warning) ─────────────────
