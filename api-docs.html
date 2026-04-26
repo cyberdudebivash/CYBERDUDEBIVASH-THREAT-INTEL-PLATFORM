@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>API Documentation — CYBERDUDEBIVASH® SENTINEL APEX v141.0.0</title>
+<meta name="description" content="Full API reference for SENTINEL APEX Threat Intelligence Platform. REST endpoints, authentication, tiers, STIX 2.1 export, IOC feeds, and SDK integration guides."/>
+<meta name="keywords" content="threat intelligence API, STIX 2.1 API, IOC feed API, CVE API, cybersecurity API, sentinel apex API docs"/>
+<meta property="og:title" content="SENTINEL APEX API Docs — Threat Intelligence API"/>
+<meta property="og:description" content="Enterprise REST API for live CVE/KEV data, IOC feeds, STIX 2.1 bundles, and detection rule sets. 115+ advisories updated daily."/>
+<style>
+:root{
+  --bg:#050810;--surface:#0a0f1e;--surface2:#0d1428;--border:#1a2040;
+  --accent:#00d4aa;--accent2:#6366f1;--red:#ef4444;--orange:#f97316;
+  --text:#e2e8f0;--muted:#64748b;--mono:'JetBrains Mono',monospace;
+  --green:#22c55e;--gold:#ffd700;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;line-height:1.6}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+code,pre{font-family:var(--mono)}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+.brand{font-weight:800;font-size:14px;color:var(--accent);letter-spacing:0.05em}
+.brand span{color:var(--text);font-size:11px;margin-left:8px;background:rgba(99,102,241,.15);padding:2px 8px;border-radius:4px;border:1px solid rgba(99,102,241,.3)}
+.nav-links{display:flex;gap:20px;margin-left:auto;font-size:13px}
+.container{max-width:1100px;margin:0 auto;padding:40px 24px}
+.hero{text-align:center;padding:60px 0 48px}
+.hero h1{font-size:clamp(28px,5vw,48px);font-weight:900;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
+.hero p{color:var(--muted);font-size:18px;max-width:640px;margin:0 auto 32px}
+.badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
+.badge{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.05em}
+.badge-green{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.badge-accent{background:rgba(0,212,170,.1);color:var(--accent);border:1px solid rgba(0,212,170,.3)}
+.badge-purple{background:rgba(99,102,241,.1);color:var(--accent2);border:1px solid rgba(99,102,241,.3)}
+.badge-gold{background:rgba(255,215,0,.1);color:var(--gold);border:1px solid rgba(255,215,0,.3)}
+/* Sidebar nav */
+.layout{display:grid;grid-template-columns:240px 1fr;gap:40px;align-items:start}
+.sidebar{position:sticky;top:80px}
+.sidebar h3{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:12px;margin-top:24px}
+.sidebar h3:first-child{margin-top:0}
+.sidebar ul{list-style:none}
+.sidebar ul li a{display:block;padding:6px 12px;border-radius:6px;font-size:13px;color:var(--muted);transition:all .15s}
+.sidebar ul li a:hover{background:var(--surface2);color:var(--text);text-decoration:none}
+.sidebar ul li a.active{background:rgba(0,212,170,.1);color:var(--accent)}
+/* Content */
+.content section{margin-bottom:56px;scroll-margin-top:80px}
+.content h2{font-size:22px;font-weight:800;margin-bottom:8px;color:var(--text)}
+.content h3{font-size:16px;font-weight:700;margin:24px 0 12px;color:var(--text)}
+.content p{color:var(--muted);margin-bottom:12px;font-size:15px}
+.divider{border:none;border-top:1px solid var(--border);margin:40px 0}
+/* Endpoint cards */
+.endpoint{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;overflow:hidden}
+.endpoint-header{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none}
+.method{font-family:var(--mono);font-size:12px;font-weight:700;padding:4px 10px;border-radius:4px;min-width:52px;text-align:center}
+.GET{background:rgba(34,197,94,.15);color:var(--green)}
+.POST{background:rgba(249,115,22,.15);color:var(--orange)}
+.PUT{background:rgba(99,102,241,.15);color:var(--accent2)}
+.DELETE{background:rgba(239,68,68,.15);color:var(--red)}
+.endpoint-path{font-family:var(--mono);font-size:14px;color:var(--text)}
+.endpoint-desc{margin-left:auto;font-size:12px;color:var(--muted)}
+.endpoint-auth{font-size:11px;padding:2px 8px;border-radius:4px;margin-left:8px}
+.auth-free{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.auth-pro{background:rgba(0,212,170,.1);color:var(--accent);border:1px solid rgba(0,212,170,.3)}
+.auth-ent{background:rgba(255,215,0,.1);color:var(--gold);border:1px solid rgba(255,215,0,.3)}
+.endpoint-body{padding:0 18px 18px;border-top:1px solid var(--border)}
+/* Code blocks */
+pre{background:#000;border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;font-size:13px;line-height:1.6;margin:12px 0}
+.copy-btn{float:right;background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:4px;font-size:11px;cursor:pointer;margin-left:8px}
+.copy-btn:hover{color:var(--accent)}
+/* Tier table */
+.tier-table{width:100%;border-collapse:collapse;font-size:14px}
+.tier-table th{background:var(--surface2);padding:12px 16px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border)}
+.tier-table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:top}
+.tier-table tr:last-child td{border-bottom:none}
+.tier-free{color:var(--green)}
+.tier-pro{color:var(--accent)}
+.tier-ent{color:var(--gold)}
+.check{color:var(--green)}
+.cross{color:var(--red)}
+/* CTA block */
+.cta-block{background:linear-gradient(135deg,rgba(0,212,170,.08),rgba(99,102,241,.08));border:1px solid rgba(0,212,170,.2);border-radius:12px;padding:32px;text-align:center;margin:40px 0}
+.cta-block h3{font-size:20px;margin-bottom:8px}
+.cta-block p{color:var(--muted);margin-bottom:24px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:8px;font-weight:700;font-size:14px;transition:all .2s;cursor:pointer}
+.btn-primary{background:var(--accent);color:#050810}
+.btn-primary:hover{background:#00b899;text-decoration:none;color:#050810}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);margin-left:12px}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+/* Param table */
+.param-table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+.param-table th{background:var(--surface2);padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border)}
+.param-table td{padding:8px 12px;border-bottom:1px solid rgba(26,32,64,.5);font-family:var(--mono)}
+.param-table td:first-child{color:var(--accent)}
+.param-table td:nth-child(2){color:var(--accent2)}
+.param-table td:nth-child(3){font-family:inherit;color:var(--muted)}
+.note{background:rgba(0,212,170,.05);border-left:3px solid var(--accent);padding:12px 16px;border-radius:0 6px 6px 0;font-size:13px;color:var(--muted);margin:12px 0}
+.warn{background:rgba(249,115,22,.05);border-left:3px solid var(--orange);padding:12px 16px;border-radius:0 6px 6px 0;font-size:13px;color:var(--muted);margin:12px 0}
+@media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{display:none}.hero h1{font-size:28px}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">CYBERDUDEBIVASH® SENTINEL APEX <span>v141.0.0</span></div>
+  <nav class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/store.html">Store</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/get-api-key.html">Get API Key</a>
+  </nav>
+</div>
+
+<div class="container">
+  <div class="hero">
+    <h1>API Documentation</h1>
+    <p>Enterprise-grade REST API for live threat intelligence. 115+ advisories daily. STIX 2.1, IOC feeds, detection rules, and AI-powered risk scoring.</p>
+    <div class="badges">
+      <span class="badge badge-green">✓ 99.9% Uptime SLA</span>
+      <span class="badge badge-accent">115+ Advisories/Day</span>
+      <span class="badge badge-purple">STIX 2.1 Native</span>
+      <span class="badge badge-gold">MITRE ATT&amp;CK v15</span>
+    </div>
+    <div>
+      <a href="/get-api-key.html" class="btn btn-primary">⚡ Get Free API Key</a>
+      <a href="/pricing.html" class="btn btn-outline">View Pricing</a>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>Getting Started</h3>
+      <ul>
+        <li><a href="#quickstart" class="active">Quick Start</a></li>
+        <li><a href="#auth">Authentication</a></li>
+        <li><a href="#tiers">API Tiers</a></li>
+        <li><a href="#rate-limits">Rate Limits</a></li>
+      </ul>
+      <h3>Endpoints</h3>
+      <ul>
+        <li><a href="#health">Health &amp; Status</a></li>
+        <li><a href="#preview">Preview Feed</a></li>
+        <li><a href="#feed">Full Intel Feed</a></li>
+        <li><a href="#intelligence">Intelligence Query</a></li>
+        <li><a href="#stix">STIX 2.1 Export</a></li>
+        <li><a href="#auth-endpoints">Auth &amp; API Keys</a></li>
+        <li><a href="#version">Version</a></li>
+      </ul>
+      <h3>Resources</h3>
+      <ul>
+        <li><a href="#sdks">SDKs</a></li>
+        <li><a href="#schemas">Data Schemas</a></li>
+        <li><a href="#errors">Error Codes</a></li>
+        <li><a href="#changelog">Changelog</a></li>
+      </ul>
+    </aside>
+
+    <div class="content">
+
+      <!-- QUICK START -->
+      <section id="quickstart">
+        <h2>Quick Start</h2>
+        <p>Base URL for all API endpoints:</p>
+        <pre><button class="copy-btn" onclick="navigator.clipboard.writeText('https://intel.cyberdudebivash.com')">Copy</button>https://intel.cyberdudebivash.com</pre>
+
+        <h3>1. Get an API key</h3>
+        <p>Register at <a href="/get-api-key.html">/get-api-key.html</a>. Free tier keys are issued instantly with no credit card required.</p>
+
+        <h3>2. Make your first request</h3>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span style="color:#6366f1"># Public preview — no auth required</span>
+curl https://intel.cyberdudebivash.com/api/preview
+
+<span style="color:#6366f1"># Authenticated feed request</span>
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+     https://intel.cyberdudebivash.com/api/feed
+
+<span style="color:#6366f1"># API key auth (legacy)</span>
+curl -H "X-API-Key: CDB-your-api-key-here" \
+     https://intel.cyberdudebivash.com/api/feed</pre>
+
+        <h3>3. Parse the response</h3>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span style="color:#ffd700">import</span> requests
+
+token = <span style="color:#22c55e">"YOUR_JWT_TOKEN"</span>
+headers = {<span style="color:#22c55e">"Authorization"</span>: f<span style="color:#22c55e">"Bearer {token}"</span>}
+
+resp = requests.get(
+    <span style="color:#22c55e">"https://intel.cyberdudebivash.com/api/feed"</span>,
+    headers=headers
+)
+data = resp.json()
+print(f<span style="color:#22c55e">"Total advisories: {data['total']}"</span>)
+<span style="color:#ffd700">for</span> item <span style="color:#ffd700">in</span> data[<span style="color:#22c55e">'items'</span>][:5]:
+    print(f<span style="color:#22c55e">"{item['severity']:8s} | {item['title']}"</span>)</pre>
+      </section>
+
+      <hr class="divider"/>
+
+      <!-- AUTH -->
+      <section id="auth">
+        <h2>Authentication</h2>
+        <p>SENTINEL APEX uses JWT (HS256) for authentication. Obtain a token via <code>/auth/login</code>, then pass it as a Bearer token in the Authorization header.</p>
+
+        <div class="note">Free tier endpoints (<code>/api/preview</code>, <code>/api/health</code>) require no authentication.</div>
+
+        <h3>JWT Flow</h3>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span style="color:#6366f1"># Step 1: Register or login</span>
+curl -X POST https://intel.cyberdudebivash.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@company.com","name":"Your Name"}'
+
+<span style="color:#6366f1"># Response:</span>
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "tier": "free",
+  "expires_in": 2592000,
+  "user": { "email": "you@company.com", "tier": "free" }
+}
+
+<span style="color:#6366f1"># Step 2: Use token in all subsequent requests</span>
+curl -H "Authorization: Bearer eyJhbGci..." \
+     https://intel.cyberdudebivash.com/api/feed</pre>
+
+        <h3>API Key Auth (Legacy)</h3>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>curl -H "X-API-Key: CDB-xxxxxxxxxxxxxxxx" \
+     https://intel.cyberdudebivash.com/api/feed</pre>
+      </section>
+
+      <hr class="divider"/>
+
+      <!-- TIERS -->
+      <section id="tiers">
+        <h2>API Tiers &amp; Capabilities</h2>
+        <table class="tier-table">
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th class="tier-free">FREE</th>
+              <th class="tier-pro">PRO — $49/mo</th>
+              <th class="tier-ent">ENTERPRISE — $299/mo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Advisory preview</td><td class="check">✓ 10 items</td><td class="check">✓ 100 items</td><td class="check">✓ Unlimited</td></tr>
+            <tr><td>Full intel feed</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>IOC data (IPs, hashes, domains)</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>STIX 2.1 export</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td></tr>
+            <tr><td>AI risk scores</td><td class="cross">✗</td><td>Partial</td><td class="check">✓ Full APEX AI</td></tr>
+            <tr><td>Detection rules (Sigma/YARA/KQL)</td><td class="cross">✗</td><td class="check">✓ Per advisory</td><td class="check">✓ Full + bulk</td></tr>
+            <tr><td>API calls/day</td><td>100</td><td>5,000</td><td>Unlimited</td></tr>
+            <tr><td>API keys</td><td>2</td><td>10</td><td>50</td></tr>
+            <tr><td>Webhook / SIEM push</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td></tr>
+            <tr><td>SLA</td><td>Best-effort</td><td>99.5%</td><td>99.9% + support</td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top:20px">
+          <a href="/pricing.html" class="btn btn-primary">View Full Pricing</a>
+          <a href="/get-api-key.html?plan=pro" class="btn btn-outline">Upgrade to PRO</a>
+        </div>
+      </section>
+
+      <hr class="divider"/>
+
+      <!-- RATE LIMITS -->
+      <section id="rate-limits">
+        <h2>Rate Limits</h2>
+        <p>Rate limits are enforced per API key per minute.</p>
+        <table class="param-table">
+          <thead><tr><th>Tier</th><th>Requests/min</th><th>Requests/day</th></tr></thead>
+          <tbody>
+            <tr><td>free</td><td>60</td><td>100</td></tr>
+            <tr><td>pro</td><td>500</td><td>5,000</td></tr>
+            <tr><td>enterprise</td><td>2,000</td><td>Unlimited</td></tr>
+          </tbody>
+        </table>
+        <div class="warn">Exceeding rate limits returns HTTP 429. Back off with exponential retry.</div>
+      </section>
+
+      <hr class="divider"/>
+
+      <!-- HEALTH -->
+      <section id="health">
+        <h2>Health &amp; Status</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method GET">GET</span>
+            <span class="endpoint-path">/api/health</span>
+            <span class="endpoint-auth auth-free">PUBLIC</span>
+          </div>
+          <div class="endpoint-body">
+            <p>Platform health check. Returns pipeline status, advisory count, and component health.</p>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>curl https://intel.cyberdudebivash.com/api/health</pre>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>{
+  "status": "healthy",
+  "version": "141.0.0",
+  "gateway": "SENTINEL-APEX/141.0.0",
+  "pipeline": {
+    "advisory_count": 115,
+    "last_sync": "2026-04-26T04:12:53Z",
+    "dedup_active": true,
+    "ioc_engine": "5.0",
+    "ai_engine": "3.0",
+    "stix_version": "2.1"
+  },
+  "checks": {
+    "gateway": "ok",
+    "kv_api_keys": "ok",
+    "r2_intel": "ok",
+    "feed_index": "cached:115_items",
+    "jwt_configured": true
+  }
+}</pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method GET">GET</span>
+            <span class="endpoint-path">/api/version</span>
+            <span class="endpoint-auth auth-free">PUBLIC</span>
+          </div>
+          <div class="endpoint-body">
+            <p>Returns full platform version manifest and component versions.</p>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>curl https://intel.cyberdudebivash.com/api/version</pre>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider"/>
+
+      <!-- PREVIEW -->
+      <section id="preview">
+        <h2>Preview Feed</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method GET">GET</span>
+            <span class="endpoint-path">/api/preview</span>
+            <span class="endpoint-auth auth-free">PUBLIC</span>
+            <span class="endpoint-desc">No auth required</span>
+          </div>
+          <div class="endpoint-body">
+            <p>Returns the top 10 advisories from today's feed with preview-safe fields. IOC data is omitted — upgrade to PRO to access full IOC sets.</p>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>curl https://intel.cyberdudebivash.com/api/preview</pre>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>{
+  "tier": "free",
+  "preview": {
+    "total_in_feed": 115,
+    "items": [
+      {
+        "id": "abc123",
+        "title": "Critical RCE in Apache HTTPD — CVE-2026-XXXX",
+        "severity": "CRITICAL",
+        "risk_score": 9.8,
+        "kev_present": true,
+        "cvss_score": 9.8,
+        "epss_score": 0.94,
+        "ioc_count": 12,
+        "ttp_count": 4,
+        "ioc_paywall": true,
+        "tags": ["RCE","Apache","KEV","exploit-public"]
+      }
+    ]
+  }
+}</pre>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider"/>
+
+      <!-- FULL FEED -->
+      <section id="feed">
+        <h2>Full Intel Feed</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method GET">GET</span>
+            <span class="endpoint-path">/api/feed</span>
+            <span class="endpoint-auth auth-pro">PRO+</span>
+          </div>
+          <div class="endpoint-body">
+            <p>Returns the full enriched advisory feed with IOCs, TTPs, detection rules, and AI scores. PRO returns up to 100 items; ENTERPRISE returns all.</p>
+            <h3>Query Parameters</h3>
+            <table class="param-table">
+              <thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td>limit</td><td>integer</td><td>Max items to return (default: tier limit)</td></tr>
+                <tr><td>severity</td><td>string</td><td>Filter: CRITICAL, HIGH, MEDIUM, LOW</td></tr>
+                <tr><td>kev</td><td>boolean</td><td>Filter to KEV-confirmed entries only</td></tr>
+                <tr><td>since</td><td>ISO8601</td><td>Return items newer than this timestamp</td></tr>
+                <tr><td>tag</td><td>string</td><td>Filter by threat tag (e.g. ransomware, APT)</td></tr>
+              </tbody>
+            </table>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>curl -H "Authorization: Bearer $TOKEN" \
+  "https://intel.cyberdudebivash.com/api/feed?severity=CRITICAL&kev=true&limit=20"</pre>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>{
+  "total": 115,
+  "returned": 20,
+  "tier": "pro",
+  "items": [
+    {
+      "id": "abc123",
+      "stix_id": "indicator--...",
+      "title": "Critical RCE — CVE-2026-XXXX",
+      "severity": "CRITICAL",
+      "risk_score": 9.8,
+      "cvss_score": 9.8,
+      "epss_score": 0.94,
+      "kev_present": true,
+      "iocs": {
+        "ips": ["1.2.3.4","5.6.7.8"],
+        "domains": ["evil.example.com"],
+        "hashes": {"sha256":["abc123..."]}
+      },
+      "ioc_count": 12,
+      "ttps": ["T1190","T1059","T1053"],
+      "detection_rules": {
+        "sigma": "title: CVE-2026-XXXX...",
+        "yara": "rule CVE_2026_XXXX {...}",
+        "kql": "SecurityEvent | where..."
+      },
+      "apex_ai": {
+        "priority": "P1",
+        "threat_level": "CRITICAL",
+        "campaign": "APT29-COZY-BEAR-2026"
+      },
+      "source_url": "https://nvd.nist.gov/...",
+      "report_url": "https://intel.cyberdudebivash.com/reports/..."
+    }
+  ]
+}</pre>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider"/>
+
+      <!-- STIX -->
+      <section id="stix">
+        <h2>STIX 2.1 Export</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method GET">GET</span>
+            <span class="endpoint-path">/api/stix</span>
+            <span class="endpoint-auth auth-ent">ENTERPRISE</span>
+          </div>
+          <div class="endpoint-body">
+            <p>Export the complete threat feed as a STIX 2.1 bundle. Compatible with TAXII 2.1, OpenCTI, MISP, and any STIX-aware SIEM.</p>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>curl -H "Authorization: Bearer $ENTERPRISE_TOKEN" \
+  https://intel.cyberdudebivash.com/api/stix \
+  -o sentinel-apex-stix.json</pre>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>{
+  "type": "bundle",
+  "id": "bundle--...",
+  "spec_version": "2.1",
+  "objects": [
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--...",
+      "name": "CVE-2026-XXXX C2 IP",
+      "pattern": "[ipv4-addr:value = '1.2.3.4']",
+      "pattern_type": "stix",
+      "valid_from": "2026-04-26T00:00:00Z",
+      "labels": ["malicious-activity","exploit"],
+      "confidence": 85
+    }
+  ]
+}</pre>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider"/>
+
+      <!-- AUTH ENDPOINTS -->
+      <section id="auth-endpoints">
+        <h2>Auth &amp; API Keys</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method POST">POST</span>
+            <span class="endpoint-path">/auth/login</span>
+            <span class="endpoint-auth auth-free">PUBLIC</span>
+          </div>
+          <div class="endpoint-body">
+            <p>Register or login. Returns a JWT valid for 30 days. New users are created automatically on first login (FREE tier).</p>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>curl -X POST https://intel.cyberdudebivash.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"analyst@soc.com","name":"SOC Analyst"}'</pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method POST">POST</span>
+            <span class="endpoint-path">/api/keys</span>
+            <span class="endpoint-auth auth-free">JWT Required</span>
+          </div>
+          <div class="endpoint-body">
+            <p>Create a named API key for programmatic access. FREE: 2 keys max. PRO: 10 keys. ENTERPRISE: 50 keys.</p>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>curl -X POST https://intel.cyberdudebivash.com/api/keys \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"label":"SIEM Integration Key"}'</pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method GET">GET</span>
+            <span class="endpoint-path">/api/keys</span>
+            <span class="endpoint-auth auth-free">JWT Required</span>
+          </div>
+          <div class="endpoint-body">
+            <p>List all API keys for the authenticated user.</p>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header">
+            <span class="method GET">GET</span>
+            <span class="endpoint-path">/api/validate-key</span>
+            <span class="endpoint-auth auth-free">PUBLIC</span>
+          </div>
+          <div class="endpoint-body">
+            <p>Validate an API key and return its tier and limits. Pass key in <code>X-API-Key</code> header.</p>
+            <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>curl -H "X-API-Key: CDB-your-key" \
+  https://intel.cyberdudebivash.com/api/validate-key</pre>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider"/>
+
+      <!-- SDKS -->
+      <section id="sdks">
+        <h2>SDKs &amp; Integrations</h2>
+
+        <h3>Python SDK</h3>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span style="color:#6366f1"># Install</span>
+pip install requests
+
+<span style="color:#6366f1"># Usage</span>
+<span style="color:#ffd700">import</span> requests
+
+<span style="color:#ffd700">class</span> SentinelApexClient:
+    BASE = <span style="color:#22c55e">"https://intel.cyberdudebivash.com"</span>
+
+    <span style="color:#ffd700">def</span> __init__(self, token):
+        self.headers = {<span style="color:#22c55e">"Authorization"</span>: f<span style="color:#22c55e">"Bearer {token}"</span>}
+
+    <span style="color:#ffd700">def</span> get_feed(self, severity=<span style="color:#ffd700">None</span>, kev_only=<span style="color:#ffd700">False</span>):
+        params = {}
+        <span style="color:#ffd700">if</span> severity: params[<span style="color:#22c55e">"severity"</span>] = severity
+        <span style="color:#ffd700">if</span> kev_only: params[<span style="color:#22c55e">"kev"</span>] = <span style="color:#22c55e">"true"</span>
+        r = requests.get(f<span style="color:#22c55e">"{self.BASE}/api/feed"</span>, headers=self.headers, params=params)
+        r.raise_for_status()
+        <span style="color:#ffd700">return</span> r.json()[<span style="color:#22c55e">"items"</span>]
+
+client = SentinelApexClient(<span style="color:#22c55e">"YOUR_JWT_TOKEN"</span>)
+criticals = client.get_feed(severity=<span style="color:#22c55e">"CRITICAL"</span>, kev_only=<span style="color:#ffd700">True</span>)
+print(f<span style="color:#22c55e">"Active KEV criticals: {len(criticals)}"</span>)</pre>
+
+        <h3>Splunk Integration (SPL)</h3>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button">| makeresults
+| eval url="https://intel.cyberdudebivash.com/api/feed"
+| eval token="YOUR_JWT_TOKEN"
+| map search="| sendalert rest param.method=get param.url=$url$ param.headers=\"Authorization:Bearer $token$\""
+| spath input=_raw
+| table severity, title, risk_score, kev_present</pre>
+
+        <h3>Microsoft Sentinel (KQL)</h3>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button">let SentinelApexFeed = externaldata(title:string, severity:string, risk_score:real, iocs:dynamic)
+  [@"https://intel.cyberdudebivash.com/api/feed"]
+  with (format="multijson", httpHeaders=bag_pack("Authorization","Bearer YOUR_TOKEN"));
+SentinelApexFeed
+| where severity in ("CRITICAL","HIGH")
+| project title, severity, risk_score, iocs</pre>
+
+        <h3>OpenCTI (TAXII)</h3>
+        <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># In OpenCTI → Data → Connectors → TAXII → Add
+Collection URL: https://intel.cyberdudebivash.com/api/stix
+Auth:           Bearer YOUR_ENTERPRISE_TOKEN
+Poll interval:  3600 (hourly)
+STIX version:   2.1</pre>
+      </section>
+
+      <hr class="divider"/>
+
+      <!-- ERRORS -->
+      <section id="errors">
+        <h2>Error Codes</h2>
+        <table class="tier-table">
+          <thead><tr><th>HTTP</th><th>Code</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>400</td><td>bad_request</td><td>Malformed request body or missing required field</td></tr>
+            <tr><td>401</td><td>unauthorized</td><td>Missing or invalid Authorization header</td></tr>
+            <tr><td>403</td><td>tier_insufficient</td><td>Your tier does not allow this endpoint — upgrade required</td></tr>
+            <tr><td>429</td><td>rate_limit_exceeded</td><td>Too many requests — back off and retry</td></tr>
+            <tr><td>503</td><td>service_unavailable</td><td>Upstream dependency unavailable — retry in 30s</td></tr>
+          </tbody>
+        </table>
+        <div class="note">All error responses include a <code>request_id</code> field. Include it when contacting support.</div>
+      </section>
+
+      <hr class="divider"/>
+
+      <!-- CHANGELOG -->
+      <section id="changelog">
+        <h2>Changelog</h2>
+        <h3>v141.0.0 — 2026-04-26</h3>
+        <p>15-issue platform hardening. SOC ticket priority fix, IOC count mismatch eliminated, atomic version.json writes, TZ-aware datetime comparisons, Sigma YAML indentation fixed, encoding mojibake repaired.</p>
+        <h3>v140.0.0 — 2026-04-25</h3>
+        <p>APEX AI integration, revenue engine upgrade, Gumroad auto-refresh pipeline activated.</p>
+        <h3>v134.0.0 — 2026-04</h3>
+        <p>JWT HS256 auth, STIX 2.1 export, Stripe webhook integration, KV revocation blocklist, structured observability.</p>
+      </section>
+
+      <!-- CTA -->
+      <div class="cta-block">
+        <h3>Ready to integrate?</h3>
+        <p>Get your free API key in 30 seconds. No credit card required.</p>
+        <a href="/get-api-key.html" class="btn btn-primary">⚡ Get Free API Key</a>
+        <a href="/pricing.html" class="btn btn-outline">Enterprise Pricing</a>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /layout -->
+</div><!-- /container -->
+
+<script>
+function copyCode(btn) {
+  const pre = btn.closest('pre');
+  const text = pre.innerText.replace(/^Copy\s*/, '').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
+  });
+}
+// Sidebar active state
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+      const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('.content section[id]').forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
