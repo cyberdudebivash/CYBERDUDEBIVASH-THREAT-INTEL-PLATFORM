@@ -1,20 +1,20 @@
 # =============================================================================
-# CYBERDUDEBIVASH® SENTINEL APEX v141.0.0 — Gumroad Auto-Refresh Pipeline
+# CYBERDUDEBIVASH SENTINEL APEX v141.0.0 -- Gumroad Auto-Refresh Pipeline
 # =============================================================================
-# Reads live threat feed → updates Gumroad product descriptions with
-# today's CVE/threat coverage → drives discoverability + conversion.
+# Reads live threat feed  updates Gumroad product descriptions with
+# today's CVE/threat coverage  drives discoverability + conversion.
 #
 # SCHEDULE:
-#   Daily at 08:30 UTC — runs AFTER telegram-revenue (08:00) so feed is fresh
+#   Daily at 08:30 UTC -- runs AFTER telegram-revenue (08:00) so feed is fresh
 #
 # SECRETS REQUIRED:
-#   GUMROAD_ACCESS_TOKEN — from gumroad.com/settings/advanced (OAuth token)
+#   GUMROAD_ACCESS_TOKEN -- from gumroad.com/settings/advanced (OAuth token)
 #
 # REVENUE FLOWS:
 #   Detection pack descriptions auto-updated with live threat stats
-#   Fresh CVE names in descriptions → SEO boost → organic sales
-#   Urgency signals (KEV confirmed) → higher conversion rate
-#   Rule counts (Sigma/YARA/KQL) shown per product → purchase confidence
+#   Fresh CVE names in descriptions  SEO boost  organic sales
+#   Urgency signals (KEV confirmed)  higher conversion rate
+#   Rule counts (Sigma/YARA/KQL) shown per product  purchase confidence
 #
 # DRY RUN:
 #   Set GUMROAD_DRY_RUN=true in env section to log without API calls
@@ -24,7 +24,7 @@ name: gumroad-refresh
 
 on:
   schedule:
-    # 08:30 UTC daily — after telegram-revenue, after sentinel-blogger
+    # 08:30 UTC daily -- after telegram-revenue, after sentinel-blogger
     - cron: '30 8 * * *'
 
   # Run after sentinel-blogger completes (feed is freshest then)
@@ -66,25 +66,25 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: "⬡ Checkout SENTINEL APEX"
+      - name: " Checkout SENTINEL APEX"
         uses: actions/checkout@v4
 
-      - name: "🐍 Setup Python 3.12"
+      - name: " Setup Python 3.12"
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: "🔍 Validate token"
+      - name: " Validate token"
         run: |
           if [ -z "${{ secrets.GUMROAD_ACCESS_TOKEN }}" ]; then
-            echo "::notice::GUMROAD_ACCESS_TOKEN not set — skipping product refresh."
-            echo "To enable: Settings → Secrets → Actions → GUMROAD_ACCESS_TOKEN"
+            echo "::notice::GUMROAD_ACCESS_TOKEN not set -- skipping product refresh."
+            echo "To enable: Settings  Secrets  Actions  GUMROAD_ACCESS_TOKEN"
             echo "SKIP_GM=true" >> $GITHUB_ENV
           else
             echo "SKIP_GM=false" >> $GITHUB_ENV
           fi
 
-      - name: "📁 Locate feed.json"
+      - name: " Locate feed.json"
         if: env.SKIP_GM == 'false'
         run: |
           if [ -f "feed.json" ]; then
@@ -94,12 +94,12 @@ jobs:
           elif [ -f "data/stix/feed_manifest.json" ]; then
             echo "FEED_PATH=data/stix/feed_manifest.json" >> $GITHUB_ENV
           else
-            echo "::warning::No feed.json — product descriptions won't have live threat data"
+            echo "::warning::No feed.json -- product descriptions won't have live threat data"
             echo "[]" > /tmp/feed_fallback.json
             echo "FEED_PATH=/tmp/feed_fallback.json" >> $GITHUB_ENV
           fi
 
-      - name: "🔄 Determine dry-run mode"
+      - name: " Determine dry-run mode"
         if: env.SKIP_GM == 'false'
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
@@ -110,19 +110,19 @@ jobs:
             echo "Mode: LIVE (will update Gumroad products)"
           fi
 
-      - name: "🛒 Run Gumroad Auto-Refresh"
+      - name: " Run Gumroad Auto-Refresh"
         if: env.SKIP_GM == 'false'
         env:
           GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
           GUMROAD_DRY_RUN:      ${{ env.GUMROAD_DRY_RUN }}
           FEED_PATH:            ${{ env.FEED_PATH }}
         run: |
-          echo "=== SENTINEL APEX v${PLATFORM_VERSION} — Gumroad Auto-Refresh ==="
+          echo "=== SENTINEL APEX v${PLATFORM_VERSION} -- Gumroad Auto-Refresh ==="
           echo "Feed: $FEED_PATH | Dry run: $GUMROAD_DRY_RUN"
           python3 scripts/gumroad_auto_refresh.py
           echo "Gumroad refresh complete."
 
-      - name: "⏭ Skipped (no token)"
+      - name: " Skipped (no token)"
         if: env.SKIP_GM == 'true'
         run: |
-          echo "::notice::Gumroad refresh skipped — GUMROAD_ACCESS_TOKEN not set."
+          echo "::notice::Gumroad refresh skipped -- GUMROAD_ACCESS_TOKEN not set."

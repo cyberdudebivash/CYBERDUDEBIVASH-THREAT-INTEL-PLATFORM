@@ -1057,9 +1057,17 @@ def enforce_schema(entry: Dict) -> Dict:
     # 2. Normalise severity to uppercase known set
     # VALID set mirrors validate_repo._VALID_SEVERITIES — must stay in sync.
     # 'INFO' is NOT a valid platform severity (it is a log level, not a threat level).
-    # Any entry with severity='INFO' (common fallback from legacy code) is normalised
-    # to 'UNKNOWN' here so it never reaches the schema validation gate as invalid.
-    _SEV_REMAP = {"INFO": "UNKNOWN"}  # map non-standard → nearest valid equivalent
+    # Any entry with severity='INFO' (common fallback from upstream feeds) is normalised
+    # to 'LOW' — informational advisories are low-severity by definition, not unknown.
+    # P0 FIX (2026-04-27): Changed INFO->UNKNOWN to INFO->LOW for semantic correctness.
+    # All non-standard values fall through to 'UNKNOWN' as the safe default.
+    _SEV_REMAP = {
+        "INFO":          "LOW",      # informational advisory = low severity
+        "INFORMATIONAL": "LOW",      # alternative spelling from some feeds
+        "ADVISORY":      "LOW",      # another common upstream label
+        "NONE":          "UNKNOWN",  # no severity data = unknown
+        "N/A":           "UNKNOWN",  # not applicable = unknown
+    }
     _SEV_VALID = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN", ""}
     sev = entry.get("severity")
     if sev is not None:
