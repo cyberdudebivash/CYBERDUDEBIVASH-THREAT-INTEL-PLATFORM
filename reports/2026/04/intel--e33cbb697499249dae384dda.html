@@ -315,24 +315,24 @@ description: &gt;
 references:
   - https://intel.cyberdudebivash.com
 author: CYBERDUDEBIVASH SENTINEL APEX
-date: 2026/04/25
+date: 2026/04/26
 tags:
   # TTPs: enrich via APEX Enterprise
-  # Source: APEX advisory  replace with confirmed technique IDs
+  # Source: APEX advisory - replace with confirmed technique IDs
 logsource:
   category: process_creation
   product: windows
 detection:
   selection:
-        CommandLine|contains:
-          - &#x27;https://securityaffairs.com/191215/uncategorized/checkmarx-s&#x27;
-          - &#x27;bw1.js&#x27;
-          - &#x27;supply-chain-attack-impacts-bitwarden-npm-distribution-path.&#x27;
-          - &#x27;bw_setup.js&#x27;
     Image|endswith:
       - &#x27;\\cmd.exe&#x27;
       - &#x27;\\powershell.exe&#x27;
       - &#x27;\\wscript.exe&#x27;
+    CommandLine|contains:
+      - &#x27;https://securityaffairs.com/191215/uncategorized/checkmarx-s&#x27;
+      - &#x27;bw1.js&#x27;
+      - &#x27;supply-chain-attack-impacts-bitwarden-npm-distribution-path.&#x27;
+      - &#x27;bw_setup.js&#x27;
   condition: selection
 falsepositives:
   - Legitimate administrative tooling
@@ -341,7 +341,7 @@ level: medium
     meta:
         description = &quot;APEX detection: Checkmarx supply chain attack impacts Bitwarden npm distribu&quot;
         author      = &quot;CYBERDUDEBIVASH SENTINEL APEX v141.0.0&quot;
-        date        = &quot;2026-04-25&quot;
+        date        = &quot;2026-04-26&quot;
         reference   = &quot;https://intel.cyberdudebivash.com&quot;
         severity    = &quot;high&quot;
     strings:
@@ -353,7 +353,7 @@ level: medium
 }
 </pre></div><div class='rule-block'><div class='rule-header'><span class='rule-badge rule-kql'>KQL – Microsoft Sentinel / Defender XDR</span><span class='copy-hint'>Retro-hunt: last 30 days</span></div><pre>// KQL  Microsoft Sentinel / Defender XDR
 // APEX Advisory Hunt: Checkmarx supply chain attack impacts Bitwarden npm distribu
-// Generated: 2026-04-25T22:03Z
+// Generated: 2026-04-26T03:49Z
 
 let lookback = 30d;
 let apex_iocs = dynamic([&amp;quot;https://securityaffairs.com/191215/uncategorized/c&amp;quot;, &amp;quot;bw1.js&amp;quot;, &amp;quot;supply-chain-attack-impacts-bitwarden-npm-distribu&amp;quot;, &amp;quot;bw_setup.js&amp;quot;]);
@@ -373,7 +373,7 @@ DeviceProcessEvents
 | where count_ &gt; 3
 | order by count_ desc;</pre></div><div class='rule-block'><div class='rule-header'><span class='rule-badge rule-spl'>SPL – Splunk Enterprise Security</span><span class='copy-hint'>ES correlation search ready</span></div><pre>| SPL  Splunk Enterprise Security
 | APEX Advisory Hunt: Checkmarx supply chain attack impacts Bitwarden npm distribu
-| Generated: 2026-04-25T22:03Z
+| Generated: 2026-04-26T03:49Z
 
 index=* sourcetype=zeek* OR sourcetype=suricata*
 (&amp;quot;https://securityaffairs.com/191215/uncategorized/c&amp;quot; OR &amp;quot;bw1.js&amp;quot; OR &amp;quot;supply-chain-attack-impacts-bitwarden-npm-distribu&amp;quot; OR &amp;quot;bw_setup.js&amp;quot;)
