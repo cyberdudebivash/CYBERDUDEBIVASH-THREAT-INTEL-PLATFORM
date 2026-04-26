@@ -1,22 +1,22 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX – Edge Intelligence Gateway v141.0.0
-// R2-ONLY ARCHITECTURE – Blogger dependency REMOVED
-// Data flow: GitHub Actions → Cloudflare R2 (private) → Worker → API clients
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v141.0.0
+// R2-ONLY ARCHITECTURE -- Blogger dependency REMOVED
+// Data flow: GitHub Actions -> Cloudflare R2 (private) -> Worker -> API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
 // Secrets: ADMIN_SECRET, GITHUB_TOKEN, CDB_JWT_SECRET (npx wrangler secret put)
 //          STRIPE_WEBHOOK_SECRET, RAZORPAY_WEBHOOK_SECRET (billing webhooks)
 //          STRIPE_PRO_PRICE_ID, STRIPE_ENT_PRICE_ID (Stripe plan IDs)
 // v134.0: Added /api/ai endpoint family
 // v134.0.0: stix_id fix; GATEWAY_VERSION unified
-// v134.0.0: GOD-MODE – mandatory ai_summary, retry circuit breaker, urgency CTAs
-// v134.0.0: FINAL HARDENING – structured logging, schema validation, JWT revocation,
+// v134.0.0: GOD-MODE -- mandatory ai_summary, retry circuit breaker, urgency CTAs
+// v134.0.0: FINAL HARDENING -- structured logging, schema validation, JWT revocation,
 //           token refresh/revoke, usage caps, observability, API/feed consistency
-// v134.0.0: SAAS TRANSFORMATION – user auth (PBKDF2), API key CRUD, billing
+// v134.0.0: SAAS TRANSFORMATION -- user auth (PBKDF2), API key CRUD, billing
 //           (Stripe/Razorpay webhooks), IOC extraction fallback (min 3),
 //           SIEM formatters (Splunk/Sentinel/QRadar), pricing page
 // =============================================================================
 
-// ── v134.0.0: Extension modules ───────────────────────────────────────────────
+//  v134.0.0: Extension modules 
 import {
   handleSearch,
   handleActors,
@@ -33,7 +33,7 @@ import {
   pushWebhookNotifications,
   SCOPE_DEFINITIONS,
   TIER_DEFAULT_SCOPES,
-  // v134.0.0 – AI Intelligence Endpoints
+  // v134.0.0 -- AI Intelligence Endpoints
   handlePredict,
   handleCampaigns,
   handleAnomalies,
@@ -71,7 +71,7 @@ import {
   getCreditExhaustionStats,
 } from "./credit-system.js";
 
-// ── Version sync: always read from CONFIG ──────────────────────────────────
+//  Version sync: always read from CONFIG 
 function injectVersionHeaders(response, config) {
   const headers = new Headers(response.headers);
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
@@ -88,8 +88,8 @@ const CONFIG = {
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
   // quickly after each pipeline run. KV cache is busted by workflow on every run.
   CACHE_TTL: {
-    FEED:    60,    // seconds – authenticated feed (was 180, reduced for freshness)
-    PREVIEW: 90,    // seconds – public preview (was 300, reduced to 90s)
+    FEED:    60,    // seconds -- authenticated feed (was 180, reduced for freshness)
+    PREVIEW: 90,    // seconds -- public preview (was 300, reduced to 90s)
     REPORT:  1800,
     CRITICAL: 60,
     HEALTH:   15,
@@ -112,15 +112,15 @@ const CONFIG = {
   GET_KEY_URL:         "https://intel.cyberdudebivash.com/get-api-key",
 };
 
-// ── Utilities ──────────────────────────────────────────────────────────────────
+//  Utilities 
 
 function generateReqId() {
   const bytes = crypto.getRandomValues(new Uint8Array(6));
   return "req_" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-// ── v134.0: Injection-pattern blocklist – SQL, XSS, path-traversal, command injection ──
-// Defined FIRST – all sanitizers below depend on this.
+//  v134.0: Injection-pattern blocklist -- SQL, XSS, path-traversal, command injection 
+// Defined FIRST -- all sanitizers below depend on this.
 // Applied to ALL user-controlled string inputs.  Returns "" (safe fail) on match.
 const _INJECTION_BLOCK_RE = [
   /(\b(?:SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|CAST|CONVERT|DECLARE|XTYPE|SYSOBJECTS)\b)/i,
@@ -133,8 +133,8 @@ const _INJECTION_BLOCK_RE = [
   /(\x00|\x1a)/,                                                  // null byte / ctrl-Z
 ];
 
-// ── v134.0: Centralized input sanitization helpers ─────────────────────────────
-// Used by ALL endpoint handlers – prevents injection attacks via query params.
+//  v134.0: Centralized input sanitization helpers 
+// Used by ALL endpoint handlers -- prevents injection attacks via query params.
 const _CTRL_STRIP = /[\x00-\x1F\x7F<>"'`\\]/g;
 
 // v134.0: sanitizeStr now runs injection-pattern gate after ctrl-char strip.
@@ -158,7 +158,7 @@ function sanitizeTier(raw) {
   return VALID.has((raw || "").toLowerCase()) ? raw.toLowerCase() : "free";
 }
 
-// ── v134.0: Comprehensive input sanitizer for POST body fields ─────────────────
+//  v134.0: Comprehensive input sanitizer for POST body fields 
 // Identical to sanitizeStr but with configurable max length (default 256).
 // Use for: name, label, description, any free-form user-supplied body field.
 function sanitizeInput(raw, maxLen = 256) {
@@ -170,15 +170,15 @@ function sanitizeInput(raw, maxLen = 256) {
   return clean;
 }
 
-// ── v134.0: FEED_LIMITS hard cap per tier (prevents abusive over-fetching) ─────
+//  v134.0: FEED_LIMITS hard cap per tier (prevents abusive over-fetching) 
 function getTierLimit(tier, requested) {
   const caps = { free: 20, premium: 500, enterprise: 2000 };
   const cap  = caps[tier] || caps.free;
   return Math.min(Math.max(1, requested || cap), cap);
 }
 
-// ── v134.0.0: Structured Logger ───────────────────────────────────────────────
-// ALL log output is structured JSON – searchable in Cloudflare Workers Tail Logs.
+//  v134.0.0: Structured Logger 
+// ALL log output is structured JSON -- searchable in Cloudflare Workers Tail Logs.
 // Fields: ts, level, component, message + arbitrary meta spread.
 function slog(level, component, message, meta = {}) {
   const entry = JSON.stringify({
@@ -194,7 +194,7 @@ function slog(level, component, message, meta = {}) {
   else                       console.log(entry);
 }
 
-// ── v134.0.0: Error Tracking – persists to SECURITY_HUB_KV (7-day rolling) ───
+//  v134.0.0: Error Tracking -- persists to SECURITY_HUB_KV (7-day rolling) 
 // Records error counts + up to 10 sample payloads per component per day.
 // Surfaced via GET /api/admin/observability.
 async function trackError(env, component, message, meta = {}) {
@@ -209,7 +209,7 @@ async function trackError(env, component, message, meta = {}) {
       rec.samples.push({ ts: new Date().toISOString(), msg: message, ...meta });
     }
     await env.SECURITY_HUB_KV.put(key, JSON.stringify(rec), { expirationTtl: 86400 * 7 });
-  } catch { /* non-critical – never let observability kill a request */ }
+  } catch { /* non-critical -- never let observability kill a request */ }
 }
 
 async function sha256hex(text) {
@@ -256,15 +256,15 @@ async function hashIP(ip) {
   return (await sha256hex("ip:" + ip)).slice(0, 16);
 }
 
-// ── v134.0: Feed Deduplication – 3-layer: stix_id + title-hash + content-hash ──
+//  v134.0: Feed Deduplication -- 3-layer: stix_id + title-hash + content-hash 
 // Removes duplicates from manifest items before serving to clients.
 // Dedup key priority:
-//   L1: stix_id / id (most stable – canonical STIX bundle identifier)
+//   L1: stix_id / id (most stable -- canonical STIX bundle identifier)
 //   L2: normalised title hash (catches same advisory with different IDs)
 //   L3: source+title content-hash (catches cross-source republications)
 // Also strips known brand/identity noise entries that leak into feed.
 const BRAND_NOISE = [
-  "CYBERDUDEBIVASH® PRIVATE LIMITED",
+  "CYBERDUDEBIVASH(R) PRIVATE LIMITED",
   "OFFICIAL WORKPLACE",
   "GST & PAN VERIFIED",
 ];
@@ -277,7 +277,7 @@ function _titleHash(title) {
     .trim()
     .split(" ")
     .filter(Boolean)
-    .sort()     // order-independent hash → catches reordered titles
+    .sort()     // order-independent hash -> catches reordered titles
     .join("|");
 }
 
@@ -286,7 +286,7 @@ function _contentHash(item) {
   // (source normalised) + "::" + (title normalised)
   const src   = (item.source || item.feed_source || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const title = _titleHash(item.title || item.name || "");
-  // Include CVE ID if present – prevents stripping unique CVEs with generic titles
+  // Include CVE ID if present -- prevents stripping unique CVEs with generic titles
   const cve   = (item.cve_id || "").toUpperCase();
   return `${src}::${title}::${cve}`;
 }
@@ -322,10 +322,10 @@ function deduplicateFeedItems(items) {
   return result;
 }
 
-// ── v134.0.0: JWT Auth – HS256 via Web Crypto API ─────────────────────────────
+//  v134.0.0: JWT Auth -- HS256 via Web Crypto API 
 // Uses CDB_JWT_SECRET from Cloudflare secret (set via: npx wrangler secret put CDB_JWT_SECRET)
 // ZERO ephemeral fallback: if CDB_JWT_SECRET is missing, auth endpoints return 503.
-// Token format: standard JWT HS256 – header.payload.signature (base64url encoded)
+// Token format: standard JWT HS256 -- header.payload.signature (base64url encoded)
 
 const JWT_ALG   = { name: "HMAC", hash: "SHA-256" };
 const JWT_TTL   = 60 * 60 * 24 * 30;   // 30 days default
@@ -389,7 +389,7 @@ function extractJwt(request) {
   return null;
 }
 
-// ── v134.0.0: JWT Revocation Blocklist ───────────────────────────────────────
+//  v134.0.0: JWT Revocation Blocklist 
 // Revoked tokens are stored in SECURITY_HUB_KV with TTL = remaining token lifetime.
 // isTokenRevoked() is called in resolveAuth() before returning a valid JWT result.
 async function isTokenRevoked(token, env) {
@@ -410,7 +410,7 @@ async function revokeToken(token, expUnix, env) {
   } catch { /* non-critical */ }
 }
 
-// ── v134.0.0: PBKDF2 Password Hashing ────────────────────────────────────────
+//  v134.0.0: PBKDF2 Password Hashing 
 // bcrypt unavailable in Cloudflare Workers runtime. PBKDF2 via Web Crypto API.
 // Storage format: "pbkdf2:v1:<salt_hex>:<hash_hex>" (256-bit key, 100k iterations)
 
@@ -446,7 +446,7 @@ function generateUserId() {
   return "u_" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-// ── v134.0.0: POST /auth/signup ───────────────────────────────────────────────
+//  v134.0.0: POST /auth/signup 
 // Creates user record in API_KEYS_KV with user: prefix + email index.
 // Auto-issues JWT. Tier starts FREE.
 async function handleUserSignup(request, env, rid) {
@@ -513,7 +513,7 @@ async function handleUserSignup(request, env, rid) {
   }, 201);
 }
 
-// ── v134.0.0: POST /auth/login ────────────────────────────────────────────────
+//  v134.0.0: POST /auth/login 
 async function handleUserLogin(request, env, rid) {
   if (!env?.API_KEYS_KV)    return jsonResponse({ error: "storage_unavailable",    request_id: rid }, 503);
   if (!env?.CDB_JWT_SECRET) return jsonResponse({ error: "auth_service_unavailable", request_id: rid }, 503);
@@ -536,7 +536,7 @@ async function handleUserLogin(request, env, rid) {
 
   const valid = await pbkdf2Verify(password, userRecord.password_hash);
   if (!valid) {
-    slog("WARN", "AUTH", "Login failed – bad password", { user_id: userId });
+    slog("WARN", "AUTH", "Login failed -- bad password", { user_id: userId });
     return jsonResponse({ error: "invalid_credentials", message: "Invalid email or password.", request_id: rid }, 401);
   }
 
@@ -564,7 +564,7 @@ async function handleUserLogin(request, env, rid) {
   });
 }
 
-// ── v134.0.0: GET /auth/me ────────────────────────────────────────────────────
+//  v134.0.0: GET /auth/me 
 async function handleUserMe(request, env, rid, auth) {
   if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
 
@@ -572,7 +572,7 @@ async function handleUserMe(request, env, rid, auth) {
   const userRecord = userId ? await env.API_KEYS_KV.get(`user:${userId}`, { type: "json" }).catch(() => null) : null;
 
   if (!userRecord) {
-    // Legacy API key auth – return synthetic user context
+    // Legacy API key auth -- return synthetic user context
     return jsonResponse({
       status:      "ok",
       user_id:     userId,
@@ -614,7 +614,7 @@ async function handleUserMe(request, env, rid, auth) {
   });
 }
 
-// ── v134.0.0: POST /api/keys/create ──────────────────────────────────────────
+//  v134.0.0: POST /api/keys/create 
 // Generates and stores a new CDB-* API key linked to the authenticated user.
 // Key caps: FREE=2, PRO=10, ENTERPRISE=50.
 async function handleUserCreateKey(request, env, rid, auth) {
@@ -684,13 +684,13 @@ async function handleUserCreateKey(request, env, rid, auth) {
     label:        keyRecord.label,
     usage_limit:  usageLimit === 0 ? "unlimited" : usageLimit,
     created_at:   now,
-    warning:      "Store this API key securely – it will NOT be shown again.",
+    warning:      "Store this API key securely -- it will NOT be shown again.",
     request_id:   rid,
     gateway:      `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
   }, 201);
 }
 
-// ── v134.0.0: GET /api/keys ───────────────────────────────────────────────────
+//  v134.0.0: GET /api/keys 
 async function handleUserListKeys(request, env, rid, auth) {
   if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
 
@@ -724,7 +724,7 @@ async function handleUserListKeys(request, env, rid, auth) {
   });
 }
 
-// ── v134.0.0: DELETE /api/keys/:id ───────────────────────────────────────────
+//  v134.0.0: DELETE /api/keys/:id 
 async function handleUserDeleteKey(request, env, rid, auth, keyIdToDelete) {
   if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
 
@@ -735,7 +735,7 @@ async function handleUserDeleteKey(request, env, rid, auth, keyIdToDelete) {
   if (keyRecord.user_id && keyRecord.user_id !== userId)
     return jsonResponse({ error: "forbidden", message: "You do not own this API key.", request_id: rid }, 403);
 
-  // Soft-revoke – preserves audit trail
+  // Soft-revoke -- preserves audit trail
   keyRecord.revoked    = true;
   keyRecord.revoked_at = new Date().toISOString();
   await Promise.all([
@@ -754,7 +754,7 @@ async function handleUserDeleteKey(request, env, rid, auth, keyIdToDelete) {
   });
 }
 
-// ── /api/auth/token – Issue JWT (POST, body: {api_key, tier}) ────────────────
+//  /api/auth/token -- Issue JWT (POST, body: {api_key, tier}) 
 async function handleIssueToken(request, env, rid) {
   if (!env?.CDB_JWT_SECRET) {
     return jsonResponse({
@@ -804,7 +804,7 @@ async function handleIssueToken(request, env, rid) {
   }, 201);
 }
 
-// ── /api/auth/validate – Validate JWT (GET/POST) ──────────────────────────────
+//  /api/auth/validate -- Validate JWT (GET/POST) 
 async function handleValidateToken(request, env, rid) {
   if (!env?.CDB_JWT_SECRET) {
     return jsonResponse({ error: "auth_service_unavailable", request_id: rid }, 503);
@@ -829,7 +829,7 @@ async function handleValidateToken(request, env, rid) {
   });
 }
 
-// ── Unified auth resolver: supports both JWT and legacy API keys ──────────────
+//  Unified auth resolver: supports both JWT and legacy API keys 
 // Priority: JWT (Bearer token with 3 parts) > Legacy API key (CDB-* / X-Api-Key)
 // v134.0.0: Checks JWT revocation blocklist before accepting token.
 async function resolveAuth(request, env) {
@@ -838,16 +838,16 @@ async function resolveAuth(request, env) {
   if (jwtToken && env?.CDB_JWT_SECRET) {
     const result = await verifyJwt(jwtToken, env.CDB_JWT_SECRET);
     if (result.valid) {
-      // v134.0.0: HARD check revocation blocklist – revoked tokens NEVER pass
+      // v134.0.0: HARD check revocation blocklist -- revoked tokens NEVER pass
       if (await isTokenRevoked(jwtToken, env)) {
         return { valid: false, reason: "token_revoked", auth_method: "jwt" };
       }
-      // v134.0: Live tier resolution – JWT tier can be stale if user paid after token issue.
+      // v134.0: Live tier resolution -- JWT tier can be stale if user paid after token issue.
       // Read authoritative tier from KV user record; fall back to JWT claim.
-      // This makes Stripe payment tier upgrades instant – no JWT refresh required.
+      // This makes Stripe payment tier upgrades instant -- no JWT refresh required.
       const jwtUserId = result.payload.user_id || result.payload.sub || result.payload.key_id;
 
-      // v134.0: STRICT TIER VALIDATION – only accept known tier values, default FREE on invalid
+      // v134.0: STRICT TIER VALIDATION -- only accept known tier values, default FREE on invalid
       const VALID_TIERS = new Set([CONFIG.TIERS.FREE, CONFIG.TIERS.PREMIUM, CONFIG.TIERS.ENTERPRISE]);
       const rawJwtTier  = result.payload.tier || CONFIG.TIERS.FREE;
       const sanitisedJwtTier = VALID_TIERS.has(rawJwtTier) ? rawJwtTier : CONFIG.TIERS.FREE;
@@ -856,11 +856,11 @@ async function resolveAuth(request, env) {
       if (jwtUserId && env?.API_KEYS_KV) {
         try {
           const liveUser = await env.API_KEYS_KV.get(`user:${jwtUserId}`, { type: "json" });
-          // MUST be a known tier – never elevate to unknown value
+          // MUST be a known tier -- never elevate to unknown value
           if (liveUser?.tier && VALID_TIERS.has(liveUser.tier)) {
             liveTier = liveUser.tier;
           }
-        } catch { /* KV read failure → safe default (JWT claim already validated) */ }
+        } catch { /* KV read failure -> safe default (JWT claim already validated) */ }
       }
       return {
         valid:       true,
@@ -873,7 +873,7 @@ async function resolveAuth(request, env) {
         auth_method: "jwt",
       };
     }
-    // JWT present but invalid – hard fail (no fallback to API key)
+    // JWT present but invalid -- hard fail (no fallback to API key)
     return { valid: false, reason: result.reason, auth_method: "jwt" };
   }
   // Fall through to legacy API key resolution
@@ -881,7 +881,7 @@ async function resolveAuth(request, env) {
   return { ...legacy, auth_method: "api_key" };
 }
 
-// ── Rate Limiting – Sliding Window ────────────────────────────────────────────
+//  Rate Limiting -- Sliding Window 
 
 async function slidingWindowCheck(prefix, id, limitPerMin, kv) {
   if (!kv) return { allowed: true, remaining: limitPerMin, limit: limitPerMin };
@@ -903,7 +903,7 @@ async function slidingWindowCheck(prefix, id, limitPerMin, kv) {
   return { allowed: true, remaining: limitPerMin - sliding - 1, limit: limitPerMin };
 }
 
-// ── API Key Resolution ─────────────────────────────────────────────────────────
+//  API Key Resolution 
 // v134.0.0: Enforces usage_limit (monthly request cap) per key record.
 // usage_limit: 0 or absent = unlimited. Non-zero = monthly cap (YYYY-MM rolling).
 
@@ -936,7 +936,7 @@ async function resolveApiKey(request, env) {
           upgrade_url: "/get-api-key.html?plan=pro",
         };
       }
-      // Increment usage counter (fire-and-forget – never block the request)
+      // Increment usage counter (fire-and-forget -- never block the request)
       env.API_KEYS_KV.put(usageKey, String(used + 1), { expirationTtl: 86400 * 35 }).catch(() => {});
     }
 
@@ -955,7 +955,7 @@ async function resolveApiKey(request, env) {
   }
 }
 
-// ── Abuse Tracking ────────────────────────────────────────────────────────────
+//  Abuse Tracking 
 
 async function trackAbuseAttempt(ip, env) {
   if (!env?.RATE_LIMIT_KV) return;
@@ -972,7 +972,7 @@ async function isIPBanned(ip, env) {
   return parseInt(await env.RATE_LIMIT_KV.get(k) || "0") >= CONFIG.ABUSE_BAN_THRESHOLD;
 }
 
-// ── Analytics ─────────────────────────────────────────────────────────────────
+//  Analytics 
 
 async function recordAnalytics(env, keyId, endpoint, tier, code) {
   if (!env?.ANALYTICS_KV) return;
@@ -992,7 +992,7 @@ async function recordAnalytics(env, keyId, endpoint, tier, code) {
   } catch { /* non-critical */ }
 }
 
-// ── Data Layer: R2 → KV Cache → GitHub Fallback ───────────────────────────────
+//  Data Layer: R2 -> KV Cache -> GitHub Fallback 
 
 function normaliseManifestData(data) {
   if (!data) return null;
@@ -1007,14 +1007,14 @@ function normaliseManifestData(data) {
   if (!items || items.length === 0) return null;
 
   // v134.0.0 FRESHNESS FIX: Inject processed_at fallback
-  // v134.0.0: validateAndNormalizeItem() – guarantee no null fields across entire manifest
+  // v134.0.0: validateAndNormalizeItem() -- guarantee no null fields across entire manifest
   const manifestGeneratedAt = data.generated_at || null;
   items = items.map(item => {
     // Inject processed_at before normalization so validator can use it
     if (!item.processed_at) {
       item = { ...item, processed_at: item.timestamp || item.generated_at || manifestGeneratedAt || null };
     }
-    // v134.0.0: Full schema normalization – derives all missing fields, never null
+    // v134.0.0: Full schema normalization -- derives all missing fields, never null
     return validateAndNormalizeItem(item) || item;
   }).filter(Boolean);
 
@@ -1030,9 +1030,9 @@ function normaliseManifestData(data) {
   };
 }
 
-// ── v134.0.0: Retry circuit breaker – exponential backoff, 3 attempts ─────────
+//  v134.0.0: Retry circuit breaker -- exponential backoff, 3 attempts 
 // Prevents single transient failures from killing requests.
-// 4xx (client errors) are NOT retried – only 5xx / network errors.
+// 4xx (client errors) are NOT retried -- only 5xx / network errors.
 async function fetchWithRetry(url, opts, maxRetries = 3, baseDelayMs = 400) {
   let lastErr;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -1064,11 +1064,11 @@ async function fetchFromGitHub(path, env, bypassCache = false) {
   const cfOpts  = bypassCache
     ? { cf: { cacheEverything: false, cacheTtl: 0 } }
     : { cf: { cacheEverything: true,  cacheTtl: 300 } };
-  // v134.0.0: fetchWithRetry – 3 attempts with backoff for transient GitHub/CDN errors
+  // v134.0.0: fetchWithRetry -- 3 attempts with backoff for transient GitHub/CDN errors
   const res = await fetchWithRetry(url, { headers, ...cfOpts });
   if (!res.ok) {
     const hint = res.status === 404 && !env?.GITHUB_TOKEN
-      ? " (GITHUB_TOKEN not set – set via: npx wrangler secret put GITHUB_TOKEN)"
+      ? " (GITHUB_TOKEN not set -- set via: npx wrangler secret put GITHUB_TOKEN)"
       : "";
     throw new Error(`GitHub HTTP ${res.status}${hint}`);
   }
@@ -1078,7 +1078,7 @@ async function fetchFromGitHub(path, env, bypassCache = false) {
 async function fetchReportsIndex(env) {
   const cacheKey = "idx:reports";
 
-  // SOURCE 1: Cloudflare R2 (primary – private, no public exposure)
+  // SOURCE 1: Cloudflare R2 (primary -- private, no public exposure)
   if (env?.INTEL_R2) {
     try {
       const obj = await env.INTEL_R2.get("intel/feed_manifest.json");
@@ -1109,7 +1109,7 @@ async function fetchReportsIndex(env) {
     } catch { /* fall through */ }
   }
 
-  // SOURCE 3: GitHub raw (emergency fallback – GITHUB_TOKEN required for private repo)
+  // SOURCE 3: GitHub raw (emergency fallback -- GITHUB_TOKEN required for private repo)
   const raw  = await fetchFromGitHub(CONFIG.MANIFEST_PATH, env, true);
   const norm = normaliseManifestData(raw);
   if (!norm?.reports?.length) {
@@ -1128,7 +1128,7 @@ async function fetchReportsIndex(env) {
   return norm;
 }
 
-// ── Upgrade CTAs ──────────────────────────────────────────────────────────────
+//  Upgrade CTAs 
 
 function getUpgradeCTA(tier) {
   if (tier === CONFIG.TIERS.ENTERPRISE) return null;
@@ -1145,18 +1145,18 @@ function getUpgradeCTA(tier) {
   };
 }
 
-// ── v134.0.0: computeApexAI – Full AI Intelligence Engine ─────────────────────
+//  v134.0.0: computeApexAI -- Full AI Intelligence Engine 
 // Produces: predictive_risk, ai_confidence, actor_fingerprint, kill_chain, ttp_density, ai_summary
-// v134.0.0 GOD-MODE: ai_summary is MANDATORY – teaser for free, full narrative for Pro/Enterprise
-// ai_summary NEVER null – generated dynamically from item data when apex.ai_summary absent
-// Safe: never throws – returns minimal object on any error
+// v134.0.0 GOD-MODE: ai_summary is MANDATORY -- teaser for free, full narrative for Pro/Enterprise
+// ai_summary NEVER null -- generated dynamically from item data when apex.ai_summary absent
+// Safe: never throws -- returns minimal object on any error
 
 function computeApexAI(item, tier) {
   try {
     const isFree  = !tier || tier === CONFIG.TIERS.FREE;
     const isPro   = tier === CONFIG.TIERS.PREMIUM || tier === CONFIG.TIERS.ENTERPRISE;
 
-    // ── Core scores ────────────────────────────────────────────────────────────
+    //  Core scores 
     const riskScore  = typeof item.risk_score  === "number" ? item.risk_score
                      : typeof item.cvss_score  === "number" ? item.cvss_score : 0;
     const epss       = typeof item.epss_score  === "number" ? item.epss_score : 0;
@@ -1166,14 +1166,14 @@ function computeApexAI(item, tier) {
     const iocCount   = Array.isArray(item.iocs) ? item.iocs.length : (item.ioc_count || 0);
     const ttpCount   = Array.isArray(item.ttps) ? item.ttps.length : (item.ttp_count || 0);
 
-    // ── predictive_risk (0—10): composite risk projection ──────────────────────
+    //  predictive_risk (0--10): composite risk projection 
     // Weights: CVSS 40%, EPSS 25%, KEV 20%, IOC density 15%
     const iocDensityScore = Math.min(iocCount * 0.5, 2.0);
     const predictiveRisk  = Math.min(10,
       (riskScore * 0.4) + (epss * 0.025) + (kev * 2.0) + (iocDensityScore * 0.15 * 10)
     );
 
-    // ── ai_confidence (0—100): evidence quality score ──────────────────────────
+    //  ai_confidence (0--100): evidence quality score 
     // Synthesises: base confidence + KEV bonus + STIX completeness + IOC density
     const stixObjects  = typeof item.stix_object_count === "number" ? item.stix_object_count : 0;
     const stixBonus    = Math.min(stixObjects * 1.5, 12);
@@ -1182,7 +1182,7 @@ function computeApexAI(item, tier) {
     const iocEngConf   = typeof item.ioc_confidence === "number" ? Math.min(item.ioc_confidence * 0.15, 10) : 0;
     const aiConfidence = Math.min(100, Math.round(confidence + stixBonus + iocBonus + kevBonus + iocEngConf));
 
-    // ── threat_confidence_tier: enterprise-grade qualitative label ─────────────
+    //  threat_confidence_tier: enterprise-grade qualitative label 
     // Replaces "AI CONF: 47%" weak display with authoritative tier classification
     const confidenceTier =
       aiConfidence >= 90 ? "VERIFIED"  :   // multi-source corroboration + KEV
@@ -1191,13 +1191,13 @@ function computeApexAI(item, tier) {
                            "LOW";          // limited signals, monitor only
 
     const tierLabel = {
-      VERIFIED: “\u2714 VERIFIED \u2013 Multi-source corroboration confirmed”,
-      HIGH:     “\u25b2 HIGH \u2013 Strong evidence basis, immediate action required”,
-      MODERATE: “\u25c6 MODERATE \u2013 Credible intelligence, further investigation advised”,
-      LOW:      “\u25c7 LOW \u2013 Limited signals, threat monitoring recommended”,
+      VERIFIED: "\u2714 VERIFIED \u2013 Multi-source corroboration confirmed",
+      HIGH:     "\u25b2 HIGH \u2013 Strong evidence basis, immediate action required",
+      MODERATE: "\u25c6 MODERATE \u2013 Credible intelligence, further investigation advised",
+      LOW:      "\u25c7 LOW \u2013 Limited signals, threat monitoring recommended",
     }[confidenceTier];
 
-    // ── SOC Recommendation Engine v3.0 ────────────────────────────────────────
+    //  SOC Recommendation Engine v3.0 
     function _buildSocRec(actorTag_, ttpCount_, iocCount_, primaryPhase_, soc_priority_, severity_) {
       const urgent = soc_priority_ === "P1" || soc_priority_ === "P2";
       const sevCaps = (severity_ || "UNKNOWN").toUpperCase();
@@ -1206,19 +1206,19 @@ function computeApexAI(item, tier) {
           `Hunt ${iocCount_} IOC${iocCount_ !== 1 ? "s" : ""} across SIEM/EDR telemetry. ` +
           `Isolate affected assets, block C2 indicators. ` +
           `Escalate to CISO if lateral movement detected. ` +
-          `MITRE coverage: ${ttpCount_} technique${ttpCount_ !== 1 ? "s" : ""} – focus on ${primaryPhase_} phase.`;
+          `MITRE coverage: ${ttpCount_} technique${ttpCount_ !== 1 ? "s" : ""} -- focus on ${primaryPhase_} phase.`;
       } else if (sevCaps === "HIGH") {
         return `HIGH-PRIORITY SOC ACTION [${soc_priority_}]: Deploy detection rules for ${actorTag_} TTPs. ` +
           `Block ${iocCount_} indicator${iocCount_ !== 1 ? "s" : ""} at perimeter. ` +
           `Review ${primaryPhase_} phase artifacts in last 72h. ` +
-          `${ttpCount_} MITRE technique${ttpCount_ !== 1 ? "s" : ""} mapped – validate coverage gaps.`;
+          `${ttpCount_} MITRE technique${ttpCount_ !== 1 ? "s" : ""} mapped -- validate coverage gaps.`;
       }
       return `MONITOR & PREPARE [${soc_priority_}]: Track ${actorTag_} campaign. ` +
         `Add ${iocCount_} IOC${iocCount_ !== 1 ? "s" : ""} to watchlists. ` +
         `Review ${ttpCount_} MITRE technique${ttpCount_ !== 1 ? "s" : ""} against current defenses.`;
     }
 
-    // ── actor_fingerprint: deterministic actor identity string ─────────────────
+    //  actor_fingerprint: deterministic actor identity string 
     const actorTag = item.actor_tag || (item.apex && item.apex.campaign_id) || "UNC-UNKNOWN";
     const severity = (item.severity || "UNKNOWN").toUpperCase();
     const sevCode  = { CRITICAL: "C", HIGH: "H", MEDIUM: "M", LOW: "L" }[severity] || "U";
@@ -1226,7 +1226,7 @@ function computeApexAI(item, tier) {
       ? `${actorTag}::${sevCode}::IOC-${iocCount}::TTP-${ttpCount}`
       : `${actorTag.slice(0, 8)}****`; // partial for free tier
 
-    // ── kill_chain: primary phase derived from TTPs / kill_chain_phases ─────────
+    //  kill_chain: primary phase derived from TTPs / kill_chain_phases 
     const rawKc    = Array.isArray(item.kill_chain_phases) ? item.kill_chain_phases : [];
     const rawTtps  = Array.isArray(item.ttps) ? item.ttps
                    : Array.isArray(item.mitre_tactics) ? item.mitre_tactics : [];
@@ -1245,17 +1245,17 @@ function computeApexAI(item, tier) {
       : [...new Set(derivedPhases)].slice(0, 3);
     const primaryPhase = killChainPhases[0] || "Unknown";
 
-    // ── ttp_density (0—10): attack sophistication density score ─────────────────
+    //  ttp_density (0--10): attack sophistication density score 
     // Higher = more diverse techniques used (sophisticated actor)
     const uniqueTtps  = new Set(rawTtps).size;
     const ttpDensity  = Math.min(10, parseFloat((
       (uniqueTtps * 0.8) + (iocCount * 0.3) + (riskScore * 0.2)
     ).toFixed(2)));
 
-    // ── Existing apex block passthrough ───────────────────────────────────────
+    //  Existing apex block passthrough 
     const existingApex = (item.apex && typeof item.apex === "object") ? item.apex : {};
 
-    // ── Tier-gated assembly ───────────────────────────────────────────────────
+    //  Tier-gated assembly 
     const socPriority = existingApex.priority || (riskScore >= 9 ? "P1" : riskScore >= 7 ? "P2" : riskScore >= 5 ? "P3" : "P4");
     const threatLevel = existingApex.threat_level || (riskScore >= 9 ? "CRITICAL_SURGE" : riskScore >= 7 ? "HIGH_ALERT" : riskScore >= 5 ? "MODERATE" : "LOW");
     const base = {
@@ -1270,33 +1270,33 @@ function computeApexAI(item, tier) {
       campaign_id:             existingApex.campaign_id || "UNCLASSIFIED",
     };
 
-    // ── v134.0: AI Summary Engine v3.0 – enterprise-grade narratives, no weak language ─
-    // Free: authoritative teaser – credible signal, drives upgrade
+    //  v134.0: AI Summary Engine v3.0 -- enterprise-grade narratives, no weak language 
+    // Free: authoritative teaser -- credible signal, drives upgrade
     // Pro/Enterprise: full tactical SOC narrative with actionable recommendations
     const sevLabel   = severity === "CRITICAL" ? "CRITICAL" : severity === "HIGH" ? "HIGH" : severity;
     const threatType = (item.threat_type || item.type || "THREAT CAMPAIGN").toUpperCase();
     const cveId      = item.cve_id || "";
     const cveStr     = cveId ? ` [${cveId}]` : "";
-    const srcLabel   = item.source ? ` · Source: ${item.source}` : "";
-    const kevStr     = kev ? " · CISA KEV CONFIRMED" : "";
-    const epssStr    = epss >= 0.7 ? ` · EPSS: ${(epss * 100).toFixed(0)}% exploitation probability` : "";
+    const srcLabel   = item.source ? ` . Source: ${item.source}` : "";
+    const kevStr     = kev ? " . CISA KEV CONFIRMED" : "";
+    const epssStr    = epss >= 0.7 ? ` . EPSS: ${(epss * 100).toFixed(0)}% exploitation probability` : "";
 
-    // Full narrative (Pro/Enterprise) – authoritative, zero weak language
+    // Full narrative (Pro/Enterprise) -- authoritative, zero weak language
     const fullSummary = existingApex.ai_summary || (
       `[${confidenceTier}] ${sevLabel} ${threatType}${cveStr}${kevStr}. ` +
       `Actor cluster ${actorTag} operating in ${primaryPhase} phase. ` +
-      `${ttpCount} MITRE ATT&CK technique${ttpCount !== 1 ? "s" : ""} mapped – TTP density ${ttpDensity}/10. ` +
+      `${ttpCount} MITRE ATT&CK technique${ttpCount !== 1 ? "s" : ""} mapped -- TTP density ${ttpDensity}/10. ` +
       `${iocCount} indicator${iocCount !== 1 ? "s" : ""} extracted (IOC engine confidence: ${aiConfidence}%). ` +
       `Predictive risk score: ${parseFloat(predictiveRisk.toFixed(1))}/10${epssStr}${srcLabel}. ` +
       `SOC Priority: ${socPriority}.`
     );
 
-    // Authoritative teaser (Free) – removes "AI CONF: X%" weak pattern
+    // Authoritative teaser (Free) -- removes "AI CONF: X%" weak pattern
     const teaserSummary = (
       `[${confidenceTier}] ${sevLabel} ${threatType}${cveStr}${kevStr}. ` +
-      `${iocCount} indicator${iocCount !== 1 ? "s" : ""} · ${ttpCount} MITRE technique${ttpCount !== 1 ? "s" : ""} · ` +
-      `Predictive risk: ${parseFloat(predictiveRisk.toFixed(1))}/10 · SOC ${socPriority}. ` +
-      `FULL ACTOR ATTRIBUTION + KILL CHAIN + SOC PLAYBOOK – PRO TIER REQUIRED →`
+      `${iocCount} indicator${iocCount !== 1 ? "s" : ""} . ${ttpCount} MITRE technique${ttpCount !== 1 ? "s" : ""} . ` +
+      `Predictive risk: ${parseFloat(predictiveRisk.toFixed(1))}/10 . SOC ${socPriority}. ` +
+      `FULL ACTOR ATTRIBUTION + KILL CHAIN + SOC PLAYBOOK -- PRO TIER REQUIRED ->`
     );
 
     // Full SOC Recommendation
@@ -1309,16 +1309,16 @@ function computeApexAI(item, tier) {
         actor_fingerprint:  actorFP,             // partial only (****-masked)
         kill_chain:         "PRO_REQUIRED",
         kill_chain_primary: "PRO_REQUIRED",
-        ai_summary:         teaserSummary,        // authoritative teaser – never null
+        ai_summary:         teaserSummary,        // authoritative teaser -- never null
         recommended_action: `SOC ${socPriority}: ${iocCount} IOC${iocCount !== 1 ? "s" : ""} & full kill chain attribution locked behind Pro tier. Upgrade for complete IR playbook.`,
         behavioral_tags:    [],
         paywall: {
           locked_fields: ["actor_fingerprint_full","kill_chain","behavioral_tags","recommended_action_full","stix_bundle"],
           upgrade_url:   "/get-api-key.html?plan=pro",
-          message:       `${confidenceTier} THREAT – ${iocCount} IOC${iocCount !== 1 ? "s" : ""} & full actor attribution locked. Upgrade to Pro for complete intelligence.`,
+          message:       `${confidenceTier} THREAT -- ${iocCount} IOC${iocCount !== 1 ? "s" : ""} & full actor attribution locked. Upgrade to Pro for complete intelligence.`,
           urgency:       socPriority === "P1" || socPriority === "P2"
-            ? `⚠️ ACTIVE ${sevLabel} THREAT [${socPriority}] – Enterprise IR response required.`
-            : `THREAT ACTIVE [${socPriority}] – Full detection package available on Pro tier.`,
+            ? ` ACTIVE ${sevLabel} THREAT [${socPriority}] -- Enterprise IR response required.`
+            : `THREAT ACTIVE [${socPriority}] -- Full detection package available on Pro tier.`,
         },
       };
     }
@@ -1346,7 +1346,7 @@ function computeApexAI(item, tier) {
   }
 }
 
-// ── v134.0.0: applyTierGate – enforces monetization on feed items ─────────────
+//  v134.0.0: applyTierGate -- enforces monetization on feed items 
 // Free tier: iocs = count only, stix_bundle = locked, apex_ai = partial
 // Premium: full iocs, STIX metadata, full apex_ai
 // Enterprise: everything including raw stix_bundle passthrough
@@ -1362,7 +1362,7 @@ function applyTierGate(item, tier) {
     gated.iocs      = [];
     gated.ioc_count = item.iocs.length;
     // v134.0: Always expose ioc_confidence + ioc_threat_level (not paywalled)
-    // These are summary signals – the full IOC list is locked behind Pro
+    // These are summary signals -- the full IOC list is locked behind Pro
     gated.ioc_confidence   = item.ioc_confidence   || 0;
     gated.ioc_threat_level = item.ioc_threat_level || "NONE";
     gated.ioc_paywall = {
@@ -1372,7 +1372,7 @@ function applyTierGate(item, tier) {
       threat_level:      item.ioc_threat_level || "NONE",
       primary_types:     (item.ioc_extraction_meta && item.ioc_extraction_meta.primary_types) || [],
       upgrade_url:       "/get-api-key.html?plan=pro",
-      message:           `${item.iocs.length} IOC(s) at ${item.ioc_confidence || 0}% confidence – unlock with Pro tier.`,
+      message:           `${item.iocs.length} IOC(s) at ${item.ioc_confidence || 0}% confidence -- unlock with Pro tier.`,
     };
   }
 
@@ -1391,18 +1391,18 @@ function applyTierGate(item, tier) {
     }
   }
 
-  // v134.0: IOC COUNT CONSISTENCY – paid tiers: ioc_count MUST equal actual iocs.length.
+  // v134.0: IOC COUNT CONSISTENCY -- paid tiers: ioc_count MUST equal actual iocs.length.
   // Prevents ioc_count > 0 with empty array (data integrity violation for Pro/Enterprise).
   if (!isFree && Array.isArray(gated.iocs)) {
     gated.ioc_count = gated.iocs.length;
   }
 
-  // v134.0: STIX BUNDLE VALIDITY GATE – when stix_bundle is present (Enterprise),
+  // v134.0: STIX BUNDLE VALIDITY GATE -- when stix_bundle is present (Enterprise),
   // validate it has the required STIX 2.1 structure. Strip invalid bundles rather than serve them.
   if (isEnt && gated.stix_bundle !== null && gated.stix_bundle !== undefined) {
     const sb = gated.stix_bundle;
     if (typeof sb !== "object" || sb.type !== "bundle" || !Array.isArray(sb.objects) || sb.objects.length === 0) {
-      // Invalid STIX bundle structure – null it out to prevent corrupt data reaching consumers
+      // Invalid STIX bundle structure -- null it out to prevent corrupt data reaching consumers
       gated.stix_bundle = null;
       gated.stix_bundle_meta = {
         locked:       false,
@@ -1418,15 +1418,15 @@ function applyTierGate(item, tier) {
   // Inject computed apex_ai block
   gated.apex_ai = computeApexAI(item, tier);
 
-  // v134.0: HIGH/CRITICAL severity integrity check – never serve HIGH+ advisory with 0 IOCs.
+  // v134.0: HIGH/CRITICAL severity integrity check -- never serve HIGH+ advisory with 0 IOCs.
   // If ioc_count is still 0 after normalization, flag it with a data quality annotation.
-  // This is a data-quality annotation only – does NOT block the response.
+  // This is a data-quality annotation only -- does NOT block the response.
   const finalSev = (gated.severity || "").toUpperCase();
   if ((finalSev === "CRITICAL" || finalSev === "HIGH") && (gated.ioc_count || 0) === 0) {
     gated._data_quality = { warning: "high_severity_zero_ioc", message: "IOC extraction pending or data incomplete." };
   }
 
-  // v134.0.0: Threat urgency CTA – injected for free tier on critical/high items
+  // v134.0.0: Threat urgency CTA -- injected for free tier on critical/high items
   // Drives upgrade conversion at the moment of maximum perceived threat value
   if (isFree) {
     const sev = (item.severity || item.risk_level || "").toUpperCase();
@@ -1437,11 +1437,11 @@ function applyTierGate(item, tier) {
       gated.threat_urgency = {
         active:          true,
         message:         sev === "CRITICAL"
-          ? "⚠️ CRITICAL ACTIVE THREAT – Full intelligence, IOC array & actor attribution locked."
-          : "⚠️ HIGH-SEVERITY ACTIVE THREAT – Actor TTPs and kill chain analysis locked.",
+          ? " CRITICAL ACTIVE THREAT -- Full intelligence, IOC array & actor attribution locked."
+          : " HIGH-SEVERITY ACTIVE THREAT -- Actor TTPs and kill chain analysis locked.",
         tier_required:   "PRO",
         upgrade_url:     "/get-api-key.html?plan=pro",
-        cta:             "Upgrade to Pro – Detect, Respond, Contain.",
+        cta:             "Upgrade to Pro -- Detect, Respond, Contain.",
         enterprise_note: "Enterprise Detection Engine unavailable on free tier.",
       };
     }
@@ -1450,9 +1450,9 @@ function applyTierGate(item, tier) {
   return gated;
 }
 
-// ── v134.0.0: IOC Extraction from Text ───────────────────────────────────────
+//  v134.0.0: IOC Extraction from Text 
 // Regex-based IOC detection from title/description/summary text.
-// Used as fallback when ioc_count < 3 – ensures EVERY threat has indicators.
+// Used as fallback when ioc_count < 3 -- ensures EVERY threat has indicators.
 // Filters private IP ranges. CVE IDs have highest confidence (0.95).
 
 const IOC_PATTERNS = {
@@ -1478,7 +1478,7 @@ function extractIOCsFromText(text) {
     iocs.push({ type, value, extracted: true, confidence });
   };
 
-  // CVE (highest confidence – unambiguous)
+  // CVE (highest confidence -- unambiguous)
   for (const m of text.matchAll(IOC_PATTERNS.cve))
     addIoc("cve", m[0].toUpperCase(), 0.95);
 
@@ -1500,7 +1500,7 @@ function extractIOCsFromText(text) {
   for (const m of text.matchAll(IOC_PATTERNS.sha256))
     addIoc("sha256", m[0].toLowerCase(), 0.9);
 
-  // MD5 (only 32-char – lower confidence, often false-positive in non-hash contexts)
+  // MD5 (only 32-char -- lower confidence, often false-positive in non-hash contexts)
   for (const m of text.matchAll(IOC_PATTERNS.md5)) {
     if (m[0].length === 32 && !seen.has(`sha256:${m[0].toLowerCase()}`))
       addIoc("md5", m[0].toLowerCase(), 0.6);
@@ -1522,21 +1522,21 @@ function extractIOCsFromText(text) {
   return iocs;
 }
 
-// ── v134.0.0: Schema Validator & Normalizer ───────────────────────────────────
+//  v134.0.0: Schema Validator & Normalizer 
 // HARD GUARANTEE: No null/undefined for any field that UI or API consumers depend on.
 // Called on every item before API responses and before applyTierGate.
-// ZERO tolerance: missing field → derive from existing data → guaranteed default.
+// ZERO tolerance: missing field -> derive from existing data -> guaranteed default.
 function validateAndNormalizeItem(item) {
   if (!item || typeof item !== "object") return null;
   const out = { ...item };
 
-  // ── risk_score: MUST be number 0—10 ──────────────────────────────────────────
+  //  risk_score: MUST be number 0--10 
   if (typeof out.risk_score !== "number" || isNaN(out.risk_score)) {
     out.risk_score = typeof out.cvss_score === "number" ? out.cvss_score : 0;
   }
   out.risk_score = Math.max(0, Math.min(10, out.risk_score));
 
-  // ── severity: derive from risk_score when missing/UNKNOWN ────────────────────
+  //  severity: derive from risk_score when missing/UNKNOWN 
   const rawSev = (out.severity || out.risk_level || "").toUpperCase().trim();
   const VALID_SEV = new Set(["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]);
   if (!VALID_SEV.has(rawSev)) {
@@ -1548,21 +1548,21 @@ function validateAndNormalizeItem(item) {
     out.severity = rawSev;
   }
 
-  // ── title: MUST be non-empty string ──────────────────────────────────────────
+  //  title: MUST be non-empty string 
   if (!out.title || typeof out.title !== "string" || !out.title.trim()) {
     out.title = out.cve_id || out.advisory_id || out.id || "Untitled Advisory";
   }
 
-  // ── id + stix_id: cross-populate ─────────────────────────────────────────────
+  //  id + stix_id: cross-populate 
   if (!out.id)      out.id      = out.stix_id || out.cve_id || out.advisory_id || `advisory-${Date.now()}`;
   if (!out.stix_id) out.stix_id = out.id;
 
-  // ── timestamps: guarantee processed_at and timestamp both set ────────────────
+  //  timestamps: guarantee processed_at and timestamp both set 
   const firstTs = out.processed_at || out.timestamp || out.generated_at || out.published_at;
   if (!out.processed_at) out.processed_at = firstTs || new Date().toISOString();
   if (!out.timestamp)    out.timestamp    = out.processed_at;
 
-  // ── ioc_counts: derive from iocs array when object is absent/empty ───────────
+  //  ioc_counts: derive from iocs array when object is absent/empty 
   // Frontend uses ioc_counts.ipv4, .domain, .sha256, .url, .email, .cve
   if (!out.ioc_counts || Object.keys(out.ioc_counts).length === 0) {
     if (Array.isArray(out.iocs) && out.iocs.length > 0) {
@@ -1578,13 +1578,13 @@ function validateAndNormalizeItem(item) {
     }
   }
 
-  // ── ioc_count scalar: sum of ioc_counts or length of iocs ────────────────────
+  //  ioc_count scalar: sum of ioc_counts or length of iocs 
   if (typeof out.ioc_count !== "number") {
     out.ioc_count = Array.isArray(out.iocs) ? out.iocs.length
       : (out.ioc_counts ? Object.values(out.ioc_counts).reduce((a, b) => a + (b || 0), 0) : 0);
   }
 
-  // ── v134.0.0: IOC Extraction Fallback – RULE: ioc_count >= 3 ─────────────────
+  //  v134.0.0: IOC Extraction Fallback -- RULE: ioc_count >= 3 
   // When a threat has fewer than 3 IOCs, extract additional indicators from text.
   // Priority sources: description > summary > title. Synthesized IOCs are marked
   // with extracted:true and confidence < 1.0 to distinguish from pipeline-sourced.
@@ -1635,7 +1635,7 @@ function validateAndNormalizeItem(item) {
     }
   }
 
-  // ── confidence_score: 0—100 (normalise 0—1 fraction) ─────────────────────────
+  //  confidence_score: 0--100 (normalise 0--1 fraction) 
   if (typeof out.confidence_score !== "number" || isNaN(out.confidence_score)) {
     out.confidence_score = typeof out.confidence === "number" ? out.confidence : 50;
   }
@@ -1644,32 +1644,32 @@ function validateAndNormalizeItem(item) {
   }
   out.confidence_score = Math.max(0, Math.min(100, Math.round(out.confidence_score)));
 
-  // ── actor_tag: must be non-null string ────────────────────────────────────────
+  //  actor_tag: must be non-null string 
   if (!out.actor_tag || typeof out.actor_tag !== "string") out.actor_tag = "UNATTRIBUTED";
 
-  // ── feed_source ───────────────────────────────────────────────────────────────
+  //  feed_source 
   if (!out.feed_source) out.feed_source = out.source || "SENTINEL-APEX";
 
-  // ── mitre_tactics: must be array ─────────────────────────────────────────────
+  //  mitre_tactics: must be array 
   if (!Array.isArray(out.mitre_tactics)) {
     out.mitre_tactics = Array.isArray(out.ttps) ? out.ttps : [];
   }
 
-  // ── iocs: must be array ───────────────────────────────────────────────────────
+  //  iocs: must be array 
   if (!Array.isArray(out.iocs)) out.iocs = [];
 
-  // ── ttps: must be array ───────────────────────────────────────────────────────
+  //  ttps: must be array 
   if (!Array.isArray(out.ttps)) out.ttps = [];
 
-  // ── boolean flags ─────────────────────────────────────────────────────────────
+  //  boolean flags 
   out.kev_present = out.kev_present === true;
   out.exploit_available = out.exploit_available === true;
   out.zero_day = out.zero_day === true;
   out.supply_chain = out.supply_chain === true;
   out.ransomware = out.ransomware === true;
 
-  // ── v134.0: IOC Engine enrichment fields – pass through from pipeline ─────────
-  // ioc_confidence: float 0—100 – confidence score from multi-layer IOC extraction
+  //  v134.0: IOC Engine enrichment fields -- pass through from pipeline 
+  // ioc_confidence: float 0--100 -- confidence score from multi-layer IOC extraction
   if (typeof out.ioc_confidence !== "number" || isNaN(out.ioc_confidence)) {
     // Derive from ioc_count: rough approximation when not set by pipeline
     out.ioc_confidence = out.ioc_count >= 10 ? 92.0
@@ -1700,14 +1700,14 @@ function validateAndNormalizeItem(item) {
   return out;
 }
 
-// ── v134.0: applyIocMetaTierGate – strips extraction_meta from free tier ─────
+//  v134.0: applyIocMetaTierGate -- strips extraction_meta from free tier 
 // ioc_confidence and ioc_threat_level are always visible (summary signals)
 // ioc_extraction_meta (layer breakdown, enrichment priority) requires Pro+
 function applyIocMetaTierGate(item, tier) {
   const isFree = !tier || tier === CONFIG.TIERS.FREE;
   if (!isFree) return item;  // Pro/Enterprise: full pass-through
   const out = { ...item };
-  // Strip full extraction meta – keep only summary signals
+  // Strip full extraction meta -- keep only summary signals
   if (out.ioc_extraction_meta && Object.keys(out.ioc_extraction_meta).length > 0) {
     out.ioc_extraction_meta = {
       locked:      true,
@@ -1718,9 +1718,9 @@ function applyIocMetaTierGate(item, tier) {
   return out;
 }
 
-// ── Handlers ──────────────────────────────────────────────────────────────────
+//  Handlers 
 
-// ── PUBLIC: /api/preview – No API key required ────────────────────────────────
+//  PUBLIC: /api/preview -- No API key required 
 async function handlePreview(request, env, rid) {
   const cacheKey = "idx:preview";
 
@@ -1747,8 +1747,8 @@ async function handlePreview(request, env, rid) {
     const index     = await fetchReportsIndex(env);
     // Filter: remove brand/identity entries + deduplicate by stix_id + title-hash
     const cleanItems = deduplicateFeedItems(index.reports);
-    // v134.0.0 FRESHNESS FIX: Sort by processed_at DESC (primary) → timestamp DESC (fallback)
-    // → risk_score DESC (tiebreak).
+    // v134.0.0 FRESHNESS FIX: Sort by processed_at DESC (primary) -> timestamp DESC (fallback)
+    // -> risk_score DESC (tiebreak).
     //
     // WHY processed_at is PRIMARY:
     //   RSS-sourced intel carries `published_at` dates from the original article
@@ -1757,7 +1757,7 @@ async function handlePreview(request, env, rid) {
     //   processed. `processed_at` is always set to pipeline execution time (UTC-now)
     //   so it is immune to source article date variations.
     //
-    // SORT KEY helper – reads processed_at first, then timestamp as fallback
+    // SORT KEY helper -- reads processed_at first, then timestamp as fallback
     const getSortTs = item => {
       const pa = item.processed_at || item.timestamp || item.generated_at || null;
       return pa ? new Date(pa).getTime() : 0;
@@ -1775,7 +1775,7 @@ async function handlePreview(request, env, rid) {
     const allItems  = cleanItems;
     const preview   = allItems.slice(0, CONFIG.PREVIEW_LIMIT).map(item => {
       // P0 FIX v134.0: Include full MITRE/TTP/IOC data in preview response.
-      // Previously stripped – caused MITRE=0 on dashboard.
+      // Previously stripped -- caused MITRE=0 on dashboard.
       let rawDesc = item.description || item.summary || "";
       rawDesc = rawDesc.replace(/^Tactical cluster:\s*/i, "").trim();
       if (!rawDesc) rawDesc = item.title || "";
@@ -1820,7 +1820,7 @@ async function handlePreview(request, env, rid) {
         // URLs (DNS NXDOMAIN) to intel.cyberdudebivash.com. Derive if missing.
         report_url: (() => {
           let u = item.report_url || "";
-          // Rewrite dead subdomain → working domain
+          // Rewrite dead subdomain -> working domain
           if (u.includes("reports.cyberdudebivash.com")) {
             u = u.replace("https://reports.cyberdudebivash.com", "https://intel.cyberdudebivash.com");
           }
@@ -1837,7 +1837,7 @@ async function handlePreview(request, env, rid) {
         actor_tag:   item.actor_tag   || null,
         mitre_tactics: Array.isArray(item.mitre_tactics) ? item.mitre_tactics
                       : Array.isArray(item.ttps) ? item.ttps : [],
-        // v134.0.0: Free-tier IOC paywall – strip raw IOC arrays, surface count + CTA
+        // v134.0.0: Free-tier IOC paywall -- strip raw IOC arrays, surface count + CTA
         iocs:       [],        // raw IOCs require Pro tier
         ioc_count:         Array.isArray(item.iocs) ? item.iocs.length : (item.ioc_count || 0),
         // v134.0: Always expose confidence + threat_level in public preview
@@ -1850,9 +1850,9 @@ async function handlePreview(request, env, rid) {
           threat_level:      item.ioc_threat_level || "NONE",
           primary_types:     (item.ioc_extraction_meta && item.ioc_extraction_meta.primary_types) || [],
           upgrade_url:       "/get-api-key.html?plan=pro",
-          message:           `${Array.isArray(item.iocs) ? item.iocs.length : (item.ioc_count || 0)} IOC(s) at ${typeof item.ioc_confidence === "number" ? item.ioc_confidence.toFixed(1) : 0}% confidence – unlock with Pro tier.`,
+          message:           `${Array.isArray(item.iocs) ? item.iocs.length : (item.ioc_count || 0)} IOC(s) at ${typeof item.ioc_confidence === "number" ? item.ioc_confidence.toFixed(1) : 0}% confidence -- unlock with Pro tier.`,
         } : null,
-        // v134.0.0: APEX AI block – always present in preview, fields tier-gated
+        // v134.0.0: APEX AI block -- always present in preview, fields tier-gated
         apex_ai:    computeApexAI(item, CONFIG.TIERS.FREE),
         // Legacy apex passthrough (partial) for backward compat with existing panels
         apex: (() => {
@@ -1915,11 +1915,11 @@ async function handlePreview(request, env, rid) {
   }
 }
 
-// ── AUTHENTICATED: /api/feed ───────────────────────────────────────────────────
+//  AUTHENTICATED: /api/feed 
 async function handleFeed(request, env, auth, rid) {
   const url      = new URL(request.url);
 
-  // v134.0.0: Input sanitization – prevent injection via query params
+  // v134.0.0: Input sanitization -- prevent injection via query params
   const ALLOWED_SEVERITY = new Set(["critical", "high", "medium", "low", "info", "unknown"]);
   const rawLimit    = url.searchParams.get("limit") || "";
   const rawPage     = url.searchParams.get("page")  || "";
@@ -1944,7 +1944,7 @@ async function handleFeed(request, env, auth, rid) {
     return jsonResponse({ error: "invalid_param", message: `Invalid severity. Allowed: ${[...ALLOWED_SEVERITY].join(", ")}`, request_id: rid }, 400);
   }
 
-  // Search: max 128 chars – sanitizeStr strips control chars + blocks injection patterns
+  // Search: max 128 chars -- sanitizeStr strips control chars + blocks injection patterns
   const search = rawSearch ? (sanitizeStr(rawSearch, 128) || null) : null;
 
   const limit = Math.min(parsedLimit, CONFIG.FEED_LIMITS[auth.tier]);
@@ -2065,7 +2065,7 @@ async function handleReport(request, env, auth, rid, reportId) {
         gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
       }, 404);
     }
-    // v134.0.0: Normalize + apply tier gate – API /feed/:id MUST match /feed response
+    // v134.0.0: Normalize + apply tier gate -- API /feed/:id MUST match /feed response
     const normalized = validateAndNormalizeItem(report) || report;
     const gated      = applyIocMetaTierGate(applyTierGate(normalized, auth.tier), auth.tier);
 
@@ -2110,7 +2110,7 @@ async function handleHealth(request, env, rid) {
       checks.kv_rate_limit = "ok";
     } catch (e) {
       // v141.0.0: kv_rate_limit write failure is NON-FATAL. All production
-      // rate-limit operations have .catch(()=>{}) guards — platform stays fully
+      // rate-limit operations have .catch(()=>{}) guards -- platform stays fully
       // functional. Downgraded from "error" to "warn" so a single KV hiccup
       // does not flip the customer-visible status to "degraded".
       checks.kv_rate_limit = "warn";
@@ -2138,7 +2138,7 @@ async function handleHealth(request, env, rid) {
     } catch { checks.feed_index = "error"; }
   }
 
-  // v141.0.0: JWT secret presence check — surface auth readiness in health
+  // v141.0.0: JWT secret presence check -- surface auth readiness in health
   checks.jwt_configured = env?.CDB_JWT_SECRET ? true : false;
 
   // v134.0: Include live advisory count + last_sync from manifest for full pipeline visibility
@@ -2151,10 +2151,10 @@ async function handleHealth(request, env, rid) {
     advisoryCount   = clean.length;
     lastSync        = index.generated_at || null;
     manifestVersion = index.source_meta?.version || null;
-  } catch { /* non-critical – health still returns */ }
+  } catch { /* non-critical -- health still returns */ }
 
   // v141.0.0: Only truly critical check failures cause "degraded".
-  // kv_rate_limit "warn" and jwt_configured false are advisory-only —
+  // kv_rate_limit "warn" and jwt_configured false are advisory-only --
   // they do not block platform data serving or feed delivery.
   const CRITICAL_CHECKS = ["kv_api_keys", "r2_intel"];
   const criticalOk = CRITICAL_CHECKS.every(k => checks[k] === "ok" || checks[k] === undefined);
@@ -2168,7 +2168,7 @@ async function handleHealth(request, env, rid) {
     status:           statusStr,
     version:          CONFIG.GATEWAY_VERSION,
     gateway:          `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
-    platform:         "CYBERDUDEBIVASH® SENTINEL APEX",
+    platform:         "CYBERDUDEBIVASH(R) SENTINEL APEX",
     timestamp:        new Date().toISOString(),
     pipeline: {
       advisory_count:   advisoryCount,
@@ -2224,7 +2224,7 @@ async function handleAnalytics(request, env, auth, rid) {
   });
 }
 
-// ── AI Intelligence Endpoint – /api/ai/* ──────────────────────────────────────
+//  AI Intelligence Endpoint -- /api/ai/* 
 // Serves AI analysis panels, MITRE heatmap data, and risk engine outputs.
 // Data is generated by scripts/generate_ai_endpoints.py and uploaded to R2.
 
@@ -2333,7 +2333,7 @@ async function fetchAIData(env, r2Key, kvKey, ttlSeconds) {
 }
 
 async function handleAI(request, env, rid, subpath) {
-  // Public endpoint – no API key required for index and heatmap data
+  // Public endpoint -- no API key required for index and heatmap data
   // Full analysis requires API key (enforced by caller for /analyze, /respond, /correlate)
 
   const pathMap = {
@@ -2445,12 +2445,12 @@ async function handleAdminCreateKey(request, env, rid) {
     tier,
     label:      record.label,
     created_at: record.created_at,
-    warning:    "Store this key securely – it cannot be retrieved again.",
+    warning:    "Store this key securely -- it cannot be retrieved again.",
     request_id: rid,
   }, 201);
 }
 
-// ── v134.0.0: /api/version – platform version manifest ───────────────────────
+//  v134.0.0: /api/version -- platform version manifest 
 async function handleVersion(request, env, rid) {
   return jsonResponse({
     status:          "ok",
@@ -2473,7 +2473,7 @@ async function handleVersion(request, env, rid) {
   });
 }
 
-// ── v134.0.0: /api/stix/:id – STIX 2.1 export ────────────────────────────────
+//  v134.0.0: /api/stix/:id -- STIX 2.1 export 
 // FREE tier: returns advisory metadata only
 // PRO/ENTERPRISE: returns full STIX 2.1 bundle with objects array
 async function handleStixExport(request, env, auth, rid, stixId) {
@@ -2591,7 +2591,7 @@ async function handleStixExport(request, env, auth, rid, stixId) {
   });
 }
 
-// ── v134.0.0: /api/webhooks/siem – SIEM integration webhook ──────────────────
+//  v134.0.0: /api/webhooks/siem -- SIEM integration webhook 
 // Enterprise tier: POST to register a SIEM webhook URL.
 // When new intel is processed, APEX will POST to registered endpoints.
 async function handleSiemWebhook(request, env, auth, rid) {
@@ -2618,7 +2618,7 @@ async function handleSiemWebhook(request, env, auth, rid) {
       supported_formats: VALID_FORMATS,
       active_format:   VALID_FORMATS.includes(fmt) ? fmt : "json",
       format_docs: {
-        splunk:   "Splunk HEC JSON – POST to /services/collector/event",
+        splunk:   "Splunk HEC JSON -- POST to /services/collector/event",
         sentinel: "Azure Sentinel custom log (Log Analytics workspace)",
         qradar:   "IBM QRadar LEEF 2.0 syslog format",
         json:     "Raw SENTINEL-APEX JSON (default)",
@@ -2665,8 +2665,8 @@ async function handleSiemWebhook(request, env, auth, rid) {
   return jsonResponse({ error: "method_not_allowed", request_id: rid }, 405);
 }
 
-// ── v134.0.0: /api/alerts – threat alerts for Pro+ ───────────────────────────
-// ── v134.0: GET /api/account/usage – per-key usage analytics ─────────────────
+//  v134.0.0: /api/alerts -- threat alerts for Pro+ 
+//  v134.0: GET /api/account/usage -- per-key usage analytics 
 // Returns daily/monthly request counts per key, endpoint breakdown, quota remaining.
 // Requires auth (JWT or API key). Returns data scoped to the authenticated user/key.
 async function handleAccountUsage(request, env, rid, auth) {
@@ -2763,7 +2763,7 @@ async function handleAccountUsage(request, env, rid, auth) {
   }
 }
 
-// ── v134.0.0: GET /api/platform/stats – real-data dashboard metrics ──────────
+//  v134.0.0: GET /api/platform/stats -- real-data dashboard metrics 
 // Replaces all static dashboard hardcoded numbers.
 // Sources: R2 feed manifest + KV analytics. Public (no auth required for summary).
 async function handlePlatformStats(request, env, rid) {
@@ -2792,7 +2792,7 @@ async function handlePlatformStats(request, env, rid) {
     const reports = manifest?.reports || [];
     const now = new Date().toISOString();
 
-    // ── Aggregate live metrics ────────────────────────────────────────────────
+    //  Aggregate live metrics 
     let ioc_count = 0;
     let actor_set = new Set();
     let cve_set   = new Set();
@@ -2938,7 +2938,7 @@ async function handleAlerts(request, env, auth, rid) {
   });
 }
 
-// ── v134.0.0: /api/auth/refresh – Renew JWT before expiry ─────────────────────
+//  v134.0.0: /api/auth/refresh -- Renew JWT before expiry 
 // Valid JWT required. Issues fresh token, revokes the presented one.
 async function handleRefreshToken(request, env, rid) {
   if (!env?.CDB_JWT_SECRET) {
@@ -2973,7 +2973,7 @@ async function handleRefreshToken(request, env, rid) {
   });
 }
 
-// ── v134.0.0: /api/auth/revoke – Revoke JWT immediately ──────────────────────
+//  v134.0.0: /api/auth/revoke -- Revoke JWT immediately 
 async function handleRevokeToken(request, env, rid) {
   if (!env?.CDB_JWT_SECRET) {
     return jsonResponse({ error: "auth_service_unavailable", request_id: rid }, 503);
@@ -2981,7 +2981,7 @@ async function handleRevokeToken(request, env, rid) {
   const jwtToken = extractJwt(request);
   if (!jwtToken) return jsonResponse({ error: "token_required", request_id: rid }, 400);
   const result = await verifyJwt(jwtToken, env.CDB_JWT_SECRET);
-  // Allow revoke even if expired – still add to blocklist to be thorough
+  // Allow revoke even if expired -- still add to blocklist to be thorough
   const expUnix = result.payload?.exp || Math.floor(Date.now() / 1000) + 3600;
   await revokeToken(jwtToken, expUnix, env);
   await recordAnalytics(env, result.payload?.key_id, "jwt_revoke", result.payload?.tier || "unknown", 200);
@@ -2993,7 +2993,7 @@ async function handleRevokeToken(request, env, rid) {
   });
 }
 
-// ── v134.0.0: /api/admin/keys/list ───────────────────────────────────────────
+//  v134.0.0: /api/admin/keys/list 
 async function handleAdminListKeys(request, env, rid) {
   if (!env?.API_KEYS_KV) return jsonResponse({ error: "kv_unavailable", request_id: rid }, 503);
   const list    = await env.API_KEYS_KV.list({ prefix: "apikey:" });
@@ -3019,7 +3019,7 @@ async function handleAdminListKeys(request, env, rid) {
   });
 }
 
-// ── v134.0.0: /api/admin/keys/revoke ─────────────────────────────────────────
+//  v134.0.0: /api/admin/keys/revoke 
 async function handleAdminRevokeKey(request, env, rid) {
   if (!env?.API_KEYS_KV) return jsonResponse({ error: "kv_unavailable", request_id: rid }, 503);
   let body;
@@ -3044,7 +3044,7 @@ async function handleAdminRevokeKey(request, env, rid) {
   });
 }
 
-// ── v134.0.0: /api/admin/observability ───────────────────────────────────────
+//  v134.0.0: /api/admin/observability 
 // Surfaces error counts, analytics stats, and health snapshot for monitoring.
 async function handleAdminObservability(request, env, rid) {
   const day  = new Date().toISOString().slice(0, 10);
@@ -3083,7 +3083,7 @@ async function handleAdminObservability(request, env, rid) {
     catch { kvHealth[name] = "error"; }
   }
 
-  // v134.0: Live feed integrity snapshot – dedup metrics + IOC consistency
+  // v134.0: Live feed integrity snapshot -- dedup metrics + IOC consistency
   let feedIntegrity = null;
   try {
     const idx   = await fetchReportsIndex(env);
@@ -3105,7 +3105,7 @@ async function handleAdminObservability(request, env, rid) {
       dedup_active:             true,
       ioc_count_inconsistencies: iocInconsistencies,
       high_severity_zero_ioc:   highZeroIoc,
-      stix_issues:              0,  // STIX bundles validated at gate – no passthrough of invalid bundles
+      stix_issues:              0,  // STIX bundles validated at gate -- no passthrough of invalid bundles
       integrity_ok:             iocInconsistencies === 0 && highZeroIoc === 0,
     };
   } catch { feedIntegrity = { error: "feed_unavailable" }; }
@@ -3137,20 +3137,20 @@ async function handleAdminObservability(request, env, rid) {
     kv_health:      kvHealth,
     r2_bound:       !!env?.INTEL_R2,
     jwt_configured: !!env?.CDB_JWT_SECRET,
-    // v134.0: Feed integrity snapshot – dedup + IOC consistency + STIX validation
+    // v134.0: Feed integrity snapshot -- dedup + IOC consistency + STIX validation
     feed_integrity: feedIntegrity,
     security: {
-      injection_blocking:   "active",    // _INJECTION_BLOCK_RE – 8 patterns
-      rate_limiting:        "active",    // sliding window – IP + per-key
+      injection_blocking:   "active",    // _INJECTION_BLOCK_RE -- 8 patterns
+      rate_limiting:        "active",    // sliding window -- IP + per-key
       jwt_revocation:       "active",    // blocklist in SECURITY_HUB_KV
       tier_enforcement:     "active",    // applyTierGate() + applyIocMetaTierGate()
-      stix_validation:      "active",    // structural gate – invalid bundles nulled
+      stix_validation:      "active",    // structural gate -- invalid bundles nulled
       input_sanitization:   "active",    // sanitizeStr + sanitizeInput across all handlers
     },
   });
 }
 
-// ── v134.0.0: Stripe Webhook Signature Verification ──────────────────────────
+//  v134.0.0: Stripe Webhook Signature Verification 
 // Format: "t=<timestamp>,v1=<sig>" in Stripe-Signature header
 async function verifyStripeSignature(rawBody, sigHeader, webhookSecret) {
   try {
@@ -3177,10 +3177,10 @@ function tierFromStripePlan(priceId, env) {
   return CONFIG.TIERS.FREE;
 }
 
-// ── v134.0: cascadeUserTierToKeys – propagate tier change to all user-owned keys ──
+//  v134.0: cascadeUserTierToKeys -- propagate tier change to all user-owned keys 
 // Called on payment success / subscription update / cancellation.
 // Updates both userkey: index records and apikey: lookup records.
-// Fire-and-forget safe – never throws, errors are logged only.
+// Fire-and-forget safe -- never throws, errors are logged only.
 async function cascadeUserTierToKeys(userId, newTier, env) {
   if (!env?.API_KEYS_KV || !userId) return;
   try {
@@ -3203,7 +3203,7 @@ async function cascadeUserTierToKeys(userId, newTier, env) {
             await env.API_KEYS_KV.put(`apikey:${rec.key_id}`, JSON.stringify(apiRec));
           }
         }
-      } catch { /* non-fatal – key update failure never blocks webhook */ }
+      } catch { /* non-fatal -- key update failure never blocks webhook */ }
     }));
     slog("INFO", "BILLING", `Tier cascade complete`, { user_id: userId, tier: newTier, keys: list.keys.length });
   } catch (e) {
@@ -3211,7 +3211,7 @@ async function cascadeUserTierToKeys(userId, newTier, env) {
   }
 }
 
-// ── v134.0.0: POST /webhooks/stripe ──────────────────────────────────────────
+//  v134.0.0: POST /webhooks/stripe 
 async function handleStripeWebhook(request, env, rid) {
   const sigHeader = request.headers.get("Stripe-Signature") || "";
   const rawBody   = await request.text();
@@ -3249,9 +3249,9 @@ async function handleStripeWebhook(request, env, rid) {
             ur.subscription       = { id: obj.subscription, status: "active", tier: newTier, price_id: priceId, updated_at: new Date().toISOString() };
             await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
             if (customerId) await env.API_KEYS_KV.put(`stripe_customer:${customerId}`, userId);
-            // v134.0: CASCADE – upgrade all user-owned API keys to new tier immediately
+            // v134.0: CASCADE -- upgrade all user-owned API keys to new tier immediately
             await cascadeUserTierToKeys(userId, newTier, env);
-            slog("INFO", "BILLING", "Checkout complete – tier upgraded + keys cascaded", { user_id: userId, tier: newTier });
+            slog("INFO", "BILLING", "Checkout complete -- tier upgraded + keys cascaded", { user_id: userId, tier: newTier });
           }
         }
         break;
@@ -3287,7 +3287,7 @@ async function handleStripeWebhook(request, env, rid) {
               ur.tier         = CONFIG.TIERS.FREE;
               ur.subscription = { id: obj.id, status: "cancelled", tier: CONFIG.TIERS.FREE, updated_at: new Date().toISOString() };
               await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
-              slog("INFO", "BILLING", "Subscription cancelled – downgraded to FREE", { user_id: userId });
+              slog("INFO", "BILLING", "Subscription cancelled -- downgraded to FREE", { user_id: userId });
             }
           }
         }
@@ -3308,7 +3308,7 @@ async function handleStripeWebhook(request, env, rid) {
   return jsonResponse({ status: "ok", received: true, event_id: event.id, event_type: event.type });
 }
 
-// ── v134.0.0: POST /webhooks/razorpay ────────────────────────────────────────
+//  v134.0.0: POST /webhooks/razorpay 
 async function handleRazorpayWebhook(request, env, rid) {
   const rzSig   = request.headers.get("X-Razorpay-Signature") || "";
   const rawBody = await request.text();
@@ -3347,7 +3347,7 @@ async function handleRazorpayWebhook(request, env, rid) {
           ur.subscription = { id: payment.id, status: "active", tier: planTier, gateway: "razorpay", amount: payment.amount, updated_at: new Date().toISOString() };
           await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
           await cascadeUserTierToKeys(userId, planTier, env); // v134.0: cascade to all owned keys
-          slog("INFO", "BILLING", "Razorpay payment – tier upgraded + keys cascaded", { user_id: userId, tier: planTier });
+          slog("INFO", "BILLING", "Razorpay payment -- tier upgraded + keys cascaded", { user_id: userId, tier: planTier });
         }
       }
     }
@@ -3360,7 +3360,7 @@ async function handleRazorpayWebhook(request, env, rid) {
           ur.tier         = CONFIG.TIERS.FREE;
           ur.subscription = { status: "cancelled", tier: CONFIG.TIERS.FREE, gateway: "razorpay", updated_at: new Date().toISOString() };
           await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(ur));
-          slog("INFO", "BILLING", "Razorpay sub cancelled – downgraded to FREE", { user_id: userId });
+          slog("INFO", "BILLING", "Razorpay sub cancelled -- downgraded to FREE", { user_id: userId });
         }
       }
     }
@@ -3371,7 +3371,7 @@ async function handleRazorpayWebhook(request, env, rid) {
   return jsonResponse({ status: "ok", received: true, event: event.event });
 }
 
-// ── v134.0.0: GET /api/billing/portal ────────────────────────────────────────
+//  v134.0.0: GET /api/billing/portal 
 async function handleBillingPortal(request, env, rid, auth) {
   const userId     = auth.user_id || auth.key_id;
   const userRecord = userId ? await env?.API_KEYS_KV?.get(`user:${userId}`, { type: "json" }).catch(() => null) : null;
@@ -3403,7 +3403,7 @@ async function handleBillingPortal(request, env, rid, auth) {
   });
 }
 
-// ── v134.0.0: SIEM Output Formatters – Splunk HEC / Sentinel / QRadar LEEF ──
+//  v134.0.0: SIEM Output Formatters -- Splunk HEC / Sentinel / QRadar LEEF 
 
 function formatSplunkHEC(item) {
   return {
@@ -3468,17 +3468,17 @@ function formatQRadarLEEF(item) {
   return `LEEF:2.0|CYBERDUDEBIVASH|SENTINEL-APEX|${CONFIG.GATEWAY_VERSION}|ThreatIntel|\t${pairs}`;
 }
 
-// ── v134.0: Response post-processor – injects X-RateLimit + security headers ──
-// Called after every authenticated handler returns. Never mutates body – only adds headers.
+//  v134.0: Response post-processor -- injects X-RateLimit + security headers 
+// Called after every authenticated handler returns. Never mutates body -- only adds headers.
 // Security headers added to ALL responses (defence-in-depth):
 //   X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
 function applySecurityHeaders(response, rlHeaders = {}) {
   const headers = new Headers(response.headers);
-  // Rate limit telemetry (informational – lets clients self-throttle)
+  // Rate limit telemetry (informational -- lets clients self-throttle)
   for (const [k, v] of Object.entries(rlHeaders)) {
     headers.set(k, v);
   }
-  // Security hardening headers – prevent MIME sniffing, clickjacking, info leakage
+  // Security hardening headers -- prevent MIME sniffing, clickjacking, info leakage
   headers.set("X-Content-Type-Options",  "nosniff");
   headers.set("X-Frame-Options",         "DENY");
   headers.set("Referrer-Policy",         "no-referrer");
@@ -3517,7 +3517,7 @@ async function handleRevenueDashboard(request, env, rid) {
   }, null, 2), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-cache, no-store", "Access-Control-Allow-Origin": "*" } });
 }
 
-// ── Main Router ────────────────────────────────────────────────────────────────
+//  Main Router 
 
 export default {
   async fetch(request, env, ctx) {
@@ -3544,7 +3544,7 @@ export default {
     // IP rate limiting + multi-layer abuse check (all endpoints)
     const clientIP = getClientIP(request);
 
-    // Layer 1: Legacy IP ban (RATE_LIMIT_KV – daily abuse counter)
+    // Layer 1: Legacy IP ban (RATE_LIMIT_KV -- daily abuse counter)
     if (await isIPBanned(clientIP, env)) {
       return jsonResponse({
         error:      "ip_banned",
@@ -3553,7 +3553,7 @@ export default {
       }, 429);
     }
 
-    // Layer 2: Enhanced abuse detection (SECURITY_HUB_KV – per-minute rate, scanner UA, auth brute force)
+    // Layer 2: Enhanced abuse detection (SECURITY_HUB_KV -- per-minute rate, scanner UA, auth brute force)
     const abuseBlock = await detectAbuse(request, env, rid);
     if (abuseBlock) return abuseBlock;
 
@@ -3569,25 +3569,25 @@ export default {
       }, 429, { "Retry-After": String(ipCheck.retryAfter || 60) });
     }
 
-    // ── Public endpoints (no API key required) ────────────────────────────────
+    //  Public endpoints (no API key required) 
     if (pathname.startsWith("/api/preview"))          return handlePreview(request, env, rid);
     if (pathname.startsWith("/api/health"))            return handleHealth(request, env, rid);
     if (pathname.startsWith("/api/version"))           return handleVersion(request, env, rid);
     if (pathname.startsWith("/api/keys/validate"))     return handleValidateKey(request, env, rid);
-    // v134.0.0: Live dashboard metrics – public, no auth required
+    // v134.0.0: Live dashboard metrics -- public, no auth required
     if (pathname === "/api/platform/stats" && method === "GET") return handlePlatformStats(request, env, rid);
-    // ── v134.0.0 + v134.0.0: JWT auth endpoints ──────────────────────────────
+    //  v134.0.0 + v134.0.0: JWT auth endpoints 
     if (pathname === "/api/auth/token"    && method === "POST") return handleIssueToken(request, env, rid);
     if (pathname === "/api/auth/validate")                      return handleValidateToken(request, env, rid);
     if (pathname === "/api/auth/refresh"  && method === "POST") return handleRefreshToken(request, env, rid);
     if (pathname === "/api/auth/revoke"   && method === "POST") return handleRevokeToken(request, env, rid);
-    // ── v134.0.0: User auth endpoints (no API key required) ──────────────────
+    //  v134.0.0: User auth endpoints (no API key required) 
     if (pathname === "/auth/signup"       && method === "POST") return handleUserSignup(request, env, rid);
     if (pathname === "/auth/login"        && method === "POST") return handleUserLogin(request, env, rid);
-    // ── v134.0.0: Billing webhooks (no API key – use their own sig verification)
+    //  v134.0.0: Billing webhooks (no API key -- use their own sig verification)
     if (pathname === "/webhooks/stripe"   && method === "POST") return handleStripeWebhook(request, env, rid);
     if (pathname === "/webhooks/razorpay" && method === "POST") return handleRazorpayWebhook(request, env, rid);
-    // AI endpoints – public (index/heatmap) or authenticated (analyze/respond/correlate)
+    // AI endpoints -- public (index/heatmap) or authenticated (analyze/respond/correlate)
     if (pathname.startsWith("/api/ai")) {
       const aiSub = pathname.slice("/api/ai".length);
       // Full AI analysis endpoints require authentication
@@ -3605,9 +3605,9 @@ export default {
       return handleAI(request, env, rid, aiSub);
     }
 
-    // ── Admin endpoints (X-Admin-Secret verified internally) ─────────────────
+    //  Admin endpoints (X-Admin-Secret verified internally) 
     if (pathname.startsWith("/api/admin")) {
-      // All /api/admin/* require X-Admin-Secret – verify once here
+      // All /api/admin/* require X-Admin-Secret -- verify once here
       if (!env?.ADMIN_SECRET || request.headers.get("X-Admin-Secret") !== env.ADMIN_SECRET) {
         slog("WARN", "ADMIN", "Forbidden admin access attempt", { path: pathname, rid });
         return jsonResponse({ error: "forbidden", message: "Valid X-Admin-Secret required.", request_id: rid }, 403);
@@ -3617,7 +3617,7 @@ export default {
       if (pathname.startsWith("/api/admin/keys/revoke")  && method === "POST") return handleAdminRevokeKey(request, env, rid);
       if (pathname.startsWith("/api/admin/keys/list")    && method === "GET")  return handleAdminListKeys(request, env, rid);
       if (pathname.startsWith("/api/admin/observability")&& method === "GET")  return handleAdminObservability(request, env, rid);
-      // v134.0.0: Abuse event log – scanner activity, IP bans, auth brute force
+      // v134.0.0: Abuse event log -- scanner activity, IP bans, auth brute force
       if (pathname.startsWith("/api/admin/abuse")        && method === "GET")  return handleAbuseReport(request, env, rid);
       return jsonResponse({
         error:     "not_found",
@@ -3633,8 +3633,8 @@ export default {
       }, 404);
     }
 
-    // ── ALL REMAINING ENDPOINTS: JWT OR API KEY REQUIRED ─────────────────────
-    // resolveAuth: JWT (3-part Bearer) takes priority → falls through to API key
+    //  ALL REMAINING ENDPOINTS: JWT OR API KEY REQUIRED 
+    // resolveAuth: JWT (3-part Bearer) takes priority -> falls through to API key
     const auth = await resolveAuth(request, env);
     if (!auth.valid) {
       if (auth.reason === "invalid_key" || auth.reason === "key_expired") {
@@ -3686,10 +3686,10 @@ export default {
       "X-Tier":                auth.tier,
     };
 
-    // v134.0.0: Request fingerprinting – async, fire-and-forget for analytics (never blocks)
+    // v134.0.0: Request fingerprinting -- async, fire-and-forget for analytics (never blocks)
     fingerprintRequest(request, env, auth, rid).catch(() => {});
 
-    // ── v134.0.0: CREDIT GATE ── usage-based billing enforcement ───────────────────
+    //  v134.0.0: CREDIT GATE  usage-based billing enforcement 
     const _epSlug  = slugifyEndpoint(pathname);
     const _epCost  = calculateCostPerCall(_epSlug, auth.tier);
     const _credits = await checkCredits(env, auth.user_id || auth.key_id, auth.tier, _epCost, rid);
@@ -3701,13 +3701,13 @@ export default {
     analyzeUsagePatterns(env, auth.user_id || auth.key_id, auth.tier,
       _credits.status?.credits_remaining ?? 0, _credits.status?.credit_limit ?? 100).catch(() => {});
 
-    // ── v134.0: All authenticated responses wrapped with X-RateLimit + security headers ──
+    //  v134.0: All authenticated responses wrapped with X-RateLimit + security headers 
     const _rl = _rlHeaders;  // captured above after rate-limit check
     const withRL = (resp) => applySecurityHeaders(resp, _rl);
     // v134.0.0: merge credit billing headers into every authenticated response
     Object.assign(_rlHeaders, buildCreditHeaders(_credits.status, _credits.status?.credits_used));
 
-    // ── v134.0.0: Authenticated user + billing routes ────────────────────────
+    //  v134.0.0: Authenticated user + billing routes 
     if (pathname === "/auth/me"              && method === "GET")    return withRL(await handleUserMe(request, env, rid, auth));
     if (pathname === "/api/keys"             && method === "GET")    return withRL(await handleUserListKeys(request, env, rid, auth));
     if (pathname === "/api/keys/create"      && method === "POST")   return withRL(await handleUserCreateKey(request, env, rid, auth));
@@ -3740,13 +3740,13 @@ export default {
     if (pathname.startsWith("/api/webhooks/siem"))
       return withRL(await handleSiemWebhook(request, env, auth, rid));
 
-    // ── v134.0.0: NEW ENDPOINTS – Full CTI API surface ────────────────────────
+    //  v134.0.0: NEW ENDPOINTS -- Full CTI API surface 
 
-    // GET /api/search – full-text + field search across feed (scope: read:intel)
+    // GET /api/search -- full-text + field search across feed (scope: read:intel)
     if (pathname === "/api/search" && method === "GET")
       return withRL(await handleSearch(request, env, auth, rid));
 
-    // GET /api/actors[?actor_id=&limit=&since=] – threat actor profiles (scope: read:actors)
+    // GET /api/actors[?actor_id=&limit=&since=] -- threat actor profiles (scope: read:actors)
     if (pathname === "/api/actors" && method === "GET")
       return withRL(await handleActors(request, env, auth, rid));
 
@@ -3754,41 +3754,41 @@ export default {
     if (pathname === "/api/cves" && method === "GET")
       return withRL(await handleCVEs(request, env, auth, rid));
 
-    // GET /api/export/misp[?report_id=&since=&limit=] – MISP JSON export (scope: export:misp, Enterprise only)
+    // GET /api/export/misp[?report_id=&since=&limit=] -- MISP JSON export (scope: export:misp, Enterprise only)
     if (pathname === "/api/export/misp" && method === "GET")
       return withRL(await handleMISPExport(request, env, auth, rid));
 
-    // GET /api/export/csv[?since=&types=&limit=] – IOC bulk CSV export (scope: export:csv, Pro+)
+    // GET /api/export/csv[?since=&types=&limit=] -- IOC bulk CSV export (scope: export:csv, Pro+)
     if (pathname === "/api/export/csv" && method === "GET")
       return withRL(await handleCSVExport(request, env, auth, rid));
 
-    // POST /api/intel/correlate – IOC correlation against full feed (scope: read:intel)
+    // POST /api/intel/correlate -- IOC correlation against full feed (scope: read:intel)
     if (pathname === "/api/intel/correlate" && method === "POST")
       return withRL(await handleCorrelate(request, env, auth, rid));
 
-    // ── v134.0.0: AI Intelligence Endpoints ─────────────────────────────────
-    // GET|POST /api/predict – AI threat prediction (Pro+)
+    //  v134.0.0: AI Intelligence Endpoints 
+    // GET|POST /api/predict -- AI threat prediction (Pro+)
     if (pathname === "/api/predict" && (method === "GET" || method === "POST"))
       return withRL(await handlePredict(request, env, auth, rid));
 
-    // GET /api/campaigns – detected threat campaigns (Pro+)
+    // GET /api/campaigns -- detected threat campaigns (Pro+)
     if (pathname === "/api/campaigns" && method === "GET")
       return withRL(await handleCampaigns(request, env, auth, rid));
 
-    // GET /api/anomalies – zero-day + anomalous threat feed (Pro+)
+    // GET /api/anomalies -- zero-day + anomalous threat feed (Pro+)
     if (pathname === "/api/anomalies" && method === "GET")
       return withRL(await handleAnomalies(request, env, auth, rid));
 
-    // GET /api/intelligence/graph – IOC relationship graph (Pro=summary, Enterprise=full)
+    // GET /api/intelligence/graph -- IOC relationship graph (Pro=summary, Enterprise=full)
     if (pathname === "/api/intelligence/graph" && method === "GET")
       return withRL(await handleIntelGraph(request, env, auth, rid));
 
-    // GET /api/intelligence/relations – BFS IOC relations (Pro=limited, Enterprise=full)
+    // GET /api/intelligence/relations -- BFS IOC relations (Pro=limited, Enterprise=full)
     if (pathname === "/api/intelligence/relations" && method === "GET")
       return withRL(await handleIntelRelations(request, env, auth, rid));
 
-    // GET /api/platform/stats – live feed stats for dashboard (public – no auth required)
-    // (also accessible without auth for dashboard widgets – handled below)
+    // GET /api/platform/stats -- live feed stats for dashboard (public -- no auth required)
+    // (also accessible without auth for dashboard widgets -- handled below)
 
     // v134.0.0: Revenue API Endpoints
     if (pathname.startsWith("/api/revenue") && method === "GET")
@@ -3803,64 +3803,64 @@ export default {
       error:   "not_found",
       message: `Endpoint '${pathname}' not found.`,
       available: [
-        // ── Public ──────────────────────────────────────────────────────────────
-        "GET  /api/preview              (public – free preview feed)",
+        //  Public 
+        "GET  /api/preview              (public -- free preview feed)",
         "GET  /api/health               (public)",
         "GET  /api/version              (public)",
         "GET  /api/keys/validate        (public)",
-        "GET  /api/platform/stats       (public – live dashboard metrics)",
-        "GET  /api/ai                   (public – AI index + MITRE heatmap)",
+        "GET  /api/platform/stats       (public -- live dashboard metrics)",
+        "GET  /api/ai                   (public -- AI index + MITRE heatmap)",
         "GET  /api/ai/heatmap           (public)",
-        // ── Auth endpoints ──────────────────────────────────────────────────────
-        "POST /api/auth/token           (public – exchange API key for JWT)",
-        "GET  /api/auth/validate        (public – validate JWT)",
-        "POST /api/auth/refresh         (requires JWT – rotate token)",
-        "POST /api/auth/revoke          (requires JWT – revoke token)",
-        "POST /auth/signup              (public – create user account + get JWT)",
-        "POST /auth/login               (public – login + get JWT)",
-        // ── Billing webhooks ────────────────────────────────────────────────────
-        "POST /webhooks/stripe          (public – Stripe webhook, sig-verified)",
-        "POST /webhooks/razorpay        (public – Razorpay webhook, sig-verified)",
-        // ── Authenticated (Free+) ───────────────────────────────────────────────
-        "GET  /auth/me                  (requires JWT – user profile + API keys)",
-        "POST /api/keys/create          (requires JWT – create API key)",
-        "GET  /api/keys                 (requires JWT – list your API keys)",
-        "DELETE /api/keys/:id           (requires JWT – revoke API key)",
-        "GET  /api/billing/portal       (requires JWT – subscription + upgrade links)",
-        // ── Intel feed ──────────────────────────────────────────────────────────
-        "GET  /api/feed                 (requires auth – full intel feed)",
-        "GET  /api/feed/:id             (requires auth – single report)",
-        "GET  /api/analytics            (requires auth – usage analytics)",
-        // ── AI endpoints ────────────────────────────────────────────────────────
+        //  Auth endpoints 
+        "POST /api/auth/token           (public -- exchange API key for JWT)",
+        "GET  /api/auth/validate        (public -- validate JWT)",
+        "POST /api/auth/refresh         (requires JWT -- rotate token)",
+        "POST /api/auth/revoke          (requires JWT -- revoke token)",
+        "POST /auth/signup              (public -- create user account + get JWT)",
+        "POST /auth/login               (public -- login + get JWT)",
+        //  Billing webhooks 
+        "POST /webhooks/stripe          (public -- Stripe webhook, sig-verified)",
+        "POST /webhooks/razorpay        (public -- Razorpay webhook, sig-verified)",
+        //  Authenticated (Free+) 
+        "GET  /auth/me                  (requires JWT -- user profile + API keys)",
+        "POST /api/keys/create          (requires JWT -- create API key)",
+        "GET  /api/keys                 (requires JWT -- list your API keys)",
+        "DELETE /api/keys/:id           (requires JWT -- revoke API key)",
+        "GET  /api/billing/portal       (requires JWT -- subscription + upgrade links)",
+        //  Intel feed 
+        "GET  /api/feed                 (requires auth -- full intel feed)",
+        "GET  /api/feed/:id             (requires auth -- single report)",
+        "GET  /api/analytics            (requires auth -- usage analytics)",
+        //  AI endpoints 
         "GET  /api/ai/analyze           (requires auth)",
         "GET  /api/ai/respond           (requires auth)",
         "GET  /api/ai/correlate         (requires auth)",
-        // ── v134.0.0: NEW CTI API surface ──────────────────────────────────────
-        "GET  /api/search               (requires auth – full-text + field search | scope: read:intel)",
-        "GET  /api/actors               (requires auth – threat actor profiles | scope: read:actors)",
-        "GET  /api/cves                 (requires auth – CVE deep-dive CVSS+EPSS+KEV | scope: read:cves)",
-        "POST /api/intel/correlate      (requires auth – IOC correlation | scope: read:intel)",
-        "GET  /api/stix/:id             (requires auth – STIX 2.1 bundle | scope: read:stix)",
-        "GET  /api/alerts               (requires auth Pro+ – threat alerts)",
-        // ── Export endpoints ────────────────────────────────────────────────────
-        "GET  /api/export/csv           (requires auth Pro+ – IOC bulk CSV | scope: export:csv)",
-        "GET  /api/export/misp          (requires auth Enterprise – MISP JSON | scope: export:misp)",
-        // ── v134.0.0: AI Intelligence (Phase 2+4) ──────────────────────────────
-        "GET|POST /api/predict          (Pro+ – AI threat prediction | CVSS+EPSS+KEV+TTP scoring)",
-        "GET  /api/campaigns            (Pro+ – detected threat campaigns | DBSCAN-clustered)",
-        "GET  /api/anomalies            (Pro+ – zero-day candidates + anomalous threats | Isolation Forest)",
+        //  v134.0.0: NEW CTI API surface 
+        "GET  /api/search               (requires auth -- full-text + field search | scope: read:intel)",
+        "GET  /api/actors               (requires auth -- threat actor profiles | scope: read:actors)",
+        "GET  /api/cves                 (requires auth -- CVE deep-dive CVSS+EPSS+KEV | scope: read:cves)",
+        "POST /api/intel/correlate      (requires auth -- IOC correlation | scope: read:intel)",
+        "GET  /api/stix/:id             (requires auth -- STIX 2.1 bundle | scope: read:stix)",
+        "GET  /api/alerts               (requires auth Pro+ -- threat alerts)",
+        //  Export endpoints 
+        "GET  /api/export/csv           (requires auth Pro+ -- IOC bulk CSV | scope: export:csv)",
+        "GET  /api/export/misp          (requires auth Enterprise -- MISP JSON | scope: export:misp)",
+        //  v134.0.0: AI Intelligence (Phase 2+4) 
+        "GET|POST /api/predict          (Pro+ -- AI threat prediction | CVSS+EPSS+KEV+TTP scoring)",
+        "GET  /api/campaigns            (Pro+ -- detected threat campaigns | DBSCAN-clustered)",
+        "GET  /api/anomalies            (Pro+ -- zero-day candidates + anomalous threats | Isolation Forest)",
         "GET  /api/intelligence/graph   (Pro=summary, Enterprise=full IOC graph | PageRank authority scores)",
-        "GET  /api/intelligence/relations (Pro+ – IOC relationship BFS traversal | actor attribution)",
-        // ── Enterprise ──────────────────────────────────────────────────────────
-        "GET  /api/webhooks/siem        (requires auth Enterprise – list + format info)",
-        "POST /api/webhooks/siem        (requires auth Enterprise – register SIEM webhook)",
-        // ── Admin ───────────────────────────────────────────────────────────────
+        "GET  /api/intelligence/relations (Pro+ -- IOC relationship BFS traversal | actor attribution)",
+        //  Enterprise 
+        "GET  /api/webhooks/siem        (requires auth Enterprise -- list + format info)",
+        "POST /api/webhooks/siem        (requires auth Enterprise -- register SIEM webhook)",
+        //  Admin 
         "POST /api/admin/cache/bust     (requires X-Admin-Secret)",
         "POST /api/admin/keys/create    (requires X-Admin-Secret)",
         "POST /api/admin/keys/revoke    (requires X-Admin-Secret)",
         "GET  /api/admin/keys/list      (requires X-Admin-Secret)",
         "GET  /api/admin/observability  (requires X-Admin-Secret)",
-        "GET  /api/admin/abuse          (requires X-Admin-Secret – abuse event log)",
+        "GET  /api/admin/abuse          (requires X-Admin-Secret -- abuse event log)",
       ],
       docs:       CONFIG.DOCS_URL,
       request_id: rid,
@@ -3869,8 +3869,8 @@ export default {
     }, 404);
   },
 
-  // ── v134.0.0: Scheduled Cron Handler ─────────────────────────────────────
-  // Trigger: configure in wrangler.toml → [triggers] crons = ["*/15 * * * *"]
+  //  v134.0.0: Scheduled Cron Handler 
+  // Trigger: configure in wrangler.toml -> [triggers] crons = ["*/15 * * * *"]
   // On each cron tick:
   //   1. Fetch latest R2 feed manifest
   //   2. Identify reports processed in the last cron interval
@@ -3882,7 +3882,7 @@ export default {
 
     ctx.waitUntil((async () => {
       try {
-        // ── Step 1: Fetch feed manifest from R2 ────────────────────────────
+        //  Step 1: Fetch feed manifest from R2 
         let manifest = null;
         if (env?.INTEL_R2) {
           const obj = await env.INTEL_R2.get("feed_manifest.json").catch(() => null);
@@ -3893,11 +3893,11 @@ export default {
 
         const reports = manifest?.reports || [];
         if (!reports.length) {
-          slog("WARN", "CRON", "No reports in feed manifest – skipping webhook push", { rid });
+          slog("WARN", "CRON", "No reports in feed manifest -- skipping webhook push", { rid });
           return;
         }
 
-        // ── Step 2: Identify recently published items (last 30 min) ────────
+        //  Step 2: Identify recently published items (last 30 min) 
         const cutoff  = new Date(Date.now() - 30 * 60 * 1000).toISOString();
         const newItems = reports.filter(r => {
           const ts = r.processed_at || r.timestamp || "";
@@ -3906,24 +3906,24 @@ export default {
 
         slog("INFO", "CRON", `Feed: ${reports.length} total, ${newItems.length} new since ${cutoff}`, { rid });
 
-        // ── Step 3: Push to SIEM webhooks (Enterprise tier) ─────────────────
+        //  Step 3: Push to SIEM webhooks (Enterprise tier) 
         if (newItems.length > 0) {
           const pushResult = await pushWebhookNotifications(env, newItems);
           slog("INFO", "CRON", "Webhook push complete", { rid, ...pushResult });
         }
 
-        // ── Step 4: Invalidate platform stats cache ──────────────────────────
+        //  Step 4: Invalidate platform stats cache 
         if (env?.ANALYTICS_KV) {
           await env.ANALYTICS_KV.delete("platform:stats:v140").catch(() => {});
           slog("INFO", "CRON", "Platform stats cache invalidated", { rid });
         }
 
-        // ── Step 5: Rebuild KV index cache for fast search/actors/CVEs queries
+        //  Step 5: Rebuild KV index cache for fast search/actors/CVEs queries
         if (env?.SECURITY_HUB_KV && manifest) {
           await env.SECURITY_HUB_KV.put(
             "idx:reports",
             JSON.stringify(manifest),
-            { expirationTtl: 1800 }  // 30 min TTL – refreshed by cron
+            { expirationTtl: 1800 }  // 30 min TTL -- refreshed by cron
           ).catch(() => {});
           slog("INFO", "CRON", "KV report index refreshed", { rid, count: reports.length });
         }
