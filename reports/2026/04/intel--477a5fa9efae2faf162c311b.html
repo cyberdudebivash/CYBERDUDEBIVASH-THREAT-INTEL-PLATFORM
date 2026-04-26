@@ -315,26 +315,26 @@ description: &gt;
 references:
   - https://intel.cyberdudebivash.com
 author: CYBERDUDEBIVASH SENTINEL APEX
-date: 2026/04/25
+date: 2026/04/26
 tags:
   # TTPs: enrich via APEX Enterprise
-  # Source: APEX advisory  replace with confirmed technique IDs
+  # Source: APEX advisory - replace with confirmed technique IDs
 logsource:
   category: process_creation
   product: windows
 detection:
   selection:
-        CommandLine|contains:
-          - &#x27;5fd682cdfdf2de867be2a4bd378a2c206370c18a598975a11c99dba121e3&#x27;
-          - &#x27;8a87d63110eeb782bb621b5f3154ca80bdcf5de7&#x27;
-          - &#x27;15af977ce25de452b96affa2addb1036&#x27;
-          - &#x27;285fea57345d838916153c4d8f43ab6c&#x27;
-          - &#x27;826d6350724f203b911aa6c8c4626391&#x27;
-          - &#x27;a48c0d5f95b1ef98f560f324fd275da1&#x27;
     Image|endswith:
       - &#x27;\\cmd.exe&#x27;
       - &#x27;\\powershell.exe&#x27;
       - &#x27;\\wscript.exe&#x27;
+    CommandLine|contains:
+      - &#x27;5fd682cdfdf2de867be2a4bd378a2c206370c18a598975a11c99dba121e3&#x27;
+      - &#x27;8a87d63110eeb782bb621b5f3154ca80bdcf5de7&#x27;
+      - &#x27;15af977ce25de452b96affa2addb1036&#x27;
+      - &#x27;285fea57345d838916153c4d8f43ab6c&#x27;
+      - &#x27;826d6350724f203b911aa6c8c4626391&#x27;
+      - &#x27;a48c0d5f95b1ef98f560f324fd275da1&#x27;
   condition: selection
 falsepositives:
   - Legitimate administrative tooling
@@ -343,7 +343,7 @@ level: medium
     meta:
         description = &quot;APEX detection: InsideagenteV2: How Brazilian Attackers Use Fake Court Summ&quot;
         author      = &quot;CYBERDUDEBIVASH SENTINEL APEX v141.0.0&quot;
-        date        = &quot;2026-04-25&quot;
+        date        = &quot;2026-04-26&quot;
         reference   = &quot;https://intel.cyberdudebivash.com&quot;
         severity    = &quot;high&quot;
     strings:
@@ -360,7 +360,7 @@ level: medium
 }
 </pre></div><div class='rule-block'><div class='rule-header'><span class='rule-badge rule-kql'>KQL – Microsoft Sentinel / Defender XDR</span><span class='copy-hint'>Retro-hunt: last 30 days</span></div><pre>// KQL  Microsoft Sentinel / Defender XDR
 // APEX Advisory Hunt: InsideagenteV2: How Brazilian Attackers Use Fake Court Summ
-// Generated: 2026-04-25T22:03Z
+// Generated: 2026-04-26T03:49Z
 
 let lookback = 30d;
 let apex_iocs = dynamic([&amp;quot;5fd682cdfdf2de867be2a4bd378a2c206370c18a598975a11c&amp;quot;, &amp;quot;8a87d63110eeb782bb621b5f3154ca80bdcf5de7&amp;quot;, &amp;quot;15af977ce25de452b96affa2addb1036&amp;quot;, &amp;quot;285fea57345d838916153c4d8f43ab6c&amp;quot;]);
@@ -380,7 +380,7 @@ DeviceProcessEvents
 | where count_ &gt; 3
 | order by count_ desc;</pre></div><div class='rule-block'><div class='rule-header'><span class='rule-badge rule-spl'>SPL – Splunk Enterprise Security</span><span class='copy-hint'>ES correlation search ready</span></div><pre>| SPL  Splunk Enterprise Security
 | APEX Advisory Hunt: InsideagenteV2: How Brazilian Attackers Use Fake Court Summ
-| Generated: 2026-04-25T22:03Z
+| Generated: 2026-04-26T03:49Z
 
 index=* sourcetype=zeek* OR sourcetype=suricata*
 (&amp;quot;5fd682cdfdf2de867be2a4bd378a2c206370c18a598975a11c&amp;quot; OR &amp;quot;8a87d63110eeb782bb621b5f3154ca80bdcf5de7&amp;quot; OR &amp;quot;15af977ce25de452b96affa2addb1036&amp;quot; OR &amp;quot;285fea57345d838916153c4d8f43ab6c&amp;quot;)

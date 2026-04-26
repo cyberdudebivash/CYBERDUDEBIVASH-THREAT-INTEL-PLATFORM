@@ -315,26 +315,26 @@ description: &gt;
 references:
   - https://intel.cyberdudebivash.com
 author: CYBERDUDEBIVASH SENTINEL APEX
-date: 2026/04/25
+date: 2026/04/26
 tags:
   # TTPs: enrich via APEX Enterprise
-  # Source: APEX advisory  replace with confirmed technique IDs
+  # Source: APEX advisory - replace with confirmed technique IDs
 logsource:
   category: process_creation
   product: windows
 detection:
   selection:
-        CommandLine|contains:
-          - &#x27;45bff0df2c408b3f589aed984cc331b617021ecbea57171dac719b5f545f&#x27;
-          - &#x27;4ed176edb75ae2114cda8cfb3f83ac2ecdc4476fa1ef30ad8c81a54c0a22&#x27;
-          - &#x27;6ccacb7567b6c0bd2ca8e68ff59d5ef21e8f47fc1af70d4d88a421f1fc52&#x27;
-          - &#x27;https://www.rapid7.com/blog/post/tr-kyber-ransomware-double-&#x27;
-          - &#x27;autorun.inf&#x27;
-          - &#x27;boomplay.com&#x27;
     Image|endswith:
       - &#x27;\\cmd.exe&#x27;
       - &#x27;\\powershell.exe&#x27;
       - &#x27;\\wscript.exe&#x27;
+    CommandLine|contains:
+      - &#x27;45bff0df2c408b3f589aed984cc331b617021ecbea57171dac719b5f545f&#x27;
+      - &#x27;4ed176edb75ae2114cda8cfb3f83ac2ecdc4476fa1ef30ad8c81a54c0a22&#x27;
+      - &#x27;6ccacb7567b6c0bd2ca8e68ff59d5ef21e8f47fc1af70d4d88a421f1fc52&#x27;
+      - &#x27;https://www.rapid7.com/blog/post/tr-kyber-ransomware-double-&#x27;
+      - &#x27;autorun.inf&#x27;
+      - &#x27;boomplay.com&#x27;
   condition: selection
 falsepositives:
   - Legitimate administrative tooling
@@ -343,7 +343,7 @@ level: medium
     meta:
         description = &quot;APEX detection: Kyber Ransomware Double Trouble: Windows and ESXi Attacks Ex&quot;
         author      = &quot;CYBERDUDEBIVASH SENTINEL APEX v141.0.0&quot;
-        date        = &quot;2026-04-25&quot;
+        date        = &quot;2026-04-26&quot;
         reference   = &quot;https://intel.cyberdudebivash.com&quot;
         severity    = &quot;high&quot;
     strings:
@@ -357,7 +357,7 @@ level: medium
 }
 </pre></div><div class='rule-block'><div class='rule-header'><span class='rule-badge rule-kql'>KQL – Microsoft Sentinel / Defender XDR</span><span class='copy-hint'>Retro-hunt: last 30 days</span></div><pre>// KQL  Microsoft Sentinel / Defender XDR
 // APEX Advisory Hunt: Kyber Ransomware Double Trouble: Windows and ESXi Attacks Ex
-// Generated: 2026-04-25T22:03Z
+// Generated: 2026-04-26T03:49Z
 
 let lookback = 30d;
 let apex_iocs = dynamic([&amp;quot;45bff0df2c408b3f589aed984cc331b617021ecbea57171dac&amp;quot;, &amp;quot;4ed176edb75ae2114cda8cfb3f83ac2ecdc4476fa1ef30ad8c&amp;quot;, &amp;quot;6ccacb7567b6c0bd2ca8e68ff59d5ef21e8f47fc1af70d4d88&amp;quot;, &amp;quot;https://www.rapid7.com/blog/post/tr-kyber-ransomwa&amp;quot;]);
@@ -377,7 +377,7 @@ DeviceProcessEvents
 | where count_ &gt; 3
 | order by count_ desc;</pre></div><div class='rule-block'><div class='rule-header'><span class='rule-badge rule-spl'>SPL – Splunk Enterprise Security</span><span class='copy-hint'>ES correlation search ready</span></div><pre>| SPL  Splunk Enterprise Security
 | APEX Advisory Hunt: Kyber Ransomware Double Trouble: Windows and ESXi Attacks Ex
-| Generated: 2026-04-25T22:03Z
+| Generated: 2026-04-26T03:49Z
 
 index=* sourcetype=zeek* OR sourcetype=suricata*
 (&amp;quot;45bff0df2c408b3f589aed984cc331b617021ecbea57171dac&amp;quot; OR &amp;quot;4ed176edb75ae2114cda8cfb3f83ac2ecdc4476fa1ef30ad8c&amp;quot; OR &amp;quot;6ccacb7567b6c0bd2ca8e68ff59d5ef21e8f47fc1af70d4d88&amp;quot; OR &amp;quot;https://www.rapid7.com/blog/post/tr-kyber-ransomwa&amp;quot;)
