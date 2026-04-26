@@ -315,26 +315,26 @@ description: &gt;
 references:
   - https://intel.cyberdudebivash.com
 author: CYBERDUDEBIVASH SENTINEL APEX
-date: 2026/04/25
+date: 2026/04/26
 tags:
   # TTPs: enrich via APEX Enterprise
-  # Source: APEX advisory  replace with confirmed technique IDs
+  # Source: APEX advisory - replace with confirmed technique IDs
 logsource:
   category: process_creation
   product: windows
 detection:
   selection:
-        CommandLine|contains:
-          - &#x27;025fc0976c548fb5a880c83ea3eb21a5f23c5d53c4e51e862bb893c11adf&#x27;
-          - &#x27;078163d5c16f64caa5a14784323fd51451b8c831c73396b967b4e35e6879&#x27;
-          - &#x27;1eece1e1ba4b96e6c784729f0608ad2939cfb67bc4236dfababbe1d09268&#x27;
-          - &#x27;22b38dad7da097ea03aa28d0614164cd25fafeb1383dbc15047e34c8050f&#x27;
-          - &#x27;2ed9494e9b7b68415b4eb151c922c82c0191294d0aa443dd2cb5133e6bfe&#x27;
-          - &#x27;3ab9575225e00a83a4ac2b534da5a710bdcf6eb72884944c437b5fbe5c5c&#x27;
     Image|endswith:
       - &#x27;\\cmd.exe&#x27;
       - &#x27;\\powershell.exe&#x27;
       - &#x27;\\wscript.exe&#x27;
+    CommandLine|contains:
+      - &#x27;025fc0976c548fb5a880c83ea3eb21a5f23c5d53c4e51e862bb893c11adf&#x27;
+      - &#x27;078163d5c16f64caa5a14784323fd51451b8c831c73396b967b4e35e6879&#x27;
+      - &#x27;1eece1e1ba4b96e6c784729f0608ad2939cfb67bc4236dfababbe1d09268&#x27;
+      - &#x27;22b38dad7da097ea03aa28d0614164cd25fafeb1383dbc15047e34c8050f&#x27;
+      - &#x27;2ed9494e9b7b68415b4eb151c922c82c0191294d0aa443dd2cb5133e6bfe&#x27;
+      - &#x27;3ab9575225e00a83a4ac2b534da5a710bdcf6eb72884944c437b5fbe5c5c&#x27;
   condition: selection
 falsepositives:
   - Legitimate administrative tooling
@@ -343,7 +343,7 @@ level: medium
     meta:
         description = &quot;APEX detection: DFIR Report  The Gentlemen &amp;amp; SystemBC: A Sneak Peek Behind &quot;
         author      = &quot;CYBERDUDEBIVASH SENTINEL APEX v141.0.0&quot;
-        date        = &quot;2026-04-25&quot;
+        date        = &quot;2026-04-26&quot;
         reference   = &quot;https://intel.cyberdudebivash.com&quot;
         severity    = &quot;high&quot;
     strings:
@@ -354,7 +354,7 @@ level: medium
 }
 </pre></div><div class='rule-block'><div class='rule-header'><span class='rule-badge rule-kql'>KQL – Microsoft Sentinel / Defender XDR</span><span class='copy-hint'>Retro-hunt: last 30 days</span></div><pre>// KQL  Microsoft Sentinel / Defender XDR
 // APEX Advisory Hunt: DFIR Report  The Gentlemen &amp;amp; SystemBC: A Sneak Peek Behind 
-// Generated: 2026-04-25T22:03Z
+// Generated: 2026-04-26T03:49Z
 
 let lookback = 30d;
 let apex_iocs = dynamic([&amp;quot;025fc0976c548fb5a880c83ea3eb21a5f23c5d53c4e51e862b&amp;quot;, &amp;quot;078163d5c16f64caa5a14784323fd51451b8c831c73396b967&amp;quot;, &amp;quot;1eece1e1ba4b96e6c784729f0608ad2939cfb67bc4236dfaba&amp;quot;, &amp;quot;22b38dad7da097ea03aa28d0614164cd25fafeb1383dbc1504&amp;quot;]);
@@ -374,7 +374,7 @@ DeviceProcessEvents
 | where count_ &gt; 3
 | order by count_ desc;</pre></div><div class='rule-block'><div class='rule-header'><span class='rule-badge rule-spl'>SPL – Splunk Enterprise Security</span><span class='copy-hint'>ES correlation search ready</span></div><pre>| SPL  Splunk Enterprise Security
 | APEX Advisory Hunt: DFIR Report  The Gentlemen &amp;amp; SystemBC: A Sneak Peek Behind 
-| Generated: 2026-04-25T22:03Z
+| Generated: 2026-04-26T03:49Z
 
 index=* sourcetype=zeek* OR sourcetype=suricata*
 (&amp;quot;025fc0976c548fb5a880c83ea3eb21a5f23c5d53c4e51e862b&amp;quot; OR &amp;quot;078163d5c16f64caa5a14784323fd51451b8c831c73396b967&amp;quot; OR &amp;quot;1eece1e1ba4b96e6c784729f0608ad2939cfb67bc4236dfaba&amp;quot; OR &amp;quot;22b38dad7da097ea03aa28d0614164cd25fafeb1383dbc1504&amp;quot;)

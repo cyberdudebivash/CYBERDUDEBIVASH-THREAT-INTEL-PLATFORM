@@ -315,25 +315,25 @@ description: &gt;
 references:
   - https://intel.cyberdudebivash.com
 author: CYBERDUDEBIVASH SENTINEL APEX
-date: 2026/04/25
+date: 2026/04/26
 tags:
   # TTPs: enrich via APEX Enterprise
-  # Source: APEX advisory  replace with confirmed technique IDs
+  # Source: APEX advisory - replace with confirmed technique IDs
 logsource:
   category: process_creation
   product: windows
 detection:
   selection:
-        CommandLine|contains:
-          - &#x27;https://cybersecuritynews.com/hackers-use-pastebin-hosted-po&#x27;
-          - &#x27;api.ipify&#x27;
-          - &#x27;api.telegram.org&#x27;
-          - &#x27;diag.zip&#x27;
-          - &#x27;web.telegram.org&#x27;
     Image|endswith:
       - &#x27;\\cmd.exe&#x27;
       - &#x27;\\powershell.exe&#x27;
       - &#x27;\\wscript.exe&#x27;
+    CommandLine|contains:
+      - &#x27;https://cybersecuritynews.com/hackers-use-pastebin-hosted-po&#x27;
+      - &#x27;api.ipify&#x27;
+      - &#x27;api.telegram.org&#x27;
+      - &#x27;diag.zip&#x27;
+      - &#x27;web.telegram.org&#x27;
   condition: selection
 falsepositives:
   - Legitimate administrative tooling
@@ -342,7 +342,7 @@ level: medium
     meta:
         description = &quot;APEX detection: Hackers Use Pastebin-Hosted PowerShell Script to Steal Teleg&quot;
         author      = &quot;CYBERDUDEBIVASH SENTINEL APEX v141.0.0&quot;
-        date        = &quot;2026-04-25&quot;
+        date        = &quot;2026-04-26&quot;
         reference   = &quot;https://intel.cyberdudebivash.com&quot;
         severity    = &quot;high&quot;
     strings:
@@ -356,7 +356,7 @@ level: medium
 }
 </pre></div><div class='rule-block'><div class='rule-header'><span class='rule-badge rule-kql'>KQL – Microsoft Sentinel / Defender XDR</span><span class='copy-hint'>Retro-hunt: last 30 days</span></div><pre>// KQL  Microsoft Sentinel / Defender XDR
 // APEX Advisory Hunt: Hackers Use Pastebin-Hosted PowerShell Script to Steal Teleg
-// Generated: 2026-04-25T22:03Z
+// Generated: 2026-04-26T03:49Z
 
 let lookback = 30d;
 let apex_iocs = dynamic([&amp;quot;https://cybersecuritynews.com/hackers-use-pastebin&amp;quot;, &amp;quot;api.ipify&amp;quot;, &amp;quot;api.telegram.org&amp;quot;, &amp;quot;diag.zip&amp;quot;]);
@@ -376,7 +376,7 @@ DeviceProcessEvents
 | where count_ &gt; 3
 | order by count_ desc;</pre></div><div class='rule-block'><div class='rule-header'><span class='rule-badge rule-spl'>SPL – Splunk Enterprise Security</span><span class='copy-hint'>ES correlation search ready</span></div><pre>| SPL  Splunk Enterprise Security
 | APEX Advisory Hunt: Hackers Use Pastebin-Hosted PowerShell Script to Steal Teleg
-| Generated: 2026-04-25T22:03Z
+| Generated: 2026-04-26T03:49Z
 
 index=* sourcetype=zeek* OR sourcetype=suricata*
 (&amp;quot;https://cybersecuritynews.com/hackers-use-pastebin&amp;quot; OR &amp;quot;api.ipify&amp;quot; OR &amp;quot;api.telegram.org&amp;quot; OR &amp;quot;diag.zip&amp;quot;)
