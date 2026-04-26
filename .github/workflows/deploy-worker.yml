@@ -14,8 +14,8 @@
 #
 # STABILITY GUARANTEES (v141.0.0):
 #   * PLATFORM_VERSION is auto-injected from config/version.json (SSOT)
-#     — workflow env block value is a fallback only; dynamic step always wins
-#     — version mismatch between workflow and config is now structurally impossible
+#     -- workflow env block value is a fallback only; dynamic step always wins
+#     -- version mismatch between workflow and config is now structurally impossible
 #   * JS syntax validated BEFORE any deploy attempt (node --check)
 #   * Wrangler v3 (proven stable  -  v4 has breaking TOML/env changes)
 #   * Deploy retried once on transient failure
@@ -41,7 +41,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   WORKER_DIR: workers/intel-gateway
-  # FALLBACK ONLY — overridden dynamically from config/version.json in "Inject version" step.
+  # FALLBACK ONLY -- overridden dynamically from config/version.json in "Inject version" step.
   # Update this when bumping versions to keep diffs readable, but the dynamic step is the SSOT.
   PLATFORM_VERSION: "141.0.0"
 
@@ -65,7 +65,7 @@ jobs:
 
       - name: " Inject version from config/version.json (SSOT)"
         run: |
-          # Read PLATFORM_VERSION from config/version.json — single source of truth.
+          # Read PLATFORM_VERSION from config/version.json -- single source of truth.
           # This overwrites the hardcoded env block value, making version drift structurally
           # impossible: the workflow always deploys exactly what config/version.json declares.
           python3 -c "

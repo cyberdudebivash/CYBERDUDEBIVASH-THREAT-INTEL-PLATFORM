@@ -138,7 +138,7 @@ jobs:
       # -----------------------------------------------------------------------
       # STAGE 0: INSTALL DEPENDENCIES
       # Install requirements.txt FIRST so urllib3/charset_normalizer version
-      # pins are set before requests is imported — eliminates RequestsDependencyWarning.
+      # pins are set before requests is imported -- eliminates RequestsDependencyWarning.
       # Simple pip calls only. No inline Python.
       # -----------------------------------------------------------------------
       - name: "Install pipeline dependencies"
@@ -194,11 +194,11 @@ jobs:
         run: python3 scripts/run_pipeline.py
 
       # -----------------------------------------------------------------------
-      # STAGE 3.2: REPORT GENERATOR — INTERNAL DOSSIER HARDENING (v134.0)
+      # STAGE 3.2: REPORT GENERATOR -- INTERNAL DOSSIER HARDENING (v134.0)
       # Generates HTML Tactical Dossier for every advisory in the manifest.
       # Skips entries that already have an up-to-date report (idempotent).
       # HARD FAIL: exits non-zero if any report generation fails.
-      # NO || true — pipeline stops if any report is missing.
+      # NO || true -- pipeline stops if any report is missing.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.2 - Generate Internal HTML Reports (report_generator)"
         run: python3 scripts/report_generator.py --manifest data/stix/feed_manifest.json
@@ -206,13 +206,13 @@ jobs:
       # -----------------------------------------------------------------------
       # STAGE 3.2.5: ENCODING REMEDIATION PASS
       # Repairs mojibake and double-encoding artefacts in all existing HTML
-      # report files. Idempotent — no-op once all reports are clean.
+      # report files. Idempotent -- no-op once all reports are clean.
       # -----------------------------------------------------------------------
-      - name: Stage 3.2.5 — Encoding Remediation Pass
+      - name: Stage 3.2.5 -- Encoding Remediation Pass
         run: python3 scripts/fix_report_encoding.py || true
 
       # -----------------------------------------------------------------------
-      # STAGE 3.3: REPORT VALIDATION GATE (P0 — HARD FAIL)
+      # STAGE 3.3: REPORT VALIDATION GATE (P0 -- HARD FAIL)
       # Verifies every advisory has a physical HTML file on disk:
       #   - file exists, size >= 500 bytes, starts with valid HTML
       #   - report_url is internal /reports/ path (never external URL)
@@ -277,7 +277,7 @@ jobs:
         run: python3 scripts/validate_repo.py
 
       # -----------------------------------------------------------------------
-      # STAGE 6: TELEGRAM FAILURE ALERT (v141.0 — always runs, zero-exit)
+      # STAGE 6: TELEGRAM FAILURE ALERT (v141.0 -- always runs, zero-exit)
       # Fires ONLY on job failure so ops team is notified immediately.
       # Never blocks the pipeline - exits 0 regardless of delivery status.
       # -----------------------------------------------------------------------
