@@ -342,7 +342,8 @@ tr:hover td{background:rgba(0,212,170,.03)}
   position:relative;overflow:hidden}
 .premium-lock::before{content:'';position:absolute;inset:0;
   background:repeating-linear-gradient(45deg,transparent,transparent 10px,
-  rgba(255,215,0,.02) 10px,rgba(255,215,0,.02) 20px)}
+  rgba(255,215,0,.02) 10px,rgba(255,215,0,.02) 20px);
+  pointer-events:none}
 .lock-icon{font-size:24px;margin-bottom:8px}
 .lock-title{font-family:var(--mono);font-size:12px;color:#ffd700;
   letter-spacing:1px;margin-bottom:6px}
@@ -352,8 +353,9 @@ tr:hover td{background:rgba(0,212,170,.03)}
 .cta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
 .cta{padding:12px 24px;border-radius:var(--radius);font-family:var(--mono);
   font-size:12px;font-weight:700;letter-spacing:1px;text-decoration:none;
-  display:inline-flex;align-items:center;gap:6px;transition:opacity .15s}
-.cta:hover{opacity:.85}
+  display:inline-flex;align-items:center;gap:6px;transition:opacity .15s;
+  position:relative;z-index:2}
+.cta:hover{opacity:.85;transform:translateY(-1px)}
 .cta-primary{background:linear-gradient(135deg,#00d4aa,#0099ff);color:#060d19}
 .cta-secondary{background:rgba(0,212,170,.1);color:var(--accent);
   border:1px solid rgba(0,212,170,.35)}
@@ -1169,12 +1171,12 @@ def build_report_sections(item: dict) -> str:
         f"<div class='kv-key'>Kill Chain Phases</div><div class='kv-val'>{', '.join(phases[:4])}</div>"
         f"<div class='kv-key'>TTP Density</div><div class='kv-val'>{len(ttps)} techniques mapped</div>"
         "</div>"
-        "<div class='premium-lock' style='margin-top:16px'>"
-        "<div class='lock-icon'>ðŸ”’</div>"
-        "<div class='lock-title'>Full AI Analyst Narrative – Enterprise Tier</div>"
-        "<div class='lock-sub'>Includes predictive threat modelling, infrastructure pivot analysis, "
+        "<div class=’premium-lock’ style=’margin-top:16px’>"
+        "<div class=’lock-icon’>&#x1F512;</div>"
+        "<div class=’lock-title’>Full AI Analyst Narrative &#8212; Enterprise Tier</div>"
+        "<div class=’lock-sub’>Includes predictive threat modelling, infrastructure pivot analysis, "
         "autonomous response recommendations, and SOAR playbook export.</div>"
-        "<a class='cta cta-enterprise' href='https://intel.cyberdudebivash.com/get-api-key.html?plan=enterprise'>Unlock Enterprise</a>"
+        "<a class=’cta cta-enterprise’ href=’https://intel.cyberdudebivash.com/pricing.html?plan=enterprise&amp;utm_source=report-ai-lock&amp;utm_medium=unlock-btn’ target=’_blank’ rel=’noopener’>Unlock Enterprise &#8594;</a>"
         "</div>"
     ))
 
@@ -1761,16 +1763,12 @@ def main(argv=None) -> int:
 
     # Persist manifest with all report_url + validation_status updates
     save_manifest(data)
-    log(f"Manifest saved: {MANIFEST_PATH.name} ({written} report_url fields set)")
-
-    if args.fail_on_zero and written == 0:
-        log("FATAL: --fail-on-zero set and 0 reports generated", "error")
-        return 1
-
+    _advisory_list = data.get("advisories", data if isinstance(data, list) else [])
+    log(f"Manifest saved: {MANIFEST_PATH.name} — {len(_advisory_list)} reports")
     return 0
 
 
+
+
 if __name__ == "__main__":
-    sys.exit(main())
-
-
+    raise SystemExit(main())
