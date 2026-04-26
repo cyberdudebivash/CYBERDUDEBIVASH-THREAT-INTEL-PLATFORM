@@ -106,10 +106,26 @@ MANIFEST_FALLBACKS: Dict[str, Any] = {
         "_regenerated_by": "sanitize_repo.py",
     },
     "config/version.json": {
-        "version": "131.0.0",
+        "version": "141.0.0",
         "platform": "SENTINEL-APEX",
-        "build": "v134.0.0",
+        "build": "v141.0.0",
         "_regenerated_by": "sanitize_repo.py",
+    },
+    # Root version.json — complete fallback added run #871 (P0 fix)
+    # apply_v131_upgrades.py will atomically overwrite this in Stage 9
+    "version.json": {
+        "version": "141.0.0",
+        "platform": "SENTINEL-APEX",
+        "release": "v141.0.0",
+        "pipeline_version": "141.0.0",
+        "updated_at": "",
+        "build": "v141-PRODUCTION",
+        "stability": "stable",
+        "changelog": "v141: sentinel-apex production pipeline",
+        "generated_at": "",
+        "_generator": "sanitize_repo.py emergency fallback",
+        "_regenerated_by": "sanitize_repo.py",
+        "_reason": "JSON corruption detected — apply_v131_upgrades.py will overwrite in Stage 9",
     },
     # Root feed.json -- must always be a valid JSON array (never YAML content)
     "feed.json": [],
@@ -516,25 +532,4 @@ def main() -> None:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "files_scanned": len(files),
             "files_modified": modified_count,
-            "healed": healed_count,
-            "regenerated": regenerated_count,
-            "errors": error_count,
-            "events": [ev.to_dict() for ev in all_events],
-        }
-        print(_json.dumps(summary, indent=2, default=str))
-
-    # P0 GUARANTEE: This script MUST exit 0 regardless of what it found.
-    # It is a pre-flight sanitizer — it MUST NOT kill the pipeline.
-    sys.exit(0)
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        import traceback
-        logger.critical(
-            f"[P0-GUARD] sanitize_repo.py crashed unexpectedly — "
-            f"exiting 0 to preserve pipeline: {e}\n{traceback.format_exc()}"
-        )
-        sys.exit(0)
+           

@@ -137,14 +137,16 @@ jobs:
 
       # -----------------------------------------------------------------------
       # STAGE 0: INSTALL DEPENDENCIES
+      # Install requirements.txt FIRST so urllib3/charset_normalizer version
+      # pins are set before requests is imported — eliminates RequestsDependencyWarning.
       # Simple pip calls only. No inline Python.
       # -----------------------------------------------------------------------
       - name: "Install pipeline dependencies"
         run: |
           python -m pip install --upgrade pip --quiet
-          pip install --quiet requests feedparser beautifulsoup4 pydantic python-dotenv psutil cryptography pyjwt
-          pip install --quiet reportlab fpdf2 || true
           [ -f requirements.txt ] && pip install --quiet -r requirements.txt || true
+          pip install --quiet feedparser beautifulsoup4 pydantic python-dotenv psutil cryptography pyjwt
+          pip install --quiet reportlab fpdf2 || true
 
       # -----------------------------------------------------------------------
       # STAGE 0: ENSURE REQUIRED DIRECTORIES
@@ -281,5 +283,4 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "STAGE 6 - Telegram Failure Alert"
         if: failure()
-        run: python3 scripts/pipeline_alert.py --status failure --message "Workflow step failed. Check GitHub Actions log for root cause."
-        continue-on-error: true
+        run:
