@@ -2108,7 +2108,13 @@ async function handleHealth(request, env, rid) {
     try {
       await env.RATE_LIMIT_KV.put("health:ping", "1", { expirationTtl: 10 });
       checks.kv_rate_limit = "ok";
-    } catch { checks.kv_rate_limit = "error"; }
+    } catch (e) {
+      // v141.0.0: kv_rate_limit write failure is NON-FATAL. All production
+      // rate-limit operations have .catch(()=>{}) guards — platform stays fully
+      // functional. Downgraded from "error" to "warn" so a single KV hiccup
+      // does not flip the customer-visible status to "degraded".
+      checks.kv_rate_limit = "warn";
+    }
   } else checks.kv_rate_limit = "not_bound";
 
   if (env?.API_KEYS_KV) {
@@ -2132,6 +2138,9 @@ async function handleHealth(request, env, rid) {
     } catch { checks.feed_index = "error"; }
   }
 
+  // v141.0.0: JWT secret presence check — surface auth readiness in health
+  checks.jwt_configured = env?.CDB_JWT_SECRET ? true : false;
+
   // v134.0: Include live advisory count + last_sync from manifest for full pipeline visibility
   let advisoryCount = 0;
   let lastSync      = null;
@@ -2144,9 +2153,19 @@ async function handleHealth(request, env, rid) {
     manifestVersion = index.source_meta?.version || null;
   } catch { /* non-critical – health still returns */ }
 
-  const allOk = Object.values(checks).every(v => v === "ok" || v.startsWith("cached:"));
+  // v141.0.0: Only truly critical check failures cause "degraded".
+  // kv_rate_limit "warn" and jwt_configured false are advisory-only —
+  // they do not block platform data serving or feed delivery.
+  const CRITICAL_CHECKS = ["kv_api_keys", "r2_intel"];
+  const criticalOk = CRITICAL_CHECKS.every(k => checks[k] === "ok" || checks[k] === undefined);
+  const allOk      = Object.entries(checks).every(([k, v]) =>
+    k === "jwt_configured" ? true :       // boolean, not string
+    v === "ok" || v.startsWith("cached:") || v === "warn"
+  );
+  const statusStr = criticalOk && allOk ? "healthy" : criticalOk ? "ok" : "degraded";
+
   return jsonResponse({
-    status:           allOk ? "healthy" : "degraded",
+    status:           statusStr,
     version:          CONFIG.GATEWAY_VERSION,
     gateway:          `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
     platform:         "CYBERDUDEBIVASH® SENTINEL APEX",
@@ -2162,7 +2181,7 @@ async function handleHealth(request, env, rid) {
     },
     checks,
     request_id: rid,
-  }, allOk ? 200 : 207);
+  }, statusStr === "degraded" ? 207 : 200);
 }
 
 async function handleValidateKey(request, env, rid) {
