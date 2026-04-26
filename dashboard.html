@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>My Dashboard — CYBERDUDEBIVASH® SENTINEL APEX</title>
+<meta name="description" content="Manage your SENTINEL APEX API keys, view usage stats, and upgrade your intelligence tier."/>
+<style>
+:root{
+  --bg:#050810;--surface:#0a0f1e;--surface2:#0d1428;--border:#1a2040;
+  --accent:#00d4aa;--accent2:#6366f1;--red:#ef4444;--orange:#f97316;
+  --text:#e2e8f0;--muted:#64748b;--mono:'JetBrains Mono',monospace;
+  --green:#22c55e;--gold:#ffd700;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+code{font-family:var(--mono);background:rgba(0,212,170,.08);padding:2px 6px;border-radius:4px;font-size:13px}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;gap:16px}
+.brand{font-weight:800;font-size:14px;color:var(--accent)}
+.brand span{color:var(--text);font-size:11px;margin-left:8px;background:rgba(99,102,241,.15);padding:2px 8px;border-radius:4px}
+.nav-links{display:flex;gap:20px;margin-left:auto;font-size:13px}
+.user-badge{background:var(--surface2);border:1px solid var(--border);padding:6px 14px;border-radius:20px;font-size:12px;display:flex;align-items:center;gap:8px}
+.tier-dot{width:8px;height:8px;border-radius:50%}
+.dot-free{background:var(--green)}
+.dot-pro{background:var(--accent)}
+.dot-ent{background:var(--gold)}
+.container{max-width:1100px;margin:0 auto;padding:40px 24px}
+/* Auth gate */
+#auth-gate{display:flex;align-items:center;justify-content:center;min-height:60vh}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:48px;text-align:center;max-width:480px;width:100%}
+.auth-card h2{font-size:24px;margin-bottom:8px}
+.auth-card p{color:var(--muted);margin-bottom:32px;font-size:15px}
+.form-group{margin-bottom:16px;text-align:left}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:12px 16px;border-radius:8px;font-size:14px;outline:none;transition:border .15s}
+input:focus{border-color:var(--accent)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;border:none;transition:all .2s;width:100%}
+.btn-primary{background:var(--accent);color:#050810}
+.btn-primary:hover{background:#00b899}
+.btn-sm{width:auto;padding:8px 16px;font-size:13px}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+/* Dashboard */
+#dashboard{display:none}
+.page-header{margin-bottom:40px}
+.page-header h1{font-size:28px;font-weight:800;margin-bottom:4px}
+.page-header p{color:var(--muted)}
+/* Stats row */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:40px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px}
+.stat-value{font-size:28px;font-weight:800;font-family:var(--mono)}
+.stat-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.stat-accent{color:var(--accent)}
+.stat-gold{color:var(--gold)}
+.stat-green{color:var(--green)}
+/* Cards */
+.section-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px}
+.section-card h3{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+/* API Keys */
+.key-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.key-row:last-child{border-bottom:none}
+.key-label{font-weight:600;font-size:14px;flex:1}
+.key-value{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--surface2);padding:4px 10px;border-radius:4px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;border:1px solid var(--border)}
+.key-value:hover{border-color:var(--accent);color:var(--accent)}
+.key-tier{font-size:11px;padding:2px 8px;border-radius:10px}
+.tier-free-badge{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.tier-pro-badge{background:rgba(0,212,170,.1);color:var(--accent);border:1px solid rgba(0,212,170,.3)}
+.tier-ent-badge{background:rgba(255,215,0,.1);color:var(--gold);border:1px solid rgba(255,215,0,.3)}
+/* Upgrade card */
+.upgrade-card{background:linear-gradient(135deg,rgba(0,212,170,.08),rgba(99,102,241,.08));border:1px solid rgba(0,212,170,.25);border-radius:12px;padding:28px}
+.upgrade-card h3{font-size:18px;margin-bottom:8px}
+.upgrade-card p{color:var(--muted);margin-bottom:20px;font-size:14px}
+.upgrade-options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.upgrade-option{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:20px;text-align:center;transition:border .2s}
+.upgrade-option:hover{border-color:var(--accent)}
+.upgrade-price{font-size:28px;font-weight:800;color:var(--accent);font-family:var(--mono)}
+.upgrade-price span{font-size:14px;color:var(--muted)}
+.upgrade-name{font-weight:700;margin-bottom:8px}
+.upgrade-features{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.8}
+/* Usage bar */
+.usage-bar-track{background:var(--surface2);border-radius:4px;height:8px;margin:8px 0;overflow:hidden}
+.usage-bar-fill{background:linear-gradient(90deg,var(--accent),var(--accent2));height:100%;border-radius:4px;transition:width 1s}
+/* Toast */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--accent);padding:12px 20px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
+.error-msg{color:var(--red);font-size:13px;margin-top:8px}
+.loading-spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">CYBERDUDEBIVASH® SENTINEL APEX <span>v141.0.0</span></div>
+  <nav class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/store.html">Store</a>
+    <a href="/api-docs.html">API Docs</a>
+  </nav>
+  <div class="user-badge" id="user-badge" style="display:none">
+    <div class="tier-dot dot-free" id="tier-dot"></div>
+    <span id="user-email-badge">Loading...</span>
+  </div>
+</div>
+
+<!-- AUTH GATE -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <div style="font-size:40px;margin-bottom:16px">🛡️</div>
+    <h2>Sign in to Dashboard</h2>
+    <p>Access your API keys, usage stats, and account settings. New users get instant FREE tier access.</p>
+    <form id="login-form">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="email-input" placeholder="analyst@soc.com" required/>
+      </div>
+      <div class="form-group">
+        <label>Display Name <span style="color:var(--muted);font-size:11px;text-transform:none">(first-time registration)</span></label>
+        <input type="text" id="name-input" placeholder="SOC Analyst"/>
+      </div>
+      <button type="submit" class="btn btn-primary" id="login-btn">⚡ Sign In / Register</button>
+      <div class="error-msg" id="login-error" style="display:none"></div>
+    </form>
+    <p style="margin-top:20px;font-size:12px;color:var(--muted)">
+      By signing in you agree to our <a href="/pricing.html">Terms of Service</a>.<br/>
+      No password required — we send a JWT to your session.
+    </p>
+  </div>
+</div>
+
+<!-- DASHBOARD (hidden until auth) -->
+<div id="dashboard" class="container">
+
+  <div class="page-header">
+    <h1>My Dashboard</h1>
+    <p id="welcome-msg">Welcome back — managing your SENTINEL APEX account.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Current Tier</div>
+      <div class="stat-value stat-accent" id="stat-tier">FREE</div>
+      <div class="stat-sub" id="stat-tier-sub">100 API calls/day</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Live Advisories</div>
+      <div class="stat-value stat-green" id="stat-advisories">—</div>
+      <div class="stat-sub">updated daily</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">API Keys</div>
+      <div class="stat-value stat-accent" id="stat-keys">—</div>
+      <div class="stat-sub" id="stat-keys-sub">of 2 allowed (FREE)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Platform Status</div>
+      <div class="stat-value stat-green" id="stat-status">—</div>
+      <div class="stat-sub" id="stat-version">v141.0.0</div>
+    </div>
+  </div>
+
+  <!-- API Keys -->
+  <div class="section-card">
+    <h3>🔑 API Keys
+      <button class="btn btn-sm btn-primary" id="create-key-btn" onclick="createKey()" style="margin-left:auto;font-size:12px;padding:6px 14px">+ New Key</button>
+    </h3>
+    <div id="keys-list">
+      <div style="color:var(--muted);font-size:14px;text-align:center;padding:24px">Loading keys...</div>
+    </div>
+    <div class="error-msg" id="key-error" style="display:none"></div>
+  </div>
+
+  <!-- Usage -->
+  <div class="section-card">
+    <h3>📊 Usage &amp; Limits</h3>
+    <div id="usage-section">
+      <div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span>API Calls Today</span>
+          <span id="usage-calls">—</span>
+        </div>
+        <div class="usage-bar-track"><div class="usage-bar-fill" id="usage-bar" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--muted)" id="usage-limit-label">Limit: 100/day (FREE tier)</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:16px">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Feed Items Visible</div>
+          <div style="font-size:18px;font-weight:700" id="usage-feed-items">10</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">IOC Access</div>
+          <div style="font-size:18px;font-weight:700" id="usage-ioc">Locked</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">STIX Export</div>
+          <div style="font-size:18px;font-weight:700" id="usage-stix">Enterprise</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Access -->
+  <div class="section-card">
+    <h3>⚡ Quick Access</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+      <a href="/api/preview" target="_blank" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;display:block;color:var(--text);transition:border .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:20px;margin-bottom:8px">📡</div>
+        <div style="font-weight:700;font-size:14px">Live Preview Feed</div>
+        <div style="font-size:12px;color:var(--muted)">Top 10 threats, no auth required</div>
+      </a>
+      <a href="/api-docs.html" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;display:block;color:var(--text);transition:border .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:20px;margin-bottom:8px">📚</div>
+        <div style="font-weight:700;font-size:14px">API Documentation</div>
+        <div style="font-size:12px;color:var(--muted)">Full endpoint reference</div>
+      </a>
+      <a href="/store.html" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;display:block;color:var(--text);transition:border .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:20px;margin-bottom:8px">🛒</div>
+        <div style="font-weight:700;font-size:14px">Detection Packs</div>
+        <div style="font-size:12px;color:var(--muted)">Sigma, YARA, KQL, SPL rules</div>
+      </a>
+      <a href="/pricing.html" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;display:block;color:var(--text);transition:border .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:20px;margin-bottom:8px">⬆️</div>
+        <div style="font-weight:700;font-size:14px">Upgrade Plan</div>
+        <div style="font-size:12px;color:var(--muted)">PRO $49/mo · Enterprise $299/mo</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Upgrade CTA (hidden for enterprise) -->
+  <div class="upgrade-card" id="upgrade-section">
+    <h3>Unlock Full Threat Intelligence</h3>
+    <p>Your FREE tier gives you a preview. Upgrade to access the full advisory feed, IOC data, detection rules, and STIX 2.1 export.</p>
+    <div class="upgrade-options">
+      <div class="upgrade-option">
+        <div class="upgrade-name" style="color:var(--accent)">PRO</div>
+        <div class="upgrade-price">$49<span>/mo</span></div>
+        <div class="upgrade-features">
+          ✓ 100 advisories/day<br/>
+          ✓ Full IOC access<br/>
+          ✓ Detection rules<br/>
+          ✓ 5,000 API calls/day
+        </div>
+        <a href="/get-api-key.html?plan=pro" class="btn btn-primary btn-sm" style="width:100%">Upgrade to PRO</a>
+      </div>
+      <div class="upgrade-option" style="border-color:rgba(255,215,0,.3)">
+        <div class="upgrade-name" style="color:var(--gold)">ENTERPRISE</div>
+        <div class="upgrade-price" style="color:var(--gold)">$299<span>/mo</span></div>
+        <div class="upgrade-features">
+          ✓ Unlimited advisories<br/>
+          ✓ STIX 2.1 export<br/>
+          ✓ SIEM webhooks<br/>
+          ✓ 99.9% SLA + support
+        </div>
+        <a href="/get-api-key.html?plan=enterprise" class="btn btn-sm" style="width:100%;background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);color:var(--gold)">Upgrade to Enterprise</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Account -->
+  <div class="section-card" style="margin-top:24px">
+    <h3>⚙️ Account</h3>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600" id="account-email">—</div>
+        <div style="font-size:12px;color:var(--muted)" id="account-tier-label">FREE tier</div>
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="logout()">Sign Out</button>
+    </div>
+  </div>
+
+</div><!-- /dashboard -->
+
+<div id="toast">✓ Copied to clipboard</div>
+
+<script>
+const API = 'https://intel.cyberdudebivash.com';
+
+// ── Storage ──────────────────────────────────────────────────────────────────
+function getToken() { return sessionStorage.getItem('cdb_token'); }
+function setToken(t) { sessionStorage.setItem('cdb_token', t); }
+function clearToken() { sessionStorage.removeItem('cdb_token'); sessionStorage.removeItem('cdb_user'); }
+function getUser() { try { return JSON.parse(sessionStorage.getItem('cdb_user')||'null'); } catch { return null; } }
+function setUser(u) { sessionStorage.setItem('cdb_user', JSON.stringify(u)); }
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.opacity = '1';
+  setTimeout(() => t.style.opacity = '0', 2500);
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = document.getElementById('email-input').value.trim();
+  const name  = document.getElementById('name-input').value.trim();
+  const btn   = document.getElementById('login-btn');
+  const err   = document.getElementById('login-error');
+  if (!email) return;
+
+  btn.innerHTML = '<span class="loading-spinner"></span> Signing in...';
+  btn.disabled = true;
+  err.style.display = 'none';
+
+  try {
+    const resp = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name: name || email.split('@')[0] })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.token) throw new Error(data.message || data.error || 'Login failed');
+    setToken(data.token);
+    setUser({ email: data.user?.email || email, tier: data.tier || 'free' });
+    showDashboard();
+  } catch(ex) {
+    err.textContent = ex.message.includes('jwt_secret_not_configured')
+      ? 'Platform auth is being configured. Try again in a few minutes.'
+      : (ex.message || 'Login failed — check console for details');
+    err.style.display = 'block';
+  } finally {
+    btn.textContent = '⚡ Sign In / Register';
+    btn.disabled = false;
+  }
+});
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function showDashboard() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  const user = getUser();
+  if (user) {
+    document.getElementById('user-badge').style.display = 'flex';
+    document.getElementById('user-email-badge').textContent = user.email;
+    document.getElementById('welcome-msg').textContent = `Welcome, ${user.email}`;
+    document.getElementById('account-email').textContent = user.email;
+    updateTierUI(user.tier);
+  }
+  loadHealth();
+  loadKeys();
+}
+
+function updateTierUI(tier) {
+  const tierMap = {
+    free:       { label:'FREE',       calls:'100 API calls/day', feed:10, ioc:'Locked',    stix:'Enterprise', color:'dot-free', upgrade:true },
+    pro:        { label:'PRO',        calls:'5,000 API calls/day', feed:100, ioc:'Included', stix:'Enterprise', color:'dot-pro', upgrade:true },
+    premium:    { label:'PRO',        calls:'5,000 API calls/day', feed:100, ioc:'Included', stix:'Enterprise', color:'dot-pro', upgrade:true },
+    enterprise: { label:'ENTERPRISE', calls:'Unlimited',           feed:'∞',  ioc:'Full',     stix:'Included',   color:'dot-ent', upgrade:false },
+  };
+  const cfg = tierMap[tier] || tierMap.free;
+  document.getElementById('stat-tier').textContent = cfg.label;
+  document.getElementById('stat-tier-sub').textContent = cfg.calls;
+  document.getElementById('account-tier-label').textContent = cfg.label + ' tier';
+  document.getElementById('usage-feed-items').textContent = cfg.feed;
+  document.getElementById('usage-ioc').textContent = cfg.ioc;
+  document.getElementById('usage-stix').textContent = cfg.stix;
+  document.getElementById('stat-keys-sub').textContent =
+    `of ${tier==='enterprise'?50:tier==='pro'?10:2} allowed (${cfg.label})`;
+  const dot = document.getElementById('tier-dot');
+  dot.className = 'tier-dot ' + cfg.color;
+  if (!cfg.upgrade) document.getElementById('upgrade-section').style.display = 'none';
+}
+
+async function loadHealth() {
+  try {
+    const r = await fetch(API + '/api/health');
+    const d = await r.json();
+    document.getElementById('stat-advisories').textContent = d.pipeline?.advisory_count || '—';
+    document.getElementById('stat-status').textContent = d.status === 'healthy' ? '✓ Healthy' : d.status;
+    document.getElementById('stat-version').textContent = 'v' + (d.version || '141.0.0');
+  } catch { document.getElementById('stat-status').textContent = 'Checking...'; }
+}
+
+async function loadKeys() {
+  const token = getToken();
+  const list  = document.getElementById('keys-list');
+  if (!token) { list.innerHTML = '<div style="color:var(--muted);font-size:14px;padding:16px">Sign in to view keys.</div>'; return; }
+  try {
+    const r = await fetch(API + '/api/keys', { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.message || 'Failed to load keys');
+    const keys = d.keys || [];
+    document.getElementById('stat-keys').textContent = keys.length;
+    if (keys.length === 0) {
+      list.innerHTML = '<div style="color:var(--muted);font-size:14px;text-align:center;padding:24px">No API keys yet. Create your first key above.</div>';
+      return;
+    }
+    list.innerHTML = keys.map(k => `
+      <div class="key-row">
+        <div class="key-label">${escHtml(k.label || 'API Key')}</div>
+        <div class="key-value" title="Click to copy" onclick="copyKey(this,'${escHtml(k.key_id)}')">${escHtml(k.key_id?.slice(0,8)+'...' || '—')}</div>
+        <span class="key-tier tier-${k.tier||'free'}-badge">${(k.tier||'free').toUpperCase()}</span>
+        <span style="font-size:11px;color:var(--muted)">${k.created_at ? new Date(k.created_at).toLocaleDateString() : ''}</span>
+      </div>
+    `).join('');
+  } catch(ex) {
+    list.innerHTML = `<div style="color:var(--muted);font-size:14px;padding:16px">${escHtml(ex.message)}</div>`;
+  }
+}
+
+async function createKey() {
+  const token = getToken();
+  const err   = document.getElementById('key-error');
+  if (!token) { err.textContent = 'Please sign in first.'; err.style.display = 'block'; return; }
+  const label = prompt('Name this API key:', 'SIEM Integration Key');
+  if (!label) return;
+  try {
+    const r = await fetch(API + '/api/keys', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.message || d.error || 'Key creation failed');
+    toast('✓ API key created: ' + (d.key_id || ''));
+    loadKeys();
+  } catch(ex) {
+    err.textContent = ex.message;
+    err.style.display = 'block';
+  }
+}
+
+function copyKey(el, keyId) {
+  navigator.clipboard.writeText(keyId).then(() => {
+    toast('✓ API key ID copied');
+    el.style.borderColor = 'var(--accent)';
+    setTimeout(() => el.style.borderColor = 'var(--border)', 1500);
+  });
+}
+
+function logout() {
+  clearToken();
+  document.getElementById('auth-gate').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('user-badge').style.display = 'none';
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  if (getToken()) showDashboard();
+});
+</script>
+</body>
+</html>
