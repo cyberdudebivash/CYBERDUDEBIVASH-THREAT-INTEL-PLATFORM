@@ -532,4 +532,25 @@ def main() -> None:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "files_scanned": len(files),
             "files_modified": modified_count,
-           
+            "healed": healed_count,
+            "regenerated": regenerated_count,
+            "errors": error_count,
+            "events": [ev.to_dict() for ev in all_events],
+        }
+        print(_json.dumps(summary, indent=2, default=str))
+
+    # P0 GUARANTEE: This script MUST exit 0 regardless of what it found.
+    # It is a pre-flight sanitizer -- it MUST NOT kill the pipeline.
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        logger.critical(
+            "[P0-GUARD] sanitize_repo.py crashed unexpectedly -- "
+            "exiting 0 to preserve pipeline: %s", e
+        )
+        sys.exit(0)
