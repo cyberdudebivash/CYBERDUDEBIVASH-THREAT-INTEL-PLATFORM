@@ -1,5 +1,5 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v140.0.0  -  Worker Auto-Deploy
+# CYBERDUDEBIVASH(R) SENTINEL APEX v141.0.0  -  Worker Auto-Deploy
 # =============================================================================
 # Deploys the Cloudflare Worker whenever src/** or wrangler.toml changes.
 # Secrets required: CF_API_TOKEN, CF_ACCOUNT_ID
@@ -12,7 +12,10 @@
 #   * This workflow validates it is configured AFTER deployment
 #   * NEVER hardcode or fallback-generate the secret  -  it must be explicit
 #
-# STABILITY GUARANTEES (v140.0.0):
+# STABILITY GUARANTEES (v141.0.0):
+#   * PLATFORM_VERSION is auto-injected from config/version.json (SSOT)
+#     — workflow env block value is a fallback only; dynamic step always wins
+#     — version mismatch between workflow and config is now structurally impossible
 #   * JS syntax validated BEFORE any deploy attempt (node --check)
 #   * Wrangler v3 (proven stable  -  v4 has breaking TOML/env changes)
 #   * Deploy retried once on transient failure
@@ -38,7 +41,9 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   WORKER_DIR: workers/intel-gateway
-  PLATFORM_VERSION: "140.0.0"
+  # FALLBACK ONLY — overridden dynamically from config/version.json in "Inject version" step.
+  # Update this when bumping versions to keep diffs readable, but the dynamic step is the SSOT.
+  PLATFORM_VERSION: "141.0.0"
 
 concurrency:
   group: worker-deploy
@@ -57,6 +62,30 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: " Inject version from config/version.json (SSOT)"
+        run: |
+          # Read PLATFORM_VERSION from config/version.json — single source of truth.
+          # This overwrites the hardcoded env block value, making version drift structurally
+          # impossible: the workflow always deploys exactly what config/version.json declares.
+          python3 -c "
+          import json, sys
+          try:
+              with open('config/version.json', encoding='utf-8-sig') as f:
+                  cfg = json.load(f)
+          except Exception as e:
+              print(f'FATAL: Cannot read config/version.json: {e}')
+              sys.exit(1)
+          v = cfg.get('version', '').strip()
+          if not v:
+              print('FATAL: config/version.json missing \"version\" key')
+              sys.exit(1)
+          print(f'config/version.json => PLATFORM_VERSION={v}')
+          # Write to GITHUB_ENV so all subsequent steps pick it up automatically
+          with open('$GITHUB_ENV', 'a') as env_file:
+              env_file.write(f'PLATFORM_VERSION={v}\n')
+          print(f'PLATFORM_VERSION injected into GITHUB_ENV: {v}')
+          "
 
       - name: " Sanitize encoding (strip BOM + normalize CRLF)"
         run: |
@@ -117,7 +146,7 @@ jobs:
 
           echo "--- Version lock check ---"
           python3 -c "
-          import json, sys
+          import json, sys, os
 
           # utf-8-sig strips BOM transparently -- safe even if editor re-adds it
           try:
@@ -129,19 +158,20 @@ jobs:
 
           v = cfg.get('version', '')
           if not v:
-              print('FATAL: version.json missing \"version\" key')
+              print('FATAL: version.json missing version key')
               sys.exit(1)
 
-          # PLATFORM_VERSION env var must match version.json (SSOT).
-          # If they diverge, the workflow env var is stale -- update it.
-          expected = '${PLATFORM_VERSION}'
+          # PLATFORM_VERSION is injected dynamically from config/version.json in the
+          # 'Inject version' step above -- so this assertion should always pass.
+          # If it fails, the dynamic injection step itself is broken.
+          expected = os.environ.get('PLATFORM_VERSION', '')
           print(f'config/version.json version : {v}')
-          print(f'workflow PLATFORM_VERSION   : {expected}')
+          print(f'PLATFORM_VERSION (injected)  : {expected}')
           if v != expected:
-              print(f'FATAL: Version mismatch: workflow PLATFORM_VERSION={expected} but config/version.json={v}')
-              print('FIX : Update PLATFORM_VERSION in deploy-worker.yml env block to match config/version.json')
+              print(f'FATAL: Version mismatch: PLATFORM_VERSION={expected} but config/version.json={v}')
+              print('BUG : The Inject version step failed to write to GITHUB_ENV correctly')
               sys.exit(1)
-          print('OK: Version lock confirmed — ' + v)
+          print('OK: Version lock confirmed -- ' + v)
           "
 
           echo "=== PRE-FLIGHT PASSED ==="
