@@ -12,7 +12,7 @@
 // ENTERPRISE : everything + raw STIX bundle, SIEM webhooks, dedicated SLA
 // ─────────────────────────────────────────────────────────────────────────────
 export const REVENUE_CONFIG = {
-  VERSION: "123.0.0",
+  VERSION: "141.0.0",  // v141.0.0 — synced with platform version
   TIERS: {
     FREE:       "free",
     PRO:        "premium",      // internal name kept as "premium" for compat
@@ -29,9 +29,12 @@ export const REVENUE_CONFIG = {
     enterprise: { monthly_inr: 14999,   monthly_usd: 199   },
   },
   UPGRADE_URLS: {
-    free_to_pro:       "https://intel.cyberdudebivash.com/upgrade?plan=pro",
-    pro_to_enterprise: "https://intel.cyberdudebivash.com/upgrade?plan=enterprise",
-    trial:             "https://intel.cyberdudebivash.com/trial",
+    free_to_pro:       "https://intel.cyberdudebivash.com/upgrade.html?plan=pro",
+    pro_to_enterprise: "https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise",
+    trial:             "https://intel.cyberdudebivash.com/upgrade.html?plan=pro",
+    mssp:              "https://intel.cyberdudebivash.com/upgrade.html?plan=mssp",
+    get_key:           "https://intel.cyberdudebivash.com/get-api-key.html",
+    pricing:           "https://intel.cyberdudebivash.com/pricing.html",
   },
   TRIAL: {
     duration_days:  7,
