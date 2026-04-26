@@ -243,8 +243,18 @@ version_info = {
     "revenue_optimizer":"1.0",
     "generated_at":     now_str,
 }
-VERSION_PATH.write_text(json.dumps(version_info, indent=2), encoding="utf-8")
-log.info("version.json written: v%s", PIPELINE_VERSION)
+# Atomic write: write to .tmp then os.replace() — prevents JSONDecodeError
+# from interrupted/truncated writes (the bug that caused "Unterminated string"
+# at char 234 in version.json during run #865).
+import os as _os
+_version_json = json.dumps(version_info, indent=2, ensure_ascii=False)
+_version_tmp  = str(VERSION_PATH) + ".tmp"
+with open(_version_tmp, "w", encoding="utf-8") as _vf:
+    _vf.write(_version_json)
+    _vf.flush()
+    _os.fsync(_vf.fileno())
+_os.replace(_version_tmp, VERSION_PATH)
+log.info("version.json written atomically: v%s (%d bytes)", PIPELINE_VERSION, len(_version_json))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -302,7 +312,7 @@ if all_pass:
     log.info("=" * 60)
     log.info("ALL P0 CHECKS PASSED -- SENTINEL APEX v131.0 FULLY OPERATIONAL")
     log.info("  Intel items:  %d", len(advisories))
-    log.info("  IOC total:    %d", sum(a.get("ioc_count",0) for a in advisories))
+    log.info("  IOC total:    %d", sum(a.get('ioc_count',0) for a in advisories))
     log.info("  Version:      v%s", PIPELINE_VERSION)
     log.info("=" * 60)
     sys.exit(0)

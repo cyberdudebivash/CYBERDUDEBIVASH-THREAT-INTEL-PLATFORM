@@ -230,12 +230,41 @@ def _dispatch_responders(entry: Dict, alert_payload: Dict) -> Dict:
 
 # ── Alert Payload Builder (mirrors alert_engine.py shape) ─────────────────────
 
+def _risk_to_priority(risk: float) -> str:
+    """
+    Derive SOC priority from risk_score when APEX data is absent/null.
+    Mirrors AlertPrioritizer thresholds in agent/soc/alert_prioritizer.py.
+      P1 >= 9.0  — Critical, immediate response (<15 min SLA)
+      P2 >= 7.0  — High, response within 1 hour
+      P3 >= 5.0  — Medium, response within 4 hours
+      P4 < 5.0   — Low, response within 24 hours
+    """
+    if risk >= 9.0:
+        return "P1"
+    if risk >= 7.0:
+        return "P2"
+    if risk >= 5.0:
+        return "P3"
+    return "P4"
+
+
 def _build_payload(entry: Dict) -> Dict:
-    """Build alert payload from manifest entry for responders."""
+    """
+    Build alert payload from manifest entry for responders.
+    FIX: apex_priority now falls back to risk_score-derived priority when
+    entry.apex is null/empty (which is the common case for feed_manifest entries
+    before v70 enrichment populates the nested apex object).
+    """
     apex  = entry.get("apex") or {}
     stix  = entry.get("stix_id", "")
     risk  = float(entry.get("risk_score", 0))
     h     = stix[-8:].upper() if stix else "UNKNOWN"
+
+    # Priority resolution: APEX data → risk_score fallback → never hardcode P4
+    apex_priority_raw = apex.get("priority") or apex.get("soc_priority") or ""
+    apex_priority = apex_priority_raw if apex_priority_raw in ("P1", "P2", "P3", "P4") \
+                    else _risk_to_priority(risk)
+
     return {
         "alert_id":           f"CDB-ALERT-{h}",
         "stix_id":            stix,
@@ -255,7 +284,8 @@ def _build_payload(entry: Dict) -> Dict:
         "ioc_count":          sum(v for v in (entry.get("ioc_counts") or {}).values()
                                   if isinstance(v, int)),
         "confidence_score":   entry.get("confidence_score", 0),
-        "apex_priority":      apex.get("priority", "P4"),
+        # Priority always resolved — never defaults to P4 for high-risk threats
+        "apex_priority":      apex_priority,
         "apex_threat_level":  apex.get("threat_level", ""),
         "apex_campaign_id":   apex.get("campaign_id", ""),
         "apex_category":      apex.get("threat_category", ""),
@@ -370,7 +400,7 @@ def run_response_engine(manifest: Optional[List[Dict]] = None) -> Dict:
     return result
 
 
-# ── CLI ───────────────────────────────────────────────────────────────────────
+# \u2500\u2500 CLI \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 if __name__ == "__main__":
     import sys
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [RESPONSE-ENGINE] %(message)s")

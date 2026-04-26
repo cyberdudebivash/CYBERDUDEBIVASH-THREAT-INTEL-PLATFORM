@@ -36,13 +36,33 @@ BASE_DIR         = Path(__file__).resolve().parent.parent.parent
 INCIDENTS_DIR    = BASE_DIR / "data" / "auto_response" / "incidents"
 TICKET_IDX_FILE  = BASE_DIR / "data" / "auto_response" / "ticket_index.json"
 
-# SLA mapping by priority
+# SLA mapping by priority — aligned with AlertPrioritizer thresholds
+# P1: 15 min  (CRITICAL — immediate response)
+# P2: 1 hour  (HIGH — rapid response)
+# P3: 4 hours (MEDIUM — standard response)
+# P4: 24 hours(LOW — scheduled review)
 _SLA_MAP = {
     "P1": timedelta(minutes=15),
     "P2": timedelta(hours=1),
     "P3": timedelta(hours=4),
     "P4": timedelta(hours=24),
 }
+
+# Risk score → priority thresholds (mirrors agent/soc/alert_prioritizer.py)
+_RISK_PRIORITY_MAP = [
+    (9.0, "P1"),
+    (7.0, "P2"),
+    (5.0, "P3"),
+    (0.0, "P4"),
+]
+
+
+def _risk_to_priority(risk_score: float) -> str:
+    """Derive P1-P4 priority from risk_score when APEX priority is unavailable."""
+    for threshold, priority in _RISK_PRIORITY_MAP:
+        if risk_score >= threshold:
+            return priority
+    return "P4"
 
 
 def _ticket_id(stix_id: str) -> str:
@@ -76,13 +96,31 @@ def _save_ticket_index(index: Dict[str, str]) -> None:
 
 
 def _build_ticket(payload: Dict) -> Dict:
-    """Build structured SOC incident ticket from alert payload."""
+    """
+    Build structured SOC incident ticket from alert payload.
+
+    Priority resolution order (highest precedence first):
+      1. apex_priority from APEX intelligence (P1/P2/P3/P4)
+      2. Derived from risk_score via _risk_to_priority()
+      3. Fallback: P4 (should never reach here in practice)
+
+    This ensures CRITICAL/risk=10.0 threats always get P1 tickets,
+    not P4 tickets, regardless of whether APEX enrichment ran.
+    """
     stix_id   = payload.get("stix_id", "")
     title     = payload.get("title", "Unknown Advisory")
     risk      = float(payload.get("risk_score", 0))
     severity  = payload.get("severity", "UNKNOWN")
     apex      = {k: v for k, v in payload.items() if k.startswith("apex_")}
-    priority  = apex.get("apex_priority", "P4")
+
+    # Resolve priority — never fall through to P4 for high-risk threats
+    apex_priority_raw = str(apex.get("apex_priority", "") or "")
+    if apex_priority_raw in ("P1", "P2", "P3", "P4"):
+        priority = apex_priority_raw
+    else:
+        # APEX priority absent or invalid — derive from risk_score
+        priority = _risk_to_priority(risk)
+
     sla_delta = _SLA_MAP.get(priority, _SLA_MAP["P4"])
     now       = datetime.now(timezone.utc)
 
@@ -120,10 +158,18 @@ def _build_ticket(payload: Dict) -> Dict:
         "blog_url":          payload.get("blog_url", ""),
         "source_url":        payload.get("source_url", ""),
         # Metadata
-        "platform":          "CYBERDUDEBIVASH® Sentinel APEX",
+        "platform":          "CYBERDUDEBIVASH\u00ae Sentinel APEX",
         "auto_response_mode": RESPONSE_MODE,
-        "assigned_to":       "SOC-TIER1",
-        "escalation_path":   ["SOC-TIER1", "SOC-TIER2", "INCIDENT-COMMANDER"],
+        # Tier assignment and escalation path are priority-driven
+        "assigned_to":       "SOC-TIER1" if priority in ("P3", "P4") else "SOC-TIER2",
+        "escalation_path":   (
+            ["SOC-TIER1", "SOC-TIER2", "INCIDENT-COMMANDER", "CISO-BRIDGE"]
+            if priority == "P1"
+            else ["SOC-TIER1", "SOC-TIER2", "INCIDENT-COMMANDER"]
+            if priority == "P2"
+            else ["SOC-TIER1", "SOC-TIER2"]
+        ),
+        "auto_escalate":     priority in ("P1", "P2"),
     }
 
 
@@ -165,12 +211,12 @@ def create_incident_ticket(payload: Dict) -> Dict:
                 timeout=10,
             )
             if resp.status_code in (200, 201, 202):
-                logger.info(f"[SOC-TICKET] LIVE ticket created: {ticket_id} → HTTP {resp.status_code}")
+                logger.info(f"[SOC-TICKET] LIVE ticket created: {ticket_id} \u2192 HTTP {resp.status_code}")
             else:
-                logger.warning(f"[SOC-TICKET] ITSM API HTTP {resp.status_code} — writing locally")
+                logger.warning(f"[SOC-TICKET] ITSM API HTTP {resp.status_code} \u2014 writing locally")
                 _write_ticket_file(ticket)
         except Exception as e:
-            logger.warning(f"[SOC-TICKET] ITSM call failed (non-fatal): {e} — writing locally")
+            logger.warning(f"[SOC-TICKET] ITSM call failed (non-fatal): {e} \u2014 writing locally")
             _write_ticket_file(ticket)
     else:
         # SAFE MODE: write to local file system

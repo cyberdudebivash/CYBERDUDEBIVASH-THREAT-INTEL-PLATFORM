@@ -605,10 +605,14 @@ def _render_sigma_rule(title: str, ttps: list, iocs: list) -> str:
             ioc_vals.append(v[:60])
 
     ttp_comment = "  # " + ", ".join(str(t) for t in ttp_ids) if ttp_ids else "  # TTPs: enrich via APEX Enterprise"
+    # Build SIGMA detection block — always start with process Image filter
+    # CommandLine|contains (if IOCs present) is a SIBLING of Image|endswith,
+    # both at 4-space indent (children of 'selection' which sits at 2 spaces).
     ioc_section = ""
     if ioc_vals:
-        ioc_list = "\n".join(f"          - '{_h(v)}'" for v in ioc_vals)
-        ioc_section = f"\n        CommandLine|contains:\n{ioc_list}"
+        # 6 spaces for list items under 4-space CommandLine|contains key
+        ioc_list = "\n".join(f"      - '{_h(v)}'" for v in ioc_vals)
+        ioc_section = f"\n    CommandLine|contains:\n{ioc_list}"
 
     rule = f"""title: APEX_{_h(safe_title)}
 id: apex-{safe_title[:8].lower()}-detect-001
@@ -622,16 +626,16 @@ author: CYBERDUDEBIVASH SENTINEL APEX
 date: {datetime.now(timezone.utc).strftime('%Y/%m/%d')}
 tags:
 {ttp_comment}
-  # Source: APEX advisory – replace with confirmed technique IDs
+  # Source: APEX advisory - replace with confirmed technique IDs
 logsource:
   category: process_creation
   product: windows
 detection:
-  selection:{ioc_section}
+  selection:
     Image|endswith:
       - '\\\\cmd.exe'
       - '\\\\powershell.exe'
-      - '\\\\wscript.exe'
+      - '\\\\wscript.exe'{ioc_section}
   condition: selection
 falsepositives:
   - Legitimate administrative tooling

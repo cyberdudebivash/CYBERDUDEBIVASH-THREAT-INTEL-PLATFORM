@@ -503,7 +503,11 @@ def main():
         try:
             _telemetry.finalize_run(
                 total_elapsed=time.monotonic() - _run_start,
-                status="success" if published_count >= 0 else "partial",
+                # FIX: pass authoritative pipeline counters — Published:0 regression
+                # was caused by finalize_run not receiving published_count
+                status="success" if published_count > 0 else "partial",
+                published_count=published_count,
+                processed_count=published_count,  # processed ≥ published; use published as floor
             )
         except Exception:
             pass

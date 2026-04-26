@@ -5786,7 +5786,7 @@ GET  /api/billing/portal  → Subscription status</code>
 
         // ── v117.0.0: Version sync from version.json ──────────────────────────
         // ── Single platform version constant (v141.0) ─────────────────────────
-        const PLATFORM_VERSION = '140.0.0';
+        const PLATFORM_VERSION = '141.0.0';
 
         (function syncVersion() {
             // Apply version to all version elements
@@ -8532,7 +8532,7 @@ function renderTopThreats(data) {
             // Root cause of v101.0.0 regression: api/status.json non-ok response → null → hardcoded '101.0.0'
             // Fix: read version.json (always correct) first; hard fallback is CURRENT version not stale one
             (async function _syncEngineVersion() {
-                const CURRENT_VER = '140.0.0';
+                const CURRENT_VER = '141.0.0';
                 const _setVer = function(v) {
                     const el = document.getElementById('engine-version-display');
                     if (el) el.textContent = 'CYBERDUDEBIVASH APEX v' + v;
@@ -12439,30 +12439,4 @@ function renderTopThreats(data) {
     document.addEventListener('DOMContentLoaded', boot);
   } else { boot(); }
 
-  /* ================================================================
-     ENTERPRISE COMMAND CENTER — Value Visualization + Premium Signals
-     v134.0: Financial impact, risk exposure, breach cost indicators
-     ================================================================ */
-  function injectEnterpriseSignals(){
-    var intel=window.EMBEDDED_INTEL||[];
-    if(!intel.length) return;
-
-    /* -- Financial Impact Calculator -- */
-    var criticalCount=intel.filter(function(t){return(t.severity||'').toUpperCase()==='CRITICAL';}).length;
-    var highCount=intel.filter(function(t){return(t.severity||'').toUpperCase()==='HIGH';}).length;
-    var totalRisk=criticalCount*4.5+highCount*1.5; // $M
-    var iocTotal=intel.reduce(function(s,t){return s+(t.ioc_count||t.iocs&&t.iocs.length||0);},0);
-
-    /* Inject financial impact bar if container exists */
-    var finBar=sel('financial-impact-bar')||sel('risk-exposure-bar')||sel('breach-cost-bar');
-    if(!finBar){
-      /* Create and inject a floating command bar at top of intel sections */
-      var bar=document.createElement('div');
-      bar.id='cdb-financial-bar';
-      bar.style.cssText='background:linear-gradient(135deg,rgba(15,23,42,0.98),rgba(30,41,59,0.98));'+
-        'border:1px solid #334155;border-radius:10px;padding:14px 20px;margin:12px 0;'+
-        'display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between;'+
-        'box-shadow:0 4px 24px rgba(139,92,246,0.15);';
-      var metrics=[
-        {label:'Estimated Financial Exposure',value:'$'+(totalRisk.toFixed(1))+'M',color:'#ef4444'},
-        {label:'Active IOCs Available',value:iocTotal.toString(),color:'#f59e0b'}
+  /* ==========

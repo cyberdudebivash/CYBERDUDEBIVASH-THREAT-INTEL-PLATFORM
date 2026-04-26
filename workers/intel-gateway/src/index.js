@@ -1191,10 +1191,10 @@ function computeApexAI(item, tier) {
                            "LOW";          // limited signals, monitor only
 
     const tierLabel = {
-      VERIFIED: "âœ“ VERIFIED – Multi-source corroboration confirmed",
-      HIGH:     "â–² HIGH – Strong evidence basis, immediate action required",
-      MODERATE: "â—† MODERATE – Credible intelligence, further investigation advised",
-      LOW:      "â—‡ LOW – Limited signals, threat monitoring recommended",
+      VERIFIED: “\u2714 VERIFIED \u2013 Multi-source corroboration confirmed”,
+      HIGH:     “\u25b2 HIGH \u2013 Strong evidence basis, immediate action required”,
+      MODERATE: “\u25c6 MODERATE \u2013 Credible intelligence, further investigation advised”,
+      LOW:      “\u25c7 LOW \u2013 Limited signals, threat monitoring recommended”,
     }[confidenceTier];
 
     // ── SOC Recommendation Engine v3.0 ────────────────────────────────────────
@@ -1317,7 +1317,7 @@ function computeApexAI(item, tier) {
           upgrade_url:   "/get-api-key.html?plan=pro",
           message:       `${confidenceTier} THREAT – ${iocCount} IOC${iocCount !== 1 ? "s" : ""} & full actor attribution locked. Upgrade to Pro for complete intelligence.`,
           urgency:       socPriority === "P1" || socPriority === "P2"
-            ? `âš ï¸ ACTIVE ${sevLabel} THREAT [${socPriority}] – Enterprise IR response required.`
+            ? `⚠️ ACTIVE ${sevLabel} THREAT [${socPriority}] – Enterprise IR response required.`
             : `THREAT ACTIVE [${socPriority}] – Full detection package available on Pro tier.`,
         },
       };
@@ -1437,8 +1437,8 @@ function applyTierGate(item, tier) {
       gated.threat_urgency = {
         active:          true,
         message:         sev === "CRITICAL"
-          ? "âš ï¸ CRITICAL ACTIVE THREAT – Full intelligence, IOC array & actor attribution locked."
-          : "âš ï¸ HIGH-SEVERITY ACTIVE THREAT – Actor TTPs and kill chain analysis locked.",
+          ? "⚠️ CRITICAL ACTIVE THREAT – Full intelligence, IOC array & actor attribution locked."
+          : "⚠️ HIGH-SEVERITY ACTIVE THREAT – Actor TTPs and kill chain analysis locked.",
         tier_required:   "PRO",
         upgrade_url:     "/get-api-key.html?plan=pro",
         cta:             "Upgrade to Pro – Detect, Respond, Contain.",
@@ -3911,7 +3911,4 @@ export default {
 
       } catch (e) {
         await trackError(env, "CRON", "Scheduled handler failed", { error: e.message, rid });
-      }
-    })());
-  },
-};
+     

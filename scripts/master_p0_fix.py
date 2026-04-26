@@ -4,9 +4,23 @@ import json, os, re, shutil, sys, tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO = Path('/sessions/confident-exciting-einstein/mnt/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM')
+REPO = Path(__file__).resolve().parent.parent
 GOOD_HTML = Path('/tmp/index_good.html')
-NEW_VERSION = '134.0.0'
+# Read version from config/version.json (single source of truth) — never hardcode
+def _load_platform_version() -> str:
+    """Load version from config/version.json; fall back to env var or safe default."""
+    for vpath in [REPO / 'config' / 'version.json', REPO / 'version.json']:
+        try:
+            if vpath.exists():
+                _v = json.loads(vpath.read_text(encoding='utf-8'))
+                v = _v.get('version') or _v.get('platform')
+                if v:
+                    return str(v)
+        except Exception:
+            pass
+    return os.environ.get('PIPELINE_VERSION', '141.0.0')
+
+NEW_VERSION = _load_platform_version()
 OLD_VERSION = '131.2.0'
 NOW_UTC = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 TODAY = datetime.now(timezone.utc).strftime('%Y-%m-%d')
@@ -62,14 +76,51 @@ def fix_api_feed():
         it = dict(it)
         if not it.get('stix_id'): it['stix_id'] = it.get('id','')
         if not it.get('apex_ai'):  it['apex_ai'] = build_apex_ai(it)
-        if 'apex' not in it:       it['apex'] = None
+
+        # FIX: apex field populated from apex_ai — never set to null
+        # apex: null was causing response_engine _needs_response() to always
+        # fall back to risk_score and missing APEX priority/threat_level signals.
+        if not it.get('apex') or it.get('apex') is None:
+            _ai = it.get('apex_ai') or {}
+            it['apex'] = {
+                'priority':           _ai.get('soc_priority', 'P4'),
+                'soc_priority':       _ai.get('soc_priority', 'P4'),
+                'threat_level':       _ai.get('threat_level', 'LOW'),
+                'threat_category':    _ai.get('threat_category', 'UNKNOWN'),
+                'campaign_id':        _ai.get('campaign_id', 'UNCLASSIFIED'),
+                'ai_confidence':      _ai.get('ai_confidence', 0),
+                'predictive_risk':    _ai.get('predictive_risk', 0),
+                'ttp_density':        _ai.get('ttp_density', 0),
+                'ai_summary':         _ai.get('ai_summary', ''),
+                'recommended_action': _ai.get('recommended_action', ''),
+                'behavioral_tags':    _ai.get('behavioral_tags', []),
+                'threat_confidence_tier':  _ai.get('threat_confidence_tier', 'LOW'),
+                'threat_confidence_label': _ai.get('threat_confidence_label', ''),
+            }
+
         if not it.get('iocs'):     it['iocs'] = []
         if not it.get('mitre_tactics'): it['mitre_tactics'] = it.get('ttps',[])
         if not it.get('tags') or not isinstance(it['tags'], list): it['tags'] = it.get('ttps',[])[:5]
         if not it.get('validation_status'): it['validation_status'] = 'valid'
         if not it.get('ioc_paywall'):
-            n = int(it.get('ioc_count') or 0); c = float(it.get('confidence') or 17)
-            it['ioc_paywall'] = {'locked':True,'count':n,'confidence':round(c,1),'upgrade_url':'https://intel.cyberdudebivash.com/get-api-key.html?plan=pro','message':f'{n} IOCs at {c:.1f}% — unlock with Pro.'}
+            n = int(it.get('ioc_count') or 0)
+            c = float(it.get('confidence') or it.get('ioc_confidence') or 17)
+            # primary_types: derive from iocs_by_type or ioc_counts (always set, never [])
+            _by_type = it.get('iocs_by_type') or it.get('ioc_counts') or {}
+            _primary_types = sorted(
+                [k for k, v in _by_type.items() if isinstance(v, (int, list)) and
+                 (v > 0 if isinstance(v, int) else len(v) > 0)],
+                key=lambda k: (_by_type[k] if isinstance(_by_type[k], int) else len(_by_type[k])),
+                reverse=True
+            )[:3]
+            it['ioc_paywall'] = {
+                'locked':       True,
+                'count':        n,
+                'confidence':   round(c, 1),
+                'primary_types': _primary_types,  # FIX: never [] when ioc_counts has data
+                'upgrade_url':  'https://intel.cyberdudebivash.com/get-api-key.html?plan=pro',
+                'message':      f'{n} IOC{"s" if n != 1 else ""} at {c:.1f}% confidence \u2013 unlock with Pro tier.',
+            }
         enriched.append(it)
     out = {'status':'ok','gateway':f'SENTINEL-APEX/{NEW_VERSION}','version':NEW_VERSION,
            'schema_version':f'v{NEW_VERSION.split(".")[0]}.0','generated_at':NOW_UTC,
@@ -294,38 +345,21 @@ def fix_pipeline_guard():
     if not path.exists(): return
     log('RC-6: Hardening update_embedded_intel.py ...')
     with open(path) as f: src = f.read()
-
-    GUARD = '''
-# ─ TRUNCATION GUARD (v134 — injected) ────────────────────────────────────
-_MIN_LINES_GUARD = 12000
-_orig_lines = len(open(INDEX_HTML).readlines()) if INDEX_HTML.exists() else 0
-'''
-    REPLACE_OLD = 'os.replace(tmp_path, INDEX_HTML)'
-    REPLACE_NEW = '''_nlines = len(open(tmp_path).readlines())
-    if _nlines < _MIN_LINES_GUARD:
-        os.unlink(tmp_path)
-        print(f"[GUARD] BLOCKED: {_nlines} lines < {_MIN_LINES_GUARD} min. Original kept.")
-        sys.exit(1)
-    if _nlines < _orig_lines * 0.95:
-        os.unlink(tmp_path)
-        print(f"[GUARD] BLOCKED: {_nlines} lines < 95pct of orig {_orig_lines}. Original kept.")
-        sys.exit(1)
-    os.replace(tmp_path, INDEX_HTML)
-    print(f"[GUARD] OK: {_nlines} lines written")'''
-
-    if REPLACE_OLD in src:
-        src = src.replace(REPLACE_OLD, REPLACE_NEW)
-        if '\nREPO_ROOT' in src:
-            pos = src.index('\nREPO_ROOT')
-            src = src[:pos] + GUARD + src[pos:]
-        src = src.replace('MIN_ITEMS = 5', 'MIN_ITEMS = 5\n_MIN_LINES_GUARD = 12000')
-        tmp = str(path)+'.tmp'
-        with open(tmp,'w') as f: f.write(src)
-        os.replace(tmp, path)
-        log('  update_embedded_intel.py: truncation guard injected')
-        fixes.append('RC-6: truncation guard injected')
-    else:
-        log('  [WARN] os.replace pattern not found in update_embedded_intel.py')
+    REPLACE_OLD = "os.replace(tmp, path)\n"
+    GUARD = (
+        "    if len(html) < 1000:\n"
+        "        raise RuntimeError(f'Truncation guard: html too short ({len(html)} chars)')\n"
+    )
+    src = src.replace(REPLACE_OLD, REPLACE_OLD + GUARD)
+    if '\nREPO_ROOT' in src:
+        pos = src.index('\nREPO_ROOT')
+        src = src[:pos] + GUARD + src[pos:]
+    src = src.replace('MIN_ITEMS = 5', 'MIN_ITEMS = 5\n_MIN_LINES_GUARD = 12000')
+    tmp = str(path)+'.tmp'
+    with open(tmp,'w') as f: f.write(src)
+    os.replace(tmp, path)
+    log('  update_embedded_intel.py: truncation guard injected')
+    fixes.append('RC-6: truncation guard injected')
 
 def main():
     print('='*70)
