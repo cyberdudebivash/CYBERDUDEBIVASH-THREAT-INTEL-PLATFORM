@@ -1,0 +1,81 @@
+rule CDB_SENTINEL_Network_Intel_2be00118693a
+{
+    meta:
+        author = "CyberDudeBivash SENTINEL APEX v51"
+        description = "Detects network IOCs from threat intelligence feeds"
+        date = "2026-04-26"
+        severity = "high"
+        reference = "https://intel.cyberdudebivash.com"
+        batch_id = "2be00118693a"
+        ioc_count = 65
+
+    strings:
+        $ip_0 = "1.53.114.181" ascii wide nocase
+        $ip_1 = "104.28.160.197" ascii wide nocase
+        $ip_2 = "114.10.99.126" ascii wide nocase
+        $ip_3 = "124.248.183.139" ascii wide nocase
+        $ip_4 = "130.12.182.154" ascii wide nocase
+        $ip_5 = "157.15.40.74" ascii wide nocase
+        $ip_6 = "202.56.2.126" ascii wide nocase
+        $ip_7 = "209.146.60.26" ascii wide nocase
+        $ip_8 = "49.156.40.126" ascii wide nocase
+        $ip_9 = "83.147.12.83" ascii wide nocase
+        $ip_10 = "172.66.171.73" ascii wide nocase
+        $ip_11 = "38.242.246.176" ascii wide nocase
+        $ip_12 = "69.49.241.120" ascii wide nocase
+        $ip_13 = "124.108.54.86" ascii wide nocase
+        $ip_14 = "143.198.143.185" ascii wide nocase
+        $ip_15 = "152.42.221.239" ascii wide nocase
+        $ip_16 = "160.202.35.137" ascii wide nocase
+        $ip_17 = "168.144.32.17" ascii wide nocase
+        $ip_18 = "182.9.35.168" ascii wide nocase
+        $ip_19 = "185.213.83.150" ascii wide nocase
+        $ip_20 = "37.19.205.247" ascii wide nocase
+        $ip_21 = "82.29.88.44" ascii wide nocase
+        $ip_22 = "1.26.0.138" ascii wide nocase
+        $ip_23 = "198.37.119.56" ascii wide nocase
+        $ip_24 = "147.45.178.61" ascii wide nocase
+        $ip_25 = "1.26.0.134" ascii wide nocase
+        $ip_26 = "21.1.1.50" ascii wide nocase
+        $ip_27 = "4.3.2.8" ascii wide nocase
+        $ip_28 = "9.1.08.001" ascii wide nocase
+        $dom_29 = "docs.metasploit.com" ascii wide nocase
+        $dom_30 = "gmail.com" ascii wide nocase
+        $dom_31 = "metasploit.com" ascii wide nocase
+        $dom_32 = "api.cyberdudebivash.com" ascii wide nocase
+        $dom_33 = "blog.cyberdudebivash.com" ascii wide nocase
+        $dom_34 = "cyberdudebivash.com" ascii wide nocase
+        $dom_35 = "intel.cyberdudebivash.com" ascii wide nocase
+        $dom_36 = "tools.cyberdudebivash.com" ascii wide nocase
+        $dom_37 = "www.cyberdudebivash.com" ascii wide nocase
+        $dom_38 = "yadea.com" ascii wide nocase
+        $dom_39 = "0x666.info" ascii wide nocase
+        $dom_40 = "boomplay.com" ascii wide nocase
+        $dom_41 = "index.crates.io" ascii wide nocase
+        $dom_42 = "www.xiongmaitech.com" ascii wide nocase
+        $dom_43 = "nuevaprodeciencia.club" ascii wide nocase
+        $dom_44 = "odaracani.online" ascii wide nocase
+        $dom_45 = "pastebin.com" ascii wide nocase
+        $dom_46 = "vmi3003111.contaboserver.net" ascii wide nocase
+        $dom_47 = "www.brighttalk.com" ascii wide nocase
+        $dom_48 = "beeble.com" ascii wide nocase
+        $dom_49 = "www.imperva.com" ascii wide nocase
+        $dom_50 = "www.silobreaker.com" ascii wide nocase
+        $dom_51 = "www.sonicwall.com" ascii wide nocase
+        $dom_52 = "www.kaspersky.com" ascii wide nocase
+        $dom_53 = "open.substack.com" ascii wide nocase
+        $dom_54 = "otx.alienvault.com" ascii wide nocase
+        $dom_55 = "getsession.org" ascii wide nocase
+        $dom_56 = "www.torproject.org" ascii wide nocase
+        $dom_57 = "x.com" ascii wide nocase
+        $dom_58 = "cpuid.com" ascii wide nocase
+        $dom_59 = "welcome.supp0v3.com" ascii wide nocase
+        $dom_60 = "security.snyk.io" ascii wide nocase
+        $dom_61 = "www.carlsonsw.com" ascii wide nocase
+        $dom_62 = "file.io" ascii wide nocase
+        $dom_63 = "rockwellautomation.com" ascii wide nocase
+        $dom_64 = "api.qpft5.com" ascii wide nocase
+
+    condition:
+        filesize < 100MB and any of them
+}
