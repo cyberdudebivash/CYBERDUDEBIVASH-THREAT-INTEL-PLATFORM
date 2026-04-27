@@ -1800,9 +1800,7 @@ async function handlePreview(request, env, rid) {
         risk_score:  typeof item.risk_score === "number" ? item.risk_score
                    : typeof item.cvss_score === "number" ? item.cvss_score : 0,
         // P0 FIX: Include full arrays (not just counts) for MITRE heatmap
-        iocs:        Array.isArray(item.iocs)  ? item.iocs  : [],
         ttps:        Array.isArray(item.ttps)  ? item.ttps  : [],
-        ioc_count:   iocCount,
         ttp_count:   ttpCount,
         confidence:  item.confidence  || 0,
         // v134.0.0 FRESHNESS: processed_at = pipeline generation time (primary freshness field).
@@ -1869,9 +1867,6 @@ async function handlePreview(request, env, rid) {
         })(),
         validation_status: item.validation_status || null,
         stix_object_count: item.stix_object_count || 0,
-        kev_present:  item.kev_present  || false,
-        epss_score:   item.epss_score   || null,
-        cvss_score:   item.cvss_score   || null,
       };
     });
 
