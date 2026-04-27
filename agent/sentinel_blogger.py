@@ -371,7 +371,7 @@ def main():
             continue
 
         if _manifest and dedup_engine.is_similar_in_manifest(
-                entry["title"], _manifest, threshold=0.80):
+                entry["title"], _manifest, threshold=0.92):
             logger.info(f"  SKIP (manifest similar): {entry['title'][:60]}")
             dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
             continue
@@ -455,7 +455,7 @@ def main():
                 continue
 
             if _manifest and dedup_engine.is_similar_in_manifest(
-                    entry["title"], _manifest, threshold=0.80):
+                    entry["title"], _manifest, threshold=0.92):
                 logger.info(f"  SKIP (manifest similar): {entry['title'][:60]}")
                 dedup_engine.mark_processed(entry["title"], entry.get("link", ""))
                 continue
