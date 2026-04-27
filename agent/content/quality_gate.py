@@ -82,6 +82,12 @@ NOISE_SIGNALS = {
     "infosec award":       -8.0,  "recognized for":      -6.0,  "award winner":      -7.0,
     "market leadership":   -7.0,  "innovation award":    -8.0,  "industry award":    -7.0,
     "cyber 150":           -6.0,  "fastest growing":     -6.0,
+    # v142.1: advisory/educational content
+    "steps for cisos":     -9.0,  "steps for security":  -7.0,  "for security teams":-5.0,
+    "how to detect":       -5.0,  "detection that works":-7.0,  "how to prevent":    -5.0,
+    "security tips":       -6.0,  "awareness training":  -8.0,  "security awareness":-7.0,
+    "for defenders":       -5.0,  "defender's guide":    -7.0,  "ciso guide":        -7.0,
+    "too powerful for":    -6.0,  "withheld from public":-6.0,
 }
 
 # -- INSTANT FAIL - any of these = immediate rejection ------------------------
@@ -118,6 +124,24 @@ INSTANT_FAIL_PHRASES = [
     "enters cyber 150",
     "fastest growing",
     "market leadership",
+    # v142.1: Advisory/educational/CISO-guidance content -- zero operational intel value
+    "steps for cisos",
+    "steps for security teams",
+    "steps for socs",
+    "detection that works",
+    "how phishing detection",
+    "guide for security",
+    "awareness training",
+    "security awareness",
+    "an ai tool too powerful",
+    "too powerful for public release",
+    "ai tool too powerful",
+    "getting started with",
+    "beginners guide",
+    "beginner's guide",
+    "complete guide to",
+    "ultimate guide",
+    "everything you need to know",
 ]
 
 # -- v22.0 NEW: HARD TOPIC BLOCKLIST -----------------------------------------
@@ -131,6 +155,24 @@ HARD_BLOCKED_PATTERNS = [
     r'security podcast',               # Podcasts
     r'a week in',                      # Weekly summaries
     r'\badvanced flow\b',              # Google's Advanced Flow feature
+    # v142.1: Advisory/CISO-guidance titles
+    r'\d+\s+steps?\s+for\s+(cisos?|security|socs?|defenders?|teams?)',
+    r'how\s+\w+\s+detection\s+(works?|that)',
+    r'(what|why|how)\s+.{0,30}\s+(cisos?|security\s+teams?)\s+(should|need|must|can)',
+    r'too powerful for (public release|release)',
+]
+
+# -- v142.1: URL PATH BLOCKLIST -----------------------------------------------
+# Specific URL path patterns indicating marketing/advisory content.
+BLOCKED_URL_PATHS = [
+    "/cybersecurity-blog/phishing-detection",
+    "/cybersecurity-blog/phishing-",
+    "/blog/tips/",
+    "/blog/how-to/",
+    "/blog/guide/",
+    "/blog/best-practices/",
+    "/blog/news/",
+    "cybersecurity-blog/",
 ]
 
 # Minimum score to process
@@ -378,13 +420,24 @@ def is_relevant_threat(title: str, content: str, source_url: str = "") -> Tuple[
     """
     wc = len(content.split())
 
-    # v78.0: Title-signal instant pass — high-signal titles bypass thin-content gate
+    # v142.1: URL path block -- marketing/advisory blog paths regardless of domain
+    if source_url:
+        url_lower = source_url.lower()
+        for blocked_path in BLOCKED_URL_PATHS:
+            if blocked_path in url_lower:
+                logger.info(
+                    "[QUALITY-GATE] URL-path block (%s): %s", blocked_path[:40], title[:60]
+                )
+                return False, -10.0, f"blocked_url_path:{blocked_path}"
+
+    # v78.0: Title-signal instant pass -- high-signal titles bypass thin-content gate
     title_signal_score = _score_title_signals(title)
     if title_signal_score >= TITLE_INSTANT_PASS_THRESHOLD:
         logger.info(f"[QUALITY-GATE] Title instant pass (score={title_signal_score:.0f}): {title[:60]}")
         return True, title_signal_score, f"title_instant_pass:{title_signal_score:.0f}"
 
     # v75.1: Trusted tier-1 source bypass - don't gate on RSS excerpt length
+    # v142.1: Trusted source bypass does NOT override URL path blocks (checked above)
     is_trusted_source = False
     if source_url:
         try:
@@ -407,7 +460,15 @@ def is_relevant_threat(title: str, content: str, source_url: str = "") -> Tuple[
     if score < THRESHOLD:
         return False, score, f"low_relevance({score:.1f}):{reason}"
 
-    min_signals = 1 if (title_has_cve or is_trusted_source) else MIN_STRONG_SIGNAL_COUNT
+    # v142.1: Trusted sources need score >= THRESHOLD+1.5 to block advisory content
+    if is_trusted_source and not title_has_cve:
+        min_signals = 1
+        trusted_threshold = THRESHOLD + 1.5
+        if score < trusted_threshold:
+            return False, score, f"trusted_source_low_score({score:.1f}<{trusted_threshold}):{reason}"
+    else:
+        min_signals = 1 if title_has_cve else MIN_STRONG_SIGNAL_COUNT
+
     if strong_count < min_signals:
         return False, score, f"insufficient_threat_signals({strong_count}<{min_signals}):{reason}"
 

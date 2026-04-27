@@ -387,8 +387,13 @@ class MITREJustificationEngine:
         text = f"{title} {content}".lower()
 
         for entry in raw_mitre:
-            tid = entry.get("id", entry.get("technique_id", ""))
-            tname = entry.get("name", entry.get("technique_name", ""))
+            # Support all MITRE mapper output key conventions:
+            # map_threat() returns list of dicts with "technique" key
+            # Other mappers may use "id", "technique_id"
+            tid = (entry.get("technique") or entry.get("id") or
+                   entry.get("technique_id") or "").strip()
+            tname = (entry.get("name") or entry.get("technique_name") or
+                     entry.get("tactic", "")).strip()
             tactic = entry.get("tactic", "")
 
             justification = self._MITRE_DESCRIPTIONS.get(tid, f"{tname} — {tactic} phase technique")
@@ -553,12 +558,16 @@ class ExplainableRiskEngine:
             cvss, epss, kev_present, total_iocs, mitre_count
         )
 
+        # confidence_rationale is a dict with level/rationale/factors.
+        # Expose rationale string at top level for direct string consumers.
+        cr_string = confidence_rationale.get("rationale", "") if isinstance(confidence_rationale, dict) else str(confidence_rationale)
         return {
             "risk_score_engine": risk_score,
             "risk_score_explained": calculated,
             "signal_breakdown": signals,
             "risk_summary": risk_summary,
-            "confidence_rationale": confidence_rationale,
+            "confidence_rationale": cr_string,           # string — for logging/display
+            "confidence_detail": confidence_rationale,   # dict — for structured consumers
             "signals_count": len(signals),
             "explainability_version": "142.0",
         }
@@ -935,8 +944,10 @@ class ApexIntelEnricher:
             else "Actor attribution: UNKNOWN (insufficient evidence)"
         )
 
-        # Confidence breakdown
-        conf_data = risk.get("confidence_rationale", {})
+        # Confidence breakdown — use structured confidence_detail dict, not the string rationale
+        conf_data = risk.get("confidence_detail", {})
+        if not isinstance(conf_data, dict):
+            conf_data = {}
 
         total_iocs = sum(len(v) for v in iocs.values() if isinstance(v, list))
 
@@ -1019,17 +1030,25 @@ if __name__ == "__main__":
         epss=85.0,
         kev_present=True,
     )
-
     apex = result["apex_intelligence"]
     print("\n=== APEX INTEL ENGINE SELF-TEST ===")
-    print(f"Attack Vector: {apex['technical_depth']['attack_vector']['type']} ({apex['technical_depth']['attack_vector']['confidence']})")
-    print(f"Execution Chain: {[c['phase'] for c in apex['technical_depth']['execution_chain']]}")
-    print(f"Malware Behaviors: {[b['behavior'] for b in apex['technical_depth']['malware_behaviors']]}")
-    print(f"MITRE enriched: {[(m['technique_id'], m['confidence']) for m in apex['mitre_enriched']]}")
-    print(f"Attribution: {apex['attribution']['actor']} ({apex['attribution']['confidence']})")
-    print(f"Risk summary: {apex['risk_explained']['risk_summary']}")
-    print(f"Tech depth score: {apex['technical_depth']['technical_depth_score']}/100")
-    print(f"AI signals active: {apex['ai_insight']['signals_active']}")
-    print(f"Confidence: {apex['ai_insight']['confidence_level']}")
-    print(f"Attack narrative: {apex['ai_insight']['attack_narrative']}")
+    _av  = apex["technical_depth"]["attack_vector"]
+    _td  = apex["technical_depth"]
+    _ai  = apex.get("ai_insight", {})
+    _re  = apex.get("risk_explained", {})
+    _av_type = _av.get("type", "N/A")
+    _av_conf = _av.get("confidence", "N/A")
+    print(f"Attack Vector: {_av_type} ({_av_conf})")
+    print(f"Execution Chain: {[c['phase'] for c in _td['execution_chain']]}")
+    print(f"Malware Behaviors: {[b['behavior'] for b in _td['malware_behaviors']]}")
+    _mitre_out = [(m['technique_id'], m['confidence']) for m in apex['mitre_enriched']]
+    print(f"MITRE enriched: {_mitre_out}")
+    _actor = apex['attribution']['actor']
+    _attr_conf = apex['attribution']['confidence']
+    print(f"Attribution: {_actor} ({_attr_conf})")
+    print(f"Risk summary: {_re.get('risk_summary', 'N/A')}")
+    print(f"Tech depth score: {_td['technical_depth_score']}/100")
+    print(f"AI signals active: {_ai.get('signals_active', [])}")
+    print(f"Confidence: {_ai.get('confidence_level', 'N/A')}")
+    print(f"Attack narrative: {_ai.get('attack_narrative', 'N/A')}")
     print("\n=== SELF-TEST PASSED ===")
