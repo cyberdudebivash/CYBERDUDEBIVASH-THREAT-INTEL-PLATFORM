@@ -1,0 +1,56 @@
+title: CDB SENTINEL APEX - Network Threat Intel [2128a8906d9c]
+id: cdb-net-2128a8906d9c
+status: production
+description: >
+    Auto-generated detection rule for 12 malicious IPs and 16 malicious domains
+    from CYBERDUDEBIVASH SENTINEL APEX threat intelligence feeds.
+author: CyberDudeBivash SENTINEL APEX v51
+date: 2026-04-27
+modified: 2026-04-27
+tags:
+    - attack.command_and_control
+    - attack.t1071
+    - attack.t1090
+logsource:
+    category: firewall
+    product: any
+detection:
+    selection:
+        DestinationIp:
+            - '1.53.114.181'
+            - '104.28.160.197'
+            - '114.10.99.126'
+            - '124.248.183.139'
+            - '130.12.182.154'
+            - '157.15.40.74'
+            - '202.56.2.126'
+            - '209.146.60.26'
+            - '49.156.40.126'
+            - '83.147.12.83'
+            - '62.60.226.200'
+            - '21.1.1.50'
+        DestinationHostname|contains:
+            - 'docs.metasploit.com'
+            - 'gmail.com'
+            - 'metasploit.com'
+            - 'api.cyberdudebivash.com'
+            - 'blog.cyberdudebivash.com'
+            - 'cyberdudebivash.com'
+            - 'intel.cyberdudebivash.com'
+            - 'tools.cyberdudebivash.com'
+            - 'www.cyberdudebivash.com'
+            - 'file.io'
+            - 'java.io'
+            - 'vibing-api-ccegdhbrg2d6bsd7.b02.azurefd.net'
+            - 'security.snyk.io'
+            - 'raw.githubusercontent.com'
+            - 'issues.apache.org'
+            - 'blog.hartwork.org'
+    condition: selection
+level: medium
+falsepositives:
+    - Shared hosting infrastructure
+    - CDN/cloud provider IP overlap
+references:
+    - https://intel.cyberdudebivash.com
+    - https://cyberdudebivash.com/threat-intel
