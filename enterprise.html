@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise SOC Solutions — CYBERDUDEBIVASH SENTINEL APEX</title>
+<meta name="description" content="Enterprise threat intelligence platform for SOC teams, MSSPs, and security operations centers. MITRE ATT&CK mapped, STIX 2.1 compliant, SIEM-ready.">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#080d18;color:#e2e8f0;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6}
+:root{--accent:#00d4ff;--green:#00ff88;--red:#ff4444;--yellow:#ffd700;--purple:#8b5cf6;--border:#1a2840}
+nav{background:#0a0f1e;border-bottom:1px solid var(--border);padding:0 48px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100}
+.logo{font-size:13px;font-weight:800;color:var(--accent);letter-spacing:2px}
+.logo span{color:#fff}
+.nav-links{display:flex;gap:24px;align-items:center}
+.nav-links a{color:#64748b;text-decoration:none;font-size:12px;font-weight:600;transition:.2s;letter-spacing:.5px}
+.nav-links a:hover{color:#fff}
+.btn{padding:10px 22px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;transition:.2s;text-decoration:none;display:inline-block}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0098b8);color:#000}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,212,255,.3)}
+.btn-outline{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.btn-outline:hover{background:rgba(0,212,255,.08)}
+.btn-green{background:linear-gradient(135deg,var(--green),#00cc77);color:#000}
+.btn-green:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,255,136,.3)}
+section{padding:72px 48px}
+.container{max-width:1100px;margin:0 auto}
+/* HERO */
+.hero{background:linear-gradient(135deg,#080d18 0%,#0a1628 50%,#080d18 100%);padding:90px 48px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 0%,rgba(0,212,255,.08) 0%,transparent 70%)}
+.hero-badge{display:inline-block;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--accent);padding:5px 16px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:2px;margin-bottom:20px}
+.hero h1{font-size:48px;font-weight:800;line-height:1.15;margin-bottom:16px}
+.hero h1 span{color:var(--accent)}
+.hero p{font-size:17px;color:#94a3b8;max-width:620px;margin:0 auto 36px}
+.hero-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.trust-logos{margin-top:48px;display:flex;gap:24px;justify-content:center;align-items:center;flex-wrap:wrap}
+.trust-badge{background:#0d1626;border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:11px;font-weight:700;color:#64748b;letter-spacing:1px}
+/* PROOF METRICS */
+.metrics{background:#0d1626;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+.metric-item{padding:32px;text-align:center;border-right:1px solid var(--border)}
+.metric-item:last-child{border-right:none}
+.metric-val{font-size:36px;font-weight:800;color:var(--accent);line-height:1}
+.metric-label{font-size:11px;color:#64748b;margin-top:6px;letter-spacing:.5px}
+/* FEATURES */
+h2.section-title{font-size:32px;font-weight:800;margin-bottom:12px}
+h2.section-title span{color:var(--accent)}
+.section-sub{color:#94a3b8;margin-bottom:48px;font-size:15px}
+.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.feature-card{background:#0d1626;border:1px solid var(--border);border-radius:12px;padding:28px;transition:.2s}
+.feature-card:hover{border-color:rgba(0,212,255,.3);transform:translateY(-2px)}
+.feature-icon{font-size:28px;margin-bottom:14px}
+.feature-card h3{font-size:14px;font-weight:700;color:#fff;margin-bottom:8px;letter-spacing:.5px}
+.feature-card p{font-size:13px;color:#64748b;line-height:1.7}
+/* SIEM INTEGRATION */
+.integration-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.siem-list{display:flex;flex-direction:column;gap:14px}
+.siem-item{background:#0d1626;border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;align-items:center;gap:14px}
+.siem-logo{width:40px;height:40px;background:#0a0e1a;border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent);flex-shrink:0}
+.siem-item h4{font-size:13px;font-weight:700;color:#fff;margin-bottom:3px}
+.siem-item p{font-size:11px;color:#64748b}
+.siem-badge{margin-left:auto;flex-shrink:0}
+.code-block{background:#0a0e1a;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.code-header{background:#0d1626;border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.code-header span{font-size:11px;font-weight:700;color:#64748b;letter-spacing:1px}
+.code-header button{background:transparent;border:1px solid var(--border);color:#64748b;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:700}
+.code-header button:hover{color:#fff}
+code{display:block;padding:20px;font-family:'Courier New',monospace;font-size:12px;line-height:1.8;color:#a3be8c;overflow-x:auto;white-space:pre}
+code .c{color:#636e72}
+code .k{color:var(--accent)}
+code .s{color:#f8c555}
+/* ONBOARDING TIMELINE */
+.timeline{position:relative;padding-left:40px}
+.timeline::before{content:'';position:absolute;left:14px;top:0;bottom:0;width:2px;background:var(--border)}
+.timeline-item{position:relative;margin-bottom:28px}
+.timeline-item::before{content:'';position:absolute;left:-33px;top:4px;width:12px;height:12px;background:var(--accent);border-radius:50%;border:2px solid #080d18}
+.timeline-item.done::before{background:var(--green)}
+.tl-header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.tl-step{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px}
+.tl-sla{font-size:10px;color:#64748b;border:1px solid var(--border);border-radius:4px;padding:1px 6px}
+.timeline-item h4{font-size:14px;font-weight:700;color:#fff}
+.timeline-item p{font-size:12px;color:#64748b;margin-top:4px}
+/* PRICING TABLE */
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:start}
+.pricing-card{background:#0d1626;border:1px solid var(--border);border-radius:14px;padding:28px;position:relative}
+.pricing-card.featured{border-color:var(--accent);background:linear-gradient(135deg,#0d1626,#0f1e35)}
+.pricing-card.featured::before{content:'MOST POPULAR';position:absolute;top:-1px;left:50%;transform:translateX(-50%);background:var(--accent);color:#000;font-size:9px;font-weight:800;padding:3px 12px;border-radius:0 0 6px 6px;letter-spacing:1px}
+.plan-name{font-size:11px;font-weight:700;color:#64748b;letter-spacing:2px;margin-bottom:8px}
+.plan-price{font-size:36px;font-weight:800;color:#fff;line-height:1}
+.plan-price span{font-size:14px;color:#64748b;font-weight:400}
+.plan-period{font-size:11px;color:#64748b;margin-bottom:20px;margin-top:4px}
+.plan-features{list-style:none;margin-bottom:24px}
+.plan-features li{font-size:12px;color:#94a3b8;padding:6px 0;border-bottom:1px solid rgba(30,45,69,.5);display:flex;align-items:center;gap:8px}
+.plan-features li::before{content:'checkmark';font-size:10px;color:var(--green)}
+/* CONTACT FORM */
+.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start}
+.form-card{background:#0d1626;border:1px solid var(--border);border-radius:14px;padding:36px}
+.form-card h3{font-size:18px;font-weight:700;margin-bottom:6px}
+.form-card p{font-size:13px;color:#64748b;margin-bottom:28px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;letter-spacing:.5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:#0a0e1a;border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:#e2e8f0;font-size:13px;outline:none;font-family:inherit;transition:.2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-group textarea{resize:vertical;min-height:110px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.contact-info{display:flex;flex-direction:column;gap:16px;margin-top:8px}
+.contact-item{background:#0d1626;border:1px solid var(--border);border-radius:10px;padding:20px}
+.contact-item h4{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-bottom:6px}
+.contact-item p{font-size:13px;color:#e2e8f0}
+.contact-item span{font-size:11px;color:#64748b}
+/* SUCCESS */
+#form-success{display:none;background:rgba(0,255,136,.06);border:1px solid var(--green);border-radius:10px;padding:24px;text-align:center;color:var(--green)}
+/* FOOTER */
+footer{background:#0a0f1e;border-top:1px solid var(--border);padding:32px 48px;display:flex;align-items:center;justify-content:space-between}
+.footer-left{font-size:11px;color:#374151}
+.footer-links{display:flex;gap:20px}
+.footer-links a{color:#374151;text-decoration:none;font-size:11px}
+.footer-links a:hover{color:#64748b}
+@media(max-width:768px){
+  .feature-grid,.pricing-grid,.metrics-grid,.contact-grid,.integration-grid{grid-template-columns:1fr}
+  .hero h1{font-size:30px}
+  section{padding:48px 24px}
+  nav{padding:0 24px}
+  footer{flex-direction:column;gap:12px;padding:24px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">SENTINEL <span>APEX</span></div>
+  <div class="nav-links">
+    <a href="index.html">HOME</a>
+    <a href="pricing.html">PRICING</a>
+    <a href="api-docs.html">API DOCS</a>
+    <a href="#contact-form">CONTACT SALES</a>
+    <a href="upgrade.html?plan=enterprise" class="btn btn-primary" style="padding:7px 16px;font-size:11px">START ENTERPRISE TRIAL</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">ENTERPRISE & MSSP SOLUTIONS</div>
+  <h1>AI-Powered Threat Intel<br>Built for <span>Enterprise SOC</span></h1>
+  <p>Production-grade threat intelligence for security operations teams. MITRE ATT&CK mapped, STIX 2.1 compliant, SIEM-ready in minutes.</p>
+  <div class="hero-actions">
+    <a href="#contact-form" class="btn btn-primary">REQUEST ENTERPRISE DEMO</a>
+    <a href="#onboarding" class="btn btn-outline">VIEW ONBOARDING STEPS</a>
+    <a href="upgrade.html?plan=enterprise&trial=true" class="btn btn-green">START 7-DAY FREE TRIAL</a>
+  </div>
+  <div class="trust-logos">
+    <div class="trust-badge">STIX 2.1 COMPLIANT</div>
+    <div class="trust-badge">MITRE ATT&CK MAPPED</div>
+    <div class="trust-badge">CISA KEV INTEGRATED</div>
+    <div class="trust-badge">SOC-READY</div>
+    <div class="trust-badge">REST API + WEBHOOK</div>
+    <div class="trust-badge">REAL-TIME INTEL</div>
+  </div>
+</div>
+
+<!-- METRICS -->
+<div class="metrics">
+  <div class="container">
+    <div class="metrics-grid">
+      <div class="metric-item">
+        <div class="metric-val">122+</div>
+        <div class="metric-label">ADVISORIES LIVE</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-val">6hr</div>
+        <div class="metric-label">UPDATE CYCLE</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-val">10+</div>
+        <div class="metric-label">INTEL SOURCES</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-val">&lt;5min</div>
+        <div class="metric-label">ONBOARDING SLA</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PLATFORM CAPABILITIES -->
+<section>
+  <div class="container">
+    <h2 class="section-title">Enterprise-Grade <span>Capabilities</span></h2>
+    <p class="section-sub">Everything your SOC needs — from real-time CVE tracking to AI-powered actor attribution.</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">AI</div>
+        <h3>AI THREAT ANALYST</h3>
+        <p>Automated SOC-priority scoring (P1-P4), kill chain reconstruction, actor fingerprinting, and IR playbook generation powered by our APEX AI engine.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">IOC</div>
+        <h3>IOC EXTRACTION ENGINE</h3>
+        <p>Automated extraction of IPs, domains, hashes, CVEs, and TTPs from 10+ threat intel feeds. Confidence-scored with multi-source deduplication.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">STIX</div>
+        <h3>STIX 2.1 BUNDLES</h3>
+        <p>Every advisory published as a fully-compliant STIX 2.1 bundle. Ingest directly into your TAXII server, threat sharing platforms, or SIEM.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">API</div>
+        <h3>REST API + WEBHOOKS</h3>
+        <p>Programmatic access to all threat intel. Filter by severity, CVE, TTP, source, or actor tag. Webhook push for real-time SOC alerting.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">SIEM</div>
+        <h3>SIEM INTEGRATION</h3>
+        <p>Native integrations for Splunk, Elastic SIEM, Microsoft Sentinel, QRadar, and any platform accepting JSON feeds. Setup in under 10 minutes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">SIGMA</div>
+        <h3>SIGMA / YARA RULES</h3>
+        <p>Auto-generated detection rules in Sigma format for every high-confidence advisory. Deploy directly to your EDR, SIEM, or detection engineering pipeline.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">MITRE</div>
+        <h3>MITRE ATT&CK MAPPING</h3>
+        <p>Every advisory enriched with MITRE ATT&CK technique IDs, tactic chains, and sub-techniques. Navigator-compatible JSON export available.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">EPSS</div>
+        <h3>CVSS + EPSS SCORING</h3>
+        <p>CVSS base score and EPSS exploitation probability integrated for every CVE advisory. Prioritize patching based on actual exploitation likelihood.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">SOC</div>
+        <h3>SOC PLAYBOOKS</h3>
+        <p>AI-generated incident response playbooks for every P1/P2 advisory. Step-by-step containment, eradication, and recovery procedures unlocked for Pro and Enterprise tiers.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SIEM INTEGRATION -->
+<section style="background:#0a0f1e;border-top:1px solid var(--border);border-bottom:1px solid var(--border)" id="siem">
+  <div class="container">
+    <h2 class="section-title">SIEM <span>Integration</span></h2>
+    <p class="section-sub">Connect to your existing security stack in minutes — not days.</p>
+    <div class="integration-grid">
+      <div class="siem-list">
+        <div class="siem-item">
+          <div class="siem-logo">SPL</div>
+          <div>
+            <h4>Splunk Enterprise / ES</h4>
+            <p>Modular input via REST API. Lookup table + Notable Events workflow.</p>
+          </div>
+          <div class="siem-badge"><span style="background:rgba(0,255,136,.1);border:1px solid var(--green);color:var(--green);padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700">NATIVE</span></div>
+        </div>
+        <div class="siem-item">
+          <div class="siem-logo">ELS</div>
+          <div>
+            <h4>Elastic SIEM / Security</h4>
+            <p>Filebeat + Logstash pipeline or direct REST ingest. ECS mapping included.</p>
+          </div>
+          <div class="siem-badge"><span style="background:rgba(0,255,136,.1);border:1px solid var(--green);color:var(--green);padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700">NATIVE</span></div>
+        </div>
+        <div class="siem-item">
+          <div class="siem-logo">MS</div>
+          <div>
+            <h4>Microsoft Sentinel</h4>
+            <p>Logic App connector + Custom STIX/TAXII data connector. ARM template provided.</p>
+          </div>
+          <div class="siem-badge"><span style="background:rgba(0,255,136,.1);border:1px solid var(--green);color:var(--green);padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700">NATIVE</span></div>
+        </div>
+        <div class="siem-item">
+          <div class="siem-logo">QR</div>
+          <div>
+            <h4>IBM QRadar</h4>
+            <p>DSM JSON feed + Reference Set import for IOC enrichment.</p>
+          </div>
+          <div class="siem-badge"><span style="background:rgba(0,212,255,.1);border:1px solid var(--accent);color:var(--accent);padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700">API</span></div>
+        </div>
+        <div class="siem-item">
+          <div class="siem-logo">CRW</div>
+          <div>
+            <h4>CrowdStrike Falcon</h4>
+            <p>Custom IOC import via Falcon API. STIX bundle compatible.</p>
+          </div>
+          <div class="siem-badge"><span style="background:rgba(0,212,255,.1);border:1px solid var(--accent);color:var(--accent);padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700">API</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="code-block" style="margin-bottom:16px">
+          <div class="code-header">
+            <span>SPLUNK — modular input</span>
+            <button onclick="copyCode(this)">COPY</button>
+          </div>
+          <code>[sentinel_apex_intel]
+<span class="c"># inputs.conf</span>
+interval = 3600
+<span class="k">url</span> = <span class="s">https://intel.cyberdudebivash.com/api/intel</span>
+<span class="k">auth_header</span> = X-API-Key: YOUR_ENTERPRISE_KEY
+<span class="k">source</span> = sentinel_apex
+<span class="k">sourcetype</span> = json</code>
+        </div>
+        <div class="code-block" style="margin-bottom:16px">
+          <div class="code-header">
+            <span>ELASTIC — Filebeat</span>
+            <button onclick="copyCode(this)">COPY</button>
+          </div>
+          <code>filebeat.inputs:
+- type: httpjson
+  url: <span class="s">https://intel.cyberdudebivash.com/api/intel</span>
+  interval: 1h
+  request.headers:
+    <span class="k">X-API-Key</span>: YOUR_ENTERPRISE_KEY
+  response.split:
+    target: body.items</code>
+        </div>
+        <div class="code-block">
+          <div class="code-header">
+            <span>CURL — quick test</span>
+            <button onclick="copyCode(this)">COPY</button>
+          </div>
+          <code>curl -H <span class="s">"X-API-Key: YOUR_KEY"</span> \
+  "<span class="s">https://intel.cyberdudebivash.com/api/intel</span>" \
+  | jq <span class="s">'.items[] | select(.severity=="CRITICAL")'</span></code>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ENTERPRISE ONBOARDING TIMELINE -->
+<section id="onboarding">
+  <div class="container">
+    <h2 class="section-title">Enterprise <span>Onboarding</span></h2>
+    <p class="section-sub">From first contact to full production integration in under 72 hours.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px">
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="tl-header"><span class="tl-step">STEP 1</span><span class="tl-sla">INSTANT</span></div>
+          <h4>Submit Enterprise Inquiry</h4>
+          <p>Fill out the contact form below with your organization details, team size, and security requirements.</p>
+        </div>
+        <div class="timeline-item">
+          <div class="tl-header"><span class="tl-step">STEP 2</span><span class="tl-sla">&lt; 4 HOURS</span></div>
+          <h4>Initial Response + Capability Deck</h4>
+          <p>You receive a detailed response with platform capabilities, pricing options, and a personalized capabilities deck via email.</p>
+        </div>
+        <div class="timeline-item">
+          <div class="tl-header"><span class="tl-step">STEP 3</span><span class="tl-sla">&lt; 48 HOURS</span></div>
+          <h4>Technical Demo Call</h4>
+          <p>30-minute live demo of the platform, API walkthrough, SIEM integration demonstration, and Q&A with your security team.</p>
+        </div>
+        <div class="timeline-item">
+          <div class="tl-header"><span class="tl-step">STEP 4</span><span class="tl-sla">&lt; 1 HOUR</span></div>
+          <h4>Trial API Key Issued (7-Day)</h4>
+          <p>Enterprise-tier trial key provisioned immediately after demo. Full API access, no limitations — test against your real environment.</p>
+        </div>
+        <div class="timeline-item">
+          <div class="tl-header"><span class="tl-step">STEP 5</span><span class="tl-sla">CLIENT PACE</span></div>
+          <h4>Commercial Agreement</h4>
+          <p>Custom quote based on seat count, data volume, and SLA requirements. MSA + SOW or simple SaaS agreement.</p>
+        </div>
+        <div class="timeline-item done">
+          <div class="tl-header"><span class="tl-step">STEP 6</span><span class="tl-sla">&lt; 5 MIN</span></div>
+          <h4>Production Key + SIEM Setup</h4>
+          <p>Production API key issued. SIEM integration support provided — Splunk, Elastic, Sentinel, QRadar. You are live.</p>
+        </div>
+      </div>
+      <div>
+        <div style="background:#0d1626;border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:20px">
+          <h3 style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--accent)">DEPLOYMENT CHECKLIST</h3>
+          <div style="display:flex;flex-direction:column;gap:10px;font-size:12px">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#94a3b8"><input type="checkbox" style="accent-color:var(--green)"> Receive Enterprise API key via email</label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#94a3b8"><input type="checkbox" style="accent-color:var(--green)"> Test authentication: curl -H "X-API-Key: KEY" /api/health</label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#94a3b8"><input type="checkbox" style="accent-color:var(--green)"> Configure SIEM data connector (Splunk/Elastic/Sentinel)</label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#94a3b8"><input type="checkbox" style="accent-color:var(--green)"> Ingest STIX 2.1 bundles into threat intel platform</label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#94a3b8"><input type="checkbox" style="accent-color:var(--green)"> Configure webhook endpoint for P1 alerts</label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#94a3b8"><input type="checkbox" style="accent-color:var(--green)"> Set up MITRE ATT&CK layer export</label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#94a3b8"><input type="checkbox" style="accent-color:var(--green)"> Import Sigma rules into EDR/detection platform</label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:#94a3b8"><input type="checkbox" style="accent-color:var(--green)"> Schedule 30-day review call</label>
+          </div>
+        </div>
+        <div style="background:#0d1626;border:1px solid var(--border);border-radius:12px;padding:28px">
+          <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--accent)">WHAT YOU GET</h3>
+          <div style="font-size:12px;color:#94a3b8;line-height:2">
+            <div>Real-time threat intelligence updates every 6 hours</div>
+            <div>122+ live advisories with full STIX 2.1 bundles</div>
+            <div>AI-generated SOC playbooks for P1/P2 threats</div>
+            <div>Unlimited API calls (Enterprise tier)</div>
+            <div>Priority support via email and Telegram</div>
+            <div>Custom SIEM integration assistance</div>
+            <div>Sigma + YARA rule downloads per advisory</div>
+            <div>30-day renewal reminder automation</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ENTERPRISE PRICING -->
+<section style="background:#0a0f1e;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="container">
+    <h2 class="section-title" style="text-align:center">Enterprise <span>Pricing</span></h2>
+    <p class="section-sub" style="text-align:center">Transparent, predictable pricing. No seat licensing complexity.</p>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="plan-name">PRO</div>
+        <div class="plan-price">$29<span>/mo</span></div>
+        <div class="plan-period">or INR 2,499/mo</div>
+        <ul class="plan-features">
+          <li>Full IOC access (all confidence levels)</li>
+          <li>Complete STIX 2.1 bundles</li>
+          <li>Kill chain + actor attribution</li>
+          <li>SOC playbooks for P1-P3</li>
+          <li>REST API access (10K calls/day)</li>
+          <li>MITRE ATT&CK mapping</li>
+          <li>Email support</li>
+        </ul>
+        <a href="upgrade.html?plan=pro" class="btn btn-outline" style="width:100%;text-align:center">GET PRO</a>
+      </div>
+      <div class="pricing-card featured">
+        <div class="plan-name">ENTERPRISE</div>
+        <div class="plan-price">$199<span>/mo</span></div>
+        <div class="plan-period">or INR 14,999/mo</div>
+        <ul class="plan-features">
+          <li>Everything in PRO</li>
+          <li>Unlimited API calls</li>
+          <li>SIEM integration support</li>
+          <li>Sigma + YARA rule downloads</li>
+          <li>Webhook push for P1 alerts</li>
+          <li>Custom threat actor tracking</li>
+          <li>Priority Telegram support</li>
+          <li>7-day free trial available</li>
+        </ul>
+        <a href="upgrade.html?plan=enterprise" class="btn btn-primary" style="width:100%;text-align:center">START ENTERPRISE</a>
+      </div>
+      <div class="pricing-card">
+        <div class="plan-name">MSSP / CUSTOM</div>
+        <div class="plan-price" style="font-size:24px;margin-top:6px">Custom</div>
+        <div class="plan-period">Volume + white-label pricing</div>
+        <ul class="plan-features">
+          <li>Multi-tenant architecture</li>
+          <li>White-label option</li>
+          <li>Dedicated API endpoint</li>
+          <li>SLA guarantee (99.9% uptime)</li>
+          <li>Custom data retention</li>
+          <li>Dedicated onboarding engineer</li>
+          <li>Invoice / PO payment accepted</li>
+        </ul>
+        <a href="#contact-form" class="btn btn-outline" style="width:100%;text-align:center">CONTACT SALES</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT FORM -->
+<section id="contact-form">
+  <div class="container">
+    <h2 class="section-title">Contact <span>Enterprise Sales</span></h2>
+    <p class="section-sub">Tell us about your environment. We respond within 4 hours.</p>
+    <div class="contact-grid">
+      <div class="form-card">
+        <h3>Request Enterprise Demo</h3>
+        <p>Get a personalized demo, custom pricing, and a 7-day trial key.</p>
+        <div id="form-success">
+          <div style="font-size:24px;margin-bottom:10px">RECEIVED</div>
+          <div style="font-weight:700">Your inquiry has been submitted successfully.</div>
+          <div style="font-size:12px;margin-top:8px;color:#00cc77">Expected response: &lt; 4 hours via email</div>
+        </div>
+        <div id="enterprise-form">
+          <div class="form-row">
+            <div class="form-group"><label>FIRST NAME *</label><input type="text" id="ent-fname" placeholder="John"></div>
+            <div class="form-group"><label>LAST NAME *</label><input type="text" id="ent-lname" placeholder="Smith"></div>
+          </div>
+          <div class="form-group"><label>WORK EMAIL *</label><input type="email" id="ent-email" placeholder="john@company.com"></div>
+          <div class="form-row">
+            <div class="form-group"><label>COMPANY *</label><input type="text" id="ent-company" placeholder="Acme Security Inc."></div>
+            <div class="form-group"><label>ROLE</label><input type="text" id="ent-role" placeholder="CISO / SOC Manager"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>TEAM SIZE</label>
+              <select id="ent-size">
+                <option>1-5 analysts</option>
+                <option>6-25 analysts</option>
+                <option>26-100 analysts</option>
+                <option>100+ analysts (MSSP)</option>
+              </select>
+            </div>
+            <div class="form-group"><label>CURRENT SIEM</label>
+              <select id="ent-siem">
+                <option value="">Select...</option>
+                <option>Splunk</option>
+                <option>Elastic SIEM</option>
+                <option>Microsoft Sentinel</option>
+                <option>IBM QRadar</option>
+                <option>Other</option>
+                <option>None</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group"><label>WHAT WOULD YOU LIKE TO ACHIEVE? *</label>
+            <textarea id="ent-message" placeholder="E.g. We need real-time CVE intelligence for our SOC, integrated with Splunk. Our team monitors 500 endpoints..."></textarea>
+          </div>
+          <div class="form-group"><label>PLAN INTEREST</label>
+            <select id="ent-plan">
+              <option value="enterprise">ENTERPRISE — $199/mo</option>
+              <option value="mssp">MSSP / CUSTOM</option>
+              <option value="pro">PRO — $29/mo (start small)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="submitEnterpriseForm()">SUBMIT ENTERPRISE INQUIRY</button>
+        </div>
+      </div>
+      <div>
+        <div class="contact-info">
+          <div class="contact-item">
+            <h4>EMAIL</h4>
+            <p>bivash@cyberdudebivash.com</p>
+            <span>Response within 4 hours</span>
+          </div>
+          <div class="contact-item">
+            <h4>TELEGRAM</h4>
+            <p>@cyberdudebivash</p>
+            <span>Direct message for urgent inquiries</span>
+          </div>
+          <div class="contact-item">
+            <h4>PLATFORM</h4>
+            <p>intel.cyberdudebivash.com</p>
+            <span>Live platform — test before you buy</span>
+          </div>
+          <div class="contact-item">
+            <h4>TRIAL ACCESS</h4>
+            <p>7-day Enterprise trial key</p>
+            <span>Available immediately after demo call</span>
+          </div>
+          <div style="background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);border-radius:10px;padding:20px">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-bottom:10px">LIVE PLATFORM STATUS</div>
+            <div id="ent-health" style="font-size:12px;color:#64748b">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-left">CYBERDUDEBIVASH(R) SENTINEL APEX v141.0.0 — Enterprise Threat Intelligence Platform</div>
+  <div class="footer-links">
+    <a href="index.html">Home</a>
+    <a href="pricing.html">Pricing</a>
+    <a href="api-docs.html">API Docs</a>
+    <a href="upgrade.html">Subscribe</a>
+    <a href="admin.html">Admin</a>
+  </div>
+</footer>
+
+<script>
+// Load live platform status in enterprise page
+async function loadEntHealth() {
+  try {
+    const r = await fetch('https://intel.cyberdudebivash.com/api/health');
+    const d = await r.json();
+    const s = d.status;
+    const color = s==='healthy'?'#00ff88':s==='ok'?'#00d4ff':'#ffd700';
+    document.getElementById('ent-health').innerHTML =
+      '<span style="color:'+color+';font-weight:700">'+s.toUpperCase()+'</span> — ' +
+      (d.pipeline?.advisory_count||'--') + ' advisories live &bull; v' + d.version;
+  } catch(e) {
+    document.getElementById('ent-health').textContent = 'Platform online — check intel.cyberdudebivash.com';
+  }
+}
+
+async function submitEnterpriseForm() {
+  const fname    = document.getElementById('ent-fname').value.trim();
+  const lname    = document.getElementById('ent-lname').value.trim();
+  const email    = document.getElementById('ent-email').value.trim();
+  const company  = document.getElementById('ent-company').value.trim();
+  const role     = document.getElementById('ent-role').value.trim();
+  const size     = document.getElementById('ent-size').value;
+  const siem     = document.getElementById('ent-siem').value;
+  const message  = document.getElementById('ent-message').value.trim();
+  const plan     = document.getElementById('ent-plan').value;
+
+  if (!fname || !email || !company || !message) {
+    alert('Please fill in all required fields (marked with *).');
+    return;
+  }
+
+  // Submit to platform lead capture API
+  try {
+    await fetch('https://intel.cyberdudebivash.com/api/lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'enterprise_inquiry',
+        name: fname + ' ' + lname,
+        email, company, role, team_size: size,
+        siem_platform: siem, message, plan_interest: plan,
+        source: 'enterprise_page',
+        submitted_at: new Date().toISOString()
+      })
+    });
+  } catch(e) {}
+
+  // Send notification email
+  const subject = encodeURIComponent('[ENTERPRISE LEAD] ' + company + ' — ' + plan.toUpperCase());
+  const body = encodeURIComponent(
+    'Name: ' + fname + ' ' + lname + '\n' +
+    'Email: ' + email + '\n' +
+    'Company: ' + company + '\n' +
+    'Role: ' + role + '\n' +
+    'Team: ' + size + '\n' +
+    'SIEM: ' + siem + '\n' +
+    'Plan: ' + plan + '\n\n' +
+    'Message:\n' + message
+  );
+  window.open('mailto:bivash@cyberdudebivash.com?subject=' + subject + '&body=' + body, '_blank');
+
+  document.getElementById('enterprise-form').style.display = 'none';
+  document.getElementById('form-success').style.display = 'block';
+}
+
+function copyCode(btn) {
+  const code = btn.closest('.code-block').querySelector('code');
+  navigator.clipboard.writeText(code.textContent.trim()).then(() => {
+    btn.textContent = 'COPIED!';
+    setTimeout(() => btn.textContent = 'COPY', 2000);
+  });
+}
+
+loadEntHealth();
+</script>
+</body>
+</html>
