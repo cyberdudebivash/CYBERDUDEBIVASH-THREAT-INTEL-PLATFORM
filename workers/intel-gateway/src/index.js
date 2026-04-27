@@ -3930,4 +3930,7 @@ export default {
 
       } catch (e) {
         await trackError(env, "CRON", "Scheduled handler failed", { error: e.message, rid });
-     
+      }
+    })());
+  },
+};
