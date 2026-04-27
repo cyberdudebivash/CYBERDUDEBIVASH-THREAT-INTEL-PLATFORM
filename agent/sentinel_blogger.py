@@ -406,6 +406,19 @@ def main():
     # -- PHASE 2: Multi-Feed Fusion ------------------------------------------
     logger.info("--- PHASE 2: Multi-Feed Intelligence Fusion ---")
 
+    # v141.4.0 — Load FeedStateTracker for per-feed anti-loop protection
+    _feed_tracker = None
+    try:
+        import importlib.util, sys as _sys
+        _scripts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts")
+        if _scripts_dir not in _sys.path:
+            _sys.path.insert(0, _scripts_dir)
+        from intel_dedup_engine import get_feed_tracker
+        _feed_tracker = get_feed_tracker()
+        logger.info("[DEDUP-L0] FeedStateTracker loaded — per-feed anti-loop protection ACTIVE")
+    except Exception as _ft_e:
+        logger.warning("[DEDUP-L0] FeedStateTracker unavailable (%s) — continuing without it", _ft_e)
+
     for feed_url in RSS_FEEDS:
         _feed_start = time.monotonic()
         entries = fetch_feed_entries(feed_url, max_entries=MAX_ENTRIES_PER_FEED)
@@ -413,6 +426,26 @@ def main():
         logger.info(f"Feed [{feed_url[:60]}]: {len(entries)} entries")
         if _TELEMETRY_OK and _telemetry:
             _telemetry.record_feed_fetch(feed_url, _feed_elapsed, success=len(entries) > 0)
+
+        # v141.4.0 — Anti-loop protection: skip feed if 90%+ overlap with last run
+        if _feed_tracker and entries:
+            try:
+                item_ids = [e.get("link") or e.get("title", "") for e in entries]
+                if _feed_tracker.is_same_batch(feed_url, item_ids):
+                    logger.info(
+                        f"  [FEED-SKIP] {feed_url[:60]}: 90%+ overlap with last run — no new intel"
+                    )
+                    continue
+                # Filter out IDs already seen in previous run for this feed
+                before_filter = len(entries)
+                entries = _feed_tracker.filter_new_ids(feed_url, entries)
+                if before_filter != len(entries):
+                    logger.info(
+                        f"  [FEED-FILTER] {feed_url[:60]}: {before_filter - len(entries)} "
+                        f"already-seen items filtered, {len(entries)} new"
+                    )
+            except Exception as _ft_loop_e:
+                logger.debug("[FEED-TRACKER] per-feed filter error (non-fatal): %s", _ft_loop_e)
 
         for entry in entries:
             time.sleep(RATE_LIMIT_DELAY)
@@ -452,6 +485,22 @@ def main():
                 result = False
             if result:
                 published_count += 1
+
+        # v141.4.0 — Update FeedStateTracker with this feed's batch (post-processing)
+        if _feed_tracker and entries:
+            try:
+                _feed_tracker.update(feed_url, entries)
+            except Exception as _ft_upd_e:
+                logger.debug("[FEED-TRACKER] update error (non-fatal): %s", _ft_upd_e)
+
+    # v141.4.0 — Persist FeedStateTracker state after all feeds processed
+    if _feed_tracker:
+        try:
+            from intel_dedup_engine import save_all as _dedup_save_all
+            _dedup_save_all()
+            logger.info("[DEDUP-L0] FeedStateTracker state persisted to data/cache/feed_state.json")
+        except Exception as _save_e:
+            logger.warning("[DEDUP-L0] save_all() failed (non-fatal): %s", _save_e)
 
     logger.info("=" * 70)
     logger.info(f"APEX v134.0 COMPLETE — Processed {published_count} intel advisories (R2-only)")
