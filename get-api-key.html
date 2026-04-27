@@ -299,7 +299,7 @@
       <h3 id="sidebar-plan-title">WHAT YOU GET</h3>
       <div id="sidebar-features">
         <div class="feature-row"><span class="fcheck">✓</span> Live threat intelligence dashboard</div>
-        <div class="feature-row"><span class="fcheck">✓</span> 310+ advisories, refreshed every 6 hours</div>
+        <div class="feature-row"><span class="fcheck">✓</span> 500+ advisories, refreshed every 6 hours</div>
         <div class="feature-row"><span class="fcheck">✓</span> APEX AI risk scoring on every advisory</div>
         <div class="feature-row"><span class="fcheck">✓</span> STIX 2.1 public bundle access</div>
         <div class="feature-row"><span class="fcheck">✓</span> CVE & CISA KEV cross-reference</div>
@@ -372,8 +372,8 @@
   <div class="trust-item"><span class="dot"></span> MITRE ATT&amp;CK Mapped</div>
   <div class="trust-item"><span class="dot"></span> CISA KEV Integrated</div>
   <div class="trust-item"><span class="dot"></span> TLP:RED / AMBER / GREEN / CLEAR</div>
-  <div class="trust-item"><span class="dot"></span> 310+ Active Advisories</div>
-  <div class="trust-item"><span class="dot"></span> 6-Hour Pipeline Refresh</div>
+  <div class="trust-item"><span class="dot"></span> 500+ Active Advisories</div>
+  <div class="trust-item"><span class="dot"></span> 74-Feed Live Pipeline</div>
 </div>
 
 <footer>
@@ -399,7 +399,7 @@ var PLAN_META = {
     sidebarTitle: 'COMMUNITY — WHAT YOU GET',
     features: [
       'Live threat intelligence dashboard',
-      '310+ advisories, refreshed every 6h',
+      '500+ advisories, refreshed every 6h',
       'APEX AI risk scoring (visual)',
       'CVE tracking & KEV alerts',
       'STIX 2.1 public bundles',
@@ -504,7 +504,7 @@ function selectPlan(plan) {
   }
 })();
 
-// ── Form Submission ─────────────────────────────────────────────────────────
+// ── Form Submission — Formspree Primary + mailto Fallback ──────────────────
 function handleSubmit(e) {
   e.preventDefault();
   var btn = document.getElementById('submit-btn');
@@ -522,44 +522,69 @@ function handleSubmit(e) {
   var phone = document.getElementById('phone').value.trim();
   var plan = currentPlan;
 
-  // Build email body for mailto fallback (works with no backend)
-  var subject = '[SENTINEL APEX] API Key Request — ' + plan.toUpperCase() + ' — ' + company;
-  var body = [
-    'API KEY REQUEST — SENTINEL APEX',
-    '================================',
-    'Plan: ' + plan.toUpperCase(),
-    'Name: ' + fname + ' ' + lname,
-    'Email: ' + email,
-    'Company: ' + company,
-    'Role: ' + role,
-    'Team Size: ' + teamSize,
-    'Use Case: ' + usecase,
-    phone ? 'Phone: ' + phone : '',
-    notes ? 'Notes: ' + notes : '',
-    '================================',
-    'Submitted: ' + new Date().toISOString()
-  ].filter(Boolean).join('\n');
+  // Build payload for Formspree
+  var formData = new FormData();
+  formData.append('_subject', '[SENTINEL APEX] API Key Request — ' + plan.toUpperCase() + ' — ' + company);
+  formData.append('plan', plan.toUpperCase());
+  formData.append('name', fname + ' ' + lname);
+  formData.append('email', email);
+  formData.append('company', company);
+  formData.append('role', role);
+  formData.append('team_size', teamSize);
+  formData.append('use_case', usecase);
+  if (phone) formData.append('phone', phone);
+  if (notes) formData.append('notes', notes);
+  formData.append('submitted_at', new Date().toISOString());
 
-  // Show success state immediately (email client handles the rest)
-  setTimeout(function() {
+  function showSuccess() {
     document.getElementById('confirm-email').textContent = email;
     document.getElementById('api-key-form').style.display = 'none';
     document.getElementById('success-panel').style.display = 'block';
     document.getElementById('plan-selector').style.display = 'none';
+  }
 
-    // Open mailto (sends request to bivash with all details)
-    var mailtoUrl = 'mailto:bivash@cyberdudebivash.com'
+  function mailtoFallback() {
+    var subject = '[SENTINEL APEX] API Key Request — ' + plan.toUpperCase() + ' — ' + company;
+    var body = [
+      'API KEY REQUEST — SENTINEL APEX',
+      '================================',
+      'Plan: ' + plan.toUpperCase(),
+      'Name: ' + fname + ' ' + lname,
+      'Email: ' + email,
+      'Company: ' + company,
+      'Role: ' + role,
+      'Team Size: ' + teamSize,
+      'Use Case: ' + usecase,
+      phone ? 'Phone: ' + phone : '',
+      notes ? 'Notes: ' + notes : '',
+      '================================',
+      'Submitted: ' + new Date().toISOString()
+    ].filter(Boolean).join('\n');
+    var link = document.createElement('a');
+    link.href = 'mailto:bivash@cyberdudebivash.com'
       + '?subject=' + encodeURIComponent(subject)
       + '&body=' + encodeURIComponent(body);
-
-    // Attempt to open mail client
-    var link = document.createElement('a');
-    link.href = mailtoUrl;
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, 800);
+  }
+
+  // Primary: Formspree
+  fetch('https://formspree.io/f/xpzgdkoe', {
+    method: 'POST',
+    body: formData,
+    headers: { 'Accept': 'application/json' }
+  })
+  .then(function(r) {
+    showSuccess();
+    if (!r.ok) { mailtoFallback(); } // also fire mailto on server error as backup
+  })
+  .catch(function() {
+    // Network failure — fall back to mailto so no lead is ever lost
+    mailtoFallback();
+    showSuccess();
+  });
 }
 
 function resetForm() {
