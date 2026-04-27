@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/encoding_guard.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v141.1.0 -- Encoding Guard (P0 Permanent Fix)
+CYBERDUDEBIVASH(R) SENTINEL APEX v141.2.0 -- Encoding Guard (P0 Permanent Fix)
 ================================================================================
 MANDATORY FIRST STEP in every pipeline run.
 
@@ -311,6 +311,70 @@ def sanitize_yaml(data: bytes) -> bytes:
     return text.encode("utf-8")
 
 
+def sanitize_worker_js(data: bytes) -> bytes:
+    """
+    NON-DESTRUCTIVE sanitize for Cloudflare Worker JS/TS source files.
+
+    SAFETY CONTRACT (ABSOLUTE):
+      - NEVER use errors='ignore'  -- silently drops bytes, truncates strings
+      - NEVER drop characters blindly -- breaks JS string literals
+      - ALWAYS replace unrecognised bytes with '?' (visible, safe placeholder)
+      - Null bytes replaced with newline (preserves line structure)
+      - After processing, file length in lines must be >= original line count
+
+    This function is specifically designed to prevent the class of bug where
+    errors='ignore' on a non-ASCII byte inside a string literal caused the
+    rest of the string (and rest of the file) to be silently truncated.
+    """
+    # 1. Strip UTF-8 BOM
+    if data.startswith(BOM):
+        data = data[3:]
+    # 2. Apply known mojibake byte substitutions (safe: byte-level, before decode)
+    data = apply_mojibake_bytes(data)
+    # 3. Null bytes -> newline (NEVER strip -- stripping merges lines into invalid syntax)
+    data = data.replace(b"\x00", b"\n")
+    # 4. Normalize CRLF -> LF
+    data = data.replace(b"\r\n", b"\n")
+    data = data.replace(b"\r", b"\n")
+    # 5. Decode with errors='replace' (NOT 'ignore') -- U+FFFD marks every bad byte
+    #    'replace' ensures we NEVER silently lose content; every input byte is accounted for
+    text = data.decode("utf-8", errors="replace")
+    # 6. Process char by char: use CHAR_MAP for known non-ASCII, '?' for unknown
+    #    This is the critical difference from sanitize_yaml() which uses strip_non_ascii_yaml()
+    #    that drops unknown chars -- Worker JS must NEVER silently lose content
+    original_line_count = text.count("\n")
+    result = []
+    for ch in text:
+        cp = ord(ch)
+        if cp < 0x80:
+            # Pure ASCII -- always keep as-is
+            result.append(ch)
+        elif ch == "\ufffd":
+            # Replacement char from decode error -- use '?' (visible, safe for JS)
+            result.append("?")
+        else:
+            # Non-ASCII Unicode char: use CHAR_MAP, box-drawing -> '-', emoji -> '?'
+            repl = CHAR_MAP.get(cp)
+            if repl is not None:
+                result.append(repl)
+            elif 0x2500 <= cp <= 0x257F:
+                result.append("-")  # box-drawing -> dash
+            elif 0x1F000 <= cp <= 0x1FFFF:
+                result.append("?")  # emoji -> visible placeholder
+            else:
+                result.append("?")  # unknown: safe placeholder, never drop
+    clean_text = "".join(result)
+    # 7. Sanity check: line count must be preserved (truncation detection)
+    clean_line_count = clean_text.count("\n")
+    if clean_line_count < original_line_count:
+        raise RuntimeError(
+            f"sanitize_worker_js: line count decreased {original_line_count} -> "
+            f"{clean_line_count} -- possible truncation, refusing to write"
+        )
+    # 8. Re-encode as pure ASCII (content is now ASCII-only)
+    return clean_text.encode("ascii")
+
+
 def sanitize_safe(data: bytes) -> bytes:
     """Minimal sanitize for Python/JSON/etc: BOM + CRLF + nulls only.
     NOTE: null bytes are replaced with newlines (not stripped).
@@ -430,7 +494,15 @@ def run(root: pathlib.Path, fix: bool, strict: bool) -> int:
         rel = f.relative_to(root)
 
         if fix:
-            if is_yaml or is_worker_ascii:
+            if is_worker_ascii:
+                # Worker JS: use NON-DESTRUCTIVE sanitizer (never errors='ignore')
+                try:
+                    clean = sanitize_worker_js(data)
+                except RuntimeError as e:
+                    print(f"  ERROR {rel}: {e}")
+                    print(f"  SKIP  {rel}: refusing to write potentially truncated output")
+                    continue
+            elif is_yaml:
                 clean = sanitize_yaml(data)
             else:
                 clean = sanitize_safe(data)
@@ -445,11 +517,14 @@ def run(root: pathlib.Path, fix: bool, strict: bool) -> int:
 
     if fix and dirty:
         print(f"Fixed   : {len(dirty)} files")
-        remaining = [f for f in dirty
-                     if (needs_sanitize_yaml(f.read_bytes())
-                         if (f.suffix.lower() in YAML_EXTENSIONS
-                             or _is_worker_ascii_file(f, root))
-                         else needs_sanitize_safe(f.read_bytes()))]
+        def _still_dirty(f: pathlib.Path) -> bool:
+            d = f.read_bytes()
+            if _is_worker_ascii_file(f, root):
+                return needs_sanitize_yaml(d)
+            if f.suffix.lower() in YAML_EXTENSIONS:
+                return needs_sanitize_yaml(d)
+            return needs_sanitize_safe(d)
+        remaining = [f for f in dirty if _still_dirty(f)]
         if remaining:
             print(f"ERROR: {len(remaining)} files still need fixes:")
             for f in remaining:
@@ -461,7 +536,7 @@ def run(root: pathlib.Path, fix: bool, strict: bool) -> int:
     else:
         print("Status  : DRY RUN -- pass --fix to apply")
 
-    # -- Worker JS EOF Integrity Check -----
+    # -- Worker JS EOF Integrity Check ------------------------------------------
     # Independently validate that every Worker JS file ends with a valid
     # closing token.  A truncated file will pass ASCII checks (no bad bytes)
     # but esbuild will still fail with "Unexpected end of file".
@@ -517,7 +592,7 @@ def main() -> None:
     args = parser.parse_args()
 
     print("=" * 70)
-    print("SENTINEL APEX -- Encoding Guard v141.1.0")
+    print("SENTINEL APEX -- Encoding Guard v141.2.0")
     print(f"Root   : {args.root}")
     _mode = "FIX" if args.fix else "DRY-RUN"
     print(f"Mode   : {_mode}")

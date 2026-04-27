@@ -113,13 +113,28 @@ jobs:
           cat ${WORKER_DIR}/wrangler.toml
           echo ""
 
-          echo "--- Null-byte check ---"
+          echo "--- Null-byte + non-ASCII check (all Worker JS files) ---"
           python3 -c "
-          data = open('${WORKER_DIR}/src/index.js','rb').read()
-          nulls = data.count(b'\x00')
-          print(f'Null bytes: {nulls}')
-          assert nulls == 0, 'FATAL: null bytes in Worker source!'
-          print('OK: Worker source is clean')
+          import sys, pathlib
+          src_dir = pathlib.Path('${WORKER_DIR}/src')
+          js_files = sorted(src_dir.glob('*.js'))
+          if not js_files:
+              print('FATAL: No .js files found in', src_dir)
+              sys.exit(1)
+          failed = []
+          for f in js_files:
+              data = f.read_bytes()
+              nulls = data.count(b'\x00')
+              non_ascii = sum(1 for b in data if b > 127)
+              status = 'OK' if nulls == 0 and non_ascii == 0 else 'FAIL'
+              print(f'  {status}: {f.name}  null={nulls}  non-ascii={non_ascii}')
+              if nulls > 0 or non_ascii > 0:
+                  failed.append(f.name)
+          if failed:
+              print('FATAL: Dirty Worker source files:', failed)
+              print('Run scripts/encoding_guard.py --fix locally before committing.')
+              sys.exit(1)
+          print(f'OK: All {len(js_files)} Worker JS files are clean')
           "
 
           echo "--- Security check: no hardcoded secrets ---"
@@ -138,11 +153,20 @@ jobs:
           print('OK: No hardcoded JWT secret patterns found')
           "
 
-          echo "--- JavaScript syntax validation ---"
-          node --check ${WORKER_DIR}/src/index.js && echo "OK: index.js syntax valid" || {
-            echo "FATAL: index.js has syntax errors  -  aborting deploy"
+          echo "--- JavaScript syntax validation (all Worker JS files) ---"
+          SYNTAX_FAILED=0
+          for jsfile in ${WORKER_DIR}/src/*.js; do
+            fname=$(basename "$jsfile")
+            node --check "$jsfile" 2>&1 && echo "  OK: $fname syntax valid" || {
+              echo "  FATAL: $fname has syntax errors"
+              SYNTAX_FAILED=1
+            }
+          done
+          if [ "$SYNTAX_FAILED" -ne 0 ]; then
+            echo "FATAL: JS syntax errors found -- aborting deploy"
             exit 1
-          }
+          fi
+          echo "OK: All Worker JS files passed syntax check"
 
           echo "--- Version lock check ---"
           python3 -c "
@@ -176,8 +200,150 @@ jobs:
 
           echo "=== PRE-FLIGHT PASSED ==="
 
+      - name: " esbuild bundle pre-flight (HARD GATE)"
+        run: |
+          echo "=== esbuild bundle pre-flight -- HARD GATE ==="
+          echo "This step catches: duplicate keys, bad imports, bundling errors"
+          echo "Deploy is BLOCKED unless esbuild exits 0."
+          echo ""
+          cd ${WORKER_DIR}
+
+          # Install esbuild matching wrangler's bundler (local, no global pollution)
+          npm install --save-dev esbuild@latest 2>&1 | tail -3
+
+          echo "--- Bundle attempt ---"
+          # Bundle to a temp file; esbuild exits non-zero on any fatal error
+          npx esbuild src/index.js \
+            --bundle \
+            --platform=browser \
+            --target=es2022 \
+            --format=esm \
+            --outfile=/tmp/worker_bundle_preflight.js \
+            --log-level=warning 2>&1
+
+          ESBUILD_EXIT=$?
+          if [ "$ESBUILD_EXIT" -ne 0 ]; then
+            echo ""
+            echo "FATAL: esbuild bundle failed (exit $ESBUILD_EXIT)"
+            echo "Fix all esbuild errors before pushing -- deploy is blocked."
+            exit 1
+          fi
+
+          # Validate bundle is non-empty and not truncated
+          BUNDLE_SIZE=$(wc -c < /tmp/worker_bundle_preflight.js)
+          BUNDLE_LINES=$(wc -l < /tmp/worker_bundle_preflight.js)
+          echo "Bundle size: ${BUNDLE_SIZE} bytes, ${BUNDLE_LINES} lines"
+
+          if [ "$BUNDLE_SIZE" -lt 10000 ]; then
+            echo "FATAL: Bundle suspiciously small (${BUNDLE_SIZE} bytes) -- possible truncation"
+            exit 1
+          fi
+
+          # Verify bundle ends with valid JS (not truncated mid-expression)
+          python3 -c "
+          import sys
+          with open('/tmp/worker_bundle_preflight.js', 'rb') as f:
+              data = f.read()
+          last_line = data.rstrip(b'\n').rsplit(b'\n', 1)[-1].decode('ascii', errors='replace').strip()
+          print(f'Bundle last line: {repr(last_line[:80])}')
+          valid_endings = ('}', '};', '})', '});', '//', '/*', '*/')
+          if not any(last_line.startswith(t) or last_line.endswith(t) for t in valid_endings):
+              print(f'WARNING: Unexpected bundle tail -- review manually')
+          else:
+              print('OK: Bundle tail looks valid')
+          "
+
+          rm -f /tmp/worker_bundle_preflight.js
+          echo ""
+          echo "=== esbuild pre-flight PASSED -- deploy unblocked ==="
+
       - name: " Deploy Worker to Cloudflare (with retry)"
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: |
+          echo "=== Deploying SENTINEL APEX Worker v${PLATFORM_VERSION} ==="
+          cd ${WORKER_DIR}
+
+          # Attempt 1: deploy with --env production
+          echo "Deploy attempt 1/2 (--env production)..."
+          if wrangler deploy --env production 2>&1; then
+            echo "Deploy successful (production env)"
+            exit 0
+          fi
+
+          echo "Production env deploy failed  -  retrying without env flag..."
+          sleep 5
+
+          # Attempt 2: deploy without env (fallback)
+          if wrangler deploy 2>&1; then
+            echo "Deploy successful (default env)"
+            exit 0
+          fi
+
+          echo "FATAL: Both deploy attempts failed"
+          exit 1
+
+      - name: "[OK] Post-deploy validation (informational)"
+        continue-on-error: true
+        run: |
+          echo "=== Post-deploy health check ==="
+          echo "Waiting 15s for global propagation..."
+          sleep 15
+
+          HEALTH=$(curl -sf --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
+          echo "Health response: ${HEALTH}"
+
+          python3 -c "
+          import json, sys
+          try:
+              d = json.loads('''${HEALTH}''')
+          except Exception:
+              print('NOTE: Could not parse health response  -  worker may still be propagating')
+              sys.exit(0)
+
+          gateway = d.get('gateway', 'unknown')
+          print(f'Gateway: {gateway}')
+
+          checks = d.get('checks', {})
+          jwt_ok = checks.get('jwt_configured', None)
+          print(f'jwt_configured: {jwt_ok}')
+
+          # Version check
+          gw_ver = d.get('version', d.get('gateway_version', 'unknown'))
+          print(f'Reported version: {gw_ver}')
+
+          if jwt_ok is False:
+              print('')
+              print('WARNING: CDB_JWT_SECRET may not be configured in the Cloudflare Worker.')
+              print('Auth endpoints will return 503 if missing.')
+              print('Fix: openssl rand -hex 32 | npx wrangler secret put CDB_JWT_SECRET')
+          elif jwt_ok is True:
+              print('OK: CDB_JWT_SECRET is configured')
+          else:
+              print('NOTE: jwt_configured status unknown (health endpoint may be outdated)')
+
+          # This step is informational  -  never fail the workflow based on health check
+          print('')
+          print('Post-deploy validation complete (informational)')
+          " 2>&1 || echo "Health check skipped  -  worker still propagating"
+
+          # Verify version header
+          VERSION_HEADER=$(curl -sI --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null | grep -i "x-sentinel-version" || echo "header-not-yet-visible")
+          echo "X-SENTINEL-Version header: ${VERSION_HEADER}"
+
+          PREVIEW=$(curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null | python3 -c "
+          import json,sys
+          try:
+              d=json.load(sys.stdin)
+              print('preview items:', d.get('preview',{}).get('total_in_feed',0))
+          except:
+              print('preview: still propagating')
+          " 2>/dev/null || echo "preview: not yet available")
+          echo "Preview endpoint: ${PREVIEW}"
+
+          echo ""
+          echo "=== SENTINEL APEX v${PLATFORM_VERSION} DEPLOYMENT COMPLETE ==="
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
         run: |
