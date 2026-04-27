@@ -12,15 +12,14 @@
 #   * This workflow validates it is configured AFTER deployment
 #   * NEVER hardcode or fallback-generate the secret  -  it must be explicit
 #
-# STABILITY GUARANTEES (v141.0.0):
+# STABILITY GUARANTEES (v141.3.0):
 #   * PLATFORM_VERSION is auto-injected from config/version.json (SSOT)
-#     -- workflow env block value is a fallback only; dynamic step always wins
-#     -- version mismatch between workflow and config is now structurally impossible
-#   * JS syntax validated BEFORE any deploy attempt (node --check)
+#   * All 5 Worker JS files checked for null bytes + non-ASCII BEFORE deploy
+#   * All 5 Worker JS files syntax-validated via node --check BEFORE deploy
+#   * esbuild bundle pre-flight (HARD GATE) catches duplicate keys + bundler errors
 #   * Wrangler v3 (proven stable  -  v4 has breaking TOML/env changes)
 #   * Deploy retried once on transient failure
 #   * Health check is informational-only (never blocks deploy success)
-#   * Version header verified post-deploy
 # =============================================================================
 
 name: deploy-worker
@@ -41,8 +40,6 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   WORKER_DIR: workers/intel-gateway
-  # FALLBACK ONLY -- overridden dynamically from config/version.json in "Inject version" step.
-  # Update this when bumping versions to keep diffs readable, but the dynamic step is the SSOT.
   PLATFORM_VERSION: "141.0.0"
 
 concurrency:
@@ -65,9 +62,6 @@ jobs:
 
       - name: " Inject version from config/version.json (SSOT)"
         run: |
-          # Read PLATFORM_VERSION from config/version.json -- single source of truth.
-          # This overwrites the hardcoded env block value, making version drift structurally
-          # impossible: the workflow always deploys exactly what config/version.json declares.
           python3 -c "
           import json, sys
           try:
@@ -81,7 +75,6 @@ jobs:
               print('FATAL: config/version.json missing \"version\" key')
               sys.exit(1)
           print(f'config/version.json => PLATFORM_VERSION={v}')
-          # Write to GITHUB_ENV so all subsequent steps pick it up automatically
           with open('$GITHUB_ENV', 'a') as env_file:
               env_file.write(f'PLATFORM_VERSION={v}\n')
           print(f'PLATFORM_VERSION injected into GITHUB_ENV: {v}')
@@ -89,15 +82,11 @@ jobs:
 
       - name: " Sanitize encoding (strip BOM + normalize CRLF)"
         run: |
-          # Auto-fix UTF-8 BOM and CRLF on every run.
-          # Prevents json.JSONDecodeError, YAML parse failures, and TOML rejection.
           python3 scripts/sanitize_encoding.py --fix
           echo "Encoding sanitization: OK"
 
       - name: " Install Wrangler (stable)"
         run: |
-          # Use wrangler@3  -  proven stable for this platform (run #20 confirmed install OK).
-          # wrangler@4 introduced breaking changes in TOML parsing and --env flag handling.
           npm install -g wrangler@3
           wrangler --version
           echo "Wrangler installation: OK"
@@ -171,29 +160,21 @@ jobs:
           echo "--- Version lock check ---"
           python3 -c "
           import json, sys, os
-
-          # utf-8-sig strips BOM transparently -- safe even if editor re-adds it
           try:
               with open('config/version.json', encoding='utf-8-sig') as f:
                   cfg = json.load(f)
           except json.JSONDecodeError as e:
               print(f'FATAL: version.json parse error: {e}')
               sys.exit(1)
-
           v = cfg.get('version', '')
           if not v:
               print('FATAL: version.json missing version key')
               sys.exit(1)
-
-          # PLATFORM_VERSION is injected dynamically from config/version.json in the
-          # 'Inject version' step above -- so this assertion should always pass.
-          # If it fails, the dynamic injection step itself is broken.
           expected = os.environ.get('PLATFORM_VERSION', '')
           print(f'config/version.json version : {v}')
           print(f'PLATFORM_VERSION (injected)  : {expected}')
           if v != expected:
               print(f'FATAL: Version mismatch: PLATFORM_VERSION={expected} but config/version.json={v}')
-              print('BUG : The Inject version step failed to write to GITHUB_ENV correctly')
               sys.exit(1)
           print('OK: Version lock confirmed -- ' + v)
           "
@@ -203,16 +184,13 @@ jobs:
       - name: " esbuild bundle pre-flight (HARD GATE)"
         run: |
           echo "=== esbuild bundle pre-flight -- HARD GATE ==="
-          echo "This step catches: duplicate keys, bad imports, bundling errors"
+          echo "Catches: duplicate keys, bad imports, bundling errors."
           echo "Deploy is BLOCKED unless esbuild exits 0."
           echo ""
           cd ${WORKER_DIR}
-
-          # Install esbuild matching wrangler's bundler (local, no global pollution)
           npm install --save-dev esbuild@latest 2>&1 | tail -3
 
           echo "--- Bundle attempt ---"
-          # Bundle to a temp file; esbuild exits non-zero on any fatal error
           npx esbuild src/index.js \
             --bundle \
             --platform=browser \
@@ -224,12 +202,10 @@ jobs:
           ESBUILD_EXIT=$?
           if [ "$ESBUILD_EXIT" -ne 0 ]; then
             echo ""
-            echo "FATAL: esbuild bundle failed (exit $ESBUILD_EXIT)"
-            echo "Fix all esbuild errors before pushing -- deploy is blocked."
+            echo "FATAL: esbuild bundle failed (exit $ESBUILD_EXIT) -- deploy blocked."
             exit 1
           fi
 
-          # Validate bundle is non-empty and not truncated
           BUNDLE_SIZE=$(wc -c < /tmp/worker_bundle_preflight.js)
           BUNDLE_LINES=$(wc -l < /tmp/worker_bundle_preflight.js)
           echo "Bundle size: ${BUNDLE_SIZE} bytes, ${BUNDLE_LINES} lines"
@@ -239,18 +215,14 @@ jobs:
             exit 1
           fi
 
-          # Verify bundle ends with valid JS (not truncated mid-expression)
           python3 -c "
-          import sys
           with open('/tmp/worker_bundle_preflight.js', 'rb') as f:
               data = f.read()
           last_line = data.rstrip(b'\n').rsplit(b'\n', 1)[-1].decode('ascii', errors='replace').strip()
           print(f'Bundle last line: {repr(last_line[:80])}')
           valid_endings = ('}', '};', '})', '});', '//', '/*', '*/')
-          if not any(last_line.startswith(t) or last_line.endswith(t) for t in valid_endings):
-              print(f'WARNING: Unexpected bundle tail -- review manually')
-          else:
-              print('OK: Bundle tail looks valid')
+          ok = any(last_line.startswith(t) or last_line.endswith(t) for t in valid_endings)
+          print('Bundle tail:', 'VALID' if ok else 'WARNING -- review manually')
           "
 
           rm -f /tmp/worker_bundle_preflight.js
@@ -265,7 +237,6 @@ jobs:
           echo "=== Deploying SENTINEL APEX Worker v${PLATFORM_VERSION} ==="
           cd ${WORKER_DIR}
 
-          # Attempt 1: deploy with --env production
           echo "Deploy attempt 1/2 (--env production)..."
           if wrangler deploy --env production 2>&1; then
             echo "Deploy successful (production env)"
@@ -275,7 +246,6 @@ jobs:
           echo "Production env deploy failed  -  retrying without env flag..."
           sleep 5
 
-          # Attempt 2: deploy without env (fallback)
           if wrangler deploy 2>&1; then
             echo "Deploy successful (default env)"
             exit 0
@@ -301,119 +271,25 @@ jobs:
           except Exception:
               print('NOTE: Could not parse health response  -  worker may still be propagating')
               sys.exit(0)
-
           gateway = d.get('gateway', 'unknown')
           print(f'Gateway: {gateway}')
-
           checks = d.get('checks', {})
           jwt_ok = checks.get('jwt_configured', None)
           print(f'jwt_configured: {jwt_ok}')
-
-          # Version check
           gw_ver = d.get('version', d.get('gateway_version', 'unknown'))
           print(f'Reported version: {gw_ver}')
-
           if jwt_ok is False:
               print('')
               print('WARNING: CDB_JWT_SECRET may not be configured in the Cloudflare Worker.')
-              print('Auth endpoints will return 503 if missing.')
               print('Fix: openssl rand -hex 32 | npx wrangler secret put CDB_JWT_SECRET')
           elif jwt_ok is True:
               print('OK: CDB_JWT_SECRET is configured')
           else:
-              print('NOTE: jwt_configured status unknown (health endpoint may be outdated)')
-
-          # This step is informational  -  never fail the workflow based on health check
+              print('NOTE: jwt_configured status unknown')
           print('')
           print('Post-deploy validation complete (informational)')
           " 2>&1 || echo "Health check skipped  -  worker still propagating"
 
-          # Verify version header
-          VERSION_HEADER=$(curl -sI --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null | grep -i "x-sentinel-version" || echo "header-not-yet-visible")
-          echo "X-SENTINEL-Version header: ${VERSION_HEADER}"
-
-          PREVIEW=$(curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null | python3 -c "
-          import json,sys
-          try:
-              d=json.load(sys.stdin)
-              print('preview items:', d.get('preview',{}).get('total_in_feed',0))
-          except:
-              print('preview: still propagating')
-          " 2>/dev/null || echo "preview: not yet available")
-          echo "Preview endpoint: ${PREVIEW}"
-
-          echo ""
-          echo "=== SENTINEL APEX v${PLATFORM_VERSION} DEPLOYMENT COMPLETE ==="
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-        run: |
-          echo "=== Deploying SENTINEL APEX Worker v${PLATFORM_VERSION} ==="
-          cd ${WORKER_DIR}
-
-          # Attempt 1: deploy with --env production
-          echo "Deploy attempt 1/2 (--env production)..."
-          if wrangler deploy --env production 2>&1; then
-            echo "Deploy successful (production env)"
-            exit 0
-          fi
-
-          echo "Production env deploy failed  -  retrying without env flag..."
-          sleep 5
-
-          # Attempt 2: deploy without env (fallback)
-          if wrangler deploy 2>&1; then
-            echo "Deploy successful (default env)"
-            exit 0
-          fi
-
-          echo "FATAL: Both deploy attempts failed"
-          exit 1
-
-      - name: "[OK] Post-deploy validation (informational)"
-        continue-on-error: true
-        run: |
-          echo "=== Post-deploy health check ==="
-          echo "Waiting 15s for global propagation..."
-          sleep 15
-
-          HEALTH=$(curl -sf --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
-          echo "Health response: ${HEALTH}"
-
-          python3 -c "
-          import json, sys
-          try:
-              d = json.loads('''${HEALTH}''')
-          except Exception:
-              print('NOTE: Could not parse health response  -  worker may still be propagating')
-              sys.exit(0)
-
-          gateway = d.get('gateway', 'unknown')
-          print(f'Gateway: {gateway}')
-
-          checks = d.get('checks', {})
-          jwt_ok = checks.get('jwt_configured', None)
-          print(f'jwt_configured: {jwt_ok}')
-
-          # Version check
-          gw_ver = d.get('version', d.get('gateway_version', 'unknown'))
-          print(f'Reported version: {gw_ver}')
-
-          if jwt_ok is False:
-              print('')
-              print('WARNING: CDB_JWT_SECRET may not be configured in the Cloudflare Worker.')
-              print('Auth endpoints will return 503 if missing.')
-              print('Fix: openssl rand -hex 32 | npx wrangler secret put CDB_JWT_SECRET')
-          elif jwt_ok is True:
-              print('OK: CDB_JWT_SECRET is configured')
-          else:
-              print('NOTE: jwt_configured status unknown (health endpoint may be outdated)')
-
-          # This step is informational  -  never fail the workflow based on health check
-          print('')
-          print('Post-deploy validation complete (informational)')
-          " 2>&1 || echo "Health check skipped  -  worker still propagating"
-
-          # Verify version header
           VERSION_HEADER=$(curl -sI --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null | grep -i "x-sentinel-version" || echo "header-not-yet-visible")
           echo "X-SENTINEL-Version header: ${VERSION_HEADER}"
 
