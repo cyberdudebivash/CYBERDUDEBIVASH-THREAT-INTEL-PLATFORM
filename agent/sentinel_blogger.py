@@ -795,6 +795,40 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     except Exception:
         pass
 
+    # -- STEP 7e-APEX: v142.0 APEX INTELLIGENCE ENGINE -----------------------
+    # Technical depth, MITRE justification, explainable risk, evidence-gated
+    # attribution, AI insight explainability — Mandiant/CrowdStrike/Unit42 grade
+    _apex_data: Dict = {}
+    try:
+        import sys as _sys_apex
+        _scripts_dir_apex = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"
+        )
+        if _scripts_dir_apex not in _sys_apex.path:
+            _sys_apex.path.insert(0, _scripts_dir_apex)
+        from apex_intel_engine import get_apex_enricher as _get_apex
+        _apex_data = _get_apex().enrich(
+            title=headline,
+            content=enriched_content,
+            iocs=extracted_iocs,
+            raw_mitre=mitre_data,
+            raw_actor=actor_data,
+            risk_score=risk_score,
+            cvss=cvss_score,
+            epss=epss_score,
+            kev_present=kev_present,
+        )
+        _apex_intel = _apex_data.get("apex_intelligence", {})
+        _td_score = _apex_intel.get("technical_depth", {}).get("technical_depth_score", 0)
+        _attr_conf = _apex_intel.get("attribution", {}).get("confidence", "UNKNOWN")
+        _risk_conf = _apex_intel.get("risk_explained", {}).get("confidence_rationale", "")
+        logger.info(
+            f"  [APEX] tech_depth={_td_score} | attr={_attr_conf} | "
+            f"risk_conf={_risk_conf[:40] if _risk_conf else 'n/a'}"
+        )
+    except Exception as _apex_e:
+        logger.debug("[APEX-INTEL] Enrichment unavailable (non-fatal): %s", _apex_e)
+
     # -- STEP 7e: Phase 6 HARD QUALITY GATE (v134.0) -------------------------
     # POLICY: NO WEAK INTEL — hard reject based on post-enrichment metrics.
     # Exemptions: CVE entries and KEV entries bypass word/IOC/confidence floors
@@ -910,6 +944,7 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
             cvss_score=cvss_score,
             kev_present=kev_present,
             nvd_url=nvd_url,
+            apex_data=_apex_data if _apex_data else None,
         )
         dedup_engine.mark_processed(headline, entry.get("link", ""))
         logger.info(f"  [OK] STIX bundle written → R2 pipeline | {severity} | Risk={risk_score:.1f}")
