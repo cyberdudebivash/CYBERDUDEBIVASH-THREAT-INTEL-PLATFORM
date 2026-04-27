@@ -2193,6 +2193,20 @@ def main() -> None:
     stage_schema_validation()            # HARD FAIL if schema invalid
     stage_manifest_cleanup()
     stage_dedup_and_enrich()             # SafeIO: dedup + ioc_count fix + schema auto-fix
+
+    # v141.3.0 — Persist cross-run dedup index immediately after dedup stage
+    # This ensures intel_index.json is updated before any downstream stage reads it.
+    try:
+        import sys as _sys
+        _scripts_dir = os.path.dirname(os.path.abspath(__file__))
+        if _scripts_dir not in _sys.path:
+            _sys.path.insert(0, _scripts_dir)
+        from intel_dedup_engine import save_all as _dedup_save_all
+        _dedup_save_all()
+        log.info("[3.2-POST] intel_dedup_engine.save_all(): cross-run index persisted OK")
+    except Exception as _e:
+        log.warning("[3.2-POST] intel_dedup_engine.save_all() skipped (non-fatal): %s", _e)
+
     stage_enforce_schema()               # MANDATORY: schema enforcement at write boundary
     stage_sync_root_feed_json()          # P0 FIX: populate feed.json from STIX/manifest always
 

@@ -1301,16 +1301,41 @@ def _is_generic_title(title: str) -> bool:
 
 def dedup_items(items: List[Dict]) -> Tuple[List[Dict], int]:
     """
-    v134.0 GLOBAL DEDUP ENGINE — three-layer deduplication.
+    v141.3.0 GLOBAL DEDUP ENGINE — four-layer deduplication.
 
-    Layer 1: SHA-256(title + source + published-date)  — exact republish
-    Layer 2: SHA-256(normalized-title-only)            — cross-feed duplicate
+    Layer 0 (PERSISTENT): intel_dedup_engine.IntelDedupEngine
+             -- source_url + stix_id + content_hash + title_hash
+             -- cross-run memory (data/cache/intel_index.json, committed to git)
+             -- anti-loop protection via FeedStateTracker
+    Layer 1: SHA-256(title + source + published-date)  -- exact republish
+    Layer 2: SHA-256(normalized-title-only)            -- cross-feed duplicate
              (skipped for generic titles per KNOWN_GENERIC_TITLE_PATTERNS)
-    Layer 3: SHA-256(bundle_id)                        — STIX bundle ID dedup
-             (handles cases where title changed but same intel was re-emitted)
+    Layer 3: SHA-256(bundle_id)                        -- STIX bundle ID dedup
 
     Preserves FIRST occurrence. Returns (deduped_list, removed_count).
     """
+    total_removed: int = 0
+
+    # ------------------------------------------------------------------
+    # Layer 0: Persistent cross-run dedup engine (new in v141.3.0)
+    # ------------------------------------------------------------------
+    try:
+        _scripts = Path(__file__).resolve().parent
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        from intel_dedup_engine import get_dedup_engine, enforce_manifest_uniqueness
+        engine = get_dedup_engine()
+        items, l0_removed = engine.dedup_batch(items)
+        total_removed += l0_removed
+        if l0_removed:
+            log.info("dedup-L0 (persistent): %d duplicates removed by cross-run index",
+                     l0_removed)
+    except Exception as _e:
+        log.warning("dedup-L0 (persistent) skipped (%s) — falling back to in-memory only", _e)
+
+    # ------------------------------------------------------------------
+    # Layers 1-3: In-memory dedup (original logic, unchanged)
+    # ------------------------------------------------------------------
     seen_primary:    set[str] = set()
     seen_title_only: set[str] = set()
     seen_bundle_ids: set[str] = set()
@@ -1350,10 +1375,25 @@ def dedup_items(items: List[Dict]) -> Tuple[List[Dict], int]:
             seen_bundle_ids.add(bid)
         result.append(obj)
 
-    if removed:
-        log.info("GlobalDedupEngine: removed %d duplicate(s) across 3 layers, %d unique remain",
-                 removed, len(result))
-    return result, removed
+    total_removed += removed
+    if total_removed:
+        log.info("GlobalDedupEngine v141.3.0: removed %d total duplicate(s) across 4 layers, "
+                 "%d unique remain", total_removed, len(result))
+
+    # ------------------------------------------------------------------
+    # Final guard: enforce_manifest_uniqueness before return
+    # ------------------------------------------------------------------
+    try:
+        from intel_dedup_engine import enforce_manifest_uniqueness
+        result, guard_removed = enforce_manifest_uniqueness(result)
+        if guard_removed:
+            log.info("dedup-GUARD (manifest uniqueness): %d additional duplicates blocked",
+                     guard_removed)
+            total_removed += guard_removed
+    except Exception as _e:
+        log.debug("dedup-GUARD skipped (%s)", _e)
+
+    return result, total_removed
 
 
 # ---------------------------------------------------------------------------

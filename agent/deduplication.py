@@ -76,7 +76,7 @@ class DeduplicationEngine:
     """
 
     def __init__(self, state_file: str = "data/blogger_processed.json",
-                 manifest_path: str = "data/stix/feed_manifest.json",
+                 manifest_path: str = "data/feed_manifest.json",
                  max_state_size: int = 2000):
         self.state_file = state_file
         self.manifest_path = manifest_path
