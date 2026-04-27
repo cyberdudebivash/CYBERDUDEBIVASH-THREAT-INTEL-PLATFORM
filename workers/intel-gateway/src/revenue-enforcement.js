@@ -722,4 +722,16 @@ export async function handleRevenueAnalytics(request, env, rid) {
 async function sha256hex(text) {
   const data = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function revenueJson(body, status = 200) {
+  return new Response(JSON.stringify(body, null, 2), {
+    status,
+    headers: {
+      "Content-Type":                "application/json",
+      "Cache-Control":               "no-cache, no-store",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+}
