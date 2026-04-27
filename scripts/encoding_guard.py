@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/encoding_guard.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v141.0.0 -- Encoding Guard (P0 Permanent Fix)
+CYBERDUDEBIVASH(R) SENTINEL APEX v141.1.0 -- Encoding Guard (P0 Permanent Fix)
 ================================================================================
 MANDATORY FIRST STEP in every pipeline run.
 
@@ -72,7 +72,18 @@ SKIP_DIRS = {
 # ---------------------------------------------------------------------------
 WORKER_ASCII_DIRS: set[str] = {
     "workers/intel-gateway/src",
-    "workers/intel-gateway/src",  # deduplicated by set
+}
+
+# Valid last-non-empty-line tokens for Worker JS files.
+# esbuild requires the export object to be properly closed.
+# Any Worker JS file whose last non-whitespace line is NOT in this set
+# is considered truncated and will cause an "Unexpected end of file" build error.
+WORKER_JS_VALID_EOF_TOKENS: set[str] = {
+    "};",   # export default { ... };
+    "},",   # trailing comma variant
+    "}",    # bare closing brace
+    "});",  # IIFE or promise chain close
+    "})",   # bare IIFE close
 }
 
 # Normalised forward-slash relative paths for cross-platform matching
@@ -357,6 +368,28 @@ def _is_worker_ascii_file(path: pathlib.Path, root: pathlib.Path) -> bool:
     return False
 
 
+def _check_worker_js_eof(path: pathlib.Path, root: pathlib.Path) -> bool:
+    """
+    Return True if this Worker JS file has a valid EOF (not truncated).
+    Reads the last non-empty line and verifies it ends with a known valid
+    JS closing token.  Returns False (= TRUNCATED) if not.
+
+    This guard prevents 'Unexpected end of file' esbuild errors caused by
+    null-byte stripping or other write operations that silently truncate the
+    file tail.
+    """
+    try:
+        data = path.read_bytes()
+        text = data.decode("ascii", errors="replace")
+        non_empty = [ln.rstrip() for ln in text.splitlines() if ln.strip()]
+        if not non_empty:
+            return False  # empty file is always broken
+        last_line = non_empty[-1].strip()
+        return last_line in WORKER_JS_VALID_EOF_TOKENS
+    except OSError:
+        return False  # unreadable = broken
+
+
 def scan_repo(root: pathlib.Path) -> list[pathlib.Path]:
     """Return all target text files, skipping ignored dirs."""
     result = []
@@ -428,6 +461,40 @@ def run(root: pathlib.Path, fix: bool, strict: bool) -> int:
     else:
         print("Status  : DRY RUN -- pass --fix to apply")
 
+    # -- Worker JS EOF Integrity Check -----
+    # Independently validate that every Worker JS file ends with a valid
+    # closing token.  A truncated file will pass ASCII checks (no bad bytes)
+    # but esbuild will still fail with "Unexpected end of file".
+    # This catch runs regardless of --fix / --strict / dirty state.
+    worker_js_files = [f for f in files if _is_worker_ascii_file(f, root)]
+    truncated: list[pathlib.Path] = []
+    for wf in worker_js_files:
+        if not _check_worker_js_eof(wf, root):
+            truncated.append(wf)
+
+    if worker_js_files:
+        print()
+        print(f"Worker JS EOF check: {len(worker_js_files)} files scanned")
+        if truncated:
+            print(f"FATAL: {len(truncated)} Worker JS file(s) are TRUNCATED "
+                  f"(last line not a valid closing token):")
+            for wf in truncated:
+                try:
+                    wdata = wf.read_bytes()
+                    wtext = wdata.decode("ascii", errors="replace")
+                    non_empty = [ln.rstrip() for ln in wtext.splitlines() if ln.strip()]
+                    last = non_empty[-1].strip() if non_empty else "<empty>"
+                    total = len(wtext.splitlines())
+                except OSError:
+                    last = "<unreadable>"
+                    total = 0
+                print(f"  TRUNCATED: {wf.relative_to(root)} "
+                      f"(lines={total}, last={repr(last)})")
+            print("Fix: ensure the file ends with '};'  (Cloudflare Worker export object)")
+            return 1
+        else:
+            print("Worker JS EOF check: ALL VALID (no truncated files)")
+
     if strict and dirty and not fix:
         return 1
     return 0
@@ -450,7 +517,7 @@ def main() -> None:
     args = parser.parse_args()
 
     print("=" * 70)
-    print("SENTINEL APEX -- Encoding Guard v141.0.0")
+    print("SENTINEL APEX -- Encoding Guard v141.1.0")
     print(f"Root   : {args.root}")
     _mode = "FIX" if args.fix else "DRY-RUN"
     print(f"Mode   : {_mode}")
