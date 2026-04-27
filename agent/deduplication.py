@@ -187,7 +187,7 @@ class DeduplicationEngine:
             return True
         return False
 
-    def _titles_similar(self, a: str, b: str, threshold: float = 0.80) -> bool:
+    def _titles_similar(self, a: str, b: str, threshold: float = 0.95) -> bool:
         """Layer 3: Fuzzy word-overlap similarity."""
         wa = set(re.sub(r'[^\w\s]', '', a.lower()).split())
         wb = set(re.sub(r'[^\w\s]', '', b.lower()).split())
