@@ -1,21 +1,21 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Credit System v134.0.0
-// Phase 2: Token/Credit model — balance management, tier enforcement, billing
-// Phase 3: Billing engine — 402 on exhaustion, blocking gate, billing_status
-// Phase 9: Security — no negative credits, no bypass, all paths gated
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Credit System v134.0.0
+// Phase 2: Token/Credit model -- balance management, tier enforcement, billing
+// Phase 3: Billing engine -- 402 on exhaustion, blocking gate, billing_status
+// Phase 9: Security -- no negative credits, no bypass, all paths gated
 //
-// Storage: SECURITY_HUB_KV (existing binding — no new infra required)
+// Storage: SECURITY_HUB_KV (existing binding -- no new infra required)
 // KV keys:
-//   credits:bal:<userId>:<periodKey>    — balance record (JSON)
-//   credits:exhaust:<userId>:<date>     — exhaustion event count (for analytics)
+//   credits:bal:<userId>:<periodKey>    -- balance record (JSON)
+//   credits:exhaust:<userId>:<date>     -- exhaustion event count (for analytics)
 // =============================================================================
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CREDIT LIMITS — authoritative allocation per tier
+// 
+// CREDIT LIMITS -- authoritative allocation per tier
 // FREE:       100  credits / day   (resets at midnight UTC)
 // PRO:       10000 credits / month (resets on 1st of month UTC)
-// ENTERPRISE: ∞    (unlimited — credits not tracked, always allowed)
-// ─────────────────────────────────────────────────────────────────────────────
+// ENTERPRISE:     (unlimited -- credits not tracked, always allowed)
+// 
 export const CREDIT_CONFIG = {
   FREE:       { limit: 100,   period: "day",   tier_key: "free"       },
   PRO:        { limit: 10000, period: "month",  tier_key: "premium"    },
@@ -33,9 +33,9 @@ export const CREDIT_CONFIG = {
   TTL_MONTH:  86400 * 32,      // 32 days
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// _tierConfig — get credit config for a given tier string
-// ─────────────────────────────────────────────────────────────────────────────
+// 
+// _tierConfig -- get credit config for a given tier string
+// 
 function _tierConfig(tier) {
   const t = (tier || "free").toLowerCase();
   if (t === "enterprise") return CREDIT_CONFIG.ENTERPRISE;
@@ -43,38 +43,38 @@ function _tierConfig(tier) {
   return CREDIT_CONFIG.FREE;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// _periodKey — current period string for credit window
-// FREE → "2026-04-20" (daily)    PRO → "2026-04" (monthly)
-// ─────────────────────────────────────────────────────────────────────────────
+// 
+// _periodKey -- current period string for credit window
+// FREE -> "2026-04-20" (daily)    PRO -> "2026-04" (monthly)
+// 
 function _periodKey(cfg) {
   const iso = new Date().toISOString();
   return cfg.period === "month" ? iso.slice(0, 7) : iso.slice(0, 10);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// _kvKey — returns the KV balance key for a user in the current period
-// ─────────────────────────────────────────────────────────────────────────────
+// 
+// _kvKey -- returns the KV balance key for a user in the current period
+// 
 function _kvKey(userId, periodKey) {
   return `credits:bal:${String(userId).slice(0, 64)}:${periodKey}`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// getCredits — read current credit balance for a user
+// 
+// getCredits -- read current credit balance for a user
 // Auto-initializes if no record exists for the current period.
 // Returns: { balance, initial, tier, period, period_key, is_new }
 // Enterprise: returns { balance: Infinity, unlimited: true }
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export async function getCredits(env, userId, tier) {
   const cfg = _tierConfig(tier);
 
-  // Enterprise — unlimited, skip KV entirely
+  // Enterprise -- unlimited, skip KV entirely
   if (cfg.limit === -1) {
     return { balance: Infinity, initial: Infinity, tier, unlimited: true, period: "none", period_key: "none" };
   }
 
   if (!env?.SECURITY_HUB_KV || !userId) {
-    // KV unavailable — fail open (never block on infra failure)
+    // KV unavailable -- fail open (never block on infra failure)
     return { balance: cfg.limit, initial: cfg.limit, tier, unlimited: false, period: cfg.period, period_key: _periodKey(cfg), error: "kv_unavailable" };
   }
 
@@ -97,7 +97,7 @@ export async function getCredits(env, userId, tier) {
       };
     }
 
-    // No record / stale period → initialize fresh credits
+    // No record / stale period -> initialize fresh credits
     const rec = {
       balance:    cfg.limit,
       initial:    cfg.limit,
@@ -111,23 +111,23 @@ export async function getCredits(env, userId, tier) {
 
     return { ...rec, unlimited: false, is_new: true };
   } catch {
-    // KV error — fail open (never block legitimate requests due to infra failure)
+    // KV error -- fail open (never block legitimate requests due to infra failure)
     return { balance: cfg.limit, initial: cfg.limit, tier, unlimited: false, period: cfg.period, period_key: periodKey, error: "kv_error" };
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// deductCredits — deduct `amount` credits from user balance
+// 
+// deductCredits -- deduct `amount` credits from user balance
 // SECURITY: balance NEVER goes below 0 (non-negative guard enforced here)
 // Returns: { ok: bool, balance_before, balance_after, deducted, exhausted }
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export async function deductCredits(env, userId, amount, tier) {
   const cfg = _tierConfig(tier);
 
-  // Enterprise — unlimited, nothing to deduct
+  // Enterprise -- unlimited, nothing to deduct
   if (cfg.limit === -1) return { ok: true, unlimited: true, deducted: 0, balance_after: Infinity };
 
-  // Zero-cost call (auth endpoints, health, etc.) — skip KV write
+  // Zero-cost call (auth endpoints, health, etc.) -- skip KV write
   if (!amount || amount <= 0) return { ok: true, deducted: 0, balance_after: null, zero_cost: true };
 
   if (!env?.SECURITY_HUB_KV || !userId) {
@@ -179,15 +179,15 @@ export async function deductCredits(env, userId, amount, tier) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// checkCredits — FULL GATE — check balance, deduct if sufficient, return gate result
+// 
+// checkCredits -- FULL GATE -- check balance, deduct if sufficient, return gate result
 // This is the single entry point for all credit enforcement.
 // Returns: { allowed: bool, status: object, 402Response?: Response }
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export async function checkCredits(env, userId, tier, cost, requestId) {
   const cfg = _tierConfig(tier);
 
-  // Enterprise — always allowed, no deduction
+  // Enterprise -- always allowed, no deduction
   if (cfg.limit === -1) {
     return {
       allowed: true,
@@ -196,7 +196,7 @@ export async function checkCredits(env, userId, tier, cost, requestId) {
     };
   }
 
-  // Zero-cost endpoint — skip balance check entirely
+  // Zero-cost endpoint -- skip balance check entirely
   if (!cost || cost <= 0) {
     const bal = await getCredits(env, userId, tier);
     return {
@@ -250,7 +250,7 @@ export async function checkCredits(env, userId, tier, cost, requestId) {
     return { allowed: false, status, response402: resp402 };
   }
 
-  // Sufficient credits — deduct
+  // Sufficient credits -- deduct
   const deduction = await deductCredits(env, userId, cost, tier);
   const newBalance = deduction.balance_after ?? (bal.balance - cost);
   const used       = bal.initial - newBalance;
@@ -262,10 +262,10 @@ export async function checkCredits(env, userId, tier, cost, requestId) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// buildBillingStatus — builds the billing_status object for API responses
+// 
+// buildBillingStatus -- builds the billing_status object for API responses
 // Attached to all authenticated API responses as a field + headers
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export function buildBillingStatus(balance, used, limit, tier, costThisCall) {
   const isUnlimited = limit === -1 || balance === Infinity;
   const pctUsed     = (!isUnlimited && limit > 0) ? Math.min(100, Math.floor((used / limit) * 100)) : 0;
@@ -288,9 +288,9 @@ export function buildBillingStatus(balance, used, limit, tier, costThisCall) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// buildCreditHeaders — builds response headers for credit state
-// ─────────────────────────────────────────────────────────────────────────────
+// 
+// buildCreditHeaders -- builds response headers for credit state
+// 
 export function buildCreditHeaders(billingStatus, usedToday) {
   const remaining = billingStatus?.credits_remaining;
   const limit     = billingStatus?.credit_limit;
@@ -305,10 +305,10 @@ export function buildCreditHeaders(billingStatus, usedToday) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// getCreditExhaustionStats — how many users hit their credit limit today
+// 
+// getCreditExhaustionStats -- how many users hit their credit limit today
 // Used by /api/revenue dashboard
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export async function getCreditExhaustionStats(env, date) {
   if (!env?.SECURITY_HUB_KV) return { exhaustions_today: 0 };
   const d = date || new Date().toISOString().slice(0, 10);

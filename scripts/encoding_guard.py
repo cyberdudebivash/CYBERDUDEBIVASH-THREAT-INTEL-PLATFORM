@@ -452,7 +452,8 @@ def main() -> None:
     print("=" * 70)
     print("SENTINEL APEX -- Encoding Guard v141.0.0")
     print(f"Root   : {args.root}")
-    print(f"Mode   : {chr(39)}FIX{chr(39)} if args.fix else {chr(39)}DRY-RUN{chr(39)}")
+    _mode = "FIX" if args.fix else "DRY-RUN"
+    print(f"Mode   : {_mode}")
     print(f"Strict : {args.strict}")
     print("=" * 70)
 

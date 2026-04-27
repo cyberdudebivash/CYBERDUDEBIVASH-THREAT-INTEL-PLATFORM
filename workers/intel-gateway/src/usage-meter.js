@@ -1,28 +1,28 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Usage Meter Engine v134.0.0
-// Phase 1: Per-endpoint API usage tracking · Cost calculation · Peak detection
-// Storage: ANALYTICS_KV  (existing binding — no new infra required)
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Usage Meter Engine v134.0.0
+// Phase 1: Per-endpoint API usage tracking . Cost calculation . Peak detection
+// Storage: ANALYTICS_KV  (existing binding -- no new infra required)
 // KV keys:
-//   meter:total:<userId>:<date>                — total calls per user per day
-//   meter:ep:<endpoint_slug>:<date>            — global endpoint hit counts
-//   meter:user_ep:<userId>:<endpoint_slug>:<date> — per-user per-endpoint
-//   meter:cost:<userId>:<date>                 — credits consumed per user per day
-//   meter:peak:<userId>:<date>                 — {hour, count} peak usage record
-//   meter:patterns:<userId>                    — rolling usage patterns (30d)
+//   meter:total:<userId>:<date>                -- total calls per user per day
+//   meter:ep:<endpoint_slug>:<date>            -- global endpoint hit counts
+//   meter:user_ep:<userId>:<endpoint_slug>:<date> -- per-user per-endpoint
+//   meter:cost:<userId>:<date>                 -- credits consumed per user per day
+//   meter:peak:<userId>:<date>                 -- {hour, count} peak usage record
+//   meter:patterns:<userId>                    -- rolling usage patterns (30d)
 // =============================================================================
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CREDIT COST TABLE — credits deducted per API call by endpoint + tier
+// 
+// CREDIT COST TABLE -- credits deducted per API call by endpoint + tier
 // Free tier pays 1:1 (credit/call) on most endpoints; Pro/Enterprise discounted
-// Gated endpoints (ai/stix/export) cost more — reflects real compute cost
-// ─────────────────────────────────────────────────────────────────────────────
+// Gated endpoints (ai/stix/export) cost more -- reflects real compute cost
+// 
 const COST_TABLE = {
-  // Public (no credit deduction — authenticated endpoints only)
+  // Public (no credit deduction -- authenticated endpoints only)
   "preview":               { free: 0, premium: 0, enterprise: 0 },
   "health":                { free: 0, premium: 0, enterprise: 0 },
   "version":               { free: 0, premium: 0, enterprise: 0 },
 
-  // Core intel feed — base cost
+  // Core intel feed -- base cost
   "feed":                  { free: 2, premium: 1, enterprise: 1 },
   "feed_item":             { free: 3, premium: 1, enterprise: 1 },
 
@@ -32,7 +32,7 @@ const COST_TABLE = {
   "cves":                  { free: 3, premium: 2, enterprise: 1 },
   "analytics":             { free: 2, premium: 1, enterprise: 1 },
 
-  // AI Intelligence — higher compute cost
+  // AI Intelligence -- higher compute cost
   "predict":               { free: 10, premium: 5, enterprise: 2 },
   "campaigns":             { free: 10, premium: 5, enterprise: 2 },
   "anomalies":             { free: 10, premium: 5, enterprise: 2 },
@@ -42,7 +42,7 @@ const COST_TABLE = {
   "intel_relations":       { free: 8,  premium: 4, enterprise: 2 },
   "intel_correlate":       { free: 8,  premium: 4, enterprise: 2 },
 
-  // STIX / Export — bandwidth-heavy
+  // STIX / Export -- bandwidth-heavy
   "stix_export":           { free: 15, premium: 8, enterprise: 3 },
   "export_misp":           { free: 15, premium: 8, enterprise: 3 },
   "export_csv":            { free: 10, premium: 5, enterprise: 2 },
@@ -51,7 +51,7 @@ const COST_TABLE = {
   "alerts":                { free: 5,  premium: 3, enterprise: 1 },
   "webhooks_siem":         { free: 20, premium: 10, enterprise: 2 },
 
-  // Account/billing — no cost
+  // Account/billing -- no cost
   "auth":                  { free: 0, premium: 0, enterprise: 0 },
   "keys":                  { free: 0, premium: 0, enterprise: 0 },
   "billing":               { free: 0, premium: 0, enterprise: 0 },
@@ -61,7 +61,7 @@ const COST_TABLE = {
   "default":               { free: 1, premium: 1, enterprise: 1 },
 };
 
-// Endpoint path → slug mapping (prefix-based for efficiency)
+// Endpoint path -> slug mapping (prefix-based for efficiency)
 const ENDPOINT_SLUG_MAP = [
   { prefix: "/api/preview",            slug: "preview"         },
   { prefix: "/api/health",             slug: "health"          },
@@ -90,9 +90,9 @@ const ENDPOINT_SLUG_MAP = [
   { prefix: "/auth/",                  slug: "auth"            },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// slugifyEndpoint — converts a request pathname to a cost-table slug
-// ─────────────────────────────────────────────────────────────────────────────
+// 
+// slugifyEndpoint -- converts a request pathname to a cost-table slug
+// 
 export function slugifyEndpoint(pathname) {
   for (const { prefix, slug } of ENDPOINT_SLUG_MAP) {
     if (pathname.startsWith(prefix)) return slug;
@@ -100,22 +100,22 @@ export function slugifyEndpoint(pathname) {
   return "default";
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// calculateCostPerCall — returns credit cost for a given endpoint + tier
-// ─────────────────────────────────────────────────────────────────────────────
+// 
+// calculateCostPerCall -- returns credit cost for a given endpoint + tier
+// 
 export function calculateCostPerCall(endpointSlug, tier) {
   const t     = (tier || "free").toLowerCase();
   const costs = COST_TABLE[endpointSlug] || COST_TABLE.default;
-  // Tier key mapping: "premium" → "premium", "enterprise" → "enterprise", else "free"
+  // Tier key mapping: "premium" -> "premium", "enterprise" -> "enterprise", else "free"
   const tierKey = t === "enterprise" ? "enterprise" : t === "premium" ? "premium" : "free";
   return costs[tierKey] ?? 1;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// trackApiUsage — records a metered API call in ANALYTICS_KV
+// 
+// trackApiUsage -- records a metered API call in ANALYTICS_KV
 // Call AFTER auth succeeds and AFTER credit deduction to ensure billing-accurate logs
-// Fully async — fire-and-forget inside waitUntil (never blocks response)
-// ─────────────────────────────────────────────────────────────────────────────
+// Fully async -- fire-and-forget inside waitUntil (never blocks response)
+// 
 export async function trackApiUsage(env, userId, endpointSlug, tier, creditsCost) {
   if (!env?.ANALYTICS_KV || !userId) return;
 
@@ -125,7 +125,7 @@ export async function trackApiUsage(env, userId, endpointSlug, tier, creditsCost
   const TTL     = 86400 * 90;  // 90-day retention
   const cost    = typeof creditsCost === "number" ? creditsCost : 0;
 
-  // Atomic-ish increment helper (KV best-effort — eventual consistency acceptable for analytics)
+  // Atomic-ish increment helper (KV best-effort -- eventual consistency acceptable for analytics)
   const inc = async (key, amount = 1) => {
     try {
       const prev = parseInt(await kv.get(key) || "0");
@@ -151,7 +151,7 @@ export async function trackApiUsage(env, userId, endpointSlug, tier, creditsCost
     inc(`meter:tier:${tier || "free"}:${date}`),
   ]);
 
-  // Update rolling usage pattern (peak hour tracking — async, non-blocking)
+  // Update rolling usage pattern (peak hour tracking -- async, non-blocking)
   _updatePeakPattern(kv, uid, date, hour, TTL).catch(() => {});
 }
 
@@ -172,10 +172,10 @@ async function _updatePeakPattern(kv, uid, date, hour, TTL) {
   } catch { /* non-critical */ }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// getUsageSummary — returns full per-user usage breakdown for a given date
+// 
+// getUsageSummary -- returns full per-user usage breakdown for a given date
 // Used by: /api/account/usage, /api/revenue, billing_status headers
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export async function getUsageSummary(env, userId, date) {
   if (!env?.ANALYTICS_KV || !userId) return null;
 
@@ -190,7 +190,7 @@ export async function getUsageSummary(env, userId, date) {
       kv.get(`meter:peak:${uid}:${d}`, { type: "json" }),
     ]);
 
-    // Endpoint breakdown — fetch known slugs for this user+date
+    // Endpoint breakdown -- fetch known slugs for this user+date
     const KNOWN_SLUGS = ["feed","feed_item","search","actors","cves","predict","campaigns","anomalies","intel_graph","intel_correlate","stix_export","export_misp","export_csv","alerts","analytics"];
     const epEntries   = await Promise.all(
       KNOWN_SLUGS.map(async sl => {
@@ -213,10 +213,10 @@ export async function getUsageSummary(env, userId, date) {
   } catch { return null; }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// getEndpointStats — global endpoint analytics (admin/revenue dashboard)
+// 
+// getEndpointStats -- global endpoint analytics (admin/revenue dashboard)
 // Returns top endpoints by call volume for a given date
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export async function getEndpointStats(env, date) {
   if (!env?.ANALYTICS_KV) return [];
 
@@ -241,10 +241,10 @@ export async function getEndpointStats(env, date) {
   } catch { return []; }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// getTierDistribution — how many calls came from each tier today
+// 
+// getTierDistribution -- how many calls came from each tier today
 // Used by /api/revenue dashboard
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export async function getTierDistribution(env, date) {
   if (!env?.ANALYTICS_KV) return {};
 
@@ -265,10 +265,10 @@ export async function getTierDistribution(env, date) {
   } catch { return {}; }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// analyzeUsagePatterns — Phase 6 auto-optimization
+// 
+// analyzeUsagePatterns -- Phase 6 auto-optimization
 // Returns adaptive signals: upgrade suggestions, high-value endpoint flags
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export async function analyzeUsagePatterns(env, userId, tier, creditBalance, creditLimit) {
   const signals = [];
 
@@ -285,7 +285,7 @@ export async function analyzeUsagePatterns(env, userId, tier, creditBalance, cre
   } else if (pctUsed >= 0.70 && tier === "free") {
     signals.push({
       type:      "upgrade_nudge",
-      message:   "70% of daily free credits used. Pro tier gives 100× more access.",
+      message:   "70% of daily free credits used. Pro tier gives 100 more access.",
       urgency:   "medium",
       cta_url:   "https://intel.cyberdudebivash.com/upgrade?plan=pro&ref=usage_70pct",
     });
@@ -298,7 +298,7 @@ export async function analyzeUsagePatterns(env, userId, tier, creditBalance, cre
     });
   }
 
-  // Signal 2: High-value endpoint usage (AI/export) on free tier → upgrade signal
+  // Signal 2: High-value endpoint usage (AI/export) on free tier -> upgrade signal
   if (tier === "free") {
     try {
       const kv   = env?.ANALYTICS_KV;

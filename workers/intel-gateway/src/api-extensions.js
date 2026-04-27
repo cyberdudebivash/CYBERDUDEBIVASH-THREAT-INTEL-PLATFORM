@@ -1,8 +1,8 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — API Extensions v134.0.0
-// Missing endpoints: /api/search · /api/actors · /api/cves · /api/export/misp
-// Scopes system: read:intel · read:stix · export:misp · read:actors · admin:keys
-// Abuse detection · Request fingerprinting · Advanced filtering
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- API Extensions v134.0.0
+// Missing endpoints: /api/search . /api/actors . /api/cves . /api/export/misp
+// Scopes system: read:intel . read:stix . export:misp . read:actors . admin:keys
+// Abuse detection . Request fingerprinting . Advanced filtering
 //
 // HOW TO WIRE INTO index.js:
 //   import { handleSearch, handleActors, handleCVEs, handleMISPExport,
@@ -17,7 +17,7 @@
 //     if (pathname === "/api/intel/correlate")     return handleCorrelate(request, env, auth, rid);
 // =============================================================================
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 // SCOPES SYSTEM
 // JWT payload carries: { scopes: ["read:intel","read:stix","export:misp"] }
 // API key record carries: scopes array
@@ -25,7 +25,7 @@
 //   free:       ["read:intel:preview"]
 //   premium:    ["read:intel","read:stix","read:actors","export:csv"]
 //   enterprise: ["read:intel","read:stix","read:actors","export:misp","export:csv","admin:webhooks"]
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 
 export const SCOPE_DEFINITIONS = {
   "read:intel:preview": { tier: "free",       desc: "Public feed preview (10 items)"                        },
@@ -39,12 +39,12 @@ export const SCOPE_DEFINITIONS = {
   "export:stix:full":   { tier: "enterprise",  desc: "Raw STIX bundle download"                             },
   "admin:webhooks":     { tier: "enterprise",  desc: "SIEM webhook management"                              },
   "admin:keys":         { tier: "enterprise",  desc: "Sub-key issuance for team"                            },
-  // ── v134.0.0: AI Intelligence scopes ─────────────────────────────────────────
-  "read:ai:predict":    { tier: "premium",     desc: "AI threat prediction — CVSS+EPSS+KEV+TTP scoring"     },
-  "read:ai:campaigns":  { tier: "premium",     desc: "DBSCAN campaign clustering — grouped threat actors"   },
+  //  v134.0.0: AI Intelligence scopes 
+  "read:ai:predict":    { tier: "premium",     desc: "AI threat prediction -- CVSS+EPSS+KEV+TTP scoring"     },
+  "read:ai:campaigns":  { tier: "premium",     desc: "DBSCAN campaign clustering -- grouped threat actors"   },
   "read:ai:anomalies":  { tier: "premium",     desc: "Isolation Forest anomaly detection + zero-day flags"  },
-  "read:intel:graph":   { tier: "premium",     desc: "IOC intelligence graph — PageRank authority scores"   },
-  "read:intel:graph:full": { tier: "enterprise", desc: "Full IOC graph — all nodes + attribution edges"    },
+  "read:intel:graph":   { tier: "premium",     desc: "IOC intelligence graph -- PageRank authority scores"   },
+  "read:intel:graph:full": { tier: "enterprise", desc: "Full IOC graph -- all nodes + attribution edges"    },
 };
 
 export const TIER_DEFAULT_SCOPES = {
@@ -60,13 +60,13 @@ export const TIER_DEFAULT_SCOPES = {
 export function buildScopeSet(tier, explicitScopes) {
   const defaults = TIER_DEFAULT_SCOPES[(tier||"free").toLowerCase()] || TIER_DEFAULT_SCOPES.free;
   if (Array.isArray(explicitScopes) && explicitScopes.length) {
-    // Explicit scopes cannot exceed tier defaults — intersect
+    // Explicit scopes cannot exceed tier defaults -- intersect
     return explicitScopes.filter(s => defaults.includes(s));
   }
   return defaults;
 }
 
-// ─── Scope enforcement middleware ─────────────────────────────────────────────
+//  Scope enforcement middleware 
 // Returns null (allowed) or a Response (rejected)
 export function enforceScopeMiddleware(auth, requiredScope, rid) {
   const userScopes = auth.scopes || buildScopeSet(auth.tier, null);
@@ -127,7 +127,7 @@ export async function handleSearch(request, env, auth, rid) {
       });
     }
 
-    // CVE filter — exact + partial match
+    // CVE filter -- exact + partial match
     if (cveFilter) {
       const cveLow = cveFilter.toLowerCase();
       results = results.filter(item =>
@@ -481,7 +481,7 @@ export async function handleCVEs(request, env, auth, rid) {
 
 // =============================================================================
 // ENDPOINT: GET /api/export/misp?report_id=&since=&limit=
-// MISP JSON Event export — Enterprise only
+// MISP JSON Event export -- Enterprise only
 // Scope: export:misp
 // =============================================================================
 export async function handleMISPExport(request, env, auth, rid) {
@@ -517,7 +517,7 @@ export async function handleMISPExport(request, env, auth, rid) {
       meta: {
         generated_at: new Date().toISOString(),
         count:        mispEvents.length,
-        source:       "CYBERDUDEBIVASH® SENTINEL APEX",
+        source:       "CYBERDUDEBIVASH(R) SENTINEL APEX",
         format:       "MISP 2.4",
         export_scope: "export:misp",
         request_id:   rid,
@@ -540,7 +540,7 @@ export async function handleMISPExport(request, env, auth, rid) {
   }
 }
 
-// ─── MISP Event Builder ────────────────────────────────────────────────────────
+//  MISP Event Builder 
 async function buildMISPEvent(item, idx) {
   const uuid     = item.stix_id?.replace("indicator--", "") || await miniHash(item.title + idx);
   const orgId    = "1";
@@ -552,26 +552,26 @@ async function buildMISPEvent(item, idx) {
   const attributes = [];
   let aid = 100 + idx * 100;
 
-  // Title → comment
+  // Title -> comment
   attributes.push({
     id: String(aid++), uuid: await miniHash("title" + uuid), type: "comment",
     category: "External analysis", value: item.title || "Untitled",
     comment: "Threat title from SENTINEL APEX", to_ids: false,
   });
 
-  // IOCs → MISP attributes
+  // IOCs -> MISP attributes
   for (const ioc of (item.iocs || []).slice(0, 30)) {
     const mispType = iocTypeToMISP(ioc.type);
     if (!mispType) continue;
     attributes.push({
       id: String(aid++), uuid: await miniHash(ioc.value + uuid), type: mispType,
       category: iocCategoryMISP(ioc.type),
-      value: ioc.value, comment: `IOC from SENTINEL APEX — confidence: ${ioc.confidence || 0.7}`,
+      value: ioc.value, comment: `IOC from SENTINEL APEX -- confidence: ${ioc.confidence || 0.7}`,
       to_ids: shouldFlagForIDS(ioc.type),
     });
   }
 
-  // CVE → vulnerability attribute
+  // CVE -> vulnerability attribute
   if (item.cve_id) {
     attributes.push({
       id: String(aid++), uuid: await miniHash("cve" + item.cve_id), type: "vulnerability",
@@ -588,7 +588,7 @@ async function buildMISPEvent(item, idx) {
     });
   }
 
-  // TTPs → MITRE ATT&CK attribute
+  // TTPs -> MITRE ATT&CK attribute
   for (const ttp of (item.ttps || []).slice(0, 10)) {
     if (ttp.technique_id) {
       attributes.push({
@@ -629,7 +629,7 @@ async function buildMISPEvent(item, idx) {
 
 // =============================================================================
 // ENDPOINT: GET /api/export/csv
-// IOC bulk CSV export — Pro+
+// IOC bulk CSV export -- Pro+
 // Scope: export:csv
 // =============================================================================
 export async function handleCSVExport(request, env, auth, rid) {
@@ -804,7 +804,7 @@ export async function detectAbuse(request, env, rid) {
 
     return null; // Allowed
   } catch {
-    return null; // Non-critical — let request through on error
+    return null; // Non-critical -- let request through on error
   }
 }
 
@@ -830,7 +830,7 @@ async function trackAbuseEvent(env, type, meta) {
   } catch {}
 }
 
-// GET /api/admin/abuse — abuse dashboard (admin only)
+// GET /api/admin/abuse -- abuse dashboard (admin only)
 export async function handleAbuseReport(request, env, rid) {
   const day = new URL(request.url).searchParams.get("date") || new Date().toISOString().slice(0, 10);
   const rec = await env.SECURITY_HUB_KV?.get(`abuse:events:${day}`, { type: "json" }) || { events: [] };
@@ -913,7 +913,7 @@ export async function pushWebhookNotifications(env, newItems) {
 
 function buildWebhookPayload(format, items, wh) {
   const base = {
-    source:       "CYBERDUDEBIVASH® SENTINEL APEX",
+    source:       "CYBERDUDEBIVASH(R) SENTINEL APEX",
     version:      "123.0.0",
     generated_at: new Date().toISOString(),
     webhook_id:   wh.id || "unknown",
@@ -985,7 +985,7 @@ async function buildWebhookSignature(body, secret) {
 }
 
 // =============================================================================
-// REQUEST FINGERPRINTING — for analytics + abuse correlation
+// REQUEST FINGERPRINTING -- for analytics + abuse correlation
 // =============================================================================
 export async function fingerprintRequest(request, env, auth, rid) {
   if (!env?.ANALYTICS_KV) return;
@@ -1132,16 +1132,16 @@ function extJson(body, status = 200) {
 }
 
 // =============================================================================
-// ██████████████████████████████████████████████████████████████████████████████
+// 
 // AI INTELLIGENCE ENDPOINTS  v134.0.0
-// PHASE 2+4: /api/predict · /api/campaigns · /api/anomalies
-//            /api/intelligence/graph · /api/intelligence/relations
-// ██████████████████████████████████████████████████████████████████████████████
+// PHASE 2+4: /api/predict . /api/campaigns . /api/anomalies
+//            /api/intelligence/graph . /api/intelligence/relations
+// 
 // =============================================================================
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 // INTERNAL: fetch the feed manifest from R2 (cached in KV)
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 async function fetchManifestForAI(env) {
   // Try KV cache first
   if (env.INTEL_KV) {
@@ -1166,9 +1166,9 @@ async function fetchManifestForAI(env) {
   return null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TIER GATE HELPER — uniform upgrade response
-// ─────────────────────────────────────────────────────────────────────────────
+// 
+// TIER GATE HELPER -- uniform upgrade response
+// 
 function aiTierReject(tier, endpoint, rid) {
   const upgradePlan = tier === "free" ? "pro" : "enterprise";
   return extJson({
@@ -1185,7 +1185,7 @@ function aiTierReject(tier, endpoint, rid) {
 // =============================================================================
 // ENDPOINT: GET /api/predict
 // AI threat prediction for a single intel item or CVE ID
-// Tier: PRO + ENTERPRISE (full); FREE → 403
+// Tier: PRO + ENTERPRISE (full); FREE -> 403
 // Params: cve, title, cvss, epss, kev, sector, actor, ttps (comma-sep)
 // =============================================================================
 export async function handlePredict(request, env, auth, rid) {
@@ -1195,7 +1195,7 @@ export async function handlePredict(request, env, auth, rid) {
   const scopeErr = enforceScopeMiddleware(auth, "read:intel", rid);
   if (scopeErr) return scopeErr;
 
-  // Tier gate — FREE blocked
+  // Tier gate -- FREE blocked
   if (tier === "free") return aiTierReject(tier, "/api/predict", rid);
 
   const url = new URL(request.url);
@@ -1285,7 +1285,7 @@ export async function handlePredict(request, env, auth, rid) {
 // =============================================================================
 // ENDPOINT: GET /api/campaigns
 // Returns detected threat campaigns from the intelligence feed
-// Tier: PRO + ENTERPRISE (full); FREE → 403
+// Tier: PRO + ENTERPRISE (full); FREE -> 403
 // Params: limit, severity, actor, since
 // =============================================================================
 export async function handleCampaigns(request, env, auth, rid) {
@@ -1379,7 +1379,7 @@ export async function handleCampaigns(request, env, auth, rid) {
 // =============================================================================
 // ENDPOINT: GET /api/anomalies
 // Returns anomalous / zero-day candidate items flagged by AnomalyDetector
-// Tier: PRO + ENTERPRISE; FREE → 403
+// Tier: PRO + ENTERPRISE; FREE -> 403
 // Params: limit, type, min_zd_prob, min_novelty
 // =============================================================================
 export async function handleAnomalies(request, env, auth, rid) {
@@ -1454,7 +1454,7 @@ export async function handleAnomalies(request, env, auth, rid) {
 // =============================================================================
 // ENDPOINT: GET /api/intelligence/graph
 // Returns the IOC relationship graph summary + top nodes
-// Tier: ENTERPRISE only; PRO gets summary; FREE → 403
+// Tier: ENTERPRISE only; PRO gets summary; FREE -> 403
 // =============================================================================
 export async function handleIntelGraph(request, env, auth, rid) {
   const tier = (auth.tier || "free").toLowerCase();
@@ -1540,7 +1540,7 @@ export async function handleIntelGraph(request, env, auth, rid) {
 // =============================================================================
 // ENDPOINT: GET /api/intelligence/relations
 // Returns relationships for a specific IOC (BFS traversal from intel graph)
-// Tier: ENTERPRISE only; PRO → summary; FREE → 403
+// Tier: ENTERPRISE only; PRO -> summary; FREE -> 403
 // Params: ioc (required), depth (1-3)
 // =============================================================================
 export async function handleIntelRelations(request, env, auth, rid) {
@@ -1574,7 +1574,7 @@ export async function handleIntelRelations(request, env, auth, rid) {
           (n.value || "").toLowerCase() === iocLower
         );
         if (matchedNodes.length) {
-          // Return its direct edges (simplified — full graph traversal is server-side)
+          // Return its direct edges (simplified -- full graph traversal is server-side)
           const edges = gd.edges || [];
           const matchedIds = matchedNodes.map(n => n.id);
           relations = edges.filter(e =>
@@ -1630,7 +1630,7 @@ export async function handleIntelRelations(request, env, auth, rid) {
 }
 
 // =============================================================================
-// INTERNAL HELPERS — Edge-side computation (mirrors Python AI heuristics)
+// INTERNAL HELPERS -- Edge-side computation (mirrors Python AI heuristics)
 // =============================================================================
 
 function _computeEdgeRiskScore(cvss, epss, kev, ttps, actor, sector) {
@@ -1684,7 +1684,7 @@ function _zdRecommendation(zdProb) {
 }
 
 function _flattenManifestIOCs(iocCounts) {
-  // iocCounts is a dict of {type: count} — we return placeholder values for graph
+  // iocCounts is a dict of {type: count} -- we return placeholder values for graph
   // In production this would reference actual IOC values stored separately
   return Object.keys(iocCounts).filter(k => iocCounts[k] > 0);
 }

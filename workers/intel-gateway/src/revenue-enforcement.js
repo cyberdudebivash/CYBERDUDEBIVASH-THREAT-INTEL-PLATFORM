@@ -1,18 +1,18 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Revenue Enforcement Engine v134.0.0
-// Phase 1: Tier gates · Usage billing · Upgrade triggers · Lead capture
-// Phase 2: Trial issuance · Email capture · Conversion hooks
+// CYBERDUDEBIVASH SENTINEL APEX  Revenue Enforcement Engine v134.0.0
+// Phase 1: Tier gates  Usage billing  Upgrade triggers  Lead capture
+// Phase 2: Trial issuance  Email capture  Conversion hooks
 // Import this file into index.js and wire into the request pipeline.
 // =============================================================================
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TIER CONFIGURATION — Hard enforcement matrix
+// 
+// TIER CONFIGURATION  Hard enforcement matrix
 // FREE       : preview only, truncated AI, blocked IOC/STIX, 20 items/req
 // PRO        : full feed, full AI, full IOC, partial STIX, 500/req, 500/min
 // ENTERPRISE : everything + raw STIX bundle, SIEM webhooks, dedicated SLA
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export const REVENUE_CONFIG = {
-  VERSION: "141.0.0",  // v141.0.0 — synced with platform version
+  VERSION: "141.0.0",  // v141.0.0  synced with platform version
   TIERS: {
     FREE:       "free",
     PRO:        "premium",      // internal name kept as "premium" for compat
@@ -33,7 +33,7 @@ export const REVENUE_CONFIG = {
     pro_to_enterprise: "https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise",
     trial:             "https://intel.cyberdudebivash.com/upgrade.html?plan=pro",
     mssp:              "https://intel.cyberdudebivash.com/upgrade.html?plan=mssp",
-    get_key:           "https://intel.cyberdudebivash.com/get-api-key.html",
+    get_key:           "https://intel.cyberdudebivash.com/upgrade.html",
     pricing:           "https://intel.cyberdudebivash.com/pricing.html",
   },
   TRIAL: {
@@ -45,11 +45,11 @@ export const REVENUE_CONFIG = {
   LEAD_KV_TTL:  86400 * 90,     // 90-day lead retention in KV
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PHASE 1A — Hard Tier Gate Middleware
+// 
+// PHASE 1A  Hard Tier Gate Middleware
 // Call this BEFORE returning any gated response.
 // Returns { allowed: bool, reason: string, upgrade: object|null }
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export function enforceTierGate(resource, tier) {
   const t    = (tier || "free").toLowerCase();
   const cfg  = REVENUE_CONFIG.LIMITS[t] || REVENUE_CONFIG.LIMITS.free;
@@ -59,7 +59,7 @@ export function enforceTierGate(resource, tier) {
 
   switch (resource) {
 
-    // IOC array access — Free: BLOCKED
+    // IOC array access  Free: BLOCKED
     case "ioc_full":
       if (isFree) return {
         allowed: false,
@@ -70,7 +70,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // STIX bundle — Free: BLOCKED, Pro: metadata only, Enterprise: full
+    // STIX bundle  Free: BLOCKED, Pro: metadata only, Enterprise: full
     case "stix_bundle":
       if (isFree) return {
         allowed: false,
@@ -88,7 +88,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // Full AI analysis — Free: TRUNCATED
+    // Full AI analysis  Free: TRUNCATED
     case "ai_full":
       if (isFree) return {
         allowed: false,
@@ -99,7 +99,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // Full report (deep intel) — Free: TRUNCATED to 300 chars summary
+    // Full report (deep intel)  Free: TRUNCATED to 300 chars summary
     case "report_full":
       if (isFree) return {
         allowed: false,
@@ -110,7 +110,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // SIEM webhooks — Enterprise only
+    // SIEM webhooks  Enterprise only
     case "siem":
       if (!isEnt) return {
         allowed: false,
@@ -121,7 +121,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // Advanced alerts — Pro+
+    // Advanced alerts  Pro+
     case "alerts":
       if (isFree) return {
         allowed: false,
@@ -143,9 +143,9 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // ── v134.0.0: AI Intelligence gates ──────────────────────────────────────
+    //  v134.0.0: AI Intelligence gates 
 
-    // IOC Confidence Detail — Free: summary only, Pro+: full extraction meta
+    // IOC Confidence Detail  Free: summary only, Pro+: full extraction meta
     case "ioc_confidence_detail":
       if (isFree) return {
         allowed: false,
@@ -156,7 +156,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // Full STIX Export with all IOC indicator objects — Enterprise only
+    // Full STIX Export with all IOC indicator objects  Enterprise only
     case "stix_export_full":
       if (!isEnt) return {
         allowed: false,
@@ -167,7 +167,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // AI Threat Prediction — Free: BLOCKED, Pro+: ALLOWED (ENTERPRISE gets stored predictions)
+    // AI Threat Prediction  Free: BLOCKED, Pro+: ALLOWED (ENTERPRISE gets stored predictions)
     case "ai_predict":
       if (isFree) return {
         allowed: false,
@@ -178,7 +178,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // Campaign Clustering — Free: BLOCKED, Pro+: ALLOWED (Enterprise gets full member details)
+    // Campaign Clustering  Free: BLOCKED, Pro+: ALLOWED (Enterprise gets full member details)
     case "ai_campaigns":
       if (isFree) return {
         allowed: false,
@@ -189,7 +189,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // Anomaly Detection — Free: BLOCKED, Pro+: ALLOWED (Enterprise gets zero-day indicators)
+    // Anomaly Detection  Free: BLOCKED, Pro+: ALLOWED (Enterprise gets zero-day indicators)
     case "ai_anomalies":
       if (isFree) return {
         allowed: false,
@@ -200,7 +200,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // Intelligence Graph — Free: BLOCKED, Pro: summary only, Enterprise: full graph
+    // Intelligence Graph  Free: BLOCKED, Pro: summary only, Enterprise: full graph
     case "intel_graph":
       if (isFree) return {
         allowed: false,
@@ -211,7 +211,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // Intelligence Graph — full node list (Enterprise only)
+    // Intelligence Graph  full node list (Enterprise only)
     case "intel_graph_full":
       if (!isEnt) return {
         allowed: false,
@@ -222,7 +222,7 @@ export function enforceTierGate(resource, tier) {
       };
       return { allowed: true };
 
-    // Intelligence Relations (BFS traversal) — Free: BLOCKED, Pro: depth≤1 + 5 results, Enterprise: full
+    // Intelligence Relations (BFS traversal)  Free: BLOCKED, Pro: depth1 + 5 results, Enterprise: full
     case "intel_relations":
       if (isFree) return {
         allowed: false,
@@ -238,11 +238,11 @@ export function enforceTierGate(resource, tier) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PHASE 1B — Usage Billing Tracker (KV-backed)
+// 
+// PHASE 1B  Usage Billing Tracker (KV-backed)
 // Tracks per-key daily API calls. Enforces hard cap for free tier.
 // KV key format: usage:<key_id>:<YYYY-MM-DD>
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export async function trackUsageAndEnforce(env, keyId, tier) {
   if (!env?.SECURITY_HUB_KV || !keyId) return { allowed: true, count: 0 };
 
@@ -286,10 +286,10 @@ export async function trackUsageAndEnforce(env, keyId, tier) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PHASE 1C — Revenue Trigger Builder
+// 
+// PHASE 1C  Revenue Trigger Builder
 // Generates consistent upgrade trigger objects for API responses
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export function buildUpgradeTrigger(context, currentTier) {
   const t = (currentTier || "free").toLowerCase();
   const targetTier = t === "free" ? "pro" : "enterprise";
@@ -301,7 +301,7 @@ export function buildUpgradeTrigger(context, currentTier) {
     ioc:              { title: "Unlock Full IOC Arrays",         body: "See every IP, domain, hash and URL extracted from this threat. Used by SOC teams globally." },
     stix:             { title: "Access STIX 2.1 Bundles",        body: "Import threat objects directly into your SIEM, SOAR, or threat platform." },
     stix_full:        { title: "Upgrade to Enterprise",          body: "Full STIX bundle export with all objects and relationships." },
-    ai:               { title: "Unlock Full AI Analysis",        body: "Kill chain mapping, actor fingerprinting, TTP scoring — real-time." },
+    ai:               { title: "Unlock Full AI Analysis",        body: "Kill chain mapping, actor fingerprinting, TTP scoring  real-time." },
     report:           { title: "Access Full Intel Reports",      body: "Deep attribution, technical analysis, and defensive recommendations." },
     siem:             { title: "Enterprise SIEM Push",           body: "Auto-push threats to Splunk, Sentinel, or QRadar in real-time." },
     alerts:           { title: "Real-Time Threat Alerts",        body: "Get notified instantly when critical threats emerge. Actor TTPs included." },
@@ -313,8 +313,8 @@ export function buildUpgradeTrigger(context, currentTier) {
   const ctx = contextMessages[context] || { title: "Upgrade Your Plan", body: "Get more access, faster responses, and deeper intelligence." };
 
   const prices = {
-    pro:        { inr: "₹2,499/mo", usd: "$29/mo" },
-    enterprise: { inr: "₹14,999/mo", usd: "$199/mo" },
+    pro:        { inr: "2,499/mo", usd: "$29/mo" },
+    enterprise: { inr: "14,999/mo", usd: "$199/mo" },
   };
 
   return {
@@ -326,10 +326,10 @@ export function buildUpgradeTrigger(context, currentTier) {
     price:            prices[targetTier] || prices.pro,
     upgrade_url:      url,
     trial_url:        REVENUE_CONFIG.UPGRADE_URLS.trial,
-    cta_primary:      targetTier === "pro" ? `Upgrade to Pro — ${prices.pro.usd}` : `Upgrade to Enterprise — ${prices.enterprise.usd}`,
+    cta_primary:      targetTier === "pro" ? `Upgrade to Pro  ${prices.pro.usd}` : `Upgrade to Enterprise  ${prices.enterprise.usd}`,
     cta_trial:        "Start 7-Day Free Trial",
     features:         getUpgradeFeatures(targetTier),
-    revenue_event:    `upgrade_trigger:${context}:${t}→${targetTier}`,
+    revenue_event:    `upgrade_trigger:${context}:${t}${targetTier}`,
   };
 }
 
@@ -340,11 +340,11 @@ function getUpgradeFeatures(targetTier) {
   return ["500 req/min", "5,000 API calls/day", "Full IOC arrays", "Full AI analysis", "Threat alerts", "Priority email support"];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PHASE 2A — Lead Capture Backend
-// POST /api/leads/capture — stores email + context before gated content
-// POST /api/leads/trial   — issues 7-day PRO trial + API key
-// ─────────────────────────────────────────────────────────────────────────────
+// 
+// PHASE 2A  Lead Capture Backend
+// POST /api/leads/capture  stores email + context before gated content
+// POST /api/leads/trial    issues 7-day PRO trial + API key
+// 
 export async function handleLeadCapture(request, env, rid) {
   if (request.method !== "POST") {
     return revenueJson({ error: "method_not_allowed" }, 405);
@@ -386,7 +386,7 @@ export async function handleLeadCapture(request, env, rid) {
       const kvKey = `lead:${hash}`;
       const existing = await env.SECURITY_HUB_KV.get(kvKey, { type: "json" });
       if (!existing) {
-        // New lead — store + trigger welcome sequence flag
+        // New lead  store + trigger welcome sequence flag
         lead.sequence_step = 0;
         lead.next_touch_at = new Date(Date.now() + 3600000).toISOString(); // 1h
         await env.SECURITY_HUB_KV.put(kvKey, JSON.stringify(lead), { expirationTtl: REVENUE_CONFIG.LEAD_KV_TTL });
@@ -400,7 +400,7 @@ export async function handleLeadCapture(request, env, rid) {
         // Track revenue event
         await trackRevenueEvent(env, "lead_captured", { email: hash, context, source });
       } else {
-        // Returning lead — update last seen
+        // Returning lead  update last seen
         existing.last_seen = ts;
         existing.visit_count = (existing.visit_count || 1) + 1;
         await env.SECURITY_HUB_KV.put(kvKey, JSON.stringify(existing), { expirationTtl: REVENUE_CONFIG.LEAD_KV_TTL });
@@ -412,7 +412,7 @@ export async function handleLeadCapture(request, env, rid) {
       message:     "Access granted. Check your email for full report delivery.",
       trial_offer: {
         available: true,
-        message:   "Start your 7-day Pro trial — no credit card required.",
+        message:   "Start your 7-day Pro trial  no credit card required.",
         url:       REVENUE_CONFIG.UPGRADE_URLS.trial,
       },
       request_id:  rid,
@@ -422,10 +422,10 @@ export async function handleLeadCapture(request, env, rid) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PHASE 2B — Trial Issuance Engine
-// POST /api/leads/trial — issues 7-day PRO trial + API key instantly
-// ─────────────────────────────────────────────────────────────────────────────
+// 
+// PHASE 2B  Trial Issuance Engine
+// POST /api/leads/trial  issues 7-day PRO trial + API key instantly
+// 
 export async function handleTrialIssuance(request, env, rid) {
   if (request.method !== "POST") {
     return revenueJson({ error: "method_not_allowed" }, 405);
@@ -452,7 +452,7 @@ export async function handleTrialIssuance(request, env, rid) {
     const trialKey   = `trial:${emailHash}`;
     const existing   = await env.SECURITY_HUB_KV.get(trialKey, { type: "json" });
 
-    // One trial per email — enforce
+    // One trial per email  enforce
     if (existing?.activated) {
       return revenueJson({
         error:    "trial_already_used",
@@ -514,7 +514,7 @@ export async function handleTrialIssuance(request, env, rid) {
 
     return revenueJson({
       status:     "trial_activated",
-      message:    `7-day Pro trial active. Your API key is below — save it securely.`,
+      message:    `7-day Pro trial active. Your API key is below  save it securely.`,
       trial: {
         api_key:    apiKey,
         key_id:     keyId,
@@ -531,10 +531,10 @@ export async function handleTrialIssuance(request, env, rid) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PHASE 1D — Augmented applyTierGate (drop-in replacement for existing fn)
+// 
+// PHASE 1D  Augmented applyTierGate (drop-in replacement for existing fn)
 // Harder enforcement: blocks more fields, injects stronger upgrade triggers
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export function applyTierGateV2(item, tier, usageState) {
   const t      = (tier || "free").toLowerCase();
   const isFree = t === "free";
@@ -543,7 +543,7 @@ export function applyTierGateV2(item, tier, usageState) {
 
   const gated = { ...item };
 
-  // ── IOC enforcement ────────────────────────────────────────────────────────
+  //  IOC enforcement 
   if (isFree && Array.isArray(item.iocs) && item.iocs.length > 0) {
     const gate = enforceTierGate("ioc_full", t);
     gated.iocs       = [];
@@ -551,7 +551,7 @@ export function applyTierGateV2(item, tier, usageState) {
     gated.ioc_paywall = { ...gate, count: item.iocs.length };
   }
 
-  // ── STIX enforcement ───────────────────────────────────────────────────────
+  //  STIX enforcement 
   if (!isEnt) {
     const gate = enforceTierGate("stix_bundle", t);
     gated.stix_bundle = null;
@@ -564,10 +564,10 @@ export function applyTierGateV2(item, tier, usageState) {
     }
   }
 
-  // ── AI analysis enforcement ────────────────────────────────────────────────
+  //  AI analysis enforcement 
   gated.apex_ai = computeApexAIGated(item, t);
 
-  // ── Report text truncation for free tier ──────────────────────────────────
+  //  Report text truncation for free tier 
   if (isFree) {
     const desc = item.description || item.summary || "";
     if (desc.length > 280) {
@@ -576,7 +576,7 @@ export function applyTierGateV2(item, tier, usageState) {
     }
   }
 
-  // ── Threat urgency CTA injection ───────────────────────────────────────────
+  //  Threat urgency CTA injection 
   if (isFree) {
     const sev       = (item.severity || item.risk_level || "").toUpperCase();
     const riskScore = typeof item.risk_score === "number" ? item.risk_score
@@ -585,7 +585,7 @@ export function applyTierGateV2(item, tier, usageState) {
       gated.threat_urgency = {
         active:       true,
         severity:     sev,
-        message:      `⚠️ ${sev} ACTIVE THREAT — Full IOC array, actor attribution, and kill chain locked.`,
+        message:      ` ${sev} ACTIVE THREAT  Full IOC array, actor attribution, and kill chain locked.`,
         upgrade:      buildUpgradeTrigger("ioc", t),
         cta_modal:    "upgrade_modal",
         cta_plan:     "pro",
@@ -593,7 +593,7 @@ export function applyTierGateV2(item, tier, usageState) {
     }
   }
 
-  // ── Usage-based upsell injection ───────────────────────────────────────────
+  //  Usage-based upsell injection 
   if (usageState?.upsell_nudge) {
     gated.usage_alert = usageState.upsell_nudge;
   }
@@ -601,7 +601,7 @@ export function applyTierGateV2(item, tier, usageState) {
   return gated;
 }
 
-// Minimal computeApexAIGated — mirrors existing but enforces AI gate
+// Minimal computeApexAIGated  mirrors existing but enforces AI gate
 function computeApexAIGated(item, tier) {
   const isFree = !tier || tier === "free";
   const base = {
@@ -629,10 +629,10 @@ function computeApexAIGated(item, tier) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PHASE 2C — Usage Limit Hit Handler
+// 
+// PHASE 2C  Usage Limit Hit Handler
 // Returns 402 Payment Required with upgrade trigger when daily cap hit
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 export function buildUsageLimitResponse(usageState, rid) {
   return new Response(JSON.stringify({
     error:      "usage_limit_reached",
@@ -655,9 +655,9 @@ export function buildUsageLimitResponse(usageState, rid) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Revenue Event Tracker — persists to SECURITY_HUB_KV for revenue analytics
-// ─────────────────────────────────────────────────────────────────────────────
+// 
+// Revenue Event Tracker  persists to SECURITY_HUB_KV for revenue analytics
+// 
 export async function trackRevenueEvent(env, event, meta = {}) {
   if (!env?.SECURITY_HUB_KV) return;
   try {
@@ -677,9 +677,9 @@ export async function trackRevenueEvent(env, event, meta = {}) {
   } catch { /* non-critical */ }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Revenue Analytics Endpoint — GET /api/revenue/analytics (admin only)
-// ─────────────────────────────────────────────────────────────────────────────
+// 
+// Revenue Analytics Endpoint  GET /api/revenue/analytics (admin only)
+// 
 export async function handleRevenueAnalytics(request, env, rid) {
   const adminSecret = request.headers.get("X-Admin-Secret");
   if (!env?.ADMIN_SECRET || adminSecret !== env.ADMIN_SECRET) {
@@ -716,22 +716,10 @@ export async function handleRevenueAnalytics(request, env, rid) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 // Helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// 
 async function sha256hex(text) {
   const data = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
-function revenueJson(body, status = 200) {
-  return new Response(JSON.stringify(body, null, 2), {
-    status,
-    headers: {
-      "Content-Type":                "application/json",
-      "Cache-Control":               "no-cache, no-store",
-      "Access-Control-Allow-Origin": "*",
-    },
-  });
-}
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("
