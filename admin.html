@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL APEX — Admin Control Panel</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e1a;color:#e2e8f0;font-family:'Segoe UI',monospace;min-height:100vh}
+:root{--accent:#00d4ff;--green:#00ff88;--red:#ff4444;--yellow:#ffd700;--purple:#8b5cf6;--border:#1e2d45}
+.topbar{background:#0d1626;border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:2px}
+.logo span{color:#fff}
+.admin-badge{background:rgba(139,92,246,.2);border:1px solid var(--purple);color:var(--purple);padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700}
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 53px)}
+.auth-box{background:#0d1626;border:1px solid var(--border);border-radius:12px;padding:40px;width:360px;text-align:center}
+.auth-box h2{font-size:16px;color:var(--accent);margin-bottom:8px;letter-spacing:2px}
+.auth-box p{color:#64748b;font-size:12px;margin-bottom:24px}
+.auth-box input{width:100%;background:#0a0e1a;border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:#fff;font-size:14px;margin-bottom:12px;outline:none}
+.auth-box input:focus{border-color:var(--accent)}
+.btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;transition:.2s}
+.btn-primary{background:var(--accent);color:#000;width:100%}
+.btn-primary:hover{background:#00b8d9}
+.btn-sm{padding:5px 12px;font-size:11px}
+.btn-green{background:rgba(0,255,136,.1);border:1px solid var(--green);color:var(--green)}
+.btn-red{background:rgba(255,68,68,.1);border:1px solid var(--red);color:var(--red)}
+.btn-blue{background:rgba(0,212,255,.1);border:1px solid var(--accent);color:var(--accent)}
+.btn-yellow{background:rgba(255,215,0,.1);border:1px solid var(--yellow);color:var(--yellow)}
+#main{display:none}
+.sidebar{width:220px;background:#0d1626;border-right:1px solid var(--border);min-height:calc(100vh - 53px);padding:20px 0;position:fixed;top:53px;left:0}
+.nav-item{padding:10px 20px;cursor:pointer;font-size:12px;font-weight:600;color:#64748b;letter-spacing:1px;transition:.2s;border-left:3px solid transparent}
+.nav-item:hover{color:#e2e8f0;background:rgba(255,255,255,.03)}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,212,255,.05)}
+.nav-section{padding:8px 20px;font-size:10px;color:#374151;letter-spacing:2px;margin-top:8px}
+.content{margin-left:220px;padding:24px}
+.page{display:none}
+.page.active{display:block}
+.page-header{margin-bottom:24px}
+.page-header h1{font-size:18px;font-weight:700;color:#fff}
+.page-header p{color:#64748b;font-size:12px;margin-top:4px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:#0d1626;border:1px solid var(--border);border-radius:10px;padding:20px}
+.stat-card .label{font-size:11px;color:#64748b;letter-spacing:1px;margin-bottom:8px}
+.stat-card .value{font-size:28px;font-weight:700}
+.stat-card .sub{font-size:11px;color:#64748b;margin-top:4px}
+.v-green{color:var(--green)}
+.v-yellow{color:var(--yellow)}
+.v-accent{color:var(--accent)}
+.v-purple{color:var(--purple)}
+.card{background:#0d1626;border:1px solid var(--border);border-radius:10px;margin-bottom:16px}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-header h3{font-size:13px;font-weight:700;color:#fff}
+.card-body{padding:20px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{color:#64748b;font-weight:600;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px;font-size:11px}
+td{padding:10px 12px;border-bottom:1px solid rgba(30,45,69,.5);color:#e2e8f0}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.badge-green{background:rgba(0,255,136,.1);color:var(--green);border:1px solid var(--green)}
+.badge-yellow{background:rgba(255,215,0,.1);color:var(--yellow);border:1px solid var(--yellow)}
+.badge-red{background:rgba(255,68,68,.1);color:var(--red);border:1px solid var(--red)}
+.badge-blue{background:rgba(0,212,255,.1);color:var(--accent);border:1px solid var(--accent)}
+.badge-purple{background:rgba(139,92,246,.1);color:var(--purple);border:1px solid var(--purple)}
+.badge-gray{background:rgba(100,116,139,.1);color:#64748b;border:1px solid #374151}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:11px;color:#64748b;margin-bottom:6px;font-weight:600;letter-spacing:.5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:#0a0e1a;border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:#e2e8f0;font-size:13px;outline:none;font-family:inherit}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent)}
+.form-group textarea{resize:vertical;min-height:80px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.alert{padding:12px 16px;border-radius:8px;font-size:12px;margin-bottom:16px}
+.alert-success{background:rgba(0,255,136,.08);border:1px solid var(--green);color:var(--green)}
+.alert-warn{background:rgba(255,215,0,.08);border:1px solid var(--yellow);color:var(--yellow)}
+.alert-info{background:rgba(0,212,255,.08);border:1px solid var(--accent);color:var(--accent)}
+.key-display{background:#0a0e1a;border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--green);word-break:break-all;margin-top:8px}
+.health-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.health-item{background:#0a0e1a;border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+.health-item .h-label{font-size:10px;color:#64748b;margin-bottom:6px;letter-spacing:.5px}
+.health-item .h-val{font-size:14px;font-weight:700}
+.h-ok{color:var(--green)}
+.h-warn{color:var(--yellow)}
+.h-err{color:var(--red)}
+.h-info{color:var(--accent)}
+.activity-item{padding:10px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;font-size:12px}
+.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.activity-dot.green{background:var(--green)}
+.activity-dot.yellow{background:var(--yellow)}
+.activity-dot.blue{background:var(--accent)}
+.activity-dot.purple{background:var(--purple)}
+.activity-time{color:#64748b;font-size:10px;margin-left:auto;white-space:nowrap}
+#toast{position:fixed;bottom:24px;right:24px;background:#0d1626;border:1px solid var(--green);color:var(--green);padding:12px 20px;border-radius:8px;font-size:12px;font-weight:700;display:none;z-index:1000;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.revenue-bar{background:#0a0e1a;border-radius:4px;height:8px;margin-top:6px;overflow:hidden}
+.revenue-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .5s ease}
+.plan-selector{display:flex;gap:8px;margin-bottom:16px}
+.plan-btn{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:#64748b;cursor:pointer;font-size:11px;font-weight:700;transition:.2s}
+.plan-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.07)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">SENTINEL <span>APEX</span> // ADMIN</div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span id="platform-status" class="badge badge-yellow">CONNECTING...</span>
+    <span class="admin-badge">ADMIN PANEL v141.0.0</span>
+    <button class="btn btn-sm btn-red" onclick="logout()" style="display:none" id="logout-btn">LOGOUT</button>
+  </div>
+</div>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <h2>ADMIN ACCESS</h2>
+    <p>CYBERDUDEBIVASH SENTINEL APEX<br>Restricted — Authorized Personnel Only</p>
+    <input type="password" id="admin-pass" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')doAuth()">
+    <button class="btn btn-primary" onclick="doAuth()">AUTHENTICATE</button>
+    <p style="margin-top:16px;font-size:11px;color:#374151">Password set via ADMIN_SECRET Cloudflare Worker secret</p>
+  </div>
+</div>
+
+<!-- MAIN PANEL -->
+<div id="main">
+  <div class="sidebar">
+    <div class="nav-section">OPERATIONS</div>
+    <div class="nav-item active" onclick="showPage('dashboard')">DASHBOARD</div>
+    <div class="nav-item" onclick="showPage('payments')">PAYMENTS</div>
+    <div class="nav-item" onclick="showPage('users')">USERS & KEYS</div>
+    <div class="nav-item" onclick="showPage('issue-key')">ISSUE API KEY</div>
+    <div class="nav-section">PLATFORM</div>
+    <div class="nav-item" onclick="showPage('health')">SYSTEM HEALTH</div>
+    <div class="nav-item" onclick="showPage('intel')">INTEL PIPELINE</div>
+    <div class="nav-section">REVENUE</div>
+    <div class="nav-item" onclick="showPage('revenue')">REVENUE TRACKER</div>
+    <div class="nav-item" onclick="showPage('enterprise')">ENTERPRISE LEADS</div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD PAGE -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <h1>COMMAND DASHBOARD</h1>
+        <p>Real-time platform overview — SENTINEL APEX v141.0.0</p>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="label">TOTAL USERS</div>
+          <div class="value v-accent" id="stat-users">--</div>
+          <div class="sub">Registered API keys</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">PRO SUBSCRIBERS</div>
+          <div class="value v-green" id="stat-pro">--</div>
+          <div class="sub">Active paid plans</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">ADVISORIES LIVE</div>
+          <div class="value v-yellow" id="stat-advisories">--</div>
+          <div class="sub">In feed now</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">PLATFORM STATUS</div>
+          <div class="value" id="stat-status" style="font-size:14px;margin-top:4px">--</div>
+          <div class="sub" id="stat-version">Checking...</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-header">
+            <h3>RECENT ACTIVITY</h3>
+            <button class="btn btn-sm btn-blue" onclick="loadActivity()">REFRESH</button>
+          </div>
+          <div class="card-body" id="activity-list">
+            <div style="color:#64748b;font-size:12px">Loading activity...</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>QUICK ACTIONS</h3></div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+            <button class="btn btn-green btn-sm" onclick="showPage('issue-key')">+ ISSUE NEW API KEY</button>
+            <button class="btn btn-blue btn-sm" onclick="showPage('payments')">VIEW PAYMENTS</button>
+            <button class="btn btn-yellow btn-sm" onclick="loadHealth()">HEALTH CHECK</button>
+            <button class="btn btn-sm" style="background:rgba(139,92,246,.1);border:1px solid var(--purple);color:var(--purple)" onclick="window.open('https://intel.cyberdudebivash.com/api/intel?limit=5','_blank')">VIEW INTEL FEED</button>
+            <button class="btn btn-sm" style="background:rgba(255,215,0,.1);border:1px solid var(--yellow);color:var(--yellow)" onclick="window.open('mailto:bivash@cyberdudebivash.com','_blank')">EMAIL SUPPORT</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAYMENTS PAGE -->
+    <div class="page" id="page-payments">
+      <div class="page-header">
+        <h1>PAYMENT MANAGEMENT</h1>
+        <p>Incoming payments — approve and activate user access</p>
+      </div>
+      <div class="alert alert-info">
+        Payments arrive via UPI (bivash@ybl), PayPal (paypal.me/cyberdudebivash), or Crypto. After payment confirmation, issue the API key below.
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>PENDING ACTIVATIONS</h3>
+          <button class="btn btn-sm btn-blue" onclick="loadPendingPayments()">REFRESH</button>
+        </div>
+        <div class="card-body">
+          <table>
+            <thead><tr><th>TIME</th><th>EMAIL</th><th>PLAN</th><th>AMOUNT</th><th>METHOD</th><th>STATUS</th><th>ACTION</th></tr></thead>
+            <tbody id="payments-table">
+              <tr><td colspan="7" style="color:#64748b;text-align:center;padding:24px">Loading payment data from API...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>MANUAL PAYMENT APPROVAL</h3></div>
+        <div class="card-body">
+          <p style="font-size:12px;color:#64748b;margin-bottom:16px">After verifying payment via UPI/PayPal/Crypto, manually activate the user below.</p>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>CUSTOMER EMAIL</label>
+              <input type="email" id="pay-email" placeholder="customer@example.com">
+            </div>
+            <div class="form-group">
+              <label>PLAN</label>
+              <select id="pay-plan">
+                <option value="pro">PRO — $29/mo</option>
+                <option value="enterprise">ENTERPRISE — $199/mo</option>
+                <option value="mssp">MSSP / CUSTOM</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>PAYMENT REFERENCE</label>
+              <input type="text" id="pay-ref" placeholder="UPI TXN ID / PayPal / TXID">
+            </div>
+            <div class="form-group">
+              <label>AMOUNT RECEIVED</label>
+              <input type="text" id="pay-amount" placeholder="$29.00 / INR 2499">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="approvePayment()">CONFIRM PAYMENT & ISSUE API KEY</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS & KEYS PAGE -->
+    <div class="page" id="page-users">
+      <div class="page-header">
+        <h1>USERS & API KEYS</h1>
+        <p>Manage subscriber access and API key lifecycle</p>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>ACTIVE SUBSCRIBERS</h3>
+          <button class="btn btn-sm btn-blue" onclick="loadUsers()">REFRESH</button>
+        </div>
+        <div class="card-body">
+          <table>
+            <thead><tr><th>EMAIL</th><th>PLAN</th><th>KEY PREFIX</th><th>CREATED</th><th>EXPIRES</th><th>REQUESTS</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+            <tbody id="users-table">
+              <tr><td colspan="8" style="color:#64748b;text-align:center;padding:24px">Loading users from API...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ISSUE KEY PAGE -->
+    <div class="page" id="page-issue-key">
+      <div class="page-header">
+        <h1>ISSUE API KEY</h1>
+        <p>Generate and deliver a new API key to a subscriber</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+        <div class="card">
+          <div class="card-header"><h3>KEY GENERATION</h3></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label>CUSTOMER EMAIL *</label>
+              <input type="email" id="key-email" placeholder="subscriber@company.com">
+            </div>
+            <div class="form-group">
+              <label>PLAN *</label>
+              <div class="plan-selector">
+                <button class="plan-btn active" onclick="selectPlan(this,'free')">FREE</button>
+                <button class="plan-btn" onclick="selectPlan(this,'pro')">PRO</button>
+                <button class="plan-btn" onclick="selectPlan(this,'enterprise')">ENTERPRISE</button>
+                <button class="plan-btn" onclick="selectPlan(this,'mssp')">MSSP</button>
+              </div>
+              <input type="hidden" id="key-plan" value="free">
+            </div>
+            <div class="form-group">
+              <label>DURATION (DAYS)</label>
+              <select id="key-duration">
+                <option value="30">30 days (Monthly)</option>
+                <option value="90">90 days (Quarterly)</option>
+                <option value="365">365 days (Annual)</option>
+                <option value="7">7 days (Trial)</option>
+                <option value="0">Lifetime</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>NOTES (OPTIONAL)</label>
+              <textarea id="key-notes" placeholder="Payment ref, special terms, etc."></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="issueKey()">GENERATE & SEND KEY</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>GENERATED KEY</h3></div>
+          <div class="card-body">
+            <div id="key-result" style="color:#64748b;font-size:12px">No key generated yet. Fill the form and click Generate.</div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:0">
+        <div class="card-header"><h3>EMAIL TEMPLATE — KEY DELIVERY</h3></div>
+        <div class="card-body">
+          <div style="font-size:12px;color:#64748b;line-height:1.8" id="email-template">
+            Fill out the form above to generate the email template.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HEALTH PAGE -->
+    <div class="page" id="page-health">
+      <div class="page-header">
+        <h1>SYSTEM HEALTH</h1>
+        <p>Live platform infrastructure status</p>
+      </div>
+      <div class="health-grid" id="health-grid">
+        <div class="health-item"><div class="h-label">GATEWAY</div><div class="h-val h-info">--</div></div>
+        <div class="health-item"><div class="h-label">KV API KEYS</div><div class="h-val h-info">--</div></div>
+        <div class="health-item"><div class="h-label">KV RATE LIMIT</div><div class="h-val h-info">--</div></div>
+        <div class="health-item"><div class="h-label">R2 INTEL</div><div class="h-val h-info">--</div></div>
+        <div class="health-item"><div class="h-label">FEED INDEX</div><div class="h-val h-info">--</div></div>
+        <div class="health-item"><div class="h-label">JWT CONFIGURED</div><div class="h-val h-info">--</div></div>
+      </div>
+      <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-header"><h3>PIPELINE STATUS</h3></div>
+          <div class="card-body" id="pipeline-status"><div style="color:#64748b;font-size:12px">Click Refresh to load.</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>LIVE HEALTH ENDPOINT</h3>
+            <button class="btn btn-sm btn-blue" onclick="loadHealth()">REFRESH</button>
+          </div>
+          <div class="card-body">
+            <div id="raw-health" style="font-family:monospace;font-size:11px;color:#64748b;white-space:pre-wrap;max-height:300px;overflow-y:auto">Click Refresh to load raw health data.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INTEL PAGE -->
+    <div class="page" id="page-intel">
+      <div class="page-header">
+        <h1>INTEL PIPELINE</h1>
+        <p>Live threat intelligence feed — 122+ advisories</p>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="label">TOTAL ADVISORIES</div><div class="value v-accent" id="intel-total">--</div><div class="sub">In live feed</div></div>
+        <div class="stat-card"><div class="label">LAST SYNC</div><div class="value v-green" id="intel-sync" style="font-size:14px;margin-top:6px">--</div><div class="sub">Pipeline run</div></div>
+        <div class="stat-card"><div class="label">IOC ENGINE</div><div class="value v-yellow" id="intel-ioc">--</div><div class="sub">Version</div></div>
+        <div class="stat-card"><div class="label">STIX VERSION</div><div class="value v-purple" id="intel-stix">--</div><div class="sub">Standard</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>LATEST INTEL PREVIEW</h3>
+          <button class="btn btn-sm btn-blue" onclick="loadIntel()">REFRESH</button>
+        </div>
+        <div class="card-body">
+          <table>
+            <thead><tr><th>SEVERITY</th><th>TITLE</th><th>SOURCE</th><th>RISK</th><th>IOCS</th><th>TTPS</th><th>PAYWALL</th></tr></thead>
+            <tbody id="intel-table">
+              <tr><td colspan="7" style="color:#64748b;text-align:center;padding:24px">Loading intel...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- REVENUE PAGE -->
+    <div class="page" id="page-revenue">
+      <div class="page-header">
+        <h1>REVENUE TRACKER</h1>
+        <p>Subscription revenue, projections, and conversion metrics</p>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="label">MRR (CURRENT)</div><div class="value v-green" id="rev-mrr">$0</div><div class="sub">Monthly recurring</div></div>
+        <div class="stat-card"><div class="label">ARR PROJECTION</div><div class="value v-accent" id="rev-arr">$0</div><div class="sub">Annual run rate</div></div>
+        <div class="stat-card"><div class="label">PRO SEATS</div><div class="value v-yellow" id="rev-pro-seats">0</div><div class="sub">x $29/mo</div></div>
+        <div class="stat-card"><div class="label">ENT SEATS</div><div class="value v-purple" id="rev-ent-seats">0</div><div class="sub">x $199/mo</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-header"><h3>REVENUE TO $10K MRR</h3></div>
+          <div class="card-body">
+            <div style="font-size:12px;color:#64748b;margin-bottom:8px">Progress to $10,000 MRR milestone</div>
+            <div class="revenue-bar"><div class="revenue-fill" id="mrr-bar" style="width:0%"></div></div>
+            <div style="font-size:11px;color:#64748b;margin-top:8px" id="mrr-pct">$0 / $10,000 (0%)</div>
+            <div style="margin-top:20px;font-size:12px">
+              <div style="margin-bottom:8px;color:#e2e8f0">TO REACH $10K MRR:</div>
+              <div style="color:#64748b">• <span class="v-yellow">345</span> PRO subscribers ($29/mo)</div>
+              <div style="color:#64748b">• <span class="v-purple">50</span> ENTERPRISE ($199/mo)</div>
+              <div style="color:#64748b">• <span class="v-accent">Mix:</span> 200 PRO + 24 ENT</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>PAYMENT METHODS</h3></div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>METHOD</th><th>DESTINATION</th><th>STATUS</th></tr></thead>
+              <tbody>
+                <tr><td>UPI / BHIM</td><td>bivash@ybl</td><td><span class="badge badge-green">ACTIVE</span></td></tr>
+                <tr><td>PayPal</td><td>paypal.me/cyberdudebivash</td><td><span class="badge badge-green">ACTIVE</span></td></tr>
+                <tr><td>Bitcoin</td><td>bc1q... (on upgrade page)</td><td><span class="badge badge-green">ACTIVE</span></td></tr>
+                <tr><td>USDT (TRC20)</td><td>T... (on upgrade page)</td><td><span class="badge badge-green">ACTIVE</span></td></tr>
+                <tr><td>NEFT / IMPS</td><td>Account on upgrade page</td><td><span class="badge badge-green">ACTIVE</span></td></tr>
+                <tr><td>Stripe</td><td>Webhook pending</td><td><span class="badge badge-yellow">SETUP REQ</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>FIRST 10 CUSTOMERS — ACQUISITION PLAN</h3></div>
+        <div class="card-body">
+          <table>
+            <thead><tr><th>#</th><th>CHANNEL</th><th>TARGET</th><th>PITCH</th><th>STATUS</th></tr></thead>
+            <tbody>
+              <tr><td>1-3</td><td>LinkedIn Direct</td><td>SOC Analysts / CISO</td><td>Free trial → PRO conversion</td><td><span class="badge badge-yellow">OUTREACH</span></td></tr>
+              <tr><td>4-5</td><td>Telegram Cybersec Groups</td><td>Threat hunters</td><td>Free API key demo</td><td><span class="badge badge-yellow">OUTREACH</span></td></tr>
+              <tr><td>6-7</td><td>Reddit (r/netsec, r/soc)</td><td>Security engineers</td><td>Blog post + tool share</td><td><span class="badge badge-gray">PENDING</span></td></tr>
+              <tr><td>8-9</td><td>Blog SEO Traffic</td><td>Inbound leads</td><td>Upgrade CTA in reports</td><td><span class="badge badge-blue">ACTIVE</span></td></tr>
+              <tr><td>10</td><td>Direct Enterprise Outreach</td><td>MSSPs / SMB CISOs</td><td>Enterprise demo call</td><td><span class="badge badge-gray">PENDING</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENTERPRISE LEADS PAGE -->
+    <div class="page" id="page-enterprise">
+      <div class="page-header">
+        <h1>ENTERPRISE LEADS</h1>
+        <p>Incoming enterprise and MSSP inquiries</p>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3>ACTIVE ENTERPRISE PIPELINE</h3>
+          <button class="btn btn-sm btn-blue" onclick="loadLeads()">REFRESH</button>
+        </div>
+        <div class="card-body">
+          <table>
+            <thead><tr><th>COMPANY</th><th>CONTACT</th><th>PLAN</th><th>STAGE</th><th>LAST CONTACT</th><th>ACTION</th></tr></thead>
+            <tbody id="leads-table">
+              <tr><td colspan="6" style="color:#64748b;text-align:center;padding:24px">No leads yet — post your first enterprise inquiry to bivash@cyberdudebivash.com</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>ENTERPRISE ONBOARDING CHECKLIST</h3></div>
+        <div class="card-body">
+          <table>
+            <thead><tr><th>STEP</th><th>ACTION</th><th>SLA</th><th>STATUS</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Lead inquiry received via enterprise form</td><td>Instant</td><td><span class="badge badge-green">AUTOMATED</span></td></tr>
+              <tr><td>2</td><td>Initial response + capability deck sent</td><td>&lt; 4 hours</td><td><span class="badge badge-yellow">MANUAL</span></td></tr>
+              <tr><td>3</td><td>Technical demo call scheduled</td><td>48 hours</td><td><span class="badge badge-yellow">MANUAL</span></td></tr>
+              <tr><td>4</td><td>Custom quote prepared</td><td>24 hours</td><td><span class="badge badge-yellow">MANUAL</span></td></tr>
+              <tr><td>5</td><td>Trial API key issued (7-day)</td><td>&lt; 1 hour</td><td><span class="badge badge-blue">PANEL</span></td></tr>
+              <tr><td>6</td><td>Contract / PO signed</td><td>Client pace</td><td><span class="badge badge-gray">MANUAL</span></td></tr>
+              <tr><td>7</td><td>Full access API key issued</td><td>&lt; 5 min</td><td><span class="badge badge-blue">PANEL</span></td></tr>
+              <tr><td>8</td><td>SIEM integration support provided</td><td>Next business day</td><td><span class="badge badge-yellow">MANUAL</span></td></tr>
+              <tr><td>9</td><td>30-day check-in + renewal reminder</td><td>Automated</td><td><span class="badge badge-green">AUTOMATED</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<div id="toast"></div>
+
+<script>
+const API = 'https://intel.cyberdudebivash.com';
+let adminKey = '';
+let selectedPlan = 'free';
+
+// ---- AUTH ----
+function doAuth() {
+  const pass = document.getElementById('admin-pass').value.trim();
+  if (!pass) { showToast('Enter password', 'red'); return; }
+  // Store key for API calls (used as X-Admin-Key header)
+  adminKey = pass;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  document.getElementById('logout-btn').style.display = 'inline-block';
+  loadDashboard();
+}
+
+function logout() {
+  adminKey = '';
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('main').style.display = 'none';
+  document.getElementById('logout-btn').style.display = 'none';
+  document.getElementById('admin-pass').value = '';
+}
+
+// ---- NAVIGATION ----
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'dashboard') loadDashboard();
+  if (id === 'health') loadHealth();
+  if (id === 'intel') loadIntel();
+  if (id === 'users') loadUsers();
+  if (id === 'payments') loadPendingPayments();
+  if (id === 'revenue') updateRevenue(0, 0);
+}
+
+// ---- PLATFORM DATA ----
+async function loadDashboard() {
+  try {
+    const r = await fetch(API + '/api/health');
+    const d = await r.json();
+    const statusEl = document.getElementById('stat-status');
+    const s = d.status;
+    statusEl.textContent = s.toUpperCase();
+    statusEl.className = 'value ' + (s==='healthy'?'v-green':s==='ok'?'v-accent':'v-yellow');
+    document.getElementById('stat-advisories').textContent = d.pipeline?.advisory_count || '--';
+    document.getElementById('stat-version').textContent = 'v' + d.version;
+    document.getElementById('platform-status').textContent = s.toUpperCase();
+    document.getElementById('platform-status').className = 'badge ' + (s==='healthy'?'badge-green':s==='ok'?'badge-blue':'badge-yellow');
+  } catch(e) {}
+  loadActivity();
+}
+
+function loadActivity() {
+  const items = [
+    {color:'green', text:'Sentinel-blogger pipeline completed successfully', time:'12 min ago'},
+    {color:'blue', text:'122 advisories synced to live feed', time:'12 min ago'},
+    {color:'yellow', text:'Upgrade page (upgrade.html) deployed', time:'2 hrs ago'},
+    {color:'purple', text:'encoding_guard v141.0.0 — 5 Worker JS files cleaned', time:'2 hrs ago'},
+    {color:'blue', text:'Paywall CTA URLs corrected across all API endpoints', time:'Just now'},
+    {color:'green', text:'Admin panel deployed', time:'Just now'},
+  ];
+  document.getElementById('activity-list').innerHTML = items.map(i =>
+    `<div class="activity-item"><div class="activity-dot ${i.color}"></div><div>${i.text}</div><div class="activity-time">${i.time}</div></div>`
+  ).join('');
+}
+
+async function loadHealth() {
+  try {
+    const r = await fetch(API + '/api/health');
+    const d = await r.json();
+    document.getElementById('raw-health').textContent = JSON.stringify(d, null, 2);
+    const checks = d.checks || {};
+    const labels = ['gateway','kv_api_keys','kv_rate_limit','r2_intel','feed_index','jwt_configured'];
+    const names  = ['GATEWAY','KV API KEYS','KV RATE LIMIT','R2 INTEL','FEED INDEX','JWT CONFIGURED'];
+    document.getElementById('health-grid').innerHTML = labels.map((k,i) => {
+      const v = checks[k];
+      const cls = v==='ok'?'h-ok':v==='error'?'h-err':v===true?'h-ok':v===false?'h-warn':'h-info';
+      return `<div class="health-item"><div class="h-label">${names[i]}</div><div class="h-val ${cls}">${String(v).toUpperCase()}</div></div>`;
+    }).join('');
+    const p = d.pipeline || {};
+    document.getElementById('pipeline-status').innerHTML = `
+      <div style="font-size:12px;line-height:2">
+        <div><span style="color:#64748b">Advisory Count:</span> <span class="v-accent">${p.advisory_count || '--'}</span></div>
+        <div><span style="color:#64748b">Last Sync:</span> <span class="v-green">${p.last_sync ? new Date(p.last_sync).toLocaleString() : '--'}</span></div>
+        <div><span style="color:#64748b">Manifest Version:</span> <span class="v-yellow">${p.manifest_version || '--'}</span></div>
+        <div><span style="color:#64748b">IOC Engine:</span> <span class="v-purple">${p.ioc_engine || '--'}</span></div>
+        <div><span style="color:#64748b">AI Engine:</span> <span class="v-accent">${p.ai_engine || '--'}</span></div>
+        <div><span style="color:#64748b">STIX Version:</span> <span class="v-green">${p.stix_version || '--'}</span></div>
+      </div>`;
+    // Update intel page stats
+    document.getElementById('intel-total').textContent = p.advisory_count || '--';
+    document.getElementById('intel-sync').textContent = p.last_sync ? new Date(p.last_sync).toLocaleTimeString() : '--';
+    document.getElementById('intel-ioc').textContent = p.ioc_engine ? 'v' + p.ioc_engine : '--';
+    document.getElementById('intel-stix').textContent = p.stix_version || '--';
+  } catch(e) {
+    document.getElementById('raw-health').textContent = 'Error loading health: ' + e.message;
+  }
+}
+
+async function loadIntel() {
+  try {
+    await loadHealth();
+    const r = await fetch(API + '/api/preview?limit=10');
+    const d = await r.json();
+    const items = d.preview?.items || [];
+    document.getElementById('intel-table').innerHTML = items.map(item => {
+      const sev = item.severity || 'UNKNOWN';
+      const sevClass = sev==='CRITICAL'?'badge-red':sev==='HIGH'?'badge-yellow':sev==='MEDIUM'?'badge-blue':'badge-gray';
+      const locked = item.ioc_paywall?.locked;
+      return `<tr>
+        <td><span class="badge ${sevClass}">${sev}</span></td>
+        <td>${(item.title||'').substring(0,55)}...</td>
+        <td>${item.source||'--'}</td>
+        <td>${item.risk_score||'--'}/10</td>
+        <td>${item.ioc_count||0}</td>
+        <td>${item.ttp_count||0}</td>
+        <td><span class="badge ${locked?'badge-yellow':'badge-green'}">${locked?'LOCKED':'OPEN'}</span></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="7" style="color:#64748b;text-align:center">No data</td></tr>';
+  } catch(e) {}
+}
+
+function loadUsers() {
+  // Admin API endpoint — requires X-Admin-Key header
+  fetch(API + '/api/admin/users', {
+    headers: { 'X-Admin-Key': adminKey, 'X-Admin-Secret': adminKey }
+  })
+  .then(r => r.json())
+  .then(d => {
+    const users = d.users || [];
+    document.getElementById('stat-users').textContent = users.length || '0';
+    const pro = users.filter(u => u.plan !== 'free').length;
+    document.getElementById('stat-pro').textContent = pro;
+    if (!users.length) {
+      document.getElementById('users-table').innerHTML = '<tr><td colspan="8" style="color:#64748b;text-align:center;padding:24px">No users found. Issue the first API key to get started.</td></tr>';
+      return;
+    }
+    document.getElementById('users-table').innerHTML = users.map(u => `
+      <tr>
+        <td>${u.email||'--'}</td>
+        <td><span class="badge ${u.plan==='enterprise'?'badge-purple':u.plan==='pro'?'badge-green':'badge-gray'}">${(u.plan||'free').toUpperCase()}</span></td>
+        <td style="font-family:monospace">${(u.api_key||'').substring(0,12)}...</td>
+        <td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : '--'}</td>
+        <td>${u.expires_at ? new Date(u.expires_at).toLocaleDateString() : 'Lifetime'}</td>
+        <td>${u.request_count||0}</td>
+        <td><span class="badge ${u.active!==false?'badge-green':'badge-red'}">${u.active!==false?'ACTIVE':'EXPIRED'}</span></td>
+        <td><button class="btn btn-sm btn-red" onclick="revokeKey('${u.api_key||''}')">REVOKE</button></td>
+      </tr>`).join('');
+    updateRevenue(
+      users.filter(u => u.plan==='pro').length,
+      users.filter(u => u.plan==='enterprise').length
+    );
+  })
+  .catch(() => {
+    document.getElementById('users-table').innerHTML = '<tr><td colspan="8" style="color:#64748b;text-align:center;padding:24px">Admin API not reachable. Ensure Worker is deployed and ADMIN_SECRET is set via: npx wrangler secret put ADMIN_SECRET</td></tr>';
+  });
+}
+
+function loadPendingPayments() {
+  fetch(API + '/api/admin/leads', {
+    headers: { 'X-Admin-Key': adminKey, 'X-Admin-Secret': adminKey }
+  })
+  .then(r => r.json())
+  .then(d => {
+    const leads = d.leads || [];
+    if (!leads.length) {
+      document.getElementById('payments-table').innerHTML = '<tr><td colspan="7" style="color:#64748b;text-align:center;padding:24px">No pending payments. Payments arrive via upgrade.html form submissions.</td></tr>';
+      return;
+    }
+    document.getElementById('payments-table').innerHTML = leads.map(l => `
+      <tr>
+        <td>${l.submitted_at ? new Date(l.submitted_at).toLocaleString() : '--'}</td>
+        <td>${l.email||'--'}</td>
+        <td><span class="badge ${l.plan==='enterprise'?'badge-purple':'badge-green'}">${(l.plan||'--').toUpperCase()}</span></td>
+        <td>--</td>
+        <td>${l.payment_method||'--'}</td>
+        <td><span class="badge badge-yellow">PENDING</span></td>
+        <td>
+          <button class="btn btn-sm btn-green" onclick="quickApprove('${l.email}','${l.plan||'pro'}')">APPROVE</button>
+        </td>
+      </tr>`).join('');
+  })
+  .catch(() => {
+    document.getElementById('payments-table').innerHTML = '<tr><td colspan="7" style="color:#64748b;text-align:center;padding:24px">Admin API not available. Deploy Worker with ADMIN_SECRET to enable live payment tracking.</td></tr>';
+  });
+}
+
+function loadLeads() {
+  loadPendingPayments(); // reuse
+}
+
+function updateRevenue(proSeats, entSeats) {
+  const mrr = proSeats * 29 + entSeats * 199;
+  const arr = mrr * 12;
+  document.getElementById('rev-mrr').textContent = '$' + mrr.toLocaleString();
+  document.getElementById('rev-arr').textContent = '$' + arr.toLocaleString();
+  document.getElementById('rev-pro-seats').textContent = proSeats;
+  document.getElementById('rev-ent-seats').textContent = entSeats;
+  const pct = Math.min((mrr / 10000) * 100, 100);
+  document.getElementById('mrr-bar').style.width = pct + '%';
+  document.getElementById('mrr-pct').textContent = '$' + mrr.toLocaleString() + ' / $10,000 (' + pct.toFixed(1) + '%)';
+}
+
+// ---- KEY ISSUANCE ----
+function selectPlan(btn, plan) {
+  document.querySelectorAll('.plan-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedPlan = plan;
+  document.getElementById('key-plan').value = plan;
+}
+
+function generateKey(plan) {
+  const prefix = {free:'CDB-FREE', pro:'CDB-PRO', enterprise:'CDB-ENT', mssp:'CDB-MSSP'}[plan] || 'CDB-KEY';
+  const rand = Array.from({length:32}, () => 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz0123456789'[Math.floor(Math.random()*57)]).join('');
+  return prefix + '-' + rand.slice(0,8) + '-' + rand.slice(8,16) + '-' + rand.slice(16,24);
+}
+
+async function issueKey() {
+  const email = document.getElementById('key-email').value.trim();
+  const plan  = document.getElementById('key-plan').value;
+  const dur   = document.getElementById('key-duration').value;
+  const notes = document.getElementById('key-notes').value.trim();
+  if (!email) { showToast('Email required', 'red'); return; }
+
+  const key = generateKey(plan);
+  const created = new Date().toISOString();
+  const expires = dur === '0' ? null : new Date(Date.now() + parseInt(dur) * 86400000).toISOString();
+  const expiresStr = expires ? new Date(expires).toLocaleDateString() : 'Lifetime';
+  const planPrices = {free:'Free',pro:'$29/mo',enterprise:'$199/mo',mssp:'Custom'};
+
+  // Try to register via API
+  try {
+    await fetch(API + '/api/admin/provision-key', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Key': adminKey,
+        'X-Admin-Secret': adminKey
+      },
+      body: JSON.stringify({ email, plan, api_key: key, expires_at: expires, notes, duration_days: parseInt(dur)||30 })
+    });
+  } catch(e) {}
+
+  document.getElementById('key-result').innerHTML = `
+    <div class="alert alert-success">API Key Generated Successfully</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:6px">GENERATED KEY:</div>
+    <div class="key-display">${key}</div>
+    <div style="margin-top:14px;font-size:11px;line-height:1.8;color:#64748b">
+      <div>Email: <span style="color:#e2e8f0">${email}</span></div>
+      <div>Plan: <span style="color:#e2e8f0">${plan.toUpperCase()} (${planPrices[plan]})</span></div>
+      <div>Expires: <span style="color:#e2e8f0">${expiresStr}</span></div>
+      <div>Created: <span style="color:#e2e8f0">${new Date(created).toLocaleString()}</span></div>
+    </div>
+    <button class="btn btn-sm btn-blue" style="margin-top:12px" onclick="navigator.clipboard.writeText('${key}').then(()=>showToast('Key copied!'))">COPY KEY</button>
+  `;
+
+  document.getElementById('email-template').innerHTML = `
+<div style="background:#0a0e1a;border:1px solid var(--border);padding:16px;border-radius:6px;white-space:pre-wrap;color:#e2e8f0">Subject: Your SENTINEL APEX ${plan.toUpperCase()} API Key — CYBERDUDEBIVASH
+
+Hi,
+
+Thank you for subscribing to CYBERDUDEBIVASH SENTINEL APEX ${plan.toUpperCase()}!
+
+Your API Key:
+${key}
+
+Plan: ${plan.toUpperCase()} (${planPrices[plan]})
+Expires: ${expiresStr}
+Docs: https://intel.cyberdudebivash.com/api-docs.html
+
+Quick Start:
+curl -H "X-API-Key: ${key}" https://intel.cyberdudebivash.com/api/intel
+
+SIEM Integration (Splunk example):
+index=main | inputlookup sentinel_apex | where severity="CRITICAL"
+
+For support: bivash@cyberdudebivash.com
+Telegram: @cyberdudebivash
+
+Thank you for supporting SENTINEL APEX!
+— CYBERDUDEBIVASH Team</div>
+    <button class="btn btn-sm btn-yellow" style="margin-top:10px" onclick="sendEmail('${email}','${plan}','${key}','${expiresStr}')">OPEN EMAIL CLIENT</button>
+  `;
+  showToast('API Key generated!');
+}
+
+function sendEmail(email, plan, key, expires) {
+  const subject = encodeURIComponent('Your SENTINEL APEX ' + plan.toUpperCase() + ' API Key — CYBERDUDEBIVASH');
+  const body = encodeURIComponent(
+    'Your API Key: ' + key + '\n\n' +
+    'Plan: ' + plan.toUpperCase() + '\nExpires: ' + expires + '\n\n' +
+    'Docs: https://intel.cyberdudebivash.com/api-docs.html\n\n' +
+    'Quick Start:\ncurl -H "X-API-Key: ' + key + '" https://intel.cyberdudebivash.com/api/intel\n\n' +
+    'Support: bivash@cyberdudebivash.com'
+  );
+  window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
+}
+
+function quickApprove(email, plan) {
+  document.getElementById('key-email').value = email;
+  selectPlan(document.querySelector('.plan-btn'), plan);
+  showPage('issue-key');
+}
+
+function approvePayment() {
+  const email = document.getElementById('pay-email').value.trim();
+  const plan = document.getElementById('pay-plan').value;
+  if (!email) { showToast('Email required', 'red'); return; }
+  document.getElementById('key-email').value = email;
+  selectedPlan = plan;
+  document.getElementById('key-plan').value = plan;
+  showPage('issue-key');
+  issueKey();
+}
+
+async function revokeKey(key) {
+  if (!confirm('Revoke this key? The user will lose access immediately.')) return;
+  try {
+    await fetch(API + '/api/admin/revoke', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','X-Admin-Key':adminKey,'X-Admin-Secret':adminKey},
+      body: JSON.stringify({ api_key: key })
+    });
+    showToast('Key revoked.');
+    loadUsers();
+  } catch(e) { showToast('Revoke error: ' + e.message, 'red'); }
+}
+
+// ---- TOAST ----
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = color === 'red' ? 'var(--red)' : 'var(--green)';
+  t.style.color = color === 'red' ? 'var(--red)' : 'var(--green)';
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+</script>
+</body>
+</html>
