@@ -826,6 +826,58 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
             f"  [APEX] tech_depth={_td_score} | attr={_attr_conf} | "
             f"risk_conf={_risk_conf[:40] if _risk_conf else 'n/a'}"
         )
+
+        # v142.1 FIX: Normalize nested apex_intelligence -> flat keys for export_stix.py
+        # export_stix expects: composite_score, threat_level, threat_category,
+        # campaign_id, behavioral_tags, ai_summary, recommended_action, priority
+        _risk_expl  = _apex_intel.get("risk_explained", {})
+        _attr       = _apex_intel.get("attribution", {})
+        _tech       = _apex_intel.get("technical_depth", {})
+        _ai_ins     = _apex_intel.get("ai_insight", {})
+        _comp_score = float(_risk_expl.get("risk_score_explained", 0.0))
+        _conf_det   = _risk_expl.get("confidence_detail", {})
+        _conf_level = (_conf_det.get("level", "VERY_LOW")
+                       if isinstance(_conf_det, dict) else "VERY_LOW")
+        _CONF_TO_THREAT = {
+            "CONFIRMED": "CRITICAL", "HIGH": "HIGH",
+            "MEDIUM": "MEDIUM", "LOW": "LOW", "VERY_LOW": "LOW",
+        }
+        _tl = _CONF_TO_THREAT.get(_conf_level, "LOW")
+        _av_type = (_tech.get("attack_vector", {}).get("type", "unknown")
+                    if isinstance(_tech.get("attack_vector"), dict)
+                    else str(_tech.get("attack_vector", "unknown")))
+        _AV_TO_CAT = {
+            "phishing": "Phishing", "rce": "Remote Code Execution",
+            "supply_chain": "Supply Chain Attack", "zero_day": "Zero Day Exploit",
+            "web_app": "Web Application Attack", "credential": "Credential Theft",
+            "man_in_the_middle": "Man-in-the-Middle", "insider": "Insider Threat",
+            "physical": "Physical Access",
+        }
+        _tcat = _AV_TO_CAT.get(_av_type, "Threat Intel")
+        _actor_str = str(_attr.get("actor", "UNKNOWN"))
+        _camp_id   = ("CDB-" + _actor_str[:8]) if _attr.get("attributed") else "UNCLASSIFIED"
+        _behaviors = [b.get("behavior", str(b)) if isinstance(b, dict) else str(b)
+                      for b in _tech.get("malware_behaviors", [])[:5]]
+        _pri = ("P1" if _comp_score >= 9 else "P2" if _comp_score >= 7
+                else "P3" if _comp_score >= 5 else "P4")
+        _apex_data = {
+            "composite_score":    _comp_score,
+            "priority_score":     _comp_score,
+            "priority":           _pri,
+            "threat_level":       _tl,
+            "threat_category":    _tcat,
+            "campaign_id":        _camp_id,
+            "behavioral_tags":    _behaviors,
+            "ai_summary":         str(_ai_ins.get("attack_narrative", ""))[:300],
+            "recommended_action": str(_risk_expl.get("risk_summary", ""))[:200],
+            "risk_factors":       [s.get("signal", "")
+                                   for s in _risk_expl.get("signal_breakdown", [])],
+            "apex_intelligence":  _apex_intel,
+        }
+        logger.info(
+            "[APEX] normalized: score=%.1f priority=%s threat=%s category=%s",
+            _comp_score, _pri, _tl, _tcat,
+        )
     except Exception as _apex_e:
         logger.debug("[APEX-INTEL] Enrichment unavailable (non-fatal): %s", _apex_e)
 
