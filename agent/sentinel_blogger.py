@@ -355,6 +355,19 @@ def main():
     _manifest = _load_manifest_advisories(_manifest_path)
     logger.info(f"[DEDUP] Loaded {len(_manifest)} existing entries for similarity check")
 
+    # -- v142.0: Pre-load IntelDedupEngine before Phase 1 (shared by Phase 1+2) --
+    _intel_engine_early = None
+    try:
+        import sys as _sys_pre
+        _scripts_dir_pre = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts")
+        if _scripts_dir_pre not in _sys_pre.path:
+            _sys_pre.path.insert(0, _scripts_dir_pre)
+        from intel_dedup_engine import get_dedup_engine as _get_eng_pre
+        _intel_engine_early = _get_eng_pre()
+        logger.info("[DEDUP-L0] IntelDedupEngine pre-loaded for Phase 1+2 coverage")
+    except Exception as _eng_pre_e:
+        logger.debug("[DEDUP-L0] Pre-load unavailable: %s", _eng_pre_e)
+
     # -- PHASE 1: Primary CDB Feed -------------------------------------------
     logger.info("--- PHASE 1: Primary CDB Intelligence Feed ---")
     _ph1_start = time.monotonic()
@@ -366,6 +379,16 @@ def main():
         )
 
     for entry in primary_entries:
+        # v142.0 — Layer 0: source_url + stix_id + content_hash (Phase 1)
+        if _intel_engine_early:
+            try:
+                _is_dup_ph1, _reason_ph1 = _intel_engine_early.is_duplicate(entry)
+                if _is_dup_ph1:
+                    logger.info(f"  SKIP [L0-PH1/{_reason_ph1[:35]}]: {entry['title'][:50]}")
+                    continue
+            except Exception as _ph1_l0_e:
+                logger.debug("[DEDUP-L0-PH1] error (non-fatal): %s", _ph1_l0_e)
+
         if dedup_engine.is_duplicate(entry["title"], entry.get("link", "")):
             logger.info(f"  SKIP (duplicate): {entry['title'][:60]}")
             continue
@@ -401,13 +424,19 @@ def main():
             result = False
         if result:
             published_count += 1
+            if _intel_engine_early:
+                try:
+                    _intel_engine_early.mark_seen(entry)
+                except Exception:
+                    pass
         time.sleep(RATE_LIMIT_DELAY)
 
     # -- PHASE 2: Multi-Feed Fusion ------------------------------------------
     logger.info("--- PHASE 2: Multi-Feed Intelligence Fusion ---")
 
-    # v141.4.0 — Load FeedStateTracker for per-feed anti-loop protection
+    # v142.0 — Load FeedStateTracker; reuse pre-loaded IntelDedupEngine singleton
     _feed_tracker = None
+    _intel_engine = _intel_engine_early  # already loaded above (singleton)
     try:
         import importlib.util, sys as _sys
         _scripts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts")
@@ -416,6 +445,8 @@ def main():
         from intel_dedup_engine import get_feed_tracker
         _feed_tracker = get_feed_tracker()
         logger.info("[DEDUP-L0] FeedStateTracker loaded — per-feed anti-loop protection ACTIVE")
+        if _intel_engine:
+            logger.info("[DEDUP-L0] IntelDedupEngine singleton reused from Phase 1 pre-load")
     except Exception as _ft_e:
         logger.warning("[DEDUP-L0] FeedStateTracker unavailable (%s) — continuing without it", _ft_e)
 
@@ -449,6 +480,16 @@ def main():
 
         for entry in entries:
             time.sleep(RATE_LIMIT_DELAY)
+
+            # v142.0 — Layer 0: source_url + stix_id + content_hash (strongest dedup)
+            if _intel_engine:
+                try:
+                    _is_dup_l0, _reason_l0 = _intel_engine.is_duplicate(entry)
+                    if _is_dup_l0:
+                        logger.info(f"  SKIP [L0/{_reason_l0[:40]}]: {entry['title'][:50]}")
+                        continue
+                except Exception as _l0_e:
+                    logger.debug("[DEDUP-L0] check error (non-fatal): %s", _l0_e)
 
             if dedup_engine.is_duplicate(entry["title"], entry.get("link", "")):
                 logger.info(f"  SKIP (duplicate): {entry['title'][:60]}")
@@ -485,6 +526,12 @@ def main():
                 result = False
             if result:
                 published_count += 1
+                # v142.0 — Register in IntelDedupEngine so next run knows this was processed
+                if _intel_engine:
+                    try:
+                        _intel_engine.mark_seen(entry)
+                    except Exception as _ms_e:
+                        logger.debug("[DEDUP-L0] mark_seen error (non-fatal): %s", _ms_e)
 
         # v141.4.0 — Update FeedStateTracker with this feed's batch (post-processing)
         if _feed_tracker and entries:
@@ -493,14 +540,19 @@ def main():
             except Exception as _ft_upd_e:
                 logger.debug("[FEED-TRACKER] update error (non-fatal): %s", _ft_upd_e)
 
-    # v141.4.0 — Persist FeedStateTracker state after all feeds processed
-    if _feed_tracker:
+    # v142.0 — Persist IntelDedupEngine + FeedStateTracker after all feeds processed
+    try:
+        from intel_dedup_engine import save_all as _dedup_save_all
+        _dedup_save_all()
+        logger.info("[DEDUP-L0] IntelDedupEngine + FeedStateTracker persisted to data/cache/")
+    except Exception as _save_e:
+        logger.warning("[DEDUP-L0] save_all() failed (non-fatal): %s", _save_e)
+    # Also save IntelDedupEngine directly if singleton was loaded this run
+    if _intel_engine:
         try:
-            from intel_dedup_engine import save_all as _dedup_save_all
-            _dedup_save_all()
-            logger.info("[DEDUP-L0] FeedStateTracker state persisted to data/cache/feed_state.json")
-        except Exception as _save_e:
-            logger.warning("[DEDUP-L0] save_all() failed (non-fatal): %s", _save_e)
+            _intel_engine.save()
+        except Exception as _ie_save_e:
+            logger.debug("[DEDUP-L0] IntelDedupEngine.save() error: %s", _ie_save_e)
 
     logger.info("=" * 70)
     logger.info(f"APEX v134.0 COMPLETE — Processed {published_count} intel advisories (R2-only)")
