@@ -140,10 +140,11 @@ HARD_BLOCKED_PATTERNS = [
 THRESHOLD = 4.5
 
 # Minimum words in combined content
-# v75.1 NOTE: This is the RSS-summary word count, NOT the fetched article word count.
-# Premium tier-1 sources (BleepingComputer, Dark Reading, SecurityWeek, TheRecord etc.)
-# return RSS excerpts of only 20-40 words. Those sources are checked by TRUSTED_SOURCES.
-MIN_WORDS = 80
+# v142.0: Raised from 80 to 300 — enforce technical depth.
+# Thin content (<300 words) is rejected as insufficient for enterprise-grade intel.
+# Trusted tier-1 sources bypass this (they return RSS excerpts, full article fetched downstream).
+# CVE-titled entries bypass this (short CVE advisories are always real intel).
+MIN_WORDS = 300
 
 # Trusted tier-1 sources - bypass MIN_WORDS gate entirely and let source_fetcher
 # retrieve the full article. These sources NEVER publish low-quality content.
@@ -165,6 +166,88 @@ TRUSTED_SOURCES = {
 MIN_STRONG_SIGNAL_COUNT = 2
 STRONG_SIGNAL_THRESHOLD = 2.5
 
+
+
+
+# ---------------------------------------------------------------------------
+# v142.0 — TECHNICAL DEPTH SCORING (added to quality gate)
+# ---------------------------------------------------------------------------
+# Articles with genuine technical depth score higher. These signals reward
+# primary research, vendor advisories, and exploit reports — the ONLY sources
+# that belong in an enterprise threat intel platform.
+TECHNICAL_DEPTH_SIGNALS = {
+    # CVE / vulnerability specifics
+    "cve-20":              2.0,   # Specific CVE year reference
+    "cvss":                1.5,   # CVSS scoring present
+    "cvss score":          2.0,
+    "affected versions":   1.5,
+    "patch available":     1.5,
+    "proof-of-concept":    2.5,
+    "proof of concept":    2.5,
+    "poc":                 1.5,
+    "exploit code":        2.5,
+    "exploit public":      2.0,
+    # Malware technical indicators
+    "sha256":              3.0,   # File hash present
+    "md5:":                2.5,
+    "c2 ip":               2.5,
+    "command and control": 2.0,
+    "registry key":        2.0,
+    "hkcu\\":            2.0,
+    "hklm\\":            2.0,
+    "process injection":   2.5,
+    "dll injection":       2.5,
+    "shellcode":           2.5,
+    "packed with":         1.5,
+    "yara rule":           2.0,
+    "sigma rule":          2.0,
+    "suricata":            1.5,
+    # Network indicators
+    "ip address":          1.5,
+    "malicious domain":    2.0,
+    "c2 domain":           2.5,
+    "phishing domain":     2.0,
+    # Execution chain
+    "initial access":      2.0,
+    "lateral movement":    2.0,
+    "persistence mechanism": 2.0,
+    "privilege escalation": 2.0,
+    "exfiltration":        2.0,
+    "defense evasion":     2.0,
+    "credential dumping":  2.5,
+    # Attribution quality
+    "attributed to":       2.0,
+    "linked to":           1.5,
+    "identified as":       1.5,
+    "threat actor":        2.0,
+    "apt group":           2.5,
+    # Industry primary research
+    "analysis reveals":    1.5,
+    "investigation found": 1.5,
+    "technical analysis":  2.0,
+    "reverse engineered":  2.5,
+    "disassembly":         2.5,
+    "decompiled":          2.0,
+    "memory forensics":    2.5,
+    "network capture":     2.0,
+    "pcap":                2.0,
+    "indicators of compromise": 2.5,
+    "ioc list":            2.0,
+}
+
+# Technical depth score required to pass (on top of THRESHOLD)
+# If tech_depth_score >= 3.0 → bonus +2.0 to main score (rewards primary research)
+# If tech_depth_score < 1.0 AND score < 7.0 → thin-content penalty -1.5
+TECH_DEPTH_BONUS_THRESHOLD = 3.0
+TECH_DEPTH_BONUS = 2.0
+TECH_DEPTH_THIN_THRESHOLD = 1.0
+TECH_DEPTH_THIN_PENALTY = -1.5
+
+
+def compute_technical_depth(text: str) -> float:
+    """Score technical depth of content. Returns 0.0–20.0."""
+    t = text.lower()
+    return sum(w for sig, w in TECHNICAL_DEPTH_SIGNALS.items() if sig in t)
 
 def score_article(title: str, content: str) -> Tuple[float, str, int]:
     """
@@ -197,7 +280,15 @@ def score_article(title: str, content: str) -> Tuple[float, str, int]:
     for signal, w in NOISE_SIGNALS.items():
         if signal in text:
             score += w
-            hits.append(f"{w}[{signal}]")
+
+    # v142.0 — Technical depth bonus/penalty
+    tech_depth = compute_technical_depth(text)
+    if tech_depth >= TECH_DEPTH_BONUS_THRESHOLD:
+        score += TECH_DEPTH_BONUS
+        hits.append(f"+{TECH_DEPTH_BONUS}[tech_depth:{tech_depth:.1f}]")
+    elif tech_depth < TECH_DEPTH_THIN_THRESHOLD and score < 7.0:
+        score += TECH_DEPTH_THIN_PENALTY
+        hits.append(f"{TECH_DEPTH_THIN_PENALTY}[thin_content:depth={tech_depth:.1f}]")
 
     # CVE bonus - real CVE = high-confidence threat
     cves = re.findall(r'CVE-\d{4}-\d{4,7}', text, re.IGNORECASE)
