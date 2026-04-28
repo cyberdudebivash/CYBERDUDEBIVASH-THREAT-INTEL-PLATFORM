@@ -161,6 +161,15 @@ jobs:
           mkdir -p data/intelligence/detection_rules secrets api data/ai_intelligence
 
       # -----------------------------------------------------------------------
+      # STAGE 0.05: PRE-FLIGHT FILE INTEGRITY CHECK (v141.7.0)
+      # Validates critical pipeline scripts exist and are not truncated.
+      # Hard fail if any critical file is below minimum byte threshold.
+      # Prevents the recurring pattern of silent 3-minute pipeline exits.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.05 - Pre-flight: Validate critical script integrity"
+        run: python3 scripts/ci_preflight_check.py
+
+      # -----------------------------------------------------------------------
       # STAGE 0.0: ENCODING GUARD -- MUST RUN BEFORE EVERYTHING
       # Strips BOM, CRLF, smart quotes, mojibake from all YAML/shell files.
       # Ensures this file and all scripts are ASCII-safe on every run.
@@ -258,6 +267,22 @@ jobs:
         run: python3 scripts/safe_git_commit.py
 
       # -----------------------------------------------------------------------
+      # STAGE 5.4: POST-PIPELINE REPORT COUNT GATE (v141.7.0)
+      # Verifies reports/ directory has at least 1 HTML report after pipeline.
+      # Hard fail prevents deploying a GitHub Pages site with zero reports.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4 - Post-pipeline report count gate"
+        run: python3 scripts/ci_report_count_check.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.4.5: PIPELINE SELF-AUDIT (v141.7.0)
+      # Runs the self-audit engine to generate data/audit/pipeline_audit.json.
+      # Non-blocking: audit failures are logged but do not stop deployment.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4.5 - Pipeline Self-Audit Report"
+        run: python3 scripts/pipeline_audit.py || true
+
+      # -----------------------------------------------------------------------
       # STAGE 5: GITHUB PAGES DEPLOY
       # -----------------------------------------------------------------------
       - name: "STAGE 5 - Deploy to GitHub Pages"
@@ -275,6 +300,14 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "STAGE 5.5 - Final Repository Validation Gate"
         run: python3 scripts/validate_repo.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.6: REGRESSION TEST SUITE (v141.7.0)
+      # Runs the permanent anti-regression test battery.
+      # Hard fail on regression detection.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.6 - Regression Test Suite"
+        run: python3 scripts/regression_tests.py
 
       # -----------------------------------------------------------------------
       # STAGE 6: TELEGRAM FAILURE ALERT (v141.0 -- always runs, zero-exit)
