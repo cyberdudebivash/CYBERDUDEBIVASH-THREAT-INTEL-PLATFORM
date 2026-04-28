@@ -46,6 +46,7 @@ from agent.config import (
     STIX_IDENTITY_ID,
     STIX_TLP_MARKING,
 )
+from agent.mitre_mapper import sanitize_mitre_techniques  # v143.0: strip incomplete techniques
 
 logger = logging.getLogger("CDB-STIX")
 
@@ -1130,7 +1131,7 @@ class STIXExporter:
             "description":         _rg_description,
             "tlp":                 (tlp_label or "TLP:CLEAR").upper(),
             "actor_tag":           actor_tag or "UNC",
-            "mitre_tactics":       list(mitre_tactics[:5]) if mitre_tactics else [],
+            "mitre_tactics":       sanitize_mitre_techniques(list(mitre_tactics[:5])) if mitre_tactics else [],
             "confidence":          float(confidence),
             "confidence_score":    float(confidence),
             "feed_source":         feed_source or "SENTINEL-APEX",
@@ -1236,8 +1237,8 @@ class STIXExporter:
             "tlp_label":        tlp_label,
             "ioc_counts":       ioc_counts,
             "actor_tag":        actor_tag,
-            "mitre_tactics":    mitre_tactics[:5] if mitre_tactics else [],
-            "ttps":             mitre_tactics[:5] if mitre_tactics else [],
+            "mitre_tactics":    sanitize_mitre_techniques(list(mitre_tactics[:5])) if mitre_tactics else [],
+            "ttps":             sanitize_mitre_techniques(list(mitre_tactics[:5])) if mitre_tactics else [],
             "feed_source":      feed_source,
             "source":           feed_source or "SENTINEL-APEX",
             "threat_type":      _threat_type,
@@ -1371,9 +1372,3 @@ class STIXExporter:
             except Exception:
                 pass
             raise _e
-
-        logger.info(f"Manifest updated: {len(trimmed)} entries | latest: {title[:50]}")
-
-
-# Global singleton (backward compatible)
-stix_exporter = STIXExporter()
