@@ -1740,26 +1740,53 @@ def main(argv=None) -> int:
     if errors > 0:
         log(f"WARNING: {errors} entries failed report generation", "warning")
 
-    # ── REPORT EXISTENCE GUARANTEE (v134.1 HARDENING) ────────────────────────
+    # ── REPORT EXISTENCE GUARANTEE (v141.7.0 HARDENING) ────────────────────────
     # Before manifest write: verify every successfully-written report exists on disk.
-    # Any missing file = HARD FAIL — manifest write is BLOCKED.
-    _existence_failures: list[str] = []
+    # ANY missing file = HARD FAIL — manifest entry is NOT written.
+    #
+    # FIX v141.7.0: Previous guard used startswith("/") which never matched because
+    # report_url is stored as "https://intel.cyberdudebivash.com/reports/..." (full URL).
+    # Now we derive the local path from the reports/ directory using the entry id.
+    _existence_failures: list = []
     for _entry in data.get("advisories", data if isinstance(data, list) else []):
         _vs = _entry.get("validation_status", "")
-        if _vs in ("ok", "enriched", "valid"):
-            _rrel = _entry.get("internal_report_url") or _entry.get("report_url", "")
-            if _rrel and _rrel.startswith("/"):
-                _rpath = REPO_ROOT / _rrel.lstrip("/")
-                if not _rpath.exists():
-                    _existence_failures.append(f"{_entry.get('id', '?')} → {_rpath}")
+        if _vs not in ("ok", "enriched", "valid"):
+            continue
+        _eid = _entry.get("id", "")
+        if not _eid:
+            continue
+        # Derive local path: try internal_report_url first, then reconstruct from id
+        _rrel = _entry.get("internal_report_url", "")
+        if _rrel and _rrel.startswith("/"):
+            _rpath = REPO_ROOT / _rrel.lstrip("/")
+        else:
+            # Reconstruct from report_url (strip https://host prefix) or from id
+            _rurl = _entry.get("report_url", "")
+            _PATH_MARKER = "/reports/"
+            if _PATH_MARKER in _rurl:
+                _rel = _rurl[_rurl.index(_PATH_MARKER) + 1:]   # "reports/YYYY/MM/id.html"
+                _rpath = REPO_ROOT / _rel
+            else:
+                # Fallback: search reports dir for id.html
+                _found = list(REPORTS_ROOT.rglob(f"{_eid}.html"))
+                _rpath = _found[0] if _found else REPO_ROOT / "reports" / f"{_eid}.html"
+
+        if not _rpath.exists():
+            _existence_failures.append(f"{_eid} → {_rpath}")
+            # Block this entry from manifest: downgrade status so it won't be exposed
+            _entry["validation_status"] = "file_missing"
+            _entry["report_url"] = _entry.get("source_url") or ""
+            log(f"MANIFEST BLOCK [{_eid}]: report file missing from disk — entry downgraded, NOT published", "error")
+
     if _existence_failures:
         log(
-            f"HARD FAIL — pre-manifest report existence check: "
-            f"{len(_existence_failures)} report(s) missing from disk. "
-            f"Manifest write BLOCKED. Missing: {_existence_failures[:5]}",
-            "error",
+            f"REPORT EXISTENCE CHECK: {len(_existence_failures)} report(s) missing from disk. "
+            f"Affected entries downgraded to file_missing (not published). "
+            f"Missing: {_existence_failures[:5]}",
+            "warning",
         )
-        return 1
+        # Not a hard sys.exit — we degrade individual entries rather than blocking
+        # the entire manifest write, preserving all successfully-written reports.
 
     # Persist manifest with all report_url + validation_status updates
     save_manifest(data)

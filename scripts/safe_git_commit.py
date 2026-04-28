@@ -214,6 +214,23 @@ def main() -> None:
     for path in files_to_stage:
         run_git("add", "-f", path)
 
+    # --- v141.7.0 Phase 5: Pre-commit reports/ existence check ---
+    reports_dir = REPO_ROOT / "reports"
+    if reports_dir.is_dir():
+        _html_count = sum(
+            1 for f in reports_dir.rglob("*.html") if f.name != "index.html"
+        )
+        log.info("[pre-commit] reports/ has %d HTML report(s)", _html_count)
+        if _html_count == 0:
+            log.warning(
+                "[pre-commit] WARNING: reports/ directory has ZERO HTML files. "
+                "Either pipeline produced no reports (investigate) or "
+                "reports were not generated yet. Continuing commit of other assets."
+            )
+    else:
+        log.warning("[pre-commit] reports/ directory does not exist -- creating empty dir")
+        reports_dir.mkdir(parents=True, exist_ok=True)
+
     # --- Check if there is anything to commit ---
     diff_result = run_git("diff", "--staged", "--quiet")
     if diff_result.returncode == 0:
@@ -231,6 +248,15 @@ def main() -> None:
             log.info("Committed: %s", commit_msg[:80])
         else:
             log.warning("Commit failed: %s", result.stderr.strip()[:200])
+    
+    # --- v141.7.0 Post-commit: verify key files are in git index ---
+    _verify_files = ["index.html", "feed.json"]
+    for _vf in _verify_files:
+        _ls = run_git("ls-files", "--error-unmatch", _vf)
+        if _ls.returncode == 0:
+            log.info("[post-commit] git index verify: %s -- IN INDEX", _vf)
+        else:
+            log.warning("[post-commit] git index verify: %s -- NOT TRACKED (new file?)", _vf)
 
     # --- Push with 4-attempt retry ---
     for attempt in range(1, 5):

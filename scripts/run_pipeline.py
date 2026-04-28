@@ -359,6 +359,87 @@ def stage_syntax_guard() -> None:
 
 
 # ---------------------------------------------------------------------------
+# PHASE 0 -- File Integrity Pre-Check (v141.7.0)
+# ---------------------------------------------------------------------------
+_FILE_INTEGRITY_THRESHOLDS = {
+    "scripts/run_pipeline.py":           55_000,
+    "agent/sentinel_blogger.py":         25_000,
+    "agent/export_stix.py":              30_000,
+    "scripts/intel_dedup_engine.py":     15_000,
+    "scripts/generate_intel_reports.py": 45_000,
+    "scripts/validate_repo.py":          10_000,
+}
+
+
+def stage_file_integrity_guard() -> None:
+    """
+    PHASE 0 -- Pre-execution File Integrity Check (v141.7.0).
+
+    Validates critical pipeline scripts BEFORE any execution:
+      - File exists
+      - Byte size >= minimum threshold (catches truncation artifacts)
+      - Zero null bytes (catches binary corruption)
+      - Valid Python syntax (catches partial writes)
+
+    ANY failure => sys.exit(1). Prevents silent 3-minute partial runs.
+    """
+    import py_compile
+    import tempfile
+    log.info("=" * 60)
+    log.info("PHASE 0 -- File Integrity Pre-Check (v141.7.0)")
+    log.info("=" * 60)
+
+    failures = []
+
+    for rel_path, min_bytes in _FILE_INTEGRITY_THRESHOLDS.items():
+        full_path = REPO_ROOT / rel_path
+        if not full_path.exists():
+            msg = f"{rel_path}: FILE MISSING"
+            log.error("[integrity] %s", msg)
+            failures.append(msg)
+            continue
+
+        size = full_path.stat().st_size
+        if size < min_bytes:
+            msg = f"{rel_path}: TRUNCATED ({size} bytes < {min_bytes} threshold)"
+            log.error("[integrity] %s", msg)
+            failures.append(msg)
+            continue
+
+        raw = full_path.read_bytes()
+        null_count = raw.count(b"\x00")
+        if null_count:
+            msg = f"{rel_path}: {null_count} NULL BYTES detected (binary corruption)"
+            log.error("[integrity] %s", msg)
+            failures.append(msg)
+            continue
+
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pyc", delete=True) as tf:
+                py_compile.compile(str(full_path), cfile=tf.name, doraise=True)
+        except py_compile.PyCompileError as exc:
+            msg = f"{rel_path}: SYNTAX ERROR -- {exc}"
+            log.error("[integrity] %s", msg)
+            failures.append(msg)
+            continue
+
+        log.info("[integrity] PASS  %-52s  %6d bytes", rel_path, size)
+
+    if failures:
+        log.critical(
+            "PHASE 0 INTEGRITY FAILED -- %d critical file(s) are corrupted/truncated/missing. "
+            "Pipeline HARD STOP. Restore files from git HEAD before re-running.",
+            len(failures),
+        )
+        for f in failures:
+            log.critical("  FAIL: %s", f)
+        sys.exit(1)
+
+    log.info("[integrity] ALL %d critical scripts passed integrity check. Pipeline safe to execute.",
+             len(_FILE_INTEGRITY_THRESHOLDS))
+
+
+# ---------------------------------------------------------------------------
 # Stage 0.5 -- Purge Blogger Publish Queue
 # ---------------------------------------------------------------------------
 
@@ -961,6 +1042,20 @@ def stage_html_reports() -> None:
     log.info("[3.6] Reports written: %d | Elapsed: %.1fs", report_count, elapsed)
     write_github_env("REPORT_COUNT", str(report_count))
     write_github_env("REPORT_ELAPSED", f"{elapsed:.0f}")
+
+    # v141.7.0 Phase 2: Hard minimum report count guard
+    # A healthy run generates at least 1 report. Zero means the report generator
+    # silently produced nothing -- this must hard-fail the pipeline.
+    _MIN_REPORTS_REQUIRED = 1
+    if report_count < _MIN_REPORTS_REQUIRED:
+        log.critical(
+            "[3.6] HARD FAIL: report_count=%d < minimum=%d. "
+            "Report generation produced ZERO output files. "
+            "Pipeline cannot continue without valid reports.",
+            report_count, _MIN_REPORTS_REQUIRED,
+        )
+        sys.exit(1)
+    log.info("[3.6] Report count guard PASSED: %d >= %d minimum.", report_count, _MIN_REPORTS_REQUIRED)
 
 
 # ---------------------------------------------------------------------------
@@ -2224,27 +2319,65 @@ def main() -> None:
     if _SAFE_IO_AVAILABLE:
         METRICS = PipelineMetrics()
 
+    # ── v141.7.0 Stage Registry ────────────────────────────────────────────
+    # Every major stage is registered here.  After execution each stage name
+    # is appended to _completed_stages.  A final check at pipeline exit
+    # confirms all expected stages ran — catching silent skips.
+    _STAGE_REGISTRY = [
+        "file_integrity_guard",
+        "feed_guard",
+        "syntax_guard",
+        "bootstrap",
+        "jwt_secret",
+        "intel_engine",
+        "manifest_stabilisation",
+        "freshness_gate",
+        "schema_validation",
+        "dedup_enrich",
+        "html_reports",
+        "manifest_integrity",
+        "pipeline_consistency",
+        "validate_repo",
+        "write_metrics",
+        "feed_json_final",
+    ]
+    _completed_stages: list[str] = []
+
+    def _stage_done(name: str) -> None:
+        _completed_stages.append(name)
+        log.debug("[stage-registry] completed: %s (%d/%d)",
+                  name, len(_completed_stages), len(_STAGE_REGISTRY))
+
     # ---- Pre-flight -------------------------------------------------------
+    stage_file_integrity_guard()         # PHASE 0: file size/syntax/null-byte pre-check (HARD FAIL)
+    _stage_done("file_integrity_guard")
     stage_feed_guard()                   # FIRST: guarantee feed.json always valid JSON
+    _stage_done("feed_guard")
     stage_syntax_guard()                 # THEN:  catch SyntaxErrors before execution
+    _stage_done("syntax_guard")
     stage_purge_publish_queue()
     stage_bootstrap()
     stage_validate_bootstrap()
     stage_inject_sovereign_key()
     stage_validate_jwt_secret()          # HARD FAIL if JWT missing
+    _stage_done("jwt_secret")
 
     # ---- v134 System Health Gate (pre-ingestion CRITICAL/DEGRADED guard) ----
     stage_system_health_gate()           # CRITICAL: exit 1 | DEGRADED: drain-first then continue
 
     # ---- Intel Generation -------------------------------------------------
     stage_run_intel_engine()
+    _stage_done("intel_engine")
     stage_pre_v70_manifest_sync()
     stage_v70_orchestrator()
 
     # ---- Manifest Processing ----------------------------------------------
     stage_manifest_stabilisation()
+    _stage_done("manifest_stabilisation")
     stage_freshness_gate()               # HARD FAIL if < MIN entries
+    _stage_done("freshness_gate")
     stage_schema_validation()            # HARD FAIL if schema invalid
+    _stage_done("schema_validation")
     stage_manifest_cleanup()
     stage_dedup_and_enrich()             # SafeIO: dedup + ioc_count fix + schema auto-fix
 
@@ -2260,28 +2393,51 @@ def main() -> None:
         log.info("[3.2-POST] intel_dedup_engine.save_all(): cross-run index persisted OK")
     except Exception as _e:
         log.warning("[3.2-POST] intel_dedup_engine.save_all() skipped (non-fatal): %s", _e)
+    _stage_done("dedup_enrich")
 
     stage_enforce_schema()               # MANDATORY: schema enforcement at write boundary
     stage_sync_root_feed_json()          # P0 FIX: populate feed.json from STIX/manifest always
 
     # ---- Output Generation ------------------------------------------------
     stage_html_reports()                 # HARD FAIL if 0 reports
+    _stage_done("html_reports")
     stage_writequeue_flush()             # BARRIER: drain all enqueued writes before integrity check
     stage_manifest_integrity_check()     # HARD FAIL on write_error entries
+    _stage_done("manifest_integrity")
     stage_validate_write_integrity()     # Post-write assertion: no missing files, no failures
     stage_refresh_embedded_intel()
 
     # ---- Cross-Layer Consistency Gate ------------------------------------
     stage_pipeline_consistency_check()   # Enforce ioc/stix/dedup/scoring integrity
+    _stage_done("pipeline_consistency")
     stage_recovery_replay()              # v134: drain write backlog before validation gate
     stage_validate_repo()                # HARD FAIL: schema hard validation (no auto-heal)
+    _stage_done("validate_repo")
 
     # ---- Housekeeping -----------------------------------------------------
     stage_prune_stix_bundles()
 
     # ---- Observability ----------------------------------------------------
     stage_write_metrics()                # Write pipeline_metrics.json
+    _stage_done("write_metrics")
     stage_sync_root_feed_json()          # FINAL: ensure feed.json populated (double-guarantee)
+
+    # ---- Phase 9: Self-Audit Report (v141.7.0) --------------------------------
+    try:
+        import importlib.util as _ilu
+        _audit_spec = _ilu.spec_from_file_location(
+            "pipeline_audit", REPO_ROOT / "scripts" / "pipeline_audit.py"
+        )
+        _audit_mod = _ilu.module_from_spec(_audit_spec)
+        _audit_spec.loader.exec_module(_audit_mod)
+        _audit_out = REPO_ROOT / "data" / "audit" / "pipeline_audit.json"
+        _audit_rc = _audit_mod.run_audit(_audit_out)
+        if _audit_rc != 0:
+            log.warning("[audit] Self-audit FAIL -- review data/audit/pipeline_audit.json")
+        else:
+            log.info("[audit] Self-audit PASS -- %s", _audit_out)
+    except Exception as _ae:
+        log.warning("[audit] Self-audit skipped (non-fatal): %s", _ae)
 
     # ---- Static health snapshot (pre-bake for GitHub Pages /api/health.json)
     try:
@@ -2293,9 +2449,45 @@ def main() -> None:
         log.warning("Health snapshot skipped (non-critical): %s", _he)
 
     elapsed = time.monotonic() - t_total
+
+    # ── v141.7.0 Stage Completion Audit ───────────────────────────────────
+    _BASELINE_RUNTIME_SECONDS = 900   # 15 min -- healthy run floor
+    missing_stages = [s for s in _STAGE_REGISTRY if s not in _completed_stages]
+    if missing_stages:
+        log.error(
+            "[stage-audit] PIPELINE INCOMPLETE -- %d stage(s) never executed: %s",
+            len(missing_stages), missing_stages,
+        )
+        # Non-fatal: log and continue so safe_git_commit still runs.
+        # Escalated to CRITICAL so it appears prominently in CI logs.
+        log.critical(
+            "[stage-audit] PARTIAL EXECUTION DETECTED. "
+            "Investigate skipped stages before next production run."
+        )
+    else:
+        log.info("[stage-audit] ALL %d registered stages completed. Pipeline integrity: FULL.",
+                 len(_STAGE_REGISTRY))
+
+    if elapsed < _BASELINE_RUNTIME_SECONDS:
+        log.warning(
+            "[stage-audit] EARLY EXIT WARNING: pipeline completed in %.1fs "
+            "(< %ds baseline). This may indicate silent stage skips. "
+            "Completed stages: %s",
+            elapsed, _BASELINE_RUNTIME_SECONDS, _completed_stages,
+        )
+    else:
+        log.info("[stage-audit] Runtime %.1fs >= %ds baseline. Normal execution confirmed.",
+                 elapsed, _BASELINE_RUNTIME_SECONDS)
+
+    # Mark final feed.json sync
+    _stage_done("feed_json_final")
+
     log.info("=" * 70)
     log.info("PIPELINE COMPLETE in %.1fs | Version: %s | %s",
              elapsed, PIPELINE_VERSION, utc_now())
+    log.info("Stages completed: %d/%d  %s",
+             len(_completed_stages), len(_STAGE_REGISTRY),
+             "✅ FULL" if not missing_stages else f"⚠️ PARTIAL ({missing_stages})")
     log.info("=" * 70)
 
 
