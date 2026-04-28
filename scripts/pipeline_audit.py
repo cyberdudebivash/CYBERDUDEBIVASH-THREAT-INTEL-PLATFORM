@@ -129,14 +129,22 @@ def check_manifest(findings: list, stats: dict) -> None:
     missing_id = []
 
     for item in items:
-        _id = item.get("id", "")
+        # Manifest may use advisory_id (pipeline canonical) or id (legacy/enriched)
+        _id = item.get("id", "") or item.get("advisory_id", "")
         if not _id:
             missing_id.append(str(item.get("title", ""))[:40])
             continue
 
-        # ioc_count == len(iocs)
+        # ioc_count == len(iocs) — iocs may be a list OR a dict of {type: [values]}
         ioc_count_field = item.get("ioc_count", 0)
-        iocs_list = item.get("iocs", [])
+        iocs_raw = item.get("iocs", [])
+        if isinstance(iocs_raw, list):
+            actual_count = len(iocs_raw)
+        elif isinstance(iocs_raw, dict):
+            actual_count = sum(len(v) for v in iocs_raw.values() if isinstance(v, list))
+        else:
+            actual_count = 0
+        iocs_list = iocs_raw  # keep ref for downstream compat
         actual_count = len(iocs_list) if isinstance(iocs_list, list) else 0
         if ioc_count_field != actual_count:
             ioc_mismatch.append(f"{_id}: ioc_count={ioc_count_field} vs len(iocs)={actual_count}")
@@ -150,14 +158,19 @@ def check_manifest(findings: list, stats: dict) -> None:
         #   a) cve_id present          b) kev_present
         #   c) cvss >= 9.0 AND (ioc_count > 0 OR epss >= 0.5)
         #   d) epss >= 0.7             e) ioc_confidence >= 80 AND ioc_count >= 5
-        rs = float(item.get("risk_score", 0) or 0)
+        # Only check risk_score — the risk-engine output field. threat_score is a
+        # separate pre-enrichment metric in the manifest with different semantics
+        # and scale; applying the cap-evidence gate to it produces false positives.
+        rs = float(item.get("risk_score") or 0)
         if rs >= 9.0:
             _kev      = item.get("kev_present", False) or item.get("kev", False)
             _cvss     = float(item.get("cvss_score") or item.get("cvss") or 0)
             _epss     = float(item.get("epss_score") or item.get("epss") or 0)
-            _ioc_cnt  = int(item.get("ioc_count", 0))
+            _ioc_cnt  = int(item.get("ioc_count", 0) or actual_count)
             _ioc_conf = float(item.get("ioc_confidence") or 0)
-            _cve_id   = bool(item.get("cve_id"))
+            # cve_id may be a string, list, or boolean
+            _cve_raw  = item.get("cve_id") or item.get("cves") or []
+            _cve_id   = bool(_cve_raw) and _cve_raw != [] and _cve_raw != ""
             _justified_audit = (
                 _cve_id
                 or _kev
@@ -270,7 +283,7 @@ def check_report_manifest_consistency(findings: list, stats: dict) -> None:
 
         # Derive physical path from report_url
         rurl = item.get("report_url", "")
-        _id = item.get("id", "")
+        _id = item.get("id", "") or item.get("advisory_id", "")
         if not _id:
             continue
 
