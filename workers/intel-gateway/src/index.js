@@ -1173,10 +1173,10 @@ function computeApexAI(item, tier) {
     // seen in API output (e.g. apex.predictive_score=2.9 vs apex_ai.predictive_risk=6.56).
     //
     // Priority:
-    //   1. item.apex.composite_score  — Python APEX engine (most calibrated)
-    //   2. item.apex.priority_score   — same engine, alternate key
-    //   3. item.risk_score            — raw dynamic risk scorer
-    //   4. item.cvss_score            — CVSS fallback
+    //   1. item.apex.composite_score  -- Python APEX engine (most calibrated)
+    //   2. item.apex.priority_score   -- same engine, alternate key
+    //   3. item.risk_score            -- raw dynamic risk scorer
+    //   4. item.cvss_score            -- CVSS fallback
     const apexComposite  = (item.apex && typeof item.apex.composite_score  === "number" && item.apex.composite_score  > 0)
                          ? item.apex.composite_score
                          : (item.apex && typeof item.apex.priority_score   === "number" && item.apex.priority_score   > 0)
