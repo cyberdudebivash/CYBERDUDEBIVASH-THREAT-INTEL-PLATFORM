@@ -481,22 +481,47 @@ class FeedStateTracker:
             try:
                 raw = json.loads(FSTATE_PATH.read_text(encoding="utf-8"))
                 if isinstance(raw, dict):
-                    self._state = raw
-                    log.info("[FEED-STATE] Loaded state for %d feeds", len(raw))
+                    # v141.5.0 FORMAT NORMALISATION:
+                    # Old format: {"schema_version":..., "feeds":{...}}  (nested)
+                    # New format: {"_meta":{...}, "https://...": {...}}   (flat)
+                    # Detect old format: no URL-shaped top-level key, has "feeds" dict
+                    has_url_keys = any(
+                        str(k).startswith(("http://", "https://", "ftp://"))
+                        for k in raw
+                    )
+                    if not has_url_keys and isinstance(raw.get("feeds"), dict):
+                        # Migrate old nested format to flat URL-keyed format
+                        self._state = dict(raw["feeds"])
+                        log.info(
+                            "[FEED-STATE] Migrated old nested format -> %d feeds",
+                            len(self._state),
+                        )
+                    else:
+                        # Current format: extract only URL-keyed entries, skip _meta/schema noise
+                        self._state = {
+                            k: v for k, v in raw.items()
+                            if str(k).startswith(("http://", "https://", "ftp://"))
+                        }
+                        log.info("[FEED-STATE] Loaded state for %d feeds", len(self._state))
                     return self
             except Exception as e:
-                log.warning("[FEED-STATE] State corrupt (%s) — fresh start", e)
+                log.warning("[FEED-STATE] State corrupt (%s) -- fresh start", e)
         self._state = {}
         return self
 
     def save(self) -> None:
+        # v141.5.0: persist ONLY URL-keyed feed entries + _meta (no schema pollution)
+        feed_entries = {
+            k: v for k, v in self._state.items()
+            if str(k).startswith(("http://", "https://", "ftp://"))
+        }
         data = {
             "_meta": {
-                "schema_version": "141.3.0",
+                "schema_version": "141.5.0",
                 "last_updated": _utc_now(),
-                "feed_count": len(self._state),
+                "feed_count": len(feed_entries),
             },
-            **self._state,
+            **feed_entries,
         }
         _atomic_write(FSTATE_PATH, data)
 
@@ -716,6 +741,39 @@ if __name__ == "__main__":
     if args.build_index:
         log.info("Force-rebuilding index from all sources...")
         engine._index = {
+            **IntelDedupEngine._EMPTY_INDEX,
+            "created_at": _utc_now(),
+            "last_updated": _utc_now(),
+        }
+        engine._rebuild_from_sources()
+        engine.save()
+        print(f"Index rebuilt. Stats: {engine.get_stats()}")
+
+    if args.stats:
+        stats = engine.get_stats()
+        print(f"\nIntel Index Stats:")
+        print(f"  source_urls:    {stats['source_urls']}")
+        print(f"  stix_ids:       {stats['stix_ids']}")
+        print(f"  content_hashes: {stats['content_hashes']}")
+        print(f"  title_hashes:   {stats['title_hashes']}")
+        print(f"  last_updated:   {stats['last_updated']}")
+
+    if args.validate_manifest:
+        if not MANIFEST_PATH.exists():
+            print("No manifest found at", MANIFEST_PATH)
+        else:
+            raw = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+            items = (raw if isinstance(raw, list)
+                     else raw.get("advisories") or raw.get("items") or [])
+            unique, removed = enforce_manifest_uniqueness(items)
+            print(f"\nManifest validation:")
+            print(f"  Total items: {len(items)}")
+            print(f"  Duplicates:  {removed}")
+            print(f"  Unique:      {len(unique)}")
+            if removed == 0:
+                print("  STATUS: CLEAN -- no duplicates detected")
+            else:
+                print("  STATUS: DUPLICATES FOUND -- manifest needs cleanup")
             **IntelDedupEngine._EMPTY_INDEX,
             "created_at": _utc_now(),
             "last_updated": _utc_now(),

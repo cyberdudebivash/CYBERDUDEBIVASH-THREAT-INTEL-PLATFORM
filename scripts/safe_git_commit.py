@@ -27,6 +27,8 @@ Files staged (never feed_manifest.json data -- that goes to R2 only):
   - data/apex_v2_manifest.json etc.
   - data/publish_queue.json         (always cleared/empty)
   - data/feed_manifest.json         (with schema_version for v70)
+  - data/cache/intel_index.json     (P0-FIX: dedup index persists across runs)
+  - data/cache/feed_state.json      (P0-FIX: per-feed anti-loop state persists)
 
 Runs with if: always() -- persists state even when upstream steps fail.
 
@@ -163,6 +165,12 @@ def main() -> None:
         "config/feature_flags.json",
         "data/publish_queue.json",
         "data/feed_manifest.json",
+        # P0-FIX v141.5.0: Persist dedup state so every CI run builds on
+        # previous run's dedup history. Without these, feed_state.json always
+        # resets to {"feeds": {}} on checkout -> every item treated as new
+        # -> same intel re-ingested every 4 hours with fresh timestamps.
+        "data/cache/intel_index.json",
+        "data/cache/feed_state.json",
     ]
     for path in files_to_stage:
         run_git("add", "-f", path)
