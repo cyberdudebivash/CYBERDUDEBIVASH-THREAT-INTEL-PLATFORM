@@ -1355,7 +1355,7 @@ def stage_recovery_replay() -> None:
                 }
                 if extra:
                     payload.update(extra)
-                HEALTH_JSON.write_text(_json.dumps(payload, indent=2), encoding="utf-8")
+                atomic_json_write(HEALTH_JSON, payload, locked=False)
                 log.info("[recovery-replay] system_health.json: state=%s recovery_count=%d", state, rc)
             except Exception as he:
                 log.warning("[recovery-replay] Could not write system_health.json: %s", he)
