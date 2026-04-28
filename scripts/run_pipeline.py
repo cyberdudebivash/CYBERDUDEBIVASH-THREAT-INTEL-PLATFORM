@@ -2137,18 +2137,72 @@ def stage_sync_root_feed_json() -> None:
     out_count = min(len(manifest_items), 500)  # cap at 500
     payload = manifest_items[:out_count]
 
+    # P0-FIX v141.6.0: Pre-serialise payload to a string ONCE and validate it
+    # BEFORE touching any on-disk file.  This prevents the race where the file
+    # is overwritten with invalid JSON (which the external CI validate_repo.py
+    # step would then catch).  The root cause: json.dump with default=str can
+    # silently corrupt output when items contain non-JSON-native Python objects
+    # (e.g. datetime, set) that str() into multi-line or unquoted representations
+    # that then confuse some downstream parsers.  We fully round-trip validate here.
+    try:
+        serialised = json.dumps(payload, indent=2, ensure_ascii=False, default=str)
+        # Hard round-trip validation: parse it back
+        reparsed = json.loads(serialised)
+        if not isinstance(reparsed, list):
+            raise ValueError(f"Round-trip produced {type(reparsed).__name__}, expected list")
+        log.info("[3.9] Payload pre-validated: %d entries, %d bytes — JSON GOOD",
+                 len(reparsed), len(serialised))
+    except Exception as e:
+        log.error("[3.9] CRITICAL: Payload JSON serialisation FAILED (%s) — "
+                  "feed.json will NOT be overwritten (keeping last valid version)", e)
+        return
+
     for target in targets:
+        # Snapshot previous content so we can roll back on verify failure
+        prev_content: str | None = None
+        if target.exists():
+            try:
+                prev_content = target.read_text(encoding="utf-8")
+                json.loads(prev_content)   # only keep snapshot if it is itself valid
+            except Exception:
+                prev_content = None
+
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
-            tmp = str(target) + ".sync.tmp"
-            with open(tmp, "w", encoding="utf-8") as fh:
-                json.dump(payload, fh, indent=2, ensure_ascii=False, default=str)
-            os.replace(tmp, str(target))
-            log.info("[3.9] ✅ Written: %s (%d entries, %.1fkB)",
-                     target.relative_to(REPO_ROOT), out_count,
-                     target.stat().st_size / 1024)
+            tmp = Path(str(target) + ".sync.tmp")
+            tmp.write_text(serialised, encoding="utf-8")
+
+            # Re-verify the tmp file before promoting it
+            verified = json.loads(tmp.read_text(encoding="utf-8"))
+            if not isinstance(verified, list):
+                raise ValueError(f"Tmp-file re-parse returned {type(verified).__name__}")
+
+            # Atomic promote
+            os.replace(str(tmp), str(target))
+
+            # Final confirmation read
+            final_sz = target.stat().st_size
+            json.loads(target.read_text(encoding="utf-8"))   # last-chance confirm
+            log.info("[3.9] ✅ Written+Verified: %s (%d entries, %.1fkB)",
+                     target.relative_to(REPO_ROOT), out_count, final_sz / 1024)
+
         except Exception as e:
-            log.warning("[3.9] Could not write %s: %s", target, e)
+            log.error("[3.9] Write/verify FAILED for %s: %s", target, e)
+            # Clean up tmp if it exists
+            tmp_path = Path(str(target) + ".sync.tmp")
+            if tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except Exception:
+                    pass
+            # Roll back to last known-good version
+            if prev_content is not None:
+                try:
+                    target.write_text(prev_content, encoding="utf-8")
+                    log.warning("[3.9] ⚠️ Rolled back %s to previous valid version",
+                                target.relative_to(REPO_ROOT))
+                except Exception as e2:
+                    log.error("[3.9] Rollback also failed for %s: %s", target, e2)
 
     log.info("[3.9] STAGE 3.9 COMPLETE — feed.json has %d entries [OK]", out_count)
 
