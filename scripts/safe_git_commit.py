@@ -141,12 +141,53 @@ def main() -> None:
             except Exception:
                 pass
 
+    # --- P0-FIX v141.6.0: Validate JSON files BEFORE staging ---
+    # feed.json and any other JSON files must be valid before git add.
+    # If a file is invalid JSON, skip staging it so the previous committed
+    # (valid) version stays in the tree and validate_repo.py won't fail.
+    def _validate_json_file(rel_path: str) -> bool:
+        """Return True if file exists and contains valid JSON; False otherwise."""
+        full = REPO_ROOT / rel_path
+        if not full.exists():
+            return True  # missing file is fine — git add will just skip it
+        try:
+            data = json.loads(full.read_text(encoding="utf-8"))
+            # Extra: no null bytes
+            raw_bytes = full.read_bytes()
+            if b"\x00" in raw_bytes:
+                log.warning("[git-guard] %s contains null bytes — skipping stage", rel_path)
+                return False
+            log.info("[git-guard] %s: VALID JSON (%s entries)",
+                     rel_path, len(data) if isinstance(data, list) else "dict")
+            return True
+        except Exception as e:
+            log.warning("[git-guard] %s: INVALID JSON (%s) — skipping stage to protect CI",
+                        rel_path, e)
+            return False
+
+    JSON_GUARDED = {
+        "feed.json",
+        "api/feed.json",
+        "data/feed_manifest.json",
+        "data/cache/intel_index.json",
+        "data/cache/feed_state.json",
+        "api/latest.json",
+        "api/status.json",
+    }
+
+    # Stage guarded JSON files individually with validation
+    for jf in JSON_GUARDED:
+        if _validate_json_file(jf):
+            run_git("add", "-f", jf)
+
     # --- Stage NON-SENSITIVE files ---
+    # NOTE: JSON files that need validation are handled ABOVE by JSON_GUARDED.
+    # Do NOT list them here — the unguarded git-add would override the guard.
     files_to_stage = [
         "data/stix/CDB-APEX-*.json",
         "data/sync_marker.json",
-        "api/latest.json",
-        "api/status.json",
+        # api/latest.json        → JSON_GUARDED (validated above)
+        # api/status.json        → JSON_GUARDED (validated above)
         "api/engines.json",
         "api/ai/",
         "index.html",
@@ -164,13 +205,11 @@ def main() -> None:
         "data/validated_manifest.json",
         "config/feature_flags.json",
         "data/publish_queue.json",
-        "data/feed_manifest.json",
-        # P0-FIX v141.5.0: Persist dedup state so every CI run builds on
-        # previous run's dedup history. Without these, feed_state.json always
-        # resets to {"feeds": {}} on checkout -> every item treated as new
-        # -> same intel re-ingested every 4 hours with fresh timestamps.
-        "data/cache/intel_index.json",
-        "data/cache/feed_state.json",
+        # data/feed_manifest.json     → JSON_GUARDED (validated above)
+        # data/cache/intel_index.json → JSON_GUARDED (validated above)
+        # data/cache/feed_state.json  → JSON_GUARDED (validated above)
+        # feed.json                   → JSON_GUARDED (validated above)
+        # api/feed.json               → JSON_GUARDED (validated above)
     ]
     for path in files_to_stage:
         run_git("add", "-f", path)

@@ -774,36 +774,3 @@ if __name__ == "__main__":
                 print("  STATUS: CLEAN -- no duplicates detected")
             else:
                 print("  STATUS: DUPLICATES FOUND -- manifest needs cleanup")
-            **IntelDedupEngine._EMPTY_INDEX,
-            "created_at": _utc_now(),
-            "last_updated": _utc_now(),
-        }
-        engine._rebuild_from_sources()
-        engine.save()
-        print(f"Index rebuilt. Stats: {engine.get_stats()}")
-
-    if args.stats:
-        stats = engine.get_stats()
-        print(f"\nIntel Index Stats:")
-        print(f"  source_urls:    {stats['source_urls']}")
-        print(f"  stix_ids:       {stats['stix_ids']}")
-        print(f"  content_hashes: {stats['content_hashes']}")
-        print(f"  title_hashes:   {stats['title_hashes']}")
-        print(f"  last_updated:   {stats['last_updated']}")
-
-    if args.validate_manifest:
-        if not MANIFEST_PATH.exists():
-            print("No manifest found at", MANIFEST_PATH)
-        else:
-            raw = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-            items = (raw if isinstance(raw, list)
-                     else raw.get("advisories") or raw.get("items") or [])
-            unique, removed = enforce_manifest_uniqueness(items)
-            print(f"\nManifest validation:")
-            print(f"  Total items: {len(items)}")
-            print(f"  Duplicates:  {removed}")
-            print(f"  Unique:      {len(unique)}")
-            if removed == 0:
-                print("  STATUS: CLEAN -- no duplicates detected")
-            else:
-                print("  STATUS: DUPLICATES FOUND -- manifest needs cleanup")
