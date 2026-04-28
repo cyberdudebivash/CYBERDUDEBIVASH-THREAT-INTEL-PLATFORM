@@ -1,0 +1,160 @@
+{
+  "schema_version": "2.0",
+  "generated_at": "2026-04-28T23:49:09.289858+00:00",
+  "monitor_started": "2026-04-28T23:49:09.222118+00:00",
+  "health": {
+    "score": 55,
+    "grade": "D",
+    "status": "CRITICAL",
+    "deductions": [
+      "-20 [CRITICAL] Critical duplicate intel rate detected",
+      "-10 [HIGH] Masked actor fingerprints detected in live feed",
+      "-10 [HIGH] API api/latest.json critically stale (74.1h old)",
+      "-5 [MEDIUM] Required field 'risk_score' missing in 53% of feed items"
+    ]
+  },
+  "anomalies": [
+    {
+      "anomaly_id": "ANO-DUP-001",
+      "severity": "CRITICAL",
+      "category": "DEDUP",
+      "title": "Critical duplicate intel rate detected",
+      "description": "Duplicate rate is 64.4%, exceeding critical threshold of 40%. Dedup engine may be bypassed or fingerprint logic is broken.",
+      "metric_key": "dedup_skip_rate_approx",
+      "metric_value": 0.6439,
+      "threshold": 0.4,
+      "recommendation": "Audit dedup_state.py fingerprint logic. Re-run enforce_feed_uniqueness on manifest.",
+      "detected_at": "2026-04-28T23:49:09.282074+00:00"
+    },
+    {
+      "anomaly_id": "ANO-AI-002",
+      "severity": "HIGH",
+      "category": "AI_INCONSISTENCY",
+      "title": "Masked actor fingerprints detected in live feed",
+      "description": "10 items carry masked actor_fingerprint patterns (e.g. 'CDB-CVE-****'). APEX AI actor resolution is not applying P0 fix.",
+      "metric_key": "masked_actor_count",
+      "metric_value": 10,
+      "threshold": 0,
+      "recommendation": "Re-run master_p0_fix.py. Verify _resolve_actor_fingerprint() returns UNATTRIBUTED for generic tags.",
+      "detected_at": "2026-04-28T23:49:09.282694+00:00"
+    },
+    {
+      "anomaly_id": "ANO-API-004",
+      "severity": "HIGH",
+      "category": "API",
+      "title": "API api/latest.json critically stale (74.1h old)",
+      "description": "File is 74.1h old, exceeding 6h critical threshold. Scheduled pipeline may not be running.",
+      "metric_key": "api_latest_age_hours",
+      "metric_value": 74.12,
+      "threshold": 6,
+      "recommendation": "Check GitHub Actions cron schedule. Verify sentinel-blogger.yml workflow.",
+      "detected_at": "2026-04-28T23:49:09.289693+00:00"
+    },
+    {
+      "anomaly_id": "ANO-COR-003",
+      "severity": "MEDIUM",
+      "category": "FEED",
+      "title": "Required field 'risk_score' missing in 53% of feed items",
+      "description": "94/177 feed items are missing 'risk_score'. Ingestion or enrichment stage may be stripping this field.",
+      "metric_key": "missing_risk_score_rate",
+      "metric_value": 0.5311,
+      "threshold": 0.05,
+      "recommendation": "Audit enrichment pipeline for 'risk_score' propagation. Check paywall_filter.py field stripping.",
+      "detected_at": "2026-04-28T23:49:09.288979+00:00"
+    }
+  ],
+  "anomaly_count": 4,
+  "metrics": {
+    "pipeline_runtime_s": null,
+    "pipeline_last_run_iso": "2026-04-16T01:55:47.370724+00:00",
+    "pipeline_run_count": 0,
+    "api_feed_age_hours": 0.8486333437760671,
+    "api_latest_age_hours": 74.12448656605349,
+    "pipeline_total_runs": 5,
+    "pipeline_failed_runs": 0,
+    "pipeline_failure_rate": 0.0,
+    "pipeline_last_error": null,
+    "pipeline_error_types": {},
+    "dedup_total_seen": 497,
+    "dedup_last_updated": "2026-04-28T22:44:03.828202+00:00",
+    "dedup_feed_count": 177,
+    "dedup_skip_rate_approx": 0.6439,
+    "dedup_pro_required_count": 0,
+    "dedup_pro_required_rate": 0.0,
+    "stale_intel_count": 94,
+    "stale_intel_rate": 0.5311,
+    "stale_intel_threshold_hours": 26,
+    "intel_newest_ts": "2026-04-28T21:33:35+00:00",
+    "intel_oldest_ts": "2026-04-17T22:24:10+00:00",
+    "intel_hours_since_newest": 2.26,
+    "api_checks": {
+      "feed": {
+        "exists": true,
+        "size_bytes": 802811,
+        "item_count": 177,
+        "age_hours": 0.85,
+        "stale": false,
+        "empty": false
+      },
+      "latest": {
+        "exists": true,
+        "size_bytes": 23011,
+        "item_count": 10,
+        "age_hours": 74.12,
+        "stale": true,
+        "empty": false
+      },
+      "status": {
+        "exists": true,
+        "size_bytes": 804,
+        "item_count": 0,
+        "age_hours": 91.82,
+        "stale": true,
+        "empty": true
+      },
+      "engines": {
+        "exists": true,
+        "size_bytes": 16903,
+        "item_count": 0,
+        "age_hours": 102.73,
+        "stale": true,
+        "empty": true
+      },
+      "stats": {
+        "exists": true,
+        "size_bytes": 1513,
+        "item_count": 0,
+        "age_hours": 109.04,
+        "stale": true,
+        "empty": true
+      }
+    },
+    "api_status_ok": true,
+    "api_feed_item_count": 177,
+    "broken_urls": [
+      "https://www.rapid7.com/blog/post/etr-cve-2026-33032-nginx-ui-missing-mcp-authentication"
+    ],
+    "broken_url_count": 1,
+    "missing_url_count": 0,
+    "telemetry_404_count": 0,
+    "user_total_revenue_events": 200,
+    "user_conversions_24h": 0,
+    "user_mrr": null,
+    "collector_errors": [],
+    "collected_at": "2026-04-28T23:49:09.281990+00:00"
+  },
+  "thresholds": {
+    "duplicate_rate_warn": 0.15,
+    "duplicate_rate_critical": 0.4,
+    "stale_intel_hours": 26,
+    "no_new_intel_cycles": 2,
+    "runtime_baseline_s": 120,
+    "runtime_warn_multiplier": 2.0,
+    "runtime_crit_multiplier": 4.0,
+    "min_feed_items": 10,
+    "ai_inconsistency_rate": 0.05,
+    "pro_required_rate": 0.01,
+    "api_file_max_age_h": 3
+  },
+  "monitor_version": "1.0.0"
+}
