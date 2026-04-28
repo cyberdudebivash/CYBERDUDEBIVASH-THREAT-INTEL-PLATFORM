@@ -223,11 +223,11 @@ def t07():
     fake = [
         f"{i.get('id','?')}: risk={i.get('risk_score',0)}"
         for i in items
-        if i.get("risk_score", 0) >= 10
+        if i.get("risk_score", 0) >= 9.0
         and not i.get("cve_id")
         and not i.get("kev_present")
     ]
-    assert not fake, f"{len(fake)} entries with risk=10 but no CVE/KEV evidence: {fake[:5]}"
+    assert not fake, f"{len(fake)} entries with risk>=9 but no CVE/KEV evidence: {fake[:5]}"
 
 
 # ---------------------------------------------------------------------------

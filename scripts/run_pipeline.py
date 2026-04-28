@@ -1749,7 +1749,18 @@ def stage_pipeline_consistency_check() -> None:
                     )
                     # Auto-fix: downgrade to HIGH
                     item["severity"] = "HIGH"
-                    item["risk_score"] = min(risk_score, 8.9)
+                    # Cap to 7.5 for no-CVE/KEV entries (matches risk_engine v141.7.0 HIGH_CONFIDENCE_CEIL)
+                    _has_hc_evidence = (
+                        bool(item.get("cve_id"))
+                        or bool(item.get("kev_present"))
+                        or any(
+                            t in (item.get("title", "") + " " + item.get("summary", "")).lower()
+                            for t in ["actively exploited", "in the wild", "active exploitation",
+                                      "exploited in the wild", "under active attack"]
+                        )
+                    )
+                    _cap_val = 8.9 if _has_hc_evidence else 7.5
+                    item["risk_score"] = min(risk_score, _cap_val)
                     auto_fixed += 1
 
             # C5: ioc_confidence must be > 0 when ioc_count > 0
