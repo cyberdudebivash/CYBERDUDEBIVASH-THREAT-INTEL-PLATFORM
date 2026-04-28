@@ -1,0 +1,368 @@
+{
+  "schema_version": "2.0",
+  "generated_at": "2026-04-28T23:49:09.302913+00:00",
+  "based_on_report": "2026-04-28T23:49:09.289858+00:00",
+  "executive_summary": {
+    "health_score": 55,
+    "health_grade": "D",
+    "system_status": "CRITICAL",
+    "total_anomalies": 4,
+    "critical_anomalies": 1,
+    "high_anomalies": 2,
+    "total_recommendations": 12,
+    "auto_executable": 8,
+    "requires_approval": 4,
+    "narrative": "CRITICAL: Critical duplicate intel rate detected. HIGH: Masked actor fingerprints detected in live feed, API api/latest.json critically stale (74.1h old).",
+    "top_3_actions": [
+      "Validate + clean dedup state",
+      "Seed dedup state from manifest",
+      "Rebuild feed manifest"
+    ]
+  },
+  "recommendations": [
+    {
+      "rec_id": "REC-001",
+      "priority": 10,
+      "action_key": "run_dedup_validation",
+      "title": "Validate + clean dedup state",
+      "description": "Run dedup_state.py validation against current manifest to purge stale fingerprints.",
+      "rationale": "[CRITICAL] Critical duplicate intel rate detected — dedup_skip_rate_approx=0.6439 (threshold: 0.4)",
+      "safe_auto": true,
+      "command": "python scripts/dedup_state.py --validate-manifest",
+      "rollback": "data/processed_intel.json is backed up as .tmp before any write.",
+      "estimated_fix_time_min": 2,
+      "triggered_by": [
+        "ANO-DUP-001"
+      ],
+      "requires_approval": false,
+      "approval_reason": "",
+      "estimated_impact": "LOW: General system hygiene improvement.",
+      "created_at": "2026-04-28T23:49:09.302720+00:00"
+    },
+    {
+      "rec_id": "REC-002",
+      "priority": 11,
+      "action_key": "seed_dedup_state",
+      "title": "Seed dedup state from manifest",
+      "description": "Bootstrap dedup state from all existing manifest items to prevent future duplicates.",
+      "rationale": "[CRITICAL] Critical duplicate intel rate detected — dedup_skip_rate_approx=0.6439 (threshold: 0.4)",
+      "safe_auto": true,
+      "command": "python scripts/dedup_state.py --seed-manifest",
+      "rollback": "data/processed_intel.json.tmp preserved by atomic write.",
+      "estimated_fix_time_min": 3,
+      "triggered_by": [
+        "ANO-DUP-001"
+      ],
+      "requires_approval": false,
+      "approval_reason": "",
+      "estimated_impact": "LOW: General system hygiene improvement.",
+      "created_at": "2026-04-28T23:49:09.302742+00:00"
+    },
+    {
+      "rec_id": "REC-003",
+      "priority": 12,
+      "action_key": "rebuild_manifest",
+      "title": "Rebuild feed manifest",
+      "description": "Re-run manifest builder to consolidate all intel sources into feed_manifest.json.",
+      "rationale": "[CRITICAL] Critical duplicate intel rate detected — dedup_skip_rate_approx=0.6439 (threshold: 0.4)",
+      "safe_auto": true,
+      "command": "python scripts/rebuild_manifest.py",
+      "rollback": "Previous manifest backed up to data/.manifest_backups/ automatically.",
+      "estimated_fix_time_min": 5,
+      "triggered_by": [
+        "ANO-DUP-001"
+      ],
+      "requires_approval": false,
+      "approval_reason": "",
+      "estimated_impact": "LOW: General system hygiene improvement.",
+      "created_at": "2026-04-28T23:49:09.302752+00:00"
+    },
+    {
+      "rec_id": "REC-004",
+      "priority": 18,
+      "action_key": "change_dedup_threshold",
+      "title": "Tighten title similarity dedup threshold",
+      "description": "Lower Jaccard similarity threshold in enforce_feed_uniqueness() to catch more near-dupes.",
+      "rationale": "[CRITICAL] Critical duplicate intel rate detected — dedup_skip_rate_approx=0.6439 (threshold: 0.4)",
+      "safe_auto": false,
+      "command": "MANUAL: Edit scripts/dedup_state.py — adjust similarity_threshold parameter.",
+      "rollback": "git revert last commit to dedup_state.py",
+      "estimated_fix_time_min": 15,
+      "triggered_by": [
+        "ANO-DUP-001"
+      ],
+      "requires_approval": true,
+      "approval_reason": "Changing dedup sensitivity may over-filter legitimate intel variants.",
+      "estimated_impact": "LOW: General system hygiene improvement.",
+      "created_at": "2026-04-28T23:49:09.302760+00:00"
+    },
+    {
+      "rec_id": "REC-005",
+      "priority": 20,
+      "action_key": "rerun_apex_ai",
+      "title": "Force APEX AI rebuild on all items",
+      "description": "Run master_p0_fix.py to unconditionally rebuild apex_ai block on every intel item.",
+      "rationale": "[HIGH] Masked actor fingerprints detected in live feed — masked_actor_count=10 (threshold: 0)",
+      "safe_auto": true,
+      "command": "python scripts/master_p0_fix.py --force-apex-rebuild",
+      "rollback": "git checkout HEAD -- api/feed.json api/latest.json",
+      "estimated_fix_time_min": 5,
+      "triggered_by": [
+        "ANO-AI-002"
+      ],
+      "requires_approval": false,
+      "approval_reason": "",
+      "estimated_impact": "LOW: General system hygiene improvement.",
+      "created_at": "2026-04-28T23:49:09.302769+00:00"
+    },
+    {
+      "rec_id": "REC-006",
+      "priority": 21,
+      "action_key": "refresh_feed",
+      "title": "Refresh API feed files",
+      "description": "Regenerate api/feed.json and api/latest.json from current manifest.",
+      "rationale": "[HIGH] Masked actor fingerprints detected in live feed — masked_actor_count=10 (threshold: 0)",
+      "safe_auto": true,
+      "command": "python scripts/master_p0_fix.py",
+      "rollback": "Restore api/feed.json from git: git checkout HEAD -- api/feed.json",
+      "estimated_fix_time_min": 3,
+      "triggered_by": [
+        "ANO-AI-002"
+      ],
+      "requires_approval": false,
+      "approval_reason": "",
+      "estimated_impact": "LOW: General system hygiene improvement.",
+      "created_at": "2026-04-28T23:49:09.302775+00:00"
+    },
+    {
+      "rec_id": "REC-008",
+      "priority": 22,
+      "action_key": "run_regression_tests",
+      "title": "Run full regression test suite",
+      "description": "Execute regression_tests.py to verify system integrity before/after changes.",
+      "rationale": "[HIGH] API api/latest.json critically stale (74.1h old) — api_latest_age_hours=74.12 (threshold: 6)",
+      "safe_auto": true,
+      "command": "python scripts/regression_tests.py",
+      "rollback": "No changes made — read-only validation.",
+      "estimated_fix_time_min": 3,
+      "triggered_by": [
+        "ANO-API-004"
+      ],
+      "requires_approval": false,
+      "approval_reason": "",
+      "estimated_impact": "MEDIUM: Restores dashboard data freshness. Improves user experience.",
+      "created_at": "2026-04-28T23:49:09.302788+00:00"
+    },
+    {
+      "rec_id": "REC-007",
+      "priority": 27,
+      "action_key": "recalibrate_risk_scoring",
+      "title": "Recalibrate APEX AI risk scoring thresholds",
+      "description": "Adjust P1/P2/P3/P4 risk_score thresholds in build_apex_ai() to improve accuracy.",
+      "rationale": "[HIGH] Masked actor fingerprints detected in live feed — masked_actor_count=10 (threshold: 0)",
+      "safe_auto": false,
+      "command": "MANUAL: Edit scripts/master_p0_fix.py — modify risk threshold constants.",
+      "rollback": "git revert last commit to master_p0_fix.py",
+      "estimated_fix_time_min": 30,
+      "triggered_by": [
+        "ANO-AI-002"
+      ],
+      "requires_approval": true,
+      "approval_reason": "Modifies core APEX AI scoring logic. Requires SOC validation before deployment.",
+      "estimated_impact": "LOW: General system hygiene improvement.",
+      "created_at": "2026-04-28T23:49:09.302780+00:00"
+    },
+    {
+      "rec_id": "REC-009",
+      "priority": 28,
+      "action_key": "add_monitoring_alerts",
+      "title": "Configure external alerting for health anomalies",
+      "description": "Integrate Telegram/email alerts when system_health score drops below threshold.",
+      "rationale": "[HIGH] API api/latest.json critically stale (74.1h old) — api_latest_age_hours=74.12 (threshold: 6)",
+      "safe_auto": false,
+      "command": "MANUAL: Configure scripts/pipeline_alert.py with webhook endpoints.",
+      "rollback": "Disable alert config. No platform changes.",
+      "estimated_fix_time_min": 20,
+      "triggered_by": [
+        "ANO-API-004"
+      ],
+      "requires_approval": true,
+      "approval_reason": "Requires external service credentials and outbound network configuration.",
+      "estimated_impact": "MEDIUM: Restores dashboard data freshness. Improves user experience.",
+      "created_at": "2026-04-28T23:49:09.302794+00:00"
+    },
+    {
+      "rec_id": "REC-010",
+      "priority": 31,
+      "action_key": "validate_intel_schema",
+      "title": "Validate intel schema integrity",
+      "description": "Run validate_intel_schema.py to detect missing required fields and malformed items.",
+      "rationale": "[MEDIUM] Required field 'risk_score' missing in 53% of feed items — missing_risk_score_rate=0.5311 (threshold: 0.05)",
+      "safe_auto": true,
+      "command": "python scripts/validate_intel_schema.py",
+      "rollback": "Read-only — no changes made.",
+      "estimated_fix_time_min": 2,
+      "triggered_by": [
+        "ANO-COR-003"
+      ],
+      "requires_approval": false,
+      "approval_reason": "",
+      "estimated_impact": "LOW: General system hygiene improvement.",
+      "created_at": "2026-04-28T23:49:09.302802+00:00"
+    },
+    {
+      "rec_id": "REC-011",
+      "priority": 33,
+      "action_key": "clear_cache",
+      "title": "Clear data cache",
+      "description": "Remove stale cached data files to force fresh ingestion on next run.",
+      "rationale": "[MEDIUM] Required field 'risk_score' missing in 53% of feed items — missing_risk_score_rate=0.5311 (threshold: 0.05)",
+      "safe_auto": true,
+      "command": "python scripts/bust_kv_cache.py --all",
+      "rollback": "Cache rebuilt automatically on next pipeline run. No data loss.",
+      "estimated_fix_time_min": 2,
+      "triggered_by": [
+        "ANO-COR-003"
+      ],
+      "requires_approval": false,
+      "approval_reason": "",
+      "estimated_impact": "LOW: General system hygiene improvement.",
+      "created_at": "2026-04-28T23:49:09.302808+00:00"
+    },
+    {
+      "rec_id": "REC-012",
+      "priority": 39,
+      "action_key": "add_new_feed_sources",
+      "title": "Add new intel feed sources",
+      "description": "Integrate additional threat intel sources (OTX, CISA, MISP) to diversify coverage.",
+      "rationale": "[MEDIUM] Required field 'risk_score' missing in 53% of feed items — missing_risk_score_rate=0.5311 (threshold: 0.05)",
+      "safe_auto": false,
+      "command": "MANUAL: Edit scripts/run_pipeline.py — add new source URLs to FEED_SOURCES list.",
+      "rollback": "Remove added source URLs from FEED_SOURCES. Rerun pipeline.",
+      "estimated_fix_time_min": 60,
+      "triggered_by": [
+        "ANO-COR-003"
+      ],
+      "requires_approval": true,
+      "approval_reason": "Adding new sources changes ingestion flow and may introduce unvalidated data.",
+      "estimated_impact": "LOW: General system hygiene improvement.",
+      "created_at": "2026-04-28T23:49:09.302815+00:00"
+    }
+  ],
+  "action_catalogue": {
+    "clear_cache": {
+      "label": "Clear data cache",
+      "safe_auto": true,
+      "description": "Remove stale cached data files to force fresh ingestion on next run.",
+      "command": "python scripts/bust_kv_cache.py --all",
+      "rollback": "Cache rebuilt automatically on next pipeline run. No data loss.",
+      "estimated_fix_time_min": 2
+    },
+    "rebuild_manifest": {
+      "label": "Rebuild feed manifest",
+      "safe_auto": true,
+      "description": "Re-run manifest builder to consolidate all intel sources into feed_manifest.json.",
+      "command": "python scripts/rebuild_manifest.py",
+      "rollback": "Previous manifest backed up to data/.manifest_backups/ automatically.",
+      "estimated_fix_time_min": 5
+    },
+    "refresh_feed": {
+      "label": "Refresh API feed files",
+      "safe_auto": true,
+      "description": "Regenerate api/feed.json and api/latest.json from current manifest.",
+      "command": "python scripts/master_p0_fix.py",
+      "rollback": "Restore api/feed.json from git: git checkout HEAD -- api/feed.json",
+      "estimated_fix_time_min": 3
+    },
+    "rerun_apex_ai": {
+      "label": "Force APEX AI rebuild on all items",
+      "safe_auto": true,
+      "description": "Run master_p0_fix.py to unconditionally rebuild apex_ai block on every intel item.",
+      "command": "python scripts/master_p0_fix.py --force-apex-rebuild",
+      "rollback": "git checkout HEAD -- api/feed.json api/latest.json",
+      "estimated_fix_time_min": 5
+    },
+    "run_dedup_validation": {
+      "label": "Validate + clean dedup state",
+      "safe_auto": true,
+      "description": "Run dedup_state.py validation against current manifest to purge stale fingerprints.",
+      "command": "python scripts/dedup_state.py --validate-manifest",
+      "rollback": "data/processed_intel.json is backed up as .tmp before any write.",
+      "estimated_fix_time_min": 2
+    },
+    "run_regression_tests": {
+      "label": "Run full regression test suite",
+      "safe_auto": true,
+      "description": "Execute regression_tests.py to verify system integrity before/after changes.",
+      "command": "python scripts/regression_tests.py",
+      "rollback": "No changes made — read-only validation.",
+      "estimated_fix_time_min": 3
+    },
+    "validate_intel_schema": {
+      "label": "Validate intel schema integrity",
+      "safe_auto": true,
+      "description": "Run validate_intel_schema.py to detect missing required fields and malformed items.",
+      "command": "python scripts/validate_intel_schema.py",
+      "rollback": "Read-only — no changes made.",
+      "estimated_fix_time_min": 2
+    },
+    "seed_dedup_state": {
+      "label": "Seed dedup state from manifest",
+      "safe_auto": true,
+      "description": "Bootstrap dedup state from all existing manifest items to prevent future duplicates.",
+      "command": "python scripts/dedup_state.py --seed-manifest",
+      "rollback": "data/processed_intel.json.tmp preserved by atomic write.",
+      "estimated_fix_time_min": 3
+    },
+    "add_new_feed_sources": {
+      "label": "Add new intel feed sources",
+      "safe_auto": false,
+      "description": "Integrate additional threat intel sources (OTX, CISA, MISP) to diversify coverage.",
+      "command": "MANUAL: Edit scripts/run_pipeline.py — add new source URLs to FEED_SOURCES list.",
+      "rollback": "Remove added source URLs from FEED_SOURCES. Rerun pipeline.",
+      "estimated_fix_time_min": 60,
+      "requires_approval": true,
+      "approval_reason": "Adding new sources changes ingestion flow and may introduce unvalidated data."
+    },
+    "recalibrate_risk_scoring": {
+      "label": "Recalibrate APEX AI risk scoring thresholds",
+      "safe_auto": false,
+      "description": "Adjust P1/P2/P3/P4 risk_score thresholds in build_apex_ai() to improve accuracy.",
+      "command": "MANUAL: Edit scripts/master_p0_fix.py — modify risk threshold constants.",
+      "rollback": "git revert last commit to master_p0_fix.py",
+      "estimated_fix_time_min": 30,
+      "requires_approval": true,
+      "approval_reason": "Modifies core APEX AI scoring logic. Requires SOC validation before deployment."
+    },
+    "change_dedup_threshold": {
+      "label": "Tighten title similarity dedup threshold",
+      "safe_auto": false,
+      "description": "Lower Jaccard similarity threshold in enforce_feed_uniqueness() to catch more near-dupes.",
+      "command": "MANUAL: Edit scripts/dedup_state.py — adjust similarity_threshold parameter.",
+      "rollback": "git revert last commit to dedup_state.py",
+      "estimated_fix_time_min": 15,
+      "requires_approval": true,
+      "approval_reason": "Changing dedup sensitivity may over-filter legitimate intel variants."
+    },
+    "update_pipeline_schedule": {
+      "label": "Increase pipeline run frequency",
+      "safe_auto": false,
+      "description": "Modify GitHub Actions cron schedule in sentinel-blogger.yml to run more frequently.",
+      "command": "MANUAL: Edit .github/workflows/sentinel-blogger.yml — update cron expression.",
+      "rollback": "git revert last commit to sentinel-blogger.yml",
+      "estimated_fix_time_min": 10,
+      "requires_approval": true,
+      "approval_reason": "Changes CI/CD scheduling — requires repo admin to approve workflow changes."
+    },
+    "add_monitoring_alerts": {
+      "label": "Configure external alerting for health anomalies",
+      "safe_auto": false,
+      "description": "Integrate Telegram/email alerts when system_health score drops below threshold.",
+      "command": "MANUAL: Configure scripts/pipeline_alert.py with webhook endpoints.",
+      "rollback": "Disable alert config. No platform changes.",
+      "estimated_fix_time_min": 20,
+      "requires_approval": true,
+      "approval_reason": "Requires external service credentials and outbound network configuration."
+    }
+  }
+}
