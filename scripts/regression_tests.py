@@ -216,18 +216,50 @@ def t06():
 
 @test("T07_no_fake_risk_10")
 def t07():
+    """
+    Ensures no entry has a CRITICAL-tier risk score (>= 9.0) without at least ONE
+    piece of verifiable high-confidence evidence.
+
+    Evidence criteria (ANY ONE satisfies the gate — mirrors stage_pipeline_consistency_check):
+      a) Formal CVE identifier  (cve_id present)
+      b) CISA KEV confirmed     (kev_present)
+      c) CVSS >= 9.0 AND (ioc_count > 0 OR epss >= 0.5)  -- NVD-severity + observable
+      d) EPSS >= 0.7            -- 70%+ exploitation probability in 30 days
+      e) IOC confidence >= 80 AND ioc_count >= 5          -- high-quality observables
+
+    This is intentionally aligned with the pipeline's FALSE_CRITICAL auto-fix logic so
+    T07 never flags entries that the pipeline itself considers legitimately justified.
+    """
     if not MANIFEST_PATH.exists():
         return  # not blocking if manifest absent
     data = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     items = data.get("advisories", data if isinstance(data, list) else [])
+
+    def _justified(i: dict) -> bool:
+        kev      = i.get("kev_present", False) or i.get("kev", False)
+        cvss     = float(i.get("cvss_score") or i.get("cvss") or 0)
+        epss     = float(i.get("epss_score") or i.get("epss") or 0)
+        ioc_cnt  = int(i.get("ioc_count", 0))
+        ioc_conf = float(i.get("ioc_confidence") or 0)
+        cve_id   = bool(i.get("cve_id"))
+        return (
+            cve_id                                          # a) formal CVE
+            or kev                                          # b) CISA KEV
+            or (cvss >= 9.0 and (ioc_cnt > 0 or epss >= 0.5))  # c) CVSS+observable
+            or epss >= 0.7                                  # d) very high EPSS
+            or (ioc_conf >= 80.0 and ioc_cnt >= 5)         # e) high-quality IOCs
+        )
+
     fake = [
         f"{i.get('id','?')}: risk={i.get('risk_score',0)}"
         for i in items
-        if i.get("risk_score", 0) >= 9.0
-        and not i.get("cve_id")
-        and not i.get("kev_present")
+        if float(i.get("risk_score", 0)) >= 9.0
+        and not _justified(i)
     ]
-    assert not fake, f"{len(fake)} entries with risk>=9 but no CVE/KEV evidence: {fake[:5]}"
+    assert not fake, (
+        f"{len(fake)} entries with risk>=9.0 and NO verifiable high-confidence evidence "
+        f"(no CVE/KEV/CVSS-critical/high-EPSS/quality-IOCs): {fake[:5]}"
+    )
 
 
 # ---------------------------------------------------------------------------

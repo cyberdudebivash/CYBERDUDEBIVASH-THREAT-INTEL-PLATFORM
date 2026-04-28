@@ -430,19 +430,29 @@ class RiskScoringEngine:
         # Without this, score is capped at 7.5 (HIGH but not CRITICAL).
         # This prevents article-stacking (behavioral + keyword) from reaching
         # CRITICAL tier without verified exploitation or tracking evidence.
+        # v141.8.1: Expand cap criteria to align with T07 + pipeline FALSE_CRITICAL gate.
+        # Criteria: a) CVE ID  b) KEV  c) CVSS>=9.0+(IOC>0 OR EPSS>=0.5)  d) EPSS>=0.7
+        # NOTE: _active_exploitation_detected (cvss>=4.0 OR epss>=0.05) removed from cap
+        # — threshold too low, causes T07 misalignment for MEDIUM-severity entries.
+        _cvss_f  = float(cvss_score) if cvss_score is not None else 0.0
+        _epss_f  = float(epss_score) if epss_score is not None else 0.0
+        _ioc_cnt = len(iocs.get("ipv4", [])) + len(iocs.get("sha256", [])) + \
+                   len(iocs.get("domain", [])) + len(iocs.get("cve", []))
         _has_high_confidence_evidence = (
-            bool(cve_ids)                   # Has formal CVE identifier
-            or kev_present                  # CISA KEV confirmed
-            or _active_exploitation_detected  # Active exploitation in content
+            bool(cve_ids)                                              # a) CVE ID
+            or kev_present                                             # b) KEV
+            or (_cvss_f >= 9.0 and (_ioc_cnt > 0 or _epss_f >= 0.5)) # c) CVSS+obs
+            or _epss_f >= 0.7                                          # d) high EPSS
         )
         _HIGH_CONFIDENCE_CEIL = 7.5
         if final_score >= 9.0 and not _has_high_confidence_evidence:
             logger.info(
-                "[v141.7.0] High-confidence cap: %.1f → %.1f "
-                "(no CVE ID, KEV, or active exploitation confirmed — "
-                "cve_ids=%s kev=%s active_exploit=%s)",
+                "[v141.8.1] High-confidence cap: %.1f → %.1f "
+                "(no CVE/KEV/CVSS-critical/high-EPSS — T07-aligned. "
+                "cve_ids=%s kev=%s cvss=%.1f epss=%.2f ioc_cnt=%d active_exploit=%s)",
                 final_score, _HIGH_CONFIDENCE_CEIL,
-                bool(cve_ids), kev_present, _active_exploitation_detected,
+                bool(cve_ids), kev_present, _cvss_f, _epss_f, _ioc_cnt,
+                _active_exploitation_detected,
             )
             final_score = _HIGH_CONFIDENCE_CEIL
 
