@@ -1372,3 +1372,10 @@ class STIXExporter:
             except Exception:
                 pass
             raise _e
+
+        logger.info(f"Manifest updated: {len(trimmed)} entries | latest: {trimmed[0].get('title','?')[:50] if trimmed else '(empty)'}")
+
+# ---------------------------------------------------------------------------
+# Global singleton (backward-compatible — imported by sentinel_blogger.py)
+# ---------------------------------------------------------------------------
+stix_exporter = STIXExporter()
