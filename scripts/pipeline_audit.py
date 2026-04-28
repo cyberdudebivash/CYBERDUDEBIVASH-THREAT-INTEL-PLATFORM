@@ -145,10 +145,28 @@ def check_manifest(findings: list, stats: dict) -> None:
         if not item.get("title", "").strip():
             empty_title.append(_id)
 
-        # No fake risk=10 without evidence
-        rs = item.get("risk_score", 0)
-        if rs >= 10 and not item.get("cve_id") and not item.get("kev_present"):
-            fake_risk_10.append(f"{_id}: risk={rs}")
+        # No unjustified CRITICAL risk score — mirrors T07 and pipeline FALSE_CRITICAL gate.
+        # Evidence criteria (ANY ONE satisfies):
+        #   a) cve_id present          b) kev_present
+        #   c) cvss >= 9.0 AND (ioc_count > 0 OR epss >= 0.5)
+        #   d) epss >= 0.7             e) ioc_confidence >= 80 AND ioc_count >= 5
+        rs = float(item.get("risk_score", 0) or 0)
+        if rs >= 9.0:
+            _kev      = item.get("kev_present", False) or item.get("kev", False)
+            _cvss     = float(item.get("cvss_score") or item.get("cvss") or 0)
+            _epss     = float(item.get("epss_score") or item.get("epss") or 0)
+            _ioc_cnt  = int(item.get("ioc_count", 0))
+            _ioc_conf = float(item.get("ioc_confidence") or 0)
+            _cve_id   = bool(item.get("cve_id"))
+            _justified_audit = (
+                _cve_id
+                or _kev
+                or (_cvss >= 9.0 and (_ioc_cnt > 0 or _epss >= 0.5))
+                or _epss >= 0.7
+                or (_ioc_conf >= 80.0 and _ioc_cnt >= 5)
+            )
+            if not _justified_audit:
+                fake_risk_10.append(f"{_id}: risk={rs}")
 
     if ioc_mismatch:
         findings.append({"level": "WARN", "check": "ioc_count_consistency",
