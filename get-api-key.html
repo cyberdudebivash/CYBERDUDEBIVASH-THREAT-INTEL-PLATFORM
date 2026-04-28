@@ -596,5 +596,43 @@ function resetForm() {
   selectPlan('community');
 }
 </script>
+<!-- CDB-UPGRADE-BANNER-v141 -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     v141.1.0: REVENUE ACTIVATION -- Persistent Upgrade CTA Banner
+     Shown to free/unauthenticated users. Hides automatically for paid tiers.
+     ═══════════════════════════════════════════════════════════════════ -->
+<div id="cdb-upgrade-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#0a0d14 0%,#0f1420 100%);border-top:1px solid rgba(0,212,255,0.25);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -4px 24px rgba(0,212,255,0.08);">
+  <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;"><span style="font-size:18px;flex-shrink:0;">&#128308;</span><div style="min-width:0;"><div id="cdb-banner-msg" style="font-size:13px;font-weight:700;color:#e2e8f0;">Free tier active &mdash; IOCs, STIX bundles &amp; kill-chain attribution locked.</div><div style="font-size:11px;color:#6b7280;margin-top:2px;"><span id="cdb-live-threat-count" style="color:#00d4ff;font-weight:700;font-family:monospace;">0</span> live threats tracked &mdash; upgrade to access full intelligence.</div></div></div>
+  <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;"><a href="/upgrade.html?plan=pro&amp;ref=banner" style="display:inline-block;background:linear-gradient(135deg,#00d4ff,#7c3aed);color:#000;font-weight:800;font-size:12px;padding:8px 18px;border-radius:6px;text-decoration:none;letter-spacing:0.5px;white-space:nowrap;">&#128275; Unlock Full Intel</a><a href="/pricing.html?ref=banner" style="display:inline-block;border:1px solid rgba(0,212,255,0.3);color:#00d4ff;font-size:11px;padding:8px 14px;border-radius:6px;text-decoration:none;white-space:nowrap;">View Plans</a><button onclick="document.getElementById('cdb-upgrade-banner').style.display='none';localStorage.setItem('cdb_banner_dismissed',Date.now());" style="background:none;border:none;color:#4b5563;cursor:pointer;font-size:18px;padding:0 4px;line-height:1;" title="Dismiss">&times;</button></div>
+</div>
+<script>
+(function(){
+  var b=document.getElementById('cdb-upgrade-banner');if(!b)return;
+  var dismissed=parseInt(localStorage.getItem('cdb_banner_dismissed')||'0');
+  if(dismissed&&(Date.now()-dismissed)<86400000)return;
+  try{
+    var j=localStorage.getItem('cdb_jwt')||sessionStorage.getItem('cdb_jwt')||'';
+    if(j){var p=j.split('.');if(p.length===3){
+      var pl=JSON.parse(atob(p[1].replace(/-/g,'+').replace(/_/g,'/')));
+      var t=(pl.tier||'free').toLowerCase();
+      if(t==='premium'||t==='enterprise'||t==='pro')return;
+    }}
+  }catch(e){}
+  fetch('https://intel.cyberdudebivash.com/api/platform/stats',{signal:AbortSignal.timeout(3000)})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      var c=d&&d.total_advisories?d.total_advisories:0;
+      if(c>0){
+        var el=document.getElementById('cdb-live-threat-count');if(el)el.textContent=c.toLocaleString();
+        var m=document.getElementById('cdb-banner-msg');
+        if(m)m.textContent=c.toLocaleString()+' active threats — IOCs, STIX bundles & kill-chain attribution locked.';
+      }
+    }).catch(function(){});
+  b.style.display='flex';
+  document.body.style.paddingBottom='64px';
+})();
+</script>
+<!-- /v141.1.0 CDB UPGRADE BANNER -->
+<!-- /CDB-UPGRADE-BANNER-v141 -->
 </body>
 </html>

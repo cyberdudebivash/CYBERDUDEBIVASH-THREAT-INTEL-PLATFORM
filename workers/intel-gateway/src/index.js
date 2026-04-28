@@ -3418,7 +3418,221 @@ async function handleBillingPortal(request, env, rid, auth) {
   });
 }
 
-//  v134.0.0: SIEM Output Formatters -- Splunk HEC / Sentinel / QRadar LEEF 
+// ---------------------------------------------------------------------------
+//  v141.1.0: REVENUE ACTIVATION -- Manual Payment Notify + Admin Tier Set
+//            + Alert Subscription
+// ---------------------------------------------------------------------------
+
+// POST /api/payment/notify
+// Called by upgrade.html after UPI / PayPal payment.
+// Stores payment evidence in KV for admin review; fires notification email
+// via NOTIFY_WEBHOOK_URL if configured.
+async function handlePaymentNotify(request, env, rid) {
+  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
+
+  let body;
+  try { body = await request.json(); }
+  catch { return jsonResponse({ error: "invalid_json", request_id: rid }, 400); }
+
+  const email   = sanitizeText((body.email   || "").toLowerCase().trim(), 200);
+  const plan    = sanitizeText((body.plan    || "pro").toLowerCase(),      20);
+  const method  = sanitizeText((body.method  || "unknown"),                40);
+  const ref     = sanitizeText((body.ref     || ""),                       120);
+  const amount  = sanitizeText(String(body.amount || ""),                  30);
+  const user_id = sanitizeText((body.user_id || ""),                       80);
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return jsonResponse({ error: "invalid_email", request_id: rid }, 400);
+  }
+  const VALID_PLANS = new Set(["pro", "premium", "enterprise"]);
+  if (!VALID_PLANS.has(plan)) {
+    return jsonResponse({ error: "invalid_plan", message: "plan must be pro|premium|enterprise", request_id: rid }, 400);
+  }
+
+  const record = {
+    id:         rid,
+    email,
+    plan,
+    method,
+    ref,
+    amount,
+    user_id:    user_id || null,
+    status:     "pending_review",
+    submitted_at: new Date().toISOString(),
+  };
+
+  // Store in KV: payment:{rid} with 30-day TTL
+  await env.API_KEYS_KV.put(`payment:${rid}`, JSON.stringify(record), { expirationTtl: 86400 * 30 });
+
+  // Maintain a list of pending payments for admin dashboard
+  const listKey = "payment:pending_list";
+  const existing = await env.API_KEYS_KV.get(listKey, { type: "json" }).catch(() => []) || [];
+  existing.unshift({ id: rid, email, plan, method, amount, submitted_at: record.submitted_at });
+  if (existing.length > 200) existing.length = 200;  // cap at 200 entries
+  await env.API_KEYS_KV.put(listKey, JSON.stringify(existing), { expirationTtl: 86400 * 60 });
+
+  // Fire notification to NOTIFY_WEBHOOK_URL if configured (Slack / Discord / n8n / etc.)
+  if (env?.NOTIFY_WEBHOOK_URL) {
+    const msg = {
+      text: `PAYMENT NOTIFICATION\nEmail: ${email}\nPlan: ${plan.toUpperCase()}\nMethod: ${method}\nRef: ${ref}\nAmount: ${amount}\nReview ID: ${rid}\nActivate: POST /api/admin/users/set-tier {\"email\":\"${email}\",\"tier\":\"${plan === 'pro' ? 'premium' : plan}\",\"payment_ref\":\"${rid}\"}`
+    };
+    fetch(env.NOTIFY_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(msg),
+    }).catch(() => {});  // non-blocking
+  }
+
+  slog("INFO", "BILLING", "Payment notification received", { email, plan, method, ref: ref.slice(0, 20), rid });
+
+  return jsonResponse({
+    status:      "received",
+    message:     "Payment notification recorded. Your account will be upgraded within 2 hours after verification. Check your email.",
+    review_id:   rid,
+    plan,
+    request_id:  rid,
+  }, 202);
+}
+
+// POST /api/admin/users/set-tier
+// Admin-only (X-Admin-Secret). Instantly upgrades a user's tier in KV.
+// Body: { email, tier, payment_ref?, reason? }
+async function handleAdminSetTier(request, env, rid) {
+  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
+
+  let body;
+  try { body = await request.json(); }
+  catch { return jsonResponse({ error: "invalid_json", request_id: rid }, 400); }
+
+  const email      = sanitizeText((body.email || "").toLowerCase().trim(), 200);
+  const tier       = sanitizeText((body.tier  || "").toLowerCase(),        20);
+  const paymentRef = sanitizeText((body.payment_ref || ""),                80);
+  const reason     = sanitizeText((body.reason || "manual_admin"),         120);
+
+  if (!email) return jsonResponse({ error: "email_required", request_id: rid }, 400);
+
+  const VALID_TIERS = new Set(["free", "premium", "enterprise"]);
+  if (!VALID_TIERS.has(tier)) {
+    return jsonResponse({ error: "invalid_tier", message: "tier must be free|premium|enterprise", request_id: rid }, 400);
+  }
+
+  // Look up user by email hash
+  const emailHash = await (async () => {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(email));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+  })();
+
+  const userId = await env.API_KEYS_KV.get(`email:${emailHash}`).catch(() => null);
+  if (!userId) {
+    return jsonResponse({ error: "user_not_found", message: `No user found for email: ${email}`, request_id: rid }, 404);
+  }
+
+  const userRecord = await env.API_KEYS_KV.get(`user:${userId}`, { type: "json" }).catch(() => null);
+  if (!userRecord) {
+    return jsonResponse({ error: "user_record_missing", request_id: rid }, 500);
+  }
+
+  const prevTier = userRecord.tier;
+  userRecord.tier = tier;
+  userRecord.tier_updated_at  = new Date().toISOString();
+  userRecord.tier_updated_by  = "admin";
+  userRecord.tier_reason      = reason;
+  userRecord.payment_ref      = paymentRef || userRecord.payment_ref || null;
+  if (!userRecord.subscription) userRecord.subscription = {};
+  userRecord.subscription.plan       = tier;
+  userRecord.subscription.activated_at = new Date().toISOString();
+  userRecord.subscription.method     = "manual";
+
+  await env.API_KEYS_KV.put(`user:${userId}`, JSON.stringify(userRecord));
+
+  // Mark payment record as activated if payment_ref provided
+  if (paymentRef) {
+    const payRec = await env.API_KEYS_KV.get(`payment:${paymentRef}`, { type: "json" }).catch(() => null);
+    if (payRec) {
+      payRec.status       = "activated";
+      payRec.activated_at = new Date().toISOString();
+      payRec.activated_by = "admin";
+      await env.API_KEYS_KV.put(`payment:${paymentRef}`, JSON.stringify(payRec), { expirationTtl: 86400 * 30 });
+    }
+  }
+
+  slog("INFO", "BILLING", "Admin tier upgrade", { email, prev: prevTier, next: tier, reason, rid });
+
+  return jsonResponse({
+    status:      "upgraded",
+    user_id:     userId,
+    email,
+    prev_tier:   prevTier,
+    new_tier:    tier,
+    payment_ref: paymentRef || null,
+    message:     `User ${email} upgraded from ${prevTier} to ${tier}.`,
+    request_id:  rid,
+  });
+}
+
+// GET /api/admin/payments/pending
+// Returns list of pending payment notifications awaiting admin review.
+async function handleAdminListPayments(request, env, rid) {
+  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
+  const list = await env.API_KEYS_KV.get("payment:pending_list", { type: "json" }).catch(() => []) || [];
+  return jsonResponse({ status: "ok", count: list.length, payments: list, request_id: rid });
+}
+
+// POST /api/notify/subscribe
+// Public endpoint. Subscribes an email to threat alert notifications.
+// Stored in KV; used by cron/pipeline to dispatch digest emails.
+async function handleAlertSubscribe(request, env, rid) {
+  if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
+
+  let body;
+  try { body = await request.json(); }
+  catch { return jsonResponse({ error: "invalid_json", request_id: rid }, 400); }
+
+  const email     = sanitizeText((body.email || "").toLowerCase().trim(), 200);
+  const interests = Array.isArray(body.interests) ? body.interests.slice(0, 10).map(i => sanitizeText(String(i), 40)) : ["critical", "high"];
+  const tier_hint = sanitizeText((body.tier_hint || "free"), 20);
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return jsonResponse({ error: "invalid_email", request_id: rid }, 400);
+  }
+
+  const emailHash = await (async () => {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(email));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+  })();
+
+  const subKey = `alertsub:${emailHash}`;
+  const existing = await env.API_KEYS_KV.get(subKey, { type: "json" }).catch(() => null);
+  const record = {
+    email,
+    interests,
+    tier_hint,
+    subscribed_at: existing?.subscribed_at || new Date().toISOString(),
+    updated_at:    new Date().toISOString(),
+    active:        true,
+  };
+  await env.API_KEYS_KV.put(subKey, JSON.stringify(record), { expirationTtl: 86400 * 365 });
+
+  // Maintain global subscriber list for pipeline cron
+  const listKey = "alertsub:list";
+  const subList = await env.API_KEYS_KV.get(listKey, { type: "json" }).catch(() => []) || [];
+  if (!subList.find(s => s.h === emailHash)) {
+    subList.push({ h: emailHash, ts: record.subscribed_at });
+    if (subList.length > 5000) subList.shift();
+    await env.API_KEYS_KV.put(listKey, JSON.stringify(subList), { expirationTtl: 86400 * 365 });
+  }
+
+  slog("INFO", "NOTIFY", "Alert subscription", { interests, tier_hint, rid });
+
+  return jsonResponse({
+    status:      "subscribed",
+    message:     "You'll receive threat alerts for: " + interests.join(", ") + ". Unsubscribe any time.",
+    interests,
+    request_id:  rid,
+  }, 201);
+}
+
+//  v134.0.0: SIEM Output Formatters -- Splunk HEC / Sentinel / QRadar LEEF
 
 function formatSplunkHEC(item) {
   return {
@@ -3591,7 +3805,10 @@ export default {
     if (pathname.startsWith("/api/keys/validate"))     return handleValidateKey(request, env, rid);
     // v134.0.0: Live dashboard metrics -- public, no auth required
     if (pathname === "/api/platform/stats" && method === "GET") return handlePlatformStats(request, env, rid);
-    //  v134.0.0 + v134.0.0: JWT auth endpoints 
+    // v141.1.0: Revenue -- public payment notify + alert subscription (no auth required)
+    if (pathname === "/api/payment/notify"    && method === "POST") return handlePaymentNotify(request, env, rid);
+    if (pathname === "/api/notify/subscribe"  && method === "POST") return handleAlertSubscribe(request, env, rid);
+    //  v134.0.0 + v134.0.0: JWT auth endpoints
     if (pathname === "/api/auth/token"    && method === "POST") return handleIssueToken(request, env, rid);
     if (pathname === "/api/auth/validate")                      return handleValidateToken(request, env, rid);
     if (pathname === "/api/auth/refresh"  && method === "POST") return handleRefreshToken(request, env, rid);
@@ -3627,13 +3844,16 @@ export default {
         slog("WARN", "ADMIN", "Forbidden admin access attempt", { path: pathname, rid });
         return jsonResponse({ error: "forbidden", message: "Valid X-Admin-Secret required.", request_id: rid }, 403);
       }
-      if (pathname.startsWith("/api/admin/cache/bust")   && method === "POST") return handleCacheBust(request, env, rid);
-      if (pathname.startsWith("/api/admin/keys/create")  && method === "POST") return handleAdminCreateKey(request, env, rid);
-      if (pathname.startsWith("/api/admin/keys/revoke")  && method === "POST") return handleAdminRevokeKey(request, env, rid);
-      if (pathname.startsWith("/api/admin/keys/list")    && method === "GET")  return handleAdminListKeys(request, env, rid);
-      if (pathname.startsWith("/api/admin/observability")&& method === "GET")  return handleAdminObservability(request, env, rid);
+      if (pathname.startsWith("/api/admin/cache/bust")      && method === "POST") return handleCacheBust(request, env, rid);
+      if (pathname.startsWith("/api/admin/keys/create")    && method === "POST") return handleAdminCreateKey(request, env, rid);
+      if (pathname.startsWith("/api/admin/keys/revoke")    && method === "POST") return handleAdminRevokeKey(request, env, rid);
+      if (pathname.startsWith("/api/admin/keys/list")      && method === "GET")  return handleAdminListKeys(request, env, rid);
+      if (pathname.startsWith("/api/admin/observability")  && method === "GET")  return handleAdminObservability(request, env, rid);
       // v134.0.0: Abuse event log -- scanner activity, IP bans, auth brute force
-      if (pathname.startsWith("/api/admin/abuse")        && method === "GET")  return handleAbuseReport(request, env, rid);
+      if (pathname.startsWith("/api/admin/abuse")          && method === "GET")  return handleAbuseReport(request, env, rid);
+      // v141.1.0: Revenue -- manual tier upgrade + pending payment list
+      if (pathname === "/api/admin/users/set-tier"         && method === "POST") return handleAdminSetTier(request, env, rid);
+      if (pathname === "/api/admin/payments/pending"       && method === "GET")  return handleAdminListPayments(request, env, rid);
       return jsonResponse({
         error:     "not_found",
         message:   "Admin endpoint not found.",
