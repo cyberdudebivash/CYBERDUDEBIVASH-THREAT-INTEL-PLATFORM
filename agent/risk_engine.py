@@ -287,7 +287,8 @@ class RiskScoringEngine:
             "actively exploited", "in the wild", "active exploitation",
             "exploited in the wild", "under active attack", "being exploited"
         ]
-        if any(t in text_lower for t in active_exploit_terms):
+        _active_exploitation_detected = any(t in text_lower for t in active_exploit_terms)
+        if _active_exploitation_detected:
             boost = self.weights.get("active_exploitation", 2.5)
             score += boost
             logger.info(f"[!] Active exploitation detected: +{boost}")
@@ -419,6 +420,32 @@ class RiskScoringEngine:
                 bool(iocs.get("ipv4")),
             )
             final_score = _NO_EVIDENCE_CEIL
+
+        # ── v141.7.0: HIGH-CONFIDENCE EVIDENCE CAP ────────────────────────────
+        # A score >= 9.0 (CRITICAL) asserts imminent, verified threat.
+        # Requires at least ONE piece of high-confidence external evidence:
+        #   - CVE ID (NVD-tracked vulnerability with formal identifier)
+        #   - KEV confirmed (CISA Known Exploited Vulnerability)
+        #   - Active exploitation detected in threat content
+        # Without this, score is capped at 7.5 (HIGH but not CRITICAL).
+        # This prevents article-stacking (behavioral + keyword) from reaching
+        # CRITICAL tier without verified exploitation or tracking evidence.
+        _has_high_confidence_evidence = (
+            bool(cve_ids)                   # Has formal CVE identifier
+            or kev_present                  # CISA KEV confirmed
+            or _active_exploitation_detected  # Active exploitation in content
+        )
+        _HIGH_CONFIDENCE_CEIL = 7.5
+        if final_score >= 9.0 and not _has_high_confidence_evidence:
+            logger.info(
+                "[v141.7.0] High-confidence cap: %.1f → %.1f "
+                "(no CVE ID, KEV, or active exploitation confirmed — "
+                "cve_ids=%s kev=%s active_exploit=%s)",
+                final_score, _HIGH_CONFIDENCE_CEIL,
+                bool(cve_ids), kev_present, _active_exploitation_detected,
+            )
+            final_score = _HIGH_CONFIDENCE_CEIL
+
         logger.info(
             f"Dynamic Risk Score v23.0: {final_score}/10 "
             f"(IOC cats: {ioc_categories_found}, "
