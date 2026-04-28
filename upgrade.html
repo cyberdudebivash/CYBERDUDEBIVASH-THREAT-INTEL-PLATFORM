@@ -832,36 +832,63 @@ function copyText(text, btn) {
 }
 
 // Form submission
-function handleSubmit(e) {
+// v141.1.0: Dual-submit -- platform API primary, Formspree fallback
+async function handleSubmit(e) {
   e.preventDefault();
-  const btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Submitting...';
-
+  const btn  = document.getElementById('submit-btn');
   const form = document.getElementById('confirm-form');
   const data = new FormData(form);
 
-  fetch(form.action, {
-    method: 'POST',
-    body: data,
-    headers: { 'Accept': 'application/json' }
-  })
-  .then(r => {
-    if (r.ok) {
-      document.getElementById('checkout-state').style.display = 'none';
-      document.getElementById('success-state').style.display = 'block';
-      window.scrollTo(0, 0);
-    } else {
-      throw new Error('Server error');
+  btn.disabled    = true;
+  btn.textContent = '⏳ Submitting...';
+
+  // Read fields from form
+  const email   = (data.get('email')   || '').trim();
+  const plan    = (data.get('plan')    || selectedPlan || 'pro').toLowerCase();
+  const method  = (data.get('payment_method') || currentPayTab || 'unknown');
+  const ref     = (data.get('txn_ref') || data.get('transaction_ref') || '').trim();
+  const amount  = (data.get('amount')  || '').trim();
+
+  const showSuccess = () => {
+    document.getElementById('checkout-state').style.display = 'none';
+    document.getElementById('success-state').style.display  = 'block';
+    window.scrollTo(0, 0);
+    // Trigger alert subscription too
+    if (email) {
+      fetch('https://intel.cyberdudebivash.com/api/notify/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, tier_hint: plan, interests: ['critical','high','medium'] }),
+      }).catch(() => {});
     }
-  })
-  .catch(() => {
-    // Fallback: mailto
-    const entries = [...data.entries()].map(([k,v]) => `${k}: ${v}`).join('\n');
-    window.location.href = `mailto:bivash@cyberdudebivash.com?subject=SENTINEL APEX Upgrade&body=${encodeURIComponent(entries)}`;
-    btn.disabled = false;
-    btn.textContent = '✅ Confirm Payment & Activate Subscription';
-  });
+  };
+
+  // 1. Try platform API /api/payment/notify
+  try {
+    const r = await fetch('https://intel.cyberdudebivash.com/api/payment/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, plan, method, ref, amount }),
+    });
+    if (r.ok) {
+      // 2. Also fire Formspree for email record (non-blocking)
+      fetch(form.action, { method: 'POST', body: data, headers: { 'Accept': 'application/json' } }).catch(() => {});
+      showSuccess();
+      return;
+    }
+  } catch (_) { /* fall through to Formspree */ }
+
+  // 2. Fallback: Formspree
+  try {
+    const r2 = await fetch(form.action, { method: 'POST', body: data, headers: { 'Accept': 'application/json' } });
+    if (r2.ok) { showSuccess(); return; }
+  } catch (_) { /* fall through to mailto */ }
+
+  // 3. Final fallback: mailto
+  const entries = [...data.entries()].map(([k,v]) => `${k}: ${v}`).join('\n');
+  window.location.href = `mailto:bivash@cyberdudebivash.com?subject=SENTINEL APEX Upgrade Request - ${plan.toUpperCase()}&body=${encodeURIComponent(entries)}`;
+  btn.disabled    = false;
+  btn.textContent = '✅ Confirm Payment & Activate Subscription';
 }
 </script>
 </body>
