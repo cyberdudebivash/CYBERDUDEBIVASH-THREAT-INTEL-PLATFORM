@@ -387,6 +387,38 @@ class RiskScoringEngine:
         max_score = self.weights.get("max_score", 10.0)
         final_score = min(round(score, 1), max_score)
 
+
+        # ── v143.0: NO-EVIDENCE CAP ───────────────────────────────────────────
+        # A score ≥ 8 (HIGH/CRITICAL) asserts confirmed severe threat.
+        # Without at least one piece of EXTERNAL evidence we cannot defensibly
+        # make that claim. Prevents pure keyword-stacking articles (Wordfence
+        # roundups, advisory summaries) from scoring 10/10 when there is no
+        # CVSS, no EPSS signal, no KEV, no hash, and no IP.
+        #
+        # Evidence qualifiers (ANY ONE satisfies the gate):
+        #   - KEV confirmed (CISA known exploited)
+        #   - CVSS >= 4.0 (NVD-sourced severity)
+        #   - EPSS >= 0.05 (5%+ exploitation probability in 30 days)
+        #   - File hash IOC (sha256 / sha1 / md5)
+        #   - IPv4 IOC (confirmed C2/attacker network observable)
+        _has_real_evidence = (
+            kev_present
+            or (cvss_score is not None and float(cvss_score) >= 4.0)
+            or (epss_score is not None and float(epss_score) >= 0.05)
+            or bool(iocs.get("sha256") or iocs.get("sha1") or iocs.get("md5"))
+            or bool(iocs.get("ipv4"))
+        )
+        _NO_EVIDENCE_CEIL = 5.5
+        if not _has_real_evidence and final_score > _NO_EVIDENCE_CEIL:
+            logger.info(
+                "[v143.0] No-evidence cap: %.1f → %.1f "
+                "(kev=%s cvss=%s epss=%s hashes=%s ips=%s)",
+                final_score, _NO_EVIDENCE_CEIL,
+                kev_present, cvss_score, epss_score,
+                bool(iocs.get("sha256") or iocs.get("sha1") or iocs.get("md5")),
+                bool(iocs.get("ipv4")),
+            )
+            final_score = _NO_EVIDENCE_CEIL
         logger.info(
             f"Dynamic Risk Score v23.0: {final_score}/10 "
             f"(IOC cats: {ioc_categories_found}, "
@@ -408,6 +440,76 @@ class RiskScoringEngine:
         elif risk_score >= 2.0:
             return "LOW"
         return "INFO"
+
+    def get_risk_reason(
+        self,
+        risk_score: float,
+        *,
+        kev_present: bool = False,
+        cvss_score: Optional[float] = None,
+        epss_score: Optional[float] = None,
+        iocs: Optional[Dict] = None,
+        mitre_matches: Optional[List] = None,
+        actor_data: Optional[Dict] = None,
+    ) -> str:
+        """
+        v143.0: Generate a human-readable, SOC-defensible explanation for the
+        risk score. Surfaces the primary evidence signals that drove the score.
+        Returns a concise string for the `risk_reason` manifest field.
+        """
+        iocs = iocs or {}
+        parts: list = []
+
+        if kev_present:
+            parts.append("KEV confirmed (CISA active exploitation)")
+
+        if cvss_score is not None:
+            label = ("CRITICAL" if cvss_score >= 9.0 else
+                     "HIGH"     if cvss_score >= 7.0 else
+                     "MEDIUM"   if cvss_score >= 4.0 else "LOW")
+            parts.append(f"CVSS {cvss_score:.1f} ({label})")
+
+        if epss_score is not None:
+            if epss_score >= 0.70:
+                parts.append(f"EPSS {epss_score:.2f} (very high exploitation probability)")
+            elif epss_score >= 0.40:
+                parts.append(f"EPSS {epss_score:.2f} (high exploitation probability)")
+            elif epss_score >= 0.05:
+                parts.append(f"EPSS {epss_score:.2f} (moderate exploitation probability)")
+
+        _hashes = (list(iocs.get("sha256", [])) + list(iocs.get("sha1", [])) + list(iocs.get("md5", [])))
+        if _hashes:
+            parts.append(f"{len(_hashes)} file hash IOC(s)")
+        if iocs.get("ipv4"):
+            parts.append(f"{len(iocs['ipv4'])} IPv4 IOC(s)")
+        if iocs.get("domain"):
+            parts.append(f"{len(iocs['domain'])} domain IOC(s)")
+        if iocs.get("url"):
+            parts.append(f"{len(iocs['url'])} malicious URL(s)")
+
+        if mitre_matches:
+            parts.append(f"{len(mitre_matches)} MITRE technique(s) mapped")
+
+        if actor_data:
+            tid = actor_data.get("tracking_id", "")
+            actor = actor_data.get("actor", actor_data.get("name", ""))
+            if tid and not tid.startswith("UNC-") and actor:
+                parts.append(f"confirmed actor: {actor}")
+
+        _has_evidence = (
+            kev_present
+            or (cvss_score is not None and float(cvss_score) >= 4.0)
+            or (epss_score is not None and float(epss_score) >= 0.05)
+            or bool(iocs.get("sha256") or iocs.get("sha1") or iocs.get("md5"))
+            or bool(iocs.get("ipv4"))
+        )
+        if not _has_evidence:
+            parts.append("no external evidence (CVSS/EPSS/KEV/hash/IP absent); score capped at 5.5")
+
+        if not parts:
+            parts.append(f"keyword/behavioral signals only; score={risk_score}")
+
+        return "; ".join(parts)
 
     def get_tlp_label(self, risk_score: float,
                       iocs: Dict = None, kev_present: bool = False,

@@ -1166,11 +1166,26 @@ function computeApexAI(item, tier) {
     const iocCount   = Array.isArray(item.iocs) ? item.iocs.length : (item.ioc_count || 0);
     const ttpCount   = Array.isArray(item.ttps) ? item.ttps.length : (item.ttp_count || 0);
 
-    //  predictive_risk (0--10): composite risk projection 
-    // Weights: CVSS 40%, EPSS 25%, KEV 20%, IOC density 15%
+    //  predictive_risk (0--10): composite risk projection
+    // v143.0 FIX: When the Python APEX engine has computed a calibrated composite_score
+    // (item.apex.composite_score), use it as the authoritative base instead of computing
+    // a divergent value from raw risk_score. This eliminates the apex vs apex_ai mismatch
+    // seen in API output (e.g. apex.predictive_score=2.9 vs apex_ai.predictive_risk=6.56).
+    //
+    // Priority:
+    //   1. item.apex.composite_score  — Python APEX engine (most calibrated)
+    //   2. item.apex.priority_score   — same engine, alternate key
+    //   3. item.risk_score            — raw dynamic risk scorer
+    //   4. item.cvss_score            — CVSS fallback
+    const apexComposite  = (item.apex && typeof item.apex.composite_score  === "number" && item.apex.composite_score  > 0)
+                         ? item.apex.composite_score
+                         : (item.apex && typeof item.apex.priority_score   === "number" && item.apex.priority_score   > 0)
+                         ? item.apex.priority_score
+                         : null;
+    const riskBase       = apexComposite !== null ? apexComposite : riskScore;
     const iocDensityScore = Math.min(iocCount * 0.5, 2.0);
     const predictiveRisk  = Math.min(10,
-      (riskScore * 0.4) + (epss * 0.025) + (kev * 2.0) + (iocDensityScore * 0.15 * 10)
+      (riskBase * 0.4) + (epss * 0.025) + (kev * 2.0) + (iocDensityScore * 0.15 * 10)
     );
 
     //  ai_confidence (0--100): evidence quality score 
@@ -1857,12 +1872,17 @@ async function handlePreview(request, env, rid) {
           const ap = item.apex;
           if (!ap || typeof ap !== "object") return null;
           // Free preview: surface non-sensitive apex fields only
+          // v143.0: predictive_score now reads composite_score (APEX-calibrated)
+          // falling back to legacy predictive_score for backward compat
+          const apexScore = ap.composite_score != null ? ap.composite_score
+                          : ap.priority_score  != null ? ap.priority_score
+                          : ap.predictive_score != null ? ap.predictive_score : 0;
           return {
-            priority:     ap.priority     || "P4",
-            threat_level: ap.threat_level || "UNKNOWN",
-            threat_category: ap.threat_category || "UNKNOWN",
-            predictive_score: ap.predictive_score != null ? ap.predictive_score : 0,
-            campaign_id:  "PRO_REQUIRED",   // campaign ID is Pro+
+            priority:         ap.priority       || "P4",
+            threat_level:     ap.threat_level   || "UNKNOWN",
+            threat_category:  ap.threat_category || "UNKNOWN",
+            predictive_score: apexScore,         // consistent with apex_ai.predictive_risk
+            campaign_id:      "PRO_REQUIRED",    // campaign ID is Pro+
           };
         })(),
         validation_status: item.validation_status || null,

@@ -323,4 +323,90 @@ class MITREMapper:
         ]
 
 
+def sanitize_mitre_techniques(raw: list) -> list:
+    """
+    v143.0: Validate and normalize MITRE technique list before manifest/API write.
+
+    MANDATES (SOC-grade requirements):
+      - Every technique MUST have: technique ID (Txxxx), name, tactic
+      - Techniques missing ANY required field are STRIPPED — never written to manifest
+      - Deduplicates by technique ID (first occurrence wins)
+      - Adds generic justification if not already present
+      - Normalizes key conventions: id/technique_id, name/technique_name both accepted
+
+    INPUT:  list of dicts from mitre_engine.map_threat() or MITREJustificationEngine
+    OUTPUT: list of validated dicts guaranteed to have {id, name, tactic, justification}
+    """
+    import logging as _logging
+    _log = _logging.getLogger("CDB-MITRE-SANITIZE")
+
+    if not raw:
+        return []
+
+    clean: list = []
+    seen_ids: set = set()
+
+    for entry in raw:
+        if not isinstance(entry, dict):
+            if isinstance(entry, str) and entry.strip():
+                _log.warning("MITRE sanitize: string entry stripped: %r", entry[:60])
+            continue
+
+        # ── Normalize technique ID ────────────────────────────────────────────
+        tid = (
+            entry.get("id") or
+            entry.get("technique_id") or
+            entry.get("technique") or
+            ""
+        ).strip().upper()
+
+        # ── Normalize technique name ──────────────────────────────────────────
+        tname = (
+            entry.get("name") or
+            entry.get("technique_name") or
+            ""
+        ).strip()
+
+        # ── Normalize tactic ──────────────────────────────────────────────────
+        tactic = (entry.get("tactic") or "").strip()
+
+        # ── STRIP if any required field is missing ────────────────────────────
+        if not tid:
+            _log.warning("MITRE sanitize: stripped — missing ID | name=%r tactic=%r", tname[:40], tactic)
+            continue
+        if not tname:
+            _log.warning("MITRE sanitize: stripped %s — missing name", tid)
+            continue
+        if not tactic:
+            _log.warning("MITRE sanitize: stripped %s %r — missing tactic", tid, tname[:40])
+            continue
+
+        # ── Deduplicate by technique ID ───────────────────────────────────────
+        if tid in seen_ids:
+            _log.debug("MITRE sanitize: dedup skip %s", tid)
+            continue
+        seen_ids.add(tid)
+
+        # ── Resolve justification ─────────────────────────────────────────────
+        justification = (
+            entry.get("justification") or
+            entry.get("description") or
+            f"{tname} ({tactic} phase) — matched in threat intelligence corpus."
+        ).strip()
+
+        clean.append({
+            "id":            tid,
+            "name":          tname,
+            "tactic":        tactic,
+            "justification": justification,
+        })
+
+    _log.info(
+        "[MITRE-SANITIZE] %d raw -> %d validated techniques",
+        len(raw), len(clean),
+    )
+    return clean
+
+
+# ── Module-level singleton ─────────────────────────────────────────────────────
 mitre_engine = MITREMapper()

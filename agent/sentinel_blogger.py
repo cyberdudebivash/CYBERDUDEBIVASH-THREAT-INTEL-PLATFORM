@@ -29,7 +29,7 @@ from agent.enricher import enricher
 from agent.export_stix import stix_exporter
 from agent.risk_engine import risk_engine
 from agent.deduplication import dedup_engine
-from agent.mitre_mapper import mitre_engine
+from agent.mitre_mapper import mitre_engine, sanitize_mitre_techniques
 from agent.integrations.actor_matrix import actor_matrix
 from agent.integrations.detection_engine import detection_engine
 from agent.content.premium_report_generator import premium_report_gen
@@ -670,7 +670,9 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     # -- STEP 3: MITRE ATT&CK mapping -----------------------------------------
     full_corpus = f"{headline} {enriched_content}"
     mitre_data  = mitre_engine.map_threat(full_corpus)
-    logger.info(f"  -> MITRE techniques: {len(mitre_data)}")
+    # v143.0: strip any techniques missing id/name/tactic before manifest write
+    mitre_data  = sanitize_mitre_techniques(mitre_data)
+    logger.info(f"  -> MITRE techniques: {len(mitre_data)} (post-sanitize)")
 
     # -- STEP 4: Actor attribution -------------------------------------------
     actor_data  = actor_matrix.correlate_actor(full_corpus, extracted_iocs)
@@ -943,6 +945,24 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
         f"conf={confidence:.1f} cve={_pq_has_cve} kev={_pq_has_kev}"
     )
 
+    # -- STEP 7f: v143.0 Risk reason (defensible explanation for score) --------
+    # Generated AFTER all enrichment: NVD/CVSS, KEV, EPSS, VANGUARD, APEX.
+    # Stored in manifest → surfaced in API response and tactical dossier.
+    try:
+        risk_reason: str = risk_engine.get_risk_reason(
+            risk_score,
+            kev_present=kev_present,
+            cvss_score=cvss_score,
+            epss_score=epss_score,
+            iocs=extracted_iocs,
+            mitre_matches=mitre_data,
+            actor_data=actor_data,
+        )
+        logger.info(f"  [RISK-REASON] {risk_reason[:120]}")
+    except Exception as _rr_e:
+        risk_reason = f"score={risk_score:.1f}"
+        logger.debug(f"risk_reason generation failed (non-critical): {_rr_e}")
+
     # -- STEP 8: Premium report generation -----------------------------------
     logger.info("  -> Generating PREMIUM 16-section report...")
     try:
@@ -984,7 +1004,11 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
             title=headline,
             iocs=extracted_iocs,
             risk_score=risk_score,
-            metadata={"blog_url": "", "source_url": source_url},
+            metadata={
+                "blog_url": "",
+                "source_url": source_url,
+                "risk_reason": risk_reason,          # v143.0: defensible score explanation
+            },
             confidence=confidence,
             severity=severity,
             tlp_label=tlp.get("label", "TLP:CLEAR"),

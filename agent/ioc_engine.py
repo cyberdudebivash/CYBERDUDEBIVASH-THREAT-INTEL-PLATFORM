@@ -120,10 +120,53 @@ _DOMAIN_BLOCKLIST = frozenset({
     "w3.org", "schema.org", "openssl.org",
     "x.com", "twitter.com", "facebook.com", "linkedin.com",
     "cyberdudebivash.com",  # own brand domain - not a threat IOC
+    # ── Threat intel SOURCE domains (news feeds / vendor blogs) ──────────────
+    # These are intelligence PUBLISHERS — never C2 infrastructure.
+    # Extracting them as IOCs pollutes feeds with false positives.
+    "malwarebytes.com", "wordfence.com", "rapid7.com",
+    "bleepingcomputer.com", "thehackernews.com", "securityweek.com",
+    "darkreading.com", "isc.sans.edu", "sans.org",
+    "recordedfuture.com", "mandiant.com", "crowdstrike.com",
+    "paloaltonetworks.com", "unit42.paloaltonetworks.com",
+    "talos-intelligence.com", "talosintelligence.com", "blog.talosintelligence.com",
+    "sentinelone.com", "checkpoint.com", "research.checkpoint.com",
+    "fortinet.com", "fortiguard.com", "kaspersky.com", "securelist.com",
+    "symantec.com", "broadcom.com", "trendmicro.com", "mcafee.com",
+    "sophos.com", "sophosnews.com", "threatpost.com",
+    "securityaffairs.co", "securityaffairs.com",
+    "krebsonsecurity.com", "wired.com", "techcrunch.com",
+    "helpnetsecurity.com", "infosecurity-magazine.com",
+    "cyberscoop.com", "therecord.media", "grahamcluley.com",
+    "proofpoint.com", "abuse.ch", "urlhaus.abuse.ch",
+    "otx.alienvault.com", "alienvault.com",
+    "microsoft.com", "msrc.microsoft.com", "security.googleblog.com",
+    "blog.google", "research.google",
 })
 
 # Domain TLD-only patterns to reject (single word .tld is not a domain)
 _DOMAIN_MIN_LABELS = 2
+
+# File extensions that match domain TLD regex but are NOT real TLDs.
+# e.g. "chrome.exe", "conhost.exe", "secret.png", "0.exe", "rundll32.exe"
+# The domain regex matches [a-zA-Z]{2,24} which includes .exe, .dll, .png etc.
+_FILE_EXT_BLOCKLIST: frozenset = frozenset({
+    # Executable / script
+    "exe", "dll", "bat", "cmd", "ps1", "ps2", "vbs", "jse", "js", "py",
+    "sh", "rb", "pl", "php", "asp", "aspx", "jar", "class", "war",
+    # Document
+    "doc", "docx", "xls", "xlsx", "ppt", "pptx", "pdf", "txt", "csv",
+    "xml", "json", "html", "htm", "mhtml", "css", "rtf", "odt",
+    # Archive
+    "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "iso", "cab", "ace",
+    # Image
+    "png", "jpg", "jpeg", "gif", "bmp", "svg", "ico", "tiff", "webp",
+    # System / binary
+    "sys", "drv", "ocx", "cpl", "msi", "msp", "scr", "hta", "wsf",
+    "wsh", "lnk", "pif", "com", "tmp", "log", "ini", "cfg", "dat",
+    "db", "sqlite", "mdb", "bin", "hex",
+    # Media
+    "mp3", "mp4", "avi", "mkv", "mov", "wav", "flv",
+})
 
 # Valid hash hex patterns sometimes appear as version numbers, etc.
 # Reject if it's clearly a version string context
@@ -303,6 +346,12 @@ def _extract_domains(text: str, exclude_from_urls: Optional[List[str]] = None) -
         # Must have at least 2 labels
         labels = dom_lower.split(".")
         if len(labels) < _DOMAIN_MIN_LABELS:
+            continue
+        # ── v143.0 FIX: Reject file-extension TLDs ───────────────────────────
+        # The domain regex matches .exe, .dll, .png etc. as valid TLDs.
+        # e.g. "chrome.exe", "conhost.exe", "secret.png", "rundll32.exe" all
+        # match _RE_DOMAIN but are Windows filenames, NOT real network domains.
+        if labels[-1] in _FILE_EXT_BLOCKLIST:
             continue
         # Blocklist check
         if dom_lower in _DOMAIN_BLOCKLIST:

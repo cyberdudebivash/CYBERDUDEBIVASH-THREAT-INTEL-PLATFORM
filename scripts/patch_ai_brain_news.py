@@ -30,15 +30,23 @@ with open(INDEX,  "r", encoding="utf-8") as f:
 with open(JS_TPL, "r", encoding="utf-8") as f:
     js = f.read()
 
-# ── Idempotency: remove any previous injection ────────────────────────────────
-if MARKER in html:
-    s = html.find(MARKER)
-    e = html.find(ENDMRK)
-    if e != -1:
-        e += len(ENDMRK)
-        html = html[:s] + html[e:]
-    else:
-        html = html[:s]
+# ── Idempotency: remove any previous injection (v134 + legacy v130) ─────────────
+_refreshed = False
+for _mk, _em in [
+    (MARKER, ENDMRK),                                           # current v134
+    ("<!-- CDB-AI-BRAIN-INIT-v130 -->", "<!-- /CDB-AI-BRAIN-INIT-v130 -->"),  # legacy
+]:
+    if _mk in html:
+        s = html.find(_mk)
+        e = html.find(_em)
+        if e != -1:
+            e += len(_em)
+            html = html[:s] + html[e:]
+        else:
+            html = html[:s]
+        _refreshed = True
+
+if _refreshed:
     print("Refreshing existing patch block ...")
 else:
     print("First-time patch ...")
