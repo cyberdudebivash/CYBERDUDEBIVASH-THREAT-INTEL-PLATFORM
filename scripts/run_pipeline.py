@@ -2259,6 +2259,15 @@ def stage_sync_root_feed_json() -> None:
     # Root cause: enforce_manifest_uniqueness() existed but was never called
     # before the write path. This caused duplicate stix_ids in feed.json and
     # the API. Wired here immediately before the final write, zero regression.
+    #
+    # P0-CRITICAL FIX v141.8.0: enforce_manifest_uniqueness() returns
+    # Tuple[List[Dict], int] — (unique_items, removed_count).
+    # Previous code: manifest_items = _dedup_manifest(manifest_items)
+    #   → assigned the ENTIRE TUPLE to manifest_items
+    #   → len(manifest_items) = 2 (tuple has 2 elements, not item count)
+    #   → feed.json written as [[...2441 items...], 0] — CATASTROPHIC CORRUPTION
+    #   → dashboard showed "2 advisories", all stats zeroed
+    # Fix: proper tuple unpacking with explicit type guard.
     try:
         import sys as _sys_p4
         _scripts_dir_p4 = str(REPO_ROOT / "scripts")
@@ -2266,11 +2275,34 @@ def stage_sync_root_feed_json() -> None:
             _sys_p4.path.insert(0, _scripts_dir_p4)
         from intel_dedup_engine import enforce_manifest_uniqueness as _dedup_manifest
         _before_dedup = len(manifest_items)
-        manifest_items = _dedup_manifest(manifest_items)
-        _after_dedup   = len(manifest_items)
+        _dedup_result = _dedup_manifest(manifest_items)
+        # CRITICAL: enforce_manifest_uniqueness returns Tuple[List,int] — unpack correctly.
+        # A bare assignment (manifest_items = result) silently assigns the tuple object,
+        # making len(manifest_items) == 2 and corrupting feed.json permanently.
+        if isinstance(_dedup_result, tuple) and len(_dedup_result) == 2:
+            manifest_items, _p4_removed_count = _dedup_result
+        elif isinstance(_dedup_result, list):
+            # Defensive: handle a future API change that returns a plain list
+            manifest_items = _dedup_result
+            _p4_removed_count = _before_dedup - len(manifest_items)
+        else:
+            log.error(
+                "[PHASE4] CRITICAL: enforce_manifest_uniqueness returned unexpected type %s — "
+                "skipping dedup result, keeping original manifest_items to prevent data loss",
+                type(_dedup_result).__name__,
+            )
+            _p4_removed_count = 0
+        # Post-dedup type guard: manifest_items MUST be a list of dicts
+        if not isinstance(manifest_items, list):
+            log.error(
+                "[PHASE4] CRITICAL: manifest_items is %s after dedup — resetting to pre-dedup state",
+                type(manifest_items).__name__,
+            )
+            manifest_items = list(_dedup_result[0]) if isinstance(_dedup_result, tuple) else []
+        _after_dedup = len(manifest_items)
         if _before_dedup != _after_dedup:
             log.info(
-                "[PHASE4] Manifest dedup gate: %d → %d entries (%d duplicates removed by stix_id)",
+                "[PHASE4] Manifest dedup gate: %d → %d entries (%d duplicates removed)",
                 _before_dedup, _after_dedup, _before_dedup - _after_dedup,
             )
         else:
