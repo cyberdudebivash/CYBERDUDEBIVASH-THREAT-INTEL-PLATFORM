@@ -2143,13 +2143,24 @@ def stage_sync_root_feed_json() -> None:
                                    [o for o in objs if o.get("type") == "vulnerability"]
                                    if vuln.get("name")]
                         ttps = [ap.get("name", ap.get("id", "")) for ap in apatt][:8]
-                        ts = intset.get("created", intset.get("modified", utc_now()))
+                        # PHASE 5 FIX: Recover source publication date from STIX extension.
+                        # Bug: previously used ts=intset.get("created") for published_at,
+                        # making ALL reconstructed entries show the pipeline clock time.
+                        # Fix: read x_cdb_published_at from x-cdb-apex-1 extension first.
+                        _stix_ext   = intset.get("extensions", {}).get("x-cdb-apex-1", {})
+                        _cdb_pub_at = _stix_ext.get("x_cdb_published_at", "")
+                        ts          = intset.get("created", intset.get("modified", utc_now()))
+                        # processed_at = STIX creation time (pipeline clock) — correct
+                        # published_at = source article date — recovered from custom extension
+                        _published_at_final = _cdb_pub_at if _cdb_pub_at else ts
                         desc = intset.get("description", "")
                         # Actor resolution
                         raw_actor = intset.get("aliases", ["UNC-UNKNOWN"])[0]
                         actor_tag = resolve_pipeline_actor(
                             desc + " " + raw_title, raw_actor
                         )
+                        # PHASE 5 FIX: recover soc_priority from STIX extension
+                        _soc_priority_stix = _stix_ext.get("soc_priority", "")
                         risk_score = 7.5 if cve_ids else 6.5
                         intel_obj = {
                             "id":             f"intel--{sf.stem.split('-')[-1]}",
@@ -2160,7 +2171,7 @@ def stage_sync_root_feed_json() -> None:
                             "confidence":     60.0,
                             "timestamp":      ts,
                             "processed_at":   ts,
-                            "published_at":   ts,
+                            "published_at":   _published_at_final,   # PHASE 5 FIX
                             "actor_tag":      actor_tag,
                             "ioc_count":      0,
                             "ttp_count":      len(ttps),
@@ -2172,6 +2183,8 @@ def stage_sync_root_feed_json() -> None:
                             "stix_bundle":    f"https://intel.cyberdudebivash.com/data/stix/{sf.name}",
                             "validation_status": "valid",
                         }
+                        if _soc_priority_stix:
+                            intel_obj["apex_ai"] = {"soc_priority": _soc_priority_stix}
                         if cve_ids:
                             intel_obj["cve"] = cve_ids
 
@@ -2234,6 +2247,31 @@ def stage_sync_root_feed_json() -> None:
                     log.info("[3.9] Merged previous feed, now %d entries total", len(manifest_items))
             except Exception as e:
                 log.warning("[3.9] Could not load previous feed: %s", e)
+
+    # ---- Phase 4: Manifest dedup gate — remove stix_id duplicates ----------
+    # Root cause: enforce_manifest_uniqueness() existed but was never called
+    # before the write path. This caused duplicate stix_ids in feed.json and
+    # the API. Wired here immediately before the final write, zero regression.
+    try:
+        import sys as _sys_p4
+        _scripts_dir_p4 = str(REPO_ROOT / "scripts")
+        if _scripts_dir_p4 not in _sys_p4.path:
+            _sys_p4.path.insert(0, _scripts_dir_p4)
+        from intel_dedup_engine import enforce_manifest_uniqueness as _dedup_manifest
+        _before_dedup = len(manifest_items)
+        manifest_items = _dedup_manifest(manifest_items)
+        _after_dedup   = len(manifest_items)
+        if _before_dedup != _after_dedup:
+            log.info(
+                "[PHASE4] Manifest dedup gate: %d → %d entries (%d duplicates removed by stix_id)",
+                _before_dedup, _after_dedup, _before_dedup - _after_dedup,
+            )
+        else:
+            log.info("[PHASE4] Manifest dedup gate: %d entries, no duplicates detected", _after_dedup)
+    except ImportError as _p4_imp_e:
+        log.warning("[PHASE4] enforce_manifest_uniqueness unavailable (%s) — dedup skipped", _p4_imp_e)
+    except Exception as _p4_e:
+        log.warning("[PHASE4] Manifest dedup error (non-fatal, continuing): %s", _p4_e)
 
     # ---- Step 6: Write to all target feed.json paths --------------------
     if not manifest_items:
@@ -2455,13 +2493,13 @@ def main() -> None:
         from api.health import write_static_health_json
         _health_out = REPO_ROOT / "api" / "health.json"
         write_static_health_json(_health_out)
-        log.info("Health snapshot written → api/health.json")
+        log.info("Health snapshot written -> api/health.json")
     except Exception as _he:
         log.warning("Health snapshot skipped (non-critical): %s", _he)
 
     elapsed = time.monotonic() - t_total
 
-    # ── v141.7.0 Stage Completion Audit ───────────────────────────────────
+    # v141.7.0 Stage Completion Audit
     _BASELINE_RUNTIME_SECONDS = 900   # 15 min -- healthy run floor
     missing_stages = [s for s in _STAGE_REGISTRY if s not in _completed_stages]
     if missing_stages:
@@ -2469,8 +2507,6 @@ def main() -> None:
             "[stage-audit] PIPELINE INCOMPLETE -- %d stage(s) never executed: %s",
             len(missing_stages), missing_stages,
         )
-        # Non-fatal: log and continue so safe_git_commit still runs.
-        # Escalated to CRITICAL so it appears prominently in CI logs.
         log.critical(
             "[stage-audit] PARTIAL EXECUTION DETECTED. "
             "Investigate skipped stages before next production run."
@@ -2498,7 +2534,7 @@ def main() -> None:
              elapsed, PIPELINE_VERSION, utc_now())
     log.info("Stages completed: %d/%d  %s",
              len(_completed_stages), len(_STAGE_REGISTRY),
-             "✅ FULL" if not missing_stages else f"⚠️ PARTIAL ({missing_stages})")
+             "FULL" if not missing_stages else f"PARTIAL ({missing_stages})")
     log.info("=" * 70)
 
 

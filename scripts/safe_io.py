@@ -1038,10 +1038,36 @@ def enforce_schema(entry: Dict) -> Dict:
     for field in _STRING_FIELDS:
         val = entry.get(field)
         if isinstance(val, bool):
-            # Boolean fields: published=True/False is the documented P0 regression
+            # PHASE 5 FIX: published=True is the Blogger-flag written by export_stix.py
+            # line "published": True. It is NOT a date. Replacing it with _utc_now (pipeline
+            # clock) caused ALL entries to display the same published_at timestamp —
+            # the definitive root cause of the duplicate-timestamp P0 regression.
+            #
+            # Fix: when published=True (Blogger flag), recover the real source publication
+            # date from published_at field. Fall back to processed_at, then empty string.
+            # NEVER inject pipeline time (_utc_now) as published — that destroys source provenance.
             if field == "published":
-                entry[field] = _utc_now  # replace with current ISO timestamp
-                log.warning("enforce_schema: 'published' was bool(%s) — replaced with ISO timestamp", val)
+                _real_pub = (
+                    entry.get("published_at") or
+                    entry.get("timestamp") or
+                    ""
+                )
+                # Only accept if it looks like an ISO date (starts with 4-digit year)
+                if _real_pub and isinstance(_real_pub, str) and _real_pub[:4].isdigit():
+                    entry[field] = _real_pub
+                    log.debug(
+                        "enforce_schema: 'published' was bool(%s) — replaced with published_at '%s'",
+                        val, _real_pub[:20],
+                    )
+                else:
+                    # No valid source date available — leave as empty string, NOT pipeline time
+                    # An empty published field is preferable to a fabricated timestamp
+                    entry[field] = ""
+                    log.warning(
+                        "enforce_schema: 'published' was bool(%s) and no published_at found — "
+                        "set to '' (preserving source provenance; NOT injecting pipeline time)",
+                        val,
+                    )
             else:
                 # Other bool fields: stringify to avoid AttributeError on .upper()/.lower() etc.
                 entry[field] = str(val)
@@ -1049,7 +1075,16 @@ def enforce_schema(entry: Dict) -> Dict:
         elif val is None:
             # published must always be a valid ISO string — supply UTC now if absent/None
             if field == "published":
-                entry[field] = _utc_now
+                # PHASE 5 FIX: for None, also prefer published_at over pipeline clock
+                _real_pub_none = (
+                    entry.get("published_at") or
+                    entry.get("timestamp") or
+                    ""
+                )
+                if _real_pub_none and isinstance(_real_pub_none, str) and _real_pub_none[:4].isdigit():
+                    entry[field] = _real_pub_none
+                else:
+                    entry[field] = _utc_now  # Last resort — no source date at all
             # All other optional string fields: leave absent rather than inject empty strings
         elif not isinstance(val, str):
             entry[field] = str(val)
@@ -1853,7 +1888,7 @@ class SystemHealthMonitor:
     def _persist(self) -> None:
         """
         Atomically persist health state to data/logs/system_health.json.
-        Never raises — persistence failure is non-fatal.
+        Never raises -- persistence failure is non-fatal.
         """
         try:
             state_doc = self.get_state()
@@ -1883,9 +1918,4 @@ class SystemHealthMonitor:
 # ---------------------------------------------------------------------------
 # Module-level SystemHealthMonitor singleton
 # ---------------------------------------------------------------------------
-# Import-safe: zero I/O at instantiation. Thread-safe singleton.
-# Usage:
-#   from scripts.safe_io import health_monitor
-#   health_monitor.tick()
-#   state = health_monitor.get_state()
 health_monitor = SystemHealthMonitor()
