@@ -216,12 +216,29 @@ class STIXExporter:
                     "soc_priority":       str(apex_data.get("priority", "P4")),
                     "threat_level":       str(apex_data.get("threat_level", "UNKNOWN")),
                     "recommended_action": str(apex_data.get("recommended_action", ""))[:200],
+                    # PHASE 5 FIX: embed source pub date so Stage 3.9 STIX reconstruction
+                    # can recover it — without this, reconstruction uses STIX created time
+                    # (pipeline clock), making all entries show the same published_at.
+                    "x_cdb_published_at": published_at or "",
                 }
                 _intrusion_set_obj["extensions"] = {
                     "x-cdb-apex-1": _apex_ext
                 }
             except Exception:
                 pass  # Never block STIX generation on apex error
+        # PHASE 5 FIX: always embed published_at even when apex_data is absent.
+        # Ensures the source timestamp survives the STIX round-trip regardless of
+        # whether APEX enrichment was available during ingestion.
+        if published_at and "extensions" not in _intrusion_set_obj:
+            try:
+                _intrusion_set_obj["extensions"] = {
+                    "x-cdb-apex-1": {
+                        "x_cdb_published_at": published_at,
+                        "soc_priority":       "P4",
+                    }
+                }
+            except Exception:
+                pass
         objects.append(_mark(_intrusion_set_obj))
 
         # -- Indicator Objects --
