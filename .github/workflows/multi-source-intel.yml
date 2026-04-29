@@ -1,11 +1,18 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v134.0 " MULTI-SOURCE INTELLIGENCE ENRICHMENT
-# Version: v134.0.0 " PERMANENT PRODUCTION CONTRACT
-# Race condition FIX: Cron changed from '0 */4 * * *' (same as sentinel-blogger)
-#                     to '45 1,5,9,13,17,21 * * *' " 45 min past odd hours
-#                     (sentinel-blogger runs at 0,4,8,12,16,20 ' no overlap)
+# CYBERDUDEBIVASH(R) SENTINEL APEX v142.0 — MULTI-SOURCE INTELLIGENCE ENRICHMENT
+# Version: v142.0.0 — P0 TIMESTAMP INTEGRITY FIX
+# Race condition FIX: Cron unchanged — '45 1,5,9,13,17,21 * * *'
+#                     (sentinel-blogger runs at 0,4,8,12,16,20 — no overlap)
+#
+# v142.0 CHANGES (P0 Intel Ingestion Fix):
+#   - REPLACED broken ManifestMerger (class never existed) with true_intel_ingestor.py
+#   - REPLACED broken SourceIntelligenceOrchestrator import (import path wrong)
+#   - NOW commits feed_state.json + processed_intel.json for cross-run state persistence
+#   - NOW commits feed_manifest.json (additive merge — safe with dedup engine)
+#   - true_intel_ingestor.py enforces: published_at = SOURCE date, never NOW_UTC
+#   - Per-source last_seen_timestamp prevents full re-scan on every run
 # =============================================================================
-name: CDB Multi-Source Intelligence Enrichment v140
+name: CDB Multi-Source Intelligence Enrichment v142
 
 on:
   schedule:
@@ -17,98 +24,146 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
   group: sentinel-data-writer
   cancel-in-progress: false
 
 jobs:
   multi-source-enrichment:
-    name: Multi-Source Intelligence v140
+    name: Multi-Source Intelligence v142
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4.2.2
         with: {fetch-depth: 1, ref: main}
+
       - uses: actions/setup-python@v5.4.0
         with: {python-version: '3.12', cache: 'pip'}
-      - run: pip install requests feedparser --quiet
-      - run: mkdir -p data/enrichment data/stix api
+
+      - name: "Install Dependencies"
+        run: pip install requests feedparser --quiet
+
+      - name: "Prepare Directories"
+        run: mkdir -p data/enrichment data/stix data/cache api
 
       - name: "Bootstrap Critical Files"
+        env:
+          CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
         run: python3 scripts/bootstrap_critical_files.py
 
-      - name: "Collect Fresh Intelligence"
-        continue-on-error: true
+      # ──────────────────────────────────────────────────────────────────────
+      # TRUE INCREMENTAL INGESTION (P0 FIX v142.0)
+      # Replaces the broken ManifestMerger + SourceIntelligenceOrchestrator.
+      # true_intel_ingestor.py:
+      #   - Fetches CISA KEV, NVD CVE, GitHub Advisories, ransomware.live, URLhaus, RSS
+      #   - Tracks per-source last_seen_timestamp in data/cache/feed_state.json
+      #   - Only processes items WHERE source_published_at > last_seen_timestamp[source]
+      #   - Deduplicates via SHA256(source_url + title + published_at) fingerprint
+      #   - Writes ONLY new items to data/stix/feed_manifest.json (additive merge)
+      #   - NEVER sets published_at = NOW_UTC — always preserves source date
+      # ──────────────────────────────────────────────────────────────────────
+      - name: "True Incremental Intel Ingestion"
         env:
           GITHUB_TOKEN_INTEL: ${{ secrets.GH_INTEL_TOKEN }}
           CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          python3 - << 'PYEOF'
-          import sys, os, json
-          from datetime import datetime, timezone
-          sys.path.insert(0, os.getcwd())
-          try:
-              from agent.integrations.sources.multi_source_intel import SourceIntelligenceOrchestrator
-              orch = SourceIntelligenceOrchestrator(github_token=os.environ.get("GITHUB_TOKEN_INTEL"))
-              batch = orch.get_fresh_intelligence_batch()
-              os.makedirs("data/enrichment", exist_ok=True)
-              with open("data/enrichment/latest_intel_batch.json","w") as f:
-                  json.dump(batch, f, indent=2)
-              print(f"Intel batch: {batch.get('sources_polled',0)} sources polled")
-          except Exception as e:
-              print(f"Multi-source enrichment skipped (non-critical): {e}")
-          PYEOF
+          python3 scripts/true_intel_ingestor.py
+          echo "Ingestion exit code: $?"
 
-      - name: "Merge Into Manifest"
-        continue-on-error: true
-        env:
-          CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
-          PYTHONPATH: ${{ github.workspace }}
+      # ──────────────────────────────────────────────────────────────────────
+      # VALIDATE OUTPUT — fail fast if something broke the manifest
+      # ──────────────────────────────────────────────────────────────────────
+      - name: "Validate Manifest Integrity"
         run: |
           python3 - << 'PYEOF'
-          import sys, os, json
-          from datetime import datetime, timezone
-          sys.path.insert(0, os.getcwd())
-          try:
-              from agent.integrations.sources.multi_source_intel import ManifestMerger
-              merger = ManifestMerger()
-              result = merger.merge_batch_into_manifest(
-                  "data/enrichment/latest_intel_batch.json",
-                  "data/stix/feed_manifest.json"
-              )
-              print(f"Manifest merge: {result.get('new_entries', 0)} new entries added")
-          except Exception as e:
-              print(f"Manifest merge skipped (non-critical): {e}")
+          import json, sys
+          from pathlib import Path
+
+          manifest_path = Path("data/stix/feed_manifest.json")
+          state_path    = Path("data/cache/feed_state.json")
+
+          # --- Manifest check ---
+          if not manifest_path.exists():
+              print("[WARN] feed_manifest.json does not exist yet (first run?)")
+          else:
+              try:
+                  data = json.loads(manifest_path.read_text(encoding="utf-8"))
+                  entries = data if isinstance(data, list) else []
+                  total = len(entries)
+                  with_pub = sum(1 for e in entries if e.get("published_at"))
+                  print(f"[MANIFEST] total={total}  with_published_at={with_pub}  missing={total-with_pub}")
+                  if total > 0 and with_pub == 0:
+                      print("[WARN] All entries missing published_at — ingestion may need a reset")
+              except Exception as e:
+                  print(f"[ERROR] Manifest parse failed: {e}")
+                  sys.exit(1)
+
+          # --- Feed state check ---
+          if not state_path.exists():
+              print("[WARN] feed_state.json does not exist — first run will do full scan")
+          else:
+              try:
+                  state = json.loads(state_path.read_text(encoding="utf-8"))
+                  sources = state.get("sources", {})
+                  count = len(sources)
+                  print(f"[FEED-STATE] Tracking {count} source(s) with last_seen timestamps")
+                  if count == 0:
+                      print("[WARN] feed_count=0 — next run will be a full scan (expected on first run)")
+              except Exception as e:
+                  print(f"[WARN] Feed state parse failed: {e}")
+
+          print("[VALIDATE] OK")
           PYEOF
 
-      - name: "Safe Commit & Push (enrichment metadata only)"
+      # ──────────────────────────────────────────────────────────────────────
+      # COMMIT STATE FILES — CRITICAL for cross-run incremental ingestion
+      # feed_state.json    = per-source last_seen timestamps (MUST persist)
+      # processed_intel.json = dedup fingerprint store (MUST persist)
+      # feed_manifest.json  = intel manifest (additive, safe to commit)
+      # ──────────────────────────────────────────────────────────────────────
+      - name: "Commit Intel State & Manifest"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --local user.email "bivash@cyberdudebivash.com"
           git config --local user.name  "CYBERDUDEBIVASH"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
-          git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
+
+          # Clean up any stale rebase/merge state
+          git rebase --abort 2>/dev/null || true
+          git merge --abort  2>/dev/null || true
           rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
 
-          # P0 FIX v134.0: DO NOT commit feed_manifest.json to git.
-          # The manifest is R2-only data (gitignored). Committing it here caused
-          # the bootstrap to recycle stale manifest every run (skip if >= 50 entries).
-          # Only commit the enrichment batch metadata (non-intel).
-          git add -f data/enrichment/ 2>/dev/null || true
-          # BLOCKED (R2-only): git add -f data/stix/feed_manifest.json
+          # Stage state files that MUST persist between runs
+          git add -f data/cache/feed_state.json    2>/dev/null || true  # per-source last_seen
+          git add -f data/processed_intel.json     2>/dev/null || true  # dedup fingerprint store
+          git add -f data/stix/feed_manifest.json  2>/dev/null || true  # intel manifest (additive)
 
           if git diff --staged --quiet; then
-            echo "No enrichment metadata changes to commit."; exit 0
+            echo "No intel state changes to commit."; exit 0
           fi
 
-          git commit -m "Multi-source Intel v140 enrichment-meta @ $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
+          # Count new entries for commit message
+          NEW_COUNT=$(python3 -c "
+          import json
+          try:
+              d = json.loads(open('data/cache/feed_state.json').read())
+              print(len(d.get('sources',{})))
+          except: print('?')
+          " 2>/dev/null || echo "?")
+
+          git commit -m "Intel v142.0 incremental ingest | ${NEW_COUNT} sources tracked | $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
+
+          # Push with retry + rebase strategy
           for i in 1 2 3 4; do
             git fetch origin main --quiet
-            git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null||true; git merge origin/main -X ours --no-edit --quiet||true; }
-            git push origin main && break
-            sleep $((i*15)); [ $i -eq 4 ] && echo "Push deferred."
+            git rebase origin/main --quiet 2>/dev/null \
+              || { git rebase --abort 2>/dev/null || true; \
+                   git merge origin/main -X ours --no-edit --quiet || true; }
+            git push origin main && { echo "Push OK on attempt $i"; break; }
+            sleep $((i * 15))
+            [ "$i" -eq 4 ] && echo "[WARN] Push deferred after 4 attempts — will retry next run"
           done
-
