@@ -504,6 +504,10 @@ def patch_index_html(merged: list) -> bool:
     merged = [{k: v for k, v in item.items() if k not in _BLOAT_FIELDS} for item in merged]
 
     new_array = json.dumps(merged, separators=(",", ":"), ensure_ascii=False)
+    # SECURITY FIX (v142.1): Escape </script> so the browser's HTML tokenizer never
+    # terminates the enclosing <script> block early when an intel advisory contains
+    # an XSS payload example (e.g. GHSA-qx2v-qp2 PostCSS "</style><script>alert(1)").
+    new_array = new_array.replace("</script>", "<\\/script>").replace("<!--", "<\\!--")
 
     # ── Step 4: Create backup in /tmp (avoids NTFS immutability issues on mounted shares) ──
     import tempfile
@@ -777,17 +781,15 @@ def main():
         f"CRITICAL:{kpis['critical']} HIGH:{kpis['high']} "
         f"KEV:{kpis['kev']} | Enriched:{kpis['enriched']} | "
         f"Latest: {kpis['latest']}"
-    )
+     )
 
+    # Patch index.html
     success = patch_index_html(merged)
     if success:
-        print("[SUCCESS] index.html EMBEDDED_INTEL patched ✓")
-        print("[SUCCESS] All surrounding code preserved ✓")
+        print("[SUCCESS] index.html EMBEDDED_INTEL patched \u2713")
     else:
-        print("[ERROR] Patch failed - original file restored")
+        print("[FAILED] index.html patch failed — see errors above")
         sys.exit(1)
-
-    print("=" * 60)
 
 
 if __name__ == "__main__":
