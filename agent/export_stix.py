@@ -148,6 +148,10 @@ class STIXExporter:
         ioc_confidence: float = 0.0,
         ioc_threat_level: str = "NONE",
         ioc_extraction_meta: Optional[Dict] = None,
+        # v142.0 P0 TIMESTAMP FIX: source article's original publication date.
+        # MUST be set to the RSS <pubDate> / API published_at field from the source.
+        # NEVER leave as "" when the source provides a date — this breaks dedup fingerprinting.
+        published_at: str = "",
     ) -> str:
         """
         Create a comprehensive STIX 2.1 bundle with:
@@ -788,6 +792,8 @@ class STIXExporter:
             # v134.0 P0 FIX: actual IOC flat list (guarantees ioc_count == len(iocs))
             iocs_flat=_effective_flat_iocs,
             iocs_by_type=_effective_iocs_by_type,
+            # v142.0 P0 FIX: source article publication date — preserved for dedup fingerprint
+            published_at=published_at or "",
         )
 
         return bundle_id
@@ -1017,7 +1023,9 @@ class STIXExporter:
                          ioc_extraction_meta=None,
                          # v134.0 P0 FIX: actual IOC data (ioc_count == len(iocs) guaranteed)
                          iocs_flat=None, iocs_by_type=None,
-                         stix_bundle_url=""):
+                         stix_bundle_url="",
+                         # v142.0 P0 TIMESTAMP FIX: source publication date
+                         published_at=""):
         """Update manifest - backward-compatible + v134.0 IOC integrity fields."""
         manifest_entries = []
         if os.path.exists(self.manifest_path):
@@ -1143,8 +1151,9 @@ class STIXExporter:
             "stix_bundle_url":     stix_bundle_url or "",
             "stix_bundle":         stix_bundle_url or stix_file or "",
             "stix_file":           stix_file or "",
-            "processed_at":        _ts_now,
-            "timestamp":           _ts_now,
+            "processed_at":        _ts_now,                   # pipeline generation time
+            "published_at":        published_at or "",         # P0 FIX: source article date
+            "timestamp":           published_at or _ts_now,   # P0 FIX: prefer source date for dedup fingerprint
             "internal_report_url": _report_url,
             "report_url":          _report_url,
             "cvss_score":          cvss_score,
@@ -1218,12 +1227,13 @@ class STIXExporter:
             "stix_id":          _intel_id,
             "bundle_id":        stix_id or _intel_id,
             "title":            title,
-            # v134.0.0 FRESHNESS FIX: processed_at = pipeline generation time (UTC-now).
-            # This is ALWAYS the current run timestamp — independent of the RSS article's
-            # publication date. Use as primary sort key so newly generated intel ALWAYS
-            # ranks above older items regardless of their source published_at date.
+            # v142.0 P0 TIMESTAMP FIX:
+            # processed_at = pipeline generation time (CI run UTC-now). Always current.
+            # published_at = SOURCE article publication date. Preserved from RSS/API. NEVER overridden.
+            # timestamp    = sort key: prefer source published_at so items sort by ACTUAL age.
             "processed_at":     _ts_now,
-            "timestamp":        _ts_now,
+            "published_at":     published_at or "",           # P0 FIX: source date, immutable
+            "timestamp":        published_at or _ts_now,      # P0 FIX: dedup fingerprint uses this
             "risk_score":       float(risk_score),
             "severity":         severity,
             "report_url":       _report_url,
@@ -1247,6 +1257,9 @@ class STIXExporter:
             "cvss_score":       cvss_score,
             "epss_score":       epss_score,
             "kev_present":      kev_present,
+            # v142.0 P0 TIMESTAMP FIX: source publication date (from RSS pubDate / API published_at).
+            # NEVER overridden with pipeline time. Used for dedup fingerprint stability.
+            "published_at":     published_at or "",
             "status":           "active",
             "extended_metrics": extended_metrics or {},
             "nvd_url":          nvd_url,

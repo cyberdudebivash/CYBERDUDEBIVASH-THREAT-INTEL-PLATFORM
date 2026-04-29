@@ -653,6 +653,19 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
 
     headline   = entry["title"]
     source_url = entry.get("link", "")
+    # v142.0 P0 TIMESTAMP FIX: Capture the RSS <pubDate> from feedparser.
+    # feedparser exposes this as entry["published"] (string) or entry["published_parsed"] (struct_time).
+    # We normalise to ISO-8601 string here and pass to create_bundle() as published_at.
+    # This is the ONLY place published_at should be set — NEVER pipeline time.
+    _pub_raw = entry.get("published", "") or entry.get("published_at", "") or ""
+    _pub_parsed = entry.get("published_parsed")
+    if not _pub_raw and _pub_parsed:
+        try:
+            from datetime import datetime, timezone as _tz
+            _pub_raw = datetime(*_pub_parsed[:6], tzinfo=_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        except Exception:
+            _pub_raw = ""
+    _source_published_at: str = str(_pub_raw).strip()
 
     logger.info(f"PROCESSING: {headline[:80]}")
 
@@ -1021,6 +1034,8 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
             kev_present=kev_present,
             nvd_url=nvd_url,
             apex_data=_apex_data if _apex_data else None,
+            # v142.0 P0 TIMESTAMP FIX: pass original RSS <pubDate> so dedup fingerprint is stable
+            published_at=_source_published_at,
         )
         dedup_engine.mark_processed(headline, entry.get("link", ""))
         logger.info(f"  [OK] STIX bundle written → R2 pipeline | {severity} | Risk={risk_score:.1f}")
@@ -1099,26 +1114,26 @@ def _generate_smart_labels(
               tlp.get("label", "TLP:CLEAR"), "Sentinel APEX"]
     text = headline.lower()
     threat_map = {
-        "ransomware":    "Ransomware",      "malware":       "Malware Analysis",
-        "phishing":      "Phishing",        "cve":           "CVE Advisory",
-        "vulnerability": "Vulnerability",   "breach":        "Data Breach",
-        "zero-day":      "Zero-Day",        "exploit":       "Exploit Analysis",
-        "apt":           "APT",             "supply chain":  "Supply Chain",
-        "backdoor":      "Backdoor",        "trojan":        "Trojan",
-        "botnet":        "Botnet",          "windows":       "Windows Security",
-        "microsoft":     "Microsoft",       "linux":         "Linux Security",
+        "ransomware":   "Ransomware",       "malware":        "Malware Analysis",
+        "phishing":     "Phishing",         "cve":            "Vulnerability",
+        "exploit":      "Exploit",          "apt":            "APT",
+        "supply chain": "Supply Chain",     "zero-day":       "Zero-Day",
+        "0-day":        "Zero-Day",         "data breach":    "Data Breach",
+        "ddos":         "DDoS",             "botnet":         "Botnet",
+        "nation state": "Nation-State",     "critical infra": "Critical Infrastructure",
     }
     for keyword, label in threat_map.items():
-        if keyword in text:
+        if keyword in text and label not in labels:
             labels.append(label)
-    if iocs.get("cve"):
-        labels.append("CVE Analysis")
-    if iocs.get("sha256") or iocs.get("md5"):
-        labels.append("IOC Report")
-    return list(dict.fromkeys(labels))[:10]
 
+    # IOC-type labels
+    if isinstance(iocs, dict):
+        for ioc_type, ioc_list in iocs.items():
+            if ioc_list and f"IOC:{ioc_type.upper()}" not in labels:
+                labels.append(f"IOC:{ioc_type.upper()}")
 
-if __name__ == "__main__":
-    count = main()
-    # Exit 0 always — pipeline continues even if 0 new entries (dedup is valid)
-    sys.exit(0)
+    # Feed source label
+    if feed_source and feed_source not in labels:
+        labels.append(feed_source)
+
+    return list(dict.fromkeys(labels))  # deduplicate, preserve order
