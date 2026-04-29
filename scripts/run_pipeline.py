@@ -2151,8 +2151,15 @@ def stage_sync_root_feed_json() -> None:
                         _cdb_pub_at = _stix_ext.get("x_cdb_published_at", "")
                         ts          = intset.get("created", intset.get("modified", utc_now()))
                         # processed_at = STIX creation time (pipeline clock) — correct
-                        # published_at = source article date — recovered from custom extension
-                        _published_at_final = _cdb_pub_at if _cdb_pub_at else ts
+                        # published_at = source article date — recovered from custom extension.
+                        # PHASE 5 v2: if x_cdb_published_at is empty (pre-patch STIX or missing
+                        # _source_published_at), use the STIX 'created' timestamp (which is the
+                        # pipeline processing time for that specific entry — set by export_stix).
+                        # Do NOT fall back to utc_now() — that produces a single identical timestamp
+                        # for every entry in the run, making published_at useless for sorting.
+                        # Preference order: x_cdb_published_at > stix.created > stix.modified > ""
+                        _ts_fallback = (intset.get("created") or intset.get("modified") or "")
+                        _published_at_final = _cdb_pub_at if _cdb_pub_at else _ts_fallback
                         desc = intset.get("description", "")
                         # Actor resolution
                         raw_actor = intset.get("aliases", ["UNC-UNKNOWN"])[0]
