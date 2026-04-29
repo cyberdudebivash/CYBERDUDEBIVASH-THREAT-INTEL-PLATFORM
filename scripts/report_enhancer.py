@@ -108,6 +108,8 @@ def _tier_gate(content: str, tier_required: str, current_tier: str = "free") -> 
 
 def build_kill_chain_section(item: Dict) -> str:
     kc = item.get("kill_chain") or []
+    if not isinstance(kc, list):
+        kc = []
     severity = (item.get("severity") or "HIGH").upper()
     sev_col  = SEV_COLORS.get(severity, C_ORG)
 
@@ -122,7 +124,12 @@ def build_kill_chain_section(item: Dict) -> str:
     ]
 
     if kc:
-        phases = [(p.get("phase",""), p.get("description","")) for p in kc]
+        # v142.1: guard for string elements (phase as plain string instead of dict)
+        phases = [
+            (p.get("phase","") if isinstance(p, dict) else str(p),
+             p.get("description","") if isinstance(p, dict) else "")
+            for p in kc
+        ]
     else:
         phases = default_phases
 
@@ -193,11 +200,19 @@ def build_ioc_table_section(item: Dict) -> str:
 def build_detection_rules_section(item: Dict) -> str:
     sigma   = item.get("sigma_rule") or ""
     siem_q  = item.get("siem_queries") or {}
+    if not isinstance(siem_q, dict):
+        siem_q = {}
     item_id = item.get("id","unknown")[:16]
     iocs    = item.get("iocs") or []
-    domains = [i["value"] for i in iocs if i.get("type")=="domain"][:3]
-    ips     = [i["value"] for i in iocs if i.get("type")=="ipv4"][:3]
-    hashes  = [i["value"] for i in iocs if i.get("type") in ("sha256","md5")][:2]
+    # v142.1: normalise string IOCs to dict before .get() calls (matches _ioc_row fix)
+    _iocs_norm = [
+        {"type": "indicator", "value": i, "confidence": 50} if isinstance(i, str) else i
+        for i in (iocs if isinstance(iocs, list) else [])
+        if isinstance(i, (str, dict))
+    ]
+    domains = [i.get("value","") for i in _iocs_norm if isinstance(i, dict) and i.get("type")=="domain"][:3]
+    ips     = [i.get("value","") for i in _iocs_norm if isinstance(i, dict) and i.get("type")=="ipv4"][:3]
+    hashes  = [i.get("value","") for i in _iocs_norm if isinstance(i, dict) and i.get("type") in ("sha256","md5")][:2]
     actor   = item.get("actor_tag","Unknown Threat Actor")
 
     if not sigma:
@@ -305,6 +320,9 @@ def build_business_impact_section(item: Dict) -> str:
     sev_col      = SEV_COLORS.get(severity, C_ORG)
     sector       = item.get("target_sector","Financial Services")
     biz_impact   = item.get("business_impact") or {}
+    # v142.1: guard — business_impact may be a string in older manifest entries
+    if not isinstance(biz_impact, dict):
+        biz_impact = {}
     cost_str     = biz_impact.get("estimated_cost","4.5M average breach cost")
     regulatory   = biz_impact.get("regulatory_risk", ["ISO 27001","GDPR"])
     op_risk      = biz_impact.get("operational_risk","HIGH")
@@ -352,7 +370,16 @@ def build_business_impact_section(item: Dict) -> str:
 
 
 def build_defensive_matrix_section(item: Dict) -> str:
-    mitre = item.get("mitre_techniques") or item.get("ttps") or []
+    mitre = item.get("mitre_techniques") or item.get("ttps") or item.get("mitre_tactics") or []
+    if not isinstance(mitre, list):
+        mitre = []
+    # v142.1: mitre_tactics in manifest are dicts {"id":"T1566","name":"...","tactic":"..."}
+    # Normalise to string technique IDs for _mitre_name() / _nist_control() lookups
+    def _tech_id(t) -> str:
+        if isinstance(t, dict):
+            return t.get("id") or t.get("technique_id") or t.get("name", "T1566.001")
+        return str(t) if t else "T1566.001"
+    mitre_ids = [_tech_id(t) for t in mitre[:8]] or ["T1566.001","T1078","T1041"]
     rows = "".join(
         f'<tr style="border-bottom:1px solid #334155;">'
         f'<td style="padding:8px 12px;color:{C_PUR};font-family:monospace;font-size:11px;">{t}</td>'
@@ -362,7 +389,7 @@ def build_defensive_matrix_section(item: Dict) -> str:
         f'</td>'
         f'<td style="padding:8px 12px;color:{C_MUTED};font-size:11px;">{_nist_control(t)}</td>'
         f'</tr>'
-        for t in (mitre[:8] if mitre else ["T1566.001","T1078","T1041"])
+        for t in mitre_ids
     )
     content = (
         f'<table style="width:100%;border-collapse:collapse;">'
@@ -688,22 +715,20 @@ def run_enhancement(manifest_path: Path = MANIFEST_PATH, tier: str = "free") -> 
             stats["enhanced"] += 1
             log.info("Enhanced: %s [%s]", item_id[:16], severity)
 
-            # Generate PDF
+            # Generate PDF companion
             pdf_path = pdf_dir / f"{item_id}.pdf"
             if generate_pdf_report(item, enhanced_html, pdf_path):
                 stats["pdfs"] += 1
-                # Update manifest with PDF URL
-                item["pdf_url"]  = f"/reports/pdf/{item_id}.pdf"
+                item["pdf_url"]      = f"/reports/pdf/{item_id}.pdf"
                 item["pdf_available"] = True
 
         except Exception as e:
             log.error("Enhancement failed for %s: %s", item_id[:16], e)
             stats["errors"] += 1
 
-    # Write back updated manifest (with PDF URLs)
+    # Write back updated manifest (PDF URLs persisted)
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
-
     log.info("Enhancement complete: %d/%d enhanced | %d PDFs | %d errors",
              stats["enhanced"], stats["total"], stats["pdfs"], stats["errors"])
     return stats

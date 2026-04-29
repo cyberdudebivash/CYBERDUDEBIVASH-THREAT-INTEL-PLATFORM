@@ -657,15 +657,51 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     # feedparser exposes this as entry["published"] (string) or entry["published_parsed"] (struct_time).
     # We normalise to ISO-8601 string here and pass to create_bundle() as published_at.
     # This is the ONLY place published_at should be set — NEVER pipeline time.
-    _pub_raw = entry.get("published", "") or entry.get("published_at", "") or ""
-    _pub_parsed = entry.get("published_parsed")
-    if not _pub_raw and _pub_parsed:
+    #
+    # v142.1 P0 TIMESTAMP EXTRACTION — boolean-safe, RFC-2822-aware, ISO-8601 normalised.
+    #
+    # ROOT CAUSE CATALOGUE:
+    #   [A] export_stix.py writes "published": True  (boolean Blogger flag, NOT a date).
+    #       str(True) = "True" → invalid ISO-8601.  Guard: isinstance check.
+    #   [B] feedparser writes "published": "Tue, 21 Apr 2026 12:00:00 GMT" (RFC-2822).
+    #       Does NOT start with a 4-digit year → must convert via published_parsed.
+    #   [C] Our manifest already has "published_at": "2026-04-21T12:00:00Z" (ISO-8601).
+    #       Use directly.
+    #
+    # PIPELINE (priority order):
+    #   1. published_parsed struct_time → ISO-8601    (most reliable; feedparser always sets this)
+    #   2. published_at ISO string from manifest      (already normalised)
+    #   3. published string only if it IS ISO-8601    (rare; some APIs emit this directly)
+    from datetime import datetime as _dt, timezone as _tz
+
+    _pub_parsed  = entry.get("published_parsed")
+    _pub_str_raw = entry.get("published", "")
+    _pub_at_raw  = entry.get("published_at", "")
+
+    # Guard [A]: reject any non-string boolean flag (published=True)
+    if not isinstance(_pub_str_raw, str):
+        _pub_str_raw = ""
+    if not isinstance(_pub_at_raw, str):
+        _pub_at_raw = ""
+    _pub_str_raw = _pub_str_raw.strip()
+    _pub_at_raw  = _pub_at_raw.strip()
+
+    _source_published_at: str = ""
+
+    # Priority 1: published_parsed struct_time (feedparser always populates this from pubDate)
+    if _pub_parsed:
         try:
-            from datetime import datetime, timezone as _tz
-            _pub_raw = datetime(*_pub_parsed[:6], tzinfo=_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            _source_published_at = _dt(*_pub_parsed[:6], tzinfo=_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         except Exception:
-            _pub_raw = ""
-    _source_published_at: str = str(_pub_raw).strip()
+            _source_published_at = ""
+
+    # Priority 2: manifest published_at — already ISO-8601 (4-digit year)
+    if not _source_published_at and _pub_at_raw and _pub_at_raw[:4].isdigit():
+        _source_published_at = _pub_at_raw
+
+    # Priority 3: published string — only accept if it looks like ISO-8601 (starts with YYYY-)
+    if not _source_published_at and _pub_str_raw and _pub_str_raw[:4].isdigit():
+        _source_published_at = _pub_str_raw
 
     logger.info(f"PROCESSING: {headline[:80]}")
 
@@ -1137,6 +1173,7 @@ def _generate_smart_labels(
         labels.append(feed_source)
 
     return list(dict.fromkeys(labels))  # deduplicate, preserve order
+
 
 if __name__ == "__main__":
     count = main()

@@ -674,6 +674,13 @@ def fix_index_html(enriched):
             'validation_status': 'valid',
         })
     embedded_json = json.dumps(embed, separators=(',', ':'))
+    # SECURITY FIX (v142.1): Escape </script> and <!-- inside JSON string so the
+    # browser's HTML tokenizer never terminates the enclosing <script> block early.
+    # An intel advisory about a CSS/XSS vulnerability may contain "</script>" as an
+    # example exploit payload — without this escape, it pops an alert(1) dialog on
+    # every page load (observed: GHSA-qx2v-qp2 PostCSS advisory).
+    # The escaping is JSON-safe: <\/script> is valid JSON (forward-slash may be escaped).
+    embedded_json = embedded_json.replace("</script>", "<\\/script>").replace("<!--", "<\\!--")
 
     # RC-1: Replace EMBEDDED_INTEL line
     lines = html.splitlines(keepends=True)
@@ -767,8 +774,8 @@ def main():
     print(f'SENTINEL APEX MASTER P0 FIX  |  v{NEW_VERSION}  |  {NOW_UTC}')
     print('=' * 70)
     if not GOOD_HTML.exists():
-        err('FATAL: /tmp/index_good.html missing')
-        sys.exit(1)
+        log(f'[WARN] Backup HTML not found at {GOOD_HTML} — will use live index.html')
+
     enriched = fix_api_feed()
     fix_feed_manifest(enriched)
     fix_api_status(enriched)
@@ -778,16 +785,19 @@ def main():
     fix_index_html(enriched)
     fix_pipeline_guard()
 
+    print()
     print('=' * 70)
-    print(f'FIXES APPLIED: {len(fixes)}')
+    print(f'MASTER P0 FIX COMPLETE: {len(fixes)} fixes applied')
     for fx in fixes:
-        print(f'  [+] {fx}')
+        print(f'  OK  {fx}')
     if errors:
-        print(f'ERRORS: {len(errors)}')
-        for e in errors:
-            print(f'  [ERR] {e}')
+        print(f'  ERRORS: {len(errors)}')
+        for er in errors:
+            print(f'  ERR {er}')
     print('=' * 70)
+    return len(errors) == 0
 
 
 if __name__ == '__main__':
-    main()
+    ok = main()
+    sys.exit(0 if ok else 1)
