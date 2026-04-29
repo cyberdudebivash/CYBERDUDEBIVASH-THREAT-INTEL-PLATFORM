@@ -1137,3 +1137,8 @@ def _generate_smart_labels(
         labels.append(feed_source)
 
     return list(dict.fromkeys(labels))  # deduplicate, preserve order
+
+if __name__ == "__main__":
+    count = main()
+    # Exit 0 always — pipeline continues even if 0 new entries (dedup is valid)
+    sys.exit(0)
