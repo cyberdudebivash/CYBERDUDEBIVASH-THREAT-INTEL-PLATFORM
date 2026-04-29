@@ -2312,6 +2312,27 @@ def stage_sync_root_feed_json() -> None:
     except Exception as _p4_e:
         log.warning("[PHASE4] Manifest dedup error (non-fatal, continuing): %s", _p4_e)
 
+    # ---- PHASE 5 — Intel Quality Engine v142.0.0 (8-phase quality upgrade) ----
+    # Runs AFTER Phase 4 dedup gate, BEFORE feed.json write.
+    # Applies: 3-layer dedup, newness validation, enrichment, CVE spam control,
+    #          source balancing, dashboard truth validation, final assertions.
+    # Non-blocking: quality failures are logged but never kill the pipeline.
+    if manifest_items:
+        try:
+            from intel_quality_engine import apply_quality_pipeline as _apply_quality
+            _qe_before = len(manifest_items)
+            manifest_items = _apply_quality(manifest_items)
+            if not isinstance(manifest_items, list):
+                log.error("[PHASE5-QE] Quality engine returned non-list (%s) — resetting",
+                          type(manifest_items).__name__)
+                manifest_items = []
+            log.info("[PHASE5-QE] Quality engine complete: %d -> %d items",
+                     _qe_before, len(manifest_items))
+        except ImportError as _qe_imp_e:
+            log.warning("[PHASE5-QE] intel_quality_engine not available (%s) — skipped", _qe_imp_e)
+        except Exception as _qe_e:
+            log.warning("[PHASE5-QE] Quality engine error (non-fatal, continuing): %s", _qe_e)
+
     # ---- Step 6: Write to all target feed.json paths --------------------
     if not manifest_items:
         log.error("[3.9] CRITICAL: Zero entries after all fallbacks — feed.json will be empty")
@@ -2552,40 +2573,4 @@ def main() -> None:
         )
     else:
         log.info("[stage-audit] ALL %d registered stages completed. Pipeline integrity: FULL.",
-                 len(_STAGE_REGISTRY))
-
-    if elapsed < _BASELINE_RUNTIME_SECONDS:
-        log.warning(
-            "[stage-audit] EARLY EXIT WARNING: pipeline completed in %.1fs "
-            "(< %ds baseline). This may indicate silent stage skips. "
-            "Completed stages: %s",
-            elapsed, _BASELINE_RUNTIME_SECONDS, _completed_stages,
-        )
-    else:
-        log.info("[stage-audit] Runtime %.1fs >= %ds baseline. Normal execution confirmed.",
-                 elapsed, _BASELINE_RUNTIME_SECONDS)
-
-    # Mark final feed.json sync
-    _stage_done("feed_json_final")
-
-    log.info("=" * 70)
-    log.info("PIPELINE COMPLETE in %.1fs | Version: %s | %s",
-             elapsed, PIPELINE_VERSION, utc_now())
-    log.info("Stages completed: %d/%d  %s",
-             len(_completed_stages), len(_STAGE_REGISTRY),
-             "FULL" if not missing_stages else f"PARTIAL ({missing_stages})")
-    log.info("=" * 70)
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except SystemExit:
-        raise   # Allow hard-fail exits to propagate
-    except Exception as e:
-        import traceback
-        log.critical(
-            "UNHANDLED EXCEPTION in run_pipeline.py -- exiting 1:\n%s\n%s",
-            e, traceback.format_exc()
-        )
-        sys.exit(1)
+                 len(_STAG
