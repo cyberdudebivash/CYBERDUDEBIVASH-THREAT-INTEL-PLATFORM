@@ -875,6 +875,19 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     if not _source_published_at and _pub_str_raw and _pub_str_raw[:4].isdigit():
         _source_published_at = _pub_str_raw
 
+    # Priority 4: RFC 2822 date string (e.g. "Tue, 29 Apr 2026 12:27:00 +0000")
+    # feedparser sets published_parsed for live RSS entries but it is a time.struct_time
+    # that cannot round-trip through JSON.  When entries are re-processed from a cached
+    # manifest, published_parsed is absent and published contains the raw RFC 2822 string.
+    # Without this pass, _source_published_at stays "" → x_cdb_published_at="" in STIX →
+    # Stage 3.9 falls back to utc_now() → all published_at timestamps show pipeline time.
+    if not _source_published_at and _pub_str_raw:
+        try:
+            from email.utils import parsedate_to_datetime as _parse_rfc2822
+            _source_published_at = _parse_rfc2822(_pub_str_raw).strftime("%Y-%m-%dT%H:%M:%SZ")
+        except Exception:
+            pass  # leave empty — prefer missing over wrong
+
     logger.info(f"PROCESSING: {headline[:80]}")
 
     # -- STEP 1: Source article -----------------------------------------------
