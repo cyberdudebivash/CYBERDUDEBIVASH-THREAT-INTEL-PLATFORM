@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/validate_repo.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Repository Validator
+CYBERDUDEBIVASH(R) SENTINEL APEX v141.8.0 -- Repository Validator
 ==================================================================
 HARD SCHEMA VALIDATION GATE — NO AUTO-HEAL.
 FINAL VALIDATION GATE -- runs after all other pipeline steps.
@@ -482,7 +482,144 @@ def check_intel_schema() -> CheckResult:
 
 
 # ---------------------------------------------------------------------------
-# Check 7: No stale .tmp files (v134)
+# Check 7: Feed structural integrity — prevent tuple-corruption reaching R2
+# ---------------------------------------------------------------------------
+# P0-CRITICAL v141.8.0: enforce_manifest_uniqueness() returns Tuple[List,int].
+# If the caller does a bare assignment (manifest_items = dedup(items)) the whole
+# tuple is serialised as [[...N items...], 0] — a 2-element JSON array.
+# The downstream dashboard sees len == 2 → "2 advisories", all stats zeroed.
+#
+# This check is the LAST SAFETY NET before R2 upload.  If it fires here, the
+# commit that broke the tuple-unpacking has already slipped past unit tests.
+# The check HARD-FAILs so the GHA step exits 1 and R2 upload is NEVER reached.
+
+_FEED_STRUCTURAL_MIN_ENTRIES = 5        # tolerate cold starts / empty pipelines
+_FEED_SUSPICIOUS_COUNT = 3             # ≤ this many entries = almost certainly corrupted
+
+
+def check_feed_structural_integrity() -> CheckResult:
+    """
+    Check 7: Hard guard against tuple-serialisation corruption in feed.json.
+
+    Failure conditions (HARD FAIL, exit 1, blocks R2 upload):
+      A. feed.json root is not a JSON array              → corrupted type
+      B. feed.json contains ≤ _FEED_SUSPICIOUS_COUNT items AND at least one
+         element is itself a list (tuple serialisation detected)
+      C. feed.json has exactly 2 elements where [0] is a list (canonical tuple bug)
+
+    Pass conditions:
+      - File absent or empty  → WARNING, not fail (cold-start or gitignored on CI)
+      - Valid list of ≥ threshold dicts → OK
+      - Small list (< threshold) of all-dicts → OK (early pipeline, few real sources)
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    feed_candidates = [
+        REPO_ROOT / "api" / "feed.json",
+        REPO_ROOT / "feed.json",
+        REPO_ROOT / "data" / "feed.json",
+    ]
+
+    checked = 0
+    for feed_path in feed_candidates:
+        if not feed_path.exists():
+            warnings.append(f"{feed_path.name} not found (gitignored/not yet generated)")
+            continue
+        sz = feed_path.stat().st_size
+        if sz == 0:
+            warnings.append(f"{feed_path.name} is 0 bytes (empty — skipped)")
+            continue
+
+        checked += 1
+        rel = str(feed_path.relative_to(REPO_ROOT))
+
+        try:
+            raw = json.loads(feed_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            errors.append(f"{rel}: invalid JSON — {e}")
+            continue
+
+        # --- Corruption check A: root must be a list -------------------------
+        if not isinstance(raw, list):
+            errors.append(
+                f"{rel}: STRUCTURAL CORRUPTION — root is {type(raw).__name__}, "
+                "expected list. Feed write path has a type bug."
+            )
+            continue
+
+        count = len(raw)
+        log.info("[feed_structural] %s: root=list, count=%d", rel, count)
+
+        # --- Corruption check C: canonical tuple bug -------------------------
+        # Tuple[List[dict], int] → [[...N items...], 0]
+        # len == 2, raw[0] is list, raw[1] is int
+        if (
+            count == 2
+            and isinstance(raw[0], list)
+            and isinstance(raw[1], int)
+        ):
+            errors.append(
+                f"{rel}: *** TUPLE CORRUPTION DETECTED *** "
+                f"feed.json = [list({len(raw[0])} items), {raw[1]}]. "
+                "Root cause: enforce_manifest_uniqueness() returns Tuple[List,int] "
+                "but result was assigned without unpacking. "
+                "Fix: manifest_items, removed = dedup(items)  (not manifest_items = dedup(items))."
+            )
+            continue
+
+        # --- Corruption check B: suspiciously few entries with nested lists --
+        if count <= _FEED_SUSPICIOUS_COUNT:
+            has_list_element = any(isinstance(el, list) for el in raw)
+            if has_list_element:
+                errors.append(
+                    f"{rel}: STRUCTURAL CORRUPTION — {count} entries, at least one "
+                    "element is a list (tuple serialisation). Expected list of dicts."
+                )
+                continue
+            # Genuinely small feed (cold start, first run)
+            warnings.append(
+                f"{rel}: only {count} entries — very small feed (cold-start or new pipeline?). "
+                "Non-fatal; first elements appear to be dicts."
+            )
+            continue
+
+        # --- Element-level spot-check (first & last) -------------------------
+        spot_errors: list[str] = []
+        for spot_idx in ([0, count - 1] if count > 1 else [0]):
+            elem = raw[spot_idx]
+            if not isinstance(elem, dict):
+                spot_errors.append(
+                    f"{rel}[{spot_idx}]: element is {type(elem).__name__}, expected dict"
+                )
+        if spot_errors:
+            errors.extend(spot_errors)
+            continue
+
+        log.info("[feed_structural] %s: OK — %d entries, root type=list, "
+                 "spot-check dicts verified", rel, count)
+
+    if not checked:
+        detail = "; ".join(warnings) if warnings else "No feed.json files present (gitignored — OK on CI)"
+        return CheckResult("feed_structural", True, detail)
+
+    if errors:
+        for e in errors:
+            log.error("[feed_structural] HARD FAIL: %s", e)
+        return CheckResult(
+            "feed_structural", False,
+            f"HARD FAIL: {len(errors)} structural corruption(s) in feed.json. "
+            "R2 upload BLOCKED. " + " | ".join(errors[:2])
+        )
+
+    ok_msg = f"feed.json structural integrity OK — {checked} file(s) checked."
+    if warnings:
+        ok_msg += f" Warnings: {'; '.join(warnings[:2])}"
+    return CheckResult("feed_structural", True, ok_msg)
+
+
+# ---------------------------------------------------------------------------
+# Check 8: No stale .tmp files (v134)
 # ---------------------------------------------------------------------------
 
 def check_no_stale_tmp() -> CheckResult:
@@ -600,7 +737,7 @@ def check_no_write_failures() -> CheckResult:
 
 def main() -> None:
     log.info("=" * 60)
-    log.info("SENTINEL APEX -- Repository Validator v134.0.0")
+    log.info("SENTINEL APEX -- Repository Validator v141.8.0")
     log.info("=" * 60)
 
     os.chdir(REPO_ROOT)
@@ -611,9 +748,10 @@ def main() -> None:
         check_python_syntax,
         check_json,
         check_workflow_clean,
-        check_intel_schema,       # v134 Check 6: HARD schema gate (zero tolerance)
-        check_no_stale_tmp,       # v134 Check 7: no abandoned .tmp files
-        check_no_write_failures,  # v134 Check 8: write_failures.jsonl absent/empty
+        check_intel_schema,               # v134 Check 6: HARD schema gate (zero tolerance)
+        check_feed_structural_integrity,  # v141.8 Check 7: tuple-corruption guard (BLOCKS R2 upload)
+        check_no_stale_tmp,               # v134 Check 8: no abandoned .tmp files
+        check_no_write_failures,          # v134 Check 9: write_failures.jsonl absent/empty
     ]
 
     results: list[CheckResult] = []
