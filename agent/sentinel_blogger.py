@@ -368,6 +368,39 @@ def main():
     except Exception as _eng_pre_e:
         logger.debug("[DEDUP-L0] Pre-load unavailable: %s", _eng_pre_e)
 
+    # -- Phase 1+2: Source State Tracker + Intel Fingerprint Store -----------
+    # Phase 1 (source_state_tracker): per-feed published_at timestamp gate
+    # Phase 2 (intel_fingerprint):    SHA256(source_url+title+published_at) gate
+    _sst = None   # SourceStateTracker
+    _fps = None   # IntelFingerprintStore
+    try:
+        import sys as _sys_p12
+        _scripts_dir_p12 = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts")
+        if _scripts_dir_p12 not in _sys_p12.path:
+            _sys_p12.path.insert(0, _scripts_dir_p12)
+        from source_state_tracker import get_source_state_tracker as _get_sst
+        _sst = _get_sst()
+        logger.info("[DEDUP-L1] SourceStateTracker loaded (%d source states)", len(_sst._state))
+    except Exception as _sst_e:
+        logger.warning("[DEDUP-L1] SourceStateTracker unavailable: %s", _sst_e)
+    try:
+        from intel_fingerprint import get_fingerprint_store as _get_fps
+        _fps = _get_fps()
+        logger.info("[DEDUP-L2] IntelFingerprintStore loaded (%d fingerprints)", len(_fps))
+    except Exception as _fps_e:
+        logger.warning("[DEDUP-L2] IntelFingerprintStore unavailable: %s", _fps_e)
+
+    # Phase 7: Load consecutive stall counter from disk
+    _STALL_STATE_PATH = os.path.join("data", "pipeline_stall_state.json")
+    _consecutive_stall_count = 0
+    try:
+        if os.path.exists(_STALL_STATE_PATH):
+            _stall_raw = json.loads(open(_STALL_STATE_PATH).read())
+            _consecutive_stall_count = int(_stall_raw.get("consecutive_empty_runs", 0))
+            logger.info("[PHASE7] Consecutive empty runs so far: %d", _consecutive_stall_count)
+    except Exception as _stall_load_e:
+        logger.debug("[PHASE7] Stall state load error (non-fatal): %s", _stall_load_e)
+
     # -- PHASE 1: Primary CDB Feed -------------------------------------------
     logger.info("--- PHASE 1: Primary CDB Intelligence Feed ---")
     _ph1_start = time.monotonic()
@@ -417,6 +450,28 @@ def main():
             except Exception as _qe:
                 logger.debug(f"  Quality gate error (non-critical): {_qe}")
 
+        # Phase 1: Source state published_at timestamp check
+        if _sst:
+            try:
+                _sst_skip, _sst_reason = _sst.should_skip(entry)
+                if _sst_skip:
+                    logger.info(f"  [STATE-SKIP/L1] {_sst_reason[:60]}: {entry['title'][:50]}")
+                    _sst.update_skip_count(entry.get("link") or entry.get("source_url", ""))
+                    time.sleep(RATE_LIMIT_DELAY)
+                    continue
+            except Exception as _sst_ck_e:
+                logger.debug("[DEDUP-L1] should_skip error (non-fatal): %s", _sst_ck_e)
+        # Phase 2: SHA256 content fingerprint check
+        if _fps:
+            try:
+                _fp_dup, _fp_hash = _fps.check_entry(entry)
+                if _fp_dup:
+                    logger.info(f"  [FPRINT-SKIP/L2] fingerprint seen: {entry['title'][:50]}")
+                    time.sleep(RATE_LIMIT_DELAY)
+                    continue
+            except Exception as _fps_ck_e:
+                logger.debug("[DEDUP-L2] check_entry error (non-fatal): %s", _fps_ck_e)
+
         try:
             result = process_entry(entry, feed_source="CyberDudeBivash Intel")
         except Exception as _pe:
@@ -429,6 +484,18 @@ def main():
                     _intel_engine_early.mark_seen(entry)
                 except Exception:
                     pass
+            # Phase 1+2: Mark as processed in state trackers
+            if _sst:
+                try:
+                    _sst.mark_processed(entry)
+                except Exception as _sst_mp_e:
+                    logger.debug("[DEDUP-L1] mark_processed error: %s", _sst_mp_e)
+            if _fps:
+                try:
+                    from intel_fingerprint import fingerprint_from_entry as _fp_from_e
+                    _fps.mark_seen(_fp_from_e(entry))
+                except Exception as _fps_mp_e:
+                    logger.debug("[DEDUP-L2] mark_seen error: %s", _fps_mp_e)
         time.sleep(RATE_LIMIT_DELAY)
 
     # -- PHASE 2: Multi-Feed Fusion ------------------------------------------
@@ -519,6 +586,26 @@ def main():
                 except Exception as _qe:
                     logger.debug(f"  Quality gate error (non-critical): {_qe}")
 
+            # Phase 1: Source state published_at timestamp check
+            if _sst:
+                try:
+                    _sst_skip2, _sst_reason2 = _sst.should_skip(entry)
+                    if _sst_skip2:
+                        logger.info(f"  [STATE-SKIP/L1] {_sst_reason2[:60]}: {entry['title'][:50]}")
+                        _sst.update_skip_count(entry.get("link") or entry.get("source_url", ""))
+                        continue
+                except Exception as _sst_ck2_e:
+                    logger.debug("[DEDUP-L1] should_skip error (non-fatal): %s", _sst_ck2_e)
+            # Phase 2: SHA256 content fingerprint check
+            if _fps:
+                try:
+                    _fp_dup2, _fp_hash2 = _fps.check_entry(entry)
+                    if _fp_dup2:
+                        logger.info(f"  [FPRINT-SKIP/L2] fingerprint seen: {entry['title'][:50]}")
+                        continue
+                except Exception as _fps_ck2_e:
+                    logger.debug("[DEDUP-L2] check_entry error (non-fatal): %s", _fps_ck2_e)
+
             try:
                 result = process_entry(entry, feed_source=_resolve_feed_source_name(feed_url))
             except Exception as _pe:
@@ -532,6 +619,18 @@ def main():
                         _intel_engine.mark_seen(entry)
                     except Exception as _ms_e:
                         logger.debug("[DEDUP-L0] mark_seen error (non-fatal): %s", _ms_e)
+                # Phase 1+2: Mark as processed in state trackers
+                if _sst:
+                    try:
+                        _sst.mark_processed(entry)
+                    except Exception as _sst_mp2_e:
+                        logger.debug("[DEDUP-L1] mark_processed error: %s", _sst_mp2_e)
+                if _fps:
+                    try:
+                        from intel_fingerprint import fingerprint_from_entry as _fp_from_e2
+                        _fps.mark_seen(_fp_from_e2(entry))
+                    except Exception as _fps_mp2_e:
+                        logger.debug("[DEDUP-L2] mark_seen error: %s", _fps_mp2_e)
 
         # v141.4.0 — Update FeedStateTracker with this feed's batch (post-processing)
         if _feed_tracker and entries:
@@ -553,6 +652,79 @@ def main():
             _intel_engine.save()
         except Exception as _ie_save_e:
             logger.debug("[DEDUP-L0] IntelDedupEngine.save() error: %s", _ie_save_e)
+
+    # Phase 1+2: Persist state trackers (before final summary)
+    if _sst:
+        try:
+            _sst.save()
+            logger.info("[DEDUP-L1] SourceStateTracker persisted to data/source_state.json")
+        except Exception as _sst_save_e:
+            logger.warning("[DEDUP-L1] SourceStateTracker save failed: %s", _sst_save_e)
+    if _fps:
+        try:
+            _fps.save()
+            logger.info("[DEDUP-L2] IntelFingerprintStore persisted to data/processed_fingerprints.json")
+        except Exception as _fps_save_e:
+            logger.warning("[DEDUP-L2] IntelFingerprintStore save failed: %s", _fps_save_e)
+
+    # Phase 3: NO NEW INTEL guard
+    if published_count == 0:
+        logger.warning(
+            "[PHASE3] ⚠️ NO NEW INTEL DETECTED — 0 new advisories processed this run. "
+            "All entries were either duplicate, stale, or filtered."
+        )
+
+    # Phase 6: Structured run summary with dedup counters
+    _sst_stats = _sst.get_stats() if _sst else {}
+    _fps_stats = _fps.get_stats() if _fps else {}
+    _l0_stats  = _intel_engine_early.get_stats() if (
+        _intel_engine_early and hasattr(_intel_engine_early, "get_stats")
+    ) else {}
+    logger.info(
+        "[PHASE6] ═══ INGESTION SUMMARY ═══ "
+        "feeds_checked=%d | new_published=%d | "
+        "state_skipped=%d | fprint_skipped=%d | dedup_skipped=%s",
+        len(RSS_FEEDS) + 1,
+        published_count,
+        _sst_stats.get("skipped_this_run", 0),
+        _fps_stats.get("skipped_this_run", 0),
+        str(_l0_stats.get("total_duplicates_blocked", "n/a")),
+    )
+
+    # Phase 7: Consecutive stall detection + INGESTION STALLED alert
+    try:
+        if published_count == 0:
+            _consecutive_stall_count += 1
+        else:
+            _consecutive_stall_count = 0   # reset counter on any success
+        _stall_payload = {
+            "consecutive_empty_runs": _consecutive_stall_count,
+            "last_updated":           time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "last_run_published":     published_count,
+        }
+        os.makedirs("data", exist_ok=True)
+        with open(_STALL_STATE_PATH, "w", encoding="utf-8") as _stall_f:
+            json.dump(_stall_payload, _stall_f, indent=2)
+        if _consecutive_stall_count >= 2:
+            logger.critical(
+                "[PHASE7] 🚨 INGESTION STALLED — %d consecutive runs with 0 new intel. "
+                "ACTION REQUIRED: verify feed URLs, check source_state.json and intel_index.json, "
+                "confirm network connectivity to feed sources.",
+                _consecutive_stall_count,
+            )
+            try:
+                send_pipeline_summary(
+                    published=0,
+                    failed=_consecutive_stall_count,
+                    critical=1,
+                    run_ts=time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()),
+                )
+            except Exception:
+                pass
+        else:
+            logger.info("[PHASE7] Stall counter=%d (alert threshold: 2)", _consecutive_stall_count)
+    except Exception as _stall_e:
+        logger.debug("[PHASE7] Stall tracking error (non-fatal): %s", _stall_e)
 
     logger.info("=" * 70)
     logger.info(f"APEX v134.0 COMPLETE — Processed {published_count} intel advisories (R2-only)")
@@ -931,6 +1103,57 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
         )
     except Exception as _apex_e:
         logger.debug("[APEX-INTEL] Enrichment unavailable (non-fatal): %s", _apex_e)
+
+    # PHASE 9 FIX: Dynamic SOC priority from risk_score when APEX engine is unavailable.
+    # Root cause: apex_intel_engine fails to import → _apex_data={} → _comp_score=0.0
+    #             → priority formula always produces P4 regardless of actual risk_score.
+    # Fix: when _apex_data is empty/missing, derive priority from authoritative risk_score.
+    if not _apex_data:
+        _pri_fallback = (
+            "P1" if risk_score >= 9.0 else
+            "P2" if risk_score >= 7.0 else
+            "P3" if risk_score >= 5.0 else "P4"
+        )
+        _tl_fallback = (
+            "CRITICAL" if risk_score >= 9.0 else
+            "HIGH"     if risk_score >= 7.0 else
+            "MEDIUM"   if risk_score >= 5.0 else "LOW"
+        )
+        _apex_data = {
+            "composite_score":    float(risk_score),
+            "priority_score":     float(risk_score),
+            "priority":           _pri_fallback,
+            "threat_level":       _tl_fallback,
+            "threat_category":    "Threat Intel",
+            "campaign_id":        "UNCLASSIFIED",
+            "behavioral_tags":    [],
+            "ai_summary":         "",
+            "recommended_action": "",
+            "risk_factors":       [],
+            "apex_intelligence":  {},
+        }
+        logger.info(
+            "[PHASE9] APEX fallback priority: risk_score=%.1f → priority=%s threat_level=%s",
+            risk_score, _pri_fallback, _tl_fallback,
+        )
+    elif not _apex_data.get("priority") or _apex_data.get("priority") == "P4":
+        # Additional guard: re-derive priority if score was set but priority formula produced P4
+        # and the underlying risk_score is actually higher (apex_intel_engine produced low comp_score)
+        _comp_score_check = float(_apex_data.get("composite_score", 0.0))
+        if _comp_score_check < 5.0 and risk_score >= 5.0:
+            _pri_override = (
+                "P1" if risk_score >= 9.0 else
+                "P2" if risk_score >= 7.0 else
+                "P3" if risk_score >= 5.0 else "P4"
+            )
+            if _pri_override != _apex_data.get("priority"):
+                _apex_data["priority"] = _pri_override
+                _apex_data["composite_score"] = float(risk_score)
+                _apex_data["priority_score"]  = float(risk_score)
+                logger.info(
+                    "[PHASE9] Priority override: apex_comp=%.1f < risk_score=%.1f → priority=%s",
+                    _comp_score_check, risk_score, _pri_override,
+                )
 
     # -- STEP 7e: Phase 6 HARD QUALITY GATE (v134.0) -------------------------
     # POLICY: NO WEAK INTEL — hard reject based on post-enrichment metrics.
