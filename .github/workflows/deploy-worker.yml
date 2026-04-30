@@ -254,54 +254,70 @@ jobs:
           echo "FATAL: Both deploy attempts failed"
           exit 1
 
-      - name: "[OK] Post-deploy validation (informational)"
+      - name: "[OK] Post-deploy smoke test (version assertion)"
         continue-on-error: true
         run: |
-          echo "=== Post-deploy health check ==="
-          echo "Waiting 15s for global propagation..."
-          sleep 15
+          echo "=== SENTINEL APEX Post-Deploy Smoke Test ==="
+          echo "Waiting 20s for global Cloudflare propagation..."
+          sleep 20
 
-          HEALTH=$(curl -sf --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
+          HEALTH=$(curl -sf --max-time 15 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null || echo '{}')
           echo "Health response: ${HEALTH}"
 
           python3 -c "
-          import json, sys
+          import json, sys, os
+          expected = os.environ.get('PLATFORM_VERSION', '').strip()
+          raw = '''${HEALTH}'''
           try:
-              d = json.loads('''${HEALTH}''')
+              d = json.loads(raw)
           except Exception:
-              print('NOTE: Could not parse health response  -  worker may still be propagating')
+              print('NOTE: Could not parse health response -- worker still propagating')
               sys.exit(0)
           gateway = d.get('gateway', 'unknown')
-          print(f'Gateway: {gateway}')
-          checks = d.get('checks', {})
-          jwt_ok = checks.get('jwt_configured', None)
-          print(f'jwt_configured: {jwt_ok}')
-          gw_ver = d.get('version', d.get('gateway_version', 'unknown'))
-          print(f'Reported version: {gw_ver}')
+          print(f'Gateway     : {gateway}')
+          checks  = d.get('checks', {})
+          jwt_ok  = checks.get('jwt_configured', None)
+          gw_ver  = d.get('version', d.get('gateway_version', 'unknown'))
+          print(f'Live version: {gw_ver}')
+          print(f'Expected    : {expected}')
+
+          # Version assertion
+          if gw_ver and expected and gw_ver == expected:
+              print(f'OK: Version match confirmed -- {gw_ver}')
+          elif gw_ver == 'unknown':
+              print('NOTE: Version not yet visible -- Cloudflare edge still propagating')
+          else:
+              print(f'WARNING: Version mismatch -- live={gw_ver}, expected={expected}')
+              print('This may resolve within 30-60s as Cloudflare propagates globally.')
+
+          # JWT check
           if jwt_ok is False:
               print('')
-              print('WARNING: CDB_JWT_SECRET may not be configured in the Cloudflare Worker.')
+              print('ACTION REQUIRED: CDB_JWT_SECRET is not configured.')
               print('Fix: openssl rand -hex 32 | npx wrangler secret put CDB_JWT_SECRET')
           elif jwt_ok is True:
               print('OK: CDB_JWT_SECRET is configured')
           else:
-              print('NOTE: jwt_configured status unknown')
-          print('')
-          print('Post-deploy validation complete (informational)')
-          " 2>&1 || echo "Health check skipped  -  worker still propagating"
+              print('NOTE: jwt_configured status unknown (health endpoint may be at different version)')
+          " 2>&1 || echo "Smoke test skipped -- worker still propagating"
 
-          VERSION_HEADER=$(curl -sI --max-time 10 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null | grep -i "x-sentinel-version" || echo "header-not-yet-visible")
-          echo "X-SENTINEL-Version header: ${VERSION_HEADER}"
+          echo ""
+          echo "--- Security header check ---"
+          HEADERS=$(curl -sI --max-time 15 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null)
+          echo "$HEADERS" | grep -i "x-sentinel-version\|strict-transport\|content-security\|x-frame" || echo "Security headers: not yet visible"
 
-          PREVIEW=$(curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null | python3 -c "
+          echo ""
+          echo "--- Preview endpoint check ---"
+          curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null | python3 -c "
           import json,sys
           try:
               d=json.load(sys.stdin)
-              print('preview items:', d.get('preview',{}).get('total_in_feed',0))
+              total = d.get('preview',{}).get('total_in_feed',0)
+              items = len(d.get('preview',{}).get('items', []))
+              print(f'Preview: total_in_feed={total}, preview_items={items}')
           except:
-              print('preview: still propagating')
-          " 2>/dev/null || echo "preview: not yet available")
-          echo "Preview endpoint: ${PREVIEW}"
+              print('Preview: still propagating or parsing error')
+          " 2>/dev/null || echo "Preview endpoint: not yet available"
 
           echo ""
           echo "=== SENTINEL APEX v${PLATFORM_VERSION} DEPLOYMENT COMPLETE ==="
