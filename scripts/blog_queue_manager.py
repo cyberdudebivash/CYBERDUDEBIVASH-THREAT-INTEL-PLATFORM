@@ -318,14 +318,14 @@ def main() -> int:
 
     elif args.cmd == "retry":
         stats = retry_queue(max_posts_per_run=args.max)
-        print(json.dumps(stats, indent=2))
+        print(json.dumps(stats, indent=2, ensure_ascii=False))
 
     elif args.cmd == "status":
-        print(json.dumps(queue_status(), indent=2))
+        print(json.dumps(queue_status(, ensure_ascii=False), indent=2))
 
     elif args.cmd == "list-dead":
         dead = load_dead_letter()
-        print(json.dumps(dead, indent=2))
+        print(json.dumps(dead, indent=2, ensure_ascii=False))
 
     else:
         parser.print_help()

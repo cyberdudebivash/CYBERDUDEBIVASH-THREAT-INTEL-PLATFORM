@@ -159,7 +159,7 @@ class CircuitBreaker:
         try:
             CIRCUIT_BREAKER.parent.mkdir(parents=True, exist_ok=True)
             CIRCUIT_BREAKER.write_text(
-                json.dumps(self._state, indent=2), encoding="utf-8"
+                json.dumps(self._state, indent=2, ensure_ascii=False), encoding="utf-8"
             )
         except Exception as exc:
             log.error("[CIRCUIT-BREAKER] Save failed: %s", exc)

@@ -79,7 +79,7 @@ TIER_UPSELL = {
 # ── Telegram API ──────────────────────────────────────────────────────────────
 def tg_request(token: str, method: str, payload: dict) -> dict:
     url = TG_API_BASE.format(token=token) + f"/{method}"
-    body = json.dumps(payload).encode()
+    body = json.dumps(payload, ensure_ascii=False).encode()
     req = urllib.request.Request(url, data=body,
                                   headers={"Content-Type": "application/json"})
     try:

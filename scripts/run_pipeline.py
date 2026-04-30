@@ -466,7 +466,7 @@ def stage_purge_publish_queue() -> None:
             "_cleared_by": "run_pipeline.py",
         }
         queue_path.parent.mkdir(parents=True, exist_ok=True)
-        queue_path.write_text(json.dumps(empty, indent=2), encoding="utf-8")
+        queue_path.write_text(json.dumps(empty, indent=2, ensure_ascii=False), encoding="utf-8")
         log.info("[0.5] publish_queue.json cleared (was %d entries).", count)
     except Exception as e:
         log.warning("[0.5] Queue purge failed (non-fatal): %s", e)
@@ -710,7 +710,7 @@ def stage_v70_orchestrator() -> None:
         }
         try:
             Path("/tmp/v70_result.json").write_text(
-                json.dumps(fallback, indent=2), encoding="utf-8"
+                json.dumps(fallback, indent=2, ensure_ascii=False), encoding="utf-8"
             )
         except Exception as e:
             log.warning("[2.1] Could not write fallback v70 result: %s", e)
@@ -2484,6 +2484,42 @@ def main() -> None:
         log.debug("[stage-registry] completed: %s (%d/%d)",
                   name, len(_completed_stages), len(_STAGE_REGISTRY))
 
+    # ---- Phase 8 Pre-flight: Self-Healing Guard (v142.3.0) ------------------
+    # Runs BEFORE any stage — detects and repairs corrupted data files
+    try:
+        import importlib.util as _p8pre_ilu
+        _p8pre_spec = _p8pre_ilu.spec_from_file_location(
+            "self_healing_guard",
+            REPO_ROOT / "scripts" / "self_healing_guard.py",
+        )
+        _p8pre_mod = _p8pre_ilu.module_from_spec(_p8pre_spec)
+        _p8pre_spec.loader.exec_module(_p8pre_mod)
+        for _p8pre_rel in ["api/feed.json", "data/stix/feed_manifest.json"]:
+            _p8pre_abs = REPO_ROOT / _p8pre_rel.replace("/", os.sep)
+            if _p8pre_abs.exists():
+                _p8pre_ok, _p8pre_reason = _p8pre_mod.is_healthy(str(_p8pre_abs), _p8pre_rel)
+                if not _p8pre_ok:
+                    log.warning("[p8-preflight] %s corrupted (%s) — attempting self-heal", _p8pre_rel, _p8pre_reason)
+                    if _p8pre_rel == "api/feed.json":
+                        _p8pre_healed, _p8pre_msg = _p8pre_mod.rebuild_api_feed(str(REPO_ROOT))
+                        if _p8pre_healed:
+                            log.info("[p8-preflight] api/feed.json rebuilt: %s", _p8pre_msg)
+                        else:
+                            log.error("[p8-preflight] api/feed.json rebuild failed: %s", _p8pre_msg)
+                    else:
+                        _p8pre_bkp = _p8pre_mod.find_latest_backup(
+                            str(REPO_ROOT / "data" / "audit" / "backups"),
+                            "data_stix_feed_manifest.json"
+                        )
+                        if _p8pre_bkp:
+                            import shutil as _p8pre_sh
+                            _p8pre_sh.copy2(_p8pre_bkp, str(_p8pre_abs))
+                            log.info("[p8-preflight] manifest restored from %s", os.path.basename(_p8pre_bkp))
+                        else:
+                            log.error("[p8-preflight] No manifest backup found — manual repair required")
+    except Exception as _p8pre_e:
+        log.warning("[p8-preflight] Self-healing guard skipped (non-fatal): %s", _p8pre_e)
+
     # ---- Pre-flight -------------------------------------------------------
     stage_file_integrity_guard()         # PHASE 0: file size/syntax/null-byte pre-check (HARD FAIL)
     _stage_done("file_integrity_guard")
@@ -2663,6 +2699,89 @@ def main() -> None:
 
     # Mark final feed.json sync
     _stage_done("feed_json_final")
+
+    # ---- Phase 6-9: Data Consistency & Encoding Gate (v142.3.0) ---------------
+    # Phase 6: API <-> Dashboard Contract Validator
+    try:
+        import importlib.util as _p6_ilu
+        _p6_spec = _p6_ilu.spec_from_file_location(
+            "api_dashboard_contract_validator",
+            REPO_ROOT / "scripts" / "api_dashboard_contract_validator.py",
+        )
+        _p6_mod = _p6_ilu.module_from_spec(_p6_spec)
+        _p6_spec.loader.exec_module(_p6_mod)
+        _p6_report_path = str(REPO_ROOT / "data" / "audit" / "contract_validation.json")
+        _p6_errors, _p6_warnings, _p6_stats = _p6_mod.validate(str(REPO_ROOT), 50)
+        if _p6_errors:
+            log.error("[p6-contract] %d contract violation(s): %s", len(_p6_errors), _p6_errors[:3])
+        else:
+            log.info("[p6-contract] PASS — API<->Dashboard contract valid (%d top entries match)",
+                     _p6_stats.get("top_n_checked", 0))
+    except Exception as _p6_e:
+        log.warning("[p6-contract] Skipped (non-fatal): %s", _p6_e)
+
+    # Phase 7: Output Validation Gate
+    try:
+        import importlib.util as _p7_ilu
+        _p7_spec = _p7_ilu.spec_from_file_location(
+            "output_validation_gate",
+            REPO_ROOT / "scripts" / "output_validation_gate.py",
+        )
+        _p7_mod = _p7_ilu.module_from_spec(_p7_spec)
+        _p7_spec.loader.exec_module(_p7_mod)
+        _p7_errors, _p7_warnings, _p7_report = [], [], {}
+        # Call check_file directly for each critical output
+        _p7_api_entries  = _p7_mod.check_file(
+            str(REPO_ROOT / "api" / "feed.json"), "api/feed.json",
+            _p7_errors, _p7_warnings, cap=500)
+        _p7_mfst_entries = _p7_mod.check_file(
+            str(REPO_ROOT / "data" / "stix" / "feed_manifest.json"), "feed_manifest.json",
+            _p7_errors, _p7_warnings)
+        if _p7_errors:
+            log.error("[p7-gate] Output validation FAIL: %s", _p7_errors[:3])
+        else:
+            log.info("[p7-gate] PASS — api=%d entries, manifest=%d entries",
+                     len(_p7_api_entries), len(_p7_mfst_entries))
+    except Exception as _p7_e:
+        log.warning("[p7-gate] Skipped (non-fatal): %s", _p7_e)
+
+    # Phase 8: Self-Healing Guard (backup fresh known-good state)
+    try:
+        import importlib.util as _p8_ilu
+        _p8_spec = _p8_ilu.spec_from_file_location(
+            "self_healing_guard",
+            REPO_ROOT / "scripts" / "self_healing_guard.py",
+        )
+        _p8_mod = _p8_ilu.module_from_spec(_p8_spec)
+        _p8_spec.loader.exec_module(_p8_mod)
+        _p8_backup_dir = str(REPO_ROOT / "data" / "audit" / "backups")
+        # Backup the freshly written outputs
+        for _p8_rel in ["api/feed.json", "data/stix/feed_manifest.json"]:
+            _p8_src = REPO_ROOT / _p8_rel.replace("/", os.sep)
+            if _p8_src.exists():
+                _p8_mod.save_backup(str(_p8_src), _p8_backup_dir)
+        log.info("[p8-heal] Backups updated for api/feed.json + feed_manifest.json")
+    except Exception as _p8_e:
+        log.warning("[p8-heal] Backup skipped (non-fatal): %s", _p8_e)
+
+    # Phase 9: Final Validation Report
+    try:
+        import importlib.util as _p9_ilu
+        _p9_spec = _p9_ilu.spec_from_file_location(
+            "final_validation_report",
+            REPO_ROOT / "scripts" / "final_validation_report.py",
+        )
+        _p9_mod = _p9_ilu.module_from_spec(_p9_spec)
+        _p9_spec.loader.exec_module(_p9_mod)
+        _p9_results = {}
+        _p9_sync_ok, _p9_sync_detail = _p9_mod.check_dashboard_api_sync(str(REPO_ROOT))
+        _p9_ei_ok,   _p9_ei_detail   = _p9_mod.check_embedded_intel(str(REPO_ROOT))
+        _p9_ws_ok,   _p9_ws_detail   = _p9_mod.check_worker_security(str(REPO_ROOT))
+        _p9_status = "PASS" if (_p9_sync_ok and _p9_ei_ok) else "WARN"
+        log.info("[p9-final] sync=%s | embedded_intel=%s | worker_security=%s | STATUS=%s",
+                 _p9_sync_ok, _p9_ei_ok, _p9_ws_ok, _p9_status)
+    except Exception as _p9_e:
+        log.warning("[p9-final] Skipped (non-fatal): %s", _p9_e)
 
     log.info("=" * 70)
     log.info("PIPELINE COMPLETE in %.1fs | Version: %s | %s",

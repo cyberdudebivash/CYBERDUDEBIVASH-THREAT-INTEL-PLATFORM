@@ -182,7 +182,7 @@ def _load_quota() -> Dict:
 def _save_quota(data: Dict) -> None:
     try:
         tmp = QUOTA_FILE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
         tmp.replace(QUOTA_FILE)
     except Exception as e:
         logger.warning(f"Quota save failed: {e}")
@@ -245,7 +245,7 @@ def _cache_set(ioc_type: str, value: str, payload: Dict) -> None:
     try:
         tmp = path.with_suffix(".tmp")
         tmp.write_text(
-            json.dumps({"_cached_at": time.time(), "payload": payload}, indent=2),
+            json.dumps({"_cached_at": time.time(, ensure_ascii=False), "payload": payload}, indent=2),
             encoding="utf-8",
         )
         tmp.replace(path)
@@ -970,7 +970,7 @@ def enrich_intel_item(item: Dict, tier: str = "PRO", key_prefix: str = "system")
 
 def _print_result(result: Dict, output_json: bool = False) -> None:
     if output_json:
-        print(json.dumps(result, indent=2, default=str))
+        print(json.dumps(result, indent=2, default=str, ensure_ascii=False))
         return
 
     if "error" in result:
@@ -1064,7 +1064,7 @@ Examples:
 
     if args.cache_stats:
         stats = get_cache_stats()
-        print(json.dumps(stats, indent=2))
+        print(json.dumps(stats, indent=2, ensure_ascii=False))
         return
 
     if args.cache_clear:
@@ -1076,7 +1076,7 @@ Examples:
         quota = _load_quota()
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         today_keys = {k: v for k, v in quota.items() if today in k}
-        print(json.dumps({"today": today, "usage": today_keys, "free_limit": FREE_DAILY_QUOTA}, indent=2))
+        print(json.dumps({"today": today, "usage": today_keys, "free_limit": FREE_DAILY_QUOTA}, indent=2, ensure_ascii=False))
         return
 
     if args.bulk:
@@ -1087,7 +1087,7 @@ Examples:
         ioc_list = [line.strip() for line in bulk_file.read_text(encoding="utf-8").splitlines() if line.strip()]
         result = bulk_scan(ioc_list, tier=args.tier)
         if args.json:
-            print(json.dumps(result, indent=2, default=str))
+            print(json.dumps(result, indent=2, default=str, ensure_ascii=False))
         else:
             print(f"\nBulk Scan Complete: {result['completed']}/{result['total_iocs']} IOCs")
             print(f"Verdict Summary: {result['verdict_summary']}")

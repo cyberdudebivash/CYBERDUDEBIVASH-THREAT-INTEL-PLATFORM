@@ -673,7 +673,7 @@ def fix_index_html(enriched):
             'apex':            it.get('apex'),
             'validation_status': 'valid',
         })
-    embedded_json = json.dumps(embed, separators=(',', ':'))
+    embedded_json = json.dumps(embed, separators=(',', ':', ensure_ascii=False))
     # SECURITY FIX (v142.1): Escape </script> and <!-- inside JSON string so the
     # browser's HTML tokenizer never terminates the enclosing <script> block early.
     # An intel advisory about a CSS/XSS vulnerability may contain "</script>" as an

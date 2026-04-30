@@ -474,7 +474,7 @@ def _save_referral_code(record: Dict) -> None:
             existing = json.loads(ref_file.read_text(encoding="utf-8"))
         existing[record["referral_code"]] = record
         tmp = ref_file.with_suffix(".tmp")
-        tmp.write_text(json.dumps(existing, indent=2, default=str), encoding="utf-8")
+        tmp.write_text(json.dumps(existing, indent=2, default=str, ensure_ascii=False), encoding="utf-8")
         tmp.replace(ref_file)
     except Exception as e:
         logger.warning(f"Referral code save failed: {e}")
@@ -495,7 +495,7 @@ def _log_injection(partner_id: str, placement: str, tier: str) -> None:
             "tier":       tier,
         }
         with open(INJECT_LOG, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except Exception:
         pass
 
@@ -511,7 +511,7 @@ def log_click(partner_id: str, placement: str, referrer: str = "") -> None:
             "referrer":   referrer[:100],
         }
         with open(CLICK_LOG, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except Exception:
         pass
 
@@ -570,13 +570,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.stats:
-        print(json.dumps(get_affiliate_stats(), indent=2, default=str))
+        print(json.dumps(get_affiliate_stats(, ensure_ascii=False), indent=2, default=str))
     elif args.partners:
         for pid, p in AFFILIATE_PARTNERS.items():
             print(f"  {pid}: {p['name']} | CPA=${p['cpa_usd']} | {p['monthly_price']}")
     elif args.referral:
         code = generate_partner_referral_code(args.referral, tier=args.tier)
-        print(json.dumps(code, indent=2))
+        print(json.dumps(code, indent=2, ensure_ascii=False))
     elif args.tags:
         tags = [t.strip() for t in args.tags.split(",")]
         matched = match_affiliates(tags, tier="PRO", max_affiliates=5)

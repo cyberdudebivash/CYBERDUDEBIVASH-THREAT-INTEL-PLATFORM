@@ -774,7 +774,7 @@ def enrich_manifest():
             if isinstance(val, list) and len(val) > 0:
                 log.info(f"Manifest dict normalized: extracted {len(val)} items from '{key}' key")
                 data = val
-                raw = json.dumps(data)  # update raw for size reporting
+                raw = json.dumps(data, ensure_ascii=False)  # update raw for size reporting
                 break
         else:
             log.warning(f"Manifest is not a list and has no recognized array key (type={type(data).__name__}) — skipping")

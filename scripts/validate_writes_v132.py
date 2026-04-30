@@ -621,7 +621,7 @@ def test_schema_integrity() -> None:
     check(
         "S10: enforce_schema is idempotent (same result on double application)",
         once == twice,
-        f"once={json.dumps(once, default=str)[:60]}",
+        f"once={json.dumps(once, default=str, ensure_ascii=False)[:60]}",
     )
 
 
