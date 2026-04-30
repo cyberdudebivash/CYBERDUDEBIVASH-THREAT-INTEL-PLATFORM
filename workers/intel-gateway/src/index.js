@@ -1,5 +1,6 @@
 // =============================================================================
 // CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v142.3.0
+// Deploy-forced: 2026-04-30 (gateway version sync -- worker was on v141.0.0)
 // R2-ONLY ARCHITECTURE -- Blogger dependency REMOVED
 // Data flow: GitHub Actions -> Cloudflare R2 (private) -> Worker -> API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
@@ -3735,7 +3736,7 @@ async function handleRevenueDashboard(request, env, rid) {
   let revenueData = {};
   try { if (revenueResp.status === "fulfilled") revenueData = await revenueResp.value.json(); } catch {}
   return new Response(JSON.stringify({
-    version: "v134.0.0", date,
+    version: `v${CONFIG.GATEWAY_VERSION}`, date,
     revenue: revenueData,
     endpoint_stats:     epStats.status     === "fulfilled" ? epStats.value     : [],
     tier_distribution:  tierDist.status    === "fulfilled" ? tierDist.value    : {},
