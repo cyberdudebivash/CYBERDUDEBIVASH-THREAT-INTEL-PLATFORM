@@ -28,7 +28,16 @@ import os
 import re as _re
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, List, Optional
+
+# v143.1 ROOT-CAUSE FIX: Use centralised atomic I/O primitives for all writes.
+# Prevents truncation from direct open(path,'w') + TOCTOU race in _update_manifest().
+try:
+    from scripts.safe_io import atomic_json_write, acquire_lock
+    _SAFE_IO_AVAILABLE = True
+except ImportError:
+    _SAFE_IO_AVAILABLE = False
 
 # -- Optional: stix2 library for deep schema validation ----------------------
 # Install with: pip install stix2==3.0.1
@@ -110,6 +119,12 @@ def _tlp_marking_id(tlp_label: str) -> str:
         "TLP:CLEAR": STIX_TLP_MARKING["CLEAR"],
     }
     return mapping.get(tlp_label.upper(), STIX_TLP_MARKING["CLEAR"])
+
+
+class _NoOpLock:
+    """Fallback no-op context manager used when safe_io is unavailable."""
+    def __enter__(self): return self
+    def __exit__(self, *_): pass
 
 
 class STIXExporter:
@@ -708,8 +723,17 @@ class STIXExporter:
         epoch = int(datetime.now(timezone.utc).timestamp())
         stix_filename = f"CDB-APEX-{epoch}.json"
         stix_path     = os.path.join(self.output_dir, stix_filename)
-        with open(stix_path, 'w') as f:
-            json.dump(stix_bundle, f, indent=2)
+        # v143.1 ROOT-CAUSE FIX: atomic write (tmp→fsync→os.replace) + FileLock.
+        # Previously: plain open(path,'w') could leave a partially-written STIX bundle
+        # on disk if the process was interrupted mid-write, causing downstream JSON
+        # parse failures and pipeline truncation. Also bypassed WriteQueue semaphore.
+        if _SAFE_IO_AVAILABLE:
+            atomic_json_write(Path(stix_path), stix_bundle, indent=2, locked=True)
+        else:
+            _stix_tmp = stix_path + ".tmp"
+            with open(_stix_tmp, 'w', encoding='utf-8') as f:
+                json.dump(stix_bundle, f, indent=2, ensure_ascii=False)
+            os.replace(_stix_tmp, stix_path)
 
         logger.info(
             f"STIX v23.1 bundle written: {stix_filename} | "
@@ -1044,10 +1068,53 @@ class STIXExporter:
                          # v142.0 P0 TIMESTAMP FIX: source publication date
                          published_at=""):
         """Update manifest - backward-compatible + v134.0 IOC integrity fields."""
+        # v143.1 ROOT-CAUSE FIX: Wrap entire read→dedup→sort→write under a single
+        # FileLock to eliminate the TOCTOU race between concurrent pipeline workers.
+        # Previously: manifest was read unlocked, then written atomically — two workers
+        # could both read the same stale manifest, both dedup against it, and one would
+        # silently overwrite the other's entry on os.replace(), causing truncation.
+        _manifest_lock_ctx = (
+            acquire_lock(Path(self.manifest_path))
+            if _SAFE_IO_AVAILABLE
+            else _NoOpLock()
+        )
+        with _manifest_lock_ctx:
+            return self._update_manifest_locked(
+                title=title, stix_id=stix_id, risk_score=risk_score, blog_url=blog_url,
+                severity=severity, confidence=confidence, tlp_label=tlp_label,
+                ioc_counts=ioc_counts, actor_tag=actor_tag, mitre_tactics=mitre_tactics,
+                feed_source=feed_source, indicator_count=indicator_count,
+                stix_file=stix_file, cvss_score=cvss_score, epss_score=epss_score,
+                kev_present=kev_present, source_url=source_url, report_url=report_url,
+                nvd_url=nvd_url, extended_metrics=extended_metrics,
+                supply_chain=supply_chain, object_count=object_count,
+                apex_data=apex_data, ioc_confidence=ioc_confidence,
+                ioc_threat_level=ioc_threat_level,
+                ioc_extraction_meta=ioc_extraction_meta,
+                iocs_flat=iocs_flat, iocs_by_type=iocs_by_type,
+                stix_bundle_url=stix_bundle_url, published_at=published_at,
+            )
+
+    def _update_manifest_locked(self, title, stix_id, risk_score, blog_url,
+                         severity, confidence, tlp_label, ioc_counts,
+                         actor_tag, mitre_tactics, feed_source,
+                         indicator_count, stix_file,
+                         cvss_score=None, epss_score=None,
+                         kev_present=False, source_url="",
+                         report_url="",
+                         nvd_url=None, extended_metrics=None,
+                         supply_chain=False, object_count=0,
+                         apex_data=None,
+                         ioc_confidence=0.0, ioc_threat_level="NONE",
+                         ioc_extraction_meta=None,
+                         iocs_flat=None, iocs_by_type=None,
+                         stix_bundle_url="",
+                         published_at=""):
+        """Inner manifest update — called under FileLock by _update_manifest()."""
         manifest_entries = []
         if os.path.exists(self.manifest_path):
             try:
-                with open(self.manifest_path, 'r') as f:
+                with open(self.manifest_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 if isinstance(data, list):
                     manifest_entries = data
@@ -1386,22 +1453,29 @@ class STIXExporter:
         manifest_entries.sort(key=_ts_sort_key, reverse=True)
         trimmed = manifest_entries[:MANIFEST_MAX_ENTRIES]
 
-        # v75.1 ATOMIC WRITE: write to temp file then os.replace() - POSIX-atomic.
-        # Eliminates corruption risk if process is killed during write.
-        # Previously: plain json.dump() could leave partial JSON on disk.
-        _tmp_path = self.manifest_path + ".tmp"
-        try:
-            with open(_tmp_path, 'w', encoding='utf-8') as f:
-                json.dump(trimmed, f, indent=4, ensure_ascii=False, default=str)
-            os.replace(_tmp_path, self.manifest_path)
-        except Exception as _e:
-            # Clean up temp on failure - never leave .tmp on disk
+        # v143.1 ROOT-CAUSE FIX: Use atomic_json_write with locked=False because we
+        # already hold the FileLock from _update_manifest(). This guarantees:
+        # 1. tmp→fsync→os.replace — no partial writes on disk
+        # 2. Post-write JSON verification — catches silent corruption immediately
+        # 3. No second lock acquire (would deadlock on POSIX with non-reentrant flock)
+        if _SAFE_IO_AVAILABLE:
+            atomic_json_write(
+                Path(self.manifest_path), trimmed,
+                indent=4, ensure_ascii=False, verify=True, locked=False,
+            )
+        else:
+            _tmp_path = self.manifest_path + ".tmp"
             try:
-                if os.path.exists(_tmp_path):
-                    os.remove(_tmp_path)
-            except Exception:
-                pass
-            raise _e
+                with open(_tmp_path, 'w', encoding='utf-8') as f:
+                    json.dump(trimmed, f, indent=4, ensure_ascii=False, default=str)
+                os.replace(_tmp_path, self.manifest_path)
+            except Exception as _e:
+                try:
+                    if os.path.exists(_tmp_path):
+                        os.remove(_tmp_path)
+                except Exception:
+                    pass
+                raise _e
 
         logger.info(f"Manifest updated: {len(trimmed)} entries | latest: {trimmed[0].get('title','?')[:50] if trimmed else '(empty)'}")
 

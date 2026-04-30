@@ -42,6 +42,26 @@ def ts_key(entry):
             return str(v)
     return ""
 
+def canonical_sort_key(entry):
+    """
+    v143.1.0 CANONICAL DETERMINISTIC SORT KEY — must match run_pipeline.py exactly.
+
+    Primary  : published_at → timestamp → processed_at (ISO-8601 string, descending)
+    Secondary: stix_id (unique per entry) → guarantees stable tie-breaking even when
+               multiple entries share the exact same timestamp (common in batch ingestion).
+
+    This key MUST be identical in:
+      - scripts/run_pipeline.py  stage_sync_root_feed_json sort_key()
+      - scripts/sentinel_stability_lock.py  _get_ts()
+      - scripts/api_dashboard_contract_validator.py  (this file)
+      - scripts/output_validation_gate.py
+      - scripts/regression_immunity.py
+    Any divergence causes ORDER MISMATCH / MISSING IN API CI hard-fails.
+    """
+    ts  = (entry.get("published_at") or entry.get("timestamp") or entry.get("processed_at") or "")
+    sid = (entry.get("stix_id") or entry.get("id") or "")
+    return (ts, sid)
+
 def normalize_ts(ts_str):
     """Normalize ISO-8601 timestamp to seconds-resolution UTC string."""
     if not ts_str:
@@ -73,7 +93,7 @@ def validate(repo_root, top_n):
     def unwrap(data, source_name):
         if isinstance(data, list):
             return data
-        for key in ("entries", "items", "intel", "data", "objects"):
+        for key in ("entries", "items", "intel", "data", "objects", "advisories", "reports"):
             if key in data and isinstance(data[key], list):
                 return data[key]
         errors.append(f"UNKNOWN structure in {source_name}: keys={list(data.keys())[:8]}")
@@ -106,12 +126,13 @@ def validate(repo_root, top_n):
     if errors:
         return errors, warnings, stats
 
-    # ── Sort both by published desc (same logic as pipeline + dashboard) ──
-    def sort_key(e):
-        return ts_key(e)
-
-    manifest_sorted = sorted(manifest_items, key=sort_key, reverse=True)
-    api_sorted      = sorted(api_items,      key=sort_key, reverse=True)
+    # ── Sort both using canonical deterministic key (v143.1.0 P0 FIX) ──
+    # Uses (ts_string, stix_id) composite — matches run_pipeline.py exactly.
+    # stix_id as secondary key ensures deterministic tie-breaking when entries
+    # share the same timestamp (otherwise Python stable sort depends on list
+    # insertion order, which differs between manifest and api/feed.json).
+    manifest_sorted = sorted(manifest_items, key=canonical_sort_key, reverse=True)
+    api_sorted      = sorted(api_items,      key=canonical_sort_key, reverse=True)
 
     # Top-N from manifest (bounded by actual api size and top_n param)
     n = min(top_n, a_count, m_count)

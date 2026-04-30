@@ -2229,12 +2229,17 @@ def stage_sync_root_feed_json() -> None:
                 resolved_count += 1
         log.info("[3.9] Actor resolution: %d entries updated", resolved_count)
 
-    # ---- Step 4: Sort DESC by published_at (source date), then risk_score ----
-    # FIX v142.1.0: sort by published_at (real source date) not processed_at/timestamp
+    # ---- Step 4: Sort DESC — canonical deterministic key (v143.1.0 P0 FIX) ----
+    # PREVIOUS BUG: secondary key was risk_score (float) — non-deterministic when
+    # multiple entries share the same timestamp AND the same risk_score (common for
+    # batch-ingested intel), causing ORDER MISMATCH between api/feed.json and the
+    # manifest each time the validator re-sorted them independently.
+    # FIX: secondary key is stix_id (unique string) → always deterministic.
+    # This EXACT key must be used by ALL validators (contract, gate, regression).
     def sort_key(item):
-        ts = item.get("published_at") or item.get("timestamp") or item.get("processed_at", "")
-        rs = float(item.get("risk_score", 0))
-        return (ts, rs)
+        ts  = (item.get("published_at") or item.get("timestamp") or item.get("processed_at") or "")
+        sid = (item.get("stix_id") or item.get("id") or "")
+        return (ts, sid)
 
     manifest_items.sort(key=sort_key, reverse=True)
 
@@ -2434,6 +2439,60 @@ def stage_sync_root_feed_json() -> None:
                                 target.relative_to(REPO_ROOT))
                 except Exception as e2:
                     log.error("[3.9] Rollback also failed for %s: %s", target, e2)
+
+    # ---- Step 7: Write back canonical manifest (v143.1.1 P0 CONSISTENCY FIX) ----
+    # ROOT CAUSE FIX: data/stix/feed_manifest.json was NEVER written back after
+    # dedup + quality engine processing. This meant the manifest still contained
+    # items that the quality engine had removed, causing MISSING IN API errors.
+    #
+    # v143.1.1 FORMAT FIX: Must write as {"advisories": [...]} DICT envelope,
+    # NOT a bare list. Stage 2.2 normalises the manifest to dict format. Several
+    # downstream consumers (generate_intel_reports.py line 1570, etc.) call
+    # data.get("advisories") — a bare list has no .get() → AttributeError.
+    # The api_dashboard_contract_validator already handles both formats via unwrap().
+    try:
+        _manifest_envelope = {
+            "version":        PIPELINE_VERSION,
+            "platform":       "SENTINEL-APEX",
+            "generated_at":   utc_now(),
+            "total_reports":  len(manifest_items),
+            "entry_count":    len(manifest_items),
+            "sort_order":     "timestamp DESC, stix_id DESC",
+            "source":         "stage_sync_root_feed_json canonical write-back",
+            "advisories":     manifest_items,
+        }
+        canonical_manifest = json.dumps(
+            _manifest_envelope, indent=2, ensure_ascii=False, default=str
+        )
+        # Round-trip validate before touching disk
+        _reparsed_m = json.loads(canonical_manifest)
+        if not isinstance(_reparsed_m, dict) or "advisories" not in _reparsed_m:
+            raise ValueError(
+                f"Manifest round-trip produced unexpected structure: "
+                f"type={type(_reparsed_m).__name__} keys={list(_reparsed_m.keys())[:5]}"
+            )
+        _tmp_manifest = Path(str(manifest_path) + ".canon.tmp")
+        _tmp_manifest.write_text(canonical_manifest, encoding="utf-8")
+        # Verify temp file
+        json.loads(_tmp_manifest.read_text(encoding="utf-8"))
+        # Atomic promote
+        os.replace(str(_tmp_manifest), str(manifest_path))
+        log.info(
+            "[3.9] ✅ Manifest canonical write-back: %d entries (dict envelope, sorted+deduped+quality-filtered)",
+            len(manifest_items),
+        )
+    except Exception as _mwb_e:
+        log.warning(
+            "[3.9] Manifest write-back failed (non-fatal — api/feed.json still written): %s",
+            _mwb_e,
+        )
+        # Clean up tmp if exists
+        _tmp_m_path = Path(str(manifest_path) + ".canon.tmp")
+        if _tmp_m_path.exists():
+            try:
+                _tmp_m_path.unlink()
+            except Exception:
+                pass
 
     log.info("[3.9] STAGE 3.9 COMPLETE — feed.json has %d entries [OK]", out_count)
 
