@@ -570,7 +570,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.stats:
-        print(json.dumps(get_affiliate_stats(, ensure_ascii=False), indent=2, default=str))
+        print(json.dumps(get_affiliate_stats(), ensure_ascii=False, indent=2, default=str))
     elif args.partners:
         for pid, p in AFFILIATE_PARTNERS.items():
             print(f"  {pid}: {p['name']} | CPA=${p['cpa_usd']} | {p['monthly_price']}")
