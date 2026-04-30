@@ -223,7 +223,7 @@ function jsonResponse(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body, null, 2), {
     status,
     headers: {
-      "Content-Type":                "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "X-Gateway":                   `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
       // P0 FIX v134.0: Prevent browser/CDN caching of intel responses.
       // Worker KV TTL is the authoritative cache layer.
@@ -3479,7 +3479,7 @@ async function handlePaymentNotify(request, env, rid) {
     };
     fetch(env.NOTIFY_WEBHOOK_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify(msg),
     }).catch(() => {});  // non-blocking
   }
@@ -3740,7 +3740,7 @@ async function handleRevenueDashboard(request, env, rid) {
   if (!env?.ADMIN_SECRET || adminSecret !== env.ADMIN_SECRET) {
     return new Response(JSON.stringify({ error: "unauthorized", request_id: rid }, null, 2), {
       status: 401,
-      headers: { "Content-Type": "application/json", "Cache-Control": "no-cache", "Access-Control-Allow-Origin": "*" },
+      headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache", "Access-Control-Allow-Origin": "*" },
     });
   }
   const date = new URL(request.url).searchParams.get("date") || new Date().toISOString().slice(0, 10);
@@ -3761,7 +3761,7 @@ async function handleRevenueDashboard(request, env, rid) {
     pricing: { free: { monthly_usd: 0 }, pro: { monthly_usd: 29 }, enterprise: { monthly_usd: 199 } },
     upgrade_urls: { free_to_pro: "/upgrade.html?plan=pro", trial: "/upgrade.html?plan=enterprise&trial=true" },
     request_id: rid, generated_at: new Date().toISOString(),
-  }, null, 2), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-cache, no-store", "Access-Control-Allow-Origin": "*" } });
+  }, null, 2), { status: 200, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache, no-store", "Access-Control-Allow-Origin": "*" } });
 }
 
 //  Main Router 
