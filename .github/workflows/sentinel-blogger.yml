@@ -88,7 +88,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "141.0.0"
+  PIPELINE_VERSION: "142.0.0"
 
 # Only ONE data-writing workflow at a time - prevents manifest corruption
 concurrency:
@@ -322,4 +322,18 @@ jobs:
 
       # -----------------------------------------------------------------------
       # STAGE 5.6: REGRESSION TEST SUITE (v141.7.0)
-      # Runs the permanent anti-regression test batte
+      # Runs the permanent anti-regression test battery.
+      # Hard fail on regression detection.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.6 - Regression Test Suite"
+        run: python3 scripts/regression_tests.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 6: TELEGRAM FAILURE ALERT (v141.0 -- always runs, zero-exit)
+      # Fires ONLY on job failure so ops team is notified immediately.
+      # Never blocks the pipeline - exits 0 regardless of delivery status.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 6 - Telegram Failure Alert"
+        if: failure()
+        run: python3 scripts/pipeline_alert.py --status failure --message "Workflow step failed. Check GitHub Actions log for root cause."
+        continue-on-error: true
