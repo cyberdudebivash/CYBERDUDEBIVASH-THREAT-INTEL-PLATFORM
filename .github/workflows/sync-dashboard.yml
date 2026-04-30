@@ -101,17 +101,21 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: "Patch EMBEDDED_INTEL (emergency - NO --force-rebuild)"
+      - name: "Python Syntax Guard (v142.4 — abort on any syntax error)"
         run: |
-          echo "=== Emergency EMBEDDED_INTEL patch from current data/stix/feed_manifest.json ==="
-          python3 -c "
-          import json
-          d = json.load(open('data/stix/feed_manifest.json'))
-          items = d.get('advisories', d if isinstance(d, list) else [])
-          print(f'Manifest: {len(items)} entries - proceeding with patch')
-          "
-          python3 scripts/update_embedded_intel.py && echo "... Emergency EMBEDDED_INTEL patch OK" || {
-            echo " EMBEDDED_INTEL patch FAILED"
+          ERRORS=0
+          for f in scripts/*.py; do
+            python3 -m py_compile "$f" 2>/tmp/py_err.txt
+            if [ $? -ne 0 ]; then echo "SYNTAX ERROR: $f"; cat /tmp/py_err.txt; ERRORS=$((ERRORS+1)); fi
+          done
+          echo "Syntax errors: $ERRORS"
+          [ $ERRORS -eq 0 ] || { echo "ABORTING"; exit 1; }
+
+      - name: "Patch EMBEDDED_INTEL (v142.4 — writes [] to keep dashboard API-only)"
+        run: |
+          echo "=== EMBEDDED_INTEL patch: writes [] so dashboard fetches live from API ==="
+          python3 scripts/update_embedded_intel.py && echo "EMBEDDED_INTEL patch OK (array=[])" || {
+            echo "EMBEDDED_INTEL patch FAILED"
             exit 1
           }
 
