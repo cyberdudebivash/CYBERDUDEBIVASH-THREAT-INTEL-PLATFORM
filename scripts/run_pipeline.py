@@ -2229,9 +2229,10 @@ def stage_sync_root_feed_json() -> None:
                 resolved_count += 1
         log.info("[3.9] Actor resolution: %d entries updated", resolved_count)
 
-    # ---- Step 4: Sort DESC by timestamp, then risk_score ----------------
+    # ---- Step 4: Sort DESC by published_at (source date), then risk_score ----
+    # FIX v142.1.0: sort by published_at (real source date) not processed_at/timestamp
     def sort_key(item):
-        ts = item.get("timestamp") or item.get("processed_at") or item.get("published_at", "")
+        ts = item.get("published_at") or item.get("timestamp") or item.get("processed_at", "")
         rs = float(item.get("risk_score", 0))
         return (ts, rs)
 
@@ -2606,7 +2607,7 @@ if __name__ == "__main__":
     except Exception as e:
         import traceback
         log.critical(
-            "UNHANDLED EXCEPTION in run_pipeline.py -- exiting 1:\n%s\n%s",
-            e, traceback.format_exc()
+            "UNHANDLED EXCEPTION in run_pipeline.py: %s\n%s",
+            e, traceback.format_exc(),
         )
         sys.exit(1)
