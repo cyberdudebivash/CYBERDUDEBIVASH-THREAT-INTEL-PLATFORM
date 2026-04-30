@@ -177,6 +177,33 @@ jobs:
         run: python3 scripts/ci_preflight_check.py
 
       # -----------------------------------------------------------------------
+      # STAGE 0.06: PYTHON SYNTAX GUARD (v142.4)
+      # Hard-fail the pipeline before ANY execution if any script has a syntax
+      # error. Prevents the recurring pattern where a bad commit breaks the
+      # pipeline silently mid-run after expensive API calls complete.
+      # This is the CI enforcement of the local py_compile contract.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.06 - Python Syntax Guard (py_compile all scripts)"
+        run: |
+          echo "Running py_compile on all scripts/*.py ..."
+          ERRORS=0
+          for f in scripts/*.py; do
+            python3 -m py_compile "$f" 2>/tmp/py_err_$$.txt
+            if [ $? -ne 0 ]; then
+              echo "SYNTAX ERROR: $f"
+              cat /tmp/py_err_$$.txt
+              ERRORS=$((ERRORS+1))
+            fi
+            rm -f /tmp/py_err_$$.txt
+          done
+          echo "Checked scripts/*.py — syntax errors: $ERRORS"
+          if [ $ERRORS -gt 0 ]; then
+            echo "ABORTING: Fix all syntax errors before pipeline can run"
+            exit 1
+          fi
+          echo "SYNTAX GUARD: ALL PASS"
+
+      # -----------------------------------------------------------------------
       # STAGE 0.0: ENCODING GUARD -- MUST RUN BEFORE EVERYTHING
       # Strips BOM, CRLF, smart quotes, mojibake from all YAML/shell files.
       # Ensures this file and all scripts are ASCII-safe on every run.
