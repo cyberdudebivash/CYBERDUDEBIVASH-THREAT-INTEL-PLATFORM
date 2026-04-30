@@ -2440,26 +2440,37 @@ def stage_sync_root_feed_json() -> None:
                 except Exception as e2:
                     log.error("[3.9] Rollback also failed for %s: %s", target, e2)
 
-    # ---- Step 7: Write back canonical manifest (v143.1.0 P0 CONSISTENCY FIX) ----
+    # ---- Step 7: Write back canonical manifest (v143.1.1 P0 CONSISTENCY FIX) ----
     # ROOT CAUSE FIX: data/stix/feed_manifest.json was NEVER written back after
     # dedup + quality engine processing. This meant the manifest still contained
-    # items that the quality engine had removed, and was still in original unsorted
-    # order. The CI validator then re-sorted both manifest and api/feed.json
-    # independently, producing different orderings for tied timestamps, causing:
-    #   ❌ ORDER MISMATCH (different tie-breaking order)
-    #   ❌ MISSING IN API (quality-engine-filtered items still ranked in manifest top-N)
-    # FIX: Write back the FULL canonical manifest_items (sorted, deduped, quality-
-    # filtered) to data/stix/feed_manifest.json. Both manifest and api/feed.json now
-    # contain the exact same item set in the exact same sorted order. Validator
-    # top-50 comparison is a guaranteed match.
+    # items that the quality engine had removed, causing MISSING IN API errors.
+    #
+    # v143.1.1 FORMAT FIX: Must write as {"advisories": [...]} DICT envelope,
+    # NOT a bare list. Stage 2.2 normalises the manifest to dict format. Several
+    # downstream consumers (generate_intel_reports.py line 1570, etc.) call
+    # data.get("advisories") — a bare list has no .get() → AttributeError.
+    # The api_dashboard_contract_validator already handles both formats via unwrap().
     try:
+        _manifest_envelope = {
+            "version":        PIPELINE_VERSION,
+            "platform":       "SENTINEL-APEX",
+            "generated_at":   utc_now(),
+            "total_reports":  len(manifest_items),
+            "entry_count":    len(manifest_items),
+            "sort_order":     "timestamp DESC, stix_id DESC",
+            "source":         "stage_sync_root_feed_json canonical write-back",
+            "advisories":     manifest_items,
+        }
         canonical_manifest = json.dumps(
-            manifest_items, indent=2, ensure_ascii=False, default=str
+            _manifest_envelope, indent=2, ensure_ascii=False, default=str
         )
         # Round-trip validate before touching disk
         _reparsed_m = json.loads(canonical_manifest)
-        if not isinstance(_reparsed_m, list):
-            raise ValueError(f"Manifest round-trip produced {type(_reparsed_m).__name__}")
+        if not isinstance(_reparsed_m, dict) or "advisories" not in _reparsed_m:
+            raise ValueError(
+                f"Manifest round-trip produced unexpected structure: "
+                f"type={type(_reparsed_m).__name__} keys={list(_reparsed_m.keys())[:5]}"
+            )
         _tmp_manifest = Path(str(manifest_path) + ".canon.tmp")
         _tmp_manifest.write_text(canonical_manifest, encoding="utf-8")
         # Verify temp file
@@ -2467,7 +2478,7 @@ def stage_sync_root_feed_json() -> None:
         # Atomic promote
         os.replace(str(_tmp_manifest), str(manifest_path))
         log.info(
-            "[3.9] ✅ Manifest canonical write-back: %d entries (sorted+deduped+quality-filtered)",
+            "[3.9] ✅ Manifest canonical write-back: %d entries (dict envelope, sorted+deduped+quality-filtered)",
             len(manifest_items),
         )
     except Exception as _mwb_e:
