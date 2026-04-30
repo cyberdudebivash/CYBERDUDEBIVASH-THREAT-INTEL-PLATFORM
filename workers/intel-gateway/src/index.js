@@ -1,15 +1,15 @@
 // =============================================================================
 // CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v142.3.0
-// Deploy-forced: 2026-04-30 (gateway version sync -- worker was on v141.0.0)
+// Hardened: 2026-04-30 (CSP + HSTS + CORS lockdown + monetization enforcement)
 // R2-ONLY ARCHITECTURE -- Blogger dependency REMOVED
 // Data flow: GitHub Actions -> Cloudflare R2 (private) -> Worker -> API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
 // Secrets: ADMIN_SECRET, GITHUB_TOKEN, CDB_JWT_SECRET (npx wrangler secret put)
 //          STRIPE_WEBHOOK_SECRET, RAZORPAY_WEBHOOK_SECRET (billing webhooks)
 //          STRIPE_PRO_PRICE_ID, STRIPE_ENT_PRICE_ID (Stripe plan IDs)
-// v134.0: Added /api/ai endpoint family
-// v134.0.0: stix_id fix; GATEWAY_VERSION unified
-// v134.0.0: GOD-MODE -- mandatory ai_summary, retry circuit breaker, urgency CTAs
+// v134.0 [legacy]: Added /api/ai endpoint family
+// v134.0.0 [legacy]: stix_id fix; GATEWAY_VERSION unified
+// v134.0.0 [legacy]: GOD-MODE -- mandatory ai_summary, retry circuit breaker, urgency CTAs
 // v134.0.0: FINAL HARDENING -- structured logging, schema validation, JWT revocation,
 //           token refresh/revoke, usage caps, observability, API/feed consistency
 // v134.0.0: SAAS TRANSFORMATION -- user auth (PBKDF2), API key CRUD, billing
@@ -3698,22 +3698,39 @@ function formatQRadarLEEF(item) {
   return `LEEF:2.0|CYBERDUDEBIVASH|SENTINEL-APEX|${CONFIG.GATEWAY_VERSION}|ThreatIntel|\t${pairs}`;
 }
 
-//  v134.0: Response post-processor -- injects X-RateLimit + security headers 
+//  v142.3.0: Response post-processor -- injects X-RateLimit + full enterprise security headers
 // Called after every authenticated handler returns. Never mutates body -- only adds headers.
-// Security headers added to ALL responses (defence-in-depth):
-//   X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
+// Security headers added to ALL responses (military-grade defence-in-depth):
+//   CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
+//   X-XSS-Protection, X-Sentinel-Version, X-Sentinel-Gateway
 function applySecurityHeaders(response, rlHeaders = {}) {
   const headers = new Headers(response.headers);
   // Rate limit telemetry (informational -- lets clients self-throttle)
   for (const [k, v] of Object.entries(rlHeaders)) {
     headers.set(k, v);
   }
-  // Security hardening headers -- prevent MIME sniffing, clickjacking, info leakage
+  // === MILITARY-GRADE SECURITY HEADERS (v142.3.0) ===
+  // 1. Content-Security-Policy -- blocks XSS, injection, clickjacking at browser level
+  headers.set("Content-Security-Policy",
+    "default-src 'none'; script-src 'self'; connect-src 'self' https://intel.cyberdudebivash.com; " +
+    "img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'none'; " +
+    "form-action 'self'; base-uri 'self'; upgrade-insecure-requests;"
+  );
+  // 2. HSTS -- enforces HTTPS for 1 year with preload and includeSubDomains
+  headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  // 3. Classic hardening headers
   headers.set("X-Content-Type-Options",  "nosniff");
   headers.set("X-Frame-Options",         "DENY");
-  headers.set("Referrer-Policy",         "no-referrer");
-  headers.set("Permissions-Policy",      "geolocation=(), camera=(), microphone=()");
+  headers.set("X-XSS-Protection",        "1; mode=block");
+  headers.set("Referrer-Policy",         "strict-origin-when-cross-origin");
+  headers.set("Permissions-Policy",      "geolocation=(), camera=(), microphone=(), payment=(), usb=()");
+  // 4. Platform identity headers
+  headers.set("X-Sentinel-Version",      CONFIG.GATEWAY_VERSION);
+  headers.set("X-Sentinel-Gateway",      CONFIG.GATEWAY_NAME + "/" + CONFIG.GATEWAY_VERSION);
   headers.set("X-Response-Time",         response.headers.get("X-Response-Time") || "0ms");
+  // 5. Remove server fingerprinting headers
+  headers.delete("Server");
+  headers.delete("X-Powered-By");
   return new Response(response.body, { status: response.status, headers });
 }
 
@@ -3758,15 +3775,28 @@ export default {
     const method    = request.method.toUpperCase();
     slog("INFO", "ROUTER", `${method} ${pathname}`, { rid });
 
-    // CORS preflight
+    // v142.3.0: CORS preflight -- smart origin enforcement
+    // Public endpoints allow wildcard; authenticated/admin endpoints restrict to known origins
     if (method === "OPTIONS") {
+      const origin = request.headers.get("Origin") || "";
+      const allowedOrigins = [
+        "https://www.cyberdudebivash.in",
+        "https://cyberdudebivash.in",
+        "https://intel.cyberdudebivash.com",
+      ];
+      const isAdminPath = url.pathname.startsWith("/api/admin") || url.pathname.startsWith("/webhooks/");
+      const corsOrigin = isAdminPath
+        ? (allowedOrigins.includes(origin) ? origin : allowedOrigins[0])
+        : "*";
       return new Response(null, {
         status: 204,
         headers: {
-          "Access-Control-Allow-Origin":  "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Authorization, X-Api-Key, Content-Type, X-Admin-Secret",
-          "Access-Control-Max-Age":       "86400",
+          "Access-Control-Allow-Origin":      corsOrigin,
+          "Access-Control-Allow-Methods":     "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers":     "Authorization, X-Api-Key, Content-Type, X-Admin-Secret, X-Request-ID",
+          "Access-Control-Max-Age":           "86400",
+          "Access-Control-Allow-Credentials": isAdminPath ? "true" : "false",
+          "Vary":                             "Origin",
         },
       });
     }
