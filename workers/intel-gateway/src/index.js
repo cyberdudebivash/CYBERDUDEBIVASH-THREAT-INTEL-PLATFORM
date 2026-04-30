@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v141.0.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v142.3.0
 // R2-ONLY ARCHITECTURE -- Blogger dependency REMOVED
 // Data flow: GitHub Actions -> Cloudflare R2 (private) -> Worker -> API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
@@ -77,12 +77,12 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "Revenue-Engine");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v141");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v142");
   return new Response(response.body, { status: response.status, headers });
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "141.0.0",  // v141.0.0 SENTINEL APEX Production Platform
+  GATEWAY_VERSION:   "142.3.0",  // v142.3.0 SENTINEL APEX Production Platform
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -1772,9 +1772,9 @@ async function handlePreview(request, env, rid) {
     //   processed. `processed_at` is always set to pipeline execution time (UTC-now)
     //   so it is immune to source article date variations.
     //
-    // SORT KEY helper -- reads processed_at first, then timestamp as fallback
+    // SORT KEY helper v142.3.0: published_at is real source date (primary)
     const getSortTs = item => {
-      const pa = item.processed_at || item.timestamp || item.generated_at || null;
+      const pa = item.published_at || item.timestamp || item.processed_at || item.generated_at || null;
       return pa ? new Date(pa).getTime() : 0;
     };
     cleanItems.sort((a, b) => {
@@ -1994,8 +1994,8 @@ async function handleFeed(request, env, auth, rid) {
     // Ensures authenticated /api/feed consumers always receive newest-generated intel first,
     // regardless of the manifest file order or source article publication dates.
     items.sort((a, b) => {
-      const ta = new Date(a.processed_at || a.timestamp || a.generated_at || 0).getTime();
-      const tb = new Date(b.processed_at || b.timestamp || b.generated_at || 0).getTime();
+      const ta = new Date(a.published_at || a.timestamp || a.processed_at || a.generated_at || 0).getTime(); // v142.3.0
+      const tb = new Date(b.published_at || b.timestamp || b.processed_at || b.generated_at || 0).getTime(); // v142.3.0
       return tb - ta;
     });
 
