@@ -329,6 +329,9 @@ class NewnessValidator:
         self._known_fps: Set[str] = set()
         self._load_intel_index()
         self._load_fingerprints()
+        # FIX v142.1.0: also seed known stix_ids from the persisted feed_manifest
+        # (intel_index.json may not exist yet; manifest is always the ground truth)
+        self._load_manifest_stix_ids()
 
     def _load_intel_index(self) -> None:
         raw = _load_json_safe(INTEL_INDEX_PATH, {})
@@ -350,6 +353,25 @@ class NewnessValidator:
         if isinstance(fps, list):
             self._known_fps = {fp for fp in fps if isinstance(fp, str) and len(fp) == 64}
         log.debug("[NEWNESS] Loaded %d fingerprints from store", len(self._known_fps))
+
+    def _load_manifest_stix_ids(self) -> None:
+        """
+        FIX v142.1.0: Seed _known_stix from feed_manifest.json so that entries
+        already present in the manifest are NOT marked as NEW on the next run.
+        This is the ground-truth historical reference when intel_index.json is absent.
+        """
+        manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
+        raw = _load_json_safe(manifest_path, [])
+        before = len(self._known_stix)
+        if isinstance(raw, list):
+            for entry in raw:
+                if isinstance(entry, dict):
+                    sid = (entry.get("stix_id") or entry.get("id") or "").strip()
+                    if sid:
+                        self._known_stix.add(sid)
+        added = len(self._known_stix) - before
+        log.debug("[NEWNESS] Seeded %d stix_ids from feed_manifest (total known: %d)",
+                  added, len(self._known_stix))
 
     def validate_batch(self, items: List[Dict]) -> List[Dict]:
         """
@@ -1005,9 +1027,10 @@ class DashboardTruthValidator:
     def validate(self, items: List[Dict]) -> Tuple[List[Dict], Dict]:
         issues: List[str] = []
 
-        # Sort by processed_at desc (newest first)
+        # Sort by published_at desc (real source date = true freshness order)
+        # FIX v142.1.0: was processed_at (ingestion timestamp) — wrong field
         def sort_ts(x):
-            return x.get("processed_at") or x.get("timestamp") or ""
+            return x.get("published_at") or x.get("timestamp") or x.get("processed_at", "")
         items = sorted(items, key=sort_ts, reverse=True)
 
         # Check top 50 for generic titles
@@ -1035,7 +1058,7 @@ class DashboardTruthValidator:
             "total_items": len(items),
             "new_entries_count": new_count,
             "new_entries_unique": new_count > 0,
-            "ordering": "processed_at_desc",
+            "ordering": "published_at_desc",
             "generic_titles_top50": generic_count,
             "duplicate_titles_top50": top50_dup_count,
             "issues": issues,
@@ -1324,36 +1347,36 @@ def apply_quality_pipeline(items: List[Dict]) -> List[Dict]:
 if __name__ == "__main__":
     import argparse
 
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [quality-engine] %(levelname)s: %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%SZ",
     )
 
-    parser = argparse.ArgumentParser(description="Intel Quality Engine v142.0")
-    parser.add_argument("--manifest", type=Path,
-                        default=REPO_ROOT / "data/stix/feed_manifest.json",
+    parser = argparse.ArgumentParser(description="Intel Quality Engine -- standalone test mode")
+    parser.add_argument("--manifest", default=str(REPO_ROOT / "data/stix/feed_manifest.json"),
                         help="Path to feed_manifest.json")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Run engine but do not write back to manifest")
+    parser.add_argument("--dry-run", action="store_true", help="Run without writing output")
     args = parser.parse_args()
 
-    manifest_path = args.manifest
+    manifest_path = Path(args.manifest)
     if not manifest_path.exists():
-        print(f"ERROR: Manifest not found: {manifest_path}")
+        print(f"ERROR: manifest not found: {manifest_path}")
         raise SystemExit(1)
 
-    raw = json.loads(manifest_path.read_text(encoding="utf-8"))
-    items_in = raw if isinstance(raw, list) else raw.get("items", raw.get("advisories", []))
+    with open(manifest_path, encoding="utf-8") as fh:
+        raw_items = json.load(fh)
 
-    print(f"\nLoaded {len(items_in)} items from {manifest_path.name}")
-    items_out = apply_quality_pipeline(items_in)
-    print(f"\nOutput: {len(items_out)} items")
-    print(f"Quality report: {QUALITY_REPORT}")
+    if not isinstance(raw_items, list):
+        print(f"ERROR: manifest must be a JSON array, got {type(raw_items).__name__}")
+        raise SystemExit(1)
 
-    if not args.dry_run:
-        out_data = items_out if isinstance(raw, list) else {**raw, "items": items_out}
-        _atomic_write(manifest_path, out_data)
-        print(f"Written back to {manifest_path.name}")
-    else:
-        print("Dry-run mode — manifest NOT modified")
+    print(f"[DRY-RUN={args.dry_run}] Loaded {len(raw_items)} entries from {manifest_path}")
+    result = apply_quality_pipeline(raw_items)
+    print(f"[RESULT] {len(raw_items)} -> {len(result)} entries after quality pipeline")
+    new_entries = [i for i in result if i.get("is_new") is True]
+    print(f"[RESULT] is_new=True  : {len(new_entries)} entries")
+    dup_stix = len(result) - len({e.get('stix_id') for e in result})
+    print(f"[RESULT] duplicate_count: {dup_stix}")
+    print("[DONE]")
