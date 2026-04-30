@@ -788,7 +788,7 @@ def safe_json_load(
             _fallback = heal_value if heal_value is not None else default
             try:
                 path.write_text(
-                    json.dumps(_fallback if _fallback is not None else []),
+                    json.dumps(_fallback if _fallback is not None else [], ensure_ascii=False),
                     encoding="utf-8",
                 )
                 log.warning("safe_json_load: auto-healed %s -> %r", path.name, _fallback)

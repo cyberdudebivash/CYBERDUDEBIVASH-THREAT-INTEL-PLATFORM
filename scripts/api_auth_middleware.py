@@ -280,19 +280,19 @@ def main() -> None:
 
     if args.cmd == "generate":
         result = generate_key(args.tier, args.label, args.email, args.expires_days)
-        print(json.dumps(result, indent=2))
+        print(json.dumps(result, indent=2, ensure_ascii=False))
         print(f"\n⚠️  Save your API key — it will NOT be shown again:\n{result['raw_key']}")
 
     elif args.cmd == "validate":
         result = validate_api_key(args.key, args.endpoint)
-        print(json.dumps(result, indent=2))
+        print(json.dumps(result, indent=2, ensure_ascii=False))
 
     elif args.cmd == "revoke":
         ok = revoke_key(args.key_id)
         print("Revoked OK" if ok else "Key not found")
 
     elif args.cmd == "report":
-        print(json.dumps(usage_report(), indent=2))
+        print(json.dumps(usage_report(, ensure_ascii=False), indent=2))
 
     else:
         parser.print_help()

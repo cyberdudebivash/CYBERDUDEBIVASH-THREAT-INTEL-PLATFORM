@@ -69,7 +69,7 @@ if not MANIFEST_PATH.exists():
     log.warning("Manifest not found — creating minimal manifest")
     MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
     manifest = {"advisories": [], "version": f"v{PIPELINE_VERSION}"}
-    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 else:
     with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
         manifest = json.load(f)

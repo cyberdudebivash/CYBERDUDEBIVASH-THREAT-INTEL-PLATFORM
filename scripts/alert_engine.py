@@ -185,7 +185,7 @@ def _save_alert_state(state: Dict) -> None:
     try:
         ALERT_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         tmp = ALERT_STATE_FILE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(state, indent=2, default=str), encoding="utf-8")
+        tmp.write_text(json.dumps(state, indent=2, default=str, ensure_ascii=False), encoding="utf-8")
         tmp.replace(ALERT_STATE_FILE)
     except Exception as e:
         logger.warning(f"Alert state save error: {e}")
@@ -286,7 +286,7 @@ def _append_alert_log(alert_type: str, key: str, channels_sent: List[str], succe
             "success": success,
         }
         with open(ALERT_LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except Exception as e:
         logger.debug(f"Alert log append error: {e}")
 
@@ -966,7 +966,7 @@ Examples:
 
     if args.stats:
         stats = get_alert_stats()
-        print(json.dumps(stats, indent=2))
+        print(json.dumps(stats, indent=2, ensure_ascii=False))
         return
 
     if args.clear:
@@ -1009,7 +1009,7 @@ Examples:
     )
 
     if args.json:
-        print(json.dumps(result, indent=2, default=str))
+        print(json.dumps(result, indent=2, default=str, ensure_ascii=False))
     else:
         print(f"\n[ALERT ENGINE] mode={result['mode']} dry_run={result['dry_run']}")
         print(f"  Runtime: {result['runtime_ms']}ms")

@@ -958,7 +958,7 @@ if __name__ == "__main__":
     report = run_monitor(dry_run=args.dry_run)
 
     if args.json:
-        print(json.dumps(report, indent=2))
+        print(json.dumps(report, indent=2, ensure_ascii=False))
     elif args.anomalies_only:
         print(f"\n=== ANOMALY REPORT [{report['health']['status']} — Score: {report['health']['score']}/100] ===")
         for a in report["anomalies"]:

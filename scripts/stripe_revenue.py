@@ -236,7 +236,7 @@ def _mark_processed(event_id: str, event_type: str) -> None:
     }
     tmp = PROCESSED_IDS.with_suffix(".tmp")
     try:
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
         tmp.replace(PROCESSED_IDS)
     except Exception as e:
         logger.warning(f"Failed to mark event {event_id} as processed: {e}")
@@ -261,7 +261,7 @@ def _log_webhook_event(event: Dict, result: Dict) -> None:
     }
     try:
         with open(WEBHOOK_LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, default=str) + "\n")
+            f.write(json.dumps(entry, default=str, ensure_ascii=False) + "\n")
     except Exception as e:
         logger.warning(f"Webhook log append failed: {e}")
 
@@ -826,13 +826,13 @@ Examples:
 
     if args.links:
         data = {"stripe": PAYMENT_LINKS, "gumroad": GUMROAD_PRODUCTS}
-        print(json.dumps(data, indent=2))
+        print(json.dumps(data, indent=2, ensure_ascii=False))
         return
 
     if args.revenue_summary:
         summary = get_revenue_summary()
         if args.json:
-            print(json.dumps(summary, indent=2, default=str))
+            print(json.dumps(summary, indent=2, default=str, ensure_ascii=False))
         else:
             print(f"\n{'='*60}")
             print(f"  SENTINEL APEX — Revenue Summary")
@@ -860,7 +860,7 @@ Examples:
         sig_header = f"t={int(time.time())},v1=test_signature"
         secret = args.webhook_secret or STRIPE_WEBHOOK_SECRET or "whsec_test"
         result = process_stripe_webhook(payload, sig_header, secret)
-        print(json.dumps(result, indent=2, default=str))
+        print(json.dumps(result, indent=2, default=str, ensure_ascii=False))
         return
 
     if args.gumroad_sale:
@@ -870,7 +870,7 @@ Examples:
             sys.exit(1)
         sale_data = json.loads(sale_path.read_text(encoding="utf-8"))
         result = process_gumroad_sale(sale_data)
-        print(json.dumps(result, indent=2, default=str))
+        print(json.dumps(result, indent=2, default=str, ensure_ascii=False))
         return
 
     if args.provision:

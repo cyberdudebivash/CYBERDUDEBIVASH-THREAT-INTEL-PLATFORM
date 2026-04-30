@@ -858,6 +858,6 @@ if __name__ == "__main__":
     else:
         audit = run_cycle(dry_run=args.dry_run, config=cfg, safety=safety)
         if args.json:
-            print(json.dumps(audit, indent=2))
+            print(json.dumps(audit, indent=2, ensure_ascii=False))
         else:
             _print_cycle_summary(audit)

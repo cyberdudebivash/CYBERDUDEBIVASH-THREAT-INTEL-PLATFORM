@@ -617,7 +617,7 @@ if __name__ == "__main__":
         import sys; sys.exit(0)
 
     if args.json:
-        print(json.dumps(result, indent=2, default=str))
+        print(json.dumps(result, indent=2, default=str, ensure_ascii=False))
     elif result:
         print(f"\n=== CVE SCAN RESULT ===")
         for k, v in result.items():
