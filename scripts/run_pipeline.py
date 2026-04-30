@@ -2365,6 +2365,17 @@ def stage_sync_root_feed_json() -> None:
     except Exception as _p1_e:
         log.warning("[p1-output-contract] Skipped (non-fatal): %s", _p1_e)
 
+    # ---- v143.2.0 CANONICAL FINAL SORT — applied AFTER stability lock --------
+    # ROOT CAUSE: sentinel_stability_lock.enforce_output_contract() re-sorts by
+    # (float_ts, stix_id). float_ts may produce a different ordering than the
+    # string-based (ts_string, stix_id) used by regression_immunity.py Check 6
+    # and output_validation_gate.py (e.g. mixed "Z" vs "+00:00" timestamp formats).
+    # FIX: re-apply the canonical (ts_string, stix_id) sort key one final time,
+    # AFTER all quality/dedup/stability processing, BEFORE the feed.json write.
+    # This is the SINGLE authoritative sort that all validators check against.
+    manifest_items.sort(key=sort_key, reverse=True)
+    log.info("[3.9] v143.2.0 canonical final sort applied: %d entries", len(manifest_items))
+
     # ---- Step 6: Write to all target feed.json paths --------------------
     if not manifest_items:
         log.error("[3.9] CRITICAL: Zero entries after all fallbacks — feed.json will be empty")
