@@ -786,12 +786,12 @@ def safe_json_load(
         log.warning("safe_json_load: %s corrupt (%s)", path.name, e)
         if auto_heal:
             _fallback = heal_value if heal_value is not None else default
+            _heal_data = _fallback if _fallback is not None else []
             try:
-                path.write_text(
-                    json.dumps(_fallback if _fallback is not None else [], ensure_ascii=False),
-                    encoding="utf-8",
-                )
-                log.warning("safe_json_load: auto-healed %s -> %r", path.name, _fallback)
+                # v143.1 FIX: use atomic_json_write instead of path.write_text()
+                # to prevent partial writes during auto-heal of corrupt files.
+                atomic_json_write(path, _heal_data, indent=2, locked=True, verify=True)
+                log.warning("safe_json_load: auto-healed %s -> %r", path.name, _heal_data)
             except Exception as he:
                 log.error("safe_json_load: auto-heal write failed: %s", he)
         return default
