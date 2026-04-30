@@ -73,7 +73,7 @@ def validate(repo_root, top_n):
     def unwrap(data, source_name):
         if isinstance(data, list):
             return data
-        for key in ("entries", "items", "intel", "data", "objects"):
+        for key in ("entries", "items", "intel", "data", "objects", "advisories", "reports"):
             if key in data and isinstance(data[key], list):
                 return data[key]
         errors.append(f"UNKNOWN structure in {source_name}: keys={list(data.keys())[:8]}")

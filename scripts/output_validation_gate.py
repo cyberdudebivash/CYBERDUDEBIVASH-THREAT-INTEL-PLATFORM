@@ -71,7 +71,7 @@ def load_raw_and_json(path):
 def unwrap_entries(data, path_label):
     if isinstance(data, list):
         return data, None
-    for key in ("entries", "items", "intel", "data", "objects"):
+    for key in ("entries", "items", "intel", "data", "objects", "advisories", "reports"):
         if key in data and isinstance(data[key], list):
             return data[key], None
     return [], f"Unknown JSON structure in {path_label}: keys={list(data.keys())[:8]}"
