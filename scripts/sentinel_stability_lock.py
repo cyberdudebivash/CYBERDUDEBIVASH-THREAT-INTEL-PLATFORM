@@ -105,15 +105,36 @@ def _write_atomic(path, obj, *, validate=True):
     return _sha256(serialised)
 
 def _get_ts(entry):
+    """
+    v143.1.0 CANONICAL DETERMINISTIC SORT KEY — must match run_pipeline.py exactly.
+
+    Returns (float_ts, stix_id) composite tuple.
+    Primary  : ISO-8601 timestamp converted to float seconds (descending).
+    Secondary: stix_id string (descending) — unique per entry, guarantees
+               deterministic tie-breaking when entries share the same timestamp.
+
+    PREVIOUS BUG: returned only float_ts with no secondary key.
+    Multiple entries with the same timestamp received the same sort key,
+    so Python's stable sort preserved their insertion order — which varied
+    between the manifest (not pre-sorted) and api/feed.json (pipeline-sorted).
+    This caused ORDER MISMATCH / MISSING IN API in the CI contract validator.
+
+    The (float_ts, stix_id) tuple is consistent with run_pipeline.py sort_key()
+    which uses (ts_string, stix_id). Since ISO-8601 strings are monotone in
+    lexicographic order, both keys produce the same primary sort order.
+    The stix_id secondary key is identical in both, so tie-breaking matches.
+    """
     for key in ("published_at", "timestamp", "processed_at", "generated_at"):
         val = entry.get(key)
         if val and isinstance(val, str):
             try:
                 dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
-                return dt.timestamp()
+                sid = entry.get("stix_id") or entry.get("id") or ""
+                return (dt.timestamp(), sid)
             except Exception:
                 pass
-    return 0.0
+    sid = entry.get("stix_id") or entry.get("id") or ""
+    return (0.0, sid)
 
 def _parse_ts(val):
     if not val:
@@ -648,6 +669,36 @@ if __name__ == "__main__":
         mp = repo_root / _MANIFEST_PATH
         if mp.exists():
             try:
+                raw = json.loads(mp.read_text(encoding="utf-8"))
+                entries = raw if isinstance(raw, list) else []
+                clean, r1 = enforce_output_contract(entries, repo_root, strict=False)
+                reports.append(r1)
+                print(f"Phase 1: {r1.health} | {r1.entries_before}->{r1.entries_after} entries | {r1.duplicates_removed} dups removed")
+                if r1.health == "FAIL":
+                    overall = "FAIL"
+                elif r1.health == "WARN" and overall == "PASS":
+                    overall = "WARN"
+            except Exception as e:
+                print(f"Phase 1 ERROR: {e}")
+                overall = "FAIL"
+        else:
+            print(f"Phase 1: SKIP (manifest not found)")
+
+    if args.phase in ("3", "all"):
+        r = run_post_pipeline_validation(repo_root)
+        reports.append(r)
+        if r.health == "FAIL":
+            overall = "FAIL"
+        elif r.health == "WARN" and overall == "PASS":
+            overall = "WARN"
+
+    print()
+    print("=" * 60)
+    print(f"FINAL SYSTEM HEALTH: {overall}")
+    print(f"Reports : {repo_root / _REPORT_PATH}")
+    print("=" * 60)
+
+    sys.exit(0 if overall in ("PASS", "WARN") else 1)
                 raw = json.loads(mp.read_text(encoding="utf-8"))
                 entries = raw if isinstance(raw, list) else []
                 clean, r1 = enforce_output_contract(entries, repo_root, strict=False)

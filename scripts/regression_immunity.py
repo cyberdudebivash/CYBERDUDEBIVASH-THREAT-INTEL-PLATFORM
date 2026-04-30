@@ -195,19 +195,24 @@ else:
     violations.append("index.html not found")
     print("  [FAIL] index.html not found")
 
-# ── Check 6: Sort order validation ──
+# ── Check 6: Sort order validation (v143.1.0 — canonical key) ──
+# Uses canonical_sort_key (ts, stix_id) matching run_pipeline.py exactly.
+# Entries with identical timestamps are ordered by stix_id descending,
+# so equal-key entries are never flagged as out-of-order.
 print("\n[6] Sort order validation")
 if fdata:
     f_items = fdata if isinstance(fdata, list) else []
-    def ts(item):
-        for field in ("published_at", "timestamp", "processed_at"):
-            v = item.get(field)
-            if v and isinstance(v, str) and len(v) >= 10:
-                return v
-        return ""
+    def canonical_sort_key_ri(item):
+        """Canonical sort key: (ts_string, stix_id) — deterministic tie-breaking."""
+        ts_val  = (item.get("published_at") or item.get("timestamp") or item.get("processed_at") or "")
+        sid_val = (item.get("stix_id") or item.get("id") or "")
+        return (ts_val, sid_val)
     out_of_order = 0
     for i in range(len(f_items) - 1):
-        if ts(f_items[i]) < ts(f_items[i+1]) and ts(f_items[i]) != "" and ts(f_items[i+1]) != "":
+        cur_key  = canonical_sort_key_ri(f_items[i])
+        next_key = canonical_sort_key_ri(f_items[i + 1])
+        # In descending order, cur_key should be >= next_key
+        if cur_key != ("", "") and next_key != ("", "") and cur_key < next_key:
             out_of_order += 1
     check("feed.json sorted published_at DESC",
           out_of_order == 0,

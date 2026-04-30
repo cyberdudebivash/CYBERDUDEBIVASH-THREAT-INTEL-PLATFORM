@@ -55,6 +55,16 @@ def ts_key(entry):
             return str(v)
     return ""
 
+def canonical_sort_key(entry):
+    """
+    v143.1.0 CANONICAL DETERMINISTIC SORT KEY — must match run_pipeline.py exactly.
+    Primary: published_at → timestamp → processed_at (ISO-8601 string, descending).
+    Secondary: stix_id — unique per entry, guarantees deterministic tie-breaking.
+    """
+    ts  = (entry.get("published_at") or entry.get("timestamp") or entry.get("processed_at") or "")
+    sid = (entry.get("stix_id") or entry.get("id") or "")
+    return (ts, sid)
+
 def load_raw_and_json(path):
     """Load file as bytes AND parse JSON. Returns (raw_bytes, parsed_obj, error_str)."""
     try:
@@ -130,14 +140,18 @@ def check_file(path, label, errors, warnings, cap=None):
     if dups:
         errors.append(f"DUPLICATES [{label}]: {len(dups)} duplicate stix_ids: {dups[:3]}")
 
-    # Sort order check (descending by timestamp)
-    prev_ts = None
+    # Sort order check (descending by canonical key — v143.1.0)
+    # Uses canonical_sort_key (ts, stix_id) — matches pipeline write order exactly.
+    # Equal timestamps with different stix_ids are ordered by stix_id descending,
+    # which is deterministic. prev_key > cur_key means cur should have come before
+    # prev → out-of-order. Entries with equal canonical keys are not flagged.
+    prev_key = None
     out_of_order = 0
     for e in entries:
-        ts = ts_key(e)
-        if prev_ts is not None and ts > prev_ts:
+        cur_key = canonical_sort_key(e)
+        if prev_key is not None and cur_key > prev_key:
             out_of_order += 1
-        prev_ts = ts
+        prev_key = cur_key
     if out_of_order > 0:
         warnings.append(f"SORT [{label}]: {out_of_order} entries appear out of descending order")
 
