@@ -699,33 +699,3 @@ if __name__ == "__main__":
     print("=" * 60)
 
     sys.exit(0 if overall in ("PASS", "WARN") else 1)
-                raw = json.loads(mp.read_text(encoding="utf-8"))
-                entries = raw if isinstance(raw, list) else []
-                clean, r1 = enforce_output_contract(entries, repo_root, strict=False)
-                reports.append(r1)
-                print(f"Phase 1: {r1.health} | {r1.entries_before}->{r1.entries_after} entries | {r1.duplicates_removed} dups removed")
-                if r1.health == "FAIL":
-                    overall = "FAIL"
-                elif r1.health == "WARN" and overall == "PASS":
-                    overall = "WARN"
-            except Exception as e:
-                print(f"Phase 1 ERROR: {e}")
-                overall = "FAIL"
-        else:
-            print(f"Phase 1: SKIP (manifest not found)")
-
-    if args.phase in ("3", "all"):
-        r = run_post_pipeline_validation(repo_root)
-        reports.append(r)
-        if r.health == "FAIL":
-            overall = "FAIL"
-        elif r.health == "WARN" and overall == "PASS":
-            overall = "WARN"
-
-    print()
-    print("=" * 60)
-    print(f"FINAL SYSTEM HEALTH: {overall}")
-    print(f"Reports : {repo_root / _REPORT_PATH}")
-    print("=" * 60)
-
-    sys.exit(0 if overall in ("PASS", "WARN") else 1)

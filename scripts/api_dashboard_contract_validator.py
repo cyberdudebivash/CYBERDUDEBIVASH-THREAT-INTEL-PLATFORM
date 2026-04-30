@@ -279,37 +279,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-"  [OK] All {stats.get('top_n_checked', 0)} top entries match between manifest and api/feed.json")
-        print(f"  [OK] No duplicates in api/feed.json")
-        print(f"  [OK] Encoding checks passed")
-
-    # Write report
-    report = {
-        "script":       "api_dashboard_contract_validator",
-        "version":      SCRIPT_VERSION,
-        "status":       "PASS" if not errors else "FAIL",
-        "errors":       errors,
-        "warnings":     warnings,
-        "stats":        stats,
-        "validated_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-    if args.report:
-        os.makedirs(os.path.dirname(os.path.abspath(args.report)), exist_ok=True)
-        with open(args.report, "w", encoding="utf-8") as f:
-            json.dump(report, f, indent=2, ensure_ascii=False)
-        print(f"\n  Report written: {args.report}")
-
-    print(f"\n{'='*60}")
-    if errors:
-        print(f"RESULT: FAIL — {len(errors)} error(s) found")
-        print(f"{'='*60}\n")
-        sys.exit(1)
-    else:
-        print(f"RESULT: PASS — Contract validated (manifest={stats.get('manifest_count',0)} entries, api={stats.get('api_count',0)} entries)")
-        print(f"{'='*60}\n")
-        sys.exit(0)
-
-
-if __name__ == "__main__":
-    main()
