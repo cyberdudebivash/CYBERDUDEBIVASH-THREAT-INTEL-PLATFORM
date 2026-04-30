@@ -98,7 +98,7 @@ log = logging.getLogger("sentinel.pipeline")
 # Constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "141.0.0")
+PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "142.0.0")
 MIN_FRESHNESS_ENTRIES = 10   # absolute hard-fail threshold
 MIN_ENGINE_ENTRIES = 50      # engine manifest minimum before --force-rebuild
 MAX_STIX_BUNDLES = 500       # cap on persisted STIX bundle files
@@ -2573,4 +2573,40 @@ def main() -> None:
         )
     else:
         log.info("[stage-audit] ALL %d registered stages completed. Pipeline integrity: FULL.",
-                 len(_STAG
+                 len(_STAGE_REGISTRY))
+
+    if elapsed < _BASELINE_RUNTIME_SECONDS:
+        log.warning(
+            "[stage-audit] EARLY EXIT WARNING: pipeline completed in %.1fs "
+            "(< %ds baseline). This may indicate silent stage skips. "
+            "Completed stages: %s",
+            elapsed, _BASELINE_RUNTIME_SECONDS, _completed_stages,
+        )
+    else:
+        log.info("[stage-audit] Runtime %.1fs >= %ds baseline. Normal execution confirmed.",
+                 elapsed, _BASELINE_RUNTIME_SECONDS)
+
+    # Mark final feed.json sync
+    _stage_done("feed_json_final")
+
+    log.info("=" * 70)
+    log.info("PIPELINE COMPLETE in %.1fs | Version: %s | %s",
+             elapsed, PIPELINE_VERSION, utc_now())
+    log.info("Stages completed: %d/%d  %s",
+             len(_completed_stages), len(_STAGE_REGISTRY),
+             "FULL" if not missing_stages else f"PARTIAL ({missing_stages})")
+    log.info("=" * 70)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except SystemExit:
+        raise   # Allow hard-fail exits to propagate
+    except Exception as e:
+        import traceback
+        log.critical(
+            "UNHANDLED EXCEPTION in run_pipeline.py -- exiting 1:\n%s\n%s",
+            e, traceback.format_exc()
+        )
+        sys.exit(1)
