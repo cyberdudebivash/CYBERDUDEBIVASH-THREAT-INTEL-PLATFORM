@@ -1,22 +1,47 @@
-# CYBERDUDEBIVASH SENTINEL APEX v134.0.0 — Cache Headers
+# CYBERDUDEBIVASH SENTINEL APEX v142.3.0 — Production Security & Cache Headers
+# Hardened: 2026-04-30 (HSTS, CSP, X-XSS-Protection, X-Frame-Options added)
+
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=(), usb=()
+
 /api/*
   Cache-Control: no-store, no-cache, must-revalidate
   Access-Control-Allow-Origin: *
+  X-Sentinel-Version: 142.3.0
+
 /api/feed.json
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Access-Control-Allow-Origin: *
   Content-Type: application/json; charset=utf-8
+  X-Sentinel-Version: 142.3.0
+
 /api/status.json
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Access-Control-Allow-Origin: *
+
 /data/feed_manifest.json
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Access-Control-Allow-Origin: *
+
 /data/stix/feed_manifest.json
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Access-Control-Allow-Origin: *
+
 /config/version.json
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Access-Control-Allow-Origin: *
+
 /*.html
   Cache-Control: no-cache, must-revalidate
+  Content-Security-Policy: default-src 'self' https://intel.cyberdudebivash.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://intel.cyberdudebivash.com https://www.cyberdudebivash.in; frame-ancestors 'none';
+
+/assets/*
+  Cache-Control: public, max-age=604800, immutable
+
+/js/*
+  Cache-Control: public, max-age=604800, immutable
