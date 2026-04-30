@@ -845,7 +845,7 @@ def run_guard(mode: str = "full", strict: bool = False) -> int:
     report_dir.mkdir(parents=True, exist_ok=True)
     report_path = report_dir / "guardian_report.json"
     try:
-        report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"📄 Report saved → {report_path.relative_to(ROOT)}")
     except Exception as exc:
         print(f"⚠️  Could not write report: {exc}")

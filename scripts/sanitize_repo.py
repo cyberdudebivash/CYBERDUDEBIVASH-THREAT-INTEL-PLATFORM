@@ -448,7 +448,7 @@ def write_security_hub_kv(events: List[SanitizeEvent], log_path: pathlib.Path) -
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with open(log_path, "a", encoding="utf-8") as fh:
             for ev in events:
-                fh.write(json.dumps(ev.to_dict(), default=str) + "\n")
+                fh.write(json.dumps(ev.to_dict(, ensure_ascii=False), default=str) + "\n")
     except Exception as e:
         logger.warning(f"SECURITY_HUB_KV write failed (non-fatal): {e}")
 
@@ -537,7 +537,7 @@ def main() -> None:
             "errors": error_count,
             "events": [ev.to_dict() for ev in all_events],
         }
-        print(_json.dumps(summary, indent=2, default=str))
+        print(_json.dumps(summary, indent=2, default=str, ensure_ascii=False))
 
     # P0 GUARANTEE: This script MUST exit 0 regardless of what it found.
     # It is a pre-flight sanitizer -- it MUST NOT kill the pipeline.

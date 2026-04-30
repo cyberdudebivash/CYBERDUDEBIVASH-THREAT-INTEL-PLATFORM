@@ -594,7 +594,7 @@ if __name__ == "__main__":
     result = run_recommender(dry_run=args.dry_run)
 
     if args.json:
-        print(json.dumps(result, indent=2))
+        print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         summary = result.get("executive_summary", {})
         recs = result.get("recommendations", [])

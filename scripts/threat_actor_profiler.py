@@ -398,7 +398,7 @@ def save_actor_profiles(profiles: Dict[str, Dict]) -> bool:
             serializable[actor] = p_copy
 
         tmp = ACTOR_PROFILES.with_suffix(".tmp")
-        tmp.write_text(json.dumps(serializable, indent=2, default=str), encoding="utf-8")
+        tmp.write_text(json.dumps(serializable, indent=2, default=str, ensure_ascii=False), encoding="utf-8")
         tmp.replace(ACTOR_PROFILES)
         logger.info(f"Saved {len(profiles)} actor profiles")
         return True
@@ -662,13 +662,13 @@ Examples:
 
     if args.run:
         result = run_profiler(tier=args.tier)
-        print(json.dumps(result, indent=2, default=str))
+        print(json.dumps(result, indent=2, default=str, ensure_ascii=False))
         return
 
     if args.list:
         actors = list_top_actors(n=args.n, tier=args.tier, active_only=args.active_only)
         if args.json:
-            print(json.dumps(actors, indent=2, default=str))
+            print(json.dumps(actors, indent=2, default=str, ensure_ascii=False))
         else:
             print(f"\n{'='*65}")
             print(f"  Top {args.n} Threat Actors — SENTINEL APEX")
@@ -687,18 +687,18 @@ Examples:
 
     if args.stix:
         result = build_stix_threat_actor(args.stix, tier=args.tier)
-        print(json.dumps(result, indent=2, default=str))
+        print(json.dumps(result, indent=2, default=str, ensure_ascii=False))
         return
 
     if args.iocs:
         result = get_actor_iocs(args.iocs, tier=args.tier)
-        print(json.dumps(result, indent=2, default=str))
+        print(json.dumps(result, indent=2, default=str, ensure_ascii=False))
         return
 
     if args.actor:
         profile = get_actor_profile(args.actor, tier=args.tier)
         if args.json:
-            print(json.dumps(profile, indent=2, default=str))
+            print(json.dumps(profile, indent=2, default=str, ensure_ascii=False))
         else:
             print(f"\n{'='*65}")
             print(f"  Threat Actor Profile — {profile.get('canonical_name', args.actor)}")

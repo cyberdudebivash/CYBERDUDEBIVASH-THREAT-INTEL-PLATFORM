@@ -269,7 +269,7 @@ def gumroad_sync() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def _print_json(data: Any) -> None:
-    print(json.dumps(data, indent=2, default=str))
+    print(json.dumps(data, indent=2, default=str, ensure_ascii=False))
 
 
 def main() -> int:

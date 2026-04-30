@@ -134,7 +134,7 @@ def generate_demo_key(
         out_path = Path(output_file)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(
-            json.dumps(result, indent=2, default=str),
+            json.dumps(result, indent=2, default=str, ensure_ascii=False),
             encoding="utf-8",
         )
         log.info("Demo key written to %s", out_path)
@@ -152,7 +152,7 @@ def _log_demo_key(result: dict) -> None:
     audit = {k: v for k, v in result.items() if k != "raw_key"}
     try:
         with open(log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(audit, default=str) + "\n")
+            f.write(json.dumps(audit, default=str, ensure_ascii=False) + "\n")
     except Exception as e:
         log.warning("Could not write demo key audit log: %s", e)
 
