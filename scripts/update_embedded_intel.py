@@ -55,8 +55,8 @@ ENRICHMENT_KEYS = [
     "source_url",
 ]
 
-# Minimum items to prevent empty dashboard
-MIN_ITEMS = 5
+# Minimum items — set to 0 so dashboard fetches live from API only (no stale embedded data)
+MIN_ITEMS = 0
 
 # Platform version exposed to dashboard
 PLATFORM_VERSION = "v134.0"
@@ -503,11 +503,11 @@ def patch_index_html(merged: list) -> bool:
     _BLOAT_FIELDS = {"ttps", "alert", "correlation"}
     merged = [{k: v for k, v in item.items() if k not in _BLOAT_FIELDS} for item in merged]
 
-    new_array = json.dumps(merged, separators=(",", ":"), ensure_ascii=False)
-    # SECURITY FIX (v142.1): Escape </script> so the browser's HTML tokenizer never
-    # terminates the enclosing <script> block early when an intel advisory contains
-    # an XSS payload example (e.g. GHSA-qx2v-qp2 PostCSS "</style><script>alert(1)").
-    new_array = new_array.replace("</script>", "<\\/script>").replace("<!--", "<\\!--")
+    # PRODUCTION FIX (v142.4): Write empty array — dashboard fetches live intel from API.
+    # Embedding full dataset caused 12.5MB index.html bloat, Cyrillic mojibake corruption,
+    # and dashboard/API mismatch. Single source of truth = API feed only.
+    new_array = "[]"
+    # (Security escaping not needed for empty array — retained for reference only)
 
     # ── Step 4: Create backup in /tmp (avoids NTFS immutability issues on mounted shares) ──
     import tempfile
