@@ -448,7 +448,7 @@ def write_security_hub_kv(events: List[SanitizeEvent], log_path: pathlib.Path) -
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with open(log_path, "a", encoding="utf-8") as fh:
             for ev in events:
-                fh.write(json.dumps(ev.to_dict(, ensure_ascii=False), default=str) + "\n")
+                fh.write(json.dumps(ev.to_dict(), ensure_ascii=False, default=str) + "\n")
     except Exception as e:
         logger.warning(f"SECURITY_HUB_KV write failed (non-fatal): {e}")
 

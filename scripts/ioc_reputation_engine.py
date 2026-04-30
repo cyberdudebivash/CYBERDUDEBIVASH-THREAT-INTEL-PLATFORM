@@ -245,7 +245,7 @@ def _cache_set(ioc_type: str, value: str, payload: Dict) -> None:
     try:
         tmp = path.with_suffix(".tmp")
         tmp.write_text(
-            json.dumps({"_cached_at": time.time(, ensure_ascii=False), "payload": payload}, indent=2),
+            json.dumps({"_cached_at": time.time(), "payload": payload}, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
         tmp.replace(path)

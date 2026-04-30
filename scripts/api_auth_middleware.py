@@ -292,7 +292,7 @@ def main() -> None:
         print("Revoked OK" if ok else "Key not found")
 
     elif args.cmd == "report":
-        print(json.dumps(usage_report(, ensure_ascii=False), indent=2))
+        print(json.dumps(usage_report(), ensure_ascii=False, indent=2))
 
     else:
         parser.print_help()
