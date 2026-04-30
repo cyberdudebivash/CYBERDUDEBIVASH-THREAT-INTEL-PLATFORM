@@ -304,6 +304,32 @@ jobs:
         run: python3 scripts/bust_kv_cache.py || true
 
       # -----------------------------------------------------------------------
+      # STAGE 3.8: ENCODING VALIDATOR (v143.0 -- HARD FAIL GATE)
+      # Scans index.html, feed.json, api/feed.json for mojibake sequences,
+      # BOM corruption, and EMBEDDED_INTEL data pollution.
+      # BLOCKS DEPLOYMENT if any encoding violation is found.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.8 - Encoding Validator (HARD FAIL on mojibake)"
+        run: python3 scripts/encoding_validator.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.9: OUTPUT VALIDATION GATE (v143.0 -- HARD FAIL GATE)
+      # Validates: JSON integrity, dedup, sort order, entry counts, encoding.
+      # Blocks deployment if any output contract violation is detected.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.9 - Output Validation Gate (HARD FAIL)"
+        run: python3 scripts/output_validation_gate.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.91: API <-> DASHBOARD CONTRACT VALIDATOR (v143.0 -- HARD FAIL)
+      # Asserts: top-50 stix_ids match between manifest and api/feed.json.
+      # Zero duplicates. Zero timestamp mismatches. Encoding clean.
+      # BLOCKS DEPLOYMENT if API != Dashboard.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.91 - API Dashboard Contract Validator (HARD FAIL)"
+        run: python3 scripts/api_dashboard_contract_validator.py
+
+      # -----------------------------------------------------------------------
       # STAGE 4: GIT SYNC -- ALWAYS RUNS
       # Commits non-sensitive metadata and HTML reports. 4-attempt push retry.
       # Exit 0 guaranteed - never kills pipeline.
@@ -354,6 +380,24 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "STAGE 5.6 - Regression Test Suite"
         run: python3 scripts/regression_tests.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.6.1: REGRESSION IMMUNITY SYSTEM (v143.0 -- HARD FAIL GATE)
+      # 10-check final assertion battery:
+      #   1. Duplicate stix_id detection (feed + manifest)
+      #   2. Duplicate title detection
+      #   3. Encoding scan (mojibake patterns across all files)
+      #   4. API vs Dashboard top-50 stix_id match
+      #   5. Single render path (EMBEDDED_INTEL=[], render guards)
+      #   6. Sort order (published_at DESC in feed.json)
+      #   7. Python syntax (all scripts/*.py via py_compile)
+      #   8. Feed count bounds (1<=feed<=500, manifest>=100)
+      #   9. Version lock (config/version.json readable)
+      # Exit 0 = PASS. Exit 1 = FAIL -- BLOCKS DEPLOYMENT.
+      # Platform is ONLY deployable when all 10 invariants hold.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.6.1 - Regression Immunity System (HARD FAIL)"
+        run: python3 scripts/regression_immunity.py
 
       # -----------------------------------------------------------------------
       # STAGE 6: TELEGRAM FAILURE ALERT (v141.0 -- always runs, zero-exit)
