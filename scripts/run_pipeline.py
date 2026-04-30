@@ -2334,6 +2334,32 @@ def stage_sync_root_feed_json() -> None:
         except Exception as _qe_e:
             log.warning("[PHASE5-QE] Quality engine error (non-fatal, continuing): %s", _qe_e)
 
+    # ---- v142.3.0 Stability Lock Phase 1 — Final Output Contract -----------
+    # Enforced BEFORE any feed.json write:
+    #   - No duplicate stix_id
+    #   - No duplicate title
+    #   - Sorted by published_at DESC
+    #   - No future-dated entries (clamped to UTC now)
+    # Non-blocking: violations are logged; clean list used for write.
+    try:
+        import importlib.util as _p1_ilu
+        _p1_spec = _p1_ilu.spec_from_file_location(
+            "sentinel_stability_lock",
+            REPO_ROOT / "scripts" / "sentinel_stability_lock.py",
+        )
+        _p1_mod = _p1_ilu.module_from_spec(_p1_spec)
+        _p1_spec.loader.exec_module(_p1_mod)
+        manifest_items, _p1_report = _p1_mod.enforce_output_contract(
+            manifest_items, REPO_ROOT, strict=False
+        )
+        if _p1_report.violations:
+            log.warning("[p1-output-contract] %d violation(s): %s",
+                        len(_p1_report.violations), _p1_report.violations)
+        log.info("[p1-output-contract] Contract enforced: %d entries, %d dups removed, health=%s",
+                 _p1_report.entries_after, _p1_report.duplicates_removed, _p1_report.health)
+    except Exception as _p1_e:
+        log.warning("[p1-output-contract] Skipped (non-fatal): %s", _p1_e)
+
     # ---- Step 6: Write to all target feed.json paths --------------------
     if not manifest_items:
         log.error("[3.9] CRITICAL: Zero entries after all fallbacks — feed.json will be empty")
@@ -2472,6 +2498,29 @@ def main() -> None:
     stage_validate_jwt_secret()          # HARD FAIL if JWT missing
     _stage_done("jwt_secret")
 
+    # ---- v142.3.0: Stability Lock Phase 2 — Version Lock -------------------
+    # Validate config/version.json SSOT matches PIPELINE_VERSION env var.
+    # Creates manifest backup for Phase 6 self-healing before any modifications.
+    try:
+        import importlib.util as _ssl_ilu
+        _ssl_spec = _ssl_ilu.spec_from_file_location(
+            "sentinel_stability_lock",
+            REPO_ROOT / "scripts" / "sentinel_stability_lock.py",
+        )
+        _ssl_mod = _ssl_ilu.module_from_spec(_ssl_spec)
+        _ssl_spec.loader.exec_module(_ssl_mod)
+        # Phase 2: version lock check (warn-only — pipeline continues on mismatch)
+        _v2_report = _ssl_mod.validate_version_lock(REPO_ROOT, PIPELINE_VERSION, hard_fail=False)
+        if _v2_report.health == "FAIL":
+            log.warning("[v2-version-lock] Version mismatch detected — see data/audit/stability_report.json")
+        else:
+            log.info("[v2-version-lock] Version lock: %s", _v2_report.health)
+        # Phase 6 prerequisite: create manifest backup before any pipeline writes
+        _ssl_mod.create_manifest_backup(REPO_ROOT)
+        log.info("[v6-selfheal-prep] Manifest backup created for self-healing")
+    except Exception as _ssl_e:
+        log.warning("[stability-lock] Phase 2 / backup skipped (non-fatal): %s", _ssl_e)
+
     # ---- v134 System Health Gate (pre-ingestion CRITICAL/DEGRADED guard) ----
     stage_system_health_gate()           # CRITICAL: exit 1 | DEGRADED: drain-first then continue
 
@@ -2531,6 +2580,31 @@ def main() -> None:
     stage_write_metrics()                # Write pipeline_metrics.json
     _stage_done("write_metrics")
     stage_sync_root_feed_json()          # FINAL: ensure feed.json populated (double-guarantee)
+
+    # ---- v142.3.0 Stability Lock Phase 3 — Post-Pipeline Validation --------
+    # Runs AFTER all writes complete. Validates manifest/feed/UI health.
+    # Phase 5 (UI guard check) + Phase 6 (self-heal) triggered automatically.
+    # Non-blocking: FAIL logged to data/audit/stability_report.json, pipeline exits 0
+    try:
+        import importlib.util as _p3_ilu
+        _p3_spec = _p3_ilu.spec_from_file_location(
+            "sentinel_stability_lock",
+            REPO_ROOT / "scripts" / "sentinel_stability_lock.py",
+        )
+        _p3_mod = _p3_ilu.module_from_spec(_p3_spec)
+        _p3_spec.loader.exec_module(_p3_mod)
+        _p3_report = _p3_mod.run_post_pipeline_validation(REPO_ROOT)
+        if _p3_report.health == "FAIL":
+            log.error(
+                "[p3-post-validate] FAIL — %d violation(s): %s",
+                len(_p3_report.violations), _p3_report.violations,
+            )
+        elif _p3_report.health == "WARN":
+            log.warning("[p3-post-validate] WARN — %d violation(s)", len(_p3_report.violations))
+        else:
+            log.info("[p3-post-validate] PASS — manifest/feed/UI all healthy ✅")
+    except Exception as _p3_e:
+        log.warning("[p3-post-validate] Skipped (non-fatal): %s", _p3_e)
 
     # ---- Phase 9: Self-Audit Report (v141.7.0) --------------------------------
     try:
