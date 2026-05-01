@@ -2641,6 +2641,7 @@ def main() -> None:
     stage_purge_publish_queue()
     stage_bootstrap()
     stage_validate_bootstrap()
+    _stage_done("bootstrap")             # v143.4.1 FIX: mark bootstrap complete
     stage_inject_sovereign_key()
     stage_validate_jwt_secret()          # HARD FAIL if JWT missing
     _stage_done("jwt_secret")
@@ -2728,6 +2729,7 @@ def main() -> None:
     stage_write_metrics()                # Write pipeline_metrics.json
     _stage_done("write_metrics")
     stage_sync_root_feed_json()          # FINAL: ensure feed.json populated (double-guarantee)
+    _stage_done("feed_json_final")       # v143.4.1 FIX: mark BEFORE stage audit so it registers
 
     # ---- v142.3.0 Stability Lock Phase 3 — Post-Pipeline Validation --------
     # Runs AFTER all writes complete. Validates manifest/feed/UI health.
@@ -2809,9 +2811,6 @@ def main() -> None:
     else:
         log.info("[stage-audit] Runtime %.1fs >= %ds baseline. Normal execution confirmed.",
                  elapsed, _BASELINE_RUNTIME_SECONDS)
-
-    # Mark final feed.json sync
-    _stage_done("feed_json_final")
 
     # ---- Phase 6-9: Data Consistency & Encoding Gate (v142.3.0) ---------------
     # Phase 6: API <-> Dashboard Contract Validator

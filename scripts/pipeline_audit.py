@@ -248,7 +248,9 @@ def check_pipeline_metrics(findings: list, stats: dict) -> None:
                          "detail": f"Cannot parse pipeline_metrics.json: {e}"})
         return
 
-    runtime = metrics.get("total_runtime_seconds", 0)
+    # v143.4.1 FIX: PipelineMetrics.to_dict() writes 'pipeline_duration_s', not
+    # 'total_runtime_seconds'. Support both keys so old and new reports work.
+    runtime = metrics.get("total_runtime_seconds") or metrics.get("pipeline_duration_s", 0)
     stats["pipeline_runtime_seconds"] = runtime
 
     if runtime < 60:
