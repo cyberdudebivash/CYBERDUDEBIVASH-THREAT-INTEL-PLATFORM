@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 scripts/snapshot_integration.py
@@ -162,10 +162,6 @@ if __name__ == "__main__":
     ok = create_pipeline_snapshot(
         source_path=args.source,
         run_id=args.run_id,
-        skip_dedup=args.skip_dedup,
-    )
-    sys.exit(0 if ok else 1)
-,
         skip_dedup=args.skip_dedup,
     )
     sys.exit(0 if ok else 1)
