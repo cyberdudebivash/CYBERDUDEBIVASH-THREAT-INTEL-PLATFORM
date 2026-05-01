@@ -104,26 +104,68 @@ class DeduplicationEngine:
 
     def _seed_from_manifest(self):
         """v55.1 FIX: Seed dedup state from feed_manifest.json.
-        
+
         ROOT CAUSE: blogger_processed.json was gitignored, so every CI run
         started with empty dedup -> all articles re-published as duplicates.
-        
+
         This method reads all titles from the existing manifest and registers
         them in the dedup engine, ensuring no already-published article
         is re-published even if the state file was lost.
+
+        v143.4.0 TTL FIX:
+        ROOT CAUSE of fresh intel stagnation: seeding ALL 3000+ manifest entries
+        blocked every new RSS article as "already seen", because the dedup state
+        accumulated hashes for articles published months ago. RSS feeds never
+        republish old articles, so blocking them permanently was correct; but
+        seeding from the FULL manifest with no TTL meant new topically-similar
+        articles (different CVE, same vendor) were also blocked by the title-hash.
+        FIX: only seed entries published within the last SEED_TTL_DAYS (14 days).
+        Entries older than 14 days are re-eligible — acceptable because the
+        platform's value is in CURRENT threat intelligence, not historical re-runs.
         """
+        SEED_TTL_DAYS = 14  # only block re-processing of entries from last N days
         if not os.path.exists(self.manifest_path):
             return
         try:
+            from datetime import datetime, timezone, timedelta as _td
+            _cutoff = datetime.now(timezone.utc) - _td(days=SEED_TTL_DAYS)
+            _cutoff_str = _cutoff.strftime("%Y-%m-%d")  # YYYY-MM-DD prefix for fast compare
+
             with open(self.manifest_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            entries = data if isinstance(data, list) else data.get("entries", [])
+            # Support both list format and {"advisories": [...]} dict format
+            if isinstance(data, list):
+                entries = data
+            elif isinstance(data, dict):
+                for _k in ("advisories", "entries", "reports", "items"):
+                    _v = data.get(_k)
+                    if isinstance(_v, list):
+                        entries = _v
+                        break
+                else:
+                    entries = []
+            else:
+                entries = []
+
             seeded = 0
+            skipped_old = 0
             for entry in entries:
                 title = entry.get("title", "")
-                url = entry.get("source_url", "") or entry.get("blog_url", "")
                 if not title:
                     continue
+                # v143.4.0 TTL: skip entries older than SEED_TTL_DAYS
+                pub = (
+                    entry.get("processed_at") or
+                    entry.get("published_at") or
+                    entry.get("timestamp") or
+                    ""
+                )
+                if pub and isinstance(pub, str) and len(pub) >= 10:
+                    if pub[:10] < _cutoff_str:
+                        skipped_old += 1
+                        continue  # allow re-discovery of old entries
+
+                url = entry.get("source_url", "") or entry.get("blog_url", "")
                 ch = self._generate_hash(title, url)
                 th = self._generate_title_hash(title)
                 if ch not in self._state["processed_hashes"]:
@@ -134,7 +176,10 @@ class DeduplicationEngine:
                     self._state.setdefault("title_hashes", []).append(th)
             if seeded > 0:
                 self._save_state()
-                logger.info(f"  [DEDUP] Seeded {seeded} entries from manifest ({len(entries)} total)")
+            logger.info(
+                f"  [DEDUP] Seeded {seeded} recent entries from manifest "
+                f"({len(entries)} total, {skipped_old} old entries skipped by TTL)"
+            )
         except Exception as e:
             logger.warning(f"  [DEDUP] Manifest seed failed (non-fatal): {e}")
 

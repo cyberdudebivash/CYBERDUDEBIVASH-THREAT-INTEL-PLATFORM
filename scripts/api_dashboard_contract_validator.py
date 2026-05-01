@@ -3,13 +3,22 @@
 """
 SENTINEL APEX — Phase 6: API <-> Dashboard Contract Validator
 =============================================================
-Verifies that the dashboard feed (api/feed.json) and the canonical
-feed_manifest.json are in strict sync on:
-  - Top-N entry order (stix_id)
-  - Timestamps (published / last_modified)
-  - Entry count parity
+v143.4.1 TWO-TIER ARCHITECTURE FIX:
+  feed_manifest.json = full-history superset (all processed items, 2000-3000+)
+  api/feed.json      = quality-filtered top 500 (what the dashboard displays)
 
-Pipeline FAILS on any mismatch — zero-tolerance mode.
+  These are intentionally DIFFERENT SETS. The old validator compared manifest
+  top-N vs api top-N position-by-position, which broke when quality-filtered
+  items appeared in manifest top-50 but not in api top-50.
+
+  New contract checks:
+    1. api/feed.json is correctly sorted by canonical key (internal consistency)
+    2. Every api/feed.json top-N item EXISTS in manifest (api ⊆ manifest SSOT)
+    3. Relative order of api items within manifest matches api order
+    4. No duplicates in api/feed.json
+    5. Timestamps on matched items are consistent
+    6. Encoding is valid UTF-8, no BOM, no mojibake
+  Items in manifest top-N but absent from api = quality-filtered → WARNING only.
 
 Usage:
     python scripts/api_dashboard_contract_validator.py [--repo-root .] [--top N]
@@ -18,7 +27,7 @@ Usage:
 import os, sys, json, argparse, hashlib
 from datetime import datetime, timezone
 
-SCRIPT_VERSION = "1.0.0"
+SCRIPT_VERSION = "1.1.0"  # v143.4.1: two-tier architecture
 DEFAULT_TOP    = 50   # compare top-N by published timestamp
 MAX_DELTA_SEC  = 1    # timestamps must match exactly (both from same source)
 
@@ -134,53 +143,118 @@ def validate(repo_root, top_n):
     manifest_sorted = sorted(manifest_items, key=canonical_sort_key, reverse=True)
     api_sorted      = sorted(api_items,      key=canonical_sort_key, reverse=True)
 
-    # Top-N from manifest (bounded by actual api size and top_n param)
-    n = min(top_n, a_count, m_count)
-    m_top = manifest_sorted[:n]
+    # v143.4.1 TWO-TIER ARCHITECTURE:
+    # manifest = full history superset (all processed items)
+    # api      = quality-filtered top 500 (dashboard view)
+    # Top-N from API only (bounded by actual api size and top_n param)
+    n = min(top_n, a_count)
     a_top = api_sorted[:n]
 
-    # ── stix_id order check ──────────────────────────────────
-    for rank, (m_entry, a_entry) in enumerate(zip(m_top, a_top), 1):
-        m_id = m_entry.get("stix_id") or m_entry.get("id", "")
-        a_id = a_entry.get("stix_id") or a_entry.get("id", "")
-        if m_id != a_id:
-            errors.append(
-                f"ORDER MISMATCH @rank {rank}: manifest={m_id[:40]}  api={a_id[:40]}"
-            )
-            if len(errors) >= 10:
-                errors.append("(truncated at 10 order mismatches)")
-                break
-
-    # ── Timestamp check on matched IDs ──────────────────────
+    # Build lookup maps for O(1) access
     api_by_id = {
         (e.get("stix_id") or e.get("id", "")): e
         for e in api_items
     }
-    ts_mismatches = 0
-    for m_entry in m_top:
-        m_id = m_entry.get("stix_id") or m_entry.get("id", "")
-        a_entry = api_by_id.get(m_id)
-        if not a_entry:
-            # ID present in manifest but absent from api/feed.json
-            # This is expected if manifest > 500 entries — only warn for top-N
-            rank_in_sorted = next(
-                (i for i, e in enumerate(manifest_sorted) if (e.get("stix_id") or e.get("id","")) == m_id),
-                9999
+    # manifest index: id -> (rank_in_manifest_sorted, entry)
+    manifest_by_id = {
+        (e.get("stix_id") or e.get("id", "")): (i, e)
+        for i, e in enumerate(manifest_sorted)
+    }
+    manifest_ids = set(manifest_by_id.keys())
+
+    # ── CHECK 1: API internal sort order ────────────────────
+    # Verify api/feed.json top-N is correctly sorted by canonical key.
+    # This is the PRIMARY sort contract — if API itself is out of order, fail.
+    api_sort_errors = 0
+    for rank in range(1, len(a_top)):
+        prev_key = canonical_sort_key(a_top[rank - 1])
+        curr_key = canonical_sort_key(a_top[rank])
+        if prev_key < curr_key:  # descending — prev must be >= curr
+            p_id = a_top[rank - 1].get("stix_id") or a_top[rank - 1].get("id", "")
+            c_id = a_top[rank].get("stix_id") or a_top[rank].get("id", "")
+            errors.append(
+                f"API SORT ERROR @rank {rank}: {p_id[:36]} should precede {c_id[:36]}"
             )
-            if rank_in_sorted < a_count:
-                errors.append(f"MISSING IN API: {m_id[:40]} (manifest rank={rank_in_sorted+1})")
-            continue
+            api_sort_errors += 1
+            if api_sort_errors >= 5:
+                errors.append("(truncated at 5 api sort errors)")
+                break
+
+    # ── CHECK 2: API top-N items must exist in manifest ─────
+    # api ⊆ manifest is the fundamental SSOT contract.
+    # If an API item is missing from manifest, it's a pipeline regression.
+    api_missing_from_manifest = 0
+    for api_rank, a_entry in enumerate(a_top, 1):
+        a_id = a_entry.get("stix_id") or a_entry.get("id", "")
+        if a_id not in manifest_ids:
+            errors.append(
+                f"API ITEM NOT IN MANIFEST (regression): {a_id[:40]} (api rank={api_rank})"
+            )
+            api_missing_from_manifest += 1
+            if api_missing_from_manifest >= 5:
+                errors.append("(truncated at 5 missing-from-manifest errors)")
+                break
+
+    # ── CHECK 3: Relative order of API items within manifest ─
+    # Items appearing earlier in API should also appear earlier in manifest.
+    # Only check items that exist in both (skip any missing from manifest).
+    api_manifest_ranks = []
+    for a_entry in a_top:
+        a_id = a_entry.get("stix_id") or a_entry.get("id", "")
+        if a_id in manifest_by_id:
+            api_manifest_ranks.append((a_id, manifest_by_id[a_id][0]))
+    order_regressions = 0
+    for i in range(1, len(api_manifest_ranks)):
+        prev_id, prev_mrank = api_manifest_ranks[i - 1]
+        curr_id, curr_mrank = api_manifest_ranks[i]
+        if curr_mrank < prev_mrank:
+            # curr item appears BEFORE prev in manifest — order regression
+            errors.append(
+                f"ORDER REGRESSION @api-rank {i+1}: {curr_id[:32]} "
+                f"(manifest rank={curr_mrank+1}) before {prev_id[:32]} "
+                f"(manifest rank={prev_mrank+1})"
+            )
+            order_regressions += 1
+            if order_regressions >= 5:
+                errors.append("(truncated at 5 order regression errors)")
+                break
+
+    # ── CHECK 4: Timestamp consistency on matched IDs ────────
+    ts_mismatches = 0
+    for a_entry in a_top:
+        a_id = a_entry.get("stix_id") or a_entry.get("id", "")
+        if a_id not in manifest_by_id:
+            continue  # already flagged in CHECK 2
+        _, m_entry = manifest_by_id[a_id]
         m_ts = normalize_ts(ts_key(m_entry))
         a_ts = normalize_ts(ts_key(a_entry))
-        if m_ts != a_ts:
+        if m_ts and a_ts and m_ts != a_ts:
             ts_mismatches += 1
             if ts_mismatches <= 5:
                 errors.append(
-                    f"TS MISMATCH: {m_id[:36]} manifest={m_ts}  api={a_ts}"
+                    f"TS MISMATCH: {a_id[:36]} manifest={m_ts}  api={a_ts}"
                 )
-
     if ts_mismatches > 5:
         errors.append(f"... and {ts_mismatches - 5} more timestamp mismatches")
+
+    # ── WARN: manifest top-N items absent from API ──────────
+    # These were quality-filtered out of feed.json — intentional, not an error.
+    # v143.4.1: demoted from ERROR to WARNING.
+    m_top_n = min(top_n, m_count)
+    m_top = manifest_sorted[:m_top_n]
+    quality_filtered_count = 0
+    for m_rank, m_entry in enumerate(m_top, 1):
+        m_id = m_entry.get("stix_id") or m_entry.get("id", "")
+        if m_id not in api_by_id:
+            quality_filtered_count += 1
+            if quality_filtered_count <= 5:
+                warnings.append(
+                    f"QUALITY FILTERED (not in API): {m_id[:40]} (manifest rank={m_rank})"
+                )
+    if quality_filtered_count > 5:
+        warnings.append(
+            f"... and {quality_filtered_count - 5} more quality-filtered items in manifest top-{m_top_n}"
+        )
 
     # ── Duplicate check in api/feed.json ────────────────────
     seen_ids = {}
