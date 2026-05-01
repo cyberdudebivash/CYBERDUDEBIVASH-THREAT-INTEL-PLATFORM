@@ -2898,6 +2898,7 @@ def main() -> None:
             REPO_ROOT / "scripts" / "output_validation_gate.py",
         )
         _p7_mod = _p7_ilu.module_from_spec(_p7_spec)
+        _p7_mod = _p7_ilu.module_from_spec(_p7_spec)
         _p7_spec.loader.exec_module(_p7_mod)
         _p7_errors, _p7_warnings, _p7_report = [], [], {}
         # Call check_file directly for each critical output
