@@ -2496,7 +2496,39 @@ def stage_sync_root_feed_json() -> None:
     try:
         # v143.4.0 FIX: Use pre-quality snapshot for manifest (full history preserved).
         # feed.json uses quality-filtered list; manifest keeps ALL entries.
-        _manifest_write_items = _manifest_items_pre_quality if _manifest_items_pre_quality else manifest_items
+        _manifest_write_items = list(_manifest_items_pre_quality if _manifest_items_pre_quality else manifest_items)
+
+        # v144.0 RECONCILIATION FIX: ensure every item that will be written to
+        # api/feed.json (payload) is ALSO present in the manifest write-back.
+        # Root cause: intelligence engines can generate fresh intel--UUID items that
+        # land in api/feed.json (via quality pipeline or prior-run carry-forward)
+        # but are never captured in the manifest, causing "API ITEM NOT IN MANIFEST"
+        # contract violations. Fix: scan payload, append any missing items to the
+        # manifest write-back list before the canonical write so api ⊆ manifest holds.
+        try:
+            _mwr_ids_by_id     = {i.get("id",""):      True for i in _manifest_write_items}
+            _mwr_ids_by_stixid = {i.get("stix_id",""): True for i in _manifest_write_items}
+            _reconcile_added = 0
+            for _pay_item in payload:
+                _pay_stix = _pay_item.get("stix_id","")
+                _pay_id   = _pay_item.get("id","")
+                # Item is covered if either its stix_id OR id matches any manifest entry
+                _covered = (
+                    (_pay_stix and (_pay_stix in _mwr_ids_by_stixid or _pay_stix in _mwr_ids_by_id))
+                    or
+                    (_pay_id   and (_pay_id   in _mwr_ids_by_id      or _pay_id   in _mwr_ids_by_stixid))
+                )
+                if not _covered:
+                    _manifest_write_items.append(_pay_item)
+                    _mwr_ids_by_id[_pay_id]       = True
+                    _mwr_ids_by_stixid[_pay_stix] = True
+                    _reconcile_added += 1
+            if _reconcile_added:
+                log.info("[3.9-RECONCILE] Added %d api/feed.json items missing from manifest → manifest now complete",
+                         _reconcile_added)
+        except Exception as _rcn_e:
+            log.warning("[3.9-RECONCILE] Reconciliation step failed (non-fatal): %s", _rcn_e)
+
         _manifest_write_items.sort(key=sort_key, reverse=True)
         try:
             from agent.config import MANIFEST_MAX_ENTRIES as _MX_MANIFEST
@@ -2730,6 +2762,32 @@ def main() -> None:
     _stage_done("write_metrics")
     stage_sync_root_feed_json()          # FINAL: ensure feed.json populated (double-guarantee)
     _stage_done("feed_json_final")       # v143.4.1 FIX: mark BEFORE stage audit so it registers
+
+    # ---- Phase 3.95 — Immutable Snapshot (v144.0.0) -----------------------
+    # Create an immutable timestamped snapshot from the freshly-written api/feed.json.
+    # snapshot_integration.py reads api/feed.json, deduplicates, sorts, writes atomically
+    # to data/snapshots/<ts>_<run_id>.json and updates data/snapshots/current.json pointer.
+    # api_snapshot_server.py reads ONLY from this snapshot → no further mutations.
+    # Non-fatal: if snapshot creation fails, pipeline continues (data is in feed.json).
+    try:
+        import importlib.util as _snap_ilu
+        _snap_spec = _snap_ilu.spec_from_file_location(
+            "snapshot_integration",
+            REPO_ROOT / "scripts" / "snapshot_integration.py",
+        )
+        _snap_mod = _snap_ilu.module_from_spec(_snap_spec)
+        _snap_spec.loader.exec_module(_snap_mod)
+        _snap_ok = _snap_mod.create_pipeline_snapshot(
+            source_path=REPO_ROOT / "api" / "feed.json",
+            run_id=os.environ.get("GITHUB_RUN_ID", "local"),
+            skip_dedup=True,   # already deduped in stage_sync_root_feed_json
+        )
+        if _snap_ok:
+            log.info("[3.95] ✅ Immutable snapshot created — api_snapshot_server ready")
+        else:
+            log.warning("[3.95] Snapshot creation failed (non-fatal) — api/feed.json remains SSOT")
+    except Exception as _snap_e:
+        log.warning("[3.95] Snapshot integration skipped (non-fatal): %s", _snap_e)
 
     # ---- v142.3.0 Stability Lock Phase 3 — Post-Pipeline Validation --------
     # Runs AFTER all writes complete. Validates manifest/feed/UI health.
