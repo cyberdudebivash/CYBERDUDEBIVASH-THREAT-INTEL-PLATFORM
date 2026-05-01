@@ -332,6 +332,19 @@ jobs:
         run: python3 scripts/api_dashboard_contract_validator.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.92: DASHBOARD FRONTEND ARCHITECTURE GUARD (v145.0 -- HARD FAIL)
+      # Validates index.html frontend architecture invariants:
+      #   1. EMBEDDED_INTEL = [] (not populated with data)
+      #   2. MANIFEST_URLS contains ONLY WORKER_PREVIEW_URL
+      #   3. data.items dead fallback absent from parse chain
+      #   4. cleanText() sanitizer present
+      # Blocks deployment if dashboard has been contaminated by any workflow.
+      # Architecture rule: Dashboard reads ONLY from Worker API (data.preview.items)
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.92 - Dashboard Frontend Architecture Guard (HARD FAIL)"
+        run: python3 scripts/dashboard_frontend_guard.py
+
+      # -----------------------------------------------------------------------
       # STAGE 4: GIT SYNC -- ALWAYS RUNS
       # Commits non-sensitive metadata and HTML reports. 4-attempt push retry.
       # Exit 0 guaranteed - never kills pipeline.
