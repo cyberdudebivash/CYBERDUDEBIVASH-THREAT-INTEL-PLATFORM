@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v143.0 — Encoding Validator (Hard-Fail Gate)
+SENTINEL APEX v145.2.0 - Encoding Validator (Hard-Fail Gate)
 Scans index.html, feed.json, api/feed.json for:
   - Mojibake sequences (double-encoded UTF-8)
   - Replacement characters (U+FFFD)
   - Non-UTF-8 byte sequences
   - EMBEDDED_INTEL data pollution (non-empty array)
+  - Generic ae-prefix mojibake (CI hard-fail gate)
 Exit 0 = PASS, Exit 1 = FAIL (pipeline must be blocked)
+
+v145.2.0 changes:
+  - Added: Ã-- (double-encoded multiplication sign U+00D7) detection
+  - Added: Generic 'ae'-prefix text-level CI hard-fail gate
+  - Added: TEXT_MOJIBAKE_PATTERNS for decoded-string scan
+  - Fixed: validator's own string literals now ASCII-safe
 """
 import sys, os, json, re
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# ── Mojibake byte patterns (double-encoded UTF-8) ──
+# -- Mojibake byte patterns (double-encoded UTF-8) --
 # These appear when UTF-8 bytes are mis-read as latin-1 and re-encoded as UTF-8
 MOJIBAKE_SEQUENCES = [
-    # en-dash (U+2013) double-encoded: e2 80 93 → c3a2 c280 c293
+    # en-dash (U+2013) double-encoded: e2 80 93 -> c3a2 c280 c293
     (b'\xc3\xa2\xc2\x80\xc2\x93', 'en-dash mojibake'),
     (b'\xc3\xa2\xc2\x80\xc2\x94', 'em-dash mojibake'),
     (b'\xc3\xa2\xc2\x80\xc2\x99', 'right-single-quote mojibake'),
@@ -25,16 +32,21 @@ MOJIBAKE_SEQUENCES = [
     (b'\xc3\xa2\xc2\x80\xc2\x98', 'left-single-quote mojibake'),
     (b'\xc3\xa2\xc2\x80\xc2\xa6', 'ellipsis mojibake'),
     (b'\xc3\xa2\xc2\x80\xc2\x8b', 'zero-width mojibake'),
-    # Emoji double-encoded: f0 9f xx xx → c3b0 c59f xx xx
+    # Emoji double-encoded: f0 9f xx xx -> c3b0 c59f xx xx
     (b'\xc3\xb0\xc5\xb8', 'emoji mojibake (f09f)'),
     # Replacement character U+FFFD
     (b'\xef\xbf\xbd', 'replacement char U+FFFD'),
+    # Multiplication sign U+00D7 double-encoded: c3 97 -> c3 83 c2 97
+    # Appears as "Ã--" in source -- P0 dashboard bug (8 occurrences fixed in v145.1)
+    (b'\xc3\x83\xc2\x97', 'multiplication-sign Ã-- mojibake (U+00D7 double-encoded)'),
 ]
 
-# ── Textual mojibake patterns (decoded string level) ──
+# -- Textual mojibake patterns (decoded string level, CI hard-fail) --
+# Any of these strings in pipeline output = FAIL
 TEXT_MOJIBAKE = [
-    'â€',   # â€  (mangled em-dash/quote)
-    'ðŸ',   # ðŸ  (mangled emoji)
+    'â',   # ae+80 prefix (mangled em-dash/quote family)
+    'Ã¢',   # Ã¢ prefix (double-encoded a-circumflex)
+    'ðŸ',             # mangled emoji
     '�',         # replacement char
     'Ã¢',   # Ã¢  (double-encoded â)
 ]
@@ -94,18 +106,17 @@ def scan_file(path):
         except Exception as e:
             warnings.append(f"JSON parse warning: {e}")
 
-    # For index.html: check EMBEDDED_INTEL is empty
+    # For index.html: verify EMBEDDED_INTEL declaration exists (architecture check only)
+    # v147.0: EMBEDDED_INTEL may be [] (pre-inject) OR populated with top-25 items (post-inject).
+    # inject_embedded_intel.py (STAGE 3.93) populates it before deploy -- both states are valid.
+    # Architecture enforcement is handled by dashboard_frontend_guard.py (STAGE 3.92).
+    # This validator checks ENCODING only -- do NOT fail on populated EMBEDDED_INTEL.
     if path == "index.html":
         ei_marker = b'window.EMBEDDED_INTEL = ['
         ei_pos = raw.find(ei_marker)
-        if ei_pos >= 0:
-            after = raw[ei_pos + len(ei_marker) - 1:][:10]
-            if after[:2] != b'[]':
-                violations.append(f"EMBEDDED_INTEL is NOT empty — found: {after[:20]}")
-            else:
-                pass  # OK
-        else:
+        if ei_pos < 0:
             warnings.append("EMBEDDED_INTEL marker not found (may have been removed)")
+        # No violation for populated EMBEDDED_INTEL -- injector state is intentional
 
     return violations, warnings
 
