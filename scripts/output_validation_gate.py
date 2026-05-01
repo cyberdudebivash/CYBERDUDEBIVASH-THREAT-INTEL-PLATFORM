@@ -252,12 +252,13 @@ def main():
             cnt = idx_raw.count(pat)
             if cnt:
                 errors.append(f"MOJIBAKE [index.html]: {cnt}x {pat.hex()} in first 64KB")
-        # EMBEDDED_INTEL must be empty []
+        # v147.0: EMBEDDED_INTEL may be [] (pre-inject) OR populated (post-inject STAGE 3.93).
+        # inject_embedded_intel.py populates it before deploy -- populated state is intentional.
+        # Do NOT fail on populated EMBEDDED_INTEL. Encoding gate covers mojibake in array data.
         with open(idx_path, "rb") as f:
             idx_full = f.read()
-        ei_match = re.search(rb'window\.EMBEDDED_INTEL\s*=\s*\[(.{1000,})', idx_full)
-        if ei_match:
-            errors.append("EMBEDDED_INTEL: index.html still contains stale inline data (>1000 bytes in array)")
+        if not re.search(rb'window\.EMBEDDED_INTEL\s*=\s*\[', idx_full):
+            warnings.append("EMBEDDED_INTEL: declaration not found in index.html")
         print(f"         size={len(idx_full)} bytes  BOM={idx_raw[:3]==UTF8_BOM}")
     else:
         warnings.append("MISSING: index.html not found (skip encoding gate)")

@@ -176,19 +176,23 @@ if os.path.exists(INDEX_PATH):
         html_raw = f.read()
     html = html_raw.decode("utf-8", errors="replace")
 
-    # EMBEDDED_INTEL must be empty
+    # v147.0: EMBEDDED_INTEL may be [] (pre-inject) OR populated (post-inject STAGE 3.93).
+    # inject_embedded_intel.py populates before deploy for instant render -- both states valid.
+    # Check: declaration must exist (architecture violation only if missing entirely).
     ei_marker = "window.EMBEDDED_INTEL = ["
     ei_pos = html.find(ei_marker)
-    if ei_pos >= 0:
-        after = html[ei_pos + len(ei_marker):][:5]
-        ei_empty = after.startswith("[]") or after.startswith("]")
+    ei_present = ei_pos >= 0
+    if ei_present:
+        after = html[ei_pos + len(ei_marker):][:30]
+        populated = not (after.startswith("[]") or after.startswith("]"))
+        state_msg = ("populated" if populated else "[] template state")
     else:
-        ei_empty = False  # marker missing
+        state_msg = "marker not found"
 
-    check("EMBEDDED_INTEL is empty ([])",
-          ei_empty,
-          f"EMBEDDED_INTEL not empty: {html[ei_pos+len(ei_marker):][:20] if ei_pos >= 0 else 'marker not found'}",
-          "window.EMBEDDED_INTEL = []")
+    check("EMBEDDED_INTEL declaration present (v147.0 hybrid arch)",
+          ei_present,
+          "EMBEDDED_INTEL declaration missing from index.html -- dashboard will show no data",
+          "EMBEDDED_INTEL present ({})".format(state_msg))
 
     # INTEL_RENDERED guard present (>= 5 occurrences)
     ir_count = html.count("__INTEL_RENDERED__")
