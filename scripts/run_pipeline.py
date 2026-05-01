@@ -2061,10 +2061,11 @@ def stage_write_metrics() -> None:
     if not _SAFE_IO_AVAILABLE or METRICS is None:
         return
     try:
-        metrics_dir = REPO_ROOT / "data" / "logs"
-        metrics_dir.mkdir(parents=True, exist_ok=True)
-        metrics_path = metrics_dir / "pipeline_metrics.json"
-        METRICS.write_report(metrics_path)
+        # v143.3.0 FIX: Write to BOTH paths — data/logs/ (canonical) AND data/ (pipeline_audit.py SSOT)
+        for metrics_dir in [REPO_ROOT / "data" / "logs", REPO_ROOT / "data"]:
+            metrics_dir.mkdir(parents=True, exist_ok=True)
+            metrics_path = metrics_dir / "pipeline_metrics.json"
+            METRICS.write_report(metrics_path)
         METRICS.log_summary()
     except Exception as e:
         log.warning("[metrics] Failed to write metrics report: %s", e)
@@ -2353,6 +2354,7 @@ def stage_sync_root_feed_json() -> None:
             REPO_ROOT / "scripts" / "sentinel_stability_lock.py",
         )
         _p1_mod = _p1_ilu.module_from_spec(_p1_spec)
+        import sys as _p1_sys; _p1_sys.modules["sentinel_stability_lock"] = _p1_mod  # v143.3.0: @dataclass needs module in sys.modules
         _p1_spec.loader.exec_module(_p1_mod)
         manifest_items, _p1_report = _p1_mod.enforce_output_contract(
             manifest_items, REPO_ROOT, strict=False
@@ -2614,6 +2616,7 @@ def main() -> None:
             REPO_ROOT / "scripts" / "sentinel_stability_lock.py",
         )
         _ssl_mod = _ssl_ilu.module_from_spec(_ssl_spec)
+        import sys as _ssl_sys; _ssl_sys.modules["sentinel_stability_lock"] = _ssl_mod  # v143.3.0: @dataclass needs module in sys.modules
         _ssl_spec.loader.exec_module(_ssl_mod)
         # Phase 2: version lock check (warn-only — pipeline continues on mismatch)
         _v2_report = _ssl_mod.validate_version_lock(REPO_ROOT, PIPELINE_VERSION, hard_fail=False)
@@ -2698,6 +2701,7 @@ def main() -> None:
             REPO_ROOT / "scripts" / "sentinel_stability_lock.py",
         )
         _p3_mod = _p3_ilu.module_from_spec(_p3_spec)
+        import sys as _p3_sys; _p3_sys.modules["sentinel_stability_lock"] = _p3_mod  # v143.3.0: @dataclass needs module in sys.modules
         _p3_spec.loader.exec_module(_p3_mod)
         _p3_report = _p3_mod.run_post_pipeline_validation(REPO_ROOT)
         if _p3_report.health == "FAIL":
