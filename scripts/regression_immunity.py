@@ -73,7 +73,7 @@ def check(name, passed, msg_fail="", msg_pass=""):
 
 print("=" * 68)
 print("SENTINEL APEX v143.0 -- REGRESSION IMMUNITY SYSTEM")
-print(f"Timestamp: {datetime.datetime.utcnow().isoformat()}Z")
+print(f"Timestamp: {datetime.datetime.now(datetime.timezone.utc).isoformat()}Z")
 print("=" * 68)
 
 # ── Check 1: Duplicate stix_id in manifest ──
@@ -284,7 +284,7 @@ if warnings:
 
 # Write report
 report = {
-    "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+    "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     "result": "PASS" if not violations else "FAIL",
     "checks_passed": checks_passed,
     "checks_total": checks_total,

@@ -349,8 +349,23 @@ def sanitize_mitre_techniques(raw: list) -> list:
     for entry in raw:
         if not isinstance(entry, dict):
             if isinstance(entry, str) and entry.strip():
-                _log.warning("MITRE sanitize: string entry stripped: %r", entry[:60])
-            continue
+                # v143.3.0 FIX: String TTP IDs (T1566, T1566.002, T1195, T1059 etc.) are valid
+                # MITRE ATT&CK technique identifiers. Convert to minimal dict instead of stripping.
+                import re as _re_mitre
+                _tid_raw = entry.strip().upper()
+                if _re_mitre.match(r'^T\d{4}(\.\d{3})?$', _tid_raw):
+                    entry = {
+                        "id":            _tid_raw,
+                        "name":          f"Technique {_tid_raw}",
+                        "tactic":        "Execution",
+                        "justification": f"{_tid_raw} — technique ID from threat intelligence corpus.",
+                    }
+                    # Fall through to dict processing below
+                else:
+                    _log.warning("MITRE sanitize: non-dict entry stripped: %r", entry[:60])
+                    continue
+            else:
+                continue
 
         # ── Normalize technique ID ────────────────────────────────────────────
         tid = (
