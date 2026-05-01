@@ -220,9 +220,37 @@ RSS_FEEDS = [
     # Academic / CERT Global
     "https://www.first.org/news/rss",                  # FIRST (Forum of Incident Response and Security Teams)
     "https://www.enisa.europa.eu/rss",                 # ENISA EU (updated endpoint)
+
+    # -- TIER 10: v143.4.0 HIGH-SIGNAL GLOBAL EXPANSION --
+    # Added to address fresh intel stagnation. High-cadence, low-overlap sources.
+    # All verified against CI runner network access.
+
+    # Nation-State & APT Tracking
+    "https://feeds.trendmicro.com/Anti-MalwareBlog/",   # Trend Micro Security Blog
+    "https://lab52.io/blog/feed/",                       # Lab52 — APT attribution research
+    "https://www.proofpoint.com/us/blog/rss.xml",        # Proofpoint Threat Research
+    "https://www.deepinstinct.com/blog/rss.xml",         # Deep Instinct AI threat intelligence
+
+    # Active Exploit Intelligence
+    "https://attackerkb.com/rss",                        # AttackerKB — exploitability assessments
+    "https://www.greynoise.io/blog/rss",                 # GreyNoise — mass internet scanner intel
+    "https://feeds.feedburner.com/securityweekly",       # Security Weekly news feed
+
+    # APAC / Global CERT
+    "https://www.auscert.org.au/rss/alerts/",            # AusCERT — Australia/Pacific alerts
+    "https://www.kisa.or.kr/eng/rss/news.rss",           # KISA South Korea CERT
+    "https://cert-in.org.in/s2cMainServlet?pageid=PUBVLNOTES01&rss=true", # CERT-In India
+
+    # Zero-Day & PoC Tracking
+    "https://sploitus.com/rss?type=exploits",            # Sploitus — aggregated PoC exploits
+    "https://packetstormsecurity.com/rss.xml",           # Packet Storm full feed (not category-only)
+
+    # Threat Actor Tracking
+    "https://malpedia.caad.fkie.fraunhofer.de/feeds/rss/actors", # Malpedia actor updates
+    "https://intel471.com/blog/rss",                     # Intel471 threat intelligence
 ]
 
-MAX_ENTRIES_PER_FEED = 15
+MAX_ENTRIES_PER_FEED = 20  # v143.4.0: increased from 15 to capture more articles per feed run
 SOURCE_FETCH_TIMEOUT = 15
 SOURCE_FETCH_ENABLED = True
 

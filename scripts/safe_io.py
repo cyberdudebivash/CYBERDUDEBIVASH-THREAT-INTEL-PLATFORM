@@ -971,10 +971,17 @@ def _auto_fix_intel_object(obj: Dict) -> Dict:
     if isinstance(iocs, list):
         obj["ioc_count"] = len(iocs)
 
-    # Ensure title and source are strings
-    for field in ("title", "source"):
-        if not isinstance(obj.get(field), str):
-            obj[field] = str(obj.get(field, ""))
+    # Ensure title and source are non-empty strings
+    # v143.4.0 FIX: source=None or source="" both fail the required-field check.
+    # Provide a real fallback (feed_source > "SENTINEL-APEX") instead of "".
+    if not isinstance(obj.get("title"), str) or not obj.get("title"):
+        obj["title"] = str(obj.get("title", "")) or "Threat Advisory"
+    if not isinstance(obj.get("source"), str) or not obj.get("source"):
+        obj["source"] = (
+            str(obj.get("feed_source") or "").strip() or
+            str(obj.get("source_name") or "").strip() or
+            "SENTINEL-APEX"
+        )
 
     # Clamp risk_score
     rs = obj.get("risk_score")
@@ -1085,9 +1092,24 @@ def enforce_schema(entry: Dict) -> Dict:
                     entry[field] = _real_pub_none
                 else:
                     entry[field] = _utc_now  # Last resort — no source date at all
+            elif field == "source":
+                # v143.4.0 FIX: source=None must NOT become "" (still fails required check).
+                # Derive from feed_source or fall back to SENTINEL-APEX.
+                entry[field] = (
+                    str(entry.get("feed_source") or "").strip() or
+                    str(entry.get("source_name") or "").strip() or
+                    "SENTINEL-APEX"
+                )
             # All other optional string fields: leave absent rather than inject empty strings
         elif not isinstance(val, str):
             entry[field] = str(val)
+        elif field == "source" and val == "":
+            # v143.4.0 FIX: source="" still fails the required-field check — provide real default
+            entry[field] = (
+                str(entry.get("feed_source") or "").strip() or
+                str(entry.get("source_name") or "").strip() or
+                "SENTINEL-APEX"
+            )
 
     # 2. Normalise severity to uppercase known set
     # VALID set mirrors validate_repo._VALID_SEVERITIES — must stay in sync.

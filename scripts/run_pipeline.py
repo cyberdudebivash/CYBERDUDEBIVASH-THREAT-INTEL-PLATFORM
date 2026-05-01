@@ -2319,11 +2319,39 @@ def stage_sync_root_feed_json() -> None:
     except Exception as _p4_e:
         log.warning("[PHASE4] Manifest dedup error (non-fatal, continuing): %s", _p4_e)
 
-    # ---- PHASE 5 — Intel Quality Engine v142.0.0 (8-phase quality upgrade) ----
+    # ---- v143.4.0 MOJIBAKE SANITIZATION PASS — applied BEFORE quality engine ----
+    if manifest_items:
+        try:
+            import sys as _enc_sys_rp, os as _enc_os_rp
+            _enc_root_rp = str(REPO_ROOT)
+            if _enc_root_rp not in _enc_sys_rp.path:
+                _enc_sys_rp.path.insert(0, _enc_root_rp)
+            from core.utils.encoding_utils import sanitize_field as _sanitize_rp
+            _enc_fixed = 0
+            for _enc_item in manifest_items:
+                for _enc_field in ("title", "description", "summary", "actor_tag"):
+                    _v = _enc_item.get(_enc_field)
+                    if isinstance(_v, str):
+                        _fixed = _sanitize_rp(_v)
+                        if _fixed != _v:
+                            _enc_item[_enc_field] = _fixed
+                            _enc_fixed += 1
+            if _enc_fixed:
+                log.info("[3.9-ENCODE] Repaired %d mojibake field(s) across manifest entries", _enc_fixed)
+            else:
+                log.info("[3.9-ENCODE] Encoding scan complete — all fields clean")
+        except Exception as _enc_e:
+            log.warning("[3.9-ENCODE] Encoding sanitization failed (non-fatal): %s", _enc_e)
+
+    # ---- PHASE 5 — Intel Quality Engine v143.4.0 (8-phase quality upgrade) ----
     # Runs AFTER Phase 4 dedup gate, BEFORE feed.json write.
     # Applies: 3-layer dedup, newness validation, enrichment, CVE spam control,
     #          source balancing, dashboard truth validation, final assertions.
     # Non-blocking: quality failures are logged but never kill the pipeline.
+    # v143.4.0 MANIFEST SHRINK FIX: snapshot BEFORE quality engine.
+    # Quality engine trims CVE spam etc. for feed.json only.
+    # Canonical manifest write-back uses full pre-quality list to prevent data loss.
+    _manifest_items_pre_quality = list(manifest_items)  # snapshot for manifest write-back
     if manifest_items:
         try:
             from intel_quality_engine import apply_quality_pipeline as _apply_quality
@@ -2332,9 +2360,11 @@ def stage_sync_root_feed_json() -> None:
             if not isinstance(manifest_items, list):
                 log.error("[PHASE5-QE] Quality engine returned non-list (%s) — resetting",
                           type(manifest_items).__name__)
-                manifest_items = []
-            log.info("[PHASE5-QE] Quality engine complete: %d -> %d items",
+                manifest_items = list(_manifest_items_pre_quality)
+            log.info("[PHASE5-QE] Quality engine complete: %d -> %d items (feed.json uses filtered)",
                      _qe_before, len(manifest_items))
+            log.info("[PHASE5-QE] Manifest write-back will use full pre-quality list: %d items",
+                     len(_manifest_items_pre_quality))
         except ImportError as _qe_imp_e:
             log.warning("[PHASE5-QE] intel_quality_engine not available (%s) — skipped", _qe_imp_e)
         except Exception as _qe_e:
@@ -2464,15 +2494,24 @@ def stage_sync_root_feed_json() -> None:
     # data.get("advisories") — a bare list has no .get() → AttributeError.
     # The api_dashboard_contract_validator already handles both formats via unwrap().
     try:
+        # v143.4.0 FIX: Use pre-quality snapshot for manifest (full history preserved).
+        # feed.json uses quality-filtered list; manifest keeps ALL entries.
+        _manifest_write_items = _manifest_items_pre_quality if _manifest_items_pre_quality else manifest_items
+        _manifest_write_items.sort(key=sort_key, reverse=True)
+        try:
+            from agent.config import MANIFEST_MAX_ENTRIES as _MX_MANIFEST
+        except Exception:
+            _MX_MANIFEST = 5000
+        _manifest_write_items = _manifest_write_items[:_MX_MANIFEST]
         _manifest_envelope = {
             "version":        PIPELINE_VERSION,
             "platform":       "SENTINEL-APEX",
             "generated_at":   utc_now(),
-            "total_reports":  len(manifest_items),
-            "entry_count":    len(manifest_items),
+            "total_reports":  len(_manifest_write_items),
+            "entry_count":    len(_manifest_write_items),
             "sort_order":     "timestamp DESC, stix_id DESC",
             "source":         "stage_sync_root_feed_json canonical write-back",
-            "advisories":     manifest_items,
+            "advisories":     _manifest_write_items,
         }
         canonical_manifest = json.dumps(
             _manifest_envelope, indent=2, ensure_ascii=False, default=str
@@ -2491,8 +2530,8 @@ def stage_sync_root_feed_json() -> None:
         # Atomic promote
         os.replace(str(_tmp_manifest), str(manifest_path))
         log.info(
-            "[3.9] ✅ Manifest canonical write-back: %d entries (dict envelope, sorted+deduped+quality-filtered)",
-            len(manifest_items),
+            "[3.9] ✅ Manifest canonical write-back: %d entries (dict envelope, full pre-quality history)",
+            len(_manifest_write_items),
         )
     except Exception as _mwb_e:
         log.warning(

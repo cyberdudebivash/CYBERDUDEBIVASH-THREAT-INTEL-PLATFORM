@@ -199,6 +199,21 @@ logger = logging.getLogger("CDB-ENRICHER")
 
 def fetch_feed_entries(feed_url: str, max_entries: int = 3) -> List[Dict]:
     """Fetch and normalise entries from a single RSS/Atom feed."""
+    # v143.4.0: import encoding sanitizer — applied to all free-text fields at
+    # ingestion boundary to eliminate mojibake from feedparser latin-1/cp1252
+    # misreads before text enters the pipeline and gets persisted to manifest.
+    try:
+        from core.utils.encoding_utils import sanitize_field as _sanitize_field
+    except ImportError:
+        try:
+            import sys as _sys_ef, os as _os_ef
+            _repo_root_ef = _os_ef.path.dirname(_os_ef.path.dirname(_os_ef.path.abspath(__file__)))
+            if _repo_root_ef not in _sys_ef.path:
+                _sys_ef.path.insert(0, _repo_root_ef)
+            from core.utils.encoding_utils import sanitize_field as _sanitize_field
+        except ImportError:
+            _sanitize_field = lambda x: x  # no-op fallback — never blocks pipeline
+
     try:
         import feedparser
         feed = feedparser.parse(feed_url)
@@ -216,10 +231,15 @@ def fetch_feed_entries(feed_url: str, max_entries: int = 3) -> List[Dict]:
             if hasattr(entry, "summary") and entry.summary != content:
                 summary = entry.summary
 
+            # v143.4.0 FIX: sanitize all free-text fields at ingestion boundary.
+            # feedparser can return cp1252/latin-1 mojibake when feed encoding is
+            # misdetected (e.g. feed declares iso-8859-1 but sends UTF-8).
+            # sanitize_field uses ftfy + correction table to fix double-encoding.
+            raw_title = entry.get("title", "Untitled Advisory")
             entries.append({
-                "title":     entry.get("title", "Untitled Advisory"),
-                "content":   content,
-                "summary":   summary,
+                "title":     _sanitize_field(raw_title),
+                "content":   _sanitize_field(content),
+                "summary":   _sanitize_field(summary),
                 "link":      entry.get("link", ""),
                 "source":    feed_url,
                 "published": entry.get("published", ""),

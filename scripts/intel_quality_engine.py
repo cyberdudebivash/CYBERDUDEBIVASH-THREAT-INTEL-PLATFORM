@@ -57,12 +57,12 @@ QUALITY_REPORT   = QUALITY_DIR / "intel_quality_report.json"
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-_ENGINE_VERSION = "142.0.0"
+_ENGINE_VERSION = "143.4.0"
 
 # CVE Spam Control limits
 MAX_CISA_KEV_ENTRIES   = 200
-MAX_NVD_CVE_ENTRIES    = 80
-MAX_GITHUB_ADV_ENTRIES = 80
+MAX_NVD_CVE_ENTRIES    = 300
+MAX_GITHUB_ADV_ENTRIES = 200
 CVE_MIN_CVSS           = 7.0   # CVE-only entries below this get downgraded
 CVE_MIN_EPSS           = 0.20  # CVE-only entries below this get downgraded
 
@@ -856,7 +856,7 @@ class CVESpamController:
             elif "github_advisory" in src:
                 cap = MAX_GITHUB_ADV_ENTRIES
             else:
-                cap = 150  # generic low-quality cap
+                cap = 400  # v143.4.0: raised from 150
 
             # Sort by risk_score desc, then by epss desc
             sorted_items = sorted(
