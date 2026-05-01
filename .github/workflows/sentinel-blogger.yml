@@ -332,17 +332,33 @@ jobs:
         run: python3 scripts/api_dashboard_contract_validator.py
 
       # -----------------------------------------------------------------------
-      # STAGE 3.92: DASHBOARD FRONTEND ARCHITECTURE GUARD (v145.0 -- HARD FAIL)
-      # Validates index.html frontend architecture invariants:
-      #   1. EMBEDDED_INTEL = [] (not populated with data)
-      #   2. MANIFEST_URLS contains ONLY WORKER_PREVIEW_URL
+      # STAGE 3.92: DASHBOARD FRONTEND ARCHITECTURE GUARD (v147.0 -- HARD FAIL)
+      # Validates index.html frontend architecture invariants (8 checks):
+      #   1. EMBEDDED_INTEL declaration present ([] or populated -- both valid)
+      #   2. MANIFEST_URLS has no banned sources (RAW_MANIFEST / jsDelivr / root feed.json)
+      #   2b. api/feed.json FALLBACK1 present (regression guard)
+      #   2c. raw.githubusercontent.com FALLBACK2 present (v147.0 reliability guard)
       #   3. data.items dead fallback absent from parse chain
       #   4. cleanText() sanitizer present
-      # Blocks deployment if dashboard has been contaminated by any workflow.
-      # Architecture rule: Dashboard reads ONLY from Worker API (data.preview.items)
+      #   5. API items debug logging present
+      #   6. P0 safety timer present
+      #   7. Terminal fallback clears threat-grid
+      #   8. bootFromEmbeddedCache() instant-render present
+      # Blocks deployment if architecture invariants violated.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.92 - Dashboard Frontend Architecture Guard (HARD FAIL)"
         run: python3 scripts/dashboard_frontend_guard.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.93: EMBEDDED INTEL INJECTOR (v147.0 -- INSTANT RENDER)
+      # Reads top-25 items from api/feed.json and injects into index.html as
+      # window.EMBEDDED_INTEL=[...] for zero-wait instant render on page load.
+      # Runs AFTER guard (guard accepts populated EMBEDDED_INTEL) and BEFORE
+      # git commit (Stage 4) so injected data is committed with the deploy.
+      # Architecture: INSTANT path fires before API fetch completes.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93 - Inject EMBEDDED_INTEL into index.html (instant render)"
+        run: python3 scripts/inject_embedded_intel.py
 
       # -----------------------------------------------------------------------
       # STAGE 4: GIT SYNC -- ALWAYS RUNS
