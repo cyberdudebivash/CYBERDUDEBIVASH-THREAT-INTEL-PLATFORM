@@ -1,0 +1,465 @@
+{
+  "type": "bundle",
+  "id": "bundle--c5842ffa-43f5-4eed-b585-68e0822dd633",
+  "objects": [
+    {
+      "type": "identity",
+      "spec_version": "2.1",
+      "id": "identity--cyberdudebivash-sentinel-apex-v30",
+      "name": "CyberDudeBivash SENTINEL APEX",
+      "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
+      "identity_class": "organization",
+      "sectors": [
+        "technology"
+      ],
+      "contact_information": "bivash@cyberdudebivash.com",
+      "created": "2024-01-01T00:00:00Z",
+      "modified": "2024-01-01T00:00:00Z"
+    },
+    {
+      "type": "marking-definition",
+      "spec_version": "2.1",
+      "id": "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a",
+      "created": "2017-01-20T00:00:00.000Z",
+      "definition_type": "tlp",
+      "definition": {
+        "tlp": "green"
+      }
+    },
+    {
+      "type": "intrusion-set",
+      "spec_version": "2.1",
+      "id": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "name": "CDB-RAN-05 Campaign",
+      "description": "Deep#Door Stealer Harvests Browser Passwords, Cloud Tokens, SSH Keys, and Wi-Fi Credentials",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "confidence": 52,
+      "aliases": [
+        "CDB-RAN-05"
+      ],
+      "extensions": {
+        "x-cdb-apex-1": {
+          "predictive_score": 5.5,
+          "campaign_id": "UNCLASSIFIED",
+          "campaign_confidence": 5.5,
+          "threat_category": "Remote Code Execution",
+          "behavioral_tags": [
+            "registry_persistence",
+            "anti_analysis"
+          ],
+          "ai_summary": "Initial access via rce → execution chain: execution → persistence → credential access → lateral movement → malware behaviors: registry persistence, anti analysis",
+          "risk_factors": [
+            "IOC_density",
+            "MITRE_coverage",
+            "exploitation_context"
+          ],
+          "soc_priority": "P3",
+          "threat_level": "MEDIUM",
+          "recommended_action": "Medium severity threat (score 5.5/10) — limited technical indicators in source data",
+          "x_cdb_published_at": "2026-05-01T09:26:17Z"
+        }
+      },
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--b6bda7c6-449e-4896-99f0-e7395a626bf7",
+      "name": "Malicious Artifact: cmd.exe",
+      "pattern": "[file:name = 'cmd.exe']",
+      "pattern_type": "stix",
+      "valid_from": "2026-05-01T09:57:28Z",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 52,
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--5289d583-40e2-4511-a596-d9285b344fbc",
+      "name": "Malicious Artifact: finallyJob.bat",
+      "pattern": "[file:name = 'finallyJob.bat']",
+      "pattern_type": "stix",
+      "valid_from": "2026-05-01T09:57:28Z",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 52,
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--e0665163-ef62-45fc-8e1c-df1f2d970400",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--b6bda7c6-449e-4896-99f0-e7395a626bf7",
+      "target_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--a4467fdc-78c6-4a35-8693-2fcac3c57805",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--5289d583-40e2-4511-a596-d9285b344fbc",
+      "target_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--b063900a-d255-4135-8c49-1354c943e75d",
+      "name": "Supply Chain Compromise",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1195",
+          "url": "https://attack.mitre.org/techniques/T1195/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--fd1bac05-34cd-4f6d-9931-e8764341630d",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "target_ref": "attack-pattern--b063900a-d255-4135-8c49-1354c943e75d",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--fab583e1-ab90-4386-94f3-960be2838b58",
+      "name": "Trusted Relationship",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1199",
+          "url": "https://attack.mitre.org/techniques/T1199/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--b3668f6c-b14c-45c7-bc30-b8fc191f7e58",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "target_ref": "attack-pattern--fab583e1-ab90-4386-94f3-960be2838b58",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--250ca2c9-3e16-413c-b090-405955cfa73a",
+      "name": "Exploit Public-Facing Application",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1190",
+          "url": "https://attack.mitre.org/techniques/T1190/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--fa86207a-caf8-450e-937d-25d89cd3bd15",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "target_ref": "attack-pattern--250ca2c9-3e16-413c-b090-405955cfa73a",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--34f4bb64-4642-4c51-8da6-80139ce1f44a",
+      "name": "Valid Accounts",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1078",
+          "url": "https://attack.mitre.org/techniques/T1078/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--d56baccf-4bc5-4b39-a978-9fc07f96b772",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "target_ref": "attack-pattern--34f4bb64-4642-4c51-8da6-80139ce1f44a",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--81143b1d-da38-41f3-9c08-ad3e41f3c5e9",
+      "name": "Exploitation for Client Execution",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1203",
+          "url": "https://attack.mitre.org/techniques/T1203/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--a31932f6-c42e-448a-b7b2-c747af9ac211",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "target_ref": "attack-pattern--81143b1d-da38-41f3-9c08-ad3e41f3c5e9",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--72ac5470-ef3b-4670-ac96-83bc49c6dad2",
+      "name": "PowerShell",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1059.001",
+          "url": "https://attack.mitre.org/techniques/T1059/001/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--01fb19d4-87c1-4739-820c-1c0aeb2703b8",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "target_ref": "attack-pattern--72ac5470-ef3b-4670-ac96-83bc49c6dad2",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--11434892-115e-47b4-9448-7e1d17860df8",
+      "name": "Command and Scripting Interpreter",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1059",
+          "url": "https://attack.mitre.org/techniques/T1059/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--cb1eb291-8bee-4782-a24b-106a76c5820b",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "target_ref": "attack-pattern--11434892-115e-47b4-9448-7e1d17860df8",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--e93b7491-d4a1-4695-9456-0fe8735a1989",
+      "name": "Boot or Logon Autostart Execution",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1547",
+          "url": "https://attack.mitre.org/techniques/T1547/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--3faad7a3-3006-450c-a098-b77b1fee89cd",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "target_ref": "attack-pattern--e93b7491-d4a1-4695-9456-0fe8735a1989",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--061e27fe-1eb3-40fc-8ef6-8c30b02b2490",
+      "name": "Registry Run Keys",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1547.001",
+          "url": "https://attack.mitre.org/techniques/T1547/001/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--0b7b002f-c1f3-4a2a-9931-cc2810e2b4d1",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "target_ref": "attack-pattern--061e27fe-1eb3-40fc-8ef6-8c30b02b2490",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--1eea89c1-ebbc-4617-a9a5-58003e94f683",
+      "name": "Scheduled Task",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1053.005",
+          "url": "https://attack.mitre.org/techniques/T1053/005/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--e8e17948-27eb-431c-89f4-8647d2991a32",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--e9b40681-dfdb-4f8f-8e7f-8e191d3a75df",
+      "target_ref": "attack-pattern--1eea89c1-ebbc-4617-a9a5-58003e94f683",
+      "created": "2026-05-01T09:57:28Z",
+      "modified": "2026-05-01T09:57:28Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    }
+  ]
+}
