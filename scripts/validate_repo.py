@@ -524,7 +524,7 @@ def check_feed_structural_integrity() -> CheckResult:
     checked = 0
     for feed_path in feed_candidates:
         if not feed_path.exists():
-            warnings.append(f"{feed_path.name} not found (gitignored/not yet generated)")
+            warnings.append(f"{feed_path.relative_to(REPO_ROOT)} not found (gitignored/not yet generated)")
             continue
         sz = feed_path.stat().st_size
         if sz == 0:
