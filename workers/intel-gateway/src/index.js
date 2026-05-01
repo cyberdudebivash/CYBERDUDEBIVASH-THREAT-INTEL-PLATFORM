@@ -1734,9 +1734,101 @@ function applyIocMetaTierGate(item, tier) {
   return out;
 }
 
-//  Handlers 
+//  Handlers
 
-//  PUBLIC: /api/preview -- No API key required 
+// ─────────────────────────────────────────────────────────────────────────────
+//  PUBLIC: /api/feed.json -- Dashboard FALLBACK1 endpoint (v147.0)
+//  Returns a plain JSON array of all feed items (same schema as api/feed.json
+//  on GitHub Pages). No auth required. CORS open (*) — same-domain fallback
+//  for the dashboard. Dashboard parser handles plain Array schema directly.
+// ─────────────────────────────────────────────────────────────────────────────
+async function handleFeedJson(request, env, rid) {
+  const CORS_HEADERS = {
+    "Access-Control-Allow-Origin":  "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Cache-Control":                "no-store, max-age=0",
+    "X-SENTINEL-Endpoint":          "feed-json",
+    "X-SENTINEL-Version":           CONFIG.GATEWAY_VERSION,
+  };
+
+  // Handle CORS preflight
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+  if (request.method !== "GET") {
+    return new Response(JSON.stringify({ error: "method_not_allowed" }), {
+      status: 405,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    // SOURCE 1: R2 (authoritative — same data as /api/preview but full array)
+    if (env?.INTEL_R2) {
+      try {
+        const obj = await env.INTEL_R2.get("intel/feed_manifest.json");
+        if (obj) {
+          const raw  = await obj.json();
+          const norm = normaliseManifestData(raw);
+          if (norm?.reports?.length > 0) {
+            const items = deduplicateFeedItems(norm.reports);
+            slog("INFO", "FEED-JSON", `Served ${items.length} items from R2`, { rid });
+            await recordAnalytics(env, null, "feed_json_r2", "anon", 200).catch(() => {});
+            return new Response(JSON.stringify(items), {
+              status: 200,
+              headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+            });
+          }
+        }
+      } catch (e) {
+        slog("WARN", "FEED-JSON", "R2 read failed, falling to KV", { error: e.message, rid });
+      }
+    }
+
+    // SOURCE 2: KV warm cache (fallback if R2 unavailable)
+    if (env?.RATE_LIMIT_KV) {
+      try {
+        const cached = await env.RATE_LIMIT_KV.get("idx:reports", { type: "json" });
+        if (cached?.reports?.length > 0) {
+          const items = deduplicateFeedItems(cached.reports);
+          slog("INFO", "FEED-JSON", `Served ${items.length} items from KV cache`, { rid });
+          await recordAnalytics(env, null, "feed_json_kv", "anon", 200).catch(() => {});
+          return new Response(JSON.stringify(items), {
+            status: 200,
+            headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+          });
+        }
+      } catch (e) {
+        slog("WARN", "FEED-JSON", "KV read failed", { error: e.message, rid });
+      }
+    }
+
+    // SOURCE 3: fetchReportsIndex (includes GitHub fallback)
+    const index = await fetchReportsIndex(env);
+    const items = deduplicateFeedItems(index.reports);
+    slog("INFO", "FEED-JSON", `Served ${items.length} items via fetchReportsIndex`, { rid });
+    await recordAnalytics(env, null, "feed_json_fallback", "anon", 200).catch(() => {});
+    return new Response(JSON.stringify(items), {
+      status: 200,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+
+  } catch (err) {
+    slog("ERROR", "FEED-JSON", "All sources exhausted", { error: err.message, rid });
+    await recordAnalytics(env, null, "feed_json_error", "anon", 503).catch(() => {});
+    return new Response(JSON.stringify({
+      error:   "feed_unavailable",
+      message: "Feed data temporarily unavailable — pipeline sync may be in progress.",
+      request_id: rid,
+    }), {
+      status: 503,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+}
+
+//  PUBLIC: /api/preview -- No API key required
 async function handlePreview(request, env, rid) {
   const cacheKey = "idx:preview";
 
@@ -3829,8 +3921,11 @@ export default {
       }, 429, { "Retry-After": String(ipCheck.retryAfter || 60) });
     }
 
-    //  Public endpoints (no API key required) 
+    //  Public endpoints (no API key required)
     if (pathname.startsWith("/api/preview"))          return handlePreview(request, env, rid);
+    // v147.0: Dashboard FALLBACK1 — plain JSON array, same schema as GitHub Pages api/feed.json
+    if (pathname === "/api/feed.json" && (method === "GET" || method === "OPTIONS"))
+                                                      return handleFeedJson(request, env, rid);
     if (pathname.startsWith("/api/health"))            return handleHealth(request, env, rid);
     if (pathname.startsWith("/api/version"))           return handleVersion(request, env, rid);
     if (pathname.startsWith("/api/keys/validate"))     return handleValidateKey(request, env, rid);
@@ -4069,8 +4164,9 @@ export default {
       error:   "not_found",
       message: `Endpoint '${pathname}' not found.`,
       available: [
-        //  Public 
+        //  Public
         "GET  /api/preview              (public -- free preview feed)",
+        "GET  /api/feed.json            (public -- full feed plain array, dashboard FALLBACK1)",
         "GET  /api/health               (public)",
         "GET  /api/version              (public)",
         "GET  /api/keys/validate        (public)",
