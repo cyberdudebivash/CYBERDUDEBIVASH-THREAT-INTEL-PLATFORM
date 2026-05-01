@@ -1111,6 +1111,21 @@ class STIXExporter:
                          stix_bundle_url="",
                          published_at=""):
         """Inner manifest update — called under FileLock by _update_manifest()."""
+        # v143.4.0 FIX: sanitize title at manifest write boundary.
+        # Prevents feedparser mojibake (â€" for —, â—† for ◆, etc.) from being
+        # persisted into the manifest and propagated to R2 / dashboard.
+        try:
+            import sys as _enc_sys, os as _enc_os
+            _enc_root = _enc_os.path.normpath(
+                _enc_os.path.join(_enc_os.path.dirname(__file__), "..")
+            )
+            if _enc_root not in _enc_sys.path:
+                _enc_sys.path.insert(0, _enc_root)
+            from core.utils.encoding_utils import sanitize_field as _stix_sanitize
+            title = _stix_sanitize(title)
+        except Exception:
+            pass  # never block manifest write on sanitizer import error
+
         manifest_entries = []
         if os.path.exists(self.manifest_path):
             try:
