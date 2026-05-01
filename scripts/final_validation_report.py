@@ -132,17 +132,23 @@ def check_render_dedup(repo_root):
 
 
 def check_embedded_intel(repo_root):
-    """Verify EMBEDDED_INTEL is [] (empty) in index.html."""
+    """Verify EMBEDDED_INTEL declaration exists (v147.0 hybrid arch).
+
+    v147.0: EMBEDDED_INTEL may be [] (pre-inject) OR populated with top-25 items
+    (post-inject by inject_embedded_intel.py STAGE 3.93). Both states are valid.
+    Architecture enforcement is in dashboard_frontend_guard.py (STAGE 3.92).
+    """
     idx = os.path.join(repo_root, "index.html")
     if not os.path.exists(idx):
         return False, "index.html missing"
     with open(idx, "rb") as f:
         raw = f.read()
-    # Should be window.EMBEDDED_INTEL = [] (no large array)
-    stale = re.search(rb'window\.EMBEDDED_INTEL\s*=\s*\[.{1000,}', raw)
-    if stale:
-        return False, "EMBEDDED_INTEL still contains stale inline data"
-    return True, "EMBEDDED_INTEL = [] (clean)"
+    if not re.search(rb'window\.EMBEDDED_INTEL\s*=\s*\[', raw):
+        return False, "EMBEDDED_INTEL declaration missing from index.html"
+    populated = re.search(rb'window\.EMBEDDED_INTEL\s*=\s*\[.{10,}', raw)
+    if populated:
+        return True, "EMBEDDED_INTEL populated (injected by pipeline -- v147.0 instant render)"
+    return True, "EMBEDDED_INTEL = [] (template state -- injector will populate)"
 
 
 def check_worker_security(repo_root):
