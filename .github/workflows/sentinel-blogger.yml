@@ -239,6 +239,18 @@ jobs:
         run: python3 scripts/run_pipeline.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.1: APEX AI ENRICHMENT ENGINE (PERMANENT -- DO NOT REMOVE)
+      # Injects apex_ai, updates apex, and adds ioc_paywall into ALL items in
+      # api/feed.json immediately after run_pipeline generates it.
+      # The Cloudflare Worker computes apex_ai on live API calls but NEVER
+      # writes back to the static feed -- this step fills that gap so
+      # EMBEDDED_INTEL (Stage 3.93) carries full apex_ai for instant render.
+      # Safe: deterministic, idempotent, non-destructive to existing fields.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1 - APEX AI Feed Enrichment (inject apex_ai into all items)"
+        run: python3 scripts/enrich_feed_apex.py
+
+      # -----------------------------------------------------------------------
       # STAGE 3.2: REPORT GENERATOR -- INTERNAL DOSSIER HARDENING (v134.0)
       # Generates HTML Tactical Dossier for every advisory in the manifest.
       # Skips entries that already have an up-to-date report (idempotent).
