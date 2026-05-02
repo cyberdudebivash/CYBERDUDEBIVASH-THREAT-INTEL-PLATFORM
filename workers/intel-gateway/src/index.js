@@ -1795,12 +1795,12 @@ function applyIocMetaTierGate(item, tier) {
 
 //  Handlers
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 //  PUBLIC: /api/feed.json -- Dashboard FALLBACK1 endpoint (v147.0)
 //  Returns a plain JSON array of all feed items (same schema as api/feed.json
-//  on GitHub Pages). No auth required. CORS open (*) — same-domain fallback
+//  on GitHub Pages). No auth required. CORS open (*) -- same-domain fallback
 //  for the dashboard. Dashboard parser handles plain Array schema directly.
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 async function handleFeedJson(request, env, rid) {
   const CORS_HEADERS = {
     "Access-Control-Allow-Origin":  "*",
@@ -1823,7 +1823,7 @@ async function handleFeedJson(request, env, rid) {
   }
 
   try {
-    // SOURCE 1: R2 (authoritative — same data as /api/preview but full array)
+    // SOURCE 1: R2 (authoritative -- same data as /api/preview but full array)
     if (env?.INTEL_R2) {
       try {
         const obj = await env.INTEL_R2.get("intel/feed_manifest.json");
@@ -1878,7 +1878,7 @@ async function handleFeedJson(request, env, rid) {
     await recordAnalytics(env, null, "feed_json_error", "anon", 503).catch(() => {});
     return new Response(JSON.stringify({
       error:   "feed_unavailable",
-      message: "Feed data temporarily unavailable — pipeline sync may be in progress.",
+      message: "Feed data temporarily unavailable -- pipeline sync may be in progress.",
       request_id: rid,
     }), {
       status: 503,
@@ -3988,7 +3988,7 @@ export default {
 
     //  Public endpoints (no API key required)
     if (pathname.startsWith("/api/preview"))          return withSec(handlePreview(request, env, rid));
-    // v147.0: Dashboard FALLBACK1 — plain JSON array, same schema as GitHub Pages api/feed.json
+    // v147.0: Dashboard FALLBACK1 -- plain JSON array, same schema as GitHub Pages api/feed.json
     if (pathname === "/api/feed.json" && (method === "GET" || method === "OPTIONS"))
                                                       return withSec(handleFeedJson(request, env, rid));
     if (pathname.startsWith("/api/health"))            return withSec(handleHealth(request, env, rid));
