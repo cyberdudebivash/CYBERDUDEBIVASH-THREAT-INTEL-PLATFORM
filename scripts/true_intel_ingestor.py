@@ -910,18 +910,45 @@ def _merge_into_manifest(new_items: List[Dict], dedup: _IngestorDedup) -> Tuple[
     Load existing manifest, append new_items (dedup-filtered), save.
     Returns (items_added, items_skipped).
     """
+    import html as _html_mod
     existing = _load_manifest()
     log.info("[MERGE] Existing manifest: %d entries", len(existing))
+
+    # v145.0: Build in-manifest dedup sets so state-file failures never cause
+    # duplicates. Checks stix_id, id, AND HTML-unescaped title.
+    existing_sids: set = set()
+    existing_ids: set = set()
+    existing_titles: set = set()
+    for e in existing:
+        sid = e.get("stix_id") or ""
+        eid = e.get("id") or ""
+        ttl = _html_mod.unescape(e.get("title") or "").strip().lower()
+        if sid: existing_sids.add(sid)
+        if eid: existing_ids.add(eid)
+        if ttl: existing_titles.add(ttl)
 
     added = 0
     skipped = 0
 
     for item in new_items:
+        sid = item.get("stix_id") or ""
+        eid = item.get("id") or ""
+        ttl = _html_mod.unescape(item.get("title") or "").strip().lower()
+        # Skip if already in manifest by stix_id, id, OR normalised title
+        if (sid and sid in existing_sids) or \
+           (eid and eid in existing_ids) or \
+           (ttl and ttl in existing_titles):
+            skipped += 1
+            log.debug("[MERGE] In-manifest dedup skip: %s", ttl[:60])
+            continue
         if dedup.is_duplicate(item):
             skipped += 1
             continue
         dedup.mark_seen(item)
         existing.append(item)
+        if sid: existing_sids.add(sid)
+        if eid: existing_ids.add(eid)
+        if ttl: existing_titles.add(ttl)
         added += 1
 
     _save_manifest(existing)
