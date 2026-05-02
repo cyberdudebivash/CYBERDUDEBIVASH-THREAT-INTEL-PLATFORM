@@ -34,6 +34,7 @@ OPERATIONS:
 from __future__ import annotations
 
 import hashlib
+import html as _html
 import json
 import os
 import sys
@@ -220,7 +221,12 @@ def main() -> int:
         data = json.load(fh)
 
     is_dict = isinstance(data, dict)
-    items = data.get("advisories", data.get("reports", data if isinstance(data, list) else []))
+    if isinstance(data, list):
+        items = data
+    elif isinstance(data, dict):
+        items = data.get("advisories") or data.get("reports") or data.get("items") or []
+    else:
+        items = []
     if not isinstance(items, list):
         log(f"FATAL: manifest advisories is not a list (type={type(items).__name__})")
         return 1
@@ -245,12 +251,32 @@ def main() -> int:
             continue
         normalised.append(norm)
 
-    # --- Best-score-wins dedup by title ---
+    # --- v145.0: Dedup pass 1 — by stix_id (gate-authoritative key) ---
+    # stix_id is checked first because the output gate validates against it.
+    # HTML-entity variants of the same ID never occur, so exact match is safe.
+    seen_by_stix: dict[str, int] = {}
+    stix_deduped: list[dict] = []
+    stix_dedup_removed = 0
+    for item in normalised:
+        sid = item.get("stix_id") or item.get("id") or ""
+        if sid and sid in seen_by_stix:
+            stix_dedup_removed += 1
+            idx = seen_by_stix[sid]
+            # Keep the richer entry (higher risk_score or more fields)
+            if item["risk_score"] > stix_deduped[idx]["risk_score"]:
+                stix_deduped[idx] = item
+            continue
+        if sid:
+            seen_by_stix[sid] = len(stix_deduped)
+        stix_deduped.append(item)
+
+    # --- Dedup pass 2 — best-score-wins by HTML-unescaped title ---
+    # HTML-entity encoding (&amp; vs &) must not create duplicate logical entries.
     seen_by_title: dict[str, int] = {}
     deduped: list[dict] = []
     dedup_removed = 0
-    for item in normalised:
-        key = item["title"].strip().lower()
+    for item in stix_deduped:
+        key = _html.unescape(item["title"]).strip().lower()
         if key in seen_by_title:
             dedup_removed += 1
             idx = seen_by_title[key]
@@ -260,9 +286,15 @@ def main() -> int:
         seen_by_title[key] = len(deduped)
         deduped.append(item)
 
-    # --- Sort: timestamp DESC -> risk_score DESC ---
-    def _sort_key(e: dict) -> tuple[str, float]:
-        return (e.get("timestamp") or "", float(e.get("risk_score") or 0))
+    total_dedup_removed = stix_dedup_removed + dedup_removed
+    log(f"Dedup: stix_id={stix_dedup_removed} title={dedup_removed} total={total_dedup_removed}")
+
+    # --- Sort: canonical key (published_at/timestamp DESC, stix_id DESC) ---
+    # Matches output_validation_gate.py canonical_sort_key exactly.
+    def _sort_key(e: dict) -> tuple[str, str]:
+        ts  = (e.get("published_at") or e.get("timestamp") or e.get("processed_at") or "")
+        sid = (e.get("stix_id") or e.get("id") or "")
+        return (ts, sid)
     deduped.sort(key=_sort_key, reverse=True)
 
     # --- BLOCKING validation ---
@@ -281,7 +313,7 @@ def main() -> int:
 
     final_count = len(deduped)
     log(f"Cleanup complete: original={original_count} brand={dropped_brand} "
-        f"empty={dropped_empty} dedup={dedup_removed} final={final_count}")
+        f"empty={dropped_empty} dedup={total_dedup_removed} final={final_count}")
 
     # --- Write canonical manifest ---
     payload = {
