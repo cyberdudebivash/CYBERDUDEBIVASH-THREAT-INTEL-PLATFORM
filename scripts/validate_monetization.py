@@ -396,13 +396,57 @@ def validate_feed_manifest() -> None:
         fail(f"{fname}: JSON parse error: {e}")
 
 
+def validate_all_html_bom() -> None:
+    """v149.1: BOM check on ALL HTML files in repo root -- zero tolerance."""
+    print(f"\n--- BOM scan: ALL HTML files ---")
+    html_files = sorted(REPO_ROOT.glob("*.html"))
+    bom_found = []
+    for f in html_files:
+        try:
+            data = f.read_bytes()
+            if data.startswith(b"\xef\xbb\xbf"):
+                bom_found.append(f.name)
+                fail(f"{f.name}: BOM detected -- will corrupt rendering")
+        except Exception as e:
+            warn(f"{f.name}: cannot read ({e})")
+    if not bom_found:
+        ok(f"BOM scan: ALL {len(html_files)} HTML files BOM-free")
+
+
+def validate_all_html_encoding() -> None:
+    """v149.1: Encoding scan on ALL HTML files -- blocks any mojibake from shipping."""
+    junk_patterns = [
+        (b"\xc3\xa2",     "double-encoded mojibake prefix"),
+        (b"\xef\xbb\xbf", "BOM"),
+    ]
+    print(f"\n--- Encoding scan: ALL HTML files ---")
+    html_files = sorted(REPO_ROOT.glob("*.html"))
+    dirty = []
+    for f in html_files:
+        try:
+            data = f.read_bytes()
+            found = []
+            for pat, label in junk_patterns:
+                if pat in data:
+                    count = data.count(pat)
+                    found.append(f"{label} ({count}x)")
+            if found:
+                dirty.append(f.name)
+                fail(f"{f.name}: double-encoded mojibake prefix detected -- run fix_all_html_encoding.py")
+        except Exception as e:
+            warn(f"{f.name}: cannot read ({e})")
+    if not dirty:
+        ok(f"Encoding scan: ALL {len(html_files)} HTML files encoding-clean")
+
+
 # =====================================================================
 # MAIN
 # =====================================================================
 def main() -> None:
     print("=" * 70)
-    print("  SENTINEL APEX v149.0 -- MONETIZATION INTEGRITY GATE")
-    print("  Validates: payment credentials, CTAs, encoding, JS syntax")
+    print("  SENTINEL APEX v149.1 -- MONETIZATION INTEGRITY GATE")
+    print("  Validates: payment credentials, CTAs, encoding, JS syntax,")
+    print("             BOM-free, mojibake-free across ALL HTML files")
     print("=" * 70)
 
     validate_upgrade_html()
@@ -413,6 +457,8 @@ def main() -> None:
     validate_index_html()
     validate_version_json()
     validate_feed_manifest()
+    validate_all_html_bom()
+    validate_all_html_encoding()
 
     print("\n" + "=" * 70)
     print(f"  RESULTS: {len(PASSES)} passed, {len(WARNINGS)} warnings, {len(ERRORS)} errors")
