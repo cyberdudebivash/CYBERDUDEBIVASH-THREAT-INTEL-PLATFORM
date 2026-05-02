@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Gateway &mdash; CYBERDUDEBIVASH SENTINEL APEX</title>
+<meta name="description" content="Secure payment gateway for SENTINEL APEX threat intelligence platform. Pay via UPI (GPay/PhonePe/Paytm/BHIM/AmazonPay), Bank NEFT, PayPal, or Crypto. GSTIN: 21ARKPN8270G1ZP">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<style>
+:root {
+  --bg: #060a12; --bg2: #0c1220; --bg3: #101828;
+  --border: #1a2535; --accent: #00ffc6; --accent2: #7c3aed;
+  --text: #e2e8f0; --muted: #64748b; --green: #10b981;
+  --yellow: #f59e0b; --red: #ef4444; --card: #0f1a2a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; }
+
+/* HERO */
+.hero { background: linear-gradient(135deg, #060a12 0%, #0c1a30 50%, #060a12 100%); padding: 60px 24px 40px; text-align: center; border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
+.hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 800px 400px at 50% 0%, rgba(0,255,198,0.06) 0%, transparent 70%); pointer-events: none; }
+.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(0,255,198,0.08); border: 1px solid rgba(0,255,198,0.2); border-radius: 20px; padding: 6px 18px; font-size: 11px; color: var(--accent); letter-spacing: 1.5px; font-family: monospace; margin-bottom: 20px; }
+.hero h1 { font-size: clamp(28px,5vw,48px); font-weight: 900; line-height: 1.1; margin-bottom: 14px; }
+.hero h1 span { color: var(--accent); }
+.hero p { font-size: 16px; color: var(--muted); max-width: 600px; margin: 0 auto; line-height: 1.6; }
+
+nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 40px; background: rgba(6,10,18,0.95); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px); }
+.nav-logo { font-family: monospace; font-weight: 800; font-size: 14px; color: var(--accent); letter-spacing: 2px; text-decoration: none; }
+.nav-links { display: flex; gap: 20px; align-items: center; }
+.nav-links a { color: var(--muted); text-decoration: none; font-size: 13px; }
+.nav-links a:hover { color: var(--accent); }
+.nav-cta { background: var(--accent); color: #000; padding: 7px 16px; border-radius: 6px; font-weight: 700; font-size: 12px; letter-spacing: 1px; text-decoration: none; }
+
+/* MAIN LAYOUT */
+.main { max-width: 1100px; margin: 0 auto; padding: 48px 24px; }
+.section-heading { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 20px; padding-left: 12px; border-left: 3px solid var(--accent); }
+
+/* PLAN GRID */
+.plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 48px; }
+.plan-tile { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; cursor: pointer; transition: all 0.15s; position: relative; }
+.plan-tile:hover { border-color: var(--accent); transform: translateY(-3px); }
+.plan-tile.selected { border-color: var(--accent); background: rgba(0,255,198,0.04); }
+.plan-tile.featured { border-color: rgba(0,255,198,0.4); }
+.plan-tile .badge { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #000; font-size: 10px; font-weight: 800; padding: 3px 12px; border-radius: 10px; white-space: nowrap; letter-spacing: 1px; }
+.plan-name { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; font-family: monospace; }
+.plan-usd { font-size: 42px; font-weight: 900; color: var(--text); line-height: 1; }
+.plan-usd sup { font-size: 20px; vertical-align: top; margin-top: 8px; font-weight: 700; }
+.plan-period { font-size: 12px; color: var(--muted); margin-left: 4px; }
+.plan-inr { font-size: 13px; color: var(--green); margin-top: 4px; font-weight: 600; }
+.plan-features { margin-top: 16px; }
+.plan-features li { font-size: 12px; color: var(--muted); margin-bottom: 6px; list-style: none; display: flex; align-items: flex-start; gap: 6px; }
+.plan-features li::before { content: '&#10003;'; color: var(--accent); flex-shrink: 0; font-size: 11px; }
+.plan-cta { display: block; width: 100%; padding: 10px; text-align: center; border-radius: 8px; font-weight: 700; font-size: 13px; text-decoration: none; margin-top: 18px; transition: all 0.15s; }
+.plan-cta.primary { background: var(--accent); color: #000; }
+.plan-cta.secondary { border: 1px solid var(--border); color: var(--text); }
+.plan-cta.secondary:hover { border-color: var(--accent); color: var(--accent); }
+.plan-cta.primary:hover { opacity: 0.85; }
+
+/* PAYMENT METHODS GRID */
+.pay-methods-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 48px; }
+.pay-method-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; transition: all 0.15s; cursor: pointer; text-decoration: none; color: var(--text); }
+.pay-method-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.pay-icon-large { font-size: 36px; display: block; margin-bottom: 10px; }
+.pay-method-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.pay-method-ids { font-family: monospace; font-size: 11px; color: var(--muted); line-height: 1.5; }
+.pay-method-badge { display: inline-block; margin-top: 8px; background: rgba(0,255,198,0.1); border: 1px solid rgba(0,255,198,0.2); border-radius: 6px; padding: 2px 8px; font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 0.5px; }
+
+/* QUICK PAY GRID */
+.quick-pay-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 48px; }
+.qp-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; cursor: pointer; transition: all 0.15s; }
+.qp-card:hover { border-color: var(--accent); }
+.qp-app { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.qp-id { font-family: monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
+.qp-copy { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.copy-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; }
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+.copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+/* ENTERPRISE CTA */
+.enterprise-cta { background: linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(0,255,198,0.05) 100%); border: 1px solid rgba(124,58,237,0.3); border-radius: 16px; padding: 40px; text-align: center; margin-bottom: 48px; }
+.enterprise-cta h2 { font-size: 26px; font-weight: 800; margin-bottom: 12px; }
+.enterprise-cta h2 span { color: var(--accent); }
+.enterprise-cta p { color: var(--muted); font-size: 15px; max-width: 500px; margin: 0 auto 24px; }
+.cta-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn-primary { background: var(--accent); color: #000; padding: 12px 28px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 14px; }
+.btn-secondary { border: 1px solid var(--border); color: var(--text); padding: 12px 28px; border-radius: 8px; font-weight: 600; text-decoration: none; font-size: 14px; }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-wa { background: rgba(37,211,102,0.15); border: 1px solid rgba(37,211,102,0.3); color: #4ade80; padding: 12px 28px; border-radius: 8px; font-weight: 600; text-decoration: none; font-size: 14px; }
+
+/* TRUST STRIP */
+.trust-strip { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin-bottom: 48px; }
+.trust-chip { display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 12px; color: var(--muted); }
+.trust-chip .icon { color: var(--green); }
+
+/* PRICING COMPARISON TABLE */
+.compare-table-wrap { overflow-x: auto; margin-bottom: 48px; }
+.compare-table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.compare-table th { padding: 14px 18px; font-size: 11px; font-family: monospace; letter-spacing: 1.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; background: var(--bg3); border-bottom: 1px solid var(--border); }
+.compare-table th.acc { color: var(--accent); }
+.compare-table td { padding: 12px 18px; font-size: 13px; text-align: center; border-bottom: 1px solid var(--border); }
+.compare-table td:first-child { text-align: left; color: var(--text); }
+.compare-table tr:last-child td { border-bottom: none; }
+.tick { color: var(--green); font-weight: 700; }
+.cross { color: var(--muted); }
+
+/* FOOTER */
+footer { border-top: 1px solid var(--border); padding: 32px 40px; text-align: center; font-size: 12px; color: var(--muted); }
+footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/pricing.html">Pricing</a>
+    <a href="/store.html">Store</a>
+    <a href="/get-api-key.html">API</a>
+    <a href="/contact-enterprise.html">Enterprise</a>
+    <a href="/upgrade.html" class="nav-cta">UPGRADE</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">&#128178; PAYMENT GATEWAY &mdash; SENTINEL APEX v142.3.0</div>
+  <h1>Secure <span>Payment</span> Hub</h1>
+  <p>Pay with any method &mdash; UPI, Bank NEFT, PayPal, or Crypto. API key delivered within 2 hours. GST invoice available.</p>
+</div>
+
+<div class="main">
+
+  <!-- TRUST STRIP -->
+  <div class="trust-strip">
+    <div class="trust-chip"><span class="icon">&#10003;</span>GST: 21ARKPN8270G1ZP</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>7-Day Money-Back</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>API Key in 2 Hours</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>No Auto-Renewal</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>Enterprise SLA</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>STIX 2.1 Compliant</div>
+    <div class="trust-chip"><span class="icon">&#10003;</span>MITRE ATT&amp;CK v15</div>
+  </div>
+
+  <!-- PLANS -->
+  <div class="section-heading">CHOOSE YOUR PLAN</div>
+  <div class="plan-grid">
+    <div class="plan-tile">
+      <div class="plan-name">Free Tier</div>
+      <div><span class="plan-usd"><sup>$</sup>0</span></div>
+      <div class="plan-inr">Free forever</div>
+      <ul class="plan-features">
+        <li>60 requests/minute</li>
+        <li>Latest 20 threat reports</li>
+        <li>IOC count (arrays locked)</li>
+        <li>MITRE ATT&amp;CK mapping</li>
+        <li>2 API keys</li>
+      </ul>
+      <a href="/upgrade.html?plan=free" class="plan-cta secondary">Get Free Access</a>
+    </div>
+
+    <div class="plan-tile featured selected">
+      <div class="badge">MOST POPULAR</div>
+      <div class="plan-name">PRO Defense</div>
+      <div><span class="plan-usd"><sup>$</sup>49</span><span class="plan-period">/mo</span></div>
+      <div class="plan-inr">&#x20B9;4,100 INR/month</div>
+      <ul class="plan-features">
+        <li>500 requests/minute</li>
+        <li>Full IOC arrays unlocked</li>
+        <li>STIX 2.1 bundles export</li>
+        <li>Full APEX AI kill chain</li>
+        <li>Critical/High threat alerts</li>
+        <li>10 API keys</li>
+      </ul>
+      <a href="/upgrade.html?plan=pro" class="plan-cta primary">&#9889; Upgrade to PRO</a>
+    </div>
+
+    <div class="plan-tile">
+      <div class="plan-name">Enterprise SOC</div>
+      <div><span class="plan-usd"><sup>$</sup>499</span><span class="plan-period">/mo</span></div>
+      <div class="plan-inr">&#x20B9;41,600 INR/month</div>
+      <ul class="plan-features">
+        <li>2,000 requests/minute</li>
+        <li>Everything in PRO</li>
+        <li>SIEM push: Splunk / Sentinel</li>
+        <li>QRadar LEEF / Webhook</li>
+        <li>50 API keys + tenant isolation</li>
+        <li>Dedicated analyst + SLA</li>
+      </ul>
+      <a href="/upgrade.html?plan=enterprise" class="plan-cta secondary">Get Enterprise</a>
+    </div>
+
+    <div class="plan-tile">
+      <div class="plan-name">MSSP / White-Label</div>
+      <div><span class="plan-usd"><sup>$</sup>1,999</span><span class="plan-period">/mo</span></div>
+      <div class="plan-inr">&#x20B9;1,66,600 INR/month</div>
+      <ul class="plan-features">
+        <li>Multi-tenant architecture</li>
+        <li>White-label branding</li>
+        <li>Unlimited API keys</li>
+        <li>Custom SLA &amp; NDA</li>
+        <li>Dedicated analyst team</li>
+      </ul>
+      <a href="/upgrade.html?plan=mssp" class="plan-cta secondary">Contact for MSSP</a>
+    </div>
+  </div>
+
+  <!-- PAYMENT METHODS -->
+  <div class="section-heading">ACCEPTED PAYMENT METHODS</div>
+  <div class="pay-methods-grid">
+    <a href="/upgrade.html#upi" class="pay-method-card">
+      <span class="pay-icon-large">&#127470;&#127475;</span>
+      <div class="pay-method-name">UPI Payments</div>
+      <div class="pay-method-ids">GPay &middot; PhonePe &middot; Paytm<br>BHIM &middot; AmazonPay &middot; Axis</div>
+      <span class="pay-method-badge">INSTANT</span>
+    </a>
+    <a href="/upgrade.html#neft" class="pay-method-card">
+      <span class="pay-icon-large">&#127981;</span>
+      <div class="pay-method-name">Bank NEFT / IMPS / RTGS</div>
+      <div class="pay-method-ids">Axis Bank<br>A/C: 915010024617260<br>IFSC: UTIB0000052</div>
+      <span class="pay-method-badge">4 HOURS</span>
+    </a>
+    <a href="/upgrade.html#paypal" class="pay-method-card">
+      <span class="pay-icon-large">P</span>
+      <div class="pay-method-name">PayPal</div>
+      <div class="pay-method-ids">iambivash.bn@gmail.com<br>paypal.me/cyberdudebivash</div>
+      <span class="pay-method-badge">GLOBAL</span>
+    </a>
+    <a href="/upgrade.html#crypto" class="pay-method-card">
+      <span class="pay-icon-large">&#8383;</span>
+      <div class="pay-method-name">Crypto (BNB / USDT / ETH)</div>
+      <div class="pay-method-ids">BNB Smart Chain<br>0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796</div>
+      <span class="pay-method-badge">WEB3</span>
+    </a>
+  </div>
+
+  <!-- QUICK PAY REFERENCE -->
+  <div class="section-heading">QUICK PAYMENT REFERENCE</div>
+  <div class="quick-pay-grid">
+    <div class="qp-card">
+      <div class="qp-app" style="color:#00c853;">&#9679; GPay</div>
+      <div class="qp-id">iambivash.bn-5@okaxis</div>
+      <div class="qp-copy">
+        <span style="font-size:10px;color:var(--muted);">UPI</span>
+        <button class="copy-btn" onclick="copyText('iambivash.bn-5@okaxis',this)">Copy</button>
+      </div>
+    </div>
+    <div class="qp-card">
+      <div class="qp-app" style="color:#5c35cc;">&#9679; PhonePe</div>
+      <div class="qp-id">iambivash.bn-5@okaxis</div>
+      <div class="qp-copy">
+        <span style="font-size:10px;color:var(--muted);">UPI</span>
+        <button class="copy-btn" onclick="copyText('iambivash.bn-5@okaxis',this)">Copy</button>
+      </div>
+    </div>
+    <div class="qp-card">
+      <div class="qp-app" style="color:#00baf2;">&#9679; Paytm</div>
+      <div class="qp-id">iambivash.bn-5@okaxis</div>
+      <div class="qp-copy">
+        <span style="font-size:10px;color:var(--muted);">UPI</span>
+        <button class="copy-btn" onclick="copyText('iambivash.bn-5@okaxis',this)">Copy</button>
+      </div>
+    </div>
+    <div class="qp-card">
+      <div class="qp-app" style="color:#f7941d;">&#9679; BHIM</div>
+      <div class="qp-id">iambivash.bn-5@okaxis</div>
+      <div class="qp-copy">
+        <span style="font-size:10px;color:var(--muted);">UPI</span>
+        <button class="copy-btn" onclick="copyText('iambivash.bn-5@okaxis',this)">Copy</button>
+      </div>
+    </div>
+    <div class="qp-card">
+      <div class="qp-app" style="color:#ff9900;">&#9679; AmazonPay</div>
+      <div class="qp-id">iambivash.bn-5@okaxis</div>
+      <div class="qp-copy">
+        <span style="font-size:10px;color:var(--muted);">UPI</span>
+        <button class="copy-btn" onclick="copyText('iambivash.bn-5@okaxis',this)">Copy</button>
+      </div>
+    </div>
+    <div class="qp-card">
+      <div class="qp-app" style="color:#c0392b;">&#9679; Axis UPI</div>
+      <div class="qp-id">6302177246@axisbank</div>
+      <div class="qp-copy">
+        <span style="font-size:10px;color:var(--muted);">UPI</span>
+        <button class="copy-btn" onclick="copyText('6302177246@axisbank',this)">Copy</button>
+      </div>
+    </div>
+    <div class="qp-card">
+      <div class="qp-app" style="color:#009cde;">&#9679; PayPal</div>
+      <div class="qp-id">iambivash.bn@gmail.com</div>
+      <div class="qp-copy">
+        <span style="font-size:10px;color:var(--muted);">Email</span>
+        <button class="copy-btn" onclick="copyText('iambivash.bn@gmail.com',this)">Copy</button>
+      </div>
+    </div>
+    <div class="qp-card">
+      <div class="qp-app" style="color:#f0b90b;">&#9679; BNB / USDT / ETH</div>
+      <div class="qp-id" style="font-size:10px;">0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796</div>
+      <div class="qp-copy">
+        <span style="font-size:10px;color:var(--muted);">BSC</span>
+        <button class="copy-btn" onclick="copyText('0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796',this)">Copy</button>
+      </div>
+    </div>
+    <div class="qp-card" style="grid-column:span 2;">
+      <div class="qp-app" style="color:#ef4444;">&#9679; Bank NEFT / IMPS / RTGS</div>
+      <div class="qp-id">BIVASHA KUMAR NAYAK &middot; Axis Bank<br>A/C: 915010024617260 &middot; IFSC: UTIB0000052</div>
+      <div class="qp-copy">
+        <span style="font-size:10px;color:var(--muted);">NEFT</span>
+        <button class="copy-btn" onclick="copyText('915010024617260',this)">Copy A/C</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARE TABLE -->
+  <div class="section-heading">FEATURE COMPARISON</div>
+  <div class="compare-table-wrap">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th style="text-align:left;">Feature</th>
+          <th>Free</th>
+          <th class="acc">PRO $49</th>
+          <th>Enterprise $499</th>
+          <th>MSSP $1,999</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Threat reports</td><td>Latest 20</td><td class="tick">Unlimited</td><td class="tick">Unlimited</td><td class="tick">Unlimited</td></tr>
+        <tr><td>API requests/min</td><td>60</td><td class="tick">500</td><td class="tick">2,000</td><td class="tick">Unlimited</td></tr>
+        <tr><td>Full IOC arrays</td><td class="cross">&#10005;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td></tr>
+        <tr><td>STIX 2.1 export</td><td class="cross">&#10005;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td></tr>
+        <tr><td>APEX AI full analysis</td><td class="cross">&#10005;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td></tr>
+        <tr><td>SIEM push integration</td><td class="cross">&#10005;</td><td class="cross">&#10005;</td><td class="tick">Splunk/Sentinel/QRadar</td><td class="tick">&#10003;</td></tr>
+        <tr><td>API keys</td><td>2</td><td class="tick">10</td><td class="tick">50</td><td class="tick">Unlimited</td></tr>
+        <tr><td>SLA guarantee</td><td class="cross">&#10005;</td><td class="cross">&#10005;</td><td class="tick">99.9% uptime</td><td class="tick">Custom SLA</td></tr>
+        <tr><td>Dedicated analyst</td><td class="cross">&#10005;</td><td class="cross">&#10005;</td><td class="tick">&#10003;</td><td class="tick">Team</td></tr>
+        <tr><td>White-label / Multi-tenant</td><td class="cross">&#10005;</td><td class="cross">&#10005;</td><td class="cross">&#10005;</td><td class="tick">&#10003;</td></tr>
+        <tr><td>GST Invoice</td><td>N/A</td><td class="tick">On request</td><td class="tick">Included</td><td class="tick">Included</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ENTERPRISE CTA -->
+  <div class="enterprise-cta">
+    <h2>Need a <span>Custom Package</span>?</h2>
+    <p>Enterprise contracts, white-label deployments, custom SLA, on-prem deployment, and dedicated analyst support available for global organizations.</p>
+    <div class="cta-buttons">
+      <a href="/upgrade.html?plan=enterprise" class="btn-primary">&#9889; Start Enterprise</a>
+      <a href="/contact-enterprise.html" class="btn-secondary">&#128293; Enterprise Inquiry</a>
+      <a href="https://wa.me/918179881447?text=Hi%20Bivash%2C%20I%20want%20an%20enterprise%20package%20for%20SENTINEL%20APEX" target="_blank" class="btn-wa">&#128242; WhatsApp: +91 8179881447</a>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p style="margin-bottom:8px;">
+    CYBERDUDEBIVASH PRIVATE LIMITED &middot; 29, Korai-Sukinda-Ramchandrapur Rd, Jajpur Road, Odisha 755019, India<br>
+    GSTIN: 21ARKPN8270G1ZP &nbsp;&middot;&nbsp; <a href="mailto:bivash@cyberdudebivash.com">bivash@cyberdudebivash.com</a> &nbsp;&middot;&nbsp; +91 8179881447
+  </p>
+  <p style="color:#374151;">
+    <a href="/">Dashboard</a> &middot; <a href="/pricing.html">Pricing</a> &middot; <a href="/store.html">Store</a> &middot; <a href="/get-api-key.html">API Docs</a> &middot; <a href="/contact-enterprise.html">Enterprise</a>
+  </p>
+  <p style="margin-top:12px;">&#169; 2026 CYBERDUDEBIVASH PRIVATE LIMITED. All rights reserved.</p>
+</footer>
+
+<script>
+function copyText(text, btn) {
+  var doCopy = function() {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(doCopy).catch(function() {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      doCopy();
+    });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    doCopy();
+  }
+}
+</script>
+</body>
+</html>
