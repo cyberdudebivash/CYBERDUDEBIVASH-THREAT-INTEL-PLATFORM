@@ -1157,9 +1157,19 @@ class STIXExporter:
             logger.info(f"  [MANIFEST] Brand filter: skipping identity entry: {title[:60]}")
             return
 
-        # Dedup guard
-        existing_titles = {e.get("title", "").strip().lower() for e in manifest_entries}
-        if title.strip().lower() in existing_titles:
+        # v145.0: Dedup guard — check stix_id, id, AND HTML-unescaped title.
+        # Title-only dedup missed HTML-entity variants (&amp; vs &) causing
+        # the same item to appear twice in feed_manifest.json.
+        import html as _html_dedup
+        _existing_sids   = {e.get("stix_id") or "" for e in manifest_entries}
+        _existing_ids    = {e.get("id") or "" for e in manifest_entries}
+        _existing_titles = {_html_dedup.unescape(e.get("title") or "").strip().lower()
+                            for e in manifest_entries}
+        _title_norm = _html_dedup.unescape(title).strip().lower()
+        _sid_norm   = stix_id or ""
+        if (_sid_norm and _sid_norm in _existing_sids) or \
+           (_sid_norm and _sid_norm in _existing_ids) or \
+           (_title_norm and _title_norm in _existing_titles):
             logger.info(f"  [MANIFEST] Dedup guard: skipping duplicate: {title[:60]}")
             return
 

@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v142.3.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v142.3.1
 // Hardened: 2026-04-30 (CSP + HSTS + CORS lockdown + monetization enforcement)
 // R2-ONLY ARCHITECTURE -- Blogger dependency REMOVED
 // Data flow: GitHub Actions -> Cloudflare R2 (private) -> Worker -> API clients
@@ -83,7 +83,7 @@ function injectVersionHeaders(response, config) {
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "142.3.0",  // v142.3.0 SENTINEL APEX Production Platform
+  GATEWAY_VERSION:   "142.3.1",  // v142.3.1 SENTINEL APEX Production Platform
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -1924,7 +1924,7 @@ async function handlePreview(request, env, rid) {
     //   processed. `processed_at` is always set to pipeline execution time (UTC-now)
     //   so it is immune to source article date variations.
     //
-    // SORT KEY helper v142.3.0: published_at is real source date (primary)
+    // SORT KEY helper v142.3.1: published_at is real source date (primary)
     const getSortTs = item => {
       const pa = item.published_at || item.timestamp || item.processed_at || item.generated_at || null;
       return pa ? new Date(pa).getTime() : 0;
@@ -2146,8 +2146,8 @@ async function handleFeed(request, env, auth, rid) {
     // Ensures authenticated /api/feed consumers always receive newest-generated intel first,
     // regardless of the manifest file order or source article publication dates.
     items.sort((a, b) => {
-      const ta = new Date(a.published_at || a.timestamp || a.processed_at || a.generated_at || 0).getTime(); // v142.3.0
-      const tb = new Date(b.published_at || b.timestamp || b.processed_at || b.generated_at || 0).getTime(); // v142.3.0
+      const ta = new Date(a.published_at || a.timestamp || a.processed_at || a.generated_at || 0).getTime(); // v142.3.1
+      const tb = new Date(b.published_at || b.timestamp || b.processed_at || b.generated_at || 0).getTime(); // v142.3.1
       return tb - ta;
     });
 
@@ -3849,7 +3849,7 @@ function formatQRadarLEEF(item) {
   return `LEEF:2.0|CYBERDUDEBIVASH|SENTINEL-APEX|${CONFIG.GATEWAY_VERSION}|ThreatIntel|\t${pairs}`;
 }
 
-//  v142.3.0: Response post-processor -- injects X-RateLimit + full enterprise security headers
+//  v142.3.1: Response post-processor -- injects X-RateLimit + full enterprise security headers
 // Called after every authenticated handler returns. Never mutates body -- only adds headers.
 // Security headers added to ALL responses (military-grade defence-in-depth):
 //   CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
@@ -3860,7 +3860,7 @@ function applySecurityHeaders(response, rlHeaders = {}) {
   for (const [k, v] of Object.entries(rlHeaders)) {
     headers.set(k, v);
   }
-  // === MILITARY-GRADE SECURITY HEADERS (v142.3.0) ===
+  // === MILITARY-GRADE SECURITY HEADERS (v142.3.1) ===
   // 1. Content-Security-Policy -- blocks XSS, injection, clickjacking at browser level
   headers.set("Content-Security-Policy",
     "default-src 'none'; script-src 'self'; connect-src 'self' https://intel.cyberdudebivash.com; " +
@@ -3926,7 +3926,7 @@ export default {
     const method    = request.method.toUpperCase();
     slog("INFO", "ROUTER", `${method} ${pathname}`, { rid });
 
-    // v142.3.0: CORS preflight -- smart origin enforcement
+    // v142.3.1: CORS preflight -- smart origin enforcement
     // Public endpoints allow wildcard; authenticated/admin endpoints restrict to known origins
     if (method === "OPTIONS") {
       const origin = request.headers.get("Origin") || "";

@@ -2,16 +2,16 @@ name              = "sentinel-apex-gateway"
 main              = "src/index.js"
 compatibility_date = "2025-09-01"
 
-# v142.3.0: Cron trigger for scheduled webhook push + cache refresh
+# v142.3.1: Cron trigger for scheduled webhook push + cache refresh
 # Fires every 15 minutes -- matches typical CTI pipeline run cadence
 [triggers]
 crons = ["*/15 * * * *"]
 
 [vars]
-GATEWAY_VERSION = "142.3.0"
+GATEWAY_VERSION = "142.3.1"
 
 # -- KV Namespaces --
-# Deployed KV IDs -- verified live on intel.cyberdudebivash.com (v142.3.0)
+# Deployed KV IDs -- verified live on intel.cyberdudebivash.com (v142.3.1)
 # To add new namespace: npx wrangler kv namespace create "<NAME>"
 
 [[kv_namespaces]]
@@ -27,7 +27,7 @@ binding = "ANALYTICS_KV"
 id      = "baa66e510f7247d4b268af943bfb7213"
 
 [[kv_namespaces]]
-# v142.3.0: SECURITY_HUB_KV -- used for:
+# v142.3.1: SECURITY_HUB_KV -- used for:
 #   1. JWT revocation blocklist  (jwt_revoked:<hash> keys)
 #   2. Structured error tracking (error:<component>:<date> keys, 7-day TTL)
 #   3. SIEM webhook registrations (webhook:<key_id> keys)
@@ -61,7 +61,7 @@ bucket_name = "sentinel-apex-data"
 [env.production]
 name = "sentinel-apex-gateway"
 [env.production.vars]
-GATEWAY_VERSION = "142.3.0"
+GATEWAY_VERSION = "142.3.1"
 
 [[env.production.kv_namespaces]]
 binding = "API_KEYS_KV"
