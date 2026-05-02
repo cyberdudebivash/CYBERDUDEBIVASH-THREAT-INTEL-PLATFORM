@@ -1157,6 +1157,55 @@ function computeApexAI(item, tier) {
     const isFree  = !tier || tier === CONFIG.TIERS.FREE;
     const isPro   = tier === CONFIG.TIERS.PREMIUM || tier === CONFIG.TIERS.ENTERPRISE;
 
+    // v145.0: If item already carries a valid apex_ai from R2/API, treat it as source of truth.
+    // Only fall through to full recompute if apex_ai is absent, null, or in error state.
+    const existingApexAI = item.apex_ai;
+    const hasValidApexAI =
+      existingApexAI &&
+      typeof existingApexAI === "object" &&
+      !existingApexAI.error &&
+      (existingApexAI.ai_summary || typeof existingApexAI.predictive_risk === "number");
+
+    if (hasValidApexAI) {
+      if (isFree) {
+        const fp = existingApexAI.actor_fingerprint;
+        const fpMasked = fp ? String(fp).slice(0, 8) + "****" : "UNC-UNKN****";
+        const sp = existingApexAI.soc_priority || "P4";
+        const ct = existingApexAI.threat_confidence_tier || "MODERATE";
+        return {
+          soc_priority:            sp,
+          threat_level:            existingApexAI.threat_level            || "UNKNOWN",
+          threat_category:         existingApexAI.threat_category         || "UNKNOWN",
+          predictive_risk:         existingApexAI.predictive_risk         ?? 0,
+          ai_confidence:           existingApexAI.ai_confidence           ?? 0,
+          threat_confidence_tier:  ct,
+          threat_confidence_label: existingApexAI.threat_confidence_label || ct,
+          ttp_density:             existingApexAI.ttp_density             ?? 0,
+          campaign_id:             "PRO_REQUIRED",
+          actor_fingerprint:       fpMasked,
+          kill_chain:              "PRO_REQUIRED",
+          kill_chain_primary:      "PRO_REQUIRED",
+          ai_summary:              existingApexAI.ai_summary_teaser
+                                   || (existingApexAI.ai_summary
+                                       ? String(existingApexAI.ai_summary).slice(0, 120) + " . FULL INTELLIGENCE -- PRO TIER REQUIRED ->"
+                                       : "Intelligence signal detected. Upgrade to Pro for full analysis."),
+          recommended_action:      `SOC ${sp}: Full kill chain attribution locked behind Pro tier. Upgrade for complete IR playbook.`,
+          behavioral_tags:         [],
+          paywall: {
+            locked_fields: ["actor_fingerprint_full","kill_chain","behavioral_tags","recommended_action_full","stix_bundle"],
+            upgrade_url:   "/upgrade.html?plan=pro",
+            message:       `${ct} THREAT -- full actor attribution locked. Upgrade to Pro for complete intelligence.`,
+            urgency:       sp === "P1" || sp === "P2"
+              ? ` ACTIVE THREAT [${sp}] -- Enterprise IR response required.`
+              : `THREAT ACTIVE [${sp}] -- Full detection package available on Pro tier.`,
+          },
+        };
+      }
+      // Pro / Enterprise: return existing apex_ai as-is (Python APEX engine is authoritative)
+      return { ...existingApexAI };
+    }
+
+
     //  Core scores 
     const riskScore  = typeof item.risk_score  === "number" ? item.risk_score
                      : typeof item.cvss_score  === "number" ? item.cvss_score : 0;
@@ -1242,10 +1291,14 @@ function computeApexAI(item, tier) {
       ? `${actorTag}::${sevCode}::IOC-${iocCount}::TTP-${ttpCount}`
       : `${actorTag.slice(0, 8)}****`; // partial for free tier
 
-    //  kill_chain: primary phase derived from TTPs / kill_chain_phases 
+    //  kill_chain: primary phase derived from TTPs / kill_chain_phases
     const rawKc    = Array.isArray(item.kill_chain_phases) ? item.kill_chain_phases : [];
-    const rawTtps  = Array.isArray(item.ttps) ? item.ttps
-                   : Array.isArray(item.mitre_tactics) ? item.mitre_tactics : [];
+    const rawTtpsRaw = Array.isArray(item.ttps) ? item.ttps
+                     : Array.isArray(item.mitre_tactics) ? item.mitre_tactics : [];
+    // v145.0: TTPs may be objects {id, name, tactic} or plain strings -- normalise to ID strings
+    const rawTtps = rawTtpsRaw.map(t =>
+      t && typeof t === "object" ? String(t.id || t.technique_id || t.name || "") : String(t || "")
+    );
     // Map common MITRE tactics to kill chain phases
     const ttpToPhase = {
       TA0001: "Initial Access", TA0002: "Execution", TA0003: "Persistence",
@@ -1253,17 +1306,23 @@ function computeApexAI(item, tier) {
       TA0007: "Discovery", TA0008: "Lateral Movement", TA0009: "Collection",
       TA0010: "Exfiltration", TA0011: "Command and Control", TA0040: "Impact",
     };
-    const derivedPhases = rawTtps.slice(0, 5).map(t => {
-      const ta = t.toUpperCase();
-      return ttpToPhase[ta] || (ta.startsWith("T1") ? "Execution" : "Unknown");
+    // Also map T-IDs to tactic names using tactic field from object if available
+    const rawTtpTactics = rawTtpsRaw.slice(0, 5).map(t =>
+      t && typeof t === "object" && t.tactic ? String(t.tactic) : null
+    );
+    const derivedPhases = rawTtps.slice(0, 5).map((ta_, i) => {
+      const ta = ta_.toUpperCase();
+      return ttpToPhase[ta]
+        || rawTtpTactics[i]
+        || (ta.startsWith("T1") ? "Execution" : "Unknown");
     });
     const killChainPhases = rawKc.length > 0 ? rawKc
       : [...new Set(derivedPhases)].slice(0, 3);
     const primaryPhase = killChainPhases[0] || "Unknown";
 
-    //  ttp_density (0--10): attack sophistication density score 
+    //  ttp_density (0--10): attack sophistication density score
     // Higher = more diverse techniques used (sophisticated actor)
-    const uniqueTtps  = new Set(rawTtps).size;
+    const uniqueTtps  = new Set(rawTtps.filter(Boolean)).size;
     const ttpDensity  = Math.min(10, parseFloat((
       (uniqueTtps * 0.8) + (iocCount * 0.3) + (riskScore * 0.2)
     ).toFixed(2)));
