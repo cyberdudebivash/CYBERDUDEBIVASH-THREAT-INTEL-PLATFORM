@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>My Dashboard — CYBERDUDEBIVASH® SENTINEL APEX</title>
+<title>My Dashboard &mdash; CYBERDUDEBIVASH&reg; SENTINEL APEX</title>
 <meta name="description" content="Manage your SENTINEL APEX API keys, view usage stats, and upgrade your intelligence tier."/>
 <style>
 :root{
@@ -93,7 +93,7 @@ input:focus{border-color:var(--accent)}
 <body>
 
 <div class="topbar">
-  <div class="brand">CYBERDUDEBIVASH® SENTINEL APEX <span>v141.0.0</span></div>
+  <div class="brand">CYBERDUDEBIVASH&reg; SENTINEL APEX <span>v141.0.0</span></div>
   <nav class="nav-links">
     <a href="/">Dashboard</a>
     <a href="/store.html">Store</a>
@@ -125,7 +125,7 @@ input:focus{border-color:var(--accent)}
     </form>
     <p style="margin-top:20px;font-size:12px;color:var(--muted)">
       By signing in you agree to our <a href="/pricing.html">Terms of Service</a>.<br/>
-      No password required — we send a JWT to your session.
+      No password required &mdash; we send a JWT to your session.
     </p>
   </div>
 </div>
@@ -135,7 +135,7 @@ input:focus{border-color:var(--accent)}
 
   <div class="page-header">
     <h1>My Dashboard</h1>
-    <p id="welcome-msg">Welcome back — managing your SENTINEL APEX account.</p>
+    <p id="welcome-msg">Welcome back &mdash; managing your SENTINEL APEX account.</p>
   </div>
 
   <!-- Stats -->
@@ -147,17 +147,17 @@ input:focus{border-color:var(--accent)}
     </div>
     <div class="stat-card">
       <div class="stat-label">Live Advisories</div>
-      <div class="stat-value stat-green" id="stat-advisories">—</div>
+      <div class="stat-value stat-green" id="stat-advisories">&mdash;</div>
       <div class="stat-sub">updated daily</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">API Keys</div>
-      <div class="stat-value stat-accent" id="stat-keys">—</div>
+      <div class="stat-value stat-accent" id="stat-keys">&mdash;</div>
       <div class="stat-sub" id="stat-keys-sub">of 2 allowed (FREE)</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Platform Status</div>
-      <div class="stat-value stat-green" id="stat-status">—</div>
+      <div class="stat-value stat-green" id="stat-status">&mdash;</div>
       <div class="stat-sub" id="stat-version">v141.0.0</div>
     </div>
   </div>
@@ -180,7 +180,7 @@ input:focus{border-color:var(--accent)}
       <div style="margin-bottom:20px">
         <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
           <span>API Calls Today</span>
-          <span id="usage-calls">—</span>
+          <span id="usage-calls">&mdash;</span>
         </div>
         <div class="usage-bar-track"><div class="usage-bar-fill" id="usage-bar" style="width:0%"></div></div>
         <div style="font-size:11px;color:var(--muted)" id="usage-limit-label">Limit: 100/day (FREE tier)</div>
@@ -224,7 +224,7 @@ input:focus{border-color:var(--accent)}
       <a href="/pricing.html" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;display:block;color:var(--text);transition:border .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
         <div style="font-size:20px;margin-bottom:8px">⬆️</div>
         <div style="font-weight:700;font-size:14px">Upgrade Plan</div>
-        <div style="font-size:12px;color:var(--muted)">PRO $49/mo · Enterprise $299/mo</div>
+        <div style="font-size:12px;color:var(--muted)">PRO $49/mo &middot; Enterprise $299/mo</div>
       </a>
     </div>
   </div>
@@ -264,7 +264,7 @@ input:focus{border-color:var(--accent)}
     <h3>⚙️ Account</h3>
     <div style="display:flex;align-items:center;gap:16px">
       <div style="flex:1">
-        <div style="font-size:14px;font-weight:600" id="account-email">—</div>
+        <div style="font-size:14px;font-weight:600" id="account-email">&mdash;</div>
         <div style="font-size:12px;color:var(--muted)" id="account-tier-label">FREE tier</div>
       </div>
       <button class="btn btn-sm btn-danger" onclick="logout()">Sign Out</button>
@@ -319,7 +319,7 @@ document.getElementById('login-form').addEventListener('submit', async e => {
   } catch(ex) {
     err.textContent = ex.message.includes('jwt_secret_not_configured')
       ? 'Platform auth is being configured. Try again in a few minutes.'
-      : (ex.message || 'Login failed — check console for details');
+      : (ex.message || 'Login failed \u2014 check console for details');
     err.style.display = 'block';
   } finally {
     btn.textContent = '⚡ Sign In / Register';
@@ -368,7 +368,7 @@ async function loadHealth() {
   try {
     const r = await fetch(API + '/api/health');
     const d = await r.json();
-    document.getElementById('stat-advisories').textContent = d.pipeline?.advisory_count || '—';
+    document.getElementById('stat-advisories').textContent = d.pipeline?.advisory_count || '\u2014';
     document.getElementById('stat-status').textContent = d.status === 'healthy' ? '✓ Healthy' : d.status;
     document.getElementById('stat-version').textContent = 'v' + (d.version || '141.0.0');
   } catch { document.getElementById('stat-status').textContent = 'Checking...'; }
@@ -391,7 +391,7 @@ async function loadKeys() {
     list.innerHTML = keys.map(k => `
       <div class="key-row">
         <div class="key-label">${escHtml(k.label || 'API Key')}</div>
-        <div class="key-value" title="Click to copy" onclick="copyKey(this,'${escHtml(k.key_id)}')">${escHtml(k.key_id?.slice(0,8)+'...' || '—')}</div>
+        <div class="key-value" title="Click to copy" onclick="copyKey(this,'${escHtml(k.key_id)}')">${escHtml(k.key_id?.slice(0,8)+'...' || '\u2014')}</div>
         <span class="key-tier tier-${k.tier||'free'}-badge">${(k.tier||'free').toUpperCase()}</span>
         <span style="font-size:11px;color:var(--muted)">${k.created_at ? new Date(k.created_at).toLocaleDateString() : ''}</span>
       </div>
@@ -476,7 +476,7 @@ window.addEventListener('load', () => {
       if(c>0){
         var el=document.getElementById('cdb-live-threat-count');if(el)el.textContent=c.toLocaleString();
         var m=document.getElementById('cdb-banner-msg');
-        if(m)m.textContent=c.toLocaleString()+' active threats — IOCs, STIX bundles & kill-chain attribution locked.';
+        if(m)m.textContent=c.toLocaleString()+' active threats \u2014 IOCs, STIX bundles & kill-chain attribution locked.';
       }
     }).catch(function(){});
   b.style.display='flex';
