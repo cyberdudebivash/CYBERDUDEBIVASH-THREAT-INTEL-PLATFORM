@@ -3598,7 +3598,7 @@ async function sendTelegramAlert(env, message) {
         disable_web_page_preview: true,
       }),
     });
-  } catch (_) {}  // non-blocking — never let Telegram errors affect payment flow
+  } catch (_) {}  // non-blocking  -  never let Telegram errors affect payment flow
 }
 
 // POST /api/payment/notify
@@ -3660,22 +3660,22 @@ async function handlePaymentNotify(request, env, rid) {
   if (existing.length > 500) existing.length = 500;
   await env.API_KEYS_KV.put(listKey, JSON.stringify(existing), { expirationTtl: 86400 * 60 });
 
-  // ── TELEGRAM INSTANT ALERT ─────────────────────────────────────────────────
-  const planEmoji  = plan === "enterprise" ? "🏢" : plan === "mssp" ? "🌐" : "⭐";
-  const methodIcon = is_crypto ? "🔗" : method.includes("UPI") ? "📱" : method.includes("PayPal") ? "💰" : method.includes("Bank") ? "🏦" : "💳";
-  const tgMsg = `🚨 <b>NEW PAYMENT — SENTINEL APEX</b>\n\n` +
+  // -- TELEGRAM INSTANT ALERT -------------------------------------------------
+  const planEmoji  = plan === "enterprise" ? "?" : plan === "mssp" ? "?" : "?";
+  const methodIcon = is_crypto ? "?" : method.includes("UPI") ? "?" : method.includes("PayPal") ? "?" : method.includes("Bank") ? "?" : "?";
+  const tgMsg = `? <b>NEW PAYMENT  -  SENTINEL APEX</b>\n\n` +
     `${planEmoji} <b>Plan:</b> ${plan.toUpperCase()}\n` +
     `${methodIcon} <b>Method:</b> ${method}\n` +
-    `💵 <b>Amount:</b> ${amount}\n` +
-    `📧 <b>Email:</b> ${email}\n` +
-    (name    ? `👤 <b>Name:</b> ${name}\n`     : "") +
-    (org     ? `🏢 <b>Org:</b> ${org}\n`       : "") +
-    (country ? `🌍 <b>Country:</b> ${country}\n` : "") +
-    `🔖 <b>Ref/UTR:</b> ${ref || "—"}\n` +
-    (txhash  ? `⛓ <b>TxHash:</b> <code>${txhash.slice(0,18)}…</code>\n` : "") +
-    `🆔 <b>Review ID:</b> <code>${rid}</code>\n` +
-    `⏰ <b>Time:</b> ${new Date().toUTCString()}\n\n` +
-    `✅ <b>Activate now:</b>\n` +
+    `? <b>Amount:</b> ${amount}\n` +
+    `? <b>Email:</b> ${email}\n` +
+    (name    ? `? <b>Name:</b> ${name}\n`     : "") +
+    (org     ? `? <b>Org:</b> ${org}\n`       : "") +
+    (country ? `? <b>Country:</b> ${country}\n` : "") +
+    `? <b>Ref/UTR:</b> ${ref || " - "}\n` +
+    (txhash  ? `? <b>TxHash:</b> <code>${txhash.slice(0,18)}...</code>\n` : "") +
+    `? <b>Review ID:</b> <code>${rid}</code>\n` +
+    `? <b>Time:</b> ${new Date().toUTCString()}\n\n` +
+    `[OK] <b>Activate now:</b>\n` +
     `<code>POST /api/admin/users/set-tier\n{"email":"${email}","tier":"${plan === 'pro' ? 'premium' : plan}","payment_ref":"${rid}"}</code>`;
 
   // Fire Telegram + legacy webhook in parallel (non-blocking)
@@ -3691,10 +3691,10 @@ async function handlePaymentNotify(request, env, rid) {
   }
   await Promise.all(notifyPromises);  // parallel, still non-blocking to user
 
-  // ── BSC AUTO-VERIFY (if txhash provided) ──────────────────────────────────
+  // -- BSC AUTO-VERIFY (if txhash provided) ----------------------------------
   let bsc_status = null;
   if (txhash && (is_crypto || txhash.startsWith("0x"))) {
-    bsc_status = "submitted";  // optimistic — verify-bsc endpoint does the deep check
+    bsc_status = "submitted";  // optimistic  -  verify-bsc endpoint does the deep check
   }
 
   slog("INFO", "BILLING", "Payment notification received + Telegram alert fired", { email, plan, method, ref: ref.slice(0, 20), rid, has_txhash: !!txhash });
@@ -3702,7 +3702,7 @@ async function handlePaymentNotify(request, env, rid) {
   return jsonResponse({
     status:       "received",
     message:      is_crypto && txhash
-      ? "Crypto payment submitted. BSC verification in progress — usually auto-confirmed in 1-3 minutes."
+      ? "Crypto payment submitted. BSC verification in progress  -  usually auto-confirmed in 1-3 minutes."
       : "Payment notification recorded. Your account will be upgraded within 2 hours after manual verification.",
     review_id:    rid,
     plan,
@@ -3783,7 +3783,7 @@ async function handleBSCVerify(request, env, rid) {
           verifyDetail = { message: "Transaction failed on-chain (reverted)." };
         } else {
           verifyStatus = "pending";
-          verifyDetail = { message: "Transaction mined but status unclear — check BscScan." };
+          verifyDetail = { message: "Transaction mined but status unclear  -  check BscScan." };
         }
       }
     }
@@ -3804,14 +3804,14 @@ async function handleBSCVerify(request, env, rid) {
       await env.API_KEYS_KV.put(`payment:${payRid}`, JSON.stringify(payRec), { expirationTtl: 86400 * 30 });
 
       // Fire Telegram alert for auto-verified crypto payment
-      const tgMsg = `✅ <b>BSC PAYMENT AUTO-VERIFIED</b>\n\n` +
-        `📧 Email: ${payRec.email}\n` +
-        `💎 Plan: ${(payRec.plan || "").toUpperCase()}\n` +
-        `💵 Amount: ${payRec.amount}\n` +
-        `⛓ TxHash: <code>${txhash}</code>\n` +
-        `🔗 <a href="https://bscscan.com/tx/${txhash}">View on BscScan</a>\n` +
-        `🆔 Review ID: <code>${payRid}</code>\n\n` +
-        `🚀 <b>Activate now:</b>\n` +
+      const tgMsg = `[OK] <b>BSC PAYMENT AUTO-VERIFIED</b>\n\n` +
+        `? Email: ${payRec.email}\n` +
+        `? Plan: ${(payRec.plan || "").toUpperCase()}\n` +
+        `? Amount: ${payRec.amount}\n` +
+        `? TxHash: <code>${txhash}</code>\n` +
+        `? <a href="https://bscscan.com/tx/${txhash}">View on BscScan</a>\n` +
+        `? Review ID: <code>${payRid}</code>\n\n` +
+        `? <b>Activate now:</b>\n` +
         `<code>POST /api/admin/users/set-tier\n{"email":"${payRec.email}","tier":"${payRec.plan === 'pro' ? 'premium' : payRec.plan}","payment_ref":"${payRid}"}</code>`;
       await sendTelegramAlert(env, tgMsg);
 
