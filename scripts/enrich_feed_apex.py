@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v142.4.0 — Feed APEX AI Enrichment Script
+SENTINEL APEX v142.4.0 - Feed APEX AI Enrichment Script
 Injects apex_ai, apex (where missing), ioc_paywall, and confidence_score
 into ALL items in api/feed.json so the dashboard cards display full intelligence.
 
@@ -160,11 +160,11 @@ def compute_ai_summary(item, soc_priority, pred_risk, ai_conf, ttp_density, cate
 
     # Risk signal
     risk_desc = "critical" if risk >= 9 else "high" if risk >= 7 else "moderate" if risk >= 5 else "low"
-    lines.append(f"[{soc_priority}] {category} — {risk_desc} severity (Risk {risk}/10).")
+    lines.append(f"[{soc_priority}] {category} - {risk_desc} severity (Risk {risk}/10).")
 
     # KEV / EPSS / CVSS enrichment
     if kev:
-        lines.append("⚡ CISA KEV CONFIRMED — actively exploited in the wild. Patch immediately.")
+        lines.append("[ALERT] CISA KEV CONFIRMED - actively exploited in the wild. Patch immediately.")
     if cvss is not None:
         lines.append(f"CVSS {cvss}/10 severity score.")
     if epss is not None:
@@ -174,11 +174,11 @@ def compute_ai_summary(item, soc_priority, pred_risk, ai_conf, ttp_density, cate
     if ttp_ids:
         lines.append(f"MITRE ATT&CK mapped: {', '.join(ttp_ids)} ({len(ttps)} technique{'s' if len(ttps)>1 else ''}).")
     else:
-        lines.append("No MITRE ATT&CK techniques mapped — limited adversarial context.")
+        lines.append("No MITRE ATT&CK techniques mapped - limited adversarial context.")
 
     # IOC signal
     if ioc_c > 0:
-        lines.append(f"{ioc_c} indicator{'s' if ioc_c>1 else ''} detected — upgrade to Pro for full IOC access.")
+        lines.append(f"{ioc_c} indicator{'s' if ioc_c>1 else ''} detected - upgrade to Pro for full IOC access.")
 
     # Actor
     if actor and actor not in ("UNC-CDB-99", "UNC-UNKNOWN", "UNC-CDB-INGEST"):
@@ -186,11 +186,11 @@ def compute_ai_summary(item, soc_priority, pred_risk, ai_conf, ttp_density, cate
 
     # AI confidence note
     if ai_conf >= 70:
-        lines.append(f"AI confidence: HIGH ({ai_conf}%) — strong data corroboration.")
+        lines.append(f"AI confidence: HIGH ({ai_conf}%) - strong data corroboration.")
     elif ai_conf >= 40:
-        lines.append(f"AI confidence: MODERATE ({ai_conf}%) — partial intelligence corroboration.")
+        lines.append(f"AI confidence: MODERATE ({ai_conf}%) - partial intelligence corroboration.")
     else:
-        lines.append(f"AI confidence: LOW ({ai_conf}%) — limited source data available.")
+        lines.append(f"AI confidence: LOW ({ai_conf}%) - limited source data available.")
 
     return " ".join(lines)
 
@@ -213,7 +213,7 @@ def compute_ioc_paywall(item):
         "threat_level": level,
         "primary_types": primary_types[:3],
         "upgrade_url": "/upgrade.html?plan=pro",
-        "message": f"{ioc_c} IOC(s) at {conf:.1f}% confidence — unlock with Pro tier.",
+        "message": f"{ioc_c} IOC(s) at {conf:.1f}% confidence - unlock with Pro tier.",
     }
 
 # ─── Campaign Classification ───────────────────────────────────────────────────
@@ -237,14 +237,14 @@ def compute_recommended_action(item, soc_priority, category):
     cvss = item.get("cvss_score")
 
     if kev:
-        return "IMMEDIATE ACTION REQUIRED — CISA KEV confirmed. Apply vendor patch within 24 hours. Isolate affected systems. Enable enhanced logging."
+        return "IMMEDIATE ACTION REQUIRED - CISA KEV confirmed. Apply vendor patch within 24 hours. Isolate affected systems. Enable enhanced logging."
     if soc_priority == "P1":
-        return "CRITICAL PRIORITY — Patch within 24-48 hours. Activate IR playbook. Notify SOC lead and CISO."
+        return "CRITICAL PRIORITY - Patch within 24-48 hours. Activate IR playbook. Notify SOC lead and CISO."
     if soc_priority == "P2":
-        return "HIGH PRIORITY — Patch within 72 hours. Monitor affected assets. Review threat hunting queries for related TTPs."
+        return "HIGH PRIORITY - Patch within 72 hours. Monitor affected assets. Review threat hunting queries for related TTPs."
     if soc_priority == "P3":
-        return "STANDARD PRIORITY — Schedule patch within 7 days. Deploy detection rules. Monitor SIEM for related indicators."
-    return f"LOW PRIORITY — Monitor for escalation. Apply patch in next maintenance window. Review {category} detection coverage."
+        return "STANDARD PRIORITY - Schedule patch within 7 days. Deploy detection rules. Monitor SIEM for related indicators."
+    return f"LOW PRIORITY - Monitor for escalation. Apply patch in next maintenance window. Review {category} detection coverage."
 
 # ─── Main Enrichment ──────────────────────────────────────────────────────────
 def enrich_item(item):
@@ -259,7 +259,7 @@ def enrich_item(item):
     ai_summary   = compute_ai_summary(item, soc_priority, pred_risk, ai_conf, ttp_density, category)
     ioc_paywall  = compute_ioc_paywall(item)
 
-    # Inject apex_ai (always — this is the missing field)
+    # Inject apex_ai (always - this is the missing field)
     item["apex_ai"] = {
         "soc_priority":   soc_priority,
         "predictive_risk": pred_risk,
@@ -276,7 +276,7 @@ def enrich_item(item):
         "paywall": {
             "message": "Upgrade to Pro for full kill chain analysis, actor attribution, and 30-day threat forecast.",
             "upgrade_url": "/upgrade.html?plan=pro",
-            "urgency": f"[SOC {soc_priority}] {category} — {(item.get('severity','MEDIUM')).upper()} severity threat detected." if soc_priority in ("P1","P2") else None,
+            "urgency": f"[SOC {soc_priority}] {category} - {(item.get('severity','MEDIUM')).upper()} severity threat detected." if soc_priority in ("P1","P2") else None,
         } if soc_priority in ("P1","P2","P3") else None,
     }
 
@@ -355,7 +355,7 @@ def _compute_kill_chain(item):
 
 def main():
     print("=" * 60)
-    print("SENTINEL APEX v142.4.0 — Feed APEX AI Enrichment")
+    print("SENTINEL APEX v142.4.0 - Feed APEX AI Enrichment")
     print("=" * 60)
 
     if not FEED_PATH.exists():
@@ -385,7 +385,7 @@ def main():
     assert "apex"    in sample, "apex missing from first item"
     assert sample["apex_ai"]["soc_priority"] in ("P1","P2","P3","P4"), "bad soc_priority"
     assert isinstance(sample["apex_ai"]["ai_summary"], str) and len(sample["apex_ai"]["ai_summary"]) > 20, "bad ai_summary"
-    print(f"  [PASS] Validation OK — sample item: {sample['title'][:50]}")
+    print(f"  [PASS] Validation OK - sample item: {sample['title'][:50]}")
 
     # Write back (preserving original structure)
     if isinstance(raw, list):
@@ -410,7 +410,7 @@ def main():
     print(f"    threat_category = {ai['threat_category']}")
     print(f"    ai_summary      = {ai['ai_summary'][:80]}...")
     print()
-    print("[PASS] APEX AI enrichment complete — all items now have apex_ai and apex fields.")
+    print("[PASS] APEX AI enrichment complete - all items now have apex_ai and apex fields.")
     print("=" * 60)
 
 
