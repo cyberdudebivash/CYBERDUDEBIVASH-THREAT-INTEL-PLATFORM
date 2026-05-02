@@ -833,21 +833,92 @@ h1 span { color: var(--accent); }
   </div>
 </div>
 
-<script>
-/* ======================================================
-   SENTINEL APEX UPGRADE.HTML v149.0 -- PAYMENT ENGINE
-   Production-grade. Zero junk chars. Real credentials.
-   ====================================================== */
 
-const PLANS = {
-  free:       { name:'Free Tier',          usd:0,    inr:0,       usdAnnual:0,    inrAnnual:0 },
-  pro:        { name:'PRO Defense',        usd:49,   inr:4100,    usdAnnual:490,  inrAnnual:40800 },
-  enterprise: { name:'Enterprise SOC',     usd:499,  inr:41600,   usdAnnual:4990, inrAnnual:415800 },
-  mssp:       { name:'MSSP / White-Label', usd:1999, inr:166600,  usdAnnual:19990,inrAnnual:1665000 }
+</div>
+      <div class="contact-row">&#128222; <a href="tel:+918179881447">+91 8179881447</a></div>
+      <div class="contact-row">&#127760; <a href="https://cyberdudebivash.com" target="_blank" rel="noopener">cyberdudebivash.com</a></div>
+      <div class="gst-notice">&#128203; GST Registered &middot; GSTIN: 21ARKPN8270G1ZP &middot; Odisha, India</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   SENTINEL APEX v142.3.1 — Upgrade Page Controller
+   Features: plan select · billing toggle · UPI QR · Stripe routing
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── STRIPE PAYMENT LINKS ─────────────────────────────────────────────
+   Replace these placeholder URLs with your real Stripe Payment Links.
+   Dashboard: https://dashboard.stripe.com → Products → Payment Links
+   Env vars to set in Cloudflare Worker secrets:
+     STRIPE_PAYMENT_LINK_PRO        → https://buy.stripe.com/...
+     STRIPE_PAYMENT_LINK_ENTERPRISE → https://buy.stripe.com/...
+     STRIPE_PAYMENT_LINK_MSSP       → https://buy.stripe.com/...
+   ──────────────────────────────────────────────────────────────────── */
+var STRIPE_LINKS = {
+  pro_monthly:        'https://buy.stripe.com/CONFIGURE_PRO_MONTHLY',
+  pro_annual:         'https://buy.stripe.com/CONFIGURE_PRO_ANNUAL',
+  enterprise_monthly: 'https://buy.stripe.com/CONFIGURE_ENTERPRISE_MONTHLY',
+  enterprise_annual:  'https://buy.stripe.com/CONFIGURE_ENTERPRISE_ANNUAL',
+  mssp_monthly:       'https://buy.stripe.com/CONFIGURE_MSSP_MONTHLY',
+  mssp_annual:        'https://buy.stripe.com/CONFIGURE_MSSP_ANNUAL',
 };
 
-let currentPlan = 'pro';
-let isAnnual = false;
+var PLANS = {
+  free:       { name:'Free Tier',            usd:0,    inr:0,       usdAnnual:0,    inrAnnual:0 },
+  pro:        { name:'PRO Defense',          usd:49,   inr:4100,    usdAnnual:490,  inrAnnual:40800 },
+  enterprise: { name:'Enterprise SOC',       usd:499,  inr:41600,   usdAnnual:4990, inrAnnual:415800 },
+  mssp:       { name:'MSSP / White-Label',   usd:1999, inr:166600,  usdAnnual:19990,inrAnnual:1665000 }
+};
+
+var currentPlan = 'pro';
+var isAnnual = false;
+
+/* ── Stripe click handler ─────────────────────────────────────────────
+   Routes to correct Stripe Payment Link based on selected plan + cycle.
+   If link is still a placeholder, shows setup message instead.
+   ──────────────────────────────────────────────────────────────────── */
+function cdbStripeClick(evt, plan) {
+  var cycle = isAnnual ? 'annual' : 'monthly';
+  var linkKey = plan + '_' + cycle;
+  var url = STRIPE_LINKS[linkKey] || STRIPE_LINKS[plan + '_monthly'];
+  if (!url || url.indexOf('CONFIGURE') !== -1) {
+    evt.preventDefault();
+    alert('Stripe payment is being configured.\n\nFor instant access, please use WhatsApp: +91 8179881447\nor email: bivash@cyberdudebivash.com\n\nAlternatively, use UPI / Bank / PayPal below.');
+    return false;
+  }
+  // Append UTM + plan metadata to Stripe URL
+  try {
+    var u = new URL(url);
+    u.searchParams.set('client_reference_id', plan + '_' + cycle + '_' + Date.now());
+    u.searchParams.set('utm_source', 'upgrade_page');
+    u.searchParams.set('utm_medium', 'stripe_button');
+    u.searchParams.set('utm_campaign', plan);
+    evt.currentTarget.href = u.toString();
+  } catch(e) {}
+  return true;
+}
+
+/* Update Stripe button appearance based on selected plan + billing cycle */
+function updateStripeButtons() {
+  var plans = ['pro', 'enterprise', 'mssp'];
+  plans.forEach(function(key) {
+    var btn = document.getElementById('stripe-btn-' + key);
+    var priceEl = document.getElementById('stripe-price-' + key);
+    var periodEl = document.getElementById('stripe-period-' + key);
+    if (!btn) return;
+    var p = PLANS[key];
+    var usd = isAnnual ? p.usdAnnual : p.usd;
+    var cycle = isAnnual ? 'annual' : 'monthly';
+    var url = STRIPE_LINKS[key + '_' + cycle] || STRIPE_LINKS[key + '_monthly'];
+    if (url && url.indexOf('CONFIGURE') === -1) btn.href = url;
+    if (priceEl) priceEl.textContent = '$' + usd.toLocaleString();
+    if (periodEl) periodEl.textContent = isAnnual ? '/year' : '/month';
+    btn.style.opacity  = (key === currentPlan) ? '1' : '0.45';
+    btn.style.boxShadow = (key === currentPlan) ? '0 0 0 2px rgba(255,255,255,0.2)' : 'none';
+  });
+}
 
 function selectPlan(key) {
   if (!PLANS[key]) return;
@@ -857,6 +928,7 @@ function selectPlan(key) {
   if (el) el.classList.add('selected');
   updateSummary();
   updateQR();
+  updateStripeButtons();
 }
 
 function toggleBilling() {
@@ -880,6 +952,7 @@ function toggleBilling() {
   });
   updateSummary();
   updateQR();
+  updateStripeButtons();
 }
 
 function updateSummary() {
@@ -949,7 +1022,6 @@ function selectUpiApp(btn, upiId) {
   btn.classList.add('active');
   var el = document.getElementById('upi-primary-id');
   if (el) el.textContent = upiId;
-  // Re-generate QR for the selected UPI ID
   var p = PLANS[currentPlan];
   var inr = isAnnual ? p.inrAnnual : p.inr;
   if (inr) {
@@ -970,44 +1042,24 @@ function showCryptoTab(tab) {
 
 function copyText(text, btn) {
   var doCopy = function() {
-    btn.textContent = 'Copied!';
-    btn.classList.add('copied');
-    setTimeout(function() {
-      btn.textContent = 'Copy';
-      btn.classList.remove('copied');
-    }, 2000);
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
   };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(doCopy).catch(function() {
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      doCopy();
+      var ta = document.createElement('textarea'); ta.value = text;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta); doCopy();
     });
   } else {
-    var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    doCopy();
+    var ta = document.createElement('textarea'); ta.value = text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta); doCopy();
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   GOD-MODE PAYMENT SUBMIT v142.4.0
-   1. POST to Formspree (email backup)
-   2. POST to /api/payment/notify (Worker — triggers Telegram alert)
-   3. For BSC crypto: starts on-chain verification polling
-   ══════════════════════════════════════════════════════════════════════ */
 var _activeReviewId = null;
 var _bscPollTimer   = null;
 
@@ -1160,77 +1212,15 @@ function startBSCPolling(txhash, rid) {
   setTimeout(poll, 2000);  // first check after 2s
 }
 
+// This block intentionally left as a no-op to avoid double-definition.
 
-/* ── STRIPE PAYMENT LINKS ─────────────────────────────────────────────
-   Replace placeholders with real Stripe Payment Links once India approval
-   is complete. Until then all Stripe buttons show WhatsApp fallback.
-   ──────────────────────────────────────────────────────────────────── */
-var STRIPE_LINKS = {
-  pro_monthly:        'https://buy.stripe.com/CONFIGURE_PRO_MONTHLY',
-  pro_annual:         'https://buy.stripe.com/CONFIGURE_PRO_ANNUAL',
-  enterprise_monthly: 'https://buy.stripe.com/CONFIGURE_ENTERPRISE_MONTHLY',
-  enterprise_annual:  'https://buy.stripe.com/CONFIGURE_ENTERPRISE_ANNUAL',
-  mssp_monthly:       'https://buy.stripe.com/CONFIGURE_MSSP_MONTHLY',
-  mssp_annual:        'https://buy.stripe.com/CONFIGURE_MSSP_ANNUAL',
-};
-
-function cdbStripeClick(evt, plan) {
-  var cycle   = isAnnual ? 'annual' : 'monthly';
-  var linkKey = plan + '_' + cycle;
-  var url     = STRIPE_LINKS[linkKey] || STRIPE_LINKS[plan + '_monthly'];
-  if (!url || url.indexOf('CONFIGURE') !== -1) {
-    evt.preventDefault();
-    alert('Stripe payment is being configured (India approval pending).\n\nFor instant access use UPI / Bank / PayPal below,\nor WhatsApp: +91 8179881447');
-    return false;
-  }
-  try {
-    var u = new URL(url);
-    u.searchParams.set('client_reference_id', plan + '_' + cycle + '_' + Date.now());
-    u.searchParams.set('utm_source', 'upgrade_page');
-    u.searchParams.set('utm_medium', 'stripe_button');
-    u.searchParams.set('utm_campaign', plan);
-    evt.currentTarget.href = u.toString();
-  } catch(e) {}
-  return true;
-}
-
-function updateStripeButtons() {
-  ['pro','enterprise','mssp'].forEach(function(p) {
-    var btn = document.getElementById('stripe-btn-' + p);
-    if (!btn) return;
-    var cycle   = isAnnual ? 'annual' : 'monthly';
-    var linkKey = p + '_' + cycle;
-    var url     = STRIPE_LINKS[linkKey] || STRIPE_LINKS[p + '_monthly'];
-    var ready   = url && url.indexOf('CONFIGURE') === -1;
-    btn.textContent = ready ? '\u{1F4B3} Pay with Stripe' : '\u23F3 Stripe (Pending India Approval)';
-    btn.style.opacity = ready ? '1' : '0.6';
-  });
-}
-
-// INIT
 document.addEventListener('DOMContentLoaded', function() {
   updateSummary();
   updateQR();
   updateStripeButtons();
-  // Support ?plan=pro|enterprise|mssp URL param for deep linking
   var params = new URLSearchParams(window.location.search);
   var planParam = params.get('plan');
-  if (planParam && PLANS[planParam]) {
-    selectPlan(planParam);
-  }
-  // Support ?annual=1
-  if (params.get('annual') === '1') {
-    toggleBilling();
-  }
+  if (planParam && PLANS[planParam]) { selectPlan(planParam); }
+  if (params.get('annual') === '1') { toggleBilling(); }
 });
 </script>
-
-<div>
-      <div class="contact-row">&#128222; <a href="tel:+918179881447">+91 8179881447</a></div>
-      <div class="contact-row">&#127760; <a href="https://cyberdudebivash.com" target="_blank" rel="noopener">cyberdudebivash.com</a></div>
-      <div class="gst-notice">&#128203; GST Registered &middot; GSTIN: 21ARKPN8270G1ZP &middot; Odisha, India</div>
-    </div>
-  </div>
-</div>
-</body>
-</html>

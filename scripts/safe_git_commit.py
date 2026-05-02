@@ -165,6 +165,28 @@ def main() -> None:
                         rel_path, e)
             return False
 
+    # ── PROTECTED_FILES: hand-crafted HTML/assets the pipeline must NEVER overwrite ──
+    # These files contain manually-engineered JS, payment flows, and UI code.
+    # If encoding_guard.py or any pipeline stage modifies them during a run,
+    # Stage 4 (this script) will restore them from the last committed HEAD version
+    # before staging, preventing accidental overwrites of human-authored code.
+    PROTECTED_FILES = [
+        "upgrade.html",       # payment checkout UI + JS payment engine (god-mode)
+        "pricing.html",       # pricing page if it exists
+        "store.html",         # store page if it exists
+        "services.html",      # services page if it exists
+        "_headers",           # Cloudflare Pages security headers
+    ]
+    for pf in PROTECTED_FILES:
+        pf_path = REPO_ROOT / pf
+        if pf_path.exists():
+            # Restore to the committed HEAD version — discards any pipeline-stage modifications
+            restore_result = run_git("checkout", "HEAD", "--", pf)
+            if restore_result.returncode == 0:
+                log.info("[protected] Restored %s from HEAD (preventing pipeline overwrite)", pf)
+            else:
+                log.warning("[protected] Could not restore %s from HEAD: %s", pf, restore_result.stderr)
+
     JSON_GUARDED = {
         "feed.json",
         "api/feed.json",
