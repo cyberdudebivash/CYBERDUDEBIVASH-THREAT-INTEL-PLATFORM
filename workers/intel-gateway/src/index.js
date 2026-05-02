@@ -3575,10 +3575,35 @@ async function handleBillingPortal(request, env, rid, auth) {
 //            + Alert Subscription
 // ---------------------------------------------------------------------------
 
+// =============================================================================
+// GOD-MODE PAYMENT ENGINE v142.4.0
+// Telegram instant alerts + BSC on-chain auto-verification
+// Secrets needed: TG_BOT_TOKEN, TG_CHAT_ID, BSCSCAN_API_KEY (optional but recommended)
+// Set via: npx wrangler secret put TG_BOT_TOKEN
+//          npx wrangler secret put TG_CHAT_ID
+//          npx wrangler secret put BSCSCAN_API_KEY
+// =============================================================================
+
+// Helper: fire Telegram alert (non-blocking)
+async function sendTelegramAlert(env, message) {
+  if (!env?.TG_BOT_TOKEN || !env?.TG_CHAT_ID) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${env.TG_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id:    env.TG_CHAT_ID,
+        text:       message,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      }),
+    });
+  } catch (_) {}  // non-blocking — never let Telegram errors affect payment flow
+}
+
 // POST /api/payment/notify
-// Called by upgrade.html after UPI / PayPal payment.
-// Stores payment evidence in KV for admin review; fires notification email
-// via NOTIFY_WEBHOOK_URL if configured.
+// Called by upgrade.html after UPI / PayPal / Crypto payment.
+// v142.4.0: Telegram instant alert + BSC auto-verify trigger + professional KV storage.
 async function handlePaymentNotify(request, env, rid) {
   if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
 
@@ -3586,64 +3611,222 @@ async function handlePaymentNotify(request, env, rid) {
   try { body = await request.json(); }
   catch { return jsonResponse({ error: "invalid_json", request_id: rid }, 400); }
 
-  const email   = sanitizeText((body.email   || "").toLowerCase().trim(), 200);
-  const plan    = sanitizeText((body.plan    || "pro").toLowerCase(),      20);
-  const method  = sanitizeText((body.method  || "unknown"),                40);
-  const ref     = sanitizeText((body.ref     || ""),                       120);
-  const amount  = sanitizeText(String(body.amount || ""),                  30);
-  const user_id = sanitizeText((body.user_id || ""),                       80);
+  const email    = sanitizeText((body.email    || "").toLowerCase().trim(), 200);
+  const plan     = sanitizeText((body.plan     || "pro").toLowerCase(),      20);
+  const method   = sanitizeText((body.method   || "unknown"),                60);
+  const ref      = sanitizeText((body.ref      || ""),                      160);
+  const amount   = sanitizeText(String(body.amount   || ""),                 30);
+  const name     = sanitizeText((body.name     || ""),                       80);
+  const org      = sanitizeText((body.org      || ""),                       80);
+  const country  = sanitizeText((body.country  || ""),                       60);
+  const user_id  = sanitizeText((body.user_id  || ""),                       80);
+  const txhash   = sanitizeText((body.txhash   || ""),                      120);  // for BSC/ETH crypto
+  const is_crypto = method.toLowerCase().includes("crypto") || method.toLowerCase().includes("bnb") || method.toLowerCase().includes("bsc") || method.toLowerCase().includes("usdt");
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return jsonResponse({ error: "invalid_email", request_id: rid }, 400);
   }
-  const VALID_PLANS = new Set(["pro", "premium", "enterprise"]);
+  const VALID_PLANS = new Set(["pro", "premium", "enterprise", "mssp"]);
   if (!VALID_PLANS.has(plan)) {
-    return jsonResponse({ error: "invalid_plan", message: "plan must be pro|premium|enterprise", request_id: rid }, 400);
+    return jsonResponse({ error: "invalid_plan", message: "plan must be pro|premium|enterprise|mssp", request_id: rid }, 400);
   }
 
+  const isCryptoVerified = false;  // will be set by BSC verify flow if txhash provided
+
   const record = {
-    id:         rid,
+    id:           rid,
     email,
+    name:         name || null,
+    org:          org  || null,
+    country:      country || null,
     plan,
     method,
     ref,
+    txhash:       txhash || null,
     amount,
-    user_id:    user_id || null,
-    status:     "pending_review",
+    user_id:      user_id || null,
+    status:       is_crypto && txhash ? "pending_crypto_verify" : "pending_review",
     submitted_at: new Date().toISOString(),
+    source:       "upgrade_page",
   };
 
   // Store in KV: payment:{rid} with 30-day TTL
   await env.API_KEYS_KV.put(`payment:${rid}`, JSON.stringify(record), { expirationTtl: 86400 * 30 });
 
-  // Maintain a list of pending payments for admin dashboard
-  const listKey = "payment:pending_list";
+  // Maintain pending payments list for admin dashboard (cap at 500)
+  const listKey  = "payment:pending_list";
   const existing = await env.API_KEYS_KV.get(listKey, { type: "json" }).catch(() => []) || [];
-  existing.unshift({ id: rid, email, plan, method, amount, submitted_at: record.submitted_at });
-  if (existing.length > 200) existing.length = 200;  // cap at 200 entries
+  existing.unshift({ id: rid, email, name: name || null, plan, method, amount, status: record.status, submitted_at: record.submitted_at });
+  if (existing.length > 500) existing.length = 500;
   await env.API_KEYS_KV.put(listKey, JSON.stringify(existing), { expirationTtl: 86400 * 60 });
 
-  // Fire notification to NOTIFY_WEBHOOK_URL if configured (Slack / Discord / n8n / etc.)
+  // ── TELEGRAM INSTANT ALERT ─────────────────────────────────────────────────
+  const planEmoji  = plan === "enterprise" ? "🏢" : plan === "mssp" ? "🌐" : "⭐";
+  const methodIcon = is_crypto ? "🔗" : method.includes("UPI") ? "📱" : method.includes("PayPal") ? "💰" : method.includes("Bank") ? "🏦" : "💳";
+  const tgMsg = `🚨 <b>NEW PAYMENT — SENTINEL APEX</b>\n\n` +
+    `${planEmoji} <b>Plan:</b> ${plan.toUpperCase()}\n` +
+    `${methodIcon} <b>Method:</b> ${method}\n` +
+    `💵 <b>Amount:</b> ${amount}\n` +
+    `📧 <b>Email:</b> ${email}\n` +
+    (name    ? `👤 <b>Name:</b> ${name}\n`     : "") +
+    (org     ? `🏢 <b>Org:</b> ${org}\n`       : "") +
+    (country ? `🌍 <b>Country:</b> ${country}\n` : "") +
+    `🔖 <b>Ref/UTR:</b> ${ref || "—"}\n` +
+    (txhash  ? `⛓ <b>TxHash:</b> <code>${txhash.slice(0,18)}…</code>\n` : "") +
+    `🆔 <b>Review ID:</b> <code>${rid}</code>\n` +
+    `⏰ <b>Time:</b> ${new Date().toUTCString()}\n\n` +
+    `✅ <b>Activate now:</b>\n` +
+    `<code>POST /api/admin/users/set-tier\n{"email":"${email}","tier":"${plan === 'pro' ? 'premium' : plan}","payment_ref":"${rid}"}</code>`;
+
+  // Fire Telegram + legacy webhook in parallel (non-blocking)
+  const notifyPromises = [sendTelegramAlert(env, tgMsg)];
   if (env?.NOTIFY_WEBHOOK_URL) {
-    const msg = {
-      text: `PAYMENT NOTIFICATION\nEmail: ${email}\nPlan: ${plan.toUpperCase()}\nMethod: ${method}\nRef: ${ref}\nAmount: ${amount}\nReview ID: ${rid}\nActivate: POST /api/admin/users/set-tier {\"email\":\"${email}\",\"tier\":\"${plan === 'pro' ? 'premium' : plan}\",\"payment_ref\":\"${rid}\"}`
-    };
-    fetch(env.NOTIFY_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8" },
-      body: JSON.stringify(msg),
-    }).catch(() => {});  // non-blocking
+    notifyPromises.push(
+      fetch(env.NOTIFY_WEBHOOK_URL, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body:    JSON.stringify({ text: tgMsg.replace(/<[^>]+>/g, "") }),
+      }).catch(() => {})
+    );
+  }
+  await Promise.all(notifyPromises);  // parallel, still non-blocking to user
+
+  // ── BSC AUTO-VERIFY (if txhash provided) ──────────────────────────────────
+  let bsc_status = null;
+  if (txhash && (is_crypto || txhash.startsWith("0x"))) {
+    bsc_status = "submitted";  // optimistic — verify-bsc endpoint does the deep check
   }
 
-  slog("INFO", "BILLING", "Payment notification received", { email, plan, method, ref: ref.slice(0, 20), rid });
+  slog("INFO", "BILLING", "Payment notification received + Telegram alert fired", { email, plan, method, ref: ref.slice(0, 20), rid, has_txhash: !!txhash });
 
   return jsonResponse({
-    status:      "received",
-    message:     "Payment notification recorded. Your account will be upgraded within 2 hours after verification. Check your email.",
-    review_id:   rid,
+    status:       "received",
+    message:      is_crypto && txhash
+      ? "Crypto payment submitted. BSC verification in progress — usually auto-confirmed in 1-3 minutes."
+      : "Payment notification recorded. Your account will be upgraded within 2 hours after manual verification.",
+    review_id:    rid,
     plan,
-    request_id:  rid,
+    bsc_status,
+    verify_url:   txhash ? `/api/payment/verify-bsc?txhash=${txhash}&rid=${rid}` : null,
+    activate_url: "/api/admin/users/set-tier",
+    whatsapp:     "https://wa.me/918179881447?text=SENTINEL+APEX+Payment+Review+ID%3A+" + rid,
+    request_id:   rid,
   }, 202);
+}
+
+// GET /api/payment/verify-bsc
+// Polls BscScan to auto-verify a crypto payment transaction.
+// Query params: txhash (required), rid (review ID), expected_to (optional, defaults to platform wallet)
+// Secrets: BSCSCAN_API_KEY (get free key at bscscan.com/register)
+async function handleBSCVerify(request, env, rid) {
+  const BSC_WALLET = "0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796";
+  const url        = new URL(request.url);
+  const txhash     = sanitizeText((url.searchParams.get("txhash") || "").toLowerCase(), 80);
+  const payRid     = sanitizeText(url.searchParams.get("rid") || "", 60);
+
+  if (!txhash || !/^0x[0-9a-f]{64}$/.test(txhash)) {
+    return jsonResponse({ error: "invalid_txhash", message: "txhash must be a valid 0x-prefixed 64-char hex", request_id: rid }, 400);
+  }
+
+  const apiKey = env?.BSCSCAN_API_KEY || "YourApiKeyToken";  // free tier works without key but rate-limited
+
+  let txData = null;
+  let verifyStatus = "unconfirmed";
+  let verifyDetail = {};
+
+  try {
+    // Check tx by hash on BSC
+    const bscRes = await fetch(
+      `https://api.bscscan.com/api?module=proxy&action=eth_getTransactionByHash&txhash=${txhash}&apikey=${apiKey}`,
+      { headers: { "User-Agent": "SENTINEL-APEX/142.4.0" } }
+    );
+    const bscJson = await bscRes.json();
+    txData = bscJson?.result;
+
+    if (!txData || txData === null) {
+      verifyStatus = "not_found";
+      verifyDetail = { message: "Transaction not found on BSC. It may be on ETH mainnet or not yet broadcast." };
+    } else {
+      const toAddr    = (txData.to || "").toLowerCase();
+      const value     = parseInt(txData.value || "0", 16);  // in Wei (1 BNB = 1e18 Wei)
+      const blockNum  = txData.blockNumber ? parseInt(txData.blockNumber, 16) : null;
+
+      if (toAddr !== BSC_WALLET.toLowerCase()) {
+        verifyStatus = "wrong_address";
+        verifyDetail = { expected: BSC_WALLET, received: txData.to, message: "Transaction sent to wrong address." };
+      } else if (blockNum === null) {
+        verifyStatus = "pending";
+        verifyDetail = { message: "Transaction is broadcast but not yet mined." };
+      } else {
+        // Check receipt for success
+        const rcptRes  = await fetch(
+          `https://api.bscscan.com/api?module=proxy&action=eth_getTransactionReceipt&txhash=${txhash}&apikey=${apiKey}`,
+          { headers: { "User-Agent": "SENTINEL-APEX/142.4.0" } }
+        );
+        const rcptJson = await rcptRes.json();
+        const rcpt     = rcptJson?.result;
+        const status   = rcpt?.status;
+
+        if (status === "0x1") {
+          verifyStatus = "confirmed";
+          verifyDetail = {
+            block:        blockNum,
+            from:         txData.from,
+            to:           txData.to,
+            value_wei:    value,
+            value_bnb:    (value / 1e18).toFixed(6),
+            gas_used:     rcpt.gasUsed ? parseInt(rcpt.gasUsed, 16) : null,
+            message:      "Transaction confirmed on BSC.",
+          };
+        } else if (status === "0x0") {
+          verifyStatus = "failed";
+          verifyDetail = { message: "Transaction failed on-chain (reverted)." };
+        } else {
+          verifyStatus = "pending";
+          verifyDetail = { message: "Transaction mined but status unclear — check BscScan." };
+        }
+      }
+    }
+  } catch (err) {
+    verifyStatus = "error";
+    verifyDetail = { message: "BscScan lookup failed. Check txhash manually at https://bscscan.com/tx/" + txhash };
+  }
+
+  // If confirmed, update KV payment record
+  if (verifyStatus === "confirmed" && payRid && env?.API_KEYS_KV) {
+    const payRec = await env.API_KEYS_KV.get(`payment:${payRid}`, { type: "json" }).catch(() => null);
+    if (payRec && payRec.status !== "activated") {
+      payRec.status         = "crypto_verified";
+      payRec.bsc_verified   = true;
+      payRec.bsc_txhash     = txhash;
+      payRec.bsc_detail     = verifyDetail;
+      payRec.verified_at    = new Date().toISOString();
+      await env.API_KEYS_KV.put(`payment:${payRid}`, JSON.stringify(payRec), { expirationTtl: 86400 * 30 });
+
+      // Fire Telegram alert for auto-verified crypto payment
+      const tgMsg = `✅ <b>BSC PAYMENT AUTO-VERIFIED</b>\n\n` +
+        `📧 Email: ${payRec.email}\n` +
+        `💎 Plan: ${(payRec.plan || "").toUpperCase()}\n` +
+        `💵 Amount: ${payRec.amount}\n` +
+        `⛓ TxHash: <code>${txhash}</code>\n` +
+        `🔗 <a href="https://bscscan.com/tx/${txhash}">View on BscScan</a>\n` +
+        `🆔 Review ID: <code>${payRid}</code>\n\n` +
+        `🚀 <b>Activate now:</b>\n` +
+        `<code>POST /api/admin/users/set-tier\n{"email":"${payRec.email}","tier":"${payRec.plan === 'pro' ? 'premium' : payRec.plan}","payment_ref":"${payRid}"}</code>`;
+      await sendTelegramAlert(env, tgMsg);
+
+      slog("INFO", "BILLING", "BSC payment auto-verified", { rid: payRid, txhash: txhash.slice(0, 20) });
+    }
+  }
+
+  return jsonResponse({
+    status:       verifyStatus,
+    txhash,
+    review_id:    payRid || null,
+    detail:       verifyDetail,
+    bscscan_url:  `https://bscscan.com/tx/${txhash}`,
+    request_id:   rid,
+  });
 }
 
 // POST /api/admin/users/set-tier
@@ -3997,8 +4180,9 @@ export default {
     // v134.0.0: Live dashboard metrics -- public, no auth required
     if (pathname === "/api/platform/stats" && method === "GET") return withSec(handlePlatformStats(request, env, rid));
     // v141.1.0: Revenue -- public payment notify + alert subscription (no auth required)
-    if (pathname === "/api/payment/notify"    && method === "POST") return withSec(handlePaymentNotify(request, env, rid));
-    if (pathname === "/api/notify/subscribe"  && method === "POST") return withSec(handleAlertSubscribe(request, env, rid));
+    if (pathname === "/api/payment/notify"      && method === "POST") return withSec(handlePaymentNotify(request, env, rid));
+    if (pathname === "/api/payment/verify-bsc" && method === "GET")  return withSec(handleBSCVerify(request, env, rid));
+    if (pathname === "/api/notify/subscribe"   && method === "POST") return withSec(handleAlertSubscribe(request, env, rid));
     //  v134.0.0 + v134.0.0: JWT auth endpoints
     if (pathname === "/api/auth/token"    && method === "POST") return withSec(handleIssueToken(request, env, rid));
     if (pathname === "/api/auth/validate")                      return withSec(handleValidateToken(request, env, rid));
