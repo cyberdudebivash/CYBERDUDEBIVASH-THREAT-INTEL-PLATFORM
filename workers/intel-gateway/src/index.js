@@ -3921,30 +3921,36 @@ export default {
       }, 429, { "Retry-After": String(ipCheck.retryAfter || 60) });
     }
 
+    // v142.3.1: Security headers applied to ALL responses (public + authenticated)
+    // Previously only authenticated routes used applySecurityHeaders via withRL.
+    // Now every public endpoint also gets full security header injection.
+    // This fixes MISSING_SECURITY_HEADERS finding on /api/health, /api/preview etc.
+    const withSec = async (respPromise) => applySecurityHeaders(await respPromise);
+
     //  Public endpoints (no API key required)
-    if (pathname.startsWith("/api/preview"))          return handlePreview(request, env, rid);
+    if (pathname.startsWith("/api/preview"))          return withSec(handlePreview(request, env, rid));
     // v147.0: Dashboard FALLBACK1 — plain JSON array, same schema as GitHub Pages api/feed.json
     if (pathname === "/api/feed.json" && (method === "GET" || method === "OPTIONS"))
-                                                      return handleFeedJson(request, env, rid);
-    if (pathname.startsWith("/api/health"))            return handleHealth(request, env, rid);
-    if (pathname.startsWith("/api/version"))           return handleVersion(request, env, rid);
-    if (pathname.startsWith("/api/keys/validate"))     return handleValidateKey(request, env, rid);
+                                                      return withSec(handleFeedJson(request, env, rid));
+    if (pathname.startsWith("/api/health"))            return withSec(handleHealth(request, env, rid));
+    if (pathname.startsWith("/api/version"))           return withSec(handleVersion(request, env, rid));
+    if (pathname.startsWith("/api/keys/validate"))     return withSec(handleValidateKey(request, env, rid));
     // v134.0.0: Live dashboard metrics -- public, no auth required
-    if (pathname === "/api/platform/stats" && method === "GET") return handlePlatformStats(request, env, rid);
+    if (pathname === "/api/platform/stats" && method === "GET") return withSec(handlePlatformStats(request, env, rid));
     // v141.1.0: Revenue -- public payment notify + alert subscription (no auth required)
-    if (pathname === "/api/payment/notify"    && method === "POST") return handlePaymentNotify(request, env, rid);
-    if (pathname === "/api/notify/subscribe"  && method === "POST") return handleAlertSubscribe(request, env, rid);
+    if (pathname === "/api/payment/notify"    && method === "POST") return withSec(handlePaymentNotify(request, env, rid));
+    if (pathname === "/api/notify/subscribe"  && method === "POST") return withSec(handleAlertSubscribe(request, env, rid));
     //  v134.0.0 + v134.0.0: JWT auth endpoints
-    if (pathname === "/api/auth/token"    && method === "POST") return handleIssueToken(request, env, rid);
-    if (pathname === "/api/auth/validate")                      return handleValidateToken(request, env, rid);
-    if (pathname === "/api/auth/refresh"  && method === "POST") return handleRefreshToken(request, env, rid);
-    if (pathname === "/api/auth/revoke"   && method === "POST") return handleRevokeToken(request, env, rid);
-    //  v134.0.0: User auth endpoints (no API key required) 
-    if (pathname === "/auth/signup"       && method === "POST") return handleUserSignup(request, env, rid);
-    if (pathname === "/auth/login"        && method === "POST") return handleUserLogin(request, env, rid);
+    if (pathname === "/api/auth/token"    && method === "POST") return withSec(handleIssueToken(request, env, rid));
+    if (pathname === "/api/auth/validate")                      return withSec(handleValidateToken(request, env, rid));
+    if (pathname === "/api/auth/refresh"  && method === "POST") return withSec(handleRefreshToken(request, env, rid));
+    if (pathname === "/api/auth/revoke"   && method === "POST") return withSec(handleRevokeToken(request, env, rid));
+    //  v134.0.0: User auth endpoints (no API key required)
+    if (pathname === "/auth/signup"       && method === "POST") return withSec(handleUserSignup(request, env, rid));
+    if (pathname === "/auth/login"        && method === "POST") return withSec(handleUserLogin(request, env, rid));
     //  v134.0.0: Billing webhooks (no API key -- use their own sig verification)
-    if (pathname === "/webhooks/stripe"   && method === "POST") return handleStripeWebhook(request, env, rid);
-    if (pathname === "/webhooks/razorpay" && method === "POST") return handleRazorpayWebhook(request, env, rid);
+    if (pathname === "/webhooks/stripe"   && method === "POST") return withSec(handleStripeWebhook(request, env, rid));
+    if (pathname === "/webhooks/razorpay" && method === "POST") return withSec(handleRazorpayWebhook(request, env, rid));
     // AI endpoints -- public (index/heatmap) or authenticated (analyze/respond/correlate)
     if (pathname.startsWith("/api/ai")) {
       const aiSub = pathname.slice("/api/ai".length);
@@ -3952,15 +3958,15 @@ export default {
       if (aiSub.startsWith("/analyze") || aiSub.startsWith("/respond") || aiSub.startsWith("/correlate")) {
         const auth = await resolveAuth(request, env);
         if (!auth.valid) {
-          return jsonResponse({
+          return withSec(Promise.resolve(jsonResponse({
             error:       "api_key_required",
             message:     "API key required for full AI analysis. Use Authorization: Bearer <key>.",
             acquire_key: CONFIG.GET_KEY_URL,
             request_id:  rid,
-          }, 401);
+          }, 401)));
         }
       }
-      return handleAI(request, env, rid, aiSub);
+      return withSec(handleAI(request, env, rid, aiSub));
     }
 
     //  Admin endpoints (X-Admin-Secret verified internally) 

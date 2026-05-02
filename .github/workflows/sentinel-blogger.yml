@@ -431,11 +431,21 @@ jobs:
         run: python3 scripts/regression_immunity.py
 
       # -----------------------------------------------------------------------
-      # STAGE 5.7: MONETIZATION INTEGRITY GATE (v149.0 -- HARD FAIL)
+      # STAGE 5.7-PRE: HTML ENCODING AUTO-FIX (v149.1 -- HARD FAIL)
+      # Runs fix_all_html_encoding.py BEFORE the integrity gate so that any
+      # mojibake, BOM, or double-encoded sequences are eliminated before
+      # validate_monetization.py runs.  Idempotent -- safe to run every deploy.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.7-PRE - HTML Encoding Auto-Fix (pre-flight)"
+        run: python3 scripts/fix_all_html_encoding.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.7: MONETIZATION INTEGRITY GATE (v149.1 -- HARD FAIL)
       # Validates all payment pages, real credentials, CTAs, encoding.
       # Blocks deploy if: BOM present, junk chars, wrong/placeholder UPI IDs,
-      # wrong crypto wallet, missing NEFT details, broken payment links.
-      # Ensures 100% payment system integrity on every deploy.
+      # wrong crypto wallet, missing NEFT details, broken payment links,
+      # mojibake in ANY HTML file (18-file sweep).
+      # Ensures 100% payment + encoding integrity on every deploy.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.7 - Monetization Integrity Gate (HARD FAIL)"
         run: python3 scripts/validate_monetization.py
