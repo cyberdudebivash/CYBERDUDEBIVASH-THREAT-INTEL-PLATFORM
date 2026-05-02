@@ -3928,13 +3928,8 @@ export default {
     const withSec = async (respPromise) => applySecurityHeaders(await respPromise);
 
     //  Public endpoints (no API key required)
-<<<<<<< Updated upstream
     if (pathname.startsWith("/api/preview"))          return withSec(handlePreview(request, env, rid));
-    // v147.0: Dashboard FALLBACK1 — plain JSON array, same schema as GitHub Pages api/feed.json
-=======
-    if (pathname.startsWith("/api/preview"))          return handlePreview(request, env, rid);
     // v147.0: Dashboard FALLBACK1  -  plain JSON array, same schema as GitHub Pages api/feed.json
->>>>>>> Stashed changes
     if (pathname === "/api/feed.json" && (method === "GET" || method === "OPTIONS"))
                                                       return withSec(handleFeedJson(request, env, rid));
     if (pathname.startsWith("/api/health"))            return withSec(handleHealth(request, env, rid));

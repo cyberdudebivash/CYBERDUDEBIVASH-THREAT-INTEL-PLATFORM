@@ -25,11 +25,17 @@ Usage:
 (c) 2026 CYBERDUDEBIVASH PRIVATE LIMITED. CONFIDENTIAL.
 """
 from __future__ import annotations
-import argparse, json, subprocess, sys, pathlib, time
+import argparse, json, os, subprocess, sys, pathlib, time
+
+# Ensure UTF-8 stdout on Windows (CP1252 default breaks Unicode box chars)
+if sys.stdout.encoding and sys.stdout.encoding.upper() not in ("UTF-8", "UTF8"):
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
-# ── ANSI colours ─────────────────────────────────────────────────────────────
+# -- ANSI colours -------------------------------------------------------------
 GREEN  = "\033[32m"
 RED    = "\033[31m"
 YELLOW = "\033[33m"
@@ -59,12 +65,12 @@ def warn(msg: str) -> None:
 
 
 def section(title: str) -> None:
-    print(f"\n{CYAN}{BOLD}{'─'*68}{RESET}")
+    print(f"\n{CYAN}{BOLD}{'-'*68}{RESET}")
     print(f"{CYAN}{BOLD}  {title}{RESET}")
-    print(f"{CYAN}{'─'*68}{RESET}")
+    print(f"{CYAN}{'-'*68}{RESET}")
 
 
-# ── Gate 1: Python syntax ─────────────────────────────────────────────────────
+# -- Gate 1: Python syntax -----------------------------------------------------
 def gate_python_syntax() -> None:
     section("GATE 1 — Python Syntax (all scripts/*.py)")
     scripts = sorted((REPO / "scripts").glob("*.py"))
@@ -86,7 +92,7 @@ def gate_python_syntax() -> None:
         ok(f"All {len(scripts)} Python scripts pass syntax check")
 
 
-# ── Gate 2: JS syntax ─────────────────────────────────────────────────────────
+# -- Gate 2: JS syntax ---------------------------------------------------------
 def gate_js_syntax() -> None:
     section("GATE 2 — JS Syntax (node --check)")
     js_files = [
@@ -106,7 +112,7 @@ def gate_js_syntax() -> None:
             ok(f"{js.relative_to(REPO)}: syntax OK")
 
 
-# ── Gate 3: YAML syntax ───────────────────────────────────────────────────────
+# -- Gate 3: YAML syntax -------------------------------------------------------
 def gate_yaml_syntax() -> None:
     section("GATE 3 — YAML Syntax (all .github/workflows/*.yml)")
     try:
@@ -127,7 +133,7 @@ def gate_yaml_syntax() -> None:
         ok(f"All {len(workflows)} workflow YAMLs are valid")
 
 
-# ── Gate 4: JSON validity ─────────────────────────────────────────────────────
+# -- Gate 4: JSON validity -----------------------------------------------------
 def gate_json_validity() -> None:
     section("GATE 4 — JSON Validity (critical data files)")
     targets = [
@@ -152,7 +158,7 @@ def gate_json_validity() -> None:
             fail(f"{rel}: {e}")
 
 
-# ── Gate 5: HTML encoding ─────────────────────────────────────────────────────
+# -- Gate 5: HTML encoding -----------------------------------------------------
 def gate_html_encoding(auto_fix: bool) -> None:
     section("GATE 5 — HTML Encoding (all 18 HTML files)")
     fix_script = REPO / "scripts" / "fix_all_html_encoding.py"
@@ -187,7 +193,7 @@ def gate_html_encoding(auto_fix: bool) -> None:
         ok(f"All {len(html_files)} HTML files: BOM-free, mojibake-free")
 
 
-# ── Gate 6: Monetization integrity ───────────────────────────────────────────
+# -- Gate 6: Monetization integrity -------------------------------------------
 def gate_monetization() -> None:
     section("GATE 6 — Monetization Integrity Gate (v149.1)")
     script = REPO / "scripts" / "validate_monetization.py"
@@ -217,7 +223,7 @@ def gate_monetization() -> None:
         ok("Monetization gate PASSED (45/45+)")
 
 
-# ── Summary ───────────────────────────────────────────────────────────────────
+# -- Summary -------------------------------------------------------------------
 def print_summary() -> None:
     elapsed = time.monotonic() - T0
     print(f"\n{BOLD}{'='*68}{RESET}")
@@ -244,7 +250,7 @@ def print_summary() -> None:
         sys.exit(0)
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# -- Entry point ---------------------------------------------------------------
 def main() -> None:
     parser = argparse.ArgumentParser(description="SENTINEL APEX Production Stability Gate")
     parser.add_argument("--fix", action="store_true",
