@@ -192,6 +192,41 @@ h1 span { color: var(--accent); }
 .contact-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
 .contact-row a { color: var(--accent); text-decoration: none; }
 .contact-row a:hover { text-decoration: underline; }
+
+/* ═══ STRIPE PAYMENT SECTION ═══════════════════════════════════════════ */
+.stripe-section { background: linear-gradient(135deg, #0f0a2a 0%, #0a1628 100%); border: 2px solid #5b21b6; border-radius: 14px; padding: 24px; margin-bottom: 20px; position: relative; overflow: hidden; }
+.stripe-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #5b21b6, #00d4ff, #10b981, #5b21b6); background-size: 200%; animation: stripe-shine 3s linear infinite; }
+@keyframes stripe-shine { 0%{background-position:0%} 100%{background-position:200%} }
+.stripe-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.stripe-badge { background: #5b21b6; color: #fff; font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 20px; letter-spacing: 1px; }
+.instant-badge { background: #10b981; color: #fff; font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 20px; letter-spacing: 1px; }
+.stripe-title { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+.stripe-subtitle { font-size: 12px; color: rgba(255,255,255,0.55); margin-bottom: 20px; }
+.stripe-btns { display: flex; flex-direction: column; gap: 10px; }
+.stripe-pay-btn { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px; transition: all 0.15s; border: 2px solid transparent; cursor: pointer; }
+.stripe-pay-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+.stripe-pay-btn.pro { background: linear-gradient(135deg, #1d4ed8, #00d4ff); color: #fff; }
+.stripe-pay-btn.pro:hover { border-color: #00d4ff; }
+.stripe-pay-btn.enterprise { background: linear-gradient(135deg, #5b21b6, #7c3aed); color: #fff; }
+.stripe-pay-btn.enterprise:hover { border-color: #a78bfa; }
+.stripe-pay-btn.mssp { background: linear-gradient(135deg, #991b1b, #dc2626); color: #fff; }
+.stripe-pay-btn.mssp:hover { border-color: #fca5a5; }
+.stripe-btn-left { display: flex; align-items: center; gap: 10px; }
+.stripe-btn-icon { font-size: 18px; }
+.stripe-btn-name { font-size: 14px; font-weight: 800; }
+.stripe-btn-desc { font-size: 11px; font-weight: 400; opacity: 0.8; }
+.stripe-btn-price { text-align: right; }
+.stripe-btn-amount { font-size: 18px; font-weight: 800; }
+.stripe-btn-period { font-size: 10px; opacity: 0.7; display: block; }
+.stripe-divider { display: flex; align-items: center; gap: 10px; margin: 18px 0 14px; }
+.stripe-divider hr { flex: 1; border: none; border-top: 1px solid rgba(255,255,255,0.1); }
+.stripe-divider span { font-size: 11px; color: rgba(255,255,255,0.3); white-space: nowrap; letter-spacing: 1px; }
+.stripe-trust { display: flex; gap: 16px; flex-wrap: wrap; }
+.stripe-trust-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: rgba(255,255,255,0.4); }
+.stripe-trust-item span { color: #10b981; }
+.manual-section-label { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.manual-label-text { font-size: 11px; font-weight: 700; color: var(--text-dim); letter-spacing: 1.5px; text-transform: uppercase; }
+.manual-label-badge { font-size: 10px; background: rgba(255,159,11,0.15); color: var(--yellow); border: 1px solid rgba(255,159,11,0.3); padding: 2px 8px; border-radius: 8px; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -287,9 +322,102 @@ h1 span { color: var(--accent); }
         </div>
       </div>
 
-      <!-- PAYMENT METHOD SECTION -->
+      <!-- ═══ STRIPE GLOBAL PAYMENT (PRIMARY — INSTANT) ════════════════════
+           SETUP: Replace the href values below with your Stripe Payment Links.
+           Steps: Stripe Dashboard → Products → Create Payment Link → Copy URL
+           Env vars to set in Cloudflare Worker:
+             STRIPE_PAYMENT_LINK_PRO        → https://buy.stripe.com/...
+             STRIPE_PAYMENT_LINK_ENTERPRISE → https://buy.stripe.com/...
+             STRIPE_PAYMENT_LINK_MSSP       → https://buy.stripe.com/...
+           After setup: Stripe handles billing, webhook auto-provisions API key.
+           ════════════════════════════════════════════════════════════════════ -->
+      <div class="stripe-section" id="stripe-payment-section">
+        <div class="stripe-header">
+          <span class="stripe-badge">⚡ STRIPE</span>
+          <span class="instant-badge">✓ INSTANT API KEY</span>
+        </div>
+        <div class="stripe-title">Pay Securely — 135+ Countries · All Major Cards · Auto API Key Delivery</div>
+        <div class="stripe-subtitle">Click your plan → Pay on Stripe → API key delivered instantly to your email. No waiting. No manual process.</div>
+
+        <div class="stripe-btns" id="stripe-btns-container">
+          <!-- PRO Button — visible when plan-pro is selected -->
+          <a href="https://buy.stripe.com/CONFIGURE_PRO_MONTHLY"
+             id="stripe-btn-pro"
+             class="stripe-pay-btn pro"
+             target="_blank" rel="noopener"
+             onclick="return cdbStripeClick(event,'pro')">
+            <div class="stripe-btn-left">
+              <span class="stripe-btn-icon">⚡</span>
+              <div>
+                <div class="stripe-btn-name">PRO Defense</div>
+                <div class="stripe-btn-desc">500 req/min · Full IOCs · STIX 2.1 · MITRE Heatmap</div>
+              </div>
+            </div>
+            <div class="stripe-btn-price">
+              <div class="stripe-btn-amount" id="stripe-price-pro">$49</div>
+              <span class="stripe-btn-period" id="stripe-period-pro">/month</span>
+            </div>
+          </a>
+
+          <!-- ENTERPRISE Button — visible when plan-enterprise is selected -->
+          <a href="https://buy.stripe.com/CONFIGURE_ENTERPRISE_MONTHLY"
+             id="stripe-btn-enterprise"
+             class="stripe-pay-btn enterprise"
+             target="_blank" rel="noopener"
+             onclick="return cdbStripeClick(event,'enterprise')">
+            <div class="stripe-btn-left">
+              <span class="stripe-btn-icon">🏢</span>
+              <div>
+                <div class="stripe-btn-name">Enterprise SOC</div>
+                <div class="stripe-btn-desc">2K req/min · SIEM push · Webhook · SLA · 50 keys</div>
+              </div>
+            </div>
+            <div class="stripe-btn-price">
+              <div class="stripe-btn-amount" id="stripe-price-enterprise">$499</div>
+              <span class="stripe-btn-period" id="stripe-period-enterprise">/month</span>
+            </div>
+          </a>
+
+          <!-- MSSP Button — visible when plan-mssp is selected -->
+          <a href="https://buy.stripe.com/CONFIGURE_MSSP_MONTHLY"
+             id="stripe-btn-mssp"
+             class="stripe-pay-btn mssp"
+             target="_blank" rel="noopener"
+             onclick="return cdbStripeClick(event,'mssp')">
+            <div class="stripe-btn-left">
+              <span class="stripe-btn-icon">🛡</span>
+              <div>
+                <div class="stripe-btn-name">MSSP / White-Label</div>
+                <div class="stripe-btn-desc">Multi-tenant · White-label · Unlimited keys · Dedicated support</div>
+              </div>
+            </div>
+            <div class="stripe-btn-price">
+              <div class="stripe-btn-amount" id="stripe-price-mssp">$1,999</div>
+              <span class="stripe-btn-period" id="stripe-period-mssp">/month</span>
+            </div>
+          </a>
+        </div>
+
+        <div class="stripe-divider">
+          <hr><span>ALSO ACCEPTED</span><hr>
+        </div>
+        <div class="stripe-trust">
+          <div class="stripe-trust-item"><span>✓</span> Visa / Mastercard / Amex</div>
+          <div class="stripe-trust-item"><span>✓</span> Apple Pay / Google Pay</div>
+          <div class="stripe-trust-item"><span>✓</span> SEPA / ACH / Wire</div>
+          <div class="stripe-trust-item"><span>✓</span> 135+ currencies</div>
+          <div class="stripe-trust-item"><span>✓</span> SOC2 secured by Stripe</div>
+          <div class="stripe-trust-item"><span>✓</span> 7-day money-back</div>
+        </div>
+      </div>
+
+      <!-- PAYMENT METHOD SECTION (MANUAL — INDIA / CRYPTO / PAYPAL) -->
       <div class="section-card">
-        <div class="section-title">&#128178; Choose Payment Method</div>
+        <div class="manual-section-label">
+          <span class="manual-label-text">&#128178; Manual Payment</span>
+          <span class="manual-label-badge">INDIA · PAYPAL · CRYPTO</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:16px;">&#9888;&#65039; Manual payments require 2–4 hour processing. For instant API key delivery, use Stripe above.</div>
 
         <div class="pay-tabs">
           <div class="pay-tab active" onclick="showPayTab('upi')" id="tab-upi">
@@ -900,6 +1028,268 @@ document.addEventListener('DOMContentLoaded', function() {
   if (params.get('annual') === '1') {
     toggleBilling();
   }
+});
+</script>
+
+div>
+      <div class="contact-row">&#128222; <a href="tel:+918179881447">+91 8179881447</a></div>
+      <div class="contact-row">&#127760; <a href="https://cyberdudebivash.com" target="_blank" rel="noopener">cyberdudebivash.com</a></div>
+      <div class="gst-notice">&#128203; GST Registered &middot; GSTIN: 21ARKPN8270G1ZP &middot; Odisha, India</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   SENTINEL APEX v142.3.1 — Upgrade Page Controller
+   Features: plan select · billing toggle · UPI QR · Stripe routing
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── STRIPE PAYMENT LINKS ─────────────────────────────────────────────
+   Replace these placeholder URLs with your real Stripe Payment Links.
+   Dashboard: https://dashboard.stripe.com → Products → Payment Links
+   Env vars to set in Cloudflare Worker secrets:
+     STRIPE_PAYMENT_LINK_PRO        → https://buy.stripe.com/...
+     STRIPE_PAYMENT_LINK_ENTERPRISE → https://buy.stripe.com/...
+     STRIPE_PAYMENT_LINK_MSSP       → https://buy.stripe.com/...
+   ──────────────────────────────────────────────────────────────────── */
+var STRIPE_LINKS = {
+  pro_monthly:        'https://buy.stripe.com/CONFIGURE_PRO_MONTHLY',
+  pro_annual:         'https://buy.stripe.com/CONFIGURE_PRO_ANNUAL',
+  enterprise_monthly: 'https://buy.stripe.com/CONFIGURE_ENTERPRISE_MONTHLY',
+  enterprise_annual:  'https://buy.stripe.com/CONFIGURE_ENTERPRISE_ANNUAL',
+  mssp_monthly:       'https://buy.stripe.com/CONFIGURE_MSSP_MONTHLY',
+  mssp_annual:        'https://buy.stripe.com/CONFIGURE_MSSP_ANNUAL',
+};
+
+var PLANS = {
+  free:       { name:'Free Tier',            usd:0,    inr:0,       usdAnnual:0,    inrAnnual:0 },
+  pro:        { name:'PRO Defense',          usd:49,   inr:4100,    usdAnnual:490,  inrAnnual:40800 },
+  enterprise: { name:'Enterprise SOC',       usd:499,  inr:41600,   usdAnnual:4990, inrAnnual:415800 },
+  mssp:       { name:'MSSP / White-Label',   usd:1999, inr:166600,  usdAnnual:19990,inrAnnual:1665000 }
+};
+
+var currentPlan = 'pro';
+var isAnnual = false;
+
+/* ── Stripe click handler ─────────────────────────────────────────────
+   Routes to correct Stripe Payment Link based on selected plan + cycle.
+   If link is still a placeholder, shows setup message instead.
+   ──────────────────────────────────────────────────────────────────── */
+function cdbStripeClick(evt, plan) {
+  var cycle = isAnnual ? 'annual' : 'monthly';
+  var linkKey = plan + '_' + cycle;
+  var url = STRIPE_LINKS[linkKey] || STRIPE_LINKS[plan + '_monthly'];
+  if (!url || url.indexOf('CONFIGURE') !== -1) {
+    evt.preventDefault();
+    alert('Stripe payment is being configured.\n\nFor instant access, please use WhatsApp: +91 8179881447\nor email: bivash@cyberdudebivash.com\n\nAlternatively, use UPI / Bank / PayPal below.');
+    return false;
+  }
+  // Append UTM + plan metadata to Stripe URL
+  try {
+    var u = new URL(url);
+    u.searchParams.set('client_reference_id', plan + '_' + cycle + '_' + Date.now());
+    u.searchParams.set('utm_source', 'upgrade_page');
+    u.searchParams.set('utm_medium', 'stripe_button');
+    u.searchParams.set('utm_campaign', plan);
+    evt.currentTarget.href = u.toString();
+  } catch(e) {}
+  return true;
+}
+
+/* Update Stripe button appearance based on selected plan + billing cycle */
+function updateStripeButtons() {
+  var plans = ['pro', 'enterprise', 'mssp'];
+  plans.forEach(function(key) {
+    var btn = document.getElementById('stripe-btn-' + key);
+    var priceEl = document.getElementById('stripe-price-' + key);
+    var periodEl = document.getElementById('stripe-period-' + key);
+    if (!btn) return;
+    var p = PLANS[key];
+    var usd = isAnnual ? p.usdAnnual : p.usd;
+    var cycle = isAnnual ? 'annual' : 'monthly';
+    var url = STRIPE_LINKS[key + '_' + cycle] || STRIPE_LINKS[key + '_monthly'];
+    if (url && url.indexOf('CONFIGURE') === -1) btn.href = url;
+    if (priceEl) priceEl.textContent = '$' + usd.toLocaleString();
+    if (periodEl) periodEl.textContent = isAnnual ? '/year' : '/month';
+    btn.style.opacity  = (key === currentPlan) ? '1' : '0.45';
+    btn.style.boxShadow = (key === currentPlan) ? '0 0 0 2px rgba(255,255,255,0.2)' : 'none';
+  });
+}
+
+function selectPlan(key) {
+  if (!PLANS[key]) return;
+  currentPlan = key;
+  document.querySelectorAll('.plan-card').forEach(function(c) { c.classList.remove('selected'); });
+  var el = document.getElementById('plan-' + key);
+  if (el) el.classList.add('selected');
+  updateSummary();
+  updateQR();
+  updateStripeButtons();
+}
+
+function toggleBilling() {
+  isAnnual = !isAnnual;
+  var btn = document.getElementById('billing-toggle');
+  if (btn) btn.classList.toggle('annual', isAnnual);
+  var lm = document.getElementById('lbl-monthly');
+  var la = document.getElementById('lbl-annual');
+  var sb = document.getElementById('save-badge');
+  if (lm) lm.classList.toggle('active', !isAnnual);
+  if (la) la.classList.toggle('active', isAnnual);
+  if (sb) sb.style.display = isAnnual ? 'inline' : 'none';
+  ['pro','enterprise','mssp'].forEach(function(k) {
+    var p = PLANS[k];
+    var usd = isAnnual ? p.usdAnnual : p.usd;
+    var inr = isAnnual ? p.inrAnnual : p.inr;
+    var pe = document.getElementById('price-' + k);
+    var ie = document.getElementById('inr-' + k);
+    if (pe) pe.textContent = '$' + usd.toLocaleString();
+    if (ie) ie.textContent = '\u20b9' + inr.toLocaleString();
+  });
+  updateSummary();
+  updateQR();
+  updateStripeButtons();
+}
+
+function updateSummary() {
+  var p = PLANS[currentPlan];
+  var usd = isAnnual ? p.usdAnnual : p.usd;
+  var inr = isAnnual ? p.inrAnnual : p.inr;
+  var cycle = isAnnual ? 'Annual billing' : 'Monthly billing';
+  var priceStr = currentPlan === 'free' ? 'Free' : ('$' + usd + (isAnnual ? '/yr' : '/mo'));
+
+  function se(id, val) { var e = document.getElementById(id); if (e) e.textContent = val; }
+  function ss(id, val) { var e = document.getElementById(id); if (e) e.style.display = val; }
+
+  se('summary-plan', p.name);
+  se('summary-billing', cycle);
+  se('summary-price', priceStr);
+  se('summary-inr', inr ? '\u20b9' + inr.toLocaleString() : 'Free');
+  se('summary-total', currentPlan === 'free' ? 'Free' : '$' + usd);
+  se('upi-amount', '\u20b9' + (inr || 0).toLocaleString());
+  se('upi-step-amount', '\u20b9' + (inr || 0).toLocaleString());
+  se('neft-amount', '\u20b9' + (inr || 0).toLocaleString());
+  se('neft-step-amount', '\u20b9' + (inr || 0).toLocaleString());
+  se('paypal-step-amount', '$' + usd + ' USD');
+  se('crypto-amount', '$' + usd + ' USD equivalent');
+  se('crypto-step-amount', '$' + usd + ' USD equivalent');
+
+  var apf = document.getElementById('amount-paid-field');
+  if (apf) apf.placeholder = 'e.g. \u20b9' + inr + ' or $' + usd + ' or ' + usd + ' USDT';
+
+  var hp = document.getElementById('hidden-plan');
+  var hb = document.getElementById('hidden-billing');
+  if (hp) hp.value = p.name;
+  if (hb) hb.value = cycle;
+
+  if (isAnnual && currentPlan !== 'free') {
+    var saved = (p.usd * 12) - p.usdAnnual;
+    ss('savings-row', 'flex');
+    se('summary-savings', '-$' + saved);
+  } else {
+    ss('savings-row', 'none');
+  }
+}
+
+function updateQR() {
+  var p = PLANS[currentPlan];
+  var inr = isAnnual ? p.inrAnnual : p.inr;
+  var qrImg = document.getElementById('upi-qr');
+  if (!qrImg) return;
+  if (!inr) { qrImg.style.display = 'none'; return; }
+  var upiData = 'upi://pay?pa=iambivash.bn-5@okaxis&pn=CYBERDUDEBIVASH&am=' + inr + '&cu=INR&tn=SENTINEL+APEX+' + encodeURIComponent(p.name.replace(/ /g,'+'));
+  qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(upiData);
+  qrImg.style.display = 'inline-block';
+}
+
+function showPayTab(tab) {
+  ['upi','neft','paypal','crypto'].forEach(function(t) {
+    var tb = document.getElementById('tab-' + t);
+    var pn = document.getElementById('panel-' + t);
+    if (tb) tb.classList.toggle('active', t === tab);
+    if (pn) pn.classList.toggle('active', t === tab);
+  });
+  var hp = document.getElementById('hidden-payment');
+  if (hp) hp.value = tab.toUpperCase();
+}
+
+function selectUpiApp(btn, upiId) {
+  document.querySelectorAll('.upi-app-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  var el = document.getElementById('upi-primary-id');
+  if (el) el.textContent = upiId;
+  var p = PLANS[currentPlan];
+  var inr = isAnnual ? p.inrAnnual : p.inr;
+  if (inr) {
+    var upiData = 'upi://pay?pa=' + upiId + '&pn=CYBERDUDEBIVASH&am=' + inr + '&cu=INR&tn=SENTINEL+APEX+' + encodeURIComponent(p.name);
+    var qrImg = document.getElementById('upi-qr');
+    if (qrImg) qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(upiData);
+  }
+}
+
+function showCryptoTab(tab) {
+  ['bnb','usdt_bep20','eth'].forEach(function(t) {
+    var ct = document.getElementById('ctab-' + t);
+    var cp = document.getElementById('cpanel-' + t);
+    if (ct) ct.classList.toggle('active', t === tab);
+    if (cp) cp.style.display = t === tab ? 'block' : 'none';
+  });
+}
+
+function copyText(text, btn) {
+  var doCopy = function() {
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(doCopy).catch(function() {
+      var ta = document.createElement('textarea'); ta.value = text;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta); doCopy();
+    });
+  } else {
+    var ta = document.createElement('textarea'); ta.value = text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta); doCopy();
+  }
+}
+
+function handleSubmit(e) {
+  e.preventDefault();
+  var btn = document.getElementById('submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+  var form = e.target;
+  fetch(form.action, {
+    method: 'POST', body: new FormData(form), headers: { 'Accept': 'application/json' }
+  }).then(function(r) {
+    if (r.ok) {
+      var cs = document.getElementById('checkout-state');
+      var ss = document.getElementById('success-state');
+      var sp = document.getElementById('success-plan');
+      if (cs) cs.style.display = 'none';
+      if (ss) ss.style.display = 'block';
+      if (sp) sp.textContent = PLANS[currentPlan].name;
+    } else {
+      if (btn) { btn.disabled = false; btn.textContent = 'Retry Submission'; }
+      alert('Submission failed. Email bivash@cyberdudebivash.com with your transaction ID.');
+    }
+  }).catch(function() {
+    if (btn) { btn.disabled = false; btn.textContent = 'Retry Submission'; }
+    alert('Network error. WhatsApp +91 8179881447 or email bivash@cyberdudebivash.com with transaction ID.');
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  updateSummary();
+  updateQR();
+  updateStripeButtons();
+  var params = new URLSearchParams(window.location.search);
+  var planParam = params.get('plan');
+  if (planParam && PLANS[planParam]) { selectPlan(planParam); }
+  if (params.get('annual') === '1') { toggleBilling(); }
 });
 </script>
 </body>
