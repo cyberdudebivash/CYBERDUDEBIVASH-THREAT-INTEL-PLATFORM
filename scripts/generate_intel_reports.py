@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 ===============================================================================
 CYBERDUDEBIVASH SENTINEL APEX v134.0.0 – ENTERPRISE INTEL REPORT GENERATOR
@@ -412,13 +412,155 @@ footer a{color:var(--accent);text-decoration:none}
   margin-top:12px;transition:background .15s}
 .nav-download:hover{background:rgba(0,212,170,.14)}
 
-/* Responsive */
+/* ── EXECUTIVE INTELLIGENCE CARD ─────────────────────────────────────── */
+.exec-card{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;
+  margin:24px 0;padding:0}
+.exec-tile{background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--radius);padding:16px 14px;text-align:center;
+  transition:border-color .15s}
+.exec-tile:hover{border-color:var(--accent)}
+.exec-tile-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;
+  color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.exec-tile-val{font-size:22px;font-weight:900;font-family:var(--mono);
+  line-height:1}
+.exec-tile-sub{font-family:var(--mono);font-size:9px;color:var(--muted);
+  margin-top:4px}
+.exec-tile.crit .exec-tile-val{color:var(--crit)}
+.exec-tile.high .exec-tile-val{color:var(--high)}
+.exec-tile.med  .exec-tile-val{color:var(--med)}
+.exec-tile.low  .exec-tile-val{color:var(--low)}
+.exec-tile.info .exec-tile-val{color:var(--info)}
+.exec-tile.neutral .exec-tile-val{color:var(--accent)}
+
+/* ── SEVERITY BANNER ──────────────────────────────────────────────────── */
+.sev-banner{padding:10px 32px;font-family:var(--mono);font-size:11px;
+  font-weight:700;letter-spacing:1.5px;display:flex;align-items:center;
+  justify-content:center;gap:16px}
+.sev-banner.CRITICAL{background:linear-gradient(90deg,rgba(255,59,59,.18),rgba(255,59,59,.06));
+  border-bottom:1px solid rgba(255,59,59,.35);color:var(--crit)}
+.sev-banner.HIGH{background:linear-gradient(90deg,rgba(255,124,26,.15),rgba(255,124,26,.04));
+  border-bottom:1px solid rgba(255,124,26,.3);color:var(--high)}
+.sev-banner.MEDIUM{background:linear-gradient(90deg,rgba(245,166,35,.12),rgba(245,166,35,.03));
+  border-bottom:1px solid rgba(245,166,35,.25);color:var(--med)}
+.sev-banner.LOW{background:rgba(76,175,80,.06);
+  border-bottom:1px solid rgba(76,175,80,.2);color:var(--low)}
+.sev-banner.INFO{background:rgba(33,150,243,.05);
+  border-bottom:1px solid rgba(33,150,243,.2);color:var(--info)}
+.sev-pulse{display:inline-block;width:8px;height:8px;border-radius:50%;
+  animation:pulse 1.4s infinite}
+.sev-banner.CRITICAL .sev-pulse,.sev-banner.HIGH .sev-pulse{background:currentColor}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+
+/* ── ACTION BUTTONS (nav) ────────────────────────────────────────────── */
+.nav-actions{display:flex;align-items:center;gap:8px}
+.nav-btn{font-family:var(--mono);font-size:10px;letter-spacing:1px;
+  padding:5px 12px;border-radius:3px;cursor:pointer;text-decoration:none;
+  display:inline-flex;align-items:center;gap:5px;border:1px solid;
+  transition:opacity .15s;background:none;font-weight:600}
+.nav-btn:hover{opacity:.75}
+.nav-btn-print{color:var(--muted);border-color:var(--border)}
+.nav-btn-stix{color:var(--accent);border-color:rgba(0,212,170,.35)}
+.nav-btn-upgrade{color:#ffd700;border-color:rgba(255,215,0,.35);
+  background:rgba(255,215,0,.06)}
+
+/* ── CONFIDENCE INDICATOR ─────────────────────────────────────────────── */
+.confidence-strip{display:flex;align-items:center;gap:10px;
+  margin-top:12px;padding:8px 12px;background:rgba(0,212,170,.04);
+  border-radius:var(--radius);border:1px solid rgba(0,212,170,.12)}
+.conf-label{font-family:var(--mono);font-size:10px;color:var(--muted);
+  letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+.conf-bar{flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px}
+.conf-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.conf-val{font-family:var(--mono);font-size:11px;color:var(--accent);
+  white-space:nowrap;font-weight:700}
+
+/* ── ENHANCED PREMIUM LOCK ────────────────────────────────────────────── */
+.premium-lock-v2{background:linear-gradient(135deg,var(--panel2),rgba(15,26,46,.9));
+  border:1px solid rgba(255,215,0,.25);border-radius:var(--radius);
+  padding:24px;position:relative;overflow:hidden}
+.premium-lock-v2::before{content:'';position:absolute;top:0;right:0;
+  width:160px;height:160px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,215,0,.07),transparent 70%);
+  pointer-events:none}
+.plv2-header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.plv2-icon{font-size:28px}
+.plv2-title{font-family:var(--mono);font-size:13px;color:#ffd700;
+  letter-spacing:1px;font-weight:700;margin-bottom:3px}
+.plv2-sub{font-size:12px;color:var(--muted)}
+.plv2-features{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}
+.plv2-feat{display:flex;align-items:center;gap:7px;font-size:12px;color:#c8d3e8}
+.plv2-feat::before{content:'✓';color:var(--accent);font-family:var(--mono);
+  font-size:11px;font-weight:700;flex-shrink:0}
+.plv2-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+
+/* ── WATERMARK / BRAND OVERLAY ─────────────────────────────────────────── */
+.report-watermark{position:fixed;bottom:20px;right:20px;
+  font-family:var(--mono);font-size:9px;letter-spacing:2px;
+  color:rgba(0,212,170,.25);text-transform:uppercase;
+  pointer-events:none;z-index:999}
+
+/* ── ACTION URGENCY BADGE ─────────────────────────────────────────────── */
+.urgency-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;
+  border-radius:3px;font-family:var(--mono);font-size:11px;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase}
+.urgency-IMMEDIATE{background:rgba(255,59,59,.15);color:var(--crit);
+  border:1px solid rgba(255,59,59,.4)}
+.urgency-HIGH{background:rgba(255,124,26,.12);color:var(--high);
+  border:1px solid rgba(255,124,26,.35)}
+.urgency-STANDARD{background:rgba(76,175,80,.1);color:var(--low);
+  border:1px solid rgba(76,175,80,.3)}
+.urgency-MONITOR{background:rgba(33,150,243,.1);color:var(--info);
+  border:1px solid rgba(33,150,243,.3)}
+
+/* ── STIX EXPORT BUTTON ───────────────────────────────────────────────── */
+.stix-export{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;
+  background:linear-gradient(135deg,rgba(0,212,170,.12),rgba(0,153,255,.08));
+  border:1px solid rgba(0,212,170,.3);border-radius:var(--radius);
+  font-family:var(--mono);font-size:11px;color:var(--accent);
+  text-decoration:none;transition:all .15s;font-weight:600}
+.stix-export:hover{background:rgba(0,212,170,.18);border-color:var(--accent)}
+
+/* ── SHARE ROW ────────────────────────────────────────────────────────── */
+.share-row{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  background:rgba(0,212,170,.03);border:1px solid var(--border);
+  border-radius:var(--radius);font-size:12px;color:var(--muted);margin-top:16px}
+.share-row code{flex:1;font-size:11px;color:var(--accent2);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.share-copy{font-family:var(--mono);font-size:10px;padding:4px 10px;
+  background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.3);
+  border-radius:3px;color:var(--accent);cursor:pointer;white-space:nowrap;
+  transition:opacity .15s}
+.share-copy:hover{opacity:.75}
+
+/* ── PRINT STYLES ─────────────────────────────────────────────────────── */
+@media print{
+  body{background:#fff!important;color:#111!important;font-size:12px}
+  .top-nav,.tlp-banner,.sev-banner,.report-watermark{display:none!important}
+  .wrap{max-width:none;padding:16px}
+  .section{break-inside:avoid;border:1px solid #ddd!important;
+    background:#f8f8f8!important;margin-bottom:10px}
+  h2.section-title{color:#111!important}
+  .aside,.toc-aside{display:none!important}
+  .exec-card{display:none!important}
+  a{color:#0066cc!important}
+  pre{background:#f0f0f0!important;color:#111!important;border:1px solid #ccc!important}
+  .premium-lock,.premium-lock-v2{display:none!important}
+  @page{margin:15mm}
+}
+
+/* ── RESPONSIVE ───────────────────────────────────────────────────────── */
+@media(max-width:900px){
+  .exec-card{grid-template-columns:repeat(3,1fr)}
+}
 @media(max-width:680px){
   .wrap{padding:24px 16px 64px}
   .kv{grid-template-columns:1fr}
   h1.dossier-title{font-size:22px}
   .meta-strip{gap:6px 12px}
   .reg-matrix{grid-template-columns:1fr}
+  .exec-card{grid-template-columns:repeat(2,1fr)}
+  .plv2-features{grid-template-columns:1fr}
+  .nav-actions .nav-btn-stix,.nav-actions .nav-btn-upgrade{display:none}
 }
 """
 
@@ -1171,12 +1313,26 @@ def build_report_sections(item: dict) -> str:
         f"<div class='kv-key'>Kill Chain Phases</div><div class='kv-val'>{', '.join(phases[:4])}</div>"
         f"<div class='kv-key'>TTP Density</div><div class='kv-val'>{len(ttps)} techniques mapped</div>"
         "</div>"
-        "<div class=’premium-lock’ style=’margin-top:16px’>"
-        "<div class=’lock-icon’>&#x1F512;</div>"
-        "<div class=’lock-title’>Full AI Analyst Narrative &#8212; Enterprise Tier</div>"
-        "<div class=’lock-sub’>Includes predictive threat modelling, infrastructure pivot analysis, "
-        "autonomous response recommendations, and SOAR playbook export.</div>"
-        "<a class=’cta cta-enterprise’ href=’https://intel.cyberdudebivash.com/pricing.html?plan=enterprise&amp;utm_source=report-ai-lock&amp;utm_medium=unlock-btn’ target=’_blank’ rel=’noopener’>Unlock Enterprise &#8594;</a>"
+        "<div class=’premium-lock-v2’ style=’margin-top:16px’>"
+        "<div class=’plv2-header’>"
+        "<div class=’plv2-icon’>&#x1F916;</div>"
+        "<div><div class=’plv2-title’>APEX AI ANALYST NARRATIVE &mdash; ENTERPRISE</div>"
+        "<div class=’plv2-sub’>Full narrative unlocked for Enterprise &amp; MSSP subscribers</div></div>"
+        "</div>"
+        "<div class=’plv2-features’>"
+        "<div class=’plv2-feat’>Predictive threat modelling (14-day horizon)</div>"
+        "<div class=’plv2-feat’>Infrastructure pivot &amp; actor attribution</div>"
+        "<div class=’plv2-feat’>Autonomous SOAR playbook export</div>"
+        "<div class=’plv2-feat’>Board-level executive PDF briefing</div>"
+        "<div class=’plv2-feat’>Historical campaign correlation (12 months)</div>"
+        "<div class=’plv2-feat’>Custom Sigma/YARA tuning for your stack</div>"
+        "<div class=’plv2-feat’>Real-time threat feed API (5,000 calls/day)</div>"
+        "<div class=’plv2-feat’>Dedicated SOC uplift &amp; SLA</div>"
+        "</div>"
+        "<div class=’plv2-actions’>"
+        f"<a class=’cta cta-enterprise’ href=’https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise&amp;utm_source=report-ai-lock&amp;utm_content={{}}&amp;utm_medium=unlock-btn’ target=’_blank’ rel=’noopener’>&#9733; Unlock Enterprise &rarr;</a>"
+        "<a class=’cta cta-secondary’ href=’https://intel.cyberdudebivash.com/upgrade.html?plan=pro&amp;utm_source=report-ai-lock&amp;utm_medium=unlock-btn’ target=’_blank’ rel=’noopener’>Try Pro &rarr;</a>"
+        "</div>"
         "</div>"
     ))
 
@@ -1196,8 +1352,8 @@ def build_report_sections(item: dict) -> str:
         "<ul>" + "".join(refs) + "</ul>"
         "<div class='cta-row'>"
         "<a class='cta cta-primary' href='https://intel.cyberdudebivash.com'>â† Back to Platform</a>"
-        "<a class='cta cta-secondary' href='https://intel.cyberdudebivash.com/get-api-key.html?plan=pro'>Upgrade to Premium</a>"
-        "<a class='cta cta-enterprise' href='https://intel.cyberdudebivash.com/get-api-key.html?plan=enterprise'>Enterprise Access</a>"
+        "<a class='cta cta-secondary' href='https://intel.cyberdudebivash.com/upgrade.html?plan=pro&utm_source=report-s16&utm_medium=cta'>&#9650; Upgrade to Pro</a>"
+        "<a class='cta cta-enterprise' href='https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise&utm_source=report-s16&utm_medium=cta'>&#9733; Enterprise Access</a>"
         "</div>"
         "<div class='callout' style='margin-top:20px'>"
         "<strong>Enterprise Delivery Pack</strong> includes: full IOC/TTP/STIX 2.1 bundles, "
@@ -1362,6 +1518,42 @@ def render_report(item: dict, public_prefix: str) -> str:
 
     sections_html = build_report_sections(item)
 
+    # ── Pre-computed display variables for god-mode template (no backslash in f-string) ──
+    _ioc_conf    = min(int(item.get("ioc_confidence") or 75), 100)
+    _ioc_list    = item.get("iocs") or []
+    _ttp_list    = (item.get("apex_ai") or {}).get("ttps") or item.get("ttps") or []
+    _cvss_disp   = str(item.get("cvss_score") or "N/A")
+    _epss_disp   = str(item.get("epss_score") or "N/A")
+    _epss_pct    = "%" if item.get("epss_score") is not None else ""
+    _kev         = bool(item.get("kev_present"))
+    _kev_disp    = "YES &#x26A0;" if _kev else "No"
+    _feed_src    = str(item.get("feed_source") or item.get("source") or "SENTINEL APEX")[:40]
+    _urgency_cls = ("IMMEDIATE" if sev in ("CRITICAL", "HIGH") else
+                    "HIGH" if sev == "MEDIUM" else "MONITOR")
+    _urgency_txt = ("PATCH IMMEDIATELY" if sev == "CRITICAL" else
+                    "HIGH PRIORITY"    if sev == "HIGH"     else
+                    "PATCH STANDARD"   if sev == "MEDIUM"   else "MONITOR")
+    _sev_tile    = ("crit" if sev == "CRITICAL" else "high" if sev == "HIGH" else
+                    "med"  if sev == "MEDIUM"   else "low"  if sev == "LOW"  else "neutral")
+    _risk_tile   = ("crit" if risk >= 9 else "high" if risk >= 7 else
+                    "med"  if risk >= 5 else "low")
+    _cvss_f      = float(item.get("cvss_score") or 0)
+    _cvss_tile   = ("crit" if _cvss_f >= 9 else "high" if _cvss_f >= 7 else
+                    "med"  if _cvss_f >= 4 else "neutral")
+    _epss_f      = float(item.get("epss_score") or 0)
+    _epss_tile   = ("crit" if _epss_f >= 50 else "high" if _epss_f >= 20 else "neutral")
+    _conf_strip  = (
+        "<div class='confidence-strip'>"
+        "<span class='conf-label'>Intel Confidence</span>"
+        "<div class='conf-bar'>"
+        f"<div class='conf-fill' style='width:{_ioc_conf}%'></div>"
+        "</div>"
+        f"<span class='conf-val'>{_ioc_conf}%</span>"
+        "<span style='font-family:var(--mono);font-size:9px;color:var(--muted);"
+        "margin-left:8px'>APEX ML ENRICHED</span>"
+        "</div>"
+    )
+
     toc = "".join(
         f"<a href='#s{i}' style='display:block;padding:4px 0;font-family:var(--mono);"
         f"font-size:11px;color:var(--muted);text-decoration:none;"
@@ -1396,37 +1588,91 @@ def render_report(item: dict, public_prefix: str) -> str:
   TLP: {_h(item.get('tlp','TLP:CLEAR'))} &nbsp;·&nbsp; CYBERDUDEBIVASH SENTINEL APEX TACTICAL DOSSIER &nbsp;·&nbsp; {PLATFORM_VERSION}
 </div>
 <nav class='top-nav'>
-  <div class='nav-brand'>CYBERDUDEBIVASH · SENTINEL APEX</div>
-  <div class='nav-links'>
-    <a href='https://intel.cyberdudebivash.com'>Platform</a>
-    <a href='https://intel.cyberdudebivash.com/api/feed'>Live Feed</a>
-    <a href='https://intel.cyberdudebivash.com/get-api-key.html?plan=enterprise'>Enterprise</a>
+  <div>
+    <div class='nav-brand'>CYBERDUDEBIVASH &middot; SENTINEL APEX</div>
+    <div style='font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:1px'>TACTICAL INTELLIGENCE DOSSIER &middot; {PLATFORM_VERSION}</div>
+  </div>
+  <div class='nav-actions'>
+    <button class='nav-btn nav-btn-print' onclick='window.print()' title='Print report'>&#128438; Print</button>
+    <a class='nav-btn nav-btn-stix' href='https://intel.cyberdudebivash.com/api/stix?id={_h(intel_id)}' target='_blank' rel='noopener' title='Download STIX 2.1 bundle'>&#8659; STIX 2.1</a>
+    <a class='nav-btn nav-btn-upgrade' href='https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise&utm_source=report-nav&utm_medium=report&utm_content={_h(intel_id)}' target='_blank' rel='noopener'>&#9733; Enterprise</a>
+    <div class='nav-links' style='margin-left:8px;border-left:1px solid var(--border);padding-left:16px'>
+      <a href='https://intel.cyberdudebivash.com'>Platform</a>
+      <a href='https://intel.cyberdudebivash.com/api/feed'>Live Feed</a>
+    </div>
   </div>
 </nav>
+<div class='report-watermark'>CYBERDUDEBIVASH · SENTINEL APEX · {PLATFORM_VERSION}</div>
 <div class='wrap'>
 <header class='dossier-hdr'>
   <div class='classification'>
     <span class='cls-chip cls-PUBLIC'>PUBLIC TIER</span>
     <span class='cls-chip cls-TLP'>{_h(item.get('tlp','TLP:CLEAR'))}</span>
     <span>TACTICAL DOSSIER</span>
+    &nbsp;&middot;&nbsp;
+    <span class='urgency-badge urgency-{_urgency_cls}'><span class='sev-pulse'></span>{_urgency_txt}</span>
   </div>
-  <div class='dossier-id'>INTEL ID: {_h(intel_id)} &nbsp;·&nbsp; PROCESSED: {_h(ts)}</div>
+  <div class='dossier-id'>INTEL ID: {_h(intel_id)} &nbsp;·&nbsp; PROCESSED: {_h(ts)} &nbsp;·&nbsp; SOURCE: {_h(_feed_src)}</div>
   <h1 class='dossier-title'>{_h(title)}</h1>
   <div class='meta-strip'>
     <span>Severity: <strong><span class='sev-chip {_sev_class(sev)}'>{_h(sev)}</span></strong></span>
     <span>Risk: <strong>{risk}/10</strong></span>
-    <span>Platform: <strong>SENTINEL APEX {PLATFORM_VERSION}</strong></span>
-    <span>Processed: <strong>{_h(ts)}</strong></span>
-    <span>ID: <code>{_h(intel_id[:24])}{'…' if len(intel_id)>24 else ''}</code></span>
+    <span>CVSS: <strong>{_cvss_disp}</strong></span>
+    <span>EPSS: <strong>{_epss_disp}{_epss_pct}</strong></span>
+    <span>IOCs: <strong>{len(_ioc_list)}</strong></span>
+    <span>TTPs: <strong>{len(_ttp_list)}</strong></span>
+    <span>KEV: <strong>{_kev_disp}</strong></span>
   </div>
+  {_conf_strip}
   <div class='tag-strip'>{_render_tags(tags)}</div>
 </header>
 
+<!-- Executive Intelligence Card -->
+<div class='exec-card'>
+  <div class='exec-tile {_sev_tile}'>
+    <div class='exec-tile-label'>Severity</div>
+    <div class='exec-tile-val'>{_h(sev[:4])}</div>
+    <div class='exec-tile-sub'>Classification</div>
+  </div>
+  <div class='exec-tile {_risk_tile}'>
+    <div class='exec-tile-label'>Risk Score</div>
+    <div class='exec-tile-val'>{risk}<span style='font-size:13px;font-weight:400'>/10</span></div>
+    <div class='exec-tile-sub'>Composite APEX</div>
+  </div>
+  <div class='exec-tile {_cvss_tile}'>
+    <div class='exec-tile-label'>CVSS 3.1</div>
+    <div class='exec-tile-val'>{_cvss_disp}</div>
+    <div class='exec-tile-sub'>Base Score</div>
+  </div>
+  <div class='exec-tile {_epss_tile}'>
+    <div class='exec-tile-label'>EPSS 30d</div>
+    <div class='exec-tile-val'>{_epss_disp}<span style='font-size:12px;font-weight:400'>{_epss_pct}</span></div>
+    <div class='exec-tile-sub'>Exploit Probability</div>
+  </div>
+  <div class='exec-tile {"crit" if _kev else "neutral"}'>
+    <div class='exec-tile-label'>IOCs / KEV</div>
+    <div class='exec-tile-val'>{len(_ioc_list)}</div>
+    <div class='exec-tile-sub'>{"KEV CONFIRMED" if _kev else "No KEV entry"}</div>
+  </div>
+</div>
+
 <div style='display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start'>
-<aside style='position:sticky;top:20px'>
+<aside class='toc-aside' style='position:sticky;top:20px'>
   <div style='background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px'>
     <div style='font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--accent);margin-bottom:12px;text-transform:uppercase'>Contents</div>
     {toc}
+  </div>
+  <!-- Sidebar CTA -->
+  <div style='margin-top:14px;background:linear-gradient(135deg,rgba(15,26,46,.9),rgba(15,26,46,.7));border:1px solid rgba(255,215,0,.2);border-radius:var(--radius);padding:16px;text-align:center'>
+    <div style='font-family:var(--mono);font-size:9px;letter-spacing:2px;color:#ffd700;text-transform:uppercase;margin-bottom:8px'>Enterprise Intel</div>
+    <div style='font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5'>Full STIX export, API access &amp; automated briefings</div>
+    <a href='https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise&utm_source=report-sidebar' target='_blank' rel='noopener' style='display:block;padding:8px;background:linear-gradient(135deg,#ffd700,#ff8c00);color:#060d19;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;border-radius:3px;text-decoration:none'>UPGRADE &#8594;</a>
+  </div>
+  <!-- Share -->
+  <div style='margin-top:10px;padding:12px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius)'>
+    <div style='font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px'>Share Report</div>
+    <div style='font-family:var(--mono);font-size:10px;color:var(--accent2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:8px'>{_h(report_url[:50])}...</div>
+    <button class='nav-btn nav-btn-print' onclick='navigator.clipboard&&navigator.clipboard.writeText("{_h(report_url)}").then(()=>this.textContent="Copied!")' style='width:100%;justify-content:center;font-size:10px'>&#128203; Copy Link</button>
   </div>
 </aside>
 <main>
@@ -1434,9 +1680,30 @@ def render_report(item: dict, public_prefix: str) -> str:
 </main>
 </div>
 
-<footer class='dossier-ftr'>
-  <span>© {datetime.now(timezone.utc).year} CYBERDUDEBIVASH Pvt. Ltd. – SENTINEL APEX {PLATFORM_VERSION}</span>
-  <span><a href='https://intel.cyberdudebivash.com'>intel.cyberdudebivash.com</a> · <a href='https://cyberdudebivash.in'>cyberdudebivash.in</a></span>
+<footer class='dossier-ftr' style='margin-top:48px;padding-top:24px'>
+  <div style='width:100%;border-top:1px solid var(--border);padding-top:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px'>
+    <div>
+      <div style='font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:700;letter-spacing:2px'>CYBERDUDEBIVASH SENTINEL APEX</div>
+      <div style='font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:1px'>PROFESSIONAL THREAT INTELLIGENCE PLATFORM &middot; {PLATFORM_VERSION}</div>
+    </div>
+    <div style='display:flex;gap:12px;align-items:center'>
+      <a href='https://intel.cyberdudebivash.com/upgrade.html?plan=pro&utm_source=report-footer' target='_blank' rel='noopener' style='font-family:var(--mono);font-size:10px;color:#ffd700;text-decoration:none;border:1px solid rgba(255,215,0,.3);padding:5px 12px;border-radius:3px'>&#9733; Get Pro Access</a>
+      <a href='https://intel.cyberdudebivash.com/api/stix?id={_h(intel_id)}' target='_blank' rel='noopener' style='font-family:var(--mono);font-size:10px;color:var(--accent);text-decoration:none'>&#8659; STIX Export</a>
+    </div>
+  </div>
+  <div style='display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-family:var(--mono);font-size:10px;color:var(--muted)'>
+    <span>&copy; {datetime.now(timezone.utc).year} CyberDudeBivash Pvt. Ltd. GSTIN: 21ARKPN8270G1ZP &middot; Odisha, India</span>
+    <span>
+      <a href='https://intel.cyberdudebivash.com' style='color:var(--accent);text-decoration:none'>intel.cyberdudebivash.com</a>
+      &nbsp;&middot;&nbsp;
+      <a href='https://cyberdudebivash.in' style='color:var(--accent);text-decoration:none'>cyberdudebivash.in</a>
+      &nbsp;&middot;&nbsp;
+      <a href='mailto:bivashnayak.ai007@gmail.com' style='color:var(--muted);text-decoration:none'>Contact</a>
+    </span>
+  </div>
+  <div style='width:100%;margin-top:10px;padding:8px 12px;background:rgba(0,212,170,.03);border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5'>
+    <strong style='color:var(--muted)'>CLASSIFICATION NOTICE:</strong> This tactical dossier is generated by CYBERDUDEBIVASH SENTINEL APEX automated intelligence pipeline. Intelligence is sourced from public threat feeds, CVE databases, and APEX enrichment engines. This document is provided for informational and defensive security purposes only. Report ID: {_h(intel_id)}
+  </div>
 </footer>
 </div>
 </body>

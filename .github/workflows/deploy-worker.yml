@@ -1,5 +1,5 @@
-# =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v142.3.0  -  Worker Auto-Deploy
+﻿# =============================================================================
+# CYBERDUDEBIVASH(R) SENTINEL APEX v142.3.1  -  Worker Auto-Deploy
 # =============================================================================
 # Deploys the Cloudflare Worker whenever src/** or wrangler.toml changes.
 # Secrets required: CF_API_TOKEN, CF_ACCOUNT_ID
@@ -40,7 +40,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   WORKER_DIR: workers/intel-gateway
-  PLATFORM_VERSION: "142.3.0"
+  PLATFORM_VERSION: "142.3.1"
 
 concurrency:
   group: worker-deploy
@@ -80,25 +80,25 @@ jobs:
           print(f'PLATFORM_VERSION injected into GITHUB_ENV: {v}')
           "
 
-      # ─── v143.1 DATA INTEGRITY HARD-FAIL GATES ───────────────────────────────────
-      # Worker serves live data — block deploy if underlying data is corrupt.
+      # â”€â”€â”€ v143.1 DATA INTEGRITY HARD-FAIL GATES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      # Worker serves live data â€” block deploy if underlying data is corrupt.
       - name: "Setup Python for data integrity gates"
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: "GATE 1/4 — Encoding Validator (HARD FAIL on mojibake)"
+      - name: "GATE 1/4 â€” Encoding Validator (HARD FAIL on mojibake)"
         run: python3 scripts/encoding_validator.py
 
-      - name: "GATE 2/4 — Output Validation Gate (HARD FAIL on schema violations)"
+      - name: "GATE 2/4 â€” Output Validation Gate (HARD FAIL on schema violations)"
         run: python3 scripts/output_validation_gate.py
 
-      - name: "GATE 3/4 — API Dashboard Contract Validator (HARD FAIL on mismatch)"
+      - name: "GATE 3/4 â€” API Dashboard Contract Validator (HARD FAIL on mismatch)"
         run: python3 scripts/api_dashboard_contract_validator.py
 
-      - name: "GATE 4/4 — Regression Immunity System (HARD FAIL on regression)"
+      - name: "GATE 4/4 â€” Regression Immunity System (HARD FAIL on regression)"
         run: python3 scripts/regression_immunity.py
-      # ─── END DATA INTEGRITY GATES ───────────────────────────────────────────────────
+      # â”€â”€â”€ END DATA INTEGRITY GATES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
       - name: " Sanitize encoding (strip BOM + normalize CRLF)"
         run: |
