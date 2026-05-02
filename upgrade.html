@@ -833,351 +833,8 @@ h1 span { color: var(--accent); }
   </div>
 </div>
 
-<script>
-/* ======================================================
-   SENTINEL APEX UPGRADE.HTML v149.0 -- PAYMENT ENGINE
-   Production-grade. Zero junk chars. Real credentials.
-   ====================================================== */
 
-const PLANS = {
-  free:       { name:'Free Tier',          usd:0,    inr:0,       usdAnnual:0,    inrAnnual:0 },
-  pro:        { name:'PRO Defense',        usd:49,   inr:4100,    usdAnnual:490,  inrAnnual:40800 },
-  enterprise: { name:'Enterprise SOC',     usd:499,  inr:41600,   usdAnnual:4990, inrAnnual:415800 },
-  mssp:       { name:'MSSP / White-Label', usd:1999, inr:166600,  usdAnnual:19990,inrAnnual:1665000 }
-};
-
-let currentPlan = 'pro';
-let isAnnual = false;
-
-function selectPlan(key) {
-  if (!PLANS[key]) return;
-  currentPlan = key;
-  document.querySelectorAll('.plan-card').forEach(function(c) { c.classList.remove('selected'); });
-  var el = document.getElementById('plan-' + key);
-  if (el) el.classList.add('selected');
-  updateSummary();
-  updateQR();
-}
-
-function toggleBilling() {
-  isAnnual = !isAnnual;
-  var btn = document.getElementById('billing-toggle');
-  if (btn) btn.classList.toggle('annual', isAnnual);
-  var lm = document.getElementById('lbl-monthly');
-  var la = document.getElementById('lbl-annual');
-  var sb = document.getElementById('save-badge');
-  if (lm) lm.classList.toggle('active', !isAnnual);
-  if (la) la.classList.toggle('active', isAnnual);
-  if (sb) sb.style.display = isAnnual ? 'inline' : 'none';
-  ['pro','enterprise','mssp'].forEach(function(k) {
-    var p = PLANS[k];
-    var usd = isAnnual ? p.usdAnnual : p.usd;
-    var inr = isAnnual ? p.inrAnnual : p.inr;
-    var pe = document.getElementById('price-' + k);
-    var ie = document.getElementById('inr-' + k);
-    if (pe) pe.textContent = '$' + usd.toLocaleString();
-    if (ie) ie.textContent = '\u20b9' + inr.toLocaleString();
-  });
-  updateSummary();
-  updateQR();
-}
-
-function updateSummary() {
-  var p = PLANS[currentPlan];
-  var usd = isAnnual ? p.usdAnnual : p.usd;
-  var inr = isAnnual ? p.inrAnnual : p.inr;
-  var cycle = isAnnual ? 'Annual billing' : 'Monthly billing';
-  var priceStr = currentPlan === 'free' ? 'Free' : ('$' + usd + (isAnnual ? '/yr' : '/mo'));
-
-  function se(id, val) { var e = document.getElementById(id); if (e) e.textContent = val; }
-  function ss(id, val) { var e = document.getElementById(id); if (e) e.style.display = val; }
-
-  se('summary-plan', p.name);
-  se('summary-billing', cycle);
-  se('summary-price', priceStr);
-  se('summary-inr', inr ? '\u20b9' + inr.toLocaleString() : 'Free');
-  se('summary-total', currentPlan === 'free' ? 'Free' : '$' + usd);
-  se('upi-amount', '\u20b9' + (inr || 0).toLocaleString());
-  se('upi-step-amount', '\u20b9' + (inr || 0).toLocaleString());
-  se('neft-amount', '\u20b9' + (inr || 0).toLocaleString());
-  se('neft-step-amount', '\u20b9' + (inr || 0).toLocaleString());
-  se('paypal-step-amount', '$' + usd + ' USD');
-  se('crypto-amount', '$' + usd + ' USD equivalent');
-  se('crypto-step-amount', '$' + usd + ' USD equivalent');
-
-  var apf = document.getElementById('amount-paid-field');
-  if (apf) apf.placeholder = 'e.g. \u20b9' + inr + ' or $' + usd + ' or ' + usd + ' USDT';
-
-  var hp = document.getElementById('hidden-plan');
-  var hb = document.getElementById('hidden-billing');
-  if (hp) hp.value = p.name;
-  if (hb) hb.value = cycle;
-
-  if (isAnnual && currentPlan !== 'free') {
-    var saved = (p.usd * 12) - p.usdAnnual;
-    ss('savings-row', 'flex');
-    se('summary-savings', '-$' + saved);
-  } else {
-    ss('savings-row', 'none');
-  }
-}
-
-function updateQR() {
-  var p = PLANS[currentPlan];
-  var inr = isAnnual ? p.inrAnnual : p.inr;
-  var qrImg = document.getElementById('upi-qr');
-  if (!qrImg) return;
-  if (!inr) { qrImg.style.display = 'none'; return; }
-  var upiData = 'upi://pay?pa=iambivash.bn-5@okaxis&pn=CYBERDUDEBIVASH&am=' + inr + '&cu=INR&tn=SENTINEL+APEX+' + encodeURIComponent(p.name.replace(/ /g,'+'));
-  qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(upiData);
-  qrImg.style.display = 'inline-block';
-}
-
-function showPayTab(tab) {
-  ['upi','neft','paypal','crypto'].forEach(function(t) {
-    var tb = document.getElementById('tab-' + t);
-    var pn = document.getElementById('panel-' + t);
-    if (tb) tb.classList.toggle('active', t === tab);
-    if (pn) pn.classList.toggle('active', t === tab);
-  });
-  var hp = document.getElementById('hidden-payment');
-  if (hp) hp.value = tab.toUpperCase();
-}
-
-function selectUpiApp(btn, upiId) {
-  document.querySelectorAll('.upi-app-btn').forEach(function(b) { b.classList.remove('active'); });
-  btn.classList.add('active');
-  var el = document.getElementById('upi-primary-id');
-  if (el) el.textContent = upiId;
-  // Re-generate QR for the selected UPI ID
-  var p = PLANS[currentPlan];
-  var inr = isAnnual ? p.inrAnnual : p.inr;
-  if (inr) {
-    var upiData = 'upi://pay?pa=' + upiId + '&pn=CYBERDUDEBIVASH&am=' + inr + '&cu=INR&tn=SENTINEL+APEX+' + encodeURIComponent(p.name);
-    var qrImg = document.getElementById('upi-qr');
-    if (qrImg) qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(upiData);
-  }
-}
-
-function showCryptoTab(tab) {
-  ['bnb','usdt_bep20','eth'].forEach(function(t) {
-    var ct = document.getElementById('ctab-' + t);
-    var cp = document.getElementById('cpanel-' + t);
-    if (ct) ct.classList.toggle('active', t === tab);
-    if (cp) cp.style.display = t === tab ? 'block' : 'none';
-  });
-}
-
-function copyText(text, btn) {
-  var doCopy = function() {
-    btn.textContent = 'Copied!';
-    btn.classList.add('copied');
-    setTimeout(function() {
-      btn.textContent = 'Copy';
-      btn.classList.remove('copied');
-    }, 2000);
-  };
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(doCopy).catch(function() {
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      doCopy();
-    });
-  } else {
-    var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    doCopy();
-  }
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   GOD-MODE PAYMENT SUBMIT v142.4.0
-   1. POST to Formspree (email backup)
-   2. POST to /api/payment/notify (Worker — triggers Telegram alert)
-   3. For BSC crypto: starts on-chain verification polling
-   ══════════════════════════════════════════════════════════════════════ */
-var _activeReviewId = null;
-var _bscPollTimer   = null;
-
-function handleSubmit(e) {
-  e.preventDefault();
-  var btn = document.getElementById('submit-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Submitting…'; }
-
-  var form    = e.target;
-  var fd      = new FormData(form);
-
-  // Gather structured data for Worker API
-  var email   = (form.querySelector('[name="email"]') || {}).value || '';
-  var name    = (form.querySelector('[name="name"]')  || {}).value || '';
-  var org     = (form.querySelector('[name="organization"]') || {}).value || '';
-  var country = (form.querySelector('[name="country"]') || {}).value || '';
-  var method  = (form.querySelector('[name="payment_method_detail"]') || {}).value || 'unknown';
-  var txid    = (form.querySelector('[name="transaction_id"]') || {}).value || '';
-  var amt     = (form.querySelector('[name="amount_paid"]') || {}).value || '';
-  var plan    = currentPlan || 'pro';
-  var isCrypto = method.toLowerCase().includes('crypto') || method.toLowerCase().includes('bnb') || method.toLowerCase().includes('bsc') || method.toLowerCase().includes('usdt');
-  var isBSC    = method.toLowerCase().includes('bsc') || method.toLowerCase().includes('bnb');
-  var txhash   = (isBSC && txid.startsWith('0x')) ? txid : '';
-
-  var workerPayload = {
-    email:   email,
-    name:    name,
-    org:     org,
-    country: country,
-    plan:    plan === 'mssp' ? 'mssp' : plan,
-    method:  method,
-    ref:     txid,
-    txhash:  txhash,
-    amount:  amt,
-  };
-
-  // Fire Formspree (email backup) + Worker notify in parallel
-  var fsPromise = fetch(form.action, {
-    method:  'POST',
-    body:    fd,
-    headers: { 'Accept': 'application/json' },
-  }).catch(() => ({ ok: true }));  // Formspree failure is non-critical
-
-  var workerPromise = fetch('/api/payment/notify', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body:    JSON.stringify(workerPayload),
-  });
-
-  Promise.all([fsPromise, workerPromise])
-    .then(function(results) {
-      return results[1].json().then(function(wData) {
-        return { workerOk: results[1].ok, wData: wData };
-      });
-    })
-    .then(function(r) {
-      if (r.workerOk && r.wData && r.wData.review_id) {
-        _activeReviewId = r.wData.review_id;
-        showSuccessState(plan, r.wData);
-        if (isBSC && txhash && r.wData.verify_url) {
-          startBSCPolling(txhash, _activeReviewId);
-        }
-      } else {
-        // Worker returned error but Formspree likely succeeded — still show success
-        showSuccessState(plan, { review_id: 'FS-' + Date.now(), bsc_status: null });
-      }
-    })
-    .catch(function() {
-      // Both failed — still show success UI but give offline contact
-      showSuccessState(plan, { review_id: 'OFFLINE-' + Date.now(), bsc_status: null });
-      if (btn) { btn.disabled = false; btn.textContent = 'Retry Submission'; }
-    });
-}
-
-function showSuccessState(plan, wData) {
-  var cs  = document.getElementById('checkout-state');
-  var ss  = document.getElementById('success-state');
-  var sp  = document.getElementById('success-plan');
-  var rid = document.getElementById('success-review-id');
-  var waL = document.getElementById('success-wa-link');
-  var tl  = document.getElementById('success-timeline');
-
-  if (cs) cs.style.display = 'none';
-  if (ss) ss.style.display = 'block';
-  if (sp && PLANS[plan]) sp.textContent = PLANS[plan].name;
-  if (rid && wData.review_id) rid.textContent = wData.review_id;
-  if (waL && wData.review_id) {
-    waL.href = 'https://wa.me/918179881447?text=' + encodeURIComponent('SENTINEL APEX Payment - Review ID: ' + wData.review_id + ' | Plan: ' + (plan || '').toUpperCase());
-  }
-  var isCrypto = wData.bsc_status !== null && wData.bsc_status !== undefined;
-  if (tl) {
-    if (isCrypto) {
-      tl.innerHTML = '&#9203; Crypto payments: <strong style="color:#60a5fa;">auto-verifying via blockchain…</strong>';
-    } else {
-      tl.innerHTML = '&#9203; UPI / Bank / PayPal: <strong style="color:var(--green);">API key delivered within 2 hours</strong>';
-    }
-  }
-  // Scroll to top of success state
-  if (ss) ss.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// BSC on-chain verification polling (polls /api/payment/verify-bsc every 15s, up to 12 tries = 3 min)
-function startBSCPolling(txhash, rid) {
-  var cvDiv  = document.getElementById('success-crypto-verify');
-  var status = document.getElementById('bsc-verify-status');
-  var bar    = document.getElementById('bsc-verify-progress');
-  if (cvDiv) cvDiv.style.display = 'block';
-
-  var tries    = 0;
-  var maxTries = 12;  // 12 x 15s = 3 minutes
-
-  function poll() {
-    tries++;
-    var pct = Math.min(10 + (tries / maxTries) * 85, 95);
-    if (bar) bar.style.width = pct + '%';
-
-    fetch('/api/payment/verify-bsc?txhash=' + encodeURIComponent(txhash) + '&rid=' + encodeURIComponent(rid))
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        if (d.status === 'confirmed') {
-          if (bar) bar.style.width = '100%';
-          if (bar) bar.style.background = '#10b981';
-          if (status) status.innerHTML = '&#10003; <strong style="color:#10b981;">Transaction confirmed on BSC!</strong> Block: ' + (d.detail && d.detail.block ? d.detail.block : '—') + '. Account activating now.';
-          if (cvDiv) cvDiv.style.border = '1px solid rgba(16,185,129,0.4)';
-          if (cvDiv) cvDiv.style.background = 'rgba(16,185,129,0.08)';
-          clearInterval(_bscPollTimer);
-          // Update timeline
-          var tl = document.getElementById('success-timeline');
-          if (tl) tl.innerHTML = '&#10003; <strong style="color:#10b981;">Crypto verified! Your account will be activated within 15 minutes.</strong>';
-        } else if (d.status === 'failed') {
-          if (status) status.innerHTML = '&#9888; Transaction failed on-chain. <a href="https://bscscan.com/tx/' + txhash + '" target="_blank" style="color:#60a5fa;">Check BscScan</a> and WhatsApp us.';
-          clearInterval(_bscPollTimer);
-        } else if (d.status === 'wrong_address') {
-          if (status) status.innerHTML = '&#9888; Wrong address detected. Please WhatsApp us immediately with your TXID.';
-          clearInterval(_bscPollTimer);
-        } else if (d.status === 'pending' || d.status === 'not_found') {
-          if (status) status.textContent = 'Waiting for confirmation… attempt ' + tries + '/' + maxTries + '. (~' + ((maxTries - tries) * 15) + 's remaining)';
-          if (tries >= maxTries) {
-            if (status) status.innerHTML = 'Auto-verify timed out. <a href="https://bscscan.com/tx/' + txhash + '" target="_blank" style="color:#60a5fa;">View on BscScan</a> — your payment is recorded and will be manually verified.';
-            clearInterval(_bscPollTimer);
-          }
-        }
-      })
-      .catch(function() {
-        if (tries >= maxTries) clearInterval(_bscPollTimer);
-      });
-  }
-
-  _bscPollTimer = setInterval(poll, 15000);
-  setTimeout(poll, 2000);  // first check after 2s
-}
-
-// INIT
-document.addEventListener('DOMContentLoaded', function() {
-  updateSummary();
-  updateQR();
-  // Support ?plan=pro|enterprise|mssp URL param for deep linking
-  var params = new URLSearchParams(window.location.search);
-  var planParam = params.get('plan');
-  if (planParam && PLANS[planParam]) {
-    selectPlan(planParam);
-  }
-  // Support ?annual=1
-  if (params.get('annual') === '1') {
-    toggleBilling();
-  }
-});
-</script>
-
-div>
+</div>
       <div class="contact-row">&#128222; <a href="tel:+918179881447">+91 8179881447</a></div>
       <div class="contact-row">&#127760; <a href="https://cyberdudebivash.com" target="_blank" rel="noopener">cyberdudebivash.com</a></div>
       <div class="gst-notice">&#128203; GST Registered &middot; GSTIN: 21ARKPN8270G1ZP &middot; Odisha, India</div>
@@ -1403,7 +1060,158 @@ function copyText(text, btn) {
   }
 }
 
-// handleSubmit defined above in first script block (god-mode v142.4.0)
+var _activeReviewId = null;
+var _bscPollTimer   = null;
+
+function handleSubmit(e) {
+  e.preventDefault();
+  var btn = document.getElementById('submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Submitting…'; }
+
+  var form    = e.target;
+  var fd      = new FormData(form);
+
+  // Gather structured data for Worker API
+  var email   = (form.querySelector('[name="email"]') || {}).value || '';
+  var name    = (form.querySelector('[name="name"]')  || {}).value || '';
+  var org     = (form.querySelector('[name="organization"]') || {}).value || '';
+  var country = (form.querySelector('[name="country"]') || {}).value || '';
+  var method  = (form.querySelector('[name="payment_method_detail"]') || {}).value || 'unknown';
+  var txid    = (form.querySelector('[name="transaction_id"]') || {}).value || '';
+  var amt     = (form.querySelector('[name="amount_paid"]') || {}).value || '';
+  var plan    = currentPlan || 'pro';
+  var isCrypto = method.toLowerCase().includes('crypto') || method.toLowerCase().includes('bnb') || method.toLowerCase().includes('bsc') || method.toLowerCase().includes('usdt');
+  var isBSC    = method.toLowerCase().includes('bsc') || method.toLowerCase().includes('bnb');
+  var txhash   = (isBSC && txid.startsWith('0x')) ? txid : '';
+
+  var workerPayload = {
+    email:   email,
+    name:    name,
+    org:     org,
+    country: country,
+    plan:    plan === 'mssp' ? 'mssp' : plan,
+    method:  method,
+    ref:     txid,
+    txhash:  txhash,
+    amount:  amt,
+  };
+
+  // Fire Formspree (email backup) + Worker notify in parallel
+  var fsPromise = fetch(form.action, {
+    method:  'POST',
+    body:    fd,
+    headers: { 'Accept': 'application/json' },
+  }).catch(() => ({ ok: true }));  // Formspree failure is non-critical
+
+  var workerPromise = fetch('/api/payment/notify', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body:    JSON.stringify(workerPayload),
+  });
+
+  Promise.all([fsPromise, workerPromise])
+    .then(function(results) {
+      return results[1].json().then(function(wData) {
+        return { workerOk: results[1].ok, wData: wData };
+      });
+    })
+    .then(function(r) {
+      if (r.workerOk && r.wData && r.wData.review_id) {
+        _activeReviewId = r.wData.review_id;
+        showSuccessState(plan, r.wData);
+        if (isBSC && txhash && r.wData.verify_url) {
+          startBSCPolling(txhash, _activeReviewId);
+        }
+      } else {
+        // Worker returned error but Formspree likely succeeded — still show success
+        showSuccessState(plan, { review_id: 'FS-' + Date.now(), bsc_status: null });
+      }
+    })
+    .catch(function() {
+      // Both failed — still show success UI but give offline contact
+      showSuccessState(plan, { review_id: 'OFFLINE-' + Date.now(), bsc_status: null });
+      if (btn) { btn.disabled = false; btn.textContent = 'Retry Submission'; }
+    });
+}
+
+function showSuccessState(plan, wData) {
+  var cs  = document.getElementById('checkout-state');
+  var ss  = document.getElementById('success-state');
+  var sp  = document.getElementById('success-plan');
+  var rid = document.getElementById('success-review-id');
+  var waL = document.getElementById('success-wa-link');
+  var tl  = document.getElementById('success-timeline');
+
+  if (cs) cs.style.display = 'none';
+  if (ss) ss.style.display = 'block';
+  if (sp && PLANS[plan]) sp.textContent = PLANS[plan].name;
+  if (rid && wData.review_id) rid.textContent = wData.review_id;
+  if (waL && wData.review_id) {
+    waL.href = 'https://wa.me/918179881447?text=' + encodeURIComponent('SENTINEL APEX Payment - Review ID: ' + wData.review_id + ' | Plan: ' + (plan || '').toUpperCase());
+  }
+  var isCrypto = wData.bsc_status !== null && wData.bsc_status !== undefined;
+  if (tl) {
+    if (isCrypto) {
+      tl.innerHTML = '&#9203; Crypto payments: <strong style="color:#60a5fa;">auto-verifying via blockchain…</strong>';
+    } else {
+      tl.innerHTML = '&#9203; UPI / Bank / PayPal: <strong style="color:var(--green);">API key delivered within 2 hours</strong>';
+    }
+  }
+  // Scroll to top of success state
+  if (ss) ss.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// BSC on-chain verification polling (polls /api/payment/verify-bsc every 15s, up to 12 tries = 3 min)
+function startBSCPolling(txhash, rid) {
+  var cvDiv  = document.getElementById('success-crypto-verify');
+  var status = document.getElementById('bsc-verify-status');
+  var bar    = document.getElementById('bsc-verify-progress');
+  if (cvDiv) cvDiv.style.display = 'block';
+
+  var tries    = 0;
+  var maxTries = 12;  // 12 x 15s = 3 minutes
+
+  function poll() {
+    tries++;
+    var pct = Math.min(10 + (tries / maxTries) * 85, 95);
+    if (bar) bar.style.width = pct + '%';
+
+    fetch('/api/payment/verify-bsc?txhash=' + encodeURIComponent(txhash) + '&rid=' + encodeURIComponent(rid))
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status === 'confirmed') {
+          if (bar) bar.style.width = '100%';
+          if (bar) bar.style.background = '#10b981';
+          if (status) status.innerHTML = '&#10003; <strong style="color:#10b981;">Transaction confirmed on BSC!</strong> Block: ' + (d.detail && d.detail.block ? d.detail.block : '—') + '. Account activating now.';
+          if (cvDiv) cvDiv.style.border = '1px solid rgba(16,185,129,0.4)';
+          if (cvDiv) cvDiv.style.background = 'rgba(16,185,129,0.08)';
+          clearInterval(_bscPollTimer);
+          // Update timeline
+          var tl = document.getElementById('success-timeline');
+          if (tl) tl.innerHTML = '&#10003; <strong style="color:#10b981;">Crypto verified! Your account will be activated within 15 minutes.</strong>';
+        } else if (d.status === 'failed') {
+          if (status) status.innerHTML = '&#9888; Transaction failed on-chain. <a href="https://bscscan.com/tx/' + txhash + '" target="_blank" style="color:#60a5fa;">Check BscScan</a> and WhatsApp us.';
+          clearInterval(_bscPollTimer);
+        } else if (d.status === 'wrong_address') {
+          if (status) status.innerHTML = '&#9888; Wrong address detected. Please WhatsApp us immediately with your TXID.';
+          clearInterval(_bscPollTimer);
+        } else if (d.status === 'pending' || d.status === 'not_found') {
+          if (status) status.textContent = 'Waiting for confirmation… attempt ' + tries + '/' + maxTries + '. (~' + ((maxTries - tries) * 15) + 's remaining)';
+          if (tries >= maxTries) {
+            if (status) status.innerHTML = 'Auto-verify timed out. <a href="https://bscscan.com/tx/' + txhash + '" target="_blank" style="color:#60a5fa;">View on BscScan</a> — your payment is recorded and will be manually verified.';
+            clearInterval(_bscPollTimer);
+          }
+        }
+      })
+      .catch(function() {
+        if (tries >= maxTries) clearInterval(_bscPollTimer);
+      });
+  }
+
+  _bscPollTimer = setInterval(poll, 15000);
+  setTimeout(poll, 2000);  // first check after 2s
+}
+
 // This block intentionally left as a no-op to avoid double-definition.
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1416,5 +1224,3 @@ document.addEventListener('DOMContentLoaded', function() {
   if (params.get('annual') === '1') { toggleBilling(); }
 });
 </script>
-</body>
-</html>
