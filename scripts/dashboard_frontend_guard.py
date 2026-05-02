@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SENTINEL APEX v147.0 -- DASHBOARD FRONTEND ARCHITECTURE GUARD
+SENTINEL APEX v149.1 -- DASHBOARD FRONTEND ARCHITECTURE GUARD
 =============================================================
 STAGE 3.92 -- HARD FAIL GATE
 
@@ -27,6 +27,8 @@ Exit 1 = FAIL (blocks deployment)
 import sys
 import re
 import os
+import subprocess
+import tempfile
 
 INDEX_PATH = 'index.html'
 ERRORS = []
@@ -47,7 +49,7 @@ def ok(msg):
     print('[ OK] ' + msg)
 
 
-print('=== DASHBOARD FRONTEND GUARD v147.0 ===')
+print('=== DASHBOARD FRONTEND GUARD v149.1 ===')
 print('Checking: ' + os.path.abspath(INDEX_PATH))
 print()
 
@@ -205,14 +207,74 @@ else:
 
 print()
 
+# CHECK 9: JavaScript syntax validation (v149.1 P0 PERMANENT FIX)
+# The P0 incident was caused by a SyntaxError in the main <script> block that
+# prevented ALL JavaScript from executing. This check runs node --check on the
+# extracted main script to catch SyntaxErrors before they reach gh-pages.
+print('CHECK 9: JavaScript syntax validation (node --check on main <script> block)')
+node_available = False
+try:
+    result = subprocess.run(['node', '--version'], capture_output=True, timeout=10)
+    node_available = (result.returncode == 0)
+except (FileNotFoundError, subprocess.TimeoutExpired):
+    node_available = False
+
+if not node_available:
+    warn('node not available in PATH -- JS syntax check skipped (install Node.js on runner)')
+else:
+    # Extract the largest <script> block (the main app script)
+    script_blocks = re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>', content)
+    if not script_blocks:
+        fail('No <script> blocks found in index.html -- file may be corrupt')
+    else:
+        largest_script = max(script_blocks, key=len)
+        script_size = len(largest_script)
+        print('  Main script block: {:,} chars'.format(script_size))
+
+        if script_size < 10000:
+            warn('Main script block is unexpectedly small ({:,} chars) -- may be truncated'.format(script_size))
+        else:
+            # Write to temp file and run node --check
+            tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False, encoding='utf-8')
+            tmp.write(largest_script)
+            tmp.close()
+
+            try:
+                check_result = subprocess.run(
+                    ['node', '--check', tmp.name],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                if check_result.returncode == 0:
+                    ok('JavaScript syntax VALID -- node --check passed on {:,}-char main script'.format(script_size))
+                else:
+                    err_output = (check_result.stderr or check_result.stdout or '').strip()
+                    # Extract just the SyntaxError line for clarity
+                    err_lines = [l for l in err_output.split('\n') if 'SyntaxError' in l or 'Error' in l]
+                    short_err = err_lines[0] if err_lines else err_output[:200]
+                    fail('JavaScript SyntaxError detected -- deployment BLOCKED')
+                    fail('  node --check error: {}'.format(short_err))
+                    fail('  Fix: Find and fix the syntax error in index.html main <script> block')
+                    fail('  Hint: Run node --check locally on the extracted script to pinpoint line/col')
+            except subprocess.TimeoutExpired:
+                warn('node --check timed out (30s) on {:,}-char script -- skipping'.format(script_size))
+            finally:
+                try:
+                    os.unlink(tmp.name)
+                except OSError:
+                    pass
+
+print()
+
 # RESULT
-total_checks = 8
+total_checks = 9
 print('=' * 60)
 print('CHECKS: {} total | ERRORS: {} | WARNINGS: {}'.format(total_checks, len(ERRORS), len(WARNINGS)))
 print()
 
 if ERRORS:
-    print('[DASHBOARD FRONTEND GUARD] FAILED -- deployment blocked')
+    print('[DASHBOARD FRONTEND GUARD v149.1] FAILED -- deployment blocked')
     print()
     print('Errors:')
     for e in ERRORS:
@@ -223,7 +285,7 @@ if ERRORS:
             print('  ! ' + w)
     sys.exit(1)
 else:
-    print('[DASHBOARD FRONTEND GUARD v147.0] PASSED -- frontend architecture invariants hold')
+    print('[DASHBOARD FRONTEND GUARD v149.1] PASSED -- all invariants hold, JS syntax clean')
     if WARNINGS:
         print('Warnings (non-blocking):')
         for w in WARNINGS:
