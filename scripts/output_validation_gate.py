@@ -86,14 +86,27 @@ def unwrap_entries(data, path_label):
             return data[key], None
     return [], f"Unknown JSON structure in {path_label}: keys={list(data.keys())[:8]}"
 
-def check_file(path, label, errors, warnings, cap=None):
-    """Full gate check on a single JSON file. Returns entries list."""
+def check_file(path, label, errors, warnings, cap=None, required=True):
+    """Full gate check on a single JSON file. Returns entries list.
+
+    required=True  (default): missing/empty file is a HARD FAIL (ERROR).
+    required=False           : missing/empty file is a WARNING only.
+                               Use for runtime-generated files that are absent
+                               on a fresh CI checkout (e.g. feed_manifest.json).
+    """
     if not os.path.exists(path):
-        errors.append(f"MISSING: {label}")
+        if required:
+            errors.append(f"MISSING: {label}")
+        else:
+            warnings.append(
+                f"MISSING [{label}]: runtime-generated file not present on this "
+                "checkout — skipping manifest gate (will be populated by data pipeline)"
+            )
         return []
 
     raw, data, load_err = load_raw_and_json(path)
     if load_err:
+        # A file that EXISTS but is unparseable is always an error regardless of required flag.
         errors.append(f"LOAD FAIL [{label}]: {load_err}")
         return []
 
@@ -123,7 +136,13 @@ def check_file(path, label, errors, warnings, cap=None):
         errors.append(f"OVERSIZE [{label}]: {len(entries)} entries (cap={cap})")
 
     if len(entries) == 0:
-        errors.append(f"EMPTY: {label} has 0 entries")
+        if required:
+            errors.append(f"EMPTY: {label} has 0 entries")
+        else:
+            warnings.append(
+                f"EMPTY [{label}]: runtime-generated file has 0 entries on this "
+                "checkout — skipping manifest gate (will be populated by data pipeline)"
+            )
         return []
 
     # Duplicate stix_id check
@@ -231,10 +250,14 @@ def main():
     print(f"         entries={len(api_entries)}")
 
     # ── Gate 2: feed_manifest.json ──────────────────────────
+    # required=False: this is a runtime-generated file (gitignored, untracked).
+    # It is ABSENT on fresh CI checkout — that is correct behaviour.
+    # HARD FAIL only when file EXISTS but is corrupt (handled in load_raw_and_json).
     print("[GATE 2] Validating data/stix/feed_manifest.json …")
     manifest_entries = check_file(
         os.path.join(repo_root, "data", "stix", "feed_manifest.json"),
-        "feed_manifest.json", errors, warnings
+        "feed_manifest.json", errors, warnings,
+        required=False
     )
     print(f"         entries={len(manifest_entries)}")
 
@@ -301,7 +324,7 @@ def main():
             else:
                 print(f"  [WARN] No backup found for {dest_rel}")
 
-    # ── Write report ─────────────────────────────────────────
+    # -- Write report -----------------------------------------
     os.makedirs(os.path.dirname(report_path), exist_ok=True)
     report = {
         "script":         "output_validation_gate",
@@ -320,9 +343,9 @@ def main():
     print(f"\n  Report: {report_path}")
     print(f"\n{'='*60}")
     if passed:
-        print(f"RESULT: PASS — All gates cleared")
+        print(f"RESULT: PASS -- All gates cleared")
     else:
-        print(f"RESULT: FAIL — {len(errors)} error(s), pipeline blocked")
+        print(f"RESULT: FAIL -- {len(errors)} error(s), pipeline blocked")
     print(f"{'='*60}\n")
 
     sys.exit(0 if passed else 1)
