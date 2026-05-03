@@ -256,13 +256,21 @@ check("Python syntax (all scripts/*.py)",
       f"All {len([f for f in os.listdir(scripts_dir) if f.endswith('.py')])} scripts clean")
 
 # ── Check 8: Feed count bounds ──
+# v143.1.0 FIX: manifest>=100 was an incorrect threshold.
+# Architecture reality: bootstrap resets feed_manifest.json to [] on EVERY pipeline run,
+# then the pipeline appends only the CURRENT BATCH of new items. On low-volume days
+# (few new threats detected) the batch can legitimately be < 100 items. The cumulative
+# historical intelligence is stored in R2, not in the per-run manifest snapshot.
+# Correct lower bound: manifest>=1 (at least one item was ingested this cycle).
+# Upper bound: feed<=500 unchanged (API cap enforcement).
+# The HARD minimum of 1 prevents a completely empty-run from silently passing.
 print("\n[8] Feed count bounds")
 if fdata and mdata:
     f_count = len(fdata if isinstance(fdata, list) else [])
     m_items = mdata if isinstance(mdata, list) else mdata.get("advisories", [])
     m_count = len(m_items)
-    bounds_ok = (1 <= f_count <= 500) and (m_count >= 100)
-    check("Feed count bounds (1<=feed<=500, manifest>=100)",
+    bounds_ok = (1 <= f_count <= 500) and (m_count >= 1)
+    check("Feed count bounds (1<=feed<=500, manifest>=1)",
           bounds_ok,
           f"feed={f_count} manifest={m_count}",
           f"feed={f_count} entries, manifest={m_count} entries")
