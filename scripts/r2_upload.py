@@ -198,15 +198,24 @@ def main() -> None:
         log.info("OK: apex_v2/ uploaded")
 
     # --- Upload 4a: Generated HTML reports (Tactical Dossiers) ---
+    # v143.1.0 FIX: check s3_sync return value — do NOT log OK on failure.
+    # AccessDenied on sentinel-apex-reports bucket was previously swallowed silently.
+    # Non-fatal: pipeline continues but the real outcome is now visible in logs.
     reports_dir = REPO_ROOT / "reports"
     if reports_dir.is_dir() and any(reports_dir.rglob("*.html")):
         log.info("Uploading HTML reports to R2...")
-        s3_sync(
+        reports_ok = s3_sync(
             "reports/", BUCKET_REPORTS, "reports/", endpoint,
             content_type="text/html; charset=utf-8",
             cache_control="public, max-age=300",
         )
-        log.info("OK: HTML reports uploaded to R2 (%s/reports/)", BUCKET_REPORTS)
+        if reports_ok:
+            log.info("OK: HTML reports uploaded to R2 (%s/reports/)", BUCKET_REPORTS)
+        else:
+            log.warning(
+                "WARN: HTML reports R2 sync FAILED (non-fatal — existing reports in R2 remain valid). "
+                "Check bucket permissions for %s. Pipeline continues.", BUCKET_REPORTS
+            )
     else:
         log.info("INFO: No reports/ directory or HTML files -- skipping report upload.")
 
