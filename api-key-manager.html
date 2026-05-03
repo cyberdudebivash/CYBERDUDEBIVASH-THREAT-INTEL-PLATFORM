@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>API Key Manager — CYBERDUDEBIVASH® SENTINEL APEX</title>
+<meta name="description" content="Generate, rotate, and monitor your SENTINEL APEX API keys. Full usage analytics, quota tracking, and tier management."/>
+<link rel="icon" href="assets/favicon.ico"/>
+<style>
+:root {
+  --bg:       #0a0d14;
+  --bg2:      #0f1420;
+  --bg3:      #141927;
+  --card:     #1a2035;
+  --border:   #1e2d45;
+  --border2:  #263552;
+  --accent:   #00d4ff;
+  --accent2:  #0099cc;
+  --green:    #00ff88;
+  --yellow:   #ffcc00;
+  --red:      #ff4455;
+  --orange:   #ff8800;
+  --purple:   #9966ff;
+  --text:     #e8edf5;
+  --text2:    #8899aa;
+  --text3:    #5c6b80;
+  --radius:   8px;
+  --font:     'SF Mono','Fira Code','Consolas',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh;}
+a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+
+/* ── Top Bar ── */
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar-left{display:flex;align-items:center;gap:12px;}
+.logo{font-size:15px;font-weight:700;color:var(--accent);letter-spacing:1px;}
+.badge{background:var(--accent);color:#000;font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;letter-spacing:1px;}
+.badge-godmode{background:linear-gradient(90deg,#ff8800,#ff4455);color:#fff;}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.nav-link{color:var(--text2);font-size:12px;transition:color 0.2s;}
+.nav-link:hover{color:var(--accent);}
+.btn{padding:7px 16px;border-radius:var(--radius);font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:var(--font);transition:all 0.2s;letter-spacing:0.5px;}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-danger{background:rgba(255,68,85,0.15);color:var(--red);border:1px solid var(--red);}
+.btn-danger:hover{background:rgba(255,68,85,0.3);}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2);}
+.btn-ghost:hover{color:var(--text);border-color:var(--accent);}
+.btn-green{background:rgba(0,255,136,0.15);color:var(--green);border:1px solid var(--green);}
+.btn-green:hover{background:rgba(0,255,136,0.25);}
+.btn-sm{padding:5px 10px;font-size:11px;}
+
+/* ── Layout ── */
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 52px);}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:20px 0;}
+.sidebar-section{margin-bottom:8px;}
+.sidebar-label{color:var(--text3);font-size:10px;font-weight:700;letter-spacing:1.5px;padding:0 16px;margin-bottom:4px;text-transform:uppercase;}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;color:var(--text2);transition:all 0.15s;border-left:2px solid transparent;}
+.sidebar-item:hover{background:rgba(0,212,255,0.05);color:var(--text);}
+.sidebar-item.active{background:rgba(0,212,255,0.08);color:var(--accent);border-left-color:var(--accent);}
+.sidebar-item .icon{width:16px;text-align:center;font-size:14px;}
+.sidebar-item .label{font-size:12px;}
+.sidebar-divider{border:none;border-top:1px solid var(--border);margin:10px 16px;}
+
+.main{padding:28px;overflow-y:auto;}
+.page{display:none;}.page.active{display:block;}
+
+/* ── Page Header ── */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;}
+.page-title{font-size:20px;font-weight:700;color:var(--text);letter-spacing:0.5px;}
+.page-subtitle{color:var(--text2);font-size:12px;margin-top:4px;}
+
+/* ── Stat Cards ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px;margin-bottom:28px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+.stat-label{color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.stat-value{font-size:26px;font-weight:700;color:var(--text);line-height:1;}
+.stat-sub{color:var(--text3);font-size:11px;margin-top:6px;}
+.stat-accent .stat-value{color:var(--accent);}
+.stat-green .stat-value{color:var(--green);}
+.stat-yellow .stat-value{color:var(--yellow);}
+.stat-red .stat-value{color:var(--red);}
+
+/* ── Table ── */
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);background:var(--bg3);}
+.table-title{font-size:13px;font-weight:600;color:var(--text);}
+table{width:100%;border-collapse:collapse;}
+thead th{background:var(--bg3);color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:10px 16px;text-align:left;border-bottom:1px solid var(--border);}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.15s;}
+tbody tr:hover{background:rgba(0,212,255,0.04);}
+tbody tr:last-child{border-bottom:none;}
+tbody td{padding:13px 16px;color:var(--text2);font-size:12px;vertical-align:middle;}
+
+/* ── Key Display ── */
+.key-display{display:flex;align-items:center;gap:8px;}
+.key-value{font-family:var(--font);color:var(--text);letter-spacing:1px;background:var(--bg);border:1px solid var(--border);padding:4px 10px;border-radius:4px;font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.copy-btn{background:transparent;border:none;cursor:pointer;color:var(--text3);padding:4px;border-radius:3px;transition:color 0.2s;font-size:12px;}
+.copy-btn:hover{color:var(--accent);}
+
+/* ── Tier Badge ── */
+.tier-badge{padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.tier-free{background:rgba(88,102,120,0.3);color:#8899aa;}
+.tier-pro,.tier-premium{background:rgba(0,212,255,0.15);color:var(--accent);}
+.tier-enterprise{background:rgba(153,102,255,0.2);color:var(--purple);}
+
+/* ── Status Dot ── */
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;}
+.dot-green{background:var(--green);box-shadow:0 0 6px var(--green);}
+.dot-red{background:var(--red);}
+.dot-yellow{background:var(--yellow);}
+
+/* ── Usage Bar ── */
+.usage-bar-wrap{display:flex;align-items:center;gap:10px;}
+.usage-bar{flex:1;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;min-width:80px;}
+.usage-fill{height:100%;border-radius:2px;transition:width 0.3s;}
+.fill-green{background:var(--green);}
+.fill-yellow{background:var(--yellow);}
+.fill-red{background:var(--red);}
+.usage-pct{font-size:11px;color:var(--text3);white-space:nowrap;}
+
+/* ── Form ── */
+.form-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;}
+.form-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;}
+.form-row.single{grid-template-columns:1fr;}
+.form-group label{display:block;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;}
+.form-group input,.form-group select{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-family:var(--font);font-size:12px;outline:none;transition:border-color 0.2s;}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent);}
+.form-group select option{background:var(--bg);}
+.form-hint{color:var(--text3);font-size:11px;margin-top:4px;}
+.form-actions{display:flex;gap:10px;margin-top:16px;}
+
+/* ── Alert Box ── */
+.alert{padding:12px 16px;border-radius:var(--radius);font-size:12px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;}
+.alert-info{background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);color:var(--accent);}
+.alert-warning{background:rgba(255,204,0,0.08);border:1px solid rgba(255,204,0,0.2);color:var(--yellow);}
+.alert-success{background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);color:var(--green);}
+.alert-error{background:rgba(255,68,85,0.08);border:1px solid rgba(255,68,85,0.2);color:var(--red);}
+.alert .icon{font-size:14px;margin-top:1px;}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.2s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius);padding:28px;width:480px;max-width:95vw;}
+.modal-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.modal-sub{color:var(--text2);font-size:12px;margin-bottom:20px;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}
+
+/* ── Code Block ── */
+.code-block{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;font-family:var(--font);font-size:12px;color:var(--green);line-height:1.7;overflow-x:auto;position:relative;}
+.code-block .copy-float{position:absolute;top:8px;right:8px;background:var(--bg2);border:1px solid var(--border2);padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;color:var(--text3);}
+.code-block .copy-float:hover{color:var(--accent);}
+
+/* ── Webhook status ── */
+.webhook-row td{vertical-align:top;}
+.webhook-url{font-size:11px;color:var(--text3);word-break:break-all;max-width:280px;}
+
+/* ── Dark Web Monitor ── */
+.scan-output{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:16px;display:none;}
+.scan-output.visible{display:block;}
+.risk-meter{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:14px;}
+.risk-circle{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0;border:3px solid;}
+.risk-critical{color:var(--red);border-color:var(--red);background:rgba(255,68,85,0.1);}
+.risk-high{color:var(--orange);border-color:var(--orange);background:rgba(255,136,0,0.1);}
+.risk-medium{color:var(--yellow);border-color:var(--yellow);background:rgba(255,204,0,0.1);}
+.risk-low{color:var(--green);border-color:var(--green);background:rgba(0,255,136,0.1);}
+.risk-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.risk-action{color:var(--text2);font-size:11px;margin-top:4px;}
+.indicator-row{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.indicator-type{font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:3px;white-space:nowrap;}
+.type-cred{background:rgba(255,68,85,0.15);color:var(--red);}
+.type-dark{background:rgba(153,102,255,0.15);color:var(--purple);}
+.type-paste{background:rgba(255,204,0,0.15);color:var(--yellow);}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--card);border:1px solid var(--green);color:var(--green);padding:10px 16px;border-radius:var(--radius);font-size:12px;z-index:9999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  .layout{grid-template-columns:1fr;}
+  .sidebar{display:none;}
+  .form-row{grid-template-columns:1fr;}
+  .stat-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="logo">⬡ SENTINEL APEX</span>
+    <span class="badge">v143.0.0</span>
+    <span class="badge badge-godmode">GOD-MODE</span>
+  </div>
+  <div class="topbar-right">
+    <a href="dashboard.html" class="nav-link">Dashboard</a>
+    <a href="api-docs.html" class="nav-link">API Docs</a>
+    <a href="upgrade.html" class="nav-link">Upgrade</a>
+    <div id="authStatus" style="display:flex;align-items:center;gap:8px;">
+      <span class="status-dot dot-yellow"></span>
+      <span style="color:var(--text2);font-size:11px;">Not authenticated</span>
+    </div>
+  </div>
+</div>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">API Keys</div>
+      <div class="sidebar-item active" onclick="showPage('keys')">
+        <span class="icon">🔑</span><span class="label">My Keys</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('create')">
+        <span class="icon">＋</span><span class="label">Create Key</span>
+      </div>
+    </div>
+    <hr class="sidebar-divider"/>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Analytics</div>
+      <div class="sidebar-item" onclick="showPage('usage')">
+        <span class="icon">📊</span><span class="label">Usage Stats</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('quota')">
+        <span class="icon">⚡</span><span class="label">Quota & Limits</span>
+      </div>
+    </div>
+    <hr class="sidebar-divider"/>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Integrations</div>
+      <div class="sidebar-item" onclick="showPage('webhooks')">
+        <span class="icon">🔗</span><span class="label">SOC Webhooks</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('darkweb')">
+        <span class="icon">🌑</span><span class="label">Dark Web Monitor</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('reports')">
+        <span class="icon">📄</span><span class="label">Intel Reports</span>
+      </div>
+    </div>
+    <hr class="sidebar-divider"/>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Account</div>
+      <div class="sidebar-item" onclick="showPage('billing')">
+        <span class="icon">💳</span><span class="label">Billing & Tier</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('security')">
+        <span class="icon">🛡</span><span class="label">Security Log</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main" id="mainContent">
+
+    <!-- Auth Gate -->
+    <div id="authGate" style="display:none;">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Authentication Required</div>
+          <div class="page-subtitle">Enter your JWT token or API key to access the key manager</div>
+        </div>
+      </div>
+      <div class="form-section" style="max-width:480px;">
+        <div class="form-title">🔐 Authenticate</div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>JWT Token or API Key</label>
+          <input type="password" id="authInput" placeholder="eyJhbGc... or cdb_..." oninput="validateAuthInput()"/>
+          <div class="form-hint">Get your key from <a href="get-api-key.html">Get API Key</a></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="authenticate()">Authenticate</button>
+          <a href="upgrade.html" class="btn btn-ghost">Get Pro Key</a>
+        </div>
+        <div id="authError" class="alert alert-error" style="margin-top:12px;display:none;">
+          <span class="icon">✗</span><span id="authErrorMsg">Authentication failed.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: Keys -->
+    <div class="page active" id="page-keys">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🔑 API Keys</div>
+          <div class="page-subtitle">Manage your SENTINEL APEX API keys</div>
+        </div>
+        <button class="btn btn-primary" onclick="showPage('create')">+ Create Key</button>
+      </div>
+      <div class="stat-grid" id="keyStats">
+        <div class="stat-card stat-accent">
+          <div class="stat-label">Active Keys</div>
+          <div class="stat-value" id="statActiveKeys">—</div>
+          <div class="stat-sub">of tier limit</div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-label">Current Tier</div>
+          <div class="stat-value" id="statTier">—</div>
+          <div class="stat-sub"><a href="upgrade.html">Upgrade</a></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Requests Today</div>
+          <div class="stat-value" id="statToday">—</div>
+          <div class="stat-sub">last 24h</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Requests This Month</div>
+          <div class="stat-value" id="statMonth">—</div>
+          <div class="stat-sub">rolling 30d</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">Your API Keys</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadKeys()">↻ Refresh</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Key ID</th>
+              <th>API Key</th>
+              <th>Tier</th>
+              <th>Usage Today</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="keysTableBody">
+            <tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px;">
+              <span id="keysLoadMsg">Loading keys…</span>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PAGE: Create Key -->
+    <div class="page" id="page-create">
+      <div class="page-header">
+        <div>
+          <div class="page-title">＋ Create API Key</div>
+          <div class="page-subtitle">Generate a new API key for your applications</div>
+        </div>
+      </div>
+      <div class="form-section" style="max-width:560px;">
+        <div class="form-title">Key Configuration</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Label / Name</label>
+            <input type="text" id="newKeyLabel" placeholder="e.g. Production SOC, Splunk Integration"/>
+            <div class="form-hint">A friendly name to identify this key</div>
+          </div>
+          <div class="form-group">
+            <label>Scope Preset</label>
+            <select id="newKeyScope">
+              <option value="read:intel">Read Intel (standard)</option>
+              <option value="read:intel,read:cves">Read Intel + CVEs</option>
+              <option value="read:intel,read:actors,read:cves">Full Read (Pro)</option>
+              <option value="read:intel,export:csv">Read + CSV Export</option>
+              <option value="read:intel,read:actors,read:cves,export:csv,export:misp">Enterprise Full</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Expiry</label>
+            <select id="newKeyExpiry">
+              <option value="never">Never expires</option>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+              <option value="365">1 year</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>IP Allowlist (optional)</label>
+            <input type="text" id="newKeyIP" placeholder="10.0.0.1, 192.168.1.0/24"/>
+            <div class="form-hint">Leave blank to allow all IPs</div>
+          </div>
+        </div>
+        <div class="alert alert-info">
+          <span class="icon">ℹ</span>
+          <span>Your key will be shown <strong>once</strong> after creation. Store it securely — it cannot be retrieved again.</span>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="createKey()">Generate Key</button>
+          <button class="btn btn-ghost" onclick="showPage('keys')">Cancel</button>
+        </div>
+      </div>
+
+      <!-- New Key Display (shown after creation) -->
+      <div id="newKeyResult" class="form-section" style="max-width:560px;display:none;">
+        <div class="form-title" style="color:var(--green);">✓ Key Created Successfully</div>
+        <div class="alert alert-warning">
+          <span class="icon">⚠</span>
+          <span><strong>Copy this key now.</strong> It will not be shown again after you leave this page.</span>
+        </div>
+        <div style="margin:12px 0;">
+          <label style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">Your API Key</label>
+          <div class="key-display">
+            <div class="key-value" id="newKeyValue" style="max-width:420px;">—</div>
+            <button class="copy-btn" onclick="copyText('newKeyValue')" title="Copy">⎘</button>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <div style="color:var(--text2);font-size:11px;margin-bottom:8px;">Quick Start:</div>
+          <div class="code-block" id="quickStartCode">
+            curl -H "Authorization: Bearer YOUR_KEY" \
+  https://intel.cyberdudebivash.com/api/feed
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;">
+          <button class="btn btn-green btn-sm" onclick="copyText('newKeyValue')">Copy Key</button>
+          <button class="btn btn-ghost btn-sm" onclick="showPage('keys')">View All Keys</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: Usage -->
+    <div class="page" id="page-usage">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📊 Usage Analytics</div>
+          <div class="page-subtitle">Real-time API consumption metrics</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadUsage()">↻ Refresh</button>
+      </div>
+
+      <div class="stat-grid" id="usageStats">
+        <div class="stat-card stat-accent">
+          <div class="stat-label">Requests Today</div>
+          <div class="stat-value" id="uToday">—</div>
+          <div class="stat-sub">last 24h</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">This Month</div>
+          <div class="stat-value" id="uMonth">—</div>
+          <div class="stat-sub">rolling 30d</div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-label">Quota Used</div>
+          <div class="stat-value" id="uQuotaPct">—</div>
+          <div class="stat-sub" id="uQuotaSub">of monthly limit</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Latency</div>
+          <div class="stat-value">~38ms</div>
+          <div class="stat-sub">Cloudflare Edge</div>
+        </div>
+      </div>
+
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <div class="table-header"><span class="table-title">Per-Key Breakdown</span></div>
+        <table>
+          <thead>
+            <tr><th>Key Label</th><th>Tier</th><th>Today</th><th>Month</th><th>Quota Used</th><th>Limit</th></tr>
+          </thead>
+          <tbody id="usageTableBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px;">Loading usage data…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PAGE: Quota -->
+    <div class="page" id="page-quota">
+      <div class="page-header">
+        <div>
+          <div class="page-title">⚡ Quota & Rate Limits</div>
+          <div class="page-subtitle">Tier limits and request caps</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><span class="table-title">Tier Comparison</span></div>
+        <table>
+          <thead>
+            <tr><th>Feature</th><th>Free</th><th>Pro ($29/mo)</th><th>Enterprise ($199/mo)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Requests/minute</td><td>60</td><td style="color:var(--accent)">500</td><td style="color:var(--purple)">2,000</td></tr>
+            <tr><td>Feed items/request</td><td>20</td><td style="color:var(--accent)">500</td><td style="color:var(--purple)">2,000</td></tr>
+            <tr><td>API keys</td><td>1</td><td style="color:var(--accent)">10</td><td style="color:var(--purple)">50</td></tr>
+            <tr><td>Full IOC arrays</td><td style="color:var(--red)">✗</td><td style="color:var(--green)">✓</td><td style="color:var(--green)">✓</td></tr>
+            <tr><td>STIX 2.1 bundles</td><td style="color:var(--red)">✗</td><td>Metadata only</td><td style="color:var(--green)">Full bundles</td></tr>
+            <tr><td>MITRE ATT&CK Heatmap</td><td>Preview</td><td style="color:var(--accent)">Full</td><td style="color:var(--green)">Full + API</td></tr>
+            <tr><td>Dark Web Monitor</td><td style="color:var(--red)">✗</td><td style="color:var(--accent)">50 scans/day</td><td style="color:var(--purple)">500 scans/day</td></tr>
+            <tr><td>Leak Check</td><td style="color:var(--red)">✗</td><td style="color:var(--green)">✓</td><td style="color:var(--green)">✓</td></tr>
+            <tr><td>Premium Intel Reports</td><td style="color:var(--red)">✗</td><td style="color:var(--accent)">$49/report</td><td style="color:var(--green)">Unlimited</td></tr>
+            <tr><td>SOC Webhooks</td><td style="color:var(--red)">✗</td><td style="color:var(--red)">✗</td><td style="color:var(--purple)">Splunk/Sentinel/QRadar</td></tr>
+            <tr><td>MISP Export</td><td style="color:var(--red)">✗</td><td style="color:var(--red)">✗</td><td style="color:var(--green)">✓</td></tr>
+            <tr><td>SLA & Support</td><td>Community</td><td>Email (48h)</td><td style="color:var(--purple)">Priority (4h)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:12px;">
+        <a href="upgrade.html?plan=pro" class="btn btn-primary">Upgrade to Pro — $29/mo</a>
+        <a href="upgrade.html?plan=enterprise" class="btn btn-ghost">Enterprise — $199/mo</a>
+        <a href="contact-enterprise.html" class="btn btn-ghost">Contact Sales</a>
+      </div>
+    </div>
+
+    <!-- PAGE: Webhooks -->
+    <div class="page" id="page-webhooks">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🔗 SOC Webhooks</div>
+          <div class="page-subtitle">Push new intel directly to your SIEM — Microsoft Sentinel, Splunk, IBM QRadar</div>
+        </div>
+      </div>
+      <div class="alert alert-info">
+        <span class="icon">ℹ</span>
+        <span>SIEM webhook integration requires <strong>Enterprise tier</strong>. Webhooks push new HIGH/CRITICAL advisories in real-time.</span>
+      </div>
+      <div class="form-section" id="webhookForm" style="max-width:560px;">
+        <div class="form-title">Register Webhook Endpoint</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Webhook URL</label>
+            <input type="url" id="wh_url" placeholder="https://your-siem.example.com/intake"/>
+          </div>
+          <div class="form-group">
+            <label>Format</label>
+            <select id="wh_format">
+              <option value="json">SENTINEL APEX JSON</option>
+              <option value="splunk">Splunk HEC JSON</option>
+              <option value="sentinel">Azure Sentinel (Log Analytics)</option>
+              <option value="qradar">IBM QRadar LEEF 2.0</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Severity Filter</label>
+            <select id="wh_severity">
+              <option value="CRITICAL">CRITICAL only</option>
+              <option value="HIGH" selected>HIGH and above</option>
+              <option value="MEDIUM">MEDIUM and above</option>
+              <option value="ALL">All severities</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Webhook Secret (optional)</label>
+            <input type="password" id="wh_secret" placeholder="HMAC signing secret"/>
+            <div class="form-hint">Used to verify payload authenticity</div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="registerWebhook()">Register Webhook</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadWebhooks()">↻ Load Existing</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><span class="table-title">Registered Webhooks</span></div>
+        <table>
+          <thead><tr><th>ID</th><th>Endpoint URL</th><th>Format</th><th>Filter</th><th>Created</th><th>Status</th></tr></thead>
+          <tbody id="webhookTableBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px;">No webhooks registered. Enterprise tier required.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PAGE: Dark Web Monitor -->
+    <div class="page" id="page-darkweb">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🌑 Dark Web Monitor</div>
+          <div class="page-subtitle">Scan email addresses and domains against 7 OSINT breach sources</div>
+        </div>
+      </div>
+      <div class="form-section" style="max-width:560px;">
+        <div class="form-title">Launch Breach Scan</div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Target (email or domain)</label>
+            <input type="text" id="dw_target" placeholder="user@company.com  or  company.com"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Scan Depth</label>
+            <select id="dw_depth">
+              <option value="quick">Quick (4 sources — Pro)</option>
+              <option value="full">Full Deep Scan (7 sources — Enterprise)</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button class="btn btn-primary" style="width:100%" onclick="runDarkWebScan()">Run Scan</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="scan-output" id="dwScanOutput">
+        <div class="risk-meter">
+          <div class="risk-circle" id="dwRiskCircle">—</div>
+          <div>
+            <div class="risk-label" id="dwSeverityLabel">—</div>
+            <div style="color:var(--text2);font-size:12px;margin-top:4px;" id="dwSeverityDesc">—</div>
+            <div class="risk-action" id="dwAction">—</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;" id="dwStats"></div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">Threat Indicators</div>
+        <div id="dwIndicators"></div>
+        <div style="margin-top:16px;">
+          <a href="upgrade.html?plan=enterprise&feature=darkweb" class="btn btn-ghost btn-sm" id="dwUpgrade" style="display:none;">Upgrade for Full 7-Source Scan →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: Reports -->
+    <div class="page" id="page-reports">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📄 Premium Intel Reports</div>
+          <div class="page-subtitle">Generate sellable threat intelligence packages — $49/report or included in Enterprise</div>
+        </div>
+      </div>
+      <div class="form-section" style="max-width:560px;">
+        <div class="form-title">Generate Report</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Report Type</label>
+            <select id="rpt_type">
+              <option value="weekly">Weekly Threat Summary</option>
+              <option value="monthly">Monthly Intelligence Report</option>
+              <option value="cve_focused">CVE Intelligence Focus</option>
+              <option value="actor_focused">Threat Actor Attribution</option>
+              <option value="custom">Custom Scope</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Severity Filter</label>
+            <select id="rpt_severity" multiple style="height:64px;">
+              <option value="CRITICAL" selected>CRITICAL</option>
+              <option value="HIGH" selected>HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+            <div class="form-hint">Hold Ctrl to select multiple</div>
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Custom Title (optional)</label>
+            <input type="text" id="rpt_title" placeholder="SENTINEL APEX Weekly Threat Intelligence Report — May 2026"/>
+          </div>
+        </div>
+        <div class="alert alert-info">
+          <span class="icon">ℹ</span>
+          <span>Reports are stored for 90 days and available via the API. PDF download available after generation.</span>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="generateReport()">Generate Report</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadReportList()">↻ My Reports</button>
+        </div>
+        <div id="rptGenResult" style="display:none;margin-top:14px;"></div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><span class="table-title">Generated Reports</span></div>
+        <table>
+          <thead><tr><th>Report ID</th><th>Type</th><th>Generated</th><th>Size</th><th>Actions</th></tr></thead>
+          <tbody id="reportTableBody">
+            <tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px;">No reports yet. Generate your first report above.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PAGE: Billing -->
+    <div class="page" id="page-billing">
+      <div class="page-header"><div>
+        <div class="page-title">💳 Billing & Tier</div>
+        <div class="page-subtitle">Manage your subscription and payment methods</div>
+      </div></div>
+      <div class="stat-grid">
+        <div class="stat-card stat-accent">
+          <div class="stat-label">Current Plan</div>
+          <div class="stat-value" id="billTier">—</div>
+          <div class="stat-sub" id="billRenewal">—</div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-label">Monthly Cost</div>
+          <div class="stat-value" id="billCost">—</div>
+          <div class="stat-sub">per month</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <a href="upgrade.html?plan=pro" class="btn btn-primary">Upgrade to Pro — $29/mo</a>
+        <a href="upgrade.html?plan=enterprise" class="btn btn-ghost">Enterprise — $199/mo</a>
+        <a href="https://billing.stripe.com" target="_blank" class="btn btn-ghost">Manage Stripe Subscription ↗</a>
+        <a href="contact-enterprise.html" class="btn btn-ghost">Contact Sales</a>
+      </div>
+    </div>
+
+    <!-- PAGE: Security Log -->
+    <div class="page" id="page-security">
+      <div class="page-header"><div>
+        <div class="page-title">🛡 Security Log</div>
+        <div class="page-subtitle">Authentication and API access events</div>
+      </div></div>
+      <div class="table-wrap">
+        <div class="table-header"><span class="table-title">Recent Events</span></div>
+        <table>
+          <thead><tr><th>Timestamp</th><th>Event</th><th>IP Hash</th><th>Endpoint</th><th>Result</th></tr></thead>
+          <tbody id="securityLogBody">
+            <tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px;">Security log available for Pro+ accounts</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- Revoke Confirm Modal -->
+<div class="modal-overlay" id="revokeModal">
+  <div class="modal">
+    <div class="modal-title">⚠ Revoke API Key</div>
+    <div class="modal-sub">This action is <strong>irreversible</strong>. Any applications using this key will lose access immediately.</div>
+    <div class="alert alert-warning"><span class="icon">⚠</span><span>Key: <strong id="revokeKeyLabel">—</strong></span></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('revokeModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmRevoke()">Revoke Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────��───────────────────────────────
+const API = 'https://intel.cyberdudebivash.com';
+let state = { token: null, tier: 'free', keys: [], usage: {}, revokeKeyId: null };
+
+// ── Init ─────────────────────────────��───────────────────────��─────────────────
+window.onload = () => {
+  const saved = sessionStorage.getItem('sentinel_token');
+  if (saved) { state.token = saved; initDashboard(); }
+  else { showAuthGate(); }
+};
+
+function showAuthGate() {
+  document.getElementById('authGate').style.display = 'block';
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+}
+
+function validateAuthInput() {
+  const v = document.getElementById('authInput').value.trim();
+  document.getElementById('authError').style.display = 'none';
+}
+
+async function authenticate() {
+  const val = document.getElementById('authInput').value.trim();
+  if (!val) return;
+  // Accept JWT (eyJ...) or API key (cdb_...)
+  state.token = val;
+  sessionStorage.setItem('sentinel_token', val);
+  document.getElementById('authGate').style.display = 'none';
+  await initDashboard();
+}
+
+async function initDashboard() {
+  showPage('keys');
+  updateAuthStatus();
+  await loadKeys();
+}
+
+function updateAuthStatus() {
+  const el = document.getElementById('authStatus');
+  if (state.token) {
+    el.innerHTML = `<span class="status-dot dot-green"></span>
+      <span style="color:var(--green);font-size:11px;">Authenticated</span>`;
+  }
+}
+
+// ── Navigation ─────────────────────────��───────────────────────────────���───────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(i => {
+    if (i.getAttribute('onclick') && i.getAttribute('onclick').includes(`'${id}'`))
+      i.classList.add('active');
+  });
+  // Lazy-load data
+  if (id === 'keys')    loadKeys();
+  if (id === 'usage')   loadUsage();
+  if (id === 'webhooks') loadWebhooks();
+  if (id === 'reports') loadReportList();
+}
+
+// ── API Fetch ───────────────────────────────────────────────���─────────────────
+async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  try {
+    const r = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+    return await r.json();
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+// ── Keys ──────────────────────────────────────────────────────��───────────────
+async function loadKeys() {
+  const data = await apiFetch('/api/account/usage');
+  if (data.error) {
+    document.getElementById('keysLoadMsg').textContent = 'Authentication required — please sign in.';
+    return;
+  }
+
+  state.tier = data.tier || 'free';
+  state.usage = data;
+
+  // Update stats
+  setEl('statTier', data.tier?.toUpperCase() || '—');
+  setEl('statToday', fmtNum(data.summary?.requests_today));
+  setEl('statMonth', fmtNum(data.summary?.requests_month));
+
+  const keys = data.keys || [];
+  state.keys = keys;
+  setEl('statActiveKeys', keys.filter(k => !k.revoked).length);
+
+  if (!keys.length) {
+    document.getElementById('keysTableBody').innerHTML =
+      `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px;">No API keys found. <a href="#" onclick="showPage('create')">Create your first key →</a></td></tr>`;
+    return;
+  }
+
+  const rows = keys.map(k => {
+    const pct = k.quota_used_pct || 0;
+    const fillClass = pct > 80 ? 'fill-red' : pct > 50 ? 'fill-yellow' : 'fill-green';
+    return `<tr>
+      <td>${escHtml(k.label || 'Unnamed')}</td>
+      <td><code style="color:var(--text3);font-size:11px;">${escHtml(k.key_id || '')}</code></td>
+      <td><div class="key-display">
+        <div class="key-value" id="kv_${k.key_id}">cdb_••••••••••••${(k.key_id||'').slice(-4)}</div>
+        <button class="copy-btn" title="Key ID" onclick="copyRaw('${escHtml(k.key_id || '')}')">⎘</button>
+      </div></td>
+      <td><span class="tier-badge tier-${(k.tier||'free').toLowerCase().replace('premium','pro')}">${(k.tier||'free').toUpperCase()}</span></td>
+      <td>
+        <div class="usage-bar-wrap">
+          <div class="usage-bar"><div class="usage-fill ${fillClass}" style="width:${Math.min(100,pct)}%"></div></div>
+          <span class="usage-pct">${fmtNum(k.requests_today)}</span>
+        </div>
+      </td>
+      <td><span class="status-dot ${k.revoked ? 'dot-red' : 'dot-green'}"></span>${k.revoked ? 'Revoked' : 'Active'}</td>
+      <td style="color:var(--text3);font-size:11px;">${fmtDate(k.created_at)}</td>
+      <td>
+        ${!k.revoked ? `<button class="btn btn-danger btn-sm" onclick="revokeKey('${escHtml(k.key_id||'')}','${escHtml(k.label||'')}')">Revoke</button>` : '<span style="color:var(--text3)">—</span>'}
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('keysTableBody').innerHTML = rows;
+
+  // Update billing page
+  const TIER_COST = { free: '$0', premium: '$29', pro: '$29', enterprise: '$199', mssp: '$1,999' };
+  setEl('billTier', (data.tier || 'free').toUpperCase());
+  setEl('billCost', TIER_COST[data.tier] || '$0');
+  setEl('billRenewal', 'Billed monthly');
+}
+
+async function createKey() {
+  if (!state.token) { showToast('Authentication required', 'error'); return; }
+  const label  = document.getElementById('newKeyLabel').value.trim() || 'Unnamed Key';
+  const scope  = document.getElementById('newKeyScope').value;
+  const expiry = document.getElementById('newKeyExpiry').value;
+  const ip     = document.getElementById('newKeyIP').value.trim();
+
+  const body = { label, scopes: scope.split(','), expiry: expiry === 'never' ? null : parseInt(expiry) };
+  if (ip) body.ip_allowlist = ip.split(',').map(s => s.trim());
+
+  const data = await apiFetch('/api/keys/create', { method: 'POST', body: JSON.stringify(body) });
+
+  if (data.error) { showToast('Error: ' + (data.message || data.error), 'error'); return; }
+
+  const key = data.api_key || data.key || '(check API response)';
+  document.getElementById('newKeyValue').textContent = key;
+  document.getElementById('quickStartCode').textContent =
+    `curl -H "Authorization: Bearer ${key}" \\\n  ${API}/api/feed`;
+  document.getElementById('newKeyResult').style.display = 'block';
+  showToast('Key created successfully!', 'success');
+  setTimeout(() => loadKeys(), 1000);
+}
+
+function revokeKey(keyId, label) {
+  state.revokeKeyId = keyId;
+  setEl('revokeKeyLabel', label || keyId);
+  document.getElementById('revokeModal').classList.add('open');
+}
+
+async function confirmRevoke() {
+  const id = state.revokeKeyId;
+  closeModal('revokeModal');
+  if (!id) return;
+  const data = await apiFetch(`/api/keys/${id}`, { method: 'DELETE' });
+  if (data.error) { showToast('Revoke failed: ' + (data.message || data.error), 'error'); return; }
+  showToast('Key revoked', 'success');
+  await loadKeys();
+}
+
+// ── Usage ────────────────────────────────���──────────────────────��─────────────
+async function loadUsage() {
+  const data = await apiFetch('/api/account/usage');
+  if (data.error) return;
+
+  setEl('uToday', fmtNum(data.summary?.requests_today));
+  setEl('uMonth', fmtNum(data.summary?.requests_month));
+  setEl('uQuotaPct', (data.summary?.quota_used_pct || 0) + '%');
+  setEl('uQuotaSub', data.summary?.monthly_limit === 'unlimited' ? 'Unlimited' : `of ${fmtNum(data.summary?.monthly_limit)} limit`);
+
+  const keys = data.keys || [];
+  if (!keys.length) return;
+
+  const rows = keys.filter(Boolean).map(k => {
+    const pct = k.quota_used_pct || 0;
+    const fillClass = pct > 80 ? 'fill-red' : pct > 50 ? 'fill-yellow' : 'fill-green';
+    const limit = k.monthly_limit === 'unlimited' ? '∞' : fmtNum(k.monthly_limit);
+    return `<tr>
+      <td>${escHtml(k.label || 'Unnamed')}</td>
+      <td><span class="tier-badge tier-${(k.tier||'free').replace('premium','pro')}">${(k.tier||'free').toUpperCase()}</span></td>
+      <td>${fmtNum(k.requests_today)}</td>
+      <td>${fmtNum(k.requests_month)}</td>
+      <td><div class="usage-bar-wrap">
+        <div class="usage-bar"><div class="usage-fill ${fillClass}" style="width:${Math.min(100,pct)}%"></div></div>
+        <span class="usage-pct">${pct}%</span>
+      </div></td>
+      <td style="color:var(--text3)">${limit}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('usageTableBody').innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">No data</td></tr>';
+}
+
+// ── Webhooks ──────────────────────────────���────────────────────────────────��──
+async function registerWebhook() {
+  const url    = document.getElementById('wh_url').value.trim();
+  const format = document.getElementById('wh_format').value;
+  const filter = document.getElementById('wh_severity').value;
+  const secret = document.getElementById('wh_secret').value.trim();
+  if (!url) { showToast('Webhook URL required', 'error'); return; }
+  const body = { url, format, filter_severity: filter };
+  if (secret) body.secret = secret;
+  const data = await apiFetch('/api/webhooks/siem', { method: 'POST', body: JSON.stringify(body) });
+  if (data.error) { showToast(data.message || data.error, 'error'); return; }
+  showToast('Webhook registered!', 'success');
+  loadWebhooks();
+}
+
+async function loadWebhooks() {
+  const data = await apiFetch('/api/webhooks/siem');
+  if (data.error) { return; }
+  const whs = data.webhooks || [];
+  if (!whs.length) return;
+  const rows = whs.map(w => `<tr>
+    <td style="font-size:11px;color:var(--text3)">${escHtml(w.id||'')}</td>
+    <td class="webhook-url">${escHtml(w.url||'')}</td>
+    <td><span class="tier-badge tier-pro">${escHtml(w.format||'json').toUpperCase()}</span></td>
+    <td>${escHtml(w.filter_severity||'HIGH')}</td>
+    <td style="font-size:11px;color:var(--text3)">${fmtDate(w.created_at)}</td>
+    <td><span class="status-dot ${w.active?'dot-green':'dot-red'}"></span>${w.active?'Active':'Inactive'}</td>
+  </tr>`).join('');
+  document.getElementById('webhookTableBody').innerHTML = rows;
+}
+
+// ── Dark Web Monitor ──────────────────────────────────────────────────────────
+async function runDarkWebScan() {
+  const target = document.getElementById('dw_target').value.trim();
+  const depth  = document.getElementById('dw_depth').value;
+  if (!target) { showToast('Enter a target email or domain', 'error'); return; }
+  showToast('Scanning…', 'info');
+  const data = await apiFetch('/api/dark-web/scan', {
+    method: 'POST',
+    body: JSON.stringify({ target, scan_depth: depth }),
+  });
+  if (data.error) { showToast(data.message || 'Scan failed — Pro tier required', 'error'); return; }
+  renderDarkWebResult(data);
+}
+
+function renderDarkWebResult(d) {
+  const out = document.getElementById('dwScanOutput');
+  out.classList.add('visible');
+
+  const sev = d.severity || 'LOW';
+  const riskClass = sev === 'CRITICAL' ? 'risk-critical' : sev === 'HIGH' ? 'risk-high' : sev === 'MEDIUM' ? 'risk-medium' : 'risk-low';
+  document.getElementById('dwRiskCircle').className = 'risk-circle ' + riskClass;
+  document.getElementById('dwRiskCircle').textContent = d.risk_score || 0;
+  setEl('dwSeverityLabel', sev);
+  setEl('dwSeverityDesc', d.severity_label || '');
+  setEl('dwAction', d.recommended_actions?.[0] || '');
+
+  const de = d.data_exposure || {};
+  document.getElementById('dwStats').innerHTML = [
+    { label: 'Breaches', value: d.breach_count || 0 },
+    { label: 'Dark Web Mentions', value: de.dark_web_mentions || 0 },
+    { label: 'Paste Count', value: de.paste_count || 0 },
+    { label: 'Sources Checked', value: d.sources_count || 0 },
+  ].map(s => `<div class="stat-card" style="padding:12px;">
+    <div class="stat-label">${s.label}</div>
+    <div class="stat-value" style="font-size:20px;">${s.value}</div>
+  </div>`).join('');
+
+  const inds = (d.threat_indicators || []).map(i => {
+    const typeClass = i.type === 'credential_exposure' ? 'type-cred' : i.type === 'darkweb_mention' ? 'type-dark' : 'type-paste';
+    return `<div class="indicator-row">
+      <span class="indicator-type ${typeClass}">${i.type.replace(/_/g,' ')}</span>
+      <span style="color:var(--text2);font-size:12px;">${escHtml(i.description||'')}</span>
+    </div>`;
+  }).join('') || '<div style="color:var(--text3);font-size:12px;padding:8px 0;">No active threat indicators found.</div>';
+  document.getElementById('dwIndicators').innerHTML = inds;
+
+  if (d.enterprise_upsell) {
+    document.getElementById('dwUpgrade').style.display = 'inline-block';
+  }
+}
+
+// ── Reports ──────────────────────────────��────────────────────────────────────
+async function generateReport() {
+  const type     = document.getElementById('rpt_type').value;
+  const title    = document.getElementById('rpt_title').value.trim();
+  const selOpts  = document.getElementById('rpt_severity');
+  const severities = Array.from(selOpts.selectedOptions).map(o => o.value);
+
+  showToast('Generating report…', 'info');
+  const body = { type, severity_filter: severities };
+  if (title) body.title = title;
+
+  const data = await apiFetch('/api/reports/premium', { method: 'POST', body: JSON.stringify(body) });
+  const res = document.getElementById('rptGenResult');
+  res.style.display = 'block';
+
+  if (data.error) {
+    res.innerHTML = `<div class="alert alert-error"><span class="icon">✗</span><span>${escHtml(data.message||data.error)}</span></div>`;
+    return;
+  }
+
+  const rptId = data.report_id || '';
+  res.innerHTML = `<div class="alert alert-success">
+    <span class="icon">✓</span>
+    <span>Report generated: <strong>${escHtml(rptId)}</strong><br/>
+    <a href="${API}/api/reports/${rptId}" target="_blank">Download JSON →</a>
+    &nbsp;|&nbsp;
+    <a href="${API}/api/reports/${rptId}/pdf" target="_blank">Download PDF →</a>
+    </span>
+  </div>`;
+  showToast('Report ready!', 'success');
+  loadReportList();
+}
+
+async function loadReportList() {
+  const data = await apiFetch('/api/reports/list');
+  if (data.error || !data.reports) return;
+  const rows = (data.reports || []).map(r => `<tr>
+    <td style="font-size:11px;font-family:var(--font)">${escHtml(r.report_id||'')}</td>
+    <td><span class="tier-badge tier-pro">${escHtml(r.report_type||'').toUpperCase()}</span></td>
+    <td style="font-size:11px;color:var(--text3)">${fmtDate(r.generated_at)}</td>
+    <td style="font-size:11px;color:var(--text3)">${fmtBytes(r.size_bytes)}</td>
+    <td>
+      <a href="${escHtml(r.download_url||'#')}" target="_blank" class="btn btn-ghost btn-sm">JSON</a>
+      <a href="${escHtml(r.pdf_url||'#')}" target="_blank" class="btn btn-ghost btn-sm">PDF</a>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">No reports yet</td></tr>';
+  document.getElementById('reportTableBody').innerHTML = rows;
+}
+
+// ── Modal ───────────────────────────────────────────────────────────��─────────
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ── Utilities ───────────────────��─────────────────────────────────────────────
+function setEl(id, val) { const e = document.getElementById(id); if (e) e.textContent = val; }
+function escHtml(s) { return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtNum(n) { return isNaN(parseInt(n)) ? '—' : parseInt(n).toLocaleString(); }
+function fmtDate(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch { return iso; } }
+function fmtBytes(b) { if (!b) return '—'; const kb = b/1024; return kb < 1024 ? kb.toFixed(1)+'KB' : (kb/1024).toFixed(1)+'MB'; }
+
+async function copyText(elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  await copyRaw(el.textContent);
+}
+async function copyRaw(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Copied to clipboard!', 'success');
+  } catch {
+    showToast('Copy failed — use Ctrl+C', 'error');
+  }
+}
+
+let toastTimer;
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = type === 'error' ? 'var(--red)' : type === 'info' ? 'var(--accent)' : 'var(--green)';
+  t.style.color = type === 'error' ? 'var(--red)' : type === 'info' ? 'var(--accent)' : 'var(--green)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>

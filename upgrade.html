@@ -875,29 +875,88 @@ var PLANS = {
 var currentPlan = 'pro';
 var isAnnual = false;
 
-/* ── Stripe click handler ─────────────────────────────────────────────
-   Routes to correct Stripe Payment Link based on selected plan + cycle.
-   If link is still a placeholder, shows setup message instead.
+/* ── Stripe click handler v143.0.0 ────────────────────────────────────
+   STRATEGY: Dynamic Checkout Sessions via Worker /api/checkout/session.
+   Worker creates a Stripe Checkout Session server-side (with user metadata
+   for auto-provisioning), then returns a redirect_url. If the Worker
+   endpoint returns 503 (STRIPE_SECRET_KEY not yet configured) we fall back
+   to static Payment Links from STRIPE_LINKS, and if those are also
+   placeholders we guide the user to WhatsApp / email.
    ──────────────────────────────────────────────────────────────────── */
 function cdbStripeClick(evt, plan) {
+  evt.preventDefault();               // always intercept — we handle redirect
   var cycle = isAnnual ? 'annual' : 'monthly';
-  var linkKey = plan + '_' + cycle;
-  var url = STRIPE_LINKS[linkKey] || STRIPE_LINKS[plan + '_monthly'];
-  if (!url || url.indexOf('CONFIGURE') !== -1) {
-    evt.preventDefault();
-    alert('Stripe payment is being configured.\n\nFor instant access, please use WhatsApp: +91 8179881447\nor email: bivash@cyberdudebivash.com\n\nAlternatively, use UPI / Bank / PayPal below.');
-    return false;
-  }
-  // Append UTM + plan metadata to Stripe URL
-  try {
-    var u = new URL(url);
-    u.searchParams.set('client_reference_id', plan + '_' + cycle + '_' + Date.now());
-    u.searchParams.set('utm_source', 'upgrade_page');
-    u.searchParams.set('utm_medium', 'stripe_button');
-    u.searchParams.set('utm_campaign', plan);
-    evt.currentTarget.href = u.toString();
-  } catch(e) {}
-  return true;
+  var btn   = evt.currentTarget;
+
+  // Show loading state on button
+  var origHTML = btn.innerHTML;
+  btn.innerHTML = '<span style="margin:auto;font-size:13px;opacity:0.9">⏳ Connecting to Stripe...</span>';
+  btn.style.pointerEvents = 'none';
+
+  var token = (typeof getToken === 'function') ? (getToken() || '') : '';
+  var email = '';
+  try { email = localStorage.getItem('cdb_user_email') || ''; } catch(e) {}
+
+  var headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+
+  fetch('/api/checkout/session', {
+    method:  'POST',
+    headers: headers,
+    body:    JSON.stringify({ plan: plan, cycle: cycle, email: email || undefined }),
+  })
+  .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+  .then(function(res) {
+    if (res.ok && res.data && res.data.redirect_url) {
+      // Server-side session created — navigate to Stripe Checkout
+      window.location.href = res.data.redirect_url;
+      return;
+    }
+    // Worker returned 503 (not configured) — fall back to static Payment Links
+    var linkKey = plan + '_' + cycle;
+    var url = STRIPE_LINKS[linkKey] || STRIPE_LINKS[plan + '_monthly'];
+    if (url && url.indexOf('CONFIGURE') === -1) {
+      try {
+        var u = new URL(url);
+        u.searchParams.set('client_reference_id', plan + '_' + cycle + '_' + Date.now());
+        u.searchParams.set('utm_source', 'upgrade_page');
+        u.searchParams.set('utm_medium', 'stripe_button');
+        u.searchParams.set('utm_campaign', plan);
+        window.open(u.toString(), '_blank', 'noopener');
+      } catch(e) { window.open(url, '_blank', 'noopener'); }
+      return;
+    }
+    // Last resort — manual contact
+    _showStripeSetupModal(plan, cycle);
+  })
+  .catch(function() {
+    // Network error — try static links before giving up
+    var url = STRIPE_LINKS[plan + '_' + cycle] || STRIPE_LINKS[plan + '_monthly'];
+    if (url && url.indexOf('CONFIGURE') === -1) { window.open(url, '_blank', 'noopener'); return; }
+    _showStripeSetupModal(plan, cycle);
+  })
+  .finally(function() {
+    btn.innerHTML = origHTML;
+    btn.style.pointerEvents = '';
+  });
+
+  return false;
+}
+
+/* Shown when both dynamic session AND static links are unconfigured */
+function _showStripeSetupModal(plan, cycle) {
+  var prices = { pro: { monthly: '$49', annual: '$490' }, enterprise: { monthly: '$499', annual: '$4,990' }, mssp: { monthly: '$1,999', annual: '$19,990' } };
+  var amount = (prices[plan] || {})[cycle] || '';
+  var msg = '⚡ SENTINEL APEX — ' + plan.toUpperCase() + ' ' + cycle.charAt(0).toUpperCase() + cycle.slice(1) + (amount ? ' (' + amount + ')' : '') + '\n\n'
+          + 'To complete your upgrade:\n'
+          + '📱 WhatsApp: +91 8179881447\n'
+          + '✉  Email: bivash@cyberdudebivash.com\n'
+          + '💳 PayPal: paypal.me/cyberdudebivash\n\n'
+          + 'Or use UPI / Bank / Crypto payment options below.';
+  alert(msg);
+  // Scroll to alternative payment section
+  var altSection = document.getElementById('panel-paypal') || document.querySelector('.pay-panel');
+  if (altSection) altSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 /* Update Stripe button appearance based on selected plan + billing cycle */
@@ -1171,6 +1230,9 @@ function startBSCPolling(txhash, rid) {
   var tries    = 0;
   var maxTries = 12;  // 12 x 15s = 3 minutes
 
+  var tries    = 0;
+  var maxTries = 12;  // 12 x 15s = 3 minutes
+
   function poll() {
     tries++;
     var pct = Math.min(10 + (tries / maxTries) * 85, 95);
@@ -1186,21 +1248,13 @@ function startBSCPolling(txhash, rid) {
           if (cvDiv) cvDiv.style.border = '1px solid rgba(16,185,129,0.4)';
           if (cvDiv) cvDiv.style.background = 'rgba(16,185,129,0.08)';
           clearInterval(_bscPollTimer);
-          // Update timeline
           var tl = document.getElementById('success-timeline');
-          if (tl) tl.innerHTML = '&#10003; <strong style="color:#10b981;">Crypto verified! Your account will be activated within 15 minutes.</strong>';
-        } else if (d.status === 'failed') {
-          if (status) status.innerHTML = '&#9888; Transaction failed on-chain. <a href="https://bscscan.com/tx/' + txhash + '" target="_blank" style="color:#60a5fa;">Check BscScan</a> and WhatsApp us.';
+          if (tl) tl.innerHTML = '&#10003; <strong style="color:#10b981;">Blockchain confirmed. API key activating now.</strong>';
+        } else if (d.status === 'pending' && tries < maxTries) {
+          if (status) status.textContent = 'Checking blockchain… attempt ' + tries + '/' + maxTries;
+        } else if (tries >= maxTries) {
           clearInterval(_bscPollTimer);
-        } else if (d.status === 'wrong_address') {
-          if (status) status.innerHTML = '&#9888; Wrong address detected. Please WhatsApp us immediately with your TXID.';
-          clearInterval(_bscPollTimer);
-        } else if (d.status === 'pending' || d.status === 'not_found') {
-          if (status) status.textContent = 'Waiting for confirmation… attempt ' + tries + '/' + maxTries + '. (~' + ((maxTries - tries) * 15) + 's remaining)';
-          if (tries >= maxTries) {
-            if (status) status.innerHTML = 'Auto-verify timed out. <a href="https://bscscan.com/tx/' + txhash + '" target="_blank" style="color:#60a5fa;">View on BscScan</a> — your payment is recorded and will be manually verified.';
-            clearInterval(_bscPollTimer);
-          }
+          if (status) status.innerHTML = '&#9203; Verification timed out. <a href="https://wa.me/918179881447" style="color:#00d4ff">WhatsApp us your TX hash</a> to manually activate.';
         }
       })
       .catch(function() {
@@ -1212,8 +1266,9 @@ function startBSCPolling(txhash, rid) {
   setTimeout(poll, 2000);  // first check after 2s
 }
 
-// This block intentionally left as a no-op to avoid double-definition.
+var _bscPollTimer = null;
 
+// ── Page initialisation ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
   updateSummary();
   updateQR();
@@ -1222,5 +1277,49 @@ document.addEventListener('DOMContentLoaded', function() {
   var planParam = params.get('plan');
   if (planParam && PLANS[planParam]) { selectPlan(planParam); }
   if (params.get('annual') === '1') { toggleBilling(); }
+
+  // ── Stripe Checkout return handler ──────────────────────────────────────────
+  // Stripe redirects back to /upgrade.html?checkout=success|cancelled&plan=...&session_id=...
+  var checkoutStatus = params.get('checkout');
+  var sessionId      = params.get('session_id');
+
+  if (checkoutStatus === 'success' && sessionId) {
+    var plan = planParam || 'pro';
+    var cs = document.getElementById('checkout-state');
+    var ss = document.getElementById('success-state');
+    var sp = document.getElementById('success-plan');
+    var tl = document.getElementById('success-timeline');
+    var rid = document.getElementById('success-review-id');
+    var waL = document.getElementById('success-wa-link');
+    if (cs) cs.style.display = 'none';
+    if (ss) ss.style.display = 'block';
+    if (sp && PLANS[plan]) sp.textContent = PLANS[plan].name + ' (Stripe)';
+    if (rid) rid.textContent = sessionId;
+    if (tl) tl.innerHTML = '&#10003; <strong style="color:#10b981;">Stripe payment confirmed.</strong> Your API key is being provisioned and will be emailed within 60 seconds.';
+    if (waL) waL.href = 'https://wa.me/918179881447?text=' + encodeURIComponent('SENTINEL APEX Stripe Checkout - Session: ' + sessionId + ' | Plan: ' + plan.toUpperCase());
+    if (ss) ss.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Clean URL without reload
+    try {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch(e) {}
+
+  } else if (checkoutStatus === 'cancelled') {
+    var plan = planParam || 'pro';
+    var banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#1c2945;border:1px solid #2a4070;border-radius:8px;padding:12px 20px;font-size:13px;color:#e2e8f0;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.4);max-width:420px;text-align:center';
+    banner.innerHTML = '&#8592; Checkout cancelled. Your plan hasn\'t changed &mdash; complete payment below when ready.';
+    document.body.appendChild(banner);
+    setTimeout(function() {
+      banner.style.transition = 'opacity 0.5s';
+      banner.style.opacity = '0';
+      setTimeout(function() { if (banner.parentNode) banner.parentNode.removeChild(banner); }, 500);
+    }, 5000);
+    try {
+      window.history.replaceState({}, document.title, window.location.pathname + (plan ? '?plan=' + plan : ''));
+    } catch(e) {}
+  }
+  // ── End Stripe return handler ────────────────────────────────────────────────
 });
 </script>
+</body>
+</html>
