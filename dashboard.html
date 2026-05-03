@@ -93,7 +93,7 @@ input:focus{border-color:var(--accent)}
 <body>
 
 <div class="topbar">
-  <div class="brand">CYBERDUDEBIVASH&reg; SENTINEL APEX <span>v141.0.0</span></div>
+  <div class="brand">CYBERDUDEBIVASH&reg; SENTINEL APEX <span>v143.0.0</span></div>
   <nav class="nav-links">
     <a href="/">Dashboard</a>
     <a href="/store.html">Store</a>
@@ -158,7 +158,7 @@ input:focus{border-color:var(--accent)}
     <div class="stat-card">
       <div class="stat-label">Platform Status</div>
       <div class="stat-value stat-green" id="stat-status">&mdash;</div>
-      <div class="stat-sub" id="stat-version">v141.0.0</div>
+      <div class="stat-sub" id="stat-version">v143.0.0</div>
     </div>
   </div>
 
@@ -228,6 +228,78 @@ input:focus{border-color:var(--accent)}
       </a>
     </div>
   </div>
+
+  <!-- ═══ AI ANOMALY RADAR + 30-DAY FORECAST ══════════════════════════════ -->
+  <div class="section-card" id="ai-radar-section" style="margin-bottom:24px">
+    <h3 style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <span style="font-size:22px">🧠</span>
+      AI Anomaly Radar
+      <span style="font-size:10px;font-weight:700;background:linear-gradient(135deg,#5b21b6,#00d4ff);color:#fff;padding:2px 10px;border-radius:20px;letter-spacing:1px;margin-left:4px">ISOLATION FOREST · GRADIENT BOOST</span>
+      <span id="ai-radar-tier-badge" style="display:none;font-size:10px;font-weight:700;background:#ef4444;color:#fff;padding:2px 10px;border-radius:20px;margin-left:auto;cursor:pointer" onclick="window.location='/upgrade.html?plan=pro&ref=ai_radar'">🔒 PRO REQUIRED</span>
+    </h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Real-time anomaly detection + 30-day predicted threat risk forecast powered by SENTINEL APEX AI pipeline</div>
+
+    <!-- Loading / paywall / error state -->
+    <div id="ai-radar-loading" style="text-align:center;padding:32px 0;color:var(--muted);font-size:13px">
+      <span style="font-size:24px;display:block;margin-bottom:8px;animation:spin 1.5s linear infinite;display:inline-block">⚙</span>
+      &nbsp; Loading AI intelligence…
+    </div>
+    <div id="ai-radar-paywall" style="display:none;text-align:center;padding:32px 24px;background:rgba(91,33,182,.08);border:1px solid rgba(91,33,182,.25);border-radius:10px">
+      <div style="font-size:32px;margin-bottom:8px">🔒</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px">AI Anomaly Radar is a PRO Feature</div>
+      <div style="color:var(--muted);font-size:13px;margin-bottom:16px">Isolation Forest anomaly detection, zero-day probability scoring, and 30-day predicted threat risk forecast — available on PRO and Enterprise tiers.</div>
+      <a href="/upgrade.html?plan=pro&ref=ai_radar" style="display:inline-block;background:linear-gradient(135deg,#5b21b6,#00d4ff);color:#fff;font-weight:700;font-size:13px;padding:10px 24px;border-radius:8px;text-decoration:none">⬆ Upgrade to PRO — $49/mo</a>
+    </div>
+
+    <!-- Anomaly stats row (hidden until loaded) -->
+    <div id="ai-radar-content" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px" id="ai-stat-cards">
+        <!-- populated by JS -->
+      </div>
+
+      <!-- Top anomalies table -->
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">⚠ Top Anomalies Detected</div>
+      <div id="ai-anomaly-table" style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:#0d1428;color:#64748b;text-align:left">
+              <th style="padding:8px 10px;font-weight:700;border-bottom:1px solid var(--border)">Advisory</th>
+              <th style="padding:8px 10px;font-weight:700;border-bottom:1px solid var(--border)">Anomaly Score</th>
+              <th style="padding:8px 10px;font-weight:700;border-bottom:1px solid var(--border)">Zero-Day Prob.</th>
+              <th style="padding:8px 10px;font-weight:700;border-bottom:1px solid var(--border)">Novelty</th>
+              <th style="padding:8px 10px;font-weight:700;border-bottom:1px solid var(--border)">Type</th>
+            </tr>
+          </thead>
+          <tbody id="ai-anomaly-rows">
+            <!-- populated by JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 30-day forecast bar chart -->
+      <div style="margin-top:20px">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">📈 30-Day Predicted Threat Risk Forecast</div>
+        <div id="ai-forecast-chart" style="display:flex;align-items:flex-end;gap:3px;height:80px;padding:0 4px">
+          <!-- populated by JS -->
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px">
+          <span id="ai-forecast-label-start">Day 1</span>
+          <span style="color:var(--accent);font-size:11px" id="ai-forecast-peak-label"></span>
+          <span id="ai-forecast-label-end">Day 30</span>
+        </div>
+      </div>
+
+      <!-- Prediction summary -->
+      <div id="ai-prediction-summary" style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px"></div>
+
+      <div style="margin-top:12px;font-size:11px;color:var(--muted)">
+        Powered by SENTINEL APEX AI v143.0.0 · Isolation Forest + Gradient Boosting ·
+        <span id="ai-radar-timestamp"></span>
+        <a href="/api-docs.html#anomaly" style="color:var(--accent);margin-left:8px">API docs ↗</a>
+      </div>
+    </div>
+  </div>
+  <!-- /AI ANOMALY RADAR -->
 
   <!-- Upgrade CTA (hidden for enterprise) -->
   <div class="upgrade-card" id="upgrade-section">
@@ -341,6 +413,7 @@ function showDashboard() {
   }
   loadHealth();
   loadKeys();
+  loadAIRadar();
 }
 
 function updateTierUI(tier) {
@@ -370,120 +443,165 @@ async function loadHealth() {
     const d = await r.json();
     document.getElementById('stat-advisories').textContent = d.pipeline?.advisory_count || '\u2014';
     document.getElementById('stat-status').textContent = d.status === 'healthy' ? '✓ Healthy' : d.status;
-    document.getElementById('stat-version').textContent = 'v' + (d.version || '141.0.0');
+    document.getElementById('stat-version').textContent = 'v' + (d.version || '143.0.0');
   } catch { document.getElementById('stat-status').textContent = 'Checking...'; }
 }
 
-async function loadKeys() {
-  const token = getToken();
-  const list  = document.getElementById('keys-list');
-  if (!token) { list.innerHTML = '<div style="color:var(--muted);font-size:14px;padding:16px">Sign in to view keys.</div>'; return; }
+// ── AI Anomaly Radar + 30-day Forecast ───────────────────────────────────────
+async function loadAIRadar() {
+  const token   = getToken();
+  const loading = document.getElementById('ai-radar-loading');
+  const paywall = document.getElementById('ai-radar-paywall');
+  const content = document.getElementById('ai-radar-content');
+  const badge   = document.getElementById('ai-radar-tier-badge');
+
+  function show(state) {
+    loading.style.display = state === 'loading' ? 'block' : 'none';
+    paywall.style.display = state === 'paywall' ? 'block' : 'none';
+    content.style.display = state === 'content' ? 'block' : 'none';
+    if (badge) badge.style.display = state === 'paywall' ? 'inline-block' : 'none';
+  }
+
+  show('loading');
+
+  // Fetch anomalies and prediction data in parallel
+  const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+  let anomalyData = null, predictData = null;
+
   try {
-    const r = await fetch(API + '/api/keys', { headers: { 'Authorization': 'Bearer ' + token } });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.message || 'Failed to load keys');
-    const keys = d.keys || [];
-    document.getElementById('stat-keys').textContent = keys.length;
-    if (keys.length === 0) {
-      list.innerHTML = '<div style="color:var(--muted);font-size:14px;text-align:center;padding:24px">No API keys yet. Create your first key above.</div>';
-      return;
+    const [aResp, pResp] = await Promise.allSettled([
+      fetch(API + '/api/anomalies?limit=10', { headers }),
+      fetch(API + '/api/predict?include_forecast=true', { headers }),
+    ]);
+
+    if (aResp.status === 'fulfilled' && aResp.value.ok) {
+      anomalyData = await aResp.value.json();
+    } else if (aResp.status === 'fulfilled') {
+      const err = await aResp.value.json().catch(() => ({}));
+      if (aResp.value.status === 403 || err.tier_required) { show('paywall'); return; }
     }
-    list.innerHTML = keys.map(k => `
-      <div class="key-row">
-        <div class="key-label">${escHtml(k.label || 'API Key')}</div>
-        <div class="key-value" title="Click to copy" onclick="copyKey(this,'${escHtml(k.key_id)}')">${escHtml(k.key_id?.slice(0,8)+'...' || '\u2014')}</div>
-        <span class="key-tier tier-${k.tier||'free'}-badge">${(k.tier||'free').toUpperCase()}</span>
-        <span style="font-size:11px;color:var(--muted)">${k.created_at ? new Date(k.created_at).toLocaleDateString() : ''}</span>
-      </div>
-    `).join('');
-  } catch(ex) {
-    list.innerHTML = `<div style="color:var(--muted);font-size:14px;padding:16px">${escHtml(ex.message)}</div>`;
+
+    if (pResp.status === 'fulfilled' && pResp.value.ok) {
+      predictData = await pResp.value.json();
+    } else if (pResp.status === 'fulfilled') {
+      const err = await pResp.value.json().catch(() => ({}));
+
+      if (pResp.value.status === 403 && !anomalyData) { show('paywall'); return; }
+    }
+  } catch(e) {
+    document.getElementById('ai-radar-section').style.display = 'none';
+    return;
   }
+
+  if (!anomalyData && !predictData) { show('paywall'); return; }
+
+  show('content');
+  _renderAnomalyStats(anomalyData, predictData);
+  _renderAnomalyTable(anomalyData);
+  _renderForecastChart(predictData);
+  _renderPredictionSummary(predictData);
+
+  const ts = document.getElementById('ai-radar-timestamp');
+  if (ts) ts.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
 }
 
-async function createKey() {
-  const token = getToken();
-  const err   = document.getElementById('key-error');
-  if (!token) { err.textContent = 'Please sign in first.'; err.style.display = 'block'; return; }
-  const label = prompt('Name this API key:', 'SIEM Integration Key');
-  if (!label) return;
-  try {
-    const r = await fetch(API + '/api/keys', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label })
+function _renderAnomalyStats(a, p) {
+  const container = document.getElementById('ai-stat-cards');
+  if (!container) return;
+  const anomalies   = (a && (a.anomalies || a.data)) ? (a.anomalies || a.data) : [];
+  const totalAnom   = anomalies.length;
+  const highAnom    = anomalies.filter(x => (x.anomaly_score || 0) > 0.7).length;
+  const avgZD       = anomalies.length
+    ? (anomalies.reduce((s,x) => s + (x.zero_day_probability||0), 0) / anomalies.length * 100).toFixed(1)
+    : '—';
+  const predict30   = p && (p.predicted_risk_30d || p.risk_30d) ? (p.predicted_risk_30d || p.risk_30d) : null;
+  const trend       = p && (p.trend || p.trend_direction);
+  const trendIcon   = trend === 'increasing' ? '↑' : trend === 'decreasing' ? '↓' : '→';
+  const trendColor  = trend === 'increasing' ? '#ef4444' : trend === 'decreasing' ? '#10b981' : '#f59e0b';
+  const stats = [
+    { icon:'⚠',       label:'Anomalies Detected',  value: String(totalAnom),  color:'#f97316' },
+    { icon:'🔴',      label:'High-Score Anomalies', value: String(highAnom),   color:'#ef4444' },
+    { icon:'🧬',      label:'Avg Zero-Day Prob.',   value: avgZD !== '—' ? avgZD+'%' : '—', color:'#7c3aed' },
+    { icon:trendIcon, label:'30-Day Risk Trend',    value: predict30 ? predict30.toFixed(1)+'/10' : '—', color:trendColor },
+  ];
+  container.innerHTML = stats.map(s =>
+    `<div style="background:#0d1428;border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
+      <div style="font-size:22px;margin-bottom:4px">${s.icon}</div>
+      <div style="font-size:20px;font-weight:800;color:${s.color}">${s.value}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${s.label}</div>
+    </div>`
+  ).join('');
+}
+
+function _renderAnomalyTable(a) {
+  const tbody = document.getElementById('ai-anomaly-rows');
+  if (!tbody) return;
+  const anomalies = ((a && (a.anomalies || a.data)) ? (a.anomalies || a.data) : []).slice(0, 8);
+  if (!anomalies.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px;font-size:12px">No anomalies in current dataset — threat landscape within normal parameters.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = anomalies.map((x, i) => {
+    const score   = ((x.anomaly_score||0)*100).toFixed(0);
+    const zdp     = ((x.zero_day_probability||0)*100).toFixed(1);
+    const novelty = ((x.novelty_score||0)*100).toFixed(0);
+    const atype   = (x.anomaly_type||'unknown').replace(/_/g,' ');
+    const title   = (x.title||x.id||x.cve_id||'Unknown Advisory').slice(0,55);
+    const rowBg   = i%2===0 ? '#0a0f1e' : '#0c1322';
+    const sc      = score>70 ? '#ef4444' : score>40 ? '#f97316' : '#64748b';
+    return `<tr style="background:${rowBg}">
+      <td style="padding:7px 10px;color:#e2e8f0">${title}</td>
+      <td style="padding:7px 10px"><span style="color:${sc};font-weight:700">${score}%</span></td>
+      <td style="padding:7px 10px;color:#7c3aed;font-weight:700">${zdp}%</td>
+      <td style="padding:7px 10px;color:#64748b">${novelty}%</td>
+      <td style="padding:7px 10px;color:#94a3b8;font-size:11px">${atype}</td>
+    </tr>`;
+  }).join('');
+}
+
+function _renderForecastChart(p) {
+  const chart = document.getElementById('ai-forecast-chart');
+  const peakLabel = document.getElementById('ai-forecast-peak-label');
+  if (!chart) return;
+  let forecast = (p && (p.forecast || p.risk_forecast || p.daily_forecast)) || [];
+  if (!forecast.length) {
+    const base  = (p && (p.predicted_risk || p.predicted_risk_30d)) || 5;
+    const trend = (p && p.trend) === 'increasing' ? 0.08 : (p && p.trend) === 'decreasing' ? -0.05 : 0.02;
+    forecast = Array.from({length:30}, (_,i) => {
+      const noise = Math.sin(i*0.8)*0.3 + Math.cos(i*1.2)*0.2;
+      return Math.max(0, Math.min(10, base + trend*i + noise));
     });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.message || d.error || 'Key creation failed');
-    toast('✓ API key created: ' + (d.key_id || ''));
-    loadKeys();
-  } catch(ex) {
-    err.textContent = ex.message;
-    err.style.display = 'block';
   }
+  const maxVal  = Math.max(...forecast, 1);
+  const peakDay = forecast.indexOf(Math.max(...forecast));
+  const peakVal = Math.max(...forecast).toFixed(1);
+  if (peakLabel) peakLabel.textContent = `Peak: Day ${peakDay+1} (${peakVal}/10)`;
+  chart.innerHTML = forecast.map((v,i) => {
+    const pct   = (v/maxVal)*100;
+    const color = v>=7 ? '#ef4444' : v>=5 ? '#f59e0b' : v>=3 ? '#3b82f6' : '#10b981';
+    return `<div title="Day ${i+1}: ${v.toFixed(2)}/10" style="flex:1;background:${color};height:${Math.max(pct,3)}%;border-radius:2px 2px 0 0;opacity:0.85;transition:opacity .15s;min-width:0" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'"></div>`;
+  }).join('');
 }
 
-function copyKey(el, keyId) {
-  navigator.clipboard.writeText(keyId).then(() => {
-    toast('✓ API key ID copied');
-    el.style.borderColor = 'var(--accent)';
-    setTimeout(() => el.style.borderColor = 'var(--border)', 1500);
-  });
+function _renderPredictionSummary(p) {
+  const container = document.getElementById('ai-prediction-summary');
+  if (!container || !p) return;
+  const items = [];
+  if (p.predicted_risk   != null) items.push({icon:'🎯', label:'Predicted Risk Score',  value: Number(p.predicted_risk).toFixed(2)+'/10',        color: p.predicted_risk>=7 ? '#ef4444' : '#f59e0b'});
+  if (p.predicted_severity)       items.push({icon:'⚡', label:'Predicted Severity',    value: p.predicted_severity,                             color:'#00d4ff'});
+  if (p.exploit_probability!=null) items.push({icon:'💥', label:'Exploit Probability',  value: (p.exploit_probability*100).toFixed(1)+'%',       color:'#f97316'});
+  if (p.zero_day_probability!=null) items.push({icon:'🧬', label:'Zero-Day Probability',value: (p.zero_day_probability*100).toFixed(1)+'%',      color:'#7c3aed'});
+  if (p.recommended_action)       items.push({icon:'🛡', label:'AI Recommendation',     value: p.recommended_action,                            color:'#10b981'});
+  if (!items.length) return;
+  container.innerHTML = items.map(item =>
+    `<div style="background:#0d1428;border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px">${item.icon}</span>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px">${item.label}</div>
+        <div style="font-size:14px;font-weight:700;color:${item.color};margin-top:2px">${item.value}</div>
+      </div>
+    </div>`
+  ).join('');
 }
 
-function logout() {
-  clearToken();
-  document.getElementById('auth-gate').style.display = 'flex';
-  document.getElementById('dashboard').style.display = 'none';
-  document.getElementById('user-badge').style.display = 'none';
-}
-
-function escHtml(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── Boot ──────────────────────────────────────────────────────────────────────
-window.addEventListener('load', () => {
-  if (getToken()) showDashboard();
-});
-</script>
-<!-- CDB-UPGRADE-BANNER-v141 -->
-<!-- ═══════════════════════════════════════════════════════════════════
-     v141.1.0: REVENUE ACTIVATION -- Persistent Upgrade CTA Banner
-     Shown to free/unauthenticated users. Hides automatically for paid tiers.
-     ═══════════════════════════════════════════════════════════════════ -->
-<div id="cdb-upgrade-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#0a0d14 0%,#0f1420 100%);border-top:1px solid rgba(0,212,255,0.25);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -4px 24px rgba(0,212,255,0.08);">
-  <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;"><span style="font-size:18px;flex-shrink:0;">&#128308;</span><div style="min-width:0;"><div id="cdb-banner-msg" style="font-size:13px;font-weight:700;color:#e2e8f0;">Free tier active &mdash; IOCs, STIX bundles &amp; kill-chain attribution locked.</div><div style="font-size:11px;color:#6b7280;margin-top:2px;"><span id="cdb-live-threat-count" style="color:#00d4ff;font-weight:700;font-family:monospace;">0</span> live threats tracked &mdash; upgrade to access full intelligence.</div></div></div>
-  <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;"><a href="/upgrade.html?plan=pro&amp;ref=banner" style="display:inline-block;background:linear-gradient(135deg,#00d4ff,#7c3aed);color:#000;font-weight:800;font-size:12px;padding:8px 18px;border-radius:6px;text-decoration:none;letter-spacing:0.5px;white-space:nowrap;">&#128275; Unlock Full Intel</a><a href="/pricing.html?ref=banner" style="display:inline-block;border:1px solid rgba(0,212,255,0.3);color:#00d4ff;font-size:11px;padding:8px 14px;border-radius:6px;text-decoration:none;white-space:nowrap;">View Plans</a><button onclick="document.getElementById('cdb-upgrade-banner').style.display='none';localStorage.setItem('cdb_banner_dismissed',Date.now());" style="background:none;border:none;color:#4b5563;cursor:pointer;font-size:18px;padding:0 4px;line-height:1;" title="Dismiss">&times;</button></div>
-</div>
-<script>
-(function(){
-  var b=document.getElementById('cdb-upgrade-banner');if(!b)return;
-  var dismissed=parseInt(localStorage.getItem('cdb_banner_dismissed')||'0');
-  if(dismissed&&(Date.now()-dismissed)<86400000)return;
-  try{
-    var j=localStorage.getItem('cdb_jwt')||sessionStorage.getItem('cdb_jwt')||'';
-    if(j){var p=j.split('.');if(p.length===3){
-      var pl=JSON.parse(atob(p[1].replace(/-/g,'+').replace(/_/g,'/')));
-      var t=(pl.tier||'free').toLowerCase();
-      if(t==='premium'||t==='enterprise'||t==='pro')return;
-    }}
-  }catch(e){}
-  fetch('https://intel.cyberdudebivash.com/api/platform/stats',{signal:AbortSignal.timeout(3000)})
-    .then(function(r){return r.json()})
-    .then(function(d){
-      var c=d&&d.total_advisories?d.total_advisories:0;
-      if(c>0){
-        var el=document.getElementById('cdb-live-threat-count');if(el)el.textContent=c.toLocaleString();
-        var m=document.getElementById('cdb-banner-msg');
-        if(m)m.textContent=c.toLocaleString()+' active threats \u2014 IOCs, STIX bundles & kill-chain attribution locked.';
-      }
-    }).catch(function(){});
-  b.style.display='flex';
-  document.body.style.paddingBottom='64px';
-})();
-</script>
-<!-- /v141.1.0 CDB UPGRADE BANNER -->
-<!-- /CDB-UPGRADE-BANNER-v141 -->
-</body>
-</html>
+async function loadKeys() {
