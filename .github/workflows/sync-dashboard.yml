@@ -99,7 +99,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: "Python Syntax Guard (v142.4 — abort on any syntax error)"
+      - name: "Python Syntax Guard (v142.4 - abort on any syntax error)"
         run: |
           ERRORS=0
           for f in scripts/*.py; do
@@ -109,21 +109,21 @@ jobs:
           echo "Syntax errors: $ERRORS"
           [ $ERRORS -eq 0 ] || { echo "ABORTING"; exit 1; }
 
-      # ─── v143.1 HARD-FAIL CI GATES (added — must all PASS before any data write) ──
-      - name: "GATE 1/4 — Encoding Validator (HARD FAIL on mojibake)"
+      #  v143.1 HARD-FAIL CI GATES (added - must all PASS before any data write) 
+      - name: "GATE 1/4 - Encoding Validator (HARD FAIL on mojibake)"
         run: python3 scripts/encoding_validator.py
 
-      - name: "GATE 2/4 — Output Validation Gate (HARD FAIL on schema violations)"
+      - name: "GATE 2/4 - Output Validation Gate (HARD FAIL on schema violations)"
         run: python3 scripts/output_validation_gate.py
 
-      - name: "GATE 3/4 — API Dashboard Contract Validator (HARD FAIL on mismatch)"
+      - name: "GATE 3/4 - API Dashboard Contract Validator (HARD FAIL on mismatch)"
         run: python3 scripts/api_dashboard_contract_validator.py
 
-      - name: "GATE 4/4 — Regression Immunity System (HARD FAIL on regression)"
+      - name: "GATE 4/4 - Regression Immunity System (HARD FAIL on regression)"
         run: python3 scripts/regression_immunity.py
-      # ─── END HARD-FAIL GATES ───────────────────────────────────────────────
+      #  END HARD-FAIL GATES 
 
-      - name: "Patch EMBEDDED_INTEL (v142.4 — writes [] to keep dashboard API-only)"
+      - name: "Patch EMBEDDED_INTEL (v142.4 - writes [] to keep dashboard API-only)"
         run: |
           echo "=== EMBEDDED_INTEL patch: writes [] so dashboard fetches live from API ==="
           python3 scripts/update_embedded_intel.py && echo "EMBEDDED_INTEL patch OK (array=[])" || {
