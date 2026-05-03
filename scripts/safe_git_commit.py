@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/safe_git_commit.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Safe Git Commit & Push
+CYBERDUDEBIVASH(R) SENTINEL APEX v142.4.0 -- Safe Git Commit & Push
 ====================================================================
 P0 FIX: Replaces the inline Python + git bash block in sentinel-blogger.yml.
 Zero inline Python in YAML.
@@ -38,6 +38,19 @@ Environment variables:
   PIPELINE_VERSION    -- version string
   R2_UPLOAD_COUNT     -- set by r2_upload.py (advisory count)
   MANIFEST_FINAL_COUNT -- set by run_pipeline.py
+
+v142.4.0 P0 FIX -- Manifest Corruption Guard:
+  data/stix/feed_manifest.json is gitignored but was historically force-added
+  to git. During merge recovery (stash push -> reset --hard -> stash pop),
+  git can write conflict markers (<<<<<<< Updated upstream) into this large
+  JSON file, producing invalid JSON that breaks CI validation (json_valid and
+  intel_schema checks fail with "Expecting value: line 1 column 1 (char 0)").
+
+  Two-layer fix:
+  1. Permanently untrack the file from git (git rm --cached) so it is never
+     included in stash operations again.
+  2. Backup/restore guard: snapshot valid manifest bytes before stash ops and
+     restore them if stash pop leaves the file corrupted or missing.
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved. CONFIDENTIAL.
 """
@@ -187,6 +200,25 @@ def main() -> None:
             else:
                 log.warning("[protected] Could not restore %s from HEAD: %s", pf, restore_result.stderr)
 
+    # ── P0-FIX v142.4.0: Untrack gitignored runtime files from git index ──────────
+    # data/stix/feed_manifest.json is in .gitignore but was historically force-added.
+    # While tracked, it participates in git stash/reset operations and can receive
+    # conflict markers during stash pop, producing invalid JSON that breaks CI.
+    # Solution: permanently untrack it so git stash/reset never touch it again.
+    _RUNTIME_UNTRACK = [
+        "data/stix/feed_manifest.json",
+    ]
+    for _ut in _RUNTIME_UNTRACK:
+        _ut_result = run_git("rm", "--cached", "--ignore-unmatch", "-f", _ut)
+        if _ut_result.returncode == 0:
+            if _ut_result.stdout.strip():
+                log.info("[untrack] Removed '%s' from git index (gitignored runtime file -- "
+                         "prevents stash-pop conflict corruption)", _ut)
+            else:
+                log.info("[untrack] '%s' already untracked from git index", _ut)
+        else:
+            log.warning("[untrack] Could not untrack '%s': %s", _ut, _ut_result.stderr.strip()[:80])
+
     JSON_GUARDED = {
         "feed.json",
         "api/feed.json",
@@ -270,7 +302,7 @@ def main() -> None:
             log.info("Committed: %s", commit_msg[:80])
         else:
             log.warning("Commit failed: %s", result.stderr.strip()[:200])
-    
+
     # --- v141.7.0 Post-commit: verify key files are in git index ---
     _verify_files = ["index.html", "feed.json"]
     for _vf in _verify_files:
@@ -297,9 +329,58 @@ def main() -> None:
         if merge_result.returncode != 0:
             log.warning("Merge failed on attempt %d -- stash recovery.", attempt)
             run_git("merge", "--abort")
-            run_git("stash", "push", "-m", f"sentinel-recovery-{attempt}")
+
+            # == P0-FIX v142.4.0: Manifest Corruption Guard ==
+            # PROBLEM: git stash push -> reset --hard -> stash pop can write conflict
+            # markers into large runtime JSON files still tracked in git, producing
+            # invalid JSON: "Expecting value: line 1 column 1 (char 0)".
+            # SOLUTION: snapshot valid manifest bytes BEFORE stash; restore AFTER pop.
+            _MANIFEST_GUARD_PATHS = [
+                REPO_ROOT / "data" / "stix" / "feed_manifest.json",
+                REPO_ROOT / "data" / "feed_manifest.json",
+            ]
+            _manifest_backups: dict = {}
+            for _mp in _MANIFEST_GUARD_PATHS:
+                if _mp.exists():
+                    try:
+                        _raw = _mp.read_bytes()
+                        json.loads(_raw.decode("utf-8"))  # validate before saving
+                        _manifest_backups[str(_mp)] = (_mp, _raw)
+                        log.info("[manifest-guard] Snapshot saved: %s (%d bytes)",
+                                 _mp.name, len(_raw))
+                    except Exception as _snap_err:
+                        log.warning("[manifest-guard] Skipping snapshot of %s (already "
+                                    "invalid -- %s)", _mp.name, _snap_err)
+
+            run_git("stash", "push", "-m", "sentinel-recovery-{}".format(attempt))
             run_git("reset", "--hard", "origin/main")
             run_git("stash", "pop")
+
+            # Restore manifests if stash pop corrupted them
+            for _key, (_mp, _saved_bytes) in _manifest_backups.items():
+                _needs_restore = False
+                if not _mp.exists():
+                    _needs_restore = True
+                    log.warning("[manifest-guard] %s MISSING after stash pop -- restoring",
+                                _mp.name)
+                else:
+                    try:
+                        json.loads(_mp.read_bytes().decode("utf-8"))
+                        log.info("[manifest-guard] %s intact after stash pop", _mp.name)
+                    except Exception as _chk_err:
+                        _needs_restore = True
+                        log.warning("[manifest-guard] %s CORRUPTED after stash pop "
+                                    "(%s) -- restoring snapshot", _mp.name, _chk_err)
+                if _needs_restore:
+                    try:
+                        _mp.parent.mkdir(parents=True, exist_ok=True)
+                        _mp.write_bytes(_saved_bytes)
+                        log.info("[manifest-guard] RESTORED %s (%d bytes) -- "
+                                 "pipeline data integrity preserved",
+                                 _mp.name, len(_saved_bytes))
+                    except Exception as _write_err:
+                        log.error("[manifest-guard] Failed to restore %s: %s",
+                                  _mp.name, _write_err)
 
         push_result = run_git("push", "origin", "main")
         if push_result.returncode == 0:
