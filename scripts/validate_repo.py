@@ -218,10 +218,20 @@ def check_json() -> CheckResult:
     Verify critical JSON files parse correctly.
     Rules:
       - Missing file              -> WARNING (not FAIL): pipeline may not have generated yet
-      - Empty file (0 bytes)      -> WARNING (not FAIL): treated as []
-      - Invalid JSON              -> FAIL
+      - Empty file (0 bytes)      -> WARNING (not FAIL): treated as not-yet-generated
+      - Whitespace-only file      -> WARNING (not FAIL): treated as not-yet-generated
+      - Git conflict markers      -> FAIL with explicit diagnosis (root cause: stash pop)
+      - Invalid JSON              -> FAIL with details
       - Valid JSON (any structure) -> PASS  ([] is explicitly VALID)
+
+    v142.4.0: data/stix/feed_manifest.json is gitignored and runtime-generated.
+    If missing, it is always a WARNING (pipeline generates it at Stage 1-3).
+    Git conflict markers (<<<<<<< Updated upstream) produce the error
+    "Expecting value: line 1 column 1 (char 0)" -- detect these explicitly.
     """
+    # Git conflict marker prefix -- indicates stash pop wrote conflict into file
+    _GIT_CONFLICT_PREFIX = b"<<<<<<< "
+
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -233,10 +243,23 @@ def check_json() -> CheckResult:
             continue
         sz = full.stat().st_size
         if sz == 0:
-            warnings.append(f"{rel_path} empty (0 bytes) -- treated as []")
+            warnings.append(f"{rel_path} empty (0 bytes) -- treated as not-yet-generated")
             continue
         try:
-            obj = json.loads(full.read_text(encoding="utf-8"))
+            raw_bytes = full.read_bytes()
+            stripped = raw_bytes.strip()
+            if not stripped:
+                warnings.append(f"{rel_path} whitespace-only -- treated as not-yet-generated")
+                continue
+            # Detect git conflict markers (stash pop corruption) explicitly
+            if stripped.startswith(_GIT_CONFLICT_PREFIX):
+                errors.append(
+                    f"{rel_path}: GIT CONFLICT MARKERS DETECTED -- "
+                    "file corrupted by git stash pop during merge recovery. "
+                    "safe_git_commit.py manifest-guard should have prevented this."
+                )
+                continue
+            obj = json.loads(raw_bytes.decode("utf-8"))
             # [] is valid JSON -- do NOT fail on empty list
             log.info("[json_valid] OK (%s, %d bytes): %s", type(obj).__name__, sz, rel_path)
         except Exception as e:
@@ -436,6 +459,26 @@ def check_intel_schema() -> CheckResult:
     if not manifest_path.exists():
         return CheckResult("intel_schema", True,
                            "data/stix/feed_manifest.json not found (runtime-generated -- skipped).")
+
+    # v142.4.0: Detect git conflict markers before attempting JSON parse.
+    # Root cause: git stash pop during merge recovery writes conflict markers
+    # (<<<<<<< Updated upstream) into large tracked JSON files, producing
+    # invalid JSON. Detect explicitly for a clear, actionable error message.
+    try:
+        _raw_bytes = manifest_path.read_bytes()
+        _stripped = _raw_bytes.strip()
+        if not _stripped:
+            return CheckResult("intel_schema", True,
+                               "data/stix/feed_manifest.json is empty -- schema check "
+                               "skipped (runtime-generated, not yet populated).")
+        if _stripped.startswith(b"<<<<<<< "):
+            return CheckResult("intel_schema", False,
+                               "data/stix/feed_manifest.json contains GIT CONFLICT MARKERS "
+                               "-- corrupted by git stash pop during merge recovery. "
+                               "safe_git_commit.py manifest-guard should prevent this.")
+    except Exception as _rb_err:
+        return CheckResult("intel_schema", False,
+                           f"Cannot read feed_manifest.json: {_rb_err}")
 
     try:
         raw = json.loads(manifest_path.read_text(encoding="utf-8"))
