@@ -1,4 +1,4 @@
-﻿# =============================================================================
+# =============================================================================
 # CYBERDUDEBIVASH(R) SENTINEL APEX v142.3.1  -  Worker Auto-Deploy
 # =============================================================================
 # Deploys the Cloudflare Worker whenever src/** or wrangler.toml changes.
@@ -80,25 +80,25 @@ jobs:
           print(f'PLATFORM_VERSION injected into GITHUB_ENV: {v}')
           "
 
-      # â”€â”€â”€ v143.1 DATA INTEGRITY HARD-FAIL GATES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-      # Worker serves live data â€” block deploy if underlying data is corrupt.
+      # a'a'a' v143.1 DATA INTEGRITY HARD-FAIL GATES a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'
+      # Worker serves live data a' block deploy if underlying data is corrupt.
       - name: "Setup Python for data integrity gates"
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: "GATE 1/4 â€” Encoding Validator (HARD FAIL on mojibake)"
+      - name: "GATE 1/4 a' Encoding Validator (HARD FAIL on mojibake)"
         run: python3 scripts/encoding_validator.py
 
-      - name: "GATE 2/4 â€” Output Validation Gate (HARD FAIL on schema violations)"
+      - name: "GATE 2/4 a' Output Validation Gate (HARD FAIL on schema violations)"
         run: python3 scripts/output_validation_gate.py
 
-      - name: "GATE 3/4 â€” API Dashboard Contract Validator (HARD FAIL on mismatch)"
+      - name: "GATE 3/4 a' API Dashboard Contract Validator (HARD FAIL on mismatch)"
         run: python3 scripts/api_dashboard_contract_validator.py
 
-      - name: "GATE 4/4 â€” Regression Immunity System (HARD FAIL on regression)"
+      - name: "GATE 4/4 a' Regression Immunity System (HARD FAIL on regression)"
         run: python3 scripts/regression_immunity.py
-      # â”€â”€â”€ END DATA INTEGRITY GATES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      # a'a'a' END DATA INTEGRITY GATES a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'a'
 
       - name: " Sanitize encoding (strip BOM + normalize CRLF)"
         run: |
