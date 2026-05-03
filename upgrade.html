@@ -1392,13 +1392,68 @@ function startBSCPolling(txhash, reviewId) {
 
 /* ── On-load init v143.0.0 ──────────────────────────────────────── */
 (function init() {
-  selectPlan('pro');
+  var params = new URLSearchParams(window.location.search);
+
+  // ── Kit→Gateway Routing (from cyber-kits.html) ───────────────────────────
+  // When a customer arrives via ?kit=X&amount=Y, pre-select the correct plan,
+  // pre-fill the payment amount in all gateway tabs, and scroll to checkout.
+  var kitParam    = params.get('kit');
+  var amountParam = parseFloat(params.get('amount') || '0');
+
+  // Kit ID → plan key + display name mapping
+  var KIT_MAP = {
+    'cve-defense':    { plan: 'pro',        label: 'CVE Defense Kit' },
+    'malware-response':{ plan: 'pro',       label: 'Malware Response Pack' },
+    'soc-automation': { plan: 'enterprise', label: 'SOC Automation Bundle' },
+    'full-arsenal':   { plan: 'enterprise', label: 'Full Arsenal Bundle' }
+  };
+
+  if (kitParam && KIT_MAP[kitParam] && amountParam > 0) {
+    var kitInfo = KIT_MAP[kitParam];
+    // Override PLANS entry for this kit purchase (one-time purchase, not subscription)
+    PLANS[kitInfo.plan] = JSON.parse(JSON.stringify(PLANS[kitInfo.plan])); // clone
+    // Inject kit-specific USD price; INR calculated at ~83.5 rate
+    var kitUSD = amountParam;
+    var kitINR = Math.round(amountParam * 83.5);
+    PLANS[kitInfo.plan].usd       = kitUSD;
+    PLANS[kitInfo.plan].inr       = kitINR;
+    PLANS[kitInfo.plan].usdAnnual = kitUSD;  // one-time; no annual distinction
+    PLANS[kitInfo.plan].inrAnnual = kitINR;
+
+    selectPlan(kitInfo.plan);
+
+    // Inject kit name into payment form subject line for SOC identification
+    var subjectField = document.querySelector('input[name="subject"], input[name="plan_name"]');
+    if (subjectField) subjectField.value = kitInfo.label + ' — $' + kitUSD;
+
+    // Pre-fill amount_paid field
+    var amtField = document.getElementById('amount-paid-field');
+    if (amtField) amtField.placeholder = '$' + kitUSD + ' USD / ₹' + kitINR.toLocaleString() + ' INR';
+
+    // Show a kit-context banner above checkout
+    var banner = document.createElement('div');
+    banner.id = 'kit-context-banner';
+    banner.style.cssText = 'background:rgba(250,204,21,0.10);border:1px solid rgba(250,204,21,0.35);border-radius:10px;padding:12px 18px;margin-bottom:16px;font-size:13px;color:#fcd34d;display:flex;align-items:center;gap:10px;';
+    banner.innerHTML = '<span style="font-size:18px">📦</span><span><strong>' + kitInfo.label + '</strong> — $' + kitUSD + ' one-time · Choose your payment method below and submit confirmation. Kit delivered to your email within 15 minutes.</span>';
+    var checkoutSection = document.querySelector('.checkout-section, .dgw-section, #checkout, .plan-cards');
+    if (checkoutSection) checkoutSection.insertBefore(banner, checkoutSection.firstChild);
+
+    // Scroll to payment gateway section
+    setTimeout(function() {
+      var gwEl = document.querySelector('.dgw-section, .pay-tabs, #dgw-section');
+      if (gwEl) gwEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+  } else {
+    selectPlan('pro');
+  }
+
   updateDGW();
+
   // Pre-fill today's date
   var pd = document.querySelector('input[name="payment_date"]');
   if (pd) pd.value = new Date().toISOString().split('T')[0];
+
   // Checkout return handler (kept for future Stripe re-activation)
-  var params = new URLSearchParams(window.location.search);
   if (params.get('checkout') === 'success') {
     var planParam = params.get('plan') || 'pro';
     showSuccessState(planParam, { review_id: 'DIRECT-' + (params.get('session_id') || Date.now()), bsc_status: null });
