@@ -93,6 +93,25 @@ import {
   handleReportGet,
 } from "./premium-reports.js";
 
+// v143.0.0: AI Alert Engine (Telegram/Webhook tier-gated)
+import {
+  handleAlertSubscribe,
+  handleAlertSubscriptions,
+  handleAlertTest,
+  handleAlertDispatch,
+  handleAlertHistory,
+  handleAlertUnsubscribe,
+} from "./alert-engine.js";
+
+// v143.0.0: SLA Monitor Engine (99.9% Enterprise / 99.5% Pro targets)
+import {
+  handleSLAStatus,
+  handleSLAReport,
+  handleSLAIncidents,
+  handleSLAPing,
+  handleSLACertificate,
+} from "./sla-monitor.js";
+
 //  Version sync: always read from CONFIG 
 function injectVersionHeaders(response, config) {
   const headers = new Headers(response.headers);
@@ -4115,7 +4134,7 @@ async function handleAdminListPayments(request, env, rid) {
 // POST /api/notify/subscribe
 // Public endpoint. Subscribes an email to threat alert notifications.
 // Stored in KV; used by cron/pipeline to dispatch digest emails.
-async function handleAlertSubscribe(request, env, rid) {
+async function handleNotifySubscribe(request, env, rid) {
   if (!env?.API_KEYS_KV) return jsonResponse({ error: "storage_unavailable", request_id: rid }, 503);
 
   let body;
@@ -4381,7 +4400,7 @@ export default {
     // v141.1.0: Revenue -- public payment notify + alert subscription (no auth required)
     if (pathname === "/api/payment/notify"      && method === "POST") return withSec(handlePaymentNotify(request, env, rid));
     if (pathname === "/api/payment/verify-bsc" && method === "GET")  return withSec(handleBSCVerify(request, env, rid));
-    if (pathname === "/api/notify/subscribe"   && method === "POST") return withSec(handleAlertSubscribe(request, env, rid));
+    if (pathname === "/api/notify/subscribe"   && method === "POST") return withSec(handleNotifySubscribe(request, env, rid));
     //  v134.0.0 + v134.0.0: JWT auth endpoints
     if (pathname === "/api/auth/token"    && method === "POST") return withSec(handleIssueToken(request, env, rid));
     if (pathname === "/api/auth/validate")                      return withSec(handleValidateToken(request, env, rid));
@@ -4429,6 +4448,10 @@ export default {
       // v141.1.0: Revenue -- manual tier upgrade + pending payment list
       if (pathname === "/api/admin/users/set-tier"         && method === "POST") return handleAdminSetTier(request, env, rid);
       if (pathname === "/api/admin/payments/pending"       && method === "GET")  return handleAdminListPayments(request, env, rid);
+      // v143.0.0: SLA heartbeat ping (called by Cloudflare Cron every 5 min)
+      if (pathname === "/api/sla/ping"           && method === "POST") return handleSLAPing(request, env, rid);
+      // v143.0.0: Alert dispatch (internal — triggers alerts to all subscribers)
+      if (pathname === "/api/alerts/dispatch"    && method === "POST") return handleAlertDispatch(request, env, rid);
       return jsonResponse({
         error:     "not_found",
         message:   "Admin endpoint not found.",
@@ -4439,6 +4462,8 @@ export default {
           "POST /api/admin/keys/revoke",
           "GET  /api/admin/keys/list",
           "GET  /api/admin/observability",
+          "POST /api/sla/ping               (cron heartbeat — X-Admin-Secret required)",
+          "POST /api/alerts/dispatch        (trigger alert broadcast — X-Admin-Secret required)",
         ],
         request_id: rid,
       }, 404);
@@ -4622,6 +4647,13 @@ export default {
     if (pathname === "/api/leads/trial" && method === "POST")
       return handleTrialIssuance(request, env, rid);
 
+    // v143.0.0: SLA Status — public endpoint (no auth required)
+    if (pathname === "/api/sla/status" && method === "GET")
+      return new Response(JSON.stringify(await (async () => {
+        const r = await handleSLAStatus(request, env, rid);
+        return r.json ? await r.json() : {};
+      })()), { status: 200, headers: { "Content-Type": "application/json", "X-Sentinel-Version": "143.0.0" }});
+
     // v143.0.0: Dark Web Monitor (Pro+ required)
     if (pathname === "/api/dark-web/scan")
       return withRL(await handleDarkWebScan(request, env, auth, rid));
@@ -4639,6 +4671,20 @@ export default {
       if (reportMatch && method === "GET")
         return withRL(await handleReportGet(request, env, auth, rid, reportMatch[1]));
     }
+
+    // v143.0.0: AI Alert Engine — subscribe / manage / history (Pro+ required)
+    if (pathname === "/api/alerts/subscribe"      && method === "POST") return withRL(await handleAlertSubscribe(request, env, auth, rid));
+    if (pathname === "/api/alerts/subscriptions"  && method === "GET")  return withRL(await handleAlertSubscriptions(request, env, auth, rid));
+    if (pathname === "/api/alerts/history"        && method === "GET")  return withRL(await handleAlertHistory(request, env, auth, rid));
+    if (pathname === "/api/alerts/test"           && method === "POST") return withRL(await handleAlertTest(request, env, auth, rid));
+    if (pathname.startsWith("/api/alerts/unsubscribe/") && method === "DELETE")
+      return withRL(await handleAlertUnsubscribe(request, env, auth, rid));
+
+    // v143.0.0: SLA Monitor — report/incidents/certificate (Enterprise required)
+    if (pathname === "/api/sla/status"            && method === "GET")  return handleSLAStatus(request, env, rid);
+    if (pathname === "/api/sla/report"            && method === "GET")  return withRL(await handleSLAReport(request, env, auth, rid));
+    if (pathname === "/api/sla/incidents"         && method === "GET")  return withRL(await handleSLAIncidents(request, env, auth, rid));
+    if (pathname === "/api/sla/certificate"       && method === "GET")  return withRL(await handleSLACertificate(request, env, auth, rid));
 
     slog("WARN", "ROUTER", `404 ${pathname}`, { rid, method });
     return jsonResponse({
@@ -4706,6 +4752,18 @@ export default {
         "POST /api/reports/premium      (requires auth Pro+ -- generate intelligence report)",
         "GET  /api/reports/list         (requires auth Pro+ -- list generated reports)",
         "GET  /api/reports/:id          (requires auth Pro+ -- retrieve report by ID)",
+        //  v143.0.0: AI Alert Engine
+        "POST /api/alerts/subscribe     (requires auth Pro+ -- subscribe Telegram/Webhook alerts)",
+        "GET  /api/alerts/subscriptions (requires auth Pro+ -- list active subscriptions)",
+        "GET  /api/alerts/history       (requires auth Pro+ -- alert delivery history)",
+        "POST /api/alerts/test          (requires auth Pro+ -- send test alert)",
+        "DELETE /api/alerts/unsubscribe/:id (requires auth Pro+ -- remove subscription)",
+        //  v143.0.0: SLA Monitor
+        "GET  /api/sla/status           (public -- current uptime + SLA health)",
+        "GET  /api/sla/report           (requires auth Enterprise -- 30-day SLA report)",
+        "GET  /api/sla/incidents        (requires auth Enterprise -- incident log)",
+        "GET  /api/sla/certificate      (requires auth Enterprise -- SLA compliance cert)",
+        "POST /api/sla/ping             (requires X-Admin-Secret -- cron heartbeat)",
         //  Admin
         "POST /api/admin/cache/bust     (requires X-Admin-Secret)",
         "POST /api/admin/keys/create    (requires X-Admin-Secret)",
