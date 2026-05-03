@@ -1170,7 +1170,15 @@ def stage_refresh_embedded_intel() -> None:
 
 
 def _version_sync() -> None:
-    """Replace SENTINEL APEX vX.Y.Z in index.html with current PIPELINE_VERSION."""
+    """Replace ALL version references in index.html with current PIPELINE_VERSION.
+
+    v143.0.0 FIX: Extended from a single-pattern regex to a two-pass replacement:
+      Pass 1 — "SENTINEL APEX vX.Y.Z" branded occurrences (title, meta, visible text).
+      Pass 2 — bare PLATFORM_VERSION JS constant (previously missed, causing drift
+                detected by regression_immunity.py Phase 2 VersionLock check).
+
+    Both passes are idempotent: if the file is already at PIPELINE_VERSION, no write occurs.
+    """
     try:
         new_tag = f"SENTINEL APEX v{PIPELINE_VERSION}"
         html_path = REPO_ROOT / "index.html"
@@ -1178,17 +1186,36 @@ def _version_sync() -> None:
             log.warning("[3.6b] index.html not found -- version sync skipped.")
             return
         content = html_path.read_text(encoding="utf-8", errors="replace")
+
+        # Pass 1: "SENTINEL APEX vX.Y.Z" branded text (title, meta, OG, visible header)
         updated = re.sub(
             r"SENTINEL APEX [Vv]\d+\.\d+(?:\.\d+)?(?:\.\d+)?",
             new_tag,
             content,
         )
+
+        # Pass 2: JS PLATFORM_VERSION constant e.g. PLATFORM_VERSION = '142.3.1'
+        # This was previously missed and caused Phase-2 VersionLock violations.
+        updated = re.sub(
+            r"(PLATFORM_VERSION\s*=\s*['\"])\d+\.\d+(?:\.\d+)?(['\"])",
+            lambda m: m.group(1) + PIPELINE_VERSION + m.group(2),
+            updated,
+        )
+
         if content != updated:
-            html_path.write_text(updated, encoding="utf-8")
-            count = updated.count(new_tag)
-            log.info("[3.6b] Version-sync: dashboard updated to %s (%d occurrences)", new_tag, count)
+            # Atomic write: write to .tmp then rename to avoid half-written file
+            tmp = html_path.with_suffix(".html.vsync_tmp")
+            tmp.write_text(updated, encoding="utf-8")
+            tmp.replace(html_path)
+            branded_count = updated.count(new_tag)
+            js_count = updated.count(f"'{PIPELINE_VERSION}'") + updated.count(f'"{PIPELINE_VERSION}"')
+            log.info(
+                "[3.6b] Version-sync: dashboard updated to v%s "
+                "(branded=%d, PLATFORM_VERSION_js=%d)",
+                PIPELINE_VERSION, branded_count, js_count,
+            )
         else:
-            log.info("[3.6b] Version-sync: dashboard already at %s", new_tag)
+            log.info("[3.6b] Version-sync: dashboard already at v%s", PIPELINE_VERSION)
     except Exception as e:
         log.warning("[3.6b] Version sync failed (non-fatal): %s", e)
 
