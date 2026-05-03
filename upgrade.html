@@ -227,12 +227,155 @@ h1 span { color: var(--accent); }
 .manual-section-label { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 .manual-label-text { font-size: 11px; font-weight: 700; color: var(--text-dim); letter-spacing: 1.5px; text-transform: uppercase; }
 .manual-label-badge { font-size: 10px; background: rgba(255,159,11,0.15); color: var(--yellow); border: 1px solid rgba(255,159,11,0.3); padding: 2px 8px; border-radius: 8px; font-weight: 700; }
+
+/* ═══ DIRECT PAYMENT GATEWAY — v143.0.0 ══════════════════════════════ */
+.direct-gw-section {
+  background: linear-gradient(145deg, #050c1a 0%, #0a0f20 40%, #060d1e 100%);
+  border: 2px solid #00d4ff44;
+  border-radius: 16px;
+  padding: 28px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.direct-gw-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #00d4ff, #7c3aed, #10b981, #f59e0b, #00d4ff);
+  background-size: 300%;
+  animation: dgw-shine 4s linear infinite;
+}
+@keyframes dgw-shine { 0%{background-position:0%} 100%{background-position:300%} }
+.direct-gw-section::after {
+  content: 'CYBERDUDEBIVASH';
+  position: absolute;
+  top: 50%; right: -30px;
+  transform: translateY(-50%) rotate(90deg);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: rgba(0,212,255,0.05);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.direct-gw-top { margin-bottom: 24px; }
+.direct-gw-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.dgw-badge-primary {
+  background: linear-gradient(135deg, #00d4ff22, #00d4ff44);
+  border: 1px solid #00d4ff66;
+  color: #00d4ff;
+  font-size: 10px; font-weight: 800; letter-spacing: 1.2px;
+  padding: 3px 12px; border-radius: 20px;
+}
+.dgw-badge-gst {
+  background: rgba(124,58,237,0.15);
+  border: 1px solid rgba(124,58,237,0.35);
+  color: #c4b5fd;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+  padding: 3px 12px; border-radius: 20px;
+}
+.dgw-badge-secure {
+  background: rgba(16,185,129,0.12);
+  border: 1px solid rgba(16,185,129,0.3);
+  color: #34d399;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+  padding: 3px 12px; border-radius: 20px;
+}
+.direct-gw-title {
+  font-size: 20px; font-weight: 900; color: #fff;
+  letter-spacing: 0.3px; margin-bottom: 6px;
+}
+.direct-gw-subtitle {
+  font-size: 13px; color: rgba(255,255,255,0.5);
+  line-height: 1.6; max-width: 680px;
+}
+.dgw-method-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+@media(max-width:760px) { .dgw-method-grid { grid-template-columns: 1fr 1fr; } }
+@media(max-width:480px) { .dgw-method-grid { grid-template-columns: 1fr; } }
+.dgw-method-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 14px;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-align: center;
+  background: rgba(255,255,255,0.03);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+}
+.dgw-method-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.dgw-method-icon { font-size: 26px; margin-bottom: 4px; line-height: 1; }
+.dgw-method-name { font-size: 12px; font-weight: 800; color: #e2e8f0; }
+.dgw-method-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; padding: 2px 8px; border-radius: 10px; }
+.dgw-method-addr { font-family: monospace; font-size: 10px; word-break: break-all; opacity: 0.6; margin-top: 2px; }
+.dgw-method-arrow { font-size: 11px; font-weight: 800; margin-top: 6px; letter-spacing: 1px; }
+.dgw-crypto { border-color: #f0b90b44; }
+.dgw-crypto:hover { border-color: #f0b90b; background: rgba(240,185,11,0.06); }
+.dgw-crypto .dgw-method-name { color: #f0b90b; }
+.dgw-crypto .dgw-method-tag { background: rgba(240,185,11,0.12); color: #f0b90b; border: 1px solid rgba(240,185,11,0.25); }
+.dgw-crypto .dgw-method-arrow { color: #f0b90b; }
+.dgw-upi { border-color: #10b98144; }
+.dgw-upi:hover { border-color: #10b981; background: rgba(16,185,129,0.06); }
+.dgw-upi .dgw-method-name { color: #34d399; }
+.dgw-upi .dgw-method-tag { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+.dgw-upi .dgw-method-arrow { color: #34d399; }
+.dgw-bank { border-color: #7c3aed44; }
+.dgw-bank:hover { border-color: #7c3aed; background: rgba(124,58,237,0.06); }
+.dgw-bank .dgw-method-name { color: #c4b5fd; }
+.dgw-bank .dgw-method-tag { background: rgba(124,58,237,0.12); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.25); }
+.dgw-bank .dgw-method-arrow { color: #c4b5fd; }
+.dgw-paypal { border-color: #009cde44; }
+.dgw-paypal:hover { border-color: #009cde; background: rgba(0,156,222,0.06); }
+.dgw-paypal .dgw-method-icon { color: #009cde; font-weight: 900; }
+.dgw-paypal .dgw-method-name { color: #38bdf8; }
+.dgw-paypal .dgw-method-tag { background: rgba(0,156,222,0.12); color: #38bdf8; border: 1px solid rgba(0,156,222,0.25); }
+.dgw-paypal .dgw-method-arrow { color: #38bdf8; }
+.dgw-amount-strip {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+  background: rgba(0,212,255,0.05);
+  border: 1px solid rgba(0,212,255,0.15);
+  border-radius: 10px;
+  padding: 14px 20px;
+  margin-bottom: 16px;
+}
+.dgw-amount-left { display: flex; flex-direction: column; }
+.dgw-amount-label { font-size: 9px; font-weight: 800; letter-spacing: 1.5px; color: var(--text-dim); text-transform: uppercase; }
+.dgw-amount-plan { font-size: 14px; font-weight: 800; color: #fff; margin-top: 2px; }
+.dgw-amount-center { display: flex; align-items: baseline; gap: 4px; }
+.dgw-amount-usd { font-size: 28px; font-weight: 900; color: var(--accent); }
+.dgw-amount-sep { font-size: 16px; color: var(--text-dim); }
+.dgw-amount-inr { font-size: 20px; font-weight: 700; color: var(--green); }
+.dgw-amount-period { font-size: 12px; color: var(--text-dim); }
+.dgw-gst-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+  background: rgba(124,58,237,0.15);
+  border: 1px solid rgba(124,58,237,0.3);
+  color: #c4b5fd;
+  padding: 4px 12px; border-radius: 8px;
+}
+.dgw-trust-row {
+  display: flex; flex-wrap: wrap; gap: 6px 20px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.dgw-trust-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: rgba(255,255,255,0.45);
+}
+.dgw-trust-item span { color: var(--green); }
 </style>
 </head>
 <body>
 
 <div class="urgency-bar">
-  &#9889; SENTINEL APEX &mdash; Upgrade Your Intelligence Access &nbsp;&middot;&nbsp; API Key Delivered Within 2 Hours &nbsp;&middot;&nbsp; 7-Day Money-Back Guarantee
+  &#9889; DIRECT PAYMENT GATEWAY ACTIVE &nbsp;&middot;&nbsp; BNB Crypto &middot; UPI &middot; Bank NEFT &middot; PayPal &nbsp;&middot;&nbsp; API Key Delivered Within 2 Hours &nbsp;&middot;&nbsp; GSTIN: 21ARKPN8270G1ZP
 </div>
 
 <nav>
@@ -322,102 +465,100 @@ h1 span { color: var(--accent); }
         </div>
       </div>
 
-      <!-- ═══ STRIPE GLOBAL PAYMENT (PRIMARY — INSTANT) ════════════════════
-           SETUP: Replace the href values below with your Stripe Payment Links.
-           Steps: Stripe Dashboard → Products → Create Payment Link → Copy URL
-           Env vars to set in Cloudflare Worker:
-             STRIPE_PAYMENT_LINK_PRO        → https://buy.stripe.com/...
-             STRIPE_PAYMENT_LINK_ENTERPRISE → https://buy.stripe.com/...
-             STRIPE_PAYMENT_LINK_MSSP       → https://buy.stripe.com/...
-           After setup: Stripe handles billing, webhook auto-provisions API key.
-           ════════════════════════════════════════════════════════════════════ -->
-      <div class="stripe-section" id="stripe-payment-section">
-        <div class="stripe-header">
-          <span class="stripe-badge">⚡ STRIPE</span>
-          <span class="instant-badge">✓ INSTANT API KEY</span>
-        </div>
-        <div class="stripe-title">Pay Securely — 135+ Countries · All Major Cards · Auto API Key Delivery</div>
-        <div class="stripe-subtitle">Click your plan → Pay on Stripe → API key delivered instantly to your email. No waiting. No manual process.</div>
-
-        <div class="stripe-btns" id="stripe-btns-container">
-          <!-- PRO Button — visible when plan-pro is selected -->
-          <a href="https://buy.stripe.com/CONFIGURE_PRO_MONTHLY"
-             id="stripe-btn-pro"
-             class="stripe-pay-btn pro"
-             target="_blank" rel="noopener"
-             onclick="return cdbStripeClick(event,'pro')">
-            <div class="stripe-btn-left">
-              <span class="stripe-btn-icon">⚡</span>
-              <div>
-                <div class="stripe-btn-name">PRO Defense</div>
-                <div class="stripe-btn-desc">500 req/min · Full IOCs · STIX 2.1 · MITRE Heatmap</div>
-              </div>
-            </div>
-            <div class="stripe-btn-price">
-              <div class="stripe-btn-amount" id="stripe-price-pro">$49</div>
-              <span class="stripe-btn-period" id="stripe-period-pro">/month</span>
-            </div>
-          </a>
-
-          <!-- ENTERPRISE Button — visible when plan-enterprise is selected -->
-          <a href="https://buy.stripe.com/CONFIGURE_ENTERPRISE_MONTHLY"
-             id="stripe-btn-enterprise"
-             class="stripe-pay-btn enterprise"
-             target="_blank" rel="noopener"
-             onclick="return cdbStripeClick(event,'enterprise')">
-            <div class="stripe-btn-left">
-              <span class="stripe-btn-icon">🏢</span>
-              <div>
-                <div class="stripe-btn-name">Enterprise SOC</div>
-                <div class="stripe-btn-desc">2K req/min · SIEM push · Webhook · SLA · 50 keys</div>
-              </div>
-            </div>
-            <div class="stripe-btn-price">
-              <div class="stripe-btn-amount" id="stripe-price-enterprise">$499</div>
-              <span class="stripe-btn-period" id="stripe-period-enterprise">/month</span>
-            </div>
-          </a>
-
-          <!-- MSSP Button — visible when plan-mssp is selected -->
-          <a href="https://buy.stripe.com/CONFIGURE_MSSP_MONTHLY"
-             id="stripe-btn-mssp"
-             class="stripe-pay-btn mssp"
-             target="_blank" rel="noopener"
-             onclick="return cdbStripeClick(event,'mssp')">
-            <div class="stripe-btn-left">
-              <span class="stripe-btn-icon">🛡</span>
-              <div>
-                <div class="stripe-btn-name">MSSP / White-Label</div>
-                <div class="stripe-btn-desc">Multi-tenant · White-label · Unlimited keys · Dedicated support</div>
-              </div>
-            </div>
-            <div class="stripe-btn-price">
-              <div class="stripe-btn-amount" id="stripe-price-mssp">$1,999</div>
-              <span class="stripe-btn-period" id="stripe-period-mssp">/month</span>
-            </div>
-          </a>
+      <!-- ═══ DIRECT PAYMENT GATEWAY — PRIMARY (v143.0.0) ═══════════════
+           No third-party processors. All payments direct to CyberDudeBivash.
+           Methods: BNB Smart Chain · UPI · Axis Bank NEFT · PayPal
+           GST Registered · GSTIN: 21ARKPN8270G1ZP
+           ════════════════════════════════════════════════════════════════ -->
+      <div class="direct-gw-section" id="direct-payment-section">
+        <div class="direct-gw-top">
+          <div class="direct-gw-badges">
+            <span class="dgw-badge-primary">&#9889; DIRECT GATEWAY</span>
+            <span class="dgw-badge-gst">&#128221; GSTIN: 21ARKPN8270G1ZP</span>
+            <span class="dgw-badge-secure">&#128274; ZERO MIDDLEMAN</span>
+          </div>
+          <div class="direct-gw-title">CyberDudeBivash Direct Payment Gateway</div>
+          <div class="direct-gw-subtitle">Pay directly — no Stripe, no Razorpay, no third-party fees. 100% of your payment funds the platform. Select any method below and confirm via the form. API key delivered within 2 hours.</div>
         </div>
 
-        <div class="stripe-divider">
-          <hr><span>ALSO ACCEPTED</span><hr>
+        <!-- PAYMENT METHOD QUICK CARDS -->
+        <div class="dgw-method-grid">
+
+          <!-- BNB CRYPTO CARD -->
+          <div class="dgw-method-card dgw-crypto" onclick="showPayTab('crypto');document.getElementById('section-payment-methods').scrollIntoView({behavior:'smooth'})">
+            <div class="dgw-method-icon">&#8383;</div>
+            <div class="dgw-method-name">BNB Smart Chain</div>
+            <div class="dgw-method-tag">GLOBAL · INSTANT</div>
+            <div class="dgw-method-addr">0xa824c...0796</div>
+            <div class="dgw-method-arrow">&#8595; PAY NOW</div>
+          </div>
+
+          <!-- UPI CARD -->
+          <div class="dgw-method-card dgw-upi" onclick="showPayTab('upi');document.getElementById('section-payment-methods').scrollIntoView({behavior:'smooth'})">
+            <div class="dgw-method-icon">&#127470;&#127475;</div>
+            <div class="dgw-method-name">UPI / GPay / PhonePe</div>
+            <div class="dgw-method-tag">INDIA · INSTANT</div>
+            <div class="dgw-method-addr">iambivash.bn-5@okaxis</div>
+            <div class="dgw-method-arrow">&#8595; PAY NOW</div>
+          </div>
+
+          <!-- BANK CARD -->
+          <div class="dgw-method-card dgw-bank" onclick="showPayTab('neft');document.getElementById('section-payment-methods').scrollIntoView({behavior:'smooth'})">
+            <div class="dgw-method-icon">&#127981;</div>
+            <div class="dgw-method-name">Axis Bank NEFT/IMPS</div>
+            <div class="dgw-method-tag">INDIA · 2 HRS</div>
+            <div class="dgw-method-addr">A/C: 915010024617260</div>
+            <div class="dgw-method-arrow">&#8595; PAY NOW</div>
+          </div>
+
+          <!-- PAYPAL CARD -->
+          <div class="dgw-method-card dgw-paypal" onclick="showPayTab('paypal');document.getElementById('section-payment-methods').scrollIntoView({behavior:'smooth'})">
+            <div class="dgw-method-icon">P</div>
+            <div class="dgw-method-name">PayPal Global</div>
+            <div class="dgw-method-tag">GLOBAL · 2 HRS</div>
+            <div class="dgw-method-addr">iambivash.bn@gmail.com</div>
+            <div class="dgw-method-arrow">&#8595; PAY NOW</div>
+          </div>
         </div>
-        <div class="stripe-trust">
-          <div class="stripe-trust-item"><span>✓</span> Visa / Mastercard / Amex</div>
-          <div class="stripe-trust-item"><span>✓</span> Apple Pay / Google Pay</div>
-          <div class="stripe-trust-item"><span>✓</span> SEPA / ACH / Wire</div>
-          <div class="stripe-trust-item"><span>✓</span> 135+ currencies</div>
-          <div class="stripe-trust-item"><span>✓</span> SOC2 secured by Stripe</div>
-          <div class="stripe-trust-item"><span>✓</span> 7-day money-back</div>
+
+        <!-- SELECTED PLAN AMOUNT STRIP -->
+        <div class="dgw-amount-strip">
+          <div class="dgw-amount-left">
+            <span class="dgw-amount-label">SELECTED PLAN</span>
+            <span class="dgw-amount-plan" id="dgw-plan-name">PRO Defense</span>
+          </div>
+          <div class="dgw-amount-center">
+            <span class="dgw-amount-usd" id="dgw-amount-usd">$49</span>
+            <span class="dgw-amount-sep">/</span>
+            <span class="dgw-amount-inr" id="dgw-amount-inr">&#x20B9;4,100</span>
+            <span class="dgw-amount-period" id="dgw-amount-period">&nbsp;per month</span>
+          </div>
+          <div class="dgw-amount-right">
+            <span class="dgw-gst-tag">GST Invoice on Request</span>
+          </div>
+        </div>
+
+        <!-- TRUST ROW -->
+        <div class="dgw-trust-row">
+          <div class="dgw-trust-item"><span>&#10003;</span> 7-Day Money-Back Guarantee</div>
+          <div class="dgw-trust-item"><span>&#10003;</span> GST Registered — GSTIN: 21ARKPN8270G1ZP</div>
+          <div class="dgw-trust-item"><span>&#10003;</span> No Auto-Renewal</div>
+          <div class="dgw-trust-item"><span>&#10003;</span> Enterprise SLA Available</div>
+          <div class="dgw-trust-item"><span>&#10003;</span> API Key in 2 Hours</div>
+          <div class="dgw-trust-item"><span>&#10003;</span> STIX 2.1 · MITRE ATT&amp;CK · CISA KEV</div>
         </div>
       </div>
 
-      <!-- PAYMENT METHOD SECTION (MANUAL — INDIA / CRYPTO / PAYPAL) -->
-      <div class="section-card">
+      <!-- PAYMENT METHOD SECTION — PRIMARY GATEWAY (v143.0.0 DIRECT) -->
+      <div class="section-card" id="section-payment-methods">
         <div class="manual-section-label">
-          <span class="manual-label-text">&#128178; Manual Payment</span>
-          <span class="manual-label-badge">INDIA · PAYPAL · CRYPTO</span>
+          <span class="manual-label-text">&#9889; Choose Payment Method</span>
+          <span class="manual-label-badge" style="background:rgba(0,212,255,0.12);color:var(--accent);border-color:rgba(0,212,255,0.3);">PRIMARY GATEWAY</span>
         </div>
-        <div style="font-size:12px;color:var(--text-dim);margin-bottom:16px;">&#9888;&#65039; Manual payments require 2–4 hour processing. For instant API key delivery, use Stripe above.</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+          <span style="color:var(--green);font-weight:700;">&#10003;</span>
+          Select your preferred method &mdash; copy the details &mdash; pay &mdash; then fill the confirmation form below. API key delivered within 2 hours.
+        </div>
 
         <div class="pay-tabs">
           <div class="pay-tab active" onclick="showPayTab('upi')" id="tab-upi">
@@ -844,25 +985,30 @@ h1 span { color: var(--accent); }
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
-   SENTINEL APEX v142.3.1 — Upgrade Page Controller
-   Features: plan select · billing toggle · UPI QR · Stripe routing
+   SENTINEL APEX v143.0.0 — Upgrade Page Controller
+   Features: plan select · billing toggle · UPI QR · Direct Payment Gateway
+   Third-party gateways: DISABLED (2-month direct payment window)
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── STRIPE PAYMENT LINKS ─────────────────────────────────────────────
-   Replace these placeholder URLs with your real Stripe Payment Links.
-   Dashboard: https://dashboard.stripe.com → Products → Payment Links
-   Env vars to set in Cloudflare Worker secrets:
-     STRIPE_PAYMENT_LINK_PRO        → https://buy.stripe.com/...
-     STRIPE_PAYMENT_LINK_ENTERPRISE → https://buy.stripe.com/...
-     STRIPE_PAYMENT_LINK_MSSP       → https://buy.stripe.com/...
+/* ── DIRECT PAYMENT CONFIG v143.0.0 ──────────────────────────────────
+   Stripe/Razorpay disabled for direct payment window.
+   All methods below are live and active.
    ──────────────────────────────────────────────────────────────────── */
-var STRIPE_LINKS = {
-  pro_monthly:        'https://buy.stripe.com/CONFIGURE_PRO_MONTHLY',
-  pro_annual:         'https://buy.stripe.com/CONFIGURE_PRO_ANNUAL',
-  enterprise_monthly: 'https://buy.stripe.com/CONFIGURE_ENTERPRISE_MONTHLY',
-  enterprise_annual:  'https://buy.stripe.com/CONFIGURE_ENTERPRISE_ANNUAL',
-  mssp_monthly:       'https://buy.stripe.com/CONFIGURE_MSSP_MONTHLY',
-  mssp_annual:        'https://buy.stripe.com/CONFIGURE_MSSP_ANNUAL',
+var DIRECT_PAYMENT = {
+  bnb_wallet:   '0xa824c20158a4bfe2f3d8e80351b1906bd0ac0796',
+  upi_primary:  'iambivash.bn-5@okaxis',
+  upi_axis:     '6302177246@axisbank',
+  upi_bhim:     '6302177246@upi',
+  upi_paytm:    '6302177246@pthdfc',
+  bank_account: '915010024617260',
+  bank_name:    'BIVASHA KUMAR NAYAK',
+  bank_ifsc:    'UTIB0000052',
+  bank_branch:  'Axis Bank, Bhubaneswar',
+  paypal_email: 'iambivash.bn@gmail.com',
+  paypal_me:    'https://paypal.me/cyberdudebivash',
+  gstin:        '21ARKPN8270G1ZP',
+  whatsapp:     '+918179881447',
+  email:        'bivash@cyberdudebivash.com'
 };
 
 var PLANS = {
@@ -959,25 +1105,23 @@ function _showStripeSetupModal(plan, cycle) {
   if (altSection) altSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-/* Update Stripe button appearance based on selected plan + billing cycle */
-function updateStripeButtons() {
-  var plans = ['pro', 'enterprise', 'mssp'];
-  plans.forEach(function(key) {
-    var btn = document.getElementById('stripe-btn-' + key);
-    var priceEl = document.getElementById('stripe-price-' + key);
-    var periodEl = document.getElementById('stripe-period-' + key);
-    if (!btn) return;
-    var p = PLANS[key];
-    var usd = isAnnual ? p.usdAnnual : p.usd;
-    var cycle = isAnnual ? 'annual' : 'monthly';
-    var url = STRIPE_LINKS[key + '_' + cycle] || STRIPE_LINKS[key + '_monthly'];
-    if (url && url.indexOf('CONFIGURE') === -1) btn.href = url;
-    if (priceEl) priceEl.textContent = '$' + usd.toLocaleString();
-    if (periodEl) periodEl.textContent = isAnnual ? '/year' : '/month';
-    btn.style.opacity  = (key === currentPlan) ? '1' : '0.45';
-    btn.style.boxShadow = (key === currentPlan) ? '0 0 0 2px rgba(255,255,255,0.2)' : 'none';
-  });
+/* ── Direct Payment Gateway strip updater — v143.0.0 ─────────────── */
+function updateDGW() {
+  var p    = PLANS[currentPlan];
+  if (!p) return;
+  var usd  = isAnnual ? p.usdAnnual : p.usd;
+  var inr  = isAnnual ? p.inrAnnual : p.inr;
+  var period = isAnnual ? 'per year' : 'per month';
+  function se(id, val) { var e = document.getElementById(id); if (e) e.textContent = val; }
+  function si(id, val) { var e = document.getElementById(id); if (e) e.innerHTML = val; }
+  se('dgw-plan-name',   p.name);
+  se('dgw-amount-usd',  currentPlan === 'free' ? 'Free' : '$' + usd.toLocaleString());
+  si('dgw-amount-inr',  inr ? '&#x20B9;' + inr.toLocaleString() : '');
+  se('dgw-amount-period', ' ' + period);
 }
+
+/* Stripe button updater — stub kept for when Stripe re-activates */
+function updateStripeButtons() { updateDGW(); }
 
 function selectPlan(key) {
   if (!PLANS[key]) return;
@@ -987,7 +1131,7 @@ function selectPlan(key) {
   if (el) el.classList.add('selected');
   updateSummary();
   updateQR();
-  updateStripeButtons();
+  updateDGW();
 }
 
 function toggleBilling() {
@@ -1011,7 +1155,7 @@ function toggleBilling() {
   });
   updateSummary();
   updateQR();
-  updateStripeButtons();
+  updateDGW();
 }
 
 function updateSummary() {
@@ -1205,121 +1349,61 @@ function showSuccessState(plan, wData) {
   if (ss) ss.style.display = 'block';
   if (sp && PLANS[plan]) sp.textContent = PLANS[plan].name;
   if (rid && wData.review_id) rid.textContent = wData.review_id;
-  if (waL && wData.review_id) {
-    waL.href = 'https://wa.me/918179881447?text=' + encodeURIComponent('SENTINEL APEX Payment - Review ID: ' + wData.review_id + ' | Plan: ' + (plan || '').toUpperCase());
-  }
-  var isCrypto = wData.bsc_status !== null && wData.bsc_status !== undefined;
+  if (waL) waL.href = 'https://wa.me/918179881447?text=' + encodeURIComponent('Hi Bivash! Payment submitted. Review ID: ' + (wData.review_id || 'N/A') + '. Plan: ' + (PLANS[plan] ? PLANS[plan].name : plan));
+
+  var isCrypto = (wData && wData.bsc_status !== undefined && wData.bsc_status !== null);
+  var cvDiv = document.getElementById('success-crypto-verify');
+  if (cvDiv) cvDiv.style.display = isCrypto ? 'block' : 'none';
   if (tl) {
     if (isCrypto) {
-      tl.innerHTML = '&#9203; Crypto payments: <strong style="color:#60a5fa;">auto-verifying via blockchain…</strong>';
+      tl.innerHTML = '&#9203; Crypto payment: <strong style="color:#60a5fa;">auto-verified 1–3 min</strong><br>&#9203; Manual fallback: <strong style="color:var(--green);">API key within 2 hours</strong>';
     } else {
-      tl.innerHTML = '&#9203; UPI / Bank / PayPal: <strong style="color:var(--green);">API key delivered within 2 hours</strong>';
+      tl.innerHTML = '&#9203; UPI / Bank / PayPal: <strong style="color:var(--green);">API key delivered within 2 hours</strong><br>&#128172; WhatsApp your Review ID to <strong>+91 8179881447</strong>';
     }
   }
-  // Scroll to top of success state
   if (ss) ss.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// BSC on-chain verification polling (polls /api/payment/verify-bsc every 15s, up to 12 tries = 3 min)
-function startBSCPolling(txhash, rid) {
-  var cvDiv  = document.getElementById('success-crypto-verify');
-  var status = document.getElementById('bsc-verify-status');
-  var bar    = document.getElementById('bsc-verify-progress');
-  if (cvDiv) cvDiv.style.display = 'block';
-
-  var tries    = 0;
-  var maxTries = 12;  // 12 x 15s = 3 minutes
-
-  var tries    = 0;
-  var maxTries = 12;  // 12 x 15s = 3 minutes
-
+/* ── BSC Transaction Polling ─────────────────────────────────────── */
+function startBSCPolling(txhash, reviewId) {
+  var statusEl   = document.getElementById('bsc-verify-status');
+  var progressEl = document.getElementById('bsc-verify-progress');
+  var attempt = 0; var maxAttempts = 18; var pct = 10;
   function poll() {
-    tries++;
-    var pct = Math.min(10 + (tries / maxTries) * 85, 95);
-    if (bar) bar.style.width = pct + '%';
-
-    fetch('/api/payment/verify-bsc?txhash=' + encodeURIComponent(txhash) + '&rid=' + encodeURIComponent(rid))
+    attempt++;
+    pct = Math.min(95, 10 + attempt * 5);
+    if (progressEl) progressEl.style.width = pct + '%';
+    fetch('/api/payment/verify-bsc?tx=' + encodeURIComponent(txhash) + '&review_id=' + encodeURIComponent(reviewId || ''))
       .then(function(r) { return r.json(); })
       .then(function(d) {
-        if (d.status === 'confirmed') {
-          if (bar) bar.style.width = '100%';
-          if (bar) bar.style.background = '#10b981';
-          if (status) status.innerHTML = '&#10003; <strong style="color:#10b981;">Transaction confirmed on BSC!</strong> Block: ' + (d.detail && d.detail.block ? d.detail.block : '—') + '. Account activating now.';
-          if (cvDiv) cvDiv.style.border = '1px solid rgba(16,185,129,0.4)';
-          if (cvDiv) cvDiv.style.background = 'rgba(16,185,129,0.08)';
-          clearInterval(_bscPollTimer);
-          var tl = document.getElementById('success-timeline');
-          if (tl) tl.innerHTML = '&#10003; <strong style="color:#10b981;">Blockchain confirmed. API key activating now.</strong>';
-        } else if (d.status === 'pending' && tries < maxTries) {
-          if (status) status.textContent = 'Checking blockchain… attempt ' + tries + '/' + maxTries;
-        } else if (tries >= maxTries) {
-          clearInterval(_bscPollTimer);
-          if (status) status.innerHTML = '&#9203; Verification timed out. <a href="https://wa.me/918179881447" style="color:#00d4ff">WhatsApp us your TX hash</a> to manually activate.';
+        if (d && d.confirmed) {
+          if (statusEl) statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700;">&#10003; Transaction confirmed on BSC. API key provisioning in progress.</span>';
+          if (progressEl) { progressEl.style.width = '100%'; progressEl.style.background = '#10b981'; }
+        } else if (attempt < maxAttempts) {
+          if (statusEl) statusEl.textContent = 'Checking blockchain (' + attempt + '/' + maxAttempts + ')... ' + (d && d.message ? d.message : '');
+          setTimeout(poll, 10000);
+        } else {
+          if (statusEl) statusEl.innerHTML = 'Auto-verification timed out — payment reviewed manually. API key within 2 hours.';
         }
-      })
-      .catch(function() {
-        if (tries >= maxTries) clearInterval(_bscPollTimer);
-      });
+      }).catch(function() { if (attempt < maxAttempts) setTimeout(poll, 10000); });
   }
-
-  _bscPollTimer = setInterval(poll, 15000);
-  setTimeout(poll, 2000);  // first check after 2s
+  setTimeout(poll, 8000);
 }
 
-var _bscPollTimer = null;
-
-// ── Page initialisation ───────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function() {
-  updateSummary();
-  updateQR();
-  updateStripeButtons();
+/* ── On-load init v143.0.0 ──────────────────────────────────────── */
+(function init() {
+  selectPlan('pro');
+  updateDGW();
+  // Pre-fill today's date
+  var pd = document.querySelector('input[name="payment_date"]');
+  if (pd) pd.value = new Date().toISOString().split('T')[0];
+  // Checkout return handler (kept for future Stripe re-activation)
   var params = new URLSearchParams(window.location.search);
-  var planParam = params.get('plan');
-  if (planParam && PLANS[planParam]) { selectPlan(planParam); }
-  if (params.get('annual') === '1') { toggleBilling(); }
-
-  // ── Stripe Checkout return handler ──────────────────────────────────────────
-  // Stripe redirects back to /upgrade.html?checkout=success|cancelled&plan=...&session_id=...
-  var checkoutStatus = params.get('checkout');
-  var sessionId      = params.get('session_id');
-
-  if (checkoutStatus === 'success' && sessionId) {
-    var plan = planParam || 'pro';
-    var cs = document.getElementById('checkout-state');
-    var ss = document.getElementById('success-state');
-    var sp = document.getElementById('success-plan');
-    var tl = document.getElementById('success-timeline');
-    var rid = document.getElementById('success-review-id');
-    var waL = document.getElementById('success-wa-link');
-    if (cs) cs.style.display = 'none';
-    if (ss) ss.style.display = 'block';
-    if (sp && PLANS[plan]) sp.textContent = PLANS[plan].name + ' (Stripe)';
-    if (rid) rid.textContent = sessionId;
-    if (tl) tl.innerHTML = '&#10003; <strong style="color:#10b981;">Stripe payment confirmed.</strong> Your API key is being provisioned and will be emailed within 60 seconds.';
-    if (waL) waL.href = 'https://wa.me/918179881447?text=' + encodeURIComponent('SENTINEL APEX Stripe Checkout - Session: ' + sessionId + ' | Plan: ' + plan.toUpperCase());
-    if (ss) ss.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    // Clean URL without reload
-    try {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } catch(e) {}
-
-  } else if (checkoutStatus === 'cancelled') {
-    var plan = planParam || 'pro';
-    var banner = document.createElement('div');
-    banner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#1c2945;border:1px solid #2a4070;border-radius:8px;padding:12px 20px;font-size:13px;color:#e2e8f0;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.4);max-width:420px;text-align:center';
-    banner.innerHTML = '&#8592; Checkout cancelled. Your plan hasn\'t changed &mdash; complete payment below when ready.';
-    document.body.appendChild(banner);
-    setTimeout(function() {
-      banner.style.transition = 'opacity 0.5s';
-      banner.style.opacity = '0';
-      setTimeout(function() { if (banner.parentNode) banner.parentNode.removeChild(banner); }, 500);
-    }, 5000);
-    try {
-      window.history.replaceState({}, document.title, window.location.pathname + (plan ? '?plan=' + plan : ''));
-    } catch(e) {}
+  if (params.get('checkout') === 'success') {
+    var planParam = params.get('plan') || 'pro';
+    showSuccessState(planParam, { review_id: 'DIRECT-' + (params.get('session_id') || Date.now()), bsc_status: null });
   }
-  // ── End Stripe return handler ────────────────────────────────────────────────
-});
+})();
 </script>
 </body>
 </html>
