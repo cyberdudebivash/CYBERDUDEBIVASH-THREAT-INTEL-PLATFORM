@@ -307,6 +307,9 @@ jobs:
       # R2 is NEVER overwritten with corrupt/small manifests.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.5 - Upload Intel to Cloudflare R2 (MANDATORY)"
+        env:
+          CF_R2_REPORTS_KEY_ID:     ${{ secrets.CF_R2_REPORTS_KEY_ID }}
+          CF_R2_REPORTS_SECRET_KEY: ${{ secrets.CF_R2_REPORTS_SECRET_KEY }}
         run: python3 scripts/r2_upload.py
 
       # -----------------------------------------------------------------------
