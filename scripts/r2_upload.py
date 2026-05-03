@@ -198,23 +198,45 @@ def main() -> None:
         log.info("OK: apex_v2/ uploaded")
 
     # --- Upload 4a: Generated HTML reports (Tactical Dossiers) ---
-    # v143.1.0 FIX: check s3_sync return value — do NOT log OK on failure.
-    # AccessDenied on sentinel-apex-reports bucket was previously swallowed silently.
-    # Non-fatal: pipeline continues but the real outcome is now visible in logs.
+    # v143.5.0 FIX: Use dedicated CF_R2_REPORTS_KEY_ID / CF_R2_REPORTS_SECRET_KEY
+    # credentials for sentinel-apex-reports bucket (separate R2 token with scoped
+    # access). Falls back to job-level AWS credentials if per-bucket secrets absent.
+    # Non-fatal: pipeline continues on failure.
     reports_dir = REPO_ROOT / "reports"
     if reports_dir.is_dir() and any(reports_dir.rglob("*.html")):
-        log.info("Uploading HTML reports to R2...")
-        reports_ok = s3_sync(
-            "reports/", BUCKET_REPORTS, "reports/", endpoint,
-            content_type="text/html; charset=utf-8",
-            cache_control="public, max-age=300",
-        )
+        log.info("Uploading HTML reports to R2 (sentinel-apex-reports)...")
+
+        # Swap in per-bucket credentials if available
+        reports_key_id = os.environ.get("CF_R2_REPORTS_KEY_ID", "").strip()
+        reports_secret = os.environ.get("CF_R2_REPORTS_SECRET_KEY", "").strip()
+        orig_key_id    = os.environ.get("AWS_ACCESS_KEY_ID", "")
+        orig_secret    = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+
+        if reports_key_id and reports_secret:
+            os.environ["AWS_ACCESS_KEY_ID"]    = reports_key_id
+            os.environ["AWS_SECRET_ACCESS_KEY"] = reports_secret
+            log.info("Using dedicated sentinel-apex-reports R2 token.")
+        else:
+            log.info("CF_R2_REPORTS_KEY_ID not set -- using job-level R2 credentials.")
+
+        try:
+            reports_ok = s3_sync(
+                "reports/", BUCKET_REPORTS, "reports/", endpoint,
+                content_type="text/html; charset=utf-8",
+                cache_control="public, max-age=300",
+            )
+        finally:
+            # Always restore original credentials
+            os.environ["AWS_ACCESS_KEY_ID"]    = orig_key_id
+            os.environ["AWS_SECRET_ACCESS_KEY"] = orig_secret
+
         if reports_ok:
             log.info("OK: HTML reports uploaded to R2 (%s/reports/)", BUCKET_REPORTS)
         else:
             log.warning(
-                "WARN: HTML reports R2 sync FAILED (non-fatal — existing reports in R2 remain valid). "
-                "Check bucket permissions for %s. Pipeline continues.", BUCKET_REPORTS
+                "WARN: HTML reports R2 sync FAILED (non-fatal -- existing reports in R2 remain valid). "
+                "Check bucket permissions for %s or verify CF_R2_REPORTS_KEY_ID secret. "
+                "Pipeline continues.", BUCKET_REPORTS
             )
     else:
         log.info("INFO: No reports/ directory or HTML files -- skipping report upload.")
