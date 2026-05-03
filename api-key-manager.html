@@ -251,7 +251,20 @@ tbody td{padding:13px 16px;color:var(--text2);font-size:12px;vertical-align:midd
     </div>
     <hr class="sidebar-divider"/>
     <div class="sidebar-section">
+      <div class="sidebar-label">Alerts & SLA</div>
+      <div class="sidebar-item" onclick="showPage('alerts')">
+        <span class="icon">🔔</span><span class="label">Alert Subscriptions</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('sla')">
+        <span class="icon">📡</span><span class="label">SLA Monitor</span>
+      </div>
+    </div>
+    <hr class="sidebar-divider"/>
+    <div class="sidebar-section">
       <div class="sidebar-label">Account</div>
+      <div class="sidebar-item" onclick="showPage('verify')">
+        <span class="icon">✅</span><span class="label">Payment Verification</span>
+      </div>
       <div class="sidebar-item" onclick="showPage('billing')">
         <span class="icon">💳</span><span class="label">Billing & Tier</span>
       </div>
@@ -723,6 +736,167 @@ tbody td{padding:13px 16px;color:var(--text2);font-size:12px;vertical-align:midd
       </div>
     </div>
 
+
+    <!-- ── PAYMENT VERIFICATION PORTAL ──────────────────────── -->
+    <div class="page" id="page-verify">
+      <div class="page-header"><div>
+        <div class="page-title">&#10003; Payment Verification Portal</div>
+        <div class="page-subtitle">Track your BNB / UPI / PayPal / Bank payment status</div>
+      </div></div>
+      <div style="background:linear-gradient(135deg,#050c1a,#0a0f20);border:1px solid #00d4ff33;border-radius:12px;padding:20px;margin-bottom:20px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#00d4ff;margin-bottom:6px;">HOW IT WORKS</div>
+        <p style="font-size:13px;color:#94a3b8;line-height:1.7;margin:0;">After paying via BNB / UPI / Bank / PayPal on <a href="/upgrade.html" style="color:#00d4ff;">upgrade.html</a> you received a <strong style="color:#e2e8f0;">Review ID</strong>. Enter it below to check provisioning status.</p>
+      </div>
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <div class="table-header"><span class="table-title">&#128269; Look Up Payment Status</span></div>
+        <div style="padding:20px;">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:14px;">
+            <input id="verifyReviewId" type="text" class="form-control" placeholder="Review ID — e.g. APEX-2026-XYZABC or FS-1714900000000" style="font-family:monospace;font-size:13px;">
+            <button class="btn btn-primary" onclick="lookupPayment()">Check Status</button>
+          </div>
+          <div id="verifyResult" style="display:none;"></div>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <div class="table-header"><span class="table-title">&#9935; BSC Crypto Transaction Verifier</span></div>
+        <div style="padding:20px;">
+          <p style="font-size:12px;color:#64748b;margin-bottom:14px;">Paste your BNB / USDT BEP-20 transaction hash to verify on-chain and accelerate provisioning.</p>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:14px;">
+            <input id="verifyTxHash" type="text" class="form-control" placeholder="0x... transaction hash" style="font-family:monospace;font-size:12px;">
+            <button class="btn btn-primary" onclick="verifyBSCTx()">Verify On-Chain</button>
+          </div>
+          <div id="bscVerifyResult" style="display:none;"></div>
+        </div>
+      </div>
+      <div style="background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.2);border-radius:10px;padding:16px 20px;">
+        <div style="font-size:12px;font-weight:700;color:#4ade80;margin-bottom:8px;">&#9889; Need Faster Activation?</div>
+        <p style="font-size:12px;color:#94a3b8;margin:0 0 12px;">WhatsApp your Review ID + payment screenshot to <strong style="color:#4ade80;">+91 8179881447</strong> — activation in 30 min during business hours.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <a href="https://wa.me/918179881447" target="_blank" class="btn btn-sm" style="background:rgba(37,211,102,0.15);color:#4ade80;border:1px solid rgba(37,211,102,0.3);">&#128242; WhatsApp</a>
+          <a href="mailto:bivash@cyberdudebivash.com" class="btn btn-sm" style="background:rgba(0,212,255,0.08);color:#00d4ff;border:1px solid rgba(0,212,255,0.2);">&#9993; Email Support</a>
+          <a href="/upgrade.html" class="btn btn-sm" style="background:rgba(124,58,237,0.1);color:#a78bfa;border:1px solid rgba(124,58,237,0.25);">&#128179; Make Payment</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AI ALERT SUBSCRIPTIONS ─────────────────────────────── -->
+    <div class="page" id="page-alerts">
+      <div class="page-header"><div>
+        <div class="page-title">&#128276; AI Alert Subscriptions</div>
+        <div class="page-subtitle">Real-time threat alerts via Telegram or Webhook — Enterprise tier</div>
+      </div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:16px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:#a78bfa;margin-bottom:4px;">ENTERPRISE</div>
+          <div style="font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">Real-Time Alerts</div>
+          <div style="font-size:12px;color:#64748b;">Every high-risk advisory triggers an instant Telegram message or webhook POST within 60 seconds of AI detection.</div>
+        </div>
+        <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:16px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:#00d4ff;margin-bottom:4px;">PRO</div>
+          <div style="font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">Daily Digest (Top 5)</div>
+          <div style="font-size:12px;color:#64748b;">One consolidated alert per day with the top-5 highest-risk advisories above your minimum threshold.</div>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <div class="table-header"><span class="table-title">+ New Alert Subscription</span></div>
+        <div style="padding:20px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div>
+              <label class="form-label">Channel</label>
+              <select id="alertChannel" class="form-control" onchange="toggleAlertChannel()">
+                <option value="telegram">Telegram Bot</option>
+                <option value="webhook">Custom Webhook (HTTPS)</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Min Risk Score (0-10)</label>
+              <input id="alertMinRisk" type="number" min="0" max="10" step="0.5" value="7" class="form-control">
+            </div>
+            <div id="telegramField">
+              <label class="form-label">Telegram Chat ID</label>
+              <input id="alertChatId" type="text" class="form-control" placeholder="e.g. -1001234567890">
+              <div style="font-size:11px;color:#64748b;margin-top:4px;">Get your ID: message @userinfobot on Telegram</div>
+            </div>
+            <div id="webhookField" style="display:none;">
+              <label class="form-label">Webhook URL</label>
+              <input id="alertWebhookUrl" type="url" class="form-control" placeholder="https://your-siem.com/webhook">
+            </div>
+            <div style="grid-column:1/-1;">
+              <label class="form-label">Alert Interests</label>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;">
+                <label style="font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="int-critical" value="critical" checked> Critical</label>
+                <label style="font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="int-high" value="high" checked> High</label>
+                <label style="font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="int-zeroday" value="zero-day" checked> Zero-Day</label>
+                <label style="font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="int-ransomware" value="ransomware"> Ransomware</label>
+                <label style="font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="int-apt" value="apt"> APT</label>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:16px;display:flex;gap:10px;align-items:center;">
+            <button class="btn btn-primary" onclick="subscribeAlerts()">Subscribe</button>
+            <div id="alertSubResult" style="font-size:12px;color:#64748b;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">Active Subscriptions</span>
+          <button class="btn btn-sm btn-ghost" onclick="loadAlertSubs()">Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>Channel</th><th>Min Risk</th><th>Interests</th><th>Limit/Day</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="alertSubsBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── SLA MONITOR ────────────────────────────────────────── -->
+    <div class="page" id="page-sla">
+      <div class="page-header">
+        <div>
+          <div class="page-title">&#128225; SLA Monitor</div>
+          <div class="page-subtitle">Real-time uptime and Enterprise SLA compliance dashboard</div>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="loadSLA()">&#8635; Refresh</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:#10b981;" id="slaUptimePct">--%</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">30-Day Uptime</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:#00d4ff;" id="slaStatus">--</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">Platform Status</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;color:#f59e0b;" id="slaIncidents">--</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">Incidents (30d)</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:24px;font-weight:900;" id="slaMet">--</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;">SLA Met</div>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <div class="table-header"><span class="table-title">Platform Components</span></div>
+        <table>
+          <thead><tr><th>Component</th><th>Status</th><th>30d Uptime</th><th>SLA Target</th></tr></thead>
+          <tbody id="slaComponentsBody">
+            <tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;">Click Refresh to load SLA data</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">&#128203; Enterprise SLA Compliance Report</div>
+          <div style="font-size:12px;color:#64748b;">Full 30-day report with daily breakdown, incident log, and SLA credit policy. Enterprise tier only.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="downloadSLAReport()">Download Report</button>
+      </div>
+    </div>
+
   </div><!-- /main -->
 </div><!-- /layout -->
 
@@ -1117,6 +1291,177 @@ function showToast(msg, type = 'success') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
 }
+
+// ══ Payment Verification Portal ═════════════════════════════════════════════
+async function lookupPayment() {
+  const reviewId = (document.getElementById('verifyReviewId').value || '').trim();
+  const el = document.getElementById('verifyResult');
+  if (!reviewId) { showToast('Enter a Review ID', 'error'); return; }
+  el.style.display = 'block';
+  el.innerHTML = '<div style="color:#64748b;font-size:13px;">&#9203; Checking status...</div>';
+  const data = await apiFetch('/api/payment/status?review_id=' + encodeURIComponent(reviewId));
+  if (data.error) {
+    el.innerHTML = `<div class="alert alert-warning"><span class="icon">&#9888;</span><span>${escHtml(data.message || 'Review ID not found. Please check and try again, or contact support.')}</span></div>`;
+    return;
+  }
+  const statusColor = data.status === 'confirmed' || data.status === 'provisioned' ? '#10b981' : data.status === 'pending' ? '#f59e0b' : '#64748b';
+  el.innerHTML = `<div style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:700;color:#e2e8f0;">Review ID: <code style="color:#00d4ff;">${escHtml(data.review_id || reviewId)}</code></div>
+      <span style="font-size:11px;font-weight:800;padding:3px 12px;border-radius:20px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;">${(data.status || 'unknown').toUpperCase()}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;">
+      <div><span style="color:#64748b;">Plan:</span> <strong style="color:#e2e8f0;">${escHtml(data.plan || '--')}</strong></div>
+      <div><span style="color:#64748b;">Method:</span> <strong style="color:#e2e8f0;">${escHtml(data.payment_method || '--')}</strong></div>
+      <div><span style="color:#64748b;">Amount:</span> <strong style="color:#10b981;">${escHtml(data.amount || '--')}</strong></div>
+      <div><span style="color:#64748b;">Submitted:</span> <strong style="color:#e2e8f0;">${escHtml(data.submitted_at || '--')}</strong></div>
+    </div>
+    ${data.status === 'provisioned' ? '<div style="margin-top:12px;color:#10b981;font-size:13px;font-weight:700;">&#10003; API key has been delivered to your registered email.</div>' : ''}
+    ${data.status === 'pending' ? '<div style="margin-top:12px;color:#f59e0b;font-size:12px;">Payment under review. API key delivery within 2 hours. WhatsApp +91 8179881447 for urgent activation.</div>' : ''}
+  </div>`;
+}
+
+async function verifyBSCTx() {
+  const txHash = (document.getElementById('verifyTxHash').value || '').trim();
+  const el = document.getElementById('bscVerifyResult');
+  if (!txHash) { showToast('Enter a transaction hash', 'error'); return; }
+  el.style.display = 'block';
+  el.innerHTML = '<div style="color:#64748b;font-size:13px;">&#9935; Verifying on BSC...</div>';
+  const data = await apiFetch('/api/payment/verify-bsc?tx=' + encodeURIComponent(txHash));
+  if (data.error) {
+    el.innerHTML = `<div class="alert alert-error"><span class="icon">&#10007;</span><span>${escHtml(data.message || 'Verification failed. Check the hash and try again.')}</span></div>`;
+    return;
+  }
+  const confirmed = data.confirmed;
+  el.innerHTML = `<div class="alert ${confirmed ? 'alert-success' : 'alert-warning'}">
+    <span class="icon">${confirmed ? '&#10003;' : '&#9203;'}</span>
+    <span>${confirmed ? 'Transaction confirmed on BSC. Provisioning in progress — API key delivered within 30 minutes.' : (escHtml(data.message || 'Transaction pending confirmation. Check back in 2-3 minutes.'))}</span>
+  </div>`;
+}
+
+// ══ Alert Subscriptions ══════════════════════════════════════════════════════
+function toggleAlertChannel() {
+  const ch = document.getElementById('alertChannel').value;
+  document.getElementById('telegramField').style.display = ch === 'telegram' ? 'block' : 'none';
+  document.getElementById('webhookField').style.display  = ch === 'webhook'  ? 'block' : 'none';
+}
+
+async function subscribeAlerts() {
+  const channel  = document.getElementById('alertChannel').value;
+  const chatId   = (document.getElementById('alertChatId').value || '').trim();
+  const webhookUrl = (document.getElementById('alertWebhookUrl').value || '').trim();
+  const minRisk  = parseFloat(document.getElementById('alertMinRisk').value || '7');
+  const interests = ['int-critical','int-high','int-zeroday','int-ransomware','int-apt']
+    .map(id => document.getElementById(id))
+    .filter(el => el && el.checked)
+    .map(el => el.value);
+
+  const body = { channel, min_risk: minRisk, interests };
+  if (channel === 'telegram') body.chat_id = chatId;
+  if (channel === 'webhook')  body.url = webhookUrl;
+
+  const resEl = document.getElementById('alertSubResult');
+  resEl.textContent = 'Subscribing...';
+  const data = await apiFetch('/api/alerts/subscribe', { method: 'POST', body: JSON.stringify(body) });
+  if (data.error) {
+    resEl.style.color = '#ef4444';
+    resEl.textContent = data.message || 'Subscription failed.';
+  } else {
+    resEl.style.color = '#10b981';
+    resEl.textContent = data.message || 'Subscribed!';
+    showToast('Alert subscription created', 'success');
+    loadAlertSubs();
+  }
+}
+
+async function loadAlertSubs() {
+  const tbody = document.getElementById('alertSubsBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">Loading...</td></tr>';
+  const data = await apiFetch('/api/alerts/subscriptions');
+  if (data.error || !data.subscriptions) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">${escHtml(data.message || 'No subscriptions found or Pro+ required.')}</td></tr>`;
+    return;
+  }
+  if (!data.subscriptions.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">No active alert subscriptions. Create one above.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.subscriptions.map(s => `<tr>
+    <td><span style="font-size:11px;padding:2px 8px;border-radius:8px;background:rgba(0,212,255,0.1);color:#00d4ff;">${escHtml(s.channel)}</span></td>
+    <td style="font-weight:700;color:#f59e0b;">${s.min_risk}/10</td>
+    <td style="font-size:11px;color:var(--text2);">${(s.interests || []).join(', ')}</td>
+    <td style="color:var(--text2);">${s.daily_limit === 'unlimited' ? '&#8734;' : s.daily_limit}</td>
+    <td><span class="status-dot ${s.active ? 'dot-green' : 'dot-red'}"></span>${s.active ? 'Active' : 'Paused'}</td>
+    <td>
+      <button class="btn btn-sm btn-ghost" onclick="testAlert('${escHtml(s.sub_id)}')">Test</button>
+      <button class="btn btn-sm btn-danger" onclick="unsubscribeAlert('${escHtml(s.sub_id)}')">Remove</button>
+    </td>
+  </tr>`).join('');
+}
+
+async function testAlert(subId) {
+  showToast('Sending test alert...', 'info');
+  const data = await apiFetch('/api/alerts/test', { method: 'POST', body: JSON.stringify({ sub_id: subId }) });
+  showToast(data.message || (data.error ? 'Test failed' : 'Test sent!'), data.success ? 'success' : 'error');
+}
+
+async function unsubscribeAlert(subId) {
+  if (!confirm('Remove this alert subscription?')) return;
+  const data = await apiFetch('/api/alerts/unsubscribe', { method: 'DELETE', body: JSON.stringify({ sub_id: subId }) });
+  showToast(data.success ? 'Unsubscribed' : (data.message || 'Failed'), data.success ? 'success' : 'error');
+  if (data.success) loadAlertSubs();
+}
+
+// ══ SLA Monitor ══════════════════════════════════════════════════════════════
+async function loadSLA() {
+  const data = await apiFetch('/api/sla/status');
+  if (data.error) { showToast('SLA data unavailable', 'error'); return; }
+
+  const pct  = (data.uptime_pct_30d || 100).toFixed(3);
+  const met  = data.sla_met_enterprise;
+  const st   = (data.status || 'operational').toUpperCase();
+
+  function se(id, val) { const e = document.getElementById(id); if (e) e.textContent = val; }
+  function sc(id, col) { const e = document.getElementById(id); if (e) e.style.color = col; }
+
+  se('slaUptimePct', pct + '%');
+  sc('slaUptimePct', parseFloat(pct) >= 99.9 ? '#10b981' : parseFloat(pct) >= 99.5 ? '#f59e0b' : '#ef4444');
+  se('slaStatus', st);
+  sc('slaStatus', st === 'OPERATIONAL' ? '#10b981' : '#f59e0b');
+  se('slaIncidents', data.incidents_30d || 0);
+  se('slaMet', met ? 'YES ✅' : 'NO ❌');
+  sc('slaMet', met ? '#10b981' : '#ef4444');
+
+  const tbody = document.getElementById('slaComponentsBody');
+  if (tbody && data.components) {
+    tbody.innerHTML = Object.entries(data.components).map(([name, comp]) => {
+      const up = (comp.uptime || 100).toFixed(3);
+      const ok = parseFloat(up) >= 99.5;
+      return `<tr>
+        <td style="font-weight:600;">${escHtml(name)}</td>
+        <td><span class="status-dot ${comp.status === 'operational' ? 'dot-green' : 'dot-yellow'}"></span>${escHtml(comp.status || 'operational')}</td>
+        <td style="font-weight:700;color:${ok ? '#10b981' : '#f59e0b'};">${up}%</td>
+        <td style="color:var(--text3);">99.9%</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+async function downloadSLAReport() {
+  showToast('Generating SLA report...', 'info');
+  const data = await apiFetch('/api/sla/report');
+  if (data.error) { showToast(data.message || 'Enterprise tier required', 'error'); return; }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `sentinel-apex-sla-report-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('SLA report downloaded', 'success');
+}
+
 </script>
 </body>
 </html>
