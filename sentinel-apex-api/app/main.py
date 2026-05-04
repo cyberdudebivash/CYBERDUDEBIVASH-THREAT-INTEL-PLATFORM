@@ -22,6 +22,7 @@ from app.api.v1.endpoints import auth, feed, keys, usage, soc, enterprise_ai, pa
 from app.core.config import get_settings
 from app.db.client import close_client
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 
 # ── Logging Configuration ─────────────────────────────────────────────
 
@@ -82,15 +83,20 @@ app = FastAPI(
 )
 
 
-# ── Middleware Stack (order matters: last added = first executed) ─────
+# ── Middleware Stack (order matters: last added = outermost = first executed) ─
 
-# GZip compression for responses > 1KB
+# [1] Security Headers — outermost, runs last on response so headers always set
+#     Injects HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.
+#     ISO 27001 / SOC 2 / OWASP compliance requirement.
+app.add_middleware(SecurityHeadersMiddleware)
+
+# [2] GZip compression for responses > 1KB
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Rate limiting
+# [3] Rate limiting
 app.add_middleware(RateLimitMiddleware)
 
-# CORS
+# [4] CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
