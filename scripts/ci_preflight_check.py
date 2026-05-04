@@ -20,12 +20,16 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 
 CHECKS = {
-    "scripts/run_pipeline.py":           55_000,
-    "agent/sentinel_blogger.py":         25_000,
-    "agent/export_stix.py":              30_000,
-    "scripts/intel_dedup_engine.py":     15_000,
-    "scripts/generate_intel_reports.py": 45_000,
-    "scripts/validate_repo.py":          10_000,
+    "scripts/run_pipeline.py":                   55_000,
+    "agent/sentinel_blogger.py":                 25_000,
+    "agent/export_stix.py":                      30_000,
+    "scripts/intel_dedup_engine.py":             15_000,
+    "scripts/generate_intel_reports.py":         45_000,
+    "scripts/validate_repo.py":                  10_000,
+    # HARDENING scripts (added v143.1.0 -- STABLE CONTRACT enforcement)
+    "scripts/validate_manifest_schema.py":        5_000,
+    "scripts/field_preserving_merge.py":          8_000,
+    "scripts/apex_stability_lock.py":             5_000,
 }
 
 def main() -> int:
