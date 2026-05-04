@@ -164,6 +164,29 @@ class IOCEnforcer:
             result.avg_confidence  = self._avg_confidence(iocs)
             return result
 
+        # ── CDB Proprietary Campaign Exemption ──────────────────────────────────
+        # CDB-prefixed actor_tags without a CVE ID are internally-researched
+        # actor campaigns scored via attribution criteria, NOT IOC-based detections.
+        # Injecting synthetic fallback IOCs into these items is misleading for
+        # enterprise customers and constitutes data fabrication in threat intel.
+        # These items are marked research_based=True and bypass fallback generation.
+        _actor_tag = (item.get("actor_tag") or "").strip().upper()
+        _is_cdb_research = (
+            _actor_tag.startswith("CDB-")
+            and not (item.get("cve_ids") or item.get("cve_id") or "")
+        )
+        if _is_cdb_research:
+            item["research_based"] = True
+            item.setdefault("ioc_note", "Actor-attribution campaign — IOC set derived from threat actor research, not automated feed extraction.")
+            result.item = item
+            result.final_ioc_count = len(iocs)
+            result.avg_confidence  = self._avg_confidence(iocs)
+            logger.info(
+                "CDB proprietary campaign exempt from fallback IOC generation: %s [%s]",
+                _actor_tag, item.get("id","?")[:16],
+            )
+            return result
+
         # Calculate current confidence
         avg_conf = self._avg_confidence(iocs)
 
