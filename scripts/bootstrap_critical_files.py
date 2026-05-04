@@ -250,7 +250,58 @@ def ensure_dirs() -> None:
         (REPO_ROOT / rel).mkdir(parents=True, exist_ok=True)
 
 
+def _load_previous_manifest() -> list[dict]:
+    """
+    Load the existing manifest from disk (if it exists and is valid).
+    Used as a fallback when the current pipeline produces zero new STIX bundles
+    so historical intelligence is not silently discarded.
+    Returns a list of valid manifest entries, empty list if none found.
+    """
+    if not MANIFEST_PATH.exists():
+        return []
+    try:
+        with open(MANIFEST_PATH, "r", encoding="utf-8") as fh:
+            raw = json.load(fh)
+        if isinstance(raw, list):
+            items = raw
+        elif isinstance(raw, dict):
+            items = (
+                raw.get("advisories")
+                or raw.get("items")
+                or raw.get("reports")
+                or []
+            )
+        else:
+            items = []
+        # Only keep valid dicts with required fields
+        valid = [
+            e for e in items
+            if isinstance(e, dict)
+            and e.get("id")
+            and e.get("title")
+            and not is_brand(e.get("title", ""))
+        ]
+        log(f"[PRESERVATION] Loaded {len(valid)} valid entries from existing manifest")
+        return valid
+    except Exception as ex:
+        log(f"[PRESERVATION] Could not load previous manifest (non-fatal): {ex!r}")
+        return []
+
+
 def rebuild_manifest(force: bool) -> int:
+    """
+    Rebuild feed_manifest.json from live STIX bundles.
+
+    v134.1 PRESERVATION POLICY (CRIT-01 FIX):
+    When the current pipeline produces zero new STIX bundles (e.g. all sources
+    blocked by anti-bot, all entries failed quality gate), the previous manifest
+    is preserved INTACT rather than being replaced with an empty one.
+    This prevents the catastrophic 2845→0 shrink that loses all historical intel.
+
+    Preservation rule:
+      - If STIX bundles produce >= 1 entry  → write fresh manifest (normal path)
+      - If STIX bundles produce 0 entries   → preserve previous manifest unchanged
+    """
     bundles = sorted(STIX_DIR.glob("CDB-APEX-*.json"))
     log(f"Found {len(bundles)} STIX bundles under {STIX_DIR}")
 
@@ -279,7 +330,28 @@ def rebuild_manifest(force: bool) -> int:
         seen_ids.add(entry["id"])
         entries.append(entry)
 
-    def _sort_key(e: dict) -> tuple[str, float]:
+    # v134.1 CRIT-01 FIX: Zero-bundle preservation guard
+    # If the current pipeline produced NO entries, preserve the previous manifest
+    # intact. Writing an empty manifest here would discard all historical intel.
+    if len(entries) == 0:
+        previous = _load_previous_manifest()
+        if previous:
+            log(
+                f"[PRESERVATION] STIX bundles produced 0 entries this run. "
+                f"Preserving {len(previous)} entries from previous manifest "
+                f"(pipeline-generated-zero guard). Previous manifest NOT overwritten."
+            )
+            # Do not call _write_manifest() -- leave existing file unchanged.
+            return 0
+        else:
+            log(
+                "[PRESERVATION] STIX bundles produced 0 entries AND no previous "
+                "manifest exists. Writing empty manifest (cold start)."
+            )
+            _write_manifest([])
+            return 0
+
+    def _sort_key(e: dict) -> tuple:
         return (e.get("timestamp") or "", float(e.get("risk_score") or 0))
 
     entries.sort(key=_sort_key, reverse=True)
@@ -292,7 +364,7 @@ def rebuild_manifest(force: bool) -> int:
     return len(entries)
 
 
-def _write_manifest(entries: list[dict]) -> None:
+def _write_manifest(entries: list) -> None:
     payload = {
         "version":          PLATFORM_VERSION,
         "platform":         "SENTINEL-APEX",
@@ -319,7 +391,7 @@ def ensure_minimum_manifest() -> None:
     log(f"Initialised empty manifest at {MANIFEST_PATH}")
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv=None):
     parser = argparse.ArgumentParser(description=f"SENTINEL APEX bootstrap {PLATFORM_VERSION}")
     parser.add_argument("--force-rebuild", action="store_true",
                         help="Force full rebuild of feed_manifest.json from live STIX bundles.")
@@ -332,7 +404,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.force_rebuild:
             count = rebuild_manifest(force=True)
             if count == 0:
-                log("WARNING: rebuild produced zero entries - manifest empty.")
+                log("WARNING: rebuild produced zero entries - manifest preserved or empty.")
         else:
             ensure_minimum_manifest()
 
@@ -344,4 +416,5 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    import sys
     sys.exit(main())

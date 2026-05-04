@@ -495,7 +495,11 @@ def main():
         try:
             result = process_entry(entry, feed_source="CyberDudeBivash Intel")
         except Exception as _pe:
-            logger.error(f"  [CRASH-GUARD] process_entry failed for '{entry['title'][:60]}': {_pe}")
+            import traceback as _tb
+            logger.error(
+                f"  [CRASH-GUARD] process_entry failed for '{entry['title'][:60]}': {_pe}\n"
+                f"  [CRASH-GUARD] Traceback:\n{_tb.format_exc()}"
+            )
             result = False
         if result:
             published_count += 1
@@ -629,7 +633,11 @@ def main():
             try:
                 result = process_entry(entry, feed_source=_resolve_feed_source_name(feed_url))
             except Exception as _pe:
-                logger.error(f"  [CRASH-GUARD] process_entry failed for '{entry['title'][:60]}': {_pe}")
+                import traceback as _tb2
+                logger.error(
+                    f"  [CRASH-GUARD] process_entry failed for '{entry['title'][:60]}': {_pe}\n"
+                    f"  [CRASH-GUARD] Traceback:\n{_tb2.format_exc()}"
+                )
                 result = False
             if result:
                 published_count += 1
@@ -911,26 +919,49 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     logger.info(f"PROCESSING: {headline[:80]}")
 
     # -- STEP 1: Source article -----------------------------------------------
-    fetched_article  = enrich_with_source_content(entry)
-    enriched_content = build_enriched_content(entry, fetched_article)
+    # v143.1 NULL-SAFE: wrap fetch in try/except so any crash in source_fetcher
+    # or build_enriched_content does not propagate as an uncaught exception.
+    try:
+        fetched_article  = enrich_with_source_content(entry)
+        enriched_content = build_enriched_content(entry, fetched_article)
+    except Exception as _s1_e:
+        logger.warning(f"  [STEP1-SAFE] source fetch/build failed (continuing): {_s1_e}")
+        fetched_article  = None
+        enriched_content = (entry.get("content", "") or entry.get("summary", "") or "")
     logger.info(f"  -> Content: {len(enriched_content.split())} words")
 
     # -- STEP 2: IOC extraction -----------------------------------------------
-    extracted_iocs = enricher.extract_iocs(enriched_content)
-    ioc_counts     = enricher.get_ioc_counts(extracted_iocs)
-    total_iocs     = sum(ioc_counts.values())
+    # v143.1 NULL-SAFE: IOC extractor must never crash the pipeline.
+    try:
+        extracted_iocs = enricher.extract_iocs(enriched_content)
+        ioc_counts     = enricher.get_ioc_counts(extracted_iocs)
+    except Exception as _s2_e:
+        logger.warning(f"  [STEP2-SAFE] IOC extraction failed (continuing): {_s2_e}")
+        extracted_iocs = {}
+        ioc_counts     = {}
+    total_iocs = sum(ioc_counts.values())
     logger.info(f"  -> IOCs: {total_iocs} across {sum(1 for v in extracted_iocs.values() if v)} categories")
 
     # -- STEP 3: MITRE ATT&CK mapping -----------------------------------------
+    # v143.1 NULL-SAFE: MITRE mapper must never crash the pipeline.
     full_corpus = f"{headline} {enriched_content}"
-    mitre_data  = mitre_engine.map_threat(full_corpus)
-    # v143.0: strip any techniques missing id/name/tactic before manifest write
-    mitre_data  = sanitize_mitre_techniques(mitre_data)
+    try:
+        mitre_data = mitre_engine.map_threat(full_corpus)
+        # v143.0: strip any techniques missing id/name/tactic before manifest write
+        mitre_data = sanitize_mitre_techniques(mitre_data)
+    except Exception as _s3_e:
+        logger.warning(f"  [STEP3-SAFE] MITRE mapping failed (continuing): {_s3_e}")
+        mitre_data = []
     logger.info(f"  -> MITRE techniques: {len(mitre_data)} (post-sanitize)")
 
     # -- STEP 4: Actor attribution -------------------------------------------
-    actor_data  = actor_matrix.correlate_actor(full_corpus, extracted_iocs)
-    actor_mapped = actor_data.get("tracking_id", "").startswith("CDB-")
+    # v143.1 NULL-SAFE: actor correlation must never crash the pipeline.
+    try:
+        actor_data   = actor_matrix.correlate_actor(full_corpus, extracted_iocs)
+    except Exception as _s4_e:
+        logger.warning(f"  [STEP4-SAFE] Actor attribution failed (continuing): {_s4_e}")
+        actor_data = {"tracking_id": "UNC-CDB-99", "confidence": 0}
+    actor_mapped = (actor_data or {}).get("tracking_id", "").startswith("CDB-")
 
     # -- STEP 5: Dynamic risk scoring ----------------------------------------
     _source_for_scoring = (

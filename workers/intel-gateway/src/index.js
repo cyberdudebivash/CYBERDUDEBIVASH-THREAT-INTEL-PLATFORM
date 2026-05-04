@@ -1197,14 +1197,34 @@ function computeApexAI(item, tier) {
     const isFree  = !tier || tier === CONFIG.TIERS.FREE;
     const isPro   = tier === CONFIG.TIERS.PREMIUM || tier === CONFIG.TIERS.ENTERPRISE;
 
-    // v145.0: If item already carries a valid apex_ai from R2/API, treat it as source of truth.
-    // Only fall through to full recompute if apex_ai is absent, null, or in error state.
+    // v143.1 APEX-AI SOURCE-OF-TRUTH GUARD (project mandate: "if apex_ai exists → DO NOT recompute")
+    // If the item carries apex_ai from R2/API (set by the Python APEX engine),
+    // that value is authoritative. Return it directly without recomputing.
+    //
+    // Guard criteria (expanded from v145.0):
+    //   1. apex_ai must exist and be a plain object
+    //   2. Must not carry an error flag from a previous failed compute
+    //   3. Must have at LEAST ONE meaningful intelligence field:
+    //      - soc_priority (string, e.g. "P1")
+    //      - predictive_risk (number)
+    //      - ai_confidence (number)
+    //      - ai_summary (string)
+    //      - threat_level (string)
+    // This is intentionally broad — we trust any apex_ai that came from R2/API
+    // and has at least one non-trivial field, rather than requiring ALL fields.
     const existingApexAI = item.apex_ai;
     const hasValidApexAI =
-      existingApexAI &&
+      existingApexAI != null &&
       typeof existingApexAI === "object" &&
+      !Array.isArray(existingApexAI) &&
       !existingApexAI.error &&
-      (existingApexAI.ai_summary || typeof existingApexAI.predictive_risk === "number");
+      (
+        (typeof existingApexAI.soc_priority   === "string"  && existingApexAI.soc_priority)   ||
+        (typeof existingApexAI.predictive_risk === "number")                                   ||
+        (typeof existingApexAI.ai_confidence   === "number")                                   ||
+        (typeof existingApexAI.ai_summary      === "string"  && existingApexAI.ai_summary)    ||
+        (typeof existingApexAI.threat_level    === "string"  && existingApexAI.threat_level)
+      );
 
     if (hasValidApexAI) {
       if (isFree) {
@@ -1323,9 +1343,10 @@ function computeApexAI(item, tier) {
         `Review ${ttpCount_} MITRE technique${ttpCount_ !== 1 ? "s" : ""} against current defenses.`;
     }
 
-    //  actor_fingerprint: deterministic actor identity string 
-    const actorTag = item.actor_tag || (item.apex && item.apex.campaign_id) || "UNC-UNKNOWN";
-    const severity = (item.severity || "UNKNOWN").toUpperCase();
+    //  actor_fingerprint: deterministic actor identity string
+    // v143.1 NULL-SAFE: all string operations guarded with || "" fallback
+    const actorTag = String(item.actor_tag || (item.apex && item.apex.campaign_id) || "UNC-UNKNOWN");
+    const severity = (String(item.severity || "") || "UNKNOWN").toUpperCase();
     const sevCode  = { CRITICAL: "C", HIGH: "H", MEDIUM: "M", LOW: "L" }[severity] || "U";
     const actorFP  = isPro
       ? `${actorTag}::${sevCode}::IOC-${iocCount}::TTP-${ttpCount}`
@@ -1350,8 +1371,11 @@ function computeApexAI(item, tier) {
     const rawTtpTactics = rawTtpsRaw.slice(0, 5).map(t =>
       t && typeof t === "object" && t.tactic ? String(t.tactic) : null
     );
+    // v143.1 NULL-SAFE: ta_ is already String(t||"") so it can be "" but never undefined.
+    // Use (ta_ || "") before toUpperCase() as an extra safety net for any future API changes.
     const derivedPhases = rawTtps.slice(0, 5).map((ta_, i) => {
-      const ta = ta_.toUpperCase();
+      const ta = (ta_ || "").toUpperCase();
+      if (!ta) return "Unknown";
       return ttpToPhase[ta]
         || rawTtpTactics[i]
         || (ta.startsWith("T1") ? "Execution" : "Unknown");
