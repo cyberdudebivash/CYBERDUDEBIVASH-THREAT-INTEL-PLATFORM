@@ -297,14 +297,14 @@ jobs:
       #   - NEVER drops an existing stix_id entry (append-only)
       #   - NEVER overwrites apex_ai, risk_score, tags, cvss_score, epss_score
       #     with null/empty values (field preservation)
-      #   - Caps manifest at 50 newest entries
+      #   - Caps manifest at 500 newest entries (generous cap to prevent api > manifest skew)
       #   - Atomic write -- no partial state on disk
       # This is the core defence against the scheduled-run regression pattern
       # where bootstrap_critical_files.py resets manifest to [] and then the
       # pipeline rebuilds from batch only, losing all prior enrichment.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.1.6 - Field-Preserving Manifest Merge (HARDENING)"
-        run: python3 scripts/field_preserving_merge.py --manifest data/stix/feed_manifest.json --incoming api/feed.json --cap 50 || true
+        run: python3 scripts/field_preserving_merge.py --manifest data/stix/feed_manifest.json --incoming api/feed.json --cap 500 || true
 
       # -----------------------------------------------------------------------
       # STAGE 3.2: REPORT GENERATOR -- INTERNAL DOSSIER HARDENING (v134.0)
@@ -399,6 +399,17 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "STAGE 3.8 - Encoding Validator (HARD FAIL on mojibake)"
         run: python3 scripts/encoding_validator.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.8.5: NULL-BYTE AUTO-REPAIR (defensive -- non-fatal)
+      # Strips null-byte padding from all critical JSON files before the output
+      # gate runs. Null bytes are a write-path artefact (pre-allocated buffer not
+      # truncated) and must never reach the validation gate as a hard-fail.
+      # Script exits 0 on success or clean; exits 1 only if a file is still
+      # invalid after stripping -- STAGE 3.9 will catch that as a hard-fail.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.8.5 - Null-Byte Auto-Repair (pre-gate defensive)"
+        run: python3 scripts/null_byte_repair.py || true
 
       # -----------------------------------------------------------------------
       # STAGE 3.9: OUTPUT VALIDATION GATE (v143.0 -- HARD FAIL GATE)
