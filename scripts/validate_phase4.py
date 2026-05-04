@@ -527,23 +527,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-                print(f"     ↳ FAILED: {r['check']} — {r['detail']}")
-
-    if args.json:
-        report = {
-            "gateway":    "phase4_validation",
-            "version":    "143.0.0",
-            "timestamp":  datetime.now(timezone.utc).isoformat(),
-            "elapsed_s":  round(elapsed, 3),
-            "summary":    {"total": total, "passed": passed, "failed": failed, "warns": warns},
-            "gate_passed": gate_passed,
-            "results":    results,
-            "gstin":      "21ARKPN8270G1ZP",
-        }
-        print("\n" + json.dumps(report, indent=2))
-
-    sys.exit(0 if gate_passed else 1)
-
-
-if __name__ == "__main__":
-    main()
