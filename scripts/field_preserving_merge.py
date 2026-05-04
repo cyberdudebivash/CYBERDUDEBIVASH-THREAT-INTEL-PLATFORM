@@ -283,6 +283,17 @@ def merge_preserving_fields(
     # Append incoming items without a key (no stix_id -- include but cannot dedup)
     result = list(merged.values()) + incoming_no_key
 
+    # Normalize: backfill 'source' from 'feed_source'/'source_url' if absent.
+    # validate_repo.py intel_schema gate requires a non-empty 'source' field.
+    # CI-generated stix manifest items use 'feed_source'; normalize on merge.
+    for item in result:
+        if not item.get("source"):
+            item["source"] = (
+                item.get("feed_source")
+                or item.get("source_url")
+                or "SENTINEL-APEX"
+            )
+
     log.info(
         "[merge] Result: %d total | updated=%d | new=%d | kept_existing_only=%d | "
         "protected_fields_restored=%d",

@@ -260,9 +260,10 @@ def t07():
         cve_id   = bool(i.get("cve_id"))
         # f) CDB proprietary campaign — actor-research scored, not CVE-based.
         # Mirrors the exemption in run_pipeline.py C3 FALSE_CRITICAL gate.
+        # Covers CDB-* (curated) and UNC-CDB-* (unconfirmed ingest) actors.
         # Pipeline considers these legitimately CRITICAL; T07 must agree.
         _actor   = (i.get("actor_tag") or "").strip().upper()
-        cdb_prop = _actor.startswith("CDB-") and not (i.get("cve_ids") or cve_id)
+        cdb_prop = ("CDB-" in _actor) and not (i.get("cve_ids") or cve_id)
         return (
             cdb_prop                                        # f) CDB proprietary campaign
             or cve_id                                       # a) formal CVE
