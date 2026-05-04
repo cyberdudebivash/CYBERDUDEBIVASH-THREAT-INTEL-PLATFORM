@@ -438,8 +438,17 @@ class RiskScoringEngine:
         _epss_f  = float(epss_score) if epss_score is not None else 0.0
         _ioc_cnt = len(iocs.get("ipv4", [])) + len(iocs.get("sha256", [])) + \
                    len(iocs.get("domain", [])) + len(iocs.get("cve", []))
+        # f) CDB proprietary campaign — actor-attribution research, not CVE-based.
+        # These items are scored using internal threat-actor criteria.  Capping
+        # them to 7.5 silently discards legitimately CRITICAL internal research.
+        _actor_tag_raw  = (item.get("actor_tag") or "").strip().upper()
+        _is_cdb_prop    = (
+            _actor_tag_raw.startswith("CDB-")
+            and not bool(cve_ids)
+        )
         _has_high_confidence_evidence = (
-            bool(cve_ids)                                              # a) CVE ID
+            _is_cdb_prop                                               # f) CDB proprietary
+            or bool(cve_ids)                                           # a) CVE ID
             or kev_present                                             # b) KEV
             or (_cvss_f >= 9.0 and (_ioc_cnt > 0 or _epss_f >= 0.5)) # c) CVSS+obs
             or _epss_f >= 0.7                                          # d) high EPSS
