@@ -1186,6 +1186,41 @@ function getUpgradeCTA(tier) {
   };
 }
 
+
+// v143.5 FIX: _classifyThreatCategory — derives threat category from item content.
+// Mirrors Python enrich_feed_apex.py::compute_threat_category().
+// Used as fallback when stored value is absent, empty, or "UNKNOWN".
+function _classifyThreatCategory(item) {
+  const tt    = ((item.threat_type || item.type || "")).toLowerCase();
+  const title = ((item.title || "")).toLowerCase();
+  const tags  = Array.isArray(item.tags) ? item.tags.map(t => String(t).toLowerCase()) : [];
+
+  const MAP = [
+    ["ransomware",     "Ransomware"],
+    ["vulnerability",  "Vulnerability"],
+    ["malware",        "Malware"],
+    ["apt",            "Nation-State APT"],
+    ["phishing",       "Phishing"],
+    ["cve",            "CVE / Vulnerability"],
+    ["oss-advisory",   "Supply Chain Risk"],
+    ["supply chain",   "Supply Chain Risk"],
+    ["exploit",        "Exploit"],
+    ["web application","Web Application Attack"],
+    ["rce",            "Remote Code Execution"],
+    ["sqli",           "SQL Injection"],
+    ["xss",            "Cross-Site Scripting"],
+    ["threat-intel",   "Threat Intel"],
+  ];
+
+  for (const [key, cat] of MAP) {
+    if (tt.includes(key) || title.includes(key)) return cat;
+  }
+  if (tags.some(t => t.includes("ransom")))  return "Ransomware";
+  if (tags.some(t => t.includes("phish")))   return "Phishing";
+  if (tags.some(t => t.includes("malware") || t.includes("rat"))) return "Malware";
+  return "Threat Intel";
+}
+
 //  v134.0.0: computeApexAI -- Full AI Intelligence Engine 
 // Produces: predictive_risk, ai_confidence, actor_fingerprint, kill_chain, ttp_density, ai_summary
 // v134.0.0 GOD-MODE: ai_summary is MANDATORY -- teaser for free, full narrative for Pro/Enterprise
@@ -1235,7 +1270,7 @@ function computeApexAI(item, tier) {
         return {
           soc_priority:            sp,
           threat_level:            existingApexAI.threat_level            || "UNKNOWN",
-          threat_category:         existingApexAI.threat_category         || "UNKNOWN",
+          threat_category:         (existingApexAI.threat_category && existingApexAI.threat_category !== "UNKNOWN" ? existingApexAI.threat_category : _classifyThreatCategory(item)),
           predictive_risk:         existingApexAI.predictive_risk         ?? 0,
           ai_confidence:           existingApexAI.ai_confidence           ?? 0,
           threat_confidence_tier:  ct,
@@ -1400,7 +1435,7 @@ function computeApexAI(item, tier) {
     const base = {
       soc_priority:            socPriority,
       threat_level:            threatLevel,
-      threat_category:         existingApex.threat_category || "UNKNOWN",
+      threat_category:         (existingApex.threat_category && existingApex.threat_category !== "UNKNOWN" ? existingApex.threat_category : _classifyThreatCategory(item)),
       predictive_risk:         parseFloat(predictiveRisk.toFixed(2)),
       ai_confidence:           aiConfidence,
       threat_confidence_tier:  confidenceTier,      // v134.0: VERIFIED/HIGH/MODERATE/LOW
@@ -2062,7 +2097,7 @@ async function handlePreview(request, env, rid) {
           const m   = String(dt.getUTCMonth() + 1).padStart(2, "0");
           return `/reports/${y}/${m}/${id}.html`;
         })(),
-        source_url:  item.source_url  || null,
+        source_url:  (item.source_url && item.source_url.trim()) || null,
         actor_tag:   item.actor_tag   || null,
         mitre_tactics: Array.isArray(item.mitre_tactics) ? item.mitre_tactics
                       : Array.isArray(item.ttps) ? item.ttps : [],
@@ -2096,7 +2131,7 @@ async function handlePreview(request, env, rid) {
           return {
             priority:         ap.priority       || "P4",
             threat_level:     ap.threat_level   || "UNKNOWN",
-            threat_category:  ap.threat_category || "UNKNOWN",
+            threat_category:  (ap.threat_category && ap.threat_category !== "UNKNOWN" ? ap.threat_category : _classifyThreatCategory(item)),
             predictive_score: apexScore,         // consistent with apex_ai.predictive_risk
             campaign_id:      "PRO_REQUIRED",    // campaign ID is Pro+
           };
@@ -2863,7 +2898,7 @@ async function handleStixExport(request, env, auth, rid, stixId) {
       risk_score:  item.risk_score,
       processed_at: item.processed_at || item.timestamp,
       report_url:  item.report_url || null,
-      source_url:  item.source_url || null,
+      source_url:  (item.source_url && item.source_url.trim()) || null,
     },
     stix_object:  baseObj,
     full_bundle:  null,
@@ -3071,7 +3106,19 @@ async function handlePlatformStats(request, env, rid) {
       manifest = await env.SECURITY_HUB_KV.get("idx:reports", { type: "json" }).catch(() => null);
     }
 
-    const reports = manifest?.reports || [];
+    // v143.5 FIX: feed_manifest.json is written as a flat array by the Python pipeline.
+    // Previous code assumed { reports: [...] } shape — manifest?.reports was always undefined.
+    // Handle all three possible shapes: flat array, { reports: [...] }, { advisories: [...] }
+    let reports = [];
+    if (Array.isArray(manifest)) {
+      reports = manifest;
+    } else if (manifest && Array.isArray(manifest.reports)) {
+      reports = manifest.reports;
+    } else if (manifest && Array.isArray(manifest.advisories)) {
+      reports = manifest.advisories;
+    } else if (manifest && Array.isArray(manifest.items)) {
+      reports = manifest.items;
+    }
     const now = new Date().toISOString();
 
     //  Aggregate live metrics 
@@ -3086,20 +3133,34 @@ async function handlePlatformStats(request, env, rid) {
     let exploit_active = 0;
 
     for (const r of reports) {
-      // Severity distribution
-      const sev = (r.severity || "unknown").toLowerCase();
+      // Severity distribution — use severity field if present, else derive from risk_score
+      let sev = (r.severity || "").toLowerCase();
+      if (!sev || sev === "unknown") {
+        const rs = parseFloat(r.risk_score || r.threat_score || 0);
+        sev = rs >= 9.0 ? "critical" : rs >= 7.0 ? "high" : rs >= 4.0 ? "medium" : rs > 0 ? "low" : "unknown";
+      }
       sev_dist[sev] = (sev_dist[sev] || 0) + 1;
 
-      // IOC count
-      if (Array.isArray(r.iocs)) ioc_count += r.iocs.length;
+      // v143.5 FIX: feed_manifest entries use ioc_count (integer), ioc_counts (dict),
+      // or indicator_count — not an iocs array. Handle all three shapes.
+      if (typeof r.ioc_count === "number") {
+        ioc_count += r.ioc_count;
+      } else if (r.ioc_counts && typeof r.ioc_counts === "object") {
+        ioc_count += Object.values(r.ioc_counts).reduce((a, b) => a + (b || 0), 0);
+      } else if (typeof r.indicator_count === "number") {
+        ioc_count += r.indicator_count;
+      } else if (Array.isArray(r.iocs)) {
+        ioc_count += r.iocs.length;
+      }
 
-      // Unique actors
-      if (r.actor_tag && r.actor_tag !== "UNATTRIBUTED") actor_set.add(r.actor_tag);
+      // Unique actors — check both actor_tag and actor fields
+      const actorId = r.actor_tag || (Array.isArray(r.actors) && r.actors[0]) || "";
+      if (actorId && actorId !== "UNATTRIBUTED" && actorId !== "UNC-CDB-99") actor_set.add(actorId);
 
-      // Unique CVEs
+      // Unique CVEs — from cve_id field or iocs array
       if (r.cve_id) cve_set.add(r.cve_id.toUpperCase());
       if (Array.isArray(r.iocs)) {
-        r.iocs.filter(i => i.type === "cve").forEach(i => cve_set.add(i.value.toUpperCase()));
+        r.iocs.filter(i => i && i.type === "cve" && i.value).forEach(i => cve_set.add(i.value.toUpperCase()));
       }
 
       // KEV
@@ -3112,8 +3173,9 @@ async function handlePlatformStats(request, env, rid) {
       const ts = r.processed_at || r.timestamp || "";
       if (ts > last_updated) last_updated = ts;
 
-      // Highest risk score
-      if ((r.risk_score || 0) > highest_risk) highest_risk = r.risk_score;
+      // Highest risk score — fallback to threat_score for bootstrap manifest items
+      const _rs = parseFloat(r.risk_score || r.threat_score || 0);
+      if (_rs > highest_risk) highest_risk = _rs;
 
       // Active exploitation
       const maturity = r.exploit_maturity || "";
@@ -3203,7 +3265,7 @@ async function handleAlerts(request, env, auth, rid) {
       risk_score:  r.risk_score,
       kev_present: r.kev_present || false,
       report_url:  r.report_url || null,
-      source_url:  r.source_url || null,
+      source_url:  (r.source_url && r.source_url.trim()) || null,
       processed_at: r.processed_at || r.timestamp,
       stix_id:     r.stix_id || r.id,
     }));
@@ -4825,7 +4887,19 @@ export default {
           }
         }
 
-        const reports = manifest?.reports || [];
+        // v143.5 FIX: feed_manifest.json is written as a flat array by the Python pipeline.
+    // Previous code assumed { reports: [...] } shape — manifest?.reports was always undefined.
+    // Handle all three possible shapes: flat array, { reports: [...] }, { advisories: [...] }
+    let reports = [];
+    if (Array.isArray(manifest)) {
+      reports = manifest;
+    } else if (manifest && Array.isArray(manifest.reports)) {
+      reports = manifest.reports;
+    } else if (manifest && Array.isArray(manifest.advisories)) {
+      reports = manifest.advisories;
+    } else if (manifest && Array.isArray(manifest.items)) {
+      reports = manifest.items;
+    }
         if (!reports.length) {
           slog("WARN", "CRON", "No reports in feed manifest -- skipping webhook push", { rid });
           return;
