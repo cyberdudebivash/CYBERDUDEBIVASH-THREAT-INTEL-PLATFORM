@@ -288,8 +288,25 @@ class ActorMatrix:
         """
         Identifies the likely actor cluster based on infrastructure,
         aliases, keywords, and tooling matches.
+
+        v143.5 FIX: Enhanced with IOC-based signals and CVE-category detection so that
+        actor attribution works even when content is thin (RSS scraping blocked).
         """
         corpus_lower = corpus.lower()
+
+        # v143.5 FIX: Augment corpus with IOC-derived signals before keyword matching.
+        # When article scraping is blocked (content ≤ 25 words), IOCs extracted from
+        # the headline itself still carry actionable attribution signals.
+        _ioc_signals = []
+        if isinstance(iocs, dict):
+            cves = iocs.get("cve", [])
+            if cves:
+                _ioc_signals.append("cve-")  # triggers CDB-CVE-GEN
+            domains = iocs.get("domain", [])
+            for d in (domains or []):
+                _ioc_signals.append(str(d).lower())
+        if _ioc_signals:
+            corpus_lower = corpus_lower + " " + " ".join(_ioc_signals)
 
         best_match = None
         best_score = 0
@@ -352,7 +369,7 @@ class ActorMatrix:
                         }
                     }
 
-        # True unknown — no keywords, no category match
+        # True unknown -- no keywords, no category match
         return {
             "tracking_id": "UNC-UNKNOWN",
             "profile": {

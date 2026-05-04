@@ -852,7 +852,9 @@ def process_entry(entry: Dict, feed_source: str = "EXTERNAL") -> bool:
     entry.setdefault("content", "")
 
     headline   = entry["title"]
-    source_url = entry.get("link", "")
+    # v143.5 FIX: source_url falls back to source_url/url fields for manifest-reprocessed entries.
+    # RSS entries have 'link'; manifest re-entries may have 'source_url' or 'url' but no 'link'.
+    source_url = entry.get("link", "") or entry.get("source_url", "") or entry.get("url", "")
     # v142.0 P0 TIMESTAMP FIX: Capture the RSS <pubDate> from feedparser.
     # feedparser exposes this as entry["published"] (string) or entry["published_parsed"] (struct_time).
     # We normalise to ISO-8601 string here and pass to create_bundle() as published_at.
@@ -1464,5 +1466,5 @@ def _generate_smart_labels(
 
 if __name__ == "__main__":
     count = main()
-    # Exit 0 always — pipeline continues even if 0 new entries (dedup is valid)
+    # Exit 0 always -- pipeline continues even if 0 new entries (dedup is valid)
     sys.exit(0)

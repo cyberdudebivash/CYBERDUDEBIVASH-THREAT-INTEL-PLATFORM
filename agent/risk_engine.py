@@ -441,7 +441,7 @@ class RiskScoringEngine:
         # f) CDB proprietary campaign — actor-attribution research, not CVE-based.
         # These items are scored using internal threat-actor criteria.  Capping
         # them to 7.5 silently discards legitimately CRITICAL internal research.
-        _actor_tag_raw  = (item.get("actor_tag") or "").strip().upper()
+        _actor_tag_raw  = ((actor_data or {}).get("tracking_id") or "").strip().upper()
         _is_cdb_prop    = (
             _actor_tag_raw.startswith("CDB-")
             and not bool(cve_ids)

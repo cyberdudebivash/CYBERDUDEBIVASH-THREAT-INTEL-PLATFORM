@@ -1328,7 +1328,8 @@ class PublishStage(PipelineStage):
             try:
                 # Mark as ready for blog publishing (actual publish handled by workflows)
                 item["status"] = "ready_to_publish"
-                item["published_at"] = datetime.now(timezone.utc).isoformat()
+                if not item.get("published_at"):
+                    item["published_at"] = datetime.now(timezone.utc).isoformat()
                 published_count += 1
             except Exception as e:
                 ctx.add_error(self.name, str(e), item.get("title", ""))

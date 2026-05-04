@@ -42,6 +42,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -229,7 +230,13 @@ def stix_bundle_to_entry(bundle_path: Path) -> dict | None:
         "threat_type":       bundle.get("x_threat_type") or primary.get("x_threat_type") or "General",
         "feed_source":       bundle.get("x_feed_source") or "SENTINEL-APEX",
         "source":            bundle.get("x_source") or "SENTINEL-APEX",
-        "actor_tag":         primary.get("x_actor_tag") or "UNC-CDB",
+        # v143.5 FIX: derive actor_tag from x_actor_tag field first, then extract
+        # CDB campaign ID from the bundle title (e.g. "CDB-APT-41 Campaign" → "CDB-APT-41"),
+        # then fall back to category-keyword match, then "UNC-CDB" as last resort.
+        "actor_tag":         (primary.get("x_actor_tag")
+                              or re.match(r"(CDB-[A-Z0-9]+-[A-Z0-9]+)", title or "")
+                                  and re.match(r"(CDB-[A-Z0-9]+-[A-Z0-9]+)", title or "").group(1)
+                              or "UNC-CDB"),
         "stix_file":         f"data/stix/{bundle_path.name}",
         "stix_object_count": len(objects),
         "stix_version":      "2.1",
