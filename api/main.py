@@ -111,12 +111,26 @@ TIERS: Dict[str, Dict] = {
     },
 }
 
-# ── Demo API Keys (replace with DB in production) ─────────────────────────
-DEMO_KEYS: Dict[str, Dict] = {
-    "demo-free-key-0000":       {"tier": "free",       "name": "Demo Free"},
-    "demo-pro-key-1111":        {"tier": "pro",        "name": "Demo Pro"},
-    "demo-enterprise-key-2222": {"tier": "enterprise", "name": "Demo Enterprise"},
-}
+# ── Demo API Keys — ENV-GATED (HIGH-09 FIX) ───────────────────────────────
+# v143.1 SECURITY FIX: Hardcoded demo keys grant unauthenticated access to
+# enterprise-tier endpoints for any caller who reads this public repo.
+# Keys are now only loaded when the ENABLE_DEMO_KEYS env var is explicitly
+# set to "true" in the deployment environment. In production this MUST be
+# left unset (default: disabled).
+#
+# To enable demo keys for local development only:
+#   export ENABLE_DEMO_KEYS=true
+_DEMO_KEYS_ENABLED = os.getenv("ENABLE_DEMO_KEYS", "false").lower() == "true"
+DEMO_KEYS: Dict[str, Dict] = (
+    {
+        "demo-free-key-0000":       {"tier": "free",       "name": "Demo Free"},
+        "demo-pro-key-1111":        {"tier": "pro",        "name": "Demo Pro"},
+        # NOTE: enterprise demo key intentionally removed from the demo set.
+        # Enterprise access requires a real provisioned key from the key store.
+    }
+    if _DEMO_KEYS_ENABLED
+    else {}
+)
 
 # ── Rate Limiting (in-memory, production: use Redis) ──────────────────────
 _rate_counters: Dict[str, Dict] = {}
@@ -866,11 +880,19 @@ async def export_stix_bundle(
             )
         except Exception:
             pass
-    # Return inline STIX if file not found
+    # Return minimal inline STIX skeleton if bundle file not found on disk.
+    # v143.1 NULL-SAFE: item is guaranteed non-None here (404 raised above if missing),
+    # but use .get() for defence-in-depth against schema drift.
     return {
         "type": "bundle", "id": stix_id, "spec_version": "2.1",
-        "objects": [{"type": "indicator", "name": item["title"],
-                     "risk_score": item["risk_score"]}]
+        "objects": [{
+            "type":       "indicator",
+            "id":         stix_id,
+            "name":       (item or {}).get("title", "Unknown"),
+            "risk_score": (item or {}).get("risk_score", 0),
+            "severity":   (item or {}).get("severity", "UNKNOWN"),
+            "note":       "Bundle file not available on disk — metadata skeleton only.",
+        }],
     }
 
 # ── GET /api/v1/bulk/export ───────────────────────────────────────────────
@@ -1140,6 +1162,7 @@ async def startup():
             _failed   = {k for k, v in _router_status.items() if not v}
             _mode     = "fully operational" if not _failed.intersection(_critical) else "degraded"
     else:
+        # No guardian — use static critical-router check
         # No guardian — use static critical-router check
         _critical = {"monetize", "ingestion", "stability", "onboarding"}
         _loaded   = {k for k, v in _router_status.items() if v}

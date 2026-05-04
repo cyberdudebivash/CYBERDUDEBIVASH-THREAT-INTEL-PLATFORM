@@ -390,9 +390,18 @@ class IntelDedupEngine:
                 continue
             try:
                 raw = json.loads(mpath.read_text(encoding="utf-8"))
-                items = (raw if isinstance(raw, list) else
-                         raw.get("advisories") or raw.get("items") or
-                         raw.get("reports") or raw.get("entries") or [])
+                # v141.4.1 CRIT-04 FIX: robust normalisation — raw can be list, dict, or garbage
+                if isinstance(raw, list):
+                    items = raw
+                elif isinstance(raw, dict):
+                    items = (raw.get("advisories") or raw.get("items") or
+                             raw.get("reports") or raw.get("entries") or [])
+                else:
+                    log.warning("[DEDUP] Manifest %s: unexpected root type %s — skipping", mpath.name, type(raw).__name__)
+                    continue
+                if not isinstance(items, list):
+                    log.warning("[DEDUP] Manifest %s: advisory list is %s — skipping", mpath.name, type(items).__name__)
+                    continue
                 for item in items:
                     if not isinstance(item, dict):
                         continue
@@ -611,7 +620,7 @@ class FeedStateTracker:
 # Manifest Uniqueness Guard
 # ---------------------------------------------------------------------------
 
-def enforce_manifest_uniqueness(items: List[Dict]) -> Tuple[List[Dict], int]:
+def enforce_manifest_uniqueness(items) -> Tuple[List[Dict], int]:
     """
     Final pre-write manifest uniqueness guard.
     Applied immediately before manifest is written to disk.
@@ -624,7 +633,28 @@ def enforce_manifest_uniqueness(items: List[Dict]) -> Tuple[List[Dict], int]:
 
     Returns (unique_items, removed_count).
     This is ADDITIVE to existing dedup_items() — a final safety net.
+
+    v141.4.1 CRIT-04 FIX: Guard against non-list input and non-dict items.
+    The TypeError "list indices must be integers or slices, not str" was triggered
+    when `items` was a dict (manifest wrapper) rather than a list of advisory dicts.
+    Now handles: list of dicts, dict with advisory list, None → all normalised to list.
     """
+    # Normalise input: accept list, dict wrapper, or empty
+    if items is None:
+        items = []
+    elif isinstance(items, dict):
+        # Caller passed the manifest wrapper dict instead of the advisories list
+        items = (
+            items.get("advisories")
+            or items.get("items")
+            or items.get("reports")
+            or items.get("entries")
+            or []
+        )
+    if not isinstance(items, list):
+        log.warning("[MANIFEST-GUARD] enforce_manifest_uniqueness: unexpected input type %s — returning empty", type(items).__name__)
+        return [], 0
+
     seen_urls:    Dict[str, int] = {}  # url_key -> first_index
     seen_sids:    Dict[str, int] = {}
     seen_content: Dict[str, int] = {}
@@ -634,6 +664,11 @@ def enforce_manifest_uniqueness(items: List[Dict]) -> Tuple[List[Dict], int]:
     removed = 0
 
     for item in items:
+        # v141.4.1: Skip non-dict items (e.g. strings or ints that sneak into the list)
+        if not isinstance(item, dict):
+            log.debug("[MANIFEST-GUARD] Skipping non-dict item: %s", type(item).__name__)
+            removed += 1
+            continue
         url = _get_source_url(item)
         if url:
             uk = _url_key(url)

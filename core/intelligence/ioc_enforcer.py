@@ -164,15 +164,19 @@ class IOCEnforcer:
             result.avg_confidence  = self._avg_confidence(iocs)
             return result
 
-        # ── CDB Proprietary Campaign Exemption ──────────────────────────────────
-        # CDB-prefixed actor_tags without a CVE ID are internally-researched
-        # actor campaigns scored via attribution criteria, NOT IOC-based detections.
-        # Injecting synthetic fallback IOCs into these items is misleading for
-        # enterprise customers and constitutes data fabrication in threat intel.
-        # These items are marked research_based=True and bypass fallback generation.
+        # ── CDB / UNC Campaign Exemption ──────────────────────────────────────────
+        # CDB-prefixed AND UNC-prefixed actor_tags without a CVE ID are
+        # internally-researched actor campaigns scored via attribution criteria,
+        # NOT IOC-based detections. Injecting synthetic fallback IOCs into these
+        # items constitutes data fabrication in threat intelligence — a hard
+        # violation of TLP integrity and enterprise customer trust.
+        #
+        # v143.1 FIX: The original exemption only covered CDB- prefix, but the
+        # live platform emits actor_tag="UNC-CDB" for all pipeline-generated items.
+        # Expanded to cover both CDB- and UNC- prefixes to match actual production data.
         _actor_tag = (item.get("actor_tag") or "").strip().upper()
         _is_cdb_research = (
-            _actor_tag.startswith("CDB-")
+            (_actor_tag.startswith("CDB-") or _actor_tag.startswith("UNC-"))
             and not (item.get("cve_ids") or item.get("cve_id") or "")
         )
         if _is_cdb_research:
