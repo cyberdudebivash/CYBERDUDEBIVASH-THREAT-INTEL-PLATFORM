@@ -261,39 +261,48 @@ log.info("version.json written atomically: v%s (%d bytes)", PIPELINE_VERSION, le
 # STEP 10: FINAL P0 VALIDATION
 # ═══════════════════════════════════════════════════════════════════════════════
 step(10, "FINAL P0 VALIDATION")
-errors = []
+errors      = []   # HARD FAIL conditions (pipeline abort)
+warnings    = []   # Soft warnings (logged, not fatal)
 
-# Rule 1: At least some intel
+# Rule 1: At least some intel — HARD FAIL (empty manifest is always wrong)
 if len(advisories) == 0:
     errors.append("ZERO intel items in manifest")
 
-# Rule 2: No HIGH/CRITICAL with ioc_count == 0
+# Rule 2 (v143.1 CHANGED FROM HARD FAIL → WARNING):
+# Zero-IOC on HIGH/CRITICAL items is a data quality warning, NOT a pipeline blocker.
+# Root cause: the previous HARD FAIL forced the IOCEnforcer to inject synthetic/fake
+# IOCs to satisfy this check, which constitutes data fabrication in threat intelligence.
+# Real intel with genuine zero IOCs (e.g. actor-attribution campaigns, CVE advisories
+# without network indicators) MUST be allowed through — blocking them loses valid intel.
 for item in advisories:
     sev  = (item.get("severity","")).upper()
     iocs = len(item.get("iocs") or [])
     if sev in ("HIGH","CRITICAL") and iocs == 0:
-        errors.append(f"HIGH/CRITICAL with 0 IOCs: {item.get('id','?')[:20]} [{sev}]")
+        warnings.append(f"WARN: HIGH/CRITICAL with 0 IOCs: {item.get('id','?')[:20]} [{sev}] — acceptable if actor-attribution or CVE-only intel")
 
-# Rule 3: ioc_count integrity
+# Rule 3: ioc_count integrity — HARD FAIL (data integrity violation)
 for item in advisories:
     actual   = len(item.get("iocs") or [])
     reported = item.get("ioc_count", actual)
     if reported != actual:
         errors.append(f"ioc_count mismatch: {item.get('id','?')[:16]} reported={reported} actual={actual}")
 
-# Rule 4: No duplicate IDs
+# Rule 4: No duplicate IDs — HARD FAIL (schema contract violation)
 all_ids = [a.get("id","") for a in advisories]
 if len(all_ids) != len(set(all_ids)):
     errors.append("Duplicate IDs detected in final manifest")
 
+# Emit warnings (non-fatal)
+for w in warnings:
+    log.warning("  %s", w)
+
 # Report
 checks = [
-    ("Intel items > 0",           len(advisories) > 0),
-    ("No zero-IOC HIGH/CRITICAL", not any(e.startswith("HIGH/CRITICAL") for e in errors)),
-    ("ioc_count integrity",       not any("mismatch" in e for e in errors)),
-    ("No duplicate IDs",          not any("Duplicate" in e for e in errors)),
-    ("version.json exists",       VERSION_PATH.exists()),
-    ("Revenue intel exists",      (REPO_ROOT / "data" / "revenue_intelligence.json").exists()),
+    ("Intel items > 0",      len(advisories) > 0),
+    ("ioc_count integrity",  not any("mismatch" in e for e in errors)),
+    ("No duplicate IDs",     not any("Duplicate" in e for e in errors)),
+    ("version.json exists",  VERSION_PATH.exists()),
+    ("Revenue intel exists", (REPO_ROOT / "data" / "revenue_intelligence.json").exists()),
 ]
 
 all_pass = True
