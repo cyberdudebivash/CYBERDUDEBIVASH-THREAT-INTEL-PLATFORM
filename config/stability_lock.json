@@ -12,9 +12,10 @@
     "workflow_url": "https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/actions/runs/25284408665/job/74126503855",
     "version": "v143.0.0",
     "stability_grade": "GOD-MODE",
-    "mandate": "0-regression 0-failure 0-error 0-conflict 100%-stability"
+    "mandate": "0-regression 0-failure 0-error 0-conflict 100%-stability | v143.1.0 STABLE-CONTRACT HARDENING ACTIVE",
+    "hardening_version": "v143.1.0",
+    "hardening_date": "2026-05-04"
   },
-
   "pipeline_invariants": {
     "PIPELINE_VERSION": "143.0.0",
     "gateway_id": "SENTINEL-APEX/143.0.0",
@@ -30,7 +31,6 @@
     "total_html_reports": 18137,
     "report_gate_minimum": 1000
   },
-
   "version_lock": {
     "config_version_json": "143.0.0",
     "index_html_PLATFORM_VERSION": "143.0.0",
@@ -38,7 +38,6 @@
     "gateway_header": "SENTINEL-APEX/143.0.0",
     "rule": "ALL four version references MUST match exactly. Any drift is a HARD VIOLATION."
   },
-
   "feed_invariants": {
     "min_feed_entries": 1,
     "max_feed_entries": 500,
@@ -49,7 +48,6 @@
     "no_encoding_errors": true,
     "feed_api_parity": "top-50 stix_ids must match exactly"
   },
-
   "apex_ai_invariants": {
     "description": "Every intel item MUST have a fully populated apex_ai block. This is the core intelligence product.",
     "required_fields": [
@@ -70,8 +68,19 @@
       "behavioral_tags",
       "paywall"
     ],
-    "soc_priority_values": ["P1", "P2", "P3", "P4"],
-    "threat_level_values": ["CRITICAL", "HIGH_ALERT", "ELEVATED", "MODERATE", "INFORMATIONAL"],
+    "soc_priority_values": [
+      "P1",
+      "P2",
+      "P3",
+      "P4"
+    ],
+    "threat_level_values": [
+      "CRITICAL",
+      "HIGH_ALERT",
+      "ELEVATED",
+      "MODERATE",
+      "INFORMATIONAL"
+    ],
     "free_tier_gating": {
       "kill_chain": "PRO_REQUIRED",
       "kill_chain_primary": "PRO_REQUIRED",
@@ -82,7 +91,6 @@
     },
     "rule": "apex_ai block MUST be present and non-null on ALL items. Missing apex_ai = HARD FAIL."
   },
-
   "dashboard_invariants": {
     "EMBEDDED_INTEL_declaration": "window.EMBEDDED_INTEL = [",
     "EMBEDDED_INTEL_state": "populated (post-inject via inject_embedded_intel.py)",
@@ -91,25 +99,56 @@
     "upgrade_banner_present": true,
     "payment_gateway_link_present": true,
     "GSTIN_present": "21ARKPN8270G1ZP",
-    "monetization_pages": ["pricing.html", "store.html", "services.html", "index.html"],
+    "monetization_pages": [
+      "pricing.html",
+      "store.html",
+      "services.html",
+      "index.html"
+    ],
     "all_html_BOM_free": true,
     "all_html_encoding_clean": true
   },
-
   "api_response_contract": {
     "endpoint": "/api/preview/",
-    "required_top_level_keys": ["status", "gateway", "request_id", "preview"],
-    "status_value": "ok",
-    "preview_required_keys": ["items", "total_preview", "total_in_feed", "generated_at", "note"],
-    "item_required_fields": [
-      "id", "stix_id", "title", "severity", "description", "risk_score",
-      "processed_at", "source", "report_url", "apex_ai", "validation_status"
+    "required_top_level_keys": [
+      "status",
+      "gateway",
+      "request_id",
+      "preview"
     ],
-    "item_forbidden_nulls": ["stix_id", "title", "apex_ai"],
+    "status_value": "ok",
+    "preview_required_keys": [
+      "items",
+      "total_preview",
+      "total_in_feed",
+      "generated_at",
+      "note"
+    ],
+    "item_required_fields": [
+      "id",
+      "stix_id",
+      "title",
+      "severity",
+      "description",
+      "risk_score",
+      "processed_at",
+      "source",
+      "report_url",
+      "apex_ai",
+      "validation_status"
+    ],
+    "item_forbidden_nulls": [
+      "stix_id",
+      "title",
+      "apex_ai"
+    ],
     "report_url_pattern": "/reports/YYYY/MM/intel--{id}.html",
-    "validation_status_valid_values": ["valid", "partial", "pending"]
+    "validation_status_valid_values": [
+      "valid",
+      "partial",
+      "pending"
+    ]
   },
-
   "stage_pass_requirements": {
     "STAGE_0_05_preflight": "PASS",
     "STAGE_0_06_syntax_guard": "PASS (0 errors in all 103 scripts)",
@@ -136,7 +175,6 @@
     "STAGE_5_6_1_regression_immunity": "PASS (11/10 invariants confirmed)",
     "STAGE_5_7_monetization_gate": "PASS (46/46 checks)"
   },
-
   "known_non_fatal_warns": {
     "manifest_shrink_warning": {
       "message": "Manifest SHRANK: N -> batch_size (N entries lost)",
@@ -155,9 +193,14 @@
       "root_cause": "sentinel-apex-reports bucket was missing or token lacked permission",
       "status": "FIXED in v143.5.0 -- bucket created, dedicated token wired via CF_R2_REPORTS_KEY_ID",
       "blocks_deploy": false
+    },
+    "stix_manifest_empty": {
+      "message": "[merge] Loaded existing manifest: 0 items from feed_manifest.json",
+      "root_cause": "data/stix/feed_manifest.json is reset to [] by bootstrap_critical_files.py on every run (same root cause as manifest_shrink_warning). The production feed is api/feed.json (populated by run_pipeline.py). field_preserving_merge.py auto-populates the stix manifest from api/feed.json as STAGE 3.1.5/3.1.6.",
+      "action": "IGNORE -- by-design, auto-populated by field_preserving_merge.py",
+      "blocks_deploy": false
     }
   },
-
   "stability_checklist": {
     "description": "Run this checklist before any major code change or before declaring a build stable",
     "items": [
@@ -180,5 +223,53 @@
       "[ ] GSTIN present in pricing/services pages",
       "[ ] Payment gateway links present (PayPal, BNB, UPI)"
     ]
+  },
+  "hardening_invariants": {
+    "_added": "v143.1.0 STABLE-CONTRACT-HARDENING",
+    "_date": "2026-05-04",
+    "description": "STABLE CONTRACT enforcement layer. These invariants are PERMANENT and must survive every scheduled pipeline run.",
+    "scripts": {
+      "validate_manifest_schema.py": {
+        "purpose": "Hard-fail schema gate -- enforces STABLE CONTRACT fields",
+        "must_exist": true,
+        "min_bytes": 5000,
+        "hard_fail_on": [
+          "stix_id missing",
+          "title missing",
+          "risk_score missing",
+          "manifest empty (api/feed.json only)"
+        ],
+        "skip_empty_for": [
+          "data/stix/feed_manifest.json"
+        ],
+        "note": "data/stix/feed_manifest.json is allowed to be empty (bootstrap reset)"
+      },
+      "field_preserving_merge.py": {
+        "purpose": "Append-only field-preserving merge -- NEVER drops apex_ai or risk_score",
+        "must_exist": true,
+        "min_bytes": 8000,
+        "auto_populate": "If data/stix/feed_manifest.json is empty, auto-populates from api/feed.json"
+      },
+      "apex_stability_lock.py": {
+        "purpose": "Baseline stability lock -- validates dashboard invariants pre/post pipeline",
+        "must_exist": true,
+        "min_bytes": 5000,
+        "checks": [
+          "config/version.json readable",
+          "config/stability_lock.json present",
+          "index.html EMBEDDED_INTEL intact",
+          "Top-Threats computed dynamically in JS (never static)",
+          "No pipeline injection markers in frontend files"
+        ]
+      }
+    },
+    "workflow_stages": {
+      "STAGE_0_03": "apex_stability_lock.py pre-flight (HARD FAIL)",
+      "STAGE_0_04": "validate_manifest_schema.py backfill pre-pipeline (|| true)",
+      "STAGE_3_1_5": "field_preserving_merge.py --sync-apex --incoming api/feed.json (|| true)",
+      "STAGE_3_1_6": "field_preserving_merge.py --incoming api/feed.json --cap 50 (|| true)",
+      "STAGE_3_4_5": "validate_manifest_schema.py --api-only --backfill (HARD FAIL pre-R2)",
+      "STAGE_3_94": "apex_stability_lock.py post-inject (HARD FAIL)"
+    }
   }
 }
