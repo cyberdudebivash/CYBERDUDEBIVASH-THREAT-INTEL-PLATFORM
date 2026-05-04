@@ -294,6 +294,51 @@ if os.path.exists(VERSION_PATH):
           "version.json unreadable or version field missing",
           f"v{ver} (html: v{html_ver})")
 
+# ── HARDENING INVARIANTS (v143.1.0) ────────────────────────────────────────
+# Check: Three hardening scripts must exist and be non-empty
+HARDENING_SCRIPTS = [
+    "scripts/validate_manifest_schema.py",
+    "scripts/field_preserving_merge.py",
+    "scripts/apex_stability_lock.py",
+]
+all_hardening_present = all(
+    os.path.exists(os.path.join(REPO, s)) and os.path.getsize(os.path.join(REPO, s)) > 3000
+    for s in HARDENING_SCRIPTS
+)
+check("Hardening scripts present (stable-contract enforcement)",
+      all_hardening_present,
+      "One or more STABLE CONTRACT hardening scripts missing or truncated",
+      f"{sum(1 for s in HARDENING_SCRIPTS if os.path.exists(os.path.join(REPO,s)))}/3 present")
+
+# Check: stability_lock.json exists (baseline contract document)
+stability_lock_ok = os.path.exists(os.path.join(REPO, "config", "stability_lock.json"))
+check("stability_lock.json present (golden-build baseline contract)",
+      stability_lock_ok,
+      "config/stability_lock.json missing -- baseline contract unprotected",
+      "config/stability_lock.json present" if stability_lock_ok else "MISSING")
+
+# Check: api/feed.json has items and apex_ai coverage >= 80%
+api_feed_path = os.path.join(REPO, "api", "feed.json")
+if os.path.exists(api_feed_path):
+    try:
+        with open(api_feed_path, encoding="utf-8") as _f:
+            _feed = json.load(_f)
+        _items = _feed if isinstance(_feed, list) else _feed.get("items", _feed.get("data", []))
+        _count = len(_items) if isinstance(_items, list) else 0
+        _apex_count = sum(1 for i in _items if isinstance(i, dict) and i.get("apex_ai")) if _count else 0
+        _apex_pct = (_apex_count / _count * 100) if _count else 0
+        api_feed_ok = _count >= 1 and _apex_pct >= 80.0
+        check("api/feed.json has items with apex_ai >= 80% coverage",
+              api_feed_ok,
+              f"api/feed.json: {_count} items, {_apex_pct:.0f}% apex_ai coverage (< 80% threshold)",
+              f"{_count} items, {_apex_pct:.0f}% apex_ai")
+    except Exception as _e:
+        check("api/feed.json has items with apex_ai >= 80% coverage",
+              False, f"api/feed.json parse error: {_e}", "parse error")
+else:
+    check("api/feed.json has items with apex_ai >= 80% coverage",
+          False, "api/feed.json missing", "MISSING")
+
 # ── FINAL REPORT ──
 print("\n" + "=" * 68)
 print(f"CHECKS PASSED: {checks_passed}/{checks_total}")

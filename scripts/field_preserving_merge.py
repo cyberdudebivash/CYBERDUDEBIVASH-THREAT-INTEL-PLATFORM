@@ -301,9 +301,16 @@ def run_merge(
     incoming_path: Path | None = None,
     cap: int = DEFAULT_CAP_STIX_MANIFEST,
     dry_run: bool = False,
+    auto_populate_from_feed: bool = True,
 ) -> dict:
     """
     Load manifest, merge with incoming (or self if no incoming), cap, write back.
+
+    auto_populate_from_feed=True (default): if the manifest has 0 items AND
+    api/feed.json exists with items, automatically use api/feed.json as the
+    incoming source. This handles the bootstrap_critical_files.py reset pattern
+    where data/stix/feed_manifest.json is reset to [] on every CI run.
+
     Returns stats dict.
     """
     existing, fmt, raw_data = _load_manifest(manifest_path)
@@ -315,6 +322,27 @@ def run_merge(
         incoming_raw, _, _ = _load_manifest(incoming_path)
         incoming = incoming_raw
         log.info("[merge] Loaded incoming: %d items from %s", len(incoming), incoming_path.name)
+    elif not incoming_path and len(existing) == 0 and auto_populate_from_feed:
+        # AUTO-POPULATE: manifest is empty (by-design bootstrap reset) and no
+        # incoming specified -- auto-source from api/feed.json (the enriched feed).
+        # This is the key fix: ensures stix manifest is always hydrated from the
+        # current production feed batch instead of staying empty.
+        api_feed = manifest_path.parent.parent.parent / "api" / "feed.json"
+        if not api_feed.exists():
+            # Try relative to repo root
+            api_feed = REPO_ROOT / "api" / "feed.json"
+        if api_feed.exists():
+            api_items, _, _ = _load_manifest(api_feed)
+            if api_items:
+                incoming = api_items
+                log.info(
+                    "[merge] AUTO-POPULATE: manifest was empty -- sourcing %d items from %s",
+                    len(incoming), api_feed.name
+                )
+            else:
+                log.warning("[merge] AUTO-POPULATE: api/feed.json also empty -- nothing to populate")
+        else:
+            log.warning("[merge] AUTO-POPULATE: api/feed.json not found at %s", api_feed)
     else:
         if incoming_path:
             log.warning("[merge] Incoming path not found: %s -- merge will preserve existing only",

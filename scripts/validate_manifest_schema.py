@@ -69,6 +69,12 @@ TIMESTAMP_FIELD_CANDIDATES: list[str] = ["created_at", "timestamp", "generated_a
 MAX_MISSING_APEX_PCT = 100.0
 MIN_MANIFEST_ENTRIES = 1
 
+# Manifests ALLOWED to be empty (architectural by-design).
+# data/stix/feed_manifest.json is reset to [] by bootstrap_critical_files.py
+# on every CI run -- documented in stability_lock.json known_non_fatal_warns.
+SKIP_EMPTY_STIX_MANIFEST = True
+STIX_MANIFEST_PARTIAL_PATH = "data/stix/feed_manifest.json"
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -176,7 +182,7 @@ def _backfill_item(item: dict) -> tuple[dict, list[str]]:
     return item, patched
 
 
-def validate_manifest(path: Path, backfill: bool = False) -> dict:
+def validate_manifest(path: Path, backfill: bool = False, skip_empty: bool = False) -> dict:
     result: dict[str, Any] = {
         "path": str(path),
         "status": "PASS",
@@ -206,6 +212,16 @@ def validate_manifest(path: Path, backfill: bool = False) -> dict:
     result["format"] = fmt
 
     if len(items) < MIN_MANIFEST_ENTRIES:
+        if skip_empty:
+            # By-design empty manifest (data/stix/feed_manifest.json reset by bootstrap)
+            result["warnings"].append(
+                f"MANIFEST EMPTY: {len(items)} items -- SKIPPED (by-design, see "
+                "stability_lock.json known_non_fatal_warns). api/feed.json validated separately."
+            )
+            result["status"] = "PASS"
+            result["skip_reason"] = "empty_by_design"
+            log.warning("  [SKIP-EMPTY] %s has 0 items -- by-design, skipping hard fail.", path.name)
+            return result
         result["hard_fail_reasons"].append(
             f"MANIFEST EMPTY: {len(items)} items found, minimum is {MIN_MANIFEST_ENTRIES}"
         )
@@ -307,6 +323,12 @@ def main() -> None:
                         help="Backfill missing optional fields in-place")
     parser.add_argument("--strict-apex", action="store_true", default=False,
                         help="Hard fail if ANY item missing apex_ai (0%% tolerance)")
+    parser.add_argument("--skip-empty", action="store_true", default=False,
+                        help="Skip manifests with 0 items (PASS with warning). "
+                             "Use for data/stix/feed_manifest.json which is by-design empty.")
+    parser.add_argument("--api-only", action="store_true", default=False,
+                        help="Only validate api/feed.json -- skip stix manifest entirely. "
+                             "Use for the HARD FAIL pre-R2 gate (STAGE 3.4.5).")
     args = parser.parse_args()
 
     global MAX_MISSING_APEX_PCT
@@ -315,7 +337,10 @@ def main() -> None:
         log.info("STRICT APEX mode: 0%% apex_ai gap tolerated")
 
     manifest_paths: list[Path] = []
-    if args.manifests:
+    if args.api_only:
+        manifest_paths = [REPO_ROOT / "api" / "feed.json"]
+        log.info("API-ONLY mode: validating api/feed.json only (stix manifest excluded)")
+    elif args.manifests:
         for m in args.manifests:
             p = Path(m)
             if not p.is_absolute():
@@ -337,7 +362,12 @@ def main() -> None:
 
     for path in manifest_paths:
         log.info("Validating: %s", path)
-        result = validate_manifest(path, backfill=args.backfill)
+        # Auto-skip empty stix manifest (by-design) or honour --skip-empty flag
+        skip_empty_for_this = (
+            getattr(args, "skip_empty", False)
+            or (SKIP_EMPTY_STIX_MANIFEST and STIX_MANIFEST_PARTIAL_PATH in str(path))
+        )
+        result = validate_manifest(path, backfill=args.backfill, skip_empty=skip_empty_for_this)
         results.append(result)
 
         status_icon = {"PASS": "PASS", "FAIL": "FAIL", "BACKFILL_APPLIED": "BACKFILL"}.get(

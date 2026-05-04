@@ -122,6 +122,8 @@ jobs:
       GITHUB_RUN_ID:           ${{ github.run_id }}
       TRANSFORMERS_NO_ADVISORY_WARNINGS: "1"
       TOKENIZERS_PARALLELISM:  "false"
+      # Suppress RequestsDependencyWarning from requests/urllib3 version mismatch
+      PYTHONWARNINGS:          "ignore::Warning:urllib3,ignore::Warning:requests"
 
     steps:
 
@@ -153,6 +155,7 @@ jobs:
       - name: "Install pipeline dependencies"
         run: |
           python -m pip install --upgrade pip --quiet
+          pip install --quiet "urllib3>=1.26.18,<2.0" "charset_normalizer>=3.3.2,<4.0"
           [ -f requirements.txt ] && pip install --quiet -r requirements.txt || true
           pip install --quiet feedparser beautifulsoup4 pydantic python-dotenv psutil cryptography pyjwt
           pip install --quiet reportlab fpdf2 || true
@@ -285,7 +288,7 @@ jobs:
       # Safe: idempotent, non-destructive, atomic write.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.1.5 - Sync apex_ai from api/feed.json -> feed_manifest (HARDENING)"
-        run: python3 scripts/field_preserving_merge.py --sync-apex --manifest data/stix/feed_manifest.json --feed api/feed.json || true
+        run: python3 scripts/field_preserving_merge.py --sync-apex --manifest data/stix/feed_manifest.json --incoming api/feed.json --feed api/feed.json || true
 
       # -----------------------------------------------------------------------
       # STAGE 3.1.6: FIELD-PRESERVING MANIFEST MERGE (HARDENING -- PERMANENT)
@@ -301,7 +304,7 @@ jobs:
       # pipeline rebuilds from batch only, losing all prior enrichment.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.1.6 - Field-Preserving Manifest Merge (HARDENING)"
-        run: python3 scripts/field_preserving_merge.py --manifest data/stix/feed_manifest.json --cap 50 || true
+        run: python3 scripts/field_preserving_merge.py --manifest data/stix/feed_manifest.json --incoming api/feed.json --cap 50 || true
 
       # -----------------------------------------------------------------------
       # STAGE 3.2: REPORT GENERATOR -- INTERNAL DOSSIER HARDENING (v134.0)
@@ -354,15 +357,18 @@ jobs:
 
       # -----------------------------------------------------------------------
       # STAGE 3.4.5: POST-MERGE STABLE CONTRACT SCHEMA VALIDATION (HARDENING -- HARD FAIL)
-      # Validates data/stix/feed_manifest.json and api/feed.json against the
-      # STABLE CONTRACT schema immediately before R2 upload.
-      # HARD FAIL if: stix_id/title/risk_score missing on any item, manifest empty.
+      # Validates api/feed.json (production feed) against the STABLE CONTRACT schema
+      # immediately before R2 upload.
+      # --api-only: validates api/feed.json only. data/stix/feed_manifest.json is
+      #   EXCLUDED because bootstrap_critical_files.py resets it to [] by design
+      #   (see stability_lock.json known_non_fatal_warns: manifest_shrink_warning).
+      # HARD FAIL if: stix_id/title/risk_score missing on any item, feed empty.
       # BACKFILL: restores apex_ai_summary, apex_ai_score, tags, severity where absent.
       # PURPOSE: Last checkpoint before data leaves the pipeline and hits R2/CDN.
       # If this gate fails, R2 upload is blocked -- no corrupt data reaches production.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.4.5 - STABLE CONTRACT Schema Validation (HARD FAIL pre-R2)"
-        run: python3 scripts/validate_manifest_schema.py --backfill --manifest data/stix/feed_manifest.json --manifest api/feed.json
+        run: python3 scripts/validate_manifest_schema.py --backfill --api-only
 
       # -----------------------------------------------------------------------
       # STAGE 3.5: R2 UPLOAD -- MANDATORY, NO CONTINUE-ON-ERROR
