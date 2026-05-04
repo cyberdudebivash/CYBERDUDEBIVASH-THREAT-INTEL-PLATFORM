@@ -242,8 +242,14 @@ def t07():
         ioc_cnt  = int(i.get("ioc_count", 0))
         ioc_conf = float(i.get("ioc_confidence") or 0)
         cve_id   = bool(i.get("cve_id"))
+        # f) CDB proprietary campaign — actor-research scored, not CVE-based.
+        # Mirrors the exemption in run_pipeline.py C3 FALSE_CRITICAL gate.
+        # Pipeline considers these legitimately CRITICAL; T07 must agree.
+        _actor   = (i.get("actor_tag") or "").strip().upper()
+        cdb_prop = _actor.startswith("CDB-") and not (i.get("cve_ids") or cve_id)
         return (
-            cve_id                                          # a) formal CVE
+            cdb_prop                                        # f) CDB proprietary campaign
+            or cve_id                                       # a) formal CVE
             or kev                                          # b) CISA KEV
             or (cvss >= 9.0 and (ioc_cnt > 0 or epss >= 0.5))  # c) CVSS+observable
             or epss >= 0.7                                  # d) very high EPSS
