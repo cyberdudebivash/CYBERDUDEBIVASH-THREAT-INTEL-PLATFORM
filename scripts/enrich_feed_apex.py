@@ -305,6 +305,24 @@ def enrich_item(item):
         item["confidence_score"] = round(min(90, base_conf), 1)
         item["confidence"] = item["confidence_score"]
 
+    # C5/C6 root-cause fix: ensure ioc_confidence and ioc_threat_level are
+    # always populated when ioc_count > 0.  The run_pipeline.py auto-fix
+    # patches these in batch, but setting them here prevents them from ever
+    # being written as 0.0 / "NONE" in the first place (source-of-truth fix).
+    _ioc_cnt = int(item.get("ioc_count") or 0)
+    if _ioc_cnt > 0:
+        if not float(item.get("ioc_confidence") or 0.0):
+            item["ioc_confidence"] = round(min(_ioc_cnt * 5.0, 100.0), 2)
+        _ioc_lvl = (item.get("ioc_threat_level") or "NONE").upper()
+        if _ioc_lvl == "NONE":
+            _conf = float(item.get("ioc_confidence") or 0.0)
+            if _conf >= 60:
+                item["ioc_threat_level"] = "HIGH"
+            elif _conf >= 35:
+                item["ioc_threat_level"] = "MEDIUM"
+            else:
+                item["ioc_threat_level"] = "LOW"
+
     return item
 
 def _compute_behavioral_tags(item):
