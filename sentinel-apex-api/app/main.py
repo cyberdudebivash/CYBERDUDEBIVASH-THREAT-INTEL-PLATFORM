@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.v1.endpoints import auth, feed, keys, usage, soc
+from app.api.v1.endpoints import auth, feed, keys, usage, soc, enterprise_ai, payment
 from app.core.config import get_settings
 from app.db.client import close_client
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -151,6 +151,8 @@ app.include_router(feed.router)
 app.include_router(keys.router)
 app.include_router(usage.router)
 app.include_router(soc.router)
+app.include_router(enterprise_ai.router)
+app.include_router(payment.router)
 
 
 # ── Root & Health ─────────────────────────────────────────────────────
