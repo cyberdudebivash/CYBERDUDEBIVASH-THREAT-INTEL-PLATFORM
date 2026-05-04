@@ -122,7 +122,11 @@ THREAT_TYPE_MAP = {
 def compute_threat_category(item):
     tt  = (item.get("threat_type") or "").lower()
     title = (item.get("title") or "").lower()
-    existing_cat = (item.get("apex") or {}).get("threat_category")
+    # v143.5 FIX: check both apex and apex_ai; treat "UNKNOWN" as absent
+    existing_cat = (
+        (item.get("apex_ai") or {}).get("threat_category")
+        or (item.get("apex") or {}).get("threat_category")
+    )
     if existing_cat and existing_cat not in ("", "UNKNOWN", "Threat Intel"):
         return existing_cat
 
@@ -285,7 +289,10 @@ def enrich_item(item):
     item["apex"] = {
         "priority":        existing_apex.get("priority") or soc_priority,
         "threat_level":    existing_apex.get("threat_level") or threat_level,
-        "threat_category": existing_apex.get("threat_category") or category,
+        # v143.5 FIX: treat "UNKNOWN" as absent — prefer freshly computed category
+        "threat_category": (existing_apex.get("threat_category")
+                            if existing_apex.get("threat_category") not in ("", "UNKNOWN", None)
+                            else category),
         "predictive_score": existing_apex.get("predictive_score") if existing_apex.get("predictive_score") is not None else pred_risk,
         "campaign_id":     existing_apex.get("campaign_id") if existing_apex.get("campaign_id") not in ("PRO_REQUIRED", None, "") else campaign_id,
         "confidence":      existing_apex.get("confidence") or round(ai_conf / 100, 2),

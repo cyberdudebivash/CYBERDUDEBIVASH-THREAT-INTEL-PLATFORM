@@ -1,7 +1,11 @@
 // =============================================================================
 // CYBERDUDEBIVASH(R) SENTINEL APEX -- Edge Intelligence Gateway v143.0.0
 // GOD-MODE: Production-hardened, globally sellable SaaS cybersecurity platform
+<<<<<<< Updated upstream
+// Hardened: 2026-05-03 (Dark Web Monitor - Premium Reports - API Key Manager)
+=======
 // Hardened: 2026-05-03 (Dark Web Monitor * Premium Reports * API Key Manager)
+>>>>>>> Stashed changes
 // R2-ONLY ARCHITECTURE -- Blogger dependency REMOVED
 // Data flow: GitHub Actions -> Cloudflare R2 (private) -> Worker -> API clients
 // Intel data NEVER stored in public GitHub repo (EMBEDDED_INTEL obsolete).
@@ -1186,6 +1190,45 @@ function getUpgradeCTA(tier) {
   };
 }
 
+
+<<<<<<< Updated upstream
+// v143.5 FIX: _classifyThreatCategory -- derives threat category from item content.
+=======
+// v143.5 FIX: _classifyThreatCategory  -  derives threat category from item content.
+>>>>>>> Stashed changes
+// Mirrors Python enrich_feed_apex.py::compute_threat_category().
+// Used as fallback when stored value is absent, empty, or "UNKNOWN".
+function _classifyThreatCategory(item) {
+  const tt    = ((item.threat_type || item.type || "")).toLowerCase();
+  const title = ((item.title || "")).toLowerCase();
+  const tags  = Array.isArray(item.tags) ? item.tags.map(t => String(t).toLowerCase()) : [];
+
+  const MAP = [
+    ["ransomware",     "Ransomware"],
+    ["vulnerability",  "Vulnerability"],
+    ["malware",        "Malware"],
+    ["apt",            "Nation-State APT"],
+    ["phishing",       "Phishing"],
+    ["cve",            "CVE / Vulnerability"],
+    ["oss-advisory",   "Supply Chain Risk"],
+    ["supply chain",   "Supply Chain Risk"],
+    ["exploit",        "Exploit"],
+    ["web application","Web Application Attack"],
+    ["rce",            "Remote Code Execution"],
+    ["sqli",           "SQL Injection"],
+    ["xss",            "Cross-Site Scripting"],
+    ["threat-intel",   "Threat Intel"],
+  ];
+
+  for (const [key, cat] of MAP) {
+    if (tt.includes(key) || title.includes(key)) return cat;
+  }
+  if (tags.some(t => t.includes("ransom")))  return "Ransomware";
+  if (tags.some(t => t.includes("phish")))   return "Phishing";
+  if (tags.some(t => t.includes("malware") || t.includes("rat"))) return "Malware";
+  return "Threat Intel";
+}
+
 //  v134.0.0: computeApexAI -- Full AI Intelligence Engine 
 // Produces: predictive_risk, ai_confidence, actor_fingerprint, kill_chain, ttp_density, ai_summary
 // v134.0.0 GOD-MODE: ai_summary is MANDATORY -- teaser for free, full narrative for Pro/Enterprise
@@ -1210,7 +1253,11 @@ function computeApexAI(item, tier) {
     //      - ai_confidence (number)
     //      - ai_summary (string)
     //      - threat_level (string)
+<<<<<<< Updated upstream
+    // This is intentionally broad -- we trust any apex_ai that came from R2/API
+=======
     // This is intentionally broad  -  we trust any apex_ai that came from R2/API
+>>>>>>> Stashed changes
     // and has at least one non-trivial field, rather than requiring ALL fields.
     const existingApexAI = item.apex_ai;
     const hasValidApexAI =
@@ -1235,7 +1282,7 @@ function computeApexAI(item, tier) {
         return {
           soc_priority:            sp,
           threat_level:            existingApexAI.threat_level            || "UNKNOWN",
-          threat_category:         existingApexAI.threat_category         || "UNKNOWN",
+          threat_category:         (existingApexAI.threat_category && existingApexAI.threat_category !== "UNKNOWN" ? existingApexAI.threat_category : _classifyThreatCategory(item)),
           predictive_risk:         existingApexAI.predictive_risk         ?? 0,
           ai_confidence:           existingApexAI.ai_confidence           ?? 0,
           threat_confidence_tier:  ct,
@@ -1400,7 +1447,7 @@ function computeApexAI(item, tier) {
     const base = {
       soc_priority:            socPriority,
       threat_level:            threatLevel,
-      threat_category:         existingApex.threat_category || "UNKNOWN",
+      threat_category:         (existingApex.threat_category && existingApex.threat_category !== "UNKNOWN" ? existingApex.threat_category : _classifyThreatCategory(item)),
       predictive_risk:         parseFloat(predictiveRisk.toFixed(2)),
       ai_confidence:           aiConfidence,
       threat_confidence_tier:  confidenceTier,      // v134.0: VERIFIED/HIGH/MODERATE/LOW
@@ -2062,7 +2109,7 @@ async function handlePreview(request, env, rid) {
           const m   = String(dt.getUTCMonth() + 1).padStart(2, "0");
           return `/reports/${y}/${m}/${id}.html`;
         })(),
-        source_url:  item.source_url  || null,
+        source_url:  (item.source_url && item.source_url.trim()) || null,
         actor_tag:   item.actor_tag   || null,
         mitre_tactics: Array.isArray(item.mitre_tactics) ? item.mitre_tactics
                       : Array.isArray(item.ttps) ? item.ttps : [],
@@ -2096,7 +2143,7 @@ async function handlePreview(request, env, rid) {
           return {
             priority:         ap.priority       || "P4",
             threat_level:     ap.threat_level   || "UNKNOWN",
-            threat_category:  ap.threat_category || "UNKNOWN",
+            threat_category:  (ap.threat_category && ap.threat_category !== "UNKNOWN" ? ap.threat_category : _classifyThreatCategory(item)),
             predictive_score: apexScore,         // consistent with apex_ai.predictive_risk
             campaign_id:      "PRO_REQUIRED",    // campaign ID is Pro+
           };
@@ -2637,7 +2684,11 @@ async function handleCacheBust(request, env, rid) {
   });
 }
 
+<<<<<<< Updated upstream
+// v143.0.0: POST /api/admin/cache/bust-prefix -- bulk-delete all KV keys matching a prefix
+=======
 // v143.0.0: POST /api/admin/cache/bust-prefix  -  bulk-delete all KV keys matching a prefix
+>>>>>>> Stashed changes
 // Supports wildcard invalidation for new v143 endpoint caches (dark-web, reports, checkout).
 async function handleCacheBustPrefix(request, env, rid) {
   const secret   = env?.ADMIN_SECRET;
@@ -2863,7 +2914,7 @@ async function handleStixExport(request, env, auth, rid, stixId) {
       risk_score:  item.risk_score,
       processed_at: item.processed_at || item.timestamp,
       report_url:  item.report_url || null,
-      source_url:  item.source_url || null,
+      source_url:  (item.source_url && item.source_url.trim()) || null,
     },
     stix_object:  baseObj,
     full_bundle:  null,
@@ -3071,7 +3122,23 @@ async function handlePlatformStats(request, env, rid) {
       manifest = await env.SECURITY_HUB_KV.get("idx:reports", { type: "json" }).catch(() => null);
     }
 
-    const reports = manifest?.reports || [];
+    // v143.5 FIX: feed_manifest.json is written as a flat array by the Python pipeline.
+<<<<<<< Updated upstream
+    // Previous code assumed { reports: [...] } shape -- manifest?.reports was always undefined.
+=======
+    // Previous code assumed { reports: [...] } shape  -  manifest?.reports was always undefined.
+>>>>>>> Stashed changes
+    // Handle all three possible shapes: flat array, { reports: [...] }, { advisories: [...] }
+    let reports = [];
+    if (Array.isArray(manifest)) {
+      reports = manifest;
+    } else if (manifest && Array.isArray(manifest.reports)) {
+      reports = manifest.reports;
+    } else if (manifest && Array.isArray(manifest.advisories)) {
+      reports = manifest.advisories;
+    } else if (manifest && Array.isArray(manifest.items)) {
+      reports = manifest.items;
+    }
     const now = new Date().toISOString();
 
     //  Aggregate live metrics 
@@ -3086,20 +3153,50 @@ async function handlePlatformStats(request, env, rid) {
     let exploit_active = 0;
 
     for (const r of reports) {
-      // Severity distribution
-      const sev = (r.severity || "unknown").toLowerCase();
+<<<<<<< Updated upstream
+      // Severity distribution -- use severity field if present, else derive from risk_score
+=======
+      // Severity distribution  -  use severity field if present, else derive from risk_score
+>>>>>>> Stashed changes
+      let sev = (r.severity || "").toLowerCase();
+      if (!sev || sev === "unknown") {
+        const rs = parseFloat(r.risk_score || r.threat_score || 0);
+        sev = rs >= 9.0 ? "critical" : rs >= 7.0 ? "high" : rs >= 4.0 ? "medium" : rs > 0 ? "low" : "unknown";
+      }
       sev_dist[sev] = (sev_dist[sev] || 0) + 1;
 
-      // IOC count
-      if (Array.isArray(r.iocs)) ioc_count += r.iocs.length;
+      // v143.5 FIX: feed_manifest entries use ioc_count (integer), ioc_counts (dict),
+<<<<<<< Updated upstream
+      // or indicator_count -- not an iocs array. Handle all three shapes.
+=======
+      // or indicator_count  -  not an iocs array. Handle all three shapes.
+>>>>>>> Stashed changes
+      if (typeof r.ioc_count === "number") {
+        ioc_count += r.ioc_count;
+      } else if (r.ioc_counts && typeof r.ioc_counts === "object") {
+        ioc_count += Object.values(r.ioc_counts).reduce((a, b) => a + (b || 0), 0);
+      } else if (typeof r.indicator_count === "number") {
+        ioc_count += r.indicator_count;
+      } else if (Array.isArray(r.iocs)) {
+        ioc_count += r.iocs.length;
+      }
 
-      // Unique actors
-      if (r.actor_tag && r.actor_tag !== "UNATTRIBUTED") actor_set.add(r.actor_tag);
+<<<<<<< Updated upstream
+      // Unique actors -- check both actor_tag and actor fields
+      const actorId = r.actor_tag || (Array.isArray(r.actors) && r.actors[0]) || "";
+      if (actorId && actorId !== "UNATTRIBUTED" && actorId !== "UNC-CDB-99") actor_set.add(actorId);
 
-      // Unique CVEs
+      // Unique CVEs -- from cve_id field or iocs array
+=======
+      // Unique actors  -  check both actor_tag and actor fields
+      const actorId = r.actor_tag || (Array.isArray(r.actors) && r.actors[0]) || "";
+      if (actorId && actorId !== "UNATTRIBUTED" && actorId !== "UNC-CDB-99") actor_set.add(actorId);
+
+      // Unique CVEs  -  from cve_id field or iocs array
+>>>>>>> Stashed changes
       if (r.cve_id) cve_set.add(r.cve_id.toUpperCase());
       if (Array.isArray(r.iocs)) {
-        r.iocs.filter(i => i.type === "cve").forEach(i => cve_set.add(i.value.toUpperCase()));
+        r.iocs.filter(i => i && i.type === "cve" && i.value).forEach(i => cve_set.add(i.value.toUpperCase()));
       }
 
       // KEV
@@ -3112,8 +3209,13 @@ async function handlePlatformStats(request, env, rid) {
       const ts = r.processed_at || r.timestamp || "";
       if (ts > last_updated) last_updated = ts;
 
-      // Highest risk score
-      if ((r.risk_score || 0) > highest_risk) highest_risk = r.risk_score;
+<<<<<<< Updated upstream
+      // Highest risk score -- fallback to threat_score for bootstrap manifest items
+=======
+      // Highest risk score  -  fallback to threat_score for bootstrap manifest items
+>>>>>>> Stashed changes
+      const _rs = parseFloat(r.risk_score || r.threat_score || 0);
+      if (_rs > highest_risk) highest_risk = _rs;
 
       // Active exploitation
       const maturity = r.exploit_maturity || "";
@@ -3203,7 +3305,7 @@ async function handleAlerts(request, env, auth, rid) {
       risk_score:  r.risk_score,
       kev_present: r.kev_present || false,
       report_url:  r.report_url || null,
-      source_url:  r.source_url || null,
+      source_url:  (r.source_url && r.source_url.trim()) || null,
       processed_at: r.processed_at || r.timestamp,
       stix_id:     r.stix_id || r.id,
     }));
@@ -3686,7 +3788,11 @@ async function handleBillingPortal(request, env, rid, auth) {
 }
 
 // ---------------------------------------------------------------------------
+<<<<<<< Updated upstream
+//  v143.0.0: POST /api/checkout/session -- Dynamic Stripe Checkout Session
+=======
 //  v143.0.0: POST /api/checkout/session  -  Dynamic Stripe Checkout Session
+>>>>>>> Stashed changes
 //  Creates a Stripe Checkout Session on-the-fly (server-side), returns a
 //  redirect_url the browser can navigate to. Requires STRIPE_SECRET_KEY
 //  Cloudflare secret. Passes user_id + plan metadata so the checkout.session
@@ -3729,7 +3835,11 @@ async function handleCreateCheckoutSession(request, env, auth, rid) {
     }, 400);
   }
 
+<<<<<<< Updated upstream
+  // Resolve Stripe Price ID -- prefer env var, fall back to direct price_id param
+=======
   // Resolve Stripe Price ID  -  prefer env var, fall back to direct price_id param
+>>>>>>> Stashed changes
   const priceId = env[planCfg.price_id_env] || (body.price_id || "").replace(/[^a-zA-Z0-9_]/g, "");
   if (!priceId) {
     return jsonResponse({
@@ -3840,7 +3950,11 @@ async function sendTelegramAlert(env, message) {
         disable_web_page_preview: true,
       }),
     });
+<<<<<<< Updated upstream
+  } catch (_) {}  // non-blocking -- never let Telegram errors affect payment flow
+=======
   } catch (_) {}  // non-blocking  -  never let Telegram errors affect payment flow
+>>>>>>> Stashed changes
 }
 
 // POST /api/payment/notify
@@ -3902,6 +4016,24 @@ async function handlePaymentNotify(request, env, rid) {
   if (existing.length > 500) existing.length = 500;
   await env.API_KEYS_KV.put(listKey, JSON.stringify(existing), { expirationTtl: 86400 * 60 });
 
+<<<<<<< Updated upstream
+  //  TELEGRAM INSTANT ALERT 
+  const planEmoji  = plan === "enterprise" ? "" : plan === "mssp" ? "" : "";
+  const methodIcon = is_crypto ? "" : method.includes("UPI") ? "" : method.includes("PayPal") ? "" : method.includes("Bank") ? "" : "";
+  const tgMsg = ` <b>NEW PAYMENT -- SENTINEL APEX</b>\n\n` +
+    `${planEmoji} <b>Plan:</b> ${plan.toUpperCase()}\n` +
+    `${methodIcon} <b>Method:</b> ${method}\n` +
+    ` <b>Amount:</b> ${amount}\n` +
+    ` <b>Email:</b> ${email}\n` +
+    (name    ? ` <b>Name:</b> ${name}\n`     : "") +
+    (org     ? ` <b>Org:</b> ${org}\n`       : "") +
+    (country ? ` <b>Country:</b> ${country}\n` : "") +
+    ` <b>Ref/UTR:</b> ${ref || "--"}\n` +
+    (txhash  ? ` <b>TxHash:</b> <code>${txhash.slice(0,18)}</code>\n` : "") +
+    ` <b>Review ID:</b> <code>${rid}</code>\n` +
+    ` <b>Time:</b> ${new Date().toUTCString()}\n\n` +
+    ` <b>Activate now:</b>\n` +
+=======
   // -- TELEGRAM INSTANT ALERT -------------------------------------------------
   const planEmoji  = plan === "enterprise" ? "?" : plan === "mssp" ? "?" : "?";
   const methodIcon = is_crypto ? "?" : method.includes("UPI") ? "?" : method.includes("PayPal") ? "?" : method.includes("Bank") ? "?" : "?";
@@ -3918,6 +4050,7 @@ async function handlePaymentNotify(request, env, rid) {
     `? <b>Review ID:</b> <code>${rid}</code>\n` +
     `? <b>Time:</b> ${new Date().toUTCString()}\n\n` +
     `[OK] <b>Activate now:</b>\n` +
+>>>>>>> Stashed changes
     `<code>POST /api/admin/users/set-tier\n{"email":"${email}","tier":"${plan === 'pro' ? 'premium' : plan}","payment_ref":"${rid}"}</code>`;
 
   // Fire Telegram + legacy webhook in parallel (non-blocking)
@@ -3933,10 +4066,17 @@ async function handlePaymentNotify(request, env, rid) {
   }
   await Promise.all(notifyPromises);  // parallel, still non-blocking to user
 
+<<<<<<< Updated upstream
+  //  BSC AUTO-VERIFY (if txhash provided) 
+  let bsc_status = null;
+  if (txhash && (is_crypto || txhash.startsWith("0x"))) {
+    bsc_status = "submitted";  // optimistic -- verify-bsc endpoint does the deep check
+=======
   // -- BSC AUTO-VERIFY (if txhash provided) ----------------------------------
   let bsc_status = null;
   if (txhash && (is_crypto || txhash.startsWith("0x"))) {
     bsc_status = "submitted";  // optimistic  -  verify-bsc endpoint does the deep check
+>>>>>>> Stashed changes
   }
 
   slog("INFO", "BILLING", "Payment notification received + Telegram alert fired", { email, plan, method, ref: ref.slice(0, 20), rid, has_txhash: !!txhash });
@@ -3944,7 +4084,11 @@ async function handlePaymentNotify(request, env, rid) {
   return jsonResponse({
     status:       "received",
     message:      is_crypto && txhash
+<<<<<<< Updated upstream
+      ? "Crypto payment submitted. BSC verification in progress -- usually auto-confirmed in 1-3 minutes."
+=======
       ? "Crypto payment submitted. BSC verification in progress  -  usually auto-confirmed in 1-3 minutes."
+>>>>>>> Stashed changes
       : "Payment notification recorded. Your account will be upgraded within 2 hours after manual verification.",
     review_id:    rid,
     plan,
@@ -4025,7 +4169,11 @@ async function handleBSCVerify(request, env, rid) {
           verifyDetail = { message: "Transaction failed on-chain (reverted)." };
         } else {
           verifyStatus = "pending";
+<<<<<<< Updated upstream
+          verifyDetail = { message: "Transaction mined but status unclear -- check BscScan." };
+=======
           verifyDetail = { message: "Transaction mined but status unclear  -  check BscScan." };
+>>>>>>> Stashed changes
         }
       }
     }
@@ -4046,6 +4194,16 @@ async function handleBSCVerify(request, env, rid) {
       await env.API_KEYS_KV.put(`payment:${payRid}`, JSON.stringify(payRec), { expirationTtl: 86400 * 30 });
 
       // Fire Telegram alert for auto-verified crypto payment
+<<<<<<< Updated upstream
+      const tgMsg = ` <b>BSC PAYMENT AUTO-VERIFIED</b>\n\n` +
+        ` Email: ${payRec.email}\n` +
+        ` Plan: ${(payRec.plan || "").toUpperCase()}\n` +
+        ` Amount: ${payRec.amount}\n` +
+        ` TxHash: <code>${txhash}</code>\n` +
+        ` <a href="https://bscscan.com/tx/${txhash}">View on BscScan</a>\n` +
+        ` Review ID: <code>${payRid}</code>\n\n` +
+        ` <b>Activate now:</b>\n` +
+=======
       const tgMsg = `[OK] <b>BSC PAYMENT AUTO-VERIFIED</b>\n\n` +
         `? Email: ${payRec.email}\n` +
         `? Plan: ${(payRec.plan || "").toUpperCase()}\n` +
@@ -4054,6 +4212,7 @@ async function handleBSCVerify(request, env, rid) {
         `? <a href="https://bscscan.com/tx/${txhash}">View on BscScan</a>\n` +
         `? Review ID: <code>${payRid}</code>\n\n` +
         `? <b>Activate now:</b>\n` +
+>>>>>>> Stashed changes
         `<code>POST /api/admin/users/set-tier\n{"email":"${payRec.email}","tier":"${payRec.plan === 'pro' ? 'premium' : payRec.plan}","payment_ref":"${payRid}"}</code>`;
       await sendTelegramAlert(env, tgMsg);
 
@@ -4474,7 +4633,11 @@ export default {
       if (pathname === "/api/admin/payments/pending"       && method === "GET")  return handleAdminListPayments(request, env, rid);
       // v143.0.0: SLA heartbeat ping (called by Cloudflare Cron every 5 min)
       if (pathname === "/api/sla/ping"           && method === "POST") return handleSLAPing(request, env, rid);
+<<<<<<< Updated upstream
+      // v143.0.0: Alert dispatch (internal -- triggers alerts to all subscribers)
+=======
       // v143.0.0: Alert dispatch (internal  -  triggers alerts to all subscribers)
+>>>>>>> Stashed changes
       if (pathname === "/api/alerts/dispatch"    && method === "POST") return handleAlertDispatch(request, env, rid);
       return jsonResponse({
         error:     "not_found",
@@ -4486,8 +4649,13 @@ export default {
           "POST /api/admin/keys/revoke",
           "GET  /api/admin/keys/list",
           "GET  /api/admin/observability",
+<<<<<<< Updated upstream
+          "POST /api/sla/ping               (cron heartbeat -- X-Admin-Secret required)",
+          "POST /api/alerts/dispatch        (trigger alert broadcast -- X-Admin-Secret required)",
+=======
           "POST /api/sla/ping               (cron heartbeat  -  X-Admin-Secret required)",
           "POST /api/alerts/dispatch        (trigger alert broadcast  -  X-Admin-Secret required)",
+>>>>>>> Stashed changes
         ],
         request_id: rid,
       }, 404);
@@ -4576,7 +4744,11 @@ export default {
       if (keyId) return withRL(await handleUserDeleteKey(request, env, rid, auth, keyId));
     }
     if (pathname === "/api/billing/portal"   && method === "GET")    return withRL(await handleBillingPortal(request, env, rid, auth));
+<<<<<<< Updated upstream
+    // v143.0.0: Dynamic Stripe Checkout Session (auth optional -- guest checkout allowed)
+=======
     // v143.0.0: Dynamic Stripe Checkout Session (auth optional  -  guest checkout allowed)
+>>>>>>> Stashed changes
     if (pathname === "/api/checkout/session" && method === "POST")  return withRL(await handleCreateCheckoutSession(request, env, auth, rid));
     // v134.0: Self-service usage analytics
     if (pathname === "/api/account/usage"    && method === "GET")    return withRL(await handleAccountUsage(request, env, rid, auth));
@@ -4671,7 +4843,11 @@ export default {
     if (pathname === "/api/leads/trial" && method === "POST")
       return handleTrialIssuance(request, env, rid);
 
+<<<<<<< Updated upstream
+    // v143.0.0: SLA Status -- public endpoint (no auth required)
+=======
     // v143.0.0: SLA Status  -  public endpoint (no auth required)
+>>>>>>> Stashed changes
     if (pathname === "/api/sla/status" && method === "GET")
       return new Response(JSON.stringify(await (async () => {
         const r = await handleSLAStatus(request, env, rid);
@@ -4686,17 +4862,28 @@ export default {
     if (pathname === "/api/leak-check")
       return withRL(await handleLeakCheck(request, env, auth, rid));
 
+<<<<<<< Updated upstream
+    // v143.0.0: Premium Threat Reports ($49/report sellable asset -- Pro+ required)
+    if (pathname === "/api/reports/premium" || pathname === "/api/reports/list")
+      return withRL(await handlePremiumReport(request, env, auth, rid));
+    // GET /api/reports/:id -- retrieve a previously generated report
+=======
     // v143.0.0: Premium Threat Reports ($49/report sellable asset  -  Pro+ required)
     if (pathname === "/api/reports/premium" || pathname === "/api/reports/list")
       return withRL(await handlePremiumReport(request, env, auth, rid));
     // GET /api/reports/:id  -  retrieve a previously generated report
+>>>>>>> Stashed changes
     {
       const reportMatch = pathname.match(/^\/api\/reports\/(rpt_[a-f0-9]{16})$/);
       if (reportMatch && method === "GET")
         return withRL(await handleReportGet(request, env, auth, rid, reportMatch[1]));
     }
 
+<<<<<<< Updated upstream
+    // v143.0.0: AI Alert Engine -- subscribe / manage / history (Pro+ required)
+=======
     // v143.0.0: AI Alert Engine  -  subscribe / manage / history (Pro+ required)
+>>>>>>> Stashed changes
     if (pathname === "/api/alerts/subscribe"      && method === "POST") return withRL(await handleAlertSubscribe(request, env, auth, rid));
     if (pathname === "/api/alerts/subscriptions"  && method === "GET")  return withRL(await handleAlertSubscriptions(request, env, auth, rid));
     if (pathname === "/api/alerts/history"        && method === "GET")  return withRL(await handleAlertHistory(request, env, auth, rid));
@@ -4704,7 +4891,11 @@ export default {
     if (pathname.startsWith("/api/alerts/unsubscribe/") && method === "DELETE")
       return withRL(await handleAlertUnsubscribe(request, env, auth, rid));
 
+<<<<<<< Updated upstream
+    // v143.0.0: SLA Monitor -- report/incidents/certificate (Enterprise required)
+=======
     // v143.0.0: SLA Monitor  -  report/incidents/certificate (Enterprise required)
+>>>>>>> Stashed changes
     if (pathname === "/api/sla/status"            && method === "GET")  return handleSLAStatus(request, env, rid);
     if (pathname === "/api/sla/report"            && method === "GET")  return withRL(await handleSLAReport(request, env, auth, rid));
     if (pathname === "/api/sla/incidents"         && method === "GET")  return withRL(await handleSLAIncidents(request, env, auth, rid));
@@ -4825,7 +5016,23 @@ export default {
           }
         }
 
-        const reports = manifest?.reports || [];
+        // v143.5 FIX: feed_manifest.json is written as a flat array by the Python pipeline.
+<<<<<<< Updated upstream
+    // Previous code assumed { reports: [...] } shape -- manifest?.reports was always undefined.
+=======
+    // Previous code assumed { reports: [...] } shape  -  manifest?.reports was always undefined.
+>>>>>>> Stashed changes
+    // Handle all three possible shapes: flat array, { reports: [...] }, { advisories: [...] }
+    let reports = [];
+    if (Array.isArray(manifest)) {
+      reports = manifest;
+    } else if (manifest && Array.isArray(manifest.reports)) {
+      reports = manifest.reports;
+    } else if (manifest && Array.isArray(manifest.advisories)) {
+      reports = manifest.advisories;
+    } else if (manifest && Array.isArray(manifest.items)) {
+      reports = manifest.items;
+    }
         if (!reports.length) {
           slog("WARN", "CRON", "No reports in feed manifest -- skipping webhook push", { rid });
           return;
