@@ -72,6 +72,8 @@ BOM = b"\xef\xbb\xbf"
 SKIP_DIRS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv",
     ".tox", "dist", "build", ".mypy_cache", ".pytest_cache",
+    # Historical backup archives — read-only, never rewrite or re-sanitize
+    ".manifest_backups", "manifest_backups",
 }
 
 # Files that have known minimal fallback structures when unrecoverable
