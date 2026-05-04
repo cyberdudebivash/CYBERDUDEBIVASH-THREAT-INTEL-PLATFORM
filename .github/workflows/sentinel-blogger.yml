@@ -229,6 +229,30 @@ jobs:
         run: python3 scripts/validate_env.py
 
       # -----------------------------------------------------------------------
+      # STAGE 0.03: BASELINE STABILITY LOCK PRE-FLIGHT (HARDENING -- HARD FAIL)
+      # Validates golden-build baseline contract BEFORE pipeline touches anything:
+      #   1. config/version.json readable with valid version
+      #   2. config/stability_lock.json present with all required sections
+      #   3. index.html EMBEDDED_INTEL declaration intact
+      #   4. index.html Top-Threats computed dynamically in JS (not overwritten)
+      #   5. No pipeline injection markers in frontend files
+      # HARD FAIL: blocks pipeline if any baseline invariant is violated.
+      # RULE: Pipeline MUST NOT modify frontend files. This gate enforces that.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.03 - Baseline Stability Lock Pre-flight (HARD FAIL)"
+        run: python3 scripts/apex_stability_lock.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 0.04: PRE-PIPELINE SCHEMA VALIDATION (HARDENING -- SOFT GATE)
+      # Validates existing manifest schema BEFORE the pipeline overwrites it.
+      # Purpose: detect any pre-existing schema degradation from previous runs.
+      # Runs --backfill to restore any missing optional fields before pipeline.
+      # Does NOT hard-fail on empty manifest (CI generates it from scratch).
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.04 - Pre-pipeline Schema Validation (backfill missing fields)"
+        run: python3 scripts/validate_manifest_schema.py --backfill || true
+
+      # -----------------------------------------------------------------------
       # STAGE 1-3: MASTER PIPELINE ORCHESTRATOR
       # Runs ALL pipeline logic. Zero inline Python in this YAML.
       # Stages: pre-flight, intel engine, manifest processing,
@@ -249,6 +273,35 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "STAGE 3.1 - APEX AI Feed Enrichment (inject apex_ai into all items)"
         run: python3 scripts/enrich_feed_apex.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.5: APEX AI BACK-SYNC TO MANIFEST (HARDENING -- PERMANENT)
+      # After enrich_feed_apex.py populates api/feed.json with apex_ai blocks,
+      # this step syncs those enrichment fields back into data/stix/feed_manifest.json.
+      # ROOT CAUSE FIX: enrich_feed_apex.py enriches api/feed.json ONLY.
+      # feed_manifest.json was left without apex_ai, causing dashboard cards
+      # to display blank intelligence fields on the next render cycle.
+      # This step closes that gap: manifest always has apex_ai after this stage.
+      # Safe: idempotent, non-destructive, atomic write.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.5 - Sync apex_ai from api/feed.json -> feed_manifest (HARDENING)"
+        run: python3 scripts/field_preserving_merge.py --sync-apex --manifest data/stix/feed_manifest.json --feed api/feed.json || true
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.6: FIELD-PRESERVING MANIFEST MERGE (HARDENING -- PERMANENT)
+      # Performs append-only field-preserving merge on feed_manifest.json.
+      # RULES ENFORCED:
+      #   - NEVER drops an existing stix_id entry (append-only)
+      #   - NEVER overwrites apex_ai, risk_score, tags, cvss_score, epss_score
+      #     with null/empty values (field preservation)
+      #   - Caps manifest at 50 newest entries
+      #   - Atomic write -- no partial state on disk
+      # This is the core defence against the scheduled-run regression pattern
+      # where bootstrap_critical_files.py resets manifest to [] and then the
+      # pipeline rebuilds from batch only, losing all prior enrichment.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.6 - Field-Preserving Manifest Merge (HARDENING)"
+        run: python3 scripts/field_preserving_merge.py --manifest data/stix/feed_manifest.json --cap 50 || true
 
       # -----------------------------------------------------------------------
       # STAGE 3.2: REPORT GENERATOR -- INTERNAL DOSSIER HARDENING (v134.0)
@@ -298,6 +351,18 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "STAGE 3.4 - Manifest Sanity Guard (HARD FAIL on corruption)"
         run: python3 scripts/manifest_sanity_guard.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.4.5: POST-MERGE STABLE CONTRACT SCHEMA VALIDATION (HARDENING -- HARD FAIL)
+      # Validates data/stix/feed_manifest.json and api/feed.json against the
+      # STABLE CONTRACT schema immediately before R2 upload.
+      # HARD FAIL if: stix_id/title/risk_score missing on any item, manifest empty.
+      # BACKFILL: restores apex_ai_summary, apex_ai_score, tags, severity where absent.
+      # PURPOSE: Last checkpoint before data leaves the pipeline and hits R2/CDN.
+      # If this gate fails, R2 upload is blocked -- no corrupt data reaches production.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.4.5 - STABLE CONTRACT Schema Validation (HARD FAIL pre-R2)"
+        run: python3 scripts/validate_manifest_schema.py --backfill --manifest data/stix/feed_manifest.json --manifest api/feed.json
 
       # -----------------------------------------------------------------------
       # STAGE 3.5: R2 UPLOAD -- MANDATORY, NO CONTINUE-ON-ERROR
@@ -374,6 +439,20 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "STAGE 3.93 - Inject EMBEDDED_INTEL into index.html (instant render)"
         run: python3 scripts/inject_embedded_intel.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.94: POST-INJECT STABILITY LOCK CONFIRMATION (HARDENING -- HARD FAIL)
+      # Re-runs the baseline stability lock AFTER all data writes + inject.
+      # Confirms:
+      #   1. EMBEDDED_INTEL is populated (inject_embedded_intel.py succeeded)
+      #   2. Top-Threats dynamic JS sort is still intact (not overwritten)
+      #   3. index.html size is healthy (no truncation from pipeline)
+      #   4. No pipeline injection markers leaked into frontend files
+      # HARD FAIL: if any dashboard invariant is violated post-inject.
+      # This is the final dashboard integrity checkpoint before git commit.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.94 - Post-inject Stability Lock Confirmation (HARD FAIL)"
+        run: python3 scripts/apex_stability_lock.py
 
       # -----------------------------------------------------------------------
       # STAGE 4: GIT SYNC -- ALWAYS RUNS
