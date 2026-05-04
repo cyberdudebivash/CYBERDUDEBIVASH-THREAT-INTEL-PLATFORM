@@ -109,8 +109,15 @@ GITHUB_ENV = os.environ.get("GITHUB_ENV", "/dev/null")
 METRICS: "PipelineMetrics | None" = None
 
 VALID_THREAT_TYPES = {
+    # STIX 2.1 object types (original set)
     "vulnerability", "malware", "campaign", "intrusion-set",
     "tool", "attack-pattern", "indicator", "threat-report",
+    # CDB Sentinel platform-specific threat categories (live feed values)
+    "ransomware", "apt", "phishing", "cve", "ddos",
+    "data breach", "cloud security", "ics/ot", "mobile", "supply chain",
+    "threat intel", "threat-intel", "cyber espionage",
+    "zero-day", "zero day", "botnet", "insider threat", "nation-state",
+    "critical infrastructure", "financial crime", "identity theft",
 }
 
 # ---------------------------------------------------------------------------
@@ -1763,8 +1770,18 @@ def stage_pipeline_consistency_check() -> None:
             risk_score = float(item.get("risk_score", 0.0))
 
             if severity == "CRITICAL":
+                # CDB proprietary campaigns are internally scored via actor-
+                # research criteria, NOT CVE/KEV/EPSS metrics.  They MUST NOT
+                # be downgraded by the CVE-scoring C3 gate.
+                # Condition: actor_tag starts with "CDB-" AND no CVE present.
+                _actor_tag = (item.get("actor_tag") or "").strip().upper()
+                _is_cdb_proprietary = (
+                    _actor_tag.startswith("CDB-")
+                    and not (item.get("cve_ids") or item.get("cve_id") or "")
+                )
                 justified = (
-                    kev
+                    _is_cdb_proprietary        # CDB campaign — exempt from CVE gate
+                    or kev
                     or (cvss >= 9.0 and (ioc_cnt > 0 or epss >= 0.5))
                     or epss >= 0.7
                     or (ioc_conf >= 80.0 and ioc_cnt >= 5)
