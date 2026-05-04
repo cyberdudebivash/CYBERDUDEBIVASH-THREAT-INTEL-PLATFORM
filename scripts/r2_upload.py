@@ -1,26 +1,38 @@
 #!/usr/bin/env python3
 """
 scripts/r2_upload.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 -- Cloudflare R2 Upload Engine
+CYBERDUDEBIVASH(R) SENTINEL APEX v143.5.1 -- Cloudflare R2 Upload Engine
 =========================================================================
 P0 FIX: Replaces the inline PYEOF/unquoted-heredoc R2 upload block from
 sentinel-blogger.yml.  Zero inline Python in YAML.
+
+v143.5.1 FIX (R2 TIMEOUT ROOT CAUSE):
+  - timeout-minutes: 60 in the workflow was killing the job before the HTML
+    report sync could complete (18k+ files, ~35 min with default awscli).
+  - Fix 1: configure_awscli_performance() sets 50 concurrent requests and
+    disables per-file checksum (--size-only) for large directory syncs.
+  - Fix 2: subprocess timeout=2700 (45 min) on reports sync -- non-fatal,
+    pipeline continues even if reports upload is incomplete.
+  - Fix 3: workflow timeout-minutes raised to 180 (companion change).
 
 Responsibilities:
   1.  Validate R2 credentials (CF_ACCOUNT_ID, AWS_ACCESS_KEY_ID,
       AWS_SECRET_ACCESS_KEY).  Exit 1 if any missing.
   2.  Install awscli if not present.
-  3.  Upload feed_manifest.json and enriched manifests.
-  4.  Upload apex_v2 API endpoint files.
-  5.  Upload generated HTML reports (Tactical Dossiers).
-  6.  Upload AI intelligence data files.
-  7.  Write and upload sync_meta.json with advisory count + run metadata.
+  3.  Configure awscli for high-throughput parallel uploads.
+  4.  Upload feed_manifest.json and enriched manifests.
+  5.  Upload apex_v2 API endpoint files.
+  6.  Upload generated HTML reports (Tactical Dossiers) -- non-fatal.
+  7.  Upload AI intelligence data files.
+  8.  Write and upload sync_meta.json with advisory count + run metadata.
 
 Environment variables consumed (set at job level in workflow):
   CF_ACCOUNT_ID            -- Cloudflare account ID
   AWS_ACCESS_KEY_ID        -- R2 access key
   AWS_SECRET_ACCESS_KEY    -- R2 secret key
-  PIPELINE_VERSION         -- e.g. 131.2.0
+  CF_R2_REPORTS_KEY_ID     -- Dedicated token for sentinel-apex-reports bucket
+  CF_R2_REPORTS_SECRET_KEY -- Dedicated secret for sentinel-apex-reports bucket
+  PIPELINE_VERSION         -- e.g. 143.0.0
   GITHUB_RUN_ID            -- GitHub run ID
   REPORT_COUNT             -- set by run_pipeline.py
 
@@ -44,9 +56,13 @@ logging.basicConfig(
 log = logging.getLogger("sentinel.r2_upload")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "131.2.0")
+PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "143.0.0")
 BUCKET_DATA = "sentinel-apex-data"
 BUCKET_REPORTS = "sentinel-apex-reports"
+
+# Max seconds the HTML report sync may run before being abandoned (non-fatal).
+# Set to 45 minutes -- generous headroom for 18k+ files at 50 concurrent threads.
+REPORTS_SYNC_TIMEOUT_SECONDS = 2700
 
 
 def utc_now() -> str:
@@ -88,6 +104,40 @@ def install_awscli() -> None:
     )
 
 
+def configure_awscli_performance() -> None:
+    """
+    Configure awscli for high-throughput R2 uploads.
+
+    Root cause of the 36-minute stall: default awscli uses only 10 concurrent
+    requests and computes MD5 checksums for every file before uploading.
+    For 18k+ HTML reports this takes 35+ minutes, exceeding the old 60-minute
+    job timeout.
+
+    Fix:
+      - max_concurrent_requests = 50  (5x throughput increase)
+      - multipart_chunksize = 16MB    (fewer round trips per file)
+      - max_queue_size = 10000        (larger in-flight queue)
+      - multipart_threshold = 64MB   (single-part for small HTML files)
+
+    The --size-only flag on s3 sync handles the checksum problem separately.
+    """
+    settings = [
+        ("default.s3.max_concurrent_requests", "50"),
+        ("default.s3.multipart_chunksize", "16MB"),
+        ("default.s3.max_queue_size", "10000"),
+        ("default.s3.multipart_threshold", "64MB"),
+    ]
+    for key, value in settings:
+        subprocess.run(
+            ["aws", "configure", "set", key, value],
+            capture_output=True, check=False,
+        )
+    log.info(
+        "OK: awscli performance profile set -- "
+        "50 concurrent requests, 16MB chunks, size-only comparison."
+    )
+
+
 def s3_cp(
     src: str,
     dst_bucket: str,
@@ -110,7 +160,10 @@ def s3_cp(
     if result.returncode == 0:
         log.info("OK: Uploaded %s -> s3://%s/%s", src, dst_bucket, dst_key)
         return True
-    log.warning("WARN: Upload failed (%d): %s %s", result.returncode, result.stdout.strip(), result.stderr.strip())
+    log.warning(
+        "WARN: Upload failed (%d): %s %s",
+        result.returncode, result.stdout.strip(), result.stderr.strip(),
+    )
     return False
 
 
@@ -121,8 +174,20 @@ def s3_sync(
     endpoint: str,
     content_type: str = "text/html; charset=utf-8",
     cache_control: str = "public, max-age=300",
+    size_only: bool = False,
+    timeout_seconds: int | None = None,
 ) -> bool:
-    """Sync a directory to R2. Returns True on success."""
+    """
+    Sync a directory to R2. Returns True on success.
+
+    Args:
+        size_only:       Use --size-only instead of full MD5 checksum comparison.
+                         Dramatically faster for large directories where most files
+                         are already in R2 and unchanged.
+        timeout_seconds: Hard subprocess timeout in seconds. On expiry, logs a WARN
+                         and returns False (non-fatal). Prevents job-level timeout
+                         kill from leaving the pipeline in an unknown state.
+    """
     cmd = [
         "aws", "s3", "sync", src_dir, f"s3://{dst_bucket}/{dst_prefix}",
         "--endpoint-url", endpoint,
@@ -130,11 +195,29 @@ def s3_sync(
         "--cache-control", cache_control,
         "--only-show-errors",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    if size_only:
+        cmd.append("--size-only")
+
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired:
+        log.warning(
+            "WARN: s3 sync timed out after %ds (non-fatal). "
+            "Partial upload may have occurred -- existing R2 files remain valid. "
+            "Remaining files will sync on the next pipeline run.",
+            timeout_seconds,
+        )
+        return False
+
     if result.returncode == 0:
         log.info("OK: Synced %s -> s3://%s/%s", src_dir, dst_bucket, dst_prefix)
         return True
-    log.warning("WARN: Sync had errors (%d): %s", result.returncode, result.stderr.strip()[:200])
+    log.warning(
+        "WARN: Sync had errors (%d): %s",
+        result.returncode, result.stderr.strip()[:400],
+    )
     return False
 
 
@@ -168,6 +251,10 @@ def main() -> None:
 
     install_awscli()
 
+    # Configure awscli for high-throughput parallel uploads BEFORE any transfer.
+    # This is the primary fix for the 36-minute stall / job-timeout cancellation.
+    configure_awscli_performance()
+
     item_count = count_manifest()
     log.info("Uploading %d advisories to R2...", item_count)
 
@@ -198,13 +285,20 @@ def main() -> None:
         log.info("OK: apex_v2/ uploaded")
 
     # --- Upload 4a: Generated HTML reports (Tactical Dossiers) ---
-    # v143.5.0 FIX: Use dedicated CF_R2_REPORTS_KEY_ID / CF_R2_REPORTS_SECRET_KEY
-    # credentials for sentinel-apex-reports bucket (separate R2 token with scoped
-    # access). Falls back to job-level AWS credentials if per-bucket secrets absent.
-    # Non-fatal: pipeline continues on failure.
+    # v143.5.1 FIX: Two-part fix for 36-minute stall / job-timeout cancellation:
+    #   1. awscli configured with 50 concurrent requests (5x faster)
+    #   2. --size-only skips per-file MD5 checksum (reports already in R2 skip fast)
+    #   3. subprocess timeout=2700 (45 min) -- non-fatal hard cap, pipeline continues
+    #
+    # Credentials: uses dedicated CF_R2_REPORTS_KEY_ID / CF_R2_REPORTS_SECRET_KEY
+    # for sentinel-apex-reports bucket (scoped R2 token, injected via step-level env).
+    # Falls back to job-level AWS credentials if per-bucket secrets absent.
     reports_dir = REPO_ROOT / "reports"
     if reports_dir.is_dir() and any(reports_dir.rglob("*.html")):
         log.info("Uploading HTML reports to R2 (sentinel-apex-reports)...")
+        log.info(
+            "Performance: 50 concurrent requests, --size-only, 45-min hard timeout."
+        )
 
         # Swap in per-bucket credentials if available
         reports_key_id = os.environ.get("CF_R2_REPORTS_KEY_ID", "").strip()
@@ -224,9 +318,11 @@ def main() -> None:
                 "reports/", BUCKET_REPORTS, "reports/", endpoint,
                 content_type="text/html; charset=utf-8",
                 cache_control="public, max-age=300",
+                size_only=True,                       # Skip MD5 -- use file size comparison
+                timeout_seconds=REPORTS_SYNC_TIMEOUT_SECONDS,  # 45-min hard cap
             )
         finally:
-            # Always restore original credentials
+            # Always restore original credentials regardless of outcome
             os.environ["AWS_ACCESS_KEY_ID"]    = orig_key_id
             os.environ["AWS_SECRET_ACCESS_KEY"] = orig_secret
 
@@ -234,9 +330,10 @@ def main() -> None:
             log.info("OK: HTML reports uploaded to R2 (%s/reports/)", BUCKET_REPORTS)
         else:
             log.warning(
-                "WARN: HTML reports R2 sync FAILED (non-fatal -- existing reports in R2 remain valid). "
-                "Check bucket permissions for %s or verify CF_R2_REPORTS_KEY_ID secret. "
-                "Pipeline continues.", BUCKET_REPORTS
+                "WARN: HTML reports R2 sync incomplete (non-fatal -- existing reports "
+                "in R2 remain valid). Reports will retry on next pipeline run. "
+                "Check bucket permissions for %s and verify CF_R2_REPORTS_KEY_ID secret.",
+                BUCKET_REPORTS,
             )
     else:
         log.info("INFO: No reports/ directory or HTML files -- skipping report upload.")
@@ -248,7 +345,10 @@ def main() -> None:
         capture_output=True, text=True,
     )
     if result.returncode != 0:
-        log.warning("WARN: AI endpoint generation failed (non-fatal): %s", result.stderr.strip()[:200])
+        log.warning(
+            "WARN: AI endpoint generation failed (non-fatal): %s",
+            result.stderr.strip()[:200],
+        )
 
     ai_dirs = [REPO_ROOT / "data" / "ai_intelligence", REPO_ROOT / "api" / "ai"]
     for ai_dir in ai_dirs:
@@ -264,7 +364,7 @@ def main() -> None:
         "source":           "sentinel-blogger",
         "pipeline_version": PIPELINE_VERSION,
         "run_id":           os.environ.get("GITHUB_RUN_ID", "local"),
-        "p0_fix":           "v134.0.0 -- inline_python_removed, encoding_guard_enforced",
+        "p0_fix":           "v143.5.1 -- r2_timeout_fix, awscli_perf, size_only_sync",
     }
     sync_meta_path = "/tmp/sync_meta.json"
     with open(sync_meta_path, "w", encoding="utf-8") as fh:
@@ -284,5 +384,7 @@ if __name__ == "__main__":
         raise
     except Exception as e:
         import traceback
-        log.critical("Unhandled exception in r2_upload.py:\n%s\n%s", e, traceback.format_exc())
+        log.critical(
+            "Unhandled exception in r2_upload.py:\n%s\n%s", e, traceback.format_exc(),
+        )
         sys.exit(1)
