@@ -1,0 +1,165 @@
+{
+  "type": "bundle",
+  "id": "bundle--8c9f9829-9aaa-43fe-abab-0598550fcad8",
+  "objects": [
+    {
+      "type": "identity",
+      "spec_version": "2.1",
+      "id": "identity--cyberdudebivash-sentinel-apex-v30",
+      "name": "CyberDudeBivash SENTINEL APEX",
+      "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
+      "identity_class": "organization",
+      "sectors": [
+        "technology"
+      ],
+      "contact_information": "bivash@cyberdudebivash.com",
+      "created": "2024-01-01T00:00:00Z",
+      "modified": "2024-01-01T00:00:00Z"
+    },
+    {
+      "type": "marking-definition",
+      "spec_version": "2.1",
+      "id": "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a",
+      "created": "2017-01-20T00:00:00.000Z",
+      "definition_type": "tlp",
+      "definition": {
+        "tlp": "green"
+      }
+    },
+    {
+      "type": "intrusion-set",
+      "spec_version": "2.1",
+      "id": "intrusion-set--a6c89a33-e75c-43ad-9d70-57ff6e2d7e02",
+      "name": "CDB-RAN-06 Campaign",
+      "description": "Germany Doxes UNKN, Head of RU Ransomware Gangs REvil, GandCrab",
+      "created": "2026-05-05T14:43:23Z",
+      "modified": "2026-05-05T14:43:23Z",
+      "confidence": 46,
+      "aliases": [
+        "CDB-RAN-06"
+      ],
+      "extensions": {
+        "x-cdb-apex-1": {
+          "predictive_score": 5.5,
+          "campaign_id": "CDB-REVIL",
+          "campaign_confidence": 5.5,
+          "threat_category": "Phishing",
+          "behavioral_tags": [],
+          "ai_summary": "Initial access via phishing → execution chain: initial access → impact",
+          "risk_factors": [
+            "IOC_density",
+            "MITRE_coverage",
+            "exploitation_context"
+          ],
+          "soc_priority": "P3",
+          "threat_level": "MEDIUM",
+          "recommended_action": "Medium severity threat (score 5.5/10) — limited technical indicators in source data",
+          "x_cdb_published_at": "2026-04-06T02:07:17Z"
+        }
+      },
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--b6e6af0f-21fc-4834-bb64-ca305d64aaff",
+      "name": "Malicious Domain: ccc.de",
+      "pattern": "[domain-name:value = 'ccc.de']",
+      "pattern_type": "stix",
+      "valid_from": "2026-05-05T14:43:23Z",
+      "created": "2026-05-05T14:43:23Z",
+      "modified": "2026-05-05T14:43:23Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 46,
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--2ac1bae6-d037-424b-bfe4-d2a51f057c0d",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--b6e6af0f-21fc-4834-bb64-ca305d64aaff",
+      "target_ref": "intrusion-set--a6c89a33-e75c-43ad-9d70-57ff6e2d7e02",
+      "created": "2026-05-05T14:43:23Z",
+      "modified": "2026-05-05T14:43:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--dfd70b58-03ca-4c5f-9396-2164a44ee94f",
+      "name": "Credentials from Password Stores",
+      "created": "2026-05-05T14:43:23Z",
+      "modified": "2026-05-05T14:43:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1555",
+          "url": "https://attack.mitre.org/techniques/T1555/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--7a5242be-ce9e-498b-9e90-6a30a7831749",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--a6c89a33-e75c-43ad-9d70-57ff6e2d7e02",
+      "target_ref": "attack-pattern--dfd70b58-03ca-4c5f-9396-2164a44ee94f",
+      "created": "2026-05-05T14:43:23Z",
+      "modified": "2026-05-05T14:43:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--977011b8-5005-4936-80c6-cb560b2c286d",
+      "name": "Data Encrypted for Impact",
+      "created": "2026-05-05T14:43:23Z",
+      "modified": "2026-05-05T14:43:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1486",
+          "url": "https://attack.mitre.org/techniques/T1486/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--dcc34eb7-28b7-43b5-b2aa-80edc134be28",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--a6c89a33-e75c-43ad-9d70-57ff6e2d7e02",
+      "target_ref": "attack-pattern--977011b8-5005-4936-80c6-cb560b2c286d",
+      "created": "2026-05-05T14:43:23Z",
+      "modified": "2026-05-05T14:43:23Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    }
+  ]
+}
