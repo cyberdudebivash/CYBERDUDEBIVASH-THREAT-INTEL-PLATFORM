@@ -37,9 +37,12 @@
       "https://intel.cyberdudebivash.com/api/preview",
       "/api/feed.json",
     ],
-    // Container selectors (tried in order — first match wins)
+    // Container selectors — legacy list kept for _findContainer() Priority 2
+    // Primary discovery is now handled in _findContainer() directly.
+    // #sapx-card-grid is the canonical target (static anchor in index.html,
+    // inside #cdb-panel-live after #threat-grid).
     CONTAINER_SELECTORS: [
-      "#sapx-card-grid",           // New dedicated container (add to HTML)
+      "#sapx-card-grid",           // ← static anchor planted in index.html (canonical)
       "#advisory-grid",
       "#intel-card-grid",
       "#feed-container",
@@ -53,7 +56,7 @@
     // Max cards to render
     MAX_CARDS:         30,
     // Version lock — DO NOT CHANGE
-    VERSION:          "143.0.0",
+    VERSION:          "143.1.0",
     // Loading card count
     LOADING_COUNT:    4,
   };
@@ -74,27 +77,85 @@
   }
 
   /* ─────────────────────────────────────────────────────────────
-   *  CONTAINER DISCOVERY
+   *  CONTAINER DISCOVERY  (god-mode fallback chain v143.1.0)
+   *
+   *  Priority order — first match wins:
+   *   1. #sapx-card-grid  — static anchor planted in index.html
+   *                          inside #cdb-panel-live, after #threat-grid
+   *   2. Other known direct containers (by ID or class)
+   *   3. Create #sapx-card-grid as next sibling of #threat-grid
+   *      (inside #cdb-panel-live — the live intel tab panel)
+   *   4. Append to #cdb-panel-live
+   *   5. Append to #live-feed-section / #intel-section / etc.
+   *   6. LAST RESORT: appendChild to body
+   *      ⚠ NEVER insertBefore(body.firstChild) — that puts cards
+   *        above the hero section (the regression we fixed).
    * ───────────────────────────────────────────────────────────── */
   function _findContainer() {
-    for (var i = 0; i < CONFIG.CONTAINER_SELECTORS.length; i++) {
-      var el = document.querySelector(CONFIG.CONTAINER_SELECTORS[i]);
+    var el;
+
+    // ── Priority 1: static anchor planted in HTML ────────────────
+    el = document.getElementById("sapx-card-grid");
+    if (el) {
+      console.info("[SAPX Integration] Container: #sapx-card-grid (static anchor)");
+      return el;
+    }
+
+    // ── Priority 2: other known direct container IDs/classes ─────
+    var knownSelectors = [
+      "#advisory-grid",
+      "#intel-card-grid",
+      "#feed-container",
+      ".intel-feed",
+      "#advisory-list",
+      "#v70-advisory-list",
+      "#intel-list",
+    ];
+    for (var i = 0; i < knownSelectors.length; i++) {
+      el = document.querySelector(knownSelectors[i]);
       if (el) {
-        console.info("[SAPX Integration] Container found:", CONFIG.CONTAINER_SELECTORS[i]);
+        console.info("[SAPX Integration] Container:", knownSelectors[i]);
         return el;
       }
     }
-    // Create dedicated container and inject before first intel section
+
+    // ── Create dedicated container — insert at correct position ───
     var container = document.createElement("div");
     container.id = "sapx-card-grid";
-    // Try to insert into the live feed section
-    var anchor = document.querySelector("#live-feed-section, #intel-section, .threat-cards-section, main, .content-area, body");
-    if (anchor) {
-      anchor.insertBefore(container, anchor.firstChild);
-    } else {
-      document.body.appendChild(container);
+
+    // ── Priority 3: insert as next sibling of #threat-grid ────────
+    //    This places cards below the existing threat grid, still
+    //    inside the #cdb-panel-live tab — the live intel section.
+    var threatGrid = document.getElementById("threat-grid");
+    if (threatGrid && threatGrid.parentNode) {
+      threatGrid.parentNode.insertBefore(container, threatGrid.nextSibling);
+      console.info("[SAPX Integration] Created #sapx-card-grid after #threat-grid (inside live intel panel)");
+      return container;
     }
-    console.info("[SAPX Integration] Created new container: #sapx-card-grid");
+
+    // ── Priority 4: append inside the live intel tab panel ────────
+    var livePanel = document.getElementById("cdb-panel-live");
+    if (livePanel) {
+      livePanel.appendChild(container);
+      console.info("[SAPX Integration] Created #sapx-card-grid inside #cdb-panel-live");
+      return container;
+    }
+
+    // ── Priority 5: append to a known intel section ───────────────
+    var intelSection = document.querySelector(
+      "#live-feed-section, #intel-section, .threat-cards-section, .content-area"
+    );
+    if (intelSection) {
+      intelSection.appendChild(container);
+      console.info("[SAPX Integration] Created #sapx-card-grid inside", intelSection.id || intelSection.className);
+      return container;
+    }
+
+    // ── Priority 6: absolute last resort — APPEND, never prepend ──
+    //    insertBefore(body.firstChild) caused the above-hero regression.
+    //    appendChild is the safe fallback.
+    document.body.appendChild(container);
+    console.warn("[SAPX Integration] WARNING: Could not find live intel section. Appended to end of body. Check dashboard DOM.");
     return container;
   }
 
