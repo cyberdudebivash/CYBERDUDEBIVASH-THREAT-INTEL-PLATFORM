@@ -491,34 +491,8 @@ jobs:
       # Stage 3.93. The safe_git_commit.py also has its own guard, but this gate
       # provides explicit failure visibility in GitHub Actions UI.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93.5 - EMBEDDED_INTEL Population Gate (HARD FAIL -- P0 Root Cause Fix)"
-        run: |
-          python3 - << 'PYEOF'
-          import re, sys, os
-          INDEX = 'index.html'
-          if not os.path.exists(INDEX):
-              print('[FATAL] index.html not found')
-              sys.exit(1)
-          html = open(INDEX, encoding='utf-8', errors='replace').read()
-          m = re.search(r'window\.EMBEDDED_INTEL\s*=\s*(\[.*?\]);', html, re.DOTALL)
-          if not m:
-              print('[WARN] EMBEDDED_INTEL declaration not found -- architecture may differ')
-              sys.exit(0)
-          val = m.group(1).strip()
-          compact = val.replace(' ', '').replace('\n', '').replace('\r', '')
-          if compact == '[]' or len(compact) <= 4:
-              print('[FAIL] EMBEDDED_INTEL is EMPTY after Stage 3.93 inject.')
-              print('       Root cause: inject_embedded_intel.py failed or api/feed.json was empty.')
-              print('       safe_git_commit.py will restore index.html from HEAD (previous good state).')
-              print('       This is a WARNING not a hard block -- the guard in safe_git_commit.py handles it.')
-              sys.exit(0)
-          item_count = val.count('"id":')
-          size_kb = len(val) / 1024
-          print(f'[PASS] EMBEDDED_INTEL populated: ~{item_count} items ({size_kb:.1f} KB)')
-          print('       bootFromEmbeddedCache() and card_renderer_integration._bootFromEmbedded()')
-          print('       will render cards instantly on page load -- no API dependency for initial render.')
-          sys.exit(0)
-          PYEOF
+      - name: "STAGE 3.93.5 - EMBEDDED_INTEL Population Gate (P0 Root Cause Fix)"
+        run: python3 scripts/embedded_intel_gate.py
 
       # -----------------------------------------------------------------------
       # STAGE 3.94: POST-INJECT STABILITY LOCK CONFIRMATION (HARDENING -- HARD FAIL)
