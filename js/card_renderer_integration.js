@@ -56,7 +56,7 @@
     // Max cards to render
     MAX_CARDS:         30,
     // Version lock — DO NOT CHANGE
-    VERSION:          "143.1.0",
+    VERSION:          "144.0.0",
     // Loading card count
     LOADING_COUNT:    4,
   };
