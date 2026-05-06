@@ -4737,8 +4737,190 @@
                 0 0 0 1px rgba(0,194,255,0.1) !important;
         }
         .intel-card { transition: transform 0.2s ease, box-shadow 0.3s ease !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SENTINEL APEX DESIGN SYSTEM v152.0 — ULTRA PREMIUM CYBER WAR ROOM
+   Phase 1-9: Glassmorphism · Neon Severity System · HUD Overlays · AI Visualization
+   GPU-optimized: transform/opacity/box-shadow only in all keyframes
+   Zero DOM injection — all data via live API manifests
+   ═══════════════════════════════════════════════════════════════════════════════ */
+:root {
+    --apex-crit:#ff1a1a; --apex-crit-glow:rgba(255,26,26,0.45); --apex-crit-mid:rgba(255,26,26,0.22); --apex-crit-soft:rgba(255,26,26,0.08);
+    --apex-high:#ff6b00; --apex-high-glow:rgba(255,107,0,0.38); --apex-high-mid:rgba(255,107,0,0.18); --apex-high-soft:rgba(255,107,0,0.07);
+    --apex-med:#00c8ff;  --apex-med-glow:rgba(0,200,255,0.32);  --apex-med-mid:rgba(0,200,255,0.15);  --apex-med-soft:rgba(0,200,255,0.06);
+    --apex-low:#00ff88;  --apex-low-glow:rgba(0,255,136,0.28);  --apex-low-mid:rgba(0,255,136,0.13);  --apex-low-soft:rgba(0,255,136,0.05);
+    --apex-glass:rgba(8,10,18,0.72); --apex-glass-hover:rgba(10,13,22,0.85);
+    --apex-border:rgba(255,255,255,0.055); --apex-border-hover:rgba(255,255,255,0.10);
+}
+@keyframes apex-crit-pulse {
+    0%,100%{box-shadow:0 0 0 1px rgba(255,26,26,0.18),0 0 28px rgba(255,26,26,0.18),-4px 0 22px rgba(255,26,26,0.22),0 12px 40px rgba(0,0,0,0.72);}
+    50%{box-shadow:0 0 0 1px rgba(255,26,26,0.42),0 0 60px rgba(255,26,26,0.38),-6px 0 40px rgba(255,26,26,0.48),0 16px 56px rgba(0,0,0,0.82);}
+}
+@keyframes apex-high-pulse {
+    0%,100%{box-shadow:0 0 0 1px rgba(255,107,0,0.15),0 0 22px rgba(255,107,0,0.15),-3px 0 18px rgba(255,107,0,0.18),0 10px 36px rgba(0,0,0,0.68);}
+    50%{box-shadow:0 0 0 1px rgba(255,107,0,0.35),0 0 48px rgba(255,107,0,0.32),-5px 0 32px rgba(255,107,0,0.38),0 14px 50px rgba(0,0,0,0.78);}
+}
+@keyframes apex-med-pulse {
+    0%,100%{box-shadow:0 0 0 1px rgba(0,200,255,0.10),0 0 18px rgba(0,200,255,0.10),0 8px 28px rgba(0,0,0,0.62);}
+    50%{box-shadow:0 0 0 1px rgba(0,200,255,0.28),0 0 36px rgba(0,200,255,0.25),0 12px 42px rgba(0,0,0,0.72);}
+}
+@keyframes apex-low-pulse {
+    0%,100%{box-shadow:0 0 0 1px rgba(0,255,136,0.08),0 0 14px rgba(0,255,136,0.08),0 6px 22px rgba(0,0,0,0.58);}
+    50%{box-shadow:0 0 0 1px rgba(0,255,136,0.22),0 0 28px rgba(0,255,136,0.18),0 10px 36px rgba(0,0,0,0.68);}
+}
+@keyframes apex-scan-sweep {
+    0%{transform:translateX(-100%) skewX(-8deg);opacity:0;} 8%{opacity:1;} 92%{opacity:1;} 100%{transform:translateX(320%) skewX(-8deg);opacity:0;}
+}
+@keyframes apex-top-laser { 0%,100%{opacity:0.5;} 50%{opacity:1;} }
+@keyframes apex-ring-glow {
+    0%,100%{filter:drop-shadow(0 0 4px currentColor);opacity:0.9;}
+    50%{filter:drop-shadow(0 0 12px currentColor) drop-shadow(0 0 24px currentColor);opacity:1;}
+}
+@keyframes apex-holo-flicker { 0%,95%,100%{opacity:1;} 96%{opacity:0.88;} 97%{opacity:1;} 98%{opacity:0.92;} }
+@keyframes apex-signal-in { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:translateY(0);} }
+@keyframes apex-crit-border-pulse {
+    0%,100%{opacity:0.7;box-shadow:0 0 8px var(--apex-crit),0 0 0px var(--apex-crit);}
+    50%{opacity:1;box-shadow:0 0 18px var(--apex-crit),0 0 40px var(--apex-crit-mid);}
+}
+@keyframes apex-card-enter { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+.intel-card {
+    position:relative !important;
+    background:var(--apex-glass) !important;
+    backdrop-filter:blur(14px) !important;
+    -webkit-backdrop-filter:blur(14px) !important;
+    border:1px solid var(--apex-border) !important;
+    border-left-width:3px !important;
+    border-radius:10px !important;
+    overflow:hidden !important;
+    transition:transform 0.22s cubic-bezier(0.22,1,0.36,1),box-shadow 0.28s ease,background 0.2s ease,border-color 0.2s ease !important;
+    will-change:transform,box-shadow !important;
+    animation:apex-card-enter 0.38s ease-out both !important;
+}
+.intel-card::before {
+    content:'';position:absolute;top:0;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,transparent,currentColor,transparent);
+    opacity:0.7;animation:apex-top-laser 2.8s ease-in-out infinite;pointer-events:none;z-index:2;
+}
+.intel-card::after {
+    content:'';position:absolute;top:0;left:0;width:40%;height:100%;
+    background:linear-gradient(105deg,transparent 0%,rgba(255,255,255,0.018) 50%,transparent 100%);
+    transform:translateX(-100%) skewX(-8deg);
+    animation:apex-scan-sweep 3.2s ease-in-out infinite;pointer-events:none;z-index:1;
+}
+.intel-card.sev-critical {
+    --card-sev-color:var(--apex-crit);border-left-color:var(--apex-crit) !important;
+    background:linear-gradient(135deg,rgba(255,26,26,0.045) 0%,var(--apex-glass) 40%) !important;
+    animation:apex-crit-pulse 2.6s ease-in-out infinite,apex-card-enter 0.38s ease-out both !important;
+}
+.intel-card.sev-critical::before{color:var(--apex-crit);animation-duration:1.8s;}
+.intel-card.sev-high {
+    --card-sev-color:var(--apex-high);border-left-color:var(--apex-high) !important;
+    background:linear-gradient(135deg,rgba(255,107,0,0.035) 0%,var(--apex-glass) 45%) !important;
+    animation:apex-high-pulse 3.4s ease-in-out infinite,apex-card-enter 0.38s ease-out both !important;
+}
+.intel-card.sev-high::before{color:var(--apex-high);animation-duration:2.4s;}
+.intel-card.sev-medium {
+    --card-sev-color:var(--apex-med);border-left-color:var(--apex-med) !important;
+    background:linear-gradient(135deg,rgba(0,200,255,0.022) 0%,var(--apex-glass) 50%) !important;
+    animation:apex-med-pulse 4.8s ease-in-out infinite,apex-card-enter 0.38s ease-out both !important;
+}
+.intel-card.sev-medium::before{color:var(--apex-med);animation-duration:3.2s;}
+.intel-card.sev-low {
+    --card-sev-color:var(--apex-low);border-left-color:var(--apex-low) !important;
+    background:linear-gradient(135deg,rgba(0,255,136,0.018) 0%,var(--apex-glass) 50%) !important;
+    animation:apex-low-pulse 6s ease-in-out infinite,apex-card-enter 0.38s ease-out both !important;
+}
+.intel-card.sev-low::before{color:var(--apex-low);animation-duration:4s;}
+.intel-card.cdb-threat-active.sev-critical{animation:apex-crit-pulse 1.8s ease-in-out infinite,apex-card-enter 0.38s ease-out both !important;}
+.intel-card:hover{transform:translateY(-3px) scale(1.008) !important;background:var(--apex-glass-hover) !important;border-color:var(--apex-border-hover) !important;}
+.intel-card.sev-critical:hover{box-shadow:0 18px 56px rgba(0,0,0,0.88),0 0 80px rgba(255,26,26,0.42),-6px 0 40px rgba(255,26,26,0.52),0 0 0 1px rgba(255,26,26,0.38),inset 0 0 40px -20px rgba(255,26,26,0.08) !important;border-left-color:#ff5555 !important;}
+.intel-card.sev-high:hover{box-shadow:0 16px 48px rgba(0,0,0,0.82),0 0 64px rgba(255,107,0,0.35),-5px 0 32px rgba(255,107,0,0.42),0 0 0 1px rgba(255,107,0,0.3),inset 0 0 36px -20px rgba(255,107,0,0.07) !important;border-left-color:#ff8833 !important;}
+.intel-card.sev-medium:hover{box-shadow:0 14px 42px rgba(0,0,0,0.76),0 0 50px rgba(0,200,255,0.28),-4px 0 24px rgba(0,200,255,0.32),0 0 0 1px rgba(0,200,255,0.22) !important;border-left-color:#33ddff !important;}
+.intel-card.sev-low:hover{box-shadow:0 12px 36px rgba(0,0,0,0.7),0 0 40px rgba(0,255,136,0.22),-3px 0 20px rgba(0,255,136,0.26),0 0 0 1px rgba(0,255,136,0.18) !important;border-left-color:#22ffaa !important;}
+.intel-card .card-title{font-size:14.5px !important;font-weight:700 !important;line-height:1.45 !important;color:var(--white) !important;text-shadow:0 0 24px rgba(255,255,255,0.08) !important;transition:color 0.2s ease,text-shadow 0.2s ease !important;}
+.intel-card:hover .card-title{color:#fff !important;text-shadow:0 0 32px rgba(255,255,255,0.15) !important;}
+.intel-card.sev-critical .card-title{text-shadow:0 0 28px rgba(255,26,26,0.18) !important;}
+.intel-card.sev-high .card-title{text-shadow:0 0 28px rgba(255,107,0,0.16) !important;}
+.intel-card .apex-panel{
+    position:relative !important;background:linear-gradient(135deg,rgba(0,212,170,0.05),rgba(59,130,246,0.04)) !important;
+    border:1px solid rgba(0,212,170,0.18) !important;border-radius:7px !important;overflow:hidden !important;
+    animation:apex-holo-flicker 12s ease-in-out infinite !important;
+}
+.intel-card.sev-critical .apex-panel{border-top:2px solid var(--apex-crit) !important;box-shadow:0 0 28px rgba(255,26,26,0.12),inset 0 0 20px -12px rgba(255,26,26,0.06) !important;}
+.intel-card.sev-high .apex-panel{border-top:2px solid var(--apex-high) !important;box-shadow:0 0 22px rgba(255,107,0,0.10),inset 0 0 16px -10px rgba(255,107,0,0.05) !important;}
+.intel-card.sev-medium .apex-panel{border-top:2px solid var(--apex-med) !important;box-shadow:0 0 18px rgba(0,200,255,0.08) !important;}
+.intel-card.sev-low .apex-panel{border-top:2px solid var(--apex-low) !important;box-shadow:0 0 14px rgba(0,255,136,0.07) !important;}
+.intel-card .cdb-ring{position:relative !important;filter:drop-shadow(0 0 6px currentColor) !important;animation:apex-ring-glow 3s ease-in-out infinite !important;}
+.intel-card.sev-critical .cdb-ring{color:var(--apex-crit) !important;animation-duration:2s !important;}
+.intel-card.sev-high .cdb-ring{color:var(--apex-high) !important;animation-duration:2.8s !important;}
+.intel-card.sev-medium .cdb-ring{color:var(--apex-med) !important;animation-duration:4s !important;}
+.intel-card.sev-low .cdb-ring{color:var(--apex-low) !important;animation-duration:5.5s !important;}
+.intel-card .cdb-rval{font-size:17px !important;font-weight:900 !important;letter-spacing:-0.5px !important;text-shadow:0 0 16px currentColor !important;}
+.intel-card .badge-critical{background:rgba(255,26,26,0.18) !important;color:#ff4444 !important;border:1px solid rgba(255,26,26,0.42) !important;box-shadow:0 0 12px rgba(255,26,26,0.22) !important;font-weight:900 !important;animation:apex-crit-border-pulse 2s ease-in-out infinite !important;}
+.intel-card .badge-high{background:rgba(255,107,0,0.15) !important;color:#ff7722 !important;border:1px solid rgba(255,107,0,0.38) !important;box-shadow:0 0 10px rgba(255,107,0,0.18) !important;font-weight:800 !important;}
+.intel-card .badge-medium{background:rgba(0,200,255,0.12) !important;color:#22ddff !important;border:1px solid rgba(0,200,255,0.32) !important;box-shadow:0 0 8px rgba(0,200,255,0.15) !important;}
+.intel-card .badge-low{background:rgba(0,255,136,0.10) !important;color:#00ff88 !important;border:1px solid rgba(0,255,136,0.28) !important;}
+.intel-card .cdb-scan-bar{background:rgba(0,0,0,0.28) !important;border:1px solid rgba(255,255,255,0.06) !important;border-radius:5px !important;padding:5px 8px !important;backdrop-filter:blur(4px) !important;}
+.intel-card .cdb-sig{background:rgba(255,255,255,0.025) !important;border:1px solid rgba(255,255,255,0.06) !important;border-radius:5px !important;padding:5px 9px !important;transition:background 0.18s ease,border-color 0.18s ease !important;animation:apex-signal-in 0.4s ease-out both !important;}
+.intel-card:hover .cdb-sig{background:rgba(255,255,255,0.04) !important;border-color:rgba(255,255,255,0.1) !important;}
+.intel-card .cdb-kev-yes{background:rgba(255,26,26,0.12) !important;border-color:rgba(255,26,26,0.3) !important;box-shadow:0 0 10px rgba(255,26,26,0.15) !important;}
+.intel-card .cdb-decision{background:rgba(0,0,0,0.35) !important;border:1px solid rgba(255,255,255,0.07) !important;border-radius:6px !important;backdrop-filter:blur(6px) !important;overflow:hidden !important;}
+.intel-card .cdb-dec-patch{background:rgba(255,26,26,0.18) !important;border-color:rgba(255,26,26,0.3) !important;box-shadow:inset 0 0 16px -8px rgba(255,26,26,0.15) !important;}
+.intel-card .cdb-dec-investigate{background:rgba(255,107,0,0.14) !important;border-color:rgba(255,107,0,0.25) !important;}
+.intel-card .cdb-dec-val{font-size:9.5px !important;font-weight:900 !important;letter-spacing:0.8px !important;}
+.intel-card .cdb-soc{background:rgba(0,0,0,0.42) !important;border:1px solid rgba(255,255,255,0.07) !important;border-left:3px solid rgba(0,212,170,0.45) !important;border-radius:6px !important;backdrop-filter:blur(8px) !important;transition:border-color 0.2s ease,background 0.2s ease !important;}
+.intel-card:hover .cdb-soc{background:rgba(0,0,0,0.52) !important;border-left-color:rgba(0,212,170,0.65) !important;}
+.intel-card.sev-critical .cdb-soc{border-left-color:rgba(255,26,26,0.55) !important;}
+.intel-card.sev-high .cdb-soc{border-left-color:rgba(255,107,0,0.5) !important;}
+.intel-card .cdb-summary{background:rgba(0,212,170,0.038) !important;border:1px solid rgba(0,212,170,0.12) !important;border-radius:6px !important;transition:background 0.2s ease,border-color 0.2s ease !important;}
+.intel-card:hover .cdb-summary{background:rgba(0,212,170,0.055) !important;border-color:rgba(0,212,170,0.2) !important;}
+.intel-card.sev-critical .cdb-summary{background:rgba(255,26,26,0.035) !important;border-color:rgba(255,26,26,0.12) !important;}
+.intel-card.sev-high .cdb-summary{background:rgba(255,107,0,0.03) !important;border-color:rgba(255,107,0,0.1) !important;}
+.intel-card .mitre-chip{background:rgba(59,130,246,0.12) !important;border:1px solid rgba(59,130,246,0.28) !important;color:#60a5fa !important;border-radius:3px !important;font-size:8.5px !important;font-weight:700 !important;padding:2px 7px !important;transition:background 0.18s,box-shadow 0.18s !important;}
+.intel-card .mitre-chip:hover{background:rgba(59,130,246,0.22) !important;box-shadow:0 0 10px rgba(59,130,246,0.25) !important;}
+.intel-card .cdb-body{background:rgba(0,0,0,0.15) !important;border-radius:7px !important;border:1px solid rgba(255,255,255,0.04) !important;transition:background 0.18s !important;}
+.intel-card:hover .cdb-body{background:rgba(0,0,0,0.22) !important;border-color:rgba(255,255,255,0.07) !important;}
+.intel-card.sev-critical .cdb-body{box-shadow:inset 0 0 40px -18px rgba(255,26,26,0.07) !important;}
+.intel-card.sev-high .cdb-body{box-shadow:inset 0 0 36px -18px rgba(255,107,0,0.06) !important;}
+.intel-card .cdb-rhalo{opacity:0.15 !important;transition:opacity 0.3s ease !important;}
+.intel-card:hover .cdb-rhalo{opacity:1 !important;}
+.intel-card.sev-critical .cdb-rhalo{color:var(--apex-crit) !important;}
+.intel-card.sev-high .cdb-rhalo{color:var(--apex-high) !important;}
+.intel-card.sev-medium .cdb-rhalo{color:var(--apex-med) !important;}
+.intel-card.sev-low .cdb-rhalo{color:var(--apex-low) !important;}
+.intel-card .cdb-priority.p1{animation:apex-crit-border-pulse 1.6s ease-in-out infinite !important;font-weight:900 !important;letter-spacing:1px !important;}
+.intel-card .card-stix{font-size:9px !important;opacity:0.65 !important;transition:opacity 0.18s ease !important;}
+.intel-card:hover .card-stix{opacity:0.9 !important;}
+.intel-card .card-footer{border-top:1px solid rgba(255,255,255,0.05) !important;background:rgba(0,0,0,0.12) !important;}
+#threat-grid{display:grid !important;grid-template-columns:repeat(auto-fill,minmax(480px,1fr)) !important;gap:18px !important;}
+@media(max-width:980px){#threat-grid{grid-template-columns:1fr !important;}}
+@media(max-width:600px){.intel-card{padding:14px 12px !important;} #threat-grid{gap:12px !important;} .intel-card .card-title{font-size:13px !important;}}
+@media(prefers-reduced-motion:reduce){.intel-card,.intel-card::before,.intel-card::after,.intel-card .cdb-ring{animation:apex-card-enter 0.38s ease-out both !important;}}
+/* ── v152.0 PHASE 6: Confidence Bars — severity-matched neon gradients ── */
+.intel-card.sev-critical .apex-conf-fill{background:linear-gradient(90deg,#ff1a1a,#ff5555) !important;box-shadow:0 0 8px rgba(255,26,26,0.55) !important;}
+.intel-card.sev-high .apex-conf-fill{background:linear-gradient(90deg,#ff6b00,#ff9933) !important;box-shadow:0 0 8px rgba(255,107,0,0.45) !important;}
+.intel-card.sev-medium .apex-conf-fill{background:linear-gradient(90deg,#00c8ff,#33ddff) !important;box-shadow:0 0 6px rgba(0,200,255,0.38) !important;}
+.intel-card.sev-low .apex-conf-fill{background:linear-gradient(90deg,#00ff88,#00d4aa) !important;box-shadow:0 0 5px rgba(0,255,136,0.3) !important;}
+.intel-card .apex-conf-track{background:rgba(255,255,255,0.05) !important;border-radius:3px !important;}
+.intel-card .apex-conf-fill{border-radius:3px !important;}
+/* ── v152.0 PHASE 7: Heartbeat / Live-dot premium treatment ── */
+@keyframes apex-hb-ring{0%{transform:scale(1);opacity:0.85;}40%{transform:scale(1.55);opacity:0.3;}100%{transform:scale(1);opacity:0.85;}}
+.intel-card .cdb-live-dot,.intel-card [class*="live-dot"]{
+  position:relative !important;
+  animation:cpulse 1.5s ease-in-out infinite,apex-hb-ring 2.2s ease-out infinite !important;
+  box-shadow:0 0 8px #00d4aa,0 0 18px rgba(0,212,170,0.35) !important;
+}
+/* ── v152.0 PHASE 8: Report link CTA premium hover ── */
+.intel-card a[href*="report"],.intel-card a[href*="/report"],.intel-card .cdb-report-link{
+  transition:color 0.18s ease,text-shadow 0.18s ease !important;
+}
+.intel-card a[href*="report"]:hover,.intel-card a[href*="/report"]:hover,.intel-card .cdb-report-link:hover{
+  color:#00d4aa !important;
+  text-shadow:0 0 14px rgba(0,212,170,0.55) !important;
+}
+/* END SENTINEL APEX DESIGN SYSTEM v152.0 */
 </style>
-<!-- SENTINEL APEX CARD RENDERER — enterprise glassmorphism card system v143.0.0 -->
+<!-- SENTINEL APEX CARD RENDERER — enterprise glassmorphism card system v152.0 -->
 <link rel="stylesheet" href="/css/card_renderer_styles.css">
 </head>
 <body>
@@ -15120,6 +15302,83 @@ function renderTopThreats(data) {
     } catch(e){}
   }, 8000);
 })();
+
+/* SENTINEL APEX WAR ROOM ENGINE v152.0 — Phases 5-9 GPU-safe JS */
+(function(){
+'use strict';
+function animBars(){
+  document.querySelectorAll('.intel-card [style*="transition:width 0.6s"],.intel-card [style*="transition:width 0.4s"]').forEach(function(b){
+    var w=b.style.width;b.style.width='0%';b.style.transition='width 1.2s cubic-bezier(0.4,0,0.2,1)';
+    requestAnimationFrame(function(){requestAnimationFrame(function(){b.style.width=w;});});
+  });
+}
+function ringGlow(){
+  var m={'sev-critical':['#ff1a1a','rgba(255,26,26,0.45)'],'sev-high':['#ff6b00','rgba(255,107,0,0.35)'],'sev-medium':['#00c8ff','rgba(0,200,255,0.28)'],'sev-low':['#00ff88','rgba(0,255,136,0.22)']};
+  Object.keys(m).forEach(function(cls){var c=m[cls];document.querySelectorAll('.intel-card.'+cls+' .cdb-rfg').forEach(function(f){f.style.filter='drop-shadow(0 0 6px '+c[0]+') drop-shadow(0 0 14px '+c[1]+')';});});
+}
+function gridAmbient(){
+  var g=document.getElementById('threat-grid');if(!g)return;
+  var cc=g.querySelectorAll('.intel-card.sev-critical').length;
+  g.style.background=cc>=3?'radial-gradient(ellipse at top center,rgba(255,26,26,0.018) 0%,transparent 55%)':cc>=1?'radial-gradient(ellipse at top center,rgba(255,26,26,0.01) 0%,transparent 45%)':'';
+}
+var _lc=null;
+document.addEventListener('mousemove',function(e){
+  var c=e.target&&e.target.closest&&e.target.closest('.intel-card');
+  if(_lc&&_lc!==c){_lc.style.transform='';_lc.style.transition='transform 0.35s cubic-bezier(0.22,1,0.36,1)';_lc=null;}
+  if(!c)return;
+  var r=c.getBoundingClientRect(),dx=(e.clientX-r.left-r.width/2)/(r.width/2),dy=(e.clientY-r.top-r.height/2)/(r.height/2);
+  c.style.transform='translateY(-3px) rotateX('+(-dy*2.2).toFixed(2)+'deg) rotateY('+(dx*2.8).toFixed(2)+'deg) scale(1.008)';
+  c.style.transition='transform 0.1s ease';_lc=c;
+},{passive:true});
+document.addEventListener('mouseout',function(e){
+  var c=e.target&&e.target.closest&&e.target.closest('.intel-card');
+  if(c&&!c.contains(e.relatedTarget)){c.style.transform='';c.style.transition='transform 0.35s cubic-bezier(0.22,1,0.36,1)';}
+},{passive:true});
+function revealCards(){
+  if(!window.IntersectionObserver)return;
+  var vh=window.innerHeight;
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.style.opacity='1';e.target.style.transform='translateY(0)';io.unobserve(e.target);}});},{threshold:0.05});
+  document.querySelectorAll('.intel-card').forEach(function(c,i){
+    if(c.getBoundingClientRect().top>vh){
+      c.style.opacity='0';c.style.transform='translateY(14px)';
+      c.style.transition='opacity 0.4s ease '+(i*0.035)+'s,transform 0.4s ease '+(i*0.035)+'s';
+      io.observe(c);
+    }
+  });
+}
+/* Phase 6-9: conf bar intro + heartbeat tick + severity telemetry */
+function confIntro(){
+  document.querySelectorAll('.intel-card .apex-conf-fill').forEach(function(b){
+    var s=b.getAttribute('style')||b.style.cssText;
+    var m=s&&s.match(/width\s*:\s*([\d.]+%)/i);if(!m)return;
+    var t=m[1];b.style.width='0%';b.style.transition='width 1.1s cubic-bezier(0.4,0,0.2,1) 0.15s';
+    requestAnimationFrame(function(){requestAnimationFrame(function(){b.style.width=t;});});
+  });
+}
+function heartbeat(){
+  document.querySelectorAll('.intel-card .cdb-live-dot,.intel-card [class*="live-dot"]').forEach(function(d){
+    d.style.transition='transform 0.12s ease,box-shadow 0.12s ease';
+    d.style.transform='scale(1.5)';d.style.boxShadow='0 0 18px #00d4aa,0 0 36px rgba(0,212,170,0.5)';
+    setTimeout(function(){d.style.transform='';d.style.boxShadow='';},180);
+  });
+}
+function apexTelemetry(){
+  var cm={'sev-critical':'#ff4444','sev-high':'#ff7722','sev-medium':'#22ddff','sev-low':'#00ff88'};
+  Object.keys(cm).forEach(function(cls){
+    document.querySelectorAll('.intel-card.'+cls+' .apex-conf-pct').forEach(function(el){
+      el.style.color=cm[cls];el.style.textShadow='0 0 10px '+cm[cls];
+    });
+  });
+}
+function boot(){requestAnimationFrame(function(){animBars();confIntro();ringGlow();gridAmbient();revealCards();heartbeat();apexTelemetry();});}
+function watch(){
+  var g=document.getElementById('threat-grid');if(!g)return;
+  new MutationObserver(function(ms){if(ms.some(function(m){return m.type==='childList'&&m.addedNodes.length>0;}))boot();}).observe(g,{childList:true});
+  if(g.querySelector('.intel-card'))boot();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',watch,{once:true});else watch();
+})();
+/* END SENTINEL APEX WAR ROOM ENGINE v152.0 */
 </script>
 <!-- /CDB-AI-BRAIN-INIT-v150.1 -->
 </body>
