@@ -1,37 +1,37 @@
-// ══════════════════════════════════════════════════════════════════════════════
-// CYBERDUDEBIVASH(R) SENTINEL APEX — AI Alert Engine v143.0.0
+// ==============================================================================
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- AI Alert Engine v143.0.0
 // Enterprise-tier active alerting: Telegram + custom Webhooks
 // Endpoints:
-//   POST /api/alerts/subscribe   — register Telegram chat_id or webhook URL
-//   GET  /api/alerts/subscriptions — list active subscriptions (auth required)
-//   POST /api/alerts/test        — fire a test alert to registered endpoint
-//   POST /api/alerts/dispatch    — internal: dispatch anomaly alert batch
-//   GET  /api/alerts/history     — last 100 dispatched alerts (Enterprise)
-//   DELETE /api/alerts/unsubscribe — remove subscription
+//   POST /api/alerts/subscribe   -- register Telegram chat_id or webhook URL
+//   GET  /api/alerts/subscriptions -- list active subscriptions (auth required)
+//   POST /api/alerts/test        -- fire a test alert to registered endpoint
+//   POST /api/alerts/dispatch    -- internal: dispatch anomaly alert batch
+//   GET  /api/alerts/history     -- last 100 dispatched alerts (Enterprise)
+//   DELETE /api/alerts/unsubscribe -- remove subscription
 //
 // Tier gates:
 //   Enterprise: real-time alerts, full 30-day forecast, all channels
 //   Pro:        daily digest only, Telegram only, top-5 alerts/day
 //   Free:       blocked
-// ══════════════════════════════════════════════════════════════════════════════
+// ==============================================================================
 
-/* ── Null-safe helpers ──────────────────────────────────────────────────────── */
+/* -- Null-safe helpers -------------------------------------------------------- */
 const safe    = (v, fb = "UNKNOWN") => (v == null ? fb : String(v));
 const safeNum = (v, fb = 0)        => (typeof v === "number" && isFinite(v) ? v : Number(v) || fb);
 const safeArr = (v)                => (Array.isArray(v) ? v : []);
 
-/* ── KV key builders ────────────────────────────────────────────────────────── */
+/* -- KV key builders ---------------------------------------------------------- */
 const ALERT_SUB_PREFIX   = "alert_sub:";
 const ALERT_HIST_KEY     = "alert_history";
 const ALERT_QUOTA_PREFIX = "alert_quota:";   // daily dispatch counter per key
 const MAX_HISTORY        = 100;
 const PRO_DAILY_LIMIT    = 5;                // max alerts/day for Pro tier
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   handleAlertSubscribe  — POST /api/alerts/subscribe
+/* ===========================================================================
+   handleAlertSubscribe  -- POST /api/alerts/subscribe
    Body: { channel: "telegram"|"webhook", chat_id?: string, url?: string,
            interests?: string[], min_risk?: number }
-   ═══════════════════════════════════════════════════════════════════════════ */
+   =========================================================================== */
 export async function handleAlertSubscribe(request, env, auth, rid) {
   if (!auth || !auth.valid) {
     return _jsonErr(401, "Authentication required to subscribe to alerts.", rid);
@@ -96,7 +96,7 @@ export async function handleAlertSubscribe(request, env, auth, rid) {
     interests:   subscription.interests,
     tier:        auth.tier,
     daily_limit: subscription.daily_limit === 0 ? "unlimited" : subscription.daily_limit,
-    message:     `✅ Subscribed! You will receive ${auth.tier === "enterprise" ? "real-time" : "daily digest"} alerts via ${channel}.`,
+    message:     `CHECK Subscribed! You will receive ${auth.tier === "enterprise" ? "real-time" : "daily digest"} alerts via ${channel}.`,
     next_step:   channel === "telegram"
       ? `Send /start to @CyberDudeBivashBot and confirm chat_id: ${chatId}`
       : `Ensure your webhook at ${webhookUrl} accepts POST with JSON body.`,
@@ -104,9 +104,9 @@ export async function handleAlertSubscribe(request, env, auth, rid) {
   });
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   handleAlertSubscriptions  — GET /api/alerts/subscriptions
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ===========================================================================
+   handleAlertSubscriptions  -- GET /api/alerts/subscriptions
+   =========================================================================== */
 export async function handleAlertSubscriptions(request, env, auth, rid) {
   if (!auth || !auth.valid) return _jsonErr(401, "Authentication required.", rid);
   if (auth.tier === "free")  return _jsonErr(403, "Pro+ required.", rid);
@@ -138,9 +138,9 @@ export async function handleAlertSubscriptions(request, env, auth, rid) {
   return _json(200, { subscriptions: subs, count: subs.length, rid });
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   handleAlertTest  — POST /api/alerts/test
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ===========================================================================
+   handleAlertTest  -- POST /api/alerts/test
+   =========================================================================== */
 export async function handleAlertTest(request, env, auth, rid) {
   if (!auth || !auth.valid) return _jsonErr(401, "Authentication required.", rid);
   if (auth.tier === "free")  return _jsonErr(403, "Pro+ required.", rid);
@@ -161,13 +161,13 @@ export async function handleAlertTest(request, env, auth, rid) {
   }
 
   const testPayload = _buildAlertPayload({
-    title:            "🧪 TEST ALERT — SENTINEL APEX v143.0.0",
+    title:            "FLASK TEST ALERT -- SENTINEL APEX v143.0.0",
     cve_id:           "CVE-2024-TEST-001",
     severity:         "CRITICAL",
     predictive_risk:  9.5,
     zero_day_probability: 0.87,
     ai_summary:       "This is a test alert from SENTINEL APEX AI Engine. Real alerts will include full CVE analysis, MITRE ATT&CK mapping, and recommended actions.",
-    recommended_action: "No action required — this is a test.",
+    recommended_action: "No action required -- this is a test.",
     tier:             auth.tier,
     is_test:          true,
   });
@@ -181,16 +181,16 @@ export async function handleAlertTest(request, env, auth, rid) {
   return _json(200, {
     success: result.ok,
     channel: sub.channel,
-    message: result.ok ? `✅ Test alert dispatched via ${sub.channel}.` : `❌ Dispatch failed: ${result.error}`,
+    message: result.ok ? `CHECK Test alert dispatched via ${sub.channel}.` : `FAIL Dispatch failed: ${result.error}`,
     rid,
   });
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   handleAlertDispatch  — POST /api/alerts/dispatch  (internal / admin)
+/* ===========================================================================
+   handleAlertDispatch  -- POST /api/alerts/dispatch  (internal / admin)
    Called by: pipeline after anomaly detection, cron triggers
    Body: { advisories: [...], min_risk?: number, force?: boolean }
-   ═══════════════════════════════════════════════════════════════════════════ */
+   =========================================================================== */
 export async function handleAlertDispatch(request, env, auth, rid) {
   // Admin-only endpoint
   const secret = request.headers.get("X-Admin-Secret") || "";
@@ -300,9 +300,9 @@ export async function handleAlertDispatch(request, env, auth, rid) {
   });
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   handleAlertHistory  — GET /api/alerts/history
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ===========================================================================
+   handleAlertHistory  -- GET /api/alerts/history
+   =========================================================================== */
 export async function handleAlertHistory(request, env, auth, rid) {
   if (!auth || !auth.valid) return _jsonErr(401, "Authentication required.", rid);
   if (auth.tier !== "enterprise") return _jsonErr(403, "Alert history requires Enterprise tier.", rid);
@@ -317,9 +317,9 @@ export async function handleAlertHistory(request, env, auth, rid) {
   });
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   handleAlertUnsubscribe  — DELETE /api/alerts/unsubscribe
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ===========================================================================
+   handleAlertUnsubscribe  -- DELETE /api/alerts/unsubscribe
+   =========================================================================== */
 export async function handleAlertUnsubscribe(request, env, auth, rid) {
   if (!auth || !auth.valid) return _jsonErr(401, "Authentication required.", rid);
 
@@ -344,31 +344,31 @@ export async function handleAlertUnsubscribe(request, env, auth, rid) {
   }
 }
 
-/* ── Internal: build alert payload ─────────────────────────────────────────── */
+/* -- Internal: build alert payload ------------------------------------------- */
 function _buildAlertPayload(a) {
   const risk    = safeNum(a.predictive_risk, 0);
   const zdp     = safeNum(a.zero_day_probability, 0);
-  const riskBar = "█".repeat(Math.round(risk)) + "░".repeat(Math.max(0, 10 - Math.round(risk)));
-  const emoji   = risk >= 9 ? "🔴" : risk >= 7 ? "🟠" : risk >= 5 ? "🟡" : "🟢";
+  const riskBar = "##".repeat(Math.round(risk)) + "..".repeat(Math.max(0, 10 - Math.round(risk)));
+  const emoji   = risk >= 9 ? "RED" : risk >= 7 ? "ORANGE" : risk >= 5 ? "YELLOW" : "GREEN";
 
   const telegramText = [
     `${emoji} *SENTINEL APEX ALERT*${a.is_test ? " (TEST)" : ""}`,
     ``,
     `*${safe(a.title, "Unknown Advisory").replace(/[*_[\]()~>#+=|{}.!-]/g, "\\$&").slice(0, 120)}*`,
     ``,
-    `🆔 CVE: \`${safe(a.cve_id, "N/A")}\``,
-    `⚡ Severity: \`${safe(a.severity, "UNKNOWN")}\``,
-    `📊 Predictive Risk: \`${risk.toFixed(1)}/10\` ${riskBar}`,
-    `🧬 Zero-Day Prob: \`${(zdp * 100).toFixed(1)}%\``,
+    `NEW CVE: \`${safe(a.cve_id, "N/A")}\``,
+    `FAST Severity: \`${safe(a.severity, "UNKNOWN")}\``,
+    `CHART Predictive Risk: \`${risk.toFixed(1)}/10\` ${riskBar}`,
+    `DNA Zero-Day Prob: \`${(zdp * 100).toFixed(1)}%\``,
     ``,
-    `🤖 *AI Analysis:*`,
+    `BOT *AI Analysis:*`,
     safe(a.ai_summary, "").slice(0, 300) || "_No AI analysis available_",
     ``,
-    `🛡 *Action:* ${safe(a.recommended_action, "Patch immediately if affected.").slice(0, 200)}`,
+    `SHIELD *Action:* ${safe(a.recommended_action, "Patch immediately if affected.").slice(0, 200)}`,
     ``,
-    a.mitre_techniques?.length ? `🎯 MITRE: \`${safeArr(a.mitre_techniques).slice(0, 5).join(", ")}\`` : null,
+    a.mitre_techniques?.length ? `TARGET MITRE: \`${safeArr(a.mitre_techniques).slice(0, 5).join(", ")}\`` : null,
     ``,
-    `🔗 [View Full Intel](https://intel.cyberdudebivash.com) | [Upgrade](https://intel.cyberdudebivash.com/upgrade.html)`,
+    `LINK [View Full Intel](https://intel.cyberdudebivash.com) | [Upgrade](https://intel.cyberdudebivash.com/upgrade.html)`,
     ``,
     `_CYBERDUDEBIVASH SENTINEL APEX v143.0.0_`,
   ].filter(l => l !== null).join("\n");
@@ -387,7 +387,7 @@ function _buildAlertPayload(a) {
   };
 }
 
-/* ── Internal: dispatch to channel ─────────────────────────────────────────── */
+/* -- Internal: dispatch to channel ------------------------------------------- */
 async function _dispatch(sub, payload, env) {
   try {
     if (sub.channel === "telegram") {
@@ -453,7 +453,7 @@ async function _sendWebhook(payload, url, env) {
   return { ok: false, error: `Webhook returned HTTP ${resp.status}` };
 }
 
-/* ── Internal: history logging ──────────────────────────────────────────────── */
+/* -- Internal: history logging ------------------------------------------------ */
 async function _recordHistory(env, entry) {
   if (!env.KV) return;
   try {
@@ -465,7 +465,7 @@ async function _recordHistory(env, entry) {
   } catch {}
 }
 
-/* ── Response helpers ───────────────────────────────────────────────────────── */
+/* -- Response helpers --------------------------------------------------------- */
 function _json(status, body) {
   return new Response(JSON.stringify(body), {
     status,

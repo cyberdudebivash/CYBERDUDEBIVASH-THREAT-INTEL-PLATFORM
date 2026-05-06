@@ -54,6 +54,12 @@ SKIP_DIRS = {
     ".tox",
     "dist",
     "build",
+    # Pipeline output dirs -- large JSON/HTML blobs already validated by
+    # encoding_validator.py (GATE 1/4). Skipping here cuts step runtime
+    # from ~4.5 min to <5 s and prevents false-positive non-ASCII hits
+    # in legitimate UTF-8 threat intel content.
+    "api",
+    "reports",
 }
 
 BOM = b"\xef\xbb\xbf"
