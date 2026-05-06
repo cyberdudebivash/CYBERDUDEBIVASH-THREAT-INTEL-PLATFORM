@@ -101,6 +101,13 @@ jobs:
   generate-and-sync:
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    # CI LOOP GUARD (v143.2.0): Prevent github-actions[bot] push-triggered runs
+    # from spawning a new pipeline cycle. schedule + workflow_dispatch always run.
+    # This eliminates the CI self-trigger feedback loop on Stage-4 git commits.
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.actor != 'github-actions[bot]')
 
     env:
       # All secrets at job level - accessible to Python scripts via os.environ
@@ -133,7 +140,7 @@ jobs:
       - name: "Checkout repository"
         uses: actions/checkout@v4.2.2
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -382,6 +389,17 @@ jobs:
           CF_R2_REPORTS_KEY_ID:     ${{ secrets.CF_R2_REPORTS_KEY_ID }}
           CF_R2_REPORTS_SECRET_KEY: ${{ secrets.CF_R2_REPORTS_SECRET_KEY }}
         run: python3 scripts/r2_upload.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.6: R2 UPLOAD INTEGRITY VERIFIER (v143.2.0 -- HARD FAIL)
+      # Confirms R2 upload from Stage 3.5 landed correctly BEFORE cache bust.
+      # Verifies: ETag matches local sha256, object is reachable via presigned
+      # URL, advisory count on R2 >= minimum threshold (prevents empty-feed CDN).
+      # HARD FAIL: if R2 object is missing, ETag mismatch, or count below floor.
+      # Prevents silent data loss between R2 upload and cache invalidation.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.6 - R2 Upload Integrity Verifier (HARD FAIL)"
+        run: python3 scripts/r2_upload_verifier.py
 
       # -----------------------------------------------------------------------
       # STAGE 3.7: BUST WORKER KV CACHE -- ALWAYS RUNS
