@@ -227,47 +227,45 @@ jobs:
           if [ $ERRORS -gt 0 ]; then exit 1; fi
 
       # -----------------------------------------------------------------------
-      #  SUMMARY — Print a pass/fail report to the workflow summary page
+      #  CHECK 6 — EMBEDDED_INTEL populated in index.html (P0 Root Cause Check)
+      #  This check detects the root cause of the "cards disappear" P0:
+      #  if EMBEDDED_INTEL = [] in the committed index.html, the dashboard
+      #  relies entirely on live API for card rendering (no instant cards).
       # -----------------------------------------------------------------------
-      - name: Write job summary
-        if: always()
+      - name: Check — EMBEDDED_INTEL populated in index.html
+        id: check_embedded_intel
         run: |
-          echo "## SENTINEL APEX UI File Guardian Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Run:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\` | **Commit:** \`${GITHUB_SHA:0:8}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| File | Lines | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          for f in \
-            "js/api_adapter.js" \
-            "js/card_renderer.js" \
-            "js/card_renderer_integration.js" \
-            "css/card_renderer_styles.css" \
-            "scripts/safe_git_commit.py"; do
-            if [ -f "$f" ]; then
-              LINES=$(wc -l < "$f")
-              echo "| \`$f\` | $LINES | ✅ present |" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "| \`$f\` | — | ❌ MISSING |" >> $GITHUB_STEP_SUMMARY
-            fi
-          done
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Protected by" >> $GITHUB_STEP_SUMMARY
-          echo "- **This workflow** (fast integrity check on every push)" >> $GITHUB_STEP_SUMMARY
-          echo "- **\`scripts/safe_git_commit.py\`** PROTECTED_FILES list (pipeline-level restore)" >> $GITHUB_STEP_SUMMARY
-          echo "- **\`js/card_renderer_integration.js\`** \`_bootFromEmbedded()\` (zero-network instant render)" >> $GITHUB_STEP_SUMMARY
+          node << 'NODEEOF'
+          const fs = require('fs');
+          const html = fs.readFileSync('index.html', 'utf8');
 
-      # -----------------------------------------------------------------------
-      #  TAG — On clean pass, update the sentinel-apex-v145-baseline tag so
-      #        humans have a verified restore point.
-      # -----------------------------------------------------------------------
-      - name: Tag baseline on clean pass
-        if: success()
-        run: |
-          git config user.email "guardian@cyberdudebivash.com"
-          git config user.name  "UI File Guardian"
-          # Force-update the lightweight tag to current HEAD
-          git tag -f sentinel-apex-v145-baseline HEAD
-          git push origin sentinel-apex-v145-baseline --force 2>/dev/null \
-            && echo "Baseline tag updated: sentinel-apex-v145-baseline -> ${GITHUB_SHA:0:8}" \
-            || echo "Tag push skipped (no push permission in this run — normal for fork PRs)"
+          // Check 1: sapx-card-grid anchor exists
+          if (!html.includes('id="sapx-card-grid"') && !html.includes("id='sapx-card-grid'")) {
+            console.log('::warning::SAPX CARD GRID: #sapx-card-grid container not found in index.html');
+            console.log('WARN: #sapx-card-grid missing — enterprise card renderer will create fallback');
+          } else {
+            console.log('OK: #sapx-card-grid container present');
+          }
+
+          // Check 2: EMBEDDED_INTEL state
+          const eiMatch = html.match(/window\.EMBEDDED_INTEL\s*=\s*(\[[\s\S]*?\]);/);
+          if (!eiMatch) {
+            console.log('::warning::EMBEDDED_INTEL: declaration not found in index.html');
+          } else {
+            const val = eiMatch[1].trim().replace(/\s/g, '');
+            if (val === '[]' || val.length <= 4) {
+              console.log('::warning::EMBEDDED_INTEL is EMPTY [] in committed index.html');
+              console.log('::warning::P0 ROOT CAUSE: inject_embedded_intel.py failed or was skipped.');
+              console.log('::warning::bootFromEmbeddedCache() will return early -- no instant cards on load.');
+              console.log('::warning::Cards will only appear after live API fetch completes.');
+              // Note: not failing here -- pipeline may have a fresh inject coming
+            } else {
+              const itemCount = (val.match(/"id":/g) || []).length;
+              const sizeKB = (val.length / 1024).toFixed(1);
+              console.log('OK: EMBEDDED_INTEL populated: ~' + itemCount + ' items (' + sizeKB + ' KB)');
+              console.log('OK: bootFromEmbeddedCache() will render cards instantly on page load');
+            }
+          }
+
+          // Check 3: Card renderer scripts referenced
+          ['js/api_adapter.js', 'js/card_renderer.js', 'js/card_renderer_integration.js']
