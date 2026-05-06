@@ -189,6 +189,12 @@ def main() -> None:
         "store.html",         # store page if it exists
         "services.html",      # services page if it exists
         "_headers",           # Cloudflare Pages security headers
+        # SENTINEL APEX card system -- v145 enterprise SOC card renderer
+        # These files are hand-authored; pipeline must NEVER overwrite them.
+        "js/api_adapter.js",               # API normalizer + fetchAndNormalize (v145)
+        "js/card_renderer.js",             # 9-zone enterprise SOC card renderer (v145)
+        "js/card_renderer_integration.js", # EMBEDDED_INTEL instant boot + live upgrade (v145)
+        "css/card_renderer_styles.css",    # glassmorphism design system (v145)
     ]
     for pf in PROTECTED_FILES:
         pf_path = REPO_ROOT / pf

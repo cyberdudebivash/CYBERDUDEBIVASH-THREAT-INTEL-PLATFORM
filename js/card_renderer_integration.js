@@ -1,48 +1,43 @@
 /**
- * ═══════════════════════════════════════════════════════════════════════════════
- *  SENTINEL APEX — CARD RENDERER INTEGRATION PATCH v143.0.0
+ * =============================================================================
+ *  SENTINEL APEX -- CARD RENDERER INTEGRATION v145.0.0
  *  Drop-in integration for the CYBERDUDEBIVASH SENTINEL APEX dashboard
  *
- *  LOAD ORDER (in <head> or before </body>):
+ *  LOAD ORDER (before </body>):
  *    <link rel="stylesheet" href="/css/card_renderer_styles.css">
  *    <script src="/js/api_adapter.js"></script>
  *    <script src="/js/card_renderer.js"></script>
  *    <script src="/js/card_renderer_integration.js"></script>
  *
  *  PIPELINE SAFETY:
- *    - Only API data updates are allowed to trigger re-render
- *    - UI component code is version-locked (VERSION = 143.0.0)
+ *    - Only API data updates trigger re-render
+ *    - UI component code is version-locked (VERSION = 145.0.0)
  *    - CI/CD must never overwrite card_renderer.js or api_adapter.js
- *    - Falls back to cached intelligence if live API is unreachable
+ *    - Falls back to EMBEDDED_INTEL if live API is unreachable
  *
- *  INTEGRATION POINTS:
- *    - Hooks into existing #feed-container / .intel-feed / #advisory-list
- *    - Fires SentinelApexCardsReady event with normalized data for other modules
- *    - Exposes window.SAPX for manual control
- * ═══════════════════════════════════════════════════════════════════════════════
+ *  P0 FIX (v145):
+ *    - _bootFromEmbedded() renders cards instantly from window.EMBEDDED_INTEL
+ *      (injected by pipeline STAGE 3.93) -- zero network dependency
+ *    - fetchAndNormalize() added to api_adapter.js public API
+ *    - Cards are ALWAYS visible immediately on page load
+ * =============================================================================
  */
 
 "use strict";
 
 (function () {
 
-  /* ─────────────────────────────────────────────────────────────
-   *  CONFIGURATION — update API URL here only
-   * ───────────────────────────────────────────────────────────── */
+  /* -------------------------------------------------------------------------
+   *  CONFIGURATION
+   * ---------------------------------------------------------------------- */
   var CONFIG = {
-    // Primary API endpoint (matches existing dashboard)
     API_URL:       "https://intel.cyberdudebivash.com/api/preview/",
-    // Fallback endpoints (tried in order if primary fails)
     FALLBACK_URLS: [
       "https://intel.cyberdudebivash.com/api/preview",
       "/api/feed.json",
     ],
-    // Container selectors — legacy list kept for _findContainer() Priority 2
-    // Primary discovery is now handled in _findContainer() directly.
-    // #sapx-card-grid is the canonical target (static anchor in index.html,
-    // inside #cdb-panel-live after #threat-grid).
     CONTAINER_SELECTORS: [
-      "#sapx-card-grid",           // ← static anchor planted in index.html (canonical)
+      "#sapx-card-grid",
       "#advisory-grid",
       "#intel-card-grid",
       "#feed-container",
@@ -51,159 +46,163 @@
       "#v70-advisory-list",
       "#intel-list",
     ],
-    // Auto-refresh interval (ms) — 0 = disabled
-    AUTO_REFRESH_MS:   0,
-    // Max cards to render
-    MAX_CARDS:         30,
-    // Version lock — DO NOT CHANGE
-    VERSION:          "145.0.0",
-    // Loading card count
-    LOADING_COUNT:    4,
+    AUTO_REFRESH_MS: 0,
+    MAX_CARDS:       30,
+    VERSION:         "145.0.0",
+    LOADING_COUNT:   4,
   };
 
-  /* ─────────────────────────────────────────────────────────────
+  /* -------------------------------------------------------------------------
    *  DEPENDENCY CHECK
-   * ───────────────────────────────────────────────────────────── */
+   * ---------------------------------------------------------------------- */
   function _checkDependencies() {
     var missing = [];
     if (typeof window.SentinelApexAdapter === "undefined")      missing.push("js/api_adapter.js");
     if (typeof window.SentinelApexCardRenderer === "undefined") missing.push("js/card_renderer.js");
     if (missing.length > 0) {
-      console.error("[SAPX Integration] Missing dependencies:", missing.join(", "));
-      console.error("[SAPX Integration] Load order: api_adapter.js → card_renderer.js → card_renderer_integration.js");
+      console.error("[SAPX] Missing dependencies:", missing.join(", "));
       return false;
     }
     return true;
   }
 
-  /* ─────────────────────────────────────────────────────────────
-   *  CONTAINER DISCOVERY  (god-mode fallback chain v143.1.0)
+  /* -------------------------------------------------------------------------
+   *  CONTAINER DISCOVERY  -- god-mode fallback chain
    *
-   *  Priority order — first match wins:
-   *   1. #sapx-card-grid  — static anchor planted in index.html
-   *                          inside #cdb-panel-live, after #threat-grid
-   *   2. Other known direct containers (by ID or class)
+   *  Priority:
+   *   1. #sapx-card-grid   -- static anchor in index.html inside #cdb-panel-live
+   *   2. Other known IDs / classes
    *   3. Create #sapx-card-grid as next sibling of #threat-grid
-   *      (inside #cdb-panel-live — the live intel tab panel)
    *   4. Append to #cdb-panel-live
-   *   5. Append to #live-feed-section / #intel-section / etc.
-   *   6. LAST RESORT: appendChild to body
-   *      ⚠ NEVER insertBefore(body.firstChild) — that puts cards
-   *        above the hero section (the regression we fixed).
-   * ───────────────────────────────────────────────────────────── */
+   *   5. Append to known section selectors
+   *   6. LAST RESORT: appendChild to body (NEVER insertBefore(firstChild))
+   * ---------------------------------------------------------------------- */
   function _findContainer() {
     var el;
 
-    // ── Priority 1: static anchor planted in HTML ────────────────
     el = document.getElementById("sapx-card-grid");
-    if (el) {
-      console.info("[SAPX Integration] Container: #sapx-card-grid (static anchor)");
-      return el;
-    }
+    if (el) { console.info("[SAPX] Container: #sapx-card-grid (static anchor)"); return el; }
 
-    // ── Priority 2: other known direct container IDs/classes ─────
-    var knownSelectors = [
-      "#advisory-grid",
-      "#intel-card-grid",
-      "#feed-container",
-      ".intel-feed",
-      "#advisory-list",
-      "#v70-advisory-list",
-      "#intel-list",
-    ];
+    var knownSelectors = ["#advisory-grid","#intel-card-grid","#feed-container",
+                          ".intel-feed","#advisory-list","#v70-advisory-list","#intel-list"];
     for (var i = 0; i < knownSelectors.length; i++) {
       el = document.querySelector(knownSelectors[i]);
-      if (el) {
-        console.info("[SAPX Integration] Container:", knownSelectors[i]);
-        return el;
-      }
+      if (el) { console.info("[SAPX] Container:", knownSelectors[i]); return el; }
     }
 
-    // ── Create dedicated container — insert at correct position ───
     var container = document.createElement("div");
     container.id = "sapx-card-grid";
 
-    // ── Priority 3: insert as next sibling of #threat-grid ────────
-    //    This places cards below the existing threat grid, still
-    //    inside the #cdb-panel-live tab — the live intel section.
     var threatGrid = document.getElementById("threat-grid");
     if (threatGrid && threatGrid.parentNode) {
       threatGrid.parentNode.insertBefore(container, threatGrid.nextSibling);
-      console.info("[SAPX Integration] Created #sapx-card-grid after #threat-grid (inside live intel panel)");
+      console.info("[SAPX] Created #sapx-card-grid after #threat-grid");
       return container;
     }
 
-    // ── Priority 4: append inside the live intel tab panel ────────
     var livePanel = document.getElementById("cdb-panel-live");
-    if (livePanel) {
-      livePanel.appendChild(container);
-      console.info("[SAPX Integration] Created #sapx-card-grid inside #cdb-panel-live");
-      return container;
-    }
+    if (livePanel) { livePanel.appendChild(container); return container; }
 
-    // ── Priority 5: append to a known intel section ───────────────
     var intelSection = document.querySelector(
       "#live-feed-section, #intel-section, .threat-cards-section, .content-area"
     );
-    if (intelSection) {
-      intelSection.appendChild(container);
-      console.info("[SAPX Integration] Created #sapx-card-grid inside", intelSection.id || intelSection.className);
-      return container;
-    }
+    if (intelSection) { intelSection.appendChild(container); return container; }
 
-    // ── Priority 6: absolute last resort — APPEND, never prepend ──
-    //    insertBefore(body.firstChild) caused the above-hero regression.
-    //    appendChild is the safe fallback.
     document.body.appendChild(container);
-    console.warn("[SAPX Integration] WARNING: Could not find live intel section. Appended to end of body. Check dashboard DOM.");
+    console.warn("[SAPX] WARNING: appended #sapx-card-grid to body (check dashboard DOM).");
     return container;
   }
 
-  /* ─────────────────────────────────────────────────────────────
+  /* -------------------------------------------------------------------------
+   *  INSTANT BOOT FROM EMBEDDED_INTEL  (P0 FIX v145)
+   *
+   *  Renders enterprise cards immediately on page load using the 25 items
+   *  injected into window.EMBEDDED_INTEL by pipeline STAGE 3.93.
+   *  This guarantees cards are visible before any network request completes,
+   *  and provides a permanent offline fallback if the API is unreachable.
+   * ---------------------------------------------------------------------- */
+  function _bootFromEmbedded(container) {
+    if (typeof window === "undefined") return false;
+    var embedded = window.EMBEDDED_INTEL;
+    if (!embedded || !embedded.length) return false;
+    var Adapter  = window.SentinelApexAdapter;
+    var Renderer = window.SentinelApexCardRenderer;
+    try {
+      var items = embedded.map(function(item, i) {
+        return Adapter.normalizeIntelItem(item, i);
+      });
+      if (!items.length) return false;
+      Renderer.renderGrid(container, items, { maxCards: CONFIG.MAX_CARDS });
+      container.dataset.sapxSource = "embedded";
+      console.info("[SAPX] Instant boot from EMBEDDED_INTEL:", items.length, "cards rendered");
+      return true;
+    } catch (e) {
+      console.warn("[SAPX] Embedded boot error:", e);
+      return false;
+    }
+  }
+
+  /* -------------------------------------------------------------------------
    *  FETCH WITH FALLBACK CHAIN
-   * ───────────────────────────────────────────────────────────── */
+   * ---------------------------------------------------------------------- */
   async function _fetchWithFallbackChain() {
     var Adapter = window.SentinelApexAdapter;
     var urls = [CONFIG.API_URL].concat(CONFIG.FALLBACK_URLS);
 
     for (var i = 0; i < urls.length; i++) {
       var url = urls[i];
-      console.info("[SAPX Integration] Trying URL:", url);
-      var result = await Adapter.fetchAndNormalize(url, {
-        maxRetry:  1,
-        timeoutMs: 8000,
-      });
-      if (result.normalized && result.normalized.items.length > 0) {
-        console.info("[SAPX Integration] Success from:", url, "| Items:", result.normalized.items.length);
-        return result;
+      console.info("[SAPX] Trying URL:", url);
+      try {
+        var result = await Adapter.fetchAndNormalize(url, { maxRetry: 1, timeoutMs: 8000 });
+        if (result.normalized && result.normalized.items.length > 0) {
+          console.info("[SAPX] Success from:", url, "| Items:", result.normalized.items.length);
+          return result;
+        }
+      } catch (e) {
+        console.warn("[SAPX] URL failed:", url, e.message);
       }
     }
 
-    console.warn("[SAPX Integration] All endpoints failed — showing empty state.");
+    // All network sources failed -- return embedded cache if available
+    if (window.EMBEDDED_INTEL && window.EMBEDDED_INTEL.length) {
+      console.info("[SAPX] Returning embedded cache as normalized data");
+      var Adapter2 = window.SentinelApexAdapter;
+      var cachedItems = window.EMBEDDED_INTEL.map(function(item, i) {
+        return Adapter2.normalizeIntelItem(item, i);
+      });
+      return {
+        normalized: {
+          status: "ok", items: cachedItems, total_in_feed: cachedItems.length,
+          total_preview: cachedItems.length, generated_at: new Date().toISOString(),
+          generated_at_fmt: "EMBEDDED CACHE",
+          stats: { total: cachedItems.length, by_severity: {}, total_iocs: 0, high_priority: 0 },
+        },
+        error: null,
+        cached: true,
+      };
+    }
+
+    console.warn("[SAPX] All endpoints failed -- no data available.");
     return { normalized: null, error: new Error("All endpoints failed"), cached: false };
   }
 
-  /* ─────────────────────────────────────────────────────────────
+  /* -------------------------------------------------------------------------
    *  HEADER STATS INJECTION
-   *  Updates existing dashboard stat counters with live API data
-   * ───────────────────────────────────────────────────────────── */
+   * ---------------------------------------------------------------------- */
   function _injectHeaderStats(normalized) {
     if (!normalized || !normalized.stats) return;
     var stats = normalized.stats;
-
-    // Map of data attribute → value from stats
     var updates = [
-      { selectors: ["#total-advisories", ".stat-total-count", "[data-stat='total']"],      val: normalized.total_in_feed || stats.total },
-      { selectors: ["#critical-count", ".stat-critical", "[data-stat='critical']"],         val: stats.by_severity.CRITICAL || 0 },
-      { selectors: ["#high-count", ".stat-high", "[data-stat='high']"],                     val: stats.by_severity.HIGH || 0 },
-      { selectors: ["#medium-count", ".stat-medium", "[data-stat='medium']"],               val: stats.by_severity.MEDIUM || 0 },
-      { selectors: ["#avg-risk", ".stat-avg-risk", "[data-stat='avg-risk']"],               val: stats.avg_risk },
-      { selectors: ["#total-iocs", ".stat-total-iocs", "[data-stat='total-iocs']"],         val: stats.total_iocs },
-      { selectors: ["#high-priority-count", "[data-stat='high-priority']"],                 val: stats.high_priority },
+      { selectors: ["#total-advisories",".stat-total-count","[data-stat='total']"],      val: normalized.total_in_feed || stats.total },
+      { selectors: ["#critical-count",".stat-critical","[data-stat='critical']"],         val: stats.by_severity.CRITICAL || 0 },
+      { selectors: ["#high-count",".stat-high","[data-stat='high']"],                     val: stats.by_severity.HIGH || 0 },
+      { selectors: ["#medium-count",".stat-medium","[data-stat='medium']"],               val: stats.by_severity.MEDIUM || 0 },
+      { selectors: ["#avg-risk",".stat-avg-risk","[data-stat='avg-risk']"],               val: stats.avg_risk },
+      { selectors: ["#total-iocs",".stat-total-iocs","[data-stat='total-iocs']"],         val: stats.total_iocs },
+      { selectors: ["#high-priority-count","[data-stat='high-priority']"],                val: stats.high_priority },
     ];
-
-    updates.forEach(function (upd) {
-      upd.selectors.forEach(function (sel) {
+    updates.forEach(function(upd) {
+      upd.selectors.forEach(function(sel) {
         var el = document.querySelector(sel);
         if (el && !el.dataset.sapxManaged) {
           el.dataset.sapxManaged = "1";
@@ -211,179 +210,148 @@
         }
       });
     });
-
-    // Update sync timestamp displays
-    var syncTime = normalized.generated_at_fmt;
     var syncEls = document.querySelectorAll(".sync-time, #sync-time, [data-stat='sync-time'], #last-sync");
-    syncEls.forEach(function (el) {
+    syncEls.forEach(function(el) {
       if (!el.dataset.sapxManaged) {
         el.dataset.sapxManaged = "1";
-        el.textContent = syncTime;
+        el.textContent = normalized.generated_at_fmt || normalized.generated_at;
       }
     });
   }
 
-  /* ─────────────────────────────────────────────────────────────
+  /* -------------------------------------------------------------------------
    *  FILTER BAR WIRING
-   *  Connects existing dashboard filter controls to card renderer
-   * ───────────────────────────────────────────────────────────── */
+   * ---------------------------------------------------------------------- */
   function _wireFilterControls(container) {
     var Renderer = window.SentinelApexCardRenderer;
-
-    // Severity filter buttons (existing: .filter-btn[data-filter])
-    document.querySelectorAll("[data-filter]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+    document.querySelectorAll("[data-filter]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
         var sev = btn.dataset.filter === "all" ? "" : btn.dataset.filter;
         Renderer.filterCards(container, { severity: sev });
-        // Update active state
-        document.querySelectorAll("[data-filter]").forEach(function (b) { b.classList.remove("active"); });
+        document.querySelectorAll("[data-filter]").forEach(function(b) { b.classList.remove("active"); });
         btn.classList.add("active");
       });
     });
-
-    // Sort controls
-    document.querySelectorAll("[data-sort]").forEach(function (el) {
-      el.addEventListener("change", function () {
-        Renderer.sortCards(container, el.value);
-      });
-      el.addEventListener("click", function () {
-        if (el.dataset.sort) Renderer.sortCards(container, el.dataset.sort);
-      });
+    document.querySelectorAll("[data-sort]").forEach(function(el) {
+      el.addEventListener("change", function() { Renderer.sortCards(container, el.value); });
+      el.addEventListener("click",  function() { if (el.dataset.sort) Renderer.sortCards(container, el.dataset.sort); });
     });
-
-    // Search input (existing: #threat-search, .search-input)
     var searchInput = document.querySelector("#threat-search, .search-input, [data-action='search']");
     if (searchInput) {
       var debounceTimer;
-      searchInput.addEventListener("input", function () {
+      searchInput.addEventListener("input", function() {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(function () {
+        debounceTimer = setTimeout(function() {
           Renderer.filterCards(container, { search: searchInput.value });
         }, 300);
       });
     }
   }
 
-  /* ─────────────────────────────────────────────────────────────
+  /* -------------------------------------------------------------------------
    *  MAIN RENDER CYCLE
-   * ───────────────────────────────────────────────────────────── */
+   * ---------------------------------------------------------------------- */
   async function render(container) {
     var Renderer = window.SentinelApexCardRenderer;
 
-    // Show loading state
-    Renderer.showLoadingState(container, CONFIG.LOADING_COUNT);
+    // INSTANT RENDER: show embedded cards immediately, no spinner needed
+    var hasEmbedded = _bootFromEmbedded(container);
+    if (!hasEmbedded) {
+      // Show loading state only if we have nothing to display yet
+      Renderer.showLoadingState(container, CONFIG.LOADING_COUNT);
+    }
 
-    // Fetch data
+    // Fetch live data (upgrades the embedded cards with freshest intel)
     var result = await _fetchWithFallbackChain();
 
     if (!result.normalized || result.normalized.items.length === 0) {
-      container.innerHTML = [
-        '<div style="text-align:center;padding:48px 24px;color:#64748b;">',
-        '  <div style="font-size:36px;margin-bottom:12px;opacity:0.4;">🛡</div>',
-        '  <div style="font-size:14px;font-weight:700;margin-bottom:6px;">No Threat Intelligence Available</div>',
-        '  <div style="font-size:12px;">' + (result.cached ? "Displaying cached data — live feed unavailable." : "Feed is empty or API is offline.") + '</div>',
-        '</div>'
-      ].join("");
+      if (!hasEmbedded) {
+        container.innerHTML = [
+          '<div style="text-align:center;padding:48px 24px;color:#64748b;">',
+          '  <div style="font-size:36px;margin-bottom:12px;opacity:0.4;">&#x1F6E1;</div>',
+          '  <div style="font-size:14px;font-weight:700;margin-bottom:6px;">No Threat Intelligence Available</div>',
+          '  <div style="font-size:12px;">Feed is empty or API is offline.</div>',
+          '</div>'
+        ].join("");
+      }
       return null;
     }
 
-    // Render cards
-    Renderer.renderGrid(container, result.normalized.items, {
-      maxCards: CONFIG.MAX_CARDS,
-    });
+    // Re-render with live data (replaces embedded cards with fresh data)
+    Renderer.renderGrid(container, result.normalized.items, { maxCards: CONFIG.MAX_CARDS });
+    container.dataset.sapxSource = result.cached ? "cache" : "live";
 
-    // Inject stats into existing header widgets
     _injectHeaderStats(result.normalized);
-
-    // Wire filter controls
     _wireFilterControls(container);
 
-    // Fire event for other modules
     window.dispatchEvent(new CustomEvent("SentinelApexCardsReady", {
-      detail: {
-        normalized: result.normalized,
-        cached:     result.cached,
-        version:    CONFIG.VERSION,
-      }
+      detail: { normalized: result.normalized, cached: result.cached, version: CONFIG.VERSION }
     }));
 
-    console.info(
-      "[SAPX Integration] Rendered " + result.normalized.items.length + " cards" +
-      (result.cached ? " (cached)" : " (live)") +
-      " | API v" + CONFIG.VERSION
-    );
+    console.info("[SAPX] Rendered", result.normalized.items.length, "cards",
+      result.cached ? "(cached)" : "(live)", "| v" + CONFIG.VERSION);
 
     return result.normalized;
   }
 
-  /* ─────────────────────────────────────────────────────────────
-   *  AUTO-REFRESH LOOP
-   * ───────────────────────────────────────────────────────────── */
+  /* -------------------------------------------------------------------------
+   *  AUTO-REFRESH
+   * ---------------------------------------------------------------------- */
   var _refreshTimer = null;
 
   function _startAutoRefresh(container) {
     if (!CONFIG.AUTO_REFRESH_MS || CONFIG.AUTO_REFRESH_MS < 30000) return;
-    _refreshTimer = setInterval(function () {
-      console.info("[SAPX Integration] Auto-refresh triggered");
+    _refreshTimer = setInterval(function() {
+      console.info("[SAPX] Auto-refresh triggered");
       render(container);
     }, CONFIG.AUTO_REFRESH_MS);
   }
 
   function _stopAutoRefresh() {
-    if (_refreshTimer) {
-      clearInterval(_refreshTimer);
-      _refreshTimer = null;
-    }
+    if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
   }
 
-  /* ─────────────────────────────────────────────────────────────
-   *  INIT — waits for dependencies then bootstraps
-   * ───────────────────────────────────────────────────────────── */
+  /* -------------------------------------------------------------------------
+   *  INIT -- waits for dependencies then bootstraps
+   * ---------------------------------------------------------------------- */
   async function init() {
-    // Wait for both dependencies if they haven't loaded yet
     var retries = 0;
     while (!_checkDependencies() && retries < 20) {
-      await new Promise(function (r) { setTimeout(r, 100); });
+      await new Promise(function(r) { setTimeout(r, 100); });
       retries++;
     }
-
     if (!_checkDependencies()) {
-      console.error("[SAPX Integration] Dependencies not available after 2s. Aborting.");
+      console.error("[SAPX] Dependencies not available after 2s. Aborting.");
       return;
     }
 
     var container = _findContainer();
     if (!container) {
-      console.error("[SAPX Integration] No suitable container found and could not create one.");
+      console.error("[SAPX] No suitable container found. Aborting.");
       return;
     }
 
-    // Initial render
     await render(container);
-
-    // Auto-refresh
     _startAutoRefresh(container);
 
-    // Expose manual control API
     window.SAPX = {
-      refresh:        function () { return render(container); },
-      filterCards:    function (filters) { window.SentinelApexCardRenderer.filterCards(container, filters); },
-      sortCards:      function (by) { window.SentinelApexCardRenderer.sortCards(container, by); },
-      stopRefresh:    _stopAutoRefresh,
-      config:         CONFIG,
-      version:        CONFIG.VERSION,
+      refresh:     function() { return render(container); },
+      filterCards: function(filters) { window.SentinelApexCardRenderer.filterCards(container, filters); },
+      sortCards:   function(by) { window.SentinelApexCardRenderer.sortCards(container, by); },
+      stopRefresh: _stopAutoRefresh,
+      config:      CONFIG,
+      version:     CONFIG.VERSION,
     };
 
-    console.info("[SAPX Integration] Initialized v" + CONFIG.VERSION + " | SAPX object available on window");
+    console.info("[SAPX] Initialized v" + CONFIG.VERSION + " | window.SAPX available");
   }
 
-  /* ─────────────────────────────────────────────────────────────
+  /* -------------------------------------------------------------------------
    *  BOOT
-   * ───────────────────────────────────────────────────────────── */
+   * ---------------------------------------------------------------------- */
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
-    // DOMContentLoaded already fired
     setTimeout(init, 0);
   }
 
