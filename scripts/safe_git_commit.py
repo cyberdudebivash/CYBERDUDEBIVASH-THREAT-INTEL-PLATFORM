@@ -283,11 +283,23 @@ def main() -> None:
                             _restore.stderr
                         )
                 else:
-                    # Count approximate items in EMBEDDED_INTEL
-                    _item_count = _ei_val.count('"id":')
+                    # Count items in EMBEDDED_INTEL — try JSON parse first, fall back to heuristic
+                    try:
+                        import json as _json_sgc
+                        _item_count = len(_json_sgc.loads(_ei_val))
+                    except Exception:
+                        # Heuristic: count distinct object-start patterns
+                        _item_count = max(
+                            _ei_val.count('"id"'),
+                            _ei_val.count('"title"'),
+                            _ei_val.count('"cve_id"'),
+                        )
+                        if _item_count == 0:
+                            # Last resort: count top-level JSON objects
+                            _item_count = _ei_val.count('{"')
                     log.info(
                         "[EMBEDDED_INTEL GUARD] PASS — index.html EMBEDDED_INTEL has "
-                        "~%d items (%d chars) — safe to commit", _item_count, len(_ei_val)
+                        "%d items (%d chars) — safe to commit", _item_count, len(_ei_val)
                     )
             else:
                 log.warning(
