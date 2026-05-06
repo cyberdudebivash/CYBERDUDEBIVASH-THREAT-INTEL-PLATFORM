@@ -1,6 +1,6 @@
 // =============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX  -  Dark Web Monitor & Leak Check Engine v143.0.0
-// Routes: /api/dark-web/scan * /api/dark-web/status * /api/leak-check
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Dark Web Monitor & Leak Check Engine v143.0.0
+// Routes: /api/dark-web/scan . /api/dark-web/status . /api/leak-check
 // Tier Gate: Pro+ for scan/check, Enterprise for bulk monitoring
 // Architecture:
 //   - Passive telemetry aggregation from OSINT breach repositories
@@ -11,7 +11,7 @@
 
 // -- Breach Source Registry ----------------------------------------------------
 // These are the OSINT/passive intelligence sources that feed the monitor.
-// No active dark web crawling is performed  -  all data is aggregated passively
+// No active dark web crawling is performed -- all data is aggregated passively
 // from public breach notification feeds and threat intel sharing communities.
 const BREACH_SOURCE_REGISTRY = [
   { id: "hibp",         name: "HaveIBeenPwned",         type: "credential",  coverage: "Email/Password breaches"         },
@@ -25,10 +25,10 @@ const BREACH_SOURCE_REGISTRY = [
 
 // -- Risk Scoring Matrix -------------------------------------------------------
 const LEAK_SEVERITY = {
-  CRITICAL: { score_min: 8,  label: "CRITICAL  -  Active credential theft campaign",       action: "IMMEDIATE: Reset all passwords, enable MFA, audit access logs"         },
-  HIGH:     { score_min: 6,  label: "HIGH  -  Confirmed data exposure in breach database", action: "URGENT: Notify affected users, rotate API keys, review access controls" },
-  MEDIUM:   { score_min: 4,  label: "MEDIUM  -  Potential exposure, unconfirmed",          action: "MONITOR: Run full audit, verify affected accounts"                      },
-  LOW:      { score_min: 0,  label: "LOW  -  Historical breach, low active risk",          action: "REVIEW: Update password policies, inform security team"                 },
+  CRITICAL: { score_min: 8,  label: "CRITICAL -- Active credential theft campaign",       action: "IMMEDIATE: Reset all passwords, enable MFA, audit access logs"         },
+  HIGH:     { score_min: 6,  label: "HIGH -- Confirmed data exposure in breach database", action: "URGENT: Notify affected users, rotate API keys, review access controls" },
+  MEDIUM:   { score_min: 4,  label: "MEDIUM -- Potential exposure, unconfirmed",          action: "MONITOR: Run full audit, verify affected accounts"                      },
+  LOW:      { score_min: 0,  label: "LOW -- Historical breach, low active risk",          action: "REVIEW: Update password policies, inform security team"                 },
 };
 
 function computeLeakSeverity(score) {
@@ -46,13 +46,13 @@ function safeStr(v, maxLen = 256) {
 
 function safeEmail(raw) {
   const s = safeStr(raw, 254);
-  // Basic RFC 5321 shape check  -  reject anything without user@domain.tld
+  // Basic RFC 5321 shape check -- reject anything without user@domain.tld
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s) ? s.toLowerCase() : null;
 }
 
 function safeDomain(raw) {
   const s = safeStr(raw, 253).toLowerCase();
-  // Basic domain shape  -  letters, digits, hyphens, dots
+  // Basic domain shape -- letters, digits, hyphens, dots
   return /^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/.test(s) ? s : null;
 }
 
@@ -64,7 +64,7 @@ async function kvPut(env, key, value, ttl = 3600) {
   try { await env.SECURITY_HUB_KV.put(key, JSON.stringify(value), { expirationTtl: ttl }); } catch { /* non-fatal */ }
 }
 
-// -- Dark Web Scan  -  /api/dark-web/scan ---------------------------------------
+// -- Dark Web Scan -- /api/dark-web/scan ---------------------------------------
 // POST body: { target: "domain.com" | "email@domain.com", scan_depth: "quick|full" }
 // Requires: Pro tier minimum. Full scan requires Enterprise.
 // Returns: threat_indicators[], breach_records[], risk_score, recommended_actions[]
@@ -254,8 +254,8 @@ export async function handleDarkWebScan(request, env, auth, rid) {
   return _json(result);
 }
 
-// -- Dark Web Status  -  /api/dark-web/status ------------------------------------
-// GET  -  returns monitor health, source connectivity, last scan stats
+// -- Dark Web Status -- /api/dark-web/status ------------------------------------
+// GET -- returns monitor health, source connectivity, last scan stats
 export async function handleDarkWebStatus(request, env, auth, rid) {
   const tier = auth.tier || "free";
 
@@ -288,7 +288,7 @@ export async function handleDarkWebStatus(request, env, auth, rid) {
   });
 }
 
-// -- Leak Check  -  /api/leak-check ---------------------------------------------
+// -- Leak Check -- /api/leak-check ---------------------------------------------
 // GET ?email=user@domain.com  OR  POST { email, domain, api_key }
 // Quick breach check for a single email address. Pro+ required.
 export async function handleLeakCheck(request, env, auth, rid) {

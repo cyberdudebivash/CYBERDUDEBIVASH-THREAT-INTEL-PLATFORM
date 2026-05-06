@@ -1,13 +1,13 @@
 // ==============================================================================
-// CYBERDUDEBIVASH(R) SENTINEL APEX  -  SLA Monitor Engine v143.0.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- SLA Monitor Engine v143.0.0
 // Real-time uptime tracking + SLA compliance proof for Enterprise subscribers
 //
 // Endpoints:
-//   GET  /api/sla/status       -  public: current uptime + SLA health
-//   GET  /api/sla/report       -  Enterprise: 30-day SLA compliance report
-//   GET  /api/sla/incidents    -  Enterprise: incident log
-//   POST /api/sla/ping         -  internal: heartbeat recorder (called by cron)
-//   GET  /api/sla/certificate  -  Enterprise: downloadable SLA compliance cert data
+//   GET  /api/sla/status      -- public: current uptime + SLA health
+//   GET  /api/sla/report      -- Enterprise: 30-day SLA compliance report
+//   GET  /api/sla/incidents   -- Enterprise: incident log
+//   POST /api/sla/ping        -- internal: heartbeat recorder (called by cron)
+//   GET  /api/sla/certificate -- Enterprise: downloadable SLA compliance cert data
 //
 // SLA Targets:
 //   Enterprise: 99.9% uptime / month (~44 min downtime allowed)
@@ -27,7 +27,7 @@ const ENTERPRISE_SLA    = 99.9;
 const PRO_SLA           = 99.5;
 
 /* ===========================================================================
-   handleSLAStatus   -  GET /api/sla/status  (public)
+   handleSLAStatus  -- GET /api/sla/status  (public)
    =========================================================================== */
 export async function handleSLAStatus(request, env, rid) {
   const pings = await _loadPings(env);
@@ -82,7 +82,7 @@ export async function handleSLAStatus(request, env, rid) {
 }
 
 /* ===========================================================================
-   handleSLAReport   -  GET /api/sla/report  (Enterprise)
+   handleSLAReport  -- GET /api/sla/report  (Enterprise)
    =========================================================================== */
 export async function handleSLAReport(request, env, auth, rid) {
   if (!auth || !auth.valid) return _jsonErr(401, "Authentication required.", rid);
@@ -128,7 +128,7 @@ export async function handleSLAReport(request, env, auth, rid) {
     period:              `${new Date(now - windowMs).toISOString().split("T")[0]} to ${new Date().toISOString().split("T")[0]}`,
     sla_target:          ENTERPRISE_SLA,
     actual_uptime_pct:   parseFloat(uptimePct.toFixed(4)),
-    sla_status:          uptimePct >= ENTERPRISE_SLA ? "MET [OK]" : "BREACHED [FAIL]",
+    sla_status:          uptimePct >= ENTERPRISE_SLA ? "MET CHECK" : "BREACHED FAIL",
     total_downtime_min:  parseFloat((totalDownMs / 60000).toFixed(2)),
     allowed_downtime_min: parseFloat(((100 - ENTERPRISE_SLA) / 100 * SLA_WINDOW_DAYS * 24 * 60).toFixed(2)),
     incidents_count:     recentIncidents.length,
@@ -142,14 +142,14 @@ export async function handleSLAReport(request, env, auth, rid) {
       "premium-reports":  { sla: ENTERPRISE_SLA, actual: 99.99 },
     },
     credit_policy: "SLA credit of 10% per day of breach, up to 30% of monthly fee. Contact bivash@cyberdudebivash.com with this report to claim.",
-    certifier:     "CYBERDUDEBIVASH SENTINEL APEX  -  v143.0.0 GOD-MODE",
+    certifier:     "CYBERDUDEBIVASH SENTINEL APEX -- v143.0.0 GOD-MODE",
     gstin:         "21ARKPN8270G1ZP",
     rid,
   });
 }
 
 /* ===========================================================================
-   handleSLAIncidents   -  GET /api/sla/incidents  (Enterprise)
+   handleSLAIncidents  -- GET /api/sla/incidents  (Enterprise)
    =========================================================================== */
 export async function handleSLAIncidents(request, env, auth, rid) {
   if (!auth || !auth.valid) return _jsonErr(401, "Authentication required.", rid);
@@ -167,7 +167,7 @@ export async function handleSLAIncidents(request, env, auth, rid) {
 }
 
 /* ===========================================================================
-   handleSLAPing   -  POST /api/sla/ping  (internal cron/admin)
+   handleSLAPing  -- POST /api/sla/ping  (internal cron/admin)
    Records a heartbeat. Called by Cloudflare Cron Trigger every 5 minutes.
    =========================================================================== */
 export async function handleSLAPing(request, env, rid) {
@@ -219,7 +219,7 @@ export async function handleSLAPing(request, env, rid) {
 }
 
 /* ===========================================================================
-   handleSLACertificate   -  GET /api/sla/certificate  (Enterprise)
+   handleSLACertificate  -- GET /api/sla/certificate  (Enterprise)
    Returns SLA compliance certificate as JSON (can be rendered to PDF)
    =========================================================================== */
 export async function handleSLACertificate(request, env, auth, rid) {

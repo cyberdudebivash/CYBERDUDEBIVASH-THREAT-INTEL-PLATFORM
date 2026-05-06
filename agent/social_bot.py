@@ -20,7 +20,7 @@ def post_to_linkedin(message, url):
             return
 
         endpoint = "https://api.linkedin.com/v2/ugcPosts"
-        
+
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -43,13 +43,13 @@ def post_to_linkedin(message, url):
         }
 
         # Attempt primary dispatch
-        response = requests.post(endpoint, headers=headers, json=payload)
-        
+        response = requests.post(endpoint, headers=headers, json=payload, timeout=30)
+
         # SMART RETRY: The 403/422 errors often mask a required transition to 'member' URN
         if response.status_code in [403, 422]:
             logger.info(f"Retrying with authorized 'member' URN for 2026 protocol...")
             payload["author"] = f"urn:li:member:{member_id}"
-            response = requests.post(endpoint, headers=headers, json=payload)
+            response = requests.post(endpoint, headers=headers, json=payload, timeout=30)
 
         if response.status_code == 201:
             logger.info("[OK] LinkedIn broadcast successful! Advisory is live on your profile.")
