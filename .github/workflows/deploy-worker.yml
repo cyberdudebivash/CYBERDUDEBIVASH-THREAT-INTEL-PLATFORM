@@ -12,7 +12,7 @@
 #   * This workflow validates it is configured AFTER deployment
 #   * NEVER hardcode or fallback-generate the secret  -  it must be explicit
 #
-# STABILITY GUARANTEES (v141.3.0):
+# STABILITY GUARANTEES (v142.3.1):
 #   * PLATFORM_VERSION is auto-injected from config/version.json (SSOT)
 #   * All 5 Worker JS files checked for null bytes + non-ASCII BEFORE deploy
 #   * All 5 Worker JS files syntax-validated via node --check BEFORE deploy
@@ -20,6 +20,14 @@
 #   * Wrangler v3 (proven stable  -  v4 has breaking TOML/env changes)
 #   * Deploy retried once on transient failure
 #   * Health check is informational-only (never blocks deploy success)
+#
+# HARDENING (v149.0 - ENTERPRISE GRADE):
+#   * CI BOT GUARD: job-level if: condition blocks github-actions[bot] push
+#     triggers. sentinel-blogger commits config/version.json with [skip ci]
+#     but this guard adds defense-in-depth so bot pushes NEVER redeploy Worker.
+#   * cancel-in-progress: true -- Worker deploys are idempotent. If two deploys
+#     queue simultaneously (e.g. manual dispatch + push), cancel the older one.
+#     The latest source is always what we want in production.
 # =============================================================================
 
 name: deploy-worker
@@ -44,12 +52,24 @@ env:
 
 concurrency:
   group: worker-deploy
-  cancel-in-progress: false
+  # cancel-in-progress: true -- Worker deploys are fully idempotent.
+  # If a newer deploy queues while one is running, cancel the stale one.
+  # This prevents deploying an older Worker build when a newer commit lands.
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # CI BOT GUARD (v149.0 HARDENING):
+    # Block deploy when triggered by github-actions[bot] push events.
+    # Data pipelines (sentinel-blogger etc.) commit config/version.json with
+    # [skip ci] -- but this guard is defense-in-depth so no bot commit can
+    # ever accidentally trigger a Worker redeploy.
+    # workflow_dispatch is always allowed (manual operator override).
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.actor != 'github-actions[bot]')
 
     steps:
       - name: " Checkout repository"

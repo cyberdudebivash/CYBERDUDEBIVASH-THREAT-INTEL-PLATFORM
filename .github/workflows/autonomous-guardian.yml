@@ -1,8 +1,20 @@
 # =============================================================================
-# CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 " AUTONOMOUS GUARDIAN AGENT
-# Version: v134.0.0 " unified platform version
-# NOTE: sync-dashboard.yml DISABLED in v134.0.0 " removed from workflow_run list.
+# CYBERDUDEBIVASH(R) SENTINEL APEX v134.0.0 - AUTONOMOUS GUARDIAN AGENT
+# Version: v134.0.0 - unified platform version
+# NOTE: sync-dashboard.yml DISABLED in v134.0.0 - removed from workflow_run list.
 #       Guardian still triggers on sentinel-blogger completion + hourly schedule.
+#
+# HARDENING (v149.0 - DUAL TRIGGER DESIGN):
+#   This workflow has TWO triggers by design:
+#     1. workflow_run (sentinel-blogger completed) - fires immediately after blogger
+#     2. schedule cron '30 * * * *' - hourly fallback catches ALL other workflow failures
+#
+#   CONCURRENCY: cancel-in-progress: true
+#     Guardian runs are idempotent health checks - they read state and write a report.
+#     If sentinel-blogger completes at :00 and the cron fires at :30, the :30 run
+#     is just a fallback sweep. If a previous guardian run is still in-flight when
+#     the next one queues, the older one is cancelled - the latest sweep is what matters.
+#     This prevents guardian queue buildup during high-frequency pipeline runs.
 # =============================================================================
 name: Autonomous Guardian Agent v140.0
 
@@ -31,9 +43,13 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
   group: autonomous-guardian
-  cancel-in-progress: false
+  # cancel-in-progress: true -- Guardian is an idempotent health sweep.
+  # The latest run always has the most current pipeline state.
+  # Cancel stale queued runs to prevent report queue buildup.
+  cancel-in-progress: true
 
 jobs:
   guardian:
