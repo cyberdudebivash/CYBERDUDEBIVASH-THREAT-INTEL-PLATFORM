@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- *  SENTINEL APEX — API ADAPTER v144.0.0
+ *  SENTINEL APEX — API ADAPTER v145.0.0
  *  Strict 1:1 API → UI field mapping layer — ENTERPRISE EDITION
  *  Author: CYBERDUDEBIVASH SENTINEL APEX Platform
  *  Pipeline Safety: READ-ONLY transform — never mutates source data
@@ -100,6 +100,74 @@
     return { action: "MONITOR", ...ACTION_DEFS.MONITOR };
   }
 
+  /* ── BUSINESS IMPACT ENGINE ────────────────────────────────────────────── */
+  /* Maps threat category + severity → quantified business risk fields.       */
+  const BUSINESS_IMPACT_MAP = {
+    "Remote Code Execution": {
+      CRITICAL: { financial: "$2M–$15M breach cost exposure", operational: "Complete service disruption possible within hours of exploitation", compliance: "GDPR Art. 33 72-hr notification likely; PCI-DSS incident response mandatory", customer: "Customer data at imminent risk; breach notification obligations triggered", infrastructure: "Full infrastructure takeover pathway — pivoting to cloud, backups, DR systems" },
+      HIGH:     { financial: "$500K–$5M breach cost exposure", operational: "Significant service degradation; lateral movement across production environment", compliance: "GDPR/PCI-DSS reporting thresholds likely exceeded on successful exploitation", customer: "Possible customer data exposure; privilege escalation to sensitive stores", infrastructure: "Affected systems require emergency isolation; patch deployment critical" },
+      MEDIUM:   { financial: "$50K–$500K breach cost exposure", operational: "Localized service impact; contained with patch deployment", compliance: "Compliance review recommended; document risk acceptance if not patching", customer: "Limited customer impact; monitor for signs of active exploitation", infrastructure: "Patch within standard change window; increase monitoring coverage" },
+      LOW:      { financial: "$5K–$50K estimated risk exposure", operational: "Minimal operational disruption expected", compliance: "Standard vulnerability disclosure compliance maintained", customer: "Low customer impact; informational tracking recommended", infrastructure: "Schedule patch in next maintenance cycle" },
+    },
+    "Supply Chain Attack": {
+      CRITICAL: { financial: "$5M–$50M exposure across customer base", operational: "Trusted software delivery chain poisoned — mass compromise of downstream systems", compliance: "SEC cybersecurity disclosure rules triggered; GDPR breach notifications required", customer: "All customers consuming affected packages potentially compromised", infrastructure: "Entire build pipeline must be treated as compromised and rebuilt" },
+      HIGH:     { financial: "$1M–$10M exposure estimate", operational: "Software distribution integrity compromised; rollback and verification required", compliance: "Supply chain security attestation failures — SOC 2 impact likely", customer: "Customer systems at risk via trusted update channel", infrastructure: "Audit all pipeline components; verify checksums and signing chains" },
+      MEDIUM:   { financial: "$100K–$1M exposure estimate", operational: "Targeted dependency compromise; scope assessment required", compliance: "SBOM review and attestation update recommended", customer: "Downstream customer risk pending exploitation confirmation", infrastructure: "Dependency audit and version pinning required" },
+      LOW:      { financial: "Under $100K estimated exposure", operational: "Low-confidence supply chain indicator; monitoring recommended", compliance: "Proactive SBOM documentation recommended", customer: "No confirmed customer impact at this time", infrastructure: "Review dependency manifests for suspicious entries" },
+    },
+    "Ransomware": {
+      CRITICAL: { financial: "$10M–$100M+ total incident cost (ransom + recovery + downtime)", operational: "Business operations halted; recovery timeline 2–8 weeks", compliance: "Data Protection Authority notification required; potential HIPAA/PCI breach", customer: "Customer data encrypted or exfiltrated; trust and continuity at risk", infrastructure: "Backup systems compromised; bare-metal recovery may be required" },
+      HIGH:     { financial: "$1M–$10M total incident cost estimate", operational: "Significant operational disruption; critical systems at risk of encryption", compliance: "Incident response plan activation required; regulatory notification thresholds likely met", customer: "Customer data at elevated risk; proactive communication recommended", infrastructure: "Network segmentation and backup verification critical pre-incident" },
+      MEDIUM:   { financial: "$100K–$2M estimated impact", operational: "Ransomware precursor activity detected; preparation window still open", compliance: "Document detection and containment actions for regulatory compliance", customer: "Customer data risk contingent on lateral movement success", infrastructure: "EDR tuning and network segmentation recommended immediately" },
+      LOW:      { financial: "Under $500K if contained early", operational: "Low-level ransomware indicator; standard security hygiene response", compliance: "Document and monitor; no immediate regulatory action required", customer: "No immediate customer impact", infrastructure: "Scan endpoints; verify backup integrity" },
+    },
+    "Phishing": {
+      CRITICAL: { financial: "$500K–$5M from credential compromise and BEC fraud", operational: "Executive credentials or privileged access tokens compromised", compliance: "MFA bypass + credential theft may trigger SOC 2 audit findings", customer: "Customer impersonation or invoice fraud risk if accounts compromised", infrastructure: "Assume privileged account compromise; initiate credential rotation" },
+      HIGH:     { financial: "$100K–$1M exposure from BEC and account takeover", operational: "Multiple user accounts at risk; lateral movement via compromised sessions", compliance: "Account security controls review required; MFA enforcement mandated", customer: "Customer-facing accounts at risk; session invalidation recommended", infrastructure: "Email gateway rule tightening and MFA enforcement required" },
+      MEDIUM:   { financial: "$10K–$100K estimated phishing campaign exposure", operational: "Targeted credential harvesting; limited to non-privileged accounts likely", compliance: "Phishing simulation and awareness training documentation recommended", customer: "Low direct customer risk; monitor for account abuse", infrastructure: "Email filtering update and user awareness communication recommended" },
+      LOW:      { financial: "Under $10K estimated exposure", operational: "Low-sophistication phishing attempt; standard response", compliance: "Routine phishing incident; document and close", customer: "No direct customer risk identified", infrastructure: "Report to email security vendor; update blocklists" },
+    },
+    "Vulnerability": {
+      CRITICAL: { financial: "$1M–$20M breach cost exposure on exploitation", operational: "Critical vulnerability with active exploitation pathway; emergency patching required", compliance: "CISA KEV listing may require 2-week patch deadline for federal entities; PCI-DSS evidence", customer: "All customers on affected version at direct risk", infrastructure: "Emergency patch deployment required; consider temporary mitigation/WAF rule" },
+      HIGH:     { financial: "$200K–$2M risk exposure", operational: "High-severity vulnerability requiring priority patching within SLA window", compliance: "Vulnerability management policy compliance; document risk acceptance timeline", customer: "Customers on unpatched versions at elevated risk", infrastructure: "Patch within 30-day vulnerability SLA; compensating controls in place" },
+      MEDIUM:   { financial: "$20K–$200K estimated risk exposure", operational: "Moderate vulnerability; patch within standard change schedule", compliance: "Standard vulnerability management process applies", customer: "Limited direct customer risk at current exploitation probability", infrastructure: "Patch in next scheduled maintenance window" },
+      LOW:      { financial: "Under $20K estimated risk", operational: "Low-severity vulnerability; informational tracking", compliance: "Maintain vulnerability registry entry; no immediate action required", customer: "No direct customer impact expected", infrastructure: "Schedule patch at next opportunity" },
+    },
+    "Malware": {
+      CRITICAL: { financial: "$2M–$30M from data destruction, exfiltration, and recovery", operational: "Active malware with C2 connectivity; full incident response activation", compliance: "Breach notification obligations likely; forensic evidence preservation required", customer: "Customer data at risk if malware reached data stores", infrastructure: "Infected systems must be isolated immediately; forensic imaging required" },
+      HIGH:     { financial: "$500K–$5M estimated malware incident cost", operational: "High-sophistication malware with persistence; lateral movement risk", compliance: "Incident response documentation required; consider GDPR data breach assessment", customer: "Potential customer data access if malware persists on production systems", infrastructure: "EDR-assisted hunting across estate; network traffic analysis for C2 beacons" },
+      MEDIUM:   { financial: "$50K–$500K estimated cost", operational: "Moderate malware activity; containment likely achievable with EDR response", compliance: "Document detection and response timeline for audit trail", customer: "Limited customer impact if contained to non-data systems", infrastructure: "EDR quarantine and full scan; review network connections from affected host" },
+      LOW:      { financial: "Under $50K estimated exposure", operational: "Low-confidence malware indicator; monitoring and scanning recommended", compliance: "Routine security incident documentation", customer: "No direct customer impact expected", infrastructure: "Scan affected systems; verify AV signatures are current" },
+    },
+    "default": {
+      CRITICAL: { financial: "$1M+ estimated breach cost", operational: "Critical threat with immediate business impact potential", compliance: "Activate incident response plan; assess regulatory notification obligations", customer: "Customer data and service continuity at elevated risk", infrastructure: "Emergency response team activation recommended" },
+      HIGH:     { financial: "$100K–$2M estimated exposure", operational: "Significant threat requiring urgent response", compliance: "Review compliance posture; document response actions", customer: "Customers potentially impacted pending scope determination", infrastructure: "Priority response and enhanced monitoring required" },
+      MEDIUM:   { financial: "$10K–$200K estimated exposure", operational: "Moderate threat; standard response procedures apply", compliance: "Document incident in security registry", customer: "Limited customer impact at current stage", infrastructure: "Enhanced monitoring and patch review recommended" },
+      LOW:      { financial: "Under $10K estimated exposure", operational: "Low-level threat; informational tracking", compliance: "Routine security documentation", customer: "No direct customer impact", infrastructure: "Monitor and maintain standard vigilance" },
+    },
+  };
+
+  function buildBusinessImpact(threatCategory, threatType, severity) {
+    const sev   = normalizeSeverity(severity);
+    const type  = _str(threatType, threatCategory);
+    const cat   = _str(threatCategory, "default");
+
+    // Try exact type, then category, then default
+    const map   = BUSINESS_IMPACT_MAP[type]
+               || BUSINESS_IMPACT_MAP[cat]
+               || BUSINESS_IMPACT_MAP["default"];
+
+    const sevImpact = map[sev] || map["MEDIUM"] || map["LOW"];
+    return {
+      financial_risk:       sevImpact.financial      || "Exposure under assessment",
+      operational_impact:   sevImpact.operational    || "Impact under investigation",
+      compliance_exposure:  sevImpact.compliance     || "Review compliance posture",
+      customer_impact:      sevImpact.customer       || "Customer impact being assessed",
+      infrastructure_risk:  sevImpact.infrastructure || "Infrastructure risk being evaluated",
+      severity:             sev,
+    };
+  }
+
   /* ── IMPACT & CONTEXT BUILDER ──────────────────────────────────────────── */
   const ATTACK_TYPE_META = {
     "Remote Code Execution": { icon: "💻", impact: "Full system compromise possible. Attacker gains remote shell/execution capabilities.", surface: "Internet-facing services, web applications, APIs" },
@@ -153,36 +221,85 @@
     }
   }
 
-  /* ── AI VERDICT BUILDER ────────────────────────────────────────────────── */
+  /* ── AI VERDICT BUILDER (v145 — Analyst-Grade Prose) ──────────────────── */
+  /* Produces Recorded Future / GreyNoise quality human-readable verdicts.    */
+  const VERDICT_NARRATIVE = {
+    "Remote Code Execution": {
+      CRITICAL: "This advisory presents a critical-severity remote code execution pathway with confirmed exploitation indicators. The attack surface includes internet-facing services and web APIs. Adversary access at this tier typically enables full system compromise within hours of initial foothold.",
+      HIGH:     "A high-severity remote code execution vulnerability has been identified with credible exploitation signals. Successful exploitation grants an attacker arbitrary code execution and likely privilege escalation on affected hosts.",
+      MEDIUM:   "This vulnerability presents a moderate exploitation pathway for remote code execution. Current exploitation probability is limited by prerequisite conditions, though proof-of-concept code is publicly accessible for most vulnerabilities of this class.",
+      LOW:      "A low-severity code execution pathway has been identified. Active exploitation is unlikely without additional prerequisites; however, monitoring for exploitation attempts is recommended.",
+    },
+    "Ransomware": {
+      CRITICAL: "Active ransomware deployment with confirmed double-extortion indicators. This campaign demonstrates sophisticated pre-positioning, lateral movement capability, and shadow copy deletion — the hallmarks of an operationally mature threat group. Recovery complexity is high.",
+      HIGH:     "High-confidence ransomware activity with network propagation capabilities detected. Threat actor TTPs align with established ransomware-as-a-service (RaaS) operational patterns. Backup systems and domain controllers are likely primary targets.",
+      MEDIUM:   "Moderate-confidence ransomware precursor activity. Observed TTPs suggest reconnaissance and staging phase; full ransomware deployment is contingent on successful lateral movement.",
+      LOW:      "Low-confidence ransomware indicator. Current evidence insufficient to confirm active deployment; defensive posture review and backup integrity verification recommended.",
+    },
+    "Supply Chain Attack": {
+      CRITICAL: "Critical-severity supply chain compromise with confirmed downstream infection vectors. Trusted build infrastructure or software distribution channels are affected. All systems consuming affected packages must be treated as potentially compromised.",
+      HIGH:     "High-confidence supply chain attack targeting software distribution or build infrastructure. The adversary leverage legitimate trust relationships to achieve widespread initial access without triggering standard detection controls.",
+      MEDIUM:   "Moderate-severity supply chain compromise indicator. Scope assessment is ongoing; affected package versions should be audited and pinned pending vendor remediation confirmation.",
+      LOW:      "Low-confidence supply chain anomaly. Preliminary indicators suggest potential dependency tampering; SBOM review and hash verification recommended.",
+    },
+    "Phishing": {
+      CRITICAL: "Highly targeted credential harvesting campaign with spear-phishing indicators. The adversary demonstrates organizational knowledge suggesting prior reconnaissance. BEC or executive account compromise is the likely objective.",
+      HIGH:     "High-volume phishing campaign with active credential theft infrastructure. Multiple authentication bypass techniques observed; MFA fatigue attacks are a probable secondary vector.",
+      MEDIUM:   "Moderate-confidence phishing activity targeting organizational credentials. Campaign infrastructure indicates an organized threat actor with defined objectives beyond opportunistic credential harvesting.",
+      LOW:      "Low-sophistication phishing attempt consistent with commodity credential harvesting operations. Standard email security controls are likely to contain the threat.",
+    },
+    "Malware": {
+      CRITICAL: "Active malware deployment with C2 infrastructure connectivity confirmed. The malware demonstrates advanced evasion capability, persistence mechanisms, and potential data exfiltration functionality. Immediate containment is required.",
+      HIGH:     "High-confidence malware detection with persistence and lateral movement capabilities. The threat exhibits characteristics consistent with an advanced persistent threat (APT) toolset rather than commodity malware.",
+      MEDIUM:   "Moderate-confidence malware indicator with limited lateral movement observed. The malware exhibits post-exploitation behavior suggesting targeted deployment rather than indiscriminate infection.",
+      LOW:      "Low-severity malware detection. Current behavioral profile is consistent with limited-capability commodity malware; standard endpoint response procedures are applicable.",
+    },
+    "Vulnerability": {
+      CRITICAL: "Critical vulnerability with confirmed or near-confirmed active exploitation in the wild. Patch availability and exploitation timeline place this in the highest operational priority category for any affected organization. Treat as zero-day until patches are universally deployed.",
+      HIGH:     "High-severity vulnerability with a credible exploitation pathway. Proof-of-concept code is publicly available or likely to emerge within days. Exploitation requires minimal prerequisite conditions on affected systems.",
+      MEDIUM:   "Moderate-severity vulnerability requiring patch prioritization within standard SLA windows. Current exploitation probability is limited by prerequisite conditions or low attacker interest, but this status may change rapidly.",
+      LOW:      "Low-severity vulnerability with limited exploitation potential under normal circumstances. Patch as part of routine maintenance; compensating controls are sufficient in the interim.",
+    },
+    "APT": {
+      CRITICAL: "Nation-state threat actor activity with advanced persistent access confirmed. This campaign demonstrates the hallmarks of a long-term intelligence-collection or sabotage operation: living-off-the-land binaries, custom implants, and zero-day capability.",
+      HIGH:     "High-confidence APT activity with targeting consistent with nation-state intelligence objectives. The threat actor demonstrates operational security discipline and custom tooling indicative of a well-resourced adversary.",
+      MEDIUM:   "Moderate-confidence APT-attributed activity. TTPs align with documented nation-state threat groups; attribution confidence is bounded by limited direct indicators.",
+      LOW:      "Low-confidence APT indicator. Behavioral signals are ambiguous; monitoring and additional collection recommended before definitive attribution.",
+    },
+    "default": {
+      CRITICAL: "Critical-severity threat intelligence confirmed. The threat demonstrates high operational maturity and poses an immediate risk to organizational security posture. Immediate escalation to the security operations team is required.",
+      HIGH:     "High-severity threat with credible impact potential. The adversary demonstrates both capability and intent consistent with targeted attack operations. Priority response is warranted.",
+      MEDIUM:   "Moderate-severity threat advisory. Current evidence suggests limited impact potential, though the threat landscape can shift rapidly as additional exploitation techniques emerge.",
+      LOW:      "Low-severity informational advisory. This indicator is being tracked as part of the broader threat landscape; no immediate action is required beyond standard monitoring.",
+    },
+  };
+
   function buildAiVerdict(aiSummary, severity, socPriority, threatCategory, aiConfidence) {
     const sev  = normalizeSeverity(severity);
     const soc  = normalizeSocPriority(socPriority);
-    const cat  = _str(threatCategory, "threat");
+    const cat  = _str(threatCategory, "default");
+    const type = _str(threatCategory, "default");
     const conf = _int(aiConfidence, 0);
 
-    // Strip internal prefixes like "[VERIFIED]", "[HIGH]", etc.
-    const cleanSummary = _str(aiSummary, "")
-      .replace(/^\[[\w\s]+\]\s*/i, "")
-      .replace(/\s*PRO TIER REQUIRED.*$/i, "")
-      .trim();
+    // Pick the analyst narrative for this category+severity
+    const narrativeMap = VERDICT_NARRATIVE[type] || VERDICT_NARRATIVE["default"];
+    const narrative    = narrativeMap[sev]        || narrativeMap["MEDIUM"] || narrativeMap["LOW"];
 
-    // Confidence qualifier
-    const confQual = conf >= 80 ? "High-confidence"
-                   : conf >= 50 ? "Moderate-confidence"
-                   : "Low-confidence";
+    // Action recommendation suffix keyed to SOC priority
+    const socSuffix = {
+      P1: "Immediate incident response activation required. Escalate to CISO. Implement emergency mitigations now.",
+      P2: "Urgent investigation required within 4 hours. Assign incident owner. Implement compensating controls pending patch.",
+      P3: "Active monitoring and detection tuning advised. Schedule patch within 30-day SLA. Review exposure in affected systems.",
+      P4: "Log, monitor, and track. No immediate action required. Include in next vulnerability management cycle.",
+    };
+    const actionSuffix = socSuffix[soc] || socSuffix["P4"];
 
-    // Action suffix based on SOC priority
-    const actionSuffix = soc === "P1" ? "Immediate incident response required."
-                       : soc === "P2" ? "Urgent investigation recommended."
-                       : soc === "P3" ? "Active monitoring and detection tuning advised."
-                       : "Log and monitor for further activity.";
+    // Confidence context
+    const confContext = conf >= 80 ? "High-confidence intelligence basis."
+                      : conf >= 50 ? "Moderate-confidence intelligence basis — further validation advised."
+                      : "Limited intelligence signals — treat as early-warning indicator.";
 
-    // If we have a real AI summary, use it cleaned up. Otherwise generate.
-    if (cleanSummary && cleanSummary.length > 20) {
-      return `${confQual} ${sev.toLowerCase()}-severity ${cat.toLowerCase()} detected. ${cleanSummary} ${actionSuffix}`;
-    }
-
-    return `${confQual} ${sev.toLowerCase()}-severity ${cat.toLowerCase()} threat. ${actionSuffix}`;
+    return `${narrative} ${confContext} ${actionSuffix}`;
   }
 
   /* ── PAYWALL FEATURE LIST ──────────────────────────────────────────────── */
@@ -230,408 +347,718 @@
     CRITICAL: { label: "⬛ CRITICAL", color: "#dc2626", glow: "rgba(220,38,38,0.4)"  },
   };
 
-  function normalizeConfidenceTier(tier) {
-    const key = _str(tier, "LOW").toUpperCase();
-    return CONFIDENCE_TIERS[key] || CONFIDENCE_TIERS["LOW"];
+  function normalizeConfidence(val) {
+    const n = _num(val, 0);
+    if (n >= 90) return { tier: "CRITICAL", label: CONFIDENCE_TIERS.CRITICAL.label, color: CONFIDENCE_TIERS.CRITICAL.color, glow: CONFIDENCE_TIERS.CRITICAL.glow };
+    if (n >= 70) return { tier: "HIGH",     label: CONFIDENCE_TIERS.HIGH.label,     color: CONFIDENCE_TIERS.HIGH.color,     glow: CONFIDENCE_TIERS.HIGH.glow     };
+    if (n >= 40) return { tier: "MODERATE", label: CONFIDENCE_TIERS.MODERATE.label, color: CONFIDENCE_TIERS.MODERATE.color, glow: CONFIDENCE_TIERS.MODERATE.glow };
+    return               { tier: "LOW",     label: CONFIDENCE_TIERS.LOW.label,      color: CONFIDENCE_TIERS.LOW.color,      glow: CONFIDENCE_TIERS.LOW.glow      };
   }
 
-  /* ── SCORING FORMATTERS ────────────────────────────────────────────────── */
-  function formatRiskScore(score) {
-    const n = _num(score, 0);
-    return {
-      raw:      n,
-      display:  n.toFixed(1),
-      outOf:    "10",
-      percent:  Math.min(100, (n / 10) * 100),
-      color:    n >= 8 ? "#ff1a1a" : n >= 6 ? "#ff6600" : n >= 4 ? "#f59e0b" : "#00d4ff",
-      category: n >= 8 ? "CRITICAL" : n >= 6 ? "HIGH" : n >= 4 ? "MEDIUM" : "LOW",
-    };
-  }
-
-  function formatEpssScore(score) {
-    const n = _nullableNum(score);
-    if (n === null) return null;
+  /* ── EPSS HELPERS ──────────────────────────────────────────────────────── */
+  function buildEpssScore(raw) {
+    if (raw === null || raw === undefined) return null;
+    const n = parseFloat(raw);
+    if (isNaN(n)) return null;
+    const pct = n * 100;
+    let risk = "LOW";
+    if (pct >= 10) risk = "CRITICAL";
+    else if (pct >= 1) risk = "HIGH";
+    else if (pct >= 0.1) risk = "MODERATE";
     return {
       raw:     n,
-      display: n.toFixed(2) + "%",
-      percent: Math.min(100, n),
-      risk:    n >= 10 ? "CRITICAL EXPLOIT RISK" : n >= 1 ? "HIGH EXPLOIT RISK" : n >= 0.1 ? "MODERATE EXPLOIT RISK" : "LOW EXPLOIT RISK",
-      color:   n >= 10 ? "#ff1a1a" : n >= 1 ? "#ff6600" : n >= 0.1 ? "#f59e0b" : "#64748b",
+      display: pct.toFixed(2) + "%",
+      risk:    risk + " EXPLOITATION PROBABILITY",
+      color:   pct >= 10 ? "#ff1a1a" : pct >= 1 ? "#ff6600" : pct >= 0.1 ? "#f59e0b" : "#00d4ff",
     };
   }
 
-  function formatCvssScore(score) {
-    const n = _nullableNum(score);
-    if (n === null) return null;
+  function buildCvssScore(raw) {
+    if (raw === null || raw === undefined) return null;
+    const n = parseFloat(raw);
+    if (isNaN(n)) return null;
+    let rating = "INFORMATIONAL";
+    let color  = "#6b7280";
+    if (n >= 9.0) { rating = "CRITICAL"; color = "#ff1a1a"; }
+    else if (n >= 7.0) { rating = "HIGH"; color = "#ff6600"; }
+    else if (n >= 4.0) { rating = "MEDIUM"; color = "#f59e0b"; }
+    else if (n >= 0.1) { rating = "LOW"; color = "#00d4ff"; }
+    return { raw: n, display: n.toFixed(1), rating, color };
+  }
+
+  /* ── RISK SCORE HELPERS ────────────────────────────────────────────────── */
+  function buildRiskScore(raw, severityColors) {
+    const n = _num(raw, 0);
+    const pct = Math.round(Math.min(n / 10, 1) * 100);
     return {
       raw:     n,
       display: n.toFixed(1),
-      outOf:   "10",
-      rating:  n >= 9 ? "CRITICAL" : n >= 7 ? "HIGH" : n >= 4 ? "MEDIUM" : "LOW",
-      color:   n >= 9 ? "#ff1a1a" : n >= 7 ? "#ff6600" : n >= 4 ? "#f59e0b" : "#00d4ff",
+      percent: pct,
+      color:   severityColors ? severityColors.primary : "#6b7280",
     };
   }
 
-  /* ── TTP ADAPTER ───────────────────────────────────────────────────────── */
-  function adaptTtps(ttps) {
-    return _arr(ttps).map(function (t) {
-      if (typeof t === "string") return { id: t, name: "Technique " + t, tactic: "Unknown", justification: "", url: "https://attack.mitre.org/techniques/" + t.replace(".", "/") };
-      return {
-        id:            _str(t.id || t.technique_id, "UNKNOWN"),
-        name:          _str(t.name || t.technique_name, "Unknown Technique"),
-        tactic:        _str(t.tactic, "Unknown"),
-        justification: _str(t.justification, ""),
-        url:           "https://attack.mitre.org/techniques/" + _str(t.id || t.technique_id, "").replace(".", "/"),
-      };
-    }).filter(function (t) { return t.id !== "UNKNOWN"; });
-  }
-
-  /* ── IOC PAYWALL ADAPTER ───────────────────────────────────────────────── */
-  function adaptIocPaywall(raw) {
-    const pw = _obj(raw);
-    return {
-      locked:        _bool(pw.locked, true),
-      count:         _int(pw.count, 0),
-      confidence:    _num(pw.confidence, 0),
-      threat_level:  _str(pw.threat_level, "LOW"),
-      primary_types: _arr(pw.primary_types),
-      upgrade_url:   _str(pw.upgrade_url, "/upgrade.html?plan=pro&utm_source=card-paywall"),
-      message:       _str(pw.message, "IOC dataset locked — upgrade to Pro tier to access."),
-    };
-  }
-
-  /* ── APEX AI PAYWALL ADAPTER ───────────────────────────────────────────── */
-  function adaptApexAiPaywall(raw) {
-    const pw = _obj(raw);
-    return {
-      locked_fields: _arr(pw.locked_fields),
-      upgrade_url:   _str(pw.upgrade_url, "/upgrade.html?plan=pro&utm_source=card-ai-paywall"),
-      message:       _str(pw.message, "Full actor attribution and kill chain locked."),
-      urgency:       _str(pw.urgency, "Active threat — upgrade to unlock complete intelligence."),
-    };
-  }
-
-  /* ── APEX AI ADAPTER ───────────────────────────────────────────────────── */
-  function adaptApexAi(raw) {
-    const ai = _obj(raw);
-    const confidenceTier = normalizeConfidenceTier(_str(ai.threat_confidence_tier, "LOW"));
-    return {
-      soc_priority:            normalizeSocPriority(_str(ai.soc_priority, "P4")),
-      soc_priority_meta:       getSocPriorityMeta(_str(ai.soc_priority, "P4")),
-      threat_level:            normalizeSeverity(_str(ai.threat_level, "LOW")),
-      threat_category:         _str(ai.threat_category, "Threat Intelligence"),
-      predictive_risk:         _num(ai.predictive_risk, 0),
-      ai_confidence:           _int(ai.ai_confidence, 0),
-      threat_confidence_tier:  _str(ai.threat_confidence_tier, "LOW"),
-      threat_confidence_label: _str(ai.threat_confidence_label, "◇ LOW – Limited signals, threat monitoring recommended"),
-      confidence_tier_meta:    confidenceTier,
-      ttp_density:             _num(ai.ttp_density, 0),
-      campaign_id:             _str(ai.campaign_id, "UNCLASSIFIED"),
-      actor_fingerprint:       _str(ai.actor_fingerprint, ""),
-      kill_chain:              _str(ai.kill_chain, "PRO_REQUIRED"),
-      kill_chain_primary:      _str(ai.kill_chain_primary, "PRO_REQUIRED"),
-      ai_summary:              _str(ai.ai_summary, ""),
-      recommended_action:      _str(ai.recommended_action, ""),
-      behavioral_tags:         _arr(ai.behavioral_tags),
-      paywall:                 adaptApexAiPaywall(_obj(ai.paywall)),
-      kill_chain_locked:       _str(ai.kill_chain, "PRO_REQUIRED") === "PRO_REQUIRED",
-    };
-  }
-
-  /* ── APEX ADAPTER ──────────────────────────────────────────────────────── */
-  function adaptApex(raw) {
-    const apex = _obj(raw);
-    return {
-      priority:         normalizeSocPriority(_str(apex.priority, "P4")),
-      threat_level:     normalizeSeverity(_str(apex.threat_level, "LOW")),
-      threat_category:  _str(apex.threat_category, "Threat Intelligence"),
-      predictive_score: _num(apex.predictive_score, 0),
-      campaign_id:      _str(apex.campaign_id, "UNCLASSIFIED"),
-    };
-  }
-
-  /* ── HELPER UTILITIES ──────────────────────────────────────────────────── */
-  function extractHostname(url) {
+  /* ── SOURCE HOST EXTRACTOR ─────────────────────────────────────────────── */
+  function extractHost(url) {
     if (!url) return "";
-    try { return new URL(url).hostname.replace("www.", ""); }
-    catch (e) { return _str(url).replace(/^https?:\/\/(www\.)?/, "").split("/")[0]; }
+    try {
+      const m = String(url).match(/^https?:\/\/([^/?#]+)/i);
+      return m ? m[1].replace(/^www\./, "") : "";
+    } catch (e) { return ""; }
   }
 
-  function formatStixId(stixId) {
-    const s = _str(stixId);
-    if (!s) return "—";
-    const parts = s.split("--");
-    if (parts.length >= 2) return parts[0] + "--" + parts[1].substring(0, 8) + "…";
-    return s.length > 16 ? s.substring(0, 16) + "…" : s;
-  }
-
-  function normalizeValidationStatus(raw) {
-    const s = _str(raw, "unknown").toLowerCase();
-    if (s === "valid")   return { label: "✓ VALID",   color: "#22c55e", class: "valid" };
-    if (s === "invalid") return { label: "✗ INVALID", color: "#ef4444", class: "invalid" };
-    return                      { label: "? UNKNOWN", color: "#6b7280", class: "unknown" };
+  /* ── VALIDATION STATUS ─────────────────────────────────────────────────── */
+  function buildValidationStatus(raw) {
+    const s = _str(raw, "").toLowerCase();
+    if (s === "valid")   return { label: "✓ VALID",    color: "#22c55e", class: "valid" };
+    if (s === "invalid") return { label: "✗ INVALID",  color: "#ef4444", class: "invalid" };
+    return                      { label: "? PENDING",  color: "#f59e0b", class: "pending" };
   }
 
   /* ── MAIN NORMALIZER ───────────────────────────────────────────────────── */
-  function normalizeIntelItem(raw) {
-    if (!raw || typeof raw !== "object") return _buildEmptyIntelItem();
-
-    const sevNorm    = normalizeSeverity(_str(raw.severity));
-    const sevColors  = getSeverityColors(sevNorm);
-    const riskScore  = formatRiskScore(raw.risk_score);
-    const epss       = formatEpssScore(raw.epss_score);
-    const cvss       = formatCvssScore(raw.cvss_score);
-    const ttps       = adaptTtps(_arr(raw.ttps));
-    const mitreTacs  = adaptTtps(_arr(raw.mitre_tactics));
-    const apexAi     = adaptApexAi(_obj(raw.apex_ai));
-    const apex       = adaptApex(_obj(raw.apex));
-    const iocPaywall = adaptIocPaywall(_obj(raw.ioc_paywall));
-    const valStatus  = normalizeValidationStatus(_str(raw.validation_status));
-    const sourceHost = extractHostname(_str(raw.source_url));
-
-    // ── Computed/derived fields ────────────────────────────────────────────
-    const kevPresent      = _bool(raw.kev_present, false);
-    const iocCount        = _int(raw.ioc_count, 0);
-    const ttpCount        = _int(raw.ttp_count, ttps.length);
-    const actionRec       = generateActionRecommendation(sevNorm, apexAi.soc_priority, epss, cvss, kevPresent);
-    const impactCtx       = buildImpactContext(apexAi.threat_category, _str(raw.threat_type, apexAi.threat_category), sevNorm);
-    const freshness       = freshnessIndicator(_str(raw.published_at, raw.timestamp || ""));
-    const aiVerdict       = buildAiVerdict(apexAi.ai_summary, sevNorm, apexAi.soc_priority, apexAi.threat_category, apexAi.ai_confidence);
-    const paywallFeatures = buildPaywallFeatures(iocCount, ttpCount);
-
-    return {
-      /* CORE IDENTITY */
-      id:                  _str(raw.id || raw.stix_id, "unknown--" + Math.random().toString(36).slice(2)),
-      stix_id:             _str(raw.stix_id, ""),
-      stix_id_short:       formatStixId(_str(raw.stix_id, "")),
-      title:               _str(raw.title, "Untitled Intelligence Report"),
-      description:         _str(raw.description, ""),
-      threat_type:         _str(raw.threat_type, "Threat Intelligence"),
-      tags:                _arr(raw.tags),
-
-      /* SEVERITY */
-      severity:            sevNorm,
-      severity_colors:     sevColors,
-
-      /* SCORING */
-      risk_score:          riskScore,
-      confidence:          _num(raw.confidence, 0),
-      confidence_display:  _num(raw.confidence, 0).toFixed(1) + "%",
-      epss_score:          epss,
-      cvss_score:          cvss,
-      has_epss:            epss !== null,
-      has_cvss:            cvss !== null,
-      kev_present:         kevPresent,
-
-      /* ACTION RECOMMENDATION */
-      action_rec:          actionRec,
-
-      /* IMPACT & CONTEXT */
-      impact_context:      impactCtx,
-
-      /* FRESHNESS */
-      freshness:           freshness,
-
-      /* AI VERDICT */
-      ai_verdict:          aiVerdict,
-
-      /* PAYWALL FEATURES */
-      paywall_features:    paywallFeatures,
-
-      /* THREAT INTEL */
-      actor_tag:           _str(raw.actor_tag, "UNKNOWN"),
-      ioc_count:           iocCount,
-      ioc_confidence:      _num(raw.ioc_confidence, 0),
-      ioc_threat_level:    _str(raw.ioc_threat_level, "LOW"),
-      ttps:                ttps,
-      ttp_count:           ttpCount,
-      mitre_tactics:       mitreTacs,
-
-      /* IOC PAYWALL */
-      ioc_paywall:         iocPaywall,
-
-      /* TIMELINE */
-      published_at:        _str(raw.published_at, ""),
-      published_at_fmt:    formatTimestamp(_str(raw.published_at, "")),
-      published_at_rel:    relativeTime(_str(raw.published_at, "")),
-      processed_at:        _str(raw.processed_at, ""),
-      processed_at_fmt:    formatTimestamp(_str(raw.processed_at, "")),
-      processed_at_rel:    relativeTime(_str(raw.processed_at, "")),
-      timestamp:           _str(raw.timestamp, ""),
-      timestamp_fmt:       formatTimestamp(_str(raw.timestamp, "")),
-
-      /* SOURCE */
-      source:              _str(raw.source, "Unknown Source"),
-      source_url:          _str(raw.source_url, "#"),
-      source_host:         sourceHost || _str(raw.source, "Unknown"),
-      report_url:          _str(raw.report_url, "#"),
-
-      // STIX bundle — locked if "stix_bundle" appears in apex_ai.paywall.locked_fields.
-      // When locked: suppress the raw URL (which 404s on free tier), surface upgrade gate.
-      // When unlocked: pass through the real URL for PRO subscribers.
-      stix_bundle_locked:      apexAi.paywall.locked_fields.indexOf("stix_bundle") !== -1,
-      stix_bundle_url:         apexAi.paywall.locked_fields.indexOf("stix_bundle") !== -1
-                                 ? ""   // deliberately empty — renderer shows PRO gate instead
-                                 : _str(raw.stix_bundle, ""),
-      stix_bundle_upgrade_url: _str(
-                                 apexAi.paywall.upgrade_url ||
-                                 (raw.ioc_paywall && raw.ioc_paywall.upgrade_url) ||
-                                 "/upgrade.html?plan=pro&utm_source=stix-bundle-cta",
-                                 "/upgrade.html?plan=pro&utm_source=stix-bundle-cta"
-                               ),
-
-      /* APEX AI */
-      apex_ai:             apexAi,
-
-      /* APEX CORE */
-      apex:                apex,
-
-      /* SYSTEM */
-      validation_status:   valStatus,
-      stix_object_count:   _int(raw.stix_object_count, 0),
-
-      /* COMPUTED FLAGS */
-      is_high_priority:    sevNorm === "CRITICAL" || sevNorm === "HIGH" || apexAi.soc_priority === "P1" || apexAi.soc_priority === "P2",
-      paywall_active:      iocPaywall.locked || apexAi.paywall.locked_fields.length > 0,
-      has_ai_intel:        true,
-      has_ttps:            ttps.length > 0 || mitreTacs.length > 0,
-    };
-  }
-
-  function _buildEmptyIntelItem() {
-    return normalizeIntelItem({
-      id: "error--" + Date.now(), stix_id: "", title: "⚠ Data Parse Error",
-      severity: "LOW", risk_score: 0, confidence: 0, threat_type: "Unknown",
-      actor_tag: "UNKNOWN", ioc_count: 0, ttp_count: 0, ttps: [], mitre_tactics: [],
-      source: "Unknown", validation_status: "invalid", stix_object_count: 0,
-    });
-  }
-
-  /* ── BATCH NORMALIZER ──────────────────────────────────────────────────── */
-  function normalizeApiResponse(apiResponse) {
-    if (!apiResponse || typeof apiResponse !== "object") return _buildEmptyResponse();
-    const preview  = _obj(apiResponse.preview);
-    const rawItems = _arr(preview.items || apiResponse.items || []);
-    const items    = rawItems.map(function (item, idx) {
-      try { return normalizeIntelItem(item); }
-      catch (e) { console.warn("[SentinelApexAdapter] Item " + idx + " failed:", e); return _buildEmptyIntelItem(); }
-    });
-    return {
-      status:           _str(apiResponse.status, "unknown"),
-      gateway:          _str(apiResponse.gateway, "SENTINEL-APEX"),
-      request_id:       _str(apiResponse.request_id, ""),
-      items:            items,
-      total_preview:    _int(preview.total_preview || items.length, items.length),
-      total_in_feed:    _int(preview.total_in_feed, items.length),
-      generated_at:     _str(preview.generated_at, ""),
-      generated_at_fmt: formatTimestamp(_str(preview.generated_at, "")),
-      note:             _str(preview.note, ""),
-      get_api_key_url:  _str(apiResponse.get_api_key, "/upgrade.html"),
-      docs_url:         _str(apiResponse.docs, "/api-docs.html"),
-      cached:           _bool(apiResponse.cached, false),
-      stats:            _computeStats(items),
-    };
-  }
-
-  function _buildEmptyResponse() {
-    return { status: "error", gateway: "SENTINEL-APEX", request_id: "", items: [],
-             total_preview: 0, total_in_feed: 0, generated_at: "", generated_at_fmt: "—",
-             note: "", cached: false, get_api_key_url: "/upgrade.html", docs_url: "/api-docs.html",
-             stats: _computeStats([]) };
-  }
-
-  function _computeStats(items) {
-    const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
-    let totalRisk = 0, totalConf = 0, totalIocs = 0;
-    items.forEach(function (item) {
-      counts[item.severity] = (counts[item.severity] || 0) + 1;
-      totalRisk += item.risk_score.raw;
-      totalConf += item.confidence;
-      totalIocs += item.ioc_count;
-    });
-    const n = items.length || 1;
-    return {
-      by_severity:    counts,
-      total:          items.length,
-      avg_risk:       (totalRisk / n).toFixed(1),
-      avg_confidence: (totalConf / n).toFixed(1),
-      total_iocs:     totalIocs,
-      high_priority:  items.filter(function (i) { return i.is_high_priority; }).length,
-      paywall_items:  items.filter(function (i) { return i.paywall_active; }).length,
-    };
-  }
-
-  /* ── SAFE FETCH ─────────────────────────────────────────────────────────── */
-  async function safeFetch(url, options) {
-    const opts = options || {};
-    const maxRetry  = opts.maxRetry  !== undefined ? opts.maxRetry  : 2;
-    const timeoutMs = opts.timeoutMs !== undefined ? opts.timeoutMs : 8000;
-    const baseMs    = opts.baseMs    !== undefined ? opts.baseMs    : 1000;
-    let lastErr;
-    for (let attempt = 0; attempt <= maxRetry; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(function () { controller.abort(); }, timeoutMs);
-        const resp = await fetch(url + (url.includes("?") ? "&" : "?") + "_t=" + Date.now(), {
-          cache: "no-store", signal: controller.signal,
-        });
-        clearTimeout(timer);
-        if (!resp.ok) throw new Error("HTTP " + resp.status);
-        const json = await resp.json();
-        return { data: json, error: null, cached: false };
-      } catch (err) {
-        lastErr = err;
-        if (attempt < maxRetry) await new Promise(function (r) { setTimeout(r, baseMs * Math.pow(2, attempt)); });
-      }
+  function normalizeIntelItem(raw, idx) {
+    if (!raw || typeof raw !== "object") {
+      return {
+        id: "PARSE_ERROR_" + (idx || 0), stix_id: "", stix_id_short: "",
+        title: "⚠ Data Parse Error", description: "", threat_type: "", tags: [],
+        severity: "LOW", severity_colors: getSeverityColors("LOW"),
+        risk_score: buildRiskScore(0, getSeverityColors("LOW")),
+        confidence: 0, confidence_display: "0%",
+        epss_score: null, cvss_score: null, has_epss: false, has_cvss: false, kev_present: false,
+        action_rec: generateActionRecommendation("LOW", "P4", null, null, false),
+        impact_context: buildImpactContext("", "", "LOW"),
+        freshness: freshnessIndicator(null),
+        ai_verdict: buildAiVerdict("", "LOW", "P4", "", 0),
+        paywall_features: buildPaywallFeatures(0, 0),
+        business_impact: buildBusinessImpact("", "", "LOW"),
+        actor_tag: "", ioc_count: 0, ioc_confidence: 0, ioc_threat_level: "",
+        ttps: [], ttp_count: 0, mitre_tactics: [],
+        ioc_paywall: { locked: true, count: 0, confidence: 0, threat_level: "", upgrade_url: "", message: "" },
+        published_at: "", published_at_fmt: "—", published_at_rel: "—",
+        processed_at: "", processed_at_fmt: "—", processed_at_rel: "—",
+        timestamp: "", timestamp_fmt: "—",
+        source: "", source_url: "", source_host: "", report_url: "",
+        stix_bundle_url: "", stix_bundle_locked: false, stix_bundle_upgrade_url: "",
+        apex_ai: {
+          soc_priority: "P4", soc_priority_meta: getSocPriorityMeta("P4"),
+          threat_level: "LOW", threat_category: "", predictive_risk: 0, ai_confidence: 0,
+          threat_confidence_tier: "LOW", threat_confidence_label: "", confidence_tier_meta: normalizeConfidence(0),
+          ttp_density: 0, campaign_id: "", actor_fingerprint: "", kill_chain: "", kill_chain_primary: "",
+          ai_summary: "", recommended_action: "", behavioral_tags: [],
+          paywall: { locked_fields: [], upgrade_url: "", message: "", urgency: "" },
+          kill_chain_locked: false,
+        },
+        apex: {}, validation_status: buildValidationStatus(""), stix_object_count: 0,
+        is_high_priority: false, paywall_active: false, has_ai_intel: false, has_ttps: false,
+      };
     }
-    try {
-      const cacheKey = "sapx_feed_" + btoa(url).substring(0, 32);
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) return { data: JSON.parse(cached), error: null, cached: true };
-    } catch (e) { /* non-fatal */ }
-    return { data: null, error: lastErr, cached: false };
+
+    const stixId    = _str(raw.stix_id, "intel--" + _str(raw.id, "unknown"));
+    const stixShort = stixId.substring(0, 16);
+    const sev       = normalizeSeverity(raw.severity);
+    const sevColors = getSeverityColors(sev);
+    const conf      = _num(raw.confidence, 0);
+    const confTier  = normalizeConfidence(conf);
+
+    // Apex AI block
+    const aa = _obj(raw.apex_ai);
+    const socPri    = normalizeSocPriority(_str(aa.soc_priority, "P4"));
+    const socMeta   = getSocPriorityMeta(socPri);
+    const aiConf    = _int(aa.ai_confidence, Math.round(conf));
+    const aiCat     = _str(aa.threat_category, _str(raw.threat_type, ""));
+    const predRisk  = _nullableNum(aa.predictive_risk) !== null ? _num(aa.predictive_risk, 0) : 0;
+    const killChain = _str(aa.kill_chain, "");
+    const killLocked = killChain === "PRO_REQUIRED" || killChain === "LOCKED";
+
+    // Paywall block
+    const pw      = _obj(aa.paywall);
+    const lockedFields = _arr(pw.locked_fields);
+    const upgradeUrl   = _str(pw.upgrade_url, "/upgrade.html?plan=pro");
+
+    // STIX Bundle locking
+    const stixBundleRaw   = _str(raw.stix_bundle, "");
+    const stixBundleLocked = lockedFields.includes("stix_bundle");
+    const stixBundleUrl    = stixBundleLocked ? "" : stixBundleRaw;
+    const stixBundleUpgradeUrl = stixBundleLocked ? upgradeUrl : "";
+
+    // IOC paywall
+    const iocPw = raw.ioc_paywall && typeof raw.ioc_paywall === "object"
+      ? {
+          locked:       _bool(raw.ioc_paywall.locked, true),
+          count:        _int(raw.ioc_paywall.count, 0),
+          confidence:   _num(raw.ioc_paywall.confidence, 0),
+          threat_level: _str(raw.ioc_paywall.threat_level, ""),
+          upgrade_url:  _str(raw.ioc_paywall.upgrade_url, upgradeUrl),
+          message:      _str(raw.ioc_paywall.message, ""),
+        }
+      : { locked: true, count: 0, confidence: 0, threat_level: "", upgrade_url: upgradeUrl, message: "" };
+
+    // EPSS / CVSS — read from raw root OR from apex object
+    const apexObj  = _obj(raw.apex);
+    const epssRaw  = raw.epss_score !== undefined ? raw.epss_score : _nullableNum(apexObj.epss);
+    const cvssRaw  = raw.cvss_score !== undefined ? raw.cvss_score : _nullableNum(apexObj.cvss3);
+    const epssObj  = buildEpssScore(epssRaw);
+    const cvssObj  = buildCvssScore(cvssRaw);
+
+    const kev      = _bool(raw.kev_present, false);
+    const actionRec = generateActionRecommendation(sev, socPri, epssObj, cvssObj, kev);
+
+    // TTPs
+    const rawTtps = _arr(raw.ttps);
+    const ttps = rawTtps.map(function(t) {
+      if (!t || typeof t !== "object") return null;
+      const tid = _str(t.id, "");
+      return {
+        id:             tid,
+        name:           _str(t.name, ""),
+        tactic:         _str(t.tactic, ""),
+        justification:  _str(t.justification, ""),
+        url:            tid ? "https://attack.mitre.org/techniques/" + tid + "/" : "",
+      };
+    }).filter(Boolean);
+
+    // Paywall active if any fields locked
+    const paywallActive = lockedFields.length > 0 || iocPw.locked;
+
+    // Business Impact (v145)
+    const bi = buildBusinessImpact(aiCat, _str(raw.threat_type, ""), sev);
+
+    // AI Verdict
+    const aiVerdict = buildAiVerdict(
+      _str(aa.ai_summary, ""),
+      sev, socPri, aiCat, aiConf
+    );
+
+    return {
+      /* Identity */
+      id:               _str(raw.id,    "intel-" + (idx || 0)),
+      stix_id:          stixId,
+      stix_id_short:    stixShort,
+      title:            _str(raw.title, "Untitled Intelligence Report"),
+      description:      _str(raw.description, ""),
+      threat_type:      _str(raw.threat_type, aiCat),
+      tags:             _arr(raw.tags),
+
+      /* Severity */
+      severity:         sev,
+      severity_colors:  sevColors,
+
+      /* Risk score */
+      risk_score:       buildRiskScore(_num(raw.risk_score, _num(apexObj.predictive_score, 0)), sevColors),
+
+      /* Confidence */
+      confidence:        conf,
+      confidence_display: conf.toFixed(1) + "%",
+
+      /* EPSS / CVSS */
+      epss_score:  epssObj,
+      cvss_score:  cvssObj,
+      has_epss:    epssObj !== null,
+      has_cvss:    cvssObj !== null,
+      kev_present: kev,
+
+      /* Action recommendation */
+      action_rec: actionRec,
+
+      /* Impact context */
+      impact_context: buildImpactContext(aiCat, _str(raw.threat_type, ""), sev),
+
+      /* Freshness */
+      freshness: freshnessIndicator(raw.published_at || raw.timestamp),
+
+      /* AI Verdict */
+      ai_verdict: aiVerdict,
+
+      /* Paywall features */
+      paywall_features: buildPaywallFeatures(_int(raw.ioc_count, 0), _int(raw.ttp_count, 0)),
+
+      /* BUSINESS IMPACT ENGINE (v145) */
+      business_impact: bi,
+
+      /* Actor / IOC / TTP */
+      actor_tag:       _str(raw.actor_tag, ""),
+      ioc_count:       _int(raw.ioc_count, 0),
+      ioc_confidence:  _num(raw.ioc_confidence, 0),
+      ioc_threat_level: _str(raw.ioc_threat_level, ""),
+      ttps:            ttps,
+      ttp_count:       _int(raw.ttp_count, ttps.length),
+      mitre_tactics:   _arr(raw.mitre_tactics),
+
+      /* IOC Paywall */
+      ioc_paywall: iocPw,
+
+      /* Timeline */
+      published_at:     _str(raw.published_at, ""),
+      published_at_fmt: formatTimestamp(raw.published_at),
+      published_at_rel: relativeTime(raw.published_at),
+      processed_at:     _str(raw.processed_at, ""),
+      processed_at_fmt: formatTimestamp(raw.processed_at),
+      processed_at_rel: relativeTime(raw.processed_at),
+      timestamp:        _str(raw.timestamp, ""),
+      timestamp_fmt:    formatTimestamp(raw.timestamp),
+
+      /* Source */
+      source:       _str(raw.source, ""),
+      source_url:   _str(raw.source_url, ""),
+      source_host:  extractHost(raw.source_url) || _str(raw.source, ""),
+      report_url:   _str(raw.report_url, ""),
+
+      /* STIX Bundle */
+      stix_bundle_url:         stixBundleUrl,
+      stix_bundle_locked:      stixBundleLocked,
+      stix_bundle_upgrade_url: stixBundleUpgradeUrl,
+
+      /* Apex AI (full nested object) */
+      apex_ai: {
+        soc_priority:           socPri,
+        soc_priority_meta:      socMeta,
+        threat_level:           _str(aa.threat_level, ""),
+        threat_category:        aiCat,
+        predictive_risk:        predRisk,
+        ai_confidence:          aiConf,
+        threat_confidence_tier:   _str(aa.threat_confidence_tier, confTier.tier),
+        threat_confidence_label:  _str(aa.threat_confidence_label, confTier.label),
+        confidence_tier_meta:     confTier,
+        ttp_density:             _num(aa.ttp_density, 0),
+        campaign_id:             _str(aa.campaign_id, ""),
+        actor_fingerprint:       _str(aa.actor_fingerprint, ""),
+        kill_chain:              killChain,
+        kill_chain_primary:      _str(aa.kill_chain_primary, ""),
+        ai_summary:              _str(aa.ai_summary, ""),
+        recommended_action:      _str(aa.recommended_action, ""),
+        behavioral_tags:         _arr(aa.behavioral_tags),
+        paywall: {
+          locked_fields: lockedFields,
+          upgrade_url:   upgradeUrl,
+          message:       _str(pw.message, ""),
+          urgency:       _str(pw.urgency, ""),
+        },
+        kill_chain_locked: killLocked,
+      },
+
+      /* Legacy apex passthrough */
+      apex: apexObj,
+
+      /* Validation */
+      validation_status: buildValidationStatus(raw.validation_status),
+      stix_object_count: _int(raw.stix_object_count, 0),
+
+      /* Computed flags */
+      is_high_priority: (sev === "CRITICAL" || sev === "HIGH") && (socPri === "P1" || socPri === "P2"),
+      paywall_active:   paywallActive,
+      has_ai_intel:     aiConf > 0 || _str(aa.ai_summary, "").length > 5,
+      has_ttps:         ttps.length > 0,
+    };
   }
 
-  async function fetchAndNormalize(url, options) {
-    const result = await safeFetch(url, options);
-    if (!result.data) return { normalized: _buildEmptyResponse(), raw: null, error: result.error, cached: false };
-    try {
-      const cacheKey = "sapx_feed_" + btoa(url).substring(0, 32);
-      sessionStorage.setItem(cacheKey, JSON.stringify(result.data));
-    } catch (e) { /* non-fatal */ }
-    return { normalized: normalizeApiResponse(result.data), raw: result.data, error: null, cached: result.cached };
+  /* ── BATCH RESPONSE NORMALIZER ─────────────────────────────────────────── */
+  function normalizeApexResponse(data) {
+    if (!data || typeof data !== "object") {
+      return { status: "error", items: [], total_in_feed: 0, generated_at: "", stats: { total: 0, by_severity: {}, total_iocs: 0, high_priority: 0 } };
+    }
+
+    const preview = _obj(data.preview);
+    const rawItems = _arr(preview.items);
+    const items = rawItems.map(function(item, i) { return normalizeIntelItem(item, i); });
+
+    // Stats
+    const bySev = {};
+    let totalIocs = 0;
+    let highPri   = 0;
+    items.forEach(function(item) {
+      bySev[item.severity] = (bySev[item.severity] || 0) + 1;
+      totalIocs += item.ioc_count;
+      if (item.is_high_priority) highPri++;
+    });
+
+    return {
+      status:       _str(data.status, "ok"),
+      gateway:      _str(data.gateway, ""),
+      request_id:   _str(data.request_id, ""),
+      items:        items,
+      total_in_feed: _int(preview.total_in_feed, items.length),
+      total_preview: _int(preview.total_preview, items.length),
+      generated_at: _str(preview.generated_at, ""),
+      stats: {
+        total:       items.length,
+        by_severity: bySev,
+        total_iocs:  totalIocs,
+        high_priority: highPri,
+      },
+    };
   }
 
   /* ── PUBLIC API ─────────────────────────────────────────────────────────── */
   return {
-    normalizeIntelItem:       normalizeIntelItem,
-    normalizeApiResponse:     normalizeApiResponse,
-    safeFetch:                safeFetch,
-    fetchAndNormalize:        fetchAndNormalize,
-    normalizeSeverity:        normalizeSeverity,
-    getSeverityColors:        getSeverityColors,
-    getSocPriorityMeta:       getSocPriorityMeta,
-    normalizeSocPriority:     normalizeSocPriority,
+    VERSION: "145.0.0",
+
+    /* Core normalizers */
+    normalizeIntelItem:    normalizeIntelItem,
+    normalizeApiResponse:  normalizeApexResponse,
+
+    /* Individual builders (exposed for testing) */
+    buildAiVerdict:              buildAiVerdict,
+    buildBusinessImpact:         buildBusinessImpact,
+    buildImpactContext:          buildImpactContext,
+    buildPaywallFeatures:        buildPaywallFeatures,
     generateActionRecommendation: generateActionRecommendation,
-    buildImpactContext:       buildImpactContext,
-    freshnessIndicator:       freshnessIndicator,
-    buildAiVerdict:           buildAiVerdict,
-    buildPaywallFeatures:     buildPaywallFeatures,
-    formatTimestamp:          formatTimestamp,
-    relativeTime:             relativeTime,
-    formatRiskScore:          formatRiskScore,
-    formatEpssScore:          formatEpssScore,
-    formatCvssScore:          formatCvssScore,
-    normalizeConfidenceTier:  normalizeConfidenceTier,
-    extractHostname:          extractHostname,
-    formatStixId:             formatStixId,
-    VERSION: "144.0.0",
-    BUILD:   "SENTINEL-APEX-ADAPTER-ENTERPRISE",
+    freshnessIndicator:          freshnessIndicator,
+    normalizeSeverity:           normalizeSeverity,
+    getSeverityColors:           getSeverityColors,
+    normalizeSocPriority:        normalizeSocPriority,
+    getSocPriorityMeta:          getSocPriorityMeta,
+    normalizeConfidence:         normalizeConfidence,
+    formatTimestamp:             formatTimestamp,
+    relativeTime:                relativeTime,
   };
 
-}); // end factory
+});  };
 
-if (typeof window !== "undefined") {
-  window.dispatchEvent(new CustomEvent("SentinelApexAdapterReady", { detail: { version: "144.0.0" } }));
-  console.info("[SENTINEL APEX] Adapter v144.0.0 loaded ✓");
-}
+  function normalizeConfidence(val) {
+    const n = _num(val, 0);
+    if (n >= 90) return { tier: "CRITICAL", label: CONFIDENCE_TIERS.CRITICAL.label, color: CONFIDENCE_TIERS.CRITICAL.color, glow: CONFIDENCE_TIERS.CRITICAL.glow };
+    if (n >= 70) return { tier: "HIGH",     label: CONFIDENCE_TIERS.HIGH.label,     color: CONFIDENCE_TIERS.HIGH.color,     glow: CONFIDENCE_TIERS.HIGH.glow     };
+    if (n >= 40) return { tier: "MODERATE", label: CONFIDENCE_TIERS.MODERATE.label, color: CONFIDENCE_TIERS.MODERATE.color, glow: CONFIDENCE_TIERS.MODERATE.glow };
+    return               { tier: "LOW",     label: CONFIDENCE_TIERS.LOW.label,      color: CONFIDENCE_TIERS.LOW.color,      glow: CONFIDENCE_TIERS.LOW.glow      };
+  }
+
+  /* ── EPSS HELPERS ──────────────────────────────────────────────────────── */
+  function buildEpssScore(raw) {
+    if (raw === null || raw === undefined) return null;
+    const n = parseFloat(raw);
+    if (isNaN(n)) return null;
+    const pct = n * 100;
+    let risk = "LOW";
+    if (pct >= 10) risk = "CRITICAL";
+    else if (pct >= 1) risk = "HIGH";
+    else if (pct >= 0.1) risk = "MODERATE";
+    return {
+      raw:     n,
+      display: pct.toFixed(2) + "%",
+      risk:    risk + " EXPLOITATION PROBABILITY",
+      color:   pct >= 10 ? "#ff1a1a" : pct >= 1 ? "#ff6600" : pct >= 0.1 ? "#f59e0b" : "#00d4ff",
+    };
+  }
+
+  function buildCvssScore(raw) {
+    if (raw === null || raw === undefined) return null;
+    const n = parseFloat(raw);
+    if (isNaN(n)) return null;
+    let rating = "INFORMATIONAL";
+    let color  = "#6b7280";
+    if (n >= 9.0) { rating = "CRITICAL"; color = "#ff1a1a"; }
+    else if (n >= 7.0) { rating = "HIGH"; color = "#ff6600"; }
+    else if (n >= 4.0) { rating = "MEDIUM"; color = "#f59e0b"; }
+    else if (n >= 0.1) { rating = "LOW"; color = "#00d4ff"; }
+    return { raw: n, display: n.toFixed(1), rating, color };
+  }
+
+  /* ── RISK SCORE HELPERS ────────────────────────────────────────────────── */
+  function buildRiskScore(raw, severityColors) {
+    const n = _num(raw, 0);
+    const pct = Math.round(Math.min(n / 10, 1) * 100);
+    return {
+      raw:     n,
+      display: n.toFixed(1),
+      percent: pct,
+      color:   severityColors ? severityColors.primary : "#6b7280",
+    };
+  }
+
+  /* ── SOURCE HOST EXTRACTOR ─────────────────────────────────────────────── */
+  function extractHost(url) {
+    if (!url) return "";
+    try {
+      const m = String(url).match(/^https?:\/\/([^/?#]+)/i);
+      return m ? m[1].replace(/^www\./, "") : "";
+    } catch (e) { return ""; }
+  }
+
+  /* ── VALIDATION STATUS ─────────────────────────────────────────────────── */
+  function buildValidationStatus(raw) {
+    const s = _str(raw, "").toLowerCase();
+    if (s === "valid")   return { label: "✓ VALID",   color: "#22c55e", class: "valid" };
+    if (s === "invalid") return { label: "✗ INVALID", color: "#ef4444", class: "invalid" };
+    return                      { label: "? PENDING", color: "#f59e0b", class: "pending" };
+  }
+
+  /* ── MAIN NORMALIZER ───────────────────────────────────────────────────── */
+  function normalizeIntelItem(raw, idx) {
+    if (!raw || typeof raw !== "object") {
+      return {
+        id: "PARSE_ERROR_" + (idx || 0), stix_id: "", stix_id_short: "",
+        title: "⚠ Data Parse Error", description: "", threat_type: "", tags: [],
+        severity: "LOW", severity_colors: getSeverityColors("LOW"),
+        risk_score: buildRiskScore(0, getSeverityColors("LOW")),
+        confidence: 0, confidence_display: "0%",
+        epss_score: null, cvss_score: null, has_epss: false, has_cvss: false, kev_present: false,
+        action_rec: generateActionRecommendation("LOW", "P4", null, null, false),
+        impact_context: buildImpactContext("", "", "LOW"),
+        freshness: freshnessIndicator(null),
+        ai_verdict: buildAiVerdict("", "LOW", "P4", "", 0),
+        paywall_features: buildPaywallFeatures(0, 0),
+        business_impact: buildBusinessImpact("", "", "LOW"),
+        actor_tag: "", ioc_count: 0, ioc_confidence: 0, ioc_threat_level: "",
+        ttps: [], ttp_count: 0, mitre_tactics: [],
+        ioc_paywall: { locked: true, count: 0, confidence: 0, threat_level: "", upgrade_url: "", message: "" },
+        published_at: "", published_at_fmt: "—", published_at_rel: "—",
+        processed_at: "", processed_at_fmt: "—", processed_at_rel: "—",
+        timestamp: "", timestamp_fmt: "—",
+        source: "", source_url: "", source_host: "", report_url: "",
+        stix_bundle_url: "", stix_bundle_locked: false, stix_bundle_upgrade_url: "",
+        apex_ai: {
+          soc_priority: "P4", soc_priority_meta: getSocPriorityMeta("P4"),
+          threat_level: "LOW", threat_category: "", predictive_risk: 0, ai_confidence: 0,
+          threat_confidence_tier: "LOW", threat_confidence_label: "", confidence_tier_meta: normalizeConfidence(0),
+          ttp_density: 0, campaign_id: "", actor_fingerprint: "", kill_chain: "", kill_chain_primary: "",
+          ai_summary: "", recommended_action: "", behavioral_tags: [],
+          paywall: { locked_fields: [], upgrade_url: "", message: "", urgency: "" },
+          kill_chain_locked: false,
+        },
+        apex: {}, validation_status: buildValidationStatus(""), stix_object_count: 0,
+        is_high_priority: false, paywall_active: false, has_ai_intel: false, has_ttps: false,
+      };
+    }
+
+    const stixId    = _str(raw.stix_id, "intel--" + _str(raw.id, "unknown"));
+    const stixShort = stixId.substring(0, 16);
+    const sev       = normalizeSeverity(raw.severity);
+    const sevColors = getSeverityColors(sev);
+    const conf      = _num(raw.confidence, 0);
+    const confTier  = normalizeConfidence(conf);
+
+    /* Apex AI block */
+    const aa        = _obj(raw.apex_ai);
+    const socPri    = normalizeSocPriority(_str(aa.soc_priority, "P4"));
+    const socMeta   = getSocPriorityMeta(socPri);
+    const aiConf    = _int(aa.ai_confidence, Math.round(conf));
+    const aiCat     = _str(aa.threat_category, _str(raw.threat_type, ""));
+    const predRisk  = _nullableNum(aa.predictive_risk) !== null ? _num(aa.predictive_risk, 0) : 0;
+    const killChain = _str(aa.kill_chain, "");
+    const killLocked = killChain === "PRO_REQUIRED" || killChain === "LOCKED";
+
+    /* Paywall block */
+    const pw           = _obj(aa.paywall);
+    const lockedFields = _arr(pw.locked_fields);
+    const upgradeUrl   = _str(pw.upgrade_url, "/upgrade.html?plan=pro");
+
+    /* STIX Bundle locking */
+    const stixBundleRaw        = _str(raw.stix_bundle, "");
+    const stixBundleLocked     = lockedFields.includes("stix_bundle");
+    const stixBundleUrl        = stixBundleLocked ? "" : stixBundleRaw;
+    const stixBundleUpgradeUrl = stixBundleLocked ? upgradeUrl : "";
+
+    /* IOC paywall */
+    const iocPw = raw.ioc_paywall && typeof raw.ioc_paywall === "object"
+      ? {
+          locked:       _bool(raw.ioc_paywall.locked, true),
+          count:        _int(raw.ioc_paywall.count, 0),
+          confidence:   _num(raw.ioc_paywall.confidence, 0),
+          threat_level: _str(raw.ioc_paywall.threat_level, ""),
+          upgrade_url:  _str(raw.ioc_paywall.upgrade_url, upgradeUrl),
+          message:      _str(raw.ioc_paywall.message, ""),
+        }
+      : { locked: true, count: 0, confidence: 0, threat_level: "", upgrade_url: upgradeUrl, message: "" };
+
+    /* EPSS / CVSS */
+    const apexObj = _obj(raw.apex);
+    const epssRaw = raw.epss_score !== undefined ? raw.epss_score : _nullableNum(apexObj.epss);
+    const cvssRaw = raw.cvss_score !== undefined ? raw.cvss_score : _nullableNum(apexObj.cvss3);
+    const epssObj = buildEpssScore(epssRaw);
+    const cvssObj = buildCvssScore(cvssRaw);
+    const kev     = _bool(raw.kev_present, false);
+    const actionRec = generateActionRecommendation(sev, socPri, epssObj, cvssObj, kev);
+
+    /* TTPs */
+    const rawTtps = _arr(raw.ttps);
+    const ttps = rawTtps.map(function(t) {
+      if (!t || typeof t !== "object") return null;
+      const tid = _str(t.id, "");
+      return {
+        id:            tid,
+        name:          _str(t.name, ""),
+        tactic:        _str(t.tactic, ""),
+        justification: _str(t.justification, ""),
+        url:           tid ? "https://attack.mitre.org/techniques/" + tid + "/" : "",
+      };
+    }).filter(Boolean);
+
+    const paywallActive = lockedFields.length > 0 || iocPw.locked;
+
+    /* Business Impact (v145) */
+    const bi = buildBusinessImpact(aiCat, _str(raw.threat_type, ""), sev);
+
+    /* AI Verdict */
+    const aiVerdict = buildAiVerdict(_str(aa.ai_summary, ""), sev, socPri, aiCat, aiConf);
+
+    return {
+      /* Identity */
+      id:               _str(raw.id, "intel-" + (idx || 0)),
+      stix_id:          stixId,
+      stix_id_short:    stixShort,
+      title:            _str(raw.title, "Untitled Intelligence Report"),
+      description:      _str(raw.description, ""),
+      threat_type:      _str(raw.threat_type, aiCat),
+      tags:             _arr(raw.tags),
+
+      /* Severity */
+      severity:         sev,
+      severity_colors:  sevColors,
+
+      /* Risk score */
+      risk_score: buildRiskScore(_num(raw.risk_score, _num(apexObj.predictive_score, 0)), sevColors),
+
+      /* Confidence */
+      confidence:         conf,
+      confidence_display: conf.toFixed(1) + "%",
+
+      /* EPSS / CVSS */
+      epss_score:  epssObj,
+      cvss_score:  cvssObj,
+      has_epss:    epssObj !== null,
+      has_cvss:    cvssObj !== null,
+      kev_present: kev,
+
+      /* Action recommendation */
+      action_rec: actionRec,
+
+      /* Impact context */
+      impact_context: buildImpactContext(aiCat, _str(raw.threat_type, ""), sev),
+
+      /* Freshness */
+      freshness: freshnessIndicator(raw.published_at || raw.timestamp),
+
+      /* AI Verdict */
+      ai_verdict: aiVerdict,
+
+      /* Paywall features */
+      paywall_features: buildPaywallFeatures(_int(raw.ioc_count, 0), _int(raw.ttp_count, 0)),
+
+      /* BUSINESS IMPACT ENGINE (v145) */
+      business_impact: bi,
+
+      /* Actor / IOC / TTP */
+      actor_tag:        _str(raw.actor_tag, ""),
+      ioc_count:        _int(raw.ioc_count, 0),
+      ioc_confidence:   _num(raw.ioc_confidence, 0),
+      ioc_threat_level: _str(raw.ioc_threat_level, ""),
+      ttps:             ttps,
+      ttp_count:        _int(raw.ttp_count, ttps.length),
+      mitre_tactics:    _arr(raw.mitre_tactics),
+
+      /* IOC Paywall */
+      ioc_paywall: iocPw,
+
+      /* Timeline */
+      published_at:     _str(raw.published_at, ""),
+      published_at_fmt: formatTimestamp(raw.published_at),
+      published_at_rel: relativeTime(raw.published_at),
+      processed_at:     _str(raw.processed_at, ""),
+      processed_at_fmt: formatTimestamp(raw.processed_at),
+      processed_at_rel: relativeTime(raw.processed_at),
+      timestamp:        _str(raw.timestamp, ""),
+      timestamp_fmt:    formatTimestamp(raw.timestamp),
+
+      /* Source */
+      source:      _str(raw.source, ""),
+      source_url:  _str(raw.source_url, ""),
+      source_host: extractHost(raw.source_url) || _str(raw.source, ""),
+      report_url:  _str(raw.report_url, ""),
+
+      /* STIX Bundle */
+      stix_bundle_url:         stixBundleUrl,
+      stix_bundle_locked:      stixBundleLocked,
+      stix_bundle_upgrade_url: stixBundleUpgradeUrl,
+
+      /* Apex AI nested object */
+      apex_ai: {
+        soc_priority:            socPri,
+        soc_priority_meta:       socMeta,
+        threat_level:            _str(aa.threat_level, ""),
+        threat_category:         aiCat,
+        predictive_risk:         predRisk,
+        ai_confidence:           aiConf,
+        threat_confidence_tier:  _str(aa.threat_confidence_tier, confTier.tier),
+        threat_confidence_label: _str(aa.threat_confidence_label, confTier.label),
+        confidence_tier_meta:    confTier,
+        ttp_density:             _num(aa.ttp_density, 0),
+        campaign_id:             _str(aa.campaign_id, ""),
+        actor_fingerprint:       _str(aa.actor_fingerprint, ""),
+        kill_chain:              killChain,
+        kill_chain_primary:      _str(aa.kill_chain_primary, ""),
+        ai_summary:              _str(aa.ai_summary, ""),
+        recommended_action:      _str(aa.recommended_action, ""),
+        behavioral_tags:         _arr(aa.behavioral_tags),
+        paywall: {
+          locked_fields: lockedFields,
+          upgrade_url:   upgradeUrl,
+          message:       _str(pw.message, ""),
+          urgency:       _str(pw.urgency, ""),
+        },
+        kill_chain_locked: killLocked,
+      },
+
+      /* Legacy apex passthrough */
+      apex: apexObj,
+
+      /* Validation */
+      validation_status: buildValidationStatus(raw.validation_status),
+      stix_object_count: _int(raw.stix_object_count, 0),
+
+      /* Computed flags */
+      is_high_priority: (sev === "CRITICAL" || sev === "HIGH") && (socPri === "P1" || socPri === "P2"),
+      paywall_active:   paywallActive,
+      has_ai_intel:     aiConf > 0 || _str(aa.ai_summary, "").length > 5,
+      has_ttps:         ttps.length > 0,
+    };
+  }
+
+  /* ── BATCH RESPONSE NORMALIZER ─────────────────────────────────────────── */
+  function normalizeApexResponse(data) {
+    if (!data || typeof data !== "object") {
+      return { status: "error", items: [], total_in_feed: 0, generated_at: "", stats: { total: 0, by_severity: {}, total_iocs: 0, high_priority: 0 } };
+    }
+    const preview  = _obj(data.preview);
+    const rawItems = _arr(preview.items);
+    const items    = rawItems.map(function(item, i) { return normalizeIntelItem(item, i); });
+    const bySev = {};
+    let totalIocs = 0;
+    let highPri   = 0;
+    items.forEach(function(item) {
+      bySev[item.severity] = (bySev[item.severity] || 0) + 1;
+      totalIocs += item.ioc_count;
+      if (item.is_high_priority) highPri++;
+    });
+    return {
+      status:        _str(data.status, "ok"),
+      gateway:       _str(data.gateway, ""),
+      request_id:    _str(data.request_id, ""),
+      items:         items,
+      total_in_feed: _int(preview.total_in_feed, items.length),
+      total_preview: _int(preview.total_preview, items.length),
+      generated_at:  _str(preview.generated_at, ""),
+      stats: { total: items.length, by_severity: bySev, total_iocs: totalIocs, high_priority: highPri },
+    };
+  }
+
+  /* ── PUBLIC API ─────────────────────────────────────────────────────────── */
+  return {
+    VERSION: "145.0.0",
+    normalizeIntelItem:           normalizeIntelItem,
+    normalizeApiResponse:         normalizeApexResponse,
+    buildAiVerdict:               buildAiVerdict,
+    buildBusinessImpact:          buildBusinessImpact,
+    buildImpactContext:           buildImpactContext,
+    buildPaywallFeatures:         buildPaywallFeatures,
+    generateActionRecommendation: generateActionRecommendation,
+    freshnessIndicator:           freshnessIndicator,
+    normalizeSeverity:            normalizeSeverity,
+    getSeverityColors:            getSeverityColors,
+    normalizeSocPriority:         normalizeSocPriority,
+    getSocPriorityMeta:           getSocPriorityMeta,
+    normalizeConfidence:          normalizeConfidence,
+    formatTimestamp:              formatTimestamp,
+    relativeTime:                 relativeTime,
+  };
+
+});
