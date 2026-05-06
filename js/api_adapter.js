@@ -462,7 +462,10 @@
     const stixBundleRaw = _str(raw.stix_bundle, "");
     const stixBundleLocked     = lockedFields.includes("stix_bundle");
     const stixBundleUrl        = stixBundleLocked ? "" : stixBundleRaw;
-    const stixBundleUpgradeUrl = stixBundleLocked ? upgradeUrl : "";
+    const stixBundleUpgradeUrl = stixBundleLocked
+      ? upgradeUrl + "&source=stix-bundle&severity=" + encodeURIComponent(sev)
+        + "&utm_source=card-stix-gate&utm_medium=card&utm_campaign=stix-lock"
+      : "";
     const iocPw = (raw.ioc_paywall && typeof raw.ioc_paywall === "object")
       ? { locked: _bool(raw.ioc_paywall.locked,true), count:_int(raw.ioc_paywall.count,0),
           confidence:_num(raw.ioc_paywall.confidence,0), threat_level:_str(raw.ioc_paywall.threat_level,""),
