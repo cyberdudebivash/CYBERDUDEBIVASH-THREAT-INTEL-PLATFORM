@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- *  SENTINEL APEX — ENTERPRISE CARD RENDERER v144.0.0
+ *  SENTINEL APEX — ENTERPRISE CARD RENDERER v145.0.0
  *  Decision-First SOC Intelligence Cards + Conversion-Optimized Revenue Units
  *  Author: CYBERDUDEBIVASH SENTINEL APEX Platform
  *
@@ -245,7 +245,29 @@
    * ═══════════════════════════════════════════════════════════════════════════ */
   function renderImpactContext(item) {
     const ctx = item.impact_context;
+    const bi  = item.business_impact || {};
     const sc  = item.severity_colors;
+
+    // Business impact rows — only render if we have the field
+    const biRows = [
+      { label: "💰 FINANCIAL RISK",    val: bi.financial_risk },
+      { label: "⚙️ OPERATIONAL",       val: bi.operational_impact },
+      { label: "📋 COMPLIANCE",        val: bi.compliance_exposure },
+      { label: "👥 CUSTOMER IMPACT",   val: bi.customer_impact },
+      { label: "🏗 INFRASTRUCTURE",    val: bi.infrastructure_risk },
+    ].filter(function (r) { return r.val; });
+
+    const biHtml = biRows.length > 0
+      ? `<div class="sapx-bi-section">
+           <div class="sapx-bi-header">📊 BUSINESS IMPACT ASSESSMENT</div>
+           ${biRows.map(function (r) {
+             return `<div class="sapx-bi-row">
+               <span class="sapx-bi-label">${esc(r.label)}</span>
+               <span class="sapx-bi-val">${esc(r.val)}</span>
+             </div>`;
+           }).join("")}
+         </div>`
+      : "";
 
     return `
     <div class="sapx-zone sapx-zone-impact">
@@ -265,6 +287,7 @@
           <span class="sapx-impact-row-label">🎯 TARGET SURFACE</span>
           <span class="sapx-impact-row-val">${esc(ctx.target_surface)}</span>
         </div>
+        ${biHtml}
       </div>
     </div>`;
   }
@@ -783,29 +806,4 @@
     return result.normalized;
   }
 
-  /* ── PUBLIC API ──────────────────────────────────────────────────────────── */
-  const PublicAPI = {
-    buildCard:             buildCard,
-    buildErrorCard:        buildErrorCard,
-    buildLoadingCard:      buildLoadingCard,
-    renderGrid:            renderGrid,
-    renderFromApiResponse: renderFromApiResponse,
-    fetchAndRender:        fetchAndRender,
-    showLoadingState:      showLoadingState,
-    togglePanel:           togglePanel,
-    copyStixId:            copyStixId,
-    filterCards:           filterCards,
-    sortCards:             sortCards,
-    VERSION: "144.0.0",
-    BUILD:   "SENTINEL-APEX-RENDERER-ENTERPRISE",
-  };
-
-  if (typeof window !== "undefined") window.SentinelApexCardRenderer = PublicAPI;
-  return PublicAPI;
-
-}); // end factory
-
-if (typeof window !== "undefined") {
-  window.dispatchEvent(new CustomEvent("SentinelApexCardRendererReady", { detail: { version: "144.0.0" } }));
-  console.info("[SENTINEL APEX] Card Renderer v144.0.0 loaded ✓ — 9-Zone Enterprise Edition");
-}
+  /* ── PUBLIC API ──────────────────────────────────────────�
