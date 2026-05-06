@@ -806,4 +806,28 @@
     return result.normalized;
   }
 
-  /* ── PUBLIC API ──────────────────────────────────────────�
+  /* ── PUBLIC API ─────────────────────────────────────────────────────────── */
+  return {
+    VERSION: "145.0.0",
+
+    /* Card builders */
+    buildCard:           buildCard,
+    buildLoadingCard:    buildLoadingCard,
+    buildErrorCard:      buildErrorCard,
+    buildEmptyState:     buildEmptyState,
+
+    /* Grid rendering */
+    renderGrid:          renderGrid,
+    showLoadingState:    showLoadingState,
+    renderFromApiResponse: renderFromApiResponse,
+
+    /* Card interaction */
+    togglePanel:         togglePanel,
+    copyStixId:          copyStixId,
+
+    /* Filter / Sort */
+    filterCards:         filterCards,
+    sortCards:           sortCards,
+  };
+
+});
