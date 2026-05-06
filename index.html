@@ -14697,11 +14697,14 @@ function renderTopThreats(data) {
 
 <!-- CDB-AI-BRAIN-INIT-v134 -->
 <script>
-/* SENTINEL APEX v143.0.0 - AI CYBER BRAIN + CDB_NEWS + ENTERPRISE COMMAND CENTER
-   Populates AI Brain panels from window.EMBEDDED_INTEL
-   Initialises window.CDB_NEWS for #cdb-news-grid
-   Injects premium signals: threat scores, exploit status, financial impact badges
-   Pipeline-injected by patch_ai_brain_news.py - DO NOT EDIT DIRECTLY */
+/* SENTINEL APEX v150.1 - AI CYBER BRAIN + CDB_NEWS + ENTERPRISE COMMAND CENTER
+   v150.1 GOD MODE FIX: AI Brain now reads from window.__GOC_LIVE_INTEL (set by
+   API fetch pipeline) instead of window.EMBEDDED_INTEL (permanently []).
+   Registers window.CDB_AI.runBrain so the fetch pipeline can trigger hydration.
+   Self-healing: polls for API data if not yet available at boot time.
+   Uses apex_ai fields (campaign_id, predictive_risk, ai_confidence, threat_category)
+   for real AI-enriched analytics panels.
+   Injects premium signals: threat scores, exploit status, financial impact badges */
 (function(){
   'use strict';
   function sel(id){return document.getElementById(id);}
@@ -14709,86 +14712,203 @@ function renderTopThreats(data) {
   function txt(id,v){var e=sel(id);if(e)e.textContent=v;}
 
   /* ================================================================
-     AI CYBER BRAIN - uses window.EMBEDDED_INTEL baked by pipeline
+     AI CYBER BRAIN v150.1
+     DATA SOURCE (priority order):
+       1. window.__GOC_LIVE_INTEL  — set by API fetch pipeline after success
+       2. window.EMBEDDED_INTEL    — legacy fallback (always [] in v150+)
+     Registered as window.CDB_AI.runBrain for fetch pipeline callback.
      ================================================================ */
   function runAIBrain(){
-    var intel=window.EMBEDDED_INTEL||[];
+    /* --- v150.1: Read from live API data, not EMBEDDED_INTEL --- */
+    var intel = window.__GOC_LIVE_INTEL || window.EMBEDDED_INTEL || [];
+
     if(!intel.length){
-      set('ai-campaigns-body','<p style="color:#94a3b8;text-align:center;padding:20px">No intel data loaded.</p>');
-      set('ai-anomaly-body',  '<p style="color:#94a3b8;text-align:center;padding:20px">No anomaly data.</p>');
-      set('ai-predict-body',  '<p style="color:#94a3b8;text-align:center;padding:20px">No prediction data.</p>');
+      /* Show loading state (not error) — data is fetching */
+      var loadingHtml='<p style="color:#64748b;text-align:center;padding:20px;font-size:11px;">'
+        +'<span style="display:inline-block;width:8px;height:8px;background:var(--accent,#00d4aa);'
+        +'border-radius:50%;animation:pulse 1.5s ease-in-out infinite;margin-right:6px;vertical-align:middle;"></span>'
+        +'Fetching live intelligence…</p>';
+      set('ai-campaigns-body', loadingHtml);
+      set('ai-anomaly-body',   loadingHtml);
+      /* Still render predictions even with no data (sector model is static) */
+      _renderPredictions([]);
       return;
     }
 
-    /* -- Campaign Clustering (DBSCAN-style by threat actor/family) -- */
+    /* ================================================================
+       CAMPAIGN CLUSTERING (DBSCAN-style)
+       v150.1: Uses apex_ai.campaign_id + actor_tag (real AI fields)
+       Falls back to threat_actor / actor / threat_type for older items
+       ================================================================ */
     var camMap={};
     intel.forEach(function(t){
-      var k=(t.threat_actor||t.actor||t.family||t.type||'Unknown').toUpperCase();
-      if(!camMap[k]) camMap[k]={name:k,count:0,severity:'LOW',sample:t};
+      var ai=t.apex_ai||t.apex||{};
+      /* Primary cluster key: apex_ai campaign_id if classified; else actor_tag/actor */
+      var campId=ai.campaign_id&&ai.campaign_id!=='UNCLASSIFIED'&&ai.campaign_id!=='PRO_REQUIRED'
+        ? ai.campaign_id : null;
+      var actor=t.actor_tag||t.threat_actor||t.actor||t.family||null;
+      var k=(campId||actor||(t.threat_type||t.type||'UNKNOWN')).toUpperCase();
+      if(!camMap[k]) camMap[k]={
+        name:k, count:0, severity:'LOW', sample:t,
+        totalRisk:0, avgConf:0, confCount:0,
+        category: ai.threat_category||t.threat_type||'Threat Intel'
+      };
       camMap[k].count++;
-      var s=(t.severity||t.risk_level||'LOW').toUpperCase();
+      camMap[k].totalRisk+=(parseFloat(t.risk_score)||0);
+      var conf=parseFloat(ai.ai_confidence||t.confidence||0);
+      if(conf>0){camMap[k].avgConf+=conf; camMap[k].confCount++;}
+      var s=(t.severity||'LOW').toUpperCase();
       var rank={CRITICAL:4,HIGH:3,MEDIUM:2,LOW:1};
-      if((rank[s]||0)>(rank[camMap[k].severity]||0)){camMap[k].severity=s; camMap[k].sample=t;}
+      if((rank[s]||0)>=(rank[camMap[k].severity]||0)){
+        /* Update highest-severity sample */
+        if((rank[s]||0)>(rank[camMap[k].severity]||0)) camMap[k].sample=t;
+        camMap[k].severity=s;
+      }
     });
-    var cams=Object.values(camMap).sort(function(a,b){return b.count-a.count;}).slice(0,8);
+    var cams=Object.values(camMap).sort(function(a,b){
+      /* Sort by count desc, then avg risk desc */
+      if(b.count!==a.count) return b.count-a.count;
+      return (b.totalRisk/b.count)-(a.totalRisk/a.count);
+    }).slice(0,8);
     var svcol={CRITICAL:'#ef4444',HIGH:'#f59e0b',MEDIUM:'#8b5cf6',LOW:'#6b7280'};
     txt('ai-campaigns-count', cams.length+' Active Campaigns');
     txt('ai-bar-campaigns', cams.length+'/'+Math.min(cams.length+2,20));
     set('ai-campaigns-body', cams.map(function(c){
       var col=svcol[c.severity]||'#6b7280';
-      var desc=(c.sample.description||c.sample.summary||c.sample.title||'Threat campaign detected').substring(0,90);
+      var avgRisk=(c.totalRisk/c.count).toFixed(1);
+      var avgConf=c.confCount>0?Math.round(c.avgConf/c.confCount):0;
+      var desc=(c.sample.title||c.sample.description||'Threat campaign detected').substring(0,85);
       return '<div style="border-left:3px solid '+col+';padding:10px 14px;margin-bottom:8px;background:#0f172a;border-radius:0 6px 6px 0;">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
-        +'<span style="color:#e2e8f0;font-weight:700;font-size:12px;">'+c.name+'</span>'
+        +'<span style="color:#e2e8f0;font-weight:700;font-size:11px;">'+c.name+'</span>'
         +'<span style="background:'+col+'22;color:'+col+';padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;">'+c.severity+'</span>'
         +'</div>'
-        +'<div style="color:#94a3b8;font-size:11px;">'+desc+'...</div>'
-        +'<div style="color:#64748b;font-size:10px;margin-top:4px;">'+c.count+' indicator'+(c.count>1?'s':'')+' detected</div>'
+        +'<div style="color:#94a3b8;font-size:10px;margin-bottom:5px;">'+desc+'</div>'
+        +'<div style="display:flex;gap:10px;flex-wrap:wrap;">'
+        +'<span style="color:#64748b;font-size:9px;">'+c.count+' intel item'+(c.count!==1?'s':'')+'</span>'
+        +'<span style="color:#64748b;font-size:9px;">Avg risk: '+avgRisk+'/10</span>'
+        +(avgConf>0?'<span style="color:#64748b;font-size:9px;">AI conf: '+avgConf+'%</span>':'')
+        +'<span style="color:#475569;font-size:9px;">'+c.category+'</span>'
+        +'</div>'
         +'</div>';
     }).join(''));
 
-    /* -- Anomaly Detection (Isolation Forest: flag CRITICAL/HIGH outliers) -- */
-    var anomalies=intel.filter(function(t){
-      var s=(t.severity||t.risk_level||'').toUpperCase();
-      return s==='CRITICAL'||s==='HIGH';
-    }).slice(0,6);
+    /* ================================================================
+       ANOMALY DETECTION (Isolation Forest-style)
+       v150.1: Uses apex_ai.predictive_risk + risk_score to score outliers.
+       High isolation = items with predictive_risk > 2x mean OR risk_score >= HIGH threshold.
+       ================================================================ */
+    var meanRisk=intel.length
+      ? intel.reduce(function(s,t){return s+(parseFloat(t.risk_score)||0);},0)/intel.length
+      : 5;
+    var anomalies=intel.map(function(t){
+      var ai=t.apex_ai||t.apex||{};
+      var risk=parseFloat(t.risk_score)||0;
+      var predRisk=parseFloat(ai.predictive_risk||0);
+      var soc=ai.soc_priority||'P4';
+      /* Isolation score: deviation from mean risk + predictive risk amplifier */
+      var deviation=Math.abs(risk-meanRisk);
+      var isolationScore=Math.min(99,Math.round(
+        40 + (deviation/meanRisk)*30 + (predRisk/10)*20 + (soc==='P1'?9:soc==='P2'?5:soc==='P3'?2:0)
+      ));
+      var sev=(t.severity||'').toUpperCase();
+      /* Flag as anomaly if isolation score >= 60 OR CRITICAL/HIGH severity */
+      var isAnomaly=(isolationScore>=60||sev==='CRITICAL'||sev==='HIGH');
+      return {t:t,score:isolationScore,sev:sev,predRisk:predRisk,isAnomaly:isAnomaly};
+    }).filter(function(x){return x.isAnomaly;})
+      .sort(function(a,b){return b.score-a.score;})
+      .slice(0,6);
     txt('ai-anomaly-count', anomalies.length+' Anomalies Detected');
     txt('ai-bar-anomalies', anomalies.length+'/'+Math.min(anomalies.length+1,10));
-    set('ai-anomaly-body', anomalies.length ? anomalies.map(function(t){
-      var col=(t.severity||'HIGH').toUpperCase()==='CRITICAL'?'#ef4444':'#f59e0b';
-      var title=(t.title||t.name||t.indicator||'Unknown Anomaly').substring(0,60);
-      var score=Math.floor(72+Math.random()*26);
+    set('ai-anomaly-body', anomalies.length ? anomalies.map(function(x){
+      var t=x.t;
+      var col=x.sev==='CRITICAL'?'#ef4444':x.sev==='HIGH'?'#f59e0b':'#8b5cf6';
+      var title=(t.title||t.name||'Unknown Anomaly').substring(0,58);
+      var ai=t.apex_ai||t.apex||{};
+      var socBadge=ai.soc_priority?'<span style="background:rgba(139,92,246,0.15);color:#a78bfa;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700;">'+ai.soc_priority+'</span>':'';
+      var predTag=x.predRisk>0?'<span style="color:#f59e0b;font-size:9px;">PredRisk:'+x.predRisk.toFixed(1)+'</span>':'';
       return '<div style="border-left:3px solid '+col+';padding:9px 14px;margin-bottom:7px;background:#0f172a;border-radius:0 6px 6px 0;">'
-        +'<div style="display:flex;justify-content:space-between;">'
-        +'<span style="color:#e2e8f0;font-size:11px;font-weight:600;">'+title+'</span>'
-        +'<span style="color:'+col+';font-size:10px;font-weight:700;">'+score+'% anomaly</span>'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;">'
+        +'<span style="color:#e2e8f0;font-size:10px;font-weight:600;flex:1;margin-right:8px;">'+title+'</span>'
+        +'<span style="color:'+col+';font-size:10px;font-weight:700;white-space:nowrap;">'+x.score+'% anomaly</span>'
         +'</div>'
-        +'<div style="color:#64748b;font-size:10px;margin-top:3px;">Isolation score: '+score+'/100 | High-deviation event flagged</div>'
+        +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
+        +'<span style="color:#64748b;font-size:9px;">Isolation: '+x.score+'/100</span>'
+        +predTag+socBadge
+        +'</div>'
         +'</div>';
-    }).join('') : '<p style="color:#94a3b8;text-align:center;padding:20px">No anomalies in current feed.</p>');
+    }).join('') : '<p style="color:#94a3b8;text-align:center;padding:16px;font-size:11px;">No high-deviation events in current feed.</p>');
 
-    /* -- Predictive Intelligence (Gradient Boosting: sector risk scores) -- */
+    /* -- Predictions panel helper (called with or without data) -- */
+    _renderPredictions(intel);
+  }
+
+  /* ================================================================
+     PREDICTIVE INTELLIGENCE (Gradient Boosting-style)
+     v150.1: Computes sector risk from real apex_ai.threat_category
+     distribution + predictive_risk scores in the live feed.
+     ================================================================ */
+  function _renderPredictions(intel){
     var SECTORS=['Financial Services','Critical Infrastructure','Healthcare','Government','Energy'];
-    var VECS=['Phishing','Ransomware','Zero-Day Exploit','Supply Chain','Credential Stuffing'];
-    var hiRisk=intel.filter(function(t){return(t.severity||t.risk_level||'').toUpperCase()==='CRITICAL';});
+    /* Map threat categories to sectors */
+    var SECTOR_KEYWORDS={
+      'Financial Services':['financial','banking','payment','fraud','swift'],
+      'Critical Infrastructure':['scada','ics','energy','power','water','utility','cisco','fortinet'],
+      'Healthcare':['health','medical','hospital','pharma'],
+      'Government':['government','gov','military','defence','federal','cisa'],
+      'Energy':['energy','oil','gas','mining','nuclear']
+    };
+    /* Count apex_ai threat categories per sector from live data */
+    var sectorRisk={};
+    SECTORS.forEach(function(s){sectorRisk[s]={score:0,vec:'General',count:0,predSum:0};});
+
+    if(intel.length){
+      intel.forEach(function(t){
+        var ai=t.apex_ai||t.apex||{};
+        var cat=(ai.threat_category||t.threat_type||'').toLowerCase();
+        var title=(t.title||'').toLowerCase();
+        var risk=parseFloat(t.risk_score)||0;
+        var predR=parseFloat(ai.predictive_risk||0);
+        SECTORS.forEach(function(sec){
+          var kws=SECTOR_KEYWORDS[sec];
+          if(kws.some(function(k){return cat.indexOf(k)>=0||title.indexOf(k)>=0;})){
+            sectorRisk[sec].score+=risk;
+            sectorRisk[sec].predSum+=predR;
+            sectorRisk[sec].count++;
+            if(cat) sectorRisk[sec].vec=ai.threat_category||t.threat_type||sectorRisk[sec].vec;
+          }
+        });
+      });
+    }
+
+    /* Build predictions: base 38% + sector-attributed risk boost + predictive_risk amplifier */
+    var critCount=intel.filter(function(t){return(t.severity||'').toUpperCase()==='CRITICAL';}).length;
+    var highCount=intel.filter(function(t){return(t.severity||'').toUpperCase()==='HIGH';}).length;
+    var BASE_VECS=['Ransomware','Supply Chain','Zero-Day Exploit','Credential Stuffing','Phishing'];
     var predictions=SECTORS.map(function(sec,i){
-      var prob=Math.min(99,45+hiRisk.length*3+(i%3)*8);
+      var sr=sectorRisk[sec];
+      var boost=sr.count>0 ? Math.min(40, (sr.score/sr.count)*4 + (sr.predSum/sr.count)*6) : (i%3)*6;
+      var prob=Math.min(99, Math.round(38 + boost + critCount*2.5 + highCount*0.8));
       var col=prob>=80?'#ef4444':prob>=60?'#f59e0b':'#8b5cf6';
-      return {sector:sec,prob:prob,vec:VECS[i%VECS.length],col:col};
-    });
-    var maxProb=predictions.length?Math.max.apply(null,predictions.map(function(p){return p.prob;})):0;
-    txt('ai-predict-count', predictions.length+' High-Risk Predictions');
+      var vec=sr.count>0&&sr.vec!=='General'?sr.vec:BASE_VECS[i%BASE_VECS.length];
+      return {sector:sec,prob:prob,vec:vec,col:col,count:sr.count};
+    }).sort(function(a,b){return b.prob-a.prob;});
+
+    var maxProb=predictions.length?predictions[0].prob:0;
+    txt('ai-predict-count', predictions.length+' Sector Risk Forecasts');
     txt('ai-bar-highrisk', maxProb+'%');
     txt('ai-bar-lastrun', new Date().toLocaleTimeString());
     set('ai-predict-body', predictions.map(function(p){
+      var srcNote=p.count>0?'<span style="color:#475569;font-size:9px;">'+p.count+' attributed intel item'+(p.count!==1?'s':'')+'</span>':'';
       return '<div style="border-left:3px solid '+p.col+';padding:9px 14px;margin-bottom:7px;background:#0f172a;border-radius:0 6px 6px 0;">'
-        +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">'
         +'<span style="color:#e2e8f0;font-size:11px;font-weight:600;">'+p.sector+'</span>'
         +'<span style="color:'+p.col+';font-size:11px;font-weight:700;">'+p.prob+'% risk</span>'
         +'</div>'
-        +'<div style="color:#94a3b8;font-size:10px;margin-top:3px;">Primary vector: '+p.vec+'</div>'
-        +'<div style="background:#1e293b;border-radius:3px;height:4px;margin-top:6px;">'
-        +'<div style="background:'+p.col+';width:'+p.prob+'%;height:4px;border-radius:3px;"></div></div>'
+        +'<div style="color:#94a3b8;font-size:10px;">Primary vector: '+p.vec+'</div>'
+        +'<div style="background:#1e293b;border-radius:3px;height:4px;margin-top:6px;margin-bottom:4px;">'
+        +'<div style="background:'+p.col+';width:'+p.prob+'%;height:4px;border-radius:3px;transition:width 0.8s ease;"></div></div>'
+        +srcNote
         +'</div>';
     }).join(''));
   }
@@ -14860,111 +14980,142 @@ function renderTopThreats(data) {
     tryNext();
   }
 
-  /* ── Boot sequence ── */
+  /* ============================================================
+     BOOT SEQUENCE v150.1 — CDB_AI bridge + self-healing poller
+     ============================================================ */
+  window.CDB_AI = window.CDB_AI || {};
+  window.CDB_AI.runBrain = function(){ try { runAIBrain(); } catch(e){ console.warn('[AI-BRAIN] runBrain error:', e); } };
+
+  var _aiBrainPollTimer = null;
+  var _aiBrainHydrated  = false;
+
+  function _startAIBrainPoller(){
+    if(_aiBrainPollTimer) return;
+    var _pollAttempts = 0;
+    _aiBrainPollTimer = setInterval(function(){
+      _pollAttempts++;
+      var liveData = window.__GOC_LIVE_INTEL;
+      if(liveData && liveData.length > 0){
+        clearInterval(_aiBrainPollTimer); _aiBrainPollTimer = null;
+        if(!_aiBrainHydrated){
+          _aiBrainHydrated = true;
+          console.log('[AI-BRAIN v150.1] Live data arrived ('+liveData.length+' items) -- hydrating');
+          try { runAIBrain(); } catch(e){}
+        }
+      } else if(_pollAttempts >= 60){
+        clearInterval(_aiBrainPollTimer); _aiBrainPollTimer = null;
+        console.warn('[AI-BRAIN v150.1] Poller timeout 30s -- API data not received');
+        set('ai-campaigns-body','<p style="color:#64748b;text-align:center;padding:16px;font-size:11px;">Live feed loading -- check API status.</p>');
+        set('ai-anomaly-body',  '<p style="color:#64748b;text-align:center;padding:16px;font-size:11px;">Anomaly scan pending API data.</p>');
+      }
+    }, 500);
+  }
+
   function boot(){
-    runAIBrain();
+    try { runAIBrain(); } catch(e){}
+    if(!(window.__GOC_LIVE_INTEL && window.__GOC_LIVE_INTEL.length)){ _startAIBrainPoller(); }
+    else { _aiBrainHydrated = true; }
     if(GRID){
       GRID.innerHTML=CACHE.map(function(a){return card(a,false);}).join('');
       if(LU) LU.textContent='Cache loaded | Fetching live feed...';
       setTimeout(refreshNews, 600);
     }
   }
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded', boot);
-  } else { boot(); }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', boot); }
+  else { boot(); }
 
-  /* ================================================================
-     ENTERPRISE COMMAND CENTER — Value Visualization + Premium Signals
-     v134.0: Financial impact, risk exposure, breach cost indicators
-     ================================================================ */
+  /* __GOC_LIVE_INTEL setter hook: re-run AI Brain immediately when data arrives */
+  (function(){
+    try {
+      Object.defineProperty(window, '__GOC_LIVE_INTEL', {
+        configurable: true,
+        get: function(){ return this.__GOC_LIVE_INTEL_VAL; },
+        set: function(v){
+          this.__GOC_LIVE_INTEL_VAL = v;
+          if(v && v.length && !_aiBrainHydrated){
+            _aiBrainHydrated = true;
+            if(_aiBrainPollTimer){ clearInterval(_aiBrainPollTimer); _aiBrainPollTimer=null; }
+            setTimeout(function(){ try{runAIBrain();}catch(e){} }, 50);
+          }
+        }
+      });
+    } catch(e){}
+  })();
+
+  /* ============================================================
+     ENTERPRISE SIGNALS v150.1 — reads __GOC_LIVE_INTEL
+     ============================================================ */
   function injectEnterpriseSignals(){
-    var intel=window.EMBEDDED_INTEL||[];
+    var intel=window.__GOC_LIVE_INTEL||window.EMBEDDED_INTEL||[];
     if(!intel.length) return;
-
-    /* -- Financial Impact Calculator -- */
     var criticalCount=intel.filter(function(t){return(t.severity||'').toUpperCase()==='CRITICAL';}).length;
     var highCount=intel.filter(function(t){return(t.severity||'').toUpperCase()==='HIGH';}).length;
-    var totalRisk=criticalCount*4.5+highCount*1.5; // $M
+    var totalRisk=criticalCount*4.5+highCount*1.5;
     var iocTotal=intel.reduce(function(s,t){return s+(t.ioc_count||t.iocs&&t.iocs.length||0);},0);
-
-    /* Inject financial impact bar if container exists */
-    var finBar=sel('financial-impact-bar')||sel('risk-exposure-bar')||sel('breach-cost-bar');
-    if(!finBar){
-      /* Create and inject a floating command bar at top of intel sections */
+    if(!document.getElementById('cdb-financial-bar')){
       var bar=document.createElement('div');
       bar.id='cdb-financial-bar';
-      bar.style.cssText='background:linear-gradient(135deg,rgba(15,23,42,0.98),rgba(30,41,59,0.98));'+
-        'border:1px solid #334155;border-radius:10px;padding:14px 20px;margin:12px 0;'+
-        'display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between;'+
-        'box-shadow:0 4px 24px rgba(139,92,246,0.15);';
+      bar.style.cssText='background:linear-gradient(135deg,rgba(15,23,42,0.98),rgba(30,41,59,0.98));border:1px solid #334155;border-radius:10px;padding:14px 20px;margin:12px 0;display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between;box-shadow:0 4px 24px rgba(139,92,246,0.15);';
       var metrics=[
-        {label:'Estimated Financial Exposure',value:'$'+(totalRisk.toFixed(1))+'M',color:'#ef4444'},
-        {label:'Active IOCs Available',value:iocTotal.toString(),color:'#f59e0b'},
+        {label:'Est. Financial Exposure',value:'$'+totalRisk.toFixed(1)+'M',color:'#ef4444'},
+        {label:'Active IOCs',value:iocTotal.toString(),color:'#f59e0b'},
         {label:'Critical Threats',value:criticalCount.toString(),color:'#ef4444'},
         {label:'High Severity',value:highCount.toString(),color:'#f59e0b'},
         {label:'Risk Coverage',value:Math.min(99,Math.round((criticalCount+highCount)*8.5))+'%',color:'#22c55e'},
-        {label:'Breach Cost Indicator',value:'$'+(criticalCount*4.5+highCount*1.5).toFixed(1)+'M avg',color:'#8b5cf6'},
       ];
-      bar.innerHTML=metrics.map(function(m){
-        return '<div style="text-align:center;min-width:90px;">'
-          +'<div style="font-size:18px;font-weight:800;color:'+m.color+';line-height:1;">'+m.value+'</div>'
-          +'<div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">'+m.label+'</div>'
-          +'</div>';
-      }).join('')
-        +'<div style="flex-shrink:0;">'
-        +'<a href="/get-api-key.html?plan=pro" '
-        +'style="background:linear-gradient(135deg,#7c3aed,#2563eb);color:white;padding:8px 16px;'
-        +'border-radius:6px;text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap;">'
-        +'UNLOCK FULL INTEL</a></div>';
-
-      /* Find best insertion point */
-      var anchor=sel('ai-campaigns-body')||sel('cdb-news-grid')||document.querySelector('main')||document.body;
-      if(anchor&&anchor.parentNode){
-        anchor.parentNode.insertBefore(bar,anchor);
-      }
+      bar.innerHTML=metrics.map(function(m){return '<div style="text-align:center;min-width:80px;"><div style="font-size:18px;font-weight:800;color:'+m.color+';line-height:1;">'+m.value+'</div><div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">'+m.label+'</div></div>';}).join('')
+        +'<div><a href="/get-api-key.html?plan=pro" style="background:linear-gradient(135deg,#7c3aed,#2563eb);color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap;">UNLOCK FULL INTEL</a></div>';
+      var anchor=document.getElementById('ai-campaigns-body')||document.getElementById('cdb-news-grid')||document.body;
+      if(anchor&&anchor.parentNode) anchor.parentNode.insertBefore(bar,anchor);
     }
-
-    /* -- Urgency pulse on CRITICAL badges -- */
-    document.querySelectorAll('[data-severity="CRITICAL"],[data-sev="CRITICAL"]').forEach(function(el){
-      el.style.animation='urgency-pulse 2s infinite';
-    });
-
-    /* -- Inject urgency CSS if not present -- */
     if(!document.getElementById('cdb-enterprise-css')){
       var style=document.createElement('style');
       style.id='cdb-enterprise-css';
-      style.textContent=[
-        '@keyframes urgency-pulse{0%,100%{opacity:1}50%{opacity:0.6}}',
-        '#cdb-financial-bar{animation:slideIn 0.5s ease-out;}',
-        '@keyframes slideIn{from{transform:translateY(-10px);opacity:0}to{transform:translateY(0);opacity:1}}',
-        '.cdb-threat-score{display:inline-flex;align-items:center;gap:4px;background:rgba(239,68,68,0.15);'+
-          'color:#ef4444;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;}',
-        '.cdb-premium-badge{background:linear-gradient(135deg,#7c3aed,#2563eb);color:white;'+
-          'padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:0.05em;}',
-      ].join('');
+      style.textContent='@keyframes urgency-pulse{0%,100%{opacity:1}50%{opacity:0.6}}#cdb-financial-bar{animation:slideIn 0.5s ease-out;}@keyframes slideIn{from{transform:translateY(-10px);opacity:0}to{transform:translateY(0);opacity:1}}';
       document.head.appendChild(style);
     }
   }
 
-  /* Run enterprise signals after main boot */
   function bootEnterprise(){
     boot();
     setTimeout(injectEnterpriseSignals, 800);
+    setTimeout(function(){ if(window.__GOC_LIVE_INTEL&&window.__GOC_LIVE_INTEL.length) try{injectEnterpriseSignals();}catch(e){} }, 5000);
   }
 
-  /* Override boot with enterprise version */
   if(document.readyState==='loading'){
     document.removeEventListener('DOMContentLoaded', boot);
     document.addEventListener('DOMContentLoaded', bootEnterprise);
-  } else {
-    setTimeout(injectEnterpriseSignals, 800);
-  }
+  } else { setTimeout(bootEnterprise, 0); }
 
-  /* Expose for manual refresh buttons */
-  window.CDB_NEWS={refresh:refreshNews};
+  window.CDB_NEWS = {refresh: refreshNews};
+  window.CDB_AI_BRAIN = {
+    run: runAIBrain,
+    rehydrate: function(){
+      _aiBrainHydrated=false;
+      if(_aiBrainPollTimer){clearInterval(_aiBrainPollTimer);_aiBrainPollTimer=null;}
+      runAIBrain();
+      if(!(window.__GOC_LIVE_INTEL&&window.__GOC_LIVE_INTEL.length)) _startAIBrainPoller();
+    }
+  };
+})();
+
+/* POST-DEPLOY AI BRAIN INTEGRITY VALIDATOR v150.1
+   Runs 8s after load. Forces re-hydration if panels empty despite live data. */
+(function(){
+  setTimeout(function(){
+    try {
+      var liveData=window.__GOC_LIVE_INTEL;
+      if(!liveData||!liveData.length) return;
+      function isEmpty(el){ if(!el) return false; var t=el.textContent||''; return t.indexOf('Fetching')>=0||t.indexOf('No intel')>=0||t.indexOf('No anomaly')>=0||t.indexOf('No prediction')>=0||t.trim()===''; }
+      if(isEmpty(document.getElementById('ai-campaigns-body'))||isEmpty(document.getElementById('ai-anomaly-body'))||isEmpty(document.getElementById('ai-predict-body'))){
+        console.warn('[AI-BRAIN-INTEGRITY] Empty panels with live data -- forcing re-hydration');
+        if(window.CDB_AI_BRAIN) window.CDB_AI_BRAIN.rehydrate();
+        else if(window.CDB_AI&&window.CDB_AI.runBrain) window.CDB_AI.runBrain();
+      } else { console.log('[AI-BRAIN-INTEGRITY] All AI panels populated -- integrity PASS'); }
+    } catch(e){}
+  }, 8000);
 })();
 </script>
-<!-- /CDB-AI-BRAIN-INIT-v134 -->
+<!-- /CDB-AI-BRAIN-INIT-v150.1 -->
 </body>
 </html>
-
