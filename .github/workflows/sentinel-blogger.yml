@@ -465,47 +465,48 @@ jobs:
         run: python3 scripts/dashboard_frontend_guard.py
 
       # -----------------------------------------------------------------------
-      # STAGE 3.93: EMBEDDED INTEL INJECTOR (v147.0 -- INSTANT RENDER)
-      # Reads top-25 items from api/feed.json and injects into index.html as
-      # window.EMBEDDED_INTEL=[...] for zero-wait instant render on page load.
-      # Runs AFTER guard (guard accepts populated EMBEDDED_INTEL) and BEFORE
-      # git commit (Stage 4) so injected data is committed with the deploy.
-      # Architecture: INSTANT path fires before API fetch completes.
+      # STAGE 3.93: IMMUTABLE API MANIFEST GENERATOR (v150.0 -- REPLACES INJECT)
+      # ARCHITECTURE CHANGE (v150.0 -- PERMANENT):
+      #   OLD: inject_embedded_intel.py mutated index.html at deploy time.
+      #        This caused index.html to grow to 6.6MB and created an overwrite
+      #        chain that resulted in repeated P0 card disappearance regressions.
+      #   NEW: generate_api_manifests.py generates immutable JSON bundles only.
+      #        index.html is NEVER modified. Frontend fetches from API at runtime.
+      #
+      # Outputs (atomic writes -- tmp -> fsync -> rename):
+      #   api/v1/intel/latest.json   -- All items sorted by freshness + signed
+      #   api/v1/intel/top10.json    -- Top 10 items by risk + freshness
+      #   api/v1/intel/apex.json     -- Apex AI enriched bundle (or full fallback)
+      #   api/v1/intel/manifest.json -- Registry with checksums and version
+      #
+      # HARD FAIL: if api/feed.json is missing or empty (no data to serve).
+      # ZERO HTML MUTATION: index.html read-only -- pipeline never touches it.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93 - Inject EMBEDDED_INTEL into index.html (instant render)"
-        run: python3 scripts/inject_embedded_intel.py
+      - name: "STAGE 3.93 - Generate Immutable API Manifests (v150.0 API-first)"
+        run: python3 scripts/generate_api_manifests.py
 
       # -----------------------------------------------------------------------
-      # STAGE 3.93.5: EMBEDDED_INTEL POPULATION GATE (v145.4 -- HARD FAIL)
-      # P0 PERMANENT FIX: Verifies EMBEDDED_INTEL in index.html is POPULATED
-      # (>= 3 items) BEFORE safe_git_commit.py stages and commits index.html.
-      #
-      # ROOT CAUSE ADDRESSED: update_embedded_intel.py (Stage 3.6b) cleared
-      # EMBEDDED_INTEL to [] on every run. If inject_embedded_intel.py (Stage 3.93)
-      # failed for ANY reason (empty feed, parse error, API timeout), the next step
-      # safe_git_commit.py would commit the cleared [] state, GitHub Pages would
-      # deploy with EMPTY EMBEDDED_INTEL, and bootFromEmbeddedCache() would return
-      # early → ZERO instant cards → "LIVE INTEL cards disappear" P0.
-      #
-      # This gate BLOCKS Stage 4 (git commit) if EMBEDDED_INTEL is empty after
-      # Stage 3.93. The safe_git_commit.py also has its own guard, but this gate
-      # provides explicit failure visibility in GitHub Actions UI.
+      # STAGE 3.93.5: IMMUTABLE API MANIFEST VALIDATION GATE (v150.0)
+      # REPLACES: old EMBEDDED_INTEL Population Gate (deleted -- was root cause of P0)
+      # Verifies all api/v1/intel/*.json bundles are valid and populated.
+      # Also confirms index.html EMBEDDED_INTEL is static [] (no HTML mutation).
+      # HARD FAIL: blocks git commit if any bundle is missing or empty.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.93.5 - EMBEDDED_INTEL Population Gate (P0 Root Cause Fix)"
-        run: python3 scripts/embedded_intel_gate.py
+      - name: "STAGE 3.93.5 - Validate Immutable API Manifests (deployment gate)"
+        run: python3 scripts/validate_api_manifests.py
 
       # -----------------------------------------------------------------------
-      # STAGE 3.94: POST-INJECT STABILITY LOCK CONFIRMATION (HARDENING -- HARD FAIL)
-      # Re-runs the baseline stability lock AFTER all data writes + inject.
+      # STAGE 3.94: STABILITY LOCK CONFIRMATION (v150.0 -- HARDENING)
+      # Re-runs the baseline stability lock AFTER all data writes.
       # Confirms:
-      #   1. EMBEDDED_INTEL declaration is still intact
+      #   1. index.html EMBEDDED_INTEL is static [] (no HTML mutation)
       #   2. Top-Threats dynamic JS sort is still intact (not overwritten)
-      #   3. index.html size is healthy (no truncation from pipeline)
-      #   4. No pipeline injection markers leaked into frontend files
-      # HARD FAIL: if any dashboard invariant is violated post-inject.
-      # This is the final dashboard integrity checkpoint before git commit.
+      #   3. index.html size is healthy (not bloated by injected data)
+      #   4. No pipeline mutation markers leaked into frontend files
+      # HARD FAIL: if any dashboard invariant is violated.
+      # Final dashboard integrity checkpoint before git commit.
       # -----------------------------------------------------------------------
-      - name: "STAGE 3.94 - Post-inject Stability Lock Confirmation (HARD FAIL)"
+      - name: "STAGE 3.94 - Stability Lock Confirmation (v150.0 Immutable)"
         run: python3 scripts/apex_stability_lock.py
 
       # -----------------------------------------------------------------------
@@ -518,16 +519,14 @@ jobs:
         run: python3 scripts/safe_git_commit.py
 
       # -----------------------------------------------------------------------
-      # STAGE 5.1: POST-DEPLOY EMBEDDED_INTEL VERIFIER (v145.4 -- INFORMATIONAL)
-      # Verifies the committed state has populated EMBEDDED_INTEL, sapx-card-grid,
-      # card renderer scripts, and non-empty api/feed.json AFTER GitHub Pages deploy.
-      # Non-blocking (exits 0 always) — reporting/alerting only.
-      # ROOT CAUSE FIX: catches the P0 where EMBEDDED_INTEL was committed as []
-      # after update_embedded_intel.py cleared it and inject_embedded_intel.py failed.
+      # STAGE 5.1: POST-DEPLOY API MANIFEST VERIFIER (v150.0 -- INFORMATIONAL)
+      # Verifies api/v1/intel/*.json bundles are committed and populated after
+      # GitHub Pages deploy. Confirms index.html was NOT mutated (EMBEDDED_INTEL=[]).
+      # Non-blocking (exits 0 always) -- reporting/alerting only.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.1 - Post-deploy Embedded Intel Verifier (P0 detection)"
+      - name: "STAGE 5.1 - Post-deploy API Manifest Verifier (v150.0)"
         if: always()
-        run: python3 scripts/post_deploy_verify.py || true
+        run: python3 scripts/validate_api_manifests.py || true
 
       # -----------------------------------------------------------------------
       # STAGE 5.4: POST-PIPELINE REPORT COUNT GATE (v141.7.0)

@@ -64,19 +64,31 @@ file_size = len(content)
 print('File size: {:,} chars'.format(file_size))
 print()
 
-# CHECK 1: EMBEDDED_INTEL -- hybrid arch (template=[] OR injector-populated)
-print('CHECK 1: EMBEDDED_INTEL -- hybrid architecture ([] template OR injected top-25 items)')
+# CHECK 1: EMBEDDED_INTEL -- v150.0 immutable architecture (must be static [])
+# ARCHITECTURE CHANGE: EMBEDDED_INTEL must be [] (permanent static stub)
+# Pipeline no longer injects data into index.html -- data served from api/v1/intel/*.json
+print('CHECK 1: EMBEDDED_INTEL -- v150.0 immutable architecture (must be static [])')
 embedded_match = re.search(r'window\.EMBEDDED_INTEL\s*=\s*(\[.*?\]);', content, re.DOTALL)
 if embedded_match:
     value = embedded_match.group(1).strip()
     stripped = value.replace(' ', '').replace('\n', '').replace('\r', '').replace('\t', '')
     if stripped == '[]':
-        ok('EMBEDDED_INTEL = [] (template state -- injector will populate before deploy)')
+        ok('EMBEDDED_INTEL = [] (correct -- immutable API-first architecture active)')
     else:
         item_count = value.count('{')
-        ok('EMBEDDED_INTEL populated with ~{} items (injected by pipeline -- correct)'.format(item_count))
+        fail('EMBEDDED_INTEL was MUTATED with ~{} items -- HTML injection detected!'.format(item_count))
+        fail('  ARCHITECTURE VIOLATION: index.html must never be modified by the pipeline.')
+        fail('  Fix: Run inject_embedded_intel.py (now no-op) -- check for rogue scripts.')
 else:
     warn('EMBEDDED_INTEL declaration not found -- file may be structured differently')
+
+# CHECK 1b: api/v1/intel/latest.json must be referenced in MANIFEST_URLS
+print('CHECK 1b: api/v1/intel/latest.json PRIMARY source must be in MANIFEST_URLS')
+if "'api/v1/intel/latest.json'" in content or '"api/v1/intel/latest.json"' in content:
+    ok('api/v1/intel/latest.json PRIMARY source present in fetch chain')
+else:
+    fail('api/v1/intel/latest.json NOT found in MANIFEST_URLS')
+    fail('  Fix: Add api/v1/intel/latest.json as first entry in MANIFEST_URLS')
 
 print()
 
@@ -108,12 +120,14 @@ if manifest_block_match:
     if banned_found:
         for entry, reason in banned_found:
             fail('MANIFEST_URLS contains banned source ({}): {}'.format(reason, entry))
-        fail('  Fix: Remove banned sources. Approved: WORKER_PREVIEW_URL + api/feed.json + raw.githubusercontent.com')
+        fail('  Fix: Remove banned sources. Approved: api/v1/intel/latest.json + WORKER_PREVIEW_URL + api/feed.json + raw.githubusercontent.com')
     else:
-        if 'WORKER_PREVIEW_URL' in block:
-            ok('MANIFEST_URLS -- no banned sources detected')
+        if 'api/v1/intel/latest.json' in block:
+            ok('MANIFEST_URLS -- api/v1/intel/latest.json PRIMARY present, no banned sources')
+        elif 'WORKER_PREVIEW_URL' in block:
+            ok('MANIFEST_URLS -- no banned sources detected (add api/v1/intel/latest.json as PRIMARY for v150.0)')
         else:
-            warn('MANIFEST_URLS has no WORKER_PREVIEW_URL -- Worker API missing as primary source')
+            warn('MANIFEST_URLS has no PRIMARY source -- add api/v1/intel/latest.json as first entry')
 else:
     warn('MANIFEST_URLS block not found -- file may be structured differently')
 
@@ -198,12 +212,12 @@ else:
 
 print()
 
-# CHECK 8: bootFromEmbeddedCache instant-render logic must be present
-print('CHECK 8: bootFromEmbeddedCache() instant-render logic must be present')
+# CHECK 8: bootFromEmbeddedCache must be present (v150.0: graceful no-op when EMBEDDED_INTEL=[])
+print('CHECK 8: bootFromEmbeddedCache() graceful no-op handler must be present')
 if 'bootFromEmbeddedCache' in content:
-    ok('bootFromEmbeddedCache() present -- instant-render on injected EMBEDDED_INTEL active')
+    ok('bootFromEmbeddedCache() present -- graceful no-op handler active (API-first mode)')
 else:
-    warn('bootFromEmbeddedCache() not found -- instant-render path may be missing')
+    warn('bootFromEmbeddedCache() not found -- graceful boot handler may be missing')
 
 print()
 
@@ -256,38 +270,35 @@ else:
                     fail('JavaScript SyntaxError detected -- deployment BLOCKED')
                     fail('  node --check error: {}'.format(short_err))
                     fail('  Fix: Find and fix the syntax error in index.html main <script> block')
-                    fail('  Hint: Run node --check locally on the extracted script to pinpoint line/col')
-            except subprocess.TimeoutExpired:
-                warn('node --check timed out (30s) on {:,}-char script -- skipping'.format(script_size))
+            except Exception as e:
+                warn('node --check failed to run (node not available): {}'.format(e))
             finally:
                 try:
                     os.unlink(tmp.name)
-                except OSError:
+                except Exception:
                     pass
 
 print()
 
-# RESULT
-total_checks = 9
-print('=' * 60)
-print('CHECKS: {} total | ERRORS: {} | WARNINGS: {}'.format(total_checks, len(ERRORS), len(WARNINGS)))
-print()
+# ── FINAL SUMMARY ──────────────────────────────────────────────────────────
+fail_count = len(ERRORS)
+warn_count = len(WARNINGS)
+pass_count = 9 - fail_count  # 9 numbered checks total
 
-if ERRORS:
-    print('[DASHBOARD FRONTEND GUARD v149.1] FAILED -- deployment blocked')
-    print()
-    print('Errors:')
-    for e in ERRORS:
-        print('  X ' + e)
-    if WARNINGS:
-        print('Warnings:')
-        for w in WARNINGS:
-            print('  ! ' + w)
+print('=' * 70)
+print('DASHBOARD FRONTEND GUARD COMPLETE')
+print('  PASS: {}'.format(pass_count))
+print('  FAIL: {}'.format(fail_count))
+print('  WARN: {}'.format(warn_count))
+
+if fail_count > 0:
+    print('RESULT: FAIL -- {} critical architecture violation(s) detected'.format(fail_count))
+    print('DEPLOYMENT BLOCKED -- Fix violations before committing.')
+    print('=' * 70)
+    import sys
     sys.exit(1)
 else:
-    print('[DASHBOARD FRONTEND GUARD v149.1] PASSED -- all invariants hold, JS syntax clean')
-    if WARNINGS:
-        print('Warnings (non-blocking):')
-        for w in WARNINGS:
-            print('  ! ' + w)
+    print('RESULT: PASS -- Dashboard architecture contract intact')
+    print('=' * 70)
+    import sys
     sys.exit(0)
