@@ -213,11 +213,25 @@ else:
 print()
 
 # CHECK 8: bootFromEmbeddedCache must be present (v150.0: graceful no-op when EMBEDDED_INTEL=[])
-print('CHECK 8: bootFromEmbeddedCache() graceful no-op handler must be present')
-if 'bootFromEmbeddedCache' in content:
-    ok('bootFromEmbeddedCache() present -- graceful no-op handler active (API-first mode)')
+print('CHECK 8: AI Brain CDB_AI bridge + GOC_LIVE_INTEL hook must be registered (v150.1)')
+ai_bridge_ok = ('window.CDB_AI' in content and 'runBrain' in content)
+goc_hook_ok  = ('__GOC_LIVE_INTEL' in content)
+ai_poller_ok = ('_startAIBrainPoller' in content or '_aiBrainPollTimer' in content)
+if ai_bridge_ok and goc_hook_ok and ai_poller_ok:
+    ok('AI Brain: CDB_AI.runBrain registered + __GOC_LIVE_INTEL hook + self-healing poller active')
+elif not ai_bridge_ok:
+    fail('window.CDB_AI.runBrain NOT registered -- AI Brain cannot receive API data callback')
+    fail('  Fix: Add window.CDB_AI = {runBrain: runAIBrain} before API fetch completes')
+elif not goc_hook_ok:
+    fail('window.__GOC_LIVE_INTEL NOT referenced in AI Brain -- panels will stay empty')
+    fail('  Fix: Change runAIBrain() to read window.__GOC_LIVE_INTEL || window.EMBEDDED_INTEL')
 else:
-    warn('bootFromEmbeddedCache() not found -- graceful boot handler may be missing')
+    warn('AI Brain poller not found -- self-healing retry mechanism may be missing')
+# Legacy check: bootFromEmbeddedCache graceful no-op still expected as static stub
+if 'bootFromEmbeddedCache' in content:
+    ok('bootFromEmbeddedCache() graceful no-op stub present')
+else:
+    warn('bootFromEmbeddedCache() not found (non-blocking in v150.1 API-first arch)')
 
 print()
 
@@ -283,7 +297,7 @@ print()
 # ── FINAL SUMMARY ──────────────────────────────────────────────────────────
 fail_count = len(ERRORS)
 warn_count = len(WARNINGS)
-pass_count = 9 - fail_count  # 9 numbered checks total
+pass_count = 10 - fail_count  # 10 numbered checks total (v150.1: added AI Brain check)
 
 print('=' * 70)
 print('DASHBOARD FRONTEND GUARD COMPLETE')
