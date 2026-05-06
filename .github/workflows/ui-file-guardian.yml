@@ -268,4 +268,57 @@ jobs:
           }
 
           // Check 3: Card renderer scripts referenced
-          ['js/api_adapter.js', 'js/card_renderer.js', 'js/card_renderer_integration.js']
+          ['js/api_adapter.js', 'js/card_renderer.js', 'js/card_renderer_integration.js'].forEach(s => {
+            if (html.includes(s)) {
+              console.log('OK: ' + s + ' referenced');
+            } else {
+              console.log('::warning::MISSING SCRIPT REF: ' + s + ' not referenced in index.html');
+            }
+          });
+          NODEEOF
+
+      # -----------------------------------------------------------------------
+      #  SUMMARY — Print a pass/fail report to the workflow summary page
+      # -----------------------------------------------------------------------
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## SENTINEL APEX UI File Guardian Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Run:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\` | **Commit:** \`${GITHUB_SHA:0:8}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Lines | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          for f in \
+            "js/api_adapter.js" \
+            "js/card_renderer.js" \
+            "js/card_renderer_integration.js" \
+            "css/card_renderer_styles.css" \
+            "scripts/safe_git_commit.py"; do
+            if [ -f "$f" ]; then
+              LINES=$(wc -l < "$f")
+              echo "| \`$f\` | $LINES | ✅ present |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| \`$f\` | — | ❌ MISSING |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Protected by" >> $GITHUB_STEP_SUMMARY
+          echo "- **This workflow** (fast integrity check on every push)" >> $GITHUB_STEP_SUMMARY
+          echo "- **\`scripts/safe_git_commit.py\`** PROTECTED_FILES list (pipeline-level restore)" >> $GITHUB_STEP_SUMMARY
+          echo "- **\`js/card_renderer_integration.js\`** \`_bootFromEmbedded()\` (zero-network instant render)" >> $GITHUB_STEP_SUMMARY
+
+      # -----------------------------------------------------------------------
+      #  TAG — On clean pass, update the sentinel-apex-v145-baseline tag so
+      #        humans have a verified restore point.
+      # -----------------------------------------------------------------------
+      - name: Tag baseline on clean pass
+        if: success()
+        run: |
+          git config user.email "guardian@cyberdudebivash.com"
+          git config user.name  "UI File Guardian"
+          # Force-update the lightweight tag to current HEAD
+          git tag -f sentinel-apex-v145-baseline HEAD
+          git push origin sentinel-apex-v145-baseline --force 2>/dev/null \
+            && echo "Baseline tag updated: sentinel-apex-v145-baseline -> ${GITHUB_SHA:0:8}" \
+            || echo "Tag push skipped (no push permission in this run — normal for fork PRs)"

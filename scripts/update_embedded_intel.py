@@ -795,4 +795,61 @@ def main():
 
     _priority_bucket  = [x for x in merged if _is_priority_item(x)]
     _standard_bucket  = [x for x in merged if not _is_priority_item(x)]
-    merged = _pri
+    merged = _priority_bucket + _standard_bucket
+    print(
+        f"[v137] EMBEDDED_INTEL layout: "
+        f"{len(_priority_bucket)} CRITICAL/KEV pinned first | "
+        f"{len(_standard_bucket)} standard items follow"
+    )
+
+    kpis = compute_kpis(merged)
+
+    print(
+        f"[INFO] Merged: {kpis['total']} items | "
+        f"CRITICAL:{kpis['critical']} HIGH:{kpis['high']} "
+        f"KEV:{kpis['kev']} | Enriched:{kpis['enriched']} | "
+        f"Latest: {kpis['latest']}"
+     )
+
+    # Patch index.html
+    success = patch_index_html(merged)
+    if success:
+        print("[SUCCESS] index.html EMBEDDED_INTEL patched \u2713")
+    else:
+        print("[FAILED] index.html patch failed — see errors above")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+        except Exception as _api_err:
+            print(f"[WARN] v137 CRITICAL inject: api/feed.json read failed ({_api_err}) — "
+                  "continuing with manifest-only merged dataset")
+
+    print(f"[INFO] merged (post-dedup + critical-inject): {len(merged)} items")
+
+    ok = patch_index_html(merged)
+
+    kpis = compute_kpis(merged)
+    print("=" * 60)
+    print("EMBEDDED_INTEL UPDATE SUMMARY")
+    print("=" * 60)
+    print(f"  Total items   : {kpis['total']}")
+    print(f"  Critical      : {kpis['critical']}")
+    print(f"  High          : {kpis['high']}")
+    print(f"  KEV active    : {kpis['kev']}")
+    print(f"  Enriched      : {kpis['enriched']}")
+    print(f"  Latest        : {kpis['latest']}")
+    print(f"  Write status  : {'OK' if ok else 'FAILED'}")
+    print("=" * 60)
+
+    if not ok:
+        print("[ERROR] patch_index_html FAILED — index.html not updated")
+        sys.exit(1)
+
+    print("[OK] EMBEDDED_INTEL updated successfully")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
