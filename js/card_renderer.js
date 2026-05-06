@@ -527,11 +527,17 @@
           ${esc(item.stix_id_short)}
         </span>
         <div class="sapx-footer-ctas">
-          ${item.stix_bundle_url
-            ? `<a href="${esc(item.stix_bundle_url)}" target="_blank" rel="noopener" class="sapx-stix-bundle-link">
-                 📦 STIX Bundle
+          ${item.stix_bundle_locked
+            ? `<a href="${esc(item.stix_bundle_upgrade_url)}" target="_blank" rel="noopener"
+                  class="sapx-stix-bundle-locked"
+                  title="STIX Bundle is a PRO-only feature — upgrade to access structured threat data">
+                 🔒 STIX Bundle <span class="sapx-stix-pro-badge">PRO</span> →
                </a>`
-            : ""}
+            : item.stix_bundle_url
+              ? `<a href="${esc(item.stix_bundle_url)}" target="_blank" rel="noopener" class="sapx-stix-bundle-link">
+                   📦 STIX Bundle
+                 </a>`
+              : ""}
           <a href="${esc(item.report_url)}" target="_blank" rel="noopener" class="sapx-report-cta">
             📄 VIEW REPORT ↗
           </a>
