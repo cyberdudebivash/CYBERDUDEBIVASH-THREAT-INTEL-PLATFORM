@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-CYBERDUDEBIVASH SENTINEL APEX v134.0 — Hardened EMBEDDED_INTEL Updater
+CYBERDUDEBIVASH SENTINEL APEX v134.0 â€” Hardened EMBEDDED_INTEL Updater
 =======================================================================
 Surgically replaces ONLY the EMBEDDED_INTEL data array in index.html.
-Everything else — functions, CSS, HTML, comments — is preserved byte-for-byte.
+Everything else â€” functions, CSS, HTML, comments â€” is preserved byte-for-byte.
 
 HOW IT WORKS:
   1. Finds `const EMBEDDED_INTEL = [` using string search (not regex)
@@ -11,14 +11,14 @@ HOW IT WORKS:
   3. Normalises every item (adds stix_id, apex, report_url, mitre_tactics, etc.)
   4. Replaces ONLY the array content between [ and ]
   5. Verifies the result with 6 integrity checks
-  6. If ANY check fails → restores backup, exits non-zero
+  6. If ANY check fails â†’ restores backup, exits non-zero
 
 FIELD NORMALISATION (ensures dashboard features work):
-  - stix_id   : mapped from item['id']          → enables ANALYZE button
-  - apex      : built from risk/openclaw/corr   → enables AI panel
-  - report_url: native report URL (source_url)   → enables Tactical Dossier link
-  - mitre_tactics: mapped from item['ttps']     → enables attack chain display
-  - tags      : None/falsy normalised to []     → prevents JS crash
+  - stix_id   : mapped from item['id']          â†’ enables ANALYZE button
+  - apex      : built from risk/openclaw/corr   â†’ enables AI panel
+  - report_url: native report URL (source_url)   â†’ enables Tactical Dossier link
+  - mitre_tactics: mapped from item['ttps']     â†’ enables attack chain display
+  - tags      : None/falsy normalised to []     â†’ prevents JS crash
 
 SAFE: Creates backup before write. Rolls back on any assertion failure.
 """
@@ -35,10 +35,10 @@ from datetime import datetime, timezone
 REPO_ROOT = Path(__file__).parent.parent
 INDEX_HTML = REPO_ROOT / "index.html"
 
-# ── Single Source of Truth ────────────────────────────────────────────────
+# â”€â”€ Single Source of Truth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 FEED_MANIFEST = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
 FEED_MANIFEST_CANDIDATES = [
-    REPO_ROOT / "data" / "stix" / "feed_manifest.json",   # canonical — always first
+    REPO_ROOT / "data" / "stix" / "feed_manifest.json",   # canonical â€” always first
     REPO_ROOT / "data" / "feed_manifest.json",             # v70 fallback
 ]
 ENRICHED_MANIFEST = REPO_ROOT / "data" / "v46_ultraintel" / "enriched_manifest.json"
@@ -55,14 +55,14 @@ ENRICHMENT_KEYS = [
     "source_url",
 ]
 
-# Minimum items — set to 0 so dashboard fetches live from API only (no stale embedded data)
+# Minimum items â€” set to 0 so dashboard fetches live from API only (no stale embedded data)
 MIN_ITEMS = 0
 
 # Platform version exposed to dashboard
 PLATFORM_VERSION = "v134.0"
 
 
-# ── Item Field Normaliser ─────────────────────────────────────────────────
+# â”€â”€ Item Field Normaliser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _sev_to_priority(risk_score: float, severity: str) -> str:
     """Map risk score to SOC priority P1-P4."""
     s = float(risk_score or 0)
@@ -94,10 +94,10 @@ def _sev_to_threat_level(risk_score: float, openclaw: dict) -> str:
 def _build_recommended_action(severity: str, priority: str) -> str:
     """Generate a concise recommended action from severity + priority."""
     actions = {
-        "P1": "IMMEDIATE — Escalate to IR team now. Activate containment playbook.",
-        "P2": "URGENT — Investigate within 4h. Validate exposure and patch status.",
-        "P3": "SCHEDULE — Triage within 24h. Include in next patch cycle.",
-        "P4": "MONITOR — Track for status changes. Review at next triage window.",
+        "P1": "IMMEDIATE â€” Escalate to IR team now. Activate containment playbook.",
+        "P2": "URGENT â€” Investigate within 4h. Validate exposure and patch status.",
+        "P3": "SCHEDULE â€” Triage within 24h. Include in next patch cycle.",
+        "P4": "MONITOR â€” Track for status changes. Review at next triage window.",
     }
     return actions.get(priority, "Monitor for updates.")
 
@@ -117,8 +117,8 @@ def _derive_exploit_tier(item: dict) -> str:
 
 def _build_report_url(item: dict) -> str:
     """
-    v134.0: Construct native report_url — NO Blogger fallbacks.
-    Priority: explicit report_url → source_url → empty string (hides button).
+    v134.0: Construct native report_url â€” NO Blogger fallbacks.
+    Priority: explicit report_url â†’ source_url â†’ empty string (hides button).
     """
     if item.get("report_url"):
         return item["report_url"]
@@ -187,19 +187,19 @@ def normalise_item(item: dict) -> dict:
     """
     Normalise a single manifest item to include ALL fields expected by the
     dashboard (stix_id, apex, blog_url, mitre_tactics, tags, etc.).
-    This is the single place where manifest → dashboard field mapping happens.
-    Zero data is lost — only new fields are added, nothing is removed.
+    This is the single place where manifest â†’ dashboard field mapping happens.
+    Zero data is lost â€” only new fields are added, nothing is removed.
     """
     out = dict(item)
 
-    # ── stix_id: CRITICAL — ANALYZE button injection requires this ──────
+    # â”€â”€ stix_id: CRITICAL â€” ANALYZE button injection requires this â”€â”€â”€â”€â”€â”€
     # Card template: data-stix-id="${item.stix_id||''}"
-    # Injection guard: if (!stixId) return;  ← skips if empty!
+    # Injection guard: if (!stixId) return;  â† skips if empty!
     if not out.get("stix_id"):
         out["stix_id"] = out.get("id") or ""
 
-    # ── processed_at: v134.0.0 FRESHNESS FIX ────────────────────────────
-    # Primary freshness field — always pipeline generation time (UTC-now).
+    # â”€â”€ processed_at: v134.0.0 FRESHNESS FIX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Primary freshness field â€” always pipeline generation time (UTC-now).
     # Dashboard LIVE 7D filter and sort-newest read this field first.
     # For existing items missing processed_at, fall back to timestamp/generated_at.
     if not out.get("processed_at"):
@@ -211,7 +211,7 @@ def normalise_item(item: dict) -> dict:
             or ""
         )
 
-    # ── published_at: expose source article date separately ─────────────
+    # â”€â”€ published_at: expose source article date separately â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Keeps the original publication date visible without conflating it with
     # processing time. Dashboard can display both if needed.
     if not out.get("published_at"):
@@ -222,23 +222,23 @@ def normalise_item(item: dict) -> dict:
             or ""
         )
 
-    # ── tags: normalise None/falsy to [] (prevents JS .map crash) ───────
+    # â”€â”€ tags: normalise None/falsy to [] (prevents JS .map crash) â”€â”€â”€â”€â”€â”€â”€
     if not out.get("tags"):
         out["tags"] = []
     elif not isinstance(out["tags"], list):
         out["tags"] = [str(out["tags"])]
 
-    # ── iocs: ensure list ────────────────────────────────────────────────
+    # â”€â”€ iocs: ensure list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not isinstance(out.get("iocs"), list):
         out["iocs"] = []
 
-    # ── indicator_count: derived from iocs list → powers IOC metric counter ─
+    # â”€â”€ indicator_count: derived from iocs list â†’ powers IOC metric counter â”€
     # Dashboard computeMetrics() checks d.indicator_count to sum total IOCs.
     # Since manifest lacks this field, we compute it here from the iocs array.
     if not out.get("indicator_count"):
         out["indicator_count"] = len(out["iocs"])
 
-    # ── mitre_tactics: alias of ttps for card MITRE display ─────────────
+    # â”€â”€ mitre_tactics: alias of ttps for card MITRE display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     ttps = out.get("ttps") or []
     if not isinstance(ttps, list):
         ttps = []
@@ -246,19 +246,19 @@ def normalise_item(item: dict) -> dict:
     if not out.get("mitre_tactics"):
         out["mitre_tactics"] = ttps
 
-    # ── exploit_tier: for AI modal header badge ──────────────────────────
+    # â”€â”€ exploit_tier: for AI modal header badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not out.get("exploit_tier"):
         out["exploit_tier"] = _derive_exploit_tier(out)
 
-    # ── report_url: enables "View Tactical Dossier" link (v134.0 — no Blogger) ──
+    # â”€â”€ report_url: enables "View Tactical Dossier" link (v134.0 â€” no Blogger) â”€â”€
     out["report_url"] = _build_report_url(out)
     out.pop("blog_url", None)  # hard-remove legacy field
 
-    # ── apex: enables APEX AI Intelligence Panel ─────────────────────────
+    # â”€â”€ apex: enables APEX AI Intelligence Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not out.get("apex") or not isinstance(out.get("apex"), dict):
         out["apex"] = _build_apex(out)
 
-    # ── ai_risk_score / ai_confidence for AI modal ───────────────────────
+    # â”€â”€ ai_risk_score / ai_confidence for AI modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not out.get("ai_risk_score"):
         out["ai_risk_score"] = out.get("risk_score", 0)
     if not out.get("ai_confidence"):
@@ -266,15 +266,15 @@ def normalise_item(item: dict) -> dict:
         conf = float(out.get("confidence") or 0)
         out["ai_confidence"] = round(conf / 100.0, 2) if conf > 1 else conf
 
-    # ── executive_summary for AI modal section 1 ─────────────────────────
+    # â”€â”€ executive_summary for AI modal section 1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not out.get("executive_summary"):
         out["executive_summary"] = out["apex"].get("ai_summary", "")
 
-    # ── tactical_assessment ──────────────────────────────────────────────
+    # â”€â”€ tactical_assessment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not out.get("tactical_assessment"):
         out["tactical_assessment"] = out["apex"].get("recommended_action", "")
 
-    # ── kill_chain_narrative & kill_chain_phases ─────────────────────────
+    # â”€â”€ kill_chain_narrative & kill_chain_phases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not out.get("kill_chain_narrative") and ttps:
         out["kill_chain_narrative"] = (
             f"Threat actor employs {len(ttps)} MITRE ATT&CK techniques: "
@@ -302,7 +302,7 @@ def normalise_item(item: dict) -> dict:
                     phases.append(label)
         out["kill_chain_phases"] = phases or ["EXEC"]
 
-    # ── source_url / nvd_url ─────────────────────────────────────────────
+    # â”€â”€ source_url / nvd_url â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Extract CVE ID for NVD link
     if not out.get("nvd_url"):
         title = out.get("title", "")
@@ -310,7 +310,7 @@ def normalise_item(item: dict) -> dict:
         if cve_match:
             out["nvd_url"] = f"https://nvd.nist.gov/vuln/detail/{cve_match.group()}"
 
-    # ── primary_actor: for AI modal attribution ──────────────────────────
+    # â”€â”€ primary_actor: for AI modal attribution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not out.get("primary_actor"):
         threat_type = str(out.get("threat_type") or "")
         if "ransomware" in threat_type.lower():
@@ -320,7 +320,7 @@ def normalise_item(item: dict) -> dict:
         else:
             out["primary_actor"] = "UNATTRIBUTED"
 
-    # ── kev_present: derive from title/description if not already set ─────
+    # â”€â”€ kev_present: derive from title/description if not already set â”€â”€â”€â”€â”€
     # CISA KEV & active exploitation keyword detection ensures KEV dashboard
     # counter reflects real threat signal rather than always showing 0.
     if not out.get("kev_present"):
@@ -337,7 +337,7 @@ def normalise_item(item: dict) -> dict:
         out["kev_present"] = any(sig in _kev_text for sig in _KEV_SIGNALS)
 
     # feed_source: powers m-feed-count FEEDS counter on dashboard
-    # JS counts unique d.feed_source values; without this field FEEDS shows "—"
+    # JS counts unique d.feed_source values; without this field FEEDS shows "â€”"
     if not out.get("feed_source"):
         _src_name = str(out.get("source", "") or "")
         _src_url  = str(out.get("source_url") or "")
@@ -395,7 +395,7 @@ def merge_intelligence(feed: list, enriched: list) -> list:
                     if not merged_item.get(key):
                         merged_item[key] = enc[key]
 
-        # ── Normalise item → ensures ALL dashboard fields are present ────
+        # â”€â”€ Normalise item â†’ ensures ALL dashboard fields are present â”€â”€â”€â”€
         merged.append(normalise_item(merged_item))
 
     return merged
@@ -485,7 +485,7 @@ def patch_index_html(merged: list) -> bool:
     original_size = len(original_html)
     print(f"[INFO] Loaded index.html: {original_size:,} bytes")
 
-    # ── Step 1: Find array boundaries ──
+    # â”€â”€ Step 1: Find array boundaries â”€â”€
     array_start, array_end = find_embedded_intel_boundaries(original_html)
     if array_start == -1:
         print("[ERROR] EMBEDDED_INTEL array boundaries not found")
@@ -495,11 +495,11 @@ def patch_index_html(merged: list) -> bool:
     old_array = original_html[array_start:array_end]
     print(f"[INFO] Found EMBEDDED_INTEL: [{array_start}:{array_end}] ({len(old_array):,} chars)")
 
-    # ── Step 2: Compute fingerprint of everything OUTSIDE the array ──
+    # â”€â”€ Step 2: Compute fingerprint of everything OUTSIDE the array â”€â”€
     before_fingerprint = compute_fingerprint(original_html, array_start, array_end)
 
-    # ── Step 3: Build new array data ──
-    # ── Strip bloat fields before embedding (0% utilization in dashboard JS) ──
+    # â”€â”€ Step 3: Build new array data â”€â”€
+    # â”€â”€ Strip bloat fields before embedding (0% utilization in dashboard JS) â”€â”€
     _BLOAT_FIELDS = {"ttps", "alert", "correlation"}
     merged = [{k: v for k, v in item.items() if k not in _BLOAT_FIELDS} for item in merged]
 
@@ -509,45 +509,45 @@ def patch_index_html(merged: list) -> bool:
     # HISTORICAL BUG: This script unconditionally wrote "[]" on every pipeline run.
     # If inject_embedded_intel.py (Stage 3.93) then failed for ANY reason (empty
     # api/feed.json, parse error, network timeout), safe_git_commit.py would commit
-    # the cleared "[]" state → GitHub Pages deployed with EMPTY EMBEDDED_INTEL →
-    # bootFromEmbeddedCache() returned early → ZERO instant cards on page load →
+    # the cleared "[]" state â†’ GitHub Pages deployed with EMPTY EMBEDDED_INTEL â†’
+    # bootFromEmbeddedCache() returned early â†’ ZERO instant cards on page load â†’
     # "LIVE INTEL REPORTS disappear after workflow runs" P0.
     #
-    # FIX: If merged has data → write top-25 items as EMBEDDED_INTEL (compact, no bloat).
-    #       If merged is empty → SKIP the write entirely (preserve existing data).
+    # FIX: If merged has data â†’ write top-25 items as EMBEDDED_INTEL (compact, no bloat).
+    #       If merged is empty â†’ SKIP the write entirely (preserve existing data).
     # inject_embedded_intel.py (Stage 3.93) will ALWAYS overwrite with freshest data
     # from api/feed.json anyway, so writing top-25 here is safe defense-in-depth.
     # ===========================================================================
     if not merged:
-        print("[EMBEDDED_INTEL GUARD] merged dataset is empty — "
+        print("[EMBEDDED_INTEL GUARD] merged dataset is empty â€” "
               "skipping EMBEDDED_INTEL write to preserve existing data in index.html. "
               "inject_embedded_intel.py (Stage 3.93) handles fresh injection.")
-        return True  # Not an error — inject_embedded_intel.py will handle it
+        return True  # Not an error â€” inject_embedded_intel.py will handle it
 
-    # Write top-25 items (compact JSON — prevents 12.5MB bloat from full dataset)
+    # Write top-25 items (compact JSON â€” prevents 12.5MB bloat from full dataset)
     # inject_embedded_intel.py will overwrite with freshest api/feed.json data at Stage 3.93.
     _TOP_N = 25
     top_items = merged[:_TOP_N]
     try:
         new_array = json.dumps(top_items, ensure_ascii=False, separators=(",", ":"))
     except Exception as _je:
-        print(f"[EMBEDDED_INTEL GUARD] JSON serialisation failed: {_je} — "
+        print(f"[EMBEDDED_INTEL GUARD] JSON serialisation failed: {_je} â€” "
               f"skipping write to preserve existing data")
         return True  # Safe fallback: don't clear existing EMBEDDED_INTEL
     print(f"[EMBEDDED_INTEL] Writing {len(top_items)} items to EMBEDDED_INTEL "
-          f"({len(new_array):,} bytes) — Stage 3.93 will overwrite with freshest data")
+          f"({len(new_array):,} bytes) â€” Stage 3.93 will overwrite with freshest data")
 
-    # ── Step 4: Create backup in /tmp (avoids NTFS immutability issues on mounted shares) ──
+    # â”€â”€ Step 4: Create backup in /tmp (avoids NTFS immutability issues on mounted shares) â”€â”€
     import tempfile
     backup_path = os.path.join(tempfile.gettempdir(), "index_pre_intel_update.html")
     shutil.copy2(INDEX_HTML, backup_path)
 
-    # ── Step 5: Surgical replacement — ONLY the array content ──
+    # â”€â”€ Step 5: Surgical replacement â€” ONLY the array content â”€â”€
     patched_html = original_html[:array_start] + new_array + original_html[array_end:]
 
-    # ══════════════════════════════════════════════════
-    # POST-PATCH INTEGRITY CHECKS — all must pass
-    # ══════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    # POST-PATCH INTEGRITY CHECKS â€” all must pass
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     errors = []
 
     # Check 1: Fingerprint of surrounding code unchanged
@@ -587,19 +587,19 @@ def patch_index_html(merged: list) -> bool:
     original_surrounding = original_size - (array_end - array_start)
     patched_surrounding = len(patched_html) - (new_array_end - new_array_start) if new_array_start != -1 else 0
     if abs(original_surrounding - patched_surrounding) > 100:
-        errors.append(f"Surrounding code size changed: {original_surrounding:,} → {patched_surrounding:,}")
+        errors.append(f"Surrounding code size changed: {original_surrounding:,} â†’ {patched_surrounding:,}")
 
-    # ── Handle failures ──
+    # â”€â”€ Handle failures â”€â”€
     if errors:
         print("[FATAL] Post-patch integrity check FAILED:")
         for e in errors:
-            print(f"  ✗ {e}")
+            print(f"  âœ— {e}")
         print("[ROLLBACK] Restoring original index.html from backup")
         shutil.copy2(backup_path, INDEX_HTML)
         os.remove(backup_path)
         return False
 
-    # ── All checks passed — ATOMIC WRITE with TRUNCATION GUARD (RC-6) ──
+    # â”€â”€ All checks passed â€” ATOMIC WRITE with TRUNCATION GUARD (RC-6) â”€â”€
     _MIN_LINES_GUARD = 12000
     _orig_lc = original_html.count("\n")
     _new_lc  = patched_html.count("\n")
@@ -653,12 +653,12 @@ def patch_index_html(merged: list) -> bool:
         os.remove(backup_path)
 
     delta = len(patched_html) - original_size
-    print(f"[OK] Check 1: Surrounding code fingerprint — UNCHANGED")
-    print(f"[OK] Check 2: EMBEDDED_INTEL declarations — 1")
+    print(f"[OK] Check 1: Surrounding code fingerprint â€” UNCHANGED")
+    print(f"[OK] Check 2: EMBEDDED_INTEL declarations â€” 1")
     print(f"[OK] Check 3: No conflict markers")
-    print(f"[OK] Check 4: JSON valid — {len(merged)} items")
+    print(f"[OK] Check 4: JSON valid â€” {len(merged)} items")
     print(f"[OK] Check 5: All critical functions preserved")
-    print(f"[OK] Check 6: Surrounding code size — {len(patched_html) - (new_array_end - new_array_start):,} bytes (unchanged)")
+    print(f"[OK] Check 6: Surrounding code size â€” {len(patched_html) - (new_array_end - new_array_start):,} bytes (unchanged)")
 
     return True
 
@@ -669,7 +669,7 @@ def compute_kpis(merged: list) -> dict:
     high = sum(1 for i in merged if 7 <= (i.get("risk_score") or 0) < 9)
     kev = sum(1 for i in merged if i.get("kev_present"))
     enriched = sum(1 for i in merged if any(k in i for k in ENRICHMENT_KEYS))
-    latest = max((i.get("timestamp", "") for i in merged), default="—")
+    latest = max((i.get("timestamp", "") for i in merged), default="â€”")
     return {
         "total": len(merged), "critical": critical, "high": high,
         "kev": kev, "enriched": enriched, "latest": latest
@@ -694,7 +694,7 @@ def load_best_manifest(candidates: list) -> tuple:
 
 def main():
     print("=" * 60)
-    print("CYBERDUDEBIVASH SENTINEL APEX — EMBEDDED_INTEL AUTO-UPDATER")
+    print("CYBERDUDEBIVASH SENTINEL APEX â€” EMBEDDED_INTEL AUTO-UPDATER")
     print(f"Run: {datetime.now(timezone.utc).isoformat()}")
     print("=" * 60)
 
@@ -708,7 +708,7 @@ def main():
     if feed_path:
         print(f"[INFO] Using manifest: {feed_path} ({len(feed)} items)")
     if not feed:
-        print("[ERROR] feed_manifest.json is empty or missing across all candidate paths — aborting")
+        print("[ERROR] feed_manifest.json is empty or missing across all candidate paths â€” aborting")
         sys.exit(1)
 
     print(f"[INFO] feed_manifest: {len(feed)} items")
@@ -716,7 +716,7 @@ def main():
 
     merged = merge_intelligence(feed, enriched)
 
-    # ── Deduplicate by stix_id then title (prevents ticker showing same item twice) ──
+    # â”€â”€ Deduplicate by stix_id then title (prevents ticker showing same item twice) â”€â”€
     seen_keys: set = set()
     deduped: list = []
     for item in merged:
@@ -728,11 +728,11 @@ def main():
             deduped.append(item)
     removed_dupes = len(merged) - len(deduped)
     if removed_dupes:
-        print(f"[INFO] Deduplication: {len(merged)} → {len(deduped)} items ({removed_dupes} duplicates removed)")
+        print(f"[INFO] Deduplication: {len(merged)} â†’ {len(deduped)} items ({removed_dupes} duplicates removed)")
     merged = deduped
 
-    # v134.0.0 FRESHNESS FIX: Sort by processed_at DESC (primary) → timestamp → published.
-    # processed_at = pipeline generation time → always reflects actual processing order.
+    # v134.0.0 FRESHNESS FIX: Sort by processed_at DESC (primary) â†’ timestamp â†’ published.
+    # processed_at = pipeline generation time â†’ always reflects actual processing order.
     # Using timestamp alone causes RSS-sourced intel with old published dates to sink
     # below older but source-fresh articles, making newly generated intel appear stale.
     def _freshness_key(x: dict) -> str:
@@ -744,12 +744,12 @@ def main():
 
     merged.sort(key=_freshness_key, reverse=True)
 
-    # ── v137 FIX: Inject CRITICAL/KEV items from api/feed.json ──────────
+    # â”€â”€ v137 FIX: Inject CRITICAL/KEV items from api/feed.json â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # ROOT CAUSE: update_embedded_intel.py runs mid-pipeline before CRITICAL
     # items are written to data/stix/feed_manifest.json. api/feed.json (built
     # by an earlier pipeline stage from the previous run) already has all
     # CRITICAL items with risk_score >= 9.0. Without this injection, EMBEDDED_INTEL
-    # contains 0 CRITICAL items → dashboard metric cards always show Critical=0.
+    # contains 0 CRITICAL items â†’ dashboard metric cards always show Critical=0.
     _API_FEED_PATH = REPO_ROOT / "api" / "feed.json"
     if _API_FEED_PATH.exists():
         try:
@@ -781,11 +781,11 @@ def main():
         except Exception as _inj_err:
             print(f"[v137] api/feed.json injection skipped ({_inj_err})")
     else:
-        print("[v137] api/feed.json not found — CRITICAL injection skipped")
+        print("[v137] api/feed.json not found â€” CRITICAL injection skipped")
 
-    # ── v137 FIX: Pin CRITICAL+KEV items first in EMBEDDED_INTEL ─────────
+    # â”€â”€ v137 FIX: Pin CRITICAL+KEV items first in EMBEDDED_INTEL â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Guarantees Critical/KEV metric card counts are correct from initial page
-    # load — regardless of where freshness-sort would otherwise place these items.
+    # load â€” regardless of where freshness-sort would otherwise place these items.
     def _is_priority_item(x: dict) -> bool:
         return (
             float(x.get("risk_score") or 0) >= 9.0
@@ -816,39 +816,8 @@ def main():
     if success:
         print("[SUCCESS] index.html EMBEDDED_INTEL patched \u2713")
     else:
-        print("[FAILED] index.html patch failed — see errors above")
+        print("[FAILED] index.html patch failed â€” see errors above")
         sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
-        except Exception as _api_err:
-            print(f"[WARN] v137 CRITICAL inject: api/feed.json read failed ({_api_err}) — "
-                  "continuing with manifest-only merged dataset")
-
-    print(f"[INFO] merged (post-dedup + critical-inject): {len(merged)} items")
-
-    ok = patch_index_html(merged)
-
-    kpis = compute_kpis(merged)
-    print("=" * 60)
-    print("EMBEDDED_INTEL UPDATE SUMMARY")
-    print("=" * 60)
-    print(f"  Total items   : {kpis['total']}")
-    print(f"  Critical      : {kpis['critical']}")
-    print(f"  High          : {kpis['high']}")
-    print(f"  KEV active    : {kpis['kev']}")
-    print(f"  Enriched      : {kpis['enriched']}")
-    print(f"  Latest        : {kpis['latest']}")
-    print(f"  Write status  : {'OK' if ok else 'FAILED'}")
-    print("=" * 60)
-
-    if not ok:
-        print("[ERROR] patch_index_html FAILED — index.html not updated")
-        sys.exit(1)
-
-    print("[OK] EMBEDDED_INTEL updated successfully")
-    sys.exit(0)
 
 
 if __name__ == "__main__":
