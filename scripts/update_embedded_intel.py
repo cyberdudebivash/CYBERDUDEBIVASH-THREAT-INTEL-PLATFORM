@@ -503,11 +503,39 @@ def patch_index_html(merged: list) -> bool:
     _BLOAT_FIELDS = {"ttps", "alert", "correlation"}
     merged = [{k: v for k, v in item.items() if k not in _BLOAT_FIELDS} for item in merged]
 
-    # PRODUCTION FIX (v142.4): Write empty array — dashboard fetches live intel from API.
-    # Embedding full dataset caused 12.5MB index.html bloat, Cyrillic mojibake corruption,
-    # and dashboard/API mismatch. Single source of truth = API feed only.
-    new_array = "[]"
-    # (Security escaping not needed for empty array — retained for reference only)
+    # ===========================================================================
+    # P0 PERMANENT FIX (v145.4): PRESERVE existing EMBEDDED_INTEL when feed empty
+    #
+    # HISTORICAL BUG: This script unconditionally wrote "[]" on every pipeline run.
+    # If inject_embedded_intel.py (Stage 3.93) then failed for ANY reason (empty
+    # api/feed.json, parse error, network timeout), safe_git_commit.py would commit
+    # the cleared "[]" state → GitHub Pages deployed with EMPTY EMBEDDED_INTEL →
+    # bootFromEmbeddedCache() returned early → ZERO instant cards on page load →
+    # "LIVE INTEL REPORTS disappear after workflow runs" P0.
+    #
+    # FIX: If merged has data → write top-25 items as EMBEDDED_INTEL (compact, no bloat).
+    #       If merged is empty → SKIP the write entirely (preserve existing data).
+    # inject_embedded_intel.py (Stage 3.93) will ALWAYS overwrite with freshest data
+    # from api/feed.json anyway, so writing top-25 here is safe defense-in-depth.
+    # ===========================================================================
+    if not merged:
+        print("[EMBEDDED_INTEL GUARD] merged dataset is empty — "
+              "skipping EMBEDDED_INTEL write to preserve existing data in index.html. "
+              "inject_embedded_intel.py (Stage 3.93) handles fresh injection.")
+        return True  # Not an error — inject_embedded_intel.py will handle it
+
+    # Write top-25 items (compact JSON — prevents 12.5MB bloat from full dataset)
+    # inject_embedded_intel.py will overwrite with freshest api/feed.json data at Stage 3.93.
+    _TOP_N = 25
+    top_items = merged[:_TOP_N]
+    try:
+        new_array = json.dumps(top_items, ensure_ascii=False, separators=(",", ":"))
+    except Exception as _je:
+        print(f"[EMBEDDED_INTEL GUARD] JSON serialisation failed: {_je} — "
+              f"skipping write to preserve existing data")
+        return True  # Safe fallback: don't clear existing EMBEDDED_INTEL
+    print(f"[EMBEDDED_INTEL] Writing {len(top_items)} items to EMBEDDED_INTEL "
+          f"({len(new_array):,} bytes) — Stage 3.93 will overwrite with freshest data")
 
     # ── Step 4: Create backup in /tmp (avoids NTFS immutability issues on mounted shares) ──
     import tempfile
@@ -790,6 +818,37 @@ def main():
     else:
         print("[FAILED] index.html patch failed — see errors above")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+        except Exception as _api_err:
+            print(f"[WARN] v137 CRITICAL inject: api/feed.json read failed ({_api_err}) — "
+                  "continuing with manifest-only merged dataset")
+
+    print(f"[INFO] merged (post-dedup + critical-inject): {len(merged)} items")
+
+    ok = patch_index_html(merged)
+
+    kpis = compute_kpis(merged)
+    print("=" * 60)
+    print("EMBEDDED_INTEL UPDATE SUMMARY")
+    print("=" * 60)
+    print(f"  Total items   : {kpis['total']}")
+    print(f"  Critical      : {kpis['critical']}")
+    print(f"  High          : {kpis['high']}")
+    print(f"  KEV active    : {kpis['kev']}")
+    print(f"  Enriched      : {kpis['enriched']}")
+    print(f"  Latest        : {kpis['latest']}")
+    print(f"  Write status  : {'OK' if ok else 'FAILED'}")
+    print("=" * 60)
+
+    if not ok:
+        print("[ERROR] patch_index_html FAILED — index.html not updated")
+        sys.exit(1)
+
+    print("[OK] EMBEDDED_INTEL updated successfully")
+    sys.exit(0)
 
 
 if __name__ == "__main__":

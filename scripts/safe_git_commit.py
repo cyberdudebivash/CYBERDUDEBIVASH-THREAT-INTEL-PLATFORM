@@ -189,6 +189,12 @@ def main() -> None:
         "store.html",         # store page if it exists
         "services.html",      # services page if it exists
         "_headers",           # Cloudflare Pages security headers
+        # SENTINEL APEX card system -- v145 enterprise SOC card renderer
+        # These files are hand-authored; pipeline must NEVER overwrite them.
+        "js/api_adapter.js",               # API normalizer + fetchAndNormalize (v145)
+        "js/card_renderer.js",             # 9-zone enterprise SOC card renderer (v145)
+        "js/card_renderer_integration.js", # EMBEDDED_INTEL instant boot + live upgrade (v145)
+        "css/card_renderer_styles.css",    # glassmorphism design system (v145)
     ]
     for pf in PROTECTED_FILES:
         pf_path = REPO_ROOT / pf
@@ -233,6 +239,64 @@ def main() -> None:
     for jf in JSON_GUARDED:
         if _validate_json_file(jf):
             run_git("add", "-f", jf)
+
+    # ── P0 PERMANENT FIX (v145.4): EMBEDDED_INTEL Guard ──────────────────────────
+    # Before staging index.html, verify EMBEDDED_INTEL is populated (>= 3 items).
+    # If it is empty ([] or missing), restore index.html from HEAD to preserve the
+    # last-known-good version with populated EMBEDDED_INTEL.
+    #
+    # ROOT CAUSE THIS FIXES: update_embedded_intel.py (Stage 3.6b) cleared
+    # EMBEDDED_INTEL to [] on every run. If inject_embedded_intel.py (Stage 3.93)
+    # then failed for ANY reason, this script would commit [] → GitHub Pages deployed
+    # with empty EMBEDDED_INTEL → bootFromEmbeddedCache() returned early → ZERO
+    # instant cards → "LIVE INTEL REPORTS disappear after workflow runs" P0.
+    # ─────────────────────────────────────────────────────────────────────────────
+    import re as _re_guard
+    _index_path = REPO_ROOT / "index.html"
+    if _index_path.exists():
+        try:
+            _html_bytes = _index_path.read_bytes()
+            _html_text  = _html_bytes.decode("utf-8", errors="replace")
+            _ei_pattern = _re_guard.compile(
+                r'window\.EMBEDDED_INTEL\s*=\s*(\[.*?\]);', _re_guard.DOTALL
+            )
+            _ei_match = _ei_pattern.search(_html_text)
+            if _ei_match:
+                _ei_val     = _ei_match.group(1).strip()
+                _ei_compact = _ei_val.replace(" ", "").replace("\n", "").replace("\r", "")
+                _is_empty   = (_ei_compact == "[]" or len(_ei_compact) <= 4)
+                if _is_empty:
+                    log.warning(
+                        "[EMBEDDED_INTEL GUARD] index.html has EMPTY EMBEDDED_INTEL = [] "
+                        "— restoring from HEAD to prevent committing card-less dashboard"
+                    )
+                    _restore = run_git("checkout", "HEAD", "--", "index.html")
+                    if _restore.returncode == 0:
+                        log.info(
+                            "[EMBEDDED_INTEL GUARD] RESTORED index.html from HEAD "
+                            "(last-known-good with populated EMBEDDED_INTEL). "
+                            "inject_embedded_intel.py failed or was skipped this run."
+                        )
+                    else:
+                        log.error(
+                            "[EMBEDDED_INTEL GUARD] Could not restore index.html from HEAD: %s",
+                            _restore.stderr
+                        )
+                else:
+                    # Count approximate items in EMBEDDED_INTEL
+                    _item_count = _ei_val.count('"id":')
+                    log.info(
+                        "[EMBEDDED_INTEL GUARD] PASS — index.html EMBEDDED_INTEL has "
+                        "~%d items (%d chars) — safe to commit", _item_count, len(_ei_val)
+                    )
+            else:
+                log.warning(
+                    "[EMBEDDED_INTEL GUARD] EMBEDDED_INTEL declaration not found in "
+                    "index.html — proceeding with existing file (architecture check needed)"
+                )
+        except Exception as _eg_err:
+            log.warning("[EMBEDDED_INTEL GUARD] Guard check failed: %s — proceeding", _eg_err)
+    # ── END EMBEDDED_INTEL Guard ───────────────────────────────────────────────
 
     # --- Stage NON-SENSITIVE files ---
     # NOTE: JSON files that need validation are handled ABOVE by JSON_GUARDED.

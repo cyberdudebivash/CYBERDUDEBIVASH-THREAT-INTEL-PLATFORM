@@ -181,6 +181,67 @@ h1 span { color: var(--accent); }
 
 .gst-notice { background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); border-radius: 8px; padding: 10px 14px; font-size: 11px; color: #c4b5fd; margin-top: 14px; }
 
+/* ═══ STIX CONTEXT BANNER ════════════════════════════════════════════ */
+#stix-cta-banner {
+  display: none;
+  background: linear-gradient(135deg, #050e1c 0%, #060c1a 60%, #080f1f 100%);
+  border-bottom: 2px solid rgba(0,212,255,0.3);
+  padding: 20px 32px;
+  position: relative;
+  overflow: hidden;
+}
+#stix-cta-banner::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, #00d4ff, #7c3aed, #ef4444, #f59e0b, #00d4ff);
+  background-size: 300%;
+  animation: dgw-shine 4s linear infinite;
+}
+.stix-banner-inner {
+  max-width: 1140px; margin: 0 auto;
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.stix-banner-lock { font-size: 36px; flex-shrink: 0; filter: drop-shadow(0 0 8px rgba(0,212,255,0.5)); }
+.stix-banner-body { flex: 1; min-width: 260px; }
+.stix-banner-eyebrow {
+  font-size: 10px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 4px;
+}
+.stix-banner-title {
+  font-size: 18px; font-weight: 900; color: #fff; margin-bottom: 6px;
+}
+.stix-banner-title .stix-sev-badge {
+  display: inline-block; padding: 2px 10px; border-radius: 6px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.8px;
+  vertical-align: middle; margin-left: 8px;
+}
+.stix-banner-desc { font-size: 13px; color: rgba(255,255,255,0.55); line-height: 1.6; margin-bottom: 10px; }
+.stix-banner-features {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.stix-feat-pill {
+  background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2);
+  color: var(--accent); font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 20px; letter-spacing: 0.3px;
+}
+.stix-banner-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+.stix-upgrade-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: linear-gradient(135deg, #00d4ff, #7c3aed);
+  color: #fff; font-size: 14px; font-weight: 800;
+  padding: 12px 22px; border-radius: 10px; text-decoration: none;
+  border: none; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0,212,255,0.25);
+  transition: all 0.15s;
+}
+.stix-upgrade-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(0,212,255,0.4); }
+.stix-banner-note { font-size: 11px; color: rgba(255,255,255,0.35); text-align: right; }
+@media(max-width:720px) {
+  #stix-cta-banner { padding: 16px 18px; }
+  .stix-banner-actions { align-items: flex-start; }
+  .stix-upgrade-btn { width: 100%; justify-content: center; }
+}
+
 .wa-cta { display: flex; align-items: center; gap: 10px; background: rgba(37,211,102,0.1); border: 1px solid rgba(37,211,102,0.3); border-radius: 10px; padding: 14px; text-decoration: none; transition: all 0.15s; margin-bottom: 16px; }
 .wa-cta:hover { background: rgba(37,211,102,0.15); }
 .wa-icon { font-size: 24px; }
@@ -387,6 +448,39 @@ h1 span { color: var(--accent); }
     <a href="/contact-enterprise.html">Enterprise</a>
   </div>
 </nav>
+
+<!-- STIX CONTEXT BANNER — shown only when arriving from a locked STIX Bundle card -->
+<div id="stix-cta-banner" role="alert" aria-live="polite">
+  <div class="stix-banner-inner">
+    <div class="stix-banner-lock">🔒</div>
+    <div class="stix-banner-body">
+      <div class="stix-banner-eyebrow">STIX 2.1 BUNDLE — PRO REQUIRED</div>
+      <div class="stix-banner-title">
+        Unlock this Threat Intelligence Package
+        <span class="stix-sev-badge" id="stix-sev-badge">CRITICAL</span>
+      </div>
+      <div class="stix-banner-desc" id="stix-banner-desc">
+        You clicked a locked STIX 2.1 threat bundle. PRO gives you instant access to machine-readable
+        structured threat data, full IOC feeds, kill chain mapping, and AI-verified actor attribution —
+        for every advisory in the feed.
+      </div>
+      <div class="stix-banner-features">
+        <span class="stix-feat-pill">📦 STIX 2.1 Bundle</span>
+        <span class="stix-feat-pill">🔍 Full IOC Feed</span>
+        <span class="stix-feat-pill">🎯 MITRE ATT&amp;CK TTPs</span>
+        <span class="stix-feat-pill">🧠 AI Verdict (Analyst-Grade)</span>
+        <span class="stix-feat-pill">⚡ Kill Chain Mapping</span>
+        <span class="stix-feat-pill">🏢 Business Impact Analysis</span>
+      </div>
+    </div>
+    <div class="stix-banner-actions">
+      <button class="stix-upgrade-btn" onclick="document.getElementById('plan-pro').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('plan-pro').click();">
+        ⚡ Unlock PRO — $49/mo
+      </button>
+      <div class="stix-banner-note">API key delivered within 2 hours &nbsp;·&nbsp; Cancel anytime</div>
+    </div>
+  </div>
+</div>
 
 <div class="page">
   <div>
@@ -1457,6 +1551,49 @@ function startBSCPolling(txhash, reviewId) {
   if (params.get('checkout') === 'success') {
     var planParam = params.get('plan') || 'pro';
     showSuccessState(planParam, { review_id: 'DIRECT-' + (params.get('session_id') || Date.now()), bsc_status: null });
+  }
+  /* -- STIX BUNDLE CONTEXT HANDLER -----------------------------------------
+     Fires when arriving from a locked STIX Bundle card on the dashboard.
+     URL params: source=stix-bundle, severity=CRITICAL|HIGH|MEDIUM|LOW
+  ------------------------------------------------------------------------- */
+  var _stixSource = params.get('source');
+  if (_stixSource === 'stix-bundle' || _stixSource === 'stix') {
+    var _stixSev    = (params.get('severity') || 'CRITICAL').toUpperCase();
+    var _stixBanner = document.getElementById('stix-cta-banner');
+    var _sevBadge   = document.getElementById('stix-sev-badge');
+    var _stixDesc   = document.getElementById('stix-banner-desc');
+
+    var _SEV_COLORS = {
+      CRITICAL: { bg:'#7f1d1d', color:'#fca5a5', border:'#ef444466' },
+      HIGH:     { bg:'#431407', color:'#fdba74', border:'#f9731666' },
+      MEDIUM:   { bg:'#422006', color:'#fde68a', border:'#f59e0b66' },
+      LOW:      { bg:'#14532d', color:'#86efac', border:'#22c55e66' }
+    };
+    var _sc = _SEV_COLORS[_stixSev] || _SEV_COLORS['CRITICAL'];
+
+    if (_sevBadge) {
+      _sevBadge.textContent = _stixSev;
+      _sevBadge.style.cssText = 'background:' + _sc.bg + ';color:' + _sc.color + ';border:1px solid ' + _sc.border + ';';
+    }
+
+    var _sevDescMap = {
+      CRITICAL: 'You attempted to access a <strong>CRITICAL-severity</strong> STIX 2.1 threat bundle. This package contains machine-readable IOCs, adversary TTPs, and kill chain data for an active, high-impact threat. PRO unlocks full structured access across all advisories.',
+      HIGH:     'You attempted to access a <strong>HIGH-severity</strong> STIX 2.1 threat bundle. PRO unlocks full IOC extraction, AI verdict, MITRE ATT&CK mapping, and structured threat data for every advisory.',
+      MEDIUM:   'You attempted to access a <strong>MEDIUM-severity</strong> STIX 2.1 threat bundle. PRO gives you machine-readable threat packages, business impact scoring, and analyst-grade verdicts.',
+      LOW:      'You attempted to access a STIX 2.1 threat bundle. PRO gives you full structured access including IOC feeds, STIX bundles, and AI-powered recommendations.'
+    };
+    if (_stixDesc) _stixDesc.innerHTML = _sevDescMap[_stixSev] || _sevDescMap['CRITICAL'];
+
+    if (_stixBanner) _stixBanner.style.display = 'block';
+
+    selectPlan('pro');
+    setTimeout(function() {
+      if (_stixBanner) _stixBanner.scrollIntoView({ behavior:'smooth', block:'start' });
+    }, 150);
+    setTimeout(function() {
+      var _pe = document.getElementById('plan-pro');
+      if (_pe) _pe.scrollIntoView({ behavior:'smooth', block:'center' });
+    }, 800);
   }
 })();
 </script>
