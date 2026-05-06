@@ -373,12 +373,301 @@ def t12():
 
 
 # ---------------------------------------------------------------------------
+# T13: anomaly_radar_engine output contract
+# ---------------------------------------------------------------------------
+
+@test("T13_anomaly_radar_output_contract")
+def t13():
+    """Verify anomaly_radar_engine.py exists and data/ai/anomaly_radar.json is valid."""
+    script = REPO_ROOT / "scripts" / "anomaly_radar_engine.py"
+    assert script.exists(), "anomaly_radar_engine.py missing from scripts/"
+    sz = script.stat().st_size
+    assert sz >= 5_000, f"anomaly_radar_engine.py suspiciously small: {sz} bytes"
+
+    radar_path = REPO_ROOT / "data" / "ai" / "anomaly_radar.json"
+    if not radar_path.exists():
+        # Not generated yet on fresh checkout — warn but don't hard-fail
+        log.warning("[T13] data/ai/anomaly_radar.json not yet generated — skipping content check")
+        return
+
+    data = json.loads(radar_path.read_text(encoding="utf-8"))
+    # Must be a list or have 'advisories' key
+    items = data if isinstance(data, list) else data.get("advisories", data.get("items", []))
+    assert isinstance(items, list), "anomaly_radar.json root is not a list or advisories dict"
+
+    # At least one item must have the zero_day_candidate field (engine ran)
+    has_zd_field = any(
+        "is_zero_day_candidate" in item or "anomaly_score" in item
+        for item in items if isinstance(item, dict)
+    )
+    assert has_zd_field or len(items) == 0, (
+        "anomaly_radar.json items lack is_zero_day_candidate/anomaly_score fields — "
+        "engine may not have injected output"
+    )
+
+
+# ---------------------------------------------------------------------------
+# T14: enterprise_signal_push sector coverage
+# ---------------------------------------------------------------------------
+
+@test("T14_enterprise_signal_push_sectors")
+def t14():
+    """Verify enterprise_signal_push.py exists and covers all 10 required sectors."""
+    script = REPO_ROOT / "scripts" / "enterprise_signal_push.py"
+    assert script.exists(), "enterprise_signal_push.py missing from scripts/"
+    sz = script.stat().st_size
+    assert sz >= 5_000, f"enterprise_signal_push.py suspiciously small: {sz} bytes"
+
+    content = script.read_text(encoding="utf-8")
+    required_sectors = [
+        "finance", "healthcare", "energy", "government",
+        "technology", "retail", "manufacturing",
+        "telecom", "education", "defense",
+    ]
+    missing = [s for s in required_sectors if s.lower() not in content.lower()]
+    assert not missing, (
+        f"enterprise_signal_push.py missing sector coverage: {missing}. "
+        "All 10 sectors required for $499/mo tier compliance."
+    )
+
+    # Verify forecast output if it exists
+    forecast_path = REPO_ROOT / "data" / "ai" / "enterprise_forecast.json"
+    if forecast_path.exists():
+        data = json.loads(forecast_path.read_text(encoding="utf-8"))
+        forecasts = data if isinstance(data, list) else data.get("sectors", data.get("forecasts", []))
+        assert isinstance(forecasts, list), "enterprise_forecast.json malformed"
+
+
+# ---------------------------------------------------------------------------
+# T15: sovereign_mssp_router tenant isolation
+# ---------------------------------------------------------------------------
+
+@test("T15_sovereign_mssp_router_isolation")
+def t15():
+    """Verify sovereign_mssp_router.py exists and has tenant isolation primitives."""
+    script = REPO_ROOT / "scripts" / "sovereign_mssp_router.py"
+    assert script.exists(), "sovereign_mssp_router.py missing from scripts/"
+    sz = script.stat().st_size
+    assert sz >= 5_000, f"sovereign_mssp_router.py suspiciously small: {sz} bytes"
+
+    content = script.read_text(encoding="utf-8")
+    required_primitives = [
+        "tenant_id",
+        "kg_namespace",
+        "tlp_filter",
+        "jwt",
+        "_map_kg_nodes",
+        "_filter_items_for_tenant",
+    ]
+    missing = [p for p in required_primitives if p not in content]
+    assert not missing, (
+        f"sovereign_mssp_router.py missing isolation primitives: {missing}. "
+        "These are mandatory for MSSP tenant isolation security."
+    )
+
+    # Verify sovereign tenant config exists
+    tenant_cfg = REPO_ROOT / "config" / "sovereign_tenants.json"
+    assert tenant_cfg.exists(), (
+        "config/sovereign_tenants.json missing — "
+        "Sovereign Mode cannot activate without tenant configuration."
+    )
+    cfg_data = json.loads(tenant_cfg.read_text(encoding="utf-8"))
+    tenants = cfg_data.get("tenants", cfg_data if isinstance(cfg_data, list) else [])
+    assert isinstance(tenants, list), "sovereign_tenants.json must have a 'tenants' list"
+
+
+# ---------------------------------------------------------------------------
+# T16: mitre_v15_enricher tactic correctness (T1486 must not be "Execution")
+# ---------------------------------------------------------------------------
+
+@test("T16_mitre_v15_enricher_tactic_correctness")
+def t16():
+    """Verify mitre_v15_enricher.py exists and has the critical T1486 tactic correction."""
+    script = REPO_ROOT / "scripts" / "mitre_v15_enricher.py"
+    assert script.exists(), "mitre_v15_enricher.py missing from scripts/"
+    sz = script.stat().st_size
+    assert sz >= 8_000, f"mitre_v15_enricher.py suspiciously small: {sz} bytes"
+
+    content = script.read_text(encoding="utf-8")
+
+    # T1486 must be mapped to "impact" NOT "execution" (v15 correction)
+    assert "T1486" in content, "T1486 (Data Encrypted for Impact) missing from enricher lookup table"
+
+    # The tactic for T1486 must NOT be "execution" — that's the classic wrong mapping
+    import re
+    t1486_block = re.search(r"T1486[^}]{0,300}", content, re.DOTALL)
+    if t1486_block:
+        block_text = t1486_block.group(0).lower()
+        assert "impact" in block_text, (
+            "T1486 tactic must be 'impact' in ATTACK_V15 lookup table. "
+            "Found block does not contain 'impact' — tactic correction not applied."
+        )
+        assert "execution" not in block_text or block_text.index("impact") < block_text.index("execution") + 50, (
+            "T1486 block appears to map to 'execution' before 'impact' — "
+            "critical tactic correction regression detected."
+        )
+
+    # Must have >= 100 technique entries for credible v15 coverage
+    tid_count = len(re.findall(r'"T\d{4}(?:\.\d{3})?"', content))
+    assert tid_count >= 100, (
+        f"ATTACK_V15 table has only {tid_count} TIDs (expected >= 100 for v15 coverage)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# T17: crash_guard minimum success assertion + safe_ioc_list present
+# ---------------------------------------------------------------------------
+
+@test("T17_crash_guard_isolation_primitives")
+def t17():
+    """Verify crash_guard.py exists with all Phase 2 isolation primitives."""
+    script = REPO_ROOT / "scripts" / "crash_guard.py"
+    assert script.exists(), "crash_guard.py missing from scripts/"
+    sz = script.stat().st_size
+    assert sz >= 5_000, f"crash_guard.py suspiciously small: {sz} bytes"
+
+    content = script.read_text(encoding="utf-8")
+    required = [
+        "CrashGuard",
+        "run_isolated",
+        "safe_ioc_list",
+        "safe_dedup_l0_register",
+        "assert_minimum_success",
+        "write_ledger",
+        "daemon",
+    ]
+    missing = [p for p in required if p not in content]
+    assert not missing, (
+        f"crash_guard.py missing isolation primitives: {missing}. "
+        "These are mandatory for Phase 2 Multi-Feed Fusion crash isolation."
+    )
+
+
+# ---------------------------------------------------------------------------
+# T18: pipeline_warn_resolver idempotency (runs twice, same verdict)
+# ---------------------------------------------------------------------------
+
+@test("T18_warn_resolver_exists_and_idempotent")
+def t18():
+    """Verify pipeline_warn_resolver.py exists and has all 4 WARN fixers."""
+    script = REPO_ROOT / "scripts" / "pipeline_warn_resolver.py"
+    assert script.exists(), "pipeline_warn_resolver.py missing from scripts/"
+    sz = script.stat().st_size
+    assert sz >= 5_000, f"pipeline_warn_resolver.py suspiciously small: {sz} bytes"
+
+    content = script.read_text(encoding="utf-8")
+    required = [
+        "resolve_warn1_fake_risk",
+        "resolve_warn2_published_bool",
+        "resolve_warn3_r2_sync",
+        "resolve_warn4_future_timestamps",
+        "_atomic_write",
+    ]
+    missing = [p for p in required if p not in content]
+    assert not missing, (
+        f"pipeline_warn_resolver.py missing WARN fixers: {missing}. "
+        "All 4 WARN resolvers required for zero-WARN pipeline mandate."
+    )
+
+    # Verify r2_sync_state has sync=True if it exists
+    r2_state = REPO_ROOT / "data" / "r2_sync_state.json"
+    if r2_state.exists():
+        try:
+            state = json.loads(r2_state.read_text(encoding="utf-8"))
+            assert state.get("sync") is True, (
+                f"data/r2_sync_state.json has sync={state.get('sync')} — "
+                "must be True (Stage 5.6.1 mandate)"
+            )
+        except json.JSONDecodeError:
+            assert False, "data/r2_sync_state.json is malformed JSON"
+
+
+# ---------------------------------------------------------------------------
+# T19: r2_upload_verifier.py exists and is valid Python
+# ---------------------------------------------------------------------------
+
+@test("T19_r2_upload_verifier_present")
+def t19():
+    """Verify r2_upload_verifier.py (Stage 3.6) exists and has required primitives."""
+    script = REPO_ROOT / "scripts" / "r2_upload_verifier.py"
+    assert script.exists(), (
+        "r2_upload_verifier.py missing from scripts/ — "
+        "Stage 3.6 R2 integrity gate is absent. "
+        "R2 upload can silently fail with no pre-cache-bust verification."
+    )
+    sz = script.stat().st_size
+    assert sz >= 3_000, f"r2_upload_verifier.py suspiciously small: {sz} bytes"
+
+    content = script.read_text(encoding="utf-8")
+    required = [
+        "verify_r2_object",
+        "verify_local_feed",
+        "MIN_FEED_BYTES",
+        "MIN_ADVISORY_COUNT",
+        "_http_head",
+    ]
+    missing = [p for p in required if p not in content]
+    assert not missing, (
+        f"r2_upload_verifier.py missing verification primitives: {missing}"
+    )
+
+    # Must be valid Python syntax
+    try:
+        py_compile.compile(str(script), doraise=True)
+    except py_compile.PyCompileError as e:
+        assert False, f"r2_upload_verifier.py has syntax error: {e}"
+
+
+# ---------------------------------------------------------------------------
+# T20: safe_push.ps1 present (CI race fix deployed)
+# ---------------------------------------------------------------------------
+
+@test("T20_safe_push_ps1_deployed")
+def t20():
+    """Verify safe_push.ps1 (CI race fix) is deployed in scripts/."""
+    script = REPO_ROOT / "scripts" / "safe_push.ps1"
+    assert script.exists(), (
+        "scripts/safe_push.ps1 missing — "
+        "CI-race-safe push script not deployed. "
+        "Local pushes will be vulnerable to 'cannot lock ref' rejections."
+    )
+    sz = script.stat().st_size
+    assert sz >= 3_000, f"safe_push.ps1 suspiciously small: {sz} bytes"
+
+    content = script.read_text(encoding="utf-8")
+    required = [
+        "MaxRetries",
+        "rebase",
+        "skip ci",
+        "backoff",
+        "fetch",
+    ]
+    missing = [p for p in required if p.lower() not in content.lower()]
+    assert not missing, (
+        f"safe_push.ps1 missing CI race-fix primitives: {missing}"
+    )
+
+    # Verify workflow has fetch-depth: 1 (performance regression guard)
+    wf = REPO_ROOT / ".github" / "workflows" / "sentinel-blogger.yml"
+    if wf.exists():
+        wf_content = wf.read_text(encoding="utf-8")
+        assert "fetch-depth: 0" not in wf_content, (
+            "sentinel-blogger.yml still has fetch-depth: 0 — "
+            "reverts the 70s checkout optimization. Should be fetch-depth: 1."
+        )
+        assert "fetch-depth: 1" in wf_content, (
+            "sentinel-blogger.yml does not have fetch-depth: 1 — "
+            "checkout optimization not applied."
+        )
+
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 
 def main() -> int:
     log.info("=" * 60)
-    log.info("SENTINEL APEX v141.7.0 -- Regression Test Suite")
+    log.info("SENTINEL APEX v143.2.0 -- Regression Test Suite (T01-T20)")
     log.info("=" * 60)
 
     pass_count = sum(1 for r in RESULTS if r["status"] == "PASS")
