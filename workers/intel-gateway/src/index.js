@@ -4432,12 +4432,12 @@ async function handleRevenueDashboard(request, env, rid) {
 //  Main Router 
 
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // PUBLIC MANIFEST HANDLER (v150.0 API-first)
 // Serves /api/v1/intel/*.json without authentication.
 // These files are pipeline-generated immutable manifests committed to GitHub Pages.
-// Priority: R2 bucket → GitHub raw (signed, versioned bundles).
-// ─────────────────────────────────────────────────────────────────────────────
+// Priority: R2 bucket -> GitHub raw (signed, versioned bundles).
+// -----------------------------------------------------------------------------
 async function servePublicIntelManifest(pathname, env, rid) {
   const ALLOWED = new Set([
     '/api/v1/intel/latest.json',
@@ -4452,7 +4452,7 @@ async function servePublicIntelManifest(pathname, env, rid) {
   const r2Key    = pathname.slice(1);                   // strip leading "/" -> "api/v1/intel/latest.json"
   const cacheKey = `public_manifest:${filename}`;
 
-  // SOURCE 1: R2 bucket (authoritative — uploaded by pipeline after generation)
+  // SOURCE 1: R2 bucket (authoritative -- uploaded by pipeline after generation)
   if (env?.INTEL_R2) {
     try {
       const obj = await env.INTEL_R2.get(r2Key);
@@ -4493,7 +4493,7 @@ async function servePublicIntelManifest(pathname, env, rid) {
     } catch { /* fall through to GitHub */ }
   }
 
-  // SOURCE 3: GitHub raw (fallback — always available for public repos)
+  // SOURCE 3: GitHub raw (fallback -- always available for public repos)
   try {
     const ghUrl = `https://raw.githubusercontent.com/${CONFIG.GITHUB_REPO}/${CONFIG.GITHUB_BRANCH}/${r2Key}`;
     const ghHeaders = { 'User-Agent': `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}` };

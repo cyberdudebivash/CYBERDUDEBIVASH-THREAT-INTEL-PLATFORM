@@ -1,6 +1,6 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Premium Threat Report Engine v143.0.0
-// Routes: POST /api/reports/premium  ·  GET /api/reports/list  ·  GET /api/reports/:id
+// CYBERDUDEBIVASH(R) SENTINEL APEX -- Premium Threat Report Engine v143.0.0
+// Routes: POST /api/reports/premium  .  GET /api/reports/list  .  GET /api/reports/:id
 // Sellable Asset: $49/report  |  $149/mo unlimited  |  Included in Enterprise
 // Architecture:
 //   - JSON report generation (structured intelligence package)
@@ -10,7 +10,7 @@
 //   - Revenue tracked in ANALYTICS_KV per report generation
 // =============================================================================
 
-// ── Tier & Pricing Config ─────────────────────────────────────────────────────
+// -- Tier & Pricing Config -----------------------------------------------------
 const REPORT_CONFIG = {
   VERSION: "143.0.0",
   PRICE_PER_REPORT_USD:   49,
@@ -24,7 +24,7 @@ const REPORT_CONFIG = {
   R2_PREFIX:              "reports/premium/",
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers -------------------------------------------------------------------
 function safeStr(v, maxLen = 256) {
   if (!v || typeof v !== "string") return "";
   return v.replace(/[\x00-\x1F\x7F<>"'`\\]/g, "").slice(0, maxLen).trim();
@@ -59,7 +59,7 @@ function genReportId() {
   return "rpt_" + Array.from(b).map(x => x.toString(16).padStart(2, "0")).join("");
 }
 
-// ── MITRE ATT&CK Coverage Analyser ───────────────────────────────────────────
+// -- MITRE ATT&CK Coverage Analyser -------------------------------------------
 function analyseMitreCoverage(items) {
   const tacticMap  = {};
   const techniqueSet = new Set();
@@ -95,7 +95,7 @@ function analyseMitreCoverage(items) {
   };
 }
 
-// ── CVE Summary Builder ───────────────────────────────────────────────────────
+// -- CVE Summary Builder -------------------------------------------------------
 function buildCVESummary(items) {
   const cves = {};
   let kev_count = 0, critical_count = 0, high_count = 0;
@@ -130,11 +130,11 @@ function buildCVESummary(items) {
     critical_count,
     high_count,
     top_cves:         cveList.slice(0, 20),
-    exploitation_risk: kev_count > 0 ? "CRITICAL — CISA KEV entries require immediate patching" : "MODERATE",
+    exploitation_risk: kev_count > 0 ? "CRITICAL -- CISA KEV entries require immediate patching" : "MODERATE",
   };
 }
 
-// ── Actor Intelligence Summary ────────────────────────────────────────────────
+// -- Actor Intelligence Summary ------------------------------------------------
 function buildActorIntelligence(items) {
   const actorMap = {};
 
@@ -172,7 +172,7 @@ function buildActorIntelligence(items) {
     .slice(0, 20);
 }
 
-// ── IOC Table Builder ─────────────────────────────────────────────────────────
+// -- IOC Table Builder ---------------------------------------------------------
 function buildIOCTable(items, maxItems = 200) {
   const iocs = [];
   const seen = new Set();
@@ -205,7 +205,7 @@ function buildIOCTable(items, maxItems = 200) {
   };
 }
 
-// ── Executive Summary Generator ───────────────────────────────────────────────
+// -- Executive Summary Generator -----------------------------------------------
 function buildExecutiveSummary(items, mitre, cve, actors, reportPeriod) {
   const totalAdvisories   = items.length;
   const criticalCount     = items.filter(i => (i.severity || "").toUpperCase() === "CRITICAL").length;
@@ -216,12 +216,12 @@ function buildExecutiveSummary(items, mitre, cve, actors, reportPeriod) {
     : 0;
 
   const threatLandscape = criticalCount > 5
-    ? "ELEVATED — Multiple critical-severity threats active in current intelligence cycle"
+    ? "ELEVATED -- Multiple critical-severity threats active in current intelligence cycle"
     : criticalCount > 0
-    ? "HIGH — Critical threats identified requiring immediate SOC response"
+    ? "HIGH -- Critical threats identified requiring immediate SOC response"
     : highCount > 10
-    ? "MODERATE-HIGH — Significant high-severity advisory volume detected"
-    : "MODERATE — Standard threat activity within normal baseline";
+    ? "MODERATE-HIGH -- Significant high-severity advisory volume detected"
+    : "MODERATE -- Standard threat activity within normal baseline";
 
   return {
     report_period:       reportPeriod,
@@ -233,23 +233,23 @@ function buildExecutiveSummary(items, mitre, cve, actors, reportPeriod) {
     threat_landscape:    threatLandscape,
     mitre_coverage:      `${mitre.unique_techniques} techniques across ${Object.keys(mitre.top_tactics.reduce((a, t) => { a[t.tactic] = 1; return a; }, {})).length} tactics`,
     top_actor:           actors[0] ? `${actors[0].actor_tag} (${actors[0].advisory_count} advisories)` : "UNATTRIBUTED",
-    cve_exposure:        cve.total_cves > 0 ? `${cve.total_cves} CVEs identified — ${cve.kev_count} CISA KEV confirmed` : "No CVEs in scope",
+    cve_exposure:        cve.total_cves > 0 ? `${cve.total_cves} CVEs identified -- ${cve.kev_count} CISA KEV confirmed` : "No CVEs in scope",
     key_recommendations: [
       kevCount > 0   ? `CRITICAL: Patch ${kevCount} CISA KEV-confirmed CVE(s) immediately` : null,
       criticalCount > 0 ? `Deploy detection rules for ${criticalCount} CRITICAL-severity threat(s)` : null,
-      mitre.unique_techniques > 10 ? `Review MITRE coverage gaps — ${mitre.unique_techniques} techniques active in this period` : null,
-      avgRisk > 6    ? "Activate incident response workflow — average risk score exceeds HIGH threshold" : null,
+      mitre.unique_techniques > 10 ? `Review MITRE coverage gaps -- ${mitre.unique_techniques} techniques active in this period` : null,
+      avgRisk > 6    ? "Activate incident response workflow -- average risk score exceeds HIGH threshold" : null,
       "Subscribe to real-time webhook push for immediate alert delivery",
     ].filter(Boolean),
   };
 }
 
-// ── Main Report Handler ───────────────────────────────────────────────────────
+// -- Main Report Handler -------------------------------------------------------
 
 export async function handlePremiumReport(request, env, auth, rid) {
   const tier = auth.tier || "free";
 
-  // Tier gate — free users get upsell
+  // Tier gate -- free users get upsell
   if (tier === "free") {
     return _json({
       error:      "tier_required",
@@ -280,7 +280,7 @@ export async function handlePremiumReport(request, env, auth, rid) {
 
   const reportType  = ["weekly", "monthly", "custom", "cve_focused", "actor_focused"].includes(body.type)
     ? body.type : "weekly";
-  const reportTitle = safeStr(body.title || `SENTINEL APEX Threat Intelligence Report — ${reportType.toUpperCase()}`, 200);
+  const reportTitle = safeStr(body.title || `SENTINEL APEX Threat Intelligence Report -- ${reportType.toUpperCase()}`, 200);
   const maxItems    = tier === "enterprise" ? REPORT_CONFIG.MAX_ITEMS_ENTERPRISE : REPORT_CONFIG.MAX_ITEMS_PRO;
   const severityFilter = body.severity_filter
     ? (Array.isArray(body.severity_filter) ? body.severity_filter.map(s => safeStr(s, 20).toUpperCase()) : [])
@@ -303,7 +303,7 @@ export async function handlePremiumReport(request, env, auth, rid) {
       }
     }
   } catch (e) {
-    // Non-fatal — proceed with empty feed, report will still generate structure
+    // Non-fatal -- proceed with empty feed, report will still generate structure
   }
 
   // Apply filters
@@ -341,31 +341,31 @@ export async function handlePremiumReport(request, env, auth, rid) {
     report_type:      reportType,
     report_title:     reportTitle,
     generated_at:     now.toISOString(),
-    generated_by:     "CYBERDUDEBIVASH® SENTINEL APEX v143.0.0",
+    generated_by:     "CYBERDUDEBIVASH(R) SENTINEL APEX v143.0.0",
     report_period:    reportPeriod,
-    classification:   "TLP:AMBER — Restricted to authorised recipients",
+    classification:   "TLP:AMBER -- Restricted to authorised recipients",
     tier:             tier,
     advisories_count: filtered.length,
 
-    // Section 1 — Executive Summary
+    // Section 1 -- Executive Summary
     executive_summary: execSum,
 
-    // Section 2 — CVE Intelligence
+    // Section 2 -- CVE Intelligence
     cve_intelligence: cve,
 
-    // Section 3 — MITRE ATT&CK Coverage
+    // Section 3 -- MITRE ATT&CK Coverage
     mitre_attack_coverage: mitre,
 
-    // Section 4 — Threat Actor Intelligence
+    // Section 4 -- Threat Actor Intelligence
     actor_intelligence: {
       total_actors: actors.length,
       actors,
     },
 
-    // Section 5 — IOC Table
+    // Section 5 -- IOC Table
     ioc_intelligence: iocTable,
 
-    // Section 6 — Raw advisories (limited)
+    // Section 6 -- Raw advisories (limited)
     advisories: filtered.slice(0, tier === "enterprise" ? 500 : 50).map(item => ({
       id:          item.id,
       title:       safeStr(item.title || "", 200),
@@ -384,9 +384,9 @@ export async function handlePremiumReport(request, env, auth, rid) {
       } : null,
     })),
 
-    // Section 7 — Metadata
+    // Section 7 -- Metadata
     metadata: {
-      platform:         "CYBERDUDEBIVASH® SENTINEL APEX",
+      platform:         "CYBERDUDEBIVASH(R) SENTINEL APEX",
       platform_version: "143.0.0",
       dashboard_url:    "https://intel.cyberdudebivash.com",
       api_docs_url:     "https://intel.cyberdudebivash.com/api-docs.html",
@@ -396,7 +396,7 @@ export async function handlePremiumReport(request, env, auth, rid) {
       json_download_url:`https://intel.cyberdudebivash.com/api/reports/${reportId}`,
       export_formats:   ["json", "csv", "pdf"],
       contact:          "root@cyberdudebivash.in",
-      copyright:        `© ${now.getFullYear()} CYBERDUDEBIVASH® — All rights reserved. TLP:AMBER.`,
+      copyright:        `(C) ${now.getFullYear()} CYBERDUDEBIVASH(R) -- All rights reserved. TLP:AMBER.`,
     },
 
     request_id: rid,
@@ -421,7 +421,7 @@ export async function handlePremiumReport(request, env, auth, rid) {
         }
       );
     }
-  } catch { /* Non-fatal — report is still returned in response */ }
+  } catch { /* Non-fatal -- report is still returned in response */ }
 
   // Track revenue event in KV
   try {
@@ -440,7 +440,7 @@ export async function handlePremiumReport(request, env, auth, rid) {
   });
 }
 
-// ── GET /api/reports/list ─────────────────────────────────────────────────────
+// -- GET /api/reports/list -----------------------------------------------------
 export async function handleReportList(request, env, auth, rid) {
   const tier = auth.tier || "free";
 
@@ -484,7 +484,7 @@ export async function handleReportList(request, env, auth, rid) {
   });
 }
 
-// ── GET /api/reports/:id ──────────────────────────────────────────────────────
+// -- GET /api/reports/:id ------------------------------------------------------
 export async function handleReportGet(request, env, auth, rid, reportId) {
   const tier = auth.tier || "free";
   const safeId = safeStr(reportId || "", 30);
