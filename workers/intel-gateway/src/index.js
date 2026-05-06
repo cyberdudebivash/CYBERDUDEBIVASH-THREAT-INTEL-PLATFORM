@@ -1592,6 +1592,33 @@ function applyTierGate(item, tier) {
   // Inject computed apex_ai block
   gated.apex_ai = computeApexAI(item, tier);
 
+  // v149.0 POST-ASSIGNMENT APEX_AI INTEGRITY GUARD (defense-in-depth)
+  // computeApexAI has a hasValidApexAI guard and a try/catch that should
+  // correctly preserve item.apex_ai when it is valid. However, if the catch
+  // block fires for any unexpected reason (e.g. a runtime error inside the
+  // Free-tier masking branch) it would return { error: "apex_compute_failed" },
+  // silently dropping the valid upstream apex_ai from R2/API.
+  //
+  // This guard detects that specific failure mode and restores item.apex_ai:
+  //   - computeApexAI returned an error sentinel (catch fired)
+  //   - AND the original item.apex_ai was valid (non-null, object, no error flag)
+  //   - Restore item.apex_ai so valid intel is NEVER lost due to a compute error
+  //
+  // This is intentionally a no-op under normal operation (computeApexAI works).
+  // It only activates as a last-resort fallback in the rare error path.
+  if (
+    gated.apex_ai &&
+    typeof gated.apex_ai === "object" &&
+    gated.apex_ai.error === "apex_compute_failed" &&
+    item.apex_ai != null &&
+    typeof item.apex_ai === "object" &&
+    !Array.isArray(item.apex_ai) &&
+    !item.apex_ai.error
+  ) {
+    // Restore original apex_ai -- do NOT overwrite valid upstream intelligence
+    gated.apex_ai = { ...item.apex_ai };
+  }
+
   // v134.0: HIGH/CRITICAL severity integrity check -- never serve HIGH+ advisory with 0 IOCs.
   // If ioc_count is still 0 after normalization, flag it with a data quality annotation.
   // This is a data-quality annotation only -- does NOT block the response.
