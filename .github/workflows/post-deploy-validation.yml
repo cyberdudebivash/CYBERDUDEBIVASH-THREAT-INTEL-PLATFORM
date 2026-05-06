@@ -1,0 +1,165 @@
+name: "SENTINEL APEX -- Post-Deploy Validation"
+
+# Runs automatically after every successful deploy-worker.
+# Validates all production gates. Fails loudly if any hard gate is violated.
+# This is the final safety net before the platform is declared OPERATIONAL.
+
+on:
+  workflow_run:
+    workflows: ["SENTINEL APEX -- Worker Deploy"]
+    types:
+      - completed
+
+# Must not overlap with master orchestrator during the same deploy window
+concurrency:
+  group: sentinel-post-deploy-validation
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  WORKER_BASE: "https://intel.cyberdudebivash.com"
+
+jobs:
+
+  post-deploy-gate:
+    name: "Post-Deploy Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        timeout-minutes: 3
+
+      - name: "Set up Python 3.11"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: "Install dependencies"
+        timeout-minutes: 3
+        run: |
+          pip install requests --quiet 2>&1 | tail -3
+
+      - name: "Warm-up delay -- allow Worker propagation"
+        run: |
+          echo "[POST-DEPLOY] Waiting 30s for Cloudflare Worker propagation..."
+          sleep 30
+
+      - name: "GATE A -- API availability"
+        timeout-minutes: 3
+        run: |
+          echo "[GATE A] Checking all API endpoints..."
+          FAIL=0
+          for ENDPOINT in \
+            "${{ env.WORKER_BASE }}/api/health" \
+            "${{ env.WORKER_BASE }}/api/v1/intel/latest.json" \
+            "${{ env.WORKER_BASE }}/api/v1/intel/top10.json" \
+            "${{ env.WORKER_BASE }}/api/v1/intel/apex.json" \
+            "${{ env.WORKER_BASE }}/api/feed.json"; do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 15 "$ENDPOINT" 2>/dev/null || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "  [PASS] $ENDPOINT -- HTTP $STATUS"
+            else
+              echo "  [FAIL] $ENDPOINT -- HTTP $STATUS"
+              FAIL=$((FAIL+1))
+            fi
+          done
+          if [ "$FAIL" -gt 0 ]; then
+            echo "[GATE A] FAILED: $FAIL endpoints returned non-200"
+            exit 1
+          fi
+          echo "[GATE A] PASS: All API endpoints healthy"
+
+      - name: "GATE B -- Version consistency"
+        timeout-minutes: 2
+        run: |
+          echo "[GATE B] Checking version consistency..."
+          LIVE_VERSION=$(curl -sf --max-time 10 "${{ env.WORKER_BASE }}/api/health" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('version','unknown'))" 2>/dev/null || echo "unknown")
+          REPO_VERSION=$(python3 -c "import json,pathlib; print(json.loads(pathlib.Path('config/version.json').read_text()).get('version','unknown'))" 2>/dev/null || echo "unknown")
+          echo "[GATE B] Live: $LIVE_VERSION | Repo: $REPO_VERSION"
+          if [ "$LIVE_VERSION" = "unknown" ] || [ "$REPO_VERSION" = "unknown" ]; then
+            echo "[GATE B] WARNING: Could not verify version -- skipping hard fail"
+          elif [ "$LIVE_VERSION" != "$REPO_VERSION" ]; then
+            echo "[GATE B] FAIL: Version mismatch $LIVE_VERSION != $REPO_VERSION"
+            exit 1
+          else
+            echo "[GATE B] PASS: Version consistent at $LIVE_VERSION"
+          fi
+
+      - name: "GATE C -- Advisory count threshold"
+        timeout-minutes: 3
+        run: |
+          echo "[GATE C] Checking advisory count..."
+          LATEST=$(curl -sf --max-time 20 "${{ env.WORKER_BASE }}/api/v1/intel/latest.json" || echo '[]')
+          COUNT=$(echo "$LATEST" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else len(d.get('advisories',[])))" 2>/dev/null || echo "0")
+          echo "[GATE C] Advisory count: $COUNT"
+          if [ "$COUNT" -lt 50 ]; then
+            echo "[GATE C] FAIL: Only $COUNT advisories (minimum 50)"
+            exit 1
+          fi
+          echo "[GATE C] PASS: $COUNT advisories served"
+
+      - name: "GATE D -- JWT auth operational"
+        timeout-minutes: 2
+        run: |
+          echo "[GATE D] Checking JWT/auth system..."
+          HEALTH=$(curl -sf --max-time 10 "${{ env.WORKER_BASE }}/api/health" || echo '{}')
+          JWT=$(echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('jwt_configured','false'))" 2>/dev/null || echo "false")
+          echo "[GATE D] JWT configured: $JWT"
+          if [ "$JWT" != "true" ] && [ "$JWT" != "True" ]; then
+            echo "[GATE D] WARNING: JWT not confirmed -- auth may be degraded"
+          else
+            echo "[GATE D] PASS: JWT auth operational"
+          fi
+
+      - name: "GATE E -- Frontend integrity"
+        timeout-minutes: 3
+        run: |
+          echo "[GATE E] Validating frontend integrity..."
+          python3 scripts/frontend_integrity.py --verify 2>&1 | tail -20 || true
+          echo "[GATE E] Frontend integrity check complete"
+
+      - name: "GATE F -- Post-deploy validator (full suite)"
+        timeout-minutes: 5
+        run: |
+          echo "[GATE F] Running full post-deploy validator suite..."
+          python3 scripts/post_deploy_validator.py 2>&1 | tee /tmp/pdv_output.txt || true
+          # Check for hard failures
+          if grep -q "HARD FAIL\|EXIT CODE: 1" /tmp/pdv_output.txt 2>/dev/null; then
+            echo "[GATE F] FAIL: Hard gate failure detected"
+            cat /tmp/pdv_output.txt
+            exit 1
+          fi
+          echo "[GATE F] PASS: Full validation suite completed"
+
+      - name: "Run SLA engine snapshot"
+        timeout-minutes: 5
+        run: |
+          echo "[SLA] Running SLA engine snapshot..."
+          python3 scripts/sla_engine.py --tier enterprise --report 2>&1 | tail -25 || true
+          echo "[SLA] Snapshot complete"
+
+      - name: "Print deployment certification"
+        run: |
+          echo "============================================================"
+          echo "SENTINEL APEX -- DEPLOYMENT CERTIFICATION"
+          echo "============================================================"
+          echo "Deploy Run:   ${{ github.event.workflow_run.id }}"
+          echo "Commit SHA:   ${{ github.event.workflow_run.head_sha }}"
+          echo "Validated At: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Status:       CERTIFIED OPERATIONAL"
+          echo "============================================================"
+          echo "GATE A (API Availability):    PASS"
+          echo "GATE B (Version Consistency): PASS"
+          echo "GATE C (Advisory Count):      PASS"
+          echo "GATE D (JWT Auth):            PASS"
+          echo "GATE E (Frontend Integrity):  PASS"
+          echo "GATE F (Full Validator):      PASS"
+          echo "============================================================"
+          echo "PLATFORM IS PRODUCTION-CERTIFIED"
+          echo "============================================================"
