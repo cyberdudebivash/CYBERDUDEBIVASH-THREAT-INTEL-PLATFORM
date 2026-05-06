@@ -260,7 +260,7 @@ def _dispatch_generic(
     Dispatches real-time alerts to Discord and Slack for high-risk threats.
     FIX: Added 'mitre_data=None' to resolve TypeError.
     """
-    
+
     # 1. Threshold Gate: Only alert for critical threats (Risk >= 9.0)
     if risk_score < 9.0:
         logger.info(f"[-] Risk Score {risk_score} is below Red Alert threshold (9.0).")
@@ -313,7 +313,7 @@ def _dispatch_generic(
                     "text": {"type": "mrkdwn", "text": f"*? CRITICAL THREAT DETECTED*\n*Advisory:* {headline}\n*Risk Score:* `{risk_score}/10` | *TLP:* `{tlp_label}`"}
                 },
                 {
-                    "type": "section", 
+                    "type": "section",
                     "text": {"type": "mrkdwn", "text": f"*Tactics:* {tactic_summary}"}
                 },
                 {

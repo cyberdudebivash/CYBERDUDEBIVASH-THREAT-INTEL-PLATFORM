@@ -26,7 +26,7 @@ class SovereignRevenueDashboard:
 
         url = f"https://api.gumroad.com/v2/sales?access_token={self.gumroad_token}"
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=30)
             data = response.json()
             if data.get("success"):
                 sales = data.get("sales", [])
@@ -58,16 +58,16 @@ class SovereignRevenueDashboard:
                 "priority_level": "SOVEREIGN" if epss > 0.8 else "STABLE",
                 "remediation_status": "READY" if item.get("kev_present") else "AUDIT_REQUIRED"
             })
-        
+
         return demand_matrix
 
     def update_portal(self):
         """Generates the unified intelligence artifact for the dashboard."""
         logger.info("Syncing Sovereign Revenue Portal...")
-        
+
         sales_data = self.fetch_gumroad_metrics()
         demand_data = self.correlate_market_demand()
-        
+
         dashboard_state = {
             "authority": "CYBERDUDEBIVASH OFFICIAL AUTHORITY",
             "sync_time": datetime.now(timezone.utc).isoformat(),
@@ -79,7 +79,7 @@ class SovereignRevenueDashboard:
         os.makedirs(os.path.dirname(self.output_report), exist_ok=True)
         with open(self.output_report, "w") as f:
             json.dump(dashboard_state, f, indent=4)
-        
+
         logger.info(f"[OK] Revenue Intelligence archived to {self.output_report}")
         return dashboard_state
 

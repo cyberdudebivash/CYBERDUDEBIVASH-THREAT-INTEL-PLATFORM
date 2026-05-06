@@ -100,7 +100,7 @@ concurrency:
 jobs:
   generate-and-sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 90   # v150.1: per-step timeouts now enforced; 90min job cap prevents zombie runs
     # CI LOOP GUARD (v143.2.0): Prevent github-actions[bot] push-triggered runs
     # from spawning a new pipeline cycle. schedule + workflow_dispatch always run.
     # This eliminates the CI self-trigger feedback loop on Stage-4 git commits.
@@ -138,6 +138,7 @@ jobs:
       # STAGE 0: CHECKOUT
       # -----------------------------------------------------------------------
       - name: "Checkout repository"
+        timeout-minutes: 8
         uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 1
@@ -148,6 +149,7 @@ jobs:
       # STAGE 0: PYTHON SETUP
       # -----------------------------------------------------------------------
       - name: "Setup Python 3.12"
+        timeout-minutes: 5
         uses: actions/setup-python@v5.4.0
         with:
           python-version: '3.12'
@@ -160,6 +162,7 @@ jobs:
       # Simple pip calls only. No inline Python.
       # -----------------------------------------------------------------------
       - name: "Install pipeline dependencies"
+        timeout-minutes: 10
         run: |
           python -m pip install --upgrade pip --quiet
           pip install --quiet "urllib3>=1.26.18,<2.0" "charset_normalizer>=3.3.2,<4.0"
@@ -171,6 +174,7 @@ jobs:
       # STAGE 0: ENSURE REQUIRED DIRECTORIES
       # -----------------------------------------------------------------------
       - name: "Ensure required directories"
+        timeout-minutes: 2
         run: |
           mkdir -p data/stix data/nexus data/genesis data/cortex data/quantum
           mkdir -p data/sovereign data/playbooks/scripts data/premium_packs
@@ -186,6 +190,7 @@ jobs:
       # Prevents the recurring pattern of silent 3-minute pipeline exits.
       # -----------------------------------------------------------------------
       - name: "STAGE 0.05 - Pre-flight: Validate critical script integrity"
+        timeout-minutes: 3
         run: python3 scripts/ci_preflight_check.py
 
       # -----------------------------------------------------------------------
@@ -196,6 +201,7 @@ jobs:
       # This is the CI enforcement of the local py_compile contract.
       # -----------------------------------------------------------------------
       - name: "STAGE 0.06 - Python Syntax Guard (py_compile all scripts)"
+        timeout-minutes: 5
         run: |
           echo "Running py_compile on all scripts/*.py ..."
           ERRORS=0
@@ -222,6 +228,7 @@ jobs:
       # Exit 0 guaranteed by script.
       # -----------------------------------------------------------------------
       - name: "STAGE 0.0 - Encoding Guard (BOM / CRLF / smart-quote / mojibake)"
+        timeout-minutes: 5
         run: python3 scripts/encoding_guard.py --fix
 
       # -----------------------------------------------------------------------
@@ -229,6 +236,7 @@ jobs:
       # Validates/heals all .json files. Exit 0 guaranteed.
       # -----------------------------------------------------------------------
       - name: "STAGE 0.1 - JSON Sanitizer and Self-Healing Engine"
+        timeout-minutes: 3
         run: python3 scripts/sanitize_repo.py || true
 
       # -----------------------------------------------------------------------
@@ -236,6 +244,7 @@ jobs:
       # Hard fail if CDB_JWT_SECRET is missing.
       # -----------------------------------------------------------------------
       - name: "STAGE 0.2 - Validate required secrets"
+        timeout-minutes: 2
         run: python3 scripts/validate_env.py
 
       # -----------------------------------------------------------------------
@@ -250,6 +259,7 @@ jobs:
       # RULE: Pipeline MUST NOT modify frontend files. This gate enforces that.
       # -----------------------------------------------------------------------
       - name: "STAGE 0.03 - Baseline Stability Lock Pre-flight (HARD FAIL)"
+        timeout-minutes: 3
         run: python3 scripts/apex_stability_lock.py
 
       # -----------------------------------------------------------------------
@@ -260,6 +270,7 @@ jobs:
       # Does NOT hard-fail on empty manifest (CI generates it from scratch).
       # -----------------------------------------------------------------------
       - name: "STAGE 0.04 - Pre-pipeline Schema Validation (backfill missing fields)"
+        timeout-minutes: 3
         run: python3 scripts/validate_manifest_schema.py --backfill || true
 
       # -----------------------------------------------------------------------
@@ -270,6 +281,7 @@ jobs:
       # Hard fails on: missing JWT, freshness gate, schema, integrity.
       # -----------------------------------------------------------------------
       - name: "STAGE 1-3 - Master Pipeline Orchestrator"
+        timeout-minutes: 40
         run: python3 scripts/run_pipeline.py
 
       # -----------------------------------------------------------------------
@@ -282,6 +294,7 @@ jobs:
       # Safe: deterministic, idempotent, non-destructive to existing fields.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.1 - APEX AI Feed Enrichment (inject apex_ai into all items)"
+        timeout-minutes: 8
         run: python3 scripts/enrich_feed_apex.py
 
       # -----------------------------------------------------------------------
@@ -295,6 +308,7 @@ jobs:
       # Safe: idempotent, non-destructive, atomic write.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.1.5 - Sync apex_ai from api/feed.json -> feed_manifest (HARDENING)"
+        timeout-minutes: 5
         run: python3 scripts/field_preserving_merge.py --sync-apex --manifest data/stix/feed_manifest.json --incoming api/feed.json --feed api/feed.json || true
 
       # -----------------------------------------------------------------------
@@ -311,6 +325,7 @@ jobs:
       # pipeline rebuilds from batch only, losing all prior enrichment.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.1.6 - Field-Preserving Manifest Merge (HARDENING)"
+        timeout-minutes: 5
         run: python3 scripts/field_preserving_merge.py --manifest data/stix/feed_manifest.json --incoming api/feed.json --cap 500 || true
 
       # -----------------------------------------------------------------------
@@ -321,6 +336,7 @@ jobs:
       # NO || true -- pipeline stops if any report is missing.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.2 - Generate Internal HTML Reports (report_generator)"
+        timeout-minutes: 20
         run: python3 scripts/report_generator.py --manifest data/stix/feed_manifest.json
 
       # -----------------------------------------------------------------------
@@ -329,6 +345,7 @@ jobs:
       # report files. Idempotent -- no-op once all reports are clean.
       # -----------------------------------------------------------------------
       - name: Stage 3.2.5 -- Encoding Remediation Pass
+        timeout-minutes: 5
         run: python3 scripts/fix_report_encoding.py || true
 
       # -----------------------------------------------------------------------
@@ -339,6 +356,7 @@ jobs:
       # Blocks R2 upload if ANY advisory fails. Zero silent skips.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.3 - Report Validation Gate (HARD FAIL)"
+        timeout-minutes: 5
         run: python3 scripts/validate_reports.py --manifest data/stix/feed_manifest.json
 
       # -----------------------------------------------------------------------
@@ -348,6 +366,7 @@ jobs:
       # Idempotent, never blocks pipeline.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.3.5 - Update validation_status"
+        timeout-minutes: 3
         run: python3 scripts/update_validation_status.py || true
 
       # -----------------------------------------------------------------------
@@ -360,6 +379,7 @@ jobs:
       # Writes data/quality/sanity_guard_report.json for observability.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.4 - Manifest Sanity Guard (HARD FAIL on corruption)"
+        timeout-minutes: 5
         run: python3 scripts/manifest_sanity_guard.py
 
       # -----------------------------------------------------------------------
@@ -375,6 +395,7 @@ jobs:
       # If this gate fails, R2 upload is blocked -- no corrupt data reaches production.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.4.5 - STABLE CONTRACT Schema Validation (HARD FAIL pre-R2)"
+        timeout-minutes: 5
         run: python3 scripts/validate_manifest_schema.py --backfill --api-only
 
       # -----------------------------------------------------------------------
@@ -385,6 +406,7 @@ jobs:
       # R2 is NEVER overwritten with corrupt/small manifests.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.5 - Upload Intel to Cloudflare R2 (MANDATORY)"
+        timeout-minutes: 12
         env:
           CF_R2_REPORTS_KEY_ID:     ${{ secrets.CF_R2_REPORTS_KEY_ID }}
           CF_R2_REPORTS_SECRET_KEY: ${{ secrets.CF_R2_REPORTS_SECRET_KEY }}
@@ -399,6 +421,7 @@ jobs:
       # Prevents silent data loss between R2 upload and cache invalidation.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.6 - R2 Upload Integrity Verifier (HARD FAIL)"
+        timeout-minutes: 5
         run: python3 scripts/r2_upload_verifier.py
 
       # -----------------------------------------------------------------------
@@ -406,6 +429,7 @@ jobs:
       # Safe to run even if R2 upload had issues. Exit 0 guaranteed.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.7 - Bust Worker KV Cache"
+        timeout-minutes: 3
         if: always()
         run: python3 scripts/bust_kv_cache.py || true
 
@@ -416,6 +440,7 @@ jobs:
       # BLOCKS DEPLOYMENT if any encoding violation is found.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.8 - Encoding Validator (HARD FAIL on mojibake)"
+        timeout-minutes: 3
         run: python3 scripts/encoding_validator.py
 
       # -----------------------------------------------------------------------
@@ -427,6 +452,7 @@ jobs:
       # invalid after stripping -- STAGE 3.9 will catch that as a hard-fail.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.8.5 - Null-Byte Auto-Repair (pre-gate defensive)"
+        timeout-minutes: 3
         run: python3 scripts/null_byte_repair.py || true
 
       # -----------------------------------------------------------------------
@@ -435,6 +461,7 @@ jobs:
       # Blocks deployment if any output contract violation is detected.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.9 - Output Validation Gate (HARD FAIL)"
+        timeout-minutes: 5
         run: python3 scripts/output_validation_gate.py
 
       # -----------------------------------------------------------------------
@@ -444,6 +471,7 @@ jobs:
       # BLOCKS DEPLOYMENT if API != Dashboard.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.91 - API Dashboard Contract Validator (HARD FAIL)"
+        timeout-minutes: 5
         run: python3 scripts/api_dashboard_contract_validator.py
 
       # -----------------------------------------------------------------------
@@ -462,6 +490,7 @@ jobs:
       # Blocks deployment if architecture invariants violated.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.92 - Dashboard Frontend Architecture Guard (HARD FAIL)"
+        timeout-minutes: 5
         run: python3 scripts/dashboard_frontend_guard.py
 
       # -----------------------------------------------------------------------
@@ -483,6 +512,7 @@ jobs:
       # ZERO HTML MUTATION: index.html read-only -- pipeline never touches it.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.93 - Generate Immutable API Manifests (v150.0 API-first)"
+        timeout-minutes: 5
         run: python3 scripts/generate_api_manifests.py
 
       # -----------------------------------------------------------------------
@@ -493,6 +523,7 @@ jobs:
       # HARD FAIL: blocks git commit if any bundle is missing or empty.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.93.5 - Validate Immutable API Manifests (deployment gate)"
+        timeout-minutes: 5
         run: python3 scripts/validate_api_manifests.py
 
       # -----------------------------------------------------------------------
@@ -507,6 +538,7 @@ jobs:
       # Final dashboard integrity checkpoint before git commit.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.94 - Stability Lock Confirmation (v150.0 Immutable)"
+        timeout-minutes: 5
         run: python3 scripts/apex_stability_lock.py
 
       # -----------------------------------------------------------------------
@@ -515,6 +547,7 @@ jobs:
       # Exit 0 guaranteed - never kills pipeline.
       # -----------------------------------------------------------------------
       - name: "STAGE 4 - Git Sync (commit + push metadata)"
+        timeout-minutes: 8
         if: always()
         run: python3 scripts/safe_git_commit.py
 
@@ -525,6 +558,7 @@ jobs:
       # Non-blocking (exits 0 always) -- reporting/alerting only.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.1 - Post-deploy API Manifest Verifier (v150.0)"
+        timeout-minutes: 5
         if: always()
         run: python3 scripts/validate_api_manifests.py || true
 
@@ -534,6 +568,7 @@ jobs:
       # Hard fail prevents deploying a GitHub Pages site with zero reports.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.4 - Post-pipeline report count gate"
+        timeout-minutes: 5
         run: python3 scripts/ci_report_count_check.py
 
       # -----------------------------------------------------------------------
@@ -542,12 +577,14 @@ jobs:
       # Non-blocking: audit failures are logged but do not stop deployment.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.4.5 - Pipeline Self-Audit Report"
+        timeout-minutes: 5
         run: python3 scripts/pipeline_audit.py || true
 
       # -----------------------------------------------------------------------
       # STAGE 5: GITHUB PAGES DEPLOY
       # -----------------------------------------------------------------------
       - name: "STAGE 5 - Deploy to GitHub Pages"
+        timeout-minutes: 10
         uses: JamesIves/github-pages-deploy-action@v4.7.3
         with:
           branch: gh-pages
@@ -561,6 +598,7 @@ jobs:
       # Hard fail if any check fails - prevents silently broken deploys.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.5 - Final Repository Validation Gate"
+        timeout-minutes: 5
         run: python3 scripts/validate_repo.py
 
       # -----------------------------------------------------------------------
@@ -569,6 +607,7 @@ jobs:
       # Hard fail on regression detection.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.6 - Regression Test Suite"
+        timeout-minutes: 5
         run: python3 scripts/regression_tests.py
 
       # -----------------------------------------------------------------------
@@ -587,6 +626,7 @@ jobs:
       # Platform is ONLY deployable when all 10 invariants hold.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.6.1 - Regression Immunity System (HARD FAIL)"
+        timeout-minutes: 5
         run: python3 scripts/regression_immunity.py
 
       # -----------------------------------------------------------------------
@@ -596,6 +636,7 @@ jobs:
       # validate_monetization.py runs.  Idempotent -- safe to run every deploy.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.7-PRE - HTML Encoding Auto-Fix (pre-flight)"
+        timeout-minutes: 5
         run: python3 scripts/fix_all_html_encoding.py
 
       # -----------------------------------------------------------------------
@@ -607,6 +648,7 @@ jobs:
       # Ensures 100% payment + encoding integrity on every deploy.
       # -----------------------------------------------------------------------
       - name: "STAGE 5.7 - Monetization Integrity Gate (HARD FAIL)"
+        timeout-minutes: 5
         run: python3 scripts/validate_monetization.py
 
       # -----------------------------------------------------------------------
@@ -615,6 +657,7 @@ jobs:
       # Never blocks the pipeline - exits 0 regardless of delivery status.
       # -----------------------------------------------------------------------
       - name: "STAGE 6 - Telegram Failure Alert"
+        timeout-minutes: 3
         if: failure()
         run: python3 scripts/pipeline_alert.py --status failure --message "Workflow step failed. Check GitHub Actions log for root cause."
         continue-on-error: true
