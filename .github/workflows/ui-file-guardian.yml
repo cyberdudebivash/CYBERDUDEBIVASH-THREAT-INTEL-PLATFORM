@@ -1,0 +1,273 @@
+name: UI File Guardian — SENTINEL APEX Card System v145
+
+# =============================================================================
+#  PURPOSE
+#  Protects the four hand-authored SENTINEL APEX card system files from
+#  accidental pipeline overwrites.  Runs on every push to main and on a
+#  schedule so corruption is caught within minutes — not discovered by
+#  customers.
+#
+#  PROTECTED FILES
+#    js/api_adapter.js               API normalizer + fetchAndNormalize (v145)
+#    js/card_renderer.js             9-zone enterprise SOC card renderer (v145)
+#    js/card_renderer_integration.js EMBEDDED_INTEL instant boot + live upgrade
+#    css/card_renderer_styles.css    glassmorphism design system (v145)
+#
+#  ON FAILURE
+#    - Step summary shows exactly which file(s) failed and why
+#    - Workflow exits non-zero → GitHub marks the run red
+#    - The pipeline NEVER auto-reverts; a human reviews and restores from the
+#      commit tagged sentinel-apex-v145-baseline (created by this workflow
+#      the first time it passes on a clean run)
+# =============================================================================
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'js/api_adapter.js'
+      - 'js/card_renderer.js'
+      - 'js/card_renderer_integration.js'
+      - 'css/card_renderer_styles.css'
+      - 'scripts/safe_git_commit.py'
+      - '.github/workflows/ui-file-guardian.yml'
+  schedule:
+    - cron: '0 */4 * * *'   # Every 4 hours — catches pipeline-driven corruption
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: 'Print full file stats (true/false)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write   # needed to create/update the baseline tag
+
+concurrency:
+  group: ui-file-guardian
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  #  JOB: integrity-check
+  # ---------------------------------------------------------------------------
+  integrity-check:
+    name: SENTINEL APEX Card System Integrity Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5.4.0
+        with:
+          python-version: '3.12'
+
+      # -----------------------------------------------------------------------
+      #  CHECK 1 — Files exist
+      # -----------------------------------------------------------------------
+      - name: Check — Files present
+        id: check_exist
+        run: |
+          MISSING=""
+          for f in \
+            "js/api_adapter.js" \
+            "js/card_renderer.js" \
+            "js/card_renderer_integration.js" \
+            "css/card_renderer_styles.css"; do
+            if [ ! -f "$f" ]; then
+              echo "::error file=$f::MISSING: $f not found in repository"
+              MISSING="$MISSING $f"
+            else
+              echo "OK: $f exists ($(wc -l < $f) lines)"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "missing_files=$MISSING" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      #  CHECK 2 — JavaScript syntax (node --check)
+      # -----------------------------------------------------------------------
+      - name: Check — JS syntax (node --check)
+        id: check_syntax
+        run: |
+          ERRORS=0
+          for f in \
+            "js/api_adapter.js" \
+            "js/card_renderer.js" \
+            "js/card_renderer_integration.js"; do
+            if node --check "$f" 2>&1; then
+              echo "SYNTAX OK: $f"
+            else
+              echo "::error file=$f::SYNTAX ERROR in $f"
+              ERRORS=$((ERRORS+1))
+            fi
+          done
+          if [ $ERRORS -gt 0 ]; then
+            echo "syntax_errors=$ERRORS" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      #  CHECK 3 — Python syntax (safe_git_commit.py)
+      # -----------------------------------------------------------------------
+      - name: Check — safe_git_commit.py syntax
+        id: check_py
+        run: |
+          python3 -m py_compile scripts/safe_git_commit.py \
+            && echo "SYNTAX OK: scripts/safe_git_commit.py" \
+            || { echo "::error file=scripts/safe_git_commit.py::SYNTAX ERROR"; exit 1; }
+
+      # -----------------------------------------------------------------------
+      #  CHECK 4 — Key symbol and version integrity
+      # -----------------------------------------------------------------------
+      - name: Check — Symbol and version integrity
+        id: check_symbols
+        run: |
+          node << 'NODEEOF'
+          const fs = require('fs');
+
+          const adapter  = fs.readFileSync('js/api_adapter.js',               'utf8');
+          const renderer = fs.readFileSync('js/card_renderer.js',             'utf8');
+          const integ    = fs.readFileSync('js/card_renderer_integration.js', 'utf8');
+          const styles   = fs.readFileSync('css/card_renderer_styles.css',    'utf8');
+          const pipeline = fs.readFileSync('scripts/safe_git_commit.py',      'utf8');
+
+          const checks = [
+            // api_adapter.js
+            ['api_adapter: VERSION 145.0.0',           adapter.includes('"145.0.0"')],
+            ['api_adapter: SentinelApexAdapter export', adapter.includes('SentinelApexAdapter')],
+            ['api_adapter: fetchAndNormalize present',  adapter.includes('fetchAndNormalize')],
+            ['api_adapter: buildBusinessImpact present',adapter.includes('buildBusinessImpact')],
+            ['api_adapter: buildAiVerdict present',     adapter.includes('buildAiVerdict')],
+            ['api_adapter: stix-bundle context URL',    adapter.includes('source=stix-bundle')],
+            ['api_adapter: normalizeIntelItem export',  adapter.includes('normalizeIntelItem')],
+            // card_renderer.js
+            ['card_renderer: VERSION 145.0.0',          renderer.includes('"145.0.0"')],
+            ['card_renderer: SentinelApexCardRenderer', renderer.includes('SentinelApexCardRenderer')],
+            ['card_renderer: renderGrid exported',      renderer.includes('renderGrid')],
+            ['card_renderer: stix_bundle_locked gate',  renderer.includes('stix_bundle_locked')],
+            ['card_renderer: filterCards exported',     renderer.includes('filterCards')],
+            // card_renderer_integration.js
+            ['integration: VERSION 145.0.0',            integ.includes('145.0.0')],
+            ['integration: _bootFromEmbedded present',  integ.includes('_bootFromEmbedded')],
+            ['integration: EMBEDDED_INTEL boot path',   integ.includes('EMBEDDED_INTEL')],
+            ['integration: _fetchWithFallbackChain',    integ.includes('_fetchWithFallbackChain')],
+            // css/card_renderer_styles.css
+            ['styles: sapx-card class present',         styles.includes('.sapx-card') || styles.includes('sapx-card')],
+            ['styles: bi (business impact) styles',     styles.includes('sapx-bi') || styles.includes('business')],
+            // safe_git_commit.py PROTECTED_FILES
+            ['pipeline: api_adapter.js protected',      pipeline.includes('js/api_adapter.js')],
+            ['pipeline: card_renderer.js protected',    pipeline.includes('js/card_renderer.js')],
+            ['pipeline: card_renderer_integration.js',  pipeline.includes('js/card_renderer_integration.js')],
+            ['pipeline: card_renderer_styles.css',      pipeline.includes('css/card_renderer_styles.css')],
+          ];
+
+          let pass = 0, fail = 0;
+          const failures = [];
+
+          checks.forEach(([name, result]) => {
+            if (result) {
+              console.log('PASS: ' + name);
+              pass++;
+            } else {
+              console.log('FAIL: ' + name);
+              console.log('::error::INTEGRITY FAIL: ' + name);
+              failures.push(name);
+              fail++;
+            }
+          });
+
+          console.log('\n' + pass + '/' + checks.length + ' checks passed');
+
+          if (fail > 0) {
+            console.log('\nFAILED CHECKS:');
+            failures.forEach(f => console.log('  - ' + f));
+            process.exit(1);
+          }
+          NODEEOF
+
+      # -----------------------------------------------------------------------
+      #  CHECK 5 — File size sanity (guards against 0-byte or massively
+      #             truncated writes by pipeline stages)
+      # -----------------------------------------------------------------------
+      - name: Check — File size minimums
+        id: check_size
+        run: |
+          ERRORS=0
+          check_size() {
+            local file="$1"
+            local min_lines="$2"
+            local actual
+            actual=$(wc -l < "$file")
+            if [ "$actual" -lt "$min_lines" ]; then
+              echo "::error file=$file::SIZE GUARD: $file has $actual lines (minimum $min_lines) — likely truncated"
+              ERRORS=$((ERRORS+1))
+            else
+              echo "SIZE OK: $file — $actual lines (min $min_lines)"
+            fi
+          }
+          check_size "js/api_adapter.js"               600
+          check_size "js/card_renderer.js"             750
+          check_size "js/card_renderer_integration.js" 300
+          check_size "css/card_renderer_styles.css"   1200
+          check_size "scripts/safe_git_commit.py"      380
+          if [ $ERRORS -gt 0 ]; then exit 1; fi
+
+      # -----------------------------------------------------------------------
+      #  SUMMARY — Print a pass/fail report to the workflow summary page
+      # -----------------------------------------------------------------------
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## SENTINEL APEX UI File Guardian Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Run:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\` | **Commit:** \`${GITHUB_SHA:0:8}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Lines | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          for f in \
+            "js/api_adapter.js" \
+            "js/card_renderer.js" \
+            "js/card_renderer_integration.js" \
+            "css/card_renderer_styles.css" \
+            "scripts/safe_git_commit.py"; do
+            if [ -f "$f" ]; then
+              LINES=$(wc -l < "$f")
+              echo "| \`$f\` | $LINES | ✅ present |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| \`$f\` | — | ❌ MISSING |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Protected by" >> $GITHUB_STEP_SUMMARY
+          echo "- **This workflow** (fast integrity check on every push)" >> $GITHUB_STEP_SUMMARY
+          echo "- **\`scripts/safe_git_commit.py\`** PROTECTED_FILES list (pipeline-level restore)" >> $GITHUB_STEP_SUMMARY
+          echo "- **\`js/card_renderer_integration.js\`** \`_bootFromEmbedded()\` (zero-network instant render)" >> $GITHUB_STEP_SUMMARY
+
+      # -----------------------------------------------------------------------
+      #  TAG — On clean pass, update the sentinel-apex-v145-baseline tag so
+      #        humans have a verified restore point.
+      # -----------------------------------------------------------------------
+      - name: Tag baseline on clean pass
+        if: success()
+        run: |
+          git config user.email "guardian@cyberdudebivash.com"
+          git config user.name  "UI File Guardian"
+          # Force-update the lightweight tag to current HEAD
+          git tag -f sentinel-apex-v145-baseline HEAD
+          git push origin sentinel-apex-v145-baseline --force 2>/dev/null \
+            && echo "Baseline tag updated: sentinel-apex-v145-baseline -> ${GITHUB_SHA:0:8}" \
+            || echo "Tag push skipped (no push permission in this run — normal for fork PRs)"
