@@ -284,6 +284,30 @@ def main() -> None:
             s3_cp(str(f), BUCKET_DATA, f"apex_v2/{f.name}", endpoint)
         log.info("OK: apex_v2/ uploaded")
 
+    # --- Upload 3a: Immutable public intel manifests (v150.1 API-first) ---
+    # Served by Cloudflare Worker via servePublicIntelManifest() using
+    # r2Key = pathname.slice(1), e.g. "api/v1/intel/latest.json".
+    # Uploading here guarantees Worker hits R2 (primary, ~1ms) instead of
+    # GitHub raw fallback (~150-300ms, rate-limited).
+    intel_v1_manifests = [
+        ("api/v1/intel/latest.json",   "api/v1/intel/latest.json"),
+        ("api/v1/intel/top10.json",    "api/v1/intel/top10.json"),
+        ("api/v1/intel/apex.json",     "api/v1/intel/apex.json"),
+        ("api/v1/intel/manifest.json", "api/v1/intel/manifest.json"),
+    ]
+    uploaded_manifests = 0
+    for src, dst_key in intel_v1_manifests:
+        src_path = REPO_ROOT / src
+        if src_path.exists():
+            s3_cp(str(src_path), BUCKET_DATA, dst_key, endpoint)
+            uploaded_manifests += 1
+        else:
+            log.warning("SKIP: %s not found (will fallback to GitHub raw)", src)
+    log.info(
+        "OK: api/v1/intel/ manifests uploaded (%d/%d)",
+        uploaded_manifests, len(intel_v1_manifests),
+    )
+
     # --- Upload 4a: Generated HTML reports (Tactical Dossiers) ---
     # v143.5.1 FIX: Two-part fix for 36-minute stall / job-timeout cancellation:
     #   1. awscli configured with 50 concurrent requests (5x faster)
