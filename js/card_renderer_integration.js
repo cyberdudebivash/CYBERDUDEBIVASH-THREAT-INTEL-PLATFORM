@@ -193,13 +193,14 @@
     if (!normalized || !normalized.stats) return;
     var stats = normalized.stats;
     var updates = [
-      { selectors: ["#total-advisories",".stat-total-count","[data-stat='total']"],      val: normalized.total_in_feed || stats.total },
-      { selectors: ["#critical-count",".stat-critical","[data-stat='critical']"],         val: stats.by_severity.CRITICAL || 0 },
-      { selectors: ["#high-count",".stat-high","[data-stat='high']"],                     val: stats.by_severity.HIGH || 0 },
-      { selectors: ["#medium-count",".stat-medium","[data-stat='medium']"],               val: stats.by_severity.MEDIUM || 0 },
-      { selectors: ["#avg-risk",".stat-avg-risk","[data-stat='avg-risk']"],               val: stats.avg_risk },
-      { selectors: ["#total-iocs",".stat-total-iocs","[data-stat='total-iocs']"],         val: stats.total_iocs },
-      { selectors: ["#high-priority-count","[data-stat='high-priority']"],                val: stats.high_priority },
+      // Selectors cover both SAPX canonical IDs and dashboard native IDs (#m-*)
+      { selectors: ["#total-advisories","#m-total",".stat-total-count","[data-stat='total']"],       val: normalized.total_in_feed || stats.total },
+      { selectors: ["#critical-count","#m-critical",".stat-critical","[data-stat='critical']"],      val: stats.by_severity.CRITICAL || 0 },
+      { selectors: ["#high-count","#m-high",".stat-high","[data-stat='high']"],                      val: stats.by_severity.HIGH || 0 },
+      { selectors: ["#medium-count",".stat-medium","[data-stat='medium']"],                          val: stats.by_severity.MEDIUM || 0 },
+      { selectors: ["#avg-risk","#m-avg-risk",".stat-avg-risk","[data-stat='avg-risk']"],            val: stats.avg_risk },
+      { selectors: ["#total-iocs","#m-iocs",".stat-total-iocs","[data-stat='total-iocs']"],          val: stats.total_iocs },
+      { selectors: ["#high-priority-count","[data-stat='high-priority']"],                           val: stats.high_priority },
     ];
     updates.forEach(function(upd) {
       upd.selectors.forEach(function(sel) {
@@ -210,7 +211,7 @@
         }
       });
     });
-    var syncEls = document.querySelectorAll(".sync-time, #sync-time, [data-stat='sync-time'], #last-sync");
+    var syncEls = document.querySelectorAll(".sync-time, #sync-time, #m-last-sync, [data-stat='sync-time'], #last-sync");
     syncEls.forEach(function(el) {
       if (!el.dataset.sapxManaged) {
         el.dataset.sapxManaged = "1";
@@ -345,6 +346,7 @@
 
     console.info("[SAPX] Initialized v" + CONFIG.VERSION + " | window.SAPX available");
   }
+
 
   /* -------------------------------------------------------------------------
    *  BOOT
