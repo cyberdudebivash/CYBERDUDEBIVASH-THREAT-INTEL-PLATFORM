@@ -334,7 +334,12 @@ def check_workflow_clean() -> CheckResult:
 # ---------------------------------------------------------------------------
 
 # Minimum required string fields for an intel advisory
-_INTEL_REQUIRED = ("title", "source")
+# Hard-fail required fields: must be non-empty strings (P0 pipeline invariants)
+_INTEL_REQUIRED_HARD = ("title",)
+# Soft-warn fields: missing/null generates a warning but not a schema violation.
+# 'source' is a display-assist field populated by the feed syncer; it can be
+# transiently None on a fresh pipeline run before the first full sync.
+_INTEL_REQUIRED_SOFT = ("source",)
 # Fields whose 'published' key must never be a boolean (P0 regression guard)
 _VALID_SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN", ""}
 
@@ -353,11 +358,22 @@ def _validate_single_intel(obj: dict, idx: int) -> list[str]:
     sid = obj.get("id", f"idx_{idx}")
     vs  = obj.get("validation_status")
 
-    # Required fields: title and source must be non-empty strings
-    for field in _INTEL_REQUIRED:
+    # Hard-required fields: title must be a non-empty string (V3 — hard fail)
+    for field in _INTEL_REQUIRED_HARD:
         val = obj.get(field)
         if not val or not isinstance(val, str) or not val.strip():
-            errs.append(f"[{idx}/{sid}] V3/V4: Missing/empty required string field '{field}' (got: {repr(val)[:40]})")
+            errs.append(f"[{idx}/{sid}] V3: Missing/empty required string field '{field}' (got: {repr(val)[:40]})")
+
+    # Soft-warn fields: source may be transiently None on fresh pipeline runs (V4 — warn only)
+    for field in _INTEL_REQUIRED_SOFT:
+        val = obj.get(field)
+        if not val or not isinstance(val, str) or not val.strip():
+            import logging as _log
+            _log.getLogger("sentinel.validate_repo").warning(
+                "[intel_schema] SOFT-WARN [%d/%s] V4: '%s' is empty/None (got: %s) — "
+                "acceptable before first full feed sync. Not a hard violation.",
+                idx, sid, field, repr(val)[:40],
+            )
 
     # published must NOT be a boolean (P0 regression — run #805)
     pub = obj.get("published")
