@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Diverse Threat Actors Exploiting Critical WinRAR Vulnerability CVE-2025-8088 — CyberDudeBivash SENTINEL APEX</title>
+  <meta name="description" content="Threat intelligence dossier: Diverse Threat Actors Exploiting Critical WinRAR Vulnerability CVE-2025-8088"/>
+  <link rel="canonical" href="https://intel.cyberdudebivash.com/reports/05/intel--28c20fa67baa98e5fdb67d56.html"/>
+  <style>
+    :root {
+      --bg: #0d1117; --card: #161b22; --border: #21262d;
+      --accent: #00d4aa; --text: #e6edf3; --muted: #8b949e;
+      --critical: #dc2626; --high: #ea580c; --medium: #f59e0b;
+      --low: #22c55e; --font-mono: 'Courier New',monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size: 14px; line-height: 1.6; }
+    .tlp-banner { background:#dc262622; border-bottom:2px solid #dc2626; padding:6px 24px; text-align:center; font-family:var(--font-mono); font-size:11px; font-weight:800; color:#dc2626; letter-spacing:2px; }
+    .header { background:var(--card); border-bottom:1px solid var(--border); padding:24px 32px; }
+    .header-meta { display:flex; align-items:center; gap:16px; margin-bottom:12px; flex-wrap:wrap; }
+    .badge { background:#dc262622; border:1px solid #dc262666; color:#dc2626; font-family:var(--font-mono); font-size:10px; font-weight:800; padding:2px 10px; border-radius:3px; letter-spacing:1px; }
+    .badge-tlp { background:rgba(0,212,170,0.08); border:1px solid rgba(0,212,170,0.3); color:var(--accent); }
+    h1 { font-size:22px; font-weight:700; color:var(--text); margin-bottom:8px; }
+    .intel-id { font-family:var(--font-mono); font-size:10px; color:var(--muted); }
+    .container { max-width:960px; margin:0 auto; padding:32px 24px; }
+    .section { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:24px; margin-bottom:20px; }
+    .section-title { font-family:var(--font-mono); font-size:11px; font-weight:800; color:var(--accent); letter-spacing:2px; text-transform:uppercase; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+    .risk-bar-wrap { background:rgba(255,255,255,0.06); border-radius:4px; height:8px; margin:8px 0; }
+    .risk-bar { height:8px; border-radius:4px; background:linear-gradient(90deg,#dc2626,#dc262688); transition:width 0.6s; }
+    .risk-val { font-family:var(--font-mono); font-size:28px; font-weight:900; color:#dc2626; }
+    .ioc-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .ioc-table th { background:rgba(255,255,255,0.04); color:var(--accent); font-family:var(--font-mono); font-size:10px; font-weight:700; padding:8px 12px; text-align:left; border-bottom:1px solid var(--border); }
+    .ioc-table td { padding:7px 12px; border-bottom:1px solid rgba(255,255,255,0.04); color:var(--text); vertical-align:top; }
+    .ioc-table tr:hover td { background:rgba(255,255,255,0.02); }
+    .score-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .score-table td { padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+    .score-table td:first-child { color:var(--muted); width:120px; font-family:var(--font-mono); font-size:11px; }
+    .mitre-wrap { display:flex; flex-wrap:wrap; gap:8px; }
+    .mitre-wrap .badge { background:rgba(59,130,246,0.1); border-color:rgba(59,130,246,0.3); color:#60a5fa; }
+    .cta { background:linear-gradient(135deg,rgba(0,212,170,0.08),rgba(0,212,170,0.02)); border:1px solid rgba(0,212,170,0.25); border-radius:8px; padding:24px; text-align:center; }
+    .cta h3 { color:var(--accent); font-size:16px; margin-bottom:8px; }
+    .cta p { color:var(--muted); font-size:12px; margin-bottom:16px; }
+    .btn { display:inline-block; padding:10px 24px; border-radius:6px; font-family:var(--font-mono); font-size:12px; font-weight:700; letter-spacing:0.5px; text-decoration:none; cursor:pointer; }
+    .btn-primary { background:var(--accent); color:#0d1117; }
+    .btn-secondary { background:transparent; color:var(--accent); border:1px solid rgba(0,212,170,0.4); margin-left:12px; }
+    .footer { text-align:center; padding:32px 24px; color:var(--muted); font-size:11px; font-family:var(--font-mono); border-top:1px solid var(--border); margin-top:16px; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .meta-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:12px; }
+    .meta-row span:first-child { color:var(--muted); font-family:var(--font-mono); font-size:10px; }
+    @media(max-width:640px){ .grid-2{grid-template-columns:1fr;} h1{font-size:18px;} }
+  </style>
+</head>
+<body>
+
+<!-- TLP Banner -->
+<div class="tlp-banner">⚠ TLP:RED — CYBERDUDEBIVASH SENTINEL APEX — INTERNAL INTELLIGENCE REPORT ⚠</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-meta">
+    <span class="badge">CRITICAL</span>
+    <span class="badge badge-tlp">TLP:RED</span>
+    <span class='badge' style='color:#ef4444;border-color:#ef444466;background:#ef444411;'>⚠ KEV</span>
+  </div>
+  <h1>Diverse Threat Actors Exploiting Critical WinRAR Vulnerability CVE-2025-8088</h1>
+  <div class="intel-id">INTEL ID: intel--28c20fa67baa98e5fdb67d56 · PROCESSED: 2026-05-06T14:47:55 UTC · SOURCE: Mandiant</div>
+</div>
+
+<div class="container">
+
+  <!-- Executive Summary -->
+  <div class="section">
+    <div class="section-title">01 — Executive Summary</div>
+    <p style="color:var(--text);font-size:14px;line-height:1.8;">Diverse Threat Actors Exploiting Critical WinRAR Vulnerability CVE-2025-8088 [59 IOC(s) | 12 TTP(s) | Source: Mandiant]</p>
+    <p style='margin-top:12px;'><a href="https://cloud.google.com/blog/topics/threat-intelligence/exploiting-critical-winrar-vulnerability/" target="_blank" rel="noopener" style="color:#5a6578;font-size:11px;">Source Article ↗</a></p>
+  </div>
+
+  <!-- Risk Assessment -->
+  <div class="section">
+    <div class="section-title">02 — Risk Score &amp; Severity</div>
+    <div class="grid-2">
+      <div>
+        <div class="risk-val">10.0<span style="font-size:16px;color:var(--muted);">/10</span></div>
+        <div style="color:var(--muted);font-size:11px;margin-bottom:8px;font-family:var(--font-mono);">COMPOSITE RISK SCORE</div>
+        <div class="risk-bar-wrap"><div class="risk-bar" style="width:100.0%;"></div></div>
+        <div style="margin-top:8px;"><span class="badge">CRITICAL</span></div>
+      </div>
+      <div>
+        <div class="meta-row"><span>CONFIDENCE</span><span style="color:var(--accent);">95%</span></div>
+        <div class="meta-row"><span>THREAT ACTOR</span><span>CDB-RU-02</span></div>
+        <div class="meta-row"><span>TLP</span><span>TLP:RED</span></div>
+        <div class="meta-row"><span>INTEL ID</span><span style="font-family:var(--font-mono);font-size:10px;">intel--28c20fa67baa98e5f</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CVE / EPSS / KEV -->
+  <div class="section">
+    <div class="section-title">03 — CVE / EPSS / KEV Analysis</div>
+    <table class='score-table'><tbody><tr><td>EPSS</td><td>93.88%</td></tr><tr><td>KEV</td><td>⚠ In CISA KEV catalogue</td></tr></tbody></table>
+  </div>
+
+  <!-- MITRE ATT&CK -->
+  <div class="section">
+    <div class="section-title">04 — MITRE ATT&CK Mapping</div>
+    <div class="mitre-wrap"><span class="badge">{&#x27;id&#x27;: &#x27;T1566&#x27;, &#x27;name&#x27;: &#x27;Technique T1566&#x27;, &#x27;tactic&#x27;: &#x27;Execution&#x27;, &#x27;justification&#x27;: &#x27;T1566 — technique ID from threat intelligence corpus.&#x27;}</span><span class="badge">{&#x27;id&#x27;: &#x27;T1566.001&#x27;, &#x27;name&#x27;: &#x27;Technique T1566.001&#x27;, &#x27;tactic&#x27;: &#x27;Execution&#x27;, &#x27;justification&#x27;: &#x27;T1566.001 — technique ID from threat intelligence corpus.&#x27;}</span><span class="badge">{&#x27;id&#x27;: &#x27;T1203&#x27;, &#x27;name&#x27;: &#x27;Technique T1203&#x27;, &#x27;tactic&#x27;: &#x27;Execution&#x27;, &#x27;justification&#x27;: &#x27;T1203 — technique ID from threat intelligence corpus.&#x27;}</span><span class="badge">{&#x27;id&#x27;: &#x27;T1059&#x27;, &#x27;name&#x27;: &#x27;Technique T1059&#x27;, &#x27;tactic&#x27;: &#x27;Execution&#x27;, &#x27;justification&#x27;: &#x27;T1059 — technique ID from threat intelligence corpus.&#x27;}</span><span class="badge">{&#x27;id&#x27;: &#x27;T1204.002&#x27;, &#x27;name&#x27;: &#x27;Technique T1204.002&#x27;, &#x27;tactic&#x27;: &#x27;Execution&#x27;, &#x27;justification&#x27;: &#x27;T1204.002 — technique ID from threat intelligence corpus.&#x27;}</span></div>
+  </div>
+
+  <!-- IOC Table -->
+  <div class="section">
+    <div class="section-title">05 — Indicators of Compromise</div>
+    <table class="ioc-table">
+        <thead><tr>
+          <th>Type</th><th>Indicator</th><th>Confidence</th><th>Context</th>
+        </tr></thead>
+        <tbody><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>272c86c6db95f1ef8b83f672b65e64df16494cae261e1aba1aeb1e59dcb68524</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>29f89486bb820d40c9bee8bf70ee8664ea270b16e486af4a53ab703996943256</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>2c40e7cf613bf2806ff6e9bc396058fe4f85926493979189dbdbc7d615b7cb14</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>33580073680016f23bf474e6e62c61bf6a776e561385bfb06788a4713114ba9d</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>3b47df790abb4eb3ac570b50bf96bb1943d4b46851430ebf3fc36f645061491b</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>3b85d0261ab2531aba9e2992eb85273be0e26fe61e4592862d8f45d6807ceee4</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>498961237cf1c48f1e7764829818c5ba0af24a234c2f29c4420fb80276aec676</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>4f4567abe9ff520797b04b04255bbbe07ecdddb594559d436ac53314ec62c1b3</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>53f1b841d323c211c715b8f80d0efb9529440caae921a60340de027052946dd9</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>54305c7b95d8105601461bb18de87f1f679d833f15e38a9ee7895a0c8605c0d0</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>55b3dc57929d8eacfdadc71d92483eabe4874bf3d0189f861b145705a0f0a8fe</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>5b64786ed92545eeac013be9456e1ff03d95073910742e45ff6b88a86e91901b</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>5dee69127d501142413fb93fd2af8c8a378682c140c52b48990a5c41f2ce3616</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>68d9020aa9b509a6d018d6d9f4c77e7604a588b2848e05da6a4d9f82d725f91b</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>6d3586aa6603f1c1c79d7bd7e0b5c5f0cc8e8a84577c35d21b0f462656c2e1f9</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>867a05d67dd184d544d5513f4f07959a7c2b558197c99cb8139ea797ad9fbece</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>8a7ee2a8e6b3476319a3a0d5846805fd25fa388c7f2215668bc134202ea093fa</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>91e61fd77460393a89a8af657d09df6a815465f6ce22f1db8277d58342b32249</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>958921ea0995482fb04ea4a50bbdb654f272ab991046a43c1fdbd22da302d544</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>a54bcafd9d4ece87fa314d508a68f47b0ec3351c0a270aa2ed3a0e275b9db03c</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>a97f460bfa612f1d406823620d0d25e381f9b980a0497e2775269917a7150f04</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>ae93d9327a91e90bf7744c6ce0eb4affb3acb62a5d1b2dafd645cba9af28d795</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>aea13e5871b683a19a05015ff0369b412b985d47eb67a3af93f44400a026b4b0</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>b2b62703a1ef7d9d3376c6b3609cd901cbccdcca80fba940ce8ed3f4e54cdbe6</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>b53069a380a9dd3dc1c758888d0e50dd43935f16df0f7124c77569375a9f44f5</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>b90ef1d21523eeffbca17181ccccf269bca3840786fcbf5c73218c6e1d6a51a9</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>ba86b6e0199b8907427364246f049efd67dc4eda0b5078f4bc7607253634cf24</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>bb4856a66bf7e0de18522e35798c0a8734179c1aab21ed2ad6821aaa99e1cb4c</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>c7726c166e1947fdbf808a50b75ca7400d56fa6fef2a76cefe314848db22c76c</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>cf35ce47b35f1405969f40633fcf35132ca3ccb3fdfded8cc270fc2223049b80</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>cf8ebfd98da3025dc09d0b3bbeef874d8f9c4d4ba4937719f0a9a3aa04c81beb</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>d418f878fa02729b38b5384bcb3216872a968f5d0c9c77609d8c5aacedb07546</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>d981a16b9da1615514a02f5ebb38416a009f5621c0b718214d5b105c9f552389</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>ddd67dda5d58c7480152c9f6e8043c3ea7de2e593beedf86b867b83f005bf0cc</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>defe25e400d4925d8a2bb4b1181044d06a8bf61688fd9c9ea59f1e0bb7bc21d8</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>e836873479ff558cfb885097e8783356aad1f2d30b69d825b3a71cb7a57cf930</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>ea0869fa9d5e23bdd16cddfefbbf9c67744598f379be306ff652f910db1ba162</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>ed5b920dad5dcd3f9e55828f82a27211a212839c8942531c288535b92df7f453</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>edc1f7528ca93ec432daca820f47e08d218b79cceca1ee764966f8f90d6a58bd</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>ef0e1bb2d389ab8b5f15d2f83cf978662e18e31dbe875f39db563e8a019af577</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>f3e5667d02f95c001c717dfc5a0e100d2b701be4ec35a3e6875dc276431a7497</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>f6761b5341a33188a7a1ca7a904d5866e07b8ddbde9adebdbce4306923cfc60a</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>fc2a6138786fae4e33dc343aea2b1a7cd6411187307ea2c82cd96b45f6d1f2a0</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>ffc6c3805bbaef2c4003763fd5fac0ebcccf99a1656f10cf7677f6c2a5d16dbd</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>01.2026.rar</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>05092025.rar</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>09.2025.rar</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>12.2025.rar</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>document.rar</td><td>—</td><td></td></tr><tr><td>indicator</td><td style='font-family:monospace;word-break:break-all;'>expl.rar</td><td>—</td><td></td></tr></tbody></table>
+  </div>
+
+  <!-- STIX Bundle -->
+  <div class="section">
+    <div class="section-title">06 — STIX 2.1 Intelligence Bundle</div>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:12px;">Structured threat intelligence in STIX 2.1 format for SIEM/SOAR ingestion.</p>
+    <a href="https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1778078875.json" target="_blank" class="btn-secondary">⬇ Download STIX Bundle</a>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <h3>🔐 Unlock Full Intelligence Package</h3>
+    <p>Get complete IOC lists, YARA rules, Sigma detections, and enterprise STIX bundles.</p>
+    <a href="https://cyberdudebivash.gumroad.com/?utm_source=report&amp;utm_medium=cta" target="_blank" rel="noopener" class="btn btn-primary">⚡ Get Premium Intel</a>
+    <a href="https://intel.cyberdudebivash.com/data/stix/CDB-APEX-1778078875.json" target="_blank" class="btn-secondary">⬇ Download STIX Bundle</a>
+  </div>
+
+</div><!-- /container -->
+
+<div class="footer">
+  CyberDudeBivash SENTINEL APEX · https://intel.cyberdudebivash.com/reports/05/intel--28c20fa67baa98e5fdb67d56.html<br/>
+  Generated 2026-05-06 14:47 UTC ·
+  <a href="https://intel.cyberdudebivash.com" style="color:var(--accent);">https://intel.cyberdudebivash.com</a>
+</div>
+
+</body>
+</html>
