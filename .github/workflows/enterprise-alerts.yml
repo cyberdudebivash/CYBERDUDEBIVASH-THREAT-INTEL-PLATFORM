@@ -1,0 +1,94 @@
+name: "SENTINEL APEX -- Enterprise Alert Monitor"
+
+# Scheduled platform health monitoring with P0-P3 alerting
+# Runs every 30 minutes to detect and alert on platform issues
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 minutes
+  workflow_dispatch:
+    inputs:
+      severity_override:
+        description: "Force alert severity (optional)"
+        required: false
+        type: choice
+        options: [P0, P1, P2, P3, ""]
+        default: ""
+
+concurrency:
+  group: sentinel-enterprise-alerts
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+
+  platform-health-alert:
+    name: "Platform Health Monitor"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        timeout-minutes: 3
+
+      - name: "Set up Python 3.11"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: "Run enterprise alert check"
+        timeout-minutes: 5
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          echo "[ALERT MONITOR] Running platform health check at $(date -u +%Y-%m-%dT%H:%M:%SZ)..."
+          python3 scripts/enterprise_alert_manager.py check 2>&1 | tee /tmp/alert_output.txt
+          EXIT=${PIPESTATUS[0]}
+          echo "[ALERT MONITOR] Health check exit: $EXIT"
+
+      - name: "SLA snapshot alert"
+        timeout-minutes: 3
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          echo "[ALERT MONITOR] Running SLA evaluation..."
+          python3 scripts/sla_engine.py --tier enterprise 2>&1 | tail -10 || true
+          python3 - <<'EOF'
+          import json, pathlib, os, sys
+          sla_path = pathlib.Path("data/health/sla_status.json")
+          if not sla_path.exists():
+              print("[SLA] No SLA status file")
+              sys.exit(0)
+          sla = json.loads(sla_path.read_text())
+          score = sla.get("sla_evaluation", {}).get("sla_score", 100)
+          grade = sla.get("sla_evaluation", {}).get("grade", "A")
+          violations = sla.get("sla_evaluation", {}).get("violations", [])
+          print(f"[SLA] Score: {score}/100 Grade: {grade} Violations: {len(violations)}")
+          if grade in ("C", "D"):
+              print(f"[SLA] WARNING: SLA grade {grade} -- alerting")
+          EOF
+
+      - name: "Self-healing check"
+        timeout-minutes: 3
+        run: |
+          echo "[ALERT MONITOR] Running self-healing check..."
+          python3 scripts/self_healing_engine.py check 2>&1 | tee /tmp/healing_check.txt
+          echo "[ALERT MONITOR] Self-healing check complete"
+
+      - name: "Print alert summary"
+        if: always()
+        run: |
+          echo "============================================================"
+          echo "SENTINEL APEX ALERT MONITOR SUMMARY"
+          echo "============================================================"
+          echo "Run at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "------------------------------------------------------------"
+          cat /tmp/alert_output.txt 2>/dev/null | head -20 || true
+          echo "------------------------------------------------------------"
+          cat /tmp/healing_check.txt 2>/dev/null | head -10 || true
+          echo "============================================================"
