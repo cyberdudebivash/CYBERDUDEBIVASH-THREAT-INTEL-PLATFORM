@@ -1,0 +1,115 @@
+name: "SENTINEL APEX -- Self-Healing Engine"
+
+# Scheduled self-healing runtime engine
+# Detects and automatically recovers from known platform failure modes
+# Customers must never see: blank panels, missing intel, broken AI sections
+
+on:
+  schedule:
+    - cron: "15 */2 * * *"   # every 2 hours at :15 past
+  workflow_dispatch:
+    inputs:
+      force_recovery:
+        description: "Force recovery pass even if healthy"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+concurrency:
+  group: sentinel-self-healing
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+
+  self-healing-pass:
+    name: "Self-Healing Runtime Pass"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        timeout-minutes: 3
+
+      - name: "Set up Python 3.11"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: "Run self-healing engine"
+        id: healing
+        timeout-minutes: 10
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "[HEAL] Starting self-healing pass at $(date -u +%Y-%m-%dT%H:%M:%SZ)..."
+          if [ "${{ github.event.inputs.force_recovery }}" = "true" ]; then
+            python3 scripts/self_healing_engine.py recover 2>&1 | tee /tmp/healing_output.txt
+          else
+            python3 scripts/self_healing_engine.py run 2>&1 | tee /tmp/healing_output.txt
+          fi
+          EXIT=${PIPESTATUS[0]}
+          echo "exit_code=$EXIT" >> $GITHUB_OUTPUT
+          if [ "$EXIT" = "0" ]; then
+            echo "status=healthy" >> $GITHUB_OUTPUT
+          elif [ "$EXIT" = "2" ]; then
+            echo "status=degraded" >> $GITHUB_OUTPUT
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "Frontend reconciliation check"
+        timeout-minutes: 3
+        run: |
+          echo "[HEAL] Running frontend integrity check..."
+          python3 scripts/frontend_integrity.py --verify 2>&1 | tail -10 || true
+          echo "[HEAL] Frontend check complete"
+
+      - name: "Rollback validation"
+        timeout-minutes: 3
+        run: |
+          echo "[HEAL] Running rollback integrity validation..."
+          python3 scripts/rollback_authority.py validate 2>&1 || true
+          python3 scripts/rollback_authority.py status 2>&1 || true
+
+      - name: "Platform SLA snapshot"
+        timeout-minutes: 5
+        run: |
+          echo "[HEAL] Running SLA engine snapshot..."
+          python3 scripts/sla_engine.py --tier enterprise 2>&1 | tail -15 || true
+
+      - name: "Alert on degraded status"
+        if: steps.healing.outputs.status == 'degraded' || steps.healing.outputs.status == 'failed'
+        timeout-minutes: 2
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          STATUS="${{ steps.healing.outputs.status }}"
+          SEVERITY="P1"
+          if [ "$STATUS" = "failed" ]; then SEVERITY="P0"; fi
+          python3 scripts/enterprise_alert_manager.py alert \
+            --severity "$SEVERITY" \
+            --title "Self-Healing Engine: Platform $STATUS" \
+            --detail "Self-healing pass detected platform status: $STATUS. Check healing history for details." \
+            --type "SELF_HEALING_ALERT" 2>&1 || true
+
+      - name: "Print healing summary"
+        if: always()
+        run: |
+          echo "============================================================"
+          echo "SENTINEL APEX SELF-HEALING SUMMARY"
+          echo "============================================================"
+          echo "Status: ${{ steps.healing.outputs.status }}"
+          echo "Run at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "------------------------------------------------------------"
+          cat /tmp/healing_output.txt 2>/dev/null | tail -20 || true
+          echo "============================================================"
+          python3 scripts/self_healing_engine.py status 2>&1 | tail -10 || true

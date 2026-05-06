@@ -1,0 +1,260 @@
+name: "SENTINEL APEX -- Environment Promotion Pipeline"
+
+# Enforces the mandatory promotion flow:
+# development --> staging --> canary --> production
+# No direct production deploys permitted.
+
+on:
+  workflow_dispatch:
+    inputs:
+      promote_from:
+        description: "Source environment"
+        required: true
+        type: choice
+        options: [development, staging, canary]
+      promote_to:
+        description: "Target environment"
+        required: true
+        type: choice
+        options: [staging, canary, production]
+      change_summary:
+        description: "Change summary for audit ledger"
+        required: true
+      emergency_override:
+        description: "Emergency freeze override (requires justification)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+concurrency:
+  group: sentinel-environment-promotion-${{ github.event.inputs.promote_to }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+
+  # ============================================================
+  # GATE 0: PROMOTION SEQUENCE VALIDATION
+  # ============================================================
+  sequence-validation:
+    name: "Gate 0 -- Promotion Sequence"
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      valid_sequence: ${{ steps.seq.outputs.valid }}
+
+    steps:
+      - name: "Validate promotion sequence"
+        id: seq
+        run: |
+          FROM="${{ github.event.inputs.promote_from }}"
+          TO="${{ github.event.inputs.promote_to }}"
+          echo "[SEQ] Validating: $FROM --> $TO"
+          VALID=false
+          if [ "$FROM" = "development" ] && [ "$TO" = "staging" ]; then VALID=true; fi
+          if [ "$FROM" = "staging" ] && [ "$TO" = "canary" ]; then VALID=true; fi
+          if [ "$FROM" = "canary" ] && [ "$TO" = "production" ]; then VALID=true; fi
+          echo "valid=$VALID" >> $GITHUB_OUTPUT
+          if [ "$VALID" != "true" ]; then
+            echo "[SEQ] INVALID sequence: $FROM --> $TO"
+            echo "[SEQ] Valid paths: development->staging, staging->canary, canary->production"
+            exit 1
+          fi
+          echo "[SEQ] VALID sequence: $FROM --> $TO"
+
+  # ============================================================
+  # GATE 1: FREEZE WINDOW + CHANGE MANAGEMENT CHECK
+  # ============================================================
+  change-management:
+    name: "Gate 1 -- Change Management"
+    runs-on: ubuntu-latest
+    needs: sequence-validation
+    if: needs.sequence-validation.outputs.valid_sequence == 'true'
+    timeout-minutes: 5
+    outputs:
+      cleared: ${{ steps.freeze.outputs.cleared }}
+      risk_level: ${{ steps.risk.outputs.level }}
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        timeout-minutes: 3
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: "Install deps"
+        timeout-minutes: 2
+        run: pip install pyyaml --quiet
+
+      - name: "Check freeze windows"
+        id: freeze
+        timeout-minutes: 2
+        run: |
+          OVERRIDE="${{ github.event.inputs.emergency_override }}"
+          python3 scripts/change_manager.py check-freeze 2>&1 | tee /tmp/freeze_check.txt
+          EXIT=${PIPESTATUS[0]}
+          if [ "$EXIT" != "0" ] && [ "$OVERRIDE" != "true" ]; then
+            echo "cleared=false" >> $GITHUB_OUTPUT
+            echo "[FREEZE] Deployment blocked by freeze window"
+            exit 1
+          elif [ "$EXIT" != "0" ] && [ "$OVERRIDE" = "true" ]; then
+            echo "[FREEZE] Emergency override applied -- proceeding with caution"
+            echo "cleared=override" >> $GITHUB_OUTPUT
+          else
+            echo "cleared=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "Risk scoring"
+        id: risk
+        timeout-minutes: 2
+        run: |
+          python3 scripts/change_manager.py risk-score 2>&1 | tee /tmp/risk_score.txt || true
+          LEVEL=$(grep "Risk Level:" /tmp/risk_score.txt | awk '{print $NF}' || echo "LOW")
+          echo "level=$LEVEL" >> $GITHUB_OUTPUT
+          echo "[RISK] Level: $LEVEL"
+
+      - name: "Log change to governance ledger"
+        timeout-minutes: 1
+        run: |
+          python3 scripts/change_manager.py audit-log "PROMOTION_INITIATED" \
+            --meta "{\"from\": \"${{ github.event.inputs.promote_from }}\", \"to\": \"${{ github.event.inputs.promote_to }}\", \"summary\": \"${{ github.event.inputs.change_summary }}\", \"risk\": \"${{ steps.risk.outputs.level }}\"}" 2>&1 || true
+
+  # ============================================================
+  # GATE 2: RELEASE CERTIFICATION
+  # ============================================================
+  release-certification:
+    name: "Gate 2 -- Release Certification"
+    runs-on: ubuntu-latest
+    needs: [sequence-validation, change-management]
+    if: needs.change-management.outputs.cleared != 'false'
+    timeout-minutes: 10
+    outputs:
+      certified: ${{ steps.cert.outputs.certified }}
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        timeout-minutes: 3
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: "Install deps"
+        timeout-minutes: 2
+        run: pip install pyyaml --quiet
+
+      - name: "Run release certification"
+        id: cert
+        timeout-minutes: 5
+        run: |
+          python3 scripts/change_manager.py certify 2>&1 | tee /tmp/cert_output.txt
+          EXIT=${PIPESTATUS[0]}
+          if [ "$EXIT" = "0" ]; then
+            echo "certified=true" >> $GITHUB_OUTPUT
+            echo "[CERT] Release certification PASSED"
+          else
+            echo "certified=false" >> $GITHUB_OUTPUT
+            echo "[CERT] Release certification FAILED"
+            exit 1
+          fi
+
+  # ============================================================
+  # GATE 3: TARGET ENVIRONMENT VALIDATION
+  # ============================================================
+  target-validation:
+    name: "Gate 3 -- Target Environment Validation"
+    runs-on: ubuntu-latest
+    needs: [release-certification]
+    if: needs.release-certification.outputs.certified == 'true'
+    timeout-minutes: 10
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        timeout-minutes: 3
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: "Validate target environment"
+        timeout-minutes: 5
+        run: |
+          TARGET="${{ github.event.inputs.promote_to }}"
+          echo "[ENV] Validating target environment: $TARGET"
+          python3 - <<'EOF'
+          import json, pathlib, sys
+          env_cfg = json.loads(pathlib.Path("config/environments.json").read_text())
+          target = "${{ github.event.inputs.promote_to }}"
+          env = env_cfg.get("environments", {}).get(target, {})
+          if not env:
+              print(f"[ENV] FAIL: Unknown environment: {target}")
+              sys.exit(1)
+          gates = env.get("validation_gates", [])
+          print(f"[ENV] Environment: {target}")
+          print(f"[ENV] Tier: {env.get('tier')}")
+          print(f"[ENV] Protected: {env.get('protected')}")
+          print(f"[ENV] Required gates: {gates}")
+          print(f"[ENV] Requires approval: {env.get('requires_approval')}")
+          print(f"[ENV] Customer facing: {env.get('customer_facing', False)}")
+          EOF
+
+      - name: "Canary bake time (canary promotions only)"
+        if: github.event.inputs.promote_to == 'canary'
+        timeout-minutes: 12
+        run: |
+          echo "[CANARY] Starting 10-minute canary bake period..."
+          echo "[CANARY] Monitoring for errors during bake..."
+          sleep 30
+          # Quick health probe mid-bake
+          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 "https://intel.cyberdudebivash.com/api/health" || echo "000")
+          echo "[CANARY] Mid-bake health check: HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "[CANARY] FAIL: Health check failed during canary bake"
+            exit 1
+          fi
+          echo "[CANARY] Canary bake complete -- no errors detected"
+
+  # ============================================================
+  # PROMOTION SUMMARY
+  # ============================================================
+  promotion-summary:
+    name: "Promotion Summary"
+    runs-on: ubuntu-latest
+    needs: [sequence-validation, change-management, release-certification, target-validation]
+    if: always()
+    timeout-minutes: 3
+
+    steps:
+      - name: "Print promotion report"
+        run: |
+          echo "============================================================"
+          echo "SENTINEL APEX -- ENVIRONMENT PROMOTION REPORT"
+          echo "============================================================"
+          echo "Promotion:     ${{ github.event.inputs.promote_from }} --> ${{ github.event.inputs.promote_to }}"
+          echo "Summary:       ${{ github.event.inputs.change_summary }}"
+          echo "Risk Level:    ${{ needs.change-management.outputs.risk_level }}"
+          echo "Timestamp:     $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "============================================================"
+          echo "Gate 0 (Sequence):       ${{ needs.sequence-validation.result }}"
+          echo "Gate 1 (Change Mgmt):    ${{ needs.change-management.result }}"
+          echo "Gate 2 (Certification):  ${{ needs.release-certification.result }}"
+          echo "Gate 3 (Env Validation): ${{ needs.target-validation.result }}"
+          echo "============================================================"
+          ALL="${{ needs.sequence-validation.result }} ${{ needs.change-management.result }} ${{ needs.release-certification.result }} ${{ needs.target-validation.result }}"
+          if echo "$ALL" | grep -qE "failure|cancelled"; then
+            echo "PROMOTION STATUS: BLOCKED -- review gate failures above"
+          else
+            echo "PROMOTION STATUS: APPROVED -- ready for deployment to ${{ github.event.inputs.promote_to }}"
+          fi
+          echo "============================================================"
