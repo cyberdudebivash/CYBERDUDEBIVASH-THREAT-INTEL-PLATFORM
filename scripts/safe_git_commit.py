@@ -396,4 +396,77 @@ def main() -> None:
 
             # == P0-FIX v142.4.0: Manifest Corruption Guard ==
             # PROBLEM: git stash push -> reset --hard -> stash pop can write conflict
-        
+            # markers into large runtime JSON files still tracked in git, producing
+            # invalid JSON: "Expecting value: line 1 column 1 (char 0)".
+            # SOLUTION: snapshot valid manifest bytes BEFORE stash; restore AFTER pop.
+            _MANIFEST_GUARD_PATHS = [
+                REPO_ROOT / "data" / "stix" / "feed_manifest.json",
+                REPO_ROOT / "data" / "feed_manifest.json",
+            ]
+            _manifest_backups: dict = {}
+            for _mp in _MANIFEST_GUARD_PATHS:
+                if _mp.exists():
+                    try:
+                        _raw = _mp.read_bytes()
+                        json.loads(_raw.decode("utf-8"))  # validate before saving
+                        _manifest_backups[str(_mp)] = (_mp, _raw)
+                        log.info("[manifest-guard] Snapshot saved: %s (%d bytes)",
+                                 _mp.name, len(_raw))
+                    except Exception as _snap_err:
+                        log.warning("[manifest-guard] Skipping snapshot of %s (already "
+                                    "invalid -- %s)", _mp.name, _snap_err)
+
+            run_git("stash", "push", "-m", "sentinel-recovery-{}".format(attempt))
+            run_git("reset", "--hard", "origin/main")
+            run_git("stash", "pop")
+
+            # Restore manifests if stash pop corrupted them
+            for _key, (_mp, _saved_bytes) in _manifest_backups.items():
+                _needs_restore = False
+                if not _mp.exists():
+                    _needs_restore = True
+                    log.warning("[manifest-guard] %s MISSING after stash pop -- restoring",
+                                _mp.name)
+                else:
+                    try:
+                        json.loads(_mp.read_bytes().decode("utf-8"))
+                        log.info("[manifest-guard] %s intact after stash pop", _mp.name)
+                    except Exception as _chk_err:
+                        _needs_restore = True
+                        log.warning("[manifest-guard] %s CORRUPTED after stash pop "
+                                    "(%s) -- restoring snapshot", _mp.name, _chk_err)
+                if _needs_restore:
+                    try:
+                        _mp.parent.mkdir(parents=True, exist_ok=True)
+                        _mp.write_bytes(_saved_bytes)
+                        log.info("[manifest-guard] RESTORED %s (%d bytes) -- "
+                                 "pipeline data integrity preserved",
+                                 _mp.name, len(_saved_bytes))
+                    except Exception as _write_err:
+                        log.error("[manifest-guard] Failed to restore %s: %s",
+                                  _mp.name, _write_err)
+
+        push_result = run_git("push", "origin", "main")
+        if push_result.returncode == 0:
+            log.info("OK: Push succeeded (attempt %d)", attempt)
+            break
+
+        log.warning("Push attempt %d failed: %s", attempt, push_result.stderr.strip()[:100])
+        if attempt < 4:
+            sleep_secs = attempt * 15
+            log.info("Retrying in %ds...", sleep_secs)
+            time.sleep(sleep_secs)
+        else:
+            log.warning("All push attempts exhausted -- state will sync on next run.")
+
+    log.info("safe_git_commit.py complete.")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        log.warning("safe_git_commit.py error (non-fatal): %s\n%s", e, traceback.format_exc())
+        sys.exit(0)  # Git sync must never kill pipeline

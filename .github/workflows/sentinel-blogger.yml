@@ -586,4 +586,62 @@ jobs:
       # Verifies: encoding clean, YAML valid, Python syntax valid,
       # JSON valid, workflow has zero inline heredocs.
       # Hard fail if any check fails - prevents silently broken deploys.
-      # --------
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.5 - Final Repository Validation Gate"
+        run: python3 scripts/validate_repo.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.6: REGRESSION TEST SUITE (v141.7.0)
+      # Runs the permanent anti-regression test battery.
+      # Hard fail on regression detection.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.6 - Regression Test Suite"
+        run: python3 scripts/regression_tests.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.6.1: REGRESSION IMMUNITY SYSTEM (v143.0 -- HARD FAIL GATE)
+      # 10-check final assertion battery:
+      #   1. Duplicate stix_id detection (feed + manifest)
+      #   2. Duplicate title detection
+      #   3. Encoding scan (mojibake patterns across all files)
+      #   4. API vs Dashboard top-50 stix_id match
+      #   5. Single render path (EMBEDDED_INTEL=[], render guards)
+      #   6. Sort order (published_at DESC in feed.json)
+      #   7. Python syntax (all scripts/*.py via py_compile)
+      #   8. Feed count bounds (1<=feed<=500, manifest>=100)
+      #   9. Version lock (config/version.json readable)
+      # Exit 0 = PASS. Exit 1 = FAIL -- BLOCKS DEPLOYMENT.
+      # Platform is ONLY deployable when all 10 invariants hold.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.6.1 - Regression Immunity System (HARD FAIL)"
+        run: python3 scripts/regression_immunity.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.7-PRE: HTML ENCODING AUTO-FIX (v149.1 -- HARD FAIL)
+      # Runs fix_all_html_encoding.py BEFORE the integrity gate so that any
+      # mojibake, BOM, or double-encoded sequences are eliminated before
+      # validate_monetization.py runs.  Idempotent -- safe to run every deploy.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.7-PRE - HTML Encoding Auto-Fix (pre-flight)"
+        run: python3 scripts/fix_all_html_encoding.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.7: MONETIZATION INTEGRITY GATE (v149.1 -- HARD FAIL)
+      # Validates all payment pages, real credentials, CTAs, encoding.
+      # Blocks deploy if: BOM present, junk chars, wrong/placeholder UPI IDs,
+      # wrong crypto wallet, missing NEFT details, broken payment links,
+      # mojibake in ANY HTML file (18-file sweep).
+      # Ensures 100% payment + encoding integrity on every deploy.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.7 - Monetization Integrity Gate (HARD FAIL)"
+        run: python3 scripts/validate_monetization.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 6: TELEGRAM FAILURE ALERT (v141.0 -- always runs, zero-exit)
+      # Fires ONLY on job failure so ops team is notified immediately.
+      # Never blocks the pipeline - exits 0 regardless of delivery status.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 6 - Telegram Failure Alert"
+        if: failure()
+        run: python3 scripts/pipeline_alert.py --status failure --message "Workflow step failed. Check GitHub Actions log for root cause."
+        continue-on-error: true
