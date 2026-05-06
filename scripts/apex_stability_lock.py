@@ -93,10 +93,13 @@ TOP_THREATS_REQUIRED_PATTERNS: list[str] = [
     "top-threats-section",  # container div id
 ]
 
-# Strings that MUST be present to confirm EMBEDDED_INTEL is intact
+# v150.0: EMBEDDED_INTEL check REMOVED (was root cause of P0 regressions)
+# New check: API manifest bundles must exist and be populated
+# EMBEDDED_INTEL patterns still checked for presence (declaration must exist as static stub)
 EMBEDDED_INTEL_REQUIRED_PATTERNS: list[str] = [
-    "EMBEDDED_INTEL",       # declaration variable name
-    "bootFromEmbeddedCache", # instant-render function
+    "EMBEDDED_INTEL",        # static [] stub declaration must still exist
+    "bootFromEmbeddedCache", # function must still exist (handles graceful no-op)
+    "api/v1/intel/latest.json",  # new primary data source must be in MANIFEST_URLS
 ]
 
 # Fields that pipeline scripts must NEVER write to index.html
@@ -106,7 +109,8 @@ FORBIDDEN_STATIC_INJECTIONS: list[str] = [
     "<!-- APEX_STATIC_THREATS_OVERRIDE -->",   # sentinel: never inject this
 ]
 
-MIN_INDEX_HTML_SIZE_BYTES = 50_000  # sanity: index.html must be substantial
+MIN_INDEX_HTML_SIZE_BYTES = 50_000   # sanity: index.html must be substantial (v150: was 6.6MB, now ~985KB -- valid)
+MAX_INDEX_HTML_SIZE_BYTES = 5_000_000  # v150.0 guard: index.html must NOT be bloated (injection = architecture violation)
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +186,14 @@ def check_index_html_top_threats() -> tuple[bool, str]:
             f"{MIN_INDEX_HTML_SIZE_BYTES} threshold) -- possible truncation"
         )
 
+    # v150.0: index.html must NOT be bloated (> 5MB = data was injected = architecture violation)
+    if len(content) > MAX_INDEX_HTML_SIZE_BYTES:
+        return False, (
+            f"HARD FAIL: index.html is bloated ({len(content):,} bytes > "
+            f"{MAX_INDEX_HTML_SIZE_BYTES:,} threshold) -- EMBEDDED_INTEL data was injected! "
+            "HTML mutation is forbidden in v150.0 immutable architecture."
+        )
+
     # Check required patterns
     missing = [p for p in TOP_THREATS_REQUIRED_PATTERNS if p not in content]
     if missing:
@@ -200,20 +212,56 @@ def check_index_html_top_threats() -> tuple[bool, str]:
 
 
 def check_embedded_intel_intact() -> tuple[bool, str]:
-    """Verify EMBEDDED_INTEL declaration and bootFromEmbeddedCache are intact."""
+    """
+    v150.0: Verify immutable architecture invariants in index.html.
+    - EMBEDDED_INTEL stub must exist as static [] (not populated with data)
+    - bootFromEmbeddedCache function must still exist (graceful no-op handler)
+    - api/v1/intel/latest.json must be referenced in MANIFEST_URLS
+    - Verifies api/v1/intel/*.json bundles exist and are populated
+    """
+    import re as _re_lock
     content = _read_text(INDEX_HTML_PATH)
     if content is None:
-        return False, f"HARD FAIL: index.html missing"
+        return False, "HARD FAIL: index.html missing"
 
+    # Check required patterns still exist
     missing = [p for p in EMBEDDED_INTEL_REQUIRED_PATTERNS if p not in content]
     if missing:
         return False, (
-            f"HARD FAIL: index.html missing EMBEDDED_INTEL patterns: {missing}. "
-            "Dashboard instant-render broken."
+            f"HARD FAIL: index.html missing immutable-arch patterns: {missing}. "
+            "Dashboard architecture contract violated."
         )
 
-    log.info("  [OK] index.html EMBEDDED_INTEL declaration intact")
-    return True, "embedded_intel=intact"
+    # v150.0: EMBEDDED_INTEL must be static [] (never populated with data)
+    _ei_m = _re_lock.search(r'window\.EMBEDDED_INTEL\s*=\s*(\[.*?\]);', content, _re_lock.DOTALL)
+    if _ei_m:
+        _ei_val = _ei_m.group(1).strip().replace(" ", "").replace("\n", "")
+        if _ei_val != "[]" and len(_ei_val) > 4:
+            return False, (
+                f"HARD FAIL: index.html EMBEDDED_INTEL was MUTATED ({len(_ei_val):,} chars). "
+                "HTML mutation is forbidden in v150.0 immutable architecture. "
+                "inject_embedded_intel.py or update_embedded_intel.py ran against index.html."
+            )
+
+    # v150.0: Verify api/v1/intel/ bundles exist and are populated
+    api_v1_dir = INDEX_HTML_PATH.parent / "api" / "v1" / "intel"
+    for _bundle in ["latest.json", "top10.json"]:
+        _bpath = api_v1_dir / _bundle
+        if not _bpath.exists():
+            return False, (
+                f"HARD FAIL: api/v1/intel/{_bundle} NOT FOUND. "
+                "generate_api_manifests.py must run before stability lock check."
+            )
+        try:
+            _bd = json.loads(_bpath.read_text(encoding="utf-8"))
+            _cnt = _bd.get("count", 0) or len(_bd.get("items", []))
+            if _cnt < 1:
+                return False, f"HARD FAIL: api/v1/intel/{_bundle} is empty (count=0)"
+        except Exception as _be:
+            return False, f"HARD FAIL: api/v1/intel/{_bundle} parse error: {_be}"
+
+    log.info("  [OK] Immutable architecture invariants intact (EMBEDDED_INTEL=[], API bundles populated)")
+    return True, "immutable_arch=intact api_bundles=populated embedded_intel=static_stub"
 
 
 def check_feed_manifest_not_empty() -> tuple[bool, str]:
@@ -312,6 +360,7 @@ def write_apex_contract_lock(results: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    import argparse
     parser = argparse.ArgumentParser(
         description="SENTINEL APEX -- Baseline Stability Lock Validator"
     )
@@ -322,7 +371,7 @@ def main() -> None:
     args = parser.parse_args()
 
     log.info("=" * 70)
-    log.info("SENTINEL APEX -- Baseline Stability Lock Validator")
+    log.info("SENTINEL APEX v150.0 -- Stability Lock Validator (Immutable API-First)")
     log.info("Platform version key : %s", PLATFORM_VERSION_KEY)
     log.info("=" * 70)
 
@@ -343,7 +392,7 @@ def main() -> None:
             passed, detail = check_fn()
         except Exception as e:
             passed = False
-            detail = f"EXCEPTION: {e}"
+            detail = "EXCEPTION: {}".format(e)
 
         check_results.append({"name": check_name, "pass": passed, "detail": detail})
 
@@ -360,21 +409,17 @@ def main() -> None:
         "checked_at": _utc_now(),
     }
 
-    if args.write_lock or True:  # Always write the record for observability
-        write_apex_contract_lock(results)
+    write_apex_contract_lock(results)
 
     log.info("=" * 70)
     log.info("SUMMARY: %d/%d checks PASS | %d hard fail(s)",
              len(check_results) - hard_fail_count, len(check_results), hard_fail_count)
 
     if hard_fail_count > 0:
-        log.error("STABILITY LOCK FAILED -- BASELINE DRIFT DETECTED -- DEPLOYMENT BLOCKED")
-        log.error("The platform baseline contract has been violated.")
-        log.error("Do NOT proceed with deployment until all HARD FAIL reasons are resolved.")
+        log.error("STABILITY LOCK FAILED -- DEPLOYMENT BLOCKED")
         sys.exit(1)
 
-    log.info("STABILITY LOCK PASSED -- BASELINE CONTRACT INTACT")
-    log.info("Platform is cleared for deployment.")
+    log.info("STABILITY LOCK PASSED -- Platform cleared for deployment.")
 
 
 if __name__ == "__main__":

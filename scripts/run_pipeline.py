@@ -1155,14 +1155,37 @@ def stage_refresh_embedded_intel() -> None:
 
     # Count items for informational logging
     item_count = count_manifest(str(REPO_ROOT / "data" / "stix" / "feed_manifest.json"))
-    log.info("[3.6b] Manifest has %d items -- injecting into index.html...", item_count)
+    log.info("[3.6b] Manifest has %d items", item_count)
 
-    run_script(
-        [sys.executable, "scripts/update_embedded_intel.py"],
-        stage="3.6b.embedded_intel",
-        allow_fail=True,
-        timeout=120,
-    )
+    # ===========================================================================
+    # P0 PERMANENT FIX (v145.4): Conditional update_embedded_intel.py call
+    #
+    # HISTORICAL BUG: update_embedded_intel.py was called unconditionally here.
+    # Inside that script, line ~509 had: new_array = "[]"  ← ALWAYS cleared!
+    # This cleared EMBEDDED_INTEL to [] on EVERY pipeline run. If Stage 3.93
+    # (inject_embedded_intel.py) then failed for any reason, safe_git_commit.py
+    # committed [] to index.html → deployed with NO instant cards → P0.
+    #
+    # FIX 1: update_embedded_intel.py now writes actual data (not []) — see
+    #         its own P0 fix at the new_array assignment.
+    # FIX 2: This call is now guarded — skip if manifest is empty so we
+    #         don't even risk touching EMBEDDED_INTEL on empty-batch runs.
+    #         inject_embedded_intel.py (Stage 3.93) is the AUTHORITATIVE
+    #         EMBEDDED_INTEL injector — it runs from api/feed.json (post-R2).
+    # ===========================================================================
+    if item_count > 0:
+        log.info("[3.6b] Manifest non-empty — running update_embedded_intel.py "
+                 "(inject_embedded_intel.py at Stage 3.93 will overwrite with freshest data)")
+        run_script(
+            [sys.executable, "scripts/update_embedded_intel.py"],
+            stage="3.6b.embedded_intel",
+            allow_fail=True,
+            timeout=120,
+        )
+    else:
+        log.info("[3.6b] SKIPPING update_embedded_intel.py — manifest is empty. "
+                 "Preserving existing EMBEDDED_INTEL in index.html. "
+                 "inject_embedded_intel.py (Stage 3.93) will handle injection from api/feed.json.")
 
     # AI Brain panels + CDB_NEWS engine injection (idempotent)
     run_script(
@@ -2983,39 +3006,33 @@ def main() -> None:
     try:
         import importlib.util as _p9_ilu
         _p9_spec = _p9_ilu.spec_from_file_location(
-            "final_validation_report",
-            REPO_ROOT / "scripts" / "final_validation_report.py",
+            "regression_immunity",
+            REPO_ROOT / "scripts" / "regression_immunity.py",
         )
         _p9_mod = _p9_ilu.module_from_spec(_p9_spec)
         _p9_spec.loader.exec_module(_p9_mod)
-        _p9_results = {}
-        _p9_sync_ok, _p9_sync_detail = _p9_mod.check_dashboard_api_sync(str(REPO_ROOT))
-        _p9_ei_ok,   _p9_ei_detail   = _p9_mod.check_embedded_intel(str(REPO_ROOT))
-        _p9_ws_ok,   _p9_ws_detail   = _p9_mod.check_worker_security(str(REPO_ROOT))
-        _p9_status = "PASS" if (_p9_sync_ok and _p9_ei_ok) else "WARN"
-        log.info("[p9-final] sync=%s | embedded_intel=%s | worker_security=%s | STATUS=%s",
-                 _p9_sync_ok, _p9_ei_ok, _p9_ws_ok, _p9_status)
+        _p9_pass, _p9_fail = _p9_mod.run_checks(str(REPO_ROOT))
+        if _p9_fail:
+            log.warning("[p9-immunity] %d regression check(s) FAILED: %s", len(_p9_fail), _p9_fail[:3])
+        else:
+            log.info("[p9-immunity] PASS — all %d regression immunity checks passed", len(_p9_pass))
     except Exception as _p9_e:
-        log.warning("[p9-final] Skipped (non-fatal): %s", _p9_e)
+        log.warning("[p9-immunity] Skipped (non-fatal): %s", _p9_e)
 
+    # ── Stage Registry Completion Check ──────────────────────────────────────
+    _missing_stages = [s for s in _STAGE_REGISTRY if s not in _completed_stages]
+    if _missing_stages:
+        log.warning("[stage-registry] %d stage(s) did not complete: %s",
+                    len(_missing_stages), _missing_stages)
+    else:
+        log.info("[stage-registry] All %d registered stages completed successfully",
+                 len(_STAGE_REGISTRY))
+
+    t_elapsed = time.monotonic() - t_total
     log.info("=" * 70)
-    log.info("PIPELINE COMPLETE in %.1fs | Version: %s | %s",
-             elapsed, PIPELINE_VERSION, utc_now())
-    log.info("Stages completed: %d/%d  %s",
-             len(_completed_stages), len(_STAGE_REGISTRY),
-             "FULL" if not missing_stages else f"PARTIAL ({missing_stages})")
+    log.info("SENTINEL APEX PIPELINE COMPLETE — elapsed %.1fs", t_elapsed)
     log.info("=" * 70)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except SystemExit:
-        raise   # Allow hard-fail exits to propagate
-    except Exception as e:
-        import traceback
-        log.critical(
-            "UNHANDLED EXCEPTION in run_pipeline.py: %s\n%s",
-            e, traceback.format_exc(),
-        )
-        sys.exit(1)
+    main()
