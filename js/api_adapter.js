@@ -465,7 +465,20 @@
       source_url:          _str(raw.source_url, "#"),
       source_host:         sourceHost || _str(raw.source, "Unknown"),
       report_url:          _str(raw.report_url, "#"),
-      stix_bundle_url:     _str(raw.stix_bundle, ""),
+
+      // STIX bundle — locked if "stix_bundle" appears in apex_ai.paywall.locked_fields.
+      // When locked: suppress the raw URL (which 404s on free tier), surface upgrade gate.
+      // When unlocked: pass through the real URL for PRO subscribers.
+      stix_bundle_locked:      apexAi.paywall.locked_fields.indexOf("stix_bundle") !== -1,
+      stix_bundle_url:         apexAi.paywall.locked_fields.indexOf("stix_bundle") !== -1
+                                 ? ""   // deliberately empty — renderer shows PRO gate instead
+                                 : _str(raw.stix_bundle, ""),
+      stix_bundle_upgrade_url: _str(
+                                 apexAi.paywall.upgrade_url ||
+                                 (raw.ioc_paywall && raw.ioc_paywall.upgrade_url) ||
+                                 "/upgrade.html?plan=pro&utm_source=stix-bundle-cta",
+                                 "/upgrade.html?plan=pro&utm_source=stix-bundle-cta"
+                               ),
 
       /* APEX AI */
       apex_ai:             apexAi,
