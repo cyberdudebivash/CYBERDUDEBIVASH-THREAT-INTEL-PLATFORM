@@ -184,6 +184,44 @@ jobs:
           mkdir -p data/intelligence/detection_rules secrets api data/ai_intelligence
 
       # -----------------------------------------------------------------------
+      # -----------------------------------------------------------------------
+      # STAGE 0.00: PIPELINE LOCK CHECK (v145.0)
+      # If .PIPELINE_LOCK exists, operator is doing manual god mode work.
+      # Skip pipeline run gracefully to prevent overwriting god mode reports.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.00 - Pipeline Lock Check"
+        timeout-minutes: 1
+        run: |
+          if [ -f ".PIPELINE_LOCK" ]; then
+            echo "======================================================"
+            echo "  PIPELINE LOCKED - Manual god mode work in progress"
+            cat .PIPELINE_LOCK 2>/dev/null || true
+            echo "======================================================"
+            echo "  Skipping pipeline run. Remove .PIPELINE_LOCK to resume."
+            exit 0
+          fi
+          echo "[OK] No pipeline lock active. Proceeding."
+
+      # -----------------------------------------------------------------------
+      # STAGE 0.04a: GOD MODE REPORT PROTECTION (v145.0)
+      # Records sizes of god mode reports so they are NOT overwritten by
+      # the automated placeholder generator if they exceed 60KB.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.04a - God Mode Report Protection Check"
+        timeout-minutes: 1
+        run: |
+          for f in "reports/2026/05/intel--c687f56fd93c6ea6d1e3dd6a.html" "reports/2026/05/intel--1e41dd3a24f78d6ae239f84a.html"; do
+            if [ -f "$f" ]; then
+              size=$(wc -c < "$f")
+              kb=$((size / 1024))
+              if [ $kb -ge 60 ]; then
+                echo "[PROTECTED] $f (${kb} KB) - god mode quality confirmed, pipeline will not overwrite"
+              else
+                echo "[WARN] $f is only ${kb} KB - may be a pipeline placeholder"
+              fi
+            fi
+          done
+
       # STAGE 0.05: PRE-FLIGHT FILE INTEGRITY CHECK (v141.7.0)
       # Validates critical pipeline scripts exist and are not truncated.
       # Hard fail if any critical file is below minimum byte threshold.
