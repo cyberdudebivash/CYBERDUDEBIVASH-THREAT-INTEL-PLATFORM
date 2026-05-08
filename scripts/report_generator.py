@@ -65,6 +65,19 @@ _SEV_COLOR = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# GOD MODE QUALITY GATE CONSTANTS (v145.0)
+# God mode reports must exceed these thresholds.
+# Pipeline-generated placeholder reports (< threshold) are flagged in logs.
+# Protected report IDs that must never be overwritten by the pipeline:
+# ─────────────────────────────────────────────────────────────────────────────
+GODMODE_MIN_SIZE_BYTES    = 60_000       # 60 KB minimum for god mode quality
+GODMODE_MIN_SECTIONS      = 18           # Minimum section count (allow up to 20)
+GODMODE_PROTECTED_IDS     = frozenset([  # These reports are operator-curated
+    "intel--c687f56fd93c6ea6d1e3dd6a",   # CVE-2026-42208 LiteLLM CRITICAL 9.1
+    "intel--1e41dd3a24f78d6ae239f84a",   # CVE-2026-42274 Heimdall HIGH 8.2
+])
+
+# ─────────────────────────────────────────────────────────────────────────────
 # MITRE ATT&CK v15 LOOKUP TABLE
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1415,6 +1428,29 @@ def generate_reports_from_manifest(
             yyyy = ts[:4] if len(ts) >= 4 else datetime.now().strftime("%Y")
             mm   = ts[5:7] if len(ts) >= 7 else datetime.now().strftime("%m")
             expected = Path(reports_base) / yyyy / mm / f"{intel_id}.html"
+
+        # ── GOD MODE PROTECTION GATE (v145.0) ─────────────────────────────────
+        # If the existing report is a god mode dossier (> GODMODE_MIN_SIZE_BYTES
+        # or in GODMODE_PROTECTED_IDS), NEVER overwrite it from the pipeline.
+        # Manual operator reports take permanent precedence over auto-generated ones.
+        if expected.exists():
+            existing_size = expected.stat().st_size
+            is_protected_id = intel_id in GODMODE_PROTECTED_IDS
+            is_godmode_size = existing_size >= GODMODE_MIN_SIZE_BYTES
+            if is_protected_id or is_godmode_size:
+                size_kb = round(existing_size / 1024, 1)
+                if is_protected_id:
+                    logger.info(
+                        "[GODMODE-PROTECTED] %s (%s KB) — operator-curated, pipeline skip",
+                        intel_id, size_kb
+                    )
+                else:
+                    logger.info(
+                        "[GODMODE-QUALITY] %s (%s KB) — god mode size, pipeline skip",
+                        intel_id, size_kb
+                    )
+                results["skipped"] += 1
+                continue
 
         if skip_existing and expected.exists() and expected.stat().st_size > 2000:
             try:

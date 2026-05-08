@@ -114,3 +114,26 @@ node_modules/
 npm-debug.log*
 
 .git_corrupted/
+
+# --- OPS DIRECTORY — TRACK SCRIPTS, EXCLUDE LARGE BACKUPS ---
+# ops/*.ps1, ops/*.md, ops/post-mortems/ → tracked (operational tools)
+# ops/backups/ → exclude large HTML backups from git (stored locally only)
+ops/backups/*.html
+ops/backups/pre-rollback-*/
+
+# --- PIPELINE LOCK (tracked — pushed to remote to pause CI) ---
+# .PIPELINE_LOCK is intentionally NOT ignored — it must be pushed to GitHub
+# to pause automated workflows. Exclude only if you want to manage lock locally.
+
+# --- OPERATOR SESSION ARTIFACTS (never commit) ---
+PUSH-NOW.ps1
+PUSH-GODMODE-v2.ps1
+PUSH_FIX.bat
+RESOLVE-AND-PUSH.ps1
+MASTER_FIX_P0.bat
+DEPLOY_*.bat
+APPLY_V28.sh
+COMMIT_P0_FIX.sh
+P0_DEPLOY_v111.sh
+outputs/
+uploads/
