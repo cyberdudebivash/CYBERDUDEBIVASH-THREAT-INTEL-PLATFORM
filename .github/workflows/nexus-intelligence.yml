@@ -48,6 +48,13 @@ jobs:
           mkdir -p data/nexus
           mkdir -p data/stix
 
+      - name: "Pipeline Lock Check"
+        run: |
+          if [ -f ".PIPELINE_LOCK" ]; then
+            echo "PIPELINE LOCKED - skipping genesis cycle"
+            exit 0
+          fi
+          echo "[OK] No lock active."
       - name: Execute NEXUS Intelligence Cycle
         run: python -m agent.v39_nexus.nexus_engine
         env:
