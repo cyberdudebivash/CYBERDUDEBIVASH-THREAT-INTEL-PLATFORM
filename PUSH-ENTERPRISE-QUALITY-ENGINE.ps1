@@ -15,6 +15,15 @@ Write-Host "══════════════════════�
 
 Set-Location $REPO_DIR
 
+# ── CLEAR STALE GIT LOCKS ────────────────────────────────────────────────────
+$LOCK_FILES = @(".git\index.lock", ".git\index.lock.bak", ".git\index.lock.old")
+foreach ($lf in $LOCK_FILES) {
+    if (Test-Path $lf) {
+        Remove-Item $lf -Force -ErrorAction SilentlyContinue
+        Write-Host "[GIT] Cleared stale lock: $lf" -ForegroundColor Yellow
+    }
+}
+
 # ── GIT STATUS ───────────────────────────────────────────────────────────────
 Write-Host "`n[GIT] Checking repository status..." -ForegroundColor Yellow
 git status --short
