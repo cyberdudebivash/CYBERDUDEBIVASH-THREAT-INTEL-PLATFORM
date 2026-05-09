@@ -603,8 +603,13 @@ def extract_iocs_from_manifest_entry(entry: Dict) -> IOCResult:
 def enforce_ioc_integrity(entry: Dict) -> Dict:
     """
     Enforce ioc_count == len(iocs) on a manifest entry.
-    If mismatched, re-extract from text fields.
+    If mismatched or both empty, re-extract from text fields.
     If ioc_confidence == 0 but iocs exist, recompute confidence.
+
+    v145.0 FIX: Case 0 added — when BOTH ioc_count==0 AND iocs==[] (or missing),
+    ALWAYS attempt fresh extraction from text fields.  This was the root cause of
+    0/80 IOCs in production: the old code only re-extracted when ioc_count > 0,
+    so items that were never enriched upstream stayed at zero forever.
 
     Returns mutated copy (does not modify original).
     """
@@ -614,8 +619,20 @@ def enforce_ioc_integrity(entry: Dict) -> Dict:
     ioc_count = entry.get("ioc_count", 0)
     ioc_confidence = entry.get("ioc_confidence", 0.0)
 
+    # Case 0 (v145.0 FIX): Both ioc_count==0 AND iocs empty/missing
+    # → always try fresh extraction (catches items that were never enriched)
+    if (not iocs or len(iocs) == 0) and ioc_count == 0:
+        result = extract_iocs_from_manifest_entry(entry)
+        if result.ioc_count > 0:
+            logger.info(
+                "[v145] IOC FRESH EXTRACTION: found %d IOCs for title=%s",
+                result.ioc_count, str(entry.get("title", ""))[:60]
+            )
+            entry.update(result.to_manifest_fields())
+        # If still 0, leave as-is (no text content to extract from)
+
     # Case 1: ioc_count > 0 but iocs is empty/missing → P0 integrity violation
-    if ioc_count > 0 and (not iocs or len(iocs) == 0):
+    elif ioc_count > 0 and (not iocs or len(iocs) == 0):
         logger.warning(
             "P0 IOC INTEGRITY: ioc_count=%d but iocs=[] for title=%s — re-extracting",
             ioc_count, str(entry.get("title", ""))[:60]
@@ -749,20 +766,12 @@ def normalize_risk_score(
 # ─────────────────────────────────────────────────────────────────────────────
 # MODULE SELF-TEST (run with: python -m agent.ioc_engine)
 # ─────────────────────────────────────────────────────────────────────────────
+# MODULE SELF-TEST (run with: python -m agent.ioc_engine)
+# ─────────────────────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-    import json
-    test_text = """
-    A campaign by APT29 was observed distributing SUNBURST malware from
-    185.220.101.45 and staging on update.solarwinds-cdn.com.
-    Command-and-control traffic was seen to http://evil-c2.com/beacon/init.
-    File hash (SHA-256): a77f3c6f8c8b4f2e9d1234567890abcdef1234567890abcdef1234567890abcd01
-    MD5: d41d8cd98f00b204e9800998ecf8427e
-    Malicious email: attacker@apt-evil.ru
-    CVE-2024-12345 was exploited (CVSS 9.8, KEV confirmed).
-    Loopback 127.0.0.1 and internal 192.168.1.100 should be EXCLUDED.
-    """
-    result = extract_iocs(test_text)
-    print(json.dumps(result.to_manifest_fields(), indent=2))
-    scoring = normalize_risk_score(7.5, kev_present=True, cvss_score=9.8, ioc_count=result.ioc_count)
-    print(f"Risk scoring: {scoring}")
+if __name__ == '__main__':
+    import sys
+    text = ' '.join(sys.argv[1:]) or 'CVE-2024-1234 192.168.1.1 8.8.8.8 malware.evil.ru'
+    result = extract_iocs(text)
+    import json as _json
+    print(_json.dumps(result.to_manifest_fields(), indent=2, default=str))
