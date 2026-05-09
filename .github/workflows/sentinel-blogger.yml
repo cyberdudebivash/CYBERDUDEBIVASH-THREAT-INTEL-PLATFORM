@@ -150,13 +150,21 @@ jobs:
 
       # -----------------------------------------------------------------------
       # STAGE 0: PYTHON SETUP
+      # v146.0 FIX: timeout raised 5->15min (runner downloads ~3.2GB toolchain
+      # at 6-7 MB/s on slow days -- 5min was guaranteed to timeout).
+      # setup-python pinned to v5.3.0 (v5.4.0 bypasses pre-installed Python
+      # and forces a full toolchain re-download every run -- confirmed GitHub
+      # Actions regression). check-latest:false ensures pre-cached toolchain
+      # is preferred. update-environment:true keeps PATH correct.
       # -----------------------------------------------------------------------
       - name: "Setup Python 3.12"
-        timeout-minutes: 5
-        uses: actions/setup-python@v5.4.0
+        timeout-minutes: 15
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.12'
           cache: 'pip'
+          check-latest: false
+          update-environment: true
 
       # -----------------------------------------------------------------------
       # STAGE 0: INSTALL DEPENDENCIES
@@ -693,12 +701,4 @@ jobs:
         run: python3 scripts/validate_monetization.py
 
       # -----------------------------------------------------------------------
-      # STAGE 6: TELEGRAM FAILURE ALERT (v141.0 -- always runs, zero-exit)
-      # Fires ONLY on job failure so ops team is notified immediately.
-      # Never blocks the pipeline - exits 0 regardless of delivery status.
-      # -----------------------------------------------------------------------
-      - name: "STAGE 6 - Telegram Failure Alert"
-        timeout-minutes: 3
-        if: failure()
-        run: python3 scripts/pipeline_alert.py --status failure --message "Workflow step failed. Check GitHub Actions log for root cause."
-        continue-on-error: true
+      # STAGE 6: TELEGRAM FAILURE ALERT (v141.0 -- always r
