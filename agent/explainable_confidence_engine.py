@@ -808,4 +808,20 @@ def main() -> None:
         logger.error(f"[EXPLAINABLE-CONF] Manifest load error: {e}")
         sys.exit(0)
 
-    advisories = ma
+    advisories = manifest.get("items", manifest.get("advisories", []))
+    if not advisories:
+        logger.info("[EXPLAINABLE-CONF] No advisories — nothing to do")
+        sys.exit(0)
+
+    engine  = ExplainableConfidenceEngine()
+    results = engine.score_batch(advisories)
+    engine.persist(results, OUTPUT_DIR)
+    logger.info(
+        f"[EXPLAINABLE-CONF] Complete: {len(results)} advisories scored. "
+        f"Mean confidence={round(sum(r['final_confidence'] for r in results)/max(1,len(results)),1)}%"
+    )
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
