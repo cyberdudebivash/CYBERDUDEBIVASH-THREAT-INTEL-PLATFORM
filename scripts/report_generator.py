@@ -149,9 +149,31 @@ ATTACK_TECHNIQUES: Dict[str, Dict[str, str]] = {
 }
 
 
-def _resolve_technique(tech_raw: str) -> Dict[str, str]:
-    """Resolve technique string to {id, name, tactic, color}."""
-    t = tech_raw.strip()
+def _resolve_technique(tech_raw) -> Dict[str, str]:
+    """Resolve technique string OR dict to {id, name, tactic, color}.
+
+    Handles both legacy string format ('T1059') and enriched dict format
+    ({'id': 'T1059', 'name': 'Command and Scripting Interpreter', ...})
+    so that mixed-format mitre_tactics arrays never cause AttributeError.
+    """
+    # ── Dict path: already-resolved technique object ──────────────────────
+    if isinstance(tech_raw, dict):
+        tid = str(
+            tech_raw.get("id") or
+            tech_raw.get("technique_id") or
+            tech_raw.get("technique") or ""
+        ).upper().strip()
+        # If we have a known TID, return the canonical entry (highest fidelity)
+        if tid and tid in ATTACK_TECHNIQUES:
+            return {"id": tid, **ATTACK_TECHNIQUES[tid]}
+        # Fall back to whatever the dict contains
+        name   = str(tech_raw.get("name") or tech_raw.get("technique_name") or tid or "Unknown")
+        tactic = str(tech_raw.get("tactic") or tech_raw.get("tactic_name") or "Unknown")
+        color  = str(tech_raw.get("color") or "#6b7280")
+        return {"id": tid, "name": name, "tactic": tactic, "color": color}
+
+    # ── String path: original behavior ────────────────────────────────────
+    t = str(tech_raw).strip()
     if t.upper() in ATTACK_TECHNIQUES:
         info = ATTACK_TECHNIQUES[t.upper()]
         return {"id": t.upper(), **info}
