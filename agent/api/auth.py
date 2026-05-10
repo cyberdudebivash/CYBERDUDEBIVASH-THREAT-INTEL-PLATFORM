@@ -46,11 +46,40 @@ TIER_ENTERPRISE = "ENTERPRISE"
 JWT_ALGORITHM   = "HS256"
 JWT_EXPIRY_SECS = 86400  # 24 hours
 
+# Revocation registry path — keys listed here are IMMEDIATELY rejected regardless
+# of tier, without requiring config reload or service restart.
+_REVOCATION_REGISTRY_PATH = "data/security/revoked_keys.json"
+
+
+def _load_revocation_registry() -> set:
+    """Load the set of revoked API key hashes from the registry file."""
+    try:
+        if os.path.exists(_REVOCATION_REGISTRY_PATH):
+            with open(_REVOCATION_REGISTRY_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # Store SHA-256 hashes of keys rather than keys themselves
+            return set(data.get("revoked_hashes", []))
+    except Exception as e:
+        logger.warning(f"[AUTH] Revocation registry load failed: {e}")
+    return set()
+
+
+def _key_hash(key: str) -> str:
+    import hashlib
+    return hashlib.sha256(key.strip().encode("utf-8")).hexdigest()
+
 
 class AuthHandler:
     """
     API authentication engine supporting API keys and JWT bearer tokens.
     Tier hierarchy: ENTERPRISE > PRO > FREE
+
+    v23.0 ENTERPRISE SECURITY ADDITIONS:
+      - Revocation registry: API keys can be revoked at runtime without
+        config reload by adding their SHA-256 hash to
+        data/security/revoked_keys.json. The registry is reloaded on every
+        resolve_tier() call so revocations take effect within one request cycle.
+      - revoke_key() / unrevoke_key() helpers for ops tooling.
     """
 
     def resolve_tier(
@@ -87,8 +116,20 @@ class AuthHandler:
         return TIER_FREE, f"anon:{remote_ip}", None
 
     def _validate_api_key(self, key: str) -> Tuple[str, str]:
-        """Check key against all tier sets. Hierarchy: ENTERPRISE > PREMIUM > STANDARD > FREE."""
+        """Check key against all tier sets. Hierarchy: ENTERPRISE > PREMIUM > STANDARD > FREE.
+
+        Revocation check runs FIRST — a revoked key is rejected regardless of tier.
+        The revocation registry is reloaded on every call so runtime revocations
+        (e.g., after a credential leak is reported) take effect immediately.
+        """
         key = key.strip()
+        # Revocation guard — check registry before tier resolution
+        revoked = _load_revocation_registry()
+        if _key_hash(key) in revoked:
+            logger.warning(f"[AUTH] REVOKED key attempted: {key[:8]}***")
+            self._audit("APIKEY_REVOKED", f"rev:{key[:8]}", TIER_FREE, "revocation-check")
+            return TIER_FREE, f"revoked:{key[:8]}"
+        # Tier resolution
         if key in CDB_ENTERPRISE_API_KEYS:
             return TIER_ENTERPRISE, f"ent:{key[:8]}"
         if key in CDB_PREMIUM_API_KEYS or key in CDB_PRO_API_KEYS:
@@ -97,6 +138,57 @@ class AuthHandler:
         if key in CDB_STANDARD_API_KEYS:
             return TIER_STANDARD, f"std:{key[:8]}"
         return TIER_FREE, f"unk:{key[:8]}"
+
+    # ── Revocation management ─────────────────────────────────────────────────
+
+    def revoke_key(self, key: str, reason: str = "") -> bool:
+        """Add a key to the revocation registry. Effective immediately on next request."""
+        try:
+            os.makedirs(os.path.dirname(_REVOCATION_REGISTRY_PATH), exist_ok=True)
+            data: Dict = {}
+            if os.path.exists(_REVOCATION_REGISTRY_PATH):
+                with open(_REVOCATION_REGISTRY_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            hashes: list = data.get("revoked_hashes", [])
+            kh = _key_hash(key)
+            if kh not in hashes:
+                hashes.append(kh)
+            data["revoked_hashes"] = hashes
+            data.setdefault("revocation_log", []).append({
+                "key_prefix": key[:8],
+                "hash":       kh,
+                "reason":     reason,
+                "revoked_at": datetime.now(timezone.utc).isoformat(),
+            })
+            with open(_REVOCATION_REGISTRY_PATH, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            logger.info(f"[AUTH] Key revoked: {key[:8]}*** reason={reason!r}")
+            return True
+        except Exception as e:
+            logger.error(f"[AUTH] Key revocation failed: {e}")
+            return False
+
+    def unrevoke_key(self, key: str) -> bool:
+        """Remove a key from the revocation registry."""
+        try:
+            if not os.path.exists(_REVOCATION_REGISTRY_PATH):
+                return True
+            with open(_REVOCATION_REGISTRY_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            kh = _key_hash(key)
+            before = len(data.get("revoked_hashes", []))
+            data["revoked_hashes"] = [h for h in data.get("revoked_hashes", []) if h != kh]
+            with open(_REVOCATION_REGISTRY_PATH, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            logger.info(f"[AUTH] Key unrevoked: {key[:8]}*** (removed {before - len(data['revoked_hashes'])} entry)")
+            return True
+        except Exception as e:
+            logger.error(f"[AUTH] Key unrevoke failed: {e}")
+            return False
+
+    def is_revoked(self, key: str) -> bool:
+        """Check if a key is currently revoked."""
+        return _key_hash(key) in _load_revocation_registry()
 
     def generate_jwt(self, identity: str, tier: str, expiry_secs: int = JWT_EXPIRY_SECS) -> str:
         """

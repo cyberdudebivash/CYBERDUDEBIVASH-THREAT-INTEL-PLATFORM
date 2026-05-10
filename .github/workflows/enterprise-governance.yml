@@ -291,6 +291,91 @@ jobs:
           echo "sla_status=$SLA_STATUS" >> $GITHUB_OUTPUT
           grep -E "SLA|uptime|freshness|latency|PASS|FAIL" /tmp/sla_output.txt | tail -20 || true
 
+      # ── PHASE 6: Feed Freshness Governance ───────────────────────────────────
+      - name: "PHASE 6 — Feed Freshness SLA Governance"
+        id: feed_freshness
+        run: |
+          echo "[PHASE 6] Running feed_freshness_governance.py..."
+          mkdir -p data/health
+          set +e
+          python3 scripts/feed_freshness_governance.py 2>&1 | tee /tmp/freshness_output.txt
+          FRESH_EXIT=$?
+          set -e
+
+          FRESH_STATUS="OK"
+          if [ "$FRESH_EXIT" -eq 1 ]; then
+            FRESH_STATUS="CRITICAL"
+            echo "::error::CRITICAL feed freshness SLA violation — ops action required"
+            grep "CRITICAL SLA VIOLATION" /tmp/freshness_output.txt || true
+          elif [ "$FRESH_EXIT" -eq 3 ]; then
+            FRESH_STATUS="DEGRADED"
+            echo "::warning::Feed freshness SLA degraded (non-blocking)"
+          else
+            echo "[PHASE 6] Feed freshness: ALL WITHIN SLA"
+          fi
+          echo "freshness_status=$FRESH_STATUS" >> $GITHUB_OUTPUT
+          grep -E "freshness=|SLA violation|OK:|freshness_pct" /tmp/freshness_output.txt | tail -20 || true
+
+      # ── PHASE 7: API Contract Drift Detection ─────────────────────────────
+      - name: "PHASE 7 — API Contract Drift Detection"
+        id: contract_drift
+        run: |
+          echo "[PHASE 7] Running api_contract_drift_detector.py..."
+          mkdir -p data/governance
+          set +e
+          python3 scripts/api_contract_drift_detector.py 2>&1 | tee /tmp/drift_output.txt
+          DRIFT_EXIT=$?
+          set -e
+
+          DRIFT_STATUS="OK"
+          if [ "$DRIFT_EXIT" -eq 1 ]; then
+            DRIFT_STATUS="BREAKING"
+            echo "::error::BREAKING API contract change detected — schema field removed or type changed"
+            grep "BREAKING:" /tmp/drift_output.txt || true
+            # Only hard-fail in strict mode — non-strict treats as warning
+            if [ "${{ github.event.inputs.strict_mode }}" = "true" ]; then
+              exit 1
+            fi
+          elif [ "$DRIFT_EXIT" -eq 3 ]; then
+            DRIFT_STATUS="DRIFT"
+            echo "::warning::API schema drift detected (non-breaking — tracked)"
+          else
+            echo "[PHASE 7] API contract: NO DRIFT"
+          fi
+          echo "drift_status=$DRIFT_STATUS" >> $GITHUB_OUTPUT
+
+      # ── PHASE 8: Commercial Observability Snapshot ────────────────────────
+      - name: "PHASE 8 — Commercial Observability Snapshot"
+        id: commercial_obs
+        run: |
+          echo "[PHASE 8] Running commercial_observability_engine.py..."
+          mkdir -p data/commercial
+          set +e
+          python3 -c "
+          import sys
+          sys.path.insert(0, '.')
+          from agent.commercial_observability_engine import build_commercial_health_snapshot
+          snap = build_commercial_health_snapshot()
+          status = snap.get('overall_status', 'UNKNOWN')
+          print(f'Commercial health: {status}')
+          print(f'Revenue: \${snap[\"commercial_kpis\"].get(\"total_revenue_usd\", 0):.2f}')
+          print(f'Freshness: {snap[\"commercial_kpis\"].get(\"freshness_pct\", 0)}%')
+          sys.exit(0 if status == 'HEALTHY' else (1 if status == 'CRITICAL' else 3))
+          " 2>&1 | tee /tmp/commercial_output.txt
+          COMM_EXIT=$?
+          set -e
+
+          COMM_STATUS="HEALTHY"
+          if [ "$COMM_EXIT" -eq 1 ]; then
+            COMM_STATUS="CRITICAL"
+            echo "::error::CRITICAL commercial platform health issue"
+          elif [ "$COMM_EXIT" -eq 3 ]; then
+            COMM_STATUS="DEGRADED"
+            echo "::warning::Commercial platform health degraded"
+          fi
+          echo "commercial_status=$COMM_STATUS" >> $GITHUB_OUTPUT
+          cat /tmp/commercial_output.txt | tail -10 || true
+
       # ── Governance Report Summary ─────────────────────────────────────────
       - name: "Governance Summary Report"
         if: always()
@@ -304,6 +389,9 @@ jobs:
           echo "  Contract Status  : ${{ steps.contract_check.outputs.status || 'N/A' }}"
           echo "  SLA Status       : ${{ steps.sla_check.outputs.sla_status || 'N/A' }}"
           echo "  Hard Violations  : ${{ steps.gov_engine.outputs.hard_violations || '0' }}"
+          echo "  Feed Freshness   : ${{ steps.feed_freshness.outputs.freshness_status || 'N/A' }}"
+          echo "  Contract Drift   : ${{ steps.contract_drift.outputs.drift_status || 'N/A' }}"
+          echo "  Commercial Health: ${{ steps.commercial_obs.outputs.commercial_status || 'N/A' }}"
           echo "========================================================"
           echo ""
           # Show full governance report if available
@@ -335,8 +423,14 @@ jobs:
           for f in \
             data/governance/governance_report.json \
             data/governance/contract_report.json \
+            data/governance/contract_drift_report.json \
+            data/governance/schema_baseline.json \
+            data/governance/dedup_telemetry.json \
             data/quality/source_trust_scores.json \
-            data/health/sla_status.json; do
+            data/health/sla_status.json \
+            data/health/feed_freshness_report.json \
+            data/commercial/platform_health.json \
+            data/commercial/monetization_status.json; do
             if [ -f "$f" ]; then
               git add "$f"
               STAGED=$((STAGED + 1))
@@ -392,6 +486,9 @@ jobs:
           MSG="${MSG}Run: #$GITHUB_RUN_NUMBER | Pipeline: $PIPELINE_VERSION%0A"
           MSG="${MSG}Grade: ${{ steps.gov_engine.outputs.grade || 'UNKNOWN' }}%0A"
           MSG="${MSG}Contract: ${{ steps.contract_check.outputs.status || 'UNKNOWN' }}%0A"
+          MSG="${MSG}Feed Freshness: ${{ steps.feed_freshness.outputs.freshness_status || 'UNKNOWN' }}%0A"
+          MSG="${MSG}API Drift: ${{ steps.contract_drift.outputs.drift_status || 'UNKNOWN' }}%0A"
+          MSG="${MSG}Commercial: ${{ steps.commercial_obs.outputs.commercial_status || 'UNKNOWN' }}%0A"
           MSG="${MSG}Violations: ${{ steps.gov_engine.outputs.hard_violations || '?' }}%0A"
           MSG="${MSG}Action required — review governance report immediately.%0A"
           MSG="${MSG}https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

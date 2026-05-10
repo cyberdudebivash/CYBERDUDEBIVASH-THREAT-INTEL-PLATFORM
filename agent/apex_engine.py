@@ -7,6 +7,7 @@ Called from sentinel_blogger.py on every advisory ingested.
 import json
 import logging
 import os
+import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -55,6 +56,9 @@ class ApexIntelligenceEngine:
         self._tenant_isolation   = None
         self._monetization       = None
         self._initialized  = False
+        # Thread-safety: ensures _lazy_init() runs exactly once even under
+        # concurrent API requests (race condition fix).
+        self._init_lock    = threading.Lock()
         self.stats = {
             "advisories_processed": 0,
             "incidents_generated":  0,
@@ -63,8 +67,15 @@ class ApexIntelligenceEngine:
         }
 
     def _lazy_init(self) -> None:
+        # Fast-path: already initialized — no lock needed (reads are safe after bool check)
         if self._initialized:
             return
+        # Slow-path: acquire lock, re-check (double-checked locking pattern).
+        # This prevents multiple threads from concurrently running expensive
+        # sub-engine imports when the first API request arrives at startup.
+        with self._init_lock:
+            if self._initialized:
+                return
         try:
             from agent.soc.autonomous_soc          import AutonomousSOCEngine
             from agent.threat_graph.graph_engine   import ThreatIntelGraph
