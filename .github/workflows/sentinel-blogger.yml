@@ -565,6 +565,36 @@ jobs:
         run: python3 scripts/generate_api_manifests.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.1: AI BRAIN PUBLISHER (v146.0 -- NON-BLOCKING)
+      # Aggregates Isolation Forest anomalies, GradientBoosting sector forecasts,
+      # and DBSCAN actor clusters into api/v1/intel/ai_summary.json.
+      # This is the SINGLE DATA SOURCE for the AI Cyber Brain dashboard section.
+      # Eliminates "No intel data" / "No anomaly data" / "No prediction data" states.
+      # NON-BLOCKING: exit 1 logs error but does not abort pipeline.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.1 - AI Brain Publisher (v146.0)"
+        timeout-minutes: 3
+        run: |
+          set +e
+          python3 scripts/ai_brain_publisher.py 2>&1 | tee /tmp/ai_brain_output.txt
+          AI_EXIT=$?
+          set -e
+          if [ "$AI_EXIT" -eq 0 ]; then
+            echo "[PASS] AI Brain published: api/v1/intel/ai_summary.json"
+            if [ -f "api/v1/intel/ai_summary.json" ]; then
+              SZ=$(wc -c < api/v1/intel/ai_summary.json)
+              echo "[INFO] ai_summary.json size: ${SZ}B"
+              python3 -c "
+import json,pathlib
+d=json.loads(pathlib.Path('api/v1/intel/ai_summary.json').read_text())
+print(f'  campaigns={len(d.get(\"campaigns\",[]))} anomalies={len(d.get(\"anomalies\",[]))} forecasts={len(d.get(\"forecasts\",[]))}')"
+            fi
+          else
+            echo "::warning::AI Brain publisher failed (exit $AI_EXIT) -- non-blocking, dashboard will retry"
+            cat /tmp/ai_brain_output.txt | tail -10
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.5: IMMUTABLE API MANIFEST VALIDATION GATE (v150.0)
       # REPLACES: old EMBEDDED_INTEL Population Gate (deleted -- was root cause of P0)
       # Verifies all api/v1/intel/*.json bundles are valid and populated.
