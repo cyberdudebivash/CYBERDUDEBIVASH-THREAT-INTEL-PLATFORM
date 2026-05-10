@@ -131,6 +131,28 @@ else:
     check('latest.json checksum + size valid', False,
           msg_fail='registry or latest.json missing')
 
+# ── Check 5.5: ai_summary.json (AI Brain endpoint — non-blocking) ────────────
+print('\n[5.5] api/v1/intel/ai_summary.json (AI Brain endpoint)', flush=True)
+ai_summary_path = os.path.join(OUT_DIR, 'ai_summary.json')
+if os.path.exists(ai_summary_path):
+    try:
+        with open(ai_summary_path, 'r', encoding='utf-8') as f:
+            ai_data = json.load(f)
+        cam_count  = len(ai_data.get('campaigns', []))
+        anom_count = len(ai_data.get('anomalies', []))
+        fore_count = len(ai_data.get('forecasts', []))
+        has_summary = bool(ai_data.get('apex_summary', ''))
+        ok = cam_count > 0 or anom_count > 0 or fore_count > 0
+        check('ai_summary.json valid + populated',
+              ok,
+              f'campaigns={cam_count} anomalies={anom_count} forecasts={fore_count} apex_summary={has_summary}',
+              f'ai_summary.json exists but is empty (campaigns={cam_count} anomalies={anom_count})')
+    except Exception as e:
+        # Non-blocking: AI Brain publisher may not have run yet
+        print(f'  [WARN] ai_summary.json parse error: {e} (non-blocking)', flush=True)
+else:
+    print('  [INFO] ai_summary.json not yet generated (AI Brain publisher pending)', flush=True)
+
 # ── Check 6: index.html is NOT mutated (EMBEDDED_INTEL must be []) ──────────
 print('\n[6] index.html immutability (EMBEDDED_INTEL must be static [])', flush=True)
 try:
