@@ -1,0 +1,222 @@
+# =============================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX — STORAGE LIFECYCLE GOVERNANCE
+# .github/workflows/storage-lifecycle-governance.yml
+# Version: v1.0.0
+#
+# PURPOSE:
+#   Automated cold archive rotation + artifact lifecycle governance.
+#   Runs cold archive automation (HOT→WARM→COLD→PURGE) on a weekly schedule.
+#   Committed archive manifests provide auditability for data retention compliance.
+#
+# SAFETY CONTRACT:
+#   - Dry-run by default on schedule; production archive requires explicit dispatch
+#   - Never modifies feed_manifest.json or any production data path
+#   - Archive operations are atomic (write-verify-replace)
+#   - Concurrency: never overlaps with itself or production pipeline
+#   - Timeout: 30 minutes max
+#
+# SCHEDULE:
+#   Weekly — Sundays at 02:00 UTC (lowest traffic window)
+#
+# EXIT CODES (from cold_archive_automation.py):
+#   0 = All operations completed successfully
+#   1 = Archive write failed (original preserved, no data loss)
+#   3 = DEGRADED — some entries skipped, audit logged
+# =============================================================================
+
+name: SENTINEL APEX Storage Lifecycle Governance v1
+
+on:
+  schedule:
+    # Sundays 02:00 UTC — weekly archive rotation
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run — preview operations without modifying files'
+        required: false
+        default: 'true'
+        type: boolean
+      force_production:
+        description: 'Force production archive (overrides dry_run default)'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sentinel-storage-lifecycle
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONUNBUFFERED: "1"
+  PIPELINE_VERSION: "145.0.0"
+
+jobs:
+  storage_lifecycle:
+    name: "Storage Lifecycle Governance"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Set up Python 3.11"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: "Install dependencies"
+        run: |
+          pip install --upgrade pip --quiet
+          if [ -f requirements.txt ]; then pip install -r requirements.txt --quiet; fi
+
+      - name: "Create storage directories"
+        run: |
+          mkdir -p data/archive/cold
+          mkdir -p data/archive/purged
+          mkdir -p data/commercial
+          echo "[DIRS] Storage directories ready"
+
+      - name: "Syntax check — storage scripts"
+        run: |
+          for f in scripts/cold_archive_automation.py; do
+            if [ -f "$f" ]; then
+              python3 -m py_compile "$f" && echo "[OK] $f" || (echo "::error::SYNTAX ERROR: $f"; exit 1)
+            fi
+          done
+
+      - name: "Cold Archive Automation"
+        id: cold_archive
+        run: |
+          # Determine dry-run mode:
+          # - Schedule trigger: ALWAYS dry-run (safe default — no accidental production archive)
+          # - workflow_dispatch with dry_run=true: dry-run
+          # - workflow_dispatch with force_production=true: production mode
+          DRY_RUN_FLAG="--dry-run"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.force_production }}" = "true" ]; then
+              DRY_RUN_FLAG=""
+              echo "::warning::Running in PRODUCTION mode — files will be modified"
+            elif [ "${{ github.event.inputs.dry_run }}" = "false" ]; then
+              DRY_RUN_FLAG=""
+              echo "::notice::Dry-run explicitly disabled"
+            fi
+          fi
+
+          echo "[ARCHIVE] Starting cold archive automation (flags: $DRY_RUN_FLAG)"
+          set +e
+          python3 scripts/cold_archive_automation.py $DRY_RUN_FLAG 2>&1 | tee /tmp/archive_output.txt
+          ARCH_EXIT=$?
+          set -e
+
+          ARCH_STATUS="OK"
+          if [ "$ARCH_EXIT" -eq 1 ]; then
+            ARCH_STATUS="FAILED"
+            echo "::error::Archive write failure — originals preserved, no data loss"
+          elif [ "$ARCH_EXIT" -eq 3 ]; then
+            ARCH_STATUS="DEGRADED"
+            echo "::warning::Some entries skipped — audit log updated"
+          else
+            echo "[ARCHIVE] Cold archive complete: OK"
+          fi
+
+          echo "archive_status=$ARCH_STATUS" >> $GITHUB_OUTPUT
+          grep -E "archived:|purged:|HOT:|WARM:|COLD:|PURGE:" /tmp/archive_output.txt | tail -20 || true
+
+      - name: "Commercial Observability Snapshot"
+        id: commercial_obs
+        run: |
+          echo "[COMMERCIAL] Building commercial health snapshot..."
+          set +e
+          python3 -c "
+          import sys
+          sys.path.insert(0, '.')
+          try:
+              from agent.commercial_observability_engine import build_commercial_health_snapshot
+              snap = build_commercial_health_snapshot()
+              status = snap.get('overall_status', 'UNKNOWN')
+              print(f'Commercial health: {status}')
+              kpis = snap.get('commercial_kpis', {})
+              print(f'Revenue: \${kpis.get(\"total_revenue_usd\", 0):.2f}')
+              print(f'Transactions: {kpis.get(\"transaction_count\", 0)}')
+              print(f'Active tenants: {kpis.get(\"active_tenants\", 0)}')
+          except Exception as e:
+              print(f'Commercial observability error: {e}')
+              sys.exit(3)
+          " 2>&1 | tee /tmp/commercial_output.txt
+          COMM_EXIT=$?
+          set -e
+
+          echo "commercial_status=$([ $COMM_EXIT -eq 0 ] && echo HEALTHY || echo DEGRADED)" >> $GITHUB_OUTPUT
+
+      - name: "Lifecycle Summary"
+        if: always()
+        run: |
+          echo ""
+          echo "========================================================"
+          echo "  SENTINEL APEX STORAGE LIFECYCLE GOVERNANCE SUMMARY"
+          echo "  Run: $GITHUB_RUN_NUMBER | Pipeline: $PIPELINE_VERSION"
+          echo "========================================================"
+          echo "  Archive Status    : ${{ steps.cold_archive.outputs.archive_status || 'N/A' }}"
+          echo "  Commercial Health : ${{ steps.commercial_obs.outputs.commercial_status || 'N/A' }}"
+          echo "========================================================"
+
+          if [ -f data/archive/lifecycle_report.json ]; then
+            python3 -c "
+          import json, pathlib
+          r = json.loads(pathlib.Path('data/archive/lifecycle_report.json').read_text())
+          tc = r.get('tier_counts', {})
+          print(f'  HOT files    : {tc.get(\"HOT\", 0)}')
+          print(f'  WARM files   : {tc.get(\"WARM\", 0)}')
+          print(f'  COLD archived: {tc.get(\"COLD\", 0)} ({r.get(\"files_archived\", 0)} archived)')
+          print(f'  PURGED       : {tc.get(\"PURGE\", 0)} ({r.get(\"files_purged\", 0)} purged)')
+          print(f'  Errors       : {r.get(\"errors\", 0)}')
+          print(f'  Dry run      : {r.get(\"dry_run\", True)}')
+          " 2>/dev/null || true
+          fi
+          echo "========================================================"
+
+      - name: "Commit lifecycle outputs"
+        if: ${{ success() }}
+        run: |
+          git config user.name  "SENTINEL-APEX-LIFECYCLE[bot]"
+          git config user.email "lifecycle@cyberdudebivash.in"
+
+          STAGED=0
+          for f in \
+            data/archive/archive_manifest.json \
+            data/archive/lifecycle_report.json \
+            data/commercial/platform_health.json \
+            data/commercial/monetization_status.json \
+            data/commercial/sla_telemetry.json \
+            data/commercial/upgrade_funnel.json; do
+            if [ -f "$f" ]; then
+              git add "$f"
+              STAGED=$((STAGED + 1))
+            fi
+          done
+
+          if [ "$STAGED" -eq 0 ]; then
+            echo "[COMMIT] No lifecycle outputs to commit"
+            exit 0
+          fi
+
+          ARCH_ST="${{ steps.cold_archive.outputs.archive_status || 'N/A' }}"
+          TS=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          git commit -m "ci(lifecycle): storage lifecycle governance run #${GITHUB_RUN_NUMBER} archive=${ARCH_ST} ts=${TS} [skip ci]" \
+            || echo "[COMMIT] Nothing to commit"
+
+          git push origin main || {
+            git pull origin main --rebase
+            git push origin main || echo "::warning::Push failed — lifecycle outputs not persisted"
+          }
