@@ -72,7 +72,7 @@ logging.basicConfig(
 log = logging.getLogger("sentinel.safe_git_commit")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "131.2.0")
+PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "147.0.0")
 
 
 def run_git(*args: str, check: bool = False, capture: bool = True) -> subprocess.CompletedProcess:
@@ -323,6 +323,9 @@ def main() -> None:
         "api/v1/intel/top10.json",
         "api/v1/intel/apex.json",
         "api/v1/intel/manifest.json",
+        "api/v1/intel/ai_summary.json",    # AI Cyber Brain endpoint (v147.0)
+        "version.json",                    # Platform version manifest (v147.0 governance)
+        "VERSION",                         # Authoritative semver (v147.0 governance)
         "index.html",
         "sitemap.xml",
         ".gitignore",

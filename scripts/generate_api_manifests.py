@@ -77,6 +77,72 @@ def atomic_write(path: str, data_str: str) -> None:
             pass
         raise
 
+BRAND_NOISE = {
+    "CYBERDUDEBIVASH(R) PRIVATE LIMITED",
+    "OFFICIAL WORKPLACE",
+    "GST & PAN VERIFIED",
+}
+
+
+def _title_hash(title: str) -> str:
+    """Normalise title to a stable set-hash for dedup."""
+    import re as _re
+    t = (title or "").lower()
+    t = _re.sub(r'\b(cve-\d{4}-\d{4,})\b', lambda m: m.group(0).upper(), t, flags=_re.I)
+    t = _re.sub(r'[^a-z0-9A-Z]+', ' ', t).strip()
+    return '|'.join(sorted(t.split()))
+
+
+def _content_hash(item: dict) -> str:
+    src   = (item.get('source') or item.get('feed_source') or '').lower()
+    src   = ''.join(c for c in src if c.isalnum())
+    title = _title_hash(item.get('title') or item.get('name') or '')
+    cve   = (item.get('cve_id') or '').upper()
+    return f'{src}::{title}::{cve}'
+
+
+def deduplicate(items: list) -> list:
+    """
+    4-layer dedup matching the Cloudflare Worker's deduplicateFeedItems().
+    L1: stix_id / id
+    L2: normalised title hash
+    L3: source+title content hash
+    """
+    seen_stix    = set()
+    seen_title   = set()
+    seen_content = set()
+    result       = []
+    dropped      = 0
+    for item in items:
+        t = (item.get('title') or item.get('name') or '').strip()
+        if not t:
+            continue
+        if any(n in t for n in BRAND_NOISE):
+            dropped += 1
+            continue
+        sid = item.get('stix_id') or item.get('id') or ''
+        if sid and sid in seen_stix:
+            dropped += 1
+            continue
+        if sid:
+            seen_stix.add(sid)
+        th = _title_hash(t)
+        if th and th in seen_title:
+            dropped += 1
+            continue
+        if th:
+            seen_title.add(th)
+        ch = _content_hash(item)
+        if ch and ch in seen_content:
+            dropped += 1
+            continue
+        seen_content.add(ch)
+        result.append(item)
+    if dropped:
+        warn(f'Dedup: dropped {dropped} duplicate/noise items, {len(result)} unique remain')
+    return result
+
+
 def sort_key(item: dict) -> tuple:
     """Sort by processed_at > published_at > timestamp DESC, then risk_score DESC."""
     ts_str = (
@@ -128,8 +194,14 @@ if len(raw_feed) == 0:
 
 info(f'Feed loaded: {len(raw_feed)} total items')
 
+# ── STEP 1b: Deduplicate before manifests are generated ──────────────────────
+# Mirrors the 3-layer dedup in the Cloudflare Worker's deduplicateFeedItems().
+# Ensures duplicates are never baked into the immutable bundle files.
+deduped_feed = deduplicate(raw_feed)
+info(f'Dedup complete: {len(deduped_feed)} unique items ({len(raw_feed) - len(deduped_feed)} removed)')
+
 # ── STEP 2: Sort by freshness ─────────────────────────────────────────────────
-sorted_feed = sorted(raw_feed, key=sort_key, reverse=True)
+sorted_feed = sorted(deduped_feed, key=sort_key, reverse=True)
 info(f'Sorted: {len(sorted_feed)} items by freshness DESC')
 
 # ── STEP 3: Build /api/v1/intel/latest.json ──────────────────────────────────
