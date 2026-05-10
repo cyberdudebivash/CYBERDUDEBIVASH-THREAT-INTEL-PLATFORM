@@ -44,7 +44,7 @@
 #   3 = DEGRADED — soft violations tracked, deployment still allowed
 # =============================================================================
 
-name: SENTINEL APEX Enterprise Governance v1
+name: SENTINEL APEX Enterprise Governance v2
 
 on:
   schedule:
@@ -77,6 +77,12 @@ on:
       - 'scripts/feed_contract_validator.py'
       - 'scripts/source_trust_engine.py'
       - 'scripts/sla_engine.py'
+      - 'scripts/evidence_score_enforcer.py'
+      - 'scripts/attack_coverage_analytics.py'
+      - 'scripts/canary_contract_validator.py'
+      - 'scripts/jwt_governance.py'
+      - 'scripts/graph_integrity_validator.py'
+      - 'scripts/repo_scale_governance.py'
       - 'data/stix/feed_manifest.json'
       - 'api/feed.json'
 
@@ -92,8 +98,8 @@ concurrency:
 env:
   PYTHONDONTWRITEBYTECODE: "1"
   PYTHONUNBUFFERED: "1"
-  PIPELINE_VERSION: "145.0.0"
-  GOVERNANCE_VERSION: "1.0.0"
+  PIPELINE_VERSION: "146.0.0"
+  GOVERNANCE_VERSION: "2.0.0"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # JOB 1: GOVERNANCE GATE — hard-fail gate (blocks downstream if violated)
@@ -148,6 +154,12 @@ jobs:
             "scripts/sla_engine.py"
             "scripts/source_trust_engine.py"
             "scripts/deployment_canary.py"
+            "scripts/evidence_score_enforcer.py"
+            "scripts/attack_coverage_analytics.py"
+            "scripts/canary_contract_validator.py"
+            "scripts/jwt_governance.py"
+            "scripts/graph_integrity_validator.py"
+            "scripts/repo_scale_governance.py"
           )
           ERRORS=0
           for f in "${GOVERNANCE_SCRIPTS[@]}"; do
@@ -376,6 +388,153 @@ jobs:
           echo "commercial_status=$COMM_STATUS" >> $GITHUB_OUTPUT
           cat /tmp/commercial_output.txt | tail -10 || true
 
+      # ── PHASE 9: Evidence Score Enforcement ──────────────────────────────
+      - name: "PHASE 9 — Evidence-Weighted Confidence Score Enforcement"
+        id: evidence_enforcer
+        run: |
+          echo "[PHASE 9] Running evidence_score_enforcer.py..."
+          mkdir -p data/governance
+          set +e
+          python3 scripts/evidence_score_enforcer.py 2>&1 | tee /tmp/evidence_output.txt
+          EVID_EXIT=$?
+          set -e
+
+          EVID_STATUS="PASS"
+          if [ "$EVID_EXIT" -eq 1 ]; then
+            EVID_STATUS="FAIL"
+            echo "::error::Evidence score enforcer FATAL: feed unreadable or write failed"
+            cat /tmp/evidence_output.txt | grep "FATAL" || true
+            exit 1
+          else
+            echo "[PHASE 9] Evidence enforcement complete"
+            grep -E "adjustments|PASS|FAIL|WARN|inflation" /tmp/evidence_output.txt | tail -10 || true
+          fi
+          echo "evidence_status=$EVID_STATUS" >> $GITHUB_OUTPUT
+
+      # ── PHASE 10: ATT&CK Coverage Analytics ──────────────────────────────
+      - name: "PHASE 10 — ATT&CK Coverage Analytics"
+        id: attack_coverage
+        run: |
+          echo "[PHASE 10] Running attack_coverage_analytics.py..."
+          mkdir -p data/governance data/intelligence
+          set +e
+          python3 scripts/attack_coverage_analytics.py 2>&1 | tee /tmp/attack_output.txt
+          ATK_EXIT=$?
+          set -e
+
+          ATK_STATUS="PASS"
+          if [ "$ATK_EXIT" -ne 0 ]; then
+            ATK_STATUS="WARN"
+            echo "::warning::ATT&CK coverage analytics non-zero exit (non-blocking)"
+          else
+            echo "[PHASE 10] ATT&CK coverage analytics: complete"
+          fi
+          grep -E "verdict|tactic|technique|coverage" /tmp/attack_output.txt | tail -10 || true
+          echo "attack_status=$ATK_STATUS" >> $GITHUB_OUTPUT
+
+      # ── PHASE 11: Canary Contract Validation ──────────────────────────────
+      - name: "PHASE 11 — Canary Live Contract Validation"
+        id: canary_validator
+        run: |
+          echo "[PHASE 11] Running canary_contract_validator.py..."
+          mkdir -p data/governance
+          set +e
+          python3 scripts/canary_contract_validator.py 2>&1 | tee /tmp/canary_output.txt
+          CANARY_EXIT=$?
+          set -e
+
+          CANARY_STATUS="PASS"
+          if [ "$CANARY_EXIT" -eq 2 ]; then
+            CANARY_STATUS="BREAKING"
+            echo "::error::BREAKING API contract change detected by canary validator"
+            grep -E "BREAKING|FAIL" /tmp/canary_output.txt || true
+            # Treat breaking contract violation as hard fail in strict mode
+            if [ "${{ github.event.inputs.strict_mode }}" = "true" ]; then
+              exit 1
+            fi
+          else
+            echo "[PHASE 11] Canary contract: PASS or WARN (non-breaking)"
+          fi
+          grep -E "CANARY RESULT|pass=|fail=|warn=" /tmp/canary_output.txt | tail -5 || true
+          echo "canary_status=$CANARY_STATUS" >> $GITHUB_OUTPUT
+
+      # ── PHASE 12: JWT Governance & Webhook Validation ─────────────────────
+      - name: "PHASE 12 — JWT Governance & Webhook Validation"
+        id: jwt_governance
+        env:
+          CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
+        run: |
+          echo "[PHASE 12] Running jwt_governance.py..."
+          mkdir -p data/governance
+          set +e
+          python3 scripts/jwt_governance.py 2>&1 | tee /tmp/jwt_output.txt
+          JWT_EXIT=$?
+          set -e
+
+          JWT_STATUS="PASS"
+          if [ "$JWT_EXIT" -eq 1 ]; then
+            JWT_STATUS="FAIL"
+            echo "::error::JWT HARD FAIL: weak secret or missing HMAC webhook verification"
+            grep "FAIL" /tmp/jwt_output.txt || true
+            # JWT hard fails are critical security violations — always exit 1
+            exit 1
+          elif [ "$JWT_EXIT" -eq 3 ]; then
+            JWT_STATUS="WARN"
+            echo "::warning::JWT governance WARN (rotation age or policy drift)"
+          else
+            echo "[PHASE 12] JWT governance: PASS"
+          fi
+          grep -E "JWT GOVERNANCE|pass=|fail=|warn=" /tmp/jwt_output.txt | tail -5 || true
+          echo "jwt_status=$JWT_STATUS" >> $GITHUB_OUTPUT
+
+      # ── PHASE 13: Graph Integrity Validation ──────────────────────────────
+      - name: "PHASE 13 — Threat Actor Graph Integrity"
+        id: graph_integrity
+        run: |
+          echo "[PHASE 13] Running graph_integrity_validator.py..."
+          mkdir -p data/governance
+          set +e
+          python3 scripts/graph_integrity_validator.py 2>&1 | tee /tmp/graph_output.txt
+          GRAPH_EXIT=$?
+          set -e
+
+          GRAPH_STATUS="PASS"
+          if [ "$GRAPH_EXIT" -eq 1 ]; then
+            GRAPH_STATUS="FAIL"
+            echo "::error::Graph integrity HARD FAIL: dangling edges or referential integrity violation"
+            grep -E "ERROR|FAIL" /tmp/graph_output.txt || true
+            # Non-blocking — log but don't fail pipeline (graph may not exist yet)
+          elif [ "$GRAPH_EXIT" -eq 3 ]; then
+            GRAPH_STATUS="WARN"
+            echo "::warning::Graph integrity WARN (orphaned actors or missing refs)"
+          else
+            echo "[PHASE 13] Graph integrity: PASS"
+          fi
+          grep -E "GRAPH INTEGRITY|errors=|warnings=|actors=" /tmp/graph_output.txt | tail -5 || true
+          echo "graph_status=$GRAPH_STATUS" >> $GITHUB_OUTPUT
+
+      # ── PHASE 14: Repository Scale Governance ─────────────────────────────
+      - name: "PHASE 14 — Repository Scale & Artifact Lifecycle"
+        id: repo_scale
+        run: |
+          echo "[PHASE 14] Running repo_scale_governance.py..."
+          mkdir -p data/governance
+          set +e
+          python3 scripts/repo_scale_governance.py 2>&1 | tee /tmp/scale_output.txt
+          SCALE_EXIT=$?
+          set -e
+
+          SCALE_STATUS="PASS"
+          if [ "$SCALE_EXIT" -eq 3 ]; then
+            SCALE_STATUS="WARN"
+            echo "::warning::Repo scale WARN: approaching size/count limits"
+            grep -E "WARN" /tmp/scale_output.txt | head -5 || true
+          else
+            echo "[PHASE 14] Repo scale: PASS"
+          fi
+          grep -E "REPO SCALE|pass=|warn=" /tmp/scale_output.txt | tail -5 || true
+          echo "scale_status=$SCALE_STATUS" >> $GITHUB_OUTPUT
+
       # ── Governance Report Summary ─────────────────────────────────────────
       - name: "Governance Summary Report"
         if: always()
@@ -392,6 +551,12 @@ jobs:
           echo "  Feed Freshness   : ${{ steps.feed_freshness.outputs.freshness_status || 'N/A' }}"
           echo "  Contract Drift   : ${{ steps.contract_drift.outputs.drift_status || 'N/A' }}"
           echo "  Commercial Health: ${{ steps.commercial_obs.outputs.commercial_status || 'N/A' }}"
+          echo "  Evidence Enforce : ${{ steps.evidence_enforcer.outputs.evidence_status || 'N/A' }}"
+          echo "  ATT&CK Coverage  : ${{ steps.attack_coverage.outputs.attack_status || 'N/A' }}"
+          echo "  Canary Contract  : ${{ steps.canary_validator.outputs.canary_status || 'N/A' }}"
+          echo "  JWT Governance   : ${{ steps.jwt_governance.outputs.jwt_status || 'N/A' }}"
+          echo "  Graph Integrity  : ${{ steps.graph_integrity.outputs.graph_status || 'N/A' }}"
+          echo "  Repo Scale       : ${{ steps.repo_scale.outputs.scale_status || 'N/A' }}"
           echo "========================================================"
           echo ""
           # Show full governance report if available
@@ -426,11 +591,20 @@ jobs:
             data/governance/contract_drift_report.json \
             data/governance/schema_baseline.json \
             data/governance/dedup_telemetry.json \
+            data/governance/evidence_score_enforcement.json \
+            data/governance/attack_coverage.json \
+            data/governance/canary_contract.json \
+            data/governance/api_baseline.json \
+            data/governance/jwt_governance.json \
+            data/governance/graph_integrity.json \
+            data/governance/repo_scale_governance.json \
+            data/intelligence/attack_navigator.json \
             data/quality/source_trust_scores.json \
             data/health/sla_status.json \
             data/health/feed_freshness_report.json \
             data/commercial/platform_health.json \
-            data/commercial/monetization_status.json; do
+            data/commercial/monetization_status.json \
+            .github/sparse-checkout-hints.txt; do
             if [ -f "$f" ]; then
               git add "$f"
               STAGED=$((STAGED + 1))
@@ -489,6 +663,9 @@ jobs:
           MSG="${MSG}Feed Freshness: ${{ steps.feed_freshness.outputs.freshness_status || 'UNKNOWN' }}%0A"
           MSG="${MSG}API Drift: ${{ steps.contract_drift.outputs.drift_status || 'UNKNOWN' }}%0A"
           MSG="${MSG}Commercial: ${{ steps.commercial_obs.outputs.commercial_status || 'UNKNOWN' }}%0A"
+          MSG="${MSG}JWT Governance: ${{ steps.jwt_governance.outputs.jwt_status || 'UNKNOWN' }}%0A"
+          MSG="${MSG}Canary Contract: ${{ steps.canary_validator.outputs.canary_status || 'UNKNOWN' }}%0A"
+          MSG="${MSG}Graph Integrity: ${{ steps.graph_integrity.outputs.graph_status || 'UNKNOWN' }}%0A"
           MSG="${MSG}Violations: ${{ steps.gov_engine.outputs.hard_violations || '?' }}%0A"
           MSG="${MSG}Action required — review governance report immediately.%0A"
           MSG="${MSG}https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
