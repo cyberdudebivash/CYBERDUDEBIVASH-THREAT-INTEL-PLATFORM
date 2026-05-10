@@ -94,7 +94,14 @@ class CheckResult(NamedTuple):
 # ---------------------------------------------------------------------------
 
 def check_encoding() -> CheckResult:
-    """Verify no BOM or non-ASCII content in YAML/shell files."""
+    """Verify no BOM or CRLF line endings in YAML/shell files.
+
+    Encoding policy (v145+): UTF-8 is fully accepted — workflow names and step
+    descriptions may legitimately contain Unicode characters (em-dash, registered
+    trademark, etc.).  Only UTF-8 BOM (which confuses some YAML parsers) and
+    CRLF line endings (which cause cross-platform issues) are flagged.
+    Files that cannot be decoded as valid UTF-8 are flagged as [non-UTF8].
+    """
     dirty: list[str] = []
     yaml_exts = {".yml", ".yaml", ".sh", ".bash"}
 
@@ -108,18 +115,24 @@ def check_encoding() -> CheckResult:
                 data = p.read_bytes()
             except OSError:
                 continue
+            # Flag UTF-8 BOM — breaks some YAML parsers
             if data.startswith(b"\xef\xbb\xbf"):
                 dirty.append(f"{p.relative_to(REPO_ROOT)} [BOM]")
                 continue
+            # Flag CRLF line endings — causes cross-platform issues
+            if b"\r\n" in data:
+                dirty.append(f"{p.relative_to(REPO_ROOT)} [CRLF]")
+                continue
+            # Flag non-UTF-8 bytes — genuine encoding corruption
             try:
-                data.decode("ascii")
+                data.decode("utf-8")
             except UnicodeDecodeError:
-                dirty.append(f"{p.relative_to(REPO_ROOT)} [non-ASCII]")
+                dirty.append(f"{p.relative_to(REPO_ROOT)} [non-UTF8]")
 
     if dirty:
         return CheckResult("encoding", False,
                            f"{len(dirty)} dirty YAML/shell file(s): " + "; ".join(dirty[:5]))
-    return CheckResult("encoding", True, "All YAML/shell files are ASCII-clean.")
+    return CheckResult("encoding", True, "All YAML/shell files are UTF-8 clean (no BOM, no CRLF, no invalid bytes).")
 
 
 # ---------------------------------------------------------------------------
