@@ -185,7 +185,7 @@ class ApexIntelligenceEngine:
         except Exception as e:
             logger.debug(f"[APEX] scoring error: {e}")
 
-        # 2. AUTONOMOUS SOC — T1 triage
+        # 2. AUTONOMOUS SOC -- T1 triage
         try:
             if self._soc:
                 triage = self._soc.tier1.triage(advisory)
@@ -199,14 +199,14 @@ class ApexIntelligenceEngine:
         except Exception as e:
             logger.debug(f"[APEX] SOC triage error: {e}")
 
-        # 3. THREAT GRAPH — ingest advisory
+        # 3. THREAT GRAPH -- ingest advisory
         try:
             if self._graph:
                 results["graph_ingest"] = self._graph.ingest_advisory(advisory)
         except Exception as e:
             logger.debug(f"[APEX] graph error: {e}")
 
-        # 4. PREDICTIVE — behavioral anomaly
+        # 4. PREDICTIVE -- behavioral anomaly
         try:
             if self._behavioral:
                 results["anomaly_detection"] = self._behavioral.detect_anomaly(advisory)
@@ -266,7 +266,7 @@ class ApexIntelligenceEngine:
         except Exception as e:
             logger.debug(f"[APEX] copilot index error: {e}")
 
-        # ── ENTERPRISE INTELLIGENCE QUALITY ENGINES (Phase 1-6) ──────────────
+        # ENTERPRISE INTELLIGENCE QUALITY ENGINES (Phase 1-6)
 
         # Phase 1: IOC Depth Recovery
         try:
@@ -318,16 +318,16 @@ class ApexIntelligenceEngine:
         except Exception as e:
             logger.debug(f"[APEX] explainable_confidence error: {e}")
 
-        # ── DOSSIER QUALITY ENGINE ─────────────────────────────────────────────
+        # DOSSIER QUALITY ENGINE
         try:
             if self._dossier_quality:
                 dq = self._dossier_quality.process_advisory(advisory)
                 results["dossier_quality"] = {
-                    "grade":          dq.grade,
-                    "quality_score":  dq.quality_score,
+                    "grade":           dq.grade,
+                    "quality_score":   dq.quality_score,
                     "iocs_suppressed": dq.iocs_suppressed,
-                    "generic_ttp":    dq.generic_ttp_detected,
-                    "confidence_adj": dq.confidence_adjusted_to,
+                    "generic_ttp":     dq.generic_ttp_detected,
+                    "confidence_adj":  dq.confidence_adjusted_to,
                     "recommendations": dq.recommendations[:3],
                 }
         except Exception as e:
@@ -339,7 +339,7 @@ class ApexIntelligenceEngine:
 
         logger.info(
             f"[APEX-ENGINE] Processed: {advisory.get('title','')[:50]} | "
-            f"engines=phase1-6+legacy"
+            f"engines=phase1-6+observability+production"
         )
         return results
 
@@ -358,9 +358,10 @@ class ApexIntelligenceEngine:
         return {}
 
     def get_engine_status(self) -> Dict:
-        """Full engine health check including Phase 1-6 Enterprise Engines."""
+        """Full engine health check — all 30 engines."""
         self._lazy_init()
         engines = {
+            # Legacy 12
             "soc":                    self._soc is not None,
             "threat_graph":           self._graph is not None,
             "predictive":             self._predictive is not None,
@@ -370,52 +371,6 @@ class ApexIntelligenceEngine:
             "zero_trust":             self._zerotrust is not None,
             "copilot":                self._copilot is not None,
             "supply_chain":           self._supply_chain is not None,
-            "social_eng":             self._social_eng is not None,
-            "quantum":                self._quantum is not None,
-            "marketplace":            self._marketplace is not None,
-            # Enterprise Quality Engines (Phase 1-6)
-            "ioc_depth_recovery":     self._ioc_depth_recovery is not None,
-            "graph_correlation":      self._graph_correlation is not None,
-            "attck_context":          self._attck_context is not None,
-            "explainable_confidence": self._explainable_conf is not None,
-            "intel_memory_aging":     self._intel_memory_aging is not None,
-            # Enterprise Observability Engines (Phase 1-10)
-            "graph_integrity":        self._graph_integrity is not None,
-            "intel_reproducibility":  self._intel_repro is not None,
-            "scoring_drift":          self._scoring_drift is not None,
-            "enrichment_obs":         self._enrich_obs is not None,
-            "ioc_quality":            self._ioc_quality is not None,
-            "attck_coverage":         self._attck_coverage is not None,
-            "actor_clustering":       self._actor_clustering is not None,
-            "fp_observability":       self._fp_obs is not None,
-            "obs_dashboard":          self._obs_dashboard is not None,
-            "saas_hardening":         self._saas_hardening is not None,
-            # Final Production Engines
-            "dossier_quality":        self._dossier_quality is not None,
-            "tenant_isolation":       self._tenant_isolation is not None,
-            "monetization_analytics": self._monetization is not None,
-        }
-        return {
-            "engine": "CYBERDUDEBIVASH Apex Intelligence Engine v1.0 + Quality v1 + Observability v1 + Production v1",
-            "status": "OPERATIONAL" if all(engines.values()) else "PARTIAL",
-            "engines_online": sum(engines.values()),
-            "engines_total":  len(engines),
-            "engines":        engines,
-            "stats":          self.stats,
-            "checked_at":     datetime.now(timezone.utc).isoformat(),
-        }
-
-
-# Singleton instance for pipeline use
-_apex_engine_instance: Optional[ApexIntelligenceEngine] = None
-
-
-def get_apex_engine() -> ApexIntelligenceEngine:
-    """Get or create the singleton ApexIntelligenceEngine instance."""
-    global _apex_engine_instance
-    if _apex_engine_instance is None:
-        _apex_engine_instance = ApexIntelligenceEngine()
-    return _apex_engine_instance
             "social_eng":             self._social_eng is not None,
             "quantum":                self._quantum is not None,
             "marketplace":            self._marketplace is not None,
