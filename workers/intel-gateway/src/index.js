@@ -123,7 +123,7 @@ function injectVersionHeaders(response, config) {
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "143.0.0",  // v143.0.0 GOD-MODE Production & Monetization Release
+  GATEWAY_VERSION:   "145.0.0",  // v145.0.0 PRODUCTION Production & Monetization Release
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -1972,9 +1972,12 @@ async function handleFeedJson(request, env, rid) {
     }
 
     // SOURCE 2: KV warm cache (fallback if R2 unavailable)
-    if (env?.RATE_LIMIT_KV) {
+    // v145.0.0 FIX: idx:reports is written to SECURITY_HUB_KV by cron handler.
+    // Prefer SECURITY_HUB_KV; fall back to RATE_LIMIT_KV for legacy compatibility.
+    if (env?.SECURITY_HUB_KV || env?.RATE_LIMIT_KV) {
       try {
-        const cached = await env.RATE_LIMIT_KV.get("idx:reports", { type: "json" });
+        const kvSrc = env.SECURITY_HUB_KV || env.RATE_LIMIT_KV;
+        const cached = await kvSrc.get("idx:reports", { type: "json" });
         if (cached?.reports?.length > 0) {
           const items = deduplicateFeedItems(cached.reports);
           slog("INFO", "FEED-JSON", `Served ${items.length} items from KV cache`, { rid });
@@ -2397,17 +2400,21 @@ async function handleHealth(request, env, rid) {
     feed_index:    "unknown",
   };
 
+  // v145.0.0: kv_rate_limit -- retry once on transient write failure before
+  // downgrading to "warn". RATE_LIMIT_KV writes are non-fatal but a retry
+  // catches the majority of transient edge-node hiccups without adding latency
+  // on the happy path.
   if (env?.RATE_LIMIT_KV) {
-    try {
-      await env.RATE_LIMIT_KV.put("health:ping", "1", { expirationTtl: 10 });
-      checks.kv_rate_limit = "ok";
-    } catch (e) {
-      // v141.0.0: kv_rate_limit write failure is NON-FATAL. All production
-      // rate-limit operations have .catch(()=>{}) guards -- platform stays fully
-      // functional. Downgraded from "error" to "warn" so a single KV hiccup
-      // does not flip the customer-visible status to "degraded".
-      checks.kv_rate_limit = "warn";
+    let rlOk = false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await env.RATE_LIMIT_KV.put("health:ping", "1", { expirationTtl: 10 });
+        checks.kv_rate_limit = "ok";
+        rlOk = true;
+        break;
+      } catch (_e) { /* retry */ }
     }
+    if (!rlOk) checks.kv_rate_limit = "warn";
   } else checks.kv_rate_limit = "not_bound";
 
   if (env?.API_KEYS_KV) {
@@ -2422,9 +2429,14 @@ async function handleHealth(request, env, rid) {
     } catch { checks.r2_intel = "error"; }
   } else checks.r2_intel = "not_bound";
 
-  if (env?.RATE_LIMIT_KV) {
+  // v145.0.0 FIX: idx:reports is written to SECURITY_HUB_KV by the cron handler
+  // (see scheduled() Step 5). The previous health check incorrectly read from
+  // RATE_LIMIT_KV -- which never had the key -- causing persistent "not_cached".
+  // Fall back to RATE_LIMIT_KV as secondary so legacy deployments still work.
+  if (env?.SECURITY_HUB_KV || env?.RATE_LIMIT_KV) {
     try {
-      const c = await env.RATE_LIMIT_KV.get("idx:reports", { type: "json" });
+      const kvSrc = env.SECURITY_HUB_KV || env.RATE_LIMIT_KV;
+      const c = await kvSrc.get("idx:reports", { type: "json" });
       checks.feed_index = c?.total_reports > 0
         ? `cached:${c.total_reports}_items`
         : "not_cached";
