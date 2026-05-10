@@ -325,6 +325,7 @@ def main() -> None:
         "api/v1/intel/manifest.json",
         "api/v1/intel/ai_summary.json",    # AI Cyber Brain endpoint (v147.0)
         "version.json",                    # Platform version manifest (v147.0 governance)
+        "config/version.json",             # Deploy-worker SSOT (v147.0 governance)
         "VERSION",                         # Authoritative semver (v147.0 governance)
         "index.html",
         "sitemap.xml",

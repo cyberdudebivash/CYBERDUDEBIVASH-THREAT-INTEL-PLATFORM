@@ -5,20 +5,25 @@ CYBERDUDEBIVASH(R) SENTINEL APEX
 VERSION GOVERNANCE ENGINE v147.0.0
 ===============================================================================
 PURPOSE:
-  Single-source-of-truth version authority for the entire SENTINEL APEX
-  platform. Reads the authoritative version from the VERSION file and
-  propagates it deterministically to every component that carries a version
-  string — eliminating all platform-wide version drift.
+  Single-source-of-truth version authority for the SENTINEL APEX platform.
+  Reads the authoritative version from the VERSION file and propagates it
+  deterministically to backend/gateway components that carry a version string,
+  eliminating platform-wide version drift.
 
 AUTHORITATIVE SOURCE:
   VERSION  (repo root, plain semver string, one line)
 
-TARGETS GOVERNED:
-  version.json                            — platform version manifest
-  workers/intel-gateway/src/index.js     — GATEWAY_VERSION in CONFIG object
-  js/api_adapter.js                       — VERSION constant in public API
-  scripts/r2_upload.py                    — PIPELINE_VERSION default
-  scripts/ai_brain_publisher.py           — VERSION constant
+TARGETS GOVERNED (backend/gateway only):
+  version.json                            -- root platform version manifest
+  config/version.json                     -- SSOT for deploy-worker workflow
+  workers/intel-gateway/src/index.js     -- GATEWAY_VERSION in CONFIG object
+  scripts/r2_upload.py                    -- PIPELINE_VERSION default
+  scripts/ai_brain_publisher.py           -- VERSION constant
+
+NOT GOVERNED (have their own independent versioning):
+  js/api_adapter.js           -- UI component v145, guarded by ui-file-guardian
+  js/card_renderer.js         -- UI component v145, guarded by ui-file-guardian
+  js/card_renderer_integration.js -- UI component v145, guarded by ui-file-guardian
 
 MODE:
   --check    Verify all targets match the authority. Exit 1 on any drift.
@@ -26,13 +31,12 @@ MODE:
   --report   Print a table of all version strings. Exit 0 always.
 
 EXIT CODES:
-  0 — All targets match (check) or all targets updated (apply)
-  1 — Version drift detected (check) or write failure (apply)
+  0 -- All targets match (check) or all targets updated (apply)
+  1 -- Version drift detected (check) or write failure (apply)
 
 (c) 2026 CyberDudeBivash Pvt. Ltd. All Rights Reserved. CONFIDENTIAL.
 ===============================================================================
 """
-from __future__ import annotations
 
 import argparse
 import json
@@ -41,7 +45,6 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import NamedTuple
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,65 +55,8 @@ log = logging.getLogger("CDB-VERSION-GOV")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# ---------------------------------------------------------------------------
-# Version target descriptors
-# Each entry: (relative_path, match_pattern, replacement_template)
-# {VER} in the template is replaced with the authoritative semver string.
-# ---------------------------------------------------------------------------
-class Target(NamedTuple):
-    rel_path: str          # path relative to REPO_ROOT
-    pattern:  str          # regex to locate the version in the file
-    template: str          # replacement string ({VER} = authoritative version)
-    mode:     str          # "regex" or "json"
-    json_key: str = ""     # for mode="json", the dotted key path e.g. "version"
 
-
-TARGETS: list[Target] = [
-    # --- workers/intel-gateway/src/index.js ---
-    Target(
-        rel_path="workers/intel-gateway/src/index.js",
-        pattern=r'(GATEWAY_VERSION:\s*")[0-9]+\.[0-9]+\.[0-9]+"',
-        template=r'\g<1>{VER}"',
-        mode="regex",
-    ),
-    # X-Powered-By header string
-    Target(
-        rel_path="workers/intel-gateway/src/index.js",
-        pattern=r'(CYBERDUDEBIVASH-SENTINEL-APEX-v)\d+',
-        template=r'\g<1>{VERMAJ}',
-        mode="regex",
-    ),
-    # --- js/api_adapter.js ---
-    Target(
-        rel_path="js/api_adapter.js",
-        pattern=r'(VERSION:\s*")[0-9]+\.[0-9]+\.[0-9]+"',
-        template=r'\g<1>{VER}"',
-        mode="regex",
-    ),
-    Target(
-        rel_path="js/api_adapter.js",
-        pattern=r'(SENTINEL APEX — API ADAPTER v)[0-9]+\.[0-9]+\.[0-9]+',
-        template=r'\g<1>{VER}',
-        mode="regex",
-    ),
-    # --- scripts/ai_brain_publisher.py ---
-    Target(
-        rel_path="scripts/ai_brain_publisher.py",
-        pattern=r'(VERSION\s*=\s*")[0-9]+\.[0-9]+\.[0-9]+"',
-        template=r'\g<1>{VER}"',
-        mode="regex",
-    ),
-    # --- scripts/r2_upload.py PIPELINE_VERSION default ---
-    Target(
-        rel_path="scripts/r2_upload.py",
-        pattern=r'(PIPELINE_VERSION\s*=\s*os\.environ\.get\("PIPELINE_VERSION",\s*")[0-9]+\.[0-9]+\.[0-9]+"',
-        template=r'\g<1>{VER}"',
-        mode="regex",
-    ),
-]
-
-
-def read_authority() -> str:
+def read_authority():
     path = REPO_ROOT / "VERSION"
     ver = path.read_text(encoding="utf-8").strip()
     if not re.fullmatch(r"\d+\.\d+\.\d+", ver):
@@ -119,97 +65,195 @@ def read_authority() -> str:
     return ver
 
 
-def major(ver: str) -> str:
+def major(ver):
     return ver.split(".")[0]
 
 
-def now_iso() -> str:
+def now_iso():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def update_version_json(ver: str, apply: bool) -> tuple[bool, str, str]:
-    path = REPO_ROOT / "version.json"
+# ---------------------------------------------------------------------------
+# Regex-based targets (backend/gateway components only)
+# ---------------------------------------------------------------------------
+# Each tuple: (relative_path, pattern, replacement_template)
+# {VER} -> full semver, {VERMAJ} -> major integer only
+REGEX_TARGETS = [
+    # workers/intel-gateway/src/index.js -- GATEWAY_VERSION
+    (
+        "workers/intel-gateway/src/index.js",
+        r'(GATEWAY_VERSION:\s*")[0-9]+\.[0-9]+\.[0-9]+"',
+        r'\g<1>{VER}"',
+    ),
+    # workers/intel-gateway/src/index.js -- X-Powered-By major version
+    (
+        "workers/intel-gateway/src/index.js",
+        r'(CYBERDUDEBIVASH-SENTINEL-APEX-v)\d+',
+        r'\g<1>{VERMAJ}',
+    ),
+    # scripts/ai_brain_publisher.py -- VERSION constant
+    (
+        "scripts/ai_brain_publisher.py",
+        r'(VERSION\s*=\s*")[0-9]+\.[0-9]+\.[0-9]+"',
+        r'\g<1>{VER}"',
+    ),
+    # scripts/r2_upload.py -- PIPELINE_VERSION default
+    (
+        "scripts/r2_upload.py",
+        r'(PIPELINE_VERSION\s*=\s*os\.environ\.get\("PIPELINE_VERSION",\s*")[0-9]+\.[0-9]+\.[0-9]+"',
+        r'\g<1>{VER}"',
+    ),
+]
+
+
+def check_or_apply_regex(rel_path, pattern, template, ver, apply):
+    path = REPO_ROOT / rel_path
+    if not path.exists():
+        return True, "N/A", "file not found -- skip"
+
+    text = path.read_text(encoding="utf-8")
+    replacement = template.replace("{VER}", ver).replace("{VERMAJ}", major(ver))
+
+    m = re.search(pattern, text)
+    if not m:
+        return True, "N/A", "pattern not found -- skip"
+
+    current = m.group(0)
+    ver_m = re.search(r"\d+\.\d+\.\d+", current)
+    found_ver = ver_m.group(0) if ver_m else current
+
+    new_text = re.sub(pattern, replacement, text)
+    if new_text == text:
+        return True, found_ver, "ok"
+
+    if not apply:
+        return False, found_ver, "drift: %s -> %s" % (found_ver, ver)
+
+    try:
+        path.write_text(new_text, encoding="utf-8")
+        return True, found_ver, "updated"
+    except Exception as e:
+        return False, found_ver, "write error: %s" % e
+
+
+def update_version_json(rel_path, ver, apply):
+    """Update a version JSON file that has multiple version fields."""
+    path = REPO_ROOT / rel_path
+    if not path.exists():
+        return True, "N/A", "file not found -- skip"
+
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as e:
-        return False, "?", f"read error: {e}"
+        return False, "?", "read error: %s" % e
 
     found = data.get("version", "?")
     if found == ver:
         return True, found, "ok"
+
     if not apply:
-        return False, found, f"drift: file has {found!r}, authority is {ver!r}"
+        return False, found, "drift: %s -> %s" % (found, ver)
 
     now = now_iso()
-    data["version"]          = ver
-    data["release"]          = f"v{ver}"
-    data["pipeline_version"] = ver
-    data["updated_at"]       = now
-    data["generated_at"]     = now
-    data["build"]            = f"v{ver}-ENTERPRISE-GRADE-{now[:10].replace('-','')}"
-    data["_generator"]       = f"CYBERDUDEBIVASH SENTINEL APEX Pipeline v{ver}"
+    today = now[:10].replace("-", "")
+
+    # Fields common to both version.json files
+    for key in ("version", "pipeline_version"):
+        if key in data:
+            data[key] = ver
+    for key in ("platform", "api_gateway", "report_engine", "ai_engine", "nexus",
+                "genesis", "cortex", "quantum", "sovereign", "bug_hunter", "tip_soar",
+                "worker", "pipeline"):
+        if key in data:
+            data[key] = ver
+
+    if "release" in data:
+        data["release"] = "v%s" % ver
+    if "platform_label" in data:
+        data["platform_label"] = "v%s" % ver.split(".")[0]
+    if "platform_full" in data:
+        data["platform_full"] = "SENTINEL APEX v%s" % ver
+    if "api_gateway" in data:
+        data["api_gateway"] = "SENTINEL-APEX/%s" % ver
+    if "version_short" in data:
+        data["version_short"] = "v%s" % ver.split(".")[0]
+    if "version_display" in data:
+        data["version_display"] = "v%s" % ver
+    if "version_full" in data:
+        data["version_full"] = "SENTINEL APEX v%s" % ver
+    if "schema_version" in data:
+        data["schema_version"] = "v%s" % ver.split(".")[0]
+
+    # components sub-object
+    if "components" in data and isinstance(data["components"], dict):
+        for k in ("worker", "dashboard", "pipeline"):
+            if k in data["components"]:
+                data["components"][k] = ver
+        if "platform" in data["components"]:
+            data["components"]["platform"] = "CYBERDUDEBIVASH(R) SENTINEL APEX v%s" % ver
+        if "pipeline" in data["components"]:
+            data["components"]["pipeline"] = ver.rsplit(".", 1)[0]
+
+    for key in ("updated_at", "generated_at", "_generated"):
+        if key in data:
+            data[key] = now
+    if "build_date" in data:
+        data["build_date"] = now[:10]
+    if "release_date" in data:
+        data["release_date"] = now[:10]
+
+    if "build" in data:
+        data["build"] = "v%s-ENTERPRISE-GRADE-%s" % (ver, today)
+    if "_generator" in data:
+        data["_generator"] = "CYBERDUDEBIVASH SENTINEL APEX Pipeline v%s" % ver
+    if "changelog" in data:
+        data["changelog"] = (
+            "v%s ENTERPRISE-GRADE: ai_summary.json manifest fix, "
+            "global version governance, feed dedup enforcement, "
+            "AI Cyber Brain live activation" % ver
+        )
+
     try:
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
         return True, found, "updated"
     except Exception as e:
-        return False, found, f"write error: {e}"
+        return False, found, "write error: %s" % e
 
 
-def check_or_apply_target(t: Target, ver: str, apply: bool) -> tuple[bool, str, str]:
-    path = REPO_ROOT / t.rel_path
-    if not path.exists():
-        return True, "N/A", "file not found — skip"
-
-    text = path.read_text(encoding="utf-8")
-    replacement = t.template.replace("{VER}", ver).replace("{VERMAJ}", major(ver))
-
-    m = re.search(t.pattern, text)
-    if not m:
-        return True, "N/A", "pattern not found — skip"
-
-    current_match = m.group(0)
-    # Extract just the version digits from the match for display
-    ver_in_file_m = re.search(r"\d+\.\d+\.\d+", current_match)
-    ver_in_file = ver_in_file_m.group(0) if ver_in_file_m else current_match
-
-    new_text = re.sub(t.pattern, replacement, text)
-    if new_text == text:
-        return True, ver_in_file, "ok"
-
-    if not apply:
-        return False, ver_in_file, f"drift: file has {ver_in_file!r}, authority is {ver!r}"
-
-    try:
-        path.write_text(new_text, encoding="utf-8")
-        return True, ver_in_file, "updated"
-    except Exception as e:
-        return False, ver_in_file, f"write error: {e}"
-
-
-def run(mode: str) -> int:
+def run(mode):
     apply = mode == "apply"
     ver = read_authority()
     log.info("Authoritative version: %s  (mode=%s)", ver, mode)
 
-    rows: list[tuple[str, str, str, bool]] = []
+    rows = []   # (file, found_ver, status, ok)
     any_drift = False
 
-    # version.json is handled separately (JSON field update)
-    ok, found, status = update_version_json(ver, apply)
+    # -- root version.json --
+    ok, found, status = update_version_json("version.json", ver, apply)
     rows.append(("version.json", found, status, ok))
     if not ok:
         any_drift = True
 
-    for t in TARGETS:
-        ok, found, status = check_or_apply_target(t, ver, apply)
-        rows.append((t.rel_path, found, status, ok))
+    # -- config/version.json (SSOT for deploy-worker workflow) --
+    ok, found, status = update_version_json("config/version.json", ver, apply)
+    rows.append(("config/version.json", found, status, ok))
+    if not ok:
+        any_drift = True
+
+    # -- regex targets --
+    for rel_path, pattern, template in REGEX_TARGETS:
+        ok, found, status = check_or_apply_regex(rel_path, pattern, template, ver, apply)
+        rows.append((rel_path, found, status, ok))
         if not ok:
             any_drift = True
 
-    # Report table
+    # -- report table --
     col0 = max(len(r[0]) for r in rows) + 2
     col1 = max(len(r[1]) for r in rows) + 2
-    header = f"{'FILE':<{col0}} {'FOUND':<{col1}} STATUS"
+    header = "%-*s %-*s %s" % (col0, "FILE", col1, "FOUND", "STATUS")
     log.info("%s", header)
     log.info("%s", "-" * len(header))
     for file_, found, status, ok in rows:
@@ -226,16 +270,27 @@ def run(mode: str) -> int:
     if not any_drift:
         log.info("All version targets are consistent at v%s.", ver)
     else:
-        log.info("Version governance applied — all targets set to v%s.", ver)
+        log.info("Version governance applied -- all targets set to v%s.", ver)
     return 0
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="SENTINEL APEX Version Governance Engine")
+def main():
+    parser = argparse.ArgumentParser(
+        description="SENTINEL APEX Version Governance Engine"
+    )
     grp = parser.add_mutually_exclusive_group()
-    grp.add_argument("--check",  action="store_true", help="Detect drift only. Exit 1 if found.")
-    grp.add_argument("--apply",  action="store_true", help="Apply authoritative version to all targets.")
-    grp.add_argument("--report", action="store_true", help="Print version table. Always exits 0.")
+    grp.add_argument(
+        "--check", action="store_true",
+        help="Detect drift only. Exit 1 if found."
+    )
+    grp.add_argument(
+        "--apply", action="store_true",
+        help="Apply authoritative version to all targets."
+    )
+    grp.add_argument(
+        "--report", action="store_true",
+        help="Print version table. Always exits 0."
+    )
     args = parser.parse_args()
 
     if args.check:
@@ -243,7 +298,7 @@ def main() -> None:
     elif args.report:
         mode = "report"
     else:
-        mode = "apply"   # default
+        mode = "apply"
 
     sys.exit(run(mode))
 
