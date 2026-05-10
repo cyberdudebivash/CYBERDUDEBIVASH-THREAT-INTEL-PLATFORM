@@ -26,9 +26,14 @@ import json
 import os
 import re
 import logging
-from typing import Dict, List
+import tempfile
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 
 logger = logging.getLogger("CDB-DEDUP")
+
+# Telemetry output path for advisory deduplication analytics
+_DEDUP_TELEMETRY_PATH = "data/governance/dedup_telemetry.json"
 
 # v15.0: Generic title patterns that MUST skip Layer 2 title-only hash check.
 # These are vendor/agency template phrases reused verbatim for different CVEs/events,
@@ -82,6 +87,16 @@ class DeduplicationEngine:
         self.manifest_path = manifest_path
         self.max_state_size = max_state_size
         self._state = self._load_state()
+        # Advisory dedup telemetry counters — reset per process lifetime,
+        # flushed to data/governance/dedup_telemetry.json on mark_processed.
+        self._telemetry: Dict = {
+            "session_start":     datetime.now(timezone.utc).isoformat(),
+            "checked":           0,
+            "duplicates_caught": 0,
+            "by_layer":          {"L1_exact": 0, "L2_title": 0, "L3_fuzzy": 0},
+            "unique_accepted":   0,
+            "generic_bypasses":  0,
+        }
         # v55.1: Seed from manifest as safety net
         self._seed_from_manifest()
 
@@ -250,25 +265,39 @@ class DeduplicationEngine:
         v15.0: Layer 2 now skipped for generic titles (CISA KEV boilerplate,
         short advisory titles, etc.) to prevent false-positive dedup blocking
         distinct advisories that share a template title phrase.
+        Telemetry: increments by-layer counters for governance observability.
         """
+        self._telemetry["checked"] += 1
+
         # Layer 1: Exact hash match (title + URL) — always runs
         if self._generate_hash(title, source_url) in self._state["processed_hashes"]:
+            self._telemetry["duplicates_caught"] += 1
+            self._telemetry["by_layer"]["L1_exact"] += 1
             return True
+
         # Layer 2: Title-only hash (catches cross-feed duplicates)
         # SKIPPED for generic titles — see _is_generic_title() and v15.0 notes
         if not self._is_generic_title(title):
             if self._generate_title_hash(title) in self._state.get("title_hashes", []):
                 logger.info(f"  [DEDUP-L2] Cross-feed dup: {title[:60]}")
+                self._telemetry["duplicates_caught"] += 1
+                self._telemetry["by_layer"]["L2_title"] += 1
                 return True
+        else:
+            self._telemetry["generic_bypasses"] += 1
+
         # Layer 3: Fuzzy word-overlap against recent titles
         for existing in list(self._state.get("hash_titles", {}).values())[-150:]:
             if self._titles_similar(title, existing):
                 logger.info(f"  [DEDUP-L3] Similar: {title[:40]}... ~= {existing[:40]}...")
+                self._telemetry["duplicates_caught"] += 1
+                self._telemetry["by_layer"]["L3_fuzzy"] += 1
                 return True
+
         return False
 
     def mark_processed(self, title: str, source_url: str = ""):
-        """Register across all 3 layers."""
+        """Register across all 3 layers. Flushes telemetry on every write."""
         ch = self._generate_hash(title, source_url)
         th = self._generate_title_hash(title)
         if ch not in self._state["processed_hashes"]:
@@ -276,8 +305,44 @@ class DeduplicationEngine:
             self._state["hash_titles"][ch] = title[:100]
         if th not in self._state.get("title_hashes", []):
             self._state.setdefault("title_hashes", []).append(th)
+        self._state["unique_accepted"] = (
+            self._state.get("unique_accepted", 0) + 1
+        )
+        self._telemetry["unique_accepted"] += 1
         self._save_state()
+        self._flush_telemetry()
         logger.info(f"  [DEDUP] Registered: {title[:60]}...")
+
+    # ── Telemetry flush ───────────────────────────────────────────────────────
+
+    def _flush_telemetry(self):
+        """Persist advisory dedup telemetry to data/governance/dedup_telemetry.json."""
+        try:
+            os.makedirs(os.path.dirname(_DEDUP_TELEMETRY_PATH), exist_ok=True)
+            payload = dict(self._telemetry)
+            payload["last_updated"] = datetime.now(timezone.utc).isoformat()
+            payload["state_size"] = len(self._state.get("processed_hashes", []))
+            payload["dedup_rate_pct"] = (
+                round(100.0 * payload["duplicates_caught"] / payload["checked"], 2)
+                if payload["checked"] > 0 else 0.0
+            )
+            dir_ = os.path.dirname(_DEDUP_TELEMETRY_PATH) or "."
+            fd, tmp = tempfile.mkstemp(dir=dir_, suffix=".tmp")
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2)
+            os.replace(tmp, _DEDUP_TELEMETRY_PATH)
+        except Exception as e:
+            logger.debug(f"  [DEDUP] Telemetry flush failed (non-fatal): {e}")
+
+    def get_telemetry(self) -> Dict:
+        """Return current session dedup telemetry snapshot."""
+        snap = dict(self._telemetry)
+        snap["state_size"] = len(self._state.get("processed_hashes", []))
+        snap["dedup_rate_pct"] = (
+            round(100.0 * snap["duplicates_caught"] / snap["checked"], 2)
+            if snap["checked"] > 0 else 0.0
+        )
+        return snap
 
     def get_processed_count(self) -> int:
         return len(self._state["processed_hashes"])
