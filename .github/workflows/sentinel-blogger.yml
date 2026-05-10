@@ -565,6 +565,28 @@ jobs:
         run: python3 scripts/generate_api_manifests.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.1: AI BRAIN PUBLISHER (v146.0 -- NON-BLOCKING)
+      # Aggregates Isolation Forest anomalies, GradientBoosting sector forecasts,
+      # and DBSCAN actor clusters into api/v1/intel/ai_summary.json.
+      # This is the SINGLE DATA SOURCE for the AI Cyber Brain dashboard section.
+      # Eliminates "No intel data" / "No anomaly data" / "No prediction data" states.
+      # NON-BLOCKING: exit 1 logs error but does not abort pipeline.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.1 - AI Brain Publisher (v146.0)"
+        timeout-minutes: 3
+        run: |
+          set +e
+          python3 scripts/ai_brain_publisher.py
+          AI_EXIT=$?
+          set -e
+          if [ "$AI_EXIT" -eq 0 ]; then
+            echo "[PASS] AI Brain Publisher: api/v1/intel/ai_summary.json generated"
+            [ -f "api/v1/intel/ai_summary.json" ] && echo "[INFO] size: $(wc -c < api/v1/intel/ai_summary.json)B" || true
+          else
+            echo "::warning::AI Brain Publisher failed (exit $AI_EXIT) -- non-blocking, pipeline continues"
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.5: IMMUTABLE API MANIFEST VALIDATION GATE (v150.0)
       # REPLACES: old EMBEDDED_INTEL Population Gate (deleted -- was root cause of P0)
       # Verifies all api/v1/intel/*.json bundles are valid and populated.
