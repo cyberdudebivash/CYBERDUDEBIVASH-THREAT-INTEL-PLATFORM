@@ -39,6 +39,17 @@ class ApexIntelligenceEngine:
         self._attck_context      = None
         self._explainable_conf   = None
         self._intel_memory_aging = None
+        # Phase 1-10: Enterprise Observability + Trust Validation Engines
+        self._graph_integrity    = None
+        self._intel_repro        = None
+        self._scoring_drift      = None
+        self._enrich_obs         = None
+        self._ioc_quality        = None
+        self._attck_coverage     = None
+        self._actor_clustering   = None
+        self._fp_obs             = None
+        self._obs_dashboard      = None
+        self._saas_hardening     = None
         self._initialized  = False
         self.stats = {
             "advisories_processed": 0,
@@ -101,6 +112,32 @@ class ApexIntelligenceEngine:
             logger.info("[APEX-ENGINE] Phase 1-6 Enterprise Quality Engines initialized")
         except Exception as e:
             logger.warning(f"[APEX-ENGINE] Enterprise Quality Engines partial init: {e}")
+
+        # Phase 1-10: Enterprise Observability + Trust Validation Engines (lazy, non-blocking)
+        try:
+            from agent.graph_integrity_validator          import GraphIntegrityValidator
+            from agent.intelligence_reproducibility_engine import IntelligenceReproducibilityEngine
+            from agent.scoring_drift_engine               import ScoringDriftEngine
+            from agent.enrichment_observability_engine    import EnrichmentObservabilityEngine
+            from agent.ioc_quality_metrics_engine         import IOCQualityMetricsEngine
+            from agent.attck_coverage_analytics_engine    import ATTCKCoverageAnalyticsEngine
+            from agent.actor_clustering_confidence_engine import ActorClusteringConfidenceEngine
+            from agent.false_positive_observability_engine import FalsePositiveObservabilityEngine
+            from agent.observability_dashboard_engine     import ObservabilityDashboardEngine
+            from agent.saas_scale_hardening_engine        import SaaSScaleHardeningEngine
+            self._graph_integrity  = GraphIntegrityValidator()
+            self._intel_repro      = IntelligenceReproducibilityEngine()
+            self._scoring_drift    = ScoringDriftEngine()
+            self._enrich_obs       = EnrichmentObservabilityEngine()
+            self._ioc_quality      = IOCQualityMetricsEngine()
+            self._attck_coverage   = ATTCKCoverageAnalyticsEngine()
+            self._actor_clustering = ActorClusteringConfidenceEngine()
+            self._fp_obs           = FalsePositiveObservabilityEngine()
+            self._obs_dashboard    = ObservabilityDashboardEngine()
+            self._saas_hardening   = SaaSScaleHardeningEngine()
+            logger.info("[APEX-ENGINE] Phase 1-10 Observability + Trust Validation Engines initialized")
+        except Exception as e:
+            logger.warning(f"[APEX-ENGINE] Observability Engines partial init: {e}")
 
     def process_advisory(self, advisory: Dict) -> Dict:
         """
@@ -295,15 +332,26 @@ class ApexIntelligenceEngine:
             "social_eng":             self._social_eng is not None,
             "quantum":                self._quantum is not None,
             "marketplace":            self._marketplace is not None,
-            # Enterprise Quality Engines
+            # Enterprise Quality Engines (Phase 1-6)
             "ioc_depth_recovery":     self._ioc_depth_recovery is not None,
             "graph_correlation":      self._graph_correlation is not None,
             "attck_context":          self._attck_context is not None,
             "explainable_confidence": self._explainable_conf is not None,
             "intel_memory_aging":     self._intel_memory_aging is not None,
+            # Enterprise Observability Engines (Phase 1-10)
+            "graph_integrity":        self._graph_integrity is not None,
+            "intel_reproducibility":  self._intel_repro is not None,
+            "scoring_drift":          self._scoring_drift is not None,
+            "enrichment_obs":         self._enrich_obs is not None,
+            "ioc_quality":            self._ioc_quality is not None,
+            "attck_coverage":         self._attck_coverage is not None,
+            "actor_clustering":       self._actor_clustering is not None,
+            "fp_observability":       self._fp_obs is not None,
+            "obs_dashboard":          self._obs_dashboard is not None,
+            "saas_hardening":         self._saas_hardening is not None,
         }
         return {
-            "engine": "CYBERDUDEBIVASH Apex Intelligence Engine v1.0 + Enterprise Quality v1",
+            "engine": "CYBERDUDEBIVASH Apex Intelligence Engine v1.0 + Observability v1",
             "status": "OPERATIONAL" if all(engines.values()) else "PARTIAL",
             "engines_online": sum(engines.values()),
             "engines_total":  len(engines),
