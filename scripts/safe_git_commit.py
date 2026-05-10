@@ -435,6 +435,36 @@ def main() -> None:
             run_git("reset", "--hard", "origin/main")
             run_git("stash", "pop")
 
+            # == P0-FIX v145.1.0: Workflow YAML Conflict-Marker Guard ==
+            # PROBLEM: git stash pop replays stashed changes on top of origin/main.
+            # When .github/workflows/ files changed between the stash base and
+            # origin/main (e.g. a fix merged mid-run), git writes conflict markers
+            # "<<<<<<< Updated upstream" into YAML files. validate_repo.py's
+            # yaml_parse check then fails, breaking the Final Validation Gate.
+            # SOLUTION: restore the entire .github/ tree from origin/main after
+            # every stash pop. safe_git_commit.py NEVER intentionally modifies
+            # workflow files, so any stash-pop change there is always corruption.
+            _wf_restore = run_git("checkout", "origin/main", "--", ".github/")
+            if _wf_restore.returncode == 0:
+                log.info("[workflow-guard] Restored .github/ from origin/main after "
+                         "stash pop (prevents YAML conflict markers in validate_repo)")
+            else:
+                log.warning("[workflow-guard] Could not restore .github/ from "
+                            "origin/main: %s", _wf_restore.stderr.strip()[:120])
+
+            # Secondary: detect any remaining unresolved conflicts in tracked files
+            _unmerged = run_git("diff", "--name-only", "--diff-filter=U")
+            if _unmerged.returncode == 0 and _unmerged.stdout.strip():
+                for _cf in _unmerged.stdout.strip().split("\n"):
+                    _cf = _cf.strip()
+                    if not _cf:
+                        continue
+                    log.warning("[conflict-cleanup] Conflict marker in '%s' after "
+                                "stash pop -- restoring from origin/main", _cf)
+                    run_git("checkout", "origin/main", "--", _cf)
+            else:
+                log.info("[conflict-cleanup] No unresolved conflicts after stash pop")
+
             # Restore manifests if stash pop corrupted them
             for _key, (_mp, _saved_bytes) in _manifest_backups.items():
                 _needs_restore = False

@@ -221,12 +221,30 @@ def _load_feed(path: pathlib.Path) -> List[Dict]:
         return []
 
 
+def _sanitize_json_keys(obj: Any) -> Any:
+    """Recursively convert non-string dict keys (e.g. tuples from Counter) to
+    strings so json.dump never raises 'keys must be str, int, float, bool or
+    None, not tuple'.  The default=str handler only covers non-serialisable
+    VALUES; non-string KEYS require this pre-pass.
+    """
+    if isinstance(obj, dict):
+        return {
+            str(k) if not isinstance(k, (str, int, float, bool, type(None))) else k:
+            _sanitize_json_keys(v)
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_sanitize_json_keys(i) for i in obj]
+    return obj
+
+
 def _atomic_write(path: pathlib.Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
     try:
+        safe_data = _sanitize_json_keys(data) if isinstance(data, (dict, list)) else data
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, indent=2, ensure_ascii=False, default=str)
+            json.dump(safe_data, fh, indent=2, ensure_ascii=False, default=str)
             fh.write("\n")
         os.replace(tmp, path)
     finally:
