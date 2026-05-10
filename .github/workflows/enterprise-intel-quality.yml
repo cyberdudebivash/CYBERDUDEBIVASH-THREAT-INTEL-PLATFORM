@@ -115,8 +115,17 @@ jobs:
           except json.JSONDecodeError as e:
               print(f"[PRE-FLIGHT] CRITICAL: feed_manifest.json is corrupt: {e}")
               sys.exit(2)
-          advisories = data.get("items", data.get("advisories", []))
-          print(f"[PRE-FLIGHT] Manifest valid: {len(advisories)} advisories")
+          # Handle both formats:
+          #   list  — STIX bundle array written by generate_intel_reports.py
+          #   dict  — legacy manifest with "items"/"advisories" key
+          # Calling .get() on a list raises AttributeError and crashes the job.
+          if isinstance(data, list):
+              advisories = data
+          elif isinstance(data, dict):
+              advisories = data.get("items", data.get("advisories", data.get("bundles", [])))
+          else:
+              advisories = []
+          print(f"[PRE-FLIGHT] Manifest valid ({type(data).__name__} format): {len(advisories)} entries")
           sys.exit(0)
           EOF
 
