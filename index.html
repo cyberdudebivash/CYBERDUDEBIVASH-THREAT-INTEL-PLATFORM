@@ -14905,11 +14905,20 @@ function renderTopThreats(data) {
      AI CYBER BRAIN - uses window.EMBEDDED_INTEL baked by pipeline
      ================================================================ */
   function runAIBrain(){
-    var intel=window.EMBEDDED_INTEL||[];
+    var intel=window.__GOC_LIVE_INTEL||window.EMBEDDED_INTEL||[];
     if(!intel.length){
-      set('ai-campaigns-body','<p style="color:#94a3b8;text-align:center;padding:20px">No intel data loaded.</p>');
-      set('ai-anomaly-body',  '<p style="color:#94a3b8;text-align:center;padding:20px">No anomaly data.</p>');
-      set('ai-predict-body',  '<p style="color:#94a3b8;text-align:center;padding:20px">No prediction data.</p>');
+      set('ai-campaigns-body','<p style="color:#64748b;text-align:center;padding:20px;font-size:11px;">&#8987; Initializing threat clustering&hellip;</p>');
+      set('ai-anomaly-body',  '<p style="color:#64748b;text-align:center;padding:20px;font-size:11px;">&#8987; Running anomaly analysis&hellip;</p>');
+      set('ai-predict-body',  '<p style="color:#64748b;text-align:center;padding:20px;font-size:11px;">&#8987; Computing sector forecasts&hellip;</p>');
+      if(!window._aiRetryActive){
+        window._aiRetryActive=true;
+        var _aiPoll=setInterval(function(){
+          if(window.__GOC_LIVE_INTEL&&window.__GOC_LIVE_INTEL.length){
+            clearInterval(_aiPoll);window._aiRetryActive=false;runAIBrain();
+          }
+        },500);
+        setTimeout(function(){clearInterval(_aiPoll);window._aiRetryActive=false;},30000);
+      }
       return;
     }
 
@@ -14950,13 +14959,14 @@ function renderTopThreats(data) {
     set('ai-anomaly-body', anomalies.length ? anomalies.map(function(t){
       var col=(t.severity||'HIGH').toUpperCase()==='CRITICAL'?'#ef4444':'#f59e0b';
       var title=(t.title||t.name||t.indicator||'Unknown Anomaly').substring(0,60);
-      var score=Math.floor(72+Math.random()*26);
+      var score=Math.max(65,Math.min(99,Math.round(t.anomaly_pct||(t.anomaly_score||0)*100||(t.risk_score||7.5)*10)));
+      var zd=t.is_zero_day_candidate?'<span style="color:#ef4444;font-size:8px;font-weight:700;margin-left:4px;">&#9888; 0-DAY CANDIDATE</span>':'';
       return '<div style="border-left:3px solid '+col+';padding:9px 14px;margin-bottom:7px;background:#0f172a;border-radius:0 6px 6px 0;">'
         +'<div style="display:flex;justify-content:space-between;">'
-        +'<span style="color:#e2e8f0;font-size:11px;font-weight:600;">'+title+'</span>'
+        +'<span style="color:#e2e8f0;font-size:11px;font-weight:600;">'+title+zd+'</span>'
         +'<span style="color:'+col+';font-size:10px;font-weight:700;">'+score+'% anomaly</span>'
         +'</div>'
-        +'<div style="color:#64748b;font-size:10px;margin-top:3px;">Isolation score: '+score+'/100 | High-deviation event flagged</div>'
+        +'<div style="color:#64748b;font-size:10px;margin-top:3px;">IF score: '+((t.anomaly_score||0).toFixed?((t.anomaly_score||0)).toFixed(3):(t.anomaly_score||0))+' | '+(t.soc_priority||'High-deviation event flagged')+'</div>'
         +'</div>';
     }).join('') : '<p style="color:#94a3b8;text-align:center;padding:20px">No anomalies in current feed.</p>');
 
@@ -14982,6 +14992,94 @@ function renderTopThreats(data) {
         +'<div style="color:#94a3b8;font-size:10px;margin-top:3px;">Primary vector: '+p.vec+'</div>'
         +'<div style="background:#1e293b;border-radius:3px;height:4px;margin-top:6px;">'
         +'<div style="background:'+p.col+';width:'+p.prob+'%;height:4px;border-radius:3px;"></div></div>'
+        +'</div>';
+    }).join(''));
+  }
+
+  /* ================================================================
+     AI BRAIN — Live data hook + Real ML enhancement loader
+     Exposes window.CDB_AI.runBrain so post-load callback at line ~11270
+     can trigger AI Brain re-render once __GOC_LIVE_INTEL is populated.
+     ================================================================ */
+  window.CDB_AI = window.CDB_AI || {};
+  window.CDB_AI.runBrain = function() {
+    runAIBrain();
+    _loadAISummary();
+  };
+
+  window._aiSummaryLoaded = false;
+  function _loadAISummary() {
+    if(window._aiSummaryLoaded) return;
+    window._aiSummaryLoaded = true;
+    fetch('api/v1/intel/ai_summary.json?_='+Date.now(), {cache:'no-store'})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(ai){
+        if(!ai) return;
+        if(ai.anomalies&&ai.anomalies.length) _renderMLAnomalies(ai.anomalies);
+        if(ai.forecasts&&ai.forecasts.length) _renderMLForecasts(ai.forecasts, ai.generated_at);
+        if(ai.campaigns&&ai.campaigns.length) _renderMLCampaigns(ai.campaigns);
+        if(ai.apex_summary) { var s=sel('ai-exec-summary'); if(s) s.textContent=ai.apex_summary; }
+      })
+      .catch(function(){/* non-blocking: real ML enhancement optional */});
+  }
+
+  function _renderMLCampaigns(campaigns) {
+    var svcol={CRITICAL:'#ef4444',HIGH:'#f59e0b',MEDIUM:'#8b5cf6',LOW:'#6b7280'};
+    txt('ai-campaigns-count', campaigns.length+' Active Campaigns');
+    txt('ai-bar-campaigns', campaigns.length+'/'+Math.min(campaigns.length+2,20));
+    set('ai-campaigns-body', campaigns.map(function(c){
+      var col=svcol[c.severity]||'#6b7280';
+      var techs=c.techniques&&c.techniques.length?'<div style="color:#475569;font-size:9px;margin-top:3px;">TTPs: '+c.techniques.slice(0,4).join(' ')+'</div>':'';
+      return '<div style="border-left:3px solid '+col+';padding:10px 14px;margin-bottom:8px;background:#0f172a;border-radius:0 6px 6px 0;">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+        +'<span style="color:#e2e8f0;font-weight:700;font-size:12px;">'+c.display_name+'</span>'
+        +'<span style="background:'+col+'22;color:'+col+';padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;">'+c.severity+'</span>'
+        +'</div>'
+        +'<div style="color:#94a3b8;font-size:11px;">'+(c.sample_title||'Threat campaign detected').substring(0,90)+'&hellip;</div>'
+        +'<div style="color:#64748b;font-size:10px;margin-top:4px;">'+c.count+' indicator'+(c.count>1?'s':'')+' | Risk: '+c.max_risk+'/10</div>'
+        +techs
+        +'</div>';
+    }).join(''));
+  }
+
+  function _renderMLAnomalies(anomalies) {
+    var svcol={CRITICAL:'#ef4444',HIGH:'#f59e0b',MEDIUM:'#8b5cf6',LOW:'#6b7280'};
+    txt('ai-anomaly-count', anomalies.length+' Anomalies Detected');
+    txt('ai-bar-anomalies', anomalies.length+'/'+Math.min(anomalies.length+1,10));
+    set('ai-anomaly-body', anomalies.slice(0,6).map(function(t){
+      var col=svcol[(t.severity||'HIGH').toUpperCase()]||'#f59e0b';
+      var title=(t.title||'Unknown Anomaly').substring(0,60);
+      var pct=Math.round(t.anomaly_pct||(t.anomaly_score||0)*100||75);
+      var zd=t.is_zero_day_candidate?'<span style="color:#ef4444;font-size:8px;font-weight:700;margin-left:4px;">&#9888; 0-DAY</span>':'';
+      var scoreStr=typeof t.anomaly_score==='number'?t.anomaly_score.toFixed(3):(t.anomaly_score||0);
+      return '<div style="border-left:3px solid '+col+';padding:9px 14px;margin-bottom:7px;background:#0f172a;border-radius:0 6px 6px 0;">'
+        +'<div style="display:flex;justify-content:space-between;">'
+        +'<span style="color:#e2e8f0;font-size:11px;font-weight:600;">'+title+zd+'</span>'
+        +'<span style="color:'+col+';font-size:10px;font-weight:700;">'+pct+'% anomaly</span>'
+        +'</div>'
+        +'<div style="color:#64748b;font-size:10px;margin-top:3px;">IF score: '+scoreStr+' | '+(t.soc_priority||'High-deviation event')+'</div>'
+        +(t.sector&&t.sector!=='Unknown'?'<div style="color:#475569;font-size:9px;margin-top:2px;">Sector: '+t.sector+'</div>':'')
+        +'</div>';
+    }).join(''));
+  }
+
+  function _renderMLForecasts(forecasts, genAt) {
+    var svcol={CRITICAL:'#ef4444',HIGH:'#f59e0b',MEDIUM:'#8b5cf6',LOW:'#6b7280'};
+    var maxP=Math.max.apply(null,forecasts.map(function(f){return f.prob||0;}));
+    txt('ai-predict-count', forecasts.length+' Sector Forecasts');
+    txt('ai-bar-highrisk', maxP+'%');
+    txt('ai-bar-lastrun', genAt?new Date(genAt).toLocaleTimeString():new Date().toLocaleTimeString());
+    set('ai-predict-body', forecasts.map(function(p){
+      var col=svcol[(p.risk_level||'MEDIUM').toUpperCase()]||'#8b5cf6';
+      var trend=p.trend==='INCREASING'?'&#8679;':p.trend==='DECREASING'?'&#8681;':'&#8680;';
+      return '<div style="border-left:3px solid '+col+';padding:9px 14px;margin-bottom:7px;background:#0f172a;border-radius:0 6px 6px 0;">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+        +'<span style="color:#e2e8f0;font-size:11px;font-weight:600;">'+p.sector+'</span>'
+        +'<span style="color:'+col+';font-size:11px;font-weight:700;">'+p.prob+'% risk '+trend+'</span>'
+        +'</div>'
+        +'<div style="color:#94a3b8;font-size:10px;margin-top:3px;">Vector: '+p.vector+' | Confidence: '+Math.round((p.confidence||0.75)*100)+'%</div>'
+        +'<div style="background:#1e293b;border-radius:3px;height:4px;margin-top:6px;">'
+        +'<div style="background:'+col+';width:'+p.prob+'%;height:4px;border-radius:3px;transition:width 0.6s ease;"></div></div>'
         +'</div>';
     }).join(''));
   }
@@ -15071,7 +15169,7 @@ function renderTopThreats(data) {
      v134.0: Financial impact, risk exposure, breach cost indicators
      ================================================================ */
   function injectEnterpriseSignals(){
-    var intel=window.EMBEDDED_INTEL||[];
+    var intel=window.__GOC_LIVE_INTEL||window.EMBEDDED_INTEL||[];
     if(!intel.length) return;
 
     /* -- Financial Impact Calculator -- */
