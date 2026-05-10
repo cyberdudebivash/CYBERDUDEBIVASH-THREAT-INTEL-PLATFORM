@@ -123,7 +123,7 @@ function injectVersionHeaders(response, config) {
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "147.0.0",  // v147.0.0 ENTERPRISE-GRADE — ai_summary fix, version governance, dedup enforcement
+  GATEWAY_VERSION:   "147.0.0",  // v147.0.0 ENTERPRISE-GRADE -- ai_summary fix, version governance, dedup enforcement
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
