@@ -576,22 +576,14 @@ jobs:
         timeout-minutes: 3
         run: |
           set +e
-          python3 scripts/ai_brain_publisher.py 2>&1 | tee /tmp/ai_brain_output.txt
+          python3 scripts/ai_brain_publisher.py
           AI_EXIT=$?
           set -e
           if [ "$AI_EXIT" -eq 0 ]; then
-            echo "[PASS] AI Brain published: api/v1/intel/ai_summary.json"
-            if [ -f "api/v1/intel/ai_summary.json" ]; then
-              SZ=$(wc -c < api/v1/intel/ai_summary.json)
-              echo "[INFO] ai_summary.json size: ${SZ}B"
-              python3 -c "
-import json,pathlib
-d=json.loads(pathlib.Path('api/v1/intel/ai_summary.json').read_text())
-print(f'  campaigns={len(d.get(\"campaigns\",[]))} anomalies={len(d.get(\"anomalies\",[]))} forecasts={len(d.get(\"forecasts\",[]))}')"
-            fi
+            echo "[PASS] AI Brain Publisher: api/v1/intel/ai_summary.json generated"
+            [ -f "api/v1/intel/ai_summary.json" ] && echo "[INFO] size: $(wc -c < api/v1/intel/ai_summary.json)B" || true
           else
-            echo "::warning::AI Brain publisher failed (exit $AI_EXIT) -- non-blocking, dashboard will retry"
-            cat /tmp/ai_brain_output.txt | tail -10
+            echo "::warning::AI Brain Publisher failed (exit $AI_EXIT) -- non-blocking, pipeline continues"
           fi
 
       # -----------------------------------------------------------------------
