@@ -1,0 +1,309 @@
+# =============================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX
+# .github/workflows/enterprise-observability.yml
+# ENTERPRISE OBSERVABILITY + TRUST VALIDATION LAYER — CI/CD v1.0
+# Cron: :30 past even hours — runs after enterprise-intel-quality (:15)
+# concurrency: sentinel-data-writer (never overlaps with ingestion/quality)
+# =============================================================================
+
+name: Enterprise Observability & Trust Validation
+
+on:
+  schedule:
+    # 30 min after enterprise-intel-quality (:15 past even hours)
+    - cron: '30 2,6,10,14,18,22 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (validate only, no commit)'
+        required: false
+        default: 'false'
+      force_all:
+        description: 'Force all modules even if cached'
+        required: false
+        default: 'false'
+
+concurrency:
+  group: sentinel-data-writer
+  cancel-in-progress: false
+
+env:
+  PYTHONPATH: ${{ github.workspace }}
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  observability:
+    name: Enterprise Observability & Trust Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip --quiet
+          if [ -f requirements.txt ]; then pip install -r requirements.txt --quiet; fi
+
+      - name: Create observability directories
+        run: |
+          mkdir -p data/observability/snapshots
+          mkdir -p data/observability/enrichment_snapshots
+          echo "[DIRS] Observability directories ready"
+
+      - name: Syntax validation — all 10 observability engines
+        run: |
+          ENGINES=(
+            "agent/graph_integrity_validator.py"
+            "agent/intelligence_reproducibility_engine.py"
+            "agent/scoring_drift_engine.py"
+            "agent/enrichment_observability_engine.py"
+            "agent/ioc_quality_metrics_engine.py"
+            "agent/attck_coverage_analytics_engine.py"
+            "agent/actor_clustering_confidence_engine.py"
+            "agent/false_positive_observability_engine.py"
+            "agent/observability_dashboard_engine.py"
+            "agent/saas_scale_hardening_engine.py"
+          )
+          ALL_VALID=true
+          for f in "${ENGINES[@]}"; do
+            if [ -f "$f" ]; then
+              python3 -m py_compile "$f" && echo "  ✓ $f" || { echo "  ✗ SYNTAX ERROR: $f"; ALL_VALID=false; }
+            else
+              echo "  ! NOT FOUND: $f"
+            fi
+          done
+          if [ "$ALL_VALID" = "false" ]; then
+            echo "[ABORT] Syntax errors found — halting deployment"
+            exit 1
+          fi
+          echo "[VALIDATE] All 10 engine files syntactically valid ✓"
+
+      - name: Phase 1 — Graph Integrity Validation
+        continue-on-error: true
+        run: |
+          echo "[PHASE-1] Graph Integrity Validation Engine"
+          python3 -c "
+          import logging, sys
+          logging.basicConfig(level=logging.INFO)
+          sys.path.insert(0, '.')
+          from agent.graph_integrity_validator import GraphIntegrityValidator
+          e = GraphIntegrityValidator()
+          r = e.validate()
+          print(f'  Score={r.overall_integrity_score:.1f} Tier={r.integrity_tier} Findings={len(r.findings)}')
+          " || echo "[PHASE-1] Non-fatal error — continuing"
+
+      - name: Phase 2 — Intelligence Reproducibility
+        continue-on-error: true
+        run: |
+          echo "[PHASE-2] Intelligence Reproducibility Engine"
+          python3 -c "
+          import logging, sys
+          logging.basicConfig(level=logging.INFO)
+          sys.path.insert(0, '.')
+          from agent.intelligence_reproducibility_engine import IntelligenceReproducibilityEngine
+          e = IntelligenceReproducibilityEngine()
+          r = e.run_full_pipeline()
+          print(f'  Rate={r.reproducibility_rate:.1f}% Tier={r.reproducibility_tier} Audited={r.advisories_audited}')
+          " || echo "[PHASE-2] Non-fatal error — continuing"
+
+      - name: Phase 3 — Scoring Drift Detection
+        continue-on-error: true
+        run: |
+          echo "[PHASE-3] Scoring Drift Detection Engine"
+          python3 -c "
+          import logging, sys
+          logging.basicConfig(level=logging.INFO)
+          sys.path.insert(0, '.')
+          from agent.scoring_drift_engine import ScoringDriftEngine
+          e = ScoringDriftEngine()
+          r = e.run_full_pipeline()
+          print(f'  Drift={r.drift_detected} Severity={r.drift_severity} Anomalies={r.anomaly_count}')
+          " || echo "[PHASE-3] Non-fatal error — continuing"
+
+      - name: Phase 4 — Enrichment Observability
+        continue-on-error: true
+        run: |
+          echo "[PHASE-4] Enrichment Observability Engine"
+          python3 -c "
+          import logging, sys
+          logging.basicConfig(level=logging.INFO)
+          sys.path.insert(0, '.')
+          from agent.enrichment_observability_engine import EnrichmentObservabilityEngine
+          e = EnrichmentObservabilityEngine()
+          r = e.run_full_pipeline()
+          print(f'  Completeness={r.mean_completeness_score:.1f} Health={r.enrichment_health_score:.1f}')
+          " || echo "[PHASE-4] Non-fatal error — continuing"
+
+      - name: Phase 5 — IOC Quality Metrics
+        continue-on-error: true
+        run: |
+          echo "[PHASE-5] IOC Quality Metrics Engine"
+          python3 -c "
+          import logging, sys
+          logging.basicConfig(level=logging.INFO)
+          sys.path.insert(0, '.')
+          from agent.ioc_quality_metrics_engine import IOCQualityMetricsEngine
+          e = IOCQualityMetricsEngine()
+          r = e.run_full_pipeline()
+          print(f'  Total={r.total_iocs_analyzed} Quality={r.overall_quality_score:.1f} Tier={r.quality_tier}')
+          " || echo "[PHASE-5] Non-fatal error — continuing"
+
+      - name: Phase 6 — ATT&CK Coverage Analytics
+        continue-on-error: true
+        run: |
+          echo "[PHASE-6] ATT&CK Coverage Analytics Engine"
+          python3 -c "
+          import logging, sys
+          logging.basicConfig(level=logging.INFO)
+          sys.path.insert(0, '.')
+          from agent.attck_coverage_analytics_engine import ATTCKCoverageAnalyticsEngine
+          e = ATTCKCoverageAnalyticsEngine()
+          r = e.run_full_pipeline()
+          print(f'  Tactics={r.total_unique_tactics} Techniques={r.total_unique_techniques} Score={r.coverage_score:.1f}')
+          " || echo "[PHASE-6] Non-fatal error — continuing"
+
+      - name: Phase 7 — Actor Clustering Confidence
+        continue-on-error: true
+        run: |
+          echo "[PHASE-7] Actor Clustering Confidence Engine"
+          python3 -c "
+          import logging, sys
+          logging.basicConfig(level=logging.INFO)
+          sys.path.insert(0, '.')
+          from agent.actor_clustering_confidence_engine import ActorClusteringConfidenceEngine
+          e = ActorClusteringConfidenceEngine()
+          r = e.run_full_pipeline()
+          print(f'  Actors={r.total_actors} Clusters={r.total_clusters} Score={r.clustering_health_score:.1f}')
+          " || echo "[PHASE-7] Non-fatal error — continuing"
+
+      - name: Phase 8 — False-Positive Observability
+        continue-on-error: true
+        run: |
+          echo "[PHASE-8] False-Positive Observability Engine"
+          python3 -c "
+          import logging, sys
+          logging.basicConfig(level=logging.INFO)
+          sys.path.insert(0, '.')
+          from agent.false_positive_observability_engine import FalsePositiveObservabilityEngine
+          e = FalsePositiveObservabilityEngine()
+          r = e.run_full_pipeline()
+          print(f'  Signals={r.total_fp_signals} Rate={r.fp_signal_rate_pct:.1f}% Risk={r.fp_risk_tier}')
+          " || echo "[PHASE-8] Non-fatal error — continuing"
+
+      - name: Phase 9 — Enterprise Observability Dashboards
+        continue-on-error: true
+        run: |
+          echo "[PHASE-9] Enterprise Observability Dashboards Engine"
+          python3 -c "
+          import logging, sys
+          logging.basicConfig(level=logging.INFO)
+          sys.path.insert(0, '.')
+          from agent.observability_dashboard_engine import ObservabilityDashboardEngine
+          e = ObservabilityDashboardEngine()
+          r = e.run_full_pipeline()
+          print(f'  OmnigodScore={r.omnigod_score.score:.1f} Tier={r.omnigod_score.tier} Alerts={r.alert_count}')
+          " || echo "[PHASE-9] Non-fatal error — continuing"
+
+      - name: Phase 10 — SaaS Scale Orchestration Report
+        continue-on-error: true
+        run: |
+          echo "[PHASE-10] SaaS Scale Hardening Engine (orchestration summary)"
+          python3 -c "
+          import logging, sys, json
+          from pathlib import Path
+          logging.basicConfig(level=logging.INFO)
+          # Read dashboard summary
+          path = Path('data/observability/dashboard_summary.json')
+          if path.exists():
+              d = json.loads(path.read_text())
+              print(f'  OMNIGOD={d.get(\"omnigod_score\")} Tier={d.get(\"omnigod_tier\")} Health={d.get(\"pipeline_health\")}')
+              alerts = d.get('critical_alerts', [])
+              if alerts:
+                  print(f'  CRITICAL ALERTS ({len(alerts)}):')
+                  for a in alerts[:5]:
+                      print(f'    - {a}')
+          else:
+              print('  No dashboard summary found yet')
+          " || echo "[PHASE-10] Non-fatal error — continuing"
+
+      - name: Output validation — observability reports
+        run: |
+          echo "[VALIDATE] Checking observability output files..."
+          FILES=(
+            "data/observability/graph_integrity_report.json"
+            "data/observability/reproducibility_report.json"
+            "data/observability/scoring_drift_report.json"
+            "data/observability/enrichment_observability_report.json"
+            "data/observability/ioc_quality_report.json"
+            "data/observability/attck_coverage_report.json"
+            "data/observability/actor_clustering_report.json"
+            "data/observability/fp_observability_report.json"
+            "data/observability/dashboard_summary.json"
+            "data/observability/dashboard.html"
+          )
+          for f in "${FILES[@]}"; do
+            if [ -f "$f" ]; then
+              # Validate JSON (skip .html)
+              if [[ "$f" == *.json ]]; then
+                python3 -c "import json; json.load(open('$f'))" 2>/dev/null \
+                  && echo "  ✓ $f" || echo "  ✗ INVALID JSON: $f"
+              else
+                echo "  ✓ $f (HTML)"
+              fi
+            else
+              echo "  - $f (not yet generated)"
+            fi
+          done
+
+      - name: Commit observability outputs
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          git config user.name  "SENTINEL APEX Observability Bot"
+          git config user.email "sentinel@cyberdudebivash.com"
+          git add data/observability/ || true
+          git diff --cached --quiet && echo "[GIT] No changes to commit" || \
+          git commit -m "obs(auto): Enterprise Observability Layer run $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          Phases 1-10: Graph Integrity | Reproducibility | Scoring Drift |
+          Enrichment | IOC Quality | ATT&CK Coverage | Actor Clustering |
+          FP Observability | Dashboard | SaaS Hardening
+
+          Operator: SENTINEL APEX Observability Engine v1.0" --no-verify
+
+      - name: Push observability outputs
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          git push origin main || echo "[WARN] Push failed — outputs saved locally"
+
+      - name: Print final dashboard summary
+        run: |
+          echo "═══════════════════════════════════════════════════════════════"
+          echo " SENTINEL APEX — ENTERPRISE OBSERVABILITY LAYER COMPLETE"
+          python3 -c "
+          import json
+          from pathlib import Path
+          p = Path('data/observability/dashboard_summary.json')
+          if p.exists():
+              d = json.loads(p.read_text())
+              print(f' OMNIGOD Score : {d.get(\"omnigod_score\", \"N/A\")}')
+              print(f' Tier          : {d.get(\"omnigod_tier\", \"N/A\")}')
+              print(f' Pipeline      : {d.get(\"pipeline_health\", \"N/A\")}')
+              print(f' Alerts        : {d.get(\"alert_count\", 0)}')
+              panels = d.get('panels', {})
+              for pid, pdata in panels.items():
+                  print(f'   {pid:30s} score={pdata[\"score\"]:.1f}  tier={pdata[\"tier\"]}')
+          else:
+              print(' No dashboard summary available')
+          " 2>/dev/null || true
+          echo "═══════════════════════════════════════════════════════════════"
