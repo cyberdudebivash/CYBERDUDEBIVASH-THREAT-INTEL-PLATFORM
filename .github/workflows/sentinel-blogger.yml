@@ -720,6 +720,60 @@ jobs:
         run: python3 scripts/deployment_canary.py || true
 
       # -----------------------------------------------------------------------
+      # STAGE 5.8.2 - ENTERPRISE GOVERNANCE ENGINE (v150.2 -- NON-BLOCKING)
+      # Phases 1+2: Duplicate suppression + Confidence inflation governance.
+      # Writes data/governance/governance_report.json.
+      # Non-blocking: || true ensures pipeline never hard-fails here.
+      # HARD violations are surfaced as annotations; tracked asynchronously
+      # by the enterprise-governance.yml dedicated governance workflow.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.8.2 - Enterprise Governance Engine (Phases 1+2)"
+        timeout-minutes: 4
+        if: always()
+        run: |
+          mkdir -p data/governance
+          python3 scripts/enterprise_governance_engine.py 2>&1 | tail -30 || true
+          if [ -f data/governance/governance_report.json ]; then
+            python3 -c "
+          import json, pathlib
+          r = json.loads(pathlib.Path('data/governance/governance_report.json').read_text())
+          g = r.get('governance_grade','?')
+          d = len(r.get('duplicate_violations',[]))
+          i = len(r.get('inflation_violations',[]))
+          p = r.get('overall_pass', False)
+          print(f'[GOVERNANCE] Grade={g} Duplicates={d} Inflation={i} Pass={p}')
+          " 2>/dev/null || true
+          fi
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.8.3 - FEED CONTRACT VALIDATOR (v150.2 -- NON-BLOCKING)
+      # Phase 3: Validates Worker/API response envelope against registered
+      # contracts. Prevents canary false-negatives from schema drift.
+      # Static analysis only (no live network hits in main pipeline).
+      # Writes data/governance/contract_report.json.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.8.3 - Feed Contract Validator (Phase 3)"
+        timeout-minutes: 3
+        if: always()
+        run: |
+          mkdir -p data/governance
+          python3 scripts/feed_contract_validator.py \
+            --repo-root . \
+            --report data/governance/contract_report.json 2>&1 | tail -20 || true
+          if [ -f data/governance/contract_report.json ]; then
+            python3 -c "
+          import json, pathlib
+          r = json.loads(pathlib.Path('data/governance/contract_report.json').read_text())
+          ok = r.get('overall_pass', False)
+          passed = r.get('checks_passed', 0)
+          failed = r.get('checks_failed', 0)
+          summary = r.get('summary','')
+          print(f'[CONTRACT] Pass={ok} Passed={passed} Failed={failed}')
+          print(f'[CONTRACT] {summary}')
+          " 2>/dev/null || true
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 5.9 - ENTERPRISE CI TELEMETRY (v146.0 -- ALWAYS RUNS)
       # Writes data/telemetry/ci_run_latest.json. Non-blocking.
       # -----------------------------------------------------------------------

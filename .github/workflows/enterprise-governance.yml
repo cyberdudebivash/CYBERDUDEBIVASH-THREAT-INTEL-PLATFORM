@@ -1,0 +1,505 @@
+# =============================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX — ENTERPRISE GOVERNANCE WORKFLOW
+# .github/workflows/enterprise-governance.yml
+# Version: v1.0.0 (2026-05-10)
+#
+# PURPOSE:
+#   Unified governance pipeline that runs all 4 phases of enterprise
+#   intelligence governance on a rolling schedule + on every production
+#   push that might affect feed quality or canary contracts.
+#
+# PHASES EXECUTED:
+#   Phase 1: Duplicate Intelligence Suppression (enterprise_governance_engine.py)
+#   Phase 2: Confidence Inflation Governance    (enterprise_governance_engine.py)
+#   Phase 3: Feed Contract Validation           (feed_contract_validator.py)
+#   Phase 4: Source Trust Tier Assessment       (source_trust_engine.py)
+#   Phase 5: Enterprise SLA Observability       (sla_engine.py)
+#
+# SAFETY CONTRACT:
+#   - ZERO HARD FAIL gate: exit code 1 from any governance engine blocks
+#     the "governance_gate" job and raises a GitHub annotation.
+#   - SOFT FAIL / WARN: advisory only — pipeline continues, artifacts
+#     written for analysis. Ops team receives Telegram notification.
+#   - NO writes to sentinel-blogger pipeline data paths.
+#     Governance outputs are isolated to data/governance/ and data/health/.
+#   - concurrency: sentinel-governance-writer (never overlaps with itself;
+#     does NOT share group with sentinel-data-writer to avoid blocking
+#     the production ingestion pipeline).
+#   - Timeout: 20 minutes per job (governance is non-blocking to prod).
+#
+# SCHEDULE:
+#   - :45 past odd hours — runs in the gap between ingestion pipelines
+#   - Can be triggered manually (workflow_dispatch)
+#   - Also triggered by push to main when governance-critical files change
+#
+# OUTPUT ARTIFACTS:
+#   data/governance/governance_report.json   -- Phases 1+2 (dedup + inflation)
+#   data/governance/contract_report.json     -- Phase 3 (contract validator)
+#   data/quality/source_trust_scores.json    -- Phase 4 (trust tiers)
+#   data/health/sla_status.json              -- Phase 5 (SLA engine)
+#
+# EXIT CODES:
+#   0 = ALL GOVERNANCE CHECKS PASS
+#   1 = HARD GOVERNANCE VIOLATION — ops action required
+#   3 = DEGRADED — soft violations tracked, deployment still allowed
+# =============================================================================
+
+name: SENTINEL APEX Enterprise Governance v1
+
+on:
+  schedule:
+    # :45 past odd hours — safe gap between ingestion (:45 even hrs) and quality (:15/:30)
+    - cron: '45 1,3,5,7,9,11,13,15,17,19,21,23 * * *'
+  workflow_dispatch:
+    inputs:
+      live_contracts:
+        description: 'Run live endpoint contract checks (requires network)'
+        required: false
+        default: 'false'
+        type: boolean
+      strict_mode:
+        description: 'Strict mode — treat soft fails as hard fails'
+        required: false
+        default: 'false'
+        type: boolean
+      dry_run:
+        description: 'Dry run — validate only, do not commit governance reports'
+        required: false
+        default: 'false'
+        type: boolean
+  push:
+    branches: [ main ]
+    paths:
+      # Trigger when anything affecting feed contracts changes
+      - 'workers/intel-gateway/src/index.js'
+      - 'scripts/deployment_canary.py'
+      - 'scripts/enterprise_governance_engine.py'
+      - 'scripts/feed_contract_validator.py'
+      - 'scripts/source_trust_engine.py'
+      - 'scripts/sla_engine.py'
+      - 'data/stix/feed_manifest.json'
+      - 'api/feed.json'
+
+permissions:
+  contents: write
+
+# Governance writer never overlaps with itself
+# Does NOT use sentinel-data-writer to avoid blocking production ingestion
+concurrency:
+  group: sentinel-governance-writer
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONUNBUFFERED: "1"
+  PIPELINE_VERSION: "145.0.0"
+  GOVERNANCE_VERSION: "1.0.0"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 1: GOVERNANCE GATE — hard-fail gate (blocks downstream if violated)
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+  governance_gate:
+    name: "Enterprise Governance Gate"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    outputs:
+      governance_grade:    ${{ steps.gov_engine.outputs.grade }}
+      contract_status:     ${{ steps.contract_check.outputs.status }}
+      hard_violations:     ${{ steps.gov_engine.outputs.hard_violations }}
+      sla_status:          ${{ steps.sla_check.outputs.sla_status }}
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Python setup ──────────────────────────────────────────────────────
+      - name: "Set up Python 3.11"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: "Install governance dependencies"
+        run: |
+          pip install --upgrade pip --quiet
+          if [ -f requirements.txt ]; then pip install -r requirements.txt --quiet; fi
+
+      # ── Directory setup ───────────────────────────────────────────────────
+      - name: "Create governance output directories"
+        run: |
+          mkdir -p data/governance
+          mkdir -p data/health
+          mkdir -p data/quality
+          mkdir -p data/observability
+          echo "[DIRS] Governance output directories ready"
+
+      # ── SYNTAX GUARD ─────────────────────────────────────────────────────
+      - name: "Governance Script Syntax Guard (HARD FAIL)"
+        run: |
+          GOVERNANCE_SCRIPTS=(
+            "scripts/enterprise_governance_engine.py"
+            "scripts/feed_contract_validator.py"
+            "scripts/sla_engine.py"
+            "scripts/source_trust_engine.py"
+            "scripts/deployment_canary.py"
+          )
+          ERRORS=0
+          for f in "${GOVERNANCE_SCRIPTS[@]}"; do
+            if [ -f "$f" ]; then
+              if ! python3 -m py_compile "$f" 2>/dev/null; then
+                echo "::error::SYNTAX ERROR: $f"
+                ERRORS=$((ERRORS + 1))
+              else
+                echo "[OK] $f"
+              fi
+            else
+              echo "::warning::MISSING: $f (skipping)"
+            fi
+          done
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "::error::$ERRORS governance script(s) have syntax errors -- aborting"
+            exit 1
+          fi
+          echo "[SYNTAX GUARD] All governance scripts: OK"
+
+      # ── PHASE 1+2: Enterprise Governance Engine ───────────────────────────
+      - name: "PHASE 1+2 — Duplicate & Inflation Governance (HARD FAIL on violations)"
+        id: gov_engine
+        run: |
+          echo "[PHASE 1+2] Running enterprise_governance_engine.py..."
+
+          STRICT_FLAG=""
+          if [ "${{ github.event.inputs.strict_mode }}" = "true" ]; then
+            STRICT_FLAG="--strict"
+          fi
+
+          # Run governance engine; capture exit code
+          set +e
+          python3 scripts/enterprise_governance_engine.py $STRICT_FLAG 2>&1 | tee /tmp/governance_output.txt
+          GOV_EXIT=$?
+          set -e
+
+          # Parse governance grade from output
+          GRADE=$(grep -oP 'Grade\s*:\s*\K[A-F+]+' /tmp/governance_output.txt | head -1 || echo "UNKNOWN")
+          HARD_V=$(grep -oP 'Duplicate Violations\s*:\s*\K\d+' /tmp/governance_output.txt | head -1 || echo "0")
+          INFLATION_V=$(grep -oP 'Inflation Violations\s*:\s*\K\d+' /tmp/governance_output.txt | head -1 || echo "0")
+
+          echo "grade=$GRADE" >> $GITHUB_OUTPUT
+          echo "hard_violations=$HARD_V" >> $GITHUB_OUTPUT
+          echo "inflation_violations=$INFLATION_V" >> $GITHUB_OUTPUT
+
+          echo "::notice::Governance Grade: $GRADE | Duplicates: $HARD_V | Inflation: $INFLATION_V"
+
+          if [ "$GOV_EXIT" -eq 1 ]; then
+            echo "::error::HARD GOVERNANCE VIOLATION: enterprise_governance_engine exited $GOV_EXIT"
+            echo "::error::Duplicate violations: $HARD_V | Inflation violations: $INFLATION_V"
+            exit 1
+          elif [ "$GOV_EXIT" -eq 3 ]; then
+            echo "::warning::SOFT GOVERNANCE VIOLATION: grade=$GRADE | soft violations present"
+          else
+            echo "[PHASE 1+2] GOVERNANCE CLEAN: Grade=$GRADE"
+          fi
+
+      # ── PHASE 3: Feed Contract Validator ──────────────────────────────────
+      - name: "PHASE 3 — Feed Contract Validation (HARD FAIL on envelope drift)"
+        id: contract_check
+        run: |
+          echo "[PHASE 3] Running feed_contract_validator.py..."
+
+          LIVE_FLAG=""
+          if [ "${{ github.event.inputs.live_contracts }}" = "true" ]; then
+            LIVE_FLAG="--live"
+          fi
+
+          STRICT_FLAG=""
+          if [ "${{ github.event.inputs.strict_mode }}" = "true" ]; then
+            STRICT_FLAG="--strict"
+          fi
+
+          set +e
+          python3 scripts/feed_contract_validator.py \
+            --repo-root . \
+            --report data/governance/contract_report.json \
+            $LIVE_FLAG $STRICT_FLAG 2>&1 | tee /tmp/contract_output.txt
+          CONTRACT_EXIT=$?
+          set -e
+
+          # Determine status label
+          if [ "$CONTRACT_EXIT" -eq 0 ]; then
+            STATUS="PASS"
+          elif [ "$CONTRACT_EXIT" -eq 3 ]; then
+            STATUS="DEGRADED"
+          else
+            STATUS="HARD_FAIL"
+          fi
+
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "exit_code=$CONTRACT_EXIT" >> $GITHUB_OUTPUT
+          echo "::notice::Contract validation status: $STATUS"
+
+          if [ "$CONTRACT_EXIT" -eq 1 ]; then
+            echo "::error::HARD CONTRACT VIOLATION: Worker envelope schema drift detected"
+            echo "::error::This will cause canary false-negatives. Fix Worker or update contract registry."
+            cat /tmp/contract_output.txt | grep "\[HARD\]" || true
+            exit 1
+          elif [ "$CONTRACT_EXIT" -eq 3 ]; then
+            echo "::warning::SOFT CONTRACT VIOLATION: $STATUS"
+            cat /tmp/contract_output.txt | grep "\[SOFT\]" || true
+          else
+            echo "[PHASE 3] CONTRACT VALID: $STATUS"
+          fi
+
+      # ── PHASE 4: Source Trust Engine ──────────────────────────────────────
+      - name: "PHASE 4 — Source Trust Tier Assessment"
+        run: |
+          echo "[PHASE 4] Running source_trust_engine.py..."
+          set +e
+          python3 scripts/source_trust_engine.py --report --update 2>&1 | tee /tmp/trust_output.txt
+          TRUST_EXIT=$?
+          set -e
+
+          if [ "$TRUST_EXIT" -eq 0 ]; then
+            echo "[PHASE 4] Source trust assessment: COMPLETE"
+            # Surface trust distribution if present
+            grep -E "Trust|Source|Tier" /tmp/trust_output.txt | tail -15 || true
+          else
+            echo "::warning::Source trust engine exited $TRUST_EXIT (non-blocking)"
+          fi
+
+      # ── PHASE 5: SLA Engine ───────────────────────────────────────────────
+      - name: "PHASE 5 — Enterprise SLA Observability"
+        id: sla_check
+        run: |
+          echo "[PHASE 5] Running sla_engine.py..."
+          set +e
+          python3 scripts/sla_engine.py --tier enterprise --report 2>&1 | tee /tmp/sla_output.txt
+          SLA_EXIT=$?
+          set -e
+
+          SLA_STATUS="OK"
+          if [ "$SLA_EXIT" -ne 0 ]; then
+            SLA_STATUS="DEGRADED"
+            echo "::warning::SLA engine exited $SLA_EXIT (non-blocking for governance gate)"
+          fi
+
+          echo "sla_status=$SLA_STATUS" >> $GITHUB_OUTPUT
+          grep -E "SLA|uptime|freshness|latency|PASS|FAIL" /tmp/sla_output.txt | tail -20 || true
+
+      # ── Governance Report Summary ─────────────────────────────────────────
+      - name: "Governance Summary Report"
+        if: always()
+        run: |
+          echo ""
+          echo "========================================================"
+          echo "  SENTINEL APEX ENTERPRISE GOVERNANCE SUMMARY"
+          echo "  Run: $GITHUB_RUN_NUMBER | Pipeline: $PIPELINE_VERSION"
+          echo "========================================================"
+          echo "  Governance Grade : ${{ steps.gov_engine.outputs.grade || 'N/A' }}"
+          echo "  Contract Status  : ${{ steps.contract_check.outputs.status || 'N/A' }}"
+          echo "  SLA Status       : ${{ steps.sla_check.outputs.sla_status || 'N/A' }}"
+          echo "  Hard Violations  : ${{ steps.gov_engine.outputs.hard_violations || '0' }}"
+          echo "========================================================"
+          echo ""
+          # Show full governance report if available
+          if [ -f data/governance/governance_report.json ]; then
+            python3 -c "
+          import json, pathlib
+          r = json.loads(pathlib.Path('data/governance/governance_report.json').read_text())
+          print('  Grade              :', r.get('governance_grade', '?'))
+          print('  Total Items        :', r.get('total_items', 0))
+          print('  Duplicate Violations:', len(r.get('duplicate_violations', [])))
+          print('  Inflation Violations:', len(r.get('inflation_violations', [])))
+          print('  Contract Violations :', len(r.get('contract_violations', [])))
+          print('  Trust Distribution  :', r.get('trust_distribution', {}))
+          print('  Avg Trust Score     :', r.get('avg_trust_score', 0))
+          print('  Overall Pass        :', r.get('overall_pass', False))
+          " 2>/dev/null || echo "  [Report parse skipped]"
+          fi
+          echo "========================================================"
+
+      # ── Commit governance outputs ──────────────────────────────────────────
+      - name: "Commit governance outputs"
+        if: ${{ success() && github.event.inputs.dry_run != 'true' }}
+        run: |
+          git config user.name  "SENTINEL-APEX-GOVERNANCE[bot]"
+          git config user.email "governance@cyberdudebivash.in"
+
+          # Stage governance output files (never stage production data paths)
+          STAGED=0
+          for f in \
+            data/governance/governance_report.json \
+            data/governance/contract_report.json \
+            data/quality/source_trust_scores.json \
+            data/health/sla_status.json; do
+            if [ -f "$f" ]; then
+              git add "$f"
+              STAGED=$((STAGED + 1))
+            fi
+          done
+
+          if [ "$STAGED" -eq 0 ]; then
+            echo "[COMMIT] No governance outputs to commit — all clean or skipped."
+            exit 0
+          fi
+
+          GRADE="${{ steps.gov_engine.outputs.grade }}"
+          CONTRACT="${{ steps.contract_check.outputs.status }}"
+          SLA_ST="${{ steps.sla_check.outputs.sla_status }}"
+          TS=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+          COMMIT_MSG=$(printf '%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n  %s\n  %s\n  %s\n  %s\n\n%s' \
+            "ci(governance): enterprise governance run #${GITHUB_RUN_NUMBER} grade=${GRADE} contract=${CONTRACT}" \
+            "Pipeline  : ${PIPELINE_VERSION}" \
+            "Run       : ${GITHUB_RUN_NUMBER}" \
+            "Timestamp : ${TS}" \
+            "Grade     : ${GRADE}" \
+            "Contract  : ${CONTRACT}" \
+            "SLA       : ${SLA_ST}" \
+            "Outputs committed:" \
+            "data/governance/governance_report.json" \
+            "data/governance/contract_report.json" \
+            "data/quality/source_trust_scores.json" \
+            "data/health/sla_status.json" \
+            "governance-auto: No production data touched. Zero regression.")
+
+          git commit -m "$COMMIT_MSG" || \
+            echo "[COMMIT] Nothing to commit (outputs unchanged)."
+
+          git push origin main || {
+            echo "::warning::Governance commit push failed — pull-rebase and retry"
+            git pull origin main --rebase
+            git push origin main || echo "::warning::Push failed after rebase — governance outputs not persisted"
+          }
+
+      # ── Telegram alert on hard failure ────────────────────────────────────
+      - name: "Governance Hard-Fail Alert"
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "[ALERT] Telegram secrets not configured — skipping notification"
+            exit 0
+          fi
+          MSG="🚨 SENTINEL APEX GOVERNANCE HARD FAIL%0A"
+          MSG="${MSG}Run: #$GITHUB_RUN_NUMBER | Pipeline: $PIPELINE_VERSION%0A"
+          MSG="${MSG}Grade: ${{ steps.gov_engine.outputs.grade || 'UNKNOWN' }}%0A"
+          MSG="${MSG}Contract: ${{ steps.contract_check.outputs.status || 'UNKNOWN' }}%0A"
+          MSG="${MSG}Violations: ${{ steps.gov_engine.outputs.hard_violations || '?' }}%0A"
+          MSG="${MSG}Action required — review governance report immediately.%0A"
+          MSG="${MSG}https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          curl -s -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}&text=${MSG}&parse_mode=HTML" \
+            > /dev/null || true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 2: CANARY CONTRACT CROSS-CHECK
+# Runs AFTER governance_gate succeeds — validates canary/Worker alignment
+# This is the specific check that prevents the "items=0" class of failures.
+# ─────────────────────────────────────────────────────────────────────────────
+  canary_contract_check:
+    name: "Canary↔Worker Contract Cross-Check"
+    needs: governance_gate
+    if: always()  # Run even if governance_gate soft-failed (exit 3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: "Set up Python 3.11"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: "Canary↔Worker Envelope Alignment Check"
+        run: |
+          echo "Verifying canary parser is aligned with Worker response envelope..."
+          python3 - << 'PYEOF'
+          import re, sys
+          from pathlib import Path
+
+          canary_src = Path("scripts/deployment_canary.py").read_text(encoding="utf-8")
+          worker_src = Path("workers/intel-gateway/src/index.js").read_text(encoding="utf-8")
+
+          errors = []
+          warnings = []
+
+          # CHECK 1: Canary reads data["preview"] (not just data["items"])
+          if 'data.get("preview")' in canary_src or "data.get('preview')" in canary_src:
+              print("[PASS] Canary B reads data['preview'] -- envelope aligned")
+          else:
+              errors.append("Canary B does NOT read data['preview'] -- WILL produce false-negative")
+
+          # CHECK 2: Worker emits nested preview envelope
+          if re.search(r'preview\s*:\s*previewPayload', worker_src):
+              print("[PASS] Worker wraps payload under 'preview' key -- envelope aligned")
+          else:
+              errors.append("Worker may not wrap payload under 'preview' -- envelope drift")
+
+          # CHECK 3: MIN_PREVIEW_ITEMS in canary <= actual preview limit in Worker
+          m_canary = re.search(r'MIN_PREVIEW_ITEMS\s*=\s*(\d+)', canary_src)
+          m_worker = re.search(r'PREVIEW_LIMIT\s*:\s*(\d+)', worker_src)
+          if m_canary and m_worker:
+              canary_min = int(m_canary.group(1))
+              worker_limit = int(m_worker.group(1))
+              if canary_min <= worker_limit:
+                  print(f"[PASS] MIN_PREVIEW_ITEMS={canary_min} <= PREVIEW_LIMIT={worker_limit} -- gate achievable")
+              else:
+                  errors.append(
+                      f"MIN_PREVIEW_ITEMS={canary_min} > PREVIEW_LIMIT={worker_limit} "
+                      f"-- canary B can NEVER pass (gate is impossible)"
+                  )
+          else:
+              warnings.append("Could not parse MIN_PREVIEW_ITEMS or PREVIEW_LIMIT -- check manually")
+
+          # CHECK 4: Health canary expects status in (healthy|ok|operational)
+          # Worker emits: "healthy" | "ok" | "degraded"
+          canary_health_check = 'in ("healthy", "ok", "operational")' in canary_src or \
+                                "in ('healthy', 'ok', 'operational')" in canary_src
+          worker_emits_healthy = '"healthy"' in worker_src and '"ok"' in worker_src
+          if canary_health_check and worker_emits_healthy:
+              print("[PASS] Health canary status values aligned with Worker")
+          else:
+              warnings.append("Health canary/Worker status value alignment could not be confirmed")
+
+          # CHECK 5: Canary C accepts 401/403 (auth gate)
+          if "401" in canary_src and "403" in canary_src:
+              print("[PASS] Canary C accepts 401/403 (auth gate operating correctly)")
+          else:
+              warnings.append("Canary C may not accept 401/403 -- authenticated feed gate check")
+
+          for w in warnings:
+              print(f"[WARN] {w}")
+
+          if errors:
+              for e in errors:
+                  print(f"::error::{e}")
+              sys.exit(1)
+          else:
+              print(f"\n[ALL CHECKS PASS] Canary<->Worker envelope fully aligned")
+              print(f"  Zero-regression guarantee: canary false-negatives prevented")
+          PYEOF
+
+      - name: "Governance Gate Summary"
+        if: always()
+        run: |
+          echo ""
+          echo "========================================================"
+          echo "  Governance Gate   : ${{ needs.governance_gate.result }}"
+          echo "  Governance Grade  : ${{ needs.governance_gate.outputs.governance_grade }}"
+          echo "  Contract Status   : ${{ needs.governance_gate.outputs.contract_status }}"
+          echo "  SLA Status        : ${{ needs.governance_gate.outputs.sla_status }}"
+          echo "  Hard Violations   : ${{ needs.governance_gate.outputs.hard_violations }}"
+          echo "========================================================"
