@@ -118,12 +118,12 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "GOD-MODE");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v143");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v147");
   return new Response(response.body, { status: response.status, headers });
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "145.0.0",  // v145.0.0 PRODUCTION Production & Monetization Release
+  GATEWAY_VERSION:   "147.0.0",  // v147.0.0 ENTERPRISE-GRADE — ai_summary fix, version governance, dedup enforcement
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -4456,6 +4456,7 @@ async function servePublicIntelManifest(pathname, env, rid) {
     '/api/v1/intel/top10.json',
     '/api/v1/intel/apex.json',
     '/api/v1/intel/manifest.json',
+    '/api/v1/intel/ai_summary.json',   // AI Cyber Brain endpoint (v147.0 -- was erroneously absent)
   ]);
   if (!ALLOWED.has(pathname)) {
     return jsonResponse({ error: 'not_found', message: `Manifest '${pathname}' not found.`, request_id: rid }, 404);

@@ -290,10 +290,11 @@ def main() -> None:
     # Uploading here guarantees Worker hits R2 (primary, ~1ms) instead of
     # GitHub raw fallback (~150-300ms, rate-limited).
     intel_v1_manifests = [
-        ("api/v1/intel/latest.json",   "api/v1/intel/latest.json"),
-        ("api/v1/intel/top10.json",    "api/v1/intel/top10.json"),
-        ("api/v1/intel/apex.json",     "api/v1/intel/apex.json"),
-        ("api/v1/intel/manifest.json", "api/v1/intel/manifest.json"),
+        ("api/v1/intel/latest.json",      "api/v1/intel/latest.json"),
+        ("api/v1/intel/top10.json",       "api/v1/intel/top10.json"),
+        ("api/v1/intel/apex.json",        "api/v1/intel/apex.json"),
+        ("api/v1/intel/manifest.json",    "api/v1/intel/manifest.json"),
+        ("api/v1/intel/ai_summary.json",  "api/v1/intel/ai_summary.json"),  # AI Cyber Brain endpoint (v147.0)
     ]
     uploaded_manifests = 0
     for src, dst_key in intel_v1_manifests:

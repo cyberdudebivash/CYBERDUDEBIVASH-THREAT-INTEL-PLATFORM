@@ -598,6 +598,36 @@ jobs:
         run: python3 scripts/validate_api_manifests.py
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.7: GLOBAL VERSION GOVERNANCE (v147.0 -- HARD FAIL)
+      # Reads VERSION as the single authoritative semver and propagates it to
+      # every component that carries a version string:
+      #   workers/intel-gateway/src/index.js  (GATEWAY_VERSION)
+      #   js/api_adapter.js                   (VERSION constant)
+      #   scripts/ai_brain_publisher.py       (VERSION constant)
+      #   scripts/r2_upload.py                (PIPELINE_VERSION default)
+      #   version.json                        (all version fields)
+      # Hard fail if any file cannot be updated (write error).
+      # Zero platform-wide version drift tolerated post this stage.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.7 - Global Version Governance (HARD FAIL on write error)"
+        timeout-minutes: 3
+        run: |
+          python3 scripts/version_governance.py --apply
+          echo "[PASS] Version governance applied -- all components aligned to $(cat VERSION)"
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.93.8: VERSION DRIFT DETECTION (v147.0 -- HARD FAIL)
+      # After --apply, runs --check to confirm zero drift remains.
+      # Belt-and-suspenders: catches any file the apply step missed or that
+      # was mutated by a concurrent pipeline step.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.8 - Version Drift Detection (HARD FAIL on drift)"
+        timeout-minutes: 3
+        run: |
+          python3 scripts/version_governance.py --check
+          echo "[PASS] Zero version drift detected"
+
+      # -----------------------------------------------------------------------
       # STAGE 3.94: STABILITY LOCK CONFIRMATION (v150.0 -- HARDENING)
       # Re-runs the baseline stability lock AFTER all data writes.
       # Confirms:
