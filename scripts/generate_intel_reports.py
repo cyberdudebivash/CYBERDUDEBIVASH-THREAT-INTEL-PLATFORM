@@ -1522,8 +1522,8 @@ def render_report(item: dict, public_prefix: str) -> str:
     _ioc_conf    = min(int(item.get("ioc_confidence") or 75), 100)
     _ioc_list    = item.get("iocs") or []
     _ttp_list    = (item.get("apex_ai") or {}).get("ttps") or item.get("ttps") or []
-    _cvss_disp   = str(item.get("cvss_score") or "N/A")
-    _epss_disp   = str(item.get("epss_score") or "N/A")
+    _cvss_disp   = str(item["cvss_score"]) if item.get("cvss_score") is not None else "Pending"
+    _epss_disp   = str(item["epss_score"]) if item.get("epss_score") is not None else "Pending"
     _epss_pct    = "%" if item.get("epss_score") is not None else ""
     _kev         = bool(item.get("kev_present"))
     _kev_disp    = "YES &#x26A0;" if _kev else "No"
