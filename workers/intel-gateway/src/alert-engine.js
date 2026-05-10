@@ -431,7 +431,7 @@ async function _sendWebhook(payload, url, env) {
     headers: {
       "Content-Type":       "application/json",
       "X-Sentinel-Source":  "CYBERDUDEBIVASH-SENTINEL-APEX",
-      "X-Sentinel-Version": "143.0.0",
+      "X-Sentinel-Version": "145.0.0",
       "X-Alert-Type":       payload.is_test ? "test" : "threat_alert",
     },
     body: JSON.stringify({
@@ -469,10 +469,10 @@ async function _recordHistory(env, entry) {
 function _json(status, body) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", "X-Sentinel-Version": "143.0.0" },
+    headers: { "Content-Type": "application/json", "X-Sentinel-Version": "145.0.0" },
   });
 }
 
 function _jsonErr(status, message, rid) {
-  return _json(status, { error: true, message, rid, version: "143.0.0" });
+  return _json(status, { error: true, message, rid, version: "145.0.0" });
 }

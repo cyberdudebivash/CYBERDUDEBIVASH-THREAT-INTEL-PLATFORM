@@ -69,7 +69,7 @@ async function kvPut(env, key, value, ttl = 3600) {
 // Requires: Pro tier minimum. Full scan requires Enterprise.
 // Returns: threat_indicators[], breach_records[], risk_score, recommended_actions[]
 export async function handleDarkWebScan(request, env, auth, rid) {
-  const VERSION = "143.0.0";
+  const VERSION = "145.0.0";
 
   // Tier gate
   const tier = auth.tier || "free";

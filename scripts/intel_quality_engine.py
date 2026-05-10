@@ -1358,6 +1358,8 @@ if __name__ == "__main__":
     parser.add_argument("--manifest", default=str(REPO_ROOT / "data/stix/feed_manifest.json"),
                         help="Path to feed_manifest.json")
     parser.add_argument("--dry-run", action="store_true", help="Run without writing output")
+    parser.add_argument("--report", action="store_true",
+                        help="Print full quality report to stdout after pipeline run")
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest)
@@ -1379,4 +1381,30 @@ if __name__ == "__main__":
     print(f"[RESULT] is_new=True  : {len(new_entries)} entries")
     dup_stix = len(result) - len({e.get('stix_id') for e in result})
     print(f"[RESULT] duplicate_count: {dup_stix}")
+
+    if args.report:
+        # Print quality report summary from written report file
+        report_file = QUALITY_DIR / "intel_quality_report.json"
+        if report_file.exists():
+            try:
+                with open(report_file, encoding="utf-8") as rf:
+                    rpt = json.load(rf)
+                print("[QUALITY REPORT]")
+                print(f"  Engine version : {rpt.get('engine_version', _ENGINE_VERSION)}")
+                print(f"  Total entries  : {rpt.get('total_input', len(result))}")
+                print(f"  Duplicates rm  : {rpt.get('duplicates_removed', 0)}")
+                print(f"  New entries    : {rpt.get('new_entries', len(new_entries))}")
+                print(f"  Quality score  : {rpt.get('quality_score', 'N/A')}")
+                print(f"  Report path    : {report_file}")
+            except Exception as _re:
+                print(f"[QUALITY REPORT] Could not read report: {_re}")
+        else:
+            # Fallback: synthesize a brief report from the result
+            print("[QUALITY REPORT]")
+            print(f"  Engine version : {_ENGINE_VERSION}")
+            print(f"  Total entries  : {len(result)}")
+            print(f"  Duplicates rm  : {len(raw_items) - len(result)}")
+            print(f"  New entries    : {len(new_entries)}")
+            print(f"  Duplicate stix : {dup_stix}")
+
     print("[DONE]")
