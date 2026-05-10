@@ -50,6 +50,10 @@ class ApexIntelligenceEngine:
         self._fp_obs             = None
         self._obs_dashboard      = None
         self._saas_hardening     = None
+        # Final Production: Dossier Quality + Tenant Isolation + Monetization
+        self._dossier_quality    = None
+        self._tenant_isolation   = None
+        self._monetization       = None
         self._initialized  = False
         self.stats = {
             "advisories_processed": 0,
@@ -139,6 +143,28 @@ class ApexIntelligenceEngine:
         except Exception as e:
             logger.warning(f"[APEX-ENGINE] Observability Engines partial init: {e}")
 
+        # Final Production: Dossier Quality + Tenant Isolation + Monetization (lazy, non-blocking)
+        try:
+            from agent.dossier_quality_engine import DossierQualityEngine
+            self._dossier_quality = DossierQualityEngine()
+            logger.info("[APEX-ENGINE] Dossier Quality Engine initialized")
+        except Exception as e:
+            logger.warning(f"[APEX-ENGINE] Dossier Quality Engine partial init: {e}")
+
+        try:
+            from agent.enterprise_tenant_isolation_engine import EnterpriseTenantIsolationEngine
+            self._tenant_isolation = EnterpriseTenantIsolationEngine()
+            logger.info("[APEX-ENGINE] Tenant Isolation Engine initialized")
+        except Exception as e:
+            logger.warning(f"[APEX-ENGINE] Tenant Isolation Engine partial init: {e}")
+
+        try:
+            from agent.enterprise_monetization_analytics_engine import EnterpriseMonetizationAnalyticsEngine
+            self._monetization = EnterpriseMonetizationAnalyticsEngine()
+            logger.info("[APEX-ENGINE] Monetization Analytics Engine initialized")
+        except Exception as e:
+            logger.warning(f"[APEX-ENGINE] Monetization Analytics Engine partial init: {e}")
+
     def process_advisory(self, advisory: Dict) -> Dict:
         """
         Full pipeline for a single advisory.
@@ -159,7 +185,7 @@ class ApexIntelligenceEngine:
         except Exception as e:
             logger.debug(f"[APEX] scoring error: {e}")
 
-        # 2. AUTONOMOUS SOC — T1 triage
+        # 2. AUTONOMOUS SOC -- T1 triage
         try:
             if self._soc:
                 triage = self._soc.tier1.triage(advisory)
@@ -173,14 +199,14 @@ class ApexIntelligenceEngine:
         except Exception as e:
             logger.debug(f"[APEX] SOC triage error: {e}")
 
-        # 3. THREAT GRAPH — ingest advisory
+        # 3. THREAT GRAPH -- ingest advisory
         try:
             if self._graph:
                 results["graph_ingest"] = self._graph.ingest_advisory(advisory)
         except Exception as e:
             logger.debug(f"[APEX] graph error: {e}")
 
-        # 4. PREDICTIVE — behavioral anomaly
+        # 4. PREDICTIVE -- behavioral anomaly
         try:
             if self._behavioral:
                 results["anomaly_detection"] = self._behavioral.detect_anomaly(advisory)
@@ -240,7 +266,7 @@ class ApexIntelligenceEngine:
         except Exception as e:
             logger.debug(f"[APEX] copilot index error: {e}")
 
-        # ── ENTERPRISE INTELLIGENCE QUALITY ENGINES (Phase 1-6) ──────────────
+        # ENTERPRISE INTELLIGENCE QUALITY ENGINES (Phase 1-6)
 
         # Phase 1: IOC Depth Recovery
         try:
@@ -292,13 +318,28 @@ class ApexIntelligenceEngine:
         except Exception as e:
             logger.debug(f"[APEX] explainable_confidence error: {e}")
 
+        # DOSSIER QUALITY ENGINE
+        try:
+            if self._dossier_quality:
+                dq = self._dossier_quality.process_advisory(advisory)
+                results["dossier_quality"] = {
+                    "grade":           dq.grade,
+                    "quality_score":   dq.quality_score,
+                    "iocs_suppressed": dq.iocs_suppressed,
+                    "generic_ttp":     dq.generic_ttp_detected,
+                    "confidence_adj":  dq.confidence_adjusted_to,
+                    "recommendations": dq.recommendations[:3],
+                }
+        except Exception as e:
+            logger.debug(f"[APEX] dossier_quality error: {e}")
+
         self.stats["advisories_processed"] += 1
         results["status"] = "PROCESSED"
         results["apex_stats"] = self.stats.copy()
 
         logger.info(
             f"[APEX-ENGINE] Processed: {advisory.get('title','')[:50]} | "
-            f"engines=phase1-6+legacy"
+            f"engines=phase1-6+observability+production"
         )
         return results
 
@@ -317,9 +358,10 @@ class ApexIntelligenceEngine:
         return {}
 
     def get_engine_status(self) -> Dict:
-        """Full engine health check including Phase 1-6 Enterprise Engines."""
+        """Full engine health check — all 30 engines."""
         self._lazy_init()
         engines = {
+            # Legacy 12
             "soc":                    self._soc is not None,
             "threat_graph":           self._graph is not None,
             "predictive":             self._predictive is not None,
@@ -349,9 +391,13 @@ class ApexIntelligenceEngine:
             "fp_observability":       self._fp_obs is not None,
             "obs_dashboard":          self._obs_dashboard is not None,
             "saas_hardening":         self._saas_hardening is not None,
+            # Final Production Engines
+            "dossier_quality":        self._dossier_quality is not None,
+            "tenant_isolation":       self._tenant_isolation is not None,
+            "monetization_analytics": self._monetization is not None,
         }
         return {
-            "engine": "CYBERDUDEBIVASH Apex Intelligence Engine v1.0 + Observability v1",
+            "engine": "CYBERDUDEBIVASH Apex Intelligence Engine v1.0 + Quality v1 + Observability v1 + Production v1",
             "status": "OPERATIONAL" if all(engines.values()) else "PARTIAL",
             "engines_online": sum(engines.values()),
             "engines_total":  len(engines),
