@@ -120,7 +120,22 @@ def canary_b_preview(base: str, timeout: int) -> Dict:
 
     try:
         data = json.loads(body)
-        items = data if isinstance(data, list) else data.get("items", data.get("data", []))
+        # Worker response shape: {"status":"ok","preview":{"items":[...],"total_preview":N,...}}
+        # Canary must parse the nested "preview.items" path first (primary Worker format),
+        # then fall back to flat shapes for forward-compatibility.
+        # ROOT CAUSE FIX v150.1: Previous parser looked for top-level "items" key which
+        # does not exist in the Worker envelope -- items are nested under data["preview"]["items"].
+        if isinstance(data, list):
+            # Flat list response (legacy / direct array)
+            items = data
+        elif isinstance(data.get("preview"), dict):
+            # Primary Worker format: {"preview": {"items": [...], ...}}
+            items = data["preview"].get("items", [])
+        else:
+            # Flat object fallback: {"items": [...]} or {"data": [...]}
+            items = data.get("items", data.get("data", []))
+        if not isinstance(items, list):
+            items = []
         count = len(items)
         result["pass"] = count >= MIN_PREVIEW_ITEMS
         result["details"] = "items=%d (min=%d)" % (count, MIN_PREVIEW_ITEMS)
