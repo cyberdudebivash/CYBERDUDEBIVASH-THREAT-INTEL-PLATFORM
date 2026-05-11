@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise Onboarding — CYBERDUDEBIVASH SENTINEL APEX</title>
+<meta name="description" content="Enterprise onboarding portal for SENTINEL APEX. SIEM integration guides, API quickstart, MSSP setup, and customer success resources.">
+<link rel="canonical" href="https://intel.cyberdudebivash.com/onboarding.html">
+<style>
+:root{
+  --bg:#060d19;--panel:#0b1425;--panel2:#0e1930;--panel3:#0a1120;
+  --border:#162035;--border2:#1e2d45;--border3:#243554;
+  --accent:#00d4aa;--accent2:#0099ff;--accent3:#7c3aed;
+  --green:#22c55e;--yellow:#f59e0b;--red:#ef4444;--orange:#f97316;
+  --text:#e8eef8;--muted:#7a8499;--muted2:#9aabb8;
+  --mono:'JetBrains Mono',Menlo,Consolas,monospace;--radius:6px;
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:15px;line-height:1.7}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.nav{background:rgba(6,13,25,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:14px 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;text-decoration:none}
+.live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.3)}}
+.nav-links a{color:var(--muted2);font-size:12px;margin-left:20px;transition:color .2s}
+.nav-links a:hover{color:var(--text);text-decoration:none}
+.nav-cta{padding:7px 18px;background:var(--accent3);color:#fff;border-radius:4px;font-family:var(--mono);font-size:11px;font-weight:700;margin-left:20px;transition:background .2s}
+.nav-cta:hover{background:#6d28d9;text-decoration:none;color:#fff}
+.wrap{max-width:1040px;margin:0 auto;padding:0 32px}
+.page-header{padding:64px 0 48px}
+.page-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2);border-radius:100px;padding:6px 16px;font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:20px}
+.page-title{font-size:42px;font-weight:800;margin-bottom:14px;line-height:1.1}
+.page-sub{font-size:17px;color:var(--muted2);max-width:600px;line-height:1.65}
+
+/* TWO-COLUMN LAYOUT */
+.two-col{display:grid;grid-template-columns:280px 1fr;gap:40px;align-items:start}
+.sidebar{position:sticky;top:80px}
+.sidebar-nav{background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden}
+.sidebar-section{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;padding:14px 20px 8px;border-top:1px solid var(--border)}
+.sidebar-section:first-child{border-top:none}
+.sidebar-link{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:13px;color:var(--muted2);transition:all .2s;border-left:2px solid transparent}
+.sidebar-link:hover{color:var(--text);background:rgba(255,255,255,0.03);text-decoration:none}
+.sidebar-link.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,212,170,0.04)}
+.sidebar-link .num{font-family:var(--mono);font-size:10px;width:18px;height:18px;background:var(--border2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sidebar-link.done .num{background:rgba(34,197,94,0.15);color:var(--green)}
+.sidebar-link.active .num{background:rgba(0,212,170,0.15);color:var(--accent)}
+
+/* CONTENT AREA */
+.content{}
+.step-section{margin-bottom:48px;padding-top:8px}
+.step-header{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+.step-num{width:40px;height:40px;border-radius:50%;background:rgba(0,212,170,0.1);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:16px;font-weight:800;color:var(--accent);flex-shrink:0}
+.step-title{font-size:24px;font-weight:800}
+.step-est{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;margin-left:auto}
+
+/* CARDS */
+.card{background:var(--panel);border:1px solid var(--border2);border-radius:var(--radius);padding:24px;margin-bottom:16px}
+.card-title{font-size:15px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.card-badge{font-family:var(--mono);font-size:8px;letter-spacing:1px;padding:2px 8px;border-radius:3px;text-transform:uppercase}
+.badge-required{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:var(--red)}
+.badge-optional{background:rgba(100,116,139,0.1);border:1px solid rgba(100,116,139,0.25);color:var(--muted)}
+.badge-enterprise{background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.25);color:var(--accent3)}
+
+/* CODE BLOCKS */
+.code-block{background:var(--panel3);border:1px solid var(--border2);border-radius:4px;padding:16px 20px;font-family:var(--mono);font-size:12px;color:#e2e8f0;overflow-x:auto;margin:10px 0;position:relative}
+.code-block .comment{color:var(--muted)}
+.code-block .key{color:var(--accent2)}
+.code-block .val{color:var(--green)}
+.code-block .str{color:var(--yellow)}
+.code-copy{position:absolute;top:8px;right:10px;font-size:10px;color:var(--muted);cursor:pointer;font-family:var(--mono);letter-spacing:1px;border:1px solid var(--border3);padding:3px 8px;border-radius:3px;transition:all .2s}
+.code-copy:hover{color:var(--text);border-color:var(--accent)}
+
+/* SIEM GRID */
+.siem-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:14px}
+.siem-card{background:var(--panel2);border:1px solid var(--border2);border-radius:var(--radius);padding:18px;cursor:pointer;transition:border-color .2s,box-shadow .2s}
+.siem-card:hover,.siem-card.selected{border-color:var(--accent);box-shadow:0 0 12px rgba(0,212,170,0.1)}
+.siem-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.siem-type{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+.siem-format{display:flex;flex-wrap:wrap;gap:5px}
+.siem-tag{font-family:var(--mono);font-size:8px;padding:2px 7px;border:1px solid var(--border3);border-radius:3px;color:var(--muted);letter-spacing:0.5px}
+
+/* CHECKLIST */
+.checklist{list-style:none;margin:10px 0}
+.checklist li{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted2)}
+.checklist li:last-child{border-bottom:none}
+.checklist .check-box{width:18px;height:18px;border:2px solid var(--border3);border-radius:4px;flex-shrink:0;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.checklist .check-box.done{background:rgba(34,197,94,0.15);border-color:var(--green)}
+.checklist .check-box.done::after{content:'✓';color:var(--green);font-size:11px}
+
+/* PROGRESS */
+.progress-bar{height:6px;background:var(--border2);border-radius:3px;overflow:hidden;margin:12px 0}
+.progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent3));transition:width .4s ease}
+
+/* ALERT BOXES */
+.alert{border-radius:var(--radius);padding:14px 18px;margin:12px 0;display:flex;gap:12px}
+.alert-info{background:rgba(0,153,255,0.06);border:1px solid rgba(0,153,255,0.2)}
+.alert-success{background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2)}
+.alert-warn{background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2)}
+.alert-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.alert-text{font-size:13px;color:var(--muted2);line-height:1.6}
+.alert-text strong{color:var(--text)}
+
+/* RESOURCE GRID */
+.resource-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+.resource-card{background:var(--panel2);border:1px solid var(--border2);border-radius:var(--radius);padding:16px;display:flex;align-items:center;gap:12px;transition:border-color .2s}
+.resource-card:hover{border-color:var(--accent);text-decoration:none}
+.resource-icon{font-size:22px;flex-shrink:0}
+.resource-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.resource-desc{font-size:11px;color:var(--muted2)}
+
+/* CONTACT SUPPORT */
+.support-box{background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(0,212,170,0.04));border:1px solid rgba(124,58,237,0.2);border-radius:var(--radius);padding:28px;text-align:center;margin-top:40px}
+
+.footer{border-top:1px solid var(--border);padding:28px 0;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:2;margin-top:60px}
+@media(max-width:800px){.two-col{grid-template-columns:1fr}.sidebar{position:static}.siem-grid,.resource-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="https://intel.cyberdudebivash.com" class="nav-brand"><span class="live-dot"></span>SENTINEL APEX</a>
+  <div class="nav-links">
+    <a href="https://intel.cyberdudebivash.com">Platform</a>
+    <a href="https://intel.cyberdudebivash.com/api-docs.html">API Docs</a>
+    <a href="https://intel.cyberdudebivash.com/enterprise.html">Enterprise</a>
+    <a href="https://intel.cyberdudebivash.com/trust-center.html">Trust Center</a>
+    <a href="mailto:intelligence@cyberdudebivash.com" class="nav-cta">Support</a>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="page-header">
+    <div class="page-badge">⚡ Enterprise Onboarding</div>
+    <h1 class="page-title">Get Operational in<br>5 Business Days</h1>
+    <p class="page-sub">This guide walks your team through complete SENTINEL APEX integration — from API key provisioning to live SIEM detection rules and white-label configuration.</p>
+    <div style="margin-top:16px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">ONBOARDING PROGRESS</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--accent)" id="progress-pct">0% complete</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:0%" id="progress-fill"></div></div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-nav">
+        <div class="sidebar-section">Getting Started</div>
+        <a href="#step-1" class="sidebar-link active"><span class="num">1</span> API Key Setup</a>
+        <a href="#step-2" class="sidebar-link"><span class="num">2</span> First API Call</a>
+        <a href="#step-3" class="sidebar-link"><span class="num">3</span> SIEM Integration</a>
+        <div class="sidebar-section">Enterprise Config</div>
+        <a href="#step-4" class="sidebar-link"><span class="num">4</span> STIX / TAXII Feed</a>
+        <a href="#step-5" class="sidebar-link"><span class="num">5</span> Detection Rules</a>
+        <a href="#step-6" class="sidebar-link"><span class="num">6</span> White-Label Setup</a>
+        <div class="sidebar-section">Advanced</div>
+        <a href="#step-7" class="sidebar-link"><span class="num">7</span> AI Cyber Brain API</a>
+        <a href="#step-8" class="sidebar-link"><span class="num">8</span> Monitoring &amp; Alerts</a>
+        <div class="sidebar-section">Resources</div>
+        <a href="#resources" class="sidebar-link"><span class="num">→</span> Quick Reference</a>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- STEP 1 -->
+      <div class="step-section" id="step-1">
+        <div class="step-header">
+          <div class="step-num">1</div>
+          <div>
+            <div class="step-title">API Key Provisioning</div>
+          </div>
+          <div class="step-est">⏱ ~5 min</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Request Your Enterprise API Key <span class="card-badge badge-required">Required</span></div>
+          <p style="font-size:13px;color:var(--muted2);margin-bottom:14px">Enterprise API keys are provisioned by the SENTINEL APEX team within 1 business day of subscription confirmation.</p>
+          <div class="alert alert-info">
+            <span class="alert-icon">ℹ️</span>
+            <div class="alert-text"><strong>Enterprise keys include:</strong> 50,000+ API calls/month, STIX 2.1 TAXII access, white-label endpoints, and dedicated rate limit pools separate from free-tier users.</div>
+          </div>
+          <div style="margin-top:14px">
+            <a href="mailto:intelligence@cyberdudebivash.com?subject=Enterprise%20API%20Key%20Request" style="display:inline-flex;align-items:center;gap:8px;padding:10px 22px;background:var(--accent3);color:#fff;border-radius:4px;font-family:var(--mono);font-size:11px;font-weight:700;transition:background .2s">↗ Request API Key</a>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Store Your API Key Securely</div>
+          <p style="font-size:13px;color:var(--muted2);margin-bottom:12px">Store your API key in an environment variable — never hardcode it in source files.</p>
+          <div class="code-block">
+<span class="comment"># Linux / macOS — add to ~/.bashrc or ~/.zshrc</span>
+<span class="key">export</span> <span class="val">SENTINEL_API_KEY</span>=<span class="str">"sk_enterprise_YOUR_KEY_HERE"</span>
+
+<span class="comment"># Windows PowerShell</span>
+<span class="key">$env</span>:<span class="val">SENTINEL_API_KEY</span> = <span class="str">"sk_enterprise_YOUR_KEY_HERE"</span>
+
+<span class="comment"># Docker / Kubernetes</span>
+<span class="key">env</span>:
+  - <span class="val">name</span>: <span class="str">SENTINEL_API_KEY</span>
+    <span class="val">valueFrom</span>:
+      <span class="val">secretKeyRef</span>:
+        <span class="val">name</span>: <span class="str">sentinel-secrets</span>
+        <span class="val">key</span>: <span class="str">api-key</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="step-section" id="step-2">
+        <div class="step-header">
+          <div class="step-num">2</div>
+          <div><div class="step-title">First API Call</div></div>
+          <div class="step-est">⏱ ~10 min</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Verify Your Connection</div>
+          <p style="font-size:13px;color:var(--muted2);margin-bottom:12px">Run this to verify your API key and check your subscription tier:</p>
+          <div class="code-block">
+<span class="comment"># Health + auth check</span>
+curl -H <span class="str">"X-API-Key: $SENTINEL_API_KEY"</span> \
+  https://intel.cyberdudebivash.com/api/v1/health
+
+<span class="comment"># Expected response:</span>
+{
+  <span class="key">"status"</span>: <span class="str">"operational"</span>,
+  <span class="key">"tier"</span>: <span class="str">"enterprise"</span>,
+  <span class="key">"calls_remaining"</span>: 49987,
+  <span class="key">"version"</span>: <span class="str">"v148.0"</span>
+}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Fetch Recent CRITICAL Advisories</div>
+          <div class="code-block">
+<span class="comment"># Fetch 10 most recent CRITICAL advisories</span>
+curl -H <span class="str">"X-API-Key: $SENTINEL_API_KEY"</span> \
+  "https://intel.cyberdudebivash.com/api/v1/advisories?severity=CRITICAL&limit=10"
+
+<span class="comment"># Python SDK example</span>
+<span class="key">import</span> requests
+
+client = requests.Session()
+client.headers[<span class="str">"X-API-Key"</span>] = os.environ[<span class="str">"SENTINEL_API_KEY"</span>]
+
+resp = client.get(
+    <span class="str">"https://intel.cyberdudebivash.com/api/v1/advisories"</span>,
+    params={<span class="str">"severity"</span>: <span class="str">"CRITICAL"</span>, <span class="str">"limit"</span>: 10, <span class="str">"stix"</span>: <span class="str">"true"</span>}
+)
+advisories = resp.json()[<span class="str">"advisories"</span>]
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Key API Endpoints</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px">
+            <thead><tr><th style="text-align:left;padding:8px 12px;background:var(--panel2);font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border2)">Endpoint</th><th style="text-align:left;padding:8px 12px;background:var(--panel2);font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border2)">Description</th></tr></thead>
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border)"><td style="padding:9px 12px;font-family:var(--mono);color:var(--accent)">GET /api/v1/advisories</td><td style="padding:9px 12px;color:var(--muted2)">List advisories — filter by severity, CVE ID, date, KEV, EPSS</td></tr>
+              <tr style="border-bottom:1px solid var(--border)"><td style="padding:9px 12px;font-family:var(--mono);color:var(--accent)">GET /api/v1/advisories/{id}</td><td style="padding:9px 12px;color:var(--muted2)">Full god mode dossier — all 20 sections</td></tr>
+              <tr style="border-bottom:1px solid var(--border)"><td style="padding:9px 12px;font-family:var(--mono);color:var(--accent)">GET /api/v1/stix/{id}</td><td style="padding:9px 12px;color:var(--muted2)">STIX 2.1 bundle for a specific advisory</td></tr>
+              <tr style="border-bottom:1px solid var(--border)"><td style="padding:9px 12px;font-family:var(--mono);color:var(--accent)">GET /api/v1/rules/{id}</td><td style="padding:9px 12px;color:var(--muted2)">Detection rules — Sigma, KQL, SPL, EQL, YARA</td></tr>
+              <tr style="border-bottom:1px solid var(--border)"><td style="padding:9px 12px;font-family:var(--mono);color:var(--accent)">GET /api/v1/iocs</td><td style="padding:9px 12px;color:var(--muted2)">IOC feed — IPs, domains, hashes, TTPs</td></tr>
+              <tr><td style="padding:9px 12px;font-family:var(--mono);color:var(--accent)">GET /api/v1/ai/brain</td><td style="padding:9px 12px;color:var(--muted2)">AI Cyber Brain — campaigns, forecasts, SOC queue</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="step-section" id="step-3">
+        <div class="step-header">
+          <div class="step-num">3</div>
+          <div><div class="step-title">SIEM Integration</div></div>
+          <div class="step-est">⏱ ~2 hours</div>
+        </div>
+        <p style="font-size:14px;color:var(--muted2);margin-bottom:16px">Select your SIEM platform to see platform-specific integration instructions:</p>
+        <div class="siem-grid">
+          <div class="siem-card selected" onclick="selectSiem(this,'sentinel')">
+            <div class="siem-name">Microsoft Sentinel</div>
+            <div class="siem-type">SIEM / SOAR</div>
+            <div class="siem-format"><span class="siem-tag">KQL Rules</span><span class="siem-tag">STIX TAXII</span><span class="siem-tag">Watchlists</span></div>
+          </div>
+          <div class="siem-card" onclick="selectSiem(this,'splunk')">
+            <div class="siem-name">Splunk Enterprise</div>
+            <div class="siem-type">SIEM / SOAR</div>
+            <div class="siem-format"><span class="siem-tag">SPL Rules</span><span class="siem-tag">Lookups</span><span class="siem-tag">TA App</span></div>
+          </div>
+          <div class="siem-card" onclick="selectSiem(this,'elastic')">
+            <div class="siem-name">Elastic Security</div>
+            <div class="siem-type">SIEM / EDR</div>
+            <div class="siem-format"><span class="siem-tag">EQL Rules</span><span class="siem-tag">STIX</span><span class="siem-tag">Fleet</span></div>
+          </div>
+          <div class="siem-card" onclick="selectSiem(this,'qradar')">
+            <div class="siem-name">IBM QRadar</div>
+            <div class="siem-type">SIEM</div>
+            <div class="siem-format"><span class="siem-tag">STIX TAXII</span><span class="siem-tag">Reference Sets</span></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px" id="siem-instructions">
+          <div class="card-title">Microsoft Sentinel — Integration Guide</div>
+          <div class="alert alert-success" style="margin-bottom:14px">
+            <span class="alert-icon">✅</span>
+            <div class="alert-text"><strong>Recommended approach:</strong> Connect via STIX TAXII for automatic IOC ingestion, then import KQL detection rules via Analytics Rules.</div>
+          </div>
+          <div class="code-block">
+<span class="comment"># Step 1: Add TAXII connector in Sentinel</span>
+<span class="comment"># Navigate: Sentinel → Data Connectors → TAXII (Preview)</span>
+<span class="key">Friendly Name</span>: SENTINEL APEX Threat Intel
+<span class="key">API Root URL</span>: https://intel.cyberdudebivash.com/api/v1/taxii/
+<span class="key">Collection ID</span>: enterprise-stix-bundle
+<span class="key">Username</span>: enterprise
+<span class="key">Password</span>: <span class="str">$SENTINEL_API_KEY</span>
+<span class="key">Lookback period</span>: 7 days
+
+<span class="comment"># Step 2: Import KQL detection rules via API</span>
+$rules = Invoke-RestMethod `
+  -Uri "https://intel.cyberdudebivash.com/api/v1/rules/kql/latest" `
+  -Headers @{"X-API-Key" = $env:SENTINEL_API_KEY}
+<span class="comment"># Then import via Sentinel → Analytics → Import</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4 -->
+      <div class="step-section" id="step-4">
+        <div class="step-header">
+          <div class="step-num">4</div>
+          <div><div class="step-title">STIX 2.1 / TAXII 2.1 Feed Setup</div></div>
+          <div class="step-est">⏱ ~30 min</div>
+        </div>
+        <div class="card">
+          <div class="card-title">TAXII 2.1 Server Endpoints</div>
+          <div class="code-block">
+<span class="comment"># Discovery endpoint</span>
+GET https://intel.cyberdudebivash.com/api/v1/taxii/
+
+<span class="comment"># API Root</span>
+GET https://intel.cyberdudebivash.com/api/v1/taxii/enterprise/
+
+<span class="comment"># Collections</span>
+GET https://intel.cyberdudebivash.com/api/v1/taxii/enterprise/collections/
+
+<span class="comment"># Get STIX objects from collection</span>
+GET https://intel.cyberdudebivash.com/api/v1/taxii/enterprise/collections/stix-bundle/objects/
+  ?added_after=2026-05-01T00:00:00Z
+  &match[type]=vulnerability,indicator,threat-actor
+
+<span class="comment"># Authentication: HTTP Basic</span>
+Authorization: Basic base64(enterprise:<span class="str">$SENTINEL_API_KEY</span>)
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Python TAXII Client Example</div>
+          <div class="code-block">
+<span class="key">from</span> taxii2client.v21 <span class="key">import</span> Server, ApiRoot
+<span class="key">import</span> os
+
+server = Server(
+    <span class="str">"https://intel.cyberdudebivash.com/api/v1/taxii/"</span>,
+    user=<span class="str">"enterprise"</span>,
+    password=os.environ[<span class="str">"SENTINEL_API_KEY"</span>]
+)
+
+api_root: ApiRoot = server.api_roots[0]
+collection = api_root.collections[0]
+
+<span class="comment"># Fetch all STIX 2.1 objects</span>
+bundle = collection.get_objects()
+<span class="key">for</span> obj <span class="key">in</span> bundle.get(<span class="str">"objects"</span>, []):
+    print(f"{obj[<span class="str">'type'</span>]}: {obj.get(<span class="str">'name'</span>, obj[<span class="str">'id'</span>])}")
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 5 -->
+      <div class="step-section" id="step-5">
+        <div class="step-header">
+          <div class="step-num">5</div>
+          <div><div class="step-title">Detection Rule Deployment</div></div>
+          <div class="step-est">⏱ ~1 hour</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Rule Formats Available</div>
+          <div class="alert alert-info">
+            <span class="alert-icon">ℹ️</span>
+            <div class="alert-text">All rule formats are available per-advisory and as weekly bulk packs. Rules are tested against real telemetry patterns and reviewed before publication.</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px">
+            <div style="background:var(--panel2);border:1px solid var(--border2);border-radius:4px;padding:12px;text-align:center"><div style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent)">Sigma</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">SIEM-agnostic</div></div>
+            <div style="background:var(--panel2);border:1px solid var(--border2);border-radius:4px;padding:12px;text-align:center"><div style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent2)">KQL</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">Microsoft Sentinel</div></div>
+            <div style="background:var(--panel2);border:1px solid var(--border2);border-radius:4px;padding:12px;text-align:center"><div style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--yellow)">SPL</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">Splunk</div></div>
+            <div style="background:var(--panel2);border:1px solid var(--border2);border-radius:4px;padding:12px;text-align:center"><div style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--orange)">EQL</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">Elastic</div></div>
+            <div style="background:var(--panel2);border:1px solid var(--border2);border-radius:4px;padding:12px;text-align:center"><div style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--green)">YARA</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">Endpoint / Malware</div></div>
+            <div style="background:var(--panel2);border:1px solid var(--border2);border-radius:4px;padding:12px;text-align:center"><div style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent3)">YARA-L</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">Chronicle</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Fetch &amp; Deploy Weekly Rule Pack</div>
+          <div class="code-block">
+<span class="comment"># Download this week's Sigma rule pack (all advisories)</span>
+curl -H <span class="str">"X-API-Key: $SENTINEL_API_KEY"</span> \
+  "https://intel.cyberdudebivash.com/api/v1/rules/sigma/weekly" \
+  -o sentinel_apex_sigma_weekly.zip
+
+<span class="comment"># Convert Sigma → KQL with sigma-cli</span>
+sigma convert -t microsoft365defender \
+  sentinel_apex_sigma_weekly/ \
+  -o kql_rules.json
+
+<span class="comment"># Or fetch pre-converted KQL directly</span>
+curl -H <span class="str">"X-API-Key: $SENTINEL_API_KEY"</span> \
+  "https://intel.cyberdudebivash.com/api/v1/rules/kql/weekly" \
+  -o kql_weekly.json
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 6 -->
+      <div class="step-section" id="step-6">
+        <div class="step-header">
+          <div class="step-num">6</div>
+          <div><div class="step-title">White-Label Configuration</div></div>
+          <span class="card-badge badge-enterprise" style="margin-left:auto">Enterprise MSSP</span>
+        </div>
+        <div class="card">
+          <div class="card-title">White-Label Setup Checklist</div>
+          <ul class="checklist">
+            <li><span class="check-box" onclick="this.classList.toggle('done')"></span><span>Submit brand assets: logo (PNG/SVG, min 200px), primary color hex, organization name</span></li>
+            <li><span class="check-box" onclick="this.classList.toggle('done')"></span><span>Configure custom domain (optional): point CNAME to intel.cyberdudebivash.com</span></li>
+            <li><span class="check-box" onclick="this.classList.toggle('done')"></span><span>Request white-label PDF template activation from your account manager</span></li>
+            <li><span class="check-box" onclick="this.classList.toggle('done')"></span><span>Test white-labeled advisory export with a sample CVE</span></li>
+            <li><span class="check-box" onclick="this.classList.toggle('done')"></span><span>Configure multi-tenant API keys for each client (via admin API)</span></li>
+            <li><span class="check-box" onclick="this.classList.toggle('done')"></span><span>Set up per-client rate limit pools and access controls</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title">White-Label API Usage</div>
+          <div class="code-block">
+<span class="comment"># Fetch white-labeled PDF dossier (your branding applied)</span>
+curl -H <span class="str">"X-API-Key: $SENTINEL_API_KEY"</span> \
+  -H <span class="str">"X-White-Label-Org: your-org-slug"</span> \
+  "https://intel.cyberdudebivash.com/api/v1/advisories/CVE-2026-XXXX/pdf" \
+  -o branded_dossier.pdf
+
+<span class="comment"># Create sub-tenant API key (MSSP admin endpoint)</span>
+curl -X POST \
+  -H <span class="str">"X-API-Key: $SENTINEL_API_KEY"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d '{"client_name":"Client-A","tier":"enterprise","rate_limit":5000}' \
+  "https://intel.cyberdudebivash.com/api/v1/admin/tenants"
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 7 -->
+      <div class="step-section" id="step-7">
+        <div class="step-header">
+          <div class="step-num">7</div>
+          <div><div class="step-title">AI Cyber Brain API</div></div>
+          <div class="step-est">⏱ ~45 min</div>
+        </div>
+        <div class="card">
+          <div class="card-title">AI Intelligence Endpoints</div>
+          <div class="code-block">
+<span class="comment"># Full AI brain state — campaigns, anomalies, forecasts, SOC queue</span>
+GET /api/v1/ai/brain
+
+<span class="comment"># Active campaign clusters with confidence scoring</span>
+GET /api/v1/ai/campaigns?min_confidence=0.75
+
+<span class="comment"># Anomaly detection feed</span>
+GET /api/v1/ai/anomalies?window=24h&min_score=0.6
+
+<span class="comment"># Threat actor attribution</span>
+GET /api/v1/ai/attribution/{cve_id}
+
+<span class="comment"># AI SOC prioritization queue (enterprise tier)</span>
+GET /api/v1/ai/soc-queue?urgency=IMMEDIATE,CRITICAL
+
+<span class="comment"># Predictive attack-chain forecast</span>
+GET /api/v1/ai/forecast?sector=financial&horizon=30d
+          </div>
+          <div class="alert alert-warn" style="margin-top:12px">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-text"><strong>Refresh cadence:</strong> AI brain data refreshes every 30 seconds. Cache responses for at least 15 seconds to avoid unnecessary API calls. Use ETag headers for efficient conditional requests.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 8 -->
+      <div class="step-section" id="step-8">
+        <div class="step-header">
+          <div class="step-num">8</div>
+          <div><div class="step-title">Monitoring &amp; Alerting Setup</div></div>
+          <div class="step-est">⏱ ~30 min</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Webhook Configuration</div>
+          <p style="font-size:13px;color:var(--muted2);margin-bottom:12px">Configure webhooks to receive real-time notifications when new CRITICAL or HIGH advisories are published:</p>
+          <div class="code-block">
+<span class="comment"># Register webhook endpoint</span>
+curl -X POST \
+  -H <span class="str">"X-API-Key: $SENTINEL_API_KEY"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d '{
+    <span class="key">"url"</span>: <span class="str">"https://your-soc.com/sentinel-apex-webhook"</span>,
+    <span class="key">"events"</span>: [<span class="str">"advisory.critical"</span>, <span class="str">"advisory.high"</span>, <span class="str">"kev.new"</span>],
+    <span class="key">"secret"</span>: <span class="str">"your-webhook-secret"</span>,
+    <span class="key">"severity_filter"</span>: [<span class="str">"CRITICAL"</span>, <span class="str">"HIGH"</span>]
+  }' \
+  "https://intel.cyberdudebivash.com/api/v1/webhooks"
+
+<span class="comment"># Webhook payload structure (advisory.critical event)</span>
+{
+  <span class="key">"event"</span>: <span class="str">"advisory.critical"</span>,
+  <span class="key">"advisory_id"</span>: <span class="str">"CVE-2026-XXXXX"</span>,
+  <span class="key">"cvss"</span>: 9.8,
+  <span class="key">"epss"</span>: 0.94,
+  <span class="key">"kev"</span>: true,
+  <span class="key">"published_at"</span>: <span class="str">"2026-05-11T22:30:00Z"</span>,
+  <span class="key">"stix_bundle_url"</span>: <span class="str">"/api/v1/stix/CVE-2026-XXXXX"</span>
+}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Onboarding Completion Checklist</div>
+          <ul class="checklist" id="completion-checklist">
+            <li><span class="check-box" onclick="updateProgress()"></span><span>✓ API key provisioned and stored securely in environment variables</span></li>
+            <li><span class="check-box" onclick="updateProgress()"></span><span>✓ Health check API call returning 200 + enterprise tier confirmed</span></li>
+            <li><span class="check-box" onclick="updateProgress()"></span><span>✓ SIEM TAXII connector configured and ingesting STIX bundles</span></li>
+            <li><span class="check-box" onclick="updateProgress()"></span><span>✓ First detection rules deployed to SIEM analytics workspace</span></li>
+            <li><span class="check-box" onclick="updateProgress()"></span><span>✓ Weekly rule pack automation scheduled (cron / Azure Function)</span></li>
+            <li><span class="check-box" onclick="updateProgress()"></span><span>✓ White-label configuration active (MSSP customers)</span></li>
+            <li><span class="check-box" onclick="updateProgress()"></span><span>✓ Webhook registered for CRITICAL/HIGH advisory notifications</span></li>
+            <li><span class="check-box" onclick="updateProgress()"></span><span>✓ AI Cyber Brain API integrated into SOC workflow</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- RESOURCES -->
+      <div class="step-section" id="resources">
+        <div class="step-header">
+          <div class="step-num">→</div>
+          <div><div class="step-title">Quick Reference</div></div>
+        </div>
+        <div class="resource-grid">
+          <a href="https://intel.cyberdudebivash.com/api-docs.html" class="resource-card">
+            <span class="resource-icon">📖</span>
+            <div><div class="resource-name">Full API Reference</div><div class="resource-desc">All endpoints, parameters, response schemas, and rate limits</div></div>
+          </a>
+          <a href="https://intel.cyberdudebivash.com/trust-center.html" class="resource-card">
+            <span class="resource-icon">🔒</span>
+            <div><div class="resource-name">Trust Center</div><div class="resource-desc">Security posture, data handling, compliance, DPA, BAA</div></div>
+          </a>
+          <a href="https://intel.cyberdudebivash.com/enterprise.html" class="resource-card">
+            <span class="resource-icon">🏢</span>
+            <div><div class="resource-name">Enterprise Plans</div><div class="resource-desc">Compare tiers, SLA commitments, white-label options</div></div>
+          </a>
+          <a href="https://intel.cyberdudebivash.com/status.html" class="resource-card">
+            <span class="resource-icon">📡</span>
+            <div><div class="resource-name">System Status</div><div class="resource-desc">Real-time uptime, feed freshness, SLA performance</div></div>
+          </a>
+          <a href="https://intel.cyberdudebivash.com/methodology.html" class="resource-card">
+            <span class="resource-icon">🔬</span>
+            <div><div class="resource-name">Intelligence Methodology</div><div class="resource-desc">How advisories are sourced, enriched, and validated</div></div>
+          </a>
+          <a href="mailto:intelligence@cyberdudebivash.com?subject=Enterprise%20Onboarding%20Support" class="resource-card">
+            <span class="resource-icon">💬</span>
+            <div><div class="resource-name">Dedicated Onboarding Engineer</div><div class="resource-desc">Email your onboarding engineer for direct 1:1 support</div></div>
+          </a>
+        </div>
+
+        <div class="support-box">
+          <div style="font-size:20px;margin-bottom:10px">🚀</div>
+          <div style="font-size:18px;font-weight:700;margin-bottom:8px">Need Help? We're Here.</div>
+          <p style="font-size:14px;color:var(--muted2);max-width:480px;margin:0 auto 20px">Your dedicated onboarding engineer responds within 4 hours during business hours. For P1 CRITICAL issues, you have a 4-hour SLA across all time zones.</p>
+          <a href="mailto:intelligence@cyberdudebivash.com?subject=Enterprise%20Onboarding%20Support%20Request" style="display:inline-flex;align-items:center;gap:8px;padding:11px 28px;background:var(--accent3);color:#fff;border-radius:4px;font-family:var(--mono);font-size:11px;font-weight:700">↗ Contact Onboarding Engineer</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>CYBERDUDEBIVASH® SENTINEL APEX v148.0 — Enterprise Onboarding Portal</div>
+  <div><a href="https://intel.cyberdudebivash.com">Platform</a> · <a href="https://intel.cyberdudebivash.com/api-docs.html">API Docs</a> · <a href="https://intel.cyberdudebivash.com/enterprise.html">Enterprise</a> · <a href="mailto:intelligence@cyberdudebivash.com">Support</a></div>
+</div>
+
+<script>
+function selectSiem(el, type){
+  document.querySelectorAll('.siem-card').forEach(function(c){c.classList.remove('selected');});
+  el.classList.add('selected');
+  var guides={
+    sentinel:'<div class="card-title">Microsoft Sentinel — Integration Guide</div><div class="alert alert-success" style="margin-bottom:14px"><span class="alert-icon">✅</span><div class="alert-text"><strong>Recommended:</strong> STIX TAXII connector for IOCs + KQL rules via Analytics Rules import.</div></div><div class="code-block"><span class="comment"># TAXII connector settings</span>\nFriendly Name: SENTINEL APEX Threat Intel\nAPI Root URL: https://intel.cyberdudebivash.com/api/v1/taxii/\nCollection ID: enterprise-stix-bundle\nAuth: Basic (enterprise / $SENTINEL_API_KEY)</div>',
+    splunk:'<div class="card-title">Splunk Enterprise — Integration Guide</div><div class="alert alert-success" style="margin-bottom:14px"><span class="alert-icon">✅</span><div class="alert-text"><strong>Recommended:</strong> STIX TAXII via Splunk TAXII connector + SPL rule import.</div></div><div class="code-block"><span class="comment"># Splunk TAXII connector</span>\n./splunk add taxii-poll \\\n  -url https://intel.cyberdudebivash.com/api/v1/taxii/ \\\n  -collection enterprise-stix-bundle \\\n  -username enterprise \\\n  -password $SENTINEL_API_KEY</div>',
+    elastic:'<div class="card-title">Elastic Security — Integration Guide</div><div class="alert alert-success" style="margin-bottom:14px"><span class="alert-icon">✅</span><div class="alert-text"><strong>Recommended:</strong> STIX TAXII integration via Elastic Threat Intelligence module + EQL rule import.</div></div><div class="code-block"><span class="comment"># Elastic filebeat TAXII input</span>\nfilebeat.inputs:\n  - type: httpjson\n    config_version: 2\n    interval: 5m\n    request.url: https://intel.cyberdudebivash.com/api/v1/taxii/enterprise/collections/stix-bundle/objects/</div>',
+    qradar:'<div class="card-title">IBM QRadar — Integration Guide</div><div class="alert alert-success" style="margin-bottom:14px"><span class="alert-icon">✅</span><div class="alert-text"><strong>Recommended:</strong> STIX TAXII 2.1 via QRadar Threat Intelligence app.</div></div><div class="code-block"><span class="comment"># QRadar TAXII feed config</span>\nTAXII Server URL: https://intel.cyberdudebivash.com/api/v1/taxii/\nCollection: enterprise-stix-bundle\nAuthentication Type: Basic\nUsername: enterprise\nPassword: $SENTINEL_API_KEY</div>'
+  };
+  document.getElementById('siem-instructions').innerHTML=guides[type]||guides.sentinel;
+}
+
+function updateProgress(){
+  var total=document.querySelectorAll('#completion-checklist .check-box').length;
+  var done=document.querySelectorAll('#completion-checklist .check-box.done').length;
+  var pct=Math.round((done/total)*100);
+  document.getElementById('progress-fill').style.width=pct+'%';
+  document.getElementById('progress-pct').textContent=pct+'% complete'+(pct===100?' — 🎉 Onboarding Complete!':'');
+}
+</script>
+</body>
+</html>
