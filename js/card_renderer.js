@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- *  SENTINEL APEX — ENTERPRISE CARD RENDERER v145.0.0
+ *  SENTINEL APEX — ENTERPRISE CARD RENDERER v147.0.0
  *  Decision-First SOC Intelligence Cards + Conversion-Optimized Revenue Units
  *  Author: CYBERDUDEBIVASH SENTINEL APEX Platform
  *
@@ -808,7 +808,7 @@
 
   /* ── PUBLIC API ─────────────────────────────────────────────────────────── */
   return {
-    VERSION: "145.0.0",
+    VERSION: "147.0.0",
 
     /* Card builders */
     buildCard:           buildCard,
