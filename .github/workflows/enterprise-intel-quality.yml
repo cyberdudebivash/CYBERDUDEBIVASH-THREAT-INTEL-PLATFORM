@@ -429,7 +429,29 @@ jobs:
           Operator: CYBERDUDEBIVASH SENTINEL APEX v144.0" \
           --no-verify
 
-          git push origin main --force-with-lease
+          # ── Stash-safe push retry (BUG-D fix: --force-with-lease had no retry) ──
+          PUSH_OK=0
+          for ATTEMPT in 1 2 3 4 5; do
+            if git push origin main; then
+              echo "[INTEL-QUALITY-PUSH] Succeeded on attempt ${ATTEMPT}."
+              PUSH_OK=1
+              break
+            fi
+            echo "::warning::Intel-quality push attempt ${ATTEMPT}/5 — rebasing..."
+            git stash --include-untracked --quiet 2>/dev/null || true
+            git fetch origin main --quiet 2>/dev/null || true
+            if git rebase origin/main --quiet 2>/dev/null; then
+              echo "[REBASE] Rebase succeeded."
+            else
+              git rebase --abort 2>/dev/null || true
+              git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true
+            fi
+            git stash pop --quiet 2>/dev/null || true
+            sleep $((ATTEMPT * 8))
+          done
+          if [ "$PUSH_OK" -eq 0 ]; then
+            echo "::warning::Intel-quality outputs not persisted after 5 attempts — non-blocking."
+          fi
           echo "[COMMIT] Enterprise intelligence outputs committed and pushed"
 
       - name: Dry Run Summary

@@ -54,6 +54,9 @@ jobs:
             echo "No product changes to commit"
           else
             git commit -m " v45.0: New Intelligence Products Packaged [skip ci]"
-            git pull --rebase origin main || true
-            git push origin main
+            git stash --include-untracked --quiet 2>/dev/null || true
+            git fetch origin main --quiet 2>/dev/null || true
+            git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null || true; git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true; }
+            git stash pop --quiet 2>/dev/null || true
+            git push origin main || echo '::warning::Push deferred — will sync next run.'
           fi
