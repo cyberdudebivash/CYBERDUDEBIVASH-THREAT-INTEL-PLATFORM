@@ -639,11 +639,36 @@ jobs:
           git commit -m "$COMMIT_MSG" || \
             echo "[COMMIT] Nothing to commit (outputs unchanged)."
 
-          git push origin main || {
-            echo "::warning::Governance commit push failed — pull-rebase and retry"
-            git pull origin main --rebase
-            git push origin main || echo "::warning::Push failed after rebase — governance outputs not persisted"
-          }
+          # ── Push with resilient retry (handles concurrent pipeline pushes) ──
+          # ROOT CAUSE FIX: git pull --rebase exits 128 when governance scripts
+          # leave unstaged files in the working tree (phases 1-14 write JSON
+          # output files to disk; these are not staged before the push retry).
+          # Fix: stash all working-tree changes before rebase, pop after.
+          PUSH_OK=0
+          for ATTEMPT in 1 2 3 4 5; do
+            if git push origin main; then
+              echo "[PUSH] Governance outputs pushed on attempt ${ATTEMPT}."
+              PUSH_OK=1
+              break
+            fi
+            echo "::warning::Governance push attempt ${ATTEMPT}/5 rejected — remote ahead. Rebasing..."
+            # Stash unstaged/untracked working-tree files so rebase can proceed
+            git stash --include-untracked --quiet 2>/dev/null || true
+            git fetch origin main --quiet
+            if git rebase origin/main --quiet 2>/dev/null; then
+              echo "[REBASE] Rebase onto origin/main succeeded."
+            else
+              echo "::warning::Rebase conflict — aborting, using merge strategy."
+              git rebase --abort 2>/dev/null || true
+              git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true
+            fi
+            # Restore stashed working-tree files (non-fatal if stash was empty)
+            git stash pop --quiet 2>/dev/null || true
+            sleep $((ATTEMPT * 5))
+          done
+          if [ "$PUSH_OK" -eq 0 ]; then
+            echo "::warning::Governance outputs not persisted after 5 attempts — will commit next run. Non-blocking."
+          fi
 
       # ── Telegram alert on hard failure ────────────────────────────────────
       - name: "Governance Hard-Fail Alert"
