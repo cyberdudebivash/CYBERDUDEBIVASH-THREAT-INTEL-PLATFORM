@@ -52,6 +52,9 @@ jobs:
           if git diff --cached --quiet; then echo "No changes"; else
             SCORE=$(python3 -c "import json; d=json.load(open('data/omnishield/omnishield_report.json')); print(d['platform_security_score']['composite'])" 2>/dev/null || echo "N/A")
             git commit -m "OmniShield v36.0 | Platform Score: ${SCORE}/10 | 12 subsystems [skip ci]"
-            git pull --rebase origin main || true
-            git push origin main
+            git stash --include-untracked --quiet 2>/dev/null || true
+            git fetch origin main --quiet 2>/dev/null || true
+            git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null || true; git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true; }
+            git stash pop --quiet 2>/dev/null || true
+            git push origin main || echo '::warning::Push deferred — will sync next run.'
           fi

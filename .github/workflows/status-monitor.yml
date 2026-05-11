@@ -71,9 +71,9 @@ jobs:
 
           git commit -m "Status update: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
           for i in 1 2 3; do
-            git fetch origin main --quiet
+            git fetch origin main --quiet 2>/dev/null || true
             git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null||true; git merge origin/main -X ours --no-edit --quiet||true; }
-            git push origin main && break
+            if git push origin main; then break; fi
             sleep $((i*10)); [ $i -eq 3 ] && echo "Push deferred."
           done
 

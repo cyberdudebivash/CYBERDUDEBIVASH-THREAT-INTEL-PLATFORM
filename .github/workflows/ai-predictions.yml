@@ -125,9 +125,9 @@ jobs:
             git commit -m " AI Predictions: $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
             git rebase --abort 2>/dev/null || true; git merge --abort 2>/dev/null || true
             for i in 1 2 3 4; do
-              git fetch origin main --quiet
+              git fetch origin main --quiet 2>/dev/null || true
               git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null||true; git merge origin/main -X ours --no-edit --quiet||true; }
-              git push origin main && { echo "Push OK ($i/4)"; break; }
+              if git push origin main; then echo "Push OK ($i/4)"; break; fi
               sleep $((i*15))
               [ $i -eq 4 ] && echo "Push deferred."
             done

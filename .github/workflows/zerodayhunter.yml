@@ -85,11 +85,17 @@ jobs:
           git commit -m " ZERO-DAY HUNTER v45.0 - GTI: ${GTI} | ${ZD} zero-day alerts [skip ci]"
 
           # Push changes
-          git push origin main || (
-            echo "Push failed due to race condition, retrying..."
-            git pull --rebase origin main
-            git pull --rebase origin main || true
-            git push origin main
-          )
+          # ── Stash-safe retry (BUG-E: nested subshell push was fragile) ──
+          PUSH_OK=0
+          for ATTEMPT in 1 2 3 4 5; do
+            if git push origin main; then PUSH_OK=1; break; fi
+            echo "::warning::ZeroDayHunter push attempt ${ATTEMPT}/5..."
+            git stash --include-untracked --quiet 2>/dev/null || true
+            git fetch origin main --quiet 2>/dev/null || true
+            git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null || true; git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true; }
+            git stash pop --quiet 2>/dev/null || true
+            sleep $(( ATTEMPT * 8 ))
+          done
+          [ "$PUSH_OK" -eq 0 ] && echo "::warning::ZDH push deferred — non-blocking." || true
 
 

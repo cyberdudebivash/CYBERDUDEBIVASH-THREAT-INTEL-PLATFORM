@@ -159,11 +159,11 @@ jobs:
 
           # Push with retry + rebase strategy
           for i in 1 2 3 4; do
-            git fetch origin main --quiet
+            git fetch origin main --quiet 2>/dev/null || true
             git rebase origin/main --quiet 2>/dev/null \
               || { git rebase --abort 2>/dev/null || true; \
                    git merge origin/main -X ours --no-edit --quiet || true; }
-            git push origin main && { echo "Push OK on attempt $i"; break; }
+            if git push origin main; then echo "Push OK on attempt $i"; break; fi
             sleep $((i * 15))
             [ "$i" -eq 4 ] && echo "[WARN] Push deferred after 4 attempts - will retry next run"
           done
