@@ -79,8 +79,12 @@ jobs:
             WARNING_COUNT=$(python3 -c "import json,os; d=json.load(open('${REPORT}')) if os.path.exists('${REPORT}') else {}; print(d.get('pipeline_stats',{}).get('early_warnings_issued',0))" 2>/dev/null || echo "0")
             WAVE_COUNT=$(python3 -c "import json,os; d=json.load(open('${REPORT}')) if os.path.exists('${REPORT}') else {}; print(d.get('pipeline_stats',{}).get('attack_waves_detected',0))" 2>/dev/null || echo "0")
             git commit -m "PRECOGNITION v34.0 -- ${WARNING_COUNT} warnings | ${WAVE_COUNT} attack waves detected [skip ci]"
-            git pull --rebase origin main || true
-            # ── Stash-safe retry (BUG-E: nested subshell push was fragile) ──
+            # FIX v148.0 BUG-C: stash BEFORE rebase (bare pull --rebase exits 128 on unstaged files)
+            git stash --include-untracked --quiet 2>/dev/null || true
+            git fetch origin main --quiet 2>/dev/null || true
+            git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null || true; git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true; }
+            git stash pop --quiet 2>/dev/null || true
+            # ── Stash-safe retry loop ──
             PUSH_OK=0
             for ATTEMPT in 1 2 3 4 5; do
               if git push origin main; then PUSH_OK=1; break; fi
