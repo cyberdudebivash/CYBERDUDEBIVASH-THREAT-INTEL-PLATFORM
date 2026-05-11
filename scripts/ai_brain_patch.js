@@ -276,7 +276,7 @@
         return r.json();
       }).then(function(data){
         if(done)return;
-        var items=Array.isArray(data)?data:(data.advisories||data.items||data.data||data.feed||[]);
+        var items=Array.isArray(data)?data:(data.advisories||data.data||data.feed||[]);
         if(items.length){done=true;window.__GOC_LIVE_INTEL=items;if(typeof cb==='function')cb(items);}
       }).catch(function(){});
     });
