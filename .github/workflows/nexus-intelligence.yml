@@ -91,5 +91,19 @@ jobs:
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
           git add data/nexus/ -f
           git diff --cached --quiet || git commit -m " NEXUS v39.0: Intelligence cycle $(date -u +%Y-%m-%dT%H:%M:%SZ) [skip ci]"
-          git pull --rebase origin main || true
-          git push origin main || echo "Push failed  -  will retry next cycle"
+          # FIX v148.0 BUG-B+C: stash-safe 5-attempt push retry
+          git stash --include-untracked --quiet 2>/dev/null || true
+          git fetch origin main --quiet 2>/dev/null || true
+          git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null || true; git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true; }
+          git stash pop --quiet 2>/dev/null || true
+          NEXUS_PUSH_OK=0
+          for ATTEMPT in 1 2 3 4 5; do
+            if git push origin main; then NEXUS_PUSH_OK=1; break; fi
+            echo "::warning::NEXUS push attempt ${ATTEMPT}/5 failed, retrying..."
+            git stash --include-untracked --quiet 2>/dev/null || true
+            git fetch origin main --quiet 2>/dev/null || true
+            git rebase origin/main --quiet 2>/dev/null || { git rebase --abort 2>/dev/null || true; git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true; }
+            git stash pop --quiet 2>/dev/null || true
+            sleep $((ATTEMPT * 8))
+          done
+          [ "$NEXUS_PUSH_OK" -eq 0 ] && echo "::warning::NEXUS push deferred — will sync next cycle." || true

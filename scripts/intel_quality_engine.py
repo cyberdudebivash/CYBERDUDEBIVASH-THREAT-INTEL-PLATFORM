@@ -362,6 +362,14 @@ class NewnessValidator:
         """
         manifest_path = REPO_ROOT / "data" / "stix" / "feed_manifest.json"
         raw = _load_json_safe(manifest_path, [])
+        # FIX v148.0: unwrap dict envelope (same as __main__ fix)
+        if isinstance(raw, dict):
+            for _key in ("advisories", "items", "data", "feed", "reports", "intel"):
+                if isinstance(raw.get(_key), list):
+                    raw = raw[_key]
+                    break
+            else:
+                raw = next((v for v in raw.values() if isinstance(v, list)), [])
         before = len(self._known_stix)
         if isinstance(raw, list):
             for entry in raw:
@@ -1369,6 +1377,25 @@ if __name__ == "__main__":
 
     with open(manifest_path, encoding="utf-8") as fh:
         raw_items = json.load(fh)
+
+    # FIX v148.0: unwrap dict envelope {"advisories":[...]} / {"items":[...]} etc.
+    if isinstance(raw_items, dict):
+        _unwrapped = False
+        for _key in ("advisories", "items", "data", "feed", "reports", "intel"):
+            if isinstance(raw_items.get(_key), list):
+                print(f"[FIX-v148] Unwrapping dict envelope key='{_key}' ({len(raw_items[_key])} items)")
+                raw_items = raw_items[_key]
+                _unwrapped = True
+                break
+        if not _unwrapped:
+            for _v in raw_items.values():
+                if isinstance(_v, list):
+                    raw_items = _v
+                    _unwrapped = True
+                    break
+        if not _unwrapped:
+            print(f"ERROR: manifest must be a JSON array, got dict with keys: {list(raw_items.keys())}")
+            raise SystemExit(1)
 
     if not isinstance(raw_items, list):
         print(f"ERROR: manifest must be a JSON array, got {type(raw_items).__name__}")
