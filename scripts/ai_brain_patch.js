@@ -13,7 +13,8 @@
      AI CYBER BRAIN - uses window.EMBEDDED_INTEL baked by pipeline
      ================================================================ */
   function runAIBrain(){
-    var intel=window.EMBEDDED_INTEL||[];
+    // FIX v148.0: read live data first, fall back to EMBEDDED_INTEL
+    var intel=window.__GOC_LIVE_INTEL||window.EMBEDDED_INTEL||[];
     if(!intel.length){
       set('ai-campaigns-body','<p style="color:#94a3b8;text-align:center;padding:20px">No intel data loaded.</p>');
       set('ai-anomaly-body',  '<p style="color:#94a3b8;text-align:center;padding:20px">No anomaly data.</p>');
@@ -263,4 +264,28 @@
 
   /* Expose for manual refresh buttons */
   window.CDB_NEWS={refresh:refreshNews};
+
+  /* FIX v148.0 — LIVE DATA BRIDGE: fetch /api/apex_v2/priority.json → window.__GOC_LIVE_INTEL */
+  function _fetchLiveIntel(cb){
+    var urls=['/api/apex_v2/priority.json','/api/apex_v2/anomaly_feed.json','/api/feed.json'];
+    var done=false;
+    urls.forEach(function(url){
+      if(done)return;
+      fetch(url,{cache:'no-store'}).then(function(r){
+        if(!r.ok)throw new Error('HTTP '+r.status);
+        return r.json();
+      }).then(function(data){
+        if(done)return;
+        var items=Array.isArray(data)?data:(data.advisories||data.data||data.feed||[]);
+        if(items.length){done=true;window.__GOC_LIVE_INTEL=items;if(typeof cb==='function')cb(items);}
+      }).catch(function(){});
+    });
+  }
+  function _startAIBrainPoller(){
+    _fetchLiveIntel(function(){runAIBrain();injectEnterpriseSignals(window.__GOC_LIVE_INTEL||window.EMBEDDED_INTEL||[]);});
+    setInterval(function(){_fetchLiveIntel(function(){runAIBrain();});},30000);
+  }
+  window.CDB_AI={runBrain:runAIBrain,fetchLive:_fetchLiveIntel};
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',_startAIBrainPoller);}
+  else{_startAIBrainPoller();}
 })();
