@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- *  SENTINEL APEX -- CARD RENDERER INTEGRATION v145.0.0
+ *  SENTINEL APEX -- CARD RENDERER INTEGRATION v147.0.0
  *  Drop-in integration for the CYBERDUDEBIVASH SENTINEL APEX dashboard
  *
  *  LOAD ORDER (before </body>):
@@ -48,7 +48,7 @@
     ],
     AUTO_REFRESH_MS: 0,
     MAX_CARDS:       30,
-    VERSION:         "145.0.0",
+    VERSION:         "147.0.0",
     LOADING_COUNT:   4,
   };
 

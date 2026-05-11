@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- *  SENTINEL APEX — API ADAPTER v145.0.0
+ *  SENTINEL APEX — API ADAPTER v147.0.0
  *  Strict 1:1 API → UI field mapping layer — ENTERPRISE EDITION
  *  Author: CYBERDUDEBIVASH SENTINEL APEX Platform
  *  Pipeline Safety: READ-ONLY transform — never mutates source data
@@ -645,7 +645,7 @@
 
   /* ── PUBLIC API ─────────────────────────────────────────────────────────── */
   return {
-    VERSION: "145.0.0",
+    VERSION: "147.0.0",
 
     /* Core normalizers */
     normalizeIntelItem:           normalizeIntelItem,
