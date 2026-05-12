@@ -610,7 +610,7 @@ jobs:
             [ -f "api/v1/intel/daily_brief_latest.pdf" ] && \
               echo "[INFO] size: $(wc -c < api/v1/intel/daily_brief_latest.pdf)B" || true
             [ -f "api/v1/intel/daily_brief_meta.json" ] && \
-              echo "[INFO] meta: $(cat api/v1/intel/daily_brief_meta.json | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get(\"report_date\",\"?\"))')" || true
+              echo "[INFO] meta: $(jq -r '.report_date // "?"' api/v1/intel/daily_brief_meta.json 2>/dev/null || echo '?')" || true
           else
             echo "::warning::Daily brief generator failed (exit $BRIEF_EXIT) -- non-blocking, pipeline continues"
           fi
