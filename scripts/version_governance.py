@@ -2,7 +2,7 @@
 """
 ===============================================================================
 CYBERDUDEBIVASH(R) SENTINEL APEX
-VERSION GOVERNANCE ENGINE v147.0.0
+VERSION GOVERNANCE ENGINE v148.0.0
 ===============================================================================
 PURPOSE:
   Single-source-of-truth version authority for the SENTINEL APEX platform.
@@ -13,7 +13,7 @@ PURPOSE:
 AUTHORITATIVE SOURCE:
   VERSION  (repo root, plain semver string, one line)
 
-TARGETS GOVERNED (backend/gateway only):
+TARGETS GOVERNED (backend/gateway + CI workflows):
   version.json                            -- root platform version manifest
   config/version.json                     -- SSOT for deploy-worker workflow
   workers/intel-gateway/src/index.js     -- GATEWAY_VERSION in CONFIG object
@@ -101,6 +101,18 @@ REGEX_TARGETS = [
     (
         "scripts/r2_upload.py",
         r'(PIPELINE_VERSION\s*=\s*os\.environ\.get\("PIPELINE_VERSION",\s*")[0-9]+\.[0-9]+\.[0-9]+"',
+        r'\g<1>{VER}"',
+    ),
+    # .github/workflows/sentinel-blogger.yml -- PIPELINE_VERSION env var (v148.0 governance)
+    (
+        ".github/workflows/sentinel-blogger.yml",
+        r'(  PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+\.[0-9]+"',
+        r'\g<1>{VER}"',
+    ),
+    # .github/workflows/generate-and-sync.yml -- PIPELINE_VERSION env var (v148.0 governance)
+    (
+        ".github/workflows/generate-and-sync.yml",
+        r'(  PIPELINE_VERSION:\s*")[0-9]+\.[0-9]+\.[0-9]+"',
         r'\g<1>{VER}"',
     ),
 ]
@@ -282,6 +294,30 @@ def main():
     grp.add_argument(
         "--check", action="store_true",
         help="Detect drift only. Exit 1 if found."
+    )
+    grp.add_argument(
+        "--apply", action="store_true",
+        help="Apply authoritative version to all targets."
+    )
+    grp.add_argument(
+        "--report", action="store_true",
+        help="Print version table. Always exits 0."
+    )
+    args = parser.parse_args()
+
+    if args.check:
+        mode = "check"
+    elif args.report:
+        mode = "report"
+    else:
+        mode = "apply"
+
+    sys.exit(run(mode))
+
+
+if __name__ == "__main__":
+    main()
+ if found."
     )
     grp.add_argument(
         "--apply", action="store_true",

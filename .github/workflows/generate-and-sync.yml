@@ -55,6 +55,13 @@
 name: "SENTINEL APEX — Generate & Sync AI Tracker v148"
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/generate_ai_tracker.py'
+      - 'scripts/generate_ai_endpoints.py'
+      - '.github/workflows/generate-and-sync.yml'
   schedule:
     # Every 6h at :00 past 2am — offset from sentinel-blogger (0h) and multi-source (1:45h)
     - cron: '0 2,8,14,20 * * *'
@@ -316,10 +323,15 @@ jobs:
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 7 — PIPELINE OBSERVABILITY TELEMETRY (Phase 6)
       # ─────────────────────────────────────────────────────────────────────
+      # v148.0 FIX: Moved from inline python3 -c block (RULE 1 violation) to
+      # dedicated script: scripts/emit_ai_telemetry.py
+      # All values passed via env vars — zero inline Python in YAML.
+      # ─────────────────────────────────────────────────────────────────────
       - name: "STAGE 7 — Emit pipeline observability telemetry"
         run: |
           PIPELINE_END=$(date +%s)
           PIPELINE_DURATION=$((PIPELINE_END - PIPELINE_START_EPOCH))
+          echo "PIPELINE_DURATION_SECONDS=${PIPELINE_DURATION}" >> "$GITHUB_ENV"
 
           echo "============================================================"
           echo "SENTINEL APEX AI TRACKER — PIPELINE OBSERVABILITY REPORT"
@@ -333,42 +345,14 @@ jobs:
           echo "Dry run         : ${DRY_RUN}"
           echo "------------------------------------------------------------"
 
-          # Output file sizes
+          # Output file sizes (pure bash — no inline Python)
           for f in api/ai/tracker.json api/ai/health.json api/ai/executive-brief.json api/ai/monetization.json; do
-            [ -f "$f" ] && echo "$(du -sh $f | cut -f1)  $f" || echo "N/A  $f"
+            [ -f "$f" ] && echo "$(du -sh "$f" | cut -f1)  $f" || echo "N/A  $f"
           done
-
-          echo "------------------------------------------------------------"
-          echo "Feed freshness  : $(python3 -c "import json; d=json.load(open('api/ai/tracker.json')); print(d.get('generated_at','N/A'))" 2>/dev/null || echo 'N/A')"
-          echo "AI schema       : $(python3 -c "import json; d=json.load(open('api/ai/tracker.json')); print(d.get('schema','N/A'))" 2>/dev/null || echo 'N/A')"
-          echo "GRI             : $(python3 -c "import json; d=json.load(open('api/ai/tracker.json')); print(d.get('global_risk_index',{}).get('gri_score','N/A'))" 2>/dev/null || echo 'N/A')"
-          echo "Feed items      : $(python3 -c "import json; d=json.load(open('api/ai/tracker.json')); print(d.get('feed_item_count','N/A'))" 2>/dev/null || echo 'N/A')"
           echo "============================================================"
 
-          # Write telemetry artifact for observability
-          python3 -c "
-          import json, os, datetime
-          telemetry = {
-              'run_id': os.environ.get('GITHUB_RUN_ID'),
-              'run_number': os.environ.get('GITHUB_RUN_NUMBER'),
-              'version': os.environ.get('PIPELINE_VERSION'),
-              'generated_at': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-              'duration_seconds': ${PIPELINE_DURATION},
-              'dry_run': os.environ.get('DRY_RUN') == 'true',
-              'step_timing_ms': {
-                  'deps_install': int(os.environ.get('STEP_TIMING_DEPS_MS', 0)),
-                  'ai_generation': int(os.environ.get('STEP_TIMING_GENERATE_MS', 0))
-              },
-              'output_sizes_kb': {
-                  f: round(os.path.getsize(f)/1024, 1) if os.path.exists(f) else 0
-                  for f in ['api/ai/tracker.json','api/ai/health.json','api/ai/executive-brief.json']
-              }
-          }
-          os.makedirs('data/ai-telemetry', exist_ok=True)
-          with open('data/ai-telemetry/last-run.json', 'w') as fp:
-              json.dump(telemetry, fp, indent=2)
-          print('[OK] Telemetry artifact written: data/ai-telemetry/last-run.json')
-          "
+          # Write telemetry artifact (dedicated script — zero inline Python)
+          PIPELINE_DURATION_SECONDS=${PIPELINE_DURATION} python3 scripts/emit_ai_telemetry.py
 
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 8 — SKIP COMMIT IF DRY RUN
