@@ -71,14 +71,14 @@ jobs:
     steps:
       # ── CHECKOUT ────────────────────────────────────────────────────────────
       - name: Checkout Repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4.3.1
         with:
           fetch-depth: 1
           ref: main
 
       # ── PYTHON SETUP ────────────────────────────────────────────────────────
       - name: Setup Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v5.5.0
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -101,33 +101,7 @@ jobs:
 
       # ── PRE-FLIGHT VALIDATION ────────────────────────────────────────────────
       - name: Pre-Flight Manifest Validation
-        run: |
-          python3 - <<'EOF'
-          import json, sys
-          from pathlib import Path
-          manifest_path = Path("data/stix/feed_manifest.json")
-          if not manifest_path.exists():
-              print("[PRE-FLIGHT] No manifest found — nothing to process")
-              sys.exit(0)
-          try:
-              with open(manifest_path) as f:
-                  data = json.load(f)
-          except json.JSONDecodeError as e:
-              print(f"[PRE-FLIGHT] CRITICAL: feed_manifest.json is corrupt: {e}")
-              sys.exit(2)
-          # Handle both formats:
-          #   list  — STIX bundle array written by generate_intel_reports.py
-          #   dict  — legacy manifest with "items"/"advisories" key
-          # Calling .get() on a list raises AttributeError and crashes the job.
-          if isinstance(data, list):
-              advisories = data
-          elif isinstance(data, dict):
-              advisories = data.get("items", data.get("advisories", data.get("bundles", [])))
-          else:
-              advisories = []
-          print(f"[PRE-FLIGHT] Manifest valid ({type(data).__name__} format): {len(advisories)} entries")
-          sys.exit(0)
-          EOF
+        run: python3 scripts/validate_intel_pipeline_preflight.py
 
       # ── PHASE 1: IOC DEPTH RECOVERY ─────────────────────────────────────────
       - name: "Phase 1 — IOC Depth Recovery Engine"
@@ -247,49 +221,7 @@ jobs:
       # ── OUTPUT VALIDATION ────────────────────────────────────────────────────
       - name: Validate Pipeline Outputs
         id: validate_outputs
-        run: |
-          python3 - <<'EOF'
-          import json, sys
-          from pathlib import Path
-
-          checks = [
-              ("data/intelligence/ioc_depth_recovery.json",        ["results"]),
-              ("data/intelligence/attck_context_results.json",     ["results"]),
-              ("data/intelligence/explainable_confidence_scores.json", ["results"]),
-              ("data/threat_memory/ioc_memory.json",               ["ioc_entries"]),
-          ]
-
-          errors = []
-          for rel, required_keys in checks:
-              p = Path(rel)
-              if not p.exists():
-                  print(f"[VALIDATE] OPTIONAL file not present: {rel}")
-                  continue
-              try:
-                  with open(p) as f:
-                      data = json.load(f)
-                  for k in required_keys:
-                      if k not in data:
-                          errors.append(f"{rel}: missing key '{k}'")
-              except json.JSONDecodeError as e:
-                  errors.append(f"{rel}: corrupt JSON: {e}")
-
-          # Manifest must still be valid
-          mp = Path("data/stix/feed_manifest.json")
-          if mp.exists():
-              try:
-                  json.load(open(mp))
-                  print("[VALIDATE] feed_manifest.json: VALID")
-              except json.JSONDecodeError:
-                  errors.append("feed_manifest.json: CORRUPT — critical failure")
-
-          if errors:
-              print(f"[VALIDATE] Validation ERRORS: {errors}")
-              sys.exit(1)
-          else:
-              print("[VALIDATE] All outputs VALID")
-              sys.exit(0)
-          EOF
+        run: python3 scripts/validate_intel_pipeline_outputs.py
 
       # ── PYTHON SYNTAX VALIDATION ─────────────────────────────────────────────
       - name: Validate New Engine Syntax
@@ -318,67 +250,12 @@ jobs:
 
       # ── STIX VALIDATION ──────────────────────────────────────────────────────
       - name: STIX Bundle Integrity Check
-        run: |
-          python3 - <<'EOF'
-          import json, os, sys
-          from pathlib import Path
-          stix_dir = Path("data/stix")
-          if not stix_dir.exists():
-              print("[STIX] No STIX dir — skip")
-              sys.exit(0)
-          corrupt = 0
-          checked = 0
-          for f in list(stix_dir.glob("*.json"))[:20]:
-              try:
-                  json.load(open(f))
-                  checked += 1
-              except json.JSONDecodeError:
-                  print(f"[STIX] CORRUPT: {f.name}")
-                  corrupt += 1
-          print(f"[STIX] Checked {checked} bundles, {corrupt} corrupt")
-          if corrupt > 0:
-              sys.exit(1)
-          sys.exit(0)
-          EOF
+        run: python3 scripts/validate_stix_bundle_integrity.py
         continue-on-error: true
 
       # ── TELEMETRY SUMMARY ────────────────────────────────────────────────────
       - name: Print Pipeline Telemetry Summary
-        run: |
-          python3 - <<'EOF'
-          import json
-          from pathlib import Path
-
-          report_path = Path("data/intelligence/pipeline_report.json")
-          if report_path.exists():
-              with open(report_path) as f:
-                  r = json.load(f)
-              print("=" * 60)
-              print(f"SENTINEL APEX Enterprise Pipeline Summary")
-              print(f"Status:       {r.get('status','N/A')}")
-              print(f"Pipeline ID:  {r.get('pipeline_id','N/A')}")
-              print(f"Duration:     {r.get('total_ms','?')}ms")
-              print(f"Advisories:   {r.get('advisories_in','?')}")
-              print(f"Rollback:     {r.get('rollback_taken','?')}")
-              print("Steps:")
-              for s in r.get('steps', []):
-                  icon = "✓" if s['status'] == "SUCCESS" else "✗"
-                  print(f"  {icon} {s['step_name']}: {s['status']} ({s['duration_ms']}ms)")
-              print("=" * 60)
-
-          # IOC summary
-          ioc_mem = Path("data/threat_memory/ioc_memory.json")
-          if ioc_mem.exists():
-              d = json.load(open(ioc_mem))
-              print(f"IOC Memory: {d.get('total_iocs','?')} total IOCs tracked")
-
-          # Confidence summary
-          conf_path = Path("data/intelligence/explainable_confidence_scores.json")
-          if conf_path.exists():
-              d = json.load(open(conf_path))
-              print(f"Mean Confidence: {d.get('mean_confidence','?')}%")
-              print(f"Tier Distribution: {d.get('tier_distribution','?')}")
-          EOF
+        run: python3 scripts/print_intel_pipeline_telemetry.py
         continue-on-error: true
 
       # ── COMMIT OUTPUTS ───────────────────────────────────────────────────────

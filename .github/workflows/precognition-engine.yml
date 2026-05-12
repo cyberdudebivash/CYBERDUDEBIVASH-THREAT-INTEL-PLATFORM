@@ -33,13 +33,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4.3.1
         with:
           fetch-depth: 1
           ref: main
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v5.5.0
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -48,7 +48,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install requests feedparser --quiet
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements.txt ]; then pip install -r requirements-ci-light.txt; fi
 
       - name: Run Precognition Engine
         continue-on-error: true

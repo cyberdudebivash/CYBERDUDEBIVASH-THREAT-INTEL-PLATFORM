@@ -29,14 +29,14 @@ jobs:
     steps:
       # -- 1. Checkout repo with full history -----------------------------
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4.3.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 1
 
       # -- 2. Set up Python -----------------------------------------------
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v5.5.0
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -123,35 +123,13 @@ jobs:
           # Reusing your existing tokens for 0-friction deployment
           LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-        run: |
-          python - << 'PYEOF'
-          import os, json, sys
-          
-          queue_path = "data/syndication_queue/apex_viral_posts.json"
-          if not os.path.exists(queue_path):
-              print("No APEX viral posts in queue. Awaiting Phase 1 AI output.")
-              sys.exit(0)
-              
-          with open(queue_path, 'r') as f:
-              posts = json.load(f)
-              
-          if not posts:
-              sys.exit(0)
-              
-          latest_post = posts[-1]["content"]
-          print("============== APEX BROADCAST INITIATED ==============")
-          print(latest_post)
-          print("======================================================")
-          
-          # In production, map this to your syndicate platform modules
-          print("[OK] Successfully broadcasted Zero-Day Warning to LinkedIn CISO Network.")
-          print("[OK] Successfully broadcasted to X/Twitter Infosec Community.")
-          PYEOF
       # ==================================================================
       # [v30-APEX] END INJECTION
       # ==================================================================
 
       # -- 6. Commit updated state back to repo (LEGACY PRESERVED) -------
+        run: |
+          python3 scripts/broadcast_apex_syndication.py
       - name: Commit syndication state
         working-directory: syndicate
         run: |

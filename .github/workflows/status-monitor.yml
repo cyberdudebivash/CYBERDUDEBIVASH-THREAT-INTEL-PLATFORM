@@ -25,9 +25,9 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4.3.1
         with: {fetch-depth: 1}
-      - uses: actions/setup-python@v5.3.0
+      - uses: actions/setup-python@v5.5.0
         with: {python-version: '3.12', cache: 'pip'}
       - run: pip install requests --quiet
       - run: mkdir -p data/status
@@ -37,24 +37,7 @@ jobs:
           CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
           CDB_API_URL: ${{ vars.CDB_API_URL || 'https://api.cyberdudebivash.com' }}
           PYTHONPATH: ${{ github.workspace }}
-        run: |
-          python3 - << 'PYEOF'
-          import sys, os, json
-          from datetime import datetime, timezone
-          sys.path.insert(0, os.getcwd())
-          try:
-              from agent.monitoring.status_page import PlatformStatusMonitor
-              monitor = PlatformStatusMonitor()
-              status = monitor.run()
-              print(f"Platform: {status.get('status','UNKNOWN')}")
-          except Exception as e:
-              print(f"Status monitor: {e}")
-              from pathlib import Path
-              Path("data/status").mkdir(exist_ok=True)
-              with open("data/status/status.json","w") as f:
-                  json.dump({"version":"101.0.0","platform":"CYBERDUDEBIVASH SENTINEL APEX",
-                             "status":"MONITORING","generated_at":datetime.now(timezone.utc).isoformat()},f,indent=2)
-          PYEOF
+        run: python3 scripts/run_platform_status_monitor.py
 
       - name: "Safe Commit Status"
         env:

@@ -19,11 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4.3.1
         with: {fetch-depth: 1, ref: main}
-      - uses: actions/setup-python@v5.3.0
+      - uses: actions/setup-python@v5.5.0
         with: {python-version: '3.12', cache: 'pip'}
-      - run: pip install --upgrade pip && pip install requests feedparser networkx && [ -f requirements.txt ] && pip install -r requirements.txt || true
+      - run: pip install --upgrade pip && pip install requests feedparser networkx && [ -f requirements.txt ] && pip install -r requirements-ci-light.txt || true
       - name: Run AI Threat Analyst
         env:
           CDB_JWT_SECRET: ${{ secrets.CDB_JWT_SECRET }}
