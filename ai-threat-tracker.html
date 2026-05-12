@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Threat Tracker — SENTINEL APEX v148.0.0 | CYBERDUDEBIVASH®</title>
+<meta name="description" content="SENTINEL APEX AI Cyber Brain — Anomaly Detection, Campaign Correlation, Predictive Intelligence. Enterprise-grade AI threat tracking.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+/* ══════════════════════════════════════════════════════════════
+   SENTINEL APEX — AI THREAT TRACKER v148.0.0
+   Design System: Matching index.html token set
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  --accent:    #00d4aa; --accent-glow: rgba(0,212,170,0.18);
+  --ai:        #8b5cf6; --ai-glow:    rgba(139,92,246,0.18);
+  --danger:    #ef4444; --danger-glow:rgba(239,68,68,0.18);
+  --warn:      #f97316; --warn-glow:  rgba(249,115,22,0.18);
+  --gold:      #eab308;
+  --bg:        #020205; --bg-card:    #080a10; --bg-surface:  #0d1017;
+  --border:    rgba(255,255,255,0.07);
+  --text:      #c8d1dc; --text-muted: #5a6578; --white: #f0f4f8;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Inter', sans-serif;
+  --radius: 6px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-display);line-height:1.6;min-height:100vh;overflow-x:hidden;}
+
+/* ── Scanline overlay ── */
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,198,0.008) 2px,rgba(0,255,198,0.008) 4px);pointer-events:none;z-index:0;}
+
+/* ── TOPBAR ── */
+.topbar{position:sticky;top:0;z-index:100;background:rgba(2,2,5,0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:20px;height:52px;}
+.topbar-brand{font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--white);letter-spacing:1.5px;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+.topbar-brand span{color:var(--ai);}
+.topbar-nav{display:flex;align-items:center;gap:8px;flex:1;}
+.nav-pill{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-muted);border:1px solid var(--border);padding:4px 12px;border-radius:3px;text-decoration:none;letter-spacing:1px;transition:.2s;white-space:nowrap;}
+.nav-pill:hover{color:var(--accent);border-color:var(--accent);}
+.nav-pill.active{color:var(--ai);border-color:var(--ai);background:var(--ai-glow);}
+.live-badge{margin-left:auto;font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--accent);letter-spacing:2px;display:flex;align-items:center;gap:6px;}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);animation:pulse 1.4s infinite;}
+
+/* ── HERO ── */
+.hero{padding:48px 24px 32px;text-align:center;position:relative;z-index:1;border-bottom:1px solid var(--border);}
+.hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:600px;height:2px;background:linear-gradient(90deg,transparent,var(--ai),var(--accent),var(--ai),transparent);}
+.hero-eyebrow{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--ai);letter-spacing:3px;margin-bottom:12px;}
+.hero-title{font-size:clamp(28px,5vw,48px);font-weight:900;letter-spacing:-1.5px;color:var(--white);margin-bottom:8px;line-height:1.1;}
+.hero-title .accent{color:var(--ai);}
+.hero-sub{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);letter-spacing:1px;margin-bottom:24px;}
+.hero-stats{display:flex;align-items:center;justify-content:center;gap:32px;flex-wrap:wrap;}
+.hero-stat{text-align:center;}
+.hero-stat-val{font-family:var(--font-mono);font-size:24px;font-weight:800;color:var(--white);}
+.hero-stat-val.danger{color:var(--danger);}
+.hero-stat-val.ai{color:var(--ai);}
+.hero-stat-val.accent{color:var(--accent);}
+.hero-stat-lbl{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1.5px;margin-top:2px;}
+.hero-divider{width:1px;height:40px;background:var(--border);}
+
+/* ── LAYOUT ── */
+.main{max-width:1440px;margin:0 auto;padding:28px 24px;position:relative;z-index:1;}
+.section-header{margin-bottom:20px;}
+.section-eyebrow{font-family:var(--font-mono);font-size:9px;font-weight:700;color:var(--ai);letter-spacing:3px;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.section-eyebrow::before{content:'';display:inline-block;width:20px;height:2px;background:var(--ai);}
+.section-title{font-size:18px;font-weight:800;color:var(--white);letter-spacing:-0.5px;}
+.section-desc{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:4px;}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+@media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,1fr);}.grid-3{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:700px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}}
+
+/* ── CARDS ── */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;transition:.3s;position:relative;overflow:hidden;}
+.card:hover{border-color:rgba(139,92,246,0.3);box-shadow:0 0 24px rgba(139,92,246,0.08);}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.card.alpha::before{background:linear-gradient(90deg,#ef4444,#b91c1c);}
+.card.beta::before{background:linear-gradient(90deg,#8b5cf6,#6d28d9);}
+.card.gamma::before{background:linear-gradient(90deg,#00d4aa,#0891b2);}
+.card.exec::before{background:linear-gradient(90deg,#eab308,#d97706);}
+.card.alert::before{background:linear-gradient(90deg,#ef4444,#f97316);}
+.card-label{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:2.5px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.card-label.alpha{color:#ef4444;}
+.card-label.beta{color:#a78bfa;}
+.card-label.gamma{color:var(--accent);}
+.card-label.exec{color:var(--gold);}
+.card-label.alert{color:var(--warn);}
+.card-label-dot{width:6px;height:6px;border-radius:50%;animation:pulse 1.5s infinite;}
+.card-label.alpha .card-label-dot{background:#ef4444;box-shadow:0 0 8px #ef4444;}
+.card-label.beta .card-label-dot{background:#a78bfa;box-shadow:0 0 8px #a78bfa;}
+.card-label.gamma .card-label-dot{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.card-label.exec .card-label-dot{background:var(--gold);box-shadow:0 0 8px var(--gold);}
+.card-label.alert .card-label-dot{background:var(--warn);box-shadow:0 0 8px var(--warn);}
+.card-title{font-size:13px;font-weight:700;color:var(--white);margin-bottom:12px;}
+
+/* ── ANOMALY RADAR ── */
+.anomaly-item{padding:12px 14px;border-radius:4px;margin-bottom:8px;border:1px solid transparent;display:flex;align-items:flex-start;gap:12px;cursor:pointer;transition:.2s;}
+.anomaly-item:hover{transform:translateX(2px);}
+.anomaly-item.zero{border-color:rgba(239,68,68,0.4);background:rgba(239,68,68,0.07);}
+.anomaly-item.high{border-color:rgba(249,115,22,0.35);background:rgba(249,115,22,0.06);}
+.anomaly-item.elevated{border-color:rgba(234,179,8,0.3);background:rgba(234,179,8,0.05);}
+.anomaly-item.normal{border-color:var(--border);background:rgba(255,255,255,0.02);}
+.anomaly-score-ring{flex-shrink:0;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:800;border:2px solid;}
+.anomaly-item.zero .anomaly-score-ring{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,0.12);}
+.anomaly-item.high .anomaly-score-ring{border-color:#f97316;color:#f97316;background:rgba(249,115,22,0.12);}
+.anomaly-item.elevated .anomaly-score-ring{border-color:#eab308;color:#eab308;background:rgba(234,179,8,0.1);}
+.anomaly-item.normal .anomaly-score-ring{border-color:var(--text-muted);color:var(--text-muted);background:rgba(255,255,255,0.04);}
+.anomaly-body{flex:1;min-width:0;}
+.anomaly-title{font-size:11.5px;font-weight:600;color:var(--white);line-height:1.4;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.anomaly-meta{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap;}
+.anomaly-badge{font-family:var(--font-mono);font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:1px;}
+.badge-zero{background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.4);}
+.badge-high{background:rgba(249,115,22,0.2);color:#f97316;border:1px solid rgba(249,115,22,0.3);}
+.badge-elevated{background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3);}
+.badge-kev{background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);}
+.badge-pro{background:rgba(139,92,246,0.2);color:#a78bfa;border:1px solid rgba(139,92,246,0.4);}
+
+/* ── CAMPAIGN ITEMS ── */
+.campaign-item{padding:14px;border-radius:4px;border:1px solid var(--border);margin-bottom:10px;cursor:pointer;transition:.2s;background:rgba(255,255,255,0.01);}
+.campaign-item:hover{border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.04);}
+.campaign-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.campaign-name{font-size:12px;font-weight:700;color:var(--white);}
+.campaign-status{font-family:var(--font-mono);font-size:8px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:1px;}
+.status-active{background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.35);}
+.status-monitoring{background:rgba(249,115,22,0.2);color:#f97316;border:1px solid rgba(249,115,22,0.3);}
+.status-low{background:rgba(107,114,128,0.2);color:#9ca3af;border:1px solid rgba(107,114,128,0.25);}
+.campaign-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+.campaign-meta-item{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);display:flex;align-items:center;gap:4px;}
+.campaign-meta-item.highlight{color:var(--white);}
+.campaign-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:6px;}
+.campaign-bar-fill{height:100%;border-radius:2px;transition:width 1s ease;}
+.campaign-types{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.type-tag{font-family:var(--font-mono);font-size:8px;font-weight:600;padding:1px 6px;border-radius:2px;background:rgba(139,92,246,0.12);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);}
+
+/* ── SECTOR HEATMAP ── */
+.heatmap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+@media(max-width:600px){.heatmap-grid{grid-template-columns:repeat(2,1fr);}}
+.heatmap-cell{padding:14px 12px;border-radius:4px;border:1px solid transparent;text-align:center;position:relative;overflow:hidden;cursor:pointer;transition:.2s;}
+.heatmap-cell:hover{transform:scale(1.02);}
+.heatmap-cell-name{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--white);margin-bottom:6px;}
+.heatmap-cell-prob{font-family:var(--font-mono);font-size:20px;font-weight:800;margin-bottom:2px;}
+.heatmap-cell-label{font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:1px;}
+.heatmap-cell-trend{font-family:var(--font-mono);font-size:8px;font-weight:700;margin-top:4px;}
+.trend-esc{color:#ef4444;}
+.trend-stab{color:var(--gold);}
+.trend-dec{color:var(--accent);}
+
+/* ── FORECAST TIMELINE ── */
+.timeline-chart{height:120px;position:relative;overflow:hidden;}
+.timeline-canvas{width:100%;height:100%;}
+.timeline-legend{display:flex;align-items:center;gap:16px;margin-top:8px;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);}
+.legend-dot{width:10px;height:3px;border-radius:1px;}
+.key-events-list{margin-top:12px;}
+.key-event-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:3px;background:rgba(255,255,255,0.02);border:1px solid var(--border);margin-bottom:6px;}
+.key-event-date{font-family:var(--font-mono);font-size:9px;color:var(--ai);font-weight:700;white-space:nowrap;}
+.key-event-text{font-family:var(--font-mono);font-size:10px;color:var(--text);}
+
+/* ── CONFIDENCE METER ── */
+.meter-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+.meter-item{padding:12px;border-radius:4px;background:rgba(255,255,255,0.02);border:1px solid var(--border);}
+.meter-label{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1.5px;margin-bottom:8px;}
+.meter-val{font-family:var(--font-mono);font-size:22px;font-weight:800;color:var(--white);margin-bottom:6px;}
+.meter-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.meter-bar-fill{height:100%;border-radius:2px;}
+.confidence-overall{grid-column:1/-1;text-align:center;padding:20px;border-radius:4px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.25);}
+.confidence-overall .meter-val{font-size:48px;color:var(--ai);text-shadow:0 0 30px rgba(139,92,246,0.4);}
+
+/* ── EXECUTIVE SUMMARY ── */
+.exec-posture{display:flex;align-items:center;gap:16px;padding:16px;border-radius:4px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.05);margin-bottom:16px;}
+.exec-posture-icon{font-size:32px;}
+.exec-posture-label{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;}
+.exec-posture-val{font-family:var(--font-mono);font-size:22px;font-weight:800;color:#ef4444;}
+.exec-narrative{font-size:12px;line-height:1.7;color:var(--text);margin-bottom:16px;padding:14px;border-radius:4px;background:rgba(255,255,255,0.02);border:1px solid var(--border);}
+.exec-actions{list-style:none;}
+.exec-action{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:4px;margin-bottom:6px;border:1px solid var(--border);font-size:11.5px;color:var(--text);}
+.exec-action-priority{font-family:var(--font-mono);font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;flex-shrink:0;margin-top:2px;}
+.p-immediate{background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.3);}
+.p-urgent{background:rgba(249,115,22,0.2);color:#f97316;border:1px solid rgba(249,115,22,0.3);}
+.p-high{background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.25);}
+.p-medium{background:rgba(139,92,246,0.15);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);}
+
+/* ── ESCALATION TRACKER ── */
+.esc-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:4px;border:1px solid transparent;margin-bottom:8px;cursor:pointer;transition:.2s;}
+.esc-item.p1{border-color:rgba(239,68,68,0.4);background:rgba(239,68,68,0.05);}
+.esc-item.p2{border-color:rgba(249,115,22,0.35);background:rgba(249,115,22,0.04);}
+.esc-item.p3{border-color:rgba(234,179,8,0.25);background:rgba(234,179,8,0.03);}
+.esc-priority{flex-shrink:0;font-family:var(--font-mono);font-size:10px;font-weight:800;padding:4px 8px;border-radius:3px;}
+.esc-item.p1 .esc-priority{background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.4);}
+.esc-item.p2 .esc-priority{background:rgba(249,115,22,0.2);color:#f97316;border:1px solid rgba(249,115,22,0.35);}
+.esc-item.p3 .esc-priority{background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.25);}
+.esc-body{flex:1;min-width:0;}
+.esc-title{font-size:11.5px;font-weight:600;color:var(--white);line-height:1.4;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.esc-meta{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap;}
+.esc-risk{font-family:var(--font-mono);font-size:16px;font-weight:800;flex-shrink:0;margin-top:2px;}
+.esc-item.p1 .esc-risk{color:#ef4444;}
+.esc-item.p2 .esc-risk{color:#f97316;}
+.esc-item.p3 .esc-risk{color:#eab308;}
+
+/* ── MONETIZATION TIERS ── */
+.tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:8px;}
+@media(max-width:900px){.tier-grid{grid-template-columns:1fr;}}
+.tier-card{padding:24px;border-radius:var(--radius);border:1px solid var(--border);position:relative;overflow:hidden;}
+.tier-card.free{border-color:var(--border);}
+.tier-card.pro{border-color:rgba(139,92,246,0.45);background:rgba(139,92,246,0.04);}
+.tier-card.enterprise{border-color:rgba(234,179,8,0.4);background:rgba(234,179,8,0.03);}
+.tier-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.tier-card.pro::before{background:linear-gradient(90deg,#8b5cf6,#6d28d9);}
+.tier-card.enterprise::before{background:linear-gradient(90deg,#eab308,#d97706);}
+.tier-name{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:2px;margin-bottom:6px;}
+.tier-card.free .tier-name{color:var(--text-muted);}
+.tier-card.pro .tier-name{color:#a78bfa;}
+.tier-card.enterprise .tier-name{color:var(--gold);}
+.tier-price{font-family:var(--font-mono);font-size:32px;font-weight:800;color:var(--white);margin-bottom:4px;}
+.tier-price sup{font-size:16px;vertical-align:top;margin-top:8px;display:inline-block;}
+.tier-period{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-bottom:16px;}
+.tier-features{list-style:none;margin-bottom:20px;}
+.tier-feature{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);padding:5px 0;border-bottom:1px solid var(--border);}
+.tier-feature:last-child{border:none;}
+.tier-feature-icon{font-size:11px;margin-top:2px;flex-shrink:0;}
+.tier-card.free .tier-feature-icon{color:var(--text-muted);}
+.tier-card.pro .tier-feature-icon{color:#a78bfa;}
+.tier-card.enterprise .tier-feature-icon{color:var(--gold);}
+.tier-cta{display:block;width:100%;padding:12px;text-align:center;border-radius:4px;font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:1.5px;text-decoration:none;cursor:pointer;border:none;transition:.2s;}
+.tier-card.free .tier-cta{background:transparent;border:1px solid var(--border);color:var(--text-muted);}
+.tier-card.free .tier-cta:hover{border-color:var(--accent);color:var(--accent);}
+.tier-card.pro .tier-cta{background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:white;}
+.tier-card.pro .tier-cta:hover{box-shadow:0 0 20px rgba(139,92,246,0.4);}
+.tier-card.enterprise .tier-cta{background:linear-gradient(135deg,#eab308,#d97706);color:#000;}
+.tier-card.enterprise .tier-cta:hover{box-shadow:0 0 20px rgba(234,179,8,0.3);}
+.tier-badge{position:absolute;top:16px;right:16px;font-family:var(--font-mono);font-size:8px;font-weight:700;padding:3px 8px;border-radius:3px;letter-spacing:1px;}
+.tier-card.pro .tier-badge{background:rgba(139,92,246,0.2);color:#a78bfa;border:1px solid rgba(139,92,246,0.35);}
+.tier-card.enterprise .tier-badge{background:rgba(234,179,8,0.15);color:var(--gold);border:1px solid rgba(234,179,8,0.3);}
+
+/* ── GLOBAL RISK INDEX ── */
+.gri-display{text-align:center;padding:32px;position:relative;}
+.gri-ring{width:160px;height:160px;margin:0 auto 16px;position:relative;}
+.gri-ring svg{width:100%;height:100%;transform:rotate(-90deg);}
+.gri-ring-bg{fill:none;stroke:rgba(255,255,255,0.07);stroke-width:12;}
+.gri-ring-fill{fill:none;stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset 2s ease;}
+.gri-value{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-size:32px;font-weight:800;text-align:center;}
+.gri-value span{display:block;font-size:10px;color:var(--text-muted);letter-spacing:1px;}
+.gri-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;margin-bottom:4px;}
+.gri-posture{font-family:var(--font-mono);font-size:20px;font-weight:800;}
+
+/* ── LOADING ── */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;gap:16px;}
+.loading-spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--ai);border-radius:50%;animation:spin 0.8s linear infinite;}
+.loading-text{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);letter-spacing:2px;animation:blink 1.4s infinite;}
+
+/* ── ENGINE STATUS BAR ── */
+.engine-status-bar{display:flex;align-items:center;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:24px;}
+.engine-status-item{flex:1;padding:12px 16px;display:flex;flex-direction:column;align-items:center;gap:4px;border-right:1px solid var(--border);position:relative;}
+.engine-status-item:last-child{border:none;}
+.engine-status-name{font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:1.5px;}
+.engine-status-item.alpha .engine-status-name{color:#ef4444;}
+.engine-status-item.beta .engine-status-name{color:#a78bfa;}
+.engine-status-item.gamma .engine-status-name{color:var(--accent);}
+.engine-status-item.system .engine-status-name{color:var(--gold);}
+.engine-status-val{font-family:var(--font-mono);font-size:16px;font-weight:800;color:var(--white);}
+.engine-status-sub{font-family:var(--font-mono);font-size:8px;color:var(--text-muted);}
+.engine-status-dot{width:6px;height:6px;border-radius:50%;animation:pulse 1.5s infinite;flex-shrink:0;}
+.engine-status-item.alpha .engine-status-dot{background:#ef4444;box-shadow:0 0 8px #ef4444;}
+.engine-status-item.beta .engine-status-dot{background:#a78bfa;box-shadow:0 0 8px #a78bfa;}
+.engine-status-item.gamma .engine-status-dot{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.engine-status-item.system .engine-status-dot{background:var(--gold);box-shadow:0 0 8px var(--gold);}
+.engine-status-header{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
+
+/* ── SECTION DIVIDER ── */
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:32px 0;}
+
+/* ── PAYWALL OVERLAY ── */
+.paywall{position:relative;}
+.paywall-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(2,2,5,0.96));display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:20px;z-index:10;border-radius:var(--radius);}
+.paywall-cta{text-align:center;}
+.paywall-label{font-family:var(--font-mono);font-size:9px;color:var(--ai);letter-spacing:2px;margin-bottom:6px;}
+.paywall-btn{display:inline-block;padding:10px 24px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:white;border-radius:4px;font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:1.5px;text-decoration:none;cursor:pointer;transition:.2s;}
+.paywall-btn:hover{box-shadow:0 0 20px rgba(139,92,246,0.5);transform:translateY(-1px);}
+
+/* ── FOOTER ── */
+.footer{text-align:center;padding:32px 24px;border-top:1px solid var(--border);position:relative;z-index:1;}
+.footer-brand{font-family:var(--font-mono);font-size:10px;font-weight:800;color:var(--ai);letter-spacing:2px;margin-bottom:8px;}
+.footer-copy{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);}
+
+/* ── ANIMATIONS ── */
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes scanline{from{transform:translateY(-100%);}to{transform:translateY(100vh);}}
+.fade-in{animation:fadeIn 0.6s ease forwards;}
+.fade-in-delay-1{animation:fadeIn 0.6s ease 0.1s forwards;opacity:0;}
+.fade-in-delay-2{animation:fadeIn 0.6s ease 0.2s forwards;opacity:0;}
+.fade-in-delay-3{animation:fadeIn 0.6s ease 0.3s forwards;opacity:0;}
+</style>
+</head>
+<body>
+
+<!-- ── TOPBAR ── -->
+<nav class="topbar">
+  <div class="topbar-brand">
+    <i class="fas fa-brain" style="color:var(--ai);"></i>
+    <span>SENTINEL APEX</span> AI THREAT TRACKER
+  </div>
+  <div class="topbar-nav">
+    <a href="/" class="nav-pill">← DASHBOARD</a>
+    <a href="/ai-threat-tracker.html" class="nav-pill active">🧠 AI TRACKER</a>
+    <a href="/pricing.html" class="nav-pill">PRICING</a>
+    <a href="/enterprise.html" class="nav-pill">ENTERPRISE</a>
+    <a href="/trust-center.html" class="nav-pill">TRUST</a>
+    <a href="/api-docs.html" class="nav-pill">API DOCS</a>
+  </div>
+  <div class="live-badge">
+    <span class="live-dot"></span> LIVE INTEL
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-eyebrow">ENGINE ALPHA · ENGINE BETA · ENGINE GAMMA</div>
+  <h1 class="hero-title">🧠 <span class="accent">AI Cyber Brain</span> Command Center</h1>
+  <div class="hero-sub">ANOMALY DETECTION · CAMPAIGN CORRELATION · PREDICTIVE INTELLIGENCE · v148.0.0</div>
+  <div class="hero-stats" id="hero-stats">
+    <div class="hero-stat">
+      <div class="hero-stat-val danger" id="stat-anomalies">—</div>
+      <div class="hero-stat-lbl">AI ANOMALIES</div>
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-val ai" id="stat-campaigns">—</div>
+      <div class="hero-stat-lbl">CAMPAIGNS TRACKED</div>
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-val danger" id="stat-kev">—</div>
+      <div class="hero-stat-lbl">KEV ACTIVE</div>
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-val accent" id="stat-confidence">89%</div>
+      <div class="hero-stat-lbl">AI CONFIDENCE</div>
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-val" id="stat-risk" style="color:var(--warn);">—</div>
+      <div class="hero-stat-lbl">GLOBAL RISK INDEX</div>
+    </div>
+  </div>
+</section>
+
+<div class="main">
+
+  <!-- ── ENGINE STATUS BAR ── -->
+  <div class="engine-status-bar fade-in" id="engine-status-bar">
+    <div class="engine-status-item alpha">
+      <div class="engine-status-header">
+        <div class="engine-status-dot"></div>
+        <div class="engine-status-name">ENGINE ALPHA</div>
+      </div>
+      <div class="engine-status-val" id="es-anomalies">—</div>
+      <div class="engine-status-sub">ANOMALY DETECTION</div>
+    </div>
+    <div class="engine-status-item beta">
+      <div class="engine-status-header">
+        <div class="engine-status-dot"></div>
+        <div class="engine-status-name">ENGINE BETA</div>
+      </div>
+      <div class="engine-status-val" id="es-campaigns">—</div>
+      <div class="engine-status-sub">CAMPAIGN CORRELATION</div>
+    </div>
+    <div class="engine-status-item gamma">
+      <div class="engine-status-header">
+        <div class="engine-status-dot"></div>
+        <div class="engine-status-name">ENGINE GAMMA</div>
+      </div>
+      <div class="engine-status-val" id="es-sectors">—</div>
+      <div class="engine-status-sub">PREDICTIVE INTELLIGENCE</div>
+    </div>
+    <div class="engine-status-item system">
+      <div class="engine-status-header">
+        <div class="engine-status-dot"></div>
+        <div class="engine-status-name">SYSTEM HEALTH</div>
+      </div>
+      <div class="engine-status-val" style="color:var(--accent);">99.99%</div>
+      <div class="engine-status-sub">PLATFORM UPTIME</div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 1: EXECUTIVE SUMMARY + GLOBAL RISK INDEX ══ -->
+  <div class="grid-2 fade-in-delay-1" style="margin-bottom:16px;">
+
+    <!-- AI Executive Summary -->
+    <div class="card exec" style="grid-column:span 1;">
+      <div class="card-label exec"><span class="card-label-dot"></span> MODULE 6 — AI EXECUTIVE SUMMARY</div>
+      <div id="exec-summary-content">
+        <div class="loading"><div class="loading-spinner"></div><div class="loading-text">SYNTHESIZING INTELLIGENCE...</div></div>
+      </div>
+    </div>
+
+    <!-- Global Risk Index + Confidence Meter -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="card exec">
+        <div class="card-label exec"><span class="card-label-dot"></span> GLOBAL RISK INDEX</div>
+        <div class="gri-display" id="gri-display">
+          <div class="gri-ring">
+            <svg viewBox="0 0 160 160"><circle class="gri-ring-bg" cx="80" cy="80" r="68"/><circle class="gri-ring-fill" id="gri-ring-fill" cx="80" cy="80" r="68" stroke="#f97316" stroke-dasharray="427 427" stroke-dashoffset="427"/></svg>
+            <div class="gri-value" id="gri-value">—<span>/ 100</span></div>
+          </div>
+          <div class="gri-label" id="gri-label" style="color:var(--warn);">CALCULATING...</div>
+          <div class="gri-posture" id="gri-posture" style="color:var(--warn);">—</div>
+        </div>
+      </div>
+      <!-- Module 8: Confidence Meter -->
+      <div class="card beta">
+        <div class="card-label beta"><span class="card-label-dot"></span> MODULE 8 — THREAT CONFIDENCE METER</div>
+        <div class="meter-grid" id="confidence-grid">
+          <div class="loading"><div class="loading-spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ══ ROW 2: ANOMALY RADAR + RISK ESCALATION ══ -->
+  <div class="grid-2 fade-in-delay-2" style="margin-bottom:16px;">
+    <!-- Engine Alpha: Anomaly Radar -->
+    <div class="card alpha">
+      <div class="card-label alpha"><span class="card-label-dot"></span> MODULE 2 — AI ANOMALY RADAR · ENGINE ALPHA</div>
+      <div class="card-title">Real-time Behavioral Deviation Detection</div>
+      <div id="anomaly-list">
+        <div class="loading"><div class="loading-spinner"></div><div class="loading-text">SCANNING FOR ANOMALIES...</div></div>
+      </div>
+    </div>
+    <!-- Module 9: Risk Escalation Tracker -->
+    <div class="card alert">
+      <div class="card-label alert"><span class="card-label-dot"></span> MODULE 9 — AI RISK ESCALATION TRACKER</div>
+      <div class="card-title">Priority Incident Queue</div>
+      <div id="escalation-list">
+        <div class="loading"><div class="loading-spinner"></div><div class="loading-text">COMPILING ESCALATIONS...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ══ ROW 3: CAMPAIGN CORRELATION ══ -->
+  <div style="margin-bottom:16px;" class="fade-in-delay-2">
+    <div class="section-header">
+      <div class="section-eyebrow">ENGINE BETA · DBSCAN CLUSTERING</div>
+      <div class="section-title">MODULE 1 — Active Threat Campaigns</div>
+      <div class="section-desc">AI-driven threat actor cluster mapping and campaign relationship intelligence</div>
+    </div>
+    <div class="grid-2" id="campaign-grid">
+      <div class="loading"><div class="loading-spinner"></div><div class="loading-text">CORRELATING CAMPAIGNS...</div></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ══ ROW 4: SECTOR HEATMAP + FORECAST TIMELINE ══ -->
+  <div class="grid-2 fade-in-delay-3" style="margin-bottom:16px;">
+    <!-- Module 4: Sector Heatmap -->
+    <div class="card gamma">
+      <div class="card-label gamma"><span class="card-label-dot"></span> MODULE 4 — SECTOR THREAT HEATMAP · ENGINE GAMMA</div>
+      <div class="card-title">30-Day Exploit Probability by Sector</div>
+      <div class="heatmap-grid" id="heatmap-grid">
+        <div class="loading"><div class="loading-spinner"></div></div>
+      </div>
+    </div>
+    <!-- Module 7: Forecast Timeline -->
+    <div class="card gamma">
+      <div class="card-label gamma"><span class="card-label-dot"></span> MODULE 7 — THREAT FORECAST TIMELINE · ENGINE GAMMA</div>
+      <div class="card-title">30-Day AI Predictive Risk Curve</div>
+      <canvas id="forecast-canvas" height="130" style="width:100%;display:block;margin-bottom:8px;"></canvas>
+      <div class="timeline-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#f97316;"></div>Predicted Risk</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(249,115,22,0.3);height:8px;"></div>Confidence Band</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--ai);"></div>Key Event</div>
+      </div>
+      <div class="key-events-list" id="key-events-list"></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ══ MODULE 3: PREDICTIVE RISK FORECAST ══ -->
+  <div class="fade-in-delay-3" style="margin-bottom:32px;">
+    <div class="section-header">
+      <div class="section-eyebrow">ENGINE GAMMA · GRADIENT BOOST + XGBoost PROXY</div>
+      <div class="section-title">Module 3 — Predictive Risk Forecast</div>
+      <div class="section-desc">AI-driven sector risk forecasting with 30-day prediction horizon</div>
+    </div>
+    <div class="card gamma paywall" style="padding-bottom:60px;">
+      <div class="card-label gamma"><span class="card-label-dot"></span> SECTOR RISK FORECAST MATRIX</div>
+      <div class="grid-4" id="forecast-grid">
+        <div class="loading"><div class="loading-spinner"></div></div>
+      </div>
+      <div class="paywall-overlay" id="forecast-paywall">
+        <div class="paywall-cta">
+          <div class="paywall-label">🔒 PRO TIER FEATURE</div>
+          <a href="/upgrade.html?utm_source=ai-tracker&utm_medium=paywall&utm_campaign=predictive" class="paywall-btn">UNLOCK PREDICTIVE INTELLIGENCE — $49/mo ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ══ PHASE 3: MONETIZATION ENGINE ══ -->
+  <div style="margin-bottom:32px;">
+    <div class="section-header" style="text-align:center;">
+      <div class="section-eyebrow" style="justify-content:center;">ENTERPRISE MONETIZATION ENGINE</div>
+      <div class="section-title" style="font-size:24px;">Choose Your Intelligence Tier</div>
+      <div class="section-desc">From SOC analyst to enterprise MSSP — scale your AI threat intelligence</div>
+    </div>
+    <div class="tier-grid">
+      <!-- FREE -->
+      <div class="tier-card free">
+        <div class="tier-name">FREE TIER</div>
+        <div class="tier-price">$<sup></sup>0</div>
+        <div class="tier-period">Forever free · Lead generation</div>
+        <ul class="tier-features">
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>AI summary preview</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>Top 3 anomaly alerts</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>5 campaigns preview</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>Sector heatmap (limited)</li>
+          <li class="tier-feature"><i class="fas fa-lock tier-feature-icon"></i><span style="color:var(--text-muted);">Full anomaly radar</span></li>
+          <li class="tier-feature"><i class="fas fa-lock tier-feature-icon"></i><span style="color:var(--text-muted);">Predictive API access</span></li>
+        </ul>
+        <a href="/get-api-key.html" class="tier-cta">GET STARTED FREE</a>
+      </div>
+      <!-- PRO -->
+      <div class="tier-card pro">
+        <div class="tier-badge">MOST POPULAR</div>
+        <div class="tier-name">PRO · SOC</div>
+        <div class="tier-price"><sup>$</sup>49<sup style="font-size:14px;color:var(--text-muted);">/mo</sup></div>
+        <div class="tier-period">Full campaign intelligence · SMB/SOC revenue</div>
+        <ul class="tier-features">
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>Full AI Anomaly Radar (12+)</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>Campaign deep-dive intelligence</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>AI kill-chain analysis</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>Advanced IOC arrays (1153+)</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>AI executive summaries</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>Sector risk heatmap (full)</li>
+          <li class="tier-feature"><i class="fas fa-lock tier-feature-icon"></i><span style="color:var(--text-muted);">Real-time SIEM push</span></li>
+          <li class="tier-feature"><i class="fas fa-lock tier-feature-icon"></i><span style="color:var(--text-muted);">MSSP automation</span></li>
+        </ul>
+        <a href="/upgrade.html?plan=pro&utm_source=ai-tracker&utm_medium=tier&utm_campaign=pro" class="tier-cta">UPGRADE TO PRO ↗</a>
+      </div>
+      <!-- ENTERPRISE -->
+      <div class="tier-card enterprise">
+        <div class="tier-badge">ENTERPRISE SOC</div>
+        <div class="tier-name">ENTERPRISE SOC</div>
+        <div class="tier-price"><sup>$</sup>499<sup style="font-size:14px;color:var(--text-muted);">/mo</sup></div>
+        <div class="tier-period">High-margin enterprise revenue · MSSP</div>
+        <ul class="tier-features">
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>Everything in Pro</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>Real-time SIEM push (Splunk, QRadar)</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>AI Predictive APIs</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>Webhook integrations</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>MSSP automation pipelines</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>Enterprise export (STIX/JSON/CSV)</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>AI Supply Chain Feed</li>
+          <li class="tier-feature"><i class="fas fa-check tier-feature-icon"></i>Dedicated SOC support</li>
+        </ul>
+        <a href="/contact-enterprise.html?plan=enterprise&utm_source=ai-tracker&utm_medium=tier&utm_campaign=enterprise" class="tier-cta">CONTACT ENTERPRISE SALES ↗</a>
+      </div>
+    </div>
+    <!-- Add-ons -->
+    <div style="margin-top:16px;padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);">
+      <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--gold);letter-spacing:2px;margin-bottom:12px;">⚡ PREMIUM ADD-ONS</div>
+      <div class="grid-4" style="gap:12px;">
+        <div style="padding:14px;border:1px solid rgba(234,179,8,0.25);border-radius:4px;background:rgba(234,179,8,0.03);">
+          <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--gold);margin-bottom:4px;">AI SUPPLY CHAIN FEED</div>
+          <div style="font-size:11px;color:var(--text-muted);">Real-time npm/PyPI/GitHub compromise detection + AI attribution</div>
+        </div>
+        <div style="padding:14px;border:1px solid rgba(239,68,68,0.25);border-radius:4px;background:rgba(239,68,68,0.03);">
+          <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:#ef4444;margin-bottom:4px;">LLM RED TEAM PACK</div>
+          <div style="font-size:11px;color:var(--text-muted);">AI-generated adversarial attack scenarios + TTPs for red team ops</div>
+        </div>
+        <div style="padding:14px;border:1px solid rgba(139,92,246,0.25);border-radius:4px;background:rgba(139,92,246,0.03);">
+          <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:#a78bfa;margin-bottom:4px;">ADVERSARIAL AI DEFENSE</div>
+          <div style="font-size:11px;color:var(--text-muted);">Detection rules for AI-weaponized attacks, prompt injection, model poisoning</div>
+        </div>
+        <div style="padding:14px;border:1px solid rgba(0,212,170,0.25);border-radius:4px;background:rgba(0,212,170,0.03);">
+          <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--accent);margin-bottom:4px;">AI SECURITY POSTURE</div>
+          <div style="font-size:11px;color:var(--text-muted);">AI-driven security posture assessment + continuous improvement roadmap</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ══ ENTERPRISE TRUST LAYER ══ -->
+  <div style="margin-bottom:32px;">
+    <div class="section-header" style="text-align:center;">
+      <div class="section-eyebrow" style="justify-content:center;">PHASE 5 — ENTERPRISE TRUST LAYER</div>
+      <div class="section-title">Platform Governance & Compliance</div>
+    </div>
+    <div class="grid-4" style="gap:12px;">
+      <a href="/trust-center.html" style="text-decoration:none;">
+        <div class="card" style="text-align:center;cursor:pointer;padding:20px 16px;">
+          <div style="font-size:24px;margin-bottom:8px;">🛡️</div>
+          <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--accent);margin-bottom:4px;">TRUST CENTER</div>
+          <div style="font-size:11px;color:var(--text-muted);">AI governance, data handling, security policies</div>
+        </div>
+      </a>
+      <a href="/status.html" style="text-decoration:none;">
+        <div class="card" style="text-align:center;cursor:pointer;padding:20px 16px;">
+          <div style="font-size:24px;margin-bottom:8px;">📊</div>
+          <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--accent);margin-bottom:4px;">STATUS &amp; SLA</div>
+          <div style="font-size:11px;color:var(--text-muted);">99.99% uptime SLA, real-time platform health</div>
+        </div>
+      </a>
+      <a href="/api-docs.html" style="text-decoration:none;">
+        <div class="card" style="text-align:center;cursor:pointer;padding:20px 16px;">
+          <div style="font-size:24px;margin-bottom:8px;">🔌</div>
+          <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--accent);margin-bottom:4px;">API SECURITY</div>
+          <div style="font-size:11px;color:var(--text-muted);">JWT auth, rate limiting, API key management</div>
+        </div>
+      </a>
+      <a href="/onboarding.html" style="text-decoration:none;">
+        <div class="card" style="text-align:center;cursor:pointer;padding:20px 16px;">
+          <div style="font-size:24px;margin-bottom:8px;">🚀</div>
+          <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--accent);margin-bottom:4px;">ENTERPRISE ONBOARDING</div>
+          <div style="font-size:11px;color:var(--text-muted);">MSSP integration, SIEM setup, enterprise portal</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ── FOOTER ── -->
+<footer class="footer">
+  <div class="footer-brand">🧠 SENTINEL APEX AI THREAT TRACKER v148.0.0</div>
+  <div class="footer-copy">© 2026 CYBERDUDEBIVASH® SENTINEL APEX · <a href="/privacy.html" style="color:var(--text-muted);text-decoration:none;">Privacy</a> · <a href="/terms.html" style="color:var(--text-muted);text-decoration:none;">Terms</a> · <a href="/trust-center.html" style="color:var(--text-muted);text-decoration:none;">Trust Center</a> · TLP:AMBER For Authorized Recipients</div>
+</footer>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// SENTINEL APEX AI THREAT TRACKER — Runtime Engine v148.0.0
+// ══════════════════════════════════════════════════════════════
+const API_BASE = '/api/ai/tracker.json';
+const UPGRADE_URL = '/upgrade.html?utm_source=ai-tracker&utm_medium=paywall&utm_campaign=';
+
+let trackerData = null;
+
+// ── Severity level class maps ──────────────────────────────
+function anomalyClass(level) {
+  return { ZERO_DAY_CANDIDATE:'zero', HIGH:'high', ELEVATED:'elevated', NORMAL:'normal' }[level] || 'normal';
+}
+function anomalyBadgeClass(level) {
+  return { ZERO_DAY_CANDIDATE:'badge-zero', HIGH:'badge-high', ELEVATED:'badge-elevated', NORMAL:'' }[level] || '';
+}
+function statusClass(s) {
+  return { ACTIVE:'status-active', MONITORING:'status-monitoring', LOW:'status-low' }[s] || 'status-low';
+}
+function escClass(p) {
+  return { P1:'p1', P2:'p2', P3:'p3' }[p] || 'p3';
+}
+
+// ── Colour helpers ─────────────────────────────────────────
+function riskColor(r) {
+  if (r >= 9) return '#ef4444';
+  if (r >= 7) return '#f97316';
+  if (r >= 5) return '#eab308';
+  return '#22c55e';
+}
+function meterColor(v) {
+  if (v >= 85) return 'var(--accent)';
+  if (v >= 70) return '#eab308';
+  return '#f97316';
+}
+
+// ── Format date ────────────────────────────────────────────
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+  catch { return iso || ''; }
+}
+
+// ── Load tracker.json ──────────────────────────────────────
+async function loadTracker() {
+  try {
+    const r = await fetch(API_BASE + '?_=' + Date.now());
+    trackerData = await r.json();
+    renderAll(trackerData);
+  } catch(e) {
+    console.error('[TRACKER] Load failed:', e);
+    // Fallback: render with minimal state
+    renderError();
+  }
+}
+
+function renderError() {
+  document.getElementById('anomaly-list').innerHTML = '<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);padding:20px;text-align:center;">⚠ Failed to load AI brain data. Retrying...</div>';
+  setTimeout(loadTracker, 5000);
+}
+
+// ── RENDER ALL ─────────────────────────────────────────────
+function renderAll(d) {
+  updateHeroStats(d);
+  renderEngineStatus(d);
+  renderExecutiveSummary(d);
+  renderGRI(d);
+  renderConfidenceMeter(d);
+  renderAnomalyRadar(d);
+  renderEscalationTracker(d);
+  renderCampaigns(d);
+  renderSectorHeatmap(d);
+  renderForecastTimeline(d);
+  renderForecastGrid(d);
+}
+
+// ── Hero stats ─────────────────────────────────────────────
+function updateHeroStats(d) {
+  const ea = d.engine_alpha, eb = d.engine_beta, es = d.executive_summary;
+  animCount('stat-anomalies', ea.anomalies_detected || 0);
+  animCount('stat-campaigns', eb.campaigns_tracked || 0);
+  animCount('stat-kev', es.kev_confirmed || 0);
+  document.getElementById('stat-confidence').textContent = (d.confidence_meter?.overall || 89) + '%';
+  document.getElementById('stat-risk').textContent = (es.global_risk_index || 0) + '/100';
+}
+
+function animCount(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let cur = 0, step = Math.ceil(target / 30);
+  const t = setInterval(() => {
+    cur = Math.min(cur + step, target);
+    el.textContent = cur;
+    if (cur >= target) clearInterval(t);
+  }, 40);
+}
+
+// ── Engine Status ──────────────────────────────────────────
+function renderEngineStatus(d) {
+  document.getElementById('es-anomalies').textContent = d.engine_alpha.anomalies_detected;
+  document.getElementById('es-campaigns').textContent = d.engine_beta.campaigns_tracked;
+  document.getElementById('es-sectors').textContent = d.engine_gamma.sector_forecasts?.length || 0;
+}
+
+// ── Executive Summary ──────────────────────────────────────
+function renderExecutiveSummary(d) {
+  const es = d.executive_summary;
+  const postureCls = es.threat_posture === 'HIGH' ? 'danger' : 'warn';
+  const postureColor = es.threat_posture === 'HIGH' ? '#ef4444' : '#f97316';
+  const actions = es.recommended_actions || [];
+  const priorities = ['IMMEDIATE','URGENT','HIGH','HIGH','MEDIUM','MEDIUM'];
+  const pClasses = ['p-immediate','p-urgent','p-high','p-high','p-medium','p-medium'];
+  document.getElementById('exec-summary-content').innerHTML = `
+    <div class="exec-posture">
+      <div class="exec-posture-icon">⚠️</div>
+      <div>
+        <div class="exec-posture-label">CURRENT THREAT POSTURE</div>
+        <div class="exec-posture-val" style="color:${postureColor};">${es.threat_posture || 'MEDIUM'}</div>
+      </div>
+      <div style="margin-left:auto;text-align:right;">
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);">KEV ACTIVE</div>
+        <div style="font-family:var(--font-mono);font-size:20px;font-weight:800;color:#ef4444;">${es.kev_confirmed || 0}</div>
+      </div>
+    </div>
+    <p class="exec-narrative">${es.ai_narrative || ''}</p>
+    <ul class="exec-actions">
+      ${actions.map((a,i) => `
+        <li class="exec-action">
+          <span class="exec-action-priority ${pClasses[i]||'p-medium'}">${priorities[i]||'MEDIUM'}</span>
+          ${a}
+        </li>
+      `).join('')}
+    </ul>
+  `;
+}
+
+// ── Global Risk Index (ring chart) ────────────────────────
+function renderGRI(d) {
+  const es = d.executive_summary;
+  const gri = es.global_risk_index || 0;
+  const circumference = 2 * Math.PI * 68;
+  const offset = circumference - (gri / 100) * circumference;
+  const color = gri >= 70 ? '#ef4444' : (gri >= 50 ? '#f97316' : '#eab308');
+  const fill = document.getElementById('gri-ring-fill');
+  if (fill) {
+    fill.style.stroke = color;
+    fill.style.strokeDasharray = `${circumference} ${circumference}`;
+    setTimeout(() => { fill.style.strokeDashoffset = offset; }, 200);
+  }
+  document.getElementById('gri-value').innerHTML = `${gri}<span>/ 100</span>`;
+  document.getElementById('gri-label').textContent = 'GLOBAL RISK INDEX';
+  document.getElementById('gri-posture').textContent = es.threat_posture || 'MEDIUM';
+  document.getElementById('gri-posture').style.color = color;
+}
+
+// ── Confidence Meter ───────────────────────────────────────
+function renderConfidenceMeter(d) {
+  const cm = d.confidence_meter || {};
+  const labels = {
+    feed_freshness:'FEED FRESHNESS',
+    ioc_validation:'IOC VALIDATION',
+    campaign_correlation:'CAMPAIGN CORR.',
+    anomaly_detection:'ANOMALY ENGINE',
+    predictive_model:'PREDICTIVE MODEL',
+    overall:'OVERALL CONFIDENCE',
+  };
+  const entries = Object.entries(cm).filter(([k]) => k !== 'overall');
+  const overall = cm.overall || 89;
+  document.getElementById('confidence-grid').innerHTML = `
+    ${entries.map(([k,v]) => `
+      <div class="meter-item">
+        <div class="meter-label">${labels[k]||k.toUpperCase()}</div>
+        <div class="meter-val" style="color:${meterColor(v)};">${v}%</div>
+        <div class="meter-bar"><div class="meter-bar-fill" style="width:${v}%;background:${meterColor(v)};"></div></div>
+      </div>
+    `).join('')}
+    <div class="confidence-overall">
+      <div class="meter-label">OVERALL AI CONFIDENCE</div>
+      <div class="meter-val">${overall}%</div>
+      <div class="meter-bar" style="max-width:200px;margin:0 auto;"><div class="meter-bar-fill" style="width:${overall}%;background:var(--ai);"></div></div>
+    </div>
+  `;
+}
+
+// ── Anomaly Radar ──────────────────────────────────────────
+function renderAnomalyRadar(d) {
+  const anomalies = d.engine_alpha.anomalies || [];
+  const FREE_LIMIT = 3;
+  document.getElementById('anomaly-list').innerHTML = `
+    <div style="position:relative;">
+      ${anomalies.map((a, i) => {
+        const cls = anomalyClass(a.anomaly_level);
+        const badgeCls = anomalyBadgeClass(a.anomaly_level);
+        const isLocked = i >= FREE_LIMIT;
+        return `
+          <div class="anomaly-item ${cls}" style="${isLocked ? 'opacity:0.35;pointer-events:none;' : ''}" onclick="viewAnomaly('${a.id}')">
+            <div class="anomaly-score-ring">${a.anomaly_score}</div>
+            <div class="anomaly-body">
+              <div class="anomaly-title" title="${a.title}">${a.title}</div>
+              <div class="anomaly-meta">
+                <span class="anomaly-badge ${badgeCls}">${a.anomaly_level.replace('_',' ')}</span>
+                ${a.kev_confirmed ? '<span class="anomaly-badge badge-kev">🔴 KEV</span>' : ''}
+                <span>RISK ${a.risk_score}/10</span>
+                ${a.epss_score > 0 ? `<span>EPSS ${a.epss_score}%</span>` : ''}
+                <span>${a.actor}</span>
+              </div>
+              <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-top:5px;line-height:1.5;">${a.ai_reasoning}</div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+      ${anomalies.length > FREE_LIMIT ? `
+        <div style="text-align:center;padding:16px;border-top:1px solid var(--border);margin-top:8px;">
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-bottom:8px;">🔒 ${anomalies.length - FREE_LIMIT} MORE ANOMALIES — PRO TIER</div>
+          <a href="${UPGRADE_URL}anomaly-radar" class="paywall-btn" style="font-size:9px;padding:8px 18px;">UNLOCK FULL ANOMALY RADAR — $49/mo</a>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// ── Campaign Grid ──────────────────────────────────────────
+function renderCampaigns(d) {
+  const campaigns = d.engine_beta.campaigns || [];
+  const FREE_LIMIT = 4;
+  document.getElementById('campaign-grid').innerHTML = campaigns.slice(0, 8).map((c, i) => {
+    const isLocked = i >= FREE_LIMIT;
+    const stClasses = statusClass(c.status);
+    return `
+      <div class="campaign-item" style="${isLocked ? 'opacity:0.3;pointer-events:none;filter:blur(1px)' : ''}">
+        <div class="campaign-header">
+          <div class="campaign-name">${c.actor_name}</div>
+          <div class="campaign-status ${stClasses}">${c.status}</div>
+        </div>
+        <div class="campaign-meta">
+          <div class="campaign-meta-item highlight"><i class="fas fa-crosshairs" style="color:var(--ai);font-size:9px;"></i> ${c.ioc_count} ITEMS</div>
+          <div class="campaign-meta-item highlight" style="color:${riskColor(c.max_risk)}">RISK ${c.max_risk}/10</div>
+          ${c.kev_confirmed ? `<div class="campaign-meta-item" style="color:#ef4444;">🔴 ${c.kev_confirmed} KEV</div>` : ''}
+          <div class="campaign-meta-item">CONF ${c.campaign_confidence}%</div>
+        </div>
+        <div class="campaign-bar"><div class="campaign-bar-fill" style="width:${c.campaign_confidence}%;background:${riskColor(c.max_risk)};"></div></div>
+        <div class="campaign-types">${c.threat_types.map(t => `<span class="type-tag">${t}</span>`).join('')}</div>
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-top:8px;line-height:1.5;">${c.campaign_narrative}</div>
+        ${isLocked ? '<div style="font-family:var(--font-mono);font-size:8px;color:var(--ai);margin-top:6px;text-align:center;">🔒 PRO TIER</div>' : ''}
+      </div>
+    `;
+  }).join('') + (campaigns.length > FREE_LIMIT ? `
+    <div style="grid-column:1/-1;text-align:center;padding:16px;border:1px dashed rgba(139,92,246,0.25);border-radius:4px;background:rgba(139,92,246,0.03);">
+      <div style="font-family:var(--font-mono);font-size:9px;color:var(--ai);margin-bottom:8px;">🔒 ${campaigns.length - FREE_LIMIT} MORE CAMPAIGNS — PRO TIER</div>
+      <a href="${UPGRADE_URL}campaigns" class="paywall-btn" style="font-size:9px;padding:8px 20px;">UNLOCK FULL CAMPAIGN INTELLIGENCE</a>
+    </div>
+  ` : '');
+}
+
+// ── Sector Heatmap ─────────────────────────────────────────
+function renderSectorHeatmap(d) {
+  const sectors = (d.engine_gamma.sector_forecasts || []).slice(0, 9);
+  document.getElementById('heatmap-grid').innerHTML = sectors.map(s => `
+    <div class="heatmap-cell" style="background:${s.risk_color}18;border-color:${s.risk_color}50;">
+      <div class="heatmap-cell-name">${s.sector}</div>
+      <div class="heatmap-cell-prob" style="color:${s.risk_color};">${s.exploit_probability_30d}%</div>
+      <div class="heatmap-cell-label">EXPLOIT PROB.</div>
+      <div class="heatmap-cell-trend ${s.risk_trend==='ESCALATING'?'trend-esc':s.risk_trend==='STABLE'?'trend-stab':'trend-dec'}">
+        ${s.risk_trend==='ESCALATING'?'↑ ESCALATING':s.risk_trend==='STABLE'?'→ STABLE':'↓ DECLINING'}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Forecast Timeline (Canvas Chart) ──────────────────────
+function renderForecastTimeline(d) {
+  const timeline = d.engine_gamma.forecast_timeline_30d || [];
+  const canvas = document.getElementById('forecast-canvas');
+  if (!canvas || !timeline.length) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth || 400;
+  const H = 130;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = {l:30, r:16, t:12, b:20};
+  const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
+  const pts = timeline.length;
+  const xScale = (i) => pad.l + (i / (pts-1)) * cW;
+  const yScale = (v) => pad.t + cH - ((v - 1) / 9) * cH;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  [3,5,7,9].forEach(v => {
+    const y = yScale(v);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W-pad.r, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(90,101,120,0.7)';
+    ctx.font = '8px JetBrains Mono, monospace';
+    ctx.fillText(v, 4, y+3);
+  });
+
+  // Confidence band
+  ctx.beginPath();
+  timeline.forEach((p, i) => { i===0 ? ctx.moveTo(xScale(i), yScale(p.confidence_band_high)) : ctx.lineTo(xScale(i), yScale(p.confidence_band_high)); });
+  timeline.slice().reverse().forEach((p, i) => ctx.lineTo(xScale(pts-1-i), yScale(p.confidence_band_low)));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(249,115,22,0.08)';
+  ctx.fill();
+
+  // Prediction line
+  ctx.beginPath();
+  timeline.forEach((p, i) => { i===0 ? ctx.moveTo(xScale(i), yScale(p.predicted_risk)) : ctx.lineTo(xScale(i), yScale(p.predicted_risk)); });
+  ctx.strokeStyle = '#f97316';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Key event markers
+  timeline.forEach((p, i) => {
+    if (p.key_event) {
+      const x = xScale(i), y = yScale(p.predicted_risk);
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, 2*Math.PI);
+      ctx.fillStyle = 'var(--ai, #8b5cf6)'; ctx.fillStyle = '#8b5cf6'; ctx.fill();
+      ctx.strokeStyle = '#020205'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+  });
+
+  // X-axis labels
+  ctx.fillStyle = 'rgba(90,101,120,0.8)';
+  ctx.font = '8px JetBrains Mono, monospace';
+  [0, 6, 13, 20, 27, 29].forEach(i => {
+    if (i < pts) ctx.fillText(timeline[i].date.slice(5), xScale(i)-10, H-4);
+  });
+
+  // Key events list
+  const keyEvts = timeline.filter(p => p.key_event).slice(0,4);
+  document.getElementById('key-events-list').innerHTML = keyEvts.map(p => `
+    <div class="key-event-item">
+      <div class="key-event-date">+${p.day}d · ${p.date}</div>
+      <div class="key-event-text">${p.key_event}</div>
+      <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:#f97316;margin-left:auto;">${p.predicted_risk}</div>
+    </div>
+  `).join('');
+}
+
+// ── Predictive Forecast Grid (Paywalled) ──────────────────
+function renderForecastGrid(d) {
+  const sectors = (d.engine_gamma.sector_forecasts || []).slice(0, 8);
+  document.getElementById('forecast-grid').innerHTML = sectors.map(s => `
+    <div style="padding:14px;border:1px solid ${s.risk_color}30;border-radius:4px;background:${s.risk_color}08;">
+      <div style="font-family:var(--font-mono);font-size:9px;font-weight:700;color:${s.risk_color};margin-bottom:6px;">${s.sector.toUpperCase()}</div>
+      <div style="font-family:var(--font-mono);font-size:22px;font-weight:800;color:var(--white);margin-bottom:2px;">${s.exploit_probability_30d}%</div>
+      <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);margin-bottom:8px;">EXPLOIT PROBABILITY · 30D</div>
+      <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:6px;">
+        <div style="height:100%;width:${s.exploit_probability_30d}%;background:${s.risk_color};border-radius:2px;"></div>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:8px;color:${s.risk_color};">${s.risk_trend}</div>
+      <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-muted);margin-top:4px;">${s.predicted_attack_vectors?.join(' · ')}</div>
+    </div>
+  `).join('');
+}
+
+// ── Escalation Tracker ─────────────────────────────────────
+function renderEscalationTracker(d) {
+  const events = d.escalation_tracker || [];
+  document.getElementById('escalation-list').innerHTML = events.map(e => `
+    <div class="esc-item ${escClass(e.priority)}" onclick="${e.report_url ? `window.open('${e.report_url}','_blank')` : ''}">
+      <div class="esc-priority">${e.priority}</div>
+      <div class="esc-body">
+        <div class="esc-title" title="${e.title}">${e.title}</div>
+        <div class="esc-meta">
+          <span>${e.escalation_type?.replace('_',' ')}</span>
+          ${e.kev ? '<span style="color:#ef4444;">🔴 KEV</span>' : ''}
+          ${e.epss > 0 ? `<span>EPSS ${e.epss}%</span>` : ''}
+          <span>${e.actor}</span>
+        </div>
+      </div>
+      <div class="esc-risk">${e.risk}</div>
+    </div>
+  `).join('') || '<div style="font-family:var(--font-mono);font-size:10px;color:var(--accent);padding:20px;text-align:center;">✓ No active escalations</div>';
+}
+
+// ── Anomaly click through ──────────────────────────────────
+function viewAnomaly(id) {
+  const a = (trackerData?.engine_alpha?.anomalies || []).find(x => x.id === id);
+  if (a?.report_url) window.open(a.report_url, '_blank');
+}
+
+// ── Auto-refresh every 5 minutes ──────────────────────────
+setInterval(loadTracker, 5 * 60 * 1000);
+
+// ── Init ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', loadTracker);
+</script>
+</body>
+</html>
