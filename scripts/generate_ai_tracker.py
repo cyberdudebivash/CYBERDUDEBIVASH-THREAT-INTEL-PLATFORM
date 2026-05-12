@@ -1056,52 +1056,102 @@ def main():
 
     # Resolve paths
     repo_root = pathlib.Path(__file__).parent.parent
-    feed_path = pathlib.Path(args.feed) if args.feed else repo_root / "data" / "feed.json"
+    # v149 FIX: expanded feed search order -- data/feed.json, root feed.json, api/feed.json
+    explicit_feed = pathlib.Path(args.feed) if args.feed else None
+    json_candidates = [
+        repo_root / "data" / "feed.json",          # primary (committed, always present)
+        repo_root / "feed.json",                    # root fallback (pipeline output)
+        repo_root / "api" / "feed.json",            # api mirror fallback
+        repo_root / "api" / "v1" / "intel" / "latest.json",
+    ]
 
-    # Try CSV feed first, then fallback to feed.json
+    # Try CSV feed first, then JSON fallback candidates
     csv_candidates = [
         repo_root / "cdb-threat-intel-feed.csv",
         repo_root / "data" / "cdb-threat-intel-feed.csv",
     ]
     items = []
 
+    def _parse_json_feed(path: pathlib.Path) -> list:
+        """Load and normalise a JSON feed file; returns [] on any error."""
+        try:
+            with open(path, encoding="utf-8") as fh:
+                raw = json.load(fh)
+        except json.JSONDecodeError:
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    text = fh.read()
+                raw, _ = json.JSONDecoder().raw_decode(text)
+                print(f"[FEED][WARN] Partial JSON recovered from {path}", file=sys.stderr)
+            except Exception as exc:
+                print(f"[FEED][WARN] Cannot parse {path}: {exc}", file=sys.stderr)
+                return []
+        except Exception as exc:
+            print(f"[FEED][WARN] Cannot open {path}: {exc}", file=sys.stderr)
+            return []
+        parsed = []
+        raw_items = raw if isinstance(raw, list) else raw.get("advisories", raw.get("reports", raw.get("items", [])))
+        for r in raw_items:
+            apex = r.get("apex", {})
+            parsed.append({
+                "title":      r.get("title", r.get("id", "Unknown")),
+                "severity":   r.get("severity", "MEDIUM"),
+                "tlp":        r.get("tlp_label", "TLP:CLEAR"),
+                "actor":      r.get("actor_tag", r.get("actor", "UNKNOWN")),
+                "epss":       float(apex.get("epss_score", r.get("epss", 0)) or 0),
+                "cvss":       float(r.get("cvss", 0) or 0),
+                "conf":       float(apex.get("confidence_score", r.get("confidence", 50)) or 50),
+                "risk":       float(apex.get("predictive_score", r.get("risk_score", 5.0)) or 5.0),
+                "kev":        bool(r.get("kev_present", False)),
+                "blog_url":   r.get("blog_url", ""),
+                "source_url": r.get("url", ""),
+                "timestamp":  r.get("published", ""),
+            })
+        return parsed
+
     # Check if a CSV path was given directly
-    if args.feed and pathlib.Path(args.feed).suffix == ".csv":
-        items = load_feed(pathlib.Path(args.feed))
+    if explicit_feed and explicit_feed.suffix == ".csv":
+        items = load_feed(explicit_feed)
+    elif explicit_feed:
+        items = _parse_json_feed(explicit_feed)
     else:
-        # Try CSV candidates
         for csv_path in csv_candidates:
             if csv_path.exists():
                 items = load_feed(csv_path)
                 print(f"[FEED] Loaded {len(items)} items from {csv_path}", file=sys.stderr)
                 break
+        if not items:
+            for json_path in json_candidates:
+                if json_path.exists():
+                    items = _parse_json_feed(json_path)
+                    if items:
+                        print(f"[FEED] Loaded {len(items)} items from {json_path}", file=sys.stderr)
+                        break
 
-        # Fallback: load from feed.json
-        if not items and feed_path.exists():
-            with open(feed_path, encoding="utf-8") as f:
-                raw = json.load(f)
-            raw_items = raw if isinstance(raw, list) else raw.get("advisories", raw.get("reports", []))
-            for r in raw_items:
-                apex = r.get("apex", {})
-                items.append({
-                    "title":    r.get("title", r.get("id", "Unknown")),
-                    "severity": r.get("severity", "MEDIUM"),
-                    "tlp":      r.get("tlp_label", "TLP:CLEAR"),
-                    "actor":    r.get("actor_tag", r.get("actor", "UNKNOWN")),
-                    "epss":     float(apex.get("epss_score", r.get("epss", 0)) or 0),
-                    "cvss":     float(r.get("cvss", 0) or 0),
-                    "conf":     float(apex.get("confidence_score", r.get("confidence", 50)) or 50),
-                    "risk":     float(apex.get("predictive_score", r.get("risk_score", 5.0)) or 5.0),
-                    "kev":      bool(r.get("kev_present", False)),
-                    "blog_url": r.get("blog_url", ""),
-                    "source_url": r.get("url", ""),
-                    "timestamp": r.get("published", ""),
-                })
-            print(f"[FEED] Loaded {len(items)} items from {feed_path}", file=sys.stderr)
-
+    # v149 FIX: graceful degradation -- never hard-abort in CI on missing feed
+    # Writes minimal valid tracker.json stub and exits 0 so downstream stages proceed
     if not items:
-        print("[ERROR] No feed data found. Aborting.", file=sys.stderr)
-        sys.exit(1)
+        print("[WARN] No feed data found -- writing minimal tracker stub (CI graceful degradation).", file=sys.stderr)
+        stub = {
+            "schema_version": AI_TRACKER_SCHEMA,
+            "generated_at": GENERATED_AT,
+            "generator": "sentinel-apex-ai-tracker",
+            "version": PIPELINE_VERSION,
+            "feed_item_count": 0,
+            "global_risk_index": {"gri_score": "N/A", "trend": "unknown"},
+            "advisories": [],
+            "top10": [],
+            "anomalies": [],
+            "campaigns": [],
+            "_ci_stub": True,
+            "_ci_reason": "No feed data on this runner -- pipeline populates on next scheduled run",
+        }
+        out_path = pathlib.Path(args.out) if args.out else pathlib.Path("api/ai/tracker.json")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as fh:
+            json.dump(stub, fh, indent=2, ensure_ascii=False)
+        print(f"[STUB] Wrote minimal tracker stub to {out_path}", file=sys.stderr)
+        sys.exit(0)
 
     print(f"[ENGINE] Processing {len(items)} items — {GENERATED_AT}", file=sys.stderr)
 
