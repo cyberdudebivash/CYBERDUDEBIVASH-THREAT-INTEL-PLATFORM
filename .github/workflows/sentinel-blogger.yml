@@ -142,7 +142,7 @@ jobs:
       # STAGE 0: CHECKOUT
       # -----------------------------------------------------------------------
       - name: "Checkout repository"
-        timeout-minutes: 8
+        timeout-minutes: 20   # v150.2 FIX: raised 8->20min (63k-file repo; 8min caused checkout timeout -> partial tree -> STAGE 4 ENOENT)
         uses: actions/checkout@v4.3.1   # v4.3.1 — native Node 24 (upgraded from v4.2.2, June-2-2026 deadline)
         with:
           fetch-depth: 1
@@ -242,6 +242,30 @@ jobs:
       - name: "STAGE 0.05 - Pre-flight: Validate critical script integrity"
         timeout-minutes: 3
         run: python3 scripts/ci_preflight_check.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 0.05b: CRITICAL SCRIPT RESTORE GUARD (v150.2)
+      # Guards against partial checkout caused by timeout or network hiccup.
+      # If any critical script is missing after checkout, restores it from the
+      # git object DB before the pipeline proceeds.
+      # Root cause of sentinel-blogger #1138: 8-min checkout timeout on 63k-file
+      # repo left safe_git_commit.py absent -> STAGE 4 ENOENT -> pipeline fail.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.05b - Critical script restore guard (post-checkout resilience)"
+        timeout-minutes: 2
+        run: |
+          CRITICAL="scripts/safe_git_commit.py scripts/run_pipeline.py scripts/generate_intel_reports.py scripts/intel_dedup_engine.py"
+          RESTORED=0
+          MISSING=0
+          for f in $CRITICAL; do
+            if [ ! -f "$f" ]; then
+              echo "::warning::$f missing from checkout -- restoring from git HEAD"
+              git checkout HEAD -- "$f" 2>/dev/null && RESTORED=$((RESTORED+1)) || MISSING=$((MISSING+1))
+            fi
+          done
+          [ "$RESTORED" -gt 0 ] && echo "[RESTORED] $RESTORED critical script(s) restored from git HEAD"
+          [ "$MISSING" -gt 0 ] && echo "::error::$MISSING critical script(s) could not be restored" && exit 1
+          echo "[OK] All critical scripts present"
 
       # -----------------------------------------------------------------------
       # STAGE 0.06: PYTHON SYNTAX GUARD (v142.4)
@@ -679,7 +703,10 @@ jobs:
       - name: "STAGE 4 - Git Sync (commit + push metadata)"
         timeout-minutes: 8
         if: always()
-        run: python3 scripts/safe_git_commit.py
+        run: |
+          # v150.2 safety net: restore safe_git_commit.py if still missing after STAGE 0.05b
+          [ -f "scripts/safe_git_commit.py" ] || git checkout HEAD -- scripts/safe_git_commit.py 2>/dev/null || true
+          python3 scripts/safe_git_commit.py
 
       # -----------------------------------------------------------------------
       # STAGE 5.1: POST-DEPLOY API MANIFEST VERIFIER (v150.0 -- INFORMATIONAL)
