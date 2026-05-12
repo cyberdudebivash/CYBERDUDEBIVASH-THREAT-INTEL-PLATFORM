@@ -440,13 +440,114 @@ def validate_all_html_encoding() -> None:
 
 
 # =====================================================================
+# v148.0.0 API KEY ENFORCEMENT GATE
+# Validates that premium endpoints (apex.json, ai_summary.json) are
+# gated behind authentication in the Cloudflare Worker source code.
+# Fails the gate if these endpoints can be served without auth.
+# =====================================================================
+
+WORKER_SRC = REPO_ROOT / "workers" / "intel-gateway" / "src" / "index.js"
+
+PREMIUM_ENDPOINTS = [
+    "/api/v1/intel/apex.json",
+    "/api/v1/intel/ai_summary.json",
+]
+
+def validate_worker_api_auth_enforcement() -> None:
+    """v148.0.0: Confirms premium intel endpoints require PRO+ auth in Worker source."""
+    print(f"\n--- Worker API auth enforcement (v148.0.0) ---")
+
+    if not WORKER_SRC.exists():
+        fail(f"Worker source not found: {WORKER_SRC}")
+        return
+
+    src = WORKER_SRC.read_text(encoding="utf-8", errors="replace")
+
+    # 1. PREMIUM_INTEL_PATHS set must exist and contain both premium endpoints
+    if "PREMIUM_INTEL_PATHS" not in src:
+        fail("Worker: PREMIUM_INTEL_PATHS set is missing — premium endpoints are NOT gated")
+    else:
+        for ep in PREMIUM_ENDPOINTS:
+            ep_literal = ep.replace("/", "\\/") if "\\/" in ep else ep
+            # Check the literal path string appears inside PREMIUM_INTEL_PATHS block
+            if ep not in src:
+                fail(f"Worker: '{ep}' not found in source — cannot verify gating")
+            else:
+                ok(f"Worker: '{ep}' present in source")
+
+    # 2. servePremiumIntelManifest function must exist
+    if "async function servePremiumIntelManifest" not in src:
+        fail("Worker: servePremiumIntelManifest() is missing — premium gate function absent")
+    else:
+        ok("Worker: servePremiumIntelManifest() function defined")
+
+    # 3. Router must call servePremiumIntelManifest for PREMIUM_INTEL_PATHS
+    if "PREMIUM_INTEL_PATHS.has(pathname)" not in src:
+        fail("Worker router: PREMIUM_INTEL_PATHS.has() check missing — premium endpoints not routed to auth gate")
+    else:
+        ok("Worker router: PREMIUM_INTEL_PATHS.has() gate is wired")
+
+    # 4. servePremiumIntelManifest must call resolveAuth (not bypass it)
+    # Extract function body between servePremiumIntelManifest and the next async function
+    fn_match = re.search(
+        r"async function servePremiumIntelManifest\s*\(.*?\)\s*\{(.*?)(?=\n(?:async function|export default))",
+        src, re.DOTALL
+    )
+    if fn_match:
+        fn_body = fn_match.group(1)
+        if "resolveAuth" not in fn_body:
+            fail("servePremiumIntelManifest: does not call resolveAuth() — auth bypass risk")
+        else:
+            ok("servePremiumIntelManifest: calls resolveAuth()")
+        # Must check for FREE tier rejection
+        if "TIERS.FREE" not in fn_body and "tier_insufficient" not in fn_body:
+            warn("servePremiumIntelManifest: FREE tier rejection check not found — free users may access premium data")
+        else:
+            ok("servePremiumIntelManifest: FREE tier rejection enforced")
+        # Must NOT call servePublicIntelManifest (would bypass masking path and skip auth)
+        if "servePublicIntelManifest(" in fn_body and "servePublicIntelManifestRaw" not in fn_body:
+            fail("servePremiumIntelManifest: calls servePublicIntelManifest() instead of Raw variant — potential auth bypass")
+        else:
+            ok("servePremiumIntelManifest: delegates to Raw fetch helper correctly")
+    else:
+        warn("servePremiumIntelManifest: could not extract function body for deep inspection")
+
+    # 5. CRITICAL: apex.json and ai_summary.json must NOT appear in the FREE public ALLOWED set
+    public_fn_match = re.search(
+        r"async function servePublicIntelManifest\s*\(.*?\)\s*\{(.*?)(?=\n(?:async function|export default))",
+        src, re.DOTALL
+    )
+    if public_fn_match:
+        pub_body = public_fn_match.group(1)
+        for ep in PREMIUM_ENDPOINTS:
+            if ep in pub_body:
+                fail(f"servePublicIntelManifest: '{ep}' is in the FREE handler ALLOWED set — premium data exposed publicly!")
+            else:
+                ok(f"servePublicIntelManifest: '{ep}' correctly absent from FREE ALLOWED set")
+    else:
+        warn("servePublicIntelManifest: could not extract function body for ALLOWED set inspection")
+
+    # 6. Free-tier masking must be applied (maskForFreeTier function present)
+    if "function maskForFreeTier" not in src:
+        warn("Worker: maskForFreeTier() missing — free-tier responses may leak premium fields")
+    else:
+        ok("Worker: maskForFreeTier() field masking function defined")
+
+    # 7. Free endpoints limited to 25 items (revenue protection)
+    if "slice(0, 25)" in src or ".slice(0,25)" in src:
+        ok("Worker: free-tier item count cap (25 items) enforced")
+    else:
+        warn("Worker: free-tier 25-item cap not detected in source — free users may get full dataset")
+
+
+# =====================================================================
 # MAIN
 # =====================================================================
 def main() -> None:
     print("=" * 70)
-    print("  SENTINEL APEX v149.1 -- MONETIZATION INTEGRITY GATE")
+    print("  SENTINEL APEX v148.0.0 -- MONETIZATION INTEGRITY GATE")
     print("  Validates: payment credentials, CTAs, encoding, JS syntax,")
-    print("             BOM-free, mojibake-free across ALL HTML files")
+    print("             BOM-free, mojibake-free, API auth enforcement")
     print("=" * 70)
 
     validate_upgrade_html()
@@ -459,6 +560,7 @@ def main() -> None:
     validate_feed_manifest()
     validate_all_html_bom()
     validate_all_html_encoding()
+    validate_worker_api_auth_enforcement()
 
     print("\n" + "=" * 70)
     print(f"  RESULTS: {len(PASSES)} passed, {len(WARNINGS)} warnings, {len(ERRORS)} errors")

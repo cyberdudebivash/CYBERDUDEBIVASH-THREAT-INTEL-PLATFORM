@@ -4445,25 +4445,220 @@ async function handleRevenueDashboard(request, env, rid) {
 
 
 // -----------------------------------------------------------------------------
-// PUBLIC MANIFEST HANDLER (v150.0 API-first)
-// Serves /api/v1/intel/*.json without authentication.
-// These files are pipeline-generated immutable manifests committed to GitHub Pages.
-// Priority: R2 bucket -> GitHub raw (signed, versioned bundles).
+// PUBLIC MANIFEST HANDLER (v148.0 API-first)
+// Serves FREE-tier /api/v1/intel/*.json endpoints without authentication.
+// Premium endpoints (apex.json, ai_summary.json) are handled by servePremiumIntelManifest().
+// Priority: R2 bucket -> KV cache -> GitHub raw (signed, versioned bundles).
+//
+// Tier routing:
+//   FREE  (no auth):  /api/v1/intel/latest.json   (top-N items, field-trimmed)
+//                     /api/v1/intel/top10.json     (top 10 by risk, trimmed)
+//                     /api/v1/intel/manifest.json  (feed metadata only)
+//   PRO+  (auth req): /api/v1/intel/apex.json      (full enriched feed)
+//                     /api/v1/intel/ai_summary.json (AI Cyber Brain output)
+// -----------------------------------------------------------------------------
+
+// v148.0.0: Premium endpoints  -- require PRO or ENTERPRISE tier
+const PREMIUM_INTEL_PATHS = new Set([
+  '/api/v1/intel/apex.json',
+  '/api/v1/intel/ai_summary.json',
+  '/api/v1/intel/daily_brief_latest.pdf',   // PRO+  -- daily executive threat brief PDF
+]);
+
+// v148.0.0: Free public endpoints (daily brief metadata, no PDF payload)
+const FREE_DAILY_BRIEF_PATHS = new Set([
+  '/api/v1/intel/daily_brief_meta.json',    // FREE  -- brief metadata (date, size, subscribe link)
+]);
+
+// Free-tier field mask  -- strip revenue-generating premium fields from public latest.json / top10.json
+// so free callers get useful signal but can't reconstruct the full premium feed.
+const FREE_TIER_FIELDS = new Set([
+  'id', 'title', 'summary', 'severity', 'risk_score', 'source', 'published',
+  'threat_type', 'tags', 'ioc_count', 'cve_id', 'cve_ids', 'published_at',
+  'stix_id', 'threat_category',
+]);
+
+function maskForFreeTier(items) {
+  if (!Array.isArray(items)) return items;
+  return items.slice(0, 25).map(item => {
+    const masked = {};
+    for (const k of FREE_TIER_FIELDS) {
+      if (item[k] !== undefined) masked[k] = item[k];
+    }
+    masked._tier_notice = 'Upgrade to PRO for full enrichment: actor attribution, kill chain, IOC hashes, AI analysis, STIX bundle.';
+    masked._upgrade_url = '/upgrade.html?plan=pro';
+    return masked;
+  });
+}
+
+// -----------------------------------------------------------------------------
+// PREMIUM MANIFEST HANDLER (v148.0.0)  -- apex.json + ai_summary.json
+// Requires valid API key or JWT with tier >= PREMIUM.
+// Returns 401 with upgrade CTA on unauthenticated or free-tier requests.
+// -----------------------------------------------------------------------------
+async function servePremiumIntelManifest(pathname, env, rid, request) {
+  // 1. Resolve auth
+  const auth = await resolveAuth(request, env);
+  if (!auth.valid) {
+    return jsonResponse({
+      error:          'api_key_required',
+      message:        'This endpoint requires a PRO or ENTERPRISE API key.',
+      endpoint:       pathname,
+      tier_required:  'PRO',
+      acquire_key:    CONFIG.GET_KEY_URL,
+      upgrade_url:    '/upgrade.html?plan=pro',
+      docs:           CONFIG.DOCS_URL,
+      request_id:     rid,
+    }, 401);
+  }
+  // 2. Enforce tier  -- FREE callers get a clear upsell, not the data
+  if (auth.tier === CONFIG.TIERS.FREE) {
+    return jsonResponse({
+      error:          'tier_insufficient',
+      message:        `'${pathname.split('/').pop()}' is a PRO+ endpoint. Your current tier is FREE.`,
+      endpoint:       pathname,
+      tier_required:  'PRO',
+      your_tier:      auth.tier,
+      upgrade_url:    '/upgrade.html?plan=pro',
+      benefits:       [
+        'Full AI Cyber Brain threat analysis (ai_summary.json)',
+        'Complete enriched feed with actor attribution + kill chain (apex.json)',
+        'STIX 2.1 bundle export',
+        '500 requests/min vs 60 on FREE',
+        'IOC hashes, EPSS, CVSS, threat actor mapping',
+      ],
+      acquire_key:    CONFIG.GET_KEY_URL,
+      request_id:     rid,
+    }, 403);
+  }
+  // 3. PRO+ confirmed  -- serve the manifest (same fetch chain as public handler)
+  return servePublicIntelManifestRaw(pathname, env, rid);
+}
+
+// -----------------------------------------------------------------------------
+// PUBLIC MANIFEST HANDLER (v148.0 API-first)
+// Serves FREE-tier /api/v1/intel/*.json without authentication.
+// Delegates to servePublicIntelManifestRaw() for the actual fetch.
 // -----------------------------------------------------------------------------
 async function servePublicIntelManifest(pathname, env, rid) {
   const ALLOWED = new Set([
     '/api/v1/intel/latest.json',
     '/api/v1/intel/top10.json',
-    '/api/v1/intel/apex.json',
     '/api/v1/intel/manifest.json',
-    '/api/v1/intel/ai_summary.json',   // AI Cyber Brain endpoint (v147.0 -- was erroneously absent)
   ]);
   if (!ALLOWED.has(pathname)) {
     return jsonResponse({ error: 'not_found', message: `Manifest '${pathname}' not found.`, request_id: rid }, 404);
   }
-  const filename = pathname.split('/').pop();           // e.g. "latest.json"
-  const r2Key    = pathname.slice(1);                   // strip leading "/" -> "api/v1/intel/latest.json"
-  const cacheKey = `public_manifest:${filename}`;
+  // Fetch raw, then apply free-tier masking for item arrays (latest.json, top10.json)
+  const raw = await servePublicIntelManifestRaw(pathname, env, rid);
+  // Apply field mask on successful JSON responses so premium fields are protected
+  if (raw.status === 200) {
+    const ct = raw.headers.get('Content-Type') || '';
+    if (ct.includes('application/json')) {
+      try {
+        const data = await raw.json();
+        let masked = data;
+        // Only mask array payloads (latest/top10 are plain arrays or {items:[...]})
+        if (Array.isArray(data)) {
+          masked = maskForFreeTier(data);
+        } else if (data && Array.isArray(data.items)) {
+          masked = { ...data, items: maskForFreeTier(data.items), _tier: 'free', _upgrade_url: '/upgrade.html?plan=pro' };
+        }
+        const newHeaders = new Headers(raw.headers);
+        newHeaders.set('X-Tier', 'free');
+        newHeaders.set('X-Items-Capped', '25');
+        return new Response(JSON.stringify(masked, null, 2), { status: 200, headers: newHeaders });
+      } catch { /* JSON parse failure: return original response unchanged */ }
+    }
+  }
+  return raw;
+}
+
+// -----------------------------------------------------------------------------
+// SHARED RAW MANIFEST FETCHER (v148.0.0)
+// R2 -> KV cache -> GitHub raw fallback chain.
+// -----------------------------------------------------------------------------
+// v148.0.0: Daily Brief PDF  -- PRO+ gate (serves binary PDF from R2)
+// GET /api/v1/intel/daily_brief_latest.pdf   requires PRO or ENTERPRISE tier
+// -----------------------------------------------------------------------------
+async function serveDailyBriefPDF(pathname, env, rid, request) {
+  const auth = await resolveAuth(request, env);
+  if (!auth.valid || (auth.tier !== 'pro' && auth.tier !== 'enterprise')) {
+    return jsonResponse({
+      error:       'pro_required',
+      message:     'The Daily Brief PDF is a PRO+ exclusive. Subscribe at https://cyberdudebivash.gumroad.com/l/sentinel-apex-daily-brief',
+      upgrade_url: 'https://intel.cyberdudebivash.com/upgrade.html',
+      request_id:  rid,
+    }, 403);
+  }
+  const r2Key = 'api/v1/intel/daily_brief_latest.pdf';
+  try {
+    const obj = await env.INTEL_BUCKET.get(r2Key);
+    if (!obj) {
+      return jsonResponse({ error: 'not_found', message: 'Daily brief not yet generated. Check back in a few minutes.', request_id: rid }, 404);
+    }
+    const headers = new Headers({
+      'Content-Type':        'application/pdf',
+      'Content-Disposition': 'inline; filename="sentinel-apex-daily-brief.pdf"',
+      'Cache-Control':       'private, max-age=3600',
+      'X-Request-ID':        rid,
+    });
+    slog('INFO', 'DAILY_BRIEF', `PDF served to tier=${auth.tier}`, { rid });
+    return new Response(obj.body, { status: 200, headers });
+  } catch (err) {
+    slog('ERROR', 'DAILY_BRIEF', `R2 fetch error: ${err.message}`, { rid });
+    return jsonResponse({ error: 'storage_error', message: 'Failed to retrieve daily brief.', request_id: rid }, 502);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// v148.0.0: Daily Brief Metadata  -- FREE tier (JSON metadata, no PDF payload)
+// GET /api/v1/intel/daily_brief_meta.json   no authentication required
+// -----------------------------------------------------------------------------
+async function serveDailyBriefMeta(env, rid) {
+  const r2Key = 'api/v1/intel/daily_brief_meta.json';
+  try {
+    const obj = await env.INTEL_BUCKET.get(r2Key);
+    if (!obj) {
+      return jsonResponse({
+        available:     false,
+        message:       'Daily brief not yet generated for today.',
+        subscribe_url: 'https://cyberdudebivash.gumroad.com/l/sentinel-apex-daily-brief',
+        request_id:    rid,
+      }, 200);
+    }
+    const meta = await obj.json();
+    return jsonResponse({
+      ...meta,
+      pdf_url:       '/api/v1/intel/daily_brief_latest.pdf',
+      subscribe_url: 'https://cyberdudebivash.gumroad.com/l/sentinel-apex-daily-brief',
+      upgrade_url:   'https://intel.cyberdudebivash.com/upgrade.html',
+      tier_required: 'PRO+',
+      request_id:    rid,
+    }, 200, { 'Cache-Control': 'public, max-age=1800' });
+  } catch (err) {
+    slog('ERROR', 'DAILY_BRIEF_META', `R2 fetch error: ${err.message}`, { rid });
+    return jsonResponse({ error: 'storage_error', message: 'Failed to retrieve daily brief metadata.', request_id: rid }, 502);
+  }
+}
+
+// Called by both servePublicIntelManifest (free, masked) and
+// servePremiumIntelManifest (authenticated, unmasked full data).
+// -----------------------------------------------------------------------------
+async function servePublicIntelManifestRaw(pathname, env, rid) {
+  const ALL_ALLOWED = new Set([
+    '/api/v1/intel/latest.json',
+    '/api/v1/intel/top10.json',
+    '/api/v1/intel/apex.json',
+    '/api/v1/intel/manifest.json',
+    '/api/v1/intel/ai_summary.json',
+  ]);
+  if (!ALL_ALLOWED.has(pathname)) {
+    return jsonResponse({ error: 'not_found', message: `Manifest '${pathname}' not found.`, request_id: rid }, 404);
+  }
+  const filename = pathname.split('/').pop();
+  const r2Key    = pathname.slice(1);
+  const cacheKey = `manifest_raw:${filename}`;
 
   // SOURCE 1: R2 bucket (authoritative -- uploaded by pipeline after generation)
   if (env?.INTEL_R2) {
@@ -4514,7 +4709,6 @@ async function servePublicIntelManifest(pathname, env, rid) {
     const ghResp = await fetch(ghUrl, { headers: ghHeaders, cf: { cacheTtl: 300 } });
     if (ghResp.ok) {
       const body = await ghResp.text();
-      // Warm KV cache for next 5 minutes
       if (env?.RATE_LIMIT_KV) {
         env.RATE_LIMIT_KV.put(cacheKey, body, { expirationTtl: 300 }).catch(() => {});
       }
@@ -4691,10 +4885,23 @@ export default {
       }, 404);
     }
 
-    // PUBLIC: /api/v1/intel/ -- Immutable pipeline-generated manifests (v150.0 API-first)
-    // Generated by the sentinel-blogger pipeline. No auth required for dashboard hydration.
-    // AI Brain (runAIBrain) fetches these at runtime to populate campaigns/anomaly/prediction panels.
+    // v148.0.0: TIERED /api/v1/intel/ manifest routing
+    // FREE  (no auth): latest.json, top10.json, manifest.json  (field-masked, 25-item cap)
+    // PRO+  (auth req): apex.json, ai_summary.json             (full enriched, requires Bearer token)
     if (pathname.startsWith('/api/v1/intel/') && method === 'GET') {
+      // v148.0.0: Daily Brief free metadata  -- no auth required
+      if (FREE_DAILY_BRIEF_PATHS.has(pathname)) {
+        return withSec(serveDailyBriefMeta(env, rid));
+      }
+      if (PREMIUM_INTEL_PATHS.has(pathname)) {
+        // v148.0.0: daily_brief_latest.pdf  -- PRO+ gate (PDF binary from R2)
+        if (pathname === '/api/v1/intel/daily_brief_latest.pdf') {
+          return withSec(serveDailyBriefPDF(pathname, env, rid, request));
+        }
+        // Hard gate: PRO+ tier required; free users get upgrade CTA with 403
+        return withSec(servePremiumIntelManifest(pathname, env, rid, request));
+      }
+      // Free-tier manifests: served publicly but field-masked (25 items, core fields only)
       return withSec(servePublicIntelManifest(pathname, env, rid));
     }
 

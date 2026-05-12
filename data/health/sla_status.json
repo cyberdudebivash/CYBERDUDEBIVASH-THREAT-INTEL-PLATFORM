@@ -1,43 +1,43 @@
 {
-  "generated_at": "2026-05-12T05:26:59.176665+00:00",
+  "generated_at": "2026-05-12T10:43:41.573314+00:00",
   "platform": "CYBERDUDEBIVASH(R) SENTINEL APEX",
   "version": "143.0.0",
   "sla_tier": "ENTERPRISE",
-  "uptime_estimate_pct": 100.0,
+  "uptime_estimate_pct": 80.0,
   "api_probe": {
-    "availability_pct": 100.0,
-    "p95_latency_ms": 953,
-    "all_ok": true,
-    "probed_at": "2026-05-12T05:26:57.918028+00:00",
+    "availability_pct": 80.0,
+    "p95_latency_ms": 1008,
+    "all_ok": false,
+    "probed_at": "2026-05-12T10:43:40.825956+00:00",
     "endpoint_results": {
       "health": {
         "ok": true,
         "status": 200,
-        "latency_ms": 2006,
+        "latency_ms": 1770,
         "error": null
       },
       "latest_json": {
         "ok": true,
         "status": 200,
-        "latency_ms": 660,
+        "latency_ms": 674,
         "error": null
       },
       "top10_json": {
         "ok": true,
         "status": 200,
-        "latency_ms": 658,
+        "latency_ms": 725,
         "error": null
       },
       "apex_json": {
-        "ok": true,
-        "status": 200,
-        "latency_ms": 643,
-        "error": null
+        "ok": false,
+        "status": 401,
+        "latency_ms": 434,
+        "error": "HTTP Error 401: Unauthorized"
       },
       "feed_json": {
         "ok": true,
         "status": 200,
-        "latency_ms": 953,
+        "latency_ms": 1008,
         "error": null
       }
     }
@@ -45,26 +45,38 @@
   "manifest_freshness": {
     "latest_json": {
       "fresh": true,
-      "age_hours": 1.9,
-      "generated_at": "2026-05-12T03:32:47Z",
+      "age_hours": 5.82,
+      "generated_at": "2026-05-12T04:54:18Z",
       "error": null
     },
     "apex_json": {
-      "fresh": true,
-      "age_hours": 1.9,
-      "generated_at": "2026-05-12T03:32:47Z",
-      "error": null
+      "fresh": false,
+      "age_hours": null,
+      "error": "endpoint_down"
     }
   },
   "sla_evaluation": {
     "tier": "enterprise",
-    "compliant": true,
-    "sla_score": 100,
-    "grade": "A",
-    "violations": [],
+    "compliant": false,
+    "sla_score": 88,
+    "grade": "B",
+    "violations": [
+      {
+        "metric": "api_availability_pct",
+        "actual": 80.0,
+        "target": 99.5,
+        "severity": "CRITICAL"
+      },
+      {
+        "metric": "p95_latency_ms",
+        "actual": 1008,
+        "target": 1000,
+        "severity": "WARNING"
+      }
+    ],
     "metrics": {
-      "api_availability_pct": 100.0,
-      "p95_latency_ms": 953,
+      "api_availability_pct": 80.0,
+      "p95_latency_ms": 1008,
       "deploy_success_rate_pct": 100.0,
       "rollback_count_30d": 0
     }
@@ -76,17 +88,22 @@
   },
   "recommendations": [
     {
-      "priority": "INFO",
-      "action": "Maintain current operational discipline",
-      "detail": "All SLA metrics within target thresholds"
+      "priority": "P0",
+      "action": "Investigate API endpoint failures immediately",
+      "detail": "Availability 80.0% below SLA target 99.5%"
+    },
+    {
+      "priority": "P2",
+      "action": "Optimize Worker response caching and payload size",
+      "detail": "P95 latency 1008ms exceeds 1000ms target"
     }
   ],
   "customer_sla_status": {
-    "api_access": "OPERATIONAL",
+    "api_access": "DEGRADED",
     "feed_freshness": "COMPLIANT",
     "ai_hydration": "OPERATIONAL",
     "exports": "OPERATIONAL",
-    "overall": "OPERATIONAL"
+    "overall": "DEGRADED"
   },
   "sla_commitments": {
     "uptime_pct": 99.5,
@@ -99,5 +116,5 @@
     "max_customer_failures": 2,
     "rollback_frequency_per_month": 2
   },
-  "next_review_at": "2026-05-12T11:26:59.176692+00:00"
+  "next_review_at": "2026-05-12T16:43:41.573339+00:00"
 }

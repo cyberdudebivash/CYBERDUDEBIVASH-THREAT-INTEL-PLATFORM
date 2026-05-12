@@ -431,7 +431,65 @@ h1 span { color: var(--accent); }
   font-size: 12px; color: rgba(255,255,255,0.45);
 }
 .dgw-trust-item span { color: var(--green); }
+
+/* ── v148.0.0: Gumroad Quick Checkout Panel ─────────────────────────── */
+.gumroad-panel {
+  margin: 20px 0 0;
+  background: linear-gradient(135deg, rgba(0,212,255,0.06), rgba(153,0,255,0.08));
+  border: 1.5px solid rgba(0,212,255,0.25);
+  border-radius: 14px;
+  padding: 22px 24px;
+}
+.gumroad-panel-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+}
+.gumroad-panel-badge {
+  background: linear-gradient(90deg,#00d4ff,#9900ff);
+  color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  padding: 3px 9px; border-radius: 20px; text-transform: uppercase;
+}
+.gumroad-panel-title {
+  font-size: 15px; font-weight: 700; color: var(--text);
+}
+.gumroad-panel-sub {
+  font-size: 12px; color: var(--muted); margin-bottom: 18px;
+}
+.gumroad-btns { display: flex; flex-direction: column; gap: 10px; }
+.gumroad-btn-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04); transition: all 0.15s;
+}
+.gumroad-btn-row.active-plan {
+  border-color: rgba(0,212,255,0.5); background: rgba(0,212,255,0.07);
+}
+.gumroad-btn-row:hover { border-color: rgba(0,212,255,0.4); background: rgba(0,212,255,0.05); }
+.gumroad-btn-info { display: flex; flex-direction: column; gap: 2px; }
+.gumroad-btn-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.gumroad-btn-desc { font-size: 11px; color: var(--muted); }
+.gumroad-btn-price { font-size: 13px; font-weight: 800; color: var(--accent); white-space: nowrap; margin: 0 14px; }
+.gumroad-buy-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700;
+  text-decoration: none; color: #fff; white-space: nowrap;
+  background: linear-gradient(135deg, #1d4ed8, #00d4ff);
+  transition: all 0.15s;
+}
+.gumroad-buy-link:hover { opacity: 0.9; transform: translateY(-1px); }
+.gumroad-buy-link.ent { background: linear-gradient(135deg, #5b21b6, #7c3aed); }
+.gumroad-buy-link.mssp { background: linear-gradient(135deg, #991b1b, #dc2626); }
+.gumroad-panel-footer {
+  margin-top: 14px; font-size: 11px; color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+}
+.gumroad-panel-footer svg { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .gumroad-btn-row { flex-wrap: wrap; gap: 10px; }
+  .gumroad-btn-price { margin: 0; }
+}
 </style>
+<!-- v148.0.0: Gumroad overlay embed -- enables one-click checkout with automated API key delivery -->
+<script src="https://gumroad.com/js/gumroad.js" defer></script>
 </head>
 <body>
 
@@ -556,6 +614,77 @@ h1 span { color: var(--accent); }
             <div class="plan-price-period">/month</div>
             <div class="plan-price-inr" id="inr-mssp">&#x20B9;1,66,600</div>
           </div>
+        </div>
+      </div>
+
+      <!-- ═══ GUMROAD QUICK CHECKOUT -- v148.0.0 ═══════════════════════════
+           One-click purchase via Gumroad overlay. Automated API key delivery
+           via Gumroad product fulfilment + Cloudflare Worker webhook.
+           Products configured at: https://cyberdudebivash.gumroad.com/
+           ════════════════════════════════════════════════════════════════ -->
+      <div class="gumroad-panel" id="gumroad-panel">
+        <div class="gumroad-panel-header">
+          <span class="gumroad-panel-badge">&#9889; INSTANT CHECKOUT</span>
+          <span class="gumroad-panel-title">Buy via Gumroad &mdash; Automated API Key Delivery</span>
+        </div>
+        <div class="gumroad-panel-sub">
+          Pay securely through Gumroad (Stripe, PayPal, cards). Your API key is delivered instantly to your email upon payment. No manual processing required.
+        </div>
+
+        <div class="gumroad-btns">
+          <!-- PRO Defense -- Gumroad product -->
+          <div class="gumroad-btn-row active-plan" id="grow-pro">
+            <div class="gumroad-btn-info">
+              <span class="gumroad-btn-name">PRO Defense</span>
+              <span class="gumroad-btn-desc">500 req/min &middot; Full IOC arrays &middot; STIX 2.1 &middot; Threat alerts &middot; 10 API keys</span>
+            </div>
+            <span class="gumroad-btn-price" id="gprice-pro">$49/mo</span>
+            <a class="gumroad-buy-link has-gumroad-prefix"
+               href="https://cyberdudebivash.gumroad.com/l/sentinel-apex-pro"
+               data-gumroad-single-product="true"
+               target="_blank" rel="noopener"
+               id="gbtn-pro">
+              &#128274; Buy PRO
+            </a>
+          </div>
+
+          <!-- Enterprise SOC -- Gumroad product -->
+          <div class="gumroad-btn-row" id="grow-enterprise">
+            <div class="gumroad-btn-info">
+              <span class="gumroad-btn-name">Enterprise SOC</span>
+              <span class="gumroad-btn-desc">2,000 req/min &middot; SIEM push &middot; Splunk/Sentinel &middot; SLA &middot; 50 API keys</span>
+            </div>
+            <span class="gumroad-btn-price" id="gprice-enterprise">$499/mo</span>
+            <a class="gumroad-buy-link ent has-gumroad-prefix"
+               href="https://cyberdudebivash.gumroad.com/l/sentinel-apex-enterprise"
+               data-gumroad-single-product="true"
+               target="_blank" rel="noopener"
+               id="gbtn-enterprise">
+              &#128274; Buy Enterprise
+            </a>
+          </div>
+
+          <!-- MSSP / White-Label -- Gumroad product -->
+          <div class="gumroad-btn-row" id="grow-mssp">
+            <div class="gumroad-btn-info">
+              <span class="gumroad-btn-name">MSSP / White-Label</span>
+              <span class="gumroad-btn-desc">Multi-tenant &middot; White-label &middot; Unlimited API keys &middot; Dedicated analyst</span>
+            </div>
+            <span class="gumroad-btn-price" id="gprice-mssp">$1,999/mo</span>
+            <a class="gumroad-buy-link mssp has-gumroad-prefix"
+               href="https://cyberdudebivash.gumroad.com/l/sentinel-apex-mssp"
+               data-gumroad-single-product="true"
+               target="_blank" rel="noopener"
+               id="gbtn-mssp">
+              &#128274; Buy MSSP
+            </a>
+          </div>
+        </div>
+
+        <div class="gumroad-panel-footer">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Secured by Gumroad &middot; Stripe &amp; PayPal accepted &middot; Instant email delivery &middot;
+          <strong style="color:var(--text)">GSTIN: 21ARKPN8270G1ZP</strong>
         </div>
       </div>
 
@@ -1115,6 +1244,53 @@ var PLANS = {
 var currentPlan = 'pro';
 var isAnnual = false;
 
+/* ── v148.0.0: Gumroad Quick Checkout URLs ─────────────────────────────
+   These map to Gumroad product pages for each plan.
+   Monthly and Annual products are separate Gumroad listings.
+   Update the product slugs once you create the products at:
+   https://app.gumroad.com/products/new
+   ────────────────────────────────────────────────────────────────────── */
+var GUMROAD_URLS = {
+  pro:        { monthly: 'https://cyberdudebivash.gumroad.com/l/sentinel-apex-pro',           annual: 'https://cyberdudebivash.gumroad.com/l/sentinel-apex-pro-annual' },
+  enterprise: { monthly: 'https://cyberdudebivash.gumroad.com/l/sentinel-apex-enterprise',    annual: 'https://cyberdudebivash.gumroad.com/l/sentinel-apex-enterprise-annual' },
+  mssp:       { monthly: 'https://cyberdudebivash.gumroad.com/l/sentinel-apex-mssp',          annual: 'https://cyberdudebivash.gumroad.com/l/sentinel-apex-mssp-annual' }
+};
+
+/* ── v148.0.0: Gumroad panel sync ──────────────────────────────────────
+   Highlights the active plan row and updates button URLs + prices to
+   reflect the currently selected plan and billing cycle.
+   Called by selectPlan() and toggleBilling().
+   ────────────────────────────────────────────────────────────────────── */
+function updateGumroadPanel() {
+  var cycle = isAnnual ? 'annual' : 'monthly';
+  var paidPlans = ['pro', 'enterprise', 'mssp'];
+
+  // Show/hide the entire panel (hidden for free tier)
+  var panel = document.getElementById('gumroad-panel');
+  if (panel) panel.style.display = (currentPlan === 'free') ? 'none' : '';
+
+  paidPlans.forEach(function(k) {
+    var row  = document.getElementById('grow-' + k);
+    var btn  = document.getElementById('gbtn-' + k);
+    var pEl  = document.getElementById('gprice-' + k);
+    var p    = PLANS[k];
+    var urls = GUMROAD_URLS[k];
+    if (!row || !btn || !p || !urls) return;
+
+    // Highlight active plan row
+    row.classList.toggle('active-plan', k === currentPlan);
+
+    // Update URL for billing cycle
+    btn.href = urls[cycle] || urls.monthly;
+
+    // Update displayed price
+    if (pEl) {
+      var usd = isAnnual ? p.usdAnnual : p.usd;
+      pEl.textContent = '$' + usd.toLocaleString() + (isAnnual ? '/yr' : '/mo');
+    }
+  });
+}
+
 /* ── Stripe click handler v143.0.0 ────────────────────────────────────
    STRATEGY: Dynamic Checkout Sessions via Worker /api/checkout/session.
    Worker creates a Stripe Checkout Session server-side (with user metadata
@@ -1226,6 +1402,7 @@ function selectPlan(key) {
   updateSummary();
   updateQR();
   updateDGW();
+  updateGumroadPanel();   // v148.0.0: sync Gumroad quick checkout panel
 }
 
 function toggleBilling() {
@@ -1250,6 +1427,7 @@ function toggleBilling() {
   updateSummary();
   updateQR();
   updateDGW();
+  updateGumroadPanel();   // v148.0.0: sync Gumroad prices + URLs on billing cycle toggle
 }
 
 function updateSummary() {
@@ -1595,6 +1773,9 @@ function startBSCPolling(txhash, reviewId) {
       if (_pe) _pe.scrollIntoView({ behavior:'smooth', block:'center' });
     }, 800);
   }
+
+// v148.0.0: Init Gumroad panel on page load
+updateGumroadPanel();
 })();
 </script>
 </body>
