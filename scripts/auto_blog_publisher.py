@@ -157,14 +157,32 @@ def format_ioc_table(iocs: list) -> str:
     </div>"""
 
 
+def _normalize_mitre_entry(entry) -> str:
+    """Safely extract a string label from a str or dict MITRE entry.
+    Returns empty string for None / unrecognized types (never "None" as string)."""
+    if isinstance(entry, str):
+        return entry
+    if isinstance(entry, dict):
+        return (
+            entry.get("name") or entry.get("phase_name") or
+            entry.get("tactic") or entry.get("technique") or
+            entry.get("external_id") or entry.get("id") or ""
+        )
+    return ""  # None, int, or other unexpected types → empty string (filtered by caller)
+
+
 def format_mitre_tactics(tactics: list, techniques: list) -> str:
     if not tactics and not techniques:
         return "<p><em>MITRE ATT&CK mapping not available for this item.</em></p>"
     tags = ""
     for t in (tactics or [])[:8]:
-        tags += f'<span class="mitre-tag tactic">{t}</span>\n        '
+        label = _normalize_mitre_entry(t)
+        if label:
+            tags += f'<span class="mitre-tag tactic">{label}</span>\n        '
     for t in (techniques or [])[:10]:
-        tags += f'<span class="mitre-tag technique">{t}</span>\n        '
+        label = _normalize_mitre_entry(t)
+        if label:
+            tags += f'<span class="mitre-tag technique">{label}</span>\n        '
     return f'<div class="mitre-tags">\n        {tags}\n      </div>'
 
 
@@ -200,8 +218,8 @@ def build_blog_post(item: dict, slug: str, pub_year: int, pub_month: int) -> str
     cves    = item.get("cves", []) or []
     iocs    = item.get("iocs", []) or []
     ioc_cnt = len(iocs) if iocs else item.get("ioc_count", 0)
-    tactics = item.get("mitre_tactics", item.get("tactics", [])) or []
-    techniques = item.get("mitre_techniques", item.get("techniques", [])) or []
+    tactics    = [_normalize_mitre_entry(t) for t in (item.get("mitre_tactics", item.get("tactics", [])) or []) if _normalize_mitre_entry(t)]
+    techniques = [_normalize_mitre_entry(t) for t in (item.get("mitre_techniques", item.get("techniques", [])) or []) if _normalize_mitre_entry(t)]
     actor   = item.get("threat_actor", "") or "Unknown"
     malware = item.get("malware_family", item.get("malware", "")) or "N/A"
     category = item.get("category", "Threat Intelligence")
@@ -637,15 +655,16 @@ def main():
 
         # Add to index
         index["posts"].append({
-            "stix_id":   stix_id,
-            "title":     item.get("title", ""),
-            "slug":      slug,
-            "url":       post_url,
-            "published": pub_dt.strftime("%Y-%m-%d"),
+            "stix_id":    stix_id,
+            "title":      item.get("title", ""),
+            "slug":       slug,
+            "url":        post_url,
+            "published":  pub_dt.strftime("%Y-%m-%d"),
             "risk_score": item.get("risk_score", 0),
-            "cves":      item.get("cves", [])[:3],
-            "actor":     item.get("threat_actor", ""),
-            "summary":   (item.get("summary", "") or "")[:200],
+            "ioc_count":  ioc_cnt,
+            "cves":       item.get("cves", [])[:3],
+            "actor":      item.get("threat_actor", ""),
+            "summary":    (item.get("summary", "") or "")[:200],
         })
         published += 1
         log.info(f"  ✔ Published: {slug} (risk={item.get('risk_score',0)}, stix={stix_id[:20]}...)")
@@ -658,7 +677,7 @@ def main():
         log.info(f"Blog index.html + feed.xml updated. Total posts: {len(index['posts'])}")
 
     log.info("=" * 70)
-    log.info(f"AUTO BLOG PUBLISHER COMPLETE — Published: {published} new posts")
+    log.info(f"AUTO BLOG PUBLISHER COMPLETE -- Published: {published} new posts")
     log.info("=" * 70)
 
 

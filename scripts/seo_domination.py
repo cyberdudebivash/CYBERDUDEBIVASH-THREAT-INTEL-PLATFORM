@@ -163,11 +163,23 @@ def build_keywords(item: dict) -> list[str]:
             f"how to detect {malware}",
         ])
 
-    # MITRE tactics
+    # MITRE tactics — field can be list[str] OR list[dict] depending on pipeline version
     tactics = item.get("mitre_tactics", []) or item.get("tactics", []) or []
     for tactic in tactics[:3]:
-        tactic_key = tactic.lower().replace(" ", "-")
-        kws.extend(TACTIC_KEYWORDS.get(tactic_key, [tactic]))
+        if isinstance(tactic, dict):
+            # Extract name from dict: {"name": "...", "phase_name": "..."} or {"tactic": "..."}
+            tactic_str = (
+                tactic.get("name") or tactic.get("phase_name") or
+                tactic.get("tactic") or tactic.get("id") or ""
+            )
+        elif isinstance(tactic, str):
+            tactic_str = tactic
+        else:
+            continue
+        if not tactic_str:
+            continue
+        tactic_key = tactic_str.lower().replace(" ", "-")
+        kws.extend(TACTIC_KEYWORDS.get(tactic_key, [tactic_str]))
 
     # Category
     category = item.get("category", "") or ""
@@ -596,7 +608,7 @@ def main():
         )
 
     log.info("=" * 70)
-    log.info("SEO DOMINATION ENGINE — COMPLETE")
+    log.info("SEO DOMINATION ENGINE -- COMPLETE")
     log.info(f"  Items processed : {len(items)}")
     log.info(f"  Meta injected   : {injected}")
     log.info(f"  Reports missing : {missing}")
@@ -606,10 +618,10 @@ def main():
     log.info("=" * 70)
 
     if errors > 10:
-        log.error(f"Too many errors ({errors}) — check logs")
+        log.error(f"Too many errors ({errors}) -- check logs")
         sys.exit(1)
 
-    log.info("SEO DOMINATION: COMPLETE — organic traffic engine online")
+    log.info("SEO DOMINATION: COMPLETE -- organic traffic engine online")
 
 
 if __name__ == "__main__":
