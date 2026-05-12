@@ -62,7 +62,7 @@ jobs:
           echo "AWS CLI configured for R2"
 
       - name: Validate intel data before upload
-          python3 scripts/validate_r2_intel_data.py
+        run: python3 scripts/validate_r2_intel_data.py
 
       - name: Upload feed_manifest.json to R2
         env:
@@ -113,23 +113,12 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
         run: |
           ENDPOINT="https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          ADVISORY_COUNT=$(python3 -c "
-          import json
-          d = json.load(open('data/stix/feed_manifest.json'))
-          items = d.get('advisories') or d.get('reports') or (d if isinstance(d,list) else [])
-          print(len(items))
-          " 2>/dev/null || echo "0")
-          META=$(python3 -c "
-          import json
-          from datetime import datetime, timezone
-          import os
-          ver = os.environ.get('PIPELINE_VERSION', '143.0.0')
-          print(json.dumps({'synced_at': datetime.now(timezone.utc).isoformat(), 'advisory_count': $ADVISORY_COUNT, 'source': 'sentinel-blogger', 'version': ver}))
-          ")
+          python3 scripts/write_r2_sync_meta.py
+          META=$(cat /tmp/r2_sync_meta.json)
           echo "$META" | aws s3 cp - s3://sentinel-apex-data/intel/_sync_meta.json \
             --endpoint-url "$ENDPOINT" \
             --content-type "application/json"
-          echo "Sync metadata written: $ADVISORY_COUNT advisories"
+          echo "Sync metadata written."
 
       - name: Bust Worker KV cache
         env:
