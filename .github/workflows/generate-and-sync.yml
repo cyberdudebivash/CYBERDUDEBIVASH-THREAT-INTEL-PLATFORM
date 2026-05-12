@@ -254,6 +254,26 @@ jobs:
           [ "$EXIT_CODE" -eq 0 ] || { echo "::error::generate_ai_tracker.py FAILED (exit $EXIT_CODE)"; exit 1; }
 
       # ─────────────────────────────────────────────────────────────────────
+      # STAGE 5.5 — DAILY BRIEF PDF GENERATOR (executive threat summary)
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 5.5 — Generate Daily Brief PDF (Executive Threat Summary)"
+        run: |
+          STEP_START=$(date +%s%3N)
+          echo "::group::Daily Brief PDF Generator"
+          python3 scripts/daily_brief_generator.py
+          EXIT_CODE=$?
+          STEP_END=$(date +%s%3N)
+          echo "STEP_TIMING_DAILY_BRIEF_MS=$((STEP_END - STEP_START))" >> "$GITHUB_ENV"
+          echo "[TELEMETRY] daily_brief_generator: $((STEP_END - STEP_START))ms | exit=$EXIT_CODE"
+          if [ "$EXIT_CODE" -eq 0 ]; then
+            echo "[OK] Daily Brief PDF generated successfully"
+            ls -lh api/v1/intel/daily_brief_latest.pdf api/v1/intel/daily_brief_meta.json 2>/dev/null || true
+          else
+            echo "::warning::daily_brief_generator.py exited $EXIT_CODE — non-fatal, pipeline continues"
+          fi
+          echo "::endgroup::"
+
+      # ─────────────────────────────────────────────────────────────────────
       # STAGE 6 — OUTPUT VALIDATION GATES (Phase 6: schema enforcement)
       # ─────────────────────────────────────────────────────────────────────
       - name: "STAGE 6 — GATE: Validate all AI output schemas"
@@ -422,6 +442,15 @@ jobs:
           if [ "$PUSH_OK" -eq 0 ]; then
             echo "::warning::All push attempts deferred — will sync on next scheduled run"
           fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 5.7 — MONETIZATION INTEGRITY GATE (HARD FAIL)
+      # v148.0.0: Validates payment credentials, API auth enforcement,
+      #           BOM-free / encoding-clean HTML, Worker premium gating.
+      #           Exit 1 blocks the deploy. Mirrors sentinel-blogger.yml gate.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 5.7 - Monetization Integrity Gate (HARD FAIL)"
+        run: python3 scripts/validate_monetization.py
 
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 10 — FINAL PIPELINE HEALTH SUMMARY

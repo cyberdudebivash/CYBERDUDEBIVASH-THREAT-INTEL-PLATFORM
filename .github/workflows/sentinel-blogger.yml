@@ -588,6 +588,34 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
+      # STAGE 3.93.2: DAILY BRIEF GENERATOR (v148.0.0 -- NON-BLOCKING)
+      # Generates daily executive PDF threat brief using ReportLab.
+      # Reads api/v1/intel/ai_summary.json + api/feed.json (must run after 3.93.1).
+      # Outputs:
+      #   data/reports/daily_brief_YYYY-MM-DD.pdf  (dated archive copy)
+      #   api/v1/intel/daily_brief_latest.pdf       (always-current symlink)
+      #   api/v1/intel/daily_brief_meta.json        (Gumroad discovery endpoint)
+      # R2 upload is performed inside the script via wrangler (non-blocking).
+      # Subscribers: cyberdudebivash.gumroad.com/l/sentinel-apex-daily-brief
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.93.2 - Daily Brief Generator (v148.0.0)"
+        timeout-minutes: 4
+        run: |
+          set +e
+          python3 scripts/daily_brief_generator.py
+          BRIEF_EXIT=$?
+          set -e
+          if [ "$BRIEF_EXIT" -eq 0 ]; then
+            echo "[PASS] Daily brief generated"
+            [ -f "api/v1/intel/daily_brief_latest.pdf" ] && \
+              echo "[INFO] size: $(wc -c < api/v1/intel/daily_brief_latest.pdf)B" || true
+            [ -f "api/v1/intel/daily_brief_meta.json" ] && \
+              echo "[INFO] meta: $(cat api/v1/intel/daily_brief_meta.json | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get(\"report_date\",\"?\"))')" || true
+          else
+            echo "::warning::Daily brief generator failed (exit $BRIEF_EXIT) -- non-blocking, pipeline continues"
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.93.5: IMMUTABLE API MANIFEST VALIDATION GATE (v150.0)
       # REPLACES: old EMBEDDED_INTEL Population Gate (deleted -- was root cause of P0)
       # Verifies all api/v1/intel/*.json bundles are valid and populated.
