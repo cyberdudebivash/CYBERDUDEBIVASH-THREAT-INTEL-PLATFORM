@@ -160,6 +160,7 @@ jobs:
           STEP_START=$(date +%s%3N)
           python -m pip install --upgrade pip --quiet
           pip install requests --quiet 2>&1 | tail -3
+          pip install reportlab --quiet 2>&1 | tail -3
           STEP_END=$(date +%s%3N)
           echo "STEP_TIMING_DEPS_MS=$((STEP_END - STEP_START))" >> "$GITHUB_ENV"
           echo "[TELEMETRY] deps install: $((STEP_END - STEP_START))ms"
@@ -254,14 +255,17 @@ jobs:
           [ "$EXIT_CODE" -eq 0 ] || { echo "::error::generate_ai_tracker.py FAILED (exit $EXIT_CODE)"; exit 1; }
 
       # ─────────────────────────────────────────────────────────────────────
-      # STAGE 5.5 — DAILY BRIEF PDF GENERATOR (executive threat summary)
+      # STAGE 5.5 -- DAILY BRIEF PDF GENERATOR (executive threat summary)
       # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 5.5 — Generate Daily Brief PDF (Executive Threat Summary)"
+      - name: "STAGE 5.5 -- Generate Daily Brief PDF (Executive Threat Summary)"
+        continue-on-error: true
         run: |
           STEP_START=$(date +%s%3N)
           echo "::group::Daily Brief PDF Generator"
+          set +e
           python3 scripts/daily_brief_generator.py
           EXIT_CODE=$?
+          set -e
           STEP_END=$(date +%s%3N)
           echo "STEP_TIMING_DAILY_BRIEF_MS=$((STEP_END - STEP_START))" >> "$GITHUB_ENV"
           echo "[TELEMETRY] daily_brief_generator: $((STEP_END - STEP_START))ms | exit=$EXIT_CODE"
@@ -269,7 +273,7 @@ jobs:
             echo "[OK] Daily Brief PDF generated successfully"
             ls -lh api/v1/intel/daily_brief_latest.pdf api/v1/intel/daily_brief_meta.json 2>/dev/null || true
           else
-            echo "::warning::daily_brief_generator.py exited $EXIT_CODE — non-fatal, pipeline continues"
+            echo "::warning::daily_brief_generator.py exited $EXIT_CODE -- non-fatal, pipeline continues"
           fi
           echo "::endgroup::"
 
@@ -452,30 +456,4 @@ jobs:
       - name: "STAGE 5.7 - Monetization Integrity Gate (HARD FAIL)"
         run: python3 scripts/validate_monetization.py
 
-      # ─────────────────────────────────────────────────────────────────────
-      # STAGE 10 — FINAL PIPELINE HEALTH SUMMARY
-      # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 10 — Final pipeline health summary"
-        if: always()
-        run: |
-          PIPELINE_END=$(date +%s)
-          TOTAL=$((PIPELINE_END - PIPELINE_START_EPOCH))
-          echo "============================================================"
-          echo "PIPELINE COMPLETE: SENTINEL APEX AI TRACKER v${PIPELINE_VERSION}"
-          echo "Status   : ${{ job.status }}"
-          echo "Duration : ${TOTAL}s"
-          echo "Run ID   : $GITHUB_RUN_ID (#$GITHUB_RUN_NUMBER)"
-          echo "Dry Run  : ${DRY_RUN}"
-          echo "============================================================"
-          # Emit GitHub job summary
-          cat >> "$GITHUB_STEP_SUMMARY" <<SUMMARY
-          ## SENTINEL APEX AI Tracker Pipeline v${PIPELINE_VERSION}
-          | Field | Value |
-          |---|---|
-          | Status | ${{ job.status }} |
-          | Run ID | $GITHUB_RUN_ID (#$GITHUB_RUN_NUMBER) |
-          | Duration | ${TOTAL}s |
-          | Dry Run | ${DRY_RUN} |
-          | Schema | ${AI_TRACKER_SCHEMA} |
-          | Timestamp | $(date -u +'%Y-%m-%dT%H:%M:%SZ') |
-          SUMMARY
+      # ─────────────────────────────────────────────────────

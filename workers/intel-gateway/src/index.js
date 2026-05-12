@@ -4458,19 +4458,19 @@ async function handleRevenueDashboard(request, env, rid) {
 //                     /api/v1/intel/ai_summary.json (AI Cyber Brain output)
 // -----------------------------------------------------------------------------
 
-// v148.0.0: Premium endpoints — require PRO or ENTERPRISE tier
+// v148.0.0: Premium endpoints  -- require PRO or ENTERPRISE tier
 const PREMIUM_INTEL_PATHS = new Set([
   '/api/v1/intel/apex.json',
   '/api/v1/intel/ai_summary.json',
-  '/api/v1/intel/daily_brief_latest.pdf',   // PRO+ — daily executive threat brief PDF
+  '/api/v1/intel/daily_brief_latest.pdf',   // PRO+  -- daily executive threat brief PDF
 ]);
 
 // v148.0.0: Free public endpoints (daily brief metadata, no PDF payload)
 const FREE_DAILY_BRIEF_PATHS = new Set([
-  '/api/v1/intel/daily_brief_meta.json',    // FREE — brief metadata (date, size, subscribe link)
+  '/api/v1/intel/daily_brief_meta.json',    // FREE  -- brief metadata (date, size, subscribe link)
 ]);
 
-// Free-tier field mask — strip revenue-generating premium fields from public latest.json / top10.json
+// Free-tier field mask  -- strip revenue-generating premium fields from public latest.json / top10.json
 // so free callers get useful signal but can't reconstruct the full premium feed.
 const FREE_TIER_FIELDS = new Set([
   'id', 'title', 'summary', 'severity', 'risk_score', 'source', 'published',
@@ -4492,7 +4492,7 @@ function maskForFreeTier(items) {
 }
 
 // -----------------------------------------------------------------------------
-// PREMIUM MANIFEST HANDLER (v148.0.0) — apex.json + ai_summary.json
+// PREMIUM MANIFEST HANDLER (v148.0.0)  -- apex.json + ai_summary.json
 // Requires valid API key or JWT with tier >= PREMIUM.
 // Returns 401 with upgrade CTA on unauthenticated or free-tier requests.
 // -----------------------------------------------------------------------------
@@ -4511,7 +4511,7 @@ async function servePremiumIntelManifest(pathname, env, rid, request) {
       request_id:     rid,
     }, 401);
   }
-  // 2. Enforce tier — FREE callers get a clear upsell, not the data
+  // 2. Enforce tier  -- FREE callers get a clear upsell, not the data
   if (auth.tier === CONFIG.TIERS.FREE) {
     return jsonResponse({
       error:          'tier_insufficient',
@@ -4531,7 +4531,7 @@ async function servePremiumIntelManifest(pathname, env, rid, request) {
       request_id:     rid,
     }, 403);
   }
-  // 3. PRO+ confirmed — serve the manifest (same fetch chain as public handler)
+  // 3. PRO+ confirmed  -- serve the manifest (same fetch chain as public handler)
   return servePublicIntelManifestRaw(pathname, env, rid);
 }
 
@@ -4576,9 +4576,9 @@ async function servePublicIntelManifest(pathname, env, rid) {
 
 // -----------------------------------------------------------------------------
 // SHARED RAW MANIFEST FETCHER (v148.0.0)
-// R2 → KV cache → GitHub raw fallback chain.
+// R2 -> KV cache -> GitHub raw fallback chain.
 // -----------------------------------------------------------------------------
-// v148.0.0: Daily Brief PDF — PRO+ gate (serves binary PDF from R2)
+// v148.0.0: Daily Brief PDF  -- PRO+ gate (serves binary PDF from R2)
 // GET /api/v1/intel/daily_brief_latest.pdf   requires PRO or ENTERPRISE tier
 // -----------------------------------------------------------------------------
 async function serveDailyBriefPDF(pathname, env, rid, request) {
@@ -4612,7 +4612,7 @@ async function serveDailyBriefPDF(pathname, env, rid, request) {
 }
 
 // -----------------------------------------------------------------------------
-// v148.0.0: Daily Brief Metadata — FREE tier (JSON metadata, no PDF payload)
+// v148.0.0: Daily Brief Metadata  -- FREE tier (JSON metadata, no PDF payload)
 // GET /api/v1/intel/daily_brief_meta.json   no authentication required
 // -----------------------------------------------------------------------------
 async function serveDailyBriefMeta(env, rid) {
@@ -4889,12 +4889,12 @@ export default {
     // FREE  (no auth): latest.json, top10.json, manifest.json  (field-masked, 25-item cap)
     // PRO+  (auth req): apex.json, ai_summary.json             (full enriched, requires Bearer token)
     if (pathname.startsWith('/api/v1/intel/') && method === 'GET') {
-      // v148.0.0: Daily Brief free metadata — no auth required
+      // v148.0.0: Daily Brief free metadata  -- no auth required
       if (FREE_DAILY_BRIEF_PATHS.has(pathname)) {
         return withSec(serveDailyBriefMeta(env, rid));
       }
       if (PREMIUM_INTEL_PATHS.has(pathname)) {
-        // v148.0.0: daily_brief_latest.pdf — PRO+ gate (PDF binary from R2)
+        // v148.0.0: daily_brief_latest.pdf  -- PRO+ gate (PDF binary from R2)
         if (pathname === '/api/v1/intel/daily_brief_latest.pdf') {
           return withSec(serveDailyBriefPDF(pathname, env, rid, request));
         }
@@ -5201,94 +5201,4 @@ export default {
         "GET  /api/sla/certificate      (requires auth Enterprise -- SLA compliance cert)",
         "POST /api/sla/ping             (requires X-Admin-Secret -- cron heartbeat)",
         //  Admin
-        "POST /api/admin/cache/bust     (requires X-Admin-Secret)",
-        "POST /api/admin/keys/create    (requires X-Admin-Secret)",
-        "POST /api/admin/keys/revoke    (requires X-Admin-Secret)",
-        "GET  /api/admin/keys/list      (requires X-Admin-Secret)",
-        "GET  /api/admin/observability  (requires X-Admin-Secret)",
-        "GET  /api/admin/abuse          (requires X-Admin-Secret -- abuse event log)",
-      ],
-      docs:       CONFIG.DOCS_URL,
-      request_id: rid,
-      response_ms: Date.now() - reqStart,
-      gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
-    }, 404);
-  },
-
-  //  v134.0.0: Scheduled Cron Handler 
-  // Trigger: configure in wrangler.toml -> [triggers] crons = ["*/15 * * * *"]
-  // On each cron tick:
-  //   1. Fetch latest R2 feed manifest
-  //   2. Identify reports processed in the last cron interval
-  //   3. Push high-severity threats to all registered Enterprise SIEM webhooks
-  //   4. Invalidate platform stats cache so next /api/platform/stats call is fresh
-  async scheduled(event, env, ctx) {
-    const rid = generateReqId();
-    slog("INFO", "CRON", `Scheduled tick: ${event.cron || "manual"}`, { rid });
-
-    ctx.waitUntil((async () => {
-      try {
-        //  Step 1: Fetch feed manifest from R2 
-        let manifest = null;
-        if (env?.INTEL_R2) {
-          const obj = await env.INTEL_R2.get("feed_manifest.json").catch(() => null);
-          if (obj) {
-            try { manifest = JSON.parse(await obj.text()); } catch { manifest = null; }
-          }
-        }
-
-        // v143.5 FIX: feed_manifest.json is written as a flat array by the Python pipeline.
-    // Previous code assumed { reports: [...] } shape -- manifest?.reports was always undefined.
-    // Handle all three possible shapes: flat array, { reports: [...] }, { advisories: [...] }
-    let reports = [];
-    if (Array.isArray(manifest)) {
-      reports = manifest;
-    } else if (manifest && Array.isArray(manifest.reports)) {
-      reports = manifest.reports;
-    } else if (manifest && Array.isArray(manifest.advisories)) {
-      reports = manifest.advisories;
-    } else if (manifest && Array.isArray(manifest.items)) {
-      reports = manifest.items;
-    }
-        if (!reports.length) {
-          slog("WARN", "CRON", "No reports in feed manifest -- skipping webhook push", { rid });
-          return;
-        }
-
-        //  Step 2: Identify recently published items (last 30 min) 
-        const cutoff  = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-        const newItems = reports.filter(r => {
-          const ts = r.processed_at || r.timestamp || "";
-          return ts >= cutoff;
-        });
-
-        slog("INFO", "CRON", `Feed: ${reports.length} total, ${newItems.length} new since ${cutoff}`, { rid });
-
-        //  Step 3: Push to SIEM webhooks (Enterprise tier) 
-        if (newItems.length > 0) {
-          const pushResult = await pushWebhookNotifications(env, newItems);
-          slog("INFO", "CRON", "Webhook push complete", { rid, ...pushResult });
-        }
-
-        //  Step 4: Invalidate platform stats cache 
-        if (env?.ANALYTICS_KV) {
-          await env.ANALYTICS_KV.delete("platform:stats:v140").catch(() => {});
-          slog("INFO", "CRON", "Platform stats cache invalidated", { rid });
-        }
-
-        //  Step 5: Rebuild KV index cache for fast search/actors/CVEs queries
-        if (env?.SECURITY_HUB_KV && manifest) {
-          await env.SECURITY_HUB_KV.put(
-            "idx:reports",
-            JSON.stringify(manifest),
-            { expirationTtl: 1800 }  // 30 min TTL -- refreshed by cron
-          ).catch(() => {});
-          slog("INFO", "CRON", "KV report index refreshed", { rid, count: reports.length });
-        }
-
-      } catch (e) {
-        await trackError(env, "CRON", "Scheduled handler failed", { error: e.message, rid });
-      }
-    })());
-  },
-};
+        "POST /api/admin/cache/bust     (requires X-Admi
