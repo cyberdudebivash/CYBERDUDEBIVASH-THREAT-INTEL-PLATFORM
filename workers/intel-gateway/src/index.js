@@ -5201,4 +5201,94 @@ export default {
         "GET  /api/sla/certificate      (requires auth Enterprise -- SLA compliance cert)",
         "POST /api/sla/ping             (requires X-Admin-Secret -- cron heartbeat)",
         //  Admin
-        "POST /api/admin/cache/bust     (requires X-Admi
+        "POST /api/admin/cache/bust     (requires X-Admin-Secret)",
+        "POST /api/admin/keys/create    (requires X-Admin-Secret)",
+        "POST /api/admin/keys/revoke    (requires X-Admin-Secret)",
+        "GET  /api/admin/keys/list      (requires X-Admin-Secret)",
+        "GET  /api/admin/observability  (requires X-Admin-Secret)",
+        "GET  /api/admin/abuse          (requires X-Admin-Secret -- abuse event log)",
+      ],
+      docs:       CONFIG.DOCS_URL,
+      request_id: rid,
+      response_ms: Date.now() - reqStart,
+      gateway:    `${CONFIG.GATEWAY_NAME}/${CONFIG.GATEWAY_VERSION}`,
+    }, 404);
+  },
+
+  //  v134.0.0: Scheduled Cron Handler 
+  // Trigger: configure in wrangler.toml -> [triggers] crons = ["*/15 * * * *"]
+  // On each cron tick:
+  //   1. Fetch latest R2 feed manifest
+  //   2. Identify reports processed in the last cron interval
+  //   3. Push high-severity threats to all registered Enterprise SIEM webhooks
+  //   4. Invalidate platform stats cache so next /api/platform/stats call is fresh
+  async scheduled(event, env, ctx) {
+    const rid = generateReqId();
+    slog("INFO", "CRON", `Scheduled tick: ${event.cron || "manual"}`, { rid });
+
+    ctx.waitUntil((async () => {
+      try {
+        //  Step 1: Fetch feed manifest from R2 
+        let manifest = null;
+        if (env?.INTEL_R2) {
+          const obj = await env.INTEL_R2.get("feed_manifest.json").catch(() => null);
+          if (obj) {
+            try { manifest = JSON.parse(await obj.text()); } catch { manifest = null; }
+          }
+        }
+
+        // v143.5 FIX: feed_manifest.json is written as a flat array by the Python pipeline.
+    // Previous code assumed { reports: [...] } shape -- manifest?.reports was always undefined.
+    // Handle all three possible shapes: flat array, { reports: [...] }, { advisories: [...] }
+    let reports = [];
+    if (Array.isArray(manifest)) {
+      reports = manifest;
+    } else if (manifest && Array.isArray(manifest.reports)) {
+      reports = manifest.reports;
+    } else if (manifest && Array.isArray(manifest.advisories)) {
+      reports = manifest.advisories;
+    } else if (manifest && Array.isArray(manifest.items)) {
+      reports = manifest.items;
+    }
+        if (!reports.length) {
+          slog("WARN", "CRON", "No reports in feed manifest -- skipping webhook push", { rid });
+          return;
+        }
+
+        //  Step 2: Identify recently published items (last 30 min) 
+        const cutoff  = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        const newItems = reports.filter(r => {
+          const ts = r.processed_at || r.timestamp || "";
+          return ts >= cutoff;
+        });
+
+        slog("INFO", "CRON", `Feed: ${reports.length} total, ${newItems.length} new since ${cutoff}`, { rid });
+
+        //  Step 3: Push to SIEM webhooks (Enterprise tier) 
+        if (newItems.length > 0) {
+          const pushResult = await pushWebhookNotifications(env, newItems);
+          slog("INFO", "CRON", "Webhook push complete", { rid, ...pushResult });
+        }
+
+        //  Step 4: Invalidate platform stats cache 
+        if (env?.ANALYTICS_KV) {
+          await env.ANALYTICS_KV.delete("platform:stats:v140").catch(() => {});
+          slog("INFO", "CRON", "Platform stats cache invalidated", { rid });
+        }
+
+        //  Step 5: Rebuild KV index cache for fast search/actors/CVEs queries
+        if (env?.SECURITY_HUB_KV && manifest) {
+          await env.SECURITY_HUB_KV.put(
+            "idx:reports",
+            JSON.stringify(manifest),
+            { expirationTtl: 1800 }  // 30 min TTL -- refreshed by cron
+          ).catch(() => {});
+          slog("INFO", "CRON", "KV report index refreshed", { rid, count: reports.length });
+        }
+
+      } catch (e) {
+        await trackError(env, "CRON", "Scheduled handler failed", { error: e.message, rid });
+      }
+    })());
+  },
+};
