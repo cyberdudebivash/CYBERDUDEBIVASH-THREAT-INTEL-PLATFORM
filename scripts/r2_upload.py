@@ -56,7 +56,7 @@ logging.basicConfig(
 log = logging.getLogger("sentinel.r2_upload")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "147.0.0")
+PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "148.0.0")
 BUCKET_DATA = "sentinel-apex-data"
 BUCKET_REPORTS = "sentinel-apex-reports"
 
