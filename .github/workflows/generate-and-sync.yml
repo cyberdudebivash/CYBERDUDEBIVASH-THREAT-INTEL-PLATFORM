@@ -185,24 +185,18 @@ jobs:
 
       - name: "STAGE 3.1 — GATE 2: Feed manifest integrity check"
         run: |
-          python3 -c "
-          import json, os, sys
-          manifest = 'data/stix/feed_manifest.json'
-          if not os.path.exists(manifest):
-              print('[WARN] feed_manifest.json not found — will use CSV fallback')
-              sys.exit(0)
-          try:
-              with open(manifest) as f:
-                  data = json.load(f)
-              items = data if isinstance(data, list) else data.get('items', data.get('entries', []))
-              count = len(items)
-              if count < 5:
-                  print(f'[WARN] Manifest only has {count} items — using CSV fallback')
-              else:
-                  print(f'[OK] Manifest integrity: {count} items')
-          except Exception as e:
-              print(f'[WARN] Manifest read error: {e} — using CSV fallback')
-          "
+          # RULE 1: Zero inline Python in YAML -- use jq for manifest integrity check
+          if [ ! -f "data/stix/feed_manifest.json" ]; then
+            echo "[WARN] feed_manifest.json not found -- will use CSV fallback"
+          else
+            COUNT=$(jq 'if type == "array" then length else ((.items // .entries // []) | length) end' \
+              data/stix/feed_manifest.json 2>/dev/null || echo "0")
+            if [ "${COUNT:-0}" -lt 5 ]; then
+              echo "[WARN] Manifest only has ${COUNT} items -- using CSV fallback"
+            else
+              echo "[OK] Manifest integrity: ${COUNT} items"
+            fi
+          fi
 
       - name: "STAGE 3.2 — GATE 3: Encoding guard (abort on mojibake)"
         run: |

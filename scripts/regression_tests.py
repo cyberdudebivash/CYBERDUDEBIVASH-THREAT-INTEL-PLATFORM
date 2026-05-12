@@ -170,16 +170,21 @@ def t05():
     # Primary: data/stix/feed_manifest.json
     # Fallback: api/feed.json (if stix manifest is empty -- by-design bootstrap reset)
     # See stability_lock.json known_non_fatal_warns: manifest_shrink_warning
+    api_feed = REPO_ROOT / "api" / "feed.json"
     manifest_to_check = MANIFEST_PATH
     if MANIFEST_PATH.exists():
         raw = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
         items_check = raw if isinstance(raw, list) else raw.get("data", raw.get("advisories", []))
         if len(items_check) == 0:
             # Stix manifest empty by design -- fall back to api/feed.json
-            api_feed = REPO_ROOT / "api" / "feed.json"
             if api_feed.exists():
                 manifest_to_check = api_feed
                 log.info("[T05] stix manifest empty (by-design) -- using api/feed.json")
+    else:
+        # Stix manifest absent entirely (fresh checkout pre-pipeline run) -- fall back to api/feed.json
+        if api_feed.exists():
+            manifest_to_check = api_feed
+            log.info("[T05] stix manifest absent -- using api/feed.json fallback")
     assert manifest_to_check.exists(), f"Neither stix manifest nor api/feed.json found"
     data = json.loads(manifest_to_check.read_text(encoding="utf-8"))
     items = data if isinstance(data, list) else data.get("items", data.get("data", data.get("advisories", [])))
@@ -705,11 +710,9 @@ def main() -> int:
             "Investigate before next production deployment.",
             fail_count,
         )
-        return 1
-
-    log.info("ALL %d REGRESSION TESTS PASSED -- no regression detected.", total)
-    return 0
+        sys.exit(1)
+    sys.exit(0)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
