@@ -19,11 +19,13 @@ TARGETS GOVERNED (backend/gateway + CI workflows):
   workers/intel-gateway/src/index.js     -- GATEWAY_VERSION in CONFIG object
   scripts/r2_upload.py                    -- PIPELINE_VERSION default
   scripts/ai_brain_publisher.py           -- VERSION constant
+  .github/workflows/sentinel-blogger.yml  -- PIPELINE_VERSION env var
+  .github/workflows/generate-and-sync.yml -- PIPELINE_VERSION env var
 
 NOT GOVERNED (have their own independent versioning):
-  js/api_adapter.js           -- UI component v145, guarded by ui-file-guardian
-  js/card_renderer.js         -- UI component v145, guarded by ui-file-guardian
-  js/card_renderer_integration.js -- UI component v145, guarded by ui-file-guardian
+  js/api_adapter.js           -- UI component, guarded by ui-file-guardian
+  js/card_renderer.js         -- UI component, guarded by ui-file-guardian
+  js/card_renderer_integration.js -- UI component, guarded by ui-file-guardian
 
 MODE:
   --check    Verify all targets match the authority. Exit 1 on any drift.
@@ -74,7 +76,7 @@ def now_iso():
 
 
 # ---------------------------------------------------------------------------
-# Regex-based targets (backend/gateway components only)
+# Regex-based targets (backend/gateway + CI workflow components)
 # ---------------------------------------------------------------------------
 # Each tuple: (relative_path, pattern, replacement_template)
 # {VER} -> full semver, {VERMAJ} -> major integer only
@@ -169,7 +171,6 @@ def update_version_json(rel_path, ver, apply):
     now = now_iso()
     today = now[:10].replace("-", "")
 
-    # Fields common to both version.json files
     for key in ("version", "pipeline_version"):
         if key in data:
             data[key] = ver
@@ -196,7 +197,6 @@ def update_version_json(rel_path, ver, apply):
     if "schema_version" in data:
         data["schema_version"] = "v%s" % ver.split(".")[0]
 
-    # components sub-object
     if "components" in data and isinstance(data["components"], dict):
         for k in ("worker", "dashboard", "pipeline"):
             if k in data["components"]:
@@ -240,29 +240,25 @@ def run(mode):
     ver = read_authority()
     log.info("Authoritative version: %s  (mode=%s)", ver, mode)
 
-    rows = []   # (file, found_ver, status, ok)
+    rows = []
     any_drift = False
 
-    # -- root version.json --
     ok, found, status = update_version_json("version.json", ver, apply)
     rows.append(("version.json", found, status, ok))
     if not ok:
         any_drift = True
 
-    # -- config/version.json (SSOT for deploy-worker workflow) --
     ok, found, status = update_version_json("config/version.json", ver, apply)
     rows.append(("config/version.json", found, status, ok))
     if not ok:
         any_drift = True
 
-    # -- regex targets --
     for rel_path, pattern, template in REGEX_TARGETS:
         ok, found, status = check_or_apply_regex(rel_path, pattern, template, ver, apply)
         rows.append((rel_path, found, status, ok))
         if not ok:
             any_drift = True
 
-    # -- report table --
     col0 = max(len(r[0]) for r in rows) + 2
     col1 = max(len(r[1]) for r in rows) + 2
     header = "%-*s %-*s %s" % (col0, "FILE", col1, "FOUND", "STATUS")
@@ -294,30 +290,6 @@ def main():
     grp.add_argument(
         "--check", action="store_true",
         help="Detect drift only. Exit 1 if found."
-    )
-    grp.add_argument(
-        "--apply", action="store_true",
-        help="Apply authoritative version to all targets."
-    )
-    grp.add_argument(
-        "--report", action="store_true",
-        help="Print version table. Always exits 0."
-    )
-    args = parser.parse_args()
-
-    if args.check:
-        mode = "check"
-    elif args.report:
-        mode = "report"
-    else:
-        mode = "apply"
-
-    sys.exit(run(mode))
-
-
-if __name__ == "__main__":
-    main()
- if found."
     )
     grp.add_argument(
         "--apply", action="store_true",
