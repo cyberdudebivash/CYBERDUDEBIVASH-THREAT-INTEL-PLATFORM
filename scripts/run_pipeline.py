@@ -121,6 +121,155 @@ VALID_THREAT_TYPES = {
 }
 
 # ---------------------------------------------------------------------------
+# v148.0.0: Source Name → Domain + Trust Weight mapping
+# Maps human-readable source names (as stored in item["source"]) to their
+# canonical domain so source_trust_engine scores can be applied per-item.
+# DEFAULT_SOURCE_TRUST is the fallback for any source not in this map.
+# ---------------------------------------------------------------------------
+DEFAULT_SOURCE_TRUST: float = 0.60  # flat STD tier — upgraded by map below
+
+SOURCE_NAME_TO_DOMAIN: dict[str, str] = {
+    # PLATINUM — government / authoritative advisories
+    "CISA":                      "cisa.gov",
+    "CISA KEV":                  "cisa.gov",
+    "US-CERT":                   "us-cert.cisa.gov",
+    "CERT":                      "cert.org",
+    "NVD":                       "nvd.nist.gov",
+    "NIST NVD":                  "nvd.nist.gov",
+    "MITRE":                     "attack.mitre.org",
+    # PLATINUM — top-tier security vendors & research
+    "Mandiant":                  "mandiant.com",
+    "Google":                    "google.com",
+    "Google Threat Intel":       "blog.google",
+    "Google Project Zero":       "googleprojectzero.blogspot.com",
+    "Microsoft":                 "microsoft.com",
+    "Microsoft Security":        "security.microsoft.com",
+    "CrowdStrike":               "crowdstrike.com",
+    "SentinelOne":               "sentinelone.com",
+    "Palo Alto Networks":        "paloaltonetworks.com",
+    "Unit 42":                   "unit42.paloaltonetworks.com",
+    "Recorded Future":           "recordedfuture.com",
+    "VirusTotal":                "virustotal.com",
+    "IBM":                       "ibm.com",
+    "IBM Security Intelligence": "securityintelligence.com",
+    # ENTERPRISE — reputable security news & research
+    "The Hacker News":           "thehackernews.com",
+    "BleepingComputer":          "bleepingcomputer.com",
+    "Krebs on Security":         "krebsonsecurity.com",
+    "Schneier on Security":      "schneier.com",
+    "SANS":                      "sans.org",
+    "SANS Internet Storm Center":"isc.sans.edu",
+    "ISC SANS":                  "isc.sans.edu",
+    "Rapid7":                    "rapid7.com",
+    "Tenable":                   "tenable.com",
+    "Qualys":                    "qualys.com",
+    "Check Point":               "checkpoint.com",
+    "Check Point Research":      "checkpoint.com",
+    "Fortinet":                  "fortinet.com",
+    "FortiGuard":                "fortinet.com",
+    "Trend Micro":               "trendmicro.com",
+    "Symantec":                  "symantec.com",
+    "Broadcom":                  "broadcom.com",
+    "Elastic":                   "elastic.co",
+    "abuse.ch":                  "abuse.ch",
+    "FeodoTracker":              "feodotracker.abuse.ch",
+    "URLhaus":                   "urlhaus.abuse.ch",
+    "GitHub":                    "github.com",
+    "Wired":                     "wired.com",
+    "ArsTechnica":               "arstechnica.com",
+    "Ars Technica":              "arstechnica.com",
+    "Dark Reading":              "darkreading.com",
+    "SecurityWeek":              "securityweek.com",
+    "Threatpost":                "threatpost.com",
+    "ThreatPost":                "threatpost.com",
+    "Kaspersky":                 "kaspersky.com",
+    "Kaspersky SecureList":      "kaspersky.com",
+    "Zero Day Initiative":       "zerodayinitiative.com",
+    "ZDI":                       "zerodayinitiative.com",
+    # STANDARD — broad coverage news outlets
+    "CyberScoop":                "cyberscoop.com",
+    "CyberSecurity News":        "cybersecurity-review.com",
+    "Security Affairs":          "securityaffairs.com",
+    "Infosecurity Magazine":     "infosecurity-magazine.com",
+    "SC Magazine":               "scmagazine.com",
+    "Graham Cluley":             "grahamcluley.com",
+    "HelpNet Security":          "helpnetsecurity.com",
+    "HackRead":                  "hackread.com",
+    # Feeds / aggregators
+    "Vulners":                   "vulners.com",
+    "CVE Feed":                  "nvd.nist.gov",   # CVE data originates from NVD
+    # Vendor blogs
+    "AWS Security Blog":         "aws.amazon.com",
+    "AWS":                       "aws.amazon.com",
+    "Palo Alto Unit 42":         "unit42.paloaltonetworks.com",
+    "Unit42":                    "unit42.paloaltonetworks.com",
+    "KrebsOnSecurity":           "krebsonsecurity.com",
+    # National CERTs
+    "NCSC Netherlands":          "ncsc.nl",
+    "NCSC":                      "ncsc.nl",
+    "NCSC UK":                   "ncsc.gov.uk",
+    "ANSSI":                     "cert.ssi.gouv.fr",
+    "BSI":                       "bsi.bund.de",
+    "CERT-EU":                   "cert.europa.eu",
+}
+
+# Trust scores for domains NOT in source_trust_scores.json (supplement)
+_SUPPLEMENTAL_TRUST: dict[str, float] = {
+    "zerodayinitiative.com": 0.92,
+    "kaspersky.com":         0.88,
+    "aws.amazon.com":        0.87,
+    "vulners.com":           0.72,
+    "cybersecurity-review.com": 0.68,
+    # National CERTs — authoritative government advisories
+    "ncsc.nl":               0.97,
+    "ncsc.gov.uk":           0.97,
+    "cert.ssi.gouv.fr":      0.96,
+    "bsi.bund.de":           0.96,
+    "cert.europa.eu":        0.95,
+}
+
+def _load_source_trust_map() -> dict[str, float]:
+    """Load domain→trust_score from source_trust_scores.json. Returns {} on error."""
+    try:
+        p = REPO_ROOT / "data" / "quality" / "source_trust_scores.json"
+        if not p.exists():
+            return {}
+        raw = json.loads(p.read_text(encoding="utf-8"))
+        ts = raw.get("trust_scores", {})
+        return {domain: float(v.get("trust_score", DEFAULT_SOURCE_TRUST))
+                for domain, v in ts.items() if isinstance(v, dict)}
+    except Exception:
+        return {}
+
+def apply_source_trust_enrichment(items: list[dict]) -> tuple[list[dict], int]:
+    """
+    v148.0.0: Enrich each item with source_domain + source_trust_score.
+    Reads from data/quality/source_trust_scores.json; falls back to
+    SOURCE_NAME_TO_DOMAIN → _SUPPLEMENTAL_TRUST → DEFAULT_SOURCE_TRUST.
+    Returns (enriched_items, count_enriched).
+    """
+    trust_map = _load_source_trust_map()
+    trust_map.update(_SUPPLEMENTAL_TRUST)  # supplement unknown domains
+    enriched = 0
+    for item in items:
+        if item.get("source_trust_score") and item.get("source_domain"):
+            continue  # already enriched by upstream engine
+        src_name = str(item.get("source", "")).strip()
+        domain = (
+            item.get("source_domain")
+            or SOURCE_NAME_TO_DOMAIN.get(src_name)
+            or SOURCE_NAME_TO_DOMAIN.get(src_name.split()[0] if src_name else "")
+            or ""
+        )
+        if domain:
+            item["source_domain"] = domain
+        score = trust_map.get(domain, DEFAULT_SOURCE_TRUST) if domain else DEFAULT_SOURCE_TRUST
+        item["source_trust_score"] = round(score, 3)
+        enriched += 1
+    return items, enriched
+
+
+# ---------------------------------------------------------------------------
 # v134.1 P0 FIX: Pipeline-side actor resolution map
 # ---------------------------------------------------------------------------
 PIPELINE_ACTOR_MAP: dict[str, list[str]] = {
@@ -1588,6 +1737,30 @@ def stage_dedup_and_enrich() -> None:
         if METRICS:
             METRICS.record_iocs(total_iocs)
 
+        # Step 2.5: v148.0.0 Source trust enrichment
+        # Inject source_domain + source_trust_score on every item so that
+        # confidence_calibrator.py can apply differential weights instead of
+        # the flat DEFAULT_SOURCE_TRUST=0.60 fallback for all sources.
+        items, trust_enriched = apply_source_trust_enrichment(items)
+        log.info("[3.2] Source trust enriched: %d/%d items got source_trust_score", trust_enriched, len(items))
+
+        # Step 2.6: v148.0.0 'published' boolean guard
+        # Ensure every item has a boolean 'published' field (schema pre-write guard).
+        # Missing or non-bool 'published' is a silent bug that breaks API filters.
+        pub_fixed = 0
+        for item in items:
+            raw_pub = item.get("published")
+            if not isinstance(raw_pub, bool):
+                # Coerce: treat truthy strings ("true","yes","1") as True, else True by default
+                # (items reaching this stage have passed freshness gate, so they ARE published)
+                if isinstance(raw_pub, str) and raw_pub.lower() in ("false", "0", "no", ""):
+                    item["published"] = False
+                else:
+                    item["published"] = True
+                pub_fixed += 1
+        if pub_fixed:
+            log.info("[3.2] 'published' boolean fixed on %d items", pub_fixed)
+
         # Step 3: Schema validation (lenient mode -- fix + keep)
         validator = SchemaValidator(strict=False)
         items, schema_errors = validator.validate_manifest(items)
@@ -1793,42 +1966,61 @@ def stage_pipeline_consistency_check() -> None:
             risk_score = float(item.get("risk_score", 0.0))
 
             if severity == "CRITICAL":
-                # CDB proprietary campaigns are internally scored via actor-
-                # research criteria, NOT CVE/KEV/EPSS metrics.  They MUST NOT
-                # be downgraded by the CVE-scoring C3 gate.
-                # Condition: actor_tag starts with "CDB-" AND no CVE present.
+                # v148.0.0 HARDENED RISK-SCORE GATE (I-02 fix: eliminate fake risk=10)
+                # ─────────────────────────────────────────────────────────────────────
+                # Risk=10 is ONLY justified by hard external evidence:
+                #   1. KEV confirmed active exploitation, OR
+                #   2. CVSS ≥ 9.0 AND (IOCs present OR EPSS ≥ 50%), OR
+                #   3. EPSS ≥ 70% (very high exploitation probability), OR
+                #   4. High-confidence IOC cluster: ioc_conf ≥ 80% AND ioc_cnt ≥ 5
+                #      AND at least one "in the wild" keyword confirming active threat.
+                # CDB-proprietary actor tag alone is NOT sufficient evidence for risk=10.
+                # Proprietary campaigns without external validation are capped at 9.0.
+                # ─────────────────────────────────────────────────────────────────────
+                _title_summary = (item.get("title", "") + " " + item.get("summary", "")).lower()
+                _active_keywords = [
+                    "actively exploited", "in the wild", "active exploitation",
+                    "exploited in the wild", "under active attack", "zero-day exploit",
+                    "0-day exploit", "actively abused",
+                ]
+                _has_active_keyword = any(t in _title_summary for t in _active_keywords)
+
+                justified_10 = (
+                    kev                                                         # CISA KEV confirmed
+                    or (cvss >= 9.0 and (ioc_cnt > 0 or epss >= 0.5))          # CVSS critical + IOC/EPSS
+                    or epss >= 0.7                                              # 70%+ exploitation probability
+                    or (ioc_conf >= 80.0 and ioc_cnt >= 5 and _has_active_keyword)  # HC cluster + active
+                )
+
+                # CDB-proprietary + active keyword: cap at 9.0 (justified HIGH-CRITICAL, not 10)
                 _actor_tag = (item.get("actor_tag") or "").strip().upper()
                 _is_cdb_proprietary = (
                     _actor_tag.startswith("CDB-")
                     and not (item.get("cve_ids") or item.get("cve_id") or "")
                 )
-                justified = (
-                    _is_cdb_proprietary        # CDB campaign — exempt from CVE gate
-                    or kev
-                    or (cvss >= 9.0 and (ioc_cnt > 0 or epss >= 0.5))
-                    or epss >= 0.7
-                    or (ioc_conf >= 80.0 and ioc_cnt >= 5)
-                )
-                if not justified:
+                justified_9 = _is_cdb_proprietary and _has_active_keyword
+
+                if not justified_10 and not justified_9:
                     c3_violations.append(
                         f"  FALSE_CRITICAL [{entry_id}] "
                         f"kev={kev} cvss={cvss} epss={epss} ioc_cnt={ioc_cnt} | {title}"
                     )
-                    # Auto-fix: downgrade to HIGH
+                    # Auto-fix: downgrade to HIGH, cap score at 8.0
                     item["severity"] = "HIGH"
-                    # Cap to 7.5 for no-CVE/KEV entries (matches risk_engine v141.7.0 HIGH_CONFIDENCE_CEIL)
                     _has_hc_evidence = (
                         bool(item.get("cve_id"))
                         or bool(item.get("kev_present"))
-                        or any(
-                            t in (item.get("title", "") + " " + item.get("summary", "")).lower()
-                            for t in ["actively exploited", "in the wild", "active exploitation",
-                                      "exploited in the wild", "under active attack"]
-                        )
+                        or _has_active_keyword
                     )
-                    _cap_val = 8.9 if _has_hc_evidence else 7.5
+                    # v148.0.0: tightened caps — 8.5 with HC evidence, 8.0 without
+                    _cap_val = 8.5 if _has_hc_evidence else 8.0
                     item["risk_score"] = min(risk_score, _cap_val)
                     auto_fixed += 1
+                elif not justified_10 and justified_9:
+                    # CDB proprietary + active keyword: keep CRITICAL but cap at 9.0
+                    if risk_score > 9.0:
+                        item["risk_score"] = 9.0
+                        auto_fixed += 1
 
             # C5: ioc_confidence must be > 0 when ioc_count > 0
             final_ioc_cnt = int(item.get("ioc_count", 0))
