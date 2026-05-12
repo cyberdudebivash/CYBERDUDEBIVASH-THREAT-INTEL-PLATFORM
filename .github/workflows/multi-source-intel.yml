@@ -36,10 +36,10 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4.3.1
         with: {fetch-depth: 1, ref: main}
 
-      - uses: actions/setup-python@v5.3.0
+      - uses: actions/setup-python@v5.5.0
         with: {python-version: '3.12', cache: 'pip'}
 
       - name: "Install Dependencies"
@@ -78,45 +78,7 @@ jobs:
       # 
       - name: "Validate Manifest Integrity"
         run: |
-          python3 - << 'PYEOF'
-          import json, sys
-          from pathlib import Path
-
-          manifest_path = Path("data/stix/feed_manifest.json")
-          state_path    = Path("data/cache/feed_state.json")
-
-          # --- Manifest check ---
-          if not manifest_path.exists():
-              print("[WARN] feed_manifest.json does not exist yet (first run?)")
-          else:
-              try:
-                  data = json.loads(manifest_path.read_text(encoding="utf-8"))
-                  entries = data if isinstance(data, list) else []
-                  total = len(entries)
-                  with_pub = sum(1 for e in entries if e.get("published_at"))
-                  print(f"[MANIFEST] total={total}  with_published_at={with_pub}  missing={total-with_pub}")
-                  if total > 0 and with_pub == 0:
-                      print("[WARN] All entries missing published_at - ingestion may need a reset")
-              except Exception as e:
-                  print(f"[ERROR] Manifest parse failed: {e}")
-                  sys.exit(1)
-
-          # --- Feed state check ---
-          if not state_path.exists():
-              print("[WARN] feed_state.json does not exist - first run will do full scan")
-          else:
-              try:
-                  state = json.loads(state_path.read_text(encoding="utf-8"))
-                  sources = state.get("sources", {})
-                  count = len(sources)
-                  print(f"[FEED-STATE] Tracking {count} source(s) with last_seen timestamps")
-                  if count == 0:
-                      print("[WARN] feed_count=0 - next run will be a full scan (expected on first run)")
-              except Exception as e:
-                  print(f"[WARN] Feed state parse failed: {e}")
-
-          print("[VALIDATE] OK")
-          PYEOF
+          python3 scripts/validate_manifest_integrity.py
 
       # 
       # COMMIT STATE FILES - CRITICAL for cross-run incremental ingestion

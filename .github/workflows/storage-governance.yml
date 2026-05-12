@@ -61,21 +61,9 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          python3 - <<'EOF'
-          import json, pathlib, subprocess, sys
-          ar_path = pathlib.Path("data/telemetry/anomaly_report.json")
-          if not ar_path.exists():
-              sys.exit(0)
-          ar = json.loads(ar_path.read_text())
-          if ar.get("total_anomalies", 0) > 0:
-              print(f"[ANOMALY] {ar['total_anomalies']} anomalies detected -- alerting")
-              for a in ar.get("anomalies", []):
-                  print(f"  [{a.get('severity')}] {a.get('type')} {a.get('endpoint','')}")
-          else:
-              print("[ANOMALY] No anomalies -- platform nominal")
-          EOF
 
+        run: |
+          python3 scripts/print_anomaly_alert.py
   storage-scan:
     name: "Storage Scan"
     runs-on: ubuntu-latest

@@ -58,20 +58,7 @@ jobs:
         run: |
           echo "[ALERT MONITOR] Running SLA evaluation..."
           python3 scripts/sla_engine.py --tier enterprise 2>&1 | tail -10 || true
-          python3 - <<'EOF'
-          import json, pathlib, os, sys
-          sla_path = pathlib.Path("data/health/sla_status.json")
-          if not sla_path.exists():
-              print("[SLA] No SLA status file")
-              sys.exit(0)
-          sla = json.loads(sla_path.read_text())
-          score = sla.get("sla_evaluation", {}).get("sla_score", 100)
-          grade = sla.get("sla_evaluation", {}).get("grade", "A")
-          violations = sla.get("sla_evaluation", {}).get("violations", [])
-          print(f"[SLA] Score: {score}/100 Grade: {grade} Violations: {len(violations)}")
-          if grade in ("C", "D"):
-              print(f"[SLA] WARNING: SLA grade {grade} -- alerting")
-          EOF
+          python3 scripts/print_sla_snapshot.py
 
       - name: "Self-healing check"
         timeout-minutes: 3

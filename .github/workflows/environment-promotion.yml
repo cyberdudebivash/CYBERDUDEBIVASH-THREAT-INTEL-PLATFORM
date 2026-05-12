@@ -192,22 +192,7 @@ jobs:
         run: |
           TARGET="${{ github.event.inputs.promote_to }}"
           echo "[ENV] Validating target environment: $TARGET"
-          python3 - <<'EOF'
-          import json, pathlib, sys
-          env_cfg = json.loads(pathlib.Path("config/environments.json").read_text())
-          target = "${{ github.event.inputs.promote_to }}"
-          env = env_cfg.get("environments", {}).get(target, {})
-          if not env:
-              print(f"[ENV] FAIL: Unknown environment: {target}")
-              sys.exit(1)
-          gates = env.get("validation_gates", [])
-          print(f"[ENV] Environment: {target}")
-          print(f"[ENV] Tier: {env.get('tier')}")
-          print(f"[ENV] Protected: {env.get('protected')}")
-          print(f"[ENV] Required gates: {gates}")
-          print(f"[ENV] Requires approval: {env.get('requires_approval')}")
-          print(f"[ENV] Customer facing: {env.get('customer_facing', False)}")
-          EOF
+          python3 scripts/validate_target_environment.py "${{ github.event.inputs.promote_to }}"
 
       - name: "Canary bake time (canary promotions only)"
         if: github.event.inputs.promote_to == 'canary'

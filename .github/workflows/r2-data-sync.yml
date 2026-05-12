@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4.3.1
 
       - name: Setup Python + AWS CLI
         run: |
@@ -62,30 +62,7 @@ jobs:
           echo "AWS CLI configured for R2"
 
       - name: Validate intel data before upload
-        run: |
-          python3 - << 'PYEOF'
-          import json, sys, os
-
-          manifest = "data/stix/feed_manifest.json"
-          if not os.path.exists(manifest):
-              print(f"ERROR: {manifest} not found")
-              sys.exit(1)
-
-          with open(manifest) as f:
-              data = json.load(f)
-
-          # Support both {advisories:[...]} and {reports:[...]} formats
-          items = data.get("advisories") or data.get("reports") or (data if isinstance(data, list) else [])
-          count = len(items)
-
-          print(f"Manifest: {count} items found")
-
-          if count < 10:
-              print(f"ERROR: Only {count} items  -  refusing upload (minimum 10 required)")
-              sys.exit(1)
-
-          print(f"Validation PASSED: {count} items ready for R2")
-          PYEOF
+          python3 scripts/validate_r2_intel_data.py
 
       - name: Upload feed_manifest.json to R2
         env:
