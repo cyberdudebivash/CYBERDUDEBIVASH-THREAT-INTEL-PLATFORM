@@ -15025,6 +15025,8 @@ function renderTopThreats(data) {
 
 
 
+
+
 <!-- CDB-AI-BRAIN-INIT-v145 -->
 <script>
 /* ============================================================================
@@ -15809,9 +15811,6 @@ function renderTopThreats(data) {
     /* Update telemetry counters */
     txt('ai-bar-campaigns',campaigns.length+'/'+Math.min(campaigns.length+2,20));
     txt('ai-bar-anomalies',anomalies.length+'/'+Math.min(anomalies.length+3,15));
-    // v152.3 FIX: wire ai-bar-predicted (30d high-risk forecast count) and ai-bar-lastrun
-    txt('ai-bar-predicted',forecasts.filter(function(f){return(f.risk||f.probability||0)>=70;}).length+' HIGH RISK');
-    txt('ai-bar-lastrun',new Date().toISOString().replace('T',' ').substring(0,16)+' UTC');
     txt('ai-bar-soc',socQueue.length+' items queued');
     txt('ai-bar-actors',corrGraph.totalActors+' actors mapped');
     txt('ai-bar-families',corrGraph.totalFamilies+' families tracked');
@@ -15899,7 +15898,7 @@ function renderTopThreats(data) {
         return r.json();
       }).then(function(data){
         if(done)return;
-        var items=Array.isArray(data)?data:(data.items||data.advisories||data.data||data.feed||[]);
+        var items=Array.isArray(data)?data:(data.advisories||data.data||data.feed||[]);
         if(items.length){done=true;window.__GOC_LIVE_INTEL=items;if(typeof cb==='function')cb(items);}
       }).catch(function(){});
     });
