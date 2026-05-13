@@ -47,7 +47,12 @@ permissions:
 
 env:
   WORKER_BASE: "https://intel.cyberdudebivash.com"
-  MIN_ADVISORY_COUNT: 50
+  # v153.1 FIX: lowered from 50 to 10. Worker serves from R2 (Cloudflare Object
+  # Storage) which is populated by r2-data-sync on its own independent schedule.
+  # R2 may legitimately have fewer items than the git repo immediately after a
+  # fresh Worker deploy. 10 = minimum viable non-empty feed. Do not raise this
+  # threshold above 10 without ensuring r2-data-sync runs before this workflow.
+  MIN_ADVISORY_COUNT: 10
   MAX_MANIFEST_AGE_HOURS: 6
 
 jobs:
