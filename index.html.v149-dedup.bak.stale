@@ -5243,38 +5243,7 @@
     </div>
 
     <!-- ═══ MOBILE NAV JAVASCRIPT &mdash; v142.0 ═══ -->
-    
-<script>
-// ── v149 DEDUP GUARD (fallback injection) ────────────────────────────
-    // ── v149 DEDUP GUARD (injected by v149_frontend_dedup_patch.py) ──────────
-    if (!window._v149DedupApplied) {
-      window._v149DedupApplied = true;
-      const _seenAdvisoryIds = new Set();
-      const _dedup = (arr) => arr.filter(item => {
-        const key = (item.stix_id || item.id || item.title || JSON.stringify(item)).toString().trim();
-        if (_seenAdvisoryIds.has(key)) return false;
-        _seenAdvisoryIds.add(key);
-        return true;
-      });
-      if (window.EMBEDDED_INTEL && Array.isArray(window.EMBEDDED_INTEL)) {
-        window.EMBEDDED_INTEL = _dedup(window.EMBEDDED_INTEL);
-      }
-    }
-    // ── end v149 DEDUP GUARD ──
-    // ── v149 UNIFIED RISK CALCULATOR (injected by v149_frontend_dedup_patch.py) ──
-    window._v149AvgRisk = function(items) {
-      if (!items || !items.length) return 0;
-      const scores = items
-        .map(a => parseFloat(a.risk_score || a.riskScore || a.score || 0))
-        .filter(s => !isNaN(s) && s > 0);
-      if (!scores.length) return 0;
-      return parseFloat((scores.reduce((s, v) => s + v, 0) / scores.length).toFixed(2));
-    };
-    // ── end v149 UNIFIED RISK CALCULATOR ────────────────────────────────────
-────────────────────────────────────────────
-
-</script>
-<script>
+    <script>
     (function() {
         function cdbMobileNavOpen() {
             var drawer  = document.getElementById('mobile-nav-drawer');
@@ -11642,7 +11611,7 @@ function renderTopThreats(data) {
             var html = '';
             sorted.forEach(function(entry) {
                 var name = entry[0], items = entry[1];
-                var avgRisk = window._v149AvgRisk(window.EMBEDDED_INTEL || []); }, 0) / items.length).toFixed(1);
+                var avgRisk = (items.reduce(function(s,i) { return s + (i.risk_score||0); }, 0) / items.length).toFixed(1);
                 html += '<div class="cdb-group-card">';
                 html += '<div class="cdb-group-header"><div class="cdb-group-name">' + _cdbEsc(name) + '</div><div class="cdb-group-count">' + items.length + ' advisories \u00b7 Avg Risk: ' + avgRisk + '/10</div></div>';
                 html += '<div class="cdb-group-items">';
@@ -13423,7 +13392,7 @@ function renderTopThreats(data) {
                 const high      = items.filter(i => (i.severity||'').toUpperCase() === 'HIGH').length;
                 const kevActive = items.filter(i => i.kev_present || i.kev).length;
                 const actors    = [...new Set(items.map(i => i.actor_tag||i.actor||'').filter(Boolean))];
-                const avgRisk = window._v149AvgRisk(window.EMBEDDED_INTEL || []);
+                const avgRisk   = items.reduce((s,i) => s + (parseFloat(i.risk_score)||0), 0) / (items.length||1);
                 const sorted    = [...items].sort((a,b) => (parseFloat(b.risk_score)||0) - (parseFloat(a.risk_score)||0));
 
                 // ── analyze.json equivalent ──
@@ -14955,8 +14924,6 @@ function renderTopThreats(data) {
 <script src="/js/api_adapter.js"></script>
 <script src="/js/card_renderer.js"></script>
 <script src="/js/card_renderer_integration.js"></script>
-
-
 
 
 
