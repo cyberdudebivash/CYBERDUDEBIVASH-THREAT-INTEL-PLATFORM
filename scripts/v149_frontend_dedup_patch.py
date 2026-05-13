@@ -193,29 +193,21 @@ def patch_html(content: str) -> tuple[str, list[str]]:
     else:
         log.info("  [SKIP] Unified risk calculator already present")
 
-    # ── Patch 3: Replace inline avgRisk calculations with unified function ────
-    # Find any inline: const avgRisk = items.reduce(...) / items.length;
-    # Replace with: const avgRisk = window._v149AvgRisk(items);
-    # (Or advisories, or data — detect variable name)
-    INLINE_AVG_RISK_REPLACE = re.compile(
-        r'(const|let|var)\s+(avgRisk|averageRisk|avg_risk)\s*=\s*'
-        r'(?:\(?\s*(?:advisories|items|data|feed)\s*\.reduce\s*\([^)]+\)[^;]*;'
-        r'|parseFloat\([^)]+\)\s*;'
-        r'|(?:advisories|items|data|feed)\s*\.map\s*\([^)]+\)\s*\.[^;]+;)',
-        re.MULTILINE | re.DOTALL
-    )
-    # Only replace if unified calculator was injected
-    if RISK_MARKER in content:
-        new_content, n = re.subn(
-            INLINE_AVG_RISK_REPLACE,
-            lambda m: f"{m.group(1)} {m.group(2)} = window._v149AvgRisk(window.EMBEDDED_INTEL || []);",
-            content
-        )
-        if n > 0:
-            content = new_content
-            changes.append(f"PATCH-3: Unified {n} inline avgRisk calculation(s) to window._v149AvgRisk()")
-        else:
-            changes.append("PATCH-3: No inline avgRisk calculations found to unify")
+    # ── Patch 3: PERMANENTLY DISABLED (v152.0 P0 FIX) ───────────────────────
+    # ROOT CAUSE: The INLINE_AVG_RISK_REPLACE regex used [^)]+ which stops at
+    # the FIRST ')' inside nested reduce callbacks like:
+    #   var avgRisk = (items.reduce(function(s,i) { return s+(i.risk_score||0); }, 0) / items.length)
+    # The regex matched only the first half of the expression, leaving:
+    #   }, 0) / items.length).toFixed(1);
+    # dangling in the file — causing SyntaxError: Unexpected token ')' on every
+    # CI run, which STAGE 3.92 (dashboard_frontend_guard) hard-fails on.
+    # Since the v149 markers were never committed to index.html, this ran on
+    # EVERY pipeline run, creating a perpetual failure loop.
+    #
+    # FIX: Patch 3 is disabled. The unified calculator (Patch 2) is still
+    # injected as a utility. Existing inline avgRisk calculations are left
+    # untouched — they are correct JS and do not need to be replaced.
+    changes.append("PATCH-3: SKIPPED (permanently disabled — see v152.0 P0 fix comment)")
 
     # ── Patch 4: Container clear guard ────────────────────────────────────────
     if CLEAR_MARKER not in content:
@@ -297,3 +289,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+                                                                                  
