@@ -83,7 +83,7 @@ DEDUP_GUARD_JS = """\
         window.EMBEDDED_INTEL = _dedup(window.EMBEDDED_INTEL);
       }
     }
-    // ── end v149 DEDUP GUARD ──────────────────────────────────────────────
+    // [end-v149-dedup-guard]
 """
 
 # Unified avgRisk function to inject
@@ -173,14 +173,29 @@ def patch_html(content: str) -> tuple[str, list[str]]:
         # Inject the unified calculator right after the dedup guard (or near top of first script)
         if GUARD_MARKER in content:
             # Inject right after the dedup guard block
-            insert_after = "// ── end v149 DEDUP GUARD ──"
-            if insert_after in content:
+            # v152.3 FIX: use plain ASCII end marker -- box-drawing chars in
+            # the old marker caused partial str.replace() that left raw
+            # ── chars as bare JS statements → SyntaxError on every CI run.
+            insert_after_new = "// [end-v149-dedup-guard]"
+            insert_after_old_full = "// ── end v149 DEDUP GUARD ──────────────────────────────────────────────"
+            insert_after_old_short = "// ── end v149 DEDUP GUARD ──"
+            if insert_after_new in content:
+                insert_after = insert_after_new
+            elif insert_after_old_full in content:
+                insert_after = insert_after_old_full
+            elif insert_after_old_short in content:
+                insert_after = insert_after_old_short
+            else:
+                insert_after = None
+            if insert_after and insert_after in content:
                 content = content.replace(
                     insert_after,
                     insert_after + "\n" + UNIFIED_RISK_JS,
                     1
                 )
                 changes.append("PATCH-2: Injected unified risk calculator after dedup guard")
+            else:
+                changes.append("PATCH-2: SKIPPED -- no end marker found for injection")
         else:
             # Find any avgRisk inline calculation and add the unified function before it
             match = AVG_RISK_INLINE_PATTERN.search(content)
