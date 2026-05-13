@@ -239,6 +239,26 @@ jobs:
             FIXED_COUNT=$(python3 -c 'import json,glob; t=sum(json.load(open(f)).get("total_fixed",0)+json.load(open(f)).get("items_processed",0) for f in glob.glob("data/governance/v149_*.json") if __import__("os").path.exists(f))' 2>/dev/null || echo "0")
             git commit -m "ci(v149-hardening): production hardening pass - ${FIXED_COUNT} items hardened [skip ci]" \
               --no-verify
-            git push origin main
-            echo "[COMMIT] Hardening outputs pushed to main"
+            # 4-attempt push retry with rebase -- prevents rejection when concurrent
+            # workflows (e.g. storage-lifecycle-governance, sentinel-blogger) push to
+            # main during the same window (both run Sundays 02:00 UTC).
+            git rebase --abort 2>/dev/null || true
+            git merge  --abort 2>/dev/null || true
+            rm -rf .git/rebase-merge .git/rebase-apply 2>/dev/null || true
+            PUSH_OK=0
+            for i in 1 2 3 4; do
+              git fetch origin main --quiet 2>/dev/null || true
+              git rebase origin/main --quiet 2>/dev/null || {
+                git rebase --abort 2>/dev/null || true
+                git merge origin/main -X ours --no-edit --quiet 2>/dev/null || true
+              }
+              if git push origin main; then
+                echo "[COMMIT] Hardening outputs pushed to main (attempt ${i}/4)"
+                PUSH_OK=1
+                break
+              fi
+              echo "::warning::Push attempt ${i}/4 rejected -- remote ahead, retrying in $((i*15))s"
+              sleep $((i * 15))
+            done
+            [ "$PUSH_OK" -eq 0 ] && echo "::warning::Push deferred after 4 attempts -- outputs retained in git, will sync next run" || true
           fi
