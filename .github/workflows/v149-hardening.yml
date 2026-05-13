@@ -1,4 +1,4 @@
-name: "SENTINEL APEX v149 — Production Hardening Suite"
+name: "SENTINEL APEX v149 - Production Hardening Suite"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # v149 PRODUCTION HARDENING WORKFLOW
@@ -16,7 +16,7 @@ name: "SENTINEL APEX v149 — Production Hardening Suite"
 #   3. After enabling new SIEM/webhook endpoints
 #   4. Weekly maintenance (automatic via schedule)
 #
-# ALL SCRIPTS EXIT 0 — pipeline will never be blocked by hardening failures.
+# ALL SCRIPTS EXIT 0 - pipeline will never be blocked by hardening failures.
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -54,7 +54,7 @@ on:
         options: ["true", "false"]
 
   schedule:
-    # Every Sunday at 02:00 UTC — weekly full hardening pass
+    # Every Sunday at 02:00 UTC - weekly full hardening pass
     - cron: "0 2 * * 0"
 
 concurrency:
@@ -88,7 +88,7 @@ jobs:
       # ───────────────────────────────────────────────────────────────────────
       # INIT
       # ───────────────────────────────────────────────────────────────────────
-      - name: "INIT — Hardening suite header"
+      - name: "INIT - Hardening suite header"
         run: |
           echo "========================================================"
           echo "SENTINEL APEX v149 PRODUCTION HARDENING SUITE"
@@ -102,7 +102,7 @@ jobs:
       # ───────────────────────────────────────────────────────────────────────
       # CHECKOUT
       # ───────────────────────────────────────────────────────────────────────
-      - name: "STAGE 1 — Checkout repository"
+      - name: "STAGE 1 - Checkout repository"
         uses: actions/checkout@v4.3.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -112,16 +112,16 @@ jobs:
       # ───────────────────────────────────────────────────────────────────────
       # PYTHON
       # ───────────────────────────────────────────────────────────────────────
-      - name: "STAGE 2 — Python 3.12 setup"
+      - name: "STAGE 2 - Python 3.12 setup"
         uses: actions/setup-python@v5.5.0
         with:
           python-version: '3.12'
           cache: 'pip'
 
       # ───────────────────────────────────────────────────────────────────────
-      # SYNTAX GUARD — fail fast before any execution
+      # SYNTAX GUARD - fail fast before any execution
       # ───────────────────────────────────────────────────────────────────────
-      - name: "STAGE 3 — Syntax guard (v149 scripts)"
+      - name: "STAGE 3 - Syntax guard (v149 scripts)"
         run: |
           ERRORS=0
           for f in scripts/v149_*.py; do
@@ -135,15 +135,15 @@ jobs:
               echo "[OK] $f"
             fi
           done
-          [ "$ERRORS" -eq 0 ] || { echo "::error::ABORTING — syntax errors in v149 scripts"; exit 1; }
+          [ "$ERRORS" -eq 0 ] || { echo "::error::ABORTING - syntax errors in v149 scripts"; exit 1; }
           echo "[PASS] All v149 scripts syntax-clean"
 
       # ───────────────────────────────────────────────────────────────────────
-      # P0 — PUBLISHED FIELD TYPE FIXER
+      # P0 - PUBLISHED FIELD TYPE FIXER
       # Fixes 446-item ingestion failure (published bool → ISO-8601)
       # Ingestion rate recovery: 30.5% → 60%+
       # ───────────────────────────────────────────────────────────────────────
-      - name: "STAGE 4 — P0: Published field type fixer"
+      - name: "STAGE 4 - P0: Published field type fixer"
         if: ${{ github.event_name == 'schedule' || github.event.inputs.run_published_fixer == 'true' }}
         run: |
           FLAGS=""
@@ -152,11 +152,11 @@ jobs:
           echo "[STAGE 4] Published field fixer complete"
 
       # ───────────────────────────────────────────────────────────────────────
-      # P0/P1 — INTELLIGENCE HARDENING ENGINE
+      # P0/P1 - INTELLIGENCE HARDENING ENGINE
       # Fixes: false CRITICAL, NONE threat_level, UNKNOWN categories,
       #        confidence gate (min 30%), source trust differentiation
       # ───────────────────────────────────────────────────────────────────────
-      - name: "STAGE 5 — P0/P1: Intelligence hardening engine"
+      - name: "STAGE 5 - P0/P1: Intelligence hardening engine"
         if: ${{ github.event_name == 'schedule' || github.event.inputs.run_intel_hardening == 'true' }}
         run: |
           FLAGS=""
@@ -165,10 +165,10 @@ jobs:
           echo "[STAGE 5] Intelligence hardening complete"
 
       # ───────────────────────────────────────────────────────────────────────
-      # P1 — FRONTEND DEDUPLICATION PATCH
+      # P1 - FRONTEND DEDUPLICATION PATCH
       # Patches index.html: dedup guard + unified risk + container clear
       # ───────────────────────────────────────────────────────────────────────
-      - name: "STAGE 6 — P1: Frontend deduplication patch"
+      - name: "STAGE 6 - P1: Frontend deduplication patch"
         if: ${{ github.event_name == 'schedule' || github.event.inputs.run_frontend_patch == 'true' }}
         run: |
           FLAGS=""
@@ -177,11 +177,11 @@ jobs:
           echo "[STAGE 6] Frontend dedup patch complete"
 
       # ───────────────────────────────────────────────────────────────────────
-      # P4 — SIEM + ENTERPRISE WEBHOOK DELIVERY
+      # P4 - SIEM + ENTERPRISE WEBHOOK DELIVERY
       # Delivers current feed to Splunk HEC, Sentinel, custom webhooks
       # Non-fatal: always continue-on-error
       # ───────────────────────────────────────────────────────────────────────
-      - name: "STAGE 7 — P4: SIEM + webhook delivery"
+      - name: "STAGE 7 - P4: SIEM + webhook delivery"
         if: ${{ github.event_name == 'schedule' || github.event.inputs.run_siem_delivery == 'true' }}
         continue-on-error: true
         run: |
@@ -192,11 +192,11 @@ jobs:
       # ───────────────────────────────────────────────────────────────────────
       # AUDIT SUMMARY
       # ───────────────────────────────────────────────────────────────────────
-      - name: "STAGE 8 — Audit summary"
+      - name: "STAGE 8 - Audit summary"
         if: always()
         run: |
           echo "========================================================"
-          echo "v149 HARDENING SUITE — AUDIT SUMMARY"
+          echo "v149 HARDENING SUITE - AUDIT SUMMARY"
           echo "========================================================"
           for audit in \
             data/governance/v149_published_fix_audit.json \
@@ -204,15 +204,8 @@ jobs:
             data/governance/v149_siem_delivery_audit.json; do
             if [ -f "$audit" ]; then
               echo ""
-              echo "── $(basename $audit) ──"
-              python3 -c "
-import json, sys
-d = json.load(open('$audit'))
-print('  status         :', d.get('status', 'N/A'))
-print('  total_fixed    :', d.get('total_fixed', d.get('total_fixed', 'N/A')))
-print('  items_processed:', d.get('items_processed', d.get('total_scanned', 'N/A')))
-print('  timestamp      :', d.get('timestamp', 'N/A'))
-" 2>/dev/null || cat "$audit" | head -10
+              echo "-- $(basename $audit) --"
+              python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); [print(" ",k,":",d.get(k,"N/A")) for k in ["status","total_fixed","items_processed","timestamp"]]' "$audit" 2>/dev/null || head -10 "$audit"
             fi
           done
           echo ""
@@ -221,9 +214,9 @@ print('  timestamp      :', d.get('timestamp', 'N/A'))
           echo "========================================================"
 
       # ───────────────────────────────────────────────────────────────────────
-      # COMMIT — push hardening outputs (audit logs, patched files)
+      # COMMIT - push hardening outputs (audit logs, patched files)
       # ───────────────────────────────────────────────────────────────────────
-      - name: "STAGE 9 — Commit hardening outputs"
+      - name: "STAGE 9 - Commit hardening outputs"
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           git config user.name  "github-actions[bot]"
@@ -243,17 +236,8 @@ print('  timestamp      :', d.get('timestamp', 'N/A'))
           if git diff --cached --quiet; then
             echo "[SKIP] No changes to commit"
           else
-            FIXED_COUNT=$(python3 -c "
-import json, os, glob
-total = 0
-for f in glob.glob('data/governance/v149_*.json'):
-    try:
-        d = json.load(open(f))
-        total += d.get('total_fixed', 0) + d.get('items_processed', 0)
-    except: pass
-print(total)
-" 2>/dev/null || echo "0")
-            git commit -m "ci(v149-hardening): production hardening pass — ${FIXED_COUNT} items hardened [skip ci]" \
+            FIXED_COUNT=$(python3 -c 'import json,glob; t=sum(json.load(open(f)).get("total_fixed",0)+json.load(open(f)).get("items_processed",0) for f in glob.glob("data/governance/v149_*.json") if __import__("os").path.exists(f))' 2>/dev/null || echo "0")
+            git commit -m "ci(v149-hardening): production hardening pass - ${FIXED_COUNT} items hardened [skip ci]" \
               --no-verify
             git push origin main
             echo "[COMMIT] Hardening outputs pushed to main"
