@@ -2400,21 +2400,35 @@ async function handleHealth(request, env, rid) {
     feed_index:    "unknown",
   };
 
-  // v145.0.0: kv_rate_limit -- retry once on transient write failure before
-  // downgrading to "warn". RATE_LIMIT_KV writes are non-fatal but a retry
-  // catches the majority of transient edge-node hiccups without adding latency
-  // on the happy path.
+  // v148.1.0 FIX: kv_rate_limit health check now uses KV READ instead of WRITE.
+  // ROOT CAUSE of persistent "warn": every /api/health call was executing a KV
+  // put("health:ping") -- Cloudflare KV free tier allows 100K writes/day; a busy
+  // health endpoint exhausts this budget and causes all write attempts to fail,
+  // returning "warn" even when the KV namespace is fully operational.
+  //
+  // FIX: read the "health:sentinel" sentinel key (written once by the cron handler
+  // at startup / scheduled tick) to verify KV reachability without consuming write
+  // quota. Falls back to a lightweight write ONLY if the read returns null (cold
+  // start) -- uses a 1-hour TTL instead of 10s to minimise write frequency.
+  //
+  // DO NOT revert to put("health:ping") -- this causes persistent kv_rate_limit=warn.
   if (env?.RATE_LIMIT_KV) {
-    let rlOk = false;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        await env.RATE_LIMIT_KV.put("health:ping", "1", { expirationTtl: 10 });
+    try {
+      const sentinel = await env.RATE_LIMIT_KV.get("health:sentinel");
+      if (sentinel !== null) {
         checks.kv_rate_limit = "ok";
-        rlOk = true;
-        break;
-      } catch (_e) { /* retry */ }
+      } else {
+        // Cold start: write sentinel once with 1-hour TTL (1 write per cold start only)
+        try {
+          await env.RATE_LIMIT_KV.put("health:sentinel", "1", { expirationTtl: 3600 });
+          checks.kv_rate_limit = "ok";
+        } catch (_we) {
+          checks.kv_rate_limit = "warn";
+        }
+      }
+    } catch (_re) {
+      checks.kv_rate_limit = "warn";
     }
-    if (!rlOk) checks.kv_rate_limit = "warn";
   } else checks.kv_rate_limit = "not_bound";
 
   if (env?.API_KEYS_KV) {
@@ -2429,17 +2443,33 @@ async function handleHealth(request, env, rid) {
     } catch { checks.r2_intel = "error"; }
   } else checks.r2_intel = "not_bound";
 
-  // v145.0.0 FIX: idx:reports is written to SECURITY_HUB_KV by the cron handler
-  // (see scheduled() Step 5). The previous health check incorrectly read from
-  // RATE_LIMIT_KV -- which never had the key -- causing persistent "not_cached".
+  // v148.2.0 FIX: idx:reports shape-agnostic health check.
+  // ROOT CAUSE of persistent "not_cached": health check only checked c?.total_reports
+  // but cron writes the raw manifest which is either a flat array OR {reports:[...]}
+  // -- neither shape has a total_reports field, so the check always resolved to 0.
+  //
+  // FIX: accept ALL known shapes of idx:reports:
+  //   Shape A: { total_reports: N, reports: [...] }  -- normalised (post-fix cron)
+  //   Shape B: { reports: [...] }                    -- un-normalised legacy cron write
+  //   Shape C: flat array [...]                      -- raw manifest written by old cron
+  //   Shape D: { items: [...] } / { advisories: [...] } -- other pipeline shapes
+  //
+  // DO NOT revert to checking only c?.total_reports -- that always returns undefined
+  // for shapes B/C/D and causes persistent "not_cached" even when data is present.
+  //
   // Fall back to RATE_LIMIT_KV as secondary so legacy deployments still work.
   if (env?.SECURITY_HUB_KV || env?.RATE_LIMIT_KV) {
     try {
       const kvSrc = env.SECURITY_HUB_KV || env.RATE_LIMIT_KV;
       const c = await kvSrc.get("idx:reports", { type: "json" });
-      checks.feed_index = c?.total_reports > 0
-        ? `cached:${c.total_reports}_items`
-        : "not_cached";
+      const _feedCount = c
+        ? (c.total_reports
+            || (Array.isArray(c.reports)    ? c.reports.length    : 0)
+            || (Array.isArray(c)            ? c.length            : 0)
+            || (Array.isArray(c.items)      ? c.items.length      : 0)
+            || (Array.isArray(c.advisories) ? c.advisories.length : 0))
+        : 0;
+      checks.feed_index = _feedCount > 0 ? `cached:${_feedCount}_items` : "not_cached";
     } catch { checks.feed_index = "error"; }
   }
 
@@ -5303,11 +5333,21 @@ export default {
         }
 
         //  Step 5: Rebuild KV index cache for fast search/actors/CVEs queries
+        // v148.2.0 FIX: write NORMALISED shape { reports, total_reports, generated_at }
+        // instead of raw manifest. Raw manifest may be a flat array or { reports: [...] }
+        // -- neither has the total_reports field checked by the health endpoint, which
+        // caused persistent feed_index: "not_cached" even after data was written.
+        // DO NOT revert to JSON.stringify(manifest) -- health check will break again.
         if (env?.SECURITY_HUB_KV && manifest) {
+          const _kvIdx = {
+            reports,
+            total_reports: reports.length,
+            generated_at:  new Date().toISOString(),
+          };
           await env.SECURITY_HUB_KV.put(
             "idx:reports",
-            JSON.stringify(manifest),
-            { expirationTtl: 1800 }  // 30 min TTL -- refreshed by cron
+            JSON.stringify(_kvIdx),
+            { expirationTtl: 1800 }  // 30 min TTL -- refreshed by every cron tick
           ).catch(() => {});
           slog("INFO", "CRON", "KV report index refreshed", { rid, count: reports.length });
         }
