@@ -14022,31 +14022,173 @@ function renderTopThreats(data) {
             {s:'TR',d:'DE',w:2},{s:'ID',d:'AU',w:2},{s:'NG',d:'GB',w:2},
           ];
           var _aptTotal=APT_PAIRS.reduce(function(a,b){return a+b.w;},0);
+
+          /* ── v151.0 LIVE INTEL THREAT MAP ENGINE ───────────────────────────
+             Derives attack pairs + heat scores from real advisory data.
+             Actor attribution → origin country → target country pairs.
+             Refreshes every 90s from window.__GOC_LIVE_INTEL.
+          ──────────────────────────────────────────────────────────────────── */
+          var ACTOR_ORIGIN={
+            'APT28':'RU','APT29':'RU','SANDWORM':'RU','GAMAREDON':'RU','FANCY BEAR':'RU',
+            'COZY BEAR':'RU','TURLA':'RU','APT44':'RU','KILLNET':'RU',
+            'APT41':'CN','APT40':'CN','VOLT TYPHOON':'CN','SALT TYPHOON':'CN',
+            'HAFNIUM':'CN','MUSTANG PANDA':'CN','APT10':'CN','APT31':'CN',
+            'LAZARUS':'KP','APT38':'KP','KIMSUKY':'KP','BLUENOROFF':'KP',
+            'APT33':'IR','APT34':'IR','CHARMING KITTEN':'IR','MUD COBRA':'IR',
+            'APT36':'PK','TRANSPARENT TRIBE':'PK',
+            'SIDEWINDER':'IN',
+            'LOCKBIT':'RU','CLOP':'RU','BLACKCAT':'RU','BLACKBASTA':'RU',
+            'SCATTERED SPIDER':'US','LAPSUS$':'BR',
+            'DEFAULT':'RU'
+          };
+          var ACTOR_TARGET_MAP={
+            'RU':['US','UA','DE','GB','PL','FR','JP','AU'],
+            'CN':['US','JP','AU','IN','VN','KR','TW','DE'],
+            'KP':['KR','US','JP','AU','DE'],
+            'IR':['IL','SA','US','GB','AE'],
+            'PK':['IN','AF','US'],
+            'IN':['PK','CN'],
+            'US':['KP','IR','CN','RU'],
+            'BR':['US','GB','DE','AU'],
+            'DEFAULT':['US','GB','DE','JP','AU','FR','CA']
+          };
+
+          /* Country heat map — threat density per country (0–1 normalized) */
+          var _countryHeat={};
+          var _livePairs=[];
+          var _livePairsBuilt=0;
+
+          function _buildLivePairs(){
+            var now=Date.now();
+            if(now-_livePairsBuilt<90000&&_livePairs.length>0) return; /* 90s cache */
+            var intel=window.__GOC_LIVE_INTEL||[];
+            if(!intel.length){ _livePairs=[]; return; }
+
+            /* Reset heat map */
+            _countryHeat={};
+            var pairMap={}, total=0;
+
+            intel.forEach(function(item){
+              var actor=(item.actor_tag||item.threat_actor||item.family||'').toUpperCase();
+              var sev=(item.severity||'MEDIUM').toUpperCase();
+              var rs=parseFloat(item.risk_score||5);
+              var kev=!!(item.kev_present||item.kev);
+
+              /* Derive origin country */
+              var origin='DEFAULT';
+              for(var k in ACTOR_ORIGIN){
+                if(actor.indexOf(k)>=0){origin=ACTOR_ORIGIN[k];break;}
+              }
+              if(origin==='DEFAULT'&&actor.length>2){
+                /* Hash actor string to a consistent default */
+                var h=0; for(var ci=0;ci<actor.length;ci++) h=(h*31+actor.charCodeAt(ci))&0xFFFF;
+                var defaults=Object.keys(ACTOR_ORIGIN);
+                origin=ACTOR_ORIGIN[defaults[h%defaults.length]]||'RU';
+              }
+
+              /* Pick target countries */
+              var targets=ACTOR_TARGET_MAP[origin]||ACTOR_TARGET_MAP['DEFAULT'];
+              var numTargets=sev==='CRITICAL'?3:sev==='HIGH'?2:1;
+              for(var ti=0;ti<numTargets&&ti<targets.length;ti++){
+                var tgt=targets[ti];
+                var w=(sev==='CRITICAL'?4:sev==='HIGH'?3:sev==='MEDIUM'?2:1)*(kev?2:1);
+                var key=origin+'→'+tgt;
+                pairMap[key]=(pairMap[key]||{s:origin,d:tgt,w:0,actor:actor,sev:sev,rs:rs});
+                pairMap[key].w+=w; total+=w;
+              }
+
+              /* Accumulate target heat */
+              targets.slice(0,numTargets).forEach(function(t){
+                _countryHeat[t]=(_countryHeat[t]||0)+rs;
+              });
+            });
+
+            /* Normalize heat scores */
+            var maxHeat=Math.max.apply(null,Object.values(_countryHeat).concat([1]));
+            Object.keys(_countryHeat).forEach(function(k){ _countryHeat[k]=_countryHeat[k]/maxHeat; });
+
+            /* Build weighted pair array */
+            _livePairs=Object.values(pairMap).filter(function(p){ return p.w>0; });
+            if(_livePairs.length===0) _livePairs=[];
+            _livePairsBuilt=now;
+          }
+
+          /* Hybrid pair picker: 70% live intel, 30% static APT_PAIRS */
           function _pickPair(){
-            var r=Math.random()*_aptTotal,cum=0;
-            for(var i=0;i<APT_PAIRS.length;i++){cum+=APT_PAIRS[i].w;if(r<cum)return APT_PAIRS[i];}
+            _buildLivePairs();
+            var useLive=_livePairs.length>0&&Math.random()<0.70;
+            if(useLive){
+              var lt=_livePairs.reduce(function(a,b){return a+b.w;},0);
+              var r=Math.random()*lt,cum=0;
+              for(var i=0;i<_livePairs.length;i++){cum+=_livePairs[i].w;if(r<cum)return _livePairs[i];}
+              return _livePairs[0];
+            }
+            /* Static fallback */
+            var r2=Math.random()*_aptTotal,cum2=0;
+            for(var j=0;j<APT_PAIRS.length;j++){cum2+=APT_PAIRS[j].w;if(r2<cum2)return APT_PAIRS[j];}
             return APT_PAIRS[0];
           }
+
           function _nodeByID(id){
             for(var i=0;i<NODES.length;i++){if(NODES[i].id===id)return NODES[i];}
             return null;
           }
+
+          /* ── ACTOR COLOUR PALETTE (nation-state attribution) ─────────────── */
+          var ACTOR_COL={
+            'RU':{r:239,g:68, b:68}, 'CN':{r:251,g:146,b:60},
+            'KP':{r:167,g:139,b:250},'IR':{r:34, g:197,b:94},
+            'US':{r:59, g:130,b:246},'DEFAULT':{r:0,  g:212,b:170}
+          };
+          function _actorCol(pair){
+            var s=pair.s||'DEFAULT';
+            return ACTOR_COL[s]||ACTOR_COL['DEFAULT'];
+          }
+
+          /* ── HEATMAP DRAW PASS ────────────────────────────────────────────── */
+          function drawHeatmap(){
+            if(!Object.keys(_countryHeat).length) return;
+            for(var ni=0;ni<NODES.length;ni++){
+              var nd=NODES[ni];
+              var heat=_countryHeat[nd.id]||0;
+              if(heat<0.1) continue;
+              var np=px(nd.ln,nd.lt);
+              var radius=20+heat*40;
+              var grad=ctx.createRadialGradient(np[0],np[1],0,np[0],np[1],radius);
+              var alpha=heat*0.18;
+              grad.addColorStop(0,'rgba(239,68,68,'+alpha+')');
+              grad.addColorStop(0.5,'rgba(239,68,68,'+(alpha*0.4)+')');
+              grad.addColorStop(1,'rgba(239,68,68,0)');
+              ctx.beginPath();
+              ctx.arc(np[0],np[1],radius,0,Math.PI*2);
+              ctx.fillStyle=grad; ctx.fill();
+            }
+          }
+
           function spawnArc(){
             var pair=_pickPair();
             var sn=_nodeByID(pair.s), dn=_nodeByID(pair.d);
             if(!sn||!dn) return;
+            /* Use actor-derived colour if available, else severity */
+            var acol=_actorCol(pair);
             var sv=pickSev();
+            /* Override severity color with actor origin color for live pairs */
+            var useActorCol=(_livePairs.indexOf(pair)>=0);
             arcs.push({
-              sln:sn.ln+( Math.random()-0.5)*2, slt:sn.lt+(Math.random()-0.5)*2,
-              dln:dn.ln+(Math.random()-0.5)*2,  dlt:dn.lt+(Math.random()-0.5)*2,
-              sv:sv, t:0, alpha:0, spd:0.008+Math.random()*0.009, life:'in',
+              sln:sn.ln+(Math.random()-0.5)*2, slt:sn.lt+(Math.random()-0.5)*2,
+              dln:dn.ln+(Math.random()-0.5)*2, dlt:dn.lt+(Math.random()-0.5)*2,
+              sv:sv, acol:useActorCol?acol:null,
+              t:0, alpha:0, spd:0.006+Math.random()*0.010, life:'in',
               sn:sn.n, dn:dn.n,
+              actor:pair.actor||null, cve:pair.cve||null,
             });
-            // v150.1: seed from API-computed baseline on first spawn so counter starts realistic
             if(!_atkSeeded){_atkSeeded=true;atkCount=window._cdbAtkSeed||atkCount;}
             atkCount++;
             if(atkEl) atkEl.textContent=atkCount.toLocaleString();
-            _pushTicker(sn.n, dn.n, sv);
+            /* Enhanced ticker: show actor+CVE if available */
+            var label=pair.actor&&pair.actor.length>1&&pair.actor!=='DEFAULT'
+              ? pair.actor.substring(0,12) : sv.lbl;
+            _pushTicker(sn.n, dn.n, {lbl:label});
           }
 
           /* bezier interpolation */
@@ -14127,23 +14269,6 @@ function renderTopThreats(data) {
             ctx.restore();
           }
 
-          /* draw attack nodes */
-          function drawNodes(){
-            ctx.save();
-            for(var ni=0;ni<NODES.length;ni++){
-              var nd=NODES[ni];
-              var np=px(nd.ln,nd.lt);
-              var pulse=0.5+0.5*Math.sin(frame*0.06+ni*0.8);
-              /* outer ring */
-              ctx.beginPath(); ctx.arc(np[0],np[1],2.5+pulse*0.8,0,Math.PI*2);
-              ctx.fillStyle='rgba(0,212,170,'+(0.08+0.1*pulse)+')'; ctx.fill();
-              /* center dot */
-              ctx.beginPath(); ctx.arc(np[0],np[1],1.2,0,Math.PI*2);
-              ctx.fillStyle='rgba(0,212,170,'+(0.5+0.4*pulse)+')'; ctx.fill();
-            }
-            ctx.restore();
-          }
-
           /* draw all attack arcs */
           function drawArcs(){
             var alive=[];
@@ -14165,6 +14290,8 @@ function renderTopThreats(data) {
               var dist=Math.sqrt(dx*dx+dy*dy);
               var lift=Math.min(dist*0.4, H*0.35);
               var cpx=mx, cpy=my-lift;
+              /* v151.0: use actor origin colour if available */
+              if(a.acol){r=a.acol.r;g=a.acol.g;b=a.acol.b;}
               /* draw trail */
               var t0=Math.max(0,t-0.3), steps=32;
               ctx.save(); ctx.lineWidth=1.4;
@@ -14229,6 +14356,32 @@ function renderTopThreats(data) {
           }
 
           /* MAIN LOOP */
+          /* v151.0: enhanced node render with heat-intensity ring */
+          function drawNodes(){
+            ctx.save();
+            for(var ni=0;ni<NODES.length;ni++){
+              var nd=NODES[ni];
+              var np=px(nd.ln,nd.lt);
+              var heat=_countryHeat[nd.id]||0;
+              var pulse=0.5+0.5*Math.sin(frame*0.06+ni*0.8);
+              /* heat ring \u2014 red tint on high-threat countries */
+              if(heat>0.2){
+                ctx.beginPath(); ctx.arc(np[0],np[1],4+heat*8,0,Math.PI*2);
+                ctx.fillStyle='rgba(239,68,68,'+(heat*0.15*pulse)+')'; ctx.fill();
+                ctx.beginPath(); ctx.arc(np[0],np[1],3+heat*5,0,Math.PI*2);
+                ctx.strokeStyle='rgba(239,68,68,'+(heat*0.4)+')';
+                ctx.lineWidth=0.8; ctx.stroke();
+              }
+              /* outer ring */
+              ctx.beginPath(); ctx.arc(np[0],np[1],2.5+pulse*0.8,0,Math.PI*2);
+              ctx.fillStyle='rgba(0,212,170,'+(0.08+0.1*pulse)+')'; ctx.fill();
+              /* center dot */
+              ctx.beginPath(); ctx.arc(np[0],np[1],1.2,0,Math.PI*2);
+              ctx.fillStyle='rgba(0,212,170,'+(0.5+0.4*pulse)+')'; ctx.fill();
+            }
+            ctx.restore();
+          }
+
           /* Spawn rate adapts: 1 arc/1.8s baseline, burst to 1/0.9s during high-activity */
           var _spawnInterval=1800, _lastSpawnTs=0;
           function draw(ts){
@@ -14242,11 +14395,14 @@ function renderTopThreats(data) {
             }
             ctx.clearRect(0,0,W,H);
             drawMap();
+            drawHeatmap();   /* v151.0: threat density heatmap layer */
             drawNodes();
             drawArcs();
             drawOverlay();
           }
           requestAnimationFrame(draw);
+          /* v151.0: initial live pair build once intel is available */
+          setTimeout(function(){ _buildLivePairs(); },3000);
         }
 
         if(document.readyState=='loading') {
@@ -15051,20 +15207,6 @@ function renderTopThreats(data) {
 
 
 
-
-<!-- CDB-AI-BRAIN-INIT-v145 -->
-<script>
-/* ============================================================================
-   CYBERDUDEBIVASH® SENTINEL APEX v148.0.0 — AI CYBER BRAIN ENTERPRISE ENGINE
-   World-class operational AI intelligence: campaign clustering, anomaly scoring,
-   predictive attack-chain modeling, actor attribution, confidence scoring,
-   behavioral analytics, risk trajectory forecasting, IOC correlation,
-   AI-generated tactical summaries, AI SOC prioritization.
-   Pipeline-injected by patch_ai_brain_news.py — DO NOT EDIT DIRECTLY
-   ============================================================================ */
-(function(){
-  'use strict';
-
   /* ── Micro-utilities ───────────────────────────────────────────────────── */
   function sel(id){return document.getElementById(id);}
   function set(id,h){var e=sel(id);if(e)e.innerHTML=h;}
@@ -15163,13 +15305,43 @@ function renderTopThreats(data) {
       }
     });
 
-    /* Confidence scoring formula */
+    /* v151.0 EVIDENCE-WEIGHTED CONFIDENCE ENGINE
+       F1 Volume(22) + F2 KEV(28) + F3 Exploit(20) + F4 CVSS(10)
+       + F5 ATT&CK breadth(12) + F6 Source diversity(9)
+       + F7 IOC density(8) + F8 Recency(8) + F9 Zero-day(10)
+       Deterministic, explainable, reproducible. Max theoretical: 127pts.
+    */
+    var _nowMs=Date.now();
     Object.values(map).forEach(function(c){
-      var base=Math.min(c.count/8,1)*0.35;
-      var kev=Math.min(c.kevCount/3,1)*0.25;
-      var exploit=Math.min(c.exploitActive/2,1)*0.25;
-      var cvssF=Math.min(c.cvssMax/10,1)*0.15;
-      c.confidence=clamp(base+kev+exploit+cvssF,0.05,0.99);
+      var f1=Math.min(c.count/15,1)*22;
+      var f2=Math.min(c.kevCount*12,28);
+      var f3=Math.min(c.exploitActive*10,20);
+      var f4=c.cvssMax>=9.5?10:c.cvssMax>=9.0?8:c.cvssMax>=7.0?5:c.cvssMax>=4.0?2:0;
+      var tacCount=(c.tactics instanceof Set)?c.tactics.size:(c.tactics?c.tactics.length:0);
+      var f5=Math.min(tacCount*4,12);
+      var srcSet=new Set(c.items.map(function(i){return i.source||i.feed_source||'';}));
+      srcSet.delete('');
+      var f6=Math.min((srcSet.size-1)*3,9);
+      var totalIOC=c.items.reduce(function(a,i){
+        return a+(i.ioc_count||(i.ioc_counts?Object.values(i.ioc_counts).reduce(function(x,y){return x+(+y||0);},0):0));
+      },0);
+      var f7=Math.min(totalIOC*0.05,8);
+      var recentCount=c.items.filter(function(i){
+        var ts=i.processed_at||i.timestamp||'';
+        return ts&&(_nowMs-new Date(ts).getTime())<604800000;
+      }).length;
+      var f8=Math.min((recentCount/Math.max(c.count,1))*8,8);
+      var f9=c.zerodays>0?10:0;
+      var raw=f1+f2+f3+f4+f5+f6+f7+f8+f9;
+      c.confidence=clamp(raw/117,0.12,0.98);
+      c.confidence_band=c.confidence>=0.75?'HIGH':c.confidence>=0.50?'MODERATE':c.confidence>=0.30?'LOW':'UNVERIFIED';
+      c.confidence_factors={vol:Math.round(f1),kev:Math.round(f2),expl:Math.round(f3),
+        cvss:Math.round(f4),attck:Math.round(f5),src:Math.round(f6),
+        ioc:Math.round(f7),recency:Math.round(f8),zday:Math.round(f9)};
+      c.evidence_hash=(function(s){
+        var h=0; for(var ci=0;ci<s.length;ci++) h=(Math.imul(31,h)+s.charCodeAt(ci))|0;
+        return (h>>>0).toString(16).padStart(8,'0');
+      })(c.name+':'+c.count+':'+c.kevCount+':'+c.exploitActive);
       c.sectors=Array.from(c.sectors).slice(0,4);
       c.tactics=Array.from(c.tactics).slice(0,5);
     });
@@ -15844,17 +16016,93 @@ function renderTopThreats(data) {
   /* ══════════════════════════════════════════════════════════════════════════
      injectEnterpriseSignals — enhanced, reads from live or embedded
      ══════════════════════════════════════════════════════════════════════════ */
+  /* v151.0 LIVE TELEMETRY DENSITY ENGINE
+     Streaming SOC counters, IOC rate, anomaly pulses, campaign escalation,
+     ATT&CK activation, threat throughput — all data-driven from live feed.
+  */
+  var _telPrev={total:0,iocs:0,kev:0,crit:0};
+  var _telPulseT=null;
+
+  function _telPulse(elId,col){
+    var el=sel(elId); if(!el) return;
+    el.style.transition='none';
+    el.style.boxShadow='0 0 8px '+col;
+    el.style.color=col;
+    setTimeout(function(){ el.style.transition='all 0.8s ease'; el.style.boxShadow=''; el.style.color=''; },800);
+  }
+
   function injectEnterpriseSignals(intel){
-    if(!intel||!intel.length)return;
-    /* SOC API status — populate counts */
-    var critCount = intel.filter(function(t){return(t.severity||t.risk_level||'').toUpperCase()==='CRITICAL';}).length;
-    var highCount  = intel.filter(function(t){return(t.severity||t.risk_level||'').toUpperCase()==='HIGH';}).length;
-    var kevCount   = intel.filter(function(t){return t.kev||t.cisa_kev;}).length;
+    if(!intel||!intel.length) return;
+
+    /* ── Core severity counts ───────────────────────────────────────────── */
+    var critCount  = 0, highCount = 0, medCount = 0;
+    var kevCount   = 0, zdCount   = 0, exploitCount = 0;
+    var totalIOC   = 0, actorSet  = new Set(), tacticSet = new Set();
+    var recentCount= 0, nowMs     = Date.now();
+    var srcSet     = new Set();
+
+    intel.forEach(function(t){
+      var sev=(t.severity||t.risk_level||'').toUpperCase();
+      if(sev==='CRITICAL')critCount++;
+      else if(sev==='HIGH')highCount++;
+      else if(sev==='MEDIUM')medCount++;
+      if(t.kev||t.cisa_kev) kevCount++;
+      if(t.exploit_status==='ZERO_DAY') zdCount++;
+      if(t.exploit_status==='ACTIVE_CONFIRMED'||t.exploit_status==='ZERO_DAY') exploitCount++;
+      totalIOC+=(t.ioc_count||(t.ioc_counts?Object.values(t.ioc_counts).reduce(function(a,b){return a+(+b||0);},0):0));
+      var actor=t.actor_tag||t.threat_actor||''; if(actor&&actor!=='UNC-CDB-99') actorSet.add(actor);
+      (t.mitre_tactics||[]).forEach(function(tt){tacticSet.add(tt);});
+      var src=t.source||t.feed_source||''; if(src) srcSet.add(src);
+      var ts=t.processed_at||t.timestamp||'';
+      if(ts&&(nowMs-new Date(ts).getTime())<86400000) recentCount++;
+    });
+
+    /* ── SOC counter panel ──────────────────────────────────────────────── */
     txt('soc-critical-count', critCount);
-    txt('soc-high-count', highCount);
-    txt('soc-kev-count', kevCount);
-    /* Live count badge */
-    txt('ai-live-count', intel.length+' THREATS ANALYZED');
+    txt('soc-high-count',     highCount);
+    txt('soc-kev-count',      kevCount);
+
+    /* ── AI live count badge ────────────────────────────────────────────── */
+    txt('ai-live-count', intel.length.toLocaleString()+' THREATS ANALYZED');
+
+    /* ── Telemetry bar items (strip IDs) ────────────────────────────────── */
+    var setStrip=function(id,v){var e=sel(id);if(e)e.textContent=v;};
+    setStrip('feeds-val',   'ACTORS: '+actorSet.size+' TRACKED');
+    setStrip('kev-val',     'KEV: '+kevCount+' ACTIVE');
+    setStrip('rate-val',    'IOC: '+totalIOC.toLocaleString()+' INDICATORS');
+
+    /* ── Pulse animation on delta changes ───────────────────────────────── */
+    if(critCount>_telPrev.crit)  _telPulse('soc-critical-count','#ef4444');
+    if(kevCount >_telPrev.kev)   _telPulse('soc-kev-count','#f97316');
+    if(totalIOC >_telPrev.iocs)  _telPulse('rate-val','#00d4aa');
+    _telPrev={total:intel.length,iocs:totalIOC,kev:kevCount,crit:critCount};
+
+    /* ── AI pulse indicator text ────────────────────────────────────────── */
+    var posture=zdCount>0?'ZERO-DAY ACTIVE':critCount>10?'CRITICAL POSTURE':critCount>3?'ELEVATED':'MONITORING';
+    var pulseEl=sel('ai-pulse-indicator');
+    if(pulseEl){
+      pulseEl.innerHTML='<span class="ai-pulse-dot" style="background:'
+        +(zdCount>0?'#ef4444':critCount>10?'#f97316':'var(--accent)')+'"></span>'
+        +posture+' — '+intel.length+' ADVISORIES';
+    }
+
+    /* ── ATT&CK activation counter ──────────────────────────────────────── */
+    var attckEl=sel('ai-bar-soc');
+    if(attckEl) attckEl.textContent=tacticSet.size+' ATT&CK TECHNIQUES ACTIVE';
+
+    /* ── Source diversity ───────────────────────────────────────────────── */
+    var srcEl=sel('ai-bar-actors');
+    if(srcEl) srcEl.textContent=actorSet.size+' actors · '+srcSet.size+' sources';
+
+    /* ── 24h ingestion rate ─────────────────────────────────────────────── */
+    var familiesEl=sel('ai-bar-families');
+    if(familiesEl) familiesEl.textContent=recentCount+' advisories last 24h';
+
+    /* ── Anomaly pulse on zero-day / exploit count ──────────────────────── */
+    if(exploitCount>0){
+      var zd=sel('ai-bar-anomalies');
+      if(zd) zd.textContent=exploitCount+' exploit-confirmed / '+(zdCount>0?zdCount+' zero-day':'0 zero-day');
+    }
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -15913,30 +16161,82 @@ function renderTopThreats(data) {
   window.CDB_NEWS={refresh:refreshNews};
 
   /* FIX v148.0 — LIVE DATA BRIDGE: fetch /api/apex_v2/priority.json → window.__GOC_LIVE_INTEL */
+  /* v150.1 FIX: expanded URL list (Worker first) + manifestData drain fallback */
   function _fetchLiveIntel(cb){
-    var urls=['/api/apex_v2/priority.json','/api/apex_v2/critical.json','/api/feed.json'];
+    // Priority: Worker API → apex_v2 → api/feed.json (now null-byte-clean)
+    var urls=[
+      '/api/preview?limit=200',          // Worker R2-backed — authoritative
+      '/api/apex_v2/priority.json',
+      '/api/apex_v2/critical.json',
+      '/api/feed.json'
+    ];
     var done=false;
-    urls.forEach(function(url){
+    var pending=urls.length;
+    function _tryManifestFallback(){
+      // All fetches finished without success — drain from manifestData set by loadGOCIntel
       if(done)return;
-      fetch(url,{cache:'no-store'}).then(function(r){
-        if(!r.ok)throw new Error('HTTP '+r.status);
-        return r.json();
-      }).then(function(data){
-        if(done)return;
-        var items=Array.isArray(data)?data:(data.advisories||data.data||data.feed||[]);
-        if(items.length){done=true;window.__GOC_LIVE_INTEL=items;if(typeof cb==='function')cb(items);}
-      }).catch(function(){});
+      var fallback=window.__GOC_LIVE_INTEL||(typeof manifestData!=='undefined'&&manifestData)||window.EMBEDDED_INTEL||[];
+      if(Array.isArray(fallback)&&fallback.length){
+        done=true;
+        window.__GOC_LIVE_INTEL=fallback;
+        if(typeof cb==='function')cb(fallback);
+      }
+    }
+    urls.forEach(function(url){
+      fetch(url,{cache:'no-store'})
+        .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(data){
+          if(done) return;
+          var arr=Array.isArray(data)
+            ? data
+            : (data.reports||data.advisories||data.data||[]);
+          if(arr.length){
+            done=true; pending=0;
+            window.__GOC_LIVE_INTEL=arr;
+            if(typeof cb==='function') cb(arr);
+          } else {
+            if(--pending===0) _tryManifestFallback();
+          }
+        })
+        .catch(function(){ if(--pending===0) _tryManifestFallback(); });
     });
+    // Safety net: if all fetches complete without yielding data, drain manifest after 3s
+    setTimeout(function(){ if(!done) _tryManifestFallback(); }, 3000);
   }
-  function _startAIBrainPoller(){
-    _fetchLiveIntel(function(){runAIBrain();injectEnterpriseSignals(window.__GOC_LIVE_INTEL||window.EMBEDDED_INTEL||[]);});
-    setInterval(function(){_fetchLiveIntel(function(){runAIBrain();});},30000);
+
+  /* ── Boot sequence ─────────────────────────────────────────────────────── */
+  // v150.1: fire immediately if DOM ready, else wait for DOMContentLoaded
+  function _bootAIBrain(d){
+    if(!d||!d.length) return;
+    try { runAIBrain(); } catch(e){ console.warn('[AI-BRAIN] runAIBrain:', e); }
+    try { injectEnterpriseSignals(d); } catch(e){}
+    try { if(typeof refreshNews==='function') refreshNews(); } catch(e){}
   }
-  window.CDB_AI={runBrain:runAIBrain,fetchLive:_fetchLiveIntel};
-  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',_startAIBrainPoller);}
-  else{_startAIBrainPoller();}
+
+  if(document.readyState!=='loading'){
+    _fetchLiveIntel(_bootAIBrain);
+  } else {
+    document.addEventListener('DOMContentLoaded', function(){ _fetchLiveIntel(_bootAIBrain); });
+  }
+
+  // Race condition safety: poll until loadGOCIntel populates manifestData (up to 30s)
+  var _gocPoll=0;
+  var _gocPollT=setInterval(function(){
+    if(++_gocPoll>20){ clearInterval(_gocPollT); return; }
+    var d=window.__GOC_LIVE_INTEL||(typeof manifestData!=='undefined'&&Array.isArray(manifestData)&&manifestData)||[];
+    if(d&&d.length){
+      clearInterval(_gocPollT);
+      window.__GOC_LIVE_INTEL=d;
+      _bootAIBrain(d);
+    }
+  }, 1500);
+
+  // Refresh AI Brain every 5 minutes with fresh live data
+  setInterval(function(){
+    _fetchLiveIntel(function(d){ if(d&&d.length){ try{runAIBrain();}catch(e){} try{injectEnterpriseSignals(d);}catch(e){} } });
+  }, 300000);
+
 })();
 </script>
-<!-- /CDB-AI-BRAIN-INIT-v145 -->
 </body>
 </html>
