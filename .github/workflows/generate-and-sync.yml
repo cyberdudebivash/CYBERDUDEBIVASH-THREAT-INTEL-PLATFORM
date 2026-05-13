@@ -367,6 +367,15 @@ jobs:
           PIPELINE_DURATION_SECONDS=${PIPELINE_DURATION} python3 scripts/emit_ai_telemetry.py
 
       # ─────────────────────────────────────────────────────────────────────
+      # STAGE 7.5 — NULL-BYTE AUTO-REPAIR (defensive, non-fatal)
+      # Strips trailing null-byte padding from all AI output JSON files before
+      # commit. Covers api/v1/intel/ai_summary.json and all api/v1/intel/*.json.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 7.5 — Null-Byte Auto-Repair (pre-commit defensive)"
+        timeout-minutes: 2
+        run: python3 scripts/null_byte_repair.py || true
+
+      # ─────────────────────────────────────────────────────────────────────
       # STAGE 8 — SKIP COMMIT IF DRY RUN
       # ─────────────────────────────────────────────────────────────────────
       - name: "STAGE 8 — Dry-run gate (skip commit if dry_run=true)"
