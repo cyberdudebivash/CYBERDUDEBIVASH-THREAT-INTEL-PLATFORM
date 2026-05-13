@@ -244,6 +244,18 @@ jobs:
         run: python3 scripts/ci_preflight_check.py
 
       # -----------------------------------------------------------------------
+      # STAGE 0.06: VERSION GOVERNANCE CI GATE (P6 -- PERMANENT)
+      # Verifies version consistency across ALL platform surfaces before any
+      # data processing begins. Rejects deployment on any version drift.
+      # Prevents: api-docs stale, worker version mismatch, manifest drift.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.06 - Version governance CI gate (drift detection -- HARD FAIL)"
+        timeout-minutes: 2
+        run: |
+          python3 scripts/version_governance.py --check
+          echo "STAGE 0.06: Version governance gate PASSED -- all surfaces consistent"
+
+      # -----------------------------------------------------------------------
       # STAGE 0.05b: CRITICAL SCRIPT RESTORE GUARD (v150.2)
       # Guards against partial checkout caused by timeout or network hiccup.
       # If any critical script is missing after checkout, restores it from the
@@ -348,6 +360,45 @@ jobs:
         run: python3 scripts/validate_manifest_schema.py --backfill || true
 
       # -----------------------------------------------------------------------
+      # STAGE 0.07: v149 P0 — PUBLISHED FIELD TYPE FIXER (PERMANENT)
+      # ROOT CAUSE: 446 items failed ingestion because 'published' field was
+      # boolean True/False instead of ISO-8601 string. Ingestion rate was 30.5%
+      # (should be 60%+). This stage scans all manifest/feed JSON files and
+      # replaces boolean 'published' values with the item's timestamp fields.
+      # Always exits 0 (pipeline-safe). Writes audit to data/governance/.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.07 - v149 P0: Published field type fixer (446-item ingestion fix)"
+        timeout-minutes: 3
+        run: python3 scripts/v149_published_field_fixer.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 0.08: v149 P0/P1 — INTELLIGENCE HARDENING ENGINE (PERMANENT)
+      # Runs BEFORE the main pipeline so data enters clean:
+      #   Fix 1: false CRITICAL suppression (pre-pipeline C4 logic)
+      #   Fix 2: NONE threat_level normalization via risk_score bands
+      #   Fix 3: threat_category resolution from actor codes (67-entry map)
+      #   Fix 4: confidence gate — quarantines items below APEX_CONFIDENCE_GATE_MIN
+      #   Fix 5: source trust differentiation (6 tiers, 60-95% range)
+      # Always exits 0. Writes audit to data/governance/.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.08 - v149 P0/P1: Intelligence hardening engine (false CRITICAL + UNKNOWN fixes)"
+        timeout-minutes: 5
+        run: python3 scripts/v149_intelligence_hardening.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 0.09: v149 P1 — FRONTEND DEDUP PATCH (PERMANENT)
+      # Patches index.html to eliminate duplicate advisory card rendering:
+      #   - Deduplication guard on EMBEDDED_INTEL before first render
+      #   - Unified avgRisk calculation (single source of truth)
+      #   - Container clear guard before renderTable() call
+      # Idempotent: safe to run on every pipeline run. Backs up index.html.
+      # Always exits 0.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 0.09 - v149 P1: Frontend dedup patch (eliminate duplicate advisory cards)"
+        timeout-minutes: 3
+        run: python3 scripts/v149_frontend_dedup_patch.py
+
+      # -----------------------------------------------------------------------
       # STAGE 1-3: MASTER PIPELINE ORCHESTRATOR
       # Runs ALL pipeline logic. Zero inline Python in this YAML.
       # Stages: pre-flight, intel engine, manifest processing,
@@ -370,6 +421,55 @@ jobs:
       - name: "STAGE 3.1 - APEX AI Feed Enrichment (inject apex_ai into all items)"
         timeout-minutes: 8
         run: python3 scripts/enrich_feed_apex.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.1: v149 P4 — SIEM + ENTERPRISE WEBHOOK DELIVERY (PERMANENT)
+      # Delivers enriched threat intel (post apex_ai injection) to configured
+      # enterprise SIEM endpoints:
+      #   - Splunk HTTP Event Collector (HEC)
+      #   - Microsoft Sentinel (Log Analytics Workspace)
+      #   - Generic JSON Webhooks (HMAC-SHA256 signed)
+      # Includes replay queue for failed deliveries. Non-fatal (continue-on-error).
+      # Writes delivery audit to data/governance/ and registry to data/siem/.
+      # Requires secrets: SPLUNK_HEC_URL, SPLUNK_HEC_TOKEN, SENTINEL_WORKSPACE_ID,
+      #                   SENTINEL_WORKSPACE_KEY, CDB_WEBHOOK_SECRET
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.1 - v149 P4: SIEM + Enterprise webhook delivery"
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          SPLUNK_HEC_URL:          ${{ secrets.SPLUNK_HEC_URL }}
+          SPLUNK_HEC_TOKEN:        ${{ secrets.SPLUNK_HEC_TOKEN }}
+          SENTINEL_WORKSPACE_ID:   ${{ secrets.SENTINEL_WORKSPACE_ID }}
+          SENTINEL_WORKSPACE_KEY:  ${{ secrets.SENTINEL_WORKSPACE_KEY }}
+          CDB_WEBHOOK_SECRET:      ${{ secrets.CDB_WEBHOOK_SECRET }}
+        run: python3 scripts/v149_siem_webhook_provisioner.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.2: CVSS / EPSS BATCH ENRICHMENT (v148.1.0 -- PERMANENT)
+      # ROOT CAUSE FIX: api/feed.json had cvss_score: null on ALL 207 items
+      # because cve_scanner.py was never called in the pipeline. Intel reports
+      # therefore displayed "CVSS: Pending" and "EPSS: Pending" for every CVE.
+      #
+      # This step:
+      #   1. Identifies CVE items in api/feed.json with missing CVSS/EPSS
+      #   2. Batch-fetches EPSS from FIRST.org (single call, all CVEs)
+      #   3. Fetches CVSS v3.1 from NVD API v2.0 (per-CVE, rate-limited)
+      #   4. Writes enriched values back to api/feed.json (atomic swap)
+      #
+      # Runs AFTER enrich_feed_apex.py so apex_ai fields are already present.
+      # continue-on-error: true — NVD API may be slow/unavailable; pipeline
+      # must not fail if enrichment is partial. Values will be filled on next run.
+      # MAX_ENRICH capped at 100 per run to stay within 20-min job timeout.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.2 - CVSS/EPSS Batch Enrichment (NVD + FIRST.org)"
+        timeout-minutes: 12
+        continue-on-error: true
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          MAX_ENRICH:  "100"
+          FEED_PATH:   "api/feed.json"
+        run: python3 scripts/enrich_cvss_epss_batch.py
 
       # -----------------------------------------------------------------------
       # STAGE 3.1.5: APEX AI BACK-SYNC TO MANIFEST (HARDENING -- PERMANENT)

@@ -1,0 +1,21 @@
+fix(v150.1): forensic audit -- T12 PASS + null-byte strip + T05 fallback [skip ci]
+
+REGRESSION SUITE: 20/20 PASS (was 19/20 FAIL on T12)
+
+FIX-1 .github/workflows/sentinel-blogger.yml:613 [T12 ROOT CAUSE]
+  - Replaced: python3 -c 'import sys,json; d=json.load(sys.stdin)...' (RULE 1 violation)
+  - With: jq -r '.report_date // "?"' (zero inline Python, RULE 1 compliant)
+  - Impact: T12_ci_workflow_clean PASS (was blocking entire pipeline)
+
+FIX-2 .github/workflows/generate-and-sync.yml STAGE 3.1 [RULE 1 violation]
+  - Replaced: multi-line python3 -c heredoc for feed manifest check
+  - With: pure shell + jq (RULE 1: Zero inline Python in YAML)
+
+FIX-3 sentinel-blogger.yml + generate-and-sync.yml [NULL BYTE CORRUPTION]
+  - Stripped 44 trailing null bytes from sentinel-blogger.yml
+  - Stripped 169 trailing null bytes from generate-and-sync.yml
+  - Root cause: corrupted write from prior killed git process
+
+FIX-4 scripts/regression_tests.py [T05 FALLBACK BUG + FILE TRUNCATION]
+  - T05 now falls back to api/feed.json when stix manifest is ABSENT entirely
+  - Restored truncated file ending (sys.exit + main() block was missing)

@@ -278,6 +278,38 @@ jobs:
         run: python3 scripts/validate_ai_output_schemas.py
 
       # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.5 — AI EXPLAINABILITY ENRICHMENT (P2 governance)
+      # ─────────────────────────────────────────────────────────────────────
+      # Adds _explainability blocks to every prediction/anomaly/campaign entry:
+      #   confidence_score, confidence_band, evidence_sources, attack_mapping,
+      #   detection_rationale, timestamp_lineage, false_positive_probability,
+      #   ioc_confidence_map, anomaly_evidence_chain, forecast_rationale
+      # Runs AFTER ai_brain_publisher (Step 6) and BEFORE r2_upload (Step 9.5)
+      # to ensure explainability metadata is included in the R2-served payload.
+      # Non-fatal: continues if tracker.json not yet generated (dry-run safe).
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.5 — AI Explainability enrichment (ATT&CK + confidence)"
+        run: |
+          if [ -f api/ai/tracker.json ]; then
+            python3 scripts/ai_explainability_engine.py
+            echo "STAGE 6.5: AI Explainability enrichment complete"
+          else
+            echo "STAGE 6.5: tracker.json not found (dry-run or generation skipped) -- skip"
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.8 — VERSION GOVERNANCE CI GATE (P6 governance)
+      # ─────────────────────────────────────────────────────────────────────
+      # Verifies version consistency across all platform surfaces before any
+      # commit or R2 upload. Rejects deployment if any drift is detected.
+      # Runs AFTER generation and BEFORE git commit (Stage 9) and R2 (Stage 9.5).
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.8 — Version governance CI gate (drift detection)"
+        run: |
+          python3 scripts/version_governance.py --check
+          echo "STAGE 6.8: Version governance gate PASSED — no drift detected"
+
+      # ─────────────────────────────────────────────────────────────────────
       # STAGE 7 — PIPELINE OBSERVABILITY TELEMETRY (Phase 6)
       # ─────────────────────────────────────────────────────────────────────
       # v148.0 FIX: Moved from inline python3 -c block (RULE 1 violation) to
@@ -380,6 +412,61 @@ jobs:
           if [ "$PUSH_OK" -eq 0 ]; then
             echo "::warning::All push attempts deferred — will sync on next scheduled run"
           fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 9.5 — R2 UPLOAD: AI Tracker files → Cloudflare R2
+      # v148.1.0 FIX: AI tracker files were committed to GitHub only.
+      # The Cloudflare Worker reads exclusively from R2 (private bucket).
+      # Without this step the Worker had no ai/tracker.json, ai/health.json,
+      # or ai/executive-brief.json in R2, causing ai-threat-tracker.html to
+      # show empty/stalled dashboard (handleAI fell back to ai_index.json).
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 9.5 — Upload AI Tracker outputs to Cloudflare R2"
+        if: env.DRY_RUN != 'true'
+        env:
+          CF_ACCOUNT_ID:          ${{ secrets.CF_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID:      ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY:  ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
+          WORKER_ADMIN_SECRET:    ${{ secrets.WORKER_ADMIN_SECRET }}
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          BUCKET="sentinel-apex-data"
+
+          echo "[R2] Installing AWS CLI..."
+          pip install awscli --quiet --break-system-packages 2>/dev/null || pip install awscli --quiet
+
+          echo "[R2] Uploading AI Tracker files to R2..."
+          UPLOADED=0
+          for FILE in \
+            api/ai/tracker.json \
+            api/ai/health.json \
+            api/ai/executive-brief.json \
+            api/ai/monetization.json; do
+            if [ -f "$FILE" ]; then
+              R2_KEY="ai/$(basename $FILE)"
+              aws s3 cp "$FILE" "s3://${BUCKET}/${R2_KEY}" \
+                --endpoint-url "$ENDPOINT" \
+                --content-type "application/json" \
+                --cache-control "max-age=300, s-maxage=300" \
+                --quiet
+              echo "[R2] Uploaded: $FILE → ${R2_KEY}"
+              UPLOADED=$((UPLOADED + 1))
+            else
+              echo "[R2] SKIP (not found): $FILE"
+            fi
+          done
+          echo "[R2] Upload complete — ${UPLOADED} file(s) synced to R2"
+
+          # Bust KV cache so Worker serves fresh AI data immediately
+          echo "[R2] Busting Worker KV cache for AI endpoints..."
+          for KV_KEY in "ai:tracker" "ai:health" "ai:exec-brief" "ai:monetize"; do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "https://intel.cyberdudebivash.com/api/admin/cache/bust?key=${KV_KEY}" \
+              -H "X-Admin-Secret: ${WORKER_ADMIN_SECRET}" || echo "000")
+            echo "[KV] Busted ${KV_KEY} → HTTP ${HTTP}"
+          done
+          echo "[R2] Stage 9.5 complete — AI Tracker live on Worker"
 
       # ─────────────────────────────────────────────────────────────────────
       # STAGE 5.7 — MONETIZATION INTEGRITY GATE (HARD FAIL)

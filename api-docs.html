@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>API Documentation &mdash; CYBERDUDEBIVASH&reg; SENTINEL APEX v141.0.0</title>
+<title>API Documentation &mdash; CYBERDUDEBIVASH&reg; SENTINEL APEX v148.0.0</title>
 <meta name="description" content="Full API reference for SENTINEL APEX Threat Intelligence Platform. REST endpoints, authentication, tiers, STIX 2.1 export, IOC feeds, and SDK integration guides."/>
 <meta name="keywords" content="threat intelligence API, STIX 2.1 API, IOC feed API, CVE API, cybersecurity API, sentinel apex API docs"/>
 <meta property="og:title" content="SENTINEL APEX API Docs &mdash; Threat Intelligence API"/>
-<meta property="og:description" content="Enterprise REST API for live CVE/KEV data, IOC feeds, STIX 2.1 bundles, and detection rule sets. 115+ advisories updated daily."/>
+<meta property="og:description" content="Enterprise REST API for live CVE/KEV data, IOC feeds, STIX 2.1 bundles, and detection rule sets. 156+ advisories updated daily."/>
 <style>
 :root{
   --bg:#050810;--surface:#0a0f1e;--surface2:#0d1428;--border:#1a2040;
@@ -75,6 +75,7 @@ pre{background:#000;border:1px solid var(--border);border-radius:8px;padding:16p
 .tier-free{color:var(--green)}
 .tier-pro{color:var(--accent)}
 .tier-ent{color:var(--gold)}
+.tier-mssp{color:#e879f9}
 .check{color:var(--green)}
 .cross{color:var(--red)}
 /* CTA block */
@@ -101,7 +102,7 @@ pre{background:#000;border:1px solid var(--border);border-radius:8px;padding:16p
 <body>
 
 <div class="topbar">
-  <div class="brand">CYBERDUDEBIVASH&reg; SENTINEL APEX <span>v141.0.0</span></div>
+  <div class="brand">CYBERDUDEBIVASH&reg; SENTINEL APEX <span>v148.0.0</span></div>
   <nav class="nav-links">
     <a href="/">Dashboard</a>
     <a href="/store.html">Store</a>
@@ -113,10 +114,10 @@ pre{background:#000;border:1px solid var(--border);border-radius:8px;padding:16p
 <div class="container">
   <div class="hero">
     <h1>API Documentation</h1>
-    <p>Enterprise-grade REST API for live threat intelligence. 115+ advisories daily. STIX 2.1, IOC feeds, detection rules, and AI-powered risk scoring.</p>
+    <p>Enterprise-grade REST API for live threat intelligence. 156+ advisories daily. STIX 2.1, IOC feeds, detection rules, AI-powered risk scoring, and CVSS/EPSS enrichment.</p>
     <div class="badges">
       <span class="badge badge-green">✓ 99.9% Uptime SLA</span>
-      <span class="badge badge-accent">115+ Advisories/Day</span>
+      <span class="badge badge-accent">156+ Advisories/Day</span>
       <span class="badge badge-purple">STIX 2.1 Native</span>
       <span class="badge badge-gold">MITRE ATT&amp;CK v15</span>
     </div>
@@ -236,20 +237,28 @@ curl -H "Authorization: Bearer eyJhbGci..." \
               <th>Capability</th>
               <th class="tier-free">FREE</th>
               <th class="tier-pro">PRO &mdash; $49/mo</th>
-              <th class="tier-ent">ENTERPRISE &mdash; $299/mo</th>
+              <th class="tier-ent">ENTERPRISE &mdash; $499/mo</th>
+              <th class="tier-mssp">MSSP &mdash; $1,999/mo</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td>Advisory preview</td><td class="check">✓ 10 items</td><td class="check">✓ 100 items</td><td class="check">✓ Unlimited</td></tr>
-            <tr><td>Full intel feed</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
-            <tr><td>IOC data (IPs, hashes, domains)</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
-            <tr><td>STIX 2.1 export</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td></tr>
-            <tr><td>AI risk scores</td><td class="cross">✗</td><td>Partial</td><td class="check">✓ Full APEX AI</td></tr>
-            <tr><td>Detection rules (Sigma/YARA/KQL)</td><td class="cross">✗</td><td class="check">✓ Per advisory</td><td class="check">✓ Full + bulk</td></tr>
-            <tr><td>API calls/day</td><td>100</td><td>5,000</td><td>Unlimited</td></tr>
-            <tr><td>API keys</td><td>2</td><td>10</td><td>50</td></tr>
-            <tr><td>Webhook / SIEM push</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td></tr>
-            <tr><td>SLA</td><td>Best-effort</td><td>99.5%</td><td>99.9% + support</td></tr>
+            <tr><td>Advisory preview</td><td class="check">✓ 20 items</td><td class="check">✓ 100 items</td><td class="check">✓ Unlimited</td><td class="check">✓ Unlimited</td></tr>
+            <tr><td>Full intel feed</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>IOC data (IPs, hashes, domains)</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>CVSS / EPSS enrichment</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>STIX 2.1 export</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>AI risk scores (APEX AI)</td><td class="cross">✗</td><td>Partial</td><td class="check">✓ Full APEX AI</td><td class="check">✓ Full + Explainability</td></tr>
+            <tr><td>AI explainability + evidence chains</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>Detection rules (Sigma/YARA/KQL)</td><td class="cross">✗</td><td class="check">✓ Per advisory</td><td class="check">✓ Full + bulk</td><td class="check">✓ Full + bulk</td></tr>
+            <tr><td>SIEM push (Splunk/Sentinel/QRadar)</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>Webhook automation</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>AI campaign tracking</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>Multi-tenant / white-label</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓ Full sovereign mode</td></tr>
+            <tr><td>Dedicated analyst onboarding</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td></tr>
+            <tr><td>API calls/day</td><td>100</td><td>5,000</td><td>Unlimited</td><td>Unlimited</td></tr>
+            <tr><td>API req/min</td><td>60</td><td>500</td><td>2,000</td><td>2,000+</td></tr>
+            <tr><td>API keys</td><td>2</td><td>10</td><td>50</td><td>Unlimited</td></tr>
+            <tr><td>SLA</td><td>Best-effort</td><td>99.5%</td><td>99.9% + support</td><td>99.9% + SLA contract</td></tr>
           </tbody>
         </table>
         <div style="margin-top:20px">
@@ -291,12 +300,14 @@ curl -H "Authorization: Bearer eyJhbGci..." \
             <p>Platform health check. Returns pipeline status, advisory count, and component health.</p>
             <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>curl https://intel.cyberdudebivash.com/api/health</pre>
             <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>{
-  "status": "healthy",
-  "version": "141.0.0",
-  "gateway": "SENTINEL-APEX/141.0.0",
+  "status": "ok",
+  "version": "148.0.0",
+  "gateway": "SENTINEL-APEX/148.0.0",
+  "platform": "CYBERDUDEBIVASH(R) SENTINEL APEX",
   "pipeline": {
-    "advisory_count": 115,
-    "last_sync": "2026-04-26T04:12:53Z",
+    "advisory_count": 156,
+    "last_sync": "2026-05-12T15:52:34Z",
+    "manifest_version": "148.0.0",
     "dedup_active": true,
     "ioc_engine": "5.0",
     "ai_engine": "3.0",
@@ -306,9 +317,10 @@ curl -H "Authorization: Bearer eyJhbGci..." \
     "gateway": "ok",
     "kv_api_keys": "ok",
     "r2_intel": "ok",
-    "feed_index": "cached:115_items",
+    "feed_index": "cached:156_items",
     "jwt_configured": true
-  }
+  },
+  "request_id": "req_xxxxxxxxxxxxxxxx"
 }</pre>
           </div>
         </div>
@@ -611,12 +623,18 @@ STIX version:   2.1</pre>
       <!-- CHANGELOG -->
       <section id="changelog">
         <h2>Changelog</h2>
+        <h3>v148.0.0 &mdash; 2026-05-12 &mdash; <em>ENTERPRISE-GRADE</em></h3>
+        <p>Production hardening release. AI Threat Tracker dashboard fully operational. CVSS/EPSS batch enrichment engine (NVD v2.0 + FIRST.org). Worker pathMap expansion for all AI endpoints. AI explainability layer with ATT&CK evidence chains. Version governance extended to all documentation surfaces. Enterprise tier repriced to $499/mo. MSSP tier added to API surface.</p>
+        <h3>v147.0.0 &mdash; 2026-05</h3>
+        <p>Enterprise governance engine phases 1–5. Duplicate intelligence suppression. Confidence inflation governance. Feed normalization. Source trust tier scoring. SLA engine.</p>
+        <h3>v145.0.0 &mdash; 2026-05</h3>
+        <p>Sovereign MSSP mode. Multi-tenant architecture. White-label intelligence. Sub-tenant isolation. PDF watermarking.</p>
+        <h3>v143.0.0 &mdash; 2026-05</h3>
+        <p>AI predictions engine. Isolation Forest anomaly detection. Gradient Boosting 30-day sector forecasts. Enterprise alert manager.</p>
         <h3>v141.0.0 &mdash; 2026-04-26</h3>
         <p>15-issue platform hardening. SOC ticket priority fix, IOC count mismatch eliminated, atomic version.json writes, TZ-aware datetime comparisons, Sigma YAML indentation fixed, encoding mojibake repaired.</p>
-        <h3>v140.0.0 &mdash; 2026-04-25</h3>
-        <p>APEX AI integration, revenue engine upgrade, Gumroad auto-refresh pipeline activated.</p>
         <h3>v134.0.0 &mdash; 2026-04</h3>
-        <p>JWT HS256 auth, STIX 2.1 export, Stripe webhook integration, KV revocation blocklist, structured observability.</p>
+        <p>JWT HS256 auth, STIX 2.1 export, KV revocation blocklist, structured observability.</p>
       </section>
 
       <!-- CTA -->
@@ -652,9 +670,9 @@ const observer = new IntersectionObserver(entries => {
 }, { threshold: 0.3 });
 document.querySelectorAll('.content section[id]').forEach(s => observer.observe(s));
 </script>
-<!-- CDB-UPGRADE-BANNER-v141 -->
+<!-- CDB-UPGRADE-BANNER-v148 -->
 <!-- ═══════════════════════════════════════════════════════════════════
-     v141.1.0: REVENUE ACTIVATION -- Persistent Upgrade CTA Banner
+     v148.0.0: ENTERPRISE-GRADE -- Persistent Upgrade CTA Banner
      Shown to free/unauthenticated users. Hides automatically for paid tiers.
      ═══════════════════════════════════════════════════════════════════ -->
 <div id="cdb-upgrade-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#0a0d14 0%,#0f1420 100%);border-top:1px solid rgba(0,212,255,0.25);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -4px 24px rgba(0,212,255,0.08);">
@@ -688,7 +706,7 @@ document.querySelectorAll('.content section[id]').forEach(s => observer.observe(
   document.body.style.paddingBottom='64px';
 })();
 </script>
-<!-- /v141.1.0 CDB UPGRADE BANNER -->
-<!-- /CDB-UPGRADE-BANNER-v141 -->
+<!-- /v148.0.0 CDB UPGRADE BANNER -->
+<!-- /CDB-UPGRADE-BANNER-v148 -->
 </body>
 </html>
