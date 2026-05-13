@@ -134,24 +134,10 @@ jobs:
 
           # v153.2 FIX: Extract advisory count from health endpoint's pipeline.advisory_count.
           # DO NOT use /api/v1/intel/latest.json with curl -sf:
-          #   - curl -sf silently returns the fallback echo '[]' on any non-200 response
-          #   - latest.json uses 'items' key, not 'advisories' -- count always parsed as 0
-          # The health endpoint is authoritative: always returns pipeline.advisory_count
-          # (e.g. 132) regardless of R2 sync state. HEALTH is already fetched above.
-          COUNT=$(echo "$HEALTH" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    count = d.get('pipeline', {}).get('advisory_count', 0)
-    if count:
-        print(int(count))
-    else:
-        # Secondary fallback: top-level advisory_count field
-        count = d.get('advisory_count', 0)
-        print(int(count))
-except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
+          #   - curl -sf silently returns fallback '[]' on non-200; Python key 'advisories'
+          #     does not exist in that response -- count always resolves to 0.
+          # The health endpoint is authoritative and already fetched above as $HEALTH.
+          COUNT=$(echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); c=d.get('pipeline',{}).get('advisory_count',0) or d.get('advisory_count',0); print(int(c))" 2>/dev/null || echo "0")
           echo "[GATE 1] Advisory count (from health endpoint): $COUNT"
           echo "count=$COUNT" >> $GITHUB_OUTPUT
 
