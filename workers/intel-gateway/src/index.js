@@ -1127,9 +1127,20 @@ async function fetchReportsIndex(env) {
         const raw  = await obj.json();
         const norm = normaliseManifestData(raw);
         if (norm?.reports?.length > 0) {
-          // Warm KV cache after successful R2 read
+          // v148.3.0 FIX: warm BOTH KV namespaces after successful R2 read.
+          // Previous code only wrote to RATE_LIMIT_KV. Health check reads
+          // SECURITY_HUB_KV first -- if only RATE_LIMIT_KV is written, health
+          // check sees the key as missing and returns feed_index: "not_cached".
+          // DO NOT revert to writing only RATE_LIMIT_KV -- breaks health check.
           if (env.RATE_LIMIT_KV) {
             await env.RATE_LIMIT_KV.put(
+              cacheKey,
+              JSON.stringify(norm),
+              { expirationTtl: CONFIG.CACHE_TTL.FEED }
+            ).catch(() => {});
+          }
+          if (env.SECURITY_HUB_KV) {
+            await env.SECURITY_HUB_KV.put(
               cacheKey,
               JSON.stringify(norm),
               { expirationTtl: CONFIG.CACHE_TTL.FEED }
@@ -2443,40 +2454,49 @@ async function handleHealth(request, env, rid) {
     } catch { checks.r2_intel = "error"; }
   } else checks.r2_intel = "not_bound";
 
-  // v148.2.0 FIX: idx:reports shape-agnostic health check.
-  // ROOT CAUSE of persistent "not_cached": health check only checked c?.total_reports
-  // but cron writes the raw manifest which is either a flat array OR {reports:[...]}
-  // -- neither shape has a total_reports field, so the check always resolved to 0.
+  // v148.3.0 FIX: feed_index -- sequential KV fallthrough + shape-agnostic count.
   //
-  // FIX: accept ALL known shapes of idx:reports:
-  //   Shape A: { total_reports: N, reports: [...] }  -- normalised (post-fix cron)
-  //   Shape B: { reports: [...] }                    -- un-normalised legacy cron write
-  //   Shape C: flat array [...]                      -- raw manifest written by old cron
-  //   Shape D: { items: [...] } / { advisories: [...] } -- other pipeline shapes
+  // ROOT CAUSE 1 (v148.2.0): health check used (env.SECURITY_HUB_KV || env.RATE_LIMIT_KV)
+  // which picks ONE namespace. If SECURITY_HUB_KV is bound but has no idx:reports key
+  // (e.g. just after a cold deploy before cron ticks), RATE_LIMIT_KV is never tried,
+  // even though fetchReportsIndex warmed it via R2 read. Result: persistent "not_cached".
+  // FIX: try each bound KV namespace in turn; break as soon as data is found.
   //
-  // DO NOT revert to checking only c?.total_reports -- that always returns undefined
-  // for shapes B/C/D and causes persistent "not_cached" even when data is present.
+  // ROOT CAUSE 2 (v148.2.0): health check checked c?.total_reports only, but cron writes
+  // raw manifest (flat array or {reports:[...]}) without total_reports. Count always 0.
+  // FIX: accept ALL manifest shapes -- {total_reports:N}, {reports:[...]}, flat array,
+  //      {items:[...]}, {advisories:[...]}.
   //
-  // Fall back to RATE_LIMIT_KV as secondary so legacy deployments still work.
-  if (env?.SECURITY_HUB_KV || env?.RATE_LIMIT_KV) {
-    try {
-      const kvSrc = env.SECURITY_HUB_KV || env.RATE_LIMIT_KV;
-      const c = await kvSrc.get("idx:reports", { type: "json" });
-      const _feedCount = c
-        ? (c.total_reports
-            || (Array.isArray(c.reports)    ? c.reports.length    : 0)
-            || (Array.isArray(c)            ? c.length            : 0)
-            || (Array.isArray(c.items)      ? c.items.length      : 0)
-            || (Array.isArray(c.advisories) ? c.advisories.length : 0))
-        : 0;
-      checks.feed_index = _feedCount > 0 ? `cached:${_feedCount}_items` : "not_cached";
-    } catch { checks.feed_index = "error"; }
+  // DO NOT revert to: const kvSrc = env.SECURITY_HUB_KV || env.RATE_LIMIT_KV
+  // That causes persistent "not_cached" when SECURITY_HUB_KV is bound but empty.
+  {
+    let _feedCount = 0;
+    for (const _kvNs of [env?.SECURITY_HUB_KV, env?.RATE_LIMIT_KV].filter(Boolean)) {
+      try {
+        const c = await _kvNs.get("idx:reports", { type: "json" });
+        _feedCount = c
+          ? (c.total_reports
+              || (Array.isArray(c.reports)    ? c.reports.length    : 0)
+              || (Array.isArray(c)            ? c.length            : 0)
+              || (Array.isArray(c.items)      ? c.items.length      : 0)
+              || (Array.isArray(c.advisories) ? c.advisories.length : 0))
+          : 0;
+        if (_feedCount > 0) break;  // found in this namespace -- no need to try fallback
+      } catch { /* namespace unavailable -- try next */ }
+    }
+    checks.feed_index = _feedCount > 0 ? `cached:${_feedCount}_items` : "not_cached";
   }
 
   // v141.0.0: JWT secret presence check -- surface auth readiness in health
   checks.jwt_configured = env?.CDB_JWT_SECRET ? true : false;
 
   // v134.0: Include live advisory count + last_sync from manifest for full pipeline visibility
+  // v148.3.0: fetchReportsIndex now warms BOTH SECURITY_HUB_KV and RATE_LIMIT_KV (Fix A).
+  // After this call, any subsequent /api/health within the same TTL will see
+  // feed_index as "cached:N_items" even if the cron has not yet ticked since deploy.
+  // Also: if both KVs were cold above (feed_index still "not_cached"), fallback to
+  // the advisoryCount derived here from live R2 data so health accurately reflects
+  // live platform state rather than stale KV state.
   let advisoryCount = 0;
   let lastSync      = null;
   let manifestVersion = null;
@@ -2486,6 +2506,12 @@ async function handleHealth(request, env, rid) {
     advisoryCount   = clean.length;
     lastSync        = index.generated_at || null;
     manifestVersion = index.source_meta?.version || null;
+    // v148.3.0 Fix C: promote feed_index to live state if KV check returned not_cached
+    // but R2 data is live and valid. This fires only on cold-start health calls before
+    // the first KV warm-up. DO NOT remove -- prevents misleading "not_cached" when data is live.
+    if (checks.feed_index === "not_cached" && advisoryCount > 0) {
+      checks.feed_index = `live:${advisoryCount}_items`;
+    }
   } catch { /* non-critical -- health still returns */ }
 
   // v141.0.0: Only truly critical check failures cause "degraded".
