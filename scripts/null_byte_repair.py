@@ -8,7 +8,8 @@ validation gate runs.  Null bytes are a write-path artefact (pre-allocated
 buffer not truncated) and must never reach STAGE 3.9 as a hard-fail.
 
 Scans: api/feed.json, feed.json, manifest.json, data/stix/feed_manifest.json,
-       data/quality/*.json, config/*.json
+       api/v1/intel/ai_summary.json, api/v1/intel/latest.json, api/v1/intel/apex.json,
+       data/quality/*.json, config/*.json, api/v1/intel/*.json
 
 Exit code:
   0  -- all files clean OR repaired successfully
@@ -27,11 +28,16 @@ TARGETS = [
     "feed.json",
     "manifest.json",
     "data/stix/feed_manifest.json",
+    # AI output files (generate-and-sync + ai_brain_publisher outputs)
+    "api/v1/intel/ai_summary.json",
+    "api/v1/intel/latest.json",
+    "api/v1/intel/apex.json",
 ]
 
-# Also scan quality and config dirs
+# Also scan quality, config, and all api/v1/intel dirs
 TARGETS += glob.glob(os.path.join(REPO_ROOT, "data", "quality", "*.json"))
 TARGETS += glob.glob(os.path.join(REPO_ROOT, "config", "*.json"))
+TARGETS += glob.glob(os.path.join(REPO_ROOT, "api", "v1", "intel", "*.json"))
 
 fixed = 0
 failed = 0
