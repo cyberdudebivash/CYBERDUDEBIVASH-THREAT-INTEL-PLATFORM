@@ -309,6 +309,29 @@ def main() -> None:
         uploaded_manifests, len(intel_v1_manifests),
     )
 
+    # --- Upload 3b: AI Tracker endpoint files (v148.1.0 FIX - MANDATORY) ---
+    # ROOT CAUSE FIX: api/ai/tracker.json, health.json, executive-brief.json
+    # were not being explicitly tracked. This block ensures all four AI Tracker
+    # files are explicitly uploaded each pipeline run (the ai_dirs loop in
+    # Upload 4b also covers these, but this explicit block provides auditability
+    # and fail-safe coverage even if generate_ai_endpoints.py step is skipped).
+    ai_tracker_files = [
+        ("api/ai/tracker.json",          "ai/tracker.json"),
+        ("api/ai/health.json",           "ai/health.json"),
+        ("api/ai/executive-brief.json",  "ai/executive-brief.json"),
+        ("api/ai/monetization.json",     "ai/monetization.json"),
+    ]
+    uploaded_ai_tracker = 0
+    for src, dst_key in ai_tracker_files:
+        src_path = REPO_ROOT / src
+        if src_path.exists():
+            s3_cp(str(src_path), BUCKET_DATA, dst_key, endpoint)
+            uploaded_ai_tracker += 1
+        else:
+            log.warning("SKIP (AI tracker): %s not found -- run generate-and-sync workflow first", src)
+    log.info("OK: AI Tracker files uploaded to R2 (%d/%d)", uploaded_ai_tracker, len(ai_tracker_files))
+
+
     # --- Upload 4a: Generated HTML reports (Tactical Dossiers) ---
     # v143.5.1 FIX: Two-part fix for 36-minute stall / job-timeout cancellation:
     #   1. awscli configured with 50 concurrent requests (5x faster)

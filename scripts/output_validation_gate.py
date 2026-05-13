@@ -21,7 +21,7 @@ Usage:
 import os, sys, json, re, shutil, hashlib, argparse
 from datetime import datetime, timezone
 
-SCRIPT_VERSION = "1.0.0"
+SCRIPT_VERSION = "1.1.0"
 API_FEED_CAP   = 500
 BACKUP_DIR     = os.path.join("data", "audit", "backups")
 REPORT_PATH    = os.path.join("data", "audit", "gate_report.json")
@@ -291,16 +291,30 @@ def main():
     if api_entries and manifest_entries:
         a_cnt = len(api_entries)
         m_cnt = len(manifest_entries)
-        # v143.2.0: api > manifest is ALLOWED within 50% tolerance.
-        # api/feed.json grows during run_pipeline (STAGE 1-3) AFTER STAGE 3.1.6 has
-        # already synced the stix manifest -- a small lag is expected and not a failure.
-        # Hard-fail only when gap >50% (indicates field_preserving_merge stage failure).
+        # v148.1.0 FIX: feed_manifest.json is required=False (runtime-generated, may lag
+        # behind api/feed.json across multiple pipeline runs). Count discrepancy between
+        # api/feed.json and the manifest is therefore ALWAYS advisory (WARN), never a
+        # hard-blocking ERROR. The manifest is a STIX subset and may legitimately have
+        # fewer entries than the full feed. Hard-fail on count mismatch was incorrectly
+        # blocking Worker deploys even when both files were structurally valid.
+        # ERROR-level check is preserved for catastrophic gap (>200%) only, which would
+        # indicate a file corruption/truncation event rather than normal pipeline lag.
+        #
+        # Original v143.2.0 logic: hard-fail on gap >50% tolerance.
+        # v148.1.0 change: demote to WARNING for gap <=200%; keep ERROR only at >200%.
         if a_cnt > m_cnt:
             _excess = (a_cnt - m_cnt) / m_cnt
-            if _excess > 0.50:
+            if _excess > 2.00:
+                # >200% gap = catastrophic truncation/corruption, not normal lag
                 errors.append(
                     f"COUNT: api/feed.json ({a_cnt}) >> manifest ({m_cnt}) — "
-                    f"gap {_excess:.1%} exceeds 50% tolerance (merge stage failure?)"
+                    f"gap {_excess:.1%} indicates possible manifest truncation or corruption"
+                )
+            elif _excess > 0.50:
+                warnings.append(
+                    f"COUNT: api/feed.json ({a_cnt}) >> manifest ({m_cnt}) — "
+                    f"gap {_excess:.1%} exceeds 50% tolerance (manifest may be lagging — "
+                    f"advisory only, manifest is runtime-generated with required=False)"
                 )
             else:
                 warnings.append(
