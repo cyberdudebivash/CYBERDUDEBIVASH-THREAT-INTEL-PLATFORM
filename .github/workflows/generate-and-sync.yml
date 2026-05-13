@@ -298,11 +298,34 @@ jobs:
           fi
 
       # ─────────────────────────────────────────────────────────────────────
-      # STAGE 6.8 — VERSION GOVERNANCE CI GATE (P6 governance)
+      # STAGE 5.7 — MONETIZATION INTEGRITY GATE (HARD FAIL)
+      # v148.0.0: Validates payment credentials, API auth enforcement,
+      #           BOM-free / encoding-clean HTML, Worker premium gating.
+      #           Exit 1 blocks the deploy. Mirrors sentinel-blogger.yml gate.
+      #           POSITION: pre-deploy gate — runs BEFORE commit and R2 upload.
       # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 5.7 - Monetization Integrity Gate (HARD FAIL)"
+        run: python3 scripts/validate_monetization.py
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.7 — VERSION GOVERNANCE AUTO-APPLY (drift correction)
+      # Mirrors sentinel-blogger.yml pattern (STAGE 3.93.7 + 3.93.8):
+      #   --apply first auto-corrects any drift, then --check verifies zero drift.
+      # Belt-and-suspenders: ensures sla_status.json, version.json, workers/
+      #   and all governed surfaces are aligned BEFORE commit or R2 upload.
+      # ROOT CAUSE FIX: prevents sla_status.json version drift from hard-failing
+      #   the CI gate (was the cause of run #25776778055 failure: 143.0.0 vs 148.0.0).
+      # ─────────────────────────────────────────────────────────────────────
+      - name: "STAGE 6.7 — Version governance auto-apply (drift correction)"
+        run: |
+          python3 scripts/version_governance.py --apply
+          echo "STAGE 6.7: Version governance applied — all targets aligned to $(cat VERSION)"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STAGE 6.8 — VERSION GOVERNANCE CI GATE (P6 governance)
+      # Belt-and-suspenders: after --apply, confirms zero drift remains.
       # Verifies version consistency across all platform surfaces before any
       # commit or R2 upload. Rejects deployment if any drift is detected.
-      # Runs AFTER generation and BEFORE git commit (Stage 9) and R2 (Stage 9.5).
       # ─────────────────────────────────────────────────────────────────────
       - name: "STAGE 6.8 — Version governance CI gate (drift detection)"
         run: |
@@ -467,14 +490,3 @@ jobs:
             echo "[KV] Busted ${KV_KEY} → HTTP ${HTTP}"
           done
           echo "[R2] Stage 9.5 complete — AI Tracker live on Worker"
-
-      # ─────────────────────────────────────────────────────────────────────
-      # STAGE 5.7 — MONETIZATION INTEGRITY GATE (HARD FAIL)
-      # v148.0.0: Validates payment credentials, API auth enforcement,
-      #           BOM-free / encoding-clean HTML, Worker premium gating.
-      #           Exit 1 blocks the deploy. Mirrors sentinel-blogger.yml gate.
-      # ─────────────────────────────────────────────────────────────────────
-      - name: "STAGE 5.7 - Monetization Integrity Gate (HARD FAIL)"
-        run: python3 scripts/validate_monetization.py
-
-      # ─────────────────────────────────────────────────────
