@@ -3,7 +3,13 @@
 # .github/workflows/enterprise-observability.yml
 # ENTERPRISE OBSERVABILITY + TRUST VALIDATION LAYER — CI/CD v1.0
 # Cron: :30 past even hours — runs after enterprise-intel-quality (:15)
-# concurrency: sentinel-data-writer (never overlaps with ingestion/quality)
+# concurrency: sentinel-observability-writer (v148.1.0 FIX: was sentinel-data-writer
+#   which caused observability to queue behind sentinel-blogger/intel-quality/
+#   production-hardening all using cancel-in-progress:false, creating 25-min
+#   pipeline blockages. Observability writes only to data/observability/ and
+#   never touches data/stix/ or api/ — it does NOT need to serialize with
+#   data writers. enterprise-governance.yml uses the same approach:
+#   "Does NOT use sentinel-data-writer to avoid blocking production ingestion")
 # =============================================================================
 
 name: Enterprise Observability & Trust Validation
@@ -24,7 +30,13 @@ on:
         default: 'false'
 
 concurrency:
-  group: sentinel-data-writer
+  # v148.1.0 FIX: changed from sentinel-data-writer to sentinel-observability-writer.
+  # Observability reads feed data but only writes to data/observability/ — it must
+  # NOT serialize with sentinel-data-writer (sentinel-blogger, intel-quality,
+  # production-hardening) which have cancel-in-progress:false and run for 20-35min.
+  # Using sentinel-data-writer caused observability jobs to queue for 25+ min,
+  # blocking the 6-hour pipeline cadence. This group is observability-exclusive.
+  group: sentinel-observability-writer
   cancel-in-progress: false
 
 env:
