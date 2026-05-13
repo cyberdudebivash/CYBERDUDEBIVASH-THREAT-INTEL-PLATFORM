@@ -2552,7 +2552,7 @@ async function fetchAIData(env, r2Key, kvKey, ttlSeconds) {
         //   - tracker.json:         data.engine_alpha | data.executive_summary | data.schema
         //   - health.json:          data.engines | data.overall_health | data.health_score
         //   - executive-brief.json: data.brief | data.executive_brief | data.recommendations
-        // Previously only ai_index.json schema was accepted — tracker/health/brief all fell through
+        // Previously only ai_index.json schema was accepted -- tracker/health/brief all fell through
         // to Source 3 (live-feed fallback) causing empty/stalled dashboard on ai-threat-tracker.html
         if (data && (
           data.panels || data.analysis || data.mitre_techniques || data.reports ||
@@ -2655,7 +2655,7 @@ async function handleAI(request, env, rid, subpath) {
   // Full analysis requires API key (enforced by caller for /analyze, /respond, /correlate)
 
   // v148.1.0 FIX: Added tracker / health / executive-brief entries.
-  // Previously these were missing — all three fell back to ai_index.json (wrong schema)
+  // Previously these were missing -- all three fell back to ai_index.json (wrong schema)
   // causing ai-threat-tracker.html to show empty/stalled dashboard.
   // Dot-suffixed keys (e.g. "tracker.json") handle the literal filename as fetched
   // by the frontend via fetch('/api/ai/tracker.json').
