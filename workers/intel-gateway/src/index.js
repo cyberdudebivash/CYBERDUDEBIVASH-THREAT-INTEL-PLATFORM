@@ -2547,7 +2547,20 @@ async function fetchAIData(env, r2Key, kvKey, ttlSeconds) {
       const obj = await env.INTEL_R2.get(r2Key);
       if (obj) {
         const data = await obj.json();
-        if (data && (data.panels || data.analysis || data.mitre_techniques || data.reports)) {
+        // v148.1.0: Broadened validation to accept all AI endpoint schemas:
+        //   - ai_index.json:        data.panels | data.mitre_techniques | data.reports | data.analysis
+        //   - tracker.json:         data.engine_alpha | data.executive_summary | data.schema
+        //   - health.json:          data.engines | data.overall_health | data.health_score
+        //   - executive-brief.json: data.brief | data.executive_brief | data.recommendations
+        // Previously only ai_index.json schema was accepted — tracker/health/brief all fell through
+        // to Source 3 (live-feed fallback) causing empty/stalled dashboard on ai-threat-tracker.html
+        if (data && (
+          data.panels || data.analysis || data.mitre_techniques || data.reports ||
+          data.engine_alpha || data.executive_summary || data.schema ||
+          data.engines || data.overall_health || data.health_score ||
+          data.brief || data.executive_brief || data.recommendations ||
+          data.version || data.generated_at
+        )) {
           // Warm KV cache
           if (env.RATE_LIMIT_KV) {
             await env.RATE_LIMIT_KV.put(kvKey, JSON.stringify(data), { expirationTtl: ttlSeconds })
@@ -2641,13 +2654,26 @@ async function handleAI(request, env, rid, subpath) {
   // Public endpoint -- no API key required for index and heatmap data
   // Full analysis requires API key (enforced by caller for /analyze, /respond, /correlate)
 
+  // v148.1.0 FIX: Added tracker / health / executive-brief entries.
+  // Previously these were missing — all three fell back to ai_index.json (wrong schema)
+  // causing ai-threat-tracker.html to show empty/stalled dashboard.
+  // Dot-suffixed keys (e.g. "tracker.json") handle the literal filename as fetched
+  // by the frontend via fetch('/api/ai/tracker.json').
   const pathMap = {
-    ""          : { r2: "ai/ai_index.json",    kv: "ai:index",     ttl: 120 },
-    "index"     : { r2: "ai/ai_index.json",    kv: "ai:index",     ttl: 120 },
-    "analyze"   : { r2: "ai/analyze.json",     kv: "ai:analyze",   ttl: 120 },
-    "respond"   : { r2: "ai/respond.json",     kv: "ai:respond",   ttl: 180 },
-    "correlate" : { r2: "ai/correlate.json",   kv: "ai:correlate", ttl: 180 },
-    "heatmap"   : { r2: "ai/ai_index.json",    kv: "ai:index",     ttl: 120 },
+    ""                      : { r2: "ai/ai_index.json",          kv: "ai:index",      ttl: 120 },
+    "index"                 : { r2: "ai/ai_index.json",          kv: "ai:index",      ttl: 120 },
+    "tracker"               : { r2: "ai/tracker.json",           kv: "ai:tracker",    ttl: 300 },
+    "tracker.json"          : { r2: "ai/tracker.json",           kv: "ai:tracker",    ttl: 300 },
+    "health"                : { r2: "ai/health.json",            kv: "ai:health",     ttl: 300 },
+    "health.json"           : { r2: "ai/health.json",            kv: "ai:health",     ttl: 300 },
+    "executive-brief"       : { r2: "ai/executive-brief.json",   kv: "ai:exec-brief", ttl: 300 },
+    "executive-brief.json"  : { r2: "ai/executive-brief.json",   kv: "ai:exec-brief", ttl: 300 },
+    "monetization"          : { r2: "ai/monetization.json",      kv: "ai:monetize",   ttl: 300 },
+    "monetization.json"     : { r2: "ai/monetization.json",      kv: "ai:monetize",   ttl: 300 },
+    "analyze"               : { r2: "ai/analyze.json",           kv: "ai:analyze",    ttl: 120 },
+    "respond"               : { r2: "ai/respond.json",           kv: "ai:respond",    ttl: 180 },
+    "correlate"             : { r2: "ai/correlate.json",         kv: "ai:correlate",  ttl: 180 },
+    "heatmap"               : { r2: "ai/ai_index.json",          kv: "ai:index",      ttl: 120 },
   };
 
   const key = subpath.replace(/^\/+|\/+$/g, "").toLowerCase();
