@@ -50,7 +50,7 @@ env:
   WORKER_DIR: workers/intel-gateway
   # v148.1.0 FIX: updated from stale 147.0.0. Note: this default is overridden
   # at runtime by the "Inject version from config/version.json" step (SSOT).
-  PLATFORM_VERSION: "148.0.0"
+  PLATFORM_VERSION: "152.0.0"
 
 concurrency:
   group: worker-deploy
@@ -280,6 +280,30 @@ jobs:
           echo ""
           echo "=== esbuild pre-flight PASSED -- deploy unblocked ==="
 
+      - name: " Version governance check (HARD GATE -- prevents GATE B drift)"
+        # v153.1 PERMANENT FIX: Run version_governance --check immediately before deploy.
+        # This is the root cause fix for the recurring GATE B version mismatch.
+        #
+        # Root cause: index.js GATEWAY_VERSION was bumped manually (commit-144fc10)
+        # without updating VERSION / config/version.json. The live Worker then reported
+        # a different version than the repo, causing post-deploy GATE B to fail.
+        #
+        # This step ensures SSOT (VERSION file) == index.js GATEWAY_VERSION == config/version.json
+        # BEFORE we deploy. If any drift exists, the deploy is BLOCKED with a clear error.
+        # Fix drift by running: python3 scripts/version_governance.py --apply
+        run: |
+          echo "=== Version governance pre-deploy check ==="
+          python3 scripts/version_governance.py --check 2>&1
+          EXIT=$?
+          if [ "$EXIT" -ne 0 ]; then
+            echo ""
+            echo "FATAL: Version drift detected -- deploy BLOCKED."
+            echo "Fix: python3 scripts/version_governance.py --apply"
+            echo "Then commit the updated files before re-triggering deploy."
+            exit 1
+          fi
+          echo "OK: Version governance check PASSED -- no drift detected"
+
       - name: " Deploy Worker to Cloudflare (with retry)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
@@ -336,39 +360,4 @@ jobs:
           if gw_ver and expected and gw_ver == expected:
               print(f'OK: Version match confirmed -- {gw_ver}')
           elif gw_ver == 'unknown':
-              print('NOTE: Version not yet visible -- Cloudflare edge still propagating')
-          else:
-              print(f'WARNING: Version mismatch -- live={gw_ver}, expected={expected}')
-              print('This may resolve within 30-60s as Cloudflare propagates globally.')
-
-          # JWT check
-          if jwt_ok is False:
-              print('')
-              print('ACTION REQUIRED: CDB_JWT_SECRET is not configured.')
-              print('Fix: openssl rand -hex 32 | npx wrangler secret put CDB_JWT_SECRET')
-          elif jwt_ok is True:
-              print('OK: CDB_JWT_SECRET is configured')
-          else:
-              print('NOTE: jwt_configured status unknown (health endpoint may be at different version)')
-          " 2>&1 || echo "Smoke test skipped -- worker still propagating"
-
-          echo ""
-          echo "--- Security header check ---"
-          HEADERS=$(curl -sI --max-time 15 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null)
-          echo "$HEADERS" | grep -i "x-sentinel-version\|strict-transport\|content-security\|x-frame" || echo "Security headers: not yet visible"
-
-          echo ""
-          echo "--- Preview endpoint check ---"
-          curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null | python3 -c "
-          import json,sys
-          try:
-              d=json.load(sys.stdin)
-              total = d.get('preview',{}).get('total_in_feed',0)
-              items = len(d.get('preview',{}).get('items', []))
-              print(f'Preview: total_in_feed={total}, preview_items={items}')
-          except:
-              print('Preview: still propagating or parsing error')
-          " 2>/dev/null || echo "Preview endpoint: not yet available"
-
-          echo ""
-          echo "=== SENTINEL APEX v${PLATFORM_VERSION} DEPLOYMENT COMPLETE ==="
+              print(
