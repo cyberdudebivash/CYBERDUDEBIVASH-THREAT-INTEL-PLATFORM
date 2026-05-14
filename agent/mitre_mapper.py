@@ -354,11 +354,36 @@ def sanitize_mitre_techniques(raw: list) -> list:
                 import re as _re_mitre
                 _tid_raw = entry.strip().upper()
                 if _re_mitre.match(r'^T\d{4}(\.\d{3})?$', _tid_raw):
+                    # v148.1.0 FIX: Resolve real technique name+tactic from APEX registry
+                    # instead of generic "Technique T1XXX" placeholder
+                    try:
+                        from agent.apex_intelligence_upgrade import resolve_technique as _resolve_tech
+                        _tech_info = _resolve_tech(_tid_raw)
+                        _tech_name = _tech_info.get("name") or _tid_raw
+                        _tech_tactic = _tech_info.get("tactic") or "Execution"
+                        _tech_desc = _tech_info.get("desc") or ""
+                    except Exception:
+                        # Safe fallback — use ID lookup from local mapping_db
+                        _tech_name = next(
+                            (v["name"] for v in self.mapping_db.values()
+                             if v.get("id") == _tid_raw),
+                            _tid_raw
+                        ) if hasattr(self, 'mapping_db') else _tid_raw
+                        _tech_tactic = next(
+                            (v["tactic"] for v in self.mapping_db.values()
+                             if v.get("id") == _tid_raw),
+                            "Execution"
+                        ) if hasattr(self, 'mapping_db') else "Execution"
+                        _tech_desc = ""
                     entry = {
                         "id":            _tid_raw,
-                        "name":          f"Technique {_tid_raw}",
-                        "tactic":        "Execution",
-                        "justification": f"{_tid_raw} — technique ID from threat intelligence corpus.",
+                        "name":          _tech_name,
+                        "tactic":        _tech_tactic,
+                        "justification": (
+                            f"{_tech_name} ({_tech_tactic}) — "
+                            f"{_tech_desc + ' ' if _tech_desc else ''}"
+                            f"Technique ID mapped from threat intelligence corpus."
+                        ),
                     }
                     # Fall through to dict processing below
                 else:
