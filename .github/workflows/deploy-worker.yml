@@ -127,6 +127,14 @@ jobs:
           python3 scripts/sanitize_encoding.py --fix
           echo "Encoding sanitization: OK"
 
+      - name: " Worker JS ASCII enforcement (P0 permanent fix v153.1)"
+        # ROOT CAUSE FIX (commit-144fc10 regression):
+        # sanitize_encoding.py only handled BOM/CRLF/null, NOT Unicode chars.
+        # sanitize_encoding.py now includes Worker ASCII enforcement AND this
+        # dedicated step runs worker_js_integrity_gate.py as a hard-fail verify.
+        run: |
+          python3 scripts/worker_js_integrity_gate.py
+
       - name: " Install Wrangler (stable)"
         run: |
           npm install -g wrangler@3
@@ -163,7 +171,8 @@ jobs:
                   failed.append(f.name)
           if failed:
               print('FATAL: Dirty Worker source files:', failed)
-              print('Run scripts/encoding_guard.py --fix locally before committing.')
+              print('Run: python3 scripts/sanitize_encoding.py --fix')
+              print('     python3 scripts/worker_js_integrity_gate.py')
               sys.exit(1)
           print(f'OK: All {len(js_files)} Worker JS files are clean')
           "
@@ -353,13 +362,4 @@ jobs:
           curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null | python3 -c "
           import json,sys
           try:
-              d=json.load(sys.stdin)
-              total = d.get('preview',{}).get('total_in_feed',0)
-              items = len(d.get('preview',{}).get('items', []))
-              print(f'Preview: total_in_feed={total}, preview_items={items}')
-          except:
-              print('Preview: still propagating or parsing error')
-          " 2>/dev/null || echo "Preview endpoint: not yet available"
-
-          echo ""
-          echo "=== SENTINEL APEX v${PLATFORM_VERSION} DEPLOYMENT COMPLETE ==="
+         

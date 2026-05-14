@@ -112,7 +112,7 @@ import {
   handleSLACertificate,
 } from "./sla-monitor.js";
 
-// v152.0: Enterprise Intelligence API — TAXII 2.1, MISP, Sigma/YARA bulk,
+// v152.0: Enterprise Intelligence API  -  TAXII 2.1, MISP, Sigma/YARA bulk,
 //         threat scoring feeds, SIEM connectors, SSE streaming, MSSP multi-tenant
 import { routeEnterpriseEndpoint } from "./enterprise-endpoints.js";
 
@@ -127,7 +127,7 @@ function injectVersionHeaders(response, config) {
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "152.0.0",  // v152.0.0 ENTERPRISE-GRADE — enterprise scoring, IOC hardening, TAXII/MISP/SIEM/SSE endpoints
+  GATEWAY_VERSION:   "152.0.0",  // v152.0.0 ENTERPRISE-GRADE  -  enterprise scoring, IOC hardening, TAXII/MISP/SIEM/SSE endpoints
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -5208,7 +5208,7 @@ export default {
     if (pathname === "/api/sla/incidents"         && method === "GET")  return withRL(await handleSLAIncidents(request, env, auth, rid));
     if (pathname === "/api/sla/certificate"       && method === "GET")  return withRL(await handleSLACertificate(request, env, auth, rid));
 
-    // v152.0: Enterprise Intelligence API — TAXII 2.1 / MISP / Sigma / YARA /
+    // v152.0: Enterprise Intelligence API  -  TAXII 2.1 / MISP / Sigma / YARA /
     //         SIEM connectors / scoring feeds / SSE streaming / MSSP multi-tenant.
     //         Evaluated after all existing routes so zero existing behaviour changes.
     const _enterpriseRoutes = [
@@ -5222,7 +5222,7 @@ export default {
         try {
           const _feedR2 = await env.R2_BUCKET.get("api/feed.json");
           if (_feedR2) _ent_items = JSON.parse(await _feedR2.text()) || [];
-        } catch (_fe) { /* non-fatal — empty items yields correct empty responses */ }
+        } catch (_fe) { /* non-fatal  -  empty items yields correct empty responses */ }
         const _ent_tier = auth?.tier || "free";
         const _ent_resp = await routeEnterpriseEndpoint(pathname, request, env, ctx, _ent_tier, _ent_items, rid);
         if (_ent_resp) return withSec(_ent_resp);

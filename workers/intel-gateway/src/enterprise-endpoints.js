@@ -1,5 +1,5 @@
 // =============================================================================
-// CYBERDUDEBIVASH® SENTINEL APEX — Enterprise API Endpoints v149.0.0
+// CYBERDUDEBIVASH(R) SENTINEL APEX  -  Enterprise API Endpoints v149.0.0
 // =============================================================================
 // NEW ENTERPRISE FEATURES:
 //   /api/taxii/*              TAXII 2.1 protocol (ENTERPRISE tier)
@@ -20,9 +20,9 @@
 
 const ENTERPRISE_VERSION = "149.0.0";
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // TIER GATES
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 function requireEnterprise(tier) {
   return tier === "enterprise";
@@ -64,10 +64,10 @@ function proDenied(endpoint, req_id) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TAXII 2.1 — THREAT INTELLIGENCE SHARING PROTOCOL
+// -----------------------------------------------------------------------------
+// TAXII 2.1  -  THREAT INTELLIGENCE SHARING PROTOCOL
 // Spec: https://docs.oasis-open.org/cti/taxii/v2.1/
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 /**
  * GET /api/taxii/
@@ -79,7 +79,7 @@ export async function handleTaxiiDiscovery(req, env, ctx, tier, req_id) {
     return proDenied("/api/taxii/", req_id);
   }
   const discovery = {
-    title: "CYBERDUDEBIVASH® SENTINEL APEX TAXII 2.1 Server",
+    title: "CYBERDUDEBIVASH(R) SENTINEL APEX TAXII 2.1 Server",
     description: "Enterprise cyber threat intelligence via TAXII 2.1 protocol. " +
       "Compatible with OpenCTI, MISP, Splunk, Microsoft Sentinel, and IBM QRadar.",
     contact: "enterprise@cyberdudebivash.in",
@@ -279,9 +279,9 @@ export async function handleTaxiiObjects(req, env, ctx, tier, collection_id, req
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // MISP JSON EXPORT
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 /**
  * GET /api/misp/export
@@ -408,9 +408,9 @@ export async function handleMISPExport(req, env, ctx, tier, items, req_id) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // SIGMA BULK EXPORT
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 /**
  * GET /api/sigma/bulk
@@ -451,7 +451,7 @@ export async function handleSigmaBulk(req, env, ctx, tier, items, req_id) {
     });
   }
 
-  // Default: NDJSON — one JSON object per line for streaming ingestion
+  // Default: NDJSON  -  one JSON object per line for streaming ingestion
   const lines = page.map(item => JSON.stringify({
     id: item.id || item.stix_id,
     title: item.title,
@@ -479,9 +479,9 @@ export async function handleSigmaBulk(req, env, ctx, tier, items, req_id) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // YARA BULK EXPORT
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 /**
  * GET /api/yara/bulk
@@ -500,11 +500,11 @@ export async function handleYaraBulk(req, env, ctx, tier, items, req_id) {
     return item.yara_rule || (item.detection_rules && item.detection_rules.yara) || "";
   }).filter(Boolean).join("\n\n");
 
-  const header = `// CYBERDUDEBIVASH® SENTINEL APEX — YARA Intelligence Rules
+  const header = `// CYBERDUDEBIVASH(R) SENTINEL APEX  -  YARA Intelligence Rules
 // Generated: ${new Date().toISOString()}
 // Rules: ${filtered.length}
 // Platform: SENTINEL APEX v${ENTERPRISE_VERSION}
-// License: ENTERPRISE — Authorised use only
+// License: ENTERPRISE  -  Authorised use only
 // Contact: enterprise@cyberdudebivash.in\n\n`;
 
   return new Response(header + rules, {
@@ -518,13 +518,13 @@ export async function handleYaraBulk(req, env, ctx, tier, items, req_id) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // ENTERPRISE INTELLIGENCE SCORING API
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 /**
  * GET /api/scoring
- * Full enterprise scoring feed — all advisories with 10-dimension scores.
+ * Full enterprise scoring feed  -  all advisories with 10-dimension scores.
  */
 export async function handleScoringFeed(req, env, ctx, tier, items, req_id) {
   if (!requireEnterprise(tier)) {
@@ -581,7 +581,7 @@ export async function handleScoringFeed(req, env, ctx, tier, items, req_id) {
 
 /**
  * GET /api/scoring/kev
- * KEV-prioritised scoring — sorted by KEV priority score.
+ * KEV-prioritised scoring  -  sorted by KEV priority score.
  */
 export async function handleScoringKEV(req, env, ctx, tier, items, req_id) {
   if (!requireEnterprise(tier)) {
@@ -671,7 +671,7 @@ export async function handleScoringRansomware(req, env, ctx, tier, items, req_id
 
 /**
  * GET /api/scoring/velocity
- * Threat velocity feed — fastest-spreading threats first.
+ * Threat velocity feed  -  fastest-spreading threats first.
  */
 export async function handleScoringVelocity(req, env, ctx, tier, items, req_id) {
   if (!requireEnterprise(tier)) {
@@ -712,9 +712,9 @@ export async function handleScoringVelocity(req, env, ctx, tier, items, req_id) 
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // SIEM INTEGRATION ENDPOINTS
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 /**
  * GET /api/siem/splunk
@@ -885,9 +885,9 @@ export async function handleSiemQRadar(req, env, ctx, tier, items, req_id) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SERVER-SENT EVENTS — LIVE THREAT STREAMING
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// SERVER-SENT EVENTS  -  LIVE THREAT STREAMING
+// -----------------------------------------------------------------------------
 
 /**
  * GET /api/stream
@@ -975,9 +975,9 @@ export async function handleStream(req, env, ctx, tier, items, req_id) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // MSSP MULTI-TENANT ROUTING
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 /**
  * GET /api/mssp/tenants/:tenant_id/feed
@@ -1028,9 +1028,9 @@ export async function handleMSSPFeed(req, env, ctx, tier, items, tenant_id, req_
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ROUTER — called from main index.js
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// ROUTER  -  called from main index.js
+// -----------------------------------------------------------------------------
 
 /**
  * Route enterprise endpoint requests.
