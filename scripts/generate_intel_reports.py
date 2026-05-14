@@ -80,6 +80,32 @@ try:
 except ImportError:
     pass
 
+# ── v148.1.0: APEX Intelligence Upgrade Engine — premium CTI enrichment ─────
+_APEX_UPGRADE_AVAILABLE = False
+try:
+    import sys as _apex_sys
+    _repo_root = str(Path(__file__).resolve().parent.parent)
+    if _repo_root not in _apex_sys.path:
+        _apex_sys.path.insert(0, _repo_root)
+    from agent.apex_intelligence_upgrade import (
+        generate_technical_narrative   as _apex_technical_narrative,
+        render_ttps_premium            as _apex_render_ttps,
+        generate_actor_intelligence    as _apex_actor_intel,
+        generate_campaign_intelligence as _apex_campaign_intel,
+        generate_ai_insight_premium    as _apex_ai_insight,
+        generate_kill_chain_html       as _apex_kill_chain,
+        generate_enhanced_sigma        as _apex_sigma,
+        enrich_advisory                as _apex_enrich,
+        filter_operational_iocs        as _apex_filter_iocs,
+    )
+    _APEX_UPGRADE_AVAILABLE = True
+except Exception as _apex_import_err:
+    _APEX_UPGRADE_AVAILABLE = False
+    import logging as _apex_log_mod
+    _apex_log_mod.getLogger("sentinel.report_gen").warning(
+        "APEX upgrade engine unavailable (non-fatal): %s", _apex_import_err
+    )
+
 
 def _safe_enforce_schema(item: dict) -> dict:
     """
@@ -382,6 +408,17 @@ footer a{color:var(--accent);text-decoration:none}
   align-items:center;justify-content:center;flex-shrink:0;border-width:3px;border-style:solid}
 .bis-num{font-family:var(--mono);font-size:22px;font-weight:900}
 .bis-label{font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--muted)}
+
+/* APEX Intelligence Upgrade v148.1 — Premium CTI Styles */
+.apex-narrative{line-height:1.7}
+.apex-intel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin:16px 0}
+.apex-intel-item{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:12px 14px}
+.apex-label{display:block;font-size:0.75em;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.apex-value{display:block;font-size:0.9em;color:var(--text);font-weight:500}
+.apex-conf-high{display:inline-block;background:rgba(0,212,170,.12);color:var(--accent);border:1px solid rgba(0,212,170,.3);border-radius:3px;padding:1px 7px;font-size:0.8em;font-weight:700}
+.apex-conf-med{display:inline-block;background:rgba(245,166,35,.1);color:var(--med);border:1px solid rgba(245,166,35,.3);border-radius:3px;padding:1px 7px;font-size:0.8em;font-weight:700}
+.apex-ai-insight{border:1px solid rgba(0,212,170,.2);border-radius:8px;padding:20px;background:rgba(0,212,170,.03)}
+.apex-kev{color:#ff3b3b;display:inline-block;margin-top:4px}
 
 /* Detection Engineering */
 .rule-block{background:#020810;border:1px solid rgba(0,212,170,.15);border-left:3px solid var(--accent);
@@ -1036,6 +1073,19 @@ def build_report_sections(item: dict) -> str:
     nvd_url     = item.get("nvd_url") or ""
     ts          = _fmt_ts(item.get("processed_at") or item.get("timestamp") or "")
 
+    # ── v148.1.0: APEX Intelligence Upgrade — enrich advisory before rendering ──
+    if _APEX_UPGRADE_AVAILABLE:
+        try:
+            item = _apex_enrich(item)
+            # Re-read enriched TTPs
+            ttps = item.get("ttps") or item.get("mitre_tactics") or []
+        except Exception as _enrich_exc:
+            log(f"APEX enrich warn (non-fatal): {_enrich_exc}", "warning")
+
+    # Re-bind actor after enrichment (may have been updated)
+    actor       = str(item.get("actor_cluster") or item.get("actor_tag") or item.get("primary_actor") or "UNATTRIBUTED")
+    campaign    = item.get("campaign_id") or item.get("campaign") or "UNCLASSIFIED"
+
     sections = []
 
     # ── S1: Classification Header ──────────────────────────────────────────
@@ -1119,36 +1169,44 @@ def build_report_sections(item: dict) -> str:
         + "</div>"
     ))
 
-    # ── S5: Technical Analysis ─────────────────────────────────────────────
-    delivery = item.get("delivery_vector") or "Multi-stage; refer to IOC section for observed infrastructure."
-    priv_req = item.get("privilege_required") or "unprivileged user"
-    sections.append(_section(5, "Technical Analysis",
-        f"<p>Behavioural and structural analysis of <em>&ldquo;{_h(title)}&rdquo;</em> "
-        "reveals the following technical characteristics:</p>"
-        "<ul>"
-        f"<li><strong>Delivery vector:</strong> {_h(delivery)}</li>"
-        f"<li><strong>Execution chain:</strong> {len(ttps)} MITRE ATT&amp;CK techniques "
-        "spanning initial access through impact phases.</li>"
-        f"<li><strong>Privilege context:</strong> Exploit path requires {_h(priv_req)} privileges.</li>"
-        f"<li><strong>Network footprint:</strong> {ioc_count} distinct indicators "
-        "of compromise recorded at analysis time.</li>"
-        f"<li><strong>KEV status:</strong> {'Actively exploited – CISA KEV confirmed.' if kev else 'Not presently on CISA KEV.'}</li>"
-        f"<li><strong>Threat actor:</strong> Activity attributed to cluster "
-        f"<strong>{_h(actor)}</strong>.</li>"
-        "</ul>"
-        "<p>Defenders should correlate the IOC table (Section 7) against 30-day "
-        "SIEM retention, proxy logs, EDR process telemetry, and authentication "
-        "events. Absence of a match does not rule out compromise – this advisory "
-        "has been associated with re-generated C2 infrastructure and DGA campaigns.</p>"
-    ))
+    # ── S5: Technical Analysis — APEX Intelligence Upgrade v148.1 ─────────
+    if _APEX_UPGRADE_AVAILABLE:
+        _s5_body = _apex_technical_narrative(item)
+    else:
+        delivery = item.get("delivery_vector") or "Multi-stage; refer to IOC section for observed infrastructure."
+        priv_req = item.get("privilege_required") or "unprivileged user"
+        _s5_body = (
+            f"<p>Behavioural and structural analysis of <em>&ldquo;{_h(title)}&rdquo;</em> "
+            "reveals the following technical characteristics:</p>"
+            "<ul>"
+            f"<li><strong>Delivery vector:</strong> {_h(delivery)}</li>"
+            f"<li><strong>Execution chain:</strong> {len(ttps)} MITRE ATT&amp;CK techniques "
+            "spanning initial access through impact phases.</li>"
+            f"<li><strong>Privilege context:</strong> Exploit path requires {_h(priv_req)} privileges.</li>"
+            f"<li><strong>Network footprint:</strong> {ioc_count} distinct indicators "
+            "of compromise recorded at analysis time.</li>"
+            f"<li><strong>KEV status:</strong> {'Actively exploited – CISA KEV confirmed.' if kev else 'Not presently on CISA KEV.'}</li>"
+            f"<li><strong>Threat actor:</strong> Activity attributed to cluster "
+            f"<strong>{_h(actor)}</strong>.</li>"
+            "</ul>"
+            "<p>Defenders should correlate the IOC table (Section 7) against 30-day "
+            "SIEM retention, proxy logs, EDR process telemetry, and authentication "
+            "events. Absence of a match does not rule out compromise – this advisory "
+            "has been associated with re-generated C2 infrastructure and DGA campaigns.</p>"
+        )
+    sections.append(_section(5, "Technical Analysis", _s5_body))
 
-    # ── S6: MITRE ATT&CK ──────────────────────────────────────────────────
-    sections.append(_section(6, "MITRE ATT&amp;CK Mapping",
-        "<p>The following ATT&amp;CK v15 techniques have been mapped with HIGH confidence. "
-        "Enterprise subscribers receive a Navigator layer (.json) for direct overlay "
-        "onto your detection coverage matrix.</p>"
-        + _render_ttps(ttps)
-    ))
+    # ── S6: MITRE ATT&CK — APEX Premium ATT&CK Engine v148.1 ─────────────
+    if _APEX_UPGRADE_AVAILABLE:
+        _s6_body = _apex_render_ttps(ttps, item)
+    else:
+        _s6_body = (
+            "<p>The following ATT&amp;CK v15 techniques have been mapped with HIGH confidence. "
+            "Enterprise subscribers receive a Navigator layer (.json) for direct overlay "
+            "onto your detection coverage matrix.</p>"
+            + _render_ttps(ttps)
+        )
+    sections.append(_section(6, "MITRE ATT&amp;CK Mapping", _s6_body))
 
     # ── S7: IOC Table ─────────────────────────────────────────────────────
     sections.append(_section(7, "Indicators of Compromise",
@@ -1178,29 +1236,40 @@ def build_report_sections(item: dict) -> str:
         "triggers APEX's IMMINENT classification – immediate patching required.</p>"
     ))
 
-    # ── S9: Kill Chain Analysis ────────────────────────────────────────────
-    default_kc = ["Reconnaissance", "Weaponisation", "Delivery",
-                  "Exploitation", "Installation", "C2", "Actions on Objectives"]
-    phases = kc_phases if kc_phases else default_kc[:4]
-    kc_html = ""
-    kc_descs = {
-        "Reconnaissance": "Adversary collects information about the target environment.",
-        "Weaponisation": "Exploit code is packaged into a deliverable payload.",
-        "Delivery": "Payload is transmitted to the target via observed delivery vector.",
-        "Exploitation": f"{'CVE exploitation ' if cvss else 'Vulnerability '}triggers execution in target environment.",
-        "Installation": "Persistent access mechanism installed; foothold established.",
-        "C2": "Attacker communicates with implant via observed C2 infrastructure.",
-        "Actions on Objectives": "Data exfiltration, ransomware deployment, or lateral movement executed.",
-    }
-    for i, phase in enumerate(phases, 1):
-        kc_html += (
-            f"<div class='kc-phase'>"
-            f"<div class='kc-num'>{i:02d}</div>"
-            f"<div class='kc-body'>"
-            f"<h4>{_h(phase)}</h4>"
-            f"<p>{_h(kc_descs.get(phase, 'Phase observed in this campaign.'))}</p>"
-            f"</div></div>"
-        )
+    # ── S9: Kill Chain Analysis — APEX Threat-Specific Engine v148.1 ────────
+    if _APEX_UPGRADE_AVAILABLE:
+        kc_html = _apex_kill_chain(item, kc_phases)
+        if not kc_html:
+            # fallback to original if upgrade returns empty
+            default_kc = ["Reconnaissance", "Weaponisation", "Delivery", "Exploitation"]
+            kc_html = "".join(
+                f"<div class='kc-phase'><div class='kc-num'>{i:02d}</div>"
+                f"<div class='kc-body'><h4>{p}</h4></div></div>"
+                for i, p in enumerate(default_kc, 1)
+            )
+    else:
+        default_kc = ["Reconnaissance", "Weaponisation", "Delivery",
+                      "Exploitation", "Installation", "C2", "Actions on Objectives"]
+        phases = kc_phases if kc_phases else default_kc[:4]
+        kc_html = ""
+        kc_descs = {
+            "Reconnaissance": "Adversary collects information about the target environment.",
+            "Weaponisation": "Exploit code is packaged into a deliverable payload.",
+            "Delivery": "Payload is transmitted to the target via observed delivery vector.",
+            "Exploitation": f"{'CVE exploitation ' if cvss else 'Vulnerability '}triggers execution in target environment.",
+            "Installation": "Persistent access mechanism installed; foothold established.",
+            "C2": "Attacker communicates with implant via observed C2 infrastructure.",
+            "Actions on Objectives": "Data exfiltration, ransomware deployment, or lateral movement executed.",
+        }
+        for i, phase in enumerate(phases, 1):
+            kc_html += (
+                f"<div class='kc-phase'>"
+                f"<div class='kc-num'>{i:02d}</div>"
+                f"<div class='kc-body'>"
+                f"<h4>{_h(phase)}</h4>"
+                f"<p>{_h(kc_descs.get(phase, 'Phase observed in this campaign.'))}</p>"
+                f"</div></div>"
+            )
     sections.append(_section(9, "Kill Chain Phase Analysis", kc_html))
 
     # ── S10: Detection & Response Playbook ────────────────────────────────
@@ -1229,40 +1298,47 @@ def build_report_sections(item: dict) -> str:
         "</div></div>"
     ))
 
-    # ── S11: Threat Actor Profile ──────────────────────────────────────────
-    sections.append(_section(11, "Threat Actor Profile",
-        f"<div class='actor-card'>"
-        f"<div class='actor-icon'>⚔</div>"
-        f"<div class='actor-body'>"
-        f"<h3>{_h(actor)}</h3>"
-        f"<p>Tracking cluster: <code>{_h(actor)}</code> &nbsp;|&nbsp; "
-        f"Campaign: <code>{_h(campaign)}</code></p>"
-        f"</div></div>"
-        f"<p style='margin-top:16px'>APEX tracks this actor cluster across {len(ttps)} "
-        f"ATT&amp;CK technique signatures. Full actor dossier including infrastructure "
-        f"history, geolocation intelligence, and TTP evolution is available via the "
-        f"enterprise API endpoint <code>/api/actor/{_h(actor)}</code>.</p>"
-        "<div class='callout'><strong>Enterprise subscribers</strong> receive automated "
-        "actor tracking reports, infrastructure pivot analysis, and proactive alerting "
-        "when this cluster shows new activity.</div>"
-    ))
+    # ── S11: Threat Actor Profile — APEX Adversary Intelligence v148.1 ─────
+    if _APEX_UPGRADE_AVAILABLE:
+        _s11_body = _apex_actor_intel(actor, item)
+    else:
+        _s11_body = (
+            f"<div class='actor-card'>"
+            f"<div class='actor-icon'>⚔</div>"
+            f"<div class='actor-body'>"
+            f"<h3>{_h(actor)}</h3>"
+            f"<p>Tracking cluster: <code>{_h(actor)}</code> &nbsp;|&nbsp; "
+            f"Campaign: <code>{_h(campaign)}</code></p>"
+            f"</div></div>"
+            f"<p style='margin-top:16px'>APEX tracks this actor cluster across {len(ttps)} "
+            f"ATT&amp;CK technique signatures. Full actor dossier including infrastructure "
+            f"history, geolocation intelligence, and TTP evolution is available via the "
+            f"enterprise API endpoint <code>/api/actor/{_h(actor)}</code>.</p>"
+            "<div class='callout'><strong>Enterprise subscribers</strong> receive automated "
+            "actor tracking reports, infrastructure pivot analysis, and proactive alerting "
+            "when this cluster shows new activity.</div>"
+        )
+    sections.append(_section(11, "Threat Actor Profile", _s11_body))
 
-    # ── S12: Campaign Intelligence ─────────────────────────────────────────
+    # ── S12: Campaign Intelligence — APEX Campaign Correlation v148.1 ───────
     ai_conf = item.get("ai_confidence") or item.get("confidence") or "–"
-    sections.append(_section(12, "Campaign Intelligence",
-        "<div class='kv'>"
-        f"<div class='kv-key'>Campaign ID</div><div class='kv-val'><code>{_h(campaign)}</code></div>"
-        f"<div class='kv-key'>AI Confidence</div><div class='kv-val'>{_h(ai_conf)}</div>"
-        f"<div class='kv-key'>Actor Cluster</div><div class='kv-val'>{_h(actor)}</div>"
-        f"<div class='kv-key'>TTP Count</div><div class='kv-val'>{len(ttps)}</div>"
-        f"<div class='kv-key'>IOC Count</div><div class='kv-val'>{ioc_count}</div>"
-        f"<div class='kv-key'>Kill Chain Phases</div><div class='kv-val'>{len(phases)}</div>"
-        "</div>"
-        "<p style='margin-top:16px'>APEX's campaign correlation engine has associated this advisory "
-        "with prior activity attributed to the same actor cluster. Historical campaign "
-        "data, infrastructure overlap analysis, and behavioural similarity scoring are "
-        "available in the enterprise delivery pack.</p>"
-    ))
+    if _APEX_UPGRADE_AVAILABLE:
+        _s12_body = _apex_campaign_intel(item)
+    else:
+        _s12_body = (
+            "<div class='kv'>"
+            f"<div class='kv-key'>Campaign ID</div><div class='kv-val'><code>{_h(campaign)}</code></div>"
+            f"<div class='kv-key'>AI Confidence</div><div class='kv-val'>{_h(ai_conf)}</div>"
+            f"<div class='kv-key'>Actor Cluster</div><div class='kv-val'>{_h(actor)}</div>"
+            f"<div class='kv-key'>TTP Count</div><div class='kv-val'>{len(ttps)}</div>"
+            f"<div class='kv-key'>IOC Count</div><div class='kv-val'>{ioc_count}</div>"
+            "</div>"
+            "<p style='margin-top:16px'>APEX's campaign correlation engine has associated this advisory "
+            "with prior activity attributed to the same actor cluster. Historical campaign "
+            "data, infrastructure overlap analysis, and behavioural similarity scoring are "
+            "available in the enterprise delivery pack.</p>"
+        )
+    sections.append(_section(12, "Campaign Intelligence", _s12_body))
 
     # ── S13: Affected Systems ──────────────────────────────────────────────
     if affected:
@@ -1300,41 +1376,47 @@ def build_report_sections(item: dict) -> str:
         "</ul>"
     ))
 
-    # ── S15: APEX AI Analyst Insight ──────────────────────────────────────
-    sections.append(_section(15, "APEX AI Analyst Insight",
-        "<p>APEX's autonomous AI analyst layer has correlated this advisory against "
-        "12 months of threat intelligence, actor infrastructure history, and global telemetry. "
-        "Key AI-derived findings:</p>"
-        "<div class='kv'>"
-        f"<div class='kv-key'>Predictive Risk</div><div class='kv-val'><strong>{risk}/10</strong></div>"
-        f"<div class='kv-key'>Actor Fingerprint</div><div class='kv-val'>{_h(actor)}</div>"
-        f"<div class='kv-key'>Similarity Cohort</div><div class='kv-val'>{_h(campaign)}</div>"
-        f"<div class='kv-key'>AI Confidence</div><div class='kv-val'>{_h(ai_conf)}</div>"
-        f"<div class='kv-key'>Kill Chain Phases</div><div class='kv-val'>{', '.join(phases[:4])}</div>"
-        f"<div class='kv-key'>TTP Density</div><div class='kv-val'>{len(ttps)} techniques mapped</div>"
-        "</div>"
-        "<div class=’premium-lock-v2’ style=’margin-top:16px’>"
-        "<div class=’plv2-header’>"
-        "<div class=’plv2-icon’>&#x1F916;</div>"
-        "<div><div class=’plv2-title’>APEX AI ANALYST NARRATIVE &mdash; ENTERPRISE</div>"
-        "<div class=’plv2-sub’>Full narrative unlocked for Enterprise &amp; MSSP subscribers</div></div>"
-        "</div>"
-        "<div class=’plv2-features’>"
-        "<div class=’plv2-feat’>Predictive threat modelling (14-day horizon)</div>"
-        "<div class=’plv2-feat’>Infrastructure pivot &amp; actor attribution</div>"
-        "<div class=’plv2-feat’>Autonomous SOAR playbook export</div>"
-        "<div class=’plv2-feat’>Board-level executive PDF briefing</div>"
-        "<div class=’plv2-feat’>Historical campaign correlation (12 months)</div>"
-        "<div class=’plv2-feat’>Custom Sigma/YARA tuning for your stack</div>"
-        "<div class=’plv2-feat’>Real-time threat feed API (5,000 calls/day)</div>"
-        "<div class=’plv2-feat’>Dedicated SOC uplift &amp; SLA</div>"
-        "</div>"
-        "<div class=’plv2-actions’>"
-        f"<a class=’cta cta-enterprise’ href=’https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise&amp;utm_source=report-ai-lock&amp;utm_content={{}}&amp;utm_medium=unlock-btn’ target=’_blank’ rel=’noopener’>&#9733; Unlock Enterprise &rarr;</a>"
-        "<a class=’cta cta-secondary’ href=’https://intel.cyberdudebivash.com/upgrade.html?plan=pro&amp;utm_source=report-ai-lock&amp;utm_medium=unlock-btn’ target=’_blank’ rel=’noopener’>Try Pro &rarr;</a>"
-        "</div>"
-        "</div>"
-    ))
+    # ── S15: APEX AI Analyst Insight — APEX AI Brain v148.1 ─────────────────
+    if _APEX_UPGRADE_AVAILABLE:
+        _s15_body = _apex_ai_insight(item)
+        # Append enterprise upsell after real AI content
+        _s15_body += (
+            "<div class=’premium-lock-v2’ style=’margin-top:20px’>"
+            "<div class=’plv2-header’>"
+            "<div class=’plv2-icon’>&#x1F916;</div>"
+            "<div><div class=’plv2-title’>APEX ENTERPRISE — ADVANCED AI INTELLIGENCE</div>"
+            "<div class=’plv2-sub’>Unlock full 30-day predictive modelling, SOAR playbook export &amp; dedicated SOC uplift</div></div>"
+            "</div>"
+            "<div class=’plv2-actions’>"
+            f"<a class=’cta cta-enterprise’ href=’https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise&utm_source=report-ai&utm_medium=unlock-btn’ target=’_blank’ rel=’noopener’>&#9733; Unlock Enterprise &rarr;</a>"
+            "<a class=’cta cta-secondary’ href=’https://intel.cyberdudebivash.com/upgrade.html?plan=pro&utm_source=report-ai&utm_medium=unlock-btn’ target=’_blank’ rel=’noopener’>Try Pro &rarr;</a>"
+            "</div>"
+            "</div>"
+        )
+    else:
+        _s15_body = (
+            "<p>APEX’s autonomous AI analyst layer has correlated this advisory against "
+            "12 months of threat intelligence, actor infrastructure history, and global telemetry. "
+            "Key AI-derived findings:</p>"
+            "<div class=’kv’>"
+            f"<div class=’kv-key’>Predictive Risk</div><div class=’kv-val’><strong>{risk}/10</strong></div>"
+            f"<div class=’kv-key’>Actor Fingerprint</div><div class=’kv-val’>{_h(actor)}</div>"
+            f"<div class=’kv-key’>AI Confidence</div><div class=’kv-val’>{_h(ai_conf)}</div>"
+            f"<div class=’kv-key’>TTP Density</div><div class=’kv-val’>{len(ttps)} techniques mapped</div>"
+            "</div>"
+            "<div class=’premium-lock-v2’ style=’margin-top:16px’>"
+            "<div class=’plv2-header’>"
+            "<div class=’plv2-icon’>&#x1F916;</div>"
+            "<div><div class=’plv2-title’>APEX AI ANALYST NARRATIVE &mdash; ENTERPRISE</div>"
+            "<div class=’plv2-sub’>Full narrative unlocked for Enterprise &amp; MSSP subscribers</div></div>"
+            "</div>"
+            "<div class=’plv2-actions’>"
+            f"<a class=’cta cta-enterprise’ href=’https://intel.cyberdudebivash.com/upgrade.html?plan=enterprise&utm_source=report-ai-lock&utm_medium=unlock-btn’ target=’_blank’ rel=’noopener’>&#9733; Unlock Enterprise &rarr;</a>"
+            "<a class=’cta cta-secondary’ href=’https://intel.cyberdudebivash.com/upgrade.html?plan=pro&utm_source=report-ai-lock&utm_medium=unlock-btn’ target=’_blank’ rel=’noopener’>Try Pro &rarr;</a>"
+            "</div>"
+            "</div>"
+        )
+    sections.append(_section(15, "APEX AI Analyst Insight", _s15_body))
 
     # ── S16: References & Enterprise CTA ──────────────────────────────────
     refs = []
@@ -1372,8 +1454,11 @@ def build_report_sections(item: dict) -> str:
         _render_financial_impact(sev, risk, sectors_tagged)
     ))
 
-    # ── S18: Detection Engineering Pack ───────────────────────────────────
-    sigma_rule = _render_sigma_rule(title, ttps, iocs)
+    # ── S18: Detection Engineering Pack — APEX Enhanced Detection v148.1 ───
+    if _APEX_UPGRADE_AVAILABLE:
+        sigma_rule = _apex_sigma(title, ttps, iocs, item)
+    else:
+        sigma_rule = _render_sigma_rule(title, ttps, iocs)
     yara_rule  = _render_yara_rule(title, iocs, actor)
     kql_q, spl_q = _render_hunt_queries(title, ttps, iocs)
 
