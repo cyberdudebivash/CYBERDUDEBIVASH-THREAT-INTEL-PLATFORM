@@ -203,7 +203,7 @@ _VULN_CLASS_MAP = [
      "template_injection"),
     (re.compile(r'\bopen.redirect|\bunvalidated.redirect', re.I),
      "open_redirect"),
-    (re.compile(r'\brandsom|\bencrypt.files|\bcrypt.locker', re.I),
+    (re.compile(r'\brandsom|\bRaaS\b|\braas\b|\bransomware.as.a|\bencrypt.files|\bcrypt.locker', re.I),
      "ransomware"),
     (re.compile(r'\binfo.steal|\bstealer\b|\bcredential.steal', re.I),
      "infostealer"),
@@ -759,20 +759,113 @@ def render_ttps_premium(ttps: list, item: Dict[str, Any]) -> str:
 
 _ACTOR_PROFILES: Dict[str, Dict[str, Any]] = {
     "CDB-CVE-GEN": {
-        "display":       "Opportunistic Vulnerability Exploitation Cluster",
-        "aliases":       ["CVE-OP-CLUSTER", "APEX-GENERIC-VULN"],
-        "type":          "Opportunistic",
-        "sophistication":"Low-Medium",
-        "motivation":    "Financial gain, access brokerage, botnet expansion",
-        "targeting":     "Broad opportunistic scanning — all sectors with unpatched internet-facing assets",
-        "ttps_signature":["T1190", "T1595", "T1078"],
-        "infrastructure":"Rotating VPS infrastructure across commodity hosting providers; frequent IP cycling",
-        "assessment":    (
+        "display":        "Opportunistic Vulnerability Exploitation Cluster",
+        "aliases":        ["CVE-OP-CLUSTER", "APEX-GENERIC-VULN"],
+        "type":           "Opportunistic",
+        "sophistication": "Low-Medium",
+        "motivation":     "Financial gain, access brokerage, botnet expansion",
+        "targeting":      "Broad opportunistic scanning — all sectors with unpatched internet-facing assets",
+        "ttps_signature": ["T1190", "T1595", "T1078"],
+        "infrastructure": "Rotating VPS infrastructure across commodity hosting providers; frequent IP cycling",
+        "geo_nexus":      "Origin indeterminate",
+        "assessment":     (
             "This cluster represents the opportunistic exploitation tier — automated scanners "
             "rapidly identify and attempt to exploit newly disclosed CVEs within 24–72 hours of "
             "public disclosure. Attribution confidence is LOW to MEDIUM. Initial access achieved "
             "via this cluster is frequently sold to higher-sophistication actors via access brokers "
             "on dark web markets."
+        ),
+    },
+    "The Gentlemen": {
+        "display":        "The Gentlemen RaaS Group",
+        "aliases":        ["The Gentlemen RaaS", "Gentlemen Ransomware", "GENTLEMEN-RAAS"],
+        "type":           "Ransomware-as-a-Service (RaaS) Operator",
+        "sophistication": "High",
+        "motivation":     "Double-extortion financial gain — encryption + data exfiltration + public leak site pressure",
+        "targeting":      "Enterprise organisations with internet-exposed Fortinet/Cisco edge devices; finance, healthcare, manufacturing, logistics",
+        "ttps_signature": ["T1190", "T1078.001", "T1486", "T1490", "T1059.001", "T1562.001", "T1070"],
+        "infrastructure": "RaaS affiliate model; Tor-hosted leak site; compromised edge device relay; leased bulletproof VPS with automated IP rotation",
+        "geo_nexus":      "Suspected: Eastern European cybercriminal ecosystem; specific nation-state nexus unconfirmed",
+        "assessment":     (
+            "The Gentlemen operates as a sophisticated RaaS affiliate group with specialised capability "
+            "targeting enterprise network edge infrastructure. The group systematically exploits "
+            "unpatched Fortinet FortiOS authentication bypass vulnerabilities (CVE-2024-55591) and "
+            "Cisco edge device vulnerabilities (CVE-2025-32433, CVE-2025-33073) to achieve initial "
+            "access without phishing or social engineering — a hallmark of operationally mature RaaS "
+            "affiliates. Post-exploitation follows a disciplined kill chain: credential extraction "
+            "from compromised appliances, internal lateral movement via valid admin credentials, "
+            "targeted data staging for double-extortion, and coordinated ransomware deployment. "
+            "APEX assesses this group as HIGH sophistication with MEDIUM-HIGH operational security. "
+            "The group's reliance on edge device CVEs suggests active vulnerability research or "
+            "procurement from specialist access brokers. Victim sectors face simultaneous encryption "
+            "and data leak threats with 72-96 hour payment windows."
+        ),
+    },
+    "Gentlemen RaaS": {
+        "display":        "The Gentlemen RaaS Group",
+        "aliases":        ["The Gentlemen", "Gentlemen Ransomware"],
+        "type":           "Ransomware-as-a-Service (RaaS) Operator",
+        "sophistication": "High",
+        "motivation":     "Double-extortion financial gain — encryption + data exfiltration + public leak site pressure",
+        "targeting":      "Enterprise organisations with internet-exposed Fortinet/Cisco edge devices; finance, healthcare, manufacturing, logistics",
+        "ttps_signature": ["T1190", "T1078.001", "T1486", "T1490", "T1059.001"],
+        "infrastructure": "RaaS affiliate model; Tor-hosted leak site; leased bulletproof VPS",
+        "geo_nexus":      "Suspected: Eastern European cybercriminal ecosystem",
+        "assessment":     (
+            "RaaS affiliate group specialising in edge device exploitation for initial access. "
+            "See 'The Gentlemen' profile for full intelligence."
+        ),
+    },
+    "LockBit": {
+        "display":        "LockBit Ransomware Group",
+        "aliases":        ["LockBit 3.0", "LockBit Black", "LockBit 2.0"],
+        "type":           "Ransomware-as-a-Service (RaaS) Operator",
+        "sophistication": "High",
+        "motivation":     "Double-extortion financial gain; largest ransomware group by victim volume 2022–2024",
+        "targeting":      "No sector restriction — high-value enterprise targets across all verticals globally",
+        "ttps_signature": ["T1486", "T1490", "T1059.001", "T1562.001", "T1027"],
+        "infrastructure": "Mature RaaS affiliate portal; Tor leak sites; fast-flux bulletproof hosting",
+        "geo_nexus":      "Russia-aligned criminal ecosystem; known operator nationality: Russian Federation",
+        "assessment":     (
+            "LockBit operates the world's most prolific RaaS platform by affiliate count and victim volume. "
+            "Despite law enforcement disruption (Operation Cronos, Feb 2024), affiliate infrastructure "
+            "reconstituted rapidly. APEX tracks 340+ confirmed victims across 45 countries. "
+            "Technical capabilities include custom EDR bypass, ESXi encryption for VMware environments, "
+            "and automated lateral movement via compromised domain credentials."
+        ),
+    },
+    "ALPHV": {
+        "display":        "ALPHV/BlackCat Ransomware Group",
+        "aliases":        ["BlackCat", "ALPHV", "Noberus"],
+        "type":           "Ransomware-as-a-Service (RaaS) Operator",
+        "sophistication": "High",
+        "motivation":     "Double-extortion; pioneered triple-extortion (DDoS + encryption + leak)",
+        "targeting":      "Healthcare, finance, energy; highest-value enterprise targets",
+        "ttps_signature": ["T1486", "T1490", "T1059.003", "T1134", "T1027.002"],
+        "infrastructure": "Rust-based ransomware (cross-platform); multiple Tor leak sites",
+        "geo_nexus":      "Russia-aligned; suspected ties to former REvil/DarkSide affiliates",
+        "assessment":     (
+            "ALPHV/BlackCat is technically sophisticated, using a Rust-based payload capable of "
+            "targeting Windows, Linux, and VMware ESXi. Following FBI disruption (December 2023), "
+            "the group conducted the Change Healthcare attack (February 2024) — the largest US "
+            "healthcare sector breach on record. Status: partially disrupted; affiliate activity ongoing."
+        ),
+    },
+    "Cl0p": {
+        "display":        "Cl0p Ransomware Group",
+        "aliases":        ["TA505", "CloP", "FIN11"],
+        "type":           "Ransomware / Extortion Group",
+        "sophistication": "High",
+        "motivation":     "Mass exploitation of enterprise file-transfer solutions for bulk data extortion",
+        "targeting":      "Organisations using MOVEit, GoAnywhere MFT, Accellion FTA; finance, legal, healthcare",
+        "ttps_signature": ["T1190", "T1505.003", "T1041", "T1486"],
+        "infrastructure": "Multiple Tor leak sites; automated data exfiltration pipelines",
+        "geo_nexus":      "Russia-aligned (suspected Ukraine/Russia-based operators)",
+        "assessment":     (
+            "Cl0p specialises in mass exploitation of secure file transfer platforms, achieving "
+            "thousands of victims per campaign with minimal manual effort. MOVEit campaign (2023) "
+            "affected 2,700+ organisations. Distinguished by data-only extortion model (no encryption) "
+            "in recent campaigns — maximum impact with lower operational footprint."
         ),
     },
 }
@@ -1273,11 +1366,25 @@ _KILL_CHAIN_TEMPLATES: Dict[str, List[Dict[str, str]]] = {
         {"phase": "Actions on Obj.", "desc": "BEC fraud, data theft, lateral movement, or ransomware staging executed."},
     ],
     "ransomware": [
-        {"phase": "Reconnaissance",  "desc": "Target organisation profiled; backup infrastructure, crown jewel assets, and domain topology mapped."},
-        {"phase": "Initial Access",  "desc": "RDP brute force, phishing email, or unpatched CVE exploitation achieves initial foothold."},
-        {"phase": "Lateral Movement","desc": "Credential harvesting enables pivot across the estate; domain admin obtained via Kerberoasting or Pass-the-Hash."},
-        {"phase": "Exfiltration",    "desc": "Crown jewel data staged and exfiltrated to actor-controlled infrastructure — double-extortion preparation."},
-        {"phase": "Impact",          "desc": "Ransomware payload deployed organisation-wide; backups and shadow copies wiped; ransom demand issued."},
+        {"phase": "Reconnaissance",    "desc": "Target profiled via OSINT: Shodan/Censys scanning for unpatched edge devices; corporate revenue and insurance coverage researched to calibrate ransom demand."},
+        {"phase": "Initial Access",    "desc": "RDP brute force, phishing email, or CVE exploitation of VPN/edge appliance achieves initial foothold (T1190, T1133, T1078.001)."},
+        {"phase": "Persistence",       "desc": "Backdoor account created on compromised appliance; scheduled task or service installed for re-entry (T1078, T1053.005)."},
+        {"phase": "Discovery",         "desc": "Internal network enumerated: AD structure, file share topology, backup server locations, and ESXi infrastructure mapped (T1018, T1069, T1083)."},
+        {"phase": "Lateral Movement",  "desc": "Credential harvesting enables estate-wide pivot; domain admin privileges obtained via Kerberoasting or Pass-the-Hash (T1003.001, T1550.002)."},
+        {"phase": "Exfiltration",      "desc": "Crown jewel data staged and exfiltrated via TOR or SFTP to actor-controlled infrastructure — double-extortion preparation. Volume typically 50–500 GB (T1041, T1048)."},
+        {"phase": "Defense Evasion",   "desc": "EDR/AV disabled via legitimate admin tools; event logs cleared; Windows Defender exclusions added (T1562.001, T1070.001)."},
+        {"phase": "Impact",            "desc": "Ransomware payload deployed organisation-wide via GPO or PsExec; shadow copies and backups wiped; ransom demand issued with 72-96h payment window (T1486, T1490)."},
+    ],
+    "raas_edge_device": [
+        {"phase": "Reconnaissance",    "desc": "Automated Shodan/Censys enumeration identifies internet-facing Fortinet/Cisco SSL-VPN gateways. Firmware version fingerprinting determines patch status. Corporate profile researched for ransom calibration."},
+        {"phase": "Initial Access",    "desc": "CVE exploitation of edge device authentication bypass or pre-auth RCE (e.g., Fortinet CVE-2024-55591, Cisco CVE-2025-32433). No user interaction required — perimeter credential bypass achieved directly."},
+        {"phase": "Persistence",       "desc": "Rogue local admin account created on the compromised appliance. SSL-VPN backdoor session established. Actor maintains persistent access via compromised device credentials without further exploitation."},
+        {"phase": "Internal Discovery","desc": "Compromised edge device used as authenticated jump host. Internal network topology enumerated: AD domain controllers, file servers, backup targets, ESXi clusters, and finance systems identified (T1018, T1046)."},
+        {"phase": "Credential Access", "desc": "Active Directory credential harvesting via DCSync or LSASS dump. High-value service accounts, backup operator accounts, and domain admin credentials extracted (T1003.001, T1003.006)."},
+        {"phase": "Lateral Movement",  "desc": "Domain admin credentials enable estate-wide pivot via legitimate RDP, WMI, and PsExec. No novel exploits required — fully authenticated access to all domain-joined systems (T1021.001, T1047)."},
+        {"phase": "Data Exfiltration", "desc": "Crown jewel identification: financial records, customer PII, IP, legal documents. Staged and exfiltrated to TOR-accessible actor infrastructure via encrypted channel. Double-extortion leverage established (T1041)."},
+        {"phase": "Defense Evasion",   "desc": "EDR processes terminated via signed driver abuse or legitimate admin tooling. Windows event logs cleared. Volume shadow copies deleted via vssadmin. Backup agents disabled (T1562.001, T1070.001, T1490)."},
+        {"phase": "Ransomware Deploy", "desc": "Ransomware payload distributed to all reachable endpoints via Group Policy Object or PsExec. ESXi datastores encrypted directly. Ransom demand delivered with 72-96h payment window and threat of data publication on Tor leak site."},
     ],
     "ssrf": [
         {"phase": "Reconnaissance",  "desc": "Internet-facing application endpoints accepting URL parameters identified via Shodan or manual enumeration."},
@@ -1345,6 +1452,15 @@ def generate_kill_chain_html(item: Dict[str, Any], kc_phases: List[str] = None) 
             vuln_class = "path_traversal"
         elif "auth bypass" in lc or "authentication bypass" in lc:
             vuln_class = "auth_bypass"
+        # Edge-device RaaS: ransomware exploiting network appliance CVEs
+        if vuln_class == "ransomware" and any(
+            kw in lc for kw in (
+                "fortinet", "cisco", "fortigate", "fortios", "palo alto", "edge device",
+                "vpn", "ssl vpn", "citrix", "pulse secure", "ivanti", "sonicwall",
+                "raas", "ransomware-as-a-service"
+            )
+        ):
+            vuln_class = "raas_edge_device"
         template = _KILL_CHAIN_TEMPLATES.get(vuln_class, _DEFAULT_KILL_CHAIN)
         if kc_phases:
             filtered = [t for t in template if any(
@@ -1444,10 +1560,40 @@ def generate_enhanced_sigma(title: str, ttps: list, iocs: list, item: Dict[str, 
       - '\\w3wp.exe'
       - '\\java.exe'
       - '\\python.exe'
+      - '\\nginx.exe'
+      - '\\httpd.exe'
     Image|endswith:
       - '\\cmd.exe'
       - '\\powershell.exe'
+      - '\\bash'
+      - '\\sh'
   condition: selection_webshell"""
+        elif vuln_class == "ransomware":
+            logsource = "category: process_creation\n  product: windows"
+            detect_block = """detection:
+  selection_impact:
+    CommandLine|contains:
+      - 'vssadmin delete shadows'
+      - 'wbadmin delete catalog'
+      - 'bcdedit /set {default}'
+      - 'cipher /w:'
+      - 'wevtutil cl System'
+      - 'wevtutil cl Security'
+      - 'Get-WmiObject Win32_ShadowCopy'
+    Image|endswith:
+      - '\\\\vssadmin.exe'
+      - '\\\\wbadmin.exe'
+      - '\\\\bcdedit.exe'
+      - '\\\\powershell.exe'
+  selection_mass_encrypt:
+    CommandLine|re: '\\.(doc|docx|xls|xlsx|pdf|jpg|png|zip|bak|sql)\\b'
+    Image|endswith:
+      - '\\\\cmd.exe'
+      - '\\\\powershell.exe'
+  condition: selection_impact or selection_mass_encrypt
+  falsepositives:
+    - Legitimate backup software operations
+    - IT maintenance scripts"""
         elif vuln_class in ("missing_authorization", "auth_bypass"):
             logsource = "category: webserver"
             detect_block = """detection:
@@ -1502,21 +1648,943 @@ level: {level}"""
         _log.error("generate_enhanced_sigma failed: %s", exc)
         return f"# Sigma rule generation failed: {exc}"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# MODULE 8 — ENTERPRISE EXECUTIVE SUMMARY ENGINE
+# Analyst-authored threat-specific narratives; replaces raw feed description
+# ─────────────────────────────────────────────────────────────────────────────
+
+_EXEC_SUMMARY_TEMPLATES = {
+    "remote_code_execution": [
+        (
+            "{product} is affected by a {severity}-severity remote code execution vulnerability "
+            "enabling unauthenticated attackers to execute arbitrary OS commands on affected servers "
+            "via a specially crafted network request. This class of vulnerability represents the "
+            "highest-value initial access vector for ransomware operators, APT groups, and access "
+            "brokers — successful exploitation yields immediate full server compromise without "
+            "requiring prior credentials or local access.\n\n"
+            "{kev_paragraph}"
+            "Organisations running unpatched versions must treat this as an emergency: apply the "
+            "vendor patch within 4 hours, implement network-layer egress filtering to suppress "
+            "lateral movement, and activate EDR behavioural alerting for anomalous child-process "
+            "spawning from the affected service. Post-exploitation sequences observed in prior "
+            "campaigns targeting this class include credential harvesting, C2 beacon installation, "
+            "lateral movement within 4 hours, and ransomware staging within 24 hours."
+        ),
+        (
+            "A critical attack surface has been identified in {product}: a remote code execution "
+            "vulnerability enables adversaries with network access to the affected endpoint to "
+            "achieve arbitrary command execution at the privilege level of the running service. "
+            "The exploitation technique requires no prior authentication and has been reproduced "
+            "in commodity scanning tools circulating across attacker communities.\n\n"
+            "{kev_paragraph}"
+            "Threat actors exploiting this class typically escalate within 4-6 hours: credential "
+            "harvesting from process memory, lateral movement to adjacent systems, and ransomware "
+            "staging are the expected post-exploitation sequence. Defenders must prioritise "
+            "patching, EDR telemetry review, and network segmentation ahead of broader assessment."
+        ),
+    ],
+    "sql_injection": [
+        (
+            "{product} contains a SQL injection vulnerability in its database interaction layer "
+            "allowing an attacker to manipulate backend queries through unsanitised user input. "
+            "Exploitation enables direct read and write access to the underlying database "
+            "including authentication tables, PII datasets, financial records, and service "
+            "credentials stored in application configuration.\n\n"
+            "{kev_paragraph}"
+            "This vulnerability carries immediate regulatory exposure: unauthorised database "
+            "access constitutes a personal data breach under GDPR Article 33 and triggers "
+            "mandatory 72-hour notification requirements. Organisations in financial services "
+            "additionally face DPDP and PCI-DSS breach disclosure obligations. "
+            "Immediate actions: deploy WAF SQL metacharacter rules, activate database activity "
+            "monitoring, and audit application query parameterisation across all endpoints."
+        ),
+    ],
+    "ssrf": [
+        (
+            "{product} is vulnerable to Server-Side Request Forgery (SSRF), allowing an attacker "
+            "to cause the application server to issue arbitrary HTTP requests to internal network "
+            "addresses or cloud metadata endpoints. In cloud-hosted deployments this provides "
+            "direct access to the instance metadata service (IMDS), enabling theft of IAM "
+            "credentials and full cloud account takeover without any additional exploitation step.\n\n"
+            "{kev_paragraph}"
+            "SSRF exploitation in cloud environments frequently results in full cloud account "
+            "compromise: stolen IAM credentials carry organisation-wide permissions that survive "
+            "instance termination. Immediate actions: enforce IMDSv2 on all cloud instances, "
+            "implement egress filtering blocking 169.254.169.254 and 100.100.100.200, and "
+            "audit all URL-fetching functions for allowlist validation."
+        ),
+    ],
+    "path_traversal": [
+        (
+            "{product} contains a path traversal vulnerability that allows an attacker to read "
+            "arbitrary files from the server file system by submitting directory traversal "
+            "sequences (e.g., ../../../etc/passwd) via the affected file access parameter. "
+            "Exploitable targets include application configuration files, private SSH keys, "
+            "database credentials stored in environment files, and sensitive source code.\n\n"
+            "{kev_paragraph}"
+            "Path traversal exposing credentials or private keys leads directly to full system "
+            "compromise in a secondary attack wave. Rotate all potentially exposed credentials "
+            "immediately in parallel with patch deployment. Implement path canonicalisation "
+            "validation and restrict file access to defined application root directories."
+        ),
+    ],
+    "xss": [
+        (
+            "{product} is vulnerable to cross-site scripting (XSS), enabling an attacker to "
+            "inject malicious JavaScript into pages served to other users. Depending on injection "
+            "context, exploitation can steal session cookies, capture credentials entered by "
+            "victims, perform DOM manipulation to redirect users, or deliver drive-by malware "
+            "downloads — all executed in the trusted context of the vulnerable application.\n\n"
+            "{kev_paragraph}"
+            "Stored XSS in administrative panels poses the highest risk: a single injected "
+            "payload targeting an admin account grants full application control. Deploy "
+            "Content Security Policy headers immediately, enforce output encoding across "
+            "all user-controlled fields, and scan stored content for existing injections."
+        ),
+    ],
+    "auth_bypass": [
+        (
+            "{product} contains an authentication bypass vulnerability allowing an unauthenticated "
+            "attacker to access protected application functionality, administrative endpoints, or "
+            "sensitive data without presenting valid credentials. The flaw exists in the "
+            "authentication control logic and can be exploited by manipulating request parameters, "
+            "tokens, or session attributes via the network.\n\n"
+            "{kev_paragraph}"
+            "Authentication bypass to administrative functionality is operationally equivalent "
+            "to full application compromise — an adversary with admin access can read all "
+            "data, modify application behaviour, and establish persistent backdoor access. "
+            "Disable or network-restrict the affected endpoint immediately pending patch deployment."
+        ),
+    ],
+    "privilege_escalation": [
+        (
+            "{product} is affected by a local privilege escalation vulnerability allowing a "
+            "low-privilege user or process with local access to elevate permissions to SYSTEM, "
+            "root, or equivalent on the affected host. This is typically exploited as the "
+            "second stage in an attack chain following initial access via phishing, RCE, or "
+            "credential theft to achieve full host control.\n\n"
+            "{kev_paragraph}"
+            "Local privilege escalation is the critical bridge between low-privilege initial "
+            "access and domain-wide compromise. An attacker with SYSTEM or root can dump all "
+            "credentials from host memory, pivot to connected systems, and establish persistence "
+            "that survives user-context detection. Patch this in parallel with any active "
+            "incident investigation."
+        ),
+    ],
+    "denial_of_service": [
+        (
+            "{product} is vulnerable to a denial-of-service attack allowing an unauthenticated "
+            "remote attacker to crash the affected service or exhaust system resources by sending "
+            "specially crafted requests, causing complete service unavailability or severe "
+            "performance degradation for legitimate users.\n\n"
+            "{kev_paragraph}"
+            "DoS vulnerabilities in production services carry direct SLA and revenue impact. "
+            "Repeated exploitation may serve as a precursor to ransomware extortion campaigns "
+            "targeting SLA-sensitive environments. Implement rate limiting at the network "
+            "perimeter, deploy WAF rules to filter malformed request patterns, and establish "
+            "availability monitoring with automated incident response triggers."
+        ),
+    ],
+    "deserialization": [
+        (
+            "{product} is affected by an insecure deserialization vulnerability enabling "
+            "remote code execution by an attacker who submits a maliciously crafted serialised "
+            "object to the application deserialisation endpoint. Exploitation triggers a "
+            "gadget chain within the application class path, resulting in arbitrary code "
+            "execution at the application privilege level.\n\n"
+            "{kev_paragraph}"
+            "Insecure deserialization vulnerabilities in enterprise middleware are consistently "
+            "targeted by APT groups for initial access. The exploitation technique is "
+            "well-documented with public proof-of-concept tooling. Emergency patch deployment "
+            "is required — implement deserialisation filtering as a compensating control "
+            "until patch is applied."
+        ),
+    ],
+    "ransomware": [
+        (
+            "Ransomware activity has been identified targeting organisations running {product} "
+            "or connected infrastructure. Threat actors conduct multi-stage operations: "
+            "initial access via phishing or RDP exploitation, lateral movement using harvested "
+            "credentials, data exfiltration to attacker-controlled infrastructure, followed "
+            "by mass file encryption and ransom demand delivery.\n\n"
+            "{kev_paragraph}"
+            "Modern ransomware operations employ double extortion: stolen data is published "
+            "on dark web leak sites if ransom is not paid, creating regulatory breach exposure "
+            "in addition to operational disruption. Activate your ransomware response playbook "
+            "immediately: validate offline backup integrity, segment high-value servers, and "
+            "engage your IR team before encryption events are detected."
+        ),
+    ],
+    "memory_corruption": [
+        (
+            "{product} contains a memory corruption vulnerability including heap overflow, "
+            "stack overflow, or use-after-free condition that may be exploited by an attacker "
+            "to achieve denial of service, information disclosure, or arbitrary code execution "
+            "depending on the specific memory layout and exploitation technique applied.\n\n"
+            "{kev_paragraph}"
+            "Memory corruption in kernel or privileged components directly yields privilege "
+            "escalation to SYSTEM or root. Exploit mitigations (ASLR, DEP/NX, CFI) raise "
+            "the exploitation bar but do not eliminate risk against skilled adversaries. "
+            "Emergency patching is required; implement process isolation as an interim control."
+        ),
+    ],
+    "information_disclosure": [
+        (
+            "{product} is vulnerable to information disclosure, allowing an unauthenticated "
+            "attacker to access sensitive data including internal system details, application "
+            "credentials, private cryptographic material, or user personal information "
+            "through the exposed endpoint or error condition.\n\n"
+            "{kev_paragraph}"
+            "Information disclosure vulnerabilities frequently serve as reconnaissance enablers "
+            "for subsequent high-impact attacks. Exposed credentials, API keys, or internal "
+            "network topology provide adversaries with intelligence needed to plan targeted "
+            "follow-on exploitation. Treat any exposed credentials as immediately compromised "
+            "and rotate them before addressing the underlying vulnerability."
+        ),
+    ],
+    "command_injection": [
+        (
+            "{product} is vulnerable to OS command injection through unsanitised input "
+            "passed directly to a system shell. An attacker submitting crafted command "
+            "sequences via the affected parameter achieves arbitrary operating system command "
+            "execution on the hosting server with the application privilege level.\n\n"
+            "{kev_paragraph}"
+            "Command injection provides attackers with direct OS shell access, operationally "
+            "equivalent to RCE. Web shell deployment is the typical immediate post-exploitation "
+            "action, providing persistent server-side access that survives application restarts. "
+            "Patch immediately and audit the server file system for existing web shell implants."
+        ),
+    ],
+    "xxe": [
+        (
+            "{product} contains an XML External Entity (XXE) injection vulnerability allowing "
+            "an attacker to read arbitrary files from the server file system, conduct SSRF "
+            "against internal services, or cause denial of service via entity expansion by "
+            "submitting a maliciously crafted XML document to the affected parsing endpoint.\n\n"
+            "{kev_paragraph}"
+            "XXE injection combining file read with SSRF capability enables both credential "
+            "theft and internal network reconnaissance in a single exploitation step. Disable "
+            "external entity processing in the XML parser configuration immediately as an "
+            "emergency compensating control pending patch deployment."
+        ),
+    ],
+    "generic": [
+        (
+            "CYBERDUDEBIVASH SENTINEL APEX has identified a {severity}-severity security "
+            "advisory affecting {product}. The vulnerability presents an exploitable attack "
+            "surface that adversaries may leverage for initial access, data exposure, or "
+            "service disruption depending on deployment context and network exposure.\n\n"
+            "{kev_paragraph}"
+            "Assess the advisory against your asset inventory, identify affected versions, "
+            "and apply the vendor-provided patch within your risk-tiered patching SLA. "
+            "Deploy the APEX detection pack (Sigma, YARA, KQL) to identify exploitation "
+            "attempts against your environment during the remediation window."
+        ),
+    ],
+}
+
+_REGULATORY_EXPOSURE = {
+    "sql_injection":         "GDPR Art.33 (72-hr breach notification), PCI-DSS Req.6, DPDP Act, HIPAA 45 CFR 164.308.",
+    "path_traversal":        "GDPR Art.33 (personal data exposure risk), PCI-DSS Req.6, HIPAA (PHI exposure risk).",
+    "information_disclosure":"GDPR Art.33, DPDP Act Clause 8, PCI-DSS Req.6.",
+    "auth_bypass":           "GDPR Art.25 (data protection by design), PCI-DSS Req.7, SOX IT controls.",
+    "ransomware":            "GDPR Art.33/34, DPDP Act, HIPAA Breach Rule, SEC cybersecurity disclosure.",
+    "remote_code_execution": "GDPR Art.32, NIS2 Directive (significant incident reporting), SEC disclosure.",
+    "ssrf":                  "GDPR Art.32, SOC 2 Trust Services (cloud security), PCI-DSS Req.6.",
+    "memory_corruption":     "NIS2 Directive, GDPR Art.32, DPDP Act.",
+}
+
+_KEV_URGENCY = (
+    "<strong>WARNING — CISA KEV CONFIRMED:</strong> This vulnerability has been added to the CISA "
+    "Known Exploited Vulnerabilities (KEV) catalogue, confirming active exploitation in the wild. "
+    "CISA Binding Operational Directive 22-01 requires US federal agencies to remediate within "
+    "mandated timelines. All organisations should treat this as an emergency. Evidence of "
+    "exploitation precedes your organisation's awareness — assume some assets may already be "
+    "compromised. Execute immediate triage against your asset inventory."
+)
+
+_NO_KEV = (
+    "No confirmed exploitation has been recorded in the CISA Known Exploited Vulnerabilities "
+    "catalogue at time of analysis. However, proof-of-concept availability and attacker tooling "
+    "integration timelines suggest exploitation in the wild is probable within 14-30 days of "
+    "public disclosure for vulnerabilities of this class and severity."
+)
+
+
+def generate_executive_summary(item):
+    """MODULE 8: Generate analyst-authored executive summary HTML. Never raises."""
+    try:
+        title  = str(item.get("title") or item.get("name") or "")
+        desc   = str(item.get("description") or item.get("summary") or "")
+        sev    = str(item.get("severity") or "MEDIUM").upper()
+        risk   = float(item.get("risk_score") or 5.0)
+        kev    = bool(item.get("kev") or item.get("in_kev"))
+        cvss   = item.get("cvss_score") or item.get("cvss")
+        epss   = item.get("epss_score") or item.get("epss")
+        ttps   = item.get("ttps") or []
+        iocs   = item.get("iocs") or []
+
+        vuln_class = _detect_vuln_class(title, desc)
+        product    = _extract_product(title) if title else "the affected component"
+        if not product or len(product) < 4:
+            product = title[:60] if title else "the affected system"
+
+        seed_str  = str(item.get("id") or item.get("stix_id") or title)
+        seed_hash = int(hashlib.md5(seed_str.encode("utf-8", errors="replace")).hexdigest(), 16)
+
+        templates = _EXEC_SUMMARY_TEMPLATES.get(vuln_class, _EXEC_SUMMARY_TEMPLATES["generic"])
+        template  = templates[seed_hash % len(templates)]
+
+        kev_paragraph = (
+            "<div class='callout critical' style='margin:14px 0'>"
+            + _KEV_URGENCY + "</div>\n"
+            if kev else
+            "<p style='color:var(--muted);font-size:12px'>" + _NO_KEV + "</p>\n"
+        )
+
+        body = template.format(
+            product=product,
+            severity=sev,
+            kev_paragraph=kev_paragraph,
+        )
+
+        cvss_disp = "CVSS " + str(cvss) if cvss is not None else "CVSS Pending"
+        epss_disp = "EPSS " + str(epss) + "%" if epss is not None else "EPSS Pending"
+        kev_disp  = "CISA KEV CONFIRMED" if kev else "Not in CISA KEV"
+        kev_color = "var(--critical)" if kev else "var(--muted)"
+        ioc_count = len(iocs)
+        ttp_count = len(ttps)
+
+        metric_bar = (
+            "<div style='display:flex;flex-wrap:wrap;gap:12px;margin:16px 0;"
+            "padding:14px;background:rgba(255,255,255,0.03);border-radius:6px;"
+            "border:1px solid var(--border)'>"
+            "<div style='text-align:center'><div style='font-size:20px;font-weight:900;"
+            "color:var(--accent)'>" + str(risk) + "</div><div style='font-size:10px;"
+            "color:var(--muted);font-family:var(--font-mono)'>RISK/10</div></div>"
+            "<div style='text-align:center'><div style='font-size:16px;font-weight:700;"
+            "color:var(--text)'>" + cvss_disp + "</div><div style='font-size:10px;"
+            "color:var(--muted);font-family:var(--font-mono)'>SEVERITY</div></div>"
+            "<div style='text-align:center'><div style='font-size:16px;font-weight:700;"
+            "color:var(--text)'>" + epss_disp + "</div><div style='font-size:10px;"
+            "color:var(--muted);font-family:var(--font-mono)'>EXPLOIT PROB</div></div>"
+            "<div style='text-align:center'><div style='font-size:14px;font-weight:700;"
+            "color:" + kev_color + "'>" + kev_disp + "</div><div style='font-size:10px;"
+            "color:var(--muted);font-family:var(--font-mono)'>KEV STATUS</div></div>"
+            "<div style='text-align:center'><div style='font-size:16px;font-weight:700;"
+            "color:var(--text)'>" + str(ttp_count) + " TTPs / " + str(ioc_count) + " IOCs</div>"
+            "<div style='font-size:10px;color:var(--muted);font-family:var(--font-mono)'>"
+            "INTEL DEPTH</div></div>"
+            "</div>"
+        )
+
+        reg_note = _REGULATORY_EXPOSURE.get(vuln_class, "")
+        reg_html = (
+            "<p style='margin-top:12px;font-size:11px;color:var(--muted)'>"
+            "<strong>Regulatory Exposure:</strong> " + reg_note + "</p>"
+            if reg_note else ""
+        )
+
+        paragraphs = [p.strip() for p in body.split("\n\n") if p.strip()]
+        body_html  = "".join(
+            p if p.startswith("<") else "<p style='margin-bottom:12px'>" + p + "</p>"
+            for p in paragraphs
+        )
+        return metric_bar + body_html + reg_html
+
+    except Exception as exc:
+        _log.error("generate_executive_summary failed: %s", exc)
+        desc_safe = str(item.get("description") or item.get("summary") or "No description available.")
+        return "<p>" + desc_safe[:800] + "</p>"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MASTER ENRICHMENT FUNCTION
+# MODULE 9 — ADVERSARY ATTRIBUTION ENGINE
+# ─────────────────────────────────────────────────────────────────────────────
+
+_ARTIFACT_ACTORS = {
+    "UNC-CDB-INGEST", "CDB-CVE-GEN", "CDB-INGEST", "UNCLASSIFIED",
+    "UNKNOWN", "N/A", "NONE", "UNC-GENERIC", "CDB-GENERIC",
+    "UNC-CDB-GENERIC", "CDB-RSS-INGEST", "CDB-FEED-INGEST",
+    "UNATTRIBUTED",
+}
+
+_VULN_CLASS_ACTOR_PROFILES = {
+    "ransomware": {
+        "cluster_label": "Ransomware Ecosystem Actor",
+        "type": "Financially Motivated Ransomware Operator",
+        "sophistication": "Medium-High",
+        "motivation": "Financial extortion via double-extortion ransomware deployment",
+        "targeting": "Healthcare, finance, manufacturing, logistics — sectors with SLA sensitivity",
+        "infra": "RaaS affiliate model; Tor-based leak sites; leased VPS C2 with rotation",
+        "confidence": "LOW",
+        "confidence_basis": "Attribution inferred from ransomware operational pattern; specific actor cluster not confirmed.",
+        "geo_nexus": "Suspected: Eastern Europe, Russia-aligned criminal ecosystem",
+        "uncertainty": "Multiple ransomware groups use identical TTPs. Cluster disambiguation requires IOC correlation.",
+    },
+    "remote_code_execution": {
+        "cluster_label": "Opportunistic Exploitation Cluster",
+        "type": "Access Broker / Opportunistic Threat Actor",
+        "sophistication": "Low-Medium",
+        "motivation": "Initial access sales, cryptomining, botnet recruitment, ransomware affiliate activity",
+        "targeting": "Mass-scanning opportunistic across all sectors running unpatched internet-facing services",
+        "infra": "Commodity cloud VPS; automated exploit framework scanning pipelines",
+        "confidence": "UNATTRIBUTED",
+        "confidence_basis": "No actor-specific attribution available. Exploitation expected from opportunistic mass-scanning actors within 7 days of public disclosure.",
+        "geo_nexus": "Origin indeterminate",
+        "uncertainty": "RCE vulnerabilities attract multiple concurrent actor clusters. Attribution requires IOC-level infrastructure correlation.",
+    },
+    "apt": {
+        "cluster_label": "Nation-State / Advanced Persistent Threat",
+        "type": "Advanced Persistent Threat (APT)",
+        "sophistication": "High",
+        "motivation": "Espionage, intellectual property theft, strategic intelligence collection, pre-positioning",
+        "targeting": "Government, defence, critical infrastructure, aerospace, energy, financial sector",
+        "infra": "Custom implant infrastructure; living-off-the-land (LOTL) techniques; long-term persistent access",
+        "confidence": "LOW",
+        "confidence_basis": "APT-class attribution inferred from TTP sophistication; specific nation-state origin unconfirmed.",
+        "geo_nexus": "Origin indeterminate — APT cluster characteristics suggest state-nexus or state-sponsored sponsorship",
+        "uncertainty": "Multi-actor convergence possible. TTPs observed across multiple state-affiliated groups.",
+    },
+    "infostealer": {
+        "cluster_label": "Credential Theft Ecosystem Actor",
+        "type": "Financially Motivated Infostealer Operator",
+        "sophistication": "Low-Medium",
+        "motivation": "Bulk credential theft, session cookie harvesting, dark web marketplace sales",
+        "targeting": "Broad consumer and enterprise targeting; focus on high-value credential holders",
+        "infra": "MaaS (Malware-as-a-Service) stealer ecosystem; Telegram-based credential markets",
+        "confidence": "UNATTRIBUTED",
+        "confidence_basis": "Attribution inferred from infostealer operational pattern and dark web distribution model.",
+        "geo_nexus": "Suspected: CIS-region cybercriminal ecosystem",
+        "uncertainty": "Infostealer MaaS operators serve hundreds of affiliates. Individual actor cluster indeterminate.",
+    },
+    "ssrf": {
+        "cluster_label": "Cloud-Targeting Threat Cluster",
+        "type": "Cloud Infrastructure Targeting Actor",
+        "sophistication": "Medium",
+        "motivation": "Cloud account takeover, credential resale, cryptomining, data exfiltration",
+        "targeting": "Cloud-hosted services (AWS, Azure, GCP); containerised workloads; microservices",
+        "infra": "Automated cloud scanning; ephemeral VPS infrastructure; cloud-native C2 services",
+        "confidence": "UNATTRIBUTED",
+        "confidence_basis": "SSRF exploitation pattern consistent with cloud-targeting threat cluster; specific actor unconfirmed.",
+        "geo_nexus": "Origin indeterminate",
+        "uncertainty": "SSRF exploitation is a commodity capability. Multiple concurrent actor clusters expected.",
+    },
+    "sql_injection": {
+        "cluster_label": "Data Exfiltration Cluster",
+        "type": "Financially Motivated Data Theft Actor",
+        "sophistication": "Low-Medium",
+        "motivation": "Database exfiltration, credential theft, and dark web data monetisation",
+        "targeting": "Web applications with database backends; e-commerce, healthcare, financial services",
+        "infra": "Automated SQLi scanning tools (sqlmap); commodity C2; dark web data brokers",
+        "confidence": "UNATTRIBUTED",
+        "confidence_basis": "SQL injection exploitation pattern consistent with opportunistic data theft actor; specific cluster unconfirmed.",
+        "geo_nexus": "Origin indeterminate",
+        "uncertainty": "High-frequency automated exploitation expected from multiple concurrent opportunistic actors.",
+    },
+    "generic": {
+        "cluster_label": "Untracked Threat Cluster",
+        "type": "Unattributed Threat Actor",
+        "sophistication": "Unknown",
+        "motivation": "Undetermined — exploitation vector suggests opportunistic or targeted activity",
+        "targeting": "Organisations running affected software version in internet-exposed configuration",
+        "infra": "Attribution-insufficient for infrastructure assessment",
+        "confidence": "UNATTRIBUTED",
+        "confidence_basis": "Insufficient intelligence for actor attribution. Monitor threat intelligence feeds for actor-specific indicators.",
+        "geo_nexus": "Origin unknown",
+        "uncertainty": "Attribution requires additional IOC-level intelligence correlation.",
+    },
+}
+
+_CONFIDENCE_COLORS = {
+    "HIGH":         "#22c55e",
+    "MEDIUM":       "#f59e0b",
+    "LOW":          "#ea580c",
+    "UNATTRIBUTED": "#8b949e",
+}
+
+
+def _is_artifact_actor(actor):
+    """Return True if actor string is a system-generated artifact."""
+    if not actor or not actor.strip():
+        return True
+    a = actor.strip().upper()
+    if a in _ARTIFACT_ACTORS:
+        return True
+    if re.match(r'^(CDB-|UNC-CDB|UNC_CDB)', a):
+        return True
+    return False
+
+
+# Named actor patterns — scanned against title + description when actor is an artifact
+_NAMED_ACTOR_SCAN: List[Tuple[re.Pattern, str]] = [
+    (re.compile(r'\bgentlemen\s*raas\b|\bthe\s+gentlemen\b', re.I), "The Gentlemen"),
+    (re.compile(r'\blockbit\b', re.I), "LockBit"),
+    (re.compile(r'\balphv\b|\bblackcat\b|\bnoberus\b', re.I), "ALPHV"),
+    (re.compile(r'\bcl0p\b|\bcl\.0p\b|\bclop\b|\bta505\b', re.I), "Cl0p"),
+    (re.compile(r'\blazarus\b', re.I), "Lazarus Group"),
+    (re.compile(r'\bapt28\b|\bfancy\s*bear\b|\bsofacy\b', re.I), "APT28"),
+    (re.compile(r'\bapt29\b|\bcozy\s*bear\b|\bnobelium\b', re.I), "APT29"),
+    (re.compile(r'\bapt41\b|\bwinnti\b', re.I), "APT41"),
+    (re.compile(r'\bsandworm\b', re.I), "Sandworm"),
+    (re.compile(r'\bscattered\s*spider\b|\bocto\s*tempest\b', re.I), "Scattered Spider"),
+    (re.compile(r'\bblackbasta\b|\bblack\s*basta\b', re.I), "Black Basta"),
+    (re.compile(r'\bplay\s*ransomware\b|\bplay\s*raas\b', re.I), "Play Ransomware"),
+    (re.compile(r'\bmedusa\s*locker\b|\bmedusa\s*ransomware\b', re.I), "MedusaLocker"),
+    (re.compile(r'\bunc1069\b', re.I), "UNC1069"),
+    (re.compile(r'\bunc6692\b', re.I), "UNC6692"),
+]
+
+
+def resolve_actor_cluster(actor, item):
+    """
+    MODULE 9: Resolve actor cluster to operationally meaningful attribution.
+    Named-actor scan → registry lookup → vuln-class profile fallback.
+    Returns structured actor profile dict. Never raises.
+    """
+    try:
+        title       = str(item.get("title") or "")
+        desc        = str(item.get("description") or item.get("summary") or "")
+        threat_type = str(item.get("threat_type") or "").lower()
+        vuln_class  = _detect_vuln_class(title, desc)
+
+        # ── PASS 0: Named-actor scan (title + description) ──────────────────
+        # Detect specific named actor from intelligence content even when the
+        # actor field carries an artifact placeholder like CDB-RAN-GEN.
+        _combined = title + " " + desc
+        for _pat, _named_actor in _NAMED_ACTOR_SCAN:
+            if _pat.search(_combined):
+                _known = _ACTOR_PROFILES.get(_named_actor)
+                if _known:
+                    return {
+                        "display_name":     _known["display"],
+                        "cluster_id":       _named_actor,
+                        "type":             _known["type"],
+                        "sophistication":   _known["sophistication"],
+                        "motivation":       _known["motivation"],
+                        "targeting":        _known["targeting"],
+                        "infra":            _known["infrastructure"],
+                        "confidence":       "MEDIUM",
+                        "confidence_basis": (
+                            f"Named actor '{_known['display']}' identified via intelligence content analysis. "
+                            "Attribution based on actor-specific TTPs, infrastructure patterns, and campaign context. "
+                            "Confidence elevated from content-match — IOC-level corroboration recommended."
+                        ),
+                        "geo_nexus":        _known.get("geo_nexus", "See actor profile"),
+                        "uncertainty":      "Content-pattern attribution — verify via IOC cross-correlation.",
+                        "is_artifact":      False,
+                    }
+
+        if not _is_artifact_actor(actor):
+            known = _ACTOR_PROFILES.get(actor)
+            if known:
+                return {
+                    "display_name": known["display"],
+                    "cluster_id":   actor,
+                    "type":         known["type"],
+                    "sophistication": known["sophistication"],
+                    "motivation":   known["motivation"],
+                    "targeting":    known["targeting"],
+                    "infra":        known["infrastructure"],
+                    "confidence":   "HIGH",
+                    "confidence_basis": "Named threat actor tracked in APEX global actor registry with confirmed TTPs.",
+                    "geo_nexus":    known.get("geo_nexus", "See actor profile"),
+                    "uncertainty":  "Low uncertainty — actor cluster confirmed via multi-source intelligence.",
+                    "is_artifact":  False,
+                }
+
+        is_artifact = _is_artifact_actor(actor)
+
+        if "ransomware" in threat_type or "ransom" in (title + desc).lower():
+            profile_key = "ransomware"
+        elif "apt" in actor.lower() or "apt" in threat_type:
+            profile_key = "apt"
+        elif vuln_class in _VULN_CLASS_ACTOR_PROFILES:
+            profile_key = vuln_class
+        else:
+            profile_key = "generic"
+
+        p = _VULN_CLASS_ACTOR_PROFILES.get(profile_key, _VULN_CLASS_ACTOR_PROFILES["generic"])
+
+        if is_artifact:
+            display_name = p["cluster_label"]
+            cluster_id   = "APEX-UNATTR-" + vuln_class.upper()[:8]
+        else:
+            display_name = actor
+            cluster_id   = actor
+
+        return {
+            "display_name":     display_name,
+            "cluster_id":       cluster_id,
+            "type":             p["type"],
+            "sophistication":   p["sophistication"],
+            "motivation":       p["motivation"],
+            "targeting":        p["targeting"],
+            "infra":            p["infra"],
+            "confidence":       p["confidence"],
+            "confidence_basis": p["confidence_basis"],
+            "geo_nexus":        p["geo_nexus"],
+            "uncertainty":      p["uncertainty"],
+            "is_artifact":      is_artifact,
+        }
+
+    except Exception as exc:
+        _log.error("resolve_actor_cluster failed: %s", exc)
+        return {
+            "display_name": actor or "Unattributed",
+            "cluster_id":   actor or "APEX-UNATTR",
+            "type": "Unknown", "sophistication": "Unknown",
+            "motivation": "Unknown", "targeting": "Unknown",
+            "infra": "Unknown", "confidence": "UNATTRIBUTED",
+            "confidence_basis": "Resolution failed.",
+            "geo_nexus": "Unknown", "uncertainty": "Unknown",
+            "is_artifact": True,
+        }
+
+
+def generate_actor_intelligence_v2(actor, item):
+    """
+    MODULE 9: Enhanced actor intelligence HTML with attribution engine. Never raises.
+    """
+    try:
+        profile  = resolve_actor_cluster(actor, item)
+        ttps     = item.get("ttps") or []
+        campaign = str(item.get("campaign") or item.get("_apex_campaign_derived") or "UNCLASSIFIED")
+
+        conf       = profile["confidence"]
+        conf_color = _CONFIDENCE_COLORS.get(conf, "#8b949e")
+        is_artifact = profile["is_artifact"]
+
+        conf_badge = (
+            "<span style='background:" + conf_color + "22;border:1px solid " + conf_color + "44;"
+            "color:" + conf_color + ";font-family:var(--font-mono);font-size:10px;"
+            "font-weight:800;padding:3px 10px;border-radius:3px;letter-spacing:1px'>"
+            "ATTRIBUTION CONFIDENCE: " + conf + "</span>"
+        )
+
+        uncertainty_html = ""
+        if conf in ("UNATTRIBUTED", "LOW") or is_artifact:
+            uncertainty_html = (
+                "<div class='callout' style='margin-top:12px;border-color:#f59e0b44'>"
+                "<strong>Attribution Uncertainty:</strong> " + profile["uncertainty"] +
+                "</div>"
+            )
+
+        html = (
+            "<div class='actor-card'>"
+            "<div class='actor-icon'>⚔</div>"
+            "<div class='actor-body'>"
+            "<h3>" + profile["display_name"] + "</h3>"
+            "<p>" + conf_badge + "</p>"
+            "<p style='margin-top:8px;color:var(--muted);font-size:11px'>"
+            "Tracking ID: <code>" + profile["cluster_id"] + "</code> | "
+            "Campaign Cluster: <code>" + campaign + "</code></p>"
+            "</div></div>"
+            "<div class='apex-intel-grid' style='margin-top:16px'>"
+            "<div class='apex-intel-item'><span class='apex-label'>Actor Type</span>"
+            "<span class='apex-value'>" + profile["type"] + "</span></div>"
+            "<div class='apex-intel-item'><span class='apex-label'>Sophistication</span>"
+            "<span class='apex-value'>" + profile["sophistication"] + "</span></div>"
+            "<div class='apex-intel-item'><span class='apex-label'>Primary Motivation</span>"
+            "<span class='apex-value'>" + profile["motivation"] + "</span></div>"
+            "<div class='apex-intel-item'><span class='apex-label'>Targeting Profile</span>"
+            "<span class='apex-value'>" + profile["targeting"] + "</span></div>"
+            "<div class='apex-intel-item'><span class='apex-label'>Infrastructure Pattern</span>"
+            "<span class='apex-value'>" + profile["infra"] + "</span></div>"
+            "<div class='apex-intel-item'><span class='apex-label'>Geographic Nexus</span>"
+            "<span class='apex-value'>" + profile["geo_nexus"] + "</span></div>"
+            "</div>"
+            "<div class='callout' style='margin-top:16px'>"
+            "<p><strong>Attribution Basis:</strong> " + profile["confidence_basis"] + "</p>"
+            "</div>"
+            + uncertainty_html
+        )
+
+        # ── Deep assessment narrative from actor profile registry ──────────
+        _known_profile  = _ACTOR_PROFILES.get(profile["cluster_id"]) or {}
+        _assessment_txt = _known_profile.get("assessment", "")
+        if _assessment_txt:
+            html += (
+                "<div class='callout' style='margin-top:14px;border-color:#60a5fa44'>"
+                "<strong>APEX Analyst Assessment:</strong><br>"
+                "<p style='margin-top:8px;line-height:1.6'>" + _assessment_txt + "</p>"
+                "</div>"
+            )
+
+        if ttps:
+            _ttp_ids = []
+            for t in ttps[:8]:
+                if isinstance(t, dict):
+                    tid = t.get("technique_id") or t.get("id") or ""
+                    tname = t.get("technique_name") or t.get("name") or ""
+                    if tid:
+                        _ttp_ids.append(f"<code style='font-size:10px;background:rgba(96,165,250,.1);"
+                                        f"border:1px solid rgba(96,165,250,.3);padding:2px 6px;"
+                                        f"border-radius:3px'>{tid}</code>"
+                                        + (f" {tname}" if tname else ""))
+                else:
+                    _ttp_ids.append(f"<code style='font-size:10px'>{t}</code>")
+            html += (
+                "<div style='margin-top:12px'>"
+                "<strong style='font-size:11px;color:var(--muted);text-transform:uppercase;"
+                "letter-spacing:1px'>ATT&amp;CK Techniques Mapped</strong><br>"
+                "<div style='display:flex;flex-wrap:wrap;gap:6px;margin-top:8px'>"
+                + "".join(_ttp_ids) +
+                "</div></div>"
+            )
+
+        html += (
+            "<div class='callout' style='margin-top:14px'>"
+            "<strong>Enterprise Intelligence:</strong> APEX Enterprise subscribers receive "
+            "automated actor tracking reports, infrastructure pivot analysis, dark web monitoring "
+            "alerts, and proactive notification when this cluster shows new campaign activity. "
+            "Actor dossiers include: TTP timeline, infrastructure graph, victim sector mapping, "
+            "and real-time IOC feeds correlated to this actor cluster."
+            "</div>"
+        )
+        return html
+
+    except Exception as exc:
+        _log.error("generate_actor_intelligence_v2 failed: %s", exc)
+        return "<p>Actor attribution for cluster <code>" + str(actor) + "</code> is under analysis.</p>"
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MODULE 10 — IOC SEMANTIC CLASSIFICATION ENGINE
+# ─────────────────────────────────────────────────────────────────────────────
+
+_WEAK_INDICATOR_RE = re.compile(
+    r'\b(github\.com|nvd\.nist\.gov|cve\.mitre\.org|vulners\.com|exploit-db\.com|'
+    r'cvedetails\.com|packetstormsecurity\.com|rapid7\.com|tenable\.com|'
+    r'securityfocus\.com|metasploit|advisory|readme|changelog|release|announce)\b',
+    re.I,
+)
+
+
+def classify_ioc(value, context=""):
+    """MODULE 10: Classify a single IOC semantically. Never raises."""
+    try:
+        v = str(value or "").strip()
+        if not v or len(v) < 4:
+            return {"type": "unknown", "trust": 0, "usefulness": 0,
+                    "action": "Suppress — empty or too short", "operational": False}
+
+        if _is_source_url(v):
+            return {"type": "source_reference", "trust": 0, "usefulness": 0,
+                    "action": "Suppress — source reference URL, not an indicator",
+                    "operational": False}
+
+        if re.match(r'^CVE-\d{4}-\d+$', v, re.I):
+            return {"type": "cve_reference", "trust": 0, "usefulness": 0,
+                    "action": "Suppress — CVE identifier, not a deployable indicator",
+                    "operational": False}
+
+        if _WEAK_INDICATOR_RE.search(v):
+            return {"type": "weak_indicator", "trust": 10, "usefulness": 5,
+                    "action": "Suppress — framework/vendor reference, not actionable",
+                    "operational": False}
+
+        # SHA-256
+        if re.match(r'^[0-9a-fA-F]{64}$', v):
+            return {"type": "sha256", "trust": 95, "usefulness": 90,
+                    "action": "SHA-256 file hash — deploy to EDR and AV blocklist immediately",
+                    "operational": True}
+        # SHA-1
+        if re.match(r'^[0-9a-fA-F]{40}$', v):
+            return {"type": "sha1", "trust": 85, "usefulness": 80,
+                    "action": "SHA-1 file hash — deploy to EDR and AV blocklist",
+                    "operational": True}
+        # MD5
+        if re.match(r'^[0-9a-fA-F]{32}$', v):
+            return {"type": "md5", "trust": 80, "usefulness": 75,
+                    "action": "MD5 file hash — deploy to EDR blocklist",
+                    "operational": True}
+        # IPv4
+        if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(/\d{1,2})?$', v):
+            return {"type": "ipv4", "trust": 75, "usefulness": 80,
+                    "action": "IPv4 indicator — block at egress firewall, NGFW, and proxy",
+                    "operational": True}
+        # Email
+        if re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$', v):
+            return {"type": "email", "trust": 70, "usefulness": 65,
+                    "action": "Email indicator — block at email gateway, monitor for BEC",
+                    "operational": True}
+        # URL (non-reference)
+        if re.match(r'^https?://', v, re.I):
+            return {"type": "url", "trust": 80, "usefulness": 85,
+                    "action": "URL indicator — block at proxy and web gateway",
+                    "operational": True}
+        # Domain
+        if re.match(r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$', v):
+            return {"type": "domain", "trust": 75, "usefulness": 80,
+                    "action": "Domain indicator — block at DNS RPZ layer and proxy",
+                    "operational": True}
+
+        return {"type": "unknown", "trust": 30, "usefulness": 25,
+                "action": "Manual analyst review required", "operational": False}
+
+    except Exception as exc:
+        _log.error("classify_ioc failed: %s", exc)
+        return {"type": "unknown", "trust": 0, "usefulness": 0,
+                "action": "Classification error", "operational": False}
+
+
+def generate_ioc_intelligence_table(iocs, item):
+    """MODULE 10: Generate enriched IOC table HTML with semantic classification. Never raises."""
+    try:
+        vuln_class = _detect_vuln_class(
+            str(item.get("title") or ""),
+            str(item.get("description") or "")
+        )
+
+        if not iocs:
+            behaviour_map = {
+                "ssrf":               "Monitor outbound requests to 169.254.169.254 and RFC-1918 ranges from application servers.",
+                "sql_injection":      "Monitor WAF for SQL metacharacter patterns (UNION SELECT, OR 1=1, xp_cmdshell) in request parameters.",
+                "remote_code_execution": "Monitor for anomalous child process spawning from web server processes (cmd.exe, bash from IIS/Apache/nginx).",
+                "path_traversal":     "Monitor HTTP requests containing ../ or URL-encoded equivalents (%2F%2E%2E) in file path parameters.",
+                "xss":                "Monitor for script injection patterns in HTTP request parameters and stored content.",
+                "auth_bypass":        "Monitor for authentication endpoint access patterns inconsistent with normal user behaviour.",
+                "command_injection":  "Monitor for shell metacharacters (;, |, &, `) in HTTP request parameters.",
+                "ransomware":         "Monitor for shadow copy deletion (vssadmin delete), mass file rename events, and abnormal encryption key generation.",
+                "generic":            "Deploy APEX Sigma rules to identify exploitation attempts against this vulnerability class.",
+            }
+            hint = behaviour_map.get(vuln_class, behaviour_map["generic"])
+            return (
+                "<div class='callout'>"
+                "<strong>No Operational IOCs Extracted</strong> — "
+                "This advisory does not contain network or file-based indicators at time of analysis. "
+                "Behavioural detection recommended: " + hint +
+                "</div>"
+                "<p style='margin-top:10px;color:var(--muted);font-size:11px'>"
+                "Subscribe to APEX Enterprise for real-time IOC feeds as adversary "
+                "infrastructure is identified and correlated to this advisory.</p>"
+            )
+
+        rows = []
+        operational_count = 0
+        suppressed_count  = 0
+
+        for ioc in iocs:
+            if isinstance(ioc, dict):
+                val     = str(ioc.get("value") or ioc.get("indicator") or ioc.get("id") or "")
+                context = str(ioc.get("context") or ioc.get("type") or "")
+                source  = str(ioc.get("source") or "APEX-INTEL")
+                conf_pct = ioc.get("confidence", None)
+            else:
+                val     = str(ioc).strip()
+                context = ""
+                source  = "APEX-INTEL"
+                conf_pct = None
+
+            if not val:
+                continue
+
+            classification = classify_ioc(val, context)
+
+            if not classification["operational"]:
+                suppressed_count += 1
+                continue
+
+            operational_count += 1
+            ioc_type  = classification["type"].upper()
+            trust     = classification["trust"]
+            action    = classification["action"]
+
+            # Confidence display: prefer explicit value from IOC dict
+            if conf_pct is not None:
+                try:
+                    c = float(conf_pct)
+                    conf_display = f"{int(c)}%"
+                except (ValueError, TypeError):
+                    conf_display = str(conf_pct)
+            else:
+                conf_display = f"{trust}%"
+
+            trust_color = (
+                "#22c55e" if trust >= 80 else
+                "#f59e0b" if trust >= 60 else
+                "#ea580c"
+            )
+            type_badge = (
+                f"<span style='background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);"
+                f"color:#818cf8;font-family:var(--font-mono);font-size:9px;font-weight:700;"
+                f"padding:2px 7px;border-radius:3px;letter-spacing:.5px'>{ioc_type}</span>"
+            )
+
+            rows.append(
+                "<tr>"
+                f"<td>{type_badge}</td>"
+                f"<td style='font-family:var(--font-mono);font-size:11px;word-break:break-all'>{val}</td>"
+                f"<td style='color:{trust_color};font-weight:700'>{conf_display}</td>"
+                f"<td style='font-size:11px;color:var(--muted)'>{context or 'Observed'}</td>"
+                f"<td style='font-size:10px'>{source}</td>"
+                f"<td style='font-size:10px;color:var(--muted)'>{action}</td>"
+                "</tr>"
+            )
+
+        if not rows:
+            return (
+                "<div class='callout'><strong>No Operational IOCs</strong> — "
+                f"All {suppressed_count} indicator(s) suppressed (source references or non-actionable). "
+                "Behavioural detection rules in Section 18 are recommended.</div>"
+            )
+
+        header = (
+            f"<p><strong>{operational_count} operational indicator(s)</strong> extracted"
+            + (f" | {suppressed_count} suppressed (source references)" if suppressed_count else "")
+            + "</p>"
+        )
+        table = (
+            "<table><thead><tr>"
+            "<th>Type</th><th>Indicator</th><th>Confidence</th>"
+            "<th>Context</th><th>Source</th><th>SOC Action</th>"
+            "</tr></thead><tbody>"
+            + "".join(rows)
+            + "</tbody></table>"
+        )
+        return header + table
+
+    except Exception as exc:
+        _log.error("generate_ioc_intelligence_table failed: %s", exc)
+        return "<p>IOC table generation encountered an error.</p>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MASTER ENRICHMENT FUNCTION — Entry point called by generate_intel_reports.py
 # ─────────────────────────────────────────────────────────────────────────────
 
 def enrich_advisory(item: Dict[str, Any]) -> Dict[str, Any]:
-    """Master enrichment. Call at report generation start. Never raises."""
+    """
+    Master enrichment function. Call this at the start of report generation.
+    Applies all APEX intelligence upgrades to the raw advisory item.
+    Returns enriched copy of item. Never raises. Always returns valid dict.
+    """
     try:
         enriched = dict(item)
+
+        # ── TTP enrichment ────────────────────────────────────────────────────
         raw_ttps = enriched.get("ttps") or enriched.get("techniques") or []
         enriched["ttps"] = enrich_ttps_with_evidence(raw_ttps, enriched)
+
+        # ── Campaign derivation when UNCLASSIFIED ─────────────────────────────
         camp = str(enriched.get("campaign") or "")
         if not camp or camp.upper() in ("UNCLASSIFIED", "NONE", "N/A", ""):
             enriched["_apex_campaign_derived"] = _derive_campaign_name(enriched)
+
+        # ── EPSS normalization: basis-point values → percentage ───────────────
+        epss_raw = enriched.get("epss_score")
+        if epss_raw is not None:
+            try:
+                e = float(epss_raw)
+                if e > 100.0:
+                    enriched["epss_score"] = round(e / 100.0, 4)
+            except (ValueError, TypeError):
+                pass
+
         return enriched
+
     except Exception as exc:
         _log.error("enrich_advisory failed: %s", exc)
         return item
