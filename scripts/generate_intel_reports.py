@@ -48,8 +48,41 @@ import json
 import logging
 import os
 import re
+import html as _html_module
 import shutil
 import subprocess
+
+# ── v152.0 P0 FIX: HTML sanitization helpers ─────────────────────────────────
+def _strip_html(text: str) -> str:
+    """Strip HTML tags and decode entities from a text field."""
+    if not isinstance(text, str):
+        return text
+    text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
+    text = re.sub(r'<(script|style)[^>]*>.*?</\1>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = _html_module.unescape(text)
+    text = re.sub(r'[ \t]+', ' ', text)
+    return text.strip()
+
+def _sanitize_intel_text_fields(obj: dict) -> dict:
+    """Strip HTML from all known text fields in an intel entry."""
+    TEXT_FIELDS = [
+        'ai_summary', 'apex_ai_summary', 'executive_summary', 'tactical_assessment',
+        'kill_chain_narrative', 'analyst_note', 'recommended_action', 'summary',
+        'description', 'detect', 'analyze', 'respond', 'mitigation',
+        'recommendations', 'analyst_notes',
+    ]
+    for field in TEXT_FIELDS:
+        if field in obj and isinstance(obj[field], str):
+            obj[field] = _strip_html(obj[field])
+    for key in ('apex_ai', 'apex_ai2'):
+        apex = obj.get(key)
+        if isinstance(apex, dict):
+            for field in TEXT_FIELDS:
+                if field in apex and isinstance(apex[field], str):
+                    apex[field] = _strip_html(apex[field])
+    return obj
+
 # P0 v134.0: IOC enforcement imports
 try:
     from core.intelligence.ioc_enforcer import IOCEnforcer as _IOCEnforcer
@@ -2166,6 +2199,9 @@ def main(argv=None) -> int:
         _words = len((_title + " " + _desc).split())
         is_enriched = _words < 50  # flag thin content but still generate
 
+        # v152.0 P0 FIX: strip HTML from all text fields before schema enforcement + render
+        item = _sanitize_intel_text_fields(item)
+
         # ── SCHEMA ENFORCEMENT (MANDATORY — at write boundary, before render) ──
         item = _safe_enforce_schema(item)
 
@@ -2271,4 +2307,4 @@ def main(argv=None) -> int:
                     _file_valid = True
             except Exception as _val_exc:
                 log(f"VALIDATE WARN [{intel_id}]: HTML check failed (non-fatal): {_val_exc}", "warning")
-                _file_valid = True                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                _file_valid = True

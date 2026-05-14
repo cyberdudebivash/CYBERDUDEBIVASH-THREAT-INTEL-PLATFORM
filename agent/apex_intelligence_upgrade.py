@@ -24,6 +24,19 @@ from typing import Any, Dict, List, Optional, Tuple
 
 _log = logging.getLogger("sentinel.apex_upgrade")
 
+# ── v152.0 P0 FIX: HTML strip utility ────────────────────────────────────────
+import html as _html_mod_apex
+def _strip_html(text: str) -> str:
+    """Strip HTML tags and decode entities — prevents HTML leaking into JSON."""
+    if not isinstance(text, str):
+        return text
+    text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
+    text = re.sub(r'<(script|style)[^>]*>.*?</\1>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = _html_mod_apex.unescape(text)
+    text = re.sub(r'[ \t]+', ' ', text)
+    return text.strip()
+
 # ─────────────────────────────────────────────────────────────────────────────
 # APEX FULL ATT&CK TECHNIQUE REGISTRY
 # Complete name + tactic + description for all commonly observed techniques
@@ -2588,4 +2601,3 @@ def enrich_advisory(item: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as exc:
         _log.error("enrich_advisory failed: %s", exc)
         return item
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
