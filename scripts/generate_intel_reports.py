@@ -2194,7 +2194,6 @@ def main(argv=None) -> int:
     written = 0
     uploaded = 0
     skipped_brand = 0
-    skipped = 0  # v152.1 P0 FIX: alias kept for summary log (see line ~2351)
     errors = 0
     t_start = time.monotonic()
 
