@@ -64,6 +64,93 @@ SKIP_DIRS = {
 
 BOM = b"\xef\xbb\xbf"
 
+# ── Worker JS ASCII enforcement (P0 permanent fix v153.1) ─────────────────────
+# esbuild (Cloudflare Worker bundler) rejects ANY non-ASCII byte with:
+#   "Unexpected <char>" build error.
+# sanitize_encoding.py previously only handled BOM/CRLF/null — it did NOT strip
+# Unicode chars (em dashes U+2014, registered trademark U+00AE, etc.) from Worker
+# JS. This caused the commit-144fc10 P0 regression.
+#
+# WORKER_ASCII_DIRS: relative paths of Worker source directories that require
+# full ASCII enforcement. Any .js/.ts file under these dirs is ASCII-enforced.
+WORKER_ASCII_DIRS: tuple[str, ...] = (
+    "workers/intel-gateway/src",
+)
+
+# Mojibake byte sequences (UTF-8 chars read as raw bytes) and their replacements
+_WORKER_MOJIBAKE: list[tuple[bytes, bytes]] = [
+    (b"\xe2\x80\x94", b" - "),  # em dash U+2014
+    (b"\xe2\x80\x93", b"-"),    # en dash U+2013
+    (b"\xe2\x86\x92", b"->"),   # right arrow U+2192
+    (b"\xc2\xae",     b"(R)"),  # registered trademark U+00AE
+    (b"\xc2\xa9",     b"(C)"),  # copyright U+00A9
+    (b"\xc2\xa0",     b" "),    # non-breaking space U+00A0
+    (b"\xe2\x80\xa2", b"*"),    # bullet U+2022
+    (b"\xe2\x80\x98", b"'"),    # left single quote U+2018
+    (b"\xe2\x80\x99", b"'"),    # right single quote U+2019
+    (b"\xe2\x80\x9c", b'"'),    # left double quote U+201C
+    (b"\xe2\x80\x9d", b'"'),    # right double quote U+201D
+    (b"\xe2\x80\xa6", b"..."),  # ellipsis U+2026
+    (b"\xe2\x80\x8b", b""),     # zero-width space U+200B
+    (b"\xef\xbf\xbd", b"?"),    # replacement char U+FFFD
+    (b"\xef\xbb\xbf", b""),     # BOM
+]
+
+_WORKER_CHAR_MAP: dict[int, str] = {
+    0x00AE: "(R)", 0x00A9: "(C)", 0x2122: "(TM)",
+    0x2014: " - ", 0x2013: "-",  0x2015: "-", 0x2212: "-",
+    0x2192: "->",  0x2190: "<-", 0x21D2: "=>",
+    0x2022: "*",   0x00B7: "*",  0x00A0: " ",
+    0x2026: "...", 0x201C: '"',  0x201D: '"',
+    0x2018: "'",   0x2019: "'",
+    0x200B: "",    0x200C: "",   0x200D: "", 0xFEFF: "",
+}
+
+
+def _is_worker_js(path: pathlib.Path, root: pathlib.Path) -> bool:
+    """Return True if this file is inside a Worker ASCII-enforced source dir."""
+    if path.suffix.lower() not in {".js", ".ts", ".jsx", ".tsx"}:
+        return False
+    try:
+        rel = path.relative_to(root).as_posix()
+    except ValueError:
+        return False
+    return any(rel.startswith(d + "/") for d in WORKER_ASCII_DIRS)
+
+
+def _needs_worker_ascii_fix(data: bytes) -> bool:
+    """Return True if any byte > 127 exists (Worker JS must be pure ASCII)."""
+    return any(b > 127 for b in data)
+
+
+def _sanitize_worker_js(data: bytes) -> bytes:
+    """Strip all non-ASCII from a Worker JS/TS file. Never drops content silently."""
+    if data.startswith(BOM):
+        data = data[3:]
+    for bad, good in _WORKER_MOJIBAKE:
+        data = data.replace(bad, good)
+    data = data.replace(b"\x00", b"\n")
+    data = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    text = data.decode("utf-8", errors="replace")
+    result = []
+    for ch in text:
+        cp = ord(ch)
+        if cp < 0x80:
+            result.append(ch)
+        elif ch == "�":
+            result.append("?")
+        else:
+            repl = _WORKER_CHAR_MAP.get(cp)
+            if repl is not None:
+                result.append(repl)
+            elif 0x2500 <= cp <= 0x257F:
+                result.append("-")
+            elif 0x1F000 <= cp <= 0x1FFFF:
+                result.append("?")
+            else:
+                result.append("?")
+    return "".join(result).encode("ascii")
+
 
 # ── Core logic ────────────────────────────────────────────────────────────────
 
@@ -145,6 +232,38 @@ def run(root: pathlib.Path, fix: bool, strict: bool) -> int:
     """
     files = scan_repo(root)
     infected: list[tuple[pathlib.Path, bool, bool]] = []
+    # --- v153.1: Worker JS ASCII enforcement pass (runs before BOM/CRLF scan) ---
+    # esbuild rejects any non-ASCII byte; sanitize_encoding previously missed this.
+    worker_ascii_failed: list[pathlib.Path] = []
+    for f in files:
+        if not _is_worker_js(f, root):
+            continue
+        try:
+            data = f.read_bytes()
+        except OSError:
+            continue
+        if not _needs_worker_ascii_fix(data):
+            continue
+        rel = f.relative_to(root)
+        if fix:
+            clean = _sanitize_worker_js(data)
+            f.write_bytes(clean)
+            remaining = sum(1 for b in f.read_bytes() if b > 127)
+            if remaining > 0:
+                print(f"  FAIL   [WORKER-ASCII] {rel} ({remaining} non-ASCII remain after fix)")
+                worker_ascii_failed.append(f)
+            else:
+                print(f"  FIXED  [WORKER-ASCII] {rel}")
+        else:
+            count = sum(1 for b in data if b > 127)
+            print(f"  DIRTY  [WORKER-ASCII] {rel} ({count} non-ASCII bytes)")
+            worker_ascii_failed.append(f)
+    if worker_ascii_failed and not fix:
+        print(f"\nFATAL: {len(worker_ascii_failed)} Worker JS file(s) have non-ASCII bytes.")
+        print("Run: python3 scripts/sanitize_encoding.py --fix")
+        if strict:
+            return 1
+    # --- end Worker JS ASCII pass ---
 
     for f in files:
         try:

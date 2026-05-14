@@ -1274,9 +1274,19 @@ async function loadTracker() {
     ]);
 
     if (!tdRes.ok) throw new Error('Failed to load tracker.json');
-    TRACKER = await tdRes.json();
-    if (hdRes.ok) HEALTH = await hdRes.json();
-    if (bdRes.ok) BRIEF  = await bdRes.json();
+    // v153.1 FIX: Unwrap Worker API envelope {status:"ok",data:{...}} -> raw tracker object.
+    // Worker handleAI() wraps every response in {status,gateway,request_id,data}.
+    // Frontend must unwrap before reading engine_alpha / executive_summary / confidence_meter.
+    const _td = await tdRes.json();
+    TRACKER = (_td && _td.status === 'ok' && _td.data) ? _td.data : _td;
+    if (hdRes.ok) {
+      const _hd = await hdRes.json();
+      HEALTH = (_hd && _hd.status === 'ok' && _hd.data) ? _hd.data : _hd;
+    }
+    if (bdRes.ok) {
+      const _bd = await bdRes.json();
+      BRIEF  = (_bd && _bd.status === 'ok' && _bd.data) ? _bd.data : _bd;
+    }
 
     renderAll();
   } catch (err) {

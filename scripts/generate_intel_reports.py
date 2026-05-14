@@ -2194,6 +2194,7 @@ def main(argv=None) -> int:
     written = 0
     uploaded = 0
     skipped_brand = 0
+    skipped = 0  # v152.1 P0 FIX: alias kept for summary log (see line ~2351)
     errors = 0
     t_start = time.monotonic()
 
@@ -2326,3 +2327,43 @@ def main(argv=None) -> int:
             except Exception as _val_exc:
                 log(f"VALIDATE WARN [{intel_id}]: HTML check failed (non-fatal): {_val_exc}", "warning")
                 _file_valid = True
+
+        # -- SUCCESS / FAIL PATH --
+        if _file_valid:
+            yyyy_mm = f"{path.parent.parent.name}/{path.parent.name}"
+            item["report_url"] = f"/reports/{yyyy_mm}/{intel_id}.html"
+            item["internal_report_url"] = item["report_url"]
+            item["validation_status"] = "enriched" if is_enriched else "ok"
+            written += 1
+            if args.upload_r2 and shutil.which("aws"):
+                r2_key = f"reports/{yyyy_mm}/{intel_id}.html"
+                _ep = os.environ.get("CF_R2_ENDPOINT", "")
+                if _ep:
+                    if r2_upload(path, r2_key, _ep):
+                        uploaded += 1
+        else:
+            item["validation_status"] = "file_missing"
+            item["report_url"] = item.get("source_url") or ""
+            errors += 1
+    # -- END MAIN LOOP --
+
+    elapsed = time.monotonic() - t_start
+    log(
+        f"COMPLETE: written={written} uploaded={uploaded} skipped={skipped_brand} "
+        f"errors={errors} total={len(items)} elapsed={elapsed:.1f}s",
+    )
+
+    # Persist manifest
+    data["advisories"] = items
+    save_manifest(data)
+
+    # v152.1: enforce --fail-on-zero flag (was parsed but never checked)
+    if args.fail_on_zero and written == 0:
+        log("FATAL: --fail-on-zero set and written=0 -- no reports generated", "error")
+        return 1
+
+    return 1 if errors > 0 else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

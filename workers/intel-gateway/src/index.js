@@ -122,12 +122,12 @@ function injectVersionHeaders(response, config) {
   headers.set("X-SENTINEL-Version", config.GATEWAY_VERSION);
   headers.set("X-SENTINEL-Platform", "SENTINEL-APEX");
   headers.set("X-SENTINEL-Codename", "GOD-MODE");
-  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v148");
+  headers.set("X-Powered-By", "CYBERDUDEBIVASH-SENTINEL-APEX-v152");
   return new Response(response.body, { status: response.status, headers });
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "148.0.0",  // v152.0.0 ENTERPRISE-GRADE  -  enterprise scoring, IOC hardening, TAXII/MISP/SIEM/SSE endpoints
+  GATEWAY_VERSION:   "152.0.0",  // v152.0.0 ENTERPRISE-GRADE  -  enterprise scoring, IOC hardening, TAXII/MISP/SIEM/SSE endpoints
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
