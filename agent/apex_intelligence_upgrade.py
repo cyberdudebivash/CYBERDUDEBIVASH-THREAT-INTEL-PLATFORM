@@ -484,17 +484,151 @@ def generate_technical_narrative(item: Dict[str, Any]) -> str:
 # Deep ATT&CK with evidence, justification, and kill-chain stage mapping
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# VULN CLASS → ATT&CK INFERENCE MAP
+# Maps vulnerability class to the most appropriate ATT&CK techniques
+# Each entry: (technique_id, confidence, evidence_rationale)
+# ─────────────────────────────────────────────────────────────────────────────
+_VULN_CLASS_TO_ATTCK: Dict[str, List[Tuple[str, str, str]]] = {
+    "remote_code_execution": [
+        ("T1190", "HIGH",     "Internet-facing application exploited to achieve remote code execution."),
+        ("T1059",  "HIGH",    "Adversary executes commands via compromised interpreter post-exploitation."),
+        ("T1505.003", "MEDIUM", "Web shell commonly deployed after RCE to establish persistent server-side access."),
+    ],
+    "sql_injection": [
+        ("T1190", "HIGH",     "SQL injection exploits a public-facing web application to bypass authentication or extract data."),
+        ("T1005", "HIGH",     "Adversary reads data directly from local database storage via injected queries."),
+        ("T1048", "MEDIUM",   "Exfiltration of harvested database contents via out-of-band HTTP or DNS channel."),
+    ],
+    "ssrf": [
+        ("T1190", "HIGH",     "SSRF is triggered via a public-facing application endpoint accepting attacker-controlled URLs."),
+        ("T1552.004", "HIGH", "Cloud instance metadata service (IMDS) accessed via SSRF to steal IAM credentials."),
+        ("T1083", "MEDIUM",   "Internal network services and file paths enumerated via forged server-side requests."),
+    ],
+    "path_traversal": [
+        ("T1190", "HIGH",     "Path traversal exploits insufficient input validation in a public-facing application."),
+        ("T1083", "HIGH",     "Adversary reads arbitrary files by traversing directory structure beyond the web root."),
+        ("T1552.001", "HIGH", "Credentials files (e.g. /etc/passwd, .env) exposed via directory traversal."),
+    ],
+    "xss": [
+        ("T1190", "HIGH",     "Cross-site scripting exploits a vulnerable web application to inject malicious scripts."),
+        ("T1539", "HIGH",     "Session cookies or authentication tokens stolen via injected JavaScript in victim browsers."),
+        ("T1185", "MEDIUM",   "Adversary manipulates browser sessions to hijack authenticated user context."),
+    ],
+    "csrf": [
+        ("T1190", "HIGH",     "CSRF exploits a vulnerable web application by forging authenticated cross-site requests."),
+        ("T1548", "HIGH",     "Attacker performs privileged actions on behalf of victim via forged cross-origin request."),
+    ],
+    "auth_bypass": [
+        ("T1190", "HIGH",     "Authentication bypass exploits a flawed access control check in a public-facing application."),
+        ("T1078", "HIGH",     "Valid account privileges obtained without legitimate authentication credentials."),
+        ("T1548", "MEDIUM",   "Adversary bypasses or abuses access control mechanisms to gain elevated privileges."),
+    ],
+    "privilege_escalation": [
+        ("T1190", "MEDIUM",   "Initial access gained via vulnerable application before privilege escalation."),
+        ("T1068", "HIGH",     "Exploitation of software vulnerability to achieve elevated privilege on target system."),
+        ("T1548", "HIGH",     "Adversary abuses elevation control mechanisms to gain higher-level permissions."),
+    ],
+    "denial_of_service": [
+        ("T1190", "MEDIUM",   "Denial of service condition triggered via crafted requests to public-facing service."),
+        ("T1499", "HIGH",     "Adversary exhausts system resources causing denial of service to legitimate users."),
+        ("T1499.004", "HIGH", "Application layer resource exhaustion via crafted requests overwhelming processing capacity."),
+    ],
+    "information_disclosure": [
+        ("T1190", "HIGH",     "Information disclosure exploits a public-facing application to expose sensitive data."),
+        ("T1005", "HIGH",     "Adversary reads sensitive data from local system storage via the disclosed data path."),
+        ("T1552", "MEDIUM",   "Credentials or secrets exposed via application information disclosure vulnerability."),
+    ],
+    "ransomware": [
+        ("T1486", "HIGH",     "Ransomware encrypts files to deny victim access and demand payment for recovery."),
+        ("T1490", "HIGH",     "Shadow copies and backups deleted to prevent recovery without paying ransom."),
+        ("T1059.001", "HIGH", "PowerShell used to deploy ransomware payload and execute encryption routines."),
+        ("T1070", "MEDIUM",   "Event logs and forensic artefacts cleared to impede incident response."),
+    ],
+    "infostealer": [
+        ("T1555", "HIGH",     "Credentials harvested from password managers, browsers, and application keystores."),
+        ("T1005", "HIGH",     "Sensitive data collected from local system including documents, keys, and config files."),
+        ("T1041", "HIGH",     "Exfiltration of stolen data via established C2 channel."),
+    ],
+    "generic": [
+        ("T1190", "MEDIUM",   "Vulnerability in public-facing application represents the primary exploitation vector."),
+        ("T1203", "MEDIUM",   "Client-side exploitation may be used to achieve code execution on victim system."),
+    ],
+    "missing_authorization": [
+        ("T1190", "HIGH",     "Missing authorization vulnerability in web application allows unauthenticated access to restricted functions."),
+        ("T1548", "HIGH",     "Adversary abuses missing access controls to perform actions requiring elevated privileges."),
+        ("T1078", "MEDIUM",   "Authenticated user context leveraged beyond intended privilege boundaries."),
+    ],
+    "command_injection": [
+        ("T1190", "HIGH",     "Command injection exploits a public-facing application accepting unsanitised OS commands."),
+        ("T1059", "HIGH",     "OS command interpreter abused via injection to execute arbitrary commands on server."),
+        ("T1505.003", "MEDIUM", "Web shell deployed post-exploitation to maintain persistent OS-level access."),
+    ],
+    "deserialization": [
+        ("T1190", "HIGH",     "Insecure deserialization in a public-facing application enables remote code execution."),
+        ("T1059", "HIGH",     "Deserialization gadget chain triggers code execution via manipulated serialised object."),
+        ("T1055", "MEDIUM",   "Process injection used to execute malicious code within trusted application context."),
+    ],
+    "xxe": [
+        ("T1190", "HIGH",     "XXE injection exploits XML parser in public-facing application to access internal resources."),
+        ("T1083", "HIGH",     "Internal file system enumeration via XML external entity injection reading local files."),
+        ("T1552.001", "MEDIUM", "Sensitive credentials and configuration files read via XXE entity expansion."),
+    ],
+}
+
+
+def _infer_ttps_from_vuln_class(item: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Infer ATT&CK techniques from vulnerability class when raw TTPs are empty.
+    Returns a list of enriched TTP dicts with evidence justifications.
+    """
+    title = str(item.get("title") or "")
+    desc = str(item.get("description") or item.get("summary") or "")
+    vuln_class = _detect_vuln_class(title, desc)
+
+    # Check for additional patterns not in main vuln class
+    lc = (title + " " + desc).lower()
+    if "missing authorization" in lc or "missing auth" in lc or "unauthorized" in lc:
+        vuln_class = "missing_authorization"
+    elif "command injection" in lc:
+        vuln_class = "command_injection"
+    elif "deseri" in lc:
+        vuln_class = "deserialization"
+    elif "xxe" in lc or "xml external" in lc:
+        vuln_class = "xxe"
+
+    technique_tuples = _VULN_CLASS_TO_ATTCK.get(vuln_class, _VULN_CLASS_TO_ATTCK["generic"])
+
+    result = []
+    for tid, confidence, rationale in technique_tuples:
+        info = resolve_technique(tid)
+        result.append({
+            "id":            tid,
+            "technique_id":  tid,
+            "name":          info["name"],
+            "tactic":        info["tactic"],
+            "confidence":    confidence,
+            "justification": (
+                f"{info['name']} ({info['tactic']}) — {rationale} "
+                f"[APEX v148.1 inference: vuln_class={vuln_class}]"
+            ),
+        })
+    return result
+
+
 def enrich_ttps_with_evidence(ttps: list, item: Dict[str, Any]) -> list:
     """
     MODULE 2: Enrich TTP list with real technique names, evidence, and justification.
+    When TTPs are absent, infers appropriate techniques from vulnerability class.
     Resolves all T1XXX placeholders to real names. Never raises.
     """
     try:
-        if not ttps:
-            return ttps
-        enriched = []
         title = str(item.get("title") or "")
         desc = str(item.get("description") or item.get("summary") or "")
+        # ── APEX INFERENCE: when no TTPs provided, derive from vuln class ──
+        if not ttps:
+            return _infer_ttps_from_vuln_class(item)
+        enriched = []
         for t in ttps:
             try:
                 if isinstance(t, str):
@@ -541,11 +675,22 @@ def render_ttps_premium(ttps: list, item: Dict[str, Any]) -> str:
     """
     MODULE 2: Render ATT&CK table with full operational intelligence.
     Includes technique descriptions, evidence, and kill-chain stage.
+    When no raw TTPs provided, shows APEX-inferred techniques with clear labeling.
     """
     try:
+        was_inferred = not ttps  # Track if we're showing inferred vs. confirmed TTPs
         enriched = enrich_ttps_with_evidence(ttps, item)
         if not enriched:
             return "<p>No MITRE ATT&amp;CK techniques mapped at this confidence threshold. Enterprise tier includes automated TTP inference.</p>"
+        inference_banner = ""
+        if was_inferred:
+            inference_banner = (
+                "<div class='apex-inference-banner' style='background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;"
+                "padding:10px 14px;border-radius:4px;margin-bottom:14px;font-size:0.85rem;color:var(--text-secondary)'>"
+                "<strong>⚡ APEX AI INFERENCE</strong> — ATT&amp;CK techniques inferred from vulnerability class analysis. "
+                "Confirmed technique mapping available with APEX Enterprise intelligence feeds."
+                "</div>"
+            )
 
         rows = []
         tactic_order = [
@@ -589,9 +734,11 @@ def render_ttps_premium(ttps: list, item: Dict[str, Any]) -> str:
                 )
 
         count = len(enriched)
+        inferred_label = "APEX-INFERRED" if was_inferred else "MAPPED"
         return (
-            f"<p>APEX ATT&amp;CK v16 mapping — <strong>{count} technique{'s' if count != 1 else ''}</strong> "
-            f"mapped with evidence-based confidence scoring. Enterprise subscribers receive MITRE Navigator "
+            inference_banner
+            + f"<p>APEX ATT&amp;CK v16 — <strong>{count} technique{'s' if count != 1 else ''} {inferred_label}</strong> "
+            f"with evidence-based confidence scoring. Enterprise subscribers receive MITRE Navigator "
             f"layer (.json) for direct overlay onto your detection coverage matrix.</p>"
             "<table><thead><tr>"
             "<th>Technique ID</th><th>Name &amp; Evidence</th><th>Tactic</th><th>Confidence</th>"
@@ -962,10 +1109,27 @@ def generate_ai_insight_premium(item: Dict[str, Any]) -> str:
         actor = str(item.get("actor_cluster") or item.get("actor") or "")
         kev = bool(item.get("kev") or item.get("in_kev"))
         cvss = item.get("cvss_score") or item.get("cvss")
-        ai_conf = float(item.get("ai_confidence") or item.get("confidence") or 21.3)
         threat_type = str(item.get("threat_type") or "").lower()
-
         vuln_class = _detect_vuln_class(title, desc)
+
+        # ── DYNAMIC AI CONFIDENCE SCORING (replaces static 15.6% / 21.3%) ──
+        # Base confidence from intelligence data richness
+        _conf_base   = 28.0
+        _conf_ttps   = min(len(ttps) * 6.0, 30.0)          # +6% per TTP, max +30%
+        _conf_cvss   = 12.0 if (cvss and float(cvss or 0) >= 7.0) else (6.0 if (cvss and float(cvss or 0) >= 4.0) else 0.0)
+        _conf_kev    = 18.0 if kev else 0.0                  # +18% if KEV-confirmed
+        _op_iocs     = [i for i in iocs if not _is_source_url(
+            (i.get("value") or i.get("indicator") or str(i)) if isinstance(i, dict) else str(i)
+        )]
+        _conf_iocs   = min(len(_op_iocs) * 4.0, 12.0)       # +4% per operational IOC, max +12%
+        _conf_class  = 4.0 if vuln_class != "generic" else 0.0  # +4% if specific vuln class detected
+        _conf_risk   = min(risk * 0.8, 8.0)                  # up to +8% from risk score
+        ai_conf = min(
+            _conf_base + _conf_ttps + _conf_cvss + _conf_kev + _conf_iocs + _conf_class + _conf_risk,
+            95.0  # Cap at 95% — never claim 100% machine confidence
+        )
+        # Round to 1 decimal
+        ai_conf = round(ai_conf, 1)
         is_cve = bool(re.search(r'CVE-\d{4}-\d+', title))
 
         # Predictive risk horizon (14-day model)
@@ -1110,31 +1274,48 @@ _KILL_CHAIN_TEMPLATES: Dict[str, List[Dict[str, str]]] = {
     ],
     "ransomware": [
         {"phase": "Reconnaissance",  "desc": "Target organisation profiled; backup infrastructure, crown jewel assets, and domain topology mapped."},
-        {"phase": "Initial Access",  "desc": "RDP brute force, phishing, or vulnerability exploitation achieves initial foothold."},
-        {"phase": "Persistence",     "desc": "Backdoor installed; legitimate remote access tools deployed for resilient access."},
-        {"phase": "Lateral Movement","desc": "Pass-the-hash, Kerberoasting, or credential reuse used to spread across domain."},
-        {"phase": "Exfiltration",    "desc": "Sensitive files staged and exfiltrated to adversary cloud infrastructure for double extortion."},
-        {"phase": "Detonation",      "desc": "Ransomware deployed domain-wide; VSS shadow copies deleted; ransom note dropped."},
-        {"phase": "Extortion",       "desc": "Ransom demand issued; countdown timer activated; dark web leak site prepared."},
+        {"phase": "Initial Access",  "desc": "RDP brute force, phishing email, or unpatched CVE exploitation achieves initial foothold."},
+        {"phase": "Lateral Movement","desc": "Credential harvesting enables pivot across the estate; domain admin obtained via Kerberoasting or Pass-the-Hash."},
+        {"phase": "Exfiltration",    "desc": "Crown jewel data staged and exfiltrated to actor-controlled infrastructure — double-extortion preparation."},
+        {"phase": "Impact",          "desc": "Ransomware payload deployed organisation-wide; backups and shadow copies wiped; ransom demand issued."},
+    ],
+    "ssrf": [
+        {"phase": "Reconnaissance",  "desc": "Internet-facing application endpoints accepting URL parameters identified via Shodan or manual enumeration."},
+        {"phase": "Weaponisation",   "desc": "SSRF payload crafted targeting internal cloud metadata service (169.254.169.254) or internal service."},
+        {"phase": "Delivery",        "desc": "Forged server-side HTTP request submitted via vulnerable parameter, webhook, or import function."},
+        {"phase": "Exploitation",    "desc": "Server fetches attacker-controlled URL — internal services, IMDS, or file:// accessed without authorisation."},
+        {"phase": "Credential Access","desc": "IAM credentials, API keys, or internal tokens extracted from cloud metadata service response."},
+        {"phase": "Lateral Movement","desc": "Stolen cloud credentials used to pivot to additional services, S3 buckets, or internal API endpoints."},
     ],
     "path_traversal": [
-        {"phase": "Reconnaissance",  "desc": "File handling endpoints identified via directory enumeration and parameter analysis."},
-        {"phase": "Weaponisation",   "desc": "Path traversal sequences (../../../) crafted to target sensitive configuration files."},
-        {"phase": "Delivery",        "desc": "Malformed file path submitted via API request, upload function, or URL parameter."},
-        {"phase": "Exploitation",    "desc": "Server resolves traversal path; private key, credentials, or config file returned."},
-        {"phase": "Collection",      "desc": "Harvested credentials and keys used to achieve full system compromise."},
+        {"phase": "Reconnaissance",  "desc": "Web application file-serving endpoints identified; traversal payload patterns tested via automated scanner."},
+        {"phase": "Weaponisation",   "desc": "Path traversal payload encoded (URL/Unicode/double-encode) to bypass input sanitisation controls."},
+        {"phase": "Delivery",        "desc": "Crafted traversal string submitted via URL path, file parameter, or API endpoint."},
+        {"phase": "Exploitation",    "desc": "Server traverses beyond web root — sensitive system files (passwd, .env, web.config) accessed."},
+        {"phase": "Collection",      "desc": "Credentials, private keys, database connection strings, and configuration data extracted."},
+        {"phase": "Exfiltration",    "desc": "Harvested secrets used for further access escalation or exfiltrated via HTTP response body."},
     ],
-    "infostealer": [
-        {"phase": "Reconnaissance",  "desc": "High-value targets identified based on browser usage patterns and credential exposure."},
-        {"phase": "Weaponisation",   "desc": "Stealer malware configured to target specific browser data stores and cryptocurrency wallets."},
-        {"phase": "Delivery",        "desc": "Malware delivered via phishing email, malvertising, or trojanised software installer."},
-        {"phase": "Installation",    "desc": "Stealer executes in user context; accesses browser credential database and cookie stores."},
-        {"phase": "Collection",      "desc": "Passwords, session tokens, credit card data, and crypto keys harvested from victim device."},
-        {"phase": "Exfiltration",    "desc": "Stolen data exfiltrated to C2 via HTTP POST; logs uploaded to dark web market within hours."},
+    "auth_bypass": [
+        {"phase": "Reconnaissance",  "desc": "Authentication endpoints and session management identified; bypass vectors researched."},
+        {"phase": "Weaponisation",   "desc": "Auth bypass payload crafted — JWT manipulation, parameter tampering, or logic flaw exploitation."},
+        {"phase": "Delivery",        "desc": "Crafted authentication request submitted — bypasses credential validation without valid credentials."},
+        {"phase": "Exploitation",    "desc": "Authentication control subverted; adversary gains access to restricted functionality as privileged user."},
+        {"phase": "Actions on Obj.", "desc": "Data exfiltration, privilege abuse, account takeover, or administrative function access executed."},
+    ],
+    "missing_authorization": [
+        {"phase": "Reconnaissance",  "desc": "API endpoints and web functions lacking authorisation controls identified via Burp Suite or automated scanning."},
+        {"phase": "Exploitation",    "desc": "Direct API calls made to restricted functions without any authorisation header or role validation."},
+        {"phase": "Actions on Obj.", "desc": "Unauthorised publication, modification, or deletion of resources; privilege abuse at application layer."},
+    ],
+    "information_disclosure": [
+        {"phase": "Reconnaissance",  "desc": "Error pages, debug endpoints, and verbose responses identified as disclosure vectors."},
+        {"phase": "Exploitation",    "desc": "Triggered information disclosure exposes stack traces, credentials, internal paths, or configuration data."},
+        {"phase": "Collection",      "desc": "Disclosed data harvested — API keys, database credentials, and internal topology extracted."},
+        {"phase": "Lateral Movement","desc": "Harvested credentials and internal knowledge used to escalate access across the environment."},
     ],
 }
 
-_DEFAULT_KILL_CHAIN = [
+_DEFAULT_KILL_CHAIN: List[Dict[str, str]] = [
     {"phase": "Reconnaissance",  "desc": "Adversary collects information about the target environment and identifies attack surface."},
     {"phase": "Weaponisation",   "desc": "Exploit code or malicious payload is packaged into a deliverable attack tool."},
     {"phase": "Delivery",        "desc": "Payload is transmitted to the target via observed delivery vector."},
@@ -1145,18 +1326,26 @@ _DEFAULT_KILL_CHAIN = [
 ]
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# MODULE 9 — KILL CHAIN HTML GENERATOR
+# ─────────────────────────────────────────────────────────────────────────────
+
 def generate_kill_chain_html(item: Dict[str, Any], kc_phases: List[str] = None) -> str:
-    """
-    MODULE 9: Generate threat-specific kill chain HTML.
-    Uses vuln class to select appropriate kill chain template. Never raises.
-    """
+    """Generate threat-specific kill chain HTML. Never raises."""
     try:
         title = str(item.get("title") or "")
         desc = str(item.get("description") or item.get("summary") or "")
         vuln_class = _detect_vuln_class(title, desc)
+        lc = (title + " " + desc).lower()
+        if "ssrf" in lc:
+            vuln_class = "ssrf"
+        elif "missing authorization" in lc or "missing auth" in lc:
+            vuln_class = "missing_authorization"
+        elif "path traversal" in lc or "directory traversal" in lc:
+            vuln_class = "path_traversal"
+        elif "auth bypass" in lc or "authentication bypass" in lc:
+            vuln_class = "auth_bypass"
         template = _KILL_CHAIN_TEMPLATES.get(vuln_class, _DEFAULT_KILL_CHAIN)
-
-        # If caller passed specific phases, use them to filter
         if kc_phases:
             filtered = [t for t in template if any(
                 p.lower() in t["phase"].lower() or t["phase"].lower() in p.lower()
@@ -1164,7 +1353,6 @@ def generate_kill_chain_html(item: Dict[str, Any], kc_phases: List[str] = None) 
             )]
             if filtered:
                 template = filtered
-
         kc_html = ""
         for i, phase in enumerate(template, 1):
             kc_html += (
@@ -1183,44 +1371,34 @@ def generate_kill_chain_html(item: Dict[str, Any], kc_phases: List[str] = None) 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MODULE 6 — DETECTION ENGINEERING ENGINE
-# Enhanced Sigma/YARA/KQL/SPL with real technique-based detection logic
 # ─────────────────────────────────────────────────────────────────────────────
 
 def generate_enhanced_sigma(title: str, ttps: list, iocs: list, item: Dict[str, Any] = None) -> str:
-    """
-    MODULE 6: Generate technique-aware Sigma rule with real detection logic.
-    """
+    """Generate technique-aware Sigma rule. Never raises."""
     try:
         item = item or {}
         vuln_class = _detect_vuln_class(title, str(item.get("description") or ""))
-        safe_title = re.sub(r'[^A-Za-z0-9_]', '_', title[:50])
+        lc = title.lower()
+        if "ssrf" in lc:
+            vuln_class = "ssrf"
+        elif "sql" in lc and "inject" in lc:
+            vuln_class = "sql_injection"
+        elif "path traversal" in lc or "directory traversal" in lc:
+            vuln_class = "path_traversal"
+        elif "missing authorization" in lc or "unauthorized" in lc:
+            vuln_class = "missing_authorization"
+
+        safe_title = re.sub(r"[^A-Za-z0-9_]", "_", title[:50])
         date_str = datetime.now(timezone.utc).strftime("%Y/%m/%d")
         technique_tags = []
         for t in ttps[:5]:
-            tid = t.get("id") or t.get("technique_id") or "" if isinstance(t, dict) else str(t)
-            if re.match(r'T\d{4}', tid):
-                technique_tags.append(f"    - attack.{tid.lower()}")
+            tid = (t.get("id") or t.get("technique_id") or "") if isinstance(t, dict) else str(t)
+            if re.match(r"T\d{4}", str(tid)):
+                technique_tags.append(f"    - attack.{str(tid).lower()}")
         tags_block = "\n".join(technique_tags) if technique_tags else "    - attack.t1190"
 
-        # Build detection based on vuln class
-        detect_block = ""
-        if vuln_class == "denial_of_service":
-            detect_block = """detection:
-  selection_anomaly:
-    EventID: 4625
-  selection_resource:
-    EventID:
-      - 7036
-      - 7034
-    param1|contains: 'stopped'
-  selection_network:
-    Initiated: 'true'
-    DestinationPort:
-      - 80
-      - 443
-      - 8080
-  condition: selection_anomaly or selection_resource"""
-        elif vuln_class == "sql_injection":
+        if vuln_class == "sql_injection":
+            logsource = "category: webserver"
             detect_block = """detection:
   selection_sqli:
     cs-uri-query|contains:
@@ -1228,63 +1406,64 @@ def generate_enhanced_sigma(title: str, ttps: list, iocs: list, item: Dict[str, 
       - 'OR 1=1'
       - 'DROP TABLE'
       - '; --'
-      - "' OR '"
+      - "\' OR \'"
       - 'xp_cmdshell'
       - 'EXEC('
       - 'CAST('
-      - 'CONVERT('
   condition: selection_sqli"""
+        elif vuln_class == "ssrf":
+            logsource = "category: proxy"
+            detect_block = """detection:
+  selection_metadata:
+    dst_ip:
+      - '169.254.169.254'
+      - '169.254.170.2'
+  selection_internal:
+    cs-uri-stem|contains:
+      - 'localhost'
+      - '127.0.0.1'
+      - 'file://'
+      - 'metadata.google.internal'
+  condition: selection_metadata or selection_internal"""
         elif vuln_class == "path_traversal":
+            logsource = "category: webserver"
             detect_block = """detection:
   selection_traversal:
     cs-uri-stem|contains:
       - '../'
       - '..%2F'
-      - '..%5C'
-      - '....%2F%2F'
       - '/etc/passwd'
-      - '/etc/shadow'
       - 'win.ini'
-      - 'boot.ini'
+      - '.env'
   condition: selection_traversal"""
-        elif vuln_class == "remote_code_execution":
+        elif vuln_class in ("remote_code_execution", "command_injection"):
+            logsource = "category: process_creation\n  product: windows"
             detect_block = """detection:
   selection_webshell:
-    Image|endswith:
-      - '\\w3wp.exe'
-      - '\\httpd.exe'
-      - '\\nginx.exe'
-    CommandLine|contains:
-      - 'cmd.exe'
-      - 'powershell'
-      - 'whoami'
-      - 'net user'
-  selection_proc:
     ParentImage|endswith:
+      - '\\w3wp.exe'
       - '\\java.exe'
       - '\\python.exe'
-      - '\\node.exe'
     Image|endswith:
       - '\\cmd.exe'
       - '\\powershell.exe'
-      - '\\sh'
-      - '\\bash'
-  condition: selection_webshell or selection_proc"""
+  condition: selection_webshell"""
+        elif vuln_class in ("missing_authorization", "auth_bypass"):
+            logsource = "category: webserver"
+            detect_block = """detection:
+  selection_unauth:
+    sc-status:
+      - 200
+      - 201
+    cs-uri-stem|contains:
+      - '/admin/'
+      - '/api/admin'
+      - '/internal/'
+    cs-username: '-'
+  condition: selection_unauth"""
         else:
-            # Build from IOCs
-            ioc_strings = []
-            for ioc in iocs[:5]:
-                val = (ioc.get("value") or ioc.get("indicator") or "") if isinstance(ioc, dict) else str(ioc)
-                if val and not _is_source_url(val) and len(val) > 4:
-                    ioc_strings.append(f"      - '{val}'")
-            if ioc_strings:
-                detect_block = f"""detection:
-  selection:
-    CommandLine|contains:
-{chr(10).join(ioc_strings)}
-  condition: selection"""
-            else:
-                detect_block = """detection:
+            logsource = "category: process_creation\n  product: windows"
+            detect_block = """detection:
   selection:
     EventID:
       - 4688
@@ -1296,13 +1475,15 @@ def generate_enhanced_sigma(title: str, ttps: list, iocs: list, item: Dict[str, 
       - 'bypass'
   condition: selection"""
 
+        level = "high" if vuln_class in ("remote_code_execution", "ransomware", "auth_bypass", "command_injection") else "medium"
+
         return f"""title: APEX_{safe_title}
 id: apex-{hashlib.md5(title.encode()).hexdigest()[:12]}
 status: experimental
 description: >
   APEX-generated Sigma detection for: {title[:120]}
   Generated by CYBERDUDEBIVASH SENTINEL APEX v148.0.0
-  Vulnerability class: {vuln_class.replace('_', ' ').title()}
+  Vulnerability class: {vuln_class.replace("_", " ").title()}
 references:
   - https://intel.cyberdudebivash.com
   - https://attack.mitre.org
@@ -1311,33 +1492,27 @@ date: {date_str}
 tags:
 {tags_block}
 logsource:
-  category: {'web' if vuln_class in ('sql_injection', 'path_traversal', 'xss', 'ssrf') else 'process_creation'}
-  product: {'linux' if vuln_class in ('path_traversal',) else 'windows'}
+  {logsource}
 {detect_block}
 falsepositives:
   - Legitimate administrative activity
   - Authorised penetration testing
-level: {'high' if vuln_class in ('remote_code_execution', 'ransomware', 'auth_bypass') else 'medium'}"""
+level: {level}"""
     except Exception as exc:
         _log.error("generate_enhanced_sigma failed: %s", exc)
         return f"# Sigma rule generation failed: {exc}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MASTER ENRICHMENT FUNCTION — Entry point for generate_intel_reports.py
+# MASTER ENRICHMENT FUNCTION
 # ─────────────────────────────────────────────────────────────────────────────
 
 def enrich_advisory(item: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Master enrichment function. Call this at the start of report generation.
-    Returns enriched copy of item. Never raises. Always returns valid dict.
-    """
+    """Master enrichment. Call at report generation start. Never raises."""
     try:
         enriched = dict(item)
-        # Enrich TTPs with real names/evidence
         raw_ttps = enriched.get("ttps") or enriched.get("techniques") or []
         enriched["ttps"] = enrich_ttps_with_evidence(raw_ttps, enriched)
-        # Derive campaign operation name if UNCLASSIFIED
         camp = str(enriched.get("campaign") or "")
         if not camp or camp.upper() in ("UNCLASSIFIED", "NONE", "N/A", ""):
             enriched["_apex_campaign_derived"] = _derive_campaign_name(enriched)
