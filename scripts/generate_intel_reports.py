@@ -2194,6 +2194,7 @@ def main(argv=None) -> int:
     written = 0
     uploaded = 0
     skipped_brand = 0
+    skipped = 0  # v152.1 P0 FIX: alias kept for summary log (see line ~2351)
     errors = 0
     t_start = time.monotonic()
 
@@ -2348,13 +2349,18 @@ def main(argv=None) -> int:
 
     elapsed = time.monotonic() - t_start
     log(
-        f"COMPLETE: written={written} uploaded={uploaded} skipped={skipped} "
+        f"COMPLETE: written={written} uploaded={uploaded} skipped={skipped_brand} "
         f"errors={errors} total={len(items)} elapsed={elapsed:.1f}s",
     )
 
     # Persist manifest
     data["advisories"] = items
     save_manifest(data)
+
+    # v152.1: enforce --fail-on-zero flag (was parsed but never checked)
+    if args.fail_on_zero and written == 0:
+        log("FATAL: --fail-on-zero set and written=0 -- no reports generated", "error")
+        return 1
 
     return 1 if errors > 0 else 0
 

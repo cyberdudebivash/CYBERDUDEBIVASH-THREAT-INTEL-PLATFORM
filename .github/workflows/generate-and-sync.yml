@@ -170,6 +170,9 @@ jobs:
       # ─────────────────────────────────────────────────────────────────────
       - name: "STAGE 3 — GATE 1: Python syntax guard (all scripts)"
         run: |
+          # v152.1 P0 HARDENING: py_compile (syntax) + pyflakes (undefined names / NameErrors)
+          # py_compile catches SyntaxError; pyflakes catches NameError, ImportError, unused vars
+          python3 -m pip install pyflakes --quiet 2>&1 | tail -1
           ERRORS=0
           for f in scripts/*.py; do
             [ -f "$f" ] || continue
@@ -180,8 +183,26 @@ jobs:
               ERRORS=$((ERRORS+1))
             fi
           done
-          echo "Syntax errors: ${ERRORS}"
+          echo "Checked scripts/*.py — syntax errors: ${ERRORS}"
           [ "$ERRORS" -eq 0 ] || { echo "::error::ABORTING — syntax errors detected"; exit 1; }
+          # Static undefined-name analysis (catches NameError before runtime)
+          FLAKE_ERRORS=0
+          for f in scripts/*.py; do
+            [ -f "$f" ] || continue
+            python3 -m pyflakes "$f" 2>&1 | grep -E "undefined name|'[^']+' imported but unused|redefinition of" > /tmp/flake_err.txt || true
+            if [ -s /tmp/flake_err.txt ]; then
+              echo "::warning::PYFLAKES WARNINGS in $f:"
+              cat /tmp/flake_err.txt
+            fi
+          done
+          echo "Running pyflakes a' undefined-name check on scripts/generate_intel_reports.py"
+          python3 -m pyflakes scripts/generate_intel_reports.py 2>&1 | grep "undefined name" > /tmp/undef_err.txt || true
+          if [ -s /tmp/undef_err.txt ]; then
+            echo "::error::UNDEFINED NAME(S) detected — would cause NameError at runtime:"
+            cat /tmp/undef_err.txt
+            exit 1
+          fi
+          echo "GATE 1: ALL PASS (syntax + undefined-name check)"
 
       - name: "STAGE 3.1 — GATE 2: Feed manifest integrity check"
         run: |
