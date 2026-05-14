@@ -772,21 +772,99 @@ def render_ttps_premium(ttps: list, item: Dict[str, Any]) -> str:
 
 _ACTOR_PROFILES: Dict[str, Dict[str, Any]] = {
     "CDB-CVE-GEN": {
-        "display":        "Opportunistic Vulnerability Exploitation Cluster",
-        "aliases":        ["CVE-OP-CLUSTER", "APEX-GENERIC-VULN"],
-        "type":           "Opportunistic",
+        "display":        "Automated CVE Exploitation Cluster",
+        "aliases":        ["CVE-OP-CLUSTER", "APEX-GENERIC-VULN", "CDB-CVE-GEN"],
+        "type":           "Opportunistic Automated Exploitation",
         "sophistication": "Low-Medium",
-        "motivation":     "Financial gain, access brokerage, botnet expansion",
+        "motivation":     "Financial gain, initial access brokerage, botnet expansion",
         "targeting":      "Broad opportunistic scanning — all sectors with unpatched internet-facing assets",
-        "ttps_signature": ["T1190", "T1595", "T1078"],
-        "infrastructure": "Rotating VPS infrastructure across commodity hosting providers; frequent IP cycling",
-        "geo_nexus":      "Origin indeterminate",
+        "ttps_signature": ["T1190", "T1595", "T1078", "T1059"],
+        "infrastructure": "Rotating VPS across commodity cloud providers; automated exploit frameworks; frequent IP cycling within 24–48h",
+        "geo_nexus":      "Origin indeterminate — infrastructure distributed globally",
         "assessment":     (
-            "This cluster represents the opportunistic exploitation tier — automated scanners "
-            "rapidly identify and attempt to exploit newly disclosed CVEs within 24–72 hours of "
-            "public disclosure. Attribution confidence is LOW to MEDIUM. Initial access achieved "
-            "via this cluster is frequently sold to higher-sophistication actors via access brokers "
-            "on dark web markets."
+            "This cluster represents the automated opportunistic exploitation tier: mass-scanning pipelines "
+            "that identify and attempt to exploit newly disclosed CVEs within 24–72 hours of public PoC "
+            "availability. Attribution confidence is LOW — exploitation arises from multiple concurrent "
+            "actors sharing identical tooling. Initial access achieved via this cluster is frequently "
+            "sold to higher-sophistication actors (ransomware affiliates, data brokers) on dark web markets. "
+            "Median time-to-exploit post-PoC: 3–7 days. Organisations without patch management SLAs are "
+            "at highest risk during this window."
+        ),
+    },
+    "CDB-RAN-GEN": {
+        "display":        "Ransomware Threat Cluster",
+        "aliases":        ["RAN-OP-CLUSTER", "APEX-RANSOMWARE", "CDB-RAN-GEN"],
+        "type":           "Financially Motivated Ransomware Operator",
+        "sophistication": "Medium-High",
+        "motivation":     "Double-extortion financial gain — encryption, data theft, and public leak site pressure",
+        "targeting":      "Healthcare, financial services, manufacturing, logistics, legal — sectors with high SLA sensitivity and rich data repositories",
+        "ttps_signature": ["T1486", "T1490", "T1059.001", "T1562.001", "T1070", "T1078", "T1190"],
+        "infrastructure": "RaaS affiliate model; Tor-hosted leak sites; leased bulletproof VPS; automated IP rotation; data staging servers in neutral jurisdictions",
+        "geo_nexus":      "Suspected: Eastern European cybercriminal ecosystem — Russia-aligned or CIS-region affiliates",
+        "assessment":     (
+            "Attributed to the ransomware ecosystem threat cluster — a composite designation covering "
+            "affiliated ransomware operators sharing common tooling, TTPs, and dark web market infrastructure. "
+            "RaaS affiliate models allow low-sophistication actors to deploy high-capability ransomware payloads. "
+            "Post-compromise dwell time averages 21 days before encryption. Double-extortion pressure (simultaneous "
+            "encryption + data theft + leak site threats) is the dominant model. APEX tracks 30+ active RaaS "
+            "programmes targeting this vulnerability class. Victim organisations face compounding costs from "
+            "regulatory breach notification, ransom payment decisions, and operational disruption."
+        ),
+    },
+    "CDB-APT-GEN": {
+        "display":        "Advanced Persistent Threat Cluster",
+        "aliases":        ["APT-CLUSTER", "APEX-APT", "CDB-APT-GEN"],
+        "type":           "Advanced Persistent Threat (APT) / State-Nexus Actor",
+        "sophistication": "High",
+        "motivation":     "Espionage, intellectual property theft, strategic intelligence collection, pre-positioning for disruptive operations",
+        "targeting":      "Government, defence contractors, critical infrastructure, aerospace, energy, telecommunications, financial intelligence",
+        "ttps_signature": ["T1190", "T1078", "T1059", "T1505.003", "T1027", "T1070", "T1036", "T1021"],
+        "infrastructure": "Custom implant infrastructure; living-off-the-land (LOTL) techniques; compromised third-party infrastructure as relay; long-dwell persistent access mechanisms",
+        "geo_nexus":      "State-nexus or state-sponsored sponsorship suspected — specific origin requires IOC-level corroboration",
+        "assessment":     (
+            "This cluster represents APT-class adversaries — nation-state sponsored or state-tolerated threat "
+            "actors with advanced offensive capabilities and strategic targeting objectives. Exploitation of "
+            "this vulnerability class by APT actors suggests either pre-existing access maintenance or "
+            "opportunistic capability enhancement. APT actors weaponise vulnerabilities selectively — "
+            "typically targeting high-value assets with specific intelligence collection objectives. "
+            "Dwell times average 127 days (IBM CODB 2025); detection often requires behavioural analytics "
+            "rather than signature-based IOC matching. APEX correlates APT-class indicators across "
+            "CISA AA advisories, Five Eyes joint publications, and MITRE ATT&CK group intelligence."
+        ),
+    },
+    "CDB-PHISH-GEN": {
+        "display":        "Phishing Campaign Operator",
+        "aliases":        ["PHISH-CLUSTER", "CDB-PHISH-GEN"],
+        "type":           "Phishing / Social Engineering Operator",
+        "sophistication": "Low-Medium",
+        "motivation":     "Credential harvesting, financial fraud, business email compromise (BEC), initial access brokerage",
+        "targeting":      "Employees at enterprise organisations; finance, HR, and executive roles are highest-value targets",
+        "ttps_signature": ["T1566", "T1566.001", "T1566.002", "T1078", "T1539", "T1598"],
+        "infrastructure": "Lookalike domain infrastructure; bulletproof phishing-as-a-service platforms; compromised legitimate domains for credibility",
+        "geo_nexus":      "Origin indeterminate — phishing operations distributed across multiple jurisdictions",
+        "assessment":     (
+            "This cluster encompasses the phishing operator ecosystem — a broad category spanning commodity "
+            "phishing kit operators through to sophisticated spear-phishing campaigns. Credential theft "
+            "achieved via phishing is frequently used for subsequent account takeover, BEC fraud, or "
+            "resale to ransomware affiliates. APEX monitors phishing infrastructure via domain registration "
+            "telemetry, certificate transparency logs, and threat intelligence feed correlation."
+        ),
+    },
+    "CDB-INFOSTEALER-GEN": {
+        "display":        "Infostealer Malware Ecosystem",
+        "aliases":        ["INFOSTEALER-CLUSTER", "CDB-INFOSTEALER-GEN"],
+        "type":           "Financially Motivated Infostealer Operator",
+        "sophistication": "Low-Medium",
+        "motivation":     "Bulk credential theft, session cookie harvesting, browser data exfiltration, dark web marketplace sales",
+        "targeting":      "Broad enterprise and consumer targeting; developer credentials and cloud service sessions are high-value targets",
+        "ttps_signature": ["T1555", "T1539", "T1056.001", "T1071.001"],
+        "infrastructure": "MaaS (Malware-as-a-Service) distribution model; Telegram-based credential markets; automated log parsing and resale pipelines",
+        "geo_nexus":      "Suspected: CIS-region cybercriminal ecosystem",
+        "assessment":     (
+            "Infostealer malware represents a high-volume, low-sophistication threat with outsized downstream "
+            "impact. Stolen credentials feed ransomware initial access, account takeover fraud, and supply "
+            "chain attacks via developer credential compromise. Common families: RedLine, Vidar, Lumma, "
+            "Raccoon. APEX tracks infostealer log markets for enterprise credential exposure."
         ),
     },
     "The Gentlemen": {
@@ -879,6 +957,393 @@ _ACTOR_PROFILES: Dict[str, Dict[str, Any]] = {
             "thousands of victims per campaign with minimal manual effort. MOVEit campaign (2023) "
             "affected 2,700+ organisations. Distinguished by data-only extortion model (no encryption) "
             "in recent campaigns — maximum impact with lower operational footprint."
+        ),
+    },
+    # ── Nation-State APTs ─────────────────────────────────────────────────────
+    "Lazarus Group": {
+        "display":        "Lazarus Group (DPRK State-Sponsored)",
+        "aliases":        ["Hidden Cobra", "APT38", "Zinc", "Nickel Academy", "UNC4736"],
+        "type":           "Nation-State APT / Financially Motivated Threat Actor",
+        "sophistication": "Very High",
+        "motivation":     "Financial theft (crypto heists), espionage, sanctions evasion for DPRK regime funding",
+        "targeting":      "Cryptocurrency exchanges, DeFi protocols, financial institutions, defence, aerospace, media",
+        "ttps_signature": ["T1566", "T1195", "T1059.001", "T1027", "T1041", "T1486"],
+        "infrastructure": "Custom malware families (HOPLIGHT, BLINDINGCAN, BLINDTORCH); compromised third-party infrastructure; North Korean-controlled VPS",
+        "geo_nexus":      "Democratic People's Republic of Korea (DPRK) — state-sponsored unit",
+        "assessment":     (
+            "Lazarus Group is the primary DPRK-attributed offensive cyber unit, responsible for some of the "
+            "largest financial cyber heists in history — including the 2016 Bangladesh Bank ($81M SWIFT fraud), "
+            "the 2022 Ronin Bridge theft ($625M), and numerous cryptocurrency platform attacks. "
+            "APEX tracks dual-mission operations: financial theft to fund the DPRK weapons programme, "
+            "and traditional espionage targeting defence and government entities. "
+            "Sub-unit Bluenoroff specialises in financial sector targeting; Andariel targets South Korean military assets."
+        ),
+    },
+    "APT28": {
+        "display":        "APT28 (Fancy Bear) — Russian GRU Unit 26165",
+        "aliases":        ["Fancy Bear", "Sofacy", "Strontium", "Pawnstorm", "IRON TWILIGHT", "Forest Blizzard"],
+        "type":           "Nation-State APT — Russian Military Intelligence (GRU)",
+        "sophistication": "Very High",
+        "motivation":     "Political espionage, election interference, credential theft, influence operations",
+        "targeting":      "NATO governments, political parties, defence contractors, military logistics, media organisations",
+        "ttps_signature": ["T1566.001", "T1071.001", "T1078", "T1003", "T1059.001", "T1550"],
+        "infrastructure": "Custom implants (X-Agent/CHOPSTICK, X-Tunnel); hacked infrastructure relay; Tor exit nodes; VPN services",
+        "geo_nexus":      "Russian Federation — GRU Main Intelligence Directorate Unit 26165 (formally attributed)",
+        "assessment":     (
+            "APT28 is formally attributed by the US, UK, EU, and NATO to Russian military intelligence (GRU). "
+            "Known operations include DNC breach (2016 US election), Bundestag hack (2015), WADA breach (2016), "
+            "and ongoing targeting of NATO member state government and military networks. "
+            "Specialises in credential phishing campaigns via lure documents and fake login portals. "
+            "UK NCSC, US DOJ, and EU formally sanctioned associated individuals."
+        ),
+    },
+    "APT29": {
+        "display":        "APT29 (Cozy Bear) — Russian SVR",
+        "aliases":        ["Cozy Bear", "Nobelium", "The Dukes", "Midnight Blizzard", "UNC2452"],
+        "type":           "Nation-State APT — Russian Foreign Intelligence Service (SVR)",
+        "sophistication": "Very High",
+        "motivation":     "Strategic espionage — government secrets, foreign policy intelligence, COVID-19 vaccine research",
+        "targeting":      "Government ministries, diplomatic missions, think tanks, healthcare/pharmaceutical, cloud service providers",
+        "ttps_signature": ["T1195.002", "T1566.002", "T1078.004", "T1071.004", "T1027.006"],
+        "infrastructure": "SolarWinds-style supply chain compromise; Microsoft 365 cloud infiltration; compromised service provider relay",
+        "geo_nexus":      "Russian Federation — Foreign Intelligence Service (SVR) attribution confirmed by Five Eyes",
+        "assessment":     (
+            "APT29 is attributed to the Russian SVR (Foreign Intelligence Service) by the US, UK, Canada, Australia, and EU. "
+            "Responsible for the 2020 SolarWinds Orion supply chain compromise (18,000+ victims; 9 US federal agencies breached). "
+            "2024 operations included infiltration of Microsoft corporate email (Midnight Blizzard) and targeting "
+            "of RDP credentials across government and technology sectors. Distinguished by patient, low-footprint "
+            "intrusion methodology and extensive use of legitimate cloud services for C2."
+        ),
+    },
+    "APT41": {
+        "display":        "APT41 (Double Dragon) — Chinese MSS-Affiliated",
+        "aliases":        ["Winnti Group", "Double Dragon", "Barium", "Bronze Atlas", "Earth Baku"],
+        "type":           "Nation-State APT / Financially Motivated (Dual Mission)",
+        "sophistication": "Very High",
+        "motivation":     "State espionage AND financial theft — unique dual-mission APT operator",
+        "targeting":      "Healthcare, pharmaceutical, telecommunications, technology, gaming, media",
+        "ttps_signature": ["T1195", "T1078", "T1059.003", "T1027.002", "T1486"],
+        "infrastructure": "Custom rootkits (POISONPLUG/CROSSWALK); supply chain compromises; gaming platform infrastructure abuse",
+        "geo_nexus":      "China — Ministry of State Security affiliated; US DOJ indicted 5 members (2020)",
+        "assessment":     (
+            "APT41 is unique among Chinese APT operators in conducting both state-directed espionage AND "
+            "financially motivated cybercrime. The group has compromised 100+ organisations across 20 countries. "
+            "5 Chinese nationals indicted by US DOJ in September 2020. "
+            "Targets pharmaceutical IP (COVID-19 vaccine data), government networks, and gaming companies "
+            "for in-game currency theft. Supply chain intrusion capability is a hallmark — 2021 Pulse Secure "
+            "VPN exploitation enabled access to US defence and financial sector networks."
+        ),
+    },
+    "Sandworm": {
+        "display":        "Sandworm — Russian GRU Unit 74455",
+        "aliases":        ["Voodoo Bear", "Iridium", "Seashell Blizzard", "ELECTRUM", "TEMP.Noble"],
+        "type":           "Nation-State APT — Russian Military Intelligence (GRU) Destructive Operations Unit",
+        "sophistication": "Very High",
+        "motivation":     "Destructive cyber operations, sabotage of critical infrastructure, warfare-support cyber attacks",
+        "targeting":      "Energy sector (power grids), industrial control systems (ICS/OT), Ukrainian government and military",
+        "ttps_signature": ["T1486", "T1490", "T1485", "T1195", "T1059"],
+        "infrastructure": "Custom wiper malware (NotPetya, Industroyer/CRASHOVERRIDE, Whispergate); OT-targeting toolkits",
+        "geo_nexus":      "Russian Federation — GRU Main Intelligence Directorate Unit 74455 (formally attributed)",
+        "assessment":     (
+            "Sandworm is the most destructive APT threat actor tracked by APEX. "
+            "Attributed operations: NotPetya (2017, $10B+ global damages), Ukraine power grid attacks (2015/2016), "
+            "Winter Olympics disruption (2018), and ongoing Ukrainian critical infrastructure attacks (2022–present). "
+            "Uniquely specialises in ICS/OT destructive capability — Industroyer v2 malware designed specifically "
+            "to trigger physical damage to power infrastructure. Formal attribution by US DOJ (2020 indictment)."
+        ),
+    },
+    "Volt Typhoon": {
+        "display":        "Volt Typhoon — Chinese PLA / MSS Pre-Positioning",
+        "aliases":        ["Bronze Silhouette", "Insidious Taurus", "UNC3236", "Vanguard Panda"],
+        "type":           "Nation-State APT — Chinese PLA / MSS Strategic Pre-Positioning",
+        "sophistication": "High",
+        "motivation":     "Pre-positioning in US critical infrastructure for potential disruptive operations; persistent access maintenance",
+        "targeting":      "US critical infrastructure: utilities, water treatment, ports, communications, transportation, IT sector",
+        "ttps_signature": ["T1078", "T1190", "T1021.001", "T1562.001", "T1070", "T1105"],
+        "infrastructure": "Living-off-the-land (LOTL) exclusively — no custom malware; compromised SOHO routers as relay nodes (Netgear, Cisco, ASUS)",
+        "geo_nexus":      "China — PLA / Ministry of State Security; formally attributed by Five Eyes Feb 2024",
+        "assessment":     (
+            "Volt Typhoon represents a strategic pre-positioning threat — not espionage but infrastructure "
+            "sabotage preparation. Five Eyes advisory (Feb 2024) confirmed presence in US critical "
+            "infrastructure networks for 5+ years. Operational signature: exclusively living-off-the-land — "
+            "no custom malware, making detection extremely difficult without behavioural analytics. "
+            "Uses compromised SOHO routers (Cisco RV series, Netgear, ASUS) as relay infrastructure. "
+            "CISA assesses this as preparation for potential disruption in the context of a Taiwan conflict scenario."
+        ),
+    },
+    "Salt Typhoon": {
+        "display":        "Salt Typhoon — Chinese Telecommunications Intelligence",
+        "aliases":        ["Ghost Emperor", "FamousSparrow", "UNC2286", "Earth Estries"],
+        "type":           "Nation-State APT — Chinese Intelligence Telecommunications Targeting",
+        "sophistication": "High",
+        "motivation":     "Signals intelligence collection via telecommunications infrastructure compromise; wiretapping",
+        "targeting":      "US and allied nation telecommunications carriers; ISPs; government entities",
+        "ttps_signature": ["T1190", "T1078", "T1021", "T1560", "T1041"],
+        "infrastructure": "Compromised telecom carrier infrastructure; living-off-the-land inside carrier networks",
+        "geo_nexus":      "China — Ministry of State Security or PLA affiliated (formally attributed by US, Jan 2025)",
+        "assessment":     (
+            "Salt Typhoon compromised at least 9 major US telecommunications carriers in a campaign disclosed "
+            "in October 2024 — including Verizon, AT&T, and T-Mobile. The group accessed lawful intercept "
+            "infrastructure (CALEA systems) enabling interception of communications of US government officials "
+            "and political figures. Assessed as one of the most significant US signals intelligence breaches "
+            "by a foreign adversary. Ongoing remediation effort across the US telecom sector as of 2025."
+        ),
+    },
+    "APT40": {
+        "display":        "APT40 — Chinese Maritime / Naval Intelligence",
+        "aliases":        ["Leviathan", "Bronze Mohawk", "Kryptonite Panda", "TEMP.Periscope"],
+        "type":           "Nation-State APT — Chinese PLA Navy / MSS Maritime Intelligence",
+        "sophistication": "High",
+        "motivation":     "Maritime technology theft, naval warfare research, South China Sea intelligence",
+        "targeting":      "Maritime engineering firms, naval defence contractors, universities with maritime research, government entities",
+        "ttps_signature": ["T1566.001", "T1078", "T1059.001", "T1003", "T1071.001"],
+        "infrastructure": "Spear-phishing infrastructure; custom implants (BADFLICK, MURKYTOP); compromised routers",
+        "geo_nexus":      "China — formally attributed by US, UK, EU, Australia, New Zealand, Japan, NATO (2021)",
+        "assessment":     (
+            "APT40 targets maritime sector technology to advance Chinese naval capabilities. "
+            "Formally attributed by Five Eyes + EU + NATO in 2021 joint advisory. "
+            "2024 Australian Cyber Security Centre advisory confirmed APT40 exploitation of "
+            "end-of-life SOHO devices as relay nodes — methodology consistent with Volt Typhoon LOTL approach. "
+            "Primary collection targets: ship propulsion systems, autonomous vessel research, undersea sensor technology."
+        ),
+    },
+    "Charming Kitten": {
+        "display":        "Charming Kitten — Iranian IRGC Cyber Unit",
+        "aliases":        ["APT35", "Phosphorus", "Mint Sandstorm", "Yellow Garuda", "TA453"],
+        "type":           "Nation-State APT — Iranian Islamic Revolutionary Guard Corps (IRGC)",
+        "sophistication": "Medium-High",
+        "motivation":     "Espionage targeting Iranian dissidents, journalists, academics, government officials; nuclear deal intelligence",
+        "targeting":      "Journalists, human rights activists, think tanks, government, medical researchers, political figures",
+        "ttps_signature": ["T1566.001", "T1078", "T1539", "T1598.003", "T1071.001"],
+        "infrastructure": "Credential phishing portals mimicking Gmail, Microsoft; mobile malware (iOS/Android); fake conference invitations",
+        "geo_nexus":      "Iran — Islamic Revolutionary Guard Corps (IRGC) affiliated; US DOJ indictments in 2022",
+        "assessment":     (
+            "Charming Kitten is Iran's primary social engineering and credential theft APT unit. "
+            "Specialises in impersonating journalists, academics, and conference organisers to build trust "
+            "before deploying credential harvesting links or malware. 2024 campaign targeted US election officials "
+            "and political campaign staff (confirmed FBI advisory). Notable for extensive OSINT collection "
+            "and prolonged relationship-building before technical exploitation."
+        ),
+    },
+    "MuddyWater": {
+        "display":        "MuddyWater — Iranian MOIS Cyber Unit",
+        "aliases":        ["Static Kitten", "Earth Vetala", "Seedworm", "TEMP.Zagros", "Mercury"],
+        "type":           "Nation-State APT — Iranian Ministry of Intelligence and Security (MOIS)",
+        "sophistication": "Medium",
+        "motivation":     "Espionage targeting Middle East government and telecoms; counter-Israel/counter-Saudi intelligence",
+        "targeting":      "Government, telecommunications, oil and gas in Turkey, Saudi Arabia, UAE, Iraq, Jordan, Pakistan",
+        "ttps_signature": ["T1566.001", "T1059.005", "T1078", "T1071.001", "T1021.001"],
+        "infrastructure": "Commodity RATs (ScreenConnect, RemoteUtilities); PowerShell-based tooling; open-source offensive tools",
+        "geo_nexus":      "Iran — Ministry of Intelligence and Security (MOIS) subordinate element",
+        "assessment":     (
+            "MuddyWater focuses on Middle Eastern government and critical sector espionage, with particular "
+            "emphasis on Turkey and Saudi Arabia. The group extensively uses legitimate remote administration "
+            "tools (RATs) to blend with normal IT operations, making detection challenging. "
+            "CISA/FBI advisory (2022) attributed MuddyWater to MOIS. "
+            "Less technically sophisticated than IRGC cyber units — relies on social engineering and commodity tooling."
+        ),
+    },
+    "Kimsuky": {
+        "display":        "Kimsuky — North Korean Reconnaissance General Bureau",
+        "aliases":        ["Velvet Chollima", "Black Banshee", "THALLIUM", "Emerald Sleet", "APT43"],
+        "type":           "Nation-State APT — North Korean Reconnaissance General Bureau (RGB)",
+        "sophistication": "Medium-High",
+        "motivation":     "Intelligence collection on Korean peninsula affairs, foreign policy, nuclear negotiations; credential theft",
+        "targeting":      "South Korean government, think tanks, academics, journalists covering North Korea, nuclear researchers",
+        "ttps_signature": ["T1566.001", "T1059.001", "T1078", "T1539", "T1598"],
+        "infrastructure": "Spear-phishing; custom Android malware; compromised WordPress sites for staging; Google Drive abuse",
+        "geo_nexus":      "Democratic People's Republic of Korea — Reconnaissance General Bureau (RGB)",
+        "assessment":     (
+            "Kimsuky is the DPRK's primary intelligence-collection APT unit — distinct from Lazarus Group's "
+            "financial theft mission. Specialises in Korea-peninsula intelligence and foreign policy espionage. "
+            "Distinguished by highly personalised spear-phishing with policy-relevant lure content. "
+            "US NSA/CISA advisory (2023) highlighted extensive use of browser extension malware for "
+            "persistent email access without credentials. APEX tracks ongoing targeting of ROK government officials."
+        ),
+    },
+    "Turla": {
+        "display":        "Turla — Russian FSB Cyber Espionage Unit",
+        "aliases":        ["Snake", "Waterbug", "Uroboros", "Venomous Bear", "Secret Blizzard"],
+        "type":           "Nation-State APT — Russian Federal Security Service (FSB)",
+        "sophistication": "Very High",
+        "motivation":     "Long-term strategic espionage — government, military, diplomatic intelligence collection",
+        "targeting":      "Ministries of foreign affairs, military, intelligence agencies, embassies, research institutes globally",
+        "ttps_signature": ["T1566.002", "T1195.001", "T1071.004", "T1027.002", "T1070.004"],
+        "infrastructure": "Snake/Uroboros rootkit (sophisticated multi-platform implant); satellite-based C2; compromised infrastructure as relay",
+        "geo_nexus":      "Russian Federation — Federal Security Service (FSB) Center 16 / Center 18",
+        "assessment":     (
+            "Turla is among the most technically sophisticated nation-state APTs tracked globally. "
+            "Active since at least 2007, the group operates Snake/Uroboros — a peer-to-peer rootkit "
+            "infrastructure spanning multiple countries. FBI/CISA May 2023 advisory documented destruction "
+            "of Snake infrastructure in Operation MEDUSA. Distinguished by satellite-based C2 communications "
+            "and hijacking of other APT groups' infrastructure (documented hijacking of Iranian OilRig C2)."
+        ),
+    },
+    "Gamaredon": {
+        "display":        "Gamaredon — Russian FSB Ukraine-Targeting Unit",
+        "aliases":        ["Primitive Bear", "Armageddon", "Shuckworm", "Trident Ursa", "UAC-0010"],
+        "type":           "Nation-State APT — Russian FSB Ukraine-Focused Operations",
+        "sophistication": "Medium",
+        "motivation":     "Wartime intelligence collection targeting Ukrainian government and military; espionage support to Russian invasion",
+        "targeting":      "Ukrainian government agencies, military, law enforcement, NGOs; NATO member allies supporting Ukraine",
+        "ttps_signature": ["T1566.001", "T1059.005", "T1059.001", "T1078", "T1071.001"],
+        "infrastructure": "High-volume spear-phishing; rapidly rotating C2 infrastructure (new domains every 24h); commodity RATs + custom implants",
+        "geo_nexus":      "Russian Federation — FSB Center (Ukrainian attribution: SBU confirmed Crimea-based operators)",
+        "assessment":     (
+            "Gamaredon is the highest-volume active threat actor targeting Ukraine, operating since 2014 "
+            "with dramatically increased tempo post-February 2022 invasion. Distinguished by extremely high "
+            "operational cadence — thousands of phishing emails per day, domain rotation every 24 hours. "
+            "Less technically sophisticated than Sandworm but compensates with volume and persistence. "
+            "Ukrainian SBU publicly attributed and named specific FSB Crimean officers in 2022. "
+            "APEX tracks ongoing campaigns targeting NATO member defence ministry personnel."
+        ),
+    },
+    # ── Financially Motivated Criminals ───────────────────────────────────────
+    "FIN7": {
+        "display":        "FIN7 (Carbon Spider) — Enterprise Targeting Crime Group",
+        "aliases":        ["Carbon Spider", "Sandalwood", "Sangria Tempest", "GOLD NIAGARA"],
+        "type":           "Financially Motivated Criminal Organisation",
+        "sophistication": "High",
+        "motivation":     "Financial theft via POS malware, BEC fraud, ransomware affiliate activity",
+        "targeting":      "Restaurant chains, hospitality, retail, financial services — any organisation with POS or payment card data",
+        "ttps_signature": ["T1566.001", "T1059.001", "T1486", "T1547.001", "T1078"],
+        "infrastructure": "Custom Carbanak malware; Clop and Darkside ransomware affiliate activity; shell company front (Combi Security)",
+        "geo_nexus":      "Russia/Ukraine-affiliated criminal organisation; US DOJ indictments (2018, 2023)",
+        "assessment":     (
+            "FIN7 is among the most prolific financially motivated criminal organisations, with estimated "
+            "theft exceeding $1 billion. US DOJ indicted multiple members in 2018 and 2023. "
+            "The group operated a shell cybersecurity company (Combi Security) to recruit unwitting "
+            "participants — a hallmark of sophisticated criminal tradecraft. Post-2020, FIN7 transitioned "
+            "to ransomware affiliate activity with Darkside/BlackMatter and Clop. "
+            "Current operations focus on enterprise RaaS deployment targeting high-revenue organisations."
+        ),
+    },
+    "Scattered Spider": {
+        "display":        "Scattered Spider — English-Speaking Social Engineering Collective",
+        "aliases":        ["UNC3944", "Octo Tempest", "0ktapus", "Starfraud", "Muddled Libra"],
+        "type":           "Financially Motivated Criminal Collective — Social Engineering Specialists",
+        "sophistication": "Medium-High",
+        "motivation":     "Financial theft via cryptocurrency, data extortion, SIM swapping",
+        "targeting":      "Technology companies, telecom providers, cloud service organisations, crypto firms; MGM Resorts, Caesars Entertainment",
+        "ttps_signature": ["T1598.003", "T1539", "T1078", "T1562.001", "T1486"],
+        "infrastructure": "Social engineering via phone/SMS; MFA fatigue attacks; legitimate remote admin tool abuse; SIM swapping",
+        "geo_nexus":      "Native English speakers — US/UK/Canada; FBI indictments (2024)",
+        "assessment":     (
+            "Scattered Spider represents an unusual threat profile: English-speaking teenagers and young adults "
+            "achieving sophisticated corporate breaches via social engineering rather than technical exploits. "
+            "Most notable attacks: MGM Resorts ($100M+ impact, September 2023), Caesars Entertainment ($15M ransom paid). "
+            "Methodologies include impersonating IT helpdesk to obtain credentials, MFA push notification fatigue, "
+            "and SIM-swapping carrier employees. FBI arrested multiple members in 2024. "
+            "Access Alphv/BlackCat ransomware for post-access deployment."
+        ),
+    },
+    "Black Basta": {
+        "display":        "Black Basta Ransomware Group",
+        "aliases":        ["BlackBasta", "UNC4393"],
+        "type":           "Ransomware-as-a-Service (RaaS) Group",
+        "sophistication": "High",
+        "motivation":     "Double-extortion financial gain; suspected Conti successor",
+        "targeting":      "Healthcare, critical infrastructure, industrial organisations; no geopolitical restrictions",
+        "ttps_signature": ["T1566.001", "T1078", "T1486", "T1490", "T1059.001"],
+        "infrastructure": "Custom encryptor (ChaCha20/RSA); Qakbot distribution network; Cobalt Strike; Tor leak site",
+        "geo_nexus":      "Russia-aligned; suspected Conti leadership successor organisation",
+        "assessment":     (
+            "Black Basta emerged in April 2022 and is assessed as a successor to Conti, sharing membership "
+            "and TTPs. Responsible for 500+ known victims across 12 months of operations. "
+            "2024 saw attacks on US healthcare sector including Ascension Health (disrupted 140 hospitals). "
+            "Leaked internal chat logs (February 2024) revealed sophisticated affiliate recruitment, "
+            "victim revenue assessment methodology, and negotiation playbooks. "
+            "APEX tracks 3 concurrent variants targeting ESXi environments."
+        ),
+    },
+    "Play Ransomware": {
+        "display":        "Play Ransomware Group",
+        "aliases":        ["Play RaaS", "Balloonfly", "PlayCrypt"],
+        "type":           "Ransomware-as-a-Service (RaaS) Group",
+        "sophistication": "High",
+        "motivation":     "Double-extortion financial gain targeting enterprise victims",
+        "targeting":      "Government, healthcare, critical infrastructure, manufacturing — US, Europe, Latin America",
+        "ttps_signature": ["T1190", "T1078", "T1486", "T1490", "T1059.003"],
+        "infrastructure": "Intermittent C2 architecture; AV bypass tools (GRIXBA, PLAYCRYPT); Tor leak site",
+        "geo_nexus":      "Origin indeterminate — suspected Eastern European operators",
+        "assessment":     (
+            "Play ransomware uses a distinctive intermittent encryption technique to accelerate file processing "
+            "while evading detection. Notable victims include Oakland (CA), Dallas County, Arnold Clark (UK), "
+            "and multiple MSPs enabling simultaneous downstream victim impact. "
+            "CISA advisory (December 2023) documented targeting of Citrix ADC vulnerabilities for initial access. "
+            "The group released sensitive City of Oakland data publicly after ransom refusal."
+        ),
+    },
+    "RansomHub": {
+        "display":        "RansomHub — High-Volume RaaS Group",
+        "aliases":        ["Ransom Hub", "GOLD SCALLOP"],
+        "type":           "Ransomware-as-a-Service (RaaS) Operator",
+        "sophistication": "Medium-High",
+        "motivation":     "High-volume double-extortion; unusually aggressive targeting of CISA KEV vulnerabilities",
+        "targeting":      "Healthcare, government, water utilities, critical infrastructure — 200+ victims within first 6 months",
+        "ttps_signature": ["T1190", "T1078", "T1486", "T1490", "T1059.001"],
+        "infrastructure": "Go-language encryptor (multi-platform); aggressive initial access via KEV exploitation; Tor leak site",
+        "geo_nexus":      "Origin indeterminate; suspected Russia-aligned affiliate recruitment model",
+        "assessment":     (
+            "RansomHub emerged in February 2024 and rapidly established itself as the highest-volume new RaaS "
+            "group, leveraging ALPHV's disruption to recruit affiliates. Aggressive targeting of CISA KEV "
+            "vulnerabilities within days of listing — APEX tracks <3 day median time-to-exploit. "
+            "CISA Advisory AA24-242A (August 2024) documented attack methodologies across 200+ victims. "
+            "Healthcare sector represents 22% of known victims — highest of any active RaaS group."
+        ),
+    },
+    "Akira": {
+        "display":        "Akira Ransomware Group",
+        "aliases":        ["Akira RaaS"],
+        "type":           "Ransomware-as-a-Service (RaaS) Group",
+        "sophistication": "Medium-High",
+        "motivation":     "Double-extortion financial gain; specialises in Cisco VPN exploitation for initial access",
+        "targeting":      "SMB and enterprise across all sectors; education, manufacturing, healthcare most impacted",
+        "ttps_signature": ["T1190", "T1078.002", "T1486", "T1490", "T1059.001"],
+        "infrastructure": "C++ and Rust encryptor variants; Cisco VPN exploitation (no MFA); Tor-based leak site with retro aesthetic",
+        "geo_nexus":      "Origin indeterminate — suspected connection to former Conti affiliates",
+        "assessment":     (
+            "Akira emerged in March 2023 and by 2024 had amassed 250+ known victims. "
+            "Distinctive methodology: systematic exploitation of Cisco ASA/FTD VPN vulnerabilities (CVE-2023-20269) "
+            "as the primary initial access vector — impacting organisations without MFA on VPN endpoints. "
+            "CISA Advisory AA24-109A (April 2024) confirmed $42M ransom received in first year of operations. "
+            "Also develops and deploys a Linux/ESXi variant targeting virtualised infrastructure."
+        ),
+    },
+    "Rhysida": {
+        "display":        "Rhysida Ransomware Group",
+        "aliases":        ["Rhysida RaaS"],
+        "type":           "Ransomware-as-a-Service (RaaS) Group",
+        "sophistication": "Medium",
+        "motivation":     "Double-extortion financial gain; notable healthcare and government sector targeting",
+        "targeting":      "Healthcare, education, government, manufacturing — US and European targets",
+        "ttps_signature": ["T1566.001", "T1078", "T1486", "T1490"],
+        "infrastructure": "PowerShell-based encryptor; Tor leak site; phishing-based initial access",
+        "geo_nexus":      "Origin indeterminate — suspected Eastern European operation",
+        "assessment":     (
+            "Rhysida made global headlines with the attack on British Library (October 2023) — 600GB of "
+            "sensitive data published after ransom refusal, disrupting services for 6+ months. "
+            "Also responsible for the Chilean Army breach and Prospect Medical Holdings attack (August 2023), "
+            "disrupting 17 US hospitals. CISA advisory AA23-319A documented attack patterns. "
+            "APEX tracks continued healthcare sector targeting as of 2025."
+        ),
+    },
+    "Anonymous Sudan": {
+        "display":        "Anonymous Sudan — Iranian-Linked DDoS Hacktivist Group",
+        "aliases":        ["Storm-1359", "AnonymousSudan"],
+        "type":           "Hacktivist / DDoS-for-Hire (Iranian-Linked)",
+        "sophistication": "Low-Medium",
+        "motivation":     "Geopolitical DDoS attacks against Western targets; ostensibly hacktivist but assessed as state-linked",
+        "targeting":      "Healthcare, financial services, government, airlines, telecommunications — US, Europe, Israel, Australia",
+        "ttps_signature": ["T1498", "T1498.001", "T1499"],
+        "infrastructure": "Botnet-based DDoS tooling (SKYNET, DDoSia); Telegram for coordination and claiming attacks",
+        "geo_nexus":      "Suspected Iran-linked despite Sudanese branding; US DOJ indicted 2 Sudanese nationals (2024)",
+        "assessment":     (
+            "Anonymous Sudan claimed hundreds of DDoS attacks targeting critical infrastructure globally in 2023–2024. "
+            "US DOJ indicted Ahmed Salah Yousif Omer and Alaa Salah Yusuuf Omer (October 2024) — disrupting operations. "
+            "Assessment: Iranian-directed despite Sudanese branding. "
+            "Most impactful attacks: Microsoft Azure services (June 2023, 15,000 req/sec L7 flood), "
+            "Cedars-Sinai Medical Center, and multiple Scandinavian airline disruptions."
         ),
     },
 }
@@ -2016,10 +2481,12 @@ def generate_executive_summary(item):
 # ─────────────────────────────────────────────────────────────────────────────
 
 _ARTIFACT_ACTORS = {
-    "UNC-CDB-INGEST", "CDB-CVE-GEN", "CDB-INGEST", "UNCLASSIFIED",
+    "UNC-CDB-INGEST", "CDB-INGEST", "UNCLASSIFIED",
     "UNKNOWN", "N/A", "NONE", "UNC-GENERIC", "CDB-GENERIC",
     "UNC-CDB-GENERIC", "CDB-RSS-INGEST", "CDB-FEED-INGEST",
     "UNATTRIBUTED",
+    # CDB-CVE-GEN, CDB-RAN-GEN, CDB-APT-GEN removed from artifact set —
+    # they now have dedicated profiles in _ACTOR_PROFILES and are resolved there.
 }
 
 _VULN_CLASS_ACTOR_PROFILES = {
@@ -2131,21 +2598,50 @@ def _is_artifact_actor(actor):
 
 # Named actor patterns — scanned against title + description when actor is an artifact
 _NAMED_ACTOR_SCAN: List[Tuple[re.Pattern, str]] = [
+    # ── RaaS & Ransomware Groups ───────────────────────────────────────────────
     (re.compile(r'\bgentlemen\s*raas\b|\bthe\s+gentlemen\b', re.I), "The Gentlemen"),
     (re.compile(r'\blockbit\b', re.I), "LockBit"),
     (re.compile(r'\balphv\b|\bblackcat\b|\bnoberus\b', re.I), "ALPHV"),
     (re.compile(r'\bcl0p\b|\bcl\.0p\b|\bclop\b|\bta505\b', re.I), "Cl0p"),
-    (re.compile(r'\blazarus\b', re.I), "Lazarus Group"),
-    (re.compile(r'\bapt28\b|\bfancy\s*bear\b|\bsofacy\b', re.I), "APT28"),
-    (re.compile(r'\bapt29\b|\bcozy\s*bear\b|\bnobelium\b', re.I), "APT29"),
-    (re.compile(r'\bapt41\b|\bwinnti\b', re.I), "APT41"),
-    (re.compile(r'\bsandworm\b', re.I), "Sandworm"),
-    (re.compile(r'\bscattered\s*spider\b|\bocto\s*tempest\b', re.I), "Scattered Spider"),
     (re.compile(r'\bblackbasta\b|\bblack\s*basta\b', re.I), "Black Basta"),
     (re.compile(r'\bplay\s*ransomware\b|\bplay\s*raas\b', re.I), "Play Ransomware"),
     (re.compile(r'\bmedusa\s*locker\b|\bmedusa\s*ransomware\b', re.I), "MedusaLocker"),
+    (re.compile(r'\brhysida\b', re.I), "Rhysida"),
+    (re.compile(r'\bhunters\s*international\b', re.I), "Hunters International"),
+    (re.compile(r'\bqilin\b|\bagenda\s*ransomware\b', re.I), "Qilin"),
+    (re.compile(r'\bransomhub\b|\bransom\s*hub\b', re.I), "RansomHub"),
+    (re.compile(r'\bacira\b|\bacira\s*ransomware\b', re.I), "Akira"),
+    (re.compile(r'\bakira\b', re.I), "Akira"),
+    (re.compile(r'\bincransom\b|\binc\s*ransom\b', re.I), "INC Ransom"),
+    (re.compile(r'\bblacksuit\b|\bblack\s*suit\b', re.I), "BlackSuit"),
+    # ── Nation-State APTs ─────────────────────────────────────────────────────
+    (re.compile(r'\blazarus\b|\bhidden\s*cobra\b|\bapple\s*jesus\b', re.I), "Lazarus Group"),
+    (re.compile(r'\bapt28\b|\bfancy\s*bear\b|\bsofacy\b|\bpawnstorm\b|\bstrontium\b', re.I), "APT28"),
+    (re.compile(r'\bapt29\b|\bcozy\s*bear\b|\bnobelium\b|\bthe\s*dukes\b|\bmidnight\s*blizzard\b', re.I), "APT29"),
+    (re.compile(r'\bapt41\b|\bwinnti\b|\bdouble\s*dragon\b|\bbarium\b', re.I), "APT41"),
+    (re.compile(r'\bsandworm\b|\biridium\b|\bvoodoo\s*bear\b', re.I), "Sandworm"),
+    (re.compile(r'\bvolt\s*typhoon\b|\bbronze\s*silhouette\b|\binsidious\s*taurus\b', re.I), "Volt Typhoon"),
+    (re.compile(r'\bsalt\s*typhoon\b|\bghost\s*emperor\b|\bfamousparrot\b', re.I), "Salt Typhoon"),
+    (re.compile(r'\bflax\s*typhoon\b|\bethernet\s*tempest\b', re.I), "Flax Typhoon"),
+    (re.compile(r'\bapt40\b|\bbronce\s*starlight\b|\bleviathan\b|\btempest\b', re.I), "APT40"),
+    (re.compile(r'\bapt31\b|\bzirconium\b|\bjudgement\s*panda\b', re.I), "APT31"),
+    (re.compile(r'\bcharming\s*kitten\b|\bapt35\b|\bphosphor\b|\bmint\s*sandstorm\b', re.I), "Charming Kitten"),
+    (re.compile(r'\bmuddywater\b|\bstatic\s*kitten\b|\bearth\s*vetala\b', re.I), "MuddyWater"),
+    (re.compile(r'\bkimsuky\b|\bvelvet\s*chollima\b|\bblack\s*banshee\b', re.I), "Kimsuky"),
+    (re.compile(r'\bturla\b|\buroboros\b|\bwaterbug\b|\bserpent\b', re.I), "Turla"),
+    (re.compile(r'\bgamaredon\b|\bprimitive\s*bear\b|\barmagedon\b', re.I), "Gamaredon"),
+    # ── Cybercriminal / Hacktivist ────────────────────────────────────────────
+    (re.compile(r'\bscattered\s*spider\b|\bocto\s*tempest\b|\bunc3944\b', re.I), "Scattered Spider"),
+    (re.compile(r'\bfin7\b|\bcarbon\s*spider\b|\bsandalwood\b', re.I), "FIN7"),
+    (re.compile(r'\bfin8\b|\bsynful\s*knock\b', re.I), "FIN8"),
     (re.compile(r'\bunc1069\b', re.I), "UNC1069"),
     (re.compile(r'\bunc6692\b', re.I), "UNC6692"),
+    (re.compile(r'\bunc3890\b', re.I), "UNC3890"),
+    (re.compile(r'\bunc4393\b|\bgold\s*tahoe\b', re.I), "UNC4393"),
+    (re.compile(r'\banonymous\s*sudan\b|\bstorm-1359\b', re.I), "Anonymous Sudan"),
+    (re.compile(r'\bkillnet\b', re.I), "KillNet"),
+    (re.compile(r'\bta558\b', re.I), "TA558"),
+    (re.compile(r'\bta4903\b', re.I), "TA4903"),
 ]
 
 
@@ -2188,23 +2684,36 @@ def resolve_actor_cluster(actor, item):
                         "is_artifact":      False,
                     }
 
-        if not _is_artifact_actor(actor):
-            known = _ACTOR_PROFILES.get(actor)
-            if known:
-                return {
-                    "display_name": known["display"],
-                    "cluster_id":   actor,
-                    "type":         known["type"],
-                    "sophistication": known["sophistication"],
-                    "motivation":   known["motivation"],
-                    "targeting":    known["targeting"],
-                    "infra":        known["infrastructure"],
-                    "confidence":   "HIGH",
-                    "confidence_basis": "Named threat actor tracked in APEX global actor registry with confirmed TTPs.",
-                    "geo_nexus":    known.get("geo_nexus", "See actor profile"),
-                    "uncertainty":  "Low uncertainty — actor cluster confirmed via multi-source intelligence.",
-                    "is_artifact":  False,
-                }
+        # ── PASS 1: Direct registry lookup — checked BEFORE artifact gate ────────
+        # CDB-* actors that have dedicated profiles (CDB-CVE-GEN, CDB-RAN-GEN, etc.)
+        # must resolve to their profile regardless of the artifact flag.
+        known = _ACTOR_PROFILES.get(actor)
+        if known:
+            is_cdb_profile = actor.upper().startswith("CDB-")
+            return {
+                "display_name":   known["display"],
+                "cluster_id":     actor,
+                "type":           known["type"],
+                "sophistication": known["sophistication"],
+                "motivation":     known["motivation"],
+                "targeting":      known["targeting"],
+                "infra":          known["infrastructure"],
+                "confidence":     "MEDIUM" if is_cdb_profile else "HIGH",
+                "confidence_basis": (
+                    "Cluster classification based on exploitation pattern intelligence. "
+                    "Specific individual actor attribution not confirmed — this is a composite "
+                    "cluster designation covering multiple actors sharing common TTPs and tooling."
+                    if is_cdb_profile else
+                    "Named threat actor tracked in APEX global actor registry with confirmed TTPs."
+                ),
+                "geo_nexus":      known.get("geo_nexus", "See actor profile"),
+                "uncertainty":    (
+                    "Composite cluster — multiple actors expected. IOC-level corroboration required for individual attribution."
+                    if is_cdb_profile else
+                    "Low uncertainty — actor cluster confirmed via multi-source intelligence."
+                ),
+                "is_artifact":    is_cdb_profile,
+            }
 
         is_artifact = _is_artifact_actor(actor)
 
