@@ -112,6 +112,10 @@ import {
   handleSLACertificate,
 } from "./sla-monitor.js";
 
+// v152.0: Enterprise Intelligence API  -  TAXII 2.1, MISP, Sigma/YARA bulk,
+//         threat scoring feeds, SIEM connectors, SSE streaming, MSSP multi-tenant
+import { routeEnterpriseEndpoint } from "./enterprise-endpoints.js";
+
 //  Version sync: always read from CONFIG 
 function injectVersionHeaders(response, config) {
   const headers = new Headers(response.headers);
@@ -123,7 +127,7 @@ function injectVersionHeaders(response, config) {
 }
 
 const CONFIG = {
-  GATEWAY_VERSION:   "148.0.0",  // v147.0.0 ENTERPRISE-GRADE -- ai_summary fix, version governance, dedup enforcement
+  GATEWAY_VERSION:   "148.0.0",  // v152.0.0 ENTERPRISE-GRADE  -  enterprise scoring, IOC hardening, TAXII/MISP/SIEM/SSE endpoints
   GATEWAY_NAME:      "SENTINEL-APEX",
   BYPASS_FEED_CACHE: false,
   // P0 FIX v134.0: Reduced cache TTLs to ensure dashboard reflects fresh R2 data
@@ -5204,6 +5208,29 @@ export default {
     if (pathname === "/api/sla/incidents"         && method === "GET")  return withRL(await handleSLAIncidents(request, env, auth, rid));
     if (pathname === "/api/sla/certificate"       && method === "GET")  return withRL(await handleSLACertificate(request, env, auth, rid));
 
+    // v152.0: Enterprise Intelligence API  -  TAXII 2.1 / MISP / Sigma / YARA /
+    //         SIEM connectors / scoring feeds / SSE streaming / MSSP multi-tenant.
+    //         Evaluated after all existing routes so zero existing behaviour changes.
+    const _enterpriseRoutes = [
+      "/api/taxii", "/api/misp/", "/api/sigma/", "/api/yara/",
+      "/api/scoring", "/api/siem/", "/api/stream", "/api/mssp/",
+    ];
+    if (_enterpriseRoutes.some(pfx => pathname.startsWith(pfx))) {
+      try {
+        // Fetch live items from the feed manifest for data-bearing endpoints
+        let _ent_items = [];
+        try {
+          const _feedR2 = await env.R2_BUCKET.get("api/feed.json");
+          if (_feedR2) _ent_items = JSON.parse(await _feedR2.text()) || [];
+        } catch (_fe) { /* non-fatal  -  empty items yields correct empty responses */ }
+        const _ent_tier = auth?.tier || "free";
+        const _ent_resp = await routeEnterpriseEndpoint(pathname, request, env, ctx, _ent_tier, _ent_items, rid);
+        if (_ent_resp) return withSec(_ent_resp);
+      } catch (_ent_err) {
+        slog("ERROR", "ENTERPRISE_ROUTER", `Unhandled error: ${_ent_err?.message}`, { rid, pathname });
+      }
+    }
+
     slog("WARN", "ROUTER", `404 ${pathname}`, { rid, method });
     return jsonResponse({
       error:   "not_found",
@@ -5282,6 +5309,23 @@ export default {
         "GET  /api/sla/incidents        (requires auth Enterprise -- incident log)",
         "GET  /api/sla/certificate      (requires auth Enterprise -- SLA compliance cert)",
         "POST /api/sla/ping             (requires X-Admin-Secret -- cron heartbeat)",
+        //  v152.0: Enterprise Intelligence API
+        "GET  /api/taxii/                        (Pro+ -- TAXII 2.1 discovery)",
+        "GET  /api/taxii/root/                   (Pro+ -- TAXII 2.1 root)",
+        "GET  /api/taxii/root/collections/       (Pro+ -- TAXII 2.1 collections list)",
+        "GET  /api/taxii/root/collections/:id/objects/ (Enterprise -- TAXII 2.1 objects)",
+        "GET  /api/misp/export                   (Enterprise -- MISP 2.4 JSON event bundle)",
+        "GET  /api/sigma/bulk                    (Pro+ -- bulk Sigma detection rules NDJSON/YAML)",
+        "GET  /api/yara/bulk                     (Enterprise -- bulk YARA intelligence rules)",
+        "GET  /api/scoring                       (Enterprise -- full enterprise apex_score feed)",
+        "GET  /api/scoring/kev                   (Enterprise -- KEV-priority scored advisories)",
+        "GET  /api/scoring/ransomware            (Enterprise -- ransomware-affinity scored advisories)",
+        "GET  /api/scoring/velocity              (Enterprise -- threat velocity top advisories)",
+        "GET  /api/siem/splunk                   (Enterprise -- Splunk HEC NDJSON bulk export)",
+        "GET  /api/siem/sentinel                 (Enterprise -- Microsoft Sentinel Watchlist CSV)",
+        "GET  /api/siem/qradar                   (Enterprise -- IBM QRadar reference sets JSON)",
+        "GET  /api/stream                        (Enterprise -- SSE live threat stream)",
+        "GET  /api/mssp/tenants/:id/feed         (Enterprise -- MSSP tenant-scoped intel feed)",
         //  Admin
         "POST /api/admin/cache/bust     (requires X-Admin-Secret)",
         "POST /api/admin/keys/create    (requires X-Admin-Secret)",
