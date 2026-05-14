@@ -561,9 +561,11 @@
                    📦 STIX Bundle
                  </a>`
               : ""}
-          <a href="${esc(item.report_url)}" target="_blank" rel="noopener" class="sapx-report-cta">
-            📄 VIEW REPORT ↗
-          </a>
+          ${item.report_url
+            ? `<a href="${esc(item.report_url)}" target="_blank" rel="noopener" class="sapx-report-cta">
+                 📄 VIEW REPORT ↗
+               </a>`
+            : ""}
         </div>
       </div>
     </div>`;

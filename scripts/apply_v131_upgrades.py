@@ -94,19 +94,32 @@ except Exception as e:
     log.warning("Synthetic engine unavailable (non-fatal): %s", e)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# STEP 3: IOC ENFORCER — HARD ENFORCEMENT FOR HIGH/CRITICAL
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# STEP 3: IOC ENFORCER -- HARD ENFORCEMENT FOR HIGH/CRITICAL
+# ===============================================================================
 step(3, "IOC ENFORCER")
 try:
     from core.intelligence.ioc_enforcer import IOCEnforcer
-    enforcer            = IOCEnforcer(auto_generate_fallback=True)
+    # v152.2 P2 FIX: type guard before enforce_manifest() -- 'str' object has no
+    # attribute 'get' was raised when manifest was a string (corrupt load path).
+    # Guard both the manifest envelope and each advisory entry before passing in.
+    if not isinstance(manifest, dict):
+        raise TypeError("IOC enforcer: manifest is not a dict (type=%s) -- skipping" % type(manifest).__name__)
+    # Sanitize: filter out any non-dict advisory entries (str/int/None) before enforcement
+    _safe_advisories = [a for a in advisories if isinstance(a, dict)]
+    if len(_safe_advisories) < len(advisories):
+        log.warning("IOC enforcer: filtered %d non-dict advisory entries before enforcement",
+                    len(advisories) - len(_safe_advisories))
+    advisories = _safe_advisories
     manifest["advisories"] = advisories
+    enforcer            = IOCEnforcer(auto_generate_fallback=True)
     manifest            = enforcer.enforce_manifest(manifest)
+    if not isinstance(manifest, dict):
+        raise TypeError("IOC enforcer returned non-dict result (type=%s)" % type(manifest).__name__)
     advisories          = manifest.get("advisories", [])
     enforcement_stats   = manifest.get("ioc_enforcement", {})
     log.info("IOC enforcement: %d passed | %d blocked | %d fallbacks added",
-             len(advisories), enforcement_stats.get("blocked",0), enforcement_stats.get("fallback_added",0))
+             len(advisories), enforcement_stats.get("blocked", 0), enforcement_stats.get("fallback_added", 0))
 except Exception as e:
     log.warning("IOC enforcer unavailable (non-fatal): %s", e)
 
