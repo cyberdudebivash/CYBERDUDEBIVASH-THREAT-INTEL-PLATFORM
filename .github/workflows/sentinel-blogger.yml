@@ -514,6 +514,54 @@ jobs:
         run: python3 scripts/field_preserving_merge.py --manifest data/stix/feed_manifest.json --incoming api/feed.json --cap 500 || true
 
       # -----------------------------------------------------------------------
+      # STAGE 3.1.7: ENTERPRISE SCORING ENGINE (v152.0 -- NON-BLOCKING)
+      # Computes 10-dimension composite enterprise intelligence scores for every
+      # advisory in the manifest and writes apex_score blocks:
+      #   threat_velocity_score, ransomware_affinity_score, kev_priority_score,
+      #   exploit_maturity_score, adversary_sophistication_score,
+      #   operational_severity_score, business_disruption_score,
+      #   internet_exposure_score, exploitability_confidence_score,
+      #   patch_urgency_score, apex_score (composite), soc_priority (P1-P4).
+      # NON-BLOCKING: exit 1 logs error but does not abort pipeline.
+      # Enrichment is consumed by report generator (STAGE 3.2) and API manifests.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.7 - Enterprise Scoring Engine (v152.0 — 10-dimension apex_score)"
+        timeout-minutes: 5
+        run: |
+          set +e
+          python3 scripts/enterprise_scoring_engine.py --manifest data/stix/feed_manifest.json
+          SCORE_EXIT=$?
+          set -e
+          if [ "$SCORE_EXIT" -eq 0 ]; then
+            echo "[PASS] Enterprise Scoring Engine: apex_score blocks written to manifest"
+          else
+            echo "[WARN] Enterprise Scoring Engine exited $SCORE_EXIT — pipeline continues"
+          fi
+
+      # -----------------------------------------------------------------------
+      # STAGE 3.1.8: IOC QUALITY HARDENER (v152.0 -- NON-BLOCKING)
+      # Classifies every IOC in the manifest and strips pseudo-IOCs
+      # (CVE reference strings, Vulners/NVD/NIST advisory URLs, UTM-tracked
+      # RSS URLs) into a separate pseudo_iocs list. Recalibrates per-IOC
+      # confidence based on observable type:
+      #   sha256 -> 90%  |  ipv4 -> 75%  |  domain -> 70%  |  url_c2 -> 65%
+      # Adds ioc_type, classification, apex_validated, pseudo_ioc_count fields.
+      # NON-BLOCKING: exit 1 logs error but does not abort pipeline.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 3.1.8 - IOC Quality Hardener (v152.0 — strip pseudo-IOCs, recalibrate confidence)"
+        timeout-minutes: 5
+        run: |
+          set +e
+          python3 scripts/ioc_quality_hardener.py --manifest data/stix/feed_manifest.json
+          IOC_EXIT=$?
+          set -e
+          if [ "$IOC_EXIT" -eq 0 ]; then
+            echo "[PASS] IOC Quality Hardener: pseudo-IOCs filtered, confidence recalibrated"
+          else
+            echo "[WARN] IOC Quality Hardener exited $IOC_EXIT — pipeline continues"
+          fi
+
+      # -----------------------------------------------------------------------
       # STAGE 3.2: REPORT GENERATOR -- INTERNAL DOSSIER HARDENING (v134.0)
       # Generates HTML Tactical Dossier for every advisory in the manifest.
       # Skips entries that already have an up-to-date report (idempotent).

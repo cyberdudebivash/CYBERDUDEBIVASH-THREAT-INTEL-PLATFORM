@@ -748,14 +748,26 @@ def _render_ttps(ttps: list) -> str:
     )
 
 
-def _score_row(label: str, val: float, max_val: float = 10.0) -> str:
-    pct = min((val / max_val) * 100, 100) if max_val else 0
+def _score_row(label: str, val: Any, max_val: float = 10.0) -> str:
+    """Render a labelled score bar. val=None renders an N/A placeholder (no zero bar)."""
+    if val is None:
+        return (
+            f"<div class='score-row'>"
+            f"<span class='score-label'>{_h(label)}</span>"
+            f"<div class='score-bar'>"
+            f"<div class='score-fill' style='width:0%;background:rgba(122,132,153,.3)'></div>"
+            f"</div>"
+            f"<span class='score-val' style='color:var(--muted);font-size:10px'>N/A</span>"
+            f"</div>"
+        )
+    _v = float(val)
+    pct = min((_v / max_val) * 100, 100) if max_val else 0
     color = _score_bar_color(pct)
     return (
         f"<div class='score-row'>"
         f"<span class='score-label'>{_h(label)}</span>"
         f"<div class='score-bar'><div class='score-fill' style='width:{pct:.1f}%;background:{color}'></div></div>"
-        f"<span class='score-val'>{val}</span>"
+        f"<span class='score-val'>{_v:.1f}</span>"
         f"</div>"
     )
 
@@ -1322,8 +1334,8 @@ def build_report_sections(item: dict) -> str:
             if kev else
             "No confirmed active exploitation in CISA KEV catalogue at time of analysis."
         )
-        cvss_txt = f"CVSS 3.1 base score: <strong>{_h(cvss)}</strong>" if cvss is not None else "CVSS score: <strong>Pending triage</strong>"
-        epss_txt = f"EPSS probability (30-day): <strong>{_h(epss)}%</strong>" if epss is not None else "EPSS: <strong>Pending scoring</strong>"
+        cvss_txt = f"CVSS 3.1 base score: <strong>{_h(cvss)}</strong>" if cvss is not None else "CVSS score: <strong style='color:var(--muted)'>N/A</strong>"
+        epss_txt = f"EPSS probability (30-day): <strong>{_h(epss)}%</strong>" if epss is not None else "EPSS: <strong style='color:var(--muted)'>N/A</strong>"
         _s2_body = (
             f"<p>CYBERDUDEBIVASH SENTINEL APEX has detected, correlated, and validated a "
             f"<strong>{_h(sev)}</strong> severity {_h(threat_type).lower()} advisory: "
@@ -1364,8 +1376,9 @@ def build_report_sections(item: dict) -> str:
     ))
 
     # ── S4: Risk Score Breakdown ───────────────────────────────────────────
-    cvss_v = float(cvss) if cvss is not None else 0.0
-    epss_v = float(epss) if epss is not None else 0.0
+    # Keep None for missing scores — _score_row renders "N/A" bar, not a false 0.0
+    cvss_v = float(cvss) if cvss is not None else None
+    epss_v = float(epss) if epss is not None else None
     kev_score = 10.0 if kev else 0.0
     sections.append(_section(4, "Risk Score Breakdown",
         "<p>Composite risk score is derived from 5 independent signal layers normalised "
@@ -1451,9 +1464,9 @@ def build_report_sections(item: dict) -> str:
     _kev_chip = "<span class='sev-chip sev-CRITICAL'>YES &mdash; ACTIVELY EXPLOITED</span>" if kev else "No"
     sections.append(_section(8, "CVSS &amp; EPSS Deep Dive",
         "<div class='kv'>"
-        f"<div class='kv-key'>CVSS 3.1 Score</div><div class='kv-val'><strong>{_h(cvss) if cvss is not None else 'Pending'}</strong></div>"
+        f"<div class='kv-key'>CVSS 3.1 Score</div><div class='kv-val'><strong>{_h(cvss) if cvss is not None else '<span style=\"color:var(--muted)\">N/A — score not yet assigned</span>'}</strong></div>"
         f"<div class='kv-key'>CVSS Vector</div><div class='kv-val'><code>{_h(cvss_vec)}</code></div>"
-        f"<div class='kv-key'>EPSS Score</div><div class='kv-val'><strong>{_h(epss) if epss is not None else 'Pending'}{'%' if epss is not None else ''}</strong></div>"
+        f"<div class='kv-key'>EPSS Score</div><div class='kv-val'><strong>{_h(epss) if epss is not None else '<span style=\"color:var(--muted)\">N/A — EPSS scoring not available</span>'}{'%' if epss is not None else ''}</strong></div>"
         f"<div class='kv-key'>KEV Listed</div><div class='kv-val'>{_kev_chip}</div>"
         f"<div class='kv-key'>NVD Reference</div><div class='kv-val'>"
         + (f"<a href='{_h(nvd_url)}' target='_blank' rel='noopener' style='color:var(--accent2)'>{_h(nvd_url)}</a>" if nvd_url else "–")
@@ -1804,8 +1817,8 @@ def build_report_sections(item: dict) -> str:
         f"<div style='font-family:var(--mono);font-size:14px;font-weight:700;color:{_h(bis_color)};margin-bottom:6px'>{_h(bis_label)}</div>"
         f"<div class='kv' style='grid-template-columns:160px 1fr;font-size:12px'>"
         f"<div class='kv-key'>APEX Risk Input</div><div class='kv-val'>{risk}/10</div>"
-        f"<div class='kv-key'>CVSS 3.1</div><div class='kv-val'>{cvss if cvss is not None else 'Pending'}</div>"
-        f"<div class='kv-key'>EPSS (30d %)</div><div class='kv-val'>{epss if epss is not None else 'Pending'}</div>"
+        f"<div class='kv-key'>CVSS 3.1</div><div class='kv-val'>{cvss if cvss is not None else 'N/A'}</div>"
+        f"<div class='kv-key'>EPSS (30d %)</div><div class='kv-val'>{epss if epss is not None else 'N/A'}</div>"
         f"<div class='kv-key'>KEV Status</div><div class='kv-val'>{'CONFIRMED' if kev else 'Not listed'}</div>"
         f"<div class='kv-key'>IOC Density</div><div class='kv-val'>{ioc_count} indicators</div>"
         f"<div class='kv-key'>TTP Coverage</div><div class='kv-val'>{len(ttps)} techniques</div>"
@@ -1855,8 +1868,8 @@ def render_report(item: dict, public_prefix: str) -> str:
     _ioc_conf    = min(int(item.get("ioc_confidence") or 75), 100)
     _ioc_list    = item.get("iocs") or []
     _ttp_list    = (item.get("apex_ai") or {}).get("ttps") or item.get("ttps") or []
-    _cvss_disp   = str(item["cvss_score"]) if item.get("cvss_score") is not None else "Pending"
-    _epss_disp   = str(item["epss_score"]) if item.get("epss_score") is not None else "Pending"
+    _cvss_disp   = str(item["cvss_score"]) if item.get("cvss_score") is not None else "N/A"
+    _epss_disp   = str(item["epss_score"]) if item.get("epss_score") is not None else "N/A"
     _epss_pct    = "%" if item.get("epss_score") is not None else ""
     _kev         = bool(item.get("kev_present"))
     _kev_disp    = "YES &#x26A0;" if _kev else "No"
@@ -1870,11 +1883,16 @@ def render_report(item: dict, public_prefix: str) -> str:
                     "med"  if sev == "MEDIUM"   else "low"  if sev == "LOW"  else "neutral")
     _risk_tile   = ("crit" if risk >= 9 else "high" if risk >= 7 else
                     "med"  if risk >= 5 else "low")
-    _cvss_f      = float(item.get("cvss_score") or 0)
-    _cvss_tile   = ("crit" if _cvss_f >= 9 else "high" if _cvss_f >= 7 else
+    # Tile colour: "neutral" when score absent — never show red/orange on a null value
+    _cvss_raw    = item.get("cvss_score")
+    _cvss_f      = float(_cvss_raw) if _cvss_raw is not None else None
+    _cvss_tile   = ("neutral" if _cvss_f is None else
+                    "crit" if _cvss_f >= 9 else "high" if _cvss_f >= 7 else
                     "med"  if _cvss_f >= 4 else "neutral")
-    _epss_f      = float(item.get("epss_score") or 0)
-    _epss_tile   = ("crit" if _epss_f >= 50 else "high" if _epss_f >= 20 else "neutral")
+    _epss_raw    = item.get("epss_score")
+    _epss_f      = float(_epss_raw) if _epss_raw is not None else None
+    _epss_tile   = ("neutral" if _epss_f is None else
+                    "crit" if _epss_f >= 50 else "high" if _epss_f >= 20 else "neutral")
     _conf_strip  = (
         "<div class='confidence-strip'>"
         "<span class='conf-label'>Intel Confidence</span>"
