@@ -211,4 +211,148 @@ def strip_control_chars(text: str) -> str:
 def sanitize(data: bytes) -> bytes:
     """Strip BOM, null bytes, control chars and normalize CRLF -> LF."""
     if data.startswith(BOM):
-        data = da
+        data = data[3:]
+    # Strip null bytes (padding artifact from some write tools)
+    data = data.replace(b"\x00", b"")
+    data = data.replace(b"\r\n", b"\n")
+    # Strip YAML/JSON-disallowed control characters (e.g. U+0090 DCS → \xc2\x90 in UTF-8)
+    try:
+        text = data.decode("utf-8", errors="replace")
+        if has_control_chars(text):
+            data = strip_control_chars(text).encode("utf-8")
+    except Exception:
+        pass
+    return data
+
+
+def run(root: pathlib.Path, fix: bool, strict: bool) -> int:
+    """
+    Main scan/fix loop.
+    Returns exit code: 0 = clean, 1 = found issues (strict mode only).
+    """
+    files = scan_repo(root)
+    infected: list[tuple[pathlib.Path, bool, bool]] = []
+    # --- v153.1: Worker JS ASCII enforcement pass (runs before BOM/CRLF scan) ---
+    # esbuild rejects any non-ASCII byte; sanitize_encoding previously missed this.
+    worker_ascii_failed: list[pathlib.Path] = []
+    for f in files:
+        if not _is_worker_js(f, root):
+            continue
+        try:
+            data = f.read_bytes()
+        except OSError:
+            continue
+        if not _needs_worker_ascii_fix(data):
+            continue
+        rel = f.relative_to(root)
+        if fix:
+            clean = _sanitize_worker_js(data)
+            f.write_bytes(clean)
+            remaining = sum(1 for b in f.read_bytes() if b > 127)
+            if remaining > 0:
+                print(f"  FAIL   [WORKER-ASCII] {rel} ({remaining} non-ASCII remain after fix)")
+                worker_ascii_failed.append(f)
+            else:
+                print(f"  FIXED  [WORKER-ASCII] {rel}")
+        else:
+            count = sum(1 for b in data if b > 127)
+            print(f"  DIRTY  [WORKER-ASCII] {rel} ({count} non-ASCII bytes)")
+            worker_ascii_failed.append(f)
+    if worker_ascii_failed and not fix:
+        print(f"\nFATAL: {len(worker_ascii_failed)} Worker JS file(s) have non-ASCII bytes.")
+        print("Run: python3 scripts/sanitize_encoding.py --fix")
+        if strict:
+            return 1
+    # --- end Worker JS ASCII pass ---
+
+    for f in files:
+        try:
+            data = f.read_bytes()
+        except OSError as e:
+            print(f"  SKIP {f}: {e}")
+            continue
+
+        has_bom, has_crlf = needs_fix(data)
+        if has_bom or has_crlf:
+            infected.append((f, has_bom, has_crlf))
+            rel = f.relative_to(root)
+            flags = " ".join(filter(None, [
+                "BOM"  if has_bom  else "",
+                "CRLF" if has_crlf else "",
+            ]))
+            if fix:
+                clean = sanitize(data)
+                f.write_bytes(clean)
+                print(f"  FIXED  [{flags}] {rel}")
+            else:
+                print(f"  FOUND  [{flags}] {rel}")
+
+    total_files = len(files)
+    total_infected = len(infected)
+
+    print()
+    print(f"Scanned : {total_files} files")
+    print(f"Infected: {total_infected} files")
+
+    if fix and total_infected:
+        print(f"Fixed   : {total_infected} files")
+        # Re-verify
+        still_bad = [
+            f for f, _, _ in infected
+            if any(needs_fix(f.read_bytes()))
+        ]
+        if still_bad:
+            print(f"ERROR: {len(still_bad)} files still have issues after fix!")
+            for f in still_bad:
+                print(f"  FAIL: {f.relative_to(root)}")
+            return 1
+        print("Verified: All fixed. Zero BOM/CRLF remaining.")
+    elif total_infected == 0:
+        print("Status  : ALL CLEAN - Zero encoding issues found")
+    else:
+        print("Status  : DRY RUN - Pass --fix to apply changes")
+
+    if strict and total_infected > 0 and not fix:
+        print("STRICT MODE: Exiting 1 (encoding issues found)")
+        return 1
+
+    return 0
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="SENTINEL APEX — Platform encoding sanitizer (BOM + CRLF)"
+    )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="Apply fixes (default: dry run)",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit 1 if any issues found (CI enforcement mode)",
+    )
+    parser.add_argument(
+        "--root",
+        type=pathlib.Path,
+        default=REPO_ROOT,
+        help=f"Repository root (default: {REPO_ROOT})",
+    )
+    args = parser.parse_args()
+
+    print("=" * 70)
+    print(f"SENTINEL APEX — Encoding Sanitizer v134.0.0")
+    print(f"Root   : {args.root}")
+    print(f"Mode   : {'FIX' if args.fix else 'DRY-RUN'}")
+    print(f"Strict : {args.strict}")
+    print("=" * 70)
+
+    rc = run(args.root, fix=args.fix, strict=args.strict)
+    sys.exit(rc)
+
+
+if __name__ == "__main__":
+    main()
