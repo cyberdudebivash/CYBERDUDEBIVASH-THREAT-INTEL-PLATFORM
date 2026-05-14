@@ -234,8 +234,40 @@ def get_severity(item: Dict) -> str:
 #          priority, kev_present, cve_ids, threat_type, risk_score normalization
 # ─────────────────────────────────────────────────────────────────────────────
 import re as _re
+import html as _html_mod
 
 _CVE_PAT = _re.compile(r"CVE-\d{4}-\d+", _re.I)
+
+# ── v152.0 P0 FIX: HTML sanitization helpers ─────────────────────────────────
+def _strip_html_field(text: str) -> str:
+    """Strip HTML tags and decode entities from a text field."""
+    if not isinstance(text, str):
+        return text
+    text = _re.sub(r'<!--.*?-->', '', text, flags=_re.DOTALL)
+    text = _re.sub(r'<(script|style)[^>]*>.*?</\1>', '', text, flags=_re.DOTALL | _re.IGNORECASE)
+    text = _re.sub(r'<[^>]+>', '', text)
+    text = _html_mod.unescape(text)
+    text = _re.sub(r'[ \t]+', ' ', text)
+    return text.strip()
+
+def _sanitize_entry_text_fields(entry: dict) -> dict:
+    """Strip HTML from all known text fields in a feed entry."""
+    _TEXT_FIELDS = [
+        'ai_summary', 'apex_ai_summary', 'executive_summary', 'tactical_assessment',
+        'kill_chain_narrative', 'analyst_note', 'recommended_action', 'summary',
+        'description', 'title', 'detect', 'analyze', 'respond', 'mitigation',
+        'recommendations', 'threat_type', 'analyst_notes',
+    ]
+    for field in _TEXT_FIELDS:
+        if field in entry and isinstance(entry[field], str):
+            entry[field] = _strip_html_field(entry[field])
+    for key in ('apex_ai', 'apex_ai2'):
+        apex = entry.get(key)
+        if isinstance(apex, dict):
+            for field in _TEXT_FIELDS:
+                if field in apex and isinstance(apex[field], str):
+                    apex[field] = _strip_html_field(apex[field])
+    return entry
 
 # MITRE ATT&CK technique → phase mapping (T-code based)
 _TTP_PHASE_MAP = {
@@ -572,6 +604,8 @@ def build_feed_json(entries: List[Dict], flags: Dict) -> Path:
         # Injects detect, analyze, respond, mitigation, recommendations,
         # priority, kev_present, cve_ids — guaranteed non-empty on every item.
         apex_ai_enrich(entry)
+        # v152.0 P0 FIX: strip residual HTML from all text fields before writing JSON
+        _sanitize_entry_text_fields(entry)
 
     sorted_entries = sorted(
         entries,
