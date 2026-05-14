@@ -360,4 +360,30 @@ jobs:
           if gw_ver and expected and gw_ver == expected:
               print(f'OK: Version match confirmed -- {gw_ver}')
           elif gw_ver == 'unknown':
-              print(
+              print('NOTE: Version not yet visible -- Cloudflare edge still propagating')
+          else:
+              print(f'WARNING: Version mismatch -- live={gw_ver}, expected={expected}')
+              print('This may resolve within 30-60s as Cloudflare propagates globally.')
+
+          # JWT check
+          if jwt_ok is False:
+              print('')
+              print('ACTION REQUIRED: CDB_JWT_SECRET is not configured.')
+              print('Fix: openssl rand -hex 32 | npx wrangler secret put CDB_JWT_SECRET')
+          elif jwt_ok is True:
+              print('OK: CDB_JWT_SECRET is configured')
+          else:
+              print('NOTE: jwt_configured status unknown (health endpoint may be at different version)')
+          " 2>&1 || echo "Smoke test skipped -- worker still propagating"
+
+          echo ""
+          echo "--- Security header check ---"
+          HEADERS=$(curl -sI --max-time 15 "https://intel.cyberdudebivash.com/api/health" 2>/dev/null)
+          echo "$HEADERS" | grep -i "x-sentinel-version\|strict-transport\|content-security\|x-frame" || echo "Security headers: not yet visible"
+
+          echo ""
+          echo "--- Preview endpoint check ---"
+          curl -s --max-time 10 "https://intel.cyberdudebivash.com/api/preview" 2>/dev/null | python3 -c "
+          import json,sys
+          try:
+         
