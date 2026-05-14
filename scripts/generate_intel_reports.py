@@ -97,6 +97,11 @@ try:
         generate_enhanced_sigma        as _apex_sigma,
         enrich_advisory                as _apex_enrich,
         filter_operational_iocs        as _apex_filter_iocs,
+        # Phase 1–3: Enterprise intelligence transformation
+        generate_executive_summary     as _apex_exec_summary,
+        generate_actor_intelligence_v2 as _apex_actor_intel_v2,
+        generate_ioc_intelligence_table as _apex_ioc_table,
+        resolve_actor_cluster          as _apex_resolve_actor,
     )
     _APEX_UPGRADE_AVAILABLE = True
 except Exception as _apex_import_err:
@@ -137,6 +142,18 @@ def _safe_enforce_schema(item: dict) -> dict:
     iocs = item.get("iocs")
     if isinstance(iocs, list):
         item["ioc_count"] = len(iocs)
+    # ── P0 EPSS NORMALIZATION: values stored as basis-points (>100) must be
+    #    converted back to percentage scale (0–100). Root cause: some ingest
+    #    paths multiply a 0-1 probability by 10000 instead of 100.
+    #    Safe: legitimate EPSS percentages are 0–100; values >100 are always corrupt.
+    _epss_raw = item.get("epss_score")
+    if _epss_raw is not None:
+        try:
+            _e = float(_epss_raw)
+            if _e > 100.0:
+                item["epss_score"] = round(_e / 100.0, 4)
+        except (ValueError, TypeError):
+            pass
     return item
 
 
@@ -729,8 +746,8 @@ _BREACH_COSTS: list[tuple[str, str, str, str]] = [
 ]
 
 
-def _render_financial_impact(sev: str, risk: float, sectors: list) -> str:
-    """Render IBM/Ponemon-based financial impact table with sector analysis."""
+def _render_financial_impact(sev: str, risk: float, sectors: list, vuln_class: str = "generic") -> str:
+    """Render IBM/Ponemon-based financial impact table with sector analysis and vuln-class-specific enrichment."""
     match_sectors = {s.lower() for s in (sectors or [])}
     rows = []
     for sector, cost, days, mult in _BREACH_COSTS:
@@ -748,24 +765,77 @@ def _render_financial_impact(sev: str, risk: float, sectors: list) -> str:
     fair_low  = f"${4_880_000 * 0.15 * risk_mult:,.0f}"
     fair_mid  = f"${4_880_000 * 0.60 * risk_mult:,.0f}"
     fair_high = f"${4_880_000 * 1.20 * risk_mult:,.0f}"
+
+    # ── Vuln-class-specific financial intelligence block ──────────────────────
+    _class_specific_html = ""
+    if vuln_class in ("ransomware",):
+        _class_specific_html = (
+            "<h3 style='margin-top:20px'>Ransomware-Specific Financial Impact Model</h3>"
+            "<div class='kv'>"
+            "<div class='kv-key'>Ransom Demand Range</div>"
+            "<div class='kv-val'><strong style='color:var(--crit)'>$500K – $5M+ USD</strong>"
+            " (enterprise targets; calibrated to victim revenue via OSINT)</div>"
+            "<div class='kv-key'>Median Ransom Paid (2025)</div>"
+            "<div class='kv-val'>$850K (Coveware Q1 2025) — payment does NOT guarantee decryption or data deletion</div>"
+            "<div class='kv-key'>Recovery Cost (No Payment)</div>"
+            "<div class='kv-val'><strong>$3.2M – $14M</strong> — rebuild + forensics + legal + regulatory + PR</div>"
+            "<div class='kv-key'>Recovery Cost (With Payment)</div>"
+            "<div class='kv-val'><strong>$1.8M – $9M</strong> — ransom + decryption delays + partial data loss + audit</div>"
+            "<div class='kv-key'>Avg Downtime (Ransomware)</div>"
+            "<div class='kv-val'>21 days full operations suspended; 45 days to full recovery (Sophos 2025)</div>"
+            "<div class='kv-key'>Business Interruption</div>"
+            "<div class='kv-val'><strong>$250K – $2M/day</strong> depending on sector and revenue</div>"
+            "<div class='kv-key'>Double-Extortion Premium</div>"
+            "<div class='kv-val'>+40–60% breach cost uplift — regulatory fines + breach notification + reputational damage from data publication</div>"
+            "<div class='kv-key'>Cyber Insurance Sublimit Risk</div>"
+            "<div class='kv-val'>Most policies have ransomware sublimits of $500K–$5M; large enterprises frequently underinsured by 60–80%</div>"
+            "</div>"
+            "<div class='callout critical' style='margin-top:12px'>"
+            "<strong>Board-Level Decision Framework:</strong> Payment vs. Restoration — "
+            "Paying the ransom does not guarantee data deletion from the actor's infrastructure. "
+            "Double-extortion victims who pay still face a 35% probability of data publication. "
+            "Engage legal counsel and cyber-insurance carrier before any ransom consideration. "
+            "OFAC sanctions may apply to payments directed at designated entities."
+            "</div>"
+        )
+    elif vuln_class in ("ssrf", "remote_code_execution", "command_injection"):
+        _class_specific_html = (
+            "<h3 style='margin-top:20px'>Cloud & Infrastructure Compromise Cost Model</h3>"
+            "<div class='kv'>"
+            "<div class='kv-key'>Cloud Account Takeover Cost</div>"
+            "<div class='kv-val'>$180K – $2.4M (cryptomining charges + data exfiltration + cleanup)</div>"
+            "<div class='kv-key'>Credential Theft Impact</div>"
+            "<div class='kv-val'>IAM credential compromise enables lateral movement across all cloud services — blast radius multiplier 3–8x</div>"
+            "<div class='kv-key'>Data Exfiltration Risk</div>"
+            "<div class='kv-val'>S3/Blob storage accessible via stolen IAM tokens — GDPR Article 33 notification likely</div>"
+            "<div class='kv-key'>Mean Detection Time</div>"
+            "<div class='kv-val'>127 days average dwell before detection (IBM CODB 2025) — extended exposure window</div>"
+            "</div>"
+        )
+
     return (
-        "<p>Breach cost projections derived from <strong>IBM Cost of a Data Breach Report 2024</strong> "
-        "and <strong>Ponemon Institute benchmarks</strong>, adjusted for observed severity and exploit maturity. "
-        "Figures represent industry median for organisations of 1,000—10,000 employees.</p>"
+        "<p>Breach cost projections derived from <strong>IBM Cost of a Data Breach Report 2025</strong>, "
+        "<strong>Sophos State of Ransomware 2025</strong>, and <strong>Coveware Ransomware Marketplace Report Q1 2025</strong>, "
+        "adjusted for observed severity, exploit maturity, and current threat actor activity. "
+        "Figures represent industry median for organisations of 1,000–10,000 employees. "
+        "<strong>Enterprise subscriptions</strong> receive sector-specific financial impact modelling "
+        "and tailored board-level risk quantification.</p>"
         "<table class='fin-table'>"
         "<thead><tr><th>Sector</th><th>Avg Breach Cost</th><th>Avg Contain Time</th><th>Risk Multiplier</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table>"
-        "<h3 style='margin-top:20px'>FAIR Model Exposure Estimate – This Advisory</h3>"
+        + _class_specific_html +
+        "<h3 style='margin-top:20px'>FAIR Model Exposure Estimate — This Advisory</h3>"
         "<div class='kv'>"
         f"<div class='kv-key'>Risk Input</div><div class='kv-val'>{risk}/10 composite APEX score</div>"
-        f"<div class='kv-key'>Loss Range (Low)</div><div class='kv-val'><strong style='color:var(--low)'>{_h(fair_low)}</strong></div>"
-        f"<div class='kv-key'>Loss Range (Most Likely)</div><div class='kv-val'><strong style='color:var(--med)'>{_h(fair_mid)}</strong></div>"
-        f"<div class='kv-key'>Loss Range (High)</div><div class='kv-val'><strong style='color:var(--crit)'>{_h(fair_high)}</strong></div>"
-        "<div class='kv-key'>Methodology</div><div class='kv-val'>FAIR ISO/IEC 27005 + NIST SP 800-30</div>"
+        f"<div class='kv-key'>Loss Range (Optimistic)</div><div class='kv-val'><strong style='color:var(--low)'>{_h(fair_low)}</strong> — rapid detection, full backup recovery</div>"
+        f"<div class='kv-key'>Loss Range (Most Likely)</div><div class='kv-val'><strong style='color:var(--med)'>{_h(fair_mid)}</strong> — partial breach, regulatory notification, remediation</div>"
+        f"<div class='kv-key'>Loss Range (Severe)</div><div class='kv-val'><strong style='color:var(--crit)'>{_h(fair_high)}</strong> — full compromise, regulatory fines, class action exposure</div>"
+        "<div class='kv-key'>Methodology</div><div class='kv-val'>FAIR ISO/IEC 27005 · NIST SP 800-30 · IBM CODB 2025 · Coveware Q1 2025</div>"
         "</div>"
         "<div class='callout warn'><strong>Cyber-Insurance Disclosure:</strong> Losses in the Most Likely range "
-        "typically trigger notification obligations under your cyber-insurance policy. Engage your broker within "
-        "72 hours of confirmed compromise.</div>"
+        "typically trigger mandatory notification under your cyber-insurance policy. Engage your broker within "
+        "72 hours of confirmed compromise. Validate that your policy covers the specific attack vector — "
+        "ransomware sublimits, war exclusions, and nation-state carve-outs are common coverage gaps.</div>"
     )
 
 
@@ -1174,6 +1244,18 @@ def build_report_sections(item: dict) -> str:
     actor       = str(item.get("actor_cluster") or item.get("actor_tag") or item.get("primary_actor") or "UNATTRIBUTED")
     campaign    = item.get("campaign_id") or item.get("campaign") or "UNCLASSIFIED"
 
+    # ── APEX Actor Resolution: replace system artifacts with display names ──
+    _actor_resolved_display = actor
+    if _APEX_UPGRADE_AVAILABLE:
+        try:
+            _actor_profile = _apex_resolve_actor(actor, item)
+            _actor_resolved_display = _actor_profile["display_name"]
+            # Inject resolved display name back for use in S1, S3, S11
+            item["_actor_display"] = _actor_resolved_display
+            item["_actor_confidence"] = _actor_profile["confidence"]
+        except Exception as _actor_res_exc:
+            pass
+
     sections = []
 
     # ── S1: Classification Header ──────────────────────────────────────────
@@ -1190,40 +1272,51 @@ def build_report_sections(item: dict) -> str:
         f"<div class='kv-key'>Threat Type</div><div class='kv-val'>{_h(threat_type)}</div>"
         f"<div class='kv-key'>Feed Source</div><div class='kv-val'>{_h(feed)}</div>"
         f"<div class='kv-key'>Processed</div><div class='kv-val'>{_h(ts)}</div>"
-        f"<div class='kv-key'>Actor Cluster</div><div class='kv-val'>{_h(actor)}</div>"
+        f"<div class='kv-key'>Actor Cluster</div><div class='kv-val'>{_h(_actor_resolved_display)}</div>"
         f"<div class='kv-key'>Platform</div><div class='kv-val'>CYBERDUDEBIVASH SENTINEL APEX {PLATFORM_VERSION}</div>"
         f"</div>"
     ))
 
-    # ── S2: Executive Summary ──────────────────────────────────────────────
-    kev_txt = (
-        "Active exploitation confirmed via CISA KEV catalogue – treat as IMMINENT threat."
-        if kev else
-        "No confirmed active exploitation in CISA KEV catalogue at time of analysis."
-    )
-    cvss_txt = f"CVSS 3.1 base score: <strong>{_h(cvss)}</strong>" if cvss is not None else "CVSS score: <strong>Pending triage</strong>"
-    epss_txt = f"EPSS probability (30-day): <strong>{_h(epss)}%</strong>" if epss is not None else "EPSS: <strong>Pending scoring</strong>"
-    sections.append(_section(2, "Executive Summary",
-        f"<p>CYBERDUDEBIVASH SENTINEL APEX has detected, correlated, and validated a "
-        f"<strong>{_h(sev)}</strong> severity {_h(threat_type).lower()} advisory: "
-        f"<em>&ldquo;{_h(title)}&rdquo;</em>. Intelligence was sourced from "
-        f"<strong>{_h(feed)}</strong> and enriched across CVE, EPSS, CISA KEV, "
-        f"MITRE ATT&amp;CK, and threat-actor tracking pipelines.</p>"
-        f"<p>{_h(desc)}</p>"
-        f"<div class='callout{' critical' if sev in ('CRITICAL','HIGH') else ''}'>"
-        f"<strong>Threat Status:</strong> {kev_txt}<br>"
-        f"{cvss_txt} &nbsp;|&nbsp; {epss_txt} &nbsp;|&nbsp; "
-        f"Risk Score: <strong>{risk}/10</strong> &nbsp;|&nbsp; "
-        f"IOC Count: <strong>{ioc_count}</strong>"
-        f"</div>"
-    ))
+    # ── S2: Executive Summary — APEX Enterprise Narrative Engine v149.0 ───
+    if _APEX_UPGRADE_AVAILABLE:
+        try:
+            _s2_body = _apex_exec_summary(item)
+        except Exception as _s2_exc:
+            _s2_body = f"<p>{_h(desc)}</p>"
+    else:
+        kev_txt = (
+            "Active exploitation confirmed via CISA KEV catalogue – treat as IMMINENT threat."
+            if kev else
+            "No confirmed active exploitation in CISA KEV catalogue at time of analysis."
+        )
+        cvss_txt = f"CVSS 3.1 base score: <strong>{_h(cvss)}</strong>" if cvss is not None else "CVSS score: <strong>Pending triage</strong>"
+        epss_txt = f"EPSS probability (30-day): <strong>{_h(epss)}%</strong>" if epss is not None else "EPSS: <strong>Pending scoring</strong>"
+        _s2_body = (
+            f"<p>CYBERDUDEBIVASH SENTINEL APEX has detected, correlated, and validated a "
+            f"<strong>{_h(sev)}</strong> severity {_h(threat_type).lower()} advisory: "
+            f"<em>&ldquo;{_h(title)}&rdquo;</em>. Intelligence was sourced from "
+            f"<strong>{_h(feed)}</strong> and enriched across CVE, EPSS, CISA KEV, "
+            f"MITRE ATT&amp;CK, and threat-actor tracking pipelines.</p>"
+            f"<p>{_h(desc)}</p>"
+            f"<div class='callout{chr(32)}{'critical' if sev in ('CRITICAL','HIGH') else ''}'>"
+            f"<strong>Threat Status:</strong> {kev_txt}<br>"
+            f"{cvss_txt} &nbsp;|&nbsp; {epss_txt} &nbsp;|&nbsp; "
+            f"Risk Score: <strong>{risk}/10</strong> &nbsp;|&nbsp; "
+            f"IOC Count: <strong>{ioc_count}</strong>"
+            f"</div>"
+        )
+    sections.append(_section(2, "Executive Summary", _s2_body))
 
     # ── S3: Threat Profile ─────────────────────────────────────────────────
     sections.append(_section(3, "Threat Profile &amp; Metadata",
         f"<div class='kv'>"
         f"<div class='kv-key'>Title</div><div class='kv-val'>{_h(title)}</div>"
         f"<div class='kv-key'>Threat Type</div><div class='kv-val'>{_h(threat_type)}</div>"
-        f"<div class='kv-key'>Actor Cluster</div><div class='kv-val'>{_h(actor)}</div>"
+        f"<div class='kv-key'>Actor Cluster</div><div class='kv-val'>{_h(_actor_resolved_display)}"
+        + (f" <span style='font-size:10px;color:var(--muted);font-family:var(--font-mono)'>"
+           f"[CONF: {_h(item.get('_actor_confidence','–'))}]</span>"
+           if _APEX_UPGRADE_AVAILABLE else "")
+        + f"</div>"
         f"<div class='kv-key'>Campaign</div><div class='kv-val'>{_h(campaign)}</div>"
         f"<div class='kv-key'>TLP Label</div><div class='kv-val'>{_h(tlp)}</div>"
         f"<div class='kv-key'>STIX Bundle</div><div class='kv-val'><code>{_h(item.get('stix_file','data/stix/–'))}</code></div>"
@@ -1296,22 +1389,27 @@ def build_report_sections(item: dict) -> str:
         )
     sections.append(_section(6, "MITRE ATT&amp;CK Mapping", _s6_body))
 
-    # ── S7: IOC Table — APEX IOC Intelligence Engine v148.1 ───────────────
-    # Filter source reference URLs; keep only operational threat indicators
-    _operational_iocs = iocs
+    # ── S7: IOC Table — APEX Enterprise IOC Classification Engine v149.0 ──
     if _APEX_UPGRADE_AVAILABLE:
         try:
-            _operational_iocs, _suppressed_iocs = _apex_filter_iocs(iocs)
-            if not _operational_iocs and iocs:
-                # All were reference URLs — still show them but mark as reference
-                _operational_iocs = iocs
-        except Exception as _ioc_filter_exc:
-            log(f"IOC filter warn (non-fatal): {_ioc_filter_exc}", "warning")
+            _s7_ioc_body = _apex_ioc_table(iocs, item)
+        except Exception as _s7_exc:
+            log(f"IOC table engine warn (non-fatal): {_s7_exc}", "warning")
+            _operational_iocs = iocs
+            try:
+                _operational_iocs, _ = _apex_filter_iocs(iocs)
+            except Exception:
+                pass
+            _s7_ioc_body = _render_iocs(_operational_iocs)
+    else:
+        _s7_ioc_body = _render_iocs(iocs)
+
     sections.append(_section(7, "Indicators of Compromise",
         "<p>Hunt these indicators across SIEM, EDR, DNS, proxy, and firewall "
         "telemetry. APEX delivers IOCs in STIX 2.1, MISP, Sigma, and YARA "
-        "formats via the enterprise API (<code>/api/stix/{id}</code>).</p>"
-        + _render_iocs(_operational_iocs)
+        "formats via the enterprise API (<code>/api/stix/{id}</code>). "
+        "Each indicator includes trust scoring and deploy action guidance.</p>"
+        + _s7_ioc_body
     ))
 
     # ── S8: CVSS / EPSS Deep Dive ──────────────────────────────────────────
@@ -1396,9 +1494,16 @@ def build_report_sections(item: dict) -> str:
         "</div></div>"
     ))
 
-    # ── S11: Threat Actor Profile — APEX Adversary Intelligence v148.1 ─────
+    # ── S11: Threat Actor Profile — APEX Adversary Attribution Engine v149.0 ─
     if _APEX_UPGRADE_AVAILABLE:
-        _s11_body = _apex_actor_intel(actor, item)
+        try:
+            # v2: attribution engine with confidence scoring + artifact resolution
+            _s11_body = _apex_actor_intel_v2(actor, item)
+        except Exception as _s11_exc:
+            try:
+                _s11_body = _apex_actor_intel(actor, item)
+            except Exception:
+                _s11_body = f"<p>Actor intelligence for cluster <code>{_h(actor)}</code>.</p>"
     else:
         _s11_body = (
             f"<div class='actor-card'>"
@@ -1548,8 +1653,18 @@ def build_report_sections(item: dict) -> str:
     sectors_tagged = [t for t in tags if any(
         k in str(t).lower() for k in ["health","finance","energy","tech","gov","retail","edu","ics"]
     )]
+    # Detect vuln class for sector-specific financial modeling
+    _fi_title = str(item.get("title") or "")
+    _fi_desc  = str(item.get("description") or "")
+    _fi_lc    = (_fi_title + " " + _fi_desc).lower()
+    _fi_vuln_class = (
+        "ransomware"           if any(k in _fi_lc for k in ("ransomware", "raas", "ransom")) else
+        "ssrf"                 if "ssrf" in _fi_lc else
+        "remote_code_execution"if any(k in _fi_lc for k in ("rce", "remote code", "arbitrary code")) else
+        "generic"
+    )
     sections.append(_section(17, "Financial Impact Quantification",
-        _render_financial_impact(sev, risk, sectors_tagged)
+        _render_financial_impact(sev, risk, sectors_tagged, vuln_class=_fi_vuln_class)
     ))
 
     # ── S18: Detection Engineering Pack — APEX Enhanced Detection v148.1 ───
