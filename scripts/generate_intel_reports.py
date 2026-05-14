@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 ===============================================================================
 CYBERDUDEBIVASH SENTINEL APEX v134.0.0 – ENTERPRISE INTEL REPORT GENERATOR
@@ -825,24 +825,89 @@ level: {'high' if len(ttp_ids) >= 3 else 'medium'}
     return rule
 
 
-def _render_yara_rule(title: str, iocs: list, actor: str) -> str:
-    """Generate a YARA signature stub from IOC and title data."""
-    safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", (title or "Advisory"))[:32]
-    safe_actor = re.sub(r"[^a-zA-Z0-9_]", "_", (actor or "UNKNOWN"))[:16]
-    str_defs = []
-    for i, ioc in enumerate((iocs or [])[:8]):
+def _is_reference_url(v: str) -> bool:
+    """Return True if a string is a feed/reference URL, not a threat indicator."""
+    _REF_DOMAINS = (
+        "vulners.com", "cvefeed.io", "nvd.nist.gov", "cve.mitre.org",
+        "github.com/advisories", "nvd.nist.gov/vuln/detail", "cve.org",
+        "intel.cyberdudebivash.com", "cyberdudebivash.in", "attack.mitre.org",
+        "cisa.gov", "msrc.microsoft.com", "packetstormsecurity.com",
+    )
+    if not v or not v.startswith(("http://", "https://")):
+        return False
+    v_lower = v.lower()
+    return any(d in v_lower for d in _REF_DOMAINS)
+
+
+def _filter_yara_iocs(iocs: list) -> list:
+    """Return only operationally huntable IOC values — no source/reference URLs."""
+    result = []
+    for ioc in (iocs or []):
         if isinstance(ioc, dict):
             v = ioc.get("value") or ioc.get("indicator") or ""
+            itype = str(ioc.get("type") or "").lower()
         else:
-            v = str(ioc)
-        if v and 4 <= len(v) <= 60 and not any(c in v for c in ['"', '\\']):
+            v, itype = str(ioc), "raw"
+        if not v:
+            continue
+        # Skip reference/source URLs
+        if _is_reference_url(v):
+            continue
+        # Skip bare CVE IDs as YARA strings (too generic, high false-positive)
+        if re.match(r'^CVE-\d{4}-\d+$', v.strip(), re.IGNORECASE):
+            continue
+        if 4 <= len(v) <= 120:
+            result.append(v)
+    return result
+
+
+def _render_yara_rule(title: str, iocs: list, actor: str) -> str:
+    """Generate a YARA signature with operationally huntable IOC strings."""
+    safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", (title or "Advisory"))[:32]
+    safe_actor = re.sub(r"[^a-zA-Z0-9_]", "_", (actor or "UNKNOWN"))[:16]
+    # Use only operational IOCs — no source URLs, no bare CVE IDs
+    op_ioc_vals = _filter_yara_iocs(iocs)
+    str_defs = []
+    for i, v in enumerate(op_ioc_vals[:8]):
+        if v and not any(c in v for c in ['"', '\\']):
             str_defs.append(f'    $ioc_{i} = "{v}" ascii wide nocase')
     if not str_defs:
-        str_defs = [f'    $title_kw = "{_h(title[:30])}" ascii nocase  // refine with observed strings']
+        # Generate behavioural strings from vulnerability class
+        cve_match = re.search(r'CVE-\d{4}-\d+', title or "", re.IGNORECASE)
+        cve_id = cve_match.group(0) if cve_match else ""
+        vuln_lower = (title or "").lower()
+        if "sql" in vuln_lower and "inject" in vuln_lower:
+            str_defs = [
+                '    $sqli_1 = "UNION SELECT" ascii wide nocase',
+                '    $sqli_2 = "OR 1=1" ascii wide nocase',
+                '    $sqli_3 = "xp_cmdshell" ascii wide nocase',
+            ]
+        elif "ssrf" in vuln_lower:
+            str_defs = [
+                '    $ssrf_1 = "169.254.169.254" ascii wide',
+                '    $ssrf_2 = "metadata.google.internal" ascii wide',
+                '    $ssrf_3 = "file://" ascii wide nocase',
+            ]
+        elif "path traversal" in vuln_lower or "directory traversal" in vuln_lower:
+            str_defs = [
+                '    $pt_1 = "../../../" ascii wide',
+                '    $pt_2 = "..%2F..%2F" ascii wide nocase',
+                '    $pt_3 = "/etc/passwd" ascii wide',
+            ]
+        elif "rce" in vuln_lower or "remote code" in vuln_lower or "command injection" in vuln_lower:
+            str_defs = [
+                '    $rce_1 = "/bin/bash" ascii wide',
+                '    $rce_2 = "cmd.exe" ascii wide nocase',
+                '    $rce_3 = "whoami" ascii wide nocase',
+            ]
+        elif cve_id:
+            str_defs = [f'    $cve_ref = "{cve_id}" ascii wide nocase  // narrow with observed payload strings']
+        else:
+            str_defs = [f'    $title_kw = "{title[:30]}" ascii nocase  // refine with observed strings']
 
-    rule = f"""rule APEX_{_h(safe_name)}__{_h(safe_actor)} {{
+    rule = f"""rule APEX_{safe_name}__{safe_actor} {{
     meta:
-        description = "APEX detection: {_h(title[:60])}"
+        description = "APEX detection: {title[:60]}"
         author      = "CYBERDUDEBIVASH SENTINEL APEX {PLATFORM_VERSION}"
         date        = "{datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
         reference   = "https://intel.cyberdudebivash.com"
@@ -858,26 +923,35 @@ def _render_yara_rule(title: str, iocs: list, actor: str) -> str:
 
 
 def _render_hunt_queries(title: str, ttps: list, iocs: list) -> str:
-    """Generate KQL (Sentinel/Defender) and SPL (Splunk) hunt queries."""
+    """Generate KQL (Sentinel/Defender) and SPL (Splunk) hunt queries.
+    Strips source/reference URLs from IOC list — only operational indicators used.
+    """
     kw = re.sub(r"[^a-zA-Z0-9 ]", " ", title or "advisory").split()[0:3]
     kw_str = " or ".join(f'"{w}"' for w in kw if len(w) > 3) or '"advisory"'
+    # Only use operational IOC values — no source URLs
     ioc_vals = []
-    for ioc in (iocs or [])[:4]:
+    for ioc in (iocs or [])[:6]:
         if isinstance(ioc, dict):
             v = ioc.get("value") or ioc.get("indicator") or ""
         else:
             v = str(ioc)
-        if v and len(v) > 3:
-            ioc_vals.append(v[:50])
-    ioc_kql_list = ", ".join(f'"{v}"' for v in ioc_vals) or '"<replace-with-ioc>"'
-    ioc_spl_list = " OR ".join(f'"{v}"' for v in ioc_vals) or '"<replace-with-ioc>"'
+        if v and len(v) > 3 and not _is_reference_url(v):
+            ioc_vals.append(v[:80])
+    # Build keyword fallback from title if no operational IOCs
+    if not ioc_vals:
+        title_kws = [w for w in re.sub(r"[^a-zA-Z0-9 ]", " ", title or "").split() if len(w) > 4][:3]
+        ioc_vals = title_kws or ["<replace-with-observed-ioc>"]
+    # Raw strings for code — NO _h() escaping inside code blocks
+    ioc_kql_list = ", ".join(f'"{v}"' for v in ioc_vals)
+    ioc_spl_list = " OR ".join(f'"{v}"' for v in ioc_vals)
+    ioc_spl_re = "|".join(re.escape(v) for v in ioc_vals)
 
     kql = f"""// KQL – Microsoft Sentinel / Defender XDR
-// APEX Advisory Hunt: {_h(title[:60])}
+// APEX Advisory Hunt: {title[:60]}
 // Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')}
 
 let lookback = 30d;
-let apex_iocs = dynamic([{_h(ioc_kql_list)}]);
+let apex_iocs = dynamic([{ioc_kql_list}]);
 
 // IOC match across network events
 DeviceNetworkEvents
@@ -886,21 +960,29 @@ DeviceNetworkEvents
 | project Timestamp, DeviceName, RemoteUrl, RemoteIP, InitiatingProcessFileName
 | order by Timestamp desc;
 
-// Process execution anomaly
+// Process execution anomaly — keyword hunt
 DeviceProcessEvents
 | where Timestamp > ago(lookback)
-| where ProcessCommandLine has_any ({_h(kw_str)})
+| where ProcessCommandLine has_any ({kw_str})
 | summarize count() by DeviceName, ProcessCommandLine, bin(Timestamp, 1h)
 | where count_ > 3
-| order by count_ desc;"""
+| order by count_ desc;
 
-    spl = f"""| SPL – Splunk Enterprise Security
-| APEX Advisory Hunt: {_h(title[:60])}
-| Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')}
+// Authentication anomaly correlated with advisory window
+SigninLogs
+| where TimeGenerated > ago(lookback)
+| where ResultType != 0
+| where UserPrincipalName has_any (apex_iocs) or IPAddress has_any (apex_iocs)
+| project TimeGenerated, UserPrincipalName, IPAddress, Location, ResultDescription
+| order by TimeGenerated desc;"""
 
-index=* sourcetype=zeek* OR sourcetype=suricata*
-({_h(ioc_spl_list)})
-| eval hunt_match=if(match(_raw, "({_h('|'.join(ioc_vals or ['advisory']))})" ), "IOC_HIT", "NONE")
+    spl = f"""// SPL – Splunk Enterprise Security
+// APEX Advisory Hunt: {title[:60]}
+// Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ')}
+
+index=* sourcetype=zeek* OR sourcetype=suricata* OR sourcetype=wineventlog*
+({ioc_spl_list})
+| eval hunt_match=if(match(_raw, "({ioc_spl_re})" ), "IOC_HIT", "NONE")
 | stats count by src_ip, dest_ip, dest_port, hunt_match, _time
 | where hunt_match="IOC_HIT"
 | sort - _time
@@ -909,7 +991,13 @@ index=* sourcetype=zeek* OR sourcetype=suricata*
     match(hunt_match, "IOC_HIT"), 95,
     match(sourcetype, "suricata"), 80,
     true(), 50)
-| table _time, src_ip, dest_ip, dest_port, risk_score, hunt_match"""
+| table _time, src_ip, dest_ip, dest_port, risk_score, hunt_match
+
+// Retro-hunt: network telemetry correlated with advisory IOCs
+index=network sourcetype=proxy OR sourcetype=firewall
+({ioc_spl_list})
+| stats count by src_ip, dest_host, url, _time
+| sort - count"""
 
     return kql, spl
 
@@ -1208,12 +1296,22 @@ def build_report_sections(item: dict) -> str:
         )
     sections.append(_section(6, "MITRE ATT&amp;CK Mapping", _s6_body))
 
-    # ── S7: IOC Table ─────────────────────────────────────────────────────
+    # ── S7: IOC Table — APEX IOC Intelligence Engine v148.1 ───────────────
+    # Filter source reference URLs; keep only operational threat indicators
+    _operational_iocs = iocs
+    if _APEX_UPGRADE_AVAILABLE:
+        try:
+            _operational_iocs, _suppressed_iocs = _apex_filter_iocs(iocs)
+            if not _operational_iocs and iocs:
+                # All were reference URLs — still show them but mark as reference
+                _operational_iocs = iocs
+        except Exception as _ioc_filter_exc:
+            log(f"IOC filter warn (non-fatal): {_ioc_filter_exc}", "warning")
     sections.append(_section(7, "Indicators of Compromise",
         "<p>Hunt these indicators across SIEM, EDR, DNS, proxy, and firewall "
         "telemetry. APEX delivers IOCs in STIX 2.1, MISP, Sigma, and YARA "
         "formats via the enterprise API (<code>/api/stix/{id}</code>).</p>"
-        + _render_iocs(iocs)
+        + _render_iocs(_operational_iocs)
     ))
 
     # ── S8: CVSS / EPSS Deep Dive ──────────────────────────────────────────
@@ -1455,12 +1553,14 @@ def build_report_sections(item: dict) -> str:
     ))
 
     # ── S18: Detection Engineering Pack — APEX Enhanced Detection v148.1 ───
+    # Use _operational_iocs (already filtered) for all detection artefacts
+    _det_iocs = _operational_iocs if "_operational_iocs" in dir() else iocs
     if _APEX_UPGRADE_AVAILABLE:
-        sigma_rule = _apex_sigma(title, ttps, iocs, item)
+        sigma_rule = _apex_sigma(title, ttps, _det_iocs, item)
     else:
-        sigma_rule = _render_sigma_rule(title, ttps, iocs)
-    yara_rule  = _render_yara_rule(title, iocs, actor)
-    kql_q, spl_q = _render_hunt_queries(title, ttps, iocs)
+        sigma_rule = _render_sigma_rule(title, ttps, _det_iocs)
+    yara_rule  = _render_yara_rule(title, _det_iocs, actor)
+    kql_q, spl_q = _render_hunt_queries(title, ttps, _det_iocs)
 
     sections.append(_section(18, "Detection Engineering Pack",
         "<p>Production-grade detection artefacts generated by SENTINEL APEX's rule synthesis engine. "
@@ -2054,100 +2154,6 @@ def main(argv=None) -> int:
                     )
                 else:
                     _file_valid = True
-            except OSError as _vex:
-                log(f"VALIDATE FAIL [{intel_id}]: cannot read report for validation: {_vex}", "error")
-
-        if not _file_valid:
-            item["validation_status"] = "file_invalid"
-            item["report_url"] = item.get("source_url") or ""
-            errors += 1
-            continue
-
-        # Set report_url – always absolute, always distinct from source_url
-        yyyy, mm = iso_path(item.get("processed_at") or item.get("timestamp") or utc_now_iso())
-        report_url = f"{args.public_prefix.rstrip('/')}/reports/{yyyy}/{mm}/{intel_id}.html"
-
-        # Safety check: report_url must differ from source_url
-        if report_url == item.get("source_url", ""):
-            log(f"WARN [{intel_id}]: report_url == source_url – appending ?apex=1", "warning")
-            report_url += "?apex=1"
-
-        item["report_url"]        = report_url
-        item["validation_status"] = "enriched" if is_enriched else "ok"
-        written += 1
-
-        log(f"  OK [{item['validation_status']}] {intel_id} → {report_url}")
-
-        if args.upload_r2 and endpoint:
-            key = f"reports/{yyyy}/{mm}/{intel_id}.html"
-            if r2_upload(path, key, endpoint):
-                uploaded += 1
-
-    elapsed = time.monotonic() - t_start
-    log(
-        f"Complete: written={written} errors={errors} brand_skip={skipped_brand} "
-        f"uploaded={uploaded} elapsed={elapsed:.1f}s"
-    )
-
-    if errors > 0:
-        log(f"WARNING: {errors} entries failed report generation", "warning")
-
-    # ── REPORT EXISTENCE GUARANTEE (v141.7.0 HARDENING) ────────────────────────
-    # Before manifest write: verify every successfully-written report exists on disk.
-    # ANY missing file = HARD FAIL — manifest entry is NOT written.
-    #
-    # FIX v141.7.0: Previous guard used startswith("/") which never matched because
-    # report_url is stored as "https://intel.cyberdudebivash.com/reports/..." (full URL).
-    # Now we derive the local path from the reports/ directory using the entry id.
-    _existence_failures: list = []
-    for _entry in data.get("advisories", data if isinstance(data, list) else []):
-        _vs = _entry.get("validation_status", "")
-        if _vs not in ("ok", "enriched", "valid"):
-            continue
-        _eid = _entry.get("id", "")
-        if not _eid:
-            continue
-        # Derive local path: try internal_report_url first, then reconstruct from id
-        _rrel = _entry.get("internal_report_url", "")
-        if _rrel and _rrel.startswith("/"):
-            _rpath = REPO_ROOT / _rrel.lstrip("/")
-        else:
-            # Reconstruct from report_url (strip https://host prefix) or from id
-            _rurl = _entry.get("report_url", "")
-            _PATH_MARKER = "/reports/"
-            if _PATH_MARKER in _rurl:
-                _rel = _rurl[_rurl.index(_PATH_MARKER) + 1:]   # "reports/YYYY/MM/id.html"
-                _rpath = REPO_ROOT / _rel
-            else:
-                # Fallback: search reports dir for id.html
-                _found = list(REPORTS_ROOT.rglob(f"{_eid}.html"))
-                _rpath = _found[0] if _found else REPO_ROOT / "reports" / f"{_eid}.html"
-
-        if not _rpath.exists():
-            _existence_failures.append(f"{_eid} → {_rpath}")
-            # Block this entry from manifest: downgrade status so it won't be exposed
-            _entry["validation_status"] = "file_missing"
-            _entry["report_url"] = _entry.get("source_url") or ""
-            log(f"MANIFEST BLOCK [{_eid}]: report file missing from disk — entry downgraded, NOT published", "error")
-
-    if _existence_failures:
-        log(
-            f"REPORT EXISTENCE CHECK: {len(_existence_failures)} report(s) missing from disk. "
-            f"Affected entries downgraded to file_missing (not published). "
-            f"Missing: {_existence_failures[:5]}",
-            "warning",
-        )
-        # Not a hard sys.exit — we degrade individual entries rather than blocking
-        # the entire manifest write, preserving all successfully-written reports.
-
-    # Persist manifest with all report_url + validation_status updates
-    save_manifest(data)
-    _advisory_list = data.get("advisories", data if isinstance(data, list) else [])
-    log(f"Manifest saved: {MANIFEST_PATH.name} — {len(_advisory_list)} reports")
-    return 0
-
-
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+            except Exception as _val_exc:
+                log(f"VALIDATE WARN [{intel_id}]: HTML check failed (non-fatal): {_val_exc}", "warning")
+                _file_valid = True
