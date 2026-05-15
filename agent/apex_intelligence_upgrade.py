@@ -406,7 +406,7 @@ def generate_technical_narrative(item: Dict[str, Any]) -> str:
         iocs = item.get("iocs") or []
         ioc_count = len(iocs)
         cvss = item.get("cvss_score") or item.get("cvss")
-        kev = bool(item.get("kev") or item.get("in_kev"))
+        kev = bool(item.get("kev") or item.get("in_kev") or item.get("kev_present"))
         cve_id = ""
         m = re.search(r'CVE-\d{4}-\d+', title + " " + desc, re.I)
         if m:
@@ -1519,7 +1519,7 @@ def generate_campaign_intelligence(item: Dict[str, Any]) -> str:
         title = str(item.get("title") or "")
         threat_type = str(item.get("threat_type") or "").lower()
         ai_conf = float(item.get("ai_confidence") or item.get("confidence") or 21.3)
-        kev = bool(item.get("kev") or item.get("in_kev"))
+        kev = bool(item.get("kev") or item.get("in_kev") or item.get("kev_present"))
 
         # Derive operation name
         if not campaign or campaign.upper() in ("UNCLASSIFIED", "NONE", "N/A", ""):
@@ -1611,6 +1611,14 @@ _SOURCE_DOMAINS = frozenset({
     "rapid7.com", "tenable.com", "qualys.com", "vulners.com",
     "microsoft.com", "techcommunity.microsoft.com", "attack.mitre.org",
     "intel.cyberdudebivash.com", "cyberdudebivash.com", "cyberdudebivash.in",
+    "cybersecuritynews.com", "thehackernews.com", "darkreading.com",
+    "securityaffairs.com", "krebsonsecurity.com", "schneier.com",
+    "threatpost.com", "infosecurity-magazine.com", "zdnet.com",
+    "wired.com", "arstechnica.com", "hackread.com", "cyberscoop.com",
+    "recordedfuture.com", "mandiant.com", "crowdstrike.com",
+    "unit42.paloaltonetworks.com", "blog.checkpoint.com", "talosintelligence.com",
+    "research.checkpoint.com", "securelist.com", "blog.malwarebytes.com",
+    "symantec.com", "sentinelone.com", "huntress.com", "elastic.co",
     "nist.gov", "cert.gov", "us-cert.gov", "bleepingcomputer.com",
     "therecord.media", "securityweek.com", "sans.org", "isc.sans.edu",
     "twitter.com", "x.com", "linkedin.com", "reddit.com", "medium.com",
@@ -1678,7 +1686,7 @@ def generate_ai_insight_premium(item: Dict[str, Any]) -> str:
         ttps = item.get("ttps") or []
         iocs = item.get("iocs") or []
         actor = str(item.get("actor_cluster") or item.get("actor") or "")
-        kev = bool(item.get("kev") or item.get("in_kev"))
+        kev = bool(item.get("kev") or item.get("in_kev") or item.get("kev_present"))
         cvss = item.get("cvss_score") or item.get("cvss")
         threat_type = str(item.get("threat_type") or "").lower()
         vuln_class = _detect_vuln_class(title, desc)
@@ -2396,7 +2404,7 @@ def generate_executive_summary(item):
         desc   = str(item.get("description") or item.get("summary") or "")
         sev    = str(item.get("severity") or "MEDIUM").upper()
         risk   = float(item.get("risk_score") or 5.0)
-        kev    = bool(item.get("kev") or item.get("in_kev"))
+        kev    = bool(item.get("kev") or item.get("in_kev") or item.get("kev_present"))
         cvss   = item.get("cvss_score") or item.get("cvss")
         epss   = item.get("epss_score") or item.get("epss")
         ttps   = item.get("ttps") or []
