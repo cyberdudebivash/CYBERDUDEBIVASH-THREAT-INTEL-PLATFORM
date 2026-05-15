@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scripts/build_dist_artifact.py
-CYBERDUDEBIVASH(R) SENTINEL APEX v155.0 -- Deterministic Dist Artifact Builder
+CYBERDUDEBIVASH(R) SENTINEL APEX v156.0 -- Deterministic Dist Artifact Builder
 ================================================================================
 Builds a clean, validated dist/ deployment artifact from the working tree.
 
@@ -11,10 +11,17 @@ PURPOSE:
 
 ARCHITECTURE:
   Working Tree (messy, runtime-polluted)
-       ↓  [include list filter]
+       ↓  [REPORT_RETENTION_DAYS filter — only HOT reports]
   dist/ (clean, deterministic, governed)
        ↓  [artifact verifier gate]
   GitHub Pages gh-pages branch (customer-facing)
+
+REPORT RETENTION (v156.0 ARCHIVE GOVERNANCE):
+  REPORT_RETENTION_DAYS env var (default: 0 = ALL reports) controls which
+  reports are copied to dist/. When set > 0, only reports from the last N
+  days are included. Older reports are NOT in dist/ but remain accessible
+  via gh-pages (which uses clean: false, preserving historical deployments).
+  This reduces dist/ build time and prevents checkout inflation on main branch.
 
 WHAT GOES IN dist/:
   - index.html, dashboard.html, 404.html and all .html Pages
@@ -50,8 +57,9 @@ import os
 import shutil
 import sys
 import time
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 logging.basicConfig(
     level=logging.INFO,
@@ -121,6 +129,130 @@ HTML_EXCLUDE_PREFIXES = {
     "SENTINEL_APEX_P0", "dashboard-api-sync", "gh_pages_",
     "intel_card_enhanced", "index.html.bak", "index.html.pre",
 }
+
+
+# ─────────────────────────────────────────────────────────────────
+# REPORT RETENTION GOVERNANCE (v156.0)
+# REPORT_RETENTION_DAYS=0  → copy ALL reports (default, backward compat)
+# REPORT_RETENTION_DAYS=N  → copy only reports from the last N days
+#   Classification uses path structure: reports/YYYY/MM/<file>.html
+# ─────────────────────────────────────────────────────────────────
+REPORT_RETENTION_DAYS = int(os.environ.get("REPORT_RETENTION_DAYS", "0"))
+
+
+def _is_report_dir_in_window(year: int, month: int, cutoff: datetime) -> bool:
+    """Return True if the (year, month) directory is within the retention window."""
+    # A report month is "in window" if it is >= the cutoff year-month.
+    return (year, month) >= (cutoff.year, cutoff.month)
+
+
+def copy_reports_selective(src: Path, dst: Path, retention_days: int) -> Tuple[int, int]:
+    """
+    Copy reports/ to dist/reports/ with optional date-based filtering.
+
+    Directory structure expected:
+        reports/YYYY/MM/<report>.html
+        reports/YYYY/<report>.html   (flat year — kept unconditionally)
+        reports/<report>.html        (root-level — kept unconditionally)
+
+    When retention_days == 0: copy entire tree (same as before).
+    When retention_days  > 0: copy only year/month subdirs within the window;
+                               root-level and flat-year entries are always copied.
+
+    Returns (files_copied, dirs_skipped).
+    """
+    if not src.exists():
+        return 0, 0
+
+    if dst.exists():
+        shutil.rmtree(dst)
+    dst.mkdir(parents=True)
+
+    if retention_days <= 0:
+        # Full copy — unchanged behaviour
+        shutil.copytree(src, dst, dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns(*EXCLUDE_PATTERNS))
+        copied = sum(1 for _ in dst.rglob("*") if _.is_file())
+        return copied, 0
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+    log.info("  RETENTION FILTER: copying reports from last %d days (cutoff %s)",
+             retention_days, cutoff.strftime("%Y-%m-%d"))
+
+    files_copied = 0
+    dirs_skipped = 0
+
+    for child in sorted(src.iterdir()):
+        if child.name in EXCLUDE_PATTERNS or child.name.startswith("."):
+            continue
+
+        if child.is_file():
+            # Root-level report files — always include
+            shutil.copy2(child, dst / child.name)
+            files_copied += 1
+            continue
+
+        if not child.is_dir():
+            continue
+
+        # child = reports/YYYY/
+        try:
+            year = int(child.name)
+        except ValueError:
+            # Non-numeric subdir — copy verbatim (safety)
+            dst_child = dst / child.name
+            shutil.copytree(child, dst_child, dirs_exist_ok=False,
+                            ignore=shutil.ignore_patterns(*EXCLUDE_PATTERNS))
+            n = sum(1 for _ in dst_child.rglob("*") if _.is_file())
+            files_copied += n
+            continue
+
+        year_has_content = False
+        year_dst = dst / child.name
+
+        for month_entry in sorted(child.iterdir()):
+            if month_entry.is_file():
+                # Flat year layout: reports/YYYY/<file>.html — always include
+                year_dst.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(month_entry, year_dst / month_entry.name)
+                files_copied += 1
+                year_has_content = True
+                continue
+
+            if not month_entry.is_dir():
+                continue
+
+            # month_entry = reports/YYYY/MM/
+            try:
+                month = int(month_entry.name)
+            except ValueError:
+                # Non-numeric month dir — copy verbatim
+                year_dst.mkdir(parents=True, exist_ok=True)
+                dst_month = year_dst / month_entry.name
+                shutil.copytree(month_entry, dst_month, dirs_exist_ok=False,
+                                ignore=shutil.ignore_patterns(*EXCLUDE_PATTERNS))
+                n = sum(1 for _ in dst_month.rglob("*") if _.is_file())
+                files_copied += n
+                year_has_content = True
+                continue
+
+            if _is_report_dir_in_window(year, month, cutoff):
+                year_dst.mkdir(parents=True, exist_ok=True)
+                dst_month = year_dst / month_entry.name
+                shutil.copytree(month_entry, dst_month, dirs_exist_ok=False,
+                                ignore=shutil.ignore_patterns(*EXCLUDE_PATTERNS))
+                n = sum(1 for _ in dst_month.rglob("*") if _.is_file())
+                files_copied += n
+                year_has_content = True
+                log.debug("    INCLUDE %s/%s  (%d files)", year, month_entry.name, n)
+            else:
+                dirs_skipped += 1
+                log.debug("    SKIP    %s/%s  (outside retention window)", year, month_entry.name)
+
+        if not year_has_content:
+            log.debug("    SKIP year %s — no month dirs in window", year)
+
+    return files_copied, dirs_skipped
 
 
 def sha256_file(path: Path) -> str:
@@ -206,13 +338,19 @@ def build_manifest(dist_dir: Path, run_id: str, version: str) -> Dict:
 def main() -> int:
     t0 = time.time()
     log.info("=" * 70)
-    log.info("SENTINEL APEX -- Deterministic Dist Artifact Builder v155.0")
+    log.info("SENTINEL APEX -- Deterministic Dist Artifact Builder v156.0")
     log.info("=" * 70)
     log.info("Repo root : %s", REPO_ROOT)
     log.info("Dist dir  : %s", DIST_DIR)
 
-    pipeline_version = os.environ.get("PIPELINE_VERSION", "155.0.0")
+    pipeline_version = os.environ.get("PIPELINE_VERSION", "156.0.0")
     run_id           = os.environ.get("GITHUB_RUN_ID", "local")
+
+    retention_days = REPORT_RETENTION_DAYS
+    if retention_days > 0:
+        log.info("Report retention mode : LAST %d DAYS only (HOT tier)", retention_days)
+    else:
+        log.info("Report retention mode : ALL reports (full copy)")
 
     # ── 1. Wipe and recreate dist/ ──────────────────────────────────────────
     if DIST_DIR.exists():
@@ -227,12 +365,25 @@ def main() -> int:
     for dirname in INCLUDE_DIRS:
         src = REPO_ROOT / dirname
         dst = DIST_DIR / dirname
-        if src.exists():
+        if not src.exists():
+            log.warning("  SKIP: %s/ not found in repo root", dirname)
+            continue
+        if dirname == "reports":
+            # Retention-aware selective copy (v156.0 archive governance)
+            n, skipped = copy_reports_selective(src, dst, retention_days)
+            total_files += n
+            if skipped > 0:
+                log.info(
+                    "  Copied reports/ → dist/reports/  (%d files, %d month-dirs pruned by "
+                    "%d-day retention filter)",
+                    n, skipped, retention_days,
+                )
+            else:
+                log.info("  Copied reports/ → dist/reports/  (%d files, full copy)", n)
+        else:
             n = copy_item(src, dst)
             total_files += n
             log.info("  Copied %s/ → dist/%s/  (%d files)", dirname, dirname, n)
-        else:
-            log.warning("  SKIP: %s/ not found in repo root", dirname)
 
     # ── 3. Copy root-level HTML pages (filtered) ─────────────────────────────
     html_count = 0
@@ -322,17 +473,19 @@ def main() -> int:
     log.info("  Manifest          : %s", manifest_path)
     log.info("=" * 70)
 
-    # Write a summary env var for downstream steps
+    # Write a build-summary JSON for downstream steps / observability
     summary_path = REPO_ROOT / "data" / "telemetry" / "dist_build_summary.json"
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_text(json.dumps({
-        "status": "success",
-        "dist_files": manifest["total_files"],
-        "dist_reports": dist_reports,
-        "report_url_checked": len(report_urls),
-        "report_url_missing": 0,
-        "generated_at": manifest["generated_at"],
-        "run_id": run_id,
+        "status":               "success",
+        "dist_files":           manifest["total_files"],
+        "dist_reports":         dist_reports,
+        "report_url_checked":   len(report_urls),
+        "report_url_missing":   0,
+        "retention_days":       retention_days,
+        "generated_at":         manifest["generated_at"],
+        "run_id":               run_id,
+        "pipeline_version":     pipeline_version,
     }, indent=2), encoding="utf-8")
 
     return 0
