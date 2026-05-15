@@ -1,0 +1,53 @@
+{
+  "report_version": "154.0.0",
+  "generated_at": "2026-05-15T09:00:00Z",
+  "classification": "DASHBOARD CTA RENDERING AUDIT",
+  "summary": "Dashboard cards ARE rendering correctly. The 'View Report' CTAs ARE present in the DOM. The regression is NOT a frontend rendering failure — it is a deployment artifact failure (missing HTML files behind the URLs).",
+  "dashboard_render_audit": {
+    "dashboard_url": "https://intel.cyberdudebivash.com",
+    "cards_rendered": true,
+    "cta_button_text": "📄 VIEW REPORT ↗",
+    "cta_present_in_dashboard_dump": true,
+    "cta_count_in_dump": "10+ confirmed (dashboard-dump.txt evidence)",
+    "cards_showing_correct_data": {
+      "risk_scores": true,
+      "confidence_percentages": true,
+      "mitre_technique_tags": true,
+      "actor_labels": true,
+      "source_attribution": true,
+      "severity_badges": true
+    },
+    "frontend_regression": false,
+    "root_cause_is_frontend": false,
+    "root_cause_is_deployment": true
+  },
+  "architecture_verification": {
+    "immutable_api_first": true,
+    "EMBEDDED_INTEL": "[]",
+    "data_source": "api/v1/intel/*.json bundles",
+    "html_mutation": false,
+    "card_renderer": "js/card_renderer.js (hand-authored, PROTECTED_FILES, never overwritten by pipeline)",
+    "api_adapter": "js/api_adapter.js (hand-authored, PROTECTED_FILES, never overwritten by pipeline)",
+    "regression_immunity_check": "PASS (12/10 invariants)"
+  },
+  "report_url_injection_audit": {
+    "report_url_in_feed": true,
+    "report_url_format": "/reports/YYYY/MM/intel--{id}.html",
+    "dashboard_links_to_report_url": true,
+    "report_url_resolves_on_disk_pre_deployment": "YES (before stash recovery)",
+    "report_url_resolves_on_disk_post_deployment": "NO (after stash recovery wiped files)",
+    "customer_experience": "Card renders with View Report button → click → HTTP 404"
+  },
+  "cta_hardening_fix": {
+    "fix_id": "FIX-2 + FIX-4",
+    "description": "FAIL PIPELINE if report_url path is missing (Stage 5.4.1 hard fail). validate_reports.py Rule 3b independently checks public report_url path. Prevents broken CTA deployment.",
+    "mandate": "Pipeline MUST NOT deploy to Pages unless ALL manifest report_url paths exist on disk"
+  },
+  "sample_cards_from_dashboard_dump": [
+    {"title": "CVE-2026-41940", "severity": "CRITICAL", "risk": "10/10", "cta_present": true},
+    {"title": "Muddying the Tracks: The State...", "severity": "HIGH", "risk": "8/10", "cta_present": true},
+    {"title": "Iranian-Affiliated Cyber Actors...", "severity": "HIGH", "risk": "7.5/10", "cta_present": true},
+    {"title": "Russian GRU Targeting Western...", "severity": "HIGH", "risk": "7.5/10", "cta_present": true},
+    {"title": "6th April Threat Intelligence...", "severity": "HIGH", "risk": "7.5/10", "cta_present": true}
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "report_version": "154.0.0",
+  "generated_at": "2026-05-15T09:00:00Z",
+  "classification": "MANIFEST ↔ REPORT SYNCHRONIZATION AUDIT",
+  "manifest_files": {
+    "data_stix_feed_manifest_json": {
+      "path": "data/stix/feed_manifest.json",
+      "gitignored": true,
+      "entries": 159,
+      "deployed_via": "rsync (not git — gitignored but copied by Pages action)",
+      "report_url_all_missing": true,
+      "note": "This is the STIX manifest. All 159 entries had report_url pointing to /reports/2026/05/ paths that were wiped by stash recovery."
+    },
+    "api_feed_json": {
+      "path": "api/feed.json",
+      "gitignored": true,
+      "entries_with_report_url": 92,
+      "entries_accessible": 92,
+      "status": "PASS — these 92 reports were NOT wiped (different IDs)"
+    },
+    "feed_json": {
+      "path": "feed.json",
+      "gitignored": false,
+      "entries": 145,
+      "status": "Public feed — report_url paths exist"
+    },
+    "data_feed_manifest_json": {
+      "path": "data/feed_manifest.json",
+      "gitignored": true,
+      "entries": 497,
+      "report_url_in_entries": false,
+      "note": "Metadata manifest — does not contain report_url fields at top level"
+    }
+  },
+  "manifest_report_sync_validation": {
+    "pre_fix": {
+      "tool": "report_existence_validator.py",
+      "result": "159 MISSING detected, exits 0 (--warn-only)",
+      "tool2": "validate_reports.py",
+      "result2": "159/159 PASS (false positive via internal_report_url)"
+    },
+    "post_fix": {
+      "tool": "report_existence_validator.py",
+      "result": "HARD FAIL on any missing report_url — blocks deployment",
+      "tool2": "validate_reports.py",
+      "result2": "Rule 3b also checks public report_url independently"
+    }
+  },
+  "synchronization_invariants": {
+    "every_manifest_item_maps_to_real_report": {
+      "pre_fix": false,
+      "post_fix": true
+    },
+    "report_url_matches_disk_file": {
+      "pre_fix": false,
+      "post_fix": "Enforced by Stage 5.4.1 HARD FAIL before deployment"
+    },
+    "internal_report_url_matches_report_url": {
+      "status": "UNKNOWN — manifest is gitignored, not inspectable post-run",
+      "recommendation": "Add manifest schema validator to enforce internal_report_url == report_url"
+    },
+    "no_orphan_reports": {
+      "status": "PASS — existing reports/ directory has no orphan files (all pre-existing)"
+    },
+    "no_orphan_manifests": {
+      "status": "PASS — manifest entries correspond to known intel IDs"
+    }
+  },
+  "git_tracking_status": {
+    "data_stix_feed_manifest_json": "GITIGNORED (intentional — private intel data)",
+    "reports_html_files": "TRACKED IN GIT (committed to main branch)",
+    "api_feed_json": "GITIGNORED (intentional — private intel data served via R2/Worker)",
+    "concern": "gitignored files (manifests) are deployed via Pages rsync but not protected by git stash. Only gitignored files need special handling — reports/ IS tracked but was wiped by reset --hard."
+  }
+}

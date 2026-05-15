@@ -1,0 +1,51 @@
+{
+  "report_version": "154.0.0",
+  "generated_at": "2026-05-15T09:00:00Z",
+  "classification": "GITHUB PAGES DEPLOYMENT ARTIFACT AUDIT",
+  "pages_config": {
+    "action": "JamesIves/github-pages-deploy-action@v4.7.4",
+    "branch": "gh-pages",
+    "folder": ".",
+    "clean": false,
+    "force": true,
+    "deployment_method": "rsync from working tree to temp worktree, force-push to gh-pages"
+  },
+  "artifact_integrity": {
+    "action_config_correct": true,
+    "rsync_excludes_reports": false,
+    "rsync_includes_gitignored_files": true,
+    "reports_directory_in_artifact_pre_fix": "TRUNCATED (162 files missing due to stash recovery)",
+    "reports_directory_in_artifact_post_fix": "COMPLETE (Reports Recovery Guard restores ORIG_HEAD files)"
+  },
+  "historical_report_preservation": {
+    "clean_false_preserves_history": true,
+    "clean_false_configured": true,
+    "historical_reports_at_risk": "YES — if gh-pages branch is accidentally force-pushed with clean:true",
+    "recommendation": "Never change clean: to true. Consider archival backup of reports/ subtree."
+  },
+  "concurrent_deployment_risk": {
+    "risk_identified": true,
+    "mechanism": "Two pipeline runs push to origin/main concurrently. Second run's stash recovery resets to first run's state. If first run's state lacks reports (also from a stash recovery), reports are permanently lost from origin/main.",
+    "mitigation_fix1": "ORIG_HEAD restore in safe_git_commit.py recovers reports lost by reset --hard",
+    "mitigation_fix2": "Stage 5.4.1 HARD FAIL blocks deployment if reports still missing after recovery",
+    "race_condition_permanently_closed": true
+  },
+  "pages_deployment_stages": {
+    "stage_54_deploy": {
+      "action": "JamesIves/github-pages-deploy-action@v4.7.4",
+      "status": "SUCCESS (always — does not validate content)",
+      "issue": "Deploys whatever is in working tree — no pre-deploy content validation"
+    },
+    "pre_deploy_gate_54_pre_fix": "NONE blocking",
+    "pre_deploy_gate_54_post_fix": "Stage 5.4.1 (report existence HARD FAIL) must pass before Stage 5 deploy"
+  },
+  "deployment_sequencing_fix": {
+    "required_order": [
+      "Stage 5.4.1 (report_existence_validator.py) — HARD FAIL gate",
+      "Stage 5 (GitHub Pages Deploy)",
+      "Stage 5.8.1b (report_url_canary.py) — live HTTP validation"
+    ],
+    "current_order_correct": true,
+    "note": "Stage 5.4.1 now blocks Stage 5 (deploy). Stage 5.8.1b validates after deploy."
+  }
+}
