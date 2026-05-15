@@ -431,6 +431,9 @@ def _narrative_threat_actor(item: Dict[str, Any]) -> str:
         except (ValueError, TypeError):
             pass
 
+    _adversary_profile_type = "nation-state affiliated" if any(k in str(item.get("actor_cluster", "")).upper() for k in ["APT", "VOLT", "SALT", "FANCY", "COZY", "SANDWORM"]) else "threat cluster under active tracking"
+    _operational_objective = "Financial gain via ransomware/extortion" if "ransom" in title.lower() else "Intelligence collection, credential theft, and persistent access"
+
     return (
         f"<div class='apex-narrative'>"
         f"<p><strong>{_h(feed)}</strong> has published threat actor intelligence "
@@ -443,9 +446,9 @@ def _narrative_threat_actor(item: Dict[str, Any]) -> str:
         f"<div class='apex-intel-item'><span class='apex-label'>Intelligence Type</span>"
         f"<span class='apex-value'>Threat Actor Campaign Report — adversary-centric intelligence</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Adversary Profile</span>"
-        f"<span class='apex-value'>{_h(actor)} — {"nation-state affiliated" if any(k in str(item.get("actor_cluster","")).upper() for k in ["APT","VOLT","SALT","FANCY","COZY","SANDWORM"]) else "threat cluster under active tracking"}</span></div>"
+        f"<span class='apex-value'>{_h(actor)} &mdash; {_adversary_profile_type}</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Operational Objective</span>"
-        f"<span class='apex-value'>{"Financial gain via ransomware/extortion" if "ransom" in title.lower() else "Intelligence collection, credential theft, and persistent access"}</span></div>"
+        f"<span class='apex-value'>{_operational_objective}</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Defender Priority</span>"
         f"<span class='apex-value'>Correlate all {ioc_count} IOCs against SIEM/EDR; hunt for TTP signatures; review identity telemetry for lateral movement</span></div>"
         f"</div>"
@@ -553,7 +556,7 @@ def _narrative_apt_espionage(item: Dict[str, Any]) -> str:
     kev_block = f"<div class='callout critical'>{_get_kev_context(kev)}</div>" if kev else ""
     cvss_str  = _get_cvss_context(cvss)
 
-    persistence_ttps = [t for t in (ttps if isinstance(ttps[0], str) if ttps else [])
+    persistence_ttps = [t for t in (ttps if (ttps and isinstance(ttps[0], str)) else [])
                         if t in ("T1053", "T1053.005", "T1547", "T1543", "T1098", "T1078")]
     persist_str = (
         f" Persistence mechanisms identified: scheduled tasks, registry run keys, and valid account "
@@ -927,6 +930,9 @@ def _narrative_cve_generic(item: Dict[str, Any]) -> str:
         except (ValueError, TypeError):
             pass
 
+    _cve_impact_text = "System integrity and data confidentiality at risk - exploitation may enable code execution, data access, or service disruption" if sev in ("CRITICAL", "HIGH") else "Limited impact scope - assess compensating controls before emergency patching"
+    _cve_defender_priority = "Hunt " + str(ioc_count) + " IOCs across SIEM/EDR; apply patch immediately; validate no pre-patch exploitation occurred" if ioc_count > 0 else "Apply vendor patch; validate patching completeness across all affected asset classes"
+
     return (
         f"<div class='apex-narrative'>"
         f"<p>A <strong>{_h(sev)}</strong>-severity vulnerability has been identified affecting "
@@ -937,11 +943,11 @@ def _narrative_cve_generic(item: Dict[str, Any]) -> str:
         f"<div class='apex-intel-item'><span class='apex-label'>Attack Surface</span>"
         f"<span class='apex-value'>All systems running the affected software version — assess your asset inventory against affected versions listed in the vendor advisory</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Impact Classification</span>"
-        f"<span class='apex-value'>{"System integrity and data confidentiality at risk — exploitation may enable code execution, data access, or service disruption" if sev in ("CRITICAL","HIGH") else "Limited impact scope — assess compensating controls before emergency patching"}</span></div>"
+        f"<span class='apex-value'>{_cve_impact_text}</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Patch Availability</span>"
         f"<span class='apex-value'>Refer to vendor advisory for patch availability — apply vendor-recommended workaround immediately if patch is not yet available</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Defender Priority</span>"
-        f"<span class='apex-value'>{"Hunt " + str(ioc_count) + " IOCs across SIEM/EDR; apply patch immediately; validate no pre-patch exploitation occurred" if ioc_count > 0 else "Apply vendor patch; validate patching completeness across all affected asset classes"}</span></div>"
+        f"<span class='apex-value'>{_cve_defender_priority}</span></div>"
         f"</div>"
         f"<p>Defenders should correlate the IOC table (Section 7) against 30-day SIEM retention, "
         f"proxy logs, EDR process telemetry, and authentication events. "
@@ -962,6 +968,8 @@ def _narrative_threat_intel(item: Dict[str, Any]) -> str:
     sev       = str(item.get("severity") or "MEDIUM").upper()
     kev_block = f"<div class='callout critical'>{_get_kev_context(kev)}</div>" if kev else ""
 
+    _actor_attribution_status = "actively tracked threat cluster with operational history" if actor not in ("UNATTRIBUTED", "CDB-CVE-GEN", "Unknown", "untracked threat cluster") else "attribution pending - monitor APEX actor tracking for updates"
+
     return (
         f"<div class='apex-narrative'>"
         f"<p><strong>{_h(feed)}</strong> has published threat intelligence: "
@@ -973,7 +981,7 @@ def _narrative_threat_intel(item: Dict[str, Any]) -> str:
         f"<div class='apex-intel-item'><span class='apex-label'>Intelligence Type</span>"
         f"<span class='apex-value'>Operational threat intelligence — adversary activity, campaign indicators, or technique documentation from a trusted threat research source</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Actor Attribution</span>"
-        f"<span class='apex-value'>{_h(actor)} — {"actively tracked threat cluster with operational history" if actor not in ("UNATTRIBUTED","CDB-CVE-GEN","Unknown","untracked threat cluster") else "attribution pending — monitor APEX actor tracking for updates"}</span></div>"
+        f"<span class='apex-value'>{_h(actor)} &mdash; {_actor_attribution_status}</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Defender Priority</span>"
         f"<span class='apex-value'>Deploy all {ioc_count} IOCs to detection layers; correlate against 30-day SIEM history; review TTP coverage gaps using ATT&CK section</span></div>"
         f"<div class='apex-intel-item'><span class='apex-label'>Operational Relevance</span>"
@@ -1197,15 +1205,20 @@ def generate_context_aware_executive_summary(item: Dict[str, Any]) -> str:
             "Assess this intelligence against your current threat model and risk register."
         )
 
+        _esm_risk_label = "RISK/10" if risk else "SEVERITY"
+        _esm_cvss_val = "Pending" if not cvss else str(cvss)
+        _esm_epss_val = "N/A" if not epss else str(epss) + "%"
+        _esm_kev_status = "KEV CONFIRMED" if kev else "NOT IN KEV"
+
         return (
             f"<div class='exec-summary-grid'>"
             f"<div class='esm-stat'><div class='esm-val'>{_h(str(risk or sev))}</div>"
-            f"<div class='esm-label'>{"RISK/10" if risk else "SEVERITY"}</div></div>"
-            f"<div class='esm-stat'><div class='esm-val'>{"Pending" if not cvss else str(cvss)}</div>"
+            f"<div class='esm-label'>{_esm_risk_label}</div></div>"
+            f"<div class='esm-stat'><div class='esm-val'>{_esm_cvss_val}</div>"
             f"<div class='esm-label'>CVSS</div></div>"
-            f"<div class='esm-stat'><div class='esm-val'>{"N/A" if not epss else str(epss) + "%"}</div>"
+            f"<div class='esm-stat'><div class='esm-val'>{_esm_epss_val}</div>"
             f"<div class='esm-label'>EPSS 30d</div></div>"
-            f"<div class='esm-stat'><div class='esm-val'>{"KEV CONFIRMED" if kev else "NOT IN KEV"}</div>"
+            f"<div class='esm-stat'><div class='esm-val'>{_esm_kev_status}</div>"
             f"<div class='esm-label'>KEV STATUS</div></div>"
             f"<div class='esm-stat'><div class='esm-val'>{len(ttps)} TTPs / {ioc_count} IOCs</div>"
             f"<div class='esm-label'>INTEL DEPTH</div></div>"
