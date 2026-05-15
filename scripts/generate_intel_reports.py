@@ -1464,12 +1464,12 @@ def build_report_sections(item: dict) -> str:
     _kev_chip = "<span class='sev-chip sev-CRITICAL'>YES &mdash; ACTIVELY EXPLOITED</span>" if kev else "No"
     sections.append(_section(8, "CVSS &amp; EPSS Deep Dive",
         "<div class='kv'>"
-        f"<div class='kv-key'>CVSS 3.1 Score</div><div class='kv-val'><strong>{_h(cvss) if cvss is not None else '<span style=\"color:var(--muted)\">N/A — score not yet assigned</span>'}</strong></div>"
+        f"<div class='kv-key'>CVSS 3.1 Score</div><div class='kv-val'><strong>" + (_h(str(cvss)) if cvss is not None else "<span style='color:var(--muted)'>N/A</span>") + "</strong></div>"
         f"<div class='kv-key'>CVSS Vector</div><div class='kv-val'><code>{_h(cvss_vec)}</code></div>"
-        f"<div class='kv-key'>EPSS Score</div><div class='kv-val'><strong>{_h(epss) if epss is not None else '<span style=\"color:var(--muted)\">N/A — EPSS scoring not available</span>'}{'%' if epss is not None else ''}</strong></div>"
+        f"<div class='kv-key'>EPSS Score</div><div class='kv-val'><strong>" + (_h(str(epss)) + '%' if epss is not None else "<span style='color:var(--muted)'>N/A</span>") + "</strong></div>"
         f"<div class='kv-key'>KEV Listed</div><div class='kv-val'>{_kev_chip}</div>"
         f"<div class='kv-key'>NVD Reference</div><div class='kv-val'>"
-        + (f"<a href='{_h(nvd_url)}' target='_blank' rel='noopener' style='color:var(--accent2)'>{_h(nvd_url)}</a>" if nvd_url else "–")
+        + ("<a href='" + _h(nvd_url) + "' target='_blank' rel='noopener' style='color:var(--accent2)'>" + _h(nvd_url) + "</a>" if nvd_url else "–")
         + "</div>"
         "</div>"
         "<p style='margin-top:14px'>CVSS measures inherent severity. EPSS models real-world exploitation "
