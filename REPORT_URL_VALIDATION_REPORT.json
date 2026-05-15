@@ -1,0 +1,68 @@
+{
+  "report_version": "154.0.0",
+  "generated_at": "2026-05-15T09:00:00Z",
+  "incident_run_id": "25907201821",
+  "classification": "P0 CUSTOMER-FACING REGRESSION",
+  "summary": {
+    "manifest_feed": "data/stix/feed_manifest.json",
+    "total_manifest_items": 159,
+    "items_with_report_url": 159,
+    "items_with_valid_report_url": 159,
+    "items_with_existing_file_pre_git_sync": 159,
+    "items_with_existing_file_post_git_sync": 0,
+    "customer_facing_404s": 159,
+    "api_feed_items": 92,
+    "api_feed_items_accessible": 92
+  },
+  "url_governance_audit": {
+    "report_url_prefix_contract": "/reports/YYYY/MM/intel--{id}.html",
+    "items_matching_contract": 159,
+    "items_with_external_url": 0,
+    "items_with_bad_prefix": 0,
+    "items_with_schema_drift": "UNKNOWN - data/stix/feed_manifest.json is gitignored, not accessible post-run",
+    "internal_vs_public_url_sync": "NEEDS VERIFICATION - validate_reports.py uses internal_report_url; report_existence_validator.py uses report_url; discrepancy masks drift"
+  },
+  "confirmed_missing_urls": [
+    "/reports/2026/05/intel--cf415277cfcbca960ce4b5dd.html",
+    "/reports/2026/05/intel--b47de1684375a7e55c0d0fa7.html",
+    "/reports/2026/05/intel--9610672b483f682b13173f4f.html",
+    "/reports/2026/05/intel--d100eda9060cc461304cab5d.html",
+    "/reports/2026/05/intel--4be82f07b5f1485524386954.html",
+    "/reports/2026/05/intel--3dc76dd178ae057b57a391e8.html",
+    "/reports/2026/05/intel--76399eb9811fa06a8a86ade7.html",
+    "/reports/2026/05/intel--2deca00b0d119446b4523593.html",
+    "/reports/2026/05/intel--65c2c6e58d5fbe0459e35b8a.html",
+    "/reports/2026/05/intel--c205199d948833b98e8a99bf.html",
+    "/reports/2026/05/intel--ab062cb61f9dfed3e687a807.html",
+    "/reports/2026/05/intel--4141bbba47f1148b06db4b5d.html",
+    "/reports/2026/05/intel--d0327aab17551bbbf6aa33b0.html",
+    "/reports/2026/05/intel--954e7bceeb288edeaf98a038.html",
+    "/reports/2026/05/intel--702f32e0260ffb81f2181726.html",
+    "/reports/2026/05/intel--ca70ac11eae9cc9c13e3a317.html",
+    "/reports/2026/05/intel--f8cc830a73a2f0eed2c36006.html",
+    "/reports/2026/05/intel--0f168e1a7757eecfed017aa1.html",
+    "/reports/2026/05/intel--c9c1f32617c6682ef4cb2a26.html",
+    "/reports/2026/05/intel--c60461a35200fdc186c196cb.html",
+    "... (139 more — see Stage 5.4.1 log from run 25907201821)"
+  ],
+  "fix_applied": {
+    "fix_id": "FIX-2",
+    "file": ".github/workflows/sentinel-blogger.yml",
+    "change": "Stage 5.4.1 changed from --warn-only || true to HARD FAIL",
+    "effect": "Pipeline now blocks on any missing report_url — prevents broken Pages deployments",
+    "version": "v154.0.0"
+  },
+  "validation_gate_status": {
+    "pre_fix": {
+      "stage_3_3_validate_reports": "PASS (false positive — uses internal_report_url, misses public URL drift)",
+      "stage_5_4_1_existence_validator": "DETECTED 159 MISSING but --warn-only (exits 0)",
+      "net_result": "SILENT FAILURE — broken deployment proceeds"
+    },
+    "post_fix": {
+      "stage_3_3_validate_reports": "PASS + Rule 3b checks public report_url independently",
+      "stage_5_4_1_existence_validator": "HARD FAIL — blocks deployment when any report_url missing",
+      "stage_5_8_1b_live_canary": "NEW — probes live report URLs after deployment",
+      "net_result": "DETERMINISTIC FAILURE — broken deployment blocked at Stage 5.4.1"
+    }
+  }
+}
