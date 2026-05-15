@@ -236,10 +236,36 @@ jobs:
           echo "[OK] No pipeline lock active. Proceeding."
 
       # -----------------------------------------------------------------------
-      # STAGE 0.04a: GOD MODE REPORT PROTECTION (v145.0)
-      # Records sizes of god mode reports so they are NOT overwritten by
-      # the automated placeholder generator if they exceed 60KB.
+      # STAGE 0.00b - RUNNER DISK PRE-FLIGHT CHECK (v156.0 P0 HARD FAIL)
+      # Fails FAST if the runner does not have sufficient free disk space.
+      # Root cause of #1199: 64K reports + dist/ copy exceeded 14GB runner disk.
+      # This gate prevents that failure class from ever reaching dist-build stage.
+      #
+      # THRESHOLDS:
+      #   FAIL    < 6 GB free  — insufficient for dist/ build + pages deploy
+      #   WARN    < 8 GB free  — tight; emit warning annotation for ops visibility
+      #   OK     >= 8 GB free  — safe to proceed
+      #
+      # ACTIONS ON LOW DISK:
+      #   Clears pip cache, __pycache__, apt cache, /tmp/*, Docker layers (if any)
+      #   before hard-failing, to maximise reclaim before operator intervenes.
       # -----------------------------------------------------------------------
+      - name: "STAGE 0.00b - Runner Disk Pre-flight Check (v156.0 P0 HARD FAIL)"
+        timeout-minutes: 3
+        env:
+          STIX_MAX_BUNDLES: "50"
+          TELEMETRY_MAX_DAYS: "7"
+        run: |
+          EXIT_CODE=0
+          python3 scripts/runner_disk_governor.py --preflight || EXIT_CODE=$?
+          if [ "$EXIT_CODE" = "1" ]; then
+            echo "::error::RUNNER DISK PRE-FLIGHT HARD FAIL -- disk critically low even after reclaim. Pipeline aborted."
+            exit 1
+          fi
+          if [ "$EXIT_CODE" = "2" ]; then
+            echo "::warning::Runner disk low -- proceeding with caution after reclaim."
+          fi
+
       - name: "STAGE 0.04a - God Mode Report Protection Check"
         timeout-minutes: 1
         run: |
@@ -963,7 +989,7 @@ jobs:
         timeout-minutes: 10
         env:
           REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
-          ARCHIVE_DRY_RUN: ${{ vars.ARCHIVE_DRY_RUN || '1' }}
+          ARCHIVE_DRY_RUN: ${{ vars.ARCHIVE_DRY_RUN || '0' }}
           ARCHIVE_MIN_REPORTS: ${{ vars.ARCHIVE_MIN_REPORTS || '500' }}
         run: |
           python3 scripts/report_archive_manager.py || EXIT_CODE=$?
@@ -976,6 +1002,39 @@ jobs:
           fi
           echo "STAGE 5.4.5b: Archive governance completed."
 
+      # -----------------------------------------------------------------------
+      # STAGE 5.4.5c - PRE-DIST RUNNER DISK CLEANUP (v156.0 P0 MANDATORY)
+      # Reclaims maximum disk space BEFORE build_dist_artifact.py runs its
+      # reports/ copy operation, which is the primary disk exhaustion vector.
+      #
+      # DISK EXHAUSTION ROOT CAUSE (#1199):
+      #   64,743 tracked HTML reports on checkout (~2-4 GB)
+      #   + build_dist_artifact copies ALL reports to dist/ (~2-4 GB again)
+      #   + Python toolchain + STIX + pip cache = runner OOM at STAGE 5.4.6
+      #
+      # RECLAIM TARGETS (in order of impact):
+      #   1. __pycache__/  — significant in large Python codebases
+      #   2. pip/apt caches — typically 1-2 GB
+      #   3. data/stix/     — STIX bundles grow 162+ per run; keep only latest N
+      #   4. data/telemetry/ — runtime telemetry; not needed for deployment
+      #   5. /tmp/*          — runner temp files
+      #   6. dist/ (previous) — wipe any prior dist/ before rebuild
+      #
+      # MANDATORY: This stage must run before STAGE 5.4.6.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4.5c - Pre-dist Runner Disk Cleanup (v156.0 P0 MANDATORY)"
+        timeout-minutes: 5
+        env:
+          STIX_MAX_BUNDLES: "50"
+          TELEMETRY_MAX_DAYS: "7"
+        run: |
+          EXIT_CODE=0
+          python3 scripts/runner_disk_governor.py --predist || EXIT_CODE=$?
+          if [ "$EXIT_CODE" = "1" ]; then
+            echo "::error::STAGE 5.4.5c HARD FAIL — disk critically low after full cleanup. dist/ build cannot proceed safely."
+            exit 1
+          fi
+          echo "STAGE 5.4.5c: Pre-dist cleanup complete."
       # -----------------------------------------------------------------------
       # STAGE 5.4.6 - BUILD DETERMINISTIC DIST ARTIFACT (v156.0 HARD FAIL)
       # Builds dist/ as a clean, minimal, checksum-validated deployment artifact.
@@ -996,7 +1055,7 @@ jobs:
       - name: "STAGE 5.4.6 - Build Deterministic Dist Artifact (v156.0 HARD FAIL)"
         timeout-minutes: 10
         env:
-          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '0' }}
+          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
         run: python3 scripts/build_dist_artifact.py
 
       # -----------------------------------------------------------------------
@@ -1020,7 +1079,7 @@ jobs:
       - name: "STAGE 5.4.7 - Dist Artifact Verifier (v156.0 HARD FAIL)"
         timeout-minutes: 5
         env:
-          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '0' }}
+          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
         run: python3 scripts/dist_artifact_verifier.py
 
       # -----------------------------------------------------------------------
@@ -1299,53 +1358,4 @@ jobs:
               'ref': os.environ.get('GITHUB_REF', 'unknown'),
               'sha': os.environ.get('GITHUB_SHA', 'unknown')[:12],
               'recorded_at': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-              'schema': 'sentinel_apex_ci_telemetry_v1'
-          }
-          out.write_text(json.dumps(payload, indent=2), encoding='utf-8')
-          print('[TELEMETRY] Written:', out)
-          " 2>/dev/null || true
-
-      # -----------------------------------------------------------------------
-      # STAGE 6 - TELEGRAM FAILURE ALERT (v146.0 -- ON FAILURE ONLY)
-      # Requires: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID secrets.
-      # Non-blocking.
-      # -----------------------------------------------------------------------
-      - name: "STAGE 6 - Telegram Failure Alert"
-        timeout-minutes: 3
-        if: failure()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          MSG="SENTINEL APEX CI FAILURE | Pipeline: ${PIPELINE_VERSION:-unknown} | Run: ${RUN_URL} | $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${TELEGRAM_CHAT_ID}" ]; then
-            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-              -d "chat_id=${TELEGRAM_CHAT_ID}" \
-              -d "text=${MSG}" \
-              --max-time 15 2>/dev/null || true
-          else
-            echo "[ALERT] Telegram secrets not configured -- alert skipped"
-          fi
-
-      # -----------------------------------------------------------------------
-      # STAGE 6.1 - DEPLOYMENT SUCCESS NOTIFICATION (v146.0 -- ON SUCCESS)
-      # Non-blocking.
-      # -----------------------------------------------------------------------
-      - name: "STAGE 6.1 - Deployment Success Notification"
-        timeout-minutes: 3
-        if: success()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          MSG="SENTINEL APEX DEPLOY OK | Pipeline: ${PIPELINE_VERSION:-unknown} | Run: ${RUN_URL} | $(date -u +%Y-%m-%dT%H:%M:%SZ) | Platform fully operational."
-          if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${TELEGRAM_CHAT_ID}" ]; then
-            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-              -d "chat_id=${TELEGRAM_CHAT_ID}" \
-              -d "text=${MSG}" \
-              --max-time 15 2>/dev/null || true
-          else
-            echo "[NOTIFY] Telegram secrets not configured -- notification skipped"
-          fi
+              'schema': 'sentinel_apex_ci_telemetry
