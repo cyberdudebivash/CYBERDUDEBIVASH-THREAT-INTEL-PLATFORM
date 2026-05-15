@@ -140,20 +140,33 @@ jobs:
 
       # -----------------------------------------------------------------------
       # STAGE 0: CHECKOUT
-      # v155.0 DEPLOYMENT GOVERNANCE FIX:
-      #   fetch-depth: 0  (full history)
-      #     - Enables ORIG_HEAD recovery in safe_git_commit.py stash race fix
-      #     - Provides git lineage for deployment rollback
-      #     - Ensures all historical reports are accessible for ORIG_HEAD restore
-      #   NOTE: Full history checkout is slower than depth:1 but mandatory for
-      #         deterministic deployment governance. The 20-min timeout provides
-      #         sufficient headroom for repos up to several GB of git objects.
+      # v156.0 PERFORMANCE GOVERNANCE — SHALLOW CLONE (fetch-depth: 1)
+      #
+      # ARCHITECTURE (71k-file repo, large-scale):
+      #   fetch-depth: 1   -- shallow clone, tip commit only
+      #   Checkout target  : ~71,213 files (~20-40s on ubuntu-latest)
+      #   Full-history cost: +60-90s fetch + all branch/tag objects
+      #
+      # ORIG_HEAD COMPATIBILITY (safe_git_commit.py stash recovery):
+      #   ORIG_HEAD is set by "git reset --hard origin/main" which runs
+      #   INSIDE the workflow (not at checkout time). It points to the
+      #   LOCAL pre-reset commit, which is already in the shallow object
+      #   store. fetch-depth has NO effect on ORIG_HEAD availability.
+      #   "git checkout ORIG_HEAD -- reports/" is safe with depth: 1.
+      #
+      # SELECTIVE DEEP FETCH (where needed):
+      #   Any stage requiring additional history runs its own targeted:
+      #     git fetch --depth=N origin <ref>
+      #   No global full-history clone needed for any current pipeline stage.
+      #
+      # REGRESSION GUARD: T20_safe_push_ps1_deployed in regression_tests.py
+      #   enforces fetch-depth: 1. Do NOT increase depth to 0 (full history).
       # -----------------------------------------------------------------------
       - name: "Checkout repository"
-        timeout-minutes: 20   # v150.2 FIX: raised 8->20min (63k-file repo; 8min caused checkout timeout -> partial tree -> STAGE 4 ENOENT)
+        timeout-minutes: 20   # v150.2: raised 8->20min; 71k-file shallow clone safely fits well under this ceiling
         uses: actions/checkout@v4.3.1   # v4.3.1 — native Node 24 (upgraded from v4.2.2, June-2-2026 deadline)
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
