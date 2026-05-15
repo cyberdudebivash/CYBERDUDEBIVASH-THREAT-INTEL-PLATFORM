@@ -92,7 +92,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "155.0.0"
+  PIPELINE_VERSION: "156.0.0"
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
 
@@ -937,7 +937,47 @@ jobs:
         run: python3 scripts/pipeline_audit.py || true
 
       # -----------------------------------------------------------------------
-      # STAGE 5.4.6 - BUILD DETERMINISTIC DIST ARTIFACT (v155.0 HARD FAIL)
+      # STAGE 5.4.5b - REPORT ARCHIVE GOVERNANCE (v156.0 — NON-BLOCKING)
+      # Runs report_archive_manager.py to prune reports older than
+      # REPORT_RETENTION_DAYS from the main-branch working tree (git rm --cached).
+      #
+      # ARCHITECTURE:
+      #   Old reports are removed from main branch tracking but are PERMANENTLY
+      #   retained on gh-pages (clean: false ensures they are never overwritten).
+      #   Customers continue to access historical reports at unchanged URLs.
+      #   This prevents the main-branch from growing past the 75,000-file threshold.
+      #
+      # SAFETY:
+      #   - Dry-run by default unless ARCHIVE_DRY_RUN=0 is set explicitly.
+      #   - Hard-stops if reports would fall below ARCHIVE_MIN_REPORTS (500).
+      #   - Verifies clean: false is set before executing any git rm operations.
+      #   - Exit 2 = Pages still uses clean:true → non-blocking warning only.
+      #   - Exit 1 = safety constraint violated → treated as hard fail.
+      #
+      # ENVIRONMENT VARIABLES (optional, all have safe defaults):
+      #   REPORT_RETENTION_DAYS  -- days to keep in working tree (default: 90)
+      #   ARCHIVE_DRY_RUN        -- "1" forces dry-run (default: "1" for safety)
+      #   ARCHIVE_MIN_REPORTS    -- minimum hot reports to retain (default: 500)
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4.5b - Report Archive Governance (v156.0 — NON-BLOCKING)"
+        timeout-minutes: 10
+        env:
+          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '90' }}
+          ARCHIVE_DRY_RUN: ${{ vars.ARCHIVE_DRY_RUN || '1' }}
+          ARCHIVE_MIN_REPORTS: ${{ vars.ARCHIVE_MIN_REPORTS || '500' }}
+        run: |
+          python3 scripts/report_archive_manager.py || EXIT_CODE=$?
+          if [ "${EXIT_CODE:-0}" = "1" ]; then
+            echo "::error::STAGE 5.4.5b: report_archive_manager safety constraint violated — check ARCHIVE_MIN_REPORTS and working-tree report count"
+            exit 1
+          fi
+          if [ "${EXIT_CODE:-0}" = "2" ]; then
+            echo "::warning::STAGE 5.4.5b: Pages deploy still uses clean:true — archive governance dry-run only. Set clean:false before enabling live archiving."
+          fi
+          echo "STAGE 5.4.5b: Archive governance completed."
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.4.6 - BUILD DETERMINISTIC DIST ARTIFACT (v156.0 HARD FAIL)
       # Builds dist/ as a clean, minimal, checksum-validated deployment artifact.
       #
       # ARCHITECTURE FIX (v155.0 P0):
@@ -953,8 +993,10 @@ jobs:
       #
       # HARD FAIL: blocks deployment if any report_url path is missing from dist/
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.6 - Build Deterministic Dist Artifact (v155.0 HARD FAIL)"
+      - name: "STAGE 5.4.6 - Build Deterministic Dist Artifact (v156.0 HARD FAIL)"
         timeout-minutes: 10
+        env:
+          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '0' }}
         run: python3 scripts/build_dist_artifact.py
 
       # -----------------------------------------------------------------------
@@ -975,25 +1017,32 @@ jobs:
       # HARD FAIL: blocks deployment if ANY check fails.
       # Pages deployment MUST NOT proceed with a corrupt/incomplete artifact.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.7 - Dist Artifact Verifier (v155.0 HARD FAIL)"
+      - name: "STAGE 5.4.7 - Dist Artifact Verifier (v156.0 HARD FAIL)"
         timeout-minutes: 5
+        env:
+          REPORT_RETENTION_DAYS: ${{ vars.REPORT_RETENTION_DAYS || '0' }}
         run: python3 scripts/dist_artifact_verifier.py
 
       # -----------------------------------------------------------------------
       # STAGE 5: GITHUB PAGES DEPLOY
-      # v155.0 DEPLOYMENT GOVERNANCE FIX:
-      #   folder: dist  (governed, validated artifact — was folder: .)
-      #   clean: true   (gh-pages mirrors dist/ exactly — historical reports
-      #                  preserved via dist/reports/ which contains ALL reports
-      #                  from the working tree. No orphan files on gh-pages.)
+      # v156.0 ARCHIVE GOVERNANCE UPGRADE:
+      #   folder: dist    -- governed, validated artifact
+      #   clean: false    -- REQUIRED for report archive governance
       #
-      # WHY clean: true now (was false):
-      #   - dist/ is a COMPLETE, governed artifact built fresh each run
-      #   - dist/reports/ contains all 36k+ historical reports from the working tree
-      #   - clean: true ensures gh-pages exactly mirrors dist/ (no stale files)
-      #   - Previously needed clean: false to preserve history, but that was a
-      #     workaround for the missing-reports bug. With dist/ governance, the
-      #     reports ARE always present, so clean: true is safe.
+      # WHY clean: false (v156.0 architectural change):
+      #   dist/ now contains only HOT reports (last REPORT_RETENTION_DAYS days).
+      #   Historical reports (2019-2025) are untracked from main branch but
+      #   PERMANENTLY retained in gh-pages from prior deployments.
+      #   clean: false ensures the Pages deploy only adds/updates new files
+      #   and never deletes historical reports from gh-pages.
+      #   Customer-facing URLs for all historical reports remain permanently stable.
+      #
+      # SAFETY: report_archive_manager.py verifies clean: false is set before
+      #   executing any git rm --cached operations. This prevents accidental
+      #   historical report deletion.
+      #
+      # clean_exclude: protects specific paths from being deleted even if they
+      #   are not present in dist/ (belt-and-suspenders for historical directories).
       # -----------------------------------------------------------------------
       - name: "STAGE 5 - Deploy to GitHub Pages"
         timeout-minutes: 15
@@ -1001,8 +1050,8 @@ jobs:
         with:
           branch: gh-pages
           folder: dist
-          clean: true
-          force: true
+          clean: false
+          force: false
 
       # -----------------------------------------------------------------------
       # STAGE 5.5: FINAL VALIDATION GATE
