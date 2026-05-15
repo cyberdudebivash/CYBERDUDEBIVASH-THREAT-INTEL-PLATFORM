@@ -141,7 +141,7 @@ def _validate_one(entry: Dict[str, Any], idx: int) -> List[str]:
         )
         return failures
 
-    # Resolve filesystem path
+    # Resolve filesystem path (via internal_report_url / derived path)
     _url, fs_path = _resolve_report_path(entry)
     if not fs_path:
         failures.append(
@@ -149,12 +149,27 @@ def _validate_one(entry: Dict[str, Any], idx: int) -> List[str]:
         )
         return failures
 
-    # RULE 3: file must exist
+    # RULE 3: file must exist (internal path)
     if not os.path.exists(fs_path):
         failures.append(
             f"[{intel_id}] RULE 3 FAIL: report file NOT FOUND: {fs_path}"
         )
         return failures  # no point checking size/content
+
+    # RULE 3b (v154.0 P0 HARDENING): PUBLIC report_url path MUST ALSO exist.
+    # validate_reports.py previously only checked internal_report_url (which may
+    # point to an old/different path). If report_url diverges from
+    # internal_report_url and the public path is missing, the dashboard CTA
+    # links to a 404.  This rule catches that exact schema drift.
+    _public_ru = (entry.get("report_url") or "").strip()
+    if _public_ru and not _public_ru.startswith("http") and _public_ru.startswith("/reports/"):
+        _public_fs = _public_ru.lstrip("/").replace("/", os.sep)
+        if _public_fs != fs_path and not os.path.exists(_public_fs):
+            failures.append(
+                f"[{intel_id}] RULE 3b FAIL: public report_url path NOT FOUND: "
+                f"{_public_fs} (internal path {fs_path} exists but dashboard "
+                f"links to the public path — customers get 404)"
+            )
 
     # RULE 4: file must be >= 500 bytes
     size = os.path.getsize(fs_path)

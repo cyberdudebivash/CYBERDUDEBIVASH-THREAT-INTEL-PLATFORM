@@ -1442,7 +1442,19 @@ def generate_reports_from_manifest(
             results["skipped"] += 1
             continue
 
-        report_url = (entry.get("internal_report_url") or entry.get("report_url") or "").strip()
+        # ── v154.0: Dual-path URL resolution ──────────────────────────────────
+        # Derive BOTH the internal path (used for god-mode existence check) AND
+        # the public report_url path (the customer-facing URL).  These can differ
+        # when internal_report_url points to an older month's file while report_url
+        # was updated to the current month by the manifest generator.
+        # God Mode must ONLY fire when the PUBLIC report_url path also exists —
+        # otherwise the customer-facing link would return 404 even though an old
+        # internal file is present on disk.
+        _internal_ru = (entry.get("internal_report_url") or "").strip()
+        _public_ru   = (entry.get("report_url") or "").strip()
+
+        # Primary: use internal_report_url for the god-mode existence check
+        report_url = (_internal_ru or _public_ru)
         if report_url.startswith("/"):
             expected = Path(report_url.lstrip("/"))
         else:
@@ -1451,15 +1463,28 @@ def generate_reports_from_manifest(
             mm   = ts[5:7] if len(ts) >= 7 else datetime.now().strftime("%m")
             expected = Path(reports_base) / yyyy / mm / f"{intel_id}.html"
 
-        # ── GOD MODE PROTECTION GATE (v145.0) ─────────────────────────────────
+        # Secondary: resolve the public-facing path (what the dashboard links to)
+        if _public_ru.startswith("/"):
+            public_expected = Path(_public_ru.lstrip("/"))
+        else:
+            public_expected = expected  # same path if no separate public_url
+
+        # ── GOD MODE PROTECTION GATE (v154.0) ─────────────────────────────────
         # If the existing report is a god mode dossier (> GODMODE_MIN_SIZE_BYTES
         # or in GODMODE_PROTECTED_IDS), NEVER overwrite it from the pipeline.
         # Manual operator reports take permanent precedence over auto-generated ones.
+        #
+        # P0 HARDENING v154.0: God Mode is ONLY honoured when the PUBLIC report_url
+        # path also exists on disk.  If the public path is missing (regardless of
+        # whether an internal/old-path file is present), force regeneration so the
+        # customer-facing URL is never a 404.
         if expected.exists():
             existing_size = expected.stat().st_size
             is_protected_id = intel_id in GODMODE_PROTECTED_IDS
             is_godmode_size = existing_size >= GODMODE_MIN_SIZE_BYTES
-            if is_protected_id or is_godmode_size:
+            # CRITICAL: also require the public-facing path to exist
+            public_path_ok = public_expected.exists()
+            if (is_protected_id or is_godmode_size) and public_path_ok:
                 size_kb = round(existing_size / 1024, 1)
                 if is_protected_id:
                     logger.info(
@@ -1473,6 +1498,17 @@ def generate_reports_from_manifest(
                     )
                 results["skipped"] += 1
                 continue
+            elif (is_protected_id or is_godmode_size) and not public_path_ok:
+                # Internal file is god-mode quality but PUBLIC URL is missing.
+                # Fall through to generation — do NOT skip.
+                # The report will be generated at the public_expected path below.
+                logger.info(
+                    "[GODMODE-REGEN] %s — internal file exists (%s KB) but "
+                    "public report_url path MISSING (%s). Forcing regeneration "
+                    "to prevent customer 404.",
+                    intel_id, round(existing_size / 1024, 1), public_expected
+                )
+                # fall through to generate_report()
 
         if skip_existing and expected.exists() and expected.stat().st_size > 2000:
             try:

@@ -888,15 +888,23 @@ jobs:
         run: python3 scripts/ci_report_count_check.py
 
       # -----------------------------------------------------------------------
-      # STAGE 5.4.1: REPORT EXISTENCE VALIDATOR (v153.1 P0 HARDENING)
+      # STAGE 5.4.1: REPORT EXISTENCE VALIDATOR (v154.0 P0 HARD FAIL)
       # Validates every report_url in the feed manifest resolves to an actual
       # HTML file on disk. Catches stale/broken report links BEFORE they reach
       # GitHub Pages and cause customer-facing 404s.
-      # Non-blocking in this workflow (--warn-only) -- hard fail in deploy-worker.
+      #
+      # P0 REGRESSION FIX (2026-05-15): Changed from --warn-only (exit 0) to
+      # HARD FAIL. Previously, 159 missing report files were detected here but
+      # silently ignored (--warn-only || true), allowing a broken Pages deployment
+      # to proceed. Every manifest report_url returned HTTP 404 to customers.
+      #
+      # ROOT CAUSE: git reset --hard origin/main in safe_git_commit.py (stash
+      # recovery race condition) wiped 159 HTML reports from the working tree.
+      # This gate MUST block deployment when any report_url is broken.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.4.1 - Report existence validator (v153.1)"
+      - name: "STAGE 5.4.1 - Report existence validator (v154.0 HARD FAIL)"
         timeout-minutes: 3
-        run: python3 scripts/report_existence_validator.py --warn-only || true
+        run: python3 scripts/report_existence_validator.py
 
       # -----------------------------------------------------------------------
       # STAGE 5.4.5: PIPELINE SELF-AUDIT (v141.7.0)
@@ -996,6 +1004,22 @@ jobs:
       - name: "STAGE 5.8.1 - Deployment Canary Validation"
         timeout-minutes: 5
         run: python3 scripts/deployment_canary.py || true
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.8.1b - REPORT URL CANARY (v154.0 P0 HARDENING)
+      # Post-deploy HTTP validation: probes a sample of report URLs against the
+      # live GitHub Pages site to confirm they return HTTP 200.
+      # If ANY sampled report URL returns 404 after deployment, this stage
+      # logs a HARD FAIL annotation and exits non-zero.
+      #
+      # P0 REGRESSION FIX (2026-05-15): Added as a customer-facing safety net.
+      # Even if pre-deploy gates pass (because files existed on disk), this
+      # stage catches Pages propagation failures or deployment artifact gaps
+      # by fetching actual live URLs.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.8.1b - Report URL Canary (v154.0 HARD FAIL)"
+        timeout-minutes: 5
+        run: python3 scripts/report_url_canary.py
 
       # -----------------------------------------------------------------------
       # STAGE 5.8.2 - ENTERPRISE GOVERNANCE ENGINE (v150.2 -- NON-BLOCKING)

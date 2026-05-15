@@ -435,9 +435,74 @@ def main() -> None:
                         log.warning("[manifest-guard] Skipping snapshot of %s (already "
                                     "invalid -- %s)", _mp.name, _snap_err)
 
+            # == P0-FIX v154.0.0: HTML Reports Recovery Guard ==
+            # PROBLEM (P0 REGRESSION — confirmed 2026-05-15):
+            #   git reset --hard origin/main wipes HTML report files that exist
+            #   locally but are absent from the current origin/main HEAD
+            #   (due to a concurrent pipeline run that also lost them via an
+            #   earlier stash recovery cycle).  Reports that passed validate_reports.py
+            #   (Stage 3.3) are silently deleted and never deployed to GitHub Pages,
+            #   causing every manifest report_url to return HTTP 404.
+            # ROOT CAUSE:
+            #   git stash push does NOT stash unmodified tracked files.
+            #   git reset --hard origin/main REMOVES any tracked file that is
+            #   present in our local HEAD but absent from origin/main HEAD.
+            #   git stash pop restores only what was stashed (data JSON).
+            #   Reports are gone. Pipeline reports SUCCESS. Pages returns 404.
+            # SOLUTION:
+            #   1. Snapshot the count and path set of all HTML reports BEFORE reset.
+            #   2. After stash pop, detect if any HTML reports are missing.
+            #   3. Restore lost reports from ORIG_HEAD (set by git reset --hard)
+            #      which points to our pre-reset local commit containing all reports.
+            # ──────────────────────────────────────────────────────────────────
+            _reports_dir = REPO_ROOT / "reports"
+            _pre_reset_reports: set = set()
+            if _reports_dir.is_dir():
+                _pre_reset_reports = {
+                    str(f.relative_to(REPO_ROOT))
+                    for f in _reports_dir.rglob("*.html")
+                }
+                log.info("[reports-guard] Pre-reset snapshot: %d HTML report(s)",
+                         len(_pre_reset_reports))
+
             run_git("stash", "push", "-m", "sentinel-recovery-{}".format(attempt))
             run_git("reset", "--hard", "origin/main")
             run_git("stash", "pop")
+
+            # Restore any HTML reports wiped by reset --hard
+            if _pre_reset_reports:
+                _post_reset_reports: set = set()
+                if _reports_dir.is_dir():
+                    _post_reset_reports = {
+                        str(f.relative_to(REPO_ROOT))
+                        for f in _reports_dir.rglob("*.html")
+                    }
+                _lost_reports = _pre_reset_reports - _post_reset_reports
+                if _lost_reports:
+                    log.warning(
+                        "[reports-guard] %d HTML report(s) LOST by reset --hard "
+                        "(concurrent origin/main lacked them). Restoring from "
+                        "ORIG_HEAD (pre-reset commit).", len(_lost_reports)
+                    )
+                    # ORIG_HEAD is set by git reset --hard to our pre-reset commit
+                    _restore_result = run_git("checkout", "ORIG_HEAD", "--", "reports/")
+                    if _restore_result.returncode == 0:
+                        _restored_count = sum(1 for f in _reports_dir.rglob("*.html"))
+                        log.info(
+                            "[reports-guard] RESTORED reports/ from ORIG_HEAD: "
+                            "%d total HTML reports (recovered %d lost files).",
+                            _restored_count, len(_lost_reports)
+                        )
+                    else:
+                        log.error(
+                            "[reports-guard] CRITICAL: Could not restore reports/ "
+                            "from ORIG_HEAD: %s -- deploying without %d reports!",
+                            _restore_result.stderr.strip()[:200], len(_lost_reports)
+                        )
+                else:
+                    log.info("[reports-guard] Report count intact after stash recovery: "
+                             "%d HTML files (no reports lost).", len(_post_reset_reports))
+            # == END P0-FIX v154.0.0 ==
 
             # == P0-FIX v145.1.0: Workflow YAML Conflict-Marker Guard ==
             # PROBLEM: git stash pop replays stashed changes on top of origin/main.
