@@ -1,0 +1,72 @@
+{
+  "generated_at": "2026-05-15T12:26:41Z",
+  "validation_version": "v156.0",
+  "platform": "CYBERDUDEBIVASH SENTINEL APEX",
+  "eventual_consistency_model": {
+    "description": "GitHub Pages operates as an eventually-consistent distributed system. After a gh-pages branch push, content propagates through: (1) GitHub Pages builder \u2192 (2) GitHub CDN edge cache \u2192 (3) Cloudflare reverse proxy \u2192 (4) Custom domain DNS. Each layer has independent propagation latency.",
+    "layers": [
+      {
+        "layer": "GitHub Pages Builder",
+        "typical_latency_s": [
+          10,
+          60
+        ],
+        "blocking": true
+      },
+      {
+        "layer": "GitHub CDN Edge Nodes",
+        "typical_latency_s": [
+          30,
+          120
+        ],
+        "blocking": false
+      },
+      {
+        "layer": "Cloudflare Reverse Proxy",
+        "typical_latency_s": [
+          60,
+          300
+        ],
+        "blocking": false
+      },
+      {
+        "layer": "Custom Domain DNS (intel.cyberdudebivash.com)",
+        "typical_latency_s": [
+          0,
+          60
+        ],
+        "blocking": false
+      }
+    ],
+    "total_convergence_window_s": [
+      90,
+      480
+    ],
+    "consistency_guarantee": "Eventual (typically converges within 5-8 minutes post-push)"
+  },
+  "convergence_detection_strategy": {
+    "approach": "Multi-phase active probing with consecutive-pass confirmation",
+    "false_positive_prevention": [
+      "Transient vs permanent failure discrimination (HTTP 5xx vs 404)",
+      "3 consecutive clean passes required before declaring convergence",
+      "Per-URL retry tracking (not global retry reset)",
+      "Exponential backoff with jitter prevents thundering herd",
+      "Confidence scoring prevents borderline-pass false positives"
+    ],
+    "phases": {
+      "phase1": "Initial stabilization wait (90s) \u2014 lets Pages builder complete",
+      "phase2": "CDN readiness probing \u2014 detects when Cloudflare edge is serving fresh content",
+      "phase3": "Incremental URL retry \u2014 per-URL confirmation with backoff",
+      "phase4": "Convergence confirmation \u2014 3x consecutive clean passes with 30s gaps",
+      "phase5": "Historical continuity \u2014 verifies old reports not overwritten"
+    }
+  },
+  "anti-patterns_eliminated": [
+    "Single-pass validation after fixed wait (race condition source)",
+    "Global retry on all URLs (hides per-URL permanent failures)",
+    "Treating CDN timeouts as permanent failures (false P0s)",
+    "Using short fixed wait (30s) for 2-5 minute CDN propagation"
+  ],
+  "validation_status": "GOVERNANCE_BASELINE_ESTABLISHED",
+  "next_live_validation": "On next sentinel-blogger.yml workflow run"
+}
