@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "engine": "enterprise_observability",
+  "version": "1.0.0",
+  "generated_at": "2026-05-15T03:32:17Z",
+  "total_anomalies": 5,
+  "overall_status": "CRITICAL",
+  "severity_counts": {
+    "CRITICAL": 3,
+    "HIGH": 2
+  },
+  "anomalies": [
+    {
+      "anomaly_id": "ANOM-0002",
+      "severity": "CRITICAL",
+      "category": "publishable_pct_critical",
+      "title": "Publishable intel critically low: 0.9%",
+      "evidence": "publishable_pct=0.9%, threshold=5.0%",
+      "root_cause": "Enrichment gap: advisories missing CVSS ≥ 7.0, verified IOCs, and TTP attribution fail trust certification. Source data quality below enterprise publishing threshold.",
+      "remediation": "1. Enable apex_intelligence_upgrade.py for all HIGH/CRITICAL advisories. 2. Add NVD CVSS enrichment pass. 3. Validate IOC extraction removing source-domain contamination.",
+      "affected_subsystem": "intel_trust_governance",
+      "detected_at": "2026-05-15T03:32:17Z"
+    },
+    {
+      "anomaly_id": "ANOM-0003",
+      "severity": "CRITICAL",
+      "category": "kev_escalation_gap",
+      "title": "KEV advisories not escalated to P0/P1: 26 KEV items at P3/P4",
+      "evidence": "kev_count=26, P0=0, P1=0",
+      "root_cause": "SOC scoring engine doesn't have CVSS scores for KEV advisories (from base feed_manifest.json). KEV items exist in apex_v2_manifest.json but coordinator runs against feed_manifest.json which lacks enrichment fields.",
+      "remediation": "1. Run ocios_coordinator.py with --manifest data/apex_v2_manifest.json. 2. Ensure feed_manifest.json enrichment pass completes before OCIOS run. 3. Verify kev_present field propagation in enrichment pipeline.",
+      "affected_subsystem": "ocios_soc_prioritization_engine",
+      "detected_at": "2026-05-15T03:32:17Z"
+    },
+    {
+      "anomaly_id": "ANOM-0004",
+      "severity": "CRITICAL",
+      "category": "risk_posture_critical",
+      "title": "Enterprise risk posture: CRITICAL | ALE: $64,333,500",
+      "evidence": "risk_posture=CRITICAL, kev_count=26, ale_usd=64333500",
+      "root_cause": "Portfolio contains actively exploitable KEV vulnerabilities with high financial exposure. Ransomware and APT TTPs present across corpus.",
+      "remediation": "1. Immediately patch all KEV-confirmed CVEs. 2. Activate SOC incident response for top P0/P1 items. 3. Validate backup and DR posture for ransomware-linked advisories.",
+      "affected_subsystem": "mssp_executive_engine",
+      "detected_at": "2026-05-15T03:32:17Z"
+    },
+    {
+      "anomaly_id": "ANOM-0001",
+      "severity": "HIGH",
+      "category": "trust_degraded",
+      "title": "Corpus trust score below threshold: 38.7/100",
+      "evidence": "average_trust_score=38.7, target ≥ 50",
+      "root_cause": "Partial enrichment — CVSS and EPSS data present for subset of advisories only.",
+      "remediation": "Prioritize CVSS/EPSS backfill for KEV-confirmed and HIGH severity advisories.",
+      "affected_subsystem": "intel_trust_governance",
+      "detected_at": "2026-05-15T03:32:17Z"
+    },
+    {
+      "anomaly_id": "ANOM-0005",
+      "severity": "HIGH",
+      "category": "platform_health_degraded",
+      "title": "Platform health score degraded: 47.7/100 (grade F)",
+      "evidence": "overall_health=47.7, weakest=threat_coverage at 0.0/100",
+      "root_cause": "Multiple subsystems operating below threshold. Weakest subsystem: [threat_coverage] at 0.0/100.",
+      "remediation": "Follow recommendations in platform_health_dashboard.json. Prioritize P0/P1 actions first.",
+      "affected_subsystem": "enterprise_observability",
+      "detected_at": "2026-05-15T03:32:17Z"
+    }
+  ],
+  "detection_thresholds": {
+    "trust_score_critical_low": 30.0,
+    "trust_score_warn_low": 50.0,
+    "publishable_pct_critical_low": 5.0,
+    "violation_rate_high": 15.0,
+    "stage_failure_any": 1,
+    "p0_items_present": 1,
+    "kev_items_min": 1,
+    "pipeline_latency_warn_s": 10.0,
+    "pipeline_latency_critical_s": 30.0,
+    "financial_exposure_critical": 10000000,
+    "financial_exposure_high": 5000000
+  }
+}

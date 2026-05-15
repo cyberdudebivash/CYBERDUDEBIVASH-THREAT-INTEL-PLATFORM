@@ -135,6 +135,8 @@ try:
         generate_actor_intelligence_v2 as _apex_actor_intel_v2,
         generate_ioc_intelligence_table as _apex_ioc_table,
         resolve_actor_cluster          as _apex_resolve_actor,
+        # P0: Explainable confidence breakdown surface
+        generate_explainable_confidence as _apex_explain_confidence,
     )
     _APEX_UPGRADE_AVAILABLE = True
 except Exception as _apex_import_err:

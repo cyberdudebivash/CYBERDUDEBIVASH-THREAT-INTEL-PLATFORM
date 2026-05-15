@@ -1,0 +1,161 @@
+{
+  "schema_version": "1.0",
+  "engine": "enterprise_observability",
+  "version": "1.0.0",
+  "generated_at": "2026-05-15T03:32:17Z",
+  "platform_name": "CYBERDUDEBIVASH AI Security Hub",
+  "overall_health_score": 47.7,
+  "overall_label": "UNHEALTHY",
+  "operational_grade": "F",
+  "weakest_subsystem": {
+    "name": "threat_coverage",
+    "score": 0.0,
+    "label": "CRITICAL"
+  },
+  "subsystems": {
+    "pipeline_execution": {
+      "score": 100.0,
+      "label": "HEALTHY",
+      "weight": 0.3,
+      "weighted_contribution": 30.0,
+      "detail": {
+        "stages_total": 7,
+        "stages_passed": 7,
+        "success_rate_pct": 100.0,
+        "total_elapsed_s": 1.63,
+        "latency_factor": 1.0
+      }
+    },
+    "intel_trust": {
+      "score": 32.8,
+      "label": "BELOW-STANDARD",
+      "weight": 0.25,
+      "weighted_contribution": 8.2,
+      "detail": {
+        "average_trust_score": 38.7,
+        "publishable_pct": 0.9,
+        "violation_count": 104,
+        "platform_trust_posture": "BELOW-STANDARD",
+        "trust_component": 38.7,
+        "publishable_bonus": 4.5,
+        "violation_penalty": 10.4
+      }
+    },
+    "threat_coverage": {
+      "score": 0.0,
+      "label": "CRITICAL",
+      "weight": 0.2,
+      "weighted_contribution": 0.0,
+      "detail": {
+        "risk_posture": "CRITICAL",
+        "kev_count": 26,
+        "total_advisories": 497,
+        "p0_items": 0,
+        "p1_items": 0,
+        "p2_items": 0,
+        "kev_handling_score": 0
+      }
+    },
+    "sla_compliance": {
+      "score": 17.5,
+      "label": "BREACHED",
+      "weight": 0.15,
+      "weighted_contribution": 2.62,
+      "detail": {
+        "total_items": 497,
+        "total_analysts": 1,
+        "overall_rate_pct": 17.5,
+        "tier_sla": {
+          "P0_critical": {
+            "item_count": 0,
+            "analyst_capacity": 2,
+            "estimated_compliant": 0,
+            "compliance_rate_pct": 0.0,
+            "sla_hours": 4.0
+          },
+          "P1_high": {
+            "item_count": 0,
+            "analyst_capacity": 5,
+            "estimated_compliant": 0,
+            "compliance_rate_pct": 0.0,
+            "sla_hours": 24.0
+          },
+          "P2_medium": {
+            "item_count": 0,
+            "analyst_capacity": 10,
+            "estimated_compliant": 0,
+            "compliance_rate_pct": 0.0,
+            "sla_hours": 72.0
+          },
+          "P3_low": {
+            "item_count": 454,
+            "analyst_capacity": 20,
+            "estimated_compliant": 20,
+            "compliance_rate_pct": 4.4,
+            "sla_hours": 720.0
+          },
+          "P4_monitor": {
+            "item_count": 43,
+            "analyst_capacity": 50,
+            "estimated_compliant": 43,
+            "compliance_rate_pct": 100.0,
+            "sla_hours": 2160.0
+          }
+        }
+      }
+    },
+    "anomaly_rate": {
+      "score": 68.8,
+      "label": "ANOMALOUS",
+      "weight": 0.1,
+      "weighted_contribution": 6.88,
+      "detail": {
+        "total_events": 16,
+        "high_sev_events": 5,
+        "anomaly_rate_pct": 31.2,
+        "severity_breakdown": {
+          "INFO": 11,
+          "HIGH": 2,
+          "CRITICAL": 3
+        }
+      }
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "P0",
+      "subsystem": "intel_trust",
+      "action": "Run full enrichment pipeline — add CVSS, EPSS, and KEV cross-reference",
+      "metric": "Current avg trust: 38.7/100",
+      "impact": "Increases publishable intel from 0.9% to target >25%"
+    },
+    {
+      "priority": "P0",
+      "subsystem": "threat_coverage",
+      "action": "Escalate 26 KEV-confirmed advisories to P0 SOC tier — update scoring with CVSS data",
+      "metric": "KEV count: 26, P0 items: 0",
+      "impact": "Ensures critical exploitable vulnerabilities receive <4h response"
+    },
+    {
+      "priority": "P1",
+      "subsystem": "sla_compliance",
+      "action": "Increase SOC analyst headcount or redistribute advisory load across tiers",
+      "metric": "Compliance rate: 17.5%",
+      "impact": "Prevents SLA breach for high-priority advisories"
+    },
+    {
+      "priority": "P2",
+      "subsystem": "anomaly_rate",
+      "action": "Review and triage all CRITICAL/HIGH telemetry events — resolve root causes",
+      "metric": "Anomaly score: 68.8",
+      "impact": "Reduces noise and improves signal quality for SOC analysts"
+    }
+  ],
+  "health_weights": {
+    "pipeline_execution": 0.3,
+    "intel_trust": 0.25,
+    "threat_coverage": 0.2,
+    "sla_compliance": 0.15,
+    "anomaly_rate": 0.1
+  }
+}
