@@ -171,7 +171,22 @@ def _http_probe(url: str, timeout: int = HTTP_TIMEOUT) -> ProbeResult:
             )
     except urllib.error.HTTPError as exc:
         elapsed = (time.monotonic() - t0) * 1000
-        # 404 = structural failure; 5xx/timeout = transient
+        # 401 = auth-gated Cloudflare Worker endpoint — CDN IS live and responding.
+        # A 401 is proof-of-delivery: the request reached the Worker and was processed.
+        # Counting 401 as a CDN failure causes the convergence engine to permanently
+        # block on auth-gated endpoints like api/feed.json. Classify as CDN-DELIVERED.
+        if exc.code == 401:
+            log.info("  🔒 [AUTH-GATED] %s — HTTP 401 (CDN-DELIVERED, auth required)", url)
+            return ProbeResult(
+                url=url,
+                status_code=401,
+                latency_ms=round(elapsed, 1),
+                success=True,    # CDN delivered — Worker is live
+                is_transient=False,
+                etag=None,
+                error=None,
+            )
+        # 404 = structural failure (file not in dist/); 5xx/timeout = transient CDN issue
         is_transient = exc.code >= 500
         return ProbeResult(
             url=url,
@@ -238,20 +253,47 @@ def _load_manifest() -> dict:
 
 def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], List[str]]:
     """
-    Extract latest and historical report URLs from feed + manifest.
-    Returns (latest_urls, historical_urls) where latest = most recent items.
+    Extract latest and historical report URLs for convergence probing.
+
+    SOURCE PRIORITY (v156.1 fix):
+      1. PRIMARY  — deployment_manifest.json["files"] filtered for reports/*.html
+         These are the ONLY files guaranteed to exist in dist/ and therefore on the
+         CDN. When REPORT_RETENTION_DAYS > 0 the dist/ artifact contains only HOT-tier
+         reports. Using feed.json as the source in that mode produces stale/archived
+         URLs that are not in dist/ → permanent 404s → convergence never achieved.
+      2. FALLBACK — feed.json report_url fields (used only when manifest has no files,
+         e.g. first-boot or manifest generation failure).
+
+    Returns (latest_urls, historical_urls):
+      latest    — most-recent MAX_REPORT_PROBES reports (newest filenames = last alpha)
+      historical — oldest HIST_PROBE_COUNT reports (guard against accidental deletion)
     """
     urls: List[str] = []
 
-    # Primary: deployment_manifest.json report_urls
-    if manifest.get("reports"):
-        for entry in manifest["reports"]:
-            url = entry.get("report_url") or entry.get("url")
-            if url and url.startswith("http"):
-                urls.append(url)
+    # ── PRIMARY: manifest["files"] — guaranteed to exist in dist/ ────────────
+    manifest_files = manifest.get("files", {})
+    if manifest_files:
+        # Collect all reports/*.html entries and sort alphabetically.
+        # Report filenames are date-prefixed (YYYY-MM-DD_...) so alpha sort
+        # places oldest first, newest last — ideal for latest/historical split.
+        report_paths = sorted(
+            k for k in manifest_files
+            if k.startswith("reports/") and k.endswith(".html")
+        )
+        for rel_path in report_paths:
+            urls.append(PAGES_BASE_URL.rstrip("/") + "/" + rel_path)
+        if urls:
+            log.info(
+                "Report URLs sourced from deployment_manifest.json "
+                "(%d HOT-tier reports, REPORT_RETENTION_DAYS-aware)", len(urls)
+            )
 
-    # Fallback: feed.json report_url fields
+    # ── FALLBACK: feed.json report_url fields ─────────────────────────────────
     if not urls:
+        log.warning(
+            "Manifest 'files' has no reports/ entries — falling back to feed.json. "
+            "NOTE: under REPORT_RETENTION_DAYS>0 this may produce stale 404 URLs."
+        )
         for item in feed:
             url = item.get("report_url") or item.get("internal_report_url")
             if url:
@@ -259,7 +301,7 @@ def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], L
                     url = PAGES_BASE_URL.rstrip("/") + "/" + url.lstrip("/")
                 urls.append(url)
 
-    # Deduplicate preserving order
+    # ── Deduplicate preserving order ─────────────────────────────────────────
     seen, deduped = set(), []
     for u in urls:
         if u not in seen:
@@ -270,11 +312,17 @@ def _extract_report_urls(feed: List[dict], manifest: dict) -> Tuple[List[str], L
         log.warning("No report URLs found in manifest or feed.")
         return [], []
 
-    # Sort by insertion order (feed is newest-first typically)
-    latest    = deduped[:MAX_REPORT_PROBES]
-    historical = deduped[MAX_REPORT_PROBES:MAX_REPORT_PROBES + HIST_PROBE_COUNT]
+    # latest  = newest MAX_REPORT_PROBES reports (last entries after alpha sort)
+    # historical = oldest HIST_PROBE_COUNT reports (first entries — continuity guard)
+    if len(deduped) > MAX_REPORT_PROBES:
+        latest     = deduped[-MAX_REPORT_PROBES:]
+        historical = deduped[:HIST_PROBE_COUNT]
+    else:
+        latest     = deduped
+        historical = []
 
-    log.info("Extracted %d latest URLs, %d historical URLs", len(latest), len(historical))
+    log.info("Extracted %d latest URLs, %d historical URLs for convergence probing",
+             len(latest), len(historical))
     return latest, historical
 
 
