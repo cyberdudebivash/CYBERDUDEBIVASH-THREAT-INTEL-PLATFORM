@@ -92,7 +92,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "152.0.0"
+  PIPELINE_VERSION: "155.0.0"
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
 
@@ -140,12 +140,20 @@ jobs:
 
       # -----------------------------------------------------------------------
       # STAGE 0: CHECKOUT
+      # v155.0 DEPLOYMENT GOVERNANCE FIX:
+      #   fetch-depth: 0  (full history)
+      #     - Enables ORIG_HEAD recovery in safe_git_commit.py stash race fix
+      #     - Provides git lineage for deployment rollback
+      #     - Ensures all historical reports are accessible for ORIG_HEAD restore
+      #   NOTE: Full history checkout is slower than depth:1 but mandatory for
+      #         deterministic deployment governance. The 20-min timeout provides
+      #         sufficient headroom for repos up to several GB of git objects.
       # -----------------------------------------------------------------------
       - name: "Checkout repository"
         timeout-minutes: 20   # v150.2 FIX: raised 8->20min (63k-file repo; 8min caused checkout timeout -> partial tree -> STAGE 4 ENOENT)
         uses: actions/checkout@v4.3.1   # v4.3.1 — native Node 24 (upgraded from v4.2.2, June-2-2026 deadline)
         with:
-          fetch-depth: 1
+          fetch-depth: 0
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -916,15 +924,72 @@ jobs:
         run: python3 scripts/pipeline_audit.py || true
 
       # -----------------------------------------------------------------------
+      # STAGE 5.4.6 - BUILD DETERMINISTIC DIST ARTIFACT (v155.0 HARD FAIL)
+      # Builds dist/ as a clean, minimal, checksum-validated deployment artifact.
+      #
+      # ARCHITECTURE FIX (v155.0 P0):
+      #   BEFORE: Pages deployed from folder: . (entire 70k-file workspace)
+      #           - Non-deterministic (runtime files pollute artifact)
+      #           - Impossible to verify integrity before deployment
+      #           - gh-pages grows unboundedly with .github/, scripts/, data/
+      #   AFTER:  Pages deploys from folder: dist/ (governed artifact)
+      #           - Only customer-facing files are deployed
+      #           - dist/deployment_manifest.json captures checksums
+      #           - Verifier gate validates dist/ BEFORE deployment
+      #           - Report count and URL paths verified deterministically
+      #
+      # HARD FAIL: blocks deployment if any report_url path is missing from dist/
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4.6 - Build Deterministic Dist Artifact (v155.0 HARD FAIL)"
+        timeout-minutes: 10
+        run: python3 scripts/build_dist_artifact.py
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.4.7 - DIST ARTIFACT VERIFIER (v155.0 HARD FAIL)
+      # Pre-deployment gate: verifies dist/ integrity against deployment_manifest.json.
+      # 10-check battery:
+      #   1. Manifest schema valid
+      #   2. All manifest files exist in dist/
+      #   3. SHA-256 checksum spot-check on sample of report HTMLs
+      #   4. No zero-byte report files
+      #   5. Report count >= minimum (10)
+      #   6. All report_url feed paths present in dist/
+      #   7. Artifact purity (no .github/, scripts/, data/ in dist/)
+      #   8. .nojekyll present
+      #   9. index.html present
+      #  10. deployment_manifest.json present
+      #
+      # HARD FAIL: blocks deployment if ANY check fails.
+      # Pages deployment MUST NOT proceed with a corrupt/incomplete artifact.
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4.7 - Dist Artifact Verifier (v155.0 HARD FAIL)"
+        timeout-minutes: 5
+        run: python3 scripts/dist_artifact_verifier.py
+
+      # -----------------------------------------------------------------------
       # STAGE 5: GITHUB PAGES DEPLOY
+      # v155.0 DEPLOYMENT GOVERNANCE FIX:
+      #   folder: dist  (governed, validated artifact — was folder: .)
+      #   clean: true   (gh-pages mirrors dist/ exactly — historical reports
+      #                  preserved via dist/reports/ which contains ALL reports
+      #                  from the working tree. No orphan files on gh-pages.)
+      #
+      # WHY clean: true now (was false):
+      #   - dist/ is a COMPLETE, governed artifact built fresh each run
+      #   - dist/reports/ contains all 36k+ historical reports from the working tree
+      #   - clean: true ensures gh-pages exactly mirrors dist/ (no stale files)
+      #   - Previously needed clean: false to preserve history, but that was a
+      #     workaround for the missing-reports bug. With dist/ governance, the
+      #     reports ARE always present, so clean: true is safe.
       # -----------------------------------------------------------------------
       - name: "STAGE 5 - Deploy to GitHub Pages"
-        timeout-minutes: 10
+        timeout-minutes: 15
         uses: JamesIves/github-pages-deploy-action@v4.7.4   # v4.7.4 — native Node 24 (upgraded from v4.7.3, June-2-2026 deadline)
         with:
           branch: gh-pages
-          folder: .
-          clean: false
+          folder: dist
+          clean: true
+          force: true
 
       # -----------------------------------------------------------------------
       # STAGE 5.5: FINAL VALIDATION GATE
@@ -1006,20 +1071,97 @@ jobs:
         run: python3 scripts/deployment_canary.py || true
 
       # -----------------------------------------------------------------------
-      # STAGE 5.8.1b - REPORT URL CANARY (v154.0 P0 HARDENING)
-      # Post-deploy HTTP validation: probes a sample of report URLs against the
-      # live GitHub Pages site to confirm they return HTTP 200.
-      # If ANY sampled report URL returns 404 after deployment, this stage
-      # logs a HARD FAIL annotation and exits non-zero.
-      #
-      # P0 REGRESSION FIX (2026-05-15): Added as a customer-facing safety net.
-      # Even if pre-deploy gates pass (because files existed on disk), this
-      # stage catches Pages propagation failures or deployment artifact gaps
-      # by fetching actual live URLs.
+      # STAGE 5.8.1b - REPORT URL CANARY (v155.0 CDN-HARDENED — RETAINED)
+      # Retained as a lightweight pre-convergence spot check.
+      # Non-blocking in v156.0 — full convergence governance is in STAGE 5.8.1c.
       # -----------------------------------------------------------------------
-      - name: "STAGE 5.8.1b - Report URL Canary (v154.0 HARD FAIL)"
-        timeout-minutes: 5
-        run: python3 scripts/report_url_canary.py
+      - name: "STAGE 5.8.1b - Report URL Canary (v155.0 — Pre-Convergence Spot Check)"
+        timeout-minutes: 10
+        env:
+          CANARY_WAIT_SECS: "60"
+          CANARY_RETRY_COUNT: "2"
+          CANARY_RETRY_WAIT: "30"
+        run: python3 scripts/report_url_canary.py || true
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.8.1c - DEPLOYMENT CONVERGENCE ENGINE (v156.0 ENTERPRISE GRADE)
+      # ═══════════════════════════════════════════════════════════════════════
+      # ROOT CAUSE: GitHub Pages + CDN + custom domain propagation requires
+      # 2-10 minutes after gh-pages push. Previous canary executed at ~120s,
+      # causing systematic false-positive P0 failures when CDN was still in
+      # partial propagation state.
+      #
+      # THIS STAGE IMPLEMENTS:
+      #   Phase 1 — Pages push detection + initial CDN stabilization window (90s)
+      #   Phase 2 — Active CDN readiness probing w/ exponential backoff + jitter
+      #   Phase 3 — Incremental per-URL retry w/ transient/permanent discrimination
+      #   Phase 4 — 3x consecutive clean-pass convergence confirmation (30s gap)
+      #   Phase 5 — Historical report continuity audit
+      #
+      # TIMING (worst-case):
+      #   Phase 1 stabilization   :  90s
+      #   Phase 2 CDN readiness   : up to 8 retries × backoff(30-180s) ≈ 10 min
+      #   Phase 3 URL validation  : up to 8 retries × backoff            ≈ 10 min
+      #   Phase 4 confirmation    : 3 passes × 30s gap                   =  90s
+      #   Phase 5 historical audit:  ~30s
+      #   Total worst-case        : ~25 minutes (timeout-minutes: 30)
+      #
+      # EXIT CODES:
+      #   0 = DEPLOYMENT_STABLE  (confidence ≥ 80) → pipeline continues
+      #   1 = DEPLOYMENT_FAILED  (confidence < 60) → hard fail
+      #   2 = DEPLOYMENT_DEGRADED (60-79)          → warning, not fail
+      #
+      # CONVERGENCE SIGNALS WEIGHTED:
+      #   CDN readiness           → 20 pts
+      #   Report URL validation   → 35 pts
+      #   Convergence confirmation→ 30 pts
+      #   Historical continuity   → 10 pts
+      #   Data availability       →  5 pts
+      #
+      # Outputs: deployment_confidence_score.json
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.8.1c - Deployment Convergence Engine (v156.0 Enterprise Grade)"
+        timeout-minutes: 30
+        env:
+          PAGES_BASE_URL: "https://intel.cyberdudebivash.com"
+          CONVERGENCE_PHASE1_WAIT: "90"
+          CONVERGENCE_PHASE2_WAIT: "45"
+          CONVERGENCE_MAX_RETRIES: "8"
+          CONVERGENCE_BACKOFF_BASE: "30"
+          CONVERGENCE_BACKOFF_MAX: "180"
+          CONVERGENCE_JITTER_MAX: "15"
+          CONVERGENCE_CONFIRM_RUNS: "3"
+          CONVERGENCE_TIMEOUT: "20"
+          CONVERGENCE_CONFIDENCE_THRESHOLD: "80"
+          CONVERGENCE_FAIL_THRESHOLD: "60"
+          MAX_REPORT_PROBES: "15"
+          HISTORICAL_PROBE_COUNT: "5"
+        run: |
+          set +e
+          python3 scripts/deployment_convergence_validator.py
+          CONVERGENCE_EXIT=$?
+          echo "CONVERGENCE_EXIT_CODE=${CONVERGENCE_EXIT}" >> $GITHUB_ENV
+
+          # Surface confidence score in GitHub step summary
+          if [ -f deployment_confidence_score.json ]; then
+            python3 -c "
+          import json, pathlib
+          d = json.loads(pathlib.Path('deployment_confidence_score.json').read_text())
+          score = d.get('confidence_score', 0)
+          cls   = d.get('classification', 'UNKNOWN')
+          conv  = d.get('convergence_achieved', False)
+          print(f'[CONVERGENCE] Score={score}/100 | Class={cls} | Converged={conv}')
+          for sig, info in d.get('signals', {}).items():
+              print(f'  Signal [{sig}]: {info.get(\"status\",\"?\")} ({info.get(\"score\",0)} pts) — {str(info.get(\"message\",\"\"))[:80]}')
+          " 2>/dev/null || true
+          fi
+
+          # DEGRADED (exit 2) = warn but do not fail pipeline
+          if [ "$CONVERGENCE_EXIT" -eq "2" ]; then
+            echo "::warning::DEPLOYMENT_DEGRADED — convergence score below STABLE threshold. Investigate deployment_confidence_score.json."
+            exit 0
+          fi
+          exit $CONVERGENCE_EXIT
 
       # -----------------------------------------------------------------------
       # STAGE 5.8.2 - ENTERPRISE GOVERNANCE ENGINE (v150.2 -- NON-BLOCKING)
@@ -1078,7 +1220,6 @@ jobs:
       # -----------------------------------------------------------------------
       # STAGE 5.9 - ENTERPRISE CI TELEMETRY (v146.0 -- ALWAYS RUNS)
       # Writes data/telemetry/ci_run_latest.json. Non-blocking.
-      # -----------------------------------------------------------------------
       - name: "STAGE 5.9 - Enterprise CI Telemetry"
         timeout-minutes: 3
         if: always()

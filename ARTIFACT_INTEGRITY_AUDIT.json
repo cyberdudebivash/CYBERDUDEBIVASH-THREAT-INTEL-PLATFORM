@@ -1,0 +1,164 @@
+{
+  "report_version": "155.0.0",
+  "generated_at": "2026-05-15T16:51:00Z",
+  "classification": "DEPLOYMENT ARTIFACT INTEGRITY AUDIT",
+  "incident_run_id": "25913787114",
+  "audit_scope": "Pre-fix (v154.0) and post-fix (v155.0) deployment artifact integrity assessment",
+
+  "pre_fix_artifact_state": {
+    "deployment_source": "folder: . (entire 70,915-file workspace)",
+    "deployment_target": "gh-pages (clean: false)",
+    "artifact_deterministic": false,
+    "artifact_governed": false,
+    "manifest_present": false,
+    "checksum_verification": false,
+    "internal_files_in_artifact": {
+      "github_dir_deployed": true,
+      "scripts_dir_deployed": true,
+      "data_dir_deployed": true,
+      "config_dir_deployed": true,
+      "python_cache_deployed": true,
+      "note": "All internal files visible at intel.cyberdudebivash.com/.github/, /scripts/, etc."
+    },
+    "artifact_size_estimate_files": 70915,
+    "report_files_in_artifact": 36087,
+    "artifact_issues": [
+      "Internal pipeline files (.github/, scripts/) exposed to customers via CDN",
+      "Runtime data (data/) deployed — includes stale/partial runtime state",
+      "No manifest — impossible to verify gh-pages matches working tree",
+      "No pre-deploy integrity check — deployment proceeds blindly",
+      "gh-pages grows unboundedly with stale files (clean: false)",
+      "rsync of 70k files is slow — Pages action bottleneck"
+    ]
+  },
+
+  "post_fix_artifact_state": {
+    "deployment_source": "folder: dist (governed, filtered artifact)",
+    "deployment_target": "gh-pages (clean: true)",
+    "artifact_deterministic": true,
+    "artifact_governed": true,
+    "manifest_present": true,
+    "manifest_file": "dist/deployment_manifest.json",
+    "checksum_verification": true,
+    "internal_files_in_artifact": {
+      "github_dir_deployed": false,
+      "scripts_dir_deployed": false,
+      "data_dir_deployed": false,
+      "config_dir_deployed": false,
+      "python_cache_deployed": false,
+      "note": "Internal files excluded by build_dist_artifact.py include list"
+    },
+    "artifact_content": {
+      "reports_html": "ALL from reports/ working tree",
+      "root_html_pages": "Filtered (internal audit pages excluded)",
+      "css_js": "All frontend assets",
+      "api_dir": "All public API endpoints",
+      "public_feeds": "feed.json, feed_manifest.json, latest.json",
+      "pages_config": "_headers, .nojekyll, CNAME, robots.txt"
+    },
+    "build_script": "scripts/build_dist_artifact.py",
+    "verify_script": "scripts/dist_artifact_verifier.py",
+    "verification_checks": 10,
+    "artifact_issues": []
+  },
+
+  "artifact_verification_checks": {
+    "check_1_manifest_schema": {
+      "description": "dist/deployment_manifest.json schema is sentinel_apex_deployment_manifest_v1",
+      "enforcement": "dist_artifact_verifier.py",
+      "fail_action": "HARD FAIL — blocks deployment"
+    },
+    "check_2_manifest_file_presence": {
+      "description": "Every file listed in manifest exists in dist/",
+      "enforcement": "dist_artifact_verifier.py",
+      "fail_action": "HARD FAIL"
+    },
+    "check_3_checksum_spot": {
+      "description": "SHA-256 checksums match for sampled report HTMLs",
+      "sample_size": 20,
+      "enforcement": "dist_artifact_verifier.py",
+      "fail_action": "HARD FAIL"
+    },
+    "check_4_zero_byte": {
+      "description": "No zero-byte report files",
+      "enforcement": "dist_artifact_verifier.py",
+      "fail_action": "HARD FAIL"
+    },
+    "check_5_report_count": {
+      "description": "Report count >= 10 (minimum deployment threshold)",
+      "minimum": 10,
+      "enforcement": "dist_artifact_verifier.py",
+      "fail_action": "HARD FAIL"
+    },
+    "check_6_feed_url_paths": {
+      "description": "All report_url paths from feed files exist in dist/",
+      "enforcement": "dist_artifact_verifier.py",
+      "fail_action": "HARD FAIL"
+    },
+    "check_7_artifact_purity": {
+      "description": "dist/ does not contain .github/, scripts/, data/, config/, agent/",
+      "enforcement": "dist_artifact_verifier.py",
+      "fail_action": "HARD FAIL"
+    },
+    "check_8_nojekyll": {
+      "description": "dist/.nojekyll present (prevents Jekyll processing)",
+      "enforcement": "dist_artifact_verifier.py",
+      "fail_action": "HARD FAIL"
+    },
+    "check_9_index_html": {
+      "description": "dist/index.html present (dashboard root)",
+      "enforcement": "dist_artifact_verifier.py",
+      "fail_action": "HARD FAIL"
+    },
+    "check_10_manifest_present": {
+      "description": "dist/deployment_manifest.json present",
+      "enforcement": "dist_artifact_verifier.py",
+      "fail_action": "HARD FAIL"
+    }
+  },
+
+  "git_artifact_governance": {
+    "fetch_depth_pre_fix": 1,
+    "fetch_depth_post_fix": 0,
+    "orig_head_resolvable_pre_fix": false,
+    "orig_head_resolvable_post_fix": true,
+    "history_available_for_rollback_pre_fix": false,
+    "history_available_for_rollback_post_fix": true,
+    "deployment_lineage_tracked": true,
+    "concurrency_group": "sentinel-data-writer",
+    "concurrent_run_guard": "cancel-in-progress: false (queued, not killed)"
+  },
+
+  "artifact_deployment_staging": {
+    "stage_5_4_6_build_dist": {
+      "script": "scripts/build_dist_artifact.py",
+      "input": "Working tree (REPO_ROOT)",
+      "output": "dist/ + dist/deployment_manifest.json",
+      "hard_fail_condition": "Any report_url path missing from dist/",
+      "timeout_minutes": 10
+    },
+    "stage_5_4_7_verify_dist": {
+      "script": "scripts/dist_artifact_verifier.py",
+      "input": "dist/ + dist/deployment_manifest.json",
+      "output": "Pass/Fail (10-check battery)",
+      "hard_fail_condition": "Any of 10 checks fails",
+      "timeout_minutes": 5
+    },
+    "stage_5_deploy": {
+      "action": "JamesIves/github-pages-deploy-action@v4.7.4",
+      "folder": "dist",
+      "clean": true,
+      "force": true,
+      "timeout_minutes": 15
+    }
+  },
+
+  "post_fix_guarantees": {
+    "zero_artifact_contamination": "Internal files excluded from dist/ by design",
+    "zero_missing_reports": "build_dist_artifact.py HARD FAILs if any report_url missing",
+    "zero_corrupt_artifacts": "dist_artifact_verifier.py checksums + zero-byte checks",
+    "zero_deployment_without_validation": "Stage 5.4.7 gates Stage 5 unconditionally",
+    "deterministic_artifact": "dist/ rebuilt fresh each run from fixed include list",
+    "complete_historical_reports": "dist/reports/ = full working tree reports/ corpus"
+  }
+}

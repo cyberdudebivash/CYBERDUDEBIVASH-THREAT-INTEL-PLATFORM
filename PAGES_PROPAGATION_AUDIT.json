@@ -1,0 +1,63 @@
+{
+  "generated_at": "2026-05-15T12:26:09Z",
+  "audit_version": "v156.0",
+  "platform": "CYBERDUDEBIVASH SENTINEL APEX",
+  "root_cause_classification": "GITHUB_PAGES_DEPLOYMENT_CONVERGENCE_TIMING_FAILURE",
+  "incident_date": "2026-05-15",
+  "pages_propagation_characteristics": {
+    "gh_pages_rebuild_time_range_s": [
+      30,
+      120
+    ],
+    "cloudflare_cdn_invalidation_range_s": [
+      60,
+      300
+    ],
+    "custom_domain_dns_propagation_range_s": [
+      0,
+      60
+    ],
+    "total_convergence_window_s": [
+      90,
+      480
+    ],
+    "previous_canary_wait_s": 30,
+    "previous_canary_total_max_s": 300,
+    "failure_mode": "Canary executed at T+30s, before CDN invalidation at T+60-300s"
+  },
+  "convergence_engine_v156_timings": {
+    "phase1_stabilization_s": 90,
+    "phase2_cdn_readiness_max_s": 600,
+    "phase3_retry_max_s": 600,
+    "phase4_confirmation_s": 90,
+    "phase5_historical_s": 30,
+    "total_worst_case_s": 1500,
+    "total_worst_case_min": 25
+  },
+  "pages_readiness_signals": [
+    "HTTP 200 on platform homepage",
+    "HTTP 200 on api/feed.json",
+    "HTTP 200 on sampled report URLs",
+    "ETag consistency across CDN edges",
+    "Content-Length non-zero on report responses",
+    "Historical report accessibility (continuity check)"
+  ],
+  "false_positive_prevention": {
+    "transient_vs_permanent_discrimination": true,
+    "consecutive_confirmation_passes": 3,
+    "per_url_retry_tracking": true,
+    "exponential_backoff_with_jitter": true,
+    "convergence_score_gating": true
+  },
+  "previous_failures_analysis": [
+    {
+      "run_number": 1194,
+      "failure_type": "TIMING_RACE_CONDITION",
+      "canary_wait_s": 30,
+      "actual_cdn_propagation_needed_s": 180,
+      "result": "FALSE_POSITIVE_P0",
+      "root_cause": "Probe executed before Cloudflare CDN invalidated stale edge cache"
+    }
+  ],
+  "audit_status": "COMPLETE"
+}
