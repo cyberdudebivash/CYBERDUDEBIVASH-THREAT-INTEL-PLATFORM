@@ -24,6 +24,39 @@ from typing import Any, Dict, List, Optional, Tuple
 
 _log = logging.getLogger("sentinel.apex_upgrade")
 
+# ── P0: Context-Aware Narrative Engine — safe optional import ─────────────────
+_CANE_AVAILABLE = False
+try:
+    import sys as _cane_sys
+    import os as _cane_os
+    _cane_scripts_dir = _cane_os.path.join(_cane_os.path.dirname(_cane_os.path.dirname(__file__)), "scripts")
+    if _cane_scripts_dir not in _cane_sys.path:
+        _cane_sys.path.insert(0, _cane_scripts_dir)
+    from context_aware_narrative_engine import (
+        classify_intelligence                  as _cane_classify,
+        generate_context_aware_technical_narrative as _cane_technical,
+        generate_context_aware_executive_summary   as _cane_executive,
+        CLS_CVE_GENERIC, CLS_THREAT_INTEL,
+    )
+    _CANE_AVAILABLE = True
+except Exception as _cane_import_err:
+    _log.debug("Context-Aware Narrative Engine unavailable (non-fatal): %s", _cane_import_err)
+
+# ── P0: Explainable Confidence Engine — safe optional import ──────────────────
+_ECE_AVAILABLE = False
+try:
+    import sys as _ece_sys
+    import os as _ece_os
+    _ece_scripts_dir = _ece_os.path.join(_ece_os.path.dirname(_ece_os.path.dirname(__file__)), "scripts")
+    if _ece_scripts_dir not in _ece_sys.path:
+        _ece_sys.path.insert(0, _ece_scripts_dir)
+    from explainable_confidence_engine import (
+        compute_confidence_breakdown as _ece_breakdown,
+    )
+    _ECE_AVAILABLE = True
+except Exception as _ece_import_err:
+    _log.debug("Explainable Confidence Engine unavailable (non-fatal): %s", _ece_import_err)
+
 # ── v152.0 P0 FIX: HTML strip utility ────────────────────────────────────────
 import html as _html_mod_apex
 def _strip_html(text: str) -> str:
@@ -394,9 +427,31 @@ def generate_technical_narrative(item: Dict[str, Any]) -> str:
     """
     MODULE 1: Generate unique, threat-specific technical analysis HTML.
     Replaces generic boilerplate with operationally deep narrative.
+    Routes non-CVE intelligence through the Context-Aware Narrative Engine.
     Never raises.
     """
     try:
+        # ── P0 FIX: Route non-CVE intelligence to Context-Aware Narrative Engine ─
+        if _CANE_AVAILABLE:
+            try:
+                intel_class = _cane_classify(item)
+                # For non-generic/non-CVE intelligence, use context-aware engine
+                if intel_class not in (CLS_CVE_GENERIC, CLS_THREAT_INTEL):
+                    narrative = _cane_technical(item)
+                    if narrative and len(narrative) > 50:
+                        return narrative
+                # For pure threat intel reports with no CVE (threat actor, APT, ransomware),
+                # the CANE also handles CVE_GENERIC — check if this is a non-CVE advisory
+                title_check = str(item.get("title") or "")
+                has_cve = bool(re.search(r'CVE-\d{4}-\d+', title_check, re.I))
+                if not has_cve and intel_class == CLS_CVE_GENERIC:
+                    # No CVE in title — treat as threat intel, use CANE
+                    narrative = _cane_technical(item)
+                    if narrative and len(narrative) > 50:
+                        return narrative
+            except Exception as _cane_exc:
+                _log.debug("CANE routing failed, falling back to legacy engine: %s", _cane_exc)
+
         title = str(item.get("title") or item.get("name") or "")
         desc = str(item.get("description") or item.get("summary") or "")
         threat_type = str(item.get("threat_type") or item.get("type") or "")
@@ -2400,6 +2455,19 @@ _NO_KEV = (
 def generate_executive_summary(item):
     """MODULE 8: Generate analyst-authored executive summary HTML. Never raises."""
     try:
+        # ── P0 FIX: Route non-CVE intelligence to Context-Aware Executive Summary ─
+        if _CANE_AVAILABLE:
+            try:
+                intel_class = _cane_classify(item)
+                title_check = str(item.get("title") or "")
+                has_cve = bool(re.search(r'CVE-\d{4}-\d+', title_check, re.I))
+                if intel_class not in (CLS_CVE_GENERIC, CLS_THREAT_INTEL) or not has_cve:
+                    exec_html = _cane_executive(item)
+                    if exec_html and len(exec_html) > 50:
+                        return exec_html
+            except Exception as _cane_exec_exc:
+                _log.debug("CANE executive summary failed, falling back: %s", _cane_exec_exc)
+
         title  = str(item.get("title") or item.get("name") or "")
         desc   = str(item.get("description") or item.get("summary") or "")
         sev    = str(item.get("severity") or "MEDIUM").upper()
@@ -3113,8 +3181,65 @@ def enrich_advisory(item: Dict[str, Any]) -> Dict[str, Any]:
             except (ValueError, TypeError):
                 pass
 
+        # ── P0: Explainable Confidence Breakdown ──────────────────────────────
+        if _ECE_AVAILABLE:
+            try:
+                confidence_bd = _ece_breakdown(enriched)
+                # Update the flat confidence score with explainable engine result
+                enriched["intel_confidence"] = confidence_bd["score"]
+                enriched["_apex_confidence_breakdown"] = {
+                    "score": confidence_bd["score"],
+                    "contributors": confidence_bd["contributors"],
+                    "penalties": confidence_bd["penalties"],
+                    "source_reliability": confidence_bd["source_reliability_label"],
+                    "ioc_quality": confidence_bd["ioc_quality_score"],
+                    "attck_confidence": confidence_bd["attck_confidence"],
+                    "actor_attribution_confidence": confidence_bd["actor_attribution_confidence"],
+                    "operational_confidence": confidence_bd["operational_confidence"],
+                    "lineage_hash": confidence_bd["lineage_hash"],
+                    "rendered_explanation": confidence_bd["rendered_explanation"],
+                    "engine_version": confidence_bd.get("engine_version", "ECE-1.0.0"),
+                }
+            except Exception as _ece_exc:
+                _log.debug("Explainable confidence enrichment failed (non-fatal): %s", _ece_exc)
+
         return enriched
 
     except Exception as exc:
         _log.error("enrich_advisory failed: %s", exc)
         return item
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# P0 — EXPLAINABLE CONFIDENCE PUBLIC API
+# Called by generate_intel_reports.py to render confidence breakdown in dossier
+# ─────────────────────────────────────────────────────────────────────────────
+
+def generate_explainable_confidence(item: Dict[str, Any]) -> str:
+    """
+    Generate explainable confidence breakdown HTML for a dossier section.
+    Uses pre-computed breakdown from enrich_advisory if available,
+    else computes on demand. Never raises.
+    """
+    try:
+        # Use pre-computed breakdown if available from enrich_advisory
+        bd = item.get("_apex_confidence_breakdown")
+        if bd and isinstance(bd, dict) and "rendered_explanation" in bd:
+            return bd["rendered_explanation"]
+
+        # Compute on demand
+        if _ECE_AVAILABLE:
+            breakdown = _ece_breakdown(item)
+            return breakdown["rendered_explanation"]
+
+        # Fallback: minimal plain confidence display
+        score = int(item.get("intel_confidence") or 0)
+        return (
+            f"<div class='explainable-confidence'>"
+            f"<span class='conf-score-val'>{score}%</span>"
+            f"<span class='conf-note'>Confidence engine not available — score from manifest</span>"
+            f"</div>"
+        )
+    except Exception as exc:
+        _log.error("generate_explainable_confidence failed: %s", exc)
+        return "<div class='explainable-confidence'><span>Confidence telemetry unavailable</span></div>"
