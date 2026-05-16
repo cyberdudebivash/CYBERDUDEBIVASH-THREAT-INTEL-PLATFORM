@@ -1,4 +1,28 @@
-name: SAST Security Scan — Bandit + Safety + Semgrep
+# ============================================================================
+# CYBERDUDEBIVASH(R) SENTINEL APEX -- SAST Security Scan
+# v47.2 -- Permanent P0 fix (Bandit format, JSONDecodeError, TruffleHog range)
+#
+# BUG FIXES (commit 6b898a4 regression):
+#
+#   FIX-1 (Bandit human-readable): --format text -> --format txt
+#         'text' is not a valid bandit -f choice; valid: txt, json, csv, sarif, etc.
+#
+#   FIX-2 (JSONDecodeError cascade): replaced pipe-based JSON parsing with file+jq.
+#         bash -o pipefail broke the pipe on bandit non-zero exit; python3 received
+#         empty stdin -> JSONDecodeError line 1 col 1 (char 0).
+#         Fix: bandit --output bandit-high.json (writes file, not stdout), validate
+#         file exists + non-empty, parse with jq (pre-installed on ubuntu-latest).
+#
+#   FIX-3 (TruffleHog same-commit error): base: branch-name -> event.before SHA.
+#         After push lands on main: git rev-parse main == HEAD == 6b898a4.
+#         TruffleHog error: "BASE and HEAD commits are the same."
+#         Fix: compute scan range per event type before running scan.
+#           push:         base=github.event.before, head=github.sha
+#           pull_request: base=PR base SHA, head=PR head SHA
+#           schedule/dispatch: empty -> TruffleHog full-filesystem scan
+# ============================================================================
+
+name: SAST Security Scan -- Bandit + Safety + Semgrep
 
 on:
   push:
@@ -6,7 +30,6 @@ on:
   pull_request:
     branches: [main, develop]
   schedule:
-    # Daily scan at 02:00 UTC — catches new CVEs without waiting for a push
     - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
@@ -22,7 +45,7 @@ concurrency:
 
 permissions:
   contents: read
-  security-events: write  # Required to upload SARIF to GitHub Security tab
+  security-events: write
   actions: read
 
 env:
@@ -30,7 +53,9 @@ env:
 
 jobs:
 
-  # ── Bandit: Python AST-based SAST ─────────────────────────────────────────
+  # --------------------------------------------------------------------------
+  # Bandit: Python AST-based SAST
+  # --------------------------------------------------------------------------
   bandit:
     name: Bandit SAST
     runs-on: ubuntu-latest
@@ -49,7 +74,7 @@ jobs:
           cache: pip
 
       - name: Install Bandit
-        run: pip install bandit[sarif]==1.7.8 bandit-sarif-formatter==1.1.1
+        run: pip install "bandit[sarif]==1.7.8" "bandit-sarif-formatter==1.1.1"
 
       - name: Run Bandit (SARIF output)
         run: |
@@ -61,17 +86,20 @@ jobs:
             --confidence-level medium \
             --exclude agent/tests,agent/__pycache__ \
             --skip B101,B601 \
-            || true   # Don't fail pipeline on findings; SARIF upload handles alerting
+            || true
 
       - name: Run Bandit (human-readable summary)
+        # FIX-1: --format txt  (bandit rejects 'text'; valid formats include txt)
         run: |
           bandit \
             --recursive agent/ \
-            --format text \
+            --format txt \
             --severity-level high \
             --confidence-level high \
             --exit-zero \
-            | tee bandit-summary.txt
+            --output bandit-summary.txt
+          echo "Bandit summary (HIGH/HIGH):"
+          cat bandit-summary.txt
 
       - name: Upload Bandit SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
@@ -91,21 +119,41 @@ jobs:
           retention-days: 30
 
       - name: Fail on HIGH severity + HIGH confidence findings
+        # FIX-2: File output + jq replaces broken pipe->python pattern.
+        # Write JSON to file (--output), validate file, count with jq.
         run: |
-          COUNT=$(bandit \
+          bandit \
             --recursive agent/ \
             --format json \
+            --output bandit-high.json \
             --severity-level high \
             --confidence-level high \
-            --exit-zero \
-            | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('results',[])))")
-          echo "HIGH/HIGH findings: $COUNT"
-          if [ "$COUNT" -gt "0" ]; then
-            echo "::error::Bandit found $COUNT HIGH severity + HIGH confidence issues. Review Security tab."
+            --exit-zero
+
+          if [ ! -f "bandit-high.json" ]; then
+            echo "::error::bandit-high.json not generated"
             exit 1
           fi
 
-  # ── Safety: Python Dependency CVE Check ───────────────────────────────────
+          FILESIZE=$(wc -c < bandit-high.json)
+          if [ "$FILESIZE" -lt 10 ]; then
+            echo "::error::bandit-high.json too small (${FILESIZE} bytes)"
+            exit 1
+          fi
+
+          COUNT=$(jq '.results | length' bandit-high.json)
+          echo "HIGH/HIGH findings: $COUNT"
+
+          if [ "$COUNT" -gt "0" ]; then
+            jq -r '.results[] | "  [\(.issue_severity)/\(.issue_confidence)] \(.test_id) \(.test_name) @ \(.filename):\(.line_number)"' bandit-high.json >&2
+            echo "::error::Bandit found $COUNT HIGH/HIGH issues. Review the Security tab."
+            exit 1
+          fi
+          echo "Bandit: No HIGH/HIGH findings."
+
+  # --------------------------------------------------------------------------
+  # Safety: Python Dependency CVE Check
+  # --------------------------------------------------------------------------
   safety:
     name: Safety Dependency Scan
     runs-on: ubuntu-latest
@@ -122,7 +170,7 @@ jobs:
           cache: pip
 
       - name: Install Safety
-        run: pip install safety==3.2.3
+        run: pip install "safety==3.2.3"
 
       - name: Run Safety scan
         env:
@@ -136,35 +184,26 @@ jobs:
 
       - name: Parse Safety results
         run: |
-          python3 - <<'EOF'
-          import json, sys
+          if [ ! -f safety-report.json ] || [ "$(wc -c < safety-report.json)" -lt 5 ]; then
+            echo "Safety: report not generated"
+            exit 0
+          fi
 
-          try:
-              with open("safety-report.json") as f:
-                  data = json.load(f)
-          except Exception as e:
-              print(f"Could not parse Safety output: {e}")
-              sys.exit(0)
+          TOTAL=$(jq 'if type == "array" then length elif .vulnerabilities then (.vulnerabilities | length) else 0 end' safety-report.json 2>/dev/null || echo "0")
+          echo "Total vulnerabilities: $TOTAL"
 
-          vulns = data if isinstance(data, list) else data.get("vulnerabilities", [])
-          if not vulns:
-              print("Safety: No known vulnerabilities found.")
-              sys.exit(0)
+          if [ "$TOTAL" -eq "0" ]; then
+            echo "Safety: No known vulnerabilities found."
+            exit 0
+          fi
 
-          critical = [v for v in vulns if str(v.get("severity","")).upper() in ("CRITICAL","HIGH")]
-          print(f"Safety found {len(vulns)} total vulnerabilities, {len(critical)} CRITICAL/HIGH")
+          CRITICAL=$(jq 'if type == "array" then [.[] | select(.severity == "CRITICAL" or .severity == "HIGH")] | length elif .vulnerabilities then [.vulnerabilities[] | select(.severity == "CRITICAL" or .severity == "HIGH")] | length else 0 end' safety-report.json 2>/dev/null || echo "0")
+          echo "CRITICAL/HIGH: $CRITICAL"
 
-          for v in critical:
-              pkg = v.get("package_name", "unknown")
-              ver = v.get("analyzed_version", "?")
-              cve = v.get("vulnerability_id", v.get("CVE","?"))
-              adv = v.get("advisory", "")[:120]
-              print(f"  CRITICAL/HIGH: {pkg}=={ver} | {cve} | {adv}")
-
-          if critical:
-              print("::error::Safety found CRITICAL/HIGH CVEs in dependencies. Update requirements.txt.")
-              sys.exit(1)
-          EOF
+          if [ "$CRITICAL" -gt "0" ]; then
+            echo "::error::Safety found $CRITICAL CRITICAL/HIGH CVEs. Update requirements.txt."
+            exit 1
+          fi
 
       - name: Upload Safety report
         uses: actions/upload-artifact@v4
@@ -174,7 +213,9 @@ jobs:
           path: safety-report.json
           retention-days: 30
 
-  # ── Semgrep: Pattern-based SAST ───────────────────────────────────────────
+  # --------------------------------------------------------------------------
+  # Semgrep: Pattern-based SAST
+  # --------------------------------------------------------------------------
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
@@ -206,7 +247,10 @@ jobs:
           sarif_file: semgrep.sarif
           category: semgrep
 
-  # ── Secret Scanning: TruffleHog ───────────────────────────────────────────
+  # --------------------------------------------------------------------------
+  # TruffleHog: Secret Scanning
+  # FIX-3: Compute proper diff range before running TruffleHog.
+  # --------------------------------------------------------------------------
   trufflehog:
     name: TruffleHog Secret Scan
     runs-on: ubuntu-latest
@@ -218,15 +262,51 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Compute TruffleHog scan range
+        id: scan-range
+        run: |
+          EVENT="${{ github.event_name }}"
+          echo "Event: $EVENT"
+
+          if [[ "$EVENT" == "push" ]]; then
+            BEFORE="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+            ZERO="0000000000000000000000000000000000000000"
+
+            if [[ -z "$BEFORE" || "$BEFORE" == "$ZERO" ]]; then
+              echo "First push -- full-filesystem scan"
+              echo "base=" >> "$GITHUB_OUTPUT"
+              echo "head=" >> "$GITHUB_OUTPUT"
+            else
+              echo "Push diff: $BEFORE -> $HEAD_SHA"
+              echo "base=${BEFORE}" >> "$GITHUB_OUTPUT"
+              echo "head=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+            fi
+
+          elif [[ "$EVENT" == "pull_request" ]]; then
+            PR_BASE="${{ github.event.pull_request.base.sha }}"
+            PR_HEAD="${{ github.event.pull_request.head.sha }}"
+            echo "PR diff: $PR_BASE -> $PR_HEAD"
+            echo "base=${PR_BASE}" >> "$GITHUB_OUTPUT"
+            echo "head=${PR_HEAD}" >> "$GITHUB_OUTPUT"
+
+          else
+            echo "Full scan (${EVENT})"
+            echo "base=" >> "$GITHUB_OUTPUT"
+            echo "head=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: TruffleHog OSS
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
-          extra_args: --debug --only-verified
+          base: ${{ steps.scan-range.outputs.base }}
+          head: ${{ steps.scan-range.outputs.head }}
+          extra_args: --only-verified
 
-  # ── Summary Gate ──────────────────────────────────────────────────────────
+  # --------------------------------------------------------------------------
+  # Summary Gate
+  # --------------------------------------------------------------------------
   sast-gate:
     name: SAST Gate (required)
     needs: [bandit, safety, trufflehog]
@@ -245,7 +325,7 @@ jobs:
           echo "TruffleHog:  $TRUFFLE"
 
           if [[ "$BANDIT" == "failure" || "$SAFETY" == "failure" || "$TRUFFLE" == "failure" ]]; then
-            echo "::error::One or more SAST scans failed. Block merge until resolved."
+            echo "::error::One or more SAST scans failed."
             exit 1
           fi
           echo "All SAST scans passed."
