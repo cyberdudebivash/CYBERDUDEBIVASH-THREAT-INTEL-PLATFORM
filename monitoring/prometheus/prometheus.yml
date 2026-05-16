@@ -1,0 +1,97 @@
+# monitoring/prometheus/prometheus.yml
+# CYBERDUDEBIVASH® SENTINEL APEX — Prometheus Scrape Configuration
+#
+# Deploy with: docker-compose -f docker-compose.prod.yml up -d prometheus
+# Or standalone: prometheus --config.file=monitoring/prometheus/prometheus.yml
+#
+# Remote write targets (choose one):
+#   - Grafana Cloud: uncomment remote_write.grafana_cloud block
+#   - Thanos:        point remote_write.url to Thanos receive endpoint
+#   - Victoria Metrics: compatible with Prometheus remote_write protocol
+
+global:
+  scrape_interval:     15s    # Match Grafana dashboard refresh
+  evaluation_interval: 15s
+  scrape_timeout:      10s
+  external_labels:
+    cluster:     sentinel-apex-prod
+    environment: production
+    platform:    cyberdudebivash
+
+# ── Alerting ──────────────────────────────────────────────────────────────────
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093  # docker-compose service name
+
+# ── Rules ─────────────────────────────────────────────────────────────────────
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# ── Scrape Configurations ─────────────────────────────────────────────────────
+scrape_configs:
+
+  # ── SENTINEL APEX API ───────────────────────────────────────────────────────
+  - job_name: cdb-sentinel-apex
+    scheme: https
+    metrics_path: /metrics
+    scrape_interval: 15s
+    tls_config:
+      insecure_skip_verify: false
+    static_configs:
+      - targets:
+          - api.cyberdudebivash.com:443
+        labels:
+          service:  cdb-sentinel-apex
+          tier:     api
+    # If deploying locally / behind Cloudflare Tunnel:
+    # static_configs:
+    #   - targets: ['localhost:8080']
+    #     labels:
+    #       service: cdb-sentinel-apex
+
+  # ── Prometheus Self-Monitoring ───────────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: prometheus
+
+  # ── Grafana ──────────────────────────────────────────────────────────────────
+  - job_name: grafana
+    static_configs:
+      - targets: ['grafana:3000']
+        labels:
+          service: grafana
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  - job_name: redis
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          service: redis
+
+  # ── Node / Host Metrics ──────────────────────────────────────────────────────
+  - job_name: node
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service: node
+
+# ── Remote Write (Grafana Cloud — uncomment when ready) ───────────────────────
+# remote_write:
+#   - url: https://prometheus-prod-XX-prod-XXXXXX.grafana.net/api/prom/push
+#     basic_auth:
+#       username: <grafana-cloud-instance-id>
+#       password: <grafana-cloud-api-key>
+#     queue_config:
+#       capacity:          10000
+#       max_shards:        10
+#       min_shards:        1
+#       max_samples_per_send: 5000
+#       batch_send_deadline: 5s
+#     write_relabel_configs:
+#       - source_labels: [__name__]
+#         regex: cdb_.*
+#         action: keep  # Only forward CDB metrics to Grafana Cloud

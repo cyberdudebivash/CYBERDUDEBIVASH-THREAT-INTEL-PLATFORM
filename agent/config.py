@@ -521,3 +521,47 @@ STIX_TLP_MARKING = {
     "RED":   "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed",
     "CLEAR": "marking-definition--613f2e26-407d-48c7-9eca-b8e91ba519a4",
 }
+
+
+# =============================================================================
+# ENTERPRISE FEATURE FLAGS — v47.0 (additive — zero impact when false)
+# All enterprise modules default to DISABLED for safe rollout.
+# Enable individually via environment variables.
+# =============================================================================
+
+# ── Auth & Security ───────────────────────────────────────────────────────────
+CDB_CORS_ALLOW_ALL       = os.environ.get("CDB_CORS_ALLOW_ALL", "false").lower() == "true"
+CDB_CORS_EXTRA_ORIGINS   = os.environ.get("CDB_CORS_EXTRA_ORIGINS", "")
+
+# ── Observability ─────────────────────────────────────────────────────────────
+CDB_METRICS_ENABLED      = os.environ.get("CDB_METRICS_ENABLED", "true").lower() == "true"
+CDB_TRACING_ENABLED      = os.environ.get("CDB_TRACING_ENABLED", "false").lower() == "true"
+CDB_AUDIT_ENABLED        = os.environ.get("CDB_AUDIT_ENABLED", "false").lower() == "true"
+CDB_STRUCTURED_LOGGING   = os.environ.get("CDB_STRUCTURED_LOGGING", "true").lower() == "true"
+CDB_LOG_LEVEL            = os.environ.get("CDB_LOG_LEVEL", "INFO")
+
+# ── RBAC & Multi-Tenancy ──────────────────────────────────────────────────────
+CDB_RBAC_ENABLED         = os.environ.get("CDB_RBAC_ENABLED", "false").lower() == "true"
+CDB_MULTI_TENANT_ENABLED = os.environ.get("CDB_MULTI_TENANT_ENABLED", "false").lower() == "true"
+CDB_MFA_ENABLED          = os.environ.get("CDB_MFA_ENABLED", "false").lower() == "true"
+
+# ── Billing & Onboarding ──────────────────────────────────────────────────────
+CDB_USAGE_METERING_ENABLED = os.environ.get("CDB_USAGE_METERING_ENABLED", "false").lower() == "true"
+CDB_ONBOARDING_ENABLED     = os.environ.get("CDB_ONBOARDING_ENABLED", "false").lower() == "true"
+
+# ── Backup & Recovery ─────────────────────────────────────────────────────────
+CDB_BACKUP_ENABLED       = os.environ.get("CDB_BACKUP_ENABLED", "false").lower() == "true"
+CDB_BACKUP_DESTINATION   = os.environ.get("CDB_BACKUP_DESTINATION", "local")  # local | s3 | r2
+
+# ── Platform Environment ──────────────────────────────────────────────────────
+CDB_ENV              = os.environ.get("CDB_ENV", "production")
+PLATFORM_VERSION     = os.environ.get("PLATFORM_VERSION", "152.0.0")
+
+# Rollback: set any flag to "false" → feature instantly disabled, zero downtime.
+# Activation checklist:
+#   CDB_METRICS_ENABLED=true    → /metrics endpoint active
+#   CDB_AUDIT_ENABLED=true      → requires REDIS_URL or writable data/observability/
+#   CDB_RBAC_ENABLED=true       → requires JWT with role claim
+#   CDB_MULTI_TENANT_ENABLED=true → requires JWT with org_id claim
+#   CDB_MFA_ENABLED=true        → requires CDB_MFA_ENCRYPTION_KEY + pyotp installed
+#   CDB_BACKUP_ENABLED=true     → requires CDB_BACKUP_DESTINATION + credentials

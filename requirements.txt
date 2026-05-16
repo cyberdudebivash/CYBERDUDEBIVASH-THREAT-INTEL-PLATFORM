@@ -53,3 +53,35 @@ prometheus-client==0.19.0   # Platform performance metrics
 
 colorama==0.4.6             # Enhanced terminal logging for the CEO grid
 
+# ── ENTERPRISE ADDITIONS v47.0 ────────────────────────────────────────────────
+# All new enterprise modules use these packages.
+# Feature-flag gated — packages are installed but modules activate only when
+# corresponding CDB_* environment variables are set to "true".
+
+# Authentication & MFA
+pyotp==2.9.0                # RFC 6238 TOTP — MFA enrollment & verification
+                            # Required when: CDB_MFA_ENABLED=true
+
+# Caching & Rate Limiting
+redis==5.0.3                # Redis client — rate limiting, sessions, audit stream
+                            # Required when: REDIS_URL is set
+
+# Object Storage (Backup)
+boto3==1.34.34              # AWS S3 / Cloudflare R2 backup destination
+botocore==1.34.34           # boto3 dependency (pinned for reproducibility)
+                            # Required when: CDB_BACKUP_DESTINATION=s3|r2
+
+# Email (Onboarding)
+sendgrid==6.11.0            # Customer welcome emails & onboarding notifications
+                            # Required when: SENDGRID_API_KEY is set
+
+# OpenTelemetry Distributed Tracing — production observability (CDB_TRACING_ENABLED=true)
+opentelemetry-sdk==1.23.0
+opentelemetry-instrumentation-fastapi==0.44b0
+opentelemetry-instrumentation-requests==0.44b0
+opentelemetry-exporter-otlp-proto-grpc==1.23.0
+
+# Structured output & password hashing
+passlib[bcrypt]==1.7.4      # Secure password hashing for RBAC user accounts
+python-jose[cryptography]==3.3.0  # RS256 JWT for OIDC federation
+

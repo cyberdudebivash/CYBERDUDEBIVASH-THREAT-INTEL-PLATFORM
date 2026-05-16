@@ -1,0 +1,127 @@
+# monitoring/prometheus/alert_rules.yml
+# CYBERDUDEBIVASH® SENTINEL APEX — Production Alert Rules
+# Loaded by Prometheus: rule_files: [/etc/prometheus/rules/*.yml]
+
+groups:
+
+  # ── API Health ──────────────────────────────────────────────────────────────
+  - name: cdb_api_health
+    interval: 30s
+    rules:
+
+      - alert: CDB_APIHighErrorRate
+        expr: |
+          (
+            sum(rate(cdb_api_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(cdb_api_requests_total[5m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "API error rate > 5% for 2 minutes"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+          runbook: "https://github.com/cyberdudebivash/CYBERDUDEBIVASH-THREAT-INTEL-PLATFORM/wiki/runbooks/high-error-rate"
+
+      - alert: CDB_APIHighLatencyP99
+        expr: |
+          histogram_quantile(0.99, sum(rate(cdb_api_request_duration_seconds_bucket[5m])) by (le, endpoint)) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "API p99 latency > 2s"
+          description: "Endpoint {{ $labels.endpoint }} p99 latency is {{ $value }}s."
+
+      - alert: CDB_APIDown
+        expr: up{job="cdb-sentinel-apex"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+          page: true
+        annotations:
+          summary: "SENTINEL APEX API is DOWN"
+          description: "Prometheus cannot scrape the /metrics endpoint. API may be completely unavailable."
+
+  # ── Rate Limiting ───────────────────────────────────────────────────────────
+  - name: cdb_rate_limits
+    rules:
+
+      - alert: CDB_RateLimitSpike
+        expr: |
+          sum(rate(cdb_api_rate_limit_hits_total[5m])) by (tier) > 50
+        for: 1m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Rate limit hits > 50/min for tier {{ $labels.tier }}"
+          description: "Possible abuse or misconfigured client. Tier: {{ $labels.tier }}, rate: {{ $value }}/min."
+
+  # ── Intelligence Pipeline ───────────────────────────────────────────────────
+  - name: cdb_intel_pipeline
+    rules:
+
+      - alert: CDB_IntelPipelineStale
+        expr: |
+          (time() - cdb_intel_feed_entries_total) > 7200
+        for: 5m
+        labels:
+          severity: warning
+          team: intel
+        annotations:
+          summary: "Intelligence feed entries count has not updated in 2 hours"
+          description: "The threat intel pipeline may be failing or stalled."
+
+      - alert: CDB_IntelPipelineFailure
+        expr: |
+          sum(rate(cdb_intel_pipeline_run_seconds_count{outcome="failure"}[30m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: intel
+        annotations:
+          summary: "Intelligence pipeline run FAILED"
+          description: "Pipeline {{ $labels.pipeline }} recorded a failure in the last 30 minutes."
+
+  # ── Business / Billing ──────────────────────────────────────────────────────
+  - name: cdb_billing
+    rules:
+
+      - alert: CDB_StripeWebhookFailures
+        expr: |
+          sum(rate(cdb_stripe_events_total{outcome="failure"}[15m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          team: billing
+        annotations:
+          summary: "Stripe webhook processing failures detected"
+          description: "Event type {{ $labels.event_type }} is failing. Check Stripe dashboard and webhook logs."
+
+  # ── Platform Health ─────────────────────────────────────────────────────────
+  - name: cdb_platform_health
+    rules:
+
+      - alert: CDB_ComponentDegraded
+        expr: cdb_health_check_status{} > 0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Platform component {{ $labels.component }} is degraded"
+          description: "Health status: {{ $value }} (1=degraded, 2=error)"
+
+      - alert: CDB_ComponentError
+        expr: cdb_health_check_status{} >= 2
+        for: 1m
+        labels:
+          severity: critical
+          page: true
+        annotations:
+          summary: "Platform component {{ $labels.component }} is in ERROR state"
+          description: "Immediate investigation required."
