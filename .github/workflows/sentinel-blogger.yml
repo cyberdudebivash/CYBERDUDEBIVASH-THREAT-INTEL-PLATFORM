@@ -1,7 +1,7 @@
 # =============================================================================
 # CYBERDUDEBIVASH(R) SENTINEL APEX v148.0.0 - SOVEREIGN INTELLIGENCE PIPELINE
-# Version    : v148.0.0 (FINAL ENTERPRISE AI ASCENSION DOCTRINE)
-# Rebuilt    : 2026-04-20 - P0 PERMANENT FIX:
+# Version    : v156.3.0 (GOD MODE PRODUCTION HARDENING RELEASE)
+# Rebuilt    : 2026-05-16 - v156.3.0 GOD MODE HARDENING:
 #              RULE 1:  Zero inline Python in YAML (all here-doc blocks removed)
 #              RULE 2:  All logic in dedicated scripts/ only
 #              RULE 3:  encoding_guard.py runs FIRST on every execution
@@ -92,7 +92,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "156.2.0"
+  PIPELINE_VERSION: "156.3.0"
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
 
@@ -350,13 +350,13 @@ jobs:
           echo "[OK] All critical scripts present"
 
       # -----------------------------------------------------------------------
-      # STAGE 0.06: PYTHON SYNTAX GUARD (v142.4)
+      # STAGE 0.06b: PYTHON SYNTAX GUARD (v142.4)
       # Hard-fail the pipeline before ANY execution if any script has a syntax
       # error. Prevents the recurring pattern where a bad commit breaks the
       # pipeline silently mid-run after expensive API calls complete.
       # This is the CI enforcement of the local py_compile contract.
       # -----------------------------------------------------------------------
-      - name: "STAGE 0.06 - Python Syntax Guard (py_compile all scripts)"
+      - name: "STAGE 0.06b - Python Syntax Guard (py_compile all scripts)"
         timeout-minutes: 5
         run: |
           echo "Running py_compile on all scripts/*.py ..."
@@ -1237,7 +1237,7 @@ jobs:
       #   Phase 3 URL validation  : up to 8 retries × backoff            ≈ 10 min
       #   Phase 4 confirmation    : 3 passes × 30s gap                   =  90s
       #   Phase 5 historical audit:  ~30s
-      #   Total worst-case        : ~25 minutes (timeout-minutes: 30)
+      #   Total worst-case        : ~25 minutes (timeout-minutes: 30)  [actual: ~2m36s in prod]
       #
       # EXIT CODES:
       #   0 = DEPLOYMENT_STABLE  (confidence ≥ 80) → pipeline continues
