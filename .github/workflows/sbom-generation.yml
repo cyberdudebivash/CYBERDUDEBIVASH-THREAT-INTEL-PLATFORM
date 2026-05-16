@@ -1,4 +1,23 @@
-name: SBOM Generation — CycloneDX + SPDX
+# ============================================================================
+# CYBERDUDEBIVASH(R) SENTINEL APEX -- SBOM Generation
+# v47.2 -- Permanent P0 fix (CycloneDX 4.4.3 CLI argument mismatch)
+#
+# BUG FIX (commit 6b898a4 regression):
+#
+#   cyclonedx-bom==4.4.3 removed the --output-file flag.
+#   Error: "cyclonedx-py: error: unrecognized arguments: --output-file ..."
+#
+#   Root cause: workflow pinned cyclonedx-bom==4.4.3 but used --output-file
+#   syntax from the 4.1.x API. In 4.4.x, output destination is controlled
+#   via shell redirection (>) -- there is no --output-file argument.
+#
+#   Fix: Remove --output-file; redirect stdout to target file with >.
+#        Added toolchain pre-validation (version + PATH check before generation).
+#        Post-generation validation: file existence + size + jq JSON parse.
+#        SBOM metadata validated with jq (avoids Python heredoc YAML conflicts).
+# ============================================================================
+
+name: SBOM Generation -- CycloneDX + SPDX
 
 on:
   push:
@@ -10,12 +29,11 @@ on:
   release:
     types: [published]
   schedule:
-    # Weekly full SBOM on Mondays 03:00 UTC
     - cron: "0 3 * * 1"
   workflow_dispatch:
 
 permissions:
-  contents: write     # Attach SBOM to release
+  contents: write
   security-events: write
 
 env:
@@ -24,7 +42,9 @@ env:
 
 jobs:
 
-  # ── Python SBOM (CycloneDX) ───────────────────────────────────────────────
+  # --------------------------------------------------------------------------
+  # Python SBOM (CycloneDX)
+  # --------------------------------------------------------------------------
   sbom-python:
     name: Python SBOM (CycloneDX)
     runs-on: ubuntu-latest
@@ -41,50 +61,86 @@ jobs:
           cache: pip
 
       - name: Install CycloneDX Python
-        run: pip install cyclonedx-bom==4.4.3
+        run: pip install "cyclonedx-bom==4.4.3"
+
+      - name: Validate CycloneDX toolchain
+        run: |
+          INSTALLED=$(pip show cyclonedx-bom | grep '^Version:' | awk '{print $2}')
+          EXPECTED="4.4.3"
+          echo "cyclonedx-bom installed: $INSTALLED"
+          if [[ "$INSTALLED" != "$EXPECTED" ]]; then
+            echo "::error::cyclonedx-bom version mismatch. Expected $EXPECTED, got $INSTALLED."
+            exit 1
+          fi
+          if ! command -v cyclonedx-py &>/dev/null; then
+            echo "::error::cyclonedx-py binary not found on PATH."
+            exit 1
+          fi
+          echo "cyclonedx-py: $(which cyclonedx-py)"
+          cyclonedx-py --version || true
+          echo "Toolchain pre-validation passed."
 
       - name: Generate CycloneDX JSON SBOM
+        # FIX: --output-file removed in cyclonedx-bom==4.4.3.
+        # Correct syntax: redirect stdout to target file with shell >.
         run: |
-          mkdir -p ${{ env.SBOM_DIR }}
+          mkdir -p "${{ env.SBOM_DIR }}"
+
           cyclonedx-py requirements requirements.txt \
             --output-format JSON \
-            --output-file ${{ env.SBOM_DIR }}/sbom-python-cyclonedx.json \
-            --schema-version 1.5
-          echo "CycloneDX JSON SBOM generated"
+            > "${{ env.SBOM_DIR }}/sbom-python-cyclonedx.json"
+
+          JSON_FILE="${{ env.SBOM_DIR }}/sbom-python-cyclonedx.json"
+          if [ ! -f "$JSON_FILE" ]; then
+            echo "::error::CycloneDX JSON SBOM not generated (file missing)"
+            exit 1
+          fi
+          FILESIZE=$(wc -c < "$JSON_FILE")
+          if [ "$FILESIZE" -lt 100 ]; then
+            echo "::error::CycloneDX JSON SBOM too small (${FILESIZE} bytes)"
+            exit 1
+          fi
+          jq '.' "$JSON_FILE" > /dev/null 2>&1 || { echo "::error::SBOM JSON is invalid"; exit 1; }
+          echo "CycloneDX JSON SBOM generated: ${FILESIZE} bytes"
 
       - name: Generate CycloneDX XML SBOM
         run: |
           cyclonedx-py requirements requirements.txt \
             --output-format XML \
-            --output-file ${{ env.SBOM_DIR }}/sbom-python-cyclonedx.xml \
-            --schema-version 1.5
-          echo "CycloneDX XML SBOM generated"
+            > "${{ env.SBOM_DIR }}/sbom-python-cyclonedx.xml"
 
-      - name: Validate SBOM
+          XML_FILE="${{ env.SBOM_DIR }}/sbom-python-cyclonedx.xml"
+          if [ ! -f "$XML_FILE" ]; then
+            echo "::error::CycloneDX XML SBOM not generated (file missing)"
+            exit 1
+          fi
+          FILESIZE=$(wc -c < "$XML_FILE")
+          if [ "$FILESIZE" -lt 100 ]; then
+            echo "::error::CycloneDX XML SBOM too small (${FILESIZE} bytes)"
+            exit 1
+          fi
+          echo "CycloneDX XML SBOM generated: ${FILESIZE} bytes"
+
+      - name: Validate SBOM contents
         run: |
-          python3 - <<'EOF'
-          import json, sys
+          JSON_FILE="${{ env.SBOM_DIR }}/sbom-python-cyclonedx.json"
+          SPEC_VER=$(jq -r '.specVersion // "?"' "$JSON_FILE")
+          COMP_COUNT=$(jq '.components | length' "$JSON_FILE")
+          TIMESTAMP=$(jq -r '.metadata.timestamp // "?"' "$JSON_FILE")
+          SERIAL=$(jq -r '.serialNumber // "?"' "$JSON_FILE")
 
-          with open("${{ env.SBOM_DIR }}/sbom-python-cyclonedx.json") as f:
-              sbom = json.load(f)
+          echo "SBOM Schema Version: $SPEC_VER"
+          echo "Component Count:     $COMP_COUNT"
+          echo "Generated:           $TIMESTAMP"
+          echo "BOM Serial:          $SERIAL"
 
-          metadata   = sbom.get("metadata", {})
-          components = sbom.get("components", [])
-          schema_ver = sbom.get("specVersion", "?")
+          if [ "$COMP_COUNT" -eq "0" ]; then
+            echo "::error::SBOM contains no components -- possible generation failure"
+            exit 1
+          fi
 
-          print(f"SBOM Schema Version: {schema_ver}")
-          print(f"Component Count:     {len(components)}")
-          print(f"Generated:           {metadata.get('timestamp','?')}")
-          print(f"BOM Serial:          {sbom.get('serialNumber','?')}")
-
-          if not components:
-              print("WARNING: SBOM contains no components — possible generation failure")
-              sys.exit(1)
-
-          print(f"\nTop 10 components:")
-          for c in components[:10]:
-              print(f"  {c.get('name','?')}=={c.get('version','?')} [{c.get('type','?')}]")
-          EOF
+          echo "Top 10 components:"
+          jq -r '.components[:10][] | "  \(.name // "?")@\(.version // "?") [\(.type // "?")]"' "$JSON_FILE"
 
       - name: Upload Python SBOM artifact
         uses: actions/upload-artifact@v4
@@ -93,12 +149,13 @@ jobs:
           path: ${{ env.SBOM_DIR }}/
           retention-days: 90
 
-  # ── Docker SBOM (Syft / Grype) ────────────────────────────────────────────
+  # --------------------------------------------------------------------------
+  # Docker SBOM (Syft / Grype)
+  # --------------------------------------------------------------------------
   sbom-docker:
     name: Docker Image SBOM (Syft)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Only run on main push or release — not PRs (saves build time)
     if: github.ref == 'refs/heads/main' || github.event_name == 'release'
 
     steps:
@@ -122,52 +179,40 @@ jobs:
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
             | sh -s -- -b /usr/local/bin v1.3.0
 
-      - name: Generate Docker SBOM (CycloneDX JSON)
+      - name: Generate Docker SBOM (CycloneDX + SPDX)
         run: |
-          mkdir -p ${{ env.SBOM_DIR }}
+          mkdir -p "${{ env.SBOM_DIR }}"
           syft cdb-sentinel-apex:sbom-scan \
-            --output cyclonedx-json=${{ env.SBOM_DIR }}/sbom-docker-cyclonedx.json \
-            --output spdx-json=${{ env.SBOM_DIR }}/sbom-docker-spdx.json
+            --output "cyclonedx-json=${{ env.SBOM_DIR }}/sbom-docker-cyclonedx.json" \
+            --output "spdx-json=${{ env.SBOM_DIR }}/sbom-docker-spdx.json"
 
-      - name: Install Grype (vulnerability scan against SBOM)
+      - name: Install Grype
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
             | sh -s -- -b /usr/local/bin v0.77.0
 
       - name: Run Grype CVE scan against SBOM
         run: |
-          grype sbom:${{ env.SBOM_DIR }}/sbom-docker-cyclonedx.json \
+          grype "sbom:${{ env.SBOM_DIR }}/sbom-docker-cyclonedx.json" \
             --output json \
-            --file ${{ env.SBOM_DIR }}/grype-vulnerabilities.json \
+            --file "${{ env.SBOM_DIR }}/grype-vulnerabilities.json" \
             --fail-on critical \
             || GRYPE_EXIT=$?
 
-          # Parse and summarise
-          python3 - <<'PYEOF'
-          import json, sys
+          if [ ! -f "${{ env.SBOM_DIR }}/grype-vulnerabilities.json" ]; then
+            echo "Could not parse Grype output -- skipping vulnerability summary"
+            exit 0
+          fi
 
-          try:
-              with open("${{ env.SBOM_DIR }}/grype-vulnerabilities.json") as f:
-                  data = json.load(f)
-          except:
-              print("Could not parse Grype output — skipping")
-              sys.exit(0)
+          TOTAL=$(jq '.matches | length' "${{ env.SBOM_DIR }}/grype-vulnerabilities.json" 2>/dev/null || echo "0")
+          CRITICAL=$(jq '[.matches[].vulnerability | select(.severity == "Critical")] | length' "${{ env.SBOM_DIR }}/grype-vulnerabilities.json" 2>/dev/null || echo "0")
+          HIGH=$(jq '[.matches[].vulnerability | select(.severity == "High")] | length' "${{ env.SBOM_DIR }}/grype-vulnerabilities.json" 2>/dev/null || echo "0")
+          echo "Grype: $TOTAL CVEs total | $CRITICAL CRITICAL | $HIGH HIGH"
 
-          matches = data.get("matches", [])
-          by_sev = {}
-          for m in matches:
-              sev = m.get("vulnerability", {}).get("severity", "UNKNOWN").upper()
-              by_sev[sev] = by_sev.get(sev, 0) + 1
-
-          print(f"Grype found {len(matches)} CVEs:")
-          for sev in ["CRITICAL","HIGH","MEDIUM","LOW","NEGLIGIBLE","UNKNOWN"]:
-              if by_sev.get(sev,0):
-                  print(f"  {sev}: {by_sev[sev]}")
-
-          if by_sev.get("CRITICAL", 0) > 0:
-              print("::error::CRITICAL CVEs found in Docker image. Review and update base image / dependencies.")
-              sys.exit(1)
-          PYEOF
+          if [ "$CRITICAL" -gt "0" ]; then
+            echo "::error::CRITICAL CVEs found in Docker image. Update base image / dependencies."
+            exit 1
+          fi
 
       - name: Upload Docker SBOM + Grype report
         uses: actions/upload-artifact@v4
@@ -177,7 +222,9 @@ jobs:
           path: ${{ env.SBOM_DIR }}/
           retention-days: 90
 
-  # ── Attach SBOM to GitHub Release ────────────────────────────────────────
+  # --------------------------------------------------------------------------
+  # Attach SBOM to GitHub Release
+  # --------------------------------------------------------------------------
   attach-to-release:
     name: Attach SBOM to Release
     needs: [sbom-python, sbom-docker]
@@ -209,7 +256,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ── SBOM Gate ─────────────────────────────────────────────────────────────
+  # --------------------------------------------------------------------------
+  # SBOM Gate
+  # --------------------------------------------------------------------------
   sbom-gate:
     name: SBOM Gate
     needs: [sbom-python]
