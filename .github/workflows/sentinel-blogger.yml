@@ -92,7 +92,7 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "156.1.0"
+  PIPELINE_VERSION: "156.2.0"
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
 
@@ -178,13 +178,25 @@ jobs:
       # and forces a full toolchain re-download every run -- confirmed GitHub
       # Actions regression). check-latest:false ensures pre-cached toolchain
       # is preferred. update-environment:true keeps PATH correct.
+      #
+      # v156.2.0 FIX: cache: 'pip' REMOVED permanently.
+      # ROOT CAUSE: actions/setup-python restores a 3 GB pip cache at job
+      # start. runner_disk_governor.py --predist then runs 'pip cache purge'
+      # (step 2/6 in reclaim sequence) which deletes /home/runner/.cache/pip.
+      # The Post Setup Python 3.12 post-step then fails trying to re-save the
+      # deleted cache directory → exit code 1 → entire job marked FAILED even
+      # though all 70+ pipeline stages passed.
+      # Removing cache: 'pip' eliminates the post-step error AND saves the
+      # 3 GB cache restore download at job start (wasted bandwidth since the
+      # governor deletes it anyway). No functional impact: pip installs from
+      # requirements.txt are fast regardless of cache on ubuntu-latest runners.
       # -----------------------------------------------------------------------
       - name: "Setup Python 3.12"
         timeout-minutes: 15
         uses: actions/setup-python@v5.5.0   # v5.5.0 — native Node 24 (upgraded from v5.3.0; v5.4.0 regression bypasses toolchain cache — v5.5.0 restores it)
         with:
           python-version: '3.12'
-          cache: 'pip'
+          # cache: 'pip' intentionally omitted — see v156.2.0 FIX comment above
           check-latest: false
           update-environment: true
 
@@ -1392,19 +1404,4 @@ jobs:
       # Non-blocking.
       # -----------------------------------------------------------------------
       - name: "STAGE 6.1 - Deployment Success Notification"
-        timeout-minutes: 3
-        if: success()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          MSG="SENTINEL APEX DEPLOY OK | Pipeline: ${PIPELINE_VERSION:-unknown} | Run: ${RUN_URL} | $(date -u +%Y-%m-%dT%H:%M:%SZ) | Platform fully operational."
-          if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${TELEGRAM_CHAT_ID}" ]; then
-            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-              -d "chat_id=${TELEGRAM_CHAT_ID}" \
-              -d "text=${MSG}" \
-              --max-time 15 2>/dev/null || true
-          else
-            echo "[NOTIFY] Telegram secrets not configured -- notification skipped"
-          fi
+        tim
