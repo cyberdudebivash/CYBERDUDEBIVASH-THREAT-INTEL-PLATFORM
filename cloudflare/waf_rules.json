@@ -1,0 +1,182 @@
+{
+  "_comment": "CYBERDUDEBIVASH® SENTINEL APEX — Cloudflare WAF Custom Rules",
+  "_version": "v47.0",
+  "_deploy": "Apply via Cloudflare Dashboard → Security → WAF → Custom Rules, or Terraform cloudflare_ruleset resource",
+
+  "ruleset": {
+    "name": "CDB SENTINEL APEX WAF Ruleset",
+    "description": "Production WAF rules for SENTINEL APEX API",
+    "kind": "zone",
+    "phase": "http_request_firewall_custom",
+    "rules": [
+
+      {
+        "id": "CDB-WAF-001",
+        "description": "Block direct access to /metrics endpoint from non-internal IPs",
+        "comment": "Prometheus /metrics must never be public-facing",
+        "expression": "(http.request.uri.path eq \"/metrics\") and not ip.src in {10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10}",
+        "action": "block",
+        "enabled": true,
+        "priority": 100
+      },
+
+      {
+        "id": "CDB-WAF-002",
+        "description": "Block known malicious bot user agents",
+        "comment": "Block scanner signatures targeting FastAPI/Python stacks",
+        "expression": "(http.user_agent contains \"sqlmap\") or (http.user_agent contains \"Nikto\") or (http.user_agent contains \"Acunetix\") or (http.user_agent contains \"Nessus\") or (http.user_agent contains \"masscan\") or (http.user_agent contains \"zgrab\") or (http.user_agent contains \"python-requests/2.\" and http.request.uri.path contains \"/admin\") or (http.user_agent eq \"\")",
+        "action": "block",
+        "enabled": true,
+        "priority": 200
+      },
+
+      {
+        "id": "CDB-WAF-003",
+        "description": "Block SQL injection patterns in query strings",
+        "comment": "OWASP CRS SQLi patterns adapted for Cloudflare expression language",
+        "expression": "(http.request.uri.query contains \"UNION SELECT\") or (http.request.uri.query contains \"OR 1=1\") or (http.request.uri.query contains \"DROP TABLE\") or (http.request.uri.query contains \"'; --\") or (http.request.uri.query contains \"xp_cmdshell\")",
+        "action": "block",
+        "enabled": true,
+        "priority": 300
+      },
+
+      {
+        "id": "CDB-WAF-004",
+        "description": "Block path traversal attempts",
+        "expression": "(http.request.uri.path contains \"../\") or (http.request.uri.path contains \"..%2F\") or (http.request.uri.path contains \"..%5C\") or (http.request.uri.path contains \"%2e%2e%2f\")",
+        "action": "block",
+        "enabled": true,
+        "priority": 400
+      },
+
+      {
+        "id": "CDB-WAF-005",
+        "description": "Rate limit unauthenticated requests to public Intel API",
+        "comment": "Sliding window — complement to application-layer rate limiter",
+        "expression": "(http.request.uri.path starts_with \"/api/v1/intel\") and not http.request.headers[\"x-api-key\"] exists",
+        "action": "challenge",
+        "enabled": true,
+        "priority": 500,
+        "ratelimit": {
+          "characteristics": ["ip.src"],
+          "period": 60,
+          "requests_per_period": 30,
+          "mitigation_timeout": 300
+        }
+      },
+
+      {
+        "id": "CDB-WAF-006",
+        "description": "Block requests to sensitive admin paths from non-allowlisted IPs",
+        "comment": "Set CDB_ADMIN_IP_ALLOWLIST in Cloudflare WAF IP list",
+        "expression": "(http.request.uri.path starts_with \"/api/v1/admin\") and not ip.src in $cdb_admin_allowlist",
+        "action": "block",
+        "enabled": false,
+        "priority": 600,
+        "_note": "Enable after populating the cdb_admin_allowlist IP list in Cloudflare dashboard"
+      },
+
+      {
+        "id": "CDB-WAF-007",
+        "description": "Challenge requests with suspicious header combinations",
+        "comment": "Typical automation/scraper fingerprint",
+        "expression": "not http.request.headers[\"accept\"] exists and not http.request.headers[\"user-agent\"] contains \"Go-http-client\" and http.request.uri.path starts_with \"/api/v1\"",
+        "action": "js_challenge",
+        "enabled": true,
+        "priority": 700
+      },
+
+      {
+        "id": "CDB-WAF-008",
+        "description": "Block oversized request bodies (potential DoS / payload injection)",
+        "comment": "4MB max for API, 50MB for STIX bundle uploads",
+        "expression": "(http.request.body.size gt 4194304) and not http.request.uri.path contains \"/stix\"",
+        "action": "block",
+        "enabled": true,
+        "priority": 800
+      },
+
+      {
+        "id": "CDB-WAF-009",
+        "description": "Enforce HTTPS-only — redirect HTTP to HTTPS",
+        "expression": "not ssl",
+        "action": "redirect",
+        "action_parameters": { "location": "https://api.cyberdudebivash.com${http.request.uri}", "status_code": 301 },
+        "enabled": true,
+        "priority": 900
+      },
+
+      {
+        "id": "CDB-WAF-010",
+        "description": "Block countries under OFAC sanctions (configurable)",
+        "comment": "Adjust ip.geoip.country list based on your legal jurisdiction requirements",
+        "expression": "ip.geoip.country in {\"CU\" \"IR\" \"KP\" \"SY\" \"RU\"}",
+        "action": "block",
+        "enabled": false,
+        "priority": 1000,
+        "_note": "Review legal/compliance requirements before enabling. Disabled by default."
+      }
+
+    ]
+  },
+
+  "managed_rules": {
+    "description": "Cloudflare Managed Rulesets to enable",
+    "recommendations": [
+      {
+        "ruleset": "Cloudflare Managed Ruleset",
+        "action": "managed_challenge",
+        "comment": "OWASP Core Rule Set — catch broad attack patterns"
+      },
+      {
+        "ruleset": "Cloudflare OWASP Core Ruleset",
+        "paranoia_level": 2,
+        "action": "block",
+        "comment": "Paranoia level 2 = balanced detection vs. false positives"
+      },
+      {
+        "ruleset": "Cloudflare Exposed Credentials Check",
+        "action": "managed_challenge",
+        "comment": "Block logins with credentials found in public breach databases"
+      }
+    ]
+  },
+
+  "page_rules": {
+    "description": "Cloudflare Page Rules / Cache Rules",
+    "rules": [
+      {
+        "match": "api.cyberdudebivash.com/api/v1/health",
+        "settings": { "cache_level": "bypass", "security_level": "essentially_off" },
+        "comment": "Health check — no cache, no challenge"
+      },
+      {
+        "match": "api.cyberdudebivash.com/metrics",
+        "settings": { "cache_level": "bypass" },
+        "comment": "Prometheus metrics — never cache"
+      },
+      {
+        "match": "api.cyberdudebivash.com/api/v1/intel/feed",
+        "settings": { "cache_level": "cache_everything", "edge_cache_ttl": 300 },
+        "comment": "Public intel feed — cache 5 minutes at edge to reduce origin load"
+      }
+    ]
+  },
+
+  "bot_management": {
+    "enabled": true,
+    "fight_mode": false,
+    "comment": "Enable Bot Fight Mode only after baseline testing to avoid blocking legitimate clients"
+  },
+
+  "ddos_protection": {
+    "http_ddos_attack_protection": {
+      "sensitivity_level": "medium",
+      "comment": "Increase to high if under active DDoS. Medium avoids false positives."
+    },
+    "network_layer_ddos_protection": {
+      "enabled": true,
+      "sensitivity_level": "high"
+    }
+  }
+}

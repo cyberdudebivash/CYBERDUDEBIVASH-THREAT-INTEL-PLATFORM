@@ -1,0 +1,226 @@
+name: SBOM Generation — CycloneDX + SPDX
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - requirements.txt
+      - Dockerfile
+      - "**/*.py"
+  release:
+    types: [published]
+  schedule:
+    # Weekly full SBOM on Mondays 03:00 UTC
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write     # Attach SBOM to release
+  security-events: write
+
+env:
+  PYTHON_VERSION: "3.11"
+  SBOM_DIR: sbom-output
+
+jobs:
+
+  # ── Python SBOM (CycloneDX) ───────────────────────────────────────────────
+  sbom-python:
+    name: Python SBOM (CycloneDX)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install CycloneDX Python
+        run: pip install cyclonedx-bom==4.4.3
+
+      - name: Generate CycloneDX JSON SBOM
+        run: |
+          mkdir -p ${{ env.SBOM_DIR }}
+          cyclonedx-py requirements requirements.txt \
+            --output-format JSON \
+            --output-file ${{ env.SBOM_DIR }}/sbom-python-cyclonedx.json \
+            --schema-version 1.5
+          echo "CycloneDX JSON SBOM generated"
+
+      - name: Generate CycloneDX XML SBOM
+        run: |
+          cyclonedx-py requirements requirements.txt \
+            --output-format XML \
+            --output-file ${{ env.SBOM_DIR }}/sbom-python-cyclonedx.xml \
+            --schema-version 1.5
+          echo "CycloneDX XML SBOM generated"
+
+      - name: Validate SBOM
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+
+          with open("${{ env.SBOM_DIR }}/sbom-python-cyclonedx.json") as f:
+              sbom = json.load(f)
+
+          metadata   = sbom.get("metadata", {})
+          components = sbom.get("components", [])
+          schema_ver = sbom.get("specVersion", "?")
+
+          print(f"SBOM Schema Version: {schema_ver}")
+          print(f"Component Count:     {len(components)}")
+          print(f"Generated:           {metadata.get('timestamp','?')}")
+          print(f"BOM Serial:          {sbom.get('serialNumber','?')}")
+
+          if not components:
+              print("WARNING: SBOM contains no components — possible generation failure")
+              sys.exit(1)
+
+          print(f"\nTop 10 components:")
+          for c in components[:10]:
+              print(f"  {c.get('name','?')}=={c.get('version','?')} [{c.get('type','?')}]")
+          EOF
+
+      - name: Upload Python SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-python-${{ github.sha }}
+          path: ${{ env.SBOM_DIR }}/
+          retention-days: 90
+
+  # ── Docker SBOM (Syft / Grype) ────────────────────────────────────────────
+  sbom-docker:
+    name: Docker Image SBOM (Syft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Only run on main push or release — not PRs (saves build time)
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: cdb-sentinel-apex:sbom-scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+            | sh -s -- -b /usr/local/bin v1.3.0
+
+      - name: Generate Docker SBOM (CycloneDX JSON)
+        run: |
+          mkdir -p ${{ env.SBOM_DIR }}
+          syft cdb-sentinel-apex:sbom-scan \
+            --output cyclonedx-json=${{ env.SBOM_DIR }}/sbom-docker-cyclonedx.json \
+            --output spdx-json=${{ env.SBOM_DIR }}/sbom-docker-spdx.json
+
+      - name: Install Grype (vulnerability scan against SBOM)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
+            | sh -s -- -b /usr/local/bin v0.77.0
+
+      - name: Run Grype CVE scan against SBOM
+        run: |
+          grype sbom:${{ env.SBOM_DIR }}/sbom-docker-cyclonedx.json \
+            --output json \
+            --file ${{ env.SBOM_DIR }}/grype-vulnerabilities.json \
+            --fail-on critical \
+            || GRYPE_EXIT=$?
+
+          # Parse and summarise
+          python3 - <<'PYEOF'
+          import json, sys
+
+          try:
+              with open("${{ env.SBOM_DIR }}/grype-vulnerabilities.json") as f:
+                  data = json.load(f)
+          except:
+              print("Could not parse Grype output — skipping")
+              sys.exit(0)
+
+          matches = data.get("matches", [])
+          by_sev = {}
+          for m in matches:
+              sev = m.get("vulnerability", {}).get("severity", "UNKNOWN").upper()
+              by_sev[sev] = by_sev.get(sev, 0) + 1
+
+          print(f"Grype found {len(matches)} CVEs:")
+          for sev in ["CRITICAL","HIGH","MEDIUM","LOW","NEGLIGIBLE","UNKNOWN"]:
+              if by_sev.get(sev,0):
+                  print(f"  {sev}: {by_sev[sev]}")
+
+          if by_sev.get("CRITICAL", 0) > 0:
+              print("::error::CRITICAL CVEs found in Docker image. Review and update base image / dependencies.")
+              sys.exit(1)
+          PYEOF
+
+      - name: Upload Docker SBOM + Grype report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom-docker-${{ github.sha }}
+          path: ${{ env.SBOM_DIR }}/
+          retention-days: 90
+
+  # ── Attach SBOM to GitHub Release ────────────────────────────────────────
+  attach-to-release:
+    name: Attach SBOM to Release
+    needs: [sbom-python, sbom-docker]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+
+    steps:
+      - name: Download Python SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-python-${{ github.sha }}
+          path: sbom-python/
+
+      - name: Download Docker SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-docker-${{ github.sha }}
+          path: sbom-docker/
+        continue-on-error: true
+
+      - name: Upload SBOM to release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            sbom-python/sbom-python-cyclonedx.json
+            sbom-python/sbom-python-cyclonedx.xml
+            sbom-docker/sbom-docker-cyclonedx.json
+            sbom-docker/sbom-docker-spdx.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── SBOM Gate ─────────────────────────────────────────────────────────────
+  sbom-gate:
+    name: SBOM Gate
+    needs: [sbom-python]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Verify SBOM generation succeeded
+        run: |
+          if [[ "${{ needs.sbom-python.result }}" != "success" ]]; then
+            echo "::error::Python SBOM generation failed."
+            exit 1
+          fi
+          echo "SBOM gate passed."

@@ -1,0 +1,168 @@
+version: "3.9"
+
+# CYBERDUDEBIVASH® SENTINEL APEX — Development Docker Compose
+# Local development: all services, hot-reload, debug ports exposed
+#
+# Usage:
+#   docker-compose up -d              # Start all services
+#   docker-compose up -d api          # Start only API + dependencies
+#   docker-compose logs -f api        # Stream API logs
+#   docker-compose down -v            # Destroy (including volumes)
+#
+# Prerequisites:
+#   cp .env.example .env              # Configure secrets
+
+name: sentinel-apex-dev
+
+# ── Shared Networks ───────────────────────────────────────────────────────────
+networks:
+  sentinel-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+
+# ── Services ──────────────────────────────────────────────────────────────────
+services:
+
+  # ── Redis (rate limiting + caching + pub/sub) ──────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: cdb-redis-dev
+    restart: unless-stopped
+    command: >
+      redis-server
+        --save 60 1
+        --loglevel warning
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - sentinel-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ── SENTINEL APEX API ─────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: cdb-api-dev
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      # Core
+      CDB_ENV:             development
+      PLATFORM_VERSION:    "152.0.0"
+      # Redis
+      REDIS_URL:           redis://redis:6379/0
+      # Auth
+      CDB_JWT_SECRET:      dev-jwt-secret-change-in-production
+      # CORS — allow all origins in dev
+      CDB_CORS_ALLOW_ALL:  "true"
+      # Feature flags — enable for dev testing
+      CDB_METRICS_ENABLED:          "true"
+      CDB_AUDIT_ENABLED:            "true"
+      CDB_TRACING_ENABLED:          "false"
+      CDB_STRUCTURED_LOGGING:       "true"
+      CDB_LOG_LEVEL:                DEBUG
+      # Backup — disabled in dev
+      CDB_BACKUP_ENABLED:           "false"
+    volumes:
+      - ./data:/app/data
+      - ./exports:/app/exports
+      - ./logs:/app/logs
+    networks:
+      - sentinel-internal
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/api/v1/health')\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: cdb-prometheus-dev
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+      - "--web.enable-admin-api"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alert_rules.yml:/etc/prometheus/rules/alert_rules.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - sentinel-internal
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: cdb-grafana-dev
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin   # Change this
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+      GF_SERVER_ROOT_URL:         "http://localhost:3000"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/api-performance.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - sentinel-internal
+
+  # ── Loki (log aggregation) ────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.5
+    container_name: cdb-loki-dev
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/loki
+    networks:
+      - sentinel-internal
+
+  # ── Alertmanager ─────────────────────────────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: cdb-alertmanager-dev
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager:/etc/alertmanager:ro
+    networks:
+      - sentinel-internal

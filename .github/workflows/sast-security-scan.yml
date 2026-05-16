@@ -1,0 +1,251 @@
+name: SAST Security Scan — Bandit + Safety + Semgrep
+
+on:
+  push:
+    branches: [main, develop, "release/**"]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Daily scan at 02:00 UTC — catches new CVEs without waiting for a push
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      full_scan:
+        description: "Run full deep scan (slower, more thorough)"
+        required: false
+        default: "false"
+        type: boolean
+
+concurrency:
+  group: sast-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write  # Required to upload SARIF to GitHub Security tab
+  actions: read
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+
+  # ── Bandit: Python AST-based SAST ─────────────────────────────────────────
+  bandit:
+    name: Bandit SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Bandit
+        run: pip install bandit[sarif]==1.7.8 bandit-sarif-formatter==1.1.1
+
+      - name: Run Bandit (SARIF output)
+        run: |
+          bandit \
+            --recursive agent/ \
+            --format sarif \
+            --output bandit-results.sarif \
+            --severity-level medium \
+            --confidence-level medium \
+            --exclude agent/tests,agent/__pycache__ \
+            --skip B101,B601 \
+            || true   # Don't fail pipeline on findings; SARIF upload handles alerting
+
+      - name: Run Bandit (human-readable summary)
+        run: |
+          bandit \
+            --recursive agent/ \
+            --format text \
+            --severity-level high \
+            --confidence-level high \
+            --exit-zero \
+            | tee bandit-summary.txt
+
+      - name: Upload Bandit SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: bandit-results.sarif
+          category: bandit
+
+      - name: Upload Bandit summary artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-report-${{ github.run_id }}
+          path: |
+            bandit-results.sarif
+            bandit-summary.txt
+          retention-days: 30
+
+      - name: Fail on HIGH severity + HIGH confidence findings
+        run: |
+          COUNT=$(bandit \
+            --recursive agent/ \
+            --format json \
+            --severity-level high \
+            --confidence-level high \
+            --exit-zero \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('results',[])))")
+          echo "HIGH/HIGH findings: $COUNT"
+          if [ "$COUNT" -gt "0" ]; then
+            echo "::error::Bandit found $COUNT HIGH severity + HIGH confidence issues. Review Security tab."
+            exit 1
+          fi
+
+  # ── Safety: Python Dependency CVE Check ───────────────────────────────────
+  safety:
+    name: Safety Dependency Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Safety
+        run: pip install safety==3.2.3
+
+      - name: Run Safety scan
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+        run: |
+          safety check \
+            --file requirements.txt \
+            --json \
+            --output safety-report.json \
+            || true
+
+      - name: Parse Safety results
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+
+          try:
+              with open("safety-report.json") as f:
+                  data = json.load(f)
+          except Exception as e:
+              print(f"Could not parse Safety output: {e}")
+              sys.exit(0)
+
+          vulns = data if isinstance(data, list) else data.get("vulnerabilities", [])
+          if not vulns:
+              print("Safety: No known vulnerabilities found.")
+              sys.exit(0)
+
+          critical = [v for v in vulns if str(v.get("severity","")).upper() in ("CRITICAL","HIGH")]
+          print(f"Safety found {len(vulns)} total vulnerabilities, {len(critical)} CRITICAL/HIGH")
+
+          for v in critical:
+              pkg = v.get("package_name", "unknown")
+              ver = v.get("analyzed_version", "?")
+              cve = v.get("vulnerability_id", v.get("CVE","?"))
+              adv = v.get("advisory", "")[:120]
+              print(f"  CRITICAL/HIGH: {pkg}=={ver} | {cve} | {adv}")
+
+          if critical:
+              print("::error::Safety found CRITICAL/HIGH CVEs in dependencies. Update requirements.txt.")
+              sys.exit(1)
+          EOF
+
+      - name: Upload Safety report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: safety-report-${{ github.run_id }}
+          path: safety-report.json
+          retention-days: 30
+
+  # ── Semgrep: Pattern-based SAST ───────────────────────────────────────────
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name != 'schedule' || github.event.inputs.full_scan == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep (SARIF)
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/python
+            p/owasp-top-ten
+            p/jwt
+            p/secrets
+            p/fastapi
+          generateSarif: "1"
+          auditOn: push
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  # ── Secret Scanning: TruffleHog ───────────────────────────────────────────
+  trufflehog:
+    name: TruffleHog Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  # ── Summary Gate ──────────────────────────────────────────────────────────
+  sast-gate:
+    name: SAST Gate (required)
+    needs: [bandit, safety, trufflehog]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Check SAST results
+        run: |
+          BANDIT="${{ needs.bandit.result }}"
+          SAFETY="${{ needs.safety.result }}"
+          TRUFFLE="${{ needs.trufflehog.result }}"
+
+          echo "Bandit:      $BANDIT"
+          echo "Safety:      $SAFETY"
+          echo "TruffleHog:  $TRUFFLE"
+
+          if [[ "$BANDIT" == "failure" || "$SAFETY" == "failure" || "$TRUFFLE" == "failure" ]]; then
+            echo "::error::One or more SAST scans failed. Block merge until resolved."
+            exit 1
+          fi
+          echo "All SAST scans passed."

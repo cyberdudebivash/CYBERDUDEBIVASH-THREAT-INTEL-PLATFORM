@@ -1,0 +1,299 @@
+# ============================================================================
+# CYBERDUDEBIVASH® SENTINEL APEX — Enterprise Rollback Governance
+# v47.0 — Production Safety Gate
+#
+# Triggered: manual dispatch ONLY (never auto-runs)
+# Purpose:   Safe, audited, zero-downtime rollback to any prior deployment
+# Rollback strategy: git revert → tag → redeploy (no force-push)
+# ============================================================================
+
+name: Enterprise Rollback Governance
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: "Git ref to roll back to (tag, SHA, or branch)"
+        required: true
+        type: string
+      rollback_reason:
+        description: "Reason for rollback (mandatory audit trail)"
+        required: true
+        type: string
+      confirm_rollback:
+        description: "Type CONFIRM to authorize production rollback"
+        required: true
+        type: string
+      skip_canary:
+        description: "Skip post-rollback canary check (emergency only)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+concurrency:
+  group: production-rollback
+  cancel-in-progress: false  # Never cancel an in-flight rollback
+
+permissions:
+  contents: write
+  actions: read
+  deployments: write
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+
+  # ── Authorization Gate ──────────────────────────────────────────────────────
+  authorize:
+    name: Authorization Gate
+    runs-on: ubuntu-latest
+    outputs:
+      authorized: ${{ steps.check.outputs.authorized }}
+    steps:
+      - name: Verify CONFIRM token
+        id: check
+        run: |
+          if [[ "${{ github.event.inputs.confirm_rollback }}" != "CONFIRM" ]]; then
+            echo "::error::Rollback requires confirm_rollback=CONFIRM. Aborting."
+            echo "authorized=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          echo "authorized=true" >> $GITHUB_OUTPUT
+          echo "Rollback authorized by: ${{ github.actor }}"
+          echo "Target ref: ${{ github.event.inputs.target_ref }}"
+          echo "Reason: ${{ github.event.inputs.rollback_reason }}"
+
+  # ── Pre-Rollback State Capture ──────────────────────────────────────────────
+  snapshot:
+    name: Capture Pre-Rollback State
+    needs: authorize
+    if: needs.authorize.outputs.authorized == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      current_sha: ${{ steps.capture.outputs.current_sha }}
+      rollback_tag: ${{ steps.capture.outputs.rollback_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Capture current production state
+        id: capture
+        run: |
+          CURRENT_SHA=$(git rev-parse HEAD)
+          ROLLBACK_TAG="rollback-$(date -u +%Y%m%d-%H%M%S)-${CURRENT_SHA:0:8}"
+          echo "current_sha=${CURRENT_SHA}" >> $GITHUB_OUTPUT
+          echo "rollback_tag=${ROLLBACK_TAG}" >> $GITHUB_OUTPUT
+          echo "Current production SHA: ${CURRENT_SHA}"
+          echo "Rollback safety tag: ${ROLLBACK_TAG}"
+
+      - name: Create pre-rollback safety tag
+        run: |
+          git config user.name  "SENTINEL APEX Rollback Bot"
+          git config user.email "noreply@cyberdudebivash.in"
+          git tag -a "${{ steps.capture.outputs.rollback_tag }}" \
+            -m "Pre-rollback safety snapshot | Reason: ${{ github.event.inputs.rollback_reason }} | Actor: ${{ github.actor }}"
+          git push origin "${{ steps.capture.outputs.rollback_tag }}"
+          echo "Safety tag pushed: ${{ steps.capture.outputs.rollback_tag }}"
+
+  # ── Validate Rollback Target ────────────────────────────────────────────────
+  validate-target:
+    name: Validate Rollback Target
+    needs: [authorize, snapshot]
+    runs-on: ubuntu-latest
+    outputs:
+      target_sha: ${{ steps.validate.outputs.target_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate target ref exists and is reachable
+        id: validate
+        run: |
+          TARGET_REF="${{ github.event.inputs.target_ref }}"
+          TARGET_SHA=$(git rev-parse --verify "$TARGET_REF" 2>/dev/null || echo "INVALID")
+
+          if [[ "$TARGET_SHA" == "INVALID" ]]; then
+            echo "::error::Target ref '$TARGET_REF' does not exist in repository."
+            exit 1
+          fi
+
+          # Ensure target is an ancestor (not a diverged branch)
+          if ! git merge-base --is-ancestor "$TARGET_SHA" HEAD; then
+            echo "::warning::Target SHA is not an ancestor of HEAD — cross-branch rollback requested. Proceeding with revert strategy."
+          fi
+
+          echo "target_sha=${TARGET_SHA}" >> $GITHUB_OUTPUT
+          echo "Validated rollback target: ${TARGET_SHA} (${TARGET_REF})"
+
+      - name: Check target for known P0 regressions
+        run: |
+          python3 - <<'EOF'
+          import subprocess, sys
+
+          target = "${{ steps.validate.outputs.target_sha }}"
+
+          # Get files changed in target vs current
+          result = subprocess.run(
+              ["git", "diff", "--name-only", target, "HEAD"],
+              capture_output=True, text=True
+          )
+          changed = result.stdout.strip().split('\n') if result.stdout.strip() else []
+
+          print(f"Files changed between current HEAD and rollback target: {len(changed)}")
+          for f in changed[:20]:
+              print(f"  {f}")
+
+          # Check for P0 regression patterns
+          critical_patterns = [
+              "scripts/run_pipeline.py",
+              "scripts/safe_io.py",
+              "agent/api/api_server.py",
+              ".github/workflows/generate-and-sync.yml",
+          ]
+          flagged = [f for f in changed if any(p in f for p in critical_patterns)]
+          if flagged:
+              print(f"\n[WARNING] Rolling back {len(flagged)} critical file(s):")
+              for f in flagged:
+                  print(f"  ⚠ {f}")
+              print("Ensure rollback target predates any known P0 regressions.")
+          else:
+              print("\n[OK] No critical pipeline files in rollback scope.")
+          EOF
+
+  # ── Execute Rollback ────────────────────────────────────────────────────────
+  rollback:
+    name: Execute Rollback
+    needs: [snapshot, validate-target]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name  "SENTINEL APEX Rollback Bot"
+          git config user.email "noreply@cyberdudebivash.in"
+
+      - name: Execute git revert to target
+        run: |
+          TARGET_SHA="${{ needs.validate-target.outputs.target_sha }}"
+          CURRENT_SHA="${{ needs.snapshot.outputs.current_sha }}"
+
+          echo "Rolling back from ${CURRENT_SHA} → ${TARGET_SHA}"
+          echo "Strategy: git revert range (non-destructive, preserves history)"
+
+          # Revert all commits between target and current (inclusive range)
+          COMMITS_TO_REVERT=$(git log --oneline "${TARGET_SHA}..${CURRENT_SHA}" --no-merges | awk '{print $1}')
+          COUNT=$(echo "$COMMITS_TO_REVERT" | grep -c . || echo 0)
+          echo "Commits to revert: ${COUNT}"
+
+          if [[ "$COUNT" -eq 0 ]]; then
+            echo "Nothing to revert — already at target SHA."
+            exit 0
+          fi
+
+          # Revert commits in reverse order (newest first)
+          for COMMIT in $COMMITS_TO_REVERT; do
+            git revert --no-commit "$COMMIT" || true
+          done
+
+          git commit -m "chore(rollback): Revert to ${TARGET_SHA:0:8} | Reason: ${{ github.event.inputs.rollback_reason }} | Actor: ${{ github.actor }} | Pre-rollback tag: ${{ needs.snapshot.outputs.rollback_tag }}" \
+            --no-verify
+
+          git push origin HEAD:main
+          echo "Rollback commit pushed successfully."
+
+  # ── Post-Rollback Canary Check ──────────────────────────────────────────────
+  post-rollback-canary:
+    name: Post-Rollback Health Canary
+    needs: rollback
+    if: github.event.inputs.skip_canary != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Wait for deployment to propagate
+        run: sleep 60
+
+      - name: Run health canary probes
+        run: |
+          python3 - <<'EOF'
+          import requests, sys, time
+
+          ENDPOINTS = [
+              ("https://intel.cyberdudebivash.com/api/health",         "API Health"),
+              ("https://intel.cyberdudebivash.com/api/v1/health",      "API v1 Health"),
+              ("https://www.cyberdudebivash.com/",                     "Dashboard"),
+              ("https://intel.cyberdudebivash.com/api/feed.json",      "Feed API"),
+          ]
+
+          results = []
+          for url, name in ENDPOINTS:
+              try:
+                  r = requests.get(url, timeout=15)
+                  ok = r.status_code in (200, 204)
+                  status = "PASS" if ok else f"FAIL ({r.status_code})"
+                  results.append((name, ok, status))
+                  print(f"  {'✅' if ok else '❌'} {name}: {status}")
+              except Exception as e:
+                  results.append((name, False, f"ERROR: {e}"))
+                  print(f"  ❌ {name}: ERROR — {e}")
+
+          passed = sum(1 for _, ok, _ in results if ok)
+          total  = len(results)
+          print(f"\nPost-rollback canary: {passed}/{total} passed")
+
+          if passed < total * 0.8:
+              print("::error::Post-rollback canary FAILED — less than 80% probes passed.")
+              sys.exit(1)
+          EOF
+
+  # ── Audit Log ───────────────────────────────────────────────────────────────
+  audit-log:
+    name: Write Audit Log
+    needs: [rollback, post-rollback-canary]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write rollback audit record
+        run: |
+          python3 - <<'EOF'
+          import json, datetime, os
+
+          record = {
+              "timestamp":      datetime.datetime.utcnow().isoformat() + "Z",
+              "event":          "production_rollback",
+              "actor":          "${{ github.actor }}",
+              "target_ref":     "${{ github.event.inputs.target_ref }}",
+              "target_sha":     "${{ needs.validate-target.outputs.target_sha }}",
+              "pre_rollback_sha": "${{ needs.snapshot.outputs.current_sha }}",
+              "safety_tag":     "${{ needs.snapshot.outputs.rollback_tag }}",
+              "reason":         "${{ github.event.inputs.rollback_reason }}",
+              "run_id":         "${{ github.run_id }}",
+              "canary_skipped": "${{ github.event.inputs.skip_canary }}" == "true",
+              "status":         "${{ needs.post-rollback-canary.result }}" if "${{ github.event.inputs.skip_canary }}" != "true" else "skipped",
+          }
+          print(json.dumps(record, indent=2))
+          print("\n[AUDIT] Rollback event recorded.")
+          EOF
+
+      - name: Notify Telegram
+        if: always()
+        run: |
+          MSG="🔄 SENTINEL APEX ROLLBACK | Actor: ${{ github.actor }} | Target: ${{ github.event.inputs.target_ref }} | Reason: ${{ github.event.inputs.rollback_reason }} | Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="$MSG" || true

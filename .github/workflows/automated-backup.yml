@@ -1,0 +1,205 @@
+name: Automated Backup — Encrypted / Versioned
+
+on:
+  schedule:
+    # Full backup: daily at 01:00 UTC
+    - cron: "0 1 * * *"
+    # Incremental backup: every 6 hours
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      backup_type:
+        description: "Backup type to run"
+        required: true
+        default: "full"
+        type: choice
+        options: [full, incremental, verify]
+      backup_id:
+        description: "Backup ID (required for verify)"
+        required: false
+        type: string
+
+concurrency:
+  group: backup-${{ github.workflow }}
+  cancel-in-progress: false  # Never cancel in-flight backups
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+
+  # ── Determine backup type from schedule/input ────────────────────────────
+  setup:
+    name: Determine Backup Type
+    runs-on: ubuntu-latest
+    outputs:
+      backup_type: ${{ steps.decide.outputs.backup_type }}
+
+    steps:
+      - name: Decide backup type
+        id: decide
+        run: |
+          # Manual dispatch takes priority
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "backup_type=${{ github.event.inputs.backup_type }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Schedule: cron "0 1 * * *" (01:00) = full, others = incremental
+          HOUR=$(date -u +%H)
+          if [[ "$HOUR" == "01" ]]; then
+            echo "backup_type=full" >> $GITHUB_OUTPUT
+          else
+            echo "backup_type=incremental" >> $GITHUB_OUTPUT
+          fi
+
+  # ── Full Backup ───────────────────────────────────────────────────────────
+  full-backup:
+    name: Full Encrypted Backup
+    needs: setup
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.backup_type == 'full'
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install cryptography boto3 --quiet
+
+      - name: Run full backup
+        env:
+          CDB_BACKUP_ENABLED:          "true"
+          CDB_BACKUP_DESTINATION:      ${{ vars.CDB_BACKUP_DESTINATION || 'local' }}
+          CDB_BACKUP_ENCRYPTION_KEY:   ${{ secrets.CDB_BACKUP_ENCRYPTION_KEY }}
+          CDB_BACKUP_S3_BUCKET:        ${{ secrets.CDB_BACKUP_S3_BUCKET }}
+          CDB_BACKUP_S3_PREFIX:        ${{ vars.CDB_BACKUP_S3_PREFIX || 'sentinel-apex/backups' }}
+          CDB_BACKUP_R2_ENDPOINT:      ${{ secrets.CDB_BACKUP_R2_ENDPOINT }}
+          CDB_BACKUP_R2_BUCKET:        ${{ secrets.CDB_BACKUP_R2_BUCKET }}
+          CDB_BACKUP_LOCAL_PATH:       "data/backups"
+          AWS_ACCESS_KEY_ID:           ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY:       ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION:          ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
+          PLATFORM_VERSION:            ${{ vars.PLATFORM_VERSION || '152.0.0' }}
+        run: |
+          python -m agent.backup.backup_engine --full | tee backup-manifest.json
+          STATUS=$(python3 -c "import json; d=json.load(open('backup-manifest.json')); print(d.get('status','unknown'))")
+          echo "Backup status: $STATUS"
+          if [[ "$STATUS" != "success" ]]; then
+            echo "::error::Full backup failed with status: $STATUS"
+            exit 1
+          fi
+          echo "BACKUP_ID=$(python3 -c \"import json; print(json.load(open('backup-manifest.json'))['backup_id'])\")" >> $GITHUB_ENV
+
+      - name: Upload backup manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-manifest-full-${{ github.run_id }}
+          path: backup-manifest.json
+          retention-days: 90
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Full backup FAILED. Platform data at risk. Investigate immediately."
+          # Extend: post to Slack/PagerDuty via curl if webhook secrets are set
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          #   -H 'Content-type: application/json' \
+          #   --data '{"text":"🚨 SENTINEL APEX: Full backup FAILED! Run ID: ${{ github.run_id }}"}'
+
+  # ── Incremental Backup ────────────────────────────────────────────────────
+  incremental-backup:
+    name: Incremental Encrypted Backup
+    needs: setup
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.backup_type == 'incremental'
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install cryptography boto3 --quiet
+
+      - name: Run incremental backup
+        env:
+          CDB_BACKUP_ENABLED:          "true"
+          CDB_BACKUP_DESTINATION:      ${{ vars.CDB_BACKUP_DESTINATION || 'local' }}
+          CDB_BACKUP_ENCRYPTION_KEY:   ${{ secrets.CDB_BACKUP_ENCRYPTION_KEY }}
+          CDB_BACKUP_S3_BUCKET:        ${{ secrets.CDB_BACKUP_S3_BUCKET }}
+          CDB_BACKUP_R2_ENDPOINT:      ${{ secrets.CDB_BACKUP_R2_ENDPOINT }}
+          CDB_BACKUP_R2_BUCKET:        ${{ secrets.CDB_BACKUP_R2_BUCKET }}
+          CDB_BACKUP_LOCAL_PATH:       "data/backups"
+          AWS_ACCESS_KEY_ID:           ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY:       ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          PLATFORM_VERSION:            ${{ vars.PLATFORM_VERSION || '152.0.0' }}
+        run: |
+          python -m agent.backup.backup_engine --incremental | tee backup-manifest.json
+          STATUS=$(python3 -c "import json; d=json.load(open('backup-manifest.json')); print(d.get('status','unknown'))")
+          echo "Backup status: $STATUS"
+          # "skipped" is valid for incremental (no changes)
+          if [[ "$STATUS" != "success" && "$STATUS" != "skipped" ]]; then
+            echo "::error::Incremental backup failed: $STATUS"
+            exit 1
+          fi
+
+      - name: Upload incremental manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-manifest-incremental-${{ github.run_id }}
+          path: backup-manifest.json
+          retention-days: 30
+
+  # ── Backup Integrity Verify ───────────────────────────────────────────────
+  verify-backup:
+    name: Verify Backup Integrity
+    needs: setup
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.backup_type == 'verify'
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install cryptography boto3 --quiet
+
+      - name: Verify backup integrity
+        env:
+          CDB_BACKUP_ENABLED:        "true"
+          CDB_BACKUP_DESTINATION:    ${{ vars.CDB_BACKUP_DESTINATION || 'local' }}
+          CDB_BACKUP_ENCRYPTION_KEY: ${{ secrets.CDB_BACKUP_ENCRYPTION_KEY }}
+          CDB_BACKUP_S3_BUCKET:      ${{ secrets.CDB_BACKUP_S3_BUCKET }}
+          CDB_BACKUP_LOCAL_PATH:     "data/backups"
+        run: |
+          BACKUP_ID="${{ github.event.inputs.backup_id }}"
+          if [[ -z "$BACKUP_ID" ]]; then
+            echo "::error::backup_id input is required for verify operation"
+            exit 1
+          fi
+          python -m agent.backup.backup_engine --verify "$BACKUP_ID"
