@@ -1,0 +1,46 @@
+title: CDB SENTINEL APEX - Phishing Sender Detection [2eaae551bb9a]
+id: cdb-phish-2eaae551bb9a
+status: production
+description: Detects emails from known malicious senders
+author: CyberDudeBivash SENTINEL APEX v51
+date: 2026-05-16
+tags:
+    - attack.initial_access
+    - attack.t1566
+logsource:
+    category: email
+    product: any
+detection:
+    selection:
+        SenderAddress:
+            - 'victim.user@company.com'
+            - 'victim.user@organization.com'
+            - 'ncscinfoleg@ncsc.gov.uk'
+            - 'bivash@cyberdudebivash.com'
+            - 'CybersecurityReports@nsa.gov'
+            - 'DC3.DCISE@us.af.mil'
+            - 'DC3.Information@us.af.mil'
+            - 'DIB_Defense@cyber.nsa.gov'
+            - 'MediaRelations@nsa.gov'
+            - 'cert-fr@ssi.gouv.fr'
+            - 'cert.incident@nukib.gov.cz'
+            - 'contact@cisa.dhs.gov'
+            - 'contact@cyber.gc.ca'
+            - 'cyber.int@skw.gov.pl'
+            - 'report@cisa.gov'
+            - 'support@simple-help.com'
+            - 'EnergySRMA@hq.doe.gov'
+            - 'PSIRT@rockwellautomation.com'
+            - 'ivan_feigl@rapid7.com'
+            - 'goony@nothink.org'
+            - 'itsupport@UCICasociacion.onmicrosoft.com'
+            - 'd912cbd7-193b-4269-9857-525bee8bbb6a@gmail.com'
+            - 'e08c7f4a6882f260011909a868311c6e9b54f3e4.1639153474.git.dcaratti@redhat.com'
+            - 'Morian-bot@helper.zulipchat.com'
+            - 'intelreports@kaspersky.com'
+    condition: selection
+level: high
+falsepositives:
+    - Spoofed sender addresses
+references:
+    - https://intel.cyberdudebivash.com
