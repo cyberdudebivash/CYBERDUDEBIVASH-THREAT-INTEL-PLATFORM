@@ -1,0 +1,246 @@
+{
+  "type": "bundle",
+  "id": "bundle--d2e382bf-4152-4765-a036-207ec27e1b83",
+  "objects": [
+    {
+      "type": "identity",
+      "spec_version": "2.1",
+      "id": "identity--cyberdudebivash-sentinel-apex-v30",
+      "name": "CyberDudeBivash SENTINEL APEX",
+      "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
+      "identity_class": "organization",
+      "sectors": [
+        "technology"
+      ],
+      "contact_information": "bivash@cyberdudebivash.com",
+      "created": "2024-01-01T00:00:00Z",
+      "modified": "2024-01-01T00:00:00Z"
+    },
+    {
+      "type": "marking-definition",
+      "spec_version": "2.1",
+      "id": "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82",
+      "created": "2017-01-20T00:00:00.000Z",
+      "definition_type": "tlp",
+      "definition": {
+        "tlp": "amber"
+      }
+    },
+    {
+      "type": "intrusion-set",
+      "spec_version": "2.1",
+      "id": "intrusion-set--fdca3d42-d4fa-4198-9249-29fc138ab63b",
+      "name": "CDB-CVE-GEN Campaign",
+      "description": "Exploit for Authentication Bypass Using an Alternate Path or Channel in Jetbrains Teamcity",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "confidence": 85,
+      "aliases": [
+        "CDB-CVE-GEN"
+      ],
+      "extensions": {
+        "x-cdb-apex-1": {
+          "predictive_score": 5.5,
+          "campaign_id": "UNCLASSIFIED",
+          "campaign_confidence": 5.5,
+          "threat_category": "Remote Code Execution",
+          "behavioral_tags": [],
+          "ai_summary": "Initial access via rce",
+          "risk_factors": [
+            "EPSS_score",
+            "CISA_KEV",
+            "IOC_density",
+            "MITRE_coverage"
+          ],
+          "soc_priority": "P3",
+          "threat_level": "HIGH",
+          "recommended_action": "Risk 7.5/10 — CISA KEV-confirmed active exploitation; 93% EPSS exploitation probability",
+          "x_cdb_published_at": "2026-05-18T12:49:39Z"
+        }
+      },
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--5211e4db-4c7c-4c40-a367-3348d917c250",
+      "name": "Malicious URL",
+      "pattern": "[url:value = 'http://localhost:8111/hax?jsp=/app/rest/users/id:1/tokens/REDTEAM;.jsp']",
+      "pattern_type": "stix",
+      "valid_from": "2026-05-18T13:24:44Z",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "id": "vulnerability--b780f56d-05a1-48ad-b800-904cbc76fd41",
+      "name": "CVE-2024-27198",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2024-27198",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-27198"
+        }
+      ],
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "x_cdb_epss_score": 93.05,
+      "x_cdb_kev_confirmed": true
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--ec9d0ee2-5a5d-4449-8265-019669b14faa",
+      "relationship_type": "exploits",
+      "source_ref": "intrusion-set--fdca3d42-d4fa-4198-9249-29fc138ab63b",
+      "target_ref": "vulnerability--b780f56d-05a1-48ad-b800-904cbc76fd41",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--ddf8f70c-8aef-4a34-827f-0676aad3c876",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--5211e4db-4c7c-4c40-a367-3348d917c250",
+      "target_ref": "intrusion-set--fdca3d42-d4fa-4198-9249-29fc138ab63b",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--7fd93f48-c859-4866-bcd1-f46fff875733",
+      "name": "Exploitation for Client Execution",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1203",
+          "url": "https://attack.mitre.org/techniques/T1203/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--cc357142-d53d-4016-ba69-c15aa666f3cd",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--fdca3d42-d4fa-4198-9249-29fc138ab63b",
+      "target_ref": "attack-pattern--7fd93f48-c859-4866-bcd1-f46fff875733",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--4e1b9415-1e34-4b83-a2e6-b5bd9e2de876",
+      "name": "Command and Scripting Interpreter",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1059",
+          "url": "https://attack.mitre.org/techniques/T1059/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--2aa82606-e7de-4385-af19-8e499047185c",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--fdca3d42-d4fa-4198-9249-29fc138ab63b",
+      "target_ref": "attack-pattern--4e1b9415-1e34-4b83-a2e6-b5bd9e2de876",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--1c1052bf-8e58-49db-aee3-ba43e3587405",
+      "name": "Steal Application Access Token",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1528",
+          "url": "https://attack.mitre.org/techniques/T1528/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--e84c294b-6ec8-43fc-9d92-3e625c3367c5",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--fdca3d42-d4fa-4198-9249-29fc138ab63b",
+      "target_ref": "attack-pattern--1c1052bf-8e58-49db-aee3-ba43e3587405",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "course-of-action",
+      "spec_version": "2.1",
+      "id": "course-of-action--4f59e2b8-dc29-4771-bb4d-14aa703fadba",
+      "name": "Remediation: CRITICAL - Patch immediately",
+      "description": "Remediation guidance for: Exploit for Authentication Bypass Using an Alternate Path or Channel in Jetbrains Teamcity\nPriority: CRITICAL - Patch immediately\nCISA KEV confirmed - treat as immediate emergency.\nNVD Reference: https://nvd.nist.gov/vuln/detail/CVE-2024-27198",
+      "created": "2026-05-18T13:24:44Z",
+      "modified": "2026-05-18T13:24:44Z",
+      "object_marking_refs": [
+        "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    }
+  ]
+}
