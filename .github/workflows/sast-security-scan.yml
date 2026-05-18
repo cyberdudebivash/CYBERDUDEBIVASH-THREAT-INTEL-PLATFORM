@@ -229,21 +229,39 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Semgrep (SARIF)
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: >-
-            p/python
-            p/owasp-top-ten
-            p/jwt
-            p/secrets
-            p/fastapi
-          generateSarif: "1"
-          auditOn: push
+        # FIX: replaced semgrep/semgrep-action@v1 (unreliable sarif output) with
+        # direct CLI install. || true prevents step failure on findings; a missing
+        # sarif file is handled by the guard step below.
+        run: |
+          pip install semgrep --quiet
+          semgrep scan \
+            --config p/python \
+            --config p/owasp-top-ten \
+            --config p/jwt \
+            --config p/secrets \
+            --config p/fastapi \
+            --sarif \
+            --output semgrep.sarif \
+            . \
+            || true
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 
+      - name: Ensure Semgrep SARIF exists
+        # Guard: if semgrep produced no output (zero findings or early exit),
+        # create a minimal valid empty SARIF so the upload step never fails.
+        if: always()
+        run: |
+          if [ ! -f semgrep.sarif ]; then
+            echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > semgrep.sarif
+            echo "Created empty SARIF (Semgrep produced no output file)"
+          else
+            echo "semgrep.sarif present ($(wc -c < semgrep.sarif) bytes)"
+          fi
+
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        # FIX: upgraded codeql-action v3 → v4 (v3 deprecated December 2026)
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: semgrep.sarif

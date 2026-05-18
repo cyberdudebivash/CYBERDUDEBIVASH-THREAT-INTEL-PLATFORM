@@ -236,7 +236,7 @@ def _run_module(module_path: str, class_name: str, method_name: str) -> ModuleRu
 def _input_fingerprint() -> str:
     """Hash the most recent intel report files to detect if input changed."""
     intel_dir = DATA_DIR / "intelligence"
-    h = hashlib.md5(, usedforsecurity=False)
+    h = hashlib.md5(usedforsecurity=False)
     for p in sorted((intel_dir / "reports").glob("*.json"))[-5:] if (intel_dir / "reports").exists() else []:
         try:
             h.update(str(p.stat().st_mtime).encode())

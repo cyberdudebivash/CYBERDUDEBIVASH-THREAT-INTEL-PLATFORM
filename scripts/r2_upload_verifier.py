@@ -130,7 +130,7 @@ def _atomic_write(path: Path, data: Any) -> None:
 
 def _md5_file(path: Path) -> str:
     """Return hex MD5 of a file (matches R2 single-part ETag)."""
-    h = hashlib.md5(, usedforsecurity=False)
+    h = hashlib.md5(usedforsecurity=False)
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
