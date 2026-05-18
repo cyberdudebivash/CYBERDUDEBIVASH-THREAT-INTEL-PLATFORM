@@ -1,5 +1,1501 @@
 [
   {
+    "id": "intel--4a217fbee21d3dc4",
+    "stix_id": "indicator--4a217fbee21d3dc4bc41cc7d2685827c",
+    "title": "Microsoft Security Advisory CVE-2026-42899 – ASP.NET Core Denial of Service Vulnerability",
+    "description": "## Executive Summary: \n\nMicrosoft is releasing this security advisory to provide information about a vulnerability in .NET 8.0, .NET 9.0, and .NET 10.0. This advisory also provides guidance on what developers can do to update their applications to remove this vulnerability.\n\nLoop with unreachable exit condition ('infinite loop') in ASP.NET Core allows an unauthorized attacker to deny service over a network.\n\n## Announcement\n\nAnnouncement for this issue can be found at https://github.com/dotnet/announcements/issues/397\n\n## CVSS Details\n\n- **Version:** 3.1\n- **Severity:** \n- **Score:** 7.5\n- **Vector:** AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H/E:U/RL:O/RC:C \n- **Weakness:** CWE-835: Loop with Unreachable Exit Condition ('Infinite Loop')\n\n## Affected Platforms\n\n- **Platforms:** All\n- **Architectur",
+    "source_url": "https://github.com/advisories/GHSA-9v76-4qcc-frgh",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T19:10:59Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T19:10:59Z",
+    "severity": "HIGH",
+    "risk_score": 7.5,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-42899"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--81b3055f285473a3",
+    "stix_id": "indicator--81b3055f285473a37b1cd93c0f5f1f45",
+    "title": "Microsoft Security Advisory CVE-2026-32175 – .NET Core Tampering Vulnerability",
+    "description": "## Executive Summary: \n\nMicrosoft is releasing this security advisory to provide information about a vulnerability in .NET 8.0, .NET 9.0, and .NET 10.0. This advisory also provides guidance on what developers can do to update their applications to remove this vulnerability.  \n\nA tampering vulnerability exists when .NET Core improperly handles specially crafted files. An attacker who successfully exploited this vulnerability could write arbitrary files and directories to certain locations on a vulnerable system. However, an attacker would have limited control over the destination of the files and directories. \n\nTo exploit the vulnerability, an attacker must send a specially crafted file to a vulnerable system. \n\nThe security update fixes the vulnerability by ensuring .NET Core properly hand",
+    "source_url": "https://github.com/advisories/GHSA-rg75-q538-x34v",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T19:08:00Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T19:08:00Z",
+    "severity": "HIGH",
+    "risk_score": 7.5,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-32175"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--2e100f316f19b53c",
+    "stix_id": "indicator--2e100f316f19b53c36333239d70be7c4",
+    "title": "ws: Uninitialized memory disclosure",
+    "description": "### Impact\n\nThe `websocket.close()` implementation is vulnerable to uninitialized memory disclosure when a `TypedArray` is passed as the reason argument.\n\n### Proof of concept\n\n```js\nimport { deepStrictEqual } from 'node:assert';\nimport { WebSocket, WebSocketServer } from 'ws';\n\nconst wss = new WebSocketServer(\n  { port: 0, skipUTF8Validation: true },\n  function () {\n    const { port } = wss.address();\n    const ws = new WebSocket(`ws://localhost:${port}`, {\n      skipUTF8Validation: true\n    });\n\n    ws.on('close', function (code, reason) {\n      deepStrictEqual(reason, Buffer.alloc(80));\n    });\n  }\n);\n\nwss.on('connection', function (ws) {\n  ws.close(1000, new Float32Array(20));\n});\n```\n\n### Patches\n\nThe vulnerability was fixed in ws@8.20.1 (https://github.com/websockets/ws/commit/c0327e",
+    "source_url": "https://github.com/advisories/GHSA-58qx-3vcg-4xpx",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T19:02:40Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T19:02:40Z",
+    "severity": "MEDIUM",
+    "risk_score": 4.4,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "medium",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45736"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--47295a68c35be376",
+    "stix_id": "indicator--47295a68c35be376f1900208ef6bd3e3",
+    "title": "AVideo: Authenticated Arbitrary File Read in view/update.php",
+    "description": "### Summary\nview/update.php reads $_POST['updateFile'] as a relative path under updatedb/ and passes it to PHP's file() for line-by-line execution as part of a database migration. An authenticated administrator can abuse this to read arbitrary text files reachable from the web-server process — especially valuable on misconfigured deployments where /etc/passwd, .env, or other sibling-app configs are reachable relative to the AVideo directory.\n\n### Details\nview/update.php, lines 134-145 (excerpt):\n\nif (!empty($_POST['updateFile'])) {\n    $dir = Video::getStoragePath() . \"cache\";\n    rrmdir($dir);\n    /* …unrelated cache-clear… */\n\n    if (file_exists($logfile . \"log\")) {\n        unlink($logfile . \"log\");\n        // ...\n    }\n    $lines = file(\"{$global['systemRootPath']}updatedb/{$_POST['upd",
+    "source_url": "https://github.com/advisories/GHSA-3mjv-375j-6h92",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T19:01:59Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T19:01:59Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "medium",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45731"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--a0e8b2b7e6adc077",
+    "stix_id": "indicator--a0e8b2b7e6adc07767ab1715386af7c7",
+    "title": "Interpol leads cybercrime crackdown across 13 countries in Middle East, North Africa",
+    "description": "Operation Ramz resulted in 201 arrests and disrupted phishing services, malware and financial scams. \n The post  Interpol leads cybercrime crackdown across 13 countries in Middle East, North Africa  appeared first on  CyberScoop .",
+    "source_url": "https://cyberscoop.com/interpol-operation-ramz-middle-east-north-africa/",
+    "feed_source": "rss_cyberscoop_com_feed_",
+    "published_at": "2026-05-18T18:56:23Z",
+    "processed_at": "2026-05-18T19:16:04Z",
+    "timestamp": "2026-05-18T18:56:23Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "cyberscoop.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--6d01ea2b2c0cefa5",
+    "stix_id": "indicator--6d01ea2b2c0cefa591e32c54fb86b813",
+    "title": "[RANSOMWARE] Unknown: C***r*o T**uc**n*",
+    "description": "Ransomware group 'Unknown' listed 'C***r*o T**uc**n*' as victim. Country: . Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T18:55:16.094754+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T18:55:16.094754+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--1c3741a1fb324d39",
+    "stix_id": "indicator--1c3741a1fb324d390e30b492f426ceaf",
+    "title": "[RANSOMWARE] Unknown: m***o*ul",
+    "description": "Ransomware group 'Unknown' listed 'm***o*ul' as victim. Country: . Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T18:55:02.334994+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T18:55:02.334994+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--74c136447e094d07",
+    "stix_id": "indicator--74c136447e094d07410771c34a6ac6a9",
+    "title": "[RANSOMWARE] Unknown: Internal Medicine",
+    "description": "Ransomware group 'Unknown' listed 'Internal Medicine' as victim. Country: US. Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T18:54:53.559651+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T18:54:53.559651+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "us",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--09064105f6990b86",
+    "stix_id": "indicator--09064105f6990b86ae87e2a41795c0d0",
+    "title": "[RANSOMWARE] Unknown: Polyrack",
+    "description": "Ransomware group 'Unknown' listed 'Polyrack' as victim. Country: GB. Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T18:54:38.117670+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T18:54:38.117670+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "gb",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--1c759705bed5f7d7",
+    "stix_id": "indicator--1c759705bed5f7d74c64a1fb6b252909",
+    "title": "Grafana confirms GitHub token breach cybercrime group claims the attack",
+    "description": "Grafana confirmed a GitHub token breach that exposed source code, but said no customer data or systems were affected. Grafana Labs confirmed a security incident after the extortion group Coinbase Cartel listed it on a leak site and claimed data theft on May 15. The breach was triggered by a compromised token that gave attackers [&#8230;]",
+    "source_url": "https://securityaffairs.com/192347/breaking-news/grafana-confirms-github-token-breach-cybercrime-group-claims-the-attack.html",
+    "feed_source": "rss_securityaffairs_com_feed",
+    "published_at": "2026-05-18T18:54:22Z",
+    "processed_at": "2026-05-18T19:16:05Z",
+    "timestamp": "2026-05-18T18:54:22Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "securityaffairs.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--41a55e4aad987514",
+    "stix_id": "indicator--41a55e4aad987514279d686c4ed17600",
+    "title": "[RANSOMWARE] Unknown: Internet Technologies Designs",
+    "description": "Ransomware group 'Unknown' listed 'Internet Technologies Designs' as victim. Country: FR. Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T18:54:18.599039+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T18:54:18.599039+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "fr",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--9706a5b152d40926",
+    "stix_id": "indicator--9706a5b152d409260fafdbe64e6aead5",
+    "title": "[RANSOMWARE] Unknown: E-Control Systems",
+    "description": "Ransomware group 'Unknown' listed 'E-Control Systems' as victim. Country: AT. Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T18:54:05.085821+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T18:54:05.085821+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "at",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--0b5f1aa58b33e3c9",
+    "stix_id": "indicator--0b5f1aa58b33e3c918feefc5480d838b",
+    "title": "[RANSOMWARE] Unknown: DEVO-Tech",
+    "description": "Ransomware group 'Unknown' listed 'DEVO-Tech' as victim. Country: CH. Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T18:53:51.105730+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T18:53:51.105730+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "ch",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--4fc2e9b9ccb21987",
+    "stix_id": "indicator--4fc2e9b9ccb2198756f276d686172009",
+    "title": "[RANSOMWARE] Unknown: Modern Display",
+    "description": "Ransomware group 'Unknown' listed 'Modern Display' as victim. Country: US. Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T18:53:36.687835+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T18:53:36.687835+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "us",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--ece479d61a5bfac1",
+    "stix_id": "indicator--ece479d61a5bfac1a5732e1abb711747",
+    "title": "[RANSOMWARE] Unknown: University of Finance and Administration",
+    "description": "Ransomware group 'Unknown' listed 'University of Finance and Administration' as victim. Country: CZ. Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T18:53:20.785407+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T18:53:20.785407+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "cz",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--b75ef034740d7124",
+    "stix_id": "indicator--b75ef034740d7124ef3372249bc4e4d4",
+    "title": "OpenTelemetry eBPF Instrumentation: Postgres BIND parsing can panic on malformed payloads",
+    "description": "### Summary\n\nThe Postgres protocol parser assumes `BIND` message payloads contain a valid NUL-terminated portal name. A crafted empty or unterminated payload can make OBI slice beyond the end of the captured buffer and panic.\n\n### Details\n\nThe vulnerable logic is in [pkg/ebpf/common/sql_detect_postgres.go](https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation/blob/d5691806adc98008bacd2b7a4a4e0cd38ea51227/pkg/components/ebpf/common/sql_detect_postgres.go#L286-L294). In the `BIND` case, OBI converts the full payload to a string with `unix.ByteSliceToString(msg.data)`, computes `portalLen := len(portal) + 1`, and then slices `msg.data[portalLen:]` to derive the statement name.\n\nThere is no check that `msg.data` actually contains a NUL terminator or even enough bytes for `portal",
+    "source_url": "https://github.com/advisories/GHSA-pgvv-q3wf-mm9m",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:56:26Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:56:26Z",
+    "severity": "HIGH",
+    "risk_score": 7.5,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45678"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--7c70d29c26a3e94d",
+    "stix_id": "indicator--7c70d29c26a3e94d4e52a18115a75ee0",
+    "title": "OpenTelemetry eBPF Instrumentation: Redis error text is exported in span status messages",
+    "description": "### Summary\n\nOBI exports raw Redis error text as the span status message. Because Redis error replies can contain attacker-controlled or sensitive values, this behavior can exfiltrate tokens, PII, or other confidential input into telemetry backends and inject untrusted text into downstream analysis systems.\n\n### Details\n\nIn [pkg/ebpf/common/redis_detect_transform.go](https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation/blob/4f35facce2fe611319672595838ab875490f404d/pkg/components/ebpf/common/redis_detect_transform.go#L60-L74), `getRedisError` trims the raw error buffer and stores it directly in `request.DBError.Description`.\n\nLater, [pkg/appolly/app/request/span.go](https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation/blob/4f35facce2fe611319672595838ab875490f",
+    "source_url": "https://github.com/advisories/GHSA-8rrq-wcg8-cv5q",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:56:15Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:56:15Z",
+    "severity": "MEDIUM",
+    "risk_score": 6.5,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "medium",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45679"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--755495ce8f8170ae",
+    "stix_id": "indicator--755495ce8f8170aecf2a3aa07bb4ec83",
+    "title": "OpenTelemetry eBPF Instrumentation: Unsafe fastelf parsing allows malformed ELF to crash agent",
+    "description": "### Summary\n\nOBI's replacement ELF parser trusts section offsets, counts, and string offsets from the executable file. A crafted local ELF can make OBI dereference invalid section pointers or slice past string tables, causing the agent to panic while determining the process language.\n\n### Details\n\n`matchExeSymbols `iterates over sections and uses offsets/symbol names from the unvalidated `fastelf `context; nil section pointers or out-of-range offsets can trigger panics during dereference/slicing.\n\nhttps://github.com/open-telemetry/opentelemetry-ebpf-instrumentation/blob/cec36c1b872beba9d17956bfde75dee3249a1516/pkg/internal/exec/proclang_linux.go#L133-L165\n\n`GetCStringUnsafe` and `ReadStruct` perform unsafe slicing and pointer conversion without guarding against out-of-range or negative off",
+    "source_url": "https://github.com/advisories/GHSA-wp73-mwgf-4jq9",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:56:06Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:56:06Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.5,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "medium",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45676"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--423d77c4801193c5",
+    "stix_id": "indicator--423d77c4801193c5171f2e59a717c3ec",
+    "title": "Broken dropper in @mistralai/mistralai, @mistralai/mistralai-azure, @mistralai/mistralai-gcp",
+    "description": "Mistral npm `@mistralai/mistralai`, `@mistralai/mistralai-azure`, `@mistralai/mistralai-gcp` were compromised by a supply chain attack related to the [TanStack security incident](https://github.com/TanStack/router/security/advisories/GHSA-g7cv-rxg3-hmpx). An automated worm associated with the attack led to **compromised npm package versions being published**.\n\nCurrent investigation indicates that an affected developer device was involved. We have no indication that Mistral infrastructure was compromised. The compromised versions were removed from npm. They were available only between May 11 at 22\\:45 UTC and May 12 at 01\\:53 UTC. **Previous and later versions are not affected by this advisory**.\n\n## Impact\n\nThe dropper **is broken**, it has no impact. \n- `setup.mjs` references `tanstack_ru",
+    "source_url": "https://github.com/advisories/GHSA-jgg6-4rpr-wfh7",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:55:53Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:55:53Z",
+    "severity": "LOW",
+    "risk_score": 5.0,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "low",
+      "oss"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--8fbac5a9372b9a20",
+    "stix_id": "indicator--8fbac5a9372b9a20f7c787c4b3cb0d6c",
+    "title": "[RANSOMWARE] Unknown: Quahe Woo & Palmer LLC",
+    "description": "Ransomware group 'Unknown' listed 'Quahe Woo & Palmer LLC' as victim. Country: SG. Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T17:55:50.039842+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T17:55:50.039842+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "sg",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--6bee5cd7f21bff2e",
+    "stix_id": "indicator--6bee5cd7f21bff2e7ce2afd49eae48e6",
+    "title": "Malicious dropper in mistralai 2.4.6 PyPI package",
+    "description": "The `mistralai` PyPI package version `2.4.6` contains a malicious dropper that executes on import on Linux. No `v2.4.6` tag, commit, or release workflow run exists in this repository, the legitimate latest version before the upload was `2.4.5`, and the upload bypassed this repository's normal release pipeline (which uses PyPI Trusted Publishing).\n\nThe `mistralai` PyPI project is currently quarantined.\n\n## Affected\n\n- `mistralai==2.4.6` on PyPI.\n\nVersions `2.4.5` and earlier are not known to be affected.\n\n## What the malicious code does\n\nA function named `_run_background_task` was added to `src/mistralai/client/__init__.py` and called at module-load time. Reproduced from the public report in [#523](https://github.com/mistralai/client-python/issues/523):\n\n```python\nimport subprocess as _sub",
+    "source_url": "https://github.com/advisories/GHSA-wx9m-wx4f-4cmg",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:55:27Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:55:27Z",
+    "severity": "CRITICAL",
+    "risk_score": 9.6,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "critical",
+      "oss"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--760e7081e1cfac68",
+    "stix_id": "indicator--760e7081e1cfac68939048280d38ca32",
+    "title": "ImageMagick: Policy Bypass in PSD decoder",
+    "description": "Due to a missing check in the PSD decoder it would be possible to bypass the `list-length` resource policy when decoding a PSD image. Other security limits would still apply.",
+    "source_url": "https://github.com/advisories/GHSA-cwpj-h54c-xjpx",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:53:18Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:53:18Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.3,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "medium",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45031"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--cd42b0529438e477",
+    "stix_id": "indicator--cd42b0529438e47728f466c7058cd868",
+    "title": "Postgrex: Channel-name SQL injection in `Postgrex.Notifications.listen/3`",
+    "description": "### Summary\n\nSQL injection in `Postgrex.Notifications.listen/3`: the `channel` argument is interpolated straight into `LISTEN \"...\"` / `UNLISTEN \"...\"` without escaping the `\"` character. Any caller that lets a user influence the channel name (e.g. a pub/sub bridge that uses a tenant id or topic slug as the channel) and the name is not sanitized can execute arbitrary SQL on the notifications connection.\n\nOnly those using the `Postgrex.Notifications` directly or via a dependency, with a non-sanitized channel name are vulnerable. Ecto does not use Postgrex.Notifications by default, but you must validate if any other dependency does.\n\n### Details\n\nPostgreSQL escapes a `\"` inside a quoted identifier by doubling it to `\"\"`. Postgrex doesn't do that doubling, so a `\"` inside `channel` closes the",
+    "source_url": "https://github.com/advisories/GHSA-r73h-97w8-m54h",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:53:17Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:53:17Z",
+    "severity": "HIGH",
+    "risk_score": 5.0,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-32687"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--b623c47330b1a55d",
+    "stix_id": "indicator--b623c47330b1a55d462d1c96aaec382d",
+    "title": "Docker: Race condition in docker cp allows bind mount redirection to host path",
+    "description": "## Summary\n\nA race condition during `docker cp` mount setup allows a malicious container to redirect a bind mount target to an arbitrary host path, potentially overwriting host files or causing denial of service.\n\n## Details\n\nWhen copying files into a container, the daemon sets up a temporary filesystem view by bind-mounting volumes into a private mount namespace. During this setup, the mount destination is created inside the container root and then a bind mount is attached using the container-relative path resolved to an absolute host path.\n\nBetween mountpoint creation and the `mount()` syscall, a process running inside the container can replace the destination (or a parent path component) with a symlink pointing to an arbitrary location on the host. The `mount()` syscall follows the syml",
+    "source_url": "https://github.com/advisories/GHSA-rg2x-37c3-w2rh",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:53:08Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:53:08Z",
+    "severity": "HIGH",
+    "risk_score": 7.2,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-42306"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--f24a1bbb9e071b02",
+    "stix_id": "indicator--f24a1bbb9e071b02382dd91b4642bf1c",
+    "title": "Docker: Race condition in docker cp allows creation of arbitrary empty files on the host via symlink swap",
+    "description": "## Summary\n\nA race condition during `docker cp` mount setup allows a malicious container to create empty files or directories at arbitrary absolute paths on the host filesystem.\n\nThis advisory covers the race during mountpoint creation. The related race during the subsequent mount syscall is tracked in GHSA-rg2x-37c3-w2rh\n\n## Details\n\nWhen copying files into a container, the daemon sets up a temporary filesystem view by bind-mounting volumes into a private mount namespace. During this setup, the mount destination path is first resolved within the container's root filesystem using `GetResourcePath`, and then used to create the mountpoint (file or directory) if it does not already exist via `createIfNotExists`.\n\nBetween path resolution and mountpoint creation, a process running inside the co",
+    "source_url": "https://github.com/advisories/GHSA-vp62-88p7-qqf5",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:52:55Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:52:55Z",
+    "severity": "MEDIUM",
+    "risk_score": 6.1,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "medium",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-41568"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--ad65745690e9681e",
+    "stix_id": "indicator--ad65745690e9681e48adf64f87d62dee",
+    "title": "CloakBrowser: Unauthenticated path traversal via fingerprint parameter in cloakserve leads to arbitrary directory deletion",
+    "description": "The `cloakserve` CDP multiplexer uses the user-supplied `fingerprint` query parameter directly as a filesystem path component when creating Chrome profile directories. An unauthenticated attacker who can reach the cloakserve port can supply a crafted `fingerprint` value containing path traversal sequences to resolve `user_data_dir` outside the configured `data_dir`. When Chrome fails to start or the process is cleaned up, `shutil.rmtree()` deletes the traversed path, resulting in arbitrary directory deletion.\n\nAdditionally, `cloakserve` bound to `0.0.0.0` by default, making it network-exposed.\n\n### Impact\n\nAn attacker with network access to the cloakserve port can delete arbitrary directories accessible to the service user.\n\n### Patches\n\nFixed in v0.3.28.\n\n### Mitigations\n\n- Upgrade to v0.",
+    "source_url": "https://github.com/advisories/GHSA-mf33-gv72-w2h5",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:50:21Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:50:21Z",
+    "severity": "HIGH",
+    "risk_score": 5.0,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45727"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--aadbed7593640e88",
+    "stix_id": "indicator--aadbed7593640e883ba889012a130aec",
+    "title": "Grafana refuses to pay ransom after codebase theft",
+    "description": "On Saturday night, the company released a statement confirming the incident and outlining their decision not to pay a ransom issued by the hackers behind the attack.",
+    "source_url": "https://therecord.media/grafana-refuses-to-pay-ransom-codebase-theft",
+    "feed_source": "rss_therecord_media_feed_",
+    "published_at": "2026-05-18T17:50:00Z",
+    "processed_at": "2026-05-18T19:16:04Z",
+    "timestamp": "2026-05-18T17:50:00Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "therecord.media"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--1666284086886f1d",
+    "stix_id": "indicator--1666284086886f1dbc9a09950489442c",
+    "title": "ImageMagick: Out-of-Bounds Read of a single byte in meta encoder",
+    "description": "An of by one in the meta encoder could result in an out of bounds read of a single byte in the meta encoder.",
+    "source_url": "https://github.com/advisories/GHSA-cr6r-hmj8-pr7r",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:48:14Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:48:14Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.3,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "medium",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45358"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--a174ee663a0f2023",
+    "stix_id": "indicator--a174ee663a0f20235f7fa96aee2082cc",
+    "title": "ImageMagick: Out-of-Bounds Read in connected components when the user supplies an invalid keep-top define",
+    "description": "An invalid `connected-components:keep-top` value could result in a heap buffer over-read when performing the connected components operation.",
+    "source_url": "https://github.com/advisories/GHSA-vhrh-72hq-w8m7",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:48:00Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:48:00Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.7,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "medium",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45359"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--350b0b5e188fcb36",
+    "stix_id": "indicator--350b0b5e188fcb36006f4885937789f2",
+    "title": "Budibase: CouchDB Reduce Injection via Unsanitized Calculation Parameter in V1 Views API",
+    "description": "# Security Advisory: CouchDB Reduce Injection via Unsanitized Calculation Parameter in V1 Views API\n\n**Affected Software:** Budibase\n**Affected Component:** `packages/server/src/api/controllers/view/viewBuilder.ts`, `packages/server/src/api/routes/view.ts`\n**CWE:** CWE-94 (Improper Control of Generation of Code)\n**Discovery Date:** 2026-03-24\n\n---\n\n## Summary\n\nThe V1 Views API (`POST /api/views`) accepts a `calculation` parameter from the request body that is interpolated directly into a CouchDB reduce function definition without validation. Although an internal `SCHEMA_MAP` object defines the valid calculation types (`sum`, `count`, `stats`), no actual validation is performed against this map before the value is used in string interpolation.\n\nA user with Builder permissions can inject arb",
+    "source_url": "https://github.com/advisories/GHSA-363w-hvwh-w7m6",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:47:58Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:47:58Z",
+    "severity": "MEDIUM",
+    "risk_score": 6.5,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "medium",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45719"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--f94f0b074b3ff209",
+    "stix_id": "indicator--f94f0b074b3ff209bd695b20412db233",
+    "title": "Docker: `PUT /containers/{id}/archive` executes container binary on the host",
+    "description": "## Summary\n\nWhen a user uploads a compressed archive into a container, a malicious image can execute arbitrary code with daemon (host root) privileges.\n\n## Details\n\nWhen handling `PUT /containers/{id}/archive` requests with compressed archives, the daemon decompresses them using external system binaries. Due to incorrect ordering of operations, these binaries are resolved from the container's filesystem rather than the host's. A container image that includes a trojanized decompression binary can achieve code execution as the daemon process whenever a compressed archive is uploaded to that container.\n\nThe executed binary runs with the daemon's full privileges, including host root UID and unrestricted capabilities.\n\n## Impact\n\nArbitrary code execution as host root, crossing the container-to-",
+    "source_url": "https://github.com/advisories/GHSA-x86f-5xw2-fm2r",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:47:23Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:47:23Z",
+    "severity": "HIGH",
+    "risk_score": 7.2,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-41567"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--460461ceb80c52d4",
+    "stix_id": "indicator--460461ceb80c52d490a71f81b1d54f26",
+    "title": "Budibase: Row Action Trigger Bypasses View Row Filter Security Boundary Allowing Action on Out-of-Scope Rows",
+    "description": "## Summary\n\nThe row action trigger endpoint (`POST /api/tables/:sourceId/actions/:actionId/trigger`) fails to validate that the user-supplied `rowId` is within the scope of the view's row filters. A user with access to a filtered view can trigger row actions on any row in the underlying table, including rows explicitly excluded by the view's security filters.\n\n## Details\n\nView filters in Budibase are treated as a security boundary. The search path (`packages/server/src/sdk/workspace/rows/search.ts:93-94`) explicitly enforces view query filters with the comment: *\"that could let users find rows they should not be allowed to access.\"*\n\nHowever, the row action trigger path bypasses this enforcement entirely:\n\n1. **Route** (`packages/server/src/api/routes/rowAction.ts:55-59`): Accepts a `sourc",
+    "source_url": "https://github.com/advisories/GHSA-3263-v5v9-xq8q",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:44:22Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:44:22Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.4,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "medium",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45718"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--11f90bfef3486e38",
+    "stix_id": "indicator--11f90bfef3486e38d027033b3a549d02",
+    "title": "Budibase: Builder-to-Admin Privilege Escalation via onboardUsers Endpoint Without SMTP Configuration",
+    "description": "## Summary\n\nThe `POST /api/global/users/onboard` endpoint is protected by `workspaceBuilderOrAdmin` middleware, allowing any user with builder permissions to access it. When SMTP email is not configured (the default for self-hosted Budibase instances), this endpoint bypasses the admin-restricted invite flow and directly creates users via `bulkCreate`, accepting arbitrary `admin` and `builder` role assignments from the request body. A builder-level user can create a new global admin account and receive the generated password in the response, achieving full privilege escalation.\n\n## Details\n\nThe vulnerability stems from a mismatch between the authorization level of the `onboardUsers` endpoint and the user-creation capabilities it exposes when SMTP is not configured.\n\n**Route definition** (`p",
+    "source_url": "https://github.com/advisories/GHSA-c54j-xp92-wh28",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:42:24Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:42:24Z",
+    "severity": "HIGH",
+    "risk_score": 8.8,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45716"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--6c3e290387405e49",
+    "stix_id": "indicator--6c3e290387405e49cbb061cdb3837f93",
+    "title": "n8n-MCP: Multi-tenant MCP requests fall back to process-level n8n credentials when tenant headers are absent or incomplete",
+    "description": "## Summary\n\nWhen `ENABLE_MULTI_TENANT=true`, the HTTP transport documents that the target n8n instance is selected per-request from `x-n8n-url` / `x-n8n-key` headers. Requests that omitted those headers — or supplied only one of them — silently fell back to the process-level `N8N_API_URL` / `N8N_API_KEY` credentials configured for the operator's own n8n instance. As a result, an authenticated MCP tenant could cause n8n management calls to execute against the operator's instance instead of its own.\n\nThis affects HTTP-mode deployments of `n8n-mcp` that are run as a shared multi-tenant service. Single-tenant deployments (`ENABLE_MULTI_TENANT` unset or `false`) are not affected.\n\n## Impact\n\nAn authenticated MCP tenant exploiting this path could read and write workflows, executions, data-table",
+    "source_url": "https://github.com/advisories/GHSA-jxx9-px88-pj69",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:41:42Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:41:42Z",
+    "severity": "HIGH",
+    "risk_score": 8.1,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45707"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--604247a2f0263a47",
+    "stix_id": "indicator--604247a2f0263a47aaa93446b56e0555",
+    "title": "multiparty vulnerable to ReDoS via filename parsing",
+    "description": "### Impact\n\nmultiparty@4.2.3 and lower versions are vulnerable to denial of service via regular expression backtracking in the `Content-Disposition` filename parameter parser. A multipart upload with a long header value containing `!filename=\"1` repeated can cause regex matching to take seconds, blocking the event loop. Any service accepting multipart uploads via multiparty is affected.\n\n### Patches\n\nUsers should upgrade to multiparty@4.3.0 or higher.\n\n### Workarounds\n\nNone. Limiting upload sizes at the proxy/gateway layer reduces but does not eliminate the attack surface, since a small ~8 KB header is sufficient to trigger the vulnerable backtracking.\n\n### Resources\n\n- [OWASP: Regular expression Denial of Service (ReDoS)](https://owasp.org/www-community/attacks/Regular_expression_Denial_o",
+    "source_url": "https://github.com/advisories/GHSA-65x3-rw7q-gx94",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:40:10Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:40:10Z",
+    "severity": "HIGH",
+    "risk_score": 7.5,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-8159"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--bab916846aae7e43",
+    "stix_id": "indicator--bab916846aae7e43e889ac1b6350cfc8",
+    "title": "multiparty vulnerable to Denial of Service via Uncaught Exception in filename* parameter parsing",
+    "description": "### Impact\n\nmultiparty@4.2.3 and lower versions are vulnerable to denial of service via uncaught exception. By sending a `multipart/form-data` request with a `Content-Disposition: filename*=utf-8''` header containing a malformed percent-encoding (e.g., `%FF`, `%GG`), the parser invokes `decodeURI` on the value without try/catch. The resulting `URIError` propagates as an uncaught exception and crashes the process. Any service accepting multipart uploads via multiparty is affected.\n\n### Patches\n\nUsers should upgrade to multiparty@4.3.0 or higher.\n\n### Workarounds\n\nNone.",
+    "source_url": "https://github.com/advisories/GHSA-xh3c-6gcq-g4rv",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:35:24Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:35:24Z",
+    "severity": "HIGH",
+    "risk_score": 7.5,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-8162"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--5666c7512a63b9c7",
+    "stix_id": "indicator--5666c7512a63b9c7c6be6b5a9b65a131",
+    "title": "multiparty: Denial of Service via Prototype Pollution leads to Uncaught Exception",
+    "description": "### Impact\n\nmultiparty@4.2.3 and lower versions are vulnerable to denial of service via uncaught exception. By sending a `multipart/form-data` request with a field name that collides with an inherited `Object.prototype` property (e.g., `__proto__`, `constructor`, `toString`), the parser invokes `.push()` on the inherited prototype value rather than an array, throwing a `TypeError` that propagates as an uncaught exception and crashes the process. Any service accepting multipart uploads via multiparty is affected.\n\n### Patches\n\nUsers should upgrade to multiparty@4.3.0 or higher.\n\n### Workarounds\n\nNone.",
+    "source_url": "https://github.com/advisories/GHSA-qxch-whhj-8956",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:35:01Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:35:01Z",
+    "severity": "HIGH",
+    "risk_score": 7.5,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-8161"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--dc3d92ccbfd7d7cf",
+    "stix_id": "indicator--dc3d92ccbfd7d7cf343918c7881517e5",
+    "title": "Sulu: Used API Keys may be available via Admin API",
+    "description": "### Impact\n\nThe users endpoint controller exposes a project's apiKey field to the logged-in user, provided they have permission for that endpoint. This only has impact if a project itself uses that specific field, Sulu itself does nothing with it and has no authentication per apiKey in its core.\n\n### Patches\n\nA patch is released with Version 2.6.23 and 3.0.5.\n\n### Workarounds\n\nRemove the field descriptor by patch the UserController.php File in Sulu Security Bundle.",
+    "source_url": "https://github.com/advisories/GHSA-9m6v-8fxc-4r44",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:34:06Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:34:06Z",
+    "severity": "LOW",
+    "risk_score": 5.0,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "low",
+      "oss"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--25bbdf40f5114e29",
+    "stix_id": "indicator--25bbdf40f5114e298b4a946102415803",
+    "title": "AI is drowning software maintainers in junk security reports",
+    "description": "AI-assisted vulnerability research has exploded, unleashing a firehose of low-quality reports on overworked software maintainers who are wasting hours sifting through noise instead of fixing real problems. Linus Torvalds, the Linux kernel&#8217;s creator, says the flood has made the project&#8217;s security mailing list &#8220;almost entirely unmanageable, with enormous duplication due to different people finding the same things with the same tools.&#8221; Too many duplicates, and too much AI sl",
+    "source_url": "https://www.helpnetsecurity.com/2026/05/18/problems-with-ai-assisted-vulnerability-research/",
+    "feed_source": "rss_www_helpnetsecurity_com_feed_",
+    "published_at": "2026-05-18T17:32:44Z",
+    "processed_at": "2026-05-18T19:16:24Z",
+    "timestamp": "2026-05-18T17:32:44Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "www.helpnetsecurity.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--e6fe2c713bc5dee8",
+    "stix_id": "indicator--e6fe2c713bc5dee85b90798b9e013f5a",
+    "title": "[RANSOMWARE] Unknown: Gartengestaltung Muller eU",
+    "description": "Ransomware group 'Unknown' listed 'Gartengestaltung Muller eU' as victim. Country: AT. Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T17:30:04.568032+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T17:30:04.568032+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "at",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--7387c83d530a247c",
+    "stix_id": "indicator--7387c83d530a247c623a3d7f333a8967",
+    "title": "[RANSOMWARE] Unknown: RCR Industrial Flooring",
+    "description": "Ransomware group 'Unknown' listed 'RCR Industrial Flooring' as victim. Country: AU. Site:",
+    "source_url": "https://www.ransomware.live/group/unknown",
+    "feed_source": "ransomware_live",
+    "published_at": "2026-05-18T17:29:36.500622+00:00",
+    "processed_at": "2026-05-18T19:16:03Z",
+    "timestamp": "2026-05-18T17:29:36.500622+00:00",
+    "severity": "HIGH",
+    "risk_score": 8.0,
+    "threat_type": "RANSOMWARE",
+    "tags": [
+      "ransomware",
+      "unknown",
+      "au",
+      "extortion"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--caa1b3ba7a42ec5b",
+    "stix_id": "indicator--caa1b3ba7a42ec5be58f439d7f32bcb9",
+    "title": "Sulu: Weak Cryptographical usage for API Key generation and Reset Tokens",
+    "description": "### Impact\n\nThe password reset tokenand API key generation uses a weak cryptographical hash algorithm.\n\n### Patches\n\nFixed in 2.6.23 and 3.0.6 version.\n\n### Workarounds\n\nPatch the related `User.php` and `ResettingController.php` file in the SecurityBundle.",
+    "source_url": "https://github.com/advisories/GHSA-7fv8-6pp7-6h85",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:27:22Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:27:22Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "medium",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45701"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--d4d36f67732a5965",
+    "stix_id": "indicator--d4d36f67732a5965d4535ff8ab6a5fdc",
+    "title": "Game over for 74 suspected scammers after Dutch cops plastered their faces on billboards",
+    "description": "The Dutch police’s Game Over?! campaign, which publicly displays images of suspected fraudsters to encourage self-surrenders and gather public tips, is proving successful, with the identities of 74 of the 100 suspects shown already identified. A digital display promoting the Dutch police’s Game Over?! campaign (Source: Politie) Launched in March 2026, the campaign displays blurred photos of 100 suspected fraudsters on billboards along motorways, petrol stations, and supermarkets, as well as in t",
+    "source_url": "https://www.helpnetsecurity.com/2026/05/18/dutch-police-game-over-fraudsters-campaign/",
+    "feed_source": "rss_www_helpnetsecurity_com_feed_",
+    "published_at": "2026-05-18T17:25:05Z",
+    "processed_at": "2026-05-18T19:16:24Z",
+    "timestamp": "2026-05-18T17:25:05Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "www.helpnetsecurity.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--15b65a68fbe58d2c",
+    "stix_id": "indicator--15b65a68fbe58d2cb57d53594c96781b",
+    "title": "ruby-jwt: Empty-key HMAC bypass; cross-language sibling of CVE-2026-44351",
+    "description": "`JWT.decode(token, '', true, algorithm: 'HS256')` accepts an attacker-forged token.\n`OpenSSL::HMAC.digest('SHA256', '', payload)` returns a valid digest under an empty key, and no `raise\n  InvalidKeyError if key.empty?` precondition exists in the HMAC algorithm.\n\n```\nJWT.decode(token, \"\", true, algorithm: 'HS256')\n  -> JWA::Hmac.verify(verification_key: \"\", ...)\n  -> OpenSSL::HMAC.digest('SHA256', \"\", signing_input) == signature\n```\n\nThe same path is reached when a keyfinder block or key_finder: argument returns \"\", nil, or an\narray containing nil for an unknown key. JWT::Decode#find_key only rejects literal nil and empty\narrays, and JWT::JWA::Hmac silently coerces nil to \"\" (signing_key ||= '') before signing.\n\n```\nJWT.decode(token, nil, true, algorithms: ['HS256']) { |_h| \"\" }\n  -> find_",
+    "source_url": "https://github.com/advisories/GHSA-c32j-vqhx-rx3x",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:24:55Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:24:55Z",
+    "severity": "HIGH",
+    "risk_score": 7.4,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45363"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--3e79ce93093e5832",
+    "stix_id": "indicator--3e79ce93093e58323441ad5bc0a3c7ac",
+    "title": "Formie: Pre-authenticated server-side template injection in Hidden fields",
+    "description": "### Impact\n- Unauthenticated users could submit crafted values into Hidden fields (with Default value → Custom) that were evaluated as Twig during submission handling, which could lead to serious compromise of the Craft site (depending on template/sandbox behavior).\n- Sites with public Formie forms that include at least one Hidden field with that configuration.\n- No CP login for the reported chain.\n\n### Patches\n- [2.2.20](https://github.com/verbb/formie/releases/tag/2.2.20), [3.1.24](https://github.com/verbb/formie/releases/tag/3.1.24)\n\n### Workarounds\n- Temporarily remove Hidden fields from public forms or switch Hidden default away from Custom where feasible\n- Otherwise, upgrade to patched versions",
+    "source_url": "https://github.com/advisories/GHSA-x7m9-mwc2-g6w2",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:23:39Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:23:39Z",
+    "severity": "CRITICAL",
+    "risk_score": 9.8,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "critical",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45697"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--6972a5f52348f87c",
+    "stix_id": "indicator--6972a5f52348f87cebdb51902e84798c",
+    "title": "Exploit for CVE-2024-32019 exploit",
+    "description": "",
+    "source_url": "https://sploitus.com/exploit?id=3CC0BC86-418A-52CF-9D1C-9210AF32D3DF&utm_source=rss&utm_medium=rss",
+    "feed_source": "rss_sploitus_com_rss",
+    "published_at": "2026-05-18T17:23:39Z",
+    "processed_at": "2026-05-18T19:21:24Z",
+    "timestamp": "2026-05-18T17:23:39Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "CVE-2024-32019",
+      "rss",
+      "sploitus.com"
+    ],
+    "cves": [
+      "CVE-2024-32019"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--3a02082a0cf46795",
+    "stix_id": "indicator--3a02082a0cf46795583b046e8b4e2584",
+    "title": "INTERPOL Operation Ramz Disrupts MENA Cybercrime Networks with 201 Arrests",
+    "description": "INTERPOL has coordinated a first-of-its-kind cybercrime crackdown across the Middle East and North Africa (MENA) that led to 201 arrests and the identification of an additional 382 suspects.\nThe initiative involved the efforts of 13 countries from the region between October 2025 and February 2026, aiming to investigate and neutralize malicious infrastructure, arrest perpetrators behind these",
+    "source_url": "https://thehackernews.com/2026/05/interpol-operation-ramz-disrupts-mena.html",
+    "feed_source": "rss_feeds_feedburner_com_thehackersnews",
+    "published_at": "2026-05-18T17:21:18Z",
+    "processed_at": "2026-05-18T19:16:04Z",
+    "timestamp": "2026-05-18T17:21:18Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "feeds.feedburner.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--d49004f6d70c4e90",
+    "stix_id": "indicator--d49004f6d70c4e90029d37c28d5fede4",
+    "title": "TinyIce: Missing authentication on WebRTC ingest endpoint allows unauthorized stream injection",
+    "description": "## Title\n\nMissing authentication on WebRTC ingest endpoint allows unauthenticated stream injection in TinyIce\n\n## Ecosystem / Package\n\n- **Ecosystem:** `Go` (or \"Other\" — TinyIce is shipped as a Go binary, not a Go module published to a registry)\n- **Package name:** `github.com/DatanoiseTV/tinyice`\n\n## Affected versions\n\n```\n>= 0.8.95, <= 2.4.1\n```\n\n(Introduced 2026-02-21 in commit `e2b60d6` — \"debug: add Go Live connection tracing and backend data flow logging\" — when `handleWebRTCSourceOffer` was registered at `/webrtc/source-offer` without an authentication check. Every tagged release from `v0.8.95` through `v2.4.1` ships the vulnerable handler.)\n\n## Patched versions\n\n```\n>= 2.5.0\n```\n\n## Severity\n\n- **CVSS 3.1 base score:** 7.4 (High)\n- **CVSS vector:** `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:",
+    "source_url": "https://github.com/advisories/GHSA-p7c4-8x34-8j8f",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:20:17Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:20:17Z",
+    "severity": "HIGH",
+    "risk_score": 8.2,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45327"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--26b34f6de4973ed4",
+    "stix_id": "indicator--26b34f6de4973ed4b5dae29243bcb538",
+    "title": "db-security-ctf exploit",
+    "description": "",
+    "source_url": "https://sploitus.com/exploit?id=31C32BF5-F1A7-5713-9CC5-1FF04BDCBF9E&utm_source=rss&utm_medium=rss",
+    "feed_source": "rss_sploitus_com_rss",
+    "published_at": "2026-05-18T17:14:12Z",
+    "processed_at": "2026-05-18T19:21:24Z",
+    "timestamp": "2026-05-18T17:14:12Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "sploitus.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--e5153afff7bd6e33",
+    "stix_id": "indicator--e5153afff7bd6e337717d5ae352323fe",
+    "title": "@tmlmobilidade/utils has prototype pollution in its setValueAtPath",
+    "description": "### Impact\nPrototype pollution vulnerability in @tmlmobilidade/utils for setValueAtPath().\n\n### Patches\nA fix is available in versions 20260509.0340.15 and up.",
+    "source_url": "https://github.com/advisories/GHSA-cmxg-94mg-jq94",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:07:04Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:07:04Z",
+    "severity": "HIGH",
+    "risk_score": 8.2,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45325"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--3f7b0aad493e01ad",
+    "stix_id": "indicator--3f7b0aad493e01ada430558ef997ed19",
+    "title": "BlueKeep_PoC exploit",
+    "description": "",
+    "source_url": "https://sploitus.com/exploit?id=2ACFB84D-3736-56ED-AB27-5E41C700560D&utm_source=rss&utm_medium=rss",
+    "feed_source": "rss_sploitus_com_rss",
+    "published_at": "2026-05-18T17:04:33Z",
+    "processed_at": "2026-05-18T19:21:24Z",
+    "timestamp": "2026-05-18T17:04:33Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "sploitus.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--797fbf47752e98a1",
+    "stix_id": "indicator--797fbf47752e98a11e0a670d31396882",
+    "title": "LibreNMS: Cross-Site Scripting in ShowConfigController",
+    "description": "### Summary\nA Stored Cross-Site Scripting (XSS) vulnerability exists in the ShowConfig page of devices affected by the RANCID Integration settings. The application fails to properly sanitise the `rancid_repo_url` configuration value. When a user navigates to a device's configuration page, this unsanitised value is rendered directly within an HTML anchor (&lt;a&gt;) tag. This allows an authenticated user with permission to modify external settings to inject malicious JavaScript that will execute in the browser of any user viewing the affected device pages.\n\n### Details\nThe vulnerability is located in the external settings configuration block, specifically at the settings/external/rancid endpoint. When a valid rancid_configs is set, the application renders the corresponding `rancid_repo_url`",
+    "source_url": "https://github.com/advisories/GHSA-5gm9-622f-qcg5",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:00:49Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:00:49Z",
+    "severity": "LOW",
+    "risk_score": 3.5,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "low",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-2728"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--401b28952e6d023c",
+    "stix_id": "indicator--401b28952e6d023c15d9cd74ce4eb28d",
+    "title": "dynoxide: DNS rebinding and cross-origin CSRF via MCP HTTP transport",
+    "description": "## Summary\n\ndynoxide's MCP HTTP transport was vulnerable to DNS rebinding via its transitive `rmcp` dependency, plus a related cross-origin CSRF gap. A malicious web page could make the user's browser send requests to a local `dynoxide mcp --http` or `dynoxide serve --mcp` server with a non-loopback `Host` header, which the server would then process. Affects 0.9.3 to 0.9.12. The stdio transport (`dynoxide mcp` without `--http`, which is the default) is not affected.\n\n## Impact\n\nIf a user is running `dynoxide mcp --http` (or `dynoxide serve --mcp`) on their machine and then visits a malicious web page, the attacker's JavaScript can call any MCP tool exposed by the running dynoxide instance.\n\nReachable tools include reads (`get_item`, `query`, `scan`, `batch_get_item`, `describe_table`, `lis",
+    "source_url": "https://github.com/advisories/GHSA-fvh2-gm75-j4j7",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T17:00:25Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T17:00:25Z",
+    "severity": "HIGH",
+    "risk_score": 7.5,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--ae49dfca19a68cd8",
+    "stix_id": "indicator--ae49dfca19a68cd85b3e079c592afe38",
+    "title": "123,000 Impacted by American Lending Center’s Year-Old Breach",
+    "description": "The American Lending Center notified consumers of a data breach nearly a year after it occured.&nbsp;",
+    "source_url": "https://www.securitymagazine.com/articles/102309-123-000-impacted-by-year-old-breach",
+    "feed_source": "rss_www_securitymagazine_com_rss_topic_2236",
+    "published_at": "2026-05-18T17:00:00Z",
+    "processed_at": "2026-05-18T19:16:06Z",
+    "timestamp": "2026-05-18T17:00:00Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "www.securitymagazine.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--7785fdedeaf15692",
+    "stix_id": "indicator--7785fdedeaf1569227cafce35a82e7a5",
+    "title": "Hackers Actively Exploiting Critical NGINX RCE Vulnerability in the Wild",
+    "description": "Hackers are wasting no time exploiting a newly disclosed critical vulnerability in NGINX, with security researchers already observing real-world attacks just days after its public release. Security researcher Patrick Garrity from VulnCheck revealed that threat actors are actively targeting CVE-2026-42945, a heap buffer overflow flaw affecting both NGINX Open Source and NGINX Plus. The vulnerability [&#8230;] \n The post  Hackers Actively Exploiting Critical NGINX RCE Vulnerability in the Wild  ap",
+    "source_url": "https://cybersecuritynews.com/hackers-exploiting-nginx-rce-vulnerability/",
+    "feed_source": "rss_cybersecuritynews_com_feed_",
+    "published_at": "2026-05-18T16:43:40Z",
+    "processed_at": "2026-05-18T19:16:04Z",
+    "timestamp": "2026-05-18T16:43:40Z",
+    "severity": "CRITICAL",
+    "risk_score": 8.5,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "CVE-2026-42945",
+      "rss",
+      "cybersecuritynews.com"
+    ],
+    "cves": [
+      "CVE-2026-42945"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--1113f9c4a554b55d",
+    "stix_id": "indicator--1113f9c4a554b55d2c96600399329f48",
+    "title": "parse-nested-form-data has Prototype Pollution via `__proto__` in FormData field names",
+    "description": "## Summary\n\n`parseFormData()` walks bracket and dot-notation FormData field names into nested objects without filtering reserved property keys. A single FormData field whose name begins with `__proto__`, or contains `.__proto__.` mid-path, causes the parser to traverse onto `Object.prototype` and assign properties there, polluting the prototype chain of every plain object in the running process.\n\n## Details\n\nThe vulnerability is in `handlePathPart` in `src/index.ts`, which performs `currentObject[pathPart.path]` and `currentObject[pathPart.path] = val` for object-type path segments without rejecting reserved keys. When the segment is `__proto__`, the read returns `Object.prototype`, which then becomes the next traversal target, and the next assignment lands on the prototype.\n\nReproduction",
+    "source_url": "https://github.com/advisories/GHSA-xp7r-j8r6-j9h3",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T16:43:12Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T16:43:12Z",
+    "severity": "HIGH",
+    "risk_score": 8.2,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45302"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--8ebbae90c8f1e6c9",
+    "stix_id": "indicator--8ebbae90c8f1e6c91a3da2991a51b31c",
+    "title": "async-http-client: Cookie header not stripped on cross-origin redirect",
+    "description": "## Summary\n\nasync-http-client leaks `Cookie` headers to cross-origin redirect targets. When following a redirect across a security boundary (different origin, or HTTPS→HTTP downgrade), the `propagatedHeaders()` method in `Redirect30xInterceptor.java` strips `Authorization` and `Proxy-Authorization` headers but does not strip `Cookie`, so session cookies and other sensitive cookie values are forwarded to the redirect target — which may be attacker-controlled.\n\n## Details\n\nThe vulnerability is in `client/src/main/java/org/asynchttpclient/netty/handler/intercept/Redirect30xInterceptor.java`.\n\nThe caller computes `stripAuth` on each redirect:\n\n```java\nboolean sameBase    = request.getUri().isSameBase(newUri);\nboolean stripAuth   = !sameBase || schemeDowngrade || stripAuthorizationOnRedirect;\n/",
+    "source_url": "https://github.com/advisories/GHSA-fmxf-pm6p-7xgm",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T16:42:20Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T16:42:20Z",
+    "severity": "HIGH",
+    "risk_score": 7.4,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45300"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--378e5278eb327d2c",
+    "stix_id": "indicator--378e5278eb327d2c7120a1e510579d75",
+    "title": "Dozzle: Pre-auth SSRF with response-body reflection via POST /api/notifications/test-webhook (default no-auth deploy)",
+    "description": "## Summary\n\nIn a default dozzle deploy (the documented quickstart, no `DOZZLE_AUTH_PROVIDER` set), `POST /api/notifications/test-webhook` is reachable without authentication and forwards an attacker-controlled URL into a `WebhookDispatcher` that:\n\n- Sends an HTTP POST to the supplied URL with attacker-controlled request headers, and\n- Returns the response status code AND up to 1MB of the response body to the caller, when the target replies non-2xx.\n\nThis is a classic full-reflection SSRF, pre-auth, against any IP/port that dozzle's host can route to — including private subnets, link-local cloud metadata, and loopback services.\n\n## Affected versions\n\n`internal/notification/dispatcher/webhook.go` and `internal/web/notifications.go` at commit `581bab3a43ead84ea4d009a469a17af98fb3377f` and ear",
+    "source_url": "https://github.com/advisories/GHSA-3v9w-6365-9w54",
+    "feed_source": "github_advisory",
+    "published_at": "2026-05-18T16:41:39Z",
+    "processed_at": "2026-05-18T19:16:02Z",
+    "timestamp": "2026-05-18T16:41:39Z",
+    "severity": "HIGH",
+    "risk_score": 8.6,
+    "threat_type": "OSS-ADVISORY",
+    "tags": [
+      "github",
+      "advisory",
+      "high",
+      "oss"
+    ],
+    "cves": [
+      "CVE-2026-45298"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
     "id": "intel--8a2ae260b193456a",
     "stix_id": "indicator--8a2ae260b193456a13d8234cb8cca838",
     "title": "Now Live: The CrowdStrike 2026 Financial Services Threat Landscape Report",
@@ -307,6 +1803,29 @@
     "actor_tag": "UNC-CDB-INGEST"
   },
   {
+    "id": "intel--2a6316e491fa24b8",
+    "stix_id": "indicator--2a6316e491fa24b802c84c217f836580",
+    "title": "GenAI Risks in Cloud Environments: What Security Teams Are Actually Missing in 2026",
+    "description": "Key Takeaways Most cloud security programs were not built for generative AI workloads. The IAM policies, network segmentation rules, and misconfiguration checks that worked for a three-tier web application in 2021 leave serious gaps when the workload is an LLM inference endpoint sitting next to a labeled PII dataset in S3. The attack surface changed. [&#8230;]",
+    "source_url": "https://orca.security/resources/blog/genai-risks-in-cloud-environments/",
+    "feed_source": "rss_orca_security_resources_blog_feed_",
+    "published_at": "2026-05-18T16:25:31Z",
+    "processed_at": "2026-05-18T19:21:12Z",
+    "timestamp": "2026-05-18T16:25:31Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "orca.security"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
     "id": "intel--c8395370b753720f",
     "stix_id": "indicator--c8395370b753720f0dade7bfae64c6c4",
     "title": "CI4MS: Stored XSS in Pages Module Content via Broken html_purify Validation Rule",
@@ -388,6 +1907,29 @@
     "actor_tag": "UNC-CDB-INGEST"
   },
   {
+    "id": "intel--17844ef88bce61b9",
+    "stix_id": "indicator--17844ef88bce61b99c4b5772cd3c1db6",
+    "title": "Exploit for Deserialization of Untrusted Data in Facebook React exploit",
+    "description": "",
+    "source_url": "https://sploitus.com/exploit?id=BEBC4DAE-79DC-5330-BAF0-012C7FAF4527&utm_source=rss&utm_medium=rss",
+    "feed_source": "rss_sploitus_com_rss",
+    "published_at": "2026-05-18T16:21:30Z",
+    "processed_at": "2026-05-18T19:21:24Z",
+    "timestamp": "2026-05-18T16:21:30Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "sploitus.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
     "id": "intel--6c45b4b92cb9a3f5",
     "stix_id": "indicator--6c45b4b92cb9a3f5ba350cf0472e0985",
     "title": "CI4MS Fileeditor allows deletion and rename of critical application files due to missing extension allowlist on destructive operations",
@@ -408,6 +1950,84 @@
     ],
     "cves": [
       "CVE-2026-45139"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--f371721b82c9e3ba",
+    "stix_id": "indicator--f371721b82c9e3bade4253487f617949",
+    "title": "CVE-2026-36438 - Intelbras VIP-1230-D-G4 Information Disclosure Vulnerability",
+    "description": "CVE ID : CVE-2026-36438\n   \n   Published :  May 18, 2026, 4:16 p.m. | 1 hour, 13 minutes ago\n   \n   Description : An issue in Intelbras VIP-1230-D-G4 Version V2.800.00IB00C.0.T allows a remote attacker to obtain sensitive information via password reset functionality under /OutsideCmd\n   \n   Severity:  5.3 | MEDIUM\n   \n  Visit the link for more details, such as CVSS details, affected products, timeline, and more...",
+    "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-36438",
+    "feed_source": "rss_cvefeed_io_rssfeed_latest_xml",
+    "published_at": "2026-05-18T16:16:29Z",
+    "processed_at": "2026-05-18T19:16:06Z",
+    "timestamp": "2026-05-18T16:16:29Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "CVE-2026-36438",
+      "rss",
+      "cvefeed.io"
+    ],
+    "cves": [
+      "CVE-2026-36438"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--732f895231f6c699",
+    "stix_id": "indicator--732f895231f6c699af20b42e52c748e7",
+    "title": "CVE-2025-57282 - Ngrok Command Injection Vulnerability",
+    "description": "CVE ID : CVE-2025-57282\n   \n   Published :  May 18, 2026, 4:16 p.m. | 1 hour, 13 minutes ago\n   \n   Description : ngrok v4.3.3 and 5.0.0-beta.2 is vulnerable to Command Injection.\n   \n   Severity:  0.0 | NA\n   \n  Visit the link for more details, such as CVSS details, affected products, timeline, and more...",
+    "source_url": "https://cvefeed.io/vuln/detail/CVE-2025-57282",
+    "feed_source": "rss_cvefeed_io_rssfeed_latest_xml",
+    "published_at": "2026-05-18T16:16:29Z",
+    "processed_at": "2026-05-18T19:16:06Z",
+    "timestamp": "2026-05-18T16:16:29Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "CVE-2025-57282",
+      "rss",
+      "cvefeed.io"
+    ],
+    "cves": [
+      "CVE-2025-57282"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--84b90f847f1cedab",
+    "stix_id": "indicator--84b90f847f1cedab0c05c9a76ae721fc",
+    "title": "CVE-2025-56352 - TinyMQTT Broker Protocol Violation Leaving File Descriptors Open",
+    "description": "CVE ID : CVE-2025-56352\n   \n   Published :  May 18, 2026, 4:16 p.m. | 1 hour, 13 minutes ago\n   \n   Description : In tinyMQTT commit 6226ade15bd4f97be2d196352e64dd10937c1962 (2024-02-18), the broker mishandles protocol violations during CONNECT packet parsing. When receiving a CONNECT packet with a zero-length Client ID while CleanSession is set to 0, the broker correctly replies with a CONNACK return code 0x02 (Identifier Rejected) but fails to explicitly close the TCP connection. Since the sur",
+    "source_url": "https://cvefeed.io/vuln/detail/CVE-2025-56352",
+    "feed_source": "rss_cvefeed_io_rssfeed_latest_xml",
+    "published_at": "2026-05-18T16:16:29Z",
+    "processed_at": "2026-05-18T19:16:06Z",
+    "timestamp": "2026-05-18T16:16:29Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "CVE-2025-56352",
+      "rss",
+      "cvefeed.io"
+    ],
+    "cves": [
+      "CVE-2025-56352"
     ],
     "iocs": [],
     "ioc_count": 0,
@@ -456,6 +2076,78 @@
     "tags": [
       "rss",
       "therecord.media"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--ed5e2fb59aefb1c9",
+    "stix_id": "indicator--ed5e2fb59aefb1c9dc6f6332ce40d1e1",
+    "title": "What Is Multi-Cloud Security?",
+    "description": "Multi-cloud security protects workloads, identities, and data across multiple public cloud environments while maintaining consistent visibility and security controls. As organizations adopt multi-cloud strategies to improve flexibility and resilience, managing security across different platforms becomes increasingly complex. While the principles discussed in this article apply broadly to multi-cloud environments, AWS, Azure, and Google Cloud Platform [&#8230;]",
+    "source_url": "https://orca.security/resources/blog/what-is-multi-cloud-security/",
+    "feed_source": "rss_orca_security_resources_blog_feed_",
+    "published_at": "2026-05-18T16:03:10Z",
+    "processed_at": "2026-05-18T19:21:12Z",
+    "timestamp": "2026-05-18T16:03:10Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "orca.security"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--0c826128a23cbaa5",
+    "stix_id": "indicator--0c826128a23cbaa5266b3f6b7f07f2c1",
+    "title": "CVE-2026-45829 - ChromaDB Remote Code Injection Vulnerability",
+    "description": "CVE ID : CVE-2026-45829\n   \n   Published :  May 18, 2026, 3:59 p.m. | 1 hour, 30 minutes ago\n   \n   Description : A pre-authentication, code injection vulnerability in version 1.0.0 or later of the ChromaDB Python project allows an unauthenticated attacker to run arbitrary code on the server by sending a malicious model repository and trust_remote_code set to true in the /api/v2/tenants/{tenant}/databases/{db}/collections endpoint.\n   \n   Severity:  10.0 | CRITICAL\n   \n  Visit the link for more",
+    "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-45829",
+    "feed_source": "rss_cvefeed_io_rssfeed_latest_xml",
+    "published_at": "2026-05-18T15:59:22Z",
+    "processed_at": "2026-05-18T19:16:06Z",
+    "timestamp": "2026-05-18T15:59:22Z",
+    "severity": "CRITICAL",
+    "risk_score": 8.5,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "CVE-2026-45829",
+      "rss",
+      "cvefeed.io"
+    ],
+    "cves": [
+      "CVE-2026-45829"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--ac1be24acbc81fc3",
+    "stix_id": "indicator--ac1be24acbc81fc3fb211ebd0ffa0339",
+    "title": "CVE-PoC exploit",
+    "description": "",
+    "source_url": "https://sploitus.com/exploit?id=433FE52D-E17A-5539-B5C7-247B7EBFE383&utm_source=rss&utm_medium=rss",
+    "feed_source": "rss_sploitus_com_rss",
+    "published_at": "2026-05-18T15:57:40Z",
+    "processed_at": "2026-05-18T19:21:24Z",
+    "timestamp": "2026-05-18T15:57:40Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "sploitus.com"
     ],
     "cves": [],
     "iocs": [],
@@ -529,6 +2221,32 @@
       "www.darkreading.com"
     ],
     "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--931a33b95fe57c4c",
+    "stix_id": "indicator--931a33b95fe57c4c197265bf3ceac7c7",
+    "title": "CVE-2026-8843 - Calling createIndex with certain index types can crash mongod",
+    "description": "CVE ID : CVE-2026-8843\n   \n   Published :  May 18, 2026, 3:40 p.m. | 1 hour, 49 minutes ago\n   \n   Description : Creating a \"2dsphere_bucket\" index on a non-timeseries bucket collection will succeed, but any subsequent attempt to insert a document which triggers updating that index will crash the server. A similar issue occurs when creating \"queryable_encrypted_range\" indices.\n\nThis issue affects MongoDB Server v7.0 versions prior to 7.0.32, v8.0 versions prior to 8.0.21 and v8.2 versions prior",
+    "source_url": "https://cvefeed.io/vuln/detail/CVE-2026-8843",
+    "feed_source": "rss_cvefeed_io_rssfeed_latest_xml",
+    "published_at": "2026-05-18T15:40:06Z",
+    "processed_at": "2026-05-18T19:16:06Z",
+    "timestamp": "2026-05-18T15:40:06Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "CVE-2026-8843",
+      "rss",
+      "cvefeed.io"
+    ],
+    "cves": [
+      "CVE-2026-8843"
+    ],
     "iocs": [],
     "ioc_count": 0,
     "tlp": "TLP:CLEAR",
@@ -920,6 +2638,29 @@
     "actor_tag": "UNC-CDB-INGEST"
   },
   {
+    "id": "intel--dae8ea7bdab11667",
+    "stix_id": "indicator--dae8ea7bdab11667bf24e39a66c1d150",
+    "title": "cve-poc-nuclei exploit",
+    "description": "",
+    "source_url": "https://sploitus.com/exploit?id=17E33F09-238E-5F81-94B0-4D3DA378AF5E&utm_source=rss&utm_medium=rss",
+    "feed_source": "rss_sploitus_com_rss",
+    "published_at": "2026-05-18T14:55:57Z",
+    "processed_at": "2026-05-18T19:21:24Z",
+    "timestamp": "2026-05-18T14:55:57Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "sploitus.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
     "id": "intel--0097ce0dac03903d",
     "stix_id": "indicator--0097ce0dac03903d601d594ab2e9b3f1",
     "title": "Faraday has a possible incomplete fix for GHSA-33mh-2634-fwr2: protocol-relative URI objects still bypass host scoping",
@@ -971,6 +2712,52 @@
       "CVE-2026-44790",
       "CVE-2026-44791"
     ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--e72406329a39e8b3",
+    "stix_id": "indicator--e72406329a39e8b3503c208884593d0c",
+    "title": "Exploit for Improper Input Validation in Apache Activemq exploit",
+    "description": "",
+    "source_url": "https://sploitus.com/exploit?id=0EB06AF4-CFA4-5311-9994-15760AF8992B&utm_source=rss&utm_medium=rss",
+    "feed_source": "rss_sploitus_com_rss",
+    "published_at": "2026-05-18T14:36:46Z",
+    "processed_at": "2026-05-18T19:21:24Z",
+    "timestamp": "2026-05-18T14:36:46Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "sploitus.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--8541be0e842208fa",
+    "stix_id": "indicator--8541be0e842208fa3153fbcc1a7c02b1",
+    "title": "CVE-ubuntu-server-24.04 exploit",
+    "description": "",
+    "source_url": "https://sploitus.com/exploit?id=EE19F7C2-BA8C-5A21-B323-9CB23C0F7835&utm_source=rss&utm_medium=rss",
+    "feed_source": "rss_sploitus_com_rss",
+    "published_at": "2026-05-18T14:33:55Z",
+    "processed_at": "2026-05-18T19:21:24Z",
+    "timestamp": "2026-05-18T14:33:55Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "sploitus.com"
+    ],
+    "cves": [],
     "iocs": [],
     "ioc_count": 0,
     "tlp": "TLP:CLEAR",
@@ -1048,6 +2835,55 @@
     "cves": [
       "CVE-2026-45627"
     ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--77e6cda30c1aa1cd",
+    "stix_id": "indicator--77e6cda30c1aa1cd52bdf47b7bb54de3",
+    "title": "Exploit for CVE-2026-42945 exploit",
+    "description": "",
+    "source_url": "https://sploitus.com/exploit?id=84F37866-4BB9-51F0-AFC8-B4F941E79576&utm_source=rss&utm_medium=rss",
+    "feed_source": "rss_sploitus_com_rss",
+    "published_at": "2026-05-18T14:09:21Z",
+    "processed_at": "2026-05-18T19:21:24Z",
+    "timestamp": "2026-05-18T14:09:21Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "CVE-2026-42945",
+      "rss",
+      "sploitus.com"
+    ],
+    "cves": [
+      "CVE-2026-42945"
+    ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--6353987b75c4ab9d",
+    "stix_id": "indicator--6353987b75c4ab9df817cc1ae476f4d4",
+    "title": "Threat Actor Defense Evasion: How Attackers Disable AV & EDR",
+    "description": "Threat actors are actively targeting your security tools. Learn how threat actors disable antivirus and EDR through vulnerable drivers, tampering attacks, and malicious firewall rules, and how Huntress detects.",
+    "source_url": "https://www.huntress.com/blog/how-attackers-disable-av-edr",
+    "feed_source": "rss_huntress_com_blog_rss_xml",
+    "published_at": "2026-05-18T14:00:00Z",
+    "processed_at": "2026-05-18T19:20:54Z",
+    "timestamp": "2026-05-18T14:00:00Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "huntress.com"
+    ],
+    "cves": [],
     "iocs": [],
     "ioc_count": 0,
     "tlp": "TLP:CLEAR",
@@ -1173,6 +3009,29 @@
     "cves": [
       "CVE-2026-45625"
     ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--af33ca66fa29e399",
+    "stix_id": "indicator--af33ca66fa29e39932d1a432546cd5e9",
+    "title": "Exploit for Double Free in Microsoft exploit",
+    "description": "",
+    "source_url": "https://sploitus.com/exploit?id=7BEE978E-5152-57B1-A60E-5C364AC4A0BC&utm_source=rss&utm_medium=rss",
+    "feed_source": "rss_sploitus_com_rss",
+    "published_at": "2026-05-18T13:44:31Z",
+    "processed_at": "2026-05-18T19:21:24Z",
+    "timestamp": "2026-05-18T13:44:31Z",
+    "severity": "HIGH",
+    "risk_score": 7.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "sploitus.com"
+    ],
+    "cves": [],
     "iocs": [],
     "ioc_count": 0,
     "tlp": "TLP:CLEAR",
@@ -3035,6 +4894,52 @@
     "cves": [
       "CVE-2026-8721"
     ],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--55437ae40d260d0c",
+    "stix_id": "indicator--55437ae40d260d0c1687c03be6a47338",
+    "title": "19 Cloud Security Challenges and How to Mitigate Risk | Huntress",
+    "description": "Learn about some of the most common cloud security challenges facing modern businesses today, plus why it matters for you and your employees.",
+    "source_url": "https://www.huntress.com/blog/cloud-security-challenges",
+    "feed_source": "rss_huntress_com_blog_rss_xml",
+    "published_at": "2026-05-15T19:00:00Z",
+    "processed_at": "2026-05-18T19:20:54Z",
+    "timestamp": "2026-05-15T19:00:00Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "huntress.com"
+    ],
+    "cves": [],
+    "iocs": [],
+    "ioc_count": 0,
+    "tlp": "TLP:CLEAR",
+    "actor_tag": "UNC-CDB-INGEST"
+  },
+  {
+    "id": "intel--3076056b54935288",
+    "stix_id": "indicator--3076056b549352888374d7573912d2ab",
+    "title": "Most Common Passwords 2026: Is Yours on the List?",
+    "description": "Discover the most common passwords that put you and your business at risk, and get easy tips to improve your password security.",
+    "source_url": "https://www.huntress.com/blog/most-common-passwords",
+    "feed_source": "rss_huntress_com_blog_rss_xml",
+    "published_at": "2026-05-15T18:00:00Z",
+    "processed_at": "2026-05-18T19:20:54Z",
+    "timestamp": "2026-05-15T18:00:00Z",
+    "severity": "MEDIUM",
+    "risk_score": 5.0,
+    "threat_type": "THREAT-INTEL",
+    "tags": [
+      "rss",
+      "huntress.com"
+    ],
+    "cves": [],
     "iocs": [],
     "ioc_count": 0,
     "tlp": "TLP:CLEAR",
