@@ -142,7 +142,7 @@ class FileBackend(StorageInterface):
         else:
             # Save to specific key
             if key is None:
-                key = hashlib.md5(json.dumps(data, default=str).encode()).hexdigest()[:12]
+                key = hashlib.md5(json.dumps(data, default=str).encode(), usedforsecurity=False).hexdigest()[:12]
                 path = self._get_path(collection, key)
             
             path.write_text(json.dumps(data, indent=2, default=str))
@@ -259,7 +259,7 @@ class PostgresBackend(StorageInterface):
         from sqlalchemy import text
         
         if key is None:
-            key = hashlib.md5(json.dumps(data, default=str).encode()).hexdigest()[:12]
+            key = hashlib.md5(json.dumps(data, default=str).encode(), usedforsecurity=False).hexdigest()[:12]
         
         with engine.connect() as conn:
             conn.execute(text("""
@@ -404,7 +404,7 @@ class RedisBackend(StorageInterface):
             return FileBackend().save(collection, data, key)
         
         if key is None:
-            key = hashlib.md5(json.dumps(data, default=str).encode()).hexdigest()[:12]
+            key = hashlib.md5(json.dumps(data, default=str).encode(), usedforsecurity=False).hexdigest()[:12]
         
         redis_key = self._make_key(collection, key)
         client.set(redis_key, json.dumps(data, default=str))
@@ -503,7 +503,7 @@ class S3Backend(StorageInterface):
             return FileBackend().save(collection, data, key)
         
         if key is None:
-            key = hashlib.md5(json.dumps(data, default=str).encode()).hexdigest()[:12]
+            key = hashlib.md5(json.dumps(data, default=str).encode(), usedforsecurity=False).hexdigest()[:12]
         
         s3_key = f"{collection}/{key}.json"
         client.put_object(

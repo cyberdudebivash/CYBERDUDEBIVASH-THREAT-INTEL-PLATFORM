@@ -321,7 +321,7 @@ class IOCCorrelationEngine:
                     
                     cluster_id = hashlib.md5(
                         ",".join(sorted(component)).encode()
-                    ).hexdigest()[:12]
+                    , usedforsecurity=False).hexdigest()[:12]
                     
                     cluster = CorrelationCluster(
                         cluster_id=f"CDB-CLUSTER-{cluster_id}",

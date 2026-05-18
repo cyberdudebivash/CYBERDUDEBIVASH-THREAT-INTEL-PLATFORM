@@ -239,7 +239,7 @@ def _enrich_single(adv: Dict, engine, scored: Dict,
 
     # Campaign ID: deterministic from stix_id for correlation
     import hashlib as _hl
-    _cid_raw = _hl.md5(stix_id.encode()).hexdigest()[:8].upper()
+    _cid_raw = _hl.md5(stix_id.encode(), usedforsecurity=False).hexdigest()[:8].upper()
     campaign_id = f"CDB-CAMP-{_cid_raw}"
 
     # ai_summary: human-readable consolidated analysis (ai_summary = agent_analysis alias)

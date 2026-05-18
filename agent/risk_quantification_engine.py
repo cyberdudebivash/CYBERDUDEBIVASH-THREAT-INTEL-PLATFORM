@@ -280,7 +280,7 @@ class BrandProtectionEngine:
                 # High-confidence threats go to takedown queue
                 if conf >= 0.65:
                     takedown_queue.append({
-                        "threat_id": f"TD-{hashlib.md5(adv.get('id','unknown').encode()).hexdigest()[:8].upper()}",
+                        "threat_id": f"TD-{hashlib.md5(adv.get('id','unknown').encode(), usedforsecurity=False).hexdigest()[:8].upper()}",
                         "advisory_id": adv.get("id", ""),
                         "type": "PHISHING_INFRASTRUCTURE",
                         "confidence": round(conf, 4),

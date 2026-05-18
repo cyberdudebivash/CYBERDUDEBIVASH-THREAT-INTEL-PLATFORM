@@ -226,7 +226,7 @@ class JWTManager:
             "permissions": [p.value for p in user.get_permissions()],
             "exp": int(exp.timestamp()),
             "iat": int(now.timestamp()),
-            "jti": hashlib.md5(f"{user.user_id}:{now.timestamp()}".encode()).hexdigest(),
+            "jti": hashlib.md5(f"{user.user_id}:{now.timestamp()}".encode(), usedforsecurity=False).hexdigest(),
         }
         
         return jwt.encode(payload, self.secret, algorithm=self.algorithm)

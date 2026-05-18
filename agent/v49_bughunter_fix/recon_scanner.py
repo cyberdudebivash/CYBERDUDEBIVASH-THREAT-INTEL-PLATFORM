@@ -554,7 +554,7 @@ class SafeReconScanner:
             h = hashlib.md5(
                 f"{f.get('type')}{f.get('target')}{f.get('evidence','')}"
                 .encode()
-            ).hexdigest()
+            , usedforsecurity=False).hexdigest()
             if h not in seen_hashes:
                 seen_hashes.add(h)
                 unique_findings.append(f)

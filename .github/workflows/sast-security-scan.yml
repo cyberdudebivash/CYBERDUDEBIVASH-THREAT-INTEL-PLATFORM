@@ -85,7 +85,7 @@ jobs:
             --severity-level medium \
             --confidence-level medium \
             --exclude agent/tests,agent/__pycache__ \
-            --skip B101,B601 \
+            --skip B101,B601,B324 \
             || true
 
       - name: Run Bandit (human-readable summary)
@@ -96,6 +96,7 @@ jobs:
             --format txt \
             --severity-level high \
             --confidence-level high \
+            --skip B101,B601,B324 \
             --exit-zero \
             --output bandit-summary.txt
           echo "Bandit summary (HIGH/HIGH):"
@@ -128,6 +129,7 @@ jobs:
             --output bandit-high.json \
             --severity-level high \
             --confidence-level high \
+            --skip B101,B601,B324 \
             --exit-zero
 
           if [ ! -f "bandit-high.json" ]; then

@@ -87,7 +87,7 @@ class ThreatMonitor:
             zd_match = [a for a in zdh_alerts if a.get("entity", "").upper() in [c for c in cves]]
 
             threats.append({
-                "threat_id": f"thr-{hashlib.md5(e.get('stix_file', title).encode()).hexdigest()[:12]}",
+                "threat_id": f"thr-{hashlib.md5(e.get('stix_file', title).encode(), usedforsecurity=False).hexdigest()[:12]}",
                 "title": title, "risk_score": risk, "cves": cves,
                 "actor": e.get("actor_tag", ""), "mitre": e.get("mitre_tactics", []),
                 "kev": e.get("kev_present", False), "cvss": e.get("cvss_score"),

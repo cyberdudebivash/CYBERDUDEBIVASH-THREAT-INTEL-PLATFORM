@@ -259,7 +259,7 @@ class ThreatIntelGraph:
         else:
             for ioc in raw_iocs[:20]:
                 ioc_val = str(ioc.get("value", ioc) if isinstance(ioc, dict) else ioc)
-                ioc_id = f"indicator--{hashlib.md5(ioc_val.encode()).hexdigest()}"
+                ioc_id = f"indicator--{hashlib.md5(ioc_val.encode(), usedforsecurity=False).hexdigest()}"
                 node = ThreatGraphNode(
                     node_id=ioc_id,
                     node_type="IOC",
@@ -289,7 +289,7 @@ class ThreatIntelGraph:
         actor = advisory.get("actor_tag") or advisory.get("actor") or ""
         if actor and actor not in ("UNKNOWN", "UNC-UNKNOWN", ""):
             node = ThreatGraphNode(
-                node_id=f"threat-actor--{hashlib.md5(str(actor).encode()).hexdigest()[:16]}",
+                node_id=f"threat-actor--{hashlib.md5(str(actor).encode(), usedforsecurity=False).hexdigest()[:16]}",
                 node_type="ACTOR",
                 name=str(actor)[:80],
                 risk_score=min(10.0, risk + 1.5),
@@ -298,7 +298,7 @@ class ThreatIntelGraph:
                 added += 1
 
         # ── Advisory node always created ───────────────────────────────────
-        adv_id = f"advisory--{stix_id or hashlib.md5(title.encode()).hexdigest()[:16]}"
+        adv_id = f"advisory--{stix_id or hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:16]}"
         node = ThreatGraphNode(
             node_id=adv_id,
             node_type="ADVISORY",

@@ -303,7 +303,7 @@ class AutoRemediationEngine:
         for action_key in action_plan:
             template = REMEDIATION_ACTIONS[action_key]
             action = {
-                "action_id": f"REM-{hashlib.md5(f'{action_key}{ts}'.encode()).hexdigest()[:8].upper()}",
+                "action_id": f"REM-{hashlib.md5(f'{action_key}{ts}'.encode(), usedforsecurity=False).hexdigest()[:8].upper()}",
                 "action_type": template["action"],
                 "description": template["description"],
                 "api_endpoint": template["api_endpoint"],

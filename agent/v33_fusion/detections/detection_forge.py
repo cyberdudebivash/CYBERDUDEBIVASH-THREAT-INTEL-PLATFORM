@@ -68,7 +68,7 @@ class DetectionForge:
     def forge_from_iocs(self, title: str, iocs: Dict, cves: List[str] = None,
                          techniques: List[str] = None, actor: str = None) -> DetectionPack:
         """Generate complete detection pack from IOC data."""
-        pack_id = f"dp-{hashlib.md5(title.encode()).hexdigest()[:12]}"
+        pack_id = f"dp-{hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:12]}"
         now = datetime.now(timezone.utc).isoformat()
         cves = cves or []
         techniques = techniques or []
@@ -205,7 +205,7 @@ class DetectionForge:
     def _gen_sigma_network(self, title: str, ips: List, domains: List, actor: str = None) -> str:
         safe_title = re.sub(r'[^a-zA-Z0-9_]', '_', title[:60])
         rule = f"""title: CDB APEX - Network IOC Detection - {title[:80]}
-id: {hashlib.md5(f'sigma-net-{title}'.encode()).hexdigest()[:8]}-{hashlib.md5(title.encode()).hexdigest()[:4]}-{hashlib.md5(title.encode()).hexdigest()[4:8]}-{hashlib.md5(title.encode()).hexdigest()[8:12]}-{hashlib.md5(title.encode()).hexdigest()[:12]}
+id: {hashlib.md5(f'sigma-net-{title}'.encode(), usedforsecurity=False).hexdigest()[:8]}-{hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:4]}-{hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[4:8]}-{hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[8:12]}-{hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:12]}
 status: experimental
 description: Detects network connections to IOCs from {title[:80]}
 references:
@@ -249,7 +249,7 @@ level: high"""
 
     def _gen_sigma_hash(self, title: str, hashes: List, actor: str = None) -> str:
         rule = f"""title: CDB APEX - Hash IOC Detection - {title[:80]}
-id: {hashlib.md5(f'sigma-hash-{title}'.encode()).hexdigest()[:36]}
+id: {hashlib.md5(f'sigma-hash-{title}'.encode(), usedforsecurity=False).hexdigest()[:36]}
 status: experimental
 description: Detects file hashes from {title[:80]}
 author: CyberDudeBivash SENTINEL APEX v33.0
@@ -269,7 +269,7 @@ level: critical"""
 
     def _gen_sigma_file(self, title: str, files: List, actor: str = None) -> str:
         rule = f"""title: CDB APEX - Suspicious File Detection - {title[:80]}
-id: {hashlib.md5(f'sigma-file-{title}'.encode()).hexdigest()[:36]}
+id: {hashlib.md5(f'sigma-file-{title}'.encode(), usedforsecurity=False).hexdigest()[:36]}
 status: experimental
 description: Detects suspicious files from {title[:80]}
 author: CyberDudeBivash SENTINEL APEX v33.0

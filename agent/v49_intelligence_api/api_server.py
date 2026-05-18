@@ -172,7 +172,7 @@ class APIKeyManager:
         """Generate a new API key with tier assignment."""
         raw = f"{org_name}:{tier}:{time.time_ns()}:{os.urandom(32).hex()}"
         api_key = f"cdb_{hashlib.sha256(raw.encode()).hexdigest()[:48]}"
-        key_id = hashlib.md5(api_key.encode()).hexdigest()[:12]
+        key_id = hashlib.md5(api_key.encode(), usedforsecurity=False).hexdigest()[:12]
 
         record = {
             "key_id": key_id,
@@ -484,7 +484,7 @@ class IntelligenceLoader:
 
             if campaign_key not in campaigns:
                 campaigns[campaign_key] = {
-                    "campaign_id": hashlib.md5(campaign_key.encode()).hexdigest()[:16],
+                    "campaign_id": hashlib.md5(campaign_key.encode(), usedforsecurity=False).hexdigest()[:16],
                     "attributed_actor": actor,
                     "tactics": list(tactics),
                     "advisories": [],

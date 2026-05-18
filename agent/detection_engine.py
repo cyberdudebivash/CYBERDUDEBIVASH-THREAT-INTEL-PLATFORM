@@ -174,7 +174,7 @@ def _safe_load_json(path: Path, default: Any = None) -> Any:
 
 def _det_id(text: str) -> str:
     """Deterministic 12-char hex ID from text."""
-    return hashlib.md5(text.encode("utf-8")).hexdigest()[:12].upper()
+    return hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()[:12].upper()
 
 
 def _advisory_id(item: Dict) -> str:

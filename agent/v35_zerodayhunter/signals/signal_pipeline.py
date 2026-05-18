@@ -59,7 +59,7 @@ class ThreatSignal:
                 "severity": self.severity, "related": self.related[:15]}
 
 def _mkid(*parts) -> str:
-    return f"sig-{hashlib.md5(':'.join(str(p) for p in parts).encode()).hexdigest()[:14]}"
+    return f"sig-{hashlib.md5(':'.join(str(p) for p in parts).encode(), usedforsecurity=False).hexdigest()[:14]}"
 
 def _sev(risk: float) -> str:
     if risk >= 9: return "CRITICAL"
@@ -329,7 +329,7 @@ def correlate_signals(signals: List[ThreatSignal]) -> List[SignalCluster]:
         all_rel.discard(entity)
 
         clusters.append(SignalCluster(
-            f"cl-{hashlib.md5(entity.encode()).hexdigest()[:12]}", entity, etype, gsigs,
+            f"cl-{hashlib.md5(entity.encode(), usedforsecurity=False).hexdigest()[:12]}", entity, etype, gsigs,
             chain, completeness, comp_conf, sev, vel, tss[0] if tss else "", tss[-1] if tss else "",
             list(all_rel)[:20]))
 

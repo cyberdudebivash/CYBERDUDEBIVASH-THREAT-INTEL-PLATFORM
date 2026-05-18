@@ -67,7 +67,7 @@ def _risk_to_priority(risk_score: float) -> str:
 
 def _ticket_id(stix_id: str) -> str:
     """Generate deterministic ticket ID from stix_id."""
-    h = hashlib.md5(stix_id.encode()).hexdigest()[:8].upper()
+    h = hashlib.md5(stix_id.encode(), usedforsecurity=False).hexdigest()[:8].upper()
     ts = datetime.now(timezone.utc).strftime("%Y%m%d")
     return f"INC-{ts}-{h}"
 

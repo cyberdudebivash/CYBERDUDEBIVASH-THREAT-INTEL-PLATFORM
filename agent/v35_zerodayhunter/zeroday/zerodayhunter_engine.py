@@ -134,7 +134,7 @@ class ZeroDaySignalDetector:
                 actions.append("Monitor for lateral movement post-exploitation")
 
                 rule_name = rule["name"]
-                alert_hash = hashlib.md5(f"{cluster.entity}:{rule_name}".encode()).hexdigest()[:12]
+                alert_hash = hashlib.md5(f"{cluster.entity}:{rule_name}".encode(), usedforsecurity=False).hexdigest()[:12]
                 alerts.append(ZeroDayAlert(
                     alert_id=f"zd-{alert_hash}",
                     entity=cluster.entity, alert_type=rule["name"], severity=sev,
@@ -172,7 +172,7 @@ class AttackWaveDetector:
             peak = max(f.prob for f in high)
             secs = list(set(s for f in high for s in f.sectors))
             waves.append(AttackWave(
-                f"wave-burst-{hashlib.md5(str(len(high)).encode()).hexdigest()[:8]}",
+                f"wave-burst-{hashlib.md5(str(len(high)).encode(), usedforsecurity=False).hexdigest()[:8]}",
                 "exploit_burst", f"Exploit Burst: {len(high)} high-probability threats",
                 f"{len(high)} vulnerabilities above 50% exploitation probability. Peak: {peak*100:.0f}%.",
                 "CRITICAL" if peak >= 0.8 else "HIGH", [f.entity for f in high],
@@ -187,7 +187,7 @@ class AttackWaveDetector:
             if sec == "All Industries" or len(fs) < 4: continue
             peak = max(t.prob for t in fs)
             waves.append(AttackWave(
-                f"wave-sector-{hashlib.md5(sec.encode()).hexdigest()[:8]}",
+                f"wave-sector-{hashlib.md5(sec.encode(), usedforsecurity=False).hexdigest()[:8]}",
                 "sector_siege", f"Sector Siege: {len(fs)} threats targeting {sec}",
                 f"{len(fs)} threats converging on {sec}.", "HIGH",
                 [t.entity for t in fs], sum(t.signal_count for t in fs), len(fs), peak,
@@ -198,7 +198,7 @@ class AttackWaveDetector:
         if fast:
             pv = max(c.velocity for c in fast)
             waves.append(AttackWave(
-                f"wave-velocity-{hashlib.md5(str(pv).encode()).hexdigest()[:8]}",
+                f"wave-velocity-{hashlib.md5(str(pv).encode(), usedforsecurity=False).hexdigest()[:8]}",
                 "velocity_surge", f"Velocity Surge: {len(fast)} fast-moving clusters",
                 f"Peak velocity: {pv:.1f} signals/hour.", "HIGH",
                 [c.entity for c in fast], sum(len(c.signals) for c in fast), pv,

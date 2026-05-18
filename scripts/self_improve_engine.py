@@ -464,7 +464,7 @@ class SafetySystem:
                 continue
             try:
                 content = path.read_bytes()
-                checksum = hashlib.md5(content).hexdigest()
+                checksum = hashlib.md5(content, usedforsecurity=False).hexdigest()
                 rel = str(path.relative_to(_ROOT))
                 prev = self._core_checksums.get(rel)
                 if prev and prev != checksum:

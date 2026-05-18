@@ -82,7 +82,7 @@ def utc_now_iso() -> str:
 
 
 def sha1_short(text: str, n: int = 24) -> str:
-    return hashlib.sha1(text.encode("utf-8", errors="replace")).hexdigest()[:n]
+    return hashlib.sha1(text.encode("utf-8", errors="replace"), usedforsecurity=False).hexdigest()[:n]
 
 
 def gen_intel_id(title: str, timestamp: str) -> str:

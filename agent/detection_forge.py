@@ -292,7 +292,7 @@ class GeneratedRule:
 
 def _rule_id(prefix: str, advisory_id: str, suffix: str = "") -> str:
     raw = f"{prefix}-{advisory_id}-{suffix}"
-    return prefix + "-" + hashlib.md5(raw.encode()).hexdigest()[:8].upper()
+    return prefix + "-" + hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()[:8].upper()
 
 
 def _safe_yaml_str(s: str) -> str:
@@ -353,7 +353,7 @@ class SigmaForge:
         techniques = [t for t in (entry.get("mitre_techniques", []) or []) if isinstance(t, str)]
         severity_raw = (entry.get("severity", "medium") or "medium").upper()
         severity = SEVERITY_MAP.get(severity_raw, "medium")
-        advisory_id = entry.get("stix_id", "") or hashlib.md5(title.encode()).hexdigest()[:12]
+        advisory_id = entry.get("stix_id", "") or hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:12]
 
         if not techniques:
             return None  # No techniques → no Sigma rule
@@ -449,7 +449,7 @@ class YARAForge:
         summary = (entry.get("summary", "") or "").lower()
         full_text = f"{title} {summary} {content}"
 
-        advisory_id = entry.get("stix_id", "") or hashlib.md5(title.encode()).hexdigest()[:12]
+        advisory_id = entry.get("stix_id", "") or hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:12]
 
         # Find matching malware family
         matched_family = None
@@ -538,7 +538,7 @@ class SuricataForge:
 
         iocs = extract_iocs_from_text(text)
         advisory_id = entry.get("stix_id", "") or hashlib.md5(
-            (entry.get("title", "") or "").encode()).hexdigest()[:12]
+            (entry.get("title", "") or "").encode(), usedforsecurity=False).hexdigest()[:12]
         severity_raw = (entry.get("severity", "medium") or "medium").lower()
         title = entry.get("title", "Unknown Advisory")
 

@@ -266,7 +266,7 @@ def _get_v1_field(item: Dict, block: str, field: str, default: Any = None) -> An
 
 def _item_id(item: Dict) -> str:
     return (item.get("stix_id") or item.get("id") or
-            hashlib.md5((item.get("title") or "").encode()).hexdigest()[:12])
+            hashlib.md5((item.get("title") or "").encode(), usedforsecurity=False).hexdigest()[:12])
 
 
 # ══════════════════════════════════════════════════════════════════════════════

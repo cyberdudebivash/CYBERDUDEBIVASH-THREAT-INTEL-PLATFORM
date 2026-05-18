@@ -1178,7 +1178,7 @@ class STIXExporter:
         import hashlib as _hashlib
         _ts_now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
         _intel_id = stix_id if (isinstance(stix_id, str) and stix_id.startswith("intel--")) else (
-            "intel--" + _hashlib.sha1(f"{title}::{_ts_now}".encode("utf-8")).hexdigest()[:24]
+            "intel--" + _hashlib.sha1(f"{title}::{_ts_now}".encode("utf-8"), usedforsecurity=False).hexdigest()[:24]
         )
         # report_url: always /reports/YYYY/MM/<id>.html (relative); physical HTML
         # is produced by scripts/report_generator.py (inline) or generate_intel_reports.py.

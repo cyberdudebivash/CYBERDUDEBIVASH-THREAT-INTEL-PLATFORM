@@ -411,7 +411,7 @@ def _is_duplicate(finding: Dict, dedup_window_hours: int = 24) -> bool:
     cache = _load_dedup_cache()
     key = hashlib.md5(
         f"{finding['domain']}:{finding['source']}:{finding['title'][:50]}".encode()
-    ).hexdigest()
+    , usedforsecurity=False).hexdigest()
     now = time.time()
     if key in cache:
         age_h = (now - cache[key]) / 3600

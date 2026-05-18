@@ -233,7 +233,7 @@ class ModelRegistry:
         tags: List[str] = None,
     ) -> ModelVersion:
         """Register a new model version"""
-        model_id = hashlib.md5(name.encode()).hexdigest()[:12]
+        model_id = hashlib.md5(name.encode(), usedforsecurity=False).hexdigest()[:12]
         
         # Check for existing version
         if model_id in self._models and version in self._models[model_id]:
@@ -275,7 +275,7 @@ class ModelRegistry:
     
     def get_model(self, name: str, version: Optional[str] = None) -> Optional[ModelVersion]:
         """Get model by name and version (None for production)"""
-        model_id = hashlib.md5(name.encode()).hexdigest()[:12]
+        model_id = hashlib.md5(name.encode(), usedforsecurity=False).hexdigest()[:12]
         
         if version is None:
             # Get production version
@@ -288,7 +288,7 @@ class ModelRegistry:
     def list_models(self, name: Optional[str] = None) -> List[ModelVersion]:
         """List all model versions"""
         if name:
-            model_id = hashlib.md5(name.encode()).hexdigest()[:12]
+            model_id = hashlib.md5(name.encode(), usedforsecurity=False).hexdigest()[:12]
             return list(self._models.get(model_id, {}).values())
         
         models = []
@@ -333,7 +333,7 @@ class ModelRegistry:
         data_checksum: str,
     ) -> Dataset:
         """Register training dataset"""
-        dataset_id = hashlib.md5(f"{name}:{version}".encode()).hexdigest()[:12]
+        dataset_id = hashlib.md5(f"{name}:{version}".encode(), usedforsecurity=False).hexdigest()[:12]
         
         dataset = Dataset(
             dataset_id=dataset_id,
@@ -406,7 +406,7 @@ class ModelRegistry:
     
     def get_evaluations(self, model_name: str, version: Optional[str] = None) -> List[Dict]:
         """Get evaluation history for model"""
-        model_id = hashlib.md5(model_name.encode()).hexdigest()[:12]
+        model_id = hashlib.md5(model_name.encode(), usedforsecurity=False).hexdigest()[:12]
         evaluations = []
         
         for eval_file in self.evaluations_path.glob(f"{model_id}_*.json"):
@@ -496,7 +496,7 @@ class DriftDetector:
         
         return DriftReport(
             timestamp=datetime.utcnow().isoformat(),
-            model_id=hashlib.md5(model_name.encode()).hexdigest()[:12],
+            model_id=hashlib.md5(model_name.encode(), usedforsecurity=False).hexdigest()[:12],
             version=version,
             drift_detected=drift_detected,
             drift_score=drift_score,

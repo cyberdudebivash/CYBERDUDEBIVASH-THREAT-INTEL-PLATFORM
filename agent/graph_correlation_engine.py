@@ -127,12 +127,12 @@ class GraphAnalytics:
 
 def _node_id(node_type: str, label: str) -> str:
     raw = f"{node_type}:{label.lower().strip()}"
-    return f"node-{hashlib.md5(raw.encode()).hexdigest()}"
+    return f"node-{hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()}"
 
 
 def _edge_id(edge_type: str, src: str, tgt: str) -> str:
     raw = f"{edge_type}:{src}:{tgt}"
-    return f"edge-{hashlib.md5(raw.encode()).hexdigest()}"
+    return f"edge-{hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()}"
 
 
 def _now_iso() -> str:
@@ -457,7 +457,7 @@ class CorrelationAnalysisEngine:
                 similarity = min(1.0, round(len(actors) * 0.25, 2))
 
                 cluster = CorrelationCluster(
-                    cluster_id=f"infra-cluster-{hashlib.md5(cluster_key.encode()).hexdigest()[:8]}",
+                    cluster_id=f"infra-cluster-{hashlib.md5(cluster_key.encode(), usedforsecurity=False).hexdigest()[:8]}",
                     cluster_type="INFRASTRUCTURE",
                     member_node_ids=actor_list + [ioc_id],
                     similarity_score=similarity,
@@ -518,7 +518,7 @@ class CorrelationAnalysisEngine:
                 c2_label = self.store.nodes.get(c2, GraphNode(c2,"CAMPAIGN",c2,{},_now_iso(),_now_iso())).label
 
                 clusters.append(CorrelationCluster(
-                    cluster_id=f"camp-sim-{hashlib.md5(pair_key.encode()).hexdigest()[:8]}",
+                    cluster_id=f"camp-sim-{hashlib.md5(pair_key.encode(), usedforsecurity=False).hexdigest()[:8]}",
                     cluster_type="CAMPAIGN",
                     member_node_ids=[c1, c2],
                     similarity_score=round(jaccard, 3),
@@ -586,7 +586,7 @@ class CorrelationAnalysisEngine:
                 a2_label = self.store.nodes.get(a2, GraphNode(a2,"ACTOR",a2,{},_now_iso(),_now_iso())).label
 
                 clusters.append(CorrelationCluster(
-                    cluster_id=f"actor-cluster-{hashlib.md5(pair_key.encode()).hexdigest()[:8]}",
+                    cluster_id=f"actor-cluster-{hashlib.md5(pair_key.encode(), usedforsecurity=False).hexdigest()[:8]}",
                     cluster_type="ACTOR",
                     member_node_ids=[a1, a2],
                     similarity_score=round(jaccard, 3),

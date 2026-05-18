@@ -312,7 +312,7 @@ def generate_infrastructure_intelligence(item: Dict[str, Any]) -> str:
 
         # Infrastructure cluster summary
         cluster_seed = str(item.get("id") or item.get("title") or "")
-        cluster_h = int(hashlib.md5(cluster_seed.encode("utf-8", errors="replace")).hexdigest(), 16)
+        cluster_h = int(hashlib.md5(cluster_seed.encode("utf-8", errors="replace"), usedforsecurity=False).hexdigest(), 16)
         c2_cluster_id = f"APEX-INFRA-{cluster_h % 10000:04d}"
 
         # Build IOC infrastructure table rows

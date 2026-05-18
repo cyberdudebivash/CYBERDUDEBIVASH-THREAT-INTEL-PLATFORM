@@ -105,7 +105,7 @@ def detect_campaigns(incidents: List[Dict]) -> List[Dict]:
         if matching_actors:
             related = [i for i in incidents if i.get("threat_actor") in matching_actors]
             campaigns.append({
-                "campaign_id": f"CAMP-{hashlib.md5(campaign_name.encode()).hexdigest()[:8].upper()}",
+                "campaign_id": f"CAMP-{hashlib.md5(campaign_name.encode(), usedforsecurity=False).hexdigest()[:8].upper()}",
                 "campaign_name": campaign_name,
                 "actors_involved": matching_actors,
                 "incident_count": len(related),
@@ -129,7 +129,7 @@ def generate_hunts(intel: List[Dict], incidents: List[Dict]) -> List[Dict]:
         if not template:
             continue
 
-        hunt_id = f"HUNT-{hashlib.md5(f'{technique}:{count}'.encode()).hexdigest()[:8].upper()}"
+        hunt_id = f"HUNT-{hashlib.md5(f'{technique}:{count}'.encode(), usedforsecurity=False).hexdigest()[:8].upper()}"
         hunts.append({
             "hunt_id": hunt_id,
             "technique": technique,

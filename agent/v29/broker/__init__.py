@@ -169,7 +169,7 @@ class MemoryBroker(BrokerInterface):
     
     async def publish(self, topic: str, payload: Any, priority: MessagePriority = MessagePriority.NORMAL) -> str:
         """Publish to in-memory queue"""
-        msg_id = hashlib.md5(f"{topic}:{time.time()}:{json.dumps(payload, default=str)}".encode()).hexdigest()[:16]
+        msg_id = hashlib.md5(f"{topic}:{time.time()}:{json.dumps(payload, default=str)}".encode(), usedforsecurity=False).hexdigest()[:16]
         
         message = Message(
             id=msg_id,
@@ -307,7 +307,7 @@ class RedisBroker(BrokerInterface):
         if client is None:
             return await MemoryBroker().publish(topic, payload, priority)
         
-        msg_id = hashlib.md5(f"{topic}:{time.time()}".encode()).hexdigest()[:16]
+        msg_id = hashlib.md5(f"{topic}:{time.time()}".encode(), usedforsecurity=False).hexdigest()[:16]
         
         message_data = {
             "id": msg_id,
@@ -493,7 +493,7 @@ class KafkaBroker(BrokerInterface):
         if producer is None:
             return await MemoryBroker().publish(topic, payload, priority)
         
-        msg_id = hashlib.md5(f"{topic}:{time.time()}".encode()).hexdigest()[:16]
+        msg_id = hashlib.md5(f"{topic}:{time.time()}".encode(), usedforsecurity=False).hexdigest()[:16]
         
         message_data = {
             "id": msg_id,
