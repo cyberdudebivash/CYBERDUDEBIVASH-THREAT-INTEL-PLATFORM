@@ -284,7 +284,7 @@ class PremiumReportEngine:
 
         report_id = hashlib.md5(
             f"{config.report_type}:{datetime.now(timezone.utc).isoformat()}".encode()
-        ).hexdigest()[:16]
+        , usedforsecurity=False).hexdigest()[:16]
 
         ts = datetime.now(timezone.utc)
 
@@ -702,7 +702,7 @@ class PremiumReportEngine:
         # Report object
         indicator_ids = []
         for i, entry in enumerate(entries[:100]):
-            ind_id = f"indicator--{hashlib.md5(f'{report_id}:{i}'.encode()).hexdigest()}"
+            ind_id = f"indicator--{hashlib.md5(f'{report_id}:{i}'.encode(), usedforsecurity=False).hexdigest()}"
             indicator_ids.append(ind_id)
 
             ioc_data = entry.get("iocs", entry.get("ioc_counts", {}))

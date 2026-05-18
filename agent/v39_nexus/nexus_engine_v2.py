@@ -132,7 +132,7 @@ def build_detection_pack(intel):
         sev  = item.get("severity", "MEDIUM")
         tactics = item.get("mitre_tactics", [])
         cves = extract_cves(item.get("title",""))
-        sfx  = hashlib.md5(item.get("title","").encode()).hexdigest()[:8].upper()
+        sfx  = hashlib.md5(item.get("title","").encode(), usedforsecurity=False).hexdigest()[:8].upper()
         if risk >= 5:
             sigma.append({"id": f"CDB-SIG-{sfx}", "title": item.get("title","")[:60], "level": sev.lower(), "tactics": tactics[:3], "cves": cves})
             suricata.append({"id": f"CDB-SUR-{sfx}", "msg": f"CDB-THREAT {item.get('title','')[:50]}", "severity": sev})

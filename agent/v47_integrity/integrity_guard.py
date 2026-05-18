@@ -410,7 +410,7 @@ class ContentFingerprintDedup:
 
         # Hash each shingle, combine via sorted concatenation
         hashes = sorted([
-            hashlib.md5(s.encode()).hexdigest()[:8]
+            hashlib.md5(s.encode(), usedforsecurity=False).hexdigest()[:8]
             for s in shingles
         ])
 

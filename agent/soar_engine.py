@@ -117,11 +117,11 @@ def _load_manifest() -> List[Dict]:
 
 
 def _action_id(action_type: str, target: str) -> str:
-    return f"ACT-{hashlib.md5(f'{action_type}:{target}'.encode()).hexdigest()[:8].upper()}"
+    return f"ACT-{hashlib.md5(f'{action_type}:{target}'.encode(), usedforsecurity=False).hexdigest()[:8].upper()}"
 
 
 def _workflow_id(trigger: str) -> str:
-    return f"WF-{hashlib.md5(f'{trigger}{datetime.now(timezone.utc).date()}'.encode()).hexdigest()[:10].upper()}"
+    return f"WF-{hashlib.md5(f'{trigger}{datetime.now(timezone.utc).date()}'.encode(), usedforsecurity=False).hexdigest()[:10].upper()}"
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -207,7 +207,7 @@ _RE_ACTOR_KEYWORDS = re.compile(
 def _ioc_id(ioc_type: str, value: str) -> str:
     """Deterministic, stable IOC identifier."""
     raw = f"{ioc_type}:{value.lower().strip()}"
-    return f"ioc-{hashlib.md5(raw.encode()).hexdigest()}"
+    return f"ioc-{hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()}"
 
 
 def _is_private_ip(ip: str) -> bool:
@@ -541,7 +541,7 @@ class _StructuralFallbackStrategy:
             ))
 
         # Generate advisory-fingerprint IOC from title hash
-        title_hash = hashlib.md5(title.encode()).hexdigest()
+        title_hash = hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()
         iocs.append(_make_ioc(
             "file_hash", title_hash,
             25.0,

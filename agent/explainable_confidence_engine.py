@@ -145,7 +145,7 @@ class ConfidenceAuditTrail:
     def reproduce(self) -> bool:
         """Verify the score hash matches current inputs (audit check)."""
         check_str = json.dumps(self.dimension_summary, sort_keys=True)
-        check_hash = hashlib.md5(check_str.encode()).hexdigest()
+        check_hash = hashlib.md5(check_str.encode(), usedforsecurity=False).hexdigest()
         return check_hash == self.score_hash
 
 
@@ -698,7 +698,7 @@ class ExplainableConfidenceEngine:
         # Score hash (reproducibility proof)
         score_hash = hashlib.md5(
             json.dumps(dim_summary, sort_keys=True).encode()
-        ).hexdigest()
+        , usedforsecurity=False).hexdigest()
 
         # Executive rationale
         top_dim = max(dims, key=lambda d: d.weighted_score)

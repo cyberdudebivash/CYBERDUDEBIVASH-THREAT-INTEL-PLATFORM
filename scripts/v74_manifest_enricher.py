@@ -243,21 +243,21 @@ def compute_correlations(data: list) -> dict:
 
     for cve, idxs in cve_groups.items():
         if len(idxs) >= 2:
-            cid = "CVE-" + hashlib.md5(cve.encode()).hexdigest()[:8].upper()
+            cid = "CVE-" + hashlib.md5(cve.encode(), usedforsecurity=False).hexdigest()[:8].upper()
             for idx in idxs:
                 if idx not in assignments or assignments[idx][2] < 90:
                     assignments[idx] = (cid, "cve", 90, len(idxs))
 
     for actor, idxs in actor_groups.items():
         if len(idxs) >= 2:
-            cid = "ACT-" + hashlib.md5(actor.encode()).hexdigest()[:8].upper()
+            cid = "ACT-" + hashlib.md5(actor.encode(), usedforsecurity=False).hexdigest()[:8].upper()
             for idx in idxs:
                 if idx not in assignments or assignments[idx][2] < 80:
                     assignments[idx] = (cid, "actor", 80, len(idxs))
 
     for ttp_key, idxs in ttp_groups.items():
         if len(idxs) >= 2:
-            cid = "TTP-" + hashlib.md5(ttp_key.encode()).hexdigest()[:8].upper()
+            cid = "TTP-" + hashlib.md5(ttp_key.encode(), usedforsecurity=False).hexdigest()[:8].upper()
             for idx in idxs:
                 if idx not in assignments:
                     assignments[idx] = (cid, "ttp", 65, len(idxs))
@@ -723,7 +723,7 @@ def openclaw_enrich(data: list) -> dict:
                 "+".join(sorted(phases_hit)) if phases_hit else "none",
                 "+".join(sorted(attack_surface)),
             ]
-            fingerprint = hashlib.md5("|".join(fp_components).encode()).hexdigest()[:12]
+            fingerprint = hashlib.md5("|".join(fp_components).encode(), usedforsecurity=False).hexdigest()[:12]
 
             # ── Finalize ──
             score = min(score, 100)

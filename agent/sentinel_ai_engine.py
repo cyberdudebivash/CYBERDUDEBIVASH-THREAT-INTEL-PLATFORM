@@ -1057,7 +1057,7 @@ class SentinelAIEngine:
         campaign_key = actor_name.replace(" ", "_").lower()
 
         if campaign_key not in self._campaign_db:
-            camp_id = "CDB-CAMP-" + hashlib.md5(actor_name.encode()).hexdigest()[:8].upper()
+            camp_id = "CDB-CAMP-" + hashlib.md5(actor_name.encode(), usedforsecurity=False).hexdigest()[:8].upper()
             self._campaign_db[campaign_key] = {
                 "id": camp_id,
                 "actor": actor_name,
@@ -1089,7 +1089,7 @@ class SentinelAIEngine:
     def assess_advisory(self, entry: Dict) -> AIAssessment:
         """Full AI assessment pipeline for a single advisory."""
         title = entry.get("title", "Unknown")
-        advisory_id = entry.get("stix_id", "") or hashlib.md5(title.encode()).hexdigest()[:12]
+        advisory_id = entry.get("stix_id", "") or hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:12]
 
         # Run all analysis modules
         signals = self._detect_exploit_signals(entry)

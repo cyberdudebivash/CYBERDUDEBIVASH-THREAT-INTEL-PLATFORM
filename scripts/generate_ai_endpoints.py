@@ -113,7 +113,7 @@ def _load_apex_report() -> Dict:
 
 
 def _sid(seed: str, pfx: str) -> str:
-    return f"{pfx}-{hashlib.md5(seed.encode()).hexdigest()[:8].upper()}"
+    return f"{pfx}-{hashlib.md5(seed.encode(), usedforsecurity=False).hexdigest()[:8].upper()}"
 
 
 # ── ISSUE 2 FIX: Single Source of Truth for priority ─────────────────────────

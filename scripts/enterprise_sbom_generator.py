@@ -201,7 +201,7 @@ def build_cyclonedx(py_packages: list[dict], npm_packages: list[dict]) -> dict:
         "bomFormat": "CycloneDX",
         "specVersion": "1.4",
         "version": 1,
-        "serialNumber": f"urn:uuid:{hashlib.md5(NAMESPACE.encode()).hexdigest()}",
+        "serialNumber": f"urn:uuid:{hashlib.md5(NAMESPACE.encode(), usedforsecurity=False).hexdigest()}",
         "metadata": {
             "timestamp": now,
             "tools": [{"vendor": "CYBERDUDEBIVASH", "name": "SENTINEL-APEX-SBOM", "version": PLATFORM_VERSION}],

@@ -1552,7 +1552,7 @@ _CAMPAIGN_NAME_SUFFIXES = [
 def _derive_campaign_name(item: Dict[str, Any]) -> str:
     """Derive deterministic operation name from advisory hash."""
     seed = str(item.get("id") or item.get("stix_id") or item.get("title") or "")
-    h = int(hashlib.md5(seed.encode("utf-8", errors="replace")).hexdigest(), 16)
+    h = int(hashlib.md5(seed.encode("utf-8", errors="replace"), usedforsecurity=False).hexdigest(), 16)
     prefix = _CAMPAIGN_NAME_PREFIXES[h % len(_CAMPAIGN_NAME_PREFIXES)]
     suffix = _CAMPAIGN_NAME_SUFFIXES[(h >> 8) % len(_CAMPAIGN_NAME_SUFFIXES)]
     return f"OPERATION {prefix}-{suffix}"
@@ -2165,7 +2165,7 @@ def generate_enhanced_sigma(title: str, ttps: list, iocs: list, item: Dict[str, 
         level = "high" if vuln_class in ("remote_code_execution", "ransomware", "auth_bypass", "command_injection") else "medium"
 
         return f"""title: APEX_{safe_title}
-id: apex-{hashlib.md5(title.encode()).hexdigest()[:12]}
+id: apex-{hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:12]}
 status: experimental
 description: >
   APEX-generated Sigma detection for: {title[:120]}
@@ -2484,7 +2484,7 @@ def generate_executive_summary(item):
             product = title[:60] if title else "the affected system"
 
         seed_str  = str(item.get("id") or item.get("stix_id") or title)
-        seed_hash = int(hashlib.md5(seed_str.encode("utf-8", errors="replace")).hexdigest(), 16)
+        seed_hash = int(hashlib.md5(seed_str.encode("utf-8", errors="replace"), usedforsecurity=False).hexdigest(), 16)
 
         templates = _EXEC_SUMMARY_TEMPLATES.get(vuln_class, _EXEC_SUMMARY_TEMPLATES["generic"])
         template  = templates[seed_hash % len(templates)]

@@ -158,7 +158,7 @@ def _item_fingerprints(item: Dict) -> Set[str]:
     # Title-based fingerprint (normalised lowercase hash)
     title = item.get("title", "")
     if title and isinstance(title, str) and title.strip():
-        fps.add("title:" + hashlib.sha1(title.strip().lower().encode()).hexdigest())
+        fps.add("title:" + hashlib.sha1(title.strip().lower().encode(), usedforsecurity=False).hexdigest())
 
     return fps
 

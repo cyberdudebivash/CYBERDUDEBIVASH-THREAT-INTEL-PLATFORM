@@ -133,13 +133,13 @@ def _safe_load_json(path: Path, default: Any = None) -> Any:
 
 def _node_id(node_type: str, label: str) -> str:
     """Deterministic node ID: TYPE:HASH12"""
-    h = hashlib.md5(f"{node_type}:{label}".encode()).hexdigest()[:12].upper()
+    h = hashlib.md5(f"{node_type}:{label}".encode(), usedforsecurity=False).hexdigest()[:12].upper()
     return f"{node_type}:{h}"
 
 
 def _edge_id(src_id: str, edge_type: str, dst_id: str) -> str:
     """Deterministic edge ID."""
-    h = hashlib.md5(f"{src_id}|{edge_type}|{dst_id}".encode()).hexdigest()[:12].upper()
+    h = hashlib.md5(f"{src_id}|{edge_type}|{dst_id}".encode(), usedforsecurity=False).hexdigest()[:12].upper()
     return f"E:{h}"
 
 
@@ -382,7 +382,7 @@ class ThreatGraphBuilder:
         cve_id = self._extract_cve_id(item)
         if not cve_id:
             # Use stix_id as synthetic identifier
-            cve_id = f"ADV-{hashlib.md5(title.encode()).hexdigest()[:8].upper()}"
+            cve_id = f"ADV-{hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:8].upper()}"
 
         cve_nid = self.nodes.upsert(NT_CVE, cve_id, {
             "title": title,

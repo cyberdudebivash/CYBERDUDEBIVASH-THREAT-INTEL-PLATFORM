@@ -41,7 +41,7 @@ class DetectionRuleGenerator:
             classified[ioc_type].append(ioc)
 
         rules = {}
-        rule_id = hashlib.md5("|".join(sorted(ioc_values)).encode()).hexdigest()[:12]
+        rule_id = hashlib.md5("|".join(sorted(ioc_values)).encode(), usedforsecurity=False).hexdigest()[:12]
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         for fmt in formats:

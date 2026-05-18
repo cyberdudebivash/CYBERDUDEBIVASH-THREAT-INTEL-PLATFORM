@@ -286,7 +286,7 @@ class AttackSimulationEngine:
             prob = fc.get("probability_pct", 0)
 
             sim = {
-                "simulation_id": f"sim-{hashlib.md5(entity.encode()).hexdigest()[:10]}",
+                "simulation_id": f"sim-{hashlib.md5(entity.encode(), usedforsecurity=False).hexdigest()[:10]}",
                 "threat": entity,
                 "exploitation_probability": prob,
                 "attack_path": [

@@ -186,7 +186,7 @@ def _is_kev(item: Dict) -> bool:
 def _item_id(item: Dict) -> str:
     return item.get("stix_id") or item.get("id") or hashlib.md5(
         (item.get("title") or "").encode()
-    ).hexdigest()[:12]
+    , usedforsecurity=False).hexdigest()[:12]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -929,7 +929,7 @@ def module_revenue_productization(item: Dict) -> Dict:
 
     # Marketplace listing structure
     marketplace_listing = {
-        "listing_id":       hashlib.md5(_item_id(item).encode()).hexdigest()[:8].upper(),
+        "listing_id":       hashlib.md5(_item_id(item).encode(), usedforsecurity=False).hexdigest()[:8].upper(),
         "product_name":     f"SENTINEL APEX: {(item.get('title') or 'Threat Intelligence')[:60]}",
         "category":         "Threat Intelligence",
         "subcategory":      vuln_type.upper().replace("_", " "),

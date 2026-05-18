@@ -719,7 +719,7 @@ class ConvergenceEngine:
 
         # Save blogger reports individually
         for rpt in reports:
-            rid = hashlib.md5(rpt.get("title", "").encode()).hexdigest()[:10]
+            rid = hashlib.md5(rpt.get("title", "").encode(), usedforsecurity=False).hexdigest()[:10]
             with open(os.path.join(d, "reports", f"rpt-{rid}.json"), 'w') as f:
                 json.dump(rpt, f, indent=2, default=str)
 

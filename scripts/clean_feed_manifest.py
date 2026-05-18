@@ -72,7 +72,7 @@ def utc_now_iso() -> str:
 
 
 def sha1_id(title: str, timestamp: str) -> str:
-    return "intel--" + hashlib.sha1(f"{title}::{timestamp}".encode("utf-8")).hexdigest()[:24]
+    return "intel--" + hashlib.sha1(f"{title}::{timestamp}".encode("utf-8"), usedforsecurity=False).hexdigest()[:24]
 
 
 def strip_blog(url: str | None) -> str:

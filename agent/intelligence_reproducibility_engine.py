@@ -112,12 +112,12 @@ def _now_iso() -> str:
 
 
 def _short_id(data: str) -> str:
-    return hashlib.md5(data.encode()).hexdigest()[:12]
+    return hashlib.md5(data.encode(), usedforsecurity=False).hexdigest()[:12]
 
 
 def _md5(data: Any) -> str:
     canonical = json.dumps(data, sort_keys=True, default=str)
-    return hashlib.md5(canonical.encode()).hexdigest()
+    return hashlib.md5(canonical.encode(), usedforsecurity=False).hexdigest()
 
 
 def _atomic_write(path: Path, data: Any) -> None:
@@ -278,7 +278,7 @@ class IntelligenceLineageTracker:
 
         # Chain lineage hash
         chain = "".join(s["output_hash"] for s in stages)
-        lineage_hash = hashlib.md5(chain.encode()).hexdigest()
+        lineage_hash = hashlib.md5(chain.encode(), usedforsecurity=False).hexdigest()
 
         lineage_id = _short_id(advisory_id + lineage_hash)
         record = LineageRecord(

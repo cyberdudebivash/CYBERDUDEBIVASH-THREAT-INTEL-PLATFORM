@@ -125,7 +125,7 @@ def _advisory_schema_valid(advisory: Dict) -> bool:
 
 def _pipeline_id() -> str:
     raw = f"pipeline:{_now_iso()}"
-    return f"pipe-{hashlib.md5(raw.encode()).hexdigest()[:12]}"
+    return f"pipe-{hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()[:12]}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────

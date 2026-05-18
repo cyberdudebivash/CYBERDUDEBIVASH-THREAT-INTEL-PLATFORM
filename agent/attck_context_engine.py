@@ -341,7 +341,7 @@ class AttackPathInferer:
                         inferred.append(next_t)
 
         path = AttackPath(
-            path_id=f"path-{hashlib.md5(path_label.encode()).hexdigest()[:8]}",
+            path_id=f"path-{hashlib.md5(path_label.encode(), usedforsecurity=False).hexdigest()[:8]}",
             sequence=sorted_ctx,
             tactics_covered=tactics_covered,
             kill_chain_coverage=kc_coverage,

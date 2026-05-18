@@ -282,7 +282,7 @@ class RBACEngine:
     ) -> AccessDecision:
         now_ts  = time.time()
         now_iso = datetime.now(timezone.utc).isoformat()
-        ip_hash = hashlib.md5(ip.encode()).hexdigest()[:12] if ip else "unknown"
+        ip_hash = hashlib.md5(ip.encode(), usedforsecurity=False).hexdigest()[:12] if ip else "unknown"
         audit_id = self._audit_id()
 
         profile = self._tenants.get(tenant_id)
@@ -445,7 +445,7 @@ class RBACEngine:
     def _audit_id() -> str:
         return hashlib.md5(
             f"{time.time_ns()}".encode()
-        ).hexdigest()[:16]
+        , usedforsecurity=False).hexdigest()[:16]
 
 # ── SLA MONITOR ───────────────────────────────────────────────────────────────
 

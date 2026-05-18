@@ -241,7 +241,7 @@ class RevenueLedger:
         try:
             event_id = payload.get("sale_id") or hashlib.md5(
                 json.dumps(payload, sort_keys=True).encode()
-            ).hexdigest()[:16]
+            , usedforsecurity=False).hexdigest()[:16]
             amount = float(payload.get("price", 0)) / 100.0  # cents → dollars
             tenant_id = payload.get("email", "unknown")
             affiliate = payload.get("referrer_id")
@@ -271,7 +271,7 @@ class RevenueLedger:
             obj = payload.get("data", {}).get("object", {})
             event_id = obj.get("id") or hashlib.md5(
                 json.dumps(obj, sort_keys=True).encode()
-            ).hexdigest()[:16]
+            , usedforsecurity=False).hexdigest()[:16]
             amount = float(obj.get("amount_paid", 0)) / 100.0
             tenant_id = obj.get("customer_email") or obj.get("customer", "unknown")
             ev = RevenueEvent(
@@ -551,7 +551,7 @@ class EnterpriseMonetizationAnalyticsEngine:
                       source: str, tier_to: str,
                       affiliate_id: Optional[str] = None) -> RevenueEvent:
         ev = RevenueEvent(
-            event_id=f"direct-{hashlib.md5(f'{tenant_id}{amount}{source}'.encode()).hexdigest()[:12]}",
+            event_id=f"direct-{hashlib.md5(f'{tenant_id}{amount}{source}'.encode(), usedforsecurity=False).hexdigest()[:12]}",
             tenant_id=tenant_id,
             source=RevenueSource(source),
             amount_usd=amount,

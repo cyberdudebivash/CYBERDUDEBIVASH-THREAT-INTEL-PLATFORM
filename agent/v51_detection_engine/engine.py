@@ -524,7 +524,7 @@ class SuricataGenerator:
             by_type.setdefault(ioc.ioc_type, []).append(ioc)
 
         rule_lines = []
-        sid_base = int(hashlib.md5(batch_id.encode()).hexdigest()[:6], 16) % 900000 + 9000000
+        sid_base = int(hashlib.md5(batch_id.encode(), usedforsecurity=False).hexdigest()[:6], 16) % 900000 + 9000000
 
         # IP rules
         for i, ip_ioc in enumerate(by_type.get("ipv4", [])[:200]):
@@ -607,7 +607,7 @@ class DetectionEngine:
     def run(self) -> Dict[str, Any]:
         """Execute the full detection rule generation pipeline."""
         start_time = datetime.now(timezone.utc)
-        batch_id = hashlib.md5(start_time.isoformat().encode()).hexdigest()[:12]
+        batch_id = hashlib.md5(start_time.isoformat().encode(), usedforsecurity=False).hexdigest()[:12]
 
         logger.info(f"Detection Engine v51 starting - batch {batch_id}")
 

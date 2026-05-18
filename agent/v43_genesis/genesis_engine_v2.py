@@ -392,7 +392,7 @@ def build_detection_generator(intel: List[Dict]) -> Dict:
         severity = item.get("severity", "MEDIUM")
         tactics = item.get("mitre_tactics", [])
         cves = extract_cves(title)
-        rule_suffix = hashlib.md5(title.encode()).hexdigest()[:8].upper()
+        rule_suffix = hashlib.md5(title.encode(), usedforsecurity=False).hexdigest()[:8].upper()
 
         if risk >= 5:
             # Sigma rule

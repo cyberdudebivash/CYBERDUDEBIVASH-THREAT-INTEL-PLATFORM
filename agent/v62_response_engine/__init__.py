@@ -97,7 +97,7 @@ def generate_responses(incidents: List[Dict]) -> List[Dict]:
                 if rule["check"](incident):
                     action_id = hashlib.md5(
                         f"{incident['incident_id']}:{rule['action_type']}:{ts}".encode()
-                    ).hexdigest()[:12]
+                    , usedforsecurity=False).hexdigest()[:12]
 
                     responses.append({
                         "action_id": f"RSP-{action_id.upper()}",

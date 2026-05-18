@@ -223,7 +223,7 @@ class SignalNormalizer:
         sectors = entry.get("sectors", [])
 
         return {
-            "signal_id": stix_file or f"sig-{hashlib.md5(json.dumps(entry, default=str).encode()).hexdigest()[:12]}",
+            "signal_id": stix_file or f"sig-{hashlib.md5(json.dumps(entry, default=str).encode(), usedforsecurity=False).hexdigest()[:12]}",
             "title": title,
             "source_url": entry.get("source_url", entry.get("blog_url", "")),
             "risk_score": entry.get("risk_score", 0),
@@ -388,7 +388,7 @@ class EntityExtractor:
         actor_aliases = signal.get("actor_aliases", [])
         if actor_id:
             canonical, aliases = self._resolve_actor(actor_id, actor_aliases, title_lower)
-            eid = f"actor--{hashlib.md5(canonical.lower().encode()).hexdigest()[:12]}"
+            eid = f"actor--{hashlib.md5(canonical.lower().encode(), usedforsecurity=False).hexdigest()[:12]}"
             entities.append(FusionEntity(
                 entity_id=eid,
                 entity_type=EntityType.THREAT_ACTOR,
@@ -407,7 +407,7 @@ class EntityExtractor:
         detected_sectors = self._detect_sectors(title_lower)
         all_sectors = list(set(sectors + detected_sectors))
         for sector in all_sectors:
-            eid = f"sector--{hashlib.md5(sector.lower().encode()).hexdigest()[:10]}"
+            eid = f"sector--{hashlib.md5(sector.lower().encode(), usedforsecurity=False).hexdigest()[:10]}"
             entities.append(FusionEntity(
                 entity_id=eid,
                 entity_type=EntityType.SECTOR,
@@ -424,7 +424,7 @@ class EntityExtractor:
         for ioc_type, ioc_list in iocs.items():
             if isinstance(ioc_list, list):
                 for ioc_val in ioc_list[:50]:  # Cap per-signal IOC extraction
-                    eid = f"ioc--{hashlib.md5(f'{ioc_type}:{ioc_val}'.encode()).hexdigest()[:12]}"
+                    eid = f"ioc--{hashlib.md5(f'{ioc_type}:{ioc_val}'.encode(), usedforsecurity=False).hexdigest()[:12]}"
                     entities.append(FusionEntity(
                         entity_id=eid,
                         entity_type=EntityType.IOC,
@@ -458,7 +458,7 @@ class EntityExtractor:
                 # Try to extract malware name from context
                 malware_name = self._extract_malware_name(signal.get("title", ""), kw)
                 if malware_name:
-                    eid = f"malware--{hashlib.md5(malware_name.lower().encode()).hexdigest()[:12]}"
+                    eid = f"malware--{hashlib.md5(malware_name.lower().encode(), usedforsecurity=False).hexdigest()[:12]}"
                     entities.append(FusionEntity(
                         entity_id=eid,
                         entity_type=EntityType.MALWARE,
@@ -749,7 +749,7 @@ class ThreatContextBuilder:
         entity_confidences = [e.confidence for e in entities]
         confidence = ConfidenceScorer.aggregate_confidence(entity_confidences)
 
-        context_id = f"ctx-{hashlib.md5(f'{title}:{now}'.encode()).hexdigest()[:12]}"
+        context_id = f"ctx-{hashlib.md5(f'{title}:{now}'.encode(), usedforsecurity=False).hexdigest()[:12]}"
 
         return FusionContext(
             context_id=context_id,

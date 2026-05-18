@@ -168,7 +168,7 @@ def _extract_ttps(item: Dict) -> List[str]:
 
 
 def _short_id(seed: str, prefix: str) -> str:
-    return f"{prefix}-{hashlib.md5(seed.encode()).hexdigest()[:8].upper()}"
+    return f"{prefix}-{hashlib.md5(seed.encode(), usedforsecurity=False).hexdigest()[:8].upper()}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

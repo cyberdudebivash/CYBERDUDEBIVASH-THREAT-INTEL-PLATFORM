@@ -221,7 +221,7 @@ def _load_manifest() -> List[Dict]:
 
 
 def _ttp_id(ttp: str) -> str:
-    return hashlib.md5(ttp.encode()).hexdigest()[:8].upper()
+    return hashlib.md5(ttp.encode(), usedforsecurity=False).hexdigest()[:8].upper()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -494,7 +494,7 @@ level: high
         rules_generated = 0
         for ttp in top_ttps:
             if ttp in self.SIGMA_TEMPLATES:
-                rule_id = hashlib.md5(f"CDB-SIGMA-{ttp}".encode()).hexdigest()
+                rule_id = hashlib.md5(f"CDB-SIGMA-{ttp}".encode(), usedforsecurity=False).hexdigest()
                 rule = self.SIGMA_TEMPLATES[ttp].format(
                     rule_id=rule_id,
                     date=datetime.now(timezone.utc).strftime("%Y/%m/%d"),

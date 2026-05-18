@@ -232,7 +232,7 @@ class HoneypotGrid:
             "db_mysql": [("root", ""), ("root", "root"), ("admin", "admin123")],
             "smtp": [("admin", "password"), ("postmaster", "postmaster")],
         }
-        return [{"username": u, "password_hash": hashlib.md5(p.encode()).hexdigest()[:8]}
+        return [{"username": u, "password_hash": hashlib.md5(p.encode(), usedforsecurity=False).hexdigest()[:8]}
                 for u, p in creds.get(hp_type, [])]
 
 

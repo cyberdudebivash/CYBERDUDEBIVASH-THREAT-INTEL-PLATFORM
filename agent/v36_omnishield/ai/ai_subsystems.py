@@ -76,7 +76,7 @@ class AIContextEngine:
             zdh_match = [a for a in zdh_alerts if a.get("entity", "").upper() in [c.upper() for c in cves]]
 
             narrative = {
-                "narrative_id": f"nar-{hashlib.md5(actor.encode()).hexdigest()[:10]}",
+                "narrative_id": f"nar-{hashlib.md5(actor.encode(), usedforsecurity=False).hexdigest()[:10]}",
                 "actor": actor,
                 "event_count": len(events),
                 "cves_involved": cves[:10],
@@ -151,7 +151,7 @@ class BehavioralAnomalyDetector:
             anomaly_score = max(risk_z, ioc_z)
             if anomaly_score > 2.0:
                 anomalies.append({
-                    "anomaly_id": f"anom-{hashlib.md5(e.get('stix_file', str(i)).encode()).hexdigest()[:10]}",
+                    "anomaly_id": f"anom-{hashlib.md5(e.get('stix_file', str(i)).encode(), usedforsecurity=False).hexdigest()[:10]}",
                     "title": e.get("title", "")[:80],
                     "anomaly_score": round(anomaly_score, 2),
                     "risk_zscore": round(risk_z, 2),
@@ -226,7 +226,7 @@ class AgenticSecurityAI:
             priority, rationale = self.TRIAGE_MATRIX.get(key, ("P4_LOW", "Standard processing"))
 
             triage = {
-                "triage_id": f"tri-{hashlib.md5(e.get('stix_file', title).encode()).hexdigest()[:10]}",
+                "triage_id": f"tri-{hashlib.md5(e.get('stix_file', title).encode(), usedforsecurity=False).hexdigest()[:10]}",
                 "title": title[:80], "priority": priority, "rationale": rationale,
                 "risk_score": risk, "kev": kev, "actor": actor,
                 "cves": [c.upper() for c in cves], "zeroday_match": has_zd,
@@ -431,7 +431,7 @@ class SyntheticThreatTraining:
             real_risk = statistics.mean(e.get("risk_score", 5) for e in matching) if matching else 7.0
 
             scenario = {
-                "scenario_id": f"syn-{hashlib.md5(tpl['name'].encode()).hexdigest()[:10]}",
+                "scenario_id": f"syn-{hashlib.md5(tpl['name'].encode(), usedforsecurity=False).hexdigest()[:10]}",
                 "name": tpl["name"],
                 "attack_chain": tpl["chain"],
                 "simulated_actors": tpl["actors"],

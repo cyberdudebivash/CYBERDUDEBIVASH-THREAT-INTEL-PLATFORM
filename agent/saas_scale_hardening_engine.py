@@ -111,7 +111,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 def _short_id(s: str) -> str:
-    return hashlib.md5(s.encode()).hexdigest()[:12]
+    return hashlib.md5(s.encode(), usedforsecurity=False).hexdigest()[:12]
 
 def _atomic_write(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -236,7 +236,7 @@ def _run_module(module_path: str, class_name: str, method_name: str) -> ModuleRu
 def _input_fingerprint() -> str:
     """Hash the most recent intel report files to detect if input changed."""
     intel_dir = DATA_DIR / "intelligence"
-    h = hashlib.md5()
+    h = hashlib.md5(, usedforsecurity=False)
     for p in sorted((intel_dir / "reports").glob("*.json"))[-5:] if (intel_dir / "reports").exists() else []:
         try:
             h.update(str(p.stat().st_mtime).encode())

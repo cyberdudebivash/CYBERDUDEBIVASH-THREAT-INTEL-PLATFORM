@@ -110,7 +110,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 def _short_id(s: str) -> str:
-    return hashlib.md5(s.encode()).hexdigest()[:12]
+    return hashlib.md5(s.encode(), usedforsecurity=False).hexdigest()[:12]
 
 def _atomic_write(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

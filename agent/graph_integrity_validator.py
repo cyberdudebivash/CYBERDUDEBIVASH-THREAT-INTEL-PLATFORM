@@ -106,7 +106,7 @@ def _now_iso() -> str:
 
 
 def _short_id(data: str) -> str:
-    return hashlib.md5(data.encode()).hexdigest()[:12]
+    return hashlib.md5(data.encode(), usedforsecurity=False).hexdigest()[:12]
 
 
 def _atomic_write(path: Path, data: Any) -> None:
@@ -160,7 +160,7 @@ def _compute_graph_hash(nodes: Dict, edges: List[Dict]) -> str:
         {"node_ids": sorted_node_ids, "edge_ids": sorted_edge_ids},
         sort_keys=True
     )
-    return hashlib.md5(canonical.encode()).hexdigest()
+    return hashlib.md5(canonical.encode(), usedforsecurity=False).hexdigest()
 
 
 # ── VALIDATORS ───────────────────────────────────────────────────────────────
