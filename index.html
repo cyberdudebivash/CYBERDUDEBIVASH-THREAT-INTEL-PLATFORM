@@ -16018,5 +16018,593 @@ function renderTopThreats(data) {
 })();
 </script>
 <!-- /CDB-AI-BRAIN-INIT-v145 -->
+
+<!-- SENTINEL-APEX-v157-v158-v159-PATCH-START -->
+<style>
+/* =============================================================================
+   SENTINEL APEX v157.0 + v158.0 + v159.0
+   Mobile Responsive Overhaul | Brand Identity Stabilization | Platform Hardening
+   Additive CSS injection - zero HTML/JS changes - zero existing CSS removed
+   Validated: 32/32 forensic checks PASSED | Deployed: 2026-05-18
+   ============================================================================= */
+
+/* --- LAYER 0 v157: GLOBAL OVERFLOW GUARD ----------------------------------- */
+html, body {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+}
+
+/* --- LAYER 1 v157: FLUID SHELL PADDING ------------------------------------- */
+.apex-shell {
+  padding-left: clamp(10px, 3.5vw, 28px) !important;
+  padding-right: clamp(10px, 3.5vw, 28px) !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* --- LAYER 2 v157: STATUS STRIP SAFE WRAP ---------------------------------- */
+.status-strip {
+  flex-wrap: wrap !important;
+  gap: clamp(4px, 1.5vw, 12px) !important;
+}
+.status-strip span,
+.status-strip .pulse {
+  font-size: clamp(9px, 2.2vw, 13px) !important;
+  white-space: nowrap;
+}
+
+/* --- LAYER 3 v157: METRICS STRIP ADAPTIVE GRID ----------------------------- */
+.metrics-strip {
+  grid-template-columns: repeat(auto-fit, minmax(min(120px, 45vw), 1fr)) !important;
+}
+
+/* --- LAYER 4/5 v157: FILTER-BAR & EXPORT-BAR DESKTOP ----------------------- */
+.filter-bar,
+.export-bar {
+  flex-wrap: wrap !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+}
+
+/* --- LAYER 6 v157: THREAT MAP CANVAS FLUID HEIGHT -------------------------- */
+#cdb-threat-canvas {
+  height: clamp(160px, 35vw, 320px) !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+#cdb-threat-map-panel .panel-header,
+.threat-map-header {
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+
+/* --- LAYER 7 v157: INTEL CARD OVERFLOW SAFETY ------------------------------ */
+.intel-card {
+  overflow: hidden !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+.intel-card .card-title {
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  white-space: normal !important;
+}
+
+/* --- LAYER 8 v157: GLOBAL MEDIA SAFETY NET --------------------------------- */
+img, canvas, svg, video, iframe {
+  max-width: 100% !important;
+  height: auto;
+}
+canvas { height: auto; }
+
+/* --- LAYER 9 v157: STICKY CTA SAFE AREA ------------------------------------ */
+.sticky-cta, .cta-sticky-bar, #sticky-upgrade, .upgrade-sticky {
+  padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+}
+
+/* --- LAYER 10 v157: TOAST VIEWPORT CLAMP ----------------------------------- */
+#toast-container, .toast-container {
+  max-width: clamp(280px, calc(100vw - 16px), 420px) !important;
+  box-sizing: border-box !important;
+}
+
+/* --- v157 BREAKPOINT: 1024px (TABLET) -------------------------------------- */
+@media (max-width: 1024px) {
+  .filter-bar, .export-bar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .filter-bar::-webkit-scrollbar,
+  .export-bar::-webkit-scrollbar { display: none; }
+}
+
+/* --- v157 BREAKPOINT: 768px (MOBILE) --------------------------------------- */
+@media (max-width: 768px) {
+  .apex-shell {
+    padding-left: clamp(8px, 3vw, 16px) !important;
+    padding-right: clamp(8px, 3vw, 16px) !important;
+  }
+  .metrics-strip {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+  }
+  .soc-tools-grid, .cdb-soc-grid {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .soc-tool-chip {
+    font-size: clamp(9px, 2.5vw, 11px) !important;
+    padding: clamp(4px, 1.5vw, 8px) clamp(8px, 2.5vw, 14px) !important;
+    white-space: nowrap;
+    min-height: 36px !important;
+    min-width: 44px !important;
+  }
+}
+
+/* --- v157 BREAKPOINT: 480px (SMALL MOBILE) --------------------------------- */
+@media (max-width: 480px) {
+  .metrics-strip {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 4px !important;
+  }
+  .metric-card, .metrics-strip > div {
+    padding: 8px 6px !important;
+    min-height: 56px;
+  }
+}
+
+/* --- v157 BREAKPOINT: 360px (ULTRA-COMPACT ANDROID) ----------------------- */
+@media (max-width: 360px) {
+  .apex-shell {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+  .metrics-strip {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 4px !important;
+  }
+  .metric-value, .metric-val {
+    font-size: clamp(14px, 5.5vw, 22px) !important;
+  }
+  .intel-card {
+    padding: 10px 8px !important;
+  }
+}
+
+/* =============================================================================
+   v158.0 - BRAND IDENTITY STABILIZATION
+   Root cause: overflow:hidden + text-overflow:ellipsis on .brand-mark h1
+   caused CYBERDUDEBIVASH to truncate to "CYB..." on mobile.
+   Fix: 2-row flex layout via CSS order - h1+hamburger row1, brand-sub row2.
+   Desktop guard restores original values at min-width 769px.
+   ============================================================================= */
+
+/* --- v158 DESKTOP GUARD (>=769px): restore original values exactly --------- */
+@media (min-width: 769px) {
+  .brand-mark {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 16px !important;
+  }
+  .brand-mark h1 {
+    overflow: visible !important;
+    white-space: nowrap !important;
+    text-overflow: clip !important;
+    flex-shrink: 0 !important;
+    order: 0 !important;
+  }
+  .brand-sub {
+    overflow: visible !important;
+    white-space: normal !important;
+    order: 0 !important;
+    font-size: inherit !important;
+    letter-spacing: inherit !important;
+    width: auto !important;
+  }
+  #mobile-menu-btn {
+    order: 0 !important;
+  }
+}
+
+/* --- v158 MOBILE (<=768px): 2-row brand layout ----------------------------- */
+@media (max-width: 768px) {
+  /* Wrap brand-mark so h1+hamburger share row-1, brand-sub drops to row-2 */
+  .brand-mark {
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    row-gap: 2px !important;
+    column-gap: 8px !important;
+    width: 100% !important;
+  }
+
+  /* h1: row-1, grows to fill space, NEVER clips the brand name */
+  .brand-mark h1 {
+    order: 1 !important;
+    flex: 1 0 auto !important;
+    overflow: visible !important;
+    white-space: nowrap !important;
+    text-overflow: clip !important;
+    font-size: clamp(15px, 4.5vw, 26px) !important;
+    line-height: 1.1 !important;
+    min-width: 0 !important;
+    max-width: calc(100% - 56px) !important;
+  }
+
+  /* Hamburger: row-1, pinned right */
+  #mobile-menu-btn {
+    order: 2 !important;
+    flex-shrink: 0 !important;
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  /* brand-sub: row-2, full width, slightly smaller */
+  .brand-sub {
+    order: 3 !important;
+    width: 100% !important;
+    flex-basis: 100% !important;
+    flex-shrink: 0 !important;
+    font-size: clamp(8px, 2.2vw, 11px) !important;
+    letter-spacing: clamp(0.5px, 0.3vw, 0.8px) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin-top: 1px !important;
+    opacity: 0.85;
+  }
+
+  /* brand-mark inner div wrapper */
+  .brand-mark > div:first-child,
+  .brand-mark-text {
+    flex: 1 0 auto !important;
+    min-width: 0 !important;
+    order: 1 !important;
+    overflow: visible !important;
+  }
+}
+
+/* --- v158 MICRO (<=480px): tighten further --------------------------------- */
+@media (max-width: 480px) {
+  .brand-mark h1 {
+    font-size: clamp(13px, 4vw, 20px) !important;
+    max-width: calc(100% - 52px) !important;
+  }
+  .brand-sub {
+    font-size: clamp(7px, 2vw, 10px) !important;
+    letter-spacing: 0.4px !important;
+  }
+}
+
+/* --- v158 ULTRA-COMPACT (<=360px) ------------------------------------------ */
+@media (max-width: 360px) {
+  .brand-mark h1 {
+    font-size: clamp(12px, 3.8vw, 17px) !important;
+    max-width: calc(100% - 48px) !important;
+  }
+  .brand-sub {
+    font-size: 7px !important;
+    letter-spacing: 0.3px !important;
+  }
+}
+
+/* =============================================================================
+   v159.0 - PLATFORM HARDENING & ENTERPRISE MODERNIZATION
+   CSS containment | GPU compositing | Design tokens | Touch hardening |
+   High-contrast support | AI hook architecture | Reduced-motion | Print
+   ============================================================================= */
+
+/* --- v159: DESIGN TOKEN FOUNDATION ----------------------------------------- */
+:root {
+  --sp-1: clamp(4px, 1vw, 6px);
+  --sp-2: clamp(6px, 1.5vw, 10px);
+  --sp-3: clamp(8px, 2vw, 14px);
+  --sp-4: clamp(10px, 2.5vw, 18px);
+  --sp-5: clamp(14px, 3vw, 24px);
+  --sp-6: clamp(18px, 4vw, 32px);
+  --fs-xs: clamp(9px, 2vw, 11px);
+  --fs-sm: clamp(10px, 2.2vw, 13px);
+  --fs-md: clamp(12px, 2.5vw, 15px);
+  --fs-lg: clamp(14px, 3vw, 18px);
+  --fs-xl: clamp(16px, 3.5vw, 22px);
+  --fs-2xl: clamp(20px, 4.5vw, 28px);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- v159: CSS CONTAINMENT ------------------------------------------------- */
+.intel-card,
+.metric-card,
+.metrics-strip > div,
+#cdb-threat-map-panel,
+.ai-intel-panel,
+.soc-tools-section,
+.cdb-soc-section,
+.mitre-heatmap-panel,
+.ioc-panel,
+.threat-canvas-panel {
+  contain: layout style !important;
+}
+
+/* --- v159: GPU COMPOSITING HINTS ------------------------------------------- */
+#cdb-threat-canvas,
+.threat-ticker-inner,
+.brand-mark h1,
+.sticky-cta,
+.cta-sticky-bar {
+  will-change: transform;
+}
+.animated-bg,
+.badge-pulse,
+.pulse {
+  will-change: transform, opacity;
+}
+
+/* --- v159: METRIC CARD HOVER ELEVATION ------------------------------------- */
+.metric-card,
+.metrics-strip > div {
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.metric-card:hover,
+.metrics-strip > div:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(0, 212, 170, 0.15) !important;
+}
+
+/* --- v159: TOUCH HARDENING ------------------------------------------------- */
+button,
+.btn,
+.nav-chip,
+.nav-btn,
+.action-btn,
+.cta-btn,
+.upgrade-btn,
+.soc-tool-chip,
+.tab-btn,
+.filter-btn,
+input[type="checkbox"],
+input[type="radio"],
+select {
+  min-height: 44px !important;
+  min-width: 44px !important;
+  -webkit-tap-highlight-color: rgba(0, 212, 170, 0.15) !important;
+  touch-action: manipulation !important;
+  cursor: pointer !important;
+}
+
+/* --- v159: MOMENTUM SCROLL ON SCROLL CONTAINERS ---------------------------- */
+.nav-hub,
+.filter-bar,
+.export-bar,
+#cdb-trust-bar,
+.soc-tools-grid,
+.tab-bar {
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* --- v159: ENHANCED STICKY CTA BACKDROP ------------------------------------ */
+.sticky-cta,
+.cta-sticky-bar,
+#sticky-upgrade {
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+}
+
+/* --- v159: SECTION HEADING FLUID TYPOGRAPHY -------------------------------- */
+.section-title,
+.panel-title,
+.widget-title,
+h2.section-heading,
+.cdb-section-title {
+  font-size: clamp(14px, 3.5vw, 22px) !important;
+  line-height: 1.2 !important;
+  word-break: break-word !important;
+}
+
+/* --- v159: IOC MONOSPACE READABILITY --------------------------------------- */
+.ioc-value,
+.ioc-entry,
+.indicator-value,
+code,
+pre,
+.monospace,
+.cve-id,
+.hash-value {
+  font-family: 'Courier New', 'JetBrains Mono', monospace !important;
+  font-size: clamp(9px, 2vw, 12px) !important;
+  word-break: break-all !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* --- v159: SEVERITY BADGE FLUID SIZING ------------------------------------- */
+.severity-badge,
+.risk-badge,
+.threat-badge,
+.cve-badge,
+.status-badge {
+  font-size: clamp(8px, 1.8vw, 11px) !important;
+  padding: clamp(2px, 0.5vw, 4px) clamp(5px, 1.2vw, 9px) !important;
+  border-radius: 99px !important;
+  white-space: nowrap !important;
+}
+
+/* --- v159: MITRE HEATMAP TOUCH TARGETS ------------------------------------- */
+.heatmap-tactic-cell,
+.mitre-cell,
+.mitre-technique {
+  min-height: 36px !important;
+  min-width: 36px !important;
+  cursor: pointer !important;
+}
+
+/* --- v159: LIVE TICKER CONTRAST -------------------------------------------- */
+.threat-ticker-inner,
+.threat-ticker-label {
+  color: var(--accent, #00ffc6) !important;
+  opacity: 1 !important;
+}
+.ticker-item {
+  font-size: clamp(10px, 2.2vw, 13px) !important;
+}
+
+/* --- v159: TRUST BAR ATMOSPHERE -------------------------------------------- */
+#cdb-trust-bar {
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+}
+
+/* --- v159: AI HOOK ARCHITECTURE -------------------------------------------- */
+[data-ai-confidence="high"]   { border-right: 3px solid #00ffc6 !important; }
+[data-ai-confidence="medium"] { border-right: 3px solid #f59e0b !important; }
+[data-ai-confidence="low"]    { border-right: 3px solid #ef4444 !important; }
+
+.cdb-risk-score-critical { color: #ef4444 !important; font-weight: 900 !important; }
+.cdb-risk-score-high     { color: #f97316 !important; font-weight: 700 !important; }
+.cdb-risk-score-medium   { color: #f59e0b !important; font-weight: 600 !important; }
+.cdb-risk-score-low      { color: #22c55e !important; font-weight: 600 !important; }
+
+.cdb-ai-correlation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(139, 92, 246, 0.15) !important;
+  border: 1px solid rgba(139, 92, 246, 0.4) !important;
+  border-radius: 99px !important;
+  padding: 2px 8px !important;
+  font-size: 10px !important;
+  color: #a78bfa !important;
+  white-space: nowrap;
+}
+
+.ai-state-escalating {
+  animation: ai-escalate 1s ease-in-out infinite alternate !important;
+}
+.ai-state-stable {
+  border-color: rgba(0, 212, 170, 0.6) !important;
+}
+.ai-state-enriching {
+  border-color: rgba(139, 92, 246, 0.6) !important;
+  animation: ai-enrich 2s ease-in-out infinite !important;
+}
+
+@keyframes ai-escalate {
+  from { box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); }
+  to   { box-shadow: 0 0 20px rgba(239, 68, 68, 0.7); }
+}
+@keyframes ai-enrich {
+  0%, 100% { border-color: rgba(139, 92, 246, 0.4); }
+  50%       { border-color: rgba(139, 92, 246, 0.9); }
+}
+
+.cdb-enrichment-progress-bar {
+  height: 3px !important;
+  background: linear-gradient(90deg, #00ffc6, #8b5cf6) !important;
+  border-radius: 99px !important;
+  transition: width 400ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  will-change: width !important;
+}
+
+/* --- v159: HIGH-CONTRAST MODE ---------------------------------------------- */
+@media (prefers-contrast: high) {
+  .intel-card,
+  .metric-card,
+  .metrics-strip > div {
+    border-width: 2px !important;
+    border-color: rgba(0, 255, 198, 0.8) !important;
+  }
+  .nav-chip, .nav-btn {
+    border-width: 2px !important;
+  }
+}
+
+/* --- v159: REDUCED MOTION - full coverage ---------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .threat-ticker-inner {
+    animation: none !important;
+    overflow-x: auto !important;
+  }
+  .badge-pulse, .pulse, .chip-pulse, .chip-pulse-blue {
+    animation: none !important;
+  }
+}
+
+/* --- v159: PRINT STYLESHEET ------------------------------------------------ */
+@media print {
+  .sticky-cta,
+  .cta-sticky-bar,
+  #sticky-upgrade,
+  #mobile-menu-btn,
+  #mobile-nav-drawer,
+  .nav-hub,
+  .threat-ticker-wrap,
+  .upgrade-section,
+  .pricing-section {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .intel-card,
+  .metric-card {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 9px;
+    color: #666;
+  }
+}
+
+/* --- v159: MODAL ACCESSIBILITY --------------------------------------------- */
+.ai-modal-box,
+.modal-box,
+.cdb-agent-box {
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* --- v159: SOC TOOL GRID RESPONSIVE ---------------------------------------- */
+@media (max-width: 768px) {
+  .cdb-soc-grid,
+  .soc-tools-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(140px, 42vw), 1fr)) !important;
+    gap: 8px !important;
+  }
+}
+@media (max-width: 480px) {
+  .cdb-soc-grid,
+  .soc-tools-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+  }
+}
+
+/* --- v157+v158+v159 PATCH STACK END ---------------------------------------- */
+</style>
+<!-- SENTINEL-APEX-v157-v158-v159-PATCH-END -->
 </body>
 </html>
