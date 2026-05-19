@@ -1,18 +1,19 @@
 // =============================================================================
-// CYBERDUDEBIVASH(r) SENTINEL APEX -- Compositor Governance Engine v170.0
+// CYBERDUDEBIVASH(r) SENTINEL APEX -- Compositor Governance Engine v172.0
 // GPU layer management -- eliminates Chrome pre-paint empty compositor trap.
 //
 // Root causes addressed:
-//   RC3: will-change:transform before paint -> Chrome pre-allocates empty GPU
-//        layer -> compositor captures blank frame -> canvas stays blank.
-//   RC7: backface-visibility:hidden (no !important) in init()/safeMode() ->
-//        Chrome second GPU promotion trigger -> empty compositor layer BEFORE
-//        first paint -> blank canvas Chrome Desktop. Edge ignores this on
-//        canvas when will-change:auto is set. Chrome does not.
-//        Fix: Set backface-visibility:visible !important to BLOCK promotion.
-//   Fix: Two-phase GPU promotion:
-//     Phase 1 (init):    will-change:auto  -- no pre-paint layer
-//     Phase 2 (promote): will-change:transform AFTER first content is drawn
+//   RC3:  will-change:transform before paint -> Chrome pre-allocates empty GPU
+//         layer -> compositor captures blank frame -> canvas stays blank.
+//   RC7:  backface-visibility:hidden (no !important) in init()/safeMode() ->
+//         Chrome second GPU promotion trigger -> empty compositor layer BEFORE
+//         first paint -> blank canvas Chrome Desktop.
+//   RC11: promote()+translateZ(0) inside panel -> GPU promotion inside stencil-
+//         clip container -> blank compositor texture.
+//   RC12: box-shadow/border-radius on canvas -> Chrome D3D11/ANGLE pre-allocates
+//         shadow paint layer before canvas has content -> blank GPU texture.
+//         promote() IS NOW A NO-OP. GPU promotion permanently disabled.
+//         All canvas styling governed exclusively by CSS !important overrides.
 //
 // API (window.CDB_COMPOSITOR):
 //   .init(canvas)        -- Phase 1: set will-change:auto (call at DOM ready)
@@ -26,7 +27,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION    = '170.0';
+  var VERSION    = '172.0';
   var LOG_PREFIX = '[CDB-COMPOSITOR v' + VERSION + ']';
   var DPR_CAP    = 2;
 
@@ -71,14 +72,18 @@
     log('Canvas initialized -- RC7 GPU trap blocked (backface-visibility:visible, will-change:auto)');
   }
 
-  // promote(canvas) -- Phase 2: promote GPU layer AFTER first content draw.
+  // promote(canvas) -- RC11/RC12 PERMANENT NO-OP.
+  // translateZ(0) and will-change:transform are PERMANENTLY DISABLED.
+  // Forensic root cause: both properties trigger Chrome D3D11/ANGLE compositor
+  // layer pre-allocation BEFORE canvas has content, resulting in a blank GPU
+  // texture that persists until page reload. Edge composites post-paint
+  // (no issue); Chrome pre-allocates (blank canvas).
+  // GPU layer governance is handled entirely by CSS !important overrides in
+  // the V172 renderer block. JS must never override CSS compositor hints.
   function promote(canvas) {
-    if (!canvas) { warn('promote() called with null canvas'); return; }
-    if (_getPromoted(canvas)) return;
-    canvas.style.setProperty('transform',   'translateZ(0)', 'important');
-    canvas.style.setProperty('will-change', 'transform',     'important');
-    _setPromoted(canvas, true);
-    log('Canvas promoted to GPU compositor layer (post-paint, translateZ(0))');
+    // NO-OP: GPU promotion permanently disabled (RC11+RC12 forensic fix)
+    warn('promote() called but is a permanent NO-OP (RC11/RC12) — GPU promotion disabled');
+    // Do NOT set translateZ(0) or will-change:transform — ever.
   }
 
   // demote(canvas) -- remove GPU compositor layer (use when hidden/paused).
@@ -126,6 +131,6 @@
     VERSION    : VERSION
   };
 
-  log('Compositor Governance Engine v170 online -- RC7 backface-visibility trap eliminated');
+  log('Compositor Governance Engine v172 online -- RC7+RC11+RC12 GPU promotion permanently disabled');
 
 }(window));

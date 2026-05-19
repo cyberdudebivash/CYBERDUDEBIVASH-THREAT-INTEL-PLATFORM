@@ -22,6 +22,19 @@
   Content-Security-Policy: default-src 'self' https://intel.cyberdudebivash.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://intel.cyberdudebivash.com https://www.cyberdudebivash.in https://formspree.io https://api.stripe.com https://api.convertkit.com; frame-ancestors 'none'; form-action 'self' https://formspree.io https://checkout.stripe.com https://app.convertkit.com; base-uri 'self'; upgrade-insecure-requests; block-all-mixed-content;
   X-Sentinel-Version: 145.0
 
+# V172 RC12 FIX: Engine JS files must never be served from browser HTTP cache.
+# Stale compositor-governance-engine.js (pre-v172) would re-introduce
+# the promote() translateZ(0) GPU trap that blanks Chrome Desktop canvas.
+/js/engines/*
+  Cache-Control: no-cache, no-store, must-revalidate, max-age=0
+  Pragma: no-cache
+  X-Sentinel-Version: 172.0
+  X-Cache-Policy: no-cache-engine-governance
+
+/js/*
+  Cache-Control: no-cache, must-revalidate, max-age=0
+  X-Sentinel-Version: 172.0
+
 /reports/*
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   X-Intel-Classification: TLP-CLEAR
