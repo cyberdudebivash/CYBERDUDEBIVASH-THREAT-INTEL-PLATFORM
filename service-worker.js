@@ -1,18 +1,20 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// CYBERDUDEBIVASH SENTINEL APEX — Service Worker v167.0
-// CDB-RENDERER-ENGINE-V167 — Chrome Render Collapse Fix + Cinematic Upgrade
-// v167 fixes:
-//   RC1: Old v2.0 engine neutralized (no more runtime ownership collision)
-//   RC2: applySize() dim caching (no 60x/sec GPU texture reset)
-//   RC3: will-change:auto on canvas (no pre-paint empty compositor layer)
-//   RC4: renderFrame uses cached dims (no per-frame context reset)
-//   V1-V10: Cinematic military-grade visual upgrade
+// CYBERDUDEBIVASH SENTINEL APEX — Service Worker v168.0
+// CDB-RENDERER-ENGINE-V168 — Enterprise Render Governance System
+// v168 adds:
+//   G1: 5-engine governance suite (compositor/RAF/canvas/telemetry/recovery)
+//   G2: RAF ownership registry — blocks all intruder engine RAF access
+//   G3: Canvas lifecycle engine — DPR-governed resize, context preservation
+//   G4: Compositor governance — two-phase GPU layer promotion
+//   G5: Telemetry engine — FPS + stall detection
+//   G6: Recovery engine — blank-frame scan + context-loss self-healing
+//   v167 RC1-RC5 fixes preserved and hardened by governance layer
 // Force-update strategy: clears ALL old sentinel-apex-v* caches on deploy.
-// CRITICAL: index.html is NEVER cached (always network-first, no-store).
+// CRITICAL: index.html + JS engines are NEVER cached (always network-first).
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── GVOS: Single source of truth for cache version ──
-const CACHE_VERSION = 'sentinel-apex-v167-live';   // ← GVOS: bumped for v167 deploy
+const CACHE_VERSION = 'sentinel-apex-v168-live';   // ← GVOS: bumped for v168 deploy
 const CACHE_NAME    = CACHE_VERSION;
 
 // Assets to cache for offline use (non-HTML only)
@@ -23,13 +25,13 @@ const STATIC_ASSETS = [
 
 // ── Install: cache static assets, activate immediately ──
 self.addEventListener('install', event => {
-    console.log('[SW v167] Installing:', CACHE_VERSION);
+    console.log('[SW v168] Installing:', CACHE_VERSION);
     // Skip waiting immediately — no old SW holdout
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
             return cache.addAll(STATIC_ASSETS).catch(err => {
-                console.warn('[SW v166] Pre-cache failed (non-fatal):', err);
+                console.warn('[SW v168] Pre-cache failed (non-fatal):', err);
             });
         })
     );
@@ -37,14 +39,14 @@ self.addEventListener('install', event => {
 
 // ── Activate: purge ALL stale sentinel-apex-v* caches ──
 self.addEventListener('activate', event => {
-    console.log('[SW v167] Activating:', CACHE_VERSION);
+    console.log('[SW v168] Activating:', CACHE_VERSION);
     event.waitUntil(
         caches.keys().then(keys => {
             return Promise.all(
                 keys
                     .filter(key => key.startsWith('sentinel-apex-') && key !== CACHE_NAME)
                     .map(key => {
-                        console.log('[SW v166] Purging stale cache:', key);
+                        console.log('[SW v168] Purging stale cache:', key);
                         return caches.delete(key);
                     })
             );
@@ -58,7 +60,7 @@ self.addEventListener('activate', event => {
 // ── Message handler: SKIP_WAITING + version query support ──
 self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
-        console.log('[SW v167] SKIP_WAITING received — forcing activation');
+        console.log('[SW v168] SKIP_WAITING received — forcing activation');
         self.skipWaiting();
     }
     if (event.data && event.data.type === 'GET_VERSION') {
@@ -80,7 +82,8 @@ self.addEventListener('fetch', event => {
         url.pathname.includes('feed_manifest')        ||
         url.pathname.includes('sync_marker')          ||
         url.pathname.includes('version.json')         ||
-        url.pathname.includes('api/')
+        url.pathname.includes('api/')                 ||
+        url.pathname.includes('/js/engines/')          /* v168: governance engines always fresh */
     ) {
         event.respondWith(
             fetch(event.request, { cache: 'no-store' }).catch(() => {
