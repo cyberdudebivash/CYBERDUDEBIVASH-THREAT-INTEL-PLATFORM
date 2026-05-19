@@ -13824,593 +13824,15 @@ function renderTopThreats(data) {
         });
 
         
-        /* ═══ CDB LIVE CYBER THREAT MAP v2.0 \u2014 Real World Atlas Engine ═══ */
-        (function() {
-        var _cdbMapReady=false;
-        function cdbInitThreatMap(){
-          if(_cdbMapReady) return;
-          var canvas=document.getElementById('cdb-threat-canvas');
-          if(!canvas) return;
-          _cdbMapReady=true;
-          var ctx=canvas.getContext('2d');
-          var W=0,H=0,dpr=1;
-          function resize(){
-            dpr=window.devicePixelRatio||1;
-            W=canvas.offsetWidth; H=canvas.offsetHeight;
-            canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr);
-            ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
-          }
-          resize(); window.addEventListener('resize',resize);
-
-          /* Equirectangular projection */
-          var LN0=-180,LN1=180,LT0=83,LT1=-58;
-          function px(ln,lt){return[(ln-LN0)/(LN1-LN0)*W,(LT0-lt)/(LT0-LT1)*H];}
-
-          /* ── COUNTRY DATA \u2014 [lon,lat] rings, simplified but accurate ── */
-          var CTRY=[
-            /* USA */
-            {id:'US',n:'USA',lb:[-98,38],p:[[[-124,49],[-95,49],[-83,46],[-77,44],[-67,47],[-70,42],[-74,39],[-75,35],[-80,31],[-85,30],[-88,30],[-90,29],[-94,30],[-97,26],[-100,28],[-104,29],[-106,32],[-109,31],[-111,31],[-117,32],[-117,34],[-120,34],[-122,37],[-124,40],[-124,46],[-124,49]]]},
-            /* Canada */
-            {id:'CA',n:'Canada',lb:[-96,57],p:[[[-140,60],[-110,60],[-95,60],[-84,46],[-77,44],[-67,47],[-60,47],[-55,51],[-58,52],[-60,55],[-65,58],[-68,70],[-80,75],[-95,75],[-110,75],[-128,70],[-135,60],[-140,60]]]},
-            /* Mexico */
-            {id:'MX',n:'Mexico',lb:[-103,24],p:[[[-117,32],[-109,31],[-106,32],[-100,28],[-97,26],[-91,18],[-87,16],[-87,21],[-90,21],[-94,19],[-97,22],[-99,20],[-105,21],[-109,23],[-115,29],[-117,32]]]},
-            /* Greenland */
-            {id:'GL',n:'',lb:[-44,72],p:[[[-44,60],[-38,60],[-24,66],[-16,78],[-20,84],[-40,82],[-54,76],[-54,70],[-44,60]]]},
-            /* Brazil */
-            {id:'BR',n:'Brazil',lb:[-52,-10],p:[[[-34,-3],[-39,-12],[-40,-19],[-44,-23],[-48,-28],[-52,-33],[-55,-28],[-58,-18],[-60,-13],[-65,-8],[-72,-10],[-73,-6],[-67,-2],[-60,5],[-52,4],[-48,-1],[-42,-3],[-35,-5],[-34,-3]]]},
-            /* Argentina */
-            {id:'AR',n:'Argentina',lb:[-65,-35],p:[[[-66,-22],[-65,-33],[-68,-42],[-72,-50],[-68,-54],[-62,-52],[-58,-46],[-60,-36],[-58,-28],[-60,-22],[-66,-22]]]},
-            /* Colombia */
-            {id:'CO',n:'Colombia',lb:[-74,4],p:[[[-77,8],[-75,4],[-70,2],[-67,7],[-72,11],[-76,8],[-77,8]]]},
-            /* Venezuela */
-            {id:'VE',n:'Venezuela',lb:[-66,8],p:[[[-73,11],[-70,7],[-63,8],[-61,11],[-65,11],[-70,12],[-73,11]]]},
-            /* Peru */
-            {id:'PE',n:'Peru',lb:[-76,-10],p:[[[-81,-2],[-73,-6],[-68,-11],[-72,-10],[-76,-8],[-80,-14],[-81,-10],[-81,-2]]]},
-            /* Chile */
-            {id:'CL',n:'Chile',lb:[-71,-30],p:[[[-66,-22],[-70,-16],[-72,-22],[-71,-28],[-70,-32],[-70,-36],[-72,-40],[-72,-46],[-68,-42],[-65,-33],[-66,-22]]]},
-            /* UK */
-            {id:'GB',n:'UK',lb:[-2,53],p:[[[-5,50],[-0,52],[1,52],[2,53],[0,54],[-2,55],[-4,55],[-3,53],[-4,52],[-5,50]]]},
-            /* France */
-            {id:'FR',n:'France',lb:[2,46],p:[[[-2,48],[-1,44],[3,43],[7,44],[7,46],[5,49],[3,50],[0,51],[-1,49],[-2,48]]]},
-            /* Germany */
-            {id:'DE',n:'Germany',lb:[10,51],p:[[[6,51],[6,50],[9,48],[13,48],[15,51],[14,54],[10,55],[7,53],[6,51]]]},
-            /* Spain */
-            {id:'ES',n:'Spain',lb:[-4,40],p:[[[-9,44],[-4,44],[0,43],[3,43],[1,41],[-1,38],[-5,36],[-9,39],[-9,44]]]},
-            /* Italy */
-            {id:'IT',n:'Italy',lb:[12,42],p:[[[7,44],[10,47],[14,45],[14,41],[16,38],[12,38],[9,40],[7,44]]]},
-            /* Poland */
-            {id:'PL',n:'Poland',lb:[19,52],p:[[[14,52],[18,50],[24,51],[23,54],[18,55],[14,54],[14,52]]]},
-            /* Ukraine */
-            {id:'UA',n:'Ukraine',lb:[31,49],p:[[[22,52],[30,52],[38,50],[39,47],[33,46],[25,46],[22,48],[22,52]]]},
-            /* Sweden */
-            {id:'SE',n:'Sweden',lb:[17,62],p:[[[11,56],[14,57],[18,60],[18,63],[16,68],[18,69],[20,70],[26,65],[22,58],[18,57],[11,56]]]},
-            /* Norway */
-            {id:'NO',n:'Norway',lb:[10,64],p:[[[5,58],[8,68],[16,68],[18,69],[20,70],[28,71],[28,68],[26,65],[22,68],[18,63],[18,60],[11,56],[8,58],[5,58]]]},
-            /* Finland */
-            {id:'FI',n:'Finland',lb:[26,64],p:[[[20,60],[22,60],[26,60],[30,62],[29,65],[28,68],[24,68],[20,66],[20,64],[20,60]]]},
-            /* Russia */
-            {id:'RU',n:'Russia',lb:[60,62],p:[[[28,70],[40,67],[54,70],[60,68],[68,68],[80,73],[95,75],[110,75],[130,68],[140,68],[142,50],[130,43],[128,49],[120,55],[110,53],[100,50],[88,50],[76,60],[64,56],[54,52],[46,48],[38,47],[34,52],[28,60],[28,70]]]},
-            /* Kazakhstan */
-            {id:'KZ',n:'Kazakhstan',lb:[66,48],p:[[[50,50],[58,40],[68,39],[80,42],[82,48],[76,60],[68,58],[60,55],[54,52],[50,50]]]},
-            /* Turkey */
-            {id:'TR',n:'Turkey',lb:[34,39],p:[[[26,42],[34,42],[44,38],[44,36],[38,37],[34,36],[28,37],[26,40],[26,42]]]},
-            /* Iran */
-            {id:'IR',n:'Iran',lb:[54,32],p:[[[44,38],[56,37],[62,34],[62,30],[54,24],[50,26],[44,30],[44,38]]]},
-            /* Saudi Arabia */
-            {id:'SA',n:'Saudi Arabia',lb:[44,24],p:[[[36,29],[43,16],[50,17],[57,22],[55,24],[52,24],[48,28],[44,30],[38,31],[36,30],[36,29]]]},
-            /* Iraq */
-            {id:'IQ',n:'Iraq',lb:[44,33],p:[[[38,37],[44,38],[48,36],[46,30],[40,31],[38,33],[38,37]]]},
-            /* Israel/Palestine */
-            {id:'IL',n:'Israel',lb:[35,31.5],p:[[[34,33],[36,33],[36,31],[35,29],[34,30],[34,33]]]},
-            /* Pakistan */
-            {id:'PK',n:'Pakistan',lb:[68,29],p:[[[62,34],[68,38],[76,34],[76,30],[68,28],[60,24],[60,28],[62,34]]]},
-            /* India */
-            {id:'IN',n:'India',lb:[78,22],p:[[[68,24],[70,20],[74,16],[78,10],[82,10],[86,18],[90,22],[94,26],[88,28],[80,28],[72,28],[68,28],[68,24]]]},
-            /* Bangladesh */
-            {id:'BD',n:'Bangladesh',lb:[90,23.5],p:[[[88,26],[92,24],[90,22],[87,22],[86,24],[88,26]]]},
-            /* Sri Lanka */
-            {id:'LK',n:'Sri Lanka',lb:[81,8],p:[[[80,10],[82,10],[82,8],[80,6],[79,8],[80,10]]]},
-            /* China */
-            {id:'CN',n:'China',lb:[104,35],p:[[[74,40],[86,48],[100,46],[108,48],[118,50],[130,46],[130,43],[122,38],[118,30],[114,22],[108,18],[100,22],[94,26],[88,28],[80,28],[76,34],[68,38],[66,38],[74,40]]]},
-            /* Japan */
-            {id:'JP',n:'Japan',lb:[136,36],p:[[[130,32],[132,34],[136,36],[140,40],[142,38],[140,34],[136,33],[130,32]]]},
-            /* South Korea */
-            {id:'KR',n:'S.Korea',lb:[127,36],p:[[[126,38],[130,38],[130,36],[128,35],[124,36],[126,38]]]},
-            /* North Korea */
-            {id:'KP',n:'N.Korea',lb:[127,40],p:[[[124,42],[128,42],[130,40],[128,38],[124,40],[124,42]]]},
-            /* Vietnam */
-            {id:'VN',n:'Vietnam',lb:[107,16],p:[[[104,22],[108,20],[108,16],[106,12],[104,10],[102,12],[104,18],[104,22]]]},
-            /* Thailand */
-            {id:'TH',n:'Thailand',lb:[101,15],p:[[[98,20],[102,18],[102,12],[100,8],[100,4],[103,4],[104,8],[102,12],[106,18],[104,22],[100,22],[98,20]]]},
-            /* Malaysia */
-            {id:'MY',n:'Malaysia',lb:[110,4],p:[[[100,6],[108,2],[114,4],[118,4],[120,5],[114,6],[106,6],[100,6]]]},
-            /* Indonesia */
-            {id:'ID',n:'Indonesia',lb:[118,-4],p:[[[96,4],[100,2],[108,-8],[116,-8],[122,-8],[128,-8],[136,-4],[140,-8],[132,-8],[120,-10],[108,-8],[100,-8],[96,-4],[96,4]]]},
-            /* Philippines */
-            {id:'PH',n:'Philippines',lb:[122,13],p:[[[118,18],[120,18],[122,18],[124,14],[122,10],[120,10],[118,14],[118,18]]]},
-            /* Australia */
-            {id:'AU',n:'Australia',lb:[134,-26],p:[[[114,-22],[120,-18],[126,-16],[130,-12],[136,-12],[140,-14],[144,-15],[146,-18],[150,-24],[152,-30],[148,-38],[140,-38],[132,-34],[126,-32],[120,-26],[114,-22]]]},
-            /* New Zealand */
-            {id:'NZ',n:'N.Zealand',lb:[172,-42],p:[[[166,-46],[170,-44],[172,-42],[170,-38],[168,-38],[166,-42],[166,-46]]]},
-            /* Egypt */
-            {id:'EG',n:'Egypt',lb:[29,26],p:[[[25,22],[35,22],[35,30],[29,31],[25,31],[25,22]]]},
-            /* Algeria */
-            {id:'DZ',n:'Algeria',lb:[3,28],p:[[[-2,36],[8,36],[8,20],[-8,20],[-8,28],[-2,28],[-2,36]]]},
-            /* Morocco */
-            {id:'MA',n:'Morocco',lb:[-5,32],p:[[[-2,36],[4,37],[8,34],[2,20],[-4,20],[-13,28],[-9,32],[-5,36],[-2,36]]]},
-            /* Nigeria */
-            {id:'NG',n:'Nigeria',lb:[8,9],p:[[[3,7],[5,4],[13,4],[14,12],[8,14],[3,10],[3,7]]]},
-            /* Ethiopia */
-            {id:'ET',n:'Ethiopia',lb:[40,8],p:[[[34,15],[44,12],[44,8],[40,4],[34,8],[34,15]]]},
-            /* Kenya */
-            {id:'KE',n:'Kenya',lb:[37,-1],p:[[[34,4],[40,2],[42,-1],[40,-4],[34,-2],[34,4]]]},
-            /* South Africa */
-            {id:'ZA',n:'S.Africa',lb:[25,-30],p:[[[17,-29],[26,-28],[34,-28],[32,-30],[30,-34],[20,-34],[17,-29]]]},
-            /* Sudan */
-            {id:'SD',n:'Sudan',lb:[30,15],p:[[[24,22],[34,22],[36,16],[34,8],[26,6],[24,8],[24,22]]]},
-            /* DR Congo */
-            {id:'CD',n:'D.R.Congo',lb:[24,-2],p:[[[18,4],[28,2],[30,-2],[28,-8],[20,-8],[16,-2],[18,4]]]},
-            /* Angola */
-            {id:'AO',n:'Angola',lb:[18,-12],p:[[[12,-5],[16,-5],[20,-7],[24,-8],[22,-18],[12,-18],[10,-14],[12,-5]]]},
-            /* Mozambique */
-            {id:'MZ',n:'Mozambique',lb:[35,-18],p:[[[34,-12],[36,-14],[38,-18],[36,-24],[34,-26],[32,-26],[30,-22],[34,-18],[34,-12]]]},
-            /* Tanzania */
-            {id:'TZ',n:'Tanzania',lb:[35,-6],p:[[[30,-2],[34,-2],[40,-4],[40,-10],[36,-12],[30,-12],[30,-6],[30,-2]]]},
-          ];
-
-          /* ── ATTACK ORIGIN/TARGET NODES with lat/lon ── */
-          var NODES=[
-            {id:'US',n:'USA',ln:-98,lt:38},{id:'RU',n:'Russia',ln:60,lt:55},
-            {id:'CN',n:'China',ln:116,lt:39},{id:'DE',n:'Germany',ln:10,lt:51},
-            {id:'BR',n:'Brazil',ln:-47,lt:-15},{id:'IN',n:'India',ln:78,lt:22},
-            {id:'GB',n:'UK',ln:-1,lt:52},{id:'FR',n:'France',ln:2,lt:47},
-            {id:'JP',n:'Japan',ln:139,lt:35},{id:'AU',n:'Australia',ln:149,lt:-33},
-            {id:'KR',n:'S.Korea',ln:127,lt:37},{id:'IR',n:'Iran',ln:51,lt:35},
-            {id:'KP',n:'N.Korea',ln:125,lt:39},{id:'CA',n:'Canada',ln:-75,lt:45},
-            {id:'MX',n:'Mexico',ln:-99,lt:19},{id:'UA',n:'Ukraine',ln:30,lt:50},
-            {id:'IL',n:'Israel',ln:35,lt:31},{id:'SA',n:'Saudi',ln:46,lt:24},
-            {id:'NG',n:'Nigeria',ln:7,lt:6},{id:'ZA',n:'S.Africa',ln:25,lt:-29},
-            {id:'PK',n:'Pakistan',ln:74,lt:30},{id:'TH',n:'Thailand',ln:101,lt:14},
-            {id:'ID',n:'Indonesia',ln:107,lt:-6},{id:'TR',n:'Turkey',ln:32,lt:39},
-            {id:'IT',n:'Italy',ln:12,lt:42},{id:'ES',n:'Spain',ln:-4,lt:40},
-            {id:'PL',n:'Poland',ln:21,lt:52},{id:'NL',n:'Netherlands',ln:5,lt:52},
-            {id:'VN',n:'Vietnam',ln:106,lt:16},{id:'MY',n:'Malaysia',ln:110,lt:3},
-          ];
-
-          var SEV=[
-            {r:255,g:50, b:50, lbl:'CRITICAL',w:0.35},
-            {r:255,g:140,b:0,  lbl:'HIGH',    w:0.30},
-            {r:255,g:220,b:0,  lbl:'MEDIUM',  w:0.20},
-            {r:0,  g:180,b:255,lbl:'INFO',    w:0.15},
-          ];
-
-          var arcs=[], atkCount=0, _atkSeeded=false; /* v150.1: seeded from real API on first spawn */
-          var lastSpawn=0, frame=0, scanX=0;
-          var atkEl=document.getElementById('cdb-atk-count');
-
-          /* Live attack ticker */
-          var _tickerEl=document.getElementById('cdb-ticker-text');
-          var _tickerQueue=[];
-          function _pushTicker(sn,dn,sev){
-            var now=new Date();
-            var ts=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
-            _tickerQueue.push(sn+'\u2192'+dn+' \u25cf '+sev.lbl+' \u00b7 '+ts);
-            if(_tickerQueue.length>20) _tickerQueue.shift();
-            if(_tickerEl) _tickerEl.textContent=' \u00a0\u00a0\u00a0 '+_tickerQueue.slice(-10).join(' \u2003\u2003 ')+' \u00a0\u00a0\u00a0 ';
-          }
-
-          /* pick weighted severity */
-          function pickSev(){
-            var r=Math.random(),cum=0;
-            for(var i=0;i<SEV.length;i++){cum+=SEV[i].w;if(r<cum)return SEV[i];}
-            return SEV[0];
-          }
-
-          /* spawn one attack arc */
-          /* v143.0: spawnArc() removed \u2014 arc animation was driven by random fake data.
-             Attack counts are now populated exclusively from real API intel feed. */
-          /* APT-realistic attack pairs weighted by real-world threat patterns */
-          var APT_PAIRS=[
-            {s:'RU',d:'US',w:8},{s:'CN',d:'US',w:8},{s:'RU',d:'UA',w:9},
-            {s:'CN',d:'JP',w:6},{s:'IR',d:'IL',w:7},{s:'KP',d:'KR',w:7},
-            {s:'RU',d:'DE',w:5},{s:'CN',d:'AU',w:5},{s:'IR',d:'SA',w:5},
-            {s:'RU',d:'GB',w:5},{s:'CN',d:'IN',w:6},{s:'KP',d:'US',w:5},
-            {s:'RU',d:'FR',w:4},{s:'CN',d:'KR',w:4},{s:'IR',d:'US',w:4},
-            {s:'RU',d:'PL',w:5},{s:'RU',d:'UA',w:8},{s:'CN',d:'VN',w:4},
-            {s:'US',d:'IR',w:3},{s:'US',d:'KP',w:3},{s:'IL',d:'IR',w:4},
-            {s:'IN',d:'PK',w:4},{s:'PK',d:'IN',w:4},{s:'BR',d:'US',w:2},
-            {s:'TR',d:'DE',w:2},{s:'ID',d:'AU',w:2},{s:'NG',d:'GB',w:2},
-          ];
-          var _aptTotal=APT_PAIRS.reduce(function(a,b){return a+b.w;},0);
-
-          /* ── v151.0 LIVE INTEL THREAT MAP ENGINE ───────────────────────────
-             Derives attack pairs + heat scores from real advisory data.
-             Actor attribution → origin country → target country pairs.
-             Refreshes every 90s from window.__GOC_LIVE_INTEL.
-          ──────────────────────────────────────────────────────────────────── */
-          var ACTOR_ORIGIN={
-            'APT28':'RU','APT29':'RU','SANDWORM':'RU','GAMAREDON':'RU','FANCY BEAR':'RU',
-            'COZY BEAR':'RU','TURLA':'RU','APT44':'RU','KILLNET':'RU',
-            'APT41':'CN','APT40':'CN','VOLT TYPHOON':'CN','SALT TYPHOON':'CN',
-            'HAFNIUM':'CN','MUSTANG PANDA':'CN','APT10':'CN','APT31':'CN',
-            'LAZARUS':'KP','APT38':'KP','KIMSUKY':'KP','BLUENOROFF':'KP',
-            'APT33':'IR','APT34':'IR','CHARMING KITTEN':'IR','MUD COBRA':'IR',
-            'APT36':'PK','TRANSPARENT TRIBE':'PK',
-            'SIDEWINDER':'IN',
-            'LOCKBIT':'RU','CLOP':'RU','BLACKCAT':'RU','BLACKBASTA':'RU',
-            'SCATTERED SPIDER':'US','LAPSUS$':'BR',
-            'DEFAULT':'RU'
-          };
-          var ACTOR_TARGET_MAP={
-            'RU':['US','UA','DE','GB','PL','FR','JP','AU'],
-            'CN':['US','JP','AU','IN','VN','KR','TW','DE'],
-            'KP':['KR','US','JP','AU','DE'],
-            'IR':['IL','SA','US','GB','AE'],
-            'PK':['IN','AF','US'],
-            'IN':['PK','CN'],
-            'US':['KP','IR','CN','RU'],
-            'BR':['US','GB','DE','AU'],
-            'DEFAULT':['US','GB','DE','JP','AU','FR','CA']
-          };
-
-          /* Country heat map — threat density per country (0–1 normalized) */
-          var _countryHeat={};
-          var _livePairs=[];
-          var _livePairsBuilt=0;
-
-          function _buildLivePairs(){
-            var now=Date.now();
-            if(now-_livePairsBuilt<90000&&_livePairs.length>0) return; /* 90s cache */
-            var intel=window.__GOC_LIVE_INTEL||[];
-            if(!intel.length){ _livePairs=[]; return; }
-
-            /* Reset heat map */
-            _countryHeat={};
-            var pairMap={}, total=0;
-
-            intel.forEach(function(item){
-              var actor=(item.actor_tag||item.threat_actor||item.family||'').toUpperCase();
-              var sev=(item.severity||'MEDIUM').toUpperCase();
-              var rs=parseFloat(item.risk_score||5);
-              var kev=!!(item.kev_present||item.kev);
-
-              /* Derive origin country */
-              var origin='DEFAULT';
-              for(var k in ACTOR_ORIGIN){
-                if(actor.indexOf(k)>=0){origin=ACTOR_ORIGIN[k];break;}
-              }
-              if(origin==='DEFAULT'&&actor.length>2){
-                /* Hash actor string to a consistent default */
-                var h=0; for(var ci=0;ci<actor.length;ci++) h=(h*31+actor.charCodeAt(ci))&0xFFFF;
-                var defaults=Object.keys(ACTOR_ORIGIN);
-                origin=ACTOR_ORIGIN[defaults[h%defaults.length]]||'RU';
-              }
-
-              /* Pick target countries */
-              var targets=ACTOR_TARGET_MAP[origin]||ACTOR_TARGET_MAP['DEFAULT'];
-              var numTargets=sev==='CRITICAL'?3:sev==='HIGH'?2:1;
-              for(var ti=0;ti<numTargets&&ti<targets.length;ti++){
-                var tgt=targets[ti];
-                var w=(sev==='CRITICAL'?4:sev==='HIGH'?3:sev==='MEDIUM'?2:1)*(kev?2:1);
-                var key=origin+'→'+tgt;
-                pairMap[key]=(pairMap[key]||{s:origin,d:tgt,w:0,actor:actor,sev:sev,rs:rs});
-                pairMap[key].w+=w; total+=w;
-              }
-
-              /* Accumulate target heat */
-              targets.slice(0,numTargets).forEach(function(t){
-                _countryHeat[t]=(_countryHeat[t]||0)+rs;
-              });
-            });
-
-            /* Normalize heat scores */
-            var maxHeat=Math.max.apply(null,Object.values(_countryHeat).concat([1]));
-            Object.keys(_countryHeat).forEach(function(k){ _countryHeat[k]=_countryHeat[k]/maxHeat; });
-
-            /* Build weighted pair array */
-            _livePairs=Object.values(pairMap).filter(function(p){ return p.w>0; });
-            if(_livePairs.length===0) _livePairs=[];
-            _livePairsBuilt=now;
-          }
-
-          /* Hybrid pair picker: 70% live intel, 30% static APT_PAIRS */
-          function _pickPair(){
-            _buildLivePairs();
-            var useLive=_livePairs.length>0&&Math.random()<0.70;
-            if(useLive){
-              var lt=_livePairs.reduce(function(a,b){return a+b.w;},0);
-              var r=Math.random()*lt,cum=0;
-              for(var i=0;i<_livePairs.length;i++){cum+=_livePairs[i].w;if(r<cum)return _livePairs[i];}
-              return _livePairs[0];
-            }
-            /* Static fallback */
-            var r2=Math.random()*_aptTotal,cum2=0;
-            for(var j=0;j<APT_PAIRS.length;j++){cum2+=APT_PAIRS[j].w;if(r2<cum2)return APT_PAIRS[j];}
-            return APT_PAIRS[0];
-          }
-
-          function _nodeByID(id){
-            for(var i=0;i<NODES.length;i++){if(NODES[i].id===id)return NODES[i];}
-            return null;
-          }
-
-          /* ── ACTOR COLOUR PALETTE (nation-state attribution) ─────────────── */
-          var ACTOR_COL={
-            'RU':{r:239,g:68, b:68}, 'CN':{r:251,g:146,b:60},
-            'KP':{r:167,g:139,b:250},'IR':{r:34, g:197,b:94},
-            'US':{r:59, g:130,b:246},'DEFAULT':{r:0,  g:212,b:170}
-          };
-          function _actorCol(pair){
-            var s=pair.s||'DEFAULT';
-            return ACTOR_COL[s]||ACTOR_COL['DEFAULT'];
-          }
-
-          /* ── HEATMAP DRAW PASS ────────────────────────────────────────────── */
-          function drawHeatmap(){
-            if(!Object.keys(_countryHeat).length) return;
-            for(var ni=0;ni<NODES.length;ni++){
-              var nd=NODES[ni];
-              var heat=_countryHeat[nd.id]||0;
-              if(heat<0.1) continue;
-              var np=px(nd.ln,nd.lt);
-              var radius=20+heat*40;
-              var grad=ctx.createRadialGradient(np[0],np[1],0,np[0],np[1],radius);
-              var alpha=heat*0.18;
-              grad.addColorStop(0,'rgba(239,68,68,'+alpha+')');
-              grad.addColorStop(0.5,'rgba(239,68,68,'+(alpha*0.4)+')');
-              grad.addColorStop(1,'rgba(239,68,68,0)');
-              ctx.beginPath();
-              ctx.arc(np[0],np[1],radius,0,Math.PI*2);
-              ctx.fillStyle=grad; ctx.fill();
-            }
-          }
-
-          function spawnArc(){
-            var pair=_pickPair();
-            var sn=_nodeByID(pair.s), dn=_nodeByID(pair.d);
-            if(!sn||!dn) return;
-            /* Use actor-derived colour if available, else severity */
-            var acol=_actorCol(pair);
-            var sv=pickSev();
-            /* Override severity color with actor origin color for live pairs */
-            var useActorCol=(_livePairs.indexOf(pair)>=0);
-            arcs.push({
-              sln:sn.ln+(Math.random()-0.5)*2, slt:sn.lt+(Math.random()-0.5)*2,
-              dln:dn.ln+(Math.random()-0.5)*2, dlt:dn.lt+(Math.random()-0.5)*2,
-              sv:sv, acol:useActorCol?acol:null,
-              t:0, alpha:0, spd:0.006+Math.random()*0.010, life:'in',
-              sn:sn.n, dn:dn.n,
-              actor:pair.actor||null, cve:pair.cve||null,
-            });
-            if(!_atkSeeded){_atkSeeded=true;atkCount=window._cdbAtkSeed||atkCount;}
-            atkCount++;
-            if(atkEl) atkEl.textContent=atkCount.toLocaleString();
-            /* Enhanced ticker: show actor+CVE if available */
-            var label=pair.actor&&pair.actor.length>1&&pair.actor!=='DEFAULT'
-              ? pair.actor.substring(0,12) : sv.lbl;
-            _pushTicker(sn.n, dn.n, {lbl:label});
-          }
-
-          /* bezier interpolation */
-          function bz(t,p0,p1,p2){var m=1-t;return m*m*p0+2*m*t*p1+t*t*p2;}
-
-          /* draw country path */
-          function drawCountry(rings,fill,stroke,lw){
-            for(var ri=0;ri<rings.length;ri++){
-              var pts=rings[ri]; if(pts.length<3) continue;
-              ctx.beginPath();
-              var p0=px(pts[0][0],pts[0][1]);
-              ctx.moveTo(p0[0],p0[1]);
-              for(var pi=1;pi<pts.length;pi++){
-                var pp=px(pts[pi][0],pts[pi][1]);
-                ctx.lineTo(pp[0],pp[1]);
-              }
-              ctx.closePath();
-              if(fill){ctx.fillStyle=fill;ctx.fill();}
-              if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||0.5;ctx.stroke();}
-            }
-          }
-
-          /* draw graticule (lat/lon grid lines) */
-          function drawGraticule(){
-            ctx.save();
-            ctx.strokeStyle='rgba(0,212,170,0.04)';
-            ctx.lineWidth=0.5;
-            /* longitude lines every 30° */
-            for(var ln=-180;ln<=180;ln+=30){
-              var p=px(ln,80); var pe=px(ln,-55);
-              ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(pe[0],pe[1]); ctx.stroke();
-            }
-            /* latitude lines every 30° */
-            for(var lt=-60;lt<=80;lt+=30){
-              var pl=px(-180,lt); var pr=px(180,lt);
-              ctx.beginPath(); ctx.moveTo(pl[0],pl[1]); ctx.lineTo(pr[0],pr[1]); ctx.stroke();
-            }
-            /* equator brighter */
-            ctx.strokeStyle='rgba(0,212,170,0.09)';
-            ctx.lineWidth=0.7;
-            var eq0=px(-180,0),eq1=px(180,0);
-            ctx.beginPath(); ctx.moveTo(eq0[0],eq0[1]); ctx.lineTo(eq1[0],eq1[1]); ctx.stroke();
-            ctx.restore();
-          }
-
-          /* draw the map background + countries */
-          function drawMap(){
-            /* ocean */
-            ctx.fillStyle='#040e1a'; ctx.fillRect(0,0,W,H);
-            /* subtle scan glow */
-            scanX=(scanX+0.2)%W;
-            var sg=ctx.createLinearGradient(scanX-60,0,scanX+4,0);
-            sg.addColorStop(0,'rgba(0,212,170,0)');
-            sg.addColorStop(1,'rgba(0,212,170,0.04)');
-            ctx.fillStyle=sg; ctx.fillRect(0,0,scanX,H);
-            /* graticule */
-            drawGraticule();
-            /* country fills + borders */
-            for(var ci=0;ci<CTRY.length;ci++){
-              var ct=CTRY[ci];
-              drawCountry(ct.p,'rgba(0,46,34,0.75)','rgba(0,130,90,0.55)',0.6);
-            }
-            /* country labels */
-            ctx.save();
-            ctx.font='bold 6px "Courier New",monospace';
-            ctx.textAlign='center';
-            ctx.textBaseline='middle';
-            for(var ci2=0;ci2<CTRY.length;ci2++){
-              var ct2=CTRY[ci2];
-              if(!ct2.n) continue;
-              var lp=px(ct2.lb[0],ct2.lb[1]);
-              /* only draw if within canvas */
-              if(lp[0]>2&&lp[0]<W-2&&lp[1]>2&&lp[1]<H-2){
-                ctx.fillStyle='rgba(0,220,160,0.55)';
-                ctx.fillText(ct2.n,lp[0],lp[1]);
-              }
-            }
-            ctx.restore();
-          }
-
-          /* draw all attack arcs */
-          function drawArcs(){
-            var alive=[];
-            for(var ai=0;ai<arcs.length;ai++){
-              var a=arcs[ai];
-              /* lifecycle */
-              if(a.life==='in'){a.alpha=Math.min(1,a.alpha+0.07);if(a.alpha>=1)a.life='go';}
-              else if(a.life==='out'){a.alpha=Math.max(0,a.alpha-0.06);}
-              a.t+=a.spd;
-              if(a.t>1.25)a.life='out';
-              if(a.life==='out'&&a.alpha<=0) continue;
-              var t=Math.min(a.t,1);
-              /* screen coords */
-              var sp=px(a.sln,a.slt), dp=px(a.dln,a.dlt);
-              var r=a.sv.r,g=a.sv.g,b=a.sv.b;
-              /* control point \u2014 arc above midpoint */
-              var mx=(sp[0]+dp[0])/2, my=(sp[1]+dp[1])/2;
-              var dx=dp[0]-sp[0], dy=dp[1]-sp[1];
-              var dist=Math.sqrt(dx*dx+dy*dy);
-              var lift=Math.min(dist*0.4, H*0.35);
-              var cpx=mx, cpy=my-lift;
-              /* v151.0: use actor origin colour if available */
-              if(a.acol){r=a.acol.r;g=a.acol.g;b=a.acol.b;}
-              /* draw trail */
-              var t0=Math.max(0,t-0.3), steps=32;
-              ctx.save(); ctx.lineWidth=1.4;
-              for(var s=0;s<steps;s++){
-                var st=t0+(t-t0)*s/steps, st1=t0+(t-t0)*(s+1)/steps;
-                if(st1>1)break;
-                var x0=bz(st, sp[0],cpx,dp[0]), y0=bz(st, sp[1],cpy,dp[1]);
-                var x1=bz(st1,sp[0],cpx,dp[0]), y1=bz(st1,sp[1],cpy,dp[1]);
-                var frac=s/steps;
-                ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1);
-                ctx.strokeStyle='rgba('+r+','+g+','+b+','+(a.alpha*frac*0.95)+')';
-                ctx.stroke();
-              }
-              ctx.restore();
-              /* head dot */
-              if(t<=1){
-                var hx=bz(t,sp[0],cpx,dp[0]), hy=bz(t,sp[1],cpy,dp[1]);
-                ctx.beginPath(); ctx.arc(hx,hy,2.8,0,Math.PI*2);
-                ctx.fillStyle='rgba('+r+','+g+','+b+','+a.alpha+')'; ctx.fill();
-                /* glow halo */
-                ctx.beginPath(); ctx.arc(hx,hy,5.5,0,Math.PI*2);
-                ctx.fillStyle='rgba('+r+','+g+','+b+','+(a.alpha*0.2)+')'; ctx.fill();
-              }
-              /* impact ring at destination */
-              if(t>=0.92&&t<=1){
-                var ex=dp[0], ey=dp[1];
-                var esz=(t-0.92)*22*a.alpha;
-                ctx.beginPath(); ctx.arc(ex,ey,esz,0,Math.PI*2);
-                ctx.strokeStyle='rgba('+r+','+g+','+b+','+(a.alpha*(1-t)*11)+')';
-                ctx.lineWidth=1.2; ctx.stroke();
-                /* second ring */
-                if(esz>4){
-                  ctx.beginPath(); ctx.arc(ex,ey,esz*0.5,0,Math.PI*2);
-                  ctx.strokeStyle='rgba('+r+','+g+','+b+','+(a.alpha*(1-t)*6)+')';
-                  ctx.lineWidth=0.8; ctx.stroke();
-                }
-              }
-              alive.push(a);
-            }
-            arcs=alive;
-          }
-
-          /* overlay: LIVE badge + legend */
-          function drawOverlay(){
-            /* v143.0: LIVE badge removed \u2014 map is geographic context, not live feed */
-            /* severity legend */
-            var leg=[
-              {c:'rgb(255,50,50)',l:'CRIT'},
-              {c:'rgb(255,140,0)',l:'HIGH'},
-              {c:'rgb(255,220,0)',l:'MED'},
-              {c:'rgb(0,180,255)',l:'INFO'},
-            ];
-            ctx.save();
-            for(var li=0;li<leg.length;li++){
-              var lx=4+li*52;
-              ctx.fillStyle=leg[li].c; ctx.fillRect(lx,4,7,7);
-              ctx.fillStyle='rgba(180,210,230,0.65)';
-              ctx.font='7px monospace'; ctx.textAlign='left';
-              ctx.fillText(leg[li].l,lx+9,11);
-            }
-            ctx.restore();
-          }
-
-          /* MAIN LOOP */
-          /* v151.0: enhanced node render with heat-intensity ring */
-          function drawNodes(){
-            ctx.save();
-            for(var ni=0;ni<NODES.length;ni++){
-              var nd=NODES[ni];
-              var np=px(nd.ln,nd.lt);
-              var heat=_countryHeat[nd.id]||0;
-              var pulse=0.5+0.5*Math.sin(frame*0.06+ni*0.8);
-              /* heat ring \u2014 red tint on high-threat countries */
-              if(heat>0.2){
-                ctx.beginPath(); ctx.arc(np[0],np[1],4+heat*8,0,Math.PI*2);
-                ctx.fillStyle='rgba(239,68,68,'+(heat*0.15*pulse)+')'; ctx.fill();
-                ctx.beginPath(); ctx.arc(np[0],np[1],3+heat*5,0,Math.PI*2);
-                ctx.strokeStyle='rgba(239,68,68,'+(heat*0.4)+')';
-                ctx.lineWidth=0.8; ctx.stroke();
-              }
-              /* outer ring */
-              ctx.beginPath(); ctx.arc(np[0],np[1],2.5+pulse*0.8,0,Math.PI*2);
-              ctx.fillStyle='rgba(0,212,170,'+(0.08+0.1*pulse)+')'; ctx.fill();
-              /* center dot */
-              ctx.beginPath(); ctx.arc(np[0],np[1],1.2,0,Math.PI*2);
-              ctx.fillStyle='rgba(0,212,170,'+(0.5+0.4*pulse)+')'; ctx.fill();
-            }
-            ctx.restore();
-          }
-
-          /* Spawn rate adapts: 1 arc/1.8s baseline, burst to 1/0.9s during high-activity */
-          var _spawnInterval=1800, _lastSpawnTs=0;
-          function draw(ts){
-            requestAnimationFrame(draw);
-            frame++;
-            /* Throttled arc spawning \u2014 rate driven by real API severity counts */
-            if(ts-_lastSpawnTs>_spawnInterval){
-              var batch= _spawnInterval<1200 ? 2 : 1;
-              for(var _b=0;_b<batch;_b++) spawnArc();
-              _lastSpawnTs=ts;
-            }
-            ctx.clearRect(0,0,W,H);
-            drawMap();
-            drawHeatmap();   /* v151.0: threat density heatmap layer */
-            drawNodes();
-            drawArcs();
-            drawOverlay();
-          }
-          requestAnimationFrame(draw);
-          /* v151.0: initial live pair build once intel is available */
-          setTimeout(function(){ _buildLivePairs(); },3000);
-        }
-
-        if(document.readyState=='loading') {
-            document.addEventListener('DOMContentLoaded', cdbInitThreatMap);
-        } else {
-            cdbInitThreatMap();
-        }
-        })();
+        /* ═══════════════════════════════════════════════════════════════════
+           CDB-RENDERER-ENGINE-V166: OLD v2.0 ENGINE NEUTRALIZED
+           Root Cause: Dual engine runtime ownership collision.
+           Both engines targeted the same canvas — each reset canvas.width/
+           canvas.height, destroying the other's GPU texture on every frame.
+           Chrome's compositor detected the continuous texture invalidation
+           and halted compositing → black canvas on Chrome desktop.
+           Fix: V166 is the sole owner of #cdb-threat-canvas.
+        ═══════════════════════════════════════════════════════════════════ */
 
         // ══════════════════════════════════════════════════════════════════════
         // v123.1 CLOUDFLARE WORKER LIVE STATS \u2014 REAL DATA ONLY
@@ -16590,6 +16012,7 @@ a:focus-visible {
   /* NO height / width / backface-visibility / will-change — JS owns these */
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
+  will-change: auto !important; /* RC3: Override pre-paint GPU compositor trap */
 }
 </style>
 
@@ -16655,11 +16078,16 @@ a:focus-visible {
   function warn(s) { console.warn('[CDB-V166]', s); }
 
   /* ────────────────────────────────────────────────────────────────────────
-     §A: CHROME FIX — applySize
-     Sets explicit pixel dimensions on canvas and panel via setProperty
-     so !important stylesheet rules cannot override us.
+  /* ────────────────────────────────────────────────────────────────────────
+     §A: CHROME FIX — applySize (v166.1 DEFINITIVE)
+     CRITICAL FIX: canvas.width/height assignment ALWAYS resets the canvas
+     context and destroys the GPU compositor texture — even if the value
+     does not change. Previously called every RAF frame → 60 resets/sec →
+     Chrome compositor: continuous texture invalidation → blank canvas.
+     Fix: Cache last dims. Only reset canvas when dims actually change.
   ──────────────────────────────────────────────────────────────────────── */
-  function applySize(canvas, panel) {
+  var _cachedW = 0, _cachedH = 0, _cachedDpr = 0, _cachedCtx = null;
+  function applySize(canvas, panel, forceReset) {
     var W = panel.offsetWidth || panel.getBoundingClientRect().width || 800;
     var H = panel.offsetHeight || panel.getBoundingClientRect().height;
     var vw = window.innerWidth || 1200;
@@ -16667,14 +16095,24 @@ a:focus-visible {
     var hFloor = vw <= 480 ? 220 : vw <= 768 ? 270 : vw >= 1600 ? 420 : 340;
     H = Math.max(H || 0, hFloor);
     if (W < 10) W = 800;
-    /* §C: setProperty 'important' wins over any stylesheet height:100% */
-    canvas.style.setProperty('width',  W + 'px', 'important');
-    canvas.style.setProperty('height', H + 'px', 'important');
-    panel.style.setProperty('height',  H + 'px', 'important');
-    var dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
-    canvas.width  = Math.round(W * dpr);
-    canvas.height = Math.round(H * dpr);
-    var ctx = canvas.getContext('2d');
+    var dpr    = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+    var newBufW = Math.round(W * dpr);
+    var newBufH = Math.round(H * dpr);
+    /* CHROME FIX §A: Only write canvas buffer dims when they actually change.
+       Writing canvas.width or canvas.height always wipes the context state
+       and forces Chrome to reallocate the GPU texture (compositor invalidation). */
+    if (forceReset || newBufW !== _cachedW || newBufH !== _cachedH || dpr !== _cachedDpr) {
+      canvas.style.setProperty('width',  W + 'px', 'important');
+      canvas.style.setProperty('height', H + 'px', 'important');
+      panel.style.setProperty('height',  H + 'px', 'important');
+      canvas.width  = newBufW;
+      canvas.height = newBufH;
+      _cachedW   = newBufW;
+      _cachedH   = newBufH;
+      _cachedDpr = dpr;
+      _cachedCtx = canvas.getContext('2d');
+    }
+    var ctx = _cachedCtx || canvas.getContext('2d');
     if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return { W: W, H: H, dpr: dpr, ctx: ctx };
   }
@@ -16763,11 +16201,11 @@ a:focus-visible {
 
     function drawContours(ctx, W, H) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(0, 180, 255, 0.22)';
-      ctx.lineWidth   = 0.8;
-      ctx.shadowColor = 'rgba(0,160,255,0.15)';
-      ctx.shadowBlur  = 3;
-      ctx.fillStyle   = 'rgba(0, 80, 160, 0.08)';
+      ctx.strokeStyle = 'rgba(0,200,255,0.35)';
+      ctx.lineWidth   = 1.0;
+      ctx.shadowColor = 'rgba(0,180,255,0.5)';
+      ctx.shadowBlur  = 6;
+      ctx.fillStyle   = 'rgba(0,60,120,0.14)';
       for (var c = 0; c < CONTINENTS.length; c++) {
         var poly = CONTINENTS[c];
         ctx.beginPath();
@@ -16806,21 +16244,41 @@ a:focus-visible {
         var xy   = latLonToXY(city[1], city[2], W, H);
         var pulse = 0.5 + 0.5 * Math.sin(t * 0.003 + i * 0.7);
         var r    = city[3] ? 3.5 : 2;
-        /* Outer pulse ring */
+        /* Orbital threat ring for major nodes */
         ctx.save();
-        ctx.globalAlpha = 0.3 * pulse;
+        if (city[3]) {
+          ctx.globalAlpha = 0.15 + 0.1 * pulse;
+          ctx.beginPath();
+          ctx.arc(xy[0], xy[1], r + 8 + 3 * pulse, 0, Math.PI * 2);
+          ctx.strokeStyle = '#ff2244';
+          ctx.lineWidth   = 0.6;
+          ctx.setLineDash([2, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        /* Outer pulse ring */
+        ctx.globalAlpha = 0.35 * pulse;
         ctx.beginPath();
-        ctx.arc(xy[0], xy[1], r + 4 * pulse, 0, Math.PI * 2);
+        ctx.arc(xy[0], xy[1], r + 5 * pulse, 0, Math.PI * 2);
         ctx.strokeStyle = city[3] ? '#ff2244' : '#00ccff';
-        ctx.lineWidth   = 0.8;
+        ctx.lineWidth   = 0.9;
+        ctx.shadowColor = city[3] ? '#ff0033' : '#00aaff';
+        ctx.shadowBlur  = 8;
         ctx.stroke();
         /* Core dot */
-        ctx.globalAlpha = 0.9;
+        ctx.globalAlpha = 0.95;
         ctx.beginPath();
         ctx.arc(xy[0], xy[1], r, 0, Math.PI * 2);
-        ctx.fillStyle = city[3] ? '#ff6688' : '#00eeff';
+        ctx.fillStyle = city[3] ? '#ff4466' : '#00ffee';
         ctx.shadowColor = city[3] ? '#ff0033' : '#00ccff';
-        ctx.shadowBlur  = 8;
+        ctx.shadowBlur  = 12;
+        ctx.fill();
+        /* Inner bright dot */
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.arc(xy[0], xy[1], r * 0.45, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 6;
         ctx.fill();
         ctx.restore();
       }
@@ -16950,26 +16408,45 @@ a:focus-visible {
     }
 
     function draw(ctx, now) {
-      /* Draw explosions */
+      /* Draw explosions — triple-ring burst */
       for (var k = 0; k < explosions.length; k++) {
         var e = explosions[k];
         ctx.save();
-        ctx.globalAlpha = e.life * 0.7;
+        /* Radial fill */
+        ctx.globalAlpha = e.life * 0.6;
         var eg = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r);
-        eg.addColorStop(0,   e.color);
-        eg.addColorStop(0.4, e.color);
+        eg.addColorStop(0,   '#ffffff');
+        eg.addColorStop(0.2, e.color);
+        eg.addColorStop(0.7, e.color);
         eg.addColorStop(1,   'transparent');
         ctx.fillStyle = eg;
         ctx.beginPath();
         ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
         ctx.fill();
-        /* Shockwave ring */
-        ctx.globalAlpha = e.life * 0.4;
+        /* Ring 1 — primary shockwave */
+        ctx.globalAlpha = e.life * 0.5;
         ctx.strokeStyle = e.color;
-        ctx.lineWidth   = 1.5;
+        ctx.lineWidth   = 1.8;
         ctx.shadowColor = e.color;
-        ctx.shadowBlur  = 12;
+        ctx.shadowBlur  = 14;
         ctx.stroke();
+        /* Ring 2 — secondary ring at 65% size */
+        ctx.globalAlpha = e.life * 0.3;
+        ctx.lineWidth   = 0.8;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.r * 0.65, 0, Math.PI * 2);
+        ctx.stroke();
+        /* Ring 3 — inner pulse */
+        if (e.r > 5) {
+          ctx.globalAlpha = e.life * 0.55;
+          ctx.lineWidth   = 1.2;
+          ctx.strokeStyle = '#ffffff';
+          ctx.shadowColor = '#ffffff';
+          ctx.shadowBlur  = 8;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, Math.max(2, e.r * 0.25), 0, Math.PI * 2);
+          ctx.stroke();
+        }
         ctx.restore();
       }
 
@@ -16979,29 +16456,63 @@ a:focus-visible {
         if (a.trail.length < 2) continue;
         ctx.save();
         ctx.shadowColor = a.glow;
-        ctx.shadowBlur  = 10;
-        /* Comet tail — gradient along trail */
+        ctx.shadowBlur  = 16;
+        /* Comet tail — dual-layer gradient (outer glow + core line) */
         var tlen = a.trail.length;
-        for (var t = 1; t < tlen; t++) {
-          var alpha = (t / tlen) * 0.85;
-          var width = 0.5 + (t / tlen) * 2.5;
-          ctx.globalAlpha = alpha;
+        /* Outer glow pass */
+        for (var t2 = 1; t2 < tlen; t2++) {
+          var alpha2 = (t2 / tlen) * 0.28;
+          ctx.globalAlpha = alpha2;
           ctx.strokeStyle = a.color;
-          ctx.lineWidth   = width;
+          ctx.lineWidth   = 0.5 + (t2 / tlen) * 6;
           ctx.lineCap     = 'round';
           ctx.beginPath();
-          ctx.moveTo(a.trail[t-1][0], a.trail[t-1][1]);
-          ctx.lineTo(a.trail[t][0],   a.trail[t][1]);
+          ctx.moveTo(a.trail[t2-1][0], a.trail[t2-1][1]);
+          ctx.lineTo(a.trail[t2][0],   a.trail[t2][1]);
           ctx.stroke();
         }
-        /* Comet head */
+        /* Core line pass */
+        ctx.shadowBlur = 8;
+        for (var t3 = 1; t3 < tlen; t3++) {
+          var alpha3 = (t3 / tlen) * 0.9;
+          var width3 = 0.5 + (t3 / tlen) * 2.0;
+          ctx.globalAlpha = alpha3;
+          ctx.strokeStyle = a.color;
+          ctx.lineWidth   = width3;
+          ctx.lineCap     = 'round';
+          ctx.beginPath();
+          ctx.moveTo(a.trail[t3-1][0], a.trail[t3-1][1]);
+          ctx.lineTo(a.trail[t3][0],   a.trail[t3][1]);
+          ctx.stroke();
+        }
+        /* Comet head — bright white core + color halo */
         var head = a.trail[a.trail.length - 1];
         ctx.globalAlpha = 1;
-        ctx.shadowBlur  = 20;
+        ctx.shadowBlur  = 24;
+        ctx.shadowColor = a.color;
+        /* Outer halo */
+        ctx.beginPath();
+        ctx.arc(head[0], head[1], 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = a.color;
+        ctx.globalAlpha = 0.4;
+        ctx.fill();
+        /* Core */
         ctx.beginPath();
         ctx.arc(head[0], head[1], 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle   = '#ffffff';
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur  = 16;
+        ctx.globalAlpha = 1;
         ctx.fill();
+        /* APT label on head */
+        if (a.group && a.trail.length > 5) {
+          ctx.font        = 'bold 6px "Courier New",monospace';
+          ctx.fillStyle   = a.color;
+          ctx.shadowBlur  = 6;
+          ctx.globalAlpha = 0.75;
+          ctx.textAlign   = 'left';
+          ctx.fillText(a.group, head[0] + 5, head[1] - 3);
+        }
         ctx.restore();
       }
 
@@ -17026,15 +16537,115 @@ a:focus-visible {
   /* ────────────────────────────────────────────────────────────────────────
      §D: FX ENGINE — Scanlines, vignette, corridor pulse, grid flicker
   ──────────────────────────────────────────────────────────────────────── */
+  /* ═══════════════════════════════════════════════════════════════════════
+     §D: FX ENGINE v166.1 — CINEMATIC MILITARY-GRADE ATMOSPHERE
+     Radar sweep · Threat zones · Scanlines · Vignette · Corner brackets
+  ═══════════════════════════════════════════════════════════════════════ */
   var FXEngine = (function() {
+
+    /* Nation-state threat zones — lat/lon bounding boxes [lat1,lon1,lat2,lon2] */
+    var THREAT_ZONES = [
+      { label:'RU', name:'RUSSIA',    lat1:50, lon1:30, lat2:72,  lon2:140, color:'rgba(255,80,40,0.07)',  border:'rgba(255,80,40,0.22)' },
+      { label:'CN', name:'CHINA',     lat1:18, lon1:74, lat2:54,  lon2:135, color:'rgba(255,100,0,0.06)',  border:'rgba(255,120,0,0.20)' },
+      { label:'KP', name:'N.KOREA',   lat1:37, lon1:124,lat2:43,  lon2:130, color:'rgba(255,30,80,0.12)',  border:'rgba(255,50,80,0.40)' },
+      { label:'IR', name:'IRAN',      lat1:25, lon1:44, lat2:40,  lon2:63,  color:'rgba(255,60,20,0.08)',  border:'rgba(255,80,20,0.25)' },
+    ];
+
+    function latLon(lat, lon, W, H) {
+      return { x: (lon + 180) / 360 * W, y: (90 - lat) / 180 * H };
+    }
+
     function drawBackground(ctx, W, H) {
-      /* Deep space gradient */
+      /* Deep ocean gradient — layered for cinematic depth */
       var bg = ctx.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0,   '#020814');
-      bg.addColorStop(0.5, '#010a1a');
-      bg.addColorStop(1,   '#020814');
+      bg.addColorStop(0,    '#010b1a');
+      bg.addColorStop(0.35, '#010d1f');
+      bg.addColorStop(0.65, '#010a1a');
+      bg.addColorStop(1,    '#020c18');
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
+      /* Subtle radial center glow — command grid focal point */
+      var cg = ctx.createRadialGradient(W * 0.5, H * 0.5, 0, W * 0.5, H * 0.5, W * 0.6);
+      cg.addColorStop(0,   'rgba(0,40,80,0.18)');
+      cg.addColorStop(0.5, 'rgba(0,20,50,0.08)');
+      cg.addColorStop(1,   'transparent');
+      ctx.fillStyle = cg;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+
+    function drawThreatZones(ctx, W, H) {
+      /* Nation-state threat overlays — highlight danger regions */
+      ctx.save();
+      for (var z = 0; z < THREAT_ZONES.length; z++) {
+        var tz  = THREAT_ZONES[z];
+        var p1  = latLon(tz.lat1, tz.lon1, W, H);
+        var p2  = latLon(tz.lat2, tz.lon2, W, H);
+        var rx  = Math.min(p1.x, p2.x);
+        var ry  = Math.min(p1.y, p2.y);
+        var rw  = Math.abs(p2.x - p1.x);
+        var rh  = Math.abs(p2.y - p1.y);
+        /* Gradient fill */
+        var zg  = ctx.createLinearGradient(rx, ry, rx + rw, ry + rh);
+        zg.addColorStop(0, tz.color);
+        zg.addColorStop(1, 'transparent');
+        ctx.fillStyle = zg;
+        ctx.fillRect(rx, ry, rw, rh);
+        /* Pulsing border */
+        ctx.strokeStyle = tz.border;
+        ctx.lineWidth   = 0.7;
+        ctx.setLineDash([3, 5]);
+        ctx.strokeRect(rx, ry, rw, rh);
+        ctx.setLineDash([]);
+        /* Label */
+        ctx.font      = 'bold 7px "Courier New",monospace';
+        ctx.fillStyle = tz.border;
+        ctx.textAlign = 'left';
+        ctx.globalAlpha = 0.6;
+        ctx.fillText(tz.label, rx + 3, ry + 9);
+      }
+      ctx.restore();
+    }
+
+    function drawRadarSweep(ctx, W, H, t) {
+      /* Rotating radar sweep from map center */
+      ctx.save();
+      var cx  = W * 0.5;
+      var cy  = H * 0.5;
+      var r   = Math.max(W, H) * 0.75;
+      var ang = (t * 0.0006) % (Math.PI * 2);  /* ~10s per revolution */
+      /* Sweep gradient — bright leading edge, fading trail */
+      var sw  = ctx.createConicalGradient ? null : null; /* conical not available in Canvas2D */
+      /* Manual sweep using arc sector */
+      var sweepWidth = 0.4; /* radians */
+      for (var i = 0; i < 20; i++) {
+        var fa  = ang - sweepWidth * (i / 20);
+        var fa2 = ang - sweepWidth * ((i + 1) / 20);
+        var alpha = (1 - i / 20) * 0.06;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, fa, fa2, true);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(0,220,180,' + alpha + ')';
+        ctx.fill();
+      }
+      /* Leading edge line */
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r);
+      ctx.strokeStyle = 'rgba(0,255,200,0.25)';
+      ctx.lineWidth   = 1.0;
+      ctx.stroke();
+      /* Concentric rings */
+      var rings = [0.25, 0.45, 0.65];
+      ctx.strokeStyle = 'rgba(0,180,160,0.05)';
+      ctx.lineWidth   = 0.5;
+      for (var ri = 0; ri < rings.length; ri++) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * rings[ri], 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
 
     function drawScanlines(ctx, W, H, t) {
@@ -17082,17 +16693,43 @@ a:focus-visible {
     }
 
     function drawBorder(ctx, W, H, t) {
-      var pulse = 0.5 + 0.5 * Math.sin(t * 0.0015);
+      var pulse  = 0.5 + 0.5 * Math.sin(t * 0.0015);
+      var pulse2 = 0.5 + 0.5 * Math.sin(t * 0.0022 + 1.2);
+      var cLen   = Math.min(W, H) * 0.08; /* corner bracket length */
       ctx.save();
-      ctx.strokeStyle = 'rgba(0, 200, 255, ' + (0.25 + 0.15 * pulse) + ')';
-      ctx.lineWidth   = 1.2;
-      ctx.shadowColor = 'rgba(0, 200, 255, 0.5)';
-      ctx.shadowBlur  = 12;
+      /* Full border — thin */
+      ctx.strokeStyle = 'rgba(0,180,220,' + (0.12 + 0.06 * pulse) + ')';
+      ctx.lineWidth   = 0.7;
       ctx.strokeRect(1, 1, W - 2, H - 2);
+      /* Corner brackets — military HUD style */
+      ctx.strokeStyle = 'rgba(0,230,255,' + (0.55 + 0.2 * pulse2) + ')';
+      ctx.lineWidth   = 1.8;
+      ctx.shadowColor = 'rgba(0,200,255,0.8)';
+      ctx.shadowBlur  = 10;
+      ctx.lineCap     = 'square';
+      /* Top-left */
+      ctx.beginPath(); ctx.moveTo(1, 1 + cLen); ctx.lineTo(1, 1); ctx.lineTo(1 + cLen, 1); ctx.stroke();
+      /* Top-right */
+      ctx.beginPath(); ctx.moveTo(W - 1 - cLen, 1); ctx.lineTo(W - 1, 1); ctx.lineTo(W - 1, 1 + cLen); ctx.stroke();
+      /* Bottom-left */
+      ctx.beginPath(); ctx.moveTo(1, H - 1 - cLen); ctx.lineTo(1, H - 1); ctx.lineTo(1 + cLen, H - 1); ctx.stroke();
+      /* Bottom-right */
+      ctx.beginPath(); ctx.moveTo(W - 1 - cLen, H - 1); ctx.lineTo(W - 1, H - 1); ctx.lineTo(W - 1, H - 1 - cLen); ctx.stroke();
+      /* Corner dots */
+      ctx.globalAlpha = 0.7 + 0.3 * pulse;
+      ctx.fillStyle   = '#00eeff';
+      ctx.shadowBlur  = 14;
+      var corners = [[1,1],[W-1,1],[1,H-1],[W-1,H-1]];
+      for (var c = 0; c < corners.length; c++) {
+        ctx.beginPath();
+        ctx.arc(corners[c][0], corners[c][1], 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
     }
 
-    return { drawBackground: drawBackground, drawScanlines: drawScanlines,
+    return { drawBackground: drawBackground, drawThreatZones: drawThreatZones,
+             drawRadarSweep: drawRadarSweep, drawScanlines: drawScanlines,
              drawVignette: drawVignette, drawCorridorPulse: drawCorridorPulse,
              drawBorder: drawBorder };
   })();
@@ -17168,6 +16805,30 @@ a:focus-visible {
       ctx.shadowBlur  = blink ? 6 : 2;
       ctx.fillText(pill, W/2, 16);
 
+      /* Threat groups panel — bottom center */
+      var groups = ['APT-LAZARUS','APT-COZY','APT-FANCY','RANSOMWARE','ZERO-DAY'];
+      var gColors = ['#ff2244','#ff6600','#ffcc00','#ff4400','#ffffff'];
+      var panelW  = groups.length * 74 + 8;
+      var panelX  = (W - panelW) / 2;
+      var panelY  = H - 34;
+      ctx.fillStyle   = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(panelX, panelY, panelW, 14);
+      ctx.strokeStyle = 'rgba(0,180,220,0.25)';
+      ctx.lineWidth   = 0.5;
+      ctx.strokeRect(panelX, panelY, panelW, 14);
+      for (var g = 0; g < groups.length; g++) {
+        var gx = panelX + 4 + g * 74;
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle   = gColors[g];
+        ctx.shadowColor = gColors[g];
+        ctx.shadowBlur  = 4;
+        ctx.fillRect(gx, panelY + 4, 5, 6);
+        ctx.shadowBlur  = 0;
+        ctx.fillStyle   = 'rgba(160,190,210,0.7)';
+        ctx.textAlign   = 'left';
+        ctx.font        = '6px "Courier New",monospace';
+        ctx.fillText(groups[g], gx + 7, panelY + 11);
+      }
       ctx.restore();
       updateFPS(fps);
     }
@@ -17212,7 +16873,9 @@ a:focus-visible {
     updateQuality();
     frameCount++;
 
-    var dims = applySize(canvas, panel);
+    /* CHROME FIX §A: Use cached dims — no canvas reset per frame */
+    var dims = { W: _cachedW / (_cachedDpr||1), H: _cachedH / (_cachedDpr||1), dpr: _cachedDpr||1, ctx: _cachedCtx || canvas.getContext('2d') };
+    if (!dims.ctx || dims.W < 10) return; /* Guard: skip frame if not ready */
     if (!dims.ctx) { warn('Context lost — stopping loop'); stopLoop(); return; }
 
     var ctx = dims.ctx;
@@ -17220,8 +16883,10 @@ a:focus-visible {
     var H   = dims.H;
     var pMax = qualityMode === 'HIGH' ? PARTICLE_MAX : 60;
 
-    /* — Draw pipeline — */
+    /* — Draw pipeline (V166.1 CINEMATIC) — */
     FXEngine.drawBackground(ctx, W, H);
+    FXEngine.drawThreatZones(ctx, W, H);      /* Nation-state danger overlays */
+    FXEngine.drawRadarSweep(ctx, W, H, t);    /* Global radar sweep */
     FXEngine.drawCorridorPulse(ctx, W, H, t);
     MapEngine.drawGrid(ctx, W, H);
     MapEngine.drawContours(ctx, W, H);
@@ -17325,7 +16990,7 @@ a:focus-visible {
     }
 
     /* §A: Apply size — Chrome fix: explicit px on panel + canvas */
-    var dims = applySize(canvas, panel);
+    var dims = applySize(canvas, panel, true); /* forceReset on boot */
     if (!dims.ctx) {
       warn('2D context unavailable — retry ' + BOOT_TRIES);
       setTimeout(boot, BOOT_DELAY);
