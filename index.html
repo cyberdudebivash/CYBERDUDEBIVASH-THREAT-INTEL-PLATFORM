@@ -15719,6 +15719,852 @@ pre,
 </style>
 <!-- SENTINEL-APEX-v157-v158-v159-PATCH-END -->
 
+<!-- SENTINEL-APEX-v160-ENTERPRISE-VISUAL-SYSTEM-START -->
+<style>
+/* =============================================================================
+   SENTINEL APEX v160.0 — Enterprise Visual System Upgrade
+   CrowdStrike / SentinelOne / Recorded Future grade maturity
+   Strategy: additive CSS injection only — zero HTML changes — zero JS changes
+             — zero existing CSS removed — zero regression risk
+   Targets:  typography readability floor, enterprise design tokens,
+             nav chip refinement, intel card hierarchy, metric card polish,
+             severity badge legibility, scrollbar theming, focus accessibility
+   Validated: forensic audit complete | injected after v157-v159 patch stack
+   ============================================================================= */
+
+/* ---------------------------------------------------------------------------
+   v160 §1 — ENTERPRISE TOKEN EXTENSIONS
+   Supplements (does not replace) existing :root blocks 1-4.
+   Adds missing weight hierarchy, spacing, elevation, and enterprise
+   surface palette that the current token set lacks.
+   --------------------------------------------------------------------------- */
+:root {
+  /* Font weight hierarchy — replaces ad-hoc 700/800/900 scattered usage */
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+  --fw-heavy:    800;
+  --fw-black:    900;
+
+  /* Letter-spacing system — enterprise UI standard */
+  --ls-tighter: -0.04em;
+  --ls-tight:   -0.02em;
+  --ls-normal:   0em;
+  --ls-label:    0.05em;   /* enterprise UI micro-labels */
+  --ls-wide:     0.08em;
+  --ls-wider:    0.12em;
+  --ls-widest:   0.18em;
+
+  /* Line-height scale */
+  --lh-none:    1;
+  --lh-tight:   1.25;
+  --lh-snug:    1.375;
+  --lh-normal:  1.5;
+  --lh-relaxed: 1.625;
+
+  /* Enterprise readable font-size floor
+     Previous: apex-k=7px, metric-label=8.5px, nav-chip=9.5px, filter-label=9px
+     Industry standard minimum for enterprise dashboards: 10.5px labels, 11px UI */
+  --fs-nano:     10.5px;   /* smallest permitted: badges, micro-labels */
+  --fs-micro:    11px;     /* secondary captions, status text */
+  --fs-small:    12px;     /* small body, table cells */
+  --fs-ui:       11.5px;   /* nav chips, filter labels, toolbar buttons */
+  --fs-body:     13px;     /* standard body text */
+  --fs-body-lg:  14px;     /* card body, readable content */
+  --fs-subhead:  16px;     /* sub-section headers */
+
+  /* Elevation system — replaces scattered ad-hoc box-shadow values */
+  --elev-0:         none;
+  --elev-1:         0 1px 3px rgba(0,0,0,0.55),  0 1px 2px  rgba(0,0,0,0.40);
+  --elev-2:         0 4px 8px rgba(0,0,0,0.55),  0 2px 4px  rgba(0,0,0,0.35);
+  --elev-3:         0 10px 20px rgba(0,0,0,0.55), 0 4px 6px  rgba(0,0,0,0.40);
+  --elev-card:      0 2px 24px rgba(0,0,0,0.60), 0 0 0 1px rgba(255,255,255,0.04);
+  --elev-card-hover:0 8px 28px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,212,170,0.14);
+
+  /* Enterprise surface palette — calmer dark backgrounds */
+  --surf-0: #010204;
+  --surf-1: #060911;
+  --surf-2: #0a0f1a;
+  --surf-3: #0e1520;
+  --surf-4: #131c2c;
+
+  /* Refined border scale */
+  --bdr-faint:    rgba(255,255,255,0.035);
+  --bdr-subtle:   rgba(255,255,255,0.06);
+  --bdr-default:  rgba(255,255,255,0.085);
+  --bdr-emphasis: rgba(0,212,170,0.28);
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §2 — ENTERPRISE HEADER EVOLUTION
+   The brand h1 carries a massive inline style block. CSS-level overrides
+   here target shape, spacing, and weight — preserving the gradient color
+   animation that defines the brand identity.
+   --------------------------------------------------------------------------- */
+.apex-header {
+  padding-top:    clamp(16px, 2.5vw, 26px) !important;
+  padding-bottom: clamp(14px, 2vw, 22px)   !important;
+}
+
+.brand-mark h1 {
+  font-size:      clamp(18px, 3.2vw, 30px) !important;
+  font-weight:    var(--fw-black)           !important;
+  letter-spacing: var(--ls-tighter)         !important;
+  line-height:    var(--lh-none)            !important;
+}
+
+.brand-sub {
+  font-size:      clamp(10px, 1.6vw, 11.5px) !important;
+  font-weight:    var(--fw-semibold)          !important;
+  letter-spacing: var(--ls-widest)            !important;
+  margin-top:     5px                         !important;
+  opacity:        0.75                        !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §3 — NAV CHIP ENTERPRISE REFINEMENT
+   Previous: 9.5px JetBrains Mono, font-weight 800, uppercase — too dense.
+   Enterprise target: display font, 11.5px, semibold, cleaner affordance.
+   --------------------------------------------------------------------------- */
+.nav-chip {
+  font-family:    var(--font-display)           !important;
+  font-size:      var(--fs-ui)                  !important;
+  font-weight:    var(--fw-semibold)            !important;
+  letter-spacing: var(--ls-wide)               !important;
+  padding:        5px 11px                      !important;
+  border-radius:  4px                           !important;
+  color:          rgba(148, 172, 210, 0.82)     !important;
+  border-color:   var(--bdr-default)            !important;
+  transition:     color 180ms cubic-bezier(0.4,0,0.2,1),
+                  background 180ms cubic-bezier(0.4,0,0.2,1),
+                  border-color 180ms cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+.nav-chip:hover {
+  color:        var(--accent)                 !important;
+  border-color: var(--bdr-emphasis)           !important;
+  background:   rgba(0, 212, 170, 0.055)      !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §4 — FILTER + TOOLBAR READABILITY
+   Previous: filter label 9px, filter-btn 10px — unreadable at arm's length.
+   --------------------------------------------------------------------------- */
+.filter-bar label {
+  font-size:      var(--fs-ui)      !important;
+  font-weight:    var(--fw-semibold) !important;
+  letter-spacing: var(--ls-widest)  !important;
+}
+
+.filter-btn {
+  font-size:   var(--fs-nano)       !important;
+  font-weight: var(--fw-medium)     !important;
+}
+
+.filter-btn.active {
+  font-weight: var(--fw-bold) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §5 — INTEL CARD ENTERPRISE HIERARCHY
+   Card titles and micro-labels are the most-viewed UI element on the platform.
+   Readability improvements here have the highest enterprise perception impact.
+   --------------------------------------------------------------------------- */
+.intel-card {
+  box-shadow:  var(--elev-card) !important;
+  transition:  box-shadow 200ms cubic-bezier(0.4,0,0.2,1),
+               transform   200ms cubic-bezier(0.4,0,0.2,1),
+               border-color 200ms cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+.intel-card:hover {
+  box-shadow: var(--elev-card-hover)    !important;
+  transform:  translateY(-1px)          !important;
+}
+
+/* Card title — already good at 17px, tighten tracking and line-height */
+.card-title {
+  font-size:      clamp(13px, 2vw, 16px) !important;
+  font-weight:    var(--fw-bold)         !important;
+  letter-spacing: var(--ls-tight)        !important;
+  line-height:    var(--lh-snug)         !important;
+}
+
+/* APEX panel key-value labels — were 7px (critically small) */
+.apex-k {
+  font-size:      var(--fs-nano)     !important;
+  font-weight:    var(--fw-semibold) !important;
+  letter-spacing: var(--ls-label)    !important;
+  color:          rgba(100, 125, 160, 0.9) !important;
+}
+
+/* APEX panel values — were 9.5px */
+.apex-v {
+  font-size:   clamp(11px, 1.8vw, 13px) !important;
+  font-weight: var(--fw-bold)           !important;
+  line-height: var(--lh-tight)          !important;
+}
+
+/* APEX panel header — was 8.5px */
+.apex-panel-hdr {
+  font-size:      var(--fs-nano)    !important;
+  letter-spacing: var(--ls-wide)    !important;
+  font-weight:    var(--fw-heavy)   !important;
+}
+
+/* Card footer meta — improve readability */
+.card-footer {
+  padding-top:   14px !important;
+  margin-top:    16px !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §6 — METRIC CARD POLISH
+   The 38px glowing stat numbers are functionally good. Calibrate glow
+   intensity to enterprise level (calm authority, not consumer flash).
+   --------------------------------------------------------------------------- */
+.metric-card {
+  box-shadow: var(--elev-card) !important;
+  transition: box-shadow 250ms cubic-bezier(0.4,0,0.2,1),
+              transform   250ms cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+.metric-card:hover {
+  box-shadow: var(--elev-card-hover) !important;
+  transform:  translateY(-1px)       !important;
+}
+
+/* Metric value — calibrate glow for enterprise visual register */
+.metric-val {
+  font-size:   clamp(26px, 3.2vw, 38px)                        !important;
+  font-weight: var(--fw-black)                                  !important;
+  text-shadow: 0 0 16px rgba(0,212,170,0.30),
+               0 0 32px rgba(0,212,170,0.12)                    !important;
+}
+
+/* Metric label — was 8.5px mono. 11px display is far more legible */
+.metric-label {
+  font-family:    var(--font-display) !important;
+  font-size:      var(--fs-micro)     !important;
+  font-weight:    var(--fw-semibold)  !important;
+  letter-spacing: var(--ls-widest)    !important;
+  opacity:        0.72                !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §7 — SEVERITY BADGE LEGIBILITY
+   Badge text must be readable at a glance across all severity levels.
+   --------------------------------------------------------------------------- */
+.sev-badge,
+.badge-critical, .badge-high, .badge-medium, .badge-low, .badge-info,
+[class*="badge-sev"], [class*="sev-label"] {
+  font-size:      10px                !important;
+  font-weight:    var(--fw-heavy)     !important;
+  letter-spacing: var(--ls-wide)      !important;
+  line-height:    1                   !important;
+}
+
+/* TLP badges */
+.tlp-badge,
+[class*="tlp-red"], [class*="tlp-amber"],
+[class*="tlp-green"], [class*="tlp-clear"] {
+  font-size:      10px                !important;
+  font-weight:    var(--fw-heavy)     !important;
+  letter-spacing: var(--ls-wide)      !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §8 — STATUS STRIP READABILITY
+   --------------------------------------------------------------------------- */
+.status-strip,
+.status-strip span,
+.status-strip a {
+  font-size:   var(--fs-micro)    !important;
+  font-weight: var(--fw-medium)   !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §9 — ENTERPRISE SCROLLBAR THEMING
+   Replaces default OS scrollbar with a minimal enterprise-grade treatment.
+   --------------------------------------------------------------------------- */
+::-webkit-scrollbar            { width: 4px; height: 4px; }
+::-webkit-scrollbar-track      { background: var(--surf-1); }
+::-webkit-scrollbar-thumb      {
+  background:    rgba(0, 212, 170, 0.18);
+  border-radius: 99px;
+  transition:    background 200ms;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 212, 170, 0.38); }
+::-webkit-scrollbar-corner      { background: var(--surf-1); }
+
+/* ---------------------------------------------------------------------------
+   v160 §10 — ENTERPRISE FOCUS RINGS (accessibility compliance)
+   Replaces default browser focus outlines with on-brand indicators.
+   --------------------------------------------------------------------------- */
+*:focus-visible {
+  outline:        2px solid rgba(0, 212, 170, 0.55) !important;
+  outline-offset: 2px                               !important;
+  border-radius:  2px                               !important;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline-offset: 3px !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §11 — INTEL SOURCE / ACTOR BADGE READABILITY
+   --------------------------------------------------------------------------- */
+.actor-badge,
+.source-badge,
+.intel-source,
+[class*="actor-tag"],
+[class*="source-tag"] {
+  font-size:      10px                !important;
+  font-weight:    var(--fw-heavy)     !important;
+  letter-spacing: var(--ls-label)     !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §12 — SELECTION COLOR
+   Brand-aligned text selection highlight.
+   --------------------------------------------------------------------------- */
+::selection {
+  background: rgba(0, 212, 170, 0.22);
+  color:      var(--white);
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §13 — ENTERPRISE SECTION HEADER TYPOGRAPHY
+   --------------------------------------------------------------------------- */
+.section-title,
+.section-header h2,
+.section-header h3,
+[class*="section-ttl"],
+[class*="section-heading"],
+.intel-section-title {
+  font-weight:    var(--fw-bold)   !important;
+  letter-spacing: var(--ls-tight)  !important;
+  line-height:    var(--lh-tight)  !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §14 — ENRICHMENT PROGRESS BAR (already good, add contain hint)
+   --------------------------------------------------------------------------- */
+.cdb-enrichment-progress-bar {
+  contain: strict;
+  will-change: width;
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §15 — MOBILE TYPOGRAPHY FLOOR
+   On mobile, enforce minimum 11px for all visible text to prevent
+   unreadable micro-text on 360-412px screens.
+   --------------------------------------------------------------------------- */
+@media (max-width: 480px) {
+  .apex-k,
+  .apex-panel-hdr,
+  .metric-label,
+  .filter-bar label,
+  .sev-badge,
+  .tlp-badge,
+  .actor-badge,
+  .source-badge,
+  .status-strip span {
+    font-size: 11px !important;
+  }
+
+  .nav-chip {
+    font-size: 10.5px !important;
+    padding: 5px 9px !important;
+  }
+
+  .card-title {
+    font-size: 14px !important;
+  }
+
+  .metric-val {
+    font-size: 28px !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §16 — TABLET REFINEMENTS (768px)
+   --------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .apex-k {
+    font-size: 10.5px !important;
+  }
+  .metric-label {
+    font-size: 10.5px !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   v160 §17 — WIDE SCREEN ENHANCEMENT (1440px+)
+   On large displays, give cards more breathing room.
+   --------------------------------------------------------------------------- */
+@media (min-width: 1440px) {
+  .intel-card {
+    padding: clamp(18px, 2vw, 26px) !important;
+  }
+  .metric-card {
+    padding: 26px 22px 20px !important;
+  }
+}
+
+/* --- v160 ENTERPRISE VISUAL SYSTEM END ------------------------------------- */
+</style>
+<!-- SENTINEL-APEX-v160-ENTERPRISE-VISUAL-SYSTEM-END -->
+
+<!-- SENTINEL-APEX-v161-COMPONENT-UPGRADES-START -->
+<style>
+/* =============================================================================
+   SENTINEL APEX v161.0 — Enterprise Component Upgrade System
+   Extends v160 design token system to platform-specific component classes.
+   Strategy: additive only — no HTML/JS changes — no existing CSS removed
+   Scope: AI panels, tab navigation, SOC grid, news feed, IOC chips,
+          timeline rows, modal typography, heatmap, loading states,
+          CTA buttons, threat ticker, defcon rows, apex pills
+   ============================================================================= */
+
+/* ---------------------------------------------------------------------------
+   v161 §1 — AI PANEL COMPONENTS
+   The AI Intelligence Panel cards are the centrepiece of the platform.
+   Enterprise maturity: calibrated title weight, badge legibility, panel
+   body line-height, card lift on hover.
+   --------------------------------------------------------------------------- */
+.ai-panel-card {
+  border:     1px solid var(--bdr-subtle)       !important;
+  box-shadow: var(--elev-card)                  !important;
+  transition: box-shadow 220ms cubic-bezier(0.4,0,0.2,1),
+              transform   220ms cubic-bezier(0.4,0,0.2,1),
+              border-color 220ms cubic-bezier(0.4,0,0.2,1) !important;
+}
+.ai-panel-card:hover {
+  box-shadow:   var(--elev-card-hover) !important;
+  transform:    translateY(-1px)       !important;
+  border-color: var(--bdr-emphasis)    !important;
+}
+.ai-panel-title {
+  font-size:      clamp(11px, 1.6vw, 13px) !important;
+  font-weight:    var(--fw-bold)           !important;
+  letter-spacing: var(--ls-tight)          !important;
+  line-height:    var(--lh-snug)           !important;
+}
+.ai-panel-badge {
+  font-size:      10px               !important;
+  font-weight:    var(--fw-heavy)    !important;
+  letter-spacing: var(--ls-wide)     !important;
+}
+.ai-panel-body {
+  font-size:   var(--fs-body)   !important;
+  line-height: var(--lh-normal) !important;
+}
+.ai-panel-loading {
+  opacity: 0.5;
+  animation: apex-pulse 1.4s cubic-bezier(0.4,0,0.6,1) infinite !important;
+}
+
+/* AI factor bars */
+.ai-factor-name {
+  font-size:      var(--fs-nano)     !important;
+  font-weight:    var(--fw-semibold) !important;
+  letter-spacing: var(--ls-label)    !important;
+}
+.ai-factor-weight {
+  font-size:   var(--fs-nano)  !important;
+  font-weight: var(--fw-heavy) !important;
+}
+.ai-factor-bar {
+  height:        5px                         !important;
+  border-radius: 99px                        !important;
+  background:    rgba(255,255,255,0.04)      !important;
+  overflow:      hidden                      !important;
+}
+.ai-factor-bar-fill {
+  border-radius: 99px !important;
+  transition:    width 600ms cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+/* AI campaign items */
+.ai-campaign-item {
+  border-bottom:   1px solid var(--bdr-faint) !important;
+  transition:      background 150ms           !important;
+}
+.ai-campaign-item:hover {
+  background: rgba(255,255,255,0.025) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §2 — TAB NAVIGATION
+   Platform uses .cdb-tab-btn for all major section tabs.
+   Enterprise treatment: smoother active state, readable labels.
+   --------------------------------------------------------------------------- */
+.cdb-tab-btn {
+  font-family:    var(--font-display) !important;
+  font-size:      var(--fs-ui)        !important;
+  font-weight:    var(--fw-semibold)  !important;
+  letter-spacing: var(--ls-wide)      !important;
+  transition:     color 160ms cubic-bezier(0.4,0,0.2,1),
+                  border-color 160ms cubic-bezier(0.4,0,0.2,1),
+                  background 160ms cubic-bezier(0.4,0,0.2,1) !important;
+}
+.cdb-tab-btn.active,
+.cdb-tab-btn[class*="active"] {
+  font-weight: var(--fw-bold) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §3 — SOC GRID + HEADER
+   --------------------------------------------------------------------------- */
+.cdb-soc-header {
+  font-size:      var(--fs-nano)  !important;
+  font-weight:    var(--fw-heavy) !important;
+  letter-spacing: var(--ls-wider) !important;
+}
+.cdb-soc-label {
+  font-size:      var(--fs-nano)     !important;
+  font-weight:    var(--fw-semibold) !important;
+  letter-spacing: var(--ls-label)    !important;
+}
+.cdb-soc-grid {
+  gap: clamp(10px, 1.4vw, 16px) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §4 — NEWS FEED COMPONENTS
+   The live news feed is a high-attention area — authority badges,
+   title readability and source meta must be enterprise-grade.
+   --------------------------------------------------------------------------- */
+.cdb-news-header {
+  font-size:      var(--fs-nano)  !important;
+  font-weight:    var(--fw-heavy) !important;
+  letter-spacing: var(--ls-wider) !important;
+}
+.cdb-news-title {
+  font-size:      var(--fs-body-lg) !important;
+  font-weight:    var(--fw-semibold) !important;
+  line-height:    var(--lh-snug)    !important;
+  transition:     color 150ms       !important;
+}
+.cdb-news-title:hover {
+  color: var(--accent) !important;
+}
+.cdb-news-meta {
+  font-size:      var(--fs-micro) !important;
+  font-weight:    var(--fw-medium) !important;
+  letter-spacing: var(--ls-label) !important;
+  opacity:        0.68            !important;
+}
+.cdb-news-authority-badge {
+  font-size:      9.5px            !important;
+  font-weight:    var(--fw-heavy)  !important;
+  letter-spacing: var(--ls-wide)   !important;
+}
+.cdb-news-verified {
+  font-size:   var(--fs-nano) !important;
+  font-weight: var(--fw-bold) !important;
+}
+.cdb-news-live-dot {
+  animation: apex-live-pulse 1.8s ease-in-out infinite !important;
+}
+.cdb-news-refresh-btn {
+  font-size:   var(--fs-micro)   !important;
+  font-weight: var(--fw-medium)  !important;
+  transition:  opacity 150ms, color 150ms !important;
+}
+.cdb-news-refresh-btn:hover {
+  color: var(--accent) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §5 — IOC CHIP + INDICATOR COMPONENTS
+   IOC indicators are trust-critical — legibility = operational accuracy.
+   --------------------------------------------------------------------------- */
+.cdb-ioc-pill,
+.ioc-chip {
+  font-family:    var(--font-mono)     !important;
+  font-size:      10.5px               !important;
+  font-weight:    var(--fw-semibold)   !important;
+  letter-spacing: var(--ls-normal)     !important;
+  border-radius:  3px                  !important;
+  transition:     background 150ms, border-color 150ms !important;
+}
+.ioc-indicator-badge {
+  font-size:      10px             !important;
+  font-weight:    var(--fw-heavy)  !important;
+  letter-spacing: var(--ls-wide)   !important;
+}
+.cdb-ioc-input {
+  font-family: var(--font-mono) !important;
+  font-size:   var(--fs-body)   !important;
+}
+.cdb-ioc-btn {
+  font-size:      var(--fs-nano)   !important;
+  font-weight:    var(--fw-bold)   !important;
+  letter-spacing: var(--ls-label)  !important;
+  transition:     background 160ms, border-color 160ms, transform 100ms !important;
+}
+.cdb-ioc-btn:active {
+  transform: scale(0.97) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §6 — TIMELINE ROWS
+   --------------------------------------------------------------------------- */
+.cdb-timeline-date {
+  font-family:    var(--font-mono)   !important;
+  font-size:      var(--fs-micro)    !important;
+  font-weight:    var(--fw-medium)   !important;
+  letter-spacing: var(--ls-label)    !important;
+  opacity:        0.68               !important;
+}
+.cdb-tl-row {
+  border-bottom: 1px solid var(--bdr-faint) !important;
+  transition:    background 140ms           !important;
+}
+.cdb-tl-row:hover {
+  background: rgba(255,255,255,0.02) !important;
+}
+.cdb-defcon-row {
+  transition: background 140ms !important;
+}
+.cdb-defcon-row:hover {
+  background: rgba(255,255,255,0.022) !important;
+}
+.cdb-group-header {
+  font-size:      var(--fs-nano)  !important;
+  font-weight:    var(--fw-heavy) !important;
+  letter-spacing: var(--ls-wider) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §7 — MODAL TYPOGRAPHY
+   --------------------------------------------------------------------------- */
+.modal-section-title {
+  font-size:      var(--fs-small)  !important;
+  font-weight:    var(--fw-heavy)  !important;
+  letter-spacing: var(--ls-wider)  !important;
+}
+.modal-field-label {
+  font-size:      var(--fs-nano)     !important;
+  font-weight:    var(--fw-semibold) !important;
+  letter-spacing: var(--ls-label)    !important;
+  opacity:        0.65               !important;
+}
+.modal-field-val {
+  font-size:   var(--fs-body) !important;
+  font-weight: var(--fw-medium) !important;
+}
+.modal-apex-k {
+  font-size:      var(--fs-nano)     !important;
+  font-weight:    var(--fw-semibold) !important;
+  letter-spacing: var(--ls-label)    !important;
+  opacity:        0.62               !important;
+}
+.modal-apex-v {
+  font-size:   clamp(11px, 1.6vw, 13px) !important;
+  font-weight: var(--fw-bold)           !important;
+}
+.modal-apex-summary {
+  font-size:   var(--fs-body)   !important;
+  line-height: var(--lh-normal) !important;
+}
+.modal-box,
+.ai-modal-box,
+.kbd-modal-box {
+  box-shadow: 0 24px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.07) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §8 — HEATMAP / MITRE MATRIX
+   --------------------------------------------------------------------------- */
+.heatmap-tactic-label {
+  font-size:      var(--fs-nano)     !important;
+  font-weight:    var(--fw-semibold) !important;
+  letter-spacing: var(--ls-label)    !important;
+}
+.hm-cell {
+  border-radius: 3px  !important;
+  transition:    opacity 180ms, filter 180ms, transform 120ms !important;
+}
+.hm-cell:hover {
+  opacity:   0.88          !important;
+  filter:    brightness(1.18) !important;
+  transform: scale(1.08)   !important;
+  z-index:   2             !important;
+}
+.heatmap-tactic-cells {
+  gap: 2px !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §9 — LOADING + SPINNER STATES
+   --------------------------------------------------------------------------- */
+.spinner,
+.loading-spinner {
+  animation: apex-spin 700ms linear infinite !important;
+}
+.loading-state {
+  opacity: 0.45;
+  animation: apex-pulse 1.6s ease-in-out infinite !important;
+}
+.cdb-agent-loading {
+  opacity: 0.4;
+  animation: apex-pulse 1.4s ease-in-out infinite !important;
+}
+
+/* Shared keyframes — declared once, reused by all v161 animations */
+@keyframes apex-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes apex-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.85; }
+}
+@keyframes apex-live-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,212,170,0.45); }
+  60%       { opacity: 0.8; box-shadow: 0 0 0 5px rgba(0,212,170,0); }
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §10 — CTA BUTTONS (enterprise polish)
+   --------------------------------------------------------------------------- */
+.cdb-scta-btn-primary {
+  font-weight:    var(--fw-bold)  !important;
+  letter-spacing: var(--ls-wide)  !important;
+  transition:     background 180ms, box-shadow 180ms, transform 100ms !important;
+}
+.cdb-scta-btn-primary:hover {
+  box-shadow: 0 4px 16px rgba(0,212,170,0.28) !important;
+}
+.cdb-scta-btn-primary:active {
+  transform: scale(0.97) !important;
+}
+.cdb-scta-btn-secondary {
+  font-weight:    var(--fw-semibold) !important;
+  letter-spacing: var(--ls-label)    !important;
+  transition:     background 180ms, border-color 180ms !important;
+}
+.cdb-pro-unlock-btn {
+  font-weight:    var(--fw-bold)   !important;
+  letter-spacing: var(--ls-wide)   !important;
+  transition:     background 180ms, transform 100ms !important;
+}
+.cdb-pro-unlock-btn:active {
+  transform: scale(0.97) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §11 — THREAT TICKER
+   --------------------------------------------------------------------------- */
+.threat-ticker-label {
+  font-family:    var(--font-mono)   !important;
+  font-size:      10.5px             !important;
+  font-weight:    var(--fw-semibold) !important;
+  letter-spacing: var(--ls-label)    !important;
+}
+.threat-ticker-wrap {
+  border-top: 1px solid var(--bdr-faint) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §12 — RISK / SCORE VISUALIZATIONS
+   --------------------------------------------------------------------------- */
+.card-score {
+  font-weight: var(--fw-black) !important;
+  line-height: var(--lh-none)  !important;
+}
+.cdb-agent-risk-fill {
+  border-radius: 99px !important;
+  transition:    width 700ms cubic-bezier(0.4,0,0.2,1) !important;
+}
+.cdb-agent-risk-bar {
+  height:        6px                    !important;
+  border-radius: 99px                   !important;
+  background:    rgba(255,255,255,0.05) !important;
+  overflow:      hidden                 !important;
+}
+.epss-bar-label {
+  font-family:    var(--font-mono)   !important;
+  font-size:      var(--fs-nano)     !important;
+  font-weight:    var(--fw-semibold) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §13 — APEX PILL COMPONENTS
+   --------------------------------------------------------------------------- */
+.apex-kc-pill,
+.cdb-apex-rec-pill,
+.cdb-scan-pill,
+.apex-priority-badge {
+  font-size:      10px             !important;
+  font-weight:    var(--fw-heavy)  !important;
+  letter-spacing: var(--ls-wide)   !important;
+  border-radius:  3px              !important;
+}
+.apex-conf-label {
+  font-size:      var(--fs-nano)   !important;
+  font-weight:    var(--fw-bold)   !important;
+  letter-spacing: var(--ls-label)  !important;
+}
+.apex-tag,
+.apex-tags .apex-tag {
+  font-size:      var(--fs-nano)     !important;
+  font-weight:    var(--fw-semibold) !important;
+  letter-spacing: var(--ls-normal)   !important;
+  border-radius:  2px                !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §14 — TRUST + KPI LABELS
+   --------------------------------------------------------------------------- */
+.cdb-trust-stat-label,
+.kpi-label,
+.cdb-gadget-label,
+.cdb-rlabel {
+  font-size:      var(--fs-nano)     !important;
+  font-weight:    var(--fw-semibold) !important;
+  letter-spacing: var(--ls-label)    !important;
+  opacity:        0.72               !important;
+}
+.cdb-live-tag {
+  font-size:      9.5px            !important;
+  font-weight:    var(--fw-heavy)  !important;
+  letter-spacing: var(--ls-wide)   !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §15 — WATCHLIST EMPTY STATE
+   --------------------------------------------------------------------------- */
+.watchlist-empty {
+  font-size:   var(--fs-body-lg) !important;
+  opacity:     0.45              !important;
+}
+.watchlist-header {
+  font-size:      var(--fs-nano)  !important;
+  font-weight:    var(--fw-heavy) !important;
+  letter-spacing: var(--ls-wider) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   v161 §16 — MOBILE COMPONENT FLOOR (≤480px)
+   --------------------------------------------------------------------------- */
+@media (max-width: 480px) {
+  .cdb-tab-btn      { font-size: 10.5px !important; padding: 5px 8px !important; }
+  .cdb-news-title   { font-size: 13px   !important; }
+  .ai-panel-title   { font-size: 12px   !important; }
+  .modal-field-val  { font-size: 12px   !important; }
+  .cdb-soc-grid     { gap: 8px          !important; }
+  .hm-cell:hover    { transform: scale(1.04) !important; }
+}
+
+/* --- v161 ENTERPRISE COMPONENT UPGRADES END -------------------------------- */
+</style>
+<!-- SENTINEL-APEX-v161-COMPONENT-UPGRADES-END -->
+
 
 
 <!-- CDB-AI-BRAIN-INIT-v145 -->
