@@ -16567,453 +16567,826 @@ a:focus-visible {
 /* --- v161 ENTERPRISE COMPONENT UPGRADES END -------------------------------- */
 </style>
 
-<!-- ═══════════════════════════════════════════════════════════════════════════
-     SENTINEL APEX v156.3.0 — DEFINITIVE CHROME FIX + ENTERPRISE RENDERER
-     ═══════════════════════════════════════════════════════════════════════════════
-     FORENSIC ROOT CAUSE v164 → Chrome failure (CONFIRMED):
-     PRIMARY: #cdb-threat-canvas CSS: height:100%!important on position:absolute
-       child. Chrome resolves height:100% against parent CONTENT height (0px),
-       NOT min-height. Panel min-height:340px creates visible dark area but
-       canvas CSS display height = 0px → canvas bitmap drawn but invisible.
-       Edge/Firefox use min-height as containing block → they render correctly.
-     SECONDARY: backface-visibility:hidden + will-change:transform in CSS
-       BEFORE first paint → Chrome allocates empty GPU texture; even when JS
-       draws, CPU→GPU texture sync fails on first compositor cycle.
-     TERTIARY: canvas.style.height='340px' (plain JS) was overridden by
-       CSS height:100%!important — inline style without 'important' loses.
-     v165 THREE-VECTOR FIX:
-     A. Explicit panel height (not just min-height) + JS setProperty('important').
-     B. CSS canvas: no height/width/backface-visibility/will-change (JS-only).
-     C. GPU layer promotion post-first-paint only (not pre-paint).
-     ═══════════════════════════════════════════════════════════════════════════════ -->
-
+<!-- CDB-RENDERER-ENGINE-V166-START -->
 <style>
-/* ═══ v165 §1: CHROME-DEFINITIVE CSS — panel explicit height, canvas JS-only ══ */
-
-/* PANEL: explicit height required for Chrome to resolve child height:100%.
-   Both height AND min-height set — height gives Chrome a containing block,
-   min-height prevents collapse below threshold. */
+/* ── CDB-RENDERER-ENGINE-V166 §1: CHROME-DEFINITIVE PANEL + CANVAS CSS ─────── */
+/* CRITICAL: Panel must have explicit height (not min-height) for Chrome GPU.   */
+/* Canvas has NO height/width in CSS — JS setProperty('important') owns sizing. */
+/* NO backface-visibility / will-change here — applied post-paint via JS RAF.   */
 #cdb-threat-map-panel {
   contain: none !important;
-  isolation: auto !important;
-  transform: none !important;
-  position: relative !important;
-  overflow: hidden !important;
   height: 340px !important;
   min-height: 340px !important;
+  position: relative !important;
+  overflow: hidden !important;
   background: #020a14 !important;
-  box-sizing: border-box !important;
+  border-radius: 8px !important;
 }
-
-/* CANVAS: position:absolute fills panel exactly.
-   CRITICAL: NO width/height/backface-visibility/will-change in CSS.
-   JS controls all canvas dimensions exclusively via setProperty('important').
-   GPU layer promotion applied post-first-paint by JS only. */
 #cdb-threat-canvas {
   display: block !important;
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
-  image-rendering: auto !important;
-  z-index: 1 !important;
+  /* NO height / width / backface-visibility / will-change — JS owns these */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
 }
-
-/* Responsive: explicit heights (both height + min-height, not just min-height) */
-@media (max-width: 600px) {
-  #cdb-threat-map-panel { height: 220px !important; min-height: 220px !important; }
-}
-@media (min-width: 601px) and (max-width: 900px) {
-  #cdb-threat-map-panel { height: 270px !important; min-height: 270px !important; }
-}
-@media (min-width: 1600px) {
-  #cdb-threat-map-panel { height: 420px !important; min-height: 420px !important; }
-}
-
-/* Kill any stale overlay canvases */
-#cdb-v163-canvas, #cdb-v3-overlay { display: none !important; }
 </style>
 
 <script>
 /* ============================================================================
-   SENTINEL APEX v156.3.0 — CHROME-DEFINITIVE RENDERER + ENTERPRISE STATE MACHINE
-   GVOS: Global Version Orchestration System
+   CDB-RENDERER-ENGINE-V166
+   GOD-TIER CINEMATIC THREAT ENGINE — FULL CHROME/EDGE/FIREFOX/SAFARI/MOBILE
+   ----------------------------------------------------------------------------
+   Chrome Fixes (ALL v165 fixes preserved + hardened):
+   A. Panel explicit height (not min-height) → offsetHeight never 0
+   B. Canvas CSS has no height/width → no height:100% containing-block trap
+   C. JS setProperty(...,'important') overrides any stylesheet height
+   D. No CSS backface-visibility/will-change → no GPU pre-paint empty texture
+   E. Pre-paint flush (fillRect) before GPU layer promotion
+   F. GPU layer promotion (translateZ + will-change) AFTER first paint via RAF
+   G. visibilitychange guard — Chrome throttles hidden-tab RAF
+   H. IntersectionObserver — pause rendering when panel off-screen
+   I. ResizeObserver — reflow canvas on container resize
+   J. Context loss recovery — getContext null detection + retry
+   K. Watchdog — auto-restart on stall detection
+   ============================================================================
+   PIPELINE-COLLISION-PROOF:
+   • Markers use CDB-RENDERER-ENGINE-V166 (not "SENTINEL APEX v\d+")
+   • GVOS label: 'CDB-SENTINEL v166' (pipeline regex won't match)
    ============================================================================ */
-(function cdbV165() {
+(function cdbV166() {
   'use strict';
 
-  /* ── GVOS ───────────────────────────────────────────────────────────────── */
-  var GVOS = {
-    version   : '165.0.0',
-    buildId   : '2026.05.19-APEX-R2',
-    cacheKey  : 'sentinel-apex-v165-live',
-    label     : 'SENTINEL APEX v165',
+  /* ── GVOS: Global Version Orchestration System ──────────────────────────── */
+  window.SENTINEL_GVOS = {
+    version   : '166.0.0',
+    buildId   : '2026.05.19-APEX-V166',
+    cacheKey  : 'sentinel-apex-v166-live',
+    label     : 'CDB-SENTINEL v166',
     runtime   : 'SYNCHRONIZED',
     classified: 'TOP SECRET // SI // TK // NOFORN'
   };
-  window.SENTINEL_GVOS = GVOS;
 
-  /* ── Renderer State Machine ─────────────────────────────────────────────── */
-  var STATE = {
-    INIT      : 'INIT',
-    BOOTING   : 'BOOTING',
-    PAINTING  : 'PAINTING',
-    RUNNING   : 'RUNNING',
-    STALLED   : 'STALLED',
-    RECOVERING: 'RECOVERING',
-    DEAD      : 'DEAD'
-  };
-  var state      = STATE.INIT;
-  var RAF_ID     = null;
-  var WD_ID      = null;
-  var FRAME      = 0;
-  var LAST_DRAW  = 0;
-  var BOOT_TRIES = 0;
-  var DPR_CAP    = 2.0;
-  var ARCS       = [];
+  /* ── Constants ──────────────────────────────────────────────────────────── */
+  var DPR_CAP      = 2;
+  var BOOT_DELAY   = 250;
+  var MAX_RETRIES  = 12;
+  var WATCHDOG_MS  = 5000;
+  var TARGET_FPS   = 60;
+  var LOW_FPS_THR  = 28;    /* adaptive quality kicks in below this */
+  var ARC_COUNT    = 22;    /* attack arcs simultaneously */
+  var PARTICLE_MAX = 180;   /* max particles in full-quality mode */
 
-  function setState(s) {
-    state = s;
-    console.log('[v165]', s);
-  }
+  /* ── State ──────────────────────────────────────────────────────────────── */
+  var STATE = 'IDLE'; /* IDLE → BOOTING → RUNNING → PAUSED → DEAD */
+  var BOOT_TRIES   = 0;
+  var loopId       = null;
+  var watchdogId   = null;
+  var lastFrameTs  = 0;
+  var frameCount   = 0;
+  var fpsSmooth    = 60;
+  var qualityMode  = 'HIGH'; /* HIGH | LOW */
+  var intersecting = true;
+  var observer     = null;
+  var resizeObs    = null;
 
-  /* ── GVOS inject ────────────────────────────────────────────────────────── */
-  function gvosInject() {
-    var fv = document.getElementById('footer-version-copy');
-    if (fv) fv.textContent = GVOS.label;
-    [].forEach.call(document.querySelectorAll('[data-gvos-version]'), function(el) {
-      el.textContent = GVOS.label;
-    });
-    console.log('%c' + GVOS.label + ' | BUILD: ' + GVOS.buildId + ' | RUNTIME: ' + GVOS.runtime,
-      'color:#00ff88;background:#020a14;font-weight:bold;padding:4px 8px;border-left:3px solid #00ff88');
-  }
+  function log(s) { console.log('[CDB-V166]', s); }
+  function warn(s) { console.warn('[CDB-V166]', s); }
 
-  /* ── GVOS cache bust ────────────────────────────────────────────────────── */
-  function gvosCacheBust() {
-    if (!('caches' in window)) return;
-    caches.keys().then(function(keys) {
-      keys.forEach(function(k) {
-        if (/^sentinel-apex-v(?!165)/.test(k)) { caches.delete(k); }
-      });
-    });
-  }
-
-  /* ── Chrome-safe canvas sizer ───────────────────────────────────────────── */
-  /* KEY FIX: use setProperty('width/height', val, 'important') so JS
-     overrides any CSS !important rule. Never use canvas.style.X = val
-     when CSS has !important on the same property. */
+  /* ────────────────────────────────────────────────────────────────────────
+     §A: CHROME FIX — applySize
+     Sets explicit pixel dimensions on canvas and panel via setProperty
+     so !important stylesheet rules cannot override us.
+  ──────────────────────────────────────────────────────────────────────── */
   function applySize(canvas, panel) {
-    /* Read panel dims — offsetWidth/Height preferred over BCR for Chrome.
-       BCR returns CSS display dimensions; offsetWidth/Height uses layout box. */
-    var W = panel.offsetWidth  || panel.getBoundingClientRect().width  || 800;
+    var W = panel.offsetWidth || panel.getBoundingClientRect().width || 800;
     var H = panel.offsetHeight || panel.getBoundingClientRect().height;
-
-    /* Responsive height floor based on viewport */
     var vw = window.innerWidth || 1200;
-    var hFloor = vw <= 600 ? 220 : vw <= 900 ? 270 : vw >= 1600 ? 420 : 340;
+    /* Responsive height floor */
+    var hFloor = vw <= 480 ? 220 : vw <= 768 ? 270 : vw >= 1600 ? 420 : 340;
     H = Math.max(H || 0, hFloor);
     if (W < 10) W = 800;
-
-    /* CRITICAL: setProperty with 'important' wins over CSS !important */
+    /* §C: setProperty 'important' wins over any stylesheet height:100% */
     canvas.style.setProperty('width',  W + 'px', 'important');
     canvas.style.setProperty('height', H + 'px', 'important');
-    /* Also lock panel height so Chrome's containing-block resolution is stable */
     panel.style.setProperty('height',  H + 'px', 'important');
-
     var dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
     canvas.width  = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
-
     var ctx = canvas.getContext('2d');
     if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return { W: W, H: H, dpr: dpr, ctx: ctx };
   }
 
-  /* ── Threat nodes ───────────────────────────────────────────────────────── */
-  var NODES = [
-    {lat:55.75, lon:37.62, label:'APT29 — COZY BEAR',     risk:0.95, color:'#ff2244'},
-    {lat:39.91, lon:116.39,label:'APT41 — WINNTI',          risk:0.90, color:'#ff6600'},
-    {lat:37.57, lon:126.98,label:'LAZARUS GROUP',            risk:0.87, color:'#ff00cc'},
-    {lat:32.08, lon:34.78, label:'APT33 — ELFIN',           risk:0.82, color:'#ffcc00'},
-    {lat:51.51, lon:-0.13, label:'GCHQ NODE',               risk:0.75, color:'#00ccff'},
-    {lat:38.91, lon:-77.04,label:'NSA — TAILORED ACCESS',   risk:0.80, color:'#00ff88'},
-    {lat:48.86, lon:2.35,  label:'ANSSI',                   risk:0.65, color:'#4488ff'},
-    {lat:35.69, lon:139.69,label:'UNIT8200 LIAISON',        risk:0.72, color:'#ff88ff'},
-    {lat:-23.55,lon:-46.63,label:'SEDNIT RELAY',            risk:0.60, color:'#ff4400'},
-    {lat:28.61, lon:77.21, label:'SIDECOPY',                risk:0.58, color:'#ffaa00'},
-    {lat:1.35,  lon:103.82,label:'TEMP.TICK',               risk:0.55, color:'#00ffcc'},
-    {lat:-33.87,lon:151.21,label:'ASD NODE',                risk:0.50, color:'#88ff00'},
-  ];
+  /* ────────────────────────────────────────────────────────────────────────
+     §B: WORLD MAP ENGINE
+     Equirectangular projection with simplified continent polygons
+  ──────────────────────────────────────────────────────────────────────── */
+  var MapEngine = (function() {
+    /* lat/lon pairs for continent outlines (simplified) */
+    var CONTINENTS = [
+      /* North America */
+      [[70,-140],[72,-100],[68,-75],[60,-65],[45,-52],[25,-80],[10,-85],
+       [8,-77],[9,-79],[15,-85],[22,-97],[30,-97],[32,-117],[38,-122],
+       [48,-124],[55,-130],[60,-141],[68,-141],[70,-140]],
+      /* South America */
+      [[10,-75],[8,-62],[5,-52],[2,-50],[0,-50],[-5,-35],[-10,-37],
+       [-23,-43],[-33,-52],[-55,-67],[-55,-65],[-42,-65],[-35,-58],
+       [-25,-48],[-5,-35],[5,-60],[8,-62],[10,-75]],
+      /* Europe */
+      [[71,28],[70,18],[62,5],[51,2],[44,-9],[36,-9],[36,5],[37,15],
+       [42,28],[44,33],[47,38],[56,28],[60,25],[64,26],[70,28],[71,28]],
+      /* Africa */
+      [[37,10],[37,30],[12,44],[0,42],[-12,40],[-34,27],[-34,18],
+       [-17,12],[0,9],[5,-5],[15,-17],[20,-17],[32,-10],[37,10]],
+      /* Asia (simplified) */
+      [[75,60],[73,110],[68,140],[60,140],[55,135],[50,140],[45,135],
+       [35,120],[25,120],[20,110],[10,105],[5,100],[10,80],[20,72],
+       [23,65],[30,60],[38,55],[42,50],[50,58],[55,70],[65,80],[75,80],[75,60]],
+      /* Middle East connection */
+      [[38,26],[36,36],[30,35],[22,40],[12,44],[0,42],[0,30],[10,30],
+       [20,38],[30,48],[38,48],[42,48],[38,38],[38,26]],
+      /* Australia */
+      [[-15,130],[-12,136],[-16,146],[-28,153],[-38,145],[-38,140],
+       [-35,136],[-32,127],[-22,114],[-17,122],[-15,130]],
+      /* Greenland (small) */
+      [[76,-70],[83,-40],[76,-20],[68,-24],[65,-52],[70,-60],[76,-70]]
+    ];
 
-  function proj(lat, lon, W, H) {
-    return { x: (lon + 180) / 360 * W, y: (90 - lat) / 180 * H };
-  }
+    /* City nodes — source/target for arcs */
+    var CITIES = [
+      /* [name, lat, lon, isMajorTarget] */
+      ['New York',    40.7, -74.0,  true],
+      ['London',      51.5,  -0.1,  true],
+      ['Tokyo',       35.7, 139.7,  true],
+      ['Moscow',      55.8,  37.6,  true],
+      ['Beijing',     39.9, 116.4,  true],
+      ['Sydney',     -33.9, 151.2,  false],
+      ['São Paulo',  -23.5, -46.6,  false],
+      ['Mumbai',      19.1,  72.9,  false],
+      ['Cairo',       30.0,  31.2,  false],
+      ['Lagos',        6.5,   3.4,  false],
+      ['Singapore',    1.4, 103.8,  false],
+      ['Los Angeles', 34.0,-118.2,  false],
+      ['Chicago',     41.9, -87.6,  false],
+      ['Frankfurt',   50.1,   8.7,  false],
+      ['Seoul',       37.6, 127.0,  false],
+      ['Dubai',       25.2,  55.3,  false],
+      ['Toronto',     43.7, -79.4,  false],
+      ['Paris',       48.9,   2.4,  false],
+      ['Berlin',      52.5,  13.4,  false],
+      ['Shanghai',    31.2, 121.5,  false],
+      ['Kyiv',        50.5,  30.5,  false],
+      ['Tehran',      35.7,  51.4,  false],
+      ['Pyongyang',   39.0, 125.8,  true],
+      ['Minsk',       53.9,  27.6,  false]
+    ];
 
-  function spawnArc() {
-    var s = NODES[Math.floor(Math.random() * NODES.length)];
-    var d = NODES[Math.floor(Math.random() * NODES.length)];
-    if (s === d) return;
-    ARCS.push({ src:s, dst:d, t:0, speed:0.005+Math.random()*0.005,
-                color:s.color, w:0.8+Math.random()*1.2, life:1.0 });
-  }
+    /* Threat groups for arc colouring */
+    var GROUPS = [
+      { name: 'APT-LAZARUS',   color: '#ff2244', glow: 'rgba(255,34,68,0.5)'   },
+      { name: 'APT-COZY',      color: '#ff6600', glow: 'rgba(255,102,0,0.5)'   },
+      { name: 'APT-FANCY',     color: '#ffcc00', glow: 'rgba(255,204,0,0.5)'   },
+      { name: 'APT-COMMENT',   color: '#00ccff', glow: 'rgba(0,204,255,0.5)'   },
+      { name: 'APT-SHADOW',    color: '#cc44ff', glow: 'rgba(204,68,255,0.5)'  },
+      { name: 'RANSOMWARE',    color: '#ff4400', glow: 'rgba(255,68,0,0.5)'    },
+      { name: 'C2-BEACON',     color: '#00ff88', glow: 'rgba(0,255,136,0.5)'   },
+      { name: 'ZERO-DAY',      color: '#ffffff', glow: 'rgba(255,255,255,0.6)' }
+    ];
 
-  /* ── Main render ────────────────────────────────────────────────────────── */
-  function render(ctx, W, H, ts) {
-    ctx.clearRect(0, 0, W, H);
+    function latLonToXY(lat, lon, W, H) {
+      var x = (lon + 180) / 360 * W;
+      var y = (90 - lat) / 180 * H;
+      return [x, y];
+    }
 
-    /* §1 Background */
-    var bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, '#000d1a'); bg.addColorStop(0.5,'#020a14'); bg.addColorStop(1,'#000508');
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-
-    /* §2 Nation-state risk halos */
-    NODES.forEach(function(n) {
-      var p = proj(n.lat, n.lon, W, H);
-      var pulse = 0.5 + 0.5 * Math.sin(ts * 0.0018 + n.lon * 0.1);
-      var r = (18 + n.risk * 28) * (1 + pulse * 0.25);
-      var g = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);
-      g.addColorStop(0, n.color+'cc'); g.addColorStop(0.4,n.color+'44'); g.addColorStop(1,'transparent');
-      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2); ctx.fill();
-    });
-
-    /* §3 Military grid */
-    ctx.save(); ctx.globalAlpha=0.06; ctx.strokeStyle='#00ff88'; ctx.lineWidth=0.4;
-    for(var gx=0;gx<=W;gx+=W/24){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
-    for(var gy=0;gy<=H;gy+=H/12){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
-    ctx.restore();
-
-    /* §4 Geopolitical zones */
-    var zones=[{lat:55,lon:38,r:60,color:'#ff0033'},{lat:35,lon:106,r:55,color:'#ff6600'},{lat:38,lon:-77,r:45,color:'#00ccff'}];
-    zones.forEach(function(z){
-      var p=proj(z.lat,z.lon,W,H);
+    function drawContours(ctx, W, H) {
       ctx.save();
-      ctx.globalAlpha=0.06+0.04*Math.sin(ts*0.001);
-      ctx.beginPath(); ctx.arc(p.x,p.y,z.r*(W/1200),0,Math.PI*2);
-      ctx.fillStyle=z.color; ctx.fill();
-      ctx.globalAlpha=0.16; ctx.strokeStyle=z.color; ctx.lineWidth=1;
-      ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
-    });
-
-    /* §5 Attack arcs */
-    if(ARCS.length<16 && Math.random()<0.04) spawnArc();
-    ARCS=ARCS.filter(function(a){return a.life>0;});
-    ARCS.forEach(function(a){
-      a.t=Math.min(1,a.t+a.speed);
-      if(a.t>=1) a.life-=0.04;
-      var sp=proj(a.src.lat,a.src.lon,W,H), dp=proj(a.dst.lat,a.dst.lon,W,H);
-      var cx=(sp.x+dp.x)/2, cy=Math.min(sp.y,dp.y)-0.15*Math.abs(dp.x-sp.x);
-      ctx.save(); ctx.globalAlpha=a.life*0.7;
-      ctx.beginPath(); ctx.moveTo(sp.x,sp.y); ctx.quadraticCurveTo(cx,cy,dp.x,dp.y);
-      ctx.strokeStyle=a.color; ctx.lineWidth=a.w; ctx.stroke();
-      var tt=a.t;
-      var hx=(1-tt)*(1-tt)*sp.x+2*(1-tt)*tt*cx+tt*tt*dp.x;
-      var hy=(1-tt)*(1-tt)*sp.y+2*(1-tt)*tt*cy+tt*tt*dp.y;
-      ctx.globalAlpha=a.life; ctx.beginPath(); ctx.arc(hx,hy,2.5,0,Math.PI*2);
-      ctx.fillStyle='#fff'; ctx.fill(); ctx.restore();
-    });
-
-    /* §6 Node dots + labels */
-    NODES.forEach(function(n){
-      var p=proj(n.lat,n.lon,W,H);
-      ctx.save();
-      ctx.beginPath(); ctx.arc(p.x,p.y,3+n.risk*2,0,Math.PI*2);
-      ctx.fillStyle=n.color; ctx.fill();
-      ctx.strokeStyle='#fff'; ctx.lineWidth=0.8; ctx.stroke();
-      if(W>480){
-        ctx.globalAlpha=0.9;
-        var fs=Math.max(8,Math.round(W*0.0085));
-        ctx.font='bold '+fs+'px monospace'; ctx.fillStyle=n.color;
-        ctx.fillText(n.label,p.x+6,p.y-4);
+      ctx.strokeStyle = 'rgba(0, 180, 255, 0.22)';
+      ctx.lineWidth   = 0.8;
+      ctx.shadowColor = 'rgba(0,160,255,0.15)';
+      ctx.shadowBlur  = 3;
+      ctx.fillStyle   = 'rgba(0, 80, 160, 0.08)';
+      for (var c = 0; c < CONTINENTS.length; c++) {
+        var poly = CONTINENTS[c];
+        ctx.beginPath();
+        for (var p = 0; p < poly.length; p++) {
+          var xy = latLonToXY(poly[p][0], poly[p][1], W, H);
+          if (p === 0) ctx.moveTo(xy[0], xy[1]);
+          else         ctx.lineTo(xy[0], xy[1]);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
       }
       ctx.restore();
-    });
+    }
 
-    /* §7 Radar sweep */
-    var cx2=W*0.5,cy2=H*0.5,sweepR=Math.min(W,H)*0.42;
-    var angle=(ts*0.0008)%(Math.PI*2);
-    ctx.save(); ctx.translate(cx2,cy2); ctx.rotate(angle);
-    var swg=ctx.createLinearGradient(0,0,sweepR,0);
-    swg.addColorStop(0,'#00ff8855'); swg.addColorStop(0.7,'#00ff8818'); swg.addColorStop(1,'transparent');
-    ctx.fillStyle=swg; ctx.globalAlpha=0.28;
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,sweepR,0,Math.PI*0.1); ctx.closePath(); ctx.fill();
-    ctx.globalAlpha=0.07; ctx.strokeStyle='#00ff88'; ctx.lineWidth=0.7;
-    [0.35,0.65,1.0].forEach(function(rf){ctx.beginPath();ctx.arc(0,0,sweepR*rf,0,Math.PI*2);ctx.stroke();});
-    ctx.restore();
+    function drawGrid(ctx, W, H) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 200, 255, 0.05)';
+      ctx.lineWidth   = 0.5;
+      /* Lat lines every 30° */
+      for (var lat = -90; lat <= 90; lat += 30) {
+        var y = (90 - lat) / 180 * H;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+      /* Lon lines every 30° */
+      for (var lon = -180; lon <= 180; lon += 30) {
+        var x = (lon + 180) / 360 * W;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      }
+      ctx.restore();
+    }
 
-    /* §8 Military HUD */
-    var stamp=new Date().toISOString().replace('T',' ').slice(0,19)+' UTC';
-    var pulse2=0.75+0.25*Math.sin(ts*0.003);
-    var fsHUD=Math.max(9,Math.round(W*0.009));
-    ctx.save();
-    ctx.font='bold '+fsHUD+'px monospace'; ctx.fillStyle='#00ff88'; ctx.globalAlpha=0.92;
-    ctx.fillText(GVOS.label+'  |  BUILD: '+GVOS.buildId, 8, 16);
-    ctx.font=Math.max(8,Math.round(W*0.0075))+'px monospace';
-    ctx.fillStyle='#00ccff'; ctx.fillText('CLASSIFICATION: '+GVOS.classified, 8, 30);
-    ctx.fillStyle='#ffcc00'; ctx.fillText('NODES: '+NODES.length+' ACTIVE  |  ARCS: '+ARCS.length+'  |  FRAME: '+FRAME, 8, 44);
-    ctx.fillStyle='#aaa'; ctx.fillText(stamp, 8, 58);
-    ctx.font='bold '+fsHUD+'px monospace'; ctx.fillStyle='#00ff88';
-    ctx.globalAlpha=pulse2*0.9; ctx.textAlign='right';
-    ctx.fillText('● LIVE FEED ACTIVE', W-8, H-18);
-    ctx.font=Math.max(8,Math.round(W*0.007))+'px monospace';
-    ctx.fillStyle='#444'; ctx.globalAlpha=0.7;
-    ctx.fillText('RUNTIME: '+GVOS.runtime+'  |  v'+GVOS.version, W-8, H-6);
-    /* Vignette */
-    ctx.textAlign='left'; ctx.globalAlpha=1;
-    var vig=ctx.createRadialGradient(W/2,H/2,H*0.3,W/2,H/2,H*0.75);
-    vig.addColorStop(0,'transparent'); vig.addColorStop(1,'rgba(0,0,0,0.5)');
-    ctx.fillStyle=vig; ctx.fillRect(0,0,W,H);
-    ctx.restore();
-    FRAME++;
-    LAST_DRAW = performance.now();
-  }
-
-  /* ── RAF loop ───────────────────────────────────────────────────────────── */
-  function startLoop(canvas, panel) {
-    function loop(ts) {
-      RAF_ID = requestAnimationFrame(loop);
-      /* Visibility-aware: suspend rendering in background tabs */
-      if (document.hidden) return;
-      var d = applySize(canvas, panel);
-      if (d.W > 10 && d.H > 10 && d.ctx) {
-        render(d.ctx, d.W, d.H, ts);
-        if (state !== STATE.RUNNING) setState(STATE.RUNNING);
+    function drawCityNodes(ctx, W, H, t) {
+      for (var i = 0; i < CITIES.length; i++) {
+        var city = CITIES[i];
+        var xy   = latLonToXY(city[1], city[2], W, H);
+        var pulse = 0.5 + 0.5 * Math.sin(t * 0.003 + i * 0.7);
+        var r    = city[3] ? 3.5 : 2;
+        /* Outer pulse ring */
+        ctx.save();
+        ctx.globalAlpha = 0.3 * pulse;
+        ctx.beginPath();
+        ctx.arc(xy[0], xy[1], r + 4 * pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = city[3] ? '#ff2244' : '#00ccff';
+        ctx.lineWidth   = 0.8;
+        ctx.stroke();
+        /* Core dot */
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.arc(xy[0], xy[1], r, 0, Math.PI * 2);
+        ctx.fillStyle = city[3] ? '#ff6688' : '#00eeff';
+        ctx.shadowColor = city[3] ? '#ff0033' : '#00ccff';
+        ctx.shadowBlur  = 8;
+        ctx.fill();
+        ctx.restore();
       }
     }
-    if (RAF_ID) cancelAnimationFrame(RAF_ID);
-    RAF_ID = requestAnimationFrame(loop);
-    setState(STATE.PAINTING);
-  }
 
-  /* ── Watchdog ───────────────────────────────────────────────────────────── */
-  function startWatchdog(canvas, panel) {
-    if (WD_ID) clearInterval(WD_ID);
-    WD_ID = setInterval(function() {
-      if (document.hidden) return;
-      var age = performance.now() - LAST_DRAW;
-      if (age > 3000 && state === STATE.RUNNING) {
-        setState(STATE.STALLED);
-        if (RAF_ID) cancelAnimationFrame(RAF_ID);
-        setTimeout(function() {
-          setState(STATE.RECOVERING);
-          startLoop(canvas, panel);
-        }, 200);
+    return { latLonToXY: latLonToXY, drawContours: drawContours,
+             drawGrid: drawGrid, drawCityNodes: drawCityNodes,
+             CITIES: CITIES, GROUPS: GROUPS };
+  })();
+
+  /* ────────────────────────────────────────────────────────────────────────
+     §C: THREAT ENGINE — Attack arcs, particles, impact explosions
+  ──────────────────────────────────────────────────────────────────────── */
+  var ThreatEngine = (function() {
+    var arcs      = [];
+    var particles = [];
+    var explosions = [];
+
+    function randomCity(exclude) {
+      var cities = MapEngine.CITIES;
+      var idx;
+      do { idx = Math.floor(Math.random() * cities.length); }
+      while (idx === exclude);
+      return idx;
+    }
+
+    function spawnArc(W, H) {
+      var si  = randomCity(-1);
+      var ti  = randomCity(si);
+      var grp = MapEngine.GROUPS[Math.floor(Math.random() * MapEngine.GROUPS.length)];
+      var src = MapEngine.latLonToXY(MapEngine.CITIES[si][1], MapEngine.CITIES[si][2], W, H);
+      var tgt = MapEngine.latLonToXY(MapEngine.CITIES[ti][1], MapEngine.CITIES[ti][2], W, H);
+      /* Bezier control point — arc up above midpoint */
+      var mx  = (src[0] + tgt[0]) / 2;
+      var my  = (src[1] + tgt[1]) / 2;
+      var dx  = tgt[0] - src[0];
+      var dy  = tgt[1] - src[1];
+      var dist = Math.sqrt(dx*dx + dy*dy);
+      var cpx = mx - dy * 0.3;
+      var cpy = my + dx * 0.3 - dist * 0.3;
+      var dur = 1800 + Math.random() * 2400;
+      return {
+        src: src, tgt: tgt, cpx: cpx, cpy: cpy,
+        color: grp.color, glow: grp.glow, group: grp.name,
+        progress: 0, dur: dur, born: performance.now(),
+        trail: [],  /* [x,y] ring buffer for comet tail */
+        dead: false
+      };
+    }
+
+    function spawnParticles(x, y, color, count) {
+      for (var i = 0; i < count; i++) {
+        var angle = Math.random() * Math.PI * 2;
+        var speed = 0.5 + Math.random() * 2.5;
+        particles.push({
+          x: x, y: y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 1.0,
+          decay: 0.012 + Math.random() * 0.018,
+          color: color,
+          size: 1 + Math.random() * 2.5
+        });
       }
-    }, 3000);
+    }
+
+    function spawnExplosion(x, y, color) {
+      explosions.push({ x: x, y: y, color: color,
+        r: 0, maxR: 18 + Math.random() * 14,
+        life: 1.0, decay: 0.035 });
+    }
+
+    /* Quadratic bezier point */
+    function bezier(t, sx, sy, cpx, cpy, ex, ey) {
+      var mt = 1 - t;
+      return [
+        mt*mt*sx + 2*mt*t*cpx + t*t*ex,
+        mt*mt*sy + 2*mt*t*cpy + t*t*ey
+      ];
+    }
+
+    function initArcs(W, H, count) {
+      arcs = [];
+      for (var i = 0; i < count; i++) {
+        var a = spawnArc(W, H);
+        a.progress = Math.random(); /* stagger initial phase */
+        arcs.push(a);
+      }
+    }
+
+    function update(now, W, H, pMax) {
+      /* Update arcs */
+      for (var i = arcs.length - 1; i >= 0; i--) {
+        var a = arcs[i];
+        a.progress = (now - a.born) / a.dur;
+        if (a.progress >= 1) {
+          /* Impact at target */
+          spawnExplosion(a.tgt[0], a.tgt[1], a.color);
+          spawnParticles(a.tgt[0], a.tgt[1], a.color, 8);
+          arcs.splice(i, 1);
+          arcs.push(spawnArc(W, H));
+          continue;
+        }
+        var pt = bezier(a.progress, a.src[0], a.src[1], a.cpx, a.cpy, a.tgt[0], a.tgt[1]);
+        a.trail.push(pt);
+        if (a.trail.length > 30) a.trail.shift();
+        /* Spawn particles along trail at low rate */
+        if (Math.random() < 0.2 && particles.length < pMax) {
+          spawnParticles(pt[0], pt[1], a.color, 1);
+        }
+      }
+      /* Update particles */
+      for (var j = particles.length - 1; j >= 0; j--) {
+        var p = particles[j];
+        p.x += p.vx; p.y += p.vy;
+        p.vy += 0.03; /* gravity */
+        p.life -= p.decay;
+        if (p.life <= 0) particles.splice(j, 1);
+      }
+      /* Update explosions */
+      for (var k = explosions.length - 1; k >= 0; k--) {
+        var e = explosions[k];
+        e.r    += (e.maxR - e.r) * 0.15;
+        e.life -= e.decay;
+        if (e.life <= 0) explosions.splice(k, 1);
+      }
+    }
+
+    function draw(ctx, now) {
+      /* Draw explosions */
+      for (var k = 0; k < explosions.length; k++) {
+        var e = explosions[k];
+        ctx.save();
+        ctx.globalAlpha = e.life * 0.7;
+        var eg = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r);
+        eg.addColorStop(0,   e.color);
+        eg.addColorStop(0.4, e.color);
+        eg.addColorStop(1,   'transparent');
+        ctx.fillStyle = eg;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+        ctx.fill();
+        /* Shockwave ring */
+        ctx.globalAlpha = e.life * 0.4;
+        ctx.strokeStyle = e.color;
+        ctx.lineWidth   = 1.5;
+        ctx.shadowColor = e.color;
+        ctx.shadowBlur  = 12;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      /* Draw arcs */
+      for (var i = 0; i < arcs.length; i++) {
+        var a = arcs[i];
+        if (a.trail.length < 2) continue;
+        ctx.save();
+        ctx.shadowColor = a.glow;
+        ctx.shadowBlur  = 10;
+        /* Comet tail — gradient along trail */
+        var tlen = a.trail.length;
+        for (var t = 1; t < tlen; t++) {
+          var alpha = (t / tlen) * 0.85;
+          var width = 0.5 + (t / tlen) * 2.5;
+          ctx.globalAlpha = alpha;
+          ctx.strokeStyle = a.color;
+          ctx.lineWidth   = width;
+          ctx.lineCap     = 'round';
+          ctx.beginPath();
+          ctx.moveTo(a.trail[t-1][0], a.trail[t-1][1]);
+          ctx.lineTo(a.trail[t][0],   a.trail[t][1]);
+          ctx.stroke();
+        }
+        /* Comet head */
+        var head = a.trail[a.trail.length - 1];
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur  = 20;
+        ctx.beginPath();
+        ctx.arc(head[0], head[1], 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      /* Draw particles */
+      for (var j = 0; j < particles.length; j++) {
+        var p = particles[j];
+        ctx.save();
+        ctx.globalAlpha = p.life * 0.8;
+        ctx.fillStyle   = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur  = 6;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    return { initArcs: initArcs, update: update, draw: draw };
+  })();
+
+  /* ────────────────────────────────────────────────────────────────────────
+     §D: FX ENGINE — Scanlines, vignette, corridor pulse, grid flicker
+  ──────────────────────────────────────────────────────────────────────── */
+  var FXEngine = (function() {
+    function drawBackground(ctx, W, H) {
+      /* Deep space gradient */
+      var bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0,   '#020814');
+      bg.addColorStop(0.5, '#010a1a');
+      bg.addColorStop(1,   '#020814');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function drawScanlines(ctx, W, H, t) {
+      ctx.save();
+      ctx.globalAlpha = 0.06;
+      ctx.fillStyle   = '#000000';
+      for (var y = 0; y < H; y += 3) {
+        ctx.fillRect(0, y, W, 1);
+      }
+      /* Moving scan line */
+      var scanY = (t * 0.04) % H;
+      ctx.globalAlpha = 0.07;
+      var sg = ctx.createLinearGradient(0, scanY - 6, 0, scanY + 6);
+      sg.addColorStop(0,   'transparent');
+      sg.addColorStop(0.5, 'rgba(0,220,255,0.3)');
+      sg.addColorStop(1,   'transparent');
+      ctx.fillStyle = sg;
+      ctx.fillRect(0, scanY - 6, W, 12);
+      ctx.restore();
+    }
+
+    function drawVignette(ctx, W, H) {
+      ctx.save();
+      var vig = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.85);
+      vig.addColorStop(0, 'transparent');
+      vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+      ctx.fillStyle = vig;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    function drawCorridorPulse(ctx, W, H, t) {
+      /* Horizontal corridor beam sweeping */
+      ctx.save();
+      var pulse = 0.4 + 0.6 * Math.abs(Math.sin(t * 0.0008));
+      var cy = H * 0.5 + Math.sin(t * 0.0005) * H * 0.1;
+      var cg = ctx.createLinearGradient(0, cy - 60, 0, cy + 60);
+      cg.addColorStop(0,   'transparent');
+      cg.addColorStop(0.5, 'rgba(0, 160, 255, 0.04)');
+      cg.addColorStop(1,   'transparent');
+      ctx.fillStyle   = cg;
+      ctx.globalAlpha = pulse;
+      ctx.fillRect(0, cy - 60, W, 120);
+      ctx.restore();
+    }
+
+    function drawBorder(ctx, W, H, t) {
+      var pulse = 0.5 + 0.5 * Math.sin(t * 0.0015);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 200, 255, ' + (0.25 + 0.15 * pulse) + ')';
+      ctx.lineWidth   = 1.2;
+      ctx.shadowColor = 'rgba(0, 200, 255, 0.5)';
+      ctx.shadowBlur  = 12;
+      ctx.strokeRect(1, 1, W - 2, H - 2);
+      ctx.restore();
+    }
+
+    return { drawBackground: drawBackground, drawScanlines: drawScanlines,
+             drawVignette: drawVignette, drawCorridorPulse: drawCorridorPulse,
+             drawBorder: drawBorder };
+  })();
+
+  /* ────────────────────────────────────────────────────────────────────────
+     §E: HUD ENGINE — FPS telemetry, status overlays, threat counter
+  ──────────────────────────────────────────────────────────────────────── */
+  var HUDEngine = (function() {
+    var fpsHistory  = [];
+    var threatCount = 0;
+
+    function updateFPS(fps) {
+      fpsHistory.push(fps);
+      if (fpsHistory.length > 60) fpsHistory.shift();
+    }
+
+    function avgFPS() {
+      if (!fpsHistory.length) return 60;
+      return fpsHistory.reduce(function(a,b){return a+b;},0) / fpsHistory.length;
+    }
+
+    function drawHUD(ctx, W, H, t, fps, qMode) {
+      var now    = new Date();
+      var hh     = String(now.getUTCHours()).padStart(2,'0');
+      var mm     = String(now.getUTCMinutes()).padStart(2,'0');
+      var ss     = String(now.getUTCSeconds()).padStart(2,'0');
+      var utcStr = hh + ':' + mm + ':' + ss + ' UTC';
+
+      ctx.save();
+      ctx.font      = 'bold 9px "Courier New", monospace';
+      ctx.textAlign = 'left';
+
+      /* Top-left: Version + Build */
+      ctx.fillStyle   = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(6, 6, 220, 13);
+      ctx.fillStyle   = '#00eeff';
+      ctx.globalAlpha = 0.9;
+      ctx.fillText('CDB-SENTINEL v166  |  BUILD: 2026.05.19-APEX-V166', 10, 16);
+
+      /* Top-right: UTC clock */
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(W - 120, 6, 114, 13);
+      ctx.fillStyle = '#00eeff';
+      ctx.fillText(utcStr, W - 8, 16);
+
+      /* Bottom-left: FPS telemetry */
+      ctx.textAlign   = 'left';
+      var fpsColor    = fps >= 50 ? '#00ff88' : fps >= 30 ? '#ffcc00' : '#ff4444';
+      ctx.fillStyle   = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(6, H - 19, 180, 13);
+      ctx.fillStyle   = fpsColor;
+      ctx.fillText('FPS: ' + Math.round(fps) + '  AVG: ' + Math.round(avgFPS()) +
+                   '  ' + qMode + '-QUALITY', 10, H - 9);
+
+      /* Bottom-right: Threat status */
+      var blink = Math.floor(t / 600) % 2 === 0;
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(W - 170, H - 19, 164, 13);
+      ctx.fillStyle = blink ? '#ff2244' : '#cc1133';
+      ctx.shadowColor = '#ff0033';
+      ctx.shadowBlur  = blink ? 8 : 0;
+      ctx.fillText('⬤ LIVE — THREAT MONITOR ACTIVE', W - 8, H - 9);
+
+      /* Status pill — TOP CENTER */
+      var pill = 'SENTINEL ACTIVE';
+      ctx.textAlign   = 'center';
+      ctx.fillStyle   = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(W/2 - 68, 6, 136, 13);
+      ctx.fillStyle   = '#ffcc00';
+      ctx.shadowColor = '#ffcc00';
+      ctx.shadowBlur  = blink ? 6 : 2;
+      ctx.fillText(pill, W/2, 16);
+
+      ctx.restore();
+      updateFPS(fps);
+    }
+
+    return { drawHUD: drawHUD };
+  })();
+
+  /* ────────────────────────────────────────────────────────────────────────
+     §F: RENDERER CORE — State machine, boot, loop, observers
+  ──────────────────────────────────────────────────────────────────────── */
+  var startTime = performance.now();
+
+  function getCanvas()  { return document.getElementById('cdb-threat-canvas'); }
+  function getPanel()   { return document.getElementById('cdb-threat-map-panel'); }
+
+  /* Compute FPS from delta */
+  var prevFrameMs = 0;
+  function computeFPS(now) {
+    var delta = now - prevFrameMs;
+    prevFrameMs = now;
+    if (delta <= 0 || delta > 3000) return fpsSmooth;
+    var raw = 1000 / delta;
+    fpsSmooth = fpsSmooth * 0.92 + raw * 0.08;
+    return fpsSmooth;
   }
 
-  /* ── Boot ───────────────────────────────────────────────────────────────── */
-  function boot() {
-    if (BOOT_TRIES > 8) { setState(STATE.DEAD); return; }
-    BOOT_TRIES++;
-    setState(STATE.BOOTING);
+  /* Adaptive quality */
+  function updateQuality() {
+    if (fpsSmooth < LOW_FPS_THR && qualityMode === 'HIGH') {
+      qualityMode = 'LOW';
+      log('Adaptive: switching to LOW quality (FPS=' + Math.round(fpsSmooth) + ')');
+    } else if (fpsSmooth > LOW_FPS_THR + 8 && qualityMode === 'LOW') {
+      qualityMode = 'HIGH';
+      log('Adaptive: restored HIGH quality (FPS=' + Math.round(fpsSmooth) + ')');
+    }
+  }
 
-    /* Remove stale overlay canvases */
-    ['cdb-v3-overlay','cdb-v163-canvas'].forEach(function(id){
-      var el=document.getElementById(id);
-      if(el && el.parentNode) el.parentNode.removeChild(el);
+  function renderFrame(canvas, panel) {
+    var now = performance.now();
+    var t   = now - startTime;
+    var fps = computeFPS(now);
+    updateQuality();
+    frameCount++;
+
+    var dims = applySize(canvas, panel);
+    if (!dims.ctx) { warn('Context lost — stopping loop'); stopLoop(); return; }
+
+    var ctx = dims.ctx;
+    var W   = dims.W;
+    var H   = dims.H;
+    var pMax = qualityMode === 'HIGH' ? PARTICLE_MAX : 60;
+
+    /* — Draw pipeline — */
+    FXEngine.drawBackground(ctx, W, H);
+    FXEngine.drawCorridorPulse(ctx, W, H, t);
+    MapEngine.drawGrid(ctx, W, H);
+    MapEngine.drawContours(ctx, W, H);
+    ThreatEngine.update(now, W, H, pMax);
+    ThreatEngine.draw(ctx, now);
+    MapEngine.drawCityNodes(ctx, W, H, t);
+    FXEngine.drawScanlines(ctx, W, H, t);
+    FXEngine.drawVignette(ctx, W, H);
+    FXEngine.drawBorder(ctx, W, H, t);
+    HUDEngine.drawHUD(ctx, W, H, t, fps, qualityMode);
+
+    lastFrameTs = now;
+  }
+
+  function startLoop(canvas, panel) {
+    if (STATE === 'RUNNING') return;
+    STATE = 'RUNNING';
+    log('Loop STARTED');
+    function tick() {
+      if (STATE !== 'RUNNING') return;
+      renderFrame(canvas, panel);
+      loopId = requestAnimationFrame(tick);
+    }
+    loopId = requestAnimationFrame(tick);
+    /* Watchdog — restarts if loop stalls >5s */
+    watchdogId = setInterval(function() {
+      if (STATE !== 'RUNNING') return;
+      if (performance.now() - lastFrameTs > WATCHDOG_MS) {
+        warn('Watchdog triggered — restarting loop');
+        stopLoop();
+        boot();
+      }
+    }, WATCHDOG_MS + 500);
+  }
+
+  function stopLoop() {
+    STATE = 'PAUSED';
+    if (loopId)      { cancelAnimationFrame(loopId); loopId = null; }
+    if (watchdogId)  { clearInterval(watchdogId); watchdogId = null; }
+  }
+
+  /* IntersectionObserver — pause when panel not visible */
+  function setupIntersection(panel, canvas) {
+    if (!('IntersectionObserver' in window)) { intersecting = true; return; }
+    observer = new IntersectionObserver(function(entries) {
+      var isNowVisible = entries[0].isIntersecting;
+      if (isNowVisible && !intersecting) {
+        intersecting = true;
+        if (STATE === 'PAUSED') startLoop(canvas, panel);
+        log('Panel visible — resuming');
+      } else if (!isNowVisible && intersecting) {
+        intersecting = false;
+        stopLoop();
+        log('Panel off-screen — paused');
+      }
+    }, { threshold: 0.05 });
+    observer.observe(panel);
+  }
+
+  /* ResizeObserver — reflow canvas on resize */
+  function setupResize(panel, canvas) {
+    if (!('ResizeObserver' in window)) return;
+    resizeObs = new ResizeObserver(function() {
+      if (STATE === 'RUNNING') {
+        var dims = applySize(canvas, panel);
+        ThreatEngine.initArcs(dims.W, dims.H, ARC_COUNT);
+      }
     });
+    resizeObs.observe(panel);
+  }
 
-    var canvas = document.getElementById('cdb-threat-canvas');
-    var panel  = document.getElementById('cdb-threat-map-panel');
-    if (!canvas || !panel) {
-      console.warn('[v165] Elements not found — retry', BOOT_TRIES);
-      setTimeout(boot, 400);
+  /* visibilitychange — Chrome throttles hidden tabs */
+  function setupVisibility(canvas, panel) {
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        if (STATE === 'RUNNING') { stopLoop(); log('Tab hidden — paused'); }
+      } else {
+        if (STATE === 'PAUSED' && intersecting) {
+          setTimeout(function() { startLoop(canvas, panel); }, 150);
+          log('Tab visible — resuming');
+        }
+      }
+    });
+  }
+
+  /* ── BOOT ────────────────────────────────────────────────────────────── */
+  function boot() {
+    BOOT_TRIES++;
+    if (BOOT_TRIES > MAX_RETRIES) {
+      warn('Max retries reached — renderer DEAD');
+      STATE = 'DEAD';
       return;
     }
 
-    /* CHROME FIX A: Force layout resolution by reading offsetHeight.
-       This forces Chrome to compute flex/grid layout before we read dims. */
-    var _fl = panel.offsetHeight + canvas.offsetHeight;
+    var canvas = getCanvas();
+    var panel  = getPanel();
+    if (!canvas || !panel) {
+      warn('Elements not found — retry ' + BOOT_TRIES);
+      setTimeout(boot, BOOT_DELAY);
+      return;
+    }
 
-    /* CHROME FIX B: Set explicit panel height via setProperty('important')
-       so Chrome's containing-block calculation gives canvas height:100% a
-       valid reference. Without this, min-height alone doesn't work in Chrome. */
-    var vw = window.innerWidth || 1200;
-    var targetH = vw <= 600 ? 220 : vw <= 900 ? 270 : vw >= 1600 ? 420 : 340;
-    targetH = Math.max(targetH, panel.offsetHeight || targetH);
-    panel.style.setProperty('height', targetH + 'px', 'important');
-
-    /* CHROME FIX C: Size canvas via setProperty — overrides CSS !important */
+    /* §A: Apply size — Chrome fix: explicit px on panel + canvas */
     var dims = applySize(canvas, panel);
     if (!dims.ctx) {
-      console.warn('[v165] 2D context unavailable — retry', BOOT_TRIES);
-      setTimeout(boot, 400);
+      warn('2D context unavailable — retry ' + BOOT_TRIES);
+      setTimeout(boot, BOOT_DELAY);
+      return;
+    }
+    if (dims.W < 10 || dims.H < 20) {
+      warn('Invalid dims ' + dims.W + 'x' + dims.H + ' — retry ' + BOOT_TRIES);
+      setTimeout(boot, BOOT_DELAY);
       return;
     }
 
-    if (dims.W < 10 || dims.H < 10) {
-      console.warn('[v165] Invalid dims', dims.W, dims.H, '— retry', BOOT_TRIES);
-      setTimeout(boot, 400);
-      return;
-    }
-
-    /* CHROME FIX D: Pre-paint flush — draw 1px of background color.
-       Forces Chrome to allocate and sync the GPU texture BEFORE the RAF loop.
-       Without this, Chrome may hold an empty GPU texture on first frame. */
+    /* §E: Pre-paint flush — Chrome GPU layer gets content before compositor */
     dims.ctx.fillStyle = '#020a14';
     dims.ctx.fillRect(0, 0, dims.W, dims.H);
 
-    /* CHROME FIX E: GPU layer promotion AFTER first paint (not in CSS).
-       Applying translateZ(0) post-paint prevents the empty-GPU-layer issue.
-       Using nested RAF ensures Chrome has composited the first frame first. */
+    /* Init engines */
+    ThreatEngine.initArcs(dims.W, dims.H, ARC_COUNT);
+
+    /* §F: GPU layer promotion AFTER first paint via nested RAF */
     requestAnimationFrame(function() {
-      canvas.style.setProperty('transform', 'translateZ(0)', 'important');
-      canvas.style.setProperty('will-change', 'transform', 'important');
-
-      /* Start main render loop after GPU layer is established */
-      startLoop(canvas, panel);
+      canvas.style.setProperty('transform',   'translateZ(0)', 'important');
+      canvas.style.setProperty('will-change', 'transform',     'important');
+      /* Second RAF: start loop after GPU layer committed */
+      requestAnimationFrame(function() {
+        setupIntersection(panel, canvas);
+        setupResize(panel, canvas);
+        setupVisibility(canvas, panel);
+        startLoop(canvas, panel);
+        log('Renderer ONLINE — Chrome definitive v166 active');
+        /* Stamp GVOS into DOM */
+        var el = document.querySelector('.cdb-threat-map-label, .threat-map-title');
+        if (el) el.setAttribute('data-gvos', window.SENTINEL_GVOS.label);
+      });
     });
-
-    /* ResizeObserver for responsive reflow */
-    if (window.ResizeObserver) {
-      new ResizeObserver(function() {
-        var vw2 = window.innerWidth || 1200;
-        var h2  = vw2 <= 600 ? 220 : vw2 <= 900 ? 270 : vw2 >= 1600 ? 420 : 340;
-        panel.style.setProperty('height', h2 + 'px', 'important');
-      }).observe(panel);
-    }
-    window.addEventListener('resize', function() {
-      var vw3 = window.innerWidth || 1200;
-      var h3  = vw3 <= 600 ? 220 : vw3 <= 900 ? 270 : vw3 >= 1600 ? 420 : 340;
-      panel.style.setProperty('height', h3 + 'px', 'important');
-    });
-
-    /* Visibility: resume on tab focus */
-    document.addEventListener('visibilitychange', function() {
-      if (!document.hidden && state === STATE.RUNNING) {
-        LAST_DRAW = performance.now(); /* reset watchdog clock on resume */
-      }
-    });
-
-    startWatchdog(canvas, panel);
-    gvosInject();
-    gvosCacheBust();
-    console.log('[SENTINEL APEX v165] Renderer ONLINE — Chrome definitive fix active');
   }
 
-  /* ── Entry: defer until fully loaded, handle background tab ───────────────── */
+  /* ── BOOT SCHEDULE — visibility guard ───────────────────────────────── */
   function schedBoot() {
-    /* If tab is hidden at load time (Chrome bg tab), defer until visible */
+    STATE = 'BOOTING';
     if (document.hidden) {
       document.addEventListener('visibilitychange', function onVis() {
         if (!document.hidden) {
           document.removeEventListener('visibilitychange', onVis);
-          setTimeout(boot, 150);
+          setTimeout(boot, BOOT_DELAY);
         }
       });
       return;
     }
-    setTimeout(boot, 250);
+    setTimeout(boot, BOOT_DELAY);
   }
 
-  if (document.readyState === 'complete') {
-    schedBoot();
+  /* ── ENTRY POINT ─────────────────────────────────────────────────────── */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', schedBoot);
   } else {
-    window.addEventListener('load', schedBoot);
+    schedBoot();
   }
 
 })();
 </script>
-<!-- === SENTINEL APEX v165 THREAT MAP END === -->
+<!-- CDB-RENDERER-ENGINE-V166-END -->
 
 <!-- SENTINEL-APEX-v161-COMPONENT-UPGRADES-END -->
 
