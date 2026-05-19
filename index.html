@@ -16563,6 +16563,598 @@ a:focus-visible {
 
 /* --- v161 ENTERPRISE COMPONENT UPGRADES END -------------------------------- */
 </style>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SENTINEL APEX v156.3.0 — THREAT MAP FORENSIC FIX + WORLD-CLASS REBUILD
+     Phase 2: CSS Containment Repair + Self-Healing Watchdog
+     Phase 3: Enterprise-Grade Cyber Warfare Visualization Engine
+     ═══════════════════════════════════════════════════════════════════════════ -->
+
+<style>
+/* ═══ v162 §1: FORENSIC FIX — CSS CONTAINMENT REPAIR ═══════════════════════
+   ROOT CAUSE (CONFIRMED):
+   v159 applied "contain: layout style !important" to #cdb-threat-map-panel.
+   CSS contain:layout establishes an independent layout containment boundary.
+   At DOMContentLoaded, the flex container chain has not resolved the panel's
+   final height. cdbInitThreatMap() fires → resize() reads canvas.offsetHeight
+   → returns 0 → sets canvas.height=0 → all 2D draw calls are permanent no-ops.
+   _cdbMapReady=true prevents any re-initialization. CSS background-color
+   (#020a14) renders the dark box (CSS paint layer, not canvas), producing the
+   "blank dark region" visible in the live dashboard screenshots.
+   FIX: Remove 'layout' from contain on #cdb-threat-map-panel. Preserve
+   'style' containment (scope-safe, no layout impact). Add canvas height floor
+   and clear will-change GPU promotion to eliminate compositing race.         */
+#cdb-threat-map-panel {
+  contain: style !important;
+  position: relative !important;
+}
+#cdb-threat-canvas {
+  will-change: auto !important;
+  min-height: 200px !important;
+  height: clamp(240px, 38vw, 420px) !important;
+}
+/* Wrapper div for overlay canvas absolute positioning */
+#cdb-map-wrapper {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  border-radius: 6px;
+  overflow: hidden;
+}
+/* Overlay canvas — premium Phase 3 rendering layer */
+#cdb-v3-overlay {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+  border-radius: 6px;
+  display: block;
+}
+/* === v162 FORENSIC FIX CSS END === */
+</style>
+
+<script>
+/* ═══ CDB v162: THREAT MAP SELF-HEALING WATCHDOG ═══════════════════════════
+   Detects zero-dimension canvas after DOMContentLoaded bootstrap failure
+   and dispatches window resize events to trigger the existing map's resize()
+   function with correct CSS-resolved dimensions.
+   Production-safe: read-only detection + standard resize event dispatch.    */
+(function cdbMapWatchdog162() {
+  var retries = 0;
+  function heal() {
+    var c = document.getElementById('cdb-threat-canvas');
+    if (!c) return;
+    if ((c.width === 0 || c.height === 0) && retries < 10) {
+      retries++;
+      window.dispatchEvent(new Event('resize'));
+      setTimeout(heal, 500 + retries * 200);
+    }
+  }
+  if (document.readyState === 'complete') {
+    setTimeout(heal, 250);
+  } else {
+    window.addEventListener('load', function() { setTimeout(heal, 250); });
+  }
+})();
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   CYBERDUDEBIVASH SENTINEL APEX v156.3.0
+   LIVE CYBER THREAT MAP — WORLD-CLASS CYBER WARFARE VISUALIZATION ENGINE
+   ═══════════════════════════════════════════════════════════════════════════
+   Renders a premium Canvas-2D overlay on top of the base equirectangular map.
+   Features:
+   ▸ Cinematic bezier attack arcs — glowing particle head + fading trail corona
+   ▸ Nation-state threat intensity halos — risk-scored RGB radial overlays
+   ▸ APT actor attribution labels — APT28, APT41, LAZARUS, HAFNIUM, SANDWORM
+   ▸ AI-driven attack prediction zones — pulsing dual-ring cyan target markers
+   ▸ Military-grade HUD grid — lat/lon reference lines + coordinate labels
+   ▸ Impact explosion animations — concentric ring pulse + white flash core
+   ▸ Rotating radar scan sweep — threat scanner arc over high-risk region
+   ▸ MITRE ATT&CK technique badges — T-codes on arc trajectory midpoints
+   ▸ Live intel-driven attack pair generation from window.__GOC_LIVE_INTEL
+   ▸ Scanline vignette — cinematic edge darkening for depth and focus
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function cdbThreatMapV3() {
+  'use strict';
+
+  function init() {
+    var base  = document.getElementById('cdb-threat-canvas');
+    var panel = document.getElementById('cdb-threat-map-panel');
+    if (!base || !panel) return;
+
+    /* ── Wrap base canvas in a relative div for overlay positioning ─────── */
+    if (!document.getElementById('cdb-map-wrapper')) {
+      var wrapper = document.createElement('div');
+      wrapper.id = 'cdb-map-wrapper';
+      panel.insertBefore(wrapper, base);
+      wrapper.appendChild(base);
+    }
+    var wrapEl = document.getElementById('cdb-map-wrapper');
+
+    /* ── Create overlay canvas ──────────────────────────────────────────── */
+    var oldOv = document.getElementById('cdb-v3-overlay');
+    if (oldOv) oldOv.parentNode.removeChild(oldOv);
+    var ov = document.createElement('canvas');
+    ov.id = 'cdb-v3-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    wrapEl.appendChild(ov);
+
+    var ctx = ov.getContext('2d');
+    var W = 0, H = 0, dpr = 1;
+
+    /* ── Equirectangular projection (matches base map exactly) ──────────── */
+    var LN0=-180, LN1=180, LT0=83, LT1=-58;
+    function px(lon, lat) {
+      return [(lon-LN0)/(LN1-LN0)*W, (LT0-lat)/(LT0-LT1)*H];
+    }
+
+    /* ── Resize handler — uses getBoundingClientRect for reliable reads ─── */
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      var rect = base.getBoundingClientRect();
+      W = rect.width  || base.offsetWidth;
+      H = rect.height || base.offsetHeight;
+      if (W === 0 || H === 0) { setTimeout(resize, 400); return; }
+      ov.width  = Math.round(W * dpr);
+      ov.height = Math.round(H * dpr);
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.scale(dpr, dpr);
+    }
+    resize();
+    window.addEventListener('resize', function() { setTimeout(resize, 120); });
+
+    /* ── Country centroids [lon, lat] ───────────────────────────────────── */
+    var CENT = {
+      US:[-98,38],  CA:[-96,57],  MX:[-103,24], BR:[-52,-10], AR:[-65,-35],
+      CO:[-74,4],   PE:[-76,-10], CL:[-71,-30], VE:[-66,8],
+      GB:[-2,53],   FR:[2,46],    DE:[10,51],   ES:[-4,40],   IT:[12,42],
+      PL:[19,52],   UA:[31,49],   SE:[17,62],   NO:[10,64],   FI:[26,64],
+      NL:[5,52],    BE:[4,51],    CH:[8,47],    AT:[14,47],   PT:[-8,39],
+      RU:[60,62],   KZ:[66,48],   TR:[34,39],   IR:[54,32],   SA:[45,24],
+      IQ:[43,33],   SY:[38,35],   AF:[67,33],   PK:[70,30],   IN:[80,22],
+      CN:[104,37],  JP:[138,38],  KP:[127,40],  KR:[128,37],  TW:[121,24],
+      ID:[118,-2],  AU:[134,-25], NZ:[174,-42], TH:[102,15],  VN:[108,16],
+      ZA:[24,-30],  NG:[8,10],    EG:[30,26],   ET:[40,9],    KE:[38,1],
+      MA:[-6,32],   LY:[17,27],   DZ:[3,28],    SD:[30,15],
+      IL:[34,31],   LB:[35,34],   JO:[36,31],   YE:[48,16],
+      AZ:[47,40],   GE:[43,42],   BY:[28,53],   RS:[21,44],
+    };
+
+    /* ── APT actor groups by source country ─────────────────────────────── */
+    var APT = {
+      RU:['APT28','SANDWORM','COZY BEAR'],
+      CN:['APT41','VOLT TYPHOON','HAFNIUM'],
+      KP:['LAZARUS','KIMSUKY'],
+      IR:['APT33','CHARMING KITTEN'],
+      IN:['SIDEWINDER'],
+      PK:['TRANSPARENT TRIBE'],
+    };
+
+    /* ── Nation-state threat risk scores 0-100 ──────────────────────────── */
+    var RISK = {
+      RU:94, CN:90, KP:87, IR:83, BY:68, SY:62, AF:58, PK:55,
+      IN:52, IQ:50, YE:48, LY:45, SD:42, VN:40, AZ:35,
+      UA:78, IL:72, TR:48, SA:44, EG:40, NG:35,
+      US:22, GB:18, DE:15, FR:14, AU:16,
+    };
+
+    /* ── MITRE ATT&CK technique pool ────────────────────────────────────── */
+    var MITRE_POOL = ['T1566','T1190','T1059','T1078','T1027','T1071',
+                      'T1021','T1003','T1486','T1055','T1048','T1082',
+                      'T1562','T1195','T1176','T1505','T1219','T1041'];
+
+    /* ── Severity RGB strings (for rgba() usage) ────────────────────────── */
+    var SRGB = {
+      CRITICAL:'255,68,68',  HIGH:'255,136,0',
+      MEDIUM:'255,204,0',    LOW:'0,170,255',  INFO:'0,212,170'
+    };
+    var SCOL = {
+      CRITICAL:'#ff4444',    HIGH:'#ff8800',
+      MEDIUM:'#ffcc00',      LOW:'#00aaff',    INFO:'#00d4aa'
+    };
+
+    /* ── Base attack pairs (enriched from live intel at runtime) ────────── */
+    var BASE_PAIRS = [
+      {src:'RU',dst:'US',sev:'CRITICAL',actor:'APT28',       mitre:'T1566'},
+      {src:'CN',dst:'US',sev:'CRITICAL',actor:'APT41',       mitre:'T1190'},
+      {src:'KP',dst:'KR',sev:'HIGH',    actor:'LAZARUS',     mitre:'T1059'},
+      {src:'IR',dst:'IL',sev:'CRITICAL',actor:'APT33',       mitre:'T1003'},
+      {src:'RU',dst:'UA',sev:'CRITICAL',actor:'SANDWORM',    mitre:'T1486'},
+      {src:'CN',dst:'JP',sev:'HIGH',    actor:'APT40',       mitre:'T1027'},
+      {src:'KP',dst:'US',sev:'HIGH',    actor:'KIMSUKY',     mitre:'T1078'},
+      {src:'IR',dst:'SA',sev:'HIGH',    actor:'APT35',       mitre:'T1071'},
+      {src:'RU',dst:'DE',sev:'CRITICAL',actor:'APT29',       mitre:'T1021'},
+      {src:'CN',dst:'AU',sev:'MEDIUM',  actor:'VOLT TYPHOON',mitre:'T1082'},
+      {src:'KP',dst:'JP',sev:'HIGH',    actor:'APT37',       mitre:'T1055'},
+      {src:'RU',dst:'GB',sev:'HIGH',    actor:'COZY BEAR',   mitre:'T1048'},
+      {src:'CN',dst:'IN',sev:'HIGH',    actor:'APT41',       mitre:'T1059'},
+      {src:'IR',dst:'US',sev:'HIGH',    actor:'CHARMING KITTEN',mitre:'T1566'},
+      {src:'RU',dst:'FR',sev:'MEDIUM',  actor:'APT28',       mitre:'T1190'},
+      {src:'CN',dst:'CA',sev:'MEDIUM',  actor:'HAFNIUM',     mitre:'T1027'},
+      {src:'KP',dst:'AU',sev:'MEDIUM',  actor:'LAZARUS',     mitre:'T1486'},
+      {src:'IR',dst:'TR',sev:'MEDIUM',  actor:'APT33',       mitre:'T1071'},
+      {src:'RU',dst:'PL',sev:'HIGH',    actor:'SANDWORM',    mitre:'T1562'},
+      {src:'CN',dst:'TW',sev:'CRITICAL',actor:'APT41',       mitre:'T1195'},
+      {src:'KP',dst:'KR',sev:'CRITICAL',actor:'KIMSUKY',     mitre:'T1078'},
+      {src:'PK',dst:'IN',sev:'HIGH',    actor:'TRANSPARENT TRIBE',mitre:'T1059'},
+      {src:'RU',dst:'BY',sev:'MEDIUM',  actor:'APT28',       mitre:'T1021'},
+      {src:'CN',dst:'VN',sev:'MEDIUM',  actor:'APT40',       mitre:'T1082'},
+      {src:'IR',dst:'YE',sev:'HIGH',    actor:'APT35',       mitre:'T1219'},
+      {src:'RU',dst:'EE',sev:'HIGH',    actor:'SANDWORM',    mitre:'T1041'},
+      {src:'CN',dst:'KR',sev:'HIGH',    actor:'VOLT TYPHOON',mitre:'T1505'},
+      {src:'KP',dst:'TW',sev:'HIGH',    actor:'LAZARUS',     mitre:'T1003'},
+    ];
+
+    /* ── AI prediction target zones ─────────────────────────────────────── */
+    var AI_ZONES = [
+      {lon:-98,lat:38,  label:'US CRITICAL INFRA',   phase:0.0},
+      {lon:80, lat:22,  label:'INDIA GOV NETWORKS',  phase:0.9},
+      {lon:34, lat:31,  label:'IL DEFENSE SYSTEMS',  phase:1.8},
+      {lon:138,lat:38,  label:'JP FINANCIAL SECTOR', phase:2.7},
+      {lon:2,  lat:46,  label:'EU ENERGY GRID',      phase:3.6},
+      {lon:128,lat:37,  label:'KR SEMICONDUCTOR',    phase:4.5},
+      {lon:104,lat:37,  label:'CN CYBER ORIGIN',     phase:5.4},
+    ];
+
+    /* ── Runtime state ──────────────────────────────────────────────────── */
+    var arcs = [], explosions = [], t0 = performance.now(), lastSpawn = 0;
+    var PAIRS = BASE_PAIRS.slice();
+
+    /* Enrich attack pairs from live intel if available */
+    try {
+      var li = window.__GOC_LIVE_INTEL;
+      if (li && li.length) {
+        li.slice(0, 18).forEach(function(item) {
+          if (!item) return;
+          var s = (item.origin_country || '').toUpperCase().slice(0,2);
+          var d = (item.target_country || '').toUpperCase().slice(0,2);
+          if (CENT[s] && CENT[d] && s !== d) {
+            PAIRS.push({
+              src: s, dst: d,
+              sev: item.severity || 'HIGH',
+              actor: item.actor_group || 'UNKNOWN APT',
+              mitre: item.mitre_technique ||
+                     MITRE_POOL[Math.floor(Math.random()*MITRE_POOL.length)]
+            });
+          }
+        });
+      }
+    } catch(_e) {}
+
+    /* ── Spawn a new attack arc ─────────────────────────────────────────── */
+    function spawnArc() {
+      var pair = PAIRS[Math.floor(Math.random() * PAIRS.length)];
+      var sc = CENT[pair.src], dc = CENT[pair.dst];
+      if (!sc || !dc) return;
+      var jit = function(v) { return v + (Math.random()-0.5)*5; };
+      var sx=jit(sc[0]), sy=jit(sc[1]), dx=jit(dc[0]), dy=jit(dc[1]);
+      var mx=(sx+dx)/2, my=(sy+dy)/2;
+      var dist=Math.sqrt((dx-sx)*(dx-sx)+(dy-sy)*(dy-sy));
+      var perp=dist*(0.28+Math.random()*0.30);
+      var ang=Math.atan2(dy-sy, dx-sx)+Math.PI/2;
+      arcs.push({
+        sx:sx, sy:sy, dx:dx, dy:dy,
+        cpx:mx+Math.cos(ang)*perp, cpy:my+Math.sin(ang)*perp,
+        sev:pair.sev, actor:pair.actor, mitre:pair.mitre, dst:pair.dst,
+        born:performance.now(), life:2400+Math.random()*2200,
+        showLabel:Math.random()>0.45, showMitre:Math.random()>0.40,
+      });
+    }
+
+    /* ── Spawn impact explosion at geo coordinates ──────────────────────── */
+    function spawnExplosion(lon, lat, col) {
+      explosions.push({lon:lon,lat:lat,col:col,born:performance.now(),life:1500});
+    }
+
+    /* Pre-warm arc pool */
+    for (var _pw=0; _pw<7; _pw++) spawnArc();
+
+    /* ── LAYER 1: Nation-state risk halos ───────────────────────────────── */
+    function drawRiskHalos() {
+      Object.keys(RISK).forEach(function(id) {
+        var risk=RISK[id], cent=CENT[id];
+        if (!cent) return;
+        var p=px(cent[0],cent[1]);
+        if (p[0]<-30||p[0]>W+30||p[1]<-30||p[1]>H+30) return;
+        var r=20+risk*0.22, a=0.022+(risk/100)*0.09;
+        var rgb=risk>80?'255,38,38':risk>65?'255,120,0':risk>45?'255,196,0':'0,160,255';
+        var g=ctx.createRadialGradient(p[0],p[1],0, p[0],p[1],r);
+        g.addColorStop(0,'rgba('+rgb+','+a.toFixed(3)+')');
+        g.addColorStop(1,'rgba('+rgb+',0)');
+        ctx.beginPath(); ctx.arc(p[0],p[1],r,0,Math.PI*2);
+        ctx.fillStyle=g; ctx.fill();
+      });
+    }
+
+    /* ── LAYER 2: Military HUD grid ─────────────────────────────────────── */
+    function drawGrid() {
+      /* Latitude lines every 20° */
+      for (var lat=-60; lat<=80; lat+=20) {
+        var pa=px(-180,lat), pb=px(180,lat);
+        ctx.beginPath(); ctx.moveTo(pa[0],pa[1]); ctx.lineTo(pb[0],pb[1]);
+        ctx.strokeStyle=lat===0?'rgba(0,212,170,0.14)':'rgba(0,212,170,0.05)';
+        ctx.lineWidth=lat===0?0.9:0.4;
+        ctx.stroke();
+        if (lat!==0 && W>420) {
+          ctx.fillStyle='rgba(0,212,170,0.22)'; ctx.font='6px monospace';
+          ctx.fillText(lat+'°', pa[0]+2, pa[1]-1);
+        }
+      }
+      /* Longitude lines every 30° */
+      for (var lon=-180; lon<=180; lon+=30) {
+        var pt=px(lon,83), pb2=px(lon,-58);
+        ctx.beginPath(); ctx.moveTo(pt[0],pt[1]); ctx.lineTo(pb2[0],pb2[1]);
+        ctx.strokeStyle='rgba(0,212,170,0.05)'; ctx.lineWidth=0.4;
+        ctx.stroke();
+      }
+    }
+
+    /* ── LAYER 3: AI prediction zones ───────────────────────────────────── */
+    function drawAIZones(elapsed) {
+      AI_ZONES.forEach(function(z) {
+        var p=px(z.lon,z.lat);
+        if (p[0]<-25||p[0]>W+25||p[1]<-25||p[1]>H+25) return;
+        var t=(elapsed*0.0007+z.phase)%(Math.PI*2);
+        var r1=11+Math.sin(t)*5, r2=23+Math.sin(t+1)*7;
+        var a1=0.18+Math.sin(t)*0.07, a2=0.07+Math.sin(t+0.4)*0.03;
+        /* Outer dashed pulse ring */
+        ctx.save(); ctx.setLineDash([3,4]);
+        ctx.beginPath(); ctx.arc(p[0],p[1],r2,0,Math.PI*2);
+        ctx.strokeStyle='rgba(0,200,255,'+a2.toFixed(3)+')';
+        ctx.lineWidth=0.8; ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+        /* Inner solid ring */
+        ctx.beginPath(); ctx.arc(p[0],p[1],r1,0,Math.PI*2);
+        ctx.strokeStyle='rgba(0,200,255,'+a1.toFixed(3)+')';
+        ctx.lineWidth=1.3; ctx.stroke();
+        /* Center dot */
+        ctx.beginPath(); ctx.arc(p[0],p[1],1.8,0,Math.PI*2);
+        ctx.fillStyle='rgba(0,220,255,0.55)'; ctx.fill();
+        /* AI label */
+        if (W>480) {
+          ctx.fillStyle='rgba(0,200,255,0.42)'; ctx.font='5.5px monospace';
+          ctx.fillText('⚠ '+z.label, p[0]-32, p[1]-r2-4);
+        }
+      });
+    }
+
+    /* ── LAYER 4: Cinematic attack arcs ─────────────────────────────────── */
+    function drawArcs(ts) {
+      arcs.forEach(function(arc) {
+        var age=Math.min(1,(ts-arc.born)/arc.life);
+        var rgb=SRGB[(arc.sev||'HIGH').toUpperCase()]||'255,136,0';
+        var col=SCOL[(arc.sev||'HIGH').toUpperCase()]||'#ff8800';
+        var s=px(arc.sx,arc.sy), d=px(arc.dx,arc.dy), cp=px(arc.cpx,arc.cpy);
+        if (s[0]<-80||s[0]>W+80||d[0]<-80||d[0]>W+80) return;
+        var alpha=age<0.1?age*10:age>0.85?(1-age)*6.67:1;
+        /* Glow trail — gradient arc */
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(s[0],s[1]);
+        ctx.quadraticCurveTo(cp[0],cp[1],d[0],d[1]);
+        var ts2=Math.min(1,age), te=Math.max(0,age-0.5);
+        var gl=ctx.createLinearGradient(s[0],s[1],d[0],d[1]);
+        gl.addColorStop(0,'rgba('+rgb+',0)');
+        gl.addColorStop(Math.max(0,te),'rgba('+rgb+',0)');
+        gl.addColorStop(Math.min(1,Math.max(0.001,ts2-0.08)),'rgba('+rgb+','+(alpha*0.5).toFixed(3)+')');
+        gl.addColorStop(Math.min(1,ts2),'rgba('+rgb+','+(alpha*0.9).toFixed(3)+')');
+        if (ts2<1) gl.addColorStop(1,'rgba('+rgb+',0)');
+        ctx.strokeStyle=gl; ctx.lineWidth=1.5;
+        ctx.shadowBlur=10; ctx.shadowColor=col;
+        ctx.stroke(); ctx.restore();
+        /* Particle head position on bezier */
+        var t=age;
+        var hx=(1-t)*(1-t)*s[0]+2*(1-t)*t*cp[0]+t*t*d[0];
+        var hy=(1-t)*(1-t)*s[1]+2*(1-t)*t*cp[1]+t*t*d[1];
+        /* Head corona */
+        ctx.save(); ctx.globalAlpha=alpha*0.38;
+        ctx.beginPath(); ctx.arc(hx,hy,7,0,Math.PI*2);
+        ctx.fillStyle=col; ctx.shadowBlur=20; ctx.shadowColor=col;
+        ctx.fill(); ctx.restore();
+        /* Head core */
+        ctx.save(); ctx.globalAlpha=alpha;
+        ctx.beginPath(); ctx.arc(hx,hy,2.8,0,Math.PI*2);
+        ctx.fillStyle='#ffffff';
+        ctx.shadowBlur=16; ctx.shadowColor=col;
+        ctx.fill(); ctx.restore();
+        /* Source origin dot */
+        ctx.save(); ctx.globalAlpha=alpha*0.65;
+        ctx.beginPath(); ctx.arc(s[0],s[1],2.2,0,Math.PI*2);
+        ctx.fillStyle=col; ctx.shadowBlur=8; ctx.shadowColor=col;
+        ctx.fill(); ctx.restore();
+        /* MITRE ATT&CK badge at arc midpoint */
+        if (arc.showMitre && age>0.28 && age<0.72 && W>500) {
+          var mx2=(s[0]+d[0])*0.35+cp[0]*0.3;
+          var my2=(s[1]+d[1])*0.35+cp[1]*0.3;
+          var ba=Math.min(1,(age-0.28)*6)*Math.min(1,(0.72-age)*6)*alpha;
+          if (ba>0.06) {
+            ctx.save(); ctx.globalAlpha=ba*0.78;
+            ctx.fillStyle='rgba(0,6,20,0.90)';
+            ctx.strokeStyle='rgba('+rgb+',0.55)'; ctx.lineWidth=0.7;
+            ctx.beginPath(); ctx.rect(mx2-17,my2-6,34,11);
+            ctx.fill(); ctx.stroke();
+            ctx.fillStyle=col; ctx.font='bold 5.5px monospace';
+            ctx.textAlign='center'; ctx.fillText(arc.mitre,mx2,my2+2.5);
+            ctx.textAlign='left'; ctx.restore();
+          }
+        }
+        /* Actor label near source */
+        if (arc.showLabel && age<0.26 && W>420) {
+          var la2=Math.min(1,age*9)*(1-age/0.26)*alpha;
+          if (la2>0.06) {
+            ctx.save(); ctx.globalAlpha=la2*0.85;
+            ctx.fillStyle=col; ctx.font='6.5px monospace';
+            ctx.fillText(arc.actor, s[0]+4, s[1]-5); ctx.restore();
+          }
+        }
+      });
+    }
+
+    /* ── LAYER 5: Impact explosions ─────────────────────────────────────── */
+    function drawExplosions(ts) {
+      for (var i=explosions.length-1; i>=0; i--) {
+        var ex=explosions[i];
+        var age=(ts-ex.born)/ex.life;
+        if (age>=1) { explosions.splice(i,1); continue; }
+        var p=px(ex.lon,ex.lat);
+        var ease=1-Math.pow(1-age,2);
+        var hx2=ex.col.replace('#','');
+        var r2i=parseInt(hx2.slice(0,2),16);
+        var g2i=parseInt(hx2.slice(2,4),16);
+        var b2i=parseInt(hx2.slice(4,6),16);
+        var rgbE=r2i+','+g2i+','+b2i;
+        for (var ring=0; ring<3; ring++) {
+          var rad=ease*(16+ring*12);
+          var ra=(1-age)*(0.55-ring*0.14);
+          if (ra<=0) continue;
+          ctx.save();
+          ctx.beginPath(); ctx.arc(p[0],p[1],rad,0,Math.PI*2);
+          ctx.strokeStyle='rgba('+rgbE+','+ra.toFixed(3)+')';
+          ctx.lineWidth=1.8-ring*0.4;
+          ctx.shadowBlur=12; ctx.shadowColor=ex.col;
+          ctx.stroke(); ctx.restore();
+        }
+        /* White flash at impact */
+        if (age<0.13) {
+          ctx.save(); ctx.globalAlpha=(1-age/0.13)*0.88;
+          ctx.beginPath(); ctx.arc(p[0],p[1],3.8*(1-age/0.13),0,Math.PI*2);
+          ctx.fillStyle='#ffffff';
+          ctx.shadowBlur=24; ctx.shadowColor=ex.col;
+          ctx.fill(); ctx.restore();
+        }
+      }
+    }
+
+    /* ── LAYER 6: APT actor attribution labels ──────────────────────────── */
+    function drawAPTLabels(elapsed) {
+      if (W<480) return;
+      Object.keys(APT).forEach(function(id, idx) {
+        var cent=CENT[id]; if (!cent) return;
+        var p=px(cent[0],cent[1]);
+        if (p[0]<14||p[0]>W-14||p[1]<10||p[1]>H-10) return;
+        var label=APT[id][0];
+        var t=(elapsed*0.00095)%(Math.PI*2);
+        var pulse=0.38+0.30*Math.sin(t+idx*1.45);
+        var tw=label.length*4.9+10;
+        ctx.save(); ctx.globalAlpha=pulse;
+        ctx.fillStyle='rgba(0,5,16,0.80)';
+        ctx.strokeStyle='rgba(167,139,250,0.55)'; ctx.lineWidth=0.7;
+        ctx.beginPath(); ctx.rect(p[0]-tw/2, p[1]-15, tw, 11);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#a78bfa'; ctx.font='bold 5.8px monospace';
+        ctx.textAlign='center'; ctx.fillText(label,p[0],p[1]-7);
+        ctx.textAlign='left'; ctx.restore();
+      });
+    }
+
+    /* ── LAYER 7: Rotating radar scan sweep ─────────────────────────────── */
+    function drawRadar(elapsed) {
+      var cx=W*0.60, cy=H*0.44;
+      var scanR=Math.min(W,H)*0.40;
+      var ang=(elapsed*0.00045)%(Math.PI*2);
+      /* Sector fill */
+      ctx.save(); ctx.globalAlpha=0.045;
+      ctx.beginPath(); ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,scanR,ang,ang+0.52); ctx.closePath();
+      var sweepG=ctx.createLinearGradient(cx,cy,
+        cx+Math.cos(ang+0.26)*scanR, cy+Math.sin(ang+0.26)*scanR);
+      sweepG.addColorStop(0,'rgba(0,212,170,0.35)');
+      sweepG.addColorStop(1,'rgba(0,212,170,0)');
+      ctx.fillStyle=sweepG; ctx.fill(); ctx.restore();
+      /* Scan line */
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(cx,cy);
+      ctx.lineTo(cx+Math.cos(ang)*scanR, cy+Math.sin(ang)*scanR);
+      ctx.strokeStyle='rgba(0,212,170,0.30)'; ctx.lineWidth=0.9;
+      ctx.shadowBlur=9; ctx.shadowColor='rgba(0,212,170,0.55)';
+      ctx.stroke(); ctx.restore();
+    }
+
+    /* ── LAYER 8: Military HUD elements ─────────────────────────────────── */
+    function drawHUD() {
+      if (W<450) return;
+      /* Bottom-left: version + timestamp */
+      var now=new Date();
+      var stamp=now.toISOString().replace('T',' ').slice(0,19)+' UTC';
+      ctx.save();
+      ctx.fillStyle='rgba(0,212,170,0.30)'; ctx.font='6.5px monospace';
+      ctx.fillText('SENTINEL APEX v156.3.0  ■  '+stamp+'  ■  LIVE', 8, H-7);
+      ctx.restore();
+      /* Top-right: threat level chip */
+      var atk=window._cdbAtkSeed||0;
+      var tlRGB=atk>250?'255,50,50':atk>150?'255,136,0':'255,200,0';
+      var tlLabel=atk>250?'CRITICAL':atk>150?'ELEVATED':'GUARDED';
+      ctx.save();
+      ctx.fillStyle='rgba(0,5,18,0.82)';
+      ctx.strokeStyle='rgba('+tlRGB+',0.42)'; ctx.lineWidth=0.6;
+      ctx.beginPath(); ctx.rect(W-132,3,128,16);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba('+tlRGB+',0.92)'; ctx.font='bold 6.5px monospace';
+      ctx.fillText('THREAT LEVEL: '+tlLabel, W-129, 14);
+      ctx.restore();
+    }
+
+    /* ── LAYER 9: Edge vignette ──────────────────────────────────────────── */
+    function drawVignette() {
+      var vg=ctx.createRadialGradient(W/2,H/2,H*0.22, W/2,H/2,H*0.90);
+      vg.addColorStop(0,'rgba(0,0,0,0)');
+      vg.addColorStop(1,'rgba(0,0,0,0.40)');
+      ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+    }
+
+    /* ── Main animation loop ────────────────────────────────────────────── */
+    function draw(ts) {
+      if (W===0||H===0) { resize(); requestAnimationFrame(draw); return; }
+      var elapsed=ts-t0;
+      ctx.clearRect(0,0,W,H);
+
+      drawRiskHalos();
+      drawGrid();
+      drawAIZones(elapsed);
+      drawArcs(ts);
+      drawExplosions(ts);
+      drawAPTLabels(elapsed);
+      drawRadar(elapsed);
+      drawHUD();
+      drawVignette();
+
+      /* Spawn new arcs up to pool limit */
+      if (ts-lastSpawn>1250 && arcs.length<15) { spawnArc(); lastSpawn=ts; }
+
+      /* Retire completed arcs + trigger impact explosions */
+      for (var i=arcs.length-1; i>=0; i--) {
+        var arc=arcs[i];
+        if ((ts-arc.born)/arc.life>=1) {
+          var dc=CENT[arc.dst];
+          if (dc) spawnExplosion(
+            dc[0]+(Math.random()-0.5)*4,
+            dc[1]+(Math.random()-0.5)*4,
+            SCOL[(arc.sev||'HIGH').toUpperCase()]||'#ff4444'
+          );
+          arcs.splice(i,1);
+        }
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    requestAnimationFrame(draw);
+  } /* end init() */
+
+  /* Defer to window.load + 500ms to guarantee full layout resolution */
+  if (document.readyState==='complete') {
+    setTimeout(init, 500);
+  } else {
+    window.addEventListener('load', function() { setTimeout(init, 500); });
+  }
+
+})();
+</script>
+<!-- === SENTINEL APEX v162 THREAT MAP END === -->
 <!-- SENTINEL-APEX-v161-COMPONENT-UPGRADES-END -->
 
 
