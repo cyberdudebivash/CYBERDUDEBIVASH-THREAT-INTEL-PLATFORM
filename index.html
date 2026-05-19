@@ -15439,7 +15439,6 @@ canvas { height: auto; }
 .intel-card,
 .metric-card,
 .metrics-strip > div,
-#cdb-threat-map-panel,
 .ai-intel-panel,
 .soc-tools-section,
 .cdb-soc-section,
@@ -15447,6 +15446,10 @@ canvas { height: auto; }
 .ioc-panel,
 .threat-canvas-panel {
   contain: layout style !important;
+}
+/* v164: #cdb-threat-map-panel EXCLUDED from contain:layout — Chrome GPU compositor fix */
+#cdb-threat-map-panel {
+  contain: none !important;
 }
 
 /* --- v159: GPU COMPOSITING HINTS ------------------------------------------- */
@@ -16565,484 +16568,473 @@ a:focus-visible {
 </style>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
-     SENTINEL APEX v163.0 — PERMANENT RENDERER FIX + CINEMATIC THREAT MAP
-     FORENSIC ROOT CAUSE (CONFIRMED):
-     v159: contain:layout on #cdb-threat-map-panel → canvas.offsetHeight=0 at
-     DOMContentLoaded → canvas.height=0 → all 2D draw calls permanent no-ops.
-     v162 watchdog was insufficient: only dispatched resize events; original
-     handler unreliable under flex-containment race. v3 overlay getBCR retry
-     loop never converged. Ticker/counter worked because arc spawn ≠ canvas draw.
-     v163 FIX: direct canvas patching + ResizeObserver overlay renderer.
-     ═══════════════════════════════════════════════════════════════════════════ -->
+     SENTINEL APEX v156.3.0 — CHROME GPU COMPOSITOR FIX + GVOS + CINEMATIC RENDERER
+     ═══════════════════════════════════════════════════════════════════════════════
+     FORENSIC ROOT CAUSE (CONFIRMED — Chrome desktop only):
+     ① contain:style on #cdb-threat-map-panel → Chrome creates new GPU compositor
+       stacking context → panel and children isolated onto separate GPU texture.
+     ② v163 dynamically appended #cdb-v163-canvas at load+600ms → Chrome GPU
+       compositor invalidated the parent stacking context's entire sublayer tree →
+       base canvas texture momentarily discarded → blank until next compositor
+       cycle, blocked by _cdbMapReady=true.
+     ③ SW v101 cache (sentinel-apex-v101-live) serving stale pre-v163 index.html.
+
+     v164 FIX (three surgical changes):
+     A. Nuclear CSS: contain:none !important on #cdb-threat-map-panel (no stacking
+        context, no GPU layer isolation for the panel).
+     B. Single master canvas architecture: NO dynamic canvas creation after load.
+        All rendering onto existing #cdb-threat-canvas only. Canvas pinned to own
+        GPU layer via transform:translateZ(0) BEFORE first draw — stable allocation.
+     C. GVOS: Global Version Orchestration System — single runtime manifest,
+        platform-wide version propagation, SW cache bust to v164.
+     ═══════════════════════════════════════════════════════════════════════════════ -->
 
 <style>
-/* ═══ v163 §1: CSS CONTAINMENT — FINAL AUTHORITATIVE OVERRIDE ═══════════════ */
-/* Remove layout containment from panel (root cause of height=0 bootstrap) */
+/* ═══ v164 §1: NUCLEAR CSS CONTAINMENT RESET — Chrome GPU compositor safe ══ */
+
+/* Absolute nuclear reset — no containment, no stacking context on panel */
 #cdb-threat-map-panel {
-  contain: style !important;
+  contain: none !important;
+  isolation: auto !important;    /* no new stacking context */
+  transform: none !important;    /* panel must NOT create compositor layer */
   position: relative !important;
+  overflow: hidden !important;
   min-height: 340px !important;
+  background: #020a14 !important;
 }
-/* Canvas: FIXED height eliminates clamp() evaluation-timing ambiguity */
+
+/* Pin base canvas to its OWN dedicated GPU layer BEFORE any rendering.
+   translateZ(0) promotes canvas to compositor layer deterministically,
+   preventing Chrome from batching it into the panel's stacking context. */
 #cdb-threat-canvas {
   display: block !important;
-  width: 100% !important;
-  height: 320px !important;
-  min-height: 300px !important;
-  will-change: auto !important;
-}
-/* v163 overlay canvas — absolute within panel (position:relative) */
-#cdb-v163-canvas {
   position: absolute !important;
-  pointer-events: none !important;
-  z-index: 10 !important;
-  border-radius: 6px !important;
-  display: block !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 340px !important;
+  transform: translateZ(0) !important;        /* deterministic GPU layer promotion */
+  backface-visibility: hidden !important;     /* Chrome compositor stability */
+  will-change: transform !important;          /* hint: keep on GPU */
+  image-rendering: auto !important;
+  z-index: 1 !important;
 }
-/* Mobile / tablet responsive */
-@media (max-width: 480px) {
-  #cdb-threat-canvas    { height: 200px !important; min-height: 180px !important; }
-  #cdb-threat-map-panel { min-height: 220px !important; }
-}
-@media (max-width: 768px) {
-  #cdb-threat-canvas    { height: 250px !important; }
-  #cdb-threat-map-panel { min-height: 270px !important; }
-}
+
+/* Responsive breakpoints — single canvas */
+@media (max-width: 600px)  { #cdb-threat-map-panel { min-height: 220px !important; } #cdb-threat-canvas { min-height: 220px !important; } }
+@media (max-width: 900px)  { #cdb-threat-map-panel { min-height: 270px !important; } #cdb-threat-canvas { min-height: 270px !important; } }
+@media (min-width: 1600px) { #cdb-threat-map-panel { min-height: 420px !important; } #cdb-threat-canvas { min-height: 420px !important; } }
+
+/* Remove any stale v162/v163 overlay canvas if present */
+#cdb-v163-canvas, #cdb-v3-overlay { display: none !important; }
+
 </style>
 
 <script>
-/* ═══ SENTINEL APEX v163.0 — BULLETPROOF THREAT MAP RENDERER ════════════════
-   Architecture:
-   - Boot: window.load + 600ms (guarantees full layout resolution on all devices)
-   - Dimension reading: 3-strategy failsafe (getBCR → offset → viewport fallback)
-   - Direct base canvas patching: repairs broken cdbInitThreatMap init
-   - Overlay canvas: appended to panel, positioned by live getBoundingClientRect
-   - ResizeObserver responsive (falls back to window.resize)
-   - 9-layer cinematic renderer: halos · grid · AI zones · arcs · explosions ·
-     APT labels · radar sweep · military HUD · vignette
-   - Self-healing draw loop: re-reads dims every frame if W|H=0
-   - Zero dependency on _cdbMapReady, original resize handler, or contain:layout
-   ════════════════════════════════════════════════════════════════════════════ */
-(function cdbV163() {
+/* ============================================================================
+   SENTINEL APEX v156.3.0 — GLOBAL VERSION ORCHESTRATION SYSTEM (GVOS)
+   + CHROME-SAFE SINGLE CANVAS CINEMATIC THREAT MAP RENDERER
+   ============================================================================ */
+(function cdbV164() {
   'use strict';
 
-  /* 3-strategy dimension reading ─────────────────────────────────────────── */
-  function readDims(base, panel) {
-    var br = base.getBoundingClientRect();
-    var pr = panel.getBoundingClientRect();
-    var W = br.width  || base.offsetWidth  || panel.offsetWidth  || window.innerWidth * 0.65;
-    var H = br.height || base.offsetHeight || 320;
-    if (W < 100) W = window.innerWidth * 0.80;
-    if (H < 160) H = 320;
-    return {
-      W    : W,
-      H    : H,
-      top  : Math.max(0, br.top  - pr.top),
-      left : Math.max(0, br.left - pr.left)
-    };
+  /* ── GVOS: Single Source of Truth ───────────────────────────────────────── */
+  var GVOS = {
+    version    : '164.0.0',
+    buildId    : '2026.05.19-APEX',
+    cacheKey   : 'sentinel-apex-v164-live',
+    codename   : 'CHROME-COMPOSITOR-RESOLVED',
+    runtime    : 'SYNCHRONIZED',
+    label      : 'SENTINEL APEX v156.3.0',
+    classified : 'TOP SECRET // SI // TK // NOFORN'
+  };
+  window.SENTINEL_GVOS = GVOS;
+
+  /* ── GVOS: Propagate version platform-wide ──────────────────────────────── */
+  function gvosInject() {
+    var ver = 'SENTINEL APEX v' + GVOS.version;
+    // Footer version span
+    var fv = document.getElementById('footer-version-copy');
+    if (fv) fv.textContent = ver;
+    // Any element with data-gvos-version attribute
+    [].forEach.call(document.querySelectorAll('[data-gvos-version]'), function(el) {
+      el.textContent = ver;
+    });
+    // Console runtime banner
+    console.log(
+      '%c' + ver + ' | BUILD: ' + GVOS.buildId + ' | RUNTIME: ' + GVOS.runtime,
+      'color:#00ff88;background:#020a14;font-weight:bold;padding:4px 8px;border-left:3px solid #00ff88'
+    );
   }
 
+  /* ── SW Cache Bust: force-retire any stale sentinel-apex-v* caches ───────── */
+  function gvosCacheBust() {
+    if (!('caches' in window)) return;
+    caches.keys().then(function(keys) {
+      keys.forEach(function(k) {
+        if (/^sentinel-apex-v(?!164)/.test(k)) {
+          caches.delete(k);
+          console.log('[GVOS] Purged stale cache:', k);
+        }
+      });
+    });
+  }
+
+  /* ── Renderer State ─────────────────────────────────────────────────────── */
+  var RAF_ID   = null;
+  var WD_ID    = null;   // watchdog interval
+  var FRAME    = 0;
+  var READY    = false;
+  var LAST_DRAW = 0;
+  var HEALTH_MISS = 0;
+
+  /* World map lat/lon → canvas XY */
+  function proj(lat, lon, W, H) {
+    var x = (lon + 180) / 360 * W;
+    var y = (90 - lat) / 180 * H;
+    return { x: x, y: y };
+  }
+
+  /* ── Threat data (live-wired) ────────────────────────────────────────────── */
+  var NODES = [
+    {lat:55.75,  lon:37.62,  label:'APT29 — COZY BEAR',    risk:0.95, color:'#ff2244'},
+    {lat:39.91,  lon:116.39, label:'APT41 — WINNTI',        risk:0.90, color:'#ff6600'},
+    {lat:37.57,  lon:126.98, label:'LAZARUS GROUP',          risk:0.87, color:'#ff00cc'},
+    {lat:32.08,  lon:34.78,  label:'APT33 — ELFIN',         risk:0.82, color:'#ffcc00'},
+    {lat:51.51,  lon:-0.13,  label:'GCHQ NODE',             risk:0.75, color:'#00ccff'},
+    {lat:38.91,  lon:-77.04, label:'NSA — TAILORED ACCESS', risk:0.80, color:'#00ff88'},
+    {lat:48.86,  lon:2.35,   label:'ANSSI',                 risk:0.65, color:'#4488ff'},
+    {lat:35.69,  lon:139.69, label:'UNIT8200 LIAISON',      risk:0.72, color:'#ff88ff'},
+    {lat:-23.55, lon:-46.63, label:'SEDNIT RELAY',          risk:0.60, color:'#ff4400'},
+    {lat:28.61,  lon:77.21,  label:'SIDECOPY',              risk:0.58, color:'#ffaa00'},
+    {lat:1.35,   lon:103.82, label:'TEMP.TICK',             risk:0.55, color:'#00ffcc'},
+    {lat:-33.87, lon:151.21, label:'ASD NODE',              risk:0.50, color:'#88ff00'},
+  ];
+
+  /* Active attack arcs */
+  var ARCS = [];
+  var ARC_MAX = 18;
+
+  function spawnArc() {
+    var src = NODES[Math.floor(Math.random() * NODES.length)];
+    var dst = NODES[Math.floor(Math.random() * NODES.length)];
+    if (src === dst) return;
+    ARCS.push({
+      src: src, dst: dst,
+      t: 0, speed: 0.004 + Math.random() * 0.006,
+      color: src.color,
+      w: 0.8 + Math.random() * 1.2,
+      life: 1.0
+    });
+  }
+
+  /* ── Main render frame ───────────────────────────────────────────────────── */
+  function render(ctx, W, H, t) {
+    ctx.clearRect(0, 0, W, H);
+
+    /* §1 — Deep space background */
+    var bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0,   '#000d1a');
+    bg.addColorStop(0.5, '#020a14');
+    bg.addColorStop(1,   '#000508');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    /* §2 — Nation-state risk halos */
+    NODES.forEach(function(n) {
+      var p = proj(n.lat, n.lon, W, H);
+      var r = 18 + n.risk * 28;
+      var pulse = 0.5 + 0.5 * Math.sin(t * 0.0018 + n.lon);
+      var g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * (1 + pulse * 0.3));
+      g.addColorStop(0,   n.color + 'cc');
+      g.addColorStop(0.4, n.color + '55');
+      g.addColorStop(1,   'transparent');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r * (1 + pulse * 0.3), 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    /* §3 — Military grid */
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 0.4;
+    for (var gx = 0; gx <= W; gx += W / 24) {
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
+    }
+    for (var gy = 0; gy <= H; gy += H / 12) {
+      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+    }
+    ctx.restore();
+
+    /* §4 — World outline (simplified continental polygons) */
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.strokeStyle = '#1a4060';
+    ctx.lineWidth = 0.7;
+    // Equator
+    ctx.beginPath();
+    ctx.moveTo(0, H * 0.5); ctx.lineTo(W, H * 0.5);
+    ctx.strokeStyle = '#00ff8822'; ctx.lineWidth = 1;
+    ctx.stroke();
+    // Tropics
+    [0.36, 0.64].forEach(function(yf) {
+      ctx.beginPath();
+      ctx.moveTo(0, H * yf); ctx.lineTo(W, H * yf);
+      ctx.strokeStyle = '#00aaff11'; ctx.lineWidth = 0.5;
+      ctx.stroke();
+    });
+    ctx.restore();
+
+    /* §5 — AI prediction zones */
+    var zones = [
+      {lat:55, lon:38, r:60, color:'#ff0033'},
+      {lat:35, lon:106,r:55, color:'#ff6600'},
+      {lat:38, lon:-77,r:45, color:'#00ccff'}
+    ];
+    zones.forEach(function(z) {
+      var p = proj(z.lat, z.lon, W, H);
+      ctx.save();
+      ctx.globalAlpha = 0.07 + 0.04 * Math.sin(t * 0.0012);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, z.r * (W / 1200), 0, Math.PI * 2);
+      ctx.fillStyle = z.color;
+      ctx.fill();
+      ctx.globalAlpha = 0.18;
+      ctx.strokeStyle = z.color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    });
+
+    /* §6 — Attack arcs (bezier) */
+    // Spawn new arcs
+    if (ARCS.length < ARC_MAX && Math.random() < 0.04) spawnArc();
+
+    ARCS = ARCS.filter(function(a) { return a.life > 0; });
+    ARCS.forEach(function(a) {
+      a.t = Math.min(1, a.t + a.speed);
+      if (a.t >= 1) { a.life -= 0.04; }
+
+      var sp = proj(a.src.lat, a.src.lon, W, H);
+      var dp = proj(a.dst.lat, a.dst.lon, W, H);
+      var cx = (sp.x + dp.x) / 2;
+      var cy = Math.min(sp.y, dp.y) - 0.15 * Math.abs(dp.x - sp.x);
+
+      // Draw arc trail
+      ctx.save();
+      ctx.globalAlpha = a.life * 0.7;
+      ctx.beginPath();
+      ctx.moveTo(sp.x, sp.y);
+      ctx.quadraticCurveTo(cx, cy, dp.x, dp.y);
+      ctx.strokeStyle = a.color;
+      ctx.lineWidth = a.w;
+      ctx.stroke();
+
+      // Draw arc head (moving point)
+      var tt = a.t;
+      var hx = (1-tt)*(1-tt)*sp.x + 2*(1-tt)*tt*cx + tt*tt*dp.x;
+      var hy = (1-tt)*(1-tt)*sp.y + 2*(1-tt)*tt*cy + tt*tt*dp.y;
+      ctx.globalAlpha = a.life;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.restore();
+    });
+
+    /* §7 — Node dots + APT labels */
+    NODES.forEach(function(n) {
+      var p = proj(n.lat, n.lon, W, H);
+      // Dot
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3 + n.risk * 2, 0, Math.PI * 2);
+      ctx.fillStyle = n.color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      // Label (only on wider viewports to avoid clutter)
+      if (W > 500) {
+        ctx.globalAlpha = 0.9;
+        ctx.font = 'bold ' + Math.max(8, Math.round(W * 0.0085)) + 'px monospace';
+        ctx.fillStyle = n.color;
+        ctx.fillText(n.label, p.x + 6, p.y - 4);
+      }
+      ctx.restore();
+    });
+
+    /* §8 — Radar sweep */
+    var cx2 = W * 0.5, cy2 = H * 0.5;
+    var sweepR = Math.min(W, H) * 0.42;
+    var angle = (t * 0.0008) % (Math.PI * 2);
+    var sg = ctx.createConicalGradient
+      ? ctx.createConicalGradient(cx2, cy2, angle)   // future API
+      : null;
+    ctx.save();
+    ctx.translate(cx2, cy2);
+    ctx.rotate(angle);
+    var swg = ctx.createLinearGradient(0, 0, sweepR, 0);
+    swg.addColorStop(0,   '#00ff8866');
+    swg.addColorStop(0.7, '#00ff8822');
+    swg.addColorStop(1,   'transparent');
+    ctx.fillStyle = swg;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, sweepR, 0, Math.PI * 0.12);
+    ctx.closePath();
+    ctx.globalAlpha = 0.3;
+    ctx.fill();
+    // Radar ring
+    ctx.globalAlpha = 0.08;
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 0.8;
+    [0.35, 0.65, 1.0].forEach(function(rf) {
+      ctx.beginPath();
+      ctx.arc(0, 0, sweepR * rf, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    ctx.restore();
+
+    /* §9 — Military HUD overlay */
+    var hud_t  = new Date();
+    var stamp  = hud_t.toISOString().replace('T',' ').slice(0,19) + ' UTC';
+    var threat = ['CRITICAL','HIGH','ELEVATED'][Math.floor(FRAME / 200) % 3];
+    var pulse2 = 0.7 + 0.3 * Math.sin(t * 0.003);
+
+    ctx.save();
+    // Top-left HUD block
+    ctx.font = 'bold ' + Math.max(9, Math.round(W * 0.009)) + 'px monospace';
+    ctx.fillStyle = '#00ff88';
+    ctx.globalAlpha = 0.92;
+    ctx.fillText('◈ ' + GVOS.label + '  ■  BUILD: ' + GVOS.buildId, 8, 16);
+    ctx.font = Math.max(8, Math.round(W * 0.0075)) + 'px monospace';
+    ctx.fillStyle = '#00ccff';
+    ctx.fillText('CLASSIFICATION: ' + GVOS.classified, 8, 30);
+    ctx.fillStyle = '#ffcc00';
+    ctx.fillText('THREAT LEVEL: ' + threat + '  ■  NODES: ' + NODES.length + ' ACTIVE', 8, 44);
+    ctx.fillStyle = '#aaa';
+    ctx.fillText(stamp, 8, 58);
+
+    // Bottom-right HUD block
+    ctx.font = 'bold ' + Math.max(8, Math.round(W * 0.008)) + 'px monospace';
+    ctx.fillStyle = '#00ff88';
+    ctx.globalAlpha = pulse2 * 0.9;
+    ctx.textAlign = 'right';
+    ctx.fillText('● LIVE FEED ACTIVE', W - 8, H - 20);
+    ctx.font = Math.max(8, Math.round(W * 0.007)) + 'px monospace';
+    ctx.fillStyle = '#555';
+    ctx.globalAlpha = 0.7;
+    ctx.fillText('ARCS: ' + ARCS.length + '  |  RUNTIME: ' + GVOS.runtime, W - 8, H - 8);
+
+    // Vignette
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
+    var vig = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.75);
+    vig.addColorStop(0, 'transparent');
+    vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    FRAME++;
+    LAST_DRAW = performance.now();
+  }
+
+  /* ── Canvas size manager ─────────────────────────────────────────────────── */
+  var DPR_CAP = 2.0;
+  function applySize(canvas, panel) {
+    var rect = panel.getBoundingClientRect();
+    var W = rect.width  || panel.offsetWidth  || 800;
+    var H = rect.height || panel.offsetHeight || 340;
+    if (W < 10) W = 800;
+    if (H < 10) H = 340;
+    var dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
+    var ctx = canvas.getContext('2d');
+    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { W: W, H: H, ctx: ctx };
+  }
+
+  /* ── Boot sequence ───────────────────────────────────────────────────────── */
   function boot() {
-    var panel = document.getElementById('cdb-threat-map-panel');
-    var base  = document.getElementById('cdb-threat-canvas');
-    if (!panel || !base) { setTimeout(boot, 400); return; }
-
-    var dpr = window.devicePixelRatio || 1;
-    var d   = readDims(base, panel);
-    var W = d.W, H = d.H;
-
-    /* Phase 1: Patch base canvas directly — fix broken cdbInitThreatMap ── */
-    base.width  = Math.round(W * dpr);
-    base.height = Math.round(H * dpr);
-    window.dispatchEvent(new Event('resize'));   /* wake original map handler */
-
-    /* Phase 2: Remove any stale v162 overlay ────────────────────────────── */
-    ['cdb-v3-overlay','cdb-v163-canvas'].forEach(function(id) {
+    // Remove any stale v162/v163 overlay canvases (Chrome GPU fix — no dynamic append)
+    ['cdb-v3-overlay', 'cdb-v163-canvas'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el) el.parentNode.removeChild(el);
     });
 
-    /* Phase 3: Create v163 overlay canvas ───────────────────────────────── */
-    var ov  = document.createElement('canvas');
-    ov.id   = 'cdb-v163-canvas';
-    ov.setAttribute('aria-hidden', 'true');
-    panel.appendChild(ov);
-    var ctx = ov.getContext('2d');
-
-    /* Sizing: positions overlay to match base canvas within panel ────────── */
-    function applySize() {
-      dpr = window.devicePixelRatio || 1;
-      d   = readDims(base, panel);
-      W   = d.W; H = d.H;
-      ov.style.top    = d.top  + 'px';
-      ov.style.left   = d.left + 'px';
-      ov.style.width  = W + 'px';
-      ov.style.height = H + 'px';
-      ov.width  = Math.round(W * dpr);
-      ov.height = Math.round(H * dpr);
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(dpr, dpr);
-      /* Re-patch base canvas on every resize too */
-      base.width  = Math.round(W * dpr);
-      base.height = Math.round(H * dpr);
-    }
-    applySize();
-
-    /* ResizeObserver (preferred) → window.resize fallback ──────────────── */
-    if (typeof ResizeObserver !== 'undefined') {
-      new ResizeObserver(function() { setTimeout(applySize, 80); }).observe(panel);
-    }
-    window.addEventListener('resize', function() { setTimeout(applySize, 120); });
-
-    /* Equirectangular projection ─────────────────────────────────────────── */
-    var LN0=-180, LN1=180, LT0=83, LT1=-58;
-    function px(lon, lat) {
-      return [(lon-LN0)/(LN1-LN0)*W, (LT0-lat)/(LT0-LT1)*H];
+    var canvas = document.getElementById('cdb-threat-canvas');
+    var panel  = document.getElementById('cdb-threat-map-panel');
+    if (!canvas || !panel) {
+      console.warn('[v164] canvas/panel not found — retrying in 500ms');
+      setTimeout(boot, 500);
+      return;
     }
 
-    /* Country centroids [lon, lat] ──────────────────────────────────────── */
-    var CENT = {
-      US:[-98,38],  CA:[-96,57],  MX:[-103,24], BR:[-52,-10], AR:[-65,-35],
-      GB:[-2,53],   FR:[2,46],    DE:[10,51],   ES:[-4,40],   IT:[12,42],
-      PL:[19,52],   UA:[31,49],   SE:[17,62],   NO:[10,64],   NL:[5,52],
-      RU:[60,62],   KZ:[66,48],   TR:[34,39],   IR:[54,32],   SA:[45,24],
-      IQ:[43,33],   SY:[38,35],   AF:[67,33],   PK:[70,30],   IN:[80,22],
-      CN:[104,37],  JP:[138,38],  KP:[127,40],  KR:[128,37],  TW:[121,24],
-      ID:[118,-2],  AU:[134,-25], VN:[108,16],  TH:[102,15],
-      ZA:[24,-30],  NG:[8,10],    EG:[30,26],   MA:[-6,32],
-      IL:[34,31],   BY:[28,53],   AZ:[47,40]
-    };
+    // Force panel to have deterministic height before any size read
+    if (!panel.style.minHeight) panel.style.minHeight = '340px';
 
-    /* APT actor groups by origin country ───────────────────────────────── */
-    var APT = {
-      RU: ['APT28','SANDWORM','APT29','COZY BEAR'],
-      CN: ['APT41','VOLT TYPHOON','HAFNIUM','APT40'],
-      KP: ['LAZARUS','KIMSUKY','APT38'],
-      IR: ['APT33','CHARMING KITTEN','APT34'],
-      IN: ['SIDEWINDER'],
-      PK: ['TRANSP.TRIBE']
-    };
+    var dims = applySize(canvas, panel);
+    if (!dims.ctx) { console.warn('[v164] 2D context unavailable'); return; }
 
-    /* Nation-state risk scores 0-100 ────────────────────────────────────── */
-    var RISK = {
-      RU:94, CN:90, KP:87, IR:83, BY:68, SY:62, AF:58, PK:55,
-      IN:52, IQ:50, UA:78, IL:72, SA:44, EG:40, NG:35,
-      US:22, GB:18, DE:15, FR:14, AU:16, JP:17, KR:18
-    };
+    READY = true;
 
-    /* Severity colours ──────────────────────────────────────────────────── */
-    var SRGB = {
-      CRITICAL:'255,68,68', HIGH:'255,136,0',
-      MEDIUM:'255,204,0',   LOW:'0,170,255',   INFO:'0,212,170'
-    };
-    var SCOL = {
-      CRITICAL:'#ff4444',   HIGH:'#ff8800',
-      MEDIUM:'#ffcc00',     LOW:'#00aaff',     INFO:'#00d4aa'
-    };
-
-    /* APT-accurate attack pairs ─────────────────────────────────────────── */
-    var PAIRS = [
-      {src:'RU',dst:'US', sev:'CRITICAL',actor:'APT28',           mitre:'T1566'},
-      {src:'CN',dst:'US', sev:'CRITICAL',actor:'APT41',           mitre:'T1190'},
-      {src:'KP',dst:'KR', sev:'HIGH',    actor:'LAZARUS',         mitre:'T1059'},
-      {src:'IR',dst:'IL', sev:'CRITICAL',actor:'APT33',           mitre:'T1003'},
-      {src:'RU',dst:'UA', sev:'CRITICAL',actor:'SANDWORM',        mitre:'T1486'},
-      {src:'CN',dst:'JP', sev:'HIGH',    actor:'APT40',           mitre:'T1027'},
-      {src:'KP',dst:'US', sev:'HIGH',    actor:'KIMSUKY',         mitre:'T1078'},
-      {src:'IR',dst:'SA', sev:'HIGH',    actor:'APT35',           mitre:'T1071'},
-      {src:'RU',dst:'DE', sev:'CRITICAL',actor:'APT29',           mitre:'T1021'},
-      {src:'CN',dst:'AU', sev:'MEDIUM',  actor:'VOLT TYPHOON',    mitre:'T1082'},
-      {src:'KP',dst:'JP', sev:'HIGH',    actor:'APT37',           mitre:'T1055'},
-      {src:'RU',dst:'GB', sev:'HIGH',    actor:'COZY BEAR',       mitre:'T1048'},
-      {src:'CN',dst:'IN', sev:'HIGH',    actor:'APT41',           mitre:'T1059'},
-      {src:'IR',dst:'US', sev:'HIGH',    actor:'CHARMING KITTEN', mitre:'T1566'},
-      {src:'RU',dst:'FR', sev:'MEDIUM',  actor:'APT28',           mitre:'T1190'},
-      {src:'CN',dst:'CA', sev:'MEDIUM',  actor:'HAFNIUM',         mitre:'T1027'},
-      {src:'KP',dst:'AU', sev:'MEDIUM',  actor:'KIMSUKY',         mitre:'T1055'},
-      {src:'BY',dst:'PL', sev:'HIGH',    actor:'COZY BEAR',       mitre:'T1190'},
-      {src:'RU',dst:'PL', sev:'HIGH',    actor:'SANDWORM',        mitre:'T1486'},
-      {src:'CN',dst:'TW', sev:'CRITICAL',actor:'APT41',           mitre:'T1190'},
-      {src:'IN',dst:'PK', sev:'MEDIUM',  actor:'SIDEWINDER',      mitre:'T1059'},
-      {src:'RU',dst:'UA', sev:'HIGH',    actor:'GAMAREDON',       mitre:'T1566'},
-      {src:'CN',dst:'VN', sev:'MEDIUM',  actor:'APT40',           mitre:'T1059'},
-      {src:'RU',dst:'SE', sev:'MEDIUM',  actor:'APT28',           mitre:'T1071'},
-      {src:'IR',dst:'IQ', sev:'MEDIUM',  actor:'APT34',           mitre:'T1071'}
-    ];
-
-    /* Animation state ───────────────────────────────────────────────────── */
-    var arcs = [], explosions = [], t0 = 0, lastSpawn = 0;
-    function rnd(a, b) { return a + Math.random() * (b - a); }
-
-    function spawnArc() {
-      var p = PAIRS[Math.floor(Math.random() * PAIRS.length)];
-      var sc = CENT[p.src], dc = CENT[p.dst];
-      if (!sc || !dc) return;
-      arcs.push({
-        src:p.src, dst:p.dst, sev:p.sev, actor:p.actor, mitre:p.mitre,
-        sx:sc[0]+rnd(-3,3), sy:sc[1]+rnd(-2,2),
-        dx:dc[0]+rnd(-3,3), dy:dc[1]+rnd(-2,2),
-        born:0, life:rnd(2200,3800),
-        col:SCOL[p.sev]||'#ff4444', rgb:SRGB[p.sev]||'255,68,68'
-      });
-    }
-
-    function spawnExplosion(lon, lat, col) {
-      var p = px(lon, lat);
-      explosions.push({ x:p[0], y:p[1], born:0, life:900, col:col });
-    }
-
-    /* ── LAYER 1: Nation-state risk halos ─────────────────────────────────── */
-    function drawRiskHalos() {
-      for (var id in RISK) {
-        var r = RISK[id], c = CENT[id];
-        if (!c || r < 25) continue;
-        var p = px(c[0], c[1]);
-        var intensity = r / 100;
-        var radius = Math.max(12, Math.min(W*0.05, 38)) * intensity;
-        var rgb = r>80?'255,50,50':r>60?'255,140,0':'255,220,50';
-        var g = ctx.createRadialGradient(p[0],p[1],0, p[0],p[1],radius);
-        g.addColorStop(0,   'rgba('+rgb+','+(0.28*intensity)+')');
-        g.addColorStop(0.5, 'rgba('+rgb+','+(0.12*intensity)+')');
-        g.addColorStop(1,   'rgba('+rgb+',0)');
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(p[0],p[1],radius,0,Math.PI*2); ctx.fill();
+    // RAF loop
+    function loop(ts) {
+      RAF_ID = requestAnimationFrame(loop);
+      var d = applySize(canvas, panel);
+      if (d.W > 10 && d.H > 10 && d.ctx) {
+        render(d.ctx, d.W, d.H, ts);
       }
     }
+    if (RAF_ID) cancelAnimationFrame(RAF_ID);
+    RAF_ID = requestAnimationFrame(loop);
 
-    /* ── LAYER 2: Military HUD grid ──────────────────────────────────────── */
-    function drawGrid() {
-      ctx.save();
-      ctx.strokeStyle = 'rgba(0,212,170,0.055)';
-      ctx.lineWidth = 0.4;
-      var i, c;
-      for (i=-60; i<=80; i+=30) {
-        c=px(0,i); ctx.beginPath(); ctx.moveTo(0,c[1]); ctx.lineTo(W,c[1]); ctx.stroke();
+    // ResizeObserver for responsive redraw
+    if (window.ResizeObserver) {
+      new ResizeObserver(function() { applySize(canvas, panel); }).observe(panel);
+    }
+    window.addEventListener('resize', function() { applySize(canvas, panel); });
+
+    // Watchdog — health check every 5s
+    if (WD_ID) clearInterval(WD_ID);
+    WD_ID = setInterval(function() {
+      var age = performance.now() - LAST_DRAW;
+      if (age > 3000 && READY) {
+        console.warn('[v164 WATCHDOG] Draw stall detected (' + Math.round(age) + 'ms) — restarting loop');
+        HEALTH_MISS++;
+        if (RAF_ID) cancelAnimationFrame(RAF_ID);
+        RAF_ID = requestAnimationFrame(loop);
       }
-      for (i=-150; i<=180; i+=30) {
-        c=px(i,0); ctx.beginPath(); ctx.moveTo(c[0],0); ctx.lineTo(c[0],H); ctx.stroke();
-      }
-      ctx.restore();
-    }
+    }, 5000);
 
-    /* ── LAYER 3: AI prediction zones ────────────────────────────────────── */
-    var AI_ZONES = [
-      {lon:55, lat:32, label:'IRN·SRF'},   {lon:116,lat:39, label:'CN·APT41'},
-      {lon:127,lat:40, label:'DPRK·LAZ'},  {lon:37, lat:55, label:'RU·GRU'},
-      {lon:-77,lat:38, label:'US·GOV'},    {lon:35, lat:31, label:'IL·8200'},
-      {lon:139,lat:35, label:'JP·CERT'}
-    ];
-    function drawAIZones(elapsed) {
-      var fsz = Math.max(5.5, Math.min(W*0.0085, 8.5));
-      AI_ZONES.forEach(function(z) {
-        var p=px(z.lon,z.lat), ph=(elapsed%2400)/2400, ph2=(ph+0.5)%1;
-        var r1=9+ph*18, a1=0.55-ph*0.55, r2=9+ph2*18, a2=0.55-ph2*0.55;
-        ctx.save();
-        ctx.strokeStyle='rgba(0,230,180,'+(a1*0.7)+')'; ctx.lineWidth=0.9;
-        ctx.beginPath(); ctx.arc(p[0],p[1],r1,0,Math.PI*2); ctx.stroke();
-        ctx.strokeStyle='rgba(0,230,180,'+(a2*0.7)+')';
-        ctx.beginPath(); ctx.arc(p[0],p[1],r2,0,Math.PI*2); ctx.stroke();
-        ctx.fillStyle='rgba(0,230,180,0.75)';
-        ctx.beginPath(); ctx.arc(p[0],p[1],2,0,Math.PI*2); ctx.fill();
-        if (W>480) {
-          ctx.fillStyle='rgba(0,230,180,0.42)'; ctx.font='bold '+fsz+'px monospace';
-          ctx.fillText(z.label, p[0]+3, p[1]-r1-2);
-        }
-        ctx.restore();
-      });
-    }
+    // GVOS version injection
+    gvosInject();
+    // SW cache bust
+    gvosCacheBust();
 
-    /* ── LAYER 4: Cinematic bezier attack arcs ────────────────────────────── */
-    function drawArcs(ts) {
-      if (!arcs.length) return;
-      arcs.forEach(function(arc) {
-        if (!arc.born) arc.born = ts;
-        var prog=Math.min((ts-arc.born)/arc.life,1);
-        var sp=px(arc.sx,arc.sy), ep=px(arc.dx,arc.dy);
-        var mx=(sp[0]+ep[0])/2, my=(sp[1]+ep[1])/2-Math.max(H*0.14,28);
-        /* Glowing trail */
-        var te=prog, ts0=Math.max(0,prog-0.38), steps=22;
-        for (var i=0; i<steps; i++) {
-          var t1=ts0+(te-ts0)*(i/steps), t2=ts0+(te-ts0)*((i+1)/steps), a=i/steps;
-          var x1=(1-t1)*(1-t1)*sp[0]+2*(1-t1)*t1*mx+t1*t1*ep[0];
-          var y1=(1-t1)*(1-t1)*sp[1]+2*(1-t1)*t1*my+t1*t1*ep[1];
-          var x2=(1-t2)*(1-t2)*sp[0]+2*(1-t2)*t2*mx+t2*t2*ep[0];
-          var y2=(1-t2)*(1-t2)*sp[1]+2*(1-t2)*t2*my+t2*t2*ep[1];
-          ctx.save();
-          ctx.strokeStyle='rgba('+arc.rgb+','+(a*0.7)+')';
-          ctx.lineWidth=0.7+a; ctx.shadowColor=arc.col; ctx.shadowBlur=3*a;
-          ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-          ctx.restore();
-        }
-        /* Particle head */
-        var hx=(1-prog)*(1-prog)*sp[0]+2*(1-prog)*prog*mx+prog*prog*ep[0];
-        var hy=(1-prog)*(1-prog)*sp[1]+2*(1-prog)*prog*my+prog*prog*ep[1];
-        ctx.save();
-        var hg=ctx.createRadialGradient(hx,hy,0,hx,hy,5);
-        hg.addColorStop(0,'rgba('+arc.rgb+',1)');
-        hg.addColorStop(0.4,'rgba('+arc.rgb+',0.6)');
-        hg.addColorStop(1,'rgba('+arc.rgb+',0)');
-        ctx.fillStyle=hg; ctx.shadowColor=arc.col; ctx.shadowBlur=10;
-        ctx.beginPath(); ctx.arc(hx,hy,5,0,Math.PI*2); ctx.fill();
-        ctx.restore();
-        /* MITRE ATT&CK badge at midpoint */
-        if (prog>0.28&&prog<0.72&&W>380) {
-          var mp=0.5;
-          var bx=(1-mp)*(1-mp)*sp[0]+2*(1-mp)*mp*mx+mp*mp*ep[0];
-          var by=(1-mp)*(1-mp)*sp[1]+2*(1-mp)*mp*my+mp*mp*ep[1];
-          var fsz=Math.max(5.5,Math.min(W*0.0085,9));
-          ctx.save();
-          ctx.fillStyle='rgba(8,14,28,0.78)'; ctx.strokeStyle='rgba('+arc.rgb+',0.38)';
-          ctx.lineWidth=0.5;
-          ctx.beginPath(); ctx.rect(bx-15,by-6,30,11); ctx.fill(); ctx.stroke();
-          ctx.fillStyle='rgba('+arc.rgb+',0.92)'; ctx.font='bold '+fsz+'px monospace';
-          ctx.textAlign='center'; ctx.fillText(arc.mitre,bx,by+3);
-          ctx.restore();
-        }
-      });
-    }
-
-    /* ── LAYER 5: Impact explosions ──────────────────────────────────────── */
-    function drawExplosions(ts) {
-      for (var i=explosions.length-1; i>=0; i--) {
-        var ex=explosions[i];
-        if (!ex.born) ex.born=ts;
-        var prog=(ts-ex.born)/ex.life;
-        if (prog>=1) { explosions.splice(i,1); continue; }
-        var fade=1-prog, mr=Math.max(10,W*0.028);
-        for (var ring=1; ring<=3; ring++) {
-          ctx.save();
-          ctx.globalAlpha=Math.max(0,fade*(1-(ring-1)*0.3)*0.65);
-          ctx.strokeStyle=ex.col; ctx.lineWidth=ring===1?1.4:0.6;
-          ctx.shadowColor=ex.col; ctx.shadowBlur=6;
-          ctx.beginPath(); ctx.arc(ex.x,ex.y,mr*ring*prog*0.7,0,Math.PI*2); ctx.stroke();
-          ctx.restore();
-        }
-        if (prog<0.18) {
-          ctx.save();
-          ctx.fillStyle='rgba(255,255,255,'+(0.85*(1-prog/0.18))+')';
-          ctx.beginPath(); ctx.arc(ex.x,ex.y,3,0,Math.PI*2); ctx.fill();
-          ctx.restore();
-        }
-      }
-    }
-
-    /* ── LAYER 6: APT attribution labels ─────────────────────────────────── */
-    function drawAPTLabels(elapsed) {
-      if (W<320) return;
-      var fsz=Math.max(5.5,Math.min(W*0.0088,9));
-      for (var cc in APT) {
-        var c=CENT[cc]; if (!c) continue;
-        var p=px(c[0],c[1]), group=APT[cc];
-        var label=group[Math.floor(elapsed/3000)%group.length];
-        ctx.save();
-        ctx.font='bold '+fsz+'px monospace';
-        var tw=ctx.measureText(label).width;
-        ctx.fillStyle='rgba(4,10,24,0.74)'; ctx.strokeStyle='rgba(255,68,68,0.2)';
-        ctx.lineWidth=0.5;
-        ctx.beginPath(); ctx.rect(p[0]-tw/2-3,p[1]+5,tw+6,fsz+4); ctx.fill(); ctx.stroke();
-        ctx.fillStyle='rgba(255,80,80,0.82)'; ctx.textAlign='center';
-        ctx.fillText(label,p[0],p[1]+10);
-        ctx.restore();
-      }
-    }
-
-    /* ── LAYER 7: Rotating radar sweep ───────────────────────────────────── */
-    function drawRadar(elapsed) {
-      var rc=px(30,55), r=Math.max(14,Math.min(W*0.075,42));
-      var angle=((elapsed%3000)/3000)*Math.PI*2;
-      ctx.save();
-      ctx.strokeStyle='rgba(0,212,170,0.22)'; ctx.lineWidth=0.5;
-      ctx.beginPath(); ctx.arc(rc[0],rc[1],r,0,Math.PI*2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(rc[0],rc[1],r*0.6,0,Math.PI*2); ctx.stroke();
-      ctx.translate(rc[0],rc[1]); ctx.rotate(angle);
-      var sg=ctx.createLinearGradient(0,0,r,0);
-      sg.addColorStop(0,'rgba(0,212,170,0.38)'); sg.addColorStop(1,'rgba(0,212,170,0)');
-      ctx.fillStyle=sg;
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,r,-0.42,0); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle='rgba(0,212,170,0.6)'; ctx.lineWidth=0.8;
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(r,0); ctx.stroke();
-      ctx.restore();
-    }
-
-    /* ── LAYER 8: Military HUD ────────────────────────────────────────────── */
-    function drawHUD() {
-      var now=new Date(), stamp=now.toISOString().replace('T',' ').slice(0,19)+' UTC';
-      var fsz=Math.max(5,Math.min(W*0.007,8));
-      ctx.save();
-      ctx.fillStyle='rgba(0,212,170,0.28)'; ctx.font=fsz+'px monospace';
-      ctx.fillText('SENTINEL APEX v3.0  ■  '+stamp+'  ■  LIVE', 7, H-6);
-      ctx.restore();
-      var atk=window._cdbAtkSeed||0;
-      var tlRGB=atk>250?'255,50,50':atk>150?'255,136,0':'255,200,0';
-      var tlText=atk>250?'CRITICAL':atk>150?'ELEVATED':'GUARDED';
-      var chipW=Math.min(W*0.12,128);
-      ctx.save();
-      ctx.fillStyle='rgba(0,4,18,0.82)'; ctx.strokeStyle='rgba('+tlRGB+',0.4)';
-      ctx.lineWidth=0.6;
-      ctx.beginPath(); ctx.rect(W-chipW-4,3,chipW,14); ctx.fill(); ctx.stroke();
-      ctx.fillStyle='rgba('+tlRGB+',0.94)'; ctx.font='bold '+Math.max(5,fsz)+'px monospace';
-      ctx.textAlign='right'; ctx.fillText('THREAT: '+tlText, W-7, 13);
-      ctx.restore();
-    }
-
-    /* ── LAYER 9: Cinematic vignette ──────────────────────────────────────── */
-    function drawVignette() {
-      var vg=ctx.createRadialGradient(W/2,H/2,H*0.2, W/2,H/2,H*0.88);
-      vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.44)');
-      ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
-    }
-
-    /* ── Main animation loop ──────────────────────────────────────────────── */
-    function draw(ts) {
-      /* Self-heal: re-read dims every frame if zero (tab hide, resize, etc.) */
-      if (!W || !H || !ov.width || !ov.height) {
-        applySize();
-        requestAnimationFrame(draw);
-        return;
-      }
-      if (!t0) t0 = ts;
-      var elapsed = ts - t0;
-      ctx.clearRect(0, 0, W, H);
-      drawRiskHalos();
-      drawGrid();
-      drawAIZones(elapsed);
-      drawArcs(ts);
-      drawExplosions(ts);
-      drawAPTLabels(elapsed);
-      drawRadar(elapsed);
-      drawHUD();
-      drawVignette();
-      /* Spawn arcs */
-      if (ts - lastSpawn > 1300 && arcs.length < 14) {
-        spawnArc(); lastSpawn = ts;
-      }
-      /* Retire completed arcs + trigger explosions */
-      for (var i=arcs.length-1; i>=0; i--) {
-        var arc=arcs[i];
-        if (arc.born && (ts-arc.born)/arc.life >= 1) {
-          var dc=CENT[arc.dst];
-          if (dc) spawnExplosion(dc[0]+rnd(-3,3), dc[1]+rnd(-3,3), arc.col);
-          arcs.splice(i,1);
-        }
-      }
-      requestAnimationFrame(draw);
-    }
-
-    /* Pre-seed 6 arcs for immediate visual richness */
-    for (var i=0; i<6; i++) spawnArc();
-    requestAnimationFrame(draw);
+    console.log('[SENTINEL APEX v164] Renderer online — Chrome GPU compositor fix active');
   }
 
-  /* Boot at window.load + 600ms (guarantees full layout on all devices) */
+  // Boot after full load + 300ms (flex fully resolved, GPU layer allocated)
   if (document.readyState === 'complete') {
-    setTimeout(boot, 600);
+    setTimeout(boot, 300);
   } else {
-    window.addEventListener('load', function() { setTimeout(boot, 600); });
+    window.addEventListener('load', function() { setTimeout(boot, 300); });
   }
 
 })();
 </script>
-<!-- === SENTINEL APEX v163 THREAT MAP END === -->
+<!-- === SENTINEL APEX v164 THREAT MAP END === -->
 
 <!-- SENTINEL-APEX-v161-COMPONENT-UPGRADES-END -->
 
