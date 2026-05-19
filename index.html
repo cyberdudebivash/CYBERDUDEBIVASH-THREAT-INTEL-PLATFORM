@@ -15989,6 +15989,17 @@ a:focus-visible {
 /* --- v161 ENTERPRISE COMPONENT UPGRADES END -------------------------------- */
 </style>
 
+<!-- CDB-RENDER-GOVERNANCE-ENGINES-v168-START -->
+<!-- Load order: compositor → RAF → canvas → telemetry → recovery            -->
+<!-- Each engine is an IIFE that exposes a window.CDB_* API.                 -->
+<!-- V166 wires in gracefully: if API absent, falls back to raw primitives.  -->
+<script src="/js/engines/compositor-governance-engine.js"></script>
+<script src="/js/engines/renderer-governance-engine.js"></script>
+<script src="/js/engines/canvas-lifecycle-engine.js"></script>
+<script src="/js/engines/telemetry-engine.js"></script>
+<script src="/js/engines/renderer-recovery-engine.js"></script>
+<!-- CDB-RENDER-GOVERNANCE-ENGINES-v168-END -->
+
 <!-- CDB-RENDERER-ENGINE-V166-START -->
 <style>
 /* ── CDB-RENDERER-ENGINE-V166 §1: CHROME-DEFINITIVE PANEL + CANVAS CSS ─────── */
@@ -16043,11 +16054,11 @@ a:focus-visible {
 
   /* ── GVOS: Global Version Orchestration System ──────────────────────────── */
   window.SENTINEL_GVOS = {
-    version   : '166.0.0',
-    buildId   : '2026.05.19-APEX-V166',
-    cacheKey  : 'sentinel-apex-v166-live',
-    label     : 'CDB-SENTINEL v166',
-    runtime   : 'SYNCHRONIZED',
+    version   : '168.0.0',
+    buildId   : '2026.05.19-APEX-V168',
+    cacheKey  : 'sentinel-apex-v168-live',
+    label     : 'CDB-SENTINEL v168',
+    runtime   : 'GOVERNANCE-SYNCHRONIZED',
     classified: 'TOP SECRET // SI // TK // NOFORN'
   };
 
@@ -16767,7 +16778,7 @@ a:focus-visible {
       ctx.fillRect(6, 6, 220, 13);
       ctx.fillStyle   = '#00eeff';
       ctx.globalAlpha = 0.9;
-      ctx.fillText('CDB-SENTINEL v166  |  BUILD: 2026.05.19-APEX-V166', 10, 16);
+      ctx.fillText('CDB-SENTINEL v168  |  BUILD: 2026.05.19-APEX-V168  |  GOVERNANCE: ACTIVE', 10, 16);
 
       /* Top-right: UTC clock */
       ctx.textAlign = 'right';
@@ -16873,6 +16884,10 @@ a:focus-visible {
     updateQuality();
     frameCount++;
 
+    /* ── Governance §G1: feed telemetry + liveness monitor ─────────────── */
+    if (window.CDB_TELEMETRY) window.CDB_TELEMETRY.frame(now);
+    if (window.CDB_RECOVERY)  window.CDB_RECOVERY.reportFrame(canvas);
+
     /* CHROME FIX §A: Use cached dims — no canvas reset per frame */
     var dims = { W: _cachedW / (_cachedDpr||1), H: _cachedH / (_cachedDpr||1), dpr: _cachedDpr||1, ctx: _cachedCtx || canvas.getContext('2d') };
     if (!dims.ctx || dims.W < 10) return; /* Guard: skip frame if not ready */
@@ -16908,7 +16923,12 @@ a:focus-visible {
     function tick() {
       if (STATE !== 'RUNNING') return;
       renderFrame(canvas, panel);
-      loopId = requestAnimationFrame(tick);
+      /* ── Governance §G2: use RAF ownership registry when available ─────── */
+      if (window.CDB_RAF && window.CDB_RAF.isOwner('CDB-V166')) {
+        loopId = window.CDB_RAF.request(tick, 'CDB-V166');
+      } else {
+        loopId = requestAnimationFrame(tick);
+      }
     }
     loopId = requestAnimationFrame(tick);
     /* Watchdog — restarts if loop stalls >5s */
@@ -16989,6 +17009,14 @@ a:focus-visible {
       return;
     }
 
+    /* ── Governance §G3: compositor init + RAF + canvas ownership ──────── */
+    /* CDB_COMPOSITOR.init() enforces will-change:auto (RC3 pre-paint trap)  */
+    /* CDB_RAF.acquire() blocks any intruder engine from stealing the loop   */
+    /* CDB_CANVAS.claim() registers exclusive canvas ownership               */
+    if (window.CDB_COMPOSITOR) window.CDB_COMPOSITOR.init(canvas);
+    if (window.CDB_RAF)    window.CDB_RAF.acquire('CDB-V166');
+    if (window.CDB_CANVAS) window.CDB_CANVAS.claim('cdb-threat-canvas', 'CDB-V166');
+
     /* §A: Apply size — Chrome fix: explicit px on panel + canvas */
     var dims = applySize(canvas, panel, true); /* forceReset on boot */
     if (!dims.ctx) {
@@ -17011,15 +17039,30 @@ a:focus-visible {
 
     /* §F: GPU layer promotion AFTER first paint via nested RAF */
     requestAnimationFrame(function() {
-      canvas.style.setProperty('transform',   'translateZ(0)', 'important');
-      canvas.style.setProperty('will-change', 'transform',     'important');
-      /* Second RAF: start loop after GPU layer committed */
+      /* ── Governance §G4: use CDB_COMPOSITOR.promote() if available ──────
+         Falls back to inline RC3 implementation for resilience.            */
+      if (window.CDB_COMPOSITOR) {
+        window.CDB_COMPOSITOR.promote(canvas);
+      } else {
+        canvas.style.setProperty('transform',   'translateZ(0)', 'important');
+        canvas.style.setProperty('will-change', 'transform',     'important');
+      }
+      /* Second RAF: start loop after GPU layer committed to compositor */
       requestAnimationFrame(function() {
         setupIntersection(panel, canvas);
         setupResize(panel, canvas);
         setupVisibility(canvas, panel);
         startLoop(canvas, panel);
-        log('Renderer ONLINE — Chrome definitive v166 active');
+        /* ── Governance §G5: attach self-healing recovery monitor ────────── */
+        if (window.CDB_RECOVERY) {
+          window.CDB_RECOVERY.attach(canvas, panel, function(c, p, reason) {
+            warn('CDB_RECOVERY triggered [' + reason + '] — rebooting renderer');
+            stopLoop();
+            BOOT_TRIES = 0; /* Reset retry counter for clean recovery attempt */
+            setTimeout(boot, 300);
+          });
+        }
+        log('Renderer ONLINE — Governance v168 active (5-engine system)');
         /* Stamp GVOS into DOM */
         var el = document.querySelector('.cdb-threat-map-label, .threat-map-title');
         if (el) el.setAttribute('data-gvos', window.SENTINEL_GVOS.label);
