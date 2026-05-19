@@ -1,23 +1,25 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// CYBERDUDEBIVASH SENTINEL APEX — Service Worker v170.0
-// CDB-RENDERER-ENGINE-V170 — Enterprise Render Governance System
-// v170 RC7 FIX (CHROME THREAT MAP BLANK CANVAS — DEFINITIVE):
-//   Root cause: compositor-governance-engine.js init() and safeMode() were
-//   setting backface-visibility:hidden WITHOUT !important. This property IS
-//   a Chrome GPU compositor layer promotion trigger — identical class to RC3
-//   (will-change:transform) but via a DIFFERENT CSS property that survived
-//   all previous fix iterations. Chrome pre-promotes canvas to an EMPTY GPU
-//   compositor layer BEFORE first paint. Edge does not do this on canvas.
-//   Fix: backface-visibility:visible !important in both engine + CSS.
-// v170 RC8 FIX: Removed image-rendering:crisp-edges from canvas CSS.
-// v170 RC9 FIX: width:100%/height:100% on canvas override Layer-6 clamp.
-// v168 governance suite, RC1-RC6 all preserved and hardened.
+// CYBERDUDEBIVASH SENTINEL APEX — Service Worker v172.0
+// CDB-RENDERER-ENGINE-V171 — Enterprise Render Governance System
+// v172 RC12 FIX (CHROME THREAT MAP BLANK CANVAS — DEFINITIVE FINAL):
+//   Root cause: overflow:hidden on #cdb-threat-map-panel created a Chrome
+//   D3D11/ANGLE stencil-clip region. When canvas (position:absolute) was
+//   GPU-promoted to a separate compositor layer via translateZ(0) (RC11),
+//   Chrome clipped that compositor layer using the parent stencil → BLANK.
+//   Edge does NOT apply the stencil to separate compositor layers this way.
+//   Fix RC10: overflow:visible on panel — eliminates the stencil entirely.
+//   Panel has explicit height:340px, nothing can visually overflow.
+// v172 RC12 FIX: box-shadow:none + border-radius:0 + border:none !important on canvas.
+// Eliminates Chrome D3D11/ANGLE shadow pre-promotion compositor trap (definitive root cause).
+//   Canvas2D does not need GPU layer promotion for correctness. The promotion
+//   was the mechanism that triggered the stencil-clip → blank canvas trap.
+// v170 RC7-RC9 fixes, v168 governance suite — all preserved and hardened.
 // Force-update strategy: clears ALL old sentinel-apex-v* caches on deploy.
 // CRITICAL: index.html + JS engines are NEVER cached (always network-first).
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── GVOS: Single source of truth for cache version ──
-const CACHE_VERSION = 'sentinel-apex-v170-live';   // ← GVOS: bumped for v170 RC7 deploy
+const CACHE_VERSION = 'sentinel-apex-v172-live';   // ← GVOS: bumped for v172 RC12 DEFINITIVE deploy
 const CACHE_NAME    = CACHE_VERSION;
 
 // Assets to cache for offline use (non-HTML only)
@@ -28,13 +30,13 @@ const STATIC_ASSETS = [
 
 // ── Install: cache static assets, activate immediately ──
 self.addEventListener('install', event => {
-    console.log('[SW v170] Installing:', CACHE_VERSION);
+    console.log('[SW v172] Installing:', CACHE_VERSION);
     // Skip waiting immediately — no old SW holdout
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
             return cache.addAll(STATIC_ASSETS).catch(err => {
-                console.warn('[SW v170] Pre-cache failed (non-fatal):', err);
+                console.warn('[SW v172] Pre-cache failed (non-fatal):', err);
             });
         })
     );
@@ -42,14 +44,14 @@ self.addEventListener('install', event => {
 
 // ── Activate: purge ALL stale sentinel-apex-v* caches ──
 self.addEventListener('activate', event => {
-    console.log('[SW v170] Activating:', CACHE_VERSION);
+    console.log('[SW v172] Activating:', CACHE_VERSION);
     event.waitUntil(
         caches.keys().then(keys => {
             return Promise.all(
                 keys
                     .filter(key => key.startsWith('sentinel-apex-') && key !== CACHE_NAME)
                     .map(key => {
-                        console.log('[SW v170] Purging stale cache:', key);
+                        console.log('[SW v172] Purging stale cache:', key);
                         return caches.delete(key);
                     })
             );
@@ -63,7 +65,7 @@ self.addEventListener('activate', event => {
 // ── Message handler: SKIP_WAITING + version query support ──
 self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
-        console.log('[SW v170] SKIP_WAITING received — forcing activation');
+        console.log('[SW v172] SKIP_WAITING received — forcing activation');
         self.skipWaiting();
     }
     if (event.data && event.data.type === 'GET_VERSION') {

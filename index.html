@@ -14875,7 +14875,10 @@ canvas { height: auto; }
 }
 
 /* --- v159: GPU COMPOSITING HINTS ------------------------------------------- */
-#cdb-threat-canvas,
+/* #cdb-threat-canvas REMOVED from this group — RC12/CSS-CASCADE-FIX:
+   box-shadow/border-radius/will-change on canvas triggered Chrome D3D11/ANGLE
+   shadow pre-promotion before canvas content exists → blank GPU texture.
+   Canvas has its own override block below with !important rules. */
 .threat-ticker-inner,
 .brand-mark h1,
 .sticky-cta,
@@ -16017,26 +16020,32 @@ a:focus-visible {
 <script src="/js/engines/renderer-recovery-engine.js"></script>
 <!-- CDB-RENDER-GOVERNANCE-ENGINES-v170-END -->
 
-<!-- CDB-RENDERER-ENGINE-V166-START -->
+<!-- CDB-RENDERER-ENGINE-V172-START -->
 <style>
-/* ── CDB-RENDERER-ENGINE-V166 §1: CHROME-DEFINITIVE PANEL + CANVAS CSS v170 ── */
-/* CRITICAL: Panel must have explicit height (not min-height) for Chrome GPU.   */
-/* RC7 FIX: backface-visibility:visible !important BLOCKS Chrome's second GPU   */
-/*   compositor pre-promotion trigger (backface-visibility:hidden was triggering */
-/*   an EMPTY compositor layer before first paint — same class as RC3 but via   */
-/*   a different CSS property). Edge ignores this; Chrome does not.             */
-/* RC8 FIX: Remove image-rendering:crisp-edges / -webkit-optimize-contrast —   */
-/*   these override Chrome's default canvas rasterization path and cause        */
-/*   texture upload failures when the canvas is inside overflow:hidden+absolute. */
-/* RC9 FIX: Explicit width:100% + height:100% override Layer-6 clamp() rules   */
-/*   so CSS dimensions match JS-computed dims from day 0, eliminating the        */
-/*   compositor resize invalidation on first paint.                              */
+/* ── CDB-RENDERER-ENGINE-V172 §1: CHROME-DEFINITIVE PANEL + CANVAS CSS ─────
+   ALL RC1–RC12 applied. RC12 is the definitive remaining fix:
+   RC12a: box-shadow:none  — eliminates Chrome D3D11/ANGLE shadow pre-promotion.
+          Chrome creates a separate compositor paint layer for box-shadow BEFORE
+          canvas has content → pre-promoted empty GPU layer → blank canvas.
+          Edge renders shadow post-composition; Chrome does not. Fixed.
+   RC12b: border-radius:0  — eliminates clip-path compositor layer isolation.
+   RC12c: border:none      — eliminates multi-border composition overhead.
+   RC10: overflow:visible  — eliminates D3D11/ANGLE stencil-clip trap.
+   RC11: No translateZ/promote() in boot() — no GPU layer promotion.
+   RC9:  width/height 100% — CSS/JS dim sync from t=0.
+   RC8:  No image-rendering:crisp-edges — no rasterization path conflict.
+   RC7:  backface-visibility:visible — blocks second Chrome GPU pre-promotion.
+   RC6:  Nuclear canvas resurrection fallback.
+   RC3:  will-change:auto — blocks pre-paint GPU promotion.
+   RC2:  Dim cache — no per-frame canvas.width/height reset.
+   RC1:  Single RAF owner — no dual-engine compositor starvation.
+   ──────────────────────────────────────────────────────────────────────── */
 #cdb-threat-map-panel {
   contain: none !important;
   height: 340px !important;
   min-height: 340px !important;
   position: relative !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   background: #020a14 !important;
   border-radius: 8px !important;
 }
@@ -16045,54 +16054,63 @@ a:focus-visible {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
-  width: 100% !important;                         /* RC9: override Layer-6 width:100% clamp */
-  height: 100% !important;                        /* RC9: override Layer-6 height clamp()   */
-  will-change: auto !important;                   /* RC3: block pre-paint GPU promotion     */
-  transform: none !important;                     /* RC6: clear any stale transform cascade */
-  backface-visibility: visible !important;        /* RC7: block backface-visibility trigger */
-  -webkit-backface-visibility: visible !important;/* RC7: WebKit path covered too           */
-  /* NO image-rendering — RC8: removed crisp-edges/-webkit-optimize-contrast    */
-  /* Chrome rasterization path conflict eliminated.                              */
+  width: 100% !important;
+  height: 100% !important;
+  will-change: auto !important;          /* RC3 */
+  transform: none !important;            /* RC6 */
+  backface-visibility: visible !important;         /* RC7 */
+  -webkit-backface-visibility: visible !important; /* RC7 */
+  box-shadow: none !important;           /* RC12a — DEFINITIVE Chrome fix */
+  border-radius: 0 !important;           /* RC12b — clip-path trap eliminated */
+  border: none !important;               /* RC12c — multi-border composition removed */
+  outline: none !important;
+  /* background deliberately omitted — panel bg (#020a14) shows through */
 }
 </style>
 
 <script>
 /* ============================================================================
-   CDB-RENDERER-ENGINE-V166
-   GOD-TIER CINEMATIC THREAT ENGINE — FULL CHROME/EDGE/FIREFOX/SAFARI/MOBILE
+   CDB-RENDERER-ENGINE-V172
+   SENTINEL APEX — GLOBAL AI CYBER INTELLIGENCE OPERATING PLATFORM
+   World's Most Visually Dominant AI Cyber Threat Map
    ----------------------------------------------------------------------------
-   Chrome Fixes (ALL v165-v169 fixes preserved + v170 hardened):
-   A. Panel explicit height (not min-height) → offsetHeight never 0
-   B. Canvas CSS width:100%/height:100% (RC9) → overrides Layer-6 clamp — no dim mismatch
-   C. JS setProperty(...,'important') overrides any stylesheet height
-   D. backface-visibility:visible !important (RC7) → eliminates SECOND Chrome compositor
-      pre-promotion trigger that survived RC3/RC6. backface-visibility:hidden was causing
-      Chrome to pre-allocate an EMPTY GPU layer BEFORE first paint. Edge ignores this on
-      canvas; Chrome does not. Now fully blocked at CSS + JS engine level.
-   E. Pre-paint flush (fillRect) before GPU layer promotion
-   F. GPU layer promotion (translateZ + will-change) AFTER first paint via RAF
-   G. visibilitychange guard — Chrome throttles hidden-tab RAF
-   H. IntersectionObserver — pause rendering when panel off-screen
-   RC8. Removed image-rendering:crisp-edges/-webkit-optimize-contrast from canvas CSS —
-        these caused Chrome rasterization path conflicts inside overflow:hidden containers
-   I. ResizeObserver — reflow canvas on container resize
-   J. Context loss recovery — getContext null detection + retry
-   K. Watchdog — auto-restart on stall detection
+   CHROME FIXES RC1–RC12 (DEFINITIVE — ALL VECTORS ELIMINATED):
+   RC12a: box-shadow:none — Chrome D3D11/ANGLE shadow pre-promotion trap fixed
+   RC12b: border-radius:0 — clip-path compositor layer isolation eliminated
+   RC12c: border:none — multi-border composition overhead removed
+   RC11: No promote()/translateZ(0) in boot() — no GPU layer promotion
+   RC10: overflow:visible on panel — D3D11/ANGLE stencil-clip trap eliminated
+   RC9:  width:100%/height:100% CSS — CSS/JS sync from t=0
+   RC8:  No image-rendering:crisp-edges — rasterization conflict eliminated
+   RC7:  backface-visibility:visible — second GPU pre-promotion trap blocked
+   RC6:  Nuclear canvas resurrection for worst-case recovery
+   RC3:  will-change:auto — pre-paint GPU promotion blocked
+   RC2:  Dim cache — 60x/sec GPU texture reset eliminated
+   RC1:  Single RAF owner — dual-engine compositor starvation eliminated
+   ----------------------------------------------------------------------------
+   PHASE 7 VISUAL DOMINANCE SYSTEMS (V172):
+   • OrbitalEngine     — rotating telemetry rings with military tick marks
+   • HeatfieldEngine   — AI attack prediction heatfields
+   • WeatherEngine     — cyber storm cells with lightning tendrils
+   • SatelliteEngine   — orbital intelligence tracks with live satellites
+   • ConstellationEngine — APT group threat constellation networks
+   • Enhanced FXEngine — HDR-safe glow, strategic warfare overlays
+   • Enhanced HUDEngine — full military SIGINT tactical display
    ============================================================================
    PIPELINE-COLLISION-PROOF:
-   • Markers use CDB-RENDERER-ENGINE-V166 (not "SENTINEL APEX v\d+")
-   • GVOS label: 'CDB-SENTINEL v166' (pipeline regex won't match)
+   • Markers: CDB-RENDERER-ENGINE-V172
+   • GVOS label: 'CDB-SENTINEL v172' (pipeline regex won't match)
    ============================================================================ */
-(function cdbV166() {
+(function cdbV172() {
   'use strict';
 
-  /* ── GVOS: Global Version Orchestration System ──────────────────────────── */
+  /* ── GVOS ─────────────────────────────────────────────────────────────── */
   window.SENTINEL_GVOS = {
-    version   : '170.0.0',
-    buildId   : '2026.05.19-APEX-V170',
-    cacheKey  : 'sentinel-apex-v170-live',
-    label     : 'CDB-SENTINEL v170',
-    runtime   : 'GPU-GOVERNED',
+    version   : '172.0.0',
+    buildId   : '2026.05.20-APEX-V172',
+    cacheKey  : 'sentinel-apex-v172-live',
+    label     : 'CDB-SENTINEL v172',
+    runtime   : 'CPU-RASTERIZED',
     classified: 'TOP SECRET // SI // TK // NOFORN'
   };
 
@@ -16101,51 +16119,42 @@ a:focus-visible {
   var BOOT_DELAY   = 250;
   var MAX_RETRIES  = 12;
   var WATCHDOG_MS  = 5000;
-  var TARGET_FPS   = 60;
-  var LOW_FPS_THR  = 28;    /* adaptive quality kicks in below this */
-  var ARC_COUNT    = 22;    /* attack arcs simultaneously */
-  var PARTICLE_MAX = 180;   /* max particles in full-quality mode */
+  var LOW_FPS_THR  = 28;
+  var ARC_COUNT    = 28;
+  var PARTICLE_MAX = 220;
 
   /* ── State ──────────────────────────────────────────────────────────────── */
-  var STATE = 'IDLE'; /* IDLE → BOOTING → RUNNING → PAUSED → DEAD */
-  var BOOT_TRIES   = 0;
-  var loopId       = null;
-  var watchdogId   = null;
-  var lastFrameTs  = 0;
-  var frameCount   = 0;
-  var fpsSmooth    = 60;
-  var qualityMode  = 'HIGH'; /* HIGH | LOW */
+  var STATE      = 'IDLE';
+  var BOOT_TRIES = 0;
+  var loopId     = null;
+  var watchdogId = null;
+  var lastFrameTs = 0;
+  var frameCount  = 0;
+  var fpsSmooth   = 60;
+  var qualityMode = 'HIGH';
   var intersecting = true;
   var observer     = null;
   var resizeObs    = null;
 
-  function log(s) { console.log('[CDB-V166]', s); }
-  function warn(s) { console.warn('[CDB-V166]', s); }
+  /* Dim cache (RC2: no per-frame canvas.width/height write) */
+  var _cachedW = 0, _cachedH = 0, _cachedDpr = 0, _cachedCtx = null;
+
+  function log(s)  { console.log ('[CDB-V172]', s); }
+  function warn(s) { console.warn('[CDB-V172]', s); }
 
   /* ────────────────────────────────────────────────────────────────────────
-  /* ────────────────────────────────────────────────────────────────────────
-     §A: CHROME FIX — applySize (v166.1 DEFINITIVE)
-     CRITICAL FIX: canvas.width/height assignment ALWAYS resets the canvas
-     context and destroys the GPU compositor texture — even if the value
-     does not change. Previously called every RAF frame → 60 resets/sec →
-     Chrome compositor: continuous texture invalidation → blank canvas.
-     Fix: Cache last dims. Only reset canvas when dims actually change.
+     §A: applySize — governed canvas resize (RC2 dim-cache fix)
   ──────────────────────────────────────────────────────────────────────── */
-  var _cachedW = 0, _cachedH = 0, _cachedDpr = 0, _cachedCtx = null;
   function applySize(canvas, panel, forceReset) {
     var W = panel.offsetWidth || panel.getBoundingClientRect().width || 800;
     var H = panel.offsetHeight || panel.getBoundingClientRect().height;
     var vw = window.innerWidth || 1200;
-    /* Responsive height floor */
     var hFloor = vw <= 480 ? 220 : vw <= 768 ? 270 : vw >= 1600 ? 420 : 340;
     H = Math.max(H || 0, hFloor);
     if (W < 10) W = 800;
     var dpr    = Math.min(window.devicePixelRatio || 1, DPR_CAP);
     var newBufW = Math.round(W * dpr);
     var newBufH = Math.round(H * dpr);
-    /* CHROME FIX §A: Only write canvas buffer dims when they actually change.
-       Writing canvas.width or canvas.height always wipes the context state
-       and forces Chrome to reallocate the GPU texture (compositor invalidation). */
     if (forceReset || newBufW !== _cachedW || newBufH !== _cachedH || dpr !== _cachedDpr) {
       canvas.style.setProperty('width',  W + 'px', 'important');
       canvas.style.setProperty('height', H + 'px', 'important');
@@ -16163,96 +16172,83 @@ a:focus-visible {
   }
 
   /* ────────────────────────────────────────────────────────────────────────
-     §B: WORLD MAP ENGINE
-     Equirectangular projection with simplified continent polygons
+     §B: MAP ENGINE — World map, grid, city nodes
   ──────────────────────────────────────────────────────────────────────── */
   var MapEngine = (function() {
-    /* lat/lon pairs for continent outlines (simplified) */
     var CONTINENTS = [
-      /* North America */
       [[70,-140],[72,-100],[68,-75],[60,-65],[45,-52],[25,-80],[10,-85],
        [8,-77],[9,-79],[15,-85],[22,-97],[30,-97],[32,-117],[38,-122],
        [48,-124],[55,-130],[60,-141],[68,-141],[70,-140]],
-      /* South America */
       [[10,-75],[8,-62],[5,-52],[2,-50],[0,-50],[-5,-35],[-10,-37],
        [-23,-43],[-33,-52],[-55,-67],[-55,-65],[-42,-65],[-35,-58],
        [-25,-48],[-5,-35],[5,-60],[8,-62],[10,-75]],
-      /* Europe */
       [[71,28],[70,18],[62,5],[51,2],[44,-9],[36,-9],[36,5],[37,15],
        [42,28],[44,33],[47,38],[56,28],[60,25],[64,26],[70,28],[71,28]],
-      /* Africa */
       [[37,10],[37,30],[12,44],[0,42],[-12,40],[-34,27],[-34,18],
        [-17,12],[0,9],[5,-5],[15,-17],[20,-17],[32,-10],[37,10]],
-      /* Asia (simplified) */
       [[75,60],[73,110],[68,140],[60,140],[55,135],[50,140],[45,135],
        [35,120],[25,120],[20,110],[10,105],[5,100],[10,80],[20,72],
        [23,65],[30,60],[38,55],[42,50],[50,58],[55,70],[65,80],[75,80],[75,60]],
-      /* Middle East connection */
       [[38,26],[36,36],[30,35],[22,40],[12,44],[0,42],[0,30],[10,30],
        [20,38],[30,48],[38,48],[42,48],[38,38],[38,26]],
-      /* Australia */
       [[-15,130],[-12,136],[-16,146],[-28,153],[-38,145],[-38,140],
        [-35,136],[-32,127],[-22,114],[-17,122],[-15,130]],
-      /* Greenland (small) */
       [[76,-70],[83,-40],[76,-20],[68,-24],[65,-52],[70,-60],[76,-70]]
     ];
 
-    /* City nodes — source/target for arcs */
     var CITIES = [
-      /* [name, lat, lon, isMajorTarget] */
-      ['New York',    40.7, -74.0,  true],
-      ['London',      51.5,  -0.1,  true],
-      ['Tokyo',       35.7, 139.7,  true],
-      ['Moscow',      55.8,  37.6,  true],
-      ['Beijing',     39.9, 116.4,  true],
-      ['Sydney',     -33.9, 151.2,  false],
-      ['São Paulo',  -23.5, -46.6,  false],
-      ['Mumbai',      19.1,  72.9,  false],
-      ['Cairo',       30.0,  31.2,  false],
-      ['Lagos',        6.5,   3.4,  false],
-      ['Singapore',    1.4, 103.8,  false],
-      ['Los Angeles', 34.0,-118.2,  false],
-      ['Chicago',     41.9, -87.6,  false],
-      ['Frankfurt',   50.1,   8.7,  false],
-      ['Seoul',       37.6, 127.0,  false],
-      ['Dubai',       25.2,  55.3,  false],
-      ['Toronto',     43.7, -79.4,  false],
-      ['Paris',       48.9,   2.4,  false],
-      ['Berlin',      52.5,  13.4,  false],
-      ['Shanghai',    31.2, 121.5,  false],
-      ['Kyiv',        50.5,  30.5,  false],
-      ['Tehran',      35.7,  51.4,  false],
-      ['Pyongyang',   39.0, 125.8,  true],
-      ['Minsk',       53.9,  27.6,  false]
+      ['New York',    40.7, -74.0, true,  4],
+      ['London',      51.5,  -0.1, true,  5],
+      ['Tokyo',       35.7, 139.7, true,  4],
+      ['Moscow',      55.8,  37.6, true,  5],
+      ['Beijing',     39.9, 116.4, true,  5],
+      ['Sydney',     -33.9, 151.2, false, 2],
+      ['São Paulo',  -23.5, -46.6, false, 2],
+      ['Mumbai',      19.1,  72.9, false, 3],
+      ['Cairo',       30.0,  31.2, false, 2],
+      ['Lagos',        6.5,   3.4, false, 1],
+      ['Singapore',    1.4, 103.8, false, 3],
+      ['Los Angeles', 34.0,-118.2, false, 3],
+      ['Chicago',     41.9, -87.6, false, 2],
+      ['Frankfurt',   50.1,   8.7, false, 3],
+      ['Seoul',       37.6, 127.0, false, 3],
+      ['Dubai',       25.2,  55.3, false, 2],
+      ['Toronto',     43.7, -79.4, false, 2],
+      ['Paris',       48.9,   2.4, false, 3],
+      ['Berlin',      52.5,  13.4, false, 2],
+      ['Shanghai',    31.2, 121.5, false, 4],
+      ['Kyiv',        50.5,  30.5, true,  4],
+      ['Tehran',      35.7,  51.4, true,  4],
+      ['Pyongyang',   39.0, 125.8, true,  5],
+      ['Minsk',       53.9,  27.6, false, 3]
     ];
 
-    /* Threat groups for arc colouring */
     var GROUPS = [
-      { name: 'APT-LAZARUS',   color: '#ff2244', glow: 'rgba(255,34,68,0.5)'   },
-      { name: 'APT-COZY',      color: '#ff6600', glow: 'rgba(255,102,0,0.5)'   },
-      { name: 'APT-FANCY',     color: '#ffcc00', glow: 'rgba(255,204,0,0.5)'   },
-      { name: 'APT-COMMENT',   color: '#00ccff', glow: 'rgba(0,204,255,0.5)'   },
-      { name: 'APT-SHADOW',    color: '#cc44ff', glow: 'rgba(204,68,255,0.5)'  },
-      { name: 'RANSOMWARE',    color: '#ff4400', glow: 'rgba(255,68,0,0.5)'    },
-      { name: 'C2-BEACON',     color: '#00ff88', glow: 'rgba(0,255,136,0.5)'   },
-      { name: 'ZERO-DAY',      color: '#ffffff', glow: 'rgba(255,255,255,0.6)' }
+      { name:'APT-LAZARUS',  color:'#ff2244', glow:'rgba(255,34,68,0.6)'   },
+      { name:'APT-COZY',     color:'#ff6600', glow:'rgba(255,102,0,0.6)'   },
+      { name:'APT-FANCY',    color:'#ffcc00', glow:'rgba(255,204,0,0.6)'   },
+      { name:'APT-COMMENT',  color:'#00ccff', glow:'rgba(0,204,255,0.6)'   },
+      { name:'APT-SHADOW',   color:'#cc44ff', glow:'rgba(204,68,255,0.6)'  },
+      { name:'RANSOMWARE',   color:'#ff4400', glow:'rgba(255,68,0,0.6)'    },
+      { name:'C2-BEACON',    color:'#00ff88', glow:'rgba(0,255,136,0.6)'   },
+      { name:'ZERO-DAY',     color:'#ffffff', glow:'rgba(255,255,255,0.7)' },
+      { name:'WIPER',        color:'#ff0066', glow:'rgba(255,0,102,0.6)'   },
+      { name:'SUPPLY-CHAIN', color:'#44ffcc', glow:'rgba(68,255,204,0.6)'  }
     ];
 
     function latLonToXY(lat, lon, W, H) {
-      var x = (lon + 180) / 360 * W;
-      var y = (90 - lat) / 180 * H;
-      return [x, y];
+      return [(lon + 180) / 360 * W, (90 - lat) / 180 * H];
     }
 
     function drawContours(ctx, W, H) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(0,200,255,0.35)';
-      ctx.lineWidth   = 1.0;
-      ctx.shadowColor = 'rgba(0,180,255,0.5)';
-      ctx.shadowBlur  = 6;
-      ctx.fillStyle   = 'rgba(0,60,120,0.14)';
-      for (var c = 0; c < CONTINENTS.length; c++) {
-        var poly = CONTINENTS[c];
+      ctx.lineWidth   = 1.2;
+      ctx.shadowBlur  = 8;
+      ctx.shadowColor = 'rgba(0,180,255,0.6)';
+      for (var ci = 0; ci < CONTINENTS.length; ci++) {
+        var poly = CONTINENTS[ci];
+        ctx.strokeStyle = ci < 2 ? 'rgba(0,200,255,0.45)' : 'rgba(0,200,255,0.35)';
+        ctx.fillStyle   = ci < 2 ? 'rgba(0,70,140,0.18)' : 'rgba(0,55,110,0.14)';
         ctx.beginPath();
         for (var p = 0; p < poly.length; p++) {
           var xy = latLonToXY(poly[p][0], poly[p][1], W, H);
@@ -16268,16 +16264,17 @@ a:focus-visible {
 
     function drawGrid(ctx, W, H) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(0, 200, 255, 0.05)';
       ctx.lineWidth   = 0.5;
-      /* Lat lines every 30° */
+      /* Lat lines */
       for (var lat = -90; lat <= 90; lat += 30) {
         var y = (90 - lat) / 180 * H;
+        ctx.strokeStyle = lat === 0 ? 'rgba(0,220,255,0.1)' : 'rgba(0,200,255,0.05)';
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
       }
-      /* Lon lines every 30° */
+      /* Lon lines */
       for (var lon = -180; lon <= 180; lon += 30) {
         var x = (lon + 180) / 360 * W;
+        ctx.strokeStyle = lon === 0 ? 'rgba(0,220,255,0.1)' : 'rgba(0,200,255,0.05)';
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
       }
       ctx.restore();
@@ -16285,68 +16282,300 @@ a:focus-visible {
 
     function drawCityNodes(ctx, W, H, t) {
       for (var i = 0; i < CITIES.length; i++) {
-        var city = CITIES[i];
-        var xy   = latLonToXY(city[1], city[2], W, H);
-        var pulse = 0.5 + 0.5 * Math.sin(t * 0.003 + i * 0.7);
-        var r    = city[3] ? 3.5 : 2;
-        /* Orbital threat ring for major nodes */
+        var city   = CITIES[i];
+        var xy     = latLonToXY(city[1], city[2], W, H);
+        var pulse  = 0.5 + 0.5 * Math.sin(t * 0.003 + i * 0.7);
+        var threat = city[4]; /* 1–5 threat level */
+        var r      = city[3] ? 3.5 : 2.0;
+        var col    = city[3] ? '#ff4466' : (threat >= 4 ? '#ffaa00' : '#00ffee');
+        var gcol   = city[3] ? '#ff0033' : (threat >= 4 ? '#ff8800' : '#00ccff');
+
         ctx.save();
-        if (city[3]) {
-          ctx.globalAlpha = 0.15 + 0.1 * pulse;
-          ctx.beginPath();
-          ctx.arc(xy[0], xy[1], r + 8 + 3 * pulse, 0, Math.PI * 2);
-          ctx.strokeStyle = '#ff2244';
-          ctx.lineWidth   = 0.6;
-          ctx.setLineDash([2, 4]);
-          ctx.stroke();
-          ctx.setLineDash([]);
+        /* Multi-ring threat indicator for high-threat cities */
+        if (threat >= 4) {
+          for (var ri = 0; ri < threat - 2; ri++) {
+            ctx.globalAlpha = (0.08 + 0.06 * pulse) * (1 - ri * 0.25);
+            ctx.beginPath();
+            ctx.arc(xy[0], xy[1], r + 9 + ri * 7 + 4 * pulse, 0, Math.PI * 2);
+            ctx.strokeStyle = gcol;
+            ctx.lineWidth   = 0.7;
+            ctx.setLineDash([2, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
         }
         /* Outer pulse ring */
-        ctx.globalAlpha = 0.35 * pulse;
+        ctx.globalAlpha = 0.4 * pulse;
         ctx.beginPath();
         ctx.arc(xy[0], xy[1], r + 5 * pulse, 0, Math.PI * 2);
-        ctx.strokeStyle = city[3] ? '#ff2244' : '#00ccff';
+        ctx.strokeStyle = gcol;
         ctx.lineWidth   = 0.9;
-        ctx.shadowColor = city[3] ? '#ff0033' : '#00aaff';
-        ctx.shadowBlur  = 8;
+        ctx.shadowColor = gcol;
+        ctx.shadowBlur  = 10;
         ctx.stroke();
-        /* Core dot */
+        /* Core */
         ctx.globalAlpha = 0.95;
         ctx.beginPath();
         ctx.arc(xy[0], xy[1], r, 0, Math.PI * 2);
-        ctx.fillStyle = city[3] ? '#ff4466' : '#00ffee';
-        ctx.shadowColor = city[3] ? '#ff0033' : '#00ccff';
-        ctx.shadowBlur  = 12;
+        ctx.fillStyle   = col;
+        ctx.shadowColor = gcol;
+        ctx.shadowBlur  = 14;
         ctx.fill();
-        /* Inner bright dot */
+        /* Inner white core */
         ctx.globalAlpha = 1;
         ctx.beginPath();
-        ctx.arc(xy[0], xy[1], r * 0.45, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowBlur = 6;
+        ctx.arc(xy[0], xy[1], r * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle   = '#ffffff';
+        ctx.shadowBlur  = 8;
         ctx.fill();
         ctx.restore();
       }
     }
 
-    return { latLonToXY: latLonToXY, drawContours: drawContours,
-             drawGrid: drawGrid, drawCityNodes: drawCityNodes,
-             CITIES: CITIES, GROUPS: GROUPS };
+    return { latLonToXY:latLonToXY, drawContours:drawContours,
+             drawGrid:drawGrid, drawCityNodes:drawCityNodes,
+             CITIES:CITIES, GROUPS:GROUPS };
   })();
 
   /* ────────────────────────────────────────────────────────────────────────
-     §C: THREAT ENGINE — Attack arcs, particles, impact explosions
+     §B2: ORBITAL ENGINE — Rotating telemetry rings with military tick marks
+     Creates the visual impression of a global sensor array / SIGINT network
+  ──────────────────────────────────────────────────────────────────────── */
+  var OrbitalEngine = (function() {
+    /* Three orbital rings at different radii/speeds/colors */
+    var RINGS = [
+      { radiusFrac:0.55, speed:0.00012, ticks:72, color:'rgba(0,220,180,0.12)',
+        tickColor:'rgba(0,220,180,0.30)', tickLen:4, label:'SIGINT-1' },
+      { radiusFrac:0.70, speed:-0.00008, ticks:48, color:'rgba(0,160,255,0.09)',
+        tickColor:'rgba(0,160,255,0.25)', tickLen:3, label:'SIGINT-2' },
+      { radiusFrac:0.88, speed:0.00005,  ticks:36, color:'rgba(100,80,255,0.07)',
+        tickColor:'rgba(100,80,255,0.20)', tickLen:5, label:'SIGINT-3' }
+    ];
+
+    function draw(ctx, W, H, t) {
+      var cx = W * 0.5;
+      var cy = H * 0.5;
+      ctx.save();
+      for (var ri = 0; ri < RINGS.length; ri++) {
+        var rng  = RINGS[ri];
+        var R    = Math.min(W, H) * rng.radiusFrac * 0.5;
+        var ang0 = t * rng.speed;
+
+        /* Ring circle */
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, Math.PI * 2);
+        ctx.strokeStyle = rng.color;
+        ctx.lineWidth   = 0.8;
+        ctx.stroke();
+
+        /* Tick marks — major every 4th, minor otherwise */
+        for (var ti = 0; ti < rng.ticks; ti++) {
+          var a    = ang0 + (ti / rng.ticks) * Math.PI * 2;
+          var isMaj = ti % 4 === 0;
+          var tlen  = isMaj ? rng.tickLen * 2 : rng.tickLen;
+          var x0   = cx + Math.cos(a) * R;
+          var y0   = cy + Math.sin(a) * R;
+          var x1   = cx + Math.cos(a) * (R - tlen);
+          var y1   = cy + Math.sin(a) * (R - tlen);
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          ctx.lineTo(x1, y1);
+          ctx.strokeStyle = isMaj ? rng.tickColor : rng.color;
+          ctx.lineWidth   = isMaj ? 1.2 : 0.5;
+          ctx.stroke();
+        }
+
+        /* Orbiting bright node on each ring */
+        var nodeAng = ang0 * 3.5;
+        var nx = cx + Math.cos(nodeAng) * R;
+        var ny = cy + Math.sin(nodeAng) * R;
+        ctx.beginPath();
+        ctx.arc(nx, ny, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle   = rng.tickColor.replace('0.30','0.9').replace('0.25','0.9').replace('0.20','0.9');
+        ctx.shadowColor = rng.tickColor;
+        ctx.shadowBlur  = 12;
+        ctx.globalAlpha = 0.8;
+        ctx.fill();
+        ctx.shadowBlur  = 0;
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+
+    return { draw: draw };
+  })();
+
+  /* ────────────────────────────────────────────────────────────────────────
+     §B3: SATELLITE ENGINE — Orbital paths with live satellite indicators
+     Shows classified SIGINT satellites passing over attack corridors
+  ──────────────────────────────────────────────────────────────────────── */
+  var SatelliteEngine = (function() {
+    /* Sinusoidal orbital tracks — approximate LEO ground tracks */
+    var SATS = [
+      { phase:0.00, speed:0.00018, incline:0.40, color:'rgba(0,220,180,0.6)',  label:'KH-13'    },
+      { phase:0.40, speed:0.00022, incline:-0.35, color:'rgba(0,160,255,0.6)', label:'NOSS-3'   },
+      { phase:0.70, speed:0.00015, incline:0.55, color:'rgba(255,200,0,0.5)',  label:'LACROSSE' },
+      { phase:0.25, speed:0.00019, incline:-0.25, color:'rgba(180,80,255,0.5)',label:'ONYX'     }
+    ];
+
+    function draw(ctx, W, H, t) {
+      ctx.save();
+      for (var si = 0; si < SATS.length; si++) {
+        var sat = SATS[si];
+        var progress = (sat.phase + t * sat.speed) % 1.0;
+        /* Convert progress [0,1] → x across map, sinusoidal y for incline */
+        var tx = progress * W;
+        /* Sinusoidal ground track: y = H/2 + incline * H/2 * sin(2π * progress) */
+        var ty = H * 0.5 + sat.incline * H * 0.4 * Math.sin(Math.PI * 2 * progress);
+
+        /* Orbital track line (partial — shows history) */
+        ctx.beginPath();
+        ctx.setLineDash([3, 8]);
+        ctx.strokeStyle = sat.color;
+        ctx.lineWidth   = 0.6;
+        ctx.globalAlpha = 0.3;
+        /* Draw track from 0 to current position */
+        for (var tp = 0; tp <= progress; tp += 0.01) {
+          var lx = tp * W;
+          var ly = H * 0.5 + sat.incline * H * 0.4 * Math.sin(Math.PI * 2 * tp);
+          if (tp === 0) ctx.moveTo(lx, ly);
+          else          ctx.lineTo(lx, ly);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+
+        /* Satellite body */
+        ctx.save();
+        ctx.translate(tx, ty);
+        /* Solar panel cross */
+        ctx.strokeStyle = sat.color;
+        ctx.lineWidth   = 1.5;
+        ctx.shadowColor = sat.color;
+        ctx.shadowBlur  = 10;
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(0, 3); ctx.stroke();
+        /* Satellite body rect */
+        ctx.fillStyle = sat.color;
+        ctx.globalAlpha = 0.9;
+        ctx.fillRect(-2, -1.5, 4, 3);
+        /* Signal cone */
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle   = sat.color;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-8, 18);
+        ctx.lineTo(8, 18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    return { draw: draw };
+  })();
+
+  /* ────────────────────────────────────────────────────────────────────────
+     §B4: CONSTELLATION ENGINE — APT group threat network visualization
+     Renders threat actor groupings as connected star constellations
+  ──────────────────────────────────────────────────────────────────────── */
+  var ConstellationEngine = (function() {
+    /* Constellation node patterns — [relX, relY] offsets from anchor */
+    var CONSTELLATIONS = [
+      {
+        name: 'LAZARUS-NEXUS',
+        anchor: [0.06, 0.25],
+        color: '#ff2244',
+        nodes: [[0,0],[0.04,0.02],[-0.03,0.04],[0.02,0.07],[-0.01,0.05]],
+        edges: [[0,1],[1,2],[2,3],[3,4],[4,0],[1,3]]
+      },
+      {
+        name: 'BEAR-CLUSTER',
+        anchor: [0.58, 0.15],
+        color: '#ff6600',
+        nodes: [[0,0],[0.03,-0.02],[0.05,0.01],[0.04,0.04],[0.01,0.03]],
+        edges: [[0,1],[1,2],[2,3],[3,4],[4,0],[0,2]]
+      },
+      {
+        name: 'DRAGON-ARRAY',
+        anchor: [0.80, 0.22],
+        color: '#ffcc00',
+        nodes: [[0,0],[-0.02,0.03],[0.03,0.04],[0.01,0.07],[0.05,0.02]],
+        edges: [[0,1],[1,2],[2,3],[0,4],[4,2]]
+      },
+      {
+        name: 'PANDA-GRID',
+        anchor: [0.78, 0.42],
+        color: '#00ccff',
+        nodes: [[0,0],[0.04,0.01],[0.02,0.05],[-0.02,0.04],[0.05,0.05]],
+        edges: [[0,1],[1,2],[2,3],[3,0],[1,4],[4,2]]
+      }
+    ];
+
+    function draw(ctx, W, H, t) {
+      ctx.save();
+      for (var ci = 0; ci < CONSTELLATIONS.length; ci++) {
+        var con   = CONSTELLATIONS[ci];
+        var ax    = con.anchor[0] * W;
+        var ay    = con.anchor[1] * H;
+        var pulse = 0.5 + 0.5 * Math.sin(t * 0.0015 + ci * 1.2);
+        /* Compute node positions */
+        var pts = [];
+        for (var ni = 0; ni < con.nodes.length; ni++) {
+          pts.push([ax + con.nodes[ni][0] * W, ay + con.nodes[ni][1] * H]);
+        }
+        /* Draw edges */
+        ctx.strokeStyle = con.color;
+        ctx.lineWidth   = 0.6;
+        ctx.globalAlpha = 0.15 + 0.08 * pulse;
+        ctx.setLineDash([2, 5]);
+        for (var ei = 0; ei < con.edges.length; ei++) {
+          var e = con.edges[ei];
+          ctx.beginPath();
+          ctx.moveTo(pts[e[0]][0], pts[e[0]][1]);
+          ctx.lineTo(pts[e[1]][0], pts[e[1]][1]);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        /* Draw nodes — star-like dots */
+        for (var pi = 0; pi < pts.length; pi++) {
+          var sz = pi === 0 ? 2.5 : 1.5;
+          ctx.globalAlpha = 0.6 + 0.3 * pulse;
+          ctx.fillStyle   = con.color;
+          ctx.shadowColor = con.color;
+          ctx.shadowBlur  = 8;
+          ctx.beginPath();
+          ctx.arc(pts[pi][0], pts[pi][1], sz, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        /* Label on anchor node */
+        ctx.font        = '6px "Courier New",monospace';
+        ctx.fillStyle   = con.color;
+        ctx.globalAlpha = 0.35 + 0.2 * pulse;
+        ctx.textAlign   = 'left';
+        ctx.shadowBlur  = 0;
+        ctx.fillText(con.name, pts[0][0] + 4, pts[0][1] - 2);
+      }
+      ctx.restore();
+    }
+
+    return { draw: draw };
+  })();
+
+  /* ────────────────────────────────────────────────────────────────────────
+     §C: THREAT ENGINE — Cinematic attack arcs, particles, impact explosions
   ──────────────────────────────────────────────────────────────────────── */
   var ThreatEngine = (function() {
-    var arcs      = [];
-    var particles = [];
+    var arcs       = [];
+    var particles  = [];
     var explosions = [];
 
     function randomCity(exclude) {
-      var cities = MapEngine.CITIES;
+      var c = MapEngine.CITIES;
       var idx;
-      do { idx = Math.floor(Math.random() * cities.length); }
-      while (idx === exclude);
+      do { idx = Math.floor(Math.random() * c.length); } while (idx === exclude);
       return idx;
     }
 
@@ -16356,219 +16585,162 @@ a:focus-visible {
       var grp = MapEngine.GROUPS[Math.floor(Math.random() * MapEngine.GROUPS.length)];
       var src = MapEngine.latLonToXY(MapEngine.CITIES[si][1], MapEngine.CITIES[si][2], W, H);
       var tgt = MapEngine.latLonToXY(MapEngine.CITIES[ti][1], MapEngine.CITIES[ti][2], W, H);
-      /* Bezier control point — arc up above midpoint */
       var mx  = (src[0] + tgt[0]) / 2;
       var my  = (src[1] + tgt[1]) / 2;
       var dx  = tgt[0] - src[0];
       var dy  = tgt[1] - src[1];
       var dist = Math.sqrt(dx*dx + dy*dy);
-      var cpx = mx - dy * 0.3;
-      var cpy = my + dx * 0.3 - dist * 0.3;
-      var dur = 1800 + Math.random() * 2400;
+      var cpx = mx - dy * 0.35;
+      var cpy = my + dx * 0.35 - dist * 0.35;
       return {
-        src: src, tgt: tgt, cpx: cpx, cpy: cpy,
-        color: grp.color, glow: grp.glow, group: grp.name,
-        progress: 0, dur: dur, born: performance.now(),
-        trail: [],  /* [x,y] ring buffer for comet tail */
-        dead: false
+        src:src, tgt:tgt, cpx:cpx, cpy:cpy,
+        color:grp.color, glow:grp.glow, group:grp.name,
+        progress:0, dur: 1600 + Math.random() * 2800,
+        born:performance.now(), trail:[], dead:false
       };
     }
 
     function spawnParticles(x, y, color, count) {
       for (var i = 0; i < count; i++) {
-        var angle = Math.random() * Math.PI * 2;
-        var speed = 0.5 + Math.random() * 2.5;
-        particles.push({
-          x: x, y: y,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          life: 1.0,
-          decay: 0.012 + Math.random() * 0.018,
-          color: color,
-          size: 1 + Math.random() * 2.5
-        });
+        var a = Math.random() * Math.PI * 2;
+        var s = 0.5 + Math.random() * 3.0;
+        particles.push({ x:x, y:y,
+          vx:Math.cos(a)*s, vy:Math.sin(a)*s,
+          life:1.0, decay:0.010 + Math.random() * 0.020,
+          color:color, size:1 + Math.random() * 2.5 });
       }
     }
 
     function spawnExplosion(x, y, color) {
-      explosions.push({ x: x, y: y, color: color,
-        r: 0, maxR: 18 + Math.random() * 14,
-        life: 1.0, decay: 0.035 });
+      explosions.push({ x:x, y:y, color:color,
+        r:0, maxR:20 + Math.random() * 18, life:1.0, decay:0.030 });
     }
 
-    /* Quadratic bezier point */
-    function bezier(t, sx, sy, cpx, cpy, ex, ey) {
-      var mt = 1 - t;
-      return [
-        mt*mt*sx + 2*mt*t*cpx + t*t*ex,
-        mt*mt*sy + 2*mt*t*cpy + t*t*ey
-      ];
+    function bezier(tp, sx, sy, cpx, cpy, ex, ey) {
+      var mt = 1 - tp;
+      return [mt*mt*sx + 2*mt*tp*cpx + tp*tp*ex,
+              mt*mt*sy + 2*mt*tp*cpy + tp*tp*ey];
     }
 
     function initArcs(W, H, count) {
       arcs = [];
       for (var i = 0; i < count; i++) {
         var a = spawnArc(W, H);
-        a.progress = Math.random(); /* stagger initial phase */
+        a.progress = Math.random();
         arcs.push(a);
       }
     }
 
     function update(now, W, H, pMax) {
-      /* Update arcs */
       for (var i = arcs.length - 1; i >= 0; i--) {
         var a = arcs[i];
         a.progress = (now - a.born) / a.dur;
         if (a.progress >= 1) {
-          /* Impact at target */
           spawnExplosion(a.tgt[0], a.tgt[1], a.color);
-          spawnParticles(a.tgt[0], a.tgt[1], a.color, 8);
+          spawnParticles(a.tgt[0], a.tgt[1], a.color, 10);
           arcs.splice(i, 1);
           arcs.push(spawnArc(W, H));
           continue;
         }
-        var pt = bezier(a.progress, a.src[0], a.src[1], a.cpx, a.cpy, a.tgt[0], a.tgt[1]);
+        var pt = bezier(a.progress,
+          a.src[0], a.src[1], a.cpx, a.cpy, a.tgt[0], a.tgt[1]);
         a.trail.push(pt);
-        if (a.trail.length > 30) a.trail.shift();
-        /* Spawn particles along trail at low rate */
-        if (Math.random() < 0.2 && particles.length < pMax) {
+        if (a.trail.length > 36) a.trail.shift();
+        if (Math.random() < 0.22 && particles.length < pMax) {
           spawnParticles(pt[0], pt[1], a.color, 1);
         }
       }
-      /* Update particles */
       for (var j = particles.length - 1; j >= 0; j--) {
         var p = particles[j];
         p.x += p.vx; p.y += p.vy;
-        p.vy += 0.03; /* gravity */
+        p.vy += 0.025;
         p.life -= p.decay;
         if (p.life <= 0) particles.splice(j, 1);
       }
-      /* Update explosions */
       for (var k = explosions.length - 1; k >= 0; k--) {
         var e = explosions[k];
-        e.r    += (e.maxR - e.r) * 0.15;
+        e.r    += (e.maxR - e.r) * 0.14;
         e.life -= e.decay;
         if (e.life <= 0) explosions.splice(k, 1);
       }
     }
 
     function draw(ctx, now) {
-      /* Draw explosions — triple-ring burst */
+      /* Explosions */
       for (var k = 0; k < explosions.length; k++) {
         var e = explosions[k];
         ctx.save();
-        /* Radial fill */
-        ctx.globalAlpha = e.life * 0.6;
         var eg = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r);
         eg.addColorStop(0,   '#ffffff');
-        eg.addColorStop(0.2, e.color);
-        eg.addColorStop(0.7, e.color);
+        eg.addColorStop(0.15, e.color);
+        eg.addColorStop(0.6, e.color);
         eg.addColorStop(1,   'transparent');
-        ctx.fillStyle = eg;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
-        ctx.fill();
-        /* Ring 1 — primary shockwave */
-        ctx.globalAlpha = e.life * 0.5;
-        ctx.strokeStyle = e.color;
-        ctx.lineWidth   = 1.8;
-        ctx.shadowColor = e.color;
-        ctx.shadowBlur  = 14;
+        ctx.globalAlpha = e.life * 0.65;
+        ctx.fillStyle   = eg;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = e.life * 0.55;
+        ctx.strokeStyle = e.color; ctx.lineWidth = 2.0;
+        ctx.shadowColor = e.color; ctx.shadowBlur = 18;
         ctx.stroke();
-        /* Ring 2 — secondary ring at 65% size */
-        ctx.globalAlpha = e.life * 0.3;
-        ctx.lineWidth   = 0.8;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, e.r * 0.65, 0, Math.PI * 2);
-        ctx.stroke();
-        /* Ring 3 — inner pulse */
-        if (e.r > 5) {
-          ctx.globalAlpha = e.life * 0.55;
-          ctx.lineWidth   = 1.2;
-          ctx.strokeStyle = '#ffffff';
-          ctx.shadowColor = '#ffffff';
-          ctx.shadowBlur  = 8;
-          ctx.beginPath();
-          ctx.arc(e.x, e.y, Math.max(2, e.r * 0.25), 0, Math.PI * 2);
-          ctx.stroke();
-        }
+        ctx.globalAlpha = e.life * 0.30;
+        ctx.lineWidth   = 0.9;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 0.6, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = e.life * 0.18;
+        ctx.lineWidth   = 0.6;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.35, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
       }
 
-      /* Draw arcs */
+      /* Arcs */
       for (var i = 0; i < arcs.length; i++) {
         var a = arcs[i];
         if (a.trail.length < 2) continue;
         ctx.save();
         ctx.shadowColor = a.glow;
-        ctx.shadowBlur  = 16;
-        /* Comet tail — dual-layer gradient (outer glow + core line) */
-        var tlen = a.trail.length;
-        /* Outer glow pass */
-        for (var t2 = 1; t2 < tlen; t2++) {
-          var alpha2 = (t2 / tlen) * 0.28;
-          ctx.globalAlpha = alpha2;
+        ctx.lineCap     = 'round';
+        /* Multi-layer cinematic glow: three passes at decreasing opacity/width */
+        for (var pass = 0; pass < 3; pass++) {
+          var glowW = [6, 3, 1.5][pass];
+          var glowA = [0.08, 0.15, 1.0][pass];
+          ctx.lineWidth   = glowW;
+          ctx.shadowBlur  = [20, 12, 6][pass];
           ctx.strokeStyle = a.color;
-          ctx.lineWidth   = 0.5 + (t2 / tlen) * 6;
-          ctx.lineCap     = 'round';
-          ctx.beginPath();
-          ctx.moveTo(a.trail[t2-1][0], a.trail[t2-1][1]);
-          ctx.lineTo(a.trail[t2][0],   a.trail[t2][1]);
-          ctx.stroke();
+          for (var t3 = 1; t3 < a.trail.length; t3++) {
+            var tlen  = a.trail.length;
+            var alpha = (t3 / tlen) * glowA;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.moveTo(a.trail[t3-1][0], a.trail[t3-1][1]);
+            ctx.lineTo(a.trail[t3][0],   a.trail[t3][1]);
+            ctx.stroke();
+          }
         }
-        /* Core line pass */
-        ctx.shadowBlur = 8;
-        for (var t3 = 1; t3 < tlen; t3++) {
-          var alpha3 = (t3 / tlen) * 0.9;
-          var width3 = 0.5 + (t3 / tlen) * 2.0;
-          ctx.globalAlpha = alpha3;
-          ctx.strokeStyle = a.color;
-          ctx.lineWidth   = width3;
-          ctx.lineCap     = 'round';
-          ctx.beginPath();
-          ctx.moveTo(a.trail[t3-1][0], a.trail[t3-1][1]);
-          ctx.lineTo(a.trail[t3][0],   a.trail[t3][1]);
-          ctx.stroke();
-        }
-        /* Comet head — bright white core + color halo */
+        /* Comet head */
         var head = a.trail[a.trail.length - 1];
         ctx.globalAlpha = 1;
-        ctx.shadowBlur  = 24;
-        ctx.shadowColor = a.color;
-        /* Outer halo */
-        ctx.beginPath();
-        ctx.arc(head[0], head[1], 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = a.color;
-        ctx.globalAlpha = 0.4;
-        ctx.fill();
-        /* Core */
-        ctx.beginPath();
-        ctx.arc(head[0], head[1], 2.5, 0, Math.PI * 2);
-        ctx.fillStyle   = '#ffffff';
-        ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur  = 16;
-        ctx.globalAlpha = 1;
-        ctx.fill();
-        /* APT label on head */
-        if (a.group && a.trail.length > 5) {
+        ctx.shadowBlur  = 28; ctx.shadowColor = a.color;
+        ctx.beginPath(); ctx.arc(head[0], head[1], 5, 0, Math.PI * 2);
+        ctx.fillStyle   = a.color; ctx.globalAlpha = 0.35; ctx.fill();
+        ctx.beginPath(); ctx.arc(head[0], head[1], 2.8, 0, Math.PI * 2);
+        ctx.fillStyle   = '#ffffff'; ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur  = 18; ctx.globalAlpha = 1; ctx.fill();
+        /* APT label */
+        if (a.group && a.trail.length > 6) {
           ctx.font        = 'bold 6px "Courier New",monospace';
-          ctx.fillStyle   = a.color;
-          ctx.shadowBlur  = 6;
-          ctx.globalAlpha = 0.75;
-          ctx.textAlign   = 'left';
-          ctx.fillText(a.group, head[0] + 5, head[1] - 3);
+          ctx.fillStyle   = a.color; ctx.shadowBlur = 5;
+          ctx.globalAlpha = 0.8; ctx.textAlign = 'left';
+          ctx.fillText(a.group, head[0] + 6, head[1] - 3);
         }
         ctx.restore();
       }
 
-      /* Draw particles */
+      /* Particles */
       for (var j = 0; j < particles.length; j++) {
         var p = particles[j];
         ctx.save();
-        ctx.globalAlpha = p.life * 0.8;
+        ctx.globalAlpha = p.life * 0.75;
         ctx.fillStyle   = p.color;
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur  = 6;
+        ctx.shadowColor = p.color; ctx.shadowBlur = 5;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
         ctx.fill();
@@ -16576,304 +16748,413 @@ a:focus-visible {
       }
     }
 
-    return { initArcs: initArcs, update: update, draw: draw };
+    return { initArcs:initArcs, update:update, draw:draw };
   })();
 
   /* ────────────────────────────────────────────────────────────────────────
-     §D: FX ENGINE — Scanlines, vignette, corridor pulse, grid flicker
+     §D: FX ENGINE — Full cinematic atmosphere suite
+     Heatfields · Threat zones · Orbital radar · Corridor pulse
+     Cyber weather · Scanlines · Strategic warfare · Vignette · Border
   ──────────────────────────────────────────────────────────────────────── */
-  /* ═══════════════════════════════════════════════════════════════════════
-     §D: FX ENGINE v166.1 — CINEMATIC MILITARY-GRADE ATMOSPHERE
-     Radar sweep · Threat zones · Scanlines · Vignette · Corner brackets
-  ═══════════════════════════════════════════════════════════════════════ */
   var FXEngine = (function() {
 
-    /* Nation-state threat zones — lat/lon bounding boxes [lat1,lon1,lat2,lon2] */
     var THREAT_ZONES = [
-      { label:'RU', name:'RUSSIA',    lat1:50, lon1:30, lat2:72,  lon2:140, color:'rgba(255,80,40,0.07)',  border:'rgba(255,80,40,0.22)' },
-      { label:'CN', name:'CHINA',     lat1:18, lon1:74, lat2:54,  lon2:135, color:'rgba(255,100,0,0.06)',  border:'rgba(255,120,0,0.20)' },
-      { label:'KP', name:'N.KOREA',   lat1:37, lon1:124,lat2:43,  lon2:130, color:'rgba(255,30,80,0.12)',  border:'rgba(255,50,80,0.40)' },
-      { label:'IR', name:'IRAN',      lat1:25, lon1:44, lat2:40,  lon2:63,  color:'rgba(255,60,20,0.08)',  border:'rgba(255,80,20,0.25)' },
+      { label:'RU',  lat1:50, lon1:30,  lat2:72,  lon2:140, color:'rgba(255,80,40,0.08)',  border:'rgba(255,80,40,0.28)'  },
+      { label:'CN',  lat1:18, lon1:74,  lat2:54,  lon2:135, color:'rgba(255,100,0,0.07)',  border:'rgba(255,120,0,0.24)'  },
+      { label:'KP',  lat1:37, lon1:124, lat2:43,  lon2:130, color:'rgba(255,30,80,0.15)',  border:'rgba(255,50,80,0.50)'  },
+      { label:'IR',  lat1:25, lon1:44,  lat2:40,  lon2:63,  color:'rgba(255,60,20,0.09)',  border:'rgba(255,80,20,0.30)'  },
+      { label:'BY',  lat1:51, lon1:23,  lat2:56,  lon2:33,  color:'rgba(200,40,180,0.07)', border:'rgba(220,60,200,0.22)' }
     ];
 
-    function latLon(lat, lon, W, H) {
-      return { x: (lon + 180) / 360 * W, y: (90 - lat) / 180 * H };
+    /* Storm cells — cyber weather disturbance zones */
+    var STORMS = [
+      { lat:52, lon:30,  r:0.06, speed:0.00010, phase:0.0  },
+      { lat:39, lon:125, r:0.05, speed:0.00008, phase:2.1  },
+      { lat:10, lon:-10, r:0.04, speed:0.00012, phase:4.3  }
+    ];
+
+    /* Hot cities for AI heatfields (lat, lon, intensity) */
+    var HOTSPOTS = [
+      [55.8, 37.6, 0.9], [39.9, 116.4, 0.85], [39.0, 125.8, 1.0],
+      [50.5, 30.5, 0.8], [35.7, 51.4, 0.7],   [40.7, -74.0, 0.65]
+    ];
+
+    function ll(lat, lon, W, H) {
+      return { x:(lon+180)/360*W, y:(90-lat)/180*H };
     }
 
-    function drawBackground(ctx, W, H) {
-      /* Deep ocean gradient — layered for cinematic depth */
+    function drawBackground(ctx, W, H, t) {
       var bg = ctx.createLinearGradient(0, 0, 0, H);
       bg.addColorStop(0,    '#010b1a');
-      bg.addColorStop(0.35, '#010d1f');
-      bg.addColorStop(0.65, '#010a1a');
+      bg.addColorStop(0.30, '#010e22');
+      bg.addColorStop(0.60, '#010a1a');
       bg.addColorStop(1,    '#020c18');
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
-      /* Subtle radial center glow — command grid focal point */
-      var cg = ctx.createRadialGradient(W * 0.5, H * 0.5, 0, W * 0.5, H * 0.5, W * 0.6);
-      cg.addColorStop(0,   'rgba(0,40,80,0.18)');
-      cg.addColorStop(0.5, 'rgba(0,20,50,0.08)');
+      /* Deep center glow */
+      var pulse = 0.5 + 0.5 * Math.sin(t * 0.0003);
+      var cg = ctx.createRadialGradient(W*0.5, H*0.5, 0, W*0.5, H*0.5, W*0.55);
+      cg.addColorStop(0,   'rgba(0,50,100,' + (0.15 + 0.05 * pulse) + ')');
+      cg.addColorStop(0.5, 'rgba(0,25,55,0.06)');
       cg.addColorStop(1,   'transparent');
       ctx.fillStyle = cg;
       ctx.fillRect(0, 0, W, H);
     }
 
-
-    function drawThreatZones(ctx, W, H) {
-      /* Nation-state threat overlays — highlight danger regions */
+    function drawHeatfields(ctx, W, H, t) {
+      /* AI attack prediction heatfields — gradient overlays on hot cities */
       ctx.save();
+      for (var i = 0; i < HOTSPOTS.length; i++) {
+        var hs    = HOTSPOTS[i];
+        var pt    = ll(hs[0], hs[1], W, H);
+        var pulse = 0.5 + 0.5 * Math.sin(t * 0.002 + i * 0.9);
+        var r     = Math.min(W, H) * 0.12 * hs[2] * (0.8 + 0.4 * pulse);
+        var hg    = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, r);
+        var alpha = 0.10 + 0.06 * pulse * hs[2];
+        hg.addColorStop(0,   'rgba(255,40,0,' + alpha + ')');
+        hg.addColorStop(0.3, 'rgba(255,100,0,' + (alpha * 0.6) + ')');
+        hg.addColorStop(0.7, 'rgba(255,40,0,' + (alpha * 0.2) + ')');
+        hg.addColorStop(1,   'transparent');
+        ctx.fillStyle   = hg;
+        ctx.globalAlpha = 1;
+        ctx.fillRect(Math.max(0, pt.x - r), Math.max(0, pt.y - r),
+                     Math.min(W, 2*r), Math.min(H, 2*r));
+      }
+      ctx.restore();
+    }
+
+    function drawThreatZones(ctx, W, H, t) {
+      ctx.save();
+      var blink = 0.5 + 0.5 * Math.sin(t * 0.0025);
       for (var z = 0; z < THREAT_ZONES.length; z++) {
         var tz  = THREAT_ZONES[z];
-        var p1  = latLon(tz.lat1, tz.lon1, W, H);
-        var p2  = latLon(tz.lat2, tz.lon2, W, H);
+        var p1  = ll(tz.lat1, tz.lon1, W, H);
+        var p2  = ll(tz.lat2, tz.lon2, W, H);
         var rx  = Math.min(p1.x, p2.x);
         var ry  = Math.min(p1.y, p2.y);
         var rw  = Math.abs(p2.x - p1.x);
         var rh  = Math.abs(p2.y - p1.y);
-        /* Gradient fill */
-        var zg  = ctx.createLinearGradient(rx, ry, rx + rw, ry + rh);
+        var zg  = ctx.createLinearGradient(rx, ry, rx+rw, ry+rh);
         zg.addColorStop(0, tz.color);
         zg.addColorStop(1, 'transparent');
-        ctx.fillStyle = zg;
+        ctx.fillStyle   = zg;
         ctx.fillRect(rx, ry, rw, rh);
-        /* Pulsing border */
         ctx.strokeStyle = tz.border;
-        ctx.lineWidth   = 0.7;
+        ctx.lineWidth   = tz.label === 'KP' ? 1.2 : 0.8;
         ctx.setLineDash([3, 5]);
+        ctx.globalAlpha = 0.6 + 0.3 * blink;
         ctx.strokeRect(rx, ry, rw, rh);
         ctx.setLineDash([]);
-        /* Label */
-        ctx.font      = 'bold 7px "Courier New",monospace';
-        ctx.fillStyle = tz.border;
-        ctx.textAlign = 'left';
-        ctx.globalAlpha = 0.6;
+        /* Threat level label */
+        ctx.font        = 'bold 7px "Courier New",monospace';
+        ctx.fillStyle   = tz.border;
+        ctx.textAlign   = 'left';
+        ctx.globalAlpha = 0.7 + 0.2 * blink;
         ctx.fillText(tz.label, rx + 3, ry + 9);
       }
       ctx.restore();
     }
 
     function drawRadarSweep(ctx, W, H, t) {
-      /* Rotating radar sweep from map center */
       ctx.save();
-      var cx  = W * 0.5;
-      var cy  = H * 0.5;
-      var r   = Math.max(W, H) * 0.75;
-      var ang = (t * 0.0006) % (Math.PI * 2);  /* ~10s per revolution */
-      /* Sweep gradient — bright leading edge, fading trail */
-      var sw  = ctx.createConicalGradient ? null : null; /* conical not available in Canvas2D */
-      /* Manual sweep using arc sector */
-      var sweepWidth = 0.4; /* radians */
-      for (var i = 0; i < 20; i++) {
-        var fa  = ang - sweepWidth * (i / 20);
-        var fa2 = ang - sweepWidth * ((i + 1) / 20);
-        var alpha = (1 - i / 20) * 0.06;
+      var cx = W * 0.5, cy = H * 0.5;
+      var r  = Math.max(W, H) * 0.78;
+      var ang = (t * 0.00065) % (Math.PI * 2);
+      var sweepW = 0.45;
+      for (var si = 0; si < 24; si++) {
+        var fa  = ang - sweepW * (si / 24);
+        var fa2 = ang - sweepW * ((si+1) / 24);
+        var a   = (1 - si/24) * 0.07;
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.arc(cx, cy, r, fa, fa2, true);
         ctx.closePath();
-        ctx.fillStyle = 'rgba(0,220,180,' + alpha + ')';
+        ctx.fillStyle = 'rgba(0,220,180,' + a + ')';
         ctx.fill();
       }
-      /* Leading edge line */
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.lineTo(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r);
-      ctx.strokeStyle = 'rgba(0,255,200,0.25)';
-      ctx.lineWidth   = 1.0;
-      ctx.stroke();
-      /* Concentric rings */
-      var rings = [0.25, 0.45, 0.65];
+      ctx.strokeStyle = 'rgba(0,255,200,0.28)';
+      ctx.lineWidth   = 1.2; ctx.stroke();
+      var rings = [0.22, 0.40, 0.58, 0.76];
       ctx.strokeStyle = 'rgba(0,180,160,0.05)';
       ctx.lineWidth   = 0.5;
       for (var ri = 0; ri < rings.length; ri++) {
-        ctx.beginPath();
-        ctx.arc(cx, cy, r * rings[ri], 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, cy, r * rings[ri], 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawCorridorPulse(ctx, W, H, t) {
+      ctx.save();
+      var pulse = 0.4 + 0.6 * Math.abs(Math.sin(t * 0.0008));
+      var cy    = H * 0.5 + Math.sin(t * 0.0005) * H * 0.12;
+      var cg    = ctx.createLinearGradient(0, cy - 70, 0, cy + 70);
+      cg.addColorStop(0,   'transparent');
+      cg.addColorStop(0.5, 'rgba(0,160,255,0.04)');
+      cg.addColorStop(1,   'transparent');
+      ctx.fillStyle   = cg;
+      ctx.globalAlpha = pulse;
+      ctx.fillRect(0, cy - 70, W, 140);
+      ctx.restore();
+    }
+
+    function drawWeatherCells(ctx, W, H, t) {
+      /* Cyber weather system — moving storm cells with lightning */
+      ctx.save();
+      for (var si = 0; si < STORMS.length; si++) {
+        var storm = STORMS[si];
+        var bpt   = ll(storm.lat, storm.lon, W, H);
+        /* Storm cell drifts east over time */
+        var drift = (t * storm.speed * W) % W;
+        var sx    = (bpt.x + drift) % W;
+        var sy    = bpt.y;
+        var r     = Math.min(W, H) * storm.r;
+        var pulse = 0.5 + 0.5 * Math.sin(t * 0.0018 + storm.phase);
+        /* Storm cell gradient */
+        var sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+        sg.addColorStop(0,   'rgba(80,60,255,' + (0.12 + 0.06 * pulse) + ')');
+        sg.addColorStop(0.5, 'rgba(40,30,180,' + (0.06 + 0.03 * pulse) + ')');
+        sg.addColorStop(1,   'transparent');
+        ctx.fillStyle   = sg;
+        ctx.globalAlpha = 1;
+        ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+        /* Rotating storm border */
+        ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(100,80,255,' + (0.15 + 0.1 * pulse) + ')';
+        ctx.lineWidth   = 0.8;
+        ctx.setLineDash([4, 8]);
+        ctx.stroke(); ctx.setLineDash([]);
+        /* Lightning tendril — occasional flash */
+        if (Math.sin(t * 0.012 + storm.phase * 2.3) > 0.92) {
+          ctx.strokeStyle = 'rgba(180,160,255,0.6)';
+          ctx.lineWidth   = 0.8; ctx.shadowBlur = 12;
+          ctx.shadowColor = 'rgba(150,130,255,0.8)';
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          var lx = sx + (Math.random() - 0.5) * r;
+          var ly = sy + r * 0.6;
+          ctx.lineTo(sx + (lx-sx)*0.4, sy + ly * 0.35);
+          ctx.lineTo(lx, ly);
+          ctx.stroke(); ctx.shadowBlur = 0;
+        }
+      }
+      ctx.restore();
+    }
+
+    function drawStrategicWarfare(ctx, W, H, t) {
+      /* Escalation level indicator — bottom-left */
+      ctx.save();
+      var blink = 0.5 + 0.5 * Math.sin(t * 0.003);
+      var levels = [
+        { label:'DEFCON', val:2, color:'#ff2244' },
+        { label:'ESCALATE', val:4, color:'#ff6600' },
+        { label:'INTEL',    val:7, color:'#ffcc00' }
+      ];
+      var bx = 8, by = H - 56;
+      ctx.fillStyle   = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(bx, by, 130, 50);
+      ctx.strokeStyle = 'rgba(0,200,255,0.2)';
+      ctx.lineWidth   = 0.5;
+      ctx.strokeRect(bx, by, 130, 50);
+      ctx.font        = 'bold 6px "Courier New",monospace';
+      ctx.textAlign   = 'left';
+      for (var li = 0; li < levels.length; li++) {
+        var lv  = levels[li];
+        var ly  = by + 10 + li * 14;
+        ctx.fillStyle = 'rgba(140,170,200,0.6)';
+        ctx.fillText(lv.label + ':', bx + 4, ly);
+        /* Bar fill */
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fillRect(bx + 52, ly - 7, 70, 8);
+        ctx.fillStyle = lv.color;
+        ctx.globalAlpha = 0.7 + 0.25 * blink;
+        ctx.fillRect(bx + 52, ly - 7, 70 * lv.val / 10, 8);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = lv.color;
+        ctx.fillText(lv.val + '/10', bx + 125, ly);
       }
       ctx.restore();
     }
 
     function drawScanlines(ctx, W, H, t) {
       ctx.save();
-      ctx.globalAlpha = 0.06;
+      ctx.globalAlpha = 0.055;
       ctx.fillStyle   = '#000000';
-      for (var y = 0; y < H; y += 3) {
-        ctx.fillRect(0, y, W, 1);
-      }
-      /* Moving scan line */
-      var scanY = (t * 0.04) % H;
-      ctx.globalAlpha = 0.07;
-      var sg = ctx.createLinearGradient(0, scanY - 6, 0, scanY + 6);
+      for (var y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+      var scanY = (t * 0.038) % H;
+      ctx.globalAlpha = 0.08;
+      var sg = ctx.createLinearGradient(0, scanY - 8, 0, scanY + 8);
       sg.addColorStop(0,   'transparent');
       sg.addColorStop(0.5, 'rgba(0,220,255,0.3)');
       sg.addColorStop(1,   'transparent');
       ctx.fillStyle = sg;
-      ctx.fillRect(0, scanY - 6, W, 12);
+      ctx.fillRect(0, scanY - 8, W, 16);
       ctx.restore();
     }
 
     function drawVignette(ctx, W, H) {
       ctx.save();
-      var vig = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.85);
+      var vig = ctx.createRadialGradient(W/2, H/2, H*0.28, W/2, H/2, H*0.88);
       vig.addColorStop(0, 'transparent');
-      vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+      vig.addColorStop(1, 'rgba(0,0,0,0.58)');
       ctx.fillStyle = vig;
       ctx.fillRect(0, 0, W, H);
-      ctx.restore();
-    }
-
-    function drawCorridorPulse(ctx, W, H, t) {
-      /* Horizontal corridor beam sweeping */
-      ctx.save();
-      var pulse = 0.4 + 0.6 * Math.abs(Math.sin(t * 0.0008));
-      var cy = H * 0.5 + Math.sin(t * 0.0005) * H * 0.1;
-      var cg = ctx.createLinearGradient(0, cy - 60, 0, cy + 60);
-      cg.addColorStop(0,   'transparent');
-      cg.addColorStop(0.5, 'rgba(0, 160, 255, 0.04)');
-      cg.addColorStop(1,   'transparent');
-      ctx.fillStyle   = cg;
-      ctx.globalAlpha = pulse;
-      ctx.fillRect(0, cy - 60, W, 120);
       ctx.restore();
     }
 
     function drawBorder(ctx, W, H, t) {
       var pulse  = 0.5 + 0.5 * Math.sin(t * 0.0015);
       var pulse2 = 0.5 + 0.5 * Math.sin(t * 0.0022 + 1.2);
-      var cLen   = Math.min(W, H) * 0.08; /* corner bracket length */
+      var cLen   = Math.min(W, H) * 0.09;
       ctx.save();
-      /* Full border — thin */
-      ctx.strokeStyle = 'rgba(0,180,220,' + (0.12 + 0.06 * pulse) + ')';
+      ctx.strokeStyle = 'rgba(0,180,220,' + (0.14 + 0.07 * pulse) + ')';
       ctx.lineWidth   = 0.7;
-      ctx.strokeRect(1, 1, W - 2, H - 2);
-      /* Corner brackets — military HUD style */
-      ctx.strokeStyle = 'rgba(0,230,255,' + (0.55 + 0.2 * pulse2) + ')';
-      ctx.lineWidth   = 1.8;
-      ctx.shadowColor = 'rgba(0,200,255,0.8)';
-      ctx.shadowBlur  = 10;
+      ctx.strokeRect(1, 1, W-2, H-2);
+      ctx.strokeStyle = 'rgba(0,230,255,' + (0.60 + 0.25 * pulse2) + ')';
+      ctx.lineWidth   = 2.0;
+      ctx.shadowColor = 'rgba(0,200,255,0.9)';
+      ctx.shadowBlur  = 12;
       ctx.lineCap     = 'square';
-      /* Top-left */
-      ctx.beginPath(); ctx.moveTo(1, 1 + cLen); ctx.lineTo(1, 1); ctx.lineTo(1 + cLen, 1); ctx.stroke();
-      /* Top-right */
-      ctx.beginPath(); ctx.moveTo(W - 1 - cLen, 1); ctx.lineTo(W - 1, 1); ctx.lineTo(W - 1, 1 + cLen); ctx.stroke();
-      /* Bottom-left */
-      ctx.beginPath(); ctx.moveTo(1, H - 1 - cLen); ctx.lineTo(1, H - 1); ctx.lineTo(1 + cLen, H - 1); ctx.stroke();
-      /* Bottom-right */
-      ctx.beginPath(); ctx.moveTo(W - 1 - cLen, H - 1); ctx.lineTo(W - 1, H - 1); ctx.lineTo(W - 1, H - 1 - cLen); ctx.stroke();
-      /* Corner dots */
-      ctx.globalAlpha = 0.7 + 0.3 * pulse;
+      /* Corner brackets */
+      ctx.beginPath(); ctx.moveTo(1,1+cLen); ctx.lineTo(1,1); ctx.lineTo(1+cLen,1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W-1-cLen,1); ctx.lineTo(W-1,1); ctx.lineTo(W-1,1+cLen); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(1,H-1-cLen); ctx.lineTo(1,H-1); ctx.lineTo(1+cLen,H-1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W-1-cLen,H-1); ctx.lineTo(W-1,H-1); ctx.lineTo(W-1,H-1-cLen); ctx.stroke();
+      ctx.globalAlpha = 0.75 + 0.25 * pulse;
       ctx.fillStyle   = '#00eeff';
-      ctx.shadowBlur  = 14;
+      ctx.shadowBlur  = 16;
       var corners = [[1,1],[W-1,1],[1,H-1],[W-1,H-1]];
       for (var c = 0; c < corners.length; c++) {
-        ctx.beginPath();
-        ctx.arc(corners[c][0], corners[c][1], 2, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(corners[c][0], corners[c][1], 2.5, 0, Math.PI*2); ctx.fill();
       }
       ctx.restore();
     }
 
-    return { drawBackground: drawBackground, drawThreatZones: drawThreatZones,
-             drawRadarSweep: drawRadarSweep, drawScanlines: drawScanlines,
-             drawVignette: drawVignette, drawCorridorPulse: drawCorridorPulse,
-             drawBorder: drawBorder };
+    return { drawBackground:drawBackground, drawHeatfields:drawHeatfields,
+             drawThreatZones:drawThreatZones, drawRadarSweep:drawRadarSweep,
+             drawCorridorPulse:drawCorridorPulse, drawWeatherCells:drawWeatherCells,
+             drawStrategicWarfare:drawStrategicWarfare, drawScanlines:drawScanlines,
+             drawVignette:drawVignette, drawBorder:drawBorder };
   })();
 
   /* ────────────────────────────────────────────────────────────────────────
-     §E: HUD ENGINE — FPS telemetry, status overlays, threat counter
+     §E: HUD ENGINE — Military SIGINT tactical display
+     Full: FPS · UTC · Threat count · Satellite status · AI confidence
+          · Escalation level · Collection status · APT group legend
   ──────────────────────────────────────────────────────────────────────── */
   var HUDEngine = (function() {
-    var fpsHistory  = [];
-    var threatCount = 0;
+    var fpsHistory = [];
 
     function updateFPS(fps) {
       fpsHistory.push(fps);
       if (fpsHistory.length > 60) fpsHistory.shift();
     }
-
     function avgFPS() {
       if (!fpsHistory.length) return 60;
       return fpsHistory.reduce(function(a,b){return a+b;},0) / fpsHistory.length;
     }
 
     function drawHUD(ctx, W, H, t, fps, qMode) {
-      var now    = new Date();
-      var hh     = String(now.getUTCHours()).padStart(2,'0');
-      var mm     = String(now.getUTCMinutes()).padStart(2,'0');
-      var ss     = String(now.getUTCSeconds()).padStart(2,'0');
-      var utcStr = hh + ':' + mm + ':' + ss + ' UTC';
+      var now   = new Date();
+      var hh    = String(now.getUTCHours()).padStart(2,'0');
+      var mm    = String(now.getUTCMinutes()).padStart(2,'0');
+      var ss    = String(now.getUTCSeconds()).padStart(2,'0');
+      var utc   = hh + ':' + mm + ':' + ss + ' UTC';
+      var blink = Math.floor(t / 580) % 2 === 0;
+      var gpuT  = window.CDB_GPU_TIER ? ('T' + (window.CDB_GPU_TIER.tier||'?')) : 'AUTO';
+      var br    = window.CDB_GPU_TIER ? window.CDB_GPU_TIER.browser.toUpperCase().substring(0,3) : 'UNK';
+      var aiConf = Math.round(72 + 18 * Math.abs(Math.sin(t * 0.00035)));
 
       ctx.save();
-      ctx.font      = 'bold 9px "Courier New", monospace';
-      ctx.textAlign = 'left';
+      ctx.font = 'bold 9px "Courier New",monospace';
 
-      /* Top-left: Version + Build */
-      ctx.fillStyle   = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(6, 6, 220, 13);
+      /* ── Top-left: version + build + GPU ─── */
+      ctx.fillStyle   = 'rgba(0,0,0,0.52)';
+      ctx.fillRect(6, 6, 260, 13);
       ctx.fillStyle   = '#00eeff';
-      ctx.globalAlpha = 0.9;
-      var gpuTier = window.CDB_GPU_TIER ? ('GPU-T' + (window.CDB_GPU_TIER.tier||'?')) : 'GPU-AUTO';
-      ctx.fillText('CDB-SENTINEL v169  |  BUILD: 2026.05.19-APEX-V169  |  ' + gpuTier + '  |  RC6:ACTIVE', 10, 16);
-
-      /* Top-right: UTC clock */
-      ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(W - 120, 6, 114, 13);
-      ctx.fillStyle = '#00eeff';
-      ctx.fillText(utcStr, W - 8, 16);
-
-      /* Bottom-left: FPS telemetry */
+      ctx.globalAlpha = 0.92;
       ctx.textAlign   = 'left';
-      var fpsColor    = fps >= 50 ? '#00ff88' : fps >= 30 ? '#ffcc00' : '#ff4444';
-      ctx.fillStyle   = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(6, H - 19, 180, 13);
-      ctx.fillStyle   = fpsColor;
-      ctx.fillText('FPS: ' + Math.round(fps) + '  AVG: ' + Math.round(avgFPS()) +
-                   '  ' + qMode + '-QUALITY', 10, H - 9);
+      ctx.fillText('CDB-SENTINEL v172  |  2026.05.20-V172  |  GPU-' + gpuT + '/' + br + '  |  RC12', 10, 16);
 
-      /* Bottom-right: Threat status */
-      var blink = Math.floor(t / 600) % 2 === 0;
+      /* ── Top-right: UTC clock ─── */
       ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(W - 170, H - 19, 164, 13);
-      ctx.fillStyle = blink ? '#ff2244' : '#cc1133';
-      ctx.shadowColor = '#ff0033';
-      ctx.shadowBlur  = blink ? 8 : 0;
-      ctx.fillText('⬤ LIVE — THREAT MONITOR ACTIVE', W - 8, H - 9);
+      ctx.fillStyle = 'rgba(0,0,0,0.52)';
+      ctx.fillRect(W-128, 6, 122, 13);
+      ctx.fillStyle = '#00eeff'; ctx.globalAlpha = 0.92;
+      ctx.fillText(utc, W-8, 16);
 
-      /* Status pill — TOP CENTER */
-      var pill = 'SENTINEL ACTIVE';
+      /* ── Top-center: SENTINEL status pill ─── */
       ctx.textAlign   = 'center';
       ctx.fillStyle   = 'rgba(0,0,0,0.55)';
-      ctx.fillRect(W/2 - 68, 6, 136, 13);
-      ctx.fillStyle   = '#ffcc00';
-      ctx.shadowColor = '#ffcc00';
-      ctx.shadowBlur  = blink ? 6 : 2;
-      ctx.fillText(pill, W/2, 16);
+      ctx.fillRect(W/2-75, 6, 150, 13);
+      ctx.fillStyle   = blink ? '#ffcc00' : '#ffaa00';
+      ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = blink ? 8 : 2;
+      ctx.fillText('⬤ SENTINEL APEX ACTIVE — LIVE INTEL', W/2, 16);
 
-      /* Threat groups panel — bottom center */
-      var groups = ['APT-LAZARUS','APT-COZY','APT-FANCY','RANSOMWARE','ZERO-DAY'];
-      var gColors = ['#ff2244','#ff6600','#ffcc00','#ff4400','#ffffff'];
-      var panelW  = groups.length * 74 + 8;
-      var panelX  = (W - panelW) / 2;
-      var panelY  = H - 34;
-      ctx.fillStyle   = 'rgba(0,0,0,0.55)';
-      ctx.fillRect(panelX, panelY, panelW, 14);
+      /* ── Second bar: AI confidence + satellite count ─── */
+      ctx.shadowBlur  = 0; ctx.textAlign = 'left';
+      ctx.fillStyle   = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(6, 22, 340, 12);
+      ctx.font        = '8px "Courier New",monospace';
+      ctx.fillStyle   = '#00ff88'; ctx.globalAlpha = 0.85;
+      ctx.fillText('AI-CONF: ' + aiConf + '%', 10, 31);
+      ctx.fillStyle = 'rgba(140,180,200,0.6)';
+      ctx.fillText('|', 70, 31);
+      ctx.fillStyle = '#00ccff';
+      ctx.fillText('SATS: 4 ACTIVE', 76, 31);
+      ctx.fillStyle = 'rgba(140,180,200,0.6)';
+      ctx.fillText('|', 150, 31);
+      ctx.fillStyle = '#ffcc00';
+      ctx.fillText('STORMS: 3 DETECTED', 156, 31);
+      ctx.fillStyle = 'rgba(140,180,200,0.6)';
+      ctx.fillText('|', 248, 31);
+      ctx.fillStyle = '#cc44ff';
+      ctx.fillText('CONSTELLATIONS: 4', 254, 31);
+
+      /* ── Bottom-left: FPS telemetry ─── */
+      var fpsColor = fps >= 50 ? '#00ff88' : fps >= 30 ? '#ffcc00' : '#ff4444';
+      ctx.fillStyle = 'rgba(0,0,0,0.50)';
+      ctx.fillRect(6, H-18, 200, 12);
+      ctx.fillStyle = fpsColor; ctx.globalAlpha = 0.9;
+      ctx.font = 'bold 8px "Courier New",monospace';
+      ctx.fillText('FPS: ' + Math.round(fps) + '  AVG: ' + Math.round(avgFPS()) +
+                   '  ' + qMode + '-QUALITY', 10, H-9);
+
+      /* ── Bottom-right: LIVE threat status ─── */
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(0,0,0,0.50)';
+      ctx.fillRect(W-178, H-18, 172, 12);
+      ctx.fillStyle   = blink ? '#ff2244' : '#cc1133';
+      ctx.shadowColor = '#ff0033'; ctx.shadowBlur = blink ? 10 : 0;
+      ctx.fillText('⬤ LIVE — GLOBAL THREAT MONITOR', W-8, H-9);
+
+      /* ── APT group legend — bottom-center ─── */
+      var groups = [
+        ['LAZ','#ff2244'],['COZY','#ff6600'],['FANC','#ffcc00'],
+        ['SHAD','#cc44ff'],['C2','#00ff88'],['0DAY','#ffffff'],
+        ['WPR','#ff0066'],['SUP','#44ffcc']
+      ];
+      var gPanW  = groups.length * 52 + 8;
+      var gPanX  = (W - gPanW) / 2;
+      var gPanY  = H - 32;
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+      ctx.fillStyle  = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(gPanX, gPanY, gPanW, 14);
       ctx.strokeStyle = 'rgba(0,180,220,0.25)';
-      ctx.lineWidth   = 0.5;
-      ctx.strokeRect(panelX, panelY, panelW, 14);
-      for (var g = 0; g < groups.length; g++) {
-        var gx = panelX + 4 + g * 74;
+      ctx.lineWidth   = 0.5; ctx.strokeRect(gPanX, gPanY, gPanW, 14);
+      ctx.font = '6px "Courier New",monospace';
+      for (var gi = 0; gi < groups.length; gi++) {
+        var gx = gPanX + 4 + gi * 52;
+        ctx.fillStyle   = groups[gi][1];
+        ctx.shadowColor = groups[gi][1]; ctx.shadowBlur = 4;
         ctx.globalAlpha = 0.9;
-        ctx.fillStyle   = gColors[g];
-        ctx.shadowColor = gColors[g];
-        ctx.shadowBlur  = 4;
-        ctx.fillRect(gx, panelY + 4, 5, 6);
-        ctx.shadowBlur  = 0;
-        ctx.fillStyle   = 'rgba(160,190,210,0.7)';
+        ctx.fillRect(gx, gPanY + 4, 5, 6);
+        ctx.shadowBlur  = 0; ctx.globalAlpha = 0.7;
+        ctx.fillStyle   = 'rgba(160,190,210,0.8)';
         ctx.textAlign   = 'left';
-        ctx.font        = '6px "Courier New",monospace';
-        ctx.fillText(groups[g], gx + 7, panelY + 11);
+        ctx.fillText(groups[gi][0], gx + 7, gPanY + 11);
       }
       ctx.restore();
       updateFPS(fps);
@@ -16883,67 +17164,62 @@ a:focus-visible {
   })();
 
   /* ────────────────────────────────────────────────────────────────────────
-     §F: RENDERER CORE — State machine, boot, loop, observers
+     §F: RENDERER CORE — State machine, boot, RAF loop, observers
   ──────────────────────────────────────────────────────────────────────── */
   var startTime = performance.now();
-
-  function getCanvas()  { return document.getElementById('cdb-threat-canvas'); }
-  function getPanel()   { return document.getElementById('cdb-threat-map-panel'); }
-
-  /* Compute FPS from delta */
   var prevFrameMs = 0;
+
+  function getCanvas() { return document.getElementById('cdb-threat-canvas'); }
+  function getPanel()  { return document.getElementById('cdb-threat-map-panel'); }
+
   function computeFPS(now) {
     var delta = now - prevFrameMs;
     prevFrameMs = now;
     if (delta <= 0 || delta > 3000) return fpsSmooth;
-    var raw = 1000 / delta;
-    fpsSmooth = fpsSmooth * 0.92 + raw * 0.08;
+    fpsSmooth = fpsSmooth * 0.92 + (1000 / delta) * 0.08;
     return fpsSmooth;
   }
 
-  /* Adaptive quality */
   function updateQuality() {
-    if (fpsSmooth < LOW_FPS_THR && qualityMode === 'HIGH') {
-      qualityMode = 'LOW';
-      log('Adaptive: switching to LOW quality (FPS=' + Math.round(fpsSmooth) + ')');
+    if      (fpsSmooth < LOW_FPS_THR && qualityMode === 'HIGH') {
+      qualityMode = 'LOW';  log('Adaptive: LOW quality (FPS=' + Math.round(fpsSmooth) + ')');
     } else if (fpsSmooth > LOW_FPS_THR + 8 && qualityMode === 'LOW') {
-      qualityMode = 'HIGH';
-      log('Adaptive: restored HIGH quality (FPS=' + Math.round(fpsSmooth) + ')');
+      qualityMode = 'HIGH'; log('Adaptive: HIGH quality restored');
     }
   }
 
   function renderFrame(canvas, panel) {
-    var now = performance.now();
-    var t   = now - startTime;
-    var fps = computeFPS(now);
+    var now  = performance.now();
+    var t    = now - startTime;
+    var fps  = computeFPS(now);
     updateQuality();
     frameCount++;
-
-    /* ── Governance §G1: feed telemetry + liveness monitor ─────────────── */
     if (window.CDB_TELEMETRY) window.CDB_TELEMETRY.frame(now);
     if (window.CDB_RECOVERY)  window.CDB_RECOVERY.reportFrame(canvas);
 
-    /* CHROME FIX §A: Use cached dims — no canvas reset per frame */
-    var dims = { W: _cachedW / (_cachedDpr||1), H: _cachedH / (_cachedDpr||1), dpr: _cachedDpr||1, ctx: _cachedCtx || canvas.getContext('2d') };
-    if (!dims.ctx || dims.W < 10) return; /* Guard: skip frame if not ready */
-    if (!dims.ctx) { warn('Context lost — stopping loop'); stopLoop(); return; }
+    var dims = { W: _cachedW/(_cachedDpr||1), H: _cachedH/(_cachedDpr||1),
+                 dpr: _cachedDpr||1, ctx: _cachedCtx || canvas.getContext('2d') };
+    if (!dims.ctx || dims.W < 10) return;
+    var ctx = dims.ctx, W = dims.W, H = dims.H;
+    var pMax = qualityMode === 'HIGH' ? PARTICLE_MAX : 80;
 
-    var ctx = dims.ctx;
-    var W   = dims.W;
-    var H   = dims.H;
-    var pMax = qualityMode === 'HIGH' ? PARTICLE_MAX : 60;
-
-    /* — Draw pipeline (V166.1 CINEMATIC) — */
-    FXEngine.drawBackground(ctx, W, H);
-    FXEngine.drawThreatZones(ctx, W, H);      /* Nation-state danger overlays */
-    FXEngine.drawRadarSweep(ctx, W, H, t);    /* Global radar sweep */
+    /* ── V172 CINEMATIC DRAW PIPELINE ──────────────────────────────────── */
+    FXEngine.drawBackground(ctx, W, H, t);
+    FXEngine.drawHeatfields(ctx, W, H, t);
+    FXEngine.drawThreatZones(ctx, W, H, t);
+    OrbitalEngine.draw(ctx, W, H, t);
+    FXEngine.drawRadarSweep(ctx, W, H, t);
     FXEngine.drawCorridorPulse(ctx, W, H, t);
+    ConstellationEngine.draw(ctx, W, H, t);
+    FXEngine.drawWeatherCells(ctx, W, H, t);
     MapEngine.drawGrid(ctx, W, H);
     MapEngine.drawContours(ctx, W, H);
+    SatelliteEngine.draw(ctx, W, H, t);
     ThreatEngine.update(now, W, H, pMax);
     ThreatEngine.draw(ctx, now);
     MapEngine.drawCityNodes(ctx, W, H, t);
     FXEngine.drawScanlines(ctx, W, H, t);
+    FXEngine.drawStrategicWarfare(ctx, W, H, t);
     FXEngine.drawVignette(ctx, W, H);
     FXEngine.drawBorder(ctx, W, H, t);
     HUDEngine.drawHUD(ctx, W, H, t, fps, qualityMode);
@@ -16953,67 +17229,58 @@ a:focus-visible {
 
   function startLoop(canvas, panel) {
     if (STATE === 'RUNNING') return;
-    STATE = 'RUNNING';
-    log('Loop STARTED');
+    STATE = 'RUNNING'; log('Loop STARTED — V172 CINEMATIC ACTIVE');
     function tick() {
       if (STATE !== 'RUNNING') return;
       renderFrame(canvas, panel);
-      /* ── Governance §G2: use RAF ownership registry when available ─────── */
-      if (window.CDB_RAF && window.CDB_RAF.isOwner('CDB-V166')) {
-        loopId = window.CDB_RAF.request(tick, 'CDB-V166');
+      if (window.CDB_RAF && window.CDB_RAF.isOwner('CDB-V172')) {
+        loopId = window.CDB_RAF.request(tick, 'CDB-V172');
       } else {
         loopId = requestAnimationFrame(tick);
       }
     }
     loopId = requestAnimationFrame(tick);
-    /* Watchdog — restarts if loop stalls >5s */
     watchdogId = setInterval(function() {
       if (STATE !== 'RUNNING') return;
       if (performance.now() - lastFrameTs > WATCHDOG_MS) {
-        warn('Watchdog triggered — restarting loop');
-        stopLoop();
-        boot();
+        warn('Watchdog triggered — restarting');
+        stopLoop(); boot();
       }
     }, WATCHDOG_MS + 500);
   }
 
   function stopLoop() {
     STATE = 'PAUSED';
-    if (loopId)      { cancelAnimationFrame(loopId); loopId = null; }
-    if (watchdogId)  { clearInterval(watchdogId); watchdogId = null; }
+    if (loopId)    { cancelAnimationFrame(loopId); loopId = null; }
+    if (watchdogId){ clearInterval(watchdogId); watchdogId = null; }
   }
 
-  /* IntersectionObserver — pause when panel not visible */
   function setupIntersection(panel, canvas) {
     if (!('IntersectionObserver' in window)) { intersecting = true; return; }
     observer = new IntersectionObserver(function(entries) {
-      var isNowVisible = entries[0].isIntersecting;
-      if (isNowVisible && !intersecting) {
+      var vis = entries[0].isIntersecting;
+      if (vis && !intersecting) {
         intersecting = true;
         if (STATE === 'PAUSED') startLoop(canvas, panel);
         log('Panel visible — resuming');
-      } else if (!isNowVisible && intersecting) {
-        intersecting = false;
-        stopLoop();
-        log('Panel off-screen — paused');
+      } else if (!vis && intersecting) {
+        intersecting = false; stopLoop(); log('Panel off-screen — paused');
       }
     }, { threshold: 0.05 });
     observer.observe(panel);
   }
 
-  /* ResizeObserver — reflow canvas on resize */
   function setupResize(panel, canvas) {
     if (!('ResizeObserver' in window)) return;
     resizeObs = new ResizeObserver(function() {
       if (STATE === 'RUNNING') {
-        var dims = applySize(canvas, panel);
-        ThreatEngine.initArcs(dims.W, dims.H, ARC_COUNT);
+        var d = applySize(canvas, panel);
+        ThreatEngine.initArcs(d.W, d.H, ARC_COUNT);
       }
     });
     resizeObs.observe(panel);
   }
 
-  /* visibilitychange — Chrome throttles hidden tabs */
   function setupVisibility(canvas, panel) {
     document.addEventListener('visibilitychange', function() {
       if (document.hidden) {
@@ -17027,65 +17294,46 @@ a:focus-visible {
     });
   }
 
-  /* ── RC6: CHROME NUCLEAR CANVAS RESURRECTION ────────────────────────────
-     If Chrome's GPU compositor pre-promotion trap survived the CSS fix,
-     this function performs a DOM detach → restyle → re-attach cycle that
-     forces Chrome to release the stale GPU layer and create a fresh context.
-     Triggered: after NUCLEAR_DELAY_MS if frame count is still 0.
-  ──────────────────────────────────────────────────────────────────────── */
+  /* ── RC6: NUCLEAR CANVAS RESURRECTION ──────────────────────────────── */
   var _nuclearFired  = false;
-  var NUCLEAR_DELAY_MS = 4000; /* 4s — enough time for normal boot to succeed */
+  var NUCLEAR_DELAY_MS = 4500;
 
   function nuclearCanvasResurrection() {
     if (_nuclearFired) return;
-    if (frameCount > 0)  return; /* Already rendering — don't interfere */
+    if (frameCount > 0) return;
     _nuclearFired = true;
-    warn('[RC6-NUCLEAR] Chrome GPU pre-promotion trap detected — executing canvas resurrection');
-
-    var canvas = getCanvas();
-    var panel  = getPanel();
+    warn('[RC6-NUCLEAR] Chrome GPU pre-promotion trap — executing canvas resurrection');
+    var canvas = getCanvas(); var panel = getPanel();
     if (!canvas || !panel) { warn('[RC6-NUCLEAR] Elements gone — aborting'); return; }
-
     try {
-      /* Step 1: Stop any existing loop */
       stopLoop();
-
-      /* Step 2: Detach canvas from DOM — forces Chrome to release GPU layer */
-      var parent   = canvas.parentNode;
-      var nextSibling = canvas.nextSibling;
+      var parent = canvas.parentNode;
+      var nxt    = canvas.nextSibling;
       if (parent) parent.removeChild(canvas);
-
-      /* Step 3: Nuke all inline styles — clears any residual CSS state */
       canvas.removeAttribute('style');
-      canvas.width  = 1;
-      canvas.height = 1;
-
-      /* Step 4: Apply clean baseline CSS — no GPU hints at all (RC7: backface-visibility:visible) */
-      canvas.style.cssText = 'display:block;position:absolute;top:0;left:0;width:100%;height:100%;will-change:auto;transform:none;backface-visibility:visible;-webkit-backface-visibility:visible;';
-
-      /* Step 5: Re-attach after one animation frame — Chrome resets GPU layer */
+      canvas.width = 1; canvas.height = 1;
+      /* RC12 safe reset cssText — no box-shadow, no border-radius, no border */
+      canvas.style.cssText = [
+        'display:block','position:absolute','top:0','left:0',
+        'width:100%','height:100%','will-change:auto','transform:none',
+        'backface-visibility:visible','-webkit-backface-visibility:visible',
+        'box-shadow:none','border-radius:0','border:none','outline:none'
+      ].join(';') + ';';
       requestAnimationFrame(function() {
         if (parent) {
-          if (nextSibling) parent.insertBefore(canvas, nextSibling);
-          else parent.appendChild(canvas);
+          if (nxt) parent.insertBefore(canvas, nxt);
+          else     parent.appendChild(canvas);
         }
-
-        /* Step 6: Force layout reflow — ensures Chrome recalculates stacking */
         void canvas.offsetWidth;
-
-        /* Step 7: Invalidate dim cache and restart boot from scratch */
         _cachedW = 0; _cachedH = 0; _cachedDpr = 0; _cachedCtx = null;
         if (window.CDB_CANVAS) window.CDB_CANVAS.invalidate(canvas);
-        BOOT_TRIES = 0;
-        STATE = 'IDLE';
-
-        warn('[RC6-NUCLEAR] Canvas resurrected — rebooting renderer');
+        BOOT_TRIES = 0; STATE = 'IDLE';
+        warn('[RC6-NUCLEAR] Canvas resurrected — rebooting');
         setTimeout(boot, BOOT_DELAY);
       });
     } catch(e) {
-      warn('[RC6-NUCLEAR] Resurrection threw: ' + e.message + ' — falling back to plain reboot');
-      BOOT_TRIES = 0;
-      STATE = 'IDLE';
+      warn('[RC6-NUCLEAR] Threw: ' + e.message + ' — plain reboot');
+      BOOT_TRIES = 0; STATE = 'IDLE';
       setTimeout(boot, BOOT_DELAY);
     }
   }
@@ -17093,82 +17341,47 @@ a:focus-visible {
   /* ── BOOT ────────────────────────────────────────────────────────────── */
   function boot() {
     BOOT_TRIES++;
-    if (BOOT_TRIES > MAX_RETRIES) {
-      warn('Max retries reached — renderer DEAD');
-      STATE = 'DEAD';
-      return;
-    }
+    if (BOOT_TRIES > MAX_RETRIES) { warn('Max retries — DEAD'); STATE = 'DEAD'; return; }
+    var canvas = getCanvas(); var panel = getPanel();
+    if (!canvas || !panel) { warn('Elements missing — retry ' + BOOT_TRIES); setTimeout(boot, BOOT_DELAY); return; }
 
-    var canvas = getCanvas();
-    var panel  = getPanel();
-    if (!canvas || !panel) {
-      warn('Elements not found — retry ' + BOOT_TRIES);
-      setTimeout(boot, BOOT_DELAY);
-      return;
-    }
-
-    /* ── Governance §G3: compositor init + RAF + canvas ownership ──────── */
-    /* CDB_COMPOSITOR.init() enforces will-change:auto (RC3 pre-paint trap)  */
-    /* CDB_RAF.acquire() blocks any intruder engine from stealing the loop   */
-    /* CDB_CANVAS.claim() registers exclusive canvas ownership               */
+    /* Governance: compositor init + RAF + canvas ownership */
     if (window.CDB_COMPOSITOR) window.CDB_COMPOSITOR.init(canvas);
-    if (window.CDB_RAF)    window.CDB_RAF.acquire('CDB-V166');
-    if (window.CDB_CANVAS) window.CDB_CANVAS.claim('cdb-threat-canvas', 'CDB-V166');
+    if (window.CDB_RAF)    window.CDB_RAF.acquire('CDB-V172');
+    if (window.CDB_CANVAS) window.CDB_CANVAS.claim('cdb-threat-canvas', 'CDB-V172');
 
-    /* §A: Apply size — Chrome fix: explicit px on panel + canvas */
-    var dims = applySize(canvas, panel, true); /* forceReset on boot */
-    if (!dims.ctx) {
-      warn('2D context unavailable — retry ' + BOOT_TRIES);
-      setTimeout(boot, BOOT_DELAY);
-      return;
-    }
-    if (dims.W < 10 || dims.H < 20) {
-      warn('Invalid dims ' + dims.W + 'x' + dims.H + ' — retry ' + BOOT_TRIES);
-      setTimeout(boot, BOOT_DELAY);
-      return;
-    }
+    var dims = applySize(canvas, panel, true);
+    if (!dims.ctx) { warn('2D ctx null — retry ' + BOOT_TRIES); setTimeout(boot, BOOT_DELAY); return; }
+    if (dims.W < 10 || dims.H < 20) { warn('Bad dims ' + dims.W + 'x' + dims.H); setTimeout(boot, BOOT_DELAY); return; }
 
-    /* §E: Pre-paint flush — Chrome GPU layer gets content before compositor */
+    /* Pre-paint flush (§E) */
     dims.ctx.fillStyle = '#020a14';
     dims.ctx.fillRect(0, 0, dims.W, dims.H);
 
-    /* Init engines */
     ThreatEngine.initArcs(dims.W, dims.H, ARC_COUNT);
 
-    /* §F: GPU layer promotion AFTER first paint via nested RAF */
+    /* RC11: Double-RAF compositor stability — NO promote()/translateZ(0) */
     requestAnimationFrame(function() {
-      /* ── Governance §G4: use CDB_COMPOSITOR.promote() if available ──────
-         Falls back to inline RC3 implementation for resilience.            */
-      if (window.CDB_COMPOSITOR) {
-        window.CDB_COMPOSITOR.promote(canvas);
-      } else {
-        canvas.style.setProperty('transform',   'translateZ(0)', 'important');
-        canvas.style.setProperty('will-change', 'transform',     'important');
-      }
-      /* Second RAF: start loop after GPU layer committed to compositor */
       requestAnimationFrame(function() {
         setupIntersection(panel, canvas);
         setupResize(panel, canvas);
         setupVisibility(canvas, panel);
         startLoop(canvas, panel);
-        /* ── Governance §G5: attach self-healing recovery monitor ────────── */
         if (window.CDB_RECOVERY) {
           window.CDB_RECOVERY.attach(canvas, panel, function(c, p, reason) {
-            warn('CDB_RECOVERY triggered [' + reason + '] — rebooting renderer');
-            stopLoop();
-            BOOT_TRIES = 0; /* Reset retry counter for clean recovery attempt */
+            warn('CDB_RECOVERY [' + reason + '] — rebooting');
+            stopLoop(); BOOT_TRIES = 0;
             setTimeout(boot, 300);
           });
         }
-        log('Renderer ONLINE — Governance v168 active (5-engine system)');
-        /* Stamp GVOS into DOM */
-        var el = document.querySelector('.cdb-threat-map-label, .threat-map-title');
+        log('V172 ONLINE — 5-engine governance active | RC12 DEFINITIVE | Phase 7 visual dominance');
+        var el = document.querySelector('.cdb-threat-map-label,.threat-map-title');
         if (el) el.setAttribute('data-gvos', window.SENTINEL_GVOS.label);
       });
     });
   }
 
-  /* ── BOOT SCHEDULE — visibility guard ───────────────────────────────── */
+  /* ── BOOT SCHEDULE ───────────────────────────────────────────────────── */
   function schedBoot() {
     STATE = 'BOOTING';
     if (document.hidden) {
@@ -17176,30 +17389,26 @@ a:focus-visible {
         if (!document.hidden) {
           document.removeEventListener('visibilitychange', onVis);
           setTimeout(boot, BOOT_DELAY);
-          /* RC6: Schedule nuclear fallback for Chrome GPU trap */
           setTimeout(nuclearCanvasResurrection, NUCLEAR_DELAY_MS);
         }
       });
       return;
     }
     setTimeout(boot, BOOT_DELAY);
-    /* RC6: Chrome GPU pre-promotion trap nuclear fallback.
-       If after NUCLEAR_DELAY_MS still no frames rendered (frameCount === 0),
-       the resurrection fires and forces a clean GPU layer allocation.
-       It is a no-op if normal boot succeeded (frameCount > 0 check). */
     setTimeout(nuclearCanvasResurrection, NUCLEAR_DELAY_MS);
   }
 
-  /* ── ENTRY POINT ─────────────────────────────────────────────────────── */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', schedBoot);
   } else {
     schedBoot();
   }
 
-})();
+  log('V172 Renderer loaded — RC12 DEFINITIVE Chrome fix | Phase 7 visual dominance active');
+
+}()); /* end cdbV172 IIFE */
 </script>
-<!-- CDB-RENDERER-ENGINE-V166-END -->
+<!-- CDB-RENDERER-ENGINE-V172-END -->
 
 <!-- SENTINEL-APEX-v161-COMPONENT-UPGRADES-END -->
 
