@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// CYBERDUDEBIVASH SENTINEL APEX — Service Worker v165.0
-// GVOS: Global Version Orchestration System — single cache key source
+// CYBERDUDEBIVASH SENTINEL APEX — Service Worker v166.0
+// CDB-RENDERER-ENGINE-V166 — Pipeline-collision-proof cache governance
 // Force-update strategy: clears ALL old sentinel-apex-v* caches on deploy,
 // activates immediately (skipWaiting + clientsClaim).
 // CRITICAL: index.html is NEVER cached (always network-first, no-store).
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── GVOS: Single source of truth for cache version ──
-const CACHE_VERSION = 'sentinel-apex-v165-live';   // ← GVOS: bump on every deploy
+const CACHE_VERSION = 'sentinel-apex-v166-live';   // ← GVOS: bump on every deploy
 const CACHE_NAME    = CACHE_VERSION;
 
 // Assets to cache for offline use (non-HTML only)
@@ -18,13 +18,13 @@ const STATIC_ASSETS = [
 
 // ── Install: cache static assets, activate immediately ──
 self.addEventListener('install', event => {
-    console.log('[SW v165] Installing:', CACHE_VERSION);
+    console.log('[SW v166] Installing:', CACHE_VERSION);
     // Skip waiting immediately — no old SW holdout
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
             return cache.addAll(STATIC_ASSETS).catch(err => {
-                console.warn('[SW v164] Pre-cache failed (non-fatal):', err);
+                console.warn('[SW v166] Pre-cache failed (non-fatal):', err);
             });
         })
     );
@@ -32,14 +32,14 @@ self.addEventListener('install', event => {
 
 // ── Activate: purge ALL stale sentinel-apex-v* caches ──
 self.addEventListener('activate', event => {
-    console.log('[SW v165] Activating:', CACHE_VERSION);
+    console.log('[SW v166] Activating:', CACHE_VERSION);
     event.waitUntil(
         caches.keys().then(keys => {
             return Promise.all(
                 keys
                     .filter(key => key.startsWith('sentinel-apex-') && key !== CACHE_NAME)
                     .map(key => {
-                        console.log('[SW v165] Purging stale cache:', key);
+                        console.log('[SW v166] Purging stale cache:', key);
                         return caches.delete(key);
                     })
             );
@@ -53,7 +53,7 @@ self.addEventListener('activate', event => {
 // ── Message handler: SKIP_WAITING + version query support ──
 self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
-        console.log('[SW v165] SKIP_WAITING received — forcing activation');
+        console.log('[SW v166] SKIP_WAITING received — forcing activation');
         self.skipWaiting();
     }
     if (event.data && event.data.type === 'GET_VERSION') {
@@ -66,7 +66,7 @@ self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
 
     // CRITICAL: NEVER cache HTML files, dynamic feeds, or API endpoints.
-    // Chrome desktop was serving stale pre-v163 index.html via SW cache.
+    // Chrome desktop was serving stale index.html via SW cache.
     // This ensures every page load gets the latest production build.
     if (
         url.pathname === '/'                          ||
