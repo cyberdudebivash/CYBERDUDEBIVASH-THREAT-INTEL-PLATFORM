@@ -16001,24 +16001,36 @@ a:focus-visible {
 /* --- v161 ENTERPRISE COMPONENT UPGRADES END -------------------------------- */
 </style>
 
-<!-- CDB-RENDER-GOVERNANCE-ENGINES-v169-START -->
+<!-- CDB-RENDER-GOVERNANCE-ENGINES-v170-START -->
 <!-- Load order: gpu-tier → compositor → RAF → canvas → telemetry → recovery -->
 <!-- Each engine is an IIFE that exposes a window.CDB_* API.                 -->
-<!-- V169 wires in gracefully: if API absent, falls back to raw primitives.  -->
+<!-- V170 wires in gracefully: if API absent, falls back to raw primitives.  -->
+<!-- RC7 FIX: compositor-governance-engine.js v170 — backface-visibility     -->
+<!--   changed from 'hidden' (Chrome GPU pre-promotion trigger) to           -->
+<!--   'visible !important' in init() and safeMode(). This eliminates the    -->
+<!--   second Chrome compositor empty-layer trap that survived RC3/RC6.      -->
 <script src="/js/engines/gpu-tier-engine.js"></script>
 <script src="/js/engines/compositor-governance-engine.js"></script>
 <script src="/js/engines/renderer-governance-engine.js"></script>
 <script src="/js/engines/canvas-lifecycle-engine.js"></script>
 <script src="/js/engines/telemetry-engine.js"></script>
 <script src="/js/engines/renderer-recovery-engine.js"></script>
-<!-- CDB-RENDER-GOVERNANCE-ENGINES-v169-END -->
+<!-- CDB-RENDER-GOVERNANCE-ENGINES-v170-END -->
 
 <!-- CDB-RENDERER-ENGINE-V166-START -->
 <style>
-/* ── CDB-RENDERER-ENGINE-V166 §1: CHROME-DEFINITIVE PANEL + CANVAS CSS ─────── */
+/* ── CDB-RENDERER-ENGINE-V166 §1: CHROME-DEFINITIVE PANEL + CANVAS CSS v170 ── */
 /* CRITICAL: Panel must have explicit height (not min-height) for Chrome GPU.   */
-/* Canvas has NO height/width in CSS — JS setProperty('important') owns sizing. */
-/* NO backface-visibility / will-change here — applied post-paint via JS RAF.   */
+/* RC7 FIX: backface-visibility:visible !important BLOCKS Chrome's second GPU   */
+/*   compositor pre-promotion trigger (backface-visibility:hidden was triggering */
+/*   an EMPTY compositor layer before first paint — same class as RC3 but via   */
+/*   a different CSS property). Edge ignores this; Chrome does not.             */
+/* RC8 FIX: Remove image-rendering:crisp-edges / -webkit-optimize-contrast —   */
+/*   these override Chrome's default canvas rasterization path and cause        */
+/*   texture upload failures when the canvas is inside overflow:hidden+absolute. */
+/* RC9 FIX: Explicit width:100% + height:100% override Layer-6 clamp() rules   */
+/*   so CSS dimensions match JS-computed dims from day 0, eliminating the        */
+/*   compositor resize invalidation on first paint.                              */
 #cdb-threat-map-panel {
   contain: none !important;
   height: 340px !important;
@@ -16033,10 +16045,14 @@ a:focus-visible {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
-  /* NO height / width / backface-visibility / will-change — JS owns these */
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
-  will-change: auto !important; /* RC3: Override pre-paint GPU compositor trap */
+  width: 100% !important;                         /* RC9: override Layer-6 width:100% clamp */
+  height: 100% !important;                        /* RC9: override Layer-6 height clamp()   */
+  will-change: auto !important;                   /* RC3: block pre-paint GPU promotion     */
+  transform: none !important;                     /* RC6: clear any stale transform cascade */
+  backface-visibility: visible !important;        /* RC7: block backface-visibility trigger */
+  -webkit-backface-visibility: visible !important;/* RC7: WebKit path covered too           */
+  /* NO image-rendering — RC8: removed crisp-edges/-webkit-optimize-contrast    */
+  /* Chrome rasterization path conflict eliminated.                              */
 }
 </style>
 
@@ -16045,15 +16061,20 @@ a:focus-visible {
    CDB-RENDERER-ENGINE-V166
    GOD-TIER CINEMATIC THREAT ENGINE — FULL CHROME/EDGE/FIREFOX/SAFARI/MOBILE
    ----------------------------------------------------------------------------
-   Chrome Fixes (ALL v165 fixes preserved + hardened):
+   Chrome Fixes (ALL v165-v169 fixes preserved + v170 hardened):
    A. Panel explicit height (not min-height) → offsetHeight never 0
-   B. Canvas CSS has no height/width → no height:100% containing-block trap
+   B. Canvas CSS width:100%/height:100% (RC9) → overrides Layer-6 clamp — no dim mismatch
    C. JS setProperty(...,'important') overrides any stylesheet height
-   D. No CSS backface-visibility/will-change → no GPU pre-paint empty texture
+   D. backface-visibility:visible !important (RC7) → eliminates SECOND Chrome compositor
+      pre-promotion trigger that survived RC3/RC6. backface-visibility:hidden was causing
+      Chrome to pre-allocate an EMPTY GPU layer BEFORE first paint. Edge ignores this on
+      canvas; Chrome does not. Now fully blocked at CSS + JS engine level.
    E. Pre-paint flush (fillRect) before GPU layer promotion
    F. GPU layer promotion (translateZ + will-change) AFTER first paint via RAF
    G. visibilitychange guard — Chrome throttles hidden-tab RAF
    H. IntersectionObserver — pause rendering when panel off-screen
+   RC8. Removed image-rendering:crisp-edges/-webkit-optimize-contrast from canvas CSS —
+        these caused Chrome rasterization path conflicts inside overflow:hidden containers
    I. ResizeObserver — reflow canvas on container resize
    J. Context loss recovery — getContext null detection + retry
    K. Watchdog — auto-restart on stall detection
@@ -16067,10 +16088,10 @@ a:focus-visible {
 
   /* ── GVOS: Global Version Orchestration System ──────────────────────────── */
   window.SENTINEL_GVOS = {
-    version   : '169.0.0',
-    buildId   : '2026.05.19-APEX-V169',
-    cacheKey  : 'sentinel-apex-v169-live',
-    label     : 'CDB-SENTINEL v169',
+    version   : '170.0.0',
+    buildId   : '2026.05.19-APEX-V170',
+    cacheKey  : 'sentinel-apex-v170-live',
+    label     : 'CDB-SENTINEL v170',
     runtime   : 'GPU-GOVERNED',
     classified: 'TOP SECRET // SI // TK // NOFORN'
   };
@@ -17039,8 +17060,8 @@ a:focus-visible {
       canvas.width  = 1;
       canvas.height = 1;
 
-      /* Step 4: Apply clean baseline CSS — no GPU hints at all */
-      canvas.style.cssText = 'display:block;position:absolute;top:0;left:0;will-change:auto;transform:none;';
+      /* Step 4: Apply clean baseline CSS — no GPU hints at all (RC7: backface-visibility:visible) */
+      canvas.style.cssText = 'display:block;position:absolute;top:0;left:0;width:100%;height:100%;will-change:auto;transform:none;backface-visibility:visible;-webkit-backface-visibility:visible;';
 
       /* Step 5: Re-attach after one animation frame — Chrome resets GPU layer */
       requestAnimationFrame(function() {
