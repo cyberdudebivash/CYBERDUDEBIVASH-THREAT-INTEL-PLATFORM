@@ -1,0 +1,132 @@
+{
+  "type": "bundle",
+  "id": "bundle--55d7bd91-99d7-4ef6-be78-e387c9312179",
+  "objects": [
+    {
+      "type": "identity",
+      "spec_version": "2.1",
+      "id": "identity--cyberdudebivash-sentinel-apex-v30",
+      "name": "CyberDudeBivash SENTINEL APEX",
+      "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
+      "identity_class": "organization",
+      "sectors": [
+        "technology"
+      ],
+      "contact_information": "bivash@cyberdudebivash.com",
+      "created": "2024-01-01T00:00:00Z",
+      "modified": "2024-01-01T00:00:00Z"
+    },
+    {
+      "type": "marking-definition",
+      "spec_version": "2.1",
+      "id": "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a",
+      "created": "2017-01-20T00:00:00.000Z",
+      "definition_type": "tlp",
+      "definition": {
+        "tlp": "green"
+      }
+    },
+    {
+      "type": "intrusion-set",
+      "spec_version": "2.1",
+      "id": "intrusion-set--f7d11582-873c-4b0d-b4b5-452b2bc14ef0",
+      "name": "CDB-CVE-GEN Campaign",
+      "description": "MiniPlasma Windows 0-Day Enables SYSTEM Privilege Escalation on Fully Patched Systems",
+      "created": "2026-05-19T11:03:18Z",
+      "modified": "2026-05-19T11:03:18Z",
+      "confidence": 27,
+      "aliases": [
+        "CDB-CVE-GEN"
+      ],
+      "extensions": {
+        "x-cdb-apex-1": {
+          "predictive_score": 5.5,
+          "campaign_id": "UNCLASSIFIED",
+          "campaign_confidence": 5.5,
+          "threat_category": "Zero Day Exploit",
+          "behavioral_tags": [],
+          "ai_summary": "Initial access via zero day → execution chain: privilege escalation",
+          "risk_factors": [
+            "IOC_density",
+            "MITRE_coverage",
+            "exploitation_context"
+          ],
+          "soc_priority": "P3",
+          "threat_level": "MEDIUM",
+          "recommended_action": "Medium severity threat (score 5.5/10) — limited technical indicators in source data",
+          "x_cdb_published_at": "2026-05-18T14:27:34Z"
+        }
+      },
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--6425243e-1a2c-409f-89c4-370b331c9556",
+      "name": "Malicious Domain: cldflt.sys",
+      "pattern": "[domain-name:value = 'cldflt.sys']",
+      "pattern_type": "stix",
+      "valid_from": "2026-05-19T11:03:18Z",
+      "created": "2026-05-19T11:03:18Z",
+      "modified": "2026-05-19T11:03:18Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 27,
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--1c437703-8052-450a-b743-7b54570f02ba",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--6425243e-1a2c-409f-89c4-370b331c9556",
+      "target_ref": "intrusion-set--f7d11582-873c-4b0d-b4b5-452b2bc14ef0",
+      "created": "2026-05-19T11:03:18Z",
+      "modified": "2026-05-19T11:03:18Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--79a30a67-44e2-4353-9eae-285dfe2f8af5",
+      "name": "Exploitation for Privilege Escalation",
+      "created": "2026-05-19T11:03:18Z",
+      "modified": "2026-05-19T11:03:18Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1068",
+          "url": "https://attack.mitre.org/techniques/T1068/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--7217e624-4411-4a1d-b303-1dd3fcc6d999",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--f7d11582-873c-4b0d-b4b5-452b2bc14ef0",
+      "target_ref": "attack-pattern--79a30a67-44e2-4353-9eae-285dfe2f8af5",
+      "created": "2026-05-19T11:03:18Z",
+      "modified": "2026-05-19T11:03:18Z",
+      "object_marking_refs": [
+        "marking-definition--34098fce-860f-479c-ad6f-e09814c4f58a"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    }
+  ]
+}

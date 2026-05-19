@@ -1,0 +1,423 @@
+{
+  "type": "bundle",
+  "id": "bundle--d5f74521-0242-42db-adc3-6c0091a509c0",
+  "objects": [
+    {
+      "type": "identity",
+      "spec_version": "2.1",
+      "id": "identity--cyberdudebivash-sentinel-apex-v30",
+      "name": "CyberDudeBivash SENTINEL APEX",
+      "description": "CyberDudeBivash Pvt. Ltd. - Global Cybersecurity Intelligence Infrastructure",
+      "identity_class": "organization",
+      "sectors": [
+        "technology"
+      ],
+      "contact_information": "bivash@cyberdudebivash.com",
+      "created": "2024-01-01T00:00:00Z",
+      "modified": "2024-01-01T00:00:00Z"
+    },
+    {
+      "type": "marking-definition",
+      "spec_version": "2.1",
+      "id": "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed",
+      "created": "2017-01-20T00:00:00.000Z",
+      "definition_type": "tlp",
+      "definition": {
+        "tlp": "red"
+      }
+    },
+    {
+      "type": "intrusion-set",
+      "spec_version": "2.1",
+      "id": "intrusion-set--9718bab0-eca5-439d-82b1-acf086620cde",
+      "name": "CDB-APT-GEN Campaign",
+      "description": "CVE-2025-68670: discovering an RCE vulnerability in xrdp",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "confidence": 52,
+      "aliases": [
+        "CDB-APT-GEN"
+      ],
+      "extensions": {
+        "x-cdb-apex-1": {
+          "predictive_score": 10.0,
+          "campaign_id": "UNCLASSIFIED",
+          "campaign_confidence": 10.0,
+          "threat_category": "Remote Code Execution",
+          "behavioral_tags": [],
+          "ai_summary": "Initial access via rce → execution chain: lateral movement",
+          "risk_factors": [
+            "EPSS_score",
+            "IOC_density",
+            "MITRE_coverage",
+            "exploitation_context"
+          ],
+          "soc_priority": "P1",
+          "threat_level": "MEDIUM",
+          "recommended_action": "Critical severity threat (score 10.0/10) — limited technical indicators in source data",
+          "x_cdb_published_at": "2026-05-08T08:00:54Z"
+        }
+      },
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "indicator",
+      "spec_version": "2.1",
+      "id": "indicator--fbb88907-9472-446b-b3ff-66de520ab4f6",
+      "name": "Malicious Artifact: mstsc.exe",
+      "pattern": "[file:name = 'mstsc.exe']",
+      "pattern_type": "stix",
+      "valid_from": "2026-05-19T11:14:23Z",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "indicator_types": [
+        "malicious-activity"
+      ],
+      "confidence": 52,
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--417d3eae-082a-4de8-a542-cac878ab53c3",
+      "relationship_type": "indicates",
+      "source_ref": "indicator--fbb88907-9472-446b-b3ff-66de520ab4f6",
+      "target_ref": "intrusion-set--9718bab0-eca5-439d-82b1-acf086620cde",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--8067b230-29d0-402b-8dcf-09e8a67311f2",
+      "name": "Valid Accounts",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1078",
+          "url": "https://attack.mitre.org/techniques/T1078/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--984bccfe-42b4-4ca7-bea7-76c46d4a7e63",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--9718bab0-eca5-439d-82b1-acf086620cde",
+      "target_ref": "attack-pattern--8067b230-29d0-402b-8dcf-09e8a67311f2",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--8c99d97d-ffe9-49e3-a4ff-a6acabbe2aec",
+      "name": "Exploitation for Client Execution",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1203",
+          "url": "https://attack.mitre.org/techniques/T1203/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--ed6d32cf-0f53-4260-bdf1-4b4951e90072",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--9718bab0-eca5-439d-82b1-acf086620cde",
+      "target_ref": "attack-pattern--8c99d97d-ffe9-49e3-a4ff-a6acabbe2aec",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--79705a57-9193-4276-b3f7-78355e49b7f5",
+      "name": "Credentials from Password Stores",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1555",
+          "url": "https://attack.mitre.org/techniques/T1555/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--7bf832c0-5bcb-4d8a-9601-02798290bad8",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--9718bab0-eca5-439d-82b1-acf086620cde",
+      "target_ref": "attack-pattern--79705a57-9193-4276-b3f7-78355e49b7f5",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--bc4fc911-b0c6-48f1-bccc-0c51eed8af33",
+      "name": "Remote Desktop Protocol",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1021.001",
+          "url": "https://attack.mitre.org/techniques/T1021/001/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--ff02f005-b5a4-4b2f-b9fa-ff1d8594a8f9",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--9718bab0-eca5-439d-82b1-acf086620cde",
+      "target_ref": "attack-pattern--bc4fc911-b0c6-48f1-bccc-0c51eed8af33",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "attack-pattern",
+      "spec_version": "2.1",
+      "id": "attack-pattern--fd0d3787-9e28-4565-bd22-4c523cffa5c8",
+      "name": "Application Layer Protocol",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "T1071",
+          "url": "https://attack.mitre.org/techniques/T1071/"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--43c43f39-70b2-4ceb-872e-8d1645fcc989",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--9718bab0-eca5-439d-82b1-acf086620cde",
+      "target_ref": "attack-pattern--fd0d3787-9e28-4565-bd22-4c523cffa5c8",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "id": "vulnerability--9aa2d5f4-aa37-4da9-810e-18b29a84e713",
+      "name": "CVE-2025-68670",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2025-68670",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2025-68670"
+        }
+      ],
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "x_cdb_epss_score": 0.16
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--6f4b314b-8964-4dbf-9bc7-9c4583d1bd35",
+      "relationship_type": "exploits",
+      "source_ref": "intrusion-set--9718bab0-eca5-439d-82b1-acf086620cde",
+      "target_ref": "vulnerability--9aa2d5f4-aa37-4da9-810e-18b29a84e713",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--3c537c78-8488-421d-96c4-55e566184a55",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--9aa2d5f4-aa37-4da9-810e-18b29a84e713",
+      "target_ref": "attack-pattern--8067b230-29d0-402b-8dcf-09e8a67311f2",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--dc9bd758-1d2c-480b-9b70-1b0bb1b1f39f",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--9aa2d5f4-aa37-4da9-810e-18b29a84e713",
+      "target_ref": "attack-pattern--8c99d97d-ffe9-49e3-a4ff-a6acabbe2aec",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--5ccf9372-5788-48a3-9b01-5858ac606699",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--9aa2d5f4-aa37-4da9-810e-18b29a84e713",
+      "target_ref": "attack-pattern--79705a57-9193-4276-b3f7-78355e49b7f5",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "vulnerability",
+      "spec_version": "2.1",
+      "id": "vulnerability--bf7ce842-0f18-48a3-bf22-f32205595b7c",
+      "name": "CVE-2025-68670",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "external_references": [
+        {
+          "source_name": "cve",
+          "external_id": "CVE-2025-68670",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2025-68670"
+        }
+      ],
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30",
+      "x_cdb_epss_score": 0.16
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--fe21a089-d592-4ba4-b4b7-488c702e2931",
+      "relationship_type": "exploits",
+      "source_ref": "intrusion-set--9718bab0-eca5-439d-82b1-acf086620cde",
+      "target_ref": "vulnerability--bf7ce842-0f18-48a3-bf22-f32205595b7c",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--685d55b2-400c-4e72-8c28-706501699b05",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--bf7ce842-0f18-48a3-bf22-f32205595b7c",
+      "target_ref": "attack-pattern--8067b230-29d0-402b-8dcf-09e8a67311f2",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--9d082a59-cde7-4ef3-869a-10f4c649d668",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--bf7ce842-0f18-48a3-bf22-f32205595b7c",
+      "target_ref": "attack-pattern--8c99d97d-ffe9-49e3-a4ff-a6acabbe2aec",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    },
+    {
+      "type": "relationship",
+      "spec_version": "2.1",
+      "id": "relationship--19e61612-d705-4e5d-8891-42ca5139a42d",
+      "relationship_type": "targets",
+      "source_ref": "vulnerability--bf7ce842-0f18-48a3-bf22-f32205595b7c",
+      "target_ref": "attack-pattern--79705a57-9193-4276-b3f7-78355e49b7f5",
+      "created": "2026-05-19T11:14:23Z",
+      "modified": "2026-05-19T11:14:23Z",
+      "description": "CVE exploited via mapped ATT&CK technique",
+      "object_marking_refs": [
+        "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed"
+      ],
+      "created_by_ref": "identity--cyberdudebivash-sentinel-apex-v30"
+    }
+  ]
+}
