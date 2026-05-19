@@ -14882,6 +14882,18 @@ canvas { height: auto; }
 .cta-sticky-bar {
   will-change: transform;
 }
+/* RC6 v169: NEUTRALIZE v159 will-change:transform on canvas immediately.
+   Chrome GPU compositor reads will-change:transform during initial CSS parse
+   and PRE-PROMOTES canvas to a separate GPU layer BEFORE JS runs.
+   When JS later sets will-change:auto (RC3), Chrome has a compositor conflict:
+   promoted layer + auto hint = blank canvas. Edge handles this conflict
+   differently, which is why Edge renders while Chrome is blank.
+   Fix: Override IMMEDIATELY after the v159 rule in the same cascade pass.
+   Chrome sees will-change:auto as the final resolved value — no pre-promotion. */
+#cdb-threat-canvas {
+  will-change: auto !important;
+  transform: none !important;
+}
 .animated-bg,
 .badge-pulse,
 .pulse {
@@ -15989,16 +16001,17 @@ a:focus-visible {
 /* --- v161 ENTERPRISE COMPONENT UPGRADES END -------------------------------- */
 </style>
 
-<!-- CDB-RENDER-GOVERNANCE-ENGINES-v168-START -->
-<!-- Load order: compositor → RAF → canvas → telemetry → recovery            -->
+<!-- CDB-RENDER-GOVERNANCE-ENGINES-v169-START -->
+<!-- Load order: gpu-tier → compositor → RAF → canvas → telemetry → recovery -->
 <!-- Each engine is an IIFE that exposes a window.CDB_* API.                 -->
-<!-- V166 wires in gracefully: if API absent, falls back to raw primitives.  -->
+<!-- V169 wires in gracefully: if API absent, falls back to raw primitives.  -->
+<script src="/js/engines/gpu-tier-engine.js"></script>
 <script src="/js/engines/compositor-governance-engine.js"></script>
 <script src="/js/engines/renderer-governance-engine.js"></script>
 <script src="/js/engines/canvas-lifecycle-engine.js"></script>
 <script src="/js/engines/telemetry-engine.js"></script>
 <script src="/js/engines/renderer-recovery-engine.js"></script>
-<!-- CDB-RENDER-GOVERNANCE-ENGINES-v168-END -->
+<!-- CDB-RENDER-GOVERNANCE-ENGINES-v169-END -->
 
 <!-- CDB-RENDERER-ENGINE-V166-START -->
 <style>
@@ -16054,11 +16067,11 @@ a:focus-visible {
 
   /* ── GVOS: Global Version Orchestration System ──────────────────────────── */
   window.SENTINEL_GVOS = {
-    version   : '168.0.0',
-    buildId   : '2026.05.19-APEX-V168',
-    cacheKey  : 'sentinel-apex-v168-live',
-    label     : 'CDB-SENTINEL v168',
-    runtime   : 'GOVERNANCE-SYNCHRONIZED',
+    version   : '169.0.0',
+    buildId   : '2026.05.19-APEX-V169',
+    cacheKey  : 'sentinel-apex-v169-live',
+    label     : 'CDB-SENTINEL v169',
+    runtime   : 'GPU-GOVERNED',
     classified: 'TOP SECRET // SI // TK // NOFORN'
   };
 
@@ -16778,7 +16791,8 @@ a:focus-visible {
       ctx.fillRect(6, 6, 220, 13);
       ctx.fillStyle   = '#00eeff';
       ctx.globalAlpha = 0.9;
-      ctx.fillText('CDB-SENTINEL v168  |  BUILD: 2026.05.19-APEX-V168  |  GOVERNANCE: ACTIVE', 10, 16);
+      var gpuTier = window.CDB_GPU_TIER ? ('GPU-T' + (window.CDB_GPU_TIER.tier||'?')) : 'GPU-AUTO';
+      ctx.fillText('CDB-SENTINEL v169  |  BUILD: 2026.05.19-APEX-V169  |  ' + gpuTier + '  |  RC6:ACTIVE', 10, 16);
 
       /* Top-right: UTC clock */
       ctx.textAlign = 'right';
@@ -16992,6 +17006,69 @@ a:focus-visible {
     });
   }
 
+  /* ── RC6: CHROME NUCLEAR CANVAS RESURRECTION ────────────────────────────
+     If Chrome's GPU compositor pre-promotion trap survived the CSS fix,
+     this function performs a DOM detach → restyle → re-attach cycle that
+     forces Chrome to release the stale GPU layer and create a fresh context.
+     Triggered: after NUCLEAR_DELAY_MS if frame count is still 0.
+  ──────────────────────────────────────────────────────────────────────── */
+  var _nuclearFired  = false;
+  var NUCLEAR_DELAY_MS = 4000; /* 4s — enough time for normal boot to succeed */
+
+  function nuclearCanvasResurrection() {
+    if (_nuclearFired) return;
+    if (frameCount > 0)  return; /* Already rendering — don't interfere */
+    _nuclearFired = true;
+    warn('[RC6-NUCLEAR] Chrome GPU pre-promotion trap detected — executing canvas resurrection');
+
+    var canvas = getCanvas();
+    var panel  = getPanel();
+    if (!canvas || !panel) { warn('[RC6-NUCLEAR] Elements gone — aborting'); return; }
+
+    try {
+      /* Step 1: Stop any existing loop */
+      stopLoop();
+
+      /* Step 2: Detach canvas from DOM — forces Chrome to release GPU layer */
+      var parent   = canvas.parentNode;
+      var nextSibling = canvas.nextSibling;
+      if (parent) parent.removeChild(canvas);
+
+      /* Step 3: Nuke all inline styles — clears any residual CSS state */
+      canvas.removeAttribute('style');
+      canvas.width  = 1;
+      canvas.height = 1;
+
+      /* Step 4: Apply clean baseline CSS — no GPU hints at all */
+      canvas.style.cssText = 'display:block;position:absolute;top:0;left:0;will-change:auto;transform:none;';
+
+      /* Step 5: Re-attach after one animation frame — Chrome resets GPU layer */
+      requestAnimationFrame(function() {
+        if (parent) {
+          if (nextSibling) parent.insertBefore(canvas, nextSibling);
+          else parent.appendChild(canvas);
+        }
+
+        /* Step 6: Force layout reflow — ensures Chrome recalculates stacking */
+        void canvas.offsetWidth;
+
+        /* Step 7: Invalidate dim cache and restart boot from scratch */
+        _cachedW = 0; _cachedH = 0; _cachedDpr = 0; _cachedCtx = null;
+        if (window.CDB_CANVAS) window.CDB_CANVAS.invalidate(canvas);
+        BOOT_TRIES = 0;
+        STATE = 'IDLE';
+
+        warn('[RC6-NUCLEAR] Canvas resurrected — rebooting renderer');
+        setTimeout(boot, BOOT_DELAY);
+      });
+    } catch(e) {
+      warn('[RC6-NUCLEAR] Resurrection threw: ' + e.message + ' — falling back to plain reboot');
+      BOOT_TRIES = 0;
+      STATE = 'IDLE';
+      setTimeout(boot, BOOT_DELAY);
+    }
+  }
+
   /* ── BOOT ────────────────────────────────────────────────────────────── */
   function boot() {
     BOOT_TRIES++;
@@ -17078,11 +17155,18 @@ a:focus-visible {
         if (!document.hidden) {
           document.removeEventListener('visibilitychange', onVis);
           setTimeout(boot, BOOT_DELAY);
+          /* RC6: Schedule nuclear fallback for Chrome GPU trap */
+          setTimeout(nuclearCanvasResurrection, NUCLEAR_DELAY_MS);
         }
       });
       return;
     }
     setTimeout(boot, BOOT_DELAY);
+    /* RC6: Chrome GPU pre-promotion trap nuclear fallback.
+       If after NUCLEAR_DELAY_MS still no frames rendered (frameCount === 0),
+       the resurrection fires and forces a clean GPU layer allocation.
+       It is a no-op if normal boot succeeded (frameCount > 0 check). */
+    setTimeout(nuclearCanvasResurrection, NUCLEAR_DELAY_MS);
   }
 
   /* ── ENTRY POINT ─────────────────────────────────────────────────────── */
