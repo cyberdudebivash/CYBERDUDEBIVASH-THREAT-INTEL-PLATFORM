@@ -93,15 +93,20 @@ else:
 print()
 
 # CHECK 2: MANIFEST_URLS must not contain banned sources
+# v158.0.1 HARDENING: use findall + select the LARGEST block to defend against
+# component-local MANIFEST_URLS declarations (e.g. EICC engine) appearing before
+# the main dashboard block. The main MANIFEST_URLS is always the largest block.
 print('CHECK 2: MANIFEST_URLS must not contain banned sources')
 print('         APPROVED: WORKER_PREVIEW_URL | api/feed.json | raw.githubusercontent.com (FALLBACK2)')
-manifest_block_match = re.search(
+_all_manifest_blocks = re.findall(
     r'var MANIFEST_URLS\s*=\s*\[(.*?)\];',
     content,
     re.DOTALL
 )
-if manifest_block_match:
-    block = manifest_block_match.group(1)
+manifest_block_match = bool(_all_manifest_blocks)
+if _all_manifest_blocks:
+    # Select the LARGEST block — this is always the main dashboard MANIFEST_URLS
+    block = max(_all_manifest_blocks, key=len)
     lines = [l.strip() for l in block.split('\n')
              if l.strip() and not l.strip().startswith('//') and not l.strip().startswith('#')]
 
@@ -136,7 +141,7 @@ print()
 # CHECK 2b: api/feed.json MUST be present as FALLBACK1
 print('CHECK 2b: api/feed.json same-domain fallback must be present (FALLBACK1 regression guard)')
 if manifest_block_match:
-    block_2b = manifest_block_match.group(1)
+    block_2b = block  # 'block' is already the largest MANIFEST_URLS block
     if "'api/feed.json'" in block_2b or '"api/feed.json"' in block_2b:
         ok('api/feed.json FALLBACK1 present -- P0 regression guard active')
     else:
@@ -151,7 +156,7 @@ print()
 # CHECK 2c: raw.githubusercontent.com MUST be present as FALLBACK2
 print('CHECK 2c: raw.githubusercontent.com FALLBACK2 must be present (v147.0 reliability guard)')
 if manifest_block_match:
-    block_2c = manifest_block_match.group(1)
+    block_2c = block  # 'block' is already the largest MANIFEST_URLS block
     if 'raw.githubusercontent.com' in block_2c:
         ok('raw.githubusercontent.com FALLBACK2 present -- 3rd-tier bypass active')
     else:

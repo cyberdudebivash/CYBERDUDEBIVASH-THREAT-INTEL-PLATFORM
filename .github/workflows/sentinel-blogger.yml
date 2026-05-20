@@ -93,13 +93,16 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PIPELINE_VERSION: "156.3.0"
+  PIPELINE_VERSION: "158.0.1"
   PYTHONIOENCODING: "utf-8"
   PYTHONUTF8: "1"
 
-# Only ONE data-writing workflow at a time - prevents manifest corruption
+# ENTERPRISE DEPLOYMENT GOVERNANCE (v158.0.1):
+# Serialized production deployments — only ONE pipeline runs at a time.
+# cancel-in-progress: false ensures in-flight deploys are NEVER interrupted.
+# This prevents manifest corruption, artifact races, and partial deploys.
 concurrency:
-  group: sentinel-data-writer
+  group: sentinel-apex-production
   cancel-in-progress: false
 
 jobs:
@@ -768,9 +771,10 @@ jobs:
         run: python3 scripts/api_dashboard_contract_validator.py
 
       # -----------------------------------------------------------------------
-      # STAGE 3.92: DASHBOARD FRONTEND ARCHITECTURE GUARD (v147.0 -- HARD FAIL)
-      # Validates index.html frontend architecture invariants (8 checks):
-      #   1. EMBEDDED_INTEL declaration present ([] or populated -- both valid)
+      # STAGE 3.92: DASHBOARD FRONTEND ARCHITECTURE GUARD (v158.0.1 -- HARD FAIL)
+      # Validates index.html frontend architecture invariants (10 checks):
+      #   1. EMBEDDED_INTEL declaration present ([] -- immutable API-first arch)
+      #   1b. api/v1/intel/latest.json PRIMARY source present in fetch chain
       #   2. MANIFEST_URLS has no banned sources (RAW_MANIFEST / jsDelivr / root feed.json)
       #   2b. api/feed.json FALLBACK1 present (regression guard)
       #   2c. raw.githubusercontent.com FALLBACK2 present (v147.0 reliability guard)
@@ -779,8 +783,20 @@ jobs:
       #   5. API items debug logging present
       #   6. P0 safety timer present
       #   7. Terminal fallback clears threat-grid
-      #   8. bootFromEmbeddedCache() instant-render present
+      #   8. AI Brain CDB_AI bridge + GOC_LIVE_INTEL hook registered
+      #   9. JavaScript syntax validated via node --check
       # Blocks deployment if architecture invariants violated.
+      #
+      # v158.0.1 FIX (2026-05-20):
+      #   ROOT CAUSE: EICC engine (Phase 2 injection) declared a local
+      #   `var MANIFEST_URLS` BEFORE the main dashboard MANIFEST_URLS.
+      #   dashboard_frontend_guard.py re.search() found the EICC block FIRST,
+      #   which lacked api/feed.json FALLBACK1 and raw.githubusercontent.com FALLBACK2.
+      #   FIX: Renamed EICC variable to EICC_DATA_URLS (function-scoped IIFE --
+      #   zero global side effects). Guard now validates the correct main block.
+      #   INVARIANT: All component-local fetch URL arrays in EICC or future
+      #   injected sections MUST use non-colliding variable names (EICC_DATA_URLS,
+      #   SOC_FEED_URLS, etc.) -- never `MANIFEST_URLS`.
       # -----------------------------------------------------------------------
       - name: "STAGE 3.92 - Dashboard Frontend Architecture Guard (HARD FAIL)"
         timeout-minutes: 5
