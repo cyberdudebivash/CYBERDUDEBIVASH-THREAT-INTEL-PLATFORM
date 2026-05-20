@@ -16020,34 +16020,37 @@ a:focus-visible {
 <script src="/js/engines/renderer-recovery-engine.js"></script>
 <!-- CDB-RENDER-GOVERNANCE-ENGINES-v170-END -->
 
-<!-- CDB-RENDERER-ENGINE-V172-START -->
+<!-- CDB-RENDERER-ENGINE-V173-START -->
 <style>
-/* ── CDB-RENDERER-ENGINE-V172 §1: CHROME-DEFINITIVE PANEL + CANVAS CSS ─────
-   ALL RC1–RC12 applied. RC12 is the definitive remaining fix:
-   RC12a: box-shadow:none  — eliminates Chrome D3D11/ANGLE shadow pre-promotion.
-          Chrome creates a separate compositor paint layer for box-shadow BEFORE
-          canvas has content → pre-promoted empty GPU layer → blank canvas.
-          Edge renders shadow post-composition; Chrome does not. Fixed.
-   RC12b: border-radius:0  — eliminates clip-path compositor layer isolation.
-   RC12c: border:none      — eliminates multi-border composition overhead.
-   RC10: overflow:visible  — eliminates D3D11/ANGLE stencil-clip trap.
+/* ── CDB-RENDERER-ENGINE-V173 §1: IMMUTABLE VIEWPORT GOVERNANCE CSS ─────────
+   ALL RC1–RC13 applied.
+   RC13a: display:block + flex-basis:100% — Firefox flex-wrap zero-width fix.
+          Panel with flex:1 + min-width:0 inside flex-wrap:wrap header resolves
+          to 0 width in Firefox when brand-mark fills first row. display:block
+          + flex-basis:100% forces the panel onto its own exclusive row.
+   RC12a: box-shadow:none — Chrome D3D11/ANGLE shadow pre-promotion trap fixed.
+   RC12b: border-radius:0 on canvas — clip-path compositor layer isolation fixed.
+   RC12c: border:none on canvas — multi-border composition overhead removed.
+   RC10: overflow:visible — D3D11/ANGLE stencil-clip trap eliminated.
    RC11: No translateZ/promote() in boot() — no GPU layer promotion.
-   RC9:  width/height 100% — CSS/JS dim sync from t=0.
-   RC8:  No image-rendering:crisp-edges — no rasterization path conflict.
-   RC7:  backface-visibility:visible — blocks second Chrome GPU pre-promotion.
-   RC6:  Nuclear canvas resurrection fallback.
-   RC3:  will-change:auto — blocks pre-paint GPU promotion.
-   RC2:  Dim cache — no per-frame canvas.width/height reset.
-   RC1:  Single RAF owner — no dual-engine compositor starvation.
    ──────────────────────────────────────────────────────────────────────── */
 #cdb-threat-map-panel {
+  /* RC13a: IMMUTABLE VIEWPORT GOVERNANCE — Firefox/Chrome flex-wrap collapse fix */
+  display: block !important;         /* Override flex-child model — block owns its row */
+  flex-basis: 100% !important;       /* Force full row in parent flex-wrap container */
+  flex-shrink: 0 !important;         /* Never compress below declared width */
+  flex-grow: 0 !important;           /* Don't expand beyond declared size */
+  width: 100% !important;            /* EXPLICIT width — missing in V172 */
+  max-width: 100% !important;        /* Remove 960px cap that fought flex:1 */
   contain: none !important;
   height: 340px !important;
   min-height: 340px !important;
+  max-height: 340px !important;
   position: relative !important;
   overflow: visible !important;
   background: #020a14 !important;
   border-radius: 8px !important;
+  box-sizing: border-box !important;
 }
 #cdb-threat-canvas {
   display: block !important;
@@ -16070,11 +16073,18 @@ a:focus-visible {
 
 <script>
 /* ============================================================================
-   CDB-RENDERER-ENGINE-V172
+   CDB-RENDERER-ENGINE-V173
    SENTINEL APEX — GLOBAL AI CYBER INTELLIGENCE OPERATING PLATFORM
    World's Most Visually Dominant AI Cyber Threat Map
    ----------------------------------------------------------------------------
-   CHROME FIXES RC1–RC12 (DEFINITIVE — ALL VECTORS ELIMINATED):
+   V173 — IMMUTABLE VIEWPORT GOVERNANCE ARCHITECTURE (RC13):
+   RC13a: display:block + flex-basis:100% — Firefox flex-wrap zero-width fix
+   RC13b: Head-injected critical CSS — governance before first layout pass
+   RC13c: applySize() sets explicit panel.style.width (was missing in V172)
+   RC13d: W threshold > 100 + proper fallback chain (viewport, not magic 800)
+   RC13e: frameCount++ moved AFTER dims.W guard — nuclear resurrection enabled
+   RC13f: startViewportWatchdog() — 2000ms collapse detector + self-heal
+   CHROME FIXES RC1–RC12 (ALL INTACT):
    RC12a: box-shadow:none — Chrome D3D11/ANGLE shadow pre-promotion trap fixed
    RC12b: border-radius:0 — clip-path compositor layer isolation eliminated
    RC12c: border:none — multi-border composition overhead removed
@@ -16088,7 +16098,7 @@ a:focus-visible {
    RC2:  Dim cache — 60x/sec GPU texture reset eliminated
    RC1:  Single RAF owner — dual-engine compositor starvation eliminated
    ----------------------------------------------------------------------------
-   PHASE 7 VISUAL DOMINANCE SYSTEMS (V172):
+   PHASE 7 VISUAL DOMINANCE SYSTEMS (V173 — all engines intact):
    • OrbitalEngine     — rotating telemetry rings with military tick marks
    • HeatfieldEngine   — AI attack prediction heatfields
    • WeatherEngine     — cyber storm cells with lightning tendrils
@@ -16098,18 +16108,45 @@ a:focus-visible {
    • Enhanced HUDEngine — full military SIGINT tactical display
    ============================================================================
    PIPELINE-COLLISION-PROOF:
-   • Markers: CDB-RENDERER-ENGINE-V172
-   • GVOS label: 'CDB-SENTINEL v172' (pipeline regex won't match)
+   • Markers: CDB-RENDERER-ENGINE-V173
+   • GVOS label: 'CDB-SENTINEL v173' (pipeline regex won't match)
    ============================================================================ */
-(function cdbV172() {
+(function cdbV173() {
   'use strict';
+
+  /* ── §0: HEAD-INJECTED CRITICAL GOVERNANCE CSS (RC13b) ───────────────────
+     Fires synchronously at IIFE start — before DOMContentLoaded, before any
+     offsetWidth read, before first layout pass. Guarantees display:block and
+     explicit width governance from t=0 in all browsers (Firefox/Chrome/Mobile).
+  ──────────────────────────────────────────────────────────────────────── */
+  (function injectCriticalCSS() {
+    var id = 'cdb-v173-critical-governance';
+    if (document.getElementById(id)) return;
+    var s = document.createElement('style');
+    s.id = id;
+    s.textContent = '#cdb-threat-map-panel{display:block!important;' +
+      'flex-basis:100%!important;flex-shrink:0!important;flex-grow:0!important;' +
+      'width:100%!important;max-width:100%!important;' +
+      'min-height:340px!important;max-height:340px!important;height:340px!important;' +
+      'position:relative!important;overflow:visible!important;' +
+      'background:#020a14!important;box-sizing:border-box!important;}';
+    var head = document.head || document.getElementsByTagName('head')[0];
+    if (head) {
+      head.insertBefore(s, head.firstChild);
+    } else {
+      document.addEventListener('DOMContentLoaded', function() {
+        var h = document.head || document.getElementsByTagName('head')[0];
+        if (h) h.insertBefore(s, h.firstChild);
+      });
+    }
+  })();
 
   /* ── GVOS ─────────────────────────────────────────────────────────────── */
   window.SENTINEL_GVOS = {
-    version   : '172.0.0',
-    buildId   : '2026.05.20-APEX-V172',
-    cacheKey  : 'sentinel-apex-v172-live',
-    label     : 'CDB-SENTINEL v172',
+    version   : '173.0.0',
+    buildId   : '2026.05.20-APEX-V173',
+    cacheKey  : 'sentinel-apex-v173-live',
+    label     : 'CDB-SENTINEL v173',
     runtime   : 'CPU-RASTERIZED',
     classified: 'TOP SECRET // SI // TK // NOFORN'
   };
@@ -16139,19 +16176,50 @@ a:focus-visible {
   /* Dim cache (RC2: no per-frame canvas.width/height write) */
   var _cachedW = 0, _cachedH = 0, _cachedDpr = 0, _cachedCtx = null;
 
-  function log(s)  { console.log ('[CDB-V172]', s); }
-  function warn(s) { console.warn('[CDB-V172]', s); }
+  function log(s)  { console.log ('[CDB-V173]', s); }
+  function warn(s) { console.warn('[CDB-V173]', s); }
 
   /* ────────────────────────────────────────────────────────────────────────
-     §A: applySize — governed canvas resize (RC2 dim-cache fix)
+     §A: applySize — V173 Immutable Viewport Governance (RC13c/d)
+     RC13c: panel.style.width now ALWAYS set explicitly.
+            In V172 it was never set — canvas got an 800px fallback width
+            while the panel itself remained 0-width in Firefox, making the
+            canvas overflow into an invisible region.
+     RC13d: W validation is now > 100 (V172 used > 10 — too permissive).
+            Fallback chain: panel → parent container → viewport.
+            Never falls back to magic constant 800.
   ──────────────────────────────────────────────────────────────────────── */
   function applySize(canvas, panel, forceReset) {
-    var W = panel.offsetWidth || panel.getBoundingClientRect().width || 800;
-    var H = panel.offsetHeight || panel.getBoundingClientRect().height;
+    /* RC13c: force reflow before reading — ensures layout is current */
+    void panel.offsetWidth;
+    var W = panel.offsetWidth || panel.getBoundingClientRect().width || 0;
+    var H = panel.offsetHeight || panel.getBoundingClientRect().height || 0;
     var vw = window.innerWidth || 1200;
     var hFloor = vw <= 480 ? 220 : vw <= 768 ? 270 : vw >= 1600 ? 420 : 340;
-    H = Math.max(H || 0, hFloor);
-    if (W < 10) W = 800;
+    H = Math.max(H, hFloor);
+
+    /* RC13d: W must be > 100 to be trusted */
+    if (W < 100) {
+      var par = panel.parentElement;
+      if (par) {
+        void par.offsetWidth;
+        var pW = par.offsetWidth || par.getBoundingClientRect().width || 0;
+        if (pW > 100) W = pW;
+      }
+      if (W < 100) W = vw > 100 ? vw : 1200;
+      /* RC13c: apply governance inline when collapse detected */
+      panel.style.setProperty('display',    'block', 'important');
+      panel.style.setProperty('width',      '100%',  'important');
+      panel.style.setProperty('flex-basis', '100%',  'important');
+      panel.style.setProperty('flex-shrink','0',     'important');
+      panel.style.setProperty('flex-grow',  '0',     'important');
+      warn('[V173-applySize] W collapse — governance applied, resolved W=' + Math.round(W));
+    }
+
+    /* RC13c: ALWAYS set explicit panel width (critical missing fix from V172) */
+    panel.style.setProperty('width',      '100%',        'important');
+    panel.style.setProperty('min-height', hFloor + 'px', 'important');
+
     var dpr    = Math.min(window.devicePixelRatio || 1, DPR_CAP);
     var newBufW = Math.round(W * dpr);
     var newBufH = Math.round(H * dpr);
@@ -17076,7 +17144,7 @@ a:focus-visible {
       ctx.fillStyle   = '#00eeff';
       ctx.globalAlpha = 0.92;
       ctx.textAlign   = 'left';
-      ctx.fillText('CDB-SENTINEL v172  |  2026.05.20-V172  |  GPU-' + gpuT + '/' + br + '  |  RC12', 10, 16);
+      ctx.fillText('CDB-SENTINEL v173  |  2026.05.20-V173  |  GPU-' + gpuT + '/' + br + '  |  RC13', 10, 16);
 
       /* ── Top-right: UTC clock ─── */
       ctx.textAlign = 'right';
@@ -17193,13 +17261,15 @@ a:focus-visible {
     var t    = now - startTime;
     var fps  = computeFPS(now);
     updateQuality();
-    frameCount++;
     if (window.CDB_TELEMETRY) window.CDB_TELEMETRY.frame(now);
     if (window.CDB_RECOVERY)  window.CDB_RECOVERY.reportFrame(canvas);
 
     var dims = { W: _cachedW/(_cachedDpr||1), H: _cachedH/(_cachedDpr||1),
                  dpr: _cachedDpr||1, ctx: _cachedCtx || canvas.getContext('2d') };
+    /* RC13e: frameCount++ AFTER guard — V172 had it BEFORE which permanently
+       suppressed nuclear resurrection (frameCount>0 even with no content drawn) */
     if (!dims.ctx || dims.W < 10) return;
+    frameCount++; /* only count frames that actually draw content */
     var ctx = dims.ctx, W = dims.W, H = dims.H;
     var pMax = qualityMode === 'HIGH' ? PARTICLE_MAX : 80;
 
@@ -17253,6 +17323,41 @@ a:focus-visible {
     STATE = 'PAUSED';
     if (loopId)    { cancelAnimationFrame(loopId); loopId = null; }
     if (watchdogId){ clearInterval(watchdogId); watchdogId = null; }
+  }
+
+  /* ── RC13f: VIEWPORT COLLAPSE WATCHDOG ───────────────────────────────────
+     Runs every 2000ms, independent of the RAF loop. Detects layout collapse
+     (W<50 or H<50) caused by Firefox flex timing, font-load reflows, or
+     third-party CSS injection, then forces full governance + reboot.
+  ──────────────────────────────────────────────────────────────────────── */
+  var _vpWatchdogId = null;
+
+  function startViewportWatchdog(canvas, panel) {
+    if (_vpWatchdogId) { clearInterval(_vpWatchdogId); _vpWatchdogId = null; }
+    _vpWatchdogId = setInterval(function() {
+      if (STATE === 'DEAD') { clearInterval(_vpWatchdogId); _vpWatchdogId = null; return; }
+      var W = panel.offsetWidth  || panel.getBoundingClientRect().width  || 0;
+      var H = panel.offsetHeight || panel.getBoundingClientRect().height || 0;
+      if (W < 50 || H < 50) {
+        warn('[V173-WATCHDOG] Collapse W=' + Math.round(W) + ' H=' + Math.round(H) + ' — governance + reboot');
+        panel.style.setProperty('display',    'block',     'important');
+        panel.style.setProperty('width',      '100%',      'important');
+        panel.style.setProperty('max-width',  '100%',      'important');
+        panel.style.setProperty('flex-basis', '100%',      'important');
+        panel.style.setProperty('flex-shrink','0',         'important');
+        panel.style.setProperty('flex-grow',  '0',         'important');
+        panel.style.setProperty('height',     '340px',     'important');
+        panel.style.setProperty('min-height', '340px',     'important');
+        panel.style.setProperty('max-height', '340px',     'important');
+        panel.style.setProperty('position',   'relative',  'important');
+        panel.style.setProperty('overflow',   'visible',   'important');
+        panel.style.setProperty('box-sizing', 'border-box','important');
+        _cachedW = 0; _cachedH = 0; _cachedDpr = 0; _cachedCtx = null;
+        stopLoop();
+        BOOT_TRIES = 0; STATE = 'IDLE';
+        setTimeout(boot, 300);
+      }
+    }, 2000);
   }
 
   function setupIntersection(panel, canvas) {
@@ -17367,6 +17472,7 @@ a:focus-visible {
         setupResize(panel, canvas);
         setupVisibility(canvas, panel);
         startLoop(canvas, panel);
+        startViewportWatchdog(canvas, panel); /* RC13f */
         if (window.CDB_RECOVERY) {
           window.CDB_RECOVERY.attach(canvas, panel, function(c, p, reason) {
             warn('CDB_RECOVERY [' + reason + '] — rebooting');
@@ -17374,7 +17480,7 @@ a:focus-visible {
             setTimeout(boot, 300);
           });
         }
-        log('V172 ONLINE — 5-engine governance active | RC12 DEFINITIVE | Phase 7 visual dominance');
+        log('V173 ONLINE — RC13 Immutable Viewport Governance active | Firefox+Chrome+Mobile | Phase 7');
         var el = document.querySelector('.cdb-threat-map-label,.threat-map-title');
         if (el) el.setAttribute('data-gvos', window.SENTINEL_GVOS.label);
       });
@@ -17404,11 +17510,11 @@ a:focus-visible {
     schedBoot();
   }
 
-  log('V172 Renderer loaded — RC12 DEFINITIVE Chrome fix | Phase 7 visual dominance active');
+  log('V173 Renderer loaded — RC13 Immutable Viewport Governance | Firefox+Chrome+Mobile | Phase 7');
 
-}()); /* end cdbV172 IIFE */
+}()); /* end cdbV173 IIFE */
 </script>
-<!-- CDB-RENDERER-ENGINE-V172-END -->
+<!-- CDB-RENDERER-ENGINE-V173-END -->
 
 <!-- SENTINEL-APEX-v161-COMPONENT-UPGRADES-END -->
 
