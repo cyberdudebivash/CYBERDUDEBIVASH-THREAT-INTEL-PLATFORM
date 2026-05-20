@@ -1049,6 +1049,26 @@ jobs:
           fi
           echo "STAGE 5.4.5c: Pre-dist cleanup complete."
       # -----------------------------------------------------------------------
+      # STAGE 5.4.5d - PRE-DEPLOY GATE v158.0 (HARD FAIL)
+      # Validates all P0 deployment invariants BEFORE building dist/.
+      # Blocks deployment immediately if any critical condition is violated:
+      #   - PAYMENT-GATEWAY.html exists in repo
+      #   - PAYMENT-GATEWAY NOT excluded from dist (HTML_EXCLUDE_PREFIXES)
+      #   - dashboard/ in INCLUDE_DIRS
+      #   - build_dist_artifact.py syntax valid
+      #   - index.html exists and > 1MB
+      #   - 404.html exists
+      #   - Service worker V173 cache version
+      #   - V173 renderer block intact
+      #   - Script/style tags balanced
+      #   - Required dashboard files present
+      #   - Both deployment validators present (5.1, 5.2)
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.4.5d - Pre-Deploy Gate v158.0 (HARD FAIL)"
+        timeout-minutes: 3
+        run: python3 scripts/pre_deploy_gate.py
+
+      # -----------------------------------------------------------------------
       # STAGE 5.4.6 - BUILD DETERMINISTIC DIST ARTIFACT (v156.0 HARD FAIL)
       # Builds dist/ as a clean, minimal, checksum-validated deployment artifact.
       #
@@ -1124,6 +1144,25 @@ jobs:
           folder: dist
           clean: false
           force: false
+
+      # -----------------------------------------------------------------------
+      # STAGE 5.5.0: POST-DEPLOY SMOKE TESTS v158.0
+      # Validates production URLs are serving correctly after GitHub Pages deploy.
+      # continue-on-error: true -- CDN propagation delay may cause transient
+      # failures immediately after deploy; smoke test results are logged but
+      # do not block the workflow. Investigate failures manually if they persist.
+      # P0 routes tested: /, /PAYMENT-GATEWAY.html, /404.html,
+      #   /dashboard/enterprise_dashboard.html, /dashboard/enterprise_dashboard_v2.html,
+      #   /api/ai/tracker.json, /feed.json, /latest.json, /service-worker.js
+      # -----------------------------------------------------------------------
+      - name: "STAGE 5.5.0 - Post-Deploy Smoke Tests v158.0"
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          PLATFORM_URL: https://intel.cyberdudebivash.com
+          SMOKE_TIMEOUT: "15"
+          SMOKE_RETRIES: "3"
+        run: python3 scripts/post_deploy_smoke_test.py
 
       # -----------------------------------------------------------------------
       # STAGE 5.5: FINAL VALIDATION GATE
