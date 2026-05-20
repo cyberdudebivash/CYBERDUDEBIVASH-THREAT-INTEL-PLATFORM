@@ -79,6 +79,9 @@ INCLUDE_DIRS = [
     "css",
     "js",
     "api",
+    "dashboard",   # v157.0 FIX: dashboard/ was missing from dist/ — root cause of 404 on
+                   # ENTERPRISE DASHBOARD, SOC V2, ORCHESTRATION, SOCIAL, REVENUE+,
+                   # WEB3 INTEL, REVENUE nav buttons. All dashboard/*.html files now deployed.
 ]
 
 INCLUDE_FILES_PATTERN = [
@@ -437,6 +440,53 @@ def main() -> int:
         return 1
 
     log.info("  report_url validation: %d paths checked — ALL PRESENT in dist/", len(report_urls))
+
+    # ── 5.1. Validate dashboard/ route integrity (v157.0 HARD FAIL) ─────────
+    # P0 safeguard: any dashboard file linked from nav that is absent from dist/
+    # causes a HARD FAIL, blocking deployment before 404s reach production.
+    # Forensic fix for the same root cause addressed by adding "dashboard" to
+    # INCLUDE_DIRS above — this gate ensures it can never silently regress.
+    log.info("")
+    log.info("Validating dashboard/ nav routes in dist/ (v157.0 — HARD FAIL)...")
+    NAV_DASHBOARD_ROUTES = [
+        "dashboard/enterprise_dashboard.html",      # ENTERPRISE DASHBOARD button
+        "dashboard/enterprise_dashboard_v2.html",   # SOC V2 button
+        "dashboard/orchestration_hub.html",         # ORCHESTRATION button
+        "dashboard/social_distribution.html",       # SOCIAL button
+        "dashboard/revenue_acceleration.html",      # REVENUE+ button
+        "dashboard/revenue_dashboard.html",         # REVENUE button
+        "dashboard/web3_dashboard.html",            # WEB3 INTEL button
+        "dashboard/analyst_dashboard.html",
+        "dashboard/agents_control_panel.html",
+        "dashboard/threat_graph_dashboard.html",
+    ]
+    missing_dashboard: List[str] = []
+    for route in NAV_DASHBOARD_ROUTES:
+        src_path  = REPO_ROOT / route
+        dist_path = DIST_DIR  / route
+        if not src_path.exists():
+            log.warning("  WARN: Source not in repo (skipped): %s", route)
+            continue
+        if not dist_path.exists():
+            missing_dashboard.append(route)
+            log.error("  MISSING in dist/: %s", route)
+        else:
+            log.info("  OK: %s", route)
+
+    if missing_dashboard:
+        log.error("")
+        log.error("HARD FAIL — DASHBOARD ROUTE VALIDATOR (v157.0):")
+        log.error("  %d dashboard file(s) in repo but ABSENT from dist/:", len(missing_dashboard))
+        for m in missing_dashboard:
+            log.error("    MISSING: %s", m)
+        log.error("")
+        log.error("  ROOT CAUSE: 'dashboard' missing from INCLUDE_DIRS in build_dist_artifact.py")
+        log.error("  IMPACT: All missing routes will serve 404 on production GitHub Pages.")
+        log.error("  ACTION: Add 'dashboard' to INCLUDE_DIRS and re-run the build.")
+        return 1
+
+    checked = len([r for r in NAV_DASHBOARD_ROUTES if (REPO_ROOT / r).exists()])
+    log.info("  dashboard/ route validation: %d routes checked — ALL PRESENT in dist/", checked)
 
     # ── 6. Write .nojekyll (prevents Jekyll processing on GitHub Pages) ──────
     nojekyll = DIST_DIR / ".nojekyll"
