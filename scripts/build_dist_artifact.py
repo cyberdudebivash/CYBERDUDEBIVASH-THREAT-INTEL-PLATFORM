@@ -127,7 +127,11 @@ EXCLUDE_ROOT_FILE_GLOBS = [
 # (internal-only audit/dev files that should not be published)
 # ─────────────────────────────────────────────────────────────────
 HTML_EXCLUDE_PREFIXES = {
-    "ENTERPRISE-CUSTOMER", "GODMODE", "PAYMENT-GATEWAY",
+    "ENTERPRISE-CUSTOMER", "GODMODE",
+    # NOTE: "PAYMENT-GATEWAY" REMOVED v158.0 — PAYMENT-GATEWAY.html is a PUBLIC
+    # production page (subscriptions, upgrades, enterprise onboarding, monetization).
+    # It was erroneously placed in this exclusion set, causing 404 on production.
+    # Forensic fix: remove from exclusion so build pipeline copies it to dist/.
     "SENTINEL-APEX-SOVEREIGN", "SENTINEL_APEX_ENTERPRISE",
     "SENTINEL_APEX_P0", "dashboard-api-sync", "gh_pages_",
     "intel_card_enhanced", "index.html.bak", "index.html.pre",
@@ -487,6 +491,31 @@ def main() -> int:
 
     checked = len([r for r in NAV_DASHBOARD_ROUTES if (REPO_ROOT / r).exists()])
     log.info("  dashboard/ route validation: %d routes checked — ALL PRESENT in dist/", checked)
+
+    # ── 5.2. Validate PAYMENT-GATEWAY.html in dist/ (v158.0 HARD FAIL) ──────
+    # P0 monetization safeguard: PAYMENT-GATEWAY.html MUST be in dist/ on every
+    # deployment. This file drives subscriptions, upgrades, enterprise onboarding,
+    # and all revenue conversion. Its absence is a CRITICAL business failure.
+    # Root cause of original 404: "PAYMENT-GATEWAY" was in HTML_EXCLUDE_PREFIXES.
+    # That exclusion has been removed (v158.0). This gate ensures it never regresses.
+    log.info("")
+    log.info("Validating PAYMENT-GATEWAY.html in dist/ (v158.0 — HARD FAIL)...")
+    _pg_src  = REPO_ROOT / "PAYMENT-GATEWAY.html"
+    _pg_dist = DIST_DIR  / "PAYMENT-GATEWAY.html"
+    if not _pg_src.exists():
+        log.error("HARD FAIL — PAYMENT GATEWAY VALIDATOR (v158.0):")
+        log.error("  PAYMENT-GATEWAY.html not found in repo root.")
+        log.error("  This file is required for monetization, subscriptions, and enterprise onboarding.")
+        log.error("  ACTION: Restore PAYMENT-GATEWAY.html to repo root and re-run the build.")
+        return 1
+    if not _pg_dist.exists():
+        log.error("HARD FAIL — PAYMENT GATEWAY VALIDATOR (v158.0):")
+        log.error("  PAYMENT-GATEWAY.html exists in repo but is ABSENT from dist/.")
+        log.error("  IMPACT: Payment gateway returns 404 on production — monetization broken.")
+        log.error("  ROOT CAUSE: Check HTML_EXCLUDE_PREFIXES in build_dist_artifact.py.")
+        log.error("  ACTION: Ensure 'PAYMENT-GATEWAY' is NOT in HTML_EXCLUDE_PREFIXES.")
+        return 1
+    log.info("  OK: PAYMENT-GATEWAY.html is present in dist/")
 
     # ── 6. Write .nojekyll (prevents Jekyll processing on GitHub Pages) ──────
     nojekyll = DIST_DIR / ".nojekyll"
